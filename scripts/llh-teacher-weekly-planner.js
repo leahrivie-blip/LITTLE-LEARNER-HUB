@@ -1,0 +1,324 @@
+/**
+ * Teacher Weekly Planner day shaping + validation.
+ * Ensures printable Mon–Fri grids never contain empty cells.
+ * Browser: globalThis.LlhTeacherWeeklyPlanner
+ * Node: module.exports
+ */
+(function llhTeacherWeeklyPlannerModule() {
+  "use strict";
+
+  const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  const DAY_LONG = {
+    monday: "Monday",
+    tuesday: "Tuesday",
+    wednesday: "Wednesday",
+    thursday: "Thursday",
+    friday: "Friday",
+  };
+
+  function cleanText(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
+  function asStringArray(value) {
+    if (Array.isArray(value)) {
+      return value.map((entry) => cleanText(typeof entry === "string" ? entry : entry?.title || entry)).filter(Boolean);
+    }
+    const text = cleanText(value);
+    if (!text) return [];
+    return text.split(/\r?\n+|;\s+/).map((line) => line.replace(/^[-•*]\s*/, "").trim()).filter(Boolean);
+  }
+
+  function formatBook(book) {
+    if (!book) return "";
+    if (typeof book === "string") return cleanText(book);
+    const title = cleanText(book.title);
+    if (!title) return "";
+    const author = cleanText(book.author);
+    return author ? `${title} by ${author}` : title;
+  }
+
+  function formatSong(song) {
+    if (!song) return "";
+    if (typeof song === "string") return cleanText(song);
+    return cleanText(song.title);
+  }
+
+  function activityTitle(activity) {
+    return cleanText(activity?.title);
+  }
+
+  function isCircleCategory(category) {
+    const value = cleanText(category).toLowerCase();
+    return value.includes("circle") || value === "music & movement" || value.includes("music");
+  }
+
+  function isOutdoorCategory(category) {
+    const value = cleanText(category).toLowerCase();
+    return value.includes("outdoor") || value.includes("outside") || value.includes("playground");
+  }
+
+  function isMovementCategory(category) {
+    const value = cleanText(category).toLowerCase();
+    return value.includes("gross") || value.includes("movement") || isOutdoorCategory(value);
+  }
+
+  function uniqueTitles(titles) {
+    const out = [];
+    const seen = new Set();
+    titles.forEach((title) => {
+      const clean = cleanText(title);
+      if (!clean) return;
+      const key = clean.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(clean);
+    });
+    return out;
+  }
+
+  function themeFillers(themeFocus, dayLabel) {
+    const theme = themeFocus || "Weekly Theme";
+    return [
+      `${theme} Discovery Centers`,
+      `${theme} Fine Motor Practice`,
+      `${dayLabel} ${theme} Group Game`,
+      `${theme} Sensory Exploration`,
+      `${theme} Creative Art`,
+    ];
+  }
+
+  /**
+   * Dense Mon–Fri planner rows. Every required cell is non-empty.
+   */
+  function buildTeacherPlannerDays(plan = {}, options = {}) {
+    const exportApi = typeof globalThis !== "undefined" ? globalThis.LlhLessonWeeklyExport : null;
+    const normalized = plan && typeof plan === "object" ? plan : {};
+    const summary = exportApi?.buildWeeklySummary
+      ? exportApi.buildWeeklySummary(normalized)
+      : {
+        title: cleanText(normalized.title) || "Weekly Lesson Plan",
+        theme: cleanText(normalized.theme) || "Classroom Theme",
+        age: cleanText(normalized.age) || "Preschool",
+        vocabularyWords: cleanText(normalized.vocabularyWords).replace(/\n+/g, ", "),
+        books: (Array.isArray(normalized.books) ? normalized.books : []).map(formatBook).filter(Boolean),
+        songs: (Array.isArray(normalized.songs) ? normalized.songs : []).map(formatSong).filter(Boolean),
+      };
+    const richDays = exportApi?.buildRichWeeklyDays
+      ? exportApi.buildRichWeeklyDays(normalized)
+      : WEEKDAYS.map((day) => ({ day, label: DAY_LONG[day], activities: [], activitySlots: [] }));
+
+    const books = (summary.books || []).map(formatBook).filter(Boolean);
+    const songs = (summary.songs || []).map(formatSong).filter(Boolean);
+    const weeklyTheme = cleanText(summary.theme || normalized.theme) || "Weekly Theme";
+
+    const days = richDays.map((day, dayIndex) => {
+      const dayLabel = day.label || DAY_LONG[day.day] || DAY_LONG[WEEKDAYS[dayIndex]];
+      const themeFocus = cleanText(day.themeFocus || day.theme || weeklyTheme) || weeklyTheme;
+
+      const sourceActivities = [];
+      const pushActivity = (activity) => {
+        const title = activityTitle(activity);
+        if (!title) return;
+        if (sourceActivities.some((entry) => activityTitle(entry).toLowerCase() === title.toLowerCase())) return;
+        sourceActivities.push(activity);
+      };
+      (Array.isArray(day.activities) ? day.activities : []).forEach(pushActivity);
+      (Array.isArray(day.activitySlots) ? day.activitySlots : []).filter(Boolean).forEach(pushActivity);
+
+      // Keep circle/music items available as activity fill-ins too.
+      const dayPlan = normalized.dailyPlans?.[day.day] || {};
+      asStringArray(dayPlan.circleTime).forEach((entry) => {
+        pushActivity({ title: entry, category: "Circle Time" });
+      });
+
+      let titles = uniqueTitles(sourceActivities.map(activityTitle));
+
+      // Pull additional same-day leftovers before inventing theme fillers.
+      if (titles.length < 3) {
+        songs.forEach((song) => {
+          if (titles.length >= 3) return;
+          titles = uniqueTitles([...titles, `Song Play: ${song}`]);
+        });
+      }
+      if (titles.length < 3) {
+        themeFillers(themeFocus, dayLabel).forEach((filler) => {
+          if (titles.length >= 3) return;
+          titles = uniqueTitles([...titles, filler]);
+        });
+      }
+      titles = titles.slice(0, 3);
+      while (titles.length < 3) {
+        titles.push(`${themeFocus} Learning Centers`);
+      }
+
+      let circleTime = cleanText(day.circleTime);
+      if (!circleTime) {
+        const circleActivity = sourceActivities.find((activity) => isCircleCategory(activity.category));
+        if (circleActivity) {
+          circleTime = activityTitle(circleActivity);
+        }
+      }
+      if (!circleTime) {
+        const song = songs[dayIndex % Math.max(songs.length, 1)] || songs[0];
+        circleTime = song ? `Circle + Song: ${song}` : `${themeFocus} Circle Time`;
+      }
+
+      let outdoorPlay = cleanText(day.outdoorPlay);
+      if (!outdoorPlay) {
+        const movement = sourceActivities.find((activity) => (
+          isMovementCategory(activity.category)
+          || /outdoor|outside|playground|walk|movement/i.test(activityTitle(activity))
+        ));
+        if (movement) outdoorPlay = `Outdoor: ${activityTitle(movement)}`;
+      }
+      if (!outdoorPlay) outdoorPlay = `Outdoor ${themeFocus} Play`;
+
+      const bookOfTheDay = cleanText(day.bookOfTheDay)
+        || cleanText(books[dayIndex % Math.max(books.length, 1)])
+        || cleanText(books[0])
+        || `${themeFocus} Story Time`;
+
+      return {
+        day: day.day || WEEKDAYS[dayIndex],
+        label: dayLabel,
+        themeFocus,
+        circleTime,
+        outdoorPlay,
+        bookOfTheDay,
+        plannerActivities: titles,
+        activity1: titles[0],
+        activity2: titles[1],
+        activity3: titles[2],
+      };
+    });
+
+    if (options.validate !== false) {
+      const validation = validateTeacherPlannerDays(days);
+      if (!validation.ok && options.strict) {
+        const error = new Error(validation.message);
+        error.validation = validation;
+        throw error;
+      }
+    }
+    return { days, summary, weeklyTheme };
+  }
+
+  function validateTeacherPlannerDays(days) {
+    const required = [
+      ["themeFocus", "Theme Focus"],
+      ["circleTime", "Circle Time"],
+      ["activity1", "Activity 1"],
+      ["activity2", "Activity 2"],
+      ["activity3", "Activity 3"],
+      ["outdoorPlay", "Outdoor Play"],
+      ["bookOfTheDay", "Book of the Day"],
+    ];
+    const missing = [];
+    (Array.isArray(days) ? days : []).forEach((day) => {
+      required.forEach(([key, label]) => {
+        const value = key.startsWith("activity")
+          ? cleanText(day[key] || day.plannerActivities?.[Number(key.slice(-1)) - 1])
+          : cleanText(day[key]);
+        if (!value) missing.push(`${day.label || day.day}: ${label}`);
+      });
+    });
+    if ((Array.isArray(days) ? days : []).length !== 5) {
+      missing.push("Expected Monday–Friday (5 days)");
+    }
+    return {
+      ok: missing.length === 0,
+      missing,
+      message: missing.length
+        ? `Teacher Weekly Planner is incomplete:\n- ${missing.join("\n- ")}`
+        : "Teacher Weekly Planner is complete.",
+    };
+  }
+
+  /**
+   * Persistable repair: ensure each weekday has theme, circle, outdoor, books, and >=3 activities.
+   * Returns a shallow-copied plan with repaired dailyPlans/items.
+   */
+  function repairLessonPlanForPlanner(plan = {}) {
+    const normalized = plan && typeof plan === "object" ? { ...plan } : {};
+    const theme = cleanText(normalized.theme) || "Weekly Theme";
+    const books = Array.isArray(normalized.books) ? normalized.books.slice() : [];
+    const songs = Array.isArray(normalized.songs) ? normalized.songs.slice() : [];
+    const dailyPlans = normalized.dailyPlans && typeof normalized.dailyPlans === "object"
+      ? { ...normalized.dailyPlans }
+      : {};
+
+    WEEKDAYS.forEach((day, dayIndex) => {
+      const existing = dailyPlans[day] && typeof dailyPlans[day] === "object" ? { ...dailyPlans[day] } : {};
+      const items = Array.isArray(existing.items) ? existing.items.map((item) => ({ ...item })) : [];
+      while (items.length < 3) {
+        const fillers = themeFillers(theme, DAY_LONG[day]);
+        const title = fillers[items.length] || `${theme} Learning Centers`;
+        items.push({
+          itemId: `repair-${day}-a${items.length + 1}`,
+          activityCategory: items.length === 0 ? "Open-Ended Exploration" : items.length === 1 ? "Fine Motor" : "Gross Motor & Movement",
+          title,
+          description: `Teacher-guided ${theme.toLowerCase()} experience for ${DAY_LONG[day]}.`,
+          materials: cleanText(normalized.weeklyMaterials) || "Classroom materials",
+          steps: "1. Introduce the invitation.\n2. Support exploration.\n3. Close with reflection.",
+          learningGoals: [`Explore ${theme}`],
+        });
+      }
+      const circle = asStringArray(existing.circleTime);
+      if (!circle.length) {
+        const song = formatSong(songs[dayIndex % Math.max(songs.length, 1)] || songs[0]);
+        circle.push(song ? `Circle + Song: ${song}` : `${theme} Circle Time`);
+      }
+      if (!cleanText(existing.outdoorPlay)) {
+        const movement = items.find((item) => isMovementCategory(item.activityCategory));
+        existing.outdoorPlay = movement
+          ? `Outdoor: ${cleanText(movement.title)}`
+          : `Outdoor ${theme} Play`;
+      }
+      if (!cleanText(existing.theme)) existing.theme = theme;
+      if (!Array.isArray(existing.books) || !existing.books.length) {
+        const book = books[dayIndex % Math.max(books.length, 1)] || books[0];
+        if (book) existing.books = [book];
+      }
+      existing.circleTime = circle;
+      existing.items = items;
+      dailyPlans[day] = existing;
+    });
+
+    normalized.dailyPlans = dailyPlans;
+    return normalized;
+  }
+
+  function auditPlanPlannerReadiness(plan = {}) {
+    const repaired = repairLessonPlanForPlanner(plan);
+    const built = buildTeacherPlannerDays(repaired, { validate: true });
+    const before = buildTeacherPlannerDays(plan, { validate: false, strict: false });
+    const beforeValidation = validateTeacherPlannerDays(before.days);
+    const afterValidation = validateTeacherPlannerDays(built.days);
+    return {
+      title: cleanText(plan.title) || "Untitled",
+      age: cleanText(plan.age) || "",
+      readyBeforeRepair: beforeValidation.ok,
+      readyAfterRepair: afterValidation.ok,
+      missingBefore: beforeValidation.missing,
+      missingAfter: afterValidation.missing,
+      repairedPlan: repaired,
+    };
+  }
+
+  const api = {
+    WEEKDAYS,
+    DAY_LONG,
+    buildTeacherPlannerDays,
+    validateTeacherPlannerDays,
+    repairLessonPlanForPlanner,
+    auditPlanPlannerReadiness,
+  };
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = api;
+  }
+  if (typeof globalThis !== "undefined") {
+    globalThis.LlhTeacherWeeklyPlanner = api;
+  }
+})();

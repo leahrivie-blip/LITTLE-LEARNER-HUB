@@ -161,15 +161,31 @@ async function main() {
 
     const pdfMeta = await page.evaluate(async () => {
       const resource = activeResourceViewerResource;
+      const built = LlhTeacherWeeklyPlanner.buildTeacherPlannerDays(
+        LlhTeacherWeeklyPlanner.repairLessonPlanForPlanner(resource._curriculumLessonPlan),
+        { validate: true },
+      );
+      const validation = LlhTeacherWeeklyPlanner.validateTeacherPlannerDays(built.days);
+      if (!validation.ok) throw new Error(validation.message);
       const blob = buildTeacherWeeklyPlannerPdfBlob(resource, {
         weekStartDate: lessonPlanAssignedWeekStart(resource.id),
+        silent: true,
       });
+      if (!blob) throw new Error("Planner PDF blob was null");
       const buf = new Uint8Array(await blob.arrayBuffer());
       return {
         bytes: Array.from(buf),
         pageCount: (new TextDecoder("latin1").decode(buf).match(/\/Type \/Page\b/g) || []).length,
+        emptyCells: built.days.flatMap((day) => (
+          ["themeFocus", "circleTime", "activity1", "activity2", "activity3", "outdoorPlay", "bookOfTheDay"]
+            .filter((key) => !String(day[key] || "").trim())
+            .map((key) => `${day.label}:${key}`)
+        )),
+        tuesday: built.days.find((day) => day.day === "tuesday"),
       };
     });
+    assert(!pdfMeta.emptyCells.length, `screenshot capture found empty cells: ${pdfMeta.emptyCells.join(", ")}`);
+    assert(pdfMeta.tuesday?.activity1 && pdfMeta.tuesday?.activity2 && pdfMeta.tuesday?.activity3, "Tuesday must have 3 activities");
     const pdfPath = path.join(OUT_DIR, "teacher-weekly-planner-preview.pdf");
     fs.writeFileSync(pdfPath, Buffer.from(pdfMeta.bytes));
     fs.copyFileSync(pdfPath, path.join(MOCKUP_DIR, "teacher-weekly-planner-preview.pdf"));

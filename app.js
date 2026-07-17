@@ -16603,7 +16603,14 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
   const theme = normalized.theme || resource?.theme || "";
   const age = resource?.age || normalized.age || "Preschool";
-  const days = lessonPlanWeeklyScheduleDays(normalized);
+  const plannerApi = typeof globalThis !== "undefined" ? globalThis.LlhTeacherWeeklyPlanner : null;
+  const plannerReadyPlan = layout === "week" && plannerApi?.repairLessonPlanForPlanner
+    ? plannerApi.repairLessonPlanForPlanner(normalized)
+    : normalized;
+  const plannerDays = layout === "week" && plannerApi?.buildTeacherPlannerDays
+    ? plannerApi.buildTeacherPlannerDays(plannerReadyPlan, { validate: true }).days
+    : null;
+  const days = plannerDays || lessonPlanWeeklyScheduleDays(plannerReadyPlan);
   const domains = curriculumAsStringArray(normalized.learningDomains);
   const objectives = lessonPlanObjectiveBullets(normalized, 6);
   const vocabulary = String(normalized.vocabularyWords || "").replace(/\n+/g, ", ").replace(/\s+/g, " ").trim();
@@ -16669,28 +16676,34 @@ function lessonPlanWeeklyScheduleHtml(resource, plan, options = {}) {
       `;
     }
     if (layout === "week") {
+      const plannerActivities = Array.isArray(day.plannerActivities)
+        ? day.plannerActivities
+        : [day.activity1, day.activity2, day.activity3].filter(Boolean);
+      const activityCards = [0, 1, 2].map((index) => {
+        const fromPlanner = plannerActivities[index];
+        const activity = fromPlanner
+          ? { title: fromPlanner, category: "", description: "" }
+          : slots[index];
+        const title = typeof activity === "string" ? activity : activity?.title;
+        if (!title) return "";
+        return `
+          <article class="lesson-week-activity-card">
+            <p class="lesson-week-day-section-label">Activity ${index + 1}${activity?.category ? ` · ${escapeHtml(activity.category)}` : ""}</p>
+            <p class="lesson-week-activity-title">${escapeHtml(title)}</p>
+            ${activity?.description ? `<p class="lesson-week-activity-desc">${escapeHtml(activity.description)}</p>` : ""}
+          </article>
+        `;
+      }).join("");
       return `
         <section class="lesson-week-day-block lesson-week-schedule-day-${escapeHtml(day.day)} lesson-week-rich-day">
           <h4>${escapeHtml(day.label)}</h4>
-          ${day.themeFocus || day.theme ? `<p class="lesson-week-schedule-theme"><strong>Theme Focus:</strong> ${escapeHtml(day.themeFocus || day.theme)}</p>` : ""}
-          ${day.circleTime ? `<p class="lesson-week-day-circle"><strong>Circle Time:</strong> ${escapeHtml(day.circleTime)}</p>` : ""}
+          <p class="lesson-week-schedule-theme"><strong>Theme Focus:</strong> ${escapeHtml(day.themeFocus || day.theme || theme || "Weekly Theme")}</p>
+          <p class="lesson-week-day-circle"><strong>Circle Time:</strong> ${escapeHtml(day.circleTime || `${theme || "Weekly Theme"} Circle Time`)}</p>
           <div class="lesson-week-activity-cards">
-            ${[0, 1, 2].map((index) => {
-              const activity = slots[index];
-              if (!activity) return "";
-              return `
-                <article class="lesson-week-activity-card">
-                  <p class="lesson-week-day-section-label">Activity ${index + 1}${activity.category ? ` · ${escapeHtml(activity.category)}` : ""}</p>
-                  <p class="lesson-week-activity-title">${escapeHtml(activity.title)}</p>
-                  ${activity.description ? `<p class="lesson-week-activity-desc">${escapeHtml(activity.description)}</p>` : ""}
-                </article>
-              `;
-            }).join("")}
+            ${activityCards}
           </div>
-          ${day.outdoorPlay ? `<p class="lesson-week-day-outdoor"><strong>Outdoor Play:</strong> ${escapeHtml(day.outdoorPlay)}</p>` : ""}
-          ${day.bookOfTheDay ? `<p class="lesson-week-day-book"><strong>Book of the Day:</strong> ${escapeHtml(day.bookOfTheDay)}</p>` : ""}
-          ${day.materialsNeeded ? `<p class="lesson-week-day-materials"><strong>Materials Needed:</strong> ${escapeHtml(day.materialsNeeded)}</p>` : ""}
-          <div class="lesson-week-day-notes"><strong>Teacher Notes</strong>${renderTeacherNotesHtml(day)}</div>
+          <p class="lesson-week-day-outdoor"><strong>Outdoor Play:</strong> ${escapeHtml(day.outdoorPlay || `Outdoor ${theme || "Weekly Theme"} Play`)}</p>
+          <p class="lesson-week-day-book"><strong>Book of the Day:</strong> ${escapeHtml(day.bookOfTheDay || (books[0] || `${theme || "Weekly Theme"} Story Time`))}</p>
         </section>
       `;
     }
@@ -17170,15 +17183,35 @@ function teacherPlannerCurriculumFocus(theme, plan = {}) {
  * Empty rows/cells are never printed; calendar rows auto-collapse when unused.
  */
 function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
-  const plan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+  const plannerApi = typeof globalThis !== "undefined" ? globalThis.LlhTeacherWeeklyPlanner : null;
+  const basePlan = normalizeCurriculumLessonPlanForRender(resource?._curriculumLessonPlan);
+  const plan = plannerApi?.repairLessonPlanForPlanner
+    ? plannerApi.repairLessonPlanForPlanner({
+      ...basePlan,
+      title: resource?.title || basePlan.title,
+      age: resource?.age || basePlan.age,
+      theme: basePlan.theme || resource?.theme,
+    })
+    : basePlan;
+  const built = plannerApi?.buildTeacherPlannerDays
+    ? plannerApi.buildTeacherPlannerDays(plan, { validate: true, strict: false })
+    : null;
+  const days = built?.days || [];
+  const validation = plannerApi?.validateTeacherPlannerDays
+    ? plannerApi.validateTeacherPlannerDays(days)
+    : { ok: days.length === 5 && days.every((day) => day.themeFocus && day.circleTime && day.activity1 && day.activity2 && day.activity3 && day.outdoorPlay && day.bookOfTheDay), missing: [], message: "" };
+  if (!validation.ok) {
+    const message = validation.message || "Teacher Weekly Planner has empty cells and cannot be generated.";
+    if (typeof window !== "undefined" && typeof window.alert === "function" && options.silent !== true) {
+      window.alert(message);
+    }
+    console.error("[llh-planner]", message, validation);
+    return null;
+  }
+
   const exportApi = lessonPlanWeeklyExportApi();
   const summary = exportApi?.buildWeeklySummary
-    ? exportApi.buildWeeklySummary({
-      ...plan,
-      title: resource?.title || plan.title,
-      age: resource?.age || plan.age,
-      theme: plan.theme || resource?.theme,
-    })
+    ? exportApi.buildWeeklySummary(plan)
     : {
       title: resource?.title || plan.title || "Weekly Lesson Plan",
       theme: plan.theme || resource?.theme || "",
@@ -17201,78 +17234,11 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
     .replace(/\s+/g, " ")
     .trim();
   const focus = teacherPlannerCurriculumFocus(summary.theme, plan);
-  const rawDays = lessonPlanWeeklyScheduleDays(plan);
   const weekStart = options.weekStartDate || lessonPlanAssignedWeekStart(resource?.id) || "";
   const weekOfLabel = formatLessonWeekOfLabel(weekStart) || "";
   const includeNotesPage = options.includeTeacherNotes === true;
-  const songs = Array.isArray(summary.songs) ? summary.songs.filter(Boolean) : [];
   const books = Array.isArray(summary.books) ? summary.books.filter(Boolean) : [];
-
   const cleanCell = (value) => String(value || "").replace(/\s+/g, " ").trim();
-  const activityTitle = (activity) => cleanCell(activity?.title);
-  const isGrossMotor = (activity) => /gross|outdoor|movement|music/i.test(String(activity?.category || ""));
-
-  // Build dense planner days: sequential activities, real outdoor when available, no sparse slot holes.
-  const days = rawDays.map((day, dayIndex) => {
-    const themeFocus = cleanCell(day.themeFocus || day.theme || summary.theme) || "Weekly Theme";
-    const sourceActivities = (Array.isArray(day.activities) && day.activities.length
-      ? day.activities
-      : (day.activitySlots || []).filter(Boolean));
-    const titles = [];
-    sourceActivities.forEach((activity) => {
-      const title = activityTitle(activity);
-      if (title && !titles.some((entry) => entry.toLowerCase() === title.toLowerCase())) {
-        titles.push(title);
-      }
-    });
-    // Prefer music/circle leftovers as fill-ins before inventing generic centers.
-    if (titles.length < 3 && songs[dayIndex % Math.max(songs.length, 1)]) {
-      const songTitle = `Song Play: ${songs[dayIndex % songs.length]}`;
-      if (!titles.some((entry) => entry.toLowerCase() === songTitle.toLowerCase())) titles.push(songTitle);
-    }
-    while (titles.length < 3) {
-      const fillers = [
-        `${themeFocus} Discovery Centers`,
-        `${themeFocus} Fine Motor Practice`,
-        `${themeFocus} Group Game`,
-      ];
-      titles.push(fillers[titles.length] || `${themeFocus} Learning Centers`);
-    }
-
-    let circleTime = cleanCell(day.circleTime);
-    if (!circleTime) {
-      const song = songs[dayIndex % Math.max(songs.length, 1)] || songs[0];
-      circleTime = song ? `Circle + Song: ${song}` : `${themeFocus} Circle Time`;
-    }
-
-    const outdoorFromActivities = sourceActivities
-      .filter((activity) => isGrossMotor(activity) || /outdoor|outside|playground|walk|movement/i.test(`${activityTitle(activity)} ${activity?.category || ""}`))
-      .map(activityTitle)
-      .filter(Boolean);
-    let outdoorPlay = cleanCell(day.outdoorPlay);
-    if (!outdoorPlay && outdoorFromActivities.length) {
-      outdoorPlay = `Outdoor: ${outdoorFromActivities[0]}`;
-    }
-    if (!outdoorPlay) outdoorPlay = `Outdoor ${themeFocus} Play`;
-
-    const bookOfTheDay = cleanCell(day.bookOfTheDay)
-      || cleanCell(books[dayIndex % Math.max(books.length, 1)])
-      || cleanCell(books[0])
-      || `${themeFocus} Story Time`;
-
-    return {
-      ...day,
-      themeFocus,
-      circleTime,
-      outdoorPlay,
-      bookOfTheDay,
-      plannerActivities: titles.slice(0, 3),
-    };
-  });
-
-  // Enrichment guarantees Theme Focus, Circle, Activities 1-3, Outdoor, and Book for every day.
-  const showOutdoorRow = true;
-  const visibleActivityCount = 3;
 
   const PURPLE = "0.42 0.275 0.757";
   const PURPLE_DEEP = "0.33 0.18 0.58";
@@ -17455,20 +17421,23 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
     const labelColW = 78;
     const dayColW = (CONTENT_WIDTH - labelColW) / 5;
     const headerH = 14;
-    const candidateRows = [
-      { label: "Theme Focus", get: (d) => d.themeFocus, baseH: 28 },
-      { label: "Circle Time", get: (d) => d.circleTime, baseH: 32 },
-      ...Array.from({ length: visibleActivityCount }, (_, index) => ({
-        label: `Activity ${index + 1}`,
-        get: (d) => d.plannerActivities?.[index] || "",
-        baseH: 28,
-      })),
-      ...(showOutdoorRow ? [{ label: "Outdoor Play", get: (d) => d.outdoorPlay, baseH: 28 }] : []),
-      { label: "Book of the Day", get: (d) => d.bookOfTheDay, baseH: 28 },
-    ].filter((row) => days.every((day) => cleanCell(row.get(day))));
-
-    // Compact rows (~35% shorter than prior full-bleed rows); pack from the top.
-    const rows = candidateRows.map((row) => ({ ...row, height: row.baseH }));
+    // Always show the full classroom day — validation guarantees every cell is filled.
+    const rows = [
+      { label: "Theme Focus", get: (d) => d.themeFocus, height: 28 },
+      { label: "Circle Time", get: (d) => d.circleTime, height: 30 },
+      { label: "Activity 1", get: (d) => d.activity1 || d.plannerActivities?.[0], height: 28 },
+      { label: "Activity 2", get: (d) => d.activity2 || d.plannerActivities?.[1], height: 28 },
+      { label: "Activity 3", get: (d) => d.activity3 || d.plannerActivities?.[2], height: 28 },
+      { label: "Outdoor Play", get: (d) => d.outdoorPlay, height: 28 },
+      { label: "Book of the Day", get: (d) => d.bookOfTheDay, height: 28 },
+    ];
+    rows.forEach((row) => {
+      days.forEach((day) => {
+        if (!cleanCell(row.get(day))) {
+          throw new Error(`Empty planner cell blocked: ${day.label} / ${row.label}`);
+        }
+      });
+    });
     const gridTop = y;
 
     fillRect(MARGIN, gridTop - headerH, labelColW, headerH, PURPLE_DEEP);
@@ -17680,13 +17649,12 @@ function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       `${slug(viewerResource.title)}-${variantLabel}.docx`,
     );
   } else if (safeVariant === "week") {
-    downloadBlob(
-      buildTeacherWeeklyPlannerPdfBlob(viewerResource, {
-        weekStartDate,
-        includeTeacherNotes: options.includeTeacherNotes === true,
-      }),
-      `${slug(viewerResource.title)}-${variantLabel}.pdf`,
-    );
+    const plannerBlob = buildTeacherWeeklyPlannerPdfBlob(viewerResource, {
+      weekStartDate,
+      includeTeacherNotes: options.includeTeacherNotes === true,
+    });
+    if (!plannerBlob) return;
+    downloadBlob(plannerBlob, `${slug(viewerResource.title)}-${variantLabel}.pdf`);
   } else if (safeVariant === "week-detail") {
     downloadBlob(
       buildLessonPlanWeeklySchedulePdfBlob(viewerResource, { weekStartDate }),

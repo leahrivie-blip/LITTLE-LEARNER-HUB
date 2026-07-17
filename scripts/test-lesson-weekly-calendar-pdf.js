@@ -110,10 +110,12 @@ async function main() {
   assert(appJs.includes('data-lesson-download-variant="week-detail"'), "detailed weekly download missing");
   assert(appJs.includes('data-lesson-download-variant="planning"'), "planning sheet download missing");
   assert(appJs.includes("lesson-plan-weekly-export") || fs.existsSync(path.join(ROOT, "scripts/lesson-plan-weekly-export.js")), "weekly export module missing");
+  assert(fs.existsSync(path.join(ROOT, "scripts/llh-teacher-weekly-planner.js")), "planner densify module missing");
   assert(appJs.includes("Theme Focus") && appJs.includes("Circle Time") && appJs.includes("Book of the Day"), "planner calendar rows missing");
   assert(appJs.includes("Outdoor Play"), "planner outdoor play row missing");
   assert(appJs.includes("WEEKLY SNAPSHOT"), "planner weekly snapshot missing");
   assert(appJs.includes("teacherPlannerCurriculumFocus"), "planner curriculum focus helper missing");
+  assert(appJs.includes("Empty planner cell blocked"), "planner empty-cell guard missing");
   assert(appJs.includes("0.42 0.275 0.757"), "purple branding missing from weekly PDF");
   assert(!/preferDocx = options\.format[\s\S]{0,80}safeVariant === "week"/.test(appJs)
     || appJs.includes('preferDocx = options.format === "docx" && safeVariant === "full"'),
@@ -194,12 +196,29 @@ async function main() {
 
     const pdfProbe = await page.evaluate(async () => {
       const resource = activeResourceViewerResource;
-      const blob = buildTeacherWeeklyPlannerPdfBlob(resource, {});
+      const built = LlhTeacherWeeklyPlanner.buildTeacherPlannerDays(
+        LlhTeacherWeeklyPlanner.repairLessonPlanForPlanner(resource._curriculumLessonPlan),
+        { validate: true },
+      );
+      const validation = LlhTeacherWeeklyPlanner.validateTeacherPlannerDays(built.days);
+      const emptyCells = [];
+      built.days.forEach((day) => {
+        ["themeFocus", "circleTime", "activity1", "activity2", "activity3", "outdoorPlay", "bookOfTheDay"].forEach((key) => {
+          if (!String(day[key] || "").trim()) emptyCells.push(`${day.label}:${key}`);
+        });
+      });
+      const blob = buildTeacherWeeklyPlannerPdfBlob(resource, { silent: true });
+      if (!blob) {
+        return { ok: false, validation, emptyCells, reason: "blob null" };
+      }
       const buf = new Uint8Array(await blob.arrayBuffer());
       const text = new TextDecoder("latin1").decode(buf);
       return {
+        ok: true,
         size: buf.length,
         header: text.slice(0, 8),
+        validationOk: validation.ok,
+        emptyCells,
         hasPlanner: /TEACHER WEEKLY PLANNER|Teacher Weekly Planner/.test(text),
         hasOverview: /Weekly Overview|Objectives|Materials/.test(text),
         hasFocus: /Letter|Number|Shape|Color/.test(text),
@@ -217,12 +236,16 @@ async function main() {
         hasPlaceholder: /Open exploration|____________________/.test(text),
         landscape: /MediaBox \[0 0 792 612\]/.test(text),
         pageCount: (text.match(/\/Type \/Page\b/g) || []).length,
+        sampleTuesday: built.days.find((day) => day.day === "tuesday"),
       };
     });
+    assert(pdfProbe.ok, `planner blob failed: ${JSON.stringify(pdfProbe)}`);
+    assert(pdfProbe.validationOk && !pdfProbe.emptyCells.length, `empty planner cells: ${JSON.stringify(pdfProbe.emptyCells)}`);
     assert(pdfProbe.header.startsWith("%PDF-"), "generated weekly PDF invalid");
     assert(pdfProbe.hasPlanner && pdfProbe.hasOverview && pdfProbe.hasFocus && pdfProbe.hasSnapshot, `planner overview/snapshot missing: ${JSON.stringify(pdfProbe)}`);
     assert(pdfProbe.hasThemeFocus && pdfProbe.hasCircle && pdfProbe.hasActivity2 && pdfProbe.hasActivity3 && pdfProbe.hasOutdoor && pdfProbe.hasBook, `planner calendar rows missing: ${JSON.stringify(pdfProbe)}`);
     assert(pdfProbe.hasOcean && pdfProbe.hasSensory, `actual lesson content missing: ${JSON.stringify(pdfProbe)}`);
+    assert(pdfProbe.sampleTuesday?.activity1 && pdfProbe.sampleTuesday?.activity2 && pdfProbe.sampleTuesday?.activity3, `Tuesday missing 3 activities: ${JSON.stringify(pdfProbe.sampleTuesday)}`);
     assert(!pdfProbe.hasNotes, "default planner should be 2 pages without blank notes page");
     assert(!pdfProbe.hasFamilyDump, "planner should omit long family/adaptation/observation dumps");
     assert(!pdfProbe.hasPlaceholder, "weekly PDF contains placeholder text");
