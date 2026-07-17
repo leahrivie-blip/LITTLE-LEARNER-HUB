@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v61-store-safety";
+const CACHE_NAME = "llh-shell-v62-signup-continue";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",

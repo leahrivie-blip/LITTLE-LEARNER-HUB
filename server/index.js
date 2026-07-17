@@ -4645,6 +4645,14 @@ async function handleAccountProfileSync(request, response) {
   }
   if (accountType) updates.accountType = accountType;
   if (role) updates.role = role;
+  // Optional signup center pathway metadata (join/create/independent/skip).
+  // Only set when provided — never clears existing associations on unrelated profile syncs.
+  const centerAssociation = normalizedShortText(body.centerAssociation, 40);
+  const centerInviteCode = normalizedShortText(body.centerInviteCode, 80);
+  if (centerAssociation) updates.centerAssociation = centerAssociation;
+  if (Object.prototype.hasOwnProperty.call(body, "centerInviteCode")) {
+    updates.centerInviteCode = centerInviteCode || "";
+  }
   if (body.signup === true && !existing.signupAt) {
     updates.signupAt = new Date().toISOString();
     updates.createdAt = existing.createdAt || updates.signupAt;
@@ -4673,6 +4681,8 @@ async function handleAccountProfileSync(request, response) {
       businessName: user.businessName || "",
       accountType: user.accountType || "",
       role: user.role || "",
+      centerAssociation: user.centerAssociation || "",
+      centerInviteCode: user.centerInviteCode || "",
       plan: user.plan || "Free",
       accountStatus: user.accountStatus || "Active",
       ...tempPasswordAuth.publicAuthFlags(user),
