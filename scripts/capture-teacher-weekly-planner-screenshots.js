@@ -176,10 +176,11 @@ async function main() {
 
     const prefix = path.join(OUT_DIR, "teacher-planner-page");
     execFileSync("pdftoppm", ["-png", "-r", "160", pdfPath, prefix], { stdio: "inherit" });
-    for (let i = 1; i <= 3; i += 1) {
+    for (let i = 1; i <= 4; i += 1) {
       const src = `${prefix}-${i}.png`;
       if (!fs.existsSync(src)) continue;
       fs.copyFileSync(src, path.join(MOCKUP_DIR, `page-${i}.png`));
+      fs.copyFileSync(src, path.join(OUT_DIR, `teacher-planner-page-${i}.png`));
       console.log(`Wrote ${src}`);
     }
 
