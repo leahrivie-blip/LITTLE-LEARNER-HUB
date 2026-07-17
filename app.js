@@ -2505,7 +2505,12 @@ function friendlyAuthError(error) {
   if (code.includes("requires-recent-login")) return "For security, please log out and log back in before changing your password.";
   if (code.includes("expired-action-code")) return "This reset link has expired. Please request a new password reset email.";
   if (code.includes("invalid-action-code")) return "This reset link is invalid or has already been used.";
-  if (code.includes("unauthorized-domain")) return "Password reset is not enabled for this website domain yet. Add little-learner-hub.onrender.com as an authorized domain in Firebase Authentication settings.";
+  if (code.includes("unauthorized-domain")) {
+    const host = (() => {
+      try { return window.location.hostname || "littlelearnershubbyleah.com"; } catch { return "littlelearnershubbyleah.com"; }
+    })();
+    return `Password reset is not enabled for this website domain yet. In Firebase Authentication → Settings → Authorized domains, add: ${host}, www.littlelearnershubbyleah.com, and littlelearnershubbyleah.com (plus the Render host if you still use it).`;
+  }
   if (code.includes("operation-not-allowed")) return "Email/password login needs to be enabled in Firebase Authentication.";
   if (code.includes("too-many-requests")) return "Too many attempts. Please wait a few minutes and try again.";
   if (!firebaseAuthEnabled && code === "auth/not-configured") return "Real email recovery is ready to use after Firebase Auth config is added.";
@@ -46564,6 +46569,16 @@ document.addEventListener("click", async (event) => {
 
   const adminLockButton = event.target.closest("#adminLockButton");
   if (adminLockButton) {
+    event.preventDefault();
+    const token = adminSession()?.token || "";
+    // Best-effort server revoke so Lock Admin invalidates the session token.
+    if (token && canUseLaunchBackend()) {
+      fetch("/api/admin/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminToken: token }),
+      }).catch(() => {});
+    }
     clearAdminSession({ forgetDevice: true });
     renderAdminDashboard();
     return;

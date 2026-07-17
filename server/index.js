@@ -4875,6 +4875,44 @@ async function handleAdminLogin(request, response) {
   }
 }
 
+/**
+ * Lock Admin / logout — revoke the current admin session token server-side.
+ * Clears live cache first so mergeStorePreserveAdminSessions cannot reinject it.
+ */
+async function handleAdminLogout(request, response) {
+  const body = await readJson(request);
+  const authHeader = String(request.headers.authorization || "");
+  const bearer = authHeader.toLowerCase().startsWith("bearer ")
+    ? authHeader.slice(7).trim()
+    : "";
+  const token = String(body.adminToken || bearer || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Admin token is required." });
+    return;
+  }
+  let revoked = false;
+  if (storeCache?.adminSessions && storeCache.adminSessions[token]) {
+    delete storeCache.adminSessions[token];
+    revoked = true;
+  }
+  try {
+    const store = readStore();
+    store.adminSessions = store.adminSessions || {};
+    if (store.adminSessions[token]) {
+      delete store.adminSessions[token];
+      revoked = true;
+      writeStore(store);
+    }
+  } catch (error) {
+    jsonResponse(response, 500, {
+      error: "Could not revoke admin session.",
+      hint: error?.message || "Store write failed.",
+    });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, revoked });
+}
+
 async function handleAdminSiteContentSave(request, response) {
   console.log("[DIAG] handleAdminSiteContentSave: POST /api/admin/site-content received");
   const body = await readJson(request);
@@ -6065,7 +6103,8 @@ function scheduleSubscriptionCancelLocal(user) {
   const inTrial = membershipUserInTrial(user);
   const periodEndIso = user.accessEndsAt || user.currentPeriodEnd || user.trialEnd
     || new Date(Date.now() + 30 * 86400000).toISOString();
-  const endLabel = new Date(periodEndIso).toLocaleDateString();
+  const endMs = new Date(periodEndIso).getTime();
+  const endLabel = Number.isFinite(endMs) ? new Date(endMs).toLocaleDateString() : "period end";
   return {
     cancelAtPeriodEnd: true,
     accessEndsAt: periodEndIso,
@@ -11902,6 +11941,7 @@ const server = http.createServer(async (request, response) => {
   const comms = getCommsApi();
   try {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return handlePublicSiteContent(request, response);
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {

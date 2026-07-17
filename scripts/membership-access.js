@@ -283,6 +283,23 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     };
   }
 
+  // Past due / unpaid: keep historical founding markers but lock Pro/Founding access.
+  // Plan display must not look like an active paid plan while access is denied.
+  if (stripeStatus === "past_due" || stripeStatus === "unpaid") {
+    return {
+      ...base,
+      plan: "Free",
+      subscriptionCadence: user.subscriptionCadence || "",
+      subscriptionStatus: stripeStatus === "unpaid" ? "Payment Failed — Access Locked" : "Past Due — Access Locked",
+      monthlyPrice: "$0/month",
+      foundingMemberActive: false,
+      foundingMemberHistorical: wasFounding,
+      foundingMember: wasFounding,
+      trialStatus: user.trialStatus || "",
+      previousPlan: wasFounding ? "Founding Member" : "Pro",
+    };
+  }
+
   const inTrial = stripeStatus === "trialing";
   const isFoundingCheckout = planKey === "founding";
   const plan = isFoundingCheckout ? "Founding" : "Pro";
@@ -291,7 +308,8 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
 
   let subscriptionStatus;
   if (cancelAtPeriodEnd) {
-    const endLabel = new Date(accessEndsAt).toLocaleDateString();
+    const endMs = parseIsoMs(accessEndsAt);
+    const endLabel = endMs != null ? new Date(endMs).toLocaleDateString() : "period end";
     subscriptionStatus = inTrial
       ? `Canceled — Access Ends ${endLabel} (Trial — no future charge)`
       : `Canceled — Access Ends ${endLabel}`;

@@ -39,6 +39,13 @@ test("server exposes admin session validation endpoint", () => {
   assert.match(serverJs, /Unlock Admin again/);
 });
 
+test("server Lock Admin logout revokes session before merge can reinject it", () => {
+  assert.match(serverJs, /async function handleAdminLogout\(/);
+  assert.match(serverJs, /\/api\/admin\/logout/);
+  assert.match(serverJs, /Clears live cache first so mergeStorePreserveAdminSessions cannot reinject/);
+  assert.match(serverJs, /delete storeCache\.adminSessions\[token\]/);
+});
+
 test("client detects expired admin server session and offers re-unlock", () => {
   assert.match(appJs, /adminSessionInvalidOnServer/);
   assert.match(appJs, /function markAdminSessionInvalidOnServer\(/);
@@ -51,11 +58,11 @@ test("client detects expired admin server session and offers re-unlock", () => {
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260717-store-safety");
-  assert.equal(indexJs, "20260717-store-safety");
-  assert.match(sw, /styles\.css\?v=20260717-store-safety/);
-  assert.match(sw, /app\.js\?v=20260717-store-safety/);
-  assert.match(sw, /llh-shell-v61-store-safety/);
+  assert.equal(indexCss, "20260717-prod-audit");
+  assert.equal(indexJs, "20260717-prod-audit");
+  assert.match(sw, /styles\.css\?v=20260717-prod-audit/);
+  assert.match(sw, /app\.js\?v=20260717-prod-audit/);
+  assert.match(sw, /llh-shell-v63-prod-audit/);
 });
 
 test("owner can always see Admin nav to reach unlock form", () => {
@@ -74,6 +81,12 @@ test("provider sign-out keeps Admin unlock on this browser", () => {
   );
   assert.match(appJs, /clearAdminSession\(\{ forgetDevice: true \}\)/);
   assert.match(appJs, /Stays unlocked on this browser until you tap Lock Admin/);
+});
+
+test("Lock Admin calls server logout with adminToken before clearing local session", () => {
+  assert.match(appJs, /\/api\/admin\/logout/);
+  assert.match(appJs, /adminToken:\s*token/);
+  assert.match(appJs, /clearAdminSession\(\{ forgetDevice: true \}\)/);
 });
 
 test("boot restores Admin before Calendar when last view was admin", () => {

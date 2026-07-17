@@ -216,6 +216,14 @@ function loadUsersFromValue(raw, sourceLabel) {
     if (Array.isArray(raw.users)) {
       return { users: raw.users.filter((u) => u && typeof u === "object"), sourceLabel, sourceShape: "users-array" };
     }
+    // Admin analytics payload: { analytics: { users: [...] } }
+    if (Array.isArray(raw.analytics?.users)) {
+      return {
+        users: raw.analytics.users.filter((u) => u && typeof u === "object"),
+        sourceLabel,
+        sourceShape: "analytics.users-array",
+      };
+    }
     if (raw.users && typeof raw.users === "object" && !Array.isArray(raw.users)) {
       return {
         users: Object.values(raw.users).filter((u) => u && typeof u === "object"),

@@ -404,6 +404,22 @@ async function main() {
   assert(stripeConversion.internalAccessOverride === false, "Confirmed Stripe subscription clears manual override");
   assert(stripeConversion.manualAccessGranted === false, "Confirmed Stripe subscription clears manual grant marker");
 
+  const pastDueLock = simulateStripeSubscriptionUpdated(
+    {
+      plan: "Founding",
+      foundingMemberActive: true,
+      foundingMemberHistorical: true,
+      subscriptionStatus: "Founding Member Subscription Active",
+      stripeSubscriptionStatus: "active",
+    },
+    { status: "past_due", current_period_end: periodEndFuture },
+  );
+  assert(pastDueLock.plan === "Free", "past_due webhook must store Free plan (not stale Founding/Pro label)");
+  assert(pastDueLock.foundingMemberActive === false, "past_due must clear foundingMemberActive");
+  assert(pastDueLock.foundingMemberHistorical === true, "past_due preserves founding history");
+  assert(String(pastDueLock.subscriptionStatus || "").toLowerCase().includes("past due"), "past_due status label");
+  assert(membershipAccess.membershipHasProAccess({ ...pastDueLock, stripeSubscriptionStatus: "past_due" }) === false, "past_due locks Pro access");
+
   console.log("2b) Repair script protects converted paid accounts and writes a backup");
   {
     const repairStorePath = path.join(os.tmpdir(), `llh-repair-test-${crypto.randomBytes(4).toString("hex")}.json`);

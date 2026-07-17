@@ -109,8 +109,11 @@ async function main() {
     console.log("PASS  Replying from the Messages UI adds the user's bubble to the thread");
 
     // Notification Settings tab renders the opt-in toggle, defaulting OFF.
-    await page.click("[data-messages-tab='preferences']");
-    await page.waitForSelector("#pushNotificationToggle");
+    // Comms Center is the active Messages UI; legacy data-messages-tab remains as fallback.
+    const prefsTab = page.locator("[data-messages-center-tab='preferences'], [data-messages-tab='preferences']").first();
+    await prefsTab.waitFor({ state: "visible", timeout: 10000 });
+    await prefsTab.click();
+    await page.waitForSelector("#pushNotificationToggle", { timeout: 10000 });
     const toggleChecked = await page.locator("#pushNotificationToggle").isChecked();
     assert.equal(toggleChecked, false, "push toggle must default to OFF — opt-in only");
     console.log("PASS  Notification Settings tab defaults the push toggle to OFF");
