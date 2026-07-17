@@ -12053,13 +12053,12 @@ function lessonPlanCard(resource) {
   const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${resource.title}`;
   const coverPosition = String(resolvedCover.position || "center").trim() || "center";
   const coverFallbacks = lessonPlanCoverFallbackUrls(resource);
-  const description = lessonPlanCoversApi()?.shortThemeDescription?.(resource)
-    || (theme && theme.toLowerCase() !== String(resource.title || "").trim().toLowerCase() ? theme : "");
-  const metaParts = [ageLabel];
-  if (activityCount) metaParts.push(`${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`);
+  const activityLabel = activityCount
+    ? `${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`
+    : "";
   return `
     <article
-      class="resource-card lesson-plan-card browse-card has-cover-image ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
+      class="resource-card lesson-plan-card browse-card has-cover-image netflix-cover-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
       data-lesson-card="${escapeHtml(resource.id)}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
@@ -12090,17 +12089,17 @@ function lessonPlanCard(resource) {
           aria-pressed="${favorite ? "true" : "false"}"
           title="${escapeHtml(favoriteLabel)}"
         >${favorite ? "★" : "☆"}</button>
-      </div>
-      <div class="browse-card-body">
-        <h3>${escapeHtml(resource.title)}</h3>
-        <p class="browse-card-meta">${escapeHtml(metaParts.join(" · "))}</p>
-        ${description ? `<p class="browse-card-desc">${escapeHtml(description)}</p>` : ""}
+        <div class="browse-card-cover-overlay">
+          <span class="browse-card-age">${escapeHtml(ageLabel)}</span>
+          <h3 class="browse-card-title-overlay">${escapeHtml(resource.title)}</h3>
+          ${activityLabel ? `<p class="browse-card-activity-count">${escapeHtml(activityLabel)}</p>` : ""}
+        </div>
       </div>
       ${!locked ? `
         <div class="browse-card-always-actions lesson-plan-card-actions">
           <button type="button" class="primary-button browse-use-plan" data-lesson-card-use-plan="${escapeHtml(resource.id)}">Use This Plan</button>
         </div>
-      ` : `<p class="lesson-plan-card-hint browse-card-parent" style="padding:0 12px 12px">Tap to preview →</p>`}
+      ` : `<p class="lesson-plan-card-hint browse-card-parent" style="padding:8px 12px 12px">Tap to preview →</p>`}
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Lesson plan actions">
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>
@@ -12315,7 +12314,7 @@ function featuredLessonBannerHtml(items) {
   const ageLabel = String(featured.age || "").trim();
   const locked = !canAccess(featured);
   return `
-    <section class="library-featured-banner has-cover-image" aria-label="Featured lesson plan">
+    <section class="library-featured-banner has-cover-image netflix-featured-banner" aria-label="Featured lesson plan">
       <div class="library-featured-banner-media ${coverClass}">
         <img
           class="library-featured-banner-image"
@@ -12331,12 +12330,14 @@ function featuredLessonBannerHtml(items) {
         />
         <div class="library-featured-banner-scrim" aria-hidden="true"></div>
         <span class="browse-card-badge library-featured-banner-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        <div class="library-featured-banner-overlay">
+          <p class="library-featured-banner-eyebrow">Featured This Week</p>
+          ${ageLabel ? `<span class="browse-card-age">${escapeHtml(ageLabel)}</span>` : ""}
+          <h3 class="browse-card-title-overlay">${escapeHtml(featured.title)}</h3>
+        </div>
       </div>
       <div class="library-featured-banner-copy">
-        <p class="library-featured-banner-eyebrow">Featured This Week</p>
-        <h3>${escapeHtml(featured.title)}</h3>
-        ${ageLabel ? `<p class="library-featured-banner-meta">${escapeHtml(ageLabel)}</p>` : ""}
-        <p>${escapeHtml(blurb)}</p>
+        <p class="library-featured-banner-blurb">${escapeHtml(blurb)}</p>
         <div class="library-featured-banner-actions">
           <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
           ${!locked ? `<button type="button" class="ghost-button" data-lesson-card-use-plan="${escapeHtml(featured.id)}">Add to Calendar</button>` : ""}

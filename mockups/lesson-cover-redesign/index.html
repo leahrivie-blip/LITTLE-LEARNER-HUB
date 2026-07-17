@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lesson Cover Redesign — Mockups for Approval</title>
+  <link rel="stylesheet" href="mockup.css" />
+</head>
+<body>
+  <header class="mock-header">
+    <p class="mock-kicker">Little Learner Hub · Design review</p>
+    <h1>Lesson plan cover redesign</h1>
+    <p class="mock-lede">
+      Mockups only — the live library is unchanged. Approve these covers and card proportions
+      before we roll them out across every lesson plan.
+    </p>
+    <ul class="mock-goals">
+      <li>Real themed covers (not generic shapes)</li>
+      <li>Netflix-style 16:9 cards</li>
+      <li>FREE/PRO, favorite, age, and activity count kept</li>
+    </ul>
+  </header>
+
+  <main>
+    <section class="mock-section" aria-labelledby="proposed-heading">
+      <div class="section-head">
+        <h2 id="proposed-heading">Proposed cards</h2>
+        <p>Horizontal browse row — larger cover, cleaner title, clearer theme at a glance.</p>
+      </div>
+
+      <div class="browse-row" id="proposedRow" data-screenshot="proposed-desktop">
+        <!-- cards injected -->
+      </div>
+    </section>
+
+    <section class="mock-section mock-section-alt" aria-labelledby="compare-heading">
+      <div class="section-head">
+        <h2 id="compare-heading">Current vs proposed</h2>
+        <p>Same themes: abstract SVG covers today vs themed illustration covers proposed.</p>
+      </div>
+      <div class="compare-grid" id="compareGrid" data-screenshot="compare">
+        <!-- pairs injected -->
+      </div>
+    </section>
+
+    <section class="mock-section" aria-labelledby="mobile-heading">
+      <div class="section-head">
+        <h2 id="mobile-heading">Mobile card scale</h2>
+        <p>Cards stay ~72vw wide with a dominant 16:9 cover — easy to scan while swiping.</p>
+      </div>
+      <div class="mobile-frame" data-screenshot="proposed-mobile-frame">
+        <div class="mobile-chrome" aria-hidden="true">
+          <span></span>
+        </div>
+        <div class="browse-row browse-row-mobile" id="mobileRow">
+          <!-- cards injected -->
+        </div>
+      </div>
+    </section>
+
+    <section class="mock-section mock-notes" aria-labelledby="notes-heading">
+      <h2 id="notes-heading">Approval checklist</h2>
+      <ol>
+        <li>Do the covers communicate the theme without opening the plan?</li>
+        <li>Is the larger Netflix-style card size right for the library?</li>
+        <li>Are FREE/PRO badge, favorite star, age, and activity count still clear?</li>
+        <li>Approve art direction (children’s-book illustration, consistent lighting)?</li>
+      </ol>
+      <p class="mock-footnote">
+        After approval: generate covers for the full theme library, wire them into
+        <code>lesson-plan-covers.js</code>, run regression tests (View / Use / Calendar / Favorite /
+        Free-Pro / viewer / mobile / refresh / admin upload / load time).
+      </p>
+    </section>
+  </main>
+
+  <script src="mockup.js"></script>
+</body>
+</html>

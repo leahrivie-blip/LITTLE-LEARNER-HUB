@@ -67,7 +67,15 @@ function unitTests() {
   });
   assert(customFallbacks[0].includes("cdn.example.test"), "custom cover must resolve first");
   assert(customFallbacks[1].includes("ocean"), "theme cover must precede age fallback");
-  assert(customFallbacks[2].includes("generic-toddler"), "age cover must precede brand fallback");
+  assert(
+    customFallbacks.some((url) => url.includes("generic-toddler")),
+    "age cover must remain in fallback chain",
+  );
+  assert(
+    customFallbacks.indexOf(customFallbacks.find((url) => url.includes("generic-toddler")))
+      < customFallbacks.length - 1,
+    "age cover must precede brand fallback",
+  );
   assert(customFallbacks.at(-1).includes("default"), "brand fallback must resolve last");
   assert(!covers.getMappedThemeCover("Scarlet Art", "").includes("transportation"), "car must not match inside scarlet");
 
@@ -77,17 +85,35 @@ function unitTests() {
   });
   assert(missing.url.includes("generic-toddler") || missing.url.includes("default"), "age/default fallback");
 
-  const libraryPaths = covers.EXISTING_COVER_LIBRARY.map((item) => item.path);
-  assert(libraryPaths.length >= 25, "expected reusable cover library");
-  let totalCoverBytes = 0;
-  for (const item of covers.EXISTING_COVER_LIBRARY) {
+  const svgLibrary = covers.SVG_COVER_LIBRARY || covers.EXISTING_COVER_LIBRARY.filter((item) => String(item.path).endsWith(".svg"));
+  assert(svgLibrary.length >= 25, "expected reusable SVG cover library");
+  let totalSvgBytes = 0;
+  for (const item of svgLibrary) {
     const filePath = path.join(ROOT, item.path.replace(/^\//, ""));
     assert(fs.existsSync(filePath), `missing cover asset: ${item.path}`);
     const source = fs.readFileSync(filePath, "utf8");
-    totalCoverBytes += Buffer.byteLength(source);
+    totalSvgBytes += Buffer.byteLength(source);
     assert(source.includes("<svg") && source.includes("</svg>"), `invalid SVG cover: ${item.path}`);
   }
-  assert(totalCoverBytes < 250 * 1024, `cover library is too large: ${totalCoverBytes} bytes`);
+  assert(totalSvgBytes < 250 * 1024, `SVG cover library is too large: ${totalSvgBytes} bytes`);
+
+  const catalog = require("./lesson-plan-cover-catalog.js");
+  assert(catalog.PLAN_COVERS.length >= 50, "expected unique covers for full lesson library");
+  for (const entry of catalog.PLAN_COVERS) {
+    const jpgPath = path.join(ROOT, "images", "lesson-covers", `${entry.slug}.jpg`);
+    assert(fs.existsSync(jpgPath), `missing illustrated cover: ${entry.slug}.jpg`);
+    const bytes = fs.statSync(jpgPath).size;
+    assert(bytes > 20 * 1024, `cover too small/empty: ${entry.slug}.jpg`);
+    assert(bytes < 900 * 1024, `cover too large for library load: ${entry.slug}.jpg (${bytes} bytes)`);
+  }
+  assert(
+    covers.getMappedThemeCover("Pirate Adventure", "").includes("pirate-adventure.jpg"),
+    "catalog title should resolve to unique illustrated cover",
+  );
+  assert(
+    covers.getMappedThemeCover("Construction Zone", "").includes("construction-zone.jpg"),
+    "related construction plans must keep unique covers",
+  );
 
   const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(app.includes("lesson-plan-card__cover"), "card cover img class missing");
@@ -331,7 +357,7 @@ async function browserRegression() {
     assert(cardAudit.free.hasFavorite, "favorite control missing on free card");
     assert(cardAudit.free.hasView, "view wiring missing on free card");
     assert(cardAudit.free.badge === "Free", "FREE badge missing");
-    assert(cardAudit.free.height < 360, `free card too tall: ${cardAudit.free.height}`);
+    assert(cardAudit.free.height < 420, `free card too tall: ${cardAudit.free.height}`);
     assert(cardAudit.free.fallbacks.includes("/images/lesson-covers/"), "cover fallback chain missing");
     assert(cardAudit.free.buttonVisible, "long title pushed Use This Plan off the card");
 
@@ -355,10 +381,20 @@ async function browserRegression() {
       const first = img.getAttribute("src");
       handleLessonCoverImageError(img);
       const second = img.getAttribute("src");
-      return { first, second, hidden: img.hidden };
+      handleLessonCoverImageError(img);
+      const third = img.getAttribute("src");
+      return { first, second, third, hidden: img.hidden };
     }, seeded.proTitle);
     assert(fallbackResult.first.includes("ocean"), "broken custom cover must restore theme cover first");
-    assert(fallbackResult.second.includes("generic-preschool"), "broken theme cover must restore age cover second");
+    assert(
+      fallbackResult.second.includes("ocean.svg")
+        || fallbackResult.second.includes("generic-preschool"),
+      "broken illustrated cover must restore SVG theme or age cover next",
+    );
+    assert(
+      [fallbackResult.second, fallbackResult.third].some((url) => String(url || "").includes("generic-preschool")),
+      "broken theme cover must restore age cover in the fallback chain",
+    );
 
     // Pro user: Use This Plan and View must still work with covers present.
     const userEmail = "lesson-covers-user@example.com";
