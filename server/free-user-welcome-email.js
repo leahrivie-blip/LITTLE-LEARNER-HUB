@@ -125,9 +125,9 @@ function looksLikeTestEmail(email) {
   if (!value || !value.includes("@")) return true;
   const [local, domain] = value.split("@");
   if (!local || !domain) return true;
-  if (["example.com", "example.org", "example.net", "test.com", "localhost"].includes(domain)) return true;
+  if (["example.com", "example.org", "example.net", "test.com", "localhost", "web-library.net"].includes(domain)) return true;
   if (domain.endsWith(".local") || domain.endsWith(".test")) return true;
-  if (/^(test|prod-up|regression-probe|e2e|smoke)/i.test(local)) return true;
+  if (/^(test|prod-up|regression-probe|e2e|smoke|llh-signup|signup-ui|ui-test)/i.test(local)) return true;
   return false;
 }
 
