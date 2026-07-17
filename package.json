@@ -115,7 +115,8 @@
     "test:sparse-store-recovery": "NODE_ENV=test node scripts/test-sparse-store-recovery.js",
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
     "test:prod-store-safety-smoke": "node scripts/test-prod-store-safety-smoke.js",
-    "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js"
+    "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js",
+    "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"
