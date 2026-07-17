@@ -88,6 +88,13 @@ async function main() {
   assert.match(serverJs, /send-one-time/);
   assert.match(serverJs, /publishedAt/);
   assert.match(serverJs, /emailEngagement\.startScheduler/);
+  assert.match(serverJs, /EMAIL_AUTOMATIONS_ENABLED/);
+  assert.match(serverJs, /EXPECTED_EMAIL_FROM_ADDRESS/);
+  assert.match(serverJs, /\/api\/admin\/email-diagnostics/);
+  assert.match(serverJs, /resolveSupportEmailFrom/);
+  assert.match(moduleJs, /automations_disabled/);
+  assert.match(moduleJs, /onboardingEnabled: false/);
+  assert.match(moduleJs, /buildAudienceReport/);
   assert.match(appJs, /renderAdminEmailEngagement/);
   assert.match(appJs, /adminEmailRunPreflightAudit/);
   assert.match(appJs, /adminEmailPrepareOneTime/);
@@ -121,6 +128,9 @@ async function main() {
     },
     emailEngagement: defaultEmailEngagementStore(),
   };
+  // Unit tests exercise campaign paths with automations explicitly enabled.
+  fakeStore.emailEngagement.settings.onboardingEnabled = true;
+  fakeStore.emailEngagement.settings.weeklyWhatsNewEnabled = true;
 
   const eng = createEmailEngagement({
     sendEmail: async () => {
@@ -137,6 +147,30 @@ async function main() {
     writeStore: (s) => { fakeStore = s; },
     writeStoreAsync: async (s) => { fakeStore = s; },
     isCurriculumLessonPublic: (status) => status === "published" || status === "featured",
+    areAutomationsEnabled: () => true,
+  });
+
+  await test("defaults keep onboarding and weekly off", async () => {
+    const defaults = defaultEmailEngagementStore();
+    assert.equal(defaults.settings.onboardingEnabled, false);
+    assert.equal(defaults.settings.weeklyWhatsNewEnabled, false);
+  });
+
+  await test("kill-switch blocks campaign sends", async () => {
+    const blockedEng = createEmailEngagement({
+      sendEmail: async () => ({ sent: true, configured: true, provider: "test" }),
+      SITE_URL: "https://www.littlelearnerhub.com",
+      htmlEscape: (v) => String(v ?? ""),
+      readStore: () => fakeStore,
+      writeStore: (s) => { fakeStore = s; },
+      writeStoreAsync: async (s) => { fakeStore = s; },
+      isCurriculumLessonPublic: () => true,
+      areAutomationsEnabled: () => false,
+    });
+    const welcome = await blockedEng.maybeSendWelcomeOnSignup("new@example.com");
+    assert.equal(welcome.reason, "automations_disabled");
+    const weekly = await blockedEng.runWeeklyWhatsNew({ force: true });
+    assert.equal(weekly.reason, "automations_disabled");
   });
 
   await test("weekly digest skips when no new lessons", async () => {
@@ -268,6 +302,8 @@ async function main() {
     fakeStore.feedbackItems = [];
     fakeStore.notifications = [];
     fakeStore.emailEngagement = defaultEmailEngagementStore();
+    fakeStore.emailEngagement.settings.onboardingEnabled = true;
+    fakeStore.emailEngagement.settings.weeklyWhatsNewEnabled = true;
 
     const blocked = await eng.sendOneTimeWelcomeUpdate({ confirm: true, auditToken: "nope" });
     assert.equal(blocked.reason, "audit_required");
@@ -344,6 +380,8 @@ async function main() {
       ADMIN_EMAIL,
       ADMIN_PASSWORD,
       ADMIN_ACCESS_CODE,
+      // Automations stay off by default in production; enable for engagement path tests.
+      EMAIL_AUTOMATIONS_ENABLED: "true",
       // Explicitly clear email keys for soft-fail assertions
       RESEND_API_KEY: "",
       SENDGRID_API_KEY: "",
@@ -370,7 +408,7 @@ async function main() {
       assert.ok(adminToken);
     });
 
-    await test("signup profile sync stamps welcome once without provider", async () => {
+    await test("signup does not auto-welcome while onboarding store flag is off", async () => {
       const email = "signup-teacher@example.com";
       const first = await request("POST", "/api/account/profile", {
         body: {
@@ -382,10 +420,31 @@ async function main() {
         },
       });
       assert.equal(first.status, 200, JSON.stringify(first.json));
-      // Allow fire-and-forget welcome to settle
       await new Promise((r) => setTimeout(r, 200));
       const store = readStoreFile();
       assert.ok(store.users[email].signupAt);
+      assert.equal(Boolean(store.users[email].onboardingEmails?.welcomeSentAt), false);
+    });
+
+    await test("signup stamps welcome once when onboarding enabled and provider missing", async () => {
+      const enable = await request("POST", "/api/admin/email-engagement/settings", {
+        body: { adminToken, onboardingEnabled: true, weeklyWhatsNewEnabled: true },
+      });
+      assert.equal(enable.status, 200, JSON.stringify(enable.json));
+
+      const email = "signup-welcome@example.com";
+      const first = await request("POST", "/api/account/profile", {
+        body: {
+          email,
+          firstName: "Sam",
+          lastName: "Lee",
+          signup: true,
+          lastLogin: true,
+        },
+      });
+      assert.equal(first.status, 200, JSON.stringify(first.json));
+      await new Promise((r) => setTimeout(r, 250));
+      const store = readStoreFile();
       assert.ok(store.users[email].onboardingEmails?.welcomeSentAt, "welcome should stamp even when unconfigured");
 
       const second = await request("POST", "/api/account/profile", {
@@ -408,6 +467,18 @@ async function main() {
       assert.ok(Array.isArray(res.json.onboardingSteps));
       assert.equal(res.json.onboardingSteps.length, 3);
       assert.equal(res.json.supportEmail.ready, false);
+      assert.equal(res.json.supportEmail.fromEmail, "support@littlelearnershubbyleah.com");
+      assert.equal(res.json.automations.enabled, true);
+      assert.ok(res.json.audience);
+    });
+
+    await test("admin email diagnostics exposes canonical From", async () => {
+      const res = await request("GET", `/api/admin/email-diagnostics?adminToken=${encodeURIComponent(adminToken)}`);
+      assert.equal(res.status, 200, JSON.stringify(res.json));
+      assert.equal(res.json.diagnostics.fromEmail, "support@littlelearnershubbyleah.com");
+      assert.equal(res.json.diagnostics.domain, "littlelearnershubbyleah.com");
+      assert.equal(res.json.diagnostics.domainMatchesVerifiedTarget, true);
+      assert.match(res.json.diagnostics.fromAddress, /Little Learner Hub/);
     });
 
     await test("admin weekly force run skips empty curriculum", async () => {

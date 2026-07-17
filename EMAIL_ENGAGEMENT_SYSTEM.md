@@ -4,6 +4,9 @@
 
 Built an outbound engagement layer on top of the existing `sendEmail()` helper (Resend / SendGrid / Postmark). No duplicate mail stack. Support/bug/feature/feedback/staff-invite emails are unchanged.
 
+**Canonical From:** `Little Learner Hub <support@littlelearnershubbyleah.com>`  
+**Master kill-switch:** `EMAIL_AUTOMATIONS_ENABLED` (default `false`) — blocks scheduler, signup welcome, drip, weekly, and one-time bulk sends. Admin single-user test sends still work. See `EMAIL_STRATEGY_REPORT.md`.
+
 ## Onboarding drip (once-only)
 
 | Step | Timing | Focus |
