@@ -7705,6 +7705,288 @@ function handleStaffInvitePeek(request, response, url) {
   jsonResponse(response, 200, { ok: true, invite: publicStaffInvite(invite) });
 }
 
+/**
+ * Read-only org-link safety audit for two member emails.
+ * Never writes. Used before linking directors into one program owner.
+ */
+function summarizeUidProgramData(store, uid) {
+  const cleanUid = String(uid || "").trim();
+  if (!cleanUid) {
+    return {
+      uid: "",
+      childProfiles: 0,
+      childDataKeysWithRows: 0,
+      scheduleClassrooms: 0,
+      scheduleItems: 0,
+      hasChildData: false,
+      hasScheduleData: false,
+    };
+  }
+  const childRecord = store.childData?.[cleanUid];
+  const childData = childRecord?.data || {};
+  const childKeyCounts = childDataKeys.reduce((acc, key) => {
+    const count = Array.isArray(childData[key]) ? childData[key].length : 0;
+    acc[key] = count;
+    return acc;
+  }, {});
+  const schedule = store.scheduleByUser?.[cleanUid] || null;
+  const classrooms = Array.isArray(schedule?.classrooms) ? schedule.classrooms.length : 0;
+  const items = Array.isArray(schedule?.items) ? schedule.items.length : (
+    Array.isArray(schedule?.scheduleItems) ? schedule.scheduleItems.length : 0
+  );
+  return {
+    uid: cleanUid,
+    childProfiles: childKeyCounts.Profiles || 0,
+    childDataKeysWithRows: Object.values(childKeyCounts).filter((n) => n > 0).length,
+    childKeyCounts,
+    scheduleClassrooms: classrooms,
+    scheduleItems: items,
+    hasChildData: Object.values(childKeyCounts).some((n) => n > 0),
+    hasScheduleData: classrooms > 0 || items > 0,
+    childDataUpdatedAt: childRecord?.updatedAt || "",
+    scheduleUpdatedAt: schedule?.updatedAt || "",
+  };
+}
+
+function redactUserForOrgLinkAudit(user = {}) {
+  const email = normalizeEmail(user.email);
+  return {
+    exists: Boolean(email && user && (user.email || user.plan || user.role)),
+    email,
+    name: [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || user.name || "",
+    businessName: user.businessName || user.daycareName || user.programName || "",
+    accountType: user.accountType || "",
+    role: user.role || "",
+    accountStatus: user.accountStatus || (user.disabled ? "Disabled" : "Active"),
+    disabled: user.disabled === true || String(user.accountStatus || "").toLowerCase() === "disabled",
+    plan: user.plan || "Free",
+    subscriptionStatus: user.subscriptionStatus || "",
+    stripeCustomerId: user.stripeCustomerId ? `${String(user.stripeCustomerId).slice(0, 8)}…` : "",
+    stripeSubscriptionId: user.stripeSubscriptionId ? `${String(user.stripeSubscriptionId).slice(0, 8)}…` : "",
+    stripeSubscriptionStatus: user.stripeSubscriptionStatus || "",
+    foundingMember: Boolean(user.foundingMember),
+    foundingMemberActive: Boolean(user.foundingMemberActive),
+    foundingMemberHistorical: Boolean(user.foundingMemberHistorical),
+    foundingMemberNumber: user.foundingMemberNumber || null,
+    priceLock: user.priceLock || "",
+    monthlyPrice: user.monthlyPrice || "",
+    internalAccessOverride: Boolean(user.internalAccessOverride),
+    manualAccessGranted: Boolean(user.manualAccessGranted),
+    linkedProgramOwnerEmail: normalizeEmail(user.linkedProgramOwnerEmail || ""),
+    programAccessViaOwner: Boolean(user.programAccessViaOwner),
+    classroomIds: Array.isArray(user.classroomIds) ? user.classroomIds : [],
+    firebaseUid: user.firebaseUid || "",
+    mustChangePassword: Boolean(user.mustChangePassword),
+    serverPasswordAuth: Boolean(user.serverPasswordAuth),
+    createdAt: user.createdAt || user.signupAt || "",
+    lastLoginAt: user.lastLoginAt || "",
+    lastSeenAt: user.lastSeenAt || "",
+    ...membershipSummaryForUser(user),
+  };
+}
+
+function buildOrgLinkAudit(store, emailA, emailB) {
+  ensureStaffInviteCollections(store);
+  const a = normalizeEmail(emailA);
+  const b = normalizeEmail(emailB);
+  const users = store.users || {};
+  const userA = users[a] || null;
+  const userB = users[b] || null;
+  const foundingList = Array.isArray(store.foundingMembers) ? store.foundingMembers.map(normalizeEmail) : [];
+  const duplicateEmailKeys = Object.keys(users).filter((key) => {
+    const norm = normalizeEmail(key);
+    return norm === a || norm === b ? key !== norm : false;
+  });
+
+  const programBuckets = Object.entries(store.programMembers || {}).map(([owner, members]) => {
+    const list = Array.isArray(members) ? members : [];
+    const related = list.filter((member) => [a, b].includes(normalizeEmail(member.email)));
+    if (![a, b].includes(normalizeEmail(owner)) && !related.length) return null;
+    return {
+      ownerEmail: normalizeEmail(owner),
+      memberCount: list.length,
+      members: list.map((member) => ({
+        email: normalizeEmail(member.email),
+        role: member.role || "",
+        status: member.status || "",
+        uid: member.uid || "",
+        joinedAt: member.joinedAt || "",
+      })),
+    };
+  }).filter(Boolean);
+
+  const invites = Object.values(store.staffInvites || {})
+    .filter((invite) => {
+      const inviteEmail = normalizeEmail(invite.email);
+      const ownerEmail = normalizeEmail(invite.ownerEmail || invite.invitedByEmail);
+      return [a, b].includes(inviteEmail) || [a, b].includes(ownerEmail);
+    })
+    .map((invite) => ({
+      id: invite.id,
+      email: normalizeEmail(invite.email),
+      role: invite.role || "",
+      status: invite.status || "",
+      ownerEmail: normalizeEmail(invite.ownerEmail || invite.invitedByEmail),
+      invitedAt: invite.invitedAt || "",
+      expiresAt: invite.expiresAt || "",
+    }));
+
+  const uidA = userA?.firebaseUid || "";
+  const uidB = userB?.firebaseUid || "";
+  const dataA = summarizeUidProgramData(store, uidA);
+  const dataB = summarizeUidProgramData(store, uidB);
+
+  const conflicts = [];
+  const blockers = [];
+  if (!userA) blockers.push(`${a} not found in store.users`);
+  if (!userB) blockers.push(`${b} not found in store.users`);
+  if (userA?.disabled || String(userA?.accountStatus || "").toLowerCase() === "disabled") {
+    blockers.push(`${a} is disabled`);
+  }
+  if (userB?.disabled || String(userB?.accountStatus || "").toLowerCase() === "disabled") {
+    blockers.push(`${b} is disabled`);
+  }
+  if (duplicateEmailKeys.length) {
+    conflicts.push({
+      code: "duplicate_email_keys",
+      severity: "high",
+      detail: `Non-normalized duplicate keys present: ${duplicateEmailKeys.join(", ")}`,
+    });
+  }
+  if (userA && userB) {
+    const bothFoundingActive = Boolean(userA.foundingMemberActive) && Boolean(userB.foundingMemberActive);
+    if (bothFoundingActive) {
+      conflicts.push({
+        code: "dual_active_founding",
+        severity: "high",
+        detail: "Both accounts currently have foundingMemberActive=true. Keep Founding on Ashley only before/during link.",
+      });
+    }
+    if (foundingList.includes(a) && foundingList.includes(b)) {
+      conflicts.push({
+        code: "both_in_founding_members_array",
+        severity: "medium",
+        detail: "Both emails appear in foundingMembers[]. Decide whether Ladiisha's entry is historical-only before clearing active access.",
+      });
+    }
+    const alreadySameOwner = normalizeEmail(userA.linkedProgramOwnerEmail || a) === normalizeEmail(userB.linkedProgramOwnerEmail || b)
+      && Boolean(userA.linkedProgramOwnerEmail || userB.linkedProgramOwnerEmail);
+    const linkedTogether = (
+      normalizeEmail(userB.linkedProgramOwnerEmail) === a
+      || normalizeEmail(userA.linkedProgramOwnerEmail) === b
+      || programBuckets.some((bucket) => (
+        bucket.ownerEmail === a && bucket.members.some((m) => m.email === b)
+      ) || (
+        bucket.ownerEmail === b && bucket.members.some((m) => m.email === a)
+      ))
+    );
+    if (linkedTogether || alreadySameOwner) {
+      conflicts.push({
+        code: "already_linked",
+        severity: "low",
+        detail: "Accounts already appear linked via linkedProgramOwnerEmail or programMembers. Re-check roles/Founding instead of creating a second invite.",
+      });
+    }
+    if (dataA.hasChildData && dataB.hasChildData) {
+      conflicts.push({
+        code: "dual_child_data_uids",
+        severity: "high",
+        detail: "Both Firebase UIDs have child profile data. Staff-invite linking alone will NOT merge children — plan an explicit data consolidation.",
+      });
+      blockers.push("Both accounts hold childData under different UIDs; do not finish org merge until data consolidation plan is approved");
+    }
+    if (dataA.hasScheduleData && dataB.hasScheduleData) {
+      conflicts.push({
+        code: "dual_schedule_uids",
+        severity: "high",
+        detail: "Both Firebase UIDs have schedule/classroom data. Linking permissions will not share calendars automatically.",
+      });
+      blockers.push("Both accounts hold scheduleByUser data under different UIDs; consolidate or choose a primary UID first");
+    }
+    if (!uidA || !uidB) {
+      conflicts.push({
+        code: "missing_firebase_uid",
+        severity: "medium",
+        detail: "One or both users lack firebaseUid on the server row, so child/schedule ownership cannot be fully verified yet.",
+      });
+    }
+  }
+
+  const recommendedOwner = a; // Ashley keeps billing + Founding
+  const ready = blockers.length === 0;
+  return {
+    ok: true,
+    readOnly: true,
+    destructive: false,
+    status: ready ? "READY_FOR_REVIEW" : "BLOCKED",
+    auditedAt: new Date().toISOString(),
+    emails: { ashley: a, ladiisha: b },
+    recommended: {
+      programOwnerEmail: recommendedOwner,
+      ashleyRole: "owner",
+      ladiishaRole: "director",
+      keepFoundingOn: recommendedOwner,
+      clearTemporaryFoundingOn: b,
+      linkMethod: "staff_invite_accept",
+      note: "Do not create a new organization entity. Do not merge login identities. Do not copy Stripe IDs between users.",
+    },
+    users: {
+      [a]: userA ? redactUserForOrgLinkAudit(userA) : { exists: false, email: a },
+      [b]: userB ? redactUserForOrgLinkAudit(userB) : { exists: false, email: b },
+    },
+    foundingMembersIncludes: {
+      [a]: foundingList.includes(a),
+      [b]: foundingList.includes(b),
+      foundingClaimedCount: foundingList.length,
+    },
+    programBuckets,
+    invites,
+    uidData: {
+      [a]: dataA,
+      [b]: dataB,
+    },
+    conflicts,
+    blockers,
+    nextSteps: ready
+      ? [
+        "Backup production store",
+        "Clear temporary Founding on Ladiisha only (keep Ashley Stripe/Founding intact)",
+        "Invite Ladiisha as director under Ashley and accept invite",
+        "If uidData shows only one side has children/schedule, document primary UID; if both do, run consolidation before telling users merge is complete",
+        "Regression: login, staff, children, calendar, billing (Ashley), messaging",
+      ]
+      : [
+        "Resolve every blocker listed above",
+        "Re-run this read-only audit until status is READY_FOR_REVIEW",
+        "Do not write membership or invite changes until then",
+      ],
+  };
+}
+
+function handleAdminOrgLinkAudit(request, response, url) {
+  const token = String(url.searchParams.get("adminToken") || "").trim();
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const emailA = normalizeEmail(url.searchParams.get("emailA") || "tclashley@icloud.com");
+  const emailB = normalizeEmail(url.searchParams.get("emailB") || "ladiisha01@gmail.com");
+  if (!emailA || !emailB) {
+    jsonResponse(response, 400, { error: "emailA and emailB are required." });
+    return;
+  }
+  const store = peekStore();
+  const report = buildOrgLinkAudit(store, emailA, emailB);
+  console.log("[auth] org_link_audit_readonly", {
+    emailA,
+    emailB,
+    status: report.status,
+    blockers: report.blockers.length,
+    conflicts: report.conflicts.length,
+  });
+  jsonResponse(response, 200, report);
+}
+
 async function handleStaffInviteAccept(request, response) {
   let identity;
   try {
@@ -12422,6 +12704,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/org-link-audit") return handleAdminOrgLinkAudit(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/notifications") return await handleAdminNotificationsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/notifications/mark-read") return await handleAdminNotificationsMarkRead(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
