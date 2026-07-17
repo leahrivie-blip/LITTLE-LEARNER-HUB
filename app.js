@@ -32086,6 +32086,8 @@ async function renderAdminEmailEngagement() {
     const cachedPrepare = window.__adminEmailPrepared || null;
     const cachedFoundingPreview = window.__adminFoundingEmailPreview || null;
     const cachedFoundingReport = window.__adminFoundingEmailReport || null;
+    const cachedFreeWelcomePreview = window.__adminFreeWelcomeEmailPreview || null;
+    const cachedFreeWelcomeReport = window.__adminFreeWelcomeEmailReport || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
     const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
@@ -32212,6 +32214,69 @@ async function renderAdminEmailEngagement() {
           ${cachedFoundingPreview?.alreadySent
             ? `Already sent ${escapeHtml(cachedFoundingPreview.sentAt || "")}. Duplicate sends are blocked.`
             : "Review the Final Confirmation Screen above, then type SEND_FOUNDING_MEMBER_EMAIL to send. Nothing has been sent yet."}
+        </p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>Free Users welcome &amp; upgrade (one-time)</h4>
+        <p class="form-note">Sends only to users with <strong>current Free access</strong> — not Founding, not Pro, not trial, not admin, not test, not invalid/bounced. Keep <code>EMAIL_AUTOMATIONS_ENABLED=false</code>. Confirmation phrase: <code>SEND_FREE_USER_WELCOME_EMAIL</code>.</p>
+        <div class="aup-insight-grid">
+          <div class="aup-insight-card"><strong>${cachedFreeWelcomePreview?.counts?.freeAccessAccounts ?? "—"}</strong><span>Free access accounts</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedFreeWelcomePreview?.counts?.recipients ?? "—"}</strong><span>Final recipients</span></div>
+          <div class="aup-insight-card aup-insight--trial"><strong>${cachedFreeWelcomePreview?.counts?.excluded ?? "—"}</strong><span>Excluded</span></div>
+          <div class="aup-insight-card"><strong>${cachedFreeWelcomePreview?.counts?.duplicatesRemoved ?? "—"}</strong><span>Duplicates removed</span></div>
+        </div>
+        ${cachedFreeWelcomePreview ? `
+          <div class="admin-email-preview">
+            <h4>Final Confirmation Screen (not sent)</h4>
+            <p class="form-note"><strong>Recipient count:</strong> ${Number(cachedFreeWelcomePreview.confirmationScreen?.recipientCount ?? cachedFreeWelcomePreview.counts?.recipients) || 0}</p>
+            <p class="form-note"><strong>Recipient emails:</strong></p>
+            <ul class="admin-email-step-list">
+              ${(cachedFreeWelcomePreview.confirmationScreen?.recipients || cachedFreeWelcomePreview.recipients || []).map((row) => `
+                <li>✓ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")} · ${escapeHtml(row.membershipPlan || "Free")}
+                  <br><span class="form-note">${escapeHtml(row.qualifyReason || "")}</span>
+                </li>
+              `).join("") || "<li>No qualifying recipients</li>"}
+            </ul>
+            ${(cachedFreeWelcomePreview.excluded || []).length ? `
+              <p class="form-note"><strong>Excluded:</strong></p>
+              <ul class="admin-email-step-list">
+                ${cachedFreeWelcomePreview.excluded.slice(0, 80).map((row) => `
+                  <li>✗ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")} · ${(row.excludeReasons || []).map(escapeHtml).join(", ")}</li>
+                `).join("")}
+                ${cachedFreeWelcomePreview.excluded.length > 80 ? `<li>…and ${cachedFreeWelcomePreview.excluded.length - 80} more</li>` : ""}
+              </ul>
+            ` : ""}
+            <p class="form-note"><strong>Invalid/test emails:</strong> ${Number(cachedFreeWelcomePreview.invalidEmailAnalysis?.count) || 0} · <strong>Duplicates removed:</strong> ${Number(cachedFreeWelcomePreview.duplicateAnalysis?.count) || 0}</p>
+            <p class="form-note"><strong>Subject line:</strong> ${escapeHtml(cachedFreeWelcomePreview.confirmationScreen?.subject || cachedFreeWelcomePreview.email?.subject || "")}</p>
+            <p class="form-note"><strong>Full rendered email preview:</strong></p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:320px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedFreeWelcomePreview.confirmationScreen?.textPreview || cachedFreeWelcomePreview.email?.textPreview || "")}</pre>
+          </div>
+        ` : `<p class="form-note">No Free User dry-run / Final Confirmation Screen in this session yet.</p>`}
+        ${cachedFreeWelcomeReport ? `
+          <div class="admin-email-preview">
+            <h4>Post-send report</h4>
+            <div class="aup-insight-grid">
+              <div class="aup-insight-card"><strong>${Number(cachedFreeWelcomeReport.totalAttempted) || 0}</strong><span>Attempted</span></div>
+              <div class="aup-insight-card aup-insight--pro"><strong>${Number(cachedFreeWelcomeReport.totalDelivered) || 0}</strong><span>Delivered</span></div>
+              <div class="aup-insight-card aup-insight--trial"><strong>${Number(cachedFreeWelcomeReport.totalFailed) || 0}</strong><span>Failed</span></div>
+              <div class="aup-insight-card"><strong>${Number(cachedFreeWelcomeReport.totalBounced) || 0}</strong><span>Bounced</span></div>
+            </div>
+            <p class="form-note"><strong>Opened:</strong> ${Number(cachedFreeWelcomeReport.totalOpened) || 0} · <strong>Clicked:</strong> ${Number(cachedFreeWelcomeReport.totalClicked) || 0} · <strong>Skipped:</strong> ${Number(cachedFreeWelcomeReport.totalSkipped) || 0}</p>
+            <p class="form-note"><strong>Send timestamp:</strong> ${escapeHtml(cachedFreeWelcomeReport.sentAt || "")}</p>
+            <p class="form-note"><strong>Resend message IDs:</strong> ${escapeHtml((cachedFreeWelcomeReport.resendMessageIds || []).slice(0, 20).join(", ") || "(none yet)")}${(cachedFreeWelcomeReport.resendMessageIds || []).length > 20 ? "…" : ""}</p>
+            <p class="form-note">Memberships / subscriptions / account access were not modified.</p>
+          </div>
+        ` : ""}
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminFreeWelcomeEmailDryRun">Dry-run + Final Confirmation</button>
+          <button class="ghost-button" type="button" id="adminFreeWelcomeEmailSend" ${cachedFreeWelcomePreview?.sendUnlocked && !cachedFreeWelcomePreview?.alreadySent ? "" : "disabled"}>Send (requires SEND_FREE_USER_WELCOME_EMAIL)</button>
+          <button class="ghost-button" type="button" id="adminFreeWelcomeEmailReport">Refresh post-send report</button>
+        </div>
+        <p class="form-note" id="adminFreeWelcomeEmailMessage">
+          ${cachedFreeWelcomePreview?.alreadySent
+            ? `Already sent ${escapeHtml(cachedFreeWelcomePreview.sentAt || "")}. Duplicate sends are blocked.`
+            : "Review the Final Confirmation Screen above, then type SEND_FREE_USER_WELCOME_EMAIL to send. Nothing has been sent yet."}
         </p>
       </div>
 
@@ -43027,6 +43092,83 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "Founding thank-you send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminFreeWelcomeEmailDryRun")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminFreeWelcomeEmailMessage");
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/free-user-welcome-email/dry-run", {});
+      window.__adminFreeWelcomeEmailPreview = data.preview || null;
+      if (msg) {
+        const count = data.preview?.confirmationScreen?.recipientCount || data.preview?.counts?.recipients || 0;
+        msg.textContent = `Final Confirmation ready: ${count} Free recipients. Review emails + full preview below. Nothing was sent.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Free User dry-run failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminFreeWelcomeEmailReport")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminFreeWelcomeEmailMessage");
+    try {
+      const token = adminSession()?.token;
+      const response = await fetch(`/api/admin/free-user-welcome-email/report?adminToken=${encodeURIComponent(token || "")}&refresh=1`);
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || "Could not load report.");
+      window.__adminFreeWelcomeEmailReport = data.report || null;
+      if (msg) {
+        msg.textContent = `Report refreshed: attempted ${data.report?.totalAttempted || 0}, delivered ${data.report?.totalDelivered || 0}, failed ${data.report?.totalFailed || 0}, bounced ${data.report?.totalBounced || 0}.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Report refresh failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminFreeWelcomeEmailSend")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminFreeWelcomeEmailMessage");
+    const preview = window.__adminFreeWelcomeEmailPreview;
+    if (!preview?.dryRunToken || !preview?.confirmationToken) {
+      if (msg) msg.textContent = "Run Dry-run + Final Confirmation first and review the screen.";
+      return;
+    }
+    const recipientCount = Number(preview.confirmationScreen?.recipientCount || preview.counts?.recipients) || 0;
+    const emails = (preview.confirmationScreen?.recipientEmails || preview.recipients?.map((r) => r.email) || []).slice(0, 40).join("\n");
+    const more = recipientCount > 40 ? `\n…and ${recipientCount - 40} more` : "";
+    const phrase = window.prompt(
+      `FINAL CONFIRMATION\n\nRecipients (${recipientCount}):\n${emails}${more}\n\nSubject: ${preview.confirmationScreen?.subject || preview.email?.subject || ""}\n\nType SEND_FREE_USER_WELCOME_EMAIL to send once.\nMemberships will not be modified.`,
+      "",
+    );
+    if (String(phrase || "").trim() !== "SEND_FREE_USER_WELCOME_EMAIL") {
+      if (msg) msg.textContent = "Send canceled — confirmation phrase did not match.";
+      return;
+    }
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/free-user-welcome-email/send", {
+        confirm: true,
+        confirmPhrase: "SEND_FREE_USER_WELCOME_EMAIL",
+        dryRunToken: preview.dryRunToken,
+        confirmationToken: preview.confirmationToken,
+      });
+      window.__adminFreeWelcomeEmailReport = data.report || data.result?.report || null;
+      if (msg) {
+        const report = window.__adminFreeWelcomeEmailReport || {};
+        msg.textContent = `Post-send: attempted ${report.totalAttempted || data.result?.attempted || 0}, delivered ${report.totalDelivered || data.result?.sent || 0}, failed ${report.totalFailed || data.result?.failed || 0}, bounced ${report.totalBounced || 0}.`;
+      }
+      window.__adminFreeWelcomeEmailPreview = {
+        ...preview,
+        alreadySent: true,
+        sentAt: data.result?.sentAt || "",
+        sendUnlocked: false,
+      };
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Free User welcome send failed.";
     }
     return;
   }

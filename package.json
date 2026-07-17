@@ -108,6 +108,8 @@
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",
     "dry-run:founding-member-email": "node scripts/founding-member-thank-you-dry-run.js",
+    "test:free-user-welcome-email": "NODE_ENV=test node scripts/test-free-user-welcome-email.js",
+    "dry-run:free-user-welcome-email": "node scripts/free-user-welcome-dry-run.js",
     "test:sparse-store-recovery": "NODE_ENV=test node scripts/test-sparse-store-recovery.js",
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
     "test:prod-store-safety-smoke": "node scripts/test-prod-store-safety-smoke.js",
