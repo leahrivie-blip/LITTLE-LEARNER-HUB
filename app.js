@@ -17404,8 +17404,11 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
     }
 
     const budget = y - CONTENT_BOTTOM;
-    const used = measureRows();
-    const extraGap = rows.length > 1 ? Math.max(0, Math.min(10, Math.floor((budget - used) / rows.length))) : 0;
+    const naturalHeights = rows.map((row) => Math.max(...row.map((section) => estimateSectionHeight(section, bodySize))));
+    const naturalTotal = naturalHeights.reduce((sum, h) => sum + h + 5, 0);
+    const leftover = Math.max(0, budget - naturalTotal);
+    // Grow section boxes (not huge gaps) so Page 1 feels filled without empty bands.
+    const growEach = rows.length ? Math.floor(leftover / rows.length) : 0;
 
     const drawSectionBox = (section, x, top, width, height) => {
       const lines = wrapPdfText(section.value, section.chars).slice(0, section.maxLines);
@@ -17416,8 +17419,8 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       writeWrappedInBox(lines.join(" "), x + 6, top - 25, section.chars, lines.length, bodySize, "F1", INK, 1.22);
     };
 
-    rows.forEach((row) => {
-      const height = Math.max(...row.map((section) => estimateSectionHeight(section, bodySize)));
+    rows.forEach((row, rowIndex) => {
+      const height = naturalHeights[rowIndex] + growEach;
       if (y - height < CONTENT_BOTTOM) return;
       if (row.length >= 2) {
         const gap = 8;
@@ -17428,7 +17431,7 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
       } else {
         drawSectionBox(row[0], MARGIN, y, CONTENT_WIDTH, height);
       }
-      y -= height + 6 + extraGap;
+      y -= height + 5;
     });
   };
 
