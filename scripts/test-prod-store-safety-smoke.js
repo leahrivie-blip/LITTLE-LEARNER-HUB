@@ -46,17 +46,19 @@ async function main() {
 
   const storeHealth = await req("GET", "/api/admin/store-health", undefined, token);
   assert.equal(storeHealth.res.status, 200);
-  assert.equal(storeHealth.data.health.counts.users, 52);
+  const userCount = Number(storeHealth.data.health.counts.users || 0);
+  // Directory grew after Firebase/Postgres recovery + new signups (was 52 at earlier checkpoint).
+  assert.ok(userCount >= 52, `expected at least 52 users, got ${userCount}`);
   assert.equal(storeHealth.data.health.counts.foundingMembers, 13);
-  console.log("PASS  store health users=52 founding=13");
+  console.log(`PASS  store health users=${userCount} founding=13`);
 
   const analytics = await req("GET", "/api/admin/analytics", undefined, token);
   assert.equal(analytics.res.status, 200);
   const users = analytics.data.analytics?.users || [];
-  assert.equal(users.length, 52);
+  assert.equal(users.length, userCount);
   const paid = users.filter((u) => u.hasProAccess).length;
   assert.equal(paid, 10);
-  console.log("PASS  admin analytics shows 52 users / 10 paid");
+  console.log(`PASS  admin analytics shows ${users.length} users / ${paid} paid`);
 
   // Public site content still has recovery banner; curriculum lives in admin site-content.
   const site = await req("GET", "/api/site-content");
@@ -83,7 +85,7 @@ async function main() {
       const created = await req("POST", "/api/admin/store-backups", { adminToken: token, source: "post-deploy-verify" });
       assert.equal(created.res.status, 200, JSON.stringify(created.data));
       assert.equal(created.data.result?.ok, true);
-      assert.equal(created.data.result?.counts?.users, 52);
+      assert.ok(Number(created.data.result?.counts?.users || 0) >= 52);
       const id = created.data.result.id;
       const download = await req("GET", `/api/admin/store-backups/download?id=${encodeURIComponent(id)}`, undefined, token);
       assert.equal(download.res.status, 200);
@@ -104,7 +106,7 @@ async function main() {
   } else if (recover.res.status === 200) {
     assert.equal(recover.data.result?.ran, false);
     assert.ok(["already_recovered", "not_sparse"].includes(recover.data.result?.reason));
-    assert.equal(recover.data.health?.counts?.users, 52);
+    assert.ok(Number(recover.data.health?.counts?.users || 0) >= 52);
     console.log("PASS  sparse recovery no-op (pre-confirm-gate deploy or already recovered)", recover.data.result?.reason);
   } else if (recover.res.status === 404) {
     console.log("INFO  recover-sparse-store not deployed");

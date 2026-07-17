@@ -343,7 +343,10 @@ async function main() {
     assert(/Weekly Overview/i.test(locked.body), `locked preview missing weekly overview: ${locked.body.slice(0, 200)}`);
     assert(/Learning Domains|Garden Scientists/i.test(locked.body), `locked preview missing overview metadata: ${locked.body.slice(0, 200)}`);
     assert(/Pro Lesson Plan|Unlock this premium lesson plan/i.test(locked.body), "locked preview missing upgrade card");
-    assert(/Upgrade to Pro/i.test(locked.body + locked.stickyText), "locked preview missing Upgrade to Pro CTA");
+    assert(
+      /Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(locked.body + locked.stickyText),
+      "locked preview missing upgrade/trial CTA",
+    );
     assert(locked.stickyVisible, "mobile sticky upgrade bar should be visible");
     assert(!/fp-locked-activity-list/.test(locked.html), "locked preview must not list activity names");
     assert(!/<label>Weekly Objectives|<label>Materials List|<label>Vocabulary|<label>Books|<label>Songs|<label>Daily Activities/i.test(locked.html), "locked preview leaked premium section fields");
@@ -381,7 +384,10 @@ async function main() {
     assert(/Pro Activity Preview/i.test(lockedActivity.eyebrow), "activity preview missing Pro Activity eyebrow");
     assert(/Activity Type|Sensory Play|From Lesson Plan|Learning Domains/i.test(lockedActivity.body), `activity preview missing overview metadata: ${lockedActivity.body.slice(0, 240)}`);
     assert(/Unlock this premium activity|Pro Activity/i.test(lockedActivity.body), "activity preview missing upgrade card");
-    assert(/Upgrade to Pro/i.test(lockedActivity.body + lockedActivity.stickyText), "activity preview missing Upgrade to Pro CTA");
+    assert(
+      /Upgrade to Pro|Start Your 7-Day Free Trial|Claim Founding/i.test(lockedActivity.body + lockedActivity.stickyText),
+      "activity preview missing upgrade/trial CTA",
+    );
     assert(lockedActivity.stickyVisible, "mobile sticky upgrade bar should be visible for activities");
     assert(!/Children use scoops and magnifying glasses/i.test(lockedActivity.body), "activity preview leaked description");
     assert(!/Invite children to scoop/i.test(lockedActivity.body), "activity preview leaked directions");
