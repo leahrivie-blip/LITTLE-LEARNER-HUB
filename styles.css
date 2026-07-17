@@ -20273,3 +20273,76 @@ canvas {
     min-height: 56px;
   }
 }
+
+
+/* Admin notification center + install / persist helpers */
+.admin-command-center-card {
+  display: grid;
+  gap: 12px;
+  margin: 16px 0 20px;
+  padding: 18px 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(91, 155, 213, 0.12), rgba(248, 250, 255, 0.95));
+  border: 1px solid rgba(91, 155, 213, 0.28);
+}
+.admin-command-center-card h3 { margin: 0.15em 0; }
+.admin-notification-center { margin-top: 8px; }
+.admin-notif-summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.admin-notif-summary strong { font-size: 1.4rem; }
+.admin-notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.admin-notif-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(20, 40, 70, 0.08);
+  background: #fff;
+}
+.admin-notif-item.is-unread {
+  border-color: rgba(91, 155, 213, 0.45);
+  box-shadow: inset 3px 0 0 #5b9bd5;
+}
+.admin-notif-category {
+  display: inline-block;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.7rem;
+  color: #3d6f9c;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+.admin-notif-actions { display: flex; gap: 8px; align-items: flex-start; }
+.nav-badge {
+  margin-left: 6px;
+  min-width: 1.35em;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #d9485f;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.4;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-persist-session { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.auth-persist-hint { margin-top: 4px; }
+.admin-trust-device-row { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0; }
+.install-instructions-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+@media (max-width: 720px) {
+  .admin-notif-item { flex-direction: column; }
+}

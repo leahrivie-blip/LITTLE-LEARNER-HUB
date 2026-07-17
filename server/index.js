@@ -15,6 +15,7 @@ const messagingLib = require("./messaging-lib.js");
 const { createCommsApi } = require("./comms-api.js");
 const commsLib = require("./comms-lib.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
+const adminNotifications = require("./admin-notifications.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -3055,6 +3056,45 @@ function applyCheckoutMembershipUpgrade(email, {
       source,
     },
   });
+  try {
+    const storeForAlert = readStore();
+    const planLabel = user.plan || planConfig[planKey]?.plan || planKey;
+    const isTrial = promoTrialDays > 0 || String(user.stripeSubscriptionStatus || "").toLowerCase() === "trialing";
+    let type = "admin_new_subscription";
+    let title = `New ${planLabel} subscription`;
+    if (planKey === "founding") {
+      type = "admin_new_founding";
+      title = "New Founding Member signup";
+    } else if (planKey === "annual") {
+      type = "admin_new_annual";
+      title = "New Pro Annual signup";
+    } else if (isTrial) {
+      type = "admin_new_trial";
+      title = "New trial started";
+    } else if (planKey === "monthly") {
+      type = "admin_new_pro";
+      title = "New Pro Monthly signup";
+    }
+    emitAdminAlertSafe(storeForAlert, {
+      category: "billing",
+      type,
+      title,
+      preview: `${cleanEmail} · ${planLabel}${isTrial ? " (trial)" : ""}`,
+      email: cleanEmail,
+      refId: subscriptionId || sessionId || `checkout:${cleanEmail}:${Date.now()}`,
+      sendEmail: true,
+      emailKind: "Billing",
+      emailFields: [
+        ["Plan", planLabel],
+        ["Source", source],
+        ["Subscription", subscriptionId || ""],
+      ],
+    }).then(() => {
+      try { writeStore(storeForAlert); } catch { /* ignore */ }
+    }).catch(() => {});
+  } catch (alertError) {
+    console.warn("[admin-notifications] checkout alert failed:", alertError?.message || alertError);
+  }
   logMembershipTransition("permissions_updated", cleanEmail, {
     plan: user.plan,
     membershipStatus: membershipStatusDisplay(user),
@@ -4673,6 +4713,27 @@ async function handleAccountProfileSync(request, response) {
       console.warn("[email-engagement] welcome email failed:", err.message);
     });
   }
+  if (body.signup === true && !existing.signupAt) {
+    const storeForAlert = readStore();
+    emitAdminAlertSafe(storeForAlert, {
+      category: "signup",
+      type: "admin_new_signup",
+      title: "New account created",
+      preview: `${user.name || email} signed up (${user.accountType || "provider"} · ${user.plan || "Free"})`,
+      email,
+      name: user.name || "",
+      refId: `signup:${email}`,
+      sendEmail: true,
+      emailKind: "Signup",
+      emailFields: [
+        ["Account type", user.accountType || ""],
+        ["Role", user.role || ""],
+        ["Plan", user.plan || "Free"],
+      ],
+    }).then(() => {
+      try { writeStore(storeForAlert); } catch { /* ignore */ }
+    }).catch(() => {});
+  }
   jsonResponse(response, 200, {
     ok: true,
     user: {
@@ -4911,6 +4972,54 @@ async function handleAdminLogout(request, response) {
     return;
   }
   jsonResponse(response, 200, { ok: true, revoked });
+}
+
+async function handleAdminNotificationsList(request, response, url) {
+  const token = String(url.searchParams.get("adminToken") || "").trim();
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const category = String(url.searchParams.get("category") || "").trim();
+  const unreadOnly = ["1", "true", "yes"].includes(String(url.searchParams.get("unreadOnly") || "").toLowerCase());
+  const limit = Number(url.searchParams.get("limit") || 100);
+  const items = adminNotifications.listAdminNotifications(store, ADMIN_EMAIL, { category, unreadOnly, limit });
+  const unreadCount = (store.notifications || []).filter(
+    (n) => n && normalizeEmail(n.email) === ADMIN_EMAIL && !n.read,
+  ).length;
+  const byCategory = {};
+  adminNotifications.CATEGORIES.forEach((key) => { byCategory[key] = 0; });
+  items.forEach((item) => {
+    const key = item.category || "system";
+    byCategory[key] = (byCategory[key] || 0) + 1;
+  });
+  jsonResponse(response, 200, {
+    ok: true,
+    unreadCount,
+    categories: adminNotifications.CATEGORIES,
+    byCategory,
+    notifications: items,
+  });
+}
+
+async function handleAdminNotificationsMarkRead(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "").trim();
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const changed = adminNotifications.markAdminNotificationsRead(store, ADMIN_EMAIL, {
+    ids: Array.isArray(body.ids) ? body.ids : [],
+    all: Boolean(body.all),
+  });
+  writeStore(store);
+  const unreadCount = (store.notifications || []).filter(
+    (n) => n && normalizeEmail(n.email) === ADMIN_EMAIL && !n.read,
+  ).length;
+  jsonResponse(response, 200, { ok: true, changed, unreadCount });
 }
 
 async function handleAdminSiteContentSave(request, response) {
@@ -5943,6 +6052,30 @@ async function handleStripeWebhook(request, response) {
         }
         if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
           appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0");
+          const cancelStore = readStore();
+          await emitAdminAlertSafe(cancelStore, {
+            category: "billing",
+            type: "admin_subscription_canceled",
+            title: "Subscription canceled / ended",
+            preview: `${email} · ${saved.subscriptionStatus || "ended"}`,
+            email,
+            refId: subscription.id || `cancel:${email}`,
+            sendEmail: true,
+            emailKind: "Billing",
+          });
+          try { writeStore(cancelStore); } catch { /* ignore */ }
+        } else if (updates.cancelAtPeriodEnd && !user.cancelAtPeriodEnd) {
+          const cancelStore = readStore();
+          await emitAdminAlertSafe(cancelStore, {
+            category: "billing",
+            type: "admin_subscription_canceling",
+            title: "Subscription set to cancel at period end",
+            preview: `${email} · access until ${saved.accessEndsAt || saved.currentPeriodEnd || "period end"}`,
+            email,
+            refId: `canceling:${subscription.id || email}`,
+            sendEmail: false,
+          });
+          try { writeStore(cancelStore); } catch { /* ignore */ }
         }
       } else {
         console.warn(`[membership] webhook ${event.type} unmatched customer=${subscription.customer}`);
@@ -5972,6 +6105,21 @@ async function handleStripeWebhook(request, response) {
               hasProAccess: membershipHasProAccess(synced),
               extra: { source: event.type, invoiceId: invoice.id },
             });
+            // Renewal / successful invoice — skip noisy first checkout duplicates via refId window.
+            const billingReason = String(invoice.billing_reason || "");
+            if (billingReason === "subscription_cycle" || billingReason === "subscription_update") {
+              const renewStore = readStore();
+              await emitAdminAlertSafe(renewStore, {
+                category: "billing",
+                type: "admin_subscription_renewed",
+                title: "Subscription renewed",
+                preview: `${userEntry[0]} · ${synced.plan || "Paid"}`,
+                email: userEntry[0],
+                refId: invoice.id || `renew:${userEntry[0]}`,
+                sendEmail: false,
+              });
+              try { writeStore(renewStore); } catch { /* ignore */ }
+            }
           }
         } catch (syncError) {
           console.warn(`[membership] invoice paid sync failed email=${userEntry[0]}:`, syncError.message);
@@ -6021,6 +6169,19 @@ async function handleStripeWebhook(request, response) {
           hasProAccess: false,
           extra: { invoiceId: invoice.id },
         });
+        const alertStore = readStore();
+        await emitAdminAlertSafe(alertStore, {
+          category: "billing",
+          type: "admin_payment_failed",
+          title: "Payment failed",
+          preview: `${email} — Pro access locked until payment recovers`,
+          email,
+          refId: invoice.id || `payfail:${email}`,
+          sendEmail: true,
+          emailKind: "Billing",
+          emailFields: [["Invoice", invoice.id || ""]],
+        });
+        try { writeStore(alertStore); } catch { /* ignore */ }
       }
     }
 
@@ -8415,6 +8576,24 @@ async function notifySupportTicket(ticket) {
   return sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: ticket.email, subject: email.subject, text: email.text, html: email.html });
 }
 
+function adminAlertDeps() {
+  return {
+    ADMIN_EMAIL,
+    fanOutNotificationsAndPush,
+    notifyAdminEmail: notifyAdmin,
+  };
+}
+
+/** Fire-and-forget admin alert (in-app + push; optional email). Never throws to callers. */
+async function emitAdminAlertSafe(store, opts = {}) {
+  try {
+    return await adminNotifications.emitAdminAlert(store, adminAlertDeps(), opts);
+  } catch (error) {
+    console.warn("[admin-notifications] emit failed:", error?.message || error);
+    return { ok: false, error: error?.message || "emit_failed" };
+  }
+}
+
 async function handleSupportTicketCreate(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -10451,20 +10630,26 @@ async function fanOutNotificationsAndPush(store, {
   conversationEmail = "",
   refId = "",
   senderName = ADMIN_NAME || "Leah",
+  url = "",
+  category = "",
+  deepLink = "",
 }) {
   const uniqueRecipients = [...new Set((recipients || []).map((e) => normalizeEmail(e)).filter(Boolean))];
   const now = new Date().toISOString();
   const notificationByEmail = new Map();
+  const resolvedDeepLink = deepLink || url || "";
   uniqueRecipients.forEach((email) => {
     const notification = {
       id: messagingRandomId("notif"),
       email,
       type,
+      category: category || "",
       title: messagingLib.clampText(title, 200),
       preview: messagingLib.clampText(preview, 240),
       messageId,
       conversationEmail,
       refId,
+      deepLink: resolvedDeepLink,
       createdAt: now,
       read: false,
       readAt: "",
@@ -10514,10 +10699,12 @@ async function fanOutNotificationsAndPush(store, {
         icon: "/images/icons/icon-192.png",
         badge: "/images/icons/badge-72.png",
         data: {
-          url: conversationEmail
-            ? `/?view=messages&conversation=${encodeURIComponent(conversationEmail)}`
-            : "/?view=messages",
+          url: resolvedDeepLink
+            || (conversationEmail
+              ? `/?view=messages&conversation=${encodeURIComponent(conversationEmail)}`
+              : "/?view=messages"),
           type,
+          category: category || "",
         },
       }),
       { batchSize: PUSH_BULK_BATCH_SIZE, batchDelayMs: PUSH_BULK_BATCH_DELAY_MS, maxRecipientsPerSend: PUSH_BULK_MAX_RECIPIENTS },
@@ -10963,26 +11150,16 @@ async function handleMemberMessageReply(request, response) {
   store.messages.unshift(message);
   store.messages = capArray(store.messages, MAX_MESSAGES);
   try {
-    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    const { recordTimeline } = getCommsApi();
     recordTimeline(store, {
       email: identity.email,
       type: "message_sent",
       title: "Message to Leah",
       detail: messageBody.slice(0, 400),
     });
-    notifyAdminsInApp(store, {
-      type: "admin_new_message",
-      title: `Message from ${message.senderName}`,
-      preview: messagePreviewText(messageBody),
-      refId: message.id,
-      conversationEmail: identity.email,
-    }).catch(() => {});
   } catch {}
-  writeStore(store);
 
-  // Admin does not receive push (no admin device model) — the admin dashboard
-  // "conversations" unread count uses this same notification row instead.
-  // Users may start a brand-new thread (no prior admin message); title reflects that.
+  // Single admin alert (deduped) — previously notifyAdminsInApp + fanOut both fired.
   if (ADMIN_EMAIL) {
     const priorAdminMessages = store.messages.filter(
       (m) => m.audience === "private"
@@ -10990,17 +11167,23 @@ async function handleMemberMessageReply(request, response) {
         && m.senderType === "admin"
         && m.id !== message.id,
     );
-    await fanOutNotificationsAndPush(store, {
-      type: "message",
-      recipients: [ADMIN_EMAIL],
+    await emitAdminAlertSafe(store, {
+      category: "messaging",
+      type: priorAdminMessages.length ? "admin_message_reply" : "admin_new_message",
       title: priorAdminMessages.length
         ? `Reply from ${message.senderName}`
         : `New message from ${message.senderName}`,
       preview: messagePreviewText(messageBody),
-      messageId: message.id,
+      email: identity.email,
+      name: message.senderName,
       conversationEmail: identity.email,
+      messageId: message.id,
+      refId: message.id,
+      sendEmail: false,
+      deepLink: `/?view=admin&adminPanel=inbox&adminFocusConversation=${encodeURIComponent(identity.email)}`,
     });
   }
+  writeStore(store);
 
   jsonResponse(response, 200, { ok: true, message: publicMessage(message) });
 }
@@ -12120,6 +12303,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/notifications") return await handleAdminNotificationsList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/notifications/mark-read") return await handleAdminNotificationsMarkRead(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/subscription-refresh") return await handleAdminSubscriptionRefresh(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);

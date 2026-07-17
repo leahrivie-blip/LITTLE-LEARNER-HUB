@@ -2525,8 +2525,19 @@ async function getFirebaseAuthClient() {
     import("https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js"),
   ]);
   const app = initializeApp(firebaseAuthConfig);
+  const auth = authModule.getAuth(app);
+  try {
+    const persist = memberWantsPersistentSession()
+      ? authModule.browserLocalPersistence
+      : authModule.browserSessionPersistence;
+    if (persist && typeof authModule.setPersistence === "function") {
+      await authModule.setPersistence(auth, persist);
+    }
+  } catch (persistError) {
+    console.warn("Firebase persistence preference could not be applied", persistError);
+  }
   firebaseAuthClient = {
-    auth: authModule.getAuth(app),
+    auth,
     ...authModule,
   };
   return firebaseAuthClient;
@@ -2541,27 +2552,61 @@ async function localPasswordHash(password) {
 }
 
 const LLH_MEMBER_SESSION_KEY = "llhMemberSessionToken";
+const LLH_MEMBER_PERSIST_FLAG = "llhMemberPersistSession";
+
+function memberWantsPersistentSession() {
+  try {
+    const checkbox = document.querySelector("#keepSignedInInput");
+    if (checkbox) return Boolean(checkbox.checked);
+    const stored = localStorage.getItem(LLH_MEMBER_PERSIST_FLAG);
+    if (stored === "0" || stored === "false") return false;
+    return true; // default: keep signed in on personal devices / PWA
+  } catch {
+    return true;
+  }
+}
+
+function setMemberPersistPreference(persist) {
+  try {
+    localStorage.setItem(LLH_MEMBER_PERSIST_FLAG, persist ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
 
 function readMemberSessionToken() {
   try {
+    const fromLocal = String(localStorage.getItem(LLH_MEMBER_SESSION_KEY) || "").trim();
+    if (fromLocal) return fromLocal;
     return String(sessionStorage.getItem(LLH_MEMBER_SESSION_KEY) || "").trim();
   } catch {
     return "";
   }
 }
 
-function writeMemberSessionToken(token) {
+function writeMemberSessionToken(token, options = {}) {
   try {
     const clean = String(token || "").trim();
-    if (clean) sessionStorage.setItem(LLH_MEMBER_SESSION_KEY, clean);
-    else sessionStorage.removeItem(LLH_MEMBER_SESSION_KEY);
+    const persist = typeof options.persist === "boolean" ? options.persist : memberWantsPersistentSession();
+    setMemberPersistPreference(persist);
+    sessionStorage.removeItem(LLH_MEMBER_SESSION_KEY);
+    localStorage.removeItem(LLH_MEMBER_SESSION_KEY);
+    if (!clean) return;
+    if (persist) localStorage.setItem(LLH_MEMBER_SESSION_KEY, clean);
+    else sessionStorage.setItem(LLH_MEMBER_SESSION_KEY, clean);
   } catch {
     // ignore storage failures
   }
 }
 
 function clearMemberSessionToken() {
-  writeMemberSessionToken("");
+  writeMemberSessionToken("", { persist: false });
+  try {
+    localStorage.removeItem(LLH_MEMBER_SESSION_KEY);
+    sessionStorage.removeItem(LLH_MEMBER_SESSION_KEY);
+  } catch {
+    // ignore
+  }
 }
 
 function accountRequiresPasswordChange(account = currentAccount()) {
@@ -8919,7 +8964,7 @@ async function loginWithServerPassword(email, password) {
     tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
     authProvider: firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication",
   });
-  writeMemberSessionToken(data.memberSessionToken || "");
+  writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
     email: cleanEmail,
     verified: true,
@@ -8933,6 +8978,8 @@ async function loginWithProvider(email, password) {
   if (!cleanEmail) throw new Error("Please enter your email address.");
   if (firebaseAuthEnabled) {
     try {
+      // Re-resolve client so Keep me signed in applies the right Firebase persistence.
+      firebaseAuthClient = null;
       const client = await getFirebaseAuthClient();
       const credential = await client.signInWithEmailAndPassword(client.auth, cleanEmail, password);
       clearMemberSessionToken();
@@ -8989,7 +9036,7 @@ async function completeForcedPasswordChange(newPassword, confirmPassword) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Could not update your password.");
-  writeMemberSessionToken(data.memberSessionToken || "");
+  writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   updateAccount(currentUser, {
     mustChangePassword: false,
     serverPasswordAuth: true,
@@ -9238,33 +9285,37 @@ function canTriggerInstallPrompt() {
 }
 
 function shouldShowInstallPromptCard() {
-  if (!currentUser || isStandaloneDisplayMode()) return false;
+  if (isStandaloneDisplayMode()) return false;
   const state = installPromptState();
   if (state.installedAt) return false;
   if (state.deferredUntil && new Date(state.deferredUntil).getTime() > Date.now()) return false;
+  // Show for signed-in users always; guests see it once they visit Calendar/homepage install surfaces.
   return true;
 }
 
 function installInstructionsMarkup() {
   const autoPromptText = canTriggerInstallPrompt()
-    ? `<p>Your device supports the browser install prompt, so you can use the button below for the fastest setup.</p>`
-    : `<p>If your browser does not show an install prompt automatically, use the steps below for your device.</p>`;
+    ? `<p>Your browser can install Little Learner Hub like an app. Tap <strong>Install</strong> below for the fastest setup.</p>`
+    : `<p>Use the steps for your device. After install, you can stay signed in and turn on notifications.</p>`;
   const deviceHint = isIosDevice() && isSafariBrowser()
-    ? `<p><strong>You&rsquo;re on iPhone/iPad Safari.</strong> Use the Share button, then choose <strong>Add to Home Screen</strong>.</p>`
-    : isAndroidDevice()
-      ? `<p><strong>You&rsquo;re on Android.</strong> Open the browser menu and choose <strong>Install App</strong> or <strong>Add to Home Screen</strong>.</p>`
-      : `<p><strong>Tip:</strong> Install works best in Safari on iPhone and Chrome on Android.</p>`;
+    ? `<p><strong>You&rsquo;re on iPhone/iPad Safari.</strong> Use Share → <strong>Add to Home Screen</strong>. Push notifications work after the app is installed (iOS 16.4+).</p>`
+    : isIosDevice()
+      ? `<p><strong>iPhone/iPad:</strong> Open this site in <strong>Safari</strong> (not Chrome), then Share → Add to Home Screen.</p>`
+      : isAndroidDevice()
+        ? `<p><strong>You&rsquo;re on Android.</strong> Use Install App / Add to Home Screen, then allow notifications if you want alerts.</p>`
+        : `<p><strong>Desktop Chrome or Edge:</strong> Use the install icon in the address bar, or the Install button below.</p>`;
   return `
     ${autoPromptText}
     ${deviceHint}
     <div class="install-instructions-grid">
       <div class="install-instructions-card">
-        <h3>iPhone (Safari)</h3>
+        <h3>iPhone &amp; iPad (Safari)</h3>
         <ol>
-          <li>Open Little Learner Hub in Safari.</li>
-          <li>Tap the Share button.</li>
-          <li>Tap Add to Home Screen.</li>
-          <li>Tap Add.</li>
+          <li>Open <strong>littlelearnershubbyleah.com</strong> in Safari.</li>
+          <li>Tap the <strong>Share</strong> button (square with arrow).</li>
+          <li>Scroll and tap <strong>Add to Home Screen</strong>.</li>
+          <li>Tap <strong>Add</strong>.</li>
+          <li>Open the LLH icon — stay signed in, then enable notifications in Messages → Notification Settings.</li>
         </ol>
       </div>
       <div class="install-instructions-card">
@@ -9272,8 +9323,18 @@ function installInstructionsMarkup() {
         <ol>
           <li>Open Little Learner Hub in Chrome.</li>
           <li>Tap the three-dot menu.</li>
-          <li>Tap Install App or Add to Home Screen.</li>
-          <li>Confirm installation.</li>
+          <li>Tap <strong>Install App</strong> or <strong>Add to Home Screen</strong>.</li>
+          <li>Confirm, then open from your home screen.</li>
+          <li>Allow notifications when you want instant alerts.</li>
+        </ol>
+      </div>
+      <div class="install-instructions-card">
+        <h3>Desktop (Chrome / Edge)</h3>
+        <ol>
+          <li>Open Little Learner Hub in Chrome or Edge.</li>
+          <li>Click the install icon in the address bar, or use <strong>Install</strong> below.</li>
+          <li>Pin the app for quick Admin and Messages access.</li>
+          <li>Keep &ldquo;Keep me signed in&rdquo; on for this private computer.</li>
         </ol>
       </div>
     </div>
@@ -10574,6 +10635,131 @@ function updateAdminNavVisibility() {
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
   });
+  refreshAdminNavBadge();
+}
+
+let adminNotificationState = { items: [], unreadCount: 0, loaded: false, category: "" };
+
+function refreshAdminNavBadge() {
+  const badge = document.querySelector("#adminNavBadge");
+  if (!badge) return;
+  const count = Number(adminNotificationState.unreadCount || 0);
+  const show = canSeeAdminNav() && isAdminUnlocked() && count > 0;
+  badge.hidden = !show;
+  badge.textContent = count > 99 ? "99+" : String(count);
+}
+
+async function fetchAdminNotificationCenter(options = {}) {
+  if (!isAdminUnlocked() || !canUseLaunchBackend()) {
+    adminNotificationState = { items: [], unreadCount: 0, loaded: true, category: options.category || "" };
+    refreshAdminNavBadge();
+    return adminNotificationState;
+  }
+  const token = adminSession()?.token || "";
+  if (!token) return adminNotificationState;
+  const category = typeof options.category === "string"
+    ? options.category
+    : (document.querySelector("#adminNotifCategoryFilter")?.value || adminNotificationState.category || "");
+  const params = new URLSearchParams({ adminToken: token, limit: "100" });
+  if (category) params.set("category", category);
+  try {
+    const response = await fetch(`/api/admin/notifications?${params.toString()}`, { cache: "no-store" });
+    const data = await assertAdminApiResponse(response, "Admin notifications");
+    adminNotificationState = {
+      items: Array.isArray(data.notifications) ? data.notifications : [],
+      unreadCount: Number(data.unreadCount) || 0,
+      loaded: true,
+      category,
+      byCategory: data.byCategory || {},
+    };
+  } catch (error) {
+    console.warn("Admin notifications fetch failed", error);
+    adminNotificationState.loaded = true;
+  }
+  refreshAdminNavBadge();
+  return adminNotificationState;
+}
+
+function renderAdminNotificationCenter() {
+  const panel = document.querySelector("#adminNotificationsPanel");
+  const target = document.querySelector("#adminNotificationCenter");
+  if (!panel || !target) return;
+  panel.hidden = !isAdminUnlocked();
+  if (!isAdminUnlocked()) return;
+  const items = adminNotificationState.items || [];
+  if (!adminNotificationState.loaded) {
+    target.innerHTML = `<p class="muted-copy">Loading owner alerts…</p>`;
+    return;
+  }
+  if (!items.length) {
+    target.innerHTML = `<p class="muted-copy">No admin notifications yet. New signups, messages, billing events, and support tickets will appear here.</p>`;
+    return;
+  }
+  target.innerHTML = `
+    <div class="admin-notif-summary">
+      <strong>${escapeHtml(String(adminNotificationState.unreadCount || 0))}</strong>
+      <span>unread owner alerts</span>
+    </div>
+    <ul class="admin-notif-list">
+      ${items.map((n) => `
+        <li class="admin-notif-item ${n.read ? "is-read" : "is-unread"}" data-admin-notif-id="${escapeHtml(n.id)}">
+          <div class="admin-notif-main">
+            <span class="admin-notif-category">${escapeHtml(n.category || "system")}</span>
+            <strong>${escapeHtml(n.title || "Alert")}</strong>
+            <p>${escapeHtml(n.preview || "")}</p>
+            <small>${escapeHtml(n.createdAt ? new Date(n.createdAt).toLocaleString() : "")}</small>
+          </div>
+          <div class="admin-notif-actions">
+            <button type="button" class="ghost-button" data-admin-notif-open="${escapeHtml(n.id)}">Open</button>
+            ${n.read ? "" : `<button type="button" class="ghost-button" data-admin-notif-read="${escapeHtml(n.id)}">Mark read</button>`}
+          </div>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+async function markAdminNotificationsRead(ids = [], all = false) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  const response = await fetch("/api/admin/notifications/mark-read", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, ids, all }),
+  });
+  await assertAdminApiResponse(response, "Mark admin notifications read");
+  await fetchAdminNotificationCenter();
+  renderAdminNotificationCenter();
+}
+
+function openAdminNotificationTarget(notification) {
+  if (!notification) return;
+  const email = String(notification.conversationEmail || "").trim();
+  const category = String(notification.category || "");
+  if (category === "messaging" && email && typeof openAdminConversation === "function") {
+    setView("admin");
+    openAdminConversation(email).catch(() => {});
+    return;
+  }
+  if (category === "support") {
+    setView("admin");
+    document.querySelector(".admin-ticket-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (notification.deepLink) {
+    const url = new URL(notification.deepLink, window.location.origin);
+    if (url.searchParams.get("view") === "admin") {
+      setView("admin");
+      const focusEmail = url.searchParams.get("adminFocusEmail") || url.searchParams.get("adminFocusConversation");
+      if (focusEmail && typeof openAdminConversation === "function" && category === "messaging") {
+        openAdminConversation(focusEmail).catch(() => {});
+      }
+      document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+  }
+  setView("admin");
+  document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function rememberAdminDevice() {
@@ -19676,15 +19862,16 @@ function renderManagedAnnouncementBanner() {
 function platformInstallCardMarkup(source = "calendar") {
   if (!shouldShowInstallPromptCard()) return "";
   const sourceKey = String(source || "calendar").trim() || "calendar";
+  const audience = currentUser ? "your day" : "your account";
   return `
     <section class="section-block dashboard-install-card platform-install-card" data-install-card-source="${escapeHtml(sourceKey)}">
       <div class="dashboard-install-copy">
-        <p class="eyebrow">📱 Install Little Learner Hub</p>
-        <h3>Add Little Learner Hub to your Home Screen</h3>
-        <p>Add Little Learner Hub to your Home Screen for faster access. It works like an app, keeps you signed in, and makes documenting throughout the day even easier.</p>
+        <p class="eyebrow">Install the app</p>
+        <h3>Add to Home Screen</h3>
+        <p>Install Little Learner Hub like a real app on your phone, tablet, or computer. Stay signed in, open faster, and get notifications for ${escapeHtml(audience)}.</p>
       </div>
       <div class="dashboard-install-actions">
-        <button class="primary-button" data-install-app="${escapeHtml(sourceKey)}" type="button">Add to Home Screen</button>
+        <button class="primary-button" data-install-app="${escapeHtml(sourceKey)}" type="button">${canTriggerInstallPrompt() ? "Install App" : "Add to Home Screen"}</button>
         <button class="ghost-button" data-install-later="${escapeHtml(sourceKey)}" type="button">Maybe Later</button>
       </div>
     </section>
@@ -32627,11 +32814,13 @@ function setAdminSession(sessionDetail) {
     token: sessionDetail?.token || "",
     mode: sessionDetail?.mode || "server",
     loggedInAt: new Date().toISOString(),
+    trustedDevice: sessionDetail?.trustedDevice !== false,
   };
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
   localStorage.setItem("llhAdminRememberEmail", session.email);
-  rememberAdminDevice();
+  if (session.trustedDevice) rememberAdminDevice();
+  else clearRememberedAdminDevice();
   adminSessionInvalidOnServer = false;
   adminAnalyticsLastError = "";
   if (!localStorage.getItem("llhAdminPreviewMode")) {
@@ -33133,10 +33322,25 @@ function renderAdminOwnerOverview() {
         <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. ${escapeHtml(loadingNote)}</p>
       </div>
       <div class="account-actions-row">
+        <button class="primary-button" type="button" id="adminOpenNotificationsButton">Notifications${adminNotificationState.unreadCount ? ` (${adminNotificationState.unreadCount})` : ""}</button>
         <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
     </div>
+    <section class="admin-command-center-card" aria-label="Admin quick launch">
+      <div>
+        <p class="eyebrow">Quick launch</p>
+        <h3>Admin command center</h3>
+        <p>Jump to alerts, inbox, users, and billing without hunting through panels. Unread owner alerts: <strong>${escapeHtml(String(adminNotificationState.unreadCount || 0))}</strong></p>
+      </div>
+      <div class="account-actions-row">
+        <button class="primary-button" type="button" data-admin-quick="notifications">Notification Center</button>
+        <button class="ghost-button" type="button" data-admin-quick="inbox">Inbox</button>
+        <button class="ghost-button" type="button" data-admin-quick="users">Users</button>
+        <button class="ghost-button" type="button" data-admin-quick="billing">Billing</button>
+        <button class="ghost-button" type="button" data-admin-quick="install">Install app tips</button>
+      </div>
+    </section>
     ${adminAnalyticsLoading && !adminAnalyticsCache ? `
       <div class="admin-analytics-state is-loading" role="status" data-admin-analytics-state="loading">
         <p><strong>Loading live production data…</strong></p>
@@ -33441,8 +33645,12 @@ function renderAdminAccessShell() {
             Admin Access Code
             <input name="adminCode" type="password" required placeholder="Enter owner code" autocomplete="off" />
           </label>
+          <label class="checkbox-row admin-trust-device-row">
+            <input type="checkbox" name="trustDevice" id="adminTrustDeviceInput" checked />
+            <span>Trust this device — keep Admin unlocked on this phone, tablet, or computer</span>
+          </label>
           <button class="primary-button" type="submit">Unlock Admin</button>
-          <p class="form-note">Once unlocked, Admin stays signed in on this browser across refreshes and provider sign-out. Use <strong>Lock Admin</strong> only when you want to clear owner access. Bookmark <code>/admin</code> if the sidebar link is ever missing.</p>
+          <p class="form-note">On a trusted private device, Admin stays signed in across refreshes, browser restarts, and the home-screen app. Use <strong>Lock Admin</strong> to revoke this device. Turn off Trust on shared computers. Bookmark <code>/admin</code> or use the installed-app Admin shortcut if the sidebar link is ever missing.</p>
           <span id="adminUnlockMessage" class="form-message"></span>
         </form>
         ${canUseSignedInOwnerAdmin() ? `
@@ -38080,11 +38288,26 @@ function renderAdminDashboard() {
     </tr>
   `;
   renderAdminOwnerOverview();
+  renderAdminNotificationCenter();
   renderAdminAnalytics();
   renderLaunchReadiness();
   renderAdminTickets();
   renderAdminAiTestCenter();
   applyAdminSectionVisibility();
+  if (isAdminUnlocked() && canUseLaunchBackend()) {
+    fetchAdminNotificationCenter()
+      .then(() => {
+        renderAdminNotificationCenter();
+        refreshAdminNavBadge();
+        const openBtn = document.querySelector("#adminOpenNotificationsButton");
+        if (openBtn) {
+          openBtn.textContent = adminNotificationState.unreadCount
+            ? `Notifications (${adminNotificationState.unreadCount})`
+            : "Notifications";
+        }
+      })
+      .catch(() => {});
+  }
 }
 
 function adminRow(item) {
@@ -46584,6 +46807,68 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const adminQuick = event.target.closest("[data-admin-quick]");
+  if (adminQuick && isAdminUnlocked()) {
+    event.preventDefault();
+    const action = adminQuick.getAttribute("data-admin-quick") || "";
+    if (action === "notifications" || action === "install") {
+      document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (action === "install" && typeof openInstallAppModal === "function") openInstallAppModal("admin-quick");
+      else fetchAdminNotificationCenter().then(() => renderAdminNotificationCenter());
+      return;
+    }
+    if (action === "inbox") {
+      document.querySelector("#adminInboxApp")?.closest(".section-block")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "users") {
+      document.querySelector("#adminOwnerInventory")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (action === "billing") {
+      document.querySelector("#adminOwnerBilling")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+  }
+
+  if (event.target.closest("#adminOpenNotificationsButton") && isAdminUnlocked()) {
+    event.preventDefault();
+    document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    fetchAdminNotificationCenter().then(() => renderAdminNotificationCenter());
+    return;
+  }
+
+  if (event.target.closest("#adminNotifRefresh") && isAdminUnlocked()) {
+    event.preventDefault();
+    fetchAdminNotificationCenter().then(() => renderAdminNotificationCenter());
+    return;
+  }
+
+  if (event.target.closest("#adminNotifMarkAllRead") && isAdminUnlocked()) {
+    event.preventDefault();
+    markAdminNotificationsRead([], true).catch((error) => console.warn(error));
+    return;
+  }
+
+  const adminNotifRead = event.target.closest("[data-admin-notif-read]");
+  if (adminNotifRead && isAdminUnlocked()) {
+    event.preventDefault();
+    markAdminNotificationsRead([adminNotifRead.getAttribute("data-admin-notif-read")], false).catch((error) => console.warn(error));
+    return;
+  }
+
+  const adminNotifOpen = event.target.closest("[data-admin-notif-open]");
+  if (adminNotifOpen && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = adminNotifOpen.getAttribute("data-admin-notif-open");
+    const notification = (adminNotificationState.items || []).find((item) => item.id === id);
+    if (notification && !notification.read) {
+      markAdminNotificationsRead([id], false).catch(() => {});
+    }
+    openAdminNotificationTarget(notification);
+    return;
+  }
+
   const adminReunlockButton = event.target.closest("[data-admin-reunlock]");
   if (adminReunlockButton) {
     event.preventDefault();
@@ -47871,14 +48156,16 @@ document.addEventListener("submit", async (event) => {
     message.classList.add("success");
   }
   try {
+    const trustDevice = form.get("trustDevice") !== null;
     const session = await adminLogin(email, password, code);
-    setAdminSession(session);
-    trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server" });
+    setAdminSession({ ...session, trustedDevice: trustDevice });
+    trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
     await loadAdminSiteContent().catch(() => {});
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     adminAnalyticsCache = null;
     renderAdminDashboard();
     await loadAdminAnalyticsFromBackend({ force: true });
+    await fetchAdminNotificationCenter().catch(() => {});
     renderAdminDashboard();
     return;
   } catch (error) {
@@ -48745,6 +49032,12 @@ document.querySelector("#adminAddDemo")?.addEventListener("click", () => {
 document.querySelector("#adminSearchInput")?.addEventListener("input", renderAdminDashboard);
 
 document.querySelector("#adminCategoryFilter")?.addEventListener("change", renderAdminDashboard);
+document.querySelector("#adminNotifCategoryFilter")?.addEventListener("change", () => {
+  fetchAdminNotificationCenter({ category: document.querySelector("#adminNotifCategoryFilter")?.value || "" })
+    .then(() => renderAdminNotificationCenter())
+    .catch(() => {});
+});
+
 
 document.querySelector("#demoAccountButton")?.addEventListener("click", () => {
   loadAccountState("demo@littlelearnerhub.com");
@@ -50195,6 +50488,7 @@ function initialViewFromLocation() {
   // notificationclick) and by "Open Little Learner Hub" copy — routes
   // straight to the right conversation/tab instead of the default landing.
   if (params.get("view") === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
+  if (params.get("view") === "admin" && (canSeeAdminNav() || isAdminUnlocked() || hasAdminFullAccess())) return "admin";
   const pathView = adRouteMap[window.location.pathname];
   const hashView = adRouteMap[window.location.hash];
   return pathView || hashView || "home";
