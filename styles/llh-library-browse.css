@@ -553,7 +553,7 @@ body.activities-view .mobile-brand {
 .browse-card {
   position: relative;
   flex: 0 0 auto;
-  width: min(220px, 72vw);
+  width: min(240px, 74vw);
   max-width: calc(100vw - 48px);
   scroll-snap-align: start;
   display: grid;
@@ -604,9 +604,63 @@ body.activities-view .mobile-brand {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(42, 42, 53, 0.18) 0%, transparent 42%, rgba(42, 42, 53, 0.06));
+  background: linear-gradient(180deg, rgba(20, 24, 40, 0.18) 0%, transparent 38%, rgba(20, 24, 40, 0.08) 55%, rgba(20, 24, 40, 0.78) 100%);
   pointer-events: none;
   z-index: 1;
+}
+
+.browse-card-cover-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 4px;
+  padding: 28px 12px 12px;
+  color: #fff;
+  pointer-events: none;
+}
+
+.browse-card-age {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 1px 4px rgba(20, 24, 40, 0.18);
+}
+
+.browse-card-title-overlay {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.browse-card-activity-count {
+  margin: 0;
+  font-size: 0.74rem;
+  font-weight: 650;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .lesson-plan-card__cover,
@@ -822,7 +876,19 @@ body.activities-view .mobile-brand {
 /* Lesson plan cards in browse mode — keep existing class for tests */
 .lesson-plan-card.browse-card {
   min-height: 0;
-  max-height: 318px;
+  max-height: none;
+}
+
+.lesson-plan-card.browse-card.netflix-cover-card {
+  grid-template-rows: auto auto;
+}
+
+.lesson-plan-card.browse-card.netflix-cover-card .browse-card-cover {
+  min-height: 132px;
+}
+
+.lesson-plan-card.browse-card.netflix-cover-card .browse-card-always-actions {
+  padding: 10px 12px 12px;
 }
 
 .lesson-plan-card.browse-card .lesson-plan-card-top {
@@ -873,8 +939,9 @@ body.activities-view .mobile-brand {
   filter: saturate(0.85);
 }
 
-.browse-card.locked .browse-card-body h3 {
-  opacity: 0.85;
+.browse-card.locked .browse-card-body h3,
+.browse-card.locked .browse-card-title-overlay {
+  opacity: 0.9;
 }
 
 /* Prevent page-level horizontal scroll from browse rows */
@@ -894,23 +961,23 @@ body.activities-view .mobile-brand {
 /* Responsive card widths */
 @media (min-width: 768px) {
   .browse-card {
-    width: min(200px, 28vw);
+    width: min(220px, 30vw);
   }
 }
 
 @media (min-width: 1024px) {
   .browse-card {
-    width: 196px;
+    width: 220px;
   }
 
   .library-browse-shell.is-filtered-grid {
-    grid-template-columns: repeat(auto-fill, minmax(196px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
   }
 }
 
 @media (min-width: 1280px) {
   .browse-card {
-    width: 210px;
+    width: 236px;
   }
 }
 

@@ -87,15 +87,16 @@
     const savedClass = plan.favorite ? "is-saved" : "";
     const star = plan.favorite ? "★" : "☆";
     return `
-      <article class="browse-card" data-plan="${plan.id}">
+      <article class="browse-card netflix-cover-card" data-plan="${plan.id}">
         <div class="browse-card-cover">
           <img src="${plan.cover}" alt="Cover for ${plan.title}" width="480" height="270" loading="eager" decoding="async" />
           <span class="browse-card-badge ${badgeClass}">${plan.badge}</span>
           <button class="browse-card-save ${savedClass}" type="button" aria-label="Favorite" tabindex="-1">${star}</button>
-        </div>
-        <div class="browse-card-body">
-          <h3>${plan.title}</h3>
-          <p class="browse-card-meta">${plan.age} · ${plan.activities} Activities</p>
+          <div class="browse-card-cover-overlay">
+            <span class="browse-card-age">${plan.age}</span>
+            <h3 class="browse-card-title-overlay">${plan.title}</h3>
+            <p class="browse-card-activity-count">${plan.activities} Activities</p>
+          </div>
         </div>
         <div class="browse-card-actions">
           <button class="browse-use-plan" type="button" tabindex="-1">Use This Plan</button>

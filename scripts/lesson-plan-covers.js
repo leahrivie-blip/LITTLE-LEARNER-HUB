@@ -1,5 +1,5 @@
 /**
- * Lesson plan cover resolver — theme mapping + age fallbacks.
+ * Lesson plan cover resolver — plan catalog + theme mapping + age fallbacks.
  * Browser: globalThis.LlhLessonPlanCovers
  * Node: module.exports
  */
@@ -14,6 +14,11 @@
     toddler: `${COVER_BASE}/generic-toddler.svg`,
     preschool: `${COVER_BASE}/generic-preschool.svg`,
   };
+
+  // Catalog of unique photographic/illustration covers for every seeded plan.
+  // Browser: optional global; Node: require sibling module.
+  const catalogApi = (typeof globalThis !== "undefined" && globalThis.LlhLessonPlanCoverCatalog)
+    || (typeof require === "function" ? require("./lesson-plan-cover-catalog.js") : null);
 
   // Most-specific phrases first (multi-word before single-word).
   const THEME_COVER_RULES = [
@@ -58,46 +63,91 @@
     { match: ["holiday", "easter", "july", "new year", "christmas", "halloween"], cover: "seasons" },
   ];
 
-  const EXISTING_COVER_LIBRARY = [
+  // Theme-rule SVG slugs → preferred illustrated JPG slugs when available.
+  const THEME_PHOTO_ALIASES = {
+    "around-the-world": "around-the-world",
+    farm: "farm-animals",
+    ocean: "ocean-explorers",
+    dinosaurs: "dinosaur-discovery",
+    space: "space-adventure",
+    pirates: "pirate-adventure",
+    insects: "bugs-butterflies",
+    building: "construction-crew",
+    "community-helpers": "community-helpers",
+    "five-senses": "five-senses",
+    "fairy-tales": "fairy-tales",
+    "healthy-habits": "healthy-habits",
+    "kindergarten-readiness": "kindergarten-readiness",
+    weather: "weather-watchers",
+    transportation: "transportation",
+    colors: "colors-everywhere",
+    shapes: "shapes-around-us",
+    seasons: "seasons-year",
+    feelings: "feelings-emotions",
+    garden: "gardening-plants",
+    animals: "zoo-adventure",
+    family: "all-about-me",
+    nature: "camping-adventure",
+    "water-play": "water-play-wonders",
+    "baby-sounds": "animal-sounds",
+  };
+
+  const PHOTO_SLUGS = new Set([
+    ...(catalogApi?.PLAN_COVERS || []).map((entry) => entry.slug),
+    ...Object.values(THEME_PHOTO_ALIASES),
+  ]);
+
+  const SVG_COVER_LIBRARY = [
     { id: "colors", label: "Colors & Art", category: "General Curriculum", path: `${COVER_BASE}/colors.svg` },
     { id: "reaching-grasping", label: "Reaching & Grasping", category: "Infant Development", path: `${COVER_BASE}/reaching-grasping.svg` },
-    { id: "around-the-world", label: "Around the World", category: "Community", path: `${COVER_BASE}/around-the-world.svg` },
-    { id: "farm", label: "Farm Friends", category: "Animals", path: `${COVER_BASE}/farm.svg` },
+    { id: "around-the-world-svg", label: "Around the World (SVG)", category: "Community", path: `${COVER_BASE}/around-the-world.svg` },
+    { id: "farm", label: "Farm Friends (SVG)", category: "Animals", path: `${COVER_BASE}/farm.svg` },
     { id: "animals", label: "Animals", category: "Animals", path: `${COVER_BASE}/animals.svg` },
-    { id: "ocean", label: "Ocean Explorers", category: "Nature", path: `${COVER_BASE}/ocean.svg` },
-    { id: "dinosaurs", label: "Dinosaurs", category: "Imaginative Play", path: `${COVER_BASE}/dinosaurs.svg` },
-    { id: "space", label: "Space Adventure", category: "STEM", path: `${COVER_BASE}/space.svg` },
-    { id: "pirates", label: "Pirate Adventure", category: "Imaginative Play", path: `${COVER_BASE}/pirates.svg` },
-    { id: "weather", label: "Weather Watchers", category: "Nature", path: `${COVER_BASE}/weather.svg` },
-    { id: "transportation", label: "Transportation", category: "Transportation", path: `${COVER_BASE}/transportation.svg` },
+    { id: "ocean", label: "Ocean Explorers (SVG)", category: "Nature", path: `${COVER_BASE}/ocean.svg` },
+    { id: "dinosaurs", label: "Dinosaurs (SVG)", category: "Imaginative Play", path: `${COVER_BASE}/dinosaurs.svg` },
+    { id: "space", label: "Space Adventure (SVG)", category: "STEM", path: `${COVER_BASE}/space.svg` },
+    { id: "pirates", label: "Pirate Adventure (SVG)", category: "Imaginative Play", path: `${COVER_BASE}/pirates.svg` },
+    { id: "weather", label: "Weather Watchers (SVG)", category: "Nature", path: `${COVER_BASE}/weather.svg` },
+    { id: "transportation-svg", label: "Transportation (SVG)", category: "Transportation", path: `${COVER_BASE}/transportation.svg` },
     { id: "music", label: "Music", category: "Music and Movement", path: `${COVER_BASE}/music.svg` },
     { id: "music-movement", label: "Music & Movement", category: "Music and Movement", path: `${COVER_BASE}/music-movement.svg` },
-    { id: "five-senses", label: "Five Senses", category: "Health and Self", path: `${COVER_BASE}/five-senses.svg` },
-    { id: "shapes", label: "Shapes", category: "General Curriculum", path: `${COVER_BASE}/shapes.svg` },
+    { id: "five-senses-svg", label: "Five Senses (SVG)", category: "Health and Self", path: `${COVER_BASE}/five-senses.svg` },
+    { id: "shapes", label: "Shapes (SVG)", category: "General Curriculum", path: `${COVER_BASE}/shapes.svg` },
     { id: "nature", label: "Nature Explorers", category: "Nature", path: `${COVER_BASE}/nature.svg` },
-    { id: "garden", label: "Garden", category: "Nature", path: `${COVER_BASE}/garden.svg` },
-    { id: "insects", label: "Insects & Bugs", category: "Animals", path: `${COVER_BASE}/insects.svg` },
+    { id: "garden", label: "Garden (SVG)", category: "Nature", path: `${COVER_BASE}/garden.svg` },
+    { id: "insects", label: "Insects & Bugs (SVG)", category: "Animals", path: `${COVER_BASE}/insects.svg` },
     { id: "family", label: "Family & Belonging", category: "Health and Self", path: `${COVER_BASE}/family.svg` },
-    { id: "feelings", label: "Feelings & Emotions", category: "Health and Self", path: `${COVER_BASE}/feelings.svg` },
+    { id: "feelings", label: "Feelings & Emotions (SVG)", category: "Health and Self", path: `${COVER_BASE}/feelings.svg` },
     { id: "my-body", label: "My Body", category: "Health and Self", path: `${COVER_BASE}/my-body.svg` },
-    { id: "community-helpers", label: "Community Helpers", category: "Community", path: `${COVER_BASE}/community-helpers.svg` },
+    { id: "community-helpers-svg", label: "Community Helpers (SVG)", category: "Community", path: `${COVER_BASE}/community-helpers.svg` },
     { id: "building", label: "Building & Blocks", category: "STEM", path: `${COVER_BASE}/building.svg` },
-    { id: "fairy-tales", label: "Fairy Tales", category: "Imaginative Play", path: `${COVER_BASE}/fairy-tales.svg` },
-    { id: "healthy-habits", label: "Healthy Habits", category: "Health and Self", path: `${COVER_BASE}/healthy-habits.svg` },
-    { id: "seasons", label: "Seasons", category: "Seasonal", path: `${COVER_BASE}/seasons.svg` },
-    { id: "kindergarten-readiness", label: "Kindergarten Readiness", category: "General Curriculum", path: `${COVER_BASE}/kindergarten-readiness.svg` },
+    { id: "fairy-tales-svg", label: "Fairy Tales (SVG)", category: "Imaginative Play", path: `${COVER_BASE}/fairy-tales.svg` },
+    { id: "healthy-habits-svg", label: "Healthy Habits (SVG)", category: "Health and Self", path: `${COVER_BASE}/healthy-habits.svg` },
+    { id: "seasons", label: "Seasons (SVG)", category: "Seasonal", path: `${COVER_BASE}/seasons.svg` },
+    { id: "kindergarten-readiness-svg", label: "Kindergarten Readiness (SVG)", category: "General Curriculum", path: `${COVER_BASE}/kindergarten-readiness.svg` },
     { id: "tummy-time", label: "Tummy Time", category: "Infant Development", path: `${COVER_BASE}/tummy-time.svg` },
     { id: "crawling", label: "Crawling", category: "Infant Development", path: `${COVER_BASE}/crawling.svg` },
     { id: "mirror-me", label: "Mirror Play", category: "Infant Development", path: `${COVER_BASE}/mirror-me.svg` },
     { id: "peek-a-boo", label: "Peek-a-Boo", category: "Infant Development", path: `${COVER_BASE}/peek-a-boo.svg` },
     { id: "nursery-rhymes", label: "Nursery Rhymes", category: "Music and Movement", path: `${COVER_BASE}/nursery-rhymes.svg` },
-    { id: "water-play", label: "Water Play", category: "Infant Development", path: `${COVER_BASE}/water-play.svg` },
+    { id: "water-play", label: "Water Play (SVG)", category: "Infant Development", path: `${COVER_BASE}/water-play.svg` },
     { id: "baby-sounds", label: "Baby Sounds & Faces", category: "Infant Development", path: `${COVER_BASE}/baby-sounds.svg` },
     { id: "generic-infant", label: "Generic Infant", category: "Infant Development", path: `${COVER_BASE}/generic-infant.svg` },
     { id: "generic-toddler", label: "Generic Toddler", category: "General Curriculum", path: `${COVER_BASE}/generic-toddler.svg` },
     { id: "generic-preschool", label: "Generic Preschool", category: "General Curriculum", path: `${COVER_BASE}/generic-preschool.svg` },
     { id: "default", label: "Little Learner Hub Default", category: "General Curriculum", path: `${COVER_BASE}/default.svg` },
   ];
+
+  const PHOTO_COVER_LIBRARY = (catalogApi?.PLAN_COVERS || []).map((entry) => ({
+    id: entry.slug,
+    label: entry.title,
+    category: entry.age || "Lesson Plans",
+    path: `${COVER_BASE}/${entry.slug}.jpg`,
+    format: "jpg",
+  }));
+
+  // Admin picker + tests: illustrated covers first, SVG fallbacks after.
+  const EXISTING_COVER_LIBRARY = [...PHOTO_COVER_LIBRARY, ...SVG_COVER_LIBRARY];
 
   function normalizeTheme(value) {
     return String(value || "")
@@ -116,11 +166,24 @@
     return "preschool";
   }
 
-  function coverPath(slug) {
+  function coverPath(slug, preferredExt) {
+    const photoSlug = THEME_PHOTO_ALIASES[slug] || (PHOTO_SLUGS.has(slug) ? slug : "");
+    if (preferredExt === "jpg" || photoSlug) {
+      return `${COVER_BASE}/${photoSlug || slug}.jpg`;
+    }
     return `${COVER_BASE}/${slug}.svg`;
   }
 
+  function getPlanCatalogCover(title) {
+    const entry = catalogApi?.getPlanCoverByTitle?.(title);
+    if (!entry) return "";
+    return `${COVER_BASE}/${entry.slug}.jpg`;
+  }
+
   function getMappedThemeCover(title, theme) {
+    const catalogCover = getPlanCatalogCover(title);
+    if (catalogCover) return catalogCover;
+
     const haystack = normalizeTheme(`${title || ""} ${theme || ""}`);
     if (!haystack) return "";
     const paddedHaystack = ` ${haystack} `;
@@ -205,7 +268,22 @@
     const resolved = resolveLessonPlanCover(entry);
     const mapped = getMappedThemeCover(plan.title || entry.title, plan.theme || entry.theme);
     const age = getAgeGroupFallback(plan.age || entry.age);
-    return [...new Set([resolved.url, mapped, age, DEFAULT_COVER].filter(Boolean))];
+    const svgFallback = (() => {
+      const haystack = normalizeTheme(`${plan.title || entry.title || ""} ${plan.theme || entry.theme || ""}`);
+      if (!haystack) return "";
+      const paddedHaystack = ` ${haystack} `;
+      for (const rule of THEME_COVER_RULES) {
+        if (rule.match.some((phrase) => {
+          const normalizedPhrase = normalizeTheme(phrase);
+          return paddedHaystack.includes(` ${normalizedPhrase} `)
+            || paddedHaystack.includes(` ${normalizedPhrase}s `);
+        })) {
+          return `${COVER_BASE}/${rule.cover}.svg`;
+        }
+      }
+      return "";
+    })();
+    return [...new Set([resolved.url, mapped, svgFallback, age, DEFAULT_COVER].filter(Boolean))];
   }
 
   function shortThemeDescription(planOrResource = {}) {
@@ -227,9 +305,14 @@
     COVER_BASE,
     DEFAULT_COVER,
     EXISTING_COVER_LIBRARY,
+    SVG_COVER_LIBRARY,
+    PHOTO_COVER_LIBRARY,
     THEME_COVER_RULES,
+    THEME_PHOTO_ALIASES,
     normalizeTheme,
     ageGroupKey,
+    coverPath,
+    getPlanCatalogCover,
     getMappedThemeCover,
     getAgeGroupFallback,
     resolveLessonPlanCover,

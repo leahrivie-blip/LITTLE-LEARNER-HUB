@@ -12053,13 +12053,12 @@ function lessonPlanCard(resource) {
   const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${resource.title}`;
   const coverPosition = String(resolvedCover.position || "center").trim() || "center";
   const coverFallbacks = lessonPlanCoverFallbackUrls(resource);
-  const description = lessonPlanCoversApi()?.shortThemeDescription?.(resource)
-    || (theme && theme.toLowerCase() !== String(resource.title || "").trim().toLowerCase() ? theme : "");
-  const metaParts = [ageLabel];
-  if (activityCount) metaParts.push(`${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`);
+  const activityLabel = activityCount
+    ? `${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`
+    : "";
   return `
     <article
-      class="resource-card lesson-plan-card browse-card has-cover-image ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
+      class="resource-card lesson-plan-card browse-card has-cover-image netflix-cover-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
       data-lesson-card="${escapeHtml(resource.id)}"
       data-view-resource="${escapeHtml(resource.id)}"
       data-browse-card="${escapeHtml(resource.id)}"
@@ -12090,17 +12089,17 @@ function lessonPlanCard(resource) {
           aria-pressed="${favorite ? "true" : "false"}"
           title="${escapeHtml(favoriteLabel)}"
         >${favorite ? "★" : "☆"}</button>
-      </div>
-      <div class="browse-card-body">
-        <h3>${escapeHtml(resource.title)}</h3>
-        <p class="browse-card-meta">${escapeHtml(metaParts.join(" · "))}</p>
-        ${description ? `<p class="browse-card-desc">${escapeHtml(description)}</p>` : ""}
+        <div class="browse-card-cover-overlay">
+          <span class="browse-card-age">${escapeHtml(ageLabel)}</span>
+          <h3 class="browse-card-title-overlay">${escapeHtml(resource.title)}</h3>
+          ${activityLabel ? `<p class="browse-card-activity-count">${escapeHtml(activityLabel)}</p>` : ""}
+        </div>
       </div>
       ${!locked ? `
         <div class="browse-card-always-actions lesson-plan-card-actions">
           <button type="button" class="primary-button browse-use-plan" data-lesson-card-use-plan="${escapeHtml(resource.id)}">Use This Plan</button>
         </div>
-      ` : `<p class="lesson-plan-card-hint browse-card-parent" style="padding:0 12px 12px">Tap to preview →</p>`}
+      ` : `<p class="lesson-plan-card-hint browse-card-parent" style="padding:8px 12px 12px">Tap to preview →</p>`}
       <button type="button" class="browse-card-quick-toggle" data-browse-actions-toggle aria-label="Quick actions">⋯</button>
       <div class="browse-card-actions" role="group" aria-label="Lesson plan actions">
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>

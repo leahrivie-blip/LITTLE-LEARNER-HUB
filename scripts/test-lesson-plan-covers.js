@@ -77,17 +77,35 @@ function unitTests() {
   });
   assert(missing.url.includes("generic-toddler") || missing.url.includes("default"), "age/default fallback");
 
-  const libraryPaths = covers.EXISTING_COVER_LIBRARY.map((item) => item.path);
-  assert(libraryPaths.length >= 25, "expected reusable cover library");
-  let totalCoverBytes = 0;
-  for (const item of covers.EXISTING_COVER_LIBRARY) {
+  const svgLibrary = covers.SVG_COVER_LIBRARY || covers.EXISTING_COVER_LIBRARY.filter((item) => String(item.path).endsWith(".svg"));
+  assert(svgLibrary.length >= 25, "expected reusable SVG cover library");
+  let totalSvgBytes = 0;
+  for (const item of svgLibrary) {
     const filePath = path.join(ROOT, item.path.replace(/^\//, ""));
     assert(fs.existsSync(filePath), `missing cover asset: ${item.path}`);
     const source = fs.readFileSync(filePath, "utf8");
-    totalCoverBytes += Buffer.byteLength(source);
+    totalSvgBytes += Buffer.byteLength(source);
     assert(source.includes("<svg") && source.includes("</svg>"), `invalid SVG cover: ${item.path}`);
   }
-  assert(totalCoverBytes < 250 * 1024, `cover library is too large: ${totalCoverBytes} bytes`);
+  assert(totalSvgBytes < 250 * 1024, `SVG cover library is too large: ${totalSvgBytes} bytes`);
+
+  const catalog = require("./lesson-plan-cover-catalog.js");
+  assert(catalog.PLAN_COVERS.length >= 50, "expected unique covers for full lesson library");
+  for (const entry of catalog.PLAN_COVERS) {
+    const jpgPath = path.join(ROOT, "images", "lesson-covers", `${entry.slug}.jpg`);
+    assert(fs.existsSync(jpgPath), `missing illustrated cover: ${entry.slug}.jpg`);
+    const bytes = fs.statSync(jpgPath).size;
+    assert(bytes > 20 * 1024, `cover too small/empty: ${entry.slug}.jpg`);
+    assert(bytes < 900 * 1024, `cover too large for library load: ${entry.slug}.jpg (${bytes} bytes)`);
+  }
+  assert(
+    covers.getMappedThemeCover("Pirate Adventure", "").includes("pirate-adventure.jpg"),
+    "catalog title should resolve to unique illustrated cover",
+  );
+  assert(
+    covers.getMappedThemeCover("Construction Zone", "").includes("construction-zone.jpg"),
+    "related construction plans must keep unique covers",
+  );
 
   const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(app.includes("lesson-plan-card__cover"), "card cover img class missing");
