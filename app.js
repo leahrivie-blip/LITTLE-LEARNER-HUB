@@ -2632,6 +2632,7 @@ function openAuthModal(mode = "login") {
   if (mode === "signup") {
     signupWizardStep = 1;
     signupPersonaChoice = "";
+    signupCenterPathway = "";
   }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
@@ -2646,7 +2647,81 @@ function closeAuthModal() {
   modal.setAttribute("aria-hidden", "true");
   signupWizardStep = 1;
   signupPersonaChoice = "";
+  signupCenterPathway = "";
   modal?.querySelector(".auth-modal-card")?.classList.remove("auth-modal-card--plans");
+}
+
+function defaultPathwayForPersona(persona) {
+  if (persona === "home_daycare") return "independent";
+  if (persona === "center") return "create_new";
+  if (persona === "teacher_staff") return "join_existing";
+  return "";
+}
+
+function allowedPathwaysForPersona(persona) {
+  if (persona === "home_daycare") return ["independent", "skip"];
+  if (persona === "center") return ["create_new", "join_existing", "skip"];
+  if (persona === "teacher_staff") return ["join_existing", "skip"];
+  return ["skip"];
+}
+
+function syncSignupCenterPathwayUi() {
+  const pathwayWrap = document.querySelector("#signupCenterPathway");
+  const details = document.querySelector("#signupCenterDetails");
+  const inviteField = document.querySelector("#signupInviteCodeField");
+  const helper = document.querySelector("#signupCenterHelperNote");
+  const labelText = document.querySelector("#signupProgramNameLabelText");
+  const nameInput = document.querySelector("#signupProgramNameInput");
+  if (!pathwayWrap || !details) return;
+
+  const showPathway = Boolean(signupPersonaChoice);
+  pathwayWrap.classList.toggle("hidden-field", !showPathway);
+  pathwayWrap.setAttribute("aria-hidden", showPathway ? "false" : "true");
+
+  const allowed = new Set(allowedPathwaysForPersona(signupPersonaChoice));
+  document.querySelectorAll("[data-signup-pathway]").forEach((btn) => {
+    const key = btn.dataset.signupPathway || "";
+    const allowedBtn = allowed.has(key);
+    btn.hidden = !allowedBtn;
+    btn.classList.toggle("is-selected", allowedBtn && key === signupCenterPathway);
+    btn.setAttribute("aria-pressed", allowedBtn && key === signupCenterPathway ? "true" : "false");
+  });
+
+  const needsName = signupCenterPathway === "create_new" || signupCenterPathway === "join_existing" || signupCenterPathway === "independent";
+  const showDetails = showPathway && needsName;
+  details.classList.toggle("hidden-field", !showDetails);
+  details.setAttribute("aria-hidden", showDetails ? "false" : "true");
+
+  const showInvite = signupCenterPathway === "join_existing";
+  inviteField?.classList.toggle("hidden-field", !showInvite);
+  inviteField?.setAttribute("aria-hidden", showInvite ? "false" : "true");
+
+  if (labelText) {
+    if (signupCenterPathway === "create_new") labelText.textContent = "New center name";
+    else if (signupCenterPathway === "join_existing") labelText.textContent = "Center or workplace name";
+    else labelText.textContent = "Program name (optional)";
+  }
+  if (nameInput) {
+    nameInput.required = signupCenterPathway === "create_new" || signupCenterPathway === "join_existing";
+    nameInput.placeholder = signupCenterPathway === "join_existing"
+      ? "Search or type your center name"
+      : signupCenterPathway === "create_new"
+        ? "Sunshine Learning Center"
+        : "Sunshine Home Daycare";
+  }
+  if (helper) {
+    if (signupCenterPathway === "join_existing") {
+      helper.textContent = "Enter the center name you work at. An invite/center code is optional — you can connect fully later in Settings.";
+    } else if (signupCenterPathway === "create_new") {
+      helper.textContent = "This becomes your program name. You can invite staff later from Settings.";
+    } else if (signupCenterPathway === "independent") {
+      helper.textContent = "Optional — add your home daycare or program name now, or skip and finish later.";
+    } else if (signupCenterPathway === "skip") {
+      helper.textContent = "No center is required to finish signup. You can connect from Settings anytime.";
+    } else {
+      helper.textContent = "";
+    }
+  }
 }
 
 function splitFullName(fullName) {
@@ -2697,10 +2772,13 @@ function renderSignupWizardStep() {
   const stepProgram = document.querySelector("#signupStepProgram");
   const stepPlan = document.querySelector("#signupStepPlan");
   const submitButton = document.querySelector("#authSubmitButton");
+  const skipButton = document.querySelector("#signupSkipButton");
+  const actions = document.querySelector("#signupWizardActions");
   const title = document.querySelector("#authTitle");
   const card = document.querySelector("#authModal .auth-modal-card");
   const secondary = document.querySelector(".auth-secondary-actions");
   const help = document.querySelector(".auth-help-links");
+  const body = document.querySelector("#signupWizardBody");
   if (!stepAccount || !submitButton || !title) return;
 
   const inWizard = currentAuthMode === "signup";
@@ -2723,11 +2801,16 @@ function renderSignupWizardStep() {
   stepPlan?.classList.toggle("hidden-field", !showPlan);
   stepPlan?.setAttribute("aria-hidden", showPlan ? "false" : "true");
   card?.classList.toggle("auth-modal-card--plans", showPlan);
+  card?.classList.toggle("auth-modal-card--wizard", inWizard);
   if (secondary) secondary.hidden = showProgram || showPlan;
   if (help) help.hidden = showProgram || showPlan;
 
   if (!inWizard) {
     submitButton.textContent = currentAuthMode === "forgot" ? "Send Reset Email" : "Log In";
+    submitButton.hidden = false;
+    skipButton?.classList.add("hidden-field");
+    skipButton?.setAttribute("aria-hidden", "true");
+    actions?.classList.remove("signup-wizard-actions--split");
     return;
   }
 
@@ -2735,19 +2818,40 @@ function renderSignupWizardStep() {
     title.textContent = "Create Your Free Little Learner Hub Account";
     submitButton.textContent = "Continue";
     submitButton.hidden = false;
+    skipButton?.classList.add("hidden-field");
+    skipButton?.setAttribute("aria-hidden", "true");
+    actions?.classList.remove("signup-wizard-actions--split");
   } else if (signupWizardStep === 2) {
-    title.textContent = "What best describes you?";
+    title.textContent = "Your program setup";
     submitButton.textContent = "Continue";
     submitButton.hidden = false;
+    skipButton?.classList.remove("hidden-field");
+    skipButton?.setAttribute("aria-hidden", "false");
+    actions?.classList.add("signup-wizard-actions--split");
     document.querySelectorAll("[data-signup-persona]").forEach((btn) => {
       const selected = btn.dataset.signupPersona === signupPersonaChoice;
       btn.classList.toggle("is-selected", selected);
       btn.setAttribute("aria-pressed", selected ? "true" : "false");
     });
+    if (signupPersonaChoice && !allowedPathwaysForPersona(signupPersonaChoice).includes(signupCenterPathway)) {
+      signupCenterPathway = defaultPathwayForPersona(signupPersonaChoice);
+    }
+    syncSignupCenterPathwayUi();
   } else {
     title.textContent = "Choose Your Plan";
     submitButton.hidden = true;
+    skipButton?.classList.add("hidden-field");
+    skipButton?.setAttribute("aria-hidden", "true");
+    actions?.classList.remove("signup-wizard-actions--split");
     renderSignupPlanChooser();
+  }
+
+  // Keep the sticky action row in view after step changes.
+  try {
+    body?.scrollTo?.({ top: 0 });
+    submitButton.scrollIntoView({ block: "nearest", inline: "nearest" });
+  } catch {
+    /* ignore */
   }
 }
 
@@ -3848,6 +3952,8 @@ try {
 let currentAuthMode = "login";
 let signupWizardStep = 1;
 let signupPersonaChoice = "";
+/** @type {""|"create_new"|"join_existing"|"independent"|"skip"} */
+let signupCenterPathway = "";
 let checkoutPromoCode = localStorage.getItem("llhCheckoutPromoCode") || "";
 let adminAnalyticsCache = null;
 let adminAnalyticsLoading = false;
@@ -8515,6 +8621,8 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
         accountType: profile.accountType || "",
         role: profile.role || "",
         phone: profile.phone || "",
+        centerAssociation: profile.centerAssociation || "",
+        centerInviteCode: profile.centerInviteCode || "",
         signup: Boolean(options.signup),
         lastLogin: Boolean(options.lastLogin),
       }),
@@ -8709,6 +8817,7 @@ function setAuthMode(mode) {
   if (!isSignup) {
     signupWizardStep = 1;
     signupPersonaChoice = "";
+    signupCenterPathway = "";
   }
   // Step 1 signup: name + email + password only (no business/role yet).
   if (nameFields) {
@@ -46707,11 +46816,99 @@ document.querySelector("#switchAuthModeButton")?.addEventListener("click", () =>
   setAuthMode(currentAuthMode === "signup" ? "login" : "signup");
 });
 
+async function completeSignupProgramStep({ allowSkip = false } = {}) {
+  if (!signupPersonaChoice) throw new Error("Please choose what best describes you.");
+  let pathway = signupCenterPathway || defaultPathwayForPersona(signupPersonaChoice);
+  if (allowSkip) pathway = "skip";
+  if (!allowedPathwaysForPersona(signupPersonaChoice).includes(pathway)) {
+    pathway = defaultPathwayForPersona(signupPersonaChoice);
+  }
+  signupCenterPathway = pathway;
+
+  const mapped = mapSignupPersona(signupPersonaChoice);
+  // Teacher/staff joining a center stays teacher; creating a center implies owner.
+  if (pathway === "create_new") {
+    mapped.role = USER_ROLES.OWNER;
+    mapped.accountType = ACCOUNT_TYPES.CENTER;
+    mapped.programType = "Childcare Center";
+  } else if (pathway === "independent") {
+    mapped.accountType = ACCOUNT_TYPES.HOME_DAYCARE;
+    mapped.role = USER_ROLES.OWNER;
+    mapped.programType = "Home Daycare";
+  } else if (pathway === "join_existing" && signupPersonaChoice === "teacher_staff") {
+    mapped.accountType = ACCOUNT_TYPES.CENTER;
+    mapped.role = USER_ROLES.TEACHER;
+    mapped.programType = "Childcare Center";
+  }
+
+  const programName = (document.querySelector("#signupProgramNameInput")?.value || "").trim();
+  const inviteCode = (document.querySelector("#signupInviteCodeInput")?.value || "").trim();
+  if ((pathway === "create_new" || pathway === "join_existing") && !programName) {
+    throw new Error(
+      pathway === "create_new"
+        ? "Please enter a name for your new center."
+        : "Please enter the center or workplace name you want to join.",
+    );
+  }
+
+  const account = currentAccount() || {};
+  const resolvedName = pathway === "skip" ? (account.businessName || "") : (programName || account.businessName || "");
+  updateAccount(currentUser, {
+    businessName: resolvedName,
+    daycareName: resolvedName,
+    programName: resolvedName,
+    accountType: mapped.accountType,
+    role: mapped.role,
+    onboardingPersona: signupPersonaChoice,
+    centerAssociation: pathway,
+    centerInviteCode: pathway === "join_existing" ? inviteCode : "",
+    programSettings: {
+      ...(account.programSettings || {}),
+      programName: resolvedName || account.programSettings?.programName || "",
+      providerName: displayUserName(account),
+      programType: mapped.programType,
+      centerAssociation: pathway,
+      centerInviteCode: pathway === "join_existing" ? inviteCode : "",
+    },
+  });
+  await syncAccountProfileToBackend(currentUser, {
+    firstName: account.firstName || "",
+    lastName: account.lastName || "",
+    businessName: resolvedName || "",
+    accountType: mapped.accountType,
+    role: mapped.role,
+    phone: account.phone || "",
+    centerAssociation: pathway,
+    centerInviteCode: pathway === "join_existing" ? inviteCode : "",
+  }, { lastLogin: false });
+  trackEvent("signup_persona_selected", {
+    email: currentUser,
+    persona: signupPersonaChoice,
+    pathway,
+    accountType: mapped.accountType,
+    role: mapped.role,
+    hasCenterName: Boolean(resolvedName),
+    hasInviteCode: Boolean(inviteCode),
+  });
+  signupWizardStep = 3;
+  setFormMessage("#authMessage", "");
+  await syncFoundingStatus({ render: false }).catch(() => {});
+  renderSignupWizardStep();
+}
+
 document.addEventListener("click", (event) => {
   const personaBtn = event.target.closest("[data-signup-persona]");
   if (personaBtn && currentAuthMode === "signup" && signupWizardStep === 2) {
     event.preventDefault();
     signupPersonaChoice = personaBtn.dataset.signupPersona || "";
+    signupCenterPathway = defaultPathwayForPersona(signupPersonaChoice);
+    renderSignupWizardStep();
+    return;
+  }
+  const pathwayBtn = event.target.closest("[data-signup-pathway]");
+  if (pathwayBtn && currentAuthMode === "signup" && signupWizardStep === 2) {
+    event.preventDefault();
+    signupCenterPathway = pathwayBtn.dataset.signupPathway || "";
     renderSignupWizardStep();
     return;
   }
@@ -46721,6 +46918,25 @@ document.addEventListener("click", (event) => {
     finishSignupWithPlan(planBtn.dataset.signupChoosePlan || "free").catch((error) => {
       setFormMessage("#authMessage", friendlyAuthError(error));
     });
+  }
+});
+
+document.querySelector("#signupSkipButton")?.addEventListener("click", async () => {
+  if (currentAuthMode !== "signup" || signupWizardStep !== 2) return;
+  const submitButton = document.querySelector("#authSubmitButton");
+  if (submitButton) submitButton.disabled = true;
+  setFormMessage("#authMessage", "Working...", true);
+  try {
+    if (!signupPersonaChoice) {
+      // Skip without persona → treat as independent home daycare so signup can finish.
+      signupPersonaChoice = "home_daycare";
+    }
+    signupCenterPathway = "skip";
+    await completeSignupProgramStep({ allowSkip: true });
+  } catch (error) {
+    setFormMessage("#authMessage", friendlyAuthError(error));
+  } finally {
+    if (submitButton) submitButton.disabled = false;
   }
 });
 
@@ -47253,42 +47469,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         return;
       }
       if (signupWizardStep === 2) {
-        if (!signupPersonaChoice) throw new Error("Please choose what best describes you.");
-        const mapped = mapSignupPersona(signupPersonaChoice);
-        const programName = (document.querySelector("#signupProgramNameInput")?.value || "").trim();
-        const account = currentAccount() || {};
-        updateAccount(currentUser, {
-          businessName: programName || account.businessName || "",
-          daycareName: programName || account.daycareName || "",
-          programName: programName || account.programName || "",
-          accountType: mapped.accountType,
-          role: mapped.role,
-          onboardingPersona: signupPersonaChoice,
-          programSettings: {
-            ...(account.programSettings || {}),
-            programName: programName || account.programSettings?.programName || "",
-            providerName: displayUserName(account),
-            programType: mapped.programType,
-          },
-        });
-        await syncAccountProfileToBackend(currentUser, {
-          firstName: account.firstName || "",
-          lastName: account.lastName || "",
-          businessName: programName || "",
-          accountType: mapped.accountType,
-          role: mapped.role,
-          phone: account.phone || "",
-        }, { lastLogin: false });
-        trackEvent("signup_persona_selected", {
-          email: currentUser,
-          persona: signupPersonaChoice,
-          accountType: mapped.accountType,
-          role: mapped.role,
-        });
-        signupWizardStep = 3;
-        setFormMessage("#authMessage", "");
-        await syncFoundingStatus({ render: false }).catch(() => {});
-        renderSignupWizardStep();
+        await completeSignupProgramStep({ allowSkip: false });
         return;
       }
       return;

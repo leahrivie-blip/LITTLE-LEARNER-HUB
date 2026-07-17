@@ -73,9 +73,22 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260715-import-v4");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260715-import-v4");
-  assert.match(sw, /llh-shell-v42-import-v4/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260717-signup-continue");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260717-signup-continue");
+  assert.match(sw, /llh-shell-v62-signup-continue/);
+});
+
+test("signup center continue sticky actions and pathways exist", () => {
+  assert.match(indexHtml, /signupWizardActions/);
+  assert.match(indexHtml, /signupSkipButton/);
+  assert.match(indexHtml, /data-signup-pathway="create_new"/);
+  assert.match(indexHtml, /data-signup-pathway="join_existing"/);
+  assert.match(indexHtml, /data-signup-pathway="independent"/);
+  assert.match(indexHtml, /data-signup-pathway="skip"/);
+  assert.match(appJs, /completeSignupProgramStep/);
+  assert.match(appJs, /signupCenterPathway/);
+  assert.match(css, /signup-wizard-actions/);
+  assert.match(css, /body\.auth-modal-open/);
 });
 
 if (!process.exitCode) {

@@ -19348,14 +19348,69 @@ body.admin-preview-simulating .sidebar .brand h1::after {
 }
 
 /* ── Signup conversion wizard ───────────────────────────────────────── */
+/* Keep auth usable on short desktop viewports: scroll body, sticky actions. */
+body.auth-modal-open {
+  overflow: hidden;
+}
+
+#authModal {
+  align-items: start;
+  justify-items: center;
+  overflow: auto;
+  padding: 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
 #authModal .auth-modal-card {
-  width: min(460px, 100%);
+  width: min(520px, 100%);
+  max-height: min(92dvh, 920px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: auto;
 }
 
 #authModal .auth-modal-card--plans {
   width: min(980px, 100%);
-  max-height: min(92vh, 920px);
-  overflow: auto;
+}
+
+#authModal .auth-form {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+}
+
+#authModal .signup-wizard-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 2px;
+}
+
+#authModal .signup-wizard-actions {
+  position: sticky;
+  bottom: 0;
+  flex: 0 0 auto;
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.98) 72%, rgba(255, 255, 255, 0.88));
+  z-index: 3;
+}
+
+#authModal .signup-wizard-actions--split {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.2fr);
+}
+
+#authModal .signup-wizard-actions .primary-button,
+#authModal .signup-wizard-actions .ghost-button {
+  width: 100%;
+  min-height: 46px;
 }
 
 .signup-wizard-progress {
@@ -19397,6 +19452,57 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   display: grid;
   gap: 10px;
   margin-bottom: 14px;
+}
+
+.signup-center-pathway,
+.signup-center-details {
+  margin-top: 4px;
+}
+
+.signup-pathway-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.signup-pathway-card {
+  display: grid;
+  gap: 3px;
+  text-align: left;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fbfaf8;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.signup-pathway-card strong {
+  font-size: 0.98rem;
+}
+
+.signup-pathway-card span {
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.signup-pathway-card.is-selected,
+.signup-pathway-card:hover,
+.signup-pathway-card:focus-visible {
+  border-color: #5b9bd5;
+  background: #eef6fc;
+  box-shadow: 0 0 0 2px rgba(91, 155, 213, 0.16);
+  outline: none;
+}
+
+.signup-invite-code-field {
+  margin-top: 8px;
+}
+
+.signup-center-details .form-note {
+  margin: 8px 0 0;
 }
 
 .signup-persona-card {
@@ -19633,6 +19739,12 @@ body.admin-preview-simulating .sidebar .brand h1::after {
   margin-top: auto;
   width: 100%;
   justify-content: center;
+  position: sticky;
+  bottom: 0;
+}
+
+#signupPlanChooser {
+  padding-bottom: 8px;
 }
 
 .signup-plan-card--free {
@@ -19642,6 +19754,10 @@ body.admin-preview-simulating .sidebar .brand h1::after {
 @media (max-width: 900px) {
   #authModal .auth-modal-card--plans {
     width: min(560px, 100%);
+  }
+
+  #authModal .signup-wizard-actions--split {
+    grid-template-columns: 1fr;
   }
 
   .signup-plan-grid {
