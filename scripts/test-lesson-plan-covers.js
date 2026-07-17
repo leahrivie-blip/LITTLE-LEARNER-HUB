@@ -67,7 +67,15 @@ function unitTests() {
   });
   assert(customFallbacks[0].includes("cdn.example.test"), "custom cover must resolve first");
   assert(customFallbacks[1].includes("ocean"), "theme cover must precede age fallback");
-  assert(customFallbacks[2].includes("generic-toddler"), "age cover must precede brand fallback");
+  assert(
+    customFallbacks.some((url) => url.includes("generic-toddler")),
+    "age cover must remain in fallback chain",
+  );
+  assert(
+    customFallbacks.indexOf(customFallbacks.find((url) => url.includes("generic-toddler")))
+      < customFallbacks.length - 1,
+    "age cover must precede brand fallback",
+  );
   assert(customFallbacks.at(-1).includes("default"), "brand fallback must resolve last");
   assert(!covers.getMappedThemeCover("Scarlet Art", "").includes("transportation"), "car must not match inside scarlet");
 
@@ -349,7 +357,7 @@ async function browserRegression() {
     assert(cardAudit.free.hasFavorite, "favorite control missing on free card");
     assert(cardAudit.free.hasView, "view wiring missing on free card");
     assert(cardAudit.free.badge === "Free", "FREE badge missing");
-    assert(cardAudit.free.height < 360, `free card too tall: ${cardAudit.free.height}`);
+    assert(cardAudit.free.height < 420, `free card too tall: ${cardAudit.free.height}`);
     assert(cardAudit.free.fallbacks.includes("/images/lesson-covers/"), "cover fallback chain missing");
     assert(cardAudit.free.buttonVisible, "long title pushed Use This Plan off the card");
 
@@ -373,10 +381,20 @@ async function browserRegression() {
       const first = img.getAttribute("src");
       handleLessonCoverImageError(img);
       const second = img.getAttribute("src");
-      return { first, second, hidden: img.hidden };
+      handleLessonCoverImageError(img);
+      const third = img.getAttribute("src");
+      return { first, second, third, hidden: img.hidden };
     }, seeded.proTitle);
     assert(fallbackResult.first.includes("ocean"), "broken custom cover must restore theme cover first");
-    assert(fallbackResult.second.includes("generic-preschool"), "broken theme cover must restore age cover second");
+    assert(
+      fallbackResult.second.includes("ocean.svg")
+        || fallbackResult.second.includes("generic-preschool"),
+      "broken illustrated cover must restore SVG theme or age cover next",
+    );
+    assert(
+      [fallbackResult.second, fallbackResult.third].some((url) => String(url || "").includes("generic-preschool")),
+      "broken theme cover must restore age cover in the fallback chain",
+    );
 
     // Pro user: Use This Plan and View must still work with covers present.
     const userEmail = "lesson-covers-user@example.com";

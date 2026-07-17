@@ -1,54 +1,41 @@
-# Lesson cover redesign — mockups for approval
+# Lesson cover redesign — final rollout
 
-**Status:** Awaiting approval before any live library changes.
+**Status:** Implemented on branch — awaiting final screenshot approval before merge.
 
-## What’s included
+## What shipped
 
-- `index.html` — review page with proposed Netflix-style cards
-- `covers/*.jpg` — 8 themed 16:9 cover examples
-- `screenshots/` — desktop + mobile captures for approval
-- Capture helper: `node scripts/capture-cover-redesign-mockups.js`
+- Netflix-style lesson cards with title overlay on a dark cover gradient
+- Highly visible age chip on every card
+- FREE/PRO badge, favorite star, activity count, Use This Plan, View Plan retained
+- Unique illustrated JPG covers for all **53** seeded lesson plans
+- Featured banner updated to overlay title + age on the cover image
+- SVG covers retained as fallbacks / admin picker alternatives
 
-### Preview locally
+## Preview
+
+```bash
+npm run start
+# open http://localhost:4242/#lessons
+```
+
+Mockup page (design review):
 
 ```bash
 python3 -m http.server 4173
 # open http://localhost:4173/mockups/lesson-cover-redesign/
 ```
 
-## Example themes
+## Screenshots
 
-| Theme | Cover communicates |
-| --- | --- |
-| Pirate Adventure | Ship, treasure map, chest |
-| Construction Crew | Vehicles, hard hats, cones |
-| Farm Friends | Barn + farm animals |
-| Dinosaur Discovery | Friendly dinosaurs |
-| Ocean Adventure | Ocean animals / reef |
-| Bugs & Butterflies | Butterflies, insects, flowers |
-| Around the World | Globe + landmarks |
-| Space Explorers | Rocket, planets, stars |
+See `screenshots/final-library-*.png` and `/opt/cursor/artifacts/screenshots/`.
 
-## Card layout (proposed)
+## Regression
 
-- Large 16:9 cover image
-- FREE / PRO badge (top-left)
-- Favorite star (top-right)
-- Clean title
-- Age group + activity count
-- Use This Plan CTA
-- Wider Netflix-style card (~300px desktop)
-
-## Not changed yet
-
-- Production library covers
-- `scripts/lesson-plan-covers.js` mapping
-- Admin upload flow
-- Card click / Use / Favorite / Calendar behavior
-
-## After approval
-
-1. Generate themed covers for the full cover library
-2. Wire JPG/WebP assets into the cover resolver
-3. Apply refined card CSS in `styles/llh-library-browse.css`
-4. Run regression suite listed in the product requirement
+- `npm run test:lesson-plan-covers`
+- `npm run test:lesson-card-buttons`
+- `npm run test:lesson-library-cards`
+- `npm run test:library-browse-redesign`
+- `npm run test:curriculum-access-security`
+- `npm run test:post-merge-library-audit`
+- `npm run test:lesson-plan-calendar-workflow`
+- Final capture: `node scripts/capture-cover-redesign-final.js`

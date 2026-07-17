@@ -307,8 +307,9 @@ body.activities-view .mobile-brand {
 .library-featured-banner-scrim {
   position: absolute;
   inset: 0;
-  background: linear-gradient(90deg, transparent 50%, rgba(255, 255, 255, 0.12));
+  background: linear-gradient(180deg, rgba(20, 24, 40, 0.18) 0%, transparent 42%, rgba(20, 24, 40, 0.78) 100%);
   pointer-events: none;
+  z-index: 1;
 }
 
 .library-featured-banner-badge {
@@ -318,10 +319,26 @@ body.activities-view .mobile-brand {
   z-index: 2;
 }
 
+.library-featured-banner-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 2;
+  display: grid;
+  gap: 6px;
+  padding: 28px 14px 14px;
+  pointer-events: none;
+}
+
+.library-featured-banner-overlay .browse-card-age {
+  justify-self: start;
+}
+
 .library-featured-banner-copy {
   min-width: 0;
   display: grid;
-  gap: 6px;
+  gap: 8px;
   padding: 12px 14px;
   align-content: center;
 }
@@ -332,23 +349,15 @@ body.activities-view .mobile-brand {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--llh-primary, #7b6bb5);
+  color: rgba(255, 255, 255, 0.92);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
-.library-featured-banner h3 {
-  margin: 0;
-  font-size: clamp(1.05rem, 2.4vw, 1.35rem);
-  line-height: 1.25;
-  color: var(--llh-ink, var(--ink));
+.library-featured-banner-overlay .browse-card-title-overlay {
+  font-size: clamp(1.05rem, 2.4vw, 1.4rem);
 }
 
-.library-featured-banner-meta {
-  margin: 0;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--llh-muted, var(--muted));
-}
-
+.library-featured-banner-blurb,
 .library-featured-banner p {
   margin: 0;
   color: var(--llh-muted, var(--muted));
@@ -397,6 +406,7 @@ body.activities-view .mobile-brand {
     width: 72px;
   }
 
+  .library-featured-banner-blurb,
   .library-featured-banner p {
     display: -webkit-box;
     -webkit-line-clamp: 2;

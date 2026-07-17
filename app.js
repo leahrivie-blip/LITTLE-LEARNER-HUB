@@ -12314,7 +12314,7 @@ function featuredLessonBannerHtml(items) {
   const ageLabel = String(featured.age || "").trim();
   const locked = !canAccess(featured);
   return `
-    <section class="library-featured-banner has-cover-image" aria-label="Featured lesson plan">
+    <section class="library-featured-banner has-cover-image netflix-featured-banner" aria-label="Featured lesson plan">
       <div class="library-featured-banner-media ${coverClass}">
         <img
           class="library-featured-banner-image"
@@ -12330,12 +12330,14 @@ function featuredLessonBannerHtml(items) {
         />
         <div class="library-featured-banner-scrim" aria-hidden="true"></div>
         <span class="browse-card-badge library-featured-banner-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        <div class="library-featured-banner-overlay">
+          <p class="library-featured-banner-eyebrow">Featured This Week</p>
+          ${ageLabel ? `<span class="browse-card-age">${escapeHtml(ageLabel)}</span>` : ""}
+          <h3 class="browse-card-title-overlay">${escapeHtml(featured.title)}</h3>
+        </div>
       </div>
       <div class="library-featured-banner-copy">
-        <p class="library-featured-banner-eyebrow">Featured This Week</p>
-        <h3>${escapeHtml(featured.title)}</h3>
-        ${ageLabel ? `<p class="library-featured-banner-meta">${escapeHtml(ageLabel)}</p>` : ""}
-        <p>${escapeHtml(blurb)}</p>
+        <p class="library-featured-banner-blurb">${escapeHtml(blurb)}</p>
         <div class="library-featured-banner-actions">
           <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
           ${!locked ? `<button type="button" class="ghost-button" data-lesson-card-use-plan="${escapeHtml(featured.id)}">Add to Calendar</button>` : ""}
