@@ -20397,3 +20397,89 @@ body.home-view .llh-app-footer {
     page-break-inside: avoid;
   }
 }
+
+/* ===== Subscription access status badges + banners ===== */
+.llh-account-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  border: 1px solid transparent;
+}
+.llh-account-status-badge--success {
+  background: #e8f7ee;
+  color: #1f6b3a;
+  border-color: #b7e0c4;
+}
+.llh-account-status-badge--warning {
+  background: #fff4e5;
+  color: #8a4b00;
+  border-color: #f0d2a0;
+}
+.llh-account-status-badge--danger {
+  background: #fdecec;
+  color: #8b1e1e;
+  border-color: #f0b4b4;
+}
+.llh-account-status-badge--info {
+  background: #fff8e1;
+  color: #7a5b00;
+  border-color: #f0e0a0;
+}
+.llh-account-status-badge--neutral {
+  background: #f2f2f4;
+  color: #4a4a55;
+  border-color: #d8d8de;
+}
+.llh-access-banner {
+  display: grid;
+  gap: 12px;
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+.llh-access-banner--payment-failed {
+  background: linear-gradient(180deg, #fff8ef 0%, #fff3e0 100%);
+  border-color: #f0c48a;
+}
+.llh-access-banner--access-lost {
+  background: linear-gradient(180deg, #fdf2f2 0%, #fce8e8 100%);
+  border-color: #e8b0b0;
+}
+.llh-access-banner-title {
+  margin: 0 0 4px;
+  font-weight: 700;
+  font-size: 1.02rem;
+}
+.llh-access-banner-copy p {
+  margin: 0 0 6px;
+}
+.llh-access-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.llh-billing-status-detail {
+  margin: 8px 0 0;
+}
+.llh-billing-status-line {
+  margin: 0 0 10px;
+}
+.account-access-banner-host:empty {
+  display: none;
+}
+.aup-access-audit {
+  margin-bottom: 18px;
+}
+@media (min-width: 720px) {
+  .llh-access-banner {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+  }
+}

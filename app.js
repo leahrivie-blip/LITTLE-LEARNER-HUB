@@ -3324,6 +3324,188 @@ function billingPriceLabel(account = currentAccount()) {
   return "$0/month";
 }
 
+/** Mutually exclusive product status for badges/banners (mirrors membership-access.js). */
+function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
+  if (account?.productStatus?.key && account?.productStatus?.label) {
+    return account.productStatus;
+  }
+  if (!account) {
+    return {
+      key: "free",
+      adminKey: "free",
+      label: "Free Plan",
+      emoji: "⚪",
+      tone: "neutral",
+      hasProAccess: false,
+      banner: null,
+      cta: "upgrade",
+      detail: "Create an account to get started.",
+      planLabel: "Free Plan",
+    };
+  }
+  const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
+  const subStatus = String(account.subscriptionStatus || "").toLowerCase();
+  const hasAccess = accountHasRemainingPaidAccess(account) || Boolean(account.internalAccessOverride);
+  const hasHistory = Boolean(
+    account.subscriptionStartedAt
+    || account.stripeSubscriptionId
+    || account.foundingMemberHistorical
+    || account.foundingMember
+    || account.foundingMemberNumber
+    || account.trialStart
+    || account.trialEnd
+    || ["past_due", "unpaid", "canceled", "active", "trialing"].includes(stripeStatus)
+    || /subscription|trial|canceled|ended|past due|payment failed/i.test(subStatus),
+  );
+
+  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
+    return {
+      key: "payment_failed",
+      adminKey: "payment_failed",
+      label: "Payment Failed",
+      emoji: "🟠",
+      tone: "warning",
+      hasProAccess: false,
+      banner: "payment_failed",
+      cta: "update_payment",
+      detail: "Your recent payment could not be processed. Update your payment method to keep Pro access.",
+      planLabel: "Free Plan",
+    };
+  }
+  if (subStatus.includes("past due") || stripeStatus === "past_due") {
+    return {
+      key: "past_due",
+      adminKey: "past_due",
+      label: "Payment Failed",
+      emoji: "🟠",
+      tone: "warning",
+      hasProAccess: false,
+      banner: "payment_failed",
+      cta: "update_payment",
+      detail: "Your recent payment could not be processed. Your Pro access will expire if payment is not updated.",
+      planLabel: "Free Plan",
+    };
+  }
+  if (hasAccess && accountIsInTrial(account)) {
+    const endMs = Date.parse(account.trialEnd || account.accessEndsAt || "");
+    const days = Number.isFinite(endMs) ? Math.max(0, Math.ceil((endMs - nowMs) / 86400000)) : null;
+    const label = days === null ? "Trial" : days === 1 ? "Trial (1 Day Remaining)" : `Trial (${days} Days Remaining)`;
+    return {
+      key: "trial",
+      adminKey: "trial",
+      label,
+      emoji: "🟡",
+      tone: "info",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: days === null ? "You are currently in a Pro trial." : `Your trial ends in ${days} day${days === 1 ? "" : "s"}.`,
+      planLabel: "Trial",
+    };
+  }
+  if (hasAccess && (account.foundingMemberActive || normalizeBillingPlan(account.plan, account) === "Founding")) {
+    return {
+      key: "active_founding",
+      adminKey: "founding",
+      label: "Active Founding Member",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: "Your Founding Member subscription is active.",
+      planLabel: "Founding Member",
+    };
+  }
+  if (hasAccess) {
+    return {
+      key: "active_pro",
+      adminKey: "active",
+      label: "Active Pro",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: "Your Pro subscription is active.",
+      planLabel: "Pro",
+    };
+  }
+  if (hasHistory) {
+    return {
+      key: "inactive",
+      adminKey: "canceled",
+      label: "Subscription Inactive",
+      emoji: "🔴",
+      tone: "danger",
+      hasProAccess: false,
+      banner: "access_lost",
+      cta: "reactivate",
+      detail: "Your subscription is no longer active and your account is on the Free Plan. Your saved data is safe.",
+      planLabel: "Free Plan",
+    };
+  }
+  return {
+    key: "free",
+    adminKey: "free",
+    label: "Free Plan",
+    emoji: "⚪",
+    tone: "neutral",
+    hasProAccess: false,
+    banner: null,
+    cta: "upgrade",
+    detail: "You are on the Free Plan.",
+    planLabel: "Free Plan",
+  };
+}
+
+function accountStatusBadgeHtml(account = currentAccount(), options = {}) {
+  const status = accountProductStatus(account);
+  const compact = options.compact === true;
+  return `<span class="llh-account-status-badge llh-account-status-badge--${escapeHtml(status.tone)}" title="${escapeHtml(status.detail)}">${status.emoji} ${escapeHtml(status.label)}${compact ? "" : ""}</span>`;
+}
+
+function subscriptionAccessBannerHtml(options = {}) {
+  if (!currentUser || !canAccessPlatformFeature("billing")) return "";
+  const account = currentAccount();
+  const status = accountProductStatus(account);
+  if (!status.banner) return "";
+  const variant = options.variant || "dashboard";
+  if (status.banner === "payment_failed") {
+    return `
+      <section class="llh-access-banner llh-access-banner--payment-failed" data-access-banner="payment-failed" data-banner-variant="${escapeHtml(variant)}" role="status">
+        <div class="llh-access-banner-copy">
+          <p class="llh-access-banner-title">⚠️ Your recent payment could not be processed.</p>
+          <p>Your Pro access will expire if payment is not updated.</p>
+          <p class="llh-access-banner-status">${accountStatusBadgeHtml(account)}</p>
+        </div>
+        <div class="llh-access-banner-actions">
+          <button class="primary-button" type="button" data-update-payment>Update Payment Method</button>
+          <button class="ghost-button" type="button" data-view="billing">Open Billing</button>
+        </div>
+      </section>
+    `;
+  }
+  if (status.banner === "access_lost") {
+    return `
+      <section class="llh-access-banner llh-access-banner--access-lost" data-access-banner="access-lost" data-banner-variant="${escapeHtml(variant)}" role="status">
+        <div class="llh-access-banner-copy">
+          <p class="llh-access-banner-title">🔒 Your Pro subscription is currently inactive.</p>
+          <p>You are currently using the Free Plan.</p>
+          <p>Update your payment method to regain access to Pro lesson plans and premium features.</p>
+          <p class="muted-copy">Your account, saved lesson plans, calendar, children, and observations were not deleted.</p>
+          <p class="llh-access-banner-status">${accountStatusBadgeHtml(account)}</p>
+        </div>
+        <div class="llh-access-banner-actions">
+          <button class="primary-button" type="button" data-view="upgrade">Reactivate Subscription</button>
+          <button class="ghost-button" type="button" data-update-payment>Update Payment Method</button>
+        </div>
+      </section>
+    `;
+  }
+  return "";
+}
+
 function repairFoundingMemberPricing(account = null) {
   if (!account) return account;
   const foundingActive = Boolean(account.foundingMemberActive)
@@ -3550,6 +3732,9 @@ function subscriptionToAccountUpdates(subscription) {
       paymentMethod: subscription.paymentMethod || "Managed in Stripe",
       promoRedemptions: accountPromoRedemptions(subscription),
       internalAccessOverride: Boolean(subscription.internalAccessOverride),
+      productStatus: subscription.productStatus || undefined,
+      adminAuditKey: subscription.adminAuditKey || undefined,
+      lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
     };
   }
   const isFounding = isFoundingSubscription(subscription);
@@ -3579,6 +3764,9 @@ function subscriptionToAccountUpdates(subscription) {
     trialStart: subscription.trialStart || undefined,
     trialEnd: subscription.trialEnd || undefined,
     internalAccessOverride: Boolean(subscription.internalAccessOverride),
+    productStatus: subscription.productStatus || undefined,
+    adminAuditKey: subscription.adminAuditKey || undefined,
+    lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
   };
 }
 
@@ -20135,8 +20323,12 @@ function renderUserDashboard() {
   const recentActivity = dashboardRecentActivity(records, childById);
   const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const reminders = dashboardReminderMarkup(records, stats);
-  const upgradeBanner = freeLibraryConversionBannerHtml({ variant: "dashboard", dismissible: true });
-  const showTeaserUpgradeCta = !upgradeBanner;
+  const accessBanner = subscriptionAccessBannerHtml({ variant: "dashboard" });
+  const upgradeBanner = accessBanner
+    ? ""
+    : freeLibraryConversionBannerHtml({ variant: "dashboard", dismissible: true });
+  const showTeaserUpgradeCta = !upgradeBanner && !accessBanner;
+  const statusBadge = currentUser ? accountStatusBadgeHtml(currentAccount()) : "";
   const dashboardTeasers = !isProUser() ? `
     <section class="section-block dashboard-teasers">
       <div class="dashboard-panel-heading"><div><p class="eyebrow">Pro previews</p><h3>Spend less time on paperwork</h3></div></div>
@@ -20153,10 +20345,11 @@ function renderUserDashboard() {
       <div class="dashboard-welcome">
         <div class="dashboard-welcome-text">
           <h2>${escapeHtml(greeting)}, ${escapeHtml(accountName)}</h2>
-          <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}</p>
+          <p class="dashboard-date">${escapeHtml(today)}${programName ? ` · ${escapeHtml(programName)}` : ""}${statusBadge ? ` · ${statusBadge}` : ""}</p>
         </div>
       </div>
 
+      ${accessBanner}
       ${upgradeBanner}
 
       ${dashboardScheduleOverviewMarkup()}
@@ -25755,9 +25948,10 @@ function renderSettingsHubPage() {
         <p class="eyebrow">Settings</p>
         <h2>Configuration &amp; account</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
-        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)}</p>
+        <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
-      ${canBilling && !isProUser() ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
+      ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
+      ${canBilling && !isProUser() && !accountProductStatus(currentAccount()).banner ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
       ${platformInstallCardMarkup("settings-prompt")}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
@@ -36537,26 +36731,23 @@ function adminMembershipDisplayPrice(account) {
 }
 
 function adminUserPlanBadge(account) {
-  const label = adminMembershipPlanLabel(account);
-  if (label === "Founding Member") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
-  if (label === "Trial") return `<span class="aup-badge aup-badge--trial">Trial</span>`;
-  if (label === "Pro Annual" || label === "Pro Monthly") return `<span class="aup-badge aup-badge--pro">🔷 ${escapeHtml(label)}</span>`;
-  return `<span class="aup-badge aup-badge--free">Free</span>`;
+  const status = accountProductStatus(account);
+  if (status.key === "active_founding") return `<span class="aup-badge aup-badge--founding">🟢 Active Founding Member</span>`;
+  if (status.key === "active_pro") return `<span class="aup-badge aup-badge--pro">🟢 Active Pro</span>`;
+  if (status.key === "trial") return `<span class="aup-badge aup-badge--trial">🟡 ${escapeHtml(status.label)}</span>`;
+  if (status.key === "payment_failed" || status.key === "past_due") return `<span class="aup-badge aup-badge--canceled">🟠 Payment Failed</span>`;
+  if (status.key === "inactive") return `<span class="aup-badge aup-badge--canceled">🔴 Subscription Inactive</span>`;
+  return `<span class="aup-badge aup-badge--free">⚪ Free Plan</span>`;
 }
 
 function adminUserStatusBadge(account) {
-  const label = adminMembershipStatusLabel(account);
-  if (label === "Subscription Ended" || label === "Trial Ended" || label === "Trial Canceled") {
-    return `<span class="aup-status aup-status--canceled">${escapeHtml(label)}</span>`;
-  }
-  if (label === "Cancels at Period End" || label === "Cancels at Trial End") {
-    return `<span class="aup-status aup-status--trial">${escapeHtml(label)}</span>`;
-  }
-  if (label === "Trial Active") return `<span class="aup-status aup-status--trial">Trial Active</span>`;
-  if (label === "Payment Failed" || label === "Past Due") return `<span class="aup-status aup-status--canceled">${escapeHtml(label)}</span>`;
-  if (label === "Manual Access") return `<span class="aup-status aup-status--active">Manual Access</span>`;
-  if (label === "Active") return `<span class="aup-status aup-status--active">Active</span>`;
-  return `<span class="aup-status aup-status--free">${escapeHtml(label)}</span>`;
+  const status = accountProductStatus(account);
+  const tone = status.tone === "success" ? "active"
+    : status.tone === "warning" ? "canceled"
+      : status.tone === "danger" ? "canceled"
+        : status.tone === "info" ? "trial"
+          : "free";
+  return `<span class="aup-status aup-status--${tone}">${status.emoji} ${escapeHtml(status.label)}</span>`;
 }
 
 function adminUserLastActiveLabel(account) {
@@ -36643,12 +36834,16 @@ function renderAdminUsersDashboard() {
   const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
   const localOnlyAccounts = allAccountsList().filter((a) => a.email && !serverEmails.has(a.email));
   const allAccounts = [...serverUsers, ...localOnlyAccounts];
-  // Current access buckets are intentionally exclusive.
-  const free = allAccounts.filter((a) => adminCurrentAccessKey(a) === "free");
-  const trial = allAccounts.filter((a) => adminCurrentAccessKey(a) === "trial");
-  const pro = allAccounts.filter((a) => adminCurrentAccessKey(a) === "pro");
-  const founding = allAccounts.filter((a) => adminCurrentAccessKey(a) === "founding");
-  const pastDue = allAccounts.filter((a) => adminCurrentAccessKey(a) === "past_due");
+  const auditKey = (account) => account?.adminAuditKey || accountProductStatus(account).adminKey;
+  // Mutually exclusive subscription access audit buckets.
+  const free = allAccounts.filter((a) => auditKey(a) === "free");
+  const trial = allAccounts.filter((a) => auditKey(a) === "trial");
+  const pro = allAccounts.filter((a) => auditKey(a) === "active");
+  const founding = allAccounts.filter((a) => auditKey(a) === "founding");
+  const pastDue = allAccounts.filter((a) => auditKey(a) === "past_due");
+  const paymentFailedAudit = allAccounts.filter((a) => auditKey(a) === "payment_failed");
+  const canceledAudit = allAccounts.filter((a) => auditKey(a) === "canceled");
+  const serverAudit = adminAnalyticsCache?.totals?.subscriptionAccessAudit || null;
 
   // Billing status is a separate dimension and may overlap one current-access bucket.
   const billingActive = allAccounts.filter((a) => adminBillingStatusKey(a) === "active");
@@ -36689,12 +36884,22 @@ function renderAdminUsersDashboard() {
       <div><p class="eyebrow">Users &amp; Memberships</p><h3>Account and subscription overview</h3></div>
     </div>
     ${sparseWarning}
-    <p class="eyebrow">Current Access</p>
-    <div class="aup-insight-grid">
-      <div class="aup-insight-card">
-        <strong>${Number(allAccounts.length)}</strong>
-        <span>Total Users</span>
+    <section class="aup-access-audit" aria-label="Subscription access audit">
+      <p class="eyebrow">Subscription Access Audit</p>
+      <p class="muted-copy">Mutually exclusive statuses — every account is in exactly one bucket.</p>
+      <div class="aup-insight-grid">
+        <div class="aup-insight-card"><strong>${Number(allAccounts.length)}</strong><span>Total Users</span></div>
+        <div class="aup-insight-card aup-insight--pro"><strong>${Number(serverAudit?.active ?? pro.length)}</strong><span>Active</span></div>
+        <div class="aup-insight-card aup-insight--founding"><strong>${Number(serverAudit?.founding ?? founding.length)}</strong><span>Founding Member</span></div>
+        <div class="aup-insight-card aup-insight--trial"><strong>${Number(serverAudit?.trial ?? trial.length)}</strong><span>Trial</span></div>
+        <div class="aup-insight-card aup-insight--canceled"><strong>${Number(serverAudit?.past_due ?? pastDue.length)}</strong><span>Past Due</span></div>
+        <div class="aup-insight-card aup-insight--canceled"><strong>${Number(serverAudit?.payment_failed ?? paymentFailedAudit.length)}</strong><span>Payment Failed</span></div>
+        <div class="aup-insight-card aup-insight--canceled"><strong>${Number(serverAudit?.canceled ?? canceledAudit.length)}</strong><span>Canceled</span></div>
+        <div class="aup-insight-card aup-insight--free"><strong>${Number(serverAudit?.free ?? free.length)}</strong><span>Free</span></div>
       </div>
+    </section>
+    <p class="eyebrow">Current Access Filters</p>
+    <div class="aup-insight-grid">
       <div class="aup-insight-card aup-insight--free">
         <strong>${Number(free.length)}</strong>
         <span>Free</span>
@@ -36705,18 +36910,22 @@ function renderAdminUsersDashboard() {
       </div>
       <div class="aup-insight-card aup-insight--pro">
         <strong>${Number(pro.length)}</strong>
-        <span>Pro</span>
+        <span>Active Pro</span>
       </div>
       <div class="aup-insight-card aup-insight--founding">
         <strong>${Number(founding.length)}</strong>
         <span>Founding</span>
       </div>
       <div class="aup-insight-card aup-insight--canceled">
-        <strong>${Number(pastDue.length)}</strong>
+        <strong>${Number(pastDue.length + paymentFailedAudit.length)}</strong>
         <span>Past Due / Failed</span>
       </div>
+      <div class="aup-insight-card aup-insight--canceled">
+        <strong>${Number(canceledAudit.length)}</strong>
+        <span>Canceled / Inactive</span>
+      </div>
     </div>
-    <p class="muted-copy">Current Access totals are mutually exclusive. Billing history below is a separate dimension.</p>
+    <p class="muted-copy">Access audit totals are mutually exclusive. Billing history below is a separate dimension.</p>
     <p class="muted-copy aup-source-note">${adminAnalyticsCache ? "Showing server-backed membership data (Stripe sync + account profiles)." : "Loading server data… local-only accounts may appear until sync completes. Use Stripe Backfill if production users are missing."}</p>
     <div class="aup-search-wrap">
       <input class="aup-search-input" id="adminUsersSearch" type="search" placeholder="Search name, email, business, plan, role…" autocomplete="off" />
@@ -36729,6 +36938,8 @@ function renderAdminUsersDashboard() {
       <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabPastDue"  type="button">Past Due (${Number(pastDue.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabPayFail"  type="button">Payment Failed (${Number(paymentFailedAudit.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabCanceledAccess" type="button">Canceled (${Number(canceledAudit.length)})</button>
     </div>
     <div class="admin-vis-tabs aup-filter-tabs" id="adminUserBillingFilterTabs">
       <span class="eyebrow">Billing Status / History</span>
@@ -36758,6 +36969,8 @@ function renderAdminUsersDashboard() {
     { id: "adminUserTabPaymentFailed", items: paymentFailed },
     { id: "adminUserTabNeverSubscribed", items: neverSubscribed },
     { id: "adminUserTabPastDue",  items: pastDue },
+    { id: "adminUserTabPayFail", items: paymentFailedAudit },
+    { id: "adminUserTabCanceledAccess", items: canceledAudit },
   ];
   const allUserTabBtns = userTabs.map(({ id }) => target.querySelector(`#${id}`)).filter(Boolean);
   const listEl = target.querySelector("#adminUsersList");
@@ -42166,21 +42379,19 @@ function renderUpgradePage() {
 function subscriptionSummaryHtml() {
   const account = currentAccount();
   const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
-  const planLabel = currentUser ? billingPlanLabel(currentPlan, account) : "Guest";
-  const statusLabel = currentUser
-    ? paidBilling
-      ? account?.subscriptionStatus || `${planLabel} Subscription Active`
-      : "Free Plan"
-    : "No account";
+  const status = currentUser ? accountProductStatus(account) : null;
+  const planLabel = currentUser ? (status?.planLabel || billingPlanLabel(currentPlan, account)) : "Guest";
+  const statusLabel = currentUser ? `${status.emoji} ${status.label}` : "No account";
   return `
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
       <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? "Lifetime" : "Regular Pro pricing") : "None"}</strong></div>
-      <div><span>Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
+      <div><span>Account Status</span><strong class="llh-billing-status-value llh-billing-status-value--${escapeHtml(status?.tone || "neutral")}">${escapeHtml(statusLabel)}</strong></div>
       <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
     </div>
+    ${status?.detail ? `<p class="muted-copy llh-billing-status-detail">${escapeHtml(status.detail)}</p>` : ""}
   `;
 }
 
@@ -42189,18 +42400,30 @@ function renderBillingPage() {
   if (!target) return;
   const account = currentAccount();
   const paidBilling = currentUser ? accountHasPaidBilling(account) : false;
-  const billingUpgradeBanner = !paidBilling ? foundingUpgradeBannerHtml({ variant: "billing", dismissible: false, force: true }) : "";
+  const productStatus = currentUser ? accountProductStatus(account) : null;
+  const accessBanner = subscriptionAccessBannerHtml({ variant: "billing" });
+  const billingUpgradeBanner = !paidBilling && !productStatus?.banner
+    ? foundingUpgradeBannerHtml({ variant: "billing", dismissible: false, force: true })
+    : "";
+  const showUpdatePayment = paidBilling || productStatus?.cta === "update_payment" || productStatus?.cta === "reactivate";
+  const primaryCta = productStatus?.cta === "reactivate"
+    ? `<button class="primary-button" data-view="upgrade" type="button">Reactivate Subscription</button>`
+    : productStatus?.cta === "update_payment"
+      ? `<button class="primary-button" data-update-payment type="button">Update Payment Method</button>`
+      : `<button class="primary-button" ${!paidBilling && canSeePaidUpgradeOffer() ? `data-checkout-plan="${preferredPaidCheckoutPlan()}"` : `data-view="upgrade"`} type="button">${paidBilling ? "Change Plan" : (canSeePaidUpgradeOffer() ? preferredPaidCheckoutButtonLabel() : "Upgrade to Pro")}</button>`;
   target.innerHTML = `
+    ${accessBanner}
     ${billingUpgradeBanner}
     <section class="account-layout">
       <div class="account-panel">
         <p class="eyebrow">Billing Management</p>
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
+        <p class="llh-billing-status-line">${accountStatusBadgeHtml(account)}</p>
         ${subscriptionSummaryHtml()}
         <div class="account-actions-row">
           <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
-          <button class="primary-button" ${!paidBilling && canSeePaidUpgradeOffer() ? `data-checkout-plan="${preferredPaidCheckoutPlan()}"` : `data-view="upgrade"`} type="button">${paidBilling ? "Change Plan" : (canSeePaidUpgradeOffer() ? preferredPaidCheckoutButtonLabel() : "Upgrade to Pro")}</button>
-          ${paidBilling ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
+          ${primaryCta}
+          ${showUpdatePayment && productStatus?.cta !== "update_payment" ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
           ${paidBilling ? `<button class="danger-button" data-view="cancel-subscription" type="button">Cancel Subscription</button>` : ""}
         </div>
@@ -42511,19 +42734,33 @@ function renderAccountPage() {
   if (phoneInput) phoneInput.value = account?.phone || "";
   if (firstNameInput) firstNameInput.value = account?.firstName || "";
   if (lastNameInput) lastNameInput.value = account?.lastName || "";
-  statusLabel.textContent = paidBilling ? account?.subscriptionStatus || `${billingPlanLabel(currentPlan, account)} Subscription Active` : "Free Plan";
+  const productStatus = accountProductStatus(account);
+  statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
-    ? (paidBilling
-      ? `Current Plan: ${escapeHtml(billingPlanLabel(currentPlan, account))}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${account?.foundingMember ? "Lifetime" : "Regular Pro pricing"}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidAiMonthlyLimit} used this billing month. Resets ${escapeHtml(aiResetLabel())}.`
-      : `Your Free account includes core tools with Free limits. Manage upgrades in Settings → Membership &amp; Billing. Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}. Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`)
-    : `Plan access on this account: ${escapeHtml(billingPlanLabel(currentPlan, account))}. Billing and subscription changes are managed by the program owner.`;
+    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? "Lifetime" : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
+    : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
+  const accountBannerHost = document.querySelector("#accountAccessBanner");
+  if (accountBannerHost) {
+    accountBannerHost.innerHTML = canBilling ? subscriptionAccessBannerHtml({ variant: "account" }) : "";
+  }
   if (demoButton) demoButton.style.display = "none";
   if (upgradeButton) {
     if (canBilling) {
       upgradeButton.style.display = "inline-flex";
-      upgradeButton.textContent = paidBilling ? "Manage Billing" : "Upgrade to Pro";
+      upgradeButton.textContent = productStatus.cta === "reactivate"
+        ? "Reactivate Subscription"
+        : productStatus.cta === "update_payment"
+          ? "Update Payment Method"
+          : paidBilling ? "Manage Billing" : "Upgrade to Pro";
       upgradeButton.disabled = false;
       upgradeButton.classList.remove("disabled-control");
+      if (productStatus.cta === "update_payment") {
+        upgradeButton.setAttribute("data-update-payment", "");
+        upgradeButton.removeAttribute("data-view");
+      } else {
+        upgradeButton.removeAttribute("data-update-payment");
+        upgradeButton.setAttribute("data-view", productStatus.cta === "reactivate" || !paidBilling ? "upgrade" : "billing");
+      }
     } else {
       upgradeButton.style.display = "none";
     }
@@ -42655,18 +42892,23 @@ function updatePlanLabel() {
     updateSidebarDashboard();
     return;
   }
-  const planLabel = isAdminUnlocked() ? previewAwarePlanLabel() : billingPlanLabel();
+  const productStatus = accountProductStatus(currentAccount());
+  const planLabel = isAdminUnlocked() ? previewAwarePlanLabel() : productStatus.label;
   const priceLabel = isAdminUnlocked() ? previewAwarePriceLabel() : billingPriceLabel();
   currentPlanLabel.textContent = isAdminPreviewSimulating()
     ? `${planLabel} (preview)`
-    : planLabel;
+    : `${productStatus.emoji} ${planLabel}`;
   const summary = document.querySelector("#planAccessSummary");
   if (summary) {
     if (isAdminPreviewSimulating()) {
       summary.textContent = `Admin preview: viewing the platform as ${planLabel} (${priceLabel}). Permissions, locks, and upgrade prompts match that account.`;
+    } else if (productStatus.banner === "payment_failed") {
+      summary.textContent = `${productStatus.label}: update your payment method to restore Pro access. Your saved data is safe.`;
+    } else if (productStatus.banner === "access_lost") {
+      summary.textContent = `${productStatus.label}: you are on the Free Plan. Reactivate anytime — nothing was deleted.`;
     } else {
       summary.textContent = isProUser()
-        ? `${billingPlanLabel()} active: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
+        ? `${productStatus.label}: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
         : freePlanAccessSummaryText().replace("and 10 document creations.", `and ${aiUsageRemaining()} document creations left this month.`);
     }
   }
