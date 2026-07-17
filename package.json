@@ -84,6 +84,7 @@
     "test:lesson-weekly-calendar-pdf": "node scripts/test-lesson-weekly-calendar-pdf.js",
     "mockup:teacher-weekly-planner": "node scripts/capture-teacher-weekly-planner-screenshots.js",
     "audit:teacher-weekly-planner": "node scripts/audit-teacher-weekly-planner.js",
+    "audit:post-merge-planner-buttons": "node scripts/audit-post-merge-planner-buttons.js",
     "test:lesson-print-qa": "node scripts/test-lesson-print-qa.js",
     "test:lesson-use-this-plan": "node scripts/test-lesson-use-this-plan.js",
     "test:lesson-library-phase2": "node scripts/test-lesson-library-phase2.js",

@@ -16257,6 +16257,21 @@ function toggleLessonWorkspaceMoreMenu(open) {
   const show = typeof open === "boolean" ? open : menu.hidden;
   menu.hidden = !show;
   toggle?.setAttribute("aria-expanded", show ? "true" : "false");
+  if (!show || !toggle) return;
+  // Keep the menu inside the viewport so Detailed/Planning downloads stay clickable.
+  const rect = toggle.getBoundingClientRect();
+  const spaceAbove = Math.max(120, rect.top - 12);
+  const spaceBelow = Math.max(120, window.innerHeight - rect.bottom - 12);
+  const openDown = spaceBelow >= 260 || spaceBelow >= spaceAbove;
+  if (openDown) {
+    menu.style.top = "calc(100% + 4px)";
+    menu.style.bottom = "auto";
+    menu.style.maxHeight = `${Math.min(420, spaceBelow)}px`;
+  } else {
+    menu.style.top = "auto";
+    menu.style.bottom = "calc(100% + 4px)";
+    menu.style.maxHeight = `${Math.min(420, spaceAbove)}px`;
+  }
 }
 
 function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {

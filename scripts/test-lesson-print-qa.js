@@ -213,7 +213,12 @@ async function main() {
       };
     });
 
-    await page.locator('[data-lesson-action-bars="top"] [data-lesson-print-variant="week"]').click();
+    // Print lives in More menu; primary bar has the two main PDF downloads.
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
+    const printBtn = page.locator('.lesson-workspace-more-menu [data-lesson-print-variant="week"]');
+    await printBtn.scrollIntoViewIfNeeded();
+    await printBtn.click();
     await page.waitForFunction(() => (window.__printInvocations || []).length >= 1, null, { timeout: 5000 });
     const printState = await page.evaluate(() => window.__printInvocations[0]);
     check("Print weekly sets printing-lesson-week", printState.weekClass);
@@ -223,21 +228,30 @@ async function main() {
     const weekDownload = page.waitForEvent("download", { timeout: 10000 });
     await page.locator('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="week"]').click();
     const weekFile = await weekDownload;
-    check("Download weekly is PDF calendar", /\.pdf$/i.test(weekFile.suggestedFilename()), weekFile.suggestedFilename());
+    check("Download Teacher Weekly Planner is PDF", /teacher-weekly-planner\.pdf$/i.test(weekFile.suggestedFilename()), weekFile.suggestedFilename());
+
+    const fullPrimary = page.waitForEvent("download", { timeout: 10000 });
+    await page.locator('[data-lesson-action-bars="top"] .lesson-workspace-primary-actions > [data-lesson-download-variant="full"]').click();
+    const fullPrimaryFile = await fullPrimary;
+    check("Download Full Lesson Plan is PDF", /\.pdf$/i.test(fullPrimaryFile.suggestedFilename()), fullPrimaryFile.suggestedFilename());
 
     await page.locator("[data-lesson-workspace-more-toggle]").click();
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
+    const detailBtn = page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="week-detail"]');
+    await detailBtn.scrollIntoViewIfNeeded();
     const detailDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="week-detail"]').click();
+    await detailBtn.click();
     const detailFile = await detailDownload;
     check("Detailed weekly is PDF", /\.pdf$/i.test(detailFile.suggestedFilename()), detailFile.suggestedFilename());
 
     await page.locator("[data-lesson-workspace-more-toggle]").click();
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
+    const fullBtn = page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="full"]');
+    await fullBtn.scrollIntoViewIfNeeded();
     const fullDownload = page.waitForEvent("download", { timeout: 10000 });
-    await page.locator('.lesson-workspace-more-menu [data-lesson-download-variant="full"]').click();
+    await fullBtn.click();
     const fullFile = await fullDownload;
-    check("Download full is PDF", /\.pdf$/i.test(fullFile.suggestedFilename()), fullFile.suggestedFilename());
+    check("More → Full Lesson Plan is PDF", /\.pdf$/i.test(fullFile.suggestedFilename()), fullFile.suggestedFilename());
 
     if (failures.length) {
       throw new Error(`${failures.length} check(s) failed:\n- ${failures.join("\n- ")}`);
