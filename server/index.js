@@ -5846,8 +5846,26 @@ function membershipUserIsFounding(user) {
   return membershipAccess.membershipFoundingActive(user);
 }
 
-function membershipHasProAccess(user) {
-  return membershipAccess.membershipHasProAccess(user);
+function membershipHasProAccess(user, storeRef = null) {
+  if (membershipAccess.membershipHasProAccess(user)) return true;
+  // Directors/staff inherit the program owner's paid/Founding access.
+  if (!user?.programAccessViaOwner) return false;
+  const ownerEmail = normalizeEmail(user.linkedProgramOwnerEmail || "");
+  if (!ownerEmail) return false;
+  const store = storeRef || peekStore();
+  const owner = store?.users?.[ownerEmail];
+  return membershipAccess.membershipHasProAccess(owner || {});
+}
+
+function membershipCurrentAccessKeyResolved(user, storeRef = null) {
+  const own = membershipAccess.membershipCurrentAccessKey(user);
+  if (own && own !== "free") return own;
+  if (!user?.programAccessViaOwner) return own || "free";
+  const ownerEmail = normalizeEmail(user.linkedProgramOwnerEmail || "");
+  if (!ownerEmail) return own || "free";
+  const store = storeRef || peekStore();
+  const owner = store?.users?.[ownerEmail];
+  return membershipAccess.membershipCurrentAccessKey(owner || user) || "free";
 }
 
 function membershipPlanDisplay(user) {
@@ -5865,16 +5883,27 @@ function membershipSummaryForUser(user, storeRef = null) {
   const audits = (store.membershipAudit || []).filter((entry) => entry.email === user?.email).slice(0, 5);
   const endMs = membershipAccess.accessEndMs(user);
   const access = accountAccess.summarizeAccountAccess(user || {});
+  const ownerEmail = normalizeEmail(user?.linkedProgramOwnerEmail || "");
+  const owner = ownerEmail ? (store?.users?.[ownerEmail] || null) : null;
+  const ownPro = membershipAccess.membershipHasProAccess(user);
+  const inheritedPro = !ownPro && Boolean(user?.programAccessViaOwner) && membershipAccess.membershipHasProAccess(owner || {});
+  const hasPro = ownPro || inheritedPro;
+  const currentAccess = inheritedPro
+    ? membershipAccess.membershipCurrentAccessKey(owner)
+    : membershipCurrentAccessKeyResolved(user, store);
   return {
     accountType: access.accountType,
     role: access.role,
     capabilities: access.capabilities,
-    membershipPlan: membershipPlanDisplay(user),
+    membershipPlan: inheritedPro
+      ? membershipAccess.membershipPlanDisplay(owner)
+      : membershipPlanDisplay(user),
     membershipStatus: membershipStatusDisplay(user),
-    currentAccess: membershipAccess.membershipCurrentAccessKey(user),
+    currentAccess,
     billingStatus: membershipAccess.membershipBillingStatusKey(user),
     previousPlan: membershipAccess.membershipPreviousPlanDisplay(user),
-    hasProAccess: membershipHasProAccess(user),
+    hasProAccess: hasPro,
+    accessInheritedFromOwner: inheritedPro ? ownerEmail : "",
     foundingMemberHistorical: membershipAccess.membershipFoundingHistorical(user),
     foundingMemberActive: membershipAccess.membershipFoundingActive(user),
     foundingEligibilityLabel: membershipAccess.membershipFoundingActive(user)
@@ -5883,8 +5912,10 @@ function membershipSummaryForUser(user, storeRef = null) {
         ? "Historical Founding Member (no auto $9.99)"
         : "Not a Founding Member",
     foundingPriceLock: user?.foundingMemberActive ? (user?.priceLock || "Lifetime") : "",
-    displayPrice: membershipHasProAccess(user)
-      ? (membershipUserIsFounding(user) ? "$9.99/month" : user?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month")
+    displayPrice: hasPro
+      ? (inheritedPro
+        ? (membershipAccess.membershipFoundingActive(owner) ? "$9.99/month" : (owner?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month"))
+        : (membershipUserIsFounding(user) ? "$9.99/month" : user?.subscriptionCadence === "annual" ? "$199/year" : "$19.99/month"))
       : "$0/month",
     subscriptionStartedAt: user?.subscriptionStartedAt || "",
     trialStart: user?.trialStart || "",
@@ -5895,7 +5926,7 @@ function membershipSummaryForUser(user, storeRef = null) {
     cancelAtPeriodEnd: Boolean(user?.cancelAtPeriodEnd),
     scheduledCancellation: Boolean(user?.cancelAtPeriodEnd),
     accessEndLabel: endMs ? new Date(endMs).toLocaleDateString() : "",
-    canceledAt: !membershipHasProAccess(user) && String(user?.subscriptionStatus || "").toLowerCase().includes("ended")
+    canceledAt: !hasPro && String(user?.subscriptionStatus || "").toLowerCase().includes("ended")
       ? (user?.accessEndsAt || user?.updatedAt || "")
       : "",
     subscriptionEndedAt: user?.subscriptionEndedAt || "",
@@ -5908,19 +5939,21 @@ function membershipSummaryForUser(user, storeRef = null) {
     serverPasswordAuth: Boolean(user?.serverPasswordAuth),
     tempPasswordExpiresAt: user?.tempPasswordExpiresAt || "",
     programId: user?.programId || "",
-    linkedProgramOwnerEmail: normalizeEmail(user?.linkedProgramOwnerEmail || ""),
+    linkedProgramOwnerEmail: ownerEmail,
     programAccessViaOwner: Boolean(user?.programAccessViaOwner),
-    accessSource: user?.internalAccessOverride && !user?.stripeSubscriptionId
-      ? "Manual admin grant"
-      : user?.promoRedeemedAt && membershipUserInTrial(user)
-        ? "Promo trial"
-        : membershipAccess.membershipFoundingActive(user)
-          ? "Founding subscription"
-          : user?.stripeSubscriptionId
-            ? "Stripe subscription"
-            : user?.manualAccessGranted
-              ? "Previous manual admin grant"
-              : "Free account",
+    accessSource: inheritedPro
+      ? "Program owner access (Director/staff)"
+      : user?.internalAccessOverride && !user?.stripeSubscriptionId
+        ? "Manual admin grant"
+        : user?.promoRedeemedAt && membershipUserInTrial(user)
+          ? "Promo trial"
+          : membershipAccess.membershipFoundingActive(user)
+            ? "Founding subscription"
+            : user?.stripeSubscriptionId
+              ? "Stripe subscription"
+              : user?.manualAccessGranted
+                ? "Previous manual admin grant"
+                : "Free account",
     lastMembershipSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     lastStripeSyncAt: user?.lastStripeSyncAt || user?.updatedAt || "",
     stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",
