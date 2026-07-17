@@ -17236,26 +17236,26 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
   };
 
   const overviewSections = () => {
-    const objectives = (summary.objectives || []).map((item) => `• ${item}`).join("\n");
-    const domains = (summary.learningDomains || []).join(" · ");
+    const objectives = (summary.objectives || []).map((item) => `- ${item}`).join(" ");
+    const domains = (summary.learningDomains || []).join(" | ");
     const books = (summary.books || []).join("; ");
     const songs = (summary.songs || []).join("; ");
     return [
-      { label: "Theme", value: summary.theme || "Classroom Theme", chars: 108, maxLines: 2 },
-      { label: "Age Group", value: summary.age || "Preschool", chars: 108, maxLines: 1 },
+      { label: "Theme", value: summary.theme || "Classroom Theme", chars: 50, maxLines: 2, pair: "age" },
+      { label: "Age Group", value: summary.age || "Preschool", chars: 50, maxLines: 1, pair: "age" },
       { label: "Weekly Overview", value: summary.weeklyOverview, chars: 118, maxLines: 5 },
       { label: "Learning Domains", value: domains, chars: 118, maxLines: 2 },
-      { label: "Weekly Objectives", value: objectives, chars: 110, maxLines: 6 },
+      { label: "Weekly Objectives", value: objectives, chars: 110, maxLines: 5 },
       { label: "Weekly Vocabulary", value: summary.vocabularyWords, chars: 118, maxLines: 3 },
       { label: "Materials", value: summary.weeklyMaterials, chars: 118, maxLines: 4 },
-      { label: "Books", value: books, chars: 118, maxLines: 3 },
-      { label: "Songs", value: songs, chars: 118, maxLines: 2 },
+      { label: "Books", value: books, chars: 50, maxLines: 3, pair: "media" },
+      { label: "Songs", value: songs, chars: 50, maxLines: 2, pair: "media" },
     ].filter((section) => String(section.value || "").trim());
   };
 
-  const estimateSectionHeight = (section, bodySize = 9) => {
+  const estimateSectionHeight = (section, bodySize = 9.5) => {
     const lines = Math.max(1, Math.min(section.maxLines, wrapPdfText(section.value, section.chars).length));
-    return 16 + (lines * (bodySize * 1.25)) + 10;
+    return 18 + (lines * (bodySize * 1.3)) + 12;
   };
 
   const drawOverviewPage = (tools) => {
@@ -17265,43 +17265,68 @@ function buildTeacherWeeklyPlannerPdfBlob(resource, options = {}) {
     y -= 18;
     fillRect(MARGIN, y - 16, CONTENT_WIDTH, 18, PURPLE);
     const week = weekOfLabel || "Week of ______________";
-    text(`Teacher Weekly Planner`, MARGIN + 8, y - 11, 9, "F2", "1 1 1");
+    text("Teacher Weekly Planner", MARGIN + 8, y - 11, 9, "F2", "1 1 1");
     text(week, PAGE_W - MARGIN - 160, y - 11, 9, "F2", "1 1 1");
-    y -= 28;
+    y -= 26;
 
     const sections = overviewSections();
-    let bodySize = 9;
+    const rows = [];
+    for (let i = 0; i < sections.length; i += 1) {
+      const current = sections[i];
+      const next = sections[i + 1];
+      if (current.pair && next && next.pair === current.pair) {
+        rows.push([current, next]);
+        i += 1;
+      } else {
+        rows.push([current]);
+      }
+    }
+
+    let bodySize = 9.5;
     let labelSize = 10;
+    const measureRows = () => rows.reduce((sum, row) => {
+      const tallest = Math.max(...row.map((section) => estimateSectionHeight(section, bodySize)));
+      return sum + tallest + 8;
+    }, 0);
+
     let scalePass = 0;
-    while (scalePass < 4) {
-      const total = sections.reduce((sum, section) => sum + estimateSectionHeight(section, bodySize), 0);
+    while (scalePass < 5) {
       const budget = y - CONTENT_BOTTOM;
-      if (total <= budget || bodySize <= 7.5) break;
-      bodySize -= 0.5;
-      labelSize = Math.max(8.5, labelSize - 0.3);
-      sections.forEach((section) => {
-        section.maxLines = Math.max(1, section.maxLines - (scalePass === 0 ? 0 : 1));
+      if (measureRows() <= budget || bodySize <= 8) break;
+      bodySize -= 0.4;
+      labelSize = Math.max(8.5, labelSize - 0.25);
+      rows.flat().forEach((section) => {
+        section.maxLines = Math.max(1, section.maxLines - (scalePass > 1 ? 1 : 0));
       });
       scalePass += 1;
     }
 
-    sections.forEach((section) => {
+    // Distribute leftover vertical space so Page 1 does not leave a giant empty band.
+    const budget = y - CONTENT_BOTTOM;
+    const used = measureRows();
+    const extraGap = rows.length > 1 ? Math.max(0, Math.min(14, Math.floor((budget - used) / rows.length))) : 0;
+
+    const drawSectionBox = (section, x, top, width, height) => {
       const lines = wrapPdfText(section.value, section.chars).slice(0, section.maxLines);
-      const blockH = 16 + (lines.length * (bodySize * 1.25)) + 8;
-      // Never split a section: if it cannot fit, shrink lines further rather than page-break mid-block.
-      let fitLines = lines;
-      let fitH = blockH;
-      while (y - fitH < CONTENT_BOTTOM && fitLines.length > 1) {
-        fitLines = fitLines.slice(0, fitLines.length - 1);
-        fitH = 16 + (fitLines.length * (bodySize * 1.25)) + 8;
+      fillRect(x, top - height, width, height, "1 1 1");
+      strokeRect(x, top - height, width, height, PURPLE_LINE, 0.6);
+      fillRect(x, top - 16, width, 16, PURPLE_SOFT);
+      text(section.label, x + 8, top - 11, labelSize, "F2", PURPLE_DEEP);
+      writeWrappedInBox(lines.join(" "), x + 8, top - 28, section.chars, lines.length, bodySize, "F1", INK, 1.3);
+    };
+
+    rows.forEach((row) => {
+      const height = Math.max(...row.map((section) => estimateSectionHeight(section, bodySize)));
+      if (y - height < CONTENT_BOTTOM) return;
+      if (row.length === 2) {
+        const gap = 10;
+        const colW = (CONTENT_WIDTH - gap) / 2;
+        drawSectionBox(row[0], MARGIN, y, colW, height);
+        drawSectionBox(row[1], MARGIN + colW + gap, y, colW, height);
+      } else {
+        drawSectionBox(row[0], MARGIN, y, CONTENT_WIDTH, height);
       }
-      if (y - fitH < CONTENT_BOTTOM) return;
-      fillRect(MARGIN, y - fitH, CONTENT_WIDTH, fitH, "1 1 1");
-      strokeRect(MARGIN, y - fitH, CONTENT_WIDTH, fitH, PURPLE_LINE, 0.6);
-      fillRect(MARGIN, y - 15, CONTENT_WIDTH, 15, PURPLE_SOFT);
-      text(section.label, MARGIN + 8, y - 11, labelSize, "F2", PURPLE_DEEP);
-      writeWrappedInBox(fitLines.join(" "), MARGIN + 8, y - 28, section.chars, fitLines.length, bodySize, "F1", INK, 1.25);
-      y -= fitH + 6;
+      y -= height + 8 + extraGap;
     });
   };
 
@@ -18021,6 +18046,8 @@ function pdfEscapeText(value) {
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-")
+    .replace(/©/g, "(c)")
+    .replace(/·/g, "|")
     .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "")
     .replace(/\\/g, "\\\\")
     .replace(/\(/g, "\\(")
@@ -18032,6 +18059,8 @@ function pdfSafeText(value) {
     .replace(/[“”]/g, '"')
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-")
+    .replace(/©/g, "(c)")
+    .replace(/·/g, "|")
     .replace(/[^\x20-\x7E]/g, "");
 }
 
