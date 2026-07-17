@@ -20346,3 +20346,48 @@ canvas {
 @media (max-width: 720px) {
   .admin-notif-item { flex-direction: column; }
 }
+
+/* Site-wide copyright footer (in-app views; public home uses .llh-public-footer) */
+.llh-app-footer {
+  margin-top: 28px;
+  padding: 18px 8px 28px;
+  border-top: 1px solid rgba(40, 50, 70, 0.1);
+  text-align: center;
+}
+.llh-copyright-notice,
+.llh-footer-copy {
+  margin: 0;
+  color: #5a6578;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+.llh-copyright-block {
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(40, 50, 70, 0.1);
+}
+.llh-copyright-block .llh-copyright-notice,
+.curriculum-copyright-footer .llh-copyright-notice,
+.lesson-workspace-copyright .llh-copyright-notice,
+.printable-copyright-footer .llh-copyright-notice,
+.lesson-print-copyright {
+  text-align: center;
+  color: #5a6578;
+  font-size: 0.82rem;
+}
+body.home-view .llh-app-footer {
+  display: none;
+}
+@media print {
+  .llh-app-footer {
+    display: none !important;
+  }
+  .curriculum-copyright-footer,
+  .printable-copyright-footer,
+  .lesson-workspace-copyright,
+  .lesson-print-copyright,
+  .lesson-week-print-footer {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

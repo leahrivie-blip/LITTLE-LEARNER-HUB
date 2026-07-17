@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260717-admin-notif-pwa" />
+  <link rel="stylesheet" href="styles.css?v=20260717-copyright" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-admin-notif-pwa" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
@@ -642,7 +642,7 @@
               <button type="button" data-view="legal">Terms</button>
               <button type="button" data-view="contact">Contact</button>
             </nav>
-            <p class="llh-footer-copy">© <span id="llhFooterYear">2026</span> Little Learner Hub. All rights reserved.</p>
+            <p class="llh-footer-copy">© <span id="llhFooterYear">2026</span> Little Learner Hub by Leah. All Rights Reserved.</p>
           </footer>
 
           <div class="lp-mobile-sticky-cta" aria-label="Claim founding pricing">
@@ -1057,11 +1057,14 @@
               <p>Little Learner Hub may collect account details, support messages, billing status, saved resources, child profile details, observations, AI prompts, AI-generated content, and generated documents needed to operate the platform.</p>
               <p>Information should be used only for providing childcare resource tools, account access, support, billing, and product improvement. Payment details should be processed through Stripe and not stored directly inside Little Learner Hub.</p>
             </article>
-            <article class="section-block legal-card">
-              <p class="eyebrow">Terms of Use</p>
+            <article class="section-block legal-card" id="legalTerms">
+              <p class="eyebrow">Terms of Service</p>
               <h3>Provider responsibility</h3>
               <p>Resources, AI outputs, forms, and policy drafts are templates for childcare providers to review and adapt. Providers are responsible for checking state licensing rules, program policies, family agreements, and professional requirements before use.</p>
               <p>AI-generated content may be incomplete, inaccurate, or not specific to a provider's state or program. Providers must review, edit, and approve all AI-generated content before sharing it with families or using it for business records.</p>
+              <h3 id="legalCopyright">Copyright</h3>
+              <p>© 2026 Little Learner Hub by Leah. All Rights Reserved.</p>
+              <p>Lesson plans, activities, printables, curriculum materials, graphics, and other content on Little Learner Hub are protected intellectual property. Members receive a limited, personal license to use content for their own childcare program. Unauthorized copying, sharing, resale, public redistribution, or commercial reuse outside the member's program is prohibited.</p>
             </article>
             <article class="section-block legal-card">
               <p class="eyebrow">Refund and Cancellation Policy</p>
@@ -1591,6 +1594,9 @@
           </section>
         </section>
 
+        <footer class="llh-app-footer" aria-label="Copyright">
+          <p class="llh-copyright-notice">© 2026 Little Learner Hub by Leah. All Rights Reserved.</p>
+        </footer>
       </main>
     </div>
 
@@ -1926,6 +1932,7 @@
       </div>
     </div>
 
+    <script src="scripts/llh-copyright.js?v=20260717-copyright" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards" defer></script>
     <script src="scripts/lesson-plan-covers.js?v=20260717-netflix-cover-cards" defer></script>
@@ -1934,11 +1941,11 @@
     <script src="scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260716-curriculum-standards" defer></script>
-    <script src="scripts/curriculum-lesson-viewer-render.js?v=20260715-preview-cta-fix" defer></script>
+    <script src="scripts/curriculum-lesson-viewer-render.js?v=20260717-copyright" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260715-weekly-pdf-reg" defer></script>
-    <script src="app.js?v=20260717-admin-notif-pwa" defer></script>
+    <script src="app.js?v=20260717-copyright" defer></script>
     <script src="comms-center.js?v=20260717-admin-notif-pwa" defer></script>
   </body>
 </html>
