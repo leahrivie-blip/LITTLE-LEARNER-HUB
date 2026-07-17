@@ -32084,6 +32084,7 @@ async function renderAdminEmailEngagement() {
     const steps = Array.isArray(data.onboardingSteps) ? data.onboardingSteps : [];
     const cachedAudit = window.__adminEmailPreflightAudit || null;
     const cachedPrepare = window.__adminEmailPrepared || null;
+    const cachedFoundingPreview = window.__adminFoundingEmailPreview || null;
     const auditChecks = Array.isArray(cachedAudit?.checks) ? cachedAudit.checks : [];
     const sendReady = Boolean(cachedAudit?.sendUnlocked || (oneTime.sendUnlocked && cachedAudit?.auditToken));
     const providerReady = Boolean(support.ready || cachedPrepare?.emailProvider?.ready || cachedAudit?.emailProvider?.ready);
@@ -32146,6 +32147,48 @@ async function renderAdminEmailEngagement() {
               : "Nothing will be sent until you explicitly confirm after audit + prepare.")}
         </p>
         <p class="form-note" id="adminEmailOneTimeMessage"></p>
+      </div>
+
+      <div class="admin-email-controls panel-form">
+        <h4>Founding Members thank-you (one-time)</h4>
+        <p class="form-note">Sends only to users with <strong>current confirmed Founding Member access</strong> (not the founding list, not all Pro/paid users). Dry-run first. Keep <code>EMAIL_AUTOMATIONS_ENABLED=false</code>. Requires confirmation phrase <code>SEND_FOUNDING_MEMBER_EMAIL</code>.</p>
+        <div class="aup-insight-grid">
+          <div class="aup-insight-card"><strong>${cachedFoundingPreview?.counts?.foundingList ?? "—"}</strong><span>Founding list</span></div>
+          <div class="aup-insight-card aup-insight--pro"><strong>${cachedFoundingPreview?.counts?.recipients ?? "—"}</strong><span>Active Founding recipients</span></div>
+          <div class="aup-insight-card aup-insight--trial"><strong>${cachedFoundingPreview?.counts?.excluded ?? "—"}</strong><span>Excluded near-misses</span></div>
+          <div class="aup-insight-card"><strong>${cachedFoundingPreview?.counts?.duplicatesRemoved ?? "—"}</strong><span>Duplicates removed</span></div>
+        </div>
+        ${cachedFoundingPreview ? `
+          <div class="admin-email-preview">
+            <h4>Dry-run recipient list (not sent)</h4>
+            <p class="form-note">${escapeHtml(cachedFoundingPreview.audienceRule || "")}</p>
+            <ul class="admin-email-step-list">
+              ${(cachedFoundingPreview.recipients || []).map((row) => `
+                <li>✓ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")} · ${escapeHtml(row.qualifyReason || "")}</li>
+              `).join("") || "<li>No qualifying recipients</li>"}
+            </ul>
+            ${(cachedFoundingPreview.excluded || []).length ? `
+              <p class="form-note"><strong>Excluded:</strong></p>
+              <ul class="admin-email-step-list">
+                ${cachedFoundingPreview.excluded.map((row) => `
+                  <li>✗ <strong>${escapeHtml(row.email)}</strong> · ${escapeHtml(row.accountStatus || "")} · ${(row.excludeReasons || []).map(escapeHtml).join(", ")}</li>
+                `).join("")}
+              </ul>
+            ` : ""}
+            <p class="form-note"><strong>Subject:</strong> ${escapeHtml(cachedFoundingPreview.email?.subject || "")}</p>
+            <pre class="admin-email-text-preview" style="white-space:pre-wrap;max-height:240px;overflow:auto;background:#f7f3ec;padding:12px;border-radius:8px;">${escapeHtml(cachedFoundingPreview.email?.textPreview || "")}</pre>
+          </div>
+        ` : `<p class="form-note">No Founding Member dry-run in this session yet.</p>`}
+        <label class="checkbox-row"><input type="checkbox" id="adminFoundingIncludeAdmin"> Include admin only if they genuinely have Founding access (off by default)</label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" id="adminFoundingEmailDryRun">Dry-run Founding thank-you</button>
+          <button class="ghost-button" type="button" id="adminFoundingEmailSend" ${cachedFoundingPreview?.sendUnlocked && !cachedFoundingPreview?.alreadySent ? "" : "disabled"}>Send Founding thank-you (gated)</button>
+        </div>
+        <p class="form-note" id="adminFoundingEmailMessage">
+          ${cachedFoundingPreview?.alreadySent
+            ? `Already sent ${escapeHtml(cachedFoundingPreview.sentAt || "")}. Duplicate sends are blocked.`
+            : "Nothing will be sent until you approve the dry-run list and type the confirmation phrase."}
+        </p>
       </div>
 
       <div class="admin-email-controls panel-form">
@@ -42881,6 +42924,62 @@ document.addEventListener("click", async (event) => {
       await renderAdminEmailEngagement();
     } catch (error) {
       if (msg) msg.textContent = error.message || "One-time send failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminFoundingEmailDryRun")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminFoundingEmailMessage");
+    const includeAdmin = Boolean(document.querySelector("#adminFoundingIncludeAdmin")?.checked);
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/founding-member-email/dry-run", { includeAdmin });
+      window.__adminFoundingEmailPreview = data.preview || null;
+      if (msg) {
+        msg.textContent = `Dry-run ready: ${data.preview?.counts?.recipients || 0} Founding recipients (founding list ${data.preview?.counts?.foundingList || 0}). Nothing was sent.`;
+      }
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Founding dry-run failed.";
+    }
+    return;
+  }
+  if (event.target.closest("#adminFoundingEmailSend")) {
+    event.preventDefault();
+    const msg = document.querySelector("#adminFoundingEmailMessage");
+    const preview = window.__adminFoundingEmailPreview;
+    if (!preview?.dryRunToken) {
+      if (msg) msg.textContent = "Run the Founding Members dry-run first and approve the list.";
+      return;
+    }
+    const recipientCount = Number(preview.counts?.recipients) || 0;
+    const phrase = window.prompt(
+      `Type SEND_FOUNDING_MEMBER_EMAIL to send the thank-you to ${recipientCount} verified Founding Members.\n\nThis is a one-time send only and cannot be undone.`,
+      "",
+    );
+    if (String(phrase || "").trim() !== "SEND_FOUNDING_MEMBER_EMAIL") {
+      if (msg) msg.textContent = "Send canceled — confirmation phrase did not match.";
+      return;
+    }
+    const includeAdmin = Boolean(document.querySelector("#adminFoundingIncludeAdmin")?.checked);
+    try {
+      const data = await adminEmailEngagementPost("/api/admin/founding-member-email/send", {
+        confirm: true,
+        confirmPhrase: "SEND_FOUNDING_MEMBER_EMAIL",
+        dryRunToken: preview.dryRunToken,
+        includeAdmin,
+      });
+      if (msg) {
+        msg.textContent = `Founding thank-you finished: sent ${data.result?.sent || 0} of ${data.result?.recipients || 0} (failed ${data.result?.failed || 0}).`;
+      }
+      window.__adminFoundingEmailPreview = {
+        ...preview,
+        alreadySent: true,
+        sentAt: data.result?.sentAt || "",
+        sendUnlocked: false,
+      };
+      await renderAdminEmailEngagement();
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Founding thank-you send failed.";
     }
     return;
   }

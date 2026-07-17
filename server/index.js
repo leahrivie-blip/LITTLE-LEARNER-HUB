@@ -8,6 +8,7 @@ const accountAccess = require("../scripts/account-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
+const { createFoundingMemberEmail } = require("./founding-member-email.js");
 const { createPushService } = require("./push-lib.js");
 const messagingLib = require("./messaging-lib.js");
 const { createCommsApi } = require("./comms-api.js");
@@ -8111,9 +8112,15 @@ async function postJson(url, headers, payload) {
     },
     body: JSON.stringify(payload),
   });
+  const text = await response.text().catch(() => "");
   if (!response.ok) {
-    const text = await response.text().catch(() => "");
     throw new Error(text.slice(0, 300) || `Email provider returned ${response.status}.`);
+  }
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch {
+    return { raw: text };
   }
 }
 
@@ -8138,8 +8145,13 @@ async function sendEmail(opts = {}) {
   if (provider === "resend") {
     const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
     if (replyTo) payload.reply_to = replyTo;
-    await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
-    return { sent: true, configured: true, provider };
+    const providerResponse = await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
+    return {
+      sent: true,
+      configured: true,
+      provider,
+      messageId: providerResponse?.id || "",
+    };
   }
   if (provider === "sendgrid") {
     const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
@@ -8149,8 +8161,13 @@ async function sendEmail(opts = {}) {
       content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
     };
     if (replyTo) payload.reply_to = { email: replyTo };
-    await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
-    return { sent: true, configured: true, provider };
+    const providerResponse = await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
+    return {
+      sent: true,
+      configured: true,
+      provider,
+      messageId: providerResponse?.headers?.["x-message-id"] || providerResponse?.id || "",
+    };
   }
   if (provider === "postmark") {
     const payload = {
@@ -8162,8 +8179,13 @@ async function sendEmail(opts = {}) {
       MessageStream: "outbound",
     };
     if (replyTo) payload.ReplyTo = replyTo;
-    await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
-    return { sent: true, configured: true, provider };
+    const providerResponse = await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
+    return {
+      sent: true,
+      configured: true,
+      provider,
+      messageId: providerResponse?.MessageID || providerResponse?.MessageId || "",
+    };
   }
   return { sent: false, configured: false, provider: provider || "not configured" };
 }
@@ -8187,6 +8209,16 @@ const emailEngagement = createEmailEngagement({
   getSupportEmailStatus: () => supportEmailConfigStatus(),
   areAutomationsEnabled: () => emailAutomationsEnabled(),
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
+});
+
+// One-time Founding Member thank-you — independent of EMAIL_AUTOMATIONS_ENABLED.
+const foundingMemberEmail = createFoundingMemberEmail({
+  sendEmail,
+  readStore,
+  writeStore,
+  htmlEscape,
+  getAdminEmail: () => ADMIN_EMAIL,
+  getSupportEmailStatus: () => supportEmailConfigStatus(),
 });
 
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
@@ -11368,6 +11400,95 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
   jsonResponse(response, 200, { ok: true, result });
 }
 
+/**
+ * Founding Members thank-you — dry-run only. Never sends.
+ * Keep EMAIL_AUTOMATIONS_ENABLED=false; this path does not enable drip/weekly/bulk.
+ */
+async function handleAdminFoundingMemberEmailDryRun(request, response, url) {
+  let includeAdmin = false;
+  let token = "";
+  if (request.method === "GET") {
+    token = url.searchParams.get("adminToken") || "";
+    includeAdmin = url.searchParams.get("includeAdmin") === "true";
+  } else {
+    const body = await readJson(request);
+    token = body.adminToken || "";
+    includeAdmin = body.includeAdmin === true;
+  }
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const preview = foundingMemberEmail.dryRun({
+    adminEmail: ADMIN_EMAIL,
+    includeAdmin,
+    persist: true,
+  });
+  jsonResponse(response, 200, {
+    ok: true,
+    sent: false,
+    willSend: false,
+    preview,
+    automationsEnabled: emailAutomationsEnabled(),
+    note: "Dry-run only. Nothing was sent. Approve the recipient list, then send with confirmPhrase SEND_FOUNDING_MEMBER_EMAIL.",
+  });
+}
+
+/**
+ * Founding Members thank-you — gated one-time send.
+ * Requires prior dry-run token + confirmPhrase SEND_FOUNDING_MEMBER_EMAIL + confirm:true.
+ * Does not enable EMAIL_AUTOMATIONS_ENABLED and does not modify membership records.
+ */
+async function handleAdminFoundingMemberEmailSend(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const result = await foundingMemberEmail.send({
+    adminEmail: ADMIN_EMAIL,
+    includeAdmin: body.includeAdmin === true,
+    confirm: body.confirm === true,
+    confirmPhrase: body.confirmPhrase || "",
+    dryRunToken: body.dryRunToken || "",
+    forceResend: false,
+  });
+  if (result.skipped && result.reason === "confirmation_required") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Pass confirm:true and confirmPhrase SEND_FOUNDING_MEMBER_EMAIL after approving the dry-run.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped && (result.reason === "dry_run_required" || result.reason === "dry_run_expired" || result.reason === "recipient_drift")) {
+    jsonResponse(response, 400, {
+      error: result.detail || "Re-run dry-run and approve again before sending.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped && result.reason === "already_sent") {
+    jsonResponse(response, 409, {
+      error: "This one-time Founding Member thank-you was already sent.",
+      result,
+    });
+    return;
+  }
+  if (result.skipped && result.reason === "no_recipients") {
+    jsonResponse(response, 400, {
+      error: "No verified active Founding Members qualify for this send.",
+      result,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    result,
+    membershipRecordsModified: false,
+    automationsEnabled: emailAutomationsEnabled(),
+  });
+}
+
 async function handleAdminEmailEngagementSettings(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
@@ -11642,6 +11763,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/preflight-audit") return await handleAdminEmailEngagementPreflightAudit(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/prepare-one-time") return await handleAdminEmailEngagementPrepareOneTime(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
+    if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/admin/founding-member-email/dry-run") {
+      return await handleAdminFoundingMemberEmailDryRun(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/founding-member-email/send") {
+      return await handleAdminFoundingMemberEmailSend(request, response);
+    }
     if (request.method === "POST" && url.pathname === "/api/email/unsubscribe") return await handleEmailUnsubscribe(request, response);
     // Phase 6-A: Admin Reply & Communications
     if (request.method === "POST" && url.pathname === "/api/admin/reply") return await handleAdminReply(request, response);
