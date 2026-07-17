@@ -31987,10 +31987,16 @@ async function renderAdminEmailEngagement() {
         <div class="aup-insight-card aup-insight--pro"><strong>${onboarding.welcome || 0}</strong><span>Welcome stamped</span></div>
       </div>
 
-      <div class="admin-email-status ${support.ready ? "is-ready" : "is-pending"}">
-        <p><strong>Provider:</strong> ${escapeHtml(support.provider || "not configured")} · ${support.ready ? "Ready to send" : "Soft-fail mode (tickets & engagement still save)"}</p>
+      <div class="admin-email-status ${support.ready && support.domainMatchesExpected ? "is-ready" : "is-pending"}">
+        <p><strong>Provider:</strong> ${escapeHtml(support.provider || "not configured")} · ${support.ready ? "Provider keys ready" : "Soft-fail mode (tickets & engagement still save)"}</p>
+        <p class="form-note"><strong>From:</strong> ${escapeHtml(support.from || support.expectedFrom || "(not set)")}</p>
+        <p class="form-note"><strong>Sender email:</strong> ${escapeHtml(support.fromEmail || "")} · <strong>Domain:</strong> ${escapeHtml(support.fromDomain || "")}${support.domainMatchesExpected ? " · matches verified domain" : " · DOES NOT match verified domain"}</p>
+        <p class="form-note"><strong>Automations:</strong> ${(data.automations && data.automations.enabled) ? "ENABLED" : "DISABLED (no scheduled / signup / weekly / bulk engagement mail)"}</p>
         <p class="form-note">${escapeHtml(support.note || "")}</p>
         <p class="form-note"><strong>Database:</strong> ${escapeHtml(database.provider || "unknown")}${database.ready ? " · ready" : " · not ready"} · ${escapeHtml(database.note || "")}</p>
+        ${data.audience ? `
+          <p class="form-note"><strong>Audience:</strong> ${Number(data.audience.totalUsers) || 0} users · ${Number(data.audience.totalActiveUsers) || 0} active · ${Number(data.audience.totalValidEmailAddresses) || 0} valid emails · ${Number(data.audience.marketingEligibleCount) || 0} marketing-eligible · ${Number(data.audience.bounceRiskCount) || 0} bounce-risk · ${Number(data.audience.duplicateEmailCount) || 0} duplicate emails</p>
+        ` : ""}
       </div>
 
       <div class="admin-email-controls panel-form">
@@ -32035,8 +32041,9 @@ async function renderAdminEmailEngagement() {
 
       <div class="admin-email-controls panel-form">
         <h4>Delivery controls</h4>
-        <label class="checkbox-row"><input type="checkbox" id="adminEmailOnboardingEnabled" ${settings.onboardingEnabled !== false ? "checked" : ""}> Onboarding drip (welcome → tips → explore)</label>
-        <label class="checkbox-row"><input type="checkbox" id="adminEmailWeeklyEnabled" ${settings.weeklyWhatsNewEnabled !== false ? "checked" : ""}> Weekly Monday “What’s New”</label>
+        <p class="form-note">Scheduled campaigns stay off until <code>EMAIL_AUTOMATIONS_ENABLED=true</code> is set after you approve content. Single-user “Send step” tests still work for delivery checks.</p>
+        <label class="checkbox-row"><input type="checkbox" id="adminEmailOnboardingEnabled" ${settings.onboardingEnabled === true ? "checked" : ""} ${(data.automations && data.automations.enabled) ? "" : "disabled"}> Onboarding drip (welcome → tips → explore)</label>
+        <label class="checkbox-row"><input type="checkbox" id="adminEmailWeeklyEnabled" ${settings.weeklyWhatsNewEnabled === true ? "checked" : ""} ${(data.automations && data.automations.enabled) ? "" : "disabled"}> Weekly Monday “What’s New”</label>
         <div class="account-actions-row">
           <button class="primary-button" type="button" id="adminEmailSaveSettings">Save Settings</button>
           <button class="ghost-button" type="button" id="adminEmailRunOnboarding">Run onboarding sweep</button>

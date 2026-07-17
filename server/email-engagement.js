@@ -53,13 +53,16 @@ function defaultOneTimeWelcomeUpdate() {
 function defaultEmailEngagementStore() {
   return {
     settings: {
-      onboardingEnabled: true,
-      weeklyWhatsNewEnabled: true,
+      // Default OFF — no drip / weekly mail until explicitly enabled after content approval.
+      onboardingEnabled: false,
+      weeklyWhatsNewEnabled: false,
       lastWeeklyRunAt: "",
       lastWeeklySkippedAt: "",
       lastWeeklySkipReason: "",
       lastWeeklySentCount: 0,
       lastOnboardingSweepAt: "",
+      automationsPausedAt: "",
+      automationsPausedReason: "",
       oneTimeWelcomeUpdate: defaultOneTimeWelcomeUpdate(),
     },
     events: [],
@@ -506,6 +509,78 @@ function buildWhatsNewContent(digest, { siteUrl, htmlEscape }) {
   };
 }
 
+function looksLikeTestEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  if (!value || !value.includes("@")) return true;
+  const [local, domain] = value.split("@");
+  if (!local || !domain) return true;
+  if (["example.com", "example.org", "example.net", "test.com", "localhost"].includes(domain)) return true;
+  if (domain.endsWith(".local") || domain.endsWith(".test")) return true;
+  if (/^(test|prod-up|regression-probe|e2e|smoke)/i.test(local)) return true;
+  return false;
+}
+
+function looksMalformedEmail(email) {
+  const value = String(email || "").trim().toLowerCase();
+  if (!value) return true;
+  if ((value.match(/@/g) || []).length !== 1) return true;
+  if (/\s/.test(value) || value.includes("..")) return true;
+  const [, domain] = value.split("@");
+  if (!domain || !domain.includes(".") || domain.startsWith(".") || domain.endsWith(".")) return true;
+  return false;
+}
+
+function buildAudienceReport(store) {
+  const users = Object.values(store?.users || {});
+  const emails = users.map((user) => String(user.email || "").trim().toLowerCase()).filter(Boolean);
+  const counts = emails.reduce((acc, email) => {
+    acc[email] = (acc[email] || 0) + 1;
+    return acc;
+  }, {});
+  const duplicates = Object.entries(counts)
+    .filter(([, count]) => count > 1)
+    .map(([email, count]) => ({ email, count }));
+  const activeUsers = users.filter(isActiveAccount);
+  const validEmails = emails.filter((email) => !looksMalformedEmail(email));
+  const testOrProbe = emails.filter((email) => looksLikeTestEmail(email));
+  const bounceRisk = emails
+    .map((email) => {
+      const reasons = [];
+      if (looksMalformedEmail(email)) reasons.push("malformed");
+      if (looksLikeTestEmail(email)) reasons.push("test_or_probe");
+      const domain = email.includes("@") ? email.split("@")[1] : "";
+      if (/(mailinator|tempmail|guerrillamail|yopmail|trashmail)/i.test(domain)) {
+        reasons.push("disposable_domain");
+      }
+      return reasons.length ? { email, reasons } : null;
+    })
+    .filter(Boolean);
+  const marketingEligible = users.filter((user) => {
+    const email = String(user.email || "").trim().toLowerCase();
+    if (!email || looksMalformedEmail(email) || looksLikeTestEmail(email)) return false;
+    if (!isActiveAccount(user)) return false;
+    const prefs = emailPrefs(user);
+    if (prefs.unsubscribedAt) return false;
+    return true;
+  });
+
+  return {
+    totalUsers: users.length,
+    totalActiveUsers: activeUsers.length,
+    totalValidEmailAddresses: validEmails.length,
+    uniqueEmailAddresses: Object.keys(counts).length,
+    duplicateEmailCount: duplicates.length,
+    duplicates: duplicates.slice(0, 25),
+    testOrProbeCount: testOrProbe.length,
+    testOrProbeEmails: testOrProbe.slice(0, 25),
+    bounceRiskCount: bounceRisk.length,
+    bounceRiskSample: bounceRisk.slice(0, 25),
+    marketingEligibleCount: marketingEligible.length,
+    unsubscribedCount: users.filter((user) => emailPrefs(user).unsubscribedAt).length,
+    note: "Exclude test/probe and malformed addresses before any bulk send. Confirm content approval before enabling EMAIL_AUTOMATIONS_ENABLED.",
+  };
+}
+
 function createEmailEngagement(deps) {
   const {
     sendEmail,
@@ -518,9 +593,18 @@ function createEmailEngagement(deps) {
     getDatabaseStatus = () => ({}),
     getAdminEmail = () => "",
     getSupportEmailStatus = () => ({ ready: false, provider: "not configured", fromConfigured: false }),
+    areAutomationsEnabled = () => false,
     // Optional: when provided, used to cross-check audience "all" recipients.
     resolveAudienceRecipients = null,
   } = deps;
+
+  function automationsAllowed() {
+    try {
+      return Boolean(areAutomationsEnabled());
+    } catch {
+      return false;
+    }
+  }
 
   function logEvent(store, event) {
     const eng = ensureEmailEngagement(store);
@@ -662,7 +746,12 @@ function createEmailEngagement(deps) {
     if (!user) return { sent: false, reason: "user_not_found" };
 
     const eng = ensureEmailEngagement(store);
-    if (!eng.settings.onboardingEnabled && !options.force) {
+    // Campaign sends require the master kill-switch. Admin single-user tests may
+    // pass adminTest to verify delivery while automations remain paused.
+    if (!automationsAllowed() && !options.adminTest) {
+      return { sent: false, reason: "automations_disabled" };
+    }
+    if (!eng.settings.onboardingEnabled && !options.force && !options.adminTest) {
       return { sent: false, reason: "onboarding_disabled" };
     }
 
@@ -744,6 +833,9 @@ function createEmailEngagement(deps) {
   async function processOnboardingDrip(options = {}) {
     const store = readStore();
     const eng = ensureEmailEngagement(store);
+    if (!automationsAllowed()) {
+      return { processed: 0, sent: 0, skipped: 0, reason: "automations_disabled" };
+    }
     if (!eng.settings.onboardingEnabled && !options.force) {
       return { processed: 0, sent: 0, skipped: 0, reason: "onboarding_disabled" };
     }
@@ -812,6 +904,9 @@ function createEmailEngagement(deps) {
     const eng = ensureEmailEngagement(store);
     const key = weekKey();
 
+    if (!automationsAllowed()) {
+      return { sent: 0, skipped: true, reason: "automations_disabled", weekKey: key };
+    }
     if (!eng.settings.weeklyWhatsNewEnabled && !options.force) {
       return { sent: 0, skipped: true, reason: "weekly_disabled", weekKey: key };
     }
@@ -1286,6 +1381,16 @@ function createEmailEngagement(deps) {
     const eng = ensureEmailEngagement(store);
     const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
 
+    if (!automationsAllowed()) {
+      return {
+        sent: 0,
+        failed: 0,
+        skipped: true,
+        reason: "automations_disabled",
+        detail: "Set EMAIL_AUTOMATIONS_ENABLED=true only after content approval.",
+      };
+    }
+
     if (state.sentAt && !options.forceResend) {
       return {
         sent: 0,
@@ -1435,11 +1540,16 @@ function createEmailEngagement(deps) {
   function startScheduler(options = {}) {
     // Hourly onboarding + Monday What's New only.
     // The one-time welcome/update blast is intentionally NEVER scheduled.
+    if (!automationsAllowed() && !options.forceStart) {
+      console.log("[email-engagement] scheduler not started (EMAIL_AUTOMATIONS_ENABLED=false)");
+      return null;
+    }
     const intervalMs = options.intervalMs || 60 * 60 * 1000; // hourly
     if (global.__llhEmailEngagementTimer) {
       clearInterval(global.__llhEmailEngagementTimer);
     }
     const tick = async () => {
+      if (!automationsAllowed()) return;
       try {
         await processOnboardingDrip();
       } catch (err) {
@@ -1482,6 +1592,7 @@ function createEmailEngagement(deps) {
     buildOnboardingContent,
     buildWhatsNewContent,
     buildWelcomeUpdateContent,
+    buildAudienceReport,
     eligibleOneTimeRecipients,
     runPreflightAudit,
     prepareOneTimeWelcomeUpdate,
@@ -1493,6 +1604,7 @@ function createEmailEngagement(deps) {
 module.exports = {
   createEmailEngagement,
   defaultEmailEngagementStore,
+  buildAudienceReport,
   ONBOARDING_STEPS,
   weekKey,
   isMonday,

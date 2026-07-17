@@ -42,11 +42,23 @@ const FIREBASE_MESSAGING_SENDER_ID = process.env.FIREBASE_MESSAGING_SENDER_ID ||
 const FIREBASE_MEASUREMENT_ID = process.env.FIREBASE_MEASUREMENT_ID || "";
 const FIREBASE_CERT_URL = "https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com";
 const SUPPORT_EMAIL_TO = normalizeEmail(process.env.SUPPORT_EMAIL_TO || ADMIN_EMAIL || "little.learners.hub.customer@gmail.com");
-const SUPPORT_EMAIL_FROM = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || process.env.SENDGRID_FROM || process.env.POSTMARK_FROM || "";
+// Canonical production sender — must match the verified Resend domain.
+const EXPECTED_EMAIL_FROM_NAME = "Little Learner Hub";
+const EXPECTED_EMAIL_FROM_ADDRESS = "support@littlelearnershubbyleah.com";
+const EXPECTED_EMAIL_FROM_DOMAIN = "littlelearnershubbyleah.com";
+const EXPECTED_SUPPORT_EMAIL_FROM = `${EXPECTED_EMAIL_FROM_NAME} <${EXPECTED_EMAIL_FROM_ADDRESS}>`;
+const SUPPORT_EMAIL_FROM_ENV = process.env.SUPPORT_EMAIL_FROM || process.env.RESEND_FROM || process.env.SENDGRID_FROM || process.env.POSTMARK_FROM || "";
+const SUPPORT_EMAIL_FROM = resolveSupportEmailFrom(SUPPORT_EMAIL_FROM_ENV);
 const SUPPORT_EMAIL_PROVIDER = String(process.env.SUPPORT_EMAIL_PROVIDER || "").trim().toLowerCase();
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY || "";
 const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
+// Master kill-switch for scheduled/marketing/bulk engagement mail. Transactional
+// support notifications still use sendEmail() when the provider is configured.
+// Default OFF until content is approved after the email-system rebuild.
+const EMAIL_AUTOMATIONS_ENABLED = ["1", "true", "yes", "on"].includes(
+  String(process.env.EMAIL_AUTOMATIONS_ENABLED || "false").trim().toLowerCase(),
+);
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
@@ -136,6 +148,52 @@ function isConfiguredValue(value) {
     && !/^price_replace/i.test(text)
     && !/^sk_test_replace/i.test(text)
     && !/^whsec_replace/i.test(text);
+}
+
+function parseEmailAddress(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(.*?)\s*<([^>]+)>$/);
+  if (match) {
+    return {
+      name: match[1].trim().replace(/^["']|["']$/g, ""),
+      email: match[2].trim(),
+    };
+  }
+  return { name: "", email: text };
+}
+
+function emailDomainOf(address) {
+  const email = String(parseEmailAddress(address).email || "").trim().toLowerCase();
+  const at = email.lastIndexOf("@");
+  return at >= 0 ? email.slice(at + 1) : "";
+}
+
+function isResendTestSender(address) {
+  const email = String(parseEmailAddress(address).email || "").trim().toLowerCase();
+  const domain = emailDomainOf(email);
+  return domain === "resend.dev" || email.endsWith("@resend.dev");
+}
+
+/**
+ * Prefer an env From only when it uses the verified production domain.
+ * Otherwise force the canonical sender so a mis-set Render env (test sender,
+ * personal inbox, wrong domain) cannot keep Resend in recipient-restricted mode.
+ */
+function resolveSupportEmailFrom(rawValue) {
+  const raw = String(rawValue || "").trim();
+  if (!isConfiguredValue(raw)) return EXPECTED_SUPPORT_EMAIL_FROM;
+  const parsed = parseEmailAddress(raw);
+  const email = String(parsed.email || "").trim().toLowerCase();
+  const domain = emailDomainOf(email);
+  if (domain === EXPECTED_EMAIL_FROM_DOMAIN && email.includes("@")) {
+    const name = String(parsed.name || EXPECTED_EMAIL_FROM_NAME).trim() || EXPECTED_EMAIL_FROM_NAME;
+    return `${name} <${email}>`;
+  }
+  return EXPECTED_SUPPORT_EMAIL_FROM;
+}
+
+function emailAutomationsEnabled() {
+  return EMAIL_AUTOMATIONS_ENABLED === true;
 }
 
 function maskedValue(value) {
@@ -251,15 +309,50 @@ function supportEmailConfigStatus() {
       : provider === "postmark"
         ? isConfiguredValue(POSTMARK_SERVER_TOKEN)
         : false;
+  const fromParsed = parseEmailAddress(SUPPORT_EMAIL_FROM);
+  const fromEmail = String(fromParsed.email || "").trim().toLowerCase();
+  const fromName = String(fromParsed.name || "").trim();
+  const fromDomain = emailDomainOf(fromEmail);
+  const envRaw = String(SUPPORT_EMAIL_FROM_ENV || "").trim();
+  const envParsed = parseEmailAddress(envRaw);
+  const envEmail = String(envParsed.email || "").trim().toLowerCase();
+  const envDomain = emailDomainOf(envEmail);
+  const domainVerifiedMatch = fromDomain === EXPECTED_EMAIL_FROM_DOMAIN;
+  const envWasOverridden = Boolean(envRaw) && resolveSupportEmailFrom(envRaw) !== envRaw
+    && !(envDomain === EXPECTED_EMAIL_FROM_DOMAIN);
+  const usingResendTestSender = isResendTestSender(envRaw) || isResendTestSender(SUPPORT_EMAIL_FROM);
   const ready = Boolean(provider && keyReady && isConfiguredValue(SUPPORT_EMAIL_FROM) && isConfiguredValue(SUPPORT_EMAIL_TO));
+  let note = "Support tickets are saved in Admin. Add RESEND_API_KEY, SENDGRID_API_KEY, or POSTMARK_SERVER_TOKEN plus SUPPORT_EMAIL_FROM to send automatic email notifications.";
+  if (ready && domainVerifiedMatch) {
+    note = `Outbound From is ${SUPPORT_EMAIL_FROM}. Domain ${EXPECTED_EMAIL_FROM_DOMAIN} matches the canonical verified sender.`;
+  } else if (ready && !domainVerifiedMatch) {
+    note = `Outbound From domain "${fromDomain || "(empty)"}" does not match verified domain ${EXPECTED_EMAIL_FROM_DOMAIN}. Resend will stay in testing mode until this is fixed.`;
+  }
+  if (envWasOverridden) {
+    note += ` Env SUPPORT_EMAIL_FROM/RESEND_FROM was overridden (was domain "${envDomain || "(empty)"}").`;
+  }
+  if (usingResendTestSender) {
+    note += " A Resend test sender (@resend.dev) was detected in env and is not used.";
+  }
   return {
     ready,
     provider: provider || "not configured",
     to: SUPPORT_EMAIL_TO,
     fromConfigured: isConfiguredValue(SUPPORT_EMAIL_FROM),
-    note: ready
-      ? "Support and bug report email notifications are configured."
-      : "Support tickets are saved in Admin. Add RESEND_API_KEY, SENDGRID_API_KEY, or POSTMARK_SERVER_TOKEN plus SUPPORT_EMAIL_FROM to send automatic email notifications.",
+    from: SUPPORT_EMAIL_FROM,
+    fromName: fromName || EXPECTED_EMAIL_FROM_NAME,
+    fromEmail: fromEmail || EXPECTED_EMAIL_FROM_ADDRESS,
+    fromDomain: fromDomain || EXPECTED_EMAIL_FROM_DOMAIN,
+    expectedFrom: EXPECTED_SUPPORT_EMAIL_FROM,
+    expectedDomain: EXPECTED_EMAIL_FROM_DOMAIN,
+    domainMatchesExpected: domainVerifiedMatch,
+    envFromConfigured: isConfiguredValue(envRaw),
+    envFromEmail: envEmail || "",
+    envFromDomain: envDomain || "",
+    envFromOverridden: envWasOverridden,
+    usingResendTestSender,
+    automationsEnabled: emailAutomationsEnabled(),
+    note,
   };
 }
 
@@ -4564,7 +4657,8 @@ async function handleAccountProfileSync(request, response) {
   }
   const user = upsertUser(email, updates);
   // Once-only welcome email on first signup stamp (soft-fail if email unconfigured).
-  if (body.signup === true && !existing.signupAt) {
+  // Hard-gated by EMAIL_AUTOMATIONS_ENABLED — no automatic welcome until approved.
+  if (body.signup === true && !existing.signupAt && emailAutomationsEnabled()) {
     emailEngagement.maybeSendWelcomeOnSignup(email).catch((err) => {
       console.warn("[email-engagement] welcome email failed:", err.message);
     });
@@ -7997,18 +8091,6 @@ function htmlEscape(value) {
     .replace(/'/g, "&#39;");
 }
 
-function parseEmailAddress(value) {
-  const text = String(value || "").trim();
-  const match = text.match(/^(.*?)\s*<([^>]+)>$/);
-  if (match) {
-    return {
-      name: match[1].trim().replace(/^["']|["']$/g, ""),
-      email: match[2].trim(),
-    };
-  }
-  return { email: text };
-}
-
 async function postJson(url, headers, payload) {
   if (typeof fetch !== "function") throw new Error("Email sending requires Node fetch support.");
   const response = await fetch(url, {
@@ -8078,6 +8160,7 @@ async function sendEmail(opts = {}) {
 
 // Email engagement (onboarding drip + weekly What's New) reuses sendEmail().
 // One-time all-users welcome/update is audit-gated and never scheduled.
+// Automations default OFF via EMAIL_AUTOMATIONS_ENABLED until content is approved.
 const emailEngagement = createEmailEngagement({
   sendEmail,
   SITE_URL,
@@ -8092,8 +8175,33 @@ const emailEngagement = createEmailEngagement({
   }),
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
+  areAutomationsEnabled: () => emailAutomationsEnabled(),
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
 });
+
+function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
+  const store = readStore();
+  const eng = emailEngagement.ensureEmailEngagement(store);
+  const before = {
+    onboardingEnabled: Boolean(eng.settings.onboardingEnabled),
+    weeklyWhatsNewEnabled: Boolean(eng.settings.weeklyWhatsNewEnabled),
+  };
+  let changed = false;
+  if (eng.settings.onboardingEnabled) {
+    eng.settings.onboardingEnabled = false;
+    changed = true;
+  }
+  if (eng.settings.weeklyWhatsNewEnabled) {
+    eng.settings.weeklyWhatsNewEnabled = false;
+    changed = true;
+  }
+  if (changed) {
+    eng.settings.automationsPausedAt = new Date().toISOString();
+    eng.settings.automationsPausedReason = String(reason || "").slice(0, 200);
+    writeStore(store);
+  }
+  return { changed, before, after: { onboardingEnabled: false, weeklyWhatsNewEnabled: false }, reason };
+}
 
 // ─── User acknowledgment email ────────────────────────────────────────────────
 // Sent to the submitter right after any new submission (ticket, bug, feature, feedback).
@@ -11091,23 +11199,89 @@ function handleAdminEmailEngagementGet(request, response, url) {
   const summary = emailEngagement.getAnalyticsSummary(store);
   const digest = emailEngagement.newlyPublishedCurriculum(store, 7 * 24 * 60 * 60 * 1000);
   const oneTime = summary.oneTimeWelcomeUpdate || {};
+  const audience = emailEngagement.buildAudienceReport(store);
   jsonResponse(response, 200, {
     ok: true,
     supportEmail: supportEmailConfigStatus(),
     database: databaseConfigStatus(),
+    automations: {
+      enabled: emailAutomationsEnabled(),
+      envVar: "EMAIL_AUTOMATIONS_ENABLED",
+      note: emailAutomationsEnabled()
+        ? "Automations are enabled. Scheduled/onboarding/bulk engagement mail may send."
+        : "Automations are DISABLED. No scheduled, signup-welcome, weekly, or bulk engagement email will send until EMAIL_AUTOMATIONS_ENABLED=true.",
+    },
+    audience,
     summary,
     previewLessons: digest.lessons,
     previewDigest: digest,
     oneTimeWelcomeUpdate: {
       ...oneTime,
       recurring: false,
-      sendUnlocked: Boolean(oneTime.lastAuditPassed && oneTime.lastAuditToken && !oneTime.sentAt),
+      sendUnlocked: Boolean(
+        emailAutomationsEnabled()
+        && oneTime.lastAuditPassed
+        && oneTime.lastAuditToken
+        && !oneTime.sentAt,
+      ),
     },
     onboardingSteps: emailEngagement.ONBOARDING_STEPS.map((s) => ({
       key: s.key,
       subject: s.subject,
       delayDays: s.delayDays,
     })),
+  });
+}
+
+function handleAdminEmailDiagnostics(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const support = supportEmailConfigStatus();
+  const summary = emailEngagement.getAnalyticsSummary(store);
+  const audience = emailEngagement.buildAudienceReport(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    diagnostics: {
+      senderEmail: support.fromEmail,
+      fromEmail: support.fromEmail,
+      fromAddress: support.from,
+      fromDisplayName: support.fromName,
+      domain: support.fromDomain,
+      expectedFrom: support.expectedFrom,
+      expectedDomain: support.expectedDomain,
+      supportEmailFromSetCorrectly: support.domainMatchesExpected && support.fromEmail === EXPECTED_EMAIL_FROM_ADDRESS,
+      domainMatchesVerifiedTarget: support.domainMatchesExpected,
+      envFromConfigured: support.envFromConfigured,
+      envFromEmail: support.envFromEmail,
+      envFromDomain: support.envFromDomain,
+      envFromOverridden: support.envFromOverridden,
+      usingResendTestSender: support.usingResendTestSender,
+      provider: support.provider,
+      providerReady: support.ready,
+      to: support.to,
+      automationsEnabled: emailAutomationsEnabled(),
+      storeOnboardingEnabled: Boolean(summary.settings?.onboardingEnabled),
+      storeWeeklyEnabled: Boolean(summary.settings?.weeklyWhatsNewEnabled),
+      oneTimeWelcomeSentAt: summary.oneTimeWelcomeUpdate?.sentAt || "",
+      recentFailureSample: (summary.recentEvents || [])
+        .filter((ev) => ev.type === "failed")
+        .slice(0, 5)
+        .map((ev) => ({
+          at: ev.at,
+          to: ev.to,
+          templateKey: ev.templateKey,
+          error: String(ev.error || "").slice(0, 400),
+        })),
+      resendTestingModeHint: !support.domainMatchesExpected || support.usingResendTestSender
+        ? "Resend restricts sending to the account owner when From is not on a verified domain (or uses @resend.dev)."
+        : "From uses the expected verified domain. If Resend still errors, confirm littlelearnershubbyleah.com is Verified in the Resend dashboard for this API key.",
+      note: support.note,
+    },
+    audience,
   });
 }
 
@@ -11149,6 +11323,13 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
+  if (!emailAutomationsEnabled()) {
+    jsonResponse(response, 400, {
+      error: "Bulk / one-time welcome sends are blocked while EMAIL_AUTOMATIONS_ENABLED=false. Approve content, then enable the env flag before sending.",
+      result: { sent: 0, failed: 0, skipped: true, reason: "automations_disabled" },
+    });
+    return;
+  }
   const result = await emailEngagement.sendOneTimeWelcomeUpdate({
     auditToken: body.auditToken || "",
     confirm: body.confirm === true,
@@ -11181,17 +11362,36 @@ async function handleAdminEmailEngagementSettings(request, response) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
+  const wantsOn = body.onboardingEnabled === true || body.weeklyWhatsNewEnabled === true;
+  if (wantsOn && !emailAutomationsEnabled()) {
+    jsonResponse(response, 400, {
+      error: "EMAIL_AUTOMATIONS_ENABLED is false. Scheduled/marketing email stays off until that env flag is enabled after content approval.",
+      automationsEnabled: false,
+    });
+    return;
+  }
   const settings = await emailEngagement.updateSettings({
     onboardingEnabled: body.onboardingEnabled,
     weeklyWhatsNewEnabled: body.weeklyWhatsNewEnabled,
   });
-  jsonResponse(response, 200, { ok: true, settings });
+  jsonResponse(response, 200, {
+    ok: true,
+    settings,
+    automationsEnabled: emailAutomationsEnabled(),
+  });
 }
 
 async function handleAdminEmailEngagementRunOnboarding(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
     jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!emailAutomationsEnabled()) {
+    jsonResponse(response, 400, {
+      error: "Onboarding sweeps are blocked while EMAIL_AUTOMATIONS_ENABLED=false.",
+      result: { processed: 0, sent: 0, skipped: 0, reason: "automations_disabled" },
+    });
     return;
   }
   const result = await emailEngagement.processOnboardingDrip({ force: Boolean(body.force) });
@@ -11202,6 +11402,13 @@ async function handleAdminEmailEngagementRunWeekly(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(body.adminToken || "")) {
     jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!emailAutomationsEnabled()) {
+    jsonResponse(response, 400, {
+      error: "Weekly digests are blocked while EMAIL_AUTOMATIONS_ENABLED=false.",
+      result: { sent: 0, skipped: true, reason: "automations_disabled" },
+    });
     return;
   }
   const result = await emailEngagement.runWeeklyWhatsNew({ force: Boolean(body.force) });
@@ -11220,11 +11427,19 @@ async function handleAdminEmailEngagementSendStep(request, response) {
     jsonResponse(response, 400, { error: "Email is required." });
     return;
   }
+  // Single-user admin test sends are allowed even when automations are paused,
+  // so delivery can be verified with test accounts before re-enabling campaigns.
   const result = await emailEngagement.sendOnboardingStep(email, step, {
-    force: Boolean(body.force),
+    force: true,
+    adminTest: true,
     forceStampOnSoftFail: true,
   });
-  jsonResponse(response, 200, { ok: true, result });
+  jsonResponse(response, 200, {
+    ok: true,
+    result,
+    automationsEnabled: emailAutomationsEnabled(),
+    note: "Admin single-user test send (force). Not a bulk campaign.",
+  });
 }
 
 async function handleEmailUnsubscribe(request, response) {
@@ -11407,6 +11622,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/feedback-update") return await handleFeedbackUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/feedback") return handleFeedbackList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/email-engagement") return handleAdminEmailEngagementGet(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/email-diagnostics") return handleAdminEmailDiagnostics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/settings") return await handleAdminEmailEngagementSettings(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-onboarding") return await handleAdminEmailEngagementRunOnboarding(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-weekly") return await handleAdminEmailEngagementRunWeekly(request, response);
@@ -11604,10 +11820,19 @@ initializeStorage()
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
       try {
-        emailEngagement.startScheduler();
-        console.log("[email-engagement] scheduler started (hourly onboarding + Monday What's New)");
+        if (!emailAutomationsEnabled()) {
+          const paused = pauseEmailAutomationsInStore("boot:EMAIL_AUTOMATIONS_ENABLED=false");
+          console.log(
+            `[email-engagement] automations paused (EMAIL_AUTOMATIONS_ENABLED=false)`
+            + `${paused.changed ? "; store toggles forced off" : "; store toggles already off"}`
+            + `; From=${SUPPORT_EMAIL_FROM}`,
+          );
+        } else {
+          emailEngagement.startScheduler();
+          console.log("[email-engagement] scheduler started (hourly onboarding + Monday What's New)");
+        }
       } catch (err) {
-        console.warn("[email-engagement] scheduler failed to start:", err.message);
+        console.warn("[email-engagement] scheduler/bootstrap failed:", err.message);
       }
     });
   })
