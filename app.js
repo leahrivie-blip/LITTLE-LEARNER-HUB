@@ -2907,6 +2907,153 @@ function renderSignupWizardStep() {
   }
 }
 
+/** Defaults for signup plan conversion — override via siteContent.signupConversion, window.LLH_SIGNUP_CONVERSION, or localStorage llhSignupConversionCopy for A/B tests. */
+const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
+  variant: "value-first",
+  intro: "Created by a Childcare Provider. Built for Childcare Providers.",
+  headline: "Stop spending hours planning each week.",
+  valueIntro: "Unlock the complete Little Learner Hub:",
+  paidBenefits: Object.freeze([
+    "Unlimited lesson plans",
+    "New lesson plans added every week",
+    "Full Activity Center",
+    "Documentation Helpers",
+    "Calendar & planning tools",
+    "Child Profiles",
+    "Future Pro features at no extra cost",
+    "Priority access to new updates",
+  ]),
+  trustPoints: Object.freeze([
+    "Secure checkout",
+    "Cancel anytime",
+    "Built by a childcare provider",
+    "New content added every week",
+  ]),
+  foundingBadge: "Most Popular",
+  foundingTitle: "Founding Member",
+  foundingSubtitle: "Best value for childcare providers — lock in lifetime pricing",
+  foundingCta: "Claim My Founding Spot",
+  proBadge: "Full Access",
+  proTitle: "Pro Membership",
+  proSubtitle: "Everything you need for weekly planning and documentation",
+  proCta: "Continue with Pro",
+  freeTitle: "Free Plan",
+  freeSubtitle: "A preview of Little Learner Hub — great for exploring before upgrading",
+  freeIncludes: Object.freeze([
+    "Limited lesson plans",
+    "Limited activities",
+    "Preview of Little Learner Hub",
+    "Great for exploring before upgrading",
+  ]),
+  freeCta: "Start with Free Preview",
+  freeConfirmTitle: "You’re choosing the Free Plan.",
+  freeConfirmBody: "You’ll have access to a limited selection of lesson plans and features.\n\nUpgrade anytime to unlock the complete Little Learner Hub experience with unlimited content and new resources added weekly.",
+  freeConfirmContinue: "Continue with Free",
+  freeConfirmUpgrade: "Upgrade Instead",
+  preferredFoundingNote: "You’re locking in Founding Member pricing — here’s everything included:",
+  foundingUrgency: "Founding Member pricing ends forever once all spots are claimed",
+  soldOutNote: "Founding spots are filled. Pro is available at the regular rate.",
+});
+
+const SIGNUP_PLAN_VARIANT_OVERRIDES = Object.freeze({
+  "value-first": {},
+  "trust-first": {
+    headline: "Built by a childcare provider — for childcare providers.",
+    valueIntro: "Providers choose paid access for:",
+    foundingBadge: "Recommended",
+    freeCta: "Continue exploring Free",
+  },
+  "urgency-first": {
+    headline: "Founding pricing won’t last — lock it in while spots remain.",
+    foundingBadge: "Best Value",
+    foundingCta: "Lock In $9.99/month for Life",
+  },
+});
+
+function signupPlanVariantKey() {
+  try {
+    const params = new URLSearchParams(window.location.search || "");
+    const fromQuery = String(params.get("signupVariant") || "").trim();
+    if (fromQuery) {
+      sessionStorage.setItem("llhSignupVariant", fromQuery);
+      return fromQuery;
+    }
+    const fromSession = String(sessionStorage.getItem("llhSignupVariant") || "").trim();
+    if (fromSession) return fromSession;
+  } catch {
+    /* ignore */
+  }
+  const fromSite = String(siteContentState?.signupConversion?.variant || "").trim();
+  return fromSite || DEFAULT_SIGNUP_PLAN_COPY.variant;
+}
+
+function signupPlanCopy() {
+  let fromStorage = {};
+  try {
+    fromStorage = JSON.parse(localStorage.getItem("llhSignupConversionCopy") || "{}") || {};
+  } catch {
+    fromStorage = {};
+  }
+  const fromWindow = (typeof window !== "undefined" && window.LLH_SIGNUP_CONVERSION && typeof window.LLH_SIGNUP_CONVERSION === "object")
+    ? window.LLH_SIGNUP_CONVERSION
+    : {};
+  const fromSite = (siteContentState?.signupConversion && typeof siteContentState.signupConversion === "object")
+    ? siteContentState.signupConversion
+    : {};
+  const variant = signupPlanVariantKey();
+  const variantOverrides = SIGNUP_PLAN_VARIANT_OVERRIDES[variant] || {};
+  const merged = {
+    ...DEFAULT_SIGNUP_PLAN_COPY,
+    ...variantOverrides,
+    ...fromSite,
+    ...fromWindow,
+    ...fromStorage,
+    variant,
+  };
+  ["paidBenefits", "trustPoints", "freeIncludes"].forEach((key) => {
+    if (!Array.isArray(merged[key]) || !merged[key].length) merged[key] = DEFAULT_SIGNUP_PLAN_COPY[key];
+  });
+  return merged;
+}
+
+function signupPlanListHtml(items = []) {
+  return `<ul class="signup-plan-includes">${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>`;
+}
+
+function hideSignupFreeConfirm() {
+  const confirm = document.querySelector("#signupFreeConfirm");
+  const chooser = document.querySelector("#signupPlanChooserMain");
+  if (confirm) {
+    confirm.hidden = true;
+    confirm.setAttribute("aria-hidden", "true");
+  }
+  if (chooser) chooser.hidden = false;
+}
+
+function showSignupFreeConfirm() {
+  const copy = signupPlanCopy();
+  const confirm = document.querySelector("#signupFreeConfirm");
+  const chooser = document.querySelector("#signupPlanChooserMain");
+  if (!confirm) {
+    finishSignupWithPlan("free").catch((error) => setFormMessage("#authMessage", friendlyAuthError(error)));
+    return;
+  }
+  confirm.innerHTML = `
+    <div class="signup-free-confirm-card" role="dialog" aria-modal="true" aria-labelledby="signupFreeConfirmTitle">
+      <h3 id="signupFreeConfirmTitle">${escapeHtml(copy.freeConfirmTitle)}</h3>
+      <p class="signup-free-confirm-body">${escapeHtml(copy.freeConfirmBody).replace(/\n/g, "<br>")}</p>
+      <div class="signup-free-confirm-actions">
+        <button class="ghost-button" type="button" data-signup-confirm-free>${escapeHtml(copy.freeConfirmContinue)}</button>
+        <button class="primary-button" type="button" data-signup-upgrade-instead>${escapeHtml(copy.freeConfirmUpgrade)}</button>
+      </div>
+    </div>
+  `;
+  confirm.hidden = false;
+  confirm.setAttribute("aria-hidden", "false");
+  if (chooser) chooser.hidden = true;
+  trackEvent("signup_free_confirm_shown", { variant: copy.variant });
+}
+
 function renderSignupPlanChooser() {
   const target = document.querySelector("#signupPlanChooser");
   if (!target) return;
@@ -2914,90 +3061,66 @@ function renderSignupPlanChooser() {
   const soldOut = remaining <= 0;
   const preferredPlan = preferredSignupPlanFromStorage();
   const preferFounding = preferredPlan === "founding" && !soldOut;
+  const copy = signupPlanCopy();
   syncFoundingStatus({ render: false }).catch(() => {});
+  const foundingCard = !soldOut ? `
+    <article class="signup-plan-card signup-plan-card--founding signup-plan-card--featured${preferFounding ? " is-preferred" : ""}">
+      <span class="signup-plan-badge">${escapeHtml(copy.foundingBadge)}</span>
+      <h3>${escapeHtml(copy.foundingTitle)}</h3>
+      <p class="signup-plan-subtitle">${escapeHtml(copy.foundingSubtitle)}</p>
+      <p class="signup-plan-price-compare"><s>$19.99/month</s></p>
+      <p class="signup-plan-price signup-plan-price--founding"><strong>$9.99</strong><span>/month FOR LIFE</span></p>
+      <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
+      ${signupPlanListHtml(copy.paidBenefits)}
+      <p class="signup-plan-spots">Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong></p>
+      <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
+    </article>
+  ` : "";
+  const proCard = `
+    <article class="signup-plan-card signup-plan-card--pro${soldOut ? " signup-plan-card--pro-featured signup-plan-card--featured" : ""}">
+      <span class="signup-plan-badge">${escapeHtml(soldOut ? "Recommended" : copy.proBadge)}</span>
+      <h3>${escapeHtml(copy.proTitle)}</h3>
+      <p class="signup-plan-subtitle">${escapeHtml(copy.proSubtitle)}</p>
+      <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
+      ${signupPlanListHtml(copy.paidBenefits)}
+      ${soldOut ? "" : `<p class="signup-plan-provider-note muted-copy">Same full toolkit — regular membership pricing after founding spots are gone.</p>`}
+      <button class="primary-button" type="button" data-signup-choose-plan="monthly">${escapeHtml(copy.proCta)}</button>
+    </article>
+  `;
   target.innerHTML = `
-    <p class="signup-plan-intro">Created by a Childcare Provider. Built for Childcare Providers.</p>
-    ${preferFounding ? `<p class="signup-plan-preferred-note" role="status">You’re locking in Founding Member pricing — here’s everything Pro includes:</p>` : ""}
-    ${!soldOut ? `
-      <p class="signup-founding-urgency" role="status">
-        <span>Founding Member pricing ends forever once all spots are claimed</span>
-        <strong>Founding Spots Remaining: ${remaining}</strong>
-      </p>
-    ` : `
-      <p class="signup-founding-urgency is-sold-out" role="status">
-        <span>Founding spots are filled. Pro is available at the regular rate.</span>
-      </p>
-    `}
-    <div class="signup-plan-grid ${soldOut ? "signup-plan-grid--sold-out" : "signup-plan-grid--founding-open"}">
-      <article class="signup-plan-card signup-plan-card--free">
-        <h3>Free Plan</h3>
-        <p class="signup-plan-subtitle">A great way to explore Little Learner Hub</p>
-        <p class="signup-plan-price"><strong>$0</strong><span>/month</span></p>
-        <ul class="signup-plan-includes">
-          <li>Access to explore the platform</li>
-          <li>Limited lesson plans</li>
-          <li>Limited activities</li>
-          <li>Basic planning tools</li>
-          <li>Try core features before upgrading</li>
-        </ul>
-        <ul class="signup-plan-excludes">
-          <li>Premium lesson plans</li>
-          <li>Full curriculum library</li>
-          <li>AI tools</li>
-          <li>Documentation Helpers</li>
-          <li>Advanced planning features</li>
-          <li>Future premium releases</li>
-        </ul>
-        <button class="ghost-button" type="button" data-signup-choose-plan="free">Start Free</button>
-      </article>
+    <div id="signupPlanChooserMain" class="signup-plan-chooser-main" data-signup-variant="${escapeHtml(copy.variant)}">
+      <p class="signup-plan-intro">${escapeHtml(copy.intro)}</p>
+      <h3 class="signup-plan-headline">${escapeHtml(copy.headline)}</h3>
+      ${preferFounding ? `<p class="signup-plan-preferred-note" role="status">${escapeHtml(copy.preferredFoundingNote)}</p>` : ""}
+      <p class="signup-plan-value-intro">${escapeHtml(copy.valueIntro)}</p>
+      ${signupPlanListHtml(copy.paidBenefits)}
+      <ul class="signup-plan-trust" aria-label="Why providers upgrade">
+        ${copy.trustPoints.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+      </ul>
       ${!soldOut ? `
-        <article class="signup-plan-card signup-plan-card--founding${preferFounding ? " is-preferred" : ""}">
-          <span class="signup-plan-badge">Most Popular</span>
-          <h3>Founding Member</h3>
-          <p class="signup-plan-subtitle">Lock in lifetime pricing before it’s gone</p>
-          <p class="signup-plan-price-compare"><s>$19.99/month</s></p>
-          <p class="signup-plan-price signup-plan-price--founding"><strong>$9.99</strong><span>/month FOR LIFE</span></p>
-          <p class="signup-plan-lock">You’re not just getting today’s features. Everything we build and release in the future is included at your locked-in founding price. Never pay more.</p>
-          <ul class="signup-plan-includes">
-            <li>Full lesson plan library</li>
-            <li>Premium curriculum</li>
-            <li>Calendar &amp; planning tools</li>
-            <li>Child Profiles</li>
-            <li>Goals &amp; Observations</li>
-            <li>Documentation Helpers</li>
-            <li>AI Tools</li>
-            <li>New features automatically included</li>
-            <li>Founder badge</li>
-            <li>Priority feedback access</li>
-            <li>Lock in pricing forever</li>
-          </ul>
-          <p class="signup-plan-spots">Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong></p>
-          <p class="signup-plan-provider-note">Lock in your founding rate today and get every future feature we release without paying more.</p>
-          <button class="primary-button" type="button" data-signup-choose-plan="founding">Claim My Founding Spot</button>
-        </article>
+        <p class="signup-founding-urgency" role="status">
+          <span>${escapeHtml(copy.foundingUrgency)}</span>
+          <strong>Founding Spots Remaining: ${remaining}</strong>
+        </p>
       ` : `
-        <article class="signup-plan-card signup-plan-card--pro signup-plan-card--pro-featured">
-          <span class="signup-plan-badge">Available Now</span>
-          <h3>Pro Membership</h3>
-          <p class="signup-plan-subtitle">Full access at the regular membership rate.</p>
-          <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
-          <ul class="signup-plan-includes">
-            <li>Full lesson plan library</li>
-            <li>Premium curriculum</li>
-            <li>Calendar &amp; planning tools</li>
-            <li>Child Profiles</li>
-            <li>Goals &amp; Observations</li>
-            <li>Documentation Helpers</li>
-            <li>AI Tools</li>
-            <li>New features as they release</li>
-          </ul>
-          <ul class="signup-plan-excludes">
-            <li>No lifetime founding price lock</li>
-          </ul>
-          <button class="primary-button" type="button" data-signup-choose-plan="monthly">Continue with Pro</button>
-        </article>
+        <p class="signup-founding-urgency is-sold-out" role="status">
+          <span>${escapeHtml(copy.soldOutNote)}</span>
+        </p>
       `}
+      <div class="signup-plan-grid signup-plan-grid--paid-first ${soldOut ? "signup-plan-grid--sold-out" : "signup-plan-grid--founding-open"}">
+        ${foundingCard}
+        ${proCard}
+      </div>
+      <article class="signup-plan-card signup-plan-card--free signup-plan-card--preview">
+        <p class="signup-plan-preview-label">Explore first</p>
+        <h3>${escapeHtml(copy.freeTitle)}</h3>
+        <p class="signup-plan-subtitle">${escapeHtml(copy.freeSubtitle)}</p>
+        <p class="signup-plan-price"><strong>$0</strong><span>/month</span></p>
+        ${signupPlanListHtml(copy.freeIncludes)}
+        <button class="ghost-button" type="button" data-signup-choose-plan="free">${escapeHtml(copy.freeCta)}</button>
+      </article>
     </div>
+    <div id="signupFreeConfirm" class="signup-free-confirm" hidden aria-hidden="true"></div>
   `;
 }
 
@@ -4388,6 +4511,7 @@ function emptySiteContent() {
     announcement: {},
     upgradeMessaging: {},
     founding: {},
+    signupConversion: {},
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
@@ -47925,9 +48049,37 @@ document.addEventListener("click", (event) => {
   const planBtn = event.target.closest("[data-signup-choose-plan]");
   if (planBtn && currentAuthMode === "signup" && signupWizardStep === 3) {
     event.preventDefault();
-    finishSignupWithPlan(planBtn.dataset.signupChoosePlan || "free").catch((error) => {
+    const choice = planBtn.dataset.signupChoosePlan || "free";
+    if (choice === "free") {
+      showSignupFreeConfirm();
+      return;
+    }
+    hideSignupFreeConfirm();
+    finishSignupWithPlan(choice).catch((error) => {
       setFormMessage("#authMessage", friendlyAuthError(error));
     });
+    return;
+  }
+
+  const confirmFreeBtn = event.target.closest("[data-signup-confirm-free]");
+  if (confirmFreeBtn && currentAuthMode === "signup" && signupWizardStep === 3) {
+    event.preventDefault();
+    trackEvent("signup_free_confirm_accepted", { variant: signupPlanCopy().variant });
+    finishSignupWithPlan("free").catch((error) => {
+      setFormMessage("#authMessage", friendlyAuthError(error));
+    });
+    return;
+  }
+
+  const upgradeInsteadBtn = event.target.closest("[data-signup-upgrade-instead]");
+  if (upgradeInsteadBtn && currentAuthMode === "signup" && signupWizardStep === 3) {
+    event.preventDefault();
+    const upgradePlan = upgradeInsteadBtn.dataset.signupUpgradeInstead || "";
+    trackEvent("signup_free_confirm_upgrade_instead", { plan: upgradePlan || "chooser", variant: signupPlanCopy().variant });
+    hideSignupFreeConfirm();
+    // Return to the paid-first chooser so they can pick Founding or Pro — not a forced checkout.
+    const featured = document.querySelector(".signup-plan-card--featured, .signup-plan-card--founding, .signup-plan-card--pro");
+    featured?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 });
 

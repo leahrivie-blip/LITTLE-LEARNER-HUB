@@ -36,27 +36,39 @@ test("three-step signup wizard markup and state exist", () => {
   assert.match(appJs, /mapSignupPersona/);
 });
 
-test("plan chooser features Free, Founding featured, and Pro", () => {
+test("plan chooser features paid-first Founding/Pro and Free preview", () => {
   assert.match(appJs, /Claim My Founding Spot/);
-  assert.match(appJs, /Start Free/);
+  assert.match(appJs, /Start with Free Preview/);
   assert.match(appJs, /Continue with Pro/);
   assert.match(appJs, /Most Popular/);
   assert.match(appJs, /FOR LIFE/);
   assert.match(appJs, /Founding Spots Remaining/);
   assert.match(appJs, /Created by a Childcare Provider/);
-  assert.match(appJs, /signup-plan-grid--founding-open/);
+  assert.match(appJs, /Stop spending hours planning each week/);
+  assert.match(appJs, /signup-plan-grid--paid-first/);
+  assert.match(appJs, /signup-plan-card--preview/);
+  assert.match(appJs, /showSignupFreeConfirm/);
   assert.match(css, /signup-plan-card--founding/);
   assert.match(css, /signup-founding-urgency/);
+  assert.match(css, /signup-free-confirm/);
+  assert.match(css, /signup-plan-trust/);
 });
 
-test("Pro plan is hidden until founding spots are sold out", () => {
+test("signup chooser keeps Free as preview while featuring paid plans", () => {
   const chooser = appJs.slice(appJs.indexOf("function renderSignupPlanChooser"), appJs.indexOf("async function finishSignupWithPlan"));
-  assert.match(chooser, /\$\{!soldOut \? `/);
-  assert.match(chooser, /signup-plan-card--pro signup-plan-card--pro-featured/);
-  assert.match(chooser, /Claim My Founding Spot/);
-  // Pro only appears in the sold-out branch, not alongside Founding in one grid render
-  assert.match(chooser, /` : `\s*\n\s*<article class="signup-plan-card signup-plan-card--pro/);
+  assert.match(chooser, /signup-plan-card--founding/);
+  assert.match(chooser, /signup-plan-card--pro/);
+  assert.match(chooser, /signup-plan-card--free signup-plan-card--preview/);
+  assert.match(chooser, /copy\.foundingCta/);
+  assert.match(chooser, /data-signup-choose-plan="monthly"/);
+  assert.match(appJs, /foundingCta:\s*"Claim My Founding Spot"/);
+  // Free card should appear after paid grid in the template.
+  const freeIdx = chooser.indexOf("signup-plan-card--preview");
+  const foundingIdx = chooser.indexOf("signup-plan-card--founding");
+  assert.ok(foundingIdx > -1 && freeIdx > foundingIdx, "Free preview should render after paid cards");
+});
 
+test("public pricing/upgrade pages still hide Pro until founding sells out", () => {
   const pricing = appJs.slice(appJs.indexOf("function renderPricingPage"), appJs.indexOf("function renderUpgradePage"));
   assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding"/);
   assert.match(pricing, /\$\{soldOut \? pricingCard\("ProAnnual"/);
@@ -66,6 +78,25 @@ test("Pro plan is hidden until founding spots are sold out", () => {
   assert.doesNotMatch(upgrade, /!soldOut \? pricingCard\("ProMonthly"/);
 });
 
+test("signup conversion copy is overridable for A/B tests", () => {
+  assert.match(appJs, /DEFAULT_SIGNUP_PLAN_COPY/);
+  assert.match(appJs, /function signupPlanCopy/);
+  assert.match(appJs, /function signupPlanVariantKey/);
+  assert.match(appJs, /SIGNUP_PLAN_VARIANT_OVERRIDES/);
+  assert.match(appJs, /llhSignupConversionCopy/);
+  assert.match(appJs, /LLH_SIGNUP_CONVERSION/);
+  assert.match(appJs, /signupConversion/);
+  assert.match(appJs, /signupVariant/);
+});
+
+test("free plan confirmation copy and actions exist", () => {
+  assert.match(appJs, /You’re choosing the Free Plan/);
+  assert.match(appJs, /Continue with Free/);
+  assert.match(appJs, /Upgrade Instead/);
+  assert.match(appJs, /data-signup-confirm-free/);
+  assert.match(appJs, /data-signup-upgrade-instead/);
+});
+
 test("founding banners stay compact", () => {
   assert.match(appJs, /founding-banner--compact/);
   assert.match(css, /\.founding-banner--compact/);
@@ -73,9 +104,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-support-reply-email");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-support-reply-email");
-  assert.match(sw, /llh-shell-v75-support-reply-email/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-signup-paid-focus");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-signup-paid-focus");
+  assert.match(sw, /llh-shell-v76-signup-paid-focus/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

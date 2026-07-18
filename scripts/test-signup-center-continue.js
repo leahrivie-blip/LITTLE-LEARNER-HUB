@@ -150,7 +150,10 @@ async function runPath(page, {
   }, { timeout: 20000 });
 
   // Finish on Free so we can assert backend user without Stripe.
+  // Free now shows a soft confirmation step before completing signup.
   await page.click('[data-signup-choose-plan="free"]');
+  await page.waitForSelector("[data-signup-confirm-free]", { timeout: 10000 });
+  await page.click("[data-signup-confirm-free]");
   // Allow profile/subscription sync writes to flush to the JSON store.
   await page.waitForTimeout(1200);
   let user = null;
