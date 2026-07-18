@@ -47,6 +47,12 @@ services:
         sync: false
       - key: PRODUCTION_DATABASE_SERVICE_KEY
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SUPPORT_EMAIL_FROM
+        value: "Little Learner Hub <support@littlelearnershubbyleah.com>"
+      - key: SUPPORT_EMAIL_TO
+        value: "support@littlelearnershubbyleah.com"
       # Opt-in only. Leave unset/false so sparse Stripe rebuild never runs automatically at boot.
       - key: ALLOW_BOOT_SPARSE_STORE_RECOVERY
         value: "false"

@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v87-free-reengagement";
+const CACHE_NAME = "llh-shell-v88-email-system-repair";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
@@ -25,7 +25,7 @@ const APP_SHELL = [
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260718-free-reengagement",
   "/scripts/free-plan-grandfathering.js?v=20260718-free-reengagement",
-  "/app.js?v=20260718-free-reengagement",
+  "/app.js?v=20260718-email-system-repair",
   "/comms-center.js?v=20260718-free-reengagement",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
