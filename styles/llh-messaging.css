@@ -22,6 +22,10 @@
 }
 
 /* ---------- Notification bell ---------- */
+.notification-bell-backdrop {
+  display: none;
+}
+
 .notification-bell-wrap {
   position: relative;
   display: inline-flex;
@@ -73,7 +77,8 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: min(360px, 90vw);
+  width: min(360px, calc(100vw - 24px));
+  max-width: min(360px, calc(100vw - 24px));
   max-height: min(70vh, 560px);
   display: flex;
   flex-direction: column;
@@ -81,8 +86,9 @@
   border-radius: var(--llh-radius-md, 12px);
   box-shadow: var(--llh-shadow-modal, 0 18px 48px rgba(42, 42, 53, 0.12));
   border: 1px solid var(--llh-line, #e4e1ea);
-  z-index: 60;
+  z-index: 260;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .notification-bell-panel-header {
@@ -98,15 +104,33 @@
 
 .notification-bell-panel-header strong {
   min-width: 0;
+  flex: 1 1 auto;
 }
 
-.notification-mark-all-btn {
+.notification-bell-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.notification-mark-all-btn,
+.notification-bell-close-btn,
+.notification-see-all-btn {
   font-size: 12px;
-  padding: 6px 10px;
+  padding: 8px 12px;
+  min-height: 40px;
   flex-shrink: 0;
 }
 
+.notification-bell-close-btn {
+  display: none;
+}
+
 .notification-bell-list {
+  overflow-x: hidden;
   overflow-y: auto;
   flex: 1 1 auto;
   min-height: 0;
@@ -119,6 +143,8 @@
   align-items: flex-start;
   gap: 10px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   text-align: left;
   padding: 12px 14px;
   border: none;
@@ -144,25 +170,31 @@
 .notification-item-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.notification-item-body strong,
+.notification-item-body span,
+.notification-item-body small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .notification-item-body strong {
   font-size: 13.5px;
   color: var(--llh-ink, #2a2a35);
+  line-height: 1.35;
 }
 
 .notification-item-body span {
   font-size: 12.5px;
   color: var(--llh-muted, #6b6b7b);
-  white-space: normal;
-  overflow-wrap: anywhere;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  line-height: 1.4;
 }
 
 .notification-item-body small {
@@ -175,6 +207,7 @@
   text-align: center;
   color: var(--llh-muted, #6b6b7b);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .notification-bell-panel-footer {
@@ -184,36 +217,72 @@
   flex-shrink: 0;
 }
 
+.notification-bell-panel-footer .notification-see-all-btn {
+  width: 100%;
+  justify-content: center;
+}
+
 @media (max-width: 640px) {
+  body.notification-bell-open {
+    overflow: hidden;
+  }
+
+  .notification-bell-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 28, 36, 0.34);
+    z-index: 250;
+  }
+
+  .notification-bell-backdrop[hidden] {
+    display: none !important;
+  }
+
   .notification-bell-wrap {
-    position: static;
+    position: relative;
+    z-index: 261;
   }
 
   .notification-bell-btn {
     flex: 0 0 auto;
     width: 44px;
     min-width: 44px;
+    max-width: 44px;
     height: 44px;
   }
 
   .notification-bell-panel {
     position: fixed;
-    top: max(12px, env(safe-area-inset-top, 0px));
-    left: 10px;
-    right: 10px;
-    bottom: auto;
-    width: auto;
-    max-height: calc(100dvh - 24px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    left: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
+    max-width: min(420px, calc(100vw - 24px));
+    margin: 0 auto;
     border-radius: 16px;
     z-index: 120;
+    max-height: min(70dvh, calc(100dvh - 24px));
+  }
+
+  .notification-bell-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .notification-bell-panel-header {
     align-items: flex-start;
   }
 
-  .notification-item-body span {
-    -webkit-line-clamp: 8;
+  .notification-bell-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .notification-mark-all-btn,
+  .notification-bell-close-btn,
+  .notification-see-all-btn {
+    min-height: 44px;
   }
 
   .notification-bell-item {

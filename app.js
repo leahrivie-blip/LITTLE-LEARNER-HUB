@@ -10607,6 +10607,97 @@ async function refreshNotificationBell() {
   }
 }
 
+function notificationBellIsMobileViewport() {
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 640px)").matches;
+}
+
+function clearNotificationBellPanelInlineStyles(panel) {
+  if (!panel) return;
+  [
+    "position", "top", "left", "right", "width", "maxWidth", "maxHeight", "margin", "zIndex",
+  ].forEach((prop) => {
+    panel.style[prop] = "";
+  });
+}
+
+function notificationBellBottomReserve() {
+  let reserve = 12;
+  const badge = document.querySelector("[data-admin-preview-badge]");
+  if (badge && getComputedStyle(badge).display !== "none") {
+    const rect = badge.getBoundingClientRect();
+    if (rect.height > 0 && rect.top < window.innerHeight) {
+      reserve = Math.max(reserve, Math.round(window.innerHeight - rect.top) + 10);
+    }
+  }
+  return reserve;
+}
+
+function positionNotificationBellPanel() {
+  const panel = document.querySelector("#notificationBellPanel");
+  const bell = document.querySelector("#notificationBellBtn");
+  const backdrop = document.querySelector("#notificationBellBackdrop");
+  const open = Boolean(notificationBellState.open && isLoggedIn());
+  const mobile = notificationBellIsMobileViewport();
+  document.body.classList.toggle("notification-bell-open", open && mobile);
+  if (backdrop) {
+    backdrop.hidden = !open || !mobile;
+    backdrop.setAttribute("aria-hidden", backdrop.hidden ? "true" : "false");
+  }
+  if (!panel || !open || !bell) {
+    clearNotificationBellPanelInlineStyles(panel);
+    return;
+  }
+
+  // Always use fixed positioning so the panel escapes topbar overflow/stacking
+  // and stays fully on-screen on both mobile and desktop.
+  const sidePad = 12;
+  const gap = 8;
+  const bellRect = bell.getBoundingClientRect();
+  let top = Math.max(sidePad, bellRect.bottom + gap);
+
+  // Keep the panel below sticky site banners (announcement / Free reminder / recovery).
+  [
+    "#siteAnnouncementBanner:not([hidden])",
+    "#freePlanReminderBar:not([hidden])",
+    ".auth-recovery-banner:not([hidden])",
+    "#accountRecoveryBanner:not([hidden])",
+  ].forEach((selector) => {
+    const banner = document.querySelector(selector);
+    if (!banner) return;
+    const style = getComputedStyle(banner);
+    if (style.display === "none" || style.visibility === "hidden") return;
+    const rect = banner.getBoundingClientRect();
+    if (rect.bottom > 0 && rect.top < window.innerHeight) {
+      top = Math.max(top, rect.bottom + gap);
+    }
+  });
+
+  const maxPanelWidth = mobile ? 420 : 360;
+  const width = Math.min(maxPanelWidth, Math.max(240, window.innerWidth - sidePad * 2));
+  let left;
+  if (mobile) {
+    left = Math.max(sidePad, Math.round((window.innerWidth - width) / 2));
+  } else {
+    // Align the panel under the bell on the right, then clamp into the viewport.
+    left = Math.round(bellRect.right - width);
+    left = Math.min(left, window.innerWidth - sidePad - width);
+    left = Math.max(sidePad, left);
+  }
+  const bottomPad = notificationBellBottomReserve();
+  const maxHeight = Math.max(180, window.innerHeight - top - bottomPad);
+
+  panel.style.position = "fixed";
+  panel.style.top = `${Math.round(top)}px`;
+  panel.style.left = `${left}px`;
+  panel.style.right = "auto";
+  panel.style.width = `${width}px`;
+  panel.style.maxWidth = `calc(100vw - ${sidePad * 2}px)`;
+  panel.style.maxHeight = `${Math.round(maxHeight)}px`;
+  panel.style.margin = "0";
+  panel.style.zIndex = "260";
+}
+
 function renderNotificationBell() {
   const wrap = document.querySelector("#notificationBellWrap");
   if (wrap) wrap.hidden = !isLoggedIn();
@@ -10624,27 +10715,36 @@ function renderNotificationBell() {
   const panel = document.querySelector("#notificationBellPanel");
   if (panel) panel.hidden = !notificationBellState.open;
   const list = document.querySelector("#notificationBellList");
-  if (!list) return;
-  if (!notificationBellState.items.length) {
-    list.innerHTML = `<p class="notification-empty">No notifications yet. New messages, support replies, announcements, and feature updates will show up here.</p>`;
+  if (!list) {
+    positionNotificationBellPanel();
     return;
   }
-  list.innerHTML = notificationBellState.items.slice(0, 20).map((n) => `
-    <button type="button" class="notification-bell-item${n.read ? "" : " unread"}" data-notification-id="${escapeHtml(n.id)}" data-notification-conversation="${escapeHtml(n.conversationEmail || "")}">
-      <span class="notification-item-icon" aria-hidden="true">${notificationTypeIcon(n.type)}</span>
-      <span class="notification-item-body">
-        <strong>${escapeHtml(n.title || "Little Learner Hub")}</strong>
-        <span>${escapeHtml(n.preview || "")}</span>
-        <small>${escapeHtml(messagingRelativeTime(n.createdAt))}</small>
-      </span>
-    </button>
-  `).join("");
+  if (!notificationBellState.items.length) {
+    list.innerHTML = `<p class="notification-empty">No notifications yet. New messages, support replies, announcements, and feature updates will show up here.</p>`;
+  } else {
+    list.innerHTML = notificationBellState.items.slice(0, 20).map((n) => `
+      <button type="button" class="notification-bell-item${n.read ? "" : " unread"}" data-notification-id="${escapeHtml(n.id)}" data-notification-conversation="${escapeHtml(n.conversationEmail || "")}">
+        <span class="notification-item-icon" aria-hidden="true">${notificationTypeIcon(n.type)}</span>
+        <span class="notification-item-body">
+          <strong>${escapeHtml(n.title || "Little Learner Hub")}</strong>
+          <span>${escapeHtml(n.preview || "")}</span>
+          <small>${escapeHtml(messagingRelativeTime(n.createdAt))}</small>
+        </span>
+      </button>
+    `).join("");
+  }
+  positionNotificationBellPanel();
 }
 
 function toggleNotificationBellPanel(forceOpen) {
   notificationBellState.open = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
   renderNotificationBell();
-  if (notificationBellState.open) refreshNotificationBell();
+  if (notificationBellState.open) {
+    refreshNotificationBell().finally(() => positionNotificationBellPanel());
+    requestAnimationFrame(() => positionNotificationBellPanel());
+  } else {
+    positionNotificationBellPanel();
+  }
 }
 
 async function markNotificationRead({ id, conversationEmail, all } = {}) {
@@ -55373,11 +55473,21 @@ document.addEventListener("click", async (event) => {
     toggleNotificationBellPanel();
     return;
   }
+  const closeBellBtn = event.target.closest("#notificationBellCloseBtn, #notificationBellBackdrop");
+  if (closeBellBtn) {
+    event.preventDefault();
+    toggleNotificationBellPanel(false);
+    return;
+  }
   const markAllBtn = event.target.closest("#notificationMarkAllBtn");
   if (markAllBtn) {
     event.preventDefault();
     await markNotificationRead({ all: true });
     return;
+  }
+  const seeAllBtn = event.target.closest("#notificationSeeAllBtn");
+  if (seeAllBtn) {
+    toggleNotificationBellPanel(false);
   }
   const bellItem = event.target.closest(".notification-bell-item");
   if (bellItem) {
@@ -55389,8 +55499,12 @@ document.addEventListener("click", async (event) => {
     setView("messages", conversationEmail ? { conversation: conversationEmail } : {});
     return;
   }
-  // Close the bell panel on any outside click.
-  if (notificationBellState.open && !event.target.closest("#notificationBellWrap")) {
+  // Close the bell panel on any outside click (backdrop / page chrome).
+  if (
+    notificationBellState.open
+    && !event.target.closest("#notificationBellWrap")
+    && !event.target.closest("#notificationBellPanel")
+  ) {
     toggleNotificationBellPanel(false);
   }
   const messagesTabBtn = event.target.closest("[data-messages-tab]");
@@ -55473,6 +55587,18 @@ document.addEventListener("submit", async (event) => {
 // may have missed while backgrounded, with no push required at all).
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible" && isLoggedIn()) refreshNotificationBell();
+});
+
+window.addEventListener("resize", () => {
+  if (notificationBellState.open) positionNotificationBellPanel();
+});
+window.addEventListener("scroll", () => {
+  if (notificationBellState.open) positionNotificationBellPanel();
+}, { passive: true });
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && notificationBellState.open) {
+    toggleNotificationBellPanel(false);
+  }
 });
 
 if (isLoggedIn()) {

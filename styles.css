@@ -21017,10 +21017,31 @@ canvas {
   border-radius: 12px;
   border: 1px solid rgba(20, 40, 70, 0.08);
   background: #fff;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .admin-notif-item.is-unread {
   border-color: rgba(91, 155, 213, 0.45);
   box-shadow: inset 3px 0 0 #5b9bd5;
+}
+.admin-notif-main {
+  min-width: 0;
+  flex: 1 1 220px;
+  max-width: 100%;
+}
+.admin-notif-main strong,
+.admin-notif-main p,
+.admin-notif-main small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.admin-notif-main p {
+  margin: 6px 0;
+  line-height: 1.4;
 }
 .admin-notif-category {
   display: inline-block;
@@ -21031,7 +21052,12 @@ canvas {
   font-weight: 700;
   margin-bottom: 4px;
 }
-.admin-notif-actions { display: flex; gap: 8px; align-items: flex-start; }
+.admin-notif-actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
 .nav-badge {
   margin-left: 6px;
   min-width: 1.35em;

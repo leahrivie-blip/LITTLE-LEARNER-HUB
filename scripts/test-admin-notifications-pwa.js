@@ -163,9 +163,9 @@ test("admin notification helpers dedupe and categorize", () => {
 });
 
 test("cache bust versions aligned for admin-notif-pwa", () => {
-  assert.match(indexHtml, /app\.js\?v=20260718-messages-admin-mobile/);
-  assert.match(sw, /llh-shell-v95-messages-admin-mobile/);
-  assert.match(sw, /app\.js\?v=20260718-messages-admin-mobile/);
+  assert.match(indexHtml, /app\.js\?v=20260718-notif-panel-mobile/);
+  assert.match(sw, /llh-shell-v96-notif-panel-mobile/);
+  assert.match(sw, /app\.js\?v=20260718-notif-panel-mobile/);
 });
 
 async function integration() {

@@ -104,9 +104,9 @@ test("persona sandbox modes remain available", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-messages-admin-mobile");
-  assert.equal(indexJs, "20260718-messages-admin-mobile");
-  assert.match(sw, /llh-shell-v95-messages-admin-mobile/);
+  assert.equal(indexCss, "20260718-notif-panel-mobile");
+  assert.equal(indexJs, "20260718-notif-panel-mobile");
+  assert.match(sw, /llh-shell-v96-notif-panel-mobile/);
 });
 
 test("npm script is registered", () => {

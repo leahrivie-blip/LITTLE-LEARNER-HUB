@@ -120,13 +120,15 @@ function staticChecks() {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
   assert.match(messagingCss, /position:\s*fixed/, "mobile notification panel should use fixed positioning");
-  assert.match(messagingCss, /100dvh/, "mobile panel should respect dynamic viewport height");
-  assert.match(messagingCss, /-webkit-line-clamp/, "notification previews should wrap/clamp instead of cutting off unreadably");
+  assert.match(messagingCss, /calc\(100vw - 24px\)/, "mobile panel width should use calc(100vw - 24px)");
+  assert.match(messagingCss, /overflow-wrap:\s*anywhere/, "notification text should wrap safely");
+  assert.match(indexHtml, /notificationBellCloseBtn/, "mobile close button required");
+  assert.match(appJs, /positionNotificationBellPanel/, "panel positioning helper required");
   assert.match(appJs, /leahivie@icloud\.com/, "owner account aliases must include iCloud login");
   assert.match(serverJs, /DEFAULT_ADMIN_EMAIL_ALIASES/, "server must define admin email aliases");
   assert.match(serverJs, /isAdminOnlyNotificationType/, "member APIs must filter admin-only notification types");
-  assert.match(indexHtml, /llh-messaging\.css\?v=20260718-messages-admin-mobile/);
-  assert.match(indexHtml, /app\.js\?v=20260718-messages-admin-mobile/);
+  assert.match(indexHtml, /llh-messaging\.css\?v=20260718-notif-panel-mobile/);
+  assert.match(indexHtml, /app\.js\?v=20260718-notif-panel-mobile/);
   console.log("PASS static multi-admin + mobile notification markers");
 }
 
