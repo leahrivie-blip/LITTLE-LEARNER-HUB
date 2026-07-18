@@ -8891,14 +8891,17 @@ function analyticsSummary(store) {
   const events = (store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const chronological = events.slice().reverse();
   const users = Object.values(store.users || {});
-  const visits = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
+  // Session visits = website_visit only. Page views are counted separately so one
+  // homepage load is not counted as 2–3 "visitors".
+  const sessionVisits = events.filter((event) => event.name === "website_visit");
   const pageViews = events.filter((event) => event.name === "page_view");
+  const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
   const signups = events.filter((event) => event.name === "account_signup_complete");
   const paidEvents = events.filter((event) => event.name === "checkout_success");
   const billingEvents = store.billingEvents || [];
-  const uniqueVisitors = new Set(visits.map((event) => event.visitorId || event.user || event.sessionId || event.ipHash).filter(Boolean));
+  const uniqueVisitors = new Set(trafficEvents.map((event) => event.visitorId || event.user || event.sessionId || event.ipHash).filter(Boolean));
   const visitorDays = {};
-  visits.forEach((event) => {
+  trafficEvents.forEach((event) => {
     const id = event.visitorId || event.user || event.sessionId || event.ipHash || "unknown";
     visitorDays[id] = visitorDays[id] || new Set();
     visitorDays[id].add(analyticsDateKey(event.createdAt));
@@ -8925,19 +8928,21 @@ function analyticsSummary(store) {
   const cancelingUsers = users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "canceling");
   const trialUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial");
   const pastDueUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "past_due");
+  const failedPaymentUsers = users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "payment_failed");
   const revenueItems = [
     ...paidEvents,
     ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
   ];
   const now = new Date();
+  const activityAt = (user) => user.lastSeenAt || user.lastLoginAt || "";
   const onlineWindowMs = 15 * 60 * 1000;
   const usersOnlineNow = users.filter((user) => {
-    const ts = new Date(user.lastSeenAt || user.lastLoginAt || 0).getTime();
+    const ts = new Date(activityAt(user) || 0).getTime();
     return Number.isFinite(ts) && (Date.now() - ts) <= onlineWindowMs;
   }).length;
-  const activeUsersToday = users.filter((user) => isSameUtcDay(user.lastSeenAt || user.lastLoginAt, now)).length;
-  const activeUsersWeek = users.filter((user) => isWithinDays(user.lastSeenAt || user.lastLoginAt, 7)).length;
-  const activeUsersMonth = users.filter((user) => isWithinDays(user.lastSeenAt || user.lastLoginAt, 30)).length;
+  const activeUsersToday = users.filter((user) => isSameUtcDay(activityAt(user), now)).length;
+  const activeUsersWeek = users.filter((user) => isWithinDays(activityAt(user), 7)).length;
+  const activeUsersMonth = users.filter((user) => isWithinDays(activityAt(user), 30)).length;
   const newSignupsToday = users.filter((user) => isSameUtcDay(user.signupAt || user.createdAt, now)).length;
   const newUsersWeek = users.filter((user) => isWithinDays(user.signupAt || user.createdAt, 7)).length;
   const newUsersMonth = users.filter((user) => isWithinDays(user.signupAt || user.createdAt, 30)).length;
@@ -8979,13 +8984,28 @@ function analyticsSummary(store) {
   const homeDaycareAccounts = users.filter((user) => accountAccess.resolveAccountType(user) === "home_daycare").length;
   const centerAccounts = users.filter((user) => accountAccess.resolveAccountType(user) === "center").length;
   const singleProviderAccounts = users.filter((user) => accountAccess.resolveAccountType(user) === "single_provider").length;
-  const lessonPlansViewed = countEventsNamed(events, ["resource_view", "lesson_plan_view", "curriculum_lesson_view"]);
-  const lessonPlansAddedToCalendar = countEventsNamed(events, ["lesson_plan_added_to_calendar", "calendar_lesson_assigned", "add_to_calendar"]);
+  const isLessonResourceView = (event) => {
+    if (event.name === "lesson_plan_view" || event.name === "curriculum_lesson_view") return true;
+    if (event.name !== "resource_view") return false;
+    const category = String(event.detail?.category || "").toLowerCase();
+    return category.includes("lesson");
+  };
+  const lessonPlansViewed = events.filter(isLessonResourceView).length;
+  const lessonPlansAddedToCalendar = countEventsNamed(events, [
+    "lesson_plan_added_to_calendar",
+    "calendar_lesson_assigned",
+    "add_to_calendar",
+    "schedule_assign_lesson",
+    "curriculum_planner_assign",
+    "lesson_use_this_plan_main_calendar",
+    "lesson_add_to_my_week",
+  ]);
   const dailyLogsCreated = countEventsNamed(events, ["daily_log_created", "daily_report_saved"]);
   const observationsCreated = countEventsNamed(events, ["observation_created", "observation_saved"]);
   const incidentReportsCreated = countEventsNamed(events, ["incident_report_created", "incident_report_generated"]);
-  const parentMessagesGenerated = countEventsNamed(events, ["parent_message_generated", "ai_generation_success"]);
-  const formsSubmitted = countEventsNamed(events, ["form_submitted", "forms_submitted"]);
+  // Parent messages only — do not treat every AI generation as a parent message.
+  const parentMessagesGenerated = countEventsNamed(events, ["parent_message_generated"]);
+  const formsSubmitted = countEventsNamed(events, ["form_submitted", "forms_submitted", "feedback_submitted"]);
   const feedbackItems = store.feedbackItems || [];
   const supportTickets = store.supportTickets || [];
   const openFeedback = feedbackItems.filter((item) => !["Resolved", "Completed", "Archived"].includes(item.status)).length;
@@ -9014,17 +9034,29 @@ function analyticsSummary(store) {
       const userEvents = eventsByUser.get(user.email) || [];
       const displayName = user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "";
       const featureUsage = user.featureUsage || {};
+      const countUsage = (names, featureKeys = names) => {
+        const fromEvents = userEvents.filter((event) => names.includes(event.name)).length;
+        const fromFeatures = featureKeys.reduce((total, key) => total + Number(featureUsage[key] || 0), 0);
+        // Prefer event history; featureUsage is a fallback when events were not retained.
+        return Math.max(fromEvents, fromFeatures);
+      };
       const usage = {
-        lessonPlansViewed: Number(featureUsage.resource_view || featureUsage.lesson_plan_view || 0)
-          + userEvents.filter((e) => ["resource_view", "lesson_plan_view", "curriculum_lesson_view"].includes(e.name)).length,
-        lessonPlansAddedToCalendar: Number(featureUsage.lesson_plan_added_to_calendar || featureUsage.calendar_lesson_assigned || 0)
-          + userEvents.filter((e) => ["lesson_plan_added_to_calendar", "calendar_lesson_assigned", "add_to_calendar"].includes(e.name)).length,
-        observationsCreated: Number(featureUsage.observation_created || featureUsage.observation_saved || 0)
-          + userEvents.filter((e) => ["observation_created", "observation_saved"].includes(e.name)).length,
-        dailyLogsCreated: Number(featureUsage.daily_log_created || featureUsage.daily_report_saved || 0)
-          + userEvents.filter((e) => ["daily_log_created", "daily_report_saved"].includes(e.name)).length,
-        formsSubmitted: Number(featureUsage.form_submitted || featureUsage.forms_submitted || 0)
-          + userEvents.filter((e) => ["form_submitted", "forms_submitted"].includes(e.name)).length,
+        lessonPlansViewed: Math.max(
+          userEvents.filter(isLessonResourceView).length,
+          Number(featureUsage.lesson_plan_view || featureUsage.curriculum_lesson_view || 0),
+        ),
+        lessonPlansAddedToCalendar: countUsage([
+          "lesson_plan_added_to_calendar",
+          "calendar_lesson_assigned",
+          "add_to_calendar",
+          "schedule_assign_lesson",
+          "curriculum_planner_assign",
+          "lesson_use_this_plan_main_calendar",
+          "lesson_add_to_my_week",
+        ]),
+        observationsCreated: countUsage(["observation_created", "observation_saved"]),
+        dailyLogsCreated: countUsage(["daily_log_created", "daily_report_saved"]),
+        formsSubmitted: countUsage(["form_submitted", "forms_submitted", "feedback_submitted"]),
       };
       return {
         email: user.email,
@@ -9045,7 +9077,8 @@ function analyticsSummary(store) {
         signupAt: user.signupAt || user.createdAt || "",
         createdAt: user.createdAt || user.signupAt || "",
         lastLoginAt: user.lastLoginAt || "",
-        lastSeenAt: user.lastSeenAt || user.updatedAt || "",
+        // Activity must not fall back to updatedAt (admin edits / stubs looked "active").
+        lastSeenAt: user.lastSeenAt || user.lastLoginAt || "",
         monthlyPrice: user.monthlyPrice || "",
         foundingMember: Boolean(user.foundingMember),
         foundingMemberNumber: user.foundingMemberNumber || null,
@@ -9067,9 +9100,14 @@ function analyticsSummary(store) {
     mode: "Server historical analytics",
     updatedAt: new Date().toISOString(),
     totals: {
-      visitors: visits.length,
+      // Unique browsers/devices that visited (primary "how many viewers" number).
       uniqueVisitors: uniqueVisitors.size,
-      signups: Math.max(signups.length, users.length),
+      // Session visits = website_visit events (one per browser session boot).
+      visitors: sessionVisits.length,
+      sessionVisits: sessionVisits.length,
+      pageViewCount: pageViews.length,
+      // Completed signup events only — registered users are tracked separately.
+      signups: signups.length,
       totalRegisteredUsers: users.length,
       freeUsers: currentAccessCounts.free,
       trialUsers: trialUsers.length,
@@ -9079,8 +9117,11 @@ function analyticsSummary(store) {
       centerAccounts,
       singleProviderAccounts,
       paidUsers: paidUsers.length,
-      activeSubscriptions: paidUsers.filter((user) => !user.cancelAtPeriodEnd).length,
-      activeUsers: paidUsers.length,
+      // Align with Users drill-down (billingStatus === "active").
+      activeSubscriptions: billingStatusCounts.active,
+      paidAccessNotCanceling: paidUsers.filter((user) => !user.cancelAtPeriodEnd).length,
+      // Active usage (not "paid users") — keep paidUsers for billing metrics.
+      activeUsers: activeUsersMonth,
       usersOnlineNow,
       activeUsersToday,
       activeUsersWeek,
@@ -9088,14 +9129,14 @@ function analyticsSummary(store) {
       cancelingSubscriptions: cancelingUsers.length,
       canceledSubscriptions: canceledUsers.length,
       pastDueUsers: pastDueUsers.length,
-      failedPayments: pastDueUsers.length,
+      failedPayments: failedPaymentUsers.length,
       currentAccessCounts,
       billingStatusCounts,
       subscriptionAccessAudit,
       returningVisitors,
-      visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
-      signupToPaidRate: rate(paidUsers.length, Math.max(signups.length, users.length)),
-      visitorToPaidRate: rate(paidUsers.length, Math.max(uniqueVisitors.size, visits.length)),
+      visitorToSignupRate: rate(users.length, Math.max(uniqueVisitors.size, 1)),
+      signupToPaidRate: rate(paidUsers.length, Math.max(users.length, 1)),
+      visitorToPaidRate: rate(paidUsers.length, Math.max(uniqueVisitors.size, 1)),
       trialConversionRate: rate(
         paidUsers.filter((user) => membershipAccess.membershipHasTrialHistory(user)).length,
         Math.max(
@@ -9134,7 +9175,7 @@ function analyticsSummary(store) {
       promoRedemptionsTotal: promoRedemptionRecords(store).length,
       promoCodesActive: promoCodeRecords(store).filter((item) => String(item.status || "active").toLowerCase() === "active").length,
       topLessonViews: Object.entries(countBy(
-        events.filter((event) => ["resource_view", "lesson_plan_view", "curriculum_lesson_view"].includes(event.name)),
+        events.filter(isLessonResourceView),
         (event) => event.detail?.title || event.detail?.resourceId || event.detail?.lessonId || "Lesson",
       )).sort((a, b) => b[1] - a[1]).slice(0, 8),
       topDownloads: Object.entries(countBy(
@@ -9143,9 +9184,10 @@ function analyticsSummary(store) {
       )).sort((a, b) => b[1] - a[1]).slice(0, 8),
     },
     periods: {
-      dailyVisitors: countBy(visits, (event) => analyticsDateKey(event.createdAt)),
-      weeklyVisitors: countBy(visits, (event) => analyticsWeekKey(event.createdAt)),
-      monthlyVisitors: countBy(visits, (event) => analyticsMonthKey(event.createdAt)),
+      dailyVisitors: countBy(sessionVisits, (event) => analyticsDateKey(event.createdAt)),
+      weeklyVisitors: countBy(sessionVisits, (event) => analyticsWeekKey(event.createdAt)),
+      monthlyVisitors: countBy(sessionVisits, (event) => analyticsMonthKey(event.createdAt)),
+      dailyPageViews: countBy(pageViews, (event) => analyticsDateKey(event.createdAt)),
       dailyRevenue: moneyBy(revenueItems, (event) => analyticsDateKey(event.createdAt)),
       weeklyRevenue: moneyBy(revenueItems, (event) => analyticsWeekKey(event.createdAt)),
       monthlyRevenue: moneyBy(revenueItems, (event) => analyticsMonthKey(event.createdAt)),
@@ -9153,12 +9195,31 @@ function analyticsSummary(store) {
     },
     counts: {
       pageViews: countBy(pageViews, (event) => event.detail?.view || event.path || event.hash || "Home"),
-      sources: countBy(visits, detectEventSource),
+      sources: countBy(sessionVisits.length ? sessionVisits : trafficEvents, detectEventSource),
       buttonClicks: countBy(events.filter((event) => event.name === "button_click"), (event) => event.detail?.label || event.detail?.action || "Button"),
       aiUsage: countBy(events.filter((event) => event.name === "ai_generation_success"), (event) => event.detail?.tool || "Document Helper"),
       resourceViews: countBy(events.filter((event) => event.name === "resource_view"), (event) => event.detail?.category || "Resource"),
       resourcePrints: countBy(events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf"].includes(event.name)), (event) => event.detail?.category || event.detail?.tool || "Printable/PDF"),
-      featureUsage: countBy(events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success", "lesson_plan_added_to_calendar", "observation_created", "daily_log_created", "form_submitted"].includes(event.name)), (event) => event.name),
+      featureUsage: countBy(events.filter((event) => [
+        "button_click",
+        "ai_generation_success",
+        "resource_view",
+        "resource_print",
+        "generated_pdf",
+        "generated_print",
+        "provider_tool_pdf",
+        "checkout_start",
+        "checkout_success",
+        "lesson_plan_added_to_calendar",
+        "schedule_assign_lesson",
+        "curriculum_planner_assign",
+        "observation_created",
+        "daily_log_created",
+        "form_submitted",
+        "feedback_submitted",
+        "parent_message_generated",
+        "incident_report_created",
+      ].includes(event.name)), (event) => event.name),
     },
     users: userRows,
     feedback: feedbackItems.slice(0, 200),
