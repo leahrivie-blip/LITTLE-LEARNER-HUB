@@ -4794,6 +4794,31 @@ body.lessons-view .mobile-brand {
   margin-right: 8px;
 }
 
+.admin-ai-tools-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(280px, 1.2fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.admin-ai-tools-output textarea {
+  width: 100%;
+  min-height: 420px;
+  font: inherit;
+  line-height: 1.45;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  resize: vertical;
+}
+
+@media (max-width: 900px) {
+  .admin-ai-tools-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-quick-actions-card .admin-quick-actions-grid,
 .admin-quick-actions-grid {
   display: grid;

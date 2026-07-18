@@ -4569,6 +4569,120 @@ async function handleAdminAiTest(request, response) {
   }
 }
 
+const ADMIN_AI_CONTENT_TYPES = new Set(["lesson", "activity", "printable", "email", "social", "theme"]);
+
+function adminAiContentSystemPrompt(contentType) {
+  const shared = [
+    "You are an early childhood curriculum and marketing assistant for Little Learner Hub.",
+    "Write warm, practical, play-based content for home daycares and childcare centers.",
+    "Never invent private child data. Keep language teacher-friendly and developmentally appropriate.",
+    "Return useful plain text that an owner can copy into Admin and edit before publishing.",
+  ].join(" ");
+  const byType = {
+    lesson: `${shared} Produce a weekly preschool/toddler lesson plan draft with: Title, Theme, Age, Weekly Overview, Objectives, Materials, Vocabulary, Family Connection, then Monday–Friday with a daily theme and 3–4 named activities (category + short directions).`,
+    activity: `${shared} Produce one standalone classroom activity with: Activity Name, Category, Age, Objective, Materials, Setup, Directions, Teacher Language, Observation Opportunities, Adaptations.`,
+    printable: `${shared} Produce a printable worksheet/take-home idea with: Title, Type, Age, Purpose, Materials, Instructions for teachers, Optional parent note, and a short description suitable for a library card.`,
+    email: `${shared} Produce an email campaign draft with: Subject, Preview Text, Body (short paragraphs), CTA, and a plain-text PS. Tone: helpful owner-to-provider, not salesy spam.`,
+    social: `${shared} Produce 3 social post options for Facebook/Instagram. For each: Hook, Caption (under 120 words), Hashtags (5–8), and Suggested image idea. Keep it childcare-authentic.`,
+    theme: `${shared} Suggest 8 trending or seasonal early-childhood themes. For each: Theme name, Best ages, Why it works now, 3 activity seeds, and 1 printable idea.`,
+  };
+  return byType[contentType] || shared;
+}
+
+function buildAdminAiContentUserPrompt(body = {}) {
+  const contentType = String(body.contentType || "lesson").trim();
+  const age = normalizedShortText(body.age, 80) || "Preschool";
+  const theme = normalizedShortText(body.theme, 160);
+  const tone = normalizedShortText(body.tone, 80) || "warm and practical";
+  const notes = normalizedMultilineText(body.notes, 4000);
+  const audience = normalizedShortText(body.audience, 120) || "childcare providers";
+  return [
+    `Content type: ${contentType}`,
+    `Age group: ${age}`,
+    theme ? `Theme / topic: ${theme}` : "",
+    `Tone: ${tone}`,
+    `Audience: ${audience}`,
+    notes ? `Extra notes from owner:\n${notes}` : "",
+    "Write the full draft now.",
+  ].filter(Boolean).join("\n");
+}
+
+async function handleAdminAiGenerateContent(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const contentType = String(body.contentType || "lesson").trim().toLowerCase();
+  if (!ADMIN_AI_CONTENT_TYPES.has(contentType)) {
+    jsonResponse(response, 400, { error: "Invalid contentType. Use lesson, activity, printable, email, social, or theme." });
+    return;
+  }
+  if (!OPENAI_API_KEY) {
+    jsonResponse(response, 503, { error: "AI generation is unavailable. OPENAI_API_KEY is not configured." });
+    return;
+  }
+  const systemPrompt = adminAiContentSystemPrompt(contentType);
+  const userPrompt = buildAdminAiContentUserPrompt({ ...body, contentType });
+  try {
+    const output = await callOpenAiRaw(systemPrompt, userPrompt);
+    jsonResponse(response, 200, {
+      ok: true,
+      contentType,
+      output,
+      model: OPENAI_MODEL,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    jsonResponse(response, 503, { error: error.message || "AI content generation failed." });
+  }
+}
+
+async function handleAdminGenerateLessonPlan(request, response) {
+  // Compatibility wrapper for the retired dedicated endpoint — uses the content generator.
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!OPENAI_API_KEY) {
+    jsonResponse(response, 503, { error: "AI generation is unavailable. OPENAI_API_KEY is not configured." });
+    return;
+  }
+  const age = normalizedShortText(body.age, 80) || "Preschool";
+  const theme = normalizedShortText(body.theme, 160) || "All About Me";
+  const lessonNumber = normalizedShortText(body.lessonNumber, 40);
+  const systemPrompt = [
+    adminAiContentSystemPrompt("lesson"),
+    "Also return a compact JSON object AFTER the prose draft, fenced as ```json ... ``` with keys:",
+    "title, theme, age, weeklyOverview, objectives, weeklyMaterials, vocabularyWords, familyConnection, thumbnailPrompt.",
+  ].join(" ");
+  const userPrompt = buildAdminAiContentUserPrompt({
+    contentType: "lesson",
+    age,
+    theme,
+    notes: lessonNumber ? `Lesson number focus: ${lessonNumber}` : "",
+  });
+  try {
+    const output = await callOpenAiRaw(systemPrompt, userPrompt);
+    const jsonMatch = String(output || "").match(/```json\s*([\s\S]*?)```/i);
+    let fields = { title: `${theme} Weekly Plan`, theme, age, weeklyOverview: output };
+    if (jsonMatch?.[1]) {
+      try {
+        const parsed = JSON.parse(jsonMatch[1]);
+        if (parsed && typeof parsed === "object") fields = { ...fields, ...parsed, theme: parsed.theme || theme, age: parsed.age || age };
+      } catch {
+        /* keep prose fallback */
+      }
+    }
+    jsonResponse(response, 200, { fields, output, model: OPENAI_MODEL });
+  } catch (error) {
+    jsonResponse(response, 503, { error: error.message || "Lesson plan could not be generated. Please try again." });
+  }
+}
+
 function handleAdminAiPrompts(request, response, url) {
   const token = url.searchParams.get("adminToken");
   if (!validAdminToken(token)) {
@@ -13043,13 +13157,14 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/subscription-refresh") return await handleAdminSubscriptionRefresh(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-generate-content") return await handleAdminAiGenerateContent(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts") return await handleAdminAiPromptsSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts/restore") return await handleAdminAiPromptsRestore(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-settings") return handleAdminAiSettings(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-settings") return await handleAdminAiSettingsSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-usage") return handleAdminAiUsage(request, response, url);
-    // Phase 2H: legacy /api/admin/generate-lesson-plan removed.
+    if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return handleAdminProgramMigrationPlan(request, response, url);

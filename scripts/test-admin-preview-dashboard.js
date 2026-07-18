@@ -69,10 +69,10 @@ test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
   assert.equal(indexCss, indexJs);
-  assert.equal(indexCss, "20260718-owner-command-center");
+  assert.equal(indexCss, "20260718-admin-ai-content");
   assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss}`));
   assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs}`));
-  assert.match(sw, /llh-shell-v81-owner-command-center/);
+  assert.match(sw, /llh-shell-v82-admin-ai-content/);
 });
 
 if (!process.exitCode) {
