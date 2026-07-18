@@ -66,9 +66,9 @@ test("curriculum activities bulk actions update parent lesson status", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-admin-boot-fix");
-  assert.equal(indexJs, "20260718-admin-boot-fix");
-  assert.match(sw, /llh-shell-v93-admin-boot-fix/);
+  assert.equal(indexCss, "20260718-use-plan-auth");
+  assert.equal(indexJs, "20260718-use-plan-auth");
+  assert.match(sw, /llh-shell-v94-use-plan-auth/);
 });
 
 if (!process.exitCode) {

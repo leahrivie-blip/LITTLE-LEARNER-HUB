@@ -56,7 +56,20 @@ function requestJson(method, urlPath, body) {
 }
 
 function startServer() {
-  fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, siteContent: {}, adminSessions: {} }, null, 2));
+  // Seed a backend Pro membership so site-content + curriculum hydrate unlock
+  // the library (localStorage-only Pro is not enough after Free-sample gating).
+  fs.writeFileSync(STORE_PATH, JSON.stringify({
+    users: {
+      [USER_EMAIL]: {
+        email: USER_EMAIL,
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+      },
+    },
+    siteContent: {},
+    adminSessions: {},
+  }, null, 2));
   return spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
     env: {
@@ -134,7 +147,7 @@ async function seedFreeLesson(token) {
       ...parsed.data,
       id: planId,
       title,
-      plan: "Free",
+      plan: "Pro",
       status: "published",
       age: "Preschool",
       theme: "Card Buttons",

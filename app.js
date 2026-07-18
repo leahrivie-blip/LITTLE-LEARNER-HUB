@@ -20462,6 +20462,12 @@ async function openResourceViewer(resourceId, options = {}) {
     console.warn(error);
     hydration = { hydrated: false, reason: "error", resource };
   }
+  // Use This Plan / calendar assign should still open even if Pro content is
+  // still syncing — assigning by plan id does not need the full hydrated body.
+  const allowAssignDespiteHydrationGap = Boolean(
+    options.openPlanThisWeek
+    || (calendarLessonAssignContext?.fromCalendar && !options.skipCalendarAssignSheet),
+  );
   if (
     viewerResource?._curriculumManaged
     && viewerResource.category === "Lesson Plans"
@@ -20469,6 +20475,7 @@ async function openResourceViewer(resourceId, options = {}) {
     && isProUser()
     && !hasAdminFullAccess()
     && hydration.hydrated === false
+    && !allowAssignDespiteHydrationGap
   ) {
     body.innerHTML = `
       <article class="printable-resource-page">
@@ -26035,22 +26042,31 @@ async function firebaseAuthHeaders() {
   if (memberToken) {
     return { Authorization: `Bearer ${memberToken}`, "Content-Type": "application/json" };
   }
-  if (!firebaseAuthEnabled) return null;
-  const client = await getFirebaseAuthClient();
-  // Wait for Firebase to finish restoring a persisted session before reading the token.
-  // Without this, page refresh / early login sync often runs with no currentUser yet.
-  if (typeof client.auth.authStateReady === "function") {
-    try {
-      await Promise.race([
-        client.auth.authStateReady(),
-        delayMs(4000),
-      ]);
-    } catch (error) {
-      console.warn("Firebase authStateReady did not complete", error);
+  if (firebaseAuthEnabled) {
+    const client = await getFirebaseAuthClient();
+    // Wait for Firebase to finish restoring a persisted session before reading the token.
+    // Without this, page refresh / early login sync often runs with no currentUser yet.
+    if (typeof client.auth.authStateReady === "function") {
+      try {
+        await Promise.race([
+          client.auth.authStateReady(),
+          delayMs(4000),
+        ]);
+      } catch (error) {
+        console.warn("Firebase authStateReady did not complete", error);
+      }
     }
+    const token = await client.auth.currentUser?.getIdToken();
+    if (token) return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   }
-  const token = await client.auth.currentUser?.getIdToken();
-  return token ? { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } : null;
+  // Local/demo + tests: identify the signed-in account when Firebase/member session
+  // isn't available. Server accepts these only for NODE_ENV=test / local-json.
+  const email = String(currentUser).trim().toLowerCase();
+  return {
+    "Content-Type": "application/json",
+    "X-LLH-User-Email": email,
+    Authorization: `Bearer test:${email}`,
+  };
 }
 
 async function saveChildDataToBackend(options = {}) {
