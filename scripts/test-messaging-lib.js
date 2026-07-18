@@ -138,6 +138,19 @@ test("resolveAudienceRecipients: all excludes the admin account", () => {
   assert.ok(all.includes("founding@example.com"));
 });
 
+test("resolveAudienceRecipients: excludes every admin alias from broadcasts", () => {
+  const store = makeStore();
+  store.users["leahivie@icloud.com"] = { email: "leahivie@icloud.com", plan: "Pro", stripeSubscriptionStatus: "active" };
+  const all = messaging.resolveAudienceRecipients(store, {
+    audience: "all",
+    adminEmail: ADMIN_EMAIL,
+    adminEmails: [ADMIN_EMAIL, "leahivie@icloud.com"],
+  });
+  assert.ok(!all.includes(ADMIN_EMAIL));
+  assert.ok(!all.includes("leahivie@icloud.com"));
+  assert.ok(all.includes("free@example.com"));
+});
+
 test("resolveAudienceRecipients: selected only includes real users and excludes admin", () => {
   const store = makeStore();
   const selected = messaging.resolveAudienceRecipients(store, {

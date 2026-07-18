@@ -273,6 +273,87 @@ async function main() {
     check("View Weekly Plan success CTA present", success.openWeekly);
 
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
+
+    // Mobile More menu must open as an in-viewport bottom sheet above the lesson viewer.
+    const panels = page.locator(".lesson-workspace-panels");
+    await panels.evaluate((el) => { el.scrollTop = Math.min(220, el.scrollHeight); });
+    const scrollBefore = await panels.evaluate((el) => el.scrollTop);
+    await page.locator("[data-lesson-workspace-more-toggle]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
+    await page.waitForTimeout(200);
+    const moreSheet = await page.evaluate(() => {
+      const menu = document.querySelector(".lesson-workspace-more-menu");
+      const backdrop = document.querySelector("[data-lesson-workspace-more-backdrop]");
+      const closeBtn = document.querySelector("[data-lesson-workspace-more-close]");
+      const mr = menu.getBoundingClientRect();
+      const buttons = [...menu.querySelectorAll(".lesson-workspace-more-sheet-body button")].map((btn) => ({
+        h: btn.getBoundingClientRect().height,
+        w: btn.getBoundingClientRect().width,
+        overflowX: btn.scrollWidth - btn.clientWidth,
+      }));
+      return {
+        parentIsBody: menu.parentElement === document.body,
+        left: mr.left,
+        right: mr.right,
+        top: mr.top,
+        bottom: mr.bottom,
+        width: mr.width,
+        height: mr.height,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        backdropVisible: Boolean(backdrop && !backdrop.hidden),
+        closeVisible: Boolean(closeBtn && getComputedStyle(closeBtn).display !== "none"),
+        bodyLocked: document.body.classList.contains("lesson-workspace-more-open"),
+        zIndex: Number(getComputedStyle(menu).zIndex) || 0,
+        buttons,
+      };
+    });
+    check("More sheet portaled to body on mobile", moreSheet.parentIsBody);
+    check("More sheet has left inset", moreSheet.left >= 11.5, String(moreSheet.left));
+    check("More sheet has right inset", moreSheet.right <= moreSheet.viewport.w - 11.5, String(moreSheet.right));
+    check("More sheet stays in viewport height", moreSheet.bottom <= moreSheet.viewport.h + 1 && moreSheet.top >= -1);
+    check("More sheet width uses phone gutter", moreSheet.width <= moreSheet.viewport.w - 23.5);
+    check("More sheet backdrop visible", moreSheet.backdropVisible);
+    check("More sheet close visible", moreSheet.closeVisible);
+    check("More sheet locks background scroll", moreSheet.bodyLocked);
+    check("More sheet stacks above lesson chrome", moreSheet.zIndex >= 1280, String(moreSheet.zIndex));
+    check(
+      "More options are full-width tap targets",
+      moreSheet.buttons.every((b) => b.h >= 44 && b.w >= moreSheet.width - 40 && b.overflowX <= 1),
+      JSON.stringify(moreSheet.buttons.slice(0, 3)),
+    );
+    fs.mkdirSync("/opt/cursor/artifacts/screenshots", { recursive: true });
+    await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/lesson-more-sheet-412.png", fullPage: false });
+
+    await page.locator("[data-lesson-workspace-more-close]").click();
+    await page.waitForSelector(".lesson-workspace-more-menu[hidden]", { state: "attached", timeout: 5000 });
+    const scrollAfter = await panels.evaluate((el) => el.scrollTop);
+    check("Closing More keeps lesson scroll position", Math.abs(scrollAfter - scrollBefore) <= 2, `${scrollBefore} -> ${scrollAfter}`);
+
+    // Use This Plan / calendar sheet also stays fully on-screen.
+    await page.locator('[data-lesson-action-bars="top"] [data-lesson-use-this-plan]').click();
+    await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
+    const assignGeom = await page.evaluate(() => {
+      const sheet = document.querySelector(".lesson-workspace-action-sheet");
+      const panel = document.querySelector(".lesson-workspace-action-sheet-panel");
+      const pr = panel.getBoundingClientRect();
+      return {
+        parentIsBody: sheet.parentElement === document.body,
+        left: pr.left,
+        right: pr.right,
+        top: pr.top,
+        bottom: pr.bottom,
+        width: pr.width,
+        viewport: { w: window.innerWidth, h: window.innerHeight },
+        zIndex: Number(getComputedStyle(sheet).zIndex) || 0,
+      };
+    });
+    check("Assign sheet portaled on mobile", assignGeom.parentIsBody);
+    check("Assign sheet in viewport", assignGeom.top >= -1 && assignGeom.bottom <= assignGeom.viewport.h + 1);
+    check("Assign sheet width guttered", assignGeom.width <= assignGeom.viewport.w - 23.5 && assignGeom.left >= 11.5);
+    check("Assign sheet above lesson chrome", assignGeom.zIndex >= 1290, String(assignGeom.zIndex));
+    await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/lesson-assign-sheet-412.png", fullPage: false });
+    await page.click("[data-lesson-workspace-action-sheet-dismiss]");
+
     await page.locator("[data-lesson-workspace-more-toggle]").click();
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     await page.locator('.lesson-workspace-more-menu [data-lesson-workspace-back]').click();

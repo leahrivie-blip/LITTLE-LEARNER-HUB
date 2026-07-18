@@ -170,12 +170,23 @@ function createCommsApi(deps) {
     membershipAccess,
     accountAccess,
     ADMIN_EMAIL,
+    ADMIN_EMAILS = [],
     ADMIN_NAME,
     sendEmail: _sendEmail,
     SUPPORT_EMAIL_TO: _SUPPORT_EMAIL_TO,
     publicMessage,
     publicNotification,
   } = deps;
+
+  const adminEmailAllowlist = new Set(
+    [ADMIN_EMAIL, ...(Array.isArray(ADMIN_EMAILS) ? ADMIN_EMAILS : [])]
+      .map((value) => normalizeEmail(value))
+      .filter(Boolean),
+  );
+
+  function isAdminMemberEmail(email) {
+    return adminEmailAllowlist.has(normalizeEmail(email));
+  }
 
   function requireAdmin(token, response) {
     if (!validAdminToken(token || "")) {
@@ -493,8 +504,14 @@ function createCommsApi(deps) {
     const email = normalizeEmail(identity.email);
     const store = ensureCommsStore(ensureMessagingStore(readStore()));
 
+    const allowAdminTypes = isAdminMemberEmail(email);
     const allMine = (store.notifications || [])
       .filter((n) => normalizeEmail(n.email) === email)
+      .filter((n) => {
+        const type = String(n?.type || "").toLowerCase();
+        const adminOnly = type.startsWith("admin_") || type === "admin_message_reply";
+        return allowAdminTypes || !adminOnly;
+      })
       .sort(sortNewestFirst);
     const unread = allMine.filter((n) => !n.read);
     const recentRead = allMine.filter((n) => n.read).slice(0, 50);

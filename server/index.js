@@ -48,6 +48,31 @@ const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "");
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const ADMIN_ACCESS_CODE = process.env.ADMIN_ACCESS_CODE || "";
 const ADMIN_NAME = process.env.ADMIN_NAME || "Owner";
+// Extra owner logins that share the same admin password/code (iCloud + aliases).
+// These emails get full Pro curriculum access in the app (see resolveCurriculumAccessUser)
+// so Leah can open every lesson plan while signed in — even if the store membership
+// row is still Free for billing/upgrade testing. Admin Free preview remains available
+// in the client for simulating a Free member.
+const DEFAULT_ADMIN_EMAIL_ALIASES = [
+  "leahivie@icloud.com",
+  "leahrivie@icloud.com",
+  "leahrivie@gmail.com",
+];
+const ADMIN_EMAILS = [...new Set([
+  ADMIN_EMAIL,
+  ...DEFAULT_ADMIN_EMAIL_ALIASES.map((value) => normalizeEmail(value)),
+  ...String(process.env.ADMIN_EMAILS || "")
+    .split(/[,;\s]+/)
+    .map((value) => normalizeEmail(value))
+    .filter(Boolean),
+])].filter(Boolean);
+function isConfiguredAdminEmail(email) {
+  return ADMIN_EMAILS.includes(normalizeEmail(email));
+}
+function isAdminOnlyNotificationType(type) {
+  const key = String(type || "").trim().toLowerCase();
+  return key.startsWith("admin_") || key === "admin_message_reply";
+}
 const FIREBASE_API_KEY = process.env.FIREBASE_API_KEY || "";
 const FIREBASE_AUTH_DOMAIN = process.env.FIREBASE_AUTH_DOMAIN || "";
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID || "";
@@ -3295,6 +3320,16 @@ async function resolveCurriculumAccessUser(request, url) {
   }
   const store = readStore();
   const user = store.users?.[identity.email] || { email: identity.email };
+  // Platform owner aliases always receive full curriculum content, independent of
+  // the Free/Pro membership row used for billing experiments.
+  if (isConfiguredAdminEmail(identity.email)) {
+    return {
+      authorized: true,
+      email: identity.email,
+      user,
+      source: "admin-owner",
+    };
+  }
   // Staff/directors inherit the program owner's paid access for curriculum gates.
   const ownerEmail = programOwnership.resolveOwnerEmailForUser(user, identity.email);
   const accessRecord = (ownerEmail && store.users?.[ownerEmail]) || user;
@@ -5761,11 +5796,11 @@ async function handleAdminLogin(request, response) {
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
   const code = String(body.code || "");
-  if (!ADMIN_EMAIL || !ADMIN_PASSWORD || !ADMIN_ACCESS_CODE) {
+  if (!ADMIN_EMAILS.length || !ADMIN_PASSWORD || !ADMIN_ACCESS_CODE) {
     jsonResponse(response, 503, { error: "Admin login is not configured on the server." });
     return;
   }
-  const valid = email === ADMIN_EMAIL
+  const valid = isConfiguredAdminEmail(email)
     && timingSafeEqualText(password, ADMIN_PASSWORD)
     && timingSafeEqualText(code, ADMIN_ACCESS_CODE);
   if (!valid) {
@@ -5837,9 +5872,14 @@ async function handleAdminNotificationsList(request, response, url) {
   const category = String(url.searchParams.get("category") || "").trim();
   const unreadOnly = ["1", "true", "yes"].includes(String(url.searchParams.get("unreadOnly") || "").toLowerCase());
   const limit = Number(url.searchParams.get("limit") || 100);
-  const items = adminNotifications.listAdminNotifications(store, ADMIN_EMAIL, { category, unreadOnly, limit });
+  const items = adminNotifications.listAdminNotifications(store, ADMIN_EMAIL, {
+    category,
+    unreadOnly,
+    limit,
+    adminEmails: ADMIN_EMAILS,
+  });
   const unreadCount = (store.notifications || []).filter(
-    (n) => n && normalizeEmail(n.email) === ADMIN_EMAIL && !n.read,
+    (n) => n && isConfiguredAdminEmail(n.email) && !n.read,
   ).length;
   const byCategory = {};
   adminNotifications.CATEGORIES.forEach((key) => { byCategory[key] = 0; });
@@ -5867,10 +5907,11 @@ async function handleAdminNotificationsMarkRead(request, response) {
   const changed = adminNotifications.markAdminNotificationsRead(store, ADMIN_EMAIL, {
     ids: Array.isArray(body.ids) ? body.ids : [],
     all: Boolean(body.all),
+    adminEmails: ADMIN_EMAILS,
   });
   writeStore(store);
   const unreadCount = (store.notifications || []).filter(
-    (n) => n && normalizeEmail(n.email) === ADMIN_EMAIL && !n.read,
+    (n) => n && isConfiguredAdminEmail(n.email) && !n.read,
   ).length;
   jsonResponse(response, 200, { ok: true, changed, unreadCount });
 }
@@ -10451,6 +10492,7 @@ async function notifySupportTicket(ticket) {
 function adminAlertDeps() {
   return {
     ADMIN_EMAIL,
+    ADMIN_EMAILS,
     fanOutNotificationsAndPush,
     notifyAdminEmail: notifyAdmin,
   };
@@ -12751,6 +12793,7 @@ async function handleAdminMessagePreview(request, response) {
     toEmail: normalizeEmail(body.toEmail),
     selectedEmails: Array.isArray(body.selectedEmails) ? body.selectedEmails : [],
     adminEmail: ADMIN_EMAIL,
+    adminEmails: ADMIN_EMAILS,
   });
   jsonResponse(response, 200, {
     audience,
@@ -12807,7 +12850,13 @@ async function handleAdminMessageSend(request, response) {
   }
 
   const store = ensureMessagingStore(readStore());
-  const recipients = messagingCenter.resolveAudienceRecipients(store, { audience, toEmail, selectedEmails, adminEmail: ADMIN_EMAIL });
+  const recipients = messagingCenter.resolveAudienceRecipients(store, {
+    audience,
+    toEmail,
+    selectedEmails,
+    adminEmail: ADMIN_EMAIL,
+    adminEmails: ADMIN_EMAILS,
+  });
   if (!recipients.length) {
     jsonResponse(response, 400, { error: "No recipients matched this audience." });
     return;
@@ -12974,9 +13023,11 @@ async function handleAdminMessageDraftDelete(request, response) {
   jsonResponse(response, 200, { ok: true });
 }
 
-function isAdminConversationUnreadNotification(n, adminEmail) {
+function isAdminConversationUnreadNotification(n, adminEmail = ADMIN_EMAIL) {
   if (!n || n.read) return false;
-  if (normalizeEmail(n.email) !== normalizeEmail(adminEmail || "")) return false;
+  if (!isConfiguredAdminEmail(n.email) && normalizeEmail(n.email) !== normalizeEmail(adminEmail || "")) {
+    return false;
+  }
   if (!normalizeEmail(n.conversationEmail || "")) return false;
   const type = String(n.type || "");
   return type === "message"
@@ -13007,7 +13058,7 @@ function handleAdminConversationsList(request, response, url) {
     });
   const unreadFromUser = new Map();
   store.notifications
-    .filter((n) => isAdminConversationUnreadNotification(n, ADMIN_EMAIL))
+    .filter((n) => isAdminConversationUnreadNotification(n))
     .forEach((n) => {
       const key = normalizeEmail(n.conversationEmail);
       unreadFromUser.set(key, (unreadFromUser.get(key) || 0) + 1);
@@ -13020,7 +13071,7 @@ function handleAdminConversationsList(request, response, url) {
         userName: profile.name || c.userEmail,
         businessName: profile.businessName || "",
         plan: profile.plan || "Free",
-        unreadFromUser: unreadFromUser.get(c.userEmail) || 0,
+        unreadFromUser: unreadFromUser.get(normalizeEmail(c.userEmail)) || 0,
       };
     })
     .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
@@ -13069,11 +13120,11 @@ function handleAdminConversationMessages(request, response, url) {
   const store = ensureMessagingStore(readStore());
   // Opening a thread marks Leah's unread badges for that member as read so the
   // Conversations list updates immediately (and stays correct after live refresh).
-  if (ADMIN_EMAIL) {
+  if (ADMIN_EMAILS.length) {
     const now = new Date().toISOString();
     let marked = 0;
     store.notifications.forEach((n) => {
-      if (!isAdminConversationUnreadNotification(n, ADMIN_EMAIL)) return;
+      if (!isAdminConversationUnreadNotification(n)) return;
       if (normalizeEmail(n.conversationEmail) !== userEmail) return;
       n.read = true;
       n.readAt = now;
@@ -13103,8 +13154,9 @@ async function handleMemberConversation(request, response) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  const myEmail = normalizeEmail(identity.email);
   const messages = store.messages
-    .filter((m) => m.audience === "private" && m.conversationEmail === identity.email)
+    .filter((m) => m.audience === "private" && normalizeEmail(m.conversationEmail) === myEmail)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
     .map(publicMessage);
   jsonResponse(response, 200, { messages });
@@ -13203,9 +13255,14 @@ async function handleMemberInbox(request, response) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  const myEmail = normalizeEmail(identity.email);
   const messageById = new Map(store.messages.map((m) => [m.id, m]));
   const broadcastNotifications = store.notifications
-    .filter((n) => n.email === identity.email && !n.conversationEmail && (n.type === "message" || n.type === "announcement" || n.type === "feature_update"))
+    .filter((n) => {
+      if (normalizeEmail(n.email) !== myEmail || n.conversationEmail) return false;
+      if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return false;
+      return n.type === "message" || n.type === "announcement" || n.type === "feature_update";
+    })
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
     .slice(0, 200)
     .map((n) => ({
@@ -13225,11 +13282,14 @@ async function handleMemberMarkRead(request, response) {
   }
   const body = await readJson(request);
   const store = ensureMessagingStore(readStore());
+  const myEmail = normalizeEmail(identity.email);
   const now = new Date().toISOString();
   let updated = 0;
   store.notifications.forEach((n) => {
-    if (n.email !== identity.email || n.read) return;
-    const matchesConversation = body.conversationEmail && n.conversationEmail === body.conversationEmail;
+    if (normalizeEmail(n.email) !== myEmail || n.read) return;
+    if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return;
+    const matchesConversation = body.conversationEmail
+      && normalizeEmail(n.conversationEmail) === normalizeEmail(body.conversationEmail);
     const matchesId = Array.isArray(body.notificationIds) && body.notificationIds.includes(n.id);
     const matchesAll = body.all === true;
     if (matchesConversation || matchesId || matchesAll) {
@@ -13251,8 +13311,11 @@ async function handleMemberNotificationsList(request, response, url) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  const myEmail = normalizeEmail(identity.email);
+  const allowAdminTypes = isConfiguredAdminEmail(myEmail);
   const mine = store.notifications
-    .filter((n) => n.email === identity.email)
+    .filter((n) => normalizeEmail(n.email) === myEmail)
+    .filter((n) => allowAdminTypes || !isAdminOnlyNotificationType(n.type))
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   const limit = Math.min(Number(url.searchParams.get("limit")) || 50, 200);
   const unreadCount = mine.filter((n) => !n.read).length;
@@ -13271,14 +13334,15 @@ async function handleMemberNotificationsMarkAllRead(request, response) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  const myEmail = normalizeEmail(identity.email);
   const now = new Date().toISOString();
   let updated = 0;
   store.notifications.forEach((n) => {
-    if (n.email === identity.email && !n.read) {
-      n.read = true;
-      n.readAt = now;
-      updated += 1;
-    }
+    if (normalizeEmail(n.email) !== myEmail || n.read) return;
+    if (isAdminOnlyNotificationType(n.type) && !isConfiguredAdminEmail(myEmail)) return;
+    n.read = true;
+    n.readAt = now;
+    updated += 1;
   });
   if (updated) writeStore(store);
   jsonResponse(response, 200, { ok: true, updated });
@@ -14258,6 +14322,7 @@ function getCommsApi() {
       membershipAccess,
       accountAccess,
       ADMIN_EMAIL,
+      ADMIN_EMAILS,
       ADMIN_NAME,
       sendEmail,
       SUPPORT_EMAIL_TO,

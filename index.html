@@ -26,10 +26,10 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260718-use-plan-auth" />
+  <link rel="stylesheet" href="styles.css?v=20260718-lesson-sheets" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-admin-notif-pwa" />
-  <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260718-lesson-sheets" />
+  <link rel="stylesheet" href="styles/llh-comms.css?v=20260718-lesson-sheets" />
   <script>
     // Paint Calendar immediately for returning users — never flash the old Dashboard.
     (function () {
@@ -205,19 +205,23 @@
             <input id="searchInput" type="search" placeholder="Search lesson plans, activities, and tools" />
           </label>
           <div class="account-actions">
+            <div class="notification-bell-backdrop" id="notificationBellBackdrop" hidden aria-hidden="true"></div>
             <div class="notification-bell-wrap" id="notificationBellWrap" hidden>
               <button class="notification-bell-btn" id="notificationBellBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a5 5 0 0 0-5 5v3.2c0 .8-.3 1.6-.8 2.2L5 15.5c-.6.8 0 2 1 2h12c1 0 1.6-1.2 1-2l-1.2-1.6c-.5-.7-.8-1.5-.8-2.2V8a5 5 0 0 0-5-5z"/><path d="M9.5 19.5a2.5 2.5 0 0 0 5 0"/></svg>
                 <span class="notification-bell-badge" id="notificationBellBadge" hidden>0</span>
               </button>
-              <div class="notification-bell-panel" id="notificationBellPanel" hidden role="menu" aria-label="Notifications">
+              <div class="notification-bell-panel" id="notificationBellPanel" hidden role="dialog" aria-label="Notifications" aria-modal="true">
                 <div class="notification-bell-panel-header">
                   <strong>Notifications</strong>
-                  <button type="button" class="ghost-button notification-mark-all-btn" id="notificationMarkAllBtn">Mark all as read</button>
+                  <div class="notification-bell-header-actions">
+                    <button type="button" class="ghost-button notification-mark-all-btn" id="notificationMarkAllBtn">Mark all as read</button>
+                    <button type="button" class="ghost-button notification-bell-close-btn" id="notificationBellCloseBtn" aria-label="Close notifications">Close</button>
+                  </div>
                 </div>
-                <div class="notification-bell-list" id="notificationBellList"></div>
+                <div class="notification-bell-list" id="notificationBellList" tabindex="0"></div>
                 <div class="notification-bell-panel-footer">
-                  <button type="button" class="ghost-button" data-view="messages" id="notificationSeeAllBtn">Open Messages</button>
+                  <button type="button" class="primary-button notification-see-all-btn" data-view="messages" id="notificationSeeAllBtn">Open Messages</button>
                 </div>
               </div>
             </div>
@@ -1989,9 +1993,9 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="scripts/free-curriculum-sample.js?v=20260718-use-plan-auth" defer></script>
-    <script src="scripts/free-plan-grandfathering.js?v=20260718-use-plan-auth" defer></script>
-    <script src="app.js?v=20260718-use-plan-auth" defer></script>
-    <script src="comms-center.js?v=20260718-use-plan-auth" defer></script>
+    <script src="scripts/free-curriculum-sample.js?v=20260718-lesson-sheets" defer></script>
+    <script src="scripts/free-plan-grandfathering.js?v=20260718-lesson-sheets" defer></script>
+    <script src="app.js?v=20260718-lesson-sheets" defer></script>
+    <script src="comms-center.js?v=20260718-lesson-sheets" defer></script>
   </body>
 </html>

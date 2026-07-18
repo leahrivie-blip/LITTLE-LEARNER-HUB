@@ -10783,6 +10783,10 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   z-index: 1400;
 }
 
+#proModal {
+  z-index: 1300;
+}
+
 #forcePasswordModal {
   z-index: 1500;
 }
@@ -11315,6 +11319,13 @@ body.force-password-required #forcePasswordModal * {
   .account-actions button {
     flex: 1;
     min-height: 48px;
+  }
+
+  .account-actions .notification-bell-btn {
+    flex: 0 0 auto;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
   }
 
   .resource-actions,
@@ -16253,19 +16264,33 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   right: 0;
   left: auto;
   z-index: 80;
-  display: grid;
-  gap: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
   min-width: min(280px, calc(100vw - 32px));
   max-width: min(320px, calc(100vw - 24px));
   max-height: min(70vh, 420px);
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   padding: 6px;
   background: var(--white, #fff);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: 0 10px 28px rgba(40, 52, 71, 0.14);
+  box-sizing: border-box;
+}
+
+.lesson-workspace-more-sheet-header {
+  display: none;
+}
+
+.lesson-workspace-more-sheet-body {
+  display: grid;
+  gap: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
 }
 
 .lesson-workspace-more-group + .lesson-workspace-more-group {
@@ -16294,11 +16319,22 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   color: var(--ink);
   font: inherit;
   cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .lesson-workspace-more-menu button:hover,
 .lesson-workspace-more-menu button:focus-visible {
   background: var(--cream-2, #f5f1ec);
+}
+
+.lesson-workspace-more-backdrop {
+  display: none;
+}
+
+.lesson-workspace-more-backdrop[hidden] {
+  display: none !important;
 }
 
 .lesson-workspace-use-plan-choices {
@@ -16396,6 +16432,188 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   .lesson-workspace-more-menu {
     bottom: auto;
     top: calc(100% + 4px);
+  }
+}
+
+@media (max-width: 767px) {
+  body.lesson-workspace-more-open,
+  body.lesson-workspace-sheet-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  body.lesson-workspace-more-open .lesson-workspace-feedback,
+  body.lesson-workspace-more-open .lesson-workspace-copyright,
+  body.lesson-workspace-more-open .lesson-workspace-action-bars,
+  body.lesson-workspace-sheet-open .lesson-workspace-feedback,
+  body.lesson-workspace-sheet-open .lesson-workspace-copyright,
+  body.lesson-workspace-sheet-open .lesson-workspace-action-bars {
+    pointer-events: none;
+  }
+
+  .lesson-workspace-more-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1270;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: rgba(24, 28, 36, 0.55);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body > .lesson-workspace-more-menu,
+  .lesson-workspace-more-menu {
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    width: calc(100vw - 24px) !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 1280 !important;
+    padding: 0 !important;
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(24, 28, 36, 0.28);
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+  }
+
+  .lesson-workspace-more-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-shrink: 0;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    background: var(--white, #fff);
+  }
+
+  .lesson-workspace-more-sheet-header strong {
+    font-size: 1.02rem;
+  }
+
+  .lesson-workspace-more-close {
+    min-height: 44px;
+    min-width: 72px;
+    flex-shrink: 0;
+  }
+
+  .lesson-workspace-more-sheet-body {
+    padding: 8px 8px 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .lesson-workspace-more-menu button {
+    min-height: 48px;
+    padding: 12px 14px;
+  }
+
+  .lesson-workspace-action-sheet {
+    z-index: 1290;
+    align-items: end;
+    justify-items: center;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    background: transparent;
+  }
+
+  .lesson-workspace-action-sheet-panel {
+    width: calc(100vw - 24px);
+    max-width: 100%;
+    margin: 0;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px 14px 16px;
+    border-radius: 16px;
+    box-sizing: border-box;
+  }
+
+  .llh-confirm-dialog {
+    z-index: 1300;
+    align-items: end;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .llh-confirm-panel {
+    width: calc(100vw - 24px);
+    max-width: 100%;
+    max-height: calc(100dvh - 32px);
+    overflow: auto;
+    margin-bottom: 0;
+    box-sizing: border-box;
+  }
+
+  #proModal,
+  #feedbackModal,
+  #featurePreviewModal,
+  #proFeatureModal,
+  #installAppModal,
+  #scheduleEventModal {
+    z-index: 1300;
+    padding: 12px;
+    align-items: end;
+    justify-items: center;
+    background: rgba(24, 28, 36, 0.55);
+  }
+
+  #proModal .modal-card,
+  #feedbackModal .modal-card,
+  #featurePreviewModal .modal-card,
+  #proFeatureModal .modal-card,
+  #installAppModal .modal-card,
+  #scheduleEventModal .llh-schedule-event-modal,
+  .lesson-editor-leave-panel {
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: 0;
+    box-sizing: border-box;
+  }
+
+  #feedbackModal .form-actions,
+  #proModal .pro-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #feedbackModal .form-actions .primary-button,
+  #feedbackModal .form-actions .ghost-button,
+  #proModal .pro-modal-actions .primary-button,
+  #proModal .pro-modal-actions .ghost-button {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  #scheduleEventModal.open {
+    place-items: end center;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .lesson-editor-leave-dialog {
+    align-items: end;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  body.resource-viewer-open {
+    overflow: hidden;
+    touch-action: none;
   }
 }
 
@@ -16900,7 +17118,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
 .lesson-workspace-action-sheet {
   position: fixed;
   inset: 0;
-  z-index: 1200;
+  z-index: 1290;
   display: grid;
   align-items: end;
 }
@@ -18068,6 +18286,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   background: #fff;
   border-radius: 16px;
   padding: 20px;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
 }
 
 .llh-schedule-event-modal .modal-header {
@@ -18076,6 +18297,10 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   gap: 12px;
   align-items: start;
   margin-bottom: 12px;
+}
+
+#scheduleEventModal {
+  z-index: 1300;
 }
 
 #scheduleEventModal.open {
@@ -18799,7 +19024,7 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 .lesson-editor-leave-dialog {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 1300;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -19078,14 +19303,26 @@ body.lesson-editor-view .main {
   display: grid;
   gap: 2px;
   min-width: min(240px, calc(100vw - 32px));
+  max-width: min(320px, calc(100vw - 24px));
   padding: 6px;
   background: var(--white, #fff);
   border: 1px solid var(--line);
   border-radius: var(--radius, 10px);
   box-shadow: 0 10px 28px rgba(40, 52, 71, 0.14);
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .llh-item-menu-panel[hidden] {
+  display: none !important;
+}
+
+.llh-item-menu-backdrop {
+  display: none;
+}
+
+.llh-item-menu-backdrop[hidden] {
   display: none !important;
 }
 
@@ -19099,6 +19336,9 @@ body.lesson-editor-view .main {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .llh-item-menu-action:hover,
@@ -19143,7 +19383,7 @@ body.lesson-editor-view .main {
 .llh-confirm-dialog {
   position: fixed;
   inset: 0;
-  z-index: 90;
+  z-index: 1300;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -19198,10 +19438,43 @@ body.lesson-editor-view .main {
   align-items: flex-start;
 }
 
-@media (max-width: 720px) {
-  .llh-item-menu-panel {
-    right: auto;
-    left: 0;
+@media (max-width: 767px) {
+  body.llh-item-menu-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .llh-item-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1280;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: rgba(24, 28, 36, 0.48);
+    cursor: pointer;
+  }
+
+  .llh-item-menu-panel.is-mobile-sheet {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    top: auto;
+    width: calc(100vw - 24px);
+    max-width: 100%;
+    min-width: 0;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    z-index: 1285;
+    padding: 10px 8px;
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(24, 28, 36, 0.28);
+  }
+
+  .llh-item-menu-panel.is-mobile-sheet .llh-item-menu-action {
+    min-height: 48px;
+    padding: 12px 14px;
   }
 }
 
@@ -21010,10 +21283,31 @@ canvas {
   border-radius: 12px;
   border: 1px solid rgba(20, 40, 70, 0.08);
   background: #fff;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .admin-notif-item.is-unread {
   border-color: rgba(91, 155, 213, 0.45);
   box-shadow: inset 3px 0 0 #5b9bd5;
+}
+.admin-notif-main {
+  min-width: 0;
+  flex: 1 1 220px;
+  max-width: 100%;
+}
+.admin-notif-main strong,
+.admin-notif-main p,
+.admin-notif-main small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
+}
+.admin-notif-main p {
+  margin: 6px 0;
+  line-height: 1.4;
 }
 .admin-notif-category {
   display: inline-block;
@@ -21024,7 +21318,12 @@ canvas {
   font-weight: 700;
   margin-bottom: 4px;
 }
-.admin-notif-actions { display: flex; gap: 8px; align-items: flex-start; }
+.admin-notif-actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
 .nav-badge {
   margin-left: 6px;
   min-width: 1.35em;
@@ -21045,6 +21344,15 @@ canvas {
 .install-instructions-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @media (max-width: 720px) {
   .admin-notif-item { flex-direction: column; }
+  .admin-notif-list {
+    max-height: none;
+  }
+  .admin-notif-item,
+  .admin-notif-item p,
+  .admin-notif-actions {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 /* Site-wide copyright footer (in-app views; public home uses .llh-public-footer) */

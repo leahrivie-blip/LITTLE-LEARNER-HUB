@@ -37,14 +37,31 @@ function adminDeepLink({ category = "", type = "", email = "", conversationEmail
   return `/?${params.toString()}`;
 }
 
+function resolveAdminRecipientEmails(deps = {}) {
+  const emails = [];
+  const push = (value) => {
+    const email = normalizeEmail(value);
+    if (email && !emails.includes(email)) emails.push(email);
+  };
+  if (Array.isArray(deps.ADMIN_EMAILS)) deps.ADMIN_EMAILS.forEach(push);
+  else if (deps.ADMIN_EMAILS) String(deps.ADMIN_EMAILS).split(/[,;\s]+/).forEach(push);
+  push(deps.ADMIN_EMAIL);
+  return emails;
+}
+
 function isDuplicateAdminAlert(store, { type, refId, email }, nowMs = Date.now()) {
-  const adminEmail = normalizeEmail(store?.__adminEmail || "");
+  const adminEmails = new Set(
+    [
+      ...(Array.isArray(store?.__adminEmails) ? store.__adminEmails : []),
+      store?.__adminEmail || "",
+    ].map(normalizeEmail).filter(Boolean),
+  );
   const notifications = Array.isArray(store?.notifications) ? store.notifications : [];
   const typeKey = String(type || "");
   const refKey = String(refId || "");
   const emailKey = normalizeEmail(email);
   return notifications.some((n) => {
-    if (!n || n.email !== adminEmail) return false;
+    if (!n || !adminEmails.has(normalizeEmail(n.email))) return false;
     if (String(n.type || "") !== typeKey) return false;
     if (refKey && String(n.refId || n.messageId || "") === refKey) {
       const created = new Date(n.createdAt || 0).getTime();
@@ -61,15 +78,16 @@ function isDuplicateAdminAlert(store, { type, refId, email }, nowMs = Date.now()
 /**
  * Emit one admin alert (in-app + push if admin opted in).
  * @param {object} store
- * @param {object} deps - { ADMIN_EMAIL, fanOutNotificationsAndPush, notifyAdminEmail?, writeStore? }
+ * @param {object} deps - { ADMIN_EMAIL, ADMIN_EMAILS?, fanOutNotificationsAndPush, notifyAdminEmail?, writeStore? }
  * @param {object} opts
  */
 async function emitAdminAlert(store, deps, opts = {}) {
-  const adminEmail = normalizeEmail(deps.ADMIN_EMAIL || "");
-  if (!adminEmail || typeof deps.fanOutNotificationsAndPush !== "function") {
+  const adminEmails = resolveAdminRecipientEmails(deps);
+  if (!adminEmails.length || typeof deps.fanOutNotificationsAndPush !== "function") {
     return { ok: false, skipped: "no_admin" };
   }
-  store.__adminEmail = adminEmail;
+  store.__adminEmail = adminEmails[0];
+  store.__adminEmails = adminEmails;
 
   const category = CATEGORIES.includes(opts.category) ? opts.category : "system";
   const type = String(opts.type || `admin_${category}`).trim();
@@ -92,7 +110,7 @@ async function emitAdminAlert(store, deps, opts = {}) {
 
   const summary = await deps.fanOutNotificationsAndPush(store, {
     type,
-    recipients: [adminEmail],
+    recipients: adminEmails,
     title,
     preview,
     messageId: opts.messageId || "",
@@ -122,12 +140,32 @@ async function emitAdminAlert(store, deps, opts = {}) {
   return { ok: true, summary, deepLink, category, type };
 }
 
-function listAdminNotifications(store, adminEmail, { category = "", unreadOnly = false, limit = 100 } = {}) {
-  const email = normalizeEmail(adminEmail);
+function listAdminNotifications(store, adminEmail, { category = "", unreadOnly = false, limit = 100, adminEmails = null } = {}) {
+  const allowed = new Set(
+    [
+      ...(Array.isArray(adminEmails) ? adminEmails : []),
+      adminEmail,
+    ].map(normalizeEmail).filter(Boolean),
+  );
+  const seen = new Set();
   const items = (Array.isArray(store?.notifications) ? store.notifications : [])
-    .filter((n) => n && normalizeEmail(n.email) === email)
+    .filter((n) => n && allowed.has(normalizeEmail(n.email)))
     .filter((n) => !category || String(n.category || inferCategory(n.type)) === category)
     .filter((n) => !unreadOnly || !n.read)
+    .filter((n) => {
+      // Deduplicate the same alert fan-out across multiple admin inboxes.
+      const key = [
+        String(n.type || ""),
+        String(n.refId || n.messageId || ""),
+        String(n.conversationEmail || ""),
+        String(n.title || ""),
+        String(n.preview || ""),
+        String(n.createdAt || ""),
+      ].join("|");
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, Math.max(1, Math.min(Number(limit) || 100, 300)));
   return items.map((n) => ({
@@ -162,13 +200,18 @@ function inferCategory(type = "") {
   return "system";
 }
 
-function markAdminNotificationsRead(store, adminEmail, { ids = [], all = false } = {}) {
-  const email = normalizeEmail(adminEmail);
+function markAdminNotificationsRead(store, adminEmail, { ids = [], all = false, adminEmails = null } = {}) {
+  const allowed = new Set(
+    [
+      ...(Array.isArray(adminEmails) ? adminEmails : []),
+      adminEmail,
+    ].map(normalizeEmail).filter(Boolean),
+  );
   const idSet = new Set((ids || []).map(String));
   const now = new Date().toISOString();
   let changed = 0;
   (store.notifications || []).forEach((n) => {
-    if (!n || normalizeEmail(n.email) !== email) return;
+    if (!n || !allowed.has(normalizeEmail(n.email))) return;
     if (!all && !idSet.has(String(n.id))) return;
     if (!n.read) {
       n.read = true;
@@ -189,4 +232,5 @@ module.exports = {
   inferCategory,
   markAdminNotificationsRead,
   clampText,
+  resolveAdminRecipientEmails,
 };

@@ -22,6 +22,12 @@
 }
 
 /* ---------- Notification bell ---------- */
+.notification-bell-backdrop {
+  display: none;
+  pointer-events: auto;
+  touch-action: none;
+}
+
 .notification-bell-wrap {
   position: relative;
   display: inline-flex;
@@ -73,35 +79,66 @@
   position: absolute;
   top: calc(100% + 8px);
   right: 0;
-  width: min(360px, 90vw);
-  max-height: 70vh;
+  width: min(360px, calc(100vw - 24px));
+  max-width: min(360px, calc(100vw - 24px));
+  max-height: min(70vh, 560px);
   display: flex;
   flex-direction: column;
   background: var(--llh-surface, #fff);
   border-radius: var(--llh-radius-md, 12px);
   box-shadow: var(--llh-shadow-modal, 0 18px 48px rgba(42, 42, 53, 0.12));
   border: 1px solid var(--llh-line, #e4e1ea);
-  z-index: 60;
+  z-index: 260;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .notification-bell-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
   padding: 12px 14px;
   border-bottom: 1px solid var(--llh-line, #e4e1ea);
+  flex-shrink: 0;
 }
 
-.notification-mark-all-btn {
+.notification-bell-panel-header strong {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.notification-bell-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.notification-mark-all-btn,
+.notification-bell-close-btn,
+.notification-see-all-btn {
   font-size: 12px;
-  padding: 6px 10px;
+  padding: 8px 12px;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.notification-bell-close-btn {
+  display: none;
 }
 
 .notification-bell-list {
+  overflow-x: hidden;
   overflow-y: auto;
-  flex: 1;
-  max-height: 50vh;
+  flex: 1 1 auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
 }
 
 .notification-bell-item {
@@ -109,6 +146,8 @@
   align-items: flex-start;
   gap: 10px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   text-align: left;
   padding: 12px 14px;
   border: none;
@@ -134,21 +173,31 @@
 .notification-item-body {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
+  flex: 1 1 auto;
+  max-width: 100%;
+}
+
+.notification-item-body strong,
+.notification-item-body span,
+.notification-item-body small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 .notification-item-body strong {
   font-size: 13.5px;
   color: var(--llh-ink, #2a2a35);
+  line-height: 1.35;
 }
 
 .notification-item-body span {
   font-size: 12.5px;
   color: var(--llh-muted, #6b6b7b);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 .notification-item-body small {
@@ -161,12 +210,117 @@
   text-align: center;
   color: var(--llh-muted, #6b6b7b);
   font-size: 13px;
+  overflow-wrap: anywhere;
 }
 
 .notification-bell-panel-footer {
   padding: 10px 14px;
   border-top: 1px solid var(--llh-line, #e4e1ea);
   text-align: center;
+  flex-shrink: 0;
+}
+
+.notification-bell-panel-footer .notification-see-all-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  body.notification-bell-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  body.notification-bell-open .main,
+  body.notification-bell-open .sidebar,
+  body.notification-bell-open .topbar,
+  body.notification-bell-open [data-admin-preview-badge],
+  body.notification-bell-open .founding-upgrade-banner,
+  body.notification-bell-open .free-library-conversion-banner,
+  body.notification-bell-open .library-upgrade-strip {
+    pointer-events: none;
+  }
+
+  .notification-bell-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(28, 28, 36, 0.4);
+    z-index: 1250;
+    pointer-events: auto;
+  }
+
+  .notification-bell-backdrop[hidden] {
+    display: none !important;
+  }
+
+  .notification-bell-wrap {
+    position: relative;
+    z-index: 5;
+  }
+
+  .notification-bell-btn {
+    flex: 0 0 auto;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+    height: 44px;
+    pointer-events: auto;
+  }
+
+  .notification-bell-panel {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    width: calc(100vw - 24px);
+    max-width: min(420px, calc(100vw - 24px));
+    margin: 0 auto;
+    border-radius: 16px;
+    z-index: 1260;
+    max-height: min(70dvh, calc(100dvh - 24px - env(safe-area-inset-bottom, 0px)));
+    pointer-events: auto;
+  }
+
+  .notification-bell-close-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .notification-bell-panel-header,
+  .notification-bell-panel-footer {
+    flex-shrink: 0;
+    background: var(--llh-surface, #fff);
+  }
+
+  .notification-bell-panel-header {
+    align-items: flex-start;
+  }
+
+  .notification-bell-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .notification-bell-list {
+    /* Extra end padding so the last item isn't tight against the sticky footer. */
+    padding-bottom: 20px;
+  }
+
+  .notification-bell-panel-footer {
+    /* Safe-area is reserved outside the panel via JS (admin nav + inset). */
+    padding-bottom: 12px;
+  }
+
+  .notification-mark-all-btn,
+  .notification-bell-close-btn,
+  .notification-see-all-btn {
+    min-height: 44px;
+  }
+
+  .notification-bell-item {
+    padding: 14px;
+  }
 }
 
 /* ---------- Messages page ---------- */

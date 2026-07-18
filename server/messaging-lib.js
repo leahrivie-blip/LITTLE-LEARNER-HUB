@@ -64,8 +64,22 @@ function createMessagingCenter({ membershipAccess }) {
     return "free";
   }
 
-  function isAdminEmail(email, adminEmail) {
-    return Boolean(email) && Boolean(adminEmail) && String(email).toLowerCase() === String(adminEmail).toLowerCase();
+  function adminEmailSet(adminEmail, adminEmails) {
+    const set = new Set();
+    const push = (value) => {
+      const email = String(value || "").trim().toLowerCase();
+      if (email) set.add(email);
+    };
+    if (Array.isArray(adminEmails)) adminEmails.forEach(push);
+    else if (adminEmails) String(adminEmails).split(/[,;\s]+/).forEach(push);
+    push(adminEmail);
+    return set;
+  }
+
+  function isAdminEmail(email, adminEmail, adminEmails) {
+    const target = String(email || "").trim().toLowerCase();
+    if (!target) return false;
+    return adminEmailSet(adminEmail, adminEmails).has(target);
   }
 
   /**
@@ -73,9 +87,10 @@ function createMessagingCenter({ membershipAccess }) {
    * `store.users` is the authoritative user directory.
    * @returns {string[]} normalized, deduped, lowercase emails (admin excluded)
    */
-  function resolveAudienceRecipients(store, { audience, toEmail, selectedEmails, adminEmail }) {
+  function resolveAudienceRecipients(store, { audience, toEmail, selectedEmails, adminEmail, adminEmails }) {
     const users = store?.users || {};
     const allEmails = Object.keys(users);
+    const admins = adminEmailSet(adminEmail, adminEmails);
 
     if (audience === "private") {
       const email = String(toEmail || "").trim().toLowerCase();
@@ -85,16 +100,17 @@ function createMessagingCenter({ membershipAccess }) {
       const uniq = new Set(
         (selectedEmails || [])
           .map((e) => String(e || "").trim().toLowerCase())
-          .filter((e) => e && users[e] && !isAdminEmail(e, adminEmail)),
+          .filter((e) => e && users[e] && !admins.has(e)),
       );
       return [...uniq];
     }
     if (audience === "all") {
-      return allEmails.filter((e) => !isAdminEmail(e, adminEmail));
+      return allEmails.filter((e) => !admins.has(String(e || "").trim().toLowerCase()));
     }
     if (audience === "free" || audience === "pro" || audience === "founding") {
       return allEmails.filter((e) => {
-        if (isAdminEmail(e, adminEmail)) return false;
+        const email = String(e || "").trim().toLowerCase();
+        if (admins.has(email)) return false;
         return accessGroupForUser(store, users[e]) === audience;
       });
     }
