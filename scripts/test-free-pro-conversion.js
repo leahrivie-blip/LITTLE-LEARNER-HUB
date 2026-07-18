@@ -100,11 +100,11 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-notif-panel-mobile");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-notif-panel-mobile");
-  assert.match(sw, /llh-shell-v96-notif-panel-mobile/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-notif-panel-mobile/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-notif-panel-mobile/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-mobile-sheets");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-mobile-sheets");
+  assert.match(sw, /llh-shell-v97-mobile-sheets/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-mobile-sheets/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-mobile-sheets/);
 });
 
 function requestJson(method, urlPath, body) {

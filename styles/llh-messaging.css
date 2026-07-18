@@ -24,6 +24,8 @@
 /* ---------- Notification bell ---------- */
 .notification-bell-backdrop {
   display: none;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .notification-bell-wrap {
@@ -136,6 +138,7 @@
   min-height: 0;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  padding-bottom: 8px;
 }
 
 .notification-bell-item {
@@ -225,14 +228,26 @@
 @media (max-width: 640px) {
   body.notification-bell-open {
     overflow: hidden;
+    touch-action: none;
+  }
+
+  body.notification-bell-open .main,
+  body.notification-bell-open .sidebar,
+  body.notification-bell-open .topbar,
+  body.notification-bell-open [data-admin-preview-badge],
+  body.notification-bell-open .founding-upgrade-banner,
+  body.notification-bell-open .free-library-conversion-banner,
+  body.notification-bell-open .library-upgrade-strip {
+    pointer-events: none;
   }
 
   .notification-bell-backdrop {
     display: block;
     position: fixed;
     inset: 0;
-    background: rgba(28, 28, 36, 0.34);
-    z-index: 250;
+    background: rgba(28, 28, 36, 0.4);
+    z-index: 1250;
+    pointer-events: auto;
   }
 
   .notification-bell-backdrop[hidden] {
@@ -241,7 +256,7 @@
 
   .notification-bell-wrap {
     position: relative;
-    z-index: 261;
+    z-index: 5;
   }
 
   .notification-bell-btn {
@@ -250,6 +265,7 @@
     min-width: 44px;
     max-width: 44px;
     height: 44px;
+    pointer-events: auto;
   }
 
   .notification-bell-panel {
@@ -260,14 +276,21 @@
     max-width: min(420px, calc(100vw - 24px));
     margin: 0 auto;
     border-radius: 16px;
-    z-index: 120;
-    max-height: min(70dvh, calc(100dvh - 24px));
+    z-index: 1260;
+    max-height: min(70dvh, calc(100dvh - 24px - env(safe-area-inset-bottom, 0px)));
+    pointer-events: auto;
   }
 
   .notification-bell-close-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+
+  .notification-bell-panel-header,
+  .notification-bell-panel-footer {
+    flex-shrink: 0;
+    background: var(--llh-surface, #fff);
   }
 
   .notification-bell-panel-header {
@@ -277,6 +300,16 @@
   .notification-bell-header-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .notification-bell-list {
+    /* Extra end padding so the last item isn't tight against the sticky footer. */
+    padding-bottom: 20px;
+  }
+
+  .notification-bell-panel-footer {
+    /* Safe-area is reserved outside the panel via JS (admin nav + inset). */
+    padding-bottom: 12px;
   }
 
   .notification-mark-all-btn,

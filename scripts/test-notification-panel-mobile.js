@@ -121,7 +121,9 @@ function staticChecks() {
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.match(app, /positionNotificationBellPanel/);
   assert.match(app, /notificationBellBackdrop/);
-  assert.match(html, /app\.js\?v=20260718-notif-panel-mobile/);
+  assert.match(html, /app\.js\?v=20260718-mobile-sheets/);
+  assert.match(app, /syncNotificationBellPortal/);
+  assert.match(app, /readSafeAreaInset/);
   console.log("PASS static mobile notification panel markers");
 }
 
@@ -243,6 +245,17 @@ async function assertPanelGeometry(page, label) {
     `${label}: panel should start below the bell / within the top safe area`,
   );
   assert.ok(metrics.panel.bottom <= metrics.viewport.h + 1, `${label}: panel taller than viewport`);
+  const adminBadgeBottomGap = await page.evaluate(() => {
+    const panel = document.querySelector("#notificationBellPanel");
+    const badge = document.querySelector("[data-admin-preview-badge]");
+    if (!panel || !badge || badge.hidden) return null;
+    const style = getComputedStyle(badge);
+    if (style.display === "none") return null;
+    return badge.getBoundingClientRect().top - panel.getBoundingClientRect().bottom;
+  });
+  if (adminBadgeBottomGap !== null) {
+    assert.ok(adminBadgeBottomGap >= -1, `${label}: panel overlaps Admin mode / bottom chrome (${adminBadgeBottomGap})`);
+  }
   assert.ok(metrics.markVisible, `${label}: Mark all as read missing`);
   assert.ok(metrics.closeVisible, `${label}: Close button missing`);
   assert.ok(metrics.openVisible, `${label}: Open Messages missing`);
@@ -284,7 +297,7 @@ async function main() {
 
     browser = await playwright.chromium.launch({ headless: true });
 
-    // Member mobile checks + screenshots
+    // Member mobile checks + screenshots (with Early Supporter / upgrade card visible)
     for (const width of WIDTHS) {
       const page = await browser.newPage({
         viewport: { width, height: 844 },
@@ -292,11 +305,56 @@ async function main() {
       });
       await loginAs(page, MEMBER, { plan: "Free" });
       await page.waitForSelector("#notificationBellBtn", { state: "visible", timeout: 15000 });
+      await page.evaluate(() => {
+        const existing = document.querySelector(".founding-upgrade-banner");
+        if (existing) return;
+        const banner = document.createElement("section");
+        banner.className = "founding-upgrade-banner";
+        banner.setAttribute("aria-label", "Founding Member upgrade offer");
+        banner.innerHTML = `
+          <div class="founding-upgrade-banner-copy">
+            <p class="eyebrow">Early Supporter</p>
+            <h2>Keep your Free Early Supporter plan or upgrade when you're ready</h2>
+            <p>Long upgrade card copy to verify the notification panel still fits above Open Messages.</p>
+          </div>
+          <div class="founding-upgrade-banner-actions">
+            <button type="button" class="primary-button">Upgrade to Founding</button>
+          </div>`;
+        const main = document.querySelector(".main") || document.body;
+        main.insertBefore(banner, main.firstChild);
+      });
       await page.click("#notificationBellBtn");
       await page.waitForSelector("#notificationBellPanel:not([hidden])", { timeout: 10000 });
       await page.waitForTimeout(250);
       const metrics = await assertPanelGeometry(page, `member@${width}`);
       assert.equal(metrics.hasAdminType, false, `member@${width}: must not show admin-only alerts`);
+      const footerClear = await page.evaluate(() => {
+        const panel = document.querySelector("#notificationBellPanel");
+        const footer = document.querySelector("#notificationSeeAllBtn");
+        const list = document.querySelector("#notificationBellList");
+        const fr = footer.getBoundingClientRect();
+        const pr = panel.getBoundingClientRect();
+        const style = getComputedStyle(list);
+        return {
+          footerBottom: fr.bottom,
+          panelBottom: pr.bottom,
+          viewportH: window.innerHeight,
+          listScrollable: style.overflowY === "auto" || style.overflowY === "scroll",
+          backdropBlocks: (() => {
+            const upgrade = document.querySelector(".founding-upgrade-banner .primary-button");
+            if (!upgrade) return true;
+            const sample = document.elementFromPoint(
+              Math.min(window.innerWidth - 8, upgrade.getBoundingClientRect().left + 8),
+              Math.min(window.innerHeight - 8, upgrade.getBoundingClientRect().top + 8),
+            );
+            return Boolean(sample && (sample.id === "notificationBellBackdrop" || sample.closest("#notificationBellPanel")));
+          })(),
+        };
+      });
+      assert.ok(footerClear.footerBottom <= footerClear.panelBottom + 1, `member@${width}: Open Messages clipped by panel`);
+      assert.ok(footerClear.footerBottom <= footerClear.viewportH + 1, `member@${width}: Open Messages off-screen`);
+      assert.equal(footerClear.listScrollable, true, `member@${width}: list must scroll under upgrade card`);
+      assert.equal(footerClear.backdropBlocks, true, `member@${width}: backdrop must block upgrade taps`);
 
       // Outside tap closes
       await page.click("#notificationBellBackdrop", { position: { x: 8, y: 8 } });

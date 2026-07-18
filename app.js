@@ -10621,25 +10621,61 @@ function clearNotificationBellPanelInlineStyles(panel) {
   });
 }
 
+function readSafeAreaInset(edge = "bottom") {
+  const probe = document.createElement("div");
+  probe.setAttribute("aria-hidden", "true");
+  probe.style.cssText = `position:fixed;${edge}:0;width:0;height:0;padding-${edge}:env(safe-area-inset-${edge},0px);visibility:hidden;pointer-events:none;`;
+  document.body.appendChild(probe);
+  const value = edge === "bottom" || edge === "top"
+    ? probe.getBoundingClientRect().height
+    : probe.getBoundingClientRect().width;
+  probe.remove();
+  return Number.isFinite(value) ? value : 0;
+}
+
 function notificationBellBottomReserve() {
-  let reserve = 12;
-  const badge = document.querySelector("[data-admin-preview-badge]");
-  if (badge && getComputedStyle(badge).display !== "none") {
-    const rect = badge.getBoundingClientRect();
-    if (rect.height > 0 && rect.top < window.innerHeight) {
-      reserve = Math.max(reserve, Math.round(window.innerHeight - rect.top) + 10);
+  let reserve = 12 + readSafeAreaInset("bottom");
+  [
+    "[data-admin-preview-badge]",
+    ".admin-mobile-bottom-nav",
+    ".admin-bottom-nav",
+    "[data-admin-mobile-nav]",
+  ].forEach((selector) => {
+    const el = document.querySelector(selector);
+    if (!el || el.hidden) return;
+    const style = getComputedStyle(el);
+    if (style.display === "none" || style.visibility === "hidden") return;
+    const rect = el.getBoundingClientRect();
+    if (rect.height > 0 && rect.top < window.innerHeight && rect.bottom > window.innerHeight - 120) {
+      reserve = Math.max(reserve, Math.round(window.innerHeight - rect.top) + 12);
     }
-  }
+  });
   return reserve;
 }
 
-function positionNotificationBellPanel() {
+function syncNotificationBellPortal(open) {
+  const wrap = document.querySelector("#notificationBellWrap");
   const panel = document.querySelector("#notificationBellPanel");
-  const bell = document.querySelector("#notificationBellBtn");
   const backdrop = document.querySelector("#notificationBellBackdrop");
+  if (!wrap || !panel || !backdrop) return { panel, backdrop };
+  if (open) {
+    // Escape the topbar stacking context so Admin mode / bottom chrome cannot cover the panel.
+    if (backdrop.parentElement !== document.body) document.body.appendChild(backdrop);
+    if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  } else {
+    if (panel.parentElement !== wrap) wrap.appendChild(panel);
+    if (backdrop.parentElement !== wrap) wrap.insertBefore(backdrop, wrap.firstChild);
+  }
+  return { panel, backdrop };
+}
+
+function positionNotificationBellPanel() {
+  const wrap = document.querySelector("#notificationBellWrap");
+  const bell = document.querySelector("#notificationBellBtn");
   const open = Boolean(notificationBellState.open && isLoggedIn());
   const mobile = notificationBellIsMobileViewport();
   document.body.classList.toggle("notification-bell-open", open && mobile);
+  const { panel, backdrop } = syncNotificationBellPortal(open);
   if (backdrop) {
     backdrop.hidden = !open || !mobile;
     backdrop.setAttribute("aria-hidden", backdrop.hidden ? "true" : "false");
@@ -10649,29 +10685,13 @@ function positionNotificationBellPanel() {
     return;
   }
 
-  // Always use fixed positioning so the panel escapes topbar overflow/stacking
-  // and stays fully on-screen on both mobile and desktop.
   const sidePad = 12;
   const gap = 8;
+  const safeTop = readSafeAreaInset("top");
   const bellRect = bell.getBoundingClientRect();
-  let top = Math.max(sidePad, bellRect.bottom + gap);
-
-  // Keep the panel below sticky site banners (announcement / Free reminder / recovery).
-  [
-    "#siteAnnouncementBanner:not([hidden])",
-    "#freePlanReminderBar:not([hidden])",
-    ".auth-recovery-banner:not([hidden])",
-    "#accountRecoveryBanner:not([hidden])",
-  ].forEach((selector) => {
-    const banner = document.querySelector(selector);
-    if (!banner) return;
-    const style = getComputedStyle(banner);
-    if (style.display === "none" || style.visibility === "hidden") return;
-    const rect = banner.getBoundingClientRect();
-    if (rect.bottom > 0 && rect.top < window.innerHeight) {
-      top = Math.max(top, rect.bottom + gap);
-    }
-  });
+  // Anchor under the bell only — do not push below the Early Supporter/upgrade
+  // card. The list scrolls internally so Open Messages stays on-screen.
+  const top = Math.max(sidePad + safeTop, bellRect.bottom + gap);
 
   const maxPanelWidth = mobile ? 420 : 360;
   const width = Math.min(maxPanelWidth, Math.max(240, window.innerWidth - sidePad * 2));
@@ -10679,13 +10699,12 @@ function positionNotificationBellPanel() {
   if (mobile) {
     left = Math.max(sidePad, Math.round((window.innerWidth - width) / 2));
   } else {
-    // Align the panel under the bell on the right, then clamp into the viewport.
     left = Math.round(bellRect.right - width);
     left = Math.min(left, window.innerWidth - sidePad - width);
     left = Math.max(sidePad, left);
   }
   const bottomPad = notificationBellBottomReserve();
-  const maxHeight = Math.max(180, window.innerHeight - top - bottomPad);
+  const maxHeight = Math.max(200, window.innerHeight - top - bottomPad);
 
   panel.style.position = "fixed";
   panel.style.top = `${Math.round(top)}px`;
@@ -10695,7 +10714,13 @@ function positionNotificationBellPanel() {
   panel.style.maxWidth = `calc(100vw - ${sidePad * 2}px)`;
   panel.style.maxHeight = `${Math.round(maxHeight)}px`;
   panel.style.margin = "0";
-  panel.style.zIndex = "260";
+  panel.style.zIndex = "1260";
+  if (backdrop && mobile) {
+    backdrop.style.position = "fixed";
+    backdrop.style.inset = "0";
+    backdrop.style.zIndex = "1250";
+  }
+  if (wrap) wrap.dataset.portalOpen = open ? "true" : "false";
 }
 
 function renderNotificationBell() {
@@ -17015,6 +17040,16 @@ function isLessonWorkspaceResource(resource) {
 function resetLessonWorkspaceState() {
   lessonWorkspaceTab = "week";
   lessonWorkspaceWeekDay = "monday";
+  try { toggleLessonWorkspaceMoreMenu(false); } catch { /* boot-safe */ }
+  try { toggleLessonWorkspaceActionSheet(false); } catch { /* boot-safe */ }
+  document.body.classList.remove("lesson-workspace-more-open", "lesson-workspace-sheet-open");
+  document.querySelectorAll("body > .lesson-workspace-more-menu, body > .lesson-workspace-action-sheet, body > [data-lesson-workspace-more-backdrop]").forEach((node) => {
+    if (node.hasAttribute("data-lesson-workspace-more-backdrop")) {
+      node.hidden = true;
+      return;
+    }
+    node.remove();
+  });
 }
 
 function lessonNavHistoryState() {
@@ -17434,11 +17469,27 @@ function refreshLessonWorkspaceSaveButton() {
 let lessonWorkspaceActionSheetPanel = "main-calendar";
 let lessonWorkspaceAssignIntent = "calendar"; // "calendar" | "my-week"
 
+function syncLessonWorkspaceActionSheetPortal(open) {
+  const sheet = document.querySelector(".lesson-workspace-action-sheet");
+  if (!sheet) return null;
+  const home = document.querySelector(".lesson-workspace");
+  const mobile = lessonWorkspaceMoreIsMobile();
+  if (open && mobile) {
+    if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
+    document.body.classList.add("lesson-workspace-sheet-open");
+  } else {
+    document.body.classList.remove("lesson-workspace-sheet-open");
+    if (home && sheet.parentElement === document.body) home.appendChild(sheet);
+  }
+  return sheet;
+}
+
 function toggleLessonWorkspaceActionSheet(open, options = {}) {
   const sheet = document.querySelector(".lesson-workspace-action-sheet");
   if (!sheet) return;
   sheet.hidden = !open;
   sheet.setAttribute("aria-hidden", open ? "false" : "true");
+  syncLessonWorkspaceActionSheetPortal(Boolean(open));
   if (open) {
     const panel = options.panel || "use-plan";
     if (panel === "use-plan") {
@@ -17681,28 +17732,110 @@ function viewLessonPlanInCurriculumPlanner(resourceId, options = {}) {
   setView("curriculum-planner");
 }
 
+function lessonWorkspaceMoreIsMobile() {
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 767px)").matches;
+}
+
+function ensureLessonWorkspaceMoreBackdrop() {
+  let backdrop = document.querySelector("[data-lesson-workspace-more-backdrop]");
+  if (!backdrop) {
+    backdrop = document.createElement("button");
+    backdrop.type = "button";
+    backdrop.className = "lesson-workspace-more-backdrop";
+    backdrop.setAttribute("data-lesson-workspace-more-backdrop", "");
+    backdrop.setAttribute("aria-label", "Close more options");
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", () => toggleLessonWorkspaceMoreMenu(false));
+  }
+  return backdrop;
+}
+
+function clearLessonWorkspaceMoreInlineStyles(menu) {
+  if (!menu) return;
+  ["position", "top", "bottom", "left", "right", "width", "maxWidth", "maxHeight", "zIndex", "margin"].forEach((prop) => {
+    menu.style[prop] = "";
+  });
+}
+
+function positionLessonWorkspaceMoreMenu() {
+  const menu = document.querySelector(".lesson-workspace-more-menu");
+  const toggle = document.querySelector("[data-lesson-workspace-more-toggle]");
+  const backdrop = document.querySelector("[data-lesson-workspace-more-backdrop]");
+  if (!menu || menu.hidden) {
+    if (backdrop) backdrop.hidden = true;
+    document.body.classList.remove("lesson-workspace-more-open");
+    clearLessonWorkspaceMoreInlineStyles(menu);
+    return;
+  }
+  const mobile = lessonWorkspaceMoreIsMobile();
+  document.body.classList.toggle("lesson-workspace-more-open", mobile);
+  if (backdrop) {
+    backdrop.hidden = !mobile;
+    if (mobile && backdrop.parentElement !== document.body) document.body.appendChild(backdrop);
+  }
+  if (!mobile) {
+    if (!toggle) return;
+    const rect = toggle.getBoundingClientRect();
+    const spaceAbove = Math.max(120, rect.top - 12);
+    const spaceBelow = Math.max(120, window.innerHeight - rect.bottom - 12);
+    const openDown = spaceBelow >= 260 || spaceBelow >= spaceAbove;
+    menu.style.position = "absolute";
+    menu.style.left = "auto";
+    menu.style.right = "0";
+    menu.style.width = "";
+    menu.style.maxWidth = "";
+    menu.style.zIndex = "";
+    if (openDown) {
+      menu.style.top = "calc(100% + 4px)";
+      menu.style.bottom = "auto";
+      menu.style.maxHeight = `${Math.min(420, spaceBelow)}px`;
+    } else {
+      menu.style.top = "auto";
+      menu.style.bottom = "calc(100% + 4px)";
+      menu.style.maxHeight = `${Math.min(420, spaceAbove)}px`;
+    }
+    return;
+  }
+
+  // Mobile: full-width bottom sheet / centered modal above the lesson viewer.
+  if (menu.parentElement !== document.body) document.body.appendChild(menu);
+  const sidePad = 12;
+  const safeBottom = readSafeAreaInset("bottom");
+  const safeTop = readSafeAreaInset("top");
+  const width = Math.min(window.innerWidth - sidePad * 2, window.innerWidth);
+  const maxHeight = Math.max(220, window.innerHeight - 32 - safeTop - safeBottom);
+  menu.style.position = "fixed";
+  menu.style.left = `${sidePad}px`;
+  menu.style.right = `${sidePad}px`;
+  menu.style.width = `calc(100vw - ${sidePad * 2}px)`;
+  menu.style.maxWidth = "100%";
+  menu.style.bottom = `${Math.max(sidePad, safeBottom + 8)}px`;
+  menu.style.top = "auto";
+  menu.style.maxHeight = `${Math.round(maxHeight)}px`;
+  menu.style.zIndex = "1280";
+  menu.style.margin = "0";
+}
+
 function toggleLessonWorkspaceMoreMenu(open) {
   const menu = document.querySelector(".lesson-workspace-more-menu");
   const toggle = document.querySelector("[data-lesson-workspace-more-toggle]");
+  const wrap = document.querySelector(".lesson-workspace-more-wrap");
   if (!menu) return;
   const show = typeof open === "boolean" ? open : menu.hidden;
+  if (show) ensureLessonWorkspaceMoreBackdrop();
   menu.hidden = !show;
   toggle?.setAttribute("aria-expanded", show ? "true" : "false");
-  if (!show || !toggle) return;
-  // Keep the menu inside the viewport so Detailed/Planning downloads stay clickable.
-  const rect = toggle.getBoundingClientRect();
-  const spaceAbove = Math.max(120, rect.top - 12);
-  const spaceBelow = Math.max(120, window.innerHeight - rect.bottom - 12);
-  const openDown = spaceBelow >= 260 || spaceBelow >= spaceAbove;
-  if (openDown) {
-    menu.style.top = "calc(100% + 4px)";
-    menu.style.bottom = "auto";
-    menu.style.maxHeight = `${Math.min(420, spaceBelow)}px`;
-  } else {
-    menu.style.top = "auto";
-    menu.style.bottom = "calc(100% + 4px)";
-    menu.style.maxHeight = `${Math.min(420, spaceAbove)}px`;
+  if (!show) {
+    document.body.classList.remove("lesson-workspace-more-open");
+    const backdrop = document.querySelector("[data-lesson-workspace-more-backdrop]");
+    if (backdrop) backdrop.hidden = true;
+    if (wrap && menu.parentElement !== wrap) wrap.appendChild(menu);
+    clearLessonWorkspaceMoreInlineStyles(menu);
+    return;
   }
+  positionLessonWorkspaceMoreMenu();
+  requestAnimationFrame(() => positionLessonWorkspaceMoreMenu());
 }
 
 function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
@@ -19193,28 +19326,34 @@ function lessonWorkspaceActionBarsHtml(resource) {
         <button type="button" class="ghost-button lesson-workspace-secondary-btn" data-lesson-download-variant="full" title="Download the complete lesson plan PDF">Download Full Lesson Plan</button>
         <div class="lesson-workspace-more-wrap">
           <button type="button" class="ghost-button lesson-workspace-more-btn" data-lesson-workspace-more-toggle aria-expanded="false" aria-haspopup="true">More</button>
-          <div class="lesson-workspace-more-menu" hidden>
-            <div class="lesson-workspace-more-group">
-              <p class="lesson-workspace-more-label">Plan</p>
-              <button type="button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
-              <button type="button" data-lesson-duplicate="${id}">Duplicate</button>
-              <button type="button" data-lesson-print-variant="week">Print Teacher Weekly Planner</button>
+          <div class="lesson-workspace-more-menu" hidden role="dialog" aria-label="More lesson options">
+            <div class="lesson-workspace-more-sheet-header">
+              <strong>More options</strong>
+              <button type="button" class="ghost-button lesson-workspace-more-close" data-lesson-workspace-more-close aria-label="Close more options">Close</button>
             </div>
-            <div class="lesson-workspace-more-group">
-              <p class="lesson-workspace-more-label">More downloads</p>
-              <button type="button" data-lesson-download-variant="week">Teacher Weekly Planner (PDF)</button>
-              <button type="button" data-lesson-download-variant="full">Full Lesson Plan (PDF)</button>
-              <button type="button" data-lesson-download-variant="week-detail">Detailed Weekly Lesson Plan (PDF)</button>
-              <button type="button" data-lesson-download-variant="planning">Classroom Planning Sheet (PDF)</button>
-            </div>
-            ${isUserCopy ? `
-            <div class="lesson-workspace-more-group">
-              <p class="lesson-workspace-more-label">Manage copy</p>
-              <button type="button" data-lesson-archive="${id}">Archive</button>
-              <button type="button" class="lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>
-            </div>` : ""}
-            <div class="lesson-workspace-more-group">
-              <button type="button" data-lesson-workspace-back>Back to Library</button>
+            <div class="lesson-workspace-more-sheet-body">
+              <div class="lesson-workspace-more-group">
+                <p class="lesson-workspace-more-label">Plan</p>
+                <button type="button" data-edit-lesson-plan="${id}">Edit Lesson Plan</button>
+                <button type="button" data-lesson-duplicate="${id}">Duplicate</button>
+                <button type="button" data-lesson-print-variant="week">Print Teacher Weekly Planner</button>
+              </div>
+              <div class="lesson-workspace-more-group">
+                <p class="lesson-workspace-more-label">More downloads</p>
+                <button type="button" data-lesson-download-variant="week">Teacher Weekly Planner (PDF)</button>
+                <button type="button" data-lesson-download-variant="full">Full Lesson Plan (PDF)</button>
+                <button type="button" data-lesson-download-variant="week-detail">Detailed Weekly Lesson Plan (PDF)</button>
+                <button type="button" data-lesson-download-variant="planning">Classroom Planning Sheet (PDF)</button>
+              </div>
+              ${isUserCopy ? `
+              <div class="lesson-workspace-more-group">
+                <p class="lesson-workspace-more-label">Manage copy</p>
+                <button type="button" data-lesson-archive="${id}">Archive</button>
+                <button type="button" class="lesson-workspace-danger" data-lesson-delete="${id}">Delete Permanently</button>
+              </div>` : ""}
+              <div class="lesson-workspace-more-group">
+                <button type="button" data-lesson-workspace-back>Back to Library</button>
+              </div>
             </div>
           </div>
         </div>
@@ -49340,7 +49479,7 @@ document.addEventListener("click", async (event) => {
   }
 
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")
-    && !event.target.closest(".lesson-workspace-more-menu, [data-lesson-workspace-more-toggle]")) {
+    && !event.target.closest(".lesson-workspace-more-menu, [data-lesson-workspace-more-toggle], [data-lesson-workspace-more-backdrop], [data-lesson-workspace-more-close]")) {
     toggleLessonWorkspaceMoreMenu(false);
   }
 
@@ -49953,6 +50092,13 @@ document.addEventListener("click", async (event) => {
     container.querySelectorAll("[data-lesson-workspace-week-day-panel]").forEach((panel) => {
       panel.classList.toggle("is-active", panel.dataset.lessonWorkspaceWeekDayPanel === day);
     });
+    return;
+  }
+
+  const lessonWorkspaceMoreClose = event.target.closest("[data-lesson-workspace-more-close], [data-lesson-workspace-more-backdrop]");
+  if (lessonWorkspaceMoreClose) {
+    event.preventDefault();
+    toggleLessonWorkspaceMoreMenu(false);
     return;
   }
 
@@ -55591,13 +55737,21 @@ document.addEventListener("visibilitychange", () => {
 
 window.addEventListener("resize", () => {
   if (notificationBellState.open) positionNotificationBellPanel();
+  if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
+    positionLessonWorkspaceMoreMenu();
+  }
 });
 window.addEventListener("scroll", () => {
   if (notificationBellState.open) positionNotificationBellPanel();
 }, { passive: true });
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && notificationBellState.open) {
+  if (event.key !== "Escape") return;
+  if (notificationBellState.open) {
     toggleNotificationBellPanel(false);
+    return;
+  }
+  if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
+    toggleLessonWorkspaceMoreMenu(false);
   }
 });
 

@@ -26,7 +26,7 @@ const serverJs = fs.readFileSync(path.join(root, "server/index.js"), "utf8");
 const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
-const CACHE_V = "20260718-notif-panel-mobile";
+const CACHE_V = "20260718-mobile-sheets";
 
 test("service worker never caches /api/ responses", () => {
   assert.match(sw, /Never cache \/api\//);
@@ -44,7 +44,7 @@ test("cache bust versions align for messages-live deploy", () => {
   assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], CACHE_V);
   assert.equal(indexHtml.match(/comms-center\.js\?v=([^"]+)/)?.[1], CACHE_V);
   assert.match(sw, new RegExp(`app\\.js\\?v=${CACHE_V}`));
-  assert.match(sw, /llh-shell-v96-notif-panel-mobile/);
+  assert.match(sw, /llh-shell-v97-mobile-sheets/);
 });
 
 test("admin conversations poll and soft-refresh the open thread", () => {

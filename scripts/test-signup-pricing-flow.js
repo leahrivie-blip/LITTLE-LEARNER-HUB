@@ -104,9 +104,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-notif-panel-mobile");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-notif-panel-mobile");
-  assert.match(sw, /llh-shell-v96-notif-panel-mobile/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-mobile-sheets");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-mobile-sheets");
+  assert.match(sw, /llh-shell-v97-mobile-sheets/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

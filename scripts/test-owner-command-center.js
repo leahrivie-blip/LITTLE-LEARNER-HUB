@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-notif-panel-mobile");
-  assert.equal(indexJs, "20260718-notif-panel-mobile");
-  assert.match(sw, /llh-shell-v96-notif-panel-mobile/);
+  assert.equal(indexCss, "20260718-mobile-sheets");
+  assert.equal(indexJs, "20260718-mobile-sheets");
+  assert.match(sw, /llh-shell-v97-mobile-sheets/);
 });
 
 if (!process.exitCode) {
