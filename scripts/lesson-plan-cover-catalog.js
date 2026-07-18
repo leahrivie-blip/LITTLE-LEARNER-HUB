@@ -16,10 +16,28 @@
       prompt: "Children's book illustration, 16:9. Cheerful mirror, colorful handprints, smiling sun, and a simple house drawing on a soft pastel classroom wall. No text, no people faces close-up, kid-friendly.",
     },
     {
+      title: "Amazing Apples",
+      slug: "amazing-apples",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Bright toddler classroom apple exploration with red green and yellow apples in baskets, magnifying glasses, and apple art. Leave open space for title overlay. No text.",
+    },
+    {
       title: "Amazing Insects",
       slug: "amazing-insects",
       age: "Preschool",
       prompt: "Children's book illustration, 16:9. Close-up friendly insects: ladybug, caterpillar, ant, and beetle on green leaves with dewdrops. Bright garden light. No text.",
+    },
+    {
+      title: "Apple Orchard Adventure",
+      slug: "apple-orchard-adventure",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Sunny toddler apple orchard with apple trees, blossom branches, and baskets of red apples. Leave open space for title overlay. No text.",
+    },
+    {
+      title: "Apples in the Kitchen",
+      slug: "apples-in-the-kitchen",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Colorful classroom kitchen with toddlers in chef hats making applesauce, apple pie, and apple juice. Leave open space for title overlay. No text.",
     },
     {
       title: "Animal Habitats",
@@ -188,6 +206,12 @@
       slug: "inventors-workshop",
       age: "Preschool",
       prompt: "Children's book illustration, 16:9. Inventor workshop with gears, lightbulb, cardboard robot, tools, and sketches on a wooden table. Creative STEM vibe. No text, no people.",
+    },
+    {
+      title: "Johnny Appleseed & Apple Fun",
+      slug: "johnny-appleseed-apple-fun",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Friendly Johnny Appleseed planting apple seeds with toddlers in a bright orchard filled with apple trees and baskets. Leave open space for title overlay. No text.",
     },
     {
       title: "Kindergarten Readiness",

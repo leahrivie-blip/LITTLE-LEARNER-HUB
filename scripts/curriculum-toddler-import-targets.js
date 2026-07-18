@@ -151,6 +151,58 @@ const TODDLER_PRO_IMPORT_TARGETS = [
       friday: "All My Feelings Matter",
     },
   },
+  {
+    file: "12-toddler-amazing-apples-pro.txt",
+    stableId: "cur-lp-toddler-amazing-apples",
+    plan: "Pro",
+    title: "Amazing Apples",
+    dayThemes: {
+      monday: "Amazing Apples",
+      tuesday: "Apple Colors",
+      wednesday: "Apple Sizes and Shapes",
+      thursday: "Apple Taste Test",
+      friday: "How Apples Grow",
+    },
+  },
+  {
+    file: "13-toddler-apple-orchard-adventure-pro.txt",
+    stableId: "cur-lp-toddler-apple-orchard-adventure",
+    plan: "Pro",
+    title: "Apple Orchard Adventure",
+    dayThemes: {
+      monday: "Welcome to the Apple Orchard",
+      tuesday: "Apple Trees and Blossoms",
+      wednesday: "Harvest Time at the Orchard",
+      thursday: "From Orchard to Grocery Store",
+      friday: "Orchard Celebration Day",
+    },
+  },
+  {
+    file: "14-toddler-apples-in-the-kitchen-pro.txt",
+    stableId: "cur-lp-toddler-apples-in-the-kitchen",
+    plan: "Pro",
+    title: "Apples in the Kitchen",
+    dayThemes: {
+      monday: "Apple Chefs",
+      tuesday: "Making Applesauce",
+      wednesday: "Apple Juice Fun",
+      thursday: "Apple Pie Bakery",
+      friday: "Apple Kitchen Celebration",
+    },
+  },
+  {
+    file: "15-toddler-johnny-appleseed-apple-fun-pro.txt",
+    stableId: "cur-lp-toddler-johnny-appleseed-apple-fun",
+    plan: "Pro",
+    title: "Johnny Appleseed & Apple Fun",
+    dayThemes: {
+      monday: "Meet Johnny Appleseed",
+      tuesday: "Planting Apple Seeds",
+      wednesday: "Watching Apple Trees Grow",
+      thursday: "Johnny Appleseed's Orchard",
+      friday: "Johnny Appleseed Celebration",
+    },
+  },
 ];
 
 const TODDLER_IMPORT_TARGETS = [...TODDLER_PRO_IMPORT_TARGETS];
