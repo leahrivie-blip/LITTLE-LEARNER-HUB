@@ -1,10 +1,10 @@
-const CACHE_NAME = "llh-shell-v88-email-system-repair";
+const CACHE_NAME = "llh-shell-v89-domain-dns-check";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260718-email-system-repair",
+  "/styles.css?v=20260718-domain-dns-check",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -23,10 +23,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260718-email-system-repair",
-  "/scripts/free-plan-grandfathering.js?v=20260718-email-system-repair",
-  "/app.js?v=20260718-email-system-repair",
-  "/comms-center.js?v=20260718-email-system-repair",
+  "/scripts/free-curriculum-sample.js?v=20260718-domain-dns-check",
+  "/scripts/free-plan-grandfathering.js?v=20260718-domain-dns-check",
+  "/app.js?v=20260718-domain-dns-check",
+  "/comms-center.js?v=20260718-domain-dns-check",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
