@@ -60,9 +60,9 @@ test("client surfaces real HTTP/body failures instead of generic blank error", (
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-domain-dns-provider-fix");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-domain-dns-provider-fix");
-  assert.match(sw, /llh-shell-v90-domain-dns-provider-fix/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-domain-dns-final-audit");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-domain-dns-final-audit");
+  assert.match(sw, /llh-shell-v91-domain-dns-final-audit/);
 });
 
 async function requestJson(port, method, urlPath, body) {

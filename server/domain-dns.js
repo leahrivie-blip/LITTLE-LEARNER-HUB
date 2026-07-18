@@ -1,6 +1,6 @@
 /**
  * Provider-agnostic custom-domain DNS checks for Little Learner Hub.
- * Only cares whether records point at Render — never assumes Bluehost/Namecheap/etc.
+ * Only cares whether records point at Render — never assumes a DNS host/provider.
  */
 
 const dns = require("node:dns").promises;
@@ -178,7 +178,7 @@ async function buildDomainDnsReport({ siteUrl = "" } = {}) {
     recommendedDns: buildRecommendedDns(),
     nameservers,
     nameserverNote:
-      "Authoritative nameservers decide which DNS zone is live. Registrar login (e.g. Namecheap) can differ from the DNS host if custom nameservers are set.",
+      "Authoritative nameservers decide which DNS zone is live. Your registrar login can differ from the DNS host when custom nameservers are set.",
     brandDomain: brand,
     workingDomain: working,
     siteUrl,
