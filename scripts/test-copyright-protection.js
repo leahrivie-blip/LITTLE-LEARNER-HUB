@@ -131,7 +131,7 @@ function runStaticChecks() {
 
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
   assert(sw.includes("llh-copyright.js?v=20260717-copyright"), "service-worker missing copyright script");
-  assert(sw.includes("styles.css?v=20260718-owner-pro"), "service-worker missing styles cache bust");
+  assert(sw.includes("styles.css?v=20260718-lesson-sheets"), "service-worker missing styles cache bust");
 }
 
 async function ensureVisibleCopyright(page, selector, label) {

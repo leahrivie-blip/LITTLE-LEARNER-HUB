@@ -17491,9 +17491,13 @@ function syncLessonWorkspaceActionSheetPortal(open) {
   if (open && mobile) {
     if (sheet.parentElement !== document.body) document.body.appendChild(sheet);
     document.body.classList.add("lesson-workspace-sheet-open");
+    lockLessonWorkspaceBackgroundScroll(true);
   } else {
     document.body.classList.remove("lesson-workspace-sheet-open");
     if (home && sheet.parentElement === document.body) home.appendChild(sheet);
+    if (!document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
+      lockLessonWorkspaceBackgroundScroll(false);
+    }
   }
   return sheet;
 }
@@ -17831,13 +17835,68 @@ function positionLessonWorkspaceMoreMenu() {
   menu.style.margin = "0";
 }
 
+let lessonWorkspaceMoreScrollLock = null;
+
+function lockLessonWorkspaceBackgroundScroll(lock) {
+  const panels = document.querySelector(".lesson-workspace-panels");
+  const viewerBody = document.querySelector("#resourceViewerBody");
+  const card = document.querySelector("#resourceViewerModal.lesson-workspace-mode .resource-viewer-card");
+  if (lock) {
+    if (lessonWorkspaceMoreScrollLock) return;
+    lessonWorkspaceMoreScrollLock = {
+      panelsTop: panels ? panels.scrollTop : 0,
+      bodyTop: viewerBody ? viewerBody.scrollTop : 0,
+      cardTop: card ? card.scrollTop : 0,
+      windowY: window.scrollY || document.documentElement.scrollTop || 0,
+    };
+    if (panels) {
+      panels.dataset.llhScrollLocked = "1";
+      panels.style.overflow = "hidden";
+    }
+    if (viewerBody) {
+      viewerBody.dataset.llhScrollLocked = "1";
+      viewerBody.style.overflow = "hidden";
+    }
+    if (card) {
+      card.dataset.llhScrollLocked = "1";
+      card.style.overflow = "hidden";
+    }
+    return;
+  }
+  const saved = lessonWorkspaceMoreScrollLock;
+  lessonWorkspaceMoreScrollLock = null;
+  if (panels?.dataset.llhScrollLocked) {
+    panels.style.overflow = "";
+    delete panels.dataset.llhScrollLocked;
+    if (saved) panels.scrollTop = saved.panelsTop;
+  }
+  if (viewerBody?.dataset.llhScrollLocked) {
+    viewerBody.style.overflow = "";
+    delete viewerBody.dataset.llhScrollLocked;
+    if (saved) viewerBody.scrollTop = saved.bodyTop;
+  }
+  if (card?.dataset.llhScrollLocked) {
+    card.style.overflow = "";
+    delete card.dataset.llhScrollLocked;
+    if (saved) card.scrollTop = saved.cardTop;
+  }
+  if (saved) window.scrollTo(0, saved.windowY);
+}
+
 function toggleLessonWorkspaceMoreMenu(open) {
   const menu = document.querySelector(".lesson-workspace-more-menu");
   const toggle = document.querySelector("[data-lesson-workspace-more-toggle]");
   const wrap = document.querySelector(".lesson-workspace-more-wrap");
   if (!menu) return;
   const show = typeof open === "boolean" ? open : menu.hidden;
-  if (show) ensureLessonWorkspaceMoreBackdrop();
+  if (show) {
+    ensureLessonWorkspaceMoreBackdrop();
+    // Portal before unhiding so sticky/overflow ancestors cannot clip the first paint.
+    if (lessonWorkspaceMoreIsMobile() && menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
+    lockLessonWorkspaceBackgroundScroll(true);
+  }
   menu.hidden = !show;
   toggle?.setAttribute("aria-expanded", show ? "true" : "false");
   if (!show) {
@@ -17846,6 +17905,7 @@ function toggleLessonWorkspaceMoreMenu(open) {
     if (backdrop) backdrop.hidden = true;
     if (wrap && menu.parentElement !== wrap) wrap.appendChild(menu);
     clearLessonWorkspaceMoreInlineStyles(menu);
+    lockLessonWorkspaceBackgroundScroll(false);
     return;
   }
   positionLessonWorkspaceMoreMenu();

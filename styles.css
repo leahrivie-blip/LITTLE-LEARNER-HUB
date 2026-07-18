@@ -16442,6 +16442,15 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     touch-action: none;
   }
 
+  body.lesson-workspace-more-open .lesson-workspace-feedback,
+  body.lesson-workspace-more-open .lesson-workspace-copyright,
+  body.lesson-workspace-more-open .lesson-workspace-action-bars,
+  body.lesson-workspace-sheet-open .lesson-workspace-feedback,
+  body.lesson-workspace-sheet-open .lesson-workspace-copyright,
+  body.lesson-workspace-sheet-open .lesson-workspace-action-bars {
+    pointer-events: none;
+  }
+
   .lesson-workspace-more-backdrop {
     display: block;
     position: fixed;
@@ -16450,26 +16459,28 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     border: 0;
     padding: 0;
     margin: 0;
-    background: rgba(24, 28, 36, 0.48);
+    background: rgba(24, 28, 36, 0.55);
     cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
   }
 
+  body > .lesson-workspace-more-menu,
   .lesson-workspace-more-menu {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom, 0px));
-    top: auto;
-    width: calc(100vw - 24px);
-    max-width: 100%;
-    min-width: 0;
-    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
-    z-index: 1280;
-    padding: 0;
+    position: fixed !important;
+    left: 12px !important;
+    right: 12px !important;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px)) !important;
+    top: auto !important;
+    width: calc(100vw - 24px) !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 1280 !important;
+    padding: 0 !important;
     border-radius: 16px;
     box-shadow: 0 18px 48px rgba(24, 28, 36, 0.28);
-    overflow-x: hidden;
-    overflow-y: hidden;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
   }
 
   .lesson-workspace-more-sheet-header {

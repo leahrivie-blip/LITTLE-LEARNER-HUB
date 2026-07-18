@@ -104,9 +104,9 @@ test("persona sandbox modes remain available", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-owner-pro");
-  assert.equal(indexJs, "20260718-owner-pro");
-  assert.match(sw, /llh-shell-v98-owner-pro/);
+  assert.equal(indexCss, "20260718-lesson-sheets");
+  assert.equal(indexJs, "20260718-lesson-sheets");
+  assert.match(sw, /llh-shell-v99-lesson-sheets/);
 });
 
 test("npm script is registered", () => {
