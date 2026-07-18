@@ -64,12 +64,13 @@ Stripe webhook URL:
 https://www.littlelearnerhub.com/api/webhooks/stripe
 ```
 
-**Important:** `littlelearnerhub.com` must DNS-point at the Render service (`little-learner-hub.onrender.com`), not Bluehost.  
-If the custom domain shows a stuck Cloudflare “Just a moment…” page, follow **`docs/DOMAIN_DNS_FIX.md`**.
+**Important:** `littlelearnerhub.com` must resolve to Render (`www` CNAME → `little-learner-hub.onrender.com`, apex A → `216.24.57.1`), regardless of registrar/DNS host.  
+See **`docs/DOMAIN_DNS_FIX.md`** and Admin → Safety Center → Custom domain DNS (`GET /api/domain-dns-check`).
 
-Until DNS is fixed, the working public URL is:
+Working public URLs while the brand domain is propagating:
 
 ```bash
+https://littlelearnershubbyleah.com/
 https://little-learner-hub.onrender.com/
 ```
 
