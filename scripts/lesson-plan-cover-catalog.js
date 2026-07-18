@@ -64,6 +64,12 @@
       prompt: "Children's book illustration, 16:9. Night campsite with tent, glowing lantern, gentle campfire, and starry sky with crescent moon. Soft and magical, not scary. No text, no people.",
     },
     {
+      title: "Classroom Helpers",
+      slug: "classroom-helpers",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Bright toddler classroom helpers scene: children cleaning up toys, watering a plant, shelving books, and organizing bins together with helper badges. Warm teamwork mood. Leave open space for title overlay. No text.",
+    },
+    {
       title: "Colors Everywhere",
       slug: "colors-everywhere",
       age: "Preschool",
@@ -202,6 +208,18 @@
       prompt: "Children's book illustration, 16:9. Science table with beakers of colorful liquid, magnifying glass, plant specimen, and safety goggles. Curious lab mood. No text, no people.",
     },
     {
+      title: "Making New Friends",
+      slug: "making-new-friends",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Bright toddler friendship classroom: diverse children sharing toys, building blocks together, reading, and high-fiving with a warm teacher nearby. Leave open space for title overlay. No text.",
+    },
+    {
+      title: "My Feelings at School",
+      slug: "my-feelings-at-school",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Toddler feelings classroom with emotion cards, a feelings chart, a child at a mirror, a comforting teacher, and a cozy calm corner. Kind safe mood. Leave open space for title overlay. No text.",
+    },
+    {
       title: "New Year's Celebration",
       slug: "new-year-celebration",
       age: "Infant",
@@ -290,6 +308,12 @@
       slug: "transportation",
       age: "Preschool",
       prompt: "Children's book illustration, 16:9. Colorful train, airplane, bus, and boat traveling together through a sunny landscape. Exciting travel mood. No text, no people.",
+    },
+    {
+      title: "Welcome to My Classroom",
+      slug: "welcome-to-my-classroom",
+      age: "Toddler",
+      prompt: "Children's book illustration, 16:9. Bright welcoming toddler classroom: smiling teacher at the door, cubbies with backpacks, alphabet décor, and toddlers exploring centers. Leave open space for title overlay. No text.",
     },
     {
       title: "Water Park Engineers",

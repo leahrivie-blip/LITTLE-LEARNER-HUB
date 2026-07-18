@@ -19,6 +19,7 @@
     "launch:check": "node server/launch-check.js",
     "billing:check": "node server/billing-check.js",
     "import:toddler-pro-batch1": "node scripts/normalize-and-import-toddler-pro-batch1.js",
+    "test:toddler-back-to-school": "NODE_ENV=test node scripts/test-toddler-back-to-school-imports.js",
     "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
     "test:curriculum-import-v4": "node scripts/test-curriculum-import-v4.js",
     "test:curriculum-import-v5": "node scripts/test-curriculum-import-v5.js",
