@@ -685,6 +685,9 @@ function defaultSiteContentStore() {
     activities: [],
     forms: [],
     printables: [],
+    menus: [],
+    observations: [],
+    lessonPlanResourceCategories: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -945,6 +948,12 @@ function normalizedLibraryItemEntry(value, defaultCategory) {
     theme: normalizedShortText(entry.theme, 120),
     formCategory: normalizedShortText(entry.formCategory, 120),
     printableType: normalizedShortText(entry.printableType, 120),
+    menuCategory: normalizedShortText(entry.menuCategory, 120),
+    learningArea: normalizedShortText(entry.learningArea, 120),
+    observationText: normalizedMultilineText(entry.observationText, 20000),
+    lookFor: normalizedMultilineText(entry.lookFor, 4000),
+    nextSteps: normalizedMultilineText(entry.nextSteps, 4000),
+    standard: normalizedMultilineText(entry.standard, 2000),
     tags: tagsInput.map((t) => normalizedShortText(t, 80)).filter(Boolean).slice(0, 20),
     format: normalizedShortText(entry.format, 80),
     fileName: normalizedShortText(entry.fileName, 180),
@@ -2145,6 +2154,14 @@ function normalizedSiteContent(value) {
     activities: normalizedList(input.activities, 500, normalizedActivityEntry),
     forms: normalizedList(input.forms, 500, (item) => normalizedLibraryItemEntry(item, "Forms Library")),
     printables: normalizedList(input.printables, 500, (item) => normalizedLibraryItemEntry(item, "Printables")),
+    menus: normalizedList(input.menus, 500, (item) => normalizedLibraryItemEntry(item, "Menu Center")),
+    observations: normalizedList(input.observations, 500, (item) => normalizedLibraryItemEntry(item, "Observation Hub")),
+    lessonPlanResourceCategories: Array.isArray(input.lessonPlanResourceCategories)
+      ? input.lessonPlanResourceCategories
+        .map((item) => normalizedShortText(item, 80))
+        .filter(Boolean)
+        .slice(0, 40)
+      : [],
     reviews: normalizedList(input.reviews, 100, normalizedReviewEntry),
     founder: {
       name: normalizedShortText(input.founder?.name, 120),
@@ -9775,6 +9792,8 @@ async function handlePublicSiteContent(request, response, url) {
   const publicForms = (content.forms || []).filter((item) => item.visible === true && item.archived !== true);
   // Printables marketplace removed from the public product surface.
   const publicPrintables = [];
+  const publicMenus = (content.menus || []).filter((item) => item.visible === true && item.archived !== true);
+  const publicObservations = (content.observations || []).filter((item) => item.visible === true && item.archived !== true);
   const publicReviews = (content.reviews || []).filter((item) => item.visible !== false);
   const publicFaqs = (content.faqs || []).filter((item) => item.visible !== false);
   // Draft/hidden marketing copy must not ship on the public API. Admin GET keeps full content.
@@ -9830,6 +9849,8 @@ async function handlePublicSiteContent(request, response, url) {
       activities: [],
       forms: publicForms,
       printables: publicPrintables,
+      menus: publicMenus,
+      observations: publicObservations,
       reviews: publicReviews,
       faqs: publicFaqs,
       pricing: publicPricing,

@@ -78,10 +78,10 @@ test("cache bust versions stay aligned for drilldown", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
   assert.equal(indexCss, indexJs);
-  assert.equal(indexCss, "20260718-domain-dns-final-audit");
+  assert.equal(indexCss, "20260718-admin-content-finish");
   assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss}`));
   assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs}`));
-  assert.match(sw, /llh-shell-v91-domain-dns-final-audit/);
+  assert.match(sw, /llh-shell-v92-admin-content-finish/);
 });
 
 test("owner command center includes action center and KPI strip", () => {
