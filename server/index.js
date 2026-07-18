@@ -1604,6 +1604,46 @@ function curriculumParentPlanMeta(plan) {
   };
 }
 
+function authorizedCurriculumLibraryDto(siteContent) {
+  // Pro / Founding / Trial / admin-override users get the full unlocked library payload.
+  const store = normalizedCurriculumStore(siteContent?.curriculum);
+  const lessonPlans = store.lessonPlans
+    .map((plan) => authorizedCurriculumLessonPlanDto(plan))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
+      if (featuredDelta) return featuredDelta;
+      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    });
+  const parentPlanById = new Map(
+    store.lessonPlans
+      .map((plan) => curriculumParentPlanMeta(plan))
+      .filter(Boolean)
+      .map((plan) => [plan.id, plan]),
+  );
+  const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
+  const activities = store.activities
+    .map((activity) => authorizedCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId)))
+    .filter(Boolean)
+    .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
+  const resources = store.resources
+    .map((resource) => {
+      const meta = curriculumResourceMetadata(resource);
+      if (!meta || !isCurriculumResourcePublic(meta.status)) return null;
+      const linkedToPublicLesson = (meta.lessonPlanIds || []).some((id) => publicLessonIds.has(id));
+      if (!linkedToPublicLesson) return null;
+      return meta;
+    })
+    .filter(Boolean);
+  return {
+    lessonPlans,
+    activities,
+    resources,
+    updatedAt: store.updatedAt || "",
+    freeLessonAccessMode: "pro",
+  };
+}
+
 function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
   // Phase 2H: curriculum library is always the public lesson/activity source.
   // accessContext.legacyFree unlocks all store Free-tier plans for grandfathered accounts.
@@ -8633,22 +8673,31 @@ async function handlePublicSiteContent(request, response, url) {
     ? defaults.upgradeMessaging
     : content.upgradeMessaging;
   const { featureFlags, curriculum, lessonPlans, customLessonPlans, activities, ...publicSiteContent } = content;
-  // Grandfathered Free users get the legacy Free library payload; guests/new Free get curated.
-  let accessContext = { legacyFree: false, mode: "curated", siteContent: content };
-  try {
-    const access = await resolveCurriculumAccessUser(request, url);
-    if (access?.user && !access.authorized) {
-      accessContext = freePlanAccessContextFromUser(access.user, content);
-    }
-  } catch {
-    accessContext = { legacyFree: false, mode: "curated", siteContent: content };
-  }
-  const curriculumLibrary = publicCurriculumLibraryDto(content, accessContext) || {
+  // Paid users get the full unlocked library. Grandfathered Free get legacy Free.
+  // Guests / new Free get the curated sample.
+  let curriculumLibrary = {
     lessonPlans: [],
     activities: [],
     resources: [],
     updatedAt: "",
   };
+  try {
+    const access = await resolveCurriculumAccessUser(request, url);
+    if (access?.authorized) {
+      curriculumLibrary = authorizedCurriculumLibraryDto(content) || curriculumLibrary;
+    } else {
+      const accessContext = access?.user
+        ? freePlanAccessContextFromUser(access.user, content)
+        : { legacyFree: false, mode: "curated", siteContent: content };
+      curriculumLibrary = publicCurriculumLibraryDto(content, accessContext) || curriculumLibrary;
+    }
+  } catch {
+    curriculumLibrary = publicCurriculumLibraryDto(content, {
+      legacyFree: false,
+      mode: "curated",
+      siteContent: content,
+    }) || curriculumLibrary;
+  }
   const grandfatherConfig = freePlanGrandfathering.resolveConfig({ siteContent: content });
   jsonResponse(response, 200, {
     siteContent: {

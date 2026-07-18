@@ -136,8 +136,8 @@ async function main() {
   assert.match(appJs, /help\.hidden = inWizard/);
   assert.match(css, /#authModal \.signup-wizard-body/);
   assert.match(css, /min-height:\s*min\(320px,\s*42dvh\)/);
-  assert.match(indexHtml, /styles\.css\?v=20260718-free-limits-ux/);
-  assert.match(indexHtml, /app\.js\?v=20260718-free-limits-ux/);
+  assert.match(indexHtml, /styles\.css\?v=20260718-pro-library-unlock/);
+  assert.match(indexHtml, /app\.js\?v=20260718-pro-library-unlock/);
 
   const child = startServer();
   let bootLog = "";

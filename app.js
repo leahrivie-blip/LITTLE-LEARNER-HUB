@@ -5160,7 +5160,10 @@ function loadCurriculumManagedActivities() {
   return sourceActivities
     .filter((item) => item.id && item.title && item.lessonPlanId)
     .map((item) => {
-      const lockedTeaser = !hasAdminFullAccess() && (item.locked === true || item.parentPlan === "Pro");
+      // Paid members must never see Pro activities as empty locked teasers.
+      const lockedTeaser = !hasAdminFullAccess()
+        && !isProUser()
+        && (item.locked === true || item.parentPlan === "Pro");
       return {
       id: item.id,
       category: "Activity Center",

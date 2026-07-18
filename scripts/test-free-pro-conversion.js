@@ -100,11 +100,11 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-limits-ux");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-limits-ux");
-  assert.match(sw, /llh-shell-v79-free-limits-ux/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-free-limits-ux/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-free-limits-ux/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-pro-library-unlock");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-pro-library-unlock");
+  assert.match(sw, /llh-shell-v80-pro-library-unlock/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-pro-library-unlock/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-pro-library-unlock/);
 });
 
 function requestJson(method, urlPath, body) {
