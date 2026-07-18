@@ -16,10 +16,28 @@
       prompt: "Children's book illustration, 16:9. Cheerful mirror, colorful handprints, smiling sun, and a simple house drawing on a soft pastel classroom wall. No text, no people faces close-up, kid-friendly.",
     },
     {
+      title: "Amazing Apples",
+      slug: "amazing-apples",
+      age: "Toddler",
+      prompt: "Hand-painted storybook watercolor, 16:9. Basket of red green and yellow apples, apple halves, and a magnifying glass on a preschool table. Soft empty sky/wall space for title. No text, no people.",
+    },
+    {
       title: "Amazing Insects",
       slug: "amazing-insects",
       age: "Preschool",
       prompt: "Children's book illustration, 16:9. Close-up friendly insects: ladybug, caterpillar, ant, and beetle on green leaves with dewdrops. Bright garden light. No text.",
+    },
+    {
+      title: "Apple Orchard Adventure",
+      slug: "apple-orchard-adventure",
+      age: "Toddler",
+      prompt: "Hand-painted storybook watercolor, 16:9. Sunny apple orchard path with trees full of red apples and harvest baskets. Soft empty sky space for title. No text, no people.",
+    },
+    {
+      title: "Apples in the Kitchen",
+      slug: "apples-in-the-kitchen",
+      age: "Toddler",
+      prompt: "Hand-painted storybook watercolor, 16:9. Preschool kitchen counter with applesauce bowl, apple pie, juice pitcher, chef hat and apron resting empty. Soft empty wall space for title. No text, no people.",
     },
     {
       title: "Animal Habitats",
@@ -188,6 +206,12 @@
       slug: "inventors-workshop",
       age: "Preschool",
       prompt: "Children's book illustration, 16:9. Inventor workshop with gears, lightbulb, cardboard robot, tools, and sketches on a wooden table. Creative STEM vibe. No text, no people.",
+    },
+    {
+      title: "Johnny Appleseed & Apple Fun",
+      slug: "johnny-appleseed-apple-fun",
+      age: "Toddler",
+      prompt: "Hand-painted storybook watercolor, 16:9. Johnny Appleseed themed planting scene with tin pot, satchel, sapling, seeds, shovel, and apple basket under orchard trees. Soft empty sky space for title. No text, no people.",
     },
     {
       title: "Kindergarten Readiness",
