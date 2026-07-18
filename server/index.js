@@ -615,6 +615,20 @@ function normalizedFeatureFlags(value) {
   };
 }
 
+function defaultFreePlanAccessStore() {
+  return {
+    enabled: true,
+    curatedCutoffAt: "2026-07-18T00:00:00.000Z",
+    missingDateMeansLegacy: true,
+    earlySupporterTitle: "Early supporter Free access",
+    earlySupporterBody:
+      "You’re an early Little Learner Hub supporter, so you were grandfathered into the original Free plan. You keep the Free lesson plans and Free tools you’ve already been using. New Free accounts after our Free-plan update get a smaller curated sample — upgrade anytime for unlimited Pro access.",
+    freeCalendarPlanningDays: 30,
+    freeFavoriteLimit: 20,
+    freeChildProfileLimit: 5,
+  };
+}
+
 function defaultSiteContentStore() {
   return {
     lessonPlans: {},
@@ -629,10 +643,31 @@ function defaultSiteContentStore() {
     faqs: [],
     announcement: {},
     upgradeMessaging: {},
+    freePlanAccess: defaultFreePlanAccessStore(),
     images: [],
     featureFlags: defaultFeatureFlags(),
     curriculum: defaultCurriculumStore(),
     updatedAt: "",
+  };
+}
+
+function normalizedFreePlanAccess(value) {
+  const defaults = defaultFreePlanAccessStore();
+  const entry = value && typeof value === "object" ? value : {};
+  const days = Number(entry.freeCalendarPlanningDays);
+  const favorites = Number(entry.freeFavoriteLimit);
+  const children = Number(entry.freeChildProfileLimit);
+  return {
+    enabled: typeof entry.enabled === "boolean" ? entry.enabled : defaults.enabled,
+    curatedCutoffAt: normalizedShortText(entry.curatedCutoffAt, 80) || defaults.curatedCutoffAt,
+    missingDateMeansLegacy: typeof entry.missingDateMeansLegacy === "boolean"
+      ? entry.missingDateMeansLegacy
+      : defaults.missingDateMeansLegacy,
+    earlySupporterTitle: normalizedShortText(entry.earlySupporterTitle, 200) || defaults.earlySupporterTitle,
+    earlySupporterBody: normalizedMultilineText(entry.earlySupporterBody, 1200) || defaults.earlySupporterBody,
+    freeCalendarPlanningDays: Number.isFinite(days) && days >= 1 ? Math.min(365, Math.floor(days)) : defaults.freeCalendarPlanningDays,
+    freeFavoriteLimit: Number.isFinite(favorites) && favorites >= 1 ? Math.min(500, Math.floor(favorites)) : defaults.freeFavoriteLimit,
+    freeChildProfileLimit: Number.isFinite(children) && children >= 1 ? Math.min(200, Math.floor(children)) : defaults.freeChildProfileLimit,
   };
 }
 
@@ -2171,6 +2206,7 @@ function normalizedSiteContent(value) {
       soldOutCtaText: normalizedShortText(input.founding?.soldOutCtaText, 120),
       _draft: input.founding?._draft === true,
     },
+    freePlanAccess: normalizedFreePlanAccess(input.freePlanAccess),
     featureFlags: normalizedFeatureFlags(input.featureFlags),
     curriculum: normalizedCurriculumStore(input.curriculum),
     updatedAt: normalizedShortText(input.updatedAt, 80),
@@ -9269,6 +9305,14 @@ async function handlePublicSiteContent(request, response, url) {
     }) || curriculumLibrary;
   }
   const grandfatherConfig = freePlanGrandfathering.resolveConfig({ siteContent: content });
+  const freePlanAccess = normalizedFreePlanAccess({
+    ...(content.freePlanAccess || {}),
+    enabled: grandfatherConfig.enabled,
+    curatedCutoffAt: grandfatherConfig.curatedCutoffAt,
+    missingDateMeansLegacy: grandfatherConfig.missingDateMeansLegacy,
+    earlySupporterTitle: grandfatherConfig.earlySupporterTitle,
+    earlySupporterBody: grandfatherConfig.earlySupporterBody,
+  });
   jsonResponse(response, 200, {
     siteContent: {
       ...publicSiteContent,
@@ -9285,13 +9329,7 @@ async function handlePublicSiteContent(request, response, url) {
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
       playBasedCurriculum: true,
-      freePlanAccess: {
-        enabled: grandfatherConfig.enabled,
-        curatedCutoffAt: grandfatherConfig.curatedCutoffAt,
-        missingDateMeansLegacy: grandfatherConfig.missingDateMeansLegacy,
-        earlySupporterTitle: grandfatherConfig.earlySupporterTitle,
-        earlySupporterBody: grandfatherConfig.earlySupporterBody,
-      },
+      freePlanAccess,
       curriculumLibrary,
     },
   });

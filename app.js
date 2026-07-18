@@ -2087,6 +2087,21 @@ const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
 /** New Free users can plan about a month ahead (weeks starting within this window). */
 const freeCalendarPlanningDays = 30;
 const freeFavoriteLimit = 20;
+
+function effectiveFreeCalendarPlanningDays() {
+  const fromSite = Number(effectiveSiteContent()?.freePlanAccess?.freeCalendarPlanningDays);
+  return Math.max(1, Number.isFinite(fromSite) && fromSite > 0 ? Math.floor(fromSite) : freeCalendarPlanningDays);
+}
+
+function effectiveFreeFavoriteLimit() {
+  const fromSite = Number(effectiveSiteContent()?.freePlanAccess?.freeFavoriteLimit);
+  return Math.max(1, Number.isFinite(fromSite) && fromSite > 0 ? Math.floor(fromSite) : freeFavoriteLimit);
+}
+
+function effectiveFreeChildProfileLimit() {
+  const fromSite = Number(effectiveSiteContent()?.freePlanAccess?.freeChildProfileLimit);
+  return Math.max(1, Number.isFinite(fromSite) && fromSite > 0 ? Math.floor(fromSite) : freeChildProfileLimit);
+}
 const lessonCustomizationUpgradeHeadline = "Make This Lesson Plan Your Own";
 const lessonCustomizationUpgradeBody = "Customize any lesson plan to fit your classroom — personalize activities, materials, books, songs, and notes, then save your version to reuse year after year.\n\nUpgrade to Pro and save hours every week.";
 const freeUpgradeBenefitLines = Object.freeze([
@@ -4481,7 +4496,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -4501,7 +4516,7 @@ const adminGroups = [
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
-  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog"], defaultTab: "hero" },
+  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-tools", "prompts", "settings", "usage", "ai-testing"], defaultTab: "ai-tools" },
 ];
 const adminGroupForTab = {
@@ -4531,6 +4546,7 @@ const adminGroupForTab = {
   "stripe-backfill": "users",
   "images":      "settings",
   "pricing":     "site-editor",
+  "free-plan":   "site-editor",
   "faqs":        "site-editor",
   "announcement":"site-editor","in-app-announcements":"site-editor","promo-codes":"site-editor",
   "upgrade-msg": "site-editor",
@@ -4573,6 +4589,7 @@ const adminTabLabels = {
   "stripe-backfill": "Stripe Backfill",
   "images":      "Images",
   "pricing":     "Pricing",
+  "free-plan":   "Free Plan Access",
   "faqs":        "FAQs",
   "announcement":"Announcement","in-app-announcements":"In-App Announcements","promo-codes":"Promo Codes",
   "upgrade-msg": "Upgrade Msg",
@@ -8768,6 +8785,17 @@ function captureDefaultSiteContent() {
       soldOutCtaText: "Choose Pro Monthly",
       _draft: false,
     },
+    freePlanAccess: {
+      enabled: true,
+      curatedCutoffAt: "2026-07-18T00:00:00.000Z",
+      missingDateMeansLegacy: true,
+      earlySupporterTitle: "Early supporter Free access",
+      earlySupporterBody:
+        "You’re an early Little Learner Hub supporter, so you were grandfathered into the original Free plan. You keep the Free lesson plans and Free tools you’ve already been using. New Free accounts after our Free-plan update get a smaller curated sample — upgrade anytime for unlimited Pro access.",
+      freeCalendarPlanningDays: 30,
+      freeFavoriteLimit: 20,
+      freeChildProfileLimit: 5,
+    },
     updatedAt: "",
   };
 }
@@ -8817,6 +8845,7 @@ function effectiveSiteContent() {
     announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
     upgradeMessaging: { ...(base.upgradeMessaging || {}), ...(overrides.upgradeMessaging || {}) },
     founding: { ...(base.founding || {}), ...(overrides.founding || {}) },
+    freePlanAccess: { ...(base.freePlanAccess || {}), ...(overrides.freePlanAccess || {}) },
     featureFlags: {
       playBasedCurriculum: true,
     },
@@ -11920,10 +11949,10 @@ function showLessonCustomizationUpgrade(resourceId = "") {
 function freeCalendarPlanningHorizonIso(fromDate = new Date()) {
   const today = fromDate instanceof Date ? new Date(fromDate.getTime()) : new Date(`${String(fromDate || "").slice(0, 10)}T12:00:00`);
   if (Number.isNaN(today.getTime())) {
-    return addDaysToIso(isoDateFromLocalDate(new Date()), freeCalendarPlanningDays - 1);
+    return addDaysToIso(isoDateFromLocalDate(new Date()), effectiveFreeCalendarPlanningDays() - 1);
   }
   today.setHours(12, 0, 0, 0);
-  return addDaysToIso(isoDateFromLocalDate(today), freeCalendarPlanningDays - 1);
+  return addDaysToIso(isoDateFromLocalDate(today), effectiveFreeCalendarPlanningDays() - 1);
 }
 
 /** New Free users can plan weeks that start on/before ~30 days from today. */
@@ -22823,7 +22852,7 @@ async function resolveCurriculumPlanForAssignment(resourceOrId, options = {}) {
   if (!canAssignMoreFreeCalendarPlans(assignWeekHint)) {
     trackUpgradePrompt("calendar_limit", {
       weekStartDate: assignWeekHint || "",
-      planningDays: freeCalendarPlanningDays,
+      planningDays: effectiveFreeCalendarPlanningDays(),
       horizon: freeCalendarPlanningHorizonIso(),
     });
     showProFeatureModal(freeCalendarLimitMessage, "limit");
@@ -29119,7 +29148,7 @@ function renderChildProfileFormScreen(child = null) {
           <label class="wide">Goals / Notes About Current Needs<textarea name="activeGoals" rows="3" placeholder="Example: Improve scissor skills, use 3-4 word sentences">${escapeHtml(child?.activeGoals || "")}</textarea></label>
           <label class="wide">Notes<textarea name="notes" rows="3" placeholder="Helpful routines, family notes, strengths, concerns">${escapeHtml(child?.notes || "")}</textarea></label>
           <button class="primary-button" type="submit">${editing ? "Save Profile Changes" : "Save Child"}</button>
-          ${!isProUser() ? `<p class="form-note">Free plan includes up to ${freeChildProfileLimit} child profiles.</p>` : ""}
+          ${!isProUser() ? `<p class="form-note">Free plan includes up to ${effectiveFreeChildProfileLimit()} child profiles.</p>` : ""}
         </form>
       </section>
     </section>
@@ -38218,7 +38247,7 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-stripe-backfill-panel");
     if (el) el.hidden = false;
     renderAdminStripeBackfillTab();
-  } else if (tab === "pricing" || tab === "promo-codes" || tab === "faqs" || tab === "announcement" || tab === "in-app-announcements" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
+  } else if (tab === "pricing" || tab === "free-plan" || tab === "promo-codes" || tab === "faqs" || tab === "announcement" || tab === "in-app-announcements" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
     const el = document.querySelector(".admin-site-editor-panel");
     if (el) el.hidden = false;
     renderAdminSiteEditorSection(tab);
@@ -38610,6 +38639,9 @@ function adminUserPlanBadge(account) {
   if (label === "Founding Member") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
   if (label === "Trial") return `<span class="aup-badge aup-badge--trial">Trial</span>`;
   if (label === "Pro Annual" || label === "Pro Monthly") return `<span class="aup-badge aup-badge--pro">🔷 ${escapeHtml(label)}</span>`;
+  const freeMode = adminFreeLessonAccessLabel(account);
+  if (freeMode.startsWith("Legacy")) return `<span class="aup-badge aup-badge--free">Free · Early Supporter</span>`;
+  if (freeMode.startsWith("Curated")) return `<span class="aup-badge aup-badge--free">Free · Sample</span>`;
   return `<span class="aup-badge aup-badge--free">Free</span>`;
 }
 
@@ -38956,6 +38988,8 @@ function openAdminUserProfile(email, startTab) {
           <div><span>Billing Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
           <div><span>Previous Plan</span><strong>${escapeHtml(adminPreviousPlanLabel(account))}</strong></div>
           <div><span>Pro Access Now</span><strong>${adminMembershipHasProAccess(account) ? "Yes" : "No"}</strong></div>
+          <div><span>Free Lesson Access</span><strong>${escapeHtml(adminFreeLessonAccessLabel(account))}</strong></div>
+          <div><span>Free Access Mode (stored)</span><strong>${escapeHtml(account.freeLessonAccessMode || "auto (by cutoff)")}</strong></div>
           <div><span>Display Price</span><strong>${escapeHtml(adminMembershipDisplayPrice(account))}</strong></div>
           <div><span>Plan (stored)</span><strong>${escapeHtml(plan)}</strong></div>
           <div><span>Status (stored)</span><strong>${escapeHtml(status)}</strong></div>
@@ -39018,6 +39052,20 @@ function openAdminUserProfile(email, startTab) {
         <p id="aupTrialMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
       ` : ""}
+
+      <fieldset class="admin-fieldset">
+        <legend>🆓 Free Plan Lesson Access</legend>
+        <div class="aup-info-grid">
+          <div><span>Resolved Access</span><strong>${escapeHtml(adminFreeLessonAccessLabel(account))}</strong></div>
+          <div><span>Stored Mode</span><strong>${escapeHtml(account.freeLessonAccessMode || "auto (by cutoff)")}</strong></div>
+        </div>
+        <p class="muted-copy" style="margin-top:8px;">Override what this Free account can open in the lesson library. Paid users always get the full Pro library.</p>
+        <div class="aup-action-row" style="margin-top:12px;">
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="set-free-legacy" data-aup-email="${escapeHtml(email)}">Set Legacy Free</button>
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="set-free-curated" data-aup-email="${escapeHtml(email)}">Set Curated Free Sample</button>
+        </div>
+        <p id="aupFreeAccessMsg" class="form-message" style="margin-top:8px;"></p>
+      </fieldset>
 
       <fieldset class="admin-fieldset">
         <legend>💳 Subscription Management</legend>
@@ -39300,9 +39348,10 @@ function handleAdminUserAction(action, email, modal) {
   if (!account && action !== "view-as" && action !== "temp-password") return;
 
   const msgEl = modal?.querySelector(
-    action === "temp-password" || action === "view-as"
-      ? "#aupSecurityMsg"
-      : (action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg"),
+    action.startsWith("set-free-") ? "#aupFreeAccessMsg"
+      : (action === "temp-password" || action === "view-as")
+        ? "#aupSecurityMsg"
+        : (action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg"),
   );
   function showMsg(text, ok = true) {
     if (!msgEl) return;
@@ -39326,6 +39375,21 @@ function handleAdminUserAction(action, email, modal) {
         navigator.clipboard.writeText(temp).then(() => showActionFeedback("Temp password copied.")).catch(() => {});
       }
     }).catch((error) => showMsg(error.message || "Failed to issue temp password.", false));
+    return;
+  }
+
+  if (action === "set-free-legacy" || action === "set-free-curated") {
+    const mode = action === "set-free-legacy" ? "legacy" : "curated";
+    const label = mode === "legacy" ? "Legacy Free (grandfathered)" : "Curated Free sample";
+    if (!confirm(`Set Free lesson access for ${displayUserName(account)} (${email}) to ${label}?`)) return;
+    const updates = { freeLessonAccessMode: mode };
+    adminUpdateMembershipOnServer(email, updates, action, `Admin set freeLessonAccessMode=${mode}.`).then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, updates);
+      showMsg(result.localOnly ? `Free access set to ${label} locally.` : `Free access set to ${label}.`);
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
     return;
   }
 
@@ -39566,6 +39630,7 @@ function renderAdminSiteEditorSection(tab) {
     { id: "adminReviewsCtaApp",  tabId: "reviews-cta" },
     { id: "adminFoundingApp",    tabId: "founding" },
     { id: "adminPricingApp",     tabId: "pricing" },
+    { id: "adminFreePlanAccessApp", tabId: "free-plan" },
     { id: "adminPromoCodesApp",  tabId: "promo-codes" },
     { id: "adminFaqsApp",        tabId: "faqs" },
     { id: "adminAnnouncementApp",tabId: "announcement" },
@@ -39581,6 +39646,7 @@ function renderAdminSiteEditorSection(tab) {
   if (tab === "reviews-cta")  renderAdminReviewsCtaSection();
   if (tab === "founding")     renderAdminFoundingSection();
   if (tab === "pricing")      renderAdminPricingSection();
+  if (tab === "free-plan")    renderAdminFreePlanAccessSection();
   if (tab === "promo-codes")  renderAdminPromoCodesSection();
   if (tab === "faqs")         renderAdminFaqsSection();
   if (tab === "announcement") renderAdminAnnouncementSection();
@@ -40100,6 +40166,129 @@ async function saveAdminPricingForm(form) {
   });
 }
 
+// ── Free Plan Access (grandfathering + soft limits) ──
+
+function adminResolvedFreePlanAccessConfig() {
+  const api = freePlanGrandfatheringApi();
+  const fromSite = effectiveSiteContent().freePlanAccess || {};
+  const resolved = api?.resolveConfig?.({ siteContent: effectiveSiteContent() }) || {};
+  return {
+    enabled: typeof fromSite.enabled === "boolean" ? fromSite.enabled : (resolved.enabled !== false),
+    curatedCutoffAt: fromSite.curatedCutoffAt || resolved.curatedCutoffAt || "2026-07-18T00:00:00.000Z",
+    missingDateMeansLegacy: typeof fromSite.missingDateMeansLegacy === "boolean"
+      ? fromSite.missingDateMeansLegacy
+      : (resolved.missingDateMeansLegacy !== false),
+    earlySupporterTitle: fromSite.earlySupporterTitle || resolved.earlySupporterTitle || "Early supporter Free access",
+    earlySupporterBody: fromSite.earlySupporterBody || resolved.earlySupporterBody || "",
+    freeCalendarPlanningDays: Math.max(1, Number(fromSite.freeCalendarPlanningDays) || freeCalendarPlanningDays || 30),
+    freeFavoriteLimit: Math.max(1, Number(fromSite.freeFavoriteLimit) || freeFavoriteLimit || 20),
+    freeChildProfileLimit: Math.max(1, Number(fromSite.freeChildProfileLimit) || freeChildProfileLimit || 5),
+  };
+}
+
+function adminFreeLessonAccessLabel(account = {}) {
+  if (adminMembershipHasProAccess(account)) return "Paid (full Pro library)";
+  const api = freePlanGrandfatheringApi();
+  const mode = api?.resolveFreeLessonAccessMode?.(account, { siteContent: effectiveSiteContent() }) || "curated";
+  if (mode === "legacy") return "Legacy Free (grandfathered)";
+  return "Curated Free sample";
+}
+
+function renderAdminFreePlanAccessSection() {
+  const target = document.querySelector("#adminFreePlanAccessApp");
+  if (!target || !isAdminUnlocked()) return;
+  const cfg = adminResolvedFreePlanAccessConfig();
+  const cutoffLocal = (() => {
+    const ms = Date.parse(cfg.curatedCutoffAt);
+    if (!Number.isFinite(ms)) return "";
+    const d = new Date(ms);
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  })();
+  target.innerHTML = `
+    <div class="section-heading">
+      <div><p class="eyebrow">Site Editor</p><h3>Free Plan Access <span class="se-status-badge se-live">🟢 Live</span></h3></div>
+    </div>
+    <p class="muted-copy">Control what new Free users get vs grandfathered Free users. Pro / Founding / Trial always keep full access.</p>
+    <form id="adminFreePlanAccessForm" class="panel-form admin-stacked-form">
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">Grandfathering</summary>
+        <div class="se-accordion-body">
+          <label class="se-draft-toggle"><input type="checkbox" name="enabled"${cfg.enabled ? " checked" : ""} /> Grandfather existing Free users before the cutoff</label>
+          <label>Curated Free cutoff (local time)<input name="curatedCutoffAt" type="datetime-local" value="${escapeHtml(cutoffLocal)}" /></label>
+          <p class="form-note">Accounts created <strong>before</strong> this date keep the original Free library. New Free signups after it get the curated sample.</p>
+          <label class="se-draft-toggle"><input type="checkbox" name="missingDateMeansLegacy"${cfg.missingDateMeansLegacy ? " checked" : ""} /> Treat Free accounts with no signup date as grandfathered</label>
+          <label>Early supporter title<input name="earlySupporterTitle" value="${escapeHtml(cfg.earlySupporterTitle)}" /></label>
+          <label>Early supporter message<textarea name="earlySupporterBody" rows="4">${escapeHtml(cfg.earlySupporterBody)}</textarea></label>
+        </div>
+      </details>
+      <details class="se-accordion" open>
+        <summary class="se-accordion-summary">New Free Soft Limits</summary>
+        <div class="se-accordion-body">
+          <div class="form-grid-two">
+            <label>Calendar planning days<input name="freeCalendarPlanningDays" type="number" min="1" max="365" value="${escapeHtml(String(cfg.freeCalendarPlanningDays))}" /></label>
+            <label>Favorites limit<input name="freeFavoriteLimit" type="number" min="1" max="500" value="${escapeHtml(String(cfg.freeFavoriteLimit))}" /></label>
+          </div>
+          <label>Child profiles limit<input name="freeChildProfileLimit" type="number" min="1" max="200" value="${escapeHtml(String(cfg.freeChildProfileLimit))}" /></label>
+          <p class="form-note">These apply to <strong>new curated Free</strong> users. Grandfathered Free and paid plans are not limited by these caps.</p>
+          <div class="access-notice" style="margin-top:10px;">
+            <p><strong>Current live defaults</strong></p>
+            <ul>
+              <li>Calendar horizon: ${escapeHtml(String(cfg.freeCalendarPlanningDays))} days</li>
+              <li>Favorites: up to ${escapeHtml(String(cfg.freeFavoriteLimit))}</li>
+              <li>Child profiles: up to ${escapeHtml(String(cfg.freeChildProfileLimit))}</li>
+              <li>Lesson library: curated Free sample for new Free · full Free-tier catalog for grandfathered Free · full library for Pro/Founding/Trial</li>
+            </ul>
+          </div>
+        </div>
+      </details>
+      <div class="se-form-actions">
+        <div class="se-action-buttons">
+          <button class="ghost-button" type="button" data-se-restore="free-plan">Restore Defaults</button>
+          <button class="primary-button" type="submit">Save Free Plan Access</button>
+        </div>
+      </div>
+      <span class="form-message" id="adminFreePlanAccessMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminFreePlanAccessForm(form) {
+  const formData = new FormData(form);
+  await runAdminSave({
+    messageSelector: "#adminFreePlanAccessMessage",
+    form,
+    saveFn: async () => {
+      const localCutoff = String(formData.get("curatedCutoffAt") || "").trim();
+      let curatedCutoffAt = "2026-07-18T00:00:00.000Z";
+      if (localCutoff) {
+        const ms = Date.parse(localCutoff);
+        if (Number.isFinite(ms)) curatedCutoffAt = new Date(ms).toISOString();
+      }
+      const nextContent = nextSiteContentDraft();
+      nextContent.freePlanAccess = {
+        ...(nextContent.freePlanAccess || {}),
+        enabled: formData.get("enabled") === "on",
+        curatedCutoffAt,
+        missingDateMeansLegacy: formData.get("missingDateMeansLegacy") === "on",
+        earlySupporterTitle: normalizedShortText(formData.get("earlySupporterTitle")),
+        earlySupporterBody: normalizedMultilineText(formData.get("earlySupporterBody")),
+        freeCalendarPlanningDays: Math.max(1, Number(formData.get("freeCalendarPlanningDays")) || 30),
+        freeFavoriteLimit: Math.max(1, Number(formData.get("freeFavoriteLimit")) || 20),
+        freeChildProfileLimit: Math.max(1, Number(formData.get("freeChildProfileLimit")) || 5),
+      };
+      console.log("[SAVE] Database save started");
+      await saveAdminSiteContent(nextContent);
+      console.log("[SAVE] Database saved");
+    },
+    successMsg: "✅ Free Plan Access saved and live.",
+    onComplete: () => {
+      renderAdminFreePlanAccessSection();
+      renderManagedPricingText();
+    },
+  });
+}
+
 // ── FAQs ──
 
 let adminFaqEditId = "";
@@ -40516,6 +40705,10 @@ function siteEditorDefaultFounding() {
   const def = captureDefaultSiteContent();
   return def.founding || {};
 }
+function siteEditorDefaultFreePlanAccess() {
+  const def = captureDefaultSiteContent();
+  return def.freePlanAccess || {};
+}
 
 async function handleSiteEditorRestore(section) {
   if (section === "hero") {
@@ -40598,6 +40791,13 @@ async function handleSiteEditorRestore(section) {
     await saveAdminSiteContent(nextContent);
     renderManagedPricingText();
     renderAdminPricingSection();
+  } else if (section === "free-plan") {
+    if (!confirm("Restore Free Plan Access defaults? This will overwrite current Free plan limits and grandfathering settings.")) return;
+    const nextContent = nextSiteContentDraft();
+    nextContent.freePlanAccess = siteEditorDefaultFreePlanAccess();
+    await saveAdminSiteContent(nextContent);
+    renderAdminFreePlanAccessSection();
+    renderManagedPricingText();
   } else if (section === "announcement") {
     if (!confirm("Clear the announcement?")) return;
     const nextContent = nextSiteContentDraft();
@@ -45795,7 +45995,7 @@ function toggleFavorite(id) {
     return;
   }
   const already = favorites.includes(id);
-  if (!already && !isProUser() && !hasAdminFullAccess() && !hasLegacyFreeLessonAccess() && favorites.length >= freeFavoriteLimit) {
+  if (!already && !isProUser() && !hasAdminFullAccess() && !hasLegacyFreeLessonAccess() && favorites.length >= effectiveFreeFavoriteLimit()) {
     trackUpgradePrompt("favorites_limit", { count: favorites.length });
     showProFeatureModal(freeFavoriteLimitMessage, "limit");
     return;
@@ -51597,6 +51797,11 @@ document.addEventListener("submit", async (event) => {
     await saveAdminPricingForm(event.target);
     return;
   }
+  if (event.target.matches("#adminFreePlanAccessForm")) {
+    event.preventDefault();
+    await saveAdminFreePlanAccessForm(event.target);
+    return;
+  }
   if (event.target.matches("#adminFaqForm")) {
     event.preventDefault();
     await saveAdminFaqForm(event.target);
@@ -52881,7 +53086,7 @@ document.addEventListener("submit", async (event) => {
   const form = event.target;
   const data = collectFormData(form);
   const editId = data.childId || activeChildProfileEditId || "";
-  if (!editId && !isProUser() && childStore("Profiles").length >= freeChildProfileLimit) {
+  if (!editId && !isProUser() && childStore("Profiles").length >= effectiveFreeChildProfileLimit()) {
     showProFeatureModal(freeChildProfileLimitMessage, "limit");
     return;
   }
