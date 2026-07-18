@@ -25,8 +25,8 @@ const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260718-admin-boot-fix";
-const SHELL_V = "llh-shell-v93-admin-boot-fix";
+const CACHE_V = "20260718-use-plan-auth";
+const SHELL_V = "llh-shell-v94-use-plan-auth";
 
 test("site content store supports menus, observations, and resource categories", () => {
   assert.match(serverJs, /menus:\s*\[\]/);
