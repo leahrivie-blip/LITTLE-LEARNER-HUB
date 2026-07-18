@@ -63,6 +63,8 @@
     "test:signup-buttons-audit": "node scripts/test-signup-buttons-audit.js",
     "test:signup-center-continue": "node scripts/test-signup-center-continue.js",
     "test:signup-email-tap": "node scripts/test-signup-email-tap.js",
+    "test:signup-pricing-flow": "node scripts/test-signup-pricing-flow.js",
+    "test:signup-suite": "npm run test:homepage-signup-cta && npm run test:signup-pricing-flow && npm run test:signup-email-tap && npm run test:signup-center-continue && npm run test:signup-buttons-audit",
     "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",
     "test:lesson-plan-calendar-workflow": "node scripts/test-lesson-plan-calendar-workflow-audit.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",

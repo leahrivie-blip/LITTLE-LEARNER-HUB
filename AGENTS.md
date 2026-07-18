@@ -20,3 +20,19 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Test scripts are the `test:*` entries in `package.json` (run via `npm run test:<name>`), e.g. `npm run test:homepage-smoke`.
 - Browser-based tests (e.g. `test:homepage-smoke`, `test:lesson-library-header`, `test:curriculum-ux`, `test:curriculum-publish`) use **Playwright Chromium (headless)** and require the browser binaries (installed via `npx playwright install --with-deps chromium`).
 - Each test **spawns its own server instance on a random port with a temp JSON store**, so tests do not depend on (or conflict with) a separately running dev server.
+
+### Signup suite (required on every big change)
+After any substantial UI, auth, billing, homepage, modal, or navigation change — and before calling the work done — run the full signup sheet audit every way:
+
+```bash
+npm run test:signup-suite
+```
+
+That suite covers:
+- Homepage Founding / Free CTA markers (`test:homepage-signup-cta`)
+- Account → Program → Plan wizard + pricing copy (`test:signup-pricing-flow`)
+- Email field tappable on short phones (`test:signup-email-tap`)
+- Center/program continue pathways desktop + mobile (`test:signup-center-continue`)
+- Every guest signup / Get Started / Founding CTA click-through on desktop, mobile, and short-mobile, including lesson/activity/plans surfaces (`test:signup-buttons-audit`)
+
+Do not skip this suite for “backend-only” PRs that also touch `app.js`, `index.html`, `styles.css`, homepage CSS, auth modal markup, checkout CTAs, or service-worker cache busts.

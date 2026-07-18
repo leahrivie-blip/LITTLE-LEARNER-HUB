@@ -163,6 +163,31 @@ async function clickSignupAndExpectModal(page, locator, label) {
     return { ok: false, label, reason: `expected signup modal, got title: ${title}`, coverInfo };
   }
 
+  // Every signup sheet must leave Email actually tappable (short phones used to
+  // cover #emailInput with sticky Continue / help chrome).
+  const emailTap = await page.evaluate(() => {
+    const input = document.querySelector("#emailInput");
+    const help = document.querySelector(".auth-help-links");
+    if (!input) return { ok: false, reason: "email input missing" };
+    const r = input.getBoundingClientRect();
+    if (r.width < 2 || r.height < 2) return { ok: false, reason: "email zero size" };
+    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    if (top !== input) {
+      return {
+        ok: false,
+        reason: `email covered by ${(top?.tagName || "?").toLowerCase()}#${top?.id || ""}`,
+      };
+    }
+    if (help && !help.hidden && !help.classList.contains("hidden-field")) {
+      return { ok: false, reason: "help links still visible during signup" };
+    }
+    if (input.disabled || input.readOnly) return { ok: false, reason: "email disabled/readonly" };
+    return { ok: true };
+  });
+  if (!emailTap.ok) {
+    return { ok: false, label: `${label} (email tap)`, reason: emailTap.reason, coverInfo };
+  }
+
   await closeAuth(page);
   return { ok: true, label, coverInfo };
 }
@@ -386,6 +411,8 @@ async function main() {
     for (const vp of [
       { width: 1280, height: 900, label: "desktop" },
       { width: 390, height: 844, label: "mobile" },
+      // Short phones / browser chrome — regression for Founding email field blocked by Continue.
+      { width: 390, height: 640, label: "short-mobile" },
     ]) {
       console.log(`\n=== ${vp.label} (${vp.width}x${vp.height}) ===`);
       const result = await runViewport(browser, { width: vp.width, height: vp.height }, vp.label);
