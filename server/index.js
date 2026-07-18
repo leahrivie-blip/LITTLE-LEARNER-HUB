@@ -6,6 +6,7 @@ const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
 const accountAccess = require("../scripts/account-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
+const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createFoundingMemberEmail } = require("./founding-member-email.js");
@@ -1362,7 +1363,8 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
 
 function publicCurriculumLessonPlanPreviewDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
-  if (!entry || !isCurriculumLessonPublic(entry.status) || entry.plan !== "Pro") return null;
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  if (freeCurriculumSample.isCuratedFreeLessonPlan(entry)) return null;
   // Public Pro teaser: overview metadata only. Do not ship objectives, materials,
   // vocabulary, books, songs, or activity names — those unlock with paid access.
   let activityCount = 0;
@@ -1375,7 +1377,7 @@ function publicCurriculumLessonPlanPreviewDto(plan) {
     title: entry.title,
     age: entry.age,
     theme: entry.theme,
-    plan: entry.plan,
+    plan: "Pro",
     status: entry.status,
     locked: true,
     learningDomains: entry.learningDomains.slice(0, 6),
@@ -1391,13 +1393,14 @@ function publicCurriculumLessonPlanPreviewDto(plan) {
 
 function publicCurriculumLessonPlanFreeDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
-  if (!entry || !isCurriculumLessonPublic(entry.status) || entry.plan !== "Free") return null;
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  if (!freeCurriculumSample.isCuratedFreeLessonPlan(entry)) return null;
   return {
     id: entry.id,
     title: entry.title,
     age: entry.age,
     theme: entry.theme,
-    plan: entry.plan,
+    plan: "Free",
     status: entry.status,
     locked: false,
     learningDomains: entry.learningDomains,
@@ -1455,14 +1458,17 @@ function authorizedCurriculumLessonPlanDto(plan) {
 function publicCurriculumLessonPlanDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (entry.plan === "Pro") return publicCurriculumLessonPlanPreviewDto(plan);
-  return publicCurriculumLessonPlanFreeDto(plan);
+  if (freeCurriculumSample.isCuratedFreeLessonPlan(entry)) {
+    return publicCurriculumLessonPlanFreeDto(plan);
+  }
+  return publicCurriculumLessonPlanPreviewDto(plan);
 }
 
 function publicCurriculumActivityPreviewDto(activity, parentPlan) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
-  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || parentPlan.plan !== "Pro") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
+  if (freeCurriculumSample.isCuratedFreeLessonPlan(parentPlan)) return null;
   // Overview teaser only — no description/materials/steps/teacher language/etc.
   return {
     id: entry.id,
@@ -1483,14 +1489,14 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan) {
 function publicCurriculumActivityFreeDto(activity, parentPlan) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
-  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || parentPlan.plan !== "Free") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status) || !freeCurriculumSample.isCuratedFreeLessonPlan(parentPlan)) return null;
   return {
     id: entry.id,
     lessonPlanId: entry.lessonPlanId,
     title: entry.title,
     activityCategory: entry.activityCategory,
     dayOfWeek: entry.dayOfWeek,
-    plan: parentPlan.plan,
+    plan: "Free",
     locked: false,
     objective: entry.objective,
     description: entry.description,

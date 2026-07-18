@@ -1775,10 +1775,14 @@ const billingPlans = {
     interval: "",
     stripePriceKey: "",
     features: [
-      "30 Total Free Lesson Plans",
+      "Selected Free Lesson Plans (sample library)",
+      "Print Free sample lesson plans",
+      "Browse & preview Pro lesson plans",
+      "Limited calendar planning",
+      "Limited favorites",
       "10 Observations",
       "6 Forms",
-      "8 Activity Ideas",
+      "Limited Activity Center samples",
       "10 Document Creations Per Month",
       "Up to 3 Child Profiles",
       "Weekly Observation Tracker",
@@ -1789,21 +1793,48 @@ const billingPlans = {
     price: "$9.99",
     interval: "/month",
     stripePriceKey: "STRIPE_PRICE_FOUNDING_MONTHLY",
-    features: ["Founding Member Status", "$9.99/month", "Lifetime Price Lock", "All Pro features", "250 Document Creations Per Month"],
+    features: [
+      "Unlimited lesson plans — save hours every week",
+      "New lesson plans added every week",
+      "Full Activity Center by age, theme, and domain",
+      "Lesson plan customization & saved personal copies",
+      "Unlimited calendar planning",
+      "Documentation Helpers for observations, parent messages, and reports",
+      "Child Profiles, Daily Logs, and Behavior & Support tools",
+      "Future Pro features included",
+      "Founding Member $9.99/month locked for life",
+      "250 Document Creations Per Month",
+    ],
   },
   ProMonthly: {
     name: "Pro Monthly",
     price: "$19.99",
     interval: "/month",
     stripePriceKey: "STRIPE_PRICE_PRO_MONTHLY",
-    features: ["Full in-app library", "All Pro resources", "250 document creations per month", "All child management and provider tools"],
+    features: [
+      "Unlimited ready-to-use lesson plans for childcare providers",
+      "New lesson plans added every week",
+      "Full Activity Center organized by age, theme, and learning domain",
+      "Customize, save, and reuse your own lesson plan versions",
+      "Unlimited calendar planning",
+      "Documentation Helpers — observations, parent messages, incidents, daily reports",
+      "Child Profiles, Daily Logs, and Behavior & Support tools",
+      "Future Pro features included",
+      "250 document creations per month",
+    ],
   },
   ProAnnual: {
     name: "Pro Annual",
     price: "$199",
     interval: "/year",
     stripePriceKey: "STRIPE_PRICE_PRO_ANNUAL",
-    features: ["Best regular value", "Full in-app library", "All Pro resources", "250 document creations per month"],
+    features: [
+      "Best regular value",
+      "Everything in Pro Monthly",
+      "Unlimited lesson plans and weekly new content",
+      "Full Activity Center, customization, and planning tools",
+      "250 document creations per month",
+    ],
   },
 };
 const stripeCheckoutConfig = {
@@ -2029,7 +2060,7 @@ const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthCon
 const authProviderName = firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication";
 let firebaseAuthClient = null;
 // Numeric caps apply to legacy library resources only. Curriculum lesson plans and activities
-// use Free/Pro tier access in canAccess() — all published Free-tier curriculum items unlock for Free users.
+// use the curated Free sample (see scripts/free-curriculum-sample.js) — not every Free-tagged plan.
 const freeAccessLimits = {
   "Lesson Plans": 5,
   "Observation Hub": 10,
@@ -2038,14 +2069,47 @@ const freeAccessLimits = {
   "Activity Center": 8,
 };
 const freePlanBaseFeatures = [
+  "Print any Free sample lesson plan",
+  "Browse the full library and preview Pro plans",
+  "Limited calendar planning",
+  "Limited favorites",
   "10 Observations",
   "6 Forms",
-  "8 Activity Ideas",
+  "Limited Activity Center samples",
   "10 Document Creations Per Month",
   "Up to 3 Child Profiles",
   "Weekly Observation Tracker",
 ];
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
+const freeCalendarAssignmentLimit = 2;
+const freeFavoriteLimit = 5;
+const lessonCustomizationUpgradeHeadline = "Make This Lesson Plan Your Own";
+const lessonCustomizationUpgradeBody = "Personalize activities, edit materials, change books and songs, add your own notes, save your own version, and reuse it year after year.\n\nUpgrade to Pro to unlock lesson plan customization.";
+
+function freeCurriculumSampleApi() {
+  return (typeof globalThis !== "undefined" && globalThis.LLHFreeCurriculumSample)
+    || (typeof window !== "undefined" && window.LLHFreeCurriculumSample)
+    || null;
+}
+
+function isCuratedFreeCurriculumPlan(planOrResource) {
+  const api = freeCurriculumSampleApi();
+  const plan = planOrResource?._curriculumLessonPlan || planOrResource;
+  if (api?.isCuratedFreeLessonPlan) return api.isCuratedFreeLessonPlan(plan || planOrResource);
+  // Fallback if script failed to load: never treat unknown curriculum as Free.
+  return Boolean(planOrResource?._userLessonCopy);
+}
+
+function curriculumResourceLooksLikeLessonPlan(resource) {
+  return Boolean(
+    resource
+    && (
+      resource.category === "Lesson Plans"
+      || resource._curriculumLessonPlan
+      || resource._userLessonCopy
+    ),
+  );
+}
 
 function curriculumLessonPlanAccessStats() {
   const plans = effectiveCurriculumLibrary().lessonPlans || [];
@@ -2055,30 +2119,36 @@ function curriculumLessonPlanAccessStats() {
   let proTotal = 0;
   plans.forEach((plan) => {
     const age = normalizeAgeGroup(plan.age) || plan.age || "Other";
-    if (String(plan.plan || "Free").trim() === "Pro") {
-      proTotal += 1;
-      proByAge[age] = (proByAge[age] || 0) + 1;
+    if (isCuratedFreeCurriculumPlan(plan)) {
+      freeTotal += 1;
+      freeByAge[age] = (freeByAge[age] || 0) + 1;
       return;
     }
-    freeTotal += 1;
-    freeByAge[age] = (freeByAge[age] || 0) + 1;
+    proTotal += 1;
+    proByAge[age] = (proByAge[age] || 0) + 1;
   });
   return { freeTotal, proTotal, freeByAge, proByAge };
 }
 
 function freeLessonPlanMarketingLabel() {
+  const api = freeCurriculumSampleApi();
   const { freeTotal } = curriculumLessonPlanAccessStats();
-  const total = freeTotal || 30;
-  return `${total} Total Free Lesson Plans`;
+  const fallback = api?.freeSampleMarketingCount?.() || api?.MARKETING?.freeFallbackCount || 10;
+  const total = freeTotal || fallback;
+  return `${total} Selected Free Lesson Plans`;
 }
 
 function freePlanFeatureList() {
-  return [freeLessonPlanMarketingLabel(), ...freePlanBaseFeatures];
+  return [
+    freeLessonPlanMarketingLabel(),
+    "Print Free sample lesson plans",
+    "Browse & preview the Pro library",
+    ...freePlanBaseFeatures.filter((line) => !/print any free|browse the full library/i.test(line)),
+  ];
 }
 
 function freePlanAccessSummaryText() {
-  const lessonLabel = freeLessonPlanMarketingLabel().toLowerCase();
-  return `Free: 3 profiles, 10 observations, ${lessonLabel}, 6 forms, 8 activity ideas, and 10 document creations. Upgrade anytime to start a 7-Day Free Pro Trial.`;
+  return "Free includes a curated sample of high-quality lesson plans you can print, plus limited planning tools so you can explore before upgrading. Upgrade anytime for unlimited lesson plans, customization, and the full childcare toolkit.";
 }
 
 function formatLessonPlanAgeBreakdown(byAge) {
@@ -2164,20 +2234,26 @@ const proFeatureList = [
   "Premium Menus",
   "Future Premium Features",
 ];
-const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
+const freeDocumentationLimitMessage = "Save time every day with unlimited observations, parent messages, incident reports, daily reports, and documentation tools.";
+const freeAiLimitMessage = `${freeDocumentationLimitMessage}\n\nYou’ve used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.`;
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
-const proUnlockValueProp = "Unlock the full curriculum library and access new lesson plans added every week.";
+const proUnlockValueProp = "Save hours every week with unlimited ready-to-use lesson plans, new plans added weekly, the full Activity Center, lesson customization, calendar tools, Documentation Helpers, Child Profiles, and every future Pro feature.";
 const freeResourceLimitMessage = `You have reached your Free Plan limit. ${proUnlockValueProp}`;
 const proTrialUpgradeMessage = `${proUnlockValueProp} Start your 7-Day Free Trial for full Pro access. Card required. Cancel anytime.`;
 const proTrialUpgradeSummary = "7-Day Free Trial · Card required · Cancel anytime · Converts to Pro Monthly after trial.";
-const freeLibraryUpgradeHeadline = "Tired of seeing the same free lesson plans?";
-const freeLibraryUpgradeBody = "Unlock the full curriculum library, premium activities, curriculum planning tools, and new lesson plans added every week.";
+const freeLibraryUpgradeHeadline = "Ready for more weeks of planning?";
+const freeLibraryUpgradeBody = "You’re using the Free Plan with a curated sample of lesson plans. Upgrade to unlock unlimited plans, customization, the full Activity Center, and new content every week — built by a childcare provider.";
 const aiLessonPlanUpgradeMessage = "Generate custom lesson plans in seconds.\n\nAvailable with Pro Membership.\n\nStart Your 7-Day Free Trial\nCard required. Cancel anytime.";
 const lockedProLessonUpgradeHeadline = "This is a Pro Lesson Plan.";
 const lockedProLessonUpgradeBody = "You're viewing a preview only.";
-const freeLibraryDashboardHeadline = "Still Using the Free Library?";
-const freeLibraryDashboardBody = "You currently have access to our sample lesson plans.";
-const freePlannerUpgradeNudge = `${proUnlockValueProp} You can view the planner and assign Free sample plans now — upgrade for the full Pro library, premium activities, and AI lesson plan generation.`;
+const freeLibraryDashboardHeadline = "If the Free sample feels this good…";
+const freeLibraryDashboardBody = "Imagine unlimited lesson plans, personal customization, and new resources added every week. Upgrade to unlock the complete Little Learner Hub.";
+const freePlannerUpgradeNudge = "Need more weeks planned? Upgrade to Pro for unlimited calendar planning, the full lesson library, premium activities, and AI lesson plan generation.";
+const freeCalendarLimitMessage = "Need more weeks planned?\n\nUpgrade to Pro for unlimited calendar planning.";
+const freeFavoriteLimitMessage = "Keep unlimited favorite lesson plans and activities with Pro.";
+const freeActivityCenterUpgradeMessage = "Unlock hundreds of activities organized by age, theme, and learning domain.";
+const FREE_PLAN_REMINDER_DISMISS_KEY = "llhFreePlanReminderDismissed";
+const FREE_PLAN_SOFT_NUDGE_KEY = "llhFreePlanSoftNudgeShown";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
 const defaultDailyLogFavorites = ["Circle Time", "Outside Play", "Art", "Sensory Bin", "Water Play"];
@@ -2940,14 +3016,15 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   freeTitle: "Free Plan",
   freeSubtitle: "A preview of Little Learner Hub — great for exploring before upgrading",
   freeIncludes: Object.freeze([
-    "Limited lesson plans",
-    "Limited activities",
-    "Preview of Little Learner Hub",
+    "Selected free lesson plans across Infant, Toddler, and Preschool",
+    "Print Free sample lesson plans",
+    "Browse the library and preview Pro plans",
+    "Limited calendar planning, favorites, and Documentation Helpers",
     "Great for exploring before upgrading",
   ]),
   freeCta: "Start with Free Preview",
   freeConfirmTitle: "You’re choosing the Free Plan.",
-  freeConfirmBody: "You’ll have access to a limited selection of lesson plans and features.\n\nUpgrade anytime to unlock the complete Little Learner Hub experience with unlimited content and new resources added weekly.",
+  freeConfirmBody: "You’ll get a curated sample of high-quality lesson plans you can print, plus limited planning tools.\n\nYou’ll miss unlimited lesson plans, weekly new content, lesson customization, the full Activity Center, unlimited calendar planning, and Documentation Helpers.\n\nUpgrade anytime to unlock the complete Little Learner Hub.",
   freeConfirmContinue: "Continue with Free",
   freeConfirmUpgrade: "Upgrade Instead",
   preferredFoundingNote: "You’re locking in Founding Member pricing — here’s everything included:",
@@ -6597,6 +6674,10 @@ async function openLessonPlanEditor(resourceId, options = {}) {
     window.alert("This lesson plan does not have editable structured content yet.");
     return null;
   }
+  if (!canCustomizeLessonPlans()) {
+    showLessonCustomizationUpgrade(resourceId);
+    return null;
+  }
   const editable = ensureEditableLessonResource(source);
   if (!editable) {
     window.alert("This lesson plan does not have editable structured content yet.");
@@ -9430,6 +9511,7 @@ function updateAuthButtons() {
   syncPlatformNavVisibility();
   updateBodyAuthClass();
   refreshAdminPreviewBadge();
+  refreshFreePlanUpgradeChrome();
   // Auth state just changed (login, logout, or boot restore) — keep the
   // notification bell in sync either way (it also hides itself when logged out).
   if (typeof refreshNotificationBell === "function") {
@@ -10902,9 +10984,18 @@ function registerPwaSupport() {
 // Keeps body CSS classes in sync with auth + plan state.
 // body.user-authenticated — user is logged in
 // body.user-pro          — user has Pro or Founding access (subset of authenticated)
+// body.user-free-upgrade — logged-in Free owner eligible for paid upgrade prompts
 function updateBodyAuthClass() {
   document.body.classList.toggle("user-authenticated", Boolean(currentUser));
   document.body.classList.toggle("user-pro", Boolean(currentUser) && isProUser());
+  let freeUpgrade = false;
+  try {
+    // Early boot can call this before PLATFORM_CAPABILITIES is initialized.
+    freeUpgrade = typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer();
+  } catch {
+    freeUpgrade = false;
+  }
+  document.body.classList.toggle("user-free-upgrade", freeUpgrade);
 }
 
 function updateAdminNavVisibility() {
@@ -11403,9 +11494,90 @@ function canAccess(resource) {
   if (hasAdminFullAccess()) return true;
   if (accessRank[effectiveAccessPlan()] >= accessRank.Pro) return true;
   if (resource?._curriculumManaged) {
-    return String(resource.plan || "Free").trim() !== "Pro";
+    if (resource._userLessonCopy) return true;
+    if (resource.category === "Activity Center") {
+      const parentId = resource._curriculumActivity?.lessonPlanId || resource.lessonPlanId || "";
+      const parent = parentId
+        ? (resources.find((item) => item.id === parentId) || effectiveCurriculumLibrary().lessonPlans?.find((item) => item.id === parentId))
+        : null;
+      if (parent) return isCuratedFreeCurriculumPlan(parent);
+      // Fall back to parent title fields embedded on activity resources.
+      return isCuratedFreeCurriculumPlan({
+        id: parentId,
+        title: resource.parentTitle || resource._parentTitle || "",
+        age: resource.parentAge || resource.age || "",
+        theme: resource.parentTheme || resource.theme || "",
+      });
+    }
+    return isCuratedFreeCurriculumPlan(resource);
   }
   return freeResourceIds(resource.category).has(resource.id);
+}
+
+function canCustomizeLessonPlans() {
+  return isProUser() || hasAdminFullAccess();
+}
+
+function trackUpgradePrompt(promptId, extra = {}) {
+  try {
+    trackEvent("upgrade_prompt_shown", { promptId, plan: effectiveAccessPlan(), ...extra });
+  } catch {
+    /* ignore */
+  }
+}
+
+function trackUpgradePromptClick(promptId, extra = {}) {
+  try {
+    trackEvent("upgrade_prompt_click", { promptId, plan: effectiveAccessPlan(), ...extra });
+  } catch {
+    /* ignore */
+  }
+}
+
+function showLessonCustomizationUpgrade(resourceId = "") {
+  trackUpgradePrompt("lesson_customization", { resourceId });
+  const modal = document.querySelector("#proModal");
+  const body = document.querySelector("#proModalBody");
+  const eyebrow = document.querySelector("#proModalEyebrow");
+  const title = document.querySelector("#proModalTitle");
+  const upgradeBtn = document.querySelector("#proModalUpgrade");
+  if (!modal || !body) {
+    showProFeatureModal(lessonCustomizationUpgradeBody, "feature");
+    return;
+  }
+  const offerFounding = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
+  if (eyebrow) eyebrow.textContent = "Pro Customization";
+  if (title) title.textContent = lessonCustomizationUpgradeHeadline;
+  body.innerHTML = `
+    <p>${escapeHtml(lessonCustomizationUpgradeBody).replace(/\n/g, "<br>")}</p>
+    ${offerFounding ? `<p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s> · Founding: <strong>$9.99/month for life</strong></p>` : ""}
+  `;
+  if (upgradeBtn) {
+    upgradeBtn.textContent = offerFounding ? "Upgrade to Pro" : "Upgrade to Pro";
+    upgradeBtn.dataset.checkoutPlan = offerFounding ? "founding" : "monthly";
+    upgradeBtn.dataset.upgradeMode = offerFounding ? "founding" : "monthly";
+    upgradeBtn.dataset.upgradePromptId = "lesson_customization";
+  }
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function freeCalendarAssignmentsUsed() {
+  try {
+    return loadCurriculumWeekAssignments().filter((item) => item?.weekStartDate && (item.lessonPlanId || item.resourceId || item.snapshot)).length;
+  } catch {
+    return 0;
+  }
+}
+
+function canAssignMoreFreeCalendarPlans(weekStartDate = "") {
+  if (isProUser() || hasAdminFullAccess()) return true;
+  const used = freeCalendarAssignmentsUsed();
+  if (weekStartDate) {
+    const existing = curriculumAssignmentForWeek(weekStartDate);
+    if (existing) return true; // replacing an existing Free week doesn't consume a new slot
+  }
+  return used < freeCalendarAssignmentLimit;
 }
 
 function isProUser() {
@@ -12122,6 +12294,9 @@ function libraryCoverToneClass(seed = "") {
 }
 
 function libraryPlanBadge(resource) {
+  if (resource?._curriculumManaged || resource?._curriculumLessonPlan || resource?._userLessonCopy) {
+    return isCuratedFreeCurriculumPlan(resource) ? "Free Sample" : "Pro";
+  }
   const locked = !canAccess(resource);
   if (locked || String(resource.plan || "").trim() === "Pro") return "Pro";
   return "Free";
@@ -12264,11 +12439,12 @@ function activityBrowseCard(resource) {
   const category = resource.activityCategory || resource.theme || "Activity";
   const age = resource.age || "All Ages";
   const parentLessonTitle = resource._curriculumParentTitle || "";
-  const favoriteLabel = !isProUser() ? "Save is a Pro feature" : favorite ? "Remove from Saved" : "Save activity";
+  const favoriteLabel = favorite ? "Remove from Saved" : "Save activity";
   const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
   const coverClass = libraryCoverToneClass(`${resource.title}-${category}`);
   const coverStyle = libraryResourceCoverStyle(resource);
   const parentLessonId = resource.lessonPlanId || resource._curriculumLessonPlanId || "";
+  const planBadgeIsPro = String(planBadge).startsWith("Pro");
   return `
     <article
       class="resource-card browse-card activity-browse-card ${locked ? "locked" : ""}"
@@ -12279,11 +12455,11 @@ function activityBrowseCard(resource) {
       aria-label="${escapeHtml(openLabel)}"
     >
       <div class="browse-card-cover ${coverClass}" ${coverStyle ? `style="${coverStyle}"` : ""}>
-        <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
-          class="browse-card-save lesson-plan-save-btn ${favorite ? "is-saved" : ""} ${!isProUser() ? "disabled-control" : ""}"
+          class="browse-card-save lesson-plan-save-btn ${favorite ? "is-saved" : ""}"
           type="button"
-          ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resource.id)}"`}
+          data-favorite="${escapeHtml(resource.id)}"
           aria-label="${escapeHtml(favoriteLabel)}"
           aria-pressed="${favorite ? "true" : "false"}"
           title="${escapeHtml(favoriteLabel)}"
@@ -12300,8 +12476,8 @@ function activityBrowseCard(resource) {
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View</button>
         <button
           type="button"
-          class="ghost-button ${!isProUser() ? "disabled-control" : ""}"
-          ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resource.id)}"`}
+          class="ghost-button"
+          data-favorite="${escapeHtml(resource.id)}"
         >${favorite ? "Saved" : "Save"}</button>
         ${parentLessonId && !locked ? `<button type="button" class="ghost-button" data-activity-add-calendar="${escapeHtml(parentLessonId)}">Add to Calendar</button>` : ""}
       </div>
@@ -12318,7 +12494,7 @@ function lessonPlanCard(resource) {
   const activityCount = resource._curriculumManaged
     ? curriculumActivityCountForLesson(resource.id)
     : 0;
-  const favoriteLabel = !isProUser() ? "Save is a Pro feature" : favorite ? "Remove from Saved Plans" : "Save plan";
+  const favoriteLabel = favorite ? "Remove from Saved Plans" : "Save plan";
   const openLabel = locked ? `Preview ${resource.title}` : `Open ${resource.title}`;
   const pickingForCalendar = Boolean(calendarLessonAssignContext?.weekStartDate);
   const coverClass = libraryCoverToneClass(`${resource.title}-${theme || ageLabel}`);
@@ -12332,6 +12508,7 @@ function lessonPlanCard(resource) {
   const activityLabel = activityCount
     ? `${activityCount} ${activityCount === 1 ? "Activity" : "Activities"}`
     : "";
+  const planBadgeIsPro = String(planBadge).startsWith("Pro");
   return `
     <article
       class="resource-card lesson-plan-card browse-card has-cover-image netflix-cover-card ${locked ? "locked" : ""} ${pickingForCalendar ? "is-calendar-pick" : ""}"
@@ -12356,11 +12533,11 @@ function lessonPlanCard(resource) {
           onerror="handleLessonCoverImageError(this)"
         />
         <div class="browse-card-cover-scrim" aria-hidden="true"></div>
-        <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        <span class="browse-card-badge ${planBadgeIsPro ? "is-pro" : "is-free"}">${planBadge}</span>
         <button
-          class="lesson-plan-save-btn browse-card-save ${favorite ? "is-saved" : ""} ${!isProUser() ? "disabled-control" : ""}"
+          class="lesson-plan-save-btn browse-card-save ${favorite ? "is-saved" : ""}"
           type="button"
-          ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resource.id)}"`}
+          data-favorite="${escapeHtml(resource.id)}"
           aria-label="${escapeHtml(favoriteLabel)}"
           aria-pressed="${favorite ? "true" : "false"}"
           title="${escapeHtml(favoriteLabel)}"
@@ -12381,8 +12558,8 @@ function lessonPlanCard(resource) {
         <button type="button" class="primary-button" data-view-resource="${escapeHtml(resource.id)}">View Plan</button>
         <button
           type="button"
-          class="ghost-button ${!isProUser() ? "disabled-control" : ""}"
-          ${!isProUser() ? `data-pro-feature="favorites"` : `data-favorite="${escapeHtml(resource.id)}"`}
+          class="ghost-button"
+          data-favorite="${escapeHtml(resource.id)}"
         >${favorite ? "Saved" : "Save"}</button>
       </div>
     </article>
@@ -12407,10 +12584,23 @@ function activityQuickFilterOptions() {
 
 function filterActivityBrowseItems(items) {
   let list = items.slice();
-  if (activityLibraryPlanFilter === "Free") {
-    list = list.filter((item) => String(item.plan || "Free").trim() !== "Pro");
-  } else if (activityLibraryPlanFilter === "Pro") {
-    list = list.filter((item) => String(item.plan || "Free").trim() === "Pro");
+  if (activityLibraryPlanFilter === "Free" || activityLibraryPlanFilter === "Pro") {
+    list = list.filter((item) => {
+      const parentId = item.lessonPlanId || item._curriculumLessonPlanId || "";
+      const parent = parentId
+        ? (resources.find((entry) => entry.id === parentId)
+          || (effectiveCurriculumLibrary().lessonPlans || []).find((entry) => entry.id === parentId))
+        : null;
+      const curated = parent
+        ? isCuratedFreeCurriculumPlan(parent)
+        : isCuratedFreeCurriculumPlan({
+          id: parentId,
+          title: item.parentTitle || item._curriculumParentTitle || item.title || "",
+          age: item.parentAge || item.age || "",
+          theme: item.theme || "",
+        });
+      return activityLibraryPlanFilter === "Free" ? curated : !curated;
+    });
   }
   if (activityLibraryShowSavedOnly) {
     list = list.filter((item) => favorites.includes(item.id));
@@ -12499,7 +12689,7 @@ function buildLessonBrowseRows(items) {
     items.filter((item) => lessonPlanIsAssigned(item.id)),
     byRecent(lessonRecentlyViewed),
   ], 18);
-  const freePlans = items.filter((item) => String(item.plan || "Free").trim() !== "Pro").slice(0, 18);
+  const freePlans = items.filter((item) => isCuratedFreeCurriculumPlan(item)).slice(0, 18);
   const seasonal = items.filter((item) => isSeasonalOrHolidayResource(item)).slice(0, 18);
   const recentlyAdded = sortResourcesByRecency(items).slice(0, 18);
   const popular = sortResourcesPopular(items).slice(0, 18);
@@ -12564,7 +12754,7 @@ function collectLessonViewAllItems(items, key) {
       items.filter((item) => lessonRecentlyViewed.includes(item.id)),
     ], 100);
   }
-  if (key === "free") return items.filter((item) => String(item.plan || "Free").trim() !== "Pro");
+  if (key === "free") return items.filter((item) => isCuratedFreeCurriculumPlan(item));
   if (key === "seasonal") return items.filter((item) => isSeasonalOrHolidayResource(item));
   if (key === "recent") return sortResourcesByRecency(items);
   if (key === "popular") return sortResourcesPopular(items);
@@ -12712,8 +12902,8 @@ function categoryResources(category) {
     if (category === "Lesson Plans") {
       if (lessonLibraryMode === "saved" && (!isProUser() || !favorites.includes(resource.id))) return false;
       if (lessonLibraryShowAssignedOnly && !lessonPlanIsAssigned(resource.id)) return false;
-      if (lessonLibraryPlanFilter === "Free" && String(resource.plan || "Free").trim() === "Pro") return false;
-      if (lessonLibraryPlanFilter === "Pro" && String(resource.plan || "Free").trim() !== "Pro") return false;
+      if (lessonLibraryPlanFilter === "Free" && !isCuratedFreeCurriculumPlan(resource)) return false;
+      if (lessonLibraryPlanFilter === "Pro" && isCuratedFreeCurriculumPlan(resource)) return false;
     }
     const haystack = resourceSearchHaystack(resource);
     return matchesCategory && matchesFilter && haystack.includes(query);
@@ -15796,6 +15986,9 @@ function closeResourceViewer() {
   const viewer = document.querySelector("#resourceViewerModal");
   if (!viewer) return;
   const wasOpen = viewer.classList.contains("open");
+  const closingResource = activeResourceViewerResource
+    || resources.find((item) => item.id === activeViewerResourceId)
+    || null;
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
@@ -15809,6 +16002,7 @@ function closeResourceViewer() {
   updateResourceViewerBackButton();
   if (wasOpen) restoreLessonLibraryBrowseState();
   if (wasOpen) restoreHomePreviewScrollPosition();
+  if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
 }
 
 function updateResourceViewerBackButton() {
@@ -18074,6 +18268,10 @@ function duplicateLessonWorkspacePlan(resourceId) {
     window.alert("This lesson plan cannot be duplicated yet.");
     return null;
   }
+  if (!canCustomizeLessonPlans()) {
+    showLessonCustomizationUpgrade(resourceId);
+    return null;
+  }
   const base = source._userLessonCopy
     ? source
     : { ...source, id: source._sourceLessonPlanId || source.id };
@@ -19352,11 +19550,12 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     featurePreviewModal.querySelector(".feature-preview-card")?.appendChild(stickyBar);
   }
   if (isLockedLessonPlan || isLockedActivity) {
+    trackUpgradePrompt(isLockedActivity ? "locked_activity_preview" : "locked_lesson_preview", { resourceId: resource.id });
     stickyBar.hidden = false;
     stickyBar.innerHTML = `
       <div class="fp-sticky-upgrade-copy">
         <strong>${isLockedActivity ? "Unlock this Pro activity" : "Unlock this Pro lesson plan"}</strong>
-        <span>${escapeHtml(proUnlockValueProp)}</span>
+        <span>${escapeHtml(isLockedActivity ? freeActivityCenterUpgradeMessage : proUnlockValueProp)}</span>
       </div>
       ${stickyUpgradeCta}
     `;
@@ -19688,17 +19887,17 @@ function libraryCompactUpgradeStripHtml() {
       </section>
     `;
   }
-  if (isProUser() || hasAdminFullAccess()) return "";
+  if (!canSeePaidUpgradeOffer()) return "";
   if (isFoundingUpgradeBannerDismissed()) return "";
+  const foundingOpen = foundingSpotsStillAvailable();
   return `
-    <section class="library-upgrade-strip" role="region" aria-label="Free library upgrade offer">
+    <section class="library-upgrade-strip" role="region" aria-label="Free plan upgrade offer">
       <div class="library-upgrade-strip-copy">
         <p><strong>${escapeHtml(freeLibraryUpgradeHeadline)}</strong></p>
         <p>${escapeHtml(freeLibraryUpgradeBody)}</p>
-        <p class="muted-copy">Card required. Cancel anytime.</p>
       </div>
       <div class="library-upgrade-strip-actions">
-        <button class="primary-button" type="button" data-start-pro-trial>Start Your 7-Day Free Trial</button>
+        <button class="primary-button" type="button" data-checkout-plan="${foundingOpen ? "founding" : "monthly"}">${foundingOpen ? "Lock in Founding Pricing" : "Upgrade to Pro"}</button>
         <button class="ghost-button" type="button" data-dismiss-founding-upgrade aria-label="Dismiss upgrade offer">×</button>
       </div>
     </section>
@@ -19938,7 +20137,7 @@ function renderLessonPlanLibraryNotice() {
   const accessCopy = isProUser() || hasAdminFullAccess()
     ? `Pro is active: full access to all ${stats.freeTotal + stats.proTotal} published lesson plans. New lesson plans are added every week.`
     : stats.freeTotal
-      ? `Tired of seeing the same free lesson plans? Your Free plan includes ${stats.freeTotal} sample plans${ageBreakdown ? ` (${ageBreakdown})` : ""}. ${proUnlockValueProp} There are ${stats.proTotal} additional Pro plans ready to unlock.`
+      ? `Your Free plan includes ${stats.freeTotal || 10} curated sample lesson plans${ageBreakdown ? ` (${ageBreakdown})` : ""} you can print and use. ${proUnlockValueProp} There are ${stats.proTotal} additional Pro plans ready to unlock.`
       : `${proUnlockValueProp} Browse published play-based lesson plans by age group.`;
   return `
     <section id="lessonLibraryInfoPanel" class="access-notice lesson-library-notice lesson-library-notice-compact" role="status" aria-live="polite">
@@ -22251,12 +22450,19 @@ async function resolveCurriculumPlanForAssignment(resourceOrId) {
   if (!canAccess(resource)) {
     throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
   }
+  const assignWeekHint = calendarLessonAssignContext?.weekStartDate
+    || (typeof curriculumPlannerSelectedWeek === "string" ? curriculumPlannerSelectedWeek : "");
+  if (!canAssignMoreFreeCalendarPlans(assignWeekHint)) {
+    trackUpgradePrompt("calendar_limit", { used: freeCalendarAssignmentsUsed() });
+    showProFeatureModal(freeCalendarLimitMessage, "limit");
+    throw new Error(freeCalendarLimitMessage);
+  }
   const status = String(resource._curriculumLessonPlan?.status || resource.status || "published");
   if (status === "draft" || status === "archived") {
     throw new Error("Draft and archived lesson plans cannot be assigned.");
   }
   let plan = resource._curriculumLessonPlan || null;
-  if (resource.plan === "Pro") {
+  if (!isCuratedFreeCurriculumPlan(resource) && String(resource.plan || "").trim() === "Pro") {
     if (!isProUser() && !hasAdminFullAccess()) {
       throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
     }
@@ -42250,13 +42456,118 @@ function isFoundingUpgradeBannerDismissed() {
   }
 }
 
+function isFreePlanReminderDismissed() {
+  try {
+    return sessionStorage.getItem(FREE_PLAN_REMINDER_DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissFreePlanReminderBar() {
+  try {
+    sessionStorage.setItem(FREE_PLAN_REMINDER_DISMISS_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  const bar = document.querySelector("#freePlanReminderBar");
+  if (bar) bar.hidden = true;
+}
+
 function dismissFoundingUpgradeBanner() {
   try {
     sessionStorage.setItem(FOUNDING_UPGRADE_DISMISS_KEY, "1");
   } catch {
     /* ignore */
   }
-  document.querySelectorAll(".founding-upgrade-banner, .library-upgrade-strip, .free-library-conversion-banner").forEach((node) => node.remove());
+  document.querySelectorAll(".founding-upgrade-banner, .library-upgrade-strip:not(.library-upgrade-strip--guest), .free-library-conversion-banner").forEach((node) => node.remove());
+  dismissFreePlanReminderBar();
+}
+
+function freePlanUpgradePrimaryCta() {
+  if (!canSeePaidUpgradeOffer()) return { label: "See Plans", view: "plans", checkout: "" };
+  if (foundingSpotsStillAvailable()) {
+    return { label: "Lock in Founding Member Pricing", view: "", checkout: "founding" };
+  }
+  return { label: "Upgrade to Pro", view: "", checkout: "monthly" };
+}
+
+/** Persistent Free Plan badge, sidebar card, and subtle top reminder for eligible Free owners. */
+function refreshFreePlanUpgradeChrome() {
+  let show = false;
+  try {
+    // Guard early boot: capability maps may not be initialized yet.
+    show = typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer();
+  } catch {
+    show = false;
+  }
+  const badge = document.querySelector("#freePlanBadge");
+  const sidebarCard = document.querySelector("#sidebarFreeUpgradeCard");
+  const reminder = document.querySelector("#freePlanReminderBar");
+  const softNudge = document.querySelector("#freePlanSoftNudge");
+  if (badge) badge.hidden = !show;
+  if (sidebarCard) sidebarCard.hidden = !show;
+  if (!show) {
+    if (reminder) reminder.hidden = true;
+    if (softNudge) softNudge.hidden = true;
+    return;
+  }
+
+  const primary = freePlanUpgradePrimaryCta();
+  const reminderPrimary = document.querySelector("#freePlanReminderPrimary");
+  if (reminderPrimary) {
+    reminderPrimary.textContent = primary.label;
+    if (primary.checkout) {
+      reminderPrimary.dataset.checkoutPlan = primary.checkout;
+      delete reminderPrimary.dataset.view;
+    } else {
+      delete reminderPrimary.dataset.checkoutPlan;
+      reminderPrimary.dataset.view = primary.view || "plans";
+    }
+  }
+  const nudgePrimary = document.querySelector("#freePlanSoftNudgePrimary");
+  if (nudgePrimary) {
+    nudgePrimary.textContent = foundingSpotsStillAvailable() ? "Lock in Founding Pricing" : "Upgrade to Pro";
+    if (foundingSpotsStillAvailable()) {
+      nudgePrimary.dataset.checkoutPlan = "founding";
+      delete nudgePrimary.dataset.view;
+    } else {
+      delete nudgePrimary.dataset.checkoutPlan;
+      nudgePrimary.dataset.view = "plans";
+    }
+  }
+  if (reminder) {
+    // Keep badge/sidebar always; reminder bar is dismissible for the session.
+    reminder.hidden = isFreePlanReminderDismissed() || isFoundingUpgradeBannerDismissed();
+  }
+}
+
+function maybeShowFreePlanSoftNudge(resource) {
+  if (!canSeePaidUpgradeOffer()) return;
+  if (!resource) return;
+  const isLesson = String(resource.category || "") === "Lesson Plans" || Boolean(resource._curriculumManaged);
+  if (!isLesson) return;
+  const plan = String(resource.plan || "Free").toLowerCase();
+  if (plan.includes("pro") || plan.includes("found")) return;
+  try {
+    if (sessionStorage.getItem(FREE_PLAN_SOFT_NUDGE_KEY) === "1") return;
+    sessionStorage.setItem(FREE_PLAN_SOFT_NUDGE_KEY, "1");
+  } catch {
+    return;
+  }
+  const nudge = document.querySelector("#freePlanSoftNudge");
+  if (!nudge) return;
+  nudge.hidden = false;
+  window.setTimeout(() => {
+    if (nudge && !nudge.hidden) nudge.classList.add("is-visible");
+  }, 40);
+}
+
+function hideFreePlanSoftNudge() {
+  const nudge = document.querySelector("#freePlanSoftNudge");
+  if (!nudge) return;
+  nudge.classList.remove("is-visible");
+  nudge.hidden = true;
 }
 
 /** Preferred paid checkout for eligible Free owners: founding while spots remain, else Pro monthly. */
@@ -42270,7 +42581,7 @@ function preferredPaidCheckoutButtonLabel() {
 
 /**
  * Free-library conversion banner (dashboard / planner).
- * Curriculum-focused trial CTA — do not stack with foundingUpgradeBannerHtml.
+ * Value-first upgrade CTA — do not stack with foundingUpgradeBannerHtml.
  */
 function freeLibraryConversionBannerHtml(options = {}) {
   const {
@@ -42278,29 +42589,32 @@ function freeLibraryConversionBannerHtml(options = {}) {
     dismissible = true,
     force = false,
   } = options;
-  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return "";
+  if (!canSeePaidUpgradeOffer()) return "";
   if (!force && isFoundingUpgradeBannerDismissed()) return "";
+  const foundingOpen = foundingSpotsStillAvailable();
+  const primaryCheckout = foundingOpen ? "founding" : "monthly";
+  const primaryLabel = foundingOpen ? "Lock in Founding Member Pricing" : "Upgrade to Pro";
   return `
-    <section class="free-library-conversion-banner free-library-conversion-banner--${escapeHtml(variant)}" role="region" aria-label="Free library upgrade offer">
+    <section class="free-library-conversion-banner free-library-conversion-banner--${escapeHtml(variant)}" role="region" aria-label="Free plan upgrade offer">
       <div class="free-library-conversion-banner-copy">
-        <p class="free-library-conversion-badge">Free Library</p>
-        <h3>🔥 ${escapeHtml(freeLibraryDashboardHeadline)}</h3>
+        <p class="free-library-conversion-badge">Free Plan</p>
+        <h3>${escapeHtml(freeLibraryDashboardHeadline)}</h3>
         <p class="free-library-conversion-body">${escapeHtml(freeLibraryDashboardBody)}</p>
         <p class="free-library-conversion-body">${escapeHtml(proUnlockValueProp)}</p>
-        <p class="muted-copy">Upgrade to Pro and unlock:</p>
+        <p class="muted-copy">Upgrade unlocks:</p>
         <ul class="free-library-conversion-benefits">
-          <li>Full curriculum library</li>
-          <li>New lesson plans added every week</li>
-          <li>Curriculum Planner</li>
-          <li>Premium activities</li>
-          <li>Documentation helpers</li>
-          <li>AI lesson plan generation</li>
-          <li>Printable curriculum</li>
+          <li>Unlimited lesson plans</li>
+          <li>Entire Activity Center</li>
+          <li>New lesson plans added weekly</li>
+          <li>Documentation Helpers</li>
+          <li>Calendar &amp; planning tools</li>
+          <li>Future Pro features included</li>
+          <li>Priority updates</li>
         </ul>
-        <p class="muted-copy">Card required. Cancel anytime.</p>
       </div>
       <div class="free-library-conversion-banner-actions">
-        <button class="primary-button" type="button" data-start-pro-trial>Start Your 7-Day Free Trial</button>
+        <button class="primary-button" type="button" data-checkout-plan="${primaryCheckout}">${escapeHtml(primaryLabel)}</button>
+        ${foundingOpen ? `<button class="ghost-button" type="button" data-view="plans">Compare Plans</button>` : `<button class="ghost-button" type="button" data-start-pro-trial>Start 7-Day Free Trial</button>`}
         ${dismissible ? `<button class="ghost-button" type="button" data-dismiss-founding-upgrade>Maybe later</button>` : ""}
       </div>
     </section>
@@ -43013,6 +43327,7 @@ function updatePlanLabel() {
     }
   }
   updateSidebarDashboard();
+  refreshFreePlanUpgradeChrome();
 }
 
 function updateSidebarDashboard() {
@@ -43506,8 +43821,17 @@ async function signOut() {
 }
 
 function toggleFavorite(id) {
-  if (!isProUser()) return;
-  favorites = favorites.includes(id) ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
+  if (!isLoggedIn() && !hasAdminFullAccess()) {
+    openAuthModal("login");
+    return;
+  }
+  const already = favorites.includes(id);
+  if (!already && !isProUser() && !hasAdminFullAccess() && favorites.length >= freeFavoriteLimit) {
+    trackUpgradePrompt("favorites_limit", { count: favorites.length });
+    showProFeatureModal(freeFavoriteLimitMessage, "limit");
+    return;
+  }
+  favorites = already ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
   saveFavorites();
   refreshLessonWorkspaceSaveButton();
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "home";
@@ -45337,7 +45661,8 @@ document.addEventListener("click", async (event) => {
     const observation = observations.find((item) => item.id === duplicateChildObservationButton.dataset.duplicateChildObservation);
     if (!observation) return;
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
-      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
+      trackUpgradePrompt("observations_limit", { limit: freeObservationRecordLimit });
+      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
       return;
     }
     const copy = {
@@ -46418,6 +46743,10 @@ document.addEventListener("click", async (event) => {
   const calendarCustomizeDay = event.target.closest("[data-calendar-customize-day]");
   if (calendarCustomizeDay) {
     event.preventDefault();
+    if (!canCustomizeLessonPlans()) {
+      showLessonCustomizationUpgrade();
+      return;
+    }
     const iso = calendarCustomizeDay.dataset.calendarCustomizeDay || mainCalendarSelectedDay;
     const dayKey = calendarCustomizeDay.dataset.calendarCustomizeDayKey || curriculumDayKeyForIso(iso);
     const week = curriculumPlannerWeekStartIso(iso);
@@ -48561,6 +48890,8 @@ document.addEventListener("keydown", (event) => {
 document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   const upgradeBtn = document.querySelector("#proModalUpgrade");
   const mode = upgradeBtn?.dataset.upgradeMode || "trial";
+  const promptId = upgradeBtn?.dataset.upgradePromptId || "pro_modal";
+  trackUpgradePromptClick(promptId, { mode });
   closeProFeatureModal();
   if (mode === "founding") {
     startCheckout("founding");
@@ -49515,6 +49846,21 @@ document.addEventListener("click", async (event) => {
   if (foundingUpgradeDismiss) {
     event.preventDefault();
     dismissFoundingUpgradeBanner();
+    refreshFreePlanUpgradeChrome();
+    return;
+  }
+
+  const freePlanReminderDismiss = event.target.closest("[data-dismiss-free-plan-reminder]");
+  if (freePlanReminderDismiss) {
+    event.preventDefault();
+    dismissFreePlanReminderBar();
+    return;
+  }
+
+  const freePlanNudgeDismiss = event.target.closest("[data-dismiss-free-plan-nudge]");
+  if (freePlanNudgeDismiss) {
+    event.preventDefault();
+    hideFreePlanSoftNudge();
     return;
   }
 });
@@ -50196,7 +50542,8 @@ document.addEventListener("submit", (event) => {
     } : item));
   } else {
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
-      showProFeatureModal(`You've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
+      trackUpgradePrompt("observations_limit", { limit: freeObservationRecordLimit });
+      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
       return;
     }
     saveChildStore("Observations", [...observations, {

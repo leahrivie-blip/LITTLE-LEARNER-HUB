@@ -56,12 +56,13 @@ async function main() {
   const viewerJs = fs.readFileSync(path.join(ROOT, "scripts/curriculum-lesson-viewer-render.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
-  assertIncludes(appJs, "Unlock the full curriculum library and access new lesson plans added every week.", "value prop");
-  assertIncludes(appJs, "Tired of seeing the same free lesson plans?", "free library headline");
-  assertIncludes(appJs, "Still Using the Free Library?", "dashboard headline");
+  assertIncludes(appJs, "Save hours every week with unlimited ready-to-use lesson plans", "value prop");
+  assertIncludes(appJs, "Ready for more weeks of planning?", "free library headline");
+  assertIncludes(appJs, "If the Free sample feels this good", "dashboard headline");
   assertIncludes(appJs, "Generate custom lesson plans in seconds.", "AI gate message");
   assertIncludes(appJs, "function canGenerateAiLessonPlans()", "AI gate helper");
   assertIncludes(appJs, "function freeLibraryConversionBannerHtml", "dashboard banner helper");
+  assertIncludes(appJs, "function refreshFreePlanUpgradeChrome", "persistent free chrome helper");
   assertIncludes(appJs, "function renderLessonPlanLibraryCountsHtml", "library counts helper");
   assertIncludes(appJs, "Start Your 7-Day Free Trial", "trial CTA");
   assertIncludes(appJs, "Converts to Pro Monthly after trial", "trial conversion note");
@@ -69,6 +70,9 @@ async function main() {
   assertIncludes(viewerJs, "Complete Monday–Friday lesson plans", "locked preview unlock list");
   assertIncludes(viewerJs, "New lesson plans added every week", "locked preview weekly language");
   assertIncludes(indexHtml, "Start Your 7-Day Free Trial", "modal CTA");
+  assertIncludes(indexHtml, "freePlanBadge", "free plan badge");
+  assertIncludes(indexHtml, "freePlanReminderBar", "free plan reminder bar");
+  assertIncludes(indexHtml, "sidebarFreeUpgradeCard", "sidebar free upgrade card");
 
   // Preview lock contract: locked renderer must not emit protected day-plan sections.
   const lockedFn = viewerJs.slice(

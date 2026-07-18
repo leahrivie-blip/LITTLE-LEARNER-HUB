@@ -104,7 +104,7 @@ async function inspectEmailTapTarget(page) {
 async function openFoundingSignup(page, viewport) {
   await page.setViewportSize(viewport);
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.locator('[data-checkout-plan="founding"]').first().click({ force: true });
+  await page.locator('.llh-announce-banner [data-checkout-plan="founding"], #homePricing [data-checkout-plan="founding"], [data-checkout-plan="founding"]:not(#freePlanReminderPrimary)').first().click({ force: true });
   await page.waitForSelector("#authModal.open", { timeout: 10000 });
   await page.waitForFunction(() => {
     const step = document.querySelector("#signupStepAccount");
@@ -136,8 +136,8 @@ async function main() {
   assert.match(appJs, /help\.hidden = inWizard/);
   assert.match(css, /#authModal \.signup-wizard-body/);
   assert.match(css, /min-height:\s*min\(320px,\s*42dvh\)/);
-  assert.match(indexHtml, /styles\.css\?v=20260718-signup-paid-focus/);
-  assert.match(indexHtml, /app\.js\?v=20260718-signup-paid-focus/);
+  assert.match(indexHtml, /styles\.css\?v=20260718-free-pro-conversion/);
+  assert.match(indexHtml, /app\.js\?v=20260718-free-pro-conversion/);
 
   const child = startServer();
   let bootLog = "";
