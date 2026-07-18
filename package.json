@@ -119,6 +119,7 @@
     "test:admin-dashboard-drilldown": "node scripts/test-admin-dashboard-drilldown.js",
     "test:owner-command-center": "node scripts/test-owner-command-center.js",
     "test:admin-ai-content-manager": "node scripts/test-admin-ai-content-manager.js",
+    "test:admin-full-remaining": "node scripts/test-admin-full-remaining.js",
     "test:admin-notifications-pwa": "node scripts/test-admin-notifications-pwa.js",
     "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js",
     "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js",

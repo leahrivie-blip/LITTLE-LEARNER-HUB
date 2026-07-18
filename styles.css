@@ -21091,3 +21091,15 @@ body.home-view .llh-app-footer {
     page-break-inside: avoid;
   }
 }
+
+
+/* Admin user impersonation / safety */
+body.admin-impersonating .admin-preview-badge {
+  border-color: #c0392b;
+  background: #fff5f5;
+}
+.admin-owner-collapse .aup-btn--danger,
+button.aup-btn--danger {
+  color: #922b21;
+  border-color: #e6b0aa;
+}

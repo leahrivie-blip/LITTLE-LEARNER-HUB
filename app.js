@@ -4351,6 +4351,8 @@ function readAdminOwnerSectionsOpen() {
     health: !adminOwnerMobileDefaultCollapsed,
     growth: !adminOwnerMobileDefaultCollapsed,
     safety: !adminOwnerMobileDefaultCollapsed,
+    promo: !adminOwnerMobileDefaultCollapsed,
+    comms: !adminOwnerMobileDefaultCollapsed,
   };
   try {
     const saved = JSON.parse(localStorage.getItem("llhAdminOwnerSectionsOpen") || "null");
@@ -4372,6 +4374,10 @@ let adminSessionHeartbeatTimer = null;
 let adminGlobalSearchQuery = "";
 let adminSafetyStatus = null;
 let adminSafetyLoading = false;
+let adminImpersonationState = null; // { email, account, planPreview, startedAt }
+let adminUserDetailCache = {};
+let adminPromoCodesState = { loading: false, items: [], envPromo: null, redemptions: [], error: "", success: "" };
+let adminCommsAnnouncementsState = { loading: false, items: [], error: "", success: "" };
 let adminCurriculumListFilters = { query: "", status: "", plan: "", age: "", theme: "" };
 let adminCurriculumSelectedIds = new Set();
 let adminCurriculumActivitySelectedIds = new Set();
@@ -4475,7 +4481,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -4495,7 +4501,7 @@ const adminGroups = [
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
-  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg", "changelog"], defaultTab: "hero" },
+  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-tools", "prompts", "settings", "usage", "ai-testing"], defaultTab: "ai-tools" },
 ];
 const adminGroupForTab = {
@@ -4526,7 +4532,7 @@ const adminGroupForTab = {
   "images":      "settings",
   "pricing":     "site-editor",
   "faqs":        "site-editor",
-  "announcement":"site-editor",
+  "announcement":"site-editor","in-app-announcements":"site-editor","promo-codes":"site-editor",
   "upgrade-msg": "site-editor",
   "changelog":   "site-editor",
   "hero":        "site-editor",
@@ -4568,7 +4574,7 @@ const adminTabLabels = {
   "images":      "Images",
   "pricing":     "Pricing",
   "faqs":        "FAQs",
-  "announcement":"Announcement",
+  "announcement":"Announcement","in-app-announcements":"In-App Announcements","promo-codes":"Promo Codes",
   "upgrade-msg": "Upgrade Msg",
   "hero":        "Hero",
   "trust":       "Trust & Showcase",
@@ -33891,9 +33897,257 @@ function refreshAdminPreviewBadge() {
       ? "Admin mode"
       : `Previewing as ${mode}`;
   }
-  if (returnBtn) returnBtn.hidden = mode === "Admin";
-  badge.classList.toggle("is-simulating", mode !== "Admin");
+  if (returnBtn) returnBtn.hidden = mode === "Admin" && !isAdminImpersonating();
+  badge.classList.toggle("is-simulating", mode !== "Admin" || isAdminImpersonating());
   badge.hidden = false;
+  if (isAdminImpersonating()) {
+    if (label) {
+      label.textContent = `Viewing as ${adminImpersonationState.account?.name || adminImpersonationState.email} (read-only)`;
+    }
+    if (returnBtn) {
+      returnBtn.hidden = false;
+      returnBtn.textContent = "Exit user view";
+      returnBtn.setAttribute("data-admin-exit-impersonation", "1");
+    }
+  } else if (returnBtn) {
+    returnBtn.textContent = "Return to Admin";
+    returnBtn.removeAttribute("data-admin-exit-impersonation");
+  }
+}
+
+function isAdminImpersonating() {
+  return Boolean(isAdminUnlocked() && adminImpersonationState?.email);
+}
+
+function stopAdminImpersonation({ refresh = true } = {}) {
+  adminImpersonationState = null;
+  document.body.classList.remove("admin-impersonating");
+  delete document.body.dataset.adminImpersonation;
+  setAdminPreviewMode("Admin");
+  if (refresh) {
+    refreshAdminPreviewBadge();
+    showActionFeedback("Exited user view.");
+  }
+}
+
+async function fetchAdminUserDetail(email) {
+  const token = adminSession()?.token || "";
+  const clean = String(email || "").trim().toLowerCase();
+  if (!token || !clean || !canUseLaunchBackend()) return null;
+  if (adminUserDetailCache[clean]?.fetchedAt && Date.now() - adminUserDetailCache[clean].fetchedAt < 15000) {
+    return adminUserDetailCache[clean].data;
+  }
+  const res = await fetch(`/api/admin/user-detail?adminToken=${encodeURIComponent(token)}&email=${encodeURIComponent(clean)}`, { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Could not load user detail.");
+  adminUserDetailCache[clean] = { fetchedAt: Date.now(), data };
+  return data;
+}
+
+async function startAdminImpersonation(email) {
+  if (!isAdminUnlocked()) return;
+  try {
+    const detail = await fetchAdminUserDetail(email);
+    if (!detail?.user) throw new Error("User detail unavailable.");
+    const planPreview = detail.impersonation?.planPreview || "Free";
+    adminImpersonationState = {
+      email: detail.user.email,
+      account: detail.user,
+      activity: detail.activity || {},
+      planPreview,
+      startedAt: new Date().toISOString(),
+      readOnly: true,
+    };
+    document.body.classList.add("admin-impersonating");
+    document.body.dataset.adminImpersonation = detail.user.email;
+    setAdminPreviewMode(["Free", "Trial", "Pro", "Founding"].includes(planPreview) ? planPreview : "Free");
+    refreshAdminPreviewBadge();
+    showActionFeedback(`Viewing as ${detail.user.name || detail.user.email} (read-only sandbox).`);
+    setView("home");
+  } catch (error) {
+    showActionFeedback(error?.message || "Could not start user view.");
+  }
+}
+
+async function adminIssueTempPassword(email) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) throw new Error("Admin session required.");
+  const res = await fetch("/api/admin/users/issue-temp-password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, email }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Could not issue temporary password.");
+  return data;
+}
+
+async function downloadAdminStoreExport() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) throw new Error("Admin session required.");
+  const res = await fetch(`/api/admin/store-export?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Store export failed.");
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const href = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = href;
+  a.download = `llh-store-export-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(href);
+  return data;
+}
+
+async function restoreAdminStoreFromBackup(backupId) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) throw new Error("Admin session required.");
+  const res = await fetch("/api/admin/store-restore", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      adminToken: token,
+      backupId,
+      confirm: "RESTORE_STORE_FROM_BACKUP",
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Store restore failed.");
+  return data;
+}
+
+async function loadAdminPromoCodes() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminPromoCodesState.loading = true;
+  adminPromoCodesState.error = "";
+  try {
+    const res = await fetch(`/api/admin/promo-codes?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not load promo codes.");
+    adminPromoCodesState.items = data.promoCodes || [];
+    adminPromoCodesState.envPromo = data.envPromo || null;
+    adminPromoCodesState.redemptions = data.redemptions || [];
+  } catch (error) {
+    adminPromoCodesState.error = error.message || "Promo codes unavailable.";
+  } finally {
+    adminPromoCodesState.loading = false;
+  }
+}
+
+async function saveAdminPromoCode(payload) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required.");
+  const res = await fetch("/api/admin/promo-codes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Could not save promo code.");
+  return data;
+}
+
+async function deleteAdminPromoCode(id) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required.");
+  const res = await fetch("/api/admin/promo-code-delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, id }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Could not delete promo code.");
+  return data;
+}
+
+async function loadAdminInAppAnnouncements() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminCommsAnnouncementsState.loading = true;
+  adminCommsAnnouncementsState.error = "";
+  try {
+    const res = await fetch(`/api/admin/announcements?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not load announcements.");
+    adminCommsAnnouncementsState.items = data.announcements || [];
+  } catch (error) {
+    adminCommsAnnouncementsState.error = error.message || "Announcements unavailable.";
+  } finally {
+    adminCommsAnnouncementsState.loading = false;
+  }
+}
+
+async function saveAdminInAppAnnouncement(payload) {
+  const token = adminSession()?.token || "";
+  if (!token) throw new Error("Admin session required.");
+  const endpoint = payload.id ? "/api/admin/announcement-update" : "/api/admin/announcements";
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ adminToken: token, ...payload }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || "Could not save announcement.");
+  return data;
+}
+
+function applyAdminAiDraftToEditor() {
+  const output = String(adminAiContentState.output || "").trim();
+  if (!output) {
+    showActionFeedback("Generate a draft first.");
+    return;
+  }
+  const type = adminAiContentState.contentType || "lesson";
+  if (type === "lesson" || type === "theme") {
+    createAdminCurriculumLessonPlan();
+    requestAnimationFrame(() => {
+      const form = document.querySelector("#adminCurriculumLessonPlanForm");
+      const importText = document.querySelector("#adminCurriculumLessonImportText");
+      if (form) {
+        const title = form.querySelector('[name="title"]');
+        const theme = form.querySelector('[name="theme"]');
+        const age = form.querySelector('[name="age"], [name="ageGroup"]');
+        const overview = form.querySelector('[name="weeklyOverview"], [name="overview"], textarea[name="description"]');
+        if (title && !title.value) title.value = `${adminAiContentState.theme || "AI Draft"} Lesson Plan`;
+        if (theme && adminAiContentState.theme) theme.value = adminAiContentState.theme;
+        if (age && adminAiContentState.age) age.value = adminAiContentState.age;
+        if (overview) overview.value = output.slice(0, 8000);
+      }
+      if (importText) {
+        importText.value = output;
+        adminCurriculumLessonImportTextCache = output;
+      }
+      showActionFeedback("Draft applied to lesson editor. Review before saving — nothing was published.");
+    });
+    return;
+  }
+  if (type === "printable") {
+    setAdminSectionTab("printables");
+    requestAnimationFrame(() => {
+      const form = document.querySelector("#adminPrintableForm, #managedPrintableForm, form[data-managed-form='printables']");
+      const title = form?.querySelector('[name="title"], [name="name"]');
+      const body = form?.querySelector('[name="description"], [name="body"], textarea');
+      if (title && !title.value) title.value = adminAiContentState.theme || "AI Printable Draft";
+      if (body) body.value = output.slice(0, 8000);
+      showActionFeedback("Draft applied to Printables form when available. Review before publishing.");
+    });
+    return;
+  }
+  if (type === "activity") {
+    setAdminSectionTab("curriculum-activities");
+    showActionFeedback("Draft copied context ready — open an activity and paste, or use Copy. Auto-fill uses lesson editor for richer drafts.");
+    navigator.clipboard?.writeText(output).catch(() => {});
+    return;
+  }
+  if (type === "email") {
+    setAdminSectionTab("emails");
+    navigator.clipboard?.writeText(output).then(() => showActionFeedback("Email draft copied. Paste into Email Engagement.")).catch(() => showActionFeedback("Open Emails and paste the draft."));
+    return;
+  }
+  setAdminSectionTab("announcement");
+  navigator.clipboard?.writeText(output).then(() => showActionFeedback("Draft copied for announcement/social use.")).catch(() => {});
 }
 
 function adminSession() {
@@ -33931,6 +34185,9 @@ function setAdminSession(sessionDetail) {
 
 function clearAdminSession(options = {}) {
   stopAdminSessionHeartbeat();
+  adminImpersonationState = null;
+  document.body.classList.remove("admin-impersonating");
+  delete document.body.dataset.adminImpersonation;
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
@@ -34739,12 +34996,14 @@ function renderAdminGrowthCenter() {
   const weekly = Object.entries(periods.weeklyVisitors || {}).slice(-6);
   const monthly = Object.entries(periods.monthlyRevenue || {}).slice(-6);
   const maxDaily = Math.max(1, ...daily.map(([, count]) => Number(count) || 0));
+  const topLessons = Array.isArray(totals.topLessonViews) ? totals.topLessonViews : [];
+  const topDownloads = Array.isArray(totals.topDownloads) ? totals.topDownloads : [];
   return `
     <details class="admin-owner-collapse" id="adminOwnerGrowth" data-admin-owner-section="growth" ${adminOwnerSectionsOpen.growth !== false ? "open" : ""}>
       <summary class="admin-owner-collapse-summary">
         <div>
           <p class="eyebrow">Growth Center</p>
-          <h3>Visitors, conversions, and revenue</h3>
+          <h3>Visitors, conversions, revenue, and content demand</h3>
         </div>
         <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
       </summary>
@@ -34758,6 +35017,8 @@ function renderAdminGrowthCenter() {
         ${adminMetric("Revenue MTD", adminMoneyLabel(totals.revenueThisMonth))}
         ${adminMetric("MRR", adminMoneyLabel(totals.monthlyRecurringRevenue))}
         ${adminMetric("Total Revenue", adminMoneyLabel(totals.totalRevenue))}
+        ${adminMetric("Promo Redemptions", totals.promoRedemptionsTotal ?? "—")}
+        ${adminMetric("Active Promo Codes", totals.promoCodesActive ?? "—")}
       </div>
       <div class="admin-owner-lists admin-growth-charts">
         <article class="analytics-card">
@@ -34782,6 +35043,21 @@ function renderAdminGrowthCenter() {
             <div class="analytics-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(adminMoneyLabel(amount))}</strong></div>
           `).join("") : `<div class="empty-state">No revenue periods yet.</div>`}
         </article>
+        <article class="analytics-card">
+          <h4>Top lesson views</h4>
+          ${topLessons.length ? topLessons.map(([label, count]) => `
+            <div class="analytics-row"><span>${escapeHtml(String(label))}</span><strong>${escapeHtml(String(count))}</strong></div>
+          `).join("") : `<div class="empty-state">No lesson view leaders yet.</div>`}
+        </article>
+        <article class="analytics-card">
+          <h4>Top downloads / prints</h4>
+          ${topDownloads.length ? topDownloads.map(([label, count]) => `
+            <div class="analytics-row"><span>${escapeHtml(String(label))}</span><strong>${escapeHtml(String(count))}</strong></div>
+          `).join("") : `<div class="empty-state">No download leaders yet.</div>`}
+        </article>
+      </div>
+      <div class="account-actions-row" style="margin-top:12px;">
+        <button type="button" class="ghost-button" data-admin-quick="promo">Manage Promo Codes</button>
       </div>
     </details>
   `;
@@ -34807,6 +35083,10 @@ async function refreshAdminSafetyStatus() {
       stripe: ready.stripe || ready.checks?.stripe || "unknown",
       email: ready.email || ready.checks?.email || "unknown",
     };
+    await Promise.all([
+      loadAdminStoreHealth().catch(() => null),
+      loadAdminStoreBackups().catch(() => []),
+    ]);
   } catch (error) {
     adminSafetyStatus = {
       ok: false,
@@ -34827,23 +35107,50 @@ function renderAdminSafetyCenterBody() {
     return `<p class="muted-copy">Checking server health…</p>`;
   }
   const status = adminSafetyStatus || {};
+  const checks = Array.isArray(status.checks) ? status.checks : [];
   const rows = [
     ["Server Health", status.healthStatus || "unknown"],
     ["Launch Readiness", status.readiness || "unknown"],
     ["Database", typeof status.database === "object" ? (status.database.status || JSON.stringify(status.database)) : (status.database || "unknown")],
     ["Stripe", typeof status.stripe === "object" ? (status.stripe.status || JSON.stringify(status.stripe)) : (status.stripe || "unknown")],
     ["Email", typeof status.email === "object" ? (status.email.status || JSON.stringify(status.email)) : (status.email || "unknown")],
+    ["Store users", adminStoreHealthState.health?.counts?.users ?? "—"],
+    ["Backups listed", Array.isArray(adminStoreHealthState.backups) ? adminStoreHealthState.backups.length : "—"],
     ["Last checked", status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "Not checked"],
   ];
+  const checkRows = checks.slice(0, 12).map((check) => {
+    if (typeof check === "string") return `<div class="analytics-row"><span>${escapeHtml(check)}</span></div>`;
+    const label = check.name || check.id || check.label || "Check";
+    const value = check.status || check.state || (check.ok === true ? "ok" : (check.ok === false ? "fail" : (check.detail || check.message || "—")));
+    return `<div class="analytics-row"><span>${escapeHtml(String(label))}</span><strong>${escapeHtml(String(typeof value === "object" ? JSON.stringify(value) : value))}</strong></div>`;
+  }).join("");
+  const backupRows = (adminStoreHealthState.backups || []).slice(0, 5).map((b) => `
+    <div class="analytics-row stacked">
+      <span><strong>${escapeHtml(b.created_at ? new Date(b.created_at).toLocaleString() : b.id)}</strong></span>
+      <small>${escapeHtml(b.source || "")} · users ${Number(b.user_count) || 0} · ${b.verified ? "verified" : "unverified"}</small>
+      <div class="admin-action-buttons">
+        <button type="button" class="ghost-button" data-admin-safety-download-backup="${escapeHtml(b.id)}">Download</button>
+        <button type="button" class="ghost-button aup-btn--danger" data-admin-safety-restore-backup="${escapeHtml(b.id)}">Restore…</button>
+      </div>
+    </div>
+  `).join("");
   return `
     <div class="admin-owner-grid admin-kpi-grid">
       ${rows.map(([label, value]) => adminMetric(label, value)).join("")}
     </div>
-    <p class="muted-copy">Use Refresh Safety to re-check. Full backup/restore tooling stays on Launch Readiness / existing admin backup tools.</p>
+    ${checkRows ? `<article class="analytics-card" style="margin-top:12px;"><h4>Readiness details</h4>${checkRows}</article>` : ""}
+    <p class="muted-copy" style="margin-top:12px;">Export is read-only. Restore requires typing <strong>RESTORE_STORE_FROM_BACKUP</strong> and creates a safety backup first when Postgres is available.</p>
     <div class="account-actions-row">
       <button type="button" class="ghost-button" data-admin-safety-refresh ${adminSafetyLoading ? "disabled" : ""}>${adminSafetyLoading ? "Checking…" : "Refresh Safety"}</button>
-      <button type="button" class="ghost-button" data-admin-quick="billing">Open Billing / Stripe tools</button>
+      <button type="button" class="ghost-button" data-admin-safety-export>Export store JSON</button>
+      <button type="button" class="ghost-button" data-admin-safety-backup>Create backup now</button>
+      <button type="button" class="ghost-button" data-admin-quick="billing">Open Stripe / recovery tools</button>
     </div>
+    <article class="analytics-card" style="margin-top:12px;">
+      <h4>Recent backups</h4>
+      ${backupRows || `<div class="empty-state">${adminStoreHealthState.backupsLoading ? "Loading backups…" : "No Postgres backups listed (local-json or empty). Use Export store JSON for a snapshot."}</div>`}
+      ${adminStoreHealthState.backupError ? `<p class="form-message">${escapeHtml(adminStoreHealthState.backupError)}</p>` : ""}
+    </article>
   `;
 }
 
@@ -34856,11 +35163,57 @@ function renderAdminSafetyCenter() {
       <summary class="admin-owner-collapse-summary">
         <div>
           <p class="eyebrow">Safety Center</p>
-          <h3>Health, Stripe, email, and readiness</h3>
+          <h3>Health, Stripe, email, backups, and restore</h3>
         </div>
         <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
       </summary>
       <div id="adminOwnerSafetyBody">${renderAdminSafetyCenterBody()}</div>
+    </details>
+  `;
+}
+
+function renderAdminPromoCenterSnapshot() {
+  const totals = adminAnalyticsCache?.totals || {};
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerPromo" data-admin-owner-section="promo" ${adminOwnerSectionsOpen.promo !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Promo Codes</p>
+          <h3>Trials and redemption health</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid admin-kpi-grid">
+        ${adminMetric("Promo Redemptions", totals.promoRedemptionsTotal ?? "—")}
+        ${adminMetric("Active Codes", totals.promoCodesActive ?? "—")}
+        ${adminMetric("Trial Users", totals.trialUsers ?? "—")}
+        ${adminMetric("Trial Conv.", totals.trialConversionRate ?? "—")}
+      </div>
+      <div class="account-actions-row">
+        <button type="button" class="primary-button" data-admin-quick="promo">Open Promo Code Manager</button>
+      </div>
+    </details>
+  `;
+}
+
+function renderAdminCommunicationCenter() {
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerComms" data-admin-owner-section="comms" ${adminOwnerSectionsOpen.comms !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Communication Center</p>
+          <h3>Announcements, inbox, and email</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <p class="muted-copy">Site banner announcements, in-app published announcements, owner inbox, and email engagement.</p>
+      <div class="admin-quick-actions-grid">
+        <button class="ghost-button" type="button" data-admin-quick="announcement">Site Banner</button>
+        <button class="ghost-button" type="button" data-admin-quick="in-app-announcements">In-App Announcements</button>
+        <button class="ghost-button" type="button" data-admin-quick="inbox">Owner Inbox</button>
+        <button class="ghost-button" type="button" data-admin-quick="send-email">Email Engagement</button>
+        <button class="ghost-button" type="button" data-admin-quick="notifications">Notification Center</button>
+      </div>
     </details>
   `;
 }
@@ -35167,6 +35520,8 @@ function renderAdminOwnerOverview() {
       <a href="#adminOwnerHealth" data-admin-owner-jump="health">Customer Health</a>
       <a href="#adminOwnerGrowth" data-admin-owner-jump="growth">Growth</a>
       <a href="#adminOwnerSafety" data-admin-owner-jump="safety">Safety</a>
+      <a href="#adminOwnerPromo" data-admin-owner-jump="promo">Promos</a>
+      <a href="#adminOwnerComms" data-admin-owner-jump="comms">Comms</a>
       <a href="#adminOwnerInventory" data-admin-owner-jump="inventory">Account Inventory</a>
       <a href="#adminOwnerBilling" data-admin-owner-jump="billing">Billing Health</a>
       <a href="#adminOwnerUsage" data-admin-owner-jump="usage">Platform Usage</a>
@@ -35180,6 +35535,8 @@ function renderAdminOwnerOverview() {
     ${renderAdminCustomerHealthCenter()}
     ${renderAdminGrowthCenter()}
     ${renderAdminSafetyCenter()}
+    ${renderAdminPromoCenterSnapshot()}
+    ${renderAdminCommunicationCenter()}
     ${renderAdminOwnerDrilldownPanel()}
     <details class="admin-owner-collapse" id="adminOwnerInventory" data-admin-owner-section="inventory" ${sectionOpen("inventory") ? "open" : ""}>
       <summary class="admin-owner-collapse-summary">
@@ -37861,7 +38218,7 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-stripe-backfill-panel");
     if (el) el.hidden = false;
     renderAdminStripeBackfillTab();
-  } else if (tab === "pricing" || tab === "faqs" || tab === "announcement" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
+  } else if (tab === "pricing" || tab === "promo-codes" || tab === "faqs" || tab === "announcement" || tab === "in-app-announcements" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
     const el = document.querySelector(".admin-site-editor-panel");
     if (el) el.hidden = false;
     renderAdminSiteEditorSection(tab);
@@ -38573,13 +38930,16 @@ function openAdminUserProfile(email, startTab) {
       <div class="aup-modal-header-actions">
         <button class="primary-button aup-btn" type="button" data-aup-message="${escapeHtml(email)}">Message User</button>
         <button class="ghost-button aup-btn" type="button" data-aup-open-conversation="${escapeHtml(email)}">View Conversation</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-action="view-as" data-aup-email="${escapeHtml(email)}">View as user</button>
+        <button class="ghost-button aup-btn" type="button" data-aup-action="temp-password" data-aup-email="${escapeHtml(email)}">Issue temp password</button>
       </div>
     </div>
 
     <div class="aup-modal-tabs" id="aupModalTabs">
       <button class="aup-modal-tab${activeTab === "view" ? " active" : ""}"   data-aup-modal-tab="view"   type="button">Account</button>
       <button class="aup-modal-tab${activeTab === "manage" ? " active" : ""}" data-aup-modal-tab="manage" type="button">Membership</button>
-      <button class="aup-modal-tab" data-aup-modal-tab="usage"   type="button">Usage</button>
+      <button class="aup-modal-tab${activeTab === "usage" ? " active" : ""}" data-aup-modal-tab="usage"   type="button">Usage</button>
+      <button class="aup-modal-tab${activeTab === "activity" ? " active" : ""}" data-aup-modal-tab="activity" type="button">Activity</button>
     </div>
 
     <div class="aup-modal-panel" id="aupPanelView"   ${activeTab !== "view"   ? 'hidden' : ''}>
@@ -38743,11 +39103,35 @@ function openAdminUserProfile(email, startTab) {
       </fieldset>
       ` : ""}
     </div>
+
+    <div class="aup-modal-panel" id="aupPanelActivity" ${activeTab !== "activity" ? "hidden" : ""}>
+      <fieldset class="admin-fieldset">
+        <legend>🔐 Security</legend>
+        <p class="muted-copy">Issue a one-time temporary password. It is shown once and forces a password change on next login.</p>
+        <div class="aup-action-row">
+          <button class="primary-button aup-action-btn" type="button" data-aup-action="temp-password" data-aup-email="${escapeHtml(email)}">Issue temporary password</button>
+        </div>
+        <p id="aupSecurityMsg" class="form-message" style="margin-top:8px;"></p>
+      </fieldset>
+      <fieldset class="admin-fieldset">
+        <legend>👁 Impersonation</legend>
+        <p class="muted-copy">Open a read-only sandbox of this member's plan experience. Your admin login stays yours — no password switch.</p>
+        <button class="ghost-button aup-action-btn" type="button" data-aup-action="view-as" data-aup-email="${escapeHtml(email)}">View site as this user</button>
+      </fieldset>
+      <fieldset class="admin-fieldset">
+        <legend>📚 Children / Calendar / Downloads</legend>
+        <div id="aupActivityDetailBody"><p class="muted-copy">Loading activity detail…</p></div>
+      </fieldset>
+      <fieldset class="admin-fieldset">
+        <legend>🧭 Timeline</legend>
+        <div id="aupTimelineBody"><p class="muted-copy">Loading timeline…</p></div>
+      </fieldset>
+    </div>
   `;
 
   // Tab switching
   const tabBtns  = modal.querySelectorAll("[data-aup-modal-tab]");
-  const panels   = { view: modal.querySelector("#aupPanelView"), manage: modal.querySelector("#aupPanelManage"), usage: modal.querySelector("#aupPanelUsage") };
+  const panels   = { view: modal.querySelector("#aupPanelView"), manage: modal.querySelector("#aupPanelManage"), usage: modal.querySelector("#aupPanelUsage"), activity: modal.querySelector("#aupPanelActivity") };
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       tabBtns.forEach((b) => b.classList.remove("active"));
@@ -38771,6 +39155,68 @@ function openAdminUserProfile(email, startTab) {
   modal.setAttribute("aria-hidden", "false");
   modal.classList.add("open");
   modal.querySelector(".close-button")?.focus();
+
+  // Lazy-load deeper activity for Activity tab
+  const detailBody = modal.querySelector("#aupActivityDetailBody");
+  const timelineBody = modal.querySelector("#aupTimelineBody");
+  if (detailBody || timelineBody) {
+    const token = adminSession()?.token || "";
+    Promise.all([
+      fetchAdminUserDetail(email).catch((error) => ({ error: error.message })),
+      token && canUseLaunchBackend()
+        ? fetch(`/api/admin/user-timeline?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(email)}`, { cache: "no-store" })
+            .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
+            .catch((error) => ({ ok: false, data: { error: error.message } }))
+        : Promise.resolve(null),
+    ]).then(([detail, timelineRes]) => {
+      if (detailBody) {
+        if (detail?.error) {
+          detailBody.innerHTML = `<p class="form-message">${escapeHtml(detail.error)}</p>`;
+        } else {
+          const activity = detail?.activity || {};
+          const kids = activity.childrenSample || [];
+          const downloads = activity.downloads || [];
+          const logins = activity.loginHistory || [];
+          const promos = activity.promoRedemptions || [];
+          const billing = activity.billingHistory || [];
+          detailBody.innerHTML = `
+            <div class="aup-info-grid">
+              <div><span>Children</span><strong>${escapeHtml(String(activity.childrenCount ?? 0))}</strong></div>
+              <div><span>Calendar entries</span><strong>${escapeHtml(String(activity.calendarEntryCount ?? 0))}</strong></div>
+              <div><span>Saved resources</span><strong>${escapeHtml(String(activity.savedResourcesCount ?? 0))}</strong></div>
+              <div><span>Analytics events</span><strong>${escapeHtml(String(activity.eventCount ?? 0))}</strong></div>
+            </div>
+            ${kids.length ? `<p class="muted-copy" style="margin-top:8px;"><strong>Children sample:</strong> ${kids.map((c) => escapeHtml(c.name || "Child")).join(", ")}</p>` : ""}
+            <h4 style="margin:12px 0 6px;">Recent logins / visits</h4>
+            ${logins.length ? logins.slice(0, 8).map((item) => `<div class="aup-billing-row"><span>${escapeHtml(item.name || "event")}</span><small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}</small></div>`).join("") : `<p class="muted-copy">No login history events yet.</p>`}
+            <h4 style="margin:12px 0 6px;">Downloads / prints</h4>
+            ${downloads.length ? downloads.slice(0, 8).map((item) => `<div class="aup-billing-row"><span>${escapeHtml(item.label || item.name || "download")}</span><small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}</small></div>`).join("") : `<p class="muted-copy">No download events yet.</p>`}
+            <h4 style="margin:12px 0 6px;">Promo redemptions</h4>
+            ${promos.length ? promos.slice(0, 6).map((item) => `<div class="aup-billing-row"><span>${escapeHtml(item.code || "")}</span><small>${escapeHtml(item.redeemedAt ? new Date(item.redeemedAt).toLocaleString() : "")}</small></div>`).join("") : `<p class="muted-copy">No promo redemptions.</p>`}
+            <h4 style="margin:12px 0 6px;">Stripe / billing events</h4>
+            ${billing.length ? billing.slice(0, 8).map((item) => `<div class="aup-billing-row"><span>${escapeHtml(item.type || item.event || "billing")}</span><small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")} · ${escapeHtml(String(item.amount || ""))}</small></div>`).join("") : `<p class="muted-copy">No billing events on server record.</p>`}
+            ${detail?.user?.stripeCustomerId ? `<p class="muted-copy" style="margin-top:8px;">Stripe customer: <code>${escapeHtml(detail.user.stripeCustomerId)}</code>${detail.user.stripeSubscriptionId ? ` · sub <code>${escapeHtml(detail.user.stripeSubscriptionId)}</code>` : ""}</p>` : ""}
+          `;
+        }
+      }
+      if (timelineBody) {
+        const timeline = timelineRes?.data?.timeline || [];
+        if (!timelineRes?.ok) {
+          timelineBody.innerHTML = `<p class="muted-copy">${escapeHtml(timelineRes?.data?.error || "Timeline unavailable.")}</p>`;
+        } else if (!timeline.length) {
+          timelineBody.innerHTML = `<p class="muted-copy">No timeline events yet.</p>`;
+        } else {
+          timelineBody.innerHTML = timeline.slice(0, 20).map((item) => `
+            <div class="aup-billing-row">
+              <span>${escapeHtml(item.type || item.action || item.title || "event")}</span>
+              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}</small>
+              ${item.detail || item.summary ? `<em>${escapeHtml(String(item.detail || item.summary))}</em>` : ""}
+            </div>
+          `).join("");
+        }
+      }
+    });
+  }
 }
 
 function closeAdminUserProfile() {
@@ -38851,13 +39297,36 @@ function handleAdminUserAction(action, email, modal) {
   const allAccounts = allAccountsList();
   const account = allAccounts.find((a) => a.email === email)
     || (adminAnalyticsCache?.users || []).find((u) => u.email === email);
-  if (!account) return;
+  if (!account && action !== "view-as" && action !== "temp-password") return;
 
-  const msgEl = modal?.querySelector(action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg");
+  const msgEl = modal?.querySelector(
+    action === "temp-password" || action === "view-as"
+      ? "#aupSecurityMsg"
+      : (action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg"),
+  );
   function showMsg(text, ok = true) {
     if (!msgEl) return;
     msgEl.textContent = text;
     msgEl.style.color = ok ? "var(--accent, #386062)" : "#c0392b";
+  }
+
+  if (action === "view-as") {
+    closeAdminUserProfile();
+    startAdminImpersonation(email);
+    return;
+  }
+  if (action === "temp-password") {
+    if (!confirm(`Issue a temporary password for ${account ? displayUserName(account) : email} (${email})? It will be shown once.`)) return;
+    showMsg("Issuing temporary password…");
+    adminIssueTempPassword(email).then((data) => {
+      const temp = data.temporaryPassword || "";
+      const expires = data.expiresAt ? new Date(data.expiresAt).toLocaleString() : "";
+      showMsg(`Temporary password (copy now): ${temp}${expires ? ` · expires ${expires}` : ""}`);
+      if (temp && navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(temp).then(() => showActionFeedback("Temp password copied.")).catch(() => {});
+      }
+    }).catch((error) => showMsg(error.message || "Failed to issue temp password.", false));
+    return;
   }
 
   if (action === "refresh-stripe") {
@@ -39097,8 +39566,10 @@ function renderAdminSiteEditorSection(tab) {
     { id: "adminReviewsCtaApp",  tabId: "reviews-cta" },
     { id: "adminFoundingApp",    tabId: "founding" },
     { id: "adminPricingApp",     tabId: "pricing" },
+    { id: "adminPromoCodesApp",  tabId: "promo-codes" },
     { id: "adminFaqsApp",        tabId: "faqs" },
     { id: "adminAnnouncementApp",tabId: "announcement" },
+    { id: "adminInAppAnnouncementsApp", tabId: "in-app-announcements" },
     { id: "adminUpgradeMsgApp",  tabId: "upgrade-msg" },
   ].forEach(({ id, tabId }) => {
     const el = document.querySelector(`#${id}`);
@@ -39110,8 +39581,10 @@ function renderAdminSiteEditorSection(tab) {
   if (tab === "reviews-cta")  renderAdminReviewsCtaSection();
   if (tab === "founding")     renderAdminFoundingSection();
   if (tab === "pricing")      renderAdminPricingSection();
+  if (tab === "promo-codes")  renderAdminPromoCodesSection();
   if (tab === "faqs")         renderAdminFaqsSection();
   if (tab === "announcement") renderAdminAnnouncementSection();
+  if (tab === "in-app-announcements") renderAdminInAppAnnouncementsSection();
   if (tab === "upgrade-msg")  renderAdminUpgradeMsgSection();
 }
 
@@ -39814,7 +40287,152 @@ async function saveAdminAnnouncementForm(form) {
   });
 }
 
+
+function renderAdminPromoCodesSection() {
+  const target = document.querySelector("#adminPromoCodesApp");
+  if (!target || !isAdminUnlocked()) return;
+  if (!adminPromoCodesState.loading && !adminPromoCodesState.items.length && !adminPromoCodesState.envPromo && !adminPromoCodesState.error) {
+    loadAdminPromoCodes().then(() => renderAdminPromoCodesSection());
+  }
+  const items = adminPromoCodesState.items || [];
+  const envPromo = adminPromoCodesState.envPromo;
+  const redemptions = (adminPromoCodesState.redemptions || []).slice(0, 12);
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Growth</p>
+        <h3>Promo Code Manager</h3>
+        <p class="muted-copy">Create multi-code free trials. Env promo still works as a fallback launch code.</p>
+      </div>
+      <button class="ghost-button" type="button" data-admin-promo-refresh>Refresh</button>
+    </div>
+    ${adminPromoCodesState.error ? `<p class="form-message">${escapeHtml(adminPromoCodesState.error)}</p>` : ""}
+    ${adminPromoCodesState.success ? `<p class="form-message success">${escapeHtml(adminPromoCodesState.success)}</p>` : ""}
+    <form id="adminPromoCodeForm" class="panel-form admin-stacked-form">
+      <div class="form-grid-two">
+        <label>Code<input name="code" required placeholder="TRYPRO3" /></label>
+        <label>Trial days<input name="trialDays" type="number" min="1" max="365" value="7" required /></label>
+      </div>
+      <div class="form-grid-two">
+        <label>Label<input name="label" placeholder="7 day free Pro trial" /></label>
+        <label>Max redemptions<input name="maxRedemptions" type="number" min="0" placeholder="Unlimited" /></label>
+      </div>
+      <div class="form-grid-two">
+        <label>Expires at<input name="expiresAt" type="datetime-local" /></label>
+        <label>Status
+          <select name="status">
+            <option value="active">Active</option>
+            <option value="disabled">Disabled</option>
+            <option value="archived">Archived</option>
+          </select>
+        </label>
+      </div>
+      <label>Notes<textarea name="notes" rows="2" placeholder="Internal notes"></textarea></label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save promo code</button>
+      </div>
+    </form>
+    <div class="table-wrap" style="margin-top:16px;">
+      <table class="data-table">
+        <thead><tr><th>Code</th><th>Days</th><th>Status</th><th>Redemptions</th><th>Expires</th><th></th></tr></thead>
+        <tbody>
+          ${envPromo ? `<tr><td><strong>${escapeHtml(envPromo.code)}</strong> <small>(env)</small></td><td>${escapeHtml(String(envPromo.trialDays))}</td><td>${escapeHtml(envPromo.status)}</td><td>${escapeHtml(String(envPromo.redemptionCount || 0))}</td><td>${escapeHtml(envPromo.expiresLabel || envPromo.expiresAt || "—")}</td><td></td></tr>` : ""}
+          ${items.length ? items.map((item) => `
+            <tr>
+              <td><strong>${escapeHtml(item.code)}</strong></td>
+              <td>${escapeHtml(String(item.trialDays))}</td>
+              <td>${escapeHtml(item.status)}</td>
+              <td>${escapeHtml(String(item.redemptionCount || 0))}${item.maxRedemptions != null ? ` / ${escapeHtml(String(item.maxRedemptions))}` : ""}</td>
+              <td>${escapeHtml(item.expiresLabel || item.expiresAt || "—")}</td>
+              <td><button class="ghost-button" type="button" data-admin-promo-delete="${escapeHtml(item.id)}">Delete</button></td>
+            </tr>
+          `).join("") : `<tr><td colspan="6">${adminPromoCodesState.loading ? "Loading…" : "No managed promo codes yet."}</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+    <article class="analytics-card" style="margin-top:16px;">
+      <h4>Recent redemptions</h4>
+      ${redemptions.length ? redemptions.map((r) => `
+        <div class="analytics-row"><span>${escapeHtml(r.email || "")}</span><strong>${escapeHtml(r.code || "")}</strong><small>${escapeHtml(r.redeemedAt ? new Date(r.redeemedAt).toLocaleString() : "")}</small></div>
+      `).join("") : `<div class="empty-state">No redemptions recorded yet.</div>`}
+    </article>
+  `;
+}
+
+function renderAdminInAppAnnouncementsSection() {
+  const target = document.querySelector("#adminInAppAnnouncementsApp");
+  if (!target || !isAdminUnlocked()) return;
+  if (!adminCommsAnnouncementsState.loading && !adminCommsAnnouncementsState.items.length && !adminCommsAnnouncementsState.error) {
+    loadAdminInAppAnnouncements().then(() => renderAdminInAppAnnouncementsSection());
+  }
+  const items = adminCommsAnnouncementsState.items || [];
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Communication Center</p>
+        <h3>In-App Announcements</h3>
+        <p class="muted-copy">Publish messages into the member Messages / Announcements feed. Separate from the site banner.</p>
+      </div>
+      <button class="ghost-button" type="button" data-admin-announcements-refresh>Refresh</button>
+    </div>
+    ${adminCommsAnnouncementsState.error ? `<p class="form-message">${escapeHtml(adminCommsAnnouncementsState.error)}</p>` : ""}
+    ${adminCommsAnnouncementsState.success ? `<p class="form-message success">${escapeHtml(adminCommsAnnouncementsState.success)}</p>` : ""}
+    <form id="adminInAppAnnouncementForm" class="panel-form admin-stacked-form">
+      <label>Title<input name="title" required maxlength="300" placeholder="What's new this week" /></label>
+      <label>Body<textarea name="body" rows="5" required maxlength="10000" placeholder="Write the announcement…"></textarea></label>
+      <div class="form-grid-two">
+        <label>Audience
+          <select name="audience">
+            <option value="all">Everyone</option>
+            <option value="free">Free</option>
+            <option value="pro">Pro</option>
+            <option value="founding">Founding</option>
+          </select>
+        </label>
+        <label>Delivery
+          <select name="deliveryMode">
+            <option value="in-app">In-app</option>
+            <option value="email">Email</option>
+            <option value="both">Both</option>
+          </select>
+        </label>
+      </div>
+      <label>Status
+        <select name="status">
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="archived">Archived</option>
+        </select>
+      </label>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save announcement</button>
+      </div>
+    </form>
+    <div class="table-wrap" style="margin-top:16px;">
+      <table class="data-table">
+        <thead><tr><th>Title</th><th>Audience</th><th>Delivery</th><th>Status</th><th>Updated</th><th></th></tr></thead>
+        <tbody>
+          ${items.length ? items.map((item) => `
+            <tr>
+              <td><strong>${escapeHtml(item.title || "")}</strong></td>
+              <td>${escapeHtml(item.audience || "all")}</td>
+              <td>${escapeHtml(item.deliveryMode || "in-app")}</td>
+              <td>${escapeHtml(item.status || "draft")}</td>
+              <td>${escapeHtml(item.updatedAt ? new Date(item.updatedAt).toLocaleString() : "")}</td>
+              <td>
+                ${item.status !== "published" ? `<button class="ghost-button" type="button" data-admin-announcement-publish="${escapeHtml(item.id)}">Publish</button>` : ""}
+                ${item.status !== "archived" ? `<button class="ghost-button" type="button" data-admin-announcement-archive="${escapeHtml(item.id)}">Archive</button>` : ""}
+              </td>
+            </tr>
+          `).join("") : `<tr><td colspan="6">${adminCommsAnnouncementsState.loading ? "Loading…" : "No announcements yet."}</td></tr>`}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 // ── Upgrade Messaging ──
+
 
 function renderAdminUpgradeMsgSection() {
   const target = document.querySelector("#adminUpgradeMsgApp");
@@ -40443,6 +41061,7 @@ function renderAdminAiToolsPanel() {
           <h4 style="margin:0">Draft output</h4>
           <div class="account-actions-row">
             <button class="ghost-button" type="button" data-admin-ai-tools-copy ${state.output ? "" : "disabled"}>Copy</button>
+            <button class="primary-button" type="button" data-admin-ai-tools-apply ${state.output ? "" : "disabled"}>Apply to editor</button>
             <button class="ghost-button" type="button" data-admin-ai-tools-open="${escapeHtml(state.contentType)}" ${state.output ? "" : "disabled"}>Open related Admin tab</button>
           </div>
         </div>
@@ -40477,7 +41096,7 @@ async function handleAdminAiToolsGenerate(form) {
       notes: adminAiContentState.notes,
     });
     adminAiContentState.output = String(data.output || "");
-    adminAiContentState.success = "Draft ready. Copy it into the Content Manager and edit before publishing.";
+    adminAiContentState.success = "Draft ready. Use Apply to editor or Copy — nothing auto-publishes.";
   } catch (error) {
     adminAiContentState.error = error?.message || "AI generation failed.";
   } finally {
@@ -45272,6 +45891,10 @@ document.addEventListener("click", async (event) => {
   if (adminPreviewButton) {
     event.preventDefault();
     if (!isAdminUnlocked()) return;
+    if (adminPreviewButton.hasAttribute("data-admin-exit-impersonation") || (isAdminImpersonating() && (adminPreviewButton.dataset.adminPreview || "Admin") === "Admin")) {
+      stopAdminImpersonation();
+      return;
+    }
     setAdminPreviewMode(adminPreviewButton.dataset.adminPreview || "Admin");
     return;
   }
@@ -49063,8 +49686,11 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (action === "promo") {
-      setAdminSectionTab("pricing");
-      showActionFeedback("Open Pricing / promo settings to create a promo code.");
+      setAdminSectionTab("promo-codes");
+      return;
+    }
+    if (action === "in-app-announcements") {
+      setAdminSectionTab("in-app-announcements");
       return;
     }
     if (action === "ai-tools") {
@@ -49156,6 +49782,106 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-admin-safety-refresh]") && isAdminUnlocked()) {
     event.preventDefault();
     refreshAdminSafetyStatus();
+    return;
+  }
+  if (event.target.closest("[data-admin-safety-export]") && isAdminUnlocked()) {
+    event.preventDefault();
+    downloadAdminStoreExport()
+      .then(() => showActionFeedback("Store export downloaded."))
+      .catch((error) => showActionFeedback(error.message || "Export failed."));
+    return;
+  }
+  if (event.target.closest("[data-admin-safety-backup]") && isAdminUnlocked()) {
+    event.preventDefault();
+    if (!confirm("Create a logical store backup now?")) return;
+    createAdminStoreBackup().then((result) => {
+      showActionFeedback(result ? "Backup created." : (adminStoreHealthState.backupError || "Backup unavailable locally."));
+      refreshAdminSafetyStatus();
+    });
+    return;
+  }
+  const safetyDownload = event.target.closest("[data-admin-safety-download-backup]");
+  if (safetyDownload && isAdminUnlocked()) {
+    event.preventDefault();
+    downloadAdminStoreBackup(safetyDownload.getAttribute("data-admin-safety-download-backup"));
+    return;
+  }
+  const safetyRestore = event.target.closest("[data-admin-safety-restore-backup]");
+  if (safetyRestore && isAdminUnlocked()) {
+    event.preventDefault();
+    const backupId = safetyRestore.getAttribute("data-admin-safety-restore-backup") || "";
+    const typed = prompt('Type RESTORE_STORE_FROM_BACKUP to restore this backup. This overwrites the live store.');
+    if (typed !== "RESTORE_STORE_FROM_BACKUP") {
+      showActionFeedback("Restore cancelled.");
+      return;
+    }
+    restoreAdminStoreFromBackup(backupId)
+      .then((data) => {
+        showActionFeedback(`Store restored${data?.counts?.users != null ? ` · users ${data.counts.users}` : ""}.`);
+        adminAnalyticsCache = null;
+        refreshAdminSafetyStatus();
+        if (typeof loadAdminAnalyticsFromBackend === 'function') loadAdminAnalyticsFromBackend();
+      })
+      .catch((error) => showActionFeedback(error.message || "Restore failed."));
+    return;
+  }
+  if (event.target.closest("[data-admin-promo-refresh]") && isAdminUnlocked()) {
+    event.preventDefault();
+    loadAdminPromoCodes().then(() => renderAdminPromoCodesSection());
+    return;
+  }
+  const promoDelete = event.target.closest("[data-admin-promo-delete]");
+  if (promoDelete && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = promoDelete.getAttribute("data-admin-promo-delete");
+    if (!id || !confirm("Delete this promo code?")) return;
+    deleteAdminPromoCode(id)
+      .then(() => {
+        adminPromoCodesState.success = "Promo code deleted.";
+        return loadAdminPromoCodes();
+      })
+      .then(() => renderAdminPromoCodesSection())
+      .catch((error) => {
+        adminPromoCodesState.error = error.message || "Delete failed.";
+        renderAdminPromoCodesSection();
+      });
+    return;
+  }
+  if (event.target.closest("[data-admin-announcements-refresh]") && isAdminUnlocked()) {
+    event.preventDefault();
+    loadAdminInAppAnnouncements().then(() => renderAdminInAppAnnouncementsSection());
+    return;
+  }
+  const annPublish = event.target.closest("[data-admin-announcement-publish]");
+  if (annPublish && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = annPublish.getAttribute("data-admin-announcement-publish");
+    saveAdminInAppAnnouncement({ id, status: "published" })
+      .then(() => {
+        adminCommsAnnouncementsState.success = "Announcement published.";
+        return loadAdminInAppAnnouncements();
+      })
+      .then(() => renderAdminInAppAnnouncementsSection())
+      .catch((error) => {
+        adminCommsAnnouncementsState.error = error.message || "Publish failed.";
+        renderAdminInAppAnnouncementsSection();
+      });
+    return;
+  }
+  const annArchive = event.target.closest("[data-admin-announcement-archive]");
+  if (annArchive && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = annArchive.getAttribute("data-admin-announcement-archive");
+    saveAdminInAppAnnouncement({ id, status: "archived" })
+      .then(() => {
+        adminCommsAnnouncementsState.success = "Announcement archived.";
+        return loadAdminInAppAnnouncements();
+      })
+      .then(() => renderAdminInAppAnnouncementsSection())
+      .catch((error) => {
+        adminCommsAnnouncementsState.error = error.message || "Archive failed.";
+        renderAdminInAppAnnouncementsSection();
+      });
     return;
   }
 
@@ -49282,6 +50008,12 @@ document.addEventListener("click", async (event) => {
   if (aiToolsOpen) {
     event.preventDefault();
     openAdminTabForAiContentType(aiToolsOpen.getAttribute("data-admin-ai-tools-open") || adminAiContentState.contentType);
+    return;
+  }
+  const aiToolsApply = event.target.closest("[data-admin-ai-tools-apply]");
+  if (aiToolsApply) {
+    event.preventDefault();
+    applyAdminAiDraftToEditor();
     return;
   }
 
@@ -50706,6 +51438,59 @@ document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#adminAiToolsForm")) return;
   event.preventDefault();
   await handleAdminAiToolsGenerate(event.target);
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#adminPromoCodeForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const fd = new FormData(form);
+  adminPromoCodesState.error = "";
+  adminPromoCodesState.success = "";
+  try {
+    const expiresRaw = String(fd.get("expiresAt") || "").trim();
+    await saveAdminPromoCode({
+      code: fd.get("code"),
+      trialDays: Number(fd.get("trialDays") || 0),
+      label: fd.get("label"),
+      maxRedemptions: fd.get("maxRedemptions"),
+      expiresAt: expiresRaw ? new Date(expiresRaw).toISOString() : "",
+      status: fd.get("status") || "active",
+      notes: fd.get("notes"),
+    });
+    adminPromoCodesState.success = "Promo code saved.";
+    form.reset();
+    await loadAdminPromoCodes();
+    renderAdminPromoCodesSection();
+  } catch (error) {
+    adminPromoCodesState.error = error.message || "Could not save promo code.";
+    renderAdminPromoCodesSection();
+  }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#adminInAppAnnouncementForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const fd = new FormData(form);
+  adminCommsAnnouncementsState.error = "";
+  adminCommsAnnouncementsState.success = "";
+  try {
+    await saveAdminInAppAnnouncement({
+      title: fd.get("title"),
+      body: fd.get("body"),
+      audience: fd.get("audience") || "all",
+      deliveryMode: fd.get("deliveryMode") || "in-app",
+      status: fd.get("status") || "draft",
+    });
+    adminCommsAnnouncementsState.success = "Announcement saved.";
+    form.reset();
+    await loadAdminInAppAnnouncements();
+    renderAdminInAppAnnouncementsSection();
+  } catch (error) {
+    adminCommsAnnouncementsState.error = error.message || "Could not save announcement.";
+    renderAdminInAppAnnouncementsSection();
+  }
 });
 
 document.addEventListener("submit", async (event) => {

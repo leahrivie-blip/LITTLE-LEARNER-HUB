@@ -213,13 +213,83 @@ function normalizePromoCode(value) {
   return String(value || "").trim().replace(/\s+/g, "").toUpperCase();
 }
 
-function checkoutPromoForCode(value) {
-  const configuredCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
+function promoCodeRecords(store = peekStore()) {
+  return Array.isArray(store.promoCodes) ? store.promoCodes : [];
+}
+
+function publicPromoCode(item = {}) {
+  const redemptions = promoRedemptionRecords(peekStore()).filter(
+    (record) => normalizePromoCode(record?.code) === normalizePromoCode(item.code),
+  );
+  return {
+    id: item.id || "",
+    code: normalizePromoCode(item.code),
+    label: String(item.label || "").slice(0, 200),
+    trialDays: Number(item.trialDays) || 0,
+    status: String(item.status || "active").toLowerCase(),
+    expiresAt: item.expiresAt || "",
+    expiresLabel: item.expiresLabel || "",
+    maxRedemptions: (item.maxRedemptions === null || item.maxRedemptions === undefined || item.maxRedemptions === "")
+      ? null
+      : (Number.isFinite(Number(item.maxRedemptions)) ? Number(item.maxRedemptions) : null),
+    notes: String(item.notes || "").slice(0, 500),
+    createdAt: item.createdAt || "",
+    updatedAt: item.updatedAt || "",
+    redemptionCount: redemptions.length,
+    source: item.source || "store",
+  };
+}
+
+function checkoutPromoForCode(value, store = peekStore()) {
   const enteredCode = normalizePromoCode(value);
+  if (!enteredCode) return { valid: false, code: "" };
+
+  // Prefer admin-managed promo codes in the store.
+  const storePromo = promoCodeRecords(store).find((item) => (
+    normalizePromoCode(item?.code) === enteredCode
+    && String(item?.status || "active").toLowerCase() === "active"
+  ));
+  if (storePromo) {
+    const trialDays = Math.max(0, Math.min(Number(storePromo.trialDays) || 0, 365));
+    const expiresAt = storePromo.expiresAt ? Date.parse(storePromo.expiresAt) : NaN;
+    const expired = Number.isFinite(expiresAt) && Date.now() >= expiresAt;
+    const rawMax = storePromo.maxRedemptions;
+    const max = rawMax === null || rawMax === undefined || rawMax === ""
+      ? null
+      : (Number.isFinite(Number(rawMax)) ? Number(rawMax) : null);
+    const used = promoRedemptionRecords(store).filter(
+      (record) => normalizePromoCode(record?.code) === enteredCode,
+    ).length;
+    if (!trialDays) return { valid: false, code: enteredCode };
+    if (expired) {
+      return {
+        valid: false,
+        code: enteredCode,
+        expired: true,
+        expiresAt: storePromo.expiresAt || "",
+        expiresLabel: storePromo.expiresLabel || "",
+      };
+    }
+    if (max != null && used >= max) {
+      return { valid: false, code: enteredCode, exhausted: true };
+    }
+    return {
+      valid: true,
+      code: enteredCode,
+      trialDays,
+      label: storePromo.label || `${trialDays} day free Pro trial`,
+      expiresAt: storePromo.expiresAt || "",
+      expiresLabel: storePromo.expiresLabel || "",
+      source: "store",
+    };
+  }
+
+  // Env fallback (single configured launch promo).
+  const configuredCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
   const trialDays = Number.isFinite(PROMO_FREE_TRIAL_DAYS) ? Math.max(0, Math.min(PROMO_FREE_TRIAL_DAYS, 365)) : 0;
   const expiresAt = Date.parse(PROMO_FREE_TRIAL_EXPIRES_AT);
   const expired = Number.isFinite(expiresAt) && Date.now() >= expiresAt;
-  if (!configuredCode || !enteredCode || enteredCode !== configuredCode || trialDays <= 0) {
+  if (!configuredCode || enteredCode !== configuredCode || trialDays <= 0) {
     return { valid: false, code: enteredCode };
   }
   if (expired) {
@@ -238,6 +308,7 @@ function checkoutPromoForCode(value) {
     label: `${trialDays} day free Pro trial`,
     expiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,
     expiresLabel: PROMO_FREE_TRIAL_EXPIRES_LABEL,
+    source: "env",
   };
 }
 
@@ -473,6 +544,7 @@ function defaultStore() {
     processedStripeEvents: {},
     leads: [],
     promoRedemptions: [],
+    promoCodes: [],
     siteContent: defaultSiteContentStore(),
     scheduleByUser: {},
     programs: {},
@@ -5429,7 +5501,8 @@ async function handlePromoValidation(request, response, url) {
   const body = request.method === "POST" ? await readJson(request) : {};
   const enteredCode = normalizePromoCode(body.code || url.searchParams.get("code"));
   const email = normalizeEmail(body.email || url.searchParams.get("email"));
-  const promo = checkoutPromoForCode(enteredCode);
+  const store = peekStore();
+  const promo = checkoutPromoForCode(enteredCode, store);
   if (!enteredCode) {
     jsonResponse(response, 400, { valid: false, error: "Enter a promo code before checkout." });
     return;
@@ -5443,12 +5516,14 @@ async function handlePromoValidation(request, response, url) {
       valid: false,
       code: enteredCode,
       error: promo.expired
-        ? `That promo code expired ${promo.expiresLabel}.`
-        : "That promo code is not active. Check the code and try again.",
+        ? `That promo code expired ${promo.expiresLabel || ""}.`.trim()
+        : promo.exhausted
+          ? "That promo code has reached its redemption limit."
+          : "That promo code is not active. Check the code and try again.",
     });
     return;
   }
-  if (promoUsedByAccount(email, promo.code)) {
+  if (promoUsedByAccount(email, promo.code, store)) {
     jsonResponse(response, 409, {
       valid: false,
       error: "This account has already used that promo code.",
@@ -5512,13 +5587,15 @@ async function handleCheckout(request, response) {
     jsonResponse(response, 400, { error: "Email is required before checkout." });
     return;
   }
-  const promo = checkoutPromoForCode(body.promoCode);
+  const promo = checkoutPromoForCode(body.promoCode, store);
   const trial7day = body.trial7day === true;
   if (normalizePromoCode(body.promoCode) && !promo.valid) {
     jsonResponse(response, 400, {
       error: promo.expired
-        ? `That promo code expired ${promo.expiresLabel}.`
-        : "That promo code is not active. Check the code and try again.",
+        ? `That promo code expired ${promo.expiresLabel || ""}.`.trim()
+        : promo.exhausted
+          ? "That promo code has reached its redemption limit."
+          : "That promo code is not active. Check the code and try again.",
     });
     return;
   }
@@ -7366,6 +7443,301 @@ async function handleAdminStoreBackupDownload(request, response, url) {
   });
 }
 
+/**
+ * Restore launch store from a Postgres backup id OR an uploaded store JSON body.
+ * Requires confirm: "RESTORE_STORE_FROM_BACKUP". High-risk — creates a safety backup first when possible.
+ */
+async function handleAdminStoreRestore(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (String(body.confirm || "").trim() !== "RESTORE_STORE_FROM_BACKUP") {
+    jsonResponse(response, 400, {
+      error: "Confirmation required. Send confirm: \"RESTORE_STORE_FROM_BACKUP\".",
+      requiresConfirm: "RESTORE_STORE_FROM_BACKUP",
+    });
+    return;
+  }
+  let incoming = null;
+  const backupId = String(body.backupId || "").trim();
+  if (backupId) {
+    if (!usePostgresStore() || !postgresPool || !databaseReady) {
+      jsonResponse(response, 503, { error: "Postgres backups are unavailable while the database is not ready." });
+      return;
+    }
+    const result = await postgresPool.query(
+      `SELECT id, created_at, source, data FROM llh_store_backups WHERE id = $1`,
+      [backupId],
+    );
+    if (!result.rows.length) {
+      jsonResponse(response, 404, { error: "Backup not found." });
+      return;
+    }
+    incoming = result.rows[0].data;
+  } else if (body.store && typeof body.store === "object") {
+    incoming = body.store;
+  } else {
+    jsonResponse(response, 400, { error: "Provide backupId or store JSON to restore." });
+    return;
+  }
+  if (!incoming || typeof incoming !== "object" || Array.isArray(incoming)) {
+    jsonResponse(response, 400, { error: "Restore payload must be a store object." });
+    return;
+  }
+  if (!incoming.users || typeof incoming.users !== "object") {
+    jsonResponse(response, 400, { error: "Restore store is missing users map." });
+    return;
+  }
+  let safetyBackup = null;
+  try {
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      safetyBackup = await createLogicalStoreBackup({ source: "pre-restore-safety" });
+    }
+  } catch (error) {
+    console.warn("[store-restore] safety backup failed:", error.message || error);
+  }
+  const next = {
+    ...defaultStore(),
+    ...incoming,
+    users: incoming.users || {},
+    updatedAt: new Date().toISOString(),
+    systemRecovery: {
+      ...((incoming.systemRecovery && typeof incoming.systemRecovery === "object") ? incoming.systemRecovery : {}),
+      restoredAt: new Date().toISOString(),
+      restoredFromBackupId: backupId || "",
+      restoredBy: "admin",
+    },
+  };
+  await writeStoreAsync(next);
+  jsonResponse(response, 200, {
+    ok: true,
+    restoredAt: next.systemRecovery.restoredAt,
+    backupId: backupId || null,
+    safetyBackup,
+    health: storeHealthSnapshot(peekStore()),
+    counts: storeInventoryCounts(peekStore()),
+  });
+}
+
+function handleAdminPromoCodesList(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = peekStore();
+  const envCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
+  const managed = promoCodeRecords(store).map(publicPromoCode);
+  const envRow = envCode ? publicPromoCode({
+    id: "env-promo",
+    code: envCode,
+    label: `${PROMO_FREE_TRIAL_DAYS} day free Pro trial (env)`,
+    trialDays: PROMO_FREE_TRIAL_DAYS,
+    status: "active",
+    expiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,
+    expiresLabel: PROMO_FREE_TRIAL_EXPIRES_LABEL,
+    source: "env",
+    createdAt: "",
+    updatedAt: "",
+  }) : null;
+  jsonResponse(response, 200, {
+    ok: true,
+    promoCodes: managed,
+    envPromo: envRow,
+    redemptions: promoRedemptionRecords(store).slice(0, 200),
+  });
+}
+
+async function handleAdminPromoCodeSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const code = normalizePromoCode(body.code);
+  const trialDays = Math.max(0, Math.min(Number(body.trialDays) || 0, 365));
+  if (!code || trialDays <= 0) {
+    jsonResponse(response, 400, { error: "code and trialDays (>0) are required." });
+    return;
+  }
+  const store = readStore();
+  store.promoCodes = promoCodeRecords(store);
+  const id = String(body.id || "").trim() || `promo_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
+  const existingIndex = store.promoCodes.findIndex((item) => item.id === id || normalizePromoCode(item.code) === code);
+  const next = {
+    id: existingIndex >= 0 ? store.promoCodes[existingIndex].id : id,
+    code,
+    label: String(body.label || `${trialDays} day free Pro trial`).trim().slice(0, 200),
+    trialDays,
+    status: ["active", "disabled", "archived"].includes(String(body.status || "").toLowerCase())
+      ? String(body.status).toLowerCase()
+      : "active",
+    expiresAt: body.expiresAt ? String(body.expiresAt) : "",
+    expiresLabel: String(body.expiresLabel || "").trim().slice(0, 120),
+    maxRedemptions: body.maxRedemptions === "" || body.maxRedemptions == null
+      ? null
+      : Math.max(0, Number(body.maxRedemptions) || 0),
+    notes: String(body.notes || "").trim().slice(0, 500),
+    source: "store",
+    createdAt: existingIndex >= 0 ? (store.promoCodes[existingIndex].createdAt || new Date().toISOString()) : new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  const conflict = store.promoCodes.find((item) => normalizePromoCode(item.code) === code && item.id !== next.id);
+  if (conflict) {
+    jsonResponse(response, 409, { error: `Promo code ${code} already exists.` });
+    return;
+  }
+  if (existingIndex >= 0) store.promoCodes[existingIndex] = next;
+  else store.promoCodes.unshift(next);
+  store.promoCodes = store.promoCodes.slice(0, 200);
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, promoCode: publicPromoCode(next) });
+}
+
+async function handleAdminPromoCodeDelete(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const id = String(body.id || "").trim();
+  const code = normalizePromoCode(body.code);
+  if (!id && !code) {
+    jsonResponse(response, 400, { error: "id or code is required." });
+    return;
+  }
+  const store = readStore();
+  store.promoCodes = promoCodeRecords(store);
+  const before = store.promoCodes.length;
+  store.promoCodes = store.promoCodes.filter((item) => {
+    if (id && item.id === id) return false;
+    if (code && normalizePromoCode(item.code) === code) return false;
+    return true;
+  });
+  if (store.promoCodes.length === before) {
+    jsonResponse(response, 404, { error: "Promo code not found." });
+    return;
+  }
+  await writeStoreAsync(store);
+  jsonResponse(response, 200, { ok: true, promoCodes: store.promoCodes.map(publicPromoCode) });
+}
+
+function handleAdminUserDetail(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const email = normalizeEmail(url.searchParams.get("email") || url.searchParams.get("userEmail") || "");
+  if (!email) {
+    jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  const store = peekStore();
+  const user = store.users?.[email];
+  if (!user) {
+    jsonResponse(response, 404, { error: "User not found." });
+    return;
+  }
+  const events = (store.analyticsEvents || []).filter((event) => normalizeEmail(event.user) === email);
+  const loginEvents = events
+    .filter((event) => ["account_login", "password_login", "session_restore", "website_visit"].includes(event.name) || event.name?.includes("login"))
+    .slice(0, 40)
+    .map((event) => ({
+      name: event.name,
+      createdAt: event.createdAt || "",
+      detail: event.detail || {},
+      path: event.path || event.hash || "",
+      userAgent: event.userAgent || event.detail?.userAgent || "",
+    }));
+  const downloadEvents = events
+    .filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "resource_download", "lesson_docx_download"].includes(event.name))
+    .slice(0, 40)
+    .map((event) => ({
+      name: event.name,
+      createdAt: event.createdAt || "",
+      label: event.detail?.title || event.detail?.category || event.detail?.tool || event.name,
+    }));
+  const schedule = store.scheduleByUser?.[email] || null;
+  const calendarEntryCount = Array.isArray(schedule?.entries)
+    ? schedule.entries.length
+    : Array.isArray(schedule?.weeks)
+      ? schedule.weeks.length
+      : (schedule && typeof schedule === "object" ? Object.keys(schedule).length : 0);
+  const programKeys = Object.keys(store.programData || {}).filter((key) => {
+    const row = store.programData[key];
+    return normalizeEmail(row?.ownerEmail || row?.email || key) === email;
+  });
+  let childrenCount = Number(user.childrenCount) || 0;
+  const childrenSample = [];
+  programKeys.forEach((key) => {
+    const row = store.programData[key] || {};
+    const kids = Array.isArray(row.children) ? row.children : (Array.isArray(row.childProfiles) ? row.childProfiles : []);
+    childrenCount = Math.max(childrenCount, kids.length);
+    kids.slice(0, 12).forEach((child) => {
+      childrenSample.push({
+        id: child.id || "",
+        name: child.name || child.firstName || "Child",
+        ageGroup: child.ageGroup || child.age || "",
+      });
+    });
+  });
+  const billingHistory = (store.billingEvents || [])
+    .filter((event) => normalizeEmail(event.email || event.user || event.detail?.email) === email)
+    .slice(0, 30);
+  const promoRedemptions = [
+    ...promoRedemptionRecords(store).filter((record) => normalizeEmail(record.email) === email),
+    ...(Array.isArray(user.promoRedemptions) ? user.promoRedemptions : []),
+  ].slice(0, 20);
+  const membership = membershipSummaryForUser(user, store);
+  jsonResponse(response, 200, {
+    ok: true,
+    user: {
+      email,
+      name: user.name || user.displayName || [user.firstName, user.lastName].filter(Boolean).join(" ") || "",
+      plan: user.plan || "Free",
+      accountStatus: user.accountStatus || "Active",
+      subscriptionStatus: user.subscriptionStatus || "",
+      stripeCustomerId: user.stripeCustomerId || "",
+      stripeSubscriptionId: user.stripeSubscriptionId || "",
+      lastLoginAt: user.lastLoginAt || "",
+      lastSeenAt: user.lastSeenAt || "",
+      signupAt: user.signupAt || user.createdAt || "",
+      businessName: user.businessName || user.daycareName || "",
+      ...membership,
+    },
+    impersonation: {
+      email,
+      planPreview: membershipAccess.membershipCurrentAccessKey(user) === "trial"
+        ? "Trial"
+        : membershipAccess.membershipCurrentAccessKey(user) === "founding"
+          ? "Founding"
+          : membershipAccess.membershipCurrentAccessKey(user) === "pro"
+            ? "Pro"
+            : "Free",
+      readOnly: true,
+    },
+    activity: {
+      eventCount: events.length,
+      loginHistory: loginEvents,
+      downloads: downloadEvents,
+      calendarEntryCount,
+      childrenCount,
+      childrenSample: childrenSample.slice(0, 12),
+      savedResourcesCount: Array.isArray(user.savedResources) ? user.savedResources.length : 0,
+      promoRedemptions,
+      billingHistory,
+      recentEvents: events.slice(0, 25).map((event) => ({
+        name: event.name,
+        createdAt: event.createdAt || "",
+        detail: event.detail || {},
+      })),
+    },
+  });
+}
+
 function publicTicket(ticket) {
   const replyEmail = ticket.replyEmail && typeof ticket.replyEmail === "object" ? ticket.replyEmail : null;
   return {
@@ -8661,6 +9033,16 @@ function analyticsSummary(store) {
       publishedLessonPlans,
       activityCount: activities.length,
       printableCount,
+      promoRedemptionsTotal: promoRedemptionRecords(store).length,
+      promoCodesActive: promoCodeRecords(store).filter((item) => String(item.status || "active").toLowerCase() === "active").length,
+      topLessonViews: Object.entries(countBy(
+        events.filter((event) => ["resource_view", "lesson_plan_view", "curriculum_lesson_view"].includes(event.name)),
+        (event) => event.detail?.title || event.detail?.resourceId || event.detail?.lessonId || "Lesson",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      topDownloads: Object.entries(countBy(
+        events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "resource_download", "lesson_docx_download"].includes(event.name)),
+        (event) => event.detail?.title || event.detail?.category || event.detail?.tool || event.name,
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
     },
     periods: {
       dailyVisitors: countBy(visits, (event) => analyticsDateKey(event.createdAt)),
@@ -10775,6 +11157,7 @@ function publicAnnouncement(item) {
     status: item.status,
     publishedAt: item.publishedAt || "",
     createdAt: item.createdAt,
+    updatedAt: item.updatedAt || item.createdAt || "",
   };
 }
 
@@ -13173,6 +13556,11 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-backups/download") return await handleAdminStoreBackupDownload(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/store-restore") return await handleAdminStoreRestore(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/promo-codes") return handleAdminPromoCodesList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/promo-codes") return await handleAdminPromoCodeSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/promo-code-delete") return await handleAdminPromoCodeDelete(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/user-detail") return handleAdminUserDetail(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-firebase-profiles") return await handleAdminRecoverFirebaseProfiles(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
