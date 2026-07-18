@@ -662,6 +662,89 @@
     error: "",
   };
 
+  let memberMessagesPollTimer = null;
+  let memberMessagesRefreshInFlight = false;
+  const MEMBER_MESSAGES_POLL_MS = 12000;
+
+  function stopMemberMessagesLiveRefresh() {
+    if (memberMessagesPollTimer) {
+      clearInterval(memberMessagesPollTimer);
+      memberMessagesPollTimer = null;
+    }
+  }
+
+  function startMemberMessagesLiveRefresh() {
+    stopMemberMessagesLiveRefresh();
+    memberMessagesPollTimer = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      if (!isLoggedIn()) return;
+      if (!document.querySelector("#view-messages.active-view")) return;
+      refreshMyMessagesCenterLive().catch(() => {});
+    }, MEMBER_MESSAGES_POLL_MS);
+  }
+
+  function messagesCenterDataSignature(data) {
+    const payload = data || {};
+    const conversation = (payload.conversation || []).map((m) => m.id).join(",");
+    const inbox = (payload.inbox || []).map((n) => `${n.id}:${n.unread ? 1 : 0}`).join(",");
+    const unread = (payload.unread || []).map((n) => n.id || n).join(",");
+    const sent = (payload.sent || []).map((m) => m.id).join(",");
+    return [conversation, inbox, unread, sent].join("||");
+  }
+
+  function captureMessagesReplyDraft() {
+    const input = document.querySelector("#messagesReplyInput, #messagesCenterReplyInput, #messagesReplyForm textarea[name='body']");
+    return input ? String(input.value || "") : "";
+  }
+
+  function restoreMessagesReplyDraft(draft) {
+    if (!draft) return;
+    const input = document.querySelector("#messagesReplyInput, #messagesCenterReplyInput, #messagesReplyForm textarea[name='body']");
+    if (!input) return;
+    input.value = draft;
+    try {
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    } catch {}
+  }
+
+  async function refreshMyMessagesCenterLive() {
+    if (memberMessagesRefreshInFlight || myMessagesState.loading) return;
+    if (!isLoggedIn() || !document.querySelector("#view-messages.active-view")) return;
+    memberMessagesRefreshInFlight = true;
+    try {
+      const result = await fetchMessagesCenterData();
+      if (!result.ok) {
+        // Keep the current thread on transient auth/network failures — do not wipe to empty.
+        return;
+      }
+      const prevSig = messagesCenterDataSignature(myMessagesState.data);
+      const nextSig = messagesCenterDataSignature(result.data);
+      myMessagesState.data = result.data;
+      myMessagesState.loaded = true;
+      myMessagesState.error = "";
+      if (prevSig === nextSig) return;
+      const draft = captureMessagesReplyDraft();
+      const wasFocused = Boolean(document.activeElement?.closest?.("#messagesReplyForm"));
+      paintMyMessagesCenter();
+      restoreMessagesReplyDraft(draft);
+      if (wasFocused) {
+        document.querySelector("#messagesReplyInput")?.focus();
+      }
+      if (myMessagesState.tab === "conversation" && (myMessagesState.data.conversation || []).length) {
+        if (typeof window.markNotificationRead === "function") {
+          window.markNotificationRead({ conversationEmail: currentUserEmail() });
+        }
+      }
+    } catch (error) {
+      console.warn("Could not refresh messages center", error);
+    } finally {
+      memberMessagesRefreshInFlight = false;
+    }
+  }
+
+  window.refreshMyMessagesCenterLive = refreshMyMessagesCenterLive;
+
   async function fetchMessagesCenterData() {
     const headers = await staffAuthHeaders();
     if (!headers || !canUseLaunchBackend()) {
@@ -1097,6 +1180,7 @@
     if (!section) return;
 
     if (!isLoggedIn()) {
+      stopMemberMessagesLiveRefresh();
       if (typeof window.renderManageSurfaceShell === "function") {
         section.innerHTML = window.renderManageSurfaceShell({
           eyebrow: "Messages",
@@ -1113,6 +1197,12 @@
           </div>
         `;
       }
+      return;
+    }
+
+    if (options.silent) {
+      await refreshMyMessagesCenterLive();
+      startMemberMessagesLiveRefresh();
       return;
     }
 
@@ -1134,13 +1224,17 @@
     myMessagesState.loading = false;
     if (!result.ok) {
       myMessagesState.error = result.error || "Could not load messages.";
-      myMessagesState.data = {
-        inbox: [], conversation: [], sent: [], drafts: [],
-        support: [], features: [], bugs: [], archived: [], unread: [],
-      };
+      // Keep previously loaded messages when a refresh fails so the thread does not vanish.
+      if (!myMessagesState.loaded) {
+        myMessagesState.data = {
+          inbox: [], conversation: [], sent: [], drafts: [],
+          support: [], features: [], bugs: [], archived: [], unread: [],
+        };
+      }
     } else {
       myMessagesState.data = result.data;
       myMessagesState.loaded = true;
+      myMessagesState.error = "";
     }
     paintMyMessagesCenter();
 
@@ -1150,6 +1244,7 @@
       }
     }
     refreshNotificationBellSafe();
+    startMemberMessagesLiveRefresh();
     trackEvent("messages_center_view", { tab: myMessagesState.tab });
   }
 

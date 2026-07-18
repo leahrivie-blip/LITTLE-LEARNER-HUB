@@ -10267,11 +10267,21 @@ async function refreshNotificationBell() {
     renderNotificationBell();
     return;
   }
+  const previousUnread = Number(notificationBellState.unreadCount) || 0;
   const data = await fetchNotificationsFromBackend();
   notificationBellState.items = Array.isArray(data.notifications) ? data.notifications : [];
   notificationBellState.unreadCount = Number(data.unreadCount) || 0;
   notificationBellState.loaded = true;
   renderNotificationBell();
+  // When a new notification arrives while Messages is open, refresh the thread
+  // so Leah's reply appears without a manual page reload.
+  if (
+    notificationBellState.unreadCount > previousUnread
+    && document.querySelector("#view-messages.active-view")
+    && typeof window.refreshMyMessagesCenterLive === "function"
+  ) {
+    window.refreshMyMessagesCenterLive().catch(() => {});
+  }
 }
 
 function renderNotificationBell() {
@@ -10688,7 +10698,126 @@ let adminMessagesState = {
   activeConversationEmail: "",
   activeConversationMessages: [],
   activeConversationUser: null,
+  authError: "",
 };
+
+let adminConversationsPollTimer = null;
+let adminConversationsRefreshInFlight = false;
+const ADMIN_CONVERSATIONS_POLL_MS = 12000;
+
+function stopAdminConversationsLiveRefresh() {
+  if (adminConversationsPollTimer) {
+    clearInterval(adminConversationsPollTimer);
+    adminConversationsPollTimer = null;
+  }
+}
+
+function startAdminConversationsLiveRefresh() {
+  stopAdminConversationsLiveRefresh();
+  adminConversationsPollTimer = setInterval(() => {
+    if (document.visibilityState !== "visible") return;
+    if (!isAdminUnlocked()) return;
+    if (adminMessagesState.tab !== "conversations") return;
+    if (!document.querySelector("#adminMessagesApp .admin-conversations-layout")) return;
+    refreshAdminConversationsLive().catch(() => {});
+  }, ADMIN_CONVERSATIONS_POLL_MS);
+}
+
+function adminConversationsListSignature(conversations) {
+  return (Array.isArray(conversations) ? conversations : [])
+    .map((c) => [c.userEmail, c.lastMessageAt, c.unreadFromUser, c.lastMessagePreview].join("|"))
+    .join(";;");
+}
+
+function adminConversationMessagesSignature(messages) {
+  return (Array.isArray(messages) ? messages : []).map((m) => m.id).join(",");
+}
+
+function adminConversationItemHtml(c) {
+  const name = c.userName || adminMessagingUserByEmail(c.userEmail)?.name || c.userEmail;
+  const meta = [c.businessName, c.plan].filter(Boolean).join(" · ");
+  return `
+    <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
+      <strong>${escapeHtml(name)}</strong>
+      <span class="admin-conversation-email">${escapeHtml(c.userEmail)}${meta ? ` · ${escapeHtml(meta)}` : ""}</span>
+      <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
+      ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
+    </button>
+  `;
+}
+
+function updateAdminConversationsListDom() {
+  const listEl = document.querySelector(".admin-conversations-list");
+  if (!listEl) return;
+  const conversations = filteredAdminConversations();
+  const total = adminMessagesState.conversations.length;
+  listEl.innerHTML = conversations.length
+    ? conversations.map(adminConversationItemHtml).join("")
+    : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
+}
+
+async function refreshAdminConversationThreadLive(userEmail) {
+  const clean = String(userEmail || "").trim().toLowerCase();
+  if (!clean || adminMessagesState.activeConversationEmail !== clean) return;
+  const token = adminSession()?.token || "";
+  if (!token) return;
+  const res = await fetch(
+    `/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(clean)}`,
+    { cache: "no-store" },
+  );
+  const data = await res.json().catch(() => ({}));
+  if (!assertAdminApiResponse(res, data, { render: false })) return;
+  if (!res.ok) return;
+  if (adminMessagesState.activeConversationEmail !== clean) return;
+  const messages = Array.isArray(data.messages) ? data.messages : [];
+  const prevSig = adminConversationMessagesSignature(adminMessagesState.activeConversationMessages);
+  const nextSig = adminConversationMessagesSignature(messages);
+  adminMessagesState.activeConversationMessages = messages;
+  adminMessagesState.activeConversationUser = data.user || null;
+  if (prevSig === nextSig) return;
+  const draft = document.querySelector("#adminConversationReplyInput")?.value || "";
+  const wasFocused = document.activeElement?.id === "adminConversationReplyInput";
+  renderAdminConversationThread();
+  const input = document.querySelector("#adminConversationReplyInput");
+  if (input && draft) input.value = draft;
+  if (input && wasFocused) {
+    input.focus();
+    try {
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    } catch {}
+  }
+}
+
+async function refreshAdminConversationsLive() {
+  if (adminConversationsRefreshInFlight) return;
+  if (!isAdminUnlocked()) return;
+  adminConversationsRefreshInFlight = true;
+  try {
+    const token = adminSession()?.token || "";
+    if (!token) return;
+    const res = await fetch(`/api/admin/conversations?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const data = await res.json().catch(() => ({}));
+    if (!assertAdminApiResponse(res, data, { render: false })) {
+      adminMessagesState.authError = "Admin session expired. Unlock Admin again to refresh conversations.";
+      return;
+    }
+    if (!res.ok) return;
+    adminMessagesState.authError = "";
+    const next = Array.isArray(data.conversations) ? data.conversations : [];
+    const prevSig = adminConversationsListSignature(adminMessagesState.conversations);
+    const nextSig = adminConversationsListSignature(next);
+    adminMessagesState.conversations = next;
+    if (prevSig !== nextSig) updateAdminConversationsListDom();
+    if (adminMessagesState.activeConversationEmail) {
+      await refreshAdminConversationThreadLive(adminMessagesState.activeConversationEmail);
+    }
+  } catch (error) {
+    console.warn("Could not refresh admin conversations", error);
+  } finally {
+    adminConversationsRefreshInFlight = false;
+  }
+}
 
 function adminMessagingDirectoryUsers() {
   const serverUsers = Array.isArray(adminAnalyticsCache?.users) ? adminAnalyticsCache.users : [];
@@ -10751,11 +10880,11 @@ function startAdminMessageToUser(email, options = {}) {
   adminMessagesState.selectedEmails = [];
   closeAdminUserProfileModal();
   if (options.openConversation) {
+    // Set the active email before switching tabs. renderAdminMessagesConversations
+    // awaits openAdminConversation after the list mounts — do not race with rAF,
+    // which used to paint the thread and then get wiped by the list remount.
     adminMessagesState.activeConversationEmail = clean;
     setAdminSectionTab("messages-conversations");
-    requestAnimationFrame(() => {
-      openAdminConversation(clean).catch(() => {});
-    });
     return;
   }
   setAdminSectionTab("messages-compose");
@@ -10907,6 +11036,7 @@ function renderAdminMessagesCenter(tab) {
   const container = document.querySelector("#adminMessagesApp");
   if (!container) return;
   if (adminMessagesState.tab === "compose") {
+    stopAdminConversationsLiveRefresh();
     renderAdminMessagesCompose(container);
   } else {
     renderAdminMessagesConversations(container);
@@ -10992,12 +11122,31 @@ async function renderAdminMessagesConversations(container) {
   try {
     const res = await fetch(`/api/admin/conversations?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
+    if (!assertAdminApiResponse(res, data, { render: false })) {
+      adminMessagesState.authError = "Admin session expired. Unlock Admin again to load conversations.";
+      container.innerHTML = `<p class="messages-empty">${escapeHtml(adminMessagesState.authError)}</p>`;
+      stopAdminConversationsLiveRefresh();
+      return;
+    }
+    if (!res.ok) {
+      const detail = data.error || `Could not load conversations (HTTP ${res.status}).`;
+      container.innerHTML = `<p class="messages-empty">${escapeHtml(detail)}</p>`;
+      stopAdminConversationsLiveRefresh();
+      return;
+    }
+    adminMessagesState.authError = "";
     adminMessagesState.conversations = Array.isArray(data.conversations) ? data.conversations : [];
   } catch (error) {
     console.warn("Could not load admin conversations", error);
-    adminMessagesState.conversations = [];
+    container.innerHTML = `<p class="messages-empty">Could not load conversations. Check your connection and try again.</p>`;
+    stopAdminConversationsLiveRefresh();
+    return;
   }
   renderAdminConversationsBody(container);
+  startAdminConversationsLiveRefresh();
+  if (adminMessagesState.activeConversationEmail) {
+    await openAdminConversation(adminMessagesState.activeConversationEmail);
+  }
 }
 
 function filteredAdminConversations() {
@@ -11020,25 +11169,14 @@ function renderAdminConversationsBody(container) {
   const conversations = filteredAdminConversations();
   const total = adminMessagesState.conversations.length;
   const listHtml = conversations.length
-    ? conversations.map((c) => {
-      const name = c.userName || adminMessagingUserByEmail(c.userEmail)?.name || c.userEmail;
-      const meta = [c.businessName, c.plan].filter(Boolean).join(" · ");
-      return `
-      <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
-        <strong>${escapeHtml(name)}</strong>
-        <span class="admin-conversation-email">${escapeHtml(c.userEmail)}${meta ? ` · ${escapeHtml(meta)}` : ""}</span>
-        <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
-        ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
-      </button>
-    `;
-    }).join("")
+    ? conversations.map(adminConversationItemHtml).join("")
     : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
   container.innerHTML = `
     <div class="section-heading">
       <div>
         <p class="eyebrow">Member Messaging</p>
         <h3>Conversations</h3>
-        <p class="muted-copy">Find people by name. Email stays available under each name.</p>
+        <p class="muted-copy">Find people by name. Email stays available under each name. Open threads refresh automatically.</p>
       </div>
     </div>
     <div class="admin-conversations-toolbar">
@@ -11052,30 +11190,49 @@ function renderAdminConversationsBody(container) {
       </div>
     </div>
   `;
-  if (adminMessagesState.activeConversationEmail) {
-    renderAdminConversationThread();
-  }
 }
 
 async function openAdminConversation(userEmail) {
-  adminMessagesState.activeConversationEmail = userEmail;
+  const clean = String(userEmail || "").trim().toLowerCase();
+  if (!clean) return;
+  adminMessagesState.activeConversationEmail = clean;
   document.querySelectorAll(".admin-conversation-item").forEach((btn) => {
-    btn.classList.toggle("active", btn.dataset.adminConversation === userEmail);
+    btn.classList.toggle("active", btn.dataset.adminConversation === clean);
   });
   const threadEl = document.querySelector("#adminConversationThread");
   if (threadEl) threadEl.innerHTML = `<p class="messages-loading">Loading…</p>`;
   const token = adminSession()?.token || "";
   try {
-    const res = await fetch(`/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(userEmail)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(clean)}`, { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
+    if (!assertAdminApiResponse(res, data, { render: false })) {
+      if (threadEl) {
+        threadEl.innerHTML = `<p class="messages-empty">Admin session expired. Unlock Admin again to view this conversation.</p>`;
+      }
+      return;
+    }
+    if (!res.ok) {
+      if (threadEl) {
+        threadEl.innerHTML = `<p class="messages-empty">${escapeHtml(data.error || "Could not load this conversation.")}</p>`;
+      }
+      return;
+    }
+    if (adminMessagesState.activeConversationEmail !== clean) return;
     adminMessagesState.activeConversationMessages = Array.isArray(data.messages) ? data.messages : [];
     adminMessagesState.activeConversationUser = data.user || null;
   } catch (error) {
     console.warn("Could not load conversation", error);
-    adminMessagesState.activeConversationMessages = [];
-    adminMessagesState.activeConversationUser = null;
+    if (threadEl) {
+      threadEl.innerHTML = `<p class="messages-empty">Could not load this conversation. Check your connection and try again.</p>`;
+    }
+    return;
   }
   renderAdminConversationThread();
+  // Server marks this thread's admin notifications read on open — clear badges locally now.
+  adminMessagesState.conversations = (adminMessagesState.conversations || []).map((c) => (
+    c.userEmail === clean ? { ...c, unreadFromUser: 0 } : c
+  ));
+  updateAdminConversationsListDom();
 }
 
 function adminConversationProfileHtml(user) {
@@ -11277,24 +11434,7 @@ document.addEventListener("input", (event) => {
   }
   if (event.target.matches("#adminConversationsSearch")) {
     adminMessagesState.conversationSearch = event.target.value || "";
-    const listEl = document.querySelector(".admin-conversations-list");
-    if (!listEl) return;
-    const conversations = filteredAdminConversations();
-    const total = adminMessagesState.conversations.length;
-    listEl.innerHTML = conversations.length
-      ? conversations.map((c) => {
-        const name = c.userName || adminMessagingUserByEmail(c.userEmail)?.name || c.userEmail;
-        const meta = [c.businessName, c.plan].filter(Boolean).join(" · ");
-        return `
-          <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
-            <strong>${escapeHtml(name)}</strong>
-            <span class="admin-conversation-email">${escapeHtml(c.userEmail)}${meta ? ` · ${escapeHtml(meta)}` : ""}</span>
-            <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
-            ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
-          </button>
-        `;
-      }).join("")
-      : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
+    updateAdminConversationsListDom();
   }
 });
 
