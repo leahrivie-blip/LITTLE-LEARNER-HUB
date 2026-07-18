@@ -1,0 +1,45 @@
+name: E2E Curriculum Tests
+
+# Manual-only: the Playwright suite is still WIP and must not gate PRs.
+on:
+  workflow_dispatch:
+
+jobs:
+  e2e-blocker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install chromium --with-deps
+
+      - name: Run blocker E2E tests (isolated store)
+        env:
+          CI: true
+          E2E_PORT: 4180
+          E2E_BASE_URL: http://127.0.0.1:4180
+          E2E_ADMIN_EMAIL: e2e-admin@test.local
+          E2E_ADMIN_PASSWORD: e2e-admin-pass-1b07
+          E2E_ADMIN_ACCESS_CODE: e2e-admin-code-1b07
+        run: npm run test:e2e:blocker -- --project=desktop-chrome
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14
