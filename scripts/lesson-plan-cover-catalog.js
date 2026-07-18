@@ -31,13 +31,13 @@
       title: "Apple Orchard Adventure",
       slug: "apple-orchard-adventure",
       age: "Toddler",
-      prompt: "Children's book illustration, 16:9. Sunny toddler apple orchard with apple trees, blossom branches, and baskets of red apples. Leave open space for title overlay. No text.",
+      prompt: "Hand-painted storybook watercolor, 16:9. Sunny apple orchard path with trees full of red apples and harvest baskets. Soft empty sky space for title. No text, no people.",
     },
     {
       title: "Apples in the Kitchen",
       slug: "apples-in-the-kitchen",
       age: "Toddler",
-      prompt: "Children's book illustration, 16:9. Colorful classroom kitchen with toddlers in chef hats making applesauce, apple pie, and apple juice. Leave open space for title overlay. No text.",
+      prompt: "Hand-painted storybook watercolor, 16:9. Preschool kitchen counter with applesauce bowl, apple pie, juice pitcher, chef hat and apron resting empty. Soft empty wall space for title. No text, no people.",
     },
     {
       title: "Animal Habitats",
@@ -211,7 +211,7 @@
       title: "Johnny Appleseed & Apple Fun",
       slug: "johnny-appleseed-apple-fun",
       age: "Toddler",
-      prompt: "Children's book illustration, 16:9. Friendly Johnny Appleseed planting apple seeds with toddlers in a bright orchard filled with apple trees and baskets. Leave open space for title overlay. No text.",
+      prompt: "Hand-painted storybook watercolor, 16:9. Johnny Appleseed themed planting scene with tin pot, satchel, sapling, seeds, shovel, and apple basket under orchard trees. Soft empty sky space for title. No text, no people.",
     },
     {
       title: "Kindergarten Readiness",
