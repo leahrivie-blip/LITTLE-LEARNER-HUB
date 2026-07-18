@@ -1,10 +1,10 @@
-const CACHE_NAME = "llh-shell-v84-messages-live";
+const CACHE_NAME = "llh-shell-v85-billing-access";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260718-messages-live",
+  "/styles.css?v=20260718-billing-access",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -23,10 +23,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260718-messages-live",
-  "/scripts/free-plan-grandfathering.js?v=20260718-messages-live",
-  "/app.js?v=20260718-messages-live",
-  "/comms-center.js?v=20260718-messages-live",
+  "/scripts/free-curriculum-sample.js?v=20260718-billing-access",
+  "/scripts/free-plan-grandfathering.js?v=20260718-billing-access",
+  "/app.js?v=20260718-billing-access",
+  "/comms-center.js?v=20260718-billing-access",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
