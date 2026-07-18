@@ -97,9 +97,9 @@ async function run() {
   });
 
   await test("cache bust versions aligned for analytics accuracy", () => {
-    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-domain-dns-check");
-    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-domain-dns-check");
-    assert.match(sw, /llh-shell-v89-domain-dns-check/);
+    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-domain-dns-provider-fix");
+    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-domain-dns-provider-fix");
+    assert.match(sw, /llh-shell-v90-domain-dns-provider-fix/);
   });
 
   // Live formula smoke test against a temporary local store.

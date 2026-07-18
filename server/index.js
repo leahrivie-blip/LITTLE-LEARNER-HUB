@@ -1,5 +1,4 @@
 const crypto = require("node:crypto");
-const dns = require("node:dns").promises;
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
@@ -22,6 +21,13 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const adminNotifications = require("./admin-notifications.js");
 const programOwnership = require("./program-ownership.js");
+const {
+  RENDER_SERVICE_HOST,
+  RENDER_LOAD_BALANCER_IPV4,
+  CUSTOM_BRAND_DOMAINS,
+  WORKING_BRAND_DOMAINS,
+  buildDomainDnsReport,
+} = require("./domain-dns.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -11640,138 +11646,9 @@ function handleBillingReadiness(request, response) {
   });
 }
 
-const RENDER_SERVICE_HOST = "little-learner-hub.onrender.com";
-const RENDER_LOAD_BALANCER_IPV4 = "216.24.57.1";
-const CUSTOM_BRAND_DOMAINS = ["littlelearnerhub.com", "www.littlelearnerhub.com"];
-const WORKING_BRAND_DOMAINS = ["littlelearnershubbyleah.com", "www.littlelearnershubbyleah.com"];
-const BLUEHOST_LEGACY_IPS = new Set(["66.235.200.145"]);
-
-async function resolveDnsRecords(hostname) {
-  const host = String(hostname || "").trim().toLowerCase();
-  const empty = { host, a: [], aaaa: [], cname: [], ns: [], error: "" };
-  if (!host) return empty;
-  try {
-    const [a, aaaa, cname, ns] = await Promise.all([
-      dns.resolve4(host).catch((error) => (error.code === "ENODATA" || error.code === "ENOTFOUND" ? [] : Promise.reject(error))),
-      dns.resolve6(host).catch((error) => (error.code === "ENODATA" || error.code === "ENOTFOUND" ? [] : Promise.reject(error))),
-      dns.resolveCname(host).catch((error) => (error.code === "ENODATA" || error.code === "ENOTFOUND" ? [] : Promise.reject(error))),
-      dns.resolveNs(host.replace(/^www\./, "")).catch((error) => (error.code === "ENODATA" || error.code === "ENOTFOUND" ? [] : Promise.reject(error))),
-    ]);
-    return {
-      host,
-      a: Array.isArray(a) ? a : [],
-      aaaa: Array.isArray(aaaa) ? aaaa : [],
-      cname: Array.isArray(cname) ? cname.map((item) => String(item).replace(/\.$/, "")) : [],
-      ns: Array.isArray(ns) ? ns.map((item) => String(item).replace(/\.$/, "")) : [],
-      error: "",
-    };
-  } catch (error) {
-    return { ...empty, error: error.message || "DNS lookup failed" };
-  }
-}
-
-function classifyBrandDomainDns(records = {}) {
-  const a = records.a || [];
-  const cname = (records.cname || []).map((item) => item.toLowerCase());
-  const ns = (records.ns || []).map((item) => item.toLowerCase());
-  const pointsToRenderCname = cname.some((item) => item === RENDER_SERVICE_HOST || item.endsWith(".onrender.com"));
-  const pointsToRenderIp = a.includes(RENDER_LOAD_BALANCER_IPV4) || a.some((ip) => String(ip).startsWith("216.24.57."));
-  // Bluehost nameservers are fine when DNS is edited there — only the legacy A IP means traffic still hits Bluehost/iPower.
-  const pointsToBluehostIp = a.some((ip) => BLUEHOST_LEGACY_IPS.has(ip));
-  const managedAtBluehost = ns.some((item) => item.includes("bluehost.com"));
-  const ready = pointsToRenderCname || pointsToRenderIp;
-  let status = "unknown";
-  let fix = "";
-  if (ready) {
-    status = "ready";
-    fix = managedAtBluehost
-      ? "DNS points at Render (records still managed at Bluehost — that is OK)."
-      : "DNS points at Render.";
-  } else if (pointsToBluehostIp || managedAtBluehost) {
-    status = "bluehost";
-    fix = `Still on Bluehost. In Bluehost DNS: set www CNAME → ${RENDER_SERVICE_HOST}, apex A → ${RENDER_LOAD_BALANCER_IPV4}, remove A 66.235.200.145, then add both hosts in Render → Custom Domains.`;
-  } else if (records.error) {
-    status = "error";
-    fix = records.error;
-  } else {
-    status = "not_render";
-    fix = `Does not resolve to Render yet. Expected www CNAME ${RENDER_SERVICE_HOST} or apex A ${RENDER_LOAD_BALANCER_IPV4}.`;
-  }
-  return {
-    status,
-    ready,
-    pointsToRender: ready,
-    pointsToBluehost: pointsToBluehostIp || (managedAtBluehost && !ready),
-    managedAtBluehost,
-    fix,
-  };
-}
-
-async function buildDomainDnsReport() {
-  const targets = [...new Set([...CUSTOM_BRAND_DOMAINS, ...WORKING_BRAND_DOMAINS])];
-  const lookups = {};
-  await Promise.all(targets.map(async (host) => {
-    lookups[host] = await resolveDnsRecords(host);
-  }));
-  const brand = {
-    apex: {
-      host: "littlelearnerhub.com",
-      ...lookups["littlelearnerhub.com"],
-      ...classifyBrandDomainDns(lookups["littlelearnerhub.com"]),
-    },
-    www: {
-      host: "www.littlelearnerhub.com",
-      ...lookups["www.littlelearnerhub.com"],
-      ...classifyBrandDomainDns(lookups["www.littlelearnerhub.com"]),
-    },
-  };
-  const working = {
-    apex: {
-      host: "littlelearnershubbyleah.com",
-      ...lookups["littlelearnershubbyleah.com"],
-      ...classifyBrandDomainDns(lookups["littlelearnershubbyleah.com"]),
-    },
-    www: {
-      host: "www.littlelearnershubbyleah.com",
-      ...lookups["www.littlelearnershubbyleah.com"],
-      ...classifyBrandDomainDns(lookups["www.littlelearnershubbyleah.com"]),
-    },
-  };
-  const ready = brand.apex.ready && brand.www.ready;
-  return {
-    checkedAt: new Date().toISOString(),
-    ready,
-    render: {
-      serviceHost: RENDER_SERVICE_HOST,
-      apexARecord: RENDER_LOAD_BALANCER_IPV4,
-      docs: "https://render.com/docs/configure-other-dns",
-    },
-    recommendedDns: [
-      { type: "CNAME", host: "www", value: RENDER_SERVICE_HOST, note: "Bluehost DNS → www" },
-      { type: "A", host: "@", value: RENDER_LOAD_BALANCER_IPV4, note: "Bluehost DNS → apex; replace 66.235.200.145" },
-    ],
-    brandDomain: brand,
-    workingDomain: working,
-    siteUrl: SITE_URL,
-    nextSteps: ready
-      ? [
-        "DNS looks good. Confirm both hosts are added under Render → Custom Domains and HTTPS certs are issued.",
-        "Optionally set SITE_URL=https://www.littlelearnerhub.com after certs are live.",
-      ]
-      : [
-        "Log into Bluehost → Domains → littlelearnerhub.com → DNS",
-        `Set www CNAME to ${RENDER_SERVICE_HOST}`,
-        `Set apex (@) A record to ${RENDER_LOAD_BALANCER_IPV4} (remove 66.235.200.145)`,
-        "In Render → Settings → Custom Domains, add www.littlelearnerhub.com and littlelearnerhub.com",
-        "Wait for DNS (often 5–30 minutes), then Refresh Safety / Domain DNS check",
-        "Keep sharing https://littlelearnershubbyleah.com until littlelearnerhub.com resolves to Render",
-      ],
-  };
-}
-
 async function handleDomainDnsCheck(request, response) {
   try {
-    const report = await buildDomainDnsReport();
+    const report = await buildDomainDnsReport({ siteUrl: SITE_URL });
     jsonResponse(response, 200, { ok: true, domainDns: report });
   } catch (error) {
     jsonResponse(response, 500, { ok: false, error: error.message || "Domain DNS check failed." });
@@ -11814,7 +11691,7 @@ function handleHealth(request, response) {
       renderServiceHost: RENDER_SERVICE_HOST,
       renderApexARecord: RENDER_LOAD_BALANCER_IPV4,
       dnsCheckEndpoint: "/api/domain-dns-check",
-      note: "littlelearnerhub.com must point at Render (www CNAME → little-learner-hub.onrender.com, apex A → 216.24.57.1). Until then use https://littlelearnershubbyleah.com. Live DNS status: GET /api/domain-dns-check.",
+      note: "Brand domain must resolve to Render (www CNAME → little-learner-hub.onrender.com, apex A → 216.24.57.1). Provider-agnostic live status: GET /api/domain-dns-check.",
     },
   });
 }

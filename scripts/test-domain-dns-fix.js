@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Domain DNS check API + Safety Center wiring + docs.
+ * Provider-agnostic domain DNS check + Safety Center wiring.
  * Run: node scripts/test-domain-dns-fix.js
  */
 const assert = require("node:assert/strict");
@@ -9,6 +9,11 @@ const path = require("node:path");
 const http = require("node:http");
 const os = require("node:os");
 const { spawn } = require("node:child_process");
+const {
+  classifyBrandDomainDns,
+  RENDER_SERVICE_HOST,
+  RENDER_LOAD_BALANCER_IPV4,
+} = require("../server/domain-dns.js");
 
 function test(name, fn) {
   try {
@@ -34,50 +39,96 @@ async function testAsync(name, fn) {
 
 const root = path.join(__dirname, "..");
 const serverJs = fs.readFileSync(path.join(root, "server/index.js"), "utf8");
+const domainDnsJs = fs.readFileSync(path.join(root, "server/domain-dns.js"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const doc = fs.readFileSync(path.join(root, "docs/DOMAIN_DNS_FIX.md"), "utf8");
 const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260718-domain-dns-check";
-const SHELL_V = "llh-shell-v89-domain-dns-check";
+const CACHE_V = "20260718-domain-dns-provider-fix";
+const SHELL_V = "llh-shell-v90-domain-dns-provider-fix";
 
-test("health endpoint exposes domain diagnostics + dns-check pointer", () => {
-  assert.match(serverJs, /customDomainTargets/);
-  assert.match(serverJs, /littlelearnerhub\.com/);
-  assert.match(serverJs, /servingKnownAppHost/);
-  assert.match(serverJs, /dnsCheckEndpoint/);
+test("classify: Namecheap NS + Render targets is ready", () => {
+  const apex = classifyBrandDomainDns({
+    host: "littlelearnerhub.com",
+    a: [RENDER_LOAD_BALANCER_IPV4],
+    cname: [],
+    ns: ["dns1.registrar-servers.com", "dns2.registrar-servers.com"],
+  });
+  const www = classifyBrandDomainDns({
+    host: "www.littlelearnerhub.com",
+    a: [],
+    cname: [RENDER_SERVICE_HOST],
+    ns: ["dns1.registrar-servers.com", "dns2.registrar-servers.com"],
+  });
+  assert.equal(apex.status, "ready");
+  assert.equal(www.status, "ready");
+  assert.equal(apex.ready, true);
+  assert.equal(www.ready, true);
+});
+
+test("classify: Bluehost NS + Render targets is still ready (provider ignored)", () => {
+  const apex = classifyBrandDomainDns({
+    host: "littlelearnerhub.com",
+    a: [RENDER_LOAD_BALANCER_IPV4],
+    cname: [],
+    ns: ["ns1.bluehost.com", "ns2.bluehost.com"],
+  });
+  assert.equal(apex.status, "ready");
+  assert.equal(apex.ready, true);
+  assert.doesNotMatch(apex.fix || "", /Bluehost/i);
+});
+
+test("classify: wrong A record is misconfigured regardless of provider", () => {
+  const apex = classifyBrandDomainDns({
+    host: "littlelearnerhub.com",
+    a: ["66.235.200.145"],
+    cname: [],
+    ns: ["dns1.registrar-servers.com"],
+  });
+  assert.equal(apex.status, "misconfigured");
+  assert.equal(apex.ready, false);
+  assert.match(apex.issue, /66\.235\.200\.145/);
+  assert.doesNotMatch(apex.status, /bluehost/i);
+  assert.doesNotMatch(JSON.stringify(apex), /pointsToBluehost|managedAtBluehost|bluehost/i);
+});
+
+test("classify: www CNAME to apex that resolves via Render A is ready", () => {
+  const www = classifyBrandDomainDns({
+    host: "www.littlelearnerhub.com",
+    a: [RENDER_LOAD_BALANCER_IPV4],
+    cname: ["littlelearnerhub.com"],
+    ns: ["dns1.registrar-servers.com"],
+  });
+  assert.equal(www.status, "ready");
+});
+
+test("server uses shared domain-dns module (no provider assumption)", () => {
+  assert.match(serverJs, /require\("\.\/domain-dns\.js"\)/);
   assert.match(serverJs, /\/api\/domain-dns-check/);
-  assert.match(serverJs, /216\.24\.57\.1/);
-  assert.match(serverJs, /RENDER_LOAD_BALANCER_IPV4/);
+  assert.match(serverJs, /buildDomainDnsReport/);
+  assert.doesNotMatch(domainDnsJs, /Still on Bluehost/);
+  assert.doesNotMatch(domainDnsJs, /managedAtBluehost|pointsToBluehost|BLUEHOST_LEGACY/);
+  assert.match(domainDnsJs, /provider-agnostic|Provider-agnostic/i);
+  assert.match(domainDnsJs, /nameserverNote/);
 });
 
-test("domain DNS report classifies Bluehost A without treating Bluehost NS as failure", () => {
-  assert.match(serverJs, /function classifyBrandDomainDns\(/);
-  assert.match(serverJs, /function buildDomainDnsReport\(/);
-  assert.match(serverJs, /managedAtBluehost/);
-  assert.match(serverJs, /pointsToBluehostIp/);
-  assert.match(serverJs, /BLUEHOST_LEGACY_IPS/);
-});
-
-test("Safety Center loads and renders domain DNS panel", () => {
+test("Safety Center is provider-agnostic", () => {
   assert.match(appJs, /\/api\/domain-dns-check/);
-  assert.match(appJs, /adminDomainDnsReport/);
   assert.match(appJs, /function renderAdminDomainDnsPanel\(/);
-  assert.match(appJs, /adminDomainDnsPanel/);
-  assert.match(appJs, /Brand domain DNS/);
-  assert.match(appJs, /Recommended Bluehost records/);
+  assert.match(appJs, /Recommended DNS records/);
+  assert.match(appJs, /Authoritative nameservers/);
+  assert.doesNotMatch(appJs, /Recommended Bluehost records/);
 });
 
-test("domain DNS fix doc has exact Bluehost + Render steps", () => {
-  assert.match(doc, /little-learner-hub\.onrender\.com/);
-  assert.match(doc, /Bluehost/);
-  assert.match(doc, /Cloudflare/);
-  assert.match(doc, /66\.235\.200\.145/);
+test("docs explain registrar vs nameservers without treating Bluehost as the only path", () => {
+  assert.match(doc, /Namecheap/);
+  assert.match(doc, /authoritative/i);
   assert.match(doc, /216\.24\.57\.1/);
-  assert.match(doc, /littlelearnershubbyleah\.com/);
+  assert.match(doc, /little-learner-hub\.onrender\.com/);
   assert.match(doc, /\/api\/domain-dns-check/);
+  assert.match(doc, /provider-agnostic/i);
 });
 
 test("cache bust bumped for redeploy", () => {
@@ -160,32 +211,25 @@ function requestJson(port, pathname) {
 }
 
 (async () => {
-  await testAsync("GET /api/domain-dns-check returns brand + recommended DNS", async () => {
+  await testAsync("GET /api/domain-dns-check is provider-agnostic and reports observed targets", async () => {
     await withTempServer(async ({ port }) => {
       const health = await requestJson(port, "/api/health");
       assert.equal(health.status, 200);
       assert.equal(health.data.domain?.dnsCheckEndpoint, "/api/domain-dns-check");
-      assert.equal(health.data.domain?.renderApexARecord, "216.24.57.1");
+      assert.match(String(health.data.domain?.note || ""), /Provider-agnostic|provider-agnostic/i);
 
       const dns = await requestJson(port, "/api/domain-dns-check");
       assert.equal(dns.status, 200);
       assert.equal(dns.data.ok, true);
       const report = dns.data.domainDns;
       assert.ok(report);
-      assert.equal(report.render?.serviceHost, "little-learner-hub.onrender.com");
-      assert.equal(report.render?.apexARecord, "216.24.57.1");
-      assert.ok(Array.isArray(report.recommendedDns));
-      assert.ok(report.recommendedDns.some((row) => row.type === "CNAME" && row.host === "www"));
-      assert.ok(report.recommendedDns.some((row) => row.type === "A" && row.value === "216.24.57.1"));
-      assert.equal(report.brandDomain?.apex?.host, "littlelearnerhub.com");
-      assert.equal(report.brandDomain?.www?.host, "www.littlelearnerhub.com");
-      assert.ok(Array.isArray(report.nextSteps));
-      assert.ok(report.nextSteps.length >= 1);
-      // Live internet DNS: brand domain should still report not ready while on Bluehost IP.
-      if (report.brandDomain?.apex?.a?.includes("66.235.200.145")) {
-        assert.equal(report.ready, false);
-        assert.equal(report.brandDomain.apex.status, "bluehost");
-      }
+      assert.ok(Array.isArray(report.nameservers));
+      assert.ok(report.nameserverNote);
+      assert.doesNotMatch(JSON.stringify(report.nextSteps || []), /Log into Bluehost/i);
+      assert.ok(report.recommendedDns.some((row) => row.type === "A" && row.value === RENDER_LOAD_BALANCER_IPV4));
+      assert.ok(["ready", "misconfigured", "missing", "error", "unknown"].includes(report.brandDomain?.apex?.status));
+      assert.notEqual(report.brandDomain?.apex?.status, "bluehost");
+      assert.notEqual(report.brandDomain?.www?.status, "bluehost");
     });
   });
 

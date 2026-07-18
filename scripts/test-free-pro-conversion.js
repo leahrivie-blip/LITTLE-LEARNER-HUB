@@ -100,11 +100,11 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-domain-dns-check");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-domain-dns-check");
-  assert.match(sw, /llh-shell-v89-domain-dns-check/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-domain-dns-check/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-domain-dns-check/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-domain-dns-provider-fix");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-domain-dns-provider-fix");
+  assert.match(sw, /llh-shell-v90-domain-dns-provider-fix/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-domain-dns-provider-fix/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-domain-dns-provider-fix/);
 });
 
 function requestJson(method, urlPath, body) {

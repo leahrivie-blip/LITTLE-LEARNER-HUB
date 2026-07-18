@@ -66,9 +66,9 @@ test("curriculum activities bulk actions update parent lesson status", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-domain-dns-check");
-  assert.equal(indexJs, "20260718-domain-dns-check");
-  assert.match(sw, /llh-shell-v89-domain-dns-check/);
+  assert.equal(indexCss, "20260718-domain-dns-provider-fix");
+  assert.equal(indexJs, "20260718-domain-dns-provider-fix");
+  assert.match(sw, /llh-shell-v90-domain-dns-provider-fix/);
 });
 
 if (!process.exitCode) {

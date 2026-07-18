@@ -35570,6 +35570,7 @@ function renderAdminDomainDnsPanel() {
   const brandWww = report.brandDomain?.www || {};
   const workingApex = report.workingDomain?.apex || {};
   const workingWww = report.workingDomain?.www || {};
+  const nameservers = Array.isArray(report.nameservers) ? report.nameservers : [];
   const formatHostLine = (entry) => {
     const host = entry.host || "—";
     const status = entry.status || "unknown";
@@ -35577,7 +35578,8 @@ function renderAdminDomainDnsPanel() {
       ...(entry.cname || []).map((v) => `CNAME ${v}`),
       ...(entry.a || []).map((v) => `A ${v}`),
     ].slice(0, 3).join(" · ") || "no A/CNAME";
-    return `<div class="analytics-row stacked"><span><strong>${escapeHtml(host)}</strong> · ${escapeHtml(status)}</span><small>${escapeHtml(targets)}${entry.fix ? ` — ${escapeHtml(entry.fix)}` : ""}</small></div>`;
+    const detail = entry.issue || entry.fix || "";
+    return `<div class="analytics-row stacked"><span><strong>${escapeHtml(host)}</strong> · ${escapeHtml(status)}</span><small>${escapeHtml(targets)}${detail ? ` — ${escapeHtml(detail)}` : ""}</small></div>`;
   };
   const recommended = (report.recommendedDns || []).map((row) => `
     <div class="analytics-row"><span>${escapeHtml(row.type)} ${escapeHtml(row.host)}</span><strong>${escapeHtml(row.value)}</strong></div>
@@ -35586,7 +35588,8 @@ function renderAdminDomainDnsPanel() {
   return `
     <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
       <h4>Custom domain DNS · ${report.ready ? "Ready" : "Action needed"}</h4>
-      <p class="muted-copy">Brand domain <strong>littlelearnerhub.com</strong> must point at Render. Working share link: <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+      <p class="muted-copy">Checks whether <strong>littlelearnerhub.com</strong> resolves to Render — not which registrar/DNS host you use. Share link while fixing: <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+      ${nameservers.length ? `<p class="muted-copy">Authoritative nameservers: <code>${escapeHtml(nameservers.join(", "))}</code>. ${escapeHtml(report.nameserverNote || "Edit DNS in the zone those nameservers serve.")}</p>` : ""}
       ${formatHostLine(brandWww)}
       ${formatHostLine(brandApex)}
       <details style="margin-top:8px;">
@@ -35594,7 +35597,7 @@ function renderAdminDomainDnsPanel() {
         ${formatHostLine(workingWww)}
         ${formatHostLine(workingApex)}
       </details>
-      <h5 style="margin-top:12px;">Recommended Bluehost records</h5>
+      <h5 style="margin-top:12px;">Recommended DNS records</h5>
       ${recommended || `<p class="muted-copy">No recommended records listed.</p>`}
       <ol class="muted-copy" style="margin-top:8px; padding-left:1.2rem;">${steps}</ol>
       <p class="muted-copy">Checked ${report.checkedAt ? escapeHtml(new Date(report.checkedAt).toLocaleString()) : "—"}. API: <code>/api/domain-dns-check</code></p>
