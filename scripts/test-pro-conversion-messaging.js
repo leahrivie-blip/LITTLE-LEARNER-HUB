@@ -155,7 +155,9 @@ async function main() {
     assert.equal(site.status, 200);
     const library = site.json?.curriculumLibrary || site.json?.siteContent?.curriculumLibrary || {};
     const plans = Array.isArray(library.lessonPlans) ? library.lessonPlans : [];
-    plans.filter((p) => p.plan === "Pro").forEach((plan) => {
+    const freeSample = require("./free-curriculum-sample.js");
+    // Store tags can remain Pro while the curated Free allowlist unlocks seasonal samples.
+    plans.filter((p) => p.plan === "Pro" && !freeSample.isCuratedFreeLessonPlan(p)).forEach((plan) => {
       assert.equal(plan.locked, true, `${plan.id} should be locked`);
       assert.equal(plan.dailyPlans, undefined, `${plan.id} must not leak dailyPlans`);
       assert.equal(plan.objectives, undefined, `${plan.id} must not leak objectives`);

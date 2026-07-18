@@ -5323,7 +5323,7 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 .free-welcome-card,
 .free-library-conversion-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 240px);
   gap: 16px 20px;
   align-items: start;
   margin: 14px 0 18px;
@@ -5332,6 +5332,13 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   border: 1px solid rgba(91, 155, 213, 0.28);
   background: linear-gradient(135deg, #f7fbff, rgba(219, 234, 247, 0.4), rgba(255, 248, 240, 0.55));
   box-shadow: 0 8px 20px rgba(26, 43, 74, 0.06);
+}
+
+@media (max-width: 900px) {
+  .free-welcome-card,
+  .free-library-conversion-banner {
+    grid-template-columns: 1fr;
+  }
 }
 
 .free-welcome-card-badge,

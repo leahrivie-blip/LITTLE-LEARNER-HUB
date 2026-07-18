@@ -1806,10 +1806,16 @@ function unlinkCurriculumResourceFromLessonPlan(curriculum, resourceId, lessonPl
   });
 }
 
-function curriculumActivityIdFromItemId(itemId) {
+function curriculumActivityIdFromItemId(itemId, lessonPlanId = "") {
   const normalized = normalizedShortText(itemId, 120);
   if (!normalized) return "";
   const suffix = normalized.startsWith("item-") ? normalized.slice(5) : normalized;
+  const planKey = normalizedShortText(lessonPlanId, 160);
+  // Namespace by lesson plan so Free/Pro copies of the same import sample never share an id.
+  if (planKey) {
+    const digest = crypto.createHash("sha1").update(`${planKey}:${suffix}`).digest("hex").slice(0, 16);
+    return `cur-act-${digest}`;
+  }
   return `cur-act-${suffix}`;
 }
 
@@ -1864,7 +1870,7 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       publishedAt = plan.publishedAt || "";
     }
     syncedForPlan.push(normalizedCurriculumActivity({
-      id: existing?.id || curriculumActivityIdFromItemId(item.itemId),
+      id: existing?.id || curriculumActivityIdFromItemId(item.itemId, plan.id),
       lessonPlanId: plan.id,
       itemId: item.itemId,
       sourceKey,

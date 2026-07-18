@@ -20709,11 +20709,8 @@ function renderUserDashboard() {
   const recentActivity = dashboardRecentActivity(records, childById);
   const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const reminders = dashboardReminderMarkup(records, stats);
-  const welcomeCard = freeWelcomeCardHtml();
-  const upgradeBanner = welcomeCard
-    ? ""
-    : freeLibraryConversionBannerHtml({ variant: "dashboard", dismissible: true });
-  const showTeaserUpgradeCta = !welcomeCard && !upgradeBanner;
+  const upgradeBanner = freeSurfaceUpgradeHtml("dashboard");
+  const showTeaserUpgradeCta = !upgradeBanner;
   const dashboardTeasers = !isProUser() ? `
     <section class="section-block dashboard-teasers">
       <div class="dashboard-panel-heading"><div><p class="eyebrow">Pro previews</p><h3>Spend less time on paperwork</h3></div></div>
@@ -20734,7 +20731,6 @@ function renderUserDashboard() {
         </div>
       </div>
 
-      ${welcomeCard}
       ${upgradeBanner}
 
       ${dashboardScheduleOverviewMarkup()}
@@ -23963,6 +23959,7 @@ function renderCalendarMonthView(app) {
 
   app.innerHTML = `
     <div class="llh-calendar-shell">
+      ${freeSurfaceUpgradeHtml("calendar")}
       ${calendarScheduleStatusHtml()}
       ${calendarAssignNoticeHtml()}
       ${curriculumPlannerRetirementBannerHtml()}
@@ -42598,9 +42595,19 @@ function dismissFreeWelcomeCard() {
   }
   document.querySelectorAll(".free-welcome-card").forEach((node) => node.remove());
   const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
-  if (activeView === "home" && typeof renderHome === "function") {
-    try { renderHome(); } catch { /* ignore */ }
+  try {
+    if (activeView === "home" && typeof renderHome === "function") renderHome();
+    else if (activeView === "calendar" && typeof renderMainCalendar === "function") renderMainCalendar();
+  } catch {
+    /* ignore */
   }
+}
+
+/** Welcome card for new Free users, else the dismissible conversion banner. */
+function freeSurfaceUpgradeHtml(variant = "default") {
+  const welcome = freeWelcomeCardHtml();
+  if (welcome) return welcome;
+  return freeLibraryConversionBannerHtml({ variant, dismissible: true });
 }
 
 /**
@@ -45843,7 +45850,7 @@ document.addEventListener("click", async (event) => {
     if (!observation) return;
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
       trackUpgradePrompt("observations_limit", { limit: freeObservationRecordLimit });
-      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
+      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've used all ${freeObservationRecordLimit} Free observations for now — upgrade for unlimited documentation that saves time every day.`, "limit");
       return;
     }
     const copy = {
@@ -50731,7 +50738,7 @@ document.addEventListener("submit", (event) => {
   } else {
     if (!isProUser() && observations.length >= freeObservationRecordLimit) {
       trackUpgradePrompt("observations_limit", { limit: freeObservationRecordLimit });
-      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've reached your Free Plan limit of ${freeObservationRecordLimit} observations.`, "limit");
+      showProFeatureModal(`${freeDocumentationLimitMessage}\n\nYou've used all ${freeObservationRecordLimit} Free observations for now — upgrade for unlimited documentation that saves time every day.`, "limit");
       return;
     }
     saveChildStore("Observations", [...observations, {

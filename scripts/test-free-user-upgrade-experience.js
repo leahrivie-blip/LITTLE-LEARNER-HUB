@@ -257,39 +257,55 @@ async function main() {
     });
     await page.evaluate(() => {
       localStorage.removeItem("llhFreeWelcomeCardDismissed");
-      if (typeof setView === "function") setView("home");
-      if (typeof renderHome === "function") renderHome();
+      // Logged-in home remaps to Calendar — welcome card lives on that planning surface.
+      if (typeof setView === "function") setView("calendar");
+      if (typeof renderMainCalendar === "function") renderMainCalendar();
     });
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
     const dash = await page.evaluate(() => {
-      const welcome = document.querySelector(".free-welcome-card");
-      const banner = document.querySelector(".free-library-conversion-banner");
+      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
+      const welcome = root?.querySelector(".free-welcome-card");
+      const banner = root?.querySelector(".free-library-conversion-banner");
+      const active = document.querySelector(".active-view")?.id || "";
+      const btn = root?.querySelector("[data-dismiss-free-welcome]");
+      const r = btn?.getBoundingClientRect();
       return {
+        active,
         hasWelcome: Boolean(welcome),
         hasBanner: Boolean(banner),
         text: (welcome || banner)?.innerText?.slice(0, 500) || "",
         hasPrimary: Boolean((welcome || banner)?.querySelector("[data-checkout-plan]")),
         benefits: Array.from((welcome || banner)?.querySelectorAll("li") || []).map((li) => li.textContent.trim()),
+        btnVisible: Boolean(btn && r && r.width > 0 && r.height > 0),
       };
     });
-    assert.equal(dash.hasWelcome, true, "new Free users see dashboard welcome card");
+    assert.equal(dash.active, "view-calendar", "logged-in Free lands on calendar home");
+    assert.equal(dash.hasWelcome, true, "new Free users see welcome card on calendar");
     assert.equal(dash.hasBanner, false, "welcome card replaces conversion banner until dismissed");
     assert.match(dash.text, /Welcome to Little Learner Hub/i);
     assert.equal(dash.hasPrimary, true);
+    assert.equal(dash.btnVisible, true, "welcome dismiss button is visible on calendar");
     assert.ok(dash.benefits.some((line) => /save hours every week/i.test(line)));
-    console.log("PASS dashboard welcome card for new Free");
+    console.log("PASS calendar welcome card for new Free");
 
-    await page.click("[data-dismiss-free-welcome]");
-    await page.waitForTimeout(300);
+    await page.evaluate(() => {
+      const btn = document.querySelector("#mainCalendarApp [data-dismiss-free-welcome]");
+      if (!btn) throw new Error("welcome dismiss missing on calendar");
+      btn.click();
+    });
+    await page.waitForTimeout(400);
     const afterDismiss = await page.evaluate(() => {
-      const welcome = document.querySelector(".free-welcome-card");
-      const banner = document.querySelector(".free-library-conversion-banner");
+      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
+      const welcome = root?.querySelector(".free-welcome-card");
+      const banner = root?.querySelector(".free-library-conversion-banner");
       return {
         hasWelcome: Boolean(welcome),
         hasBanner: Boolean(banner),
+        dismissed: localStorage.getItem("llhFreeWelcomeCardDismissed") === "1",
         text: banner?.innerText?.slice(0, 400) || "",
       };
     });
+    assert.equal(afterDismiss.dismissed, true, "welcome dismiss persists");
     assert.equal(afterDismiss.hasWelcome, false, "welcome card dismisses");
     assert.equal(afterDismiss.hasBanner, true, "conversion banner appears after welcome dismiss");
     assert.match(afterDismiss.text, /If the Free sample feels this good|save hours every week|Upgrade/i);
