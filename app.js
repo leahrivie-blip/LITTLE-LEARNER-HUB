@@ -2852,8 +2852,10 @@ function renderSignupWizardStep() {
   stepPlan?.setAttribute("aria-hidden", showPlan ? "false" : "true");
   card?.classList.toggle("auth-modal-card--plans", showPlan);
   card?.classList.toggle("auth-modal-card--wizard", inWizard);
-  if (secondary) secondary.hidden = showProgram || showPlan;
-  if (help) help.hidden = showProgram || showPlan;
+  // Keep step-1 account fields tappable on short phones: help/support chrome
+  // steals flex height and the sticky Continue bar can cover Email/Password.
+  if (secondary) secondary.hidden = inWizard && (showProgram || showPlan);
+  if (help) help.hidden = inWizard;
 
   if (!inWizard) {
     submitButton.textContent = currentAuthMode === "forgot" ? "Send Reset Email" : "Log In";

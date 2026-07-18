@@ -19390,10 +19390,23 @@ body.auth-modal-open {
 
 #authModal .signup-wizard-body {
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: min(320px, 42dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 2px;
+  /* Keep the last inputs above the sticky Continue/Skip row. */
+  padding-bottom: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+#authModal .auth-modal-card--wizard .auth-help-links,
+#authModal .auth-modal-card--wizard .auth-secondary-actions[hidden] {
+  display: none !important;
+}
+
+#authModal .auth-modal-card--wizard .auth-secondary-actions:not([hidden]) {
+  flex: 0 0 auto;
+  margin-top: 8px;
 }
 
 #authModal .signup-wizard-actions {
@@ -19407,6 +19420,43 @@ body.auth-modal-open {
   border-top: 1px solid var(--line);
   background: linear-gradient(to top, rgba(255, 255, 255, 0.98) 72%, rgba(255, 255, 255, 0.88));
   z-index: 3;
+}
+
+@media (max-height: 720px) {
+  #authModal .auth-modal-card--wizard {
+    max-height: min(96dvh, 920px);
+  }
+
+  #authModal .auth-modal-card--wizard #authTitle {
+    font-size: 1.25rem;
+    margin-bottom: 8px;
+  }
+
+  #authModal .signup-wizard-body {
+    min-height: min(280px, 48dvh);
+  }
+
+  #authModal .auth-modal-card--wizard .auth-secondary-actions:not([hidden]) {
+    margin-top: 4px;
+  }
+
+  #authModal .auth-modal-card--wizard .auth-secondary-actions .ghost-button {
+    min-height: 40px;
+  }
+}
+
+@media (max-height: 560px) {
+  /* Very short / keyboard-open viewports: prefer scrolling the whole card
+     over crushing the email/password fields under sticky chrome. */
+  #authModal .auth-modal-card--wizard {
+    overflow: auto;
+    max-height: min(98dvh, 920px);
+  }
+
+  #authModal .signup-wizard-body {
+    min-height: 220px;
+    flex: 1 1 auto;
+  }
 }
 
 #authModal .signup-wizard-actions--split {
