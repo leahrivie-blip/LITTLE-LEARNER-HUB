@@ -2946,9 +2946,11 @@ async function createAdminToken(email) {
   if (!storeCache) readStore();
   storeCache = storeCache || defaultStore();
   storeCache.adminSessions = storeCache.adminSessions || {};
+  const nowIso = new Date().toISOString();
   storeCache.adminSessions[token] = {
     email: normalizeEmail(email),
-    createdAt: new Date().toISOString(),
+    createdAt: nowIso,
+    lastValidatedAt: nowIso,
   };
   // Await durable persist so login never returns a token that disappears after
   // a restart/deploy race (browser unlocked, server missing the session).
@@ -7305,11 +7307,20 @@ function handleAdminSession(request, response, url) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
   }
-  const session = readStore().adminSessions?.[token] || {};
+  // Soft-touch the live session so unlock stays warm without a full disk write on every poll.
+  const nowIso = new Date().toISOString();
+  if (storeCache?.adminSessions?.[token]) {
+    storeCache.adminSessions[token] = {
+      ...storeCache.adminSessions[token],
+      lastValidatedAt: nowIso,
+    };
+  }
+  const session = (storeCache?.adminSessions?.[token]) || readStore().adminSessions?.[token] || {};
   jsonResponse(response, 200, {
     valid: true,
     email: session.email || "",
     createdAt: session.createdAt || "",
+    lastValidatedAt: session.lastValidatedAt || nowIso,
     adminConfigured: adminConfigStatus().ready,
   });
 }
@@ -8336,11 +8347,49 @@ function analyticsSummary(store) {
     ...billingEvents.filter((event) => !String(event.type || "").toLowerCase().includes("cancel")),
   ];
   const now = new Date();
+  const onlineWindowMs = 15 * 60 * 1000;
+  const usersOnlineNow = users.filter((user) => {
+    const ts = new Date(user.lastSeenAt || user.lastLoginAt || 0).getTime();
+    return Number.isFinite(ts) && (Date.now() - ts) <= onlineWindowMs;
+  }).length;
   const activeUsersToday = users.filter((user) => isSameUtcDay(user.lastSeenAt || user.lastLoginAt, now)).length;
   const activeUsersWeek = users.filter((user) => isWithinDays(user.lastSeenAt || user.lastLoginAt, 7)).length;
   const activeUsersMonth = users.filter((user) => isWithinDays(user.lastSeenAt || user.lastLoginAt, 30)).length;
+  const newSignupsToday = users.filter((user) => isSameUtcDay(user.signupAt || user.createdAt, now)).length;
   const newUsersWeek = users.filter((user) => isWithinDays(user.signupAt || user.createdAt, 7)).length;
   const newUsersMonth = users.filter((user) => isWithinDays(user.signupAt || user.createdAt, 30)).length;
+  const monthKeyNow = analyticsMonthKey(now.toISOString());
+  const revenueThisMonth = Number((revenueItems
+    .filter((event) => analyticsMonthKey(event.createdAt) === monthKeyNow)
+    .reduce((total, event) => total + moneyNumber(event.amount || event.detail?.monthlyPrice || event.detail?.amount), 0)
+  ).toFixed(2));
+  const monthlyRecurringRevenue = Number(paidUsers.reduce((total, user) => {
+    const price = moneyNumber(user.monthlyPrice || user.displayPrice || "");
+    if (price > 0) return total + (String(user.subscriptionCadence || "").toLowerCase().includes("year") ? Number((price / 12).toFixed(2)) : price);
+    if (membershipAccess.membershipCurrentAccessKey(user) === "founding") return total + 9.99;
+    if (membershipAccess.membershipCurrentAccessKey(user) === "pro") return total + 19.99;
+    return total;
+  }, 0).toFixed(2));
+  const trialEndingSoon = trialUsers.filter((user) => {
+    if (!user.trialEnd) return false;
+    const end = new Date(user.trialEnd).getTime();
+    if (!Number.isFinite(end)) return false;
+    const daysLeft = (end - Date.now()) / (24 * 60 * 60 * 1000);
+    return daysLeft >= 0 && daysLeft <= 3;
+  }).length;
+  const inactiveUsers = users.filter((user) => {
+    const ts = user.lastSeenAt || user.lastLoginAt || user.signupAt || user.createdAt;
+    return !isWithinDays(ts, 14);
+  }).length;
+  // Peek curriculum arrays only — avoid normalizedSiteContent() here (can be multi-MB).
+  const rawCurriculum = store.siteContent?.curriculum && typeof store.siteContent.curriculum === "object"
+    ? store.siteContent.curriculum
+    : {};
+  const lessonPlans = Array.isArray(rawCurriculum.lessonPlans) ? rawCurriculum.lessonPlans : [];
+  const activities = Array.isArray(rawCurriculum.activities) ? rawCurriculum.activities : [];
+  const draftLessonPlans = lessonPlans.filter((plan) => String(plan.status || "").toLowerCase() === "draft").length;
+  const publishedLessonPlans = lessonPlans.filter((plan) => ["published", "featured", "approved"].includes(String(plan.status || "").toLowerCase())).length;
+  const printableCount = Array.isArray(store.siteContent?.printables) ? store.siteContent.printables.length : 0;
   const newFoundingMembers = users.filter((user) => (
     membershipAccess.membershipFoundingActive(user) && isWithinDays(user.subscriptionStartedAt || user.signupAt || user.createdAt, 30)
   )).length;
@@ -8358,6 +8407,10 @@ function analyticsSummary(store) {
   const supportTickets = store.supportTickets || [];
   const openFeedback = feedbackItems.filter((item) => !["Resolved", "Completed", "Archived"].includes(item.status)).length;
   const openTickets = supportTickets.filter((ticket) => ticket.status !== "Complete").length;
+  const bugReports = supportTickets.filter((ticket) => /bug/i.test(String(ticket.type || ticket.category || ticket.subject || ""))).length;
+  const featureRequests = supportTickets.filter((ticket) => /feature/i.test(String(ticket.type || ticket.category || ticket.subject || ""))).length;
+  const openBugReports = supportTickets.filter((ticket) => ticket.status !== "Complete" && /bug/i.test(String(ticket.type || ticket.category || ticket.subject || ""))).length;
+  const openFeatureRequests = supportTickets.filter((ticket) => ticket.status !== "Complete" && /feature/i.test(String(ticket.type || ticket.category || ticket.subject || ""))).length;
 
   // Index events once — nested events.filter per user was O(users * events) and
   // combined with per-user readStore() clones this endpoint OOMed on Render.
@@ -8445,6 +8498,7 @@ function analyticsSummary(store) {
       paidUsers: paidUsers.length,
       activeSubscriptions: paidUsers.filter((user) => !user.cancelAtPeriodEnd).length,
       activeUsers: paidUsers.length,
+      usersOnlineNow,
       activeUsersToday,
       activeUsersWeek,
       activeUsersMonth,
@@ -8458,10 +8512,22 @@ function analyticsSummary(store) {
       visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
       signupToPaidRate: rate(paidUsers.length, Math.max(signups.length, users.length)),
       visitorToPaidRate: rate(paidUsers.length, Math.max(uniqueVisitors.size, visits.length)),
+      trialConversionRate: rate(
+        paidUsers.filter((user) => membershipAccess.membershipHasTrialHistory(user)).length,
+        Math.max(
+          trialUsers.length + paidUsers.filter((user) => membershipAccess.membershipHasTrialHistory(user)).length,
+          1,
+        ),
+      ),
       totalRevenue: Number(revenueItems.reduce((total, event) => total + moneyNumber(event.amount || event.detail?.monthlyPrice || event.detail?.amount), 0).toFixed(2)),
+      revenueThisMonth,
+      monthlyRecurringRevenue,
+      newSignupsToday,
       newUsersWeek,
       newUsersMonth,
       newFoundingMembers,
+      trialEndingSoon,
+      inactiveUsers,
       trialConversions: paidEvents.filter((event) => isWithinDays(event.createdAt, 30)).length,
       subscriptionConversions: paidUsers.filter((user) => isWithinDays(user.subscriptionStartedAt || user.signupAt, 30)).length,
       lessonPlansViewed,
@@ -8473,6 +8539,14 @@ function analyticsSummary(store) {
       formsSubmitted,
       openFeedback,
       openSupportTickets: openTickets,
+      bugReports,
+      featureRequests,
+      openBugReports,
+      openFeatureRequests,
+      draftLessonPlans,
+      publishedLessonPlans,
+      activityCount: activities.length,
+      printableCount,
     },
     periods: {
       dailyVisitors: countBy(visits, (event) => analyticsDateKey(event.createdAt)),

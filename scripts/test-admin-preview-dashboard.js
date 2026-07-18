@@ -68,11 +68,11 @@ test("analytics load has timeout, abort, retry, and no duplicate listener", () =
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260714-signup-flow");
-  assert.equal(indexJs, "20260714-signup-flow");
-  assert.match(sw, /styles\.css\?v=20260714-signup-flow/);
-  assert.match(sw, /app\.js\?v=20260714-signup-flow/);
-  assert.match(sw, /llh-shell-v33-signup-flow/);
+  assert.equal(indexCss, indexJs);
+  assert.equal(indexCss, "20260718-owner-command-center");
+  assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss}`));
+  assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs}`));
+  assert.match(sw, /llh-shell-v81-owner-command-center/);
 });
 
 if (!process.exitCode) {

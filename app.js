@@ -4335,12 +4335,44 @@ let adminOwnerDrilldown = {
 const adminOwnerMobileDefaultCollapsed = typeof window !== "undefined"
   && typeof window.matchMedia === "function"
   && window.matchMedia("(max-width: 1100px)").matches;
-let adminOwnerSectionsOpen = {
-  inventory: true,
-  billing: !adminOwnerMobileDefaultCollapsed,
-  usage: !adminOwnerMobileDefaultCollapsed,
-  recent: !adminOwnerMobileDefaultCollapsed,
-};
+function readAdminOwnerSectionsOpen() {
+  const defaults = {
+    inventory: true,
+    billing: !adminOwnerMobileDefaultCollapsed,
+    usage: !adminOwnerMobileDefaultCollapsed,
+    recent: !adminOwnerMobileDefaultCollapsed,
+    action: true,
+    live: true,
+    content: !adminOwnerMobileDefaultCollapsed,
+    kpi: true,
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem("llhAdminOwnerSectionsOpen") || "null");
+    if (!saved || typeof saved !== "object") return defaults;
+    return { ...defaults, ...saved };
+  } catch {
+    return defaults;
+  }
+}
+function persistAdminOwnerSectionsOpen() {
+  try {
+    localStorage.setItem("llhAdminOwnerSectionsOpen", JSON.stringify(adminOwnerSectionsOpen));
+  } catch {
+    /* ignore quota */
+  }
+}
+let adminOwnerSectionsOpen = readAdminOwnerSectionsOpen();
+let adminSessionHeartbeatTimer = null;
+let adminActionCenterDismissed = new Set(
+  (() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem("llhAdminActionDismissed") || "[]");
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  })(),
+);
 let adminLessonEditorId = "";
 let adminCurriculumLessonEditorId = "";
 let adminCurriculumResourceEditorId = "";
@@ -7051,6 +7083,22 @@ function filterAdminCurriculumCoverLibrary() {
   });
 }
 
+function adminCurriculumLessonJumpNavHtml() {
+  const dayLinks = CURRICULUM_WEEKDAYS.map((day) => {
+    const label = day.charAt(0).toUpperCase() + day.slice(1);
+    return `<a class="lesson-editor-jump-link" href="#admin-lesson-day-${day}" data-admin-lesson-jump="${day}">${escapeHtml(label)}</a>`;
+  }).join("");
+  return `
+    <nav class="lesson-editor-jump admin-lesson-jump" aria-label="Jump to lesson plan sections">
+      <a class="lesson-editor-jump-link" href="#admin-lesson-basics" data-admin-lesson-jump="basics">Basics</a>
+      <a class="lesson-editor-jump-link" href="#admin-lesson-cover" data-admin-lesson-jump="cover">Cover</a>
+      <a class="lesson-editor-jump-link" href="#admin-lesson-weekly" data-admin-lesson-jump="weekly">Weekly</a>
+      ${dayLinks}
+      <a class="lesson-editor-jump-link" href="#admin-lesson-resources" data-admin-lesson-jump="resources">Resources</a>
+    </nav>
+  `;
+}
+
 function renderAdminCurriculumLessonPlanForm(plan) {
   const record = normalizeCurriculumLessonPlanForRender(plan || curriculumLessonEditorRecord() || {
     id: adminCurriculumLessonEditorId || "",
@@ -7072,15 +7120,34 @@ function renderAdminCurriculumLessonPlanForm(plan) {
     dailyPlans: emptyCurriculumDailyPlans(),
   });
   const selectedDomains = new Set(curriculumAsStringArray(record.learningDomains));
+  const dayEditors = CURRICULUM_WEEKDAYS.map((day) => {
+    const dayHtml = renderCurriculumDailyDayEditor(day, record.dailyPlans?.[day] || emptyCurriculumDailyPlanDay());
+    return dayHtml.replace(
+      `<details class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}"`,
+      `<details id="admin-lesson-day-${day}" class="admin-fieldset curriculum-daily-day" data-curriculum-day-panel="${day}"`,
+    );
+  }).join("");
   return `
     <form id="adminCurriculumLessonPlanForm" class="panel-form admin-stacked-form curriculum-premium-editor">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
+      <div class="admin-lesson-sticky-bar" role="region" aria-label="Lesson plan actions">
+        <div>
+          <strong>${escapeHtml(record.title || "New Lesson Plan")}</strong>
+          <small>${curriculumLessonPlanStatusLabel(record.status || "draft")}</small>
+        </div>
+        <div class="account-actions-row">
+          <button class="ghost-button" type="button" data-curriculum-lesson-back>Cancel</button>
+          <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "Save"}</button>
+        </div>
+      </div>
       <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>← Back to Lesson Plan List</button>
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
       <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Premium weekly, daily, and activity fields edit here.</p>
+      ${adminCurriculumLessonJumpNavHtml()}
       <div class="access-notice curriculum-activity-sync-notice" role="status">
         Changes to lesson-plan activities will update linked Activity Library entries when saved.
       </div>
+      <div id="admin-lesson-basics">
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Age group
@@ -7097,7 +7164,8 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           </select>
         </label>
       </div>
-      ${renderAdminCurriculumLessonCoverSection(record)}
+      </div>
+      <div id="admin-lesson-cover">${renderAdminCurriculumLessonCoverSection(record)}</div>
       <label>Status
         <select name="status">
           ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
@@ -7114,8 +7182,8 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           `).join("")}
         </div>
       </fieldset>
-      <fieldset class="admin-fieldset curriculum-weekly-editor">
-        <legend>Weekly section</legend>
+      <details class="admin-fieldset curriculum-weekly-editor" id="admin-lesson-weekly" open>
+        <summary><strong>Weekly section</strong></summary>
         <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
         <label>Weekly objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
         <label>Weekly materials<textarea name="weeklyMaterials" rows="3">${escapeHtml(record.weeklyMaterials || "")}</textarea></label>
@@ -7131,15 +7199,24 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
         <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
         <label>Adaptations<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
-      </fieldset>
+      </details>
       <div class="curriculum-daily-editor">
-        <h4>Monday–Friday daily sections</h4>
-        <p class="muted-copy">Edit each weekday’s theme, materials, books, songs, routines, and activities. itemId stays stable when you edit existing activities.</p>
-        ${renderCurriculumDailyPlanEditor(record.dailyPlans)}
+        <div class="curriculum-daily-toolbar">
+          <div>
+            <h4>Monday–Friday daily sections</h4>
+            <p class="muted-copy">Collapse days you are not editing. Jump links above scroll instantly.</p>
+          </div>
+          <div class="account-actions-row">
+            <button class="ghost-button" type="button" data-admin-days-collapse="all">Collapse all days</button>
+            <button class="ghost-button" type="button" data-admin-days-expand="all">Expand all days</button>
+          </div>
+        </div>
+        ${dayEditors}
       </div>
-      ${renderCurriculumLessonLinkedResourcesSection(record)}
-      <div class="form-actions">
-        <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "💾 Save lesson plan"}</button>
+      <div id="admin-lesson-resources">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
+      <div class="form-actions admin-lesson-form-actions">
+        <button class="ghost-button" type="button" data-curriculum-lesson-back>Cancel</button>
+        <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "Save lesson plan"}</button>
       </div>
       <span class="form-message" id="adminCurriculumLessonPlanMessage"></span>
     </form>
@@ -33493,7 +33570,9 @@ function hasAdminFullAccess() {
 
 function effectiveAccessPlan() {
   const preview = adminPreviewMode();
-  if (["Free", "Pro", "Founding"].includes(preview)) return preview;
+  if (preview === "Free") return "Free";
+  if (preview === "Trial" || preview === "Pro") return "Pro";
+  if (preview === "Founding" || preview === "Director" || preview === "Teacher") return "Founding";
   if (hasAdminFullAccess()) return "Founding";
   if (currentUser) {
     const account = currentAccount();
@@ -33508,8 +33587,11 @@ function effectiveAccessPlan() {
 function previewAwarePlanLabel() {
   const preview = adminPreviewMode();
   if (preview === "Free") return "Free";
+  if (preview === "Trial") return "Trial";
   if (preview === "Pro") return "Pro";
   if (preview === "Founding") return "Founding Member";
+  if (preview === "Director") return "Director (sandbox)";
+  if (preview === "Teacher") return "Teacher (sandbox)";
   if (preview === "Admin") return "Admin";
   return billingPlanLabel();
 }
@@ -33530,7 +33612,7 @@ function isAdminPreviewSimulating() {
 
 function setAdminPreviewMode(mode) {
   if (!isAdminUnlocked()) return false;
-  const next = ["Admin", "Free", "Pro", "Founding"].includes(mode) ? mode : "Admin";
+  const next = ["Admin", "Free", "Trial", "Pro", "Founding", "Director", "Teacher"].includes(mode) ? mode : "Admin";
   localStorage.setItem("llhAdminPreviewMode", next);
   applyAdminPreviewToPlatform();
   return true;
@@ -33661,10 +33743,12 @@ function setAdminSession(sessionDetail) {
   }
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
+  startAdminSessionHeartbeat();
   return session;
 }
 
 function clearAdminSession(options = {}) {
+  stopAdminSessionHeartbeat();
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
@@ -33723,11 +33807,42 @@ async function validateAdminSessionOnServer(options = {}) {
       return false;
     }
     adminSessionInvalidOnServer = false;
+    // Keep local session metadata warm after a successful refresh/validate.
+    const current = adminSession() || {};
+    if (current.token) {
+      localStorage.setItem("llhAdminSession", JSON.stringify({
+        ...current,
+        lastValidatedAt: data?.lastValidatedAt || new Date().toISOString(),
+      }));
+    }
     return true;
   } catch (error) {
-    console.warn("Admin session validation failed", error);
+    // Network blips must not force logout — keep unlock and retry on heartbeat.
+    console.warn("Admin session validation failed (network) — keeping unlock", error);
     return true;
   }
+}
+
+function stopAdminSessionHeartbeat() {
+  if (adminSessionHeartbeatTimer) {
+    clearInterval(adminSessionHeartbeatTimer);
+    adminSessionHeartbeatTimer = null;
+  }
+}
+
+function startAdminSessionHeartbeat() {
+  stopAdminSessionHeartbeat();
+  if (!isAdminUnlocked() || !canUseLaunchBackend()) return;
+  if (LOCAL_ADMIN_TOKENS.has(String(adminSession()?.token || ""))) return;
+  adminSessionHeartbeatTimer = setInterval(() => {
+    if (!isAdminUnlocked()) {
+      stopAdminSessionHeartbeat();
+      return;
+    }
+    validateAdminSessionOnServer({ render: true }).catch(() => {});
+  }, 3 * 60 * 1000);
+  // Immediate warm check after unlock/boot.
+  validateAdminSessionOnServer({ render: false }).catch(() => {});
 }
 
 function canUseSignedInOwnerAdmin() {
@@ -33853,9 +33968,13 @@ const ADMIN_OWNER_METRIC_TITLES = {
   "active-today": "Active Today",
   "active-week": "Active This Week",
   "active-month": "Active This Month",
+  "online-now": "Users Online Right Now",
+  "new-users-today": "New Signups Today",
   "new-users-week": "New Users This Week",
   "new-users-month": "New Users This Month",
   "new-founding": "New Founding Members (30d)",
+  "trial-ending-soon": "Trials Ending Soon",
+  "inactive-users": "Inactive Users (14d+)",
 };
 
 function adminOwnerMetricMatches(account, metricKey) {
@@ -33897,6 +34016,10 @@ function adminOwnerMetricMatches(account, metricKey) {
       return adminIsWithinDays(lastActiveAt, 7);
     case "active-month":
       return adminIsWithinDays(lastActiveAt, 30);
+    case "online-now":
+      return adminIsWithinMinutes(lastActiveAt, 15);
+    case "new-users-today":
+      return adminIsSameUtcDay(signupAt);
     case "new-users-week":
       return adminIsWithinDays(signupAt, 7);
     case "new-users-month":
@@ -33904,9 +34027,377 @@ function adminOwnerMetricMatches(account, metricKey) {
     case "new-founding":
       return adminMembershipFoundingActive(account)
         && adminIsWithinDays(account.subscriptionStartedAt || signupAt, 30);
+    case "trial-ending-soon": {
+      if (adminCurrentAccessKey(account) !== "trial" || !account.trialEnd) return false;
+      const end = new Date(account.trialEnd).getTime();
+      if (!Number.isFinite(end)) return false;
+      const daysLeft = (end - Date.now()) / (24 * 60 * 60 * 1000);
+      return daysLeft >= 0 && daysLeft <= 3;
+    }
+    case "inactive-users":
+      return !adminIsWithinDays(lastActiveAt || signupAt, 14);
     default:
       return false;
   }
+}
+
+function adminIsWithinMinutes(iso, minutes) {
+  if (!iso) return false;
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return false;
+  return Date.now() - ms <= minutes * 60 * 1000;
+}
+
+function adminMoneyLabel(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return "$0";
+  return `$${amount.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+}
+
+function adminContentQualityIssues() {
+  const plans = (typeof curriculumLessonPlansForAdmin === "function"
+    ? curriculumLessonPlansForAdmin()
+    : allLessonPlansForAdmin()) || [];
+  const issues = [];
+  plans.forEach((plan) => {
+    const title = plan.title || plan.id || "Untitled lesson";
+    const status = String(plan.status || "draft").toLowerCase();
+    const cover = sanitizedImageSource(plan.coverImageUrl || "")
+      || (typeof lessonPlanCoversApi === "function" ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url : "")
+      || "";
+    const activityCount = countCurriculumDailyPlanItems(plan.dailyPlans || emptyCurriculumDailyPlans());
+    const hasWeekly = Boolean(String(plan.weeklyOverview || "").trim());
+    if (!cover) {
+      issues.push({
+        id: `cover:${plan.id}`,
+        severity: "warn",
+        label: `${title} is missing a cover image`,
+        action: "upload-cover",
+        planId: plan.id,
+        cta: "Upload Cover",
+      });
+    }
+    if (activityCount === 0) {
+      issues.push({
+        id: `activities:${plan.id}`,
+        severity: "warn",
+        label: `${title} has no daily activities`,
+        action: "edit-lesson",
+        planId: plan.id,
+        cta: "Edit",
+      });
+    }
+    if (!hasWeekly) {
+      issues.push({
+        id: `weekly:${plan.id}`,
+        severity: "info",
+        label: `${title} is missing weekly overview`,
+        action: "edit-lesson",
+        planId: plan.id,
+        cta: "Fix",
+      });
+    }
+    if (status === "draft" && activityCount >= 10 && cover) {
+      issues.push({
+        id: `publish:${plan.id}`,
+        severity: "ready",
+        label: `${title} looks ready to publish`,
+        action: "edit-lesson",
+        planId: plan.id,
+        cta: "Publish",
+      });
+    }
+  });
+  return issues.slice(0, 40);
+}
+
+function buildAdminActionCenterItems() {
+  const accounts = adminOwnerAccountRows();
+  const totals = adminAnalyticsCache?.totals || {};
+  const tickets = adminAnalyticsCache?.supportTickets || supportTickets();
+  const feedback = adminAnalyticsCache?.feedback || [];
+  const items = [];
+
+  const failedPayments = accounts.filter((account) => adminOwnerMetricMatches(account, "billing-past-due"));
+  failedPayments.slice(0, 8).forEach((account) => {
+    items.push({
+      id: `payfail:${account.email}`,
+      severity: "critical",
+      title: `Failed payment — ${displayUserName(account)}`,
+      detail: account.email,
+      actions: [
+        { label: "View", action: "view-user", email: account.email },
+        { label: "Message", action: "message-user", email: account.email },
+        { label: "Dismiss", action: "dismiss", dismissId: `payfail:${account.email}` },
+      ],
+    });
+  });
+
+  accounts.filter((account) => adminOwnerMetricMatches(account, "trial-ending-soon")).slice(0, 8).forEach((account) => {
+    items.push({
+      id: `trial:${account.email}`,
+      severity: "warn",
+      title: `Trial ending soon — ${displayUserName(account)}`,
+      detail: account.trialEnd ? `Ends ${new Date(account.trialEnd).toLocaleDateString()}` : account.email,
+      actions: [
+        { label: "Extend Trial", action: "manage-user", email: account.email },
+        { label: "Message", action: "message-user", email: account.email },
+        { label: "Dismiss", action: "dismiss", dismissId: `trial:${account.email}` },
+      ],
+    });
+  });
+
+  accounts.filter((account) => adminOwnerMetricMatches(account, "inactive-users")).slice(0, 6).forEach((account) => {
+    items.push({
+      id: `inactive:${account.email}`,
+      severity: "info",
+      title: `Inactive — ${displayUserName(account)}`,
+      detail: `Last active ${adminUserLastActiveLabel(account)}`,
+      actions: [
+        { label: "Message", action: "message-user", email: account.email },
+        { label: "View", action: "view-user", email: account.email },
+        { label: "Dismiss", action: "dismiss", dismissId: `inactive:${account.email}` },
+      ],
+    });
+  });
+
+  accounts.filter((account) => adminIsSameUtcDay(account.signupAt || account.createdAt)).slice(0, 6).forEach((account) => {
+    items.push({
+      id: `new:${account.email}`,
+      severity: "info",
+      title: `New signup — ${displayUserName(account)}`,
+      detail: "May need onboarding",
+      actions: [
+        { label: "View", action: "view-user", email: account.email },
+        { label: "Message", action: "message-user", email: account.email },
+        { label: "Dismiss", action: "dismiss", dismissId: `new:${account.email}` },
+      ],
+    });
+  });
+
+  (tickets || []).filter((ticket) => ticket.status !== "Complete").slice(0, 6).forEach((ticket) => {
+    items.push({
+      id: `ticket:${ticket.id}`,
+      severity: /bug/i.test(String(ticket.type || ticket.category || "")) ? "critical" : "warn",
+      title: `Support: ${ticket.subject || ticket.type || "Open ticket"}`,
+      detail: ticket.email || ticket.name || "",
+      actions: [
+        { label: "View", action: "open-support" },
+        { label: "Dismiss", action: "dismiss", dismissId: `ticket:${ticket.id}` },
+      ],
+    });
+  });
+
+  feedback.filter((item) => !["Resolved", "Completed", "Archived"].includes(item.status)).slice(0, 5).forEach((item) => {
+    items.push({
+      id: `feedback:${item.id}`,
+      severity: "info",
+      title: `Feedback: ${item.subject || item.type || "Open feedback"}`,
+      detail: item.email || item.user || "",
+      actions: [
+        { label: "View", action: "open-feedback" },
+        { label: "Dismiss", action: "dismiss", dismissId: `feedback:${item.id}` },
+      ],
+    });
+  });
+
+  adminContentQualityIssues().slice(0, 10).forEach((issue) => {
+    items.push({
+      id: issue.id,
+      severity: issue.severity === "ready" ? "ready" : "warn",
+      title: issue.label,
+      detail: "Content quality",
+      actions: [
+        { label: issue.cta || "Fix", action: issue.action, planId: issue.planId },
+        { label: "Dismiss", action: "dismiss", dismissId: issue.id },
+      ],
+    });
+  });
+
+  if (Number(totals.failedPayments || 0) > 0 && !failedPayments.length) {
+    items.unshift({
+      id: "payfail:summary",
+      severity: "critical",
+      title: `${totals.failedPayments} failed payments need attention`,
+      detail: "Open Users → Past Due",
+      actions: [
+        { label: "View", action: "metric", metricKey: "billing-past-due" },
+        { label: "Dismiss", action: "dismiss", dismissId: "payfail:summary" },
+      ],
+    });
+  }
+
+  return items.filter((item) => !adminActionCenterDismissed.has(item.id));
+}
+
+function renderAdminActionCenter() {
+  const items = buildAdminActionCenterItems();
+  if (!items.length) {
+    return `
+      <details class="admin-owner-collapse" id="adminOwnerAction" data-admin-owner-section="action" ${adminOwnerSectionsOpen.action !== false ? "open" : ""}>
+        <summary class="admin-owner-collapse-summary">
+          <div>
+            <p class="eyebrow">Action Center</p>
+            <h3>Everything that needs attention</h3>
+          </div>
+          <span class="admin-owner-collapse-hint">All clear</span>
+        </summary>
+        <div class="admin-action-empty">No urgent items right now. Keep an eye on live activity below.</div>
+      </details>
+    `;
+  }
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerAction" data-admin-owner-section="action" ${adminOwnerSectionsOpen.action !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Action Center</p>
+          <h3>${items.length} item${items.length === 1 ? "" : "s"} need your attention</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-action-list" role="list">
+        ${items.slice(0, 20).map((item) => `
+          <article class="admin-action-item severity-${escapeHtml(item.severity)}" role="listitem">
+            <div>
+              <strong>${escapeHtml(item.title)}</strong>
+              ${item.detail ? `<small>${escapeHtml(item.detail)}</small>` : ""}
+            </div>
+            <div class="admin-action-buttons">
+              ${(item.actions || []).map((action) => `
+                <button type="button" class="${action.action === "dismiss" ? "ghost-button" : "primary-button"}"
+                  data-admin-action="${escapeHtml(action.action || "")}"
+                  data-admin-action-email="${escapeHtml(action.email || "")}"
+                  data-admin-action-plan="${escapeHtml(action.planId || "")}"
+                  data-admin-action-metric="${escapeHtml(action.metricKey || "")}"
+                  data-admin-action-dismiss="${escapeHtml(action.dismissId || item.id)}">${escapeHtml(action.label)}</button>
+              `).join("")}
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderAdminLiveActivityPanel() {
+  const accounts = adminOwnerAccountRows()
+    .filter((account) => adminIsWithinMinutes(account.lastSeenAt || account.lastLoginAt, 30))
+    .sort((a, b) => new Date(b.lastSeenAt || b.lastLoginAt || 0) - new Date(a.lastSeenAt || a.lastLoginAt || 0))
+    .slice(0, 12);
+  const recentEvents = (adminAnalyticsCache?.recentEvents || analyticsEvents()).slice(0, 10);
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerLive" data-admin-owner-section="live" ${adminOwnerSectionsOpen.live !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Live User Activity</p>
+          <h3>${accounts.length} recently active · feed updates with Refresh</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-lists admin-live-grid">
+        <article class="analytics-card">
+          <h4>Online / recent</h4>
+          ${accounts.length ? accounts.map((account) => {
+            const lastAction = (recentEvents.find((event) => event.user === account.email)?.name) || "Browsing";
+            const online = adminIsWithinMinutes(account.lastSeenAt || account.lastLoginAt, 15);
+            return `
+              <div class="analytics-row stacked admin-live-row">
+                <span><strong>${escapeHtml(displayUserName(account))}</strong> · ${online ? "Online now" : "Recently active"}</span>
+                <strong>${escapeHtml(lastAction.replace(/_/g, " "))}</strong>
+                <small>${escapeHtml(account.email)} · Last active ${escapeHtml(adminUserLastActiveLabel(account))}</small>
+                <div class="admin-action-buttons">
+                  <button type="button" class="ghost-button" data-aup-view="${escapeHtml(account.email)}">View</button>
+                  <button type="button" class="ghost-button" data-aup-message="${escapeHtml(account.email)}">Message</button>
+                </div>
+              </div>
+            `;
+          }).join("") : `<div class="empty-state">No recent live activity yet. Activity appears as providers use the app.</div>`}
+        </article>
+        <article class="analytics-card">
+          <h4>Business activity feed</h4>
+          ${recentEvents.length ? recentEvents.map((event) => `
+            <div class="analytics-row stacked">
+              <span>${escapeHtml(String(event.name || "event").replace(/_/g, " "))}</span>
+              <strong>${escapeHtml(event.user || event.detail?.view || event.detail?.type || "activity")}</strong>
+              <small>${new Date(event.createdAt).toLocaleString()}</small>
+            </div>
+          `).join("") : `<div class="empty-state">No activity tracked yet.</div>`}
+        </article>
+      </div>
+    </details>
+  `;
+}
+
+function renderAdminCommandKpiStrip(totals = {}, accountRows = []) {
+  const onlineNow = totals.usersOnlineNow ?? accountRows.filter((a) => adminIsWithinMinutes(a.lastSeenAt || a.lastLoginAt, 15)).length;
+  const newToday = totals.newSignupsToday ?? accountRows.filter((a) => adminIsSameUtcDay(a.signupAt || a.createdAt)).length;
+  const lessons = (typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : []) || [];
+  const draftCount = totals.draftLessonPlans ?? lessons.filter((p) => String(p.status || "").toLowerCase() === "draft").length;
+  const publishedCount = totals.publishedLessonPlans ?? lessons.filter((p) => ["published", "featured", "approved"].includes(String(p.status || "").toLowerCase())).length;
+  const activityCount = totals.activityCount ?? (effectiveSiteContent()?.curriculum?.activities || []).length;
+  const printableCount = totals.printableCount ?? (effectiveSiteContent()?.printables || []).length;
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerKpi" data-admin-owner-section="kpi" ${adminOwnerSectionsOpen.kpi !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Command Center KPIs</p>
+          <h3>Business snapshot</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid admin-kpi-grid">
+        ${adminMetric("Total Users", totals.totalRegisteredUsers ?? accountRows.length, "", "total-users")}
+        ${adminMetric("Active Users", totals.activeUsersWeek ?? "—", "Last 7 days", "active-week")}
+        ${adminMetric("Online Now", onlineNow, "Last 15 min", "online-now")}
+        ${adminMetric("New Today", newToday, "", "new-users-today")}
+        ${adminMetric("Free", totals.freeUsers ?? "—", "", "free-users")}
+        ${adminMetric("Trial", totals.trialUsers ?? "—", "", "trial-users")}
+        ${adminMetric("Pro", totals.proUsers ?? "—", "", "pro-users")}
+        ${adminMetric("Founding", totals.foundingMembers ?? "—", `${foundingSpotsRemaining()} left`, "founding-users")}
+        ${adminMetric("Revenue MTD", adminMoneyLabel(totals.revenueThisMonth), "")}
+        ${adminMetric("MRR", adminMoneyLabel(totals.monthlyRecurringRevenue), "")}
+        ${adminMetric("Trial Conv.", totals.trialConversionRate ?? "—", "")}
+        ${adminMetric("Cancellations", totals.canceledSubscriptions ?? "—", "", "billing-canceled")}
+        ${adminMetric("Failed Payments", totals.failedPayments ?? "—", "", "billing-past-due")}
+        ${adminMetric("Open Support", totals.openSupportTickets ?? "—", "", "open-support")}
+        ${adminMetric("Bug Reports", totals.openBugReports ?? totals.bugReports ?? "—")}
+        ${adminMetric("Feature Requests", totals.openFeatureRequests ?? totals.featureRequests ?? "—")}
+        ${adminMetric("Draft Lessons", draftCount)}
+        ${adminMetric("Published Lessons", publishedCount)}
+        ${adminMetric("Activities", activityCount)}
+        ${adminMetric("Printables", printableCount)}
+      </div>
+    </details>
+  `;
+}
+
+function renderAdminQuickActionsBar() {
+  return `
+    <section class="admin-command-center-card admin-quick-actions-card" aria-label="Admin quick actions">
+      <div>
+        <p class="eyebrow">Quick Actions</p>
+        <h3>Jump straight into the work</h3>
+        <p>Large shortcuts for the jobs you do every day. Unread owner alerts: <strong>${escapeHtml(String(adminNotificationState.unreadCount || 0))}</strong></p>
+      </div>
+      <div class="admin-quick-actions-grid">
+        <button class="primary-button" type="button" data-admin-quick="upload-lesson">Upload Lesson Plan</button>
+        <button class="ghost-button" type="button" data-admin-quick="upload-activity">Upload Activity</button>
+        <button class="ghost-button" type="button" data-admin-quick="upload-printable">Upload Printable</button>
+        <button class="ghost-button" type="button" data-admin-quick="create-theme">Create Theme</button>
+        <button class="ghost-button" type="button" data-admin-quick="announcement">Send Announcement</button>
+        <button class="ghost-button" type="button" data-admin-quick="send-email">Send Email</button>
+        <button class="ghost-button" type="button" data-admin-quick="promo">Create Promo Code</button>
+        <button class="ghost-button" type="button" data-admin-quick="add-user">Add User</button>
+        <button class="ghost-button" type="button" data-admin-quick="new-users">View New Users</button>
+        <button class="ghost-button" type="button" data-admin-quick="publish-drafts">Publish Drafts</button>
+        <button class="ghost-button" type="button" data-admin-quick="notifications">Notification Center</button>
+        <button class="ghost-button" type="button" data-admin-quick="inbox">Inbox</button>
+        <button class="ghost-button" type="button" data-admin-quick="users">Users</button>
+        <button class="ghost-button" type="button" data-admin-quick="billing">Billing</button>
+        <button class="ghost-button" type="button" data-admin-quick="install">Install app tips</button>
+      </div>
+    </section>
+  `;
 }
 
 function adminOwnerUsersForMetric(metricKey) {
@@ -34074,6 +34565,7 @@ function bindAdminOwnerDrilldownControls(target) {
     if (!key) return;
     detailsEl.addEventListener("toggle", () => {
       adminOwnerSectionsOpen[key] = detailsEl.open;
+      persistAdminOwnerSectionsOpen();
     });
   });
 }
@@ -34147,8 +34639,9 @@ function renderAdminOwnerOverview() {
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
   const previewMode = adminPreviewMode() || "Admin";
   const sectionOpen = (key) => adminOwnerSectionsOpen[key] !== false;
+  const previewModes = ["Admin", "Free", "Trial", "Pro", "Founding", "Director", "Teacher"];
   target.innerHTML = `
-    <div class="admin-owner-header">
+    <div class="admin-owner-header admin-owner-header--sticky">
       <div>
         <p class="eyebrow">Owner Command Center</p>
         <h3>${escapeHtml(adminSession()?.name || adminOwnerAccount.name)}'s Admin Dashboard</h3>
@@ -34160,20 +34653,7 @@ function renderAdminOwnerOverview() {
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
     </div>
-    <section class="admin-command-center-card" aria-label="Admin quick launch">
-      <div>
-        <p class="eyebrow">Quick launch</p>
-        <h3>Admin command center</h3>
-        <p>Jump to alerts, inbox, users, and billing without hunting through panels. Unread owner alerts: <strong>${escapeHtml(String(adminNotificationState.unreadCount || 0))}</strong></p>
-      </div>
-      <div class="account-actions-row">
-        <button class="primary-button" type="button" data-admin-quick="notifications">Notification Center</button>
-        <button class="ghost-button" type="button" data-admin-quick="inbox">Inbox</button>
-        <button class="ghost-button" type="button" data-admin-quick="users">Users</button>
-        <button class="ghost-button" type="button" data-admin-quick="billing">Billing</button>
-        <button class="ghost-button" type="button" data-admin-quick="install">Install app tips</button>
-      </div>
-    </section>
+    ${renderAdminQuickActionsBar()}
     ${adminAnalyticsLoading && !adminAnalyticsCache ? `
       <div class="admin-analytics-state is-loading" role="status" data-admin-analytics-state="loading">
         <p><strong>Loading live production data…</strong></p>
@@ -34196,12 +34676,12 @@ function renderAdminOwnerOverview() {
     ` : ""}
     <div class="admin-preview-panel">
       <div>
-        <p class="eyebrow">Preview Mode</p>
+        <p class="eyebrow">Sandbox Mode</p>
         <strong>Currently viewing as ${escapeHtml(previewMode)}</strong>
-        <span>Switch modes to simulate Free, Pro, Founding, or full Admin. The whole app — sidebar, locks, upgrade prompts, and permissions — updates instantly.</span>
+        <span>Simulate Free, Trial, Pro, Founding, Director, Teacher, or full Admin without changing your real account.</span>
       </div>
       <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Account preview mode">
-        ${["Admin", "Free", "Pro", "Founding"].map((mode) => `
+        ${previewModes.map((mode) => `
           <button class="${previewMode === mode ? "primary-button" : "ghost-button"}" data-admin-preview="${mode}" type="button" aria-pressed="${previewMode === mode ? "true" : "false"}">${mode}</button>
         `).join("")}
         ${previewMode !== "Admin" ? `<button type="button" class="ghost-button" data-admin-preview="Admin" data-admin-return-admin>Return to Admin</button>` : ""}
@@ -34215,12 +34695,19 @@ function renderAdminOwnerOverview() {
     </div>
     ${renderAccessDebugPanel()}
     <nav class="admin-owner-jump" aria-label="Jump to dashboard sections">
+      <a href="#adminOwnerAction" data-admin-owner-jump="action">Action Center</a>
+      <a href="#adminOwnerKpi" data-admin-owner-jump="kpi">KPIs</a>
+      <a href="#adminOwnerLive" data-admin-owner-jump="live">Live Activity</a>
       <a href="#adminOwnerInventory" data-admin-owner-jump="inventory">Account Inventory</a>
       <a href="#adminOwnerBilling" data-admin-owner-jump="billing">Billing Health</a>
       <a href="#adminOwnerUsage" data-admin-owner-jump="usage">Platform Usage</a>
       <a href="#adminOwnerRecent" data-admin-owner-jump="recent">Recent</a>
+      <a href="#adminOwnerContentHealth" data-admin-owner-jump="content">Content QC</a>
       ${adminOwnerDrilldown.metricKey ? `<a href="#adminOwnerDrilldown" data-admin-owner-jump="drilldown">Open Drill-down</a>` : ""}
     </nav>
+    ${renderAdminActionCenter()}
+    ${renderAdminCommandKpiStrip(totals, accountRows)}
+    ${renderAdminLiveActivityPanel()}
     ${renderAdminOwnerDrilldownPanel()}
     <details class="admin-owner-collapse" id="adminOwnerInventory" data-admin-owner-section="inventory" ${sectionOpen("inventory") ? "open" : ""}>
       <summary class="admin-owner-collapse-summary">
@@ -34272,6 +34759,8 @@ function renderAdminOwnerOverview() {
         ${adminMetric("Active Today", totals.activeUsersToday ?? "—", "", "active-today")}
         ${adminMetric("Active This Week", totals.activeUsersWeek ?? "—", "", "active-week")}
         ${adminMetric("Active This Month", totals.activeUsersMonth ?? "—", "", "active-month")}
+        ${adminMetric("Online Now", totals.usersOnlineNow ?? "—", "", "online-now")}
+        ${adminMetric("New Today", totals.newSignupsToday ?? "—", "", "new-users-today")}
         ${adminMetric("New Users Week", totals.newUsersWeek ?? "—", "", "new-users-week")}
         ${adminMetric("New Users Month", totals.newUsersMonth ?? "—", "", "new-users-month")}
         ${adminMetric("New Founding (30d)", totals.newFoundingMembers ?? "—", "", "new-founding")}
@@ -34322,13 +34811,39 @@ function renderAdminOwnerOverview() {
       </div>
     </details>
     ${renderContentHealthDashboard()}
+    <button type="button" class="admin-back-to-top" data-admin-back-to-top hidden>Back to top</button>
   `;
   bindAdminOwnerDrilldownControls(target);
+  ensureAdminBackToTop();
+}
+
+function ensureAdminBackToTop() {
+  const button = document.querySelector("[data-admin-back-to-top]");
+  if (!button || button.dataset.bound === "true") return;
+  button.dataset.bound = "true";
+  const sync = () => {
+    const adminView = document.querySelector("#view-admin");
+    if (!adminView || adminView.hidden) {
+      button.hidden = true;
+      return;
+    }
+    button.hidden = window.scrollY < 480;
+  };
+  window.addEventListener("scroll", sync, { passive: true });
+  button.addEventListener("click", () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  sync();
 }
 
 function renderContentHealthDashboard() {
-  const allLessons = allLessonPlansForAdmin();
-  const activities = effectiveSiteContent().activities || [];
+  const curriculumLessons = (typeof curriculumLessonPlansForAdmin === "function"
+    ? curriculumLessonPlansForAdmin()
+    : []) || [];
+  const allLessons = curriculumLessons.length ? curriculumLessons : allLessonPlansForAdmin();
+  const activities = (effectiveSiteContent()?.curriculum?.activities
+    || effectiveSiteContent()?.activities
+    || []);
   const forms = effectiveSiteContent().forms || [];
   const printables = effectiveSiteContent().printables || [];
   const contentTypes = [
@@ -34340,31 +34855,51 @@ function renderContentHealthDashboard() {
   const cardHtml = contentTypes.map(({ label, icon, items }) => {
     const counts = {
       total: items.length,
-      draft: items.filter((item) => contentItemStatus(item) === "draft").length,
-      approved: items.filter((item) => contentItemStatus(item) === "approved").length,
-      featured: items.filter((item) => contentItemStatus(item) === "featured").length,
-      archived: items.filter((item) => contentItemStatus(item) === "archived").length,
+      draft: items.filter((item) => contentItemStatus(item) === "draft" || String(item.status || "").toLowerCase() === "draft").length,
+      approved: items.filter((item) => ["approved", "published"].includes(contentItemStatus(item) || String(item.status || "").toLowerCase())).length,
+      featured: items.filter((item) => contentItemStatus(item) === "featured" || String(item.status || "").toLowerCase() === "featured").length,
+      archived: items.filter((item) => contentItemStatus(item) === "archived" || String(item.status || "").toLowerCase() === "archived").length,
     };
     return `
       <article class="analytics-card content-health-card">
         <h4>${icon} ${escapeHtml(label)}</h4>
         <div class="admin-mobile-stats" style="font-size:0.85rem">
           <div><strong>${counts.total}</strong><span>Total</span></div>
-          <div><strong>${counts.draft}</strong><span>🟡 Draft</span></div>
-          <div><strong>${counts.approved}</strong><span>🟢 Approved</span></div>
-          <div><strong>${counts.featured}</strong><span>⭐ Featured</span></div>
-          <div><strong>${counts.archived}</strong><span>📦 Archived</span></div>
+          <div><strong>${counts.draft}</strong><span>Draft</span></div>
+          <div><strong>${counts.approved}</strong><span>Published</span></div>
+          <div><strong>${counts.featured}</strong><span>Featured</span></div>
+          <div><strong>${counts.archived}</strong><span>Archived</span></div>
         </div>
       </article>
     `;
   }).join("");
+  const qcIssues = adminContentQualityIssues();
   return `
-    <div class="admin-owner-section">
-      <p class="eyebrow">Content Health</p>
-      <h4>Library Status Overview</h4>
-      <p class="muted-copy">Only <strong>🟢 Approved</strong> and <strong>⭐ Featured</strong> content is visible to users.</p>
+    <details class="admin-owner-collapse" id="adminOwnerContentHealth" data-admin-owner-section="content" ${adminOwnerSectionsOpen.content !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Quality Control</p>
+          <h3>Library status &amp; publish warnings</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">${qcIssues.length} warning${qcIssues.length === 1 ? "" : "s"}</span>
+      </summary>
+      <div class="admin-owner-section">
+        <p class="muted-copy">Only published/featured curriculum is visible to providers. Fix warnings before publishing.</p>
+        <div class="admin-owner-lists" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));margin-bottom:12px">
+          ${cardHtml}
+        </div>
+        <div class="admin-action-list">
+          ${qcIssues.length ? qcIssues.slice(0, 12).map((issue) => `
+            <article class="admin-action-item severity-${escapeHtml(issue.severity === "ready" ? "ready" : "warn")}">
+              <div><strong>${escapeHtml(issue.label)}</strong></div>
+              <div class="admin-action-buttons">
+                <button type="button" class="primary-button" data-admin-action="${escapeHtml(issue.action)}" data-admin-action-plan="${escapeHtml(issue.planId || "")}">${escapeHtml(issue.cta || "Fix")}</button>
+              </div>
+            </article>
+          `).join("") : `<div class="admin-action-empty">No content quality warnings detected.</div>`}
+        </div>
       </div>
-    </div>
+    </details>
     ${renderFutureAdminBuildItems()}
   `;
 }
@@ -47857,16 +48392,136 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (action === "inbox") {
-      document.querySelector("#adminInboxApp")?.closest(".section-block")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setAdminSectionTab("admin-inbox");
+      requestAnimationFrame(() => {
+        document.querySelector("#adminInboxApp")?.closest(".section-block")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
     }
-    if (action === "users") {
-      document.querySelector("#adminOwnerInventory")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (action === "users" || action === "add-user" || action === "new-users") {
+      setAdminSectionTab("users");
+      if (action === "new-users") openAdminOwnerMetricDrilldown("new-users-today");
+      else {
+        requestAnimationFrame(() => {
+          document.querySelector("#adminUsersApp")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+      }
       return;
     }
     if (action === "billing") {
-      document.querySelector("#adminOwnerBilling")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      setAdminSectionTab("dashboard");
+      adminOwnerSectionsOpen.billing = true;
+      persistAdminOwnerSectionsOpen();
+      renderAdminOwnerOverview();
+      requestAnimationFrame(() => {
+        document.querySelector("#adminOwnerBilling")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
       return;
+    }
+    if (action === "upload-lesson" || action === "publish-drafts" || action === "create-theme") {
+      setAdminSectionTab("curriculum-lesson-plans");
+      return;
+    }
+    if (action === "upload-activity") {
+      setAdminSectionTab("curriculum-activities");
+      return;
+    }
+    if (action === "upload-printable") {
+      setAdminSectionTab("printables");
+      return;
+    }
+    if (action === "announcement") {
+      setAdminSectionTab("announcement");
+      return;
+    }
+    if (action === "send-email") {
+      setAdminSectionTab("emails");
+      return;
+    }
+    if (action === "promo") {
+      setAdminSectionTab("pricing");
+      showActionFeedback("Open Pricing / promo settings to create a promo code.");
+      return;
+    }
+  }
+
+  const adminActionBtn = event.target.closest("[data-admin-action]");
+  if (adminActionBtn && isAdminUnlocked()) {
+    event.preventDefault();
+    const action = adminActionBtn.getAttribute("data-admin-action") || "";
+    const email = adminActionBtn.getAttribute("data-admin-action-email") || "";
+    const planId = adminActionBtn.getAttribute("data-admin-action-plan") || "";
+    const metricKey = adminActionBtn.getAttribute("data-admin-action-metric") || "";
+    const dismissId = adminActionBtn.getAttribute("data-admin-action-dismiss") || "";
+    if (action === "dismiss" && dismissId) {
+      adminActionCenterDismissed.add(dismissId);
+      try {
+        localStorage.setItem("llhAdminActionDismissed", JSON.stringify([...adminActionCenterDismissed].slice(-200)));
+      } catch { /* ignore */ }
+      renderAdminOwnerOverview();
+      return;
+    }
+    if (action === "view-user" && email) {
+      setAdminSectionTab("users");
+      openAdminUserProfile(email, "view");
+      return;
+    }
+    if (action === "manage-user" && email) {
+      setAdminSectionTab("users");
+      openAdminUserProfile(email, "manage");
+      return;
+    }
+    if (action === "message-user" && email) {
+      startAdminMessageToUser(email);
+      return;
+    }
+    if (action === "open-support") {
+      setAdminSectionTab("support");
+      return;
+    }
+    if (action === "open-feedback") {
+      setAdminSectionTab("feedback");
+      return;
+    }
+    if (action === "metric" && metricKey) {
+      openAdminOwnerMetricDrilldown(metricKey);
+      return;
+    }
+    if ((action === "edit-lesson" || action === "upload-cover") && planId) {
+      setAdminSectionTab("curriculum-lesson-plans");
+      if (typeof openAdminCurriculumLessonEditor === "function") {
+        openAdminCurriculumLessonEditor(planId);
+      } else {
+        adminCurriculumLessonEditorId = planId;
+        renderAdminCurriculumLessonPlanManager();
+      }
+      return;
+    }
+  }
+
+  const collapseDays = event.target.closest("[data-admin-days-collapse]");
+  if (collapseDays) {
+    event.preventDefault();
+    document.querySelectorAll("#adminCurriculumLessonPlanForm [data-curriculum-day-panel]").forEach((panel) => {
+      panel.open = false;
+    });
+    return;
+  }
+  const expandDays = event.target.closest("[data-admin-days-expand]");
+  if (expandDays) {
+    event.preventDefault();
+    document.querySelectorAll("#adminCurriculumLessonPlanForm [data-curriculum-day-panel]").forEach((panel) => {
+      panel.open = true;
+    });
+    return;
+  }
+  const lessonJump = event.target.closest("[data-admin-lesson-jump]");
+  if (lessonJump) {
+    const key = lessonJump.getAttribute("data-admin-lesson-jump") || "";
+    if (CURRICULUM_WEEKDAYS.includes(key)) {
+      document.querySelectorAll("#adminCurriculumLessonPlanForm [data-curriculum-day-panel]").forEach((panel) => {
+        panel.open = panel.getAttribute("data-curriculum-day-panel") === key;
+      });
     }
   }
 
@@ -51696,6 +52351,10 @@ async function initializeAppView() {
 }
 
 initializeAppView();
+
+if (typeof isAdminUnlocked === "function" && isAdminUnlocked()) {
+  startAdminSessionHeartbeat();
+}
 
 if (canUseLaunchBackend()) {
   setInterval(() => {

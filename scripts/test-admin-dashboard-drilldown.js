@@ -77,11 +77,20 @@ test("activity helpers prefer lastSeenAt and match analytics windows", () => {
 test("cache bust versions stay aligned for drilldown", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260714-signup-flow");
-  assert.equal(indexJs, "20260714-signup-flow");
-  assert.match(sw, /styles\.css\?v=20260714-signup-flow/);
-  assert.match(sw, /app\.js\?v=20260714-signup-flow/);
-  assert.match(sw, /llh-shell-v33-signup-flow/);
+  assert.equal(indexCss, indexJs);
+  assert.equal(indexCss, "20260718-owner-command-center");
+  assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss}`));
+  assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs}`));
+  assert.match(sw, /llh-shell-v81-owner-command-center/);
+});
+
+test("owner command center includes action center and KPI strip", () => {
+  assert.match(appJs, /function renderAdminActionCenter\(/);
+  assert.match(appJs, /function renderAdminCommandKpiStrip\(/);
+  assert.match(appJs, /function renderAdminLiveActivityPanel\(/);
+  assert.match(appJs, /function buildAdminActionCenterItems\(/);
+  assert.match(appJs, /data-admin-quick="upload-lesson"/);
+  assert.match(appJs, /Sandbox Mode/);
 });
 
 if (!process.exitCode) {
