@@ -21,6 +21,13 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const adminNotifications = require("./admin-notifications.js");
 const programOwnership = require("./program-ownership.js");
+const {
+  RENDER_SERVICE_HOST,
+  RENDER_LOAD_BALANCER_IPV4,
+  CUSTOM_BRAND_DOMAINS,
+  WORKING_BRAND_DOMAINS,
+  buildDomainDnsReport,
+} = require("./domain-dns.js");
 
 loadEnvFile(path.join(__dirname, "..", ".env"));
 
@@ -11639,6 +11646,15 @@ function handleBillingReadiness(request, response) {
   });
 }
 
+async function handleDomainDnsCheck(request, response) {
+  try {
+    const report = await buildDomainDnsReport({ siteUrl: SITE_URL });
+    jsonResponse(response, 200, { ok: true, domainDns: report });
+  } catch (error) {
+    jsonResponse(response, 500, { ok: false, error: error.message || "Domain DNS check failed." });
+  }
+}
+
 function handleHealth(request, response) {
   const store = peekStore();
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
@@ -11651,11 +11667,12 @@ function handleHealth(request, response) {
   })();
   const knownAppHosts = new Set([
     configuredHost,
-    "little-learner-hub.onrender.com",
+    RENDER_SERVICE_HOST,
     "localhost",
     "127.0.0.1",
+    ...WORKING_BRAND_DOMAINS,
+    ...CUSTOM_BRAND_DOMAINS,
   ].filter(Boolean));
-  const customDomainHosts = ["littlelearnerhub.com", "www.littlelearnerhub.com"];
   jsonResponse(response, 200, {
     ok: true,
     service: "Little Learner Hub",
@@ -11669,8 +11686,12 @@ function handleHealth(request, response) {
       configuredSiteUrl: SITE_URL,
       configuredHost: configuredHost || null,
       servingKnownAppHost: knownAppHosts.has(host),
-      customDomainTargets: customDomainHosts,
-      note: "If littlelearnerhub.com shows a Cloudflare 'Just a moment' / security check and never loads, DNS is still pointing at Bluehost instead of this Render service. Point www CNAME to little-learner-hub.onrender.com and set SITE_URL to https://www.littlelearnerhub.com.",
+      customDomainTargets: CUSTOM_BRAND_DOMAINS,
+      workingBrandDomains: WORKING_BRAND_DOMAINS,
+      renderServiceHost: RENDER_SERVICE_HOST,
+      renderApexARecord: RENDER_LOAD_BALANCER_IPV4,
+      dnsCheckEndpoint: "/api/domain-dns-check",
+      note: "Brand domain must resolve to Render (www CNAME → little-learner-hub.onrender.com, apex A → 216.24.57.1). Provider-agnostic live status: GET /api/domain-dns-check.",
     },
   });
 }
@@ -14454,6 +14475,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return await handleLaunchReadiness(request, response);
+    if (request.method === "GET" && url.pathname === "/api/domain-dns-check") return await handleDomainDnsCheck(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") return headResponse(response, 200, "application/json; charset=utf-8");

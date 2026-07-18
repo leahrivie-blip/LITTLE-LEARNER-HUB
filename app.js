@@ -4578,6 +4578,7 @@ let adminSessionHeartbeatTimer = null;
 let adminGlobalSearchQuery = "";
 let adminSafetyStatus = null;
 let adminSafetyLoading = false;
+let adminDomainDnsReport = null;
 let adminImpersonationState = null; // { email, account, planPreview, startedAt }
 let adminUserDetailCache = {};
 let adminPromoCodesState = { loading: false, items: [], envPromo: null, redemptions: [], error: "", success: "" };
@@ -35515,12 +35516,15 @@ async function refreshAdminSafetyStatus() {
   if (!canUseLaunchBackend() || adminSafetyLoading) return;
   adminSafetyLoading = true;
   try {
-    const [healthRes, readyRes] = await Promise.all([
+    const [healthRes, readyRes, dnsRes] = await Promise.all([
       fetch("/api/health", { cache: "no-store" }).catch(() => null),
       fetch("/api/launch-readiness", { cache: "no-store" }).catch(() => null),
+      fetch("/api/domain-dns-check", { cache: "no-store" }).catch(() => null),
     ]);
     const health = healthRes ? await healthRes.json().catch(() => ({})) : {};
     const ready = readyRes ? await readyRes.json().catch(() => ({})) : {};
+    const dnsPayload = dnsRes ? await dnsRes.json().catch(() => ({})) : {};
+    adminDomainDnsReport = dnsRes?.ok && dnsPayload?.domainDns ? dnsPayload.domainDns : null;
     adminSafetyStatus = {
       ok: Boolean(healthRes?.ok),
       healthStatus: health.status || (healthRes?.ok ? "ok" : "down"),
@@ -35530,6 +35534,7 @@ async function refreshAdminSafetyStatus() {
       database: ready.database || ready.checks?.database || health.database || "unknown",
       stripe: ready.stripe || ready.checks?.stripe || "unknown",
       email: ready.email || ready.checks?.email || "unknown",
+      brandDomainReady: adminDomainDnsReport?.ready === true,
     };
     await Promise.all([
       loadAdminStoreHealth().catch(() => null),
@@ -35550,15 +35555,69 @@ async function refreshAdminSafetyStatus() {
   }
 }
 
+function renderAdminDomainDnsPanel() {
+  const report = adminDomainDnsReport;
+  if (!report) {
+    return `
+      <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
+        <h4>Custom domain DNS</h4>
+        <p class="muted-copy">Brand domain check unavailable. Tap Refresh Safety to retry.</p>
+        <p class="muted-copy">Until <strong>littlelearnerhub.com</strong> points at Render, share <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+      </article>
+    `;
+  }
+  const brandApex = report.brandDomain?.apex || {};
+  const brandWww = report.brandDomain?.www || {};
+  const workingApex = report.workingDomain?.apex || {};
+  const workingWww = report.workingDomain?.www || {};
+  const nameservers = Array.isArray(report.nameservers) ? report.nameservers : [];
+  const formatHostLine = (entry) => {
+    const host = entry.host || "—";
+    const status = entry.status || "unknown";
+    const targets = [
+      ...(entry.cname || []).map((v) => `CNAME ${v}`),
+      ...(entry.a || []).map((v) => `A ${v}`),
+    ].slice(0, 3).join(" · ") || "no A/CNAME";
+    const detail = entry.issue || entry.fix || "";
+    return `<div class="analytics-row stacked"><span><strong>${escapeHtml(host)}</strong> · ${escapeHtml(status)}</span><small>${escapeHtml(targets)}${detail ? ` — ${escapeHtml(detail)}` : ""}</small></div>`;
+  };
+  const recommended = (report.recommendedDns || []).map((row) => `
+    <div class="analytics-row"><span>${escapeHtml(row.type)} ${escapeHtml(row.host)}</span><strong>${escapeHtml(row.value)}</strong></div>
+  `).join("");
+  const steps = (report.nextSteps || []).map((step) => `<li>${escapeHtml(step)}</li>`).join("");
+  return `
+    <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
+      <h4>Custom domain DNS · ${report.ready ? "Ready" : "Action needed"}</h4>
+      <p class="muted-copy">Checks whether <strong>littlelearnerhub.com</strong> resolves to Render — not which registrar/DNS host you use. Share link while fixing: <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+      ${nameservers.length ? `<p class="muted-copy">Authoritative nameservers: <code>${escapeHtml(nameservers.join(", "))}</code>. ${escapeHtml(report.nameserverNote || "Edit DNS in the zone those nameservers serve.")}</p>` : ""}
+      ${formatHostLine(brandWww)}
+      ${formatHostLine(brandApex)}
+      <details style="margin-top:8px;">
+        <summary class="muted-copy">Working domain (already on Render)</summary>
+        ${formatHostLine(workingWww)}
+        ${formatHostLine(workingApex)}
+      </details>
+      <h5 style="margin-top:12px;">Recommended DNS records</h5>
+      ${recommended || `<p class="muted-copy">No recommended records listed.</p>`}
+      <ol class="muted-copy" style="margin-top:8px; padding-left:1.2rem;">${steps}</ol>
+      <p class="muted-copy">Checked ${report.checkedAt ? escapeHtml(new Date(report.checkedAt).toLocaleString()) : "—"}. API: <code>/api/domain-dns-check</code></p>
+    </article>
+  `;
+}
+
 function renderAdminSafetyCenterBody() {
   if (adminSafetyLoading && !adminSafetyStatus) {
     return `<p class="muted-copy">Checking server health…</p>`;
   }
   const status = adminSafetyStatus || {};
   const checks = Array.isArray(status.checks) ? status.checks : [];
+  const brandDnsLabel = adminDomainDnsReport
+    ? (adminDomainDnsReport.ready ? "Ready" : (adminDomainDnsReport.brandDomain?.www?.status || adminDomainDnsReport.brandDomain?.apex?.status || "Action needed"))
+    : (status.brandDomainReady === true ? "Ready" : "Not checked");
   const rows = [
     ["Server Health", status.healthStatus || "unknown"],
     ["Launch Readiness", status.readiness || "unknown"],
+    ["Brand domain DNS", brandDnsLabel],
     ["Database", typeof status.database === "object" ? (status.database.status || JSON.stringify(status.database)) : (status.database || "unknown")],
     ["Stripe", typeof status.stripe === "object" ? (status.stripe.status || JSON.stringify(status.stripe)) : (status.stripe || "unknown")],
     ["Email", typeof status.email === "object" ? (status.email.status || JSON.stringify(status.email)) : (status.email || "unknown")],
@@ -35587,6 +35646,7 @@ function renderAdminSafetyCenterBody() {
       ${rows.map(([label, value]) => adminMetric(label, value)).join("")}
     </div>
     ${checkRows ? `<article class="analytics-card" style="margin-top:12px;"><h4>Readiness details</h4>${checkRows}</article>` : ""}
+    ${renderAdminDomainDnsPanel()}
     <p class="muted-copy" style="margin-top:12px;">Export is read-only. Restore requires typing <strong>RESTORE_STORE_FROM_BACKUP</strong> and creates a safety backup first when Postgres is available.</p>
     <div class="account-actions-row">
       <button type="button" class="ghost-button" data-admin-safety-refresh ${adminSafetyLoading ? "disabled" : ""}>${adminSafetyLoading ? "Checking…" : "Refresh Safety"}</button>

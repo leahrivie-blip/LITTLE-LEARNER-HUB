@@ -104,9 +104,9 @@ test("persona sandbox modes remain available", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-email-system-repair");
-  assert.equal(indexJs, "20260718-email-system-repair");
-  assert.match(sw, /llh-shell-v88-email-system-repair/);
+  assert.equal(indexCss, "20260718-domain-dns-final-audit");
+  assert.equal(indexJs, "20260718-domain-dns-final-audit");
+  assert.match(sw, /llh-shell-v91-domain-dns-final-audit/);
 });
 
 test("npm script is registered", () => {
