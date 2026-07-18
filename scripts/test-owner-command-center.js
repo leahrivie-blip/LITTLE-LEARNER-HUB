@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-email-system-repair");
-  assert.equal(indexJs, "20260718-email-system-repair");
-  assert.match(sw, /llh-shell-v88-email-system-repair/);
+  assert.equal(indexCss, "20260718-admin-content-finish");
+  assert.equal(indexJs, "20260718-admin-content-finish");
+  assert.match(sw, /llh-shell-v92-admin-content-finish/);
 });
 
 if (!process.exitCode) {

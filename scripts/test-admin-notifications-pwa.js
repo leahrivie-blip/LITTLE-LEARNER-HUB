@@ -163,9 +163,9 @@ test("admin notification helpers dedupe and categorize", () => {
 });
 
 test("cache bust versions aligned for admin-notif-pwa", () => {
-  assert.match(indexHtml, /app\.js\?v=20260718-email-system-repair/);
-  assert.match(sw, /llh-shell-v88-email-system-repair/);
-  assert.match(sw, /app\.js\?v=20260718-email-system-repair/);
+  assert.match(indexHtml, /app\.js\?v=20260718-admin-content-finish/);
+  assert.match(sw, /llh-shell-v92-admin-content-finish/);
+  assert.match(sw, /app\.js\?v=20260718-admin-content-finish/);
 });
 
 async function integration() {

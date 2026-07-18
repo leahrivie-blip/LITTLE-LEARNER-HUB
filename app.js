@@ -850,9 +850,8 @@ function buildResourceLibrary() {
   ];
 }
 
-// FUTURE ADMIN BUILD: Observation Packs (buildObservationLibrary) are currently hardcoded.
-// A future admin section should allow creating, editing, and managing observation packs
-// by learning area and age group, similar to the Activities/Forms/Printables managers.
+// Seed observation packs (generated). Custom packs are managed in Admin → Observation Packs
+// and merged via loadAdminManagedObservations().
 function buildObservationLibrary() {
   const stems = {
     Cognitive: ["solved a simple problem", "matched familiar objects", "remembered a routine", "explored cause and effect", "sorted materials"],
@@ -1672,9 +1671,8 @@ This bundle is a template and does not replace legal, tax, medical, or licensing
   ].join("\n\n");
 }
 
-// FUTURE ADMIN BUILD: Menu Center (buildMenuLibrary) is currently hardcoded.
-// A future admin section should allow creating, editing, and managing menu packs
-// (weekly menus, age-based packs) via the admin dashboard, similar to Activities/Forms/Printables.
+// Seed menu packs (generated). Custom packs are managed in Admin → Menu Center
+// and merged via loadAdminManagedMenus().
 function buildMenuLibrary() {
   const weeklyMenus = Array.from({ length: 52 }, (_, index) => ({
     id: `menu-week-${index + 1}`,
@@ -4588,6 +4586,8 @@ let adminCurriculumActivitySelectedIds = new Set();
 let adminManagedSelectedIds = {
   forms: new Set(),
   printables: new Set(),
+  menus: new Set(),
+  observations: new Set(),
 };
 let adminAiContentState = {
   contentType: "lesson",
@@ -4685,11 +4685,10 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
-// FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
-// A future admin section should allow adding, renaming, and reordering these category labels
-// so new upload categories can be managed without a code change.
-const lessonPlanResourceCategories = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
+/** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
+const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
 // Old Settings → Homepage tab removed; Site Editor is the only homepage editor. Redirect stale preference.
 const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage" ? "images" : adminActiveSectionTabRaw;
@@ -4701,7 +4700,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails"], defaultTab: "dashboard" },
   { id: "messages",  icon: "💬", label: "Messages",   tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -4726,6 +4725,9 @@ const adminGroupForTab = {
   "curriculum-resources": "content",
   "forms":       "content",
   "printables":  "content",
+  "menus":       "content",
+  "observations":"content",
+  "resource-categories": "content",
   "reviews":     "content",
   "founder":     "content",
   "resources":   "content",
@@ -4769,6 +4771,9 @@ const adminTabLabels = {
   "curriculum-resources": "Curriculum Resources",
   "forms":       "Forms Library (not legacy uploads)",
   "printables":  "Printables Library (not legacy uploads)",
+  "menus":       "Menu Center",
+  "observations":"Observation Packs",
+  "resource-categories": "Resource Categories",
   "reviews":     "Reviews",
   "founder":     "Founder",
   "resources":   "Legacy File Uploads",
@@ -4937,6 +4942,9 @@ function emptySiteContent() {
     activities: [],
     forms: [],
     printables: [],
+    menus: [],
+    observations: [],
+    lessonPlanResourceCategories: [],
     reviews: [],
     founder: {},
     homepage: {},
@@ -8729,7 +8737,7 @@ function notifyAdminLessonResourcesDraftPending(actionLabel = "Resource list upd
 
 function renderAdminLessonResourcesSection() {
   const resources = adminLessonResourcesDraft || [];
-  const categories = lessonPlanResourceCategories;
+  const categories = effectiveLessonPlanResourceCategories();
   const grouped = {};
   resources.forEach((r) => { (grouped[r.category] = grouped[r.category] || []).push(r); });
 
@@ -8773,7 +8781,7 @@ function renderAdminLessonResourcesSection() {
         <div id="adminAddLessonResourceForm" class="lp-add-resource-form">
           <div class="form-grid-two">
             <label>Resource title<input name="resourceTitle" placeholder="e.g. Farm Animal Coloring Sheet" /></label>
-            <label>Category<select name="resourceCategory">${lessonPlanResourceCategories.map((cat) => `<option>${escapeHtml(cat)}</option>`).join("")}</select></label>
+            <label>Category<select name="resourceCategory">${effectiveLessonPlanResourceCategories().map((cat) => `<option>${escapeHtml(cat)}</option>`).join("")}</select></label>
           </div>
           <label>Upload file (image or PDF)<input name="resourceFile" type="file" accept="image/*,application/pdf" /></label>
           <div class="form-actions">
@@ -9000,6 +9008,13 @@ function effectiveSiteContent() {
     activities: Array.isArray(overrides.activities) ? overrides.activities : [],
     forms: Array.isArray(overrides.forms) ? overrides.forms : [],
     printables: Array.isArray(overrides.printables) ? overrides.printables : [],
+    menus: Array.isArray(overrides.menus) ? overrides.menus : [],
+    observations: Array.isArray(overrides.observations) ? overrides.observations : [],
+    lessonPlanResourceCategories: Array.isArray(overrides.lessonPlanResourceCategories) && overrides.lessonPlanResourceCategories.length
+      ? overrides.lessonPlanResourceCategories
+      : (Array.isArray(base.lessonPlanResourceCategories) && base.lessonPlanResourceCategories.length
+        ? base.lessonPlanResourceCategories
+        : [...DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES]),
     reviews: (overrides.reviews?.length ? overrides.reviews : base.reviews || []).map((item) => ({
       ...item,
       imageUrl: sanitizedImageSource(item.imageUrl || ""),
@@ -9181,6 +9196,8 @@ function loadResources() {
     ...loadCurriculumManagedLessonPlans(),
     ...loadCurriculumManagedActivities(),
     ...loadAdminManagedForms(),
+    ...loadAdminManagedMenus(),
+    ...loadAdminManagedObservations(),
     ...saved,
   ].filter((resource) => resource.category !== "Printables"));
 }
@@ -9219,6 +9236,56 @@ function loadAdminManagedPrintables() {
       archived: item.archived === true,
       _adminManaged: true,
     }));
+}
+
+function loadAdminManagedMenus() {
+  const all = effectiveSiteContent().menus || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      ...item,
+      category: "Menu Center",
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      format: item.format || "PDF + Editable",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      menuCategory: item.menuCategory || "Weekly Menus",
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      _adminManaged: true,
+    }));
+}
+
+function loadAdminManagedObservations() {
+  const all = effectiveSiteContent().observations || [];
+  return all
+    .filter((item) => item.id && item.title)
+    .filter((item) => (item.visible === true && item.archived !== true) || hasAdminFullAccess())
+    .map((item) => ({
+      ...item,
+      category: "Observation Hub",
+      age: item.age || "All Ages",
+      plan: item.plan || "Free",
+      format: item.format || "Editable Observation",
+      tags: Array.isArray(item.tags) ? item.tags : [],
+      learningArea: item.learningArea || "Cognitive",
+      observationText: item.observationText || item.customContent || "",
+      lookFor: item.lookFor || "",
+      nextSteps: item.nextSteps || "",
+      standard: item.standard || "",
+      visible: item.visible === true && item.archived !== true,
+      archived: item.archived === true,
+      _adminManaged: true,
+    }));
+}
+
+function effectiveLessonPlanResourceCategories() {
+  const fromSite = effectiveSiteContent().lessonPlanResourceCategories;
+  if (Array.isArray(fromSite) && fromSite.length) {
+    return fromSite.map((item) => String(item || "").trim()).filter(Boolean);
+  }
+  return [...DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES];
 }
 
 function customLessonPlanForId(id) {
@@ -36199,34 +36266,40 @@ function renderContentHealthDashboard() {
 }
 
 function renderFutureAdminBuildItems() {
-  const futureItems = [
+  const liveItems = [
     {
       icon: "🍽️",
-      label: "Menu Center Admin",
-      detail: "buildMenuLibrary() is hardcoded. Future build: admin UI to create, edit, and manage weekly and age-based menu packs without a code change.",
+      label: "Menu Center",
+      detail: "Create and publish custom menu packs. Seed weekly/age menus remain available; admin packs merge into Menu Center.",
+      tab: "menus",
     },
     {
       icon: "🗂️",
-      label: "Resource Categories Admin",
-      detail: "lessonPlanResourceCategories is a hardcoded array. Future build: admin UI to add, rename, and reorder lesson plan resource upload categories.",
+      label: "Resource Categories",
+      detail: "Add, rename, and reorder lesson-plan resource upload categories without a code change.",
+      tab: "resource-categories",
     },
     {
       icon: "👁️",
-      label: "Observation Packs Admin",
-      detail: "buildObservationLibrary() is hardcoded. Future build: admin UI to create and manage observation packs by age group and learning area, similar to Activities/Forms/Printables.",
+      label: "Observation Packs",
+      detail: "Create custom observation wording packs by age and learning area. Seed packs remain; admin packs merge into Observation Hub.",
+      tab: "observations",
     },
   ];
   return `
     <div class="admin-owner-section">
-      <p class="eyebrow">Future Admin Build Items</p>
-      <h4>Not Yet Editable via Admin</h4>
-      <p class="muted-copy">The following content sections are currently hardcoded and do not have admin save forms. They are tracked here as planned future build items.</p>
+      <p class="eyebrow">Content managers</p>
+      <h4>Menus, observations, and resource categories</h4>
+      <p class="muted-copy">These are editable in Admin → Content. Seed libraries still ship with the app; publish your own packs anytime.</p>
       <div class="admin-owner-lists" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
-        ${futureItems.map(({ icon, label, detail }) => `
+        ${liveItems.map(({ icon, label, detail, tab }) => `
           <article class="analytics-card content-health-card">
             <h4>${icon} ${escapeHtml(label)}</h4>
             <p class="muted-copy" style="font-size:0.85rem;margin:0">${escapeHtml(detail)}</p>
-            <p style="margin:0.5rem 0 0"><span class="tag tag-hidden">Future Build</span></p>
+            <p style="margin:0.5rem 0 0">
+              <button type="button" class="ghost-button" data-admin-section-tab="${escapeHtml(tab)}">Open manager</button>
+              <span class="tag">Live</span>
+            </p>
           </article>
         `).join("")}
       </div>
@@ -37172,6 +37245,15 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="printables">
         <div id="adminPrintablesManagerApp"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="menus">
+        <div id="adminMenusManagerApp"></div>
+      </section>
+      <section class="admin-manager-section" data-admin-cm-section="observations">
+        <div id="adminObservationsManagerApp"></div>
+      </section>
+      <section class="admin-manager-section" data-admin-cm-section="resource-categories">
+        <div id="adminResourceCategoriesManagerApp"></div>
+      </section>
     </div>
   `;
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
@@ -37179,6 +37261,9 @@ function renderAdminContentManager() {
   if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
   if (adminActiveSectionTab === "printables") renderAdminPrintablesManager();
+  if (adminActiveSectionTab === "menus") renderAdminMenusManager();
+  if (adminActiveSectionTab === "observations") renderAdminObservationsManager();
+  if (adminActiveSectionTab === "resource-categories") renderAdminResourceCategoriesManager();
 }
 
 function nextSiteContentDraft() {
@@ -38007,6 +38092,8 @@ let adminActivityEditorId = "";
 
 let adminFormEditorId = "";
 let adminPrintableEditorId = "";
+let adminMenuEditorId = "";
+let adminObservationEditorId = "";
 
 // Tracks which managed-collection editor types have unsaved user input.
 // Cleared on successful save; checked in beforeunload and tab-navigation guards.
@@ -38056,12 +38143,62 @@ const adminManagedContentConfig = {
     formatPlaceholder: "Worksheet PDF",
     searchPlaceholder: "Search title, type, or tags",
   },
+  menus: {
+    appId: "#adminMenusManagerApp",
+    contentKey: "menus",
+    sectionKey: "menus",
+    category: "Menu Center",
+    singular: "Menu Pack",
+    plural: "Menus",
+    icon: "🍽️",
+    title: "Menu Center",
+    subtitle: "Create and publish weekly menus, age-based packs, and shopping lists without a code change.",
+    primaryField: "menuCategory",
+    primaryLabel: "Menu Type",
+    primaryOptions: () => Array.from(new Set([
+      "Weekly Menus",
+      "Infant Menus",
+      "Toddler Menus",
+      "Preschool Menus",
+      "Breakfast",
+      "Lunch",
+      "Snack",
+      "Shopping List",
+      ...(effectiveSiteContent().menus || []).map((item) => item.menuCategory || "").filter(Boolean),
+    ])),
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "PDF + Editable",
+    searchPlaceholder: "Search title, menu type, or tags",
+  },
+  observations: {
+    appId: "#adminObservationsManagerApp",
+    contentKey: "observations",
+    sectionKey: "observations",
+    category: "Observation Hub",
+    singular: "Observation Pack",
+    plural: "Observations",
+    icon: "👁️",
+    title: "Observation Packs",
+    subtitle: "Create custom observation wording packs by age group and learning area.",
+    primaryField: "learningArea",
+    primaryLabel: "Learning Area",
+    primaryOptions: () => Array.from(new Set([
+      ...(Array.isArray(learningAreas) ? learningAreas : []),
+      ...(effectiveSiteContent().observations || []).map((item) => item.learningArea || "").filter(Boolean),
+      "General",
+    ])),
+    ageOptions: () => ["All Ages", "Infant", "Toddler", "Preschool"],
+    formatPlaceholder: "Editable Observation",
+    searchPlaceholder: "Search title, learning area, or tags",
+  },
 };
 
 function adminManagedEditorId(type) {
   if (type === "activities") return adminActivityEditorId;
   if (type === "forms") return adminFormEditorId;
   if (type === "printables") return adminPrintableEditorId;
+  if (type === "menus") return adminMenuEditorId;
+  if (type === "observations") return adminObservationEditorId;
   return "";
 }
 
@@ -38069,6 +38206,8 @@ function setAdminManagedEditorId(type, id) {
   if (type === "activities") adminActivityEditorId = id;
   if (type === "forms") adminFormEditorId = id;
   if (type === "printables") adminPrintableEditorId = id;
+  if (type === "menus") adminMenuEditorId = id;
+  if (type === "observations") adminObservationEditorId = id;
 }
 
 function adminManagedItems(type) {
@@ -38101,7 +38240,10 @@ function filteredAdminManagedItems(type) {
       || (status === "visible" && (itemStatus === "approved" || itemStatus === "featured"))
       || (status === "hidden" && itemStatus === "draft");
     const accessMatch = access === "all" || (access === "free" ? item.plan === "Free" : item.plan === "Pro");
-    const primaryMatch = primary === "all" || (type === "forms" ? (item[config.primaryField] || "General") === primary : (item.age || "All Ages") === primary);
+    const usesPrimaryFieldFilter = type === "forms" || type === "menus" || type === "observations";
+    const primaryMatch = primary === "all" || (usesPrimaryFieldFilter
+      ? (item[config.primaryField] || "General") === primary
+      : (item.age || "All Ages") === primary);
     return statusMatch && accessMatch && primaryMatch && haystack.includes(search);
   });
 }
@@ -38208,7 +38350,12 @@ function adminManagedFormHtml(type, item = {}) {
       <label>Description<textarea name="description" rows="3">${escapeHtml(item.description || "")}</textarea></label>
       <label>Tags (comma-separated)<input name="tags" value="${escapeHtml(Array.isArray(item.tags) ? item.tags.join(", ") : "")}" placeholder="theme, bundle, fine motor" /></label>
       <label>Format<input name="format" value="${escapeHtml(item.format || config.formatPlaceholder)}" placeholder="${escapeHtml(config.formatPlaceholder)}" /></label>
-      <label>Editable Content<textarea name="customContent" rows="6" placeholder="Optional in-app content or notes.">${escapeHtml(item.customContent || "")}</textarea></label>
+      <label>Editable Content<textarea name="customContent" rows="6" placeholder="${type === "observations" ? "Observation wording shown in-app." : "Optional in-app content or notes."}">${escapeHtml(item.customContent || item.observationText || "")}</textarea></label>
+      ${type === "observations" ? `
+      <label>What to look for<textarea name="lookFor" rows="3">${escapeHtml(item.lookFor || "")}</textarea></label>
+      <label>Next steps<textarea name="nextSteps" rows="3">${escapeHtml(item.nextSteps || "")}</textarea></label>
+      <label>Learning standard / guideline<textarea name="standard" rows="2">${escapeHtml(item.standard || "")}</textarea></label>
+      ` : ""}
       <div class="form-grid-two">
         <label>Upload File<input name="file" type="file" accept=".pdf,image/*,.txt" /></label>
         <label>Preview Image<input name="preview" type="file" accept="image/*" /></label>
@@ -38234,7 +38381,8 @@ function renderAdminManagedCollection(type) {
   const editorId = adminManagedEditorId(type);
   const editorItem = allItems.find((item) => item.id === editorId) || null;
   const key = type[0].toUpperCase() + type.slice(1);
-  const primaryOptions = type === "forms"
+  const usesPrimaryFieldFilter = type === "forms" || type === "menus" || type === "observations";
+  const primaryOptions = usesPrimaryFieldFilter
     ? ["all", ...config.primaryOptions()]
     : ["all", ...config.ageOptions()];
   target.innerHTML = `
@@ -38324,6 +38472,56 @@ function renderAdminPrintablesManager() {
   renderAdminManagedCollection("printables");
 }
 
+function renderAdminMenusManager() {
+  renderAdminManagedCollection("menus");
+}
+
+function renderAdminObservationsManager() {
+  renderAdminManagedCollection("observations");
+}
+
+function renderAdminResourceCategoriesManager() {
+  const target = document.querySelector("#adminResourceCategoriesManagerApp");
+  if (!target || !isAdminUnlocked()) return;
+  const categories = effectiveLessonPlanResourceCategories();
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">🗂️ Resource Categories</p>
+        <h3>Lesson plan resource upload categories</h3>
+        <p class="muted-copy">Add, rename, reorder, or remove categories used when attaching files to lesson plans.</p>
+      </div>
+    </div>
+    <form id="adminResourceCategoriesForm" class="panel-form admin-stacked-form">
+      <label>Categories (one per line)<textarea name="categories" rows="12" placeholder="Coloring Pages">${escapeHtml(categories.join("\n"))}</textarea></label>
+      <p class="muted-copy">Order on this list is the order shown in the lesson resource picker. Empty lines are ignored.</p>
+      <div class="form-actions">
+        <button class="primary-button" type="submit">Save categories</button>
+        <button class="ghost-button" type="button" data-admin-resource-categories-reset>Reset to defaults</button>
+      </div>
+      <span class="form-message" id="adminResourceCategoriesMessage"></span>
+    </form>
+  `;
+}
+
+async function saveAdminResourceCategoriesForm(form) {
+  await runAdminSave({
+    messageSelector: "#adminResourceCategoriesMessage",
+    form,
+    saveFn: async () => {
+      const raw = String(new FormData(form).get("categories") || "");
+      const categories = raw.split("\n").map((line) => line.trim()).filter(Boolean).slice(0, 40);
+      if (!categories.length) throw new Error("Add at least one category.");
+      const nextContent = nextSiteContentDraft();
+      nextContent.lessonPlanResourceCategories = categories;
+      await saveAdminSiteContent(nextContent);
+      syncSiteManagedResources();
+    },
+    successMsg: "✅ Resource categories saved.",
+    redirectFn: () => renderAdminResourceCategoriesManager(),
+  });
+}
+
 async function saveAdminManagedCollectionForm(type, form) {
   if (type === "activities" || !adminManagedContentConfig[type]) {
     setFormMessage(`#admin${type[0].toUpperCase()}${type.slice(1)}Message`, "Legacy activity manager is retired. Use Curriculum Activities.", false);
@@ -38379,6 +38577,16 @@ async function saveAdminManagedCollectionForm(type, form) {
         entry.activityCategory = entry[config.primaryField];
         entry.printableUrl = entry.fileData || current.printableUrl || "";
         entry.thumbnailUrl = entry.previewData || current.thumbnailUrl || "";
+      }
+      if (type === "observations") {
+        entry.learningArea = entry[config.primaryField];
+        entry.observationText = entry.customContent || "";
+        entry.lookFor = normalizedMultilineText(formData.get("lookFor"));
+        entry.nextSteps = normalizedMultilineText(formData.get("nextSteps"));
+        entry.standard = normalizedMultilineText(formData.get("standard"));
+      }
+      if (type === "menus") {
+        entry.menuCategory = entry[config.primaryField];
       }
       nextContent[config.contentKey] = [...existing.filter((item) => item.id !== id), entry];
 
@@ -38563,7 +38771,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "reviews", "founder", "images"];
+const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -38613,6 +38821,9 @@ function applyAdminSectionVisibility() {
     if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();
     if (tab === "forms") renderAdminFormsManager();
     if (tab === "printables") renderAdminPrintablesManager();
+    if (tab === "menus") renderAdminMenusManager();
+    if (tab === "observations") renderAdminObservationsManager();
+    if (tab === "resource-categories") renderAdminResourceCategoriesManager();
   } else if (tab === "dashboard") {
     const el = document.querySelector(".admin-owner-panel");
     if (el) el.hidden = false;
@@ -51141,7 +51352,7 @@ document.addEventListener("input", (event) => {
     if (safe) applyAdminCurriculumCoverSelection(safe, { source: "uploaded" });
   }
   // Mark managed-collection editor forms dirty when the user types in them
-  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
+  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables", "#adminMenusManagerApp": "menus", "#adminObservationsManagerApp": "observations" };
   for (const [appId, type] of Object.entries(managedFormTypes)) {
     const app = document.querySelector(appId);
     if (app && app.contains(event.target) && event.target.closest("form")) {
@@ -51254,7 +51465,7 @@ document.addEventListener("change", (event) => {
     renderAdminFormsManager();
   }
   // Mark managed-collection editor forms dirty when user changes a checkbox or select inside them
-  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables" };
+  const managedFormTypes = { "#adminActivitiesManagerApp": "activities", "#adminFormsManagerApp": "forms", "#adminPrintablesManagerApp": "printables", "#adminMenusManagerApp": "menus", "#adminObservationsManagerApp": "observations" };
   for (const [appId, type] of Object.entries(managedFormTypes)) {
     const app = document.querySelector(appId);
     if (app && app.contains(event.target) && event.target.closest("form")) {
@@ -52270,6 +52481,21 @@ document.addEventListener("submit", async (event) => {
     await saveAdminManagedCollectionForm("printables", event.target);
     return;
   }
+  if (event.target.matches("#adminMenusForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("menus", event.target);
+    return;
+  }
+  if (event.target.matches("#adminObservationsForm")) {
+    event.preventDefault();
+    await saveAdminManagedCollectionForm("observations", event.target);
+    return;
+  }
+  if (event.target.matches("#adminResourceCategoriesForm")) {
+    event.preventDefault();
+    await saveAdminResourceCategoriesForm(event.target);
+    return;
+  }
   if (event.target.matches("#userLessonPlanEditorForm")) {
     event.preventDefault();
     await saveUserLessonEditorForm(event.target);
@@ -52885,6 +53111,13 @@ document.addEventListener("click", async (event) => {
   const imageDeleteButton = event.target.closest("[data-admin-image-delete]");
   if (imageDeleteButton) {
     await deleteImageAsset(imageDeleteButton.dataset.adminImageDelete);
+    return;
+  }
+  if (event.target.closest("[data-admin-resource-categories-reset]") && isAdminUnlocked()) {
+    event.preventDefault();
+    const form = document.querySelector("#adminResourceCategoriesForm");
+    const field = form?.querySelector('[name="categories"]');
+    if (field) field.value = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES.join("\n");
     return;
   }
   if (event.target.closest("#adminNewImageButton")) {
