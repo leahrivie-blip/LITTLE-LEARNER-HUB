@@ -19,7 +19,7 @@
       title: "Amazing Apples",
       slug: "amazing-apples",
       age: "Toddler",
-      prompt: "Children's book illustration, 16:9. Bright toddler classroom apple exploration with red green and yellow apples in baskets, magnifying glasses, and apple art. Leave open space for title overlay. No text.",
+      prompt: "Hand-painted storybook watercolor, 16:9. Basket of red green and yellow apples, apple halves, and a magnifying glass on a preschool table. Soft empty sky/wall space for title. No text, no people.",
     },
     {
       title: "Amazing Insects",
