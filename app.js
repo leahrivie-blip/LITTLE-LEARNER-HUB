@@ -13235,12 +13235,21 @@ function restoreLessonLibraryBrowseState() {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (activeView !== "lessons") return;
   const y = Number(lessonLibraryScrollY) || 0;
-  requestAnimationFrame(() => {
-    window.scrollTo({ top: y, behavior: "auto" });
-    if (lessonLibraryFocusResourceId) {
-      const card = document.querySelector(`[data-lesson-card="${CSS.escape(lessonLibraryFocusResourceId)}"]`);
-      card?.focus?.();
+  const focusId = lessonLibraryFocusResourceId || "";
+  const apply = () => {
+    window.scrollTo({ top: y, left: 0, behavior: "auto" });
+    if (focusId) {
+      const card = document.querySelector(`[data-lesson-card="${CSS.escape(focusId)}"]`);
+      if (card && typeof card.focus === "function") {
+        try { card.focus({ preventScroll: true }); } catch { card.focus(); }
+      }
     }
+  };
+  // Re-apply after layout settles (viewer close unhides .main).
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(apply);
+    setTimeout(apply, 50);
   });
 }
 
@@ -16993,6 +17002,7 @@ function closeResourceViewer() {
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
   document.body.classList.remove("resource-viewer-open");
+  document.body.classList.remove("lesson-workspace-open");
   activeGeneratedPdfResource = null;
   activeResourceViewerResource = null;
   activeViewerResourceId = "";
@@ -17449,6 +17459,7 @@ function resourceViewerBackLabel() {
 function restoreDefaultResourceViewerChrome() {
   const modal = document.querySelector("#resourceViewerModal");
   modal?.classList.remove("lesson-workspace-mode");
+  document.body.classList.remove("lesson-workspace-open");
   const category = document.querySelector("#resourceViewerCategory");
   const title = document.querySelector("#resourceViewerTitle");
   const tags = document.querySelector("#resourceViewerTags");
@@ -17836,51 +17847,59 @@ function positionLessonWorkspaceMoreMenu() {
 }
 
 let lessonWorkspaceMoreScrollLock = null;
+/** ScrollTop snapped on pointerdown before focus can scroll the in-flow More button into view. */
+let lessonWorkspaceMorePendingScrollTop = null;
+
+function captureLessonWorkspaceScrollBeforeMoreInteract() {
+  const workspace = document.querySelector(".lesson-workspace");
+  if (!workspace || workspace.dataset.llhScrollLocked === "1") return;
+  lessonWorkspaceMorePendingScrollTop = Number(workspace.scrollTop) || 0;
+}
+
+function applyLessonWorkspaceScrollTop(workspace, top) {
+  if (!workspace) return;
+  const next = Number(top) || 0;
+  workspace.scrollTop = next;
+  // Focus/layout can fight the restore across frames when action bars are in-flow.
+  requestAnimationFrame(() => {
+    workspace.scrollTop = next;
+    requestAnimationFrame(() => {
+      workspace.scrollTop = next;
+    });
+  });
+}
 
 function lockLessonWorkspaceBackgroundScroll(lock) {
-  const panels = document.querySelector(".lesson-workspace-panels");
-  const viewerBody = document.querySelector("#resourceViewerBody");
-  const card = document.querySelector("#resourceViewerModal.lesson-workspace-mode .resource-viewer-card");
+  // Mobile lesson page uses .lesson-workspace as the single scroll container.
+  const workspace = document.querySelector(".lesson-workspace");
+  if (!workspace) return;
   if (lock) {
     if (lessonWorkspaceMoreScrollLock) return;
+    const top = Number.isFinite(lessonWorkspaceMorePendingScrollTop)
+      ? lessonWorkspaceMorePendingScrollTop
+      : (Number(workspace.scrollTop) || 0);
+    lessonWorkspaceMorePendingScrollTop = null;
     lessonWorkspaceMoreScrollLock = {
-      panelsTop: panels ? panels.scrollTop : 0,
-      bodyTop: viewerBody ? viewerBody.scrollTop : 0,
-      cardTop: card ? card.scrollTop : 0,
+      workspaceTop: top,
       windowY: window.scrollY || document.documentElement.scrollTop || 0,
     };
-    if (panels) {
-      panels.dataset.llhScrollLocked = "1";
-      panels.style.overflow = "hidden";
-    }
-    if (viewerBody) {
-      viewerBody.dataset.llhScrollLocked = "1";
-      viewerBody.style.overflow = "hidden";
-    }
-    if (card) {
-      card.dataset.llhScrollLocked = "1";
-      card.style.overflow = "hidden";
-    }
+    workspace.dataset.llhScrollLocked = "1";
+    // Freeze scroll without letting the browser discard scrollTop.
+    workspace.style.overflow = "hidden";
+    applyLessonWorkspaceScrollTop(workspace, top);
     return;
   }
   const saved = lessonWorkspaceMoreScrollLock;
   lessonWorkspaceMoreScrollLock = null;
-  if (panels?.dataset.llhScrollLocked) {
-    panels.style.overflow = "";
-    delete panels.dataset.llhScrollLocked;
-    if (saved) panels.scrollTop = saved.panelsTop;
+  lessonWorkspaceMorePendingScrollTop = null;
+  if (!workspace.dataset.llhScrollLocked) return;
+  const top = saved ? saved.workspaceTop : workspace.scrollTop;
+  workspace.style.overflow = "";
+  delete workspace.dataset.llhScrollLocked;
+  applyLessonWorkspaceScrollTop(workspace, top);
+  if (saved) {
+    window.scrollTo(0, saved.windowY);
   }
-  if (viewerBody?.dataset.llhScrollLocked) {
-    viewerBody.style.overflow = "";
-    delete viewerBody.dataset.llhScrollLocked;
-    if (saved) viewerBody.scrollTop = saved.bodyTop;
-  }
-  if (card?.dataset.llhScrollLocked) {
-    card.style.overflow = "";
-    delete card.dataset.llhScrollLocked;
-    if (saved) card.scrollTop = saved.cardTop;
-  }
-  if (saved) window.scrollTo(0, saved.windowY);
 }
 
 function toggleLessonWorkspaceMoreMenu(open) {
@@ -17900,17 +17919,50 @@ function toggleLessonWorkspaceMoreMenu(open) {
   menu.hidden = !show;
   toggle?.setAttribute("aria-expanded", show ? "true" : "false");
   if (!show) {
+    const workspace = document.querySelector(".lesson-workspace");
+    const savedTop = lessonWorkspaceMoreScrollLock?.workspaceTop
+      ?? (workspace ? workspace.scrollTop : 0);
     document.body.classList.remove("lesson-workspace-more-open");
     const backdrop = document.querySelector("[data-lesson-workspace-more-backdrop]");
     if (backdrop) backdrop.hidden = true;
+    // Blur first so returning the menu into the action bar doesn't scroll-into-view.
+    if (document.activeElement && typeof document.activeElement.blur === "function") {
+      document.activeElement.blur();
+    }
     if (wrap && menu.parentElement !== wrap) wrap.appendChild(menu);
     clearLessonWorkspaceMoreInlineStyles(menu);
     lockLessonWorkspaceBackgroundScroll(false);
+    applyLessonWorkspaceScrollTop(workspace, savedTop);
     return;
   }
+  const lockedTop = lessonWorkspaceMoreScrollLock?.workspaceTop;
   positionLessonWorkspaceMoreMenu();
-  requestAnimationFrame(() => positionLessonWorkspaceMoreMenu());
+  requestAnimationFrame(() => {
+    positionLessonWorkspaceMoreMenu();
+    const workspace = document.querySelector(".lesson-workspace");
+    if (workspace && Number.isFinite(lockedTop)) applyLessonWorkspaceScrollTop(workspace, lockedTop);
+  });
 }
+
+// Capture scroll before focus scrolls the in-flow More button into view.
+document.addEventListener("pointerdown", (event) => {
+  if (!event.target?.closest?.("[data-lesson-workspace-more-toggle]")) return;
+  captureLessonWorkspaceScrollBeforeMoreInteract();
+}, true);
+document.addEventListener("mousedown", (event) => {
+  if (!event.target?.closest?.("[data-lesson-workspace-more-toggle]")) return;
+  captureLessonWorkspaceScrollBeforeMoreInteract();
+}, true);
+document.addEventListener("focusin", (event) => {
+  if (!event.target?.closest?.("[data-lesson-workspace-more-toggle]")) return;
+  const workspace = document.querySelector(".lesson-workspace");
+  if (!workspace) return;
+  if (Number.isFinite(lessonWorkspaceMorePendingScrollTop)) {
+    workspace.scrollTop = lessonWorkspaceMorePendingScrollTop;
+  } else if (lessonWorkspaceMoreScrollLock) {
+    workspace.scrollTop = lessonWorkspaceMoreScrollLock.workspaceTop;
+  }
+}, true);
 
 function lessonWorkspaceWeekGlanceHtml(plan, lessonPlanId) {
   const normalized = normalizeCurriculumLessonPlanForRender(plan);
@@ -19619,23 +19671,25 @@ function lessonWorkspaceChromeHtml(resource) {
   ];
   return `
     <div class="lesson-workspace" data-lesson-workspace>
-      <header class="lesson-workspace-header">
-        <button type="button" class="lesson-workspace-back ghost-button" data-lesson-workspace-back>${escapeHtml(lessonWorkspaceBackButtonLabel())}</button>
-        <div class="lesson-workspace-title-block">
-          <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
-          <p class="lesson-workspace-meta">
-            <span class="tag">${escapeHtml(age)}</span>
-            <span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>
-            ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
-          </p>
-        </div>
-        ${lessonWorkspaceSaveButtonHtml(resource.id)}
-      </header>
-      <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
-        ${tabs.map(([id, label]) => `
-          <button type="button" role="tab" class="lesson-workspace-tab${lessonWorkspaceTab === id ? " is-active" : ""}" data-lesson-workspace-tab="${id}" aria-selected="${lessonWorkspaceTab === id ? "true" : "false"}">${label}</button>
-        `).join("")}
-      </nav>
+      <div class="lesson-workspace-topchrome">
+        <header class="lesson-workspace-header">
+          <button type="button" class="lesson-workspace-back ghost-button" data-lesson-workspace-back>${escapeHtml(lessonWorkspaceBackButtonLabel())}</button>
+          <div class="lesson-workspace-title-block">
+            <h2 class="lesson-workspace-title">${escapeHtml(resource.title)}</h2>
+            <p class="lesson-workspace-meta">
+              <span class="tag">${escapeHtml(age)}</span>
+              <span class="tag access-tag ${planBadgeClass}">${escapeHtml(planLabel)}</span>
+              ${theme ? `<span class="tag lesson-workspace-theme-tag">${escapeHtml(theme)}</span>` : ""}
+            </p>
+          </div>
+          ${lessonWorkspaceSaveButtonHtml(resource.id)}
+        </header>
+        <nav class="lesson-workspace-tabs" role="tablist" aria-label="Lesson plan sections">
+          ${tabs.map(([id, label]) => `
+            <button type="button" role="tab" class="lesson-workspace-tab${lessonWorkspaceTab === id ? " is-active" : ""}" data-lesson-workspace-tab="${id}" aria-selected="${lessonWorkspaceTab === id ? "true" : "false"}">${label}</button>
+          `).join("")}
+        </nav>
+      </div>
       <div class="lesson-workspace-panels">
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "week" ? " is-active" : ""}" data-lesson-workspace-panel="week">${lessonWorkspaceWeekGlanceHtml(plan, resource.id)}</div>
         <div class="lesson-workspace-panel${lessonWorkspaceTab === "plan" ? " is-active" : ""}" data-lesson-workspace-panel="plan">${lessonWorkspacePlanTabHtml(plan)}</div>
@@ -19700,6 +19754,7 @@ function applyLessonWorkspaceChrome(viewerResource) {
   const body = document.querySelector("#resourceViewerBody");
   if (!modal || !body) return;
   modal.classList.add("lesson-workspace-mode");
+  document.body.classList.add("lesson-workspace-open");
   document.querySelector("#resourceViewerCategory").hidden = true;
   document.querySelector("#resourceViewerTitle").hidden = true;
   document.querySelector("#resourceViewerTags").hidden = true;
@@ -20892,6 +20947,12 @@ async function openResourceViewer(resourceId, options = {}) {
   const viewer = document.querySelector("#resourceViewerModal");
   viewer.classList.add("open");
   viewer.setAttribute("aria-hidden", "false");
+  document.body.classList.add("resource-viewer-open");
+  if (isLessonWorkspaceResource(viewerResource)) {
+    document.body.classList.add("lesson-workspace-open");
+  } else {
+    document.body.classList.remove("lesson-workspace-open");
+  }
   activeViewerResourceId = resource.id;
   if (!options.skipHistory) {
     if (isLessonWorkspaceResource(viewerResource) && !options.replaceActivityParent) {
@@ -48117,6 +48178,8 @@ document.addEventListener("click", async (event) => {
     const returnTo = current?.category === "Activity Center" ? activeViewerResourceId : "";
     const resource = resources.find((item) => item.id === resourceId);
     const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
+    // Capture library scroll before opening so close returns to the same spot.
+    if (resource?.category === "Lesson Plans") captureLessonLibraryBrowseState(resourceId);
     if (resource?.category === "Lesson Plans" && ["planner", "curriculum-planner"].includes(activeView) && !getViewReturnContext(activeView)) {
       setViewReturnContext(activeView, {
         type: "view",

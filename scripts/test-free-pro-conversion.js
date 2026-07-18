@@ -100,11 +100,11 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-lesson-sheets");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-lesson-sheets");
-  assert.match(sw, /llh-shell-v99-lesson-sheets/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-lesson-sheets/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-lesson-sheets/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-lesson-fullscreen");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-lesson-fullscreen");
+  assert.match(sw, /llh-shell-v100-lesson-fullscreen/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-lesson-fullscreen/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-lesson-fullscreen/);
 });
 
 function requestJson(method, urlPath, body) {

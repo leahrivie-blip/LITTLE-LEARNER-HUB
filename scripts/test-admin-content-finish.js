@@ -25,8 +25,8 @@ const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260718-lesson-sheets";
-const SHELL_V = "llh-shell-v99-lesson-sheets";
+const CACHE_V = "20260718-lesson-fullscreen";
+const SHELL_V = "llh-shell-v100-lesson-fullscreen";
 
 test("site content store supports menus, observations, and resource categories", () => {
   assert.match(serverJs, /menus:\s*\[\]/);

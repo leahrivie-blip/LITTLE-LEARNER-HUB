@@ -184,12 +184,13 @@ async function main() {
     await openLesson(page, lesson);
 
     // Scroll lesson content so we can verify restore-after-close.
-    const panels = page.locator(".lesson-workspace-panels");
-    await panels.evaluate((el) => { el.scrollTop = Math.min(260, el.scrollHeight); });
-    const scrollBefore = await panels.evaluate((el) => el.scrollTop);
+    const pageScroll = page.locator(".lesson-workspace");
+    await pageScroll.evaluate((el) => { el.scrollTop = Math.min(260, el.scrollHeight); });
+    const scrollBefore = await pageScroll.evaluate((el) => el.scrollTop);
 
     // ---- More sheet ----
-    await page.click("[data-lesson-workspace-more-toggle]");
+    // force:true avoids scroll-into-view on the in-flow More button.
+    await page.locator("[data-lesson-workspace-more-toggle]").click({ force: true });
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     await page.waitForTimeout(200);
     const more = await page.evaluate(() => {
@@ -249,12 +250,12 @@ async function main() {
 
     await page.click("[data-lesson-workspace-more-close]");
     await page.waitForSelector(".lesson-workspace-more-menu[hidden]", { state: "attached", timeout: 5000 });
-    const scrollAfter = await panels.evaluate((el) => el.scrollTop);
+    const scrollAfter = await pageScroll.evaluate((el) => el.scrollTop);
     assert.ok(Math.abs(scrollAfter - scrollBefore) <= 2, `scroll restored ${scrollBefore} -> ${scrollAfter}`);
     console.log("PASS More close restores scroll");
 
     // Outside tap close
-    await page.click("[data-lesson-workspace-more-toggle]");
+    await page.locator("[data-lesson-workspace-more-toggle]").click({ force: true });
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     await page.click("[data-lesson-workspace-more-backdrop]", { position: { x: 8, y: 8 } });
     await page.waitForSelector(".lesson-workspace-more-menu[hidden]", { state: "attached", timeout: 5000 });
@@ -370,7 +371,7 @@ async function main() {
 
     // Narrow phone smoke
     await page.setViewportSize({ width: 320, height: 568 });
-    await page.click("[data-lesson-workspace-more-toggle]");
+    await page.locator("[data-lesson-workspace-more-toggle]").click({ force: true });
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     await page.waitForTimeout(150);
     const narrow = await page.evaluate(() => {

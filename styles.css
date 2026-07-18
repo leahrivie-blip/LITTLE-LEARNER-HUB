@@ -16190,6 +16190,11 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   align-items: center;
 }
 
+.lesson-workspace-topchrome {
+  flex-shrink: 0;
+  background: #fff;
+}
+
 .lesson-workspace-action-bars {
   display: grid;
   gap: 8px;
@@ -16611,10 +16616,6 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
   }
 
-  body.resource-viewer-open {
-    overflow: hidden;
-    touch-action: none;
-  }
 }
 
 .lesson-workspace-save-btn.is-saved {
@@ -17463,11 +17464,32 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   }
 }
 
-@media (max-width: 760px) {
+/* Mobile lesson viewer = true full-screen page (library completely hidden). */
+@media (max-width: 767px) {
+  body.resource-viewer-open,
+  body.lesson-workspace-open {
+    overflow: hidden !important;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
+  body.lesson-workspace-open .sidebar,
+  body.lesson-workspace-open .main {
+    /* Keep in DOM for scroll restore, but never visible/interactive under the page. */
+    visibility: hidden;
+    pointer-events: none;
+  }
+
   .resource-viewer-modal.lesson-workspace-mode.open {
-    padding: 0;
+    padding: 0 !important;
     align-items: stretch;
     justify-content: stretch;
+    inset: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    background: #fff;
+    z-index: 220;
   }
 
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-card {
@@ -17475,25 +17497,108 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     height: 100dvh;
     width: 100%;
     max-width: 100%;
+    margin: 0;
+    border: 0;
     border-radius: 0;
-    overflow-x: hidden;
-    padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 0;
+    box-shadow: none;
+    background: #fff;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   .resource-viewer-modal.lesson-workspace-mode .resource-viewer-body,
-  .lesson-workspace-article,
-  .lesson-workspace {
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-article,
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace {
     max-width: 100%;
     min-width: 0;
+    width: 100%;
     height: 100%;
+    max-height: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: #fff;
   }
 
-  /* Header/tabs stay pinned; content scrolls; actions stick to bottom. */
-  .lesson-workspace-header {
+  .resource-viewer-modal.lesson-workspace-mode .resource-viewer-body {
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-article {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* One continuous page scroll for the whole lesson. */
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+    padding: 0 12px calc(20px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-topchrome {
+    position: sticky;
+    top: 0;
+    z-index: 6;
+    background: #fff;
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+    margin: 0 -12px;
+    padding-left: 12px;
+    padding-right: 44px; /* room for Close */
+    border-bottom: 1px solid rgba(213, 227, 240, 0.9);
+    box-shadow: 0 1px 0 rgba(255, 255, 255, 1);
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-header {
     position: relative;
     z-index: 2;
-    padding-top: 2px;
-    border-bottom: 1px solid rgba(213, 227, 240, 0.85);
+    padding: 2px 0 8px;
+    border-bottom: none;
+    background: transparent;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-tabs {
+    position: relative;
+    z-index: 2;
+    background: #fff;
+    margin: 0;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-panels {
+    flex: none;
+    min-height: 0;
+    overflow: visible !important;
+    height: auto;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-action-bars {
+    position: static;
+    z-index: auto;
+    margin-top: 8px;
+    background: #fff;
+    border-top: 1px solid rgba(213, 227, 240, 0.9);
+    padding: 14px 0 8px;
+  }
+
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-feedback,
+  .resource-viewer-modal.lesson-workspace-mode .lesson-workspace-copyright {
+    position: static;
+    background: #fff;
   }
 
   .lesson-workspace-back {
@@ -17503,7 +17608,12 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   }
 
   .resource-viewer-modal.lesson-workspace-mode .close-button {
-    top: calc(8px + env(safe-area-inset-top, 0px));
+    position: fixed;
+    top: calc(10px + env(safe-area-inset-top, 0px));
+    right: 10px;
+    z-index: 230;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(24, 28, 36, 0.12);
   }
 }
 

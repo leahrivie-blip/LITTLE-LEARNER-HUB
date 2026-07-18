@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-lesson-sheets");
-  assert.equal(indexJs, "20260718-lesson-sheets");
-  assert.match(sw, /llh-shell-v99-lesson-sheets/);
+  assert.equal(indexCss, "20260718-lesson-fullscreen");
+  assert.equal(indexJs, "20260718-lesson-fullscreen");
+  assert.match(sw, /llh-shell-v100-lesson-fullscreen/);
 });
 
 if (!process.exitCode) {
