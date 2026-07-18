@@ -12,6 +12,7 @@ const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createFoundingMemberEmail } = require("./founding-member-email.js");
 const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
+const billingLifecycleEmail = require("./billing-lifecycle-email.js");
 const { createPushService } = require("./push-lib.js");
 const messagingLib = require("./messaging-lib.js");
 const { createCommsApi } = require("./comms-api.js");
@@ -6206,6 +6207,59 @@ function membershipStatusDisplay(user) {
   return membershipAccess.membershipStatusDisplay(user);
 }
 
+async function maybeSendBillingLifecycleEmails(email, previousUser, nextUser) {
+  if (!email || !nextUser) return;
+  const before = membershipAccess.membershipProductStatus(previousUser || {});
+  const after = membershipAccess.membershipProductStatus(nextUser);
+  const updates = {};
+
+  if (after.hasProAccess && (previousUser?.lastAccessExpiredEmailAt || previousUser?.lastPaymentFailedEmailAt)) {
+    if (previousUser?.lastAccessExpiredEmailAt) updates.lastAccessExpiredEmailAt = "";
+    if (after.banner !== "payment_failed" && previousUser?.lastPaymentFailedEmailAt) {
+      // Keep payment-failed cooldown until recovered fully; clear when access restored.
+      updates.lastPaymentFailedEmailAt = "";
+    }
+  }
+
+  if (after.banner === "payment_failed" && before.banner !== "payment_failed") {
+    const result = await billingLifecycleEmail.sendPaymentFailedUserEmail({
+      user: nextUser,
+      email,
+      sendEmail,
+    });
+    if (result.sent) {
+      updates.lastPaymentFailedEmailAt = new Date().toISOString();
+      console.log(`[billing-email] payment_failed sent to ${email}`);
+    } else if (result.error) {
+      console.warn(`[billing-email] payment_failed failed for ${email}:`, result.error);
+    }
+  }
+
+  if (
+    after.banner === "access_lost"
+    && before.hasProAccess
+    && !after.hasProAccess
+  ) {
+    const result = await billingLifecycleEmail.sendAccessExpiredUserEmail({
+      user: nextUser,
+      email,
+      sendEmail,
+    });
+    if (result.sent) {
+      updates.lastAccessExpiredEmailAt = new Date().toISOString();
+      console.log(`[billing-email] access_expired sent to ${email}`);
+    } else if (result.error) {
+      console.warn(`[billing-email] access_expired failed for ${email}:`, result.error);
+    }
+  }
+
+  if (Object.keys(updates).length) {
+    try { upsertUser(email, updates); } catch (error) {
+      console.warn(`[billing-email] could not persist email markers for ${email}:`, error.message || error);
+    }
+  }
+}
+
 function membershipSummaryForUser(user, storeRef = null) {
   // NEVER call readStore() here — analytics maps this over every user and a full
   // structuredClone per user OOMs the Render starter plan (512MB).
@@ -6229,8 +6283,10 @@ function membershipSummaryForUser(user, storeRef = null) {
       ? membershipAccess.membershipPlanDisplay(owner)
       : membershipPlanDisplay(user),
     membershipStatus: membershipStatusDisplay(user),
+    productStatus: membershipAccess.membershipProductStatus(user),
     currentAccess,
     billingStatus: membershipAccess.membershipBillingStatusKey(user),
+    adminAuditKey: membershipAccess.membershipAdminAuditKey(user),
     previousPlan: membershipAccess.membershipPreviousPlanDisplay(user),
     hasProAccess: hasPro,
     accessInheritedFromOwner: inheritedPro ? ownerEmail : "",
@@ -6533,6 +6589,7 @@ async function handleStripeWebhook(request, response) {
           hasProAccess: membershipHasProAccess(saved),
           extra: { source: event.type, stripeStatus: subscription.status },
         });
+        await maybeSendBillingLifecycleEmails(email, user, saved);
         const subscriptionPromoCode = normalizePromoCode(subscription.metadata?.promoCode || user.pendingPromoCode || "");
         if (membershipAccess.membershipHasProAccess({ ...user, ...updates }) && subscriptionPromoCode) {
           markPromoRedeemed(email, subscriptionPromoCode, {
@@ -6632,16 +6689,18 @@ async function handleStripeWebhook(request, response) {
           jsonResponse(response, 200, { received: true, stale: true });
           return;
         }
+        const wasFounding = Boolean(existing?.foundingMemberHistorical || existing?.foundingMember || existing?.foundingMemberActive || existing?.plan === "Founding");
         const updated = upsertUser(email, {
           plan: "Free",
-          subscriptionStatus: "Payment Failed - Action Needed",
+          subscriptionStatus: "Payment Failed — Access Locked",
           stripeSubscriptionStatus: "unpaid",
           monthlyPrice: "$0/month",
           foundingMemberActive: false,
-          foundingMemberHistorical: Boolean(existing?.foundingMemberHistorical || existing?.foundingMember),
-          foundingMember: Boolean(existing?.foundingMemberHistorical || existing?.foundingMember),
+          foundingMemberHistorical: wasFounding,
+          foundingMember: wasFounding,
           foundingMemberNumber: existing?.foundingMemberNumber || null,
-          priceLock: existing?.foundingMemberHistorical || existing?.foundingMember ? "Lifetime" : "",
+          priceLock: wasFounding ? "Lifetime" : "",
+          previousPlan: wasFounding ? "Founding Member" : (existing?.previousPlan || "Pro"),
           lastStripeSyncAt: new Date().toISOString(),
           lastFailedPaymentAt: new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString(),
           nextPaymentRetryAt: invoice.next_payment_attempt
@@ -6660,6 +6719,7 @@ async function handleStripeWebhook(request, response) {
           hasProAccess: false,
           extra: { invoiceId: invoice.id },
         });
+        await maybeSendBillingLifecycleEmails(email, existing, updated);
         const alertStore = readStore();
         await emitAdminAlertSafe(alertStore, {
           category: "billing",
@@ -8860,6 +8920,7 @@ function analyticsSummary(store) {
     paymentFailed: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "payment_failed").length,
     neverSubscribed: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "never_subscribed").length,
   };
+  const subscriptionAccessAudit = membershipAccess.membershipAdminAuditBuckets(users);
   const canceledUsers = users.filter((user) => ["canceled", "ended"].includes(membershipAccess.membershipBillingStatusKey(user)));
   const cancelingUsers = users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "canceling");
   const trialUsers = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "trial");
@@ -9030,6 +9091,7 @@ function analyticsSummary(store) {
       failedPayments: pastDueUsers.length,
       currentAccessCounts,
       billingStatusCounts,
+      subscriptionAccessAudit,
       returningVisitors,
       visitorToSignupRate: rate(Math.max(signups.length, users.length), Math.max(uniqueVisitors.size, visits.length)),
       signupToPaidRate: rate(paidUsers.length, Math.max(signups.length, users.length)),

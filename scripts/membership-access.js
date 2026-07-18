@@ -186,6 +186,168 @@ function membershipBillingStatusKey(user, nowMs = Date.now()) {
   return "active";
 }
 
+function membershipTrialDaysRemaining(user, nowMs = Date.now()) {
+  const endMs = parseIsoMs(user?.trialEnd) || parseIsoMs(user?.accessEndsAt);
+  if (endMs === null) return null;
+  const days = Math.ceil((endMs - nowMs) / 86400000);
+  return days > 0 ? days : 0;
+}
+
+/**
+ * Mutually exclusive product-facing account status for banners, badges, and emails.
+ * Priority: payment_failed → past_due → trial → founding → active_pro → canceled/inactive → free
+ */
+function membershipProductStatus(user, nowMs = Date.now()) {
+  const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+  const subStatus = String(user?.subscriptionStatus || "").toLowerCase();
+  const hasAccess = membershipHasProAccess(user, nowMs);
+  const hasHistory = membershipHasSubscriptionHistory(user);
+
+  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
+    return {
+      key: "payment_failed",
+      adminKey: "payment_failed",
+      label: "Payment Failed",
+      emoji: "🟠",
+      tone: "warning",
+      hasProAccess: false,
+      daysRemaining: null,
+      banner: "payment_failed",
+      cta: "update_payment",
+      detail: "Your recent payment could not be processed. Update your payment method to keep Pro access.",
+      planLabel: "Free Plan (locked)",
+    };
+  }
+
+  if (subStatus.includes("past due") || stripeStatus === "past_due") {
+    return {
+      key: "past_due",
+      adminKey: "past_due",
+      label: "Payment Failed",
+      emoji: "🟠",
+      tone: "warning",
+      hasProAccess: false,
+      daysRemaining: null,
+      banner: "payment_failed",
+      cta: "update_payment",
+      detail: "Your recent payment could not be processed. Your Pro access will expire if payment is not updated.",
+      planLabel: "Free Plan (locked)",
+    };
+  }
+
+  if (hasAccess && membershipUserInTrial(user, nowMs)) {
+    const days = membershipTrialDaysRemaining(user, nowMs);
+    const dayLabel = days === null ? "Trial" : days === 1 ? "Trial (1 Day Remaining)" : `Trial (${days} Days Remaining)`;
+    return {
+      key: "trial",
+      adminKey: "trial",
+      label: dayLabel,
+      emoji: "🟡",
+      tone: "info",
+      hasProAccess: true,
+      daysRemaining: days,
+      banner: null,
+      cta: null,
+      detail: days === null
+        ? "You are currently in a Pro trial."
+        : `Your trial ends in ${days} day${days === 1 ? "" : "s"}.`,
+      planLabel: "Trial",
+    };
+  }
+
+  if (hasAccess && membershipFoundingActive(user, nowMs)) {
+    const canceling = Boolean(user?.cancelAtPeriodEnd);
+    return {
+      key: "active_founding",
+      adminKey: "founding",
+      label: "Active Founding Member",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      daysRemaining: null,
+      banner: null,
+      cta: null,
+      detail: canceling
+        ? `Founding Member access continues until ${user?.accessEndsAt || user?.currentPeriodEnd || "period end"}.`
+        : "Your Founding Member subscription is active.",
+      planLabel: "Founding Member",
+    };
+  }
+
+  if (hasAccess) {
+    const canceling = Boolean(user?.cancelAtPeriodEnd);
+    return {
+      key: "active_pro",
+      adminKey: "active",
+      label: "Active Pro",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      daysRemaining: null,
+      banner: null,
+      cta: null,
+      detail: canceling
+        ? `Pro access continues until ${user?.accessEndsAt || user?.currentPeriodEnd || "period end"}.`
+        : "Your Pro subscription is active.",
+      planLabel: membershipPlanDisplay(user, nowMs),
+    };
+  }
+
+  if (hasHistory) {
+    const canceled = subStatus.includes("cancel") || stripeStatus === "canceled";
+    return {
+      key: "inactive",
+      adminKey: canceled ? "canceled" : "canceled",
+      label: "Subscription Inactive",
+      emoji: "🔴",
+      tone: "danger",
+      hasProAccess: false,
+      daysRemaining: null,
+      banner: "access_lost",
+      cta: "reactivate",
+      detail: "Your subscription is no longer active and your account is on the Free Plan. Your saved data is safe.",
+      planLabel: "Free Plan",
+    };
+  }
+
+  return {
+    key: "free",
+    adminKey: "free",
+    label: "Free Plan",
+    emoji: "⚪",
+    tone: "neutral",
+    hasProAccess: false,
+    daysRemaining: null,
+    banner: null,
+    cta: "upgrade",
+    detail: "You are on the Free Plan.",
+    planLabel: "Free Plan",
+  };
+}
+
+/** Admin audit buckets — mutually exclusive counts. */
+function membershipAdminAuditKey(user, nowMs = Date.now()) {
+  return membershipProductStatus(user, nowMs).adminKey;
+}
+
+function membershipAdminAuditBuckets(users = [], nowMs = Date.now()) {
+  const buckets = {
+    active: 0,
+    trial: 0,
+    free: 0,
+    past_due: 0,
+    payment_failed: 0,
+    canceled: 0,
+    founding: 0,
+  };
+  (users || []).forEach((user) => {
+    const key = membershipAdminAuditKey(user, nowMs);
+    if (Object.prototype.hasOwnProperty.call(buckets, key)) buckets[key] += 1;
+    else buckets.free += 1;
+  });
+  return buckets;
+}
+
 function planKeyFromStripePriceHints(subscription, user = {}) {
   const items = subscription?.items?.data || [];
   for (const item of items) {
@@ -353,6 +515,10 @@ module.exports = {
   membershipPreviousPlanDisplay,
   membershipCurrentAccessKey,
   membershipBillingStatusKey,
+  membershipTrialDaysRemaining,
+  membershipProductStatus,
+  membershipAdminAuditKey,
+  membershipAdminAuditBuckets,
   planKeyFromStripeSubscription,
   stripeSubscriptionToMembershipUpdates,
   accessEndMs,
