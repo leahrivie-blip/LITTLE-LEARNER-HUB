@@ -136,8 +136,8 @@ async function main() {
   assert.match(appJs, /help\.hidden = inWizard/);
   assert.match(css, /#authModal \.signup-wizard-body/);
   assert.match(css, /min-height:\s*min\(320px,\s*42dvh\)/);
-  assert.match(indexHtml, /styles\.css\?v=20260718-free-pro-conversion/);
-  assert.match(indexHtml, /app\.js\?v=20260718-free-pro-conversion/);
+  assert.match(indexHtml, /styles\.css\?v=20260718-free-pro-grandfather/);
+  assert.match(indexHtml, /app\.js\?v=20260718-free-pro-grandfather/);
 
   const child = startServer();
   let bootLog = "";

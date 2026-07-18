@@ -91,10 +91,11 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-pro-conversion");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-pro-conversion");
-  assert.match(sw, /llh-shell-v77-free-pro-conversion/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-free-pro-conversion/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-pro-grandfather");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-pro-grandfather");
+  assert.match(sw, /llh-shell-v78-free-pro-grandfather/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-free-pro-grandfather/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-free-pro-grandfather/);
 });
 
 function requestJson(method, urlPath, body) {
@@ -243,6 +244,10 @@ async function browserMain() {
           fullName: "Free Converter",
           plan: "Free",
           password: "TestPass123!",
+          // Explicit curated mode — new Free users after grandfathering cutoff.
+          freeLessonAccessMode: "curated",
+          createdAt: "2026-07-19T12:00:00.000Z",
+          signupAt: "2026-07-19T12:00:00.000Z",
         },
       };
       localStorage.setItem("llhAccounts", JSON.stringify(accounts));
