@@ -99,6 +99,58 @@ const TODDLER_PRO_IMPORT_TARGETS = [
       friday: "Pirate Celebration",
     },
   },
+  {
+    file: "08-toddler-welcome-to-my-classroom-pro.txt",
+    stableId: "cur-lp-toddler-welcome-to-my-classroom",
+    plan: "Pro",
+    title: "Welcome to My Classroom",
+    dayThemes: {
+      monday: "Welcome to Our Classroom",
+      tuesday: "Making New Friends",
+      wednesday: "Learning Our Classroom Routines",
+      thursday: "Working Together in Our Classroom",
+      friday: "Celebrating Our First Week of School",
+    },
+  },
+  {
+    file: "09-toddler-making-new-friends-pro.txt",
+    stableId: "cur-lp-toddler-making-new-friends",
+    plan: "Pro",
+    title: "Making New Friends",
+    dayThemes: {
+      monday: "Meeting and Greeting Friends",
+      tuesday: "Sharing and Taking Turns",
+      wednesday: "Working Together as Friends",
+      thursday: "Being a Kind Friend",
+      friday: "Celebrating Friendship",
+    },
+  },
+  {
+    file: "10-toddler-classroom-helpers-pro.txt",
+    stableId: "cur-lp-toddler-classroom-helpers",
+    plan: "Pro",
+    title: "Classroom Helpers",
+    dayThemes: {
+      monday: "I Can Be a Classroom Helper",
+      tuesday: "Taking Care of Our Classroom",
+      wednesday: "Working Together as a Team",
+      thursday: "Caring for Our Classroom",
+      friday: "Celebrating Our Classroom Helpers",
+    },
+  },
+  {
+    file: "11-toddler-my-feelings-at-school-pro.txt",
+    stableId: "cur-lp-toddler-my-feelings-at-school",
+    plan: "Pro",
+    title: "My Feelings at School",
+    dayThemes: {
+      monday: "Happy to Be at School",
+      tuesday: "Sometimes I Feel Sad",
+      wednesday: "I Feel Mad Sometimes",
+      thursday: "I Can Feel Scared and Be Brave",
+      friday: "All My Feelings Matter",
+    },
+  },
 ];
 
 const TODDLER_IMPORT_TARGETS = [...TODDLER_PRO_IMPORT_TARGETS];
