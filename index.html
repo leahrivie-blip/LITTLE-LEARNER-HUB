@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260718-support-reply-email" />
+  <link rel="stylesheet" href="styles.css?v=20260718-free-upgrade-ux" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-admin-notif-pwa" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
@@ -166,6 +166,11 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
               Billing
             </button>
+            <div id="sidebarFreeUpgradeCard" class="sidebar-free-upgrade" hidden>
+              <p class="sidebar-free-upgrade-badge">Free Plan</p>
+              <p class="sidebar-free-upgrade-copy">Unlock unlimited lesson plans, weekly new content, and every Pro tool.</p>
+              <button class="primary-button sidebar-free-upgrade-btn" type="button" data-view="plans">Upgrade</button>
+            </div>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
               Admin Dashboard
@@ -217,6 +222,7 @@
               </div>
             </div>
             <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
+            <span id="freePlanBadge" class="free-plan-badge" hidden>Free Plan</span>
             <button class="ghost-button" id="signinButton">Log in</button>
             <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
           </div>
@@ -226,6 +232,31 @@
         <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
           <span id="siteAnnouncementText"></span>
           <button class="site-announcement-close" id="siteAnnouncementClose" type="button" aria-label="Dismiss announcement">✕</button>
+        </div>
+
+        <!-- Subtle Free-plan reminder for logged-in Free owners (not Pro/Founding/Trial/Admin) -->
+        <div id="freePlanReminderBar" class="free-plan-reminder" hidden role="region" aria-label="Free plan reminder">
+          <div class="free-plan-reminder-inner">
+            <div class="free-plan-reminder-copy">
+              <strong>You’re using the Free Plan</strong>
+              <p>Unlock unlimited lesson plans, the full Activity Center, new lesson plans every week, documentation tools, and every future Pro feature.</p>
+            </div>
+            <div class="free-plan-reminder-actions">
+              <button class="primary-button" type="button" id="freePlanReminderPrimary" data-checkout-plan="founding">Lock in Founding Member Pricing</button>
+              <button class="ghost-button" type="button" data-view="plans">See Plans</button>
+              <button class="ghost-button free-plan-reminder-dismiss" type="button" data-dismiss-free-plan-reminder aria-label="Dismiss Free plan reminder">Maybe later</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="freePlanSoftNudge" class="free-plan-soft-nudge" hidden role="status" aria-live="polite">
+          <div class="free-plan-soft-nudge-inner">
+            <p><strong>Love what you’ve seen so far?</strong> Unlock the full Little Learner Hub with unlimited lesson plans, weekly new content, and powerful planning tools.</p>
+            <div class="free-plan-soft-nudge-actions">
+              <button class="primary-button" type="button" id="freePlanSoftNudgePrimary" data-view="plans">Upgrade</button>
+              <button class="ghost-button" type="button" data-dismiss-free-plan-nudge aria-label="Dismiss">Not now</button>
+            </div>
+          </div>
         </div>
 
         <section id="view-home" class="view active-view landing-home">
@@ -1948,7 +1979,7 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="app.js?v=20260718-support-reply-email" defer></script>
+    <script src="app.js?v=20260718-free-upgrade-ux" defer></script>
     <script src="comms-center.js?v=20260717-admin-notif-pwa" defer></script>
   </body>
 </html>

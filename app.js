@@ -2166,18 +2166,20 @@ const proFeatureList = [
 ];
 const freeAiLimitMessage = "You have used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.";
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
-const proUnlockValueProp = "Unlock the full curriculum library and access new lesson plans added every week.";
+const proUnlockValueProp = "Unlock unlimited lesson plans, the full Activity Center, new lesson plans added every week, documentation tools, and every future Pro feature.";
 const freeResourceLimitMessage = `You have reached your Free Plan limit. ${proUnlockValueProp}`;
 const proTrialUpgradeMessage = `${proUnlockValueProp} Start your 7-Day Free Trial for full Pro access. Card required. Cancel anytime.`;
 const proTrialUpgradeSummary = "7-Day Free Trial · Card required · Cancel anytime · Converts to Pro Monthly after trial.";
-const freeLibraryUpgradeHeadline = "Tired of seeing the same free lesson plans?";
-const freeLibraryUpgradeBody = "Unlock the full curriculum library, premium activities, curriculum planning tools, and new lesson plans added every week.";
+const freeLibraryUpgradeHeadline = "Ready for more?";
+const freeLibraryUpgradeBody = "You’re currently using the Free Plan. Upgrade to unlock the complete childcare toolkit built by a childcare provider — unlimited lesson plans, the full Activity Center, weekly new content, and powerful planning tools.";
 const aiLessonPlanUpgradeMessage = "Generate custom lesson plans in seconds.\n\nAvailable with Pro Membership.\n\nStart Your 7-Day Free Trial\nCard required. Cancel anytime.";
 const lockedProLessonUpgradeHeadline = "This is a Pro Lesson Plan.";
 const lockedProLessonUpgradeBody = "You're viewing a preview only.";
-const freeLibraryDashboardHeadline = "Still Using the Free Library?";
-const freeLibraryDashboardBody = "You currently have access to our sample lesson plans.";
+const freeLibraryDashboardHeadline = "Love what you’ve seen so far?";
+const freeLibraryDashboardBody = "You’re using the Free Plan with sample lesson plans. Upgrade to unlock the full Little Learner Hub.";
 const freePlannerUpgradeNudge = `${proUnlockValueProp} You can view the planner and assign Free sample plans now — upgrade for the full Pro library, premium activities, and AI lesson plan generation.`;
+const FREE_PLAN_REMINDER_DISMISS_KEY = "llhFreePlanReminderDismissed";
+const FREE_PLAN_SOFT_NUDGE_KEY = "llhFreePlanSoftNudgeShown";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
 const defaultDailyLogFavorites = ["Circle Time", "Outside Play", "Art", "Sensory Bin", "Water Play"];
@@ -9306,6 +9308,7 @@ function updateAuthButtons() {
   syncPlatformNavVisibility();
   updateBodyAuthClass();
   refreshAdminPreviewBadge();
+  refreshFreePlanUpgradeChrome();
   // Auth state just changed (login, logout, or boot restore) — keep the
   // notification bell in sync either way (it also hides itself when logged out).
   if (typeof refreshNotificationBell === "function") {
@@ -10778,9 +10781,18 @@ function registerPwaSupport() {
 // Keeps body CSS classes in sync with auth + plan state.
 // body.user-authenticated — user is logged in
 // body.user-pro          — user has Pro or Founding access (subset of authenticated)
+// body.user-free-upgrade — logged-in Free owner eligible for paid upgrade prompts
 function updateBodyAuthClass() {
   document.body.classList.toggle("user-authenticated", Boolean(currentUser));
   document.body.classList.toggle("user-pro", Boolean(currentUser) && isProUser());
+  let freeUpgrade = false;
+  try {
+    // Early boot can call this before PLATFORM_CAPABILITIES is initialized.
+    freeUpgrade = typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer();
+  } catch {
+    freeUpgrade = false;
+  }
+  document.body.classList.toggle("user-free-upgrade", freeUpgrade);
 }
 
 function updateAdminNavVisibility() {
@@ -15672,6 +15684,9 @@ function closeResourceViewer() {
   const viewer = document.querySelector("#resourceViewerModal");
   if (!viewer) return;
   const wasOpen = viewer.classList.contains("open");
+  const closingResource = activeResourceViewerResource
+    || resources.find((item) => item.id === activeViewerResourceId)
+    || null;
   viewer.classList.remove("open");
   viewer.setAttribute("aria-hidden", "true");
   document.body.classList.remove("printing-resource");
@@ -15685,6 +15700,7 @@ function closeResourceViewer() {
   updateResourceViewerBackButton();
   if (wasOpen) restoreLessonLibraryBrowseState();
   if (wasOpen) restoreHomePreviewScrollPosition();
+  if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
 }
 
 function updateResourceViewerBackButton() {
@@ -19564,17 +19580,17 @@ function libraryCompactUpgradeStripHtml() {
       </section>
     `;
   }
-  if (isProUser() || hasAdminFullAccess()) return "";
+  if (!canSeePaidUpgradeOffer()) return "";
   if (isFoundingUpgradeBannerDismissed()) return "";
+  const foundingOpen = foundingSpotsStillAvailable();
   return `
-    <section class="library-upgrade-strip" role="region" aria-label="Free library upgrade offer">
+    <section class="library-upgrade-strip" role="region" aria-label="Free plan upgrade offer">
       <div class="library-upgrade-strip-copy">
         <p><strong>${escapeHtml(freeLibraryUpgradeHeadline)}</strong></p>
         <p>${escapeHtml(freeLibraryUpgradeBody)}</p>
-        <p class="muted-copy">Card required. Cancel anytime.</p>
       </div>
       <div class="library-upgrade-strip-actions">
-        <button class="primary-button" type="button" data-start-pro-trial>Start Your 7-Day Free Trial</button>
+        <button class="primary-button" type="button" data-checkout-plan="${foundingOpen ? "founding" : "monthly"}">${foundingOpen ? "Lock in Founding Pricing" : "Upgrade to Pro"}</button>
         <button class="ghost-button" type="button" data-dismiss-founding-upgrade aria-label="Dismiss upgrade offer">×</button>
       </div>
     </section>
@@ -42126,13 +42142,118 @@ function isFoundingUpgradeBannerDismissed() {
   }
 }
 
+function isFreePlanReminderDismissed() {
+  try {
+    return sessionStorage.getItem(FREE_PLAN_REMINDER_DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissFreePlanReminderBar() {
+  try {
+    sessionStorage.setItem(FREE_PLAN_REMINDER_DISMISS_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  const bar = document.querySelector("#freePlanReminderBar");
+  if (bar) bar.hidden = true;
+}
+
 function dismissFoundingUpgradeBanner() {
   try {
     sessionStorage.setItem(FOUNDING_UPGRADE_DISMISS_KEY, "1");
   } catch {
     /* ignore */
   }
-  document.querySelectorAll(".founding-upgrade-banner, .library-upgrade-strip, .free-library-conversion-banner").forEach((node) => node.remove());
+  document.querySelectorAll(".founding-upgrade-banner, .library-upgrade-strip:not(.library-upgrade-strip--guest), .free-library-conversion-banner").forEach((node) => node.remove());
+  dismissFreePlanReminderBar();
+}
+
+function freePlanUpgradePrimaryCta() {
+  if (!canSeePaidUpgradeOffer()) return { label: "See Plans", view: "plans", checkout: "" };
+  if (foundingSpotsStillAvailable()) {
+    return { label: "Lock in Founding Member Pricing", view: "", checkout: "founding" };
+  }
+  return { label: "Upgrade to Pro", view: "", checkout: "monthly" };
+}
+
+/** Persistent Free Plan badge, sidebar card, and subtle top reminder for eligible Free owners. */
+function refreshFreePlanUpgradeChrome() {
+  let show = false;
+  try {
+    // Guard early boot: capability maps may not be initialized yet.
+    show = typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer();
+  } catch {
+    show = false;
+  }
+  const badge = document.querySelector("#freePlanBadge");
+  const sidebarCard = document.querySelector("#sidebarFreeUpgradeCard");
+  const reminder = document.querySelector("#freePlanReminderBar");
+  const softNudge = document.querySelector("#freePlanSoftNudge");
+  if (badge) badge.hidden = !show;
+  if (sidebarCard) sidebarCard.hidden = !show;
+  if (!show) {
+    if (reminder) reminder.hidden = true;
+    if (softNudge) softNudge.hidden = true;
+    return;
+  }
+
+  const primary = freePlanUpgradePrimaryCta();
+  const reminderPrimary = document.querySelector("#freePlanReminderPrimary");
+  if (reminderPrimary) {
+    reminderPrimary.textContent = primary.label;
+    if (primary.checkout) {
+      reminderPrimary.dataset.checkoutPlan = primary.checkout;
+      delete reminderPrimary.dataset.view;
+    } else {
+      delete reminderPrimary.dataset.checkoutPlan;
+      reminderPrimary.dataset.view = primary.view || "plans";
+    }
+  }
+  const nudgePrimary = document.querySelector("#freePlanSoftNudgePrimary");
+  if (nudgePrimary) {
+    nudgePrimary.textContent = foundingSpotsStillAvailable() ? "Lock in Founding Pricing" : "Upgrade to Pro";
+    if (foundingSpotsStillAvailable()) {
+      nudgePrimary.dataset.checkoutPlan = "founding";
+      delete nudgePrimary.dataset.view;
+    } else {
+      delete nudgePrimary.dataset.checkoutPlan;
+      nudgePrimary.dataset.view = "plans";
+    }
+  }
+  if (reminder) {
+    // Keep badge/sidebar always; reminder bar is dismissible for the session.
+    reminder.hidden = isFreePlanReminderDismissed() || isFoundingUpgradeBannerDismissed();
+  }
+}
+
+function maybeShowFreePlanSoftNudge(resource) {
+  if (!canSeePaidUpgradeOffer()) return;
+  if (!resource) return;
+  const isLesson = String(resource.category || "") === "Lesson Plans" || Boolean(resource._curriculumManaged);
+  if (!isLesson) return;
+  const plan = String(resource.plan || "Free").toLowerCase();
+  if (plan.includes("pro") || plan.includes("found")) return;
+  try {
+    if (sessionStorage.getItem(FREE_PLAN_SOFT_NUDGE_KEY) === "1") return;
+    sessionStorage.setItem(FREE_PLAN_SOFT_NUDGE_KEY, "1");
+  } catch {
+    return;
+  }
+  const nudge = document.querySelector("#freePlanSoftNudge");
+  if (!nudge) return;
+  nudge.hidden = false;
+  window.setTimeout(() => {
+    if (nudge && !nudge.hidden) nudge.classList.add("is-visible");
+  }, 40);
+}
+
+function hideFreePlanSoftNudge() {
+  const nudge = document.querySelector("#freePlanSoftNudge");
+  if (!nudge) return;
+  nudge.classList.remove("is-visible");
+  nudge.hidden = true;
 }
 
 /** Preferred paid checkout for eligible Free owners: founding while spots remain, else Pro monthly. */
@@ -42146,7 +42267,7 @@ function preferredPaidCheckoutButtonLabel() {
 
 /**
  * Free-library conversion banner (dashboard / planner).
- * Curriculum-focused trial CTA — do not stack with foundingUpgradeBannerHtml.
+ * Value-first upgrade CTA — do not stack with foundingUpgradeBannerHtml.
  */
 function freeLibraryConversionBannerHtml(options = {}) {
   const {
@@ -42154,29 +42275,32 @@ function freeLibraryConversionBannerHtml(options = {}) {
     dismissible = true,
     force = false,
   } = options;
-  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return "";
+  if (!canSeePaidUpgradeOffer()) return "";
   if (!force && isFoundingUpgradeBannerDismissed()) return "";
+  const foundingOpen = foundingSpotsStillAvailable();
+  const primaryCheckout = foundingOpen ? "founding" : "monthly";
+  const primaryLabel = foundingOpen ? "Lock in Founding Member Pricing" : "Upgrade to Pro";
   return `
-    <section class="free-library-conversion-banner free-library-conversion-banner--${escapeHtml(variant)}" role="region" aria-label="Free library upgrade offer">
+    <section class="free-library-conversion-banner free-library-conversion-banner--${escapeHtml(variant)}" role="region" aria-label="Free plan upgrade offer">
       <div class="free-library-conversion-banner-copy">
-        <p class="free-library-conversion-badge">Free Library</p>
-        <h3>🔥 ${escapeHtml(freeLibraryDashboardHeadline)}</h3>
+        <p class="free-library-conversion-badge">Free Plan</p>
+        <h3>${escapeHtml(freeLibraryDashboardHeadline)}</h3>
         <p class="free-library-conversion-body">${escapeHtml(freeLibraryDashboardBody)}</p>
         <p class="free-library-conversion-body">${escapeHtml(proUnlockValueProp)}</p>
-        <p class="muted-copy">Upgrade to Pro and unlock:</p>
+        <p class="muted-copy">Upgrade unlocks:</p>
         <ul class="free-library-conversion-benefits">
-          <li>Full curriculum library</li>
-          <li>New lesson plans added every week</li>
-          <li>Curriculum Planner</li>
-          <li>Premium activities</li>
-          <li>Documentation helpers</li>
-          <li>AI lesson plan generation</li>
-          <li>Printable curriculum</li>
+          <li>Unlimited lesson plans</li>
+          <li>Entire Activity Center</li>
+          <li>New lesson plans added weekly</li>
+          <li>Documentation Helpers</li>
+          <li>Calendar &amp; planning tools</li>
+          <li>Future Pro features included</li>
+          <li>Priority updates</li>
         </ul>
-        <p class="muted-copy">Card required. Cancel anytime.</p>
       </div>
       <div class="free-library-conversion-banner-actions">
-        <button class="primary-button" type="button" data-start-pro-trial>Start Your 7-Day Free Trial</button>
+        <button class="primary-button" type="button" data-checkout-plan="${primaryCheckout}">${escapeHtml(primaryLabel)}</button>
+        ${foundingOpen ? `<button class="ghost-button" type="button" data-view="plans">Compare Plans</button>` : `<button class="ghost-button" type="button" data-start-pro-trial>Start 7-Day Free Trial</button>`}
         ${dismissible ? `<button class="ghost-button" type="button" data-dismiss-founding-upgrade>Maybe later</button>` : ""}
       </div>
     </section>
@@ -42889,6 +43013,7 @@ function updatePlanLabel() {
     }
   }
   updateSidebarDashboard();
+  refreshFreePlanUpgradeChrome();
 }
 
 function updateSidebarDashboard() {
@@ -49363,6 +49488,21 @@ document.addEventListener("click", async (event) => {
   if (foundingUpgradeDismiss) {
     event.preventDefault();
     dismissFoundingUpgradeBanner();
+    refreshFreePlanUpgradeChrome();
+    return;
+  }
+
+  const freePlanReminderDismiss = event.target.closest("[data-dismiss-free-plan-reminder]");
+  if (freePlanReminderDismiss) {
+    event.preventDefault();
+    dismissFreePlanReminderBar();
+    return;
+  }
+
+  const freePlanNudgeDismiss = event.target.closest("[data-dismiss-free-plan-nudge]");
+  if (freePlanNudgeDismiss) {
+    event.preventDefault();
+    hideFreePlanSoftNudge();
     return;
   }
 });
