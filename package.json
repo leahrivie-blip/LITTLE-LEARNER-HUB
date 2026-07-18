@@ -62,6 +62,7 @@
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
     "test:signup-buttons-audit": "node scripts/test-signup-buttons-audit.js",
     "test:signup-center-continue": "node scripts/test-signup-center-continue.js",
+    "test:signup-email-tap": "node scripts/test-signup-email-tap.js",
     "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",
     "test:lesson-plan-calendar-workflow": "node scripts/test-lesson-plan-calendar-workflow-audit.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",
