@@ -97,9 +97,9 @@ async function run() {
   });
 
   await test("cache bust versions aligned for analytics accuracy", () => {
-    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-reengagement");
-    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-reengagement");
-    assert.match(sw, /llh-shell-v87-free-reengagement/);
+    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-email-system-repair");
+    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-email-system-repair");
+    assert.match(sw, /llh-shell-v88-email-system-repair/);
   });
 
   // Live formula smoke test against a temporary local store.

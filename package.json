@@ -131,6 +131,7 @@
     "test:auth-recovery-audit": "NODE_ENV=test node scripts/test-auth-recovery-audit.js",
     "test:shared-program-ownership": "NODE_ENV=test node scripts/test-shared-program-ownership.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
+    "test:email-system-audit": "NODE_ENV=test node scripts/test-email-system-audit.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",
     "dry-run:founding-member-email": "node scripts/founding-member-thank-you-dry-run.js",
     "test:free-user-welcome-email": "NODE_ENV=test node scripts/test-free-user-welcome-email.js",

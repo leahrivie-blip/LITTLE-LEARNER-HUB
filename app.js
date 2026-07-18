@@ -9929,6 +9929,20 @@ async function sendPasswordReset(email) {
       throw error;
     }
   }
+  // Gated server Resend path — only used when Firebase is off and Resend+DNS are ready.
+  try {
+    const response = await fetch("/api/auth/request-password-reset", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data.delivery === "sent") {
+      return data.message || "If that email is in Little Learner Hub, a password reset link has been sent.";
+    }
+  } catch (error) {
+    console.warn("[auth] server_password_reset_unavailable", error);
+  }
   const token = `demo-reset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   localStorage.setItem("llhDemoResetToken", JSON.stringify({
     email: cleanEmail,
@@ -9947,6 +9961,19 @@ async function resendVerificationEmail() {
     if (!client.auth.currentUser) throw new Error("Please log in again before requesting verification.");
     await client.sendEmailVerification(client.auth.currentUser);
     return "Verification email sent. Please check your inbox.";
+  }
+  try {
+    const response = await fetch("/api/auth/send-verification-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: currentUser }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.ok && data.delivery === "sent") {
+      return data.message || "Verification email sent. Please check your inbox.";
+    }
+  } catch (error) {
+    console.warn("[auth] server_verification_email_unavailable", error);
   }
   updateAccount(currentUser, { emailVerified: false });
   return "Demo mode: connect Firebase Auth to send a real verification email.";
@@ -9998,6 +10025,28 @@ async function changePassword(currentPassword, newPassword) {
 async function confirmPasswordResetFromLink(newPassword) {
   if (String(newPassword || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
   const params = new URLSearchParams(window.location.search);
+  const resetToken = params.get("resetToken");
+  if (resetToken) {
+    const response = await fetch("/api/auth/password-reset/complete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ token: resetToken, newPassword, confirmPassword: newPassword }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Could not complete the password reset.");
+    const email = String(data.email || "").trim().toLowerCase();
+    if (email) {
+      ensureAccount(email);
+      updateAccount(email, {
+        passwordHash: await localPasswordHash(newPassword),
+        serverPasswordAuth: true,
+        mustChangePassword: false,
+        tempPasswordExpiresAt: "",
+        emailVerified: true,
+      });
+    }
+    return data.message || "Password reset complete. You can now log in.";
+  }
   const oobCode = params.get("oobCode");
   console.info("[auth] password_reset_confirm_attempt", { hasOobCode: Boolean(oobCode), firebase: firebaseAuthEnabled });
   if (firebaseAuthEnabled && oobCode) {
@@ -45578,7 +45627,10 @@ function renderResetPasswordPage() {
   const message = document.querySelector("#resetPasswordMessage");
   if (!message) return;
   const params = new URLSearchParams(window.location.search);
-  if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
+  const resetToken = params.get("resetToken");
+  if (resetToken) {
+    setFormMessage(message, "Enter a new password to complete your secure reset.", true);
+  } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
   } else if (!firebaseAuthEnabled && localStorage.getItem("llhDemoResetToken")) {
     setFormMessage(message, "Demo reset mode is active. Enter a new password to test the recovery screen.", true);
