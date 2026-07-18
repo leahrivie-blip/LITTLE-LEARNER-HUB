@@ -32902,9 +32902,24 @@ async function renderContactPage() {
   target.innerHTML = tickets.length ? tickets.map(ticketCard).join("") : `<div class="empty-state">No support tickets submitted yet.</div>`;
 }
 
+function ticketReplyEmailStatusHtml(ticket) {
+  const info = ticket?.replyEmail;
+  if (!info) {
+    return `<p class="form-note ticket-reply-email-status" data-ticket-email-status="${escapeHtml(ticket.id)}">No reply email sent yet. Use <strong>Send Reply Email</strong> to email this person and track delivery here.</p>`;
+  }
+  const when = info.sentAt ? new Date(info.sentAt).toLocaleString() : "";
+  if (info.sent) {
+    const event = info.lastEvent && info.lastEvent !== "accepted"
+      ? ` · Resend status: <strong>${escapeHtml(info.lastEvent)}</strong>`
+      : " · Accepted by email provider";
+    return `<p class="form-note ticket-reply-email-status is-sent" data-ticket-email-status="${escapeHtml(ticket.id)}">Email sent to <strong>${escapeHtml(info.to || ticket.email || "")}</strong>${when ? ` at ${escapeHtml(when)}` : ""}${event}${info.messageId ? ` · ID ${escapeHtml(info.messageId)}` : ""}. Use <strong>Check Delivery</strong> to refresh Delivered/Bounced.</p>`;
+  }
+  return `<p class="form-note ticket-reply-email-status is-failed" data-ticket-email-status="${escapeHtml(ticket.id)}">Reply email did <strong>not</strong> send${info.to ? ` to ${escapeHtml(info.to)}` : ""}${when ? ` (${escapeHtml(when)})` : ""}. ${escapeHtml(info.error || "Unknown email error.")}</p>`;
+}
+
 function ticketCard(ticket, admin = false) {
   return `
-    <article class="ticket-card">
+    <article class="ticket-card" data-ticket-card="${escapeHtml(ticket.id)}">
       <div class="ticket-card-header">
         <div>
           <p class="eyebrow">${escapeHtml(ticket.kind)}</p>
@@ -32915,6 +32930,7 @@ function ticketCard(ticket, admin = false) {
       </div>
       <p>${escapeHtml(ticket.message)}</p>
       ${ticket.reply ? `<div class="ticket-reply"><strong>Admin Reply</strong><p>${escapeHtml(ticket.reply)}</p></div>` : ""}
+      ${admin ? ticketReplyEmailStatusHtml(ticket) : ""}
       <small>Submitted ${new Date(ticket.createdAt).toLocaleString()}</small>
       ${admin ? adminTicketActions(ticket) : ""}
     </article>
@@ -32922,6 +32938,7 @@ function ticketCard(ticket, admin = false) {
 }
 
 function adminTicketActions(ticket) {
+  const hasPriorSend = Boolean(ticket.replyEmail?.sentAt);
   return `
     <div class="ticket-admin-actions">
       <label>Status
@@ -32929,15 +32946,25 @@ function adminTicketActions(ticket) {
           ${["New", "In Progress", "Complete"].map((status) => `<option ${ticket.status === status ? "selected" : ""}>${status}</option>`).join("")}
         </select>
       </label>
-      <label>Reply
-        <textarea data-ticket-reply="${ticket.id}" rows="2" placeholder="Write a support reply">${escapeHtml(ticket.reply || "")}</textarea>
+      <label>Reply email to customer
+        <textarea data-ticket-reply="${ticket.id}" rows="4" placeholder="Write what you want them to receive by email">${escapeHtml(ticket.reply || "")}</textarea>
       </label>
       <div class="table-actions">
-        <button class="ghost-button" data-save-ticket-reply="${ticket.id}" type="button">Reply</button>
-        <button class="primary-button" data-complete-ticket="${ticket.id}" type="button">Mark Complete</button>
+        <button class="primary-button" data-save-ticket-reply="${ticket.id}" type="button">${hasPriorSend ? "Resend Reply Email" : "Send Reply Email"}</button>
+        <button class="ghost-button" data-refresh-ticket-reply-email="${ticket.id}" type="button" ${ticket.replyEmail?.messageId ? "" : "disabled"}>Check Delivery</button>
+        <button class="ghost-button" data-complete-ticket="${ticket.id}" type="button">Mark Complete</button>
       </div>
     </div>
   `;
+}
+
+function setAdminTicketMessage(message, ok = true) {
+  const el = document.querySelector("#adminTicketMessage");
+  if (!el) return;
+  el.textContent = message || "";
+  el.classList.toggle("ok", Boolean(ok && message));
+  el.classList.toggle("error", Boolean(!ok && message));
+  el.hidden = !message;
 }
 
 async function renderAdminTickets() {
@@ -32949,27 +32976,65 @@ async function renderAdminTickets() {
   target.innerHTML = tickets.length ? tickets.map((ticket) => ticketCard(ticket, true)).join("") : `<div class="empty-state">No support tickets match this status.</div>`;
 }
 
-async function updateTicket(id, updates) {
+async function updateTicket(id, updates = {}) {
+  const statusSelect = document.querySelector(`[data-ticket-status="${id}"]`);
+  const payload = {
+    ...updates,
+    status: updates.status || statusSelect?.value || undefined,
+  };
   if (canUseLaunchBackend() && isAdminUnlocked() && adminSession()?.token) {
     try {
       const response = await fetch("/api/support-ticket-update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, adminToken: adminSession().token, ...updates }),
+        body: JSON.stringify({ id, adminToken: adminSession().token, ...payload }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result?.error || "Could not update support ticket.");
       if (result.ticket) {
         mergeSupportTickets([result.ticket]);
       }
+      const emailInfo = result.ticket?.replyEmail || result.emailResult || null;
+      if (payload.refreshReplyEmail) {
+        const event = emailInfo?.lastEvent || emailInfo?.status || "unknown";
+        setAdminTicketMessage(
+          emailInfo?.messageId
+            ? `Delivery refresh for ${emailInfo.to || "customer"}: ${event}.`
+            : "No Resend message ID to check yet. Send the reply email first.",
+          Boolean(emailInfo?.messageId),
+        );
+      } else if (payload.reply !== undefined || payload.forceResend) {
+        if (emailInfo?.sent) {
+          setAdminTicketMessage(
+            `Reply email sent to ${emailInfo.to || "customer"}. Status: ${emailInfo.lastEvent || emailInfo.status || "accepted"}. You can press Check Delivery in a minute to confirm Delivered.`,
+            true,
+          );
+        } else if (emailInfo) {
+          setAdminTicketMessage(
+            `Reply saved, but email did not send${emailInfo.to ? ` to ${emailInfo.to}` : ""}. ${emailInfo.error || "Check Email diagnostics / Resend."}`,
+            false,
+          );
+        } else {
+          setAdminTicketMessage("Ticket updated.", true);
+        }
+      } else {
+        setAdminTicketMessage("Ticket updated.", true);
+      }
+      renderContactPage();
+      renderAdminTickets();
+      return result;
     } catch (error) {
       console.warn("Support ticket backend update failed", error);
+      setAdminTicketMessage(error.message || "Could not update support ticket.", false);
+      throw error;
     }
   }
-  const updated = supportTickets().map((ticket) => ticket.id === id ? { ...ticket, ...updates, updatedAt: new Date().toISOString() } : ticket);
+  const updated = supportTickets().map((ticket) => ticket.id === id ? { ...ticket, ...payload, updatedAt: new Date().toISOString() } : ticket);
   saveSupportTickets(updated);
+  setAdminTicketMessage("Ticket updated locally (server email send unavailable in this session).", false);
   renderContactPage();
   renderAdminTickets();
+  return { ticket: updated.find((ticket) => ticket.id === id) || null };
 }
 
 function isAdminUnlocked() {
@@ -47238,8 +47303,35 @@ document.addEventListener("click", async (event) => {
   const saveTicketReplyButton = event.target.closest("[data-save-ticket-reply]");
   if (saveTicketReplyButton) {
     const id = saveTicketReplyButton.dataset.saveTicketReply;
-    const reply = document.querySelector(`[data-ticket-reply="${id}"]`)?.value || "";
-    updateTicket(id, { reply, status: "In Progress" });
+    const reply = String(document.querySelector(`[data-ticket-reply="${id}"]`)?.value || "").trim();
+    if (!reply) {
+      setAdminTicketMessage("Write a reply before sending the email.", false);
+      return;
+    }
+    const existing = supportTickets().find((ticket) => ticket.id === id);
+    const forceResend = Boolean(existing?.reply && existing.reply === reply);
+    saveTicketReplyButton.disabled = true;
+    const originalLabel = saveTicketReplyButton.textContent;
+    saveTicketReplyButton.textContent = forceResend ? "Resending…" : "Sending…";
+    updateTicket(id, { reply, status: "In Progress", forceResend })
+      .catch(() => {})
+      .finally(() => {
+        saveTicketReplyButton.disabled = false;
+        saveTicketReplyButton.textContent = originalLabel;
+      });
+    return;
+  }
+
+  const refreshTicketReplyEmailButton = event.target.closest("[data-refresh-ticket-reply-email]");
+  if (refreshTicketReplyEmailButton) {
+    const id = refreshTicketReplyEmailButton.dataset.refreshTicketReplyEmail;
+    refreshTicketReplyEmailButton.disabled = true;
+    updateTicket(id, { refreshReplyEmail: true })
+      .catch(() => {})
+      .finally(() => {
+        refreshTicketReplyEmailButton.disabled = false;
+      });
+    return;
   }
 
   const completeTicketButton = event.target.closest("[data-complete-ticket]");
