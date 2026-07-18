@@ -1872,6 +1872,9 @@ const userAiUsageConfig = {
 const adminLessonGenerateConfig = {
   endpoint: "/api/admin/generate-lesson-plan",
 };
+const adminAiContentGenerateConfig = {
+  endpoint: "/api/admin/ai-generate-content",
+};
 const siteContentConfig = {
   publicEndpoint: "/api/site-content",
   adminEndpoint: "/api/admin/site-content",
@@ -4371,6 +4374,23 @@ let adminSafetyStatus = null;
 let adminSafetyLoading = false;
 let adminCurriculumListFilters = { query: "", status: "", plan: "", age: "", theme: "" };
 let adminCurriculumSelectedIds = new Set();
+let adminCurriculumActivitySelectedIds = new Set();
+let adminManagedSelectedIds = {
+  forms: new Set(),
+  printables: new Set(),
+};
+let adminAiContentState = {
+  contentType: "lesson",
+  age: "Preschool",
+  theme: "",
+  tone: "warm and practical",
+  audience: "childcare providers",
+  notes: "",
+  output: "",
+  loading: false,
+  error: "",
+  success: "",
+};
 let adminActionCenterDismissed = new Set(
   (() => {
     try {
@@ -4455,7 +4475,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports"]);
 // FUTURE ADMIN BUILD: lessonPlanResourceCategories is currently hardcoded.
 // A future admin section should allow adding, renaming, and reordering these category labels
 // so new upload categories can be managed without a code change.
@@ -4471,12 +4491,12 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails"], defaultTab: "dashboard" },
   { id: "messages",  icon: "💬", label: "Messages",   tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
   { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "faqs", "announcement", "upgrade-msg", "changelog"], defaultTab: "hero" },
-  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["prompts", "settings", "usage", "ai-testing"], defaultTab: "prompts" },
+  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-tools", "prompts", "settings", "usage", "ai-testing"], defaultTab: "ai-tools" },
 ];
 const adminGroupForTab = {
   "dashboard":   "dashboard",
@@ -4515,6 +4535,7 @@ const adminGroupForTab = {
   "reviews-cta": "site-editor",
   "founding":    "site-editor",
   "ai-testing":  "ai",
+  "ai-tools":    "ai",
   "prompts":     "ai",
   "settings":    "ai",
   "usage":       "ai",
@@ -4555,6 +4576,7 @@ const adminTabLabels = {
   "reviews-cta": "Reviews & CTA",
   "founding":    "Founding",
   "ai-testing":  "AI Testing",
+  "ai-tools":    "AI Tools",
   "prompts":     "Prompt Manager",
   "settings":    "AI Settings",
   "usage":       "Usage Monitor",
@@ -5335,9 +5357,14 @@ function curriculumActivityAdminCardHtml(activity) {
   const dayLabel = activity.dayOfWeek
     ? String(activity.dayOfWeek).charAt(0).toUpperCase() + String(activity.dayOfWeek).slice(1)
     : "—";
+  const selected = adminCurriculumActivitySelectedIds.has(activity.id);
   return `
-    <article class="admin-content-card is-${escapeHtml(activity.status || "draft")}">
+    <article class="admin-content-card is-${escapeHtml(activity.status || "draft")}${selected ? " is-selected" : ""}">
       <div class="admin-mobile-card-body">
+        <label class="admin-content-select">
+          <input type="checkbox" data-curriculum-activity-select="${escapeHtml(activity.id)}" ${selected ? "checked" : ""} />
+          <span class="visually-hidden">Select ${escapeHtml(activity.title || "activity")}</span>
+        </label>
         <div>
           <strong>${escapeHtml(activity.title || "Untitled Activity")}</strong>
           <div class="tag-row" style="margin:2px 0 4px">
@@ -5351,6 +5378,9 @@ function curriculumActivityAdminCardHtml(activity) {
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-activity-view="${escapeHtml(activity.id)}">View</button>
+        ${activity.lessonPlanId
+          ? `<button class="ghost-button" type="button" data-curriculum-activity-open-lesson="${escapeHtml(activity.lessonPlanId)}">Edit parent</button>`
+          : ""}
       </div>
     </article>
   `;
@@ -5452,12 +5482,42 @@ function renderAdminCurriculumActivityBrowser() {
         </select>
       </label>
     </div>
-    <p class="muted-copy">${activities.length} ${activities.length === 1 ? "activity" : "activities"} shown</p>
+    <div class="admin-content-bulk-bar" ${adminCurriculumActivitySelectedIds.size ? "" : "hidden"}>
+      <strong>${adminCurriculumActivitySelectedIds.size} selected</strong>
+      <div class="account-actions-row">
+        <button type="button" class="primary-button" data-curriculum-activity-bulk="published">Publish parent lessons</button>
+        <button type="button" class="ghost-button" data-curriculum-activity-bulk="draft">Draft parent lessons</button>
+        <button type="button" class="ghost-button" data-curriculum-activity-bulk="archived">Archive parent lessons</button>
+        <button type="button" class="ghost-button" data-curriculum-activity-bulk="clear">Clear selection</button>
+      </div>
+    </div>
+    <p class="muted-copy">${activities.length} ${activities.length === 1 ? "activity" : "activities"} shown · Bulk actions update parent lesson status (activities stay synced).</p>
     <div class="admin-mobile-list" id="adminCurriculumActivityList">
       ${activities.map(curriculumActivityAdminCardHtml).join("") || `<div class="empty-state">No curriculum activities yet. Save a play-based lesson plan to sync activities.</div>`}
     </div>
     ${viewing ? renderAdminCurriculumActivityDetail(viewing) : ""}
   `;
+}
+
+async function bulkUpdateAdminCurriculumActivitiesViaParent(status) {
+  const selectedActivityIds = [...adminCurriculumActivitySelectedIds];
+  if (!selectedActivityIds.length) {
+    showActionFeedback("Select at least one activity first.");
+    return;
+  }
+  const lessonIds = [...new Set(
+    selectedActivityIds
+      .map((id) => curriculumActivityById(id)?.lessonPlanId)
+      .filter(Boolean),
+  )];
+  if (!lessonIds.length) {
+    showActionFeedback("Selected activities are missing parent lesson IDs.");
+    return;
+  }
+  adminCurriculumSelectedIds = new Set(lessonIds);
+  await bulkUpdateAdminCurriculumLessonStatus(status);
+  adminCurriculumActivitySelectedIds = new Set();
+  renderAdminCurriculumActivityBrowser();
 }
 
 function readAdminCurriculumActivityFiltersFromDom() {
@@ -34512,6 +34572,7 @@ function renderAdminQuickActionsBar() {
         <button class="ghost-button" type="button" data-admin-quick="add-user">Add User</button>
         <button class="ghost-button" type="button" data-admin-quick="new-users">View New Users</button>
         <button class="ghost-button" type="button" data-admin-quick="publish-drafts">Publish Drafts</button>
+        <button class="ghost-button" type="button" data-admin-quick="ai-tools">AI Tools</button>
         <button class="ghost-button" type="button" data-admin-quick="notifications">Notification Center</button>
         <button class="ghost-button" type="button" data-admin-quick="inbox">Inbox</button>
         <button class="ghost-button" type="button" data-admin-quick="users">Users</button>
@@ -37226,9 +37287,14 @@ function adminManagedCardHtml(type, item) {
   const statusText = contentStatusLabel[status];
   const preview = sanitizedImageSource(item.previewData || item.thumbnailUrl || "");
   const metaLabel = item[config.primaryField] || (type === "forms" ? "General" : item.age || "All Ages");
+  const selected = Boolean(adminManagedSelectedIds[type]?.has(item.id));
   return `
-    <article class="admin-content-card is-${status}">
+    <article class="admin-content-card is-${status}${selected ? " is-selected" : ""}">
       <div class="admin-content-card-body">
+        <label class="admin-content-select">
+          <input type="checkbox" data-managed-select="${escapeHtml(type)}" data-managed-select-id="${escapeHtml(item.id)}" ${selected ? "checked" : ""} />
+          <span class="visually-hidden">Select ${escapeHtml(item.title || config.singular)}</span>
+        </label>
         ${preview ? `<img class="admin-mobile-thumb" src="${escapeHtml(preview)}" alt="${escapeHtml(item.title)} preview" />` : `<div class="admin-mobile-thumb admin-mobile-thumb-placeholder">${escapeHtml(initialsFromName(item.title, config.icon))}</div>`}
         <div class="admin-content-card-copy">
           <strong>${escapeHtml(item.title || `Untitled ${config.singular}`)}</strong>
@@ -37352,6 +37418,15 @@ function renderAdminManagedCollection(type) {
       <label><span>Access</span><select id="admin${key}Access">${[["all","All"],["free","Free"],["pro","Pro"]].map(([value, label]) => `<option value="${value}">${escapeHtml(label)}</option>`).join("")}</select></label>
     </div>
     ${adminManagedStatsHtml(type)}
+    <div class="admin-content-bulk-bar" ${adminManagedSelectedIds[type]?.size ? "" : "hidden"}>
+      <strong>${adminManagedSelectedIds[type]?.size || 0} selected</strong>
+      <div class="account-actions-row">
+        <button type="button" class="primary-button" data-managed-bulk="${type}" data-managed-bulk-status="approved">Publish</button>
+        <button type="button" class="ghost-button" data-managed-bulk="${type}" data-managed-bulk-status="draft">Move to Draft</button>
+        <button type="button" class="ghost-button" data-managed-bulk="${type}" data-managed-bulk-status="archived">Archive</button>
+        <button type="button" class="ghost-button" data-managed-bulk="${type}" data-managed-bulk-status="clear">Clear selection</button>
+      </div>
+    </div>
     <div class="admin-mobile-list">${filtered.length ? filtered.map((item) => adminManagedCardHtml(type, item)).join("") : `<div class="empty-state">No ${config.plural.toLowerCase()} match these filters.</div>`}</div>
     ${adminManagedFormHtml(type, editorItem || { visible: false, featured: false, plan: "Free", age: "All Ages", [config.primaryField]: config.primaryOptions()[0] || "General" })}
   `;
@@ -37363,6 +37438,36 @@ function renderAdminManagedCollection(type) {
   if (primaryField) primaryField.value = filterState.primary || "all";
   if (statusField) statusField.value = filterState.status || "all";
   if (accessField) accessField.value = filterState.access || "all";
+}
+
+async function bulkUpdateAdminManagedStatus(type, status) {
+  const config = adminManagedContentConfig[type];
+  if (!config) return;
+  const selected = adminManagedSelectedIds[type] || new Set();
+  const ids = [...selected];
+  if (!ids.length) {
+    showActionFeedback(`Select at least one ${config.singular.toLowerCase()} first.`);
+    return;
+  }
+  const fields = contentStatusFields(status);
+  const statusLabel = { draft: "draft", approved: "published", featured: "featured", archived: "archived" }[status] || status;
+  await runAdminAction({
+    messageSelector: adminManagedMessageSelector(type),
+    actionFn: async () => {
+      const nextContent = nextSiteContentDraft();
+      const idSet = new Set(ids);
+      nextContent[config.contentKey] = (nextContent[config.contentKey] || []).map((item) => (
+        idSet.has(item.id) ? { ...item, ...fields } : item
+      ));
+      await saveAdminSiteContent(nextContent);
+      syncSiteManagedResources();
+    },
+    successMsg: `✅ Updated ${ids.length} ${ids.length === 1 ? config.singular.toLowerCase() : config.plural.toLowerCase()} to ${statusLabel}.`,
+    onComplete: () => {
+      adminManagedSelectedIds[type] = new Set();
+      renderAdminManagedCollection(type);
+    },
+  });
 }
 
 function renderAdminActivitiesManager() {
@@ -37642,6 +37747,7 @@ function applyAdminSectionVisibility() {
     ".admin-ticket-panel",
     ".admin-feedback-panel",
     ".admin-emails-panel",
+    ".admin-ai-tools-panel",
     ".admin-ai-test-panel",
     ".admin-ai-prompts-panel",
     ".admin-ai-settings-panel",
@@ -37710,6 +37816,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-emails-panel");
     if (el) el.hidden = false;
     renderAdminEmailEngagement();
+  } else if (tab === "ai-tools") {
+    const el = document.querySelector(".admin-ai-tools-panel");
+    if (el) el.hidden = false;
+    renderAdminAiToolsPanel();
   } else if (tab === "ai-testing") {
     const el = document.querySelector(".admin-ai-test-panel");
     if (el) el.hidden = false;
@@ -40071,6 +40181,7 @@ function renderAdminDashboard() {
   renderAdminAnalytics();
   renderLaunchReadiness();
   renderAdminTickets();
+  renderAdminAiToolsPanel();
   renderAdminAiTestCenter();
   applyAdminSectionVisibility();
   if (isAdminUnlocked() && canUseLaunchBackend()) {
@@ -40268,18 +40379,120 @@ async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
   return data.fields || {};
 }
 
-async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
+async function callAdminAiGenerateContent(payload = {}) {
   const token = adminSession()?.token || "";
-  if (!token) throw new Error("Admin session required. Please log in as admin.");
-  if (!canUseLaunchBackend()) throw new Error("Backend server is required for lesson plan generation.");
-  const res = await fetch(adminLessonGenerateConfig.endpoint, {
+  if (!token) throw new Error("Admin session required. Please unlock Admin again.");
+  if (!canUseLaunchBackend()) throw new Error("Backend server is required for Admin AI Tools.");
+  const res = await fetch(adminAiContentGenerateConfig.endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, age, theme, lessonNumber }),
+    body: JSON.stringify({ adminToken: token, ...payload }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
-  return data.fields || {};
+  if (!res.ok) throw new Error(data?.error || "AI content generation failed.");
+  return data;
+}
+
+function renderAdminAiToolsPanel() {
+  const target = document.querySelector("#adminAiToolsApp");
+  if (!target || !isAdminUnlocked()) return;
+  const state = adminAiContentState;
+  const types = [
+    ["lesson", "Lesson Plan"],
+    ["activity", "Activity"],
+    ["printable", "Printable"],
+    ["email", "Email Campaign"],
+    ["social", "Social Posts"],
+    ["theme", "Trending Themes"],
+  ];
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Owner AI Tools</p>
+        <h3>Generate content drafts for Admin</h3>
+        <p class="muted-copy">Create lesson, activity, printable, email, or social drafts. Review everything before publishing — nothing auto-publishes.</p>
+      </div>
+    </div>
+    <div class="admin-ai-tools-grid">
+      <form id="adminAiToolsForm" class="panel-form admin-stacked-form">
+        <label>Content type
+          <select name="contentType">
+            ${types.map(([value, label]) => `<option value="${value}" ${state.contentType === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+        <div class="form-grid-two">
+          <label>Age group
+            <select name="age">
+              ${["Infant", "Toddler", "Preschool", "Mixed Ages"].map((age) => `<option ${state.age === age ? "selected" : ""}>${age}</option>`).join("")}
+            </select>
+          </label>
+          <label>Tone<input name="tone" value="${escapeHtml(state.tone || "")}" placeholder="warm and practical" /></label>
+        </div>
+        <label>Theme / topic<input name="theme" value="${escapeHtml(state.theme || "")}" placeholder="e.g. Apples, Back to School" /></label>
+        <label>Audience<input name="audience" value="${escapeHtml(state.audience || "")}" placeholder="childcare providers" /></label>
+        <label>Extra notes<textarea name="notes" rows="4" placeholder="Any must-include details, season, Free vs Pro tone, etc.">${escapeHtml(state.notes || "")}</textarea></label>
+        <div class="form-actions">
+          <button class="primary-button" type="submit" ${state.loading ? "disabled" : ""}>${state.loading ? "Generating…" : "Generate draft"}</button>
+          <button class="ghost-button" type="button" data-admin-ai-tools-clear ${state.output ? "" : "hidden"}>Clear output</button>
+        </div>
+        ${state.error ? `<p class="form-message">${escapeHtml(state.error)}</p>` : ""}
+        ${state.success ? `<p class="form-message success">${escapeHtml(state.success)}</p>` : ""}
+      </form>
+      <section class="admin-ai-tools-output" aria-live="polite">
+        <div class="account-actions-row" style="justify-content:space-between;margin-bottom:8px">
+          <h4 style="margin:0">Draft output</h4>
+          <div class="account-actions-row">
+            <button class="ghost-button" type="button" data-admin-ai-tools-copy ${state.output ? "" : "disabled"}>Copy</button>
+            <button class="ghost-button" type="button" data-admin-ai-tools-open="${escapeHtml(state.contentType)}" ${state.output ? "" : "disabled"}>Open related Admin tab</button>
+          </div>
+        </div>
+        <textarea id="adminAiToolsOutput" rows="22" readonly placeholder="Generated draft appears here…">${escapeHtml(state.output || "")}</textarea>
+      </section>
+    </div>
+  `;
+}
+
+async function handleAdminAiToolsGenerate(form) {
+  const formData = new FormData(form);
+  adminAiContentState = {
+    ...adminAiContentState,
+    contentType: String(formData.get("contentType") || "lesson"),
+    age: String(formData.get("age") || "Preschool"),
+    theme: String(formData.get("theme") || ""),
+    tone: String(formData.get("tone") || "warm and practical"),
+    audience: String(formData.get("audience") || "childcare providers"),
+    notes: String(formData.get("notes") || ""),
+    loading: true,
+    error: "",
+    success: "",
+  };
+  renderAdminAiToolsPanel();
+  try {
+    const data = await callAdminAiGenerateContent({
+      contentType: adminAiContentState.contentType,
+      age: adminAiContentState.age,
+      theme: adminAiContentState.theme,
+      tone: adminAiContentState.tone,
+      audience: adminAiContentState.audience,
+      notes: adminAiContentState.notes,
+    });
+    adminAiContentState.output = String(data.output || "");
+    adminAiContentState.success = "Draft ready. Copy it into the Content Manager and edit before publishing.";
+  } catch (error) {
+    adminAiContentState.error = error?.message || "AI generation failed.";
+  } finally {
+    adminAiContentState.loading = false;
+    renderAdminAiToolsPanel();
+  }
+}
+
+function openAdminTabForAiContentType(contentType) {
+  if (contentType === "lesson") setAdminSectionTab("curriculum-lesson-plans");
+  else if (contentType === "activity") setAdminSectionTab("curriculum-activities");
+  else if (contentType === "printable") setAdminSectionTab("printables");
+  else if (contentType === "email") setAdminSectionTab("emails");
+  else if (contentType === "social" || contentType === "theme") setAdminSectionTab("announcement");
+  else setAdminSectionTab("ai-tools");
 }
 
 // ─── AI Prompt Manager ────────────────────────────────────────────────────────
@@ -48854,6 +49067,10 @@ document.addEventListener("click", async (event) => {
       showActionFeedback("Open Pricing / promo settings to create a promo code.");
       return;
     }
+    if (action === "ai-tools") {
+      setAdminSectionTab("ai-tools");
+      return;
+    }
   }
 
   const adminActionBtn = event.target.closest("[data-admin-action]");
@@ -48972,6 +49189,100 @@ document.addEventListener("click", async (event) => {
       bulkUpdateAdminCurriculumLessonStatus(action);
       return;
     }
+  }
+
+  const activitySelect = event.target.closest("[data-curriculum-activity-select]");
+  if (activitySelect && event.target.matches("input[type='checkbox']")) {
+    const id = activitySelect.getAttribute("data-curriculum-activity-select") || "";
+    if (id) {
+      if (event.target.checked) adminCurriculumActivitySelectedIds.add(id);
+      else adminCurriculumActivitySelectedIds.delete(id);
+      const bar = document.querySelector("#adminCurriculumActivityApp .admin-content-bulk-bar");
+      if (bar) {
+        bar.hidden = adminCurriculumActivitySelectedIds.size === 0;
+        const label = bar.querySelector("strong");
+        if (label) label.textContent = `${adminCurriculumActivitySelectedIds.size} selected`;
+      }
+      activitySelect.closest(".admin-content-card")?.classList.toggle("is-selected", event.target.checked);
+    }
+    return;
+  }
+
+  const activityBulk = event.target.closest("[data-curriculum-activity-bulk]");
+  if (activityBulk && isAdminUnlocked()) {
+    event.preventDefault();
+    const action = activityBulk.getAttribute("data-curriculum-activity-bulk") || "";
+    if (action === "clear") {
+      adminCurriculumActivitySelectedIds = new Set();
+      renderAdminCurriculumActivityBrowser();
+      return;
+    }
+    if (["published", "draft", "archived"].includes(action)) {
+      bulkUpdateAdminCurriculumActivitiesViaParent(action);
+      return;
+    }
+  }
+
+  const managedSelect = event.target.closest("[data-managed-select]");
+  if (managedSelect && event.target.matches("input[type='checkbox']")) {
+    const type = managedSelect.getAttribute("data-managed-select") || "";
+    const id = managedSelect.getAttribute("data-managed-select-id") || "";
+    if (type && id) {
+      adminManagedSelectedIds[type] = adminManagedSelectedIds[type] || new Set();
+      if (event.target.checked) adminManagedSelectedIds[type].add(id);
+      else adminManagedSelectedIds[type].delete(id);
+      const bar = document.querySelector(`${adminManagedContentConfig[type]?.appId || ""} .admin-content-bulk-bar`);
+      if (bar) {
+        bar.hidden = adminManagedSelectedIds[type].size === 0;
+        const label = bar.querySelector("strong");
+        if (label) label.textContent = `${adminManagedSelectedIds[type].size} selected`;
+      }
+      managedSelect.closest(".admin-content-card")?.classList.toggle("is-selected", event.target.checked);
+    }
+    return;
+  }
+
+  const managedBulk = event.target.closest("[data-managed-bulk]");
+  if (managedBulk && isAdminUnlocked()) {
+    event.preventDefault();
+    const type = managedBulk.getAttribute("data-managed-bulk") || "";
+    const status = managedBulk.getAttribute("data-managed-bulk-status") || "";
+    if (status === "clear") {
+      adminManagedSelectedIds[type] = new Set();
+      renderAdminManagedCollection(type);
+      return;
+    }
+    if (["approved", "draft", "archived", "featured"].includes(status)) {
+      bulkUpdateAdminManagedStatus(type, status);
+      return;
+    }
+  }
+
+  if (event.target.closest("#adminAiToolsForm button[type='submit']")) {
+    /* form submit handler below */
+  }
+  const aiToolsClear = event.target.closest("[data-admin-ai-tools-clear]");
+  if (aiToolsClear) {
+    event.preventDefault();
+    adminAiContentState.output = "";
+    adminAiContentState.success = "";
+    adminAiContentState.error = "";
+    renderAdminAiToolsPanel();
+    return;
+  }
+  const aiToolsCopy = event.target.closest("[data-admin-ai-tools-copy]");
+  if (aiToolsCopy) {
+    event.preventDefault();
+    const text = adminAiContentState.output || document.querySelector("#adminAiToolsOutput")?.value || "";
+    if (!text) return;
+    navigator.clipboard?.writeText(text).then(() => showActionFeedback("Draft copied.")).catch(() => showActionFeedback("Could not copy draft."));
+    return;
+  }
+  const aiToolsOpen = event.target.closest("[data-admin-ai-tools-open]");
+  if (aiToolsOpen) {
+    event.preventDefault();
+    openAdminTabForAiContentType(aiToolsOpen.getAttribute("data-admin-ai-tools-open") || adminAiContentState.contentType);
+    return;
   }
 
   const curriculumPreview = event.target.closest("[data-curriculum-lesson-preview]");
@@ -50389,6 +50700,12 @@ document.addEventListener("submit", async (event) => {
   } finally {
     button.disabled = false;
   }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#adminAiToolsForm")) return;
+  event.preventDefault();
+  await handleAdminAiToolsGenerate(event.target);
 });
 
 document.addEventListener("submit", async (event) => {

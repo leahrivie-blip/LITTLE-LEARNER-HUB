@@ -1,10 +1,10 @@
-const CACHE_NAME = "llh-shell-v81-owner-command-center";
+const CACHE_NAME = "llh-shell-v82-admin-ai-content";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260718-owner-command-center",
+  "/styles.css?v=20260718-admin-ai-content",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -23,10 +23,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260718-owner-command-center",
-  "/scripts/free-plan-grandfathering.js?v=20260718-owner-command-center",
-  "/app.js?v=20260718-owner-command-center",
-  "/comms-center.js?v=20260718-owner-command-center",
+  "/scripts/free-curriculum-sample.js?v=20260718-admin-ai-content",
+  "/scripts/free-plan-grandfathering.js?v=20260718-admin-ai-content",
+  "/app.js?v=20260718-admin-ai-content",
+  "/comms-center.js?v=20260718-admin-ai-content",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
