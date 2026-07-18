@@ -16566,6 +16566,7 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     padding: 12px;
     align-items: end;
     justify-items: center;
+    background: rgba(24, 28, 36, 0.55);
   }
 
   #proModal .modal-card,
@@ -16575,13 +16576,28 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   #installAppModal .modal-card,
   #scheduleEventModal .llh-schedule-event-modal,
   .lesson-editor-leave-panel {
-    width: calc(100vw - 24px);
+    width: 100%;
     max-width: 100%;
     max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     overflow-y: auto;
     margin: 0;
     box-sizing: border-box;
+  }
+
+  #feedbackModal .form-actions,
+  #proModal .pro-modal-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  #feedbackModal .form-actions .primary-button,
+  #feedbackModal .form-actions .ghost-button,
+  #proModal .pro-modal-actions .primary-button,
+  #proModal .pro-modal-actions .ghost-button {
+    width: 100%;
+    min-height: 48px;
   }
 
   #scheduleEventModal.open {
