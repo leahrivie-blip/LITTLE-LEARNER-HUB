@@ -19660,24 +19660,120 @@ body.auth-modal-open {
   color: var(--muted);
 }
 
+.signup-plan-headline {
+  margin: 0 0 10px;
+  font-size: 1.35rem;
+  line-height: 1.25;
+  color: var(--ink, #243041);
+}
+
+.signup-plan-value-intro {
+  margin: 0 0 6px;
+  font-weight: 700;
+  color: var(--ink, #243041);
+}
+
+.signup-plan-trust {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.signup-plan-trust li {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(90, 122, 92, 0.28);
+  background: #f3f8f4;
+  color: #2f5a38;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .signup-plan-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.25fr) minmax(0, 0.9fr);
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
   gap: 12px;
   align-items: stretch;
 }
 
+.signup-plan-grid--paid-first.signup-plan-grid--founding-open {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+}
+
+.signup-plan-grid--paid-first.signup-plan-grid--sold-out {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .signup-plan-grid--founding-open {
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
 }
 
 .signup-plan-grid--sold-out {
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
-.signup-plan-card--pro-featured {
+.signup-plan-card--pro-featured,
+.signup-plan-card--featured {
   border: 2px solid #5b9bd5;
   box-shadow: 0 14px 28px rgba(47, 95, 134, 0.12);
+}
+
+.signup-plan-card--preview {
+  margin-top: 12px;
+  border-style: dashed;
+  background: #fbfbfa;
+  opacity: 0.96;
+}
+
+.signup-plan-preview-label {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.signup-free-confirm {
+  margin-top: 8px;
+}
+
+.signup-free-confirm-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(90, 122, 92, 0.28);
+  background: linear-gradient(180deg, #f7fbf7, #ffffff);
+}
+
+.signup-free-confirm-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.signup-free-confirm-body {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.signup-free-confirm-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.signup-free-confirm-actions .primary-button,
+.signup-free-confirm-actions .ghost-button {
+  width: 100%;
+  min-height: 46px;
+  justify-content: center;
 }
 
 .signup-plan-card {
@@ -19845,13 +19941,24 @@ body.auth-modal-open {
     grid-template-columns: 1fr;
   }
 
-  .signup-plan-grid {
+  .signup-plan-grid,
+  .signup-plan-grid--paid-first.signup-plan-grid--founding-open,
+  .signup-plan-grid--paid-first.signup-plan-grid--sold-out {
     grid-template-columns: 1fr;
   }
 
-  .signup-plan-card--founding {
+  .signup-plan-card--founding,
+  .signup-plan-card--featured {
     order: -1;
     transform: none;
+  }
+
+  .signup-plan-trust {
+    gap: 6px;
+  }
+
+  .signup-plan-headline {
+    font-size: 1.2rem;
   }
 }
 
