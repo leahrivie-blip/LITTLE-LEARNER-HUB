@@ -11317,6 +11317,13 @@ body.force-password-required #forcePasswordModal * {
     min-height: 48px;
   }
 
+  .account-actions .notification-bell-btn {
+    flex: 0 0 auto;
+    width: 44px;
+    min-width: 44px;
+    max-width: 44px;
+  }
+
   .resource-actions,
   .hero-actions,
   .auth-secondary-actions,
@@ -21045,6 +21052,15 @@ canvas {
 .install-instructions-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @media (max-width: 720px) {
   .admin-notif-item { flex-direction: column; }
+  .admin-notif-list {
+    max-height: none;
+  }
+  .admin-notif-item,
+  .admin-notif-item p,
+  .admin-notif-actions {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
 }
 
 /* Site-wide copyright footer (in-app views; public home uses .llh-public-footer) */

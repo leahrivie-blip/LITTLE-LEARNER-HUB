@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260718-use-plan-auth");
-  assert.equal(indexJs, "20260718-use-plan-auth");
-  assert.match(sw, /llh-shell-v94-use-plan-auth/);
+  assert.equal(indexCss, "20260718-messages-admin-mobile");
+  assert.equal(indexJs, "20260718-messages-admin-mobile");
+  assert.match(sw, /llh-shell-v95-messages-admin-mobile/);
 });
 
 if (!process.exitCode) {

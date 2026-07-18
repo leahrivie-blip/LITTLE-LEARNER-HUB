@@ -1732,7 +1732,13 @@ let foundingStatusCache = {
   updatedAt: "",
 };
 const adminOwnerAccount = {
-  email: "little.learners.hub.customer@gmail.com",
+  email: "leahivie@icloud.com",
+  emails: [
+    "leahivie@icloud.com",
+    "leahrivie@icloud.com",
+    "leahrivie@gmail.com",
+    "little.learners.hub.customer@gmail.com",
+  ],
   name: "Leah",
   loginEndpoint: "/api/admin/login",
 };
@@ -10541,6 +10547,11 @@ function notificationTypeIcon(type) {
   }
 }
 
+function isAdminOnlyBellNotification(type) {
+  const key = String(type || "").trim().toLowerCase();
+  return key.startsWith("admin_") || key === "admin_message_reply";
+}
+
 function messagingRelativeTime(iso) {
   const then = new Date(iso || "").getTime();
   if (!Number.isFinite(then)) return "";
@@ -10576,8 +10587,13 @@ async function refreshNotificationBell() {
   }
   const previousUnread = Number(notificationBellState.unreadCount) || 0;
   const data = await fetchNotificationsFromBackend();
-  notificationBellState.items = Array.isArray(data.notifications) ? data.notifications : [];
-  notificationBellState.unreadCount = Number(data.unreadCount) || 0;
+  // Defense in depth: never show owner/admin-only alerts in a normal member bell.
+  const rawItems = Array.isArray(data.notifications) ? data.notifications : [];
+  const items = isSignedInPlatformOwner() || isAdminUnlocked()
+    ? rawItems
+    : rawItems.filter((item) => !isAdminOnlyBellNotification(item?.type));
+  notificationBellState.items = items;
+  notificationBellState.unreadCount = items.filter((item) => !item.read).length;
   notificationBellState.loaded = true;
   renderNotificationBell();
   // When a new notification arrives while Messages is open, refresh the thread
@@ -11982,12 +11998,14 @@ function rememberedAdminEmail() {
 function isSignedInPlatformOwner() {
   const email = String(currentUser || "").trim().toLowerCase();
   if (!email) return false;
-  const ownerEmail = String(adminOwnerAccount?.email || "").trim().toLowerCase();
-  const sessionEmail = String(adminSession()?.email || "").trim().toLowerCase();
-  return Boolean(
-    (ownerEmail && email === ownerEmail)
-    || (sessionEmail && email === sessionEmail),
+  const ownerEmails = new Set(
+    [
+      ...(Array.isArray(adminOwnerAccount?.emails) ? adminOwnerAccount.emails : []),
+      adminOwnerAccount?.email || "",
+    ].map((value) => String(value || "").trim().toLowerCase()).filter(Boolean),
   );
+  const sessionEmail = String(adminSession()?.email || "").trim().toLowerCase();
+  return Boolean(ownerEmails.has(email) || (sessionEmail && email === sessionEmail));
 }
 
 function canSeeAdminNav() {
