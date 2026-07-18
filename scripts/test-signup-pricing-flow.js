@@ -104,9 +104,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-pro-grandfather");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-pro-grandfather");
-  assert.match(sw, /llh-shell-v78-free-pro-grandfather/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-limits-ux");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-limits-ux");
+  assert.match(sw, /llh-shell-v79-free-limits-ux/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

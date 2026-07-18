@@ -59,8 +59,12 @@ test("client and server gate on curated free sample", () => {
   assert.match(appJs, /isCuratedFreeCurriculumPlan/);
   assert.match(appJs, /canCustomizeLessonPlans/);
   assert.match(appJs, /showLessonCustomizationUpgrade/);
-  assert.match(appJs, /freeCalendarAssignmentLimit/);
-  assert.match(appJs, /freeFavoriteLimit/);
+  assert.match(appJs, /freeCalendarPlanningDays\s*=\s*30/);
+  assert.match(appJs, /freeFavoriteLimit\s*=\s*20/);
+  assert.match(appJs, /freeChildProfileLimit\s*=\s*5/);
+  assert.match(appJs, /isWeekWithinFreeCalendarPlanningWindow/);
+  assert.match(appJs, /freeWelcomeCardHtml/);
+  assert.match(appJs, /freeUpgradeBenefitLines/);
   assert.match(appJs, /upgrade_prompt_shown/);
   assert.match(appJs, /upgrade_prompt_click/);
   assert.match(serverJs, /freeCurriculumSample\.isCuratedFreeLessonPlan/);
@@ -71,7 +75,7 @@ test("client and server gate on curated free sample", () => {
 
 test("printing stays available; customization is locked for Free", () => {
   assert.match(appJs, /Make This Lesson Plan Your Own/);
-  assert.match(appJs, /Upgrade to Pro to unlock lesson plan customization/);
+  assert.match(appJs, /Customize any lesson plan to fit your classroom/);
   assert.match(appJs, /if \(!canCustomizeLessonPlans\(\)\) \{\s*showLessonCustomizationUpgrade/);
   // Print paths should not call showLessonCustomizationUpgrade
   const printIdx = appJs.indexOf("function printActiveResource");
@@ -88,14 +92,19 @@ test("homepage and FAQ marketing match curated Free", () => {
   assert.match(indexHtml, /Why providers upgrade from Free/i);
   assert.match(indexHtml, /Customize, save, and reuse your own lesson plans/i);
   assert.match(indexHtml, /Selected Free Lesson Plans \(sample library\)/);
+  assert.match(indexHtml, /About 30 days of calendar planning/);
+  assert.match(indexHtml, /Up to 20 favorites/);
+  assert.match(indexHtml, /5 Child Profiles/);
+  assert.match(appJs, /Welcome to Little Learner Hub!/);
+  assert.match(appJs, /Ready to save hours every week\?/);
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-pro-grandfather");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-pro-grandfather");
-  assert.match(sw, /llh-shell-v78-free-pro-grandfather/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-free-pro-grandfather/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-free-pro-grandfather/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-free-limits-ux");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-free-limits-ux");
+  assert.match(sw, /llh-shell-v79-free-limits-ux/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260718-free-limits-ux/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260718-free-limits-ux/);
 });
 
 function requestJson(method, urlPath, body) {

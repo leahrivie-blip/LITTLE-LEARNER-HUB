@@ -1778,13 +1778,13 @@ const billingPlans = {
       "Selected Free Lesson Plans (sample library)",
       "Print Free sample lesson plans",
       "Browse & preview Pro lesson plans",
-      "Limited calendar planning",
-      "Limited favorites",
+      "About 30 days of calendar planning",
+      "Up to 20 favorites",
       "10 Observations",
       "6 Forms",
       "Limited Activity Center samples",
       "10 Document Creations Per Month",
-      "Up to 3 Child Profiles",
+      "Up to 5 Child Profiles",
       "Weekly Observation Tracker",
     ],
   },
@@ -2071,20 +2071,28 @@ const freeAccessLimits = {
 const freePlanBaseFeatures = [
   "Print any Free sample lesson plan",
   "Browse the full library and preview Pro plans",
-  "Limited calendar planning",
-  "Limited favorites",
+  "About 30 days of calendar planning",
+  "Up to 20 favorites",
   "10 Observations",
   "6 Forms",
   "Limited Activity Center samples",
   "10 Document Creations Per Month",
-  "Up to 3 Child Profiles",
+  "Up to 5 Child Profiles",
   "Weekly Observation Tracker",
 ];
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
-const freeCalendarAssignmentLimit = 2;
-const freeFavoriteLimit = 5;
+/** New Free users can plan about a month ahead (weeks starting within this window). */
+const freeCalendarPlanningDays = 30;
+const freeFavoriteLimit = 20;
 const lessonCustomizationUpgradeHeadline = "Make This Lesson Plan Your Own";
-const lessonCustomizationUpgradeBody = "Personalize activities, edit materials, change books and songs, add your own notes, save your own version, and reuse it year after year.\n\nUpgrade to Pro to unlock lesson plan customization.";
+const lessonCustomizationUpgradeBody = "Customize any lesson plan to fit your classroom — personalize activities, materials, books, songs, and notes, then save your version to reuse year after year.\n\nUpgrade to Pro and save hours every week.";
+const freeUpgradeBenefitLines = Object.freeze([
+  "Save hours every week with unlimited lesson plans",
+  "New lesson plans added every week",
+  "Customize any lesson plan to fit your classroom",
+  "Generate observations and documentation in seconds",
+  "Everything you need in one place",
+]);
 
 function freeCurriculumSampleApi() {
   return (typeof globalThis !== "undefined" && globalThis.LLHFreeCurriculumSample)
@@ -2220,9 +2228,11 @@ function refreshFreePlanFaqAnswer(answer) {
   const lessonLabel = freeLessonPlanMarketingLabel();
   if (!answer) {
     return [
-      "3 Child Profiles",
+      "5 Child Profiles",
       "10 Observations Per Month",
       lessonLabel,
+      "About 30 days of calendar planning",
+      "Up to 20 favorites",
       "8 Activity Ideas",
       "6 Forms",
       "10 Document Creations",
@@ -2253,7 +2263,7 @@ const paidAiMonthlyLimit = 250;
 // null means "not yet loaded"; when null, canUseAi() defaults to true and the server enforces the limit.
 let serverAiUsed = null;
 let serverAiLimit = null;
-const freeChildProfileLimit = 3;
+const freeChildProfileLimit = 5;
 const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
 const freeDailyLogHistoryDays = 14;
@@ -2270,26 +2280,28 @@ const proFeatureList = [
   "Premium Menus",
   "Future Premium Features",
 ];
-const freeDocumentationLimitMessage = "Save time every day with unlimited observations, parent messages, incident reports, daily reports, and documentation tools.";
-const freeAiLimitMessage = `${freeDocumentationLimitMessage}\n\nYou’ve used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month.`;
+const freeDocumentationLimitMessage = "Generate observations and documentation in seconds — and save time every day with unlimited Documentation Helpers.";
+const freeAiLimitMessage = `${freeDocumentationLimitMessage}\n\nYou’ve used all 10 free document creations for this month. Upgrade to Pro for 250 document creations each month and keep everything in one place.`;
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
-const proUnlockValueProp = "Save hours every week with unlimited ready-to-use lesson plans, new plans added weekly, the full Activity Center, lesson customization, calendar tools, Documentation Helpers, Child Profiles, and every future Pro feature.";
-const freeResourceLimitMessage = `You have reached your Free Plan limit. ${proUnlockValueProp}`;
+const proUnlockValueProp = "Save hours every week with unlimited lesson plans, new plans added every week, classroom customization, Documentation Helpers, and everything you need in one place.";
+const freeResourceLimitMessage = `Ready for more?\n\n${proUnlockValueProp}`;
 const proTrialUpgradeMessage = `${proUnlockValueProp} Start your 7-Day Free Trial for full Pro access. Card required. Cancel anytime.`;
 const proTrialUpgradeSummary = "7-Day Free Trial · Card required · Cancel anytime · Converts to Pro Monthly after trial.";
-const freeLibraryUpgradeHeadline = "Ready for more weeks of planning?";
-const freeLibraryUpgradeBody = "You’re using the Free Plan with a curated sample of lesson plans. Upgrade to unlock unlimited plans, customization, the full Activity Center, and new content every week — built by a childcare provider.";
-const aiLessonPlanUpgradeMessage = "Generate custom lesson plans in seconds.\n\nAvailable with Pro Membership.\n\nStart Your 7-Day Free Trial\nCard required. Cancel anytime.";
+const freeLibraryUpgradeHeadline = "Ready to save hours every week?";
+const freeLibraryUpgradeBody = "You’re exploring our curated Free lesson plans. Upgrade for unlimited plans, customization that fits your classroom, and new content added every week — built by a childcare provider.";
+const aiLessonPlanUpgradeMessage = "Generate custom lesson plans in seconds and save hours of planning every week.\n\nAvailable with Pro Membership.\n\nStart Your 7-Day Free Trial\nCard required. Cancel anytime.";
 const lockedProLessonUpgradeHeadline = "This is a Pro Lesson Plan.";
 const lockedProLessonUpgradeBody = "You're viewing a preview only.";
 const freeLibraryDashboardHeadline = "If the Free sample feels this good…";
-const freeLibraryDashboardBody = "Imagine unlimited lesson plans, personal customization, and new resources added every week. Upgrade to unlock the complete Little Learner Hub.";
-const freePlannerUpgradeNudge = "Need more weeks planned? Upgrade to Pro for unlimited calendar planning, the full lesson library, premium activities, and AI lesson plan generation.";
-const freeCalendarLimitMessage = "Need more weeks planned?\n\nUpgrade to Pro for unlimited calendar planning.";
-const freeFavoriteLimitMessage = "Keep unlimited favorite lesson plans and activities with Pro.";
-const freeActivityCenterUpgradeMessage = "Unlock hundreds of activities organized by age, theme, and learning domain.";
+const freeLibraryDashboardBody = "Imagine saving hours every week with unlimited lesson plans, classroom customization, and new resources added every week.";
+const freePlannerUpgradeNudge = "Want to plan further ahead? Upgrade to Pro for unlimited calendar planning, new lesson plans every week, and everything you need in one place.";
+const freeCalendarLimitMessage = "Want to plan more than 30 days ahead?\n\nUpgrade to Pro for unlimited calendar planning and save hours every week.";
+const freeFavoriteLimitMessage = "Save more of your go-to lesson plans and activities with Pro — and keep everything organized in one place.";
+const freeActivityCenterUpgradeMessage = "Save time with hundreds of activities organized by age, theme, and learning domain — all in one place.";
+const freeChildProfileLimitMessage = "Support every child in your care with more profiles on Pro — keep notes, logs, and documentation together in one place.";
 const FREE_PLAN_REMINDER_DISMISS_KEY = "llhFreePlanReminderDismissed";
 const FREE_PLAN_SOFT_NUDGE_KEY = "llhFreePlanSoftNudgeShown";
+const FREE_WELCOME_CARD_DISMISS_KEY = "llhFreeWelcomeCardDismissed";
 const favoritesPageLimit = 20;
 const dailyLogFavoriteStorageKey = "llhDailyLogFavoriteActivities";
 const defaultDailyLogFavorites = ["Circle Time", "Outside Play", "Art", "Sensory Bin", "Water Play"];
@@ -3424,23 +3436,32 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     : offerPro
       ? "Choose Pro Monthly"
       : ((!isDraft && um.proTrialButtonText) ? um.proTrialButtonText : "Start Your 7-Day Free Trial");
+  const benefitListHtml = `
+    <ul class="pro-modal-benefit-list">
+      ${freeUpgradeBenefitLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+    </ul>
+  `;
   if (type === "limit") {
-    const limitHeadline = (!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "You've reached your Free Plan limit.";
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member Offer" : "Free Plan Limit Reached";
+    const limitHeadline = (!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "Ready to save hours every week?";
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member Offer" : "Unlock more with Pro";
     if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
+      <p class="muted-copy">Providers upgrade for:</p>
+      ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
       ${offerFounding ? `<p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s> · Founding: <strong>$9.99/month for life</strong></p>` : ""}
     `;
   } else {
     const popupHeadline = offerFounding
       ? "Unlock with Founding Member Pricing"
-      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is a Pro Feature");
+      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "Save hours with Pro");
     if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Pro Feature";
     if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
+      <p class="muted-copy">What you’ll unlock:</p>
+      ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
       ${offerFounding ? `<p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s> · Founding: <strong>$9.99/month for life</strong></p>` : ""}
     `;
@@ -8463,7 +8484,7 @@ function captureDefaultSiteContent() {
     announcement: { text: "", visible: false, expiresAt: "", location: "top", _draft: false },
     upgradeMessaging: {
       upgradePopupHeadline: "This is a Pro Feature",
-      upgradeLimitHeadline: "You've reached your Free Plan limit.",
+      upgradeLimitHeadline: "Ready to save hours every week?",
       upgradePopupBody: "Unlock the full curriculum library and access new lesson plans added every week. Start your 7-Day Free Trial for full Pro access. Card required. Cancel anytime.",
       proTrialButtonText: "Start Your 7-Day Free Trial",
       freeLimitMessage: "You have reached your Free Plan limit. Unlock the full curriculum library and access new lesson plans added every week.",
@@ -11628,22 +11649,31 @@ function showLessonCustomizationUpgrade(resourceId = "") {
   modal.setAttribute("aria-hidden", "false");
 }
 
-function freeCalendarAssignmentsUsed() {
-  try {
-    return loadCurriculumWeekAssignments().filter((item) => item?.weekStartDate && (item.lessonPlanId || item.resourceId || item.snapshot)).length;
-  } catch {
-    return 0;
+function freeCalendarPlanningHorizonIso(fromDate = new Date()) {
+  const today = fromDate instanceof Date ? new Date(fromDate.getTime()) : new Date(`${String(fromDate || "").slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(today.getTime())) {
+    return addDaysToIso(isoDateFromLocalDate(new Date()), freeCalendarPlanningDays - 1);
   }
+  today.setHours(12, 0, 0, 0);
+  return addDaysToIso(isoDateFromLocalDate(today), freeCalendarPlanningDays - 1);
+}
+
+/** New Free users can plan weeks that start on/before ~30 days from today. */
+function isWeekWithinFreeCalendarPlanningWindow(weekStartDate, fromDate = new Date()) {
+  const week = curriculumPlannerWeekStartIso(weekStartDate);
+  if (!week) return false;
+  const horizon = freeCalendarPlanningHorizonIso(fromDate);
+  return week <= horizon;
 }
 
 function canAssignMoreFreeCalendarPlans(weekStartDate = "") {
   if (isProUser() || hasAdminFullAccess() || hasLegacyFreeLessonAccess()) return true;
-  const used = freeCalendarAssignmentsUsed();
-  if (weekStartDate) {
-    const existing = curriculumAssignmentForWeek(weekStartDate);
-    if (existing) return true; // replacing an existing Free week doesn't consume a new slot
-  }
-  return used < freeCalendarAssignmentLimit;
+  if (!weekStartDate) return true;
+  const week = curriculumPlannerWeekStartIso(weekStartDate);
+  if (!week) return true;
+  // Replacing an existing assignment never hits the Free planning horizon.
+  if (curriculumAssignmentForWeek(week)) return true;
+  return isWeekWithinFreeCalendarPlanningWindow(week);
 }
 
 function isProUser() {
@@ -20679,8 +20709,11 @@ function renderUserDashboard() {
   const recentActivity = dashboardRecentActivity(records, childById);
   const recentObservations = [...(records.observations || [])].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
   const reminders = dashboardReminderMarkup(records, stats);
-  const upgradeBanner = freeLibraryConversionBannerHtml({ variant: "dashboard", dismissible: true });
-  const showTeaserUpgradeCta = !upgradeBanner;
+  const welcomeCard = freeWelcomeCardHtml();
+  const upgradeBanner = welcomeCard
+    ? ""
+    : freeLibraryConversionBannerHtml({ variant: "dashboard", dismissible: true });
+  const showTeaserUpgradeCta = !welcomeCard && !upgradeBanner;
   const dashboardTeasers = !isProUser() ? `
     <section class="section-block dashboard-teasers">
       <div class="dashboard-panel-heading"><div><p class="eyebrow">Pro previews</p><h3>Spend less time on paperwork</h3></div></div>
@@ -20701,6 +20734,7 @@ function renderUserDashboard() {
         </div>
       </div>
 
+      ${welcomeCard}
       ${upgradeBanner}
 
       ${dashboardScheduleOverviewMarkup()}
@@ -22142,7 +22176,7 @@ async function assignScheduleLessonPlan({
     error.existing = existing;
     throw error;
   }
-  const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId);
+  const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
   const item = await api.assignLessonPlanToWeek(firebaseAuthHeaders, scheduleApiEmail(), {
     id: existing?.id,
@@ -22509,7 +22543,7 @@ function curriculumAssignableLessonResources() {
   });
 }
 
-async function resolveCurriculumPlanForAssignment(resourceOrId) {
+async function resolveCurriculumPlanForAssignment(resourceOrId, options = {}) {
   const resource = typeof resourceOrId === "string"
     ? resources.find((item) => item.id === resourceOrId)
     : resourceOrId;
@@ -22519,10 +22553,15 @@ async function resolveCurriculumPlanForAssignment(resourceOrId) {
   if (!canAccess(resource)) {
     throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
   }
-  const assignWeekHint = calendarLessonAssignContext?.weekStartDate
+  const assignWeekHint = options.weekStartDate
+    || calendarLessonAssignContext?.weekStartDate
     || (typeof curriculumPlannerSelectedWeek === "string" ? curriculumPlannerSelectedWeek : "");
   if (!canAssignMoreFreeCalendarPlans(assignWeekHint)) {
-    trackUpgradePrompt("calendar_limit", { used: freeCalendarAssignmentsUsed() });
+    trackUpgradePrompt("calendar_limit", {
+      weekStartDate: assignWeekHint || "",
+      planningDays: freeCalendarPlanningDays,
+      horizon: freeCalendarPlanningHorizonIso(),
+    });
     showProFeatureModal(freeCalendarLimitMessage, "limit");
     throw new Error(freeCalendarLimitMessage);
   }
@@ -22586,7 +22625,7 @@ async function assignCurriculumLessonPlanToWeek({
     error.existing = existing;
     throw error;
   }
-  const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId);
+  const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
   const now = new Date().toISOString();
   const preserved = preserveCurriculumPlannerPrivateFields(existing || {});
@@ -38452,7 +38491,7 @@ function renderAdminPricingSection() {
             <label>Price interval<input name="freePlanPriceInterval" value="${escapeHtml(pricing.freePlanPriceInterval || "")}" placeholder="Forever" /></label>
           </div>
           <label>Plan description<textarea name="freePlanDescription" rows="2">${escapeHtml(pricing.freePlanDescription || "")}</textarea></label>
-          <label>Feature list (one per line — include ✓ if desired)<textarea name="freePlanFeatures" rows="10" placeholder="✓ 3 Child Profiles&#10;✓ 10 Observations Per Month">${escapeHtml(freeFeaturesText)}</textarea></label>
+          <label>Feature list (one per line — include ✓ if desired)<textarea name="freePlanFeatures" rows="10" placeholder="✓ 5 Child Profiles&#10;✓ 10 Observations Per Month">${escapeHtml(freeFeaturesText)}</textarea></label>
         </div>
       </details>
       <details class="se-accordion">
@@ -38736,7 +38775,7 @@ function renderAdminUpgradeMsgSection() {
         <summary class="se-accordion-summary">Pro Feature Popup</summary>
         <div class="se-accordion-body">
           <label>Popup headline<input name="upgradePopupHeadline" value="${escapeHtml(um.upgradePopupHeadline || "")}" placeholder="This is a Pro Feature" /></label>
-          <label>Free-limit headline<input name="upgradeLimitHeadline" value="${escapeHtml(um.upgradeLimitHeadline || "")}" placeholder="You've reached your Free Plan limit." /></label>
+          <label>Free-limit headline<input name="upgradeLimitHeadline" value="${escapeHtml(um.upgradeLimitHeadline || "")}" placeholder="Ready to save hours every week?" /></label>
           <label>Popup body text<textarea name="upgradePopupBody" rows="3">${escapeHtml(um.upgradePopupBody || "")}</textarea></label>
           <label>Trial button text<input name="proTrialButtonText" value="${escapeHtml(um.proTrialButtonText || "")}" placeholder="Start Your 7-Day Free Trial" /></label>
         </div>
@@ -42543,6 +42582,60 @@ function dismissFreePlanReminderBar() {
   if (bar) bar.hidden = true;
 }
 
+function isFreeWelcomeCardDismissed() {
+  try {
+    return localStorage.getItem(FREE_WELCOME_CARD_DISMISS_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function dismissFreeWelcomeCard() {
+  try {
+    localStorage.setItem(FREE_WELCOME_CARD_DISMISS_KEY, "1");
+  } catch {
+    /* ignore */
+  }
+  document.querySelectorAll(".free-welcome-card").forEach((node) => node.remove());
+  const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  if (activeView === "home" && typeof renderHome === "function") {
+    try { renderHome(); } catch { /* ignore */ }
+  }
+}
+
+/**
+ * First-visit welcome card for new (curated) Free users — value-first, not a lockout wall.
+ * Grandfathered Free keep the early-supporter conversion banner instead.
+ */
+function freeWelcomeCardHtml() {
+  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return "";
+  if (hasLegacyFreeLessonAccess()) return "";
+  if (!canSeePaidUpgradeOffer()) return "";
+  if (isFreeWelcomeCardDismissed()) return "";
+  const foundingOpen = foundingSpotsStillAvailable();
+  const primaryCheckout = foundingOpen ? "founding" : "monthly";
+  const primaryLabel = foundingOpen ? "Lock in Founding Member Pricing" : "Upgrade to Pro";
+  return `
+    <section class="free-welcome-card" role="region" aria-label="Welcome to Little Learner Hub">
+      <div class="free-welcome-card-copy">
+        <p class="free-welcome-card-badge">Free Plan</p>
+        <h3>🎉 Welcome to Little Learner Hub!</h3>
+        <p>You have access to our curated Free lesson plan library, printable lesson plans, and AI documentation helpers to explore the platform.</p>
+        <p><strong>Ready for hundreds of lesson plans, unlimited planning tools, and new content added every week?</strong></p>
+        <p class="muted-copy">Upgrade to Pro or lock in our Founding Member pricing while it’s still available — and save hours every week.</p>
+        <ul class="free-welcome-card-benefits">
+          ${freeUpgradeBenefitLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
+        </ul>
+      </div>
+      <div class="free-welcome-card-actions">
+        <button class="primary-button" type="button" data-checkout-plan="${primaryCheckout}">${escapeHtml(primaryLabel)}</button>
+        ${foundingOpen ? `<button class="ghost-button" type="button" data-view="plans">Compare Plans</button>` : `<button class="ghost-button" type="button" data-start-pro-trial>Start 7-Day Free Trial</button>`}
+        <button class="ghost-button" type="button" data-dismiss-free-welcome>Explore Free for now</button>
+      </div>
+    </section>
+  `;
+}
+
 function dismissFoundingUpgradeBanner() {
   try {
     sessionStorage.setItem(FOUNDING_UPGRADE_DISMISS_KEY, "1");
@@ -42695,15 +42788,9 @@ function freeLibraryConversionBannerHtml(options = {}) {
         <h3>${escapeHtml(headline)}</h3>
         <p class="free-library-conversion-body">${escapeHtml(body)}</p>
         <p class="free-library-conversion-body">${escapeHtml(proUnlockValueProp)}</p>
-        <p class="muted-copy">Upgrade unlocks:</p>
+        <p class="muted-copy">Upgrade so you can:</p>
         <ul class="free-library-conversion-benefits">
-          <li>Unlimited lesson plans</li>
-          <li>Entire Activity Center</li>
-          <li>New lesson plans added weekly</li>
-          <li>Documentation Helpers</li>
-          <li>Calendar &amp; planning tools</li>
-          <li>Future Pro features included</li>
-          <li>Priority updates</li>
+          ${freeUpgradeBenefitLines.map((line) => `<li>${escapeHtml(line)}</li>`).join("")}
         </ul>
       </div>
       <div class="free-library-conversion-banner-actions">
@@ -49951,6 +50038,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome]");
+  if (freeWelcomeDismiss) {
+    event.preventDefault();
+    dismissFreeWelcomeCard();
+    return;
+  }
+
   const freePlanNudgeDismiss = event.target.closest("[data-dismiss-free-plan-nudge]");
   if (freePlanNudgeDismiss) {
     event.preventDefault();
@@ -50559,7 +50653,7 @@ document.addEventListener("submit", async (event) => {
   const data = collectFormData(form);
   const editId = data.childId || activeChildProfileEditId || "";
   if (!editId && !isProUser() && childStore("Profiles").length >= freeChildProfileLimit) {
-    showProFeatureModal("You've reached your Free Plan limit of 3 child profiles.", "limit");
+    showProFeatureModal(freeChildProfileLimitMessage, "limit");
     return;
   }
   const formData = new FormData(form);

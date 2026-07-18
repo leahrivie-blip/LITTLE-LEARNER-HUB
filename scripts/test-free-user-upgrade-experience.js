@@ -92,11 +92,14 @@ async function openAsAccount(page, account) {
         subscriptionStatus: acct.subscriptionStatus || (paid ? "active" : "Free Plan"),
         stripeSubscriptionStatus: acct.stripeSubscriptionStatus || (paid ? "active" : ""),
         foundingMemberActive: Boolean(acct.foundingMemberActive || acct.plan === "Founding"),
+        createdAt: acct.createdAt || "",
+        freeLessonAccessMode: acct.freeLessonAccessMode || "",
       },
     }));
     sessionStorage.removeItem("llhFreePlanReminderDismissed");
     sessionStorage.removeItem("llhFoundingUpgradeDismissed");
     sessionStorage.removeItem("llhFreePlanSoftNudgeShown");
+    if (acct.clearWelcomeDismiss) localStorage.removeItem("llhFreeWelcomeCardDismissed");
   }, account);
   page.setDefaultTimeout(60000);
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -163,9 +166,14 @@ async function main() {
   assert.match(appJs, /function refreshFreePlanUpgradeChrome/);
   assert.match(appJs, /function maybeShowFreePlanSoftNudge/);
   assert.match(appJs, /If the Free sample feels this good/);
-  assert.match(appJs, /Ready for more weeks of planning\?/);
+  assert.match(appJs, /Ready to save hours every week\?/);
+  assert.match(appJs, /freeWelcomeCardHtml/);
+  assert.match(appJs, /freeCalendarPlanningDays\s*=\s*30/);
+  assert.match(appJs, /freeFavoriteLimit\s*=\s*20/);
+  assert.match(appJs, /freeChildProfileLimit\s*=\s*5/);
   assert.match(css, /\.free-plan-reminder/);
   assert.match(css, /\.free-plan-badge/);
+  assert.match(css, /\.free-welcome-card/);
   assert.match(css, /body\.user-pro \.free-plan-badge/);
   assert.match(indexHtml, /id="freePlanReminderBar"/);
   assert.match(indexHtml, /id="freePlanBadge"/);
@@ -240,24 +248,52 @@ async function main() {
 
     await page.close();
     page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await openAsAccount(page, { email: "free-dashboard-ux@example.com", plan: "Free" });
+    await openAsAccount(page, {
+      email: "free-dashboard-ux@example.com",
+      plan: "Free",
+      freeLessonAccessMode: "curated",
+      createdAt: "2026-07-19T12:00:00.000Z",
+      clearWelcomeDismiss: true,
+    });
     await page.evaluate(() => {
+      localStorage.removeItem("llhFreeWelcomeCardDismissed");
       if (typeof setView === "function") setView("home");
       if (typeof renderHome === "function") renderHome();
     });
     await page.waitForTimeout(400);
     const dash = await page.evaluate(() => {
+      const welcome = document.querySelector(".free-welcome-card");
       const banner = document.querySelector(".free-library-conversion-banner");
       return {
+        hasWelcome: Boolean(welcome),
         hasBanner: Boolean(banner),
-        text: banner?.innerText?.slice(0, 400) || "",
-        hasPrimary: Boolean(banner?.querySelector("[data-checkout-plan]")),
+        text: (welcome || banner)?.innerText?.slice(0, 500) || "",
+        hasPrimary: Boolean((welcome || banner)?.querySelector("[data-checkout-plan]")),
+        benefits: Array.from((welcome || banner)?.querySelectorAll("li") || []).map((li) => li.textContent.trim()),
       };
     });
-    assert.equal(dash.hasBanner, true, "dashboard free conversion banner");
-    assert.match(dash.text, /If the Free sample feels this good|Free Plan|Upgrade|Unlock/i);
+    assert.equal(dash.hasWelcome, true, "new Free users see dashboard welcome card");
+    assert.equal(dash.hasBanner, false, "welcome card replaces conversion banner until dismissed");
+    assert.match(dash.text, /Welcome to Little Learner Hub/i);
     assert.equal(dash.hasPrimary, true);
-    console.log("PASS dashboard value banner");
+    assert.ok(dash.benefits.some((line) => /save hours every week/i.test(line)));
+    console.log("PASS dashboard welcome card for new Free");
+
+    await page.click("[data-dismiss-free-welcome]");
+    await page.waitForTimeout(300);
+    const afterDismiss = await page.evaluate(() => {
+      const welcome = document.querySelector(".free-welcome-card");
+      const banner = document.querySelector(".free-library-conversion-banner");
+      return {
+        hasWelcome: Boolean(welcome),
+        hasBanner: Boolean(banner),
+        text: banner?.innerText?.slice(0, 400) || "",
+      };
+    });
+    assert.equal(afterDismiss.hasWelcome, false, "welcome card dismisses");
+    assert.equal(afterDismiss.hasBanner, true, "conversion banner appears after welcome dismiss");
+    assert.match(afterDismiss.text, /If the Free sample feels this good|save hours every week|Upgrade/i);
+    console.log("PASS welcome dismiss reveals conversion banner");
 
     console.log("\nAll free user upgrade experience tests passed.");
   } catch (error) {

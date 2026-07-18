@@ -56,16 +56,20 @@ async function main() {
   const viewerJs = fs.readFileSync(path.join(ROOT, "scripts/curriculum-lesson-viewer-render.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
-  assertIncludes(appJs, "Save hours every week with unlimited ready-to-use lesson plans", "value prop");
-  assertIncludes(appJs, "Ready for more weeks of planning?", "free library headline");
+  assertIncludes(appJs, "Save hours every week with unlimited lesson plans", "value prop");
+  assertIncludes(appJs, "Ready to save hours every week?", "free library headline");
   assertIncludes(appJs, "If the Free sample feels this good", "dashboard headline");
-  assertIncludes(appJs, "Generate custom lesson plans in seconds.", "AI gate message");
+  assertIncludes(appJs, "Generate custom lesson plans in seconds and save hours of planning every week.", "AI gate message");
   assertIncludes(appJs, "function canGenerateAiLessonPlans()", "AI gate helper");
   assertIncludes(appJs, "function freeLibraryConversionBannerHtml", "dashboard banner helper");
+  assertIncludes(appJs, "function freeWelcomeCardHtml", "new Free welcome card helper");
   assertIncludes(appJs, "function refreshFreePlanUpgradeChrome", "persistent free chrome helper");
   assertIncludes(appJs, "function renderLessonPlanLibraryCountsHtml", "library counts helper");
   assertIncludes(appJs, "Start Your 7-Day Free Trial", "trial CTA");
   assertIncludes(appJs, "Converts to Pro Monthly after trial", "trial conversion note");
+  assertIncludes(appJs, "freeCalendarPlanningDays = 30", "free calendar horizon");
+  assertIncludes(appJs, "freeFavoriteLimit = 20", "free favorites limit");
+  assertIncludes(appJs, "freeChildProfileLimit = 5", "free child profile limit");
   assertIncludes(viewerJs, "This is a Pro Lesson Plan.", "locked preview headline");
   assertIncludes(viewerJs, "Complete Monday–Friday lesson plans", "locked preview unlock list");
   assertIncludes(viewerJs, "New lesson plans added every week", "locked preview weekly language");
