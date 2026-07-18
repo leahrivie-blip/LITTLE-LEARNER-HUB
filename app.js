@@ -4345,6 +4345,9 @@ function readAdminOwnerSectionsOpen() {
     live: true,
     content: !adminOwnerMobileDefaultCollapsed,
     kpi: true,
+    health: !adminOwnerMobileDefaultCollapsed,
+    growth: !adminOwnerMobileDefaultCollapsed,
+    safety: !adminOwnerMobileDefaultCollapsed,
   };
   try {
     const saved = JSON.parse(localStorage.getItem("llhAdminOwnerSectionsOpen") || "null");
@@ -4363,6 +4366,11 @@ function persistAdminOwnerSectionsOpen() {
 }
 let adminOwnerSectionsOpen = readAdminOwnerSectionsOpen();
 let adminSessionHeartbeatTimer = null;
+let adminGlobalSearchQuery = "";
+let adminSafetyStatus = null;
+let adminSafetyLoading = false;
+let adminCurriculumListFilters = { query: "", status: "", plan: "", age: "", theme: "" };
+let adminCurriculumSelectedIds = new Set();
 let adminActionCenterDismissed = new Set(
   (() => {
     try {
@@ -7225,15 +7233,24 @@ function renderAdminCurriculumLessonPlanForm(plan) {
 
 function curriculumLessonPlanAdminCardHtml(plan) {
   const linkedCount = curriculumActivitiesForLesson(plan.id).filter((item) => item.status !== "archived").length;
+  const selected = adminCurriculumSelectedIds.has(plan.id);
+  const cover = sanitizedImageSource(plan.coverImageUrl || "")
+    || (typeof lessonPlanCoversApi === "function" ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url : "")
+    || "";
   return `
-    <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}">
+    <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
       <div class="admin-mobile-card-body">
+        <label class="admin-content-select">
+          <input type="checkbox" data-curriculum-select="${escapeHtml(plan.id)}" ${selected ? "checked" : ""} />
+          <span class="visually-hidden">Select ${escapeHtml(plan.title || "lesson")}</span>
+        </label>
         <div>
           <strong>${escapeHtml(plan.title || "Untitled Lesson Plan")}</strong>
           <div class="tag-row" style="margin:2px 0 4px">
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
+            ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
@@ -7242,17 +7259,85 @@ function curriculumLessonPlanAdminCardHtml(plan) {
       </div>
       <div class="form-actions">
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
+        <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
       </div>
     </article>
   `;
 }
 
+function filteredAdminCurriculumLessonPlans() {
+  const filters = adminCurriculumListFilters || {};
+  const q = String(filters.query || "").trim().toLowerCase();
+  return curriculumLessonPlansForAdmin().filter((plan) => {
+    if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
+    if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
+    if (filters.age && String(plan.age || "") !== filters.age) return false;
+    if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
+    if (!q) return true;
+    const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+async function bulkUpdateAdminCurriculumLessonStatus(status) {
+  const ids = [...adminCurriculumSelectedIds];
+  if (!ids.length) {
+    showActionFeedback("Select at least one lesson plan first.");
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (!token || !curriculumLessonPlanConfig.endpoint) {
+    showActionFeedback("Admin unlock and backend are required for bulk actions.");
+    return;
+  }
+  const plans = curriculumLessonPlansForAdmin().filter((plan) => ids.includes(plan.id));
+  let saved = 0;
+  let failed = 0;
+  for (const plan of plans) {
+    try {
+      const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          adminToken: token,
+          expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+          lessonPlan: normalizeCurriculumLessonPlanForRender({ ...plan, status }),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
+      if (data.curriculum || data.lessonPlan) {
+        applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+          siteContentUpdatedAt: data.siteContentUpdatedAt,
+        });
+      }
+      saved += 1;
+    } catch (error) {
+      console.warn("Bulk lesson update failed", plan.id, error);
+      failed += 1;
+    }
+  }
+  adminCurriculumSelectedIds = new Set();
+  setAdminCurriculumLessonSaveBanner(
+    failed
+      ? `Updated ${saved} lesson${saved === 1 ? "" : "s"}; ${failed} failed.`
+      : `Updated ${saved} lesson${saved === 1 ? "" : "s"} to ${status}.`,
+    failed === 0,
+  );
+  renderAdminCurriculumLessonPlanManager();
+  showActionFeedback(adminCurriculumLessonSaveBanner.text);
+}
+
 function renderAdminCurriculumLessonPlanManager() {
   const target = document.querySelector("#adminCurriculumLessonPlanApp");
   if (!target) return;
-  const plans = curriculumLessonPlansForAdmin();
+  const allPlans = curriculumLessonPlansForAdmin();
+  const plans = filteredAdminCurriculumLessonPlans();
   const editingId = adminCurriculumLessonEditorId;
   const editingPlan = editingId ? curriculumLessonEditorRecord() : null;
+  const themes = [...new Set(allPlans.map((plan) => plan.theme).filter(Boolean))].sort();
+  const ages = [...new Set(allPlans.map((plan) => plan.age).filter(Boolean))].sort();
+  const selectedCount = adminCurriculumSelectedIds.size;
   const banner = adminCurriculumLessonSaveBanner?.text
     ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
     : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
@@ -7262,16 +7347,53 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     <div class="section-heading">
       <div>
-        <p class="eyebrow">Play-Based Curriculum</p>
+        <p class="eyebrow">Content Manager</p>
         <h3>Curriculum lesson plans</h3>
-        <p class="muted-copy">Lesson plans are the source of truth. Edit weekly, daily, and activity fields here. Saving updates linked Activity Library entries using stable item IDs.</p>
+        <p class="muted-copy">File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities.</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
     ${banner}
     ${renderCurriculumLessonImportPanel()}
+    <div class="admin-content-filters">
+      <label><span>Search</span><input type="search" id="adminCurriculumFilterQuery" value="${escapeHtml(adminCurriculumListFilters.query || "")}" placeholder="Title, theme…" /></label>
+      <label><span>Status</span>
+        <select id="adminCurriculumFilterStatus">
+          <option value="">All</option>
+          ${["draft", "published", "featured", "archived"].map((status) => `<option value="${status}" ${adminCurriculumListFilters.status === status ? "selected" : ""}>${status}</option>`).join("")}
+        </select>
+      </label>
+      <label><span>Free / Pro</span>
+        <select id="adminCurriculumFilterPlan">
+          <option value="">All</option>
+          ${["Free", "Pro"].map((plan) => `<option value="${plan}" ${adminCurriculumListFilters.plan === plan ? "selected" : ""}>${plan}</option>`).join("")}
+        </select>
+      </label>
+      <label><span>Age</span>
+        <select id="adminCurriculumFilterAge">
+          <option value="">All</option>
+          ${ages.map((age) => `<option value="${escapeHtml(age)}" ${adminCurriculumListFilters.age === age ? "selected" : ""}>${escapeHtml(age)}</option>`).join("")}
+        </select>
+      </label>
+      <label><span>Theme</span>
+        <select id="adminCurriculumFilterTheme">
+          <option value="">All</option>
+          ${themes.map((theme) => `<option value="${escapeHtml(theme)}" ${adminCurriculumListFilters.theme === theme ? "selected" : ""}>${escapeHtml(theme)}</option>`).join("")}
+        </select>
+      </label>
+    </div>
+    <div class="admin-content-bulk-bar" ${selectedCount ? "" : "hidden"}>
+      <strong>${selectedCount} selected</strong>
+      <div class="account-actions-row">
+        <button type="button" class="primary-button" data-curriculum-bulk="published">Publish</button>
+        <button type="button" class="ghost-button" data-curriculum-bulk="draft">Move to Draft</button>
+        <button type="button" class="ghost-button" data-curriculum-bulk="archived">Archive</button>
+        <button type="button" class="ghost-button" data-curriculum-bulk="clear">Clear selection</button>
+      </div>
+    </div>
+    <p class="muted-copy">${plans.length} of ${allPlans.length} lesson plans shown</p>
     <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
-      ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || `<div class="empty-state">No play-based lesson plans yet.</div>`}
+      ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
@@ -34400,6 +34522,288 @@ function renderAdminQuickActionsBar() {
   `;
 }
 
+function runAdminGlobalSearch(query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return [];
+  const results = [];
+  adminOwnerAccountRows().forEach((account) => {
+    const hay = `${displayUserName(account)} ${account.email || ""} ${account.businessName || ""} ${account.plan || ""}`.toLowerCase();
+    if (hay.includes(q)) {
+      results.push({
+        type: "User",
+        title: displayUserName(account) || account.email,
+        detail: account.email,
+        action: "view-user",
+        email: account.email,
+      });
+    }
+  });
+  ((typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : []) || []).forEach((plan) => {
+    const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""}`.toLowerCase();
+    if (hay.includes(q)) {
+      results.push({
+        type: "Lesson Plan",
+        title: plan.title || plan.id,
+        detail: `${plan.age || ""} · ${plan.status || ""} · ${plan.plan || ""}`,
+        action: "edit-lesson",
+        planId: plan.id,
+      });
+    }
+  });
+  (adminAnalyticsCache?.supportTickets || supportTickets() || []).forEach((ticket) => {
+    const hay = `${ticket.subject || ""} ${ticket.email || ""} ${ticket.type || ""} ${ticket.message || ""}`.toLowerCase();
+    if (hay.includes(q)) {
+      results.push({
+        type: "Support",
+        title: ticket.subject || ticket.type || "Ticket",
+        detail: ticket.email || ticket.status || "",
+        action: "open-support",
+      });
+    }
+  });
+  (adminAnalyticsCache?.feedback || []).forEach((item) => {
+    const hay = `${item.subject || ""} ${item.email || ""} ${item.type || ""} ${item.message || ""}`.toLowerCase();
+    if (hay.includes(q)) {
+      results.push({
+        type: "Feedback",
+        title: item.subject || item.type || "Feedback",
+        detail: item.email || item.status || "",
+        action: "open-feedback",
+      });
+    }
+  });
+  return results.slice(0, 24);
+}
+
+function renderAdminGlobalSearch() {
+  const results = runAdminGlobalSearch(adminGlobalSearchQuery);
+  return `
+    <section class="admin-command-center-card admin-global-search-card" aria-label="Global admin search">
+      <div>
+        <p class="eyebrow">Global Search</p>
+        <h3>Find users, lessons, tickets, and feedback</h3>
+      </div>
+      <label class="admin-global-search-field">
+        <span class="visually-hidden">Search everything</span>
+        <input type="search" id="adminGlobalSearchInput" value="${escapeHtml(adminGlobalSearchQuery)}" placeholder="Search users, lesson plans, support, feedback…" autocomplete="off" />
+      </label>
+      ${adminGlobalSearchQuery ? `
+        <div class="admin-global-search-results" id="adminGlobalSearchResults">
+          ${results.length ? results.map((item) => `
+            <button type="button" class="admin-global-search-result" data-admin-action="${escapeHtml(item.action || "")}" data-admin-action-email="${escapeHtml(item.email || "")}" data-admin-action-plan="${escapeHtml(item.planId || "")}">
+              <strong>${escapeHtml(item.type)}</strong>
+              <span>${escapeHtml(item.title)}</span>
+              <small>${escapeHtml(item.detail || "")}</small>
+            </button>
+          `).join("") : `<div class="empty-state">No matches for “${escapeHtml(adminGlobalSearchQuery)}”.</div>`}
+        </div>
+      ` : `<p class="muted-copy">Tip: type a name, email, theme, or ticket subject.</p>`}
+    </section>
+  `;
+}
+
+function renderAdminCustomerHealthCenter() {
+  const accounts = adminOwnerAccountRows();
+  const buckets = [
+    {
+      key: "new",
+      title: "New Users",
+      items: accounts.filter((a) => adminIsWithinDays(a.signupAt || a.createdAt, 7)).slice(0, 8),
+    },
+    {
+      key: "power",
+      title: "Power Users",
+      items: accounts
+        .slice()
+        .sort((a, b) => Number(b.featureUseCount || b.usage?.lessonPlansViewed || 0) - Number(a.featureUseCount || a.usage?.lessonPlansViewed || 0))
+        .filter((a) => Number(a.featureUseCount || a.usage?.lessonPlansViewed || 0) > 0)
+        .slice(0, 8),
+    },
+    {
+      key: "inactive",
+      title: "Inactive (14d+)",
+      items: accounts.filter((a) => adminOwnerMetricMatches(a, "inactive-users")).slice(0, 8),
+    },
+    {
+      key: "churn-risk",
+      title: "Likely to cancel / canceling",
+      items: accounts.filter((a) => adminBillingStatusKey(a) === "canceling" || adminOwnerMetricMatches(a, "billing-past-due")).slice(0, 8),
+    },
+    {
+      key: "trial-soon",
+      title: "Trial ending soon",
+      items: accounts.filter((a) => adminOwnerMetricMatches(a, "trial-ending-soon")).slice(0, 8),
+    },
+    {
+      key: "failed",
+      title: "Failed payments",
+      items: accounts.filter((a) => adminOwnerMetricMatches(a, "billing-past-due")).slice(0, 8),
+    },
+  ];
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerHealth" data-admin-owner-section="health" ${adminOwnerSectionsOpen.health !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Customer Health Center</p>
+          <h3>Who needs attention</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-lists admin-health-grid">
+        ${buckets.map((bucket) => `
+          <article class="analytics-card">
+            <h4>${escapeHtml(bucket.title)} <small>(${bucket.items.length})</small></h4>
+            ${bucket.items.length ? bucket.items.map((account) => `
+              <div class="analytics-row stacked">
+                <span><strong>${escapeHtml(displayUserName(account))}</strong></span>
+                <small>${escapeHtml(account.email || "")} · ${escapeHtml(adminMembershipPlanLabel(account))} · ${escapeHtml(adminUserLastActiveLabel(account))}</small>
+                <div class="admin-action-buttons">
+                  <button type="button" class="ghost-button" data-aup-view="${escapeHtml(account.email || "")}">View</button>
+                  <button type="button" class="ghost-button" data-aup-message="${escapeHtml(account.email || "")}">Message</button>
+                  <button type="button" class="primary-button" data-aup-manage="${escapeHtml(account.email || "")}">Manage</button>
+                </div>
+              </div>
+            `).join("") : `<div class="empty-state">None in this bucket.</div>`}
+          </article>
+        `).join("")}
+      </div>
+    </details>
+  `;
+}
+
+function renderAdminGrowthCenter() {
+  const periods = adminAnalyticsCache?.periods || {};
+  const totals = adminAnalyticsCache?.totals || {};
+  const daily = Object.entries(periods.dailyVisitors || {}).slice(-7);
+  const weekly = Object.entries(periods.weeklyVisitors || {}).slice(-6);
+  const monthly = Object.entries(periods.monthlyRevenue || {}).slice(-6);
+  const maxDaily = Math.max(1, ...daily.map(([, count]) => Number(count) || 0));
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerGrowth" data-admin-owner-section="growth" ${adminOwnerSectionsOpen.growth !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Growth Center</p>
+          <h3>Visitors, conversions, and revenue</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div class="admin-owner-grid admin-kpi-grid">
+        ${adminMetric("Visitors", totals.visitors ?? "—")}
+        ${adminMetric("Unique Visitors", totals.uniqueVisitors ?? "—")}
+        ${adminMetric("Signups", totals.signups ?? "—")}
+        ${adminMetric("Visitor→Signup", totals.visitorToSignupRate ?? "—")}
+        ${adminMetric("Signup→Paid", totals.signupToPaidRate ?? "—")}
+        ${adminMetric("Trial Conv.", totals.trialConversionRate ?? "—")}
+        ${adminMetric("Revenue MTD", adminMoneyLabel(totals.revenueThisMonth))}
+        ${adminMetric("MRR", adminMoneyLabel(totals.monthlyRecurringRevenue))}
+        ${adminMetric("Total Revenue", adminMoneyLabel(totals.totalRevenue))}
+      </div>
+      <div class="admin-owner-lists admin-growth-charts">
+        <article class="analytics-card">
+          <h4>Daily visitors (7d)</h4>
+          ${daily.length ? daily.map(([label, count]) => `
+            <div class="admin-bar-row">
+              <span>${escapeHtml(label)}</span>
+              <div class="admin-bar-track"><div class="admin-bar-fill" style="width:${Math.round((Number(count) / maxDaily) * 100)}%"></div></div>
+              <strong>${escapeHtml(String(count))}</strong>
+            </div>
+          `).join("") : `<div class="empty-state">No visitor data yet.</div>`}
+        </article>
+        <article class="analytics-card">
+          <h4>Weekly visitors</h4>
+          ${weekly.length ? weekly.map(([label, count]) => `
+            <div class="analytics-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(count))}</strong></div>
+          `).join("") : `<div class="empty-state">No weekly data yet.</div>`}
+        </article>
+        <article class="analytics-card">
+          <h4>Monthly revenue</h4>
+          ${monthly.length ? monthly.map(([label, amount]) => `
+            <div class="analytics-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(adminMoneyLabel(amount))}</strong></div>
+          `).join("") : `<div class="empty-state">No revenue periods yet.</div>`}
+        </article>
+      </div>
+    </details>
+  `;
+}
+
+async function refreshAdminSafetyStatus() {
+  if (!canUseLaunchBackend() || adminSafetyLoading) return;
+  adminSafetyLoading = true;
+  try {
+    const [healthRes, readyRes] = await Promise.all([
+      fetch("/api/health", { cache: "no-store" }).catch(() => null),
+      fetch("/api/launch-readiness", { cache: "no-store" }).catch(() => null),
+    ]);
+    const health = healthRes ? await healthRes.json().catch(() => ({})) : {};
+    const ready = readyRes ? await readyRes.json().catch(() => ({})) : {};
+    adminSafetyStatus = {
+      ok: Boolean(healthRes?.ok),
+      healthStatus: health.status || (healthRes?.ok ? "ok" : "down"),
+      readiness: ready.ready === true || ready.status === "READY" ? "READY" : (ready.status || ready.overall || "NOT READY"),
+      checks: ready.checks || ready.items || [],
+      updatedAt: new Date().toISOString(),
+      database: ready.database || ready.checks?.database || health.database || "unknown",
+      stripe: ready.stripe || ready.checks?.stripe || "unknown",
+      email: ready.email || ready.checks?.email || "unknown",
+    };
+  } catch (error) {
+    adminSafetyStatus = {
+      ok: false,
+      healthStatus: "error",
+      readiness: "ERROR",
+      error: error?.message || "Safety check failed",
+      updatedAt: new Date().toISOString(),
+    };
+  } finally {
+    adminSafetyLoading = false;
+    const target = document.querySelector("#adminOwnerSafetyBody");
+    if (target) target.innerHTML = renderAdminSafetyCenterBody();
+  }
+}
+
+function renderAdminSafetyCenterBody() {
+  if (adminSafetyLoading && !adminSafetyStatus) {
+    return `<p class="muted-copy">Checking server health…</p>`;
+  }
+  const status = adminSafetyStatus || {};
+  const rows = [
+    ["Server Health", status.healthStatus || "unknown"],
+    ["Launch Readiness", status.readiness || "unknown"],
+    ["Database", typeof status.database === "object" ? (status.database.status || JSON.stringify(status.database)) : (status.database || "unknown")],
+    ["Stripe", typeof status.stripe === "object" ? (status.stripe.status || JSON.stringify(status.stripe)) : (status.stripe || "unknown")],
+    ["Email", typeof status.email === "object" ? (status.email.status || JSON.stringify(status.email)) : (status.email || "unknown")],
+    ["Last checked", status.updatedAt ? new Date(status.updatedAt).toLocaleString() : "Not checked"],
+  ];
+  return `
+    <div class="admin-owner-grid admin-kpi-grid">
+      ${rows.map(([label, value]) => adminMetric(label, value)).join("")}
+    </div>
+    <p class="muted-copy">Use Refresh Safety to re-check. Full backup/restore tooling stays on Launch Readiness / existing admin backup tools.</p>
+    <div class="account-actions-row">
+      <button type="button" class="ghost-button" data-admin-safety-refresh ${adminSafetyLoading ? "disabled" : ""}>${adminSafetyLoading ? "Checking…" : "Refresh Safety"}</button>
+      <button type="button" class="ghost-button" data-admin-quick="billing">Open Billing / Stripe tools</button>
+    </div>
+  `;
+}
+
+function renderAdminSafetyCenter() {
+  if (isAdminUnlocked() && !adminSafetyStatus && !adminSafetyLoading) {
+    refreshAdminSafetyStatus();
+  }
+  return `
+    <details class="admin-owner-collapse" id="adminOwnerSafety" data-admin-owner-section="safety" ${adminOwnerSectionsOpen.safety !== false ? "open" : ""}>
+      <summary class="admin-owner-collapse-summary">
+        <div>
+          <p class="eyebrow">Safety Center</p>
+          <h3>Health, Stripe, email, and readiness</h3>
+        </div>
+        <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
+      </summary>
+      <div id="adminOwnerSafetyBody">${renderAdminSafetyCenterBody()}</div>
+    </details>
+  `;
+}
+
 function adminOwnerUsersForMetric(metricKey) {
   if (!metricKey || !ADMIN_OWNER_METRIC_TITLES[metricKey]) return [];
   return adminOwnerAccountRows().filter((account) => adminOwnerMetricMatches(account, metricKey));
@@ -34653,6 +35057,7 @@ function renderAdminOwnerOverview() {
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
     </div>
+    ${renderAdminGlobalSearch()}
     ${renderAdminQuickActionsBar()}
     ${adminAnalyticsLoading && !adminAnalyticsCache ? `
       <div class="admin-analytics-state is-loading" role="status" data-admin-analytics-state="loading">
@@ -34698,6 +35103,9 @@ function renderAdminOwnerOverview() {
       <a href="#adminOwnerAction" data-admin-owner-jump="action">Action Center</a>
       <a href="#adminOwnerKpi" data-admin-owner-jump="kpi">KPIs</a>
       <a href="#adminOwnerLive" data-admin-owner-jump="live">Live Activity</a>
+      <a href="#adminOwnerHealth" data-admin-owner-jump="health">Customer Health</a>
+      <a href="#adminOwnerGrowth" data-admin-owner-jump="growth">Growth</a>
+      <a href="#adminOwnerSafety" data-admin-owner-jump="safety">Safety</a>
       <a href="#adminOwnerInventory" data-admin-owner-jump="inventory">Account Inventory</a>
       <a href="#adminOwnerBilling" data-admin-owner-jump="billing">Billing Health</a>
       <a href="#adminOwnerUsage" data-admin-owner-jump="usage">Platform Usage</a>
@@ -34708,6 +35116,9 @@ function renderAdminOwnerOverview() {
     ${renderAdminActionCenter()}
     ${renderAdminCommandKpiStrip(totals, accountRows)}
     ${renderAdminLiveActivityPanel()}
+    ${renderAdminCustomerHealthCenter()}
+    ${renderAdminGrowthCenter()}
+    ${renderAdminSafetyCenter()}
     ${renderAdminOwnerDrilldownPanel()}
     <details class="admin-owner-collapse" id="adminOwnerInventory" data-admin-owner-section="inventory" ${sectionOpen("inventory") ? "open" : ""}>
       <summary class="admin-owner-collapse-summary">
@@ -48525,6 +48936,57 @@ document.addEventListener("click", async (event) => {
     }
   }
 
+  if (event.target.closest("[data-admin-safety-refresh]") && isAdminUnlocked()) {
+    event.preventDefault();
+    refreshAdminSafetyStatus();
+    return;
+  }
+
+  const curriculumSelect = event.target.closest("[data-curriculum-select]");
+  if (curriculumSelect && event.target.matches("input[type='checkbox']")) {
+    const id = curriculumSelect.getAttribute("data-curriculum-select") || "";
+    if (id) {
+      if (event.target.checked) adminCurriculumSelectedIds.add(id);
+      else adminCurriculumSelectedIds.delete(id);
+      const bar = document.querySelector(".admin-content-bulk-bar");
+      if (bar) {
+        bar.hidden = adminCurriculumSelectedIds.size === 0;
+        const label = bar.querySelector("strong");
+        if (label) label.textContent = `${adminCurriculumSelectedIds.size} selected`;
+      }
+      curriculumSelect.closest(".admin-content-card")?.classList.toggle("is-selected", event.target.checked);
+    }
+    return;
+  }
+
+  const curriculumBulk = event.target.closest("[data-curriculum-bulk]");
+  if (curriculumBulk && isAdminUnlocked()) {
+    event.preventDefault();
+    const action = curriculumBulk.getAttribute("data-curriculum-bulk") || "";
+    if (action === "clear") {
+      adminCurriculumSelectedIds = new Set();
+      renderAdminCurriculumLessonPlanManager();
+      return;
+    }
+    if (["published", "draft", "archived"].includes(action)) {
+      bulkUpdateAdminCurriculumLessonStatus(action);
+      return;
+    }
+  }
+
+  const curriculumPreview = event.target.closest("[data-curriculum-lesson-preview]");
+  if (curriculumPreview && isAdminUnlocked()) {
+    event.preventDefault();
+    const id = curriculumPreview.getAttribute("data-curriculum-lesson-preview") || "";
+    if (id && typeof openResourceViewer === "function") {
+      setView("lessons");
+      openResourceViewer(id);
+    } else if (id) {
+      openAdminCurriculumLessonEditor(id, { scroll: true });
+    }
+    return;
+  }
+
   if (event.target.closest("#adminOpenNotificationsButton") && isAdminUnlocked()) {
     event.preventDefault();
     document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -52176,6 +52638,64 @@ document.addEventListener("input", (event) => {
   readAdminCurriculumActivityFiltersFromDom();
   adminCurriculumActivityViewerId = "";
   renderAdminCurriculumActivityBrowser();
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.id === "adminGlobalSearchInput") {
+    adminGlobalSearchQuery = event.target.value || "";
+    const card = event.target.closest(".admin-global-search-card");
+    const resultsHost = card?.querySelector("#adminGlobalSearchResults");
+    const tip = card?.querySelector(".muted-copy");
+    const results = runAdminGlobalSearch(adminGlobalSearchQuery);
+    if (!adminGlobalSearchQuery) {
+      if (resultsHost) resultsHost.remove();
+      if (tip) tip.hidden = false;
+      else if (card && !card.querySelector(".muted-copy")) {
+        card.insertAdjacentHTML("beforeend", `<p class="muted-copy">Tip: type a name, email, theme, or ticket subject.</p>`);
+      }
+      return;
+    }
+    if (tip) tip.hidden = true;
+    const html = results.length
+      ? results.map((item) => `
+          <button type="button" class="admin-global-search-result" data-admin-action="${escapeHtml(item.action || "")}" data-admin-action-email="${escapeHtml(item.email || "")}" data-admin-action-plan="${escapeHtml(item.planId || "")}">
+            <strong>${escapeHtml(item.type)}</strong>
+            <span>${escapeHtml(item.title)}</span>
+            <small>${escapeHtml(item.detail || "")}</small>
+          </button>
+        `).join("")
+      : `<div class="empty-state">No matches for “${escapeHtml(adminGlobalSearchQuery)}”.</div>`;
+    if (resultsHost) resultsHost.innerHTML = html;
+    else card?.insertAdjacentHTML("beforeend", `<div class="admin-global-search-results" id="adminGlobalSearchResults">${html}</div>`);
+    return;
+  }
+  if (event.target.id === "adminCurriculumFilterQuery") {
+    adminCurriculumListFilters.query = event.target.value || "";
+    renderAdminCurriculumLessonPlanManager();
+    const input = document.querySelector("#adminCurriculumFilterQuery");
+    if (input) {
+      input.focus();
+      const len = input.value.length;
+      input.setSelectionRange(len, len);
+    }
+  }
+});
+
+document.addEventListener("change", (event) => {
+  if (![
+    "adminCurriculumFilterStatus",
+    "adminCurriculumFilterPlan",
+    "adminCurriculumFilterAge",
+    "adminCurriculumFilterTheme",
+  ].includes(event.target.id)) return;
+  adminCurriculumListFilters = {
+    ...adminCurriculumListFilters,
+    status: document.querySelector("#adminCurriculumFilterStatus")?.value || "",
+    plan: document.querySelector("#adminCurriculumFilterPlan")?.value || "",
+    age: document.querySelector("#adminCurriculumFilterAge")?.value || "",
+    theme: document.querySelector("#adminCurriculumFilterTheme")?.value || "",
+  };
+  renderAdminCurriculumLessonPlanManager();
 });
 
 document.addEventListener("change", (event) => {

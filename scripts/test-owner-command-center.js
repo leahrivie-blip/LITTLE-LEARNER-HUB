@@ -87,6 +87,23 @@ test("owner section accordion state persists", () => {
   assert.match(appJs, /function readAdminOwnerSectionsOpen\(/);
 });
 
+test("global search, customer health, growth, and safety centers exist", () => {
+  assert.match(appJs, /function renderAdminGlobalSearch\(/);
+  assert.match(appJs, /function renderAdminCustomerHealthCenter\(/);
+  assert.match(appJs, /function renderAdminGrowthCenter\(/);
+  assert.match(appJs, /function renderAdminSafetyCenter\(/);
+  assert.match(appJs, /function refreshAdminSafetyStatus\(/);
+  assert.match(appJs, /adminGlobalSearchInput/);
+});
+
+test("content manager filters and bulk publish actions exist", () => {
+  assert.match(appJs, /function filteredAdminCurriculumLessonPlans\(/);
+  assert.match(appJs, /function bulkUpdateAdminCurriculumLessonStatus\(/);
+  assert.match(appJs, /data-curriculum-bulk="published"/);
+  assert.match(appJs, /adminCurriculumFilterQuery/);
+  assert.match(appJs, /Content Manager/);
+});
+
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];

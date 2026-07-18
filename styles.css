@@ -4680,6 +4680,120 @@ body.lessons-view .mobile-brand {
   backdrop-filter: blur(6px);
 }
 
+.admin-global-search-card .admin-global-search-field {
+  display: block;
+  margin-top: 10px;
+}
+
+.admin-global-search-card input[type="search"] {
+  width: 100%;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.admin-global-search-results {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.admin-global-search-result {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.admin-global-search-result:hover,
+.admin-global-search-result:focus-visible {
+  border-color: #5b9bd5;
+  outline: none;
+}
+
+.admin-health-grid,
+.admin-growth-charts {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.admin-bar-row {
+  display: grid;
+  grid-template-columns: 90px 1fr 40px;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 13px;
+}
+
+.admin-bar-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(26, 43, 74, 0.08);
+  overflow: hidden;
+}
+
+.admin-bar-fill {
+  height: 100%;
+  background: #5b9bd5;
+}
+
+.admin-content-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.admin-content-filters label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-content-filters input,
+.admin-content-filters select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font: inherit;
+}
+
+.admin-content-bulk-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(91, 155, 213, 0.08);
+}
+
+.admin-content-card.is-selected {
+  border-color: #5b9bd5;
+  box-shadow: 0 0 0 2px rgba(91, 155, 213, 0.2);
+}
+
+.admin-content-select {
+  display: inline-flex;
+  align-items: flex-start;
+  margin-right: 8px;
+}
+
 .admin-quick-actions-card .admin-quick-actions-grid,
 .admin-quick-actions-grid {
   display: grid;
