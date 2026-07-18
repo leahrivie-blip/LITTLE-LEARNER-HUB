@@ -3446,6 +3446,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     setView("plans");
     return;
   }
+  document.body.classList.add("auth-modal-open");
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
   const offerFounding = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
@@ -3502,6 +3503,9 @@ function closeProFeatureModal() {
   if (!modal) return;
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+    document.body.classList.remove("auth-modal-open");
+  }
 }
 
 function billingStatusIndicatesFree(status = "", account = null) {
@@ -6835,6 +6839,7 @@ function showUserLessonEditorLeaveDialog() {
     dialog = document.querySelector("[data-lesson-editor-leave-dialog]");
   }
   if (!dialog) return;
+  document.body.classList.add("auth-modal-open");
   dialog.hidden = false;
   dialog.querySelector("[data-lesson-editor-leave-save]")?.focus();
 }
@@ -6842,6 +6847,9 @@ function showUserLessonEditorLeaveDialog() {
 function hideUserLessonEditorLeaveDialog() {
   const dialog = document.querySelector("[data-lesson-editor-leave-dialog]");
   if (dialog) dialog.hidden = true;
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+    document.body.classList.remove("auth-modal-open");
+  }
 }
 
 function canLeaveUserLessonEditor(pending) {
@@ -12537,6 +12545,7 @@ function showLessonCustomizationUpgrade(resourceId = "") {
     upgradeBtn.dataset.upgradeMode = offerFounding ? "founding" : "monthly";
     upgradeBtn.dataset.upgradePromptId = "lesson_customization";
   }
+  document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
@@ -25518,6 +25527,7 @@ async function openCalendarAddItemDialog(options = {}) {
     errorEl.textContent = "";
   }
   calendarEventModalOpen = true;
+  document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   form?.querySelector('[name="eventTitle"]')?.focus();
@@ -25530,6 +25540,9 @@ function closeCalendarAddItemDialog() {
   mainCalendarEditingItemId = "";
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden])")) {
+    document.body.classList.remove("auth-modal-open");
+  }
 }
 
 async function submitCalendarAddItemForm(form) {
@@ -32976,6 +32989,9 @@ function ensureConfirmActionDialog() {
 function closeConfirmActionDialog(result = false) {
   const dialog = document.querySelector("[data-llh-confirm-dialog]");
   if (dialog) dialog.hidden = true;
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+    document.body.classList.remove("auth-modal-open");
+  }
   const resolve = confirmActionResolver;
   confirmActionResolver = null;
   if (resolve) resolve(Boolean(result));
@@ -33011,6 +33027,7 @@ function confirmAction(options = {}) {
     btn.textContent = options.cancelLabel || "Cancel";
   });
   dialog.hidden = false;
+  document.body.classList.add("auth-modal-open");
   okBtn?.focus();
   return new Promise((resolve) => {
     confirmActionResolver = resolve;
@@ -33032,17 +33049,87 @@ function itemActionMenuHtml(menuId, actions = []) {
   `;
 }
 
+function itemActionMenuIsMobile() {
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(max-width: 767px)").matches;
+}
+
+function ensureItemActionMenuBackdrop() {
+  let backdrop = document.querySelector("[data-llh-item-menu-backdrop]");
+  if (!backdrop) {
+    backdrop = document.createElement("button");
+    backdrop.type = "button";
+    backdrop.className = "llh-item-menu-backdrop";
+    backdrop.setAttribute("data-llh-item-menu-backdrop", "");
+    backdrop.setAttribute("aria-label", "Close actions menu");
+    backdrop.hidden = true;
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener("click", () => closeAllItemActionMenus());
+  }
+  return backdrop;
+}
+
+function restoreItemActionMenuPanel(panel) {
+  if (!panel) return;
+  const homeId = panel.getAttribute("data-llh-item-menu-home");
+  const home = homeId
+    ? document.querySelector(`[data-llh-item-menu-toggle="${homeId}"]`)?.closest(".llh-item-menu")
+    : null;
+  if (home && panel.parentElement !== home) home.appendChild(panel);
+  ["position", "top", "bottom", "left", "right", "width", "maxWidth", "maxHeight", "zIndex", "margin"].forEach((prop) => {
+    panel.style[prop] = "";
+  });
+  panel.classList.remove("is-mobile-sheet");
+}
+
+function positionItemActionMenuPanel(panel) {
+  if (!panel || panel.hidden) return;
+  const mobile = itemActionMenuIsMobile();
+  const backdrop = ensureItemActionMenuBackdrop();
+  document.body.classList.toggle("llh-item-menu-open", mobile);
+  if (!mobile) {
+    backdrop.hidden = true;
+    restoreItemActionMenuPanel(panel);
+    return;
+  }
+  if (!panel.getAttribute("data-llh-item-menu-home")) {
+    panel.setAttribute("data-llh-item-menu-home", panel.getAttribute("data-llh-item-menu") || "");
+  }
+  if (panel.parentElement !== document.body) document.body.appendChild(panel);
+  panel.classList.add("is-mobile-sheet");
+  backdrop.hidden = false;
+  const sidePad = 12;
+  const safeBottom = typeof readSafeAreaInset === "function" ? readSafeAreaInset("bottom") : 0;
+  const safeTop = typeof readSafeAreaInset === "function" ? readSafeAreaInset("top") : 0;
+  panel.style.position = "fixed";
+  panel.style.left = `${sidePad}px`;
+  panel.style.right = `${sidePad}px`;
+  panel.style.width = `calc(100vw - ${sidePad * 2}px)`;
+  panel.style.maxWidth = "100%";
+  panel.style.bottom = `${Math.max(sidePad, safeBottom + 8)}px`;
+  panel.style.top = "auto";
+  panel.style.maxHeight = `${Math.max(180, window.innerHeight - 32 - safeTop - safeBottom)}px`;
+  panel.style.zIndex = "1285";
+  panel.style.margin = "0";
+}
+
 function closeAllItemActionMenus(exceptId = "") {
   document.querySelectorAll("[data-llh-item-menu]").forEach((panel) => {
     const id = panel.getAttribute("data-llh-item-menu") || "";
     if (exceptId && id === exceptId) return;
     panel.hidden = true;
+    restoreItemActionMenuPanel(panel);
   });
   document.querySelectorAll("[data-llh-item-menu-toggle]").forEach((btn) => {
     const id = btn.getAttribute("data-llh-item-menu-toggle") || "";
     if (exceptId && id === exceptId) return;
     btn.setAttribute("aria-expanded", "false");
   });
+  if (!exceptId) {
+    const backdrop = document.querySelector("[data-llh-item-menu-backdrop]");
+    if (backdrop) backdrop.hidden = true;
+    document.body.classList.remove("llh-item-menu-open");
+  }
 }
 
 function toggleItemActionMenu(menuId, forceOpen) {
@@ -33053,6 +33140,15 @@ function toggleItemActionMenu(menuId, forceOpen) {
   closeAllItemActionMenus(willOpen ? menuId : "");
   panel.hidden = !willOpen;
   if (toggle) toggle.setAttribute("aria-expanded", willOpen ? "true" : "false");
+  if (willOpen) {
+    positionItemActionMenuPanel(panel);
+    requestAnimationFrame(() => positionItemActionMenuPanel(panel));
+  } else {
+    restoreItemActionMenuPanel(panel);
+    const backdrop = document.querySelector("[data-llh-item-menu-backdrop]");
+    if (backdrop) backdrop.hidden = true;
+    document.body.classList.remove("llh-item-menu-open");
+  }
 }
 
 function childRecordEditDialogHtml() {
@@ -33088,6 +33184,9 @@ function ensureChildRecordEditDialog() {
 function closeChildRecordEditDialog(saved = false) {
   const dialog = document.querySelector("[data-llh-record-edit-dialog]");
   if (dialog) dialog.hidden = true;
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+    document.body.classList.remove("auth-modal-open");
+  }
   const resolve = childRecordEditResolver;
   childRecordEditResolver = null;
   if (resolve) resolve(Boolean(saved));
@@ -33122,6 +33221,7 @@ function openChildRecordEditDialog(storeKey, recordId) {
   form.date.value = item.date || "";
   form.details.value = detail.value || "";
   form.dataset.detailKey = detail.key;
+  document.body.classList.add("auth-modal-open");
   dialog.hidden = false;
   form.details.focus();
   return new Promise((resolve) => {
@@ -33893,6 +33993,7 @@ function openFeedbackModal(type = "General Feedback") {
   if (subjectInput) subjectInput.value = "";
   if (messageInput) messageInput.value = "";
   setFormMessage("#feedbackMessage", "");
+  document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   nameInput?.focus();
@@ -33903,6 +34004,9 @@ function closeFeedbackModal() {
   if (!modal) return;
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+    document.body.classList.remove("auth-modal-open");
+  }
 }
 
 async function submitFeedbackForm(event) {
@@ -34557,6 +34661,11 @@ function effectiveAccessPlan() {
   if (preview === "Trial" || preview === "Pro") return "Pro";
   if (preview === "Founding" || preview === "Director" || preview === "Teacher") return "Founding";
   if (hasAdminFullAccess()) return "Founding";
+  // Platform owner aliases (e.g. leahivie@icloud.com) always get full Pro/Founding
+  // app access so every lesson plan is viewable — even when the membership row is
+  // still marked Free for billing/upgrade testing. Admin Free preview above still
+  // lets Leah simulate a Free member when needed.
+  if (isSignedInPlatformOwner()) return "Founding";
   if (currentUser) {
     const account = currentAccount();
     const resolved = accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
@@ -55745,6 +55854,8 @@ window.addEventListener("resize", () => {
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")) {
     positionLessonWorkspaceMoreMenu();
   }
+  const openItemMenu = document.querySelector("[data-llh-item-menu]:not([hidden])");
+  if (openItemMenu) positionItemActionMenuPanel(openItemMenu);
 });
 window.addEventListener("scroll", () => {
   if (notificationBellState.open) positionNotificationBellPanel();

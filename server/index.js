@@ -49,8 +49,10 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "";
 const ADMIN_ACCESS_CODE = process.env.ADMIN_ACCESS_CODE || "";
 const ADMIN_NAME = process.env.ADMIN_NAME || "Owner";
 // Extra owner logins that share the same admin password/code (iCloud + aliases).
-// Leah can unlock Admin and receive owner alerts on these while still keeping
-// separate Free/Pro/Founding membership on the same accounts for testing.
+// These emails get full Pro curriculum access in the app (see resolveCurriculumAccessUser)
+// so Leah can open every lesson plan while signed in — even if the store membership
+// row is still Free for billing/upgrade testing. Admin Free preview remains available
+// in the client for simulating a Free member.
 const DEFAULT_ADMIN_EMAIL_ALIASES = [
   "leahivie@icloud.com",
   "leahrivie@icloud.com",
@@ -3318,6 +3320,16 @@ async function resolveCurriculumAccessUser(request, url) {
   }
   const store = readStore();
   const user = store.users?.[identity.email] || { email: identity.email };
+  // Platform owner aliases always receive full curriculum content, independent of
+  // the Free/Pro membership row used for billing experiments.
+  if (isConfiguredAdminEmail(identity.email)) {
+    return {
+      authorized: true,
+      email: identity.email,
+      user,
+      source: "admin-owner",
+    };
+  }
   // Staff/directors inherit the program owner's paid access for curriculum gates.
   const ownerEmail = programOwnership.resolveOwnerEmailForUser(user, identity.email);
   const accessRecord = (ownerEmail && store.users?.[ownerEmail]) || user;

@@ -16548,7 +16548,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   #proModal,
   #feedbackModal,
   #featurePreviewModal,
-  #proFeatureModal {
+  #proFeatureModal,
+  #installAppModal,
+  #scheduleEventModal {
     z-index: 1300;
     padding: 12px;
     align-items: end;
@@ -16558,7 +16560,10 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   #proModal .modal-card,
   #feedbackModal .modal-card,
   #featurePreviewModal .modal-card,
-  #proFeatureModal .modal-card {
+  #proFeatureModal .modal-card,
+  #installAppModal .modal-card,
+  #scheduleEventModal .llh-schedule-event-modal,
+  .lesson-editor-leave-panel {
     width: calc(100vw - 24px);
     max-width: 100%;
     max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
@@ -16566,6 +16571,22 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
     overflow-y: auto;
     margin: 0;
     box-sizing: border-box;
+  }
+
+  #scheduleEventModal.open {
+    place-items: end center;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .lesson-editor-leave-dialog {
+    align-items: end;
+    padding: 12px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  body.resource-viewer-open {
+    overflow: hidden;
+    touch-action: none;
   }
 }
 
@@ -18238,6 +18259,9 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   background: #fff;
   border-radius: 16px;
   padding: 20px;
+  box-sizing: border-box;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
 }
 
 .llh-schedule-event-modal .modal-header {
@@ -18246,6 +18270,10 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   gap: 12px;
   align-items: start;
   margin-bottom: 12px;
+}
+
+#scheduleEventModal {
+  z-index: 1300;
 }
 
 #scheduleEventModal.open {
@@ -18969,7 +18997,7 @@ body.curriculum-planner-retired .nav-link[data-view="curriculum-planner"] {
 .lesson-editor-leave-dialog {
   position: fixed;
   inset: 0;
-  z-index: 80;
+  z-index: 1300;
   display: grid;
   place-items: center;
   padding: 16px;
@@ -19248,14 +19276,26 @@ body.lesson-editor-view .main {
   display: grid;
   gap: 2px;
   min-width: min(240px, calc(100vw - 32px));
+  max-width: min(320px, calc(100vw - 24px));
   padding: 6px;
   background: var(--white, #fff);
   border: 1px solid var(--line);
   border-radius: var(--radius, 10px);
   box-shadow: 0 10px 28px rgba(40, 52, 71, 0.14);
+  box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .llh-item-menu-panel[hidden] {
+  display: none !important;
+}
+
+.llh-item-menu-backdrop {
+  display: none;
+}
+
+.llh-item-menu-backdrop[hidden] {
   display: none !important;
 }
 
@@ -19269,6 +19309,9 @@ body.lesson-editor-view .main {
   background: transparent;
   color: var(--ink);
   cursor: pointer;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .llh-item-menu-action:hover,
@@ -19368,10 +19411,43 @@ body.lesson-editor-view .main {
   align-items: flex-start;
 }
 
-@media (max-width: 720px) {
-  .llh-item-menu-panel {
-    right: auto;
-    left: 0;
+@media (max-width: 767px) {
+  body.llh-item-menu-open {
+    overflow: hidden;
+    touch-action: none;
+  }
+
+  .llh-item-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1280;
+    border: 0;
+    padding: 0;
+    margin: 0;
+    background: rgba(24, 28, 36, 0.48);
+    cursor: pointer;
+  }
+
+  .llh-item-menu-panel.is-mobile-sheet {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 0px));
+    top: auto;
+    width: calc(100vw - 24px);
+    max-width: 100%;
+    min-width: 0;
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    z-index: 1285;
+    padding: 10px 8px;
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(24, 28, 36, 0.28);
+  }
+
+  .llh-item-menu-panel.is-mobile-sheet .llh-item-menu-action {
+    min-height: 48px;
+    padding: 12px 14px;
   }
 }
 

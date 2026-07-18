@@ -78,10 +78,10 @@ test("cache bust versions stay aligned for drilldown", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
   assert.equal(indexCss, indexJs);
-  assert.equal(indexCss, "20260718-mobile-sheets");
+  assert.equal(indexCss, "20260718-owner-pro");
   assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss}`));
   assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs}`));
-  assert.match(sw, /llh-shell-v97-mobile-sheets/);
+  assert.match(sw, /llh-shell-v98-owner-pro/);
 });
 
 test("owner command center includes action center and KPI strip", () => {
