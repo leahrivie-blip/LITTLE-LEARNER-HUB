@@ -4464,6 +4464,8 @@ function requireBillingAccount() {
 const searchInput = document.querySelector("#searchInput");
 const currentPlanLabel = document.querySelector("#currentPlanLabel");
 const homeViewTemplate = document.querySelector("#view-home").innerHTML;
+// Must be declared before loadResources()/effectiveSiteContent() run at boot.
+const DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const defaultSiteContentState = captureDefaultSiteContent();
 let siteContentState = emptySiteContent();
 let resources = loadResources();
@@ -4687,7 +4689,6 @@ const adminLessonUnsavedWarning = "You have unsaved changes. Leave without savin
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
 const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
-const DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
