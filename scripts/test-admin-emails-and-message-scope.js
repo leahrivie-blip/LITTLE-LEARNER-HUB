@@ -127,8 +127,8 @@ function staticChecks() {
   assert.match(appJs, /leahivie@icloud\.com/, "owner account aliases must include iCloud login");
   assert.match(serverJs, /DEFAULT_ADMIN_EMAIL_ALIASES/, "server must define admin email aliases");
   assert.match(serverJs, /isAdminOnlyNotificationType/, "member APIs must filter admin-only notification types");
-  assert.match(indexHtml, /llh-messaging\.css\?v=20260718-lesson-sheets/);
-  assert.match(indexHtml, /app\.js\?v=20260718-lesson-sheets/);
+  assert.match(indexHtml, /llh-messaging\.css\?v=20260718-lesson-fullscreen/);
+  assert.match(indexHtml, /app\.js\?v=20260718-lesson-fullscreen/);
   console.log("PASS static multi-admin + mobile notification markers");
 }
 

@@ -275,9 +275,12 @@ async function main() {
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
     // Mobile More menu must open as an in-viewport bottom sheet above the lesson viewer.
-    const panels = page.locator(".lesson-workspace-panels");
-    await panels.evaluate((el) => { el.scrollTop = Math.min(220, el.scrollHeight); });
-    const scrollBefore = await panels.evaluate((el) => el.scrollTop);
+    // Actions are in-flow, so scroll to More first (same as a real tap), then verify restore.
+    const pageScroll = page.locator(".lesson-workspace");
+    await page.locator("[data-lesson-workspace-more-toggle]").scrollIntoViewIfNeeded();
+    await page.waitForTimeout(100);
+    const scrollBefore = await pageScroll.evaluate((el) => el.scrollTop);
+    check("Scrolled to in-flow More before open", scrollBefore > 40, String(scrollBefore));
     await page.locator("[data-lesson-workspace-more-toggle]").click();
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     await page.waitForTimeout(200);
@@ -326,10 +329,11 @@ async function main() {
 
     await page.locator("[data-lesson-workspace-more-close]").click();
     await page.waitForSelector(".lesson-workspace-more-menu[hidden]", { state: "attached", timeout: 5000 });
-    const scrollAfter = await panels.evaluate((el) => el.scrollTop);
+    const scrollAfter = await pageScroll.evaluate((el) => el.scrollTop);
     check("Closing More keeps lesson scroll position", Math.abs(scrollAfter - scrollBefore) <= 2, `${scrollBefore} -> ${scrollAfter}`);
 
     // Use This Plan / calendar sheet also stays fully on-screen.
+    await page.locator('[data-lesson-action-bars="top"] [data-lesson-use-this-plan]').scrollIntoViewIfNeeded();
     await page.locator('[data-lesson-action-bars="top"] [data-lesson-use-this-plan]').click();
     await page.waitForSelector('[data-lesson-workspace-action-panel="main-calendar"]:not([hidden])', { timeout: 5000 });
     const assignGeom = await page.evaluate(() => {
@@ -354,6 +358,7 @@ async function main() {
     await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/lesson-assign-sheet-412.png", fullPage: false });
     await page.click("[data-lesson-workspace-action-sheet-dismiss]");
 
+    await page.locator("[data-lesson-workspace-more-toggle]").scrollIntoViewIfNeeded();
     await page.locator("[data-lesson-workspace-more-toggle]").click();
     await page.waitForSelector(".lesson-workspace-more-menu:not([hidden])", { timeout: 5000 });
     await page.locator('.lesson-workspace-more-menu [data-lesson-workspace-back]').click();
