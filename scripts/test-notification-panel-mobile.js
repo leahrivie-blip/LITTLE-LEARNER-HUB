@@ -254,7 +254,7 @@ async function assertPanelGeometry(page, label) {
     return badge.getBoundingClientRect().top - panel.getBoundingClientRect().bottom;
   });
   if (adminBadgeBottomGap !== null) {
-    assert.ok(adminBadgeBottomGap >= -1, `${label}: panel overlaps Admin mode / bottom chrome (${adminBadgeBottomGap})`);
+    assert.ok(adminBadgeBottomGap >= 8, `${label}: panel must clear Admin mode / bottom chrome by ≥8px (gap ${adminBadgeBottomGap})`);
   }
   assert.ok(metrics.markVisible, `${label}: Mark all as read missing`);
   assert.ok(metrics.closeVisible, `${label}: Close button missing`);
