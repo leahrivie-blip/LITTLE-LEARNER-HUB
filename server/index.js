@@ -66,6 +66,8 @@ const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
 const EMAIL_AUTOMATIONS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.EMAIL_AUTOMATIONS_ENABLED || "false").trim().toLowerCase(),
 );
+const SUPPORT_POSTAL_ADDRESS = String(process.env.SUPPORT_POSTAL_ADDRESS || "").trim();
+const EMAIL_UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || ADMIN_ACCESS_CODE;
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
@@ -432,6 +434,28 @@ function supportEmailConfigStatus() {
     automationsEnabled: emailAutomationsEnabled(),
     note,
   };
+}
+
+
+function emailUnsubscribeToken(email) {
+  if (!isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET)) return "";
+  return crypto
+    .createHmac("sha256", EMAIL_UNSUBSCRIBE_SECRET)
+    .update(normalizeEmail(email))
+    .digest("hex");
+}
+
+function validEmailUnsubscribeToken(email, token) {
+  const expected = emailUnsubscribeToken(email);
+  const supplied = String(token || "");
+  if (!expected || expected.length !== supplied.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(supplied));
+}
+
+function unsubscribeUrlForEmail(email) {
+  const clean = normalizeEmail(email);
+  const token = emailUnsubscribeToken(clean);
+  return `${SITE_URL.replace(/\/$/, "")}/unsubscribe?email=${encodeURIComponent(clean)}&token=${encodeURIComponent(token)}`;
 }
 
 function siteConfigStatus() {
@@ -2267,6 +2291,20 @@ async function initializePostgresStore() {
     )
   `);
   await postgresPool.query(`
+    CREATE TABLE IF NOT EXISTS llh_email_campaign_deliveries (
+      campaign_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      content_hash TEXT NOT NULL,
+      status TEXT NOT NULL,
+      provider TEXT NOT NULL DEFAULT '',
+      message_id TEXT NOT NULL DEFAULT '',
+      error TEXT NOT NULL DEFAULT '',
+      claimed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      completed_at TIMESTAMPTZ,
+      PRIMARY KEY (campaign_id, email)
+    )
+  `);
+  await postgresPool.query(`
     CREATE TABLE IF NOT EXISTS llh_store_backups (
       id TEXT PRIMARY KEY,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -2518,6 +2556,18 @@ function readStore() {
   if (usePostgresStore()) return structuredClone(storeCache || defaultStore());
   ensureStore();
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
+}
+
+async function readStoreFresh() {
+  if (usePostgresStore()) {
+    await postgresWriteChain.catch(() => {});
+    if (postgresPool && databaseReady) {
+      const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+      if (result.rows[0]?.data) storeCache = result.rows[0].data;
+    }
+    return structuredClone(storeCache || defaultStore());
+  }
+  return readStore();
 }
 
 // Returns the store without deep-cloning. Safe for read-only handlers that never
@@ -2838,8 +2888,31 @@ function writeLocalJsonStore(store) {
   fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
 }
 
+
+function mergeStorePreserveEmailCampaigns(incomingStore) {
+  const cachedCampaigns = storeCache?.emailEngagement?.campaigns;
+  if (!cachedCampaigns || typeof cachedCampaigns !== "object" || !Object.keys(cachedCampaigns).length) {
+    return incomingStore;
+  }
+  const incomingEngagement = incomingStore?.emailEngagement && typeof incomingStore.emailEngagement === "object"
+    ? incomingStore.emailEngagement
+    : {};
+  return {
+    ...incomingStore,
+    emailEngagement: {
+      ...incomingEngagement,
+      campaigns: {
+        ...(incomingEngagement.campaigns || {}),
+        ...cachedCampaigns,
+      },
+    },
+  };
+}
+
 function writeStore(store) {
-  const nextStore = mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store));
+  const nextStore = mergeStorePreserveEmailCampaigns(
+    mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store)),
+  );
   storeCache = nextStore;
   // Only upsert to Postgres after the authentic DB store is loaded. While on local
   // fallback, never push a sparse in-memory store over production membership data.
@@ -2867,7 +2940,7 @@ async function writeStoreAsync(store) {
   // Intentional full-state writes (curriculum / site-content) may carry a newer stamp.
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
   // Always preserve adminSessions so a concurrent login is not erased mid-save.
-  storeCache = mergeStorePreserveAdminSessions(store);
+  storeCache = mergeStorePreserveEmailCampaigns(mergeStorePreserveAdminSessions(store));
   if (usePostgresStore() && postgresPool && databaseReady) {
     try {
       const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
@@ -2903,6 +2976,150 @@ async function writeStoreAsync(store) {
 
 function normalizeEmail(email) {
   return String(email || "").trim().toLowerCase();
+}
+
+async function claimEmailCampaignDelivery({ campaignId, email, contentHash }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    const inserted = await postgresPool.query(
+      `INSERT INTO llh_email_campaign_deliveries
+        (campaign_id, email, content_hash, status)
+       VALUES ($1, $2, $3, 'pending')
+       ON CONFLICT (campaign_id, email) DO NOTHING
+       RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
+      [campaignId, cleanEmail, contentHash],
+    );
+    if (inserted.rows[0]) return { claimed: true, delivery: inserted.rows[0] };
+    const reclaimed = await postgresPool.query(
+      `UPDATE llh_email_campaign_deliveries
+       SET claimed_at = NOW(), error = ''
+       WHERE campaign_id = $1 AND email = $2 AND status = 'pending'
+         AND claimed_at < NOW() - INTERVAL '30 minutes'
+         AND claimed_at > NOW() - INTERVAL '24 hours'
+       RETURNING campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at`,
+      [campaignId, cleanEmail],
+    );
+    if (reclaimed.rows[0]) return { claimed: true, reclaimed: true, delivery: reclaimed.rows[0] };
+    const existing = await postgresPool.query(
+      `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
+       FROM llh_email_campaign_deliveries WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail],
+    );
+    return { claimed: false, delivery: existing.rows[0] || null };
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  if (store.emailCampaignDeliveries[key]) {
+    return { claimed: false, delivery: store.emailCampaignDeliveries[key] };
+  }
+  const delivery = {
+    campaign_id: campaignId,
+    email: cleanEmail,
+    content_hash: contentHash,
+    status: "pending",
+    provider: "",
+    message_id: "",
+    error: "",
+    claimed_at: new Date().toISOString(),
+    completed_at: null,
+  };
+  store.emailCampaignDeliveries[key] = delivery;
+  await writeStoreAsync(store);
+  return { claimed: true, delivery };
+}
+
+async function completeEmailCampaignDelivery({ campaignId, email, status, provider = "", messageId = "", error = "" }) {
+  const cleanEmail = normalizeEmail(email);
+  if (usePostgresStore()) {
+    await postgresPool.query(
+      `UPDATE llh_email_campaign_deliveries
+       SET status = $3, provider = $4, message_id = $5, error = $6, completed_at = NOW()
+       WHERE campaign_id = $1 AND email = $2`,
+      [campaignId, cleanEmail, status, provider, messageId, error],
+    );
+    return;
+  }
+  const store = readStore();
+  store.emailCampaignDeliveries = store.emailCampaignDeliveries || {};
+  const key = `${campaignId}:${cleanEmail}`;
+  if (store.emailCampaignDeliveries[key]) {
+    Object.assign(store.emailCampaignDeliveries[key], {
+      status,
+      provider,
+      message_id: messageId,
+      error,
+      completed_at: new Date().toISOString(),
+    });
+    await writeStoreAsync(store);
+  }
+}
+
+async function listEmailCampaignDeliveries(campaignId) {
+  if (usePostgresStore()) {
+    const result = await postgresPool.query(
+      `SELECT campaign_id, email, content_hash, status, provider, message_id, error, claimed_at, completed_at
+       FROM llh_email_campaign_deliveries WHERE campaign_id = $1 ORDER BY claimed_at ASC`,
+      [campaignId],
+    );
+    return result.rows;
+  }
+  const store = readStore();
+  return Object.values(store.emailCampaignDeliveries || {}).filter((delivery) => delivery.campaign_id === campaignId);
+}
+
+async function patchEmailCampaignState(campaignId, patch = {}) {
+  if (usePostgresStore()) {
+    const previousWrites = postgresWriteChain;
+    const patchPromise = (async () => {
+      await previousWrites.catch(() => {});
+      await postgresPool.query(
+        `UPDATE llh_store
+         SET data = jsonb_set(
+           data, '{emailEngagement}',
+           COALESCE(data -> 'emailEngagement', '{}'::jsonb)
+           || jsonb_build_object(
+             'campaigns',
+             COALESCE(data #> '{emailEngagement,campaigns}', '{}'::jsonb)
+             || jsonb_build_object(
+               $2::text,
+               COALESCE(data #> ARRAY['emailEngagement', 'campaigns', $2::text], '{}'::jsonb) || $3::jsonb
+             )
+           ),
+           true
+         ), updated_at = NOW()
+         WHERE id = $1`,
+        [storeRecordId, campaignId, JSON.stringify(patch)],
+      );
+      storeCache = storeCache || defaultStore();
+      storeCache.emailEngagement = storeCache.emailEngagement && typeof storeCache.emailEngagement === "object"
+        ? storeCache.emailEngagement
+        : defaultEmailEngagementStore();
+      storeCache.emailEngagement.campaigns = storeCache.emailEngagement.campaigns || {};
+      storeCache.emailEngagement.campaigns[campaignId] = {
+        ...(storeCache.emailEngagement.campaigns[campaignId] || {}),
+        ...patch,
+      };
+      return storeCache.emailEngagement.campaigns[campaignId];
+    })();
+    postgresWriteChain = patchPromise.catch((error) => {
+      databaseReady = false;
+      lastPostgresError = error.message || "Postgres email campaign patch failed.";
+      console.error(lastPostgresError);
+    });
+    return await patchPromise;
+  }
+  const store = readStore();
+  store.emailEngagement = store.emailEngagement && typeof store.emailEngagement === "object"
+    ? store.emailEngagement
+    : defaultEmailEngagementStore();
+  store.emailEngagement.campaigns = store.emailEngagement.campaigns || {};
+  store.emailEngagement.campaigns[campaignId] = {
+    ...(store.emailEngagement.campaigns[campaignId] || {}),
+    ...patch,
+  };
+  await writeStoreAsync(store);
+  return store.emailEngagement.campaigns[campaignId];
 }
 
 function jsonResponse(response, statusCode, payload) {
@@ -5041,10 +5258,13 @@ async function handleAccountProfileSync(request, response) {
   const user = upsertUser(email, updates);
   // Once-only welcome email on first signup stamp (soft-fail if email unconfigured).
   // Hard-gated by EMAIL_AUTOMATIONS_ENABLED — no automatic welcome until approved.
+  // Await before admin-alert fan-out so a stale store snapshot cannot wipe the stamp.
   if (body.signup === true && !existing.signupAt && emailAutomationsEnabled()) {
-    emailEngagement.maybeSendWelcomeOnSignup(email).catch((err) => {
+    try {
+      await emailEngagement.maybeSendWelcomeOnSignup(email);
+    } catch (err) {
       console.warn("[email-engagement] welcome email failed:", err.message);
-    });
+    }
   }
   if (body.signup === true && !existing.signupAt) {
     const storeForAlert = readStore();
@@ -9640,12 +9860,22 @@ async function sendEmail(opts = {}) {
   const subject = String(opts.subject || "").slice(0, 500);
   const text = String(opts.text || "");
   const html = String(opts.html || "");
+  const listUnsubscribeUrl = String(opts.listUnsubscribeUrl || "");
+  const idempotencyKey = String(opts.idempotencyKey || "").slice(0, 256);
 
   if (provider === "resend") {
     const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
     if (replyTo) payload.reply_to = replyTo;
     if (Array.isArray(opts.tags) && opts.tags.length) payload.tags = opts.tags;
-    const providerResponse = await postJson("https://api.resend.com/emails", { Authorization: "Bearer " + RESEND_API_KEY }, payload);
+    if (listUnsubscribeUrl) {
+      payload.headers = {
+        "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      };
+    }
+    const headers = { Authorization: "Bearer " + RESEND_API_KEY };
+    if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+    const providerResponse = await postJson("https://api.resend.com/emails", headers, payload);
     return {
       sent: true,
       configured: true,
@@ -9661,6 +9891,12 @@ async function sendEmail(opts = {}) {
       content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
     };
     if (replyTo) payload.reply_to = { email: replyTo };
+    if (listUnsubscribeUrl) {
+      payload.headers = {
+        "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      };
+    }
     const providerResponse = await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
     return {
       sent: true,
@@ -9679,6 +9915,12 @@ async function sendEmail(opts = {}) {
       MessageStream: "outbound",
     };
     if (replyTo) payload.ReplyTo = replyTo;
+    if (listUnsubscribeUrl) {
+      payload.Headers = [
+        { Name: "List-Unsubscribe", Value: `<${listUnsubscribeUrl}>` },
+        { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
+      ];
+    }
     const providerResponse = await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
     return {
       sent: true,
@@ -9696,10 +9938,18 @@ async function sendEmail(opts = {}) {
 const emailEngagement = createEmailEngagement({
   sendEmail,
   SITE_URL,
+  reviewEmail: ADMIN_EMAIL,
+  unsubscribeUrlForEmail,
+  postalAddress: SUPPORT_POSTAL_ADDRESS,
   htmlEscape,
   readStore,
+  readStoreFresh,
   writeStore,
   writeStoreAsync,
+  claimEmailCampaignDelivery,
+  completeEmailCampaignDelivery,
+  listEmailCampaignDeliveries,
+  patchEmailCampaignState,
   isCurriculumLessonPublic,
   getDatabaseStatus: () => ({
     ...databaseConfigStatus(),
@@ -12030,6 +12280,7 @@ async function fanOutNotificationsAndPush(store, {
   const now = new Date().toISOString();
   const notificationByEmail = new Map();
   const resolvedDeepLink = deepLink || url || "";
+  store.notifications = Array.isArray(store.notifications) ? store.notifications : [];
   uniqueRecipients.forEach((email) => {
     const notification = {
       id: messagingRandomId("notif"),
@@ -12911,6 +13162,7 @@ function handleAdminEmailEngagementGet(request, response, url) {
   jsonResponse(response, 200, {
     ok: true,
     supportEmail: supportEmailConfigStatus(),
+    freeReengagement: freeReengagementSafetyStatus(store),
     database: databaseConfigStatus(),
     automations: {
       enabled: emailAutomationsEnabled(),
@@ -13404,6 +13656,147 @@ async function handleAdminEmailEngagementSendStep(request, response) {
   });
 }
 
+
+function freeReengagementSafetyStatus(store = readStore()) {
+  const audience = emailEngagement.freeReengagementAudience(store);
+  const emailService = supportEmailConfigStatus();
+  const unsubscribeHttpsReady = unsubscribeUrlForEmail(ADMIN_EMAIL).startsWith("https://");
+  const postalAddressConfigured = isConfiguredValue(SUPPORT_POSTAL_ADDRESS);
+  const atomicDeliveryReady = usePostgresStore() && databaseReady;
+  const idempotentProviderReady = emailService.provider === "resend";
+  return {
+    ready: emailService.ready
+      && isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET)
+      && unsubscribeHttpsReady
+      && postalAddressConfigured
+      && atomicDeliveryReady
+      && idempotentProviderReady,
+    emailService,
+    unsubscribeConfigured: isConfiguredValue(EMAIL_UNSUBSCRIBE_SECRET),
+    unsubscribeHttpsReady,
+    postalAddressConfigured,
+    atomicDeliveryReady,
+    idempotentProviderReady,
+    campaignId: audience.campaignId,
+    subject: audience.subject,
+    eligibleCount: audience.eligibleCount,
+    eligibleEmails: audience.eligible.map((entry) => entry.email),
+    invalidEmails: audience.invalid,
+    excluded: audience.excluded,
+    campaignState: store.emailEngagement?.campaigns?.[audience.campaignId] || {},
+  };
+}
+
+async function handleAdminFreeReengagementPreview(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, safety: freeReengagementSafetyStatus() });
+}
+
+async function handleAdminFreeReengagementTest(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const safety = freeReengagementSafetyStatus();
+  if (!safety.ready) {
+    jsonResponse(response, 503, { error: "Email provider or unsubscribe compliance is not configured.", safety });
+    return;
+  }
+  const result = await emailEngagement.sendFreeReengagementTest();
+  jsonResponse(response, result.sent ? 200 : 502, { ok: result.sent, result, safety: freeReengagementSafetyStatus() });
+}
+
+async function handleAdminFreeReengagementSend(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const safety = freeReengagementSafetyStatus();
+  if (!safety.ready) {
+    jsonResponse(response, 503, { error: "Email provider or unsubscribe compliance is not configured.", safety });
+    return;
+  }
+  const result = await emailEngagement.runFreeReengagementCampaign({
+    confirmCampaignId: String(body.confirmCampaignId || ""),
+    reviewApproved: body.reviewApproved === true,
+  });
+  if (result.reason) {
+    jsonResponse(response, 409, { error: result.reason, result, safety: freeReengagementSafetyStatus() });
+    return;
+  }
+  jsonResponse(response, 200, { ok: result.failedSends === 0, result, safety: freeReengagementSafetyStatus() });
+}
+
+function handleFreeReengagementPublicStatus(response) {
+  const state = readStore().emailEngagement?.campaigns?.["free-reengagement-2026-07"] || {};
+  const status = state.sendCompletedAt
+    ? "completed"
+    : state.sendStartedAt
+      ? "sending"
+      : state.testSentAt
+        ? "test_sent"
+        : state.testError
+          ? "test_failed"
+          : state.queuedAt
+            ? "queued"
+            : "not_queued";
+  jsonResponse(response, 200, {
+    campaignId: "free-reengagement-2026-07",
+    status,
+    testCopyAccepted: Boolean(state.testSentAt),
+    testSentAt: state.testSentAt || "",
+    targetCount: Number(state.targetCount || 0),
+    successfulSends: Number(state.successfulSends || 0),
+    failedSends: Number(state.failedSends || 0),
+    invalidEmailCount: Array.isArray(state.invalidEmails) ? state.invalidEmails.length : 0,
+    bouncedEmailCount: Array.isArray(state.bouncedEmails) ? state.bouncedEmails.length : 0,
+    bounceTrackingAvailable: Boolean(state.bounceTrackingAvailable),
+    sendCompletedAt: state.sendCompletedAt || "",
+  });
+}
+
+function handleEmailUnsubscribePage(response, url) {
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const token = url.searchParams.get("token") || "";
+  if (!email || !validEmailUnsubscribeToken(email, token)) {
+    textResponse(response, 400, "<h1>Invalid unsubscribe link</h1><p>Please contact support for help.</p>", "text/html; charset=utf-8");
+    return;
+  }
+  const action = `/api/email/unsubscribe-one-click?email=${encodeURIComponent(email)}&token=${encodeURIComponent(token)}`;
+  textResponse(response, 200, `
+    <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">
+    <title>Email preferences · Little Learner Hub</title></head>
+    <body style="font-family:Arial,sans-serif;max-width:560px;margin:60px auto;padding:20px;color:#2c2416">
+      <h1>Unsubscribe from marketing emails?</h1>
+      <p>This will stop onboarding, weekly update, and re-engagement emails for <strong>${htmlEscape(email)}</strong>.</p>
+      <form method="post" action="${htmlEscape(action)}">
+        <button type="submit" style="padding:12px 18px">Unsubscribe</button>
+      </form>
+    </body></html>
+  `, "text/html; charset=utf-8");
+}
+
+async function handleEmailUnsubscribeOneClick(response, url) {
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const token = url.searchParams.get("token") || "";
+  if (!email || !validEmailUnsubscribeToken(email, token)) {
+    textResponse(response, 400, "<h1>Invalid unsubscribe request</h1>", "text/html; charset=utf-8");
+    return;
+  }
+  const result = await emailEngagement.unsubscribeUser(email);
+  if (!result.ok) {
+    textResponse(response, 404, "<h1>Account not found</h1>", "text/html; charset=utf-8");
+    return;
+  }
+  textResponse(response, 200, "<h1>You’re unsubscribed.</h1><p>You will no longer receive marketing emails from Little Learner Hub.</p>", "text/html; charset=utf-8");
+}
+
 async function handleEmailUnsubscribe(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -13591,6 +13984,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-onboarding") return await handleAdminEmailEngagementRunOnboarding(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/run-weekly") return await handleAdminEmailEngagementRunWeekly(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-step") return await handleAdminEmailEngagementSendStep(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/free-reengagement-preview") return await handleAdminFreeReengagementPreview(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/free-reengagement-test") return await handleAdminFreeReengagementTest(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/free-reengagement-send") return await handleAdminFreeReengagementSend(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/preflight-audit") return await handleAdminEmailEngagementPreflightAudit(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/prepare-one-time") return await handleAdminEmailEngagementPrepareOneTime(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/send-one-time") return await handleAdminEmailEngagementSendOneTime(request, response);
@@ -13616,6 +14012,9 @@ const server = http.createServer(async (request, response) => {
       return await handleResendEmailWebhook(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/email/unsubscribe") return await handleEmailUnsubscribe(request, response);
+    if (request.method === "GET" && url.pathname === "/unsubscribe") return handleEmailUnsubscribePage(response, url);
+    if (request.method === "POST" && url.pathname === "/api/email/unsubscribe-one-click") return await handleEmailUnsubscribeOneClick(response, url);
+    if (request.method === "GET" && url.pathname === "/api/email-campaign/free-reengagement-status") return handleFreeReengagementPublicStatus(response);
     // Phase 6-A: Admin Reply & Communications
     if (request.method === "POST" && url.pathname === "/api/admin/reply") return await handleAdminReply(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/communications") return handleCommunicationsList(request, response, url);
