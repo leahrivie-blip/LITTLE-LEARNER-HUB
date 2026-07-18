@@ -10658,7 +10658,8 @@ function syncNotificationBellPortal(open) {
   const panel = document.querySelector("#notificationBellPanel");
   const backdrop = document.querySelector("#notificationBellBackdrop");
   if (!wrap || !panel || !backdrop) return { panel, backdrop };
-  if (open) {
+  const mobile = notificationBellIsMobileViewport();
+  if (open && mobile) {
     // Escape the topbar stacking context so Admin mode / bottom chrome cannot cover the panel.
     if (backdrop.parentElement !== document.body) document.body.appendChild(backdrop);
     if (panel.parentElement !== document.body) document.body.appendChild(panel);
@@ -10682,6 +10683,7 @@ function positionNotificationBellPanel() {
   }
   if (!panel || !open || !bell) {
     clearNotificationBellPanelInlineStyles(panel);
+    if (wrap) wrap.dataset.portalOpen = "false";
     return;
   }
 
@@ -10692,18 +10694,21 @@ function positionNotificationBellPanel() {
   // Anchor under the bell only — do not push below the Early Supporter/upgrade
   // card. The list scrolls internally so Open Messages stays on-screen.
   const top = Math.max(sidePad + safeTop, bellRect.bottom + gap);
-
   const maxPanelWidth = mobile ? 420 : 360;
   const width = Math.min(maxPanelWidth, Math.max(240, window.innerWidth - sidePad * 2));
   let left;
   if (mobile) {
     left = Math.max(sidePad, Math.round((window.innerWidth - width) / 2));
   } else {
+    // Align under the bell, but keep the panel inside the main column so it
+    // never slides under the desktop sidebar.
+    const main = document.querySelector(".main");
+    const mainLeft = main ? Math.round(main.getBoundingClientRect().left) + sidePad : sidePad;
     left = Math.round(bellRect.right - width);
     left = Math.min(left, window.innerWidth - sidePad - width);
-    left = Math.max(sidePad, left);
+    left = Math.max(mainLeft, left);
   }
-  const bottomPad = notificationBellBottomReserve();
+  const bottomPad = mobile ? notificationBellBottomReserve() : 24;
   const maxHeight = Math.max(200, window.innerHeight - top - bottomPad);
 
   panel.style.position = "fixed";
@@ -10714,13 +10719,13 @@ function positionNotificationBellPanel() {
   panel.style.maxWidth = `calc(100vw - ${sidePad * 2}px)`;
   panel.style.maxHeight = `${Math.round(maxHeight)}px`;
   panel.style.margin = "0";
-  panel.style.zIndex = "1260";
+  panel.style.zIndex = mobile ? "1260" : "260";
   if (backdrop && mobile) {
     backdrop.style.position = "fixed";
     backdrop.style.inset = "0";
     backdrop.style.zIndex = "1250";
   }
-  if (wrap) wrap.dataset.portalOpen = open ? "true" : "false";
+  if (wrap) wrap.dataset.portalOpen = mobile ? "true" : "false";
 }
 
 function renderNotificationBell() {
