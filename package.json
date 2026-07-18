@@ -123,6 +123,7 @@
     "test:admin-full-remaining": "node scripts/test-admin-full-remaining.js",
     "test:admin-notifications-pwa": "node scripts/test-admin-notifications-pwa.js",
     "test:admin-message-by-name": "node scripts/test-admin-message-by-name.js",
+    "test:messages-live-refresh": "node scripts/test-messages-live-refresh.js",
     "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js",
     "test:auth-recovery-audit": "NODE_ENV=test node scripts/test-auth-recovery-audit.js",
     "test:shared-program-ownership": "NODE_ENV=test node scripts/test-shared-program-ownership.js",

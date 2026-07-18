@@ -922,7 +922,11 @@ function createCommsApi(deps) {
 
     const unreadByConversation = new Map();
     (store.notifications || [])
-      .filter((n) => adminEmail && normalizeEmail(n.email) === adminEmail && n.type === "message" && !n.read)
+      .filter((n) => {
+        if (!adminEmail || normalizeEmail(n.email) !== adminEmail || n.read) return false;
+        const type = String(n.type || "");
+        return type === "message" || type === "admin_new_message" || type === "admin_message_reply";
+      })
       .forEach((n) => {
         const conversationEmail = normalizeEmail(n.conversationEmail);
         if (!conversationEmail) return;

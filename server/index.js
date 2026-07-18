@@ -12262,6 +12262,16 @@ async function handleAdminMessageDraftDelete(request, response) {
   jsonResponse(response, 200, { ok: true });
 }
 
+function isAdminConversationUnreadNotification(n, adminEmail) {
+  if (!n || n.read) return false;
+  if (normalizeEmail(n.email) !== normalizeEmail(adminEmail || "")) return false;
+  if (!normalizeEmail(n.conversationEmail || "")) return false;
+  const type = String(n.type || "");
+  return type === "message"
+    || type === "admin_new_message"
+    || type === "admin_message_reply";
+}
+
 function handleAdminConversationsList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   if (!validAdminToken(adminToken)) {
@@ -12285,9 +12295,10 @@ function handleAdminConversationsList(request, response, url) {
     });
   const unreadFromUser = new Map();
   store.notifications
-    .filter((n) => n.email === ADMIN_EMAIL && n.type === "message" && !n.read)
+    .filter((n) => isAdminConversationUnreadNotification(n, ADMIN_EMAIL))
     .forEach((n) => {
-      unreadFromUser.set(n.conversationEmail, (unreadFromUser.get(n.conversationEmail) || 0) + 1);
+      const key = normalizeEmail(n.conversationEmail);
+      unreadFromUser.set(key, (unreadFromUser.get(key) || 0) + 1);
     });
   const conversations = [...byUser.values()]
     .map((c) => {
@@ -12344,6 +12355,20 @@ function handleAdminConversationMessages(request, response, url) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  // Opening a thread marks Leah's unread badges for that member as read so the
+  // Conversations list updates immediately (and stays correct after live refresh).
+  if (ADMIN_EMAIL) {
+    const now = new Date().toISOString();
+    let marked = 0;
+    store.notifications.forEach((n) => {
+      if (!isAdminConversationUnreadNotification(n, ADMIN_EMAIL)) return;
+      if (normalizeEmail(n.conversationEmail) !== userEmail) return;
+      n.read = true;
+      n.readAt = now;
+      marked += 1;
+    });
+    if (marked) writeStore(store);
+  }
   const messages = store.messages
     .filter((m) => m.audience === "private" && m.conversationEmail === userEmail)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
