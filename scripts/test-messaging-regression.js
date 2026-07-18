@@ -67,6 +67,9 @@ async function main() {
         body: { adminToken, id: ticketId, status: "Resolved", reply: "Here is the answer to your question!" },
       });
       assert.equal(update.status, 200);
+      assert.ok(update.json.ticket?.replyEmail, "reply should attempt outbound email tracking");
+      assert.equal(update.json.ticket.replyEmail.to, "regression-user@example.com");
+      assert.match(String(update.json.ticket.replyEmail.status || ""), /accepted|failed|not_configured/);
       const notifs = await request(BASE, "GET", "/api/notifications", { email: "regression-user@example.com" });
       assert.ok(notifs.json.notifications.some((n) => n.type === "support_reply"), "support reply should also raise a bell notification");
     });

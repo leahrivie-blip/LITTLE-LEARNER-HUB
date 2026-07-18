@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260717-signup-email-tap" />
+  <link rel="stylesheet" href="styles.css?v=20260718-support-reply-email" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-admin-notif-pwa" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
@@ -952,11 +952,13 @@
           </section>
           <section class="section-block admin-ticket-panel">
             <div class="section-heading">
-              <div><p class="eyebrow">Support Tickets</p><h3>View, reply, complete, and track ticket status</h3></div>
+              <div><p class="eyebrow">Support Tickets</p><h3>View, reply, email the customer, and track delivery</h3></div>
               <label class="ticket-filter-label">Status
                 <select id="ticketStatusFilter"><option>All Statuses</option><option>New</option><option>In Progress</option><option>Complete</option></select>
               </label>
             </div>
+            <p class="form-note">Send Reply Email emails them from support@littlelearnershubbyleah.com and shows Accepted / Delivered / Bounced here. Check Delivery refreshes Resend status.</p>
+            <span class="form-message" id="adminTicketMessage" aria-live="polite" hidden></span>
             <div class="ticket-list" id="adminTicketList"></div>
           </section>
           <section class="section-block admin-messages-panel" hidden>
@@ -1946,7 +1948,7 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="app.js?v=20260717-signup-email-tap" defer></script>
+    <script src="app.js?v=20260718-support-reply-email" defer></script>
     <script src="comms-center.js?v=20260717-admin-notif-pwa" defer></script>
   </body>
 </html>

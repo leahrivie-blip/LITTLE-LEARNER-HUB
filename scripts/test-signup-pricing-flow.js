@@ -73,9 +73,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260717-signup-email-tap");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260717-signup-email-tap");
-  assert.match(sw, /llh-shell-v74-signup-email-tap/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-support-reply-email");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-support-reply-email");
+  assert.match(sw, /llh-shell-v75-support-reply-email/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

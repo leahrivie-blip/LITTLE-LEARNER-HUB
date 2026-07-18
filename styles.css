@@ -5668,6 +5668,35 @@ body.lessons-view .mobile-brand {
   border-radius: var(--radius);
 }
 
+.ticket-reply-email-status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: #f7f4ef;
+}
+
+.ticket-reply-email-status.is-sent {
+  border-color: #8fbf9a;
+  background: #eef8f0;
+  color: #245c34;
+}
+
+.ticket-reply-email-status.is-failed {
+  border-color: #e0a3a3;
+  background: #fff1f1;
+  color: #8a2525;
+}
+
+#adminTicketMessage {
+  display: block;
+  margin: 0 0 12px;
+}
+
+#adminTicketMessage[hidden] {
+  display: none;
+}
+
 .ticket-admin-actions {
   display: grid;
   gap: 10px;

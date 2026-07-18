@@ -7150,6 +7150,7 @@ async function handleAdminStoreBackupDownload(request, response, url) {
 }
 
 function publicTicket(ticket) {
+  const replyEmail = ticket.replyEmail && typeof ticket.replyEmail === "object" ? ticket.replyEmail : null;
   return {
     id: ticket.id,
     kind: ticket.kind,
@@ -7160,6 +7161,21 @@ function publicTicket(ticket) {
     message: ticket.message,
     status: ticket.status,
     reply: ticket.reply || "",
+    replyEmail: replyEmail
+      ? {
+          to: replyEmail.to || "",
+          subject: replyEmail.subject || "",
+          sent: Boolean(replyEmail.sent),
+          configured: replyEmail.configured !== false,
+          provider: replyEmail.provider || "",
+          messageId: replyEmail.messageId || "",
+          sentAt: replyEmail.sentAt || "",
+          status: replyEmail.status || "",
+          lastEvent: replyEmail.lastEvent || "",
+          error: replyEmail.error || "",
+          refreshedAt: replyEmail.refreshedAt || "",
+        }
+      : null,
     createdAt: ticket.createdAt,
     updatedAt: ticket.updatedAt,
   };
@@ -9089,18 +9105,108 @@ async function handleSupportTicketUpdate(request, response) {
   }
   const previousReply = tickets[index].reply || "";
   const nextReply = body.reply !== undefined ? String(body.reply).slice(0, 5000) : tickets[index].reply;
+  const replyChanged = body.reply !== undefined && nextReply !== previousReply;
+  const forceResend = body.forceResend === true || body.resendEmail === true;
+  const refreshOnly = body.refreshReplyEmail === true;
   tickets[index] = {
     ...tickets[index],
     status: body.status ? String(body.status).slice(0, 40) : tickets[index].status,
     reply: nextReply,
     updatedAt: new Date().toISOString(),
   };
+
+  let emailResult = null;
+  const ticketOwnerEmail = normalizeEmail(tickets[index].email || tickets[index].createdBy || "");
+  const shouldSendReplyEmail = Boolean(nextReply)
+    && ticketOwnerEmail
+    && (replyChanged || forceResend)
+    && !refreshOnly;
+
+  if (refreshOnly) {
+    const existing = tickets[index].replyEmail || {};
+    const messageId = existing.messageId || "";
+    if (messageId && detectedEmailProvider() === "resend") {
+      try {
+        const remote = await fetchResendEmailStatus(messageId);
+        const lastEvent = String(remote?.last_event || remote?.lastEvent || "").trim();
+        tickets[index].replyEmail = {
+          ...existing,
+          lastEvent,
+          status: lastEvent || existing.status || "accepted",
+          refreshedAt: new Date().toISOString(),
+        };
+      } catch (error) {
+        tickets[index].replyEmail = {
+          ...existing,
+          error: error.message || "Could not refresh delivery status.",
+          refreshedAt: new Date().toISOString(),
+        };
+      }
+    }
+  }
+
+  if (shouldSendReplyEmail) {
+    const topic = String(tickets[index].topic || "Support").trim() || "Support";
+    const subject = `Re: ${topic} — Little Learner Hub`;
+    const text = `${nextReply}\n\n— The Little Learner Hub Team\n\n(You wrote: ${String(tickets[index].message || "").slice(0, 500)})`;
+    const html = `<p>${htmlEscape(nextReply).replace(/\n/g, "<br>")}</p><p>— The Little Learner Hub Team</p><hr><p style="color:#666;font-size:13px">Your original message:<br>${htmlEscape(String(tickets[index].message || "")).replace(/\n/g, "<br>")}</p>`;
+    try {
+      emailResult = await sendEmail({
+        to: ticketOwnerEmail,
+        replyTo: SUPPORT_EMAIL_TO,
+        subject,
+        text,
+        html,
+        tags: [
+          { name: "category", value: "support_reply" },
+          { name: "ticket_id", value: String(id).slice(0, 64) },
+        ],
+      });
+    } catch (err) {
+      console.warn("[email] Support ticket reply failed:", err.message);
+      emailResult = {
+        sent: false,
+        configured: supportEmailConfigStatus().ready,
+        provider: detectedEmailProvider() || "",
+        error: err.message || "Could not send reply email.",
+      };
+    }
+    const now = new Date().toISOString();
+    tickets[index].replyEmail = {
+      to: ticketOwnerEmail,
+      subject,
+      sent: Boolean(emailResult?.sent),
+      configured: Boolean(emailResult?.configured),
+      provider: emailResult?.provider || "",
+      messageId: emailResult?.messageId || "",
+      sentAt: now,
+      status: emailResult?.sent ? "accepted" : (emailResult?.configured ? "failed" : "not_configured"),
+      lastEvent: emailResult?.sent ? "accepted" : "",
+      error: emailResult?.error || (emailResult?.sent ? "" : (emailResult?.configured ? "Email provider did not accept the message." : "Email delivery is not configured on the server.")),
+      refreshedAt: now,
+    };
+    store.communications = store.communications || [];
+    store.communications.unshift({
+      id: `comm-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+      relatedId: id,
+      relatedType: "support_ticket",
+      direction: "out",
+      from: SUPPORT_EMAIL_FROM || SUPPORT_EMAIL_TO,
+      to: ticketOwnerEmail,
+      subject,
+      body: nextReply,
+      sentAt: now,
+      method: "email",
+      emailResult,
+    });
+    store.communications = store.communications.slice(0, 5000);
+  }
+
   store.supportTickets = tickets;
   writeStore(store);
   // Notify the ticket owner (bell + push) only when there is an actual new
   // reply for them to read — never on trivial internal status housekeeping.
-  const ticketOwnerEmail = normalizeEmail(tickets[index].email || tickets[index].createdBy || "");
-  if (ticketOwnerEmail && nextReply && nextReply !== previousReply) {
+  if (ticketOwnerEmail && nextReply && (replyChanged || forceResend) && !refreshOnly) {
     await fanOutNotificationsAndPush(store, {
       type: "support_reply",
       recipients: [ticketOwnerEmail],
@@ -9109,7 +9215,10 @@ async function handleSupportTicketUpdate(request, response) {
       refId: id,
     }).catch((error) => console.warn("[messaging] support reply notification failed:", error.message));
   }
-  jsonResponse(response, 200, { ticket: publicTicket(tickets[index]) });
+  jsonResponse(response, 200, {
+    ticket: publicTicket(tickets[index]),
+    emailResult: emailResult || tickets[index].replyEmail || null,
+  });
 }
 
 function handleSupportTicketsList(request, response, url) {
