@@ -68,8 +68,23 @@ test("client/server wire grandfathering helpers", () => {
   assert.match(appJs, /Early supporter Free access|earlySupporter/);
   assert.match(serverJs, /freePlanGrandfathering/);
   assert.match(serverJs, /userMayUnlockFreeCurriculumPlan/);
+  assert.match(serverJs, /normalizedFreePlanAccess/);
   assert.match(indexHtml, /free-plan-grandfathering\.js/);
+  assert.match(indexHtml, /adminFreePlanAccessApp/);
   assert.match(appJs, /X-LLH-User-Email/);
+});
+
+test("admin Site Editor exposes Free Plan Access controls", () => {
+  assert.match(appJs, /Free Plan Access/);
+  assert.match(appJs, /renderAdminFreePlanAccessSection/);
+  assert.match(appJs, /saveAdminFreePlanAccessForm/);
+  assert.match(appJs, /adminFreePlanAccessForm/);
+  assert.match(appJs, /"free-plan"/);
+  assert.match(appJs, /set-free-legacy/);
+  assert.match(appJs, /set-free-curated/);
+  assert.match(appJs, /effectiveFreeCalendarPlanningDays/);
+  assert.match(appJs, /effectiveFreeFavoriteLimit/);
+  assert.match(appJs, /effectiveFreeChildProfileLimit/);
 });
 
 function requestJson(method, urlPath, { headers = {}, body = null } = {}) {
@@ -194,6 +209,9 @@ function startServer() {
       FREE_PLAN_CURATED_CUTOFF_AT: CUTOFF,
       FREE_PLAN_GRANDFATHERING_ENABLED: "true",
       EMAIL_AUTOMATIONS_ENABLED: "false",
+      ADMIN_EMAIL: "admin@example.com",
+      ADMIN_PASSWORD: "test-password",
+      ADMIN_ACCESS_CODE: "test-code",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -228,6 +246,11 @@ async function browserMain() {
 
     const guest = await requestJson("GET", "/api/site-content");
     assert.equal(guest.status, 200);
+    assert.equal(guest.json.siteContent.freePlanAccess?.enabled, true);
+    assert.equal(guest.json.siteContent.freePlanAccess?.curatedCutoffAt, CUTOFF);
+    assert.equal(guest.json.siteContent.freePlanAccess?.freeCalendarPlanningDays, 30);
+    assert.equal(guest.json.siteContent.freePlanAccess?.freeFavoriteLimit, 20);
+    assert.equal(guest.json.siteContent.freePlanAccess?.freeChildProfileLimit, 5);
     const guestLetters = planById(guest.json.siteContent.curriculumLibrary, "cur-lp-preschool-letters-and-sounds");
     const guestHelpers = planById(guest.json.siteContent.curriculumLibrary, "cur-lp-preschool-community-helpers");
     assert.ok(guestHelpers);
@@ -235,6 +258,44 @@ async function browserMain() {
     assert.ok(guestLetters);
     assert.equal(guestLetters.locked, true, "guests/new Free should see non-curated Free as locked preview");
     console.log("PASS  guest/public library is curated");
+
+    const adminLogin = await requestJson("POST", "/api/admin/login", {
+      body: { email: "admin@example.com", password: "test-password", code: "test-code" },
+    });
+    assert.equal(adminLogin.status, 200);
+    const adminToken = adminLogin.json.token;
+    assert.ok(adminToken);
+    const adminGet = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);
+    assert.equal(adminGet.status, 200);
+    const existingUpdatedAt = adminGet.json.siteContent?.updatedAt || "";
+    const saveRes = await requestJson("POST", "/api/admin/site-content", {
+      body: {
+        adminToken,
+        siteContent: {
+          ...(adminGet.json.siteContent || {}),
+          updatedAt: existingUpdatedAt,
+          freePlanAccess: {
+            enabled: true,
+            curatedCutoffAt: CUTOFF,
+            missingDateMeansLegacy: true,
+            earlySupporterTitle: "Early supporter Free access",
+            earlySupporterBody: "Grandfathered Free keeps the original Free plan.",
+            freeCalendarPlanningDays: 45,
+            freeFavoriteLimit: 25,
+            freeChildProfileLimit: 8,
+          },
+        },
+      },
+    });
+    assert.equal(saveRes.status, 200, saveRes.text);
+    assert.equal(saveRes.json.siteContent?.freePlanAccess?.freeCalendarPlanningDays, 45);
+    assert.equal(saveRes.json.siteContent?.freePlanAccess?.freeFavoriteLimit, 25);
+    assert.equal(saveRes.json.siteContent?.freePlanAccess?.freeChildProfileLimit, 8);
+    const publicAfter = await requestJson("GET", "/api/site-content");
+    assert.equal(publicAfter.json.siteContent.freePlanAccess?.freeCalendarPlanningDays, 45);
+    assert.equal(publicAfter.json.siteContent.freePlanAccess?.freeFavoriteLimit, 25);
+    assert.equal(publicAfter.json.siteContent.freePlanAccess?.freeChildProfileLimit, 8);
+    console.log("PASS  admin Free Plan Access persists soft limits");
 
     const legacyLib = await requestJson("GET", "/api/site-content", {
       headers: { "X-LLH-User-Email": "legacy-free@example.com" },
@@ -252,6 +313,24 @@ async function browserMain() {
     assert.ok(newLetters);
     assert.equal(newLetters.locked, true, "new Free still curated-limited");
     console.log("PASS  new Free library stays curated");
+
+    const membershipRes = await requestJson("POST", "/api/admin/membership-update", {
+      body: {
+        adminToken,
+        email: "new-free@example.com",
+        action: "set-free-legacy",
+        note: "test override",
+        updates: { freeLessonAccessMode: "legacy" },
+      },
+    });
+    assert.equal(membershipRes.status, 200, membershipRes.text);
+    assert.equal(membershipRes.json.user?.freeLessonAccessMode, "legacy");
+    const overriddenLib = await requestJson("GET", "/api/site-content", {
+      headers: { "X-LLH-User-Email": "new-free@example.com" },
+    });
+    const overriddenLetters = planById(overriddenLib.json.siteContent.curriculumLibrary, "cur-lp-preschool-letters-and-sounds");
+    assert.equal(overriddenLetters?.locked, false, "admin legacy override unlocks store Free plans");
+    console.log("PASS  admin can set freeLessonAccessMode per user");
 
     const page = await browser.newPage({ viewport: { width: 1200, height: 800 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });

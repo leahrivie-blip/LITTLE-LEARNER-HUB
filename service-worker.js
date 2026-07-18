@@ -1,10 +1,10 @@
-const CACHE_NAME = "llh-shell-v83-admin-full-remaining";
+const CACHE_NAME = "llh-shell-v84-admin-free-visibility";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260718-admin-full-remaining",
+  "/styles.css?v=20260718-admin-free-visibility",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -23,10 +23,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260718-admin-full-remaining",
-  "/scripts/free-plan-grandfathering.js?v=20260718-admin-full-remaining",
-  "/app.js?v=20260718-admin-full-remaining",
-  "/comms-center.js?v=20260718-admin-full-remaining",
+  "/scripts/free-curriculum-sample.js?v=20260718-admin-free-visibility",
+  "/scripts/free-plan-grandfathering.js?v=20260718-admin-free-visibility",
+  "/app.js?v=20260718-admin-free-visibility",
+  "/comms-center.js?v=20260718-admin-free-visibility",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
