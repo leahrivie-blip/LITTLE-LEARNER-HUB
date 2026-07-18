@@ -4,6 +4,9 @@ backups/
 .DS_Store
 node_modules/
 test-results/
+playwright-report/
+blob-report/
+e2e/.runtime/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

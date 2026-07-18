@@ -31,6 +31,7 @@
     "test:curriculum-safe-render": "node scripts/test-curriculum-safe-render.js",
     "test:curriculum-v3-admin-ui": "node scripts/test-curriculum-v3-admin-ui-workflow.js",
     "test:curriculum-gap": "node scripts/test-curriculum-gap.js",
+    "test:curriculum-gap-qa": "node scripts/test-curriculum-gap-qa.js",
     "test:curriculum-standards": "node scripts/test-curriculum-standards.js",
     "audit:lesson-content": "node scripts/audit-lesson-plan-content.js",
     "upgrade:curriculum-standards": "node scripts/upgrade-curriculum-to-standards.js",
@@ -139,9 +140,15 @@
     "test:prod-store-safety-smoke": "node scripts/test-prod-store-safety-smoke.js",
     "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js",
     "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js",
-    "test:full-site-release-audit": "node scripts/test-full-site-release-audit.js"
+    "test:full-site-release-audit": "node scripts/test-full-site-release-audit.js",
+    "test:e2e": "node e2e/scripts/free-port.js && playwright test",
+    "test:e2e:headed": "node e2e/scripts/free-port.js && playwright test --headed",
+    "test:e2e:debug": "node e2e/scripts/free-port.js && PWDEBUG=1 playwright test --headed --workers=1",
+    "test:e2e:report": "playwright show-report playwright-report",
+    "test:e2e:blocker": "node e2e/scripts/free-port.js && playwright test e2e/tests/admin-publish.spec.js"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "playwright": "^1.61.1"
   }
 }
