@@ -66,6 +66,9 @@
     "test:signup-pricing-flow": "node scripts/test-signup-pricing-flow.js",
     "test:signup-paid-focus": "node scripts/test-signup-paid-focus.js",
     "test:support-reply-email": "NODE_ENV=test node scripts/test-support-reply-email.js",
+    "test:free-user-upgrade-experience": "node scripts/test-free-user-upgrade-experience.js",
+    "test:free-pro-conversion": "node scripts/test-free-pro-conversion.js",
+    "test:free-plan-grandfathering": "node scripts/test-free-plan-grandfathering.js",
     "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",
     "test:lesson-plan-calendar-workflow": "node scripts/test-lesson-plan-calendar-workflow-audit.js",
     "test:settings-hub": "node scripts/test-settings-hub.js",
@@ -126,7 +129,8 @@
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
     "test:prod-store-safety-smoke": "node scripts/test-prod-store-safety-smoke.js",
     "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js",
-    "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js"
+    "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js",
+    "test:full-site-release-audit": "node scripts/test-full-site-release-audit.js"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

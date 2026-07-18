@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260718-signup-paid-focus" />
+  <link rel="stylesheet" href="styles.css?v=20260718-pro-library-unlock" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260717-admin-notif-pwa" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260716-inbox-health" />
@@ -166,6 +166,11 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
               Billing
             </button>
+            <div id="sidebarFreeUpgradeCard" class="sidebar-free-upgrade" hidden>
+              <p class="sidebar-free-upgrade-badge">Free Plan</p>
+              <p class="sidebar-free-upgrade-copy">Unlock unlimited lesson plans, customization, weekly new content, and every Pro tool.</p>
+              <button class="primary-button sidebar-free-upgrade-btn" type="button" data-view="plans">Upgrade to Pro</button>
+            </div>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
               Admin Dashboard
@@ -217,6 +222,7 @@
               </div>
             </div>
             <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
+            <span id="freePlanBadge" class="free-plan-badge" hidden>Free Plan</span>
             <button class="ghost-button" id="signinButton">Log in</button>
             <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
           </div>
@@ -226,6 +232,31 @@
         <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
           <span id="siteAnnouncementText"></span>
           <button class="site-announcement-close" id="siteAnnouncementClose" type="button" aria-label="Dismiss announcement">✕</button>
+        </div>
+
+        <!-- Subtle Free-plan reminder for logged-in Free owners (not Pro/Founding/Trial/Admin) -->
+        <div id="freePlanReminderBar" class="free-plan-reminder" hidden role="region" aria-label="Free plan reminder">
+          <div class="free-plan-reminder-inner">
+            <div class="free-plan-reminder-copy">
+              <strong>Save hours every week with Pro</strong>
+              <p>Unlimited lesson plans · new plans every week · customize for your classroom · Documentation Helpers in seconds · everything you need in one place</p>
+            </div>
+            <div class="free-plan-reminder-actions">
+              <button class="primary-button" type="button" id="freePlanReminderPrimary" data-checkout-plan="founding">Upgrade to Pro</button>
+              <button class="ghost-button" type="button" data-view="plans">See Plans</button>
+              <button class="ghost-button free-plan-reminder-dismiss" type="button" data-dismiss-free-plan-reminder aria-label="Dismiss Free plan reminder">Maybe later</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="freePlanSoftNudge" class="free-plan-soft-nudge" hidden role="status" aria-live="polite">
+          <div class="free-plan-soft-nudge-inner">
+            <p><strong>If the Free sample feels this good…</strong> Save hours every week with unlimited lesson plans, classroom customization, and new resources added every week.</p>
+            <div class="free-plan-soft-nudge-actions">
+              <button class="primary-button" type="button" id="freePlanSoftNudgePrimary" data-view="plans">Upgrade</button>
+              <button class="ghost-button" type="button" data-dismiss-free-plan-nudge aria-label="Dismiss">Not now</button>
+            </div>
+          </div>
         </div>
 
         <section id="view-home" class="view active-view landing-home">
@@ -542,33 +573,35 @@
             <div class="lp-pricing-grid llh-pricing-grid">
               <div class="lp-pricing-card lp-free-card">
                 <div class="lp-price-header">
-                  <h3>Free Account</h3>
+                  <h3>Free Plan</h3>
                   <div class="lp-price-amount"><strong>$0</strong><span>to explore</span></div>
                 </div>
                 <ul class="lp-price-features">
-                  <li>✓ View available free content</li>
-                  <li>✓ Explore limited lesson plans and activities</li>
-                  <li>✓ Try the platform</li>
-                  <li>✓ Upgrade later</li>
+                  <li>✓ Access selected free lesson plans (sample library)</li>
+                  <li>✓ Print free lesson plans</li>
+                  <li>✓ Browse the lesson plan library</li>
+                  <li>✓ Preview Pro lesson plans</li>
+                  <li>✓ Explore the platform before upgrading</li>
                 </ul>
                 <button class="lp-btn-outline llh-btn llh-btn-secondary" data-plan="Free" data-action="start-free" type="button">Create Free Account</button>
-                <p class="lp-price-note">No credit card required. Free does not include full member access.</p>
+                <p class="lp-price-note">No credit card required. Free is a curated preview — not the full library.</p>
               </div>
               <div class="lp-pricing-card lp-pro-card llh-founding-card">
-                <div class="lp-pro-highlight-badge">Founding Member</div>
+                <div class="lp-pro-highlight-badge">Most Popular · Best Value</div>
                 <div class="lp-price-header">
                   <h3>Founding Member</h3>
                   <div class="lp-price-amount"><strong>$9.99</strong><span>/month for life</span></div>
                 </div>
                 <ul class="lp-price-features">
-                  <li>✓ Growing lesson-plan library</li>
-                  <li>✓ Activity Library</li>
-                  <li>✓ Calendar planning</li>
-                  <li>✓ Member printing and downloads</li>
-                  <li>✓ New curriculum additions</li>
-                  <li>✓ Future feature access as features launch</li>
-                  <li>✓ Founding Member price locked in for life</li>
-                  <li>✓ Cancel anytime</li>
+                  <li>✓ Save hours every week with unlimited lesson plans</li>
+                  <li>✓ New lesson plans added every week</li>
+                  <li>✓ Full Activity Center by age, theme, and learning domain</li>
+                  <li>✓ Customize, save, and reuse your own lesson plans</li>
+                  <li>✓ Unlimited calendar planning</li>
+                  <li>✓ Documentation Helpers for observations, parent messages, and reports</li>
+                  <li>✓ Child Profiles, Daily Logs, and Behavior &amp; Support tools</li>
+                  <li>✓ Future Pro features included</li>
+                  <li>✓ Built by a childcare provider · Cancel anytime</li>
                 </ul>
                 <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="founding" type="button">Claim Founding Member Pricing</button>
                 <p class="lp-price-note">Future regular pricing: $19.99/month. Billing is monthly. Your $9.99/month price stays locked in while your membership remains active.</p>
@@ -579,29 +612,30 @@
           <!-- FREE VS FOUNDING -->
           <section class="llh-section llh-compare-section" id="homeCompare" aria-label="Free account and Founding Member comparison">
             <div class="lp-section-header">
-              <h2 class="lp-section-title">Choose How You Want to Start</h2>
-              <p class="lp-section-sub">Create a Free account to explore, or become a Founding Member for full access.</p>
+              <h2 class="lp-section-title">Why providers upgrade from Free</h2>
+              <p class="lp-section-sub">Free lets you fall in love with the quality. Pro / Founding Member gives you everything you need every week.</p>
             </div>
             <div class="llh-compare-grid">
               <article class="llh-compare-card">
-                <h3>Free Account</h3>
+                <h3>Free Plan</h3>
                 <ul>
-                  <li>View available free content</li>
-                  <li>Explore limited lesson plans and activities</li>
-                  <li>Try the platform</li>
-                  <li>Upgrade later</li>
+                  <li>Selected free lesson plans across ages</li>
+                  <li>Print free sample lesson plans</li>
+                  <li>Browse &amp; preview the Pro library</li>
+                  <li>Limited calendar, favorites, and docs</li>
+                  <li>Explore before you upgrade</li>
                 </ul>
                 <button class="llh-btn llh-btn-secondary" type="button" data-action="start-free">Create Free Account</button>
               </article>
               <article class="llh-compare-card llh-compare-featured">
-                <h3>Founding Member</h3>
+                <h3>Founding Member / Pro</h3>
                 <ul>
-                  <li>Full curriculum and planning access</li>
-                  <li>Pro lesson plans and activities</li>
-                  <li>Print and download</li>
-                  <li>Calendar tools</li>
-                  <li>Future features as released</li>
-                  <li>$9.99/month locked in for life</li>
+                  <li>Unlimited lesson plans + weekly new content</li>
+                  <li>Lesson plan customization &amp; saved copies</li>
+                  <li>Full Activity Center</li>
+                  <li>Unlimited calendar planning</li>
+                  <li>Documentation Helpers, Child Profiles, Daily Logs</li>
+                  <li>Future Pro features · $9.99/month for life (Founding)</li>
                 </ul>
                 <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Become a Founding Member</button>
               </article>
@@ -1520,8 +1554,8 @@
           <!-- Default FAQ content (hidden; used as baseline for site content capture) -->
           <section id="defaultFaqList" hidden aria-hidden="true">
             <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, incident reports, and paperwork in one place so documentation takes minutes instead of hours.</p></article>
-            <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Little Learner Hub offers a Free Plan with published Free-tier lesson plans for Infant, Toddler, and Preschool, plus limited access to observations, forms, and Documentation Helpers before upgrading.</p></article>
-            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>3 Child Profiles</li><li>10 Observations Per Month</li><li>30 Total Free Lesson Plans</li><li>8 Activity Ideas</li><li>6 Forms</li><li>10 Document Creations</li><li>No Credit Card Required</li></ul></article>
+            <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. The Free Plan includes a curated sample of high-quality lesson plans across Infant, Toddler, and Preschool that you can print, plus limited planning tools so you can explore Little Learner Hub before upgrading.</p></article>
+            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>Selected Free Lesson Plans (sample library)</li><li>Print Free sample lesson plans</li><li>Browse &amp; preview Pro lesson plans</li><li>About 30 days of calendar planning</li><li>Up to 20 favorites</li><li>5 Child Profiles</li><li>10 Observations Per Month</li><li>6 Forms</li><li>10 Document Creations</li><li>No Credit Card Required</li></ul></article>
             <article class="faq-item"><h3>What is included in the Pro Plan?</h3><p>The Pro Plan includes unlimited access to resources, downloads, child management features, and 250 document creations per month.</p></article>
             <article class="faq-item"><h3>Can I cancel my subscription?</h3><p>Yes. You may cancel your subscription at any time through your account settings.</p></article>
             <article class="faq-item"><h3>Do I need to enter payment information for the Free Plan?</h3><p>No. The Free Plan is available without a paid subscription.</p></article>
@@ -1948,7 +1982,9 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="app.js?v=20260718-signup-paid-focus" defer></script>
+    <script src="scripts/free-curriculum-sample.js?v=20260718-pro-library-unlock" defer></script>
+    <script src="scripts/free-plan-grandfathering.js?v=20260718-pro-library-unlock" defer></script>
+    <script src="app.js?v=20260718-pro-library-unlock" defer></script>
     <script src="comms-center.js?v=20260717-admin-notif-pwa" defer></script>
   </body>
 </html>

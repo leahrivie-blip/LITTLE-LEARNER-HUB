@@ -10,6 +10,8 @@ const PRO_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-pro-imports");
 const PRO_BATCH2_IMPORT_DIR = path.join(__dirname, "curriculum-preschool-pro-batch2-imports");
 
 const PRESCHOOL_FREE_IMPORT_TARGETS = [
+  // Keep store plan Free for the original Free preschool catalog so grandfathered Free
+  // users retain access. New Free users are limited by the curated allowlist at runtime.
   { file: "01-preschool-colors-everywhere-free.txt", stableId: "cur-lp-preschool-colors-everywhere", plan: "Free", importDir: FREE_IMPORT_DIR },
   { file: "02-preschool-all-about-me-free.txt", stableId: "cur-lp-preschool-all-about-me", plan: "Free", importDir: FREE_IMPORT_DIR },
   { file: "03-preschool-letters-and-sounds-free.txt", stableId: "cur-lp-preschool-letters-and-sounds", plan: "Free", importDir: FREE_IMPORT_DIR },

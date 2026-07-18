@@ -10,6 +10,7 @@ const os = require("os");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
+const freeSample = require("./free-curriculum-sample.js");
 
 const ROOT = path.join(__dirname, "..");
 const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
@@ -125,7 +126,14 @@ function seedMembershipUsers() {
   const future = new Date(Date.now() + 14 * 86400000).toISOString();
   const store = readStore();
   store.users = store.users || {};
-  store.users["free@security.test"] = { email: "free@security.test", plan: "Free", subscriptionStatus: "Free Plan", updatedAt: now };
+  store.users["free@security.test"] = {
+    email: "free@security.test",
+    plan: "Free",
+    subscriptionStatus: "Free Plan",
+    freeLessonAccessMode: "curated",
+    createdAt: "2026-07-19T12:00:00.000Z",
+    updatedAt: now,
+  };
   store.users["trial@security.test"] = {
     email: "trial@security.test", plan: "Pro", subscriptionStatus: "Pro Monthly Subscription trialing",
     trialStatus: "In Trial", trialStart: now, trialEnd: future, stripeSubscriptionStatus: "trialing",
@@ -185,7 +193,9 @@ async function publishPlans(token) {
   }
   const base = parsed.data;
 
-  const freeId = `cur-lp-sec-free-${crypto.randomBytes(3).toString("hex")}`;
+  // Public/new Free users only unlock the curated sample allowlist — use a real sample id.
+  const freeId = freeSample.PERMANENT_FREE_LESSON_IDS[0] || "cur-lp-preschool-community-helpers";
+  const lockedFreeId = `cur-lp-sec-free-locked-${crypto.randomBytes(3).toString("hex")}`;
   const proId = `cur-lp-sec-pro-${crypto.randomBytes(3).toString("hex")}`;
   const draftId = `cur-lp-sec-draft-${crypto.randomBytes(3).toString("hex")}`;
   const archivedId = `cur-lp-sec-arch-${crypto.randomBytes(3).toString("hex")}`;
@@ -198,10 +208,27 @@ async function publishPlans(token) {
   assert(freeSave.status === 200, `free save failed: ${freeSave.status}`);
   expectedUpdatedAt = freeSave.json.siteContentUpdatedAt;
 
+  const lockedFreeSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+    adminToken: token,
+    expectedUpdatedAt,
+    lessonPlan: { ...base, id: lockedFreeId, title: "Security Locked Free Garden", plan: "Free", status: "published" },
+  });
+  assert(lockedFreeSave.status === 200, `locked free save failed: ${lockedFreeSave.status}`);
+  expectedUpdatedAt = lockedFreeSave.json.siteContentUpdatedAt;
+
+  // Keep Pro content distinct so synced activity IDs do not collide with the Free plan.
+  const proBase = JSON.parse(JSON.stringify(base));
+  proBase.title = "Security Pro Garden Exclusive";
+  proBase.theme = "Pro-Only Soil Lab";
+  if (proBase.dailyPlans?.monday?.items?.[0]) {
+    proBase.dailyPlans.monday.items[0].title = "Pro Soil Investigation";
+    proBase.dailyPlans.monday.items[0].teacherLanguage = "I notice the soil feels damp and rich";
+    proBase.dailyPlans.monday.items[0].directions = "Invite children to scoop and feel the soil. Observe carefully.";
+  }
   const proSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt,
-    lessonPlan: { ...base, id: proId, title: "Security Pro Garden", plan: "Pro", status: "published" },
+    lessonPlan: { ...proBase, id: proId, title: "Security Pro Garden Exclusive", plan: "Pro", status: "published" },
   });
   assert(proSave.status === 200, `pro save failed: ${proSave.status}`);
   expectedUpdatedAt = proSave.json.siteContentUpdatedAt;
@@ -224,13 +251,17 @@ async function publishPlans(token) {
   const freeActivities = (store.siteContent?.curriculum?.activities || []).filter((item) => item.lessonPlanId === freeId);
   assert(proActivities.length > 0, "pro lesson synced activities");
   assert(freeActivities.length > 0, "free lesson synced activities");
+  const freeActivityIds = new Set(freeActivities.map((item) => item.id));
+  // Activity ids can collide across plans; pick a Pro-only id for the 403 gate.
+  const proOnlyActivity = proActivities.find((item) => !freeActivityIds.has(item.id)) || proActivities[0];
 
   return {
     freeId,
+    lockedFreeId,
     proId,
     draftId,
     archivedId,
-    proActivityId: proActivities[0].id,
+    proActivityId: proOnlyActivity.id,
     freeActivityId: freeActivities[0].id,
   };
 }
@@ -262,7 +293,10 @@ async function main() {
     assert(proPublic.weeklyOverview, "pro preview should include weekly overview");
     assert(proPublic.theme, "pro preview should include theme");
     assertNoProtectedStrings(proPublic, "logged-out pro lesson public DTO");
-    assert(freePublic?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow", "free lesson still has full public content");
+    assert(freePublic?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow", "curated free lesson still has full public content");
+    const lockedFreePublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.lockedFreeId);
+    assert(lockedFreePublic?.locked === true, "non-curated Free-tagged lesson is locked for guests/new Free");
+    assert(!lockedFreePublic?.dailyPlans, "non-curated Free lesson must not leak dailyPlans publicly");
 
     console.log("2) Free-user request for Pro lesson cannot retrieve full content");
     const freeUserPublic = await requestJson("GET", "/api/site-content", null, { headers: authHeader("free@security.test") });

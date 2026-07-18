@@ -104,9 +104,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-signup-paid-focus");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-signup-paid-focus");
-  assert.match(sw, /llh-shell-v76-signup-paid-focus/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-pro-library-unlock");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-pro-library-unlock");
+  assert.match(sw, /llh-shell-v80-pro-library-unlock/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

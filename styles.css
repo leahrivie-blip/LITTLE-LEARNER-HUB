@@ -5151,9 +5151,179 @@ body.lessons-view .mobile-brand {
   font-size: 0.9rem;
 }
 
+/* ── Free plan upgrade chrome (badge, reminder, soft nudge, sidebar) ── */
+.free-plan-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 122, 92, 0.35);
+  background: #eef5ef;
+  color: #2f5a38;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.free-plan-reminder {
+  position: sticky;
+  top: 0;
+  z-index: 28;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid rgba(90, 122, 92, 0.22);
+  background: linear-gradient(180deg, #f4f8f4 0%, #eef4f0 100%);
+}
+
+.free-plan-reminder-inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 10px 16px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.free-plan-reminder-copy {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.free-plan-reminder-copy strong {
+  display: block;
+  font-size: 0.95rem;
+  color: #24482e;
+}
+
+.free-plan-reminder-copy p {
+  margin: 2px 0 0;
+  color: #4d6354;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.free-plan-reminder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.free-plan-reminder-actions .primary-button,
+.free-plan-reminder-actions .ghost-button {
+  min-height: 40px;
+}
+
+.free-plan-soft-nudge {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  z-index: 60;
+  max-width: 520px;
+  margin: 0 auto;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 180ms ease, transform 180ms ease;
+  pointer-events: none;
+}
+
+.free-plan-soft-nudge.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.free-plan-soft-nudge-inner {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(90, 122, 92, 0.28);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 14px 30px rgba(36, 52, 40, 0.16);
+}
+
+.free-plan-soft-nudge-inner p {
+  margin: 0;
+  color: #314338;
+  line-height: 1.45;
+  font-size: 0.94rem;
+}
+
+.free-plan-soft-nudge-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sidebar-free-upgrade {
+  margin: 12px 10px 4px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 122, 92, 0.28);
+  background: linear-gradient(180deg, #f7fbf7, #eef5ef);
+}
+
+.sidebar-free-upgrade-badge {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2f5a38;
+}
+
+.sidebar-free-upgrade-copy {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #4a5d50;
+}
+
+.sidebar-free-upgrade-btn {
+  width: 100%;
+  min-height: 40px;
+  justify-content: center;
+}
+
+body.user-pro .free-plan-badge,
+body.user-pro .free-plan-reminder,
+body.user-pro .free-plan-soft-nudge,
+body.user-pro .sidebar-free-upgrade,
+body:not(.user-authenticated) .free-plan-badge,
+body:not(.user-authenticated) .free-plan-reminder,
+body:not(.user-authenticated) .sidebar-free-upgrade {
+  display: none !important;
+}
+
+@media (max-width: 760px) {
+  .free-plan-reminder-inner {
+    padding: 10px 12px;
+  }
+
+  .free-plan-reminder-actions {
+    width: 100%;
+  }
+
+  .free-plan-reminder-actions .primary-button,
+  .free-plan-reminder-actions .ghost-button {
+    flex: 1 1 auto;
+  }
+
+  .free-plan-badge {
+    order: -1;
+  }
+}
+
+.free-welcome-card,
 .free-library-conversion-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 240px);
   gap: 16px 20px;
   align-items: start;
   margin: 14px 0 18px;
@@ -5164,6 +5334,14 @@ body.lessons-view .mobile-brand {
   box-shadow: 0 8px 20px rgba(26, 43, 74, 0.06);
 }
 
+@media (max-width: 900px) {
+  .free-welcome-card,
+  .free-library-conversion-banner {
+    grid-template-columns: 1fr;
+  }
+}
+
+.free-welcome-card-badge,
 .free-library-conversion-badge {
   display: inline-block;
   margin: 0 0 6px;
@@ -5175,6 +5353,48 @@ body.lessons-view .mobile-brand {
   text-transform: uppercase;
   color: #2f5f86;
   background: rgba(91, 155, 213, 0.18);
+}
+
+.free-welcome-card h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.3;
+  color: var(--ink, #1a2b4a);
+}
+
+.free-welcome-card-copy p {
+  margin: 8px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.free-welcome-card-copy p strong {
+  color: var(--ink, #1a2b4a);
+  font-weight: 650;
+}
+
+.free-welcome-card-benefits,
+.pro-modal-benefit-list {
+  margin: 10px 0 0;
+  padding-left: 1.15rem;
+  color: var(--ink, #1a2b4a);
+  line-height: 1.45;
+  font-size: 0.95rem;
+}
+
+.free-welcome-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: min(100%, 240px);
+}
+
+.free-welcome-card-actions .primary-button,
+.free-welcome-card-actions .ghost-button {
+  width: 100%;
+  min-height: 44px;
+  justify-content: center;
 }
 
 .free-library-conversion-banner h3 {
@@ -19970,12 +20190,14 @@ body.auth-modal-open {
   }
 
   .founding-upgrade-banner,
+  .free-welcome-card,
   .free-library-conversion-banner {
     grid-template-columns: 1fr;
     padding: 14px;
   }
 
   .founding-upgrade-banner-actions,
+  .free-welcome-card-actions,
   .free-library-conversion-banner-actions {
     min-width: 0;
   }
