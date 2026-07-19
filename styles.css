@@ -21607,3 +21607,85 @@ button.aup-btn--danger {
   }
 
 }
+
+/* Admin System Health Center */
+.llh-health-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--line);
+  background: #f4f7fb;
+  color: #334155;
+}
+.llh-health-badge.is-healthy {
+  background: #e8f6ee;
+  border-color: #b7e0c4;
+  color: #1f6b3a;
+}
+.llh-health-badge.is-warning {
+  background: #fff7e8;
+  border-color: #f0d29a;
+  color: #8a5a00;
+}
+.llh-health-badge.is-urgent {
+  background: #fdecea;
+  border-color: #f0b4ae;
+  color: #9b1c1c;
+}
+.llh-health-badge.is-repaired {
+  background: #e8f1fb;
+  border-color: #b7d0ef;
+  color: #1d4f91;
+}
+.llh-health-badge.is-review {
+  background: #f3eef8;
+  border-color: #d5c6e8;
+  color: #5b3f7a;
+}
+.llh-health-findings {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+.llh-health-finding-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.llh-health-plain-summary {
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+.llh-publish-checklist {
+  margin: 12px 0 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #f8fafc;
+}
+.llh-publish-checklist h4 {
+  margin: 0 0 6px;
+}
+.llh-publish-checklist-list {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 6px;
+}
+.llh-publish-checklist-list li.is-complete {
+  color: #1f6b3a;
+}
+.llh-publish-checklist-list li.is-missing {
+  color: #9b1c1c;
+}

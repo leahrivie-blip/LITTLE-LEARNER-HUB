@@ -7507,6 +7507,131 @@ function handleAdminStoreHealth(request, response, url) {
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
 }
 
+async function listRecentStoreBackupsForHealth(limit = 5) {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return [];
+  try {
+    const result = await postgresPool.query(`
+      SELECT id, created_at, source, user_count, message_count, founding_count,
+             notification_count, support_ticket_count, verified
+      FROM llh_store_backups
+      ORDER BY created_at DESC
+      LIMIT $1
+    `, [limit]);
+    return result.rows || [];
+  } catch {
+    return [];
+  }
+}
+
+function billingReadinessSnapshot() {
+  const stripe = stripeConfigStatus();
+  return {
+    keysConnected: Boolean(stripe.checkoutReady),
+    webhookConfigured: Boolean(stripe.webhookConfigured),
+    mode: stripe.mode || "",
+    missing: stripe.missing || [],
+    ready: Boolean(stripe.checkoutReady && stripe.webhookConfigured),
+  };
+}
+
+async function buildAdminSystemHealthReport({ applySafeRepairs = false } = {}) {
+  const { buildSystemHealthReport, applySafeSystemRepairs } = require("./system-health.js");
+  const recentBackups = await listRecentStoreBackupsForHealth(8);
+  let report = buildSystemHealthReport({
+    peekStore,
+    launchReadinessStatus,
+    stripeConfigStatus,
+    adminConfigStatus,
+    billingReadinessSnapshot,
+    storeHealthSnapshot,
+    validateCurriculumIntegrity,
+    syncCurriculumActivitiesForLessonPlan,
+    writeSiteCurriculum,
+    recentBackups,
+  });
+
+  const repairs = [];
+  if (applySafeRepairs) {
+    const applied = applySafeSystemRepairs({
+      peekStore,
+      syncCurriculumActivitiesForLessonPlan,
+      writeSiteCurriculum,
+      writeStoreAsync,
+    }, report);
+    repairs.push(...(applied.repairs || []));
+    if (applied.repairs?.length && typeof writeStoreAsync === "function") {
+      await writeStoreAsync(peekStore());
+    }
+    // Rebuild report after repairs so counts reflect the new state.
+    report = buildSystemHealthReport({
+      peekStore,
+      launchReadinessStatus,
+      stripeConfigStatus,
+      adminConfigStatus,
+      billingReadinessSnapshot,
+      storeHealthSnapshot,
+      validateCurriculumIntegrity,
+      syncCurriculumActivitiesForLessonPlan,
+      writeSiteCurriculum,
+      recentBackups,
+    });
+  }
+
+  const store = peekStore();
+  store.systemHealth = {
+    ...(store.systemHealth && typeof store.systemHealth === "object" ? store.systemHealth : {}),
+    lastFullCheck: report.generatedAt,
+    lastBillingCheck: report.generatedAt,
+    lastBackup: report.timestamps?.lastBackup || store.systemHealth?.lastBackup || "",
+    lastDeployment: report.timestamps?.lastDeployment || store.systemHealth?.lastDeployment || "",
+    lastOverall: report.overall,
+    lastRepairCount: repairs.length,
+  };
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.warn("[system-health] could not persist last-check stamp:", error.message);
+  }
+
+  return { report, repairs };
+}
+
+async function handleAdminSystemHealth(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const { report, repairs } = await buildAdminSystemHealthReport({ applySafeRepairs: false });
+    jsonResponse(response, 200, { ok: true, report, repairs });
+  } catch (error) {
+    console.error("[system-health] GET failed:", error);
+    jsonResponse(response, 500, { error: "Could not build the system health report." });
+  }
+}
+
+async function handleAdminSystemHealthRun(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const applySafeRepairs = body.applySafeRepairs === true || body.applySafeRepairs === "1";
+    const { report, repairs } = await buildAdminSystemHealthReport({ applySafeRepairs });
+    jsonResponse(response, 200, {
+      ok: true,
+      report,
+      repairs,
+      plainSummary: report.plainSummary,
+    });
+  } catch (error) {
+    console.error("[system-health] RUN failed:", error);
+    jsonResponse(response, 500, { error: "Could not run the full system check." });
+  }
+}
+
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
 
 function isAshleyLadiishaPair(ownerEmail, memberEmail) {
@@ -14592,6 +14717,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/system-health") return await handleAdminSystemHealth(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/system-health/run") return await handleAdminSystemHealthRun(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);

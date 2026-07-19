@@ -155,6 +155,7 @@
     "test:e2e:blocker": "node e2e/scripts/free-port.js && playwright test e2e/tests/admin-publish.spec.js",
     "complete:truncated-weeks": "node scripts/complete-truncated-weekday-imports.js",
     "test:weekday-activities-audit": "node scripts/test-weekday-activities-audit.js",
+    "test:system-health-center": "node scripts/test-system-health-center.js",
     "repair:incomplete-curriculum": "node scripts/repair-incomplete-curriculum-plans.js"
   },
   "devDependencies": {

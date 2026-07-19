@@ -4588,6 +4588,14 @@ let adminSessionHeartbeatTimer = null;
 let adminGlobalSearchQuery = "";
 let adminSafetyStatus = null;
 let adminSafetyLoading = false;
+let adminSystemHealthState = {
+  loading: false,
+  running: false,
+  report: null,
+  repairs: [],
+  error: "",
+  lastFetchedAt: "",
+};
 let adminDomainDnsReport = null;
 let adminImpersonationState = null; // { email, account, planPreview, startedAt }
 let adminUserDetailCache = {};
@@ -4698,7 +4706,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","system-health","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
@@ -4714,7 +4722,7 @@ const adminGroups = [
   { id: "messages",  icon: "💬", label: "Messages",   tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
   { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
-  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
+  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill", "system-health"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
   { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog"], defaultTab: "hero" },
   { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-tools", "prompts", "settings", "usage", "ai-testing"], defaultTab: "ai-tools" },
@@ -4747,6 +4755,7 @@ const adminGroupForTab = {
   "users":       "users",
   "user-health": "users",
   "stripe-backfill": "users",
+  "system-health": "users",
   "images":      "settings",
   "pricing":     "site-editor",
   "free-plan":   "site-editor",
@@ -4793,6 +4802,7 @@ const adminTabLabels = {
   "users":       "Users",
   "user-health": "User Health",
   "stripe-backfill": "Stripe Backfill",
+  "system-health": "System Health",
   "images":      "Images",
   "pricing":     "Pricing",
   "free-plan":   "Free Plan Access",
@@ -7488,8 +7498,9 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </div>
       </div>
       <div id="admin-lesson-cover">${renderAdminCurriculumLessonCoverSection(record)}</div>
+      ${renderLessonPublishChecklistHtml(record)}
       <label>Status
-        <select name="status">
+        <select name="status" data-admin-lesson-status>
           ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
         </select>
       </label>
@@ -7605,9 +7616,21 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
     return;
   }
   const plans = curriculumLessonPlansForAdmin().filter((plan) => ids.includes(plan.id));
+  const publishing = ["published", "featured"].includes(String(status || "").toLowerCase());
   let saved = 0;
   let failed = 0;
+  let blocked = 0;
   for (const plan of plans) {
+    const nextPlan = normalizeCurriculumLessonPlanForRender({ ...plan, status });
+    if (publishing) {
+      const checklist = buildLessonPublishChecklist(nextPlan);
+      if (!checklist.canPublish) {
+        blocked += 1;
+        failed += 1;
+        console.warn("Bulk publish blocked — incomplete lesson", plan.id, checklist.blocking.map((item) => item.label));
+        continue;
+      }
+    }
     try {
       const response = await fetch(curriculumLessonPlanConfig.endpoint, {
         method: "POST",
@@ -7615,7 +7638,7 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
         body: JSON.stringify({
           adminToken: token,
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-          lessonPlan: normalizeCurriculumLessonPlanForRender({ ...plan, status }),
+          lessonPlan: nextPlan,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -7633,9 +7656,11 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
   }
   adminCurriculumSelectedIds = new Set();
   setAdminCurriculumLessonSaveBanner(
-    failed
-      ? `Updated ${saved} lesson${saved === 1 ? "" : "s"}; ${failed} failed.`
-      : `Updated ${saved} lesson${saved === 1 ? "" : "s"} to ${status}.`,
+    blocked
+      ? `Updated ${saved} lesson${saved === 1 ? "" : "s"}; ${blocked} blocked because they are incomplete; ${Math.max(0, failed - blocked)} other failure${failed - blocked === 1 ? "" : "s"}.`
+      : failed
+        ? `Updated ${saved} lesson${saved === 1 ? "" : "s"}; ${failed} failed.`
+        : `Updated ${saved} lesson${saved === 1 ? "" : "s"} to ${status}.`,
     failed === 0,
   );
   renderAdminCurriculumLessonPlanManager();
@@ -7920,20 +7945,23 @@ async function saveAdminCurriculumLessonPlanForm(form) {
     document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;
   }
-  const emptyWeekdays = CURRICULUM_WEEKDAYS.filter((day) => {
-    const items = Array.isArray(lessonPlan.dailyPlans?.[day]?.items) ? lessonPlan.dailyPlans[day].items : [];
-    return !items.some((item) => String(item?.title || "").trim());
-  });
   const publishing = ["published", "featured"].includes(String(lessonPlan.status || "").toLowerCase());
-  if (publishing && emptyWeekdays.length) {
-    const labels = emptyWeekdays.map((day) => day.charAt(0).toUpperCase() + day.slice(1)).join(", ");
-    setAdminCurriculumLessonSaveBanner(
-      `❌ Published lesson plans need activities on every weekday. Add activities for: ${labels}.`,
-      false,
-    );
-    renderAdminCurriculumLessonPlanManager();
-    document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    return;
+  if (publishing) {
+    const checklist = buildLessonPublishChecklist(lessonPlan);
+    if (!checklist.canPublish) {
+      const missing = checklist.blocking
+        .slice(0, 6)
+        .map((item) => `${item.label}${item.detail ? ` (${item.detail})` : ""}`)
+        .join(" · ");
+      setAdminCurriculumLessonSaveBanner(
+        `❌ This lesson is not ready to publish. Fix: ${missing}`,
+        false,
+      );
+      renderAdminCurriculumLessonPlanManager();
+      document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      document.querySelector("[data-lesson-publish-checklist]")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      return;
+    }
   }
 
   adminCurriculumLessonSaving = true;
@@ -36293,7 +36321,219 @@ function renderAdminSafetyCenter() {
         <span class="admin-owner-collapse-hint">Tap to expand or collapse</span>
       </summary>
       <div id="adminOwnerSafetyBody">${renderAdminSafetyCenterBody()}</div>
+      <div class="account-actions-row" style="margin-top:12px;">
+        <button type="button" class="primary-button" data-admin-section-tab="system-health">Open System Health Center</button>
+      </div>
     </details>
+  `;
+}
+
+function systemHealthStatusLabel(status) {
+  const key = String(status || "").toLowerCase();
+  if (key === "healthy" || key === "ok") return "Healthy";
+  if (key === "warning") return "Warning";
+  if (key === "urgent") return "Urgent";
+  if (key === "repaired") return "Automatically repaired";
+  if (key === "needs_review" || key === "needs-review") return "Needs manual review";
+  return key ? key.replace(/_/g, " ") : "Unknown";
+}
+
+function systemHealthBadgeClass(status) {
+  const key = String(status || "").toLowerCase();
+  if (key === "healthy") return "llh-health-badge is-healthy";
+  if (key === "warning") return "llh-health-badge is-warning";
+  if (key === "urgent") return "llh-health-badge is-urgent";
+  if (key === "repaired") return "llh-health-badge is-repaired";
+  return "llh-health-badge is-review";
+}
+
+async function loadAdminSystemHealthReport({ run = false, applySafeRepairs = false } = {}) {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) {
+    adminSystemHealthState.error = "Unlock Admin and make sure the website server is running.";
+    renderAdminSystemHealthCenter();
+    return;
+  }
+  adminSystemHealthState.error = "";
+  adminSystemHealthState.loading = !run;
+  adminSystemHealthState.running = Boolean(run);
+  renderAdminSystemHealthCenter();
+  try {
+    let payload;
+    if (run) {
+      const res = await fetch("/api/admin/system-health/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminToken: token, applySafeRepairs: Boolean(applySafeRepairs) }),
+      });
+      payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || "Full system check failed.");
+    } else {
+      const res = await fetch(`/api/admin/system-health?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+      payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || "Could not load system health.");
+    }
+    adminSystemHealthState.report = payload.report || null;
+    adminSystemHealthState.repairs = Array.isArray(payload.repairs) ? payload.repairs : [];
+    adminSystemHealthState.lastFetchedAt = new Date().toISOString();
+  } catch (error) {
+    adminSystemHealthState.error = error.message || "System health check failed.";
+  } finally {
+    adminSystemHealthState.loading = false;
+    adminSystemHealthState.running = false;
+    renderAdminSystemHealthCenter();
+  }
+}
+
+function renderAdminSystemHealthCenter() {
+  const root = document.querySelector("#adminSystemHealthApp");
+  if (!root) return;
+  if (!adminSystemHealthState.report && !adminSystemHealthState.loading && !adminSystemHealthState.running && !adminSystemHealthState.error) {
+    loadAdminSystemHealthReport({ run: false });
+  }
+  const report = adminSystemHealthState.report;
+  const summary = report?.summary || {};
+  const timestamps = report?.timestamps || {};
+  const findings = Array.isArray(report?.findings) ? report.findings : [];
+  const busy = adminSystemHealthState.loading || adminSystemHealthState.running;
+  const overall = report?.overall || (busy ? "checking" : "unknown");
+  const metric = (label, value) => `
+    <article class="analytics-card llh-health-metric">
+      <p class="muted-copy">${escapeHtml(label)}</p>
+      <strong>${escapeHtml(String(value ?? "—"))}</strong>
+    </article>
+  `;
+  const findingCards = findings
+    .filter((f) => f.status !== "healthy")
+    .slice(0, 60)
+    .map((finding) => `
+      <article class="analytics-card llh-health-finding ${systemHealthBadgeClass(finding.status || finding.severity)}">
+        <div class="llh-health-finding-top">
+          <span class="${systemHealthBadgeClass(finding.status || finding.severity)}">${escapeHtml(systemHealthStatusLabel(finding.status || finding.severity))}</span>
+          <strong>${escapeHtml(finding.title || "Issue")}</strong>
+        </div>
+        <p>${escapeHtml(finding.plainLanguage || finding.message || "")}</p>
+        ${finding.planId ? `<p class="muted-copy">Lesson plan: ${escapeHtml(finding.planTitle || finding.planId)}</p>` : ""}
+        ${finding.email ? `<p class="muted-copy">Member: ${escapeHtml(finding.email)}</p>` : ""}
+        ${finding.needsManualReview ? `<p class="muted-copy">Needs manual review — no automatic change was made.</p>` : ""}
+        ${finding.planId ? `<div class="account-actions-row"><button type="button" class="ghost-button" data-admin-system-health-open-lesson="${escapeHtml(finding.planId)}">Open lesson plan</button></div>` : ""}
+      </article>
+    `).join("");
+
+  root.innerHTML = `
+    <div class="page-title" style="margin-bottom:12px;">
+      <p class="eyebrow">Protections</p>
+      <h2>System Health Center</h2>
+      <p class="muted-copy">Plain-language website checks for lesson plans, billing access, backups, and launch readiness. This reuses existing safety tools — it does not invent a second set of rules.</p>
+    </div>
+    <div class="admin-owner-grid admin-kpi-grid">
+      ${metric("Overall", systemHealthStatusLabel(overall))}
+      ${metric("Urgent", summary.urgent ?? "—")}
+      ${metric("Warning", summary.warning ?? "—")}
+      ${metric("Needs review", summary.needsReview ?? "—")}
+      ${metric("Auto-repaired", summary.repaired ?? adminSystemHealthState.repairs.length ?? "—")}
+      ${metric("Last full check", timestamps.lastFullCheck ? new Date(timestamps.lastFullCheck).toLocaleString() : "Not run yet")}
+      ${metric("Last backup", timestamps.lastBackup ? new Date(timestamps.lastBackup).toLocaleString() : "Not listed")}
+      ${metric("Last billing check", timestamps.lastBillingCheck ? new Date(timestamps.lastBillingCheck).toLocaleString() : "—")}
+      ${metric("Last deployment", timestamps.lastDeployment || "Not recorded in this environment")}
+    </div>
+    <div class="account-actions-row" style="margin:16px 0;">
+      <button type="button" class="primary-button" data-admin-system-health-run ${busy ? "disabled" : ""}>
+        ${adminSystemHealthState.running ? "Running full check…" : "Run Full System Check"}
+      </button>
+      <button type="button" class="ghost-button" data-admin-system-health-run-repair ${busy ? "disabled" : ""}>
+        Run check + safe repairs
+      </button>
+      <button type="button" class="ghost-button" data-admin-system-health-refresh ${busy ? "disabled" : ""}>Refresh</button>
+      <button type="button" class="ghost-button" data-admin-section-tab="stripe-backfill">Open backup / Stripe tools</button>
+    </div>
+    ${adminSystemHealthState.error ? `<p class="form-message">${escapeHtml(adminSystemHealthState.error)}</p>` : ""}
+    ${busy && !report ? `<p class="muted-copy">Checking the website…</p>` : ""}
+    ${report?.plainSummary ? `
+      <article class="analytics-card">
+        <h3>What this means</h3>
+        <pre class="llh-health-plain-summary">${escapeHtml(report.plainSummary)}</pre>
+        <p class="muted-copy">Checks run: ${escapeHtml(String(summary.checksRun ?? "—"))}. Skipped: ${(summary.checksSkipped || []).length ? escapeHtml((summary.checksSkipped || []).join(", ")) : "none"}.</p>
+      </article>
+    ` : ""}
+    <section style="margin-top:16px;">
+      <h3>Issues to review</h3>
+      <div class="llh-health-findings">
+        ${findingCards || (report ? `<div class="empty-state">No warnings or urgent issues were found in this check.</div>` : "")}
+      </div>
+    </section>
+    ${adminSystemHealthState.repairs.length ? `
+      <section style="margin-top:16px;">
+        <h3>Automatic repairs just applied</h3>
+        ${(adminSystemHealthState.repairs || []).map((repair) => `
+          <article class="analytics-card">
+            <span class="${systemHealthBadgeClass("repaired")}">Automatically repaired</span>
+            <p>${escapeHtml(repair.plainLanguage || repair.action || "Repair completed")}</p>
+          </article>
+        `).join("")}
+      </section>
+    ` : ""}
+    <p class="muted-copy" style="margin-top:16px;">Safe automatic repairs only reconnect obvious lesson/activity links. Billing mismatches, member messages, child records, and custom lesson edits are never changed automatically.</p>
+  `;
+}
+
+function buildLessonPublishChecklist(lessonPlan) {
+  const plan = lessonPlan || {};
+  const items = [];
+  const mark = (ok, label, detail = "") => items.push({ ok: Boolean(ok), label, detail });
+  const weekdays = CURRICULUM_WEEKDAYS || ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  mark(Boolean(String(plan.title || "").trim()), "Lesson title", plan.title || "Missing");
+  mark(Boolean(String(plan.age || "").trim()), "Age group", plan.age || "Missing");
+  mark(Boolean(String(plan.theme || "").trim()), "Weekly theme", plan.theme || "Missing");
+  mark(Boolean(String(plan.weeklyOverview || "").trim()), "Weekly overview");
+  mark(Boolean(String(plan.coverImageUrl || "").trim()), "Cover image", String(plan.coverImageUrl || "").trim() ? "Present" : "Optional but recommended");
+  weekdays.forEach((day) => {
+    const count = Array.isArray(plan.dailyPlans?.[day]?.items)
+      ? plan.dailyPlans[day].items.filter((item) => String(item?.title || "").trim()).length
+      : 0;
+    mark(count > 0, `${day.charAt(0).toUpperCase() + day.slice(1)} activities`, count > 0 ? `${count} activity(ies)` : "No activities");
+  });
+  const incompleteActivities = [];
+  weekdays.forEach((day) => {
+    (plan.dailyPlans?.[day]?.items || []).forEach((item) => {
+      const missing = [];
+      if (!String(item.objective || "").trim()) missing.push("objective");
+      if (!String(item.description || "").trim()) missing.push("description");
+      if (!String(item.materials || "").trim()) missing.push("materials");
+      if (!String(item.setup || "").trim()) missing.push("setup");
+      if (!String(item.steps || item.directions || "").trim()) missing.push("directions");
+      if (!String(item.teacherRole || "").trim()) missing.push("teacher role");
+      if (!String(item.adaptations || "").trim()) missing.push("adaptations");
+      if (!String(item.safetyNotes || "").trim()) missing.push("safety notes");
+      if (missing.length) {
+        incompleteActivities.push(`${day}: ${item.title || "Untitled"} (missing ${missing.join(", ")})`);
+      }
+    });
+  });
+  mark(incompleteActivities.length === 0, "Complete activity fields", incompleteActivities.length ? incompleteActivities.slice(0, 4).join(" · ") : "All listed activities look complete");
+  const blocking = items.filter((item) => !item.ok && !/cover image/i.test(item.label));
+  return {
+    items,
+    blocking,
+    canPublish: blocking.length === 0,
+  };
+}
+
+function renderLessonPublishChecklistHtml(lessonPlan) {
+  const checklist = buildLessonPublishChecklist(lessonPlan);
+  return `
+    <div class="llh-publish-checklist" data-lesson-publish-checklist>
+      <h4>Before publishing</h4>
+      <p class="muted-copy">${checklist.canPublish ? "This lesson looks complete enough to publish." : "Fix the items below before publishing."}</p>
+      <ul class="llh-publish-checklist-list">
+        ${checklist.items.map((item) => `
+          <li class="${item.ok ? "is-complete" : "is-missing"}">
+            <strong>${item.ok ? "Complete" : "Needs fix"}:</strong> ${escapeHtml(item.label)}
+            ${item.detail ? `<span class="muted-copy"> — ${escapeHtml(item.detail)}</span>` : ""}
+          </li>
+        `).join("")}
+      </ul>
+    </div>
   `;
 }
 
@@ -39404,6 +39644,7 @@ function applyAdminSectionVisibility() {
     ".admin-visibility-panel",
     ".admin-users-panel",
     ".admin-stripe-backfill-panel",
+    ".admin-system-health-panel",
     ".admin-site-editor-panel",
     ".admin-messages-panel",
     ".admin-inbox-panel",
@@ -39513,6 +39754,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-stripe-backfill-panel");
     if (el) el.hidden = false;
     renderAdminStripeBackfillTab();
+  } else if (tab === "system-health") {
+    const el = document.querySelector(".admin-system-health-panel");
+    if (el) el.hidden = false;
+    renderAdminSystemHealthCenter();
   } else if (tab === "pricing" || tab === "free-plan" || tab === "promo-codes" || tab === "faqs" || tab === "announcement" || tab === "in-app-announcements" || tab === "upgrade-msg" || tab === "hero" || tab === "trust" || tab === "journey" || tab === "reviews-cta" || tab === "founding") {
     const el = document.querySelector(".admin-site-editor-panel");
     if (el) el.hidden = false;
@@ -51349,6 +51594,30 @@ document.addEventListener("click", async (event) => {
     }
   }
 
+  if (event.target.closest("[data-admin-system-health-run-repair]") && isAdminUnlocked()) {
+    event.preventDefault();
+    loadAdminSystemHealthReport({ run: true, applySafeRepairs: true });
+    return;
+  }
+  if (event.target.closest("[data-admin-system-health-run]") && isAdminUnlocked()) {
+    event.preventDefault();
+    loadAdminSystemHealthReport({ run: true, applySafeRepairs: false });
+    return;
+  }
+  if (event.target.closest("[data-admin-system-health-refresh]") && isAdminUnlocked()) {
+    event.preventDefault();
+    loadAdminSystemHealthReport({ run: false });
+    return;
+  }
+  const openHealthLesson = event.target.closest("[data-admin-system-health-open-lesson]");
+  if (openHealthLesson && isAdminUnlocked()) {
+    event.preventDefault();
+    const planId = openHealthLesson.getAttribute("data-admin-system-health-open-lesson") || "";
+    if (planId && typeof openAdminCurriculumLessonEditor === "function") {
+      openAdminCurriculumLessonEditor(planId, { scroll: true });
+    }
+    return;
+  }
   if (event.target.closest("[data-admin-safety-refresh]") && isAdminUnlocked()) {
     event.preventDefault();
     refreshAdminSafetyStatus();
