@@ -1,6 +1,7 @@
 /**
  * Admin System Health report builder.
- * Aggregates existing readiness/store/curriculum/billing checks into plain language.
+ * Aggregates existing readiness/store/curriculum/billing checks into plain language,
+ * with history, severity, impact, trends, and safe-repair logging helpers.
  */
 "use strict";
 
@@ -9,6 +10,16 @@ const {
   scanCurriculumHealth,
   summarizeOverall,
   plainBillingMismatch,
+  enrichFindings,
+  buildPlatformStats,
+  detectTrends,
+  updateOpenIssues,
+  appendHealthHistory,
+  appendRepairLog,
+  buildHistoryEntry,
+  buildExportPayload,
+  compactReportSnapshot,
+  normalizeSeverityLevel,
 } = require("../scripts/system-health-lib.js");
 
 function safeRequire(modulePath) {
@@ -62,11 +73,13 @@ function buildSystemHealthReport(deps = {}) {
   const previous = store.systemHealth && typeof store.systemHealth === "object"
     ? store.systemHealth
     : {};
+  const openIssues = previous.openIssues && typeof previous.openIssues === "object"
+    ? previous.openIssues
+    : {};
 
   const findings = [];
   const suites = {};
 
-  // Launch / billing readiness
   const launch = typeof deps.launchReadinessStatus === "function" ? deps.launchReadinessStatus() : null;
   if (launch) {
     suites.launch = {
@@ -116,7 +129,6 @@ function buildSystemHealthReport(deps = {}) {
     }
   }
 
-  // Store / backups
   const storeHealth = typeof deps.storeHealthSnapshot === "function"
     ? deps.storeHealthSnapshot(store)
     : null;
@@ -172,7 +184,6 @@ function buildSystemHealthReport(deps = {}) {
     });
   }
 
-  // Curriculum completeness (live store)
   const standards = safeRequire(path.join(__dirname, "..", "scripts", "curriculum-standards.js"));
   const curriculumScan = scanCurriculumHealth(curriculum, {
     auditLessonPlanAgainstStandards: standards?.auditLessonPlanAgainstStandards,
@@ -181,12 +192,13 @@ function buildSystemHealthReport(deps = {}) {
     checked: curriculumScan.checked,
     publishedComplete: curriculumScan.publishedComplete,
     publishedIncomplete: curriculumScan.publishedIncomplete,
+    draftCount: curriculumScan.draftCount,
     draftIncomplete: curriculumScan.draftIncomplete,
+    brokenLinkPlans: curriculumScan.brokenLinkPlans,
     activityCenterCount: curriculumScan.activityCenterCount,
   };
   findings.push(...curriculumScan.findings);
 
-  // Curriculum referential integrity
   if (typeof deps.validateCurriculumIntegrity === "function") {
     const integrity = deps.validateCurriculumIntegrity(curriculum);
     suites.curriculumIntegrity = {
@@ -208,7 +220,6 @@ function buildSystemHealthReport(deps = {}) {
     }
   }
 
-  // Billing / access mismatches (read-only)
   const usersMap = store.users && typeof store.users === "object" ? store.users : {};
   const billingAudit = safeRequire(path.join(__dirname, "..", "scripts", "audit-billing-access-enforcement.js"));
   if (billingAudit?.auditMembershipUsers) {
@@ -236,7 +247,6 @@ function buildSystemHealthReport(deps = {}) {
     }
   }
 
-  // Permission sanity: ensure admin config exists when admin area is expected
   if (typeof deps.adminConfigStatus === "function") {
     const adminCfg = deps.adminConfigStatus();
     suites.adminAccess = adminCfg;
@@ -245,7 +255,6 @@ function buildSystemHealthReport(deps = {}) {
     }
   }
 
-  // Lightweight role/access flags (read-only; never auto-changed)
   const userRows = Object.values(usersMap).filter((user) => user && typeof user === "object");
   let staffLike = 0;
   let staffWithOverride = 0;
@@ -282,21 +291,46 @@ function buildSystemHealthReport(deps = {}) {
     "error_tracking_aggregation",
     "stripe_live_webhook_latency",
     "production_backup_restore_drill",
+    "failed_pdf_generation_log",
   ];
 
-  const summary = summarizeOverall(findings);
+  const issueUpdate = updateOpenIssues(openIssues, findings, generatedAt);
+  const enriched = enrichFindings(findings, issueUpdate.openIssues);
+  const summary = summarizeOverall(enriched);
+  const stats = buildPlatformStats(store, curriculumScan, {
+    openIssueCount: Object.keys(issueUpdate.openIssues).length,
+    repairLogCount: Array.isArray(previous.repairLog) ? previous.repairLog.length : 0,
+    historyCount: Array.isArray(previous.history) ? previous.history.length : 0,
+  });
+  const trends = detectTrends(previous.history || [], issueUpdate.openIssues);
+
   const healthyFindings = [];
-  if (summary.urgent === 0 && summary.warning === 0) {
+  if (summary.critical === 0 && summary.high === 0) {
     healthyFindings.push({
       id: "overall:healthy",
       area: "summary",
       severity: "healthy",
       status: "healthy",
-      title: "No urgent problems found",
-      message: "The automated checks that ran did not find urgent website problems.",
-      plainLanguage: "The automated checks that ran did not find urgent website problems.",
+      severityLevel: "low",
+      severityLabel: "Low",
+      title: "No critical or high problems found",
+      message: "The automated checks that ran did not find critical website problems.",
+      plainLanguage: "The automated checks that ran did not find critical website problems.",
+      userImpact: "Members can keep using the checked parts of the site.",
+      deepLinks: [{ label: "Open System Health", kind: "page", href: "/?view=admin&adminSection=system-health" }],
     });
   }
+
+  const intervalMs = Number(deps.healthIntervalMs || process.env.SYSTEM_HEALTH_INTERVAL_MS || 24 * 60 * 60 * 1000);
+  const scheduler = {
+    enabled: process.env.SYSTEM_HEALTH_SCHEDULER !== "false",
+    intervalMs,
+    lastScheduledAt: previous.scheduler?.lastScheduledAt || "",
+    lastDeployCheckAt: previous.scheduler?.lastDeployCheckAt || "",
+    lastDeployCheckCommit: previous.scheduler?.lastDeployCheckCommit || "",
+    lastTrigger: previous.lastTrigger || "",
+    historyCount: Array.isArray(previous.history) ? previous.history.length : 0,
+  };
 
   const report = {
     ok: true,
@@ -308,7 +342,7 @@ function buildSystemHealthReport(deps = {}) {
       checksSkipped,
       publishedLessonPlansChecked: curriculumScan.checked,
       publishedLessonPlansHealthy: curriculumScan.publishedComplete,
-      liveWebsiteSafe: summary.urgent === 0,
+      liveWebsiteSafe: summary.critical === 0,
     },
     timestamps: {
       lastFullCheck: generatedAt,
@@ -320,30 +354,43 @@ function buildSystemHealthReport(deps = {}) {
         || "",
       lastBillingCheck: generatedAt,
     },
+    stats,
+    trends,
+    scheduler,
+    history: Array.isArray(previous.history) ? previous.history.slice(0, 20) : [],
+    repairLog: Array.isArray(previous.repairLog) ? previous.repairLog.slice(0, 20) : [],
+    openIssues: issueUpdate.openIssues,
     suites,
-    findings: [...healthyFindings, ...findings].slice(0, 200),
-    plainSummary: buildPlainSummary(summary, suites, findings, checksSkipped),
+    findings: [...healthyFindings, ...enriched].slice(0, 200),
+    plainSummary: buildPlainSummary(summary, suites, enriched, checksSkipped, stats, trends),
+    _issueUpdate: issueUpdate,
   };
 
   return report;
 }
 
-function buildPlainSummary(summary, suites, findings, checksSkipped = []) {
+function buildPlainSummary(summary, suites, findings, checksSkipped = [], stats = {}, trends = []) {
   const lines = [];
   lines.push(`Overall status: ${summary.overall.replace(/_/g, " ")}.`);
   lines.push(
-    summary.urgent === 0
-      ? "Live website safety for checked areas: safe to continue using (no urgent issues in this check)."
-      : "Live website safety for checked areas: urgent issues need attention before you treat this as fully healthy.",
+    summary.critical === 0
+      ? "Live website safety for checked areas: safe to continue using (no critical issues in this check)."
+      : "Live website safety for checked areas: critical issues need attention before you treat this as fully healthy.",
+  );
+  lines.push(
+    `Severity counts — Critical: ${summary.critical || 0}, High: ${summary.high || 0}, Medium: ${summary.medium || 0}, Low: ${summary.low || 0}.`,
   );
   lines.push(`Health areas checked: ${Object.keys(suites).length}. Finding rows reviewed: ${summary.totalFindings}.`);
   if (checksSkipped.length) {
     lines.push(`Checks skipped in this phase: ${checksSkipped.join(", ")}.`);
   }
-  if (suites.curriculum) {
+  if (stats && typeof stats === "object") {
     lines.push(
-      `Lesson plans: ${suites.curriculum.publishedComplete} published plan(s) look complete; ${suites.curriculum.publishedIncomplete} published plan(s) still need weekday/activity fixes.`,
+      `Platform stats: ${stats.publishedLessonPlans || 0} published lessons (${stats.publishedIncomplete || 0} incomplete), ${stats.incompleteDrafts || 0} incomplete drafts, ${stats.brokenActivityLinkPlans || 0} plans with broken activity links, ${stats.failedNotifications || 0} failed notification deliveries.`,
     );
+    if (stats.failedPdfGenerations == null) {
+      lines.push("Failed PDF generations: not tracked yet.");
+    }
   }
   if (suites.billingAccess) {
     lines.push(
@@ -352,21 +399,19 @@ function buildPlainSummary(summary, suites, findings, checksSkipped = []) {
         : "Billing: no access mismatches were flagged in the live member list.",
     );
   }
-  if (suites.permissions) {
-    lines.push(
-      suites.permissions.staffWithManualOverride
-        ? `Permissions: ${suites.permissions.staffWithManualOverride} staff-like account(s) have a manual access override to review.`
-        : "Permissions: no staff-like manual access overrides were flagged.",
-    );
+  if (Array.isArray(trends) && trends.length) {
+    lines.push(`Trends: ${trends.slice(0, 3).map((t) => t.plainLanguage || t.title).join(" | ")}`);
   }
   if (suites.store?.lastBackup?.createdAt) {
     lines.push(`Last listed backup: ${suites.store.lastBackup.createdAt}.`);
   } else {
     lines.push("Last listed backup: not available in this environment.");
   }
-  const top = findings.filter((f) => f.severity === "urgent" || f.status === "urgent").slice(0, 5);
+  const top = findings
+    .filter((f) => normalizeSeverityLevel(f) === "critical" && f.status !== "healthy")
+    .slice(0, 5);
   if (top.length) {
-    lines.push("Top urgent items:");
+    lines.push("Top critical items:");
     top.forEach((item) => lines.push(`• ${item.plainLanguage || item.message}`));
   }
   return lines.join("\n");
@@ -395,19 +440,27 @@ function applySafeSystemRepairs(deps, report) {
     const plan = (curriculum.lessonPlans || []).find((item) => item.id === finding.planId);
     if (!plan) continue;
     if (typeof deps.syncCurriculumActivitiesForLessonPlan !== "function") continue;
+    const beforeIds = Array.isArray(plan.activityIds) ? plan.activityIds.slice() : [];
     const synced = deps.syncCurriculumActivitiesForLessonPlan(curriculum, plan);
     if (!synced) continue;
     curriculum = synced;
+    const updated = (curriculum.lessonPlans || []).find((item) => item.id === finding.planId);
+    const afterIds = Array.isArray(updated?.activityIds) ? updated.activityIds.slice() : [];
     repairs.push({
       id: finding.id,
       planId: finding.planId,
       action: finding.repairAction,
       plainLanguage: `Reconnected activities for “${plan.title || plan.id}”.`,
       status: "repaired",
+      before: { activityIds: beforeIds },
+      after: { activityIds: afterIds },
     });
     finding.status = "repaired";
     finding.severity = "repaired";
+    finding.severityLevel = "low";
+    finding.severityLabel = "Low";
     finding.plainLanguage = `Automatically repaired: reconnected activities for “${plan.title || plan.id}”.`;
+    finding.userImpact = "This broken link was repaired automatically; teachers should see activities again after refresh.";
   }
 
   if (repairs.length && typeof deps.writeSiteCurriculum === "function") {
@@ -417,7 +470,95 @@ function applySafeSystemRepairs(deps, report) {
   return { repairs, curriculum, store };
 }
 
+/**
+ * Persist stamps, history, open issues, repair log, and compact snapshot after a real run.
+ */
+function persistSystemHealthRun(store, report, {
+  repairs = [],
+  trigger = "manual",
+  healthIntervalMs = 24 * 60 * 60 * 1000,
+} = {}) {
+  const previous = store.systemHealth && typeof store.systemHealth === "object"
+    ? store.systemHealth
+    : {};
+  const issueUpdate = report._issueUpdate || updateOpenIssues(previous.openIssues || {}, report.findings || [], report.generatedAt);
+  const historyEntry = buildHistoryEntry({
+    report,
+    repairs,
+    trigger,
+    newIds: issueUpdate.newIds || [],
+    resolved: issueUpdate.resolved || [],
+  });
+  const history = appendHealthHistory(previous, historyEntry);
+  const repairLog = repairs.length
+    ? appendRepairLog(previous, repairs, { trigger, at: report.generatedAt })
+    : (Array.isArray(previous.repairLog) ? previous.repairLog : []);
+
+  const scheduler = {
+    ...(previous.scheduler || {}),
+    enabled: process.env.SYSTEM_HEALTH_SCHEDULER !== "false",
+    intervalMs: healthIntervalMs,
+    lastScheduledAt: trigger === "scheduled"
+      ? report.generatedAt
+      : (previous.scheduler?.lastScheduledAt || ""),
+    lastDeployCheckAt: trigger === "deploy"
+      ? report.generatedAt
+      : (previous.scheduler?.lastDeployCheckAt || ""),
+    lastDeployCheckCommit: trigger === "deploy"
+      ? (report.timestamps?.lastDeployment || previous.scheduler?.lastDeployCheckCommit || "")
+      : (previous.scheduler?.lastDeployCheckCommit || ""),
+  };
+
+  const snapshotReport = { ...report };
+  delete snapshotReport._issueUpdate;
+  snapshotReport.history = history.slice(0, 20);
+  snapshotReport.repairLog = repairLog.slice(0, 20);
+  snapshotReport.openIssues = issueUpdate.openIssues;
+  snapshotReport.scheduler = {
+    ...scheduler,
+    historyCount: history.length,
+  };
+
+  store.systemHealth = {
+    ...previous,
+    lastFullCheck: report.generatedAt,
+    lastBillingCheck: report.generatedAt,
+    lastBackup: report.timestamps?.lastBackup || previous.lastBackup || "",
+    lastDeployment: report.timestamps?.lastDeployment || previous.lastDeployment || "",
+    lastOverall: report.overall,
+    lastRepairCount: repairs.length,
+    lastTrigger: trigger,
+    openIssues: issueUpdate.openIssues,
+    history,
+    repairLog,
+    scheduler,
+    lastSnapshot: compactReportSnapshot(snapshotReport),
+  };
+
+  return {
+    store,
+    report: snapshotReport,
+    historyEntry,
+    newCriticalIds: (issueUpdate.newIds || []).filter((id) => {
+      const issue = issueUpdate.openIssues[id];
+      return issue && normalizeSeverityLevel(issue) === "critical";
+    }),
+  };
+}
+
+function criticalAlertPreview(report, newCriticalIds = []) {
+  const idSet = new Set(newCriticalIds || []);
+  const critical = (report.findings || []).filter((f) => idSet.has(f.id));
+  const top = critical.slice(0, 3).map((f) => f.plainLanguage || f.message || f.title);
+  if (!top.length) return "";
+  return `Critical System Health issue${critical.length === 1 ? "" : "s"}: ${top.join(" · ")}`;
+}
+
 module.exports = {
   buildSystemHealthReport,
   applySafeSystemRepairs,
+  persistSystemHealthRun,
+  criticalAlertPreview,
+  buildExportPayload,
+  compactReportSnapshot,
 };

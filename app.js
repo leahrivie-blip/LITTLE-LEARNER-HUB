@@ -4595,6 +4595,7 @@ let adminSystemHealthState = {
   repairs: [],
   error: "",
   lastFetchedAt: "",
+  exporting: false,
 };
 let adminDomainDnsReport = null;
 let adminImpersonationState = null; // { email, account, planPreview, startedAt }
@@ -36331,6 +36332,10 @@ function renderAdminSafetyCenter() {
 function systemHealthStatusLabel(status) {
   const key = String(status || "").toLowerCase();
   if (key === "healthy" || key === "ok") return "Healthy";
+  if (key === "critical") return "Critical";
+  if (key === "high") return "High";
+  if (key === "medium") return "Medium";
+  if (key === "low") return "Low";
   if (key === "warning") return "Warning";
   if (key === "urgent") return "Urgent";
   if (key === "repaired") return "Automatically repaired";
@@ -36340,11 +36345,83 @@ function systemHealthStatusLabel(status) {
 
 function systemHealthBadgeClass(status) {
   const key = String(status || "").toLowerCase();
-  if (key === "healthy") return "llh-health-badge is-healthy";
-  if (key === "warning") return "llh-health-badge is-warning";
-  if (key === "urgent") return "llh-health-badge is-urgent";
+  if (key === "healthy" || key === "low") return "llh-health-badge is-healthy";
+  if (key === "warning" || key === "high") return "llh-health-badge is-warning";
+  if (key === "urgent" || key === "critical") return "llh-health-badge is-urgent";
   if (key === "repaired") return "llh-health-badge is-repaired";
+  if (key === "medium") return "llh-health-badge is-review";
   return "llh-health-badge is-review";
+}
+
+function openAdminSystemHealthDeepLink(link) {
+  if (!link) return;
+  const kind = String(link.kind || "");
+  if (kind === "lesson" && link.planId && typeof openAdminCurriculumLessonEditor === "function") {
+    openAdminCurriculumLessonEditor(link.planId, { scroll: true });
+    return;
+  }
+  if (kind === "activity" && link.planId) {
+    setAdminSectionTab("curriculum-activities");
+    const filter = document.querySelector("#adminCurriculumActivityLessonFilter");
+    if (filter) {
+      filter.value = link.planId;
+      filter.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    return;
+  }
+  if (kind === "user" && link.email) {
+    setAdminSectionTab("users");
+    showActionFeedback(`Member to review: ${link.email}`);
+    const search = document.querySelector("#adminUsersSearch, [data-admin-users-search], #adminUserSearch");
+    if (search) {
+      search.value = link.email;
+      search.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    return;
+  }
+  if (link.href) {
+    try {
+      const url = new URL(link.href, window.location.origin);
+      const section = url.searchParams.get("adminSection") || "";
+      if (section) setAdminSectionTab(section);
+      const lessonId = url.searchParams.get("adminLessonId") || "";
+      if (lessonId && typeof openAdminCurriculumLessonEditor === "function") {
+        openAdminCurriculumLessonEditor(lessonId, { scroll: true });
+      }
+      const email = url.searchParams.get("adminFocusEmail") || "";
+      if (email) {
+        setAdminSectionTab(section || "users");
+        showActionFeedback(`Member to review: ${email}`);
+      }
+    } catch {
+      setAdminSectionTab("system-health");
+    }
+  }
+}
+
+async function exportAdminSystemHealthReport() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) {
+    showActionFeedback("Unlock Admin to export a health report.");
+    return;
+  }
+  adminSystemHealthState.exporting = true;
+  renderAdminSystemHealthCenter();
+  try {
+    const res = await fetch(`/api/admin/system-health/export?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}));
+      throw new Error(payload.error || "Export failed.");
+    }
+    const blob = await res.blob();
+    downloadBlob(blob, `llh-system-health-${new Date().toISOString().slice(0, 10)}.json`);
+    showActionFeedback("System health report downloaded.");
+  } catch (error) {
+    showActionFeedback(error.message || "Could not export health report.");
+  } finally {
+    adminSystemHealthState.exporting = false;
+    renderAdminSystemHealthCenter();
+  }
 }
 
 async function loadAdminSystemHealthReport({ run = false, applySafeRepairs = false } = {}) {
@@ -36369,7 +36446,7 @@ async function loadAdminSystemHealthReport({ run = false, applySafeRepairs = fal
       payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || "Full system check failed.");
     } else {
-      const res = await fetch(`/api/admin/system-health?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+      const res = await fetch(`/api/admin/system-health?adminToken=${encodeURIComponent(token)}&refresh=1`, { cache: "no-store" });
       payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || "Could not load system health.");
     }
@@ -36394,6 +36471,11 @@ function renderAdminSystemHealthCenter() {
   const report = adminSystemHealthState.report;
   const summary = report?.summary || {};
   const timestamps = report?.timestamps || {};
+  const stats = report?.stats || {};
+  const trends = Array.isArray(report?.trends) ? report.trends : [];
+  const history = Array.isArray(report?.history) ? report.history : [];
+  const repairLog = Array.isArray(report?.repairLog) ? report.repairLog : [];
+  const scheduler = report?.scheduler || {};
   const findings = Array.isArray(report?.findings) ? report.findings : [];
   const busy = adminSystemHealthState.loading || adminSystemHealthState.running;
   const overall = report?.overall || (busy ? "checking" : "unknown");
@@ -36406,36 +36488,62 @@ function renderAdminSystemHealthCenter() {
   const findingCards = findings
     .filter((f) => f.status !== "healthy")
     .slice(0, 60)
-    .map((finding) => `
-      <article class="analytics-card llh-health-finding ${systemHealthBadgeClass(finding.status || finding.severity)}">
+    .map((finding) => {
+      const sev = finding.severityLevel || finding.severity || finding.status;
+      const links = Array.isArray(finding.deepLinks) ? finding.deepLinks : [];
+      return `
+      <article class="analytics-card llh-health-finding ${systemHealthBadgeClass(sev)}">
         <div class="llh-health-finding-top">
-          <span class="${systemHealthBadgeClass(finding.status || finding.severity)}">${escapeHtml(systemHealthStatusLabel(finding.status || finding.severity))}</span>
+          <span class="${systemHealthBadgeClass(sev)}">${escapeHtml(finding.severityLabel || systemHealthStatusLabel(sev))}</span>
           <strong>${escapeHtml(finding.title || "Issue")}</strong>
         </div>
         <p>${escapeHtml(finding.plainLanguage || finding.message || "")}</p>
+        <p class="muted-copy"><strong>Member impact:</strong> ${escapeHtml(finding.userImpact || "Review recommended.")}</p>
+        ${finding.firstSeenAt ? `<p class="muted-copy">First seen: ${escapeHtml(new Date(finding.firstSeenAt).toLocaleString())}${finding.occurrenceCount ? ` · Seen in ${escapeHtml(String(finding.occurrenceCount))} check${finding.occurrenceCount === 1 ? "" : "s"}` : ""}</p>` : ""}
         ${finding.planId ? `<p class="muted-copy">Lesson plan: ${escapeHtml(finding.planTitle || finding.planId)}</p>` : ""}
         ${finding.email ? `<p class="muted-copy">Member: ${escapeHtml(finding.email)}</p>` : ""}
         ${finding.needsManualReview ? `<p class="muted-copy">Needs manual review — no automatic change was made.</p>` : ""}
-        ${finding.planId ? `<div class="account-actions-row"><button type="button" class="ghost-button" data-admin-system-health-open-lesson="${escapeHtml(finding.planId)}">Open lesson plan</button></div>` : ""}
+        <div class="account-actions-row">
+          ${links.map((link, index) => `
+            <button type="button" class="ghost-button" data-admin-system-health-link="${escapeHtml(finding.id || "")}" data-link-index="${index}">
+              ${escapeHtml(link.label || "Open")}
+            </button>
+          `).join("")}
+        </div>
       </article>
-    `).join("");
+    `;
+    }).join("");
+
+  const historyRows = history.slice(0, 12).map((row) => `
+    <article class="analytics-card llh-health-history-row">
+      <div class="llh-health-finding-top">
+        <span class="${systemHealthBadgeClass(row.overall)}">${escapeHtml(systemHealthStatusLabel(row.overall))}</span>
+        <strong>${escapeHtml(row.at ? new Date(row.at).toLocaleString() : "Unknown time")}</strong>
+        <span class="muted-copy">${escapeHtml(row.trigger || "manual")}</span>
+      </div>
+      <p class="muted-copy">Critical ${escapeHtml(String(row.critical ?? 0))} · High ${escapeHtml(String(row.high ?? 0))} · Medium ${escapeHtml(String(row.medium ?? 0))} · Auto-repaired ${escapeHtml(String(row.repairedCount ?? 0))}</p>
+      ${row.newFindingIds?.length ? `<p class="muted-copy">New issues: ${escapeHtml(String(row.newFindingIds.length))}</p>` : ""}
+      ${row.resolvedFindingIds?.length ? `<p class="muted-copy">Resolved since prior check: ${escapeHtml(String(row.resolvedFindingIds.length))}</p>` : ""}
+    </article>
+  `).join("");
 
   root.innerHTML = `
     <div class="page-title" style="margin-bottom:12px;">
       <p class="eyebrow">Protections</p>
       <h2>System Health Center</h2>
-      <p class="muted-copy">Plain-language website checks for lesson plans, billing access, backups, and launch readiness. This reuses existing safety tools — it does not invent a second set of rules.</p>
+      <p class="muted-copy">Continuous plain-language monitoring for lesson plans, billing access, backups, and launch readiness. Reuses existing safety tools and records every full check.</p>
     </div>
     <div class="admin-owner-grid admin-kpi-grid">
       ${metric("Overall", systemHealthStatusLabel(overall))}
-      ${metric("Urgent", summary.urgent ?? "—")}
-      ${metric("Warning", summary.warning ?? "—")}
-      ${metric("Needs review", summary.needsReview ?? "—")}
+      ${metric("Critical", summary.critical ?? summary.urgent ?? "—")}
+      ${metric("High", summary.high ?? summary.warning ?? "—")}
+      ${metric("Medium", summary.medium ?? summary.needsReview ?? "—")}
       ${metric("Auto-repaired", summary.repaired ?? adminSystemHealthState.repairs.length ?? "—")}
       ${metric("Last full check", timestamps.lastFullCheck ? new Date(timestamps.lastFullCheck).toLocaleString() : "Not run yet")}
       ${metric("Last backup", timestamps.lastBackup ? new Date(timestamps.lastBackup).toLocaleString() : "Not listed")}
       ${metric("Last billing check", timestamps.lastBillingCheck ? new Date(timestamps.lastBillingCheck).toLocaleString() : "—")}
       ${metric("Last deployment", timestamps.lastDeployment || "Not recorded in this environment")}
+      ${metric("Auto checks", scheduler.enabled === false ? "Off" : `About every ${Math.round((scheduler.intervalMs || 86400000) / 3600000)}h`)}
     </div>
     <div class="account-actions-row" style="margin:16px 0;">
       <button type="button" class="primary-button" data-admin-system-health-run ${busy ? "disabled" : ""}>
@@ -36445,6 +36553,9 @@ function renderAdminSystemHealthCenter() {
         Run check + safe repairs
       </button>
       <button type="button" class="ghost-button" data-admin-system-health-refresh ${busy ? "disabled" : ""}>Refresh</button>
+      <button type="button" class="ghost-button" data-admin-system-health-export ${adminSystemHealthState.exporting || busy ? "disabled" : ""}>
+        ${adminSystemHealthState.exporting ? "Exporting…" : "Export health report"}
+      </button>
       <button type="button" class="ghost-button" data-admin-section-tab="stripe-backfill">Open backup / Stripe tools</button>
     </div>
     ${adminSystemHealthState.error ? `<p class="form-message">${escapeHtml(adminSystemHealthState.error)}</p>` : ""}
@@ -36457,24 +36568,70 @@ function renderAdminSystemHealthCenter() {
       </article>
     ` : ""}
     <section style="margin-top:16px;">
-      <h3>Issues to review</h3>
+      <h3>Platform statistics</h3>
+      <div class="admin-owner-grid admin-kpi-grid">
+        ${metric("Published lessons", stats.publishedLessonPlans ?? "—")}
+        ${metric("Published incomplete", stats.publishedIncomplete ?? "—")}
+        ${metric("Incomplete drafts", stats.incompleteDrafts ?? "—")}
+        ${metric("Broken activity links", stats.brokenActivityLinkPlans ?? "—")}
+        ${metric("Failed notifications", stats.failedNotifications ?? "—")}
+        ${metric("Failed PDFs", stats.failedPdfGenerations == null ? "Not tracked yet" : stats.failedPdfGenerations)}
+        ${metric("Recent tool/server errors", stats.recentLoginOrServerErrors ?? "—")}
+        ${metric("Open tracked issues", stats.openIssueCount ?? "—")}
+      </div>
+      ${stats.failedPdfGenerationsNote ? `<p class="muted-copy">${escapeHtml(stats.failedPdfGenerationsNote)}</p>` : ""}
+      ${stats.recentLoginOrServerErrorsNote ? `<p class="muted-copy">${escapeHtml(stats.recentLoginOrServerErrorsNote)}</p>` : ""}
+    </section>
+    <section style="margin-top:16px;">
+      <h3>Trends</h3>
       <div class="llh-health-findings">
-        ${findingCards || (report ? `<div class="empty-state">No warnings or urgent issues were found in this check.</div>` : "")}
+        ${trends.length ? trends.slice(0, 8).map((trend) => `
+          <article class="analytics-card">
+            <div class="llh-health-finding-top">
+              <span class="${systemHealthBadgeClass(trend.severityLevel || "medium")}">${escapeHtml(systemHealthStatusLabel(trend.severityLevel || "medium"))}</span>
+              <strong>${escapeHtml(trend.title || "Trend")}</strong>
+            </div>
+            <p>${escapeHtml(trend.plainLanguage || "")}</p>
+            ${trend.userImpact ? `<p class="muted-copy"><strong>Member impact:</strong> ${escapeHtml(trend.userImpact)}</p>` : ""}
+          </article>
+        `).join("") : `<div class="empty-state">Not enough history yet to show trends. After a few scheduled or manual checks, patterns will appear here.</div>`}
       </div>
     </section>
-    ${adminSystemHealthState.repairs.length ? `
+    <section style="margin-top:16px;">
+      <h3>Issues to review</h3>
+      <div class="llh-health-findings">
+        ${findingCards || (report ? `<div class="empty-state">No warnings or critical issues were found in this check.</div>` : "")}
+      </div>
+    </section>
+    <section style="margin-top:16px;">
+      <h3>Check history</h3>
+      <p class="muted-copy">Every full check (manual, daily, or after deploy) is saved so you can see when issues first appeared and what was repaired.</p>
+      <div class="llh-health-findings">
+        ${historyRows || `<div class="empty-state">No saved health checks yet. Click “Run Full System Check” to create the first history entry.</div>`}
+      </div>
+    </section>
+    ${adminSystemHealthState.repairs.length || repairLog.length ? `
       <section style="margin-top:16px;">
-        <h3>Automatic repairs just applied</h3>
+        <h3>Automatic repair log</h3>
         ${(adminSystemHealthState.repairs || []).map((repair) => `
           <article class="analytics-card">
             <span class="${systemHealthBadgeClass("repaired")}">Automatically repaired</span>
             <p>${escapeHtml(repair.plainLanguage || repair.action || "Repair completed")}</p>
           </article>
         `).join("")}
+        ${repairLog.slice(0, 10).map((repair) => `
+          <article class="analytics-card">
+            <span class="${systemHealthBadgeClass("repaired")}">Logged repair</span>
+            <p>${escapeHtml(repair.plainLanguage || repair.action || "Repair")}</p>
+            <p class="muted-copy">${escapeHtml(repair.at ? new Date(repair.at).toLocaleString() : "")} · ${escapeHtml(repair.trigger || "")}${repair.planId ? ` · plan ${escapeHtml(repair.planId)}` : ""}</p>
+          </article>
+        `).join("")}
       </section>
     ` : ""}
-    <p class="muted-copy" style="margin-top:16px;">Safe automatic repairs only reconnect obvious lesson/activity links. Billing mismatches, member messages, child records, and custom lesson edits are never changed automatically.</p>
+    <p class="muted-copy" style="margin-top:16px;">Safe automatic repairs only reconnect obvious lesson/activity links and always write an exact repair log. Billing mismatches, member messages, child records, and custom lesson edits are never changed automatically. Critical new issues also create an admin notification.</p>
   `;
+  // Stash deep links on the root for click handlers.
+  root._llhHealthFindings = findings;
 }
 
 function buildLessonPublishChecklist(lessonPlan) {
@@ -51607,6 +51764,23 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-admin-system-health-refresh]") && isAdminUnlocked()) {
     event.preventDefault();
     loadAdminSystemHealthReport({ run: false });
+    return;
+  }
+  if (event.target.closest("[data-admin-system-health-export]") && isAdminUnlocked()) {
+    event.preventDefault();
+    exportAdminSystemHealthReport();
+    return;
+  }
+  const healthLinkBtn = event.target.closest("[data-admin-system-health-link]");
+  if (healthLinkBtn && isAdminUnlocked()) {
+    event.preventDefault();
+    const findingId = healthLinkBtn.getAttribute("data-admin-system-health-link") || "";
+    const linkIndex = Number(healthLinkBtn.getAttribute("data-link-index") || 0);
+    const root = document.querySelector("#adminSystemHealthApp");
+    const findings = root?._llhHealthFindings || adminSystemHealthState.report?.findings || [];
+    const finding = findings.find((item) => item.id === findingId);
+    const link = finding?.deepLinks?.[linkIndex];
+    if (link) openAdminSystemHealthDeepLink(link);
     return;
   }
   const openHealthLesson = event.target.closest("[data-admin-system-health-open-lesson]");
