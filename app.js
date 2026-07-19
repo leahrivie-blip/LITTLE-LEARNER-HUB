@@ -6639,6 +6639,11 @@ function renderCurriculumDailyDayEditor(day, dayPlan = {}) {
         <span class="muted-copy">${items.length} ${items.length === 1 ? "activity" : "activities"}</span>
       </summary>
       <div class="curriculum-daily-day-body">
+        <div class="account-actions-row curriculum-day-toolbar">
+          <button class="ghost-button" type="button" data-curriculum-duplicate-day="${day}">Duplicate day</button>
+          ${day !== "monday" ? `<button class="ghost-button" type="button" data-curriculum-copy-monday="${day}">Copy Monday structure</button>` : `<button class="ghost-button" type="button" data-curriculum-copy-monday-all>Copy Monday → all days</button>`}
+          <button class="ghost-button" type="button" data-curriculum-add-row="${day}">+ Add activity</button>
+        </div>
         <label>Daily theme<input data-curriculum-day-theme value="${escapeHtml(plan.theme || "")}" placeholder="${dayLabel} theme" /></label>
         <label>Daily objectives<textarea rows="2" data-curriculum-day-objectives>${escapeHtml(plan.objectives || "")}</textarea></label>
         <fieldset class="admin-fieldset">
@@ -7498,6 +7503,17 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           </select>
         </label>
       </div>
+      <div class="form-grid-two">
+        <label>Primary collection
+          <select name="primaryCollection">
+            <option value="">—</option>
+            ${(globalThis.LlhSmartLessonImport?.PRIMARY_COLLECTIONS || ["Weekly Lesson Plans", "Seasonal and Holiday", "Infant", "Toddler", "Preschool", "Free Lesson Plans", "Pro Lesson Plans", "Saved Drafts"]).map((collection) => `
+              <option value="${escapeHtml(collection)}" ${record.primaryCollection === collection ? "selected" : ""}>${escapeHtml(collection)}</option>
+            `).join("")}
+          </select>
+        </label>
+        <label>Tags<input name="tags" value="${escapeHtml((record.tags || []).join(", "))}" placeholder="Math, Literacy, Seasonal" /></label>
+      </div>
       </div>
       <div id="admin-lesson-cover">${renderAdminCurriculumLessonCoverSection(record)}</div>
       <label>Status
@@ -7667,6 +7683,7 @@ function renderAdminCurriculumLessonPlanManager() {
   const banner = adminCurriculumLessonSaveBanner?.text
     ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
     : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
+  const smartImportActive = Boolean(globalThis.LLHSmartLessonImportUi);
   target.innerHTML = `
     <div class="access-notice" role="status" style="margin-bottom:1rem;">
       <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
@@ -7675,12 +7692,18 @@ function renderAdminCurriculumLessonPlanManager() {
       <div>
         <p class="eyebrow">Content Manager</p>
         <h3>Curriculum lesson plans</h3>
-        <p class="muted-copy">File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities.</p>
+        <p class="muted-copy">Smart Import organizes pasted plans for review. The list below is your source of truth for linked activities.</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
     ${banner}
-    ${renderCurriculumLessonImportPanel()}
+    <div id="smartLessonImportApp" class="smart-import-root"></div>
+    ${smartImportActive ? `
+      <details class="admin-fieldset curriculum-import-legacy-details">
+        <summary>Classic single-plan importer (V3–V5)</summary>
+        ${renderCurriculumLessonImportPanel()}
+      </details>
+    ` : renderCurriculumLessonImportPanel()}
     <div class="admin-content-filters">
       <label><span>Search</span><input type="search" id="adminCurriculumFilterQuery" value="${escapeHtml(adminCurriculumListFilters.query || "")}" placeholder="Title, theme…" /></label>
       <label><span>Status</span>
@@ -7723,9 +7746,13 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
+  globalThis.LLHSmartLessonImportUi?.mountIntoLessonPlanManager?.(target);
   if (editingPlan) {
     globalThis.LLHMonthlyCurriculumPhase1?.resetLessonEditorStep?.();
-    queueMicrotask(() => globalThis.LLHMonthlyCurriculumPhase1?.applyGuidedLessonEditorStep?.());
+    queueMicrotask(() => {
+      globalThis.LLHMonthlyCurriculumPhase1?.applyGuidedLessonEditorStep?.();
+      enhanceAdminLessonPlanBuilderForm?.(document.querySelector("#adminCurriculumLessonPlanForm"));
+    });
   }
 }
 
@@ -7896,9 +7923,52 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
       if (rawPosition === null) return existing?.coverImagePosition || "center";
       return normalizedShortText(rawPosition) || "center";
     })(),
+    primaryCollection: normalizedShortText(formData.get("primaryCollection") || existing?.primaryCollection || ""),
+    tags: (() => {
+      const rawTags = formData.get("tags");
+      if (rawTags === null) return Array.isArray(existing?.tags) ? existing.tags : [];
+      return String(rawTags || "").split(",").map((item) => normalizedShortText(item)).filter(Boolean);
+    })(),
     createdAt: existing?.createdAt || "",
     updatedAt: existing?.updatedAt || "",
   };
+}
+
+async function saveAdminCurriculumLessonPlanRecord(lessonPlanInput = {}) {
+  const token = adminSession()?.token || "";
+  if (!curriculumLessonPlanConfig.endpoint || !canUseLaunchBackend() || !token) {
+    throw new Error("Backend server and admin login are required.");
+  }
+  const lessonPlan = normalizeCurriculumLessonPlanForRender(lessonPlanInput);
+  if (!lessonPlan.id) {
+    lessonPlan.id = `cur-lp-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
+  }
+  if (!curriculumExpectedUpdatedAt()) {
+    await loadAdminSiteContent().catch(() => {});
+  }
+  const response = await fetch(curriculumLessonPlanConfig.endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      adminToken: token,
+      expectedUpdatedAt: curriculumExpectedUpdatedAt(),
+      lessonPlan,
+    }),
+  });
+  const rawText = await response.text();
+  let data = null;
+  try { data = rawText ? JSON.parse(rawText) : null; } catch { data = null; }
+  if (!response.ok) {
+    throw new Error(data?.error || `Save failed (${response.status})`);
+  }
+  if (data?.curriculum || data?.siteContentUpdatedAt) {
+    applyCurriculumState(data.curriculum || effectiveCurriculum(), {
+      siteContentUpdatedAt: data.siteContentUpdatedAt,
+    });
+  } else if (typeof loadAdminSiteContent === "function") {
+    await loadAdminSiteContent().catch(() => {});
+  }
+  return data;
 }
 
 async function saveAdminCurriculumLessonPlanForm(form) {
@@ -8214,6 +8284,134 @@ function moveCurriculumDailyPlanRowToDay(row, targetDay) {
   }
   const panel = document.querySelector(`[data-curriculum-day-panel="${targetDay}"]`);
   if (panel && "open" in panel) panel.open = true;
+}
+
+function serializeCurriculumDayPanel(day) {
+  const root = activeCurriculumLessonEditorRoot();
+  const dayPanel = root.querySelector(`[data-curriculum-day-panel="${day}"]`);
+  if (!dayPanel) return emptyCurriculumDailyPlanDay();
+  const rows = [...dayPanel.querySelectorAll(".curriculum-daily-item-row")];
+  return {
+    theme: normalizedShortText(dayPanel.querySelector("[data-curriculum-day-theme]")?.value),
+    objectives: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-objectives]")?.value),
+    learningDomains: collectCurriculumDomainChecks(dayPanel),
+    materials: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-materials]")?.value),
+    vocabulary: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-vocabulary]")?.value),
+    books: collectCurriculumBooksFromEditor(dayPanel),
+    songs: collectCurriculumSongsFromEditor(dayPanel),
+    circleTime: collectCurriculumTextListFromEditor(dayPanel.querySelector(`[data-curriculum-text-list-editor="day:${day}:circleTime"]`) || dayPanel),
+    transitions: collectCurriculumTextListFromEditor(dayPanel.querySelector(`[data-curriculum-text-list-editor="day:${day}:transitions"]`) || dayPanel),
+    outdoorPlay: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-outdoor]")?.value),
+    familyConnection: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-family]")?.value),
+    observations: collectCurriculumTextListFromEditor(dayPanel.querySelector(`[data-curriculum-text-list-editor="day:${day}:observations"]`) || dayPanel),
+    adaptations: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-adaptations]")?.value),
+    safetyNotes: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-safety]")?.value),
+    items: rows.map((row) => ({
+      itemId: generateCurriculumItemIdClient(),
+      title: normalizedShortText(row.querySelector("[data-curriculum-title]")?.value),
+      activityCategory: normalizedShortText(row.querySelector("[data-curriculum-category]")?.value) || "Open-Ended Exploration",
+      objective: normalizedMultilineText(row.querySelector("[data-curriculum-objective]")?.value),
+      description: normalizedMultilineText(row.querySelector("[data-curriculum-description]")?.value),
+      materials: normalizedMultilineText(row.querySelector("[data-curriculum-materials]")?.value),
+      setup: normalizedMultilineText(row.querySelector("[data-curriculum-setup]")?.value),
+      steps: normalizedMultilineText(row.querySelector("[data-curriculum-steps]")?.value),
+      teacherRole: normalizedMultilineText(row.querySelector("[data-curriculum-teacher-role]")?.value),
+      learningGoals: normalizedMultilineText(row.querySelector("[data-curriculum-learning-goals]")?.value)
+        .split(/\n+/).map((line) => line.trim()).filter(Boolean),
+    })).filter((item) => item.title),
+  };
+}
+
+function replaceCurriculumDayPanel(day, dayPlan) {
+  const root = activeCurriculumLessonEditorRoot();
+  const panel = root.querySelector(`[data-curriculum-day-panel="${day}"]`);
+  if (!panel) return;
+  const wrap = document.createElement("div");
+  wrap.innerHTML = renderCurriculumDailyDayEditor(day, dayPlan || emptyCurriculumDailyPlanDay());
+  const next = wrap.firstElementChild;
+  if (!next) return;
+  panel.replaceWith(next);
+  if ("open" in next) next.open = true;
+}
+
+function duplicateCurriculumDay(day) {
+  const days = CURRICULUM_WEEKDAYS;
+  const index = days.indexOf(day);
+  if (index < 0 || index >= days.length - 1) {
+    setAdminCurriculumLessonSaveBanner("Duplicate day needs a later weekday to copy into.", false);
+    return;
+  }
+  const source = serializeCurriculumDayPanel(day);
+  replaceCurriculumDayPanel(days[index + 1], {
+    ...source,
+    items: (source.items || []).map((item) => ({ ...item, itemId: generateCurriculumItemIdClient() })),
+  });
+  setAdminCurriculumLessonSaveBanner(`Duplicated ${day} into ${days[index + 1]}.`, true);
+}
+
+function copyMondayStructureToDay(targetDay) {
+  const source = serializeCurriculumDayPanel("monday");
+  replaceCurriculumDayPanel(targetDay, {
+    ...source,
+    theme: source.theme ? `${source.theme} (${targetDay})` : source.theme,
+    items: (source.items || []).map((item) => ({ ...item, itemId: generateCurriculumItemIdClient() })),
+  });
+  setAdminCurriculumLessonSaveBanner(`Copied Monday structure to ${targetDay}.`, true);
+}
+
+function copyMondayStructureToAllDays() {
+  CURRICULUM_WEEKDAYS.filter((day) => day !== "monday").forEach((day) => copyMondayStructureToDay(day));
+  setAdminCurriculumLessonSaveBanner("Copied Monday structure to Tuesday–Friday.", true);
+}
+
+function autofillRepeatedMaterialsFromWeekly() {
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  if (!form) return;
+  const weekly = normalizedMultilineText(form.querySelector("[name='weeklyMaterials']")?.value);
+  if (!weekly) {
+    setAdminCurriculumLessonSaveBanner("Add weekly materials first.", false);
+    return;
+  }
+  form.querySelectorAll("[data-curriculum-day-materials]").forEach((field) => {
+    if (!String(field.value || "").trim()) field.value = weekly;
+  });
+  form.querySelectorAll("[data-curriculum-materials]").forEach((field) => {
+    if (!String(field.value || "").trim()) field.value = weekly;
+  });
+  setAdminCurriculumLessonSaveBanner("Filled empty materials from the weekly list.", true);
+}
+
+function enhanceAdminLessonPlanBuilderForm(form) {
+  if (!form || form.querySelector("[data-curriculum-builder-tools]")) return;
+  const tools = document.createElement("div");
+  tools.className = "account-actions-row curriculum-builder-tools";
+  tools.setAttribute("data-curriculum-builder-tools", "true");
+  tools.innerHTML = `
+    <button type="button" class="ghost-button" data-curriculum-autofill-materials>Auto-fill repeated materials</button>
+    <button type="button" class="ghost-button" data-curriculum-copy-monday-all>Copy Monday → all days</button>
+    <button type="button" class="ghost-button" data-curriculum-suggest-cover>Generate cartoon cover</button>
+    <button type="button" class="ghost-button" data-curriculum-preview-user>Preview user view</button>
+  `;
+  const weekly = form.querySelector("#admin-lesson-weekly");
+  if (weekly) weekly.insertAdjacentElement("beforebegin", tools);
+  else form.insertAdjacentElement("afterbegin", tools);
+
+  if (!form.querySelector("[data-curriculum-library-picker]")) {
+    const picker = document.createElement("div");
+    picker.className = "curriculum-library-picker";
+    picker.setAttribute("data-curriculum-library-picker", "true");
+    picker.innerHTML = `
+      <h5>Search existing books, songs &amp; vocabulary</h5>
+      <div class="account-actions-row">
+        <input type="search" data-curriculum-library-query placeholder="Search across lesson plans…" />
+        <button type="button" class="ghost-button" data-curriculum-library-search>Search</button>
+      </div>
+      <div data-curriculum-library-results class="muted-copy">Search to reuse content from other plans.</div>
+    `;
+    const booksBlock = form.querySelector('#admin-lesson-weekly .curriculum-day-list-block');
+    if (booksBlock) booksBlock.insertAdjacentElement("beforebegin", picker);
+    else weekly?.appendChild(picker);
+  }
 }
 
 function curriculumResourcesForAdmin({ includeArchived = false } = {}) {
@@ -53627,6 +53825,138 @@ document.addEventListener("click", async (event) => {
   const curriculumAddRowButton = event.target.closest("[data-curriculum-add-row]");
   if (curriculumAddRowButton) {
     addCurriculumDailyPlanRow(curriculumAddRowButton.dataset.curriculumAddRow);
+    return;
+  }
+  const duplicateDayBtn = event.target.closest("[data-curriculum-duplicate-day]");
+  if (duplicateDayBtn) {
+    duplicateCurriculumDay(duplicateDayBtn.getAttribute("data-curriculum-duplicate-day"));
+    return;
+  }
+  const copyMondayDayBtn = event.target.closest("[data-curriculum-copy-monday]");
+  if (copyMondayDayBtn) {
+    copyMondayStructureToDay(copyMondayDayBtn.getAttribute("data-curriculum-copy-monday"));
+    return;
+  }
+  if (event.target.closest("[data-curriculum-copy-monday-all]")) {
+    copyMondayStructureToAllDays();
+    return;
+  }
+  if (event.target.closest("[data-curriculum-autofill-materials]")) {
+    autofillRepeatedMaterialsFromWeekly();
+    return;
+  }
+  if (event.target.closest("[data-curriculum-library-search]")) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const query = form?.querySelector("[data-curriculum-library-query]")?.value || "";
+    const results = form?.querySelector("[data-curriculum-library-results]");
+    const api = globalThis.LlhSmartLessonImport;
+    if (!api?.searchLibraryAssets || !results) return;
+    const hits = api.searchLibraryAssets(query, curriculumLessonPlansForAdmin(), { limit: 6 });
+    results.innerHTML = `
+      ${(hits.books || []).map((book, index) => `
+        <div class="account-actions-row">
+          <span>Book: ${escapeHtml(book.title)}</span>
+          <button type="button" class="ghost-button" data-curriculum-library-add-book="${index}">Add book</button>
+        </div>
+      `).join("")}
+      ${(hits.songs || []).map((song, index) => `
+        <div class="account-actions-row">
+          <span>Song: ${escapeHtml(song.title)}</span>
+          <button type="button" class="ghost-button" data-curriculum-library-add-song="${index}">Add song</button>
+        </div>
+      `).join("")}
+      ${(hits.vocabulary || []).map((item, index) => `
+        <div class="account-actions-row">
+          <span>Word: ${escapeHtml(item.word)}</span>
+          <button type="button" class="ghost-button" data-curriculum-library-add-vocab="${index}">Add word</button>
+        </div>
+      `).join("")}
+      ${(!hits.books.length && !hits.songs.length && !hits.vocabulary.length)
+        ? `<p class="muted-copy">No matches.</p>`
+        : ""}
+    `;
+    form.__llhLibraryHits = hits;
+    return;
+  }
+  const addLibBook = event.target.closest("[data-curriculum-library-add-book]");
+  if (addLibBook) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const book = form?.__llhLibraryHits?.books?.[Number(addLibBook.getAttribute("data-curriculum-library-add-book"))];
+    if (book) {
+      addCurriculumBookRow("weekly");
+      const rows = form.querySelectorAll('[data-curriculum-books-editor="weekly"] [data-curriculum-book-row]');
+      const last = rows[rows.length - 1];
+      if (last) {
+        const title = last.querySelector("[data-curriculum-book-title]");
+        const author = last.querySelector("[data-curriculum-book-author]");
+        if (title) title.value = book.title || "";
+        if (author) author.value = book.author || "";
+      }
+      setAdminCurriculumLessonSaveBanner(`Added book “${book.title}”.`, true);
+    }
+    return;
+  }
+  const addLibSong = event.target.closest("[data-curriculum-library-add-song]");
+  if (addLibSong) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const song = form?.__llhLibraryHits?.songs?.[Number(addLibSong.getAttribute("data-curriculum-library-add-song"))];
+    if (song) {
+      addCurriculumSongRow("weekly");
+      const rows = form.querySelectorAll('[data-curriculum-songs-editor="weekly"] [data-curriculum-song-row]');
+      const last = rows[rows.length - 1];
+      if (last) {
+        const title = last.querySelector("[data-curriculum-song-title]");
+        if (title) title.value = song.title || "";
+      }
+      setAdminCurriculumLessonSaveBanner(`Added song “${song.title}”.`, true);
+    }
+    return;
+  }
+  const addLibVocab = event.target.closest("[data-curriculum-library-add-vocab]");
+  if (addLibVocab) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const item = form?.__llhLibraryHits?.vocabulary?.[Number(addLibVocab.getAttribute("data-curriculum-library-add-vocab"))];
+    const field = form?.querySelector("[name='vocabularyWords']");
+    if (item?.word && field) {
+      const current = String(field.value || "").split(/[,;\n]+/).map((w) => w.trim()).filter(Boolean);
+      if (!current.map((w) => w.toLowerCase()).includes(item.word.toLowerCase())) current.push(item.word);
+      field.value = current.join(", ");
+      setAdminCurriculumLessonSaveBanner(`Added vocabulary “${item.word}”.`, true);
+    }
+    return;
+  }
+  if (event.target.closest("[data-curriculum-suggest-cover]")) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    if (!form) return;
+    const plan = collectCurriculumLessonPlanFromForm(form);
+    const resolved = lessonPlanCoversApi()?.resolveLessonPlanCover?.({ ...plan, coverImageUrl: "" });
+    if (resolved?.url) {
+      const urlField = form.querySelector("[name='coverImageUrl'], [data-curriculum-cover-url]");
+      const sourceField = form.querySelector("[name='coverImageSource'], [data-curriculum-cover-source]");
+      const altField = form.querySelector("[name='coverImageAlt']");
+      if (urlField) urlField.value = resolved.url;
+      if (sourceField) sourceField.value = resolved.source || "mapped";
+      if (altField && !altField.value) altField.value = resolved.alt || "";
+      const preview = form.querySelector("[data-curriculum-cover-preview]");
+      if (preview) {
+        preview.src = resolved.url;
+        preview.alt = resolved.alt || "Lesson plan cover";
+      }
+      setAdminCurriculumLessonSaveBanner("Suggested a cartoon cover from the theme library.", true);
+    } else {
+      setAdminCurriculumLessonSaveBanner("Could not map a cover for this theme yet.", false);
+    }
+    return;
+  }
+  if (event.target.closest("[data-curriculum-preview-user]")) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const id = form?.querySelector("[name='id']")?.value || adminCurriculumLessonEditorId;
+    if (id && typeof openCurriculumLessonPlanViewer === "function") {
+      openCurriculumLessonPlanViewer(id);
+    } else if (id && typeof setView === "function") {
+      setView("lessons");
+      setAdminCurriculumLessonSaveBanner("Open the lesson from the library to preview the user view after saving.", true);
+    }
     return;
   }
   if (event.target.closest("[data-curriculum-remove-row]")) {

@@ -1305,9 +1305,59 @@
     }
   });
 
+  async function saveSeriesDirect(seriesInput = {}) {
+    const token = adminToken();
+    if (!token) throw new Error("Admin unlock is required.");
+    const api = seriesApi();
+    const series = api?.normalizedCurriculumSeries
+      ? api.normalizedCurriculumSeries(seriesInput)
+      : seriesInput;
+    const response = await fetch("/api/admin/curriculum/series", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        adminToken: token,
+        expectedUpdatedAt: typeof curriculumExpectedUpdatedAt === "function" ? curriculumExpectedUpdatedAt() : "",
+        series,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || `Series save failed (${response.status})`);
+    if (typeof applyCurriculumState === "function" && (data.curriculum || data.siteContentUpdatedAt)) {
+      applyCurriculumState(data.curriculum || effectiveCurriculum?.() || {}, {
+        siteContentUpdatedAt: data.siteContentUpdatedAt,
+      });
+    }
+    return data;
+  }
+
+  async function createSeriesFromImport(payload = {}) {
+    const weeks = Array.isArray(payload.weeks) ? payload.weeks : [];
+    const weekCount = Number(payload.weekCount) || Math.max(4, weeks.length || 4);
+    const series = {
+      id: payload.id || `cur-series-${Date.now().toString(16)}`,
+      title: payload.title || "New Monthly Curriculum",
+      description: payload.description || "",
+      age: payload.age || "Preschool",
+      month: payload.month || "",
+      season: payload.season || "",
+      weekCount,
+      plan: payload.plan === "Pro" ? "Pro" : "Free",
+      status: "draft",
+      weeks: weeks.map((week, index) => ({
+        weekNumber: Number(week.weekNumber) || (index + 1),
+        lessonPlanId: week.lessonPlanId || "",
+        displayOrder: Number(week.displayOrder) || (index + 1),
+      })),
+    };
+    return saveSeriesDirect(series);
+  }
+
   globalThis.LLHMonthlyCurriculumPhase1 = {
     renderAdminCurriculumSeriesManager,
     applyGuidedLessonEditorStep,
+    saveSeriesDirect,
+    createSeriesFromImport,
     lessonLibraryTypeTabsHtml,
     monthlyLibraryFiltersHtml,
     monthlySeriesCardHtml,
