@@ -5187,6 +5187,137 @@ async function handleAdminAiGenerateContent(request, response) {
   }
 }
 
+async function handleAdminSmartImportAssist(request, response) {
+  const body = await readJson(request);
+  const token = String(body.adminToken || "");
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const action = normalizedShortText(body.action, 40) || "fill-missing";
+  const plan = body.plan && typeof body.plan === "object" ? body.plan : {};
+  const command = normalizedMultilineText(body.command || "", 2000);
+  const sourceText = normalizedMultilineText(body.sourceText || "", 12000);
+
+  // Always available offline heuristic baseline from the smart-import engine.
+  let heuristic = {};
+  try {
+    const smart = require("../scripts/smart-lesson-import.js");
+    heuristic = smart.buildHeuristicSemanticAssist?.(plan) || {};
+  } catch {
+    heuristic = { source: "heuristic", learningDomains: [], tags: [], reasons: {} };
+  }
+
+  if (!OPENAI_API_KEY) {
+    jsonResponse(response, 200, {
+      ok: true,
+      aiAvailable: false,
+      source: "heuristic",
+      assist: heuristic,
+      note: "OPENAI_API_KEY is not configured — using meaning-based offline suggestions. Review before accepting.",
+    });
+    return;
+  }
+
+  const officialDomains = [
+    "Social Emotional",
+    "Language & Literacy",
+    "Math",
+    "Science",
+    "Physical Development",
+    "Creative Arts",
+  ];
+  const systemPrompt = [
+    "You help early childhood admins review imported lesson plans.",
+    "Return ONLY a JSON object (no markdown) with keys:",
+    "learningDomains (array from the official list only),",
+    "tags (short array), objectives, weeklyMaterials, vocabularyWords,",
+    "familyConnection, observationOpportunities, adaptations, weeklyOverview,",
+    "books (array of {title, author, notes}), songs (array of {title, notes}),",
+    "domainReason (short string), reasons (object of field->reason).",
+    `Official learning domains: ${officialDomains.join(", ")}.`,
+    "Only fill fields that are missing or weak. Do not invent unrelated activities.",
+    "Keep tone play-based and preschool-appropriate.",
+  ].join(" ");
+  const userPrompt = [
+    `Action: ${action}`,
+    command ? `Admin command: ${command}` : "",
+    `Current plan JSON: ${JSON.stringify({
+      title: plan.title || "",
+      age: plan.age || "",
+      theme: plan.theme || "",
+      weeklyOverview: plan.weeklyOverview || "",
+      objectives: plan.objectives || "",
+      learningDomains: plan.learningDomains || [],
+      weeklyMaterials: plan.weeklyMaterials || "",
+      vocabularyWords: plan.vocabularyWords || "",
+      familyConnection: plan.familyConnection || "",
+      observationOpportunities: plan.observationOpportunities || "",
+      adaptations: plan.adaptations || "",
+      books: plan.books || [],
+      songs: plan.songs || [],
+    })}`,
+    sourceText ? `Original paste:\n${sourceText.slice(0, 6000)}` : "",
+  ].filter(Boolean).join("\n\n");
+
+  try {
+    const output = await callOpenAiRaw(systemPrompt, userPrompt);
+    let assist = { ...heuristic, source: "ai" };
+    const jsonMatch = String(output || "").match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed && typeof parsed === "object") {
+          const domains = Array.isArray(parsed.learningDomains)
+            ? parsed.learningDomains.filter((item) => officialDomains.includes(item))
+            : [];
+          assist = {
+            source: "ai",
+            learningDomains: domains.length ? domains : heuristic.learningDomains,
+            domainReason: normalizedShortText(parsed.domainReason, 240) || "AI inferred domains from lesson meaning.",
+            tags: Array.isArray(parsed.tags) ? parsed.tags.map((t) => normalizedShortText(t, 40)).filter(Boolean).slice(0, 10) : heuristic.tags,
+            objectives: normalizedMultilineText(parsed.objectives || "", 4000) || heuristic.objectives,
+            weeklyMaterials: normalizedMultilineText(parsed.weeklyMaterials || "", 4000) || heuristic.weeklyMaterials,
+            vocabularyWords: normalizedMultilineText(parsed.vocabularyWords || "", 2000) || heuristic.vocabularyWords,
+            familyConnection: normalizedMultilineText(parsed.familyConnection || "", 4000) || heuristic.familyConnection,
+            observationOpportunities: normalizedMultilineText(parsed.observationOpportunities || "", 4000) || heuristic.observationOpportunities,
+            adaptations: normalizedMultilineText(parsed.adaptations || "", 4000) || heuristic.adaptations,
+            weeklyOverview: normalizedMultilineText(parsed.weeklyOverview || "", 4000) || heuristic.weeklyOverview,
+            books: Array.isArray(parsed.books) ? parsed.books.slice(0, 8).map((book) => ({
+              title: normalizedShortText(book?.title, 180),
+              author: normalizedShortText(book?.author, 120),
+              notes: normalizedShortText(book?.notes, 240),
+            })).filter((book) => book.title) : heuristic.books,
+            songs: Array.isArray(parsed.songs) ? parsed.songs.slice(0, 8).map((song) => ({
+              title: normalizedShortText(song?.title, 180),
+              notes: normalizedShortText(song?.notes, 240),
+            })).filter((song) => song.title) : heuristic.songs,
+            reasons: parsed.reasons && typeof parsed.reasons === "object" ? parsed.reasons : heuristic.reasons,
+          };
+        }
+      } catch {
+        /* keep heuristic+ai source flag */
+      }
+    }
+    jsonResponse(response, 200, {
+      ok: true,
+      aiAvailable: true,
+      source: assist.source,
+      assist,
+      model: OPENAI_MODEL,
+      generatedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    jsonResponse(response, 200, {
+      ok: true,
+      aiAvailable: false,
+      source: "heuristic",
+      assist: heuristic,
+      note: error.message || "AI assist failed — using offline suggestions.",
+    });
+  }
+}
+
 async function handleAdminGenerateLessonPlan(request, response) {
   // Compatibility wrapper for the retired dedicated endpoint — uses the content generator.
   const body = await readJson(request);
@@ -14966,6 +15097,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/subscription-refresh") return await handleAdminSubscriptionRefresh(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-generate-content") return await handleAdminAiGenerateContent(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/smart-import/assist") return await handleAdminSmartImportAssist(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts") return await handleAdminAiPromptsSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-prompts/restore") return await handleAdminAiPromptsRestore(request, response);

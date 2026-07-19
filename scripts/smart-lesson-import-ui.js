@@ -50,6 +50,11 @@
       plan: "Free",
     },
     saving: false,
+    aiBusy: false,
+    libraryQuery: "",
+    libraryHits: { books: [], songs: [], vocabulary: [] },
+    failedChunks: [],
+    dragReviewId: "",
   };
 
   function esc(value) {
@@ -94,11 +99,8 @@
     }
   }
 
-  function persist() {
-    const api = engine();
-    if (!api) return;
-    state.dirty = true;
-    api.saveDraftSession({
+  function sessionPayload() {
+    return {
       workflow: state.workflow,
       intent: state.intent,
       pasteText: state.pasteText,
@@ -107,7 +109,39 @@
       existingSeriesId: state.existingSeriesId,
       newSeries: state.newSeries,
       assistantChanges: state.assistantChanges,
-    });
+      failedChunks: state.failedChunks,
+      selectedReviewId: state.selectedReviewId,
+    };
+  }
+
+  function persist(options = {}) {
+    const api = engine();
+    if (!api) return;
+    state.dirty = true;
+    const payload = sessionPayload();
+    api.saveDraftSession(payload);
+    if (options.versionLabel) {
+      api.pushVersionSnapshot(options.versionLabel, payload);
+    }
+  }
+
+  function lessonPlansLibrary() {
+    if (typeof curriculumLessonPlansForAdmin === "function") {
+      return curriculumLessonPlansForAdmin() || [];
+    }
+    return globalThis.siteContent?.curriculum?.lessonPlans
+      || globalThis.adminSiteContent?.curriculum?.lessonPlans
+      || [];
+  }
+
+  function adminToken() {
+    try {
+      if (typeof adminSession === "function") return adminSession()?.token || "";
+      const raw = localStorage.getItem("llhAdminSession");
+      return raw ? (JSON.parse(raw).token || "") : "";
+    } catch {
+      return "";
+    }
   }
 
   function statusBadge(status) {
@@ -139,6 +173,8 @@
   function renderHub() {
     const draft = engine()?.loadDraftSession?.();
     const history = engine()?.loadImportHistory?.() || [];
+    const versions = engine()?.loadVersionHistory?.() || [];
+    const failed = engine()?.loadFailedImportRecovery?.();
     return `
       <section class="smart-import-hub" aria-label="Lesson plan workflows">
         <div class="section-heading">
@@ -148,6 +184,16 @@
             <p class="muted-copy">Paste lesson plans in everyday language, review suggestions, then save drafts or publish. You should spend time reviewing — not retyping fields.</p>
           </div>
         </div>
+        ${failed?.recovered?.length || failed?.failed?.length ? `
+          <div class="access-notice smart-import-recovery" role="status">
+            <strong>Failed-import recovery available</strong>
+            <p class="muted-copy">${esc(String(failed.summary?.recoveredCount || 0))} plan(s) were understood and saved for review. ${esc(String(failed.summary?.failedCount || 0))} chunk(s) still need attention.</p>
+            <div class="account-actions-row">
+              <button type="button" class="primary-button" data-smart-recover-failed>Restore understood plans</button>
+              <button type="button" class="ghost-button" data-smart-clear-failed>Dismiss recovery</button>
+            </div>
+          </div>
+        ` : ""}
         <div class="smart-import-workflow-grid">
           ${WORKFLOWS.map((item) => `
             <button type="button" class="smart-import-workflow-card" data-smart-workflow="${item.id}">
@@ -165,6 +211,22 @@
                 <li>
                   <strong>${esc(entry.title || "Import")}</strong>
                   <span class="muted-copy">${esc(entry.at || "")} · ${esc(String(entry.count || 0))} plan(s) · ${esc(entry.result || "")}</span>
+                </li>
+              `).join("")}
+            </ul>
+          </details>
+        ` : ""}
+        ${versions.length ? `
+          <details class="smart-import-history">
+            <summary>Version history (${versions.length})</summary>
+            <ul>
+              ${versions.slice(0, 10).map((entry) => `
+                <li class="smart-import-version-row">
+                  <div>
+                    <strong>${esc(entry.label || "Snapshot")}</strong>
+                    <span class="muted-copy">${esc(entry.at || "")}</span>
+                  </div>
+                  <button type="button" class="ghost-button" data-smart-restore-version="${esc(entry.id)}">Restore</button>
                 </li>
               `).join("")}
             </ul>
@@ -307,6 +369,46 @@
         <label>Family connection<textarea rows="2" data-smart-field="familyConnection">${esc(plan.familyConnection || "")}</textarea></label>
         <label>Observations<textarea rows="2" data-smart-field="observationOpportunities">${esc(plan.observationOpportunities || "")}</textarea></label>
         <label>Adaptations<textarea rows="2" data-smart-field="adaptations">${esc(plan.adaptations || "")}</textarea></label>
+        <div class="smart-import-library-search">
+          <h4>Search existing books, songs &amp; vocabulary</h4>
+          <div class="account-actions-row">
+            <input type="search" data-smart-library-query value="${esc(state.libraryQuery)}" placeholder="Search library…" />
+            <button type="button" class="ghost-button" data-smart-library-search>Search</button>
+          </div>
+          ${(state.libraryHits.books || []).length ? `
+            <p><strong>Books</strong></p>
+            <ul class="smart-import-library-list">
+              ${state.libraryHits.books.map((book, index) => `
+                <li>
+                  <span>${esc(book.title)}${book.author ? ` — ${esc(book.author)}` : ""} <em class="muted-copy">from ${esc(book.sourcePlan || "library")}</em></span>
+                  <button type="button" class="ghost-button" data-smart-add-book="${index}">Add</button>
+                </li>
+              `).join("")}
+            </ul>
+          ` : ""}
+          ${(state.libraryHits.songs || []).length ? `
+            <p><strong>Songs</strong></p>
+            <ul class="smart-import-library-list">
+              ${state.libraryHits.songs.map((song, index) => `
+                <li>
+                  <span>${esc(song.title)} <em class="muted-copy">from ${esc(song.sourcePlan || "library")}</em></span>
+                  <button type="button" class="ghost-button" data-smart-add-song="${index}">Add</button>
+                </li>
+              `).join("")}
+            </ul>
+          ` : ""}
+          ${(state.libraryHits.vocabulary || []).length ? `
+            <p><strong>Vocabulary</strong></p>
+            <ul class="smart-import-library-list">
+              ${state.libraryHits.vocabulary.map((item, index) => `
+                <li>
+                  <span>${esc(item.word)}</span>
+                  <button type="button" class="ghost-button" data-smart-add-vocab="${index}">Add</button>
+                </li>
+              `).join("")}
+            </ul>
+          ` : ""}
+        </div>
         <div class="smart-import-day-summary">
           <h4>Monday–Friday snapshot</h4>
           <ul>
@@ -324,7 +426,9 @@
               <label class="smart-import-suggestion-row">
                 <input type="checkbox" data-smart-accept-suggestion="${index}" ${suggestion.accepted ? "checked" : ""} />
                 <span>
-                  <strong>${esc(suggestion.field)}</strong> — ${esc(suggestion.reason || "")}
+                  <strong>${esc(suggestion.field)}</strong>
+                  ${suggestion.source ? `<span class="smart-import-status is-ai">${esc(suggestion.source)}</span>` : ""}
+                  — ${esc(suggestion.reason || "")}
                   <em>${esc(typeof suggestion.value === "string" ? suggestion.value : JSON.stringify(suggestion.value))}</em>
                 </span>
               </label>
@@ -346,8 +450,10 @@
               ${[1, 2, 3, 4, 5].map((n) => `<option value="${n}" ${Number(review.curriculumAssignment?.weekNumber) === n ? "selected" : ""}>Week ${n}</option>`).join("")}
             </select>
           </label>
+          <button type="button" class="ghost-button" data-smart-ai-enhance ${state.aiBusy ? "disabled" : ""}>${state.aiBusy ? "Asking AI…" : "Enhance with AI meaning assist"}</button>
           <button type="button" class="ghost-button" data-smart-open-manual>Open in full editor</button>
         </div>
+        ${review.recoveryNote ? `<p class="muted-copy">${esc(review.recoveryNote)}</p>` : ""}
       </div>
     `;
   }
@@ -365,8 +471,16 @@
           <div class="account-actions-row">
             <button type="button" class="ghost-button" data-smart-back-paste>← Edit paste</button>
             <button type="button" class="ghost-button" data-smart-undo>Undo last AI change</button>
+            <button type="button" class="ghost-button" data-smart-snapshot>Save version snapshot</button>
           </div>
         </div>
+        ${state.failedChunks.length ? `
+          <div class="access-notice" role="status">
+            <strong>${state.failedChunks.length} chunk(s) still need review</strong>
+            <ul>${state.failedChunks.map((chunk) => `<li>Plan #${esc(String(chunk.index))}: ${esc((chunk.errors || []).join("; ") || "Could not parse")}</li>`).join("")}</ul>
+            <p class="muted-copy">Understood plans were kept below. Fix the paste for failed chunks or continue with the recovered drafts.</p>
+          </div>
+        ` : ""}
         <div class="smart-import-bulk-actions">
           <button type="button" class="ghost-button" data-smart-bulk="set-age" data-age="Preschool">Set Preschool</button>
           <button type="button" class="ghost-button" data-smart-bulk="set-age" data-age="Toddler">Set Toddler</button>
@@ -377,7 +491,27 @@
           <button type="button" class="ghost-button" data-smart-bulk="generate-covers">Generate cartoon covers</button>
           <button type="button" class="ghost-button" data-smart-bulk="accept-all-suggestions">Accept suggestions</button>
           <button type="button" class="ghost-button" data-smart-bulk="duplicate-age" data-age="Toddler">Duplicate for Toddler</button>
+          <button type="button" class="ghost-button" data-smart-ai-enhance-selected ${state.aiBusy ? "disabled" : ""}>AI enhance selected</button>
           <button type="button" class="ghost-button" data-smart-bulk="delete">Delete selected drafts</button>
+        </div>
+        <div class="smart-import-week-order" aria-label="Curriculum week order">
+          <h4>Curriculum week order</h4>
+          <p class="muted-copy">Drag to rearrange Week 1–5 assignments. Changes update the curriculum week numbers.</p>
+          <ol class="smart-import-week-list" data-smart-week-list>
+            ${state.reviews.map((review) => `
+              <li
+                class="smart-import-week-item"
+                draggable="true"
+                data-smart-drag-id="${esc(review.id)}"
+              >
+                <span class="smart-import-drag-handle" aria-hidden="true">⋮⋮</span>
+                <strong>Week ${esc(String(review.curriculumAssignment?.weekNumber || review.index || "—"))}</strong>
+                <span>${esc(review.plan?.title || "Untitled")}</span>
+                <button type="button" class="ghost-button" data-smart-week-up="${esc(review.id)}" aria-label="Move up">↑</button>
+                <button type="button" class="ghost-button" data-smart-week-down="${esc(review.id)}" aria-label="Move down">↓</button>
+              </li>
+            `).join("")}
+          </ol>
         </div>
         <div class="smart-import-bulk-layout">
           <div class="smart-import-table-wrap">
@@ -525,11 +659,11 @@
       return;
     }
     pushUndo();
-    const existingTitles = (typeof curriculumLessonPlansForAdmin === "function"
-      ? curriculumLessonPlansForAdmin()
-      : []).map((plan) => plan.title);
+    const existingTitles = lessonPlansLibrary().map((plan) => plan.title);
     const result = api.importSmartPaste(text, { existingTitles, mode: "v5" });
-    state.reviews = (result.reviews || []).map((review, index) => ({
+    result.sourcePaste = text;
+    const recovery = api.recoverPartialImport(result);
+    state.reviews = (recovery.recovered || []).map((review, index) => ({
       ...review,
       curriculumAssignment: {
         mode: state.curriculumMode,
@@ -539,18 +673,91 @@
       },
       status: "draft",
     }));
+    state.failedChunks = recovery.failed || [];
     state.selectedReviewId = state.reviews[0]?.id || "";
     state.workflow = "bulk";
-    state.message = result.ok
-      ? `Organized ${result.chunkCount} lesson plan${result.chunkCount === 1 ? "" : "s"}. Review suggestions before saving.`
-      : "Import partially understood — review what was captured.";
-    state.messageSuccess = Boolean(result.ok);
+    if (!state.reviews.length && state.failedChunks.length) {
+      state.message = "Nothing could be understood from this paste. Recovery saved the failed chunks — edit the paste and try again.";
+      state.messageSuccess = false;
+    } else if (state.failedChunks.length) {
+      state.message = `Recovered ${state.reviews.length} plan(s); ${state.failedChunks.length} chunk(s) still need review.`;
+      state.messageSuccess = true;
+    } else {
+      state.message = `Organized ${state.reviews.length} lesson plan${state.reviews.length === 1 ? "" : "s"}. Review suggestions before saving.`;
+      state.messageSuccess = true;
+    }
     api.pushImportHistory({
       title: state.reviews[0]?.plan?.title || "Smart import",
       count: state.reviews.length,
-      result: state.messageSuccess ? "organized" : "partial",
+      result: state.failedChunks.length ? "partial-recovery" : "organized",
     });
-    persist();
+    persist({ versionLabel: "After import organize" });
+  }
+
+  async function enhanceReviewsWithAi(targetIds = null) {
+    const api = engine();
+    if (!api || state.aiBusy) return;
+    const targets = state.reviews.filter((review) => {
+      if (!targetIds) {
+        if (state.reviews.some((r) => r.selected)) return review.selected;
+        return review.id === state.selectedReviewId || state.reviews.length === 1;
+      }
+      return targetIds.includes(review.id);
+    });
+    if (!targets.length) {
+      state.message = "Select at least one plan to enhance.";
+      state.messageSuccess = false;
+      return;
+    }
+    pushUndo();
+    state.aiBusy = true;
+    rerender();
+    const changes = [];
+    for (const review of targets) {
+      let assist = api.buildHeuristicSemanticAssist(review.plan);
+      try {
+        const response = await fetch("/api/admin/smart-import/assist", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            adminToken: adminToken(),
+            action: "fill-missing",
+            plan: review.plan,
+            sourceText: review.sourceText || state.pasteText,
+            command: state.assistantInput || "",
+          }),
+        });
+        const data = await response.json().catch(() => null);
+        if (data?.assist) assist = data.assist;
+        if (data?.note) changes.push(data.note);
+      } catch {
+        changes.push(`Used offline meaning assist for “${review.plan.title || "plan"}”.`);
+      }
+      const merged = api.mergeSemanticAssistIntoReview(review, assist);
+      state.reviews = state.reviews.map((item) => (item.id === review.id ? merged : item));
+      changes.push(`Added reviewable AI suggestions for “${merged.plan.title || "plan"}”.`);
+    }
+    state.aiBusy = false;
+    state.assistantChanges = changes;
+    state.message = changes.join(" ");
+    state.messageSuccess = true;
+    persist({ versionLabel: "After AI enhance" });
+    rerender();
+  }
+
+  function runLibrarySearch() {
+    const api = engine();
+    if (!api) return;
+    state.libraryHits = api.searchLibraryAssets(state.libraryQuery, lessonPlansLibrary(), { limit: 8 });
+    if (!state.libraryHits.books.length && !state.libraryHits.songs.length && !state.libraryHits.vocabulary.length) {
+      state.message = state.libraryQuery
+        ? `No library matches for “${state.libraryQuery}”.`
+        : "No books, songs, or vocabulary found in existing lesson plans yet.";
+      state.messageSuccess = false;
+    } else {
+      state.message = "Library matches ready — click Add to attach them to this draft.";
+      state.messageSuccess = true;
+    }
   }
 
   function runAssistant(command) {
@@ -675,9 +882,12 @@
     state.messageSuccess = failed === 0;
     if (failed === 0) {
       engine()?.clearDraftSession?.();
+      engine()?.clearFailedImportRecovery?.();
+      state.failedChunks = [];
       state.dirty = false;
+      persist({ versionLabel: "After successful save" });
     } else {
-      persist();
+      persist({ versionLabel: "After partial save" });
     }
     rerender();
     if (typeof renderAdminCurriculumLessonPlanManager === "function") {
@@ -750,7 +960,8 @@
       state.existingSeriesId = draft.existingSeriesId || "";
       state.newSeries = draft.newSeries || state.newSeries;
       state.assistantChanges = draft.assistantChanges || [];
-      state.selectedReviewId = state.reviews[0]?.id || "";
+      state.failedChunks = draft.failedChunks || [];
+      state.selectedReviewId = draft.selectedReviewId || state.reviews[0]?.id || "";
       state.message = "Restored your unfinished import.";
       state.messageSuccess = true;
       return;
@@ -807,10 +1018,71 @@
       rerender();
       return;
     }
+    if (event.target.closest("[data-smart-snapshot]")) {
+      persist({ versionLabel: `Manual snapshot ${new Date().toLocaleString()}` });
+      state.message = "Saved a version snapshot.";
+      state.messageSuccess = true;
+      rerender();
+      return;
+    }
+    if (event.target.closest("[data-smart-recover-failed]")) {
+      const failed = engine()?.loadFailedImportRecovery?.();
+      if (!failed?.recovered?.length) {
+        state.message = "No recoverable plans found.";
+        state.messageSuccess = false;
+        rerender();
+        return;
+      }
+      state.reviews = failed.recovered;
+      state.failedChunks = failed.failed || [];
+      state.pasteText = failed.sourcePaste || state.pasteText;
+      state.selectedReviewId = state.reviews[0]?.id || "";
+      state.workflow = "bulk";
+      state.message = `Restored ${state.reviews.length} understood plan(s) from recovery.`;
+      state.messageSuccess = true;
+      persist({ versionLabel: "Restored failed-import recovery" });
+      rerender();
+      return;
+    }
+    if (event.target.closest("[data-smart-clear-failed]")) {
+      engine()?.clearFailedImportRecovery?.();
+      state.failedChunks = [];
+      state.message = "Dismissed recovery notice.";
+      state.messageSuccess = true;
+      rerender();
+      return;
+    }
+    const restoreVersionBtn = event.target.closest("[data-smart-restore-version]");
+    if (restoreVersionBtn) {
+      const session = engine()?.restoreVersion?.(restoreVersionBtn.getAttribute("data-smart-restore-version"));
+      if (!session) {
+        state.message = "That version could not be restored.";
+        state.messageSuccess = false;
+        rerender();
+        return;
+      }
+      pushUndo();
+      state.workflow = session.workflow || "bulk";
+      state.intent = session.intent || state.intent;
+      state.pasteText = session.pasteText || "";
+      state.reviews = session.reviews || [];
+      state.curriculumMode = session.curriculumMode || state.curriculumMode;
+      state.existingSeriesId = session.existingSeriesId || "";
+      state.newSeries = session.newSeries || state.newSeries;
+      state.assistantChanges = session.assistantChanges || [];
+      state.failedChunks = session.failedChunks || [];
+      state.selectedReviewId = session.selectedReviewId || state.reviews[0]?.id || "";
+      state.message = "Restored a previous import version.";
+      state.messageSuccess = true;
+      persist();
+      rerender();
+      return;
+    }
     const promptBtn = event.target.closest("[data-smart-assistant-prompt]");
     if (promptBtn) {
       state.assistantInput = promptBtn.getAttribute("data-smart-assistant-prompt") || "";
       runAssistant(state.assistantInput);
+      persist({ versionLabel: "After assistant command" });
       rerender();
       return;
     }
@@ -818,7 +1090,86 @@
       const root = event.target.closest("aside") || document;
       state.assistantInput = root.querySelector("[data-smart-assistant-input]")?.value || state.assistantInput;
       runAssistant(state.assistantInput);
+      persist({ versionLabel: "After assistant command" });
       rerender();
+      return;
+    }
+    if (event.target.closest("[data-smart-ai-enhance]") || event.target.closest("[data-smart-ai-enhance-selected]")) {
+      enhanceReviewsWithAi();
+      return;
+    }
+    if (event.target.closest("[data-smart-library-search]")) {
+      state.libraryQuery = document.querySelector("[data-smart-library-query]")?.value || state.libraryQuery;
+      runLibrarySearch();
+      rerender();
+      return;
+    }
+    const addBookBtn = event.target.closest("[data-smart-add-book]");
+    if (addBookBtn) {
+      const review = selectedReview();
+      const book = state.libraryHits.books?.[Number(addBookBtn.getAttribute("data-smart-add-book"))];
+      if (review && book) {
+        pushUndo();
+        review.plan.books = [...(review.plan.books || []), { title: book.title, author: book.author || "", notes: book.notes || "" }];
+        state.message = `Added book “${book.title}”.`;
+        state.messageSuccess = true;
+        persist();
+        rerender();
+      }
+      return;
+    }
+    const addSongBtn = event.target.closest("[data-smart-add-song]");
+    if (addSongBtn) {
+      const review = selectedReview();
+      const song = state.libraryHits.songs?.[Number(addSongBtn.getAttribute("data-smart-add-song"))];
+      if (review && song) {
+        pushUndo();
+        review.plan.songs = [...(review.plan.songs || []), { title: song.title, notes: song.notes || "" }];
+        state.message = `Added song “${song.title}”.`;
+        state.messageSuccess = true;
+        persist();
+        rerender();
+      }
+      return;
+    }
+    const addVocabBtn = event.target.closest("[data-smart-add-vocab]");
+    if (addVocabBtn) {
+      const review = selectedReview();
+      const item = state.libraryHits.vocabulary?.[Number(addVocabBtn.getAttribute("data-smart-add-vocab"))];
+      if (review && item?.word) {
+        pushUndo();
+        const current = String(review.plan.vocabularyWords || "").split(/[,;\n]+/).map((w) => w.trim()).filter(Boolean);
+        if (!current.map((w) => w.toLowerCase()).includes(item.word.toLowerCase())) current.push(item.word);
+        review.plan.vocabularyWords = current.join(", ");
+        state.message = `Added vocabulary “${item.word}”.`;
+        state.messageSuccess = true;
+        persist();
+        rerender();
+      }
+      return;
+    }
+    const weekUp = event.target.closest("[data-smart-week-up]");
+    if (weekUp) {
+      const id = weekUp.getAttribute("data-smart-week-up");
+      const index = state.reviews.findIndex((r) => r.id === id);
+      if (index > 0) {
+        pushUndo();
+        state.reviews = engine().moveReview(state.reviews, id, state.reviews[index - 1].id);
+        persist();
+        rerender();
+      }
+      return;
+    }
+    const weekDown = event.target.closest("[data-smart-week-down]");
+    if (weekDown) {
+      const id = weekDown.getAttribute("data-smart-week-down");
+      const index = state.reviews.findIndex((r) => r.id === id);
+      if (index >= 0 && index < state.reviews.length - 1) {
+        pushUndo();
+        state.reviews = engine().moveReview(state.reviews, id, state.reviews[index + 1].id);
+        persist();
+        rerender();
+      }
       return;
     }
     const bulkBtn = event.target.closest("[data-smart-bulk]");
@@ -837,7 +1188,7 @@
       }
       state.message = `Applied bulk action: ${action}.`;
       state.messageSuccess = true;
-      persist();
+      persist({ versionLabel: `Bulk ${action}` });
       rerender();
       return;
     }
@@ -852,7 +1203,7 @@
         suggestions: review.suggestions,
         curriculumAssignment: review.curriculumAssignment,
       }), { id: review.id, selected: review.selected, status: review.status, sourceText: review.sourceText, index: review.index });
-      persist();
+      persist({ versionLabel: "Accepted suggestions" });
       rerender();
       return;
     }
@@ -903,6 +1254,10 @@
       rerender();
       return;
     }
+    if (event.target.matches("[data-smart-library-query]")) {
+      state.libraryQuery = event.target.value;
+      return;
+    }
     if (event.target.matches("#smartImportPasteText")
       || event.target.matches("[data-smart-field]")
       || event.target.matches("[data-smart-assistant-input]")
@@ -931,6 +1286,42 @@
     event.returnValue = "";
   }
 
+  function onDragStart(event) {
+    const item = event.target.closest("[data-smart-drag-id]");
+    if (!item || !event.target.closest("#smartLessonImportApp")) return;
+    state.dragReviewId = item.getAttribute("data-smart-drag-id") || "";
+    event.dataTransfer?.setData("text/plain", state.dragReviewId);
+    item.classList.add("is-dragging");
+  }
+
+  function onDragOver(event) {
+    const item = event.target.closest("[data-smart-drag-id]");
+    if (!item || !event.target.closest("#smartLessonImportApp")) return;
+    event.preventDefault();
+    item.classList.add("is-drop-target");
+  }
+
+  function onDragLeave(event) {
+    const item = event.target.closest("[data-smart-drag-id]");
+    item?.classList.remove("is-drop-target");
+  }
+
+  function onDrop(event) {
+    const item = event.target.closest("[data-smart-drag-id]");
+    if (!item || !event.target.closest("#smartLessonImportApp")) return;
+    event.preventDefault();
+    const toId = item.getAttribute("data-smart-drag-id");
+    const fromId = state.dragReviewId || event.dataTransfer?.getData("text/plain");
+    item.classList.remove("is-drop-target");
+    document.querySelectorAll(".smart-import-week-item.is-dragging").forEach((el) => el.classList.remove("is-dragging"));
+    if (!fromId || !toId || fromId === toId) return;
+    pushUndo();
+    state.reviews = engine().moveReview(state.reviews, fromId, toId);
+    state.dragReviewId = "";
+    persist({ versionLabel: "Reordered curriculum weeks" });
+    rerender();
+  }
+
   function mountIntoLessonPlanManager(target) {
     if (!target) return;
     const host = target.querySelector("#smartLessonImportApp");
@@ -953,6 +1344,10 @@
       if (!event.target.closest("#smartLessonImportApp")) return;
       onChange(event);
     });
+    document.addEventListener("dragstart", onDragStart);
+    document.addEventListener("dragover", onDragOver);
+    document.addEventListener("dragleave", onDragLeave);
+    document.addEventListener("drop", onDrop);
     window.addEventListener("beforeunload", onBeforeUnload);
   }
 
@@ -967,6 +1362,8 @@
     chooseWorkflow,
     runImport,
     runAssistant,
+    enhanceReviewsWithAi,
+    runLibrarySearch,
     saveReviews,
     rerender,
   };

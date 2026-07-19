@@ -3901,10 +3901,141 @@ body.lessons-view .mobile-brand {
   margin-bottom: 1rem;
 }
 
+.smart-import-recovery {
+  margin-bottom: 14px;
+}
+
+.smart-import-version-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin: 8px 0;
+}
+
+.smart-import-week-order {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(30, 58, 48, 0.12);
+  background: #fffdf8;
+}
+
+.smart-import-week-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.smart-import-week-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(30, 58, 48, 0.12);
+  background: #fff;
+  cursor: grab;
+}
+
+.smart-import-week-item.is-dragging {
+  opacity: 0.55;
+}
+
+.smart-import-week-item.is-drop-target {
+  border-color: #5a7a5a;
+  box-shadow: 0 0 0 2px rgba(90, 122, 90, 0.2);
+}
+
+.smart-import-drag-handle {
+  color: #7a8f82;
+  font-weight: 700;
+}
+
+.smart-import-library-search {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f7faf7;
+  border: 1px solid rgba(30, 58, 48, 0.1);
+}
+
+.smart-import-library-list {
+  list-style: none;
+  margin: 0 0 10px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.smart-import-library-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(30, 58, 48, 0.06);
+}
+
+.curriculum-library-picker {
+  margin: 10px 0 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f7faf7;
+  border: 1px dashed rgba(30, 58, 48, 0.18);
+}
+
 @media (max-width: 900px) {
   .smart-import-paste-layout,
   .smart-import-bulk-layout {
     grid-template-columns: 1fr;
+  }
+
+  .smart-import-workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .smart-import-bulk-actions,
+  .smart-import-save-row,
+  .curriculum-builder-tools,
+  .curriculum-day-toolbar {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    background: rgba(247, 251, 247, 0.96);
+    padding: 8px 0;
+    backdrop-filter: blur(4px);
+  }
+
+  .smart-import-table {
+    font-size: 0.8rem;
+  }
+
+  .smart-import-table th:nth-child(n+5),
+  .smart-import-table td:nth-child(n+5) {
+    display: none;
+  }
+
+  .smart-import-table th:nth-child(1),
+  .smart-import-table td:nth-child(1),
+  .smart-import-table th:nth-child(2),
+  .smart-import-table td:nth-child(2),
+  .smart-import-table th:nth-child(3),
+  .smart-import-table td:nth-child(3),
+  .smart-import-table th:nth-child(7),
+  .smart-import-table td:nth-child(7) {
+    display: table-cell;
+  }
+
+  .smart-import-week-item {
+    grid-template-columns: auto 1fr auto auto;
+  }
+
+  .smart-import-week-item .smart-import-drag-handle + strong {
+    grid-column: 2;
   }
 }
 

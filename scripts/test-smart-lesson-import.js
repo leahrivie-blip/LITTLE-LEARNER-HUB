@@ -190,4 +190,87 @@ test("tags and primary collection are suggested from content", () => {
   assert.equal(smart.suggestPrimaryCollection(plan), "Preschool");
 });
 
+test("partial import recovery keeps understood plans and records failures", () => {
+  const result = smart.importSmartPaste(`${informalApple}\n\n\n\n`, { mode: "v5" });
+  result.sourcePaste = informalApple;
+  // Force one empty failed chunk into the recovery path.
+  result.reviews.push({
+    id: "empty-chunk",
+    index: 99,
+    plan: { title: "", dailyPlans: {} },
+    dayCount: 0,
+    activityCount: 0,
+    errors: ["Could not understand this lesson plan chunk."],
+    sourceText: "????",
+  });
+  const recovery = smart.recoverPartialImport(result);
+  assert.ok(recovery.recovered.length >= 1);
+  assert.ok(recovery.failed.length >= 1);
+  assert.equal(recovery.summary.failedCount, recovery.failed.length);
+});
+
+test("week reorder updates curriculum week numbers", () => {
+  const result = smart.importSmartPaste(multiNatural, { mode: "v5" });
+  const withWeeks = result.reviews.map((review, index) => ({
+    ...review,
+    curriculumAssignment: { mode: "new", weekNumber: index + 1 },
+  }));
+  assert.ok(withWeeks.length >= 2);
+  const reordered = smart.moveReview(withWeeks, withWeeks[0].id, withWeeks[1].id);
+  assert.equal(reordered[0].id, withWeeks[1].id);
+  assert.equal(reordered[0].curriculumAssignment.weekNumber, 1);
+  assert.equal(reordered[1].curriculumAssignment.weekNumber, 2);
+});
+
+test("library asset search finds books songs and vocabulary", () => {
+  const hits = smart.searchLibraryAssets("apple", [
+    {
+      title: "Apple Week",
+      books: [{ title: "Apple Farmer Annie", author: "A. Author" }],
+      songs: [{ title: "Way Up High in an Apple Tree" }],
+      vocabularyWords: "apple, orchard, crisp",
+    },
+    {
+      title: "Ocean",
+      books: [{ title: "Ocean Animals" }],
+      songs: [{ title: "Baby Beluga" }],
+      vocabularyWords: "wave, shell",
+    },
+  ]);
+  assert.ok(hits.books.some((book) => /apple/i.test(book.title)));
+  assert.ok(hits.songs.some((song) => /apple/i.test(song.title)));
+  assert.ok(hits.vocabulary.some((item) => item.word === "apple"));
+});
+
+test("semantic assist merges as unaccepted AI suggestions", () => {
+  const result = smart.importSmartPaste(informalApple, { mode: "v5" });
+  const review = {
+    ...result.reviews[0],
+    plan: {
+      ...result.reviews[0].plan,
+      objectives: "",
+      learningDomains: [],
+    },
+    suggestions: [],
+  };
+  const merged = smart.mergeSemanticAssistIntoReview(review, {
+    source: "ai",
+    learningDomains: ["Math", "Science"],
+    objectives: "Count and investigate apples.",
+    domainReason: "Theme centers on counting and investigation.",
+  });
+  assert.ok(merged.suggestions.some((item) => item.field === "learningDomains" && item.accepted === false && item.source === "ai"));
+  assert.ok(merged.suggestions.some((item) => item.field === "objectives" && item.accepted === false));
+});
+
+test("heuristic semantic assist always returns offline suggestions", () => {
+  const assist = smart.buildHeuristicSemanticAssist({
+    title: "Preschool Apple Week",
+    theme: "Apples",
+    weeklyOverview: "Focus on counting, science, and vocabulary.",
+  });
+  assert.equal(assist.source, "heuristic");
+  assert.ok((assist.learningDomains || []).includes("Math"));
+});
+
 console.log(process.exitCode ? "Smart import tests finished with failures." : "All smart import tests passed.");

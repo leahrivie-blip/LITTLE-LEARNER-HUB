@@ -11,7 +11,10 @@
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const DRAFT_KEY = "llhSmartImportSession";
   const HISTORY_KEY = "llhSmartImportHistory";
+  const VERSION_KEY = "llhSmartImportVersions";
+  const FAILED_KEY = "llhSmartImportFailedRecovery";
   const MAX_HISTORY = 20;
+  const MAX_VERSIONS = 30;
 
   const PRIMARY_COLLECTIONS = [
     "Weekly Lesson Plans",
@@ -953,12 +956,312 @@
     }
   }
 
+  function pushVersionSnapshot(label, session) {
+    if (typeof localStorage === "undefined") return null;
+    try {
+      const list = JSON.parse(localStorage.getItem(VERSION_KEY) || "[]");
+      const entry = {
+        id: `ver-${Date.now().toString(16)}`,
+        at: new Date().toISOString(),
+        label: asText(label) || "Snapshot",
+        session: JSON.parse(JSON.stringify(session || {})),
+      };
+      list.unshift(entry);
+      localStorage.setItem(VERSION_KEY, JSON.stringify(list.slice(0, MAX_VERSIONS)));
+      return entry;
+    } catch {
+      return null;
+    }
+  }
+
+  function loadVersionHistory() {
+    if (typeof localStorage === "undefined") return [];
+    try {
+      return JSON.parse(localStorage.getItem(VERSION_KEY) || "[]");
+    } catch {
+      return [];
+    }
+  }
+
+  function restoreVersion(versionId) {
+    const list = loadVersionHistory();
+    const entry = list.find((item) => item.id === versionId);
+    return entry?.session || null;
+  }
+
+  function saveFailedImportRecovery(payload) {
+    if (typeof localStorage === "undefined") return false;
+    try {
+      localStorage.setItem(FAILED_KEY, JSON.stringify({
+        ...payload,
+        savedAt: new Date().toISOString(),
+      }));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function loadFailedImportRecovery() {
+    if (typeof localStorage === "undefined") return null;
+    try {
+      const raw = localStorage.getItem(FAILED_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function clearFailedImportRecovery() {
+    if (typeof localStorage === "undefined") return;
+    try { localStorage.removeItem(FAILED_KEY); } catch { /* ignore */ }
+  }
+
+  /**
+   * After a partial/failed import, keep every plan that was understood and
+   * mark the rest clearly for review instead of discarding the whole paste.
+   */
+  function recoverPartialImport(importResult = {}) {
+    const reviews = Array.isArray(importResult.reviews) ? importResult.reviews : [];
+    const recovered = [];
+    const failed = [];
+    reviews.forEach((review) => {
+      const understood = Boolean(asText(review.plan?.title) || review.dayCount > 0 || review.activityCount > 0);
+      if (understood) {
+        recovered.push({
+          ...review,
+          selected: true,
+          importStatus: review.importStatus === "failed-partial" ? "needs-review" : review.importStatus,
+          recoveryNote: review.parsedOk
+            ? ""
+            : "Partially understood — review highlighted fields before saving.",
+        });
+      } else {
+        failed.push({
+          index: review.index,
+          sourceText: review.sourceText || "",
+          errors: review.errors || ["Could not understand this lesson plan chunk."],
+        });
+      }
+    });
+    const recovery = {
+      recovered,
+      failed,
+      sourcePaste: importResult.sourcePaste || "",
+      summary: {
+        recoveredCount: recovered.length,
+        failedCount: failed.length,
+      },
+    };
+    saveFailedImportRecovery(recovery);
+    return recovery;
+  }
+
+  function searchLibraryAssets(query, lessonPlans = [], options = {}) {
+    const q = asText(query).toLowerCase();
+    const limit = Number(options.limit) || 12;
+    const books = [];
+    const songs = [];
+    const vocabulary = [];
+    const seenBook = new Set();
+    const seenSong = new Set();
+    const seenVocab = new Set();
+    (Array.isArray(lessonPlans) ? lessonPlans : []).forEach((plan) => {
+      (plan.books || []).forEach((book) => {
+        const title = asText(book?.title);
+        if (!title) return;
+        const key = title.toLowerCase();
+        if (seenBook.has(key)) return;
+        if (q && !`${title} ${book.author || ""}`.toLowerCase().includes(q)) return;
+        seenBook.add(key);
+        books.push({
+          title,
+          author: asText(book.author),
+          notes: asText(book.notes),
+          sourcePlan: asText(plan.title),
+        });
+      });
+      (plan.songs || []).forEach((song) => {
+        const title = asText(song?.title);
+        if (!title) return;
+        const key = title.toLowerCase();
+        if (seenSong.has(key)) return;
+        if (q && !title.toLowerCase().includes(q)) return;
+        seenSong.add(key);
+        songs.push({
+          title,
+          notes: asText(song.notes),
+          sourcePlan: asText(plan.title),
+        });
+      });
+      String(plan.vocabularyWords || "")
+        .split(/[,;\n]+/)
+        .map((word) => word.trim())
+        .filter(Boolean)
+        .forEach((word) => {
+          const key = word.toLowerCase();
+          if (seenVocab.has(key)) return;
+          if (q && !key.includes(q)) return;
+          seenVocab.add(key);
+          vocabulary.push({ word, sourcePlan: asText(plan.title) });
+        });
+    });
+    return {
+      books: books.slice(0, limit),
+      songs: songs.slice(0, limit),
+      vocabulary: vocabulary.slice(0, limit),
+    };
+  }
+
+  function reorderReviewWeekAssignments(reviews = [], orderedIds = []) {
+    const byId = new Map((reviews || []).map((review) => [review.id, review]));
+    const ordered = [];
+    orderedIds.forEach((id) => {
+      if (byId.has(id)) ordered.push(byId.get(id));
+    });
+    (reviews || []).forEach((review) => {
+      if (!orderedIds.includes(review.id)) ordered.push(review);
+    });
+    return ordered.map((review, index) => ({
+      ...review,
+      index: index + 1,
+      curriculumAssignment: {
+        ...(review.curriculumAssignment || {}),
+        weekNumber: (review.curriculumAssignment?.mode === "standalone"
+          || review.curriculumAssignment?.mode === "unassigned")
+          ? (review.curriculumAssignment?.weekNumber || 0)
+          : (index + 1),
+      },
+    }));
+  }
+
+  function moveReview(reviews = [], fromId, toId) {
+    const list = [...(reviews || [])];
+    const fromIndex = list.findIndex((item) => item.id === fromId);
+    const toIndex = list.findIndex((item) => item.id === toId);
+    if (fromIndex < 0 || toIndex < 0 || fromIndex === toIndex) return list;
+    const [item] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, item);
+    return reorderReviewWeekAssignments(list, list.map((entry) => entry.id));
+  }
+
+  /**
+   * Merge OpenAI (or heuristic) semantic assist payload into review suggestions.
+   * Never auto-accepts — admin must approve in the review screen.
+   */
+  function mergeSemanticAssistIntoReview(review, assist = {}) {
+    const next = {
+      ...review,
+      plan: { ...review.plan },
+      suggestions: [...(review.suggestions || [])],
+    };
+    const additions = [];
+    const domains = Array.isArray(assist.learningDomains) ? assist.learningDomains : [];
+    if (domains.length) {
+      additions.push({
+        field: "learningDomains",
+        value: domains,
+        status: "ai-suggested",
+        reason: assist.domainReason || "AI suggested learning domains from the lesson meaning.",
+        accepted: false,
+        source: assist.source || "ai",
+      });
+    }
+    ["objectives", "weeklyMaterials", "vocabularyWords", "familyConnection", "observationOpportunities", "adaptations", "weeklyOverview"].forEach((field) => {
+      if (asText(assist[field]) && !asText(next.plan[field])) {
+        additions.push({
+          field,
+          value: assist[field],
+          status: "ai-suggested",
+          reason: assist.reasons?.[field] || `AI suggested ${field}.`,
+          accepted: false,
+          source: assist.source || "ai",
+        });
+      }
+    });
+    if (Array.isArray(assist.books) && assist.books.length && !hasList(next.plan.books)) {
+      additions.push({
+        field: "books",
+        value: assist.books,
+        status: "ai-suggested",
+        reason: "AI suggested books from the theme.",
+        accepted: false,
+        source: assist.source || "ai",
+      });
+    }
+    if (Array.isArray(assist.songs) && assist.songs.length && !hasList(next.plan.songs)) {
+      additions.push({
+        field: "songs",
+        value: assist.songs,
+        status: "ai-suggested",
+        reason: "AI suggested songs from the theme.",
+        accepted: false,
+        source: assist.source || "ai",
+      });
+    }
+    if (Array.isArray(assist.tags) && assist.tags.length) {
+      next.tags = [...new Set([...(next.tags || []), ...assist.tags])];
+      next.plan.tags = next.tags;
+    }
+    // Dedupe by field — prefer newer AI suggestions for empty fields.
+    const byField = new Map();
+    [...next.suggestions, ...additions].forEach((item) => {
+      if (!byField.has(item.field) || item.source === "ai") byField.set(item.field, item);
+    });
+    next.suggestions = [...byField.values()];
+    const rebuilt = buildReviewModel({
+      data: next.plan,
+      warnings: next.warnings,
+      errors: next.errors,
+    }, {
+      suggestions: next.suggestions,
+      tags: next.tags,
+      primaryCollection: next.primaryCollection,
+      curriculumAssignment: next.curriculumAssignment,
+    });
+    return {
+      ...next,
+      ...rebuilt,
+      id: next.id,
+      index: next.index,
+      sourceText: next.sourceText,
+      selected: next.selected,
+      status: next.status,
+      planTier: next.planTier,
+      recoveryNote: next.recoveryNote || "",
+    };
+  }
+
+  function buildHeuristicSemanticAssist(plan = {}) {
+    const domainResult = inferDomainsFromProse(plan);
+    const suggestions = suggestMissingFields(plan);
+    const assist = {
+      source: "heuristic",
+      learningDomains: domainResult.domains || [],
+      domainReason: "Mapped from lesson wording and activity meaning (offline heuristic).",
+      tags: suggestTags(plan),
+      reasons: {},
+    };
+    suggestions.forEach((item) => {
+      if (["objectives", "weeklyMaterials", "vocabularyWords", "familyConnection", "observationOpportunities", "adaptations", "weeklyOverview"].includes(item.field)) {
+        assist[item.field] = item.value;
+        assist.reasons[item.field] = item.reason;
+      }
+      if (item.field === "books") assist.books = item.value;
+      if (item.field === "songs") assist.songs = item.value;
+    });
+    return assist;
+  }
+
   const api = {
     WEEKDAYS,
     PRIMARY_COLLECTIONS,
     SUGGESTED_TAGS,
     FIELD_DEFS,
     DRAFT_KEY,
+    HISTORY_KEY,
+    VERSION_KEY,
+    FAILED_KEY,
     splitLessonPlanChunks,
     normalizeEverydayLessonPaste,
     parseOneChunk,
@@ -979,6 +1282,18 @@
     clearDraftSession,
     pushImportHistory,
     loadImportHistory,
+    pushVersionSnapshot,
+    loadVersionHistory,
+    restoreVersion,
+    saveFailedImportRecovery,
+    loadFailedImportRecovery,
+    clearFailedImportRecovery,
+    recoverPartialImport,
+    searchLibraryAssets,
+    reorderReviewWeekAssignments,
+    moveReview,
+    mergeSemanticAssistIntoReview,
+    buildHeuristicSemanticAssist,
     countDaysWithActivities,
     countActivities,
     incompleteActivityIssues,

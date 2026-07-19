@@ -8395,6 +8395,23 @@ function enhanceAdminLessonPlanBuilderForm(form) {
   const weekly = form.querySelector("#admin-lesson-weekly");
   if (weekly) weekly.insertAdjacentElement("beforebegin", tools);
   else form.insertAdjacentElement("afterbegin", tools);
+
+  if (!form.querySelector("[data-curriculum-library-picker]")) {
+    const picker = document.createElement("div");
+    picker.className = "curriculum-library-picker";
+    picker.setAttribute("data-curriculum-library-picker", "true");
+    picker.innerHTML = `
+      <h5>Search existing books, songs &amp; vocabulary</h5>
+      <div class="account-actions-row">
+        <input type="search" data-curriculum-library-query placeholder="Search across lesson plans…" />
+        <button type="button" class="ghost-button" data-curriculum-library-search>Search</button>
+      </div>
+      <div data-curriculum-library-results class="muted-copy">Search to reuse content from other plans.</div>
+    `;
+    const booksBlock = form.querySelector('#admin-lesson-weekly .curriculum-day-list-block');
+    if (booksBlock) booksBlock.insertAdjacentElement("beforebegin", picker);
+    else weekly?.appendChild(picker);
+  }
 }
 
 function curriculumResourcesForAdmin({ includeArchived = false } = {}) {
@@ -53826,6 +53843,86 @@ document.addEventListener("click", async (event) => {
   }
   if (event.target.closest("[data-curriculum-autofill-materials]")) {
     autofillRepeatedMaterialsFromWeekly();
+    return;
+  }
+  if (event.target.closest("[data-curriculum-library-search]")) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const query = form?.querySelector("[data-curriculum-library-query]")?.value || "";
+    const results = form?.querySelector("[data-curriculum-library-results]");
+    const api = globalThis.LlhSmartLessonImport;
+    if (!api?.searchLibraryAssets || !results) return;
+    const hits = api.searchLibraryAssets(query, curriculumLessonPlansForAdmin(), { limit: 6 });
+    results.innerHTML = `
+      ${(hits.books || []).map((book, index) => `
+        <div class="account-actions-row">
+          <span>Book: ${escapeHtml(book.title)}</span>
+          <button type="button" class="ghost-button" data-curriculum-library-add-book="${index}">Add book</button>
+        </div>
+      `).join("")}
+      ${(hits.songs || []).map((song, index) => `
+        <div class="account-actions-row">
+          <span>Song: ${escapeHtml(song.title)}</span>
+          <button type="button" class="ghost-button" data-curriculum-library-add-song="${index}">Add song</button>
+        </div>
+      `).join("")}
+      ${(hits.vocabulary || []).map((item, index) => `
+        <div class="account-actions-row">
+          <span>Word: ${escapeHtml(item.word)}</span>
+          <button type="button" class="ghost-button" data-curriculum-library-add-vocab="${index}">Add word</button>
+        </div>
+      `).join("")}
+      ${(!hits.books.length && !hits.songs.length && !hits.vocabulary.length)
+        ? `<p class="muted-copy">No matches.</p>`
+        : ""}
+    `;
+    form.__llhLibraryHits = hits;
+    return;
+  }
+  const addLibBook = event.target.closest("[data-curriculum-library-add-book]");
+  if (addLibBook) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const book = form?.__llhLibraryHits?.books?.[Number(addLibBook.getAttribute("data-curriculum-library-add-book"))];
+    if (book) {
+      addCurriculumBookRow("weekly");
+      const rows = form.querySelectorAll('[data-curriculum-books-editor="weekly"] [data-curriculum-book-row]');
+      const last = rows[rows.length - 1];
+      if (last) {
+        const title = last.querySelector("[data-curriculum-book-title]");
+        const author = last.querySelector("[data-curriculum-book-author]");
+        if (title) title.value = book.title || "";
+        if (author) author.value = book.author || "";
+      }
+      setAdminCurriculumLessonSaveBanner(`Added book “${book.title}”.`, true);
+    }
+    return;
+  }
+  const addLibSong = event.target.closest("[data-curriculum-library-add-song]");
+  if (addLibSong) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const song = form?.__llhLibraryHits?.songs?.[Number(addLibSong.getAttribute("data-curriculum-library-add-song"))];
+    if (song) {
+      addCurriculumSongRow("weekly");
+      const rows = form.querySelectorAll('[data-curriculum-songs-editor="weekly"] [data-curriculum-song-row]');
+      const last = rows[rows.length - 1];
+      if (last) {
+        const title = last.querySelector("[data-curriculum-song-title]");
+        if (title) title.value = song.title || "";
+      }
+      setAdminCurriculumLessonSaveBanner(`Added song “${song.title}”.`, true);
+    }
+    return;
+  }
+  const addLibVocab = event.target.closest("[data-curriculum-library-add-vocab]");
+  if (addLibVocab) {
+    const form = document.querySelector("#adminCurriculumLessonPlanForm");
+    const item = form?.__llhLibraryHits?.vocabulary?.[Number(addLibVocab.getAttribute("data-curriculum-library-add-vocab"))];
+    const field = form?.querySelector("[name='vocabularyWords']");
+    if (item?.word && field) {
+      const current = String(field.value || "").split(/[,;\n]+/).map((w) => w.trim()).filter(Boolean);
+      if (!current.map((w) => w.toLowerCase()).includes(item.word.toLowerCase())) current.push(item.word);
+      field.value = current.join(", ");
+      setAdminCurriculumLessonSaveBanner(`Added vocabulary “${item.word}”.`, true);
+    }
     return;
   }
   if (event.target.closest("[data-curriculum-suggest-cover]")) {
