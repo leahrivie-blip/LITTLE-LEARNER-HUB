@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260719-weekday-activities");
-  assert.equal(indexJs, "20260719-weekday-activities");
-  assert.match(sw, /llh-shell-v101-weekday-activities/);
+  assert.equal(indexCss, "20260719-system-health");
+  assert.equal(indexJs, "20260719-system-health");
+  assert.match(sw, /llh-shell-v102-system-health/);
 });
 
 if (!process.exitCode) {
