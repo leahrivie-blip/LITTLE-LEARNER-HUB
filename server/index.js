@@ -1411,6 +1411,9 @@ function normalizedCurriculumLessonPlan(value) {
       ? String(entry.coverImageSource).trim()
       : (sanitizedLessonCoverUrl(entry.coverImageUrl || entry.thumbnailUrl || "") ? "uploaded" : ""),
     coverImagePosition: normalizedShortText(entry.coverImagePosition, 40) || "center",
+    // Phase 2: optional organization metadata (additive; older plans stay valid without them).
+    primaryCollection: normalizedShortText(entry.primaryCollection, 80),
+    tags: normalizedList(entry.tags, 24, (item) => normalizedShortText(item, 40)).filter(Boolean),
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     // Set when status first becomes published/featured; used by weekly "What's New" digests.

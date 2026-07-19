@@ -25,6 +25,7 @@
     "test:curriculum-import-v4": "node scripts/test-curriculum-import-v4.js",
     "test:curriculum-import-v5": "node scripts/test-curriculum-import-v5.js",
     "test:learning-domain-mapping": "node scripts/test-learning-domain-mapping.js",
+    "test:smart-import": "node scripts/test-smart-lesson-import.js",
     "test:curriculum-series": "node scripts/test-curriculum-series.js",
     "test:importer-pre-batch-qa": "node scripts/test-importer-pre-batch-qa.js",
     "test:curriculum-schema": "node scripts/test-curriculum-schema.js",

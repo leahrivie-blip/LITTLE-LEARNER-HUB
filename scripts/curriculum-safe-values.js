@@ -145,6 +145,8 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
     coverImageAlt: curriculumAsString(entry.coverImageAlt),
     coverImageSource: curriculumAsString(entry.coverImageSource),
     coverImagePosition: curriculumAsString(entry.coverImagePosition) || "center",
+    primaryCollection: curriculumAsString(entry.primaryCollection),
+    tags: curriculumAsStringArray(entry.tags),
     createdAt: curriculumAsString(entry.createdAt),
     updatedAt: curriculumAsString(entry.updatedAt),
   };
