@@ -409,6 +409,21 @@
     return null;
   }
 
+  function isStaleGenericSeriesCover(url, series = {}) {
+    const normalized = String(url || "").trim().toLowerCase();
+    if (!normalized) return false;
+    const monthKey = normalizeTheme(series.month || "");
+    const titleKey = normalizeTheme(series.title || "");
+    const looksOctober = monthKey === "october"
+      || titleKey.includes("october preschool")
+      || titleKey.includes("october curriculum");
+    if (!looksOctober) return false;
+    // Older Phase 1 builds mapped October to the generic seasons image.
+    return normalized.includes("/images/lesson-covers/seasons-year.jpg")
+      || normalized.endsWith("/seasons-year.jpg")
+      || normalized.endsWith("/seasons-year.svg");
+  }
+
   function resolveCurriculumSeriesCover(series = {}) {
     const entry = series && typeof series === "object" ? series : {};
     const title = entry.title || "Monthly Curriculum";
@@ -418,7 +433,7 @@
     const age = entry.age || "Preschool";
     const position = entry.coverImagePosition || "center";
     const explicit = String(entry.coverImageUrl || "").trim();
-    if (explicit && !explicit.startsWith("data:")) {
+    if (explicit && !explicit.startsWith("data:") && !isStaleGenericSeriesCover(explicit, entry)) {
       return {
         url: explicit,
         alt: String(entry.coverImageAlt || "").trim() || `Cover illustration for ${title}`,
@@ -532,6 +547,7 @@
     collectSeriesThemeHaystack,
     detectWeekThemeTokens,
     resolveCompositeSeriesCover,
+    isStaleGenericSeriesCover,
     resolveLessonPlanCover,
     resolveLessonPlanCoverAlt,
     resolveLessonPlanCoverFallbacks,

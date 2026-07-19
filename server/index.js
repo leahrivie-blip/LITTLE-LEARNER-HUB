@@ -11116,19 +11116,24 @@ async function handleAdminCurriculumSeriesSave(request, response) {
       jsonResponse(response, 400, { error: "Curriculum series could not be normalized." });
       return;
     }
-    // Auto-attach a themed cartoon cover from the lesson-cover library when none is set.
-    // Prefer a composite monthly illustration built from the linked weekly themes.
-    if (!series.coverImageUrl) {
+    // Auto-attach a themed cartoon cover from the lesson-cover library when none is set
+    // (or when an older generic seasons mapping is still stored for October).
+    const coversApi = (() => {
+      try { return require("../scripts/lesson-plan-covers.js"); } catch { return null; }
+    })();
+    const linkedPlans = (series.weeks || [])
+      .map((week) => curriculum.lessonPlans.find((plan) => plan.id === week.lessonPlanId))
+      .filter(Boolean);
+    const weekThemes = linkedPlans
+      .map((plan) => [plan.title, plan.theme].filter(Boolean).join(" "))
+      .filter(Boolean);
+    const needsCover = !series.coverImageUrl
+      || coversApi?.isStaleGenericSeriesCover?.(series.coverImageUrl, { ...series, weekThemes, linkedPlans });
+    if (needsCover && coversApi?.resolveCurriculumSeriesCover) {
       try {
-        const coversApi = require("../scripts/lesson-plan-covers.js");
-        const linkedPlans = (series.weeks || [])
-          .map((week) => curriculum.lessonPlans.find((plan) => plan.id === week.lessonPlanId))
-          .filter(Boolean);
-        const weekThemes = linkedPlans
-          .map((plan) => [plan.title, plan.theme].filter(Boolean).join(" "))
-          .filter(Boolean);
-        const resolved = coversApi.resolveCurriculumSeriesCover?.({
+        const resolved = coversApi.resolveCurriculumSeriesCover({
           ...series,
+          coverImageUrl: "",
           linkedPlans,
           weekThemes,
         });

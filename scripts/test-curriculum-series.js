@@ -169,6 +169,18 @@ async function main() {
     assert.ok(resolved.url.includes("october-preschool-curriculum.jpg"), resolved.url);
   });
 
+  await test("stale generic October seasons cover upgrades to composite", () => {
+    const covers = require("./lesson-plan-covers.js");
+    const resolved = covers.resolveCurriculumSeriesCover({
+      title: "October Preschool Curriculum",
+      month: "October",
+      coverImageUrl: "/images/lesson-covers/seasons-year.jpg",
+      coverImageSource: "mapped",
+      weekThemes: ["Fall Leaves", "Apples", "Pumpkins", "Friendly Halloween"],
+    });
+    assert.ok(resolved.url.includes("october-preschool-curriculum.jpg"), resolved.url);
+  });
+
   await test("publish validation reports missing week and age mismatch", () => {
     const series = {
       id: "s2",
