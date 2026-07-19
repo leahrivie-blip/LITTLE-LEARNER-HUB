@@ -62,9 +62,11 @@ function main() {
     "scripts/curriculum-preschool-priority-imports",
     "scripts/curriculum-phase-2f-imports",
     "scripts/curriculum-infant-imports",
+    "scripts/curriculum-infant-core-imports",
     "scripts/curriculum-infant-summer-imports",
     "scripts/curriculum-infant-holiday-imports",
     "scripts/curriculum-toddler-imports",
+    "scripts/curriculum-toddler-core-imports",
     "scripts/curriculum-toddler-pro-imports",
     "scripts/curriculum-toddler-holiday-imports",
   ].map((rel) => path.join(ROOT, rel));

@@ -1332,7 +1332,12 @@ function applyV3DayFields(dayPlan, fields = {}) {
   return dayPlan;
 }
 
-function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), generateItemId = generateCurriculumItemId, existingTitles = [] } = {}) {
+function parseCurriculumLessonPlanImportV3(text, options = {}) {
+  const {
+    existingItemIds = new Map(),
+    generateItemId = generateCurriculumItemId,
+    existingTitles = [],
+  } = options;
   const errors = [];
   const warnings = [];
   const unmapped = [];
@@ -1473,6 +1478,22 @@ function parseCurriculumLessonPlanImportV3(text, { existingItemIds = new Map(), 
 
   if (!activityCount) {
     errors.push("At least one ACTIVITY_NAME block under a weekday section (MONDAY–FRIDAY) is required.");
+  }
+
+  const emptyWeekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"].filter((day) => {
+    const items = Array.isArray(dailyPlans?.[day]?.items) ? dailyPlans[day].items : [];
+    return !items.length;
+  });
+  if (emptyWeekdays.length) {
+    const labels = emptyWeekdays.map((day) => day.toUpperCase()).join(", ");
+    const message = `Missing activities on: ${labels}. Every weekday (MONDAY–FRIDAY) needs at least one ACTIVITY_NAME block.`;
+    const publishing = String(status || "").toLowerCase() === "published" || String(status || "").toLowerCase() === "featured";
+    // Repair/completion tooling may parse known-truncated sources with allowIncompleteWeekdays.
+    if (publishing && !options.allowIncompleteWeekdays) {
+      errors.push(message);
+    } else {
+      warnings.push(message);
+    }
   }
 
   const data = {

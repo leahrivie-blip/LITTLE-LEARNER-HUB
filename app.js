@@ -5135,14 +5135,32 @@ function curriculumAgeSelectOptions(selectedAge = "") {
 }
 
 function resolvePublishedCurriculumActivityId(lessonPlanId, item) {
-  if (!item?.itemId) return "";
-  const activityId = curriculumActivityIdForItemId(item.itemId);
-  if (hasAdminFullAccess()) {
-    const activity = curriculumActivityById(activityId);
-    return activity && activity.status !== "archived" ? activityId : "";
-  }
-  const activity = effectiveCurriculumLibrary().activities.find((entry) => entry.id === activityId);
-  return activity ? activityId : "";
+  if (!item?.itemId && !item?.title) return "";
+  const planId = String(lessonPlanId || "").trim();
+  const itemId = String(item?.itemId || "").trim();
+  const sourceKey = planId && itemId ? `${planId}:${itemId}` : "";
+  const legacyId = itemId ? curriculumActivityIdForItemId(itemId) : "";
+  const pool = [
+    ...(planId ? curriculumActivitiesForLesson(planId) : []),
+    ...(effectiveCurriculumLibrary().activities || []),
+    ...(effectiveCurriculum().activities || []),
+  ];
+  const seen = new Set();
+  const match = pool.find((entry) => {
+    if (!entry?.id || seen.has(entry.id)) return false;
+    seen.add(entry.id);
+    if (entry.status === "archived") return false;
+    if (sourceKey && entry.sourceKey === sourceKey) return true;
+    if (planId && itemId && entry.lessonPlanId === planId && entry.itemId === itemId) return true;
+    if (legacyId && entry.id === legacyId) return true;
+    if (planId && item?.title && entry.lessonPlanId === planId
+      && String(entry.title || "").trim().toLowerCase() === String(item.title || "").trim().toLowerCase()
+      && (!item.dayOfWeek || entry.dayOfWeek === item.dayOfWeek)) {
+      return true;
+    }
+    return false;
+  });
+  return match?.id || "";
 }
 
 function curriculumMultilineSectionHtml(text) {
@@ -7793,24 +7811,32 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
         ageModifications: normalizedMultilineText(row.querySelector("[data-curriculum-age-modifications]")?.value),
       });
     });
+    // If a weekday panel was removed from the DOM, preserve existing day content instead of wiping it.
+    const preservedItems = Array.isArray(preservedDay.items) ? preservedDay.items : [];
+    const resolvedItems = (!dayPanel && !rows.length && preservedItems.length)
+      ? preservedItems
+      : items;
     const dayBooksEditor = dayPanel?.querySelector(`[data-curriculum-books-editor="day:${day}"]`);
     const daySongsEditor = dayPanel?.querySelector(`[data-curriculum-songs-editor="day:${day}"]`);
-    dailyPlans[day] = {
-      theme: normalizedShortText(dayPanel?.querySelector("[data-curriculum-day-theme]")?.value),
-      objectives: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-objectives]")?.value),
-      learningDomains: collectCurriculumDomainChecks(dayPanel?.querySelector("[data-curriculum-day-domains]")),
-      materials: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-materials]")?.value),
-      vocabulary: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-vocabulary]")?.value),
+    dailyPlans[day] = dayPanel ? {
+      theme: normalizedShortText(dayPanel.querySelector("[data-curriculum-day-theme]")?.value),
+      objectives: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-objectives]")?.value),
+      learningDomains: collectCurriculumDomainChecks(dayPanel.querySelector("[data-curriculum-day-domains]")),
+      materials: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-materials]")?.value),
+      vocabulary: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-vocabulary]")?.value),
       books: collectCurriculumBooksFromEditor(dayBooksEditor),
       songs: collectCurriculumSongsFromEditor(daySongsEditor),
-      circleTime: collectCurriculumTextListFromEditor(dayPanel?.querySelector(`[data-curriculum-text-list-editor="day:${day}:circleTime"]`)),
-      transitions: collectCurriculumTextListFromEditor(dayPanel?.querySelector(`[data-curriculum-text-list-editor="day:${day}:transitions"]`)),
-      outdoorPlay: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-outdoor]")?.value),
-      familyConnection: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-family]")?.value),
-      observations: collectCurriculumTextListFromEditor(dayPanel?.querySelector(`[data-curriculum-text-list-editor="day:${day}:observations"]`)),
-      adaptations: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-adaptations]")?.value),
-      safetyNotes: normalizedMultilineText(dayPanel?.querySelector("[data-curriculum-day-safety]")?.value),
-      items,
+      circleTime: collectCurriculumTextListFromEditor(dayPanel.querySelector(`[data-curriculum-text-list-editor="day:${day}:circleTime"]`)),
+      transitions: collectCurriculumTextListFromEditor(dayPanel.querySelector(`[data-curriculum-text-list-editor="day:${day}:transitions"]`)),
+      outdoorPlay: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-outdoor]")?.value),
+      familyConnection: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-family]")?.value),
+      observations: collectCurriculumTextListFromEditor(dayPanel.querySelector(`[data-curriculum-text-list-editor="day:${day}:observations"]`)),
+      adaptations: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-adaptations]")?.value),
+      safetyNotes: normalizedMultilineText(dayPanel.querySelector("[data-curriculum-day-safety]")?.value),
+      items: resolvedItems,
+    } : {
+      ...preservedDay,
+      items: resolvedItems,
     };
   });
   return {
@@ -7890,6 +7916,21 @@ async function saveAdminCurriculumLessonPlanForm(form) {
   const activityCount = countCurriculumDailyPlanItems(lessonPlan.dailyPlans);
   if (!activityCount) {
     setAdminCurriculumLessonSaveBanner("❌ No activities found in the form. Click Parse Lesson Plan again, then Save.", false);
+    renderAdminCurriculumLessonPlanManager();
+    document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    return;
+  }
+  const emptyWeekdays = CURRICULUM_WEEKDAYS.filter((day) => {
+    const items = Array.isArray(lessonPlan.dailyPlans?.[day]?.items) ? lessonPlan.dailyPlans[day].items : [];
+    return !items.some((item) => String(item?.title || "").trim());
+  });
+  const publishing = ["published", "featured"].includes(String(lessonPlan.status || "").toLowerCase());
+  if (publishing && emptyWeekdays.length) {
+    const labels = emptyWeekdays.map((day) => day.charAt(0).toUpperCase() + day.slice(1)).join(", ");
+    setAdminCurriculumLessonSaveBanner(
+      `❌ Published lesson plans need activities on every weekday. Add activities for: ${labels}.`,
+      false,
+    );
     renderAdminCurriculumLessonPlanManager();
     document.querySelector("#adminCurriculumLessonPlanBanner")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
     return;

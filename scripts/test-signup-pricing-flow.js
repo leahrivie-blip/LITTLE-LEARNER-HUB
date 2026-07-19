@@ -104,9 +104,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260718-lesson-fullscreen");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260718-lesson-fullscreen");
-  assert.match(sw, /llh-shell-v100-lesson-fullscreen/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260719-weekday-activities");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260719-weekday-activities");
+  assert.match(sw, /llh-shell-v101-weekday-activities/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {
