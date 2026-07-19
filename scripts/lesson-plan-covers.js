@@ -60,8 +60,38 @@
     { match: ["letter", "letters", "sounds", "literacy", "number", "numbers", "math"], cover: "kindergarten-readiness" },
     { match: ["camping", "camp"], cover: "nature" },
     { match: ["stem", "science", "scientist", "archaeology"], cover: "kindergarten-readiness" },
-    { match: ["holiday", "easter", "july", "new year", "christmas", "halloween"], cover: "seasons" },
+    { match: ["holiday", "easter", "july", "new year", "christmas"], cover: "seasons" },
+    { match: ["halloween", "pumpkin", "spooky", "friendly halloween"], cover: "seasons" },
+    { match: ["apple", "apples", "orchard"], cover: "garden" },
+    { match: ["fall leaves", "autumn leaves", "leaves"], cover: "nature" },
+    { match: ["back to school", "classroom helpers", "first week"], cover: "kindergarten-readiness" },
   ];
+
+  // Monthly curriculum month/season → preferred illustrated cover slug.
+  const SERIES_MONTH_COVERS = {
+    january: "new-year-celebration",
+    february: "feelings-emotions",
+    march: "gardening-plants",
+    april: "easter-spring-science",
+    may: "gardening-plants",
+    june: "ocean-explorers",
+    july: "july4-celebration",
+    august: "camping-adventure",
+    september: "apple-orchard-adventure",
+    october: "seasons-year",
+    november: "seasons-year",
+    december: "new-year-little",
+  };
+
+  const SERIES_SEASON_COVERS = {
+    spring: "gardening-plants",
+    summer: "ocean-explorers",
+    fall: "seasons-year",
+    autumn: "seasons-year",
+    winter: "seasons-year",
+    "back to school": "kindergarten-readiness",
+    holiday: "new-year-celebration",
+  };
 
   // Theme-rule SVG slugs → preferred illustrated JPG slugs when available.
   const THEME_PHOTO_ALIASES = {
@@ -286,6 +316,54 @@
     return [...new Set([resolved.url, mapped, svgFallback, age, DEFAULT_COVER].filter(Boolean))];
   }
 
+  function resolveCurriculumSeriesCover(series = {}) {
+    const entry = series && typeof series === "object" ? series : {};
+    const title = entry.title || "Monthly Curriculum";
+    const month = String(entry.month || "").trim();
+    const season = String(entry.season || "").trim();
+    const theme = entry.theme || [month, season].filter(Boolean).join(" ") || title;
+    const age = entry.age || "Preschool";
+    const position = entry.coverImagePosition || "center";
+    const explicit = String(entry.coverImageUrl || "").trim();
+    if (explicit && !explicit.startsWith("data:")) {
+      return {
+        url: explicit,
+        alt: String(entry.coverImageAlt || "").trim() || `Cover illustration for ${title}`,
+        source: entry.coverImageSource || "uploaded",
+        position,
+      };
+    }
+    const monthKey = normalizeTheme(month);
+    const seasonKey = normalizeTheme(season);
+    const monthSlug = SERIES_MONTH_COVERS[monthKey] || "";
+    const seasonSlug = SERIES_SEASON_COVERS[seasonKey] || "";
+    const preferredSlug = monthSlug || seasonSlug;
+    if (preferredSlug) {
+      return {
+        url: coverPath(preferredSlug),
+        alt: String(entry.coverImageAlt || "").trim()
+          || `Illustrated cover for ${month || season || title}`,
+        source: "mapped",
+        position,
+      };
+    }
+    const mapped = getMappedThemeCover(title, theme);
+    if (mapped) {
+      return {
+        url: mapped,
+        alt: String(entry.coverImageAlt || "").trim() || `Illustration for ${theme || title}`,
+        source: "mapped",
+        position,
+      };
+    }
+    return {
+      url: getAgeGroupFallback(age) || DEFAULT_COVER,
+      alt: `Early childhood curriculum cover for ${age}`,
+      source: "default",
+      position: "center",
+    };
+  }
+
   function shortThemeDescription(planOrResource = {}) {
     const entry = planOrResource && typeof planOrResource === "object" ? planOrResource : {};
     const overview = String(entry.weeklyOverview || entry.description || "").replace(/\s+/g, " ").trim();
@@ -318,6 +396,9 @@
     resolveLessonPlanCover,
     resolveLessonPlanCoverAlt,
     resolveLessonPlanCoverFallbacks,
+    resolveCurriculumSeriesCover,
+    SERIES_MONTH_COVERS,
+    SERIES_SEASON_COVERS,
     shortThemeDescription,
   };
 

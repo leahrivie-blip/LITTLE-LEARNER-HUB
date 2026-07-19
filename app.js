@@ -13842,7 +13842,7 @@ function buildLessonBrowseRows(items) {
   if (popular.length) rows.push({ key: "popular", title: "Most Popular", items: popular, viewAllLabel: "View All" });
 
   // When an age tab is selected, put that age's rows first (already ordered above).
-  return rows.filter((row) => row.items.length);
+  return rows.filter((row) => row.items?.length || row.isMonthlySeriesRow || row.seriesItems?.length);
 }
 
 function collectLessonViewAllItems(items, key) {
@@ -21296,13 +21296,15 @@ function renderCategoryPage(view) {
     const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced && typeFilter === "all";
     let browseBody = "";
     if (typeFilter === "monthly") {
-      const series = monthlyApi?.publicMonthlySeries?.() || [];
+      const allSeries = monthlyApi?.publicMonthlySeries?.() || [];
+      const series = monthlyApi?.filterPublicMonthlySeries?.(allSeries) || allSeries;
       browseBody = `
-        <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
+        ${monthlyApi?.monthlyLibraryFiltersHtml?.(allSeries) || ""}
+        <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid curriculum-series-netflix-grid">
           ${lessonUpgradeBanner}
           ${series.length
             ? series.map((entry) => monthlyApi.monthlySeriesCardHtml(entry)).join("")
-            : `<div class="empty-state">No monthly curriculums published yet.</div>`}
+            : `<div class="empty-state">${allSeries.length ? "No monthly curriculums match these filters." : "No monthly curriculums published yet."}</div>`}
         </div>
       `;
     } else if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey || typeFilter === "weekly") {

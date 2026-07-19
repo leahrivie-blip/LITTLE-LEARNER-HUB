@@ -209,6 +209,11 @@ async function main() {
     }
     await page.waitForSelector("#adminCurriculumSeriesForm", { timeout: 8000 });
     await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      document.querySelector("[data-series-suggest-cover]")?.click();
+      document.querySelector("[data-series-pull-weeks]")?.click();
+    });
+    await page.waitForTimeout(400);
     await page.locator("#adminCurriculumSeriesApp").screenshot({
       path: path.join(OUT_DIR, "monthly-curriculum-admin-builder.png"),
     });
@@ -239,13 +244,13 @@ async function main() {
       fullPage: true,
     });
 
-    await user.locator('[data-lesson-library-type="monthly"]').click();
+    await user.locator('.lesson-library-type-tabs [data-lesson-library-type="monthly"]').click();
     await user.waitForTimeout(700);
     await user.screenshot({
       path: path.join(OUT_DIR, "monthly-curriculum-user-monthly-filter.png"),
       fullPage: true,
     });
-    await user.locator("[data-open-monthly-series]").first().click();
+    await user.locator("article.curriculum-series-card[data-open-monthly-series]").first().click();
     await user.waitForTimeout(700);
     await user.screenshot({
       path: path.join(OUT_DIR, "monthly-curriculum-user-detail.png"),

@@ -121,6 +121,18 @@ async function main() {
     assert.equal(series.weeks[2].lessonPlanId, "lp3");
   });
 
+  await test("series cover resolver maps October to illustrated cartoon cover", () => {
+    const covers = require("./lesson-plan-covers.js");
+    const resolved = covers.resolveCurriculumSeriesCover({
+      title: "October Preschool Curriculum",
+      age: "Preschool",
+      month: "October",
+    });
+    assert.ok(resolved.url.includes("/images/lesson-covers/"), resolved.url);
+    assert.ok(!resolved.url.startsWith("data:"), "should not use gradient data URI");
+    assert.equal(resolved.source, "mapped");
+  });
+
   await test("publish validation reports missing week and age mismatch", () => {
     const series = {
       id: "s2",

@@ -1205,8 +1205,21 @@ function normalizedImportSynonymRule(value) {
   const to = normalizedShortText(entry.to || entry.official || entry.saveAs, 80);
   const field = normalizedShortText(entry.field, 40) || "learningDomain";
   if (!id || !from || !to) return null;
-  // Phase 1: learning-domain synonyms must map to an official domain label.
+  // learningDomain → official domain; headingAlias → canonical import field key; other fields keep free text.
   if (field === "learningDomain" && !CURRICULUM_LEARNING_DOMAINS.has(to)) return null;
+  if (field === "headingAlias") {
+    const key = String(to || "").trim().toUpperCase().replace(/\s+/g, "_");
+    if (!key) return null;
+    return {
+      id,
+      field,
+      from,
+      to: key,
+      disabled: Boolean(entry.disabled),
+      createdAt: normalizedShortText(entry.createdAt, 80),
+      updatedAt: normalizedShortText(entry.updatedAt, 80),
+    };
+  }
   return {
     id,
     field,
@@ -11090,7 +11103,7 @@ async function handleAdminCurriculumSeriesSave(request, response) {
     } else if (["published", "featured"].includes(nextStatus) && !publishedAt) {
       publishedAt = existing?.createdAt || now;
     }
-    const series = normalizedCurriculumSeries({
+    let series = normalizedCurriculumSeries({
       ...existing,
       ...incoming,
       id,
@@ -11102,6 +11115,24 @@ async function handleAdminCurriculumSeriesSave(request, response) {
     if (!series) {
       jsonResponse(response, 400, { error: "Curriculum series could not be normalized." });
       return;
+    }
+    // Auto-attach a themed cartoon cover from the lesson-cover library when none is set.
+    if (!series.coverImageUrl) {
+      try {
+        const coversApi = require("../scripts/lesson-plan-covers.js");
+        const resolved = coversApi.resolveCurriculumSeriesCover?.(series);
+        if (resolved?.url && !String(resolved.url).startsWith("data:")) {
+          series = normalizedCurriculumSeries({
+            ...series,
+            coverImageUrl: resolved.url,
+            coverImageAlt: series.coverImageAlt || resolved.alt || "",
+            coverImageSource: resolved.source || "mapped",
+            coverImagePosition: resolved.position || "center",
+          });
+        }
+      } catch {
+        /* keep fallback */
+      }
     }
     // Warn on duplicate week occupancy before save (still allow draft saves).
     const weekWarnings = [];

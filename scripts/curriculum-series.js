@@ -62,6 +62,50 @@
     });
   }
 
+  function normalizedBook(value) {
+    const entry = value && typeof value === "object" ? value : {};
+    const title = shortText(entry.title, 180);
+    if (!title) return null;
+    return {
+      title,
+      author: shortText(entry.author, 120),
+      notes: multiline(entry.notes, 1000),
+    };
+  }
+
+  function normalizedSong(value) {
+    const entry = value && typeof value === "object" ? value : {};
+    const title = shortText(entry.title, 180);
+    if (!title) return null;
+    return {
+      title,
+      notes: multiline(entry.notes, 1000),
+    };
+  }
+
+  function normalizedDomainList(value) {
+    const official = [
+      "Social Emotional",
+      "Language & Literacy",
+      "Math",
+      "Science",
+      "Physical Development",
+      "Creative Arts",
+    ];
+    const items = Array.isArray(value) ? value : [];
+    const seen = new Set();
+    const out = [];
+    items.forEach((item) => {
+      const raw = shortText(item, 80);
+      const match = official.find((domain) => domain.toLowerCase() === raw.toLowerCase());
+      if (match && !seen.has(match)) {
+        seen.add(match);
+        out.push(match);
+      }
+    });
+    return out.slice(0, 6);
+  }
+
   function normalizedCurriculumSeries(value) {
     const entry = value && typeof value === "object" ? value : {};
     const id = shortText(entry.id, 160);
@@ -72,10 +116,19 @@
     const weekCount = Number(entry.weekCount) === 5 ? 5 : 4;
     const month = shortText(entry.month, 40);
     const season = shortText(entry.season, 40);
+    const books = (Array.isArray(entry.books) ? entry.books : [])
+      .map(normalizedBook)
+      .filter(Boolean)
+      .slice(0, 20);
+    const songs = (Array.isArray(entry.songs) ? entry.songs : [])
+      .map(normalizedSong)
+      .filter(Boolean)
+      .slice(0, 20);
     return {
       id,
       title: shortText(entry.title, 180) || "Untitled Curriculum",
       description: multiline(entry.description, 4000),
+      theme: shortText(entry.theme, 120),
       age: SERIES_AGES.includes(age) ? age : (age || "Preschool"),
       month: SERIES_MONTHS.includes(month) ? month : month,
       season: SERIES_SEASONS.includes(season) ? season : season,
@@ -83,6 +136,10 @@
       weekCount,
       overallGoals: multiline(entry.overallGoals, 4000),
       overallMaterials: multiline(entry.overallMaterials, 4000),
+      familyConnection: multiline(entry.familyConnection, 4000),
+      learningDomains: normalizedDomainList(entry.learningDomains),
+      books,
+      songs,
       coverImageUrl: sanitizedCoverUrl(entry.coverImageUrl),
       coverImageAlt: shortText(entry.coverImageAlt, 240),
       coverImageSource: ["uploaded", "generated", "default", "mapped", "fallback"].includes(String(entry.coverImageSource || "").trim())

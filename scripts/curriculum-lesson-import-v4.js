@@ -22,8 +22,24 @@
     TITLE: ["title", "lesson title", "lesson plan title", "plan title", "name"],
     AGE_GROUP: ["age group", "age", "ages", "age range", "age band", "developmental age"],
     THEME: ["theme", "unit", "unit theme", "weekly theme", "focus", "topic"],
-    PLAN: ["plan", "access", "plan type", "membership", "tier", "pricing"],
-    STATUS: ["status", "publish status", "visibility"],
+    PLAN: [
+      "plan",
+      "access",
+      "plan type",
+      "membership",
+      "tier",
+      "pricing",
+      "free or pro",
+      "access level",
+      "subscription",
+    ],
+    STATUS: [
+      "status",
+      "publish status",
+      "visibility",
+      "draft or published",
+      "publication status",
+    ],
     LEARNING_DOMAINS: [
       "learning domains",
       "domains",
@@ -175,9 +191,12 @@
       "teacher tips",
       "teacher notes",
       "teacher support",
+      "teacher guidance",
       "educator role",
+      "educator guidance",
       "facilitator role",
       "adult role",
+      "adult support",
     ],
     DIRECTIONS: [
       "directions",
@@ -186,6 +205,8 @@
       "how to",
       "procedure",
       "how it works",
+      "what to do",
+      "activity steps",
     ],
     LEARNING_GOALS: [
       "learning goals",
@@ -193,15 +214,44 @@
       "learning outcomes",
       "skills",
       "skills practiced",
+      "skill focus",
+      "developmental goals",
     ],
-    OBSERVATION_OPPORTUNITIES: ["observation opportunities", "observe for", "what to watch for"],
-    VOCABULARY: ["vocabulary", "vocab"],
-    EXTENSIONS: ["extensions", "extend the learning", "enrichment"],
-    ADAPTATIONS: ["adaptations", "modifications", "accommodations", "support strategies"],
-    SAFETY_NOTES: ["safety notes", "safety"],
-    TEACHER_LANGUAGE: ["teacher language", "language prompts", "talking points"],
-    AGE_MODIFICATIONS: ["age modifications", "age adaptations"],
-    LEARNING_DOMAINS: ["learning domains", "domains"],
+    OBSERVATION_OPPORTUNITIES: [
+      "observation opportunities",
+      "observe for",
+      "what to watch for",
+      "assessment",
+      "look fors",
+      "look-fors",
+      "assessment ideas",
+    ],
+    VOCABULARY: ["vocabulary", "vocab", "key words", "words to know"],
+    EXTENSIONS: ["extensions", "extend the learning", "enrichment", "next steps"],
+    ADAPTATIONS: [
+      "adaptations",
+      "modifications",
+      "accommodations",
+      "support strategies",
+      "differentiation",
+      "supports",
+    ],
+    SAFETY_NOTES: ["safety notes", "safety", "cautions", "safety reminders", "supervision notes"],
+    TEACHER_LANGUAGE: [
+      "teacher language",
+      "language prompts",
+      "talking points",
+      "suggested language",
+      "what to say",
+    ],
+    AGE_MODIFICATIONS: ["age modifications", "age adaptations", "age supports"],
+    LEARNING_DOMAINS: [
+      "learning domains",
+      "domains",
+      "skill area",
+      "developmental area",
+      "learning areas",
+    ],
   };
 
   const CATEGORY_INFERENCE_RULES = [
@@ -238,6 +288,27 @@
   const LESSON_LOOKUP = buildSynonymLookup(V4_LESSON_FIELD_SYNONYMS);
   const DAY_LOOKUP = buildSynonymLookup(V4_DAY_FIELD_SYNONYMS);
   const ACTIVITY_LOOKUP = buildSynonymLookup(V4_ACTIVITY_FIELD_SYNONYMS);
+
+  function adminHeadingAliasRules() {
+    try {
+      if (typeof effectiveCurriculum === "function") {
+        return (effectiveCurriculum().importSynonyms || []).filter((rule) => (
+          rule && !rule.disabled && rule.field === "headingAlias"
+        ));
+      }
+    } catch { /* ignore */ }
+    return [];
+  }
+
+  function lookupWithAdminAliases(baseLookup) {
+    const lookup = new Map(baseLookup);
+    adminHeadingAliasRules().forEach((rule) => {
+      const from = normalizeKey(rule.from);
+      const to = String(rule.to || "").trim().toUpperCase();
+      if (from && to) lookup.set(from, to);
+    });
+    return lookup;
+  }
 
   function preserveMultilineText(value, max = 12000) {
     return String(value || "").replace(/\r\n?/g, "\n").replace(/\s+$/gm, "").slice(0, max);
@@ -595,7 +666,7 @@
 
   function parseV4ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds, generateItemId, baseApi }) {
     const warnings = [];
-    const { fields, unmapped } = parseFlexibleFieldBlock(block, ACTIVITY_LOOKUP, {
+    const { fields, unmapped } = parseFlexibleFieldBlock(block, lookupWithAdminAliases(ACTIVITY_LOOKUP), {
       lineOffset,
       context: `${dayKey}:activity`,
     });
@@ -869,7 +940,7 @@
       }])));
 
     const { lessonBody, daySections, dayLineOffsets } = splitFlexibleWeekdaySections(raw);
-    const { fields: lessonFields, unmapped: lessonUnmapped } = parseFlexibleFieldBlock(lessonBody, LESSON_LOOKUP, {
+    const { fields: lessonFields, unmapped: lessonUnmapped } = parseFlexibleFieldBlock(lessonBody, lookupWithAdminAliases(LESSON_LOOKUP), {
       context: "lesson",
     });
     // Soft-unmapped: keep for report but do not block
@@ -970,7 +1041,7 @@
         const firstActivityIndex = dayContent.indexOf(activityBlocks[0]);
         dayFieldText = firstActivityIndex >= 0 ? dayContent.slice(0, firstActivityIndex) : "";
       }
-      const dayParsed = parseFlexibleFieldBlock(dayFieldText, DAY_LOOKUP, {
+      const dayParsed = parseFlexibleFieldBlock(dayFieldText, lookupWithAdminAliases(DAY_LOOKUP), {
         lineOffset: dayLineOffsets[dayKey] || 1,
         context: `${dayKey}:daily`,
       });
