@@ -21607,3 +21607,12 @@ button.aup-btn--danger {
   }
 
 }
+
+/* Phase 1 monthly curriculum */
+.lesson-library-type-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.lesson-library-type-tabs .ghost-button.is-active{background:var(--brand-deep,#2f6f5e);color:#fff;border-color:transparent}
+.curriculum-guided-steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 8px}
+.curriculum-guided-steps .curriculum-guided-num{display:inline-flex;width:1.4rem;height:1.4rem;align-items:center;justify-content:center;border-radius:999px;background:#e8f2ee;font-size:.8rem;margin-right:4px}
+.curriculum-guided-steps li.is-current .ghost-button{border-color:#2f6f5e;font-weight:600}
+.curriculum-series-week-slot.is-empty{border-style:dashed;opacity:.95}
+.curriculum-series-card{cursor:pointer}

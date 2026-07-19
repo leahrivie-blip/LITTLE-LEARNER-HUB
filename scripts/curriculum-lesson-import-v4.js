@@ -24,7 +24,16 @@
     THEME: ["theme", "unit", "unit theme", "weekly theme", "focus", "topic"],
     PLAN: ["plan", "access", "plan type", "membership", "tier", "pricing"],
     STATUS: ["status", "publish status", "visibility"],
-    LEARNING_DOMAINS: ["learning domains", "domains", "developmental domains", "learning areas"],
+    LEARNING_DOMAINS: [
+      "learning domains",
+      "domains",
+      "developmental domains",
+      "learning areas",
+      "domain",
+      "skill area",
+      "developmental area",
+      "learning domain",
+    ],
     WEEKLY_OVERVIEW: [
       "weekly overview",
       "theme overview",
@@ -638,9 +647,7 @@
       title,
       objective: preserveMultilineText(fields.OBJECTIVE),
       description: preserveMultilineText(fields.DESCRIPTION),
-      learningDomains: baseApi?.parseLearningDomainsList
-        ? [] // parseLearningDomainsList may not be exported; handle below
-        : [],
+      learningDomains: [],
       materials: preserveMultilineText(fields.MATERIALS),
       setup: preserveMultilineText(fields.SETUP),
       steps: preserveMultilineText(fields.DIRECTIONS),
@@ -654,18 +661,58 @@
       safetyNotes: preserveMultilineText(fields.SAFETY_NOTES),
       ageModifications: preserveMultilineText(fields.AGE_MODIFICATIONS),
       _categoryInferred: categoryInferred,
+      _domainMappings: [],
     };
 
-    // learning domains via simple split if field present
     if (fields.LEARNING_DOMAINS) {
-      activity.learningDomains = String(fields.LEARNING_DOMAINS)
-        .split(/[,;\n]/)
-        .map((item) => normalizedShortText(item))
-        .filter(Boolean)
-        .slice(0, 6);
+      const resolved = resolveDomainsFlexible(fields.LEARNING_DOMAINS, baseApi);
+      activity.learningDomains = resolved.domains;
+      activity._domainMappings = resolved.mappings;
+      resolved.unmatched.forEach((item) => {
+        unmapped.push({
+          field: "LEARNING_DOMAINS",
+          value: item.original,
+          note: `Needs review: "${item.original}" was not matched to an official learning domain.`,
+        });
+        warnings.push(
+          `${dayKey}: "${title}" learning domain "${item.original}" needs review — original text preserved.`,
+        );
+      });
+      resolved.mappings
+        .filter((m) => m.confidence === "medium" && m.official)
+        .forEach((m) => {
+          warnings.push(`${dayKey}: "${title}" — ${m.note}`);
+        });
     }
 
     return { activity, errors: [], warnings, unmapped };
+  }
+
+  function resolveDomainsFlexible(text, baseApi) {
+    if (baseApi?.resolveLearningDomainsWithConfidence) {
+      return baseApi.resolveLearningDomainsWithConfidence(text);
+    }
+    if (baseApi?.parseLearningDomainsList) {
+      const domains = baseApi.parseLearningDomainsList(text);
+      return {
+        domains,
+        mappings: domains.map((official) => ({
+          original: official,
+          token: official.toLowerCase(),
+          official,
+          confidence: "high",
+          note: `"${official}" matched.`,
+        })),
+        unmatched: [],
+      };
+    }
+    try {
+      // eslint-disable-next-line global-require
+      const domainsApi = require("./curriculum-learning-domains.js");
+      return domainsApi.resolveLearningDomainsWithConfidence(text);
+    } catch {
+      return { domains: [], mappings: [], unmatched: [{ original: String(text || ""), token: "", choices: [] }] };
+    }
   }
 
   function applyDayFields(dayPlan, fields, baseApi) {
@@ -687,11 +734,9 @@
       dayPlan.songs = baseApi.parseCurriculumImportListLines(fields.SONGS, { parts: 2 });
     }
     if (fields.LEARNING_DOMAINS) {
-      dayPlan.learningDomains = String(fields.LEARNING_DOMAINS)
-        .split(/[,;\n]/)
-        .map((item) => normalizedShortText(item))
-        .filter(Boolean)
-        .slice(0, 6);
+      const resolved = resolveDomainsFlexible(fields.LEARNING_DOMAINS, baseApi);
+      dayPlan.learningDomains = resolved.domains;
+      dayPlan._domainMappings = resolved.mappings;
     }
   }
 
@@ -966,11 +1011,21 @@
       errors.push("At least one activity with a name is required under a weekday section (Monday–Friday).");
     }
 
-    const learningDomains = String(lessonFields.LEARNING_DOMAINS || "")
-      .split(/[,;\n]/)
-      .map((item) => normalizedShortText(item))
-      .filter(Boolean)
-      .slice(0, 6);
+    const domainResolved = lessonFields.LEARNING_DOMAINS
+      ? resolveDomainsFlexible(lessonFields.LEARNING_DOMAINS, baseApi)
+      : { domains: [], mappings: [], unmatched: [] };
+    domainResolved.unmatched.forEach((item) => {
+      unmapped.push({
+        field: "LEARNING_DOMAINS",
+        value: item.original,
+        note: `Needs review: "${item.original}" was not matched to an official learning domain.`,
+      });
+      warnings.push(`Learning domain "${item.original}" needs review — original text preserved.`);
+    });
+    domainResolved.mappings
+      .filter((m) => m.confidence === "medium" && m.official)
+      .forEach((m) => warnings.push(m.note));
+    const learningDomains = domainResolved.domains;
 
     const data = {
       _formatVersion: formatVersion,
@@ -981,6 +1036,7 @@
       plan: planInfo.plan || "Free",
       status,
       learningDomains,
+      _domainMappings: domainResolved.mappings,
       weeklyOverview: preserveMultilineText(lessonFields.WEEKLY_OVERVIEW),
       objectives: preserveMultilineText(lessonFields.LEARNING_OBJECTIVES),
       weeklyMaterials: preserveMultilineText(lessonFields.WEEKLY_MATERIALS),

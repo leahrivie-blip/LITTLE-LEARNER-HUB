@@ -1176,16 +1176,88 @@ function defaultCurriculumStore() {
     lessonPlans: [],
     activities: [],
     resources: [],
+    series: [],
+    importSynonyms: [],
     updatedAt: "",
   };
 }
 
+const curriculumSeriesApi = (() => {
+  try {
+    return require("../scripts/curriculum-series.js");
+  } catch {
+    return null;
+  }
+})();
+
+const curriculumLearningDomainsApi = (() => {
+  try {
+    return require("../scripts/curriculum-learning-domains.js");
+  } catch {
+    return null;
+  }
+})();
+
+function normalizedImportSynonymRule(value) {
+  const entry = value && typeof value === "object" ? value : {};
+  const id = normalizedShortText(entry.id, 160);
+  const from = normalizedShortText(entry.from || entry.pasted || entry.wording, 120);
+  const to = normalizedShortText(entry.to || entry.official || entry.saveAs, 80);
+  const field = normalizedShortText(entry.field, 40) || "learningDomain";
+  if (!id || !from || !to) return null;
+  // Phase 1: learning-domain synonyms must map to an official domain label.
+  if (field === "learningDomain" && !CURRICULUM_LEARNING_DOMAINS.has(to)) return null;
+  return {
+    id,
+    field,
+    from,
+    to,
+    disabled: Boolean(entry.disabled),
+    createdAt: normalizedShortText(entry.createdAt, 80),
+    updatedAt: normalizedShortText(entry.updatedAt, 80),
+  };
+}
+
+function normalizedCurriculumSeries(value) {
+  if (curriculumSeriesApi?.normalizedCurriculumSeries) {
+    return curriculumSeriesApi.normalizedCurriculumSeries(value);
+  }
+  return null;
+}
+
+function validateCurriculumSeriesForPublish(series, lessonPlans) {
+  if (curriculumSeriesApi?.validateCurriculumSeriesForPublish) {
+    return curriculumSeriesApi.validateCurriculumSeriesForPublish(series, lessonPlans);
+  }
+  return ["Curriculum series validation is unavailable."];
+}
+
 function normalizedCurriculumLearningDomains(value) {
   const items = Array.isArray(value) ? value : [];
-  return items
-    .map((item) => normalizedShortText(item, 80))
-    .filter((item) => CURRICULUM_LEARNING_DOMAINS.has(item))
-    .slice(0, 6);
+  const resolved = [];
+  const seen = new Set();
+  items.forEach((item) => {
+    const raw = normalizedShortText(item, 80);
+    if (!raw) return;
+    if (CURRICULUM_LEARNING_DOMAINS.has(raw)) {
+      if (!seen.has(raw)) {
+        seen.add(raw);
+        resolved.push(raw);
+      }
+      return;
+    }
+    // Safety net: map common importer variants to official labels before drop.
+    if (curriculumLearningDomainsApi?.resolveLearningDomainsWithConfidence) {
+      const mapped = curriculumLearningDomainsApi.resolveLearningDomainsWithConfidence(raw);
+      mapped.domains.forEach((domain) => {
+        if (!seen.has(domain) && CURRICULUM_LEARNING_DOMAINS.has(domain)) {
+          seen.add(domain);
+          resolved.push(domain);
+        }
+      });
+    }
+  });
+  return resolved.slice(0, 6);
 }
 
 function normalizedCurriculumBookEntry(value) {
@@ -1420,6 +1492,8 @@ function normalizedCurriculumStore(value) {
     lessonPlans: normalizedList(input.lessonPlans, 500, normalizedCurriculumLessonPlan),
     activities: normalizedList(input.activities, 3000, normalizedCurriculumActivity),
     resources: normalizedList(input.resources, 3000, normalizedCurriculumResource),
+    series: normalizedList(input.series, 500, normalizedCurriculumSeries),
+    importSynonyms: normalizedList(input.importSynonyms, 1000, normalizedImportSynonymRule),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -1451,6 +1525,14 @@ function validateCurriculumIntegrity(curriculum) {
     lessonPlan.resourceIds.forEach((resourceId) => {
       if (!resourceIds.has(resourceId)) {
         errors.push(`Lesson plan ${lessonPlan.id} references missing resource ${resourceId}.`);
+      }
+    });
+  });
+  // Series only link existing weekly plans — never require nested plan copies.
+  store.series.forEach((series) => {
+    (series.weeks || []).forEach((week) => {
+      if (week.lessonPlanId && !lessonPlanIds.has(week.lessonPlanId)) {
+        errors.push(`Curriculum series ${series.id} Week ${week.weekNumber} references missing lesson plan ${week.lessonPlanId}.`);
       }
     });
   });
@@ -1829,6 +1911,8 @@ function authorizedCurriculumLibraryDto(siteContent) {
     lessonPlans,
     activities,
     resources,
+    series: store.series || [],
+    importSynonyms: store.importSynonyms || [],
     updatedAt: store.updatedAt || "",
     freeLessonAccessMode: "pro",
   };
@@ -1866,10 +1950,28 @@ function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
       return meta;
     })
     .filter(Boolean);
+  const series = (store.series || [])
+    .filter((entry) => entry && ["published", "featured"].includes(entry.status))
+    .map((entry) => ({
+      ...entry,
+      // Public payload keeps week links only; weekly plan bodies stay in lessonPlans[].
+      weeks: (entry.weeks || []).map((week) => ({
+        weekNumber: week.weekNumber,
+        lessonPlanId: week.lessonPlanId,
+        displayOrder: week.displayOrder,
+      })),
+    }))
+    .sort((a, b) => {
+      const featuredDelta = (b.featured || b.status === "featured" ? 1 : 0) - (a.featured || a.status === "featured" ? 1 : 0);
+      if (featuredDelta) return featuredDelta;
+      return (Number(a.displayOrder) || 0) - (Number(b.displayOrder) || 0)
+        || String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    });
   return {
     lessonPlans,
     activities,
     resources,
+    series,
     updatedAt: store.updatedAt || "",
     freeLessonAccessMode: accessContext?.mode || "curated",
   };
@@ -10949,6 +11051,234 @@ async function handleAdminCurriculumWipe(request, response) {
   }
 }
 
+function generateCurriculumSeriesId() {
+  return `cur-series-${crypto.randomBytes(8).toString("hex")}`;
+}
+
+function generateImportSynonymId() {
+  return `import-syn-${crypto.randomBytes(6).toString("hex")}`;
+}
+
+async function handleAdminCurriculumSeriesSave(request, response) {
+  try {
+    const body = await readJson(request);
+    if (!validAdminToken(body.adminToken || "")) {
+      jsonResponse(response, 401, { error: "Admin access is required to save curriculum series." });
+      return;
+    }
+    const incoming = body.series && typeof body.series === "object" ? body.series : null;
+    if (!incoming) {
+      jsonResponse(response, 400, { error: "A curriculum series payload is required." });
+      return;
+    }
+    const now = new Date().toISOString();
+    const store = readStore();
+    const siteContent = store.siteContent && typeof store.siteContent === "object"
+      ? store.siteContent
+      : defaultSiteContentStore();
+    if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+      curriculumConflictResponse(response, siteContent);
+      return;
+    }
+    const curriculum = normalizedCurriculumStore(siteContent.curriculum);
+    const id = normalizedShortText(incoming.id, 160) || generateCurriculumSeriesId();
+    const existing = curriculum.series.find((item) => item.id === id);
+    const nextStatus = normalizedShortText(incoming.status || existing?.status || "draft", 20).toLowerCase().replace(/\s+/g, "_");
+    let publishedAt = existing?.publishedAt || "";
+    if (["published", "featured"].includes(nextStatus) && !["published", "featured"].includes(existing?.status || "")) {
+      publishedAt = now;
+    } else if (["published", "featured"].includes(nextStatus) && !publishedAt) {
+      publishedAt = existing?.createdAt || now;
+    }
+    const series = normalizedCurriculumSeries({
+      ...existing,
+      ...incoming,
+      id,
+      status: nextStatus,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+      publishedAt,
+    });
+    if (!series) {
+      jsonResponse(response, 400, { error: "Curriculum series could not be normalized." });
+      return;
+    }
+    // Warn on duplicate week occupancy before save (still allow draft saves).
+    const weekWarnings = [];
+    const weekCounts = new Map();
+    (incoming.weeks || series.weeks || []).forEach((week) => {
+      const n = Number(week?.weekNumber) || 0;
+      if (!n) return;
+      weekCounts.set(n, (weekCounts.get(n) || 0) + 1);
+    });
+    weekCounts.forEach((count, weekNumber) => {
+      if (count > 1) weekWarnings.push(`Two lesson plans are assigned to Week ${weekNumber}.`);
+    });
+    let publishErrors = [];
+    if (["published", "featured"].includes(series.status)) {
+      publishErrors = validateCurriculumSeriesForPublish(series, curriculum.lessonPlans);
+      if (publishErrors.length) {
+        jsonResponse(response, 400, {
+          error: "Curriculum series cannot be published until validation passes.",
+          validationErrors: publishErrors,
+          series,
+        });
+        return;
+      }
+    }
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      series: [...curriculum.series.filter((item) => item.id !== id), series],
+      updatedAt: now,
+    });
+    const integrityError = assertCurriculumIntegrityOrError(nextCurriculum);
+    if (integrityError) {
+      jsonResponse(response, 400, integrityError);
+      return;
+    }
+    const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    await writeStoreAsync(store);
+    jsonResponse(response, 200, {
+      series,
+      curriculum: curriculumWithoutFileData(nextCurriculum),
+      siteContentUpdatedAt,
+      warnings: weekWarnings,
+      validationErrors: publishErrors,
+    });
+  } catch (error) {
+    console.error("[curriculum-series-save] failed", error.message);
+    jsonResponse(response, 503, { error: "Curriculum series could not be saved." });
+  }
+}
+
+async function handleAdminCurriculumSeriesDuplicate(request, response) {
+  try {
+    const body = await readJson(request);
+    if (!validAdminToken(body.adminToken || "")) {
+      jsonResponse(response, 401, { error: "Admin access is required to duplicate curriculum series." });
+      return;
+    }
+    const sourceId = normalizedShortText(body.id || body.seriesId, 160);
+    if (!sourceId) {
+      jsonResponse(response, 400, { error: "Series id is required." });
+      return;
+    }
+    const now = new Date().toISOString();
+    const store = readStore();
+    const siteContent = store.siteContent && typeof store.siteContent === "object"
+      ? store.siteContent
+      : defaultSiteContentStore();
+    if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+      curriculumConflictResponse(response, siteContent);
+      return;
+    }
+    const curriculum = normalizedCurriculumStore(siteContent.curriculum);
+    const source = curriculum.series.find((item) => item.id === sourceId);
+    if (!source) {
+      jsonResponse(response, 404, { error: "Curriculum series not found." });
+      return;
+    }
+    const series = normalizedCurriculumSeries({
+      ...source,
+      id: generateCurriculumSeriesId(),
+      title: `${source.title || "Untitled Curriculum"} (Copy)`,
+      status: "draft",
+      featured: false,
+      createdAt: now,
+      updatedAt: now,
+      publishedAt: "",
+    });
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      series: [...curriculum.series, series],
+      updatedAt: now,
+    });
+    const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    await writeStoreAsync(store);
+    jsonResponse(response, 200, {
+      series,
+      curriculum: curriculumWithoutFileData(nextCurriculum),
+      siteContentUpdatedAt,
+    });
+  } catch (error) {
+    console.error("[curriculum-series-duplicate] failed", error.message);
+    jsonResponse(response, 503, { error: "Curriculum series could not be duplicated." });
+  }
+}
+
+async function handleAdminImportSynonymSave(request, response) {
+  try {
+    const body = await readJson(request);
+    if (!validAdminToken(body.adminToken || "")) {
+      jsonResponse(response, 401, { error: "Admin access is required to save import synonyms." });
+      return;
+    }
+    const incoming = body.synonym && typeof body.synonym === "object" ? body.synonym : body;
+    const now = new Date().toISOString();
+    const store = readStore();
+    const siteContent = store.siteContent && typeof store.siteContent === "object"
+      ? store.siteContent
+      : defaultSiteContentStore();
+    if (curriculumConcurrencyConflict(siteContent, body.expectedUpdatedAt)) {
+      curriculumConflictResponse(response, siteContent);
+      return;
+    }
+    const curriculum = normalizedCurriculumStore(siteContent.curriculum);
+    const id = normalizedShortText(incoming.id, 160) || generateImportSynonymId();
+    const existing = curriculum.importSynonyms.find((item) => item.id === id);
+    if (incoming.remove) {
+      if (!id) {
+        jsonResponse(response, 400, { error: "Synonym id is required to remove a rule." });
+        return;
+      }
+      const nextCurriculum = normalizedCurriculumStore({
+        ...curriculum,
+        importSynonyms: curriculum.importSynonyms.filter((item) => item.id !== id),
+        updatedAt: now,
+      });
+      const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+      await writeStoreAsync(store);
+      jsonResponse(response, 200, {
+        synonym: null,
+        importSynonyms: nextCurriculum.importSynonyms,
+        curriculum: curriculumWithoutFileData(nextCurriculum),
+        siteContentUpdatedAt,
+      });
+      return;
+    }
+    const synonym = normalizedImportSynonymRule({
+      ...existing,
+      ...incoming,
+      id,
+      createdAt: existing?.createdAt || now,
+      updatedAt: now,
+    });
+    if (!synonym) {
+      jsonResponse(response, 400, {
+        error: "Synonym must include pasted wording and an official learning domain.",
+      });
+      return;
+    }
+    const nextSynonyms = [...curriculum.importSynonyms.filter((item) => item.id !== id), synonym];
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      importSynonyms: nextSynonyms,
+      updatedAt: now,
+    });
+    const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    await writeStoreAsync(store);
+    jsonResponse(response, 200, {
+      synonym: incoming.remove ? null : synonym,
+      importSynonyms: nextCurriculum.importSynonyms,
+      curriculum: curriculumWithoutFileData(nextCurriculum),
+      siteContentUpdatedAt,
+    });
+  } catch (error) {
+    console.error("[import-synonym-save] failed", error.message);
+    jsonResponse(response, 503, { error: "Import synonym could not be saved." });
+  }
+}
+
 async function handleAdminCurriculumLessonPlanSave(request, response) {
   const startedAt = Date.now();
   let step = "received";
@@ -14535,6 +14865,9 @@ const server = http.createServer(async (request, response) => {
       return await handleAdminCurriculumWipe(request, response);
     }
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/series") return await handleAdminCurriculumSeriesSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/series/duplicate") return await handleAdminCurriculumSeriesDuplicate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/import-synonyms") return await handleAdminImportSynonymSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/upload") return await handleAdminLessonCoverUpload(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
