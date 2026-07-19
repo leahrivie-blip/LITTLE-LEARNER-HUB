@@ -639,6 +639,8 @@ function defaultStore() {
     notificationPreferences: {},
     pushDeliveryLog: [],
     pushConfig: {},
+    clientErrors: [],
+    pdfFailureLog: [],
     universalDrafts: [],
     messageTemplates: [],
     userTags: {},
@@ -663,6 +665,8 @@ function ensureMessagingStore(store) {
     : {};
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
+  store.clientErrors = Array.isArray(store.clientErrors) ? store.clientErrors : [];
+  store.pdfFailureLog = Array.isArray(store.pdfFailureLog) ? store.pdfFailureLog : [];
   return store;
 }
 
@@ -7541,7 +7545,25 @@ function billingReadinessSnapshot() {
   };
 }
 
-function systemHealthReportDeps(recentBackups = []) {
+async function loadLatestBackupDataForHealth() {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return null;
+  try {
+    const result = await postgresPool.query(
+      `SELECT id, created_at, source, data FROM llh_store_backups ORDER BY created_at DESC LIMIT 1`,
+    );
+    if (!result.rows.length) return null;
+    return {
+      id: result.rows[0].id,
+      createdAt: result.rows[0].created_at,
+      source: result.rows[0].source,
+      data: result.rows[0].data,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function systemHealthReportDeps(recentBackups = [], { latestBackup = null } = {}) {
   return {
     peekStore,
     launchReadinessStatus,
@@ -7554,6 +7576,7 @@ function systemHealthReportDeps(recentBackups = []) {
     writeSiteCurriculum,
     recentBackups,
     healthIntervalMs: SYSTEM_HEALTH_INTERVAL_MS,
+    loadLatestBackupData: () => latestBackup,
   };
 }
 
@@ -7592,7 +7615,8 @@ async function buildAdminSystemHealthReport({
     persistSystemHealthRun,
   } = require("./system-health.js");
   const recentBackups = await listRecentStoreBackupsForHealth(8);
-  let report = buildSystemHealthReport(systemHealthReportDeps(recentBackups));
+  const latestBackup = await loadLatestBackupDataForHealth();
+  let report = buildSystemHealthReport(systemHealthReportDeps(recentBackups, { latestBackup }));
 
   const repairs = [];
   if (applySafeRepairs) {
@@ -7606,7 +7630,7 @@ async function buildAdminSystemHealthReport({
     if (applied.repairs?.length && typeof writeStoreAsync === "function") {
       await writeStoreAsync(peekStore());
     }
-    report = buildSystemHealthReport(systemHealthReportDeps(recentBackups));
+    report = buildSystemHealthReport(systemHealthReportDeps(recentBackups, { latestBackup }));
   }
 
   let newCriticalIds = [];
@@ -7837,6 +7861,91 @@ async function handleAdminSystemHealthExport(request, response, url) {
     console.error("[system-health] export failed:", error);
     jsonResponse(response, 500, { error: "Could not export the system health report." });
   }
+}
+
+function sanitizeClientErrorPayload(body = {}) {
+  const scrub = (value, max = 240) => String(value || "")
+    .replace(/\b[\w.+-]+@[\w.-]+\.\w+\b/g, "[redacted-email]")
+    .replace(/\b(?:child|student|parent|family)\s*[:=]\s*[^,;|]{1,80}/gi, "[redacted-person]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+  const role = scrub(body.role || body.userRole || "visitor", 40).toLowerCase() || "visitor";
+  const email = normalizeEmail(body.email || "");
+  const userHash = email
+    ? crypto.createHash("sha256").update(email).digest("hex").slice(0, 12)
+    : "";
+  return {
+    id: `cerr-${Date.now().toString(16)}-${crypto.randomBytes(3).toString("hex")}`,
+    createdAt: new Date().toISOString(),
+    page: scrub(body.page || body.path || body.view || "", 120),
+    action: scrub(body.action || body.button || "", 120),
+    role,
+    device: scrub(body.device || "", 40),
+    browser: scrub(body.browser || body.userAgent || "", 120),
+    errorType: scrub(body.errorType || body.name || "Error", 80),
+    message: scrub(body.message || body.error || "", 240),
+    userHash,
+    // Never store raw child/family fields even if a client sends them.
+  };
+}
+
+async function handleClientErrorReport(request, response) {
+  const body = await readJson(request);
+  const entry = sanitizeClientErrorPayload(body);
+  if (!entry.message && !entry.errorType) {
+    jsonResponse(response, 400, { error: "An error message is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  store.clientErrors = Array.isArray(store.clientErrors) ? store.clientErrors : [];
+  store.clientErrors.unshift(entry);
+  store.clientErrors = store.clientErrors.slice(0, 2000);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.warn("[client-errors] persist failed:", error.message || error);
+  }
+  jsonResponse(response, 200, { ok: true, id: entry.id });
+}
+
+async function handlePdfFailureReport(request, response) {
+  const body = await readJson(request);
+  const title = String(body.title || "").trim().slice(0, 180);
+  const message = String(body.message || body.error || "PDF generation failed").trim().slice(0, 240);
+  const store = ensureMessagingStore(readStore());
+  store.pdfFailureLog = Array.isArray(store.pdfFailureLog) ? store.pdfFailureLog : [];
+  const entry = {
+    id: `pdf-fail-${Date.now().toString(16)}`,
+    createdAt: new Date().toISOString(),
+    title,
+    printVariant: String(body.printVariant || "").slice(0, 40),
+    resourceId: String(body.resourceId || "").slice(0, 160),
+    message,
+    role: String(body.role || "").slice(0, 40),
+  };
+  store.pdfFailureLog.unshift(entry);
+  store.pdfFailureLog = store.pdfFailureLog.slice(0, 1000);
+  store.analyticsEvents = Array.isArray(store.analyticsEvents) ? store.analyticsEvents : [];
+  store.analyticsEvents.unshift({
+    id: `evt-${Date.now().toString(16)}`,
+    name: "pdf_generation_failed",
+    createdAt: entry.createdAt,
+    user: normalizeEmail(body.email || "") || "guest",
+    detail: {
+      title,
+      printVariant: entry.printVariant,
+      resourceId: entry.resourceId,
+      message,
+    },
+  });
+  store.analyticsEvents = store.analyticsEvents.slice(0, 20000);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.warn("[pdf-failure] persist failed:", error.message || error);
+  }
+  jsonResponse(response, 200, { ok: true, id: entry.id });
 }
 
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
@@ -9982,9 +10091,49 @@ function analyticsSummary(store) {
         (event) => event.detail?.title || event.detail?.resourceId || event.detail?.lessonId || "Lesson",
       )).sort((a, b) => b[1] - a[1]).slice(0, 8),
       topDownloads: Object.entries(countBy(
-        events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "resource_download", "lesson_docx_download"].includes(event.name)),
+        events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "resource_download", "lesson_docx_download", "resource_pdf_download"].includes(event.name)),
         (event) => event.detail?.title || event.detail?.category || event.detail?.tool || event.name,
       )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      topFavorites: Object.entries(countBy(
+        events.filter((event) => event.name === "favorite_add"),
+        (event) => event.detail?.title || event.detail?.resourceId || "Lesson",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      topSearchedThemes: Object.entries(countBy(
+        events.filter((event) => event.name === "lesson_search" || event.name === "lesson_search_no_results"),
+        (event) => event.detail?.theme || event.detail?.query || "Search",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      searchesWithNoResults: Object.entries(countBy(
+        events.filter((event) => event.name === "lesson_search_no_results"),
+        (event) => event.detail?.query || event.detail?.theme || "Unknown search",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      mostUsedFeatures: Object.entries(countBy(
+        events.filter((event) => [
+          "button_click",
+          "ai_generation_success",
+          "resource_view",
+          "resource_print",
+          "generated_pdf",
+          "lesson_plan_added_to_calendar",
+          "favorite_add",
+          "lesson_search",
+        ].includes(event.name)),
+        (event) => event.detail?.label || event.detail?.tool || event.detail?.category || event.name,
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      leastUsedTrackedFeatures: [
+        ["lesson_search", countEventsNamed(events, ["lesson_search"])],
+        ["favorite_add", countEventsNamed(events, ["favorite_add"])],
+        ["observation_created", countEventsNamed(events, ["observation_created", "observation_saved"])],
+        ["daily_log_created", countEventsNamed(events, ["daily_log_created", "daily_report_saved"])],
+        ["parent_message_generated", countEventsNamed(events, ["parent_message_generated"])],
+        ["lesson_plan_added_to_calendar", lessonPlansAddedToCalendar],
+      ].sort((a, b) => a[1] - b[1]).slice(0, 6),
+      topRequestedFeatures: (store.featureRequests || [])
+        .slice()
+        .sort((a, b) => Number(b.votes || 0) - Number(a.votes || 0) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+        .slice(0, 8)
+        .map((item) => [item.title || item.summary || "Feature request", Number(item.votes || 0) || 1]),
+      pdfFailuresRecent: events.filter((event) => event.name === "pdf_generation_failed" && isWithinDays(event.createdAt, 30)).length,
+      clientErrorsRecent: (store.clientErrors || []).filter((row) => isWithinDays(row.createdAt, 7)).length,
     },
     periods: {
       dailyVisitors: countBy(sessionVisits, (event) => analyticsDateKey(event.createdAt)),
@@ -14928,6 +15077,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/system-health/run") return await handleAdminSystemHealthRun(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/system-health/history") return await handleAdminSystemHealthHistory(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/system-health/export") return await handleAdminSystemHealthExport(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/client-errors") return await handleClientErrorReport(request, response);
+    if (request.method === "POST" && url.pathname === "/api/pdf-failures") return await handlePdfFailureReport(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);

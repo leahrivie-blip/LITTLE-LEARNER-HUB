@@ -21,6 +21,13 @@ const {
   compactReportSnapshot,
   normalizeSeverityLevel,
 } = require("../scripts/system-health-lib.js");
+const {
+  runMobileLayoutSuite,
+  runNotificationMatrixSuite,
+  runErrorTrackingSuite,
+  runPdfFailureSuite,
+  runBackupRestoreDrillSuite,
+} = require("../scripts/system-health-suites.js");
 
 function safeRequire(modulePath) {
   try {
@@ -282,16 +289,64 @@ function buildSystemHealthReport(deps = {}) {
   suites.permissions = {
     staffLikeAccounts: staffLike,
     staffWithManualOverride: staffWithOverride,
-    note: "Deep notification audience and page-permission matrix checks are listed as skipped until a later phase.",
+    note: "Staff override flags plus notification audience matrix suite below.",
   };
 
+  // Previously skipped suites — now run as part of every full check.
+  const mobileSuite = runMobileLayoutSuite(store);
+  const notificationSuite = runNotificationMatrixSuite(store, {
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL || "",
+    ADMIN_EMAILS: process.env.ADMIN_EMAILS || "",
+  });
+  const errorSuite = runErrorTrackingSuite(store);
+  const pdfSuite = runPdfFailureSuite(store);
+  const restoreSuite = runBackupRestoreDrillSuite(store, {
+    loadLatestBackupData: typeof deps.loadLatestBackupData === "function" ? deps.loadLatestBackupData : null,
+  });
+
+  suites.mobile = {
+    ok: mobileSuite.ok,
+    checked: mobileSuite.checked,
+    passed: mobileSuite.passed,
+    failed: mobileSuite.failed,
+    note: mobileSuite.note,
+  };
+  suites.notifications = {
+    ok: notificationSuite.ok,
+    checked: notificationSuite.checked,
+    passed: notificationSuite.passed,
+    failed: notificationSuite.failed,
+    failedPushDeliveries: notificationSuite.failedPushDeliveries,
+    note: notificationSuite.note,
+  };
+  suites.errors = {
+    ok: errorSuite.ok,
+    recentClientErrors: errorSuite.recentClientErrors,
+    recentAiFailures: errorSuite.recentAiFailures,
+    openBugReports: errorSuite.openBugReports,
+    note: errorSuite.note,
+  };
+  suites.pdf = {
+    ok: pdfSuite.ok,
+    recentFailures: pdfSuite.recentFailures,
+    note: pdfSuite.note,
+  };
+  suites.restoreDrill = {
+    ok: restoreSuite.ok,
+    drill: restoreSuite.drill,
+    note: restoreSuite.note,
+  };
+
+  findings.push(
+    ...(mobileSuite.findings || []),
+    ...(notificationSuite.findings || []),
+    ...(errorSuite.findings || []),
+    ...(pdfSuite.findings || []),
+    ...(restoreSuite.findings || []),
+  );
+
   const checksSkipped = [
-    "mobile_tablet_layout_suite",
-    "notification_audience_matrix",
-    "error_tracking_aggregation",
     "stripe_live_webhook_latency",
-    "production_backup_restore_drill",
-    "failed_pdf_generation_log",
   ];
 
   const issueUpdate = updateOpenIssues(openIssues, findings, generatedAt);
@@ -301,6 +356,10 @@ function buildSystemHealthReport(deps = {}) {
     openIssueCount: Object.keys(issueUpdate.openIssues).length,
     repairLogCount: Array.isArray(previous.repairLog) ? previous.repairLog.length : 0,
     historyCount: Array.isArray(previous.history) ? previous.history.length : 0,
+    failedPdfGenerations: pdfSuite.recentFailures || 0,
+    recentClientErrors: errorSuite.recentClientErrors || 0,
+    recentAiFailures: errorSuite.recentAiFailures || 0,
+    healthScore: Math.max(0, 100 - ((summary.critical || 0) * 25) - ((summary.high || 0) * 10) - ((summary.medium || 0) * 3)),
   });
   const trends = detectTrends(previous.history || [], issueUpdate.openIssues);
 
@@ -361,9 +420,17 @@ function buildSystemHealthReport(deps = {}) {
     repairLog: Array.isArray(previous.repairLog) ? previous.repairLog.slice(0, 20) : [],
     openIssues: issueUpdate.openIssues,
     suites,
+    suiteResults: {
+      mobile: mobileSuite,
+      notifications: notificationSuite,
+      errors: errorSuite,
+      pdf: pdfSuite,
+      restoreDrill: restoreSuite,
+    },
     findings: [...healthyFindings, ...enriched].slice(0, 200),
     plainSummary: buildPlainSummary(summary, suites, enriched, checksSkipped, stats, trends),
     _issueUpdate: issueUpdate,
+    _restoreDrill: restoreSuite.drill || null,
   };
 
   return report;
@@ -386,11 +453,14 @@ function buildPlainSummary(summary, suites, findings, checksSkipped = [], stats 
   }
   if (stats && typeof stats === "object") {
     lines.push(
-      `Platform stats: ${stats.publishedLessonPlans || 0} published lessons (${stats.publishedIncomplete || 0} incomplete), ${stats.incompleteDrafts || 0} incomplete drafts, ${stats.brokenActivityLinkPlans || 0} plans with broken activity links, ${stats.failedNotifications || 0} failed notification deliveries.`,
+      `Platform stats: ${stats.publishedLessonPlans || 0} published lessons (${stats.publishedIncomplete || 0} incomplete), ${stats.incompleteDrafts || 0} incomplete drafts, ${stats.brokenActivityLinkPlans || 0} plans with broken activity links, ${stats.failedNotifications || 0} failed notification deliveries, ${stats.failedPdfGenerations || 0} failed PDFs, ${stats.recentLoginOrServerErrors || 0} recent errors.`,
     );
-    if (stats.failedPdfGenerations == null) {
-      lines.push("Failed PDF generations: not tracked yet.");
+    if (stats.healthScore != null) {
+      lines.push(`System Health score: ${stats.healthScore}/100.`);
     }
+  }
+  if (suites.restoreDrill?.drill) {
+    lines.push(suites.restoreDrill.drill.plainLanguage || (suites.restoreDrill.ok ? "Backup restore drill passed." : "Backup restore drill needs attention."));
   }
   if (suites.billingAccess) {
     lines.push(
@@ -511,6 +581,7 @@ function persistSystemHealthRun(store, report, {
 
   const snapshotReport = { ...report };
   delete snapshotReport._issueUpdate;
+  delete snapshotReport._restoreDrill;
   snapshotReport.history = history.slice(0, 20);
   snapshotReport.repairLog = repairLog.slice(0, 20);
   snapshotReport.openIssues = issueUpdate.openIssues;
@@ -532,6 +603,13 @@ function persistSystemHealthRun(store, report, {
     history,
     repairLog,
     scheduler,
+    restoreDrill: report._restoreDrill || previous.restoreDrill || null,
+    suiteResults: {
+      ...(previous.suiteResults || {}),
+      mobile: report.suiteResults?.mobile?.playwrightStamp
+        ? { ...(previous.suiteResults?.mobile || {}), ...report.suiteResults.mobile.playwrightStamp }
+        : (previous.suiteResults?.mobile || null),
+    },
     lastSnapshot: compactReportSnapshot(snapshotReport),
   };
 

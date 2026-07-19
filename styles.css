@@ -21689,3 +21689,12 @@ button.aup-btn--danger {
 .llh-publish-checklist-list li.is-missing {
   color: #9b1c1c;
 }
+.llh-owner-insight-list {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 8px;
+}
+.llh-owner-insight-list li {
+  line-height: 1.4;
+}

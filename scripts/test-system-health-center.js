@@ -185,7 +185,7 @@ test("persistSystemHealthRun writes history and repair log", () => {
   assert.ok(exportPayload.repairLog.length >= 1);
 });
 
-test("buildSystemHealthReport aggregates suites and lists skipped checks", () => {
+test("buildSystemHealthReport runs former skipped suites", () => {
   const store = {
     users: {
       "paid@example.com": {
@@ -194,6 +194,10 @@ test("buildSystemHealthReport aggregates suites and lists skipped checks", () =>
         hasProAccess: true,
         stripeSubscriptionStatus: "",
         subscriptionStatus: "Active",
+      },
+      "member@example.com": {
+        email: "member@example.com",
+        plan: "Free",
       },
     },
     siteContent: {
@@ -205,6 +209,15 @@ test("buildSystemHealthReport aggregates suites and lists skipped checks", () =>
     },
     systemHealth: {},
     pushDeliveryLog: [{ status: "failed", ok: false }],
+    notifications: [
+      { email: "member@example.com", type: "admin_system_health_critical", category: "system", title: "x" },
+    ],
+    clientErrors: [
+      { createdAt: new Date().toISOString(), errorType: "TypeError", message: "boom", page: "lessons", role: "free" },
+    ],
+    pdfFailureLog: [
+      { createdAt: new Date().toISOString(), title: "Rainbow", message: "failed" },
+    ],
   };
   const report = buildSystemHealthReport({
     store,
@@ -228,13 +241,19 @@ test("buildSystemHealthReport aggregates suites and lists skipped checks", () =>
   });
   assert.ok(report.plainSummary);
   assert.ok(Array.isArray(report.summary.checksSkipped));
-  assert.ok(report.summary.checksSkipped.includes("mobile_tablet_layout_suite"));
+  assert.ok(report.summary.checksSkipped.includes("stripe_live_webhook_latency"));
+  assert.ok(!report.summary.checksSkipped.includes("mobile_tablet_layout_suite"));
+  assert.ok(report.suites.mobile);
+  assert.ok(report.suites.notifications);
+  assert.ok(report.suites.errors);
+  assert.ok(report.suites.pdf);
+  assert.ok(report.suites.restoreDrill?.ok);
   assert.ok(report.stats);
   assert.equal(report.stats.failedNotifications, 1);
-  assert.equal(report.stats.failedPdfGenerations, null);
+  assert.ok(report.stats.failedPdfGenerations >= 1);
   assert.ok(report.findings.some((f) => f.severityLevel === "critical"));
+  assert.ok(report.findings.some((f) => /admin-only notification/i.test(f.plainLanguage || "")));
   assert.ok(report.findings.some((f) => Array.isArray(f.deepLinks) && f.deepLinks.length));
-  assert.match(report.plainSummary, /Checks skipped|skipped/i);
 });
 
 test("safe repairs only reconnect activity links and log before/after", () => {
@@ -286,7 +305,7 @@ test("critical alert preview only includes newly seen critical IDs", () => {
   assert.doesNotMatch(preview, /Old critical/);
 });
 
-test("static wiring: scheduler, export, history, severity UI", () => {
+test("static wiring: scheduler, export, history, severity UI, OCC, error tracker", () => {
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const css = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
@@ -296,11 +315,16 @@ test("static wiring: scheduler, export, history, severity UI", () => {
   assert.match(appJs, /Platform statistics/);
   assert.match(appJs, /Check history/);
   assert.match(appJs, /Member impact/);
+  assert.match(appJs, /function renderOwnerDecisionCenters/);
+  assert.match(appJs, /function installClientErrorTracker/);
+  assert.match(appJs, /reportPdfGenerationFailure/);
   assert.match(serverJs, /startSystemHealthScheduler/);
   assert.match(serverJs, /maybeRunDeploySystemHealthCheck/);
   assert.match(serverJs, /\/api\/admin\/system-health\/export/);
-  assert.match(serverJs, /\/api\/admin\/system-health\/history/);
+  assert.match(serverJs, /\/api\/client-errors/);
+  assert.match(serverJs, /\/api\/pdf-failures/);
   assert.match(css, /\.llh-health-badge/);
+  assert.match(css, /\.llh-owner-insight-list/);
 });
 
 function request(method, urlPath, { body, headers = {} } = {}) {

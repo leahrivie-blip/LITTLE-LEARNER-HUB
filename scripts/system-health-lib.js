@@ -454,10 +454,14 @@ function buildPlatformStats(store, curriculumScan = {}, extras = {}) {
     brokenActivityLinkPlans: curriculumScan.brokenLinkPlans || 0,
     activityCenterCount: curriculumScan.activityCenterCount || activities.filter((a) => a && a.status !== "archived").length,
     failedNotifications,
-    failedPdfGenerations: null,
-    failedPdfGenerationsNote: "PDF generation failures are not stored yet — listed as not tracked.",
-    recentLoginOrServerErrors: recentAiFailures,
-    recentLoginOrServerErrorsNote: "Uses recent AI/tool failure logs as a stand-in until a dedicated error tracker exists.",
+    failedPdfGenerations: extras.failedPdfGenerations != null
+      ? Number(extras.failedPdfGenerations)
+      : (Array.isArray(store?.pdfFailureLog) ? store.pdfFailureLog.length : 0),
+    failedPdfGenerationsNote: "",
+    recentClientErrors: extras.recentClientErrors != null ? Number(extras.recentClientErrors) : 0,
+    recentLoginOrServerErrors: Number(extras.recentClientErrors || 0) + Number(extras.recentAiFailures != null ? extras.recentAiFailures : recentAiFailures),
+    recentLoginOrServerErrorsNote: "Combines browser/client errors with recent AI/tool failures.",
+    healthScore: extras.healthScore != null ? Number(extras.healthScore) : null,
     memberAccounts: users,
     openIssueCount: extras.openIssueCount || 0,
     repairLogCount: extras.repairLogCount || 0,
@@ -493,15 +497,15 @@ function detectTrends(history = [], openIssues = {}) {
     });
   }
 
-  const mobileMention = rows.filter((row) => (row.skipped || []).includes("mobile_tablet_layout_suite") || Number((row.areas || {}).mobile || 0) > 0).length;
-  if (mobileMention >= 3) {
+  const mobileFailRuns = rows.filter((row) => Number((row.areas || {}).mobile || 0) > 0).length;
+  if (mobileFailRuns >= 3) {
     trends.push({
-      id: "trend:mobile-skipped",
+      id: "trend:mobile-recurring",
       area: "mobile",
-      severityLevel: "medium",
-      title: "Mobile layout monitoring still not automated",
-      plainLanguage: "Mobile/tablet layout checks are still listed as skipped, so repeated mobile problems would not be caught automatically yet.",
-      userImpact: "Phone/tablet cut-off issues may reach members before an admin sees them.",
+      severityLevel: "high",
+      title: "Repeated mobile layout problems",
+      plainLanguage: `Mobile/tablet layout problems appeared in ${mobileFailRuns} of the last ${rows.length} health checks.`,
+      userImpact: "Phone and tablet users may keep hitting cut-off menus or hard-to-read notifications.",
     });
   }
 
