@@ -2526,6 +2526,34 @@ async function initializeStorage() {
     console.error("[curriculum-toddler-seed] startup seed failed:", error.message);
   }
   try {
+    const { ensureToddlerCoreCurriculumSeeded } = require("./curriculum-toddler-core-seed.js");
+    await ensureToddlerCoreCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-toddler-core-seed] startup seed failed:", error.message);
+  }
+  try {
+    const { ensureInfantCoreCurriculumSeeded } = require("./curriculum-infant-core-seed.js");
+    await ensureInfantCoreCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-infant-core-seed] startup seed failed:", error.message);
+  }
+  try {
     const { ensureInfantHolidayCurriculumSeeded } = require("./curriculum-infant-holiday-seed.js");
     await ensureInfantHolidayCurriculumSeeded({
       readStore,
@@ -10980,6 +11008,26 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       updatedAt: now,
       publishedAt,
     };
+
+    // Published/featured plans must keep activities on every weekday so the
+    // lesson viewer never shows "No activities scheduled." after a save.
+    if (willBePublic) {
+      const emptyWeekdays = [];
+      CURRICULUM_WEEKDAYS.forEach((day) => {
+        const items = Array.isArray(planInput?.dailyPlans?.[day]?.items)
+          ? planInput.dailyPlans[day].items
+          : [];
+        const hasTitle = items.some((item) => String(item?.title || "").trim());
+        if (!hasTitle) emptyWeekdays.push(day);
+      });
+      if (emptyWeekdays.length) {
+        jsonResponse(response, 400, {
+          error: `Published lesson plans need activities on every weekday. Missing: ${emptyWeekdays.join(", ")}.`,
+          emptyWeekdays,
+        });
+        return;
+      }
+    }
 
     step = "syncActivities";
     const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);

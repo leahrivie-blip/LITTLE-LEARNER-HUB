@@ -24,6 +24,14 @@ const {
   PRESCHOOL_PRO_BATCH2_IMPORT_TARGETS,
   parsePreschoolLessonImport,
 } = require("./curriculum-preschool-import-targets.js");
+const {
+  TODDLER_CORE_IMPORT_TARGETS,
+  readToddlerCoreImportTarget,
+} = require("./curriculum-toddler-core-import-targets.js");
+const {
+  INFANT_CORE_IMPORT_TARGETS,
+  readInfantCoreImportTarget,
+} = require("./curriculum-infant-core-import-targets.js");
 
 const ROOT = path.join(__dirname, "..");
 const SITE_URL = String(process.env.SITE_URL || "https://little-learner-hub.onrender.com").replace(/\/$/, "");
@@ -100,7 +108,10 @@ async function login() {
 async function loadAdminPlans(token) {
   const res = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
   assert(res.status === 200, `site-content failed: ${res.status}`);
-  const plans = res.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
+  // Prefer full curriculum store (includes dailyPlans) over public library DTO.
+  const plans = res.json?.siteContent?.curriculum?.lessonPlans
+    || res.json?.siteContent?.curriculumLibrary?.lessonPlans
+    || [];
   return {
     plans,
     updatedAt: res.json?.siteContent?.updatedAt || "",
@@ -108,10 +119,21 @@ async function loadAdminPlans(token) {
 }
 
 function loadSourceTargets() {
-  return [...PRESCHOOL_PRO_IMPORT_TARGETS, ...PRESCHOOL_PRO_BATCH2_IMPORT_TARGETS];
+  return [
+    ...PRESCHOOL_PRO_IMPORT_TARGETS.map((target) => ({ ...target, kind: "preschool" })),
+    ...PRESCHOOL_PRO_BATCH2_IMPORT_TARGETS.map((target) => ({ ...target, kind: "preschool" })),
+    ...TODDLER_CORE_IMPORT_TARGETS.map((target) => ({ ...target, kind: "toddler-core" })),
+    ...INFANT_CORE_IMPORT_TARGETS.map((target) => ({ ...target, kind: "infant-core" })),
+  ];
 }
 
 function buildLessonPlanFromSource(target) {
+  if (target.kind === "toddler-core") {
+    return readToddlerCoreImportTarget(target);
+  }
+  if (target.kind === "infant-core") {
+    return readInfantCoreImportTarget(target);
+  }
   const importDir = target.importDir || path.join(ROOT, "scripts/curriculum-preschool-pro-imports");
   const filePath = path.join(importDir, target.file);
   assert(fs.existsSync(filePath), `Missing source file: ${filePath}`);
@@ -172,9 +194,10 @@ async function main() {
     const liveCounts = dayCounts(live || {});
     const liveTotal = activityTotal(liveCounts);
     const missing = incompleteDays(liveCounts);
+    const truncated = sourceTotal >= 8 && liveTotal > 0 && liveTotal < Math.ceil(sourceTotal * 0.6);
     const needsRepair = !live
       || missing.length > 0
-      || (sourceTotal > 0 && liveTotal < sourceTotal && missing.length > 0)
+      || truncated
       || (target.stableId === "cur-lp-preschool-space-adventure" && liveTotal < 15);
 
     if (!needsRepair) {
