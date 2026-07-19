@@ -11117,10 +11117,21 @@ async function handleAdminCurriculumSeriesSave(request, response) {
       return;
     }
     // Auto-attach a themed cartoon cover from the lesson-cover library when none is set.
+    // Prefer a composite monthly illustration built from the linked weekly themes.
     if (!series.coverImageUrl) {
       try {
         const coversApi = require("../scripts/lesson-plan-covers.js");
-        const resolved = coversApi.resolveCurriculumSeriesCover?.(series);
+        const linkedPlans = (series.weeks || [])
+          .map((week) => curriculum.lessonPlans.find((plan) => plan.id === week.lessonPlanId))
+          .filter(Boolean);
+        const weekThemes = linkedPlans
+          .map((plan) => [plan.title, plan.theme].filter(Boolean).join(" "))
+          .filter(Boolean);
+        const resolved = coversApi.resolveCurriculumSeriesCover?.({
+          ...series,
+          linkedPlans,
+          weekThemes,
+        });
         if (resolved?.url && !String(resolved.url).startsWith("data:")) {
           series = normalizedCurriculumSeries({
             ...series,

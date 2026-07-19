@@ -121,16 +121,52 @@ async function main() {
     assert.equal(series.weeks[2].lessonPlanId, "lp3");
   });
 
-  await test("series cover resolver maps October to illustrated cartoon cover", () => {
+  await test("series cover resolver maps October to composite monthly illustration", () => {
     const covers = require("./lesson-plan-covers.js");
     const resolved = covers.resolveCurriculumSeriesCover({
       title: "October Preschool Curriculum",
       age: "Preschool",
       month: "October",
+      weekThemes: ["Fall Leaves", "Apples", "Pumpkins", "Friendly Halloween"],
     });
-    assert.ok(resolved.url.includes("/images/lesson-covers/"), resolved.url);
+    assert.ok(resolved.url.includes("october-preschool-curriculum.jpg"), resolved.url);
+    assert.ok(!resolved.url.includes("seasons-year"), "must not use generic seasons cover for October");
     assert.ok(!resolved.url.startsWith("data:"), "should not use gradient data URI");
     assert.equal(resolved.source, "mapped");
+  });
+
+  await test("weekly theme covers stay week-specific (not the monthly composite)", () => {
+    const covers = require("./lesson-plan-covers.js");
+    const cases = [
+      { title: "Fall Leaves", theme: "Fall Leaves", expect: "fall-leaves-week.jpg" },
+      { title: "Apples", theme: "Apples", expect: "apples-week.jpg" },
+      { title: "Pumpkins", theme: "Pumpkins", expect: "pumpkins-week.jpg" },
+      { title: "Friendly Halloween", theme: "Friendly Halloween", expect: "friendly-halloween-week.jpg" },
+    ];
+    cases.forEach((item) => {
+      const resolved = covers.resolveLessonPlanCover({
+        title: item.title,
+        theme: item.theme,
+        age: "Preschool",
+      });
+      assert.ok(resolved.url.includes(item.expect), `${item.title} → ${resolved.url}`);
+      assert.ok(!resolved.url.includes("october-preschool-curriculum"), `${item.title} must not use monthly composite`);
+    });
+  });
+
+  await test("composite cover chosen from linked weekly themes alone", () => {
+    const covers = require("./lesson-plan-covers.js");
+    const resolved = covers.resolveCurriculumSeriesCover({
+      title: "Autumn Adventures",
+      age: "Preschool",
+      linkedPlans: [
+        { title: "Fall Leaves", theme: "Fall Leaves" },
+        { title: "Apples", theme: "Apples" },
+        { title: "Pumpkins", theme: "Pumpkins" },
+        { title: "Friendly Halloween", theme: "Halloween" },
+      ],
+    });
+    assert.ok(resolved.url.includes("october-preschool-curriculum.jpg"), resolved.url);
   });
 
   await test("publish validation reports missing week and age mismatch", () => {

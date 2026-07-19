@@ -149,10 +149,24 @@
     try { localStorage.removeItem(draftStorageKey(id || "new")); } catch { /* ignore */ }
   }
 
+  function seriesWithLinkedWeekThemes(series) {
+    const plans = lessonPlansForPicker();
+    const linkedPlans = (series?.weeks || [])
+      .map((week) => plans.find((plan) => plan.id === week.lessonPlanId))
+      .filter(Boolean);
+    const weekThemes = linkedPlans.map((plan) => [plan.title, plan.theme].filter(Boolean).join(" ")).filter(Boolean);
+    return {
+      ...series,
+      linkedPlans,
+      weekThemes,
+    };
+  }
+
   function resolveSeriesCover(series) {
+    const enriched = seriesWithLinkedWeekThemes(series || {});
     const api = coversApi();
     if (api?.resolveCurriculumSeriesCover) {
-      return api.resolveCurriculumSeriesCover(series);
+      return api.resolveCurriculumSeriesCover(enriched);
     }
     const url = String(series?.coverImageUrl || "").trim();
     if (url) {
