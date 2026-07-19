@@ -135,6 +135,13 @@ let lastStoreSafetyAlertAt = 0;
 let lastPostgresDisconnectAlertAt = 0;
 const STORE_BACKUP_RETENTION = Math.max(3, Number(process.env.STORE_BACKUP_RETENTION || 14));
 const STORE_BACKUP_INTERVAL_MS = Math.max(60 * 60 * 1000, Number(process.env.STORE_BACKUP_INTERVAL_MS || 24 * 60 * 60 * 1000));
+const SYSTEM_HEALTH_INTERVAL_MS = Math.max(
+  60 * 60 * 1000,
+  Number(process.env.SYSTEM_HEALTH_INTERVAL_MS || 24 * 60 * 60 * 1000),
+);
+const SYSTEM_HEALTH_SCHEDULER_ENABLED = !["0", "false", "no", "off"].includes(
+  String(process.env.SYSTEM_HEALTH_SCHEDULER || "true").trim().toLowerCase(),
+);
 const ALLOW_DESTRUCTIVE_STORE_WRITE = ["1", "true", "yes", "on"].includes(
   String(process.env.ALLOW_DESTRUCTIVE_STORE_WRITE || "").trim().toLowerCase(),
 );
@@ -632,6 +639,8 @@ function defaultStore() {
     notificationPreferences: {},
     pushDeliveryLog: [],
     pushConfig: {},
+    clientErrors: [],
+    pdfFailureLog: [],
     universalDrafts: [],
     messageTemplates: [],
     userTags: {},
@@ -656,6 +665,8 @@ function ensureMessagingStore(store) {
     : {};
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
+  store.clientErrors = Array.isArray(store.clientErrors) ? store.clientErrors : [];
+  store.pdfFailureLog = Array.isArray(store.pdfFailureLog) ? store.pdfFailureLog : [];
   return store;
 }
 
@@ -7507,6 +7518,436 @@ function handleAdminStoreHealth(request, response, url) {
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
 }
 
+async function listRecentStoreBackupsForHealth(limit = 5) {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return [];
+  try {
+    const result = await postgresPool.query(`
+      SELECT id, created_at, source, user_count, message_count, founding_count,
+             notification_count, support_ticket_count, verified
+      FROM llh_store_backups
+      ORDER BY created_at DESC
+      LIMIT $1
+    `, [limit]);
+    return result.rows || [];
+  } catch {
+    return [];
+  }
+}
+
+function billingReadinessSnapshot() {
+  const stripe = stripeConfigStatus();
+  return {
+    keysConnected: Boolean(stripe.checkoutReady),
+    webhookConfigured: Boolean(stripe.webhookConfigured),
+    mode: stripe.mode || "",
+    missing: stripe.missing || [],
+    ready: Boolean(stripe.checkoutReady && stripe.webhookConfigured),
+  };
+}
+
+async function loadLatestBackupDataForHealth() {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return null;
+  try {
+    const result = await postgresPool.query(
+      `SELECT id, created_at, source, data FROM llh_store_backups ORDER BY created_at DESC LIMIT 1`,
+    );
+    if (!result.rows.length) return null;
+    return {
+      id: result.rows[0].id,
+      createdAt: result.rows[0].created_at,
+      source: result.rows[0].source,
+      data: result.rows[0].data,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function systemHealthReportDeps(recentBackups = [], { latestBackup = null } = {}) {
+  return {
+    peekStore,
+    launchReadinessStatus,
+    stripeConfigStatus,
+    adminConfigStatus,
+    billingReadinessSnapshot,
+    storeHealthSnapshot,
+    validateCurriculumIntegrity,
+    syncCurriculumActivitiesForLessonPlan,
+    writeSiteCurriculum,
+    recentBackups,
+    healthIntervalMs: SYSTEM_HEALTH_INTERVAL_MS,
+    loadLatestBackupData: () => latestBackup,
+  };
+}
+
+async function alertAdminsForCriticalHealth(store, report, newCriticalIds = []) {
+  const {
+    criticalAlertPreview,
+  } = require("./system-health.js");
+  if (!Array.isArray(newCriticalIds) || !newCriticalIds.length) return { ok: true, skipped: "no_new_critical" };
+  const preview = criticalAlertPreview(report, newCriticalIds);
+  if (!preview) return { ok: true, skipped: "empty_preview" };
+  return emitAdminAlertSafe(store, {
+    category: "system",
+    type: "admin_system_health_critical",
+    title: "Critical System Health issue found",
+    preview,
+    refId: `system-health-${report.generatedAt || Date.now()}`,
+    deepLink: "/?view=admin&adminSection=system-health",
+    sendEmail: true,
+    emailKind: "system",
+  });
+}
+
+/**
+ * Full health run used by manual button, daily scheduler, and post-deploy checks.
+ * Persists history + repair log. Optional admin alerts for newly seen critical issues.
+ */
+async function buildAdminSystemHealthReport({
+  applySafeRepairs = false,
+  trigger = "manual",
+  persist = true,
+  alertOnCritical = true,
+} = {}) {
+  const {
+    buildSystemHealthReport,
+    applySafeSystemRepairs,
+    persistSystemHealthRun,
+  } = require("./system-health.js");
+  const recentBackups = await listRecentStoreBackupsForHealth(8);
+  const latestBackup = await loadLatestBackupDataForHealth();
+  let report = buildSystemHealthReport(systemHealthReportDeps(recentBackups, { latestBackup }));
+
+  const repairs = [];
+  if (applySafeRepairs) {
+    const applied = applySafeSystemRepairs({
+      peekStore,
+      syncCurriculumActivitiesForLessonPlan,
+      writeSiteCurriculum,
+      writeStoreAsync,
+    }, report);
+    repairs.push(...(applied.repairs || []));
+    if (applied.repairs?.length && typeof writeStoreAsync === "function") {
+      await writeStoreAsync(peekStore());
+    }
+    report = buildSystemHealthReport(systemHealthReportDeps(recentBackups, { latestBackup }));
+  }
+
+  let newCriticalIds = [];
+  const store = peekStore();
+  if (persist) {
+    const persisted = persistSystemHealthRun(store, report, {
+      repairs,
+      trigger,
+      healthIntervalMs: SYSTEM_HEALTH_INTERVAL_MS,
+    });
+    report = persisted.report;
+    newCriticalIds = persisted.newCriticalIds || [];
+    try {
+      await writeStoreAsync(store);
+    } catch (error) {
+      console.warn("[system-health] could not persist health run:", error.message);
+    }
+    if (alertOnCritical && newCriticalIds.length) {
+      try {
+        await alertAdminsForCriticalHealth(store, report, newCriticalIds);
+        await writeStoreAsync(store);
+      } catch (error) {
+        console.warn("[system-health] critical alert failed:", error.message || error);
+      }
+    }
+  } else {
+    // Still attach history/stats from store for UI without creating a new history row.
+    const previous = store.systemHealth && typeof store.systemHealth === "object" ? store.systemHealth : {};
+    report.history = Array.isArray(previous.history) ? previous.history.slice(0, 20) : [];
+    report.repairLog = Array.isArray(previous.repairLog) ? previous.repairLog.slice(0, 20) : [];
+    report.scheduler = {
+      ...(report.scheduler || {}),
+      ...(previous.scheduler || {}),
+      enabled: SYSTEM_HEALTH_SCHEDULER_ENABLED,
+      intervalMs: SYSTEM_HEALTH_INTERVAL_MS,
+      historyCount: Array.isArray(previous.history) ? previous.history.length : 0,
+    };
+    delete report._issueUpdate;
+  }
+
+  return { report, repairs, newCriticalIds, trigger };
+}
+
+function startSystemHealthScheduler() {
+  if (!SYSTEM_HEALTH_SCHEDULER_ENABLED) {
+    console.log("[system-health] scheduler disabled (SYSTEM_HEALTH_SCHEDULER=false)");
+    return;
+  }
+  if (global.__llhSystemHealthSchedulerStarted) return;
+  global.__llhSystemHealthSchedulerStarted = true;
+
+  const tick = async () => {
+    try {
+      const store = peekStore();
+      const previous = store.systemHealth && typeof store.systemHealth === "object" ? store.systemHealth : {};
+      const lastMs = previous.lastFullCheck ? new Date(previous.lastFullCheck).getTime() : 0;
+      if (lastMs && Date.now() - lastMs < SYSTEM_HEALTH_INTERVAL_MS) return;
+      const result = await buildAdminSystemHealthReport({
+        applySafeRepairs: true,
+        trigger: "scheduled",
+        persist: true,
+        alertOnCritical: true,
+      });
+      console.log(
+        `[system-health] scheduled run overall=${result.report.overall} critical=${result.report.summary?.critical || 0} repairs=${result.repairs.length}`,
+      );
+    } catch (error) {
+      console.warn("[system-health] scheduled run failed:", error.message || error);
+    }
+  };
+
+  // Delay first tick so boot/deploy check can run first.
+  setTimeout(() => { tick().catch(() => {}); }, 90 * 1000);
+  setInterval(() => { tick().catch(() => {}); }, 60 * 60 * 1000);
+  console.log(`[system-health] scheduler ready (intervalMs=${SYSTEM_HEALTH_INTERVAL_MS})`);
+}
+
+async function maybeRunDeploySystemHealthCheck() {
+  if (!SYSTEM_HEALTH_SCHEDULER_ENABLED) return;
+  const commit = String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").trim();
+  if (!commit) return;
+  try {
+    const store = peekStore();
+    const previous = store.systemHealth && typeof store.systemHealth === "object" ? store.systemHealth : {};
+    const lastCommit = String(previous.scheduler?.lastDeployCheckCommit || previous.lastDeployment || "").trim();
+    if (lastCommit && lastCommit === commit && previous.lastFullCheck) {
+      console.log("[system-health] deploy check skipped — same commit already checked");
+      return;
+    }
+    const result = await buildAdminSystemHealthReport({
+      applySafeRepairs: true,
+      trigger: "deploy",
+      persist: true,
+      alertOnCritical: true,
+    });
+    console.log(
+      `[system-health] deploy check commit=${commit.slice(0, 12)} overall=${result.report.overall} critical=${result.report.summary?.critical || 0}`,
+    );
+  } catch (error) {
+    console.warn("[system-health] deploy check failed:", error.message || error);
+  }
+}
+
+async function handleAdminSystemHealth(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const refresh = url.searchParams.get("refresh") === "1";
+    const store = peekStore();
+    const previous = store.systemHealth && typeof store.systemHealth === "object" ? store.systemHealth : {};
+    const snapshotAgeMs = previous.lastFullCheck
+      ? Date.now() - new Date(previous.lastFullCheck).getTime()
+      : Number.POSITIVE_INFINITY;
+    if (!refresh && previous.lastSnapshot && snapshotAgeMs < 15 * 60 * 1000) {
+      jsonResponse(response, 200, {
+        ok: true,
+        cached: true,
+        report: {
+          ...previous.lastSnapshot,
+          history: Array.isArray(previous.history) ? previous.history.slice(0, 20) : [],
+          repairLog: Array.isArray(previous.repairLog) ? previous.repairLog.slice(0, 20) : [],
+          openIssues: previous.openIssues || {},
+          scheduler: {
+            ...(previous.lastSnapshot.scheduler || {}),
+            ...(previous.scheduler || {}),
+            enabled: SYSTEM_HEALTH_SCHEDULER_ENABLED,
+            intervalMs: SYSTEM_HEALTH_INTERVAL_MS,
+          },
+        },
+        repairs: [],
+      });
+      return;
+    }
+    // Fresh compute for the admin page without creating a history row.
+    const { report, repairs } = await buildAdminSystemHealthReport({
+      applySafeRepairs: false,
+      trigger: "api_read",
+      persist: false,
+      alertOnCritical: false,
+    });
+    jsonResponse(response, 200, { ok: true, cached: false, report, repairs });
+  } catch (error) {
+    console.error("[system-health] GET failed:", error);
+    jsonResponse(response, 500, { error: "Could not build the system health report." });
+  }
+}
+
+async function handleAdminSystemHealthRun(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(body.adminToken || "")) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const applySafeRepairs = body.applySafeRepairs === true || body.applySafeRepairs === "1";
+    const { report, repairs, newCriticalIds } = await buildAdminSystemHealthReport({
+      applySafeRepairs,
+      trigger: body.trigger === "deploy" ? "deploy" : "manual",
+      persist: true,
+      alertOnCritical: true,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      report,
+      repairs,
+      newCriticalIds,
+      plainSummary: report.plainSummary,
+    });
+  } catch (error) {
+    console.error("[system-health] RUN failed:", error);
+    jsonResponse(response, 500, { error: "Could not run the full system check." });
+  }
+}
+
+async function handleAdminSystemHealthHistory(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = peekStore();
+  const health = store.systemHealth && typeof store.systemHealth === "object" ? store.systemHealth : {};
+  const limit = Math.min(60, Math.max(1, Number(url.searchParams.get("limit") || 30)));
+  jsonResponse(response, 200, {
+    ok: true,
+    history: Array.isArray(health.history) ? health.history.slice(0, limit) : [],
+    openIssues: health.openIssues || {},
+    repairLog: Array.isArray(health.repairLog) ? health.repairLog.slice(0, limit) : [],
+    scheduler: {
+      ...(health.scheduler || {}),
+      enabled: SYSTEM_HEALTH_SCHEDULER_ENABLED,
+      intervalMs: SYSTEM_HEALTH_INTERVAL_MS,
+    },
+  });
+}
+
+async function handleAdminSystemHealthExport(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  try {
+    const { buildExportPayload } = require("./system-health.js");
+    const { report, repairs } = await buildAdminSystemHealthReport({
+      applySafeRepairs: false,
+      trigger: "export",
+      persist: false,
+      alertOnCritical: false,
+    });
+    const store = peekStore();
+    const payload = buildExportPayload({
+      report,
+      systemHealth: store.systemHealth || {},
+      repairs,
+    });
+    const body = `${JSON.stringify(payload, null, 2)}\n`;
+    response.writeHead(200, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="llh-system-health-${new Date().toISOString().slice(0, 10)}.json"`,
+      "Cache-Control": "no-store",
+    });
+    response.end(body);
+  } catch (error) {
+    console.error("[system-health] export failed:", error);
+    jsonResponse(response, 500, { error: "Could not export the system health report." });
+  }
+}
+
+function sanitizeClientErrorPayload(body = {}) {
+  const scrub = (value, max = 240) => String(value || "")
+    .replace(/\b[\w.+-]+@[\w.-]+\.\w+\b/g, "[redacted-email]")
+    .replace(/\b(?:child|student|parent|family)\s*[:=]\s*[^,;|]{1,80}/gi, "[redacted-person]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
+  const role = scrub(body.role || body.userRole || "visitor", 40).toLowerCase() || "visitor";
+  const email = normalizeEmail(body.email || "");
+  const userHash = email
+    ? crypto.createHash("sha256").update(email).digest("hex").slice(0, 12)
+    : "";
+  return {
+    id: `cerr-${Date.now().toString(16)}-${crypto.randomBytes(3).toString("hex")}`,
+    createdAt: new Date().toISOString(),
+    page: scrub(body.page || body.path || body.view || "", 120),
+    action: scrub(body.action || body.button || "", 120),
+    role,
+    device: scrub(body.device || "", 40),
+    browser: scrub(body.browser || body.userAgent || "", 120),
+    errorType: scrub(body.errorType || body.name || "Error", 80),
+    message: scrub(body.message || body.error || "", 240),
+    userHash,
+    // Never store raw child/family fields even if a client sends them.
+  };
+}
+
+async function handleClientErrorReport(request, response) {
+  const body = await readJson(request);
+  const entry = sanitizeClientErrorPayload(body);
+  if (!entry.message && !entry.errorType) {
+    jsonResponse(response, 400, { error: "An error message is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  store.clientErrors = Array.isArray(store.clientErrors) ? store.clientErrors : [];
+  store.clientErrors.unshift(entry);
+  store.clientErrors = store.clientErrors.slice(0, 2000);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.warn("[client-errors] persist failed:", error.message || error);
+  }
+  jsonResponse(response, 200, { ok: true, id: entry.id });
+}
+
+async function handlePdfFailureReport(request, response) {
+  const body = await readJson(request);
+  const title = String(body.title || "").trim().slice(0, 180);
+  const message = String(body.message || body.error || "PDF generation failed").trim().slice(0, 240);
+  const store = ensureMessagingStore(readStore());
+  store.pdfFailureLog = Array.isArray(store.pdfFailureLog) ? store.pdfFailureLog : [];
+  const entry = {
+    id: `pdf-fail-${Date.now().toString(16)}`,
+    createdAt: new Date().toISOString(),
+    title,
+    printVariant: String(body.printVariant || "").slice(0, 40),
+    resourceId: String(body.resourceId || "").slice(0, 160),
+    message,
+    role: String(body.role || "").slice(0, 40),
+  };
+  store.pdfFailureLog.unshift(entry);
+  store.pdfFailureLog = store.pdfFailureLog.slice(0, 1000);
+  store.analyticsEvents = Array.isArray(store.analyticsEvents) ? store.analyticsEvents : [];
+  store.analyticsEvents.unshift({
+    id: `evt-${Date.now().toString(16)}`,
+    name: "pdf_generation_failed",
+    createdAt: entry.createdAt,
+    user: normalizeEmail(body.email || "") || "guest",
+    detail: {
+      title,
+      printVariant: entry.printVariant,
+      resourceId: entry.resourceId,
+      message,
+    },
+  });
+  store.analyticsEvents = store.analyticsEvents.slice(0, 20000);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.warn("[pdf-failure] persist failed:", error.message || error);
+  }
+  jsonResponse(response, 200, { ok: true, id: entry.id });
+}
+
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
 
 function isAshleyLadiishaPair(ownerEmail, memberEmail) {
@@ -9650,9 +10091,49 @@ function analyticsSummary(store) {
         (event) => event.detail?.title || event.detail?.resourceId || event.detail?.lessonId || "Lesson",
       )).sort((a, b) => b[1] - a[1]).slice(0, 8),
       topDownloads: Object.entries(countBy(
-        events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "resource_download", "lesson_docx_download"].includes(event.name)),
+        events.filter((event) => ["resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "resource_download", "lesson_docx_download", "resource_pdf_download"].includes(event.name)),
         (event) => event.detail?.title || event.detail?.category || event.detail?.tool || event.name,
       )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      topFavorites: Object.entries(countBy(
+        events.filter((event) => event.name === "favorite_add"),
+        (event) => event.detail?.title || event.detail?.resourceId || "Lesson",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      topSearchedThemes: Object.entries(countBy(
+        events.filter((event) => event.name === "lesson_search" || event.name === "lesson_search_no_results"),
+        (event) => event.detail?.theme || event.detail?.query || "Search",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      searchesWithNoResults: Object.entries(countBy(
+        events.filter((event) => event.name === "lesson_search_no_results"),
+        (event) => event.detail?.query || event.detail?.theme || "Unknown search",
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      mostUsedFeatures: Object.entries(countBy(
+        events.filter((event) => [
+          "button_click",
+          "ai_generation_success",
+          "resource_view",
+          "resource_print",
+          "generated_pdf",
+          "lesson_plan_added_to_calendar",
+          "favorite_add",
+          "lesson_search",
+        ].includes(event.name)),
+        (event) => event.detail?.label || event.detail?.tool || event.detail?.category || event.name,
+      )).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      leastUsedTrackedFeatures: [
+        ["lesson_search", countEventsNamed(events, ["lesson_search"])],
+        ["favorite_add", countEventsNamed(events, ["favorite_add"])],
+        ["observation_created", countEventsNamed(events, ["observation_created", "observation_saved"])],
+        ["daily_log_created", countEventsNamed(events, ["daily_log_created", "daily_report_saved"])],
+        ["parent_message_generated", countEventsNamed(events, ["parent_message_generated"])],
+        ["lesson_plan_added_to_calendar", lessonPlansAddedToCalendar],
+      ].sort((a, b) => a[1] - b[1]).slice(0, 6),
+      topRequestedFeatures: (store.featureRequests || [])
+        .slice()
+        .sort((a, b) => Number(b.votes || 0) - Number(a.votes || 0) || String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+        .slice(0, 8)
+        .map((item) => [item.title || item.summary || "Feature request", Number(item.votes || 0) || 1]),
+      pdfFailuresRecent: events.filter((event) => event.name === "pdf_generation_failed" && isWithinDays(event.createdAt, 30)).length,
+      clientErrorsRecent: (store.clientErrors || []).filter((row) => isWithinDays(row.createdAt, 7)).length,
     },
     periods: {
       dailyVisitors: countBy(sessionVisits, (event) => analyticsDateKey(event.createdAt)),
@@ -14592,6 +15073,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/system-health") return await handleAdminSystemHealth(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/system-health/run") return await handleAdminSystemHealthRun(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/system-health/history") return await handleAdminSystemHealthHistory(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/system-health/export") return await handleAdminSystemHealthExport(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/client-errors") return await handleClientErrorReport(request, response);
+    if (request.method === "POST" && url.pathname === "/api/pdf-failures") return await handlePdfFailureReport(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
@@ -14669,6 +15156,11 @@ initializeStorage()
     } catch (error) {
       console.warn("[store-backup] scheduler failed to start:", error.message || error);
     }
+    try {
+      startSystemHealthScheduler();
+    } catch (error) {
+      console.warn("[system-health] scheduler failed to start:", error.message || error);
+    }
     server.listen(PORT, () => {
       console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
       try {
@@ -14686,6 +15178,10 @@ initializeStorage()
       } catch (err) {
         console.warn("[email-engagement] scheduler/bootstrap failed:", err.message);
       }
+      // After deploy/boot: run a health check when the git commit changes.
+      setTimeout(() => {
+        maybeRunDeploySystemHealthCheck().catch(() => {});
+      }, 20 * 1000);
     });
   })
   .catch((error) => {

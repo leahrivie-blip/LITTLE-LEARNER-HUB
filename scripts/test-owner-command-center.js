@@ -104,12 +104,21 @@ test("content manager filters and bulk publish actions exist", () => {
   assert.match(appJs, /Content Manager/);
 });
 
+test("owner decision centers reuse analytics instead of duplicating dashboards", () => {
+  assert.match(appJs, /function renderOwnerDecisionCenters\(/);
+  assert.match(appJs, /function buildOwnerAiInsights\(/);
+  assert.match(appJs, /id="adminOwnerBusiness"/);
+  assert.match(appJs, /id="adminOwnerPlatformHealth"/);
+  assert.match(appJs, /id="adminOwnerAiInsights"/);
+  assert.match(appJs, /renderOwnerDecisionCenters\(totals/);
+});
+
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260719-weekday-activities");
-  assert.equal(indexJs, "20260719-weekday-activities");
-  assert.match(sw, /llh-shell-v101-weekday-activities/);
+  assert.equal(indexCss, "20260719-owner-command-health");
+  assert.equal(indexJs, "20260719-owner-command-health");
+  assert.match(sw, /llh-shell-v104-owner-command-health/);
 });
 
 if (!process.exitCode) {
