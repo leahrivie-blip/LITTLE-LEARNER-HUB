@@ -13440,10 +13440,15 @@ function handleAdminConversationsList(request, response, url) {
       }
     });
   const unreadFromUser = new Map();
+  const seenUnreadKeys = new Set();
   store.notifications
     .filter((n) => isAdminConversationUnreadNotification(n))
     .forEach((n) => {
       const key = normalizeEmail(n.conversationEmail);
+      if (!key) return;
+      const dedupe = `${key}:${String(n.messageId || n.refId || n.id || "")}`;
+      if (seenUnreadKeys.has(dedupe)) return;
+      seenUnreadKeys.add(dedupe);
       unreadFromUser.set(key, (unreadFromUser.get(key) || 0) + 1);
     });
   const conversations = [...byUser.values()]

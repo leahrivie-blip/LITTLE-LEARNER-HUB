@@ -137,7 +137,7 @@ test("checkout blocks already-subscribed accounts", () => {
   );
   assert.match(slice, /already_subscribed/);
   assert.match(slice, /membershipHasProAccess\(existingUser\)/);
-  assert.match(slice, /Manage billing from Account/);
+  assert.match(slice, /Manage billing from Settings → Billing & Subscription/);
 });
 
 test("checkout/live sync stamps lastStripeEventCreatedAt watermark", () => {
