@@ -1849,8 +1849,8 @@ const stripeCheckoutConfig = {
   checkoutStatusEndpoint: "/api/checkout-status",
   foundingStatusEndpoint: "/api/founding-status",
   promoValidationEndpoint: "/api/validate-promo-code",
-  defaultTrialDays: 7,
-  promoExpiresLabel: "October 31, 2026",
+  defaultTrialDays: 30,
+  promoExpiresLabel: "when the code expires (see Admin → Promo Codes)",
 };
 const aiGenerationConfig = {
   endpoint: "/api/ai-generate",
@@ -4214,8 +4214,8 @@ function normalizedCheckoutPromoCode() {
 
 function checkoutPromoSummary() {
   return normalizedCheckoutPromoCode()
-    ? "Your promo code will be checked securely before Stripe opens."
-    : `Enter a provider promo code before choosing a plan. Codes are private, can be used once per account, and expire ${stripeCheckoutConfig.promoExpiresLabel}.`;
+    ? "Promo applied at checkout: first month $0 with a card on file. If Founding spots remain, you lock in $9.99/month for life after the free month."
+    : "Enter a promo code (example: TRY1MONTH) before choosing a plan. First month is free with a card on file; membership continues automatically unless you cancel before renewal.";
 }
 
 function saveCheckoutPromoCode(value) {
@@ -27465,7 +27465,7 @@ function renderSettingsHubPage() {
         { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
         ...(canBilling
           ? [
-              { view: "billing", title: "Billing / Manage Subscription", detail: "Payment method, invoices, and plan changes" },
+              { view: "billing", title: "Billing & Subscription", detail: "Manage Subscription, payment method, invoices, and cancellation" },
               { view: isProUser() ? "billing" : "plans", title: isProUser() ? "Current Plan" : "Upgrade", detail: isProUser() ? "Review your paid plan and Founding Member status" : "Upgrade from Free to Founding Member or Pro" },
               { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
               { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
@@ -40307,6 +40307,11 @@ function openAdminUserProfile(email, startTab) {
           ${account.lastFailedPaymentAt ? `<div><span>Last Failed Payment</span><strong>${escapeHtml(new Date(account.lastFailedPaymentAt).toLocaleString())}</strong></div>` : ""}
           ${account.nextPaymentRetryAt ? `<div><span>Next Payment Retry</span><strong>${escapeHtml(new Date(account.nextPaymentRetryAt).toLocaleString())}</strong></div>` : ""}
           <div><span>Access Source</span><strong>${escapeHtml(account.accessSource || (account.internalAccessOverride && !account.stripeSubscriptionId ? "Manual admin grant" : account.promoRedeemedAt && adminMembershipInTrial(account) ? "Promo trial" : account.stripeSubscriptionId ? "Stripe subscription" : account.manualAccessGranted ? "Previous manual admin grant" : "Free account"))}</strong></div>
+          ${account.promoCodeUsed || (Array.isArray(account.promoRedemptions) && account.promoRedemptions[0])
+            ? `<div><span>Promo Code Used</span><strong>${escapeHtml(account.promoCodeUsed || account.promoRedemptions[0]?.code || "—")}${account.promoLabelUsed ? ` · ${escapeHtml(account.promoLabelUsed)}` : ""}</strong></div>`
+            : ""}
+          ${account.promoRedeemedAt ? `<div><span>Promo Redeemed</span><strong>${escapeHtml(new Date(account.promoRedeemedAt).toLocaleString())}</strong></div>` : ""}
+          ${account.foundingSpotReleasedAt ? `<div><span>Founding Spot Released</span><strong>${escapeHtml(new Date(account.foundingSpotReleasedAt).toLocaleString())}</strong></div>` : ""}
           ${account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt ? `<div><span>Last Stripe Sync</span><strong>${escapeHtml(new Date(account.lastStripeSyncAt || account.lastMembershipSyncAt || account.updatedAt).toLocaleString())}</strong></div>` : ""}
         </div>
       </fieldset>
@@ -40319,7 +40324,7 @@ function openAdminUserProfile(email, startTab) {
           ${account.foundingMemberNumber ? `<div><span>Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
           <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
           <div><span>Active Founding Pricing</span><strong>${isFoundingActive ? "Yes ($9.99/month)" : "No"}</strong></div>
-          <div><span>Spot Retained</span><strong>${isFoundingHistorical ? "Yes — numbered spot kept; access ends on cancel" : "—"}</strong></div>
+          <div><span>Spot Retained</span><strong>${isFoundingHistorical && !account.foundingSpotReleasedAt ? "Yes — numbered spot kept after paid cancel" : account.foundingSpotReleasedAt ? "Released (canceled during free month)" : "—"}</strong></div>
         </div>
       </fieldset>
       ` : ""}
@@ -41783,7 +41788,7 @@ function renderAdminPromoCodesSection() {
       <div>
         <p class="eyebrow">Growth</p>
         <h3>Promo Code Manager</h3>
-        <p class="muted-copy">Create multi-code free trials. Env promo still works as a fallback launch code.</p>
+        <p class="muted-copy">Create multi-code free months (example: TRY1MONTH). Env promo still works as a fallback launch code. Card is always required at signup.</p>
       </div>
       <button class="ghost-button" type="button" data-admin-promo-refresh>Refresh</button>
     </div>
@@ -41791,11 +41796,11 @@ function renderAdminPromoCodesSection() {
     ${adminPromoCodesState.success ? `<p class="form-message success">${escapeHtml(adminPromoCodesState.success)}</p>` : ""}
     <form id="adminPromoCodeForm" class="panel-form admin-stacked-form">
       <div class="form-grid-two">
-        <label>Code<input name="code" required placeholder="TRYPRO3" /></label>
-        <label>Trial days<input name="trialDays" type="number" min="1" max="365" value="7" required /></label>
+        <label>Code<input name="code" required placeholder="TRY1MONTH" /></label>
+        <label>Free days<input name="trialDays" type="number" min="1" max="365" value="30" required /></label>
       </div>
       <div class="form-grid-two">
-        <label>Label<input name="label" placeholder="7 day free Pro trial" /></label>
+        <label>Label<input name="label" placeholder="1 Month Free" /></label>
         <label>Max redemptions<input name="maxRedemptions" type="number" min="0" placeholder="Unlimited" /></label>
       </div>
       <div class="form-grid-two">
@@ -46219,11 +46224,12 @@ function promoCodePanel() {
         <p class="eyebrow">Promo Code</p>
         <h3>Have a promo code? Apply it first.</h3>
         <p class="muted-copy">${escapeHtml(checkoutPromoSummary())}</p>
+        <p class="muted-copy">A valid payment method is required at signup. You will not be charged during the free month.</p>
       </div>
       <div class="promo-code-entry">
         <label>
           <span>Promo code</span>
-          <input id="checkoutPromoCodeInput" value="" placeholder="Enter code" autocomplete="off" />
+          <input id="checkoutPromoCodeInput" value="" placeholder="TRY1MONTH" autocomplete="off" />
         </label>
         <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
         <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" aria-live="polite"></span>
@@ -46315,21 +46321,25 @@ function renderBillingPage() {
     : productStatus?.cta === "update_payment"
       ? `<button class="primary-button" data-update-payment type="button">Update Payment Method</button>`
       : `<button class="primary-button" ${!paidBilling && canSeePaidUpgradeOffer() ? `data-checkout-plan="${preferredPaidCheckoutPlan()}"` : `data-view="upgrade"`} type="button">${paidBilling ? "Change Plan" : (canSeePaidUpgradeOffer() ? preferredPaidCheckoutButtonLabel() : "Upgrade to Pro")}</button>`;
+  const cancelScheduled = Boolean(account?.cancelAtPeriodEnd);
+  const accessEndLabel = account?.accessEndsAt || account?.currentPeriodEnd || account?.trialEnd
+    ? new Date(account.accessEndsAt || account.currentPeriodEnd || account.trialEnd).toLocaleDateString()
+    : "";
   target.innerHTML = `
     ${accessBanner}
     ${billingUpgradeBanner}
     <section class="account-layout">
       <div class="account-panel">
-        <p class="eyebrow">Billing Management</p>
+        <p class="eyebrow">Billing &amp; Subscription</p>
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         <p class="llh-billing-status-line">${accountStatusBadgeHtml(account)}</p>
         ${subscriptionSummaryHtml()}
+        ${account?.promoCodeUsed ? `<p class="muted-copy">Promo code used: <strong>${escapeHtml(account.promoCodeUsed)}</strong>${account.promoLabelUsed ? ` — ${escapeHtml(account.promoLabelUsed)}` : ""}</p>` : ""}
         <div class="account-actions-row">
           <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
           ${primaryCta}
           ${showUpdatePayment && productStatus?.cta !== "update_payment" ? `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>` : ""}
           <button class="ghost-button" data-view="billing-history" type="button">View Billing History</button>
-          ${paidBilling ? `<button class="danger-button" data-view="cancel-subscription" type="button">Cancel Subscription</button>` : ""}
         </div>
       </div>
       <div class="account-panel">
@@ -46339,6 +46349,18 @@ function renderBillingPage() {
         <p>Subscription: ${escapeHtml(paidBilling ? account?.stripeSubscriptionId || "Created after live checkout" : "No active subscription")}</p>
       </div>
     </section>
+    ${paidBilling ? `
+    <section class="section-block llh-billing-cancel-panel" id="billingCancelPanel">
+      <p class="eyebrow">Manage Subscription</p>
+      <h3>${cancelScheduled ? "Cancellation scheduled" : "Cancel subscription"}</h3>
+      ${cancelScheduled
+        ? `<p class="muted-copy">Status: <strong>${escapeHtml(account.subscriptionStatus || `Canceled — Access Ends ${accessEndLabel}`)}</strong>. You keep access until that date.</p>`
+        : `<p class="muted-copy">Need to cancel? You can do that here. Access continues until the end of your current billing period (or free month), and you will see a clear confirmation before anything changes.</p>
+          <div class="account-actions-row">
+            <button class="danger-button" data-view="cancel-subscription" type="button">Cancel Subscription</button>
+          </div>`}
+    </section>
+    ` : ""}
   `;
 }
 
@@ -46430,15 +46452,83 @@ function renderPaymentFailedPage() {
 function renderCancelSubscriptionPage() {
   const target = document.querySelector("#cancelSubscriptionApp");
   if (!target) return;
+  const account = currentAccount() || {};
+  const inTrial = accountIsInTrial(account) || String(account.stripeSubscriptionStatus || "").toLowerCase() === "trialing"
+    || /trial/i.test(String(account.subscriptionStatus || ""))
+    || (!account.lastSuccessfulPaymentAt && !account.firstPaidInvoiceAt && accountHasPaidBilling(account));
+  const isFounding = Boolean(
+    account.foundingMemberActive
+    || account.plan === "Founding"
+    || normalizeBillingPlan(account.plan, account) === "Founding",
+  );
+  const endIso = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd
+    || new Date(Date.now() + 30 * 86400000).toISOString();
+  const endLabel = new Date(endIso).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" });
+  const step = Number(target.dataset.cancelStep || "1");
+
+  if (!currentUser || !accountHasPaidBilling(account)) {
+    target.innerHTML = `
+      <section class="section-block">
+        <p class="eyebrow">Cancel Subscription</p>
+        <h3>No active subscription to cancel</h3>
+        <p class="muted-copy">Manage plans anytime from Settings → Billing &amp; Subscription.</p>
+        <div class="account-actions-row">
+          <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing &amp; Subscription</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  if (account.cancelAtPeriodEnd) {
+    target.innerHTML = `
+      <section class="section-block">
+        <p class="eyebrow">Cancel Subscription</p>
+        <h3>Cancellation already scheduled</h3>
+        <p class="muted-copy"><strong>${escapeHtml(account.subscriptionStatus || `Canceled — Access Ends ${endLabel}`)}</strong></p>
+        <p class="muted-copy">You keep access until ${escapeHtml(endLabel)}. No further action is needed.</p>
+        <div class="account-actions-row">
+          <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing &amp; Subscription</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
+  if (step <= 1) {
+    target.innerHTML = `
+      <section class="section-block failed-panel llh-cancel-confirm">
+        <p class="eyebrow">Cancel Subscription</p>
+        <h3>Before you cancel</h3>
+        <ul class="llh-cancel-points">
+          <li>Your access continues until <strong>${escapeHtml(endLabel)}</strong> (the end of your current ${inTrial ? "free month / trial" : "billing period"}).</li>
+          ${inTrial
+            ? "<li><strong>You will not be charged</strong> if you cancel before the renewal date.</li>"
+            : "<li>No further charges will be made after that date.</li>"}
+          ${isFounding
+            ? inTrial
+              ? "<li><strong>Founding Member:</strong> canceling during the free month releases your reserved $9.99/month-for-life spot back into inventory.</li>"
+              : "<li><strong>Founding Member warning:</strong> canceling may permanently lose your $9.99/month-for-life rate. Returning later may require regular Pro pricing.</li>"
+            : ""}
+        </ul>
+        <div class="account-actions-row">
+          <button class="ghost-button back-button" data-view="billing" type="button">← Keep my subscription</button>
+          <button class="danger-button" data-cancel-step="2" type="button">Continue to cancel</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
+
   target.innerHTML = `
-    <section class="section-block failed-panel">
-      <p class="eyebrow">Cancel Subscription</p>
-      <h3>Return this account to Free?</h3>
-      <p class="muted-copy">Free limits will apply immediately. If this account claimed Founding Member status, that status remains stored permanently for future billing recovery.</p>
+    <section class="section-block failed-panel llh-cancel-confirm">
+      <p class="eyebrow">Final confirmation</p>
+      <h3>Confirm cancellation?</h3>
+      <p class="muted-copy">This schedules cancellation in Stripe. Status will show <strong>Canceled — Access Ends ${escapeHtml(endLabel)}</strong>${inTrial ? " and you will not be charged" : ""}.</p>
+      ${isFounding && !inTrial ? `<p class="muted-copy"><strong>Last chance:</strong> you may permanently lose Founding Member $9.99/month-for-life pricing.</p>` : ""}
       <div class="account-actions-row">
-        <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing Management</button>
-        <button class="danger-button" data-confirm-cancel type="button">Confirm Cancel</button>
-        <button class="ghost-button" data-view="billing" type="button">Keep Subscription</button>
+        <button class="ghost-button" data-cancel-step="1" type="button">← Go back</button>
+        <button class="danger-button" data-confirm-cancel type="button">Yes, cancel my subscription</button>
       </div>
     </section>
   `;
@@ -46591,7 +46681,6 @@ function renderAccountPage() {
   const demoButton = document.querySelector("#demoAccountButton");
   const upgradeButton = document.querySelector("#accountUpgradeButton");
   const resendButton = document.querySelector("#resendVerificationButton");
-  const cancelButton = document.querySelector("#accountCancelButton");
   const signOutButton = document.querySelector("#signOutButton");
   if (!emailLabel || !planLabel || !statusLabel || !detailLabel || !favoritesTarget || !downloadsTarget) return;
 
@@ -46619,7 +46708,6 @@ function renderAccountPage() {
     if (demoButton) demoButton.style.display = "inline-flex";
     if (upgradeButton) upgradeButton.style.display = "none";
     if (resendButton) resendButton.style.display = "none";
-    if (cancelButton) cancelButton.style.display = "none";
     if (signOutButton) signOutButton.style.display = "none";
     favoritesTarget.innerHTML = `<div class="empty-state">Log in to save favorites.</div>`;
     downloadsTarget.innerHTML = `<div class="empty-state">Log in to save viewed resources.</div>`;
@@ -46673,7 +46761,6 @@ function renderAccountPage() {
     }
   }
   if (resendButton) resendButton.style.display = account?.emailVerified ? "none" : "inline-flex";
-  if (cancelButton) cancelButton.style.display = canBilling && paidBilling ? "inline-flex" : "none";
   if (signOutButton) signOutButton.style.display = "inline-flex";
 
   const savedFavoriteResources = resources.filter((resource) => favorites.includes(resource.id) && isResourceVisibleToCurrentUser(resource));
@@ -46871,13 +46958,16 @@ async function startCheckout(type) {
   }
   const checkoutType = type;
   const amount = checkoutAmount(checkoutType);
+  const promoCode = normalizedCheckoutPromoCode();
   const priceConfirmLabel = checkoutType === "founding"
     ? "Founding Member at $9.99/month for life"
     : checkoutType === "annual"
       ? "Pro Annual at $199/year"
       : "Pro Monthly at $19.99/month";
-  if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?`)) return;
-  const promoCode = normalizedCheckoutPromoCode();
+  const promoConfirm = promoCode
+    ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " Founding spots still available will be reserved for your $9.99/month-for-life rate." : " Founding is sold out — you will continue at regular Pro pricing."}`
+    : "";
+  if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?${promoConfirm}`)) return;
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
     checkoutButton.disabled = true;
@@ -47185,7 +47275,6 @@ async function cancelSubscription() {
   if (!currentUser) return;
   const account = currentAccount();
   if (!accountHasPaidBilling(account)) return;
-  if (!window.confirm("Cancel your subscription? You will keep Pro access until the end of your current billing period (or trial end if trialing). No future charges after that date.")) return;
 
   if (stripeCheckoutConfig.cancelSubscriptionEndpoint && canUseStripeBackend()) {
     try {
@@ -47197,14 +47286,28 @@ async function cancelSubscription() {
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Could not cancel subscription.");
       await syncSubscriptionFromBackend(currentUser, { renderBilling: true, renderAccount: true });
-      addBillingHistory("Subscription Canceled", "Cancellation scheduled at period end. Access continues until the access-end date.", billingPriceLabel());
-      trackEvent("subscription_canceled", { email: currentUser, previousPlan: account?.plan || "Pro", scheduled: true });
+      const endIso = data?.subscription?.accessEndsAt || account.accessEndsAt || account.currentPeriodEnd || account.trialEnd;
+      const endLabel = endIso ? new Date(endIso).toLocaleDateString() : "period end";
+      addBillingHistory(
+        "Subscription Canceled",
+        data?.inFreeMonth
+          ? `Canceled during free month — no charge. Access ends ${endLabel}.${data?.foundingSpotReleased ? " Founding spot released." : ""}`
+          : `Cancellation scheduled. Access continues until ${endLabel}.`,
+        billingPriceLabel(),
+      );
+      trackEvent("subscription_canceled", {
+        email: currentUser,
+        previousPlan: account?.plan || "Pro",
+        scheduled: true,
+        inFreeMonth: Boolean(data?.inFreeMonth),
+        foundingSpotReleased: Boolean(data?.foundingSpotReleased),
+      });
       saveCurrentAccountState();
       updateAuthButtons();
       updatePlanLabel();
       renderBillingPage();
       renderSubscriptionPage();
-      setView("subscription");
+      setView("billing");
       return;
     } catch (error) {
       addBillingHistory("Stripe Cancel Error", error.message || "Could not schedule cancellation.", billingPriceLabel());
@@ -47230,7 +47333,7 @@ async function cancelSubscription() {
   updatePlanLabel();
   renderBillingPage();
   renderSubscriptionPage();
-  setView("subscription");
+  setView("billing");
 }
 
 async function openCustomerPortal() {
@@ -47970,6 +48073,17 @@ document.addEventListener("click", async (event) => {
   if (cancelButton) {
     event.preventDefault();
     cancelSubscription();
+    return;
+  }
+
+  const cancelStepButton = event.target.closest("[data-cancel-step]");
+  if (cancelStepButton) {
+    event.preventDefault();
+    const panel = document.querySelector("#cancelSubscriptionApp");
+    if (panel) {
+      panel.dataset.cancelStep = String(cancelStepButton.dataset.cancelStep || "1");
+      renderCancelSubscriptionPage();
+    }
     return;
   }
 
@@ -53988,10 +54102,6 @@ document.querySelector("#accountUpgradeButton")?.addEventListener("click", () =>
     return;
   }
   setView(isProUser() ? "billing" : "upgrade");
-});
-
-document.querySelector("#accountCancelButton")?.addEventListener("click", () => {
-  setView("cancel-subscription");
 });
 
 document.querySelector("#signOutButton")?.addEventListener("click", signOut);

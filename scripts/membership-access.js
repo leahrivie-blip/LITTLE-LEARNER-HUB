@@ -10,11 +10,13 @@
  *
  * FOUNDING MEMBER POLICY
  * - $9.99/month for life only while the founding subscription stays continuously active.
- * - foundingMemberHistorical / foundingMemberNumber may remain after cancel; they do NOT grant paid access.
- * - Former founding members are NOT auto-routed to the $9.99 Stripe price on return.
+ * - foundingMemberHistorical / foundingMemberNumber may remain after cancel of a *paid* founding cycle;
+ *   they do NOT grant paid access, and former paid founding members are NOT auto-routed to $9.99 on return.
  * - Admin may intentionally restore $9.99 via foundingMemberActive + restoreFoundingPrice override.
- * - Numbered spots (50 total) are retained by original accounts; canceling releases access but NOT the spot
- *   to new users — foundingMembers[] keeps the email so the 50 legitimate accounts stay fixed.
+ * - Promo / free-month signups reserve a Founding spot immediately. If the member cancels before the
+ *   first paid billing cycle, the reserved spot is released back into inventory.
+ * - After the first successful paid invoice, canceling ends access at period end but keeps the
+ *   numbered spot (foundingMembers[]) so the original 50 paid founding accounts stay fixed.
  */
 
 function parseIsoMs(value) {
