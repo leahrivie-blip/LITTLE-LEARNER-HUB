@@ -75,6 +75,65 @@ function accessExpiredEmailContent(user = {}) {
   return { subject, text, html };
 }
 
+function cancellationEmailContent(user = {}, {
+  inFreeMonth = false,
+  foundingReleased = false,
+  wasFounding = false,
+} = {}) {
+  const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim() || "there";
+  const endIso = user.accessEndsAt || user.currentPeriodEnd || user.trialEnd || "";
+  const endMs = endIso ? new Date(endIso).getTime() : NaN;
+  const endLabel = Number.isFinite(endMs)
+    ? new Date(endMs).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+    : "the end of your current billing period";
+  const subject = "Your Little Learner Hub Cancellation Is Confirmed";
+  const lines = [
+    `Hi ${name},`,
+    "",
+    "We've confirmed your cancellation request.",
+    "",
+    inFreeMonth
+      ? `You will not be charged. Your access continues until ${endLabel}, then your account returns to the Free plan.`
+      : `You'll keep full access until ${endLabel}. After that date your account returns to the Free plan and no further charges will be made.`,
+  ];
+  if (wasFounding || foundingReleased) {
+    lines.push("");
+    if (foundingReleased) {
+      lines.push("Because you canceled during your free month, your reserved Founding Member spot has been released back into inventory.");
+    } else {
+      lines.push("Important: canceling a Founding Member subscription means you may permanently lose your $9.99/month-for-life rate. Returning later may require regular Pro pricing.");
+    }
+  }
+  lines.push(
+    "",
+    `Manage Billing: ${billingUpdateUrl()}`,
+    "",
+    "Your lesson plans, calendar, children, and observations stay saved in your account.",
+    "",
+    "💜 Leah",
+    "Founder, Little Learner Hub",
+  );
+  const text = lines.join("\n");
+  const html = `
+    <div style="font-family:Georgia,serif;line-height:1.55;color:#2a2438;max-width:560px;">
+      <p>Hi ${escapeHtml(name)},</p>
+      <p>We've confirmed your cancellation request.</p>
+      <p>${inFreeMonth
+        ? `You will <strong>not be charged</strong>. Your access continues until <strong>${escapeHtml(endLabel)}</strong>, then your account returns to the Free plan.`
+        : `You'll keep full access until <strong>${escapeHtml(endLabel)}</strong>. After that date your account returns to the Free plan and no further charges will be made.`}</p>
+      ${wasFounding || foundingReleased ? `<p style="color:#6b3d2a;">${foundingReleased
+        ? "Because you canceled during your free month, your reserved Founding Member spot has been released back into inventory."
+        : "Important: canceling a Founding Member subscription means you may permanently lose your $9.99/month-for-life rate. Returning later may require regular Pro pricing."}</p>` : ""}
+      <p style="margin:24px 0;">
+        <a href="${escapeHtml(billingUpdateUrl())}" style="background:#5b3d8f;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;display:inline-block;">Manage Billing</a>
+      </p>
+      <p style="color:#6b6570;font-size:14px;">Your lesson plans, calendar, children, and observations stay saved in your account.</p>
+      <p>💜 Leah<br/>Founder, Little Learner Hub</p>
+    </div>
+  `;
+  return { subject, text, html };
+}
+
 function escapeHtml(value) {
   return String(value || "")
     .replace(/&/g, "&amp;")
@@ -133,10 +192,42 @@ async function sendAccessExpiredUserEmail({ user, email, sendEmail }) {
   }
 }
 
+async function sendCancellationUserEmail({
+  user,
+  email,
+  sendEmail,
+  inFreeMonth = false,
+  foundingReleased = false,
+  wasFounding = false,
+} = {}) {
+  const kind = "cancellation_confirmed";
+  if (!email || typeof sendEmail !== "function") return { sent: false, skipped: "missing_email_or_sender", kind };
+  if (user?.lastCancellationEmailAt) {
+    const last = new Date(user.lastCancellationEmailAt).getTime();
+    if (Number.isFinite(last) && Date.now() - last < 12 * 3600 * 1000) {
+      return { sent: false, skipped: "recently_sent", kind };
+    }
+  }
+  const content = cancellationEmailContent(user, { inFreeMonth, foundingReleased, wasFounding });
+  try {
+    await sendEmail({
+      to: email,
+      subject: content.subject,
+      text: content.text,
+      html: content.html,
+    });
+    return { sent: true, kind };
+  } catch (error) {
+    return { sent: false, error: error.message || String(error), kind };
+  }
+}
+
 module.exports = {
   paymentFailedEmailContent,
   accessExpiredEmailContent,
+  cancellationEmailContent,
   sendPaymentFailedUserEmail,
   sendAccessExpiredUserEmail,
+  sendCancellationUserEmail,
   billingUpdateUrl,
 };

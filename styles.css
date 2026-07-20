@@ -21607,3 +21607,28 @@ button.aup-btn--danger {
   }
 
 }
+
+.llh-cancel-points {
+  margin: 12px 0 18px;
+  padding-left: 1.2rem;
+  line-height: 1.5;
+}
+.llh-cancel-points li {
+  margin: 0 0 10px;
+}
+.llh-billing-cancel-panel {
+  margin-top: 18px;
+}
+.llh-cancel-confirm .account-actions-row {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+@media (max-width: 640px) {
+  .llh-billing-cancel-panel .danger-button,
+  .llh-cancel-confirm .danger-button,
+  .llh-cancel-confirm .ghost-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+

@@ -35,10 +35,16 @@ const PORT = Number(process.env.PORT || 4242);
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRYPRO3").trim();
-const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 7);
-const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "2026-11-01T05:00:00.000Z";
-const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "October 31, 2026";
+const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRY1MONTH").trim();
+const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 30);
+const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "";
+const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "";
+const STRIPE_AUTOMATIC_TAX = String(process.env.STRIPE_AUTOMATIC_TAX || "").toLowerCase() === "true"
+  || String(process.env.STRIPE_AUTOMATIC_TAX || "") === "1";
+const FOUNDING_CHECKOUT_HOLD_MS = Math.max(
+  60 * 60 * 1000,
+  Number(process.env.FOUNDING_CHECKOUT_HOLD_MS || 48 * 60 * 60 * 1000) || (48 * 60 * 60 * 1000),
+);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
@@ -254,6 +260,58 @@ function promoCodeRecords(store = peekStore()) {
   return Array.isArray(store.promoCodes) ? store.promoCodes : [];
 }
 
+function seedDefaultPromoCodes(store) {
+  if (!store || typeof store !== "object") return false;
+  store.promoCodes = Array.isArray(store.promoCodes) ? store.promoCodes : [];
+  store.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
+  let changed = false;
+  const try1 = normalizePromoCode("TRY1MONTH");
+  if (try1 && !store.promoCodes.some((item) => normalizePromoCode(item?.code) === try1)) {
+    store.promoCodes.unshift({
+      id: "promo_try1month_default",
+      code: try1,
+      label: "1 Month Free — card required, then membership continues",
+      trialDays: 30,
+      status: "active",
+      expiresAt: "",
+      expiresLabel: "",
+      maxRedemptions: null,
+      notes: "Default 1-month free promo for creators/influencers. Locks Founding Member pricing when spots remain.",
+      source: "default",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    changed = true;
+  }
+  return changed;
+}
+
+function purgeExpiredFoundingReservations(store, { persist = false } = {}) {
+  if (!store) return 0;
+  store.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
+  const now = Date.now();
+  let changed = 0;
+  store.foundingReservations = store.foundingReservations.map((row) => {
+    if (!row || row.status !== "held") return row;
+    const expiresMs = row.expiresAt ? Date.parse(row.expiresAt) : NaN;
+    if (!Number.isFinite(expiresMs) || expiresMs > now) return row;
+    // Abandoned checkout holds expire — free the inventory for someone else.
+    const email = normalizeEmail(row.email);
+    if (email && !(store.users?.[email]?.stripeSubscriptionId)) {
+      store.foundingMembers = (store.foundingMembers || []).filter((value) => normalizeEmail(value) !== email);
+    }
+    changed += 1;
+    return {
+      ...row,
+      status: "released",
+      releasedAt: new Date().toISOString(),
+      releaseReason: "checkout_hold_expired",
+    };
+  });
+  if (changed && persist) writeStore(store);
+  return changed;
+}
+
 function publicPromoCode(item = {}) {
   const redemptions = promoRedemptionRecords(peekStore()).filter(
     (record) => normalizePromoCode(record?.code) === normalizePromoCode(item.code),
@@ -278,6 +336,7 @@ function publicPromoCode(item = {}) {
 }
 
 function checkoutPromoForCode(value, store = peekStore()) {
+  seedDefaultPromoCodes(store);
   const enteredCode = normalizePromoCode(value);
   if (!enteredCode) return { valid: false, code: "" };
 
@@ -619,6 +678,7 @@ function defaultStore() {
     leads: [],
     promoRedemptions: [],
     promoCodes: [],
+    foundingReservations: [],
     siteContent: defaultSiteContentStore(),
     scheduleByUser: {},
     programs: {},
@@ -3389,6 +3449,7 @@ async function createAdminToken(email) {
 }
 
 function foundingClaimedCount(store) {
+  purgeExpiredFoundingReservations(store);
   return Math.min(PUBLIC_FOUNDING_CLAIMED_BASE + (store.foundingMembers || []).length, FOUNDING_LIMIT);
 }
 
@@ -3397,6 +3458,8 @@ function foundingSpotsRemaining(store) {
 }
 
 function foundingStatusPayload(store = readStore()) {
+  seedDefaultPromoCodes(store);
+  purgeExpiredFoundingReservations(store);
   const claimed = foundingClaimedCount(store);
   const remaining = foundingSpotsRemaining(store);
   return {
@@ -3412,17 +3475,113 @@ function foundingStatusPayload(store = readStore()) {
 
 function claimFoundingSpot(email) {
   const store = readStore();
+  seedDefaultPromoCodes(store);
+  purgeExpiredFoundingReservations(store);
   store.foundingMembers = store.foundingMembers || [];
-  if (!store.foundingMembers.includes(email) && foundingSpotsRemaining(store) > 0) {
-    store.foundingMembers.push(email);
+  const clean = normalizeEmail(email);
+  if (clean && !store.foundingMembers.includes(clean) && foundingSpotsRemaining(store) > 0) {
+    store.foundingMembers.push(clean);
     writeStore(store);
   }
   return {
-    foundingMember: store.foundingMembers.includes(email),
-    foundingMemberNumber: store.foundingMembers.indexOf(email) >= 0
-      ? PUBLIC_FOUNDING_CLAIMED_BASE + store.foundingMembers.indexOf(email) + 1
+    foundingMember: store.foundingMembers.includes(clean),
+    foundingMemberNumber: store.foundingMembers.indexOf(clean) >= 0
+      ? PUBLIC_FOUNDING_CLAIMED_BASE + store.foundingMembers.indexOf(clean) + 1
       : null,
   };
+}
+
+/** Hold a Founding spot at promo/checkout signup so inventory stays reserved through the free month. */
+function reserveFoundingSpot(email, details = {}) {
+  const clean = normalizeEmail(email);
+  if (!clean) return { ok: false, reason: "missing_email" };
+  const claim = claimFoundingSpot(clean);
+  if (!claim.foundingMember) return { ok: false, reason: "sold_out", ...claim };
+  const store = readStore();
+  store.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
+  const holdMs = Number(details.ttlMs) > 0 ? Number(details.ttlMs) : FOUNDING_CHECKOUT_HOLD_MS;
+  const expiresAt = details.expiresAt
+    || (details.permanent ? "" : new Date(Date.now() + holdMs).toISOString());
+  const row = {
+    email: clean,
+    status: "held",
+    promoCode: normalizePromoCode(details.promoCode || ""),
+    reservedAt: new Date().toISOString(),
+    expiresAt,
+    reason: details.reason || "checkout",
+    sessionId: details.sessionId || "",
+    releasableUntilFirstPayment: details.releasableUntilFirstPayment !== false,
+  };
+  const index = store.foundingReservations.findIndex((item) => normalizeEmail(item.email) === clean && item.status === "held");
+  if (index >= 0) store.foundingReservations[index] = { ...store.foundingReservations[index], ...row };
+  else store.foundingReservations.unshift(row);
+  writeStore(store);
+  return { ok: true, reserved: true, ...claim, expiresAt };
+}
+
+function releaseFoundingSpot(email, reason = "canceled_before_first_payment") {
+  const clean = normalizeEmail(email);
+  if (!clean) return { released: false };
+  const store = readStore();
+  const before = (store.foundingMembers || []).length;
+  store.foundingMembers = (store.foundingMembers || []).filter((value) => normalizeEmail(value) !== clean);
+  store.foundingReservations = (Array.isArray(store.foundingReservations) ? store.foundingReservations : []).map((row) => {
+    if (normalizeEmail(row.email) !== clean) return row;
+    if (row.status === "released" || row.status === "converted") return row;
+    return {
+      ...row,
+      status: "released",
+      releasedAt: new Date().toISOString(),
+      releaseReason: reason,
+    };
+  });
+  const released = store.foundingMembers.length < before;
+  if (released || reason) writeStore(store);
+  return { released, foundingMembersRemaining: store.foundingMembers.length };
+}
+
+function markFoundingReservationConverted(email) {
+  const clean = normalizeEmail(email);
+  if (!clean) return;
+  const store = readStore();
+  let changed = false;
+  store.foundingReservations = (Array.isArray(store.foundingReservations) ? store.foundingReservations : []).map((row) => {
+    if (normalizeEmail(row.email) !== clean || row.status === "converted") return row;
+    changed = true;
+    return {
+      ...row,
+      status: "converted",
+      convertedAt: new Date().toISOString(),
+      expiresAt: "",
+    };
+  });
+  if (changed) writeStore(store);
+}
+
+function userNeverCompletedPaidCycle(user = {}) {
+  if (user.firstPaidInvoiceAt || user.firstPaidAt) return false;
+  if (user.lastSuccessfulPaymentAt) {
+    // Only treat as paid when we recorded a non-zero invoice (see webhook filter).
+    return false;
+  }
+  const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
+  if (stripeStatus === "trialing") return true;
+  if (membershipUserInTrial(user)) return true;
+  return !user.lastSuccessfulPaymentAt;
+}
+
+function shouldReleaseFoundingSpotOnCancel(user = {}) {
+  if (!user) return false;
+  const isFounding = Boolean(
+    user.foundingMemberActive
+    || user.foundingMember
+    || user.foundingMemberHistorical
+    || user.foundingMemberNumber
+    || user.plan === "Founding",
+  );
+  if (!isFounding) return false;
+  if (user.foundingSpotReleasable === false) return false;
+  return userNeverCompletedPaidCycle(user);
 }
 
 function statusForPlan(planKey, stripeSubscriptionId, status) {
@@ -3530,6 +3689,16 @@ function applyCheckoutMembershipUpgrade(email, {
     return null;
   }
   const founding = planKey === "founding" ? claimFoundingSpot(cleanEmail) : { foundingMember: false, foundingMemberNumber: null };
+  if (planKey === "founding" && founding.foundingMember) {
+    reserveFoundingSpot(cleanEmail, {
+      promoCode,
+      reason: "checkout_completed",
+      permanent: promoTrialDays > 0,
+      releasableUntilFirstPayment: promoTrialDays > 0,
+      expiresAt: promoTrialDays > 0 ? "" : "",
+      ttlMs: promoTrialDays > 0 ? 0 : FOUNDING_CHECKOUT_HOLD_MS,
+    });
+  }
   const checkoutTrialUpdates = {};
   const statusLabel = promoTrialDays > 0 ? "trialing" : "Active";
   if (promoTrialDays > 0) {
@@ -3550,14 +3719,18 @@ function applyCheckoutMembershipUpgrade(email, {
     foundingMemberActive: planKey === "founding",
     foundingMemberHistorical: planKey === "founding" || founding.foundingMember,
     foundingMemberNumber: founding.foundingMemberNumber,
+    foundingSpotReleasable: planKey === "founding" && promoTrialDays > 0,
     subscriptionStartedAt: new Date().toISOString(),
     paymentMethod: "Managed in Stripe",
+    hasPaymentMethod: true,
     internalAccessOverride: false,
     manualAccessGranted: false,
     pendingPlan: "",
     pendingPromoCode: "",
     pendingTrialDays: 0,
     pendingPromoLabel: "",
+    promoCodeUsed: promoCode || undefined,
+    promoLabelUsed: promoLabel || undefined,
   });
   if (promoCode) {
     markPromoRedeemed(cleanEmail, promoCode, {
@@ -3776,6 +3949,8 @@ function markPromoRedeemed(email, code, details = {}) {
     promoRedemptions: hasUserRecord ? userRedemptions : [...userRedemptions, record],
     promoTrialDays: details.trialDays || user.promoTrialDays || 0,
     promoRedeemedAt: user.promoRedeemedAt || record.redeemedAt,
+    promoCodeUsed: promoCode,
+    promoLabelUsed: details.label || user.promoLabelUsed || "",
     updatedAt: new Date().toISOString(),
   };
   writeStore(store);
@@ -6038,13 +6213,19 @@ async function handlePromoValidation(request, response, url) {
     });
     return;
   }
+  const founding = foundingStatusPayload(store);
   jsonResponse(response, 200, {
     valid: true,
     trialDays: promo.trialDays,
     label: promo.label,
     expiresAt: promo.expiresAt,
     expiresLabel: promo.expiresLabel,
-    message: `Promo accepted: ${promo.trialDays} days free will be applied before Stripe checkout.`,
+    paymentMethodRequired: true,
+    foundingSpotsRemaining: founding.remaining,
+    locksFoundingPrice: founding.remaining > 0,
+    message: founding.remaining > 0
+      ? `Promo accepted: ${promo.trialDays} days free ($0 now, card required). A Founding Member spot will be reserved so you lock in $9.99/month after the free month.`
+      : `Promo accepted: ${promo.trialDays} days free ($0 now, card required). Founding spots are sold out — after the free month you continue at regular Pro pricing.`,
   });
 }
 
@@ -6053,7 +6234,9 @@ async function handleCheckout(request, response) {
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
   const store = readStore();
-  const requestedPlan = body.plan || "monthly";
+  seedDefaultPromoCodes(store);
+  purgeExpiredFoundingReservations(store, { persist: true });
+  let requestedPlan = body.plan || "monthly";
   if (requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0) {
     jsonResponse(response, 409, {
       error: "Founding Membership is sold out. All 50 lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.",
@@ -6070,10 +6253,10 @@ async function handleCheckout(request, response) {
     const alreadyTrial = membershipAccess.membershipUserInTrial(existingUser);
     jsonResponse(response, 409, {
       error: alreadyFounding
-        ? "This account already has an active Founding Member subscription. Manage billing from Account → Billing instead of starting a new checkout."
+        ? "This account already has an active Founding Member subscription. Manage billing from Settings → Billing & Subscription instead of starting a new checkout."
         : alreadyTrial
-          ? "This account already has an active Pro trial. Manage billing from Account → Billing instead of starting a new checkout."
-          : "This account already has an active Pro subscription. Manage billing from Account → Billing instead of starting a new checkout.",
+          ? "This account already has an active Pro trial. Manage billing from Settings → Billing & Subscription instead of starting a new checkout."
+          : "This account already has an active Pro subscription. Manage billing from Settings → Billing & Subscription instead of starting a new checkout.",
       code: "already_subscribed",
       alreadySubscribed: true,
       planDisplay: membershipAccess.membershipPlanDisplay(existingUser),
@@ -6082,17 +6265,13 @@ async function handleCheckout(request, response) {
   }
   if (requestedPlan === "founding"
     && membershipAccess.membershipFoundingHistorical(existingUser)
-    && !membershipAccess.membershipFoundingActive(existingUser)) {
+    && !membershipAccess.membershipFoundingActive(existingUser)
+    && !existingUser.foundingSpotReleasedAt
+    && (existingUser.firstPaidInvoiceAt || existingUser.lastSuccessfulPaymentAt || existingUser.foundingMemberNumber)) {
     jsonResponse(response, 400, {
       error: "Former Founding Members are not automatically eligible for $9.99 pricing. Choose Pro Monthly or Pro Annual, or contact support for an intentional admin review.",
       formerFounding: true,
     });
-    return;
-  }
-  const planKey = requestedPlan;
-  const price = getPriceId(planKey);
-  if (!email) {
-    jsonResponse(response, 400, { error: "Email is required before checkout." });
     return;
   }
   const promo = checkoutPromoForCode(body.promoCode, store);
@@ -6111,17 +6290,64 @@ async function handleCheckout(request, response) {
     jsonResponse(response, 409, { error: "This account has already used that promo code." });
     return;
   }
+
+  // Promo signups: lock Founding $9.99 when spots remain; otherwise roll into regular Pro.
+  let planKey = requestedPlan;
+  let planRemapped = null;
+  if (promo.valid && (planKey === "founding" || planKey === "monthly")) {
+    if (foundingSpotsRemaining(store) > 0) {
+      if (planKey !== "founding") planRemapped = "founding";
+      planKey = "founding";
+    } else if (planKey === "founding") {
+      planKey = "monthly";
+      planRemapped = "monthly_sold_out";
+    }
+  }
+
+  const price = getPriceId(planKey);
+  if (!email) {
+    jsonResponse(response, 400, { error: "Email is required before checkout." });
+    return;
+  }
   if (!planConfig[planKey] || !price) {
     jsonResponse(response, 400, { error: `Stripe price is missing for ${planKey}.` });
     return;
   }
+
+  // Reserve Founding inventory as soon as checkout starts so the free month cannot lose the spot.
+  let foundingReservation = null;
+  if (planKey === "founding") {
+    foundingReservation = reserveFoundingSpot(email, {
+      promoCode: promo.valid ? promo.code : "",
+      reason: "checkout_started",
+      releasableUntilFirstPayment: Boolean(promo.valid || trial7day),
+      ttlMs: FOUNDING_CHECKOUT_HOLD_MS,
+    });
+    if (!foundingReservation.ok) {
+      if (promo.valid) {
+        planKey = "monthly";
+        planRemapped = "monthly_sold_out";
+      } else {
+        jsonResponse(response, 409, {
+          error: "Founding Membership just sold out. Choose Pro Monthly or Pro Annual instead.",
+          founding: foundingStatusPayload(readStore()),
+          soldOut: true,
+        });
+        return;
+      }
+    }
+  }
+
   try {
     const customer = await getOrCreateStripeCustomer(email);
+    const resolvedPrice = getPriceId(planKey);
     const sessionParams = {
       mode: "subscription",
       customer,
-      "line_items[0][price]": price,
+      "line_items[0][price]": resolvedPrice,
       "line_items[0][quantity]": "1",
+      // Card is always collected — including during promo free months / trials.
+      payment_method_collection: "always",
       "metadata[email]": email,
       "metadata[plan]": planKey,
       "subscription_data[metadata][email]": email,
@@ -6129,6 +6355,10 @@ async function handleCheckout(request, response) {
       success_url: body.successUrl || `${SITE_URL}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: body.cancelUrl || `${SITE_URL}?checkout=cancel`,
     };
+    if (STRIPE_AUTOMATIC_TAX) {
+      sessionParams["automatic_tax[enabled]"] = "true";
+      sessionParams.billing_address_collection = "required";
+    }
     if (promo.valid) {
       sessionParams["metadata[promoCode]"] = promo.code;
       sessionParams["metadata[promoLabel]"] = promo.label;
@@ -6143,6 +6373,15 @@ async function handleCheckout(request, response) {
       sessionParams["subscription_data[metadata][promoLabel]"] = "7-Day Pro Trial";
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
+    if (planKey === "founding" && foundingReservation?.ok) {
+      reserveFoundingSpot(email, {
+        promoCode: promo.valid ? promo.code : "",
+        reason: "checkout_started",
+        sessionId: session.id || "",
+        releasableUntilFirstPayment: Boolean(promo.valid || trial7day),
+        ttlMs: FOUNDING_CHECKOUT_HOLD_MS,
+      });
+    }
     upsertUser(email, {
       stripeCustomerId: customer,
       pendingPlan: planKey,
@@ -6150,14 +6389,25 @@ async function handleCheckout(request, response) {
       pendingPromoCode: promo.valid ? promo.code : "",
       pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? 7 : 0,
       pendingPromoLabel: promo.valid ? promo.label : trial7day ? "7-Day Pro Trial" : "",
+      foundingSpotReleasable: planKey === "founding" && Boolean(promo.valid || trial7day),
     });
     jsonResponse(response, 200, {
       url: session.url,
       id: session.id,
       plan: planKey,
-      promo: promo.valid ? { applied: true, trialDays: promo.trialDays, label: promo.label, expiresAt: promo.expiresAt, expiresLabel: promo.expiresLabel } : null,
+      planRemapped,
+      promo: promo.valid ? {
+        applied: true,
+        trialDays: promo.trialDays,
+        label: promo.label,
+        expiresAt: promo.expiresAt,
+        expiresLabel: promo.expiresLabel,
+        foundingReserved: planKey === "founding",
+        locksFoundingPrice: planKey === "founding",
+      } : null,
       trial: trial7day ? { applied: true, trialDays: 7, label: "7-Day Pro Trial" } : null,
-      founding: foundingStatusPayload(store),
+      founding: foundingStatusPayload(readStore()),
+      paymentMethodRequired: true,
     });
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not create Stripe Checkout Session." });
@@ -7037,15 +7287,32 @@ async function handleStripeWebhook(request, response) {
           return;
         }
         const updates = membershipUpdatesFromStripeSubscription(subscription, user, eventType);
-        if (updates.foundingMemberActive && !user.foundingMemberNumber) {
+        if (updates.cancelAtPeriodEnd && shouldReleaseFoundingSpotOnCancel(user)) {
+          releaseFoundingSpot(email, "canceled_before_first_payment");
+          updates.foundingMemberActive = false;
+          updates.foundingMemberHistorical = false;
+          updates.foundingMember = false;
+          updates.foundingMemberNumber = null;
+          updates.foundingSpotReleasable = false;
+          updates.foundingSpotReleasedAt = new Date().toISOString();
+          updates.priceLock = "";
+        } else if (updates.foundingMemberActive && !user.foundingMemberNumber) {
           const claim = claimFoundingSpot(email);
           updates.foundingMemberNumber = claim.foundingMemberNumber;
           updates.foundingMemberHistorical = true;
           updates.foundingMember = true;
-        } else if (user.foundingMemberNumber) {
+        } else if (user.foundingMemberNumber && !updates.foundingSpotReleasedAt) {
           updates.foundingMemberNumber = user.foundingMemberNumber;
           updates.foundingMemberHistorical = true;
           updates.foundingMember = true;
+        }
+        if (eventType === "deleted" && shouldReleaseFoundingSpotOnCancel(user)) {
+          releaseFoundingSpot(email, "subscription_deleted_before_first_payment");
+          updates.foundingMemberActive = false;
+          updates.foundingMemberHistorical = false;
+          updates.foundingMember = false;
+          updates.foundingMemberNumber = null;
+          updates.foundingSpotReleasedAt = new Date().toISOString();
         }
         const saved = upsertUser(email, {
           ...updates,
@@ -7110,23 +7377,32 @@ async function handleStripeWebhook(request, response) {
           const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(invoice.subscription)}`);
           if (liveSub?.id) {
             const synced = upsertStripeSubscription(userEntry[0], invoice.customer, liveSub);
-            upsertUser(userEntry[0], {
-              lastSuccessfulPaymentAt: new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString(),
+            const amountPaid = Number(invoice.amount_paid || 0);
+            const paidUpdates = {
               lastFailedPaymentAt: "",
               nextPaymentRetryAt: "",
-              hasPaymentMethod: Boolean(invoice.payment_intent || invoice.default_payment_method || synced.hasPaymentMethod),
+              hasPaymentMethod: Boolean(invoice.payment_intent || invoice.default_payment_method || synced.hasPaymentMethod || amountPaid > 0),
               lastStripeEventCreatedAt: Math.max(Number(synced.lastStripeEventCreatedAt || 0), Number(event.created || 0)),
               lastStripeEventId: event.id || synced.lastStripeEventId || "",
-            });
+            };
+            // $0 trial invoices must not mark the first paid cycle complete.
+            if (amountPaid > 0) {
+              const paidAt = new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString();
+              paidUpdates.lastSuccessfulPaymentAt = paidAt;
+              paidUpdates.firstPaidInvoiceAt = store.users?.[userEntry[0]]?.firstPaidInvoiceAt || paidAt;
+              paidUpdates.foundingSpotReleasable = false;
+              markFoundingReservationConverted(userEntry[0]);
+            }
+            upsertUser(userEntry[0], paidUpdates);
             logMembershipTransition("payment_received", userEntry[0], {
               plan: synced.plan,
               subscriptionStatus: synced.subscriptionStatus,
               hasProAccess: membershipHasProAccess(synced),
-              extra: { source: event.type, invoiceId: invoice.id },
+              extra: { source: event.type, invoiceId: invoice.id, amountPaid },
             });
             // Renewal / successful invoice — skip noisy first checkout duplicates via refId window.
             const billingReason = String(invoice.billing_reason || "");
-            if (billingReason === "subscription_cycle" || billingReason === "subscription_update") {
+            if (amountPaid > 0 && (billingReason === "subscription_cycle" || billingReason === "subscription_update")) {
               const renewStore = readStore();
               await emitAdminAlertSafe(renewStore, {
                 category: "billing",
@@ -7316,6 +7592,8 @@ async function handleCancelSubscription(request, response) {
     jsonResponse(response, 400, { error: "No active paid subscription to cancel." });
     return;
   }
+  const releaseFounding = shouldReleaseFoundingSpotOnCancel(user);
+  const inFreeMonth = userNeverCompletedPaidCycle(user);
   try {
     let subscription;
     if (user.stripeSubscriptionId && isConfiguredValue(STRIPE_SECRET_KEY)) {
@@ -7323,19 +7601,75 @@ async function handleCancelSubscription(request, response) {
         cancel_at_period_end: "true",
       });
       const updates = membershipUpdatesFromStripeSubscription(stripeSub, user, "updated");
-      if (user.foundingMemberNumber) {
+      if (releaseFounding) {
+        releaseFoundingSpot(email, "canceled_before_first_payment");
+        Object.assign(updates, {
+          foundingMemberActive: false,
+          foundingMemberHistorical: false,
+          foundingMember: false,
+          foundingMemberNumber: null,
+          foundingSpotReleasable: false,
+          foundingSpotReleasedAt: new Date().toISOString(),
+          priceLock: "",
+        });
+      } else if (user.foundingMemberNumber) {
         updates.foundingMemberNumber = user.foundingMemberNumber;
         updates.foundingMemberHistorical = true;
         updates.foundingMember = true;
       }
       subscription = upsertUser(email, updates);
     } else {
-      subscription = upsertUser(email, scheduleSubscriptionCancelLocal(user));
+      const localUpdates = scheduleSubscriptionCancelLocal(user);
+      if (releaseFounding) {
+        releaseFoundingSpot(email, "canceled_before_first_payment");
+        Object.assign(localUpdates, {
+          foundingMemberActive: false,
+          foundingMemberHistorical: false,
+          foundingMember: false,
+          foundingMemberNumber: null,
+          foundingSpotReleasable: false,
+          foundingSpotReleasedAt: new Date().toISOString(),
+          priceLock: "",
+        });
+      }
+      subscription = upsertUser(email, localUpdates);
     }
     appendBillingEvent(email, "subscription_cancel_scheduled", resolvedPlanForUser(user), user.monthlyPrice || "");
+    appendMembershipLifecycleAudit(email, "subscription_cancel_scheduled", {
+      note: releaseFounding
+        ? "Canceled during free month — Founding spot released; no charge"
+        : inFreeMonth
+          ? "Canceled during free/trial period — access through period end; no future charge"
+          : "Canceled at period end — access continues until accessEndsAt",
+      updates: {
+        cancelAtPeriodEnd: true,
+        accessEndsAt: subscription.accessEndsAt,
+        foundingSpotReleased: releaseFounding,
+      },
+    });
+    let cancelEmail = { sent: false, skipped: "not_attempted" };
+    try {
+      cancelEmail = await billingLifecycleEmail.sendCancellationUserEmail({
+        user: subscription,
+        email,
+        sendEmail,
+        inFreeMonth,
+        foundingReleased: releaseFounding,
+        wasFounding: Boolean(user.foundingMemberActive || user.plan === "Founding"),
+      });
+      if (cancelEmail.sent) {
+        upsertUser(email, { lastCancellationEmailAt: new Date().toISOString() });
+      }
+    } catch (emailError) {
+      console.warn("[email] Cancellation confirmation failed:", emailError.message);
+      cancelEmail = { sent: false, error: emailError.message };
+    }
     jsonResponse(response, 200, {
       ok: true,
       subscription: { ...subscription, ...membershipSummaryForUser(subscription) },
+      foundingSpotReleased: releaseFounding,
+      inFreeMonth,
+      cancelEmail,
     });
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not cancel subscription." });
@@ -8095,12 +8429,13 @@ function handleAdminPromoCodesList(request, response, url) {
     return;
   }
   const store = peekStore();
+  seedDefaultPromoCodes(store);
   const envCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
   const managed = promoCodeRecords(store).map(publicPromoCode);
   const envRow = envCode ? publicPromoCode({
     id: "env-promo",
     code: envCode,
-    label: `${PROMO_FREE_TRIAL_DAYS} day free Pro trial (env)`,
+    label: `${PROMO_FREE_TRIAL_DAYS} day free membership (env)`,
     trialDays: PROMO_FREE_TRIAL_DAYS,
     status: "active",
     expiresAt: PROMO_FREE_TRIAL_EXPIRES_AT,

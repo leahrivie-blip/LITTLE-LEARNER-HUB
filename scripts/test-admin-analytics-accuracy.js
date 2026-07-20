@@ -97,9 +97,9 @@ async function run() {
   });
 
   await test("cache bust versions aligned for analytics accuracy", () => {
-    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260719-weekday-activities");
-    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260719-weekday-activities");
-    assert.match(sw, /llh-shell-v101-weekday-activities/);
+    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260720-promo-1month");
+    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260720-promo-1month");
+    assert.match(sw, /llh-shell-v103-promo-1month/);
   });
 
   // Live formula smoke test against a temporary local store.
