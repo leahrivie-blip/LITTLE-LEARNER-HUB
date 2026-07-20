@@ -3244,6 +3244,10 @@ function renderSignupPlanChooser() {
       <ul class="signup-plan-trust" aria-label="Why providers upgrade">
         ${copy.trustPoints.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
       </ul>
+      ${promoCodePanel({
+        context: "signup",
+        heading: "Have a promo code? Apply it before choosing a paid plan.",
+      })}
       ${!soldOut ? `
         <p class="signup-founding-urgency" role="status">
           <span>${escapeHtml(copy.foundingUrgency)}</span>
@@ -4215,7 +4219,9 @@ function normalizedCheckoutPromoCode() {
 function checkoutPromoSummary() {
   return normalizedCheckoutPromoCode()
     ? "Promo applied at checkout: first month $0 with a card on file. If Founding spots remain, you lock in $9.99/month for life after the free month."
-    : "Enter a promo code (example: TRY1MONTH) before choosing a plan. First month is free with a card on file; membership continues automatically unless you cancel before renewal.";
+    : currentUser
+      ? "Already have an account? Enter your promo code (example: TRY1MONTH) here, tap Apply, then choose a plan. First month is free with a card on file; membership continues automatically unless you cancel before renewal."
+      : "Enter a promo code (example: TRY1MONTH) before choosing a plan. Log in or create an account first so the free month can attach to your membership.";
 }
 
 function saveCheckoutPromoCode(value) {
@@ -4223,8 +4229,24 @@ function saveCheckoutPromoCode(value) {
   localStorage.setItem("llhCheckoutPromoCode", checkoutPromoCode);
 }
 
+function promoCodeInputElement(panel = document) {
+  return panel?.querySelector?.("[data-checkout-promo-input]")
+    || panel?.querySelector?.("#checkoutPromoCodeInput")
+    || document.querySelector("[data-checkout-promo-input]")
+    || document.querySelector("#checkoutPromoCodeInput");
+}
+
+function syncCheckoutPromoCodeFromInput(panel = document) {
+  const input = promoCodeInputElement(panel);
+  if (input) saveCheckoutPromoCode(input.value);
+  return normalizedCheckoutPromoCode();
+}
+
 function promoStatusElement(panel = document) {
-  return panel?.querySelector?.("#checkoutPromoCodeMessage") || document.querySelector("#checkoutPromoCodeMessage");
+  return panel?.querySelector?.("[data-checkout-promo-message]")
+    || panel?.querySelector?.("#checkoutPromoCodeMessage")
+    || document.querySelector("[data-checkout-promo-message]")
+    || document.querySelector("#checkoutPromoCodeMessage");
 }
 
 function setPromoCodeMessage(message, success = false, panel = document) {
@@ -4263,9 +4285,9 @@ function markCheckoutPromoRedeemed(code, details = {}) {
 }
 
 async function validateCheckoutPromoCode(options = {}) {
-  const { quiet = false } = options;
-  const code = normalizedCheckoutPromoCode();
-  const panel = document.querySelector(".promo-code-panel");
+  const { quiet = false, panel: panelOption = null } = options;
+  const panel = panelOption || document.querySelector(".promo-code-panel");
+  const code = syncCheckoutPromoCodeFromInput(panel || document);
   if (!code) {
     if (!quiet) setPromoCodeMessage("Enter a promo code before checkout.", false, panel);
     return { valid: false, empty: true };
@@ -46296,22 +46318,26 @@ function pricingCard(planKey, options = {}) {
   `;
 }
 
-function promoCodePanel() {
+function promoCodePanel(options = {}) {
+  const stored = normalizedCheckoutPromoCode();
+  const heading = options.heading || "Have a promo code? Apply it first.";
+  const alreadyUsed = Boolean(currentAccount()?.promoCodeUsed);
+  if (alreadyUsed && options.hideWhenRedeemed) return "";
   return `
-    <section class="section-block promo-code-panel">
+    <section class="section-block promo-code-panel" data-promo-panel="${escapeHtml(options.context || "checkout")}">
       <div>
         <p class="eyebrow">Promo Code</p>
-        <h3>Have a promo code? Apply it first.</h3>
-        <p class="muted-copy">${escapeHtml(checkoutPromoSummary())}</p>
-        <p class="muted-copy">A valid payment method is required at signup. You will not be charged during the free month.</p>
+        <h3>${escapeHtml(heading)}</h3>
+        <p class="muted-copy promo-code-summary">${escapeHtml(checkoutPromoSummary())}</p>
+        <p class="muted-copy">Works for new and existing accounts. A card is required at checkout — you will not be charged during the free month.</p>
       </div>
       <div class="promo-code-entry">
         <label>
           <span>Promo code</span>
-          <input id="checkoutPromoCodeInput" value="" placeholder="TRY1MONTH" autocomplete="off" />
+          <input id="checkoutPromoCodeInput" data-checkout-promo-input value="${escapeHtml(stored)}" placeholder="TRY1MONTH" autocomplete="off" inputmode="text" />
         </label>
         <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
-        <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" aria-live="polite"></span>
+        <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" data-checkout-promo-message aria-live="polite"></span>
       </div>
     </section>
   `;
@@ -46324,7 +46350,7 @@ function renderPricingPage() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
-    ${promoCodePanel()}
+    ${promoCodePanel({ context: "plans" })}
     <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
       ${!soldOut
@@ -46349,7 +46375,7 @@ function renderUpgradePage() {
   const soldOut = remaining <= 0;
   target.innerHTML = `
     ${foundingStatusCard()}
-    ${promoCodePanel()}
+    ${promoCodePanel({ context: "upgrade" })}
     <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${!soldOut
         ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
@@ -46399,14 +46425,20 @@ function renderBillingPage() {
     ? `<button class="primary-button" data-view="upgrade" type="button">Reactivate Subscription</button>`
     : productStatus?.cta === "update_payment"
       ? `<button class="primary-button" data-update-payment type="button">Update Payment Method</button>`
-      : `<button class="primary-button" ${!paidBilling && canSeePaidUpgradeOffer() ? `data-checkout-plan="${preferredPaidCheckoutPlan()}"` : `data-view="upgrade"`} type="button">${paidBilling ? "Change Plan" : (canSeePaidUpgradeOffer() ? preferredPaidCheckoutButtonLabel() : "Upgrade to Pro")}</button>`;
+      : `<button class="primary-button" data-view="upgrade" type="button">${paidBilling ? "Change Plan" : (canSeePaidUpgradeOffer() ? preferredPaidCheckoutButtonLabel() : "Upgrade to Pro")}</button>`;
   const cancelScheduled = Boolean(account?.cancelAtPeriodEnd);
   const accessEndLabel = account?.accessEndsAt || account?.currentPeriodEnd || account?.trialEnd
     ? new Date(account.accessEndsAt || account.currentPeriodEnd || account.trialEnd).toLocaleDateString()
     : "";
+  const showPromoEntry = !paidBilling && !account?.promoCodeUsed && canSeePaidUpgradeOffer();
   target.innerHTML = `
     ${accessBanner}
     ${billingUpgradeBanner}
+    ${showPromoEntry ? promoCodePanel({
+      context: "billing",
+      heading: "Have a promo code? Apply it here before upgrading.",
+      hideWhenRedeemed: true,
+    }) : ""}
     <section class="account-layout">
       <div class="account-panel">
         <p class="eyebrow">Billing &amp; Subscription</p>
@@ -47029,6 +47061,7 @@ function setFreePlan() {
 
 async function startCheckout(type) {
   if (!requireBillingAccount()) return;
+  syncCheckoutPromoCodeFromInput(document);
   if (type === "founding") await syncFoundingStatus({ render: true });
   if (type === "founding" && foundingSpotsRemaining() <= 0) {
     setFormMessage("#upgradeApp", "Founding Membership is sold out. All 50 lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
@@ -48092,9 +48125,11 @@ document.addEventListener("click", async (event) => {
   const applyPromoButton = event.target.closest("[data-apply-promo-code]");
   if (applyPromoButton) {
     event.preventDefault();
+    const panel = applyPromoButton.closest(".promo-code-panel");
+    syncCheckoutPromoCodeFromInput(panel || document);
     applyPromoButton.disabled = true;
     applyPromoButton.textContent = "Checking...";
-    validateCheckoutPromoCode().finally(() => {
+    validateCheckoutPromoCode({ panel }).finally(() => {
       applyPromoButton.disabled = false;
       applyPromoButton.textContent = "Apply Code";
     });
@@ -52234,10 +52269,10 @@ document.addEventListener("input", (event) => {
       }
     }, 180);
   }
-  if (event.target.matches("#checkoutPromoCodeInput")) {
+  if (event.target.matches("#checkoutPromoCodeInput, [data-checkout-promo-input]")) {
     saveCheckoutPromoCode(event.target.value);
     const panel = event.target.closest(".promo-code-panel");
-    const summary = panel?.querySelector(".muted-copy");
+    const summary = panel?.querySelector(".promo-code-summary") || panel?.querySelector(".muted-copy");
     if (summary) summary.textContent = checkoutPromoSummary();
     setPromoCodeMessage("", false, panel);
   }

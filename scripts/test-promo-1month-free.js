@@ -358,7 +358,12 @@ async function main() {
       assert.match(appJs, /permanently lose your \$9\.99/);
       assert.match(appJs, /You will not be charged/);
       assert.match(appJs, /TRY1MONTH/);
-      assert.match(appJs, /payment method is required/i);
+      assert.match(appJs, /Works for new and existing accounts/i);
+      assert.match(appJs, /promoCodePanel\(\{[\s\S]*context:\s*"billing"/);
+      assert.match(appJs, /promoCodePanel\(\{[\s\S]*context:\s*"signup"/);
+      assert.match(appJs, /syncCheckoutPromoCodeFromInput/);
+      assert.match(appJs, /data-view="upgrade"/);
+      assert.match(appJs, /payment method is required|card is required/i);
       assert.doesNotMatch(appJs, /accountCancelButton/);
     });
 
