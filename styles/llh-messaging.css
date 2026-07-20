@@ -911,4 +911,98 @@
   .message-support-btn {
     display: none;
   }
+
+  .messages-page-shell,
+  .messages-center-shell {
+    max-width: 100%;
+    padding-left: max(0px, env(safe-area-inset-left, 0px));
+    padding-right: max(0px, env(safe-area-inset-right, 0px));
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .messages-tab-panel {
+    padding: 14px 12px;
+    overflow-x: hidden;
+  }
+
+  .messages-tabs,
+  .messages-center-tabs {
+    gap: 4px;
+    margin: 12px 0 14px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .messages-tabs::-webkit-scrollbar,
+  .messages-center-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .messages-tab {
+    flex: 0 0 auto;
+    padding: 10px 12px;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+
+  .messages-thread {
+    max-height: min(50dvh, calc(100dvh - 280px - env(safe-area-inset-bottom, 0px)));
+    padding-right: 0;
+  }
+
+  .message-bubble {
+    max-width: 92%;
+  }
+
+  .message-bubble-meta {
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+
+  .messages-reply-form {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .messages-reply-form textarea,
+  #messagesReplyInput,
+  #messagesCenterReplyInput {
+    width: 100%;
+    min-height: 72px;
+    font-size: 16px; /* prevent iOS zoom on focus */
+    box-sizing: border-box;
+  }
+
+  .messages-reply-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .messages-reply-form .primary-button {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .admin-conversations-list {
+    max-height: min(36dvh, 240px);
+  }
+
+  .admin-conversation-thread {
+    min-width: 0;
+  }
+
+  #adminConversationReplyInput,
+  .admin-compose-form textarea,
+  .admin-compose-form input,
+  .admin-compose-form select {
+    font-size: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 }

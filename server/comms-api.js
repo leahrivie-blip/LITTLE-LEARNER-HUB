@@ -385,16 +385,18 @@ function createCommsApi(deps) {
       .slice(0, 200);
   }
 
-  async function notifyAdminsInApp(store, { type, title, preview, refId }) {
-    const adminEmail = normalizeEmail(ADMIN_EMAIL || "");
-    if (!adminEmail) return { targeted: 0 };
+  async function notifyAdminsInApp(store, { type, title, preview, refId, conversationEmail, messageId }) {
+    const recipients = [...adminEmailAllowlist];
+    if (!recipients.length) return { targeted: 0 };
     const messagingStore = ensureMessagingStore(ensureCommsStore(store));
     return fanOutNotificationsAndPush(messagingStore, {
       type: type || "admin_new_message",
-      recipients: [adminEmail],
+      recipients,
       title: title || "Admin alert",
       preview: preview || "",
       refId: refId || "",
+      messageId: messageId || refId || "",
+      conversationEmail: normalizeEmail(conversationEmail || "") || "",
       senderName: ADMIN_NAME || "Little Learner Hub",
     });
   }
@@ -938,15 +940,23 @@ function createCommsApi(deps) {
     });
 
     const unreadByConversation = new Map();
+    const seenUnreadKeys = new Set();
     (store.notifications || [])
       .filter((n) => {
-        if (!adminEmail || normalizeEmail(n.email) !== adminEmail || n.read) return false;
+        if (!n || n.read) return false;
+        const recipient = normalizeEmail(n.email);
+        // Count alerts for any configured admin alias, not only the primary email.
+        if (!recipient || (!isAdminMemberEmail(recipient) && recipient !== adminEmail)) return false;
         const type = String(n.type || "");
         return type === "message" || type === "admin_new_message" || type === "admin_message_reply";
       })
       .forEach((n) => {
         const conversationEmail = normalizeEmail(n.conversationEmail);
         if (!conversationEmail) return;
+        // Admin aliases each get a notification copy — dedupe so badges stay accurate.
+        const dedupe = `${conversationEmail}:${String(n.messageId || n.refId || n.id || "")}`;
+        if (seenUnreadKeys.has(dedupe)) return;
+        seenUnreadKeys.add(dedupe);
         const existing = unreadByConversation.get(conversationEmail) || {
           count: 0,
           latestAt: "",
