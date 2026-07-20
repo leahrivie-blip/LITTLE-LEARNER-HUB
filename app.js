@@ -11938,6 +11938,17 @@ document.addEventListener("input", (event) => {
     adminMessagesState.conversationSearch = event.target.value || "";
     updateAdminConversationsListDom();
   }
+  // Keep compose state in sync while typing so audience/template remounts never erase text.
+  const composeForm = event.target.closest?.("#adminMessagesComposeForm");
+  if (composeForm) {
+    if (composeForm.subject) adminMessagesState.subject = String(composeForm.subject.value || "");
+    if (composeForm.body) adminMessagesState.body = String(composeForm.body.value || "");
+    if (composeForm.kind) adminMessagesState.kind = String(composeForm.kind.value || adminMessagesState.kind || "message");
+  }
+  if (event.target.matches("#feedbackSubjectInput, #feedbackMessageInput")) {
+    const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
+    writeFeedbackDraft(type);
+  }
 });
 
 document.addEventListener("submit", async (event) => {
@@ -34053,15 +34064,22 @@ function mergeSupportTickets(remoteTickets = []) {
 async function loadSupportTicketsFromBackend({ admin = false } = {}) {
   if (!canUseLaunchBackend()) return supportTickets();
   const params = new URLSearchParams();
+  const headers = { Accept: "application/json" };
   if (admin && adminSession()?.token) {
     params.set("adminToken", adminSession().token);
   } else if (currentUser) {
-    params.set("email", currentUser);
+    // List endpoint requires authenticated identity — do not rely on ?email= alone.
+    const auth = await firebaseAuthHeaders().catch(() => null);
+    if (auth) Object.assign(headers, auth);
+    else {
+      headers["X-LLH-User-Email"] = String(currentUser).trim().toLowerCase();
+      headers.Authorization = `Bearer test:${String(currentUser).trim().toLowerCase()}`;
+    }
   } else {
     return supportTickets();
   }
   try {
-    const response = await fetch(`/api/support-tickets?${params.toString()}`);
+    const response = await fetch(`/api/support-tickets?${params.toString()}`, { headers, cache: "no-store" });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load support tickets.");
     return mergeSupportTickets(data.tickets || []);
@@ -34138,6 +34156,48 @@ async function submitSupportTicket(form) {
   renderAdminTickets();
 }
 
+function feedbackDraftStorageKey(type = "General Feedback") {
+  const email = String(currentUser || "guest").trim().toLowerCase() || "guest";
+  return `llh-feedback-draft:${email}:${String(type || "General Feedback")}`;
+}
+
+function readFeedbackDraft(type = "General Feedback") {
+  try {
+    const raw = sessionStorage.getItem(feedbackDraftStorageKey(type));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeFeedbackDraft(type = "General Feedback") {
+  try {
+    const subject = document.querySelector("#feedbackSubjectInput")?.value || "";
+    const message = document.querySelector("#feedbackMessageInput")?.value || "";
+    if (!String(subject).trim() && !String(message).trim()) {
+      sessionStorage.removeItem(feedbackDraftStorageKey(type));
+      return;
+    }
+    sessionStorage.setItem(feedbackDraftStorageKey(type), JSON.stringify({
+      subject,
+      message,
+      savedAt: new Date().toISOString(),
+    }));
+  } catch {
+    /* ignore quota / private mode */
+  }
+}
+
+function clearFeedbackDraft(type = "General Feedback") {
+  try {
+    sessionStorage.removeItem(feedbackDraftStorageKey(type));
+  } catch {
+    /* ignore */
+  }
+}
+
 function openFeedbackModal(type = "General Feedback") {
   const modal = document.querySelector("#feedbackModal");
   if (!modal) return;
@@ -34149,21 +34209,39 @@ function openFeedbackModal(type = "General Feedback") {
   const emailInput = document.querySelector("#feedbackEmailInput");
   const subjectInput = document.querySelector("#feedbackSubjectInput");
   const messageInput = document.querySelector("#feedbackMessageInput");
-  if (typeInput) typeInput.value = type;
+  const previousType = String(typeInput?.value || "").trim();
+  const nextType = String(type || "General Feedback");
+  const alreadyOpen = modal.classList.contains("open");
+  // Preserve in-progress typing when reopening the same modal; only swap drafts
+  // when the feedback type changes (bug vs feature vs general).
+  if (alreadyOpen && previousType && previousType !== nextType) {
+    writeFeedbackDraft(previousType);
+  }
+  if (typeInput) typeInput.value = nextType;
   if (nameInput && !nameInput.value) nameInput.value = name;
   if (emailInput && !emailInput.value) emailInput.value = email;
-  if (subjectInput) subjectInput.value = "";
-  if (messageInput) messageInput.value = "";
+  const liveSubject = String(subjectInput?.value || "").trim();
+  const liveMessage = String(messageInput?.value || "").trim();
+  if (!(alreadyOpen && previousType === nextType && (liveSubject || liveMessage))) {
+    const draft = readFeedbackDraft(nextType);
+    if (subjectInput) subjectInput.value = draft?.subject || "";
+    if (messageInput) messageInput.value = draft?.message || "";
+  }
   setFormMessage("#feedbackMessage", "");
   document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
-  nameInput?.focus();
+  if (!alreadyOpen) {
+    (messageInput?.value ? messageInput : nameInput)?.focus();
+  }
 }
 
-function closeFeedbackModal() {
+function closeFeedbackModal({ discardDraft = false } = {}) {
   const modal = document.querySelector("#feedbackModal");
   if (!modal) return;
+  const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
+  if (discardDraft) clearFeedbackDraft(type);
+  else writeFeedbackDraft(type);
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
@@ -34223,8 +34301,9 @@ async function submitFeedbackForm(event) {
       }).catch(() => null);
     }
     setFormMessage("#feedbackMessage", "Thank you — your feedback was sent to Leah and saved in Admin.", true);
+    clearFeedbackDraft(type);
     form.reset();
-    setTimeout(closeFeedbackModal, 1200);
+    setTimeout(() => closeFeedbackModal({ discardDraft: true }), 1200);
     if (isAdminUnlocked()) {
       adminAnalyticsCache = null;
       loadAdminAnalyticsFromBackend();

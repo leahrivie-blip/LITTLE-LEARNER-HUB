@@ -491,6 +491,22 @@
       setDraftStatus(form, "");
     },
 
+    /** Synchronously persist the current form fields to localStorage (no server round-trip). */
+    flushLocal(form) {
+      if (!form || !(form instanceof HTMLFormElement)) return false;
+      const payload = serializeFormDraft(form);
+      const hasContent = Object.values(payload.fields || {}).some((v) => {
+        if (typeof v === "boolean") return v;
+        return String(v || "").trim().length > 0;
+      });
+      if (!hasContent) {
+        clearLocalDraft(form);
+        return false;
+      }
+      writeLocalDraft(form, payload);
+      return true;
+    },
+
     async restore(form) {
       if (!form) return false;
       const state = attachedDraftForms.get(form);
@@ -2230,8 +2246,13 @@
     const tabBtn = event.target.closest("[data-messages-center-tab]");
     if (tabBtn) {
       event.preventDefault();
+      // Flush in-progress reply text before the tab remount destroys the textarea.
+      const replyForm = document.querySelector("#messagesReplyForm");
+      if (replyForm) LLHDrafts.flushLocal(replyForm);
+      const draft = captureMessagesReplyDraft();
       myMessagesState.tab = tabBtn.getAttribute("data-messages-center-tab") || "inbox";
       paintMyMessagesCenter();
+      restoreMessagesReplyDraft(draft);
       return;
     }
 

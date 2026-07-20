@@ -121,7 +121,7 @@ function staticChecks() {
   assert.match(css, /overflow-wrap:\s*anywhere/);
   assert.match(app, /positionNotificationBellPanel/);
   assert.match(app, /notificationBellBackdrop/);
-  assert.match(html, /app\.js\?v=20260720-promo-1month/);
+  assert.match(html, /app\.js\?v=20260720-messaging-merge/);
   assert.match(app, /syncNotificationBellPortal/);
   assert.match(app, /readSafeAreaInset/);
   console.log("PASS static mobile notification panel markers");

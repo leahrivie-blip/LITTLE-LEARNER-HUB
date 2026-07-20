@@ -11069,14 +11069,25 @@ async function handleSupportTicketUpdate(request, response) {
   });
 }
 
-function handleSupportTicketsList(request, response, url) {
-  const email = normalizeEmail(url.searchParams.get("email"));
+async function handleSupportTicketsList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   const store = peekStore();
   const allTickets = store.supportTickets || [];
-  const tickets = validAdminToken(adminToken)
-    ? allTickets
-    : allTickets.filter((ticket) => email && (ticket.email === email || ticket.createdBy === email));
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { tickets: allTickets.slice(0, 100).map(publicTicket) });
+    return;
+  }
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in to view your support tickets." });
+    return;
+  }
+  const myEmail = normalizeEmail(identity.email);
+  const tickets = allTickets.filter((ticket) => (
+    normalizeEmail(ticket.email) === myEmail || normalizeEmail(ticket.createdBy) === myEmail
+  ));
   jsonResponse(response, 200, { tickets: tickets.slice(0, 100).map(publicTicket) });
 }
 
@@ -12308,6 +12319,22 @@ function publicFeatureRequest(item) {
   };
 }
 
+function publicFeatureRequestPublicBoard(item) {
+  // Public feature board must not expose submitter emails to other members.
+  return {
+    id: item.id,
+    title: item.title,
+    description: item.description,
+    category: item.category,
+    email: "",
+    name: item.name ? String(item.name).trim().split(/\s+/)[0] || "Member" : "Member",
+    status: item.status,
+    votes: item.votes || 0,
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+  };
+}
+
 function publicFeedback(item) {
   return {
     id: item.id,
@@ -12466,14 +12493,23 @@ async function handleBugReportUpdate(request, response) {
   jsonResponse(response, 200, { bugReport: publicBugReport(items[index]) });
 }
 
-function handleBugReportsList(request, response, url) {
+async function handleBugReportsList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
-  const email = normalizeEmail(url.searchParams.get("email") || "");
   const store = readStore();
   const allReports = store.bugReports || [];
-  const reports = validAdminToken(adminToken)
-    ? allReports
-    : allReports.filter((r) => email && r.email === email);
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { bugReports: allReports.slice(0, 200).map(publicBugReport) });
+    return;
+  }
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in to view your bug reports." });
+    return;
+  }
+  const myEmail = normalizeEmail(identity.email);
+  const reports = allReports.filter((r) => normalizeEmail(r.email) === myEmail);
   jsonResponse(response, 200, { bugReports: reports.slice(0, 200).map(publicBugReport) });
 }
 
@@ -12624,17 +12660,21 @@ async function handleFeatureRequestUpdate(request, response) {
 
 function handleFeatureRequestsList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
-  const email = normalizeEmail(url.searchParams.get("email") || "");
   const store = readStore();
   const allItems = store.featureRequests || [];
-  const items = validAdminToken(adminToken)
+  const isAdmin = validAdminToken(adminToken);
+  const items = isAdmin
     ? allItems
     : allItems.filter((r) => r.status !== "Declined");
   // Sort by votes descending for public; by createdAt for admin
-  const sorted = validAdminToken(adminToken)
+  const sorted = isAdmin
     ? items.slice()
     : items.slice().sort((a, b) => (b.votes || 0) - (a.votes || 0));
-  jsonResponse(response, 200, { featureRequests: sorted.slice(0, 200).map(publicFeatureRequest) });
+  jsonResponse(response, 200, {
+    featureRequests: sorted.slice(0, 200).map((item) => (
+      isAdmin ? publicFeatureRequest(item) : publicFeatureRequestPublicBoard(item)
+    )),
+  });
 }
 
 // ─── Feedback handlers ────────────────────────────────────────────────────────
@@ -12748,14 +12788,23 @@ async function handleFeedbackUpdate(request, response) {
   jsonResponse(response, 200, { feedback: publicFeedback(items[index]) });
 }
 
-function handleFeedbackList(request, response, url) {
+async function handleFeedbackList(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
-  const email = normalizeEmail(url.searchParams.get("email") || "");
   const store = readStore();
   const allItems = store.feedbackItems || [];
-  const items = validAdminToken(adminToken)
-    ? allItems
-    : allItems.filter((r) => email && r.email === email);
+  if (validAdminToken(adminToken)) {
+    jsonResponse(response, 200, { feedback: allItems.slice(0, 200).map(publicFeedback) });
+    return;
+  }
+  let identity;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in to view your feedback." });
+    return;
+  }
+  const myEmail = normalizeEmail(identity.email);
+  const items = allItems.filter((r) => normalizeEmail(r.email) === myEmail);
   jsonResponse(response, 200, { feedback: items.slice(0, 200).map(publicFeedback) });
 }
 
@@ -13439,6 +13488,8 @@ function handleAdminConversationsList(request, response, url) {
         });
       }
     });
+  // Count unread user messages once per messageId — admin aliases each get a
+  // notification copy, which must not inflate the Conversations badge.
   const unreadFromUser = new Map();
   const seenUnreadKeys = new Set();
   store.notifications
@@ -14761,11 +14812,11 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/auth/sync-password-after-firebase") return await handleSyncPasswordAfterFirebase(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket") return await handleSupportTicketCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/support-ticket-update") return await handleSupportTicketUpdate(request, response);
-    if (request.method === "GET" && url.pathname === "/api/support-tickets") return handleSupportTicketsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/support-tickets") return await handleSupportTicketsList(request, response, url);
     // Phase 6-A: Bug Reports
     if (request.method === "POST" && url.pathname === "/api/bug-report") return await handleBugReportCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/bug-report-update") return await handleBugReportUpdate(request, response);
-    if (request.method === "GET" && url.pathname === "/api/bug-reports") return handleBugReportsList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/bug-reports") return await handleBugReportsList(request, response, url);
     // Phase 6-A: Feature Requests
     if (request.method === "POST" && url.pathname === "/api/feature-request") return await handleFeatureRequestCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/feature-request/vote") return await handleFeatureRequestVote(request, response);
@@ -14774,7 +14825,7 @@ const server = http.createServer(async (request, response) => {
     // Phase 6-A: Feedback
     if (request.method === "POST" && url.pathname === "/api/feedback") return await handleFeedbackCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/feedback-update") return await handleFeedbackUpdate(request, response);
-    if (request.method === "GET" && url.pathname === "/api/feedback") return handleFeedbackList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/feedback") return await handleFeedbackList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/email-engagement") return handleAdminEmailEngagementGet(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/email-diagnostics") return handleAdminEmailDiagnostics(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/email-engagement/settings") return await handleAdminEmailEngagementSettings(request, response);
