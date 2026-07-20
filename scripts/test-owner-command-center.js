@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260720-messaging-merge");
-  assert.equal(indexJs, "20260720-messaging-merge");
-  assert.match(sw, /llh-shell-v104-messaging-merge/);
+  assert.equal(indexCss, "20260720-promo-existing");
+  assert.equal(indexJs, "20260720-promo-existing");
+  assert.match(sw, /llh-shell-v105-promo-existing/);
 });
 
 if (!process.exitCode) {

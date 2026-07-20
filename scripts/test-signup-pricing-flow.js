@@ -48,6 +48,8 @@ test("plan chooser features paid-first Founding/Pro and Free preview", () => {
   assert.match(appJs, /signup-plan-grid--paid-first/);
   assert.match(appJs, /signup-plan-card--preview/);
   assert.match(appJs, /showSignupFreeConfirm/);
+  assert.match(appJs, /context:\s*"signup"/);
+  assert.match(appJs, /data-checkout-promo-input/);
   assert.match(css, /signup-plan-card--founding/);
   assert.match(css, /signup-founding-urgency/);
   assert.match(css, /signup-free-confirm/);
@@ -104,9 +106,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260720-messaging-merge");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260720-messaging-merge");
-  assert.match(sw, /llh-shell-v104-messaging-merge/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260720-promo-existing");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260720-promo-existing");
+  assert.match(sw, /llh-shell-v105-promo-existing/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {
