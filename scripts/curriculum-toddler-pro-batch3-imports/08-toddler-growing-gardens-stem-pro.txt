@@ -1,255 +1,575 @@
-TITLE: Growing Gardens STEM
-AGE_GROUP: Toddler (2-3 Years)
-THEME: Growing Gardens STEM
-PLAN: PRO
-STATUS: Published
-LEARNING_DOMAINS: Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
-WEEKLY_OVERVIEW: Toddlers explore seeds, soil, roots, stems, flowers, and garden care through sensory play, planting, measuring, sorting, building, and movement.
-LEARNING_OBJECTIVES: Identify basic plant parts; explore what plants need; compare size and texture; count seeds; strengthen scooping, pouring, pinching, and cooperative problem-solving.
-WEEKLY_MATERIALS: Soil, large seeds, pots, scoops, watering cans, toy vegetables, flowers, blocks, craft sticks, paint, paper, magnifiers, books.
-VOCABULARY: Garden, seed, soil, root, stem, leaf, flower, grow, water, sun.
-BOOKS: Planting a Rainbow; The Tiny Seed; Up in the Garden and Down in the Dirt; Lola Plants a Garden.
-SONGS: The Farmer Plants the Seeds; Mary Mary Quite Contrary; I'm a Little Seed.
-FAMILY_CONNECTION: Invite families to water a plant together and share a photo or note about what changed.
-OBSERVATION_OPPORTUNITIES: Observe curiosity, sequencing, counting, sensory tolerance, tool use, and care for living things.
-ADAPTATIONS: Offer sealed soil bags, larger seeds, picture steps, seated planting, and pre-filled scoops.
+TITLE:
+Growing Gardens STEM
+AGE_GROUP:
+Toddler (2-3 Years)
+THEME:
+Growing Gardens STEM
+PLAN:
+Pro
+STATUS:
+published
+LEARNING_DOMAINS:
+Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
+WEEKLY_OVERVIEW:
+Toddlers explore seeds, soil, roots, stems, flowers, and garden care through sensory play, planting, measuring, sorting, building, and movement.
+LEARNING_OBJECTIVES:
+Identify basic plant parts; explore what plants need; compare size and texture; count seeds; strengthen scooping, pouring, pinching, and cooperative problem-solving.
+WEEKLY_MATERIALS:
+Soil, large seeds, pots, scoops, watering cans, toy vegetables, flowers, blocks, craft sticks, paint, paper, magnifiers, books.
+VOCABULARY:
+Garden, seed, soil, root, stem, leaf, flower, grow, water, sun.
+BOOKS:
+Planting a Rainbow; The Tiny Seed; Up in the Garden and Down in the Dirt; Lola Plants a Garden.
+SONGS:
+The Farmer Plants the Seeds; Mary Mary Quite Contrary; I'm a Little Seed.
+FAMILY_CONNECTION:
+Invite families to water a plant together and share a photo or note about what changed.
+OBSERVATION_OPPORTUNITIES:
+Observe curiosity, sequencing, counting, sensory tolerance, tool use, and care for living things.
+ADAPTATIONS:
+Offer sealed soil bags, larger seeds, picture steps, seated planting, and pre-filled scoops.
 
 MONDAY
-DAILY_THEME: Seeds and Soil
-DAILY_OBJECTIVES: Explore seed and soil textures; compare big and small.
-DAILY_VOCABULARY: Seed, soil, big, small.
-DAILY_MATERIALS: Soil, large seeds, trays, scoops, magnifiers.
-DAILY_LEARNING_DOMAINS: Science; Math; Fine Motor.
-CIRCLE_TIME_IDEAS: Examine seeds and predict what they may become.
-OUTDOOR_PLAY: Search for seeds, pods, and leaves.
-DAILY_OBSERVATION_OPPORTUNITIES: Note comparison language and sensory response.
-DAILY_ADAPTATIONS: Use sealed sensory bags.
-SAFETY_NOTES: Use only non-toxic, non-choking materials with close supervision.
-ACTIVITY_1_CATEGORY: Sensory Play
-ACTIVITY_1_NAME: Seed and Soil Lab
-ACTIVITY_1_OBJECTIVE: Compare textures and sizes.
-ACTIVITY_1_DESCRIPTION: Children scoop soil and examine large seeds.
-ACTIVITY_1_MATERIALS: Soil, large seeds, scoops, cups, tray.
-ACTIVITY_1_SETUP: Fill shallow tray and place tools nearby.
-ACTIVITY_1_DIRECTIONS: 1. Touch soil. 2. Scoop into cup. 3. Find a seed. 4. Compare sizes. 5. Pour back.
-ACTIVITY_1_TEACHER_ROLE: Model descriptive words and safe exploration.
-ACTIVITY_1_LEARNING_GOALS: Sensory awareness; comparison; fine motor.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note grasp and language.
-ACTIVITY_1_ADAPTATIONS: Use dry beans in sealed bags.
-ACTIVITY_1_SAFETY_NOTES: Prevent mouthing.
-ACTIVITY_2_CATEGORY: Math
-ACTIVITY_2_NAME: Count the Seeds
-ACTIVITY_2_OBJECTIVE: Count one to five.
-ACTIVITY_2_DESCRIPTION: Children place large seed counters into numbered pots.
-ACTIVITY_2_MATERIALS: Numbered cups, large counters.
-ACTIVITY_2_SETUP: Label cups 1-5.
-ACTIVITY_2_DIRECTIONS: 1. Choose cup. 2. Say number. 3. Add seeds. 4. Touch-count. 5. Check together.
-ACTIVITY_2_TEACHER_ROLE: Model one-to-one counting.
-ACTIVITY_2_LEARNING_GOALS: Number sense; matching.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note counting range.
-ACTIVITY_2_ADAPTATIONS: Use 1-3.
-ACTIVITY_2_SAFETY_NOTES: Use oversized counters.
-ACTIVITY_3_CATEGORY: Creative Arts
-ACTIVITY_3_NAME: Seed Collage
-ACTIVITY_3_OBJECTIVE: Strengthen pinching and placing.
-ACTIVITY_3_DESCRIPTION: Children glue large paper seed shapes onto garden pictures.
-ACTIVITY_3_MATERIALS: Paper seeds, glue, garden paper.
-ACTIVITY_3_SETUP: Pre-cut large shapes.
-ACTIVITY_3_DIRECTIONS: 1. Choose seed. 2. Add glue. 3. Press onto paper. 4. Count seeds. 5. Describe picture.
-ACTIVITY_3_TEACHER_ROLE: Encourage process and vocabulary.
-ACTIVITY_3_LEARNING_GOALS: Fine motor; creativity; counting.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note bilateral hand use.
-ACTIVITY_3_ADAPTATIONS: Use stickers.
-ACTIVITY_3_SAFETY_NOTES: Use non-toxic glue.
+DAILY_THEME:
+Seeds and Soil
+DAILY_OBJECTIVES:
+Explore seed and soil textures; compare big and small.
+DAILY_VOCABULARY:
+Seed, soil, big, small.
+DAILY_MATERIALS:
+Soil, large seeds, trays, scoops, magnifiers.
+DAILY_LEARNING_DOMAINS:
+Science; Math; Fine Motor.
+CIRCLE_TIME:
+Examine seeds and predict what they may become.
+OUTDOOR_PLAY:
+Search for seeds, pods, and leaves.
+DAILY_OBSERVATIONS:
+Note comparison language and sensory response.
+DAILY_ADAPTATIONS:
+Use sealed sensory bags.
+SAFETY_NOTES:
+Use only non-toxic, non-choking materials with close supervision.
+
+ACTIVITY_NAME:
+Seed and Soil Lab
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Compare textures and sizes.
+DESCRIPTION:
+Children scoop soil and examine large seeds.
+MATERIALS:
+Soil, large seeds, scoops, cups, tray.
+SETUP:
+Fill shallow tray and place tools nearby.
+DIRECTIONS:
+1. Touch soil.
+2. Scoop into cup.
+3. Find a seed.
+4. Compare sizes.
+5. Pour back.
+TEACHER_ROLE:
+Model descriptive words and safe exploration.
+LEARNING_GOALS:
+Sensory awareness; comparison; fine motor.
+OBSERVATION_OPPORTUNITIES:
+Note grasp and language.
+ADAPTATIONS:
+Use dry beans in sealed bags.
+SAFETY_NOTES:
+Prevent mouthing.
+
+ACTIVITY_NAME:
+Count the Seeds
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Count one to five.
+DESCRIPTION:
+Children place large seed counters into numbered pots.
+MATERIALS:
+Numbered cups, large counters.
+SETUP:
+Label cups 1-5.
+DIRECTIONS:
+1. Choose cup.
+2. Say number.
+3. Add seeds.
+4. Touch-count.
+5. Check together.
+TEACHER_ROLE:
+Model one-to-one counting.
+LEARNING_GOALS:
+Number sense; matching.
+OBSERVATION_OPPORTUNITIES:
+Note counting range.
+ADAPTATIONS:
+Use 1-3.
+SAFETY_NOTES:
+Use oversized counters.
+
+ACTIVITY_NAME:
+Seed Collage
+CATEGORY:
+Art
+OBJECTIVE:
+Strengthen pinching and placing.
+DESCRIPTION:
+Children glue large paper seed shapes onto garden pictures.
+MATERIALS:
+Paper seeds, glue, garden paper.
+SETUP:
+Pre-cut large shapes.
+DIRECTIONS:
+1. Choose seed.
+2. Add glue.
+3. Press onto paper.
+4. Count seeds.
+5. Describe picture.
+TEACHER_ROLE:
+Encourage process and vocabulary.
+LEARNING_GOALS:
+Fine motor; creativity; counting.
+OBSERVATION_OPPORTUNITIES:
+Note bilateral hand use.
+ADAPTATIONS:
+Use stickers.
+SAFETY_NOTES:
+Use non-toxic glue.
 
 TUESDAY
-DAILY_THEME: What Plants Need
-DAILY_OBJECTIVES: Identify water and sunlight as plant needs.
-DAILY_VOCABULARY: Water, sun, need, grow.
-DAILY_MATERIALS: Watering cans, picture cards, plants, cups.
-DAILY_LEARNING_DOMAINS: Science; Language; Practical Life.
-CIRCLE_TIME_IDEAS: Compare a healthy plant photo with a wilted plant photo.
-OUTDOOR_PLAY: Water garden beds or pretend plants.
-DAILY_OBSERVATION_OPPORTUNITIES: Note cause-and-effect ideas.
-DAILY_ADAPTATIONS: Use picture choices.
-SAFETY_NOTES: Keep floors dry.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Water the Plant
-ACTIVITY_1_OBJECTIVE: Practice plant care.
-ACTIVITY_1_DESCRIPTION: Children pour small amounts of water into plant pots.
-ACTIVITY_1_MATERIALS: Small watering cans, plants, towels.
-ACTIVITY_1_SETUP: Place plants on waterproof tray.
-ACTIVITY_1_DIRECTIONS: 1. Fill can halfway. 2. Carry carefully. 3. Pour slowly. 4. Stop when soil is damp. 5. Wipe drips.
-ACTIVITY_1_TEACHER_ROLE: Model gentle care and sequencing.
-ACTIVITY_1_LEARNING_GOALS: Responsibility; pouring; cause and effect.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note control and attention.
-ACTIVITY_1_ADAPTATIONS: Use pre-filled cups.
-ACTIVITY_1_SAFETY_NOTES: Supervise water.
-ACTIVITY_2_CATEGORY: Language & Literacy
-ACTIVITY_2_NAME: Plant Needs Match
-ACTIVITY_2_OBJECTIVE: Match plants with water and sun cards.
-ACTIVITY_2_DESCRIPTION: Children choose what helps a plant grow.
-ACTIVITY_2_MATERIALS: Plant, sun, water, and unrelated picture cards.
-ACTIVITY_2_SETUP: Lay out simple choices.
-ACTIVITY_2_DIRECTIONS: 1. Look at plant. 2. Pick what it needs. 3. Place card beside plant. 4. Repeat words. 5. Review.
-ACTIVITY_2_TEACHER_ROLE: Ask either-or questions.
-ACTIVITY_2_LEARNING_GOALS: Receptive language; classification.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note matching.
-ACTIVITY_2_ADAPTATIONS: Offer two choices.
-ACTIVITY_2_SAFETY_NOTES: Use durable large cards.
-ACTIVITY_3_CATEGORY: Gross Motor
-ACTIVITY_3_NAME: Grow Like a Plant
-ACTIVITY_3_OBJECTIVE: Follow a movement sequence.
-ACTIVITY_3_DESCRIPTION: Children curl like seeds and slowly grow tall.
-ACTIVITY_3_MATERIALS: Music, green scarves.
-ACTIVITY_3_SETUP: Clear floor space.
-ACTIVITY_3_DIRECTIONS: 1. Curl small. 2. Wiggle roots. 3. Rise slowly. 4. Stretch leaves. 5. Sway in sun.
-ACTIVITY_3_TEACHER_ROLE: Lead slow controlled movements.
-ACTIVITY_3_LEARNING_GOALS: Sequencing; balance; body awareness.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note imitation and control.
-ACTIVITY_3_ADAPTATIONS: Perform seated.
-ACTIVITY_3_SAFETY_NOTES: Maintain spacing.
+DAILY_THEME:
+What Plants Need
+DAILY_OBJECTIVES:
+Identify water and sunlight as plant needs.
+DAILY_VOCABULARY:
+Water, sun, need, grow.
+DAILY_MATERIALS:
+Watering cans, picture cards, plants, cups.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Practical Life.
+CIRCLE_TIME:
+Compare a healthy plant photo with a wilted plant photo.
+OUTDOOR_PLAY:
+Water garden beds or pretend plants.
+DAILY_OBSERVATIONS:
+Note cause-and-effect ideas.
+DAILY_ADAPTATIONS:
+Use picture choices.
+SAFETY_NOTES:
+Keep floors dry.
+
+ACTIVITY_NAME:
+Water the Plant
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Practice plant care.
+DESCRIPTION:
+Children pour small amounts of water into plant pots.
+MATERIALS:
+Small watering cans, plants, towels.
+SETUP:
+Place plants on waterproof tray.
+DIRECTIONS:
+1. Fill can halfway.
+2. Carry carefully.
+3. Pour slowly.
+4. Stop when soil is damp.
+5. Wipe drips.
+TEACHER_ROLE:
+Model gentle care and sequencing.
+LEARNING_GOALS:
+Responsibility; pouring; cause and effect.
+OBSERVATION_OPPORTUNITIES:
+Note control and attention.
+ADAPTATIONS:
+Use pre-filled cups.
+SAFETY_NOTES:
+Supervise water.
+
+ACTIVITY_NAME:
+Plant Needs Match
+CATEGORY:
+Literacy
+OBJECTIVE:
+Match plants with water and sun cards.
+DESCRIPTION:
+Children choose what helps a plant grow.
+MATERIALS:
+Plant, sun, water, and unrelated picture cards.
+SETUP:
+Lay out simple choices.
+DIRECTIONS:
+1. Look at plant.
+2. Pick what it needs.
+3. Place card beside plant.
+4. Repeat words.
+5. Review.
+TEACHER_ROLE:
+Ask either-or questions.
+LEARNING_GOALS:
+Receptive language; classification.
+OBSERVATION_OPPORTUNITIES:
+Note matching.
+ADAPTATIONS:
+Offer two choices.
+SAFETY_NOTES:
+Use durable large cards.
+
+ACTIVITY_NAME:
+Grow Like a Plant
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Follow a movement sequence.
+DESCRIPTION:
+Children curl like seeds and slowly grow tall.
+MATERIALS:
+Music, green scarves.
+SETUP:
+Clear floor space.
+DIRECTIONS:
+1. Curl small.
+2. Wiggle roots.
+3. Rise slowly.
+4. Stretch leaves.
+5. Sway in sun.
+TEACHER_ROLE:
+Lead slow controlled movements.
+LEARNING_GOALS:
+Sequencing; balance; body awareness.
+OBSERVATION_OPPORTUNITIES:
+Note imitation and control.
+ADAPTATIONS:
+Perform seated.
+SAFETY_NOTES:
+Maintain spacing.
 
 WEDNESDAY
-DAILY_THEME: Roots, Stems, and Leaves
-DAILY_OBJECTIVES: Identify plant parts and compare lengths.
-DAILY_VOCABULARY: Root, stem, leaf, long, short.
-DAILY_MATERIALS: Plant samples, yarn roots, craft sticks, green paper.
-DAILY_LEARNING_DOMAINS: Science; Math; Creative Arts.
-CIRCLE_TIME_IDEAS: Look at a real plant and point to parts.
-OUTDOOR_PLAY: Find stems and leaves of different sizes.
-DAILY_OBSERVATION_OPPORTUNITIES: Note part recognition and comparison.
-DAILY_ADAPTATIONS: Use large photo cards.
-SAFETY_NOTES: Check plants are non-toxic.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Plant Parts Investigation
-ACTIVITY_1_OBJECTIVE: Observe roots, stems, and leaves.
-ACTIVITY_1_DESCRIPTION: Children examine a safe plant sample with magnifiers.
-ACTIVITY_1_MATERIALS: Safe plant, magnifiers, tray.
-ACTIVITY_1_SETUP: Place plant on tray.
-ACTIVITY_1_DIRECTIONS: 1. Find roots. 2. Touch stem. 3. Count leaves. 4. Compare parts. 5. Draw attention to color.
-ACTIVITY_1_TEACHER_ROLE: Name each part and ask noticing questions.
-ACTIVITY_1_LEARNING_GOALS: Observation; vocabulary; counting.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note attention and recall.
-ACTIVITY_1_ADAPTATIONS: Use photos.
-ACTIVITY_1_SAFETY_NOTES: Supervise handling.
-ACTIVITY_2_CATEGORY: Creative Arts
-ACTIVITY_2_NAME: Build-a-Plant Collage
-ACTIVITY_2_OBJECTIVE: Represent plant parts.
-ACTIVITY_2_DESCRIPTION: Children assemble roots, stem, leaves, and flower pieces.
-ACTIVITY_2_MATERIALS: Yarn, craft sticks, paper leaves, flower shapes, glue.
-ACTIVITY_2_SETUP: Sort pieces into bowls.
-ACTIVITY_2_DIRECTIONS: 1. Add roots. 2. Add stem. 3. Add leaves. 4. Add flower. 5. Name parts.
-ACTIVITY_2_TEACHER_ROLE: Guide sequencing without requiring perfection.
-ACTIVITY_2_LEARNING_GOALS: Fine motor; sequencing; representation.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note part placement.
-ACTIVITY_2_ADAPTATIONS: Use self-stick pieces.
-ACTIVITY_2_SAFETY_NOTES: Use blunt craft materials.
-ACTIVITY_3_CATEGORY: Math
-ACTIVITY_3_NAME: Long Stem, Short Stem
-ACTIVITY_3_OBJECTIVE: Compare length.
-ACTIVITY_3_DESCRIPTION: Children sort craft-stick stems by long and short.
-ACTIVITY_3_MATERIALS: Long and short craft sticks, two mats.
-ACTIVITY_3_SETUP: Label mats long and short.
-ACTIVITY_3_DIRECTIONS: 1. Choose stem. 2. Compare with another. 3. Place on mat. 4. Repeat. 5. Count groups.
-ACTIVITY_3_TEACHER_ROLE: Model comparison words.
-ACTIVITY_3_LEARNING_GOALS: Measurement language; sorting.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note visual comparison.
-ACTIVITY_3_ADAPTATIONS: Use very different lengths.
-ACTIVITY_3_SAFETY_NOTES: Use rounded craft sticks.
+DAILY_THEME:
+Roots, Stems, and Leaves
+DAILY_OBJECTIVES:
+Identify plant parts and compare lengths.
+DAILY_VOCABULARY:
+Root, stem, leaf, long, short.
+DAILY_MATERIALS:
+Plant samples, yarn roots, craft sticks, green paper.
+DAILY_LEARNING_DOMAINS:
+Science; Math; Creative Arts.
+CIRCLE_TIME:
+Look at a real plant and point to parts.
+OUTDOOR_PLAY:
+Find stems and leaves of different sizes.
+DAILY_OBSERVATIONS:
+Note part recognition and comparison.
+DAILY_ADAPTATIONS:
+Use large photo cards.
+SAFETY_NOTES:
+Check plants are non-toxic.
+
+ACTIVITY_NAME:
+Plant Parts Investigation
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe roots, stems, and leaves.
+DESCRIPTION:
+Children examine a safe plant sample with magnifiers.
+MATERIALS:
+Safe plant, magnifiers, tray.
+SETUP:
+Place plant on tray.
+DIRECTIONS:
+1. Find roots.
+2. Touch stem.
+3. Count leaves.
+4. Compare parts.
+5. Draw attention to color.
+TEACHER_ROLE:
+Name each part and ask noticing questions.
+LEARNING_GOALS:
+Observation; vocabulary; counting.
+OBSERVATION_OPPORTUNITIES:
+Note attention and recall.
+ADAPTATIONS:
+Use photos.
+SAFETY_NOTES:
+Supervise handling.
+
+ACTIVITY_NAME:
+Build-a-Plant Collage
+CATEGORY:
+Art
+OBJECTIVE:
+Represent plant parts.
+DESCRIPTION:
+Children assemble roots, stem, leaves, and flower pieces.
+MATERIALS:
+Yarn, craft sticks, paper leaves, flower shapes, glue.
+SETUP:
+Sort pieces into bowls.
+DIRECTIONS:
+1. Add roots.
+2. Add stem.
+3. Add leaves.
+4. Add flower.
+5. Name parts.
+TEACHER_ROLE:
+Guide sequencing without requiring perfection.
+LEARNING_GOALS:
+Fine motor; sequencing; representation.
+OBSERVATION_OPPORTUNITIES:
+Note part placement.
+ADAPTATIONS:
+Use self-stick pieces.
+SAFETY_NOTES:
+Use blunt craft materials.
+
+ACTIVITY_NAME:
+Long Stem, Short Stem
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Compare length.
+DESCRIPTION:
+Children sort craft-stick stems by long and short.
+MATERIALS:
+Long and short craft sticks, two mats.
+SETUP:
+Label mats long and short.
+DIRECTIONS:
+1. Choose stem.
+2. Compare with another.
+3. Place on mat.
+4. Repeat.
+5. Count groups.
+TEACHER_ROLE:
+Model comparison words.
+LEARNING_GOALS:
+Measurement language; sorting.
+OBSERVATION_OPPORTUNITIES:
+Note visual comparison.
+ADAPTATIONS:
+Use very different lengths.
+SAFETY_NOTES:
+Use rounded craft sticks.
 
 THURSDAY
-DAILY_THEME: Garden Builders
-DAILY_OBJECTIVES: Build beds and fences; test stability.
-DAILY_VOCABULARY: Build, fence, row, stable.
-DAILY_MATERIALS: Blocks, craft sticks, toy vegetables, trays.
-DAILY_LEARNING_DOMAINS: Engineering; Math; Dramatic Play.
-CIRCLE_TIME_IDEAS: Look at garden-bed and fence photos.
-OUTDOOR_PLAY: Build garden borders with large loose parts.
-DAILY_OBSERVATION_OPPORTUNITIES: Note planning and persistence.
-DAILY_ADAPTATIONS: Offer a pre-built base.
-SAFETY_NOTES: Keep structures low.
-ACTIVITY_1_CATEGORY: Engineering
-ACTIVITY_1_NAME: Build a Garden Bed
-ACTIVITY_1_OBJECTIVE: Create an enclosed structure.
-ACTIVITY_1_DESCRIPTION: Children use blocks to make a garden bed and add vegetables.
-ACTIVITY_1_MATERIALS: Blocks, toy vegetables, brown fabric.
-ACTIVITY_1_SETUP: Arrange materials on rug.
-ACTIVITY_1_DIRECTIONS: 1. Lay soil fabric. 2. Build border. 3. Add vegetables. 4. Test stability. 5. Rebuild if needed.
-ACTIVITY_1_TEACHER_ROLE: Encourage problem-solving.
-ACTIVITY_1_LEARNING_GOALS: Engineering; spatial awareness; persistence.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note responses to collapse.
-ACTIVITY_1_ADAPTATIONS: Use large foam blocks.
-ACTIVITY_1_SAFETY_NOTES: Use lightweight materials.
-ACTIVITY_2_CATEGORY: Fine Motor
-ACTIVITY_2_NAME: Plant the Vegetable Rows
-ACTIVITY_2_OBJECTIVE: Practice placing items in lines.
-ACTIVITY_2_DESCRIPTION: Children push toy vegetables into playdough rows.
-ACTIVITY_2_MATERIALS: Brown playdough, large toy vegetables.
-ACTIVITY_2_SETUP: Flatten playdough into beds.
-ACTIVITY_2_DIRECTIONS: 1. Make a row. 2. Choose vegetable. 3. Press it in. 4. Repeat. 5. Count vegetables.
-ACTIVITY_2_TEACHER_ROLE: Model row and spacing words.
-ACTIVITY_2_LEARNING_GOALS: Fine motor; pattern awareness; counting.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note hand strength.
-ACTIVITY_2_ADAPTATIONS: Use softer dough.
-ACTIVITY_2_SAFETY_NOTES: Use large pieces.
-ACTIVITY_3_CATEGORY: Dramatic Play
-ACTIVITY_3_NAME: Garden Center
-ACTIVITY_3_OBJECTIVE: Practice social routines and sorting.
-ACTIVITY_3_DESCRIPTION: Children buy and sell pretend plants and tools.
-ACTIVITY_3_MATERIALS: Pots, toy plants, baskets, register.
-ACTIVITY_3_SETUP: Create a garden shop.
-ACTIVITY_3_DIRECTIONS: 1. Choose role. 2. Pick plant. 3. Place in basket. 4. Pretend to pay. 5. Switch roles.
-ACTIVITY_3_TEACHER_ROLE: Model greetings and sharing.
-ACTIVITY_3_LEARNING_GOALS: Symbolic play; cooperation; language.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note peer interaction.
-ACTIVITY_3_ADAPTATIONS: Use role picture cards.
-ACTIVITY_3_SAFETY_NOTES: Avoid small coins.
+DAILY_THEME:
+Garden Builders
+DAILY_OBJECTIVES:
+Build beds and fences; test stability.
+DAILY_VOCABULARY:
+Build, fence, row, stable.
+DAILY_MATERIALS:
+Blocks, craft sticks, toy vegetables, trays.
+DAILY_LEARNING_DOMAINS:
+Engineering; Math; Dramatic Play.
+CIRCLE_TIME:
+Look at garden-bed and fence photos.
+OUTDOOR_PLAY:
+Build garden borders with large loose parts.
+DAILY_OBSERVATIONS:
+Note planning and persistence.
+DAILY_ADAPTATIONS:
+Offer a pre-built base.
+SAFETY_NOTES:
+Keep structures low.
+
+ACTIVITY_NAME:
+Build a Garden Bed
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Create an enclosed structure.
+DESCRIPTION:
+Children use blocks to make a garden bed and add vegetables.
+MATERIALS:
+Blocks, toy vegetables, brown fabric.
+SETUP:
+Arrange materials on rug.
+DIRECTIONS:
+1. Lay soil fabric.
+2. Build border.
+3. Add vegetables.
+4. Test stability.
+5. Rebuild if needed.
+TEACHER_ROLE:
+Encourage problem-solving.
+LEARNING_GOALS:
+Engineering; spatial awareness; persistence.
+OBSERVATION_OPPORTUNITIES:
+Note responses to collapse.
+ADAPTATIONS:
+Use large foam blocks.
+SAFETY_NOTES:
+Use lightweight materials.
+
+ACTIVITY_NAME:
+Plant the Vegetable Rows
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Practice placing items in lines.
+DESCRIPTION:
+Children push toy vegetables into playdough rows.
+MATERIALS:
+Brown playdough, large toy vegetables.
+SETUP:
+Flatten playdough into beds.
+DIRECTIONS:
+1. Make a row.
+2. Choose vegetable.
+3. Press it in.
+4. Repeat.
+5. Count vegetables.
+TEACHER_ROLE:
+Model row and spacing words.
+LEARNING_GOALS:
+Fine motor; pattern awareness; counting.
+OBSERVATION_OPPORTUNITIES:
+Note hand strength.
+ADAPTATIONS:
+Use softer dough.
+SAFETY_NOTES:
+Use large pieces.
+
+ACTIVITY_NAME:
+Garden Center
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Practice social routines and sorting.
+DESCRIPTION:
+Children buy and sell pretend plants and tools.
+MATERIALS:
+Pots, toy plants, baskets, register.
+SETUP:
+Create a garden shop.
+DIRECTIONS:
+1. Choose role.
+2. Pick plant.
+3. Place in basket.
+4. Pretend to pay.
+5. Switch roles.
+TEACHER_ROLE:
+Model greetings and sharing.
+LEARNING_GOALS:
+Symbolic play; cooperation; language.
+OBSERVATION_OPPORTUNITIES:
+Note peer interaction.
+ADAPTATIONS:
+Use role picture cards.
+SAFETY_NOTES:
+Avoid small coins.
 
 FRIDAY
-DAILY_THEME: Garden Celebration
-DAILY_OBJECTIVES: Review growth sequence and care for a class planting.
-DAILY_VOCABULARY: First, next, grow, care, garden.
-DAILY_MATERIALS: Pots, soil, large seeds, water, sequence cards, mural supplies.
-DAILY_LEARNING_DOMAINS: Science; Language; Social-Emotional; Creative Arts.
-CIRCLE_TIME_IDEAS: Sequence seed, sprout, plant, flower.
-OUTDOOR_PLAY: Complete a garden-care relay.
-DAILY_OBSERVATION_OPPORTUNITIES: Note recall, sequencing, and teamwork.
-DAILY_ADAPTATIONS: Use two-step sequence cards.
-SAFETY_NOTES: Confirm all planting materials are safe.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Plant a Class Seed
-ACTIVITY_1_OBJECTIVE: Follow a planting sequence.
-ACTIVITY_1_DESCRIPTION: Children help fill, plant, cover, and water a pot.
-ACTIVITY_1_MATERIALS: Pot, soil, large seed, scoop, water.
-ACTIVITY_1_SETUP: Place materials on waterproof tray.
-ACTIVITY_1_DIRECTIONS: 1. Add soil. 2. Make hole. 3. Add seed. 4. Cover gently. 5. Water lightly.
-ACTIVITY_1_TEACHER_ROLE: Guide turns and label steps.
-ACTIVITY_1_LEARNING_GOALS: Sequencing; responsibility; science.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note step recall.
-ACTIVITY_1_ADAPTATIONS: Pre-fill pot.
-ACTIVITY_1_SAFETY_NOTES: Supervise soil and water.
-ACTIVITY_2_CATEGORY: Language & Literacy
-ACTIVITY_2_NAME: How a Seed Grows
-ACTIVITY_2_OBJECTIVE: Sequence three or four pictures.
-ACTIVITY_2_DESCRIPTION: Children arrange seed-growth cards.
-ACTIVITY_2_MATERIALS: Large sequence cards.
-ACTIVITY_2_SETUP: Mix cards on floor.
-ACTIVITY_2_DIRECTIONS: 1. Find seed. 2. Find sprout. 3. Find plant. 4. Find flower. 5. Retell together.
-ACTIVITY_2_TEACHER_ROLE: Use first-next-last language.
-ACTIVITY_2_LEARNING_GOALS: Sequencing; recall; vocabulary.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note order understanding.
-ACTIVITY_2_ADAPTATIONS: Use two cards.
-ACTIVITY_2_SAFETY_NOTES: Use laminated cards.
-ACTIVITY_3_CATEGORY: Creative Arts
-ACTIVITY_3_NAME: Our Growing Garden Mural
-ACTIVITY_3_OBJECTIVE: Create a collaborative review piece.
-ACTIVITY_3_DESCRIPTION: Children add soil, stems, leaves, flowers, and sun to a mural.
-ACTIVITY_3_MATERIALS: Mural paper, paint, paper shapes, glue.
-ACTIVITY_3_SETUP: Secure mural paper.
-ACTIVITY_3_DIRECTIONS: 1. Paint soil. 2. Add stems. 3. Add leaves. 4. Add flowers. 5. Add sun and water.
-ACTIVITY_3_TEACHER_ROLE: Encourage teamwork and part vocabulary.
-ACTIVITY_3_LEARNING_GOALS: Creativity; recall; group belonging.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note choices and collaboration.
-ACTIVITY_3_ADAPTATIONS: Use stickers and rollers.
-ACTIVITY_3_SAFETY_NOTES: Use washable non-toxic materials.
+DAILY_THEME:
+Garden Celebration
+DAILY_OBJECTIVES:
+Review growth sequence and care for a class planting.
+DAILY_VOCABULARY:
+First, next, grow, care, garden.
+DAILY_MATERIALS:
+Pots, soil, large seeds, water, sequence cards, mural supplies.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Social-Emotional; Creative Arts.
+CIRCLE_TIME:
+Sequence seed, sprout, plant, flower.
+OUTDOOR_PLAY:
+Complete a garden-care relay.
+DAILY_OBSERVATIONS:
+Note recall, sequencing, and teamwork.
+DAILY_ADAPTATIONS:
+Use two-step sequence cards.
+SAFETY_NOTES:
+Confirm all planting materials are safe.
+
+ACTIVITY_NAME:
+Plant a Class Seed
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Follow a planting sequence.
+DESCRIPTION:
+Children help fill, plant, cover, and water a pot.
+MATERIALS:
+Pot, soil, large seed, scoop, water.
+SETUP:
+Place materials on waterproof tray.
+DIRECTIONS:
+1. Add soil.
+2. Make hole.
+3. Add seed.
+4. Cover gently.
+5. Water lightly.
+TEACHER_ROLE:
+Guide turns and label steps.
+LEARNING_GOALS:
+Sequencing; responsibility; science.
+OBSERVATION_OPPORTUNITIES:
+Note step recall.
+ADAPTATIONS:
+Pre-fill pot.
+SAFETY_NOTES:
+Supervise soil and water.
+
+ACTIVITY_NAME:
+How a Seed Grows
+CATEGORY:
+Literacy
+OBJECTIVE:
+Sequence three or four pictures.
+DESCRIPTION:
+Children arrange seed-growth cards.
+MATERIALS:
+Large sequence cards.
+SETUP:
+Mix cards on floor.
+DIRECTIONS:
+1. Find seed.
+2. Find sprout.
+3. Find plant.
+4. Find flower.
+5. Retell together.
+TEACHER_ROLE:
+Use first-next-last language.
+LEARNING_GOALS:
+Sequencing; recall; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Note order understanding.
+ADAPTATIONS:
+Use two cards.
+SAFETY_NOTES:
+Use laminated cards.
+
+ACTIVITY_NAME:
+Our Growing Garden Mural
+CATEGORY:
+Art
+OBJECTIVE:
+Create a collaborative review piece.
+DESCRIPTION:
+Children add soil, stems, leaves, flowers, and sun to a mural.
+MATERIALS:
+Mural paper, paint, paper shapes, glue.
+SETUP:
+Secure mural paper.
+DIRECTIONS:
+1. Paint soil.
+2. Add stems.
+3. Add leaves.
+4. Add flowers.
+5. Add sun and water.
+TEACHER_ROLE:
+Encourage teamwork and part vocabulary.
+LEARNING_GOALS:
+Creativity; recall; group belonging.
+OBSERVATION_OPPORTUNITIES:
+Note choices and collaboration.
+ADAPTATIONS:
+Use stickers and rollers.
+SAFETY_NOTES:
+Use washable non-toxic materials.

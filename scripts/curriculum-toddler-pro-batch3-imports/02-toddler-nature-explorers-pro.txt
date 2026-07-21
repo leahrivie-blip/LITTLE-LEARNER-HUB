@@ -1,9 +1,15 @@
-TITLE: Nature Explorers
-AGE_GROUP: Toddler (2–3 Years)
-THEME: Nature Explorers
-PLAN: PRO
-STATUS: Published
-LEARNING_DOMAINS: Science; Language & Literacy; Math; Fine Motor; Gross Motor; Creative Arts; Social-Emotional Development
+TITLE:
+Nature Explorers
+AGE_GROUP:
+Toddler (2–3 Years)
+THEME:
+Nature Explorers
+PLAN:
+Pro
+STATUS:
+published
+LEARNING_DOMAINS:
+Science; Language & Literacy; Math; Fine Motor; Gross Motor; Creative Arts; Social-Emotional Development
 
 WEEKLY_OVERVIEW:
 Toddlers investigate leaves, sticks, rocks, flowers, weather, and outdoor sounds through safe, play-based exploration. Children practice observing, comparing, collecting, sorting, creating, moving, and caring for nature.
@@ -37,257 +43,547 @@ Observe descriptive vocabulary, visual attention, sorting choices, counting, bal
 ADAPTATIONS:
 Provide picture choices, large materials, seated exploration, gloves or tools for sensory-sensitive children, reduced quantities, and adult-supported movement.
 
-MONDAY:
-DAILY_THEME: Leaves Everywhere
-DAILY_OBJECTIVES: Notice leaf colors, sizes, and textures; practice sorting.
-DAILY_VOCABULARY: Leaf; green; brown; smooth; rough.
-DAILY_MATERIALS: Large leaves; baskets; magnifiers; paper; crayons; contact paper.
-DAILY_LEARNING_DOMAINS: Science; Math; Fine Motor; Art.
-CIRCLE_TIME_IDEAS: Compare several leaves and sing Leaves Are Falling.
-OUTDOOR_PLAY: Collect only fallen leaves and carry them in baskets.
-DAILY_OBSERVATION_OPPORTUNITIES: Color words, texture reactions, sorting, and collection skills.
-DAILY_ADAPTATIONS: Use artificial leaves or photos.
-SAFETY_NOTES: Inspect all materials and avoid unknown plants.
-ACTIVITY_1:
-CATEGORY: Science
-ACTIVITY_NAME: Leaf Look Lab
-OBJECTIVE: Observe and compare leaf details.
-DESCRIPTION: Children examine leaves with magnifiers.
-MATERIALS: Large leaves; shatter-resistant magnifiers; trays.
-SETUP: Place one leaf on each tray.
-DIRECTIONS: 1. Choose a leaf. 2. Look closely. 3. Touch the surface. 4. Compare two leaves. 5. Share a word or gesture.
-TEACHER_ROLE: Model words such as smooth, rough, big, and small.
-LEARNING_GOALS: Observation; comparison; vocabulary.
-OBSERVATION_OPPORTUNITIES: Visual focus and descriptive communication.
-ADAPTATIONS: Use enlarged photos.
-SAFETY_NOTES: Supervise and prevent mouthing.
-ACTIVITY_2:
-CATEGORY: Math
-ACTIVITY_NAME: Sort the Leaves
-OBJECTIVE: Sort by color or size.
-DESCRIPTION: Children place leaves into two simple groups.
-MATERIALS: Leaves; two baskets; color or size cards.
-SETUP: Model one sorting rule.
-DIRECTIONS: 1. Pick a leaf. 2. Notice its feature. 3. Choose a basket. 4. Continue sorting. 5. Compare groups.
-TEACHER_ROLE: Narrate choices and keep the rule simple.
-LEARNING_GOALS: Classification; reasoning; comparison.
-OBSERVATION_OPPORTUNITIES: Rule following and flexibility.
-ADAPTATIONS: Offer matching pairs.
-SAFETY_NOTES: Use clean, dry leaves.
-ACTIVITY_3:
-CATEGORY: Creative Arts
-ACTIVITY_NAME: Leaf Rubbings
-OBJECTIVE: Explore texture and pressure.
-DESCRIPTION: Children rub chunky crayons over paper placed on leaves.
-MATERIALS: Leaves; paper; peeled chunky crayons.
-SETUP: Tape leaves under paper.
-DIRECTIONS: 1. Feel the hidden leaf. 2. Hold a crayon sideways. 3. Rub across the paper. 4. Watch the pattern appear. 5. Choose another color.
-TEACHER_ROLE: Assist grip and describe cause and effect.
-LEARNING_GOALS: Fine motor control; texture awareness; creativity.
-OBSERVATION_OPPORTUNITIES: Pressure and hand use.
-ADAPTATIONS: Use paint rollers.
-SAFETY_NOTES: Use non-toxic crayons.
+MONDAY
+DAILY_THEME:
+Leaves Everywhere
+DAILY_OBJECTIVES:
+Notice leaf colors, sizes, and textures; practice sorting.
+DAILY_VOCABULARY:
+Leaf; green; brown; smooth; rough.
+DAILY_MATERIALS:
+Large leaves; baskets; magnifiers; paper; crayons; contact paper.
+DAILY_LEARNING_DOMAINS:
+Science; Math; Fine Motor; Art.
+CIRCLE_TIME:
+Compare several leaves and sing Leaves Are Falling.
+OUTDOOR_PLAY:
+Collect only fallen leaves and carry them in baskets.
+DAILY_OBSERVATIONS:
+Color words, texture reactions, sorting, and collection skills.
+DAILY_ADAPTATIONS:
+Use artificial leaves or photos.
+SAFETY_NOTES:
+Inspect all materials and avoid unknown plants.
 
-TUESDAY:
-DAILY_THEME: Rocks and Stones
-DAILY_OBJECTIVES: Compare weight, size, texture, and sound.
-DAILY_VOCABULARY: Rock; heavy; light; hard; smooth.
-DAILY_MATERIALS: Large smooth rocks; balance baskets; paint; blocks.
-DAILY_LEARNING_DOMAINS: Science; Math; Fine Motor; Engineering.
-CIRCLE_TIME_IDEAS: Pass two large rocks and compare heavy and light.
-OUTDOOR_PLAY: Follow a rock path made from flat stepping markers.
-DAILY_OBSERVATION_OPPORTUNITIES: Comparison language and lifting control.
-DAILY_ADAPTATIONS: Use foam rocks.
-SAFETY_NOTES: Use only large, smooth, lightweight rocks.
-ACTIVITY_1:
-CATEGORY: Science
-ACTIVITY_NAME: Rock Compare
-OBJECTIVE: Compare visible and touchable features.
-DESCRIPTION: Children inspect rocks and choose words to describe them.
-MATERIALS: Large smooth rocks; trays; magnifiers.
-SETUP: Place two contrasting rocks per tray.
-DIRECTIONS: 1. Touch both rocks. 2. Lift one at a time. 3. Look closely. 4. Choose a describing word. 5. Trade with a friend.
-TEACHER_ROLE: Model safe handling and comparison words.
-LEARNING_GOALS: Sensory science; language; turn-taking.
-OBSERVATION_OPPORTUNITIES: Grip, comparison, and vocabulary.
-ADAPTATIONS: Use picture symbols.
-SAFETY_NOTES: No throwing.
-ACTIVITY_2:
-CATEGORY: Math
-ACTIVITY_NAME: Big Rock, Small Rock
-OBJECTIVE: Sort by size.
-DESCRIPTION: Children place large and small rocks on matching mats.
-MATERIALS: Large safe rocks; big/small mats.
-SETUP: Model one example.
-DIRECTIONS: 1. Pick a rock. 2. Compare it with the examples. 3. Place it on a mat. 4. Continue. 5. Count each group.
-TEACHER_ROLE: Use simple comparison language.
-LEARNING_GOALS: Size discrimination; sorting; counting.
-OBSERVATION_OPPORTUNITIES: Visual matching and one-to-one counting.
-ADAPTATIONS: Use only four rocks.
-SAFETY_NOTES: Supervise handling.
-ACTIVITY_3:
-CATEGORY: Creative Arts
-ACTIVITY_NAME: Painted Nature Stones
-OBJECTIVE: Make intentional marks on a natural surface.
-DESCRIPTION: Children paint large smooth stones.
-MATERIALS: Large stones; washable paint; brushes; smocks.
-SETUP: Wash and dry stones.
-DIRECTIONS: 1. Choose a stone. 2. Select paint. 3. Add dots or lines. 4. Turn the stone with help. 5. Place it to dry.
-TEACHER_ROLE: Encourage experimentation.
-LEARNING_GOALS: Creativity; wrist control; choice-making.
-OBSERVATION_OPPORTUNITIES: Brush grip and color choices.
-ADAPTATIONS: Use sponge daubers.
-SAFETY_NOTES: Prevent mouthing and wash hands.
+ACTIVITY_NAME:
+Leaf Look Lab
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe and compare leaf details.
+DESCRIPTION:
+Children examine leaves with magnifiers.
+MATERIALS:
+Large leaves; shatter-resistant magnifiers; trays.
+SETUP:
+Place one leaf on each tray.
+DIRECTIONS:
+1. Choose a leaf.
+2. Look closely.
+3. Touch the surface.
+4. Compare two leaves.
+5. Share a word or gesture.
+TEACHER_ROLE:
+Model words such as smooth, rough, big, and small.
+LEARNING_GOALS:
+Observation; comparison; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Visual focus and descriptive communication.
+ADAPTATIONS:
+Use enlarged photos.
+SAFETY_NOTES:
+Supervise and prevent mouthing.
 
-WEDNESDAY:
-DAILY_THEME: Sticks and Building
-DAILY_OBJECTIVES: Explore length, balance, and simple construction.
-DAILY_VOCABULARY: Stick; long; short; build; balance.
-DAILY_MATERIALS: Clean craft sticks; blocks; playdough; cardboard bases.
-DAILY_LEARNING_DOMAINS: Engineering; Math; Fine Motor; Language.
-CIRCLE_TIME_IDEAS: Compare long and short sticks and make simple shapes.
-OUTDOOR_PLAY: Carry lightweight foam sticks through a safe obstacle path.
-DAILY_OBSERVATION_OPPORTUNITIES: Stacking, persistence, and length comparison.
-DAILY_ADAPTATIONS: Use foam or jumbo craft sticks.
-SAFETY_NOTES: Avoid sharp natural sticks.
-ACTIVITY_1:
-CATEGORY: Engineering
-ACTIVITY_NAME: Stick and Block Bridges
-OBJECTIVE: Build a simple bridge.
-DESCRIPTION: Children place sticks across blocks and test toy animals on top.
-MATERIALS: Jumbo craft sticks; blocks; toy animals.
-SETUP: Arrange materials on the floor.
-DIRECTIONS: 1. Place two blocks apart. 2. Lay a stick across. 3. Test an animal. 4. Adjust if it falls. 5. Build another bridge.
-TEACHER_ROLE: Prompt testing and revision.
-LEARNING_GOALS: Cause and effect; spatial reasoning; persistence.
-OBSERVATION_OPPORTUNITIES: Planning and response to failure.
-ADAPTATIONS: Provide a completed model.
-SAFETY_NOTES: Use blunt, oversized materials.
-ACTIVITY_2:
-CATEGORY: Fine Motor
-ACTIVITY_NAME: Playdough Stick Forest
-OBJECTIVE: Push and position materials vertically.
-DESCRIPTION: Children press sticks into playdough to create a forest.
-MATERIALS: Playdough; jumbo craft sticks; leaf shapes.
-SETUP: Place dough on trays.
-DIRECTIONS: 1. Flatten the dough. 2. Choose a stick. 3. Push it upright. 4. Add leaves. 5. Count the trees.
-TEACHER_ROLE: Model pressing and count naturally.
-LEARNING_GOALS: Hand strength; balance; symbolic play.
-OBSERVATION_OPPORTUNITIES: Force control and persistence.
-ADAPTATIONS: Use softer dough.
-SAFETY_NOTES: Non-toxic materials only.
-ACTIVITY_3:
-CATEGORY: Math
-ACTIVITY_NAME: Long and Short Match
-OBJECTIVE: Match sticks by length.
-DESCRIPTION: Children compare and place sticks on long and short mats.
-MATERIALS: Jumbo sticks in two lengths; mats.
-SETUP: Demonstrate one match.
-DIRECTIONS: 1. Pick a stick. 2. Compare it with another. 3. Choose long or short. 4. Place it on the mat. 5. Repeat.
-TEACHER_ROLE: Reinforce comparison words.
-LEARNING_GOALS: Measurement concepts; sorting.
-OBSERVATION_OPPORTUNITIES: Visual discrimination.
-ADAPTATIONS: Use only two contrasting sticks.
-SAFETY_NOTES: Supervise use.
+ACTIVITY_NAME:
+Sort the Leaves
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Sort by color or size.
+DESCRIPTION:
+Children place leaves into two simple groups.
+MATERIALS:
+Leaves; two baskets; color or size cards.
+SETUP:
+Model one sorting rule.
+DIRECTIONS:
+1. Pick a leaf.
+2. Notice its feature.
+3. Choose a basket.
+4. Continue sorting.
+5. Compare groups.
+TEACHER_ROLE:
+Narrate choices and keep the rule simple.
+LEARNING_GOALS:
+Classification; reasoning; comparison.
+OBSERVATION_OPPORTUNITIES:
+Rule following and flexibility.
+ADAPTATIONS:
+Offer matching pairs.
+SAFETY_NOTES:
+Use clean, dry leaves.
 
-THURSDAY:
-DAILY_THEME: Nature Sounds
-DAILY_OBJECTIVES: Listen, identify, imitate, and create sounds.
-DAILY_VOCABULARY: Listen; quiet; loud; bird; wind.
-DAILY_MATERIALS: Sound recordings; shakers; leaves; paper tubes; scarves.
-DAILY_LEARNING_DOMAINS: Music; Science; Language; Gross Motor.
-CIRCLE_TIME_IDEAS: Take a quiet listening moment and name sounds heard.
-OUTDOOR_PLAY: Complete a slow listening walk.
-DAILY_OBSERVATION_OPPORTUNITIES: Auditory attention and sound imitation.
-DAILY_ADAPTATIONS: Use headphones at low volume or visual sound cards.
-SAFETY_NOTES: Keep volume gentle.
-ACTIVITY_1:
-CATEGORY: Science
-ACTIVITY_NAME: Listening Walk
-OBJECTIVE: Attend to environmental sounds.
-DESCRIPTION: Children walk slowly and pause to listen.
-MATERIALS: Picture sound cards; basket.
-SETUP: Choose a safe route.
-DIRECTIONS: 1. Walk together. 2. Stop at a marker. 3. Listen quietly. 4. Name or imitate a sound. 5. Continue.
-TEACHER_ROLE: Model quiet attention and validate all observations.
-LEARNING_GOALS: Auditory discrimination; self-regulation; vocabulary.
-OBSERVATION_OPPORTUNITIES: Focus and recall.
-ADAPTATIONS: Listen near an open window.
-SAFETY_NOTES: Maintain close supervision outdoors.
-ACTIVITY_2:
-CATEGORY: Music
-ACTIVITY_NAME: Leaf Shaker Sounds
-OBJECTIVE: Explore loud and quiet sound.
-DESCRIPTION: Children shake sealed containers holding dry leaves.
-MATERIALS: Secure clear containers; dry leaves; tape.
-SETUP: Seal and inspect containers.
-DIRECTIONS: 1. Hold a shaker. 2. Shake gently. 3. Shake more strongly. 4. Stop and listen. 5. Copy a simple rhythm.
-TEACHER_ROLE: Model safe shaking and contrast words.
-LEARNING_GOALS: Rhythm; cause and effect; listening.
-OBSERVATION_OPPORTUNITIES: Imitation and impulse control.
-ADAPTATIONS: Use teacher-held instruments.
-SAFETY_NOTES: Double-seal containers.
-ACTIVITY_3:
-CATEGORY: Gross Motor
-ACTIVITY_NAME: Move Like the Wind
-OBJECTIVE: Respond physically to music and speed cues.
-DESCRIPTION: Children sway scarves like gentle or strong wind.
-MATERIALS: Scarves; soft music.
-SETUP: Clear the area.
-DIRECTIONS: 1. Hold a scarf. 2. Sway slowly. 3. Move faster when cued. 4. Freeze when the wind stops. 5. Finish with slow breaths.
-TEACHER_ROLE: Model and regulate pace.
-LEARNING_GOALS: Coordination; listening; self-regulation.
-OBSERVATION_OPPORTUNITIES: Cue response and movement control.
-ADAPTATIONS: Offer seated movements.
-SAFETY_NOTES: Do not wrap scarves around necks.
+ACTIVITY_NAME:
+Leaf Rubbings
+CATEGORY:
+Art
+OBJECTIVE:
+Explore texture and pressure.
+DESCRIPTION:
+Children rub chunky crayons over paper placed on leaves.
+MATERIALS:
+Leaves; paper; peeled chunky crayons.
+SETUP:
+Tape leaves under paper.
+DIRECTIONS:
+1. Feel the hidden leaf.
+2. Hold a crayon sideways.
+3. Rub across the paper.
+4. Watch the pattern appear.
+5. Choose another color.
+TEACHER_ROLE:
+Assist grip and describe cause and effect.
+LEARNING_GOALS:
+Fine motor control; texture awareness; creativity.
+OBSERVATION_OPPORTUNITIES:
+Pressure and hand use.
+ADAPTATIONS:
+Use paint rollers.
+SAFETY_NOTES:
+Use non-toxic crayons.
 
-FRIDAY:
-DAILY_THEME: Nature Museum
-DAILY_OBJECTIVES: Review, sort, display, and communicate discoveries.
-DAILY_VOCABULARY: Collection; display; favorite; same; different.
-DAILY_MATERIALS: Week's nature items; trays; labels; paper; crayons; blocks.
-DAILY_LEARNING_DOMAINS: Science; Math; Language; Creative Arts; Social-Emotional.
-CIRCLE_TIME_IDEAS: Review photos and let each child choose a favorite item.
-OUTDOOR_PLAY: Revisit a favorite nature activity from the week.
-DAILY_OBSERVATION_OPPORTUNITIES: Recall, preference, classification, and peer sharing.
-DAILY_ADAPTATIONS: Use picture choices and adult scribing.
-SAFETY_NOTES: Reinspect all collected items.
-ACTIVITY_1:
-CATEGORY: Science
-ACTIVITY_NAME: Classroom Nature Museum
-OBJECTIVE: Organize and display nature objects.
-DESCRIPTION: Children arrange safe items on trays.
-MATERIALS: Leaves; rocks; craft sticks; trays; picture labels.
-SETUP: Prepare simple category trays.
-DIRECTIONS: 1. Choose an item. 2. Decide where it belongs. 3. Place it on a tray. 4. Add another. 5. Tour the museum together.
-TEACHER_ROLE: Support classification and language.
-LEARNING_GOALS: Organization; recall; communication.
-OBSERVATION_OPPORTUNITIES: Sorting logic and confidence.
-ADAPTATIONS: Offer two choices.
-SAFETY_NOTES: Supervise all objects.
-ACTIVITY_2:
-CATEGORY: Creative Arts
-ACTIVITY_NAME: Nature Collage
-OBJECTIVE: Combine textures into an open-ended artwork.
-DESCRIPTION: Children glue large safe nature pieces or paper replicas onto cardstock.
-MATERIALS: Cardstock; leaves; paper nature shapes; glue sticks.
-SETUP: Arrange materials by type.
-DIRECTIONS: 1. Choose a piece. 2. Add glue. 3. Press it onto paper. 4. Layer another texture. 5. Describe the collage.
-TEACHER_ROLE: Encourage independent choices and narrate textures.
-LEARNING_GOALS: Fine motor control; creativity; sensory awareness.
-OBSERVATION_OPPORTUNITIES: Selection and placement.
-ADAPTATIONS: Use contact paper.
-SAFETY_NOTES: Avoid fragile or sharp natural materials.
-ACTIVITY_3:
-CATEGORY: Language
-ACTIVITY_NAME: My Nature Favorite
-OBJECTIVE: Express a preference and recall an experience.
-DESCRIPTION: Children select a nature picture and dictate a word or phrase.
-MATERIALS: Nature photos; paper; crayons.
-SETUP: Display photo choices.
-DIRECTIONS: 1. Choose a favorite. 2. Point or name it. 3. Draw a mark or picture. 4. Tell one detail. 5. Teacher records the child's words.
-TEACHER_ROLE: Accept gestures, sounds, or words as communication.
-LEARNING_GOALS: Recall; expressive language; confidence.
-OBSERVATION_OPPORTUNITIES: Choice-making and communication mode.
-ADAPTATIONS: Use yes/no questions.
-SAFETY_NOTES: Use age-appropriate art tools.
+TUESDAY
+DAILY_THEME:
+Rocks and Stones
+DAILY_OBJECTIVES:
+Compare weight, size, texture, and sound.
+DAILY_VOCABULARY:
+Rock; heavy; light; hard; smooth.
+DAILY_MATERIALS:
+Large smooth rocks; balance baskets; paint; blocks.
+DAILY_LEARNING_DOMAINS:
+Science; Math; Fine Motor; Engineering.
+CIRCLE_TIME:
+Pass two large rocks and compare heavy and light.
+OUTDOOR_PLAY:
+Follow a rock path made from flat stepping markers.
+DAILY_OBSERVATIONS:
+Comparison language and lifting control.
+DAILY_ADAPTATIONS:
+Use foam rocks.
+SAFETY_NOTES:
+Use only large, smooth, lightweight rocks.
+
+ACTIVITY_NAME:
+Rock Compare
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Compare visible and touchable features.
+DESCRIPTION:
+Children inspect rocks and choose words to describe them.
+MATERIALS:
+Large smooth rocks; trays; magnifiers.
+SETUP:
+Place two contrasting rocks per tray.
+DIRECTIONS:
+1. Touch both rocks.
+2. Lift one at a time.
+3. Look closely.
+4. Choose a describing word.
+5. Trade with a friend.
+TEACHER_ROLE:
+Model safe handling and comparison words.
+LEARNING_GOALS:
+Sensory science; language; turn-taking.
+OBSERVATION_OPPORTUNITIES:
+Grip, comparison, and vocabulary.
+ADAPTATIONS:
+Use picture symbols.
+SAFETY_NOTES:
+No throwing.
+
+ACTIVITY_NAME:
+Big Rock, Small Rock
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Sort by size.
+DESCRIPTION:
+Children place large and small rocks on matching mats.
+MATERIALS:
+Large safe rocks; big/small mats.
+SETUP:
+Model one example.
+DIRECTIONS:
+1. Pick a rock.
+2. Compare it with the examples.
+3. Place it on a mat.
+4. Continue.
+5. Count each group.
+TEACHER_ROLE:
+Use simple comparison language.
+LEARNING_GOALS:
+Size discrimination; sorting; counting.
+OBSERVATION_OPPORTUNITIES:
+Visual matching and one-to-one counting.
+ADAPTATIONS:
+Use only four rocks.
+SAFETY_NOTES:
+Supervise handling.
+
+ACTIVITY_NAME:
+Painted Nature Stones
+CATEGORY:
+Art
+OBJECTIVE:
+Make intentional marks on a natural surface.
+DESCRIPTION:
+Children paint large smooth stones.
+MATERIALS:
+Large stones; washable paint; brushes; smocks.
+SETUP:
+Wash and dry stones.
+DIRECTIONS:
+1. Choose a stone.
+2. Select paint.
+3. Add dots or lines.
+4. Turn the stone with help.
+5. Place it to dry.
+TEACHER_ROLE:
+Encourage experimentation.
+LEARNING_GOALS:
+Creativity; wrist control; choice-making.
+OBSERVATION_OPPORTUNITIES:
+Brush grip and color choices.
+ADAPTATIONS:
+Use sponge daubers.
+SAFETY_NOTES:
+Prevent mouthing and wash hands.
+
+WEDNESDAY
+DAILY_THEME:
+Sticks and Building
+DAILY_OBJECTIVES:
+Explore length, balance, and simple construction.
+DAILY_VOCABULARY:
+Stick; long; short; build; balance.
+DAILY_MATERIALS:
+Clean craft sticks; blocks; playdough; cardboard bases.
+DAILY_LEARNING_DOMAINS:
+Engineering; Math; Fine Motor; Language.
+CIRCLE_TIME:
+Compare long and short sticks and make simple shapes.
+OUTDOOR_PLAY:
+Carry lightweight foam sticks through a safe obstacle path.
+DAILY_OBSERVATIONS:
+Stacking, persistence, and length comparison.
+DAILY_ADAPTATIONS:
+Use foam or jumbo craft sticks.
+SAFETY_NOTES:
+Avoid sharp natural sticks.
+
+ACTIVITY_NAME:
+Stick and Block Bridges
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Build a simple bridge.
+DESCRIPTION:
+Children place sticks across blocks and test toy animals on top.
+MATERIALS:
+Jumbo craft sticks; blocks; toy animals.
+SETUP:
+Arrange materials on the floor.
+DIRECTIONS:
+1. Place two blocks apart.
+2. Lay a stick across.
+3. Test an animal.
+4. Adjust if it falls.
+5. Build another bridge.
+TEACHER_ROLE:
+Prompt testing and revision.
+LEARNING_GOALS:
+Cause and effect; spatial reasoning; persistence.
+OBSERVATION_OPPORTUNITIES:
+Planning and response to failure.
+ADAPTATIONS:
+Provide a completed model.
+SAFETY_NOTES:
+Use blunt, oversized materials.
+
+ACTIVITY_NAME:
+Playdough Stick Forest
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Push and position materials vertically.
+DESCRIPTION:
+Children press sticks into playdough to create a forest.
+MATERIALS:
+Playdough; jumbo craft sticks; leaf shapes.
+SETUP:
+Place dough on trays.
+DIRECTIONS:
+1. Flatten the dough.
+2. Choose a stick.
+3. Push it upright.
+4. Add leaves.
+5. Count the trees.
+TEACHER_ROLE:
+Model pressing and count naturally.
+LEARNING_GOALS:
+Hand strength; balance; symbolic play.
+OBSERVATION_OPPORTUNITIES:
+Force control and persistence.
+ADAPTATIONS:
+Use softer dough.
+SAFETY_NOTES:
+Non-toxic materials only.
+
+ACTIVITY_NAME:
+Long and Short Match
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match sticks by length.
+DESCRIPTION:
+Children compare and place sticks on long and short mats.
+MATERIALS:
+Jumbo sticks in two lengths; mats.
+SETUP:
+Demonstrate one match.
+DIRECTIONS:
+1. Pick a stick.
+2. Compare it with another.
+3. Choose long or short.
+4. Place it on the mat.
+5. Repeat.
+TEACHER_ROLE:
+Reinforce comparison words.
+LEARNING_GOALS:
+Measurement concepts; sorting.
+OBSERVATION_OPPORTUNITIES:
+Visual discrimination.
+ADAPTATIONS:
+Use only two contrasting sticks.
+SAFETY_NOTES:
+Supervise use.
+
+THURSDAY
+DAILY_THEME:
+Nature Sounds
+DAILY_OBJECTIVES:
+Listen, identify, imitate, and create sounds.
+DAILY_VOCABULARY:
+Listen; quiet; loud; bird; wind.
+DAILY_MATERIALS:
+Sound recordings; shakers; leaves; paper tubes; scarves.
+DAILY_LEARNING_DOMAINS:
+Music; Science; Language; Gross Motor.
+CIRCLE_TIME:
+Take a quiet listening moment and name sounds heard.
+OUTDOOR_PLAY:
+Complete a slow listening walk.
+DAILY_OBSERVATIONS:
+Auditory attention and sound imitation.
+DAILY_ADAPTATIONS:
+Use headphones at low volume or visual sound cards.
+SAFETY_NOTES:
+Keep volume gentle.
+
+ACTIVITY_NAME:
+Listening Walk
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Attend to environmental sounds.
+DESCRIPTION:
+Children walk slowly and pause to listen.
+MATERIALS:
+Picture sound cards; basket.
+SETUP:
+Choose a safe route.
+DIRECTIONS:
+1. Walk together.
+2. Stop at a marker.
+3. Listen quietly.
+4. Name or imitate a sound.
+5. Continue.
+TEACHER_ROLE:
+Model quiet attention and validate all observations.
+LEARNING_GOALS:
+Auditory discrimination; self-regulation; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Focus and recall.
+ADAPTATIONS:
+Listen near an open window.
+SAFETY_NOTES:
+Maintain close supervision outdoors.
+
+ACTIVITY_NAME:
+Leaf Shaker Sounds
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Explore loud and quiet sound.
+DESCRIPTION:
+Children shake sealed containers holding dry leaves.
+MATERIALS:
+Secure clear containers; dry leaves; tape.
+SETUP:
+Seal and inspect containers.
+DIRECTIONS:
+1. Hold a shaker.
+2. Shake gently.
+3. Shake more strongly.
+4. Stop and listen.
+5. Copy a simple rhythm.
+TEACHER_ROLE:
+Model safe shaking and contrast words.
+LEARNING_GOALS:
+Rhythm; cause and effect; listening.
+OBSERVATION_OPPORTUNITIES:
+Imitation and impulse control.
+ADAPTATIONS:
+Use teacher-held instruments.
+SAFETY_NOTES:
+Double-seal containers.
+
+ACTIVITY_NAME:
+Move Like the Wind
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Respond physically to music and speed cues.
+DESCRIPTION:
+Children sway scarves like gentle or strong wind.
+MATERIALS:
+Scarves; soft music.
+SETUP:
+Clear the area.
+DIRECTIONS:
+1. Hold a scarf.
+2. Sway slowly.
+3. Move faster when cued.
+4. Freeze when the wind stops.
+5. Finish with slow breaths.
+TEACHER_ROLE:
+Model and regulate pace.
+LEARNING_GOALS:
+Coordination; listening; self-regulation.
+OBSERVATION_OPPORTUNITIES:
+Cue response and movement control.
+ADAPTATIONS:
+Offer seated movements.
+SAFETY_NOTES:
+Do not wrap scarves around necks.
+
+FRIDAY
+DAILY_THEME:
+Nature Museum
+DAILY_OBJECTIVES:
+Review, sort, display, and communicate discoveries.
+DAILY_VOCABULARY:
+Collection; display; favorite; same; different.
+DAILY_MATERIALS:
+Week's nature items; trays; labels; paper; crayons; blocks.
+DAILY_LEARNING_DOMAINS:
+Science; Math; Language; Creative Arts; Social-Emotional.
+CIRCLE_TIME:
+Review photos and let each child choose a favorite item.
+OUTDOOR_PLAY:
+Revisit a favorite nature activity from the week.
+DAILY_OBSERVATIONS:
+Recall, preference, classification, and peer sharing.
+DAILY_ADAPTATIONS:
+Use picture choices and adult scribing.
+SAFETY_NOTES:
+Reinspect all collected items.
+
+ACTIVITY_NAME:
+Classroom Nature Museum
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Organize and display nature objects.
+DESCRIPTION:
+Children arrange safe items on trays.
+MATERIALS:
+Leaves; rocks; craft sticks; trays; picture labels.
+SETUP:
+Prepare simple category trays.
+DIRECTIONS:
+1. Choose an item.
+2. Decide where it belongs.
+3. Place it on a tray.
+4. Add another.
+5. Tour the museum together.
+TEACHER_ROLE:
+Support classification and language.
+LEARNING_GOALS:
+Organization; recall; communication.
+OBSERVATION_OPPORTUNITIES:
+Sorting logic and confidence.
+ADAPTATIONS:
+Offer two choices.
+SAFETY_NOTES:
+Supervise all objects.
+
+ACTIVITY_NAME:
+Nature Collage
+CATEGORY:
+Art
+OBJECTIVE:
+Combine textures into an open-ended artwork.
+DESCRIPTION:
+Children glue large safe nature pieces or paper replicas onto cardstock.
+MATERIALS:
+Cardstock; leaves; paper nature shapes; glue sticks.
+SETUP:
+Arrange materials by type.
+DIRECTIONS:
+1. Choose a piece.
+2. Add glue.
+3. Press it onto paper.
+4. Layer another texture.
+5. Describe the collage.
+TEACHER_ROLE:
+Encourage independent choices and narrate textures.
+LEARNING_GOALS:
+Fine motor control; creativity; sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Selection and placement.
+ADAPTATIONS:
+Use contact paper.
+SAFETY_NOTES:
+Avoid fragile or sharp natural materials.
+
+ACTIVITY_NAME:
+My Nature Favorite
+CATEGORY:
+Literacy
+OBJECTIVE:
+Express a preference and recall an experience.
+DESCRIPTION:
+Children select a nature picture and dictate a word or phrase.
+MATERIALS:
+Nature photos; paper; crayons.
+SETUP:
+Display photo choices.
+DIRECTIONS:
+1. Choose a favorite.
+2. Point or name it.
+3. Draw a mark or picture.
+4. Tell one detail.
+5. Teacher records the child's words.
+TEACHER_ROLE:
+Accept gestures, sounds, or words as communication.
+LEARNING_GOALS:
+Recall; expressive language; confidence.
+OBSERVATION_OPPORTUNITIES:
+Choice-making and communication mode.
+ADAPTATIONS:
+Use yes/no questions.
+SAFETY_NOTES:
+Use age-appropriate art tools.

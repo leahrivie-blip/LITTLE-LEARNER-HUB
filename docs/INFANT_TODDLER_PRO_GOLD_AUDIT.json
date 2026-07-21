@@ -1,0 +1,586 @@
+{
+  "generatedAt": "2026-07-21T04:46:24.988Z",
+  "summary": {
+    "total": 21,
+    "readyToImport": 20,
+    "blocked": 1,
+    "withDuplicateWarnings": 4
+  },
+  "results": [
+    {
+      "file": "scripts/curriculum-infant-pro-batch2-imports/01-infant-zoo-animals-pro.txt",
+      "meta": {
+        "title": "Zoo Animals",
+        "ageGroup": "Infant 0-12 Months",
+        "theme": "Zoo Animals",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 10,
+      "dayCount": 5,
+      "rawChars": 22191,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-infant-pro-batch2-imports/02-infant-baby-sign-language-pro.txt",
+      "meta": {
+        "title": "Baby Sign Language",
+        "ageGroup": "Infant 0-12 Months",
+        "theme": "Early Communication Through Signs, Gestures, Sounds, and Responsive Care",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 10,
+      "dayCount": 5,
+      "rawChars": 22844,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-infant-pro-batch2-imports/03-infant-woodland-animals-pro.txt",
+      "meta": {
+        "title": "Woodland Animals",
+        "ageGroup": "Infant 0-12 Months",
+        "theme": "Woodland Animals and Nature",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 10,
+      "dayCount": 5,
+      "rawChars": 22075,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-infant-pro-batch2-imports/04-infant-pets-we-love-pro.txt",
+      "meta": {
+        "title": "Pets We Love",
+        "ageGroup": "Infant 0-12 Months",
+        "theme": "Pets and Caring Relationships",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 10,
+      "dayCount": 5,
+      "rawChars": 21540,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-infant-pro-batch2-imports/05-infant-texture-adventures-pro.txt",
+      "meta": {
+        "title": "Texture Adventures",
+        "ageGroup": "Infant 0-12 Months",
+        "theme": "Sensory Textures",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 10,
+      "dayCount": 5,
+      "rawChars": 20145,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-infant-pro-batch2-imports/06-infant-move-and-groove-babies-pro.txt",
+      "meta": {
+        "title": "Move & Groove Babies",
+        "ageGroup": "Infant 0-12 Months",
+        "theme": "Music, Movement, and Body Awareness",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 4,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend.",
+        "Possible duplicate (0.6): \"Music and Movement (Infant 0-6 Months)\" in scripts/curriculum-infant-core-imports/infant-music-and-movement-0-6-months.txt",
+        "Possible duplicate (0.6): \"Music and Movement (Infant 6-12 Months)\" in scripts/curriculum-infant-core-imports/infant-music-and-movement-6-12-months.txt"
+      ],
+      "duplicates": [
+        {
+          "title": "Music and Movement (Infant 0-6 Months)",
+          "theme": "Music and Movement",
+          "file": "scripts/curriculum-infant-core-imports/infant-music-and-movement-0-6-months.txt",
+          "ageGroup": "Infant 0–6 Months",
+          "score": 0.6
+        },
+        {
+          "title": "Music and Movement (Infant 6-12 Months)",
+          "theme": "Music and Movement",
+          "file": "scripts/curriculum-infant-core-imports/infant-music-and-movement-6-12-months.txt",
+          "ageGroup": "Infant 6–12 Months",
+          "score": 0.6
+        }
+      ],
+      "activityCount": 10,
+      "dayCount": 5,
+      "rawChars": 21124,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch2-imports/01-toddler-construction-zone-pro.txt",
+      "meta": {
+        "title": "Construction Zone",
+        "ageGroup": "Toddler 2-3 Years",
+        "theme": "",
+        "plan": "Pro",
+        "status": "published",
+        "note": "Full Gold Standard Toddler Pro curriculum scaffold created. To be expanded with complete weekly and Monday-Friday activities in subsequent commits."
+      },
+      "ready": false,
+      "issueCount": 8,
+      "warningCount": 1,
+      "issues": [
+        "File is a scaffold/stub — not complete enough to import.",
+        "File is unusually short (239 chars) for a paid Pro weekly plan.",
+        "Parse error: Paste a complete lesson plan using TITLE:, AGE_GROUP:, THEME:, PLAN:, STATUS:, WEEKLY_OVERVIEW:, weekday headers (MONDAY–FRIDAY), and ACTIVITY_NAME: blocks. No special markers are required.",
+        "Could not build a usable structured lesson plan from this paste format.",
+        "Preview block: Paste a complete lesson plan using TITLE:, AGE_GROUP:, THEME:, PLAN:, STATUS:, WEEKLY_OVERVIEW:, weekday headers (MONDAY–FRIDAY), and ACTIVITY_NAME: blocks. No special markers are required.",
+        "Preview block: TITLE is required. Put the lesson name at the top so the importer can place it correctly.",
+        "Preview block: THEME is required. Every activity must match this theme — do not leave theme blank or paste unrelated content.",
+        "Preview block: AGE_GROUP is required (Infant 0–6 Months, Infant 6–12 Months, Toddler, or Preschool)."
+      ],
+      "warnings": [
+        "Preview: Unrecognized paste format. Use V3 Strict labels or switch to V5 Flexible Import for ChatGPT-style pastes."
+      ],
+      "duplicates": [],
+      "activityCount": 0,
+      "dayCount": 0,
+      "rawChars": 239,
+      "standardsComplete": false,
+      "parserOk": false
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch2-imports/02-toddler-farm-stem-pro.txt",
+      "meta": {
+        "title": "Farm STEM",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Farm STEM",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [
+        {
+          "title": "Farm Friends",
+          "theme": "Farm Friends",
+          "file": "scripts/curriculum-toddler-core-imports/toddler-farm-friends.txt",
+          "ageGroup": "Toddler",
+          "score": 0.5
+        }
+      ],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 17144,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch2-imports/03-toddler-little-bakers-pro.txt",
+      "meta": {
+        "title": "Little Bakers",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Little Bakers",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 16375,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch2-imports/04-toddler-transportation-builders-pro.txt",
+      "meta": {
+        "title": "Transportation Builders",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Transportation Builders",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 16090,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch2-imports/05-toddler-little-scientists-pro.txt",
+      "meta": {
+        "title": "Little Scientists",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Little Scientists",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 17326,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/01-toddler-amazing-insects-pro.txt",
+      "meta": {
+        "title": "Amazing Insects",
+        "ageGroup": "Toddler (2–3 Years)",
+        "theme": "Amazing Insects",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 17283,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/02-toddler-nature-explorers-pro.txt",
+      "meta": {
+        "title": "Nature Explorers",
+        "ageGroup": "Toddler (2–3 Years)",
+        "theme": "Nature Explorers",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 14166,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/03-toddler-rainbow-science-pro.txt",
+      "meta": {
+        "title": "Rainbow Science",
+        "ageGroup": "Toddler (2–3 Years)",
+        "theme": "Rainbow Science",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 14795,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/04-toddler-busy-builders-pro.txt",
+      "meta": {
+        "title": "Busy Builders",
+        "ageGroup": "Toddler (2–3 Years)",
+        "theme": "Busy Builders",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 15309,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/05-toddler-weather-lab-pro.txt",
+      "meta": {
+        "title": "Weather Lab",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Weather Lab",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 13552,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/06-toddler-apple-orchard-adventures-pro.txt",
+      "meta": {
+        "title": "Apple Orchard Adventures",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Apple Orchard Adventures",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [
+        {
+          "title": "Apple Orchard Adventure",
+          "theme": "Apples",
+          "file": "scripts/curriculum-toddler-pro-imports/13-toddler-apple-orchard-adventure-pro.txt",
+          "ageGroup": "Toddler",
+          "score": 0.5
+        }
+      ],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 13059,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/07-toddler-pond-life-explorers-pro.txt",
+      "meta": {
+        "title": "Pond Life Explorers",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Pond Life Explorers",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 12084,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/08-toddler-growing-gardens-stem-pro.txt",
+      "meta": {
+        "title": "Growing Gardens STEM",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Growing Gardens STEM",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 3,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend.",
+        "Possible duplicate (1): \"Growing Gardens\" in scripts/curriculum-toddler-core-imports/toddler-growing-gardens.txt"
+      ],
+      "duplicates": [
+        {
+          "title": "Growing Gardens",
+          "theme": "Growing Gardens",
+          "file": "scripts/curriculum-toddler-core-imports/toddler-growing-gardens.txt",
+          "ageGroup": "Toddler",
+          "score": 1
+        }
+      ],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 12386,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/09-toddler-space-explorers-stem-pro.txt",
+      "meta": {
+        "title": "Space Explorers STEM",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Space Explorers STEM",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 12343,
+      "standardsComplete": true,
+      "parserOk": true
+    },
+    {
+      "file": "scripts/curriculum-toddler-pro-batch3-imports/10-toddler-fossil-hunters-pro.txt",
+      "meta": {
+        "title": "Fossil Hunters",
+        "ageGroup": "Toddler (2-3 Years)",
+        "theme": "Fossil Hunters",
+        "plan": "Pro",
+        "status": "published",
+        "note": ""
+      },
+      "ready": true,
+      "issueCount": 0,
+      "warningCount": 2,
+      "issues": [],
+      "warnings": [
+        "Preview: This lesson is marked published. After you Save in the editor, it may become visible according to its Free/Pro access rules.",
+        "Preview: Auto-fill completed missing gold-standard fields (for example circle time, outdoor play, directions, teacher role, or weekly overview). Review every day and activity before confirming — do not publish invented content you did not intend."
+      ],
+      "duplicates": [],
+      "activityCount": 15,
+      "dayCount": 5,
+      "rawChars": 13968,
+      "standardsComplete": true,
+      "parserOk": true
+    }
+  ]
+}

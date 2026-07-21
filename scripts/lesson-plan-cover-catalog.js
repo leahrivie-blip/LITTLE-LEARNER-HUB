@@ -34,10 +34,40 @@
       prompt: "Hand-painted storybook watercolor, 16:9. Sunny apple orchard path with trees full of red apples and harvest baskets. Soft empty sky space for title. No text, no people.",
     },
     {
+      title: "Apples",
+      slug: "apples-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Cheerful apple orchard scene with red and green apples, a harvest basket, and soft autumn light. Single-week apple theme only. No text, no people, no pumpkins or Halloween.",
+    },
+    {
       title: "Apples in the Kitchen",
       slug: "apples-in-the-kitchen",
       age: "Toddler",
       prompt: "Hand-painted storybook watercolor, 16:9. Preschool kitchen counter with applesauce bowl, apple pie, juice pitcher, chef hat and apron resting empty. Soft empty wall space for title. No text, no people.",
+    },
+    {
+      title: "Fall Leaves",
+      slug: "fall-leaves-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Whimsical fall leaf study with red orange yellow maple leaves swirling, leaf piles, and soft blue sky. Single-week leaves theme only. No text, no people, no pumpkins or Halloween.",
+    },
+    {
+      title: "Friendly Halloween",
+      slug: "friendly-halloween-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Friendly not-scary Halloween with smiling jack-o-lantern, cute ghost costume candy bag, and purple twilight sky. Single-week Halloween theme only. No text, no people faces, no gore.",
+    },
+    {
+      title: "October Preschool Curriculum",
+      slug: "october-preschool-curriculum",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. One cohesive October preschool curriculum cover combining fall leaves, apples in a basket, pumpkins, and a friendly Halloween jack-o-lantern together in one autumn scene. No text, no people.",
+    },
+    {
+      title: "Pumpkins",
+      slug: "pumpkins-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Sunny pumpkin patch with orange pumpkins of different sizes, vines, and soft green leaves. Single-week pumpkin theme only. No text, no people, no Halloween costumes.",
     },
     {
       title: "Animal Habitats",
@@ -375,6 +405,26 @@
       age: "Preschool",
       prompt: "Children's book illustration, 16:9. Zoo clinic with stethoscope checking a gentle cartoon giraffe, medical kit, and care supplies. Caring STEM mood. No text, no people.",
     },
+    // Infant / Toddler Pro batch covers (cartoon picture-book style approved 2026-07-21)
+    { title: "Zoo Animals", slug: "zoo-animals", age: "Infant", prompt: "Bold cartoon zoo animals." },
+    { title: "Baby Sign Language", slug: "baby-sign-language", age: "Infant", prompt: "Bold cartoon baby sign language." },
+    { title: "Woodland Animals", slug: "animal-habitats", age: "Infant", prompt: "Reuse animal habitats woodland feel." },
+    { title: "Pets We Love", slug: "pet-pals", age: "Infant", prompt: "Reuse pet pals." },
+    { title: "Texture Adventures", slug: "five-senses", age: "Infant", prompt: "Reuse five senses sensory." },
+    { title: "Move & Groove Babies", slug: "move-and-groove-babies", age: "Infant", prompt: "Bold cartoon music movement." },
+    { title: "Farm STEM", slug: "farm-animals", age: "Toddler", prompt: "Reuse farm animals STEM." },
+    { title: "Little Bakers", slug: "little-bakers", age: "Toddler", prompt: "Bold cartoon bakers." },
+    { title: "Transportation Builders", slug: "transportation", age: "Toddler", prompt: "Reuse transportation." },
+    { title: "Amazing Insects", slug: "amazing-insects-toddler", age: "Toddler", prompt: "Bold cartoon insects toddler." },
+    { title: "Nature Explorers", slug: "camping-adventure", age: "Toddler", prompt: "Reuse camping/nature." },
+    { title: "Rainbow Science", slug: "colors-everywhere", age: "Toddler", prompt: "Reuse colors rainbow science." },
+    { title: "Busy Builders", slug: "construction-crew", age: "Toddler", prompt: "Reuse construction crew." },
+    { title: "Weather Lab", slug: "weather-lab", age: "Toddler", prompt: "Bold cartoon weather lab." },
+    { title: "Apple Orchard Adventures", slug: "apple-orchard-adventure", age: "Toddler", prompt: "Reuse apple orchard." },
+    { title: "Pond Life Explorers", slug: "water-play-wonders", age: "Toddler", prompt: "Reuse water/pond feel." },
+    { title: "Growing Gardens STEM", slug: "gardening-plants", age: "Toddler", prompt: "Reuse gardening plants." },
+    { title: "Space Explorers STEM", slug: "space-adventure", age: "Toddler", prompt: "Reuse space adventure." },
+    { title: "Fossil Hunters", slug: "archaeology", age: "Toddler", prompt: "Reuse archaeology fossils." },
   ];
 
   const BY_TITLE = Object.fromEntries(

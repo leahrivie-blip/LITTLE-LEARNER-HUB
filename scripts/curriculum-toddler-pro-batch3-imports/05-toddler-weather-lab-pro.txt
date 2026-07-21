@@ -1,255 +1,568 @@
-TITLE: Weather Lab
-AGE_GROUP: Toddler (2-3 Years)
-THEME: Weather Lab
-PLAN: PRO
-STATUS: Published
-LEARNING_DOMAINS: Science; Language & Literacy; Math; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
-WEEKLY_OVERVIEW: Toddlers explore sun, clouds, wind, rain, and changing weather through sensory play, movement, simple experiments, art, and observation.
-LEARNING_OBJECTIVES: Name basic weather types; observe changes outdoors; compare wet/dry and warm/cool; build vocabulary; strengthen coordination; practice prediction and turn-taking.
-WEEKLY_MATERIALS: Weather cards, scarves, spray bottles, cotton balls, blue paper, foil, cups, water, ice, fans, ribbons, paint, blocks, umbrellas, books.
-VOCABULARY: Sun, cloud, rain, wind, storm, warm, cool, wet, dry, sky.
-BOOKS: The Wind Blew; Little Cloud; Rain; Maisy's Wonderful Weather Book.
-SONGS: You Are My Sunshine; Rain Rain Go Away; It's Raining It's Pouring; Wind the Bobbin Up.
-FAMILY_CONNECTION: Invite families to talk about the weather each morning and send a photo of their child dressed for the day's conditions.
-OBSERVATION_OPPORTUNITIES: Notice weather vocabulary, prediction attempts, sensory preferences, counting, cooperation, and gross-motor control.
-ADAPTATIONS: Offer visual cards, larger tools, seated options, dry sensory alternatives, and shorter turns.
+TITLE:
+Weather Lab
+AGE_GROUP:
+Toddler (2-3 Years)
+THEME:
+Weather Lab
+PLAN:
+Pro
+STATUS:
+published
+LEARNING_DOMAINS:
+Science; Language & Literacy; Math; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
+WEEKLY_OVERVIEW:
+Toddlers explore sun, clouds, wind, rain, and changing weather through sensory play, movement, simple experiments, art, and observation.
+LEARNING_OBJECTIVES:
+Name basic weather types; observe changes outdoors; compare wet/dry and warm/cool; build vocabulary; strengthen coordination; practice prediction and turn-taking.
+WEEKLY_MATERIALS:
+Weather cards, scarves, spray bottles, cotton balls, blue paper, foil, cups, water, ice, fans, ribbons, paint, blocks, umbrellas, books.
+VOCABULARY:
+Sun, cloud, rain, wind, storm, warm, cool, wet, dry, sky.
+BOOKS:
+The Wind Blew; Little Cloud; Rain; Maisy's Wonderful Weather Book.
+SONGS:
+You Are My Sunshine; Rain Rain Go Away; It's Raining It's Pouring; Wind the Bobbin Up.
+FAMILY_CONNECTION:
+Invite families to talk about the weather each morning and send a photo of their child dressed for the day's conditions.
+OBSERVATION_OPPORTUNITIES:
+Notice weather vocabulary, prediction attempts, sensory preferences, counting, cooperation, and gross-motor control.
+ADAPTATIONS:
+Offer visual cards, larger tools, seated options, dry sensory alternatives, and shorter turns.
 
 MONDAY
-DAILY_THEME: Sunny Skies
-DAILY_OBJECTIVES: Identify the sun; explore light and warmth; practice yellow color recognition.
-DAILY_VOCABULARY: Sun, bright, warm, yellow.
-DAILY_MATERIALS: Yellow paper, flashlights, blocks, scarves, paint.
-DAILY_LEARNING_DOMAINS: Science; Language; Art; Gross Motor.
-CIRCLE_TIME_IDEAS: Observe sunlight near a window and sing You Are My Sunshine.
-OUTDOOR_PLAY: Make body shadows and trace around large shadows with chalk.
-DAILY_OBSERVATION_OPPORTUNITIES: Watch for noticing light, naming yellow, and following movement prompts.
-DAILY_ADAPTATIONS: Use indoor flashlights if outdoor light is limited.
-SAFETY_NOTES: Never look directly at the sun; use washable non-toxic materials.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Light and Shadow Search
-ACTIVITY_1_OBJECTIVE: Notice how light creates shadows.
-ACTIVITY_1_DESCRIPTION: Children use flashlights to make shadows on walls and objects.
-ACTIVITY_1_MATERIALS: Flashlights, blocks, wall space.
-ACTIVITY_1_SETUP: Dim one area and arrange blocks nearby.
-ACTIVITY_1_DIRECTIONS: 1. Shine light on a block. 2. Point out the shadow. 3. Move the light closer and farther. 4. Let children try. 5. Name big and small shadows.
-ACTIVITY_1_TEACHER_ROLE: Model safe flashlight use and describe changes.
-ACTIVITY_1_LEARNING_GOALS: Cause and effect; visual tracking; vocabulary.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Notice persistence and comparison language.
-ACTIVITY_1_ADAPTATIONS: Use larger objects or hand-over-hand support.
-ACTIVITY_1_SAFETY_NOTES: Do not shine lights into eyes.
-ACTIVITY_2_CATEGORY: Creative Arts
-ACTIVITY_2_NAME: Sun Sponge Painting
-ACTIVITY_2_OBJECTIVE: Create a sun using stamping motions.
-ACTIVITY_2_DESCRIPTION: Children stamp yellow paint and add rays.
-ACTIVITY_2_MATERIALS: Yellow paint, round sponges, paper, brushes.
-ACTIVITY_2_SETUP: Place paper and paint trays at the table.
-ACTIVITY_2_DIRECTIONS: 1. Stamp a yellow circle. 2. Add lines around it. 3. Talk about warm sunshine. 4. Allow free painting.
-ACTIVITY_2_TEACHER_ROLE: Encourage process art and color words.
-ACTIVITY_2_LEARNING_GOALS: Fine motor; creativity; color recognition.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Observe grip and mark making.
-ACTIVITY_2_ADAPTATIONS: Tape paper down or use thicker handles.
-ACTIVITY_2_SAFETY_NOTES: Supervise paint use.
-ACTIVITY_3_CATEGORY: Gross Motor
-ACTIVITY_3_NAME: Sunshine Stretch
-ACTIVITY_3_OBJECTIVE: Strengthen balance and body awareness.
-ACTIVITY_3_DESCRIPTION: Children reach like sun rays and curl like the setting sun.
-ACTIVITY_3_MATERIALS: Yellow scarves, music.
-ACTIVITY_3_SETUP: Clear open floor space.
-ACTIVITY_3_DIRECTIONS: 1. Hold scarves. 2. Reach high. 3. Stretch wide. 4. Spin slowly. 5. Curl down.
-ACTIVITY_3_TEACHER_ROLE: Model movements and pace transitions.
-ACTIVITY_3_LEARNING_GOALS: Balance; coordination; listening.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note imitation and control.
-ACTIVITY_3_ADAPTATIONS: Complete movements seated.
-ACTIVITY_3_SAFETY_NOTES: Maintain spacing.
+DAILY_THEME:
+Sunny Skies
+DAILY_OBJECTIVES:
+Identify the sun; explore light and warmth; practice yellow color recognition.
+DAILY_VOCABULARY:
+Sun, bright, warm, yellow.
+DAILY_MATERIALS:
+Yellow paper, flashlights, blocks, scarves, paint.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Art; Gross Motor.
+CIRCLE_TIME:
+Observe sunlight near a window and sing You Are My Sunshine.
+OUTDOOR_PLAY:
+Make body shadows and trace around large shadows with chalk.
+DAILY_OBSERVATIONS:
+Watch for noticing light, naming yellow, and following movement prompts.
+DAILY_ADAPTATIONS:
+Use indoor flashlights if outdoor light is limited.
+SAFETY_NOTES:
+Never look directly at the sun; use washable non-toxic materials.
+
+ACTIVITY_NAME:
+Light and Shadow Search
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Notice how light creates shadows.
+DESCRIPTION:
+Children use flashlights to make shadows on walls and objects.
+MATERIALS:
+Flashlights, blocks, wall space.
+SETUP:
+Dim one area and arrange blocks nearby.
+DIRECTIONS:
+1. Shine light on a block.
+2. Point out the shadow.
+3. Move the light closer and farther.
+4. Let children try.
+5. Name big and small shadows.
+TEACHER_ROLE:
+Model safe flashlight use and describe changes.
+LEARNING_GOALS:
+Cause and effect; visual tracking; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Notice persistence and comparison language.
+ADAPTATIONS:
+Use larger objects or hand-over-hand support.
+SAFETY_NOTES:
+Do not shine lights into eyes.
+
+ACTIVITY_NAME:
+Sun Sponge Painting
+CATEGORY:
+Art
+OBJECTIVE:
+Create a sun using stamping motions.
+DESCRIPTION:
+Children stamp yellow paint and add rays.
+MATERIALS:
+Yellow paint, round sponges, paper, brushes.
+SETUP:
+Place paper and paint trays at the table.
+DIRECTIONS:
+1. Stamp a yellow circle.
+2. Add lines around it.
+3. Talk about warm sunshine.
+4. Allow free painting.
+TEACHER_ROLE:
+Encourage process art and color words.
+LEARNING_GOALS:
+Fine motor; creativity; color recognition.
+OBSERVATION_OPPORTUNITIES:
+Observe grip and mark making.
+ADAPTATIONS:
+Tape paper down or use thicker handles.
+SAFETY_NOTES:
+Supervise paint use.
+
+ACTIVITY_NAME:
+Sunshine Stretch
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Strengthen balance and body awareness.
+DESCRIPTION:
+Children reach like sun rays and curl like the setting sun.
+MATERIALS:
+Yellow scarves, music.
+SETUP:
+Clear open floor space.
+DIRECTIONS:
+1. Hold scarves.
+2. Reach high.
+3. Stretch wide.
+4. Spin slowly.
+5. Curl down.
+TEACHER_ROLE:
+Model movements and pace transitions.
+LEARNING_GOALS:
+Balance; coordination; listening.
+OBSERVATION_OPPORTUNITIES:
+Note imitation and control.
+ADAPTATIONS:
+Complete movements seated.
+SAFETY_NOTES:
+Maintain spacing.
 
 TUESDAY
-DAILY_THEME: Clouds Above
-DAILY_OBJECTIVES: Identify clouds; compare soft and fluffy textures; explore shape.
-DAILY_VOCABULARY: Cloud, white, soft, float.
-DAILY_MATERIALS: Cotton balls, glue, blue paper, scarves, cloud cards.
-DAILY_LEARNING_DOMAINS: Science; Fine Motor; Language; Art.
-CIRCLE_TIME_IDEAS: Read Little Cloud and compare cloud pictures.
-OUTDOOR_PLAY: Lie on blankets and look for cloud shapes.
-DAILY_OBSERVATION_OPPORTUNITIES: Notice descriptive language and visual attention.
-DAILY_ADAPTATIONS: Offer felt pieces instead of cotton.
-SAFETY_NOTES: Monitor small loose materials.
-ACTIVITY_1_CATEGORY: Sensory Play
-ACTIVITY_1_NAME: Cloud Touch Tray
-ACTIVITY_1_OBJECTIVE: Compare soft textures.
-ACTIVITY_1_DESCRIPTION: Children touch cotton, felt, and soft fabric clouds.
-ACTIVITY_1_MATERIALS: Cotton balls, felt, fleece, tray.
-ACTIVITY_1_SETUP: Arrange materials in a shallow tray.
-ACTIVITY_1_DIRECTIONS: 1. Touch each texture. 2. Squeeze gently. 3. Name soft and fluffy. 4. Sort similar pieces.
-ACTIVITY_1_TEACHER_ROLE: Narrate sensory words and respect preferences.
-ACTIVITY_1_LEARNING_GOALS: Sensory discrimination; vocabulary.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note tolerance and sorting.
-ACTIVITY_1_ADAPTATIONS: Provide tongs or sealed sensory bags.
-ACTIVITY_1_SAFETY_NOTES: Prevent mouthing.
-ACTIVITY_2_CATEGORY: Creative Arts
-ACTIVITY_2_NAME: Cotton Cloud Collage
-ACTIVITY_2_OBJECTIVE: Strengthen pinching and placing skills.
-ACTIVITY_2_DESCRIPTION: Children glue cloud pieces onto blue paper.
-ACTIVITY_2_MATERIALS: Blue paper, glue, cotton or felt.
-ACTIVITY_2_SETUP: Pre-draw large cloud outlines.
-ACTIVITY_2_DIRECTIONS: 1. Add glue. 2. Pinch pieces. 3. Press onto cloud. 4. Describe the finished cloud.
-ACTIVITY_2_TEACHER_ROLE: Support glue use and language.
-ACTIVITY_2_LEARNING_GOALS: Fine motor; creativity; shape awareness.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Watch hand strength and attention.
-ACTIVITY_2_ADAPTATIONS: Use self-stick shapes.
-ACTIVITY_2_SAFETY_NOTES: Use non-toxic glue.
-ACTIVITY_3_CATEGORY: Music & Movement
-ACTIVITY_3_NAME: Floating Clouds
-ACTIVITY_3_OBJECTIVE: Move slowly and respond to tempo.
-ACTIVITY_3_DESCRIPTION: Children float scarves like clouds.
-ACTIVITY_3_MATERIALS: White scarves, calm music.
-ACTIVITY_3_SETUP: Clear movement space.
-ACTIVITY_3_DIRECTIONS: 1. Lift scarves. 2. Float slowly. 3. Move high and low. 4. Freeze when music stops.
-ACTIVITY_3_TEACHER_ROLE: Model controlled movement.
-ACTIVITY_3_LEARNING_GOALS: Listening; gross motor; self-regulation.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note start-stop control.
-ACTIVITY_3_ADAPTATIONS: Move scarves while seated.
-ACTIVITY_3_SAFETY_NOTES: Avoid wrapping scarves around necks.
+DAILY_THEME:
+Clouds Above
+DAILY_OBJECTIVES:
+Identify clouds; compare soft and fluffy textures; explore shape.
+DAILY_VOCABULARY:
+Cloud, white, soft, float.
+DAILY_MATERIALS:
+Cotton balls, glue, blue paper, scarves, cloud cards.
+DAILY_LEARNING_DOMAINS:
+Science; Fine Motor; Language; Art.
+CIRCLE_TIME:
+Read Little Cloud and compare cloud pictures.
+OUTDOOR_PLAY:
+Lie on blankets and look for cloud shapes.
+DAILY_OBSERVATIONS:
+Notice descriptive language and visual attention.
+DAILY_ADAPTATIONS:
+Offer felt pieces instead of cotton.
+SAFETY_NOTES:
+Monitor small loose materials.
+
+ACTIVITY_NAME:
+Cloud Touch Tray
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Compare soft textures.
+DESCRIPTION:
+Children touch cotton, felt, and soft fabric clouds.
+MATERIALS:
+Cotton balls, felt, fleece, tray.
+SETUP:
+Arrange materials in a shallow tray.
+DIRECTIONS:
+1. Touch each texture.
+2. Squeeze gently.
+3. Name soft and fluffy.
+4. Sort similar pieces.
+TEACHER_ROLE:
+Narrate sensory words and respect preferences.
+LEARNING_GOALS:
+Sensory discrimination; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Note tolerance and sorting.
+ADAPTATIONS:
+Provide tongs or sealed sensory bags.
+SAFETY_NOTES:
+Prevent mouthing.
+
+ACTIVITY_NAME:
+Cotton Cloud Collage
+CATEGORY:
+Art
+OBJECTIVE:
+Strengthen pinching and placing skills.
+DESCRIPTION:
+Children glue cloud pieces onto blue paper.
+MATERIALS:
+Blue paper, glue, cotton or felt.
+SETUP:
+Pre-draw large cloud outlines.
+DIRECTIONS:
+1. Add glue.
+2. Pinch pieces.
+3. Press onto cloud.
+4. Describe the finished cloud.
+TEACHER_ROLE:
+Support glue use and language.
+LEARNING_GOALS:
+Fine motor; creativity; shape awareness.
+OBSERVATION_OPPORTUNITIES:
+Watch hand strength and attention.
+ADAPTATIONS:
+Use self-stick shapes.
+SAFETY_NOTES:
+Use non-toxic glue.
+
+ACTIVITY_NAME:
+Floating Clouds
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Move slowly and respond to tempo.
+DESCRIPTION:
+Children float scarves like clouds.
+MATERIALS:
+White scarves, calm music.
+SETUP:
+Clear movement space.
+DIRECTIONS:
+1. Lift scarves.
+2. Float slowly.
+3. Move high and low.
+4. Freeze when music stops.
+TEACHER_ROLE:
+Model controlled movement.
+LEARNING_GOALS:
+Listening; gross motor; self-regulation.
+OBSERVATION_OPPORTUNITIES:
+Note start-stop control.
+ADAPTATIONS:
+Move scarves while seated.
+SAFETY_NOTES:
+Avoid wrapping scarves around necks.
 
 WEDNESDAY
-DAILY_THEME: Rainy Day
-DAILY_OBJECTIVES: Explore water droplets; compare wet and dry; count raindrops.
-DAILY_VOCABULARY: Rain, drop, wet, puddle.
-DAILY_MATERIALS: Spray bottles, water table, droppers, blue gems, umbrellas.
-DAILY_LEARNING_DOMAINS: Science; Math; Fine Motor; Gross Motor.
-CIRCLE_TIME_IDEAS: Make rain sounds with fingers and sing Rain Rain Go Away.
-OUTDOOR_PLAY: Stomp in pretend chalk puddles or real puddles with appropriate gear.
-DAILY_OBSERVATION_OPPORTUNITIES: Watch counting, cause-and-effect thinking, and sensory reactions.
-DAILY_ADAPTATIONS: Use sealed water bags for children avoiding wet play.
-SAFETY_NOTES: Wipe spills promptly.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Droplet Race
-ACTIVITY_1_OBJECTIVE: Observe water moving downward.
-ACTIVITY_1_DESCRIPTION: Children squeeze water drops onto an angled tray.
-ACTIVITY_1_MATERIALS: Droppers, water, tray, towel.
-ACTIVITY_1_SETUP: Prop tray slightly and place towels underneath.
-ACTIVITY_1_DIRECTIONS: 1. Fill droppers. 2. Squeeze drops at top. 3. Watch them travel. 4. Compare fast and slow. 5. Repeat.
-ACTIVITY_1_TEACHER_ROLE: Ask what children notice.
-ACTIVITY_1_LEARNING_GOALS: Cause and effect; observation; fine motor.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note squeezing control and prediction.
-ACTIVITY_1_ADAPTATIONS: Use squeeze bottles.
-ACTIVITY_1_SAFETY_NOTES: Keep floor dry.
-ACTIVITY_2_CATEGORY: Math
-ACTIVITY_2_NAME: Count the Raindrops
-ACTIVITY_2_OBJECTIVE: Practice one-to-one counting to five.
-ACTIVITY_2_DESCRIPTION: Children place blue gems beneath numbered clouds.
-ACTIVITY_2_MATERIALS: Cloud cards, blue counters.
-ACTIVITY_2_SETUP: Prepare cards numbered 1-5.
-ACTIVITY_2_DIRECTIONS: 1. Choose a card. 2. Say the number. 3. Add matching drops. 4. Count together.
-ACTIVITY_2_TEACHER_ROLE: Model touching each counter once.
-ACTIVITY_2_LEARNING_GOALS: Number sense; matching.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note counting sequence.
-ACTIVITY_2_ADAPTATIONS: Use 1-3 only.
-ACTIVITY_2_SAFETY_NOTES: Use counters too large to swallow.
-ACTIVITY_3_CATEGORY: Dramatic Play
-ACTIVITY_3_NAME: Umbrella Walk
-ACTIVITY_3_OBJECTIVE: Practice pretend play and spatial awareness.
-ACTIVITY_3_DESCRIPTION: Children carry small umbrellas through a rainy-day path.
-ACTIVITY_3_MATERIALS: Child umbrellas, blue floor spots.
-ACTIVITY_3_SETUP: Create a wide path.
-ACTIVITY_3_DIRECTIONS: 1. Open umbrellas with help. 2. Walk around puddles. 3. Step over spots. 4. Close and park umbrellas.
-ACTIVITY_3_TEACHER_ROLE: Support safe handling and pretend language.
-ACTIVITY_3_LEARNING_GOALS: Coordination; imagination; routines.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note balance and turn-taking.
-ACTIVITY_3_ADAPTATIONS: Use ribbon rain sticks instead.
-ACTIVITY_3_SAFETY_NOTES: Maintain distance between umbrellas.
+DAILY_THEME:
+Rainy Day
+DAILY_OBJECTIVES:
+Explore water droplets; compare wet and dry; count raindrops.
+DAILY_VOCABULARY:
+Rain, drop, wet, puddle.
+DAILY_MATERIALS:
+Spray bottles, water table, droppers, blue gems, umbrellas.
+DAILY_LEARNING_DOMAINS:
+Science; Math; Fine Motor; Gross Motor.
+CIRCLE_TIME:
+Make rain sounds with fingers and sing Rain Rain Go Away.
+OUTDOOR_PLAY:
+Stomp in pretend chalk puddles or real puddles with appropriate gear.
+DAILY_OBSERVATIONS:
+Watch counting, cause-and-effect thinking, and sensory reactions.
+DAILY_ADAPTATIONS:
+Use sealed water bags for children avoiding wet play.
+SAFETY_NOTES:
+Wipe spills promptly.
+
+ACTIVITY_NAME:
+Droplet Race
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe water moving downward.
+DESCRIPTION:
+Children squeeze water drops onto an angled tray.
+MATERIALS:
+Droppers, water, tray, towel.
+SETUP:
+Prop tray slightly and place towels underneath.
+DIRECTIONS:
+1. Fill droppers.
+2. Squeeze drops at top.
+3. Watch them travel.
+4. Compare fast and slow.
+5. Repeat.
+TEACHER_ROLE:
+Ask what children notice.
+LEARNING_GOALS:
+Cause and effect; observation; fine motor.
+OBSERVATION_OPPORTUNITIES:
+Note squeezing control and prediction.
+ADAPTATIONS:
+Use squeeze bottles.
+SAFETY_NOTES:
+Keep floor dry.
+
+ACTIVITY_NAME:
+Count the Raindrops
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Practice one-to-one counting to five.
+DESCRIPTION:
+Children place blue gems beneath numbered clouds.
+MATERIALS:
+Cloud cards, blue counters.
+SETUP:
+Prepare cards numbered 1-5.
+DIRECTIONS:
+1. Choose a card.
+2. Say the number.
+3. Add matching drops.
+4. Count together.
+TEACHER_ROLE:
+Model touching each counter once.
+LEARNING_GOALS:
+Number sense; matching.
+OBSERVATION_OPPORTUNITIES:
+Note counting sequence.
+ADAPTATIONS:
+Use 1-3 only.
+SAFETY_NOTES:
+Use counters too large to swallow.
+
+ACTIVITY_NAME:
+Umbrella Walk
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Practice pretend play and spatial awareness.
+DESCRIPTION:
+Children carry small umbrellas through a rainy-day path.
+MATERIALS:
+Child umbrellas, blue floor spots.
+SETUP:
+Create a wide path.
+DIRECTIONS:
+1. Open umbrellas with help.
+2. Walk around puddles.
+3. Step over spots.
+4. Close and park umbrellas.
+TEACHER_ROLE:
+Support safe handling and pretend language.
+LEARNING_GOALS:
+Coordination; imagination; routines.
+OBSERVATION_OPPORTUNITIES:
+Note balance and turn-taking.
+ADAPTATIONS:
+Use ribbon rain sticks instead.
+SAFETY_NOTES:
+Maintain distance between umbrellas.
 
 THURSDAY
-DAILY_THEME: Windy Weather
-DAILY_OBJECTIVES: Observe moving air; test light and heavy objects; build breath control.
-DAILY_VOCABULARY: Wind, blow, move, light, heavy.
-DAILY_MATERIALS: Fans, feathers, ribbons, paper, blocks, pinwheels.
-DAILY_LEARNING_DOMAINS: Science; Language; Gross Motor; Math.
-CIRCLE_TIME_IDEAS: Feel air from a fan and discuss what wind can move.
-OUTDOOR_PLAY: Run with ribbons and watch wind direction.
-DAILY_OBSERVATION_OPPORTUNITIES: Notice predictions and comparison language.
-DAILY_ADAPTATIONS: Let children observe rather than blow.
-SAFETY_NOTES: Use guarded fans and sanitize shared blowing tools.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: What Can Wind Move?
-ACTIVITY_1_OBJECTIVE: Compare how objects respond to air.
-ACTIVITY_1_DESCRIPTION: Children test feathers, paper, and blocks in front of a fan.
-ACTIVITY_1_MATERIALS: Guarded fan, feather, tissue, paper, block.
-ACTIVITY_1_SETUP: Place objects on a low table.
-ACTIVITY_1_DIRECTIONS: 1. Predict. 2. Turn fan on low. 3. Test each object. 4. Sort moved/not moved. 5. Discuss light and heavy.
-ACTIVITY_1_TEACHER_ROLE: Guide predictions and comparisons.
-ACTIVITY_1_LEARNING_GOALS: Scientific inquiry; classification.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note cause-and-effect understanding.
-ACTIVITY_1_ADAPTATIONS: Use hand fans.
-ACTIVITY_1_SAFETY_NOTES: Keep fingers away from fan.
-ACTIVITY_2_CATEGORY: Fine Motor
-ACTIVITY_2_NAME: Pinwheel Practice
-ACTIVITY_2_OBJECTIVE: Coordinate breath and visual tracking.
-ACTIVITY_2_DESCRIPTION: Children blow or wave pinwheels.
-ACTIVITY_2_MATERIALS: Large child-safe pinwheels.
-ACTIVITY_2_SETUP: Give each child space.
-ACTIVITY_2_DIRECTIONS: 1. Hold pinwheel. 2. Blow gently. 3. Try harder. 4. Wave it. 5. Watch it spin.
-ACTIVITY_2_TEACHER_ROLE: Demonstrate gentle breathing.
-ACTIVITY_2_LEARNING_GOALS: Oral-motor control; cause and effect.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note breath control and tracking.
-ACTIVITY_2_ADAPTATIONS: Teacher holds pinwheel or child waves it.
-ACTIVITY_2_SAFETY_NOTES: Use individual pinwheels.
-ACTIVITY_3_CATEGORY: Gross Motor
-ACTIVITY_3_NAME: Windy Ribbon Run
-ACTIVITY_3_OBJECTIVE: Strengthen running and directional movement.
-ACTIVITY_3_DESCRIPTION: Children move ribbons fast, slow, high, and low.
-ACTIVITY_3_MATERIALS: Ribbon rings.
-ACTIVITY_3_SETUP: Clear open space.
-ACTIVITY_3_DIRECTIONS: 1. Walk with ribbons. 2. Run slowly. 3. Move high and low. 4. Freeze. 5. Make circles.
-ACTIVITY_3_TEACHER_ROLE: Call movement cues.
-ACTIVITY_3_LEARNING_GOALS: Coordination; listening; spatial awareness.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note control and imitation.
-ACTIVITY_3_ADAPTATIONS: Use seated arm motions.
-ACTIVITY_3_SAFETY_NOTES: Keep ribbon handles short.
+DAILY_THEME:
+Windy Weather
+DAILY_OBJECTIVES:
+Observe moving air; test light and heavy objects; build breath control.
+DAILY_VOCABULARY:
+Wind, blow, move, light, heavy.
+DAILY_MATERIALS:
+Fans, feathers, ribbons, paper, blocks, pinwheels.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Gross Motor; Math.
+CIRCLE_TIME:
+Feel air from a fan and discuss what wind can move.
+OUTDOOR_PLAY:
+Run with ribbons and watch wind direction.
+DAILY_OBSERVATIONS:
+Notice predictions and comparison language.
+DAILY_ADAPTATIONS:
+Let children observe rather than blow.
+SAFETY_NOTES:
+Use guarded fans and sanitize shared blowing tools.
+
+ACTIVITY_NAME:
+What Can Wind Move?
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Compare how objects respond to air.
+DESCRIPTION:
+Children test feathers, paper, and blocks in front of a fan.
+MATERIALS:
+Guarded fan, feather, tissue, paper, block.
+SETUP:
+Place objects on a low table.
+DIRECTIONS:
+1. Predict.
+2. Turn fan on low.
+3. Test each object.
+4. Sort moved/not moved.
+5. Discuss light and heavy.
+TEACHER_ROLE:
+Guide predictions and comparisons.
+LEARNING_GOALS:
+Scientific inquiry; classification.
+OBSERVATION_OPPORTUNITIES:
+Note cause-and-effect understanding.
+ADAPTATIONS:
+Use hand fans.
+SAFETY_NOTES:
+Keep fingers away from fan.
+
+ACTIVITY_NAME:
+Pinwheel Practice
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Coordinate breath and visual tracking.
+DESCRIPTION:
+Children blow or wave pinwheels.
+MATERIALS:
+Large child-safe pinwheels.
+SETUP:
+Give each child space.
+DIRECTIONS:
+1. Hold pinwheel.
+2. Blow gently.
+3. Try harder.
+4. Wave it.
+5. Watch it spin.
+TEACHER_ROLE:
+Demonstrate gentle breathing.
+LEARNING_GOALS:
+Oral-motor control; cause and effect.
+OBSERVATION_OPPORTUNITIES:
+Note breath control and tracking.
+ADAPTATIONS:
+Teacher holds pinwheel or child waves it.
+SAFETY_NOTES:
+Use individual pinwheels.
+
+ACTIVITY_NAME:
+Windy Ribbon Run
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Strengthen running and directional movement.
+DESCRIPTION:
+Children move ribbons fast, slow, high, and low.
+MATERIALS:
+Ribbon rings.
+SETUP:
+Clear open space.
+DIRECTIONS:
+1. Walk with ribbons.
+2. Run slowly.
+3. Move high and low.
+4. Freeze.
+5. Make circles.
+TEACHER_ROLE:
+Call movement cues.
+LEARNING_GOALS:
+Coordination; listening; spatial awareness.
+OBSERVATION_OPPORTUNITIES:
+Note control and imitation.
+ADAPTATIONS:
+Use seated arm motions.
+SAFETY_NOTES:
+Keep ribbon handles short.
 
 FRIDAY
-DAILY_THEME: Weather Watchers
-DAILY_OBJECTIVES: Review weather types; make a simple forecast; choose appropriate clothing.
-DAILY_VOCABULARY: Forecast, weather, sunny, rainy, windy, cloudy.
-DAILY_MATERIALS: Weather chart, clothing props, cards, blocks, art supplies.
-DAILY_LEARNING_DOMAINS: Language; Science; Social-Emotional; Dramatic Play.
-CIRCLE_TIME_IDEAS: Review the week and let children choose today's weather card.
-OUTDOOR_PLAY: Take a weather walk and collect observations.
-DAILY_OBSERVATION_OPPORTUNITIES: Notice recall, choices, and vocabulary use.
-DAILY_ADAPTATIONS: Offer two visual choices.
-SAFETY_NOTES: Match outdoor time to actual conditions.
-ACTIVITY_1_CATEGORY: Language & Literacy
-ACTIVITY_1_NAME: Toddler Weather Report
-ACTIVITY_1_OBJECTIVE: Use words or gestures to describe weather.
-ACTIVITY_1_DESCRIPTION: Children take turns choosing a weather symbol and giving a simple report.
-ACTIVITY_1_MATERIALS: Weather symbols, toy microphone.
-ACTIVITY_1_SETUP: Place symbols near a class chart.
-ACTIVITY_1_DIRECTIONS: 1. Look outside. 2. Choose a symbol. 3. Say or point to weather. 4. Add symbol to chart. 5. Celebrate each report.
-ACTIVITY_1_TEACHER_ROLE: Model short phrases and accept gestures.
-ACTIVITY_1_LEARNING_GOALS: Communication; observation; confidence.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note expressive language.
-ACTIVITY_1_ADAPTATIONS: Use eye gaze or pointing.
-ACTIVITY_1_SAFETY_NOTES: Sanitize microphone prop.
-ACTIVITY_2_CATEGORY: Dramatic Play
-ACTIVITY_2_NAME: Dress for the Weather
-ACTIVITY_2_OBJECTIVE: Match clothing to weather.
-ACTIVITY_2_DESCRIPTION: Children dress a doll or themselves with weather props.
-ACTIVITY_2_MATERIALS: Hat, coat, boots, sunglasses, umbrella, dolls.
-ACTIVITY_2_SETUP: Arrange clothing in baskets.
-ACTIVITY_2_DIRECTIONS: 1. Pick a weather card. 2. Choose clothing. 3. Dress doll. 4. Explain choice. 5. Switch weather.
-ACTIVITY_2_TEACHER_ROLE: Prompt practical reasoning.
-ACTIVITY_2_LEARNING_GOALS: Matching; self-help; vocabulary.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note clothing knowledge.
-ACTIVITY_2_ADAPTATIONS: Use picture matching.
-ACTIVITY_2_SAFETY_NOTES: Remove cords and small fasteners.
-ACTIVITY_3_CATEGORY: Creative Arts
-ACTIVITY_3_NAME: My Weather Wheel
-ACTIVITY_3_OBJECTIVE: Review weather symbols through art.
-ACTIVITY_3_DESCRIPTION: Children decorate a simple weather wheel.
-ACTIVITY_3_MATERIALS: Paper plates, weather pictures, glue, crayons, fastener assembled by adult.
-ACTIVITY_3_SETUP: Pre-cut pictures and prepare wheels.
-ACTIVITY_3_DIRECTIONS: 1. Color plate. 2. Add weather pictures. 3. Adult attaches arrow. 4. Turn arrow to favorite weather.
-ACTIVITY_3_TEACHER_ROLE: Discuss each symbol.
-ACTIVITY_3_LEARNING_GOALS: Recall; fine motor; choice making.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note matching and preferences.
-ACTIVITY_3_ADAPTATIONS: Use stickers.
-ACTIVITY_3_SAFETY_NOTES: Adult handles fasteners.
+DAILY_THEME:
+Weather Watchers
+DAILY_OBJECTIVES:
+Review weather types; make a simple forecast; choose appropriate clothing.
+DAILY_VOCABULARY:
+Forecast, weather, sunny, rainy, windy, cloudy.
+DAILY_MATERIALS:
+Weather chart, clothing props, cards, blocks, art supplies.
+DAILY_LEARNING_DOMAINS:
+Language; Science; Social-Emotional; Dramatic Play.
+CIRCLE_TIME:
+Review the week and let children choose today's weather card.
+OUTDOOR_PLAY:
+Take a weather walk and collect observations.
+DAILY_OBSERVATIONS:
+Notice recall, choices, and vocabulary use.
+DAILY_ADAPTATIONS:
+Offer two visual choices.
+SAFETY_NOTES:
+Match outdoor time to actual conditions.
+
+ACTIVITY_NAME:
+Toddler Weather Report
+CATEGORY:
+Literacy
+OBJECTIVE:
+Use words or gestures to describe weather.
+DESCRIPTION:
+Children take turns choosing a weather symbol and giving a simple report.
+MATERIALS:
+Weather symbols, toy microphone.
+SETUP:
+Place symbols near a class chart.
+DIRECTIONS:
+1. Look outside.
+2. Choose a symbol.
+3. Say or point to weather.
+4. Add symbol to chart.
+5. Celebrate each report.
+TEACHER_ROLE:
+Model short phrases and accept gestures.
+LEARNING_GOALS:
+Communication; observation; confidence.
+OBSERVATION_OPPORTUNITIES:
+Note expressive language.
+ADAPTATIONS:
+Use eye gaze or pointing.
+SAFETY_NOTES:
+Sanitize microphone prop.
+
+ACTIVITY_NAME:
+Dress for the Weather
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Match clothing to weather.
+DESCRIPTION:
+Children dress a doll or themselves with weather props.
+MATERIALS:
+Hat, coat, boots, sunglasses, umbrella, dolls.
+SETUP:
+Arrange clothing in baskets.
+DIRECTIONS:
+1. Pick a weather card.
+2. Choose clothing.
+3. Dress doll.
+4. Explain choice.
+5. Switch weather.
+TEACHER_ROLE:
+Prompt practical reasoning.
+LEARNING_GOALS:
+Matching; self-help; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Note clothing knowledge.
+ADAPTATIONS:
+Use picture matching.
+SAFETY_NOTES:
+Remove cords and small fasteners.
+
+ACTIVITY_NAME:
+My Weather Wheel
+CATEGORY:
+Art
+OBJECTIVE:
+Review weather symbols through art.
+DESCRIPTION:
+Children decorate a simple weather wheel.
+MATERIALS:
+Paper plates, weather pictures, glue, crayons, fastener assembled by adult.
+SETUP:
+Pre-cut pictures and prepare wheels.
+DIRECTIONS:
+1. Color plate.
+2. Add weather pictures.
+3. Adult attaches arrow.
+4. Turn arrow to favorite weather.
+TEACHER_ROLE:
+Discuss each symbol.
+LEARNING_GOALS:
+Recall; fine motor; choice making.
+OBSERVATION_OPPORTUNITIES:
+Note matching and preferences.
+ADAPTATIONS:
+Use stickers.
+SAFETY_NOTES:
+Adult handles fasteners.

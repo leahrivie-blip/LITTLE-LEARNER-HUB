@@ -21632,3 +21632,139 @@ button.aup-btn--danger {
   }
 }
 
+/* Phase 1 monthly curriculum */
+.lesson-library-type-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.lesson-library-type-tabs .ghost-button.is-active{background:var(--brand-deep,#2f6f5e);color:#fff;border-color:transparent}
+.curriculum-guided-steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 8px}
+.curriculum-guided-steps .curriculum-guided-num{display:inline-flex;width:1.4rem;height:1.4rem;align-items:center;justify-content:center;border-radius:999px;background:#e8f2ee;font-size:.8rem;margin-right:4px}
+.curriculum-guided-steps li.is-current .ghost-button{border-color:#2f6f5e;font-weight:600}
+.curriculum-series-week-slot.is-empty{border-style:dashed;opacity:.95}
+.curriculum-series-card{cursor:pointer}
+
+/* Phase 1 polish — Monthly Curriculum Netflix library + premium detail */
+.curriculum-series-netflix-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1.1rem;
+}
+.curriculum-series-card--large {
+  min-width: 240px;
+}
+.curriculum-series-card--large .browse-card-cover,
+.curriculum-series-card--large .lesson-plan-card__cover {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  object-fit: cover;
+}
+.browse-row .curriculum-series-card--large {
+  flex: 0 0 min(320px, 78vw);
+  max-width: 340px;
+}
+.curriculum-series-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px 12px;
+}
+.monthly-library-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(47, 111, 94, 0.06), rgba(240, 199, 94, 0.08));
+}
+.monthly-library-filters label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+}
+.curriculum-series-detail--premium {
+  max-width: 920px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+.curriculum-series-detail-hero {
+  position: relative;
+  border-radius: 16px;
+  overflow: hidden;
+  margin: 0.75rem 0 1.25rem;
+  background: #1f3d34;
+}
+.curriculum-series-detail-hero img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
+.curriculum-series-detail-hero-copy {
+  padding: 1rem 1.1rem 1.2rem;
+  color: #fff;
+  background: linear-gradient(180deg, rgba(20, 48, 40, 0.15), rgba(20, 48, 40, 0.92));
+}
+.curriculum-series-detail-hero-copy .eyebrow,
+.curriculum-series-detail-hero-copy .muted-copy,
+.curriculum-series-detail-hero-copy h2 {
+  color: inherit;
+}
+.curriculum-series-detail-block {
+  margin: 0 0 1.15rem;
+}
+.curriculum-series-detail-block h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+}
+.curriculum-series-timeline {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+.curriculum-series-timeline li {
+  display: grid;
+  grid-template-columns: 88px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(47, 111, 94, 0.06);
+}
+.curriculum-series-timeline-week {
+  font-weight: 700;
+  color: #2f6f5e;
+}
+.curriculum-series-week-list {
+  display: grid;
+  gap: 14px;
+}
+.curriculum-series-week-mini {
+  display: grid;
+  grid-template-columns: minmax(120px, 200px) 1fr;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(20, 48, 40, 0.1);
+  background: #fff;
+}
+.curriculum-series-week-mini-media img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 10px;
+  display: block;
+}
+.curriculum-series-week-mini.is-empty {
+  grid-template-columns: 1fr;
+  border-style: dashed;
+}
+@media (max-width: 720px) {
+  .curriculum-series-week-mini {
+    grid-template-columns: 1fr;
+  }
+  .curriculum-series-timeline li {
+    grid-template-columns: 1fr;
+  }
+}

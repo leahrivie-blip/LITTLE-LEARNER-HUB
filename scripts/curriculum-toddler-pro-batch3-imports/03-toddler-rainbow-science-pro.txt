@@ -1,9 +1,15 @@
-TITLE: Rainbow Science
-AGE_GROUP: Toddler (2–3 Years)
-THEME: Rainbow Science
-PLAN: PRO
-STATUS: Published
-LEARNING_DOMAINS: Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional Development
+TITLE:
+Rainbow Science
+AGE_GROUP:
+Toddler (2–3 Years)
+THEME:
+Rainbow Science
+PLAN:
+Pro
+STATUS:
+published
+LEARNING_DOMAINS:
+Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional Development
 
 WEEKLY_OVERVIEW:
 Toddlers investigate colors through mixing, sorting, light, water, movement, and open-ended art. Activities emphasize prediction, cause and effect, descriptive language, matching, counting, and joyful sensory exploration.
@@ -37,257 +43,547 @@ Observe color matching, prediction, cause-and-effect understanding, counting, ex
 ADAPTATIONS:
 Use high-contrast cards, fewer choices, larger tools, sealed sensory bags, seated movement, and gesture or picture responses.
 
-MONDAY:
-DAILY_THEME: Red, Yellow, and Blue
-DAILY_OBJECTIVES: Recognize primary colors and match objects.
-DAILY_VOCABULARY: Red; yellow; blue; color; match.
-DAILY_MATERIALS: Color cards; large objects; sorting bowls; scarves; paper.
-DAILY_LEARNING_DOMAINS: Math; Language; Gross Motor; Art.
-CIRCLE_TIME_IDEAS: Introduce primary-color scarves and match classroom objects.
-OUTDOOR_PLAY: Run or walk to colored hoops when a color is named.
-DAILY_OBSERVATION_OPPORTUNITIES: Color recognition, matching, and cue response.
-DAILY_ADAPTATIONS: Offer two colors at a time.
-SAFETY_NOTES: Use large non-choking materials and clear movement areas.
-ACTIVITY_1:
-CATEGORY: Math
-ACTIVITY_NAME: Primary Color Sort
-OBJECTIVE: Sort objects by color.
-DESCRIPTION: Children place large red, yellow, and blue objects into matching bowls.
-MATERIALS: Colored bowls; large matching objects.
-SETUP: Place three bowls in a row and model one match.
-DIRECTIONS: 1. Pick an object. 2. Name or notice its color. 3. Find the matching bowl. 4. Place it inside. 5. Compare the groups.
-TEACHER_ROLE: Model color words and accept approximations.
-LEARNING_GOALS: Classification; visual discrimination; vocabulary.
-OBSERVATION_OPPORTUNITIES: Matching accuracy and flexibility.
-ADAPTATIONS: Use only two bowls.
-SAFETY_NOTES: Inspect all objects for size and damage.
-ACTIVITY_2:
-CATEGORY: Gross Motor
-ACTIVITY_NAME: Color Hoop Hop
-OBJECTIVE: Respond to color cues while moving safely.
-DESCRIPTION: Children travel to large colored hoops using different movements.
-MATERIALS: Red, yellow, and blue hoops or mats.
-SETUP: Space hoops widely apart.
-DIRECTIONS: 1. Name a color. 2. Point to the matching hoop. 3. Walk, tiptoe, or march there. 4. Freeze inside. 5. Repeat.
-TEACHER_ROLE: Demonstrate and maintain safe spacing.
-LEARNING_GOALS: Listening; coordination; color recognition.
-OBSERVATION_OPPORTUNITIES: Cue response and balance.
-ADAPTATIONS: Touch colors from a seated position.
-SAFETY_NOTES: Avoid jumping if the floor is slippery.
-ACTIVITY_3:
-CATEGORY: Creative Arts
-ACTIVITY_NAME: Primary Color Marks
-OBJECTIVE: Explore color and mark-making.
-DESCRIPTION: Children make open-ended marks with red, yellow, and blue tools.
-MATERIALS: Paper; chunky crayons; dot markers.
-SETUP: Tape paper to the table.
-DIRECTIONS: 1. Choose a color. 2. Make dots or lines. 3. Switch colors. 4. Notice overlaps. 5. Name a favorite area.
-TEACHER_ROLE: Narrate actions without directing the final product.
-LEARNING_GOALS: Fine motor control; creativity; choice-making.
-OBSERVATION_OPPORTUNITIES: Grip and color preference.
-ADAPTATIONS: Use adaptive grips.
-SAFETY_NOTES: Use non-toxic supplies.
+MONDAY
+DAILY_THEME:
+Red, Yellow, and Blue
+DAILY_OBJECTIVES:
+Recognize primary colors and match objects.
+DAILY_VOCABULARY:
+Red; yellow; blue; color; match.
+DAILY_MATERIALS:
+Color cards; large objects; sorting bowls; scarves; paper.
+DAILY_LEARNING_DOMAINS:
+Math; Language; Gross Motor; Art.
+CIRCLE_TIME:
+Introduce primary-color scarves and match classroom objects.
+OUTDOOR_PLAY:
+Run or walk to colored hoops when a color is named.
+DAILY_OBSERVATIONS:
+Color recognition, matching, and cue response.
+DAILY_ADAPTATIONS:
+Offer two colors at a time.
+SAFETY_NOTES:
+Use large non-choking materials and clear movement areas.
 
-TUESDAY:
-DAILY_THEME: Mixing Colors
-DAILY_OBJECTIVES: Predict and observe color changes.
-DAILY_VOCABULARY: Mix; change; orange; green; purple.
-DAILY_MATERIALS: Primary paint; sealed bags; clear cups; droppers; water.
-DAILY_LEARNING_DOMAINS: Science; Language; Fine Motor.
-CIRCLE_TIME_IDEAS: Demonstrate two colors mixing in a sealed bag.
-OUTDOOR_PLAY: Blend colored chalk marks with water brushes.
-DAILY_OBSERVATION_OPPORTUNITIES: Predictions, visual tracking, and cause-effect language.
-DAILY_ADAPTATIONS: Use sealed bags only.
-SAFETY_NOTES: Supervise liquids and prevent ingestion.
-ACTIVITY_1:
-CATEGORY: Science
-ACTIVITY_NAME: Color Mixing Bags
-OBJECTIVE: Observe two colors combining.
-DESCRIPTION: Children press and blend paint inside sealed bags.
-MATERIALS: Zip bags; tape; washable paint.
-SETUP: Add two paint colors, seal, and tape bags flat.
-DIRECTIONS: 1. Look at the two colors. 2. Predict what may happen. 3. Press and move the paint. 4. Observe the new color. 5. Name or point to it.
-TEACHER_ROLE: Use prediction and change language.
-LEARNING_GOALS: Cause and effect; science observation; vocabulary.
-OBSERVATION_OPPORTUNITIES: Pressing, tracking, and prediction.
-ADAPTATIONS: Place bags vertically on a window.
-SAFETY_NOTES: Double-seal bags and inspect frequently.
-ACTIVITY_2:
-CATEGORY: Fine Motor
-ACTIVITY_NAME: Dropper Color Lab
-OBJECTIVE: Strengthen hands while mixing colored water.
-DESCRIPTION: Children squeeze droppers into clear cups.
-MATERIALS: Droppers; colored water; clear cups; trays.
-SETUP: Use shallow amounts of colored water.
-DIRECTIONS: 1. Squeeze the dropper. 2. Release it in colored water. 3. Move drops to another cup. 4. Add a second color. 5. Observe the change.
-TEACHER_ROLE: Assist grip and narrate each step.
-LEARNING_GOALS: Hand strength; transfer skills; cause and effect.
-OBSERVATION_OPPORTUNITIES: Squeeze-release control and attention.
-ADAPTATIONS: Use squeeze bottles.
-SAFETY_NOTES: Water is not for drinking; wipe spills.
-ACTIVITY_3:
-CATEGORY: Creative Arts
-ACTIVITY_NAME: Two-Color Roll Painting
-OBJECTIVE: Explore blending through rolling.
-DESCRIPTION: Children roll balls through two paint colors inside a covered tray.
-MATERIALS: Shallow lidded tray; paper; large balls; paint.
-SETUP: Secure paper and add small paint amounts.
-DIRECTIONS: 1. Add a ball. 2. Tilt the tray. 3. Watch the tracks cross. 4. Continue until colors blend. 5. Open with adult help and observe.
-TEACHER_ROLE: Support turn-taking and descriptive language.
-LEARNING_GOALS: Bilateral coordination; color mixing; cooperation.
-OBSERVATION_OPPORTUNITIES: Movement control and shared attention.
-ADAPTATIONS: Roll by hand on a large paper sheet.
-SAFETY_NOTES: Keep the lid secure during rolling.
+ACTIVITY_NAME:
+Primary Color Sort
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Sort objects by color.
+DESCRIPTION:
+Children place large red, yellow, and blue objects into matching bowls.
+MATERIALS:
+Colored bowls; large matching objects.
+SETUP:
+Place three bowls in a row and model one match.
+DIRECTIONS:
+1. Pick an object.
+2. Name or notice its color.
+3. Find the matching bowl.
+4. Place it inside.
+5. Compare the groups.
+TEACHER_ROLE:
+Model color words and accept approximations.
+LEARNING_GOALS:
+Classification; visual discrimination; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Matching accuracy and flexibility.
+ADAPTATIONS:
+Use only two bowls.
+SAFETY_NOTES:
+Inspect all objects for size and damage.
 
-WEDNESDAY:
-DAILY_THEME: Rainbow Light
-DAILY_OBJECTIVES: Explore reflections, shadows, and bright colors.
-DAILY_VOCABULARY: Light; shine; reflect; bright; shadow.
-DAILY_MATERIALS: Flashlights; CDs; prisms; color paddles; white wall.
-DAILY_LEARNING_DOMAINS: Science; Language; Gross Motor.
-CIRCLE_TIME_IDEAS: Shine light through color paddles and notice changes.
-OUTDOOR_PLAY: Chase safe shadows and notice sunlight colors.
-DAILY_OBSERVATION_OPPORTUNITIES: Visual tracking and descriptive language.
-DAILY_ADAPTATIONS: Reduce brightness and offer viewing from a distance.
-SAFETY_NOTES: Never shine lights into eyes.
-ACTIVITY_1:
-CATEGORY: Science
-ACTIVITY_NAME: Rainbow Reflection Hunt
-OBJECTIVE: Observe reflected colors.
-DESCRIPTION: Children move a CD or prism with adult help to find rainbow reflections.
-MATERIALS: CDs or child-safe prisms; flashlight; white paper.
-SETUP: Darken one area slightly.
-DIRECTIONS: 1. Shine light toward the reflective object. 2. Move it slowly. 3. Find colors on the wall or paper. 4. Point to a color. 5. Repeat from another angle.
-TEACHER_ROLE: Control the flashlight and model safe viewing.
-LEARNING_GOALS: Light exploration; visual tracking; curiosity.
-OBSERVATION_OPPORTUNITIES: Attention and cause-effect understanding.
-ADAPTATIONS: Use photos of rainbows.
-SAFETY_NOTES: Adult controls light source.
-ACTIVITY_2:
-CATEGORY: Gross Motor
-ACTIVITY_NAME: Catch the Color
-OBJECTIVE: Track moving light and move with control.
-DESCRIPTION: Children follow colored light spots projected onto the floor.
-MATERIALS: Flashlight; color paddles; open floor.
-SETUP: Create a clear boundary.
-DIRECTIONS: 1. Watch the light spot. 2. Walk toward it. 3. Stop when it stops. 4. Name the color. 5. Repeat slowly.
-TEACHER_ROLE: Move the light gently and prevent running collisions.
-LEARNING_GOALS: Visual tracking; balance; listening.
-OBSERVATION_OPPORTUNITIES: Stop-start control and focus.
-ADAPTATIONS: Track with hands while seated.
-SAFETY_NOTES: Keep light away from faces.
-ACTIVITY_3:
-CATEGORY: Fine Motor
-ACTIVITY_NAME: Transparent Color Collage
-OBJECTIVE: Layer colors and observe changes.
-DESCRIPTION: Children press transparent colored shapes onto contact paper.
-MATERIALS: Contact paper; large cellophane shapes; frame.
-SETUP: Secure contact paper sticky side out.
-DIRECTIONS: 1. Choose a shape. 2. Press it onto the surface. 3. Add another color over it. 4. Look through the overlap. 5. Continue creating.
-TEACHER_ROLE: Point out new colors and assist placement.
-LEARNING_GOALS: Fine motor control; layering; visual science.
-OBSERVATION_OPPORTUNITIES: Placement and color noticing.
-ADAPTATIONS: Use larger shapes.
-SAFETY_NOTES: Supervise cellophane pieces.
+ACTIVITY_NAME:
+Color Hoop Hop
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Respond to color cues while moving safely.
+DESCRIPTION:
+Children travel to large colored hoops using different movements.
+MATERIALS:
+Red, yellow, and blue hoops or mats.
+SETUP:
+Space hoops widely apart.
+DIRECTIONS:
+1. Name a color.
+2. Point to the matching hoop.
+3. Walk, tiptoe, or march there.
+4. Freeze inside.
+5. Repeat.
+TEACHER_ROLE:
+Demonstrate and maintain safe spacing.
+LEARNING_GOALS:
+Listening; coordination; color recognition.
+OBSERVATION_OPPORTUNITIES:
+Cue response and balance.
+ADAPTATIONS:
+Touch colors from a seated position.
+SAFETY_NOTES:
+Avoid jumping if the floor is slippery.
 
-THURSDAY:
-DAILY_THEME: Rainbow Patterns
-DAILY_OBJECTIVES: Notice repetition and create simple sequences.
-DAILY_VOCABULARY: Pattern; next; same; different; repeat.
-DAILY_MATERIALS: Large colored blocks; scarves; dot cards; beads on secured strings.
-DAILY_LEARNING_DOMAINS: Math; Language; Fine Motor; Music.
-CIRCLE_TIME_IDEAS: Clap a red-blue movement pattern using scarves.
-OUTDOOR_PLAY: Follow a simple colored stepping path.
-DAILY_OBSERVATION_OPPORTUNITIES: Imitation, sequencing, and matching.
-DAILY_ADAPTATIONS: Use AB patterns with only two colors.
-SAFETY_NOTES: Use oversized manipulatives and secured strings.
-ACTIVITY_1:
-CATEGORY: Math
-ACTIVITY_NAME: Color Block Patterns
-OBJECTIVE: Copy a two-color pattern.
-DESCRIPTION: Children arrange large blocks in repeating color order.
-MATERIALS: Large red and blue blocks; pattern cards.
-SETUP: Build a short AB model.
-DIRECTIONS: 1. Look at the model. 2. Choose the first color. 3. Add the second color. 4. Repeat the pair. 5. Say or point to what comes next.
-TEACHER_ROLE: Keep patterns short and model aloud.
-LEARNING_GOALS: Sequencing; prediction; color recognition.
-OBSERVATION_OPPORTUNITIES: Pattern copying and persistence.
-ADAPTATIONS: Match blocks directly onto a card.
-SAFETY_NOTES: Use lightweight blocks.
-ACTIVITY_2:
-CATEGORY: Music & Movement
-ACTIVITY_NAME: Rainbow Scarf Pattern Dance
-OBJECTIVE: Repeat a movement sequence.
-DESCRIPTION: Children copy two simple scarf movements.
-MATERIALS: Colored scarves; music.
-SETUP: Clear an open area.
-DIRECTIONS: 1. Wave high. 2. Wave low. 3. Repeat high-low. 4. Change the sequence. 5. Let children choose a movement.
-TEACHER_ROLE: Model slowly and encourage participation.
-LEARNING_GOALS: Memory; coordination; pattern awareness.
-OBSERVATION_OPPORTUNITIES: Imitation and rhythm.
-ADAPTATIONS: Use seated arm movements.
-SAFETY_NOTES: Do not wrap scarves around necks.
-ACTIVITY_3:
-CATEGORY: Fine Motor
-ACTIVITY_NAME: Rainbow Threading
-OBJECTIVE: Place large pieces in a color sequence.
-DESCRIPTION: Children thread oversized beads onto a stiff, secured lace.
-MATERIALS: Oversized beads; stiff laces with secured ends; color cards.
-SETUP: Prepare short laces and limited colors.
-DIRECTIONS: 1. Choose a color. 2. Slide it onto the lace. 3. Add the next color. 4. Repeat. 5. Compare with the card.
-TEACHER_ROLE: Support bilateral coordination.
-LEARNING_GOALS: Fine motor precision; sequencing; concentration.
-OBSERVATION_OPPORTUNITIES: Hand use and pattern attempts.
-ADAPTATIONS: Use stacking rings.
-SAFETY_NOTES: Constantly supervise beads and strings.
+ACTIVITY_NAME:
+Primary Color Marks
+CATEGORY:
+Art
+OBJECTIVE:
+Explore color and mark-making.
+DESCRIPTION:
+Children make open-ended marks with red, yellow, and blue tools.
+MATERIALS:
+Paper; chunky crayons; dot markers.
+SETUP:
+Tape paper to the table.
+DIRECTIONS:
+1. Choose a color.
+2. Make dots or lines.
+3. Switch colors.
+4. Notice overlaps.
+5. Name a favorite area.
+TEACHER_ROLE:
+Narrate actions without directing the final product.
+LEARNING_GOALS:
+Fine motor control; creativity; choice-making.
+OBSERVATION_OPPORTUNITIES:
+Grip and color preference.
+ADAPTATIONS:
+Use adaptive grips.
+SAFETY_NOTES:
+Use non-toxic supplies.
 
-FRIDAY:
-DAILY_THEME: Rainbow Celebration
-DAILY_OBJECTIVES: Review colors, collaborate, and communicate favorites.
-DAILY_VOCABULARY: Rainbow; favorite; bright; together; celebrate.
-DAILY_MATERIALS: Large paper; washable paint; color cards; scarves; sorting objects.
-DAILY_LEARNING_DOMAINS: Art; Language; Social-Emotional; Math.
-CIRCLE_TIME_IDEAS: Review colors and sing I Can Sing a Rainbow.
-OUTDOOR_PLAY: Complete a rainbow color hunt around the play area.
-DAILY_OBSERVATION_OPPORTUNITIES: Recall, preference expression, cooperation, and sorting.
-DAILY_ADAPTATIONS: Use picture choices and adult scribing.
-SAFETY_NOTES: Check outdoor items before touching.
-ACTIVITY_1:
-CATEGORY: Cooperative Art
-ACTIVITY_NAME: Class Rainbow Mural
-OBJECTIVE: Contribute to a shared artwork.
-DESCRIPTION: Children add painted marks to assigned color bands on a large mural.
-MATERIALS: Large paper; washable paint; rollers; smocks.
-SETUP: Lightly mark broad color sections.
-DIRECTIONS: 1. Choose a color. 2. Add marks to the mural. 3. Trade tools. 4. Notice friends' colors. 5. Display when dry.
-TEACHER_ROLE: Support sharing and preserve open-ended choices.
-LEARNING_GOALS: Cooperation; creativity; color recall.
-OBSERVATION_OPPORTUNITIES: Tool use and peer awareness.
-ADAPTATIONS: Use sponge stamps.
-SAFETY_NOTES: Clean spills promptly.
-ACTIVITY_2:
-CATEGORY: Math
-ACTIVITY_NAME: Rainbow Review Sort
-OBJECTIVE: Sort mixed objects by color.
-DESCRIPTION: Children sort large classroom objects onto color mats.
-MATERIALS: Color mats; large objects.
-SETUP: Place mats in a semicircle.
-DIRECTIONS: 1. Choose an object. 2. Name or point to its color. 3. Find the mat. 4. Place it. 5. Count a group.
-TEACHER_ROLE: Reinforce vocabulary and one-to-one counting.
-LEARNING_GOALS: Classification; counting; recall.
-OBSERVATION_OPPORTUNITIES: Sorting independence and number words.
-ADAPTATIONS: Use two colors at a time.
-SAFETY_NOTES: Use safe, clean objects.
-ACTIVITY_3:
-CATEGORY: Language
-ACTIVITY_NAME: My Favorite Color Page
-OBJECTIVE: Express a preference through words, gestures, and art.
-DESCRIPTION: Children choose a color, make marks, and dictate a phrase.
-MATERIALS: Paper; crayons; color cards.
-SETUP: Display limited color choices.
-DIRECTIONS: 1. Choose a favorite color. 2. Make marks with it. 3. Point to or name the color. 4. Tell why you like it or choose an object that matches. 5. Teacher records the child's words.
-TEACHER_ROLE: Accept all communication forms.
-LEARNING_GOALS: Choice-making; expressive language; early writing.
-OBSERVATION_OPPORTUNITIES: Preference, grip, and communication.
-ADAPTATIONS: Use stickers or paint daubers.
-SAFETY_NOTES: Use non-toxic art materials.
+TUESDAY
+DAILY_THEME:
+Mixing Colors
+DAILY_OBJECTIVES:
+Predict and observe color changes.
+DAILY_VOCABULARY:
+Mix; change; orange; green; purple.
+DAILY_MATERIALS:
+Primary paint; sealed bags; clear cups; droppers; water.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Fine Motor.
+CIRCLE_TIME:
+Demonstrate two colors mixing in a sealed bag.
+OUTDOOR_PLAY:
+Blend colored chalk marks with water brushes.
+DAILY_OBSERVATIONS:
+Predictions, visual tracking, and cause-effect language.
+DAILY_ADAPTATIONS:
+Use sealed bags only.
+SAFETY_NOTES:
+Supervise liquids and prevent ingestion.
+
+ACTIVITY_NAME:
+Color Mixing Bags
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe two colors combining.
+DESCRIPTION:
+Children press and blend paint inside sealed bags.
+MATERIALS:
+Zip bags; tape; washable paint.
+SETUP:
+Add two paint colors, seal, and tape bags flat.
+DIRECTIONS:
+1. Look at the two colors.
+2. Predict what may happen.
+3. Press and move the paint.
+4. Observe the new color.
+5. Name or point to it.
+TEACHER_ROLE:
+Use prediction and change language.
+LEARNING_GOALS:
+Cause and effect; science observation; vocabulary.
+OBSERVATION_OPPORTUNITIES:
+Pressing, tracking, and prediction.
+ADAPTATIONS:
+Place bags vertically on a window.
+SAFETY_NOTES:
+Double-seal bags and inspect frequently.
+
+ACTIVITY_NAME:
+Dropper Color Lab
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen hands while mixing colored water.
+DESCRIPTION:
+Children squeeze droppers into clear cups.
+MATERIALS:
+Droppers; colored water; clear cups; trays.
+SETUP:
+Use shallow amounts of colored water.
+DIRECTIONS:
+1. Squeeze the dropper.
+2. Release it in colored water.
+3. Move drops to another cup.
+4. Add a second color.
+5. Observe the change.
+TEACHER_ROLE:
+Assist grip and narrate each step.
+LEARNING_GOALS:
+Hand strength; transfer skills; cause and effect.
+OBSERVATION_OPPORTUNITIES:
+Squeeze-release control and attention.
+ADAPTATIONS:
+Use squeeze bottles.
+SAFETY_NOTES:
+Water is not for drinking; wipe spills.
+
+ACTIVITY_NAME:
+Two-Color Roll Painting
+CATEGORY:
+Art
+OBJECTIVE:
+Explore blending through rolling.
+DESCRIPTION:
+Children roll balls through two paint colors inside a covered tray.
+MATERIALS:
+Shallow lidded tray; paper; large balls; paint.
+SETUP:
+Secure paper and add small paint amounts.
+DIRECTIONS:
+1. Add a ball.
+2. Tilt the tray.
+3. Watch the tracks cross.
+4. Continue until colors blend.
+5. Open with adult help and observe.
+TEACHER_ROLE:
+Support turn-taking and descriptive language.
+LEARNING_GOALS:
+Bilateral coordination; color mixing; cooperation.
+OBSERVATION_OPPORTUNITIES:
+Movement control and shared attention.
+ADAPTATIONS:
+Roll by hand on a large paper sheet.
+SAFETY_NOTES:
+Keep the lid secure during rolling.
+
+WEDNESDAY
+DAILY_THEME:
+Rainbow Light
+DAILY_OBJECTIVES:
+Explore reflections, shadows, and bright colors.
+DAILY_VOCABULARY:
+Light; shine; reflect; bright; shadow.
+DAILY_MATERIALS:
+Flashlights; CDs; prisms; color paddles; white wall.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Gross Motor.
+CIRCLE_TIME:
+Shine light through color paddles and notice changes.
+OUTDOOR_PLAY:
+Chase safe shadows and notice sunlight colors.
+DAILY_OBSERVATIONS:
+Visual tracking and descriptive language.
+DAILY_ADAPTATIONS:
+Reduce brightness and offer viewing from a distance.
+SAFETY_NOTES:
+Never shine lights into eyes.
+
+ACTIVITY_NAME:
+Rainbow Reflection Hunt
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe reflected colors.
+DESCRIPTION:
+Children move a CD or prism with adult help to find rainbow reflections.
+MATERIALS:
+CDs or child-safe prisms; flashlight; white paper.
+SETUP:
+Darken one area slightly.
+DIRECTIONS:
+1. Shine light toward the reflective object.
+2. Move it slowly.
+3. Find colors on the wall or paper.
+4. Point to a color.
+5. Repeat from another angle.
+TEACHER_ROLE:
+Control the flashlight and model safe viewing.
+LEARNING_GOALS:
+Light exploration; visual tracking; curiosity.
+OBSERVATION_OPPORTUNITIES:
+Attention and cause-effect understanding.
+ADAPTATIONS:
+Use photos of rainbows.
+SAFETY_NOTES:
+Adult controls light source.
+
+ACTIVITY_NAME:
+Catch the Color
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Track moving light and move with control.
+DESCRIPTION:
+Children follow colored light spots projected onto the floor.
+MATERIALS:
+Flashlight; color paddles; open floor.
+SETUP:
+Create a clear boundary.
+DIRECTIONS:
+1. Watch the light spot.
+2. Walk toward it.
+3. Stop when it stops.
+4. Name the color.
+5. Repeat slowly.
+TEACHER_ROLE:
+Move the light gently and prevent running collisions.
+LEARNING_GOALS:
+Visual tracking; balance; listening.
+OBSERVATION_OPPORTUNITIES:
+Stop-start control and focus.
+ADAPTATIONS:
+Track with hands while seated.
+SAFETY_NOTES:
+Keep light away from faces.
+
+ACTIVITY_NAME:
+Transparent Color Collage
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Layer colors and observe changes.
+DESCRIPTION:
+Children press transparent colored shapes onto contact paper.
+MATERIALS:
+Contact paper; large cellophane shapes; frame.
+SETUP:
+Secure contact paper sticky side out.
+DIRECTIONS:
+1. Choose a shape.
+2. Press it onto the surface.
+3. Add another color over it.
+4. Look through the overlap.
+5. Continue creating.
+TEACHER_ROLE:
+Point out new colors and assist placement.
+LEARNING_GOALS:
+Fine motor control; layering; visual science.
+OBSERVATION_OPPORTUNITIES:
+Placement and color noticing.
+ADAPTATIONS:
+Use larger shapes.
+SAFETY_NOTES:
+Supervise cellophane pieces.
+
+THURSDAY
+DAILY_THEME:
+Rainbow Patterns
+DAILY_OBJECTIVES:
+Notice repetition and create simple sequences.
+DAILY_VOCABULARY:
+Pattern; next; same; different; repeat.
+DAILY_MATERIALS:
+Large colored blocks; scarves; dot cards; beads on secured strings.
+DAILY_LEARNING_DOMAINS:
+Math; Language; Fine Motor; Music.
+CIRCLE_TIME:
+Clap a red-blue movement pattern using scarves.
+OUTDOOR_PLAY:
+Follow a simple colored stepping path.
+DAILY_OBSERVATIONS:
+Imitation, sequencing, and matching.
+DAILY_ADAPTATIONS:
+Use AB patterns with only two colors.
+SAFETY_NOTES:
+Use oversized manipulatives and secured strings.
+
+ACTIVITY_NAME:
+Color Block Patterns
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Copy a two-color pattern.
+DESCRIPTION:
+Children arrange large blocks in repeating color order.
+MATERIALS:
+Large red and blue blocks; pattern cards.
+SETUP:
+Build a short AB model.
+DIRECTIONS:
+1. Look at the model.
+2. Choose the first color.
+3. Add the second color.
+4. Repeat the pair.
+5. Say or point to what comes next.
+TEACHER_ROLE:
+Keep patterns short and model aloud.
+LEARNING_GOALS:
+Sequencing; prediction; color recognition.
+OBSERVATION_OPPORTUNITIES:
+Pattern copying and persistence.
+ADAPTATIONS:
+Match blocks directly onto a card.
+SAFETY_NOTES:
+Use lightweight blocks.
+
+ACTIVITY_NAME:
+Rainbow Scarf Pattern Dance
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Repeat a movement sequence.
+DESCRIPTION:
+Children copy two simple scarf movements.
+MATERIALS:
+Colored scarves; music.
+SETUP:
+Clear an open area.
+DIRECTIONS:
+1. Wave high.
+2. Wave low.
+3. Repeat high-low.
+4. Change the sequence.
+5. Let children choose a movement.
+TEACHER_ROLE:
+Model slowly and encourage participation.
+LEARNING_GOALS:
+Memory; coordination; pattern awareness.
+OBSERVATION_OPPORTUNITIES:
+Imitation and rhythm.
+ADAPTATIONS:
+Use seated arm movements.
+SAFETY_NOTES:
+Do not wrap scarves around necks.
+
+ACTIVITY_NAME:
+Rainbow Threading
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Place large pieces in a color sequence.
+DESCRIPTION:
+Children thread oversized beads onto a stiff, secured lace.
+MATERIALS:
+Oversized beads; stiff laces with secured ends; color cards.
+SETUP:
+Prepare short laces and limited colors.
+DIRECTIONS:
+1. Choose a color.
+2. Slide it onto the lace.
+3. Add the next color.
+4. Repeat.
+5. Compare with the card.
+TEACHER_ROLE:
+Support bilateral coordination.
+LEARNING_GOALS:
+Fine motor precision; sequencing; concentration.
+OBSERVATION_OPPORTUNITIES:
+Hand use and pattern attempts.
+ADAPTATIONS:
+Use stacking rings.
+SAFETY_NOTES:
+Constantly supervise beads and strings.
+
+FRIDAY
+DAILY_THEME:
+Rainbow Celebration
+DAILY_OBJECTIVES:
+Review colors, collaborate, and communicate favorites.
+DAILY_VOCABULARY:
+Rainbow; favorite; bright; together; celebrate.
+DAILY_MATERIALS:
+Large paper; washable paint; color cards; scarves; sorting objects.
+DAILY_LEARNING_DOMAINS:
+Art; Language; Social-Emotional; Math.
+CIRCLE_TIME:
+Review colors and sing I Can Sing a Rainbow.
+OUTDOOR_PLAY:
+Complete a rainbow color hunt around the play area.
+DAILY_OBSERVATIONS:
+Recall, preference expression, cooperation, and sorting.
+DAILY_ADAPTATIONS:
+Use picture choices and adult scribing.
+SAFETY_NOTES:
+Check outdoor items before touching.
+
+ACTIVITY_NAME:
+Class Rainbow Mural
+CATEGORY:
+Art
+OBJECTIVE:
+Contribute to a shared artwork.
+DESCRIPTION:
+Children add painted marks to assigned color bands on a large mural.
+MATERIALS:
+Large paper; washable paint; rollers; smocks.
+SETUP:
+Lightly mark broad color sections.
+DIRECTIONS:
+1. Choose a color.
+2. Add marks to the mural.
+3. Trade tools.
+4. Notice friends' colors.
+5. Display when dry.
+TEACHER_ROLE:
+Support sharing and preserve open-ended choices.
+LEARNING_GOALS:
+Cooperation; creativity; color recall.
+OBSERVATION_OPPORTUNITIES:
+Tool use and peer awareness.
+ADAPTATIONS:
+Use sponge stamps.
+SAFETY_NOTES:
+Clean spills promptly.
+
+ACTIVITY_NAME:
+Rainbow Review Sort
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Sort mixed objects by color.
+DESCRIPTION:
+Children sort large classroom objects onto color mats.
+MATERIALS:
+Color mats; large objects.
+SETUP:
+Place mats in a semicircle.
+DIRECTIONS:
+1. Choose an object.
+2. Name or point to its color.
+3. Find the mat.
+4. Place it.
+5. Count a group.
+TEACHER_ROLE:
+Reinforce vocabulary and one-to-one counting.
+LEARNING_GOALS:
+Classification; counting; recall.
+OBSERVATION_OPPORTUNITIES:
+Sorting independence and number words.
+ADAPTATIONS:
+Use two colors at a time.
+SAFETY_NOTES:
+Use safe, clean objects.
+
+ACTIVITY_NAME:
+My Favorite Color Page
+CATEGORY:
+Literacy
+OBJECTIVE:
+Express a preference through words, gestures, and art.
+DESCRIPTION:
+Children choose a color, make marks, and dictate a phrase.
+MATERIALS:
+Paper; crayons; color cards.
+SETUP:
+Display limited color choices.
+DIRECTIONS:
+1. Choose a favorite color.
+2. Make marks with it.
+3. Point to or name the color.
+4. Tell why you like it or choose an object that matches.
+5. Teacher records the child's words.
+TEACHER_ROLE:
+Accept all communication forms.
+LEARNING_GOALS:
+Choice-making; expressive language; early writing.
+OBSERVATION_OPPORTUNITIES:
+Preference, grip, and communication.
+ADAPTATIONS:
+Use stickers or paint daubers.
+SAFETY_NOTES:
+Use non-toxic art materials.

@@ -143,10 +143,13 @@ async function main() {
         hasBack: Boolean(document.querySelector(".lesson-library-back")),
         hasAgeFilters: Boolean(document.querySelector(".lesson-library-age-filters")),
         noticeVisibleByDefault: Boolean(document.querySelector("#lessonLibraryInfoPanel")),
-        searchNearTop: searchTop - lessonsTop < 220,
-        resultsNearTop: gridTop - lessonsTop < 360,
+        // Allow room for Monthly/Weekly type tabs above search on mobile.
+        searchNearTop: searchTop - lessonsTop < 300,
+        resultsNearTop: gridTop - lessonsTop < 460,
         overflow,
         globalSearchPlaceholder: document.querySelector("#searchInput")?.placeholder || "",
+        searchOffset: searchTop - lessonsTop,
+        gridOffset: gridTop - lessonsTop,
       };
     });
 
@@ -157,8 +160,8 @@ async function main() {
     assert(state.hasBack, "Back control missing");
     assert(state.hasAgeFilters, "age filters missing");
     assert(!state.noticeVisibleByDefault, "large Play-Based notice should be behind info toggle by default");
-    assert(state.searchNearTop, "lesson search should appear near the top");
-    assert(state.resultsNearTop, "lesson results should appear near the top");
+    assert(state.searchNearTop, `lesson search should appear near the top (offset=${state.searchOffset})`);
+    assert(state.resultsNearTop, `lesson results should appear near the top (offset=${state.gridOffset})`);
     assert(!state.overflow, "no horizontal overflow on mobile lessons view");
 
     // Info toggle reveals access copy without a permanent large card.
