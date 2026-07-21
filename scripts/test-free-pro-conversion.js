@@ -100,9 +100,9 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260720-promo-existing");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260720-promo-existing");
-  assert.match(sw, /llh-shell-v105-promo-existing/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-pwa-cold-start");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-pwa-cold-start");
+  assert.match(sw, /llh-shell-v106-pwa-cold-start/);
   assert.match(sw, /free-curriculum-sample\.js\?v=20260720-promo-existing/);
   assert.match(sw, /free-plan-grandfathering\.js\?v=20260720-promo-existing/);
 });

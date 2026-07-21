@@ -4368,29 +4368,122 @@ async function siteContentRequestHeaders() {
   return headers;
 }
 
+const CURRICULUM_LIBRARY_CACHE_KEY = "llhCurriculumLibraryCacheV1";
+let siteContentLoadPromise = null;
+let curriculumLibraryLoading = false;
+
+function readCachedCurriculumLibrary() {
+  try {
+    const raw = localStorage.getItem(CURRICULUM_LIBRARY_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!Array.isArray(parsed.lessonPlans) || !parsed.lessonPlans.length) return null;
+    return {
+      lessonPlans: parsed.lessonPlans,
+      activities: Array.isArray(parsed.activities) ? parsed.activities : [],
+      resources: Array.isArray(parsed.resources) ? parsed.resources : [],
+      updatedAt: parsed.updatedAt || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedCurriculumLibrary(library) {
+  try {
+    if (!library || !Array.isArray(library.lessonPlans) || !library.lessonPlans.length) return;
+    // Persist a slim browse snapshot only (no nested dailyPlans / activity how-to).
+    const slimPlans = library.lessonPlans.slice(0, 250).map((plan) => ({
+      id: plan.id,
+      title: plan.title,
+      age: plan.age,
+      theme: plan.theme,
+      plan: plan.plan,
+      status: plan.status,
+      locked: plan.locked,
+      learningDomains: plan.learningDomains,
+      weeklyOverview: plan.weeklyOverview,
+      activityCount: plan.activityCount,
+      coverImageUrl: plan.coverImageUrl,
+      coverImageAlt: plan.coverImageAlt,
+      coverImageSource: plan.coverImageSource,
+      coverImagePosition: plan.coverImagePosition,
+      updatedAt: plan.updatedAt,
+    }));
+    const slimActivities = (library.activities || []).slice(0, 400).map((activity) => ({
+      id: activity.id,
+      lessonPlanId: activity.lessonPlanId,
+      title: activity.title,
+      activityCategory: activity.activityCategory,
+      dayOfWeek: activity.dayOfWeek,
+      plan: activity.plan,
+      locked: activity.locked,
+      parentTitle: activity.parentTitle,
+      parentAge: activity.parentAge,
+      parentPlan: activity.parentPlan,
+      updatedAt: activity.updatedAt,
+    }));
+    localStorage.setItem(CURRICULUM_LIBRARY_CACHE_KEY, JSON.stringify({
+      lessonPlans: slimPlans,
+      activities: slimActivities,
+      resources: Array.isArray(library.resources) ? library.resources.slice(0, 100) : [],
+      updatedAt: library.updatedAt || "",
+      cachedAt: new Date().toISOString(),
+    }));
+  } catch (error) {
+    console.warn("Could not cache curriculum library", error);
+  }
+}
+
+function hydrateCurriculumLibraryFromCache() {
+  const cached = readCachedCurriculumLibrary();
+  if (!cached) return false;
+  const current = effectiveSiteContent();
+  const existing = current.curriculumLibrary;
+  const alreadyLoaded = Array.isArray(existing?.lessonPlans) && existing.lessonPlans.length > 0;
+  if (alreadyLoaded) return false;
+  siteContentState = {
+    ...current,
+    curriculumLibrary: cached,
+    playBasedCurriculum: true,
+  };
+  syncSiteManagedResources();
+  return true;
+}
+
 async function refreshPublicCurriculumLibrary() {
   if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) return effectiveSiteContent();
-  try {
-    const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
-      cache: "no-store",
-      headers: await siteContentRequestHeaders(),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || "Could not refresh curriculum library.");
-    const incoming = data.siteContent || emptySiteContent();
-    siteContentState = {
-      ...effectiveSiteContent(),
-      curriculumLibrary: incoming.curriculumLibrary || emptyCurriculumLibrary(),
-      freePlanAccess: incoming.freePlanAccess || effectiveSiteContent().freePlanAccess || {},
-      playBasedCurriculum: incoming.playBasedCurriculum !== false,
-      updatedAt: incoming.updatedAt || effectiveSiteContent().updatedAt,
-    };
-    syncSiteManagedResources();
-    return effectiveSiteContent();
-  } catch (error) {
-    console.warn(error);
-    return effectiveSiteContent();
-  }
+  if (siteContentLoadPromise) return siteContentLoadPromise;
+  curriculumLibraryLoading = true;
+  siteContentLoadPromise = (async () => {
+    try {
+      const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: await siteContentRequestHeaders(),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data?.error || "Could not refresh curriculum library.");
+      const incoming = data.siteContent || emptySiteContent();
+      // Keep a full public site-content replace so homepage/pricing stay current,
+      // while still coalescing concurrent library refreshes through one in-flight fetch.
+      siteContentState = {
+        ...incoming,
+        curriculumLibrary: incoming.curriculumLibrary || emptyCurriculumLibrary(),
+        playBasedCurriculum: incoming.playBasedCurriculum !== false,
+      };
+      writeCachedCurriculumLibrary(siteContentState.curriculumLibrary);
+      syncSiteManagedResources();
+      return effectiveSiteContent();
+    } catch (error) {
+      console.warn(error);
+      return effectiveSiteContent();
+    } finally {
+      curriculumLibraryLoading = false;
+      siteContentLoadPromise = null;
+    }
+  })();
+  return siteContentLoadPromise;
 }
 
 async function loadSiteContentFromBackend() {
@@ -4408,13 +4501,9 @@ async function loadSiteContentFromBackend() {
     }
   }
   try {
-    const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
-      cache: "no-store",
-      headers: await siteContentRequestHeaders(),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data?.error || "Could not load site content.");
-    siteContentState = data.siteContent || emptySiteContent();
+    hydrateCurriculumLibraryFromCache();
+    syncSiteManagedResources();
+    await refreshPublicCurriculumLibrary();
     rerenderActiveContent();
     return effectiveSiteContent();
   } catch (error) {
@@ -4500,6 +4589,34 @@ const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const defaultSiteContentState = captureDefaultSiteContent();
 let siteContentState = emptySiteContent();
+// Paint last-known lesson cards immediately on installed-app cold starts.
+try {
+  const bootCachedLibrary = (() => {
+    try {
+      const raw = localStorage.getItem("llhCurriculumLibraryCacheV1");
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || !Array.isArray(parsed.lessonPlans) || !parsed.lessonPlans.length) return null;
+      return {
+        lessonPlans: parsed.lessonPlans,
+        activities: Array.isArray(parsed.activities) ? parsed.activities : [],
+        resources: Array.isArray(parsed.resources) ? parsed.resources : [],
+        updatedAt: parsed.updatedAt || "",
+      };
+    } catch {
+      return null;
+    }
+  })();
+  if (bootCachedLibrary) {
+    siteContentState = {
+      ...siteContentState,
+      curriculumLibrary: bootCachedLibrary,
+      playBasedCurriculum: true,
+    };
+  }
+} catch {
+  /* ignore */
+}
 let resources = loadResources();
 let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
@@ -12429,6 +12546,9 @@ function setView(view, options = {}) {
     replaceHistory: options.replaceHistory || options.fromBoot || options.fromAuthLanding,
     skipPlatformHistory: options.skipPlatformHistory || options.fromPopState,
   });
+  if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend()) {
+    hydrateCurriculumLibraryFromCache();
+  }
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend()) {
     refreshPublicCurriculumLibrary()
@@ -15754,10 +15874,11 @@ async function fetchAuthorizedCurriculumLessonPlan(planId) {
   if (curriculumAuthorizedContentCache.has(cacheKey)) {
     return { ok: true, reason: "cache", lessonPlan: curriculumAuthorizedContentCache.get(cacheKey) };
   }
-  const headers = await firebaseAuthHeaders();
-  if (!headers) {
-    return { ok: false, reason: "auth-required", lessonPlan: null, status: 401 };
-  }
+  const authHeaders = typeof firebaseAuthHeaders === "function" ? await firebaseAuthHeaders().catch(() => null) : null;
+  const headers = {
+    ...(await siteContentRequestHeaders()),
+    ...(authHeaders && typeof authHeaders === "object" ? authHeaders : {}),
+  };
   const response = await fetch(`${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}`, {
     headers,
     cache: "no-store",
@@ -15777,10 +15898,13 @@ async function withHydratedCurriculumLessonContent(resource) {
     return { resource, hydrated: true, reason: "not-managed" };
   }
   if (hasAdminFullAccess()) return { resource, hydrated: true, reason: "admin" };
-  if (resource.plan !== "Pro" || !isProUser()) return { resource, hydrated: true, reason: "not-pro-required" };
   const existingDays = resource._curriculumLessonPlan?.dailyPlans || {};
   const hasFullDays = Object.values(existingDays).some((day) => Array.isArray(day?.items) && day.items.length);
   if (hasFullDays) return { resource, hydrated: true, reason: "already-full" };
+  // Library browse payloads are intentionally slim (no dailyPlans). Fetch full
+  // content on open for any plan the member can access.
+  const canOpenFull = canAccess(resource) || (resource.plan === "Pro" && isProUser());
+  if (!canOpenFull) return { resource, hydrated: true, reason: "not-authorized" };
   const result = await fetchAuthorizedCurriculumLessonPlan(resource.id);
   if (!result.ok || !result.lessonPlan) {
     return { resource, hydrated: false, reason: result.reason || "fetch-failed", status: result.status };
@@ -15845,7 +15969,9 @@ async function withHydratedCurriculumActivityContent(resource) {
       customContent: buildActivityTextFromCurriculum({ ...full, parentTitle: resource.tags?.[2], dayOfWeek: resource.tags?.[1] }),
     };
   }
-  if (resource.plan !== "Pro" || !isProUser()) return resource;
+  // Browse payloads are slim; hydrate full how-to when opening an accessible activity.
+  if (resource.steps || resource.materials) return resource;
+  if (!canAccess(resource) && !(resource.plan === "Pro" && isProUser())) return resource;
   const fullActivity = await fetchAuthorizedCurriculumActivity(resource.id);
   if (!fullActivity) return resource;
   return {
@@ -21188,6 +21314,9 @@ function lessonLibraryEmptyStateHtml(itemsQueried) {
   }
   if (searchInput.value.trim() || activeFilter !== "All" || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly) {
     return `<div class="empty-state">No plans match your filters. <button class="inline-link" type="button" data-clear-all-lesson-filters>Clear Filters</button></div>`;
+  }
+  if (curriculumLibraryLoading || siteContentLoadPromise) {
+    return `<div class="empty-state" role="status" aria-live="polite"><strong>Loading lesson plans…</strong><br />Hang tight — your library is syncing.</div>`;
   }
   return `<div class="empty-state">New play-based lesson plans are being added.</div>`;
 }
