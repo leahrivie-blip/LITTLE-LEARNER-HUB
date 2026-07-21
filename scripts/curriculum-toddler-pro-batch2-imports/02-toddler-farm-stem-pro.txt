@@ -1,0 +1,279 @@
+TITLE: Farm STEM
+AGE_GROUP: Toddler (2-3 Years)
+THEME: Farm STEM
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Science, Engineering, Math, Language & Literacy, Fine Motor, Gross Motor, Social-Emotional, Creative Arts
+
+WEEKLY_OVERVIEW:
+Toddlers explore farm life through hands-on STEM play. Children investigate animals, barns, seeds, soil, tractors, ramps, counting, sorting, and simple cause-and-effect experiments. Experiences are play-based, sensory-rich, and designed to build curiosity, early problem-solving, language, cooperation, and motor skills.
+
+LEARNING_OBJECTIVES:
+- Identify common farm animals and tools.
+- Explore how seeds and plants grow.
+- Count, sort, compare, and match objects.
+- Build simple structures and test ideas.
+- Use descriptive farm and STEM vocabulary.
+- Strengthen fine and gross motor skills.
+- Practice turn-taking and cooperative play.
+
+WEEKLY_MATERIALS:
+Toy farm animals, toy tractors, blocks, cardboard boxes, craft sticks, plastic eggs, oats, shredded paper, soil, seeds, cups, scoops, funnels, water, paint, paper, playdough, cotton balls, glue, child-safe scissors, baskets, ramps, masking tape, magnifying glasses, picture cards.
+
+VOCABULARY:
+Farm, barn, tractor, farmer, cow, pig, chicken, horse, seed, soil, grow, build, roll, ramp, heavy, light, tall, short, count, sort, match, harvest.
+
+BOOKS:
+Big Red Barn; Barnyard Dance!; Click, Clack, Moo; The Little Red Hen; Mrs. Wishy-Washy.
+
+SONGS:
+Old MacDonald Had a Farm; The Farmer in the Dell; Five Little Ducks; BINGO; Mary Had a Little Lamb.
+
+FAMILY_CONNECTION:
+Invite families to notice foods that come from farms, water a plant together, or visit a farmers market. Ask families to send a photo of a garden, farm animal, tractor, or favorite fruit or vegetable.
+
+OBSERVATION_OPPORTUNITIES:
+Observe animal identification, counting, sorting, cause-and-effect thinking, building strategies, new vocabulary, tool use, sensory engagement, turn-taking, and persistence.
+
+ADAPTATIONS:
+Use larger materials for easier grasping, picture cues for language support, dry alternatives for sensory-sensitive children, fewer items for simpler counting, and added building challenges for children ready for extension.
+
+MONDAY:
+DAILY_THEME: Meet the Farm
+DAILY_OBJECTIVES: Identify farm animals, imitate sounds and movements, explore textures, and use farm vocabulary.
+DAILY_VOCABULARY: Cow, pig, chicken, horse, barn, farmer.
+DAILY_MATERIALS: Farm animals, sensory filler, barn, blocks, playdough, picture cards.
+DAILY_LEARNING_DOMAINS: Science, Language, Fine Motor, Dramatic Play, Gross Motor.
+CIRCLE_TIME_IDEAS: Read Big Red Barn. Introduce animals one at a time and invite children to copy each sound and movement.
+OUTDOOR_PLAY: Farm Animal Movement Trail: gallop like horses, waddle like ducks, crawl like pigs, and flap like chickens.
+DAILY_OBSERVATION_OPPORTUNITIES: Animal naming, sound imitation, movement control, engagement, and turn-taking.
+DAILY_ADAPTATIONS: Let children point instead of speak; provide seated animal movements; use large animal figures.
+SAFETY_NOTES: Supervise sensory materials and keep small pieces out of reach of children who mouth objects.
+ACTIVITY_1_CATEGORY: Sensory Play
+ACTIVITY_1_NAME: Farm Sensory Search
+ACTIVITY_1_OBJECTIVE: Find and identify farm animals while scooping and pouring.
+ACTIVITY_1_DESCRIPTION: Children search through oats and shredded paper for hidden animals and tractors.
+ACTIVITY_1_MATERIALS: Bin, oats, shredded paper, farm animals, tractors, scoops, cups.
+ACTIVITY_1_SETUP: Hide animals in the filled bin and place tools beside it.
+ACTIVITY_1_DIRECTIONS: 1. Invite children to explore. 2. Find one hidden item. 3. Name or imitate it. 4. Sort animals and vehicles. 5. Scoop and pour freely.
+ACTIVITY_1_TEACHER_ROLE: Model words, ask simple questions, and narrate actions.
+ACTIVITY_1_LEARNING_GOALS: Vocabulary, fine motor control, sorting, sensory exploration.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Grasp, tool use, matching, language, persistence.
+ACTIVITY_1_ADAPTATIONS: Replace loose filler with fabric strips or large paper pieces.
+ACTIVITY_1_SAFETY_NOTES: Maintain close supervision; materials are not for eating.
+ACTIVITY_2_CATEGORY: Engineering
+ACTIVITY_2_NAME: Build a Barn
+ACTIVITY_2_OBJECTIVE: Stack and connect blocks to make an animal shelter.
+ACTIVITY_2_DESCRIPTION: Children use blocks and boxes to create barns and pens.
+ACTIVITY_2_MATERIALS: Blocks, boxes, craft sticks, toy animals.
+ACTIVITY_2_SETUP: Arrange materials on a floor mat.
+ACTIVITY_2_DIRECTIONS: 1. Choose an animal. 2. Build walls. 3. Add a doorway. 4. Place the animal inside. 5. Test whether the barn stays standing.
+ACTIVITY_2_TEACHER_ROLE: Encourage planning and rebuilding without making the structure for the child.
+ACTIVITY_2_LEARNING_GOALS: Spatial awareness, problem-solving, persistence, pretend play.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Stacking, balance, planning, response to collapse.
+ACTIVITY_2_ADAPTATIONS: Use large foam blocks; offer a picture model.
+ACTIVITY_2_SAFETY_NOTES: Use lightweight blocks and keep towers below shoulder height.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Muddy Pig Painting
+ACTIVITY_3_OBJECTIVE: Explore color and texture through process art.
+ACTIVITY_3_DESCRIPTION: Children add brown paint “mud” to pig-shaped paper using fingers or sponges.
+ACTIVITY_3_MATERIALS: Pig paper shapes, washable brown paint, sponges, smocks.
+ACTIVITY_3_SETUP: Tape paper to table and place small paint amounts in trays.
+ACTIVITY_3_DIRECTIONS: 1. Look at the clean pig. 2. Touch or dab paint. 3. Add muddy marks. 4. Describe wet, smooth, or sticky. 5. Display when dry.
+ACTIVITY_3_TEACHER_ROLE: Support sensory language and child-led choices.
+ACTIVITY_3_LEARNING_GOALS: Creativity, sensory awareness, hand control, descriptive language.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Tool choice, tolerance of texture, mark making.
+ACTIVITY_3_ADAPTATIONS: Offer a sealed paint bag or long-handled brush.
+ACTIVITY_3_SAFETY_NOTES: Use washable non-toxic paint and prevent paint from entering mouths.
+
+TUESDAY:
+DAILY_THEME: Seeds and Growing
+DAILY_OBJECTIVES: Explore soil and seeds, notice changes, compare sizes, and practice caring for living things.
+DAILY_VOCABULARY: Seed, soil, plant, root, water, grow.
+DAILY_MATERIALS: Soil, large seeds, cups, water droppers, magnifiers, paper, crayons.
+DAILY_LEARNING_DOMAINS: Science, Fine Motor, Math, Language, Social-Emotional.
+CIRCLE_TIME_IDEAS: Examine a seed and a small plant. Ask what plants need and sing a growing song.
+OUTDOOR_PLAY: Water classroom plants or a garden area using small cups.
+DAILY_OBSERVATION_OPPORTUNITIES: Curiosity, gentle handling, size comparison, tool use, prediction.
+DAILY_ADAPTATIONS: Use sealed observation bags for children avoiding soil; provide hand-over-hand watering support.
+SAFETY_NOTES: Use non-toxic seeds and prevent ingestion.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Plant a Seed
+ACTIVITY_1_OBJECTIVE: Practice planting and caring for a seed.
+ACTIVITY_1_DESCRIPTION: Children fill a cup with soil, add a seed, cover it, and water it.
+ACTIVITY_1_MATERIALS: Cups, soil, large seeds, spoons, water.
+ACTIVITY_1_SETUP: Label cups and prepare small portions of materials.
+ACTIVITY_1_DIRECTIONS: 1. Scoop soil. 2. Make a small hole. 3. Add one seed. 4. Cover gently. 5. Add a little water.
+ACTIVITY_1_TEACHER_ROLE: Model gentle care and sequence words.
+ACTIVITY_1_LEARNING_GOALS: Life science, sequencing, responsibility, fine motor skills.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Scooping, following steps, gentle touch, vocabulary.
+ACTIVITY_1_ADAPTATIONS: Use a prefilled cup or larger scoop.
+ACTIVITY_1_SAFETY_NOTES: Wash hands after soil play.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Seed Sort
+ACTIVITY_2_OBJECTIVE: Sort large seeds by size, color, or type.
+ACTIVITY_2_DESCRIPTION: Children place seeds into matching bowls using fingers or tongs.
+ACTIVITY_2_MATERIALS: Large beans or seed replicas, bowls, toddler tongs.
+ACTIVITY_2_SETUP: Mix two or three safe large item types in a tray.
+ACTIVITY_2_DIRECTIONS: 1. Pick up one item. 2. Look at its features. 3. Find its matching bowl. 4. Place it inside. 5. Count each group together.
+ACTIVITY_2_TEACHER_ROLE: Model same/different and count slowly.
+ACTIVITY_2_LEARNING_GOALS: Classification, counting, visual discrimination, pincer strength.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Sorting rule, one-to-one counting, grip.
+ACTIVITY_2_ADAPTATIONS: Sort only two groups or use large plastic seed shapes.
+ACTIVITY_2_SAFETY_NOTES: Avoid small choking hazards and supervise continuously.
+ACTIVITY_3_CATEGORY: Fine Motor
+ACTIVITY_3_NAME: Water Dropper Garden
+ACTIVITY_3_OBJECTIVE: Strengthen hands while exploring water absorption.
+ACTIVITY_3_DESCRIPTION: Children squeeze water onto sponge “garden rows” and watch it soak in.
+ACTIVITY_3_MATERIALS: Droppers, water, sponges, trays.
+ACTIVITY_3_SETUP: Place sponge strips in shallow trays.
+ACTIVITY_3_DIRECTIONS: 1. Squeeze the dropper. 2. Fill with water. 3. Release onto sponge. 4. Watch it absorb. 5. Repeat and compare wet and dry.
+ACTIVITY_3_TEACHER_ROLE: Demonstrate squeezing and describe cause and effect.
+ACTIVITY_3_LEARNING_GOALS: Hand strength, science observation, concentration.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Bilateral coordination, squeezing, attention.
+ACTIVITY_3_ADAPTATIONS: Use squeeze bottles or small cups.
+ACTIVITY_3_SAFETY_NOTES: Wipe spills promptly.
+
+WEDNESDAY:
+DAILY_THEME: Tractors, Ramps, and Motion
+DAILY_OBJECTIVES: Explore rolling, speed, incline, and cause and effect.
+DAILY_VOCABULARY: Tractor, wheel, roll, ramp, fast, slow.
+DAILY_MATERIALS: Toy tractors, boards, blocks, tape, paint, paper.
+DAILY_LEARNING_DOMAINS: Physics, Engineering, Math, Gross Motor, Creative Arts.
+CIRCLE_TIME_IDEAS: Examine wheels and predict what will happen on a ramp.
+OUTDOOR_PLAY: Push ride-on toys along straight, curved, and gently sloped paths.
+DAILY_OBSERVATION_OPPORTUNITIES: Prediction, trial and error, speed comparison, cooperative play.
+DAILY_ADAPTATIONS: Use wide stable ramps and larger vehicles.
+SAFETY_NOTES: Keep ramps low and paths clear.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Tractor Ramp Test
+ACTIVITY_1_OBJECTIVE: Test how ramp height changes motion.
+ACTIVITY_1_DESCRIPTION: Children roll tractors down low and higher ramps.
+ACTIVITY_1_MATERIALS: Boards, blocks, tractors, tape.
+ACTIVITY_1_SETUP: Build two low stable ramps.
+ACTIVITY_1_DIRECTIONS: 1. Choose a tractor. 2. Place it at the top. 3. Let go. 4. Watch where it stops. 5. Try another ramp.
+ACTIVITY_1_TEACHER_ROLE: Ask which went faster or farther and encourage repeated testing.
+ACTIVITY_1_LEARNING_GOALS: Cause and effect, prediction, comparison, experimentation.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Release control, tracking, comparison language.
+ACTIVITY_1_ADAPTATIONS: Use one ramp and hand-over-hand release.
+ACTIVITY_1_SAFETY_NOTES: Secure ramps and prevent standing on them.
+ACTIVITY_2_CATEGORY: Creative Arts
+ACTIVITY_2_NAME: Tractor Track Painting
+ACTIVITY_2_OBJECTIVE: Create patterns using vehicle wheels.
+ACTIVITY_2_DESCRIPTION: Children roll toy tractors through paint and across paper.
+ACTIVITY_2_MATERIALS: Washable paint, tractors, paper, trays.
+ACTIVITY_2_SETUP: Put thin paint layers in trays and tape paper down.
+ACTIVITY_2_DIRECTIONS: 1. Dip wheels lightly. 2. Roll across paper. 3. Notice tracks. 4. Change direction. 5. Compare patterns.
+ACTIVITY_2_TEACHER_ROLE: Encourage process art and pattern language.
+ACTIVITY_2_LEARNING_GOALS: Pattern awareness, hand control, creativity.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Pressure, direction, repeated marks.
+ACTIVITY_2_ADAPTATIONS: Use chunky vehicles or dry wheels in playdough.
+ACTIVITY_2_SAFETY_NOTES: Use non-toxic paint and clean wheels before floor play.
+ACTIVITY_3_CATEGORY: Engineering
+ACTIVITY_3_NAME: Build a Tractor Road
+ACTIVITY_3_OBJECTIVE: Design a path around obstacles.
+ACTIVITY_3_DESCRIPTION: Children use tape, blocks, and bridges to create a road for tractors.
+ACTIVITY_3_MATERIALS: Masking tape, blocks, cardboard, tractors.
+ACTIVITY_3_SETUP: Create a starting point and provide loose parts.
+ACTIVITY_3_DIRECTIONS: 1. Choose where the road goes. 2. Add tape lines. 3. Build a bridge or tunnel. 4. Drive the tractor through. 5. Fix blocked areas.
+ACTIVITY_3_TEACHER_ROLE: Support planning and problem-solving.
+ACTIVITY_3_LEARNING_GOALS: Spatial reasoning, engineering, collaboration, pretend play.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Planning, adapting, peer interaction.
+ACTIVITY_3_ADAPTATIONS: Provide a simple ready-made road to extend.
+ACTIVITY_3_SAFETY_NOTES: Keep tape flat to prevent tripping.
+
+THURSDAY:
+DAILY_THEME: Eggs, Counting, and Sorting
+DAILY_OBJECTIVES: Count, match, compare, and explore balance.
+DAILY_VOCABULARY: Egg, nest, count, same, different, more, less.
+DAILY_MATERIALS: Plastic eggs, baskets, cartons, pom-pom chicks, spoons, blocks.
+DAILY_LEARNING_DOMAINS: Math, Fine Motor, Science, Language, Social-Emotional.
+CIRCLE_TIME_IDEAS: Count eggs into a basket and compare full and empty.
+OUTDOOR_PLAY: Egg-and-spoon walking with large plastic eggs.
+DAILY_OBSERVATION_OPPORTUNITIES: One-to-one counting, matching, balance, persistence.
+DAILY_ADAPTATIONS: Use fewer eggs, larger baskets, or hand carrying instead of spoons.
+SAFETY_NOTES: Use large plastic materials only.
+ACTIVITY_1_CATEGORY: Math
+ACTIVITY_1_NAME: Egg Carton Match
+ACTIVITY_1_OBJECTIVE: Match colors and count eggs.
+ACTIVITY_1_DESCRIPTION: Children place colored eggs into matching marked spaces.
+ACTIVITY_1_MATERIALS: Plastic eggs, colored dot egg cartons.
+ACTIVITY_1_SETUP: Add colored dots to carton spaces.
+ACTIVITY_1_DIRECTIONS: 1. Choose an egg. 2. Name or point to its color. 3. Find the match. 4. Place it in. 5. Count filled spaces.
+ACTIVITY_1_TEACHER_ROLE: Prompt matching and count with the child.
+ACTIVITY_1_LEARNING_GOALS: Color matching, counting, one-to-one correspondence.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Accuracy, counting attempts, hand control.
+ACTIVITY_1_ADAPTATIONS: Use only two colors.
+ACTIVITY_1_SAFETY_NOTES: Check eggs for secure closure.
+ACTIVITY_2_CATEGORY: Fine Motor
+ACTIVITY_2_NAME: Feed the Chicks
+ACTIVITY_2_OBJECTIVE: Transfer items using spoons or tongs.
+ACTIVITY_2_DESCRIPTION: Children move large yellow pom-poms into chick cups.
+ACTIVITY_2_MATERIALS: Large pom-poms, cups with chick faces, spoons, tongs.
+ACTIVITY_2_SETUP: Place pom-poms in a shared bowl.
+ACTIVITY_2_DIRECTIONS: 1. Pick a tool. 2. Scoop one chick. 3. Move it to a cup. 4. Count chicks. 5. Pour them back and repeat.
+ACTIVITY_2_TEACHER_ROLE: Model slow transfer and celebrate effort.
+ACTIVITY_2_LEARNING_GOALS: Fine motor strength, counting, coordination.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Grip, transfer control, tool preference.
+ACTIVITY_2_ADAPTATIONS: Allow hand transfer or use large balls.
+ACTIVITY_2_SAFETY_NOTES: Use oversized pom-poms and supervise.
+ACTIVITY_3_CATEGORY: Engineering
+ACTIVITY_3_NAME: Build a Nest
+ACTIVITY_3_OBJECTIVE: Create a structure that holds eggs.
+ACTIVITY_3_DESCRIPTION: Children use blocks, paper strips, and fabric to make a nest.
+ACTIVITY_3_MATERIALS: Blocks, fabric, paper strips, plastic eggs.
+ACTIVITY_3_SETUP: Place loose parts in baskets.
+ACTIVITY_3_DIRECTIONS: 1. Choose a base. 2. Add soft materials. 3. Place an egg inside. 4. Check if it rolls out. 5. Change the nest if needed.
+ACTIVITY_3_TEACHER_ROLE: Encourage testing and redesign.
+ACTIVITY_3_LEARNING_GOALS: Engineering, stability, problem-solving, creativity.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Material choice, testing, persistence.
+ACTIVITY_3_ADAPTATIONS: Offer a shallow bowl as a starting base.
+ACTIVITY_3_SAFETY_NOTES: Avoid long strings and small loose parts.
+
+FRIDAY:
+DAILY_THEME: Farm Market and Harvest
+DAILY_OBJECTIVES: Sort foods, practice pretend buying and selling, count items, and cooperate.
+DAILY_VOCABULARY: Harvest, market, basket, fruit, vegetable, buy, sell.
+DAILY_MATERIALS: Toy produce, baskets, signs, play money, crates, scale, paper bags.
+DAILY_LEARNING_DOMAINS: Dramatic Play, Math, Language, Social-Emotional, Fine Motor.
+CIRCLE_TIME_IDEAS: Sort toy foods into fruit and vegetable groups and review the week.
+OUTDOOR_PLAY: Harvest Hunt: collect hidden toy produce into baskets.
+DAILY_OBSERVATION_OPPORTUNITIES: Sorting, pretend play, counting, communication, sharing.
+DAILY_ADAPTATIONS: Use picture shopping lists and reduce choices.
+SAFETY_NOTES: Use large washable pretend foods and clear walking paths.
+ACTIVITY_1_CATEGORY: Dramatic Play
+ACTIVITY_1_NAME: Toddler Farm Market
+ACTIVITY_1_OBJECTIVE: Use pretend play to exchange and sort foods.
+ACTIVITY_1_DESCRIPTION: Children shop, stock baskets, and pretend to sell produce.
+ACTIVITY_1_MATERIALS: Toy produce, baskets, bags, register, signs.
+ACTIVITY_1_SETUP: Arrange a small market with labeled bins.
+ACTIVITY_1_DIRECTIONS: 1. Choose a role. 2. Pick a basket. 3. Select foods. 4. Bring them to the register. 5. Return and switch roles.
+ACTIVITY_1_TEACHER_ROLE: Model simple social scripts and support turn-taking.
+ACTIVITY_1_LEARNING_GOALS: Language, social skills, categorization, imagination.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Role play, requesting, sharing, food naming.
+ACTIVITY_1_ADAPTATIONS: Use one-step shopping cards with photos.
+ACTIVITY_1_SAFETY_NOTES: Keep bags handle-free or closely supervised.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Fill the Harvest Baskets
+ACTIVITY_2_OBJECTIVE: Count and compare basket quantities.
+ACTIVITY_2_DESCRIPTION: Children follow picture cards showing one to five produce items.
+ACTIVITY_2_MATERIALS: Baskets, toy produce, numeral or dot cards.
+ACTIVITY_2_SETUP: Place cards and produce in the math area.
+ACTIVITY_2_DIRECTIONS: 1. Choose a card. 2. Count the dots. 3. Add that many foods. 4. Check together. 5. Compare two baskets.
+ACTIVITY_2_TEACHER_ROLE: Support one-to-one counting and words more/less.
+ACTIVITY_2_LEARNING_GOALS: Counting, quantity, comparison, following visual directions.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Counting range, quantity match, comparison.
+ACTIVITY_2_ADAPTATIONS: Use one to three items or matching photo cards.
+ACTIVITY_2_SAFETY_NOTES: Use oversized produce pieces.
+ACTIVITY_3_CATEGORY: Science
+ACTIVITY_3_NAME: Sink or Float Farm Foods
+ACTIVITY_3_OBJECTIVE: Make and test simple predictions.
+ACTIVITY_3_DESCRIPTION: Children test washable toy fruits and vegetables in water.
+ACTIVITY_3_MATERIALS: Water bin, toy produce, towels, prediction mat.
+ACTIVITY_3_SETUP: Fill a shallow bin and mark sink/float areas.
+ACTIVITY_3_DIRECTIONS: 1. Choose an item. 2. Predict sink or float. 3. Place it in water. 4. Observe. 5. Sort it on the mat.
+ACTIVITY_3_TEACHER_ROLE: Use prediction language and encourage repeated testing.
+ACTIVITY_3_LEARNING_GOALS: Scientific inquiry, cause and effect, classification.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Prediction, attention, sorting, vocabulary.
+ACTIVITY_3_ADAPTATIONS: Let children point to prediction pictures.
+ACTIVITY_3_SAFETY_NOTES: Maintain direct water supervision and empty bin after use.
