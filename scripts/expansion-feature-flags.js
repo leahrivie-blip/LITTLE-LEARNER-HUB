@@ -1,13 +1,11 @@
 /**
  * Expansion feature flags for Director Center, Forms Center, and Family Hub.
  *
- * Security policy (approved for Phase 2 private preview):
+ * Security policy:
  * - Production / live site: all expansion flags remain OFF.
- * - formsCenter + familyHub: forced OFF until a later approved phase.
- * - directorCenter: may be enabled only in a private preview environment
- *   (ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW=true) AND only for verified approved
- *   admin accounts. Regular users, teachers, assistants, and parents are denied
- *   even when the stored flag is true.
+ * - familyHub: forced OFF until a later approved phase.
+ * - directorCenter: private preview via ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW + stored flag + verified admin.
+ * - formsCenter: private preview via ALLOW_FORMS_CENTER_ADMIN_PREVIEW + stored flag + verified admin.
  *
  * Hiding a nav item is not security — server routes must call evaluateExpansionAccess.
  */
@@ -24,17 +22,12 @@ const EXPANSION_FEATURE_LABELS = Object.freeze({
   familyHub: "Family Hub",
 });
 
-/**
- * Views that must stay unreachable while their expansion flag is OFF / unauthorized.
- * Only unfinished expansion surfaces are gated here.
- */
 const EXPANSION_VIEW_FLAGS = Object.freeze({
   "director-center": EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER,
   "forms-center": EXPANSION_FEATURE_KEYS.FORMS_CENTER,
   "family-hub": EXPANSION_FEATURE_KEYS.FAMILY_HUB,
 });
 
-/** Future API route prefixes gated by expansion flags. */
 const EXPANSION_ROUTE_FLAGS = Object.freeze([
   { prefix: "/api/director-center", flag: EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER },
   { prefix: "/api/forms-center", flag: EXPANSION_FEATURE_KEYS.FORMS_CENTER },
@@ -63,15 +56,14 @@ function truthyEnv(value) {
 
 /**
  * Normalize stored expansion flags.
- * formsCenter + familyHub are always forced OFF in this phase.
- * directorCenter may be stored true for private preview, but effective access
- * still requires environment + verified admin checks.
+ * familyHub is always forced OFF in this phase.
+ * directorCenter / formsCenter may be stored true for private preview.
  */
 function normalizeExpansionFeatureFlags(value) {
   const input = value && typeof value === "object" ? value : {};
   return {
     [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: coerceFlag(input[EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]),
-    [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: false,
+    [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: coerceFlag(input[EXPANSION_FEATURE_KEYS.FORMS_CENTER]),
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: false,
   };
 }
@@ -99,11 +91,6 @@ function isLiveProductionSite(siteUrl = "") {
   return LIVE_PRODUCTION_HOST_SUFFIXES.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
 }
 
-/**
- * Build environment policy for expansion features.
- * Private preview opt-in: ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW=true
- * Live production hosts always lock expansion OFF.
- */
 function resolveExpansionEnvironment(options = {}) {
   const env = options.env || process.env || {};
   const siteUrl = options.siteUrl || env.SITE_URL || "";
@@ -111,26 +98,24 @@ function resolveExpansionEnvironment(options = {}) {
     || isLiveProductionSite(siteUrl)
     || truthyEnv(env.LLH_FORCE_EXPANSION_FLAGS_OFF);
   const allowDirectorCenterAdminPreview = !liveProduction && truthyEnv(env.ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW);
+  const allowFormsCenterAdminPreview = !liveProduction && truthyEnv(env.ALLOW_FORMS_CENTER_ADMIN_PREVIEW);
   return {
     liveProduction: Boolean(liveProduction),
     allowDirectorCenterAdminPreview: Boolean(allowDirectorCenterAdminPreview),
+    allowFormsCenterAdminPreview: Boolean(allowFormsCenterAdminPreview),
     siteUrl: String(siteUrl || ""),
     nodeEnv: String(env.NODE_ENV || ""),
   };
 }
 
-/**
- * Environment-effective flags (before per-request admin authorization).
- * Production / missing preview opt-in → directorCenter false.
- * formsCenter + familyHub always false.
- */
 function resolveEffectiveExpansionFlags(storedFlags, environment = {}) {
   const normalized = normalizeExpansionFeatureFlags(storedFlags);
   const env = environment && typeof environment === "object" ? environment : {};
   const directorAllowedInEnv = env.liveProduction !== true && env.allowDirectorCenterAdminPreview === true;
+  const formsAllowedInEnv = env.liveProduction !== true && env.allowFormsCenterAdminPreview === true;
   return {
     [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: directorAllowedInEnv && normalized.directorCenter === true,
-    [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: false,
+    [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: formsAllowedInEnv && normalized.formsCenter === true,
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: false,
   };
 }
@@ -140,7 +125,7 @@ function isExpansionFeatureEnabled(flags, flagKey, environment = null) {
     return resolveEffectiveExpansionFlags(flags, environment)[flagKey] === true;
   }
   const normalized = normalizeExpansionFeatureFlags(flags);
-  if (flagKey === EXPANSION_FEATURE_KEYS.FORMS_CENTER || flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB) {
+  if (flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB) {
     return false;
   }
   return normalized[flagKey] === true;
@@ -195,9 +180,46 @@ function unauthorizedExpansionPayload(flagKey, extra = {}) {
   };
 }
 
+function evaluateAdminPreviewFeature({
+  flagKey,
+  stored,
+  env,
+  isVerifiedAdmin,
+  allowEnvKey,
+  storedKey,
+  result,
+}) {
+  if (env.liveProduction === true) {
+    result.reason = "production_locked";
+    result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
+    return result;
+  }
+  if (env[allowEnvKey] !== true) {
+    result.reason = "preview_env_disabled";
+    result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
+    return result;
+  }
+  if (stored[storedKey] !== true) {
+    result.reason = "feature_unavailable";
+    result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
+    return result;
+  }
+  if (isVerifiedAdmin !== true) {
+    result.reason = "admin_required";
+    result.payload = unauthorizedExpansionPayload(flagKey, { reason: result.reason });
+    return result;
+  }
+  result.allowed = true;
+  result.status = 200;
+  result.reason = "ok";
+  result.effective = true;
+  return result;
+}
+
 /**
  * Full access decision for an expansion feature.
- * directorCenter requires: env preview opt-in + stored flag + verified admin.
+ * directorCenter / formsCenter require: env preview opt-in + stored flag + verified admin.
+ * familyHub remains forced OFF.
  */
 function evaluateExpansionAccess({
   flagKey = "",
@@ -218,6 +240,7 @@ function evaluateExpansionAccess({
     environment: {
       liveProduction: env.liveProduction === true,
       allowDirectorCenterAdminPreview: env.allowDirectorCenterAdminPreview === true,
+      allowFormsCenterAdminPreview: env.allowFormsCenterAdminPreview === true,
     },
     reason: "",
     payload: null,
@@ -230,39 +253,34 @@ function evaluateExpansionAccess({
     return result;
   }
 
-  if (flagKey === EXPANSION_FEATURE_KEYS.FORMS_CENTER || flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB) {
+  if (flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB) {
     result.reason = "feature_forced_off";
     result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
     return result;
   }
 
-  if (env.liveProduction === true) {
-    result.reason = "production_locked";
-    result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
-    return result;
+  if (flagKey === EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER) {
+    return evaluateAdminPreviewFeature({
+      flagKey,
+      stored,
+      env,
+      isVerifiedAdmin,
+      allowEnvKey: "allowDirectorCenterAdminPreview",
+      storedKey: "directorCenter",
+      result,
+    });
   }
 
-  if (flagKey === EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER) {
-    if (env.allowDirectorCenterAdminPreview !== true) {
-      result.reason = "preview_env_disabled";
-      result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
-      return result;
-    }
-    if (stored.directorCenter !== true) {
-      result.reason = "feature_unavailable";
-      result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
-      return result;
-    }
-    if (isVerifiedAdmin !== true) {
-      result.reason = "admin_required";
-      result.payload = unauthorizedExpansionPayload(flagKey, { reason: result.reason });
-      return result;
-    }
-    result.allowed = true;
-    result.status = 200;
-    result.reason = "ok";
-    result.effective = true;
-    return result;
+  if (flagKey === EXPANSION_FEATURE_KEYS.FORMS_CENTER) {
+    return evaluateAdminPreviewFeature({
+      flagKey,
+      stored,
+      env,
+      isVerifiedAdmin,
+      allowEnvKey: "allowFormsCenterAdminPreview",
+      storedKey: "formsCenter",
+      result,
+    });
   }
 
   result.reason = "feature_unavailable";
@@ -274,7 +292,7 @@ function viewerExpansionFlags(storedFlags, environment, isVerifiedAdmin) {
   const effective = resolveEffectiveExpansionFlags(storedFlags, environment);
   return {
     directorCenter: effective.directorCenter === true && isVerifiedAdmin === true,
-    formsCenter: false,
+    formsCenter: effective.formsCenter === true && isVerifiedAdmin === true,
     familyHub: false,
   };
 }
@@ -291,18 +309,20 @@ function publicExpansionFeatureFlagsPayload(storedFlags, options = {}) {
     effectiveFlags: effective,
     labels: { ...EXPANSION_FEATURE_LABELS },
     allOff: Object.values(viewerFlags).every((value) => value === false),
-    phase: 2,
+    phase: 4,
     policy: {
       directorCenter: "admin_preview_only",
-      formsCenter: "forced_off",
+      formsCenter: "admin_preview_only",
       familyHub: "forced_off",
       productionLocked: environment.liveProduction === true,
       allowDirectorCenterAdminPreview: environment.allowDirectorCenterAdminPreview === true,
-      note: "Director Center private preview is admin-only. Forms Center and Family Hub remain OFF.",
+      allowFormsCenterAdminPreview: environment.allowFormsCenterAdminPreview === true,
+      note: "Director Center and Forms Center private previews are admin-only. Family Hub remains OFF.",
     },
     viewer: {
       isVerifiedAdmin,
       canAccessDirectorCenter: viewerFlags.directorCenter === true,
+      canAccessFormsCenter: viewerFlags.formsCenter === true,
     },
   };
 }

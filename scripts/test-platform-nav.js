@@ -237,11 +237,17 @@ test("unlocked Admin keeps platform sidebar without a member login", () => {
   assert.match(css, /@media \(min-width: 1101px\)/);
   assert.match(appJs, /classList\.toggle\("admin-unlocked"/);
   assert.match(appJs, /data-admin-open-director-center/);
+  assert.match(appJs, /data-admin-open-forms-center/);
   assert.match(appJs, /closest\("\[data-admin-open-director-center\]"\)/);
+  assert.match(appJs, /closest\("\[data-admin-open-forms-center\]"\)/);
   assert.match(appJs, /setView\("director-center"\)/);
-  assert.match(html, /styles\.css\?v=20260721-phase3/);
-  assert.match(html, /app\.js\?v=20260721-phase3/);
-  assert.match(html, /teacher-center-ui\.js\?v=20260721-phase3/);
+  assert.match(appJs, /setView\("forms-center"\)/);
+  assert.match(html, /data-view="forms-center"[^>]*data-feature-flag="formsCenter"[^>]*data-nav-hidden="true"/);
+  assert.match(html, /id="view-forms-center" class="view"/);
+  assert.match(html, /styles\.css\?v=20260721-phase4/);
+  assert.match(html, /app\.js\?v=20260721-phase4/);
+  assert.match(html, /teacher-center-ui\.js\?v=20260721-phase4/);
+  assert.match(html, /forms-center-ui\.js\?v=20260721-phase4/);
 });
 
 if (!process.exitCode) {

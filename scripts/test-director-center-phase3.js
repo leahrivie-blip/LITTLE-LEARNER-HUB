@@ -290,7 +290,8 @@ async function run() {
     try {
       const page = await request(server.port, "GET", "/");
       assert.equal(page.status, 200);
-      assert.match(page.raw, /teacher-center-ui\.js\?v=20260721-phase3/);
+      assert.match(page.raw, /teacher-center-ui\.js\?v=20260721-phase4/);
+      assert.match(page.raw, /forms-center-ui\.js\?v=20260721-phase4/);
       assert.match(page.raw, /view-teacher-center/);
       pass("HTML includes Teacher Center shell and script");
     } catch (error) {

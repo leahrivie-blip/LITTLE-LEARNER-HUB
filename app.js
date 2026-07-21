@@ -5136,7 +5136,7 @@ function isPlayBasedCurriculumEnabled() {
   return true;
 }
 
-/** Expansion flags — default OFF. Director Center is admin-preview only. */
+/** Expansion flags — default OFF. Director/Forms Center are admin-preview only. */
 const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
   directorCenter: false,
   formsCenter: false,
@@ -5153,21 +5153,23 @@ const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
 let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
 let expansionFeaturePolicyCache = {
   directorCenter: "admin_preview_only",
-  formsCenter: "forced_off",
+  formsCenter: "admin_preview_only",
   familyHub: "forced_off",
   productionLocked: true,
   allowDirectorCenterAdminPreview: false,
+  allowFormsCenterAdminPreview: false,
 };
 let expansionViewerAccessCache = {
   isVerifiedAdmin: false,
   canAccessDirectorCenter: false,
+  canAccessFormsCenter: false,
 };
 
 function normalizeExpansionFeatureFlags(value) {
   const input = value && typeof value === "object" ? value : {};
   return {
     directorCenter: input.directorCenter === true,
-    formsCenter: false,
+    formsCenter: input.formsCenter === true,
     familyHub: false,
   };
 }
@@ -5178,10 +5180,16 @@ function expansionFeatureFlags() {
 
 function isExpansionFeatureEnabled(flagKey) {
   if (!flagKey) return true;
-  if (flagKey === "formsCenter" || flagKey === "familyHub") return false;
+  if (flagKey === "familyHub") return false;
   if (flagKey === "directorCenter") {
     return expansionFeatureFlags().directorCenter === true
       && expansionViewerAccessCache.canAccessDirectorCenter === true
+      && typeof hasAdminFullAccess === "function"
+      && hasAdminFullAccess();
+  }
+  if (flagKey === "formsCenter") {
+    return expansionFeatureFlags().formsCenter === true
+      && expansionViewerAccessCache.canAccessFormsCenter === true
       && typeof hasAdminFullAccess === "function"
       && hasAdminFullAccess();
   }
@@ -5200,7 +5208,7 @@ function isExpansionViewEnabled(view) {
 
 async function loadExpansionFeatureFlagsFromBackend() {
   expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
-  expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false };
+  expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false, canAccessFormsCenter: false };
   if (!canUseLaunchBackend()) {
     syncPlatformNavVisibility();
     return expansionFeatureFlags();
@@ -5225,10 +5233,11 @@ async function loadExpansionFeatureFlagsFromBackend() {
     expansionViewerAccessCache = {
       isVerifiedAdmin: data?.viewer?.isVerifiedAdmin === true,
       canAccessDirectorCenter: data?.viewer?.canAccessDirectorCenter === true,
+      canAccessFormsCenter: data?.viewer?.canAccessFormsCenter === true,
     };
   } catch (_) {
     expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
-    expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false };
+    expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false, canAccessFormsCenter: false };
   }
   syncPlatformNavVisibility();
   updateAdminNavVisibility();
@@ -10550,7 +10559,7 @@ function syncPlatformNavVisibility() {
     const permanentlyHidden = button.hasAttribute("data-nav-hidden");
     const featureFlag = button.getAttribute("data-feature-flag") || "";
     const featureAllowed = !featureFlag || isExpansionFeatureEnabled(featureFlag);
-    const adminPreviewReveal = featureFlag === "directorCenter" && featureAllowed;
+    const adminPreviewReveal = (featureFlag === "directorCenter" || featureFlag === "formsCenter") && featureAllowed;
     const allowed = (!permanentlyHidden || adminPreviewReveal)
       && featureAllowed
       && (!capability || canAccessCapability(account, capability, {
@@ -10563,7 +10572,10 @@ function syncPlatformNavVisibility() {
   });
   document.querySelectorAll("#platformNav [data-nav-hidden='true']").forEach((button) => {
     const featureFlag = button.getAttribute("data-feature-flag") || "";
-    if (featureFlag === "directorCenter" && isExpansionFeatureEnabled("directorCenter")) {
+    if (
+      (featureFlag === "directorCenter" && isExpansionFeatureEnabled("directorCenter"))
+      || (featureFlag === "formsCenter" && isExpansionFeatureEnabled("formsCenter"))
+    ) {
       button.hidden = false;
       button.setAttribute("aria-hidden", "false");
       button.removeAttribute("tabindex");
@@ -10624,6 +10636,7 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (buttonView === "ai" && resolvedView === "generators") return true;
   if (buttonView === "director-center" && resolvedView === "director-center") return true;
   if (buttonView === "teacher-center" && resolvedView === "teacher-center") return true;
+  if (buttonView === "forms-center" && resolvedView === "forms-center") return true;
   if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
@@ -12759,6 +12772,7 @@ function setView(view, options = {}) {
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
   if (resolvedView === "director-center") renderDirectorCenterPage();
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
+  if (resolvedView === "forms-center") renderFormsCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") {
     if (options.settingsAnchor) renderSettingsHubPage._pendingAnchor = options.settingsAnchor;
@@ -28675,6 +28689,38 @@ function renderTeacherCenterPage() {
   `;
 }
 
+function renderFormsCenterPage() {
+  const section = document.querySelector("#view-forms-center");
+  if (!section) return;
+  section.hidden = false;
+  section.removeAttribute("aria-hidden");
+  if (typeof window.renderFormsCenterPreviewUI === "function") {
+    window.renderFormsCenterPreviewUI();
+    return;
+  }
+  if (!isExpansionFeatureEnabled("formsCenter")) {
+    section.innerHTML = `
+      <section class="platform-placeholder-page forms-center-page">
+        <div class="page-title">
+          <p class="eyebrow">Forms Center</p>
+          <h2>Unavailable</h2>
+          <p>Forms Center is not available in this environment.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
+  section.innerHTML = `
+    <section class="platform-placeholder-page forms-center-page">
+      <div class="page-title">
+        <p class="eyebrow">Forms Center · Admin Preview</p>
+        <h2>Admin Preview — Test Data Only</h2>
+        <p>Forms Center UI module is loading...</p>
+      </div>
+    </section>
+  `;
+}
+
 function renderSupportCategoryPage(category) {
   return `
     <section class="support-center-page">
@@ -37017,6 +37063,9 @@ function renderAdminOwnerOverview() {
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
           ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
           : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
+          : ""}
         <button class="primary-button" type="button" id="adminOpenNotificationsButton">Notifications${adminNotificationState.unreadCount ? ` (${adminNotificationState.unreadCount})` : ""}</button>
         <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
@@ -37446,6 +37495,9 @@ function renderAdminAccessShell() {
       <div class="admin-unlocked-actions">
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
           ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
           : ""}
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
@@ -51760,6 +51812,13 @@ document.addEventListener("click", async (event) => {
   if (openDirectorCenter) {
     event.preventDefault();
     if (typeof setView === "function") setView("director-center");
+    return;
+  }
+
+  const openFormsCenter = event.target.closest("[data-admin-open-forms-center]");
+  if (openFormsCenter) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("forms-center");
     return;
   }
 

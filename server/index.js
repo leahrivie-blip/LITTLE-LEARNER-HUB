@@ -27,6 +27,7 @@ const orgPermissions = require("../scripts/org-permissions.js");
 const entitlementModel = require("../scripts/entitlement-model.js");
 const { createDirectorCenterApi } = require("./director-center-api.js");
 const { createPhase3TeacherApi } = require("./phase3-teacher-api.js");
+const { createFormsCenterApi } = require("./forms-center-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -126,12 +127,15 @@ const DISABLE_AI_CALLS = ["1", "true", "yes", "on"].includes(
 );
 
 function isDirectorCenterPreviewSafeMode() {
-  // Preview-safe mode when Director Center admin preview is opted in on a
+  // Preview-safe mode when Director Center or Forms Center admin preview is opted in on a
   // non-live host. Live production hosts never enter this mode.
-  const previewOptIn = ["1", "true", "yes", "on"].includes(
+  const directorOptIn = ["1", "true", "yes", "on"].includes(
     String(process.env.ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW || "").trim().toLowerCase(),
   );
-  if (!previewOptIn) return false;
+  const formsOptIn = ["1", "true", "yes", "on"].includes(
+    String(process.env.ALLOW_FORMS_CENTER_ADMIN_PREVIEW || "").trim().toLowerCase(),
+  );
+  if (!directorOptIn && !formsOptIn) return false;
   try {
     return !expansionFeatureFlags.isLiveProductionSite(SITE_URL);
   } catch {
@@ -849,15 +853,17 @@ function defaultFeatureFlags() {
 }
 
 function normalizedFeatureFlags(value) {
-  // Phase 2H: play-based curriculum is permanently active.
-  // formsCenter + familyHub stay forced OFF.
-  // directorCenter may be stored only in private preview environments — never on live production.
+  // play-based curriculum is permanently active.
+  // familyHub stays forced OFF.
+  // directorCenter / formsCenter may be stored only in private preview environments — never on live production.
   const merged = expansionFeatureFlags.mergeFeatureFlags(value);
   const env = expansionEnvironment();
   if (env.liveProduction || !env.allowDirectorCenterAdminPreview) {
     merged.directorCenter = false;
   }
-  merged.formsCenter = false;
+  if (env.liveProduction || !env.allowFormsCenterAdminPreview) {
+    merged.formsCenter = false;
+  }
   merged.familyHub = false;
   return merged;
 }
@@ -15221,6 +15227,21 @@ function getPhase3TeacherApi() {
   return _phase3TeacherApi;
 }
 
+let _formsCenterApi;
+function getFormsCenterApi() {
+  if (!_formsCenterApi) {
+    _formsCenterApi = createFormsCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _formsCenterApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15278,6 +15299,9 @@ const server = http.createServer(async (request, response) => {
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
     }
     if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getFormsCenterApi().matchRoute(request.method, url.pathname, url);
+      if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FORMS_CENTER);
     }
     if (url.pathname === "/api/family-hub" || url.pathname.startsWith("/api/family-hub/")) {

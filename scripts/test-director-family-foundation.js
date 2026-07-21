@@ -204,7 +204,7 @@ async function main() {
       familyHub: true,
     });
     assert.equal(normalized.directorCenter, true);
-    assert.equal(normalized.formsCenter, false);
+    assert.equal(normalized.formsCenter, true);
     assert.equal(normalized.familyHub, false);
   });
 
@@ -253,21 +253,38 @@ async function main() {
     assert.equal(admin.reason, "ok");
   });
 
-  await test("formsCenter and familyHub stay forced OFF", () => {
-    const env = expansionFlags.resolveExpansionEnvironment({
-      env: { ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true" },
+  await test("formsCenter follows private preview env while familyHub stays forced OFF", () => {
+    const formsEnv = expansionFlags.resolveExpansionEnvironment({
+      env: { ALLOW_FORMS_CENTER_ADMIN_PREVIEW: "true" },
       siteUrl: "http://localhost:4242",
     });
-    for (const flagKey of ["formsCenter", "familyHub"]) {
-      const decision = expansionFlags.evaluateExpansionAccess({
-        flagKey,
-        storedFlags: { [flagKey]: true, directorCenter: true },
-        environment: env,
-        isVerifiedAdmin: true,
-      });
-      assert.equal(decision.allowed, false);
-      assert.equal(decision.reason, "feature_forced_off");
-    }
+    const forms = expansionFlags.evaluateExpansionAccess({
+      flagKey: "formsCenter",
+      storedFlags: { formsCenter: true, directorCenter: true },
+      environment: formsEnv,
+      isVerifiedAdmin: true,
+    });
+    assert.equal(forms.allowed, true);
+    assert.equal(forms.reason, "ok");
+    const formsNoEnv = expansionFlags.evaluateExpansionAccess({
+      flagKey: "formsCenter",
+      storedFlags: { formsCenter: true, directorCenter: true },
+      environment: expansionFlags.resolveExpansionEnvironment({
+        env: { ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true" },
+        siteUrl: "http://localhost:4242",
+      }),
+      isVerifiedAdmin: true,
+    });
+    assert.equal(formsNoEnv.allowed, false);
+    assert.equal(formsNoEnv.reason, "preview_env_disabled");
+    const family = expansionFlags.evaluateExpansionAccess({
+      flagKey: "familyHub",
+      storedFlags: { familyHub: true },
+      environment: formsEnv,
+      isVerifiedAdmin: true,
+    });
+    assert.equal(family.allowed, false);
+    assert.equal(family.reason, "feature_forced_off");
   });
 
   await test("existing account roles continue to work as before", () => {
@@ -403,16 +420,17 @@ async function main() {
     }).reason, "not_organization_member");
   });
 
-  await test("navigation keeps Forms Center / Family Hub out of sidebar", () => {
+  await test("navigation keeps Family Hub out and Forms Center flag-gated", () => {
     const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
     assert.match(html, /data-view="director-center"[^>]*data-feature-flag="directorCenter"[^>]*data-nav-hidden="true"/);
+    assert.match(html, /data-view="forms-center"[^>]*data-feature-flag="formsCenter"[^>]*data-nav-hidden="true"/);
     const sidebarStart = html.indexOf('id="platformNav"');
     const sidebarEnd = html.indexOf("</nav>", sidebarStart);
     const sidebar = html.slice(sidebarStart, sidebarEnd);
-    assert.doesNotMatch(sidebar, /Forms Center/);
     assert.doesNotMatch(sidebar, /Family Hub/);
     const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
     assert.match(appJs, /canAccessDirectorCenter/);
+    assert.match(appJs, /canAccessFormsCenter/);
     assert.match(appJs, /admin_preview_only|Admin Preview/);
   });
 
@@ -454,6 +472,7 @@ async function main() {
       ADMIN_ACCESS_CODE: ADMIN_CODE,
       ADMIN_NAME: "Test Owner",
       ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true",
+      ALLOW_FORMS_CENTER_ADMIN_PREVIEW: "true",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -470,11 +489,12 @@ async function main() {
       assert.equal(res.json.flags.directorCenter, false);
       assert.equal(res.json.flags.formsCenter, false);
       assert.equal(res.json.flags.familyHub, false);
-      assert.equal(res.json.policy.formsCenter, "forced_off");
+      assert.equal(res.json.policy.formsCenter, "admin_preview_only");
       assert.equal(res.json.policy.familyHub, "forced_off");
       assert.equal(res.json.policy.directorCenter, "admin_preview_only");
       assert.equal(res.json.viewer.canAccessDirectorCenter, false);
-      assert.equal(res.json.storedFlags.formsCenter, false);
+      assert.equal(res.json.viewer.canAccessFormsCenter, false);
+      assert.equal(res.json.storedFlags.formsCenter, true);
       assert.equal(res.json.storedFlags.familyHub, false);
     });
 
@@ -504,8 +524,9 @@ async function main() {
       assert.equal(flags.status, 200);
       assert.equal(flags.json.viewer.isVerifiedAdmin, true);
       assert.equal(flags.json.viewer.canAccessDirectorCenter, true);
+      assert.equal(flags.json.viewer.canAccessFormsCenter, true);
       assert.equal(flags.json.flags.directorCenter, true);
-      assert.equal(flags.json.flags.formsCenter, false);
+      assert.equal(flags.json.flags.formsCenter, true);
       assert.equal(flags.json.flags.familyHub, false);
 
       const overview = await request("GET", "/api/director-center/overview", { adminToken: token });
@@ -541,9 +562,10 @@ async function main() {
       assert.ok(childAssign.json.child.id);
       assert.equal(childAssign.json.assignment.classroomId, created.json.classroom.id);
 
-      const formsStillOff = await request("GET", "/api/forms-center/templates", { adminToken: token });
-      assert.equal(formsStillOff.status, 403);
-      assert.equal(formsStillOff.json.feature, "formsCenter");
+      const formsHome = await request("GET", "/api/forms-center/home", { adminToken: token });
+      assert.equal(formsHome.status, 200, formsHome.json.error || "forms home failed");
+      assert.equal(formsHome.json.adminOnly, true);
+      assert.equal(formsHome.json.responseCollection, false);
     });
 
     await test("existing staff invite route is not blocked by expansion flags", async () => {
@@ -581,6 +603,7 @@ async function main() {
       ADMIN_ACCESS_CODE: ADMIN_CODE,
       // Preview opt-in intentionally absent / ignored on live production host
       ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true",
+      ALLOW_FORMS_CENTER_ADMIN_PREVIEW: "true",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -618,10 +641,16 @@ async function main() {
       const flags = await prodRequest("GET", "/api/foundation/feature-flags", { adminToken: login.json.token });
       assert.equal(flags.json.policy.productionLocked, true);
       assert.equal(flags.json.flags.directorCenter, false);
+      assert.equal(flags.json.flags.formsCenter, false);
+      assert.equal(flags.json.flags.familyHub, false);
       assert.equal(flags.json.viewer.canAccessDirectorCenter, false);
+      assert.equal(flags.json.viewer.canAccessFormsCenter, false);
       const overview = await prodRequest("GET", "/api/director-center/overview", { adminToken: login.json.token });
       assert.equal(overview.status, 403);
       assert.equal(overview.json.code, "feature_unavailable");
+      const forms = await prodRequest("GET", "/api/forms-center/home", { adminToken: login.json.token });
+      assert.equal(forms.status, 403);
+      assert.equal(forms.json.code, "feature_unavailable");
     });
   } finally {
     prodChild.kill("SIGTERM");

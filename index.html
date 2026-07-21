@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260721-phase3" />
+  <link rel="stylesheet" href="styles.css?v=20260721-phase4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260720-promo-existing" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260720-promo-existing" />
@@ -165,6 +165,13 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V5l8-3 8 3v15"/><path d="M8 20v-7h8v7M8 8h8M10 11h4"/></svg></span>
               <span class="nav-link-label-stack">
                 <span>Teacher Classroom</span>
+                <small class="nav-coming-soon-tag">Admin Preview</small>
+              </span>
+            </button>
+            <button class="nav-link" data-view="forms-center" data-feature-flag="formsCenter" data-nav-hidden="true" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6M9 8h2"/></svg></span>
+              <span class="nav-link-label-stack">
+                <span>Forms Center</span>
                 <small class="nav-coming-soon-tag">Admin Preview</small>
               </span>
             </button>
@@ -764,7 +771,7 @@
         <section id="view-whats-new" class="view"></section>
         <section id="view-director-center" class="view"></section>
         <section id="view-teacher-center" class="view"></section>
-        <section id="view-forms-center" class="view" hidden aria-hidden="true"></section>
+        <section id="view-forms-center" class="view"></section>
         <section id="view-family-hub" class="view" hidden aria-hidden="true"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
@@ -2033,9 +2040,10 @@
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260720-promo-existing" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260720-promo-existing" defer></script>
-    <script src="app.js?v=20260721-phase3" defer></script>
-    <script src="director-center-ui.js?v=20260721-phase3" defer></script>
-    <script src="teacher-center-ui.js?v=20260721-phase3" defer></script>
+    <script src="app.js?v=20260721-phase4" defer></script>
+    <script src="director-center-ui.js?v=20260721-phase4" defer></script>
+    <script src="teacher-center-ui.js?v=20260721-phase4" defer></script>
+    <script src="forms-center-ui.js?v=20260721-phase4" defer></script>
     <script src="comms-center.js?v=20260721-homescreen-sw" defer></script>
   </body>
 </html>
