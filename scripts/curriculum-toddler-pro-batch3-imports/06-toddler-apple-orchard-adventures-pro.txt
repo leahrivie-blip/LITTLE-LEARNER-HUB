@@ -1,255 +1,573 @@
-TITLE: Apple Orchard Adventures
-AGE_GROUP: Toddler (2-3 Years)
-THEME: Apple Orchard Adventures
-PLAN: PRO
-STATUS: Published
-LEARNING_DOMAINS: Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
-WEEKLY_OVERVIEW: Toddlers explore apples through color sorting, tasting, painting, counting, dramatic play, and simple science investigations.
-LEARNING_OBJECTIVES: Name apple colors; compare size and texture; count apples to five; strengthen grasping, pouring, balancing, and pretend-play skills.
-WEEKLY_MATERIALS: Red, green, and yellow apples, baskets, toy apples, paint, paper, blocks, tongs, cups, cinnamon, playdough, picture cards, books.
-VOCABULARY: Apple, orchard, tree, seed, red, green, yellow, crunchy, sweet, pick.
-BOOKS: Ten Apples Up on Top; The Apple Pie Tree; Apples; Tap the Magic Tree.
-SONGS: Way Up High in the Apple Tree; Five Red Apples; Apple Tree Song.
-FAMILY_CONNECTION: Invite families to taste one apple variety at home and share whether it was sweet, tart, soft, or crunchy.
-OBSERVATION_OPPORTUNITIES: Observe color matching, counting, sensory reactions, vocabulary, turn-taking, and fine-motor coordination.
-ADAPTATIONS: Offer soft cooked apples, picture choices, larger tools, seated options, and non-food sensory alternatives.
+TITLE:
+Apple Orchard Adventures
+AGE_GROUP:
+Toddler (2-3 Years)
+THEME:
+Apple Orchard Adventures
+PLAN:
+Pro
+STATUS:
+published
+LEARNING_DOMAINS:
+Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
+WEEKLY_OVERVIEW:
+Toddlers explore apples through color sorting, tasting, painting, counting, dramatic play, and simple science investigations.
+LEARNING_OBJECTIVES:
+Name apple colors; compare size and texture; count apples to five; strengthen grasping, pouring, balancing, and pretend-play skills.
+WEEKLY_MATERIALS:
+Red, green, and yellow apples, baskets, toy apples, paint, paper, blocks, tongs, cups, cinnamon, playdough, picture cards, books.
+VOCABULARY:
+Apple, orchard, tree, seed, red, green, yellow, crunchy, sweet, pick.
+BOOKS:
+Ten Apples Up on Top; The Apple Pie Tree; Apples; Tap the Magic Tree.
+SONGS:
+Way Up High in the Apple Tree; Five Red Apples; Apple Tree Song.
+FAMILY_CONNECTION:
+Invite families to taste one apple variety at home and share whether it was sweet, tart, soft, or crunchy.
+OBSERVATION_OPPORTUNITIES:
+Observe color matching, counting, sensory reactions, vocabulary, turn-taking, and fine-motor coordination.
+ADAPTATIONS:
+Offer soft cooked apples, picture choices, larger tools, seated options, and non-food sensory alternatives.
 
 MONDAY
-DAILY_THEME: Apple Colors
-DAILY_OBJECTIVES: Identify red, green, and yellow; sort by color.
-DAILY_VOCABULARY: Red, green, yellow, same, different.
-DAILY_MATERIALS: Apples, baskets, color mats, paint.
-DAILY_LEARNING_DOMAINS: Math; Language; Fine Motor; Art.
-CIRCLE_TIME_IDEAS: Compare three apples and sing Five Red Apples.
-OUTDOOR_PLAY: Find red, green, and yellow objects outside.
-DAILY_OBSERVATION_OPPORTUNITIES: Note color matching and comparison words.
-DAILY_ADAPTATIONS: Begin with two colors.
-SAFETY_NOTES: Cut food into developmentally safe pieces.
-ACTIVITY_1_CATEGORY: Math
-ACTIVITY_1_NAME: Apple Color Sort
-ACTIVITY_1_OBJECTIVE: Match apples to color groups.
-ACTIVITY_1_DESCRIPTION: Children place toy apples onto red, green, and yellow mats.
-ACTIVITY_1_MATERIALS: Toy apples, color mats, baskets.
-ACTIVITY_1_SETUP: Arrange three color mats and mixed apples.
-ACTIVITY_1_DIRECTIONS: 1. Choose an apple. 2. Name or point to its color. 3. Place it on the matching mat. 4. Compare groups. 5. Count each group.
-ACTIVITY_1_TEACHER_ROLE: Model matching and simple comparison language.
-ACTIVITY_1_LEARNING_GOALS: Classification; color recognition; counting.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Watch accuracy and persistence.
-ACTIVITY_1_ADAPTATIONS: Use only two colors or hand-over-hand support.
-ACTIVITY_1_SAFETY_NOTES: Use large toy apples.
-ACTIVITY_2_CATEGORY: Creative Arts
-ACTIVITY_2_NAME: Apple Stamp Painting
-ACTIVITY_2_OBJECTIVE: Explore printmaking.
-ACTIVITY_2_DESCRIPTION: Children stamp apple halves into paint and onto paper.
-ACTIVITY_2_MATERIALS: Apple halves, washable paint, paper.
-ACTIVITY_2_SETUP: Adult cuts apples and places them cut-side down in trays.
-ACTIVITY_2_DIRECTIONS: 1. Dip apple. 2. Press onto paper. 3. Lift and observe print. 4. Repeat with another color.
-ACTIVITY_2_TEACHER_ROLE: Describe shapes and colors.
-ACTIVITY_2_LEARNING_GOALS: Fine motor; cause and effect; creativity.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note pressure control and choices.
-ACTIVITY_2_ADAPTATIONS: Add handles to apple stamps.
-ACTIVITY_2_SAFETY_NOTES: Adult handles cutting.
-ACTIVITY_3_CATEGORY: Gross Motor
-ACTIVITY_3_NAME: Apple Basket Carry
-ACTIVITY_3_OBJECTIVE: Practice balance and transporting objects.
-ACTIVITY_3_DESCRIPTION: Children carry soft apples through a simple path.
-ACTIVITY_3_MATERIALS: Baskets, soft toy apples, floor markers.
-ACTIVITY_3_SETUP: Create a short path.
-ACTIVITY_3_DIRECTIONS: 1. Put apples in basket. 2. Walk path. 3. Deliver apples. 4. Return basket. 5. Take turns.
-ACTIVITY_3_TEACHER_ROLE: Support pacing and balance.
-ACTIVITY_3_LEARNING_GOALS: Coordination; responsibility; turn-taking.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note balance and control.
-ACTIVITY_3_ADAPTATIONS: Use lighter baskets.
-ACTIVITY_3_SAFETY_NOTES: Keep path clear.
+DAILY_THEME:
+Apple Colors
+DAILY_OBJECTIVES:
+Identify red, green, and yellow; sort by color.
+DAILY_VOCABULARY:
+Red, green, yellow, same, different.
+DAILY_MATERIALS:
+Apples, baskets, color mats, paint.
+DAILY_LEARNING_DOMAINS:
+Math; Language; Fine Motor; Art.
+CIRCLE_TIME:
+Compare three apples and sing Five Red Apples.
+OUTDOOR_PLAY:
+Find red, green, and yellow objects outside.
+DAILY_OBSERVATIONS:
+Note color matching and comparison words.
+DAILY_ADAPTATIONS:
+Begin with two colors.
+SAFETY_NOTES:
+Cut food into developmentally safe pieces.
+
+ACTIVITY_NAME:
+Apple Color Sort
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match apples to color groups.
+DESCRIPTION:
+Children place toy apples onto red, green, and yellow mats.
+MATERIALS:
+Toy apples, color mats, baskets.
+SETUP:
+Arrange three color mats and mixed apples.
+DIRECTIONS:
+1. Choose an apple.
+2. Name or point to its color.
+3. Place it on the matching mat.
+4. Compare groups.
+5. Count each group.
+TEACHER_ROLE:
+Model matching and simple comparison language.
+LEARNING_GOALS:
+Classification; color recognition; counting.
+OBSERVATION_OPPORTUNITIES:
+Watch accuracy and persistence.
+ADAPTATIONS:
+Use only two colors or hand-over-hand support.
+SAFETY_NOTES:
+Use large toy apples.
+
+ACTIVITY_NAME:
+Apple Stamp Painting
+CATEGORY:
+Art
+OBJECTIVE:
+Explore printmaking.
+DESCRIPTION:
+Children stamp apple halves into paint and onto paper.
+MATERIALS:
+Apple halves, washable paint, paper.
+SETUP:
+Adult cuts apples and places them cut-side down in trays.
+DIRECTIONS:
+1. Dip apple.
+2. Press onto paper.
+3. Lift and observe print.
+4. Repeat with another color.
+TEACHER_ROLE:
+Describe shapes and colors.
+LEARNING_GOALS:
+Fine motor; cause and effect; creativity.
+OBSERVATION_OPPORTUNITIES:
+Note pressure control and choices.
+ADAPTATIONS:
+Add handles to apple stamps.
+SAFETY_NOTES:
+Adult handles cutting.
+
+ACTIVITY_NAME:
+Apple Basket Carry
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Practice balance and transporting objects.
+DESCRIPTION:
+Children carry soft apples through a simple path.
+MATERIALS:
+Baskets, soft toy apples, floor markers.
+SETUP:
+Create a short path.
+DIRECTIONS:
+1. Put apples in basket.
+2. Walk path.
+3. Deliver apples.
+4. Return basket.
+5. Take turns.
+TEACHER_ROLE:
+Support pacing and balance.
+LEARNING_GOALS:
+Coordination; responsibility; turn-taking.
+OBSERVATION_OPPORTUNITIES:
+Note balance and control.
+ADAPTATIONS:
+Use lighter baskets.
+SAFETY_NOTES:
+Keep path clear.
 
 TUESDAY
-DAILY_THEME: Inside an Apple
-DAILY_OBJECTIVES: Notice peel, flesh, core, and seeds.
-DAILY_VOCABULARY: Peel, core, seed, inside, outside.
-DAILY_MATERIALS: Apples, magnifiers, trays, seed pictures, playdough.
-DAILY_LEARNING_DOMAINS: Science; Language; Fine Motor.
-CIRCLE_TIME_IDEAS: Cut an apple open and name its parts.
-OUTDOOR_PLAY: Search for seeds and pods outside.
-DAILY_OBSERVATION_OPPORTUNITIES: Note curiosity and part vocabulary.
-DAILY_ADAPTATIONS: Use photographs or sealed observation bags.
-SAFETY_NOTES: Adult cuts all apples.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Apple Investigation
-ACTIVITY_1_OBJECTIVE: Observe apple parts.
-ACTIVITY_1_DESCRIPTION: Children examine apple slices and seeds with magnifiers.
-ACTIVITY_1_MATERIALS: Apple slices, seeds, magnifiers, trays.
-ACTIVITY_1_SETUP: Place items on individual trays.
-ACTIVITY_1_DIRECTIONS: 1. Look at peel. 2. Look at inside. 3. Find seeds. 4. Compare textures. 5. Describe observations.
-ACTIVITY_1_TEACHER_ROLE: Ask noticing questions.
-ACTIVITY_1_LEARNING_GOALS: Observation; vocabulary; scientific curiosity.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note attention and descriptive gestures.
-ACTIVITY_1_ADAPTATIONS: Use large photo cards.
-ACTIVITY_1_SAFETY_NOTES: Supervise food and small seeds.
-ACTIVITY_2_CATEGORY: Fine Motor
-ACTIVITY_2_NAME: Seed Pinch Playdough
-ACTIVITY_2_OBJECTIVE: Strengthen pincer grasp.
-ACTIVITY_2_DESCRIPTION: Children press large black seed shapes into apple-colored playdough.
-ACTIVITY_2_MATERIALS: Red playdough, large foam seed shapes.
-ACTIVITY_2_SETUP: Form playdough apples.
-ACTIVITY_2_DIRECTIONS: 1. Roll dough. 2. Flatten gently. 3. Pinch a seed shape. 4. Press into dough. 5. Count seeds.
-ACTIVITY_2_TEACHER_ROLE: Model pinching and counting.
-ACTIVITY_2_LEARNING_GOALS: Hand strength; counting; pretend representation.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note grasp and number words.
-ACTIVITY_2_ADAPTATIONS: Use jumbo pieces.
-ACTIVITY_2_SAFETY_NOTES: Use pieces too large to swallow.
-ACTIVITY_3_CATEGORY: Language & Literacy
-ACTIVITY_3_NAME: Apple Part Match
-ACTIVITY_3_OBJECTIVE: Match apple parts to pictures.
-ACTIVITY_3_DESCRIPTION: Children match peel, seed, core, and whole-apple photos.
-ACTIVITY_3_MATERIALS: Apple part cards.
-ACTIVITY_3_SETUP: Lay out whole and part cards.
-ACTIVITY_3_DIRECTIONS: 1. Choose a part. 2. Name or point. 3. Match it. 4. Repeat. 5. Review words.
-ACTIVITY_3_TEACHER_ROLE: Use simple repeated phrases.
-ACTIVITY_3_LEARNING_GOALS: Receptive language; matching.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note recognition and communication.
-ACTIVITY_3_ADAPTATIONS: Offer two choices.
-ACTIVITY_3_SAFETY_NOTES: Laminate cards securely.
+DAILY_THEME:
+Inside an Apple
+DAILY_OBJECTIVES:
+Notice peel, flesh, core, and seeds.
+DAILY_VOCABULARY:
+Peel, core, seed, inside, outside.
+DAILY_MATERIALS:
+Apples, magnifiers, trays, seed pictures, playdough.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Fine Motor.
+CIRCLE_TIME:
+Cut an apple open and name its parts.
+OUTDOOR_PLAY:
+Search for seeds and pods outside.
+DAILY_OBSERVATIONS:
+Note curiosity and part vocabulary.
+DAILY_ADAPTATIONS:
+Use photographs or sealed observation bags.
+SAFETY_NOTES:
+Adult cuts all apples.
+
+ACTIVITY_NAME:
+Apple Investigation
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe apple parts.
+DESCRIPTION:
+Children examine apple slices and seeds with magnifiers.
+MATERIALS:
+Apple slices, seeds, magnifiers, trays.
+SETUP:
+Place items on individual trays.
+DIRECTIONS:
+1. Look at peel.
+2. Look at inside.
+3. Find seeds.
+4. Compare textures.
+5. Describe observations.
+TEACHER_ROLE:
+Ask noticing questions.
+LEARNING_GOALS:
+Observation; vocabulary; scientific curiosity.
+OBSERVATION_OPPORTUNITIES:
+Note attention and descriptive gestures.
+ADAPTATIONS:
+Use large photo cards.
+SAFETY_NOTES:
+Supervise food and small seeds.
+
+ACTIVITY_NAME:
+Seed Pinch Playdough
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Strengthen pincer grasp.
+DESCRIPTION:
+Children press large black seed shapes into apple-colored playdough.
+MATERIALS:
+Red playdough, large foam seed shapes.
+SETUP:
+Form playdough apples.
+DIRECTIONS:
+1. Roll dough.
+2. Flatten gently.
+3. Pinch a seed shape.
+4. Press into dough.
+5. Count seeds.
+TEACHER_ROLE:
+Model pinching and counting.
+LEARNING_GOALS:
+Hand strength; counting; pretend representation.
+OBSERVATION_OPPORTUNITIES:
+Note grasp and number words.
+ADAPTATIONS:
+Use jumbo pieces.
+SAFETY_NOTES:
+Use pieces too large to swallow.
+
+ACTIVITY_NAME:
+Apple Part Match
+CATEGORY:
+Literacy
+OBJECTIVE:
+Match apple parts to pictures.
+DESCRIPTION:
+Children match peel, seed, core, and whole-apple photos.
+MATERIALS:
+Apple part cards.
+SETUP:
+Lay out whole and part cards.
+DIRECTIONS:
+1. Choose a part.
+2. Name or point.
+3. Match it.
+4. Repeat.
+5. Review words.
+TEACHER_ROLE:
+Use simple repeated phrases.
+LEARNING_GOALS:
+Receptive language; matching.
+OBSERVATION_OPPORTUNITIES:
+Note recognition and communication.
+ADAPTATIONS:
+Offer two choices.
+SAFETY_NOTES:
+Laminate cards securely.
 
 WEDNESDAY
-DAILY_THEME: Apple Taste Test
-DAILY_OBJECTIVES: Compare flavor and texture; express preferences.
-DAILY_VOCABULARY: Sweet, tart, crunchy, soft, like.
-DAILY_MATERIALS: Safe apple slices, cups, graph cards, napkins.
-DAILY_LEARNING_DOMAINS: Science; Language; Social-Emotional; Math.
-CIRCLE_TIME_IDEAS: Discuss how foods can taste different.
-OUTDOOR_PLAY: Pretend to pick and deliver apples.
-DAILY_OBSERVATION_OPPORTUNITIES: Note sensory responses and preference communication.
-DAILY_ADAPTATIONS: Offer applesauce or non-food smell jars.
-SAFETY_NOTES: Confirm allergies and supervise chewing.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Apple Taste Test
-ACTIVITY_1_OBJECTIVE: Compare apple varieties.
-ACTIVITY_1_DESCRIPTION: Children taste small safe pieces of red, green, and yellow apples.
-ACTIVITY_1_MATERIALS: Apple samples, plates, water.
-ACTIVITY_1_SETUP: Prepare safe pieces and label plates.
-ACTIVITY_1_DIRECTIONS: 1. Look at color. 2. Taste one piece. 3. Describe it. 4. Taste another. 5. Choose favorite.
-ACTIVITY_1_TEACHER_ROLE: Model neutral sensory language.
-ACTIVITY_1_LEARNING_GOALS: Comparison; self-expression; sensory awareness.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note words, gestures, and willingness.
-ACTIVITY_1_ADAPTATIONS: Allow smelling or touching only.
-ACTIVITY_1_SAFETY_NOTES: Follow choking and allergy guidelines.
-ACTIVITY_2_CATEGORY: Math
-ACTIVITY_2_NAME: Favorite Apple Graph
-ACTIVITY_2_OBJECTIVE: Represent preferences with pictures.
-ACTIVITY_2_DESCRIPTION: Children place a photo under their favorite apple color.
-ACTIVITY_2_MATERIALS: Chart, apple color columns, child name cards.
-ACTIVITY_2_SETUP: Prepare a simple three-column chart.
-ACTIVITY_2_DIRECTIONS: 1. Choose favorite. 2. Place card. 3. Count each column. 4. Compare more and less.
-ACTIVITY_2_TEACHER_ROLE: Support choice and counting.
-ACTIVITY_2_LEARNING_GOALS: Data awareness; counting; comparison.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note choice consistency.
-ACTIVITY_2_ADAPTATIONS: Use two choices.
-ACTIVITY_2_SAFETY_NOTES: Use large cards.
-ACTIVITY_3_CATEGORY: Dramatic Play
-ACTIVITY_3_NAME: Apple Market
-ACTIVITY_3_OBJECTIVE: Practice social language and pretend routines.
-ACTIVITY_3_DESCRIPTION: Children buy, sell, sort, and bag pretend apples.
-ACTIVITY_3_MATERIALS: Toy apples, baskets, bags, cash register.
-ACTIVITY_3_SETUP: Create a small market stand.
-ACTIVITY_3_DIRECTIONS: 1. Choose role. 2. Pick apples. 3. Place in bag. 4. Pretend to pay. 5. Switch roles.
-ACTIVITY_3_TEACHER_ROLE: Model greetings and turn-taking.
-ACTIVITY_3_LEARNING_GOALS: Cooperation; language; symbolic play.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note role play and peer interaction.
-ACTIVITY_3_ADAPTATIONS: Use picture role cards.
-ACTIVITY_3_SAFETY_NOTES: Avoid small coins.
+DAILY_THEME:
+Apple Taste Test
+DAILY_OBJECTIVES:
+Compare flavor and texture; express preferences.
+DAILY_VOCABULARY:
+Sweet, tart, crunchy, soft, like.
+DAILY_MATERIALS:
+Safe apple slices, cups, graph cards, napkins.
+DAILY_LEARNING_DOMAINS:
+Science; Language; Social-Emotional; Math.
+CIRCLE_TIME:
+Discuss how foods can taste different.
+OUTDOOR_PLAY:
+Pretend to pick and deliver apples.
+DAILY_OBSERVATIONS:
+Note sensory responses and preference communication.
+DAILY_ADAPTATIONS:
+Offer applesauce or non-food smell jars.
+SAFETY_NOTES:
+Confirm allergies and supervise chewing.
+
+ACTIVITY_NAME:
+Apple Taste Test
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Compare apple varieties.
+DESCRIPTION:
+Children taste small safe pieces of red, green, and yellow apples.
+MATERIALS:
+Apple samples, plates, water.
+SETUP:
+Prepare safe pieces and label plates.
+DIRECTIONS:
+1. Look at color.
+2. Taste one piece.
+3. Describe it.
+4. Taste another.
+5. Choose favorite.
+TEACHER_ROLE:
+Model neutral sensory language.
+LEARNING_GOALS:
+Comparison; self-expression; sensory awareness.
+OBSERVATION_OPPORTUNITIES:
+Note words, gestures, and willingness.
+ADAPTATIONS:
+Allow smelling or touching only.
+SAFETY_NOTES:
+Follow choking and allergy guidelines.
+
+ACTIVITY_NAME:
+Favorite Apple Graph
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Represent preferences with pictures.
+DESCRIPTION:
+Children place a photo under their favorite apple color.
+MATERIALS:
+Chart, apple color columns, child name cards.
+SETUP:
+Prepare a simple three-column chart.
+DIRECTIONS:
+1. Choose favorite.
+2. Place card.
+3. Count each column.
+4. Compare more and less.
+TEACHER_ROLE:
+Support choice and counting.
+LEARNING_GOALS:
+Data awareness; counting; comparison.
+OBSERVATION_OPPORTUNITIES:
+Note choice consistency.
+ADAPTATIONS:
+Use two choices.
+SAFETY_NOTES:
+Use large cards.
+
+ACTIVITY_NAME:
+Apple Market
+CATEGORY:
+Dramatic Play
+OBJECTIVE:
+Practice social language and pretend routines.
+DESCRIPTION:
+Children buy, sell, sort, and bag pretend apples.
+MATERIALS:
+Toy apples, baskets, bags, cash register.
+SETUP:
+Create a small market stand.
+DIRECTIONS:
+1. Choose role.
+2. Pick apples.
+3. Place in bag.
+4. Pretend to pay.
+5. Switch roles.
+TEACHER_ROLE:
+Model greetings and turn-taking.
+LEARNING_GOALS:
+Cooperation; language; symbolic play.
+OBSERVATION_OPPORTUNITIES:
+Note role play and peer interaction.
+ADAPTATIONS:
+Use picture role cards.
+SAFETY_NOTES:
+Avoid small coins.
 
 THURSDAY
-DAILY_THEME: Apple Tree Builders
-DAILY_OBJECTIVES: Build stable trees and count apples.
-DAILY_VOCABULARY: Tree, trunk, branch, tall, balance.
-DAILY_MATERIALS: Blocks, tubes, green paper, pom-pom apples, tape.
-DAILY_LEARNING_DOMAINS: Engineering; Math; Fine Motor; Creative Arts.
-CIRCLE_TIME_IDEAS: Look at tree parts and brainstorm what helps a tree stand.
-OUTDOOR_PLAY: Balance beanbag apples on outdoor tree stumps or markers.
-DAILY_OBSERVATION_OPPORTUNITIES: Note problem-solving and counting.
-DAILY_ADAPTATIONS: Use wide bases and larger pieces.
-SAFETY_NOTES: Keep structures below shoulder height.
-ACTIVITY_1_CATEGORY: Engineering
-ACTIVITY_1_NAME: Build an Apple Tree
-ACTIVITY_1_OBJECTIVE: Create a standing structure.
-ACTIVITY_1_DESCRIPTION: Children use blocks and tubes to build trees and add soft apples.
-ACTIVITY_1_MATERIALS: Blocks, tubes, green shapes, pom-poms.
-ACTIVITY_1_SETUP: Arrange loose parts on a rug.
-ACTIVITY_1_DIRECTIONS: 1. Build a trunk. 2. Add branches. 3. Test balance. 4. Add apples. 5. Rebuild if it falls.
-ACTIVITY_1_TEACHER_ROLE: Encourage testing and persistence.
-ACTIVITY_1_LEARNING_GOALS: Stability; problem-solving; creativity.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note planning and response to collapse.
-ACTIVITY_1_ADAPTATIONS: Offer a cardboard tree base.
-ACTIVITY_1_SAFETY_NOTES: Use lightweight materials.
-ACTIVITY_2_CATEGORY: Math
-ACTIVITY_2_NAME: Apples on the Tree
-ACTIVITY_2_OBJECTIVE: Count objects to five.
-ACTIVITY_2_DESCRIPTION: Children place matching numbers of apples on tree cards.
-ACTIVITY_2_MATERIALS: Tree cards, large pom-poms, number cards 1-5.
-ACTIVITY_2_SETUP: Place materials in trays.
-ACTIVITY_2_DIRECTIONS: 1. Pick a number. 2. Say it. 3. Add apples. 4. Touch-count. 5. Check together.
-ACTIVITY_2_TEACHER_ROLE: Model one-to-one counting.
-ACTIVITY_2_LEARNING_GOALS: Number sense; matching.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note counting range.
-ACTIVITY_2_ADAPTATIONS: Use 1-3.
-ACTIVITY_2_SAFETY_NOTES: Use jumbo pom-poms.
-ACTIVITY_3_CATEGORY: Creative Arts
-ACTIVITY_3_NAME: Torn-Paper Orchard
-ACTIVITY_3_OBJECTIVE: Strengthen hand muscles and create a group mural.
-ACTIVITY_3_DESCRIPTION: Children tear green paper and add apple stickers to trees.
-ACTIVITY_3_MATERIALS: Paper, glue, apple stickers, mural paper.
-ACTIVITY_3_SETUP: Draw simple tree trunks on mural paper.
-ACTIVITY_3_DIRECTIONS: 1. Tear green paper. 2. Glue leaves. 3. Add apples. 4. Name colors. 5. Display mural.
-ACTIVITY_3_TEACHER_ROLE: Encourage collaboration.
-ACTIVITY_3_LEARNING_GOALS: Fine motor; creativity; group participation.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note bilateral hand use.
-ACTIVITY_3_ADAPTATIONS: Provide pre-torn paper.
-ACTIVITY_3_SAFETY_NOTES: Use non-toxic glue.
+DAILY_THEME:
+Apple Tree Builders
+DAILY_OBJECTIVES:
+Build stable trees and count apples.
+DAILY_VOCABULARY:
+Tree, trunk, branch, tall, balance.
+DAILY_MATERIALS:
+Blocks, tubes, green paper, pom-pom apples, tape.
+DAILY_LEARNING_DOMAINS:
+Engineering; Math; Fine Motor; Creative Arts.
+CIRCLE_TIME:
+Look at tree parts and brainstorm what helps a tree stand.
+OUTDOOR_PLAY:
+Balance beanbag apples on outdoor tree stumps or markers.
+DAILY_OBSERVATIONS:
+Note problem-solving and counting.
+DAILY_ADAPTATIONS:
+Use wide bases and larger pieces.
+SAFETY_NOTES:
+Keep structures below shoulder height.
+
+ACTIVITY_NAME:
+Build an Apple Tree
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Create a standing structure.
+DESCRIPTION:
+Children use blocks and tubes to build trees and add soft apples.
+MATERIALS:
+Blocks, tubes, green shapes, pom-poms.
+SETUP:
+Arrange loose parts on a rug.
+DIRECTIONS:
+1. Build a trunk.
+2. Add branches.
+3. Test balance.
+4. Add apples.
+5. Rebuild if it falls.
+TEACHER_ROLE:
+Encourage testing and persistence.
+LEARNING_GOALS:
+Stability; problem-solving; creativity.
+OBSERVATION_OPPORTUNITIES:
+Note planning and response to collapse.
+ADAPTATIONS:
+Offer a cardboard tree base.
+SAFETY_NOTES:
+Use lightweight materials.
+
+ACTIVITY_NAME:
+Apples on the Tree
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Count objects to five.
+DESCRIPTION:
+Children place matching numbers of apples on tree cards.
+MATERIALS:
+Tree cards, large pom-poms, number cards 1-5.
+SETUP:
+Place materials in trays.
+DIRECTIONS:
+1. Pick a number.
+2. Say it.
+3. Add apples.
+4. Touch-count.
+5. Check together.
+TEACHER_ROLE:
+Model one-to-one counting.
+LEARNING_GOALS:
+Number sense; matching.
+OBSERVATION_OPPORTUNITIES:
+Note counting range.
+ADAPTATIONS:
+Use 1-3.
+SAFETY_NOTES:
+Use jumbo pom-poms.
+
+ACTIVITY_NAME:
+Torn-Paper Orchard
+CATEGORY:
+Art
+OBJECTIVE:
+Strengthen hand muscles and create a group mural.
+DESCRIPTION:
+Children tear green paper and add apple stickers to trees.
+MATERIALS:
+Paper, glue, apple stickers, mural paper.
+SETUP:
+Draw simple tree trunks on mural paper.
+DIRECTIONS:
+1. Tear green paper.
+2. Glue leaves.
+3. Add apples.
+4. Name colors.
+5. Display mural.
+TEACHER_ROLE:
+Encourage collaboration.
+LEARNING_GOALS:
+Fine motor; creativity; group participation.
+OBSERVATION_OPPORTUNITIES:
+Note bilateral hand use.
+ADAPTATIONS:
+Provide pre-torn paper.
+SAFETY_NOTES:
+Use non-toxic glue.
 
 FRIDAY
-DAILY_THEME: Orchard Celebration
-DAILY_OBJECTIVES: Review learning; sequence picking, washing, and sharing.
-DAILY_VOCABULARY: Pick, wash, basket, share, orchard.
-DAILY_MATERIALS: Toy apples, water tub, towels, baskets, music.
-DAILY_LEARNING_DOMAINS: Language; Social-Emotional; Gross Motor; Practical Life.
-CIRCLE_TIME_IDEAS: Retell the apple journey from tree to table.
-OUTDOOR_PLAY: Complete an apple-picking obstacle course.
-DAILY_OBSERVATION_OPPORTUNITIES: Note sequencing, cooperation, and recall.
-DAILY_ADAPTATIONS: Use visual sequence cards.
-SAFETY_NOTES: Keep water shallow and floors dry.
-ACTIVITY_1_CATEGORY: Practical Life
-ACTIVITY_1_NAME: Wash the Apples
-ACTIVITY_1_OBJECTIVE: Practice a simple care routine.
-ACTIVITY_1_DESCRIPTION: Children wash toy apples with brushes and dry them.
-ACTIVITY_1_MATERIALS: Toy apples, shallow water, brushes, towels.
-ACTIVITY_1_SETUP: Prepare a washing and drying station.
-ACTIVITY_1_DIRECTIONS: 1. Choose apple. 2. Dip it. 3. Scrub gently. 4. Rinse. 5. Dry and basket it.
-ACTIVITY_1_TEACHER_ROLE: Model sequence and care.
-ACTIVITY_1_LEARNING_GOALS: Independence; sequencing; fine motor.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note task completion.
-ACTIVITY_1_ADAPTATIONS: Use larger brushes.
-ACTIVITY_1_SAFETY_NOTES: Supervise water.
-ACTIVITY_2_CATEGORY: Gross Motor
-ACTIVITY_2_NAME: Orchard Picking Course
-ACTIVITY_2_OBJECTIVE: Strengthen reaching, walking, and squatting.
-ACTIVITY_2_DESCRIPTION: Children collect soft apples from low and high spots.
-ACTIVITY_2_MATERIALS: Soft apples, baskets, cones.
-ACTIVITY_2_SETUP: Place apples at safe heights along a path.
-ACTIVITY_2_DIRECTIONS: 1. Walk path. 2. Reach or squat. 3. Pick apple. 4. Put in basket. 5. Deliver basket.
-ACTIVITY_2_TEACHER_ROLE: Cue safe body movements.
-ACTIVITY_2_LEARNING_GOALS: Balance; coordination; body awareness.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note movement planning.
-ACTIVITY_2_ADAPTATIONS: Place apples within seated reach.
-ACTIVITY_2_SAFETY_NOTES: Keep obstacles stable.
-ACTIVITY_3_CATEGORY: Music & Movement
-ACTIVITY_3_NAME: Apple Tree Action Song
-ACTIVITY_3_OBJECTIVE: Follow a familiar movement sequence.
-ACTIVITY_3_DESCRIPTION: Children grow tall, sway, drop apples, and gather them to music.
-ACTIVITY_3_MATERIALS: Music, soft apple props.
-ACTIVITY_3_SETUP: Clear floor space.
-ACTIVITY_3_DIRECTIONS: 1. Curl like seed. 2. Grow tall. 3. Sway branches. 4. Drop apples. 5. Gather them.
-ACTIVITY_3_TEACHER_ROLE: Lead and repeat movements.
-ACTIVITY_3_LEARNING_GOALS: Sequencing; imitation; gross motor.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note recall and rhythm.
-ACTIVITY_3_ADAPTATIONS: Perform seated.
-ACTIVITY_3_SAFETY_NOTES: Use soft props and spacing.
+DAILY_THEME:
+Orchard Celebration
+DAILY_OBJECTIVES:
+Review learning; sequence picking, washing, and sharing.
+DAILY_VOCABULARY:
+Pick, wash, basket, share, orchard.
+DAILY_MATERIALS:
+Toy apples, water tub, towels, baskets, music.
+DAILY_LEARNING_DOMAINS:
+Language; Social-Emotional; Gross Motor; Practical Life.
+CIRCLE_TIME:
+Retell the apple journey from tree to table.
+OUTDOOR_PLAY:
+Complete an apple-picking obstacle course.
+DAILY_OBSERVATIONS:
+Note sequencing, cooperation, and recall.
+DAILY_ADAPTATIONS:
+Use visual sequence cards.
+SAFETY_NOTES:
+Keep water shallow and floors dry.
+
+ACTIVITY_NAME:
+Wash the Apples
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Practice a simple care routine.
+DESCRIPTION:
+Children wash toy apples with brushes and dry them.
+MATERIALS:
+Toy apples, shallow water, brushes, towels.
+SETUP:
+Prepare a washing and drying station.
+DIRECTIONS:
+1. Choose apple.
+2. Dip it.
+3. Scrub gently.
+4. Rinse.
+5. Dry and basket it.
+TEACHER_ROLE:
+Model sequence and care.
+LEARNING_GOALS:
+Independence; sequencing; fine motor.
+OBSERVATION_OPPORTUNITIES:
+Note task completion.
+ADAPTATIONS:
+Use larger brushes.
+SAFETY_NOTES:
+Supervise water.
+
+ACTIVITY_NAME:
+Orchard Picking Course
+CATEGORY:
+Gross Motor
+OBJECTIVE:
+Strengthen reaching, walking, and squatting.
+DESCRIPTION:
+Children collect soft apples from low and high spots.
+MATERIALS:
+Soft apples, baskets, cones.
+SETUP:
+Place apples at safe heights along a path.
+DIRECTIONS:
+1. Walk path.
+2. Reach or squat.
+3. Pick apple.
+4. Put in basket.
+5. Deliver basket.
+TEACHER_ROLE:
+Cue safe body movements.
+LEARNING_GOALS:
+Balance; coordination; body awareness.
+OBSERVATION_OPPORTUNITIES:
+Note movement planning.
+ADAPTATIONS:
+Place apples within seated reach.
+SAFETY_NOTES:
+Keep obstacles stable.
+
+ACTIVITY_NAME:
+Apple Tree Action Song
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Follow a familiar movement sequence.
+DESCRIPTION:
+Children grow tall, sway, drop apples, and gather them to music.
+MATERIALS:
+Music, soft apple props.
+SETUP:
+Clear floor space.
+DIRECTIONS:
+1. Curl like seed.
+2. Grow tall.
+3. Sway branches.
+4. Drop apples.
+5. Gather them.
+TEACHER_ROLE:
+Lead and repeat movements.
+LEARNING_GOALS:
+Sequencing; imitation; gross motor.
+OBSERVATION_OPPORTUNITIES:
+Note recall and rhythm.
+ADAPTATIONS:
+Perform seated.
+SAFETY_NOTES:
+Use soft props and spacing.
