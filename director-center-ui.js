@@ -14,6 +14,10 @@
     limits: null,
     selectedClassroomId: "",
     classroomDetail: null,
+    editingClassroom: false,
+    assigningStaffId: "",
+    expandedChildId: "",
+    addonQty: 1,
     loading: false,
     error: "",
     scenario: "small_center",
@@ -101,9 +105,13 @@
           status: state.filters.staffStatus || "",
           q: state.filters.staffQ || "",
         });
-        const data = await api("GET", `/api/director-center/staff?${params}`);
+        const [data, classroomsData] = await Promise.all([
+          api("GET", `/api/director-center/staff?${params}`),
+          api("GET", "/api/director-center/classrooms?status=active"),
+        ]);
         state.staff = data.staff || [];
         state.limits = data.limits;
+        state.classrooms = classroomsData.classrooms || [];
       } else if (state.tab === "children") {
         const params = new URLSearchParams({
           q: state.filters.childQ || "",
@@ -122,7 +130,7 @@
         state.limits = data.limits;
       } else if (state.tab === "roles_permissions") {
         state.roles = await api("GET", "/api/director-center/roles-permissions");
-        state.limits = await api("GET", "/api/director-center/limits");
+        state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty || 0)}`);
       }
     } finally {
       state.loading = false;
@@ -164,7 +172,8 @@
   }
 
   function limitsBanner() {
-    const limits = state.limits || state.overview?.limits;
+    const raw = state.limits || state.overview?.limits;
+    const limits = raw?.limits && typeof raw.limits === "object" ? raw.limits : raw;
     if (!limits) return "";
     const notes = [];
     if (limits.classroomNearLimit && limits.messages?.classroomWarning) notes.push(limits.messages.classroomWarning);
@@ -173,10 +182,11 @@
     if (limits.staffAtLimit && limits.messages?.staffBlocked) notes.push(limits.messages.staffBlocked);
     if (limits.messages?.homeDaycareUpgrade) notes.push(limits.messages.homeDaycareUpgrade);
     if (limits.upgradeRecommendation?.recommendUpgrade) notes.push(limits.upgradeRecommendation.message);
+    if (raw?.upgradeRecommendation?.recommendUpgrade) notes.push(raw.upgradeRecommendation.message);
     if (!notes.length) {
       return `
         <div class="dc-limits-banner dc-limits-ok">
-          Plan preview: ${escapeHtml(limits.planLabel)} · Classrooms ${limits.classroomsUsed}/${limits.classroomLimit} · Staff ${limits.staffUsed}/${limits.staffAccountLimit}
+          Plan preview: ${escapeHtml(limits.planLabel || "")} · Classrooms ${escapeHtml(limits.classroomsUsed ?? 0)}/${escapeHtml(limits.classroomLimit ?? 0)} · Staff ${escapeHtml(limits.staffUsed ?? 0)}/${escapeHtml(limits.staffAccountLimit ?? 0)}
         </div>
       `;
     }
@@ -260,12 +270,27 @@
               ${statusBadge(room.status)}
             </div>
             <div class="dc-inline-actions">
+              ${room.status !== "archived" ? `<button type="button" class="ghost-button" data-dc-toggle-edit-classroom>Edit classroom</button>` : ""}
               ${room.status === "archived"
                 ? `<button type="button" class="primary-button" data-dc-restore-classroom="${escapeHtml(room.id)}">Restore</button>`
                 : `<button type="button" class="ghost-button" data-dc-archive-classroom="${escapeHtml(room.id)}">Archive</button>`}
               <button type="button" class="ghost-button" data-dc-open-calendar>Open Calendar</button>
             </div>
           </div>
+          ${state.editingClassroom && room.status !== "archived" ? `
+            <form id="dcEditClassroomForm" class="dc-form dc-form-visible">
+              <h4>Edit classroom</h4>
+              <label>Name <input name="name" required maxlength="80" value="${escapeHtml(room.name || "")}" /></label>
+              <label>Age group <input name="ageGroupDefault" maxlength="40" value="${escapeHtml(room.ageGroupDefault || "")}" /></label>
+              <label>Capacity <input name="capacity" type="number" min="0" value="${escapeHtml(room.capacity ?? "")}" /></label>
+              <label>Color <input name="color" type="color" value="${escapeHtml(room.color || "#8b6be8")}" /></label>
+              <label>Description <textarea name="description" rows="2">${escapeHtml(room.description || "")}</textarea></label>
+              <div class="dc-inline-actions">
+                <button class="primary-button" type="submit">Save changes</button>
+                <button class="ghost-button" type="button" data-dc-toggle-edit-classroom>Cancel</button>
+              </div>
+            </form>
+          ` : ""}
           <div class="dc-two-col">
             <section>
               <h4>Lead Teachers</h4>
@@ -284,6 +309,7 @@
               <ul class="dc-list">${(detail.recentDailyReports || []).map((p) => `<li>${escapeHtml(p.label)}</li>`).join("") || "<li>None in preview</li>"}</ul>
               <h4>Recent observations</h4>
               <ul class="dc-list">${(detail.recentObservations || []).map((p) => `<li>${escapeHtml(p.label)}</li>`).join("") || "<li>None in preview</li>"}</ul>
+              <p class="muted-copy">Calendar and child profile deep-links open the existing app surfaces. Full classroom-scoped calendar wiring is reserved for Phase 3.</p>
             </section>
           </div>
         </section>
@@ -327,6 +353,22 @@
     `;
   }
 
+  function classroomCheckboxList(selectedIds = []) {
+    const selected = new Set((selectedIds || []).map(String));
+    const rooms = (state.classrooms || []).filter((room) => room.status === "active");
+    if (!rooms.length) return `<p class="muted-copy">No active classrooms available.</p>`;
+    return `
+      <div class="dc-checkbox-grid" role="group" aria-label="Classrooms">
+        ${rooms.map((room) => `
+          <label class="dc-check">
+            <input type="checkbox" name="classroomIds" value="${escapeHtml(room.id)}"${selected.has(String(room.id)) ? " checked" : ""} />
+            ${escapeHtml(room.name)}
+          </label>
+        `).join("")}
+      </div>
+    `;
+  }
+
   function staffHtml() {
     return `
       <section class="dc-panel">
@@ -340,10 +382,10 @@
           </select>
           <select data-dc-filter="staffStatus">
             <option value="">All statuses</option>
-            <option value="active">Active</option>
-            <option value="invitation_pending">Invitation pending</option>
-            <option value="deactivated">Deactivated</option>
-            <option value="inactive">Inactive</option>
+            <option value="active"${state.filters.staffStatus === "active" ? " selected" : ""}>Active</option>
+            <option value="invitation_pending"${state.filters.staffStatus === "invitation_pending" ? " selected" : ""}>Invitation pending</option>
+            <option value="deactivated"${state.filters.staffStatus === "deactivated" ? " selected" : ""}>Deactivated</option>
+            <option value="inactive"${state.filters.staffStatus === "inactive" ? " selected" : ""}>Inactive</option>
           </select>
           <button type="button" class="primary-button" data-dc-show-invite-staff>Invite Staff</button>
         </div>
@@ -358,7 +400,10 @@
               <option value="director">Director</option>
             </select>
           </label>
-          <label>Classroom IDs (comma-separated, optional) <input name="classroomIds" placeholder="classroom_..." /></label>
+          <fieldset class="dc-fieldset">
+            <legend>Assign classrooms (optional)</legend>
+            ${classroomCheckboxList([])}
+          </fieldset>
           <button class="primary-button" type="submit">Create preview invite</button>
         </form>
         <div class="dc-card-list">
@@ -372,11 +417,24 @@
                 ${member.isBillingOwner ? `<span class="dc-badge dc-badge-info">Billing owner</span>` : ""}
               </div>
               <div class="dc-inline-actions">
+                ${["active", "invitation_pending"].includes(member.status)
+                  ? `<button type="button" class="ghost-button" data-dc-assign-staff="${escapeHtml(member.id)}">Assign classrooms</button>`
+                  : ""}
                 ${member.status === "invitation_pending" ? `<button type="button" class="ghost-button" data-dc-staff-action="resend_invite" data-id="${escapeHtml(member.id)}">Resend</button>` : ""}
                 ${member.status === "invitation_pending" ? `<button type="button" class="ghost-button" data-dc-staff-action="cancel_invite" data-id="${escapeHtml(member.id)}">Cancel</button>` : ""}
                 ${member.status === "active" ? `<button type="button" class="ghost-button" data-dc-staff-action="deactivate" data-id="${escapeHtml(member.id)}">Deactivate</button>` : ""}
                 ${member.status === "deactivated" ? `<button type="button" class="ghost-button" data-dc-staff-action="restore" data-id="${escapeHtml(member.id)}">Restore</button>` : ""}
               </div>
+              ${state.assigningStaffId === member.id ? `
+                <form class="dc-form dc-form-visible" data-dc-assign-staff-form="${escapeHtml(member.id)}">
+                  <h4>Assign classrooms for ${escapeHtml(member.displayName || member.userEmail)}</h4>
+                  ${classroomCheckboxList((member.assignedClassrooms || []).map((c) => c.id))}
+                  <div class="dc-inline-actions">
+                    <button class="primary-button" type="submit">Save classroom assignments</button>
+                    <button class="ghost-button" type="button" data-dc-assign-staff="">Cancel</button>
+                  </div>
+                </form>
+              ` : ""}
             </article>
           `).join("") || `<div class="dc-empty">No staff match these filters.</div>`}
         </div>
@@ -385,6 +443,7 @@
   }
 
   function childrenHtml() {
+    const activeRooms = (state.classrooms || []).filter((r) => r.status === "active");
     return `
       <section class="dc-panel">
         <div class="dc-toolbar">
@@ -402,13 +461,23 @@
           <h4>Assign / move children</h4>
           <label>Classroom
             <select name="classroomId" required>
-              ${(state.classrooms || []).filter((r) => r.status === "active").map((room) => `
+              ${activeRooms.map((room) => `
                 <option value="${escapeHtml(room.id)}">${escapeHtml(room.name)}</option>
               `).join("")}
             </select>
           </label>
-          <label>Child IDs (comma-separated) <input name="childIds" placeholder="Leave blank to create one" /></label>
-          <label>Or create child name <input name="displayName" /></label>
+          <fieldset class="dc-fieldset">
+            <legend>Select children to assign / move</legend>
+            <div class="dc-checkbox-grid">
+              ${(state.children || []).map((child) => `
+                <label class="dc-check">
+                  <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" />
+                  ${escapeHtml(child.displayName)} (${escapeHtml(child.classroomName || "Unassigned")})
+                </label>
+              `).join("") || `<p class="muted-copy">No children loaded yet.</p>`}
+            </div>
+          </fieldset>
+          <label>Or create child name <input name="displayName" placeholder="Creates one new preview child" /></label>
           <button class="primary-button" type="submit">Save assignments</button>
         </form>
         <div class="dc-card-list">
@@ -416,11 +485,31 @@
             <article class="dc-card">
               <div>
                 <h4>${escapeHtml(child.displayName)}</h4>
-                <p>ID: ${escapeHtml(child.id)}</p>
                 <p>Classroom: ${escapeHtml(child.classroomName || "Unassigned")}</p>
                 <p>History: ${(child.history || []).length} assignment record(s)</p>
+                ${state.expandedChildId === child.id ? `
+                  <ul class="dc-list compact">
+                    ${(child.history || []).map((row) => {
+                      const roomName = row.classroomName
+                        || (state.classrooms || []).find((room) => room.id === row.classroomId)?.name
+                        || row.classroomId
+                        || "Classroom";
+                      const status = row.status || (row.endsAt || row.endDate ? "historical" : "active");
+                      const start = String(row.startsAt || row.startDate || row.assignedAt || "").slice(0, 10) || "—";
+                      const end = String(row.endsAt || row.endDate || "").slice(0, 10);
+                      return `
+                      <li>
+                        ${escapeHtml(roomName)}
+                        · ${escapeHtml(status)}
+                        · ${escapeHtml(start)}
+                        ${end ? `→ ${escapeHtml(end)}` : ""}
+                      </li>`;
+                    }).join("") || "<li>No history rows</li>"}
+                  </ul>
+                ` : ""}
               </div>
               <div class="dc-inline-actions">
+                <button type="button" class="ghost-button" data-dc-toggle-child-history="${escapeHtml(child.id)}">${state.expandedChildId === child.id ? "Hide history" : "View history"}</button>
                 <button type="button" class="ghost-button" data-dc-open-child="${escapeHtml(child.id)}">Open Child Profile</button>
               </div>
             </article>
@@ -461,7 +550,17 @@
 
   function rolesHtml() {
     const catalog = state.roles?.catalog || {};
-    const limits = state.limits || {};
+    const limitsPayload = state.limits || {};
+    const limits = limitsPayload.limits || limitsPayload;
+    const actions = catalog.actions || {};
+    const rolePermissions = catalog.rolePermissions || {};
+    const roleKeys = Object.keys(rolePermissions);
+    const actionKeys = Object.keys(actions);
+    const addOn = limitsPayload.classroomAddOn || {};
+    const upgrade = limitsPayload.upgradeRecommendation || {};
+    const qty = Number(state.addonQty || 0);
+    const unitPrice = Number(addOn.monthlyPriceCents || 0);
+    const stayCost = qty * unitPrice;
     return `
       <section class="dc-panel">
         <h4>Roles &amp; permissions (future enforcement model)</h4>
@@ -477,16 +576,55 @@
           </section>
           <section>
             <h5>Plan limit preview</h5>
-            <p>${escapeHtml(limits.limits?.planLabel || limits.planLabel || "")}</p>
-            <p>Classrooms ${escapeHtml(limits.limits?.classroomsUsed ?? limits.classroomsUsed ?? 0)} / ${escapeHtml(limits.limits?.classroomLimit ?? limits.classroomLimit ?? 0)}</p>
-            <p>Staff ${escapeHtml(limits.limits?.staffUsed ?? limits.staffUsed ?? 0)} / ${escapeHtml(limits.limits?.staffAccountLimit ?? limits.staffAccountLimit ?? 0)}</p>
+            <p>${escapeHtml(limits.planLabel || "")}</p>
+            <p>Classrooms ${escapeHtml(limits.classroomsUsed ?? 0)} / ${escapeHtml(limits.classroomLimit ?? 0)}</p>
+            <p>Staff ${escapeHtml(limits.staffUsed ?? 0)} / ${escapeHtml(limits.staffAccountLimit ?? 0)}</p>
             <p class="muted-copy">No Stripe products created. Founding Member $9.99 base remains untouched.</p>
-            <h5>Permission keys</h5>
-            <ul class="dc-list compact">
-              ${Object.keys(catalog.actions || {}).slice(0, 12).map((key) => `<li>${escapeHtml(catalog.actions[key])}</li>`).join("")}
-            </ul>
           </section>
         </div>
+        <section class="dc-addon-sim">
+          <h5>Classroom add-on simulation (preview only)</h5>
+          <p class="muted-copy">Simulate buying extra classrooms. No checkout, no Stripe products, no charges.</p>
+          <label>Additional classrooms
+            <input type="number" min="0" max="20" value="${escapeHtml(qty)}" data-dc-addon-qty />
+          </label>
+          <button type="button" class="ghost-button" data-dc-run-addon-sim>Update simulation</button>
+          <ul class="dc-list">
+            <li>Add-on unit (monthly preview): $${escapeHtml(((unitPrice || 0) / 100).toFixed(2))}</li>
+            <li>Simulated stay-with-add-ons cost: $${escapeHtml(((stayCost || 0) / 100).toFixed(2))} / month</li>
+            <li>${upgrade.recommendUpgrade
+              ? `Recommendation: ${escapeHtml(upgrade.message || "Upgrade may save money vs stacking add-ons.")}`
+              : "Recommendation: Stay on current plan + add-ons for this simulated quantity (or choose 1+ classrooms to compare)."}</li>
+          </ul>
+        </section>
+        <section class="dc-matrix-wrap">
+          <h5>Permission matrix</h5>
+          <div class="dc-table-scroll">
+            <table class="dc-matrix">
+              <thead>
+                <tr>
+                  <th scope="col">Action</th>
+                  ${roleKeys.map((role) => `<th scope="col">${escapeHtml(String(role).replace(/_/g, " "))}</th>`).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                ${actionKeys.map((action) => `
+                  <tr>
+                    <th scope="row">${escapeHtml(actions[action] || action)}</th>
+                    ${roleKeys.map((role) => {
+                      const allowedActions = Array.isArray(rolePermissions[role])
+                        ? rolePermissions[role]
+                        : Object.keys(rolePermissions[role] || {}).filter((key) => rolePermissions[role][key]);
+                      const actionValue = actions[action] || action;
+                      const allowed = allowedActions.includes(actionValue) || allowedActions.includes(action);
+                      return `<td>${allowed ? "✓" : "—"}</td>`;
+                    }).join("")}
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </section>
     `;
   }
@@ -620,7 +758,34 @@
     });
     root.querySelector("[data-dc-back-classrooms]")?.addEventListener("click", () => {
       state.classroomDetail = null;
+      state.editingClassroom = false;
       refreshTab().catch(() => {});
+    });
+    root.querySelectorAll("[data-dc-toggle-edit-classroom]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.editingClassroom = !state.editingClassroom;
+        render();
+      });
+    });
+    root.querySelector("#dcEditClassroomForm")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const roomId = state.classroomDetail?.classroom?.id;
+      if (!roomId) return;
+      const data = new FormData(event.target);
+      try {
+        await api("PATCH", `/api/director-center/classrooms/${roomId}`, {
+          name: data.get("name"),
+          ageGroupDefault: data.get("ageGroupDefault"),
+          capacity: data.get("capacity"),
+          color: data.get("color"),
+          description: data.get("description"),
+        });
+        state.editingClassroom = false;
+        state.classroomDetail = await api("GET", `/api/director-center/classrooms/${roomId}`);
+        render();
+      } catch (error) {
+        window.alert(error.payload?.error || error.message);
+      }
     });
     root.querySelector("[data-dc-archive-classroom]")?.addEventListener("click", async (event) => {
       const id = event.currentTarget.getAttribute("data-dc-archive-classroom");
@@ -654,7 +819,7 @@
     root.querySelector("#dcInviteStaffForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(event.target);
-      const classroomIds = String(data.get("classroomIds") || "").split(",").map((v) => v.trim()).filter(Boolean);
+      const classroomIds = data.getAll("classroomIds").map((v) => String(v).trim()).filter(Boolean);
       try {
         await api("POST", "/api/director-center/staff/invite", {
           email: data.get("email"),
@@ -666,6 +831,26 @@
       } catch (error) {
         window.alert(error.payload?.error || error.message);
       }
+    });
+    root.querySelectorAll("[data-dc-assign-staff]").forEach((button) => {
+      button.addEventListener("click", () => {
+        state.assigningStaffId = button.getAttribute("data-dc-assign-staff") || "";
+        render();
+      });
+    });
+    root.querySelectorAll("[data-dc-assign-staff-form]").forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const staffId = form.getAttribute("data-dc-assign-staff-form");
+        const classroomIds = new FormData(form).getAll("classroomIds").map((v) => String(v).trim()).filter(Boolean);
+        try {
+          await api("PATCH", `/api/director-center/staff/${staffId}`, { classroomIds });
+          state.assigningStaffId = "";
+          await refreshTab();
+        } catch (error) {
+          window.alert(error.payload?.error || error.message);
+        }
+      });
     });
     root.querySelectorAll("[data-dc-staff-action]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -686,7 +871,7 @@
     root.querySelector("#dcAssignChildrenForm")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const data = new FormData(event.target);
-      const childIds = String(data.get("childIds") || "").split(",").map((v) => v.trim()).filter(Boolean);
+      const childIds = data.getAll("childIds").map((v) => String(v).trim()).filter(Boolean);
       try {
         await api("POST", "/api/director-center/children/assign", {
           classroomId: data.get("classroomId"),
@@ -694,6 +879,26 @@
           displayName: data.get("displayName"),
         });
         await refreshTab();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    });
+    root.querySelectorAll("[data-dc-toggle-child-history]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const id = button.getAttribute("data-dc-toggle-child-history") || "";
+        state.expandedChildId = state.expandedChildId === id ? "" : id;
+        render();
+      });
+    });
+    root.querySelector("[data-dc-addon-qty]")?.addEventListener("change", (event) => {
+      state.addonQty = Math.max(0, Number(event.target.value) || 0);
+    });
+    root.querySelector("[data-dc-run-addon-sim]")?.addEventListener("click", async () => {
+      const input = root.querySelector("[data-dc-addon-qty]");
+      state.addonQty = Math.max(0, Number(input?.value) || 0);
+      try {
+        state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty)}`);
+        render();
       } catch (error) {
         window.alert(error.message);
       }

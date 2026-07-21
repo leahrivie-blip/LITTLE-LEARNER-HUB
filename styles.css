@@ -21865,7 +21865,58 @@ button.linkish {
   cursor: pointer;
   text-decoration: underline;
 }
+.dc-fieldset {
+  border: 1px solid rgba(139, 107, 232, 0.18);
+  border-radius: 12px;
+  padding: 12px;
+  margin: 0;
+}
+.dc-fieldset legend {
+  padding: 0 6px;
+  color: #5b4a8a;
+  font-weight: 600;
+}
+.dc-checkbox-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.dc-addon-sim,
+.dc-matrix-wrap {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(139, 107, 232, 0.16);
+}
+.dc-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.dc-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+  background: #fff;
+}
+.dc-matrix th,
+.dc-matrix td {
+  border: 1px solid rgba(139, 107, 232, 0.16);
+  padding: 8px 10px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+.dc-matrix th[scope="row"] {
+  text-align: left;
+  color: #44506a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dc-matrix thead th {
+  background: #f3edff;
+  color: #5b4a8a;
+}
 @media (max-width: 700px) {
   .dc-card { flex-direction: column; }
   .dc-subnav-btn { flex: 1 1 calc(50% - 8px); text-align: center; }
+  .dc-checkbox-grid { grid-template-columns: 1fr; }
+  .dc-addon-sim label { width: 100%; }
 }

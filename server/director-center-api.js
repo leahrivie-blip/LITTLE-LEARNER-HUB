@@ -860,21 +860,31 @@ function createDirectorCenterApi({
     });
   }
 
-  async function handleLimits(request, response, context = {}) {
+  async function handleLimits(request, response, context = {}, url = null) {
     const { store, ...ctx } = withPreview(context.adminEmail);
     writeStore(store);
-    const body = {};
     const limits = computeLimits(store, ctx.organization.id, ctx.entitlement);
-    const simulatedAddOns = Number(body.additionalClassrooms || 3);
+    const queryQty = Number(url?.searchParams?.get("additionalClassrooms") || 0);
+    let bodyQty = 0;
+    if (String(request.method || "").toUpperCase() === "POST") {
+      try {
+        const body = await readJson(request);
+        bodyQty = Number(body?.additionalClassrooms || 0);
+      } catch {
+        bodyQty = 0;
+      }
+    }
+    const simulatedAddOns = Math.max(0, bodyQty || queryQty || 0);
     const upgrade = entitlements.recommendUpgradeInsteadOfAddOns({
       currentPlanKey: ctx.entitlement.basePlanKey,
       billingInterval: ctx.entitlement.billingInterval,
-      additionalClassroomsNeeded: simulatedAddOns,
+      additionalClassroomsNeeded: simulatedAddOns || 1,
     });
     jsonResponse(response, 200, {
       ok: true,
       live: false,
       limits,
+      simulatedAdditionalClassrooms: simulatedAddOns,
       classroomAddOn: entitlements.CLASSROOM_ADD_ON,
       upgradeRecommendation: upgrade,
       foundingMemberNote: "Existing Founding Members keep $9.99 while continuously active. Preview does not alter Stripe.",
@@ -886,7 +896,9 @@ function createDirectorCenterApi({
     if (method === "POST" && path === "/api/director-center/seed") return (req, res, ctx) => handleSeed(req, res, ctx);
     if (method === "GET" && path === "/api/director-center/status") return (req, res, ctx) => handleStatus(req, res, ctx);
     if (method === "GET" && path === "/api/director-center/overview") return (req, res, ctx) => handleOverview(req, res, ctx);
-    if (method === "GET" && path === "/api/director-center/limits") return (req, res, ctx) => handleLimits(req, res, ctx);
+    if ((method === "GET" || method === "POST") && path === "/api/director-center/limits") {
+      return (req, res, ctx) => handleLimits(req, res, ctx, url);
+    }
     if (method === "GET" && path === "/api/director-center/roles-permissions") return (req, res, ctx) => handleRolesPermissions(req, res, ctx);
     if (method === "GET" && path === "/api/director-center/classrooms") return (req, res, ctx) => handleListClassrooms(req, res, ctx, url);
     if (method === "POST" && path === "/api/director-center/classrooms") return (req, res, ctx) => handleCreateClassroom(req, res, ctx);
