@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Smoke-test starter Monthly Curriculum collections seed.
+ * Exact-title rule: missing plans stay empty and flagged — never auto-substituted.
  * Run: node scripts/test-monthly-collections-seed.js
  */
 const assert = require("assert");
@@ -10,7 +11,10 @@ const path = require("path");
 const http = require("http");
 const crypto = require("crypto");
 const { spawn } = require("child_process");
-const { MONTHLY_COLLECTION_DEFINITIONS } = require("./curriculum-monthly-collections.js");
+const {
+  MONTHLY_COLLECTION_DEFINITIONS,
+  missingExactPlanReport,
+} = require("./curriculum-monthly-collections.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 4800 + Math.floor(Math.random() * 200);
@@ -55,6 +59,13 @@ async function waitForHealth(child) {
 
 async function main() {
   assert.equal(MONTHLY_COLLECTION_DEFINITIONS.length, 8, "expected 8 starter collections");
+  const flagged = missingExactPlanReport();
+  assert.ok(flagged.length >= 1, "expected at least one manually flagged missing exact title");
+  // Guardrail: infant Music & Movement must NOT silently use the toddler plan.
+  const movement = MONTHLY_COLLECTION_DEFINITIONS.find((item) => item.id === "cur-series-infant-movement-music");
+  assert.equal(movement.weeks[0].lessonPlanId, "", "Infant Music & Movement must stay empty until exact infant title exists");
+  assert.equal(movement.weeks[0].needsManualPick, true);
+
   fs.writeFileSync(STORE_PATH, JSON.stringify({
     users: {},
     siteContent: { curriculum: { lessonPlans: [], activities: [], series: [] } },
@@ -93,26 +104,52 @@ async function main() {
     const series = store.siteContent?.curriculum?.series || [];
     const planIds = new Set(plans.map((p) => p.id));
 
-    assert.ok(planIds.has("cur-lp-infant-soft-sounds-faces"), "Soft Sounds plan should be ensured");
     assert.match(output, /curriculum-monthly-collections-seed/);
+    assert.match(output, /need manual plan picks|seeded|repaired/);
 
     for (const definition of MONTHLY_COLLECTION_DEFINITIONS) {
       const live = series.find((item) => item.id === definition.id);
       assert.ok(live, `Missing collection ${definition.id}`);
       assert.equal(live.title, definition.title);
       assert.equal(live.age, definition.age);
-      assert.equal(String(live.status), "published");
+      const expectedStatus = definition.weeks.some((week) => week.lessonPlanId) ? "published" : "needs_review";
+      assert.equal(String(live.status), expectedStatus, `${definition.title} status`);
       assert.equal((live.weeks || []).length, 4);
       (live.weeks || []).forEach((week, index) => {
         const expected = definition.weeks[index];
         assert.equal(week.lessonPlanId, expected.lessonPlanId, `${definition.title} week ${week.weekNumber} plan`);
         assert.equal(week.label, expected.label, `${definition.title} week ${week.weekNumber} label`);
-        assert.ok(planIds.has(week.lessonPlanId), `Plan missing for ${expected.label}: ${week.lessonPlanId}`);
+        if (expected.lessonPlanId) {
+          assert.ok(planIds.has(week.lessonPlanId), `Plan missing for ${expected.label}: ${week.lessonPlanId}`);
+        } else {
+          assert.ok(!week.lessonPlanId, `Flagged week must stay empty: ${definition.title} W${week.weekNumber}`);
+          assert.equal(Boolean(week.needsManualPick), true, `${definition.title} W${week.weekNumber} should be flagged`);
+        }
       });
-      console.log(`PASS  ${definition.title}`);
+      console.log(`PASS  ${definition.title} (${expectedStatus}${definition.missingWeekLabels?.length ? ` · ${definition.missingWeekLabels.length} gap(s)` : ""})`);
     }
 
-    console.log(`\n✅ Seeded ${MONTHLY_COLLECTION_DEFINITIONS.length} monthly curriculum collections.`);
+    // Incomplete collections must still be published so Curriculum tabs stay usable.
+    const publishedWithGaps = MONTHLY_COLLECTION_DEFINITIONS.filter((item) => item.status === "published" && item.missingWeekLabels?.length);
+    assert.ok(publishedWithGaps.length >= 1, "expected incomplete collections to stay published for visibility");
+    // Guardrail: no similar-title substitutes in the live store.
+    const forbiddenSubs = [
+      ["cur-series-infant-babys-first-discoveries", 1, "cur-lp-infant-soft-sounds-faces"],
+      ["cur-series-infant-movement-music", 1, "cur-lp-toddler-music-movement"],
+      ["cur-series-toddler-community-around-us", 2, "cur-lp-toddler-transportation-builders"],
+      ["cur-series-toddler-nature-explorers", 4, "cur-lp-toddler-weather-wonders"],
+      ["cur-series-toddler-adventure-month", 4, "cur-lp-toddler-space-explorers-stem"],
+    ];
+    for (const [seriesId, weekNumber, badId] of forbiddenSubs) {
+      const live = series.find((item) => item.id === seriesId);
+      const week = (live?.weeks || []).find((item) => Number(item.weekNumber) === weekNumber);
+      assert.notEqual(week?.lessonPlanId, badId, `${seriesId} W${weekNumber} must not use similar substitute ${badId}`);
+    }
+
+    console.log(`\n✅ Seeded ${MONTHLY_COLLECTION_DEFINITIONS.length} collections · ${flagged.length} week(s) flagged for manual pick.`);
+    flagged.forEach((row) => {
+      console.log(`FLAG  ${row.curriculumTitle} · Week ${row.weekNumber} · “${row.requestedTitle}”`);
+    });
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }

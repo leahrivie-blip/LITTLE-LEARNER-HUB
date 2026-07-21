@@ -37,12 +37,17 @@
   function normalizedSeriesWeek(value) {
     const entry = value && typeof value === "object" ? value : {};
     const weekNumber = Math.max(1, Math.min(5, Number(entry.weekNumber) || 1));
+    const lessonPlanId = shortText(entry.lessonPlanId, 160);
+    const label = shortText(entry.label || entry.title || entry.theme || "", 120);
+    const missingPlanTitle = shortText(entry.missingPlanTitle || (!lessonPlanId ? label : ""), 120);
     return {
       weekNumber,
-      lessonPlanId: shortText(entry.lessonPlanId, 160),
+      lessonPlanId,
       displayOrder: Math.max(1, Math.min(5, Number(entry.displayOrder) || weekNumber)),
       // Optional playlist label (e.g. "Familiar Faces & Bonding") shown in curriculum UI.
-      label: shortText(entry.label || entry.title || entry.theme || "", 120),
+      label,
+      needsManualPick: Boolean(entry.needsManualPick) || (!lessonPlanId && Boolean(missingPlanTitle || label)),
+      missingPlanTitle,
     };
   }
 
@@ -140,6 +145,16 @@
       overallGoals: multiline(entry.overallGoals, 4000),
       overallMaterials: multiline(entry.overallMaterials, 4000),
       familyConnection: multiline(entry.familyConnection, 4000),
+      estimatedPrepTime: shortText(entry.estimatedPrepTime, 80),
+      difficultyLevel: shortText(entry.difficultyLevel, 40),
+      indoorOutdoor: ["Indoor", "Outdoor", "Both"].includes(shortText(entry.indoorOutdoor, 20))
+        ? shortText(entry.indoorOutdoor, 20)
+        : shortText(entry.indoorOutdoor, 20),
+      focusTags: (Array.isArray(entry.focusTags) ? entry.focusTags : [])
+        .map((tag) => shortText(tag, 40))
+        .filter(Boolean)
+        .slice(0, 12),
+      printablePageEstimate: Math.max(0, Number(entry.printablePageEstimate) || 0),
       learningDomains: normalizedDomainList(entry.learningDomains),
       books,
       songs,

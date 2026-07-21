@@ -969,7 +969,15 @@
           ${(series.weeks || []).map((week) => {
             const plan = byId.get(week.lessonPlanId);
             if (!plan) {
-              return `<article class="curriculum-series-week-mini is-empty"><strong>Week ${week.weekNumber}</strong><p class="muted-copy">No weekly plan linked.</p></article>`;
+              const requested = week.label || week.missingPlanTitle || "";
+              return `
+                <article class="curriculum-series-week-mini is-empty" data-curriculum-week="${week.weekNumber}">
+                  <strong>Week ${week.weekNumber}</strong>
+                  <p class="muted-copy">${requested
+                    ? `Needs exact plan: “${esc(requested)}” (not auto-linked).`
+                    : "No weekly plan linked yet."}</p>
+                </article>
+              `;
             }
             const planCover = resolvePlanCover(plan);
             const summary = shortSummary(plan.weeklyOverview || plan.objectives || plan.theme, 160);
@@ -1049,8 +1057,9 @@
         <div class="library-featured-banner-copy">
           <p class="library-featured-banner-blurb">${esc(blurb)}</p>
           <div class="library-featured-banner-actions">
-            <button type="button" class="primary-button" data-open-monthly-series="${esc(featured.id)}">View Month</button>
-            <button type="button" class="ghost-button" data-schedule-entire-month="${esc(featured.id)}">Schedule Entire Month</button>
+            <button type="button" class="primary-button" data-start-curriculum="${esc(featured.id)}">Start Curriculum</button>
+            <button type="button" class="ghost-button" data-open-monthly-series="${esc(featured.id)}">View Curriculum</button>
+            <button type="button" class="ghost-button" data-schedule-entire-month="${esc(featured.id)}">Assign to Calendar</button>
           </div>
           <p class="muted-copy">${weekCount} weekly lesson plans included</p>
         </div>

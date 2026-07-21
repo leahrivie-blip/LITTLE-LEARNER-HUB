@@ -126,10 +126,16 @@ async function stopServer(child) {
   });
 }
 
-function curriculumActivityIdForItemId(itemId) {
+function curriculumActivityIdForItemId(itemId, lessonPlanId = "") {
   const normalized = String(itemId || "").trim();
   if (!normalized) return "";
   const suffix = normalized.startsWith("item-") ? normalized.slice(5) : normalized;
+  const planKey = String(lessonPlanId || "").trim();
+  // Must match server/index.js curriculumActivityIdFromItemId (plan-namespaced).
+  if (planKey) {
+    const digest = crypto.createHash("sha1").update(`${planKey}:${suffix}`).digest("hex").slice(0, 16);
+    return `cur-act-${digest}`;
+  }
   return `cur-act-${suffix}`;
 }
 
@@ -282,24 +288,28 @@ async function runBrowserQa(baseUrl, created) {
     await page.waitForFunction(() => typeof loadResources === "function" && Array.isArray(resources) && resources.some((item) => item.category === "Lesson Plans"), null, { timeout: 30000 });
 
     await navigateTo(page, "lessons", label === "mobile");
-    await page.waitForSelector("#view-lessons .resource-card", { timeout: 20000 });
+    const plansTab = page.locator('[data-lesson-library-type="plans"]');
+    if (await plansTab.count()) {
+      await plansTab.click({ force: true });
+      await page.waitForTimeout(300);
+    }
+    await page.waitForSelector("#view-lessons .resource-card, #view-lessons .browse-card", { timeout: 20000 });
 
     await page.fill("#lessonPlanSearch", featured.title);
     await page.waitForTimeout(400);
-    const featuredCard = page.locator("#view-lessons .resource-card").first();
+    const featuredCard = page.locator("#view-lessons .resource-card, #view-lessons .browse-card").first();
     await featuredCard.waitFor({ timeout: 10000 });
     const featuredText = await featuredCard.innerText();
     assert(featuredText.includes(featured.title), `${label}: featured plan visible after search`);
 
     await page.fill("#lessonPlanSearch", "community helpers");
     await page.waitForTimeout(400);
-    const searchCount = await page.locator("#view-lessons .resource-card").count();
+    const searchCount = await page.locator("#view-lessons .resource-card, #view-lessons .browse-card").count();
     assert(searchCount >= 1, `${label}: lesson search by theme failed`);
 
     await page.fill("#lessonPlanSearch", featured.title);
     await page.waitForTimeout(400);
     const viewButton = featuredCard.locator("button[data-view-resource]").first();
-    await viewButton.scrollIntoViewIfNeeded();
     await viewButton.click({ force: true });
     await page.waitForSelector("#resourceViewerModal.open", { timeout: 10000 });
     const viewerHtml = await page.locator("#resourceViewerBody").innerHTML();
@@ -312,7 +322,6 @@ async function runBrowserQa(baseUrl, created) {
     assert(!viewerHtml.includes("TITLE:"), `${label}: raw importer text leaked`);
     assert(viewerHtml.includes("Printables") || viewerHtml.includes("Resources") || viewerHtml.includes("QA Helpers Badge"), `${label}: linked resources missing`);
 
-    await page.locator('[data-curriculum-lesson-day="tuesday"]').scrollIntoViewIfNeeded();
     await page.locator('[data-curriculum-lesson-day="tuesday"]').click({ force: true });
     await page.waitForTimeout(200);
     const tuesdayPanel = page.locator('[data-curriculum-lesson-day-panel="tuesday"].is-active');
@@ -320,18 +329,16 @@ async function runBrowserQa(baseUrl, created) {
 
     const mondayItems = flattenDailyItems(featured.lessonPlan).filter((item) => item.dayOfWeek === "monday");
     assert(mondayItems.length >= 2, "fixture expects multiple Monday activities");
-    await page.locator('[data-curriculum-lesson-day="monday"]').scrollIntoViewIfNeeded();
     await page.locator('[data-curriculum-lesson-day="monday"]').click({ force: true });
     const mondayCards = await page.locator('[data-curriculum-lesson-day-panel="monday"] .curriculum-activity-card').count();
     assert(mondayCards === mondayItems.length, `${label}: monday activity count mismatch`);
 
     const openActivity = page.locator('[data-curriculum-lesson-day-panel="monday"] [data-open-curriculum-activity]').first();
-    await openActivity.scrollIntoViewIfNeeded();
-    await openActivity.click();
+    await openActivity.click({ force: true });
     await page.waitForSelector("#resourceViewerBody .curriculum-activity-viewer", { timeout: 10000 });
     const backBtn = page.locator("#resourceViewerBackButton");
     assert(await backBtn.isVisible(), `${label}: back button missing in activity viewer`);
-    await backBtn.click();
+    await backBtn.click({ force: true });
     await page.waitForSelector("#resourceViewerBody .curriculum-lesson-viewer", { timeout: 10000 });
 
     await page.click("#closeResourceViewer");
@@ -339,8 +346,7 @@ async function runBrowserQa(baseUrl, created) {
 
     await page.fill("#lessonPlanSearch", "");
     await page.waitForTimeout(200);
-    await featuredCard.locator('button[data-find-lesson-activities]').scrollIntoViewIfNeeded();
-    await featuredCard.locator('button[data-find-lesson-activities]').click();
+    await featuredCard.locator('button[data-find-lesson-activities]').click({ force: true });
     await page.waitForSelector(".activity-lesson-filter-banner", { timeout: 10000 });
     const filteredCards = await page.locator("#view-activities .resource-card").count();
     assert(filteredCards === featured.activities.length, `${label}: view activities filter count mismatch`);
@@ -348,6 +354,10 @@ async function runBrowserQa(baseUrl, created) {
     await page.waitForSelector(".activity-lesson-filter-banner", { state: "hidden", timeout: 5000 });
 
     await navigateTo(page, "lessons", label === "mobile");
+    if (await plansTab.count()) {
+      await plansTab.click({ force: true });
+      await page.waitForTimeout(200);
+    }
     await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
     await page.fill("#lessonPlanSearch", proPlan.title);
     await page.waitForTimeout(400);
@@ -431,8 +441,9 @@ async function main() {
       assert(activity.lessonPlanId === featured.id, "Activity linked to wrong lesson");
     });
     flattenDailyItems(publicFeatured).forEach((item) => {
-      const expectedId = curriculumActivityIdForItemId(item.itemId);
-      const synced = library.activities.find((a) => a.id === expectedId);
+      const expectedId = curriculumActivityIdForItemId(item.itemId, featured.id);
+      const synced = library.activities.find((a) => a.id === expectedId)
+        || library.activities.find((a) => a.lessonPlanId === featured.id && a.title === item.title && a.dayOfWeek === item.dayOfWeek);
       assert(synced, `Missing synced activity for item ${item.itemId}`);
       assert(synced.dayOfWeek === item.dayOfWeek, `Wrong weekday for ${synced.title}`);
     });

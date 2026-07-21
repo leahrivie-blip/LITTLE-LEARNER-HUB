@@ -1,125 +1,121 @@
 /**
  * Boot seed for starter Monthly Curriculum collections (playlist of existing weeks).
- * Also ensures Soft Sounds & Faces exists when referenced by Baby's First Discoveries.
+ *
+ * Exact-title rule: weeks without an exact library match stay empty and flagged
+ * (needsManualPick). Incomplete collections seed as needs_review — never substitute.
  */
-const fs = require("fs");
-const path = require("path");
-const { MONTHLY_COLLECTION_DEFINITIONS } = require("../scripts/curriculum-monthly-collections.js");
+const { MONTHLY_COLLECTION_DEFINITIONS, missingExactPlanReport } = require("../scripts/curriculum-monthly-collections.js");
 
-const SOFT_SOUNDS = {
-  stableId: "cur-lp-infant-soft-sounds-faces",
-  file: path.join(__dirname, "../scripts/curriculum-phase-2f-imports/01-infant-soft-sounds-free.txt"),
-};
+function weeksMatchDefinition(liveWeeks, definitionWeeks) {
+  const live = Array.isArray(liveWeeks) ? liveWeeks : [];
+  const expected = Array.isArray(definitionWeeks) ? definitionWeeks : [];
+  if (live.length !== expected.length) return false;
+  return expected.every((week, index) => {
+    const item = live[index] || {};
+    return String(item.lessonPlanId || "") === String(week.lessonPlanId || "")
+      && String(item.label || "") === String(week.label || "");
+  });
+}
 
 function seedMonthlyCollectionSeries({ store, curriculum, writeSiteCurriculum, now }) {
   let seriesApi = null;
   try {
     seriesApi = require("../scripts/curriculum-series.js");
   } catch {
-    return { seeded: 0, skipped: 0 };
+    return { seeded: 0, repaired: 0, skipped: 0, flagged: [] };
   }
   const normalize = seriesApi.normalizedCurriculumSeries || seriesApi.normalizeCurriculumSeries;
-  if (typeof normalize !== "function") return { seeded: 0, skipped: 0 };
+  if (typeof normalize !== "function") return { seeded: 0, repaired: 0, skipped: 0, flagged: [] };
 
   const working = curriculum && typeof curriculum === "object" ? curriculum : { lessonPlans: [], series: [] };
   const seriesList = Array.isArray(working.series) ? [...working.series] : [];
   const planIds = new Set((working.lessonPlans || []).map((plan) => plan.id));
   let seeded = 0;
+  let repaired = 0;
   let skipped = 0;
+  const flagged = missingExactPlanReport();
 
   for (const definition of MONTHLY_COLLECTION_DEFINITIONS) {
-    if (seriesList.some((item) => item.id === definition.id)) {
-      skipped += 1;
-      continue;
-    }
-    const weeksReady = (definition.weeks || []).every((week) => planIds.has(week.lessonPlanId));
-    if (!weeksReady) {
+    const linkedMissing = (definition.weeks || [])
+      .filter((week) => week.lessonPlanId && !planIds.has(week.lessonPlanId))
+      .map((week) => week.lessonPlanId);
+    if (linkedMissing.length) {
       console.warn(
-        `[curriculum-monthly-collections-seed] skip ${definition.id} — missing week plan(s):`,
-        (definition.weeks || [])
-          .filter((week) => !planIds.has(week.lessonPlanId))
-          .map((week) => week.lessonPlanId)
-          .join(", "),
+        `[curriculum-monthly-collections-seed] ${definition.id} waiting on plans: ${linkedMissing.join(", ")}`,
       );
-      continue;
     }
-    const normalized = normalize({
+
+    const safeWeeks = (definition.weeks || []).map((week) => (
+      week.lessonPlanId && !planIds.has(week.lessonPlanId)
+        ? {
+          ...week,
+          lessonPlanId: "",
+          needsManualPick: true,
+          missingPlanTitle: week.label || week.missingPlanTitle || week.lessonPlanId,
+        }
+        : week
+    ));
+    const hasGaps = safeWeeks.some((week) => !week.lessonPlanId);
+    const filledCount = safeWeeks.filter((week) => week.lessonPlanId).length;
+    const status = filledCount
+      ? (definition.status || "published")
+      : "needs_review";
+    const payload = {
       ...definition,
+      weeks: safeWeeks,
+      status,
+      featured: !hasGaps && Boolean(definition.featured),
       createdAt: now,
       updatedAt: now,
-      publishedAt: now,
+      publishedAt: filledCount ? now : "",
       coverImageSource: definition.coverImageUrl ? "mapped" : "fallback",
       weekCount: definition.weekCount || 4,
-    });
+    };
+
+    const existingIndex = seriesList.findIndex((item) => item.id === definition.id);
+    if (existingIndex >= 0) {
+      const existing = seriesList[existingIndex];
+      if (weeksMatchDefinition(existing.weeks, safeWeeks) && existing.status === status) {
+        skipped += 1;
+        continue;
+      }
+      const normalized = normalize({
+        ...existing,
+        ...payload,
+        createdAt: existing.createdAt || now,
+      });
+      if (!normalized) continue;
+      seriesList[existingIndex] = normalized;
+      repaired += 1;
+      continue;
+    }
+
+    const normalized = normalize(payload);
     if (!normalized) continue;
     seriesList.push(normalized);
     seeded += 1;
   }
 
-  if (seeded > 0) {
+  if (seeded > 0 || repaired > 0) {
     const nextCurriculum = { ...working, series: seriesList };
     writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
     store.siteContent = store.siteContent || {};
     store.siteContent.curriculum = nextCurriculum;
-    console.log(`[curriculum-monthly-collections-seed] seeded ${seeded} monthly curriculum collection(s)`);
+    console.log(
+      `[curriculum-monthly-collections-seed] seeded ${seeded} · repaired ${repaired} monthly curriculum collection(s)`,
+    );
+  }
+  if (flagged.length) {
+    console.warn(
+      `[curriculum-monthly-collections-seed] ${flagged.length} week(s) need manual plan picks:`,
+      flagged.map((row) => `${row.curriculumTitle} W${row.weekNumber} “${row.requestedTitle}”`).join("; "),
+    );
   }
 
-  return { seeded, skipped };
-}
-
-async function ensureSoftSoundsPlanSeeded(deps) {
-  const {
-    readStore,
-    writeStoreAsync,
-    writeSiteCurriculum,
-    syncCurriculumActivitiesForLessonPlan,
-    assertCurriculumIntegrityOrError,
-    defaultSiteContentStore,
-    defaultCurriculumStore,
-  } = deps;
-  const store = readStore();
-  const siteContent = store.siteContent && typeof store.siteContent === "object"
-    ? store.siteContent
-    : defaultSiteContentStore();
-  let curriculum = siteContent.curriculum || defaultCurriculumStore();
-  if ((curriculum.lessonPlans || []).some((plan) => plan.id === SOFT_SOUNDS.stableId)) {
-    return { seeded: 0 };
-  }
-  if (!fs.existsSync(SOFT_SOUNDS.file)) {
-    console.warn("[curriculum-monthly-collections-seed] Soft Sounds file missing — skipping ensure");
-    return { seeded: 0 };
-  }
-
-  const { parseCurriculumLessonPlanImport } = require("../scripts/curriculum-lesson-import-parser.js");
-  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(SOFT_SOUNDS.file, "utf8"));
-  if (!parsed.ok) {
-    console.warn("[curriculum-monthly-collections-seed] Soft Sounds parse failed:", parsed.errors?.join("; "));
-    return { seeded: 0, errors: parsed.errors || [] };
-  }
-  const now = new Date().toISOString();
-  const planInput = {
-    ...parsed.data,
-    id: SOFT_SOUNDS.stableId,
-    title: "Infant Soft Sounds & Faces",
-    plan: "Free",
-    status: "published",
-    age: "Infant (0-6 months)",
-    createdAt: now,
-    publishedAt: now,
-    updatedAt: now,
-  };
-  const synced = syncCurriculumActivitiesForLessonPlan(curriculum, planInput);
-  if (!synced) return { seeded: 0, errors: ["normalize failed"] };
-  const integrityError = assertCurriculumIntegrityOrError(synced);
-  if (integrityError) return { seeded: 0, errors: [integrityError.error] };
-  writeSiteCurriculum(store, synced, { updatedAt: now });
-  await writeStoreAsync(store);
-  console.log("[curriculum-monthly-collections-seed] ensured Soft Sounds & Faces lesson plan");
-  return { seeded: 1 };
+  return { seeded, repaired, skipped, flagged };
 }
 
 async function ensureMonthlyCollectionsSeeded(deps) {
-  const soft = await ensureSoftSoundsPlanSeeded(deps);
   const store = deps.readStore();
   const siteContent = store.siteContent && typeof store.siteContent === "object"
     ? store.siteContent
@@ -132,14 +128,16 @@ async function ensureMonthlyCollectionsSeeded(deps) {
     writeSiteCurriculum: deps.writeSiteCurriculum,
     now,
   });
-  if (seriesResult.seeded > 0) {
+  if (seriesResult.seeded > 0 || seriesResult.repaired > 0) {
     await deps.writeStoreAsync(store);
   }
   return {
-    softSoundsSeeded: soft.seeded || 0,
+    softSoundsSeeded: 0,
     seriesSeeded: seriesResult.seeded,
+    seriesRepaired: seriesResult.repaired,
     seriesSkipped: seriesResult.skipped,
-    errors: soft.errors || [],
+    flaggedWeeks: seriesResult.flagged,
+    errors: [],
   };
 }
 
@@ -147,5 +145,5 @@ module.exports = {
   ensureMonthlyCollectionsSeeded,
   seedMonthlyCollectionSeries,
   MONTHLY_COLLECTION_DEFINITIONS,
-  SOFT_SOUNDS,
+  missingExactPlanReport,
 };
