@@ -34,6 +34,12 @@
       prompt: "Hand-painted storybook watercolor, 16:9. Sunny apple orchard path with trees full of red apples and harvest baskets. Soft empty sky space for title. No text, no people.",
     },
     {
+      title: "Apple Orchard Investigators",
+      slug: "apple-orchard-investigators",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Bright fall apple orchard with preschool children exploring: one child inspecting a red apple with a magnifying glass, another holding a harvest basket, crates and trees with red green and golden apples. Soft empty sky space for title. No text.",
+    },
+    {
       title: "Apples in the Kitchen",
       slug: "apples-in-the-kitchen",
       age: "Toddler",
