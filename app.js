@@ -10561,6 +10561,11 @@ function syncPlatformNavVisibility() {
       button.hidden = false;
       button.setAttribute("aria-hidden", "false");
       button.removeAttribute("tabindex");
+      button.querySelectorAll(".nav-coming-soon-tag").forEach((tag) => {
+        tag.hidden = true;
+        tag.textContent = "Admin Preview";
+        tag.hidden = false;
+      });
       return;
     }
     button.hidden = true;
@@ -12297,6 +12302,7 @@ function registerPwaSupport() {
 function updateBodyAuthClass() {
   document.body.classList.toggle("user-authenticated", Boolean(currentUser));
   document.body.classList.toggle("user-pro", Boolean(currentUser) && isProUser());
+  document.body.classList.toggle("admin-unlocked", typeof isAdminUnlocked === "function" && isAdminUnlocked());
   let freeUpgrade = false;
   try {
     // Early boot can call this before PLATFORM_CAPABILITIES is initialized.
@@ -12308,10 +12314,12 @@ function updateBodyAuthClass() {
 }
 
 function updateAdminNavVisibility() {
+  document.body.classList.toggle("admin-unlocked", typeof isAdminUnlocked === "function" && isAdminUnlocked());
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
   });
   refreshAdminNavBadge();
+  if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
 }
 
 let adminNotificationState = { items: [], unreadCount: 0, loaded: false, category: "" };
@@ -37390,7 +37398,12 @@ function renderAdminAccessShell() {
         <strong>Admin dashboard unlocked for ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}</strong>
         <span>Stays unlocked on this browser until you tap Lock Admin. Provider sign-out will not clear Admin.</span>
       </div>
-      <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+      <div class="admin-unlocked-actions">
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          : ""}
+        <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+      </div>
     </div>
     ${adminSessionInvalidOnServer ? `
       <div class="admin-analytics-state is-error" role="alert" data-admin-session-invalid>
@@ -53486,6 +53499,9 @@ document.addEventListener("submit", async (event) => {
     const session = await adminLogin(email, password, code);
     setAdminSession({ ...session, trustedDevice: trustDevice });
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
+    if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
+      await loadExpansionFeatureFlagsFromBackend().catch(() => {});
+    }
     await loadAdminSiteContent().catch(() => {});
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     adminAnalyticsCache = null;

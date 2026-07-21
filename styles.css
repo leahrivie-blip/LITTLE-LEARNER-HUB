@@ -4550,6 +4550,17 @@ body.lessons-view .mobile-brand {
   align-items: center;
 }
 
+.admin-unlocked-actions {
+  display: grid;
+  gap: 10px;
+}
+
+@media (max-width: 900px) {
+  .admin-unlocked-bar {
+    grid-template-columns: 1fr;
+  }
+}
+
 .admin-lock-content h3,
 .admin-lock-content p,
 .admin-unlocked-bar p {
@@ -4575,13 +4586,26 @@ body.lessons-view .mobile-brand {
   font-weight: 700;
 }
 
-.admin-unlock-form input {
+.admin-unlock-form input:not([type="checkbox"]):not([type="radio"]) {
   width: 100%;
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--white);
   color: var(--ink);
+}
+
+.admin-unlock-form input[type="checkbox"],
+.admin-unlock-form input[type="radio"] {
+  width: 18px;
+  min-width: 18px;
+  max-width: 18px;
+  height: 18px;
+  min-height: 18px;
+  margin: 0;
+  padding: 0;
+  flex: 0 0 auto;
+  align-self: center;
 }
 
 .form-message {
@@ -14299,13 +14323,28 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
 
 /* ─── Auth State: Logged-Out (Guest) ─────────────────────────────────────── */
 
-/* When not authenticated, collapse the sidebar and give main full width */
-body:not(.user-authenticated) .app-shell {
+/* When not authenticated, collapse the sidebar and give main full width.
+   Unlocked Admin still needs the platform nav (Director Center preview, etc.). */
+body:not(.user-authenticated):not(.admin-unlocked) .app-shell {
   grid-template-columns: 1fr;
 }
 
-body:not(.user-authenticated) .sidebar {
+body:not(.user-authenticated):not(.admin-unlocked) .sidebar {
   display: none;
+}
+
+body.admin-unlocked:not(.user-authenticated) .app-shell {
+  grid-template-columns: 304px 1fr;
+}
+
+body.admin-unlocked:not(.user-authenticated) .sidebar {
+  display: block;
+}
+
+@media (max-width: 1100px) {
+  body.admin-unlocked:not(.user-authenticated) .app-shell {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ─── Auth State: Logged-In (Authenticated) ──────────────────────────────── */
