@@ -50,27 +50,36 @@ The backend enforces AI limits:
 
 ## 4. HTTPS Domain
 
-When the website is hosted, update `.env` / Render Environment:
+**Share this working site link today:**
 
 ```bash
-SITE_URL=https://www.littlelearnerhub.com
+https://littlelearnershubbyleah.com/
+```
+
+`littlelearnerhub.com` still points at Bluehost parking (Cloudflare 403) and does **not** reach Render. See **`docs/DOMAIN_DNS_FIX.md`**.
+
+When the website is hosted, update `.env` / Render Environment to the **working** public URL:
+
+```bash
+SITE_URL=https://littlelearnershubbyleah.com
 ```
 
 Use that same domain for Stripe redirect URLs and webhook setup.
 
-Stripe webhook URL:
+Stripe webhook URL (working domain):
 
 ```bash
-https://www.littlelearnerhub.com/api/webhooks/stripe
+https://littlelearnershubbyleah.com/api/webhooks/stripe
 ```
 
-**Important:** `littlelearnerhub.com` must resolve to Render (`www` CNAME → `little-learner-hub.onrender.com`, apex A → `216.24.57.1`), regardless of registrar/DNS host.  
-See **`docs/DOMAIN_DNS_FIX.md`** and Admin → Safety Center → Custom domain DNS (`GET /api/domain-dns-check`).
+After brand DNS is fixed, you may switch `SITE_URL` / Stripe URLs to `https://www.littlelearnerhub.com`.
 
-Working public URLs while the brand domain is propagating:
+**Important:** `littlelearnerhub.com` must resolve to Render (`www` CNAME → `little-learner-hub.onrender.com`, apex A → `216.24.57.1`), regardless of registrar/DNS host.  
+See Admin → Safety Center → Custom domain DNS (`GET /api/domain-dns-check`).
+
+Also works:
 
 ```bash
-https://littlelearnershubbyleah.com/
 https://little-learner-hub.onrender.com/
 ```
 

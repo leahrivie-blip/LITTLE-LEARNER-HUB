@@ -36275,12 +36275,14 @@ async function refreshAdminSafetyStatus() {
 
 function renderAdminDomainDnsPanel() {
   const report = adminDomainDnsReport;
+  const shareUrl = report?.shareUrl || "https://littlelearnershubbyleah.com";
   if (!report) {
     return `
       <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
         <h4>Custom domain DNS</h4>
         <p class="muted-copy">Brand domain check unavailable. Tap Refresh Safety to retry.</p>
-        <p class="muted-copy">Until <strong>littlelearnerhub.com</strong> points at Render, share <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+        <p><strong>Share this working link:</strong> <a href="${escapeHtml(shareUrl)}" target="_blank" rel="noopener">${escapeHtml(String(shareUrl).replace(/^https:\/\//, ""))}</a></p>
+        <p class="muted-copy"><strong>Do not share littlelearnerhub.com</strong> until its DNS points at Render — that brand domain currently fails for visitors.</p>
       </article>
     `;
   }
@@ -36306,11 +36308,14 @@ function renderAdminDomainDnsPanel() {
   return `
     <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
       <h4>Custom domain DNS · ${report.ready ? "Ready" : "Action needed"}</h4>
-      <p class="muted-copy">Checks whether <strong>littlelearnerhub.com</strong> resolves to Render — not which registrar/DNS host you use. Share link while fixing: <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+      <p><strong>Working website link to share:</strong> <a href="${escapeHtml(shareUrl)}" target="_blank" rel="noopener">${escapeHtml(String(shareUrl).replace(/^https:\/\//, ""))}</a></p>
+      ${report.ready
+        ? `<p class="muted-copy">${escapeHtml(report.entryLinkNote || "Brand domain DNS points at Render.")}</p>`
+        : `<p class="muted-copy"><strong>littlelearnerhub.com is not ready for visitors.</strong> Share <strong>littlelearnershubbyleah.com</strong> instead. ${escapeHtml(report.entryLinkNote || "")}</p>`}
       ${nameservers.length ? `<p class="muted-copy">Authoritative nameservers: <code>${escapeHtml(nameservers.join(", "))}</code>. ${escapeHtml(report.nameserverNote || "Edit DNS in the zone those nameservers serve.")}</p>` : ""}
       ${formatHostLine(brandWww)}
       ${formatHostLine(brandApex)}
-      <details style="margin-top:8px;">
+      <details style="margin-top:8px;" open>
         <summary class="muted-copy">Working domain (already on Render)</summary>
         ${formatHostLine(workingWww)}
         ${formatHostLine(workingApex)}

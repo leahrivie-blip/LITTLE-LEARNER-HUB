@@ -3,7 +3,8 @@
  * Idempotent per user via lastPaymentFailedEmailAt / lastAccessExpiredEmailAt.
  */
 
-const SITE_URL = String(process.env.SITE_URL || "https://www.littlelearnerhub.com").replace(/\/$/, "");
+// Fallback must be the working Render domain — littlelearnerhub.com DNS is not on Render yet.
+const SITE_URL = String(process.env.SITE_URL || "https://littlelearnershubbyleah.com").replace(/\/$/, "");
 
 function billingUpdateUrl() {
   return `${SITE_URL}/#billing`;

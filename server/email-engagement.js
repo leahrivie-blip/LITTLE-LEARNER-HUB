@@ -167,7 +167,8 @@ function makeAuditToken() {
 }
 
 function siteBase(siteUrl) {
-  return String(siteUrl || "").replace(/\/$/, "") || "https://www.littlelearnerhub.com";
+  // Fallback must be the working Render domain — littlelearnerhub.com DNS is not on Render yet.
+  return String(siteUrl || "").replace(/\/$/, "") || "https://littlelearnershubbyleah.com";
 }
 
 function weekKey(date = new Date()) {

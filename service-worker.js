@@ -1,14 +1,14 @@
-const CACHE_NAME = "llh-shell-v105-promo-existing";
+const CACHE_NAME = "llh-shell-v106-site-entry-link";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260720-promo-existing",
+  "/styles.css?v=20260721-site-entry-link",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260720-promo-existing",
+  "/styles/llh-messaging.css?v=20260721-site-entry-link",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards",
   "/scripts/lesson-plan-covers.js?v=20260717-netflix-cover-cards",
@@ -23,10 +23,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
-  "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260720-promo-existing",
-  "/comms-center.js?v=20260720-promo-existing",
+  "/scripts/free-curriculum-sample.js?v=20260721-site-entry-link",
+  "/scripts/free-plan-grandfathering.js?v=20260721-site-entry-link",
+  "/app.js?v=20260721-site-entry-link",
+  "/comms-center.js?v=20260721-site-entry-link",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
