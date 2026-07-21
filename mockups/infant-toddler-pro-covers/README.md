@@ -21,7 +21,9 @@ python3 -m http.server 4173
 2. `mockup-cover-amazing-insects.png` — Toddler Amazing Insects
 3. `mockup-cover-weather-lab.png` — Toddler Weather Lab
 
-Each mockup is 16:9, illustrated, childcare-friendly, no text overlays baked into the art (title overlay is shown in the HTML card chrome only).
+Each mockup is 16:9, **bold cartoon / picture-book style** (flat color, thick outlines — not soft AI-rendered realism). No text baked into the art; title overlay is HTML card chrome only.
+
+Round 2 revised after feedback that round 1 looked too AI-generated.
 
 ## After approval
 
