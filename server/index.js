@@ -111,6 +111,44 @@ const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
 const EMAIL_AUTOMATIONS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.EMAIL_AUTOMATIONS_ENABLED || "false").trim().toLowerCase(),
 );
+// Absolute outbound-email kill switch for testing/preview environments.
+// When true, sendEmail() never contacts Resend/SendGrid/Postmark.
+const DISABLE_OUTBOUND_EMAIL = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_OUTBOUND_EMAIL || "false").trim().toLowerCase(),
+);
+// Testing/preview: block paid Stripe checkout and AI calls (Phase 2 preview safety).
+const DISABLE_STRIPE_CHECKOUT = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_STRIPE_CHECKOUT || "false").trim().toLowerCase(),
+);
+const DISABLE_AI_CALLS = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_AI_CALLS || "false").trim().toLowerCase(),
+);
+
+function isDirectorCenterPreviewSafeMode() {
+  // Preview-safe mode when Director Center admin preview is opted in on a
+  // non-live host. Live production hosts never enter this mode.
+  const previewOptIn = ["1", "true", "yes", "on"].includes(
+    String(process.env.ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW || "").trim().toLowerCase(),
+  );
+  if (!previewOptIn) return false;
+  try {
+    return !expansionFeatureFlags.isLiveProductionSite(SITE_URL);
+  } catch {
+    return false;
+  }
+}
+
+function outboundEmailIsDisabled() {
+  return DISABLE_OUTBOUND_EMAIL === true || isDirectorCenterPreviewSafeMode();
+}
+
+function stripeCheckoutIsDisabled() {
+  return DISABLE_STRIPE_CHECKOUT === true || isDirectorCenterPreviewSafeMode();
+}
+
+function aiCallsAreDisabled() {
+  return DISABLE_AI_CALLS === true || isDirectorCenterPreviewSafeMode();
+}
 const SUPPORT_POSTAL_ADDRESS = String(process.env.SUPPORT_POSTAL_ADDRESS || "").trim();
 const EMAIL_UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || ADMIN_ACCESS_CODE;
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
@@ -512,8 +550,12 @@ function supportEmailConfigStatus() {
   if (usingResendTestSender) {
     note += " A Resend test sender (@resend.dev) was detected in env and is not used.";
   }
+  const outboundDisabled = outboundEmailIsDisabled();
+  if (outboundDisabled) {
+    note = "Outbound email is DISABLED for this environment (DISABLE_OUTBOUND_EMAIL or Director Center preview safe mode). No messages will be sent.";
+  }
   return {
-    ready,
+    ready: outboundDisabled ? false : ready,
     provider: provider || "not configured",
     to: SUPPORT_EMAIL_TO,
     fromConfigured: isConfiguredValue(SUPPORT_EMAIL_FROM),
@@ -530,6 +572,9 @@ function supportEmailConfigStatus() {
     envFromOverridden: envWasOverridden,
     usingResendTestSender,
     automationsEnabled: emailAutomationsEnabled(),
+    outboundEmailDisabled: outboundDisabled,
+    disableOutboundEmailEnv: DISABLE_OUTBOUND_EMAIL,
+    previewSafeMode: isDirectorCenterPreviewSafeMode(),
     note,
   };
 }
@@ -6405,6 +6450,14 @@ async function handlePromoValidation(request, response, url) {
 }
 
 async function handleCheckout(request, response) {
+  if (stripeCheckoutIsDisabled()) {
+    jsonResponse(response, 403, {
+      error: "Checkout is disabled in this testing/preview environment.",
+      code: "stripe_checkout_disabled",
+      previewSafeMode: isDirectorCenterPreviewSafeMode(),
+    });
+    return;
+  }
   if (!requireStripe(response)) return;
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -7668,6 +7721,14 @@ async function handleStripeWebhook(request, response) {
 }
 
 async function handleAiGenerate(request, response) {
+  if (aiCallsAreDisabled()) {
+    jsonResponse(response, 403, {
+      error: "AI features are disabled in this testing/preview environment.",
+      code: "ai_calls_disabled",
+      previewSafeMode: isDirectorCenterPreviewSafeMode(),
+    });
+    return;
+  }
   const body = await readJson(request);
   const email = normalizeEmail(body.email || "guest");
   const store = readStore();
@@ -10615,6 +10676,18 @@ async function postJson(url, headers, payload) {
 // opts: { to, replyTo, subject, text, html }
 // Returns { sent, configured, provider }
 async function sendEmail(opts = {}) {
+  if (outboundEmailIsDisabled()) {
+    return {
+      sent: false,
+      configured: true,
+      provider: detectedEmailProvider() || "disabled",
+      disabled: true,
+      code: "outbound_email_disabled",
+      reason: DISABLE_OUTBOUND_EMAIL
+        ? "DISABLE_OUTBOUND_EMAIL=true"
+        : "director_center_preview_safe_mode",
+    };
+  }
   const status = supportEmailConfigStatus();
   if (!status.ready) return { sent: false, configured: false, provider: status.provider };
 
