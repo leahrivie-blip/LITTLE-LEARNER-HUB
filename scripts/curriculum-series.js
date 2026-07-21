@@ -41,6 +41,8 @@
       weekNumber,
       lessonPlanId: shortText(entry.lessonPlanId, 160),
       displayOrder: Math.max(1, Math.min(5, Number(entry.displayOrder) || weekNumber)),
+      // Optional playlist label (e.g. "Familiar Faces & Bonding") shown in curriculum UI.
+      label: shortText(entry.label || entry.title || entry.theme || "", 120),
     };
   }
 
@@ -130,6 +132,7 @@
       description: multiline(entry.description, 4000),
       theme: shortText(entry.theme, 120),
       age: SERIES_AGES.includes(age) ? age : (age || "Preschool"),
+      ageDetail: shortText(entry.ageDetail, 40),
       month: SERIES_MONTHS.includes(month) ? month : month,
       season: SERIES_SEASONS.includes(season) ? season : season,
       year: shortText(entry.year, 8),

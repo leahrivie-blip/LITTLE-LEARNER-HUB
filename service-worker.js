@@ -25,6 +25,8 @@ const APP_SHELL = [
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260721-cover-netflix-nav",
   "/scripts/free-plan-grandfathering.js?v=20260721-cover-netflix-nav",
+  "/scripts/curriculum-monthly-collections.js?v=20260721-cover-netflix-nav",
+  "/scripts/monthly-curriculum-phase1.js?v=20260721-cover-netflix-nav",
   "/app.js?v=20260721-cover-netflix-nav",
   "/comms-center.js?v=20260721-cover-netflix-nav",
   "/site.webmanifest",

@@ -2816,8 +2816,8 @@ async function initializeStorage() {
   } catch (error) {
     console.error("[curriculum-preschool-priority-seed] startup seed failed:", error.message);
   }
-  // Run last so monthly series + Pro batch plans are not wiped by earlier seed syncs,
-  // and so series persist as the final curriculum write at boot.
+  // Run Pro batch last among plan seeds, then seed starter Monthly Curriculum collections
+  // that playlist those existing weekly plans (plus Soft Sounds when needed).
   try {
     const { ensureInfantToddlerProBatchCurriculumSeeded } = require("./curriculum-infant-toddler-pro-batch-seed.js");
     await ensureInfantToddlerProBatchCurriculumSeeded({
@@ -2831,6 +2831,20 @@ async function initializeStorage() {
     });
   } catch (error) {
     console.error("[curriculum-infant-toddler-pro-batch-seed] startup seed failed:", error.message);
+  }
+  try {
+    const { ensureMonthlyCollectionsSeeded } = require("./curriculum-monthly-collections-seed.js");
+    await ensureMonthlyCollectionsSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-monthly-collections-seed] startup seed failed:", error.message);
   }
 }
 

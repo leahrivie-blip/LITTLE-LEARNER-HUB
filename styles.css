@@ -21669,8 +21669,23 @@ button.aup-btn--danger {
   display:grid;
   gap:14px;
 }
-.curriculum-featured-banner .library-featured-banner-blurb{
-  max-width:42rem;
+.curriculum-progress-pill{
+  display:inline-flex;
+  align-items:center;
+  margin:0 0 10px;
+  padding:6px 12px;
+  border-radius:999px;
+  background:rgba(47,111,94,.12);
+  color:#245848;
+  font-size:.9rem;
+  font-weight:700;
+}
+.curriculum-series-timeline li.is-complete .curriculum-series-timeline-label,
+.curriculum-series-week-mini.is-complete strong{
+  text-decoration:none;
+}
+.curriculum-series-week-mini.is-complete{
+  box-shadow:inset 3px 0 0 #2f6f5e;
 }
 .curriculum-guided-steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 8px}
 .curriculum-guided-steps .curriculum-guided-num{display:inline-flex;width:1.4rem;height:1.4rem;align-items:center;justify-content:center;border-radius:999px;background:#e8f2ee;font-size:.8rem;margin-right:4px}

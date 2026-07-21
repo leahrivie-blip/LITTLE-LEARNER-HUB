@@ -262,10 +262,12 @@
     const weeks = [];
     for (let n = 1; n <= weekCount; n += 1) {
       const select = form.querySelector(`[name="weekPlan_${n}"]`);
+      const labelInput = form.querySelector(`[name="weekLabel_${n}"]`);
       weeks.push({
         weekNumber: n,
         lessonPlanId: select?.value || "",
         displayOrder: n,
+        label: labelInput?.value || "",
       });
     }
     const selectedDomains = [...form.querySelectorAll('input[name="learningDomains"]:checked')].map((el) => el.value);
@@ -374,12 +376,15 @@
           <strong>Week ${weekNumber}</strong>
           ${week.lessonPlanId ? `<span class="tag">Linked</span>` : `<span class="tag tag-hidden">Empty</span>`}
         </div>
+        <label>Week label (optional)
+          <input name="weekLabel_${weekNumber}" value="${esc(week.label || "")}" placeholder="e.g. Familiar Faces & Bonding" />
+        </label>
         <label>Lesson plan
           <select name="weekPlan_${weekNumber}">${options}</select>
         </label>
         ${plan
           ? `<p class="muted-copy"><strong>${esc(plan.theme || plan.title)}</strong><br>${esc(shortSummary(plan.weeklyOverview || plan.objectives, 120))}</p>`
-          : `<p class="muted-copy">No weekly plan assigned yet.</p>`}
+          : `<p class="muted-copy">No weekly plan assigned yet. Pick any existing lesson plan — this is a playlist link, not a copy.</p>`}
         <div class="account-actions-row">
           <button type="button" class="ghost-button" data-series-clear-week="${weekNumber}" ${week.lessonPlanId ? "" : "disabled"}>Remove from curriculum</button>
         </div>
@@ -773,7 +778,11 @@
     const isFav = typeof favorites !== "undefined" && Array.isArray(favorites) && favorites.includes(favId);
     const planBadge = series.plan === "Pro" ? "Pro" : "Free";
     const monthLabel = series.month || series.season || "Monthly";
-    const ageLabel = series.age || "Preschool";
+    const ageLabel = series.ageDetail
+      ? `${series.age} (${series.ageDetail})`
+      : (series.age || "Preschool");
+    const progress = readCurriculumProgress(series.id);
+    const progressLabel = curriculumProgressSummary(series, progress);
     return `
       <article
         class="resource-card lesson-plan-card browse-card has-cover-image netflix-cover-card curriculum-series-card curriculum-series-card--large"
@@ -805,12 +814,13 @@
           <div class="browse-card-cover-overlay">
             <span class="browse-card-age">${esc(ageLabel)} · ${esc(monthLabel)}</span>
             <h3 class="browse-card-title-overlay">${esc(series.title || "Monthly Curriculum")}</h3>
-            <p class="browse-card-activity-count">${weekCount} weeks</p>
+            <p class="browse-card-activity-count">${weekCount} weeks · ${esc(progressLabel)}</p>
           </div>
         </div>
         <div class="browse-card-always-actions lesson-plan-card-actions curriculum-series-card-actions">
-          <button type="button" class="primary-button" data-open-monthly-series="${esc(series.id)}">View Month</button>
-          <button type="button" class="ghost-button" data-schedule-entire-month="${esc(series.id)}">Schedule Entire Month</button>
+          <button type="button" class="primary-button" data-open-monthly-series="${esc(series.id)}">View Curriculum</button>
+          <button type="button" class="ghost-button" data-start-curriculum="${esc(series.id)}">Start Curriculum</button>
+          <button type="button" class="ghost-button" data-schedule-entire-month="${esc(series.id)}">Assign to Calendar</button>
         </div>
       </article>
     `;
@@ -826,18 +836,85 @@
     `;
   }
 
+  function curriculumProgressKey(seriesId) {
+    return `llhCurriculumProgress:${String(seriesId || "").trim()}`;
+  }
+
+  function readCurriculumProgress(seriesId) {
+    try {
+      const raw = localStorage.getItem(curriculumProgressKey(seriesId));
+      if (!raw) return { startedAt: "", completedWeeks: [], lastOpenedWeek: 0 };
+      const parsed = JSON.parse(raw);
+      return {
+        startedAt: String(parsed.startedAt || ""),
+        completedWeeks: Array.isArray(parsed.completedWeeks)
+          ? parsed.completedWeeks.map(Number).filter((n) => n >= 1 && n <= 5)
+          : [],
+        lastOpenedWeek: Number(parsed.lastOpenedWeek) || 0,
+      };
+    } catch {
+      return { startedAt: "", completedWeeks: [], lastOpenedWeek: 0 };
+    }
+  }
+
+  function writeCurriculumProgress(seriesId, progress) {
+    localStorage.setItem(curriculumProgressKey(seriesId), JSON.stringify({
+      startedAt: progress.startedAt || "",
+      completedWeeks: progress.completedWeeks || [],
+      lastOpenedWeek: progress.lastOpenedWeek || 0,
+      updatedAt: new Date().toISOString(),
+    }));
+  }
+
+  function startCurriculumProgress(seriesId) {
+    const current = readCurriculumProgress(seriesId);
+    if (!current.startedAt) current.startedAt = new Date().toISOString();
+    if (!current.lastOpenedWeek) current.lastOpenedWeek = 1;
+    writeCurriculumProgress(seriesId, current);
+    return current;
+  }
+
+  function markCurriculumWeekComplete(seriesId, weekNumber) {
+    const current = startCurriculumProgress(seriesId);
+    const week = Number(weekNumber) || 0;
+    if (week && !current.completedWeeks.includes(week)) {
+      current.completedWeeks = [...current.completedWeeks, week].sort((a, b) => a - b);
+    }
+    current.lastOpenedWeek = week || current.lastOpenedWeek;
+    writeCurriculumProgress(seriesId, current);
+    return current;
+  }
+
+  function curriculumProgressSummary(series, progress) {
+    const weekCount = Number(series?.weekCount) || (series?.weeks || []).length || 4;
+    const completed = (progress?.completedWeeks || []).filter((n) => n <= weekCount).length;
+    const started = Boolean(progress?.startedAt);
+    if (!started && completed === 0) return `0 of ${weekCount} weeks started`;
+    if (completed >= weekCount) return `All ${weekCount} weeks completed`;
+    if (completed === 0) return `Started · Week 1 of ${weekCount}`;
+    return `Week ${completed} of ${weekCount} completed`;
+  }
+
+  function weekDisplayLabel(week, plan) {
+    return String(week?.label || plan?.theme || plan?.title || "Weekly lesson plan").trim();
+  }
+
   function renderMonthlySeriesDetail(series) {
     const plans = publicLessonPlans();
     const byId = new Map(plans.map((p) => [p.id, p]));
     const cover = resolveSeriesCover(series);
     const weekCount = series.weekCount || 4;
+    const progress = readCurriculumProgress(series.id);
+    const progressLabel = curriculumProgressSummary(series, progress);
     const timeline = (series.weeks || []).map((week) => {
       const plan = byId.get(week.lessonPlanId);
       return {
         weekNumber: week.weekNumber,
-        label: plan?.theme || plan?.title || "Open week",
+        label: weekDisplayLabel(week, plan),
+        completed: (progress.completedWeeks || []).includes(Number(week.weekNumber)),
       };
     });
+    const skills = Array.isArray(series.learningDomains) ? series.learningDomains : [];
     return `
       <section class="curriculum-series-detail curriculum-series-detail--premium" data-monthly-series-detail="${esc(series.id)}">
         <button type="button" class="ghost-button back-button" data-close-monthly-series>← Back to Curriculum</button>
@@ -846,28 +923,31 @@
           <div class="curriculum-series-detail-hero-copy">
             <p class="eyebrow">Monthly Curriculum</p>
             <h2>${esc(series.title || "Monthly Curriculum")}</h2>
-            <p class="muted-copy">${esc(series.age)} · ${esc(series.month || series.season || "")}${series.year ? ` ${esc(series.year)}` : ""} · ${weekCount} weeks · ${esc(series.plan || "Free")}</p>
+            <p class="muted-copy">${esc(series.age)}${series.ageDetail ? ` (${esc(series.ageDetail)})` : ""} · ${weekCount} weeks · ${esc(series.plan || "Free")}</p>
+            <p class="curriculum-progress-pill" data-curriculum-progress="${esc(series.id)}">${esc(progressLabel)}</p>
             <div class="account-actions-row curriculum-series-detail-actions">
-              <button type="button" class="primary-button" data-schedule-entire-month="${esc(series.id)}">Schedule Entire Month</button>
+              <button type="button" class="primary-button" data-start-curriculum="${esc(series.id)}">Start Curriculum</button>
+              <button type="button" class="ghost-button" data-schedule-entire-month="${esc(series.id)}">Assign to Calendar</button>
               <button type="button" class="ghost-button" data-toggle-series-favorite="${esc(series.id)}">☆ Favorite</button>
             </div>
           </div>
         </div>
 
         <section class="curriculum-series-detail-block">
-          <h3>Monthly Overview</h3>
+          <h3>About this curriculum</h3>
           <p>${esc(series.description || "A playful month of weekly themes for your classroom.")}</p>
         </section>
+
+        ${skills.length ? `
+          <section class="curriculum-series-detail-block">
+            <h3>Skills covered</h3>
+            <div class="tag-row">${skills.map((domain) => `<span class="tag">${esc(domain)}</span>`).join("")}</div>
+          </section>
+        ` : ""}
 
         ${series.overallGoals ? `<section class="curriculum-series-detail-block"><h3>Learning goals</h3><p>${esc(series.overallGoals)}</p></section>` : ""}
         ${series.overallMaterials ? `<section class="curriculum-series-detail-block"><h3>Materials</h3><p>${esc(series.overallMaterials)}</p></section>` : ""}
         ${series.familyConnection ? `<section class="curriculum-series-detail-block"><h3>Family connection</h3><p>${esc(series.familyConnection)}</p></section>` : ""}
-        ${(series.learningDomains || []).length ? `
-          <section class="curriculum-series-detail-block">
-            <h3>Developmental domains</h3>
-            <div class="tag-row">${series.learningDomains.map((domain) => `<span class="tag">${esc(domain)}</span>`).join("")}</div>
-          </section>
-        ` : ""}
         ${listBlock("Books", series.books, (book) => [book.title, book.author].filter(Boolean).join(" — "))}
         ${listBlock("Songs", series.songs, (song) => song.title)}
 
@@ -875,9 +955,10 @@
           <h3>Month at a glance</h3>
           <ol class="curriculum-series-timeline">
             ${timeline.map((item) => `
-              <li>
+              <li class="${item.completed ? "is-complete" : ""}">
                 <span class="curriculum-series-timeline-week">Week ${item.weekNumber}</span>
                 <span class="curriculum-series-timeline-label">${esc(item.label)}</span>
+                ${item.completed ? `<span class="tag">Done</span>` : ""}
               </li>
             `).join("")}
           </ol>
@@ -892,20 +973,22 @@
             }
             const planCover = resolvePlanCover(plan);
             const summary = shortSummary(plan.weeklyOverview || plan.objectives || plan.theme, 160);
+            const label = weekDisplayLabel(week, plan);
+            const done = (progress.completedWeeks || []).includes(Number(week.weekNumber));
             return `
-              <article class="curriculum-series-week-mini">
+              <article class="curriculum-series-week-mini ${done ? "is-complete" : ""}" data-curriculum-week="${week.weekNumber}">
                 <div class="curriculum-series-week-mini-media">
                   <img src="${esc(planCover.url)}" alt="${esc(planCover.alt || plan.title)}" loading="lazy" />
                 </div>
                 <div class="curriculum-series-week-mini-body">
-                  <p class="eyebrow">Week ${week.weekNumber}</p>
-                  <strong>${esc(plan.title)}</strong>
-                  <p class="muted-copy">${esc(plan.theme || "")}</p>
+                  <p class="eyebrow">Week ${week.weekNumber}${done ? " · Completed" : ""}</p>
+                  <strong>${esc(label)}</strong>
+                  <p class="muted-copy">${esc(plan.title)}${plan.theme ? ` · ${esc(plan.theme)}` : ""}</p>
                   <p>${esc(summary)}</p>
                   <div class="account-actions-row">
-                    <button type="button" class="primary-button" data-open-week-plan="${esc(plan.id)}">Open Week</button>
-                    <button type="button" class="ghost-button" data-curriculum-assign-week="${esc(plan.id)}">Add Week to Calendar</button>
-                    <button type="button" class="ghost-button" data-download-week-plan="${esc(plan.id)}">Download Week</button>
+                    <button type="button" class="primary-button" data-open-week-plan="${esc(plan.id)}" data-curriculum-series-id="${esc(series.id)}" data-curriculum-week-number="${week.weekNumber}">View Lesson Plan</button>
+                    <button type="button" class="ghost-button" data-curriculum-assign-week="${esc(plan.id)}" data-curriculum-series-id="${esc(series.id)}" data-curriculum-week-number="${week.weekNumber}">Use This Plan</button>
+                    <button type="button" class="ghost-button" data-mark-curriculum-week-complete="${esc(series.id)}" data-curriculum-week-number="${week.weekNumber}">${done ? "Completed" : "Mark Complete"}</button>
                   </div>
                 </div>
               </article>
@@ -1317,13 +1400,51 @@
     if (scheduleMonth) {
       event.preventDefault();
       event.stopPropagation();
-      scheduleEntireMonth(scheduleMonth.getAttribute("data-schedule-entire-month"));
+      const seriesId = scheduleMonth.getAttribute("data-schedule-entire-month");
+      startCurriculumProgress(seriesId);
+      scheduleEntireMonth(seriesId);
+      rerenderLessons();
+      return;
+    }
+
+    const startCurriculum = event.target.closest("[data-start-curriculum]");
+    if (startCurriculum) {
+      event.preventDefault();
+      event.stopPropagation();
+      const seriesId = startCurriculum.getAttribute("data-start-curriculum");
+      startCurriculumProgress(seriesId);
+      openMonthlySeriesId = seriesId;
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback("Curriculum started. Open Week 1 whenever you are ready.");
+      }
+      rerenderLessons();
+      return;
+    }
+
+    const markComplete = event.target.closest("[data-mark-curriculum-week-complete]");
+    if (markComplete) {
+      event.preventDefault();
+      event.stopPropagation();
+      const seriesId = markComplete.getAttribute("data-mark-curriculum-week-complete");
+      const weekNumber = markComplete.getAttribute("data-curriculum-week-number");
+      markCurriculumWeekComplete(seriesId, weekNumber);
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback(`Week ${weekNumber} marked complete.`);
+      }
+      rerenderLessons();
       return;
     }
 
     const openWeek = event.target.closest("[data-open-week-plan]");
     if (openWeek) {
       const planId = openWeek.getAttribute("data-open-week-plan");
+      const seriesId = openWeek.getAttribute("data-curriculum-series-id");
+      const weekNumber = openWeek.getAttribute("data-curriculum-week-number");
+      if (seriesId) {
+        const progress = startCurriculumProgress(seriesId);
+        progress.lastOpenedWeek = Number(weekNumber) || progress.lastOpenedWeek || 1;
+        writeCurriculumProgress(seriesId, progress);
+      }
       const resource = (typeof resources !== "undefined" ? resources : []).find((r) => (
         r._curriculumLessonPlan?.id === planId || r.id === planId
       ));
