@@ -191,6 +191,19 @@ async function publishPlans(token) {
   if (parsed.data.dailyPlans.monday.items?.[0]) {
     parsed.data.dailyPlans.monday.items[0].teacherLanguage = "I notice the soil feels damp";
   }
+  // Older sample only filled Mon–Wed; published saves now require every weekday.
+  ["thursday", "friday"].forEach((day, index) => {
+    const template = parsed.data.dailyPlans.monday?.items?.[0] || parsed.data.dailyPlans.wednesday?.items?.[0];
+    if (!template) return;
+    if (!parsed.data.dailyPlans[day]) parsed.data.dailyPlans[day] = { theme: "", items: [] };
+    if (!Array.isArray(parsed.data.dailyPlans[day].items) || !parsed.data.dailyPlans[day].items.length) {
+      parsed.data.dailyPlans[day].items = [{
+        ...template,
+        itemId: `item-sec-${day}-${index + 1}`,
+        title: `${template.title || "Garden Activity"} (${day})`,
+      }];
+    }
+  });
   const base = parsed.data;
 
   // Public/new Free users only unlock the curated sample allowlist — use a real sample id.

@@ -1832,6 +1832,57 @@ function authorizedCurriculumActivityDto(activity, parentPlan) {
   };
 }
 
+/** Browse/list card for Activity Center — full how-to stays on the detail endpoint. */
+function authorizedCurriculumActivityListDto(activity, parentPlan) {
+  const entry = normalizedCurriculumActivity(activity);
+  if (!entry || entry.status !== "published") return null;
+  if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
+  return {
+    id: entry.id,
+    lessonPlanId: entry.lessonPlanId,
+    title: entry.title,
+    activityCategory: entry.activityCategory,
+    dayOfWeek: entry.dayOfWeek,
+    plan: parentPlan.plan,
+    locked: false,
+    learningDomains: (entry.learningDomains || []).slice(0, 3),
+    parentTitle: parentPlan.title,
+    parentAge: parentPlan.age,
+    parentPlan: parentPlan.plan,
+    updatedAt: entry.updatedAt,
+  };
+}
+
+/** Browse/list card for Lesson Plan Library — full dailyPlans stay on the detail endpoint. */
+function authorizedCurriculumLessonPlanListDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  let activityCount = 0;
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const items = Array.isArray(entry.dailyPlans?.[day]?.items) ? entry.dailyPlans[day].items : [];
+    activityCount += items.filter((item) => String(item?.title || "").trim()).length;
+  });
+  return {
+    id: entry.id,
+    title: entry.title,
+    age: entry.age,
+    theme: entry.theme,
+    plan: entry.plan,
+    status: entry.status,
+    locked: false,
+    learningDomains: entry.learningDomains,
+    weeklyOverview: curriculumTextExcerpt(entry.weeklyOverview, 80),
+    activityCount,
+    activityIds: entry.activityIds,
+    resourceIds: entry.resourceIds,
+    coverImageUrl: entry.coverImageUrl,
+    coverImageAlt: entry.coverImageAlt,
+    coverImageSource: entry.coverImageSource,
+    coverImagePosition: entry.coverImagePosition,
+    updatedAt: entry.updatedAt,
+  };
+}
+
 function publicCurriculumActivityDto(activity, parentPlan, accessContext = {}) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
@@ -1855,10 +1906,12 @@ function curriculumParentPlanMeta(plan) {
 }
 
 function authorizedCurriculumLibraryDto(siteContent) {
-  // Pro / Founding / Trial / admin-override users get the full unlocked library payload.
+  // Pro / Founding / Trial / admin-override users get an unlocked *browse* library.
+  // Full dailyPlans / activity how-to stay on the detail endpoints so /api/site-content
+  // stays small enough for installed-app cold starts on mobile.
   const store = normalizedCurriculumStore(siteContent?.curriculum);
   const lessonPlans = store.lessonPlans
-    .map((plan) => authorizedCurriculumLessonPlanDto(plan))
+    .map((plan) => authorizedCurriculumLessonPlanListDto(plan))
     .filter(Boolean)
     .sort((a, b) => {
       const featuredDelta = (b.status === "featured" ? 1 : 0) - (a.status === "featured" ? 1 : 0);
@@ -1873,7 +1926,7 @@ function authorizedCurriculumLibraryDto(siteContent) {
   );
   const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
   const activities = store.activities
-    .map((activity) => authorizedCurriculumActivityDto(activity, parentPlanById.get(activity.lessonPlanId)))
+    .map((activity) => authorizedCurriculumActivityListDto(activity, parentPlanById.get(activity.lessonPlanId)))
     .filter(Boolean)
     .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")));
   const resources = store.resources

@@ -127,7 +127,7 @@ function staticChecks() {
   assert.match(app, /positionItemActionMenuPanel/);
   assert.match(css, /llh-item-menu-backdrop/);
   assert.match(css, /#scheduleEventModal/);
-  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=20260720-promo-existing/);
+  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=20260721-pwa-cold-start/);
   console.log("PASS static owner Pro + mobile overlay markers");
 }
 

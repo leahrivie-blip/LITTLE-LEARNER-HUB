@@ -23,12 +23,15 @@ const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
-test("service worker cache bumped and network-first for JS/CSS", () => {
-  assert.match(sw, /llh-shell-v2\d-/);
-  assert.match(sw, /isNetworkFirstRequest/);
-  assert.match(sw, /path\.endsWith\("\.js"\) \|\| path\.endsWith\("\.css"\)/);
+test("service worker cache bumped and stale-while-revalidate for JS/CSS", () => {
+  assert.match(sw, /llh-shell-v\d+-/);
+  assert.match(sw, /isShellAssetRequest/);
+  assert.match(sw, /NETWORK_TIMEOUT_MS/);
+  assert.match(sw, /path\.endsWith\("\.js"\)/);
+  assert.match(sw, /path\.endsWith\("\.css"\)/);
   assert.match(sw, /SKIP_WAITING/);
   assert.match(sw, /shell precache incomplete/);
+  assert.match(sw, /cached \|\| networkFetch/);
 });
 
 test("index and SW share the same app/styles cache bust", () => {

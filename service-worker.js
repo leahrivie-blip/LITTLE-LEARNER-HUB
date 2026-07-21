@@ -1,10 +1,11 @@
-const CACHE_NAME = "llh-shell-v105-promo-existing";
+const CACHE_NAME = "llh-shell-v106-pwa-cold-start";
 const OFFLINE_URL = "/offline.html";
+const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260720-promo-existing",
+  "/styles.css?v=20260721-pwa-cold-start",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -25,8 +26,8 @@ const APP_SHELL = [
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260720-promo-existing",
-  "/comms-center.js?v=20260720-promo-existing",
+  "/app.js?v=20260721-pwa-cold-start",
+  "/comms-center.js?v=20260721-pwa-cold-start",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
@@ -67,12 +68,35 @@ self.addEventListener("message", (event) => {
   }
 });
 
-function isNetworkFirstRequest(request, requestUrl) {
+function isShellAssetRequest(requestUrl) {
+  const path = requestUrl.pathname;
+  return path.endsWith(".js")
+    || path.endsWith(".css")
+    || path.endsWith(".webmanifest")
+    || path.endsWith(".svg")
+    || path.endsWith(".png")
+    || path.endsWith(".jpg")
+    || path.endsWith(".jpeg")
+    || path.endsWith(".webp")
+    || path.endsWith(".woff2");
+}
+
+function isNavigationRequest(request, requestUrl) {
   if (request.mode === "navigate") return true;
   const path = requestUrl.pathname;
-  if (path === "/" || path.endsWith(".html")) return true;
-  if (path.endsWith(".js") || path.endsWith(".css") || path.endsWith(".webmanifest")) return true;
-  return false;
+  return path === "/" || path.endsWith(".html");
+}
+
+function networkWithTimeout(request, timeoutMs) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return fetch(request, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+function putInCache(request, response) {
+  if (!response || response.status !== 200 || response.type !== "basic") return;
+  const cloned = response.clone();
+  caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned)).catch(() => {});
 }
 
 self.addEventListener("fetch", (event) => {
@@ -92,27 +116,35 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Always prefer network for HTML/JS/CSS so deploys are not stuck behind a stale shell.
-  // Fall back to cache only when offline.
-  if (isNetworkFirstRequest(event.request, requestUrl)) {
+  // Installed-app cold start: serve cached JS/CSS immediately, refresh in background.
+  // Waiting on a slow network for a multi-MB app.js makes the PWA feel broken.
+  if (isShellAssetRequest(requestUrl)) {
     event.respondWith(
-      fetch(event.request)
+      caches.match(event.request).then((cached) => {
+        const networkFetch = fetch(event.request)
+          .then((response) => {
+            putInCache(event.request, response);
+            return response;
+          })
+          .catch(() => cached);
+        return cached || networkFetch;
+      }),
+    );
+    return;
+  }
+
+  // HTML navigations: try network quickly, then fall back to cached shell.
+  if (isNavigationRequest(event.request, requestUrl)) {
+    event.respondWith(
+      networkWithTimeout(event.request, NETWORK_TIMEOUT_MS)
         .then((response) => {
-          if (response && response.status === 200 && response.type === "basic") {
-            const cloned = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
-          }
+          putInCache(event.request, response);
           return response;
         })
         .catch(() => caches.match(event.request).then((cached) => {
           if (cached) return cached;
-          if (event.request.mode === "navigate") {
-            // Offline-safe fallback: previously-visited shell first, then a
-            // minimal offline page so navigation never hard-fails.
-            return caches.match("/index.html").then((shell) => shell || caches.match(OFFLINE_URL));
-          }
-          return undefined;
-        }))
+          return caches.match("/index.html").then((shell) => shell || caches.match(OFFLINE_URL));
+        })),
     );
     return;
   }
@@ -121,12 +153,10 @@ self.addEventListener("fetch", (event) => {
     caches.match(event.request).then((cached) => {
       if (cached) return cached;
       return fetch(event.request).then((response) => {
-        if (!response || response.status !== 200 || response.type !== "basic") return response;
-        const cloned = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, cloned));
+        putInCache(event.request, response);
         return response;
       });
-    })
+    }),
   );
 });
 
