@@ -12113,10 +12113,15 @@ document.addEventListener("submit", async (event) => {
 function registerPwaSupport() {
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {
+      // index.html already registers early for Home Screen recovery; still ensure
+      // update checks run after a healthy app.js boot.
       navigator.serviceWorker.register("/service-worker.js").then((registration) => {
         // Force activation of a waiting worker so cache-bust deploys reach users.
         if (registration.waiting) {
           registration.waiting.postMessage({ type: "SKIP_WAITING" });
+        }
+        if (typeof registration.update === "function") {
+          registration.update().catch(() => {});
         }
         registration.addEventListener("updatefound", () => {
           const installing = registration.installing;
@@ -12130,16 +12135,19 @@ function registerPwaSupport() {
       }).catch((error) => {
         console.warn("Service worker registration failed", error);
       });
+      // Early head script already owns controllerchange reload for stuck installs.
+      if (window.__LLH_SW_EARLY_REGISTERED) return;
       let refreshing = false;
       let hadController = Boolean(navigator.serviceWorker.controller);
       navigator.serviceWorker.addEventListener("controllerchange", () => {
         // Reload only when replacing an already-controlling worker (deploy update),
         // not on the very first SW claim.
-        if (refreshing || !hadController) {
+        if (refreshing || window.__LLH_SW_RELOADING || !hadController) {
           hadController = Boolean(navigator.serviceWorker.controller);
           return;
         }
         refreshing = true;
+        window.__LLH_SW_RELOADING = true;
         window.location.reload();
       });
     });

@@ -1,11 +1,11 @@
-const CACHE_NAME = "llh-shell-v107-boot-tdz-fix";
+const CACHE_NAME = "llh-shell-v108-homescreen-sw";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260721-boot-tdz-fix",
+  "/styles.css?v=20260721-homescreen-sw",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -26,8 +26,8 @@ const APP_SHELL = [
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260721-boot-tdz-fix",
-  "/comms-center.js?v=20260721-boot-tdz-fix",
+  "/app.js?v=20260721-homescreen-sw",
+  "/comms-center.js?v=20260721-homescreen-sw",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

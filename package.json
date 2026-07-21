@@ -39,6 +39,7 @@
     "test:curriculum-access-security": "node scripts/test-curriculum-access-security.js",
     "test:curriculum-library-cold-start": "node scripts/test-curriculum-library-cold-start.js",
     "test:boot-currentuser-tdz": "node scripts/test-boot-currentuser-tdz.js",
+    "test:homescreen-pwa-boot": "node scripts/test-homescreen-pwa-boot.js",
     "test:pro-lesson-preview-audit": "node scripts/test-pro-lesson-preview-audit.js",
     "test:curriculum-ux": "node scripts/test-curriculum-ux-qa.js",
     "test:curriculum-publish": "node scripts/test-curriculum-admin-publish-flow.js",

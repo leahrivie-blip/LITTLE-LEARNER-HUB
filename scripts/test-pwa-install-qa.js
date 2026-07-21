@@ -93,11 +93,14 @@ async function main() {
   assert(html.includes('id="installAppModal"'), "Install modal missing");
   assert(html.includes('id="accountInstallAppButton"'), "Account install button missing");
   assert(html.includes('rel="apple-touch-icon"'), "apple-touch-icon missing for iOS");
+  assert(html.includes("__LLH_SW_EARLY_REGISTERED"), "Home Screen early SW register missing from index.html");
+  assert(html.includes('serviceWorker.register("/service-worker.js")'), "early service worker register missing");
   assert(manifest.display === "standalone", "manifest display must be standalone");
   assert(manifest.start_url, "manifest start_url missing");
   assert(Array.isArray(manifest.icons) && manifest.icons.length >= 2, "manifest icons missing");
   assert(appJs.includes("function registerPwaSupport"), "registerPwaSupport missing");
   assert(appJs.includes("beforeinstallprompt"), "beforeinstallprompt handler missing");
+  assert(appJs.includes("__LLH_SW_EARLY_REGISTERED"), "registerPwaSupport should defer to early SW reload owner");
   assert(appJs.includes("function promptInstallFlow"), "promptInstallFlow missing");
   assert(appJs.includes("function platformInstallCardMarkup"), "Calendar/Settings install card helper missing");
   assert(appJs.includes("syncPlatformInstallCard"), "Calendar install sync helper missing");
