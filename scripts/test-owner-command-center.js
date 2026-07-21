@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260721-boot-tdz-fix");
-  assert.equal(indexJs, "20260721-boot-tdz-fix");
-  assert.match(sw, /llh-shell-v107-boot-tdz-fix/);
+  assert.equal(indexCss, "20260721-homescreen-sw");
+  assert.equal(indexJs, "20260721-homescreen-sw");
+  assert.match(sw, /llh-shell-v108-homescreen-sw/);
 });
 
 if (!process.exitCode) {

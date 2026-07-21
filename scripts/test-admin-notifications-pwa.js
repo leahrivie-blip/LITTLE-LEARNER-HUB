@@ -163,9 +163,9 @@ test("admin notification helpers dedupe and categorize", () => {
 });
 
 test("cache bust versions aligned for admin-notif-pwa", () => {
-  assert.match(indexHtml, /app\.js\?v=20260721-boot-tdz-fix/);
-  assert.match(sw, /llh-shell-v107-boot-tdz-fix/);
-  assert.match(sw, /app\.js\?v=20260721-boot-tdz-fix/);
+  assert.match(indexHtml, /app\.js\?v=20260721-homescreen-sw/);
+  assert.match(sw, /llh-shell-v108-homescreen-sw/);
+  assert.match(sw, /app\.js\?v=20260721-homescreen-sw/);
 });
 
 async function integration() {
