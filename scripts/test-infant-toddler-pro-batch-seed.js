@@ -79,6 +79,7 @@ async function main() {
       PORT: String(PORT),
       DATABASE_PROVIDER: "local-json",
       LAUNCH_STORE_PATH: STORE_PATH,
+      LLH_STORE_PATH: STORE_PATH,
       ADMIN_EMAIL: "it-pro-batch@test.local",
       ADMIN_PASSWORD: "it-pro-batch-pass",
       ADMIN_ACCESS_CODE: "it-pro-batch-code",

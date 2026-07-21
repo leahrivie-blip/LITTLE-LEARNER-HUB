@@ -2332,6 +2332,10 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
     lessonPlans: [...otherPlans, updatedPlan],
     activities: [...otherActivities, ...normalizedSynced],
     resources: store.resources,
+    // Preserve monthly series + import synonym rules — syncing one lesson plan
+    // must not wipe Netflix-style curriculum collections seeded alongside plans.
+    series: store.series,
+    importSynonyms: store.importSynonyms,
     updatedAt: now,
   });
 }
@@ -2729,20 +2733,6 @@ async function initializeStorage() {
     console.error("[curriculum-infant-core-seed] startup seed failed:", error.message);
   }
   try {
-    const { ensureInfantToddlerProBatchCurriculumSeeded } = require("./curriculum-infant-toddler-pro-batch-seed.js");
-    await ensureInfantToddlerProBatchCurriculumSeeded({
-      readStore,
-      writeStoreAsync,
-      writeSiteCurriculum,
-      syncCurriculumActivitiesForLessonPlan,
-      assertCurriculumIntegrityOrError,
-      defaultSiteContentStore,
-      defaultCurriculumStore,
-    });
-  } catch (error) {
-    console.error("[curriculum-infant-toddler-pro-batch-seed] startup seed failed:", error.message);
-  }
-  try {
     const { ensureInfantHolidayCurriculumSeeded } = require("./curriculum-infant-holiday-seed.js");
     await ensureInfantHolidayCurriculumSeeded({
       readStore,
@@ -2825,6 +2815,22 @@ async function initializeStorage() {
     });
   } catch (error) {
     console.error("[curriculum-preschool-priority-seed] startup seed failed:", error.message);
+  }
+  // Run last so monthly series + Pro batch plans are not wiped by earlier seed syncs,
+  // and so series persist as the final curriculum write at boot.
+  try {
+    const { ensureInfantToddlerProBatchCurriculumSeeded } = require("./curriculum-infant-toddler-pro-batch-seed.js");
+    await ensureInfantToddlerProBatchCurriculumSeeded({
+      readStore,
+      writeStoreAsync,
+      writeSiteCurriculum,
+      syncCurriculumActivitiesForLessonPlan,
+      assertCurriculumIntegrityOrError,
+      defaultSiteContentStore,
+      defaultCurriculumStore,
+    });
+  } catch (error) {
+    console.error("[curriculum-infant-toddler-pro-batch-seed] startup seed failed:", error.message);
   }
 }
 
