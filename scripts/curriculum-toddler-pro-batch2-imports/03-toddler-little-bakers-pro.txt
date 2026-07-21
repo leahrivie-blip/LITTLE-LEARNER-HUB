@@ -1,0 +1,279 @@
+TITLE: Little Bakers
+AGE_GROUP: Toddler (2-3 Years)
+THEME: Little Bakers
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Math, Science, Language & Literacy, Fine Motor, Social-Emotional, Creative Arts, Dramatic Play, Self-Help
+
+WEEKLY_OVERVIEW:
+Toddlers explore baking through safe, play-based experiences. Children scoop, pour, mix, count, compare, decorate, pretend to run a bakery, and observe simple changes in ingredients. Activities emphasize sensory exploration, early math and science, practical life skills, language, cooperation, and fine motor development.
+
+LEARNING_OBJECTIVES:
+- Follow simple one- and two-step directions.
+- Scoop, pour, stir, press, and transfer materials.
+- Count and compare pretend ingredients.
+- Use baking vocabulary in play.
+- Explore changes caused by mixing and adding water.
+- Practice turn-taking and cooperative dramatic play.
+- Build independence with cleanup and self-help routines.
+
+WEEKLY_MATERIALS:
+Mixing bowls, wooden spoons, measuring cups, scoops, trays, playdough, flour substitute or taste-safe dough, water, oats, large pom-poms, cupcake liners, muffin tins, cookie cutters, rolling pins, aprons, chef hats, toy food, bakery signs, baskets, tongs, paper plates, washable paint, glue, paper shapes, picture recipe cards.
+
+VOCABULARY:
+Bake, baker, bakery, mix, stir, scoop, pour, measure, roll, press, dough, flour, oven, recipe, cupcake, bread, cookie, full, empty, more, less.
+
+BOOKS:
+The Little Red Hen; If You Give a Mouse a Cookie; Whiskers, Tails & Wings: Animal Folktales; The Doorbell Rang; Pete the Cat and the Perfect Pizza Party.
+
+SONGS:
+Pat-a-Cake; Five Little Cupcakes; Muffin Man; This Is the Way We Stir the Batter; Hot Cross Buns.
+
+FAMILY_CONNECTION:
+Invite families to let children help stir, pour, wash produce, or place safe ingredients into a bowl. Send home a simple no-bake snack idea and encourage families to talk about recipe steps.
+
+OBSERVATION_OPPORTUNITIES:
+Observe grip strength, pouring control, counting, sequence understanding, sensory tolerance, pretend play, vocabulary, persistence, sharing, and cleanup participation.
+
+ADAPTATIONS:
+Use larger tools and lightweight bowls, offer dry sensory alternatives, provide picture steps, reduce ingredient choices, allow seated participation, and use hand-over-hand support only when welcomed.
+
+MONDAY:
+DAILY_THEME: Meet the Bakery
+DAILY_OBJECTIVES: Learn bakery vocabulary, explore tools, and practice pretend roles.
+DAILY_VOCABULARY: Baker, bakery, bowl, spoon, oven, recipe.
+DAILY_MATERIALS: Bakery props, bowls, spoons, aprons, toy food, picture cards.
+DAILY_LEARNING_DOMAINS: Language, Dramatic Play, Social-Emotional, Fine Motor.
+CIRCLE_TIME_IDEAS: Read The Little Red Hen and examine safe baking tools.
+OUTDOOR_PLAY: Deliver the Bread relay using baskets and lightweight pretend loaves.
+DAILY_OBSERVATION_OPPORTUNITIES: Tool naming, role play, turn-taking, carrying balance.
+DAILY_ADAPTATIONS: Use picture labels and seated delivery play.
+SAFETY_NOTES: Avoid real hot appliances and small loose pieces.
+ACTIVITY_1_CATEGORY: Dramatic Play
+ACTIVITY_1_NAME: Open the Toddler Bakery
+ACTIVITY_1_OBJECTIVE: Practice social language and pretend bakery routines.
+ACTIVITY_1_DESCRIPTION: Children pretend to bake, stock shelves, order, and serve food.
+ACTIVITY_1_MATERIALS: Toy baked goods, baskets, register, aprons, signs.
+ACTIVITY_1_SETUP: Create a simple bakery counter and kitchen area.
+ACTIVITY_1_DIRECTIONS: 1. Choose a role. 2. Pick an item to make or buy. 3. Place it on a tray. 4. Serve or purchase it. 5. Switch roles.
+ACTIVITY_1_TEACHER_ROLE: Model phrases such as “I would like” and “Here you go.”
+ACTIVITY_1_LEARNING_GOALS: Imagination, communication, cooperation, sequencing.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Role use, requesting, sharing, vocabulary.
+ACTIVITY_1_ADAPTATIONS: Offer role cards and one-step scripts.
+ACTIVITY_1_SAFETY_NOTES: Use only large, washable props.
+ACTIVITY_2_CATEGORY: Fine Motor
+ACTIVITY_2_NAME: Tool Exploration Tray
+ACTIVITY_2_OBJECTIVE: Explore safe baking tools and strengthen hand control.
+ACTIVITY_2_DESCRIPTION: Children stir, scoop, transfer, and stack using empty bowls and tools.
+ACTIVITY_2_MATERIALS: Bowls, spoons, cups, silicone brushes, scoops.
+ACTIVITY_2_SETUP: Arrange tools on a low tray.
+ACTIVITY_2_DIRECTIONS: 1. Choose a tool. 2. Try its motion. 3. Transfer pretend ingredients. 4. Compare tools. 5. Return each tool.
+ACTIVITY_2_TEACHER_ROLE: Name actions and encourage safe exploration.
+ACTIVITY_2_LEARNING_GOALS: Fine motor skills, tool knowledge, independence.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Grip, coordination, tool preference.
+ACTIVITY_2_ADAPTATIONS: Provide chunky handles.
+ACTIVITY_2_SAFETY_NOTES: Inspect tools for cracks or sharp edges.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Decorate a Bakery Apron
+ACTIVITY_3_OBJECTIVE: Make choices and create bakery-themed art.
+ACTIVITY_3_DESCRIPTION: Children decorate paper aprons using washable paint and large paper shapes.
+ACTIVITY_3_MATERIALS: Paper aprons, paint, sponges, large shapes, glue sticks.
+ACTIVITY_3_SETUP: Tape aprons down and portion materials.
+ACTIVITY_3_DIRECTIONS: 1. Choose colors. 2. Dab or brush paint. 3. Add large shapes. 4. Name the design. 5. Let dry.
+ACTIVITY_3_TEACHER_ROLE: Support child-led choices and descriptive language.
+ACTIVITY_3_LEARNING_GOALS: Creativity, hand control, decision-making.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Color choice, mark making, persistence.
+ACTIVITY_3_ADAPTATIONS: Use stickers or a paint bag.
+ACTIVITY_3_SAFETY_NOTES: Use non-toxic materials and supervise glue use.
+
+TUESDAY:
+DAILY_THEME: Scoop, Pour, and Measure
+DAILY_OBJECTIVES: Explore full and empty, compare quantities, and practice controlled pouring.
+DAILY_VOCABULARY: Scoop, pour, full, empty, more, less.
+DAILY_MATERIALS: Oats, bowls, cups, scoops, funnels, muffin tins.
+DAILY_LEARNING_DOMAINS: Math, Science, Fine Motor, Language.
+CIRCLE_TIME_IDEAS: Demonstrate full, half-full, and empty containers.
+OUTDOOR_PLAY: Water-pouring station with cups and funnels.
+DAILY_OBSERVATION_OPPORTUNITIES: Quantity language, transfer control, concentration.
+DAILY_ADAPTATIONS: Use large dry materials, wide funnels, or hand transfer.
+SAFETY_NOTES: Directly supervise sensory materials and water.
+ACTIVITY_1_CATEGORY: Sensory Play
+ACTIVITY_1_NAME: Bakery Measuring Bin
+ACTIVITY_1_OBJECTIVE: Scoop and pour while comparing container capacity.
+ACTIVITY_1_DESCRIPTION: Children transfer oats among bowls, cups, and muffin tins.
+ACTIVITY_1_MATERIALS: Oats, bin, measuring cups, scoops, bowls, muffin tins.
+ACTIVITY_1_SETUP: Fill a shallow bin and arrange tools.
+ACTIVITY_1_DIRECTIONS: 1. Scoop oats. 2. Fill a cup. 3. Pour into a bowl. 4. Compare full and empty. 5. Try another tool.
+ACTIVITY_1_TEACHER_ROLE: Narrate quantities and model slow pouring.
+ACTIVITY_1_LEARNING_GOALS: Capacity, fine motor control, cause and effect.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Accuracy, bilateral coordination, quantity words.
+ACTIVITY_1_ADAPTATIONS: Use fabric balls or large corks instead of oats.
+ACTIVITY_1_SAFETY_NOTES: Materials are not for eating; supervise closely.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Fill the Muffin Tin
+ACTIVITY_2_OBJECTIVE: Practice one-to-one correspondence.
+ACTIVITY_2_DESCRIPTION: Children place one large pom-pom “muffin” into each space.
+ACTIVITY_2_MATERIALS: Muffin tins, large pom-poms, tongs.
+ACTIVITY_2_SETUP: Place pom-poms in a shared bowl.
+ACTIVITY_2_DIRECTIONS: 1. Pick up one pom-pom. 2. Place it in one space. 3. Continue until full. 4. Count together. 5. Empty and repeat.
+ACTIVITY_2_TEACHER_ROLE: Model “one in each” and count slowly.
+ACTIVITY_2_LEARNING_GOALS: Counting, matching, fine motor strength.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: One-to-one placement, grip, counting attempts.
+ACTIVITY_2_ADAPTATIONS: Use hands or larger balls.
+ACTIVITY_2_SAFETY_NOTES: Use oversized pom-poms only.
+ACTIVITY_3_CATEGORY: Science
+ACTIVITY_3_NAME: What Fits Inside?
+ACTIVITY_3_OBJECTIVE: Test container size and capacity.
+ACTIVITY_3_DESCRIPTION: Children predict which tools and objects fit into different bowls and cups.
+ACTIVITY_3_MATERIALS: Nesting bowls, cups, large spoons, safe large objects.
+ACTIVITY_3_SETUP: Arrange objects by size.
+ACTIVITY_3_DIRECTIONS: 1. Choose an object. 2. Pick a container. 3. Test if it fits. 4. Try another. 5. Sort fits/does not fit.
+ACTIVITY_3_TEACHER_ROLE: Ask prediction questions and model bigger/smaller.
+ACTIVITY_3_LEARNING_GOALS: Spatial reasoning, comparison, experimentation.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Prediction, persistence, size language.
+ACTIVITY_3_ADAPTATIONS: Offer only two choices.
+ACTIVITY_3_SAFETY_NOTES: Use objects too large to swallow.
+
+WEDNESDAY:
+DAILY_THEME: Dough Science
+DAILY_OBJECTIVES: Explore texture, pressure, shape, and how materials change when mixed.
+DAILY_VOCABULARY: Dough, mix, soft, sticky, roll, press.
+DAILY_MATERIALS: Taste-safe dough or playdough, rollers, cutters, bowls, water droppers.
+DAILY_LEARNING_DOMAINS: Science, Fine Motor, Creative Arts, Language.
+CIRCLE_TIME_IDEAS: Compare dry ingredients with mixed dough and discuss changes.
+OUTDOOR_PLAY: Make pretend mud pies with soil or damp sand and large tools.
+DAILY_OBSERVATION_OPPORTUNITIES: Texture tolerance, squeezing, rolling, change noticing.
+DAILY_ADAPTATIONS: Offer sealed dough bags or tools only.
+SAFETY_NOTES: Verify allergies and use taste-safe ingredients when appropriate.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Mix a Simple Dough
+ACTIVITY_1_OBJECTIVE: Observe how dry and wet materials combine.
+ACTIVITY_1_DESCRIPTION: Children help combine a safe dry mixture with small amounts of water.
+ACTIVITY_1_MATERIALS: Allergy-safe dry mix, water, bowls, spoons.
+ACTIVITY_1_SETUP: Premeasure ingredients and review allergy records.
+ACTIVITY_1_DIRECTIONS: 1. Touch or observe dry mix. 2. Add a little water. 3. Stir. 4. Notice the change. 5. Press the finished dough.
+ACTIVITY_1_TEACHER_ROLE: Add water slowly and describe changes.
+ACTIVITY_1_LEARNING_GOALS: Cause and effect, sequencing, sensory science.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Stirring, prediction, descriptive words.
+ACTIVITY_1_ADAPTATIONS: Teacher mixes inside a clear sealed bag.
+ACTIVITY_1_SAFETY_NOTES: Follow allergy policies; do not treat as food unless approved.
+ACTIVITY_2_CATEGORY: Fine Motor
+ACTIVITY_2_NAME: Roll and Cut Bakery Dough
+ACTIVITY_2_OBJECTIVE: Strengthen hands through rolling and pressing.
+ACTIVITY_2_DESCRIPTION: Children roll dough and press large cookie cutters.
+ACTIVITY_2_MATERIALS: Dough, chunky rollers, large cutters, trays.
+ACTIVITY_2_SETUP: Portion dough on individual trays.
+ACTIVITY_2_DIRECTIONS: 1. Press dough flat. 2. Roll forward and back. 3. Choose a cutter. 4. Press firmly. 5. Lift and examine the shape.
+ACTIVITY_2_TEACHER_ROLE: Model motions and shape vocabulary.
+ACTIVITY_2_LEARNING_GOALS: Hand strength, coordination, shape awareness.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Pressure, bilateral use, shape matching.
+ACTIVITY_2_ADAPTATIONS: Use soft dough and easy-grip rollers.
+ACTIVITY_2_SAFETY_NOTES: Supervise to prevent mouthing.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Dough Bakery Creations
+ACTIVITY_3_OBJECTIVE: Use open-ended materials to create pretend baked goods.
+ACTIVITY_3_DESCRIPTION: Children shape dough into breads, cookies, or cupcakes.
+ACTIVITY_3_MATERIALS: Dough, cupcake liners, plates, rollers, safe decorations.
+ACTIVITY_3_SETUP: Create a dough bakery invitation.
+ACTIVITY_3_DIRECTIONS: 1. Choose what to make. 2. Shape the dough. 3. Add safe large decorations. 4. Place on a tray. 5. Pretend to serve it.
+ACTIVITY_3_TEACHER_ROLE: Encourage imagination and avoid adult-made models.
+ACTIVITY_3_LEARNING_GOALS: Creativity, symbolic play, fine motor control.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Planning, representation, language.
+ACTIVITY_3_ADAPTATIONS: Offer formed dough bases to decorate.
+ACTIVITY_3_SAFETY_NOTES: Avoid beads or small decorations.
+
+THURSDAY:
+DAILY_THEME: Cupcakes, Colors, and Patterns
+DAILY_OBJECTIVES: Match colors, create simple patterns, and decorate through process play.
+DAILY_VOCABULARY: Cupcake, color, match, pattern, top, bottom.
+DAILY_MATERIALS: Cupcake liners, colored pom-poms, paper cupcakes, paint, tongs.
+DAILY_LEARNING_DOMAINS: Math, Creative Arts, Fine Motor, Language.
+CIRCLE_TIME_IDEAS: Count felt cupcakes and make an AB color pattern together.
+OUTDOOR_PLAY: Cupcake Color Hunt using colored cones or cards.
+DAILY_OBSERVATION_OPPORTUNITIES: Matching, pattern copying, tool use, color words.
+DAILY_ADAPTATIONS: Use two colors only and allow hand placement.
+SAFETY_NOTES: Use only large manipulatives.
+ACTIVITY_1_CATEGORY: Math
+ACTIVITY_1_NAME: Cupcake Color Match
+ACTIVITY_1_OBJECTIVE: Match colored toppings to cupcake liners.
+ACTIVITY_1_DESCRIPTION: Children place large colored pom-poms into matching liners.
+ACTIVITY_1_MATERIALS: Colored liners, large pom-poms, tongs.
+ACTIVITY_1_SETUP: Arrange liners by color.
+ACTIVITY_1_DIRECTIONS: 1. Choose a topping. 2. Name or point to its color. 3. Find the matching liner. 4. Place it inside. 5. Count each color group.
+ACTIVITY_1_TEACHER_ROLE: Model matching and color language.
+ACTIVITY_1_LEARNING_GOALS: Classification, color recognition, fine motor control.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Match accuracy, grip, vocabulary.
+ACTIVITY_1_ADAPTATIONS: Reduce to two colors or use hands.
+ACTIVITY_1_SAFETY_NOTES: Use oversized materials and supervise.
+ACTIVITY_2_CATEGORY: Creative Arts
+ACTIVITY_2_NAME: Paint a Cupcake
+ACTIVITY_2_OBJECTIVE: Explore mark making and color mixing.
+ACTIVITY_2_DESCRIPTION: Children paint large paper cupcakes with brushes, sponges, or fingers.
+ACTIVITY_2_MATERIALS: Paper cupcakes, washable paint, tools, smocks.
+ACTIVITY_2_SETUP: Tape paper down and portion paint.
+ACTIVITY_2_DIRECTIONS: 1. Choose colors. 2. Paint the wrapper. 3. Paint the top. 4. Add dots or swirls. 5. Describe the creation.
+ACTIVITY_2_TEACHER_ROLE: Encourage process over product.
+ACTIVITY_2_LEARNING_GOALS: Creativity, hand control, color exploration.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Tool choice, pressure, color combinations.
+ACTIVITY_2_ADAPTATIONS: Use a sealed paint bag.
+ACTIVITY_2_SAFETY_NOTES: Use non-toxic paint.
+ACTIVITY_3_CATEGORY: Math
+ACTIVITY_3_NAME: Bakery Pattern Trays
+ACTIVITY_3_OBJECTIVE: Copy a simple two-item pattern.
+ACTIVITY_3_DESCRIPTION: Children arrange pretend cookies and cupcakes in repeating rows.
+ACTIVITY_3_MATERIALS: Large toy cookies, cupcakes, trays, pattern cards.
+ACTIVITY_3_SETUP: Create simple AB picture cards.
+ACTIVITY_3_DIRECTIONS: 1. Look at the card. 2. Place one cookie. 3. Place one cupcake. 4. Repeat together. 5. Make a new row.
+ACTIVITY_3_TEACHER_ROLE: Point and say the pattern rhythm.
+ACTIVITY_3_LEARNING_GOALS: Early algebraic thinking, matching, sequencing.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Copying, attention, correction.
+ACTIVITY_3_ADAPTATIONS: Complete a two-item match instead of a repeating pattern.
+ACTIVITY_3_SAFETY_NOTES: Use large sturdy props.
+
+FRIDAY:
+DAILY_THEME: Bakery Celebration
+DAILY_OBJECTIVES: Review the week, cooperate in bakery play, count orders, and practice cleanup.
+DAILY_VOCABULARY: Order, tray, serve, clean, share, celebrate.
+DAILY_MATERIALS: Bakery center props, order cards, trays, pretend foods, cleaning cloths.
+DAILY_LEARNING_DOMAINS: Dramatic Play, Math, Language, Social-Emotional, Self-Help.
+CIRCLE_TIME_IDEAS: Review picture cards from the week and sing Pat-a-Cake.
+OUTDOOR_PLAY: Bakery Delivery Course with trays, baskets, and marked destinations.
+DAILY_OBSERVATION_OPPORTUNITIES: Recall, role play, order matching, teamwork, cleanup.
+DAILY_ADAPTATIONS: Use single-picture order cards and lightweight trays.
+SAFETY_NOTES: Keep pathways clear and avoid carrying real food outdoors.
+ACTIVITY_1_CATEGORY: Dramatic Play
+ACTIVITY_1_NAME: Fill a Bakery Order
+ACTIVITY_1_OBJECTIVE: Match picture orders and practice serving others.
+ACTIVITY_1_DESCRIPTION: Children select pretend foods shown on simple order cards.
+ACTIVITY_1_MATERIALS: Picture cards, pretend foods, trays, baskets.
+ACTIVITY_1_SETUP: Place one- and two-item orders near the bakery center.
+ACTIVITY_1_DIRECTIONS: 1. Choose an order. 2. Find the matching food. 3. Put it on a tray. 4. Deliver it. 5. Return and choose another.
+ACTIVITY_1_TEACHER_ROLE: Support matching, counting, and polite social language.
+ACTIVITY_1_LEARNING_GOALS: Visual matching, memory, social interaction, sequencing.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Order accuracy, carrying, communication.
+ACTIVITY_1_ADAPTATIONS: Use one-item photo cards.
+ACTIVITY_1_SAFETY_NOTES: Use lightweight trays and clear routes.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Count the Bakery Treats
+ACTIVITY_2_OBJECTIVE: Count one to five objects with one-to-one correspondence.
+ACTIVITY_2_DESCRIPTION: Children place the requested number of pretend treats on plates.
+ACTIVITY_2_MATERIALS: Plates, pretend treats, dot cards.
+ACTIVITY_2_SETUP: Set out dot cards from one to five.
+ACTIVITY_2_DIRECTIONS: 1. Pick a card. 2. Count its dots. 3. Add that many treats. 4. Check together. 5. Try another.
+ACTIVITY_2_TEACHER_ROLE: Touch-count each item with the child.
+ACTIVITY_2_LEARNING_GOALS: Counting, quantity matching, attention.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Stable counting order, quantity accuracy.
+ACTIVITY_2_ADAPTATIONS: Use one to three.
+ACTIVITY_2_SAFETY_NOTES: Use oversized pretend food.
+ACTIVITY_3_CATEGORY: Self-Help
+ACTIVITY_3_NAME: Bakery Cleanup Team
+ACTIVITY_3_OBJECTIVE: Sort tools and participate in classroom care.
+ACTIVITY_3_DESCRIPTION: Children wipe surfaces and return tools to labeled baskets.
+ACTIVITY_3_MATERIALS: Damp cloths, picture labels, baskets, tools.
+ACTIVITY_3_SETUP: Add matching picture labels to storage areas.
+ACTIVITY_3_DIRECTIONS: 1. Find one tool. 2. Match its picture. 3. Put it away. 4. Wipe a safe surface. 5. Celebrate the clean bakery.
+ACTIVITY_3_TEACHER_ROLE: Model routines and acknowledge teamwork.
+ACTIVITY_3_LEARNING_GOALS: Independence, sorting, responsibility, cooperation.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Matching, following routines, willingness to help.
+ACTIVITY_3_ADAPTATIONS: Give one specific cleanup job.
+ACTIVITY_3_SAFETY_NOTES: Use water-only cloths or approved child-safe products.
