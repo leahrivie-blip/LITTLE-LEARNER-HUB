@@ -5136,7 +5136,7 @@ function isPlayBasedCurriculumEnabled() {
   return true;
 }
 
-/** Phase 1 expansion flags — default OFF until an approved release. */
+/** Expansion flags — default OFF. Director Center is admin-preview only. */
 const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
   directorCenter: false,
   formsCenter: false,
@@ -5150,13 +5150,24 @@ const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
 });
 
 let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+let expansionFeaturePolicyCache = {
+  directorCenter: "admin_preview_only",
+  formsCenter: "forced_off",
+  familyHub: "forced_off",
+  productionLocked: true,
+  allowDirectorCenterAdminPreview: false,
+};
+let expansionViewerAccessCache = {
+  isVerifiedAdmin: false,
+  canAccessDirectorCenter: false,
+};
 
 function normalizeExpansionFeatureFlags(value) {
   const input = value && typeof value === "object" ? value : {};
   return {
     directorCenter: input.directorCenter === true,
-    formsCenter: input.formsCenter === true,
-    familyHub: input.familyHub === true,
+    formsCenter: false,
+    familyHub: false,
   };
 }
 
@@ -5166,6 +5177,13 @@ function expansionFeatureFlags() {
 
 function isExpansionFeatureEnabled(flagKey) {
   if (!flagKey) return true;
+  if (flagKey === "formsCenter" || flagKey === "familyHub") return false;
+  if (flagKey === "directorCenter") {
+    return expansionFeatureFlags().directorCenter === true
+      && expansionViewerAccessCache.canAccessDirectorCenter === true
+      && typeof hasAdminFullAccess === "function"
+      && hasAdminFullAccess();
+  }
   return expansionFeatureFlags()[flagKey] === true;
 }
 
@@ -5181,17 +5199,35 @@ function isExpansionViewEnabled(view) {
 
 async function loadExpansionFeatureFlagsFromBackend() {
   expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+  expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false };
   if (!canUseLaunchBackend()) {
     syncPlatformNavVisibility();
     return expansionFeatureFlags();
   }
   try {
-    const response = await fetch(`/api/foundation/feature-flags?t=${Date.now()}`, { cache: "no-store" });
+    const headers = { Accept: "application/json" };
+    const token = adminSession()?.token || "";
+    if (isAdminUnlocked() && token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+    const response = await fetch(`/api/foundation/feature-flags?t=${Date.now()}`, {
+      cache: "no-store",
+      headers,
+    });
     if (!response.ok) throw new Error("feature flags unavailable");
     const data = await response.json();
     expansionFeatureFlagsCache = normalizeExpansionFeatureFlags(data?.flags);
+    expansionFeaturePolicyCache = {
+      ...expansionFeaturePolicyCache,
+      ...(data?.policy || {}),
+    };
+    expansionViewerAccessCache = {
+      isVerifiedAdmin: data?.viewer?.isVerifiedAdmin === true,
+      canAccessDirectorCenter: data?.viewer?.canAccessDirectorCenter === true,
+    };
   } catch (_) {
     expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+    expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false };
   }
   syncPlatformNavVisibility();
   return expansionFeatureFlags();
@@ -10508,7 +10544,8 @@ function syncPlatformNavVisibility() {
     const permanentlyHidden = button.hasAttribute("data-nav-hidden");
     const featureFlag = button.getAttribute("data-feature-flag") || "";
     const featureAllowed = !featureFlag || isExpansionFeatureEnabled(featureFlag);
-    const allowed = !permanentlyHidden
+    const adminPreviewReveal = featureFlag === "directorCenter" && featureAllowed;
+    const allowed = (!permanentlyHidden || adminPreviewReveal)
       && featureAllowed
       && (!capability || canAccessCapability(account, capability, {
         adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
@@ -10519,6 +10556,13 @@ function syncPlatformNavVisibility() {
     else button.setAttribute("tabindex", "-1");
   });
   document.querySelectorAll("#platformNav [data-nav-hidden='true']").forEach((button) => {
+    const featureFlag = button.getAttribute("data-feature-flag") || "";
+    if (featureFlag === "directorCenter" && isExpansionFeatureEnabled("directorCenter")) {
+      button.hidden = false;
+      button.setAttribute("aria-hidden", "false");
+      button.removeAttribute("tabindex");
+      return;
+    }
     button.hidden = true;
     button.setAttribute("aria-hidden", "true");
     button.setAttribute("tabindex", "-1");
@@ -28558,36 +28602,114 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
-  const planned = [
-    { title: "Staff Management", detail: "Invite staff, assign roles, and manage access." },
-    { title: "Classroom Management", detail: "Organize classrooms and daily classroom workflows." },
-    { title: "Child Assignments", detail: "Assign children to classrooms and staff." },
-    { title: "Classroom Calendars", detail: "Plan by classroom with shared visibility." },
-    { title: "Enrollment", detail: "Track enrollment and onboarding paperwork." },
-    { title: "Forms", detail: "Center forms and administrative documents." },
-    { title: "Center Administration", detail: "Operate your center from one professional hub." },
-  ];
+  if (!isExpansionFeatureEnabled("directorCenter")) {
+    section.innerHTML = `
+      <section class="platform-placeholder-page director-center-page">
+        <div class="page-title">
+          <p class="eyebrow">Director Center</p>
+          <h2>Unavailable</h2>
+          <p>Director Center is not available in this environment.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
   section.innerHTML = `
-    <section class="platform-placeholder-page director-center-page">
+    <section class="platform-placeholder-page director-center-page" data-director-center-preview="true">
       <div class="page-title">
-        <p class="eyebrow">Director Center</p>
-        <h2>Coming Soon</h2>
-        <p>Director Center will bring staff, classrooms, enrollment, and center administration into one clear place.</p>
+        <p class="eyebrow">Director Center · Admin Preview</p>
+        <h2>Private Preview</h2>
+        <p>Admin-only Phase 2 foundation preview. Regular members cannot access this surface.</p>
       </div>
       <div class="platform-placeholder-hero">
-        <span class="badge-coming-soon">Coming Soon</span>
-        <p class="muted-copy">Founding Members will receive access to future Director Center features as they are released.</p>
+        <span class="badge-coming-soon">Admin Preview</span>
+        <p class="muted-copy">formsCenter and familyHub remain OFF. Production stays locked.</p>
       </div>
-      <div class="platform-placeholder-grid">
-        ${planned.map((item) => `
-          <article class="platform-placeholder-card">
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.detail)}</p>
-          </article>
-        `).join("")}
+      <div id="directorCenterPreviewStatus" class="section-block">
+        <p class="muted-copy">Loading preview status…</p>
       </div>
+      <form id="directorCenterClassroomForm" class="section-block" style="display:grid;gap:0.75rem;max-width:28rem;">
+        <h3>Add classroom</h3>
+        <label>Name <input name="name" required maxlength="80" placeholder="Toddlers" /></label>
+        <label>Age group <input name="ageGroupDefault" maxlength="40" placeholder="Toddler" /></label>
+        <button class="primary-button" type="submit">Create classroom</button>
+      </form>
+      <div id="directorCenterClassroomList" class="section-block"></div>
     </section>
   `;
+  loadDirectorCenterPreview().catch((error) => {
+    const status = document.querySelector("#directorCenterPreviewStatus");
+    if (status) status.innerHTML = `<p class="error-copy">${escapeHtml(error.message || "Could not load Director Center preview.")}</p>`;
+  });
+  const form = document.querySelector("#directorCenterClassroomForm");
+  if (form && !form.dataset.bound) {
+    form.dataset.bound = "1";
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(form);
+      try {
+        await createDirectorCenterClassroom({
+          name: String(data.get("name") || "").trim(),
+          ageGroupDefault: String(data.get("ageGroupDefault") || "").trim(),
+        });
+        form.reset();
+        await loadDirectorCenterPreview();
+      } catch (error) {
+        window.alert(error.message || "Could not create classroom.");
+      }
+    });
+  }
+}
+
+async function directorCenterAuthHeaders() {
+  const token = adminSession()?.token || "";
+  if (!token || !hasAdminFullAccess()) {
+    throw new Error("Verified admin unlock is required for Director Center preview.");
+  }
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function loadDirectorCenterPreview() {
+  const status = document.querySelector("#directorCenterPreviewStatus");
+  const list = document.querySelector("#directorCenterClassroomList");
+  if (!status || !list) return;
+  const headers = await directorCenterAuthHeaders();
+  const [overviewRes, classroomsRes] = await Promise.all([
+    fetch("/api/director-center/overview", { headers, cache: "no-store" }),
+    fetch("/api/director-center/classrooms", { headers, cache: "no-store" }),
+  ]);
+  const overview = await overviewRes.json();
+  const classroomsPayload = await classroomsRes.json();
+  if (!overviewRes.ok) throw new Error(overview.error || "Director Center overview unavailable.");
+  if (!classroomsRes.ok) throw new Error(classroomsPayload.error || "Director Center classrooms unavailable.");
+  const profile = overview.programProfile || {};
+  const classrooms = classroomsPayload.classrooms || [];
+  status.innerHTML = `
+    <p><strong>Program:</strong> ${escapeHtml(profile.programName || overview.organization?.name || "Preview Program")}</p>
+    <p><strong>Organization ID:</strong> ${escapeHtml(overview.organization?.id || "")}</p>
+    <p><strong>Classrooms:</strong> ${classrooms.length}</p>
+    <p><strong>Staff memberships:</strong> ${(overview.staffMemberships || []).length}</p>
+    <p><strong>Children:</strong> ${(overview.childRecords || []).length}</p>
+  `;
+  list.innerHTML = classrooms.length
+    ? `<ul>${classrooms.map((room) => `<li><strong>${escapeHtml(room.name)}</strong> · ${escapeHtml(room.id)}${room.ageGroupDefault ? ` · ${escapeHtml(room.ageGroupDefault)}` : ""}</li>`).join("")}</ul>`
+    : `<p class="muted-copy">No classrooms yet.</p>`;
+}
+
+async function createDirectorCenterClassroom(payload) {
+  const headers = await directorCenterAuthHeaders();
+  const response = await fetch("/api/director-center/classrooms", {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload || {}),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || "Could not create classroom.");
+  return data.classroom;
 }
 
 function renderSupportCategoryPage(category) {
@@ -35574,6 +35696,9 @@ function setAdminSession(sessionDetail) {
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
   startAdminSessionHeartbeat();
+  if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
+    loadExpansionFeatureFlagsFromBackend().catch(() => {});
+  }
   return session;
 }
 
@@ -35594,6 +35719,9 @@ function clearAdminSession(options = {}) {
   refreshAdminPreviewBadge();
   document.body.classList.remove("admin-preview-simulating");
   delete document.body.dataset.adminPreview;
+  if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
+    loadExpansionFeatureFlagsFromBackend().catch(() => {});
+  }
 }
 
 function markAdminSessionInvalidOnServer(detail = "") {

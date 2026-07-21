@@ -118,15 +118,16 @@ No visible setup form was added.
 
 | Flag key | Default | Purpose |
 |----------|---------|---------|
-| `directorCenter` | **OFF** | Director Center expansion |
-| `formsCenter` | **OFF** | Custom Forms Center |
-| `familyHub` | **OFF** | Family Hub / parent surfaces |
+| `directorCenter` | **OFF** | Director Center expansion (Phase 2: admin private preview only) |
+| `formsCenter` | **OFF** (forced) | Custom Forms Center — remains unavailable |
+| `familyHub` | **OFF** (forced) | Family Hub / parent surfaces — remains unavailable |
 
 Enforcement:
-- Client: hidden nav (`data-nav-hidden` + `data-feature-flag`) and `setView` redirect when OFF
-- Server: `/api/director-center/*`, `/api/forms-center/*`, `/api/family-hub/*` return **403** `feature_unavailable` when OFF
-- Public read: `GET /api/foundation/feature-flags`
-- Existing routes such as `/api/staff/invites` are **not** blocked (preserves current access)
+- Client: hidden nav + `setView` redirect unless viewer is a verified admin with preview access
+- Server: `/api/director-center/*` requires private-preview env + stored flag + verified admin session
+- `/api/forms-center/*` and `/api/family-hub/*` always unavailable
+- Live production host forces all expansion flags OFF
+- Existing routes such as `/api/staff/invites` are **not** blocked
 
 ---
 

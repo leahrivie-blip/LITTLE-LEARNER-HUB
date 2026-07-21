@@ -25,6 +25,7 @@ const expansionFeatureFlags = require("../scripts/expansion-feature-flags.js");
 const foundationDataModel = require("../scripts/foundation-data-model.js");
 const orgPermissions = require("../scripts/org-permissions.js");
 const entitlementModel = require("../scripts/entitlement-model.js");
+const { createDirectorCenterApi } = require("./director-center-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -736,11 +737,42 @@ function ensureFoundationCollections(store) {
   return foundationDataModel.ensureFoundationStore(store);
 }
 
+function expansionEnvironment() {
+  return expansionFeatureFlags.resolveExpansionEnvironment({
+    env: process.env,
+    siteUrl: SITE_URL,
+  });
+}
+
 function expansionFlagsFromStore(store = peekStore()) {
   const siteContent = store?.siteContent && typeof store.siteContent === "object"
     ? store.siteContent
     : {};
   return expansionFeatureFlags.normalizeExpansionFeatureFlags(siteContent.featureFlags);
+}
+
+function adminTokenFromRequest(request, url = null) {
+  const authHeader = String(request?.headers?.authorization || "");
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer) return bearer;
+  }
+  const headerToken = String(request?.headers?.["x-llh-admin-token"] || "").trim();
+  if (headerToken) return headerToken;
+  if (url && typeof url.searchParams?.get === "function") {
+    return String(url.searchParams.get("adminToken") || "").trim();
+  }
+  return "";
+}
+
+function resolveVerifiedAdminFromRequest(request, url = null) {
+  const token = adminTokenFromRequest(request, url);
+  if (!token || !validAdminToken(token)) return null;
+  const store = peekStore();
+  const session = store.adminSessions?.[token] || storeCache?.adminSessions?.[token] || null;
+  const email = normalizeEmail(session?.email || "");
+  if (!email || !isConfiguredAdminEmail(email)) return null;
+  return { token, email, session };
 }
 
 function defaultAiSettings() {
@@ -770,8 +802,16 @@ function defaultFeatureFlags() {
 
 function normalizedFeatureFlags(value) {
   // Phase 2H: play-based curriculum is permanently active.
-  // Expansion flags stay OFF unless explicitly set to true (safe for production).
-  return expansionFeatureFlags.mergeFeatureFlags(value);
+  // formsCenter + familyHub stay forced OFF.
+  // directorCenter may be stored only in private preview environments — never on live production.
+  const merged = expansionFeatureFlags.mergeFeatureFlags(value);
+  const env = expansionEnvironment();
+  if (env.liveProduction || !env.allowDirectorCenterAdminPreview) {
+    merged.directorCenter = false;
+  }
+  merged.formsCenter = false;
+  merged.familyHub = false;
+  return merged;
 }
 
 function defaultFreePlanAccessStore() {
@@ -14951,21 +14991,31 @@ function handleReleaseNotesList(request, response, url) {
   jsonResponse(response, 200, { releaseNotes: published.slice(0, 50).map(publicReleaseNote) });
 }
 
-// ─── Phase 1 Director / Family / Forms foundation (hidden, flags default OFF) ───
+// ─── Phase 1/2 Director / Family / Forms foundation (hidden; admin preview only) ───
 
-function handleFoundationFeatureFlags(request, response) {
+function handleFoundationFeatureFlags(request, response, url) {
   const flags = expansionFlagsFromStore(peekStore());
-  jsonResponse(response, 200, expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags));
+  const admin = resolveVerifiedAdminFromRequest(request, url);
+  jsonResponse(response, 200, expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
+    environment: expansionEnvironment(),
+    isVerifiedAdmin: Boolean(admin),
+    siteUrl: SITE_URL,
+  }));
 }
 
-function handleFoundationStatus(request, response) {
+function handleFoundationStatus(request, response, url) {
   const store = readStore();
   ensureFoundationCollections(store);
   const flags = expansionFlagsFromStore(store);
+  const admin = resolveVerifiedAdminFromRequest(request, url);
   jsonResponse(response, 200, {
-    phase: 1,
+    phase: 2,
     liveExposure: false,
-    featureFlags: expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags),
+    featureFlags: expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
+      environment: expansionEnvironment(),
+      isVerifiedAdmin: Boolean(admin),
+      siteUrl: SITE_URL,
+    }),
     foundation: foundationDataModel.foundationStatusSummary(store),
     permissions: {
       roles: orgPermissions.ORG_ROLES,
@@ -15019,20 +15069,40 @@ function handleFoundationEntitlementCatalog(request, response) {
 }
 
 /**
- * Reject unfinished expansion APIs while their feature flags are OFF.
+ * Reject unfinished expansion APIs unless private-preview + verified admin.
  * Existing production routes (/api/staff, /api/child-data, etc.) are not gated here.
  */
 function rejectDisabledExpansionRoute(request, response, url) {
   const flagKey = expansionFeatureFlags.expansionFlagForRoute(url.pathname);
   if (!flagKey) return false;
-  const flags = expansionFlagsFromStore(peekStore());
-  if (expansionFeatureFlags.isExpansionFeatureEnabled(flags, flagKey)) return false;
-  jsonResponse(response, 403, expansionFeatureFlags.unavailableExpansionPayload(flagKey));
+  const admin = resolveVerifiedAdminFromRequest(request, url);
+  const decision = expansionFeatureFlags.evaluateExpansionAccess({
+    flagKey,
+    storedFlags: expansionFlagsFromStore(peekStore()),
+    environment: expansionEnvironment(),
+    isVerifiedAdmin: Boolean(admin),
+  });
+  if (decision.allowed) return false;
+  jsonResponse(response, decision.status || 403, decision.payload || expansionFeatureFlags.unavailableExpansionPayload(flagKey));
   return true;
 }
 
 function handleExpansionUnavailableStub(request, response, flagKey) {
   jsonResponse(response, 403, expansionFeatureFlags.unavailableExpansionPayload(flagKey));
+}
+
+let _directorCenterApi;
+function getDirectorCenterApi() {
+  if (!_directorCenterApi) {
+    _directorCenterApi = createDirectorCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+    });
+  }
+  return _directorCenterApi;
 }
 
 
@@ -15078,13 +15148,16 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return await handlePublicSiteContent(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/foundation/feature-flags") return handleFoundationFeatureFlags(request, response);
-    if (request.method === "GET" && url.pathname === "/api/foundation/status") return handleFoundationStatus(request, response);
+    if (request.method === "GET" && url.pathname === "/api/foundation/feature-flags") return handleFoundationFeatureFlags(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/status") return handleFoundationStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/foundation/migration-plan") return handleFoundationMigrationPlan(request, response);
     if (request.method === "GET" && url.pathname === "/api/foundation/permissions") return handleFoundationPermissionCatalog(request, response);
     if (request.method === "GET" && url.pathname === "/api/foundation/entitlements") return handleFoundationEntitlementCatalog(request, response);
-    // Explicit stubs so direct hits still return a stable unavailable payload if a flag is turned on early without handlers.
+    // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
     if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url);
+      const handler = getDirectorCenterApi().matchRoute(request.method, url.pathname);
+      if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
     }
     if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {

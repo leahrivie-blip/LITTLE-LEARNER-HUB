@@ -208,7 +208,7 @@ test("app.js keeps Behavior & Support alias, Director Center, and Calendar landi
   assert.match(appJs, /function renderDirectorCenterPage/);
   assert.match(appJs, /data-nav-hidden/);
   assert.match(appJs, /setView\("calendar"/);
-  assert.match(appJs, /Founding Members will receive access to future Director Center features/);
+  assert.match(appJs, /Admin Preview|Director Center is not available in this environment/);
   assert.match(appJs, /Logged-in providers land on Calendar/);
 });
 
