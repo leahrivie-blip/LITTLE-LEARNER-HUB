@@ -224,6 +224,7 @@
           <button type="button" class="ghost-button" data-dc-tab="staff">Invite Staff</button>
           <button type="button" class="ghost-button" data-dc-tab="staff">Assign Staff</button>
           <button type="button" class="ghost-button" data-dc-tab="children">Assign Children</button>
+          <button type="button" class="ghost-button" data-dc-open-teacher-center>Open Teacher Classroom Experience</button>
           <button type="button" class="ghost-button" data-dc-open-calendar>View Classroom Calendars</button>
           <button type="button" class="ghost-button" data-dc-tab="program_profile">Edit Program Profile</button>
         </div>
@@ -309,7 +310,7 @@
               <ul class="dc-list">${(detail.recentDailyReports || []).map((p) => `<li>${escapeHtml(p.label)}</li>`).join("") || "<li>None in preview</li>"}</ul>
               <h4>Recent observations</h4>
               <ul class="dc-list">${(detail.recentObservations || []).map((p) => `<li>${escapeHtml(p.label)}</li>`).join("") || "<li>None in preview</li>"}</ul>
-              <p class="muted-copy">Calendar and child profile deep-links open the existing app surfaces. Full classroom-scoped calendar wiring is reserved for Phase 3.</p>
+              <p class="muted-copy">Calendar and child profile deep-links are available in the Teacher Classroom Phase 3 preview.</p>
             </section>
           </div>
         </section>
@@ -917,6 +918,11 @@
     root.querySelectorAll("[data-dc-open-calendar]").forEach((button) => {
       button.addEventListener("click", () => {
         if (typeof setView === "function") setView("calendar");
+      });
+    });
+    root.querySelectorAll("[data-dc-open-teacher-center]").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (typeof setView === "function") setView("teacher-center");
       });
     });
     root.querySelectorAll("[data-dc-open-child]").forEach((button) => {

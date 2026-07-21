@@ -239,8 +239,9 @@ test("unlocked Admin keeps platform sidebar without a member login", () => {
   assert.match(appJs, /data-admin-open-director-center/);
   assert.match(appJs, /closest\("\[data-admin-open-director-center\]"\)/);
   assert.match(appJs, /setView\("director-center"\)/);
-  assert.match(html, /styles\.css\?v=20260721-phase2-ui-complete/);
-  assert.match(html, /app\.js\?v=20260721-phase2-ui-complete/);
+  assert.match(html, /styles\.css\?v=20260721-phase3/);
+  assert.match(html, /app\.js\?v=20260721-phase3/);
+  assert.match(html, /teacher-center-ui\.js\?v=20260721-phase3/);
 });
 
 if (!process.exitCode) {

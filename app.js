@@ -5145,6 +5145,7 @@ const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
 
 const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
   "director-center": "directorCenter",
+  "teacher-center": "directorCenter",
   "forms-center": "formsCenter",
   "family-hub": "familyHub",
 });
@@ -10622,6 +10623,7 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (buttonView === "calendar" && resolvedView === "planner") return true;
   if (buttonView === "ai" && resolvedView === "generators") return true;
   if (buttonView === "director-center" && resolvedView === "director-center") return true;
+  if (buttonView === "teacher-center" && resolvedView === "teacher-center") return true;
   if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
@@ -12756,6 +12758,7 @@ function setView(view, options = {}) {
   if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
   if (resolvedView === "director-center") renderDirectorCenterPage();
+  if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") {
     if (options.settingsAnchor) renderSettingsHubPage._pendingAnchor = options.settingsAnchor;
@@ -28637,6 +28640,36 @@ function renderDirectorCenterPage() {
         <p class="eyebrow">Director Center · Admin Preview</p>
         <h2>Admin Preview — Test Data Only</h2>
         <p>Director Center UI module is loading…</p>
+      </div>
+    </section>
+  `;
+}
+
+function renderTeacherCenterPage() {
+  const section = document.querySelector("#view-teacher-center");
+  if (!section) return;
+  if (typeof window.renderTeacherCenterPreviewUI === "function") {
+    window.renderTeacherCenterPreviewUI();
+    return;
+  }
+  if (!isExpansionFeatureEnabled("directorCenter")) {
+    section.innerHTML = `
+      <section class="platform-placeholder-page director-center-page">
+        <div class="page-title">
+          <p class="eyebrow">Teacher Classroom</p>
+          <h2>Unavailable</h2>
+          <p>Teacher Classroom preview is not available in this environment.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
+  section.innerHTML = `
+    <section class="platform-placeholder-page director-center-page">
+      <div class="page-title">
+        <p class="eyebrow">Teacher Classroom · Admin Preview</p>
+        <h2>Admin Preview — Test Data Only</h2>
+        <p>Teacher Classroom UI module is loading...</p>
       </div>
     </section>
   `;
