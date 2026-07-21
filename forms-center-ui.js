@@ -737,6 +737,7 @@
       ["library", "Built-In Library"],
       ["forms", "My Forms"],
       ["templates", "Program Templates"],
+      ["responses", "Responses"],
       ["archived", "Archived Forms"],
       ["builder", "Create Form"],
     ];
@@ -868,6 +869,7 @@
             <div class="fc-card-actions">
               <button type="button" class="primary-button" data-fc-open="${escapeHtml(form.id)}">Open</button>
               <button type="button" class="ghost-button" data-fc-preview="${escapeHtml(form.id)}">Preview</button>
+              ${form.status === "published" ? `<button type="button" class="ghost-button" data-fc-assign="${escapeHtml(form.id)}" data-fc-assign-title="${escapeHtml(form.title)}">Send / Assign</button>` : ""}
               <button type="button" class="ghost-button" data-fc-duplicate="${escapeHtml(form.id)}">Duplicate</button>
               ${form.status === "archived"
                 ? `<button type="button" class="ghost-button" data-fc-restore="${escapeHtml(form.id)}">Restore</button>`
@@ -1447,11 +1449,16 @@
     return libraryBrowseHtml();
   }
 
+  function responsesHtml() {
+    return `<div id="fc-responses-mount"></div>`;
+  }
+
   function bodyHtml() {
     if (state.tab === "home") return homeHtml();
     if (state.tab === "library") return libraryHtml();
     if (state.tab === "forms") return formsHtml();
     if (state.tab === "templates") return templatesHtml();
+    if (state.tab === "responses") return responsesHtml();
     if (state.tab === "archived") return archivedHtml();
     if (state.tab === "builder") return builderHtml();
     if (state.tab === "preview") return previewHtml();
@@ -1469,12 +1476,15 @@
         ${navHtml()}
         ${state.error ? `<div class="fc-alert error" role="alert">${escapeHtml(state.error)}</div>` : ""}
         ${state.message ? `<div class="fc-alert success" role="status">${escapeHtml(state.message)}</div>` : ""}
-        ${state.loading ? `<div class="fc-loading">Loading Forms Center...</div>` : ""}
+        ${state.loading && state.tab !== "responses" ? `<div class="fc-loading">Loading Forms Center...</div>` : ""}
         ${bodyHtml()}
       </section>
       ${libraryConfirmModalHtml()}
     `;
     bind(root);
+    if (state.tab === "responses" && typeof window.renderFormResponsesDashboardUI === "function") {
+      window.renderFormResponsesDashboardUI();
+    }
   }
 
   function bind(root) {
@@ -1499,6 +1509,15 @@
       if (preview) { openPreview(preview.dataset.fcPreview).catch(() => {}); return; }
       const duplicate = event.target.closest("[data-fc-duplicate]");
       if (duplicate) { duplicateForm(duplicate.dataset.fcDuplicate).catch(() => {}); return; }
+      const assign = event.target.closest("[data-fc-assign]");
+      if (assign) {
+        state.tab = "responses";
+        render();
+        if (typeof window.openFormAssignmentModal === "function") {
+          window.openFormAssignmentModal(assign.dataset.fcAssign, assign.dataset.fcAssignTitle);
+        }
+        return;
+      }
       const archive = event.target.closest("[data-fc-archive]");
       if (archive) { archiveForm(archive.dataset.fcArchive).catch(() => {}); return; }
       const restore = event.target.closest("[data-fc-restore]");

@@ -27,6 +27,8 @@
     selectedChildId: "",
     childProfile: null,
     childTimeline: [],
+    childForms: [],
+    childFormsLoading: false,
     activeForm: "",
     loading: false,
     error: "",
@@ -585,6 +587,7 @@
           `).join("") || "<li>No timeline entries yet.</li>"}
         </ul>
       </section>
+      ${childFormsHtml()}
       ${formsHtml()}
     `;
   }
@@ -651,6 +654,52 @@
 
   function childName(childId) {
     return state.children.find((child) => child.id === childId)?.displayName || childId || "Child";
+  }
+
+  /**
+   * Phase 6: Forms/Documents section on the child profile. Reads the same
+   * organization-scoped responses the Forms Center Responses dashboard uses,
+   * filtered to this permanent child ID — never a name string.
+   */
+  async function loadChildForms(childId) {
+    state.childFormsLoading = true;
+    render();
+    try {
+      const data = await api("GET", `/api/forms-center/children/${encodeURIComponent(childId)}/forms`);
+      state.childForms = data.responses || [];
+    } catch (error) {
+      state.childForms = [];
+    } finally {
+      state.childFormsLoading = false;
+      render();
+    }
+  }
+
+  function childFormsHtml() {
+    return `
+      <section class="tc-panel">
+        <div class="tc-section-heading">
+          <h3>Forms &amp; Documents</h3>
+        </div>
+        ${state.childFormsLoading ? `<p class="muted-copy">Loading forms...</p>` : ""}
+        <ul class="tc-list tc-child-forms-list">
+          ${state.childForms.map((row) => `
+            <li>
+              <strong>${escapeHtml(row.formTitle)}</strong>
+              <span>
+                ${escapeHtml(row.statusLabel)} ·
+                Guardian: ${escapeHtml(row.recipientLabel || "—")} ·
+                ${row.submittedAt ? `Submitted ${escapeHtml(row.submittedAt.slice(0, 10))}` : "Not submitted yet"}
+                ${row.approvedAt ? ` · Approved ${escapeHtml(row.approvedAt.slice(0, 10))}` : ""}
+                · Version ${escapeHtml(row.formVersionNumber)}
+                · ${escapeHtml(row.signatureCount)} signature${row.signatureCount === 1 ? "" : "s"}
+                ${row.newerVersionAvailable ? " · Newer form version available" : ""}
+              </span>
+            </li>
+          `).join("") || "<li>No forms filed for this child yet.</li>"}
+        </ul>
+      </section>
+    `;
   }
 
   function activeTabHtml() {
@@ -806,12 +855,14 @@
           state.loading = false;
           render();
         }
+        loadChildForms(childId).catch(() => {});
       });
     });
     root.querySelector("[data-tc-back-children]")?.addEventListener("click", () => {
       state.childProfile = null;
       state.selectedChildId = "";
       state.activeForm = "";
+      state.childForms = [];
       render();
     });
     root.querySelectorAll("[data-tc-submit]").forEach((form) => {
