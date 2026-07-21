@@ -4,6 +4,7 @@
  */
 (function initFormsCenterPreviewUI(global) {
   const API = "/api/forms-center";
+  const LIBRARY_API = "/api/forms-center/library";
   const state = {
     tab: "home",
     home: null,
@@ -25,6 +26,24 @@
     error: "",
     message: "",
     undoStack: [],
+    // Built-in library (Phase 5)
+    library: {
+      home: null,
+      catalog: null,
+      results: null,
+      resultsLoading: false,
+      filter: { q: "", category: "", ageGroup: "", intendedUser: "", hasAcknowledgment: false, hasSignature: false, favoritesOnly: false, status: "active", sort: "recommended" },
+      view: "browse", // browse | preview | admin
+      templatesById: {},
+      previewData: null,
+      previewMode: "desktop",
+      pendingUseTemplateId: "",
+      confirmUseTemplate: null,
+      adminTemplates: [],
+      adminImportText: "",
+      adminImportPreview: null,
+      requestSeq: 0,
+    },
   };
 
   function escapeHtml(value) {
@@ -134,6 +153,218 @@
     const catalog = await api("GET", `${API}/field-types`);
     state.fieldTypes = catalog.fieldTypes || [];
     state.categories = catalog.categories || [];
+  }
+
+  // ── Built-In Library (Phase 5) ──────────────────────────────────────────
+
+  function cacheLibraryTemplates(list) {
+    (list || []).forEach((template) => { state.library.templatesById[template.id] = template; });
+  }
+
+  async function loadLibraryCatalog() {
+    const catalog = await api("GET", `${LIBRARY_API}/catalog`);
+    state.library.catalog = catalog;
+  }
+
+  async function refreshLibraryHome() {
+    state.loading = true;
+    state.error = "";
+    render();
+    try {
+      const home = await api("GET", `${LIBRARY_API}/home`);
+      state.library.home = home;
+      cacheLibraryTemplates(home.featured);
+      cacheLibraryTemplates(home.mostUsed);
+      cacheLibraryTemplates(home.recentlyAdded);
+      cacheLibraryTemplates(home.favorites);
+    } catch (error) {
+      state.error = error.message || "Could not load the built-in form library.";
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function refreshLibraryResults() {
+    state.library.resultsLoading = true;
+    render();
+    try {
+      const f = state.library.filter;
+      const params = new URLSearchParams({
+        q: f.q || "",
+        category: f.category || "",
+        ageGroup: f.ageGroup || "",
+        intendedUser: f.intendedUser || "",
+        hasAcknowledgment: f.hasAcknowledgment ? "1" : "",
+        hasSignature: f.hasSignature ? "1" : "",
+        favoritesOnly: f.favoritesOnly ? "1" : "",
+        status: f.status || "active",
+        sort: f.sort || "recommended",
+      });
+      const data = await api("GET", `${LIBRARY_API}/templates?${params}`);
+      state.library.results = data;
+      cacheLibraryTemplates(data.templates);
+    } catch (error) {
+      state.error = error.message || "Could not search the built-in form library.";
+    } finally {
+      state.library.resultsLoading = false;
+      render();
+    }
+  }
+
+  async function openLibraryTemplatePreview(templateId) {
+    state.loading = true;
+    state.error = "";
+    state.library.view = "preview";
+    render();
+    try {
+      const data = await api("GET", `${LIBRARY_API}/templates/${encodeURIComponent(templateId)}/preview`);
+      state.library.previewData = data;
+    } catch (error) {
+      state.error = error.message || "Could not load this template preview.";
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  function closeLibraryPreview() {
+    state.library.view = "browse";
+    state.library.previewData = null;
+    render();
+  }
+
+  async function toggleLibraryFavorite(templateId, favorited) {
+    try {
+      await api("POST", `${LIBRARY_API}/templates/${encodeURIComponent(templateId)}/favorite`, { favorited });
+      await refreshLibraryHome();
+      if (state.library.results) await refreshLibraryResults();
+    } catch (error) {
+      state.error = error.message || "Could not update favorites.";
+      render();
+    }
+  }
+
+  function askUseTemplate(templateId) {
+    const template = state.library.templatesById[templateId];
+    state.library.confirmUseTemplate = template || { id: templateId };
+    render();
+  }
+
+  function cancelUseTemplate() {
+    state.library.confirmUseTemplate = null;
+    render();
+  }
+
+  async function confirmUseTemplate() {
+    const template = state.library.confirmUseTemplate;
+    if (!template || state.library.pendingUseTemplateId === template.id) return;
+    state.library.pendingUseTemplateId = template.id;
+    render();
+    try {
+      const data = await api("POST", `${LIBRARY_API}/templates/${encodeURIComponent(template.id)}/use`, {
+        confirm: true,
+        requestId: newRequestId(),
+      });
+      state.library.confirmUseTemplate = null;
+      state.message = data.message || "Your editable program copy is ready.";
+      state.builder = { form: data.form, snapshot: data.snapshot || { sections: [], fields: [] } };
+      state.versions = [];
+      state.tab = "builder";
+      state.saveStatus = "Saved";
+      state.lastSavedAt = data.form?.updatedAt || "";
+    } catch (error) {
+      state.error = error.message || "Could not create your program copy.";
+    } finally {
+      state.library.pendingUseTemplateId = "";
+      render();
+    }
+  }
+
+  function libraryFilterField(name, value) {
+    state.library.filter[name] = value;
+  }
+
+  function isRawAdmin() {
+    return typeof adminSession === "function" && Boolean(adminSession()?.token) && typeof hasAdminFullAccess === "function" && hasAdminFullAccess();
+  }
+
+  async function openLibraryAdmin() {
+    state.library.view = "admin";
+    state.loading = true;
+    render();
+    try {
+      const data = await api("GET", `${LIBRARY_API}/admin/templates`);
+      state.library.adminTemplates = data.templates || [];
+    } catch (error) {
+      state.error = error.message || "Could not load built-in template administration. This area requires a verified system admin (not a previewed role).";
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function runLibraryImport({ dryRun }) {
+    let payload;
+    try {
+      payload = JSON.parse(state.library.adminImportText || "{}");
+    } catch (error) {
+      state.error = "That is not valid JSON. Paste a structured import payload with a top-level \"templates\" array.";
+      render();
+      return;
+    }
+    const templates = Array.isArray(payload) ? payload : (Array.isArray(payload.templates) ? payload.templates : []);
+    state.loading = true;
+    render();
+    try {
+      const data = await api("POST", `${LIBRARY_API}/admin/import`, { templates, dryRun: dryRun === true });
+      if (dryRun) {
+        state.library.adminImportPreview = data;
+        state.message = "Import validated. Review the preview, then import for real.";
+      } else {
+        state.library.adminImportPreview = null;
+        state.library.adminImportText = "";
+        state.message = "Import complete.";
+        await openLibraryAdmin();
+        await refreshLibraryHome();
+      }
+    } catch (error) {
+      state.error = error.message || "Import failed.";
+      state.library.adminImportPreview = { ok: false, errors: error.payload?.errors || [error.message] };
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function retireLibraryTemplate(templateId) {
+    state.loading = true;
+    render();
+    try {
+      await api("POST", `${LIBRARY_API}/admin/templates/${encodeURIComponent(templateId)}/retire`, {});
+      state.message = "Template retired. Existing organization copies are unaffected.";
+      await openLibraryAdmin();
+    } catch (error) {
+      state.error = error.message || "Could not retire this template.";
+    } finally {
+      state.loading = false;
+      render();
+    }
+  }
+
+  async function restoreLibraryTemplate(templateId) {
+    state.loading = true;
+    render();
+    try {
+      await api("POST", `${LIBRARY_API}/admin/templates/${encodeURIComponent(templateId)}/restore`, {});
+      state.message = "Template restored to active.";
+      await openLibraryAdmin();
+    } catch (error) {
+      state.error = error.message || "Could not restore this template.";
+    } finally {
+      state.loading = false;
+      render();
+    }
   }
 
   async function refreshHome() {
@@ -502,20 +733,25 @@
 
   function navHtml() {
     const tabs = [
-      ["home", "Home"],
+      ["home", "Forms Home"],
+      ["library", "Built-In Library"],
       ["forms", "My Forms"],
-      ["templates", "Templates"],
-      ["archived", "Archived"],
-      ["builder", "Create / Edit Builder"],
-      ["preview", "Preview"],
+      ["templates", "Program Templates"],
+      ["archived", "Archived Forms"],
+      ["builder", "Create Form"],
     ];
     return `
       <nav class="fc-tabs" aria-label="Forms Center sections">
         ${tabs.map(([id, label]) => `
-          <button type="button" class="fc-tab${state.tab === id ? " active" : ""}" data-fc-tab="${id}">${escapeHtml(label)}</button>
+          <button type="button" class="fc-tab${state.tab === id ? " active" : ""}" data-fc-tab="${id}" aria-current="${state.tab === id ? "page" : "false"}">${escapeHtml(label)}</button>
         `).join("")}
       </nav>
     `;
+  }
+
+  function newRequestId() {
+    state.library.requestSeq += 1;
+    return `libreq_${Date.now()}_${state.library.requestSeq}_${Math.random().toString(16).slice(2)}`;
   }
 
   function previewBannerHtml() {
@@ -625,6 +861,8 @@
                 <span>${escapeHtml(form.fieldCount || 0)} fields</span>
                 <span>${escapeHtml(form.versionCount || 0)} versions</span>
                 ${form.sourceFormId ? `<span>Duplicated from ${escapeHtml(form.sourceFormId)}</span>` : ""}
+                ${form.builtInSource ? `<span class="fcl-badge">From Built-In Library</span>` : ""}
+                ${form.builtInSource && libraryTemplateHasNewerVersion(form) ? `<span class="fcl-badge fcl-badge-newer">Newer template version available</span>` : ""}
               </div>
             </div>
             <div class="fc-card-actions">
@@ -906,8 +1144,312 @@
     `;
   }
 
+  function libraryTemplateHasNewerVersion(form) {
+    const template = state.library.templatesById[form.sourceTemplateId];
+    if (!template) return false;
+    return Number(template.currentVersionNumber || 0) > Number(form.sourceTemplateVersionNumber || 0);
+  }
+
+  function libraryCategoryLabel(id) {
+    return (state.library.catalog?.categories || []).find((c) => c.id === id)?.label || labelize(id);
+  }
+
+  function libraryAgeGroupLabel(id) {
+    return (state.library.catalog?.ageGroups || []).find((a) => a.id === id)?.label || labelize(id);
+  }
+
+  function libraryIntendedUserLabel(id) {
+    return (state.library.catalog?.intendedUsers || []).find((u) => u.id === id)?.label || labelize(id);
+  }
+
+  function libraryTemplateCardHtml(template) {
+    const pending = state.library.pendingUseTemplateId === template.id;
+    const retired = template.status === "retired";
+    return `
+      <article class="fcl-card" data-fcl-template-id="${escapeHtml(template.id)}">
+        <div class="fcl-card-top">
+          <span class="fcl-badge">Built-In</span>
+          ${retired ? `<span class="fcl-badge fcl-badge-retired">Retired</span>` : ""}
+          <button type="button" class="fcl-favorite${template.favorited ? " is-favorited" : ""}" data-fcl-favorite="${escapeHtml(template.id)}" data-favorited="${template.favorited ? "0" : "1"}" aria-pressed="${template.favorited ? "true" : "false"}" aria-label="${template.favorited ? "Remove from favorites" : "Add to favorites"}">${template.favorited ? "★" : "☆"}</button>
+        </div>
+        <h3>${escapeHtml(template.title)}</h3>
+        <p class="fcl-card-desc">${escapeHtml(template.shortDescription)}</p>
+        <div class="fcl-card-meta">
+          <span>${escapeHtml(libraryCategoryLabel(template.category))}</span>
+          <span>${(template.intendedUsers || []).map((u) => escapeHtml(libraryIntendedUserLabel(u))).join(", ")}</span>
+          <span>${(template.ageGroups || []).map((a) => escapeHtml(libraryAgeGroupLabel(a))).join(", ")}</span>
+        </div>
+        <div class="fcl-card-stats">
+          <span>${escapeHtml(template.sectionCount)} sections</span>
+          <span>~${escapeHtml(template.estimatedMinutes)} min</span>
+          ${template.hasAcknowledgment ? `<span>Acknowledgment</span>` : ""}
+          ${template.hasSignaturePlaceholder ? `<span>Signature placeholder</span>` : ""}
+        </div>
+        <div class="fcl-card-actions">
+          <button type="button" class="ghost-button" data-fcl-preview="${escapeHtml(template.id)}">Preview</button>
+          <button type="button" class="primary-button" data-fcl-use="${escapeHtml(template.id)}" ${retired || pending ? "disabled" : ""}>${pending ? "Creating…" : "Use This Template"}</button>
+        </div>
+        ${retired ? `<p class="fcl-retired-note">Retired — cannot be used to create a new copy.${template.replacedByTemplateId ? " A newer template may be available." : ""}</p>` : ""}
+      </article>
+    `;
+  }
+
+  function libraryCardRowHtml(title, templates, { emptyText = "Nothing to show yet." } = {}) {
+    if (!templates || !templates.length) {
+      return `
+        <section class="fcl-row">
+          <h3>${escapeHtml(title)}</h3>
+          <p class="muted-copy">${escapeHtml(emptyText)}</p>
+        </section>
+      `;
+    }
+    return `
+      <section class="fcl-row">
+        <h3>${escapeHtml(title)}</h3>
+        <div class="fcl-row-scroll">
+          ${templates.map(libraryTemplateCardHtml).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function libraryFiltersHtml() {
+    const f = state.library.filter;
+    const categories = state.library.catalog?.categories || [];
+    const ageGroups = state.library.catalog?.ageGroups || [];
+    const intendedUsers = state.library.catalog?.intendedUsers || [];
+    return `
+      <div class="fcl-toolbar" role="search">
+        <label>
+          Search
+          <input type="search" value="${escapeHtml(f.q)}" data-fcl-filter="q" placeholder="Search built-in forms" />
+        </label>
+        <label>
+          Category
+          <select data-fcl-filter="category">
+            <option value="">All categories</option>
+            ${categories.map((c) => `<option value="${escapeHtml(c.id)}"${f.category === c.id ? " selected" : ""}>${escapeHtml(c.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          Age group
+          <select data-fcl-filter="ageGroup">
+            <option value="">All ages</option>
+            ${ageGroups.map((a) => `<option value="${escapeHtml(a.id)}"${f.ageGroup === a.id ? " selected" : ""}>${escapeHtml(a.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          Form type
+          <select data-fcl-filter="intendedUser">
+            <option value="">Family, staff, or director</option>
+            ${intendedUsers.map((u) => `<option value="${escapeHtml(u.id)}"${f.intendedUser === u.id ? " selected" : ""}>${escapeHtml(u.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label>
+          Sort
+          <select data-fcl-filter="sort">
+            <option value="recommended"${f.sort === "recommended" ? " selected" : ""}>Recommended</option>
+            <option value="alphabetical"${f.sort === "alphabetical" ? " selected" : ""}>Alphabetical</option>
+            <option value="recently_added"${f.sort === "recently_added" ? " selected" : ""}>Recently added</option>
+            <option value="most_used"${f.sort === "most_used" ? " selected" : ""}>Most used</option>
+            <option value="completion_time"${f.sort === "completion_time" ? " selected" : ""}>Estimated completion time</option>
+          </select>
+        </label>
+        <label class="fc-check-label">
+          <input type="checkbox" ${f.hasAcknowledgment ? "checked" : ""} data-fcl-filter-check="hasAcknowledgment" />
+          Contains acknowledgment
+        </label>
+        <label class="fc-check-label">
+          <input type="checkbox" ${f.hasSignature ? "checked" : ""} data-fcl-filter-check="hasSignature" />
+          Contains signature placeholder
+        </label>
+        <label class="fc-check-label">
+          <input type="checkbox" ${f.favoritesOnly ? "checked" : ""} data-fcl-filter-check="favoritesOnly" />
+          Favorites only
+        </label>
+        <button type="button" class="primary-button" data-fcl-search>Search</button>
+      </div>
+    `;
+  }
+
+  function libraryBrowseHtml() {
+    const home = state.library.home;
+    const results = state.library.results;
+    return `
+      <section class="fc-panel fcl-hero">
+        <div>
+          <p class="eyebrow">Built-In Library</p>
+          <h2>Little Learner Hub Form Library</h2>
+          <p>Browse professionally written childcare forms. Preview any form, then choose Use This Template to create your own editable program copy — the built-in original never changes.</p>
+        </div>
+        <div class="fc-hero-actions">
+          ${isRawAdmin() ? `<button type="button" class="ghost-button" data-fcl-admin>Manage Built-In Templates</button>` : ""}
+        </div>
+      </section>
+      ${libraryFiltersHtml()}
+      ${state.library.resultsLoading ? `<div class="fc-loading">Searching the built-in library...</div>` : ""}
+      ${results
+        ? (results.templates.length
+          ? `<section class="fcl-row"><h3>Results (${escapeHtml(results.total)})</h3><div class="fcl-grid">${results.templates.map(libraryTemplateCardHtml).join("")}</div></section>`
+          : `<section class="fc-panel fcl-empty-state"><h3>No templates matched your search</h3><p class="muted-copy">Try clearing a filter or searching a different word.</p><button type="button" class="ghost-button" data-fcl-clear-filters>Clear filters</button></section>`)
+        : `
+          ${libraryCardRowHtml("Featured", home?.featured)}
+          ${libraryCardRowHtml("Most Used", home?.mostUsed)}
+          ${libraryCardRowHtml("Recently Added", home?.recentlyAdded)}
+          ${libraryCardRowHtml("Your Favorites", home?.favorites, { emptyText: "Favorite a template to find it here quickly." })}
+          <section class="fcl-row">
+            <h3>Browse by Category</h3>
+            <div class="fcl-category-chips">
+              ${(state.library.catalog?.categories || []).map((c) => `<button type="button" class="ghost-button" data-fcl-category-chip="${escapeHtml(c.id)}">${escapeHtml(c.label)} (${escapeHtml(home?.counts?.byCategory?.[c.id] || 0)})</button>`).join("")}
+            </div>
+          </section>
+          ${home && (home.recentPreviews?.length || home.recentCopies?.length) ? `
+            <section class="fc-grid-two">
+              <div class="fc-panel">
+                <h3>Recently Previewed</h3>
+                ${(home.recentPreviews || []).map((row) => `<article class="fcl-recent-row"><strong>${escapeHtml(row.templateTitle)}</strong><small>${escapeHtml(row.createdAt)}</small></article>`).join("") || `<p class="muted-copy">No previews yet.</p>`}
+              </div>
+              <div class="fc-panel">
+                <h3>Recently Copied</h3>
+                ${(home.recentCopies || []).map((row) => `<article class="fcl-recent-row"><strong>${escapeHtml(row.templateTitle)}</strong><small>${escapeHtml(row.createdAt)}</small></article>`).join("") || `<p class="muted-copy">No program copies yet.</p>`}
+              </div>
+            </section>
+          ` : ""}
+        `}
+    `;
+  }
+
+  function renderLibraryPreviewField(field) {
+    return renderPreviewField(field);
+  }
+
+  function libraryPreviewHtml() {
+    const data = state.library.previewData;
+    if (!data) {
+      return `
+        <section class="fc-panel">
+          <button type="button" class="ghost-button" data-fcl-back-to-browse>← Back to Built-In Library</button>
+          <p>Loading preview...</p>
+        </section>
+      `;
+    }
+    const template = data.template;
+    const version = data.version || { sections: [], fields: [] };
+    const sections = version.sections || [];
+    const fields = version.fields || [];
+    return `
+      <section class="fc-panel fc-preview-shell fcl-preview-shell">
+        <button type="button" class="ghost-button" data-fcl-back-to-browse>← Back to Built-In Library</button>
+        <div class="fc-builder-header">
+          <div>
+            <p class="eyebrow">Built-In Template Preview</p>
+            <h2>${escapeHtml(template.title)}</h2>
+            <p>${escapeHtml(data.message)}</p>
+            <p class="fcl-review-reminder">${escapeHtml(template.reviewReminder)}</p>
+            ${template.additionalReviewReminder ? `<p class="fcl-review-reminder">${escapeHtml(template.additionalReviewReminder)}</p>` : ""}
+          </div>
+          <div class="fc-preview-toggle" role="group" aria-label="Preview device size">
+            <button type="button" class="${state.library.previewMode === "desktop" ? "primary-button" : "ghost-button"}" data-fcl-preview-mode="desktop">Desktop</button>
+            <button type="button" class="${state.library.previewMode === "mobile" ? "primary-button" : "ghost-button"}" data-fcl-preview-mode="mobile">Mobile</button>
+          </div>
+        </div>
+        <div class="fcl-preview-brand">Your program logo and name will appear here once branding is set up.</div>
+        <div class="fc-preview-frame ${state.library.previewMode === "mobile" ? "is-mobile" : "is-desktop"}">
+          ${sections.map((section) => `
+            <section class="fc-preview-section">
+              <h3>${escapeHtml(section.title || "Section")}</h3>
+              ${section.description ? `<p>${escapeHtml(section.description)}</p>` : ""}
+              ${fields.filter((field) => field.sectionId === section.id).map(renderLibraryPreviewField).join("")}
+            </section>
+          `).join("")}
+        </div>
+        <div class="fc-card-actions">
+          <button type="button" class="primary-button" data-fcl-use="${escapeHtml(template.id)}" ${template.status === "retired" ? "disabled" : ""}>Use This Template</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function libraryConfirmModalHtml() {
+    const template = state.library.confirmUseTemplate;
+    if (!template) return "";
+    const pending = state.library.pendingUseTemplateId === template.id;
+    return `
+      <div class="fcl-modal-backdrop" data-fcl-modal-backdrop>
+        <div class="fcl-modal" role="dialog" aria-modal="true" aria-labelledby="fcl-modal-title">
+          <h3 id="fcl-modal-title">Create your editable program copy?</h3>
+          <p><strong>${escapeHtml(template.title)}</strong>${template.currentVersionNumber ? ` (version ${escapeHtml(template.currentVersionNumber)})` : ""}</p>
+          <p>This creates a new draft form owned by your program. The built-in original will remain unchanged, and you can customize every section and field in the Form Builder.</p>
+          <div class="fc-card-actions">
+            <button type="button" class="ghost-button" data-fcl-cancel-use>Cancel</button>
+            <button type="button" class="primary-button" data-fcl-confirm-use ${pending ? "disabled" : ""}>${pending ? "Creating…" : "Create My Program Copy"}</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  function libraryAdminHtml() {
+    const templates = state.library.adminTemplates || [];
+    const preview = state.library.adminImportPreview;
+    return `
+      <section class="fc-panel">
+        <button type="button" class="ghost-button" data-fcl-back-to-browse>← Back to Built-In Library</button>
+        <h2>Manage Built-In Templates</h2>
+        <p class="muted-copy">System-admin only. Available only outside of a director/teacher/assistant role preview. Structured import validates before saving and never overwrites a published template without a new version number and change summary.</p>
+        <label>
+          Structured import JSON (<code>{"templates":[...]}</code>)
+          <textarea data-fcl-import-text rows="10" placeholder='{"templates":[{"templateKey":"example-form","title":"Example Form","shortDescription":"...","category":"program_events_communication","version":1,"sections":[...]}]}'>${escapeHtml(state.library.adminImportText)}</textarea>
+        </label>
+        <div class="fc-card-actions">
+          <button type="button" class="ghost-button" data-fcl-import-validate>Validate (Preview Only)</button>
+          <button type="button" class="primary-button" data-fcl-import-apply>Import</button>
+        </div>
+        ${preview ? `
+          <div class="fc-alert ${preview.ok === false ? "error" : "success"}">
+            ${preview.ok === false
+              ? (preview.errors || []).map((e) => escapeHtml(e)).join("<br />")
+              : `Ready to import: ${(preview.preview || []).map((p) => `${escapeHtml(p.title)} (${escapeHtml(p.action)})`).join(", ")}`}
+          </div>
+        ` : ""}
+        <h3>Existing Built-In Templates (${escapeHtml(templates.length)})</h3>
+        <div class="fc-form-list">
+          ${templates.map((t) => `
+            <article class="fc-form-card">
+              <div>
+                <div class="fc-card-title-row">
+                  <h3>${escapeHtml(t.title)}</h3>
+                  <span class="fc-badge fc-badge-${t.status === "retired" ? "archived" : "published"}">${escapeHtml(labelize(t.status))}</span>
+                </div>
+                <p>${escapeHtml(t.shortDescription)}</p>
+                <div class="fc-card-meta">
+                  <span>Version ${escapeHtml(t.currentVersionNumber)}</span>
+                  <span>${escapeHtml(t.copyCount)} copies</span>
+                  <span>${escapeHtml(t.previewCount)} previews</span>
+                  <span>${escapeHtml(t.favoriteCount)} favorites</span>
+                </div>
+              </div>
+              <div class="fc-card-actions">
+                ${t.status === "retired"
+                  ? `<button type="button" class="ghost-button" data-fcl-restore-template="${escapeHtml(t.id)}">Restore</button>`
+                  : `<button type="button" class="ghost-button danger" data-fcl-retire-template="${escapeHtml(t.id)}">Retire</button>`}
+              </div>
+            </article>
+          `).join("")}
+        </div>
+      </section>
+    `;
+  }
+
+  function libraryHtml() {
+    if (state.library.view === "preview") return libraryPreviewHtml();
+    if (state.library.view === "admin") return libraryAdminHtml();
+    return libraryBrowseHtml();
+  }
+
   function bodyHtml() {
     if (state.tab === "home") return homeHtml();
+    if (state.tab === "library") return libraryHtml();
     if (state.tab === "forms") return formsHtml();
     if (state.tab === "templates") return templatesHtml();
     if (state.tab === "archived") return archivedHtml();
@@ -930,6 +1472,7 @@
         ${state.loading ? `<div class="fc-loading">Loading Forms Center...</div>` : ""}
         ${bodyHtml()}
       </section>
+      ${libraryConfirmModalHtml()}
     `;
     bind(root);
   }
@@ -942,6 +1485,7 @@
       if (tab) {
         state.tab = tab.dataset.fcTab;
         if (state.tab === "home") refreshHome().catch(() => {});
+        else if (state.tab === "library") { state.library.view = "browse"; refreshLibraryHome().catch(() => {}); }
         else if (state.tab === "forms") { state.filter.status = "active"; refreshForms().catch(() => {}); }
         else if (state.tab === "archived") { state.filter.status = "archived"; refreshForms().catch(() => {}); }
         else render();
@@ -984,6 +1528,39 @@
       if (moveBtn) { moveField(moveBtn.dataset.id, moveBtn.dataset.fcMoveField); return; }
       const previewMode = event.target.closest("[data-fc-preview-mode]");
       if (previewMode) { state.previewMode = previewMode.dataset.fcPreviewMode; render(); }
+
+      // ── Built-In Library (Phase 5) ──────────────────────────────────────
+      const libPreview = event.target.closest("[data-fcl-preview]");
+      if (libPreview) { openLibraryTemplatePreview(libPreview.dataset.fclPreview).catch(() => {}); return; }
+      const libUse = event.target.closest("[data-fcl-use]");
+      if (libUse && !libUse.disabled) { askUseTemplate(libUse.dataset.fclUse); return; }
+      const libFavorite = event.target.closest("[data-fcl-favorite]");
+      if (libFavorite) { toggleLibraryFavorite(libFavorite.dataset.fclFavorite, libFavorite.dataset.favorited === "1").catch(() => {}); return; }
+      if (event.target.closest("[data-fcl-back-to-browse]")) { closeLibraryPreview(); return; }
+      if (event.target.closest("[data-fcl-cancel-use]") || event.target.closest("[data-fcl-modal-backdrop]") === event.target) { cancelUseTemplate(); return; }
+      if (event.target.closest("[data-fcl-confirm-use]")) { confirmUseTemplate().catch(() => {}); return; }
+      if (event.target.closest("[data-fcl-search]")) { refreshLibraryResults().catch(() => {}); return; }
+      if (event.target.closest("[data-fcl-clear-filters]")) {
+        state.library.filter = { q: "", category: "", ageGroup: "", intendedUser: "", hasAcknowledgment: false, hasSignature: false, favoritesOnly: false, status: "active", sort: "recommended" };
+        state.library.results = null;
+        render();
+        return;
+      }
+      const categoryChip = event.target.closest("[data-fcl-category-chip]");
+      if (categoryChip) {
+        state.library.filter.category = categoryChip.dataset.fclCategoryChip;
+        refreshLibraryResults().catch(() => {});
+        return;
+      }
+      const previewModeLib = event.target.closest("[data-fcl-preview-mode]");
+      if (previewModeLib) { state.library.previewMode = previewModeLib.dataset.fclPreviewMode; render(); return; }
+      if (event.target.closest("[data-fcl-admin]")) { openLibraryAdmin().catch(() => {}); return; }
+      if (event.target.closest("[data-fcl-import-validate]")) { runLibraryImport({ dryRun: true }).catch(() => {}); return; }
+      if (event.target.closest("[data-fcl-import-apply]")) { runLibraryImport({ dryRun: false }).catch(() => {}); return; }
+      const retireBtn = event.target.closest("[data-fcl-retire-template]");
+      if (retireBtn) { retireLibraryTemplate(retireBtn.dataset.fclRetireTemplate).catch(() => {}); return; }
+      const restoreBtn = event.target.closest("[data-fcl-restore-template]");
+      if (restoreBtn) { restoreLibraryTemplate(restoreBtn.dataset.fclRestoreTemplate).catch(() => {}); return; }
     });
     root.addEventListener("input", (event) => {
       const filter = event.target.closest("[data-fc-filter]");
@@ -991,6 +1568,12 @@
         state.filter[filter.dataset.fcFilter] = filter.value;
         return;
       }
+      const libFilter = event.target.closest("[data-fcl-filter]");
+      if (libFilter) { libraryFilterField(libFilter.dataset.fclFilter, libFilter.value); return; }
+      const libFilterCheck = event.target.closest("[data-fcl-filter-check]");
+      if (libFilterCheck) { libraryFilterField(libFilterCheck.dataset.fclFilterCheck, libFilterCheck.checked); refreshLibraryResults().catch(() => {}); return; }
+      const importText = event.target.closest("[data-fcl-import-text]");
+      if (importText) { state.library.adminImportText = importText.value; return; }
       const meta = event.target.closest("[data-fc-meta]");
       if (meta) {
         updateFormMeta(meta.dataset.fcMeta, meta.value);
@@ -1026,11 +1609,27 @@
       if (fieldInput && fieldInput.dataset.prop === "sectionId") {
         updateField(fieldInput.dataset.fcFieldInput, { sectionId: fieldInput.value });
       }
+      const libFilterSelect = event.target.closest("[data-fcl-filter]");
+      if (libFilterSelect && libFilterSelect.tagName === "SELECT") {
+        libraryFilterField(libFilterSelect.dataset.fclFilter, libFilterSelect.value);
+        refreshLibraryResults().catch(() => {});
+      }
     });
+  }
+
+  async function preloadLibraryTemplateIndex() {
+    try {
+      const data = await api("GET", `${LIBRARY_API}/templates?status=active`);
+      cacheLibraryTemplates(data.templates);
+    } catch {
+      /* Library index is optional context for My Forms cards; ignore failures. */
+    }
   }
 
   async function init() {
     if (!state.fieldTypes.length) await loadCatalog();
+    if (!state.library.catalog) await loadLibraryCatalog().catch(() => {});
+    await preloadLibraryTemplateIndex();
     await refreshHome();
   }
 
