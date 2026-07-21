@@ -20,6 +20,7 @@
     "billing:check": "node server/billing-check.js",
     "import:toddler-pro-batch1": "node scripts/normalize-and-import-toddler-pro-batch1.js",
     "import:toddler-pro-batch2-batch3": "node scripts/import-toddler-pro-batch2-batch3.js",
+    "import:apple-orchard-investigators": "node scripts/import-apple-orchard-investigators.js",
     "test:toddler-back-to-school": "NODE_ENV=test node scripts/test-toddler-back-to-school-imports.js",
     "test:toddler-apple-unit": "NODE_ENV=test node scripts/test-toddler-apple-unit-imports.js",
     "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
