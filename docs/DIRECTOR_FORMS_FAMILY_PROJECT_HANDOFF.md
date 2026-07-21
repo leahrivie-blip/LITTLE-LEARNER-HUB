@@ -47,8 +47,8 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 |------|--------|
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
-| Tip at handoff | `f0f393a831700604493369dbb600185073482a4d` |
-| Tip message | Complete Phase 4 manual Custom Form Builder private preview |
+| Tip at handoff | See `git rev-parse HEAD` after pull (handoff commit includes this doc) |
+| Tip message | Add Director/Forms/Family project handoff for transferability |
 
 Confirm tip after pull:
 
@@ -90,15 +90,18 @@ Default local store: `DATABASE_PROVIDER=local-json` → `server/data/launch-stor
 
 ## Latest commit
 
-```
-f0f393a831700604493369dbb600185073482a4d
-Complete Phase 4 manual Custom Form Builder private preview
-```
+After pull, run `git log -1 --oneline`. Expected tip includes the handoff document commit  
+(`Add Director/Forms/Family project handoff for transferability`), on top of Phase 4  
+(`f0f393a` Complete Phase 4 manual Custom Form Builder private preview).
+
+Paste-ready PR body (if GitHub description is stale): `docs/PR_324_DESCRIPTION.md`.
 
 Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
+|  | Paste-ready PR description + handoff tip |
+|  | Transfer handoff document |
 | `f0f393a` | Phase 4 Manual Custom Form Builder |
 | `f9d5ee7` | Phase 3 teacher classroom preview UI |
 | `3ba8577` | Phase 3 teacher API |
