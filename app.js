@@ -4589,6 +4589,11 @@ const homeViewTemplate = document.querySelector("#view-home").innerHTML;
 const DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES = ["Coloring Pages", "Tracing Activities", "Counting Activities", "Matching Activities", "Crafts", "Teacher Resources", "Activity Photos", "General"];
 const defaultSiteContentState = captureDefaultSiteContent();
 let siteContentState = emptySiteContent();
+// Auth session must be initialized before boot cache + loadResources().
+// loadCurriculumManagedActivities() calls isProUser() → currentAccount() → currentUser;
+// reading currentUser before this declaration throws a TDZ ReferenceError and aborts app.js.
+let currentPlan = localStorage.getItem("llhPlan") || "Free";
+let currentUser = localStorage.getItem("llhUser") || "";
 // Paint last-known lesson cards immediately on installed-app cold starts.
 try {
   const bootCachedLibrary = (() => {
@@ -4622,8 +4627,6 @@ let favorites = readSavedJson("llhFavorites", []);
 let savedDownloads = readSavedJson("llhDownloads", []);
 let activeGeneratedPdfResource = null;
 let activeResourceViewerResource = null;
-let currentPlan = localStorage.getItem("llhPlan") || "Free";
-let currentUser = localStorage.getItem("llhUser") || "";
 syncFreePlanMarketingCopy();
 let activeFilter = "All";
 let lessonLibraryReturnView = "calendar";
