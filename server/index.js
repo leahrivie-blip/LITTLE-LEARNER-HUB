@@ -28,6 +28,7 @@ const entitlementModel = require("../scripts/entitlement-model.js");
 const { createDirectorCenterApi } = require("./director-center-api.js");
 const { createPhase3TeacherApi } = require("./phase3-teacher-api.js");
 const { createFormsCenterApi } = require("./forms-center-api.js");
+const { createBuiltInFormLibraryApi } = require("./built-in-form-library-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15242,6 +15243,21 @@ function getFormsCenterApi() {
   return _formsCenterApi;
 }
 
+let _builtInFormLibraryApi;
+function getBuiltInFormLibraryApi() {
+  if (!_builtInFormLibraryApi) {
+    _builtInFormLibraryApi = createBuiltInFormLibraryApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _builtInFormLibraryApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15300,7 +15316,8 @@ const server = http.createServer(async (request, response) => {
     }
     if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
-      const handler = getFormsCenterApi().matchRoute(request.method, url.pathname, url);
+      const handler = getBuiltInFormLibraryApi().matchRoute(request.method, url.pathname, url)
+        || getFormsCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FORMS_CENTER);
     }
