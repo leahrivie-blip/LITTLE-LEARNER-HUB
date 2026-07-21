@@ -1,0 +1,293 @@
+TITLE: Busy Builders
+AGE_GROUP: Toddler (2–3 Years)
+THEME: Busy Builders
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Engineering; Math; Language & Literacy; Fine Motor; Gross Motor; Social-Emotional Development; Creative Arts
+
+WEEKLY_OVERVIEW:
+Toddlers become builders as they stack, connect, balance, carry, plan, test, and rebuild with blocks and safe loose parts. The week emphasizes persistence, spatial language, cooperation, early measurement, and open-ended problem solving.
+
+LEARNING_OBJECTIVES:
+- Build simple towers, roads, bridges, and shelters.
+- Use words such as build, tall, short, over, under, strong, and balance.
+- Compare size, height, and length.
+- Strengthen hand control and whole-body coordination.
+- Practice turn-taking and shared planning.
+- Test ideas and try again after structures fall.
+
+WEEKLY_MATERIALS:
+Foam blocks; cardboard boxes; jumbo craft sticks; cardboard tubes; toy people and vehicles; painter's tape; cones; hard hats for dramatic play; measuring ribbons; playdough; large nuts and bolts; paper; crayons; washable paint; books about building.
+
+VOCABULARY:
+Build; builder; block; tower; bridge; road; wall; strong; balance; tall; short; long; over; under; fix.
+
+BOOKS:
+The Three Little Pigs; Goodnight, Goodnight, Construction Site by Sherri Duskey Rinker; Dreaming Up by Christy Hale; Changes, Changes by Pat Hutchins.
+
+SONGS:
+This Is the Way We Build; Johnny Works with One Hammer; The Construction Song; Building Up the Blocks.
+
+FAMILY_CONNECTION:
+Invite families to build something simple with cups, boxes, or couch cushions and send a photo or short description of what their child created.
+
+OBSERVATION_OPPORTUNITIES:
+Observe stacking, bilateral coordination, spatial language, persistence, planning, peer cooperation, comparison, pretend play, and response to collapsing structures.
+
+ADAPTATIONS:
+Use large lightweight blocks, prebuilt bases, fewer pieces, seated building trays, picture choices, partner building, and shorter movement routes.
+
+MONDAY:
+DAILY_THEME: Towers Tall and Short
+DAILY_OBJECTIVES: Stack blocks; compare height; practice persistence.
+DAILY_VOCABULARY: Tower; tall; short; stack; fall.
+DAILY_MATERIALS: Foam blocks; measuring ribbon; toy people; paper; crayons.
+DAILY_LEARNING_DOMAINS: Engineering; Math; Fine Motor; Language.
+CIRCLE_TIME_IDEAS: Build two towers and compare tall and short.
+OUTDOOR_PLAY: Carry foam blocks to a building zone and create large towers.
+DAILY_OBSERVATION_OPPORTUNITIES: Stacking control, comparison language, and frustration tolerance.
+DAILY_ADAPTATIONS: Use wide blocks and a stable base.
+SAFETY_NOTES: Use lightweight blocks and keep towers below shoulder height.
+ACTIVITY_1:
+CATEGORY: Engineering
+ACTIVITY_NAME: Tall Tower Challenge
+OBJECTIVE: Stack blocks and test stability.
+DESCRIPTION: Children build the tallest stable tower they can.
+MATERIALS: Foam blocks; flat building mats.
+SETUP: Place equal block sets on mats.
+DIRECTIONS: 1. Choose a block. 2. Place it on the base. 3. Add another carefully. 4. Stop and observe wobbling. 5. Rebuild if it falls.
+TEACHER_ROLE: Encourage problem solving and neutral persistence language.
+LEARNING_GOALS: Balance; spatial reasoning; resilience.
+OBSERVATION_OPPORTUNITIES: Placement, revision, and emotional response.
+ADAPTATIONS: Begin with two-block towers.
+SAFETY_NOTES: Use only soft blocks.
+ACTIVITY_2:
+CATEGORY: Math
+ACTIVITY_NAME: Tall or Short Sort
+OBJECTIVE: Compare two structures by height.
+DESCRIPTION: Children place picture cards under tall or short headings.
+MATERIALS: Tower picture cards; tall/short mats.
+SETUP: Model one comparison.
+DIRECTIONS: 1. Pick a card. 2. Look at the tower. 3. Decide tall or short. 4. Place it on the mat. 5. Compare two cards.
+TEACHER_ROLE: Repeat comparison words and accept gestures.
+LEARNING_GOALS: Measurement language; classification.
+OBSERVATION_OPPORTUNITIES: Visual comparison and word use.
+ADAPTATIONS: Use real towers instead of cards.
+SAFETY_NOTES: Use large laminated cards.
+ACTIVITY_3:
+CATEGORY: Creative Arts
+ACTIVITY_NAME: Draw My Tower
+OBJECTIVE: Represent a structure through marks and shapes.
+DESCRIPTION: Children look at a tower and draw lines or block shapes.
+MATERIALS: Paper; chunky crayons; sample tower.
+SETUP: Place a low tower at the art table.
+DIRECTIONS: 1. Look at the tower. 2. Choose a crayon. 3. Draw stacked marks. 4. Add a toy person or door. 5. Describe the picture.
+TEACHER_ROLE: Record dictated words and value all marks.
+LEARNING_GOALS: Symbolic representation; grip; language.
+OBSERVATION_OPPORTUNITIES: Visual recall and mark-making.
+ADAPTATIONS: Use block stamps.
+SAFETY_NOTES: Use non-toxic supplies.
+
+TUESDAY:
+DAILY_THEME: Roads and Ramps
+DAILY_OBJECTIVES: Explore slope, speed, direction, and connection.
+DAILY_VOCABULARY: Road; ramp; up; down; fast; slow.
+DAILY_MATERIALS: Cardboard ramps; blocks; toy vehicles; tape roads; tubes.
+DAILY_LEARNING_DOMAINS: Science; Engineering; Gross Motor; Language.
+CIRCLE_TIME_IDEAS: Roll two vehicles down different ramps and predict what happens.
+OUTDOOR_PLAY: Follow taped or chalk roads with ride-on toys or walking feet.
+DAILY_OBSERVATION_OPPORTUNITIES: Prediction, tracking, and directional language.
+DAILY_ADAPTATIONS: Use hand-rolled vehicles on a tabletop.
+SAFETY_NOTES: Secure ramps and create clear travel lanes.
+ACTIVITY_1:
+CATEGORY: Science
+ACTIVITY_NAME: Ramp Test
+OBJECTIVE: Explore how slope affects movement.
+DESCRIPTION: Children roll vehicles down low and high ramps.
+MATERIALS: Two sturdy ramps; blocks; large toy vehicles.
+SETUP: Secure ramps at different safe heights.
+DIRECTIONS: 1. Choose a vehicle. 2. Place it at the top. 3. Predict fast or slow. 4. Release it. 5. Compare with the other ramp.
+TEACHER_ROLE: Model prediction language and reset safely.
+LEARNING_GOALS: Cause and effect; observation; comparison.
+OBSERVATION_OPPORTUNITIES: Tracking and prediction.
+ADAPTATIONS: Use one ramp and hand-over-hand release.
+SAFETY_NOTES: Keep faces away from ramp ends.
+ACTIVITY_2:
+CATEGORY: Engineering
+ACTIVITY_NAME: Build a Road
+OBJECTIVE: Connect pieces to form a continuous path.
+DESCRIPTION: Children line up blocks and tape strips for toy vehicles.
+MATERIALS: Flat blocks; wide painter's tape; toy vehicles.
+SETUP: Start a short sample road.
+DIRECTIONS: 1. Choose a road piece. 2. Connect it to the path. 3. Drive a vehicle across. 4. Find gaps. 5. Add or move pieces.
+TEACHER_ROLE: Prompt children to test and repair.
+LEARNING_GOALS: Sequencing; spatial planning; persistence.
+OBSERVATION_OPPORTUNITIES: Connection strategy and revision.
+ADAPTATIONS: Use a pre-drawn road mat.
+SAFETY_NOTES: Tape edges flat to prevent tripping.
+ACTIVITY_3:
+CATEGORY: Gross Motor
+ACTIVITY_NAME: Construction Road Walk
+OBJECTIVE: Follow directional cues along a pathway.
+DESCRIPTION: Children walk, stop, turn, and step over markers on a road course.
+MATERIALS: Tape road; cones; foam blocks.
+SETUP: Create a simple loop.
+DIRECTIONS: 1. Start at the sign. 2. Walk along the road. 3. Stop at the cone. 4. Step over a foam block. 5. Return to the start.
+TEACHER_ROLE: Give one-step cues and supervise spacing.
+LEARNING_GOALS: Balance; listening; spatial awareness.
+OBSERVATION_OPPORTUNITIES: Direction following and motor planning.
+ADAPTATIONS: Shorten the course.
+SAFETY_NOTES: Keep obstacles low and stable.
+
+WEDNESDAY:
+DAILY_THEME: Bridges Over and Under
+DAILY_OBJECTIVES: Build bridges; explore over and under; test strength.
+DAILY_VOCABULARY: Bridge; over; under; strong; across.
+DAILY_MATERIALS: Blocks; jumbo craft sticks; toy animals; vehicles; blue fabric.
+DAILY_LEARNING_DOMAINS: Engineering; Math; Language; Dramatic Play.
+CIRCLE_TIME_IDEAS: Act out going over and under a pretend bridge.
+OUTDOOR_PLAY: Crawl under a safe arch and walk over flat pathway markers.
+DAILY_OBSERVATION_OPPORTUNITIES: Positional language, testing, and construction strategy.
+DAILY_ADAPTATIONS: Provide a ready-made bridge to extend.
+SAFETY_NOTES: Adults inspect all crawl-under structures.
+ACTIVITY_1:
+CATEGORY: Engineering
+ACTIVITY_NAME: Build a Bridge
+OBJECTIVE: Create a structure spanning a gap.
+DESCRIPTION: Children place sticks or blocks across two supports.
+MATERIALS: Blocks; jumbo craft sticks; toy animals.
+SETUP: Place two supports with a small gap.
+DIRECTIONS: 1. Choose a bridge piece. 2. Lay it across supports. 3. Test with an animal. 4. Adjust if it falls. 5. Try a wider bridge.
+TEACHER_ROLE: Encourage testing and child-led solutions.
+LEARNING_GOALS: Spatial reasoning; balance; persistence.
+OBSERVATION_OPPORTUNITIES: Planning and revision.
+ADAPTATIONS: Narrow the gap.
+SAFETY_NOTES: Use large blunt pieces.
+ACTIVITY_2:
+CATEGORY: Math
+ACTIVITY_NAME: Over or Under Sort
+OBJECTIVE: Identify positional relationships.
+DESCRIPTION: Children place toy animals over or under a bridge based on picture cues.
+MATERIALS: Small block bridge; large toy animals; over/under cards.
+SETUP: Demonstrate both positions.
+DIRECTIONS: 1. Pick a card. 2. Choose an animal. 3. Place it over or under. 4. Say or gesture the word. 5. Switch positions.
+TEACHER_ROLE: Model positional language repeatedly.
+LEARNING_GOALS: Spatial concepts; listening; vocabulary.
+OBSERVATION_OPPORTUNITIES: Position understanding and imitation.
+ADAPTATIONS: Use body movements instead of toys.
+SAFETY_NOTES: Use large toys.
+ACTIVITY_3:
+CATEGORY: Dramatic Play
+ACTIVITY_NAME: Bridge Repair Crew
+OBJECTIVE: Cooperate in pretend construction play.
+DESCRIPTION: Children wear pretend hard hats and repair a block bridge.
+MATERIALS: Plastic hats; blocks; toy tools; vehicles.
+SETUP: Create a bridge with one obvious gap.
+DIRECTIONS: 1. Inspect the bridge. 2. Find the missing area. 3. Choose a block. 4. Repair and test it. 5. Celebrate teamwork.
+TEACHER_ROLE: Support roles and turn-taking.
+LEARNING_GOALS: Cooperation; problem solving; imaginative play.
+OBSERVATION_OPPORTUNITIES: Peer interaction and pretend language.
+ADAPTATIONS: Offer a simple helper role.
+SAFETY_NOTES: Use child-safe tools only.
+
+THURSDAY:
+DAILY_THEME: Walls and Houses
+DAILY_OBJECTIVES: Enclose space, create shelters, and cooperate.
+DAILY_VOCABULARY: Wall; house; inside; outside; roof.
+DAILY_MATERIALS: Cardboard boxes; foam blocks; fabric; toy people; stickers.
+DAILY_LEARNING_DOMAINS: Engineering; Social-Emotional; Language; Creative Arts.
+CIRCLE_TIME_IDEAS: Look at pictures of different homes and identify walls, doors, and roofs.
+OUTDOOR_PLAY: Build a large pretend shelter with boxes and fabric.
+DAILY_OBSERVATION_OPPORTUNITIES: Enclosure concepts, shared planning, and pretend play.
+DAILY_ADAPTATIONS: Use tabletop dollhouses or a prebuilt frame.
+SAFETY_NOTES: Keep fabric loose and never cover faces.
+ACTIVITY_1:
+CATEGORY: Engineering
+ACTIVITY_NAME: Build a Toy House
+OBJECTIVE: Create an enclosed space for a toy person.
+DESCRIPTION: Children use blocks to make walls and a doorway.
+MATERIALS: Foam blocks; toy people; flat roof pieces.
+SETUP: Place a toy person on each building mat.
+DIRECTIONS: 1. Build one wall. 2. Add more walls. 3. Leave a doorway. 4. Place the person inside. 5. Add a roof if stable.
+TEACHER_ROLE: Use inside/outside language and support stability.
+LEARNING_GOALS: Enclosure; spatial planning; symbolic play.
+OBSERVATION_OPPORTUNITIES: Arrangement and pretend narrative.
+ADAPTATIONS: Provide two prebuilt walls.
+SAFETY_NOTES: Keep roofs lightweight.
+ACTIVITY_2:
+CATEGORY: Creative Arts
+ACTIVITY_NAME: Decorate a Cardboard House
+OBJECTIVE: Add open-ended details to a shared structure.
+DESCRIPTION: Children add washable marks and large stickers to a box house.
+MATERIALS: Large box; crayons; large stickers; tape shapes.
+SETUP: Cut doors and windows with smooth taped edges.
+DIRECTIONS: 1. Choose a decorating tool. 2. Add marks or stickers. 3. Name a feature. 4. Work beside a friend. 5. Explore the finished house.
+TEACHER_ROLE: Support sharing and describe children's choices.
+LEARNING_GOALS: Creativity; cooperation; fine motor control.
+OBSERVATION_OPPORTUNITIES: Tool use and peer awareness.
+ADAPTATIONS: Use paint rollers.
+SAFETY_NOTES: Adult prepares all cut edges.
+ACTIVITY_3:
+CATEGORY: Social-Emotional
+ACTIVITY_NAME: Builders Together
+OBJECTIVE: Complete a structure with a partner.
+DESCRIPTION: Pairs take turns adding blocks to a shared wall.
+MATERIALS: Foam blocks; turn card.
+SETUP: Mark a wide building line.
+DIRECTIONS: 1. One child chooses a block. 2. Add it to the wall. 3. Pass the turn card. 4. Continue together. 5. Knock down only after everyone agrees.
+TEACHER_ROLE: Coach turn-taking and consent.
+LEARNING_GOALS: Cooperation; waiting; shared accomplishment.
+OBSERVATION_OPPORTUNITIES: Turn-taking and emotional regulation.
+ADAPTATIONS: Partner with an adult.
+SAFETY_NOTES: Use soft blocks and controlled cleanup.
+
+FRIDAY:
+DAILY_THEME: Builder Challenge Day
+DAILY_OBJECTIVES: Plan, build, test, review, and share.
+DAILY_VOCABULARY: Plan; test; fix; strong; favorite.
+DAILY_MATERIALS: Mixed building materials; picture challenge cards; paper; crayons; toy figures.
+DAILY_LEARNING_DOMAINS: Engineering; Language; Math; Social-Emotional; Creative Arts.
+CIRCLE_TIME_IDEAS: Review tower, road, bridge, and house pictures.
+OUTDOOR_PLAY: Complete a cooperative large-block building challenge.
+DAILY_OBSERVATION_OPPORTUNITIES: Recall, planning, persistence, and peer communication.
+DAILY_ADAPTATIONS: Offer two challenge choices and prebuilt starts.
+SAFETY_NOTES: Adults supervise all large structures.
+ACTIVITY_1:
+CATEGORY: Engineering
+ACTIVITY_NAME: Choose-a-Build Challenge
+OBJECTIVE: Select and complete a simple construction goal.
+DESCRIPTION: Children choose a tower, road, bridge, or house picture and build their version.
+MATERIALS: Challenge cards; foam blocks; tubes; sticks; toy figures.
+SETUP: Arrange materials by type.
+DIRECTIONS: 1. Choose a challenge card. 2. Gather pieces. 3. Build the structure. 4. Test it with a toy. 5. Change or repair it.
+TEACHER_ROLE: Ask planning questions and protect child ownership.
+LEARNING_GOALS: Planning; problem solving; persistence.
+OBSERVATION_OPPORTUNITIES: Material selection and revision.
+ADAPTATIONS: Offer a partially completed model.
+SAFETY_NOTES: Use only approved loose parts.
+ACTIVITY_2:
+CATEGORY: Math
+ACTIVITY_NAME: Measure Our Builds
+OBJECTIVE: Compare structures informally.
+DESCRIPTION: Children use ribbons or block units to compare length and height.
+MATERIALS: Measuring ribbons; identical blocks; structures.
+SETUP: Place tools beside completed builds.
+DIRECTIONS: 1. Choose a structure. 2. Place ribbon or blocks beside it. 3. Notice tall, short, long, or short. 4. Compare another build. 5. Share a finding.
+TEACHER_ROLE: Model informal measurement language.
+LEARNING_GOALS: Comparison; measurement; vocabulary.
+OBSERVATION_OPPORTUNITIES: One-to-one placement and comparison.
+ADAPTATIONS: Use direct side-by-side comparison.
+SAFETY_NOTES: Use short ribbons under supervision.
+ACTIVITY_3:
+CATEGORY: Language & Reflection
+ACTIVITY_NAME: My Favorite Build
+OBJECTIVE: Recall and communicate a preferred experience.
+DESCRIPTION: Children draw or select a picture of their favorite structure and dictate a phrase.
+MATERIALS: Paper; crayons; structure photos.
+SETUP: Display photos from the week.
+DIRECTIONS: 1. Choose a favorite build. 2. Draw or mark it. 3. Point to a feature. 4. Tell what it did. 5. Teacher records the child's words.
+TEACHER_ROLE: Accept gestures, sounds, and words.
+LEARNING_GOALS: Recall; expressive language; early writing; confidence.
+OBSERVATION_OPPORTUNITIES: Preference and communication.
+ADAPTATIONS: Use picture choice cards.
+SAFETY_NOTES: Use non-toxic art materials.
