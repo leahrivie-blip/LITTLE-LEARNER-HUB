@@ -21,6 +21,10 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const adminNotifications = require("./admin-notifications.js");
 const programOwnership = require("./program-ownership.js");
+const expansionFeatureFlags = require("../scripts/expansion-feature-flags.js");
+const foundationDataModel = require("../scripts/foundation-data-model.js");
+const orgPermissions = require("../scripts/org-permissions.js");
+const entitlementModel = require("../scripts/entitlement-model.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -701,6 +705,14 @@ function defaultStore() {
     automationRuns: [],
     archivedConversations: [],
     memberSessions: {},
+    ...foundationDataModel.emptyFoundationCollections(),
+    foundationMeta: {
+      schemaVersion: foundationDataModel.FOUNDATION_SCHEMA_VERSION,
+      createdAt: "",
+      updatedAt: "",
+      migratedExistingUsers: false,
+      note: "Phase 1 foundation collections only. No production user migration has run.",
+    },
   };
 }
 
@@ -717,6 +729,18 @@ function ensureMessagingStore(store) {
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
   return store;
+}
+
+// Phase 1 Director/Family foundation — additive empty collections only.
+function ensureFoundationCollections(store) {
+  return foundationDataModel.ensureFoundationStore(store);
+}
+
+function expansionFlagsFromStore(store = peekStore()) {
+  const siteContent = store?.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : {};
+  return expansionFeatureFlags.normalizeExpansionFeatureFlags(siteContent.featureFlags);
 }
 
 function defaultAiSettings() {
@@ -737,16 +761,17 @@ function defaultAiSettings() {
 
 function defaultFeatureFlags() {
   // Phase 2H: play-based curriculum is the permanent lesson/activity system.
+  // Expansion flags (Director Center / Forms Center / Family Hub) default OFF.
   return {
     playBasedCurriculum: true,
+    ...expansionFeatureFlags.defaultExpansionFeatureFlags(),
   };
 }
 
 function normalizedFeatureFlags(value) {
   // Phase 2H: play-based curriculum is permanently active.
-  return {
-    playBasedCurriculum: true,
-  };
+  // Expansion flags stay OFF unless explicitly set to true (safe for production).
+  return expansionFeatureFlags.mergeFeatureFlags(value);
 }
 
 function defaultFreePlanAccessStore() {
@@ -14926,6 +14951,90 @@ function handleReleaseNotesList(request, response, url) {
   jsonResponse(response, 200, { releaseNotes: published.slice(0, 50).map(publicReleaseNote) });
 }
 
+// ─── Phase 1 Director / Family / Forms foundation (hidden, flags default OFF) ───
+
+function handleFoundationFeatureFlags(request, response) {
+  const flags = expansionFlagsFromStore(peekStore());
+  jsonResponse(response, 200, expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags));
+}
+
+function handleFoundationStatus(request, response) {
+  const store = readStore();
+  ensureFoundationCollections(store);
+  const flags = expansionFlagsFromStore(store);
+  jsonResponse(response, 200, {
+    phase: 1,
+    liveExposure: false,
+    featureFlags: expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags),
+    foundation: foundationDataModel.foundationStatusSummary(store),
+    permissions: {
+      roles: orgPermissions.ORG_ROLES,
+      actions: Object.keys(orgPermissions.ACTIONS),
+    },
+    entitlements: {
+      live: false,
+      plannedPlans: Object.keys(entitlementModel.PLANNED_PLAN_CATALOG),
+      classroomAddOn: {
+        monthlyPriceCents: entitlementModel.CLASSROOM_ADD_ON.monthlyPriceCents,
+        annualPriceCents: entitlementModel.CLASSROOM_ADD_ON.annualPriceCents,
+      },
+      currentLiveBilling: entitlementModel.describeCurrentLiveBillingModel().livePlans,
+    },
+    migration: {
+      executed: store.foundationMeta?.migratedExistingUsers === true,
+      dryRunOnlyInPhase1: true,
+    },
+  });
+}
+
+function handleFoundationMigrationPlan(request, response) {
+  const store = readStore();
+  ensureFoundationCollections(store);
+  jsonResponse(response, 200, {
+    phase: 1,
+    executed: false,
+    plan: foundationDataModel.buildExistingUserMigrationPlan(store),
+    note: "Dry-run only. Phase 1 does not apply this migration to production users.",
+  });
+}
+
+function handleFoundationPermissionCatalog(request, response) {
+  jsonResponse(response, 200, {
+    phase: 1,
+    catalog: orgPermissions.permissionCatalog(),
+  });
+}
+
+function handleFoundationEntitlementCatalog(request, response) {
+  jsonResponse(response, 200, {
+    phase: 1,
+    live: false,
+    catalog: entitlementModel.PLANNED_PLAN_CATALOG,
+    classroomAddOn: entitlementModel.CLASSROOM_ADD_ON,
+    currentLiveBilling: entitlementModel.describeCurrentLiveBillingModel(),
+    downgradeSafety: entitlementModel.downgradeSafetyRules(),
+    failedPayment: entitlementModel.failedPaymentRules(),
+    annualMessage: "Choose annual billing and get approximately two months free.",
+  });
+}
+
+/**
+ * Reject unfinished expansion APIs while their feature flags are OFF.
+ * Existing production routes (/api/staff, /api/child-data, etc.) are not gated here.
+ */
+function rejectDisabledExpansionRoute(request, response, url) {
+  const flagKey = expansionFeatureFlags.expansionFlagForRoute(url.pathname);
+  if (!flagKey) return false;
+  const flags = expansionFlagsFromStore(peekStore());
+  if (expansionFeatureFlags.isExpansionFeatureEnabled(flags, flagKey)) return false;
+  jsonResponse(response, 403, expansionFeatureFlags.unavailableExpansionPayload(flagKey));
+  return true;
+}
+
+function handleExpansionUnavailableStub(request, response, flagKey) {
+  jsonResponse(response, 403, expansionFeatureFlags.unavailableExpansionPayload(flagKey));
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -14962,10 +15071,28 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   const comms = getCommsApi();
   try {
+    // Phase 1: unfinished expansion APIs stay unavailable while flags are OFF.
+    if (rejectDisabledExpansionRoute(request, response, url)) return;
+
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return await handlePublicSiteContent(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/feature-flags") return handleFoundationFeatureFlags(request, response);
+    if (request.method === "GET" && url.pathname === "/api/foundation/status") return handleFoundationStatus(request, response);
+    if (request.method === "GET" && url.pathname === "/api/foundation/migration-plan") return handleFoundationMigrationPlan(request, response);
+    if (request.method === "GET" && url.pathname === "/api/foundation/permissions") return handleFoundationPermissionCatalog(request, response);
+    if (request.method === "GET" && url.pathname === "/api/foundation/entitlements") return handleFoundationEntitlementCatalog(request, response);
+    // Explicit stubs so direct hits still return a stable unavailable payload if a flag is turned on early without handlers.
+    if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
+    }
+    if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FORMS_CENTER);
+    }
+    if (url.pathname === "/api/family-hub" || url.pathname.startsWith("/api/family-hub/")) {
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FAMILY_HUB);
+    }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
       return await handleLessonCoverMedia(request, response, assetId);

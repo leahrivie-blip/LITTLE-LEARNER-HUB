@@ -5112,6 +5112,9 @@ function emptySiteContent() {
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
+      directorCenter: false,
+      formsCenter: false,
+      familyHub: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -5131,6 +5134,67 @@ function emptyCurriculumLibrary() {
 
 function isPlayBasedCurriculumEnabled() {
   return true;
+}
+
+/** Phase 1 expansion flags — default OFF until an approved release. */
+const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
+  directorCenter: false,
+  formsCenter: false,
+  familyHub: false,
+});
+
+const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
+  "director-center": "directorCenter",
+  "forms-center": "formsCenter",
+  "family-hub": "familyHub",
+});
+
+let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+
+function normalizeExpansionFeatureFlags(value) {
+  const input = value && typeof value === "object" ? value : {};
+  return {
+    directorCenter: input.directorCenter === true,
+    formsCenter: input.formsCenter === true,
+    familyHub: input.familyHub === true,
+  };
+}
+
+function expansionFeatureFlags() {
+  return normalizeExpansionFeatureFlags(expansionFeatureFlagsCache);
+}
+
+function isExpansionFeatureEnabled(flagKey) {
+  if (!flagKey) return true;
+  return expansionFeatureFlags()[flagKey] === true;
+}
+
+function expansionFlagForView(view) {
+  return EXPANSION_VIEW_FEATURE_FLAGS[String(view || "").trim().toLowerCase()] || "";
+}
+
+function isExpansionViewEnabled(view) {
+  const flagKey = expansionFlagForView(view);
+  if (!flagKey) return true;
+  return isExpansionFeatureEnabled(flagKey);
+}
+
+async function loadExpansionFeatureFlagsFromBackend() {
+  expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+  if (!canUseLaunchBackend()) {
+    syncPlatformNavVisibility();
+    return expansionFeatureFlags();
+  }
+  try {
+    const response = await fetch(`/api/foundation/feature-flags?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("feature flags unavailable");
+    const data = await response.json();
+    expansionFeatureFlagsCache = normalizeExpansionFeatureFlags(data?.flags);
+  } catch (_) {
+    expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+  }
+  syncPlatformNavVisibility();
+  return expansionFeatureFlags();
 }
 
 function useCurriculumLibrarySources() {
@@ -9251,6 +9315,9 @@ function effectiveSiteContent() {
     freePlanAccess: { ...(base.freePlanAccess || {}), ...(overrides.freePlanAccess || {}) },
     featureFlags: {
       playBasedCurriculum: true,
+      directorCenter: false,
+      formsCenter: false,
+      familyHub: false,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
@@ -10439,9 +10506,13 @@ function syncPlatformNavVisibility() {
   document.querySelectorAll("[data-nav-capability]").forEach((button) => {
     const capability = button.getAttribute("data-nav-capability");
     const permanentlyHidden = button.hasAttribute("data-nav-hidden");
-    const allowed = !permanentlyHidden && (!capability || canAccessCapability(account, capability, {
-      adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
-    }));
+    const featureFlag = button.getAttribute("data-feature-flag") || "";
+    const featureAllowed = !featureFlag || isExpansionFeatureEnabled(featureFlag);
+    const allowed = !permanentlyHidden
+      && featureAllowed
+      && (!capability || canAccessCapability(account, capability, {
+        adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+      }));
     button.hidden = !allowed;
     button.setAttribute("aria-hidden", allowed ? "false" : "true");
     if (allowed) button.removeAttribute("tabindex");
@@ -10451,6 +10522,14 @@ function syncPlatformNavVisibility() {
     button.hidden = true;
     button.setAttribute("aria-hidden", "true");
     button.setAttribute("tabindex", "-1");
+  });
+  document.querySelectorAll("#platformNav [data-feature-flag]").forEach((button) => {
+    const featureFlag = button.getAttribute("data-feature-flag") || "";
+    if (featureFlag && !isExpansionFeatureEnabled(featureFlag)) {
+      button.hidden = true;
+      button.setAttribute("aria-hidden", "true");
+      button.setAttribute("tabindex", "-1");
+    }
   });
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
@@ -12392,6 +12471,10 @@ function setView(view, options = {}) {
       mainCalendarSubView = "week";
     }
     return setView("calendar", { ...options, fromCurriculumPlannerRetirement: true });
+  }
+  // Phase 1: unfinished expansion surfaces stay unreachable while feature flags are OFF.
+  if (!options.skipExpansionFeatureRedirect && !isExpansionViewEnabled(resolvedRequested)) {
+    return setView("calendar", { ...options, skipExpansionFeatureRedirect: true, skipAccessRedirect: true });
   }
   const requestedChildToolTab = childToolTabFromView(view);
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
@@ -55846,6 +55929,7 @@ if (!currentUser) {
   }
 }
 loadSiteContentFromBackend().catch(() => {});
+loadExpansionFeatureFlagsFromBackend().catch(() => {});
 loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
 
 function initialViewFromLocation() {
