@@ -29,6 +29,8 @@ const { createDirectorCenterApi } = require("./director-center-api.js");
 const { createPhase3TeacherApi } = require("./phase3-teacher-api.js");
 const { createFormsCenterApi } = require("./forms-center-api.js");
 const { createBuiltInFormLibraryApi } = require("./built-in-form-library-api.js");
+const { createFormResponsesApi } = require("./form-responses-api.js");
+const { createFormRecipientApi } = require("./form-recipient-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15258,6 +15260,35 @@ function getBuiltInFormLibraryApi() {
   return _builtInFormLibraryApi;
 }
 
+let _formResponsesApi;
+function getFormResponsesApi() {
+  if (!_formResponsesApi) {
+    _formResponsesApi = createFormResponsesApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _formResponsesApi;
+}
+
+let _formRecipientApi;
+function getFormRecipientApi() {
+  if (!_formRecipientApi) {
+    _formRecipientApi = createFormRecipientApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      expansionEnvironment,
+    });
+  }
+  return _formRecipientApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15317,9 +15348,19 @@ const server = http.createServer(async (request, response) => {
     if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
       const handler = getBuiltInFormLibraryApi().matchRoute(request.method, url.pathname, url)
+        || getFormResponsesApi().matchRoute(request.method, url.pathname, url)
         || getFormsCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FORMS_CENTER);
+    }
+    // Phase 6 recipient routes: public, token-authenticated, never behind the
+    // admin expansion-flag gate above (recipients are not verified admins).
+    // The handler itself rejects live production hosts and invalid tokens.
+    if (url.pathname === "/api/form-recipient" || url.pathname.startsWith("/api/form-recipient/")) {
+      const handler = getFormRecipientApi().matchRoute(request.method, url.pathname);
+      if (handler) return handler(request, response);
+      jsonResponse(response, 404, { error: "Not found.", code: "not_found" });
+      return;
     }
     if (url.pathname === "/api/family-hub" || url.pathname.startsWith("/api/family-hub/")) {
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FAMILY_HUB);
