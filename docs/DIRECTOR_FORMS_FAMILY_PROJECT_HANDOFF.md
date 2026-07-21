@@ -65,7 +65,7 @@ git log -1 --oneline
 |------|--------|
 | PR | [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324) |
 | State | Draft / open — **do not merge** |
-| Title (may lag body) | Phase 2… (body tracks Phases 1–4; update title if desired) |
+| Title (may lag body) | May still say Phase 2 — paste `docs/PR_324_DESCRIPTION.md` into the PR body; agent token cannot edit PR description (403) |
 
 ---
 
