@@ -93,8 +93,15 @@ async function main() {
 
   try {
     await waitForHealth(child);
-    // Give seeds a moment after health
-    await new Promise((r) => setTimeout(r, 1500));
+    // Wait until batch seed (including monthly series) has logged completion.
+    for (let i = 0; i < 80; i += 1) {
+      if (/seeded \d+ monthly curriculum series|curriculum-infant-toddler-pro-batch-seed/.test(output)) {
+        break;
+      }
+      if (child.exitCode != null) throw new Error(`Server exited early: ${child.exitCode}\n${output}`);
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    await new Promise((r) => setTimeout(r, 500));
     const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
     const plans = store.siteContent?.curriculum?.lessonPlans || [];
     const ids = new Set(plans.map((p) => p.id));
