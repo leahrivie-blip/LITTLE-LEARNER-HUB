@@ -244,7 +244,7 @@ async function main() {
       fullPage: true,
     });
 
-    await user.locator('.lesson-library-type-tabs [data-lesson-library-type="monthly"]').click();
+    await user.locator('.lesson-library-type-tabs [data-lesson-library-type="curriculum"]').click();
     await user.waitForTimeout(700);
     await user.screenshot({
       path: path.join(OUT_DIR, "monthly-curriculum-user-monthly-filter.png"),

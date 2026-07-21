@@ -1,17 +1,17 @@
-const CACHE_NAME = "llh-shell-v106-it-pro-monthly";
+const CACHE_NAME = "llh-shell-v107-cover-netflix-nav";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260721-it-pro-monthly",
+  "/styles.css?v=20260721-cover-netflix-nav",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
-  "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260721-it-pro-monthly",
+  "/styles/llh-library-browse.css?v=20260721-cover-netflix-nav",
+  "/styles/llh-messaging.css?v=20260721-cover-netflix-nav",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards",
-  "/scripts/lesson-plan-covers.js?v=20260717-netflix-cover-cards",
+  "/scripts/lesson-plan-cover-catalog.js?v=20260721-cover-netflix-nav",
+  "/scripts/lesson-plan-covers.js?v=20260721-cover-netflix-nav",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
@@ -23,10 +23,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260721-it-pro-monthly",
-  "/scripts/free-plan-grandfathering.js?v=20260721-it-pro-monthly",
-  "/app.js?v=20260721-it-pro-monthly",
-  "/comms-center.js?v=20260721-it-pro-monthly",
+  "/scripts/free-curriculum-sample.js?v=20260721-cover-netflix-nav",
+  "/scripts/free-plan-grandfathering.js?v=20260721-cover-netflix-nav",
+  "/app.js?v=20260721-cover-netflix-nav",
+  "/comms-center.js?v=20260721-cover-netflix-nav",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
@@ -72,6 +72,8 @@ function isNetworkFirstRequest(request, requestUrl) {
   const path = requestUrl.pathname;
   if (path === "/" || path.endsWith(".html")) return true;
   if (path.endsWith(".js") || path.endsWith(".css") || path.endsWith(".webmanifest")) return true;
+  // Always revalidate lesson covers so replaced artwork is not stuck in cache-first.
+  if (path.startsWith("/images/lesson-covers/")) return true;
   return false;
 }
 

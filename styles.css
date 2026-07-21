@@ -21632,9 +21632,46 @@ button.aup-btn--danger {
   }
 }
 
-/* Phase 1 monthly curriculum */
-.lesson-library-type-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
-.lesson-library-type-tabs .ghost-button.is-active{background:var(--brand-deep,#2f6f5e);color:#fff;border-color:transparent}
+/* Phase 1 monthly curriculum + Netflix library tabs */
+.lesson-library-type-tabs,
+.netflix-library-tabs{
+  display:flex;
+  flex-wrap:nowrap;
+  gap:8px;
+  margin:0 0 12px;
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+  scrollbar-width:none;
+  padding:2px 2px 6px;
+  scroll-snap-type:x proximity;
+}
+.lesson-library-type-tabs::-webkit-scrollbar,
+.netflix-library-tabs::-webkit-scrollbar{display:none}
+.netflix-library-tab{
+  flex:0 0 auto;
+  min-height:42px;
+  padding:0 16px;
+  border-radius:999px;
+  font-weight:700;
+  letter-spacing:0.01em;
+  scroll-snap-align:start;
+  transition:transform .18s ease, background-color .18s ease, color .18s ease, border-color .18s ease;
+}
+.netflix-library-tab:active{transform:scale(0.98)}
+.lesson-library-type-tabs .ghost-button.is-active,
+.netflix-library-tab.is-active{
+  background:var(--brand-deep,#2f6f5e);
+  color:#fff;
+  border-color:transparent;
+  box-shadow:0 8px 18px rgba(47,111,94,.18);
+}
+.curriculum-netflix-shell{
+  display:grid;
+  gap:14px;
+}
+.curriculum-featured-banner .library-featured-banner-blurb{
+  max-width:42rem;
+}
 .curriculum-guided-steps{display:flex;flex-wrap:wrap;gap:6px;list-style:none;padding:0;margin:0 0 8px}
 .curriculum-guided-steps .curriculum-guided-num{display:inline-flex;width:1.4rem;height:1.4rem;align-items:center;justify-content:center;border-radius:999px;background:#e8f2ee;font-size:.8rem;margin-right:4px}
 .curriculum-guided-steps li.is-current .ghost-button{border-color:#2f6f5e;font-weight:600}

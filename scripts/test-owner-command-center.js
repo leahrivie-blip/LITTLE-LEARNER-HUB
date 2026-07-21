@@ -107,9 +107,9 @@ test("content manager filters and bulk publish actions exist", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260721-it-pro-monthly");
-  assert.equal(indexJs, "20260721-it-pro-monthly");
-  assert.match(sw, /llh-shell-v106-it-pro-monthly/);
+  assert.equal(indexCss, "20260721-cover-netflix-nav");
+  assert.equal(indexJs, "20260721-cover-netflix-nav");
+  assert.match(sw, /llh-shell-v107-cover-netflix-nav/);
 });
 
 if (!process.exitCode) {

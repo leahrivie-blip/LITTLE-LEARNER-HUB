@@ -34,8 +34,19 @@
   let adminSeriesAutosaveTimer = null;
   let adminSeriesPreviewMode = false;
   let adminLessonEditorStep = "basics";
-  let lessonLibraryTypeFilter = "all";
+  let lessonLibraryTypeFilter = "plans";
   let openMonthlySeriesId = "";
+
+  function normalizeLessonLibraryTypeFilter(value) {
+    const raw = String(value || "").trim().toLowerCase();
+    if (raw === "curriculum" || raw === "monthly") return "curriculum";
+    if (raw === "favorites" || raw === "saved") return "favorites";
+    // Legacy All / Weekly tabs collapse into Lesson Plans.
+    if (raw === "all" || raw === "weekly" || raw === "plans" || raw === "lessons") return "plans";
+    return "plans";
+  }
+
+  lessonLibraryTypeFilter = normalizeLessonLibraryTypeFilter(lessonLibraryTypeFilter);
   let monthlyLibraryFilters = {
     month: "",
     season: "",
@@ -829,7 +840,7 @@
     });
     return `
       <section class="curriculum-series-detail curriculum-series-detail--premium" data-monthly-series-detail="${esc(series.id)}">
-        <button type="button" class="ghost-button back-button" data-close-monthly-series>← Back to Lesson Plans</button>
+        <button type="button" class="ghost-button back-button" data-close-monthly-series>← Back to Curriculum</button>
         <div class="curriculum-series-detail-hero">
           <img src="${esc(cover.url)}" alt="${esc(cover.alt || series.title || "")}" />
           <div class="curriculum-series-detail-hero-copy">
@@ -907,18 +918,101 @@
 
   function lessonLibraryTypeTabsHtml() {
     const tabs = [
-      { id: "all", label: "All" },
-      { id: "weekly", label: "Weekly Plans" },
-      { id: "monthly", label: "Monthly Curriculums" },
+      { id: "plans", label: "Lesson Plans" },
+      { id: "curriculum", label: "Curriculum" },
       { id: "favorites", label: "Favorites" },
     ];
+    const active = normalizeLessonLibraryTypeFilter(lessonLibraryTypeFilter);
     return `
-      <div class="lesson-library-type-tabs" role="tablist" aria-label="Lesson plan type">
+      <div class="lesson-library-type-tabs netflix-library-tabs" role="tablist" aria-label="Lesson library sections" data-netflix-library-tabs>
         ${tabs.map((tab) => `
-          <button type="button" class="ghost-button ${lessonLibraryTypeFilter === tab.id ? "is-active" : ""}" data-lesson-library-type="${tab.id}" role="tab" aria-selected="${lessonLibraryTypeFilter === tab.id}">${tab.label}</button>
+          <button type="button" class="ghost-button netflix-library-tab ${active === tab.id ? "is-active" : ""}" data-lesson-library-type="${tab.id}" role="tab" aria-selected="${active === tab.id ? "true" : "false"}">${tab.label}</button>
         `).join("")}
       </div>
     `;
+  }
+
+  function featuredCurriculumBannerHtml(seriesList) {
+    const list = Array.isArray(seriesList) ? seriesList : [];
+    const featured = list.find((item) => item.featured || item.status === "featured") || list[0];
+    if (!featured) return "";
+    const cover = resolveSeriesCover(featured);
+    const weekCount = featured.weekCount || (featured.weeks || []).length || 4;
+    const blurb = String(featured.description || featured.theme || "A full month of ready-to-teach weekly themes.")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 140);
+    return `
+      <section class="library-featured-banner has-cover-image netflix-featured-banner curriculum-featured-banner" aria-label="Featured monthly curriculum">
+        <div class="library-featured-banner-media">
+          <img
+            class="library-featured-banner-image"
+            src="${esc(cover.url)}"
+            alt="${esc(cover.alt || featured.title || "Monthly curriculum")}"
+            width="960"
+            height="540"
+            loading="eager"
+            decoding="async"
+            style="object-position:${esc(cover.position || "center")}"
+          />
+          <div class="library-featured-banner-scrim" aria-hidden="true"></div>
+          <span class="browse-card-badge library-featured-banner-badge ${featured.plan === "Pro" ? "is-pro" : "is-free"}">${esc(featured.plan || "Free")}</span>
+          <div class="library-featured-banner-overlay">
+            <p class="library-featured-banner-eyebrow">Featured Curriculum</p>
+            <span class="browse-card-age">${esc(featured.age || "")}${featured.month ? ` · ${esc(featured.month)}` : ""}</span>
+            <h3 class="browse-card-title-overlay">${esc(featured.title || "Monthly Curriculum")}</h3>
+          </div>
+        </div>
+        <div class="library-featured-banner-copy">
+          <p class="library-featured-banner-blurb">${esc(blurb)}</p>
+          <div class="library-featured-banner-actions">
+            <button type="button" class="primary-button" data-open-monthly-series="${esc(featured.id)}">View Month</button>
+            <button type="button" class="ghost-button" data-schedule-entire-month="${esc(featured.id)}">Schedule Entire Month</button>
+          </div>
+          <p class="muted-copy">${weekCount} weekly lesson plans included</p>
+        </div>
+      </section>
+    `;
+  }
+
+  function buildCurriculumBrowseRows(seriesList) {
+    const list = Array.isArray(seriesList) ? seriesList : [];
+    const rows = [];
+    const byAge = (age) => list.filter((item) => String(item.age || "").toLowerCase() === age.toLowerCase());
+    const infant = byAge("Infant");
+    const toddler = byAge("Toddler");
+    const preschool = byAge("Preschool");
+    if (infant.length) rows.push({ key: "curriculum-infant", title: "Infant Curriculums", seriesItems: infant });
+    if (toddler.length) rows.push({ key: "curriculum-toddler", title: "Toddler Curriculums", seriesItems: toddler });
+    if (preschool.length) rows.push({ key: "curriculum-preschool", title: "Preschool Curriculums", seriesItems: preschool });
+    if (!rows.length && list.length) {
+      rows.push({ key: "curriculum-all", title: "Monthly Curriculums", seriesItems: list });
+    }
+    return rows;
+  }
+
+  function curriculumBrowseRowsHtml(seriesList) {
+    const rows = buildCurriculumBrowseRows(seriesList);
+    if (!rows.length) {
+      return `<div class="empty-state">No monthly curriculums published yet.</div>`;
+    }
+    return rows.map((row) => {
+      const trackId = `browse-track-${row.key}`;
+      return `
+        <section class="browse-row" data-browse-row="${esc(row.key)}">
+          <div class="browse-row-header">
+            <h3>${esc(row.title)}</h3>
+          </div>
+          <div class="browse-row-track-wrap">
+            <button type="button" class="browse-row-arrow is-prev" data-browse-scroll="${esc(trackId)}" data-browse-dir="-1" aria-label="Scroll ${esc(row.title)} left">‹</button>
+            <div class="browse-row-track" id="${esc(trackId)}">
+              ${(row.seriesItems || []).map((entry) => monthlySeriesCardHtml(entry)).join("")}
+            </div>
+            <button type="button" class="browse-row-arrow is-next" data-browse-scroll="${esc(trackId)}" data-browse-dir="1" aria-label="Scroll ${esc(row.title)} right">›</button>
+          </div>
+        </section>
+      `;
+    }).join("");
   }
 
   function monthlyLibraryFiltersHtml(seriesList) {
@@ -1068,6 +1162,35 @@
     else if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
   }
 
+  const TAB_ORDER = ["plans", "curriculum", "favorites"];
+  let swipeStartX = 0;
+  let swipeStartY = 0;
+  document.addEventListener("touchstart", (event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch || !event.target.closest?.("#view-lessons")) return;
+    swipeStartX = touch.clientX;
+    swipeStartY = touch.clientY;
+  }, { passive: true });
+  document.addEventListener("touchend", (event) => {
+    const touch = event.changedTouches?.[0];
+    if (!touch || !event.target.closest?.("#view-lessons")) return;
+    if (event.target.closest?.(".browse-row-track, input, textarea, select, button, a")) return;
+    const dx = touch.clientX - swipeStartX;
+    const dy = touch.clientY - swipeStartY;
+    if (Math.abs(dx) < 64 || Math.abs(dx) < Math.abs(dy) * 1.4) return;
+    const current = normalizeLessonLibraryTypeFilter(lessonLibraryTypeFilter);
+    const index = TAB_ORDER.indexOf(current);
+    if (index < 0) return;
+    const next = dx < 0
+      ? TAB_ORDER[Math.min(TAB_ORDER.length - 1, index + 1)]
+      : TAB_ORDER[Math.max(0, index - 1)];
+    if (next === current) return;
+    lessonLibraryTypeFilter = next;
+    openMonthlySeriesId = "";
+    if (typeof lessonLibraryViewAllKey !== "undefined") lessonLibraryViewAllKey = "";
+    rerenderLessons();
+  }, { passive: true });
+
   document.addEventListener("click", (event) => {
     if (event.target.closest("#adminCreateCurriculumSeriesButton")) {
       adminSeriesEditorId = "new";
@@ -1169,8 +1292,9 @@
 
     const typeTab = event.target.closest("[data-lesson-library-type]");
     if (typeTab) {
-      lessonLibraryTypeFilter = typeTab.getAttribute("data-lesson-library-type") || "all";
+      lessonLibraryTypeFilter = normalizeLessonLibraryTypeFilter(typeTab.getAttribute("data-lesson-library-type"));
       openMonthlySeriesId = "";
+      if (typeof lessonLibraryViewAllKey !== "undefined") lessonLibraryViewAllKey = "";
       rerenderLessons();
       return;
     }
@@ -1311,11 +1435,17 @@
     lessonLibraryTypeTabsHtml,
     monthlyLibraryFiltersHtml,
     monthlySeriesCardHtml,
+    featuredCurriculumBannerHtml,
+    curriculumBrowseRowsHtml,
+    buildCurriculumBrowseRows,
     renderMonthlySeriesDetail,
     publicMonthlySeries,
     filterPublicMonthlySeries,
-    getLessonLibraryTypeFilter: () => lessonLibraryTypeFilter,
-    setLessonLibraryTypeFilter: (value) => { lessonLibraryTypeFilter = value || "all"; },
+    normalizeLessonLibraryTypeFilter,
+    getLessonLibraryTypeFilter: () => normalizeLessonLibraryTypeFilter(lessonLibraryTypeFilter),
+    setLessonLibraryTypeFilter: (value) => {
+      lessonLibraryTypeFilter = normalizeLessonLibraryTypeFilter(value);
+    },
     getOpenMonthlySeriesId: () => openMonthlySeriesId,
     setOpenMonthlySeriesId: (value) => { openMonthlySeriesId = value || ""; },
     getMonthlyLibraryFilters: () => ({ ...monthlyLibraryFilters }),

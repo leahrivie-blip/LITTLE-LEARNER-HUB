@@ -425,6 +425,43 @@
     { title: "Growing Gardens STEM", slug: "gardening-plants", age: "Toddler", prompt: "Reuse gardening plants." },
     { title: "Space Explorers STEM", slug: "space-adventure", age: "Toddler", prompt: "Reuse space adventure." },
     { title: "Fossil Hunters", slug: "archaeology", age: "Toddler", prompt: "Reuse archaeology fossils." },
+    // Cover audit 2026-07-21 — plans previously stuck on generic placeholders
+    {
+      title: "Black & White Discovery",
+      slug: "black-white-discovery",
+      age: "Infant",
+      prompt: "Bold high-contrast black and white infant discovery cards.",
+    },
+    {
+      title: "Black and White Discovery",
+      slug: "black-white-discovery",
+      age: "Infant",
+      prompt: "Alias for Black & White Discovery.",
+    },
+    {
+      title: "Smiles & Expressions",
+      slug: "smiles-expressions",
+      age: "Infant",
+      prompt: "Bold cartoon smiles and mirror expressions.",
+    },
+    {
+      title: "Baby's First Conversations",
+      slug: "babys-first-conversations",
+      age: "Infant",
+      prompt: "Bold cartoon first conversations speech bubbles.",
+    },
+    {
+      title: "Sensory Discovery",
+      slug: "sensory-discovery",
+      age: "Infant",
+      prompt: "Bold cartoon sensory textures discovery.",
+    },
+    {
+      title: "Healthy Me",
+      slug: "healthy-me",
+      age: "Preschool",
+      prompt: "Bold cartoon healthy habits for preschool.",
+    },
   ];
 
   const BY_TITLE = Object.fromEntries(

@@ -97,9 +97,9 @@ async function run() {
   });
 
   await test("cache bust versions aligned for analytics accuracy", () => {
-    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-it-pro-monthly");
-    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-it-pro-monthly");
-    assert.match(sw, /llh-shell-v106-it-pro-monthly/);
+    assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-cover-netflix-nav");
+    assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-cover-netflix-nav");
+    assert.match(sw, /llh-shell-v107-cover-netflix-nav/);
   });
 
   // Live formula smoke test against a temporary local store.

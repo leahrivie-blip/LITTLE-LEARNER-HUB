@@ -8,12 +8,28 @@
 
   const COVER_BASE = "/images/lesson-covers";
   const DEFAULT_COVER = `${COVER_BASE}/default.svg`;
+  // Bump when replacing JPGs so browsers/SW do not keep stale cover artwork.
+  const COVER_ASSET_VERSION = "20260721-cover-netflix-nav";
 
   const AGE_COVERS = {
     infant: `${COVER_BASE}/generic-infant.svg`,
     toddler: `${COVER_BASE}/generic-toddler.svg`,
     preschool: `${COVER_BASE}/generic-preschool.svg`,
   };
+
+  const PLACEHOLDER_COVER_RE = /\/(default|generic-infant|generic-toddler|generic-preschool)\.svg(?:$|\?)/i;
+
+  function isPlaceholderCoverUrl(url) {
+    return PLACEHOLDER_COVER_RE.test(String(url || "").trim());
+  }
+
+  function withCoverCacheBust(url) {
+    const raw = String(url || "").trim();
+    if (!raw) return "";
+    if (!raw.includes("/images/lesson-covers/")) return raw;
+    if (/[?&]v=/.test(raw)) return raw;
+    return `${raw}${raw.includes("?") ? "&" : "?"}v=${COVER_ASSET_VERSION}`;
+  }
 
   // Catalog of unique photographic/illustration covers for every seeded plan.
   // Browser: optional global; Node: require sibling module.
@@ -31,10 +47,14 @@
     { match: ["music and movement", "music & movement", "music movement"], cover: "music-movement" },
     { match: ["community helper", "community helpers"], cover: "community-helpers" },
     { match: ["kindergarten readiness", "school readiness"], cover: "kindergarten-readiness" },
-    { match: ["healthy habit", "healthy habits", "wellness"], cover: "healthy-habits" },
+    { match: ["black and white", "black white", "high contrast", "contrast cards"], cover: "black-white-discovery" },
+    { match: ["healthy me", "healthy habit", "healthy habits", "wellness"], cover: "healthy-me" },
+    { match: ["sensory discovery", "sensory play", "texture adventure"], cover: "sensory-discovery" },
+    { match: ["smiles and expressions", "smiles expressions", "expressions"], cover: "smiles-expressions" },
+    { match: ["first conversations", "baby conversation", "babys first"], cover: "babys-first-conversations" },
     { match: ["fairy tale", "fairy tales", "fairytale"], cover: "fairy-tales" },
     { match: ["water play", "water wonders", "splash"], cover: "water-play" },
-    { match: ["animal sound", "baby conversation", "soft sounds", "faces"], cover: "baby-sounds" },
+    { match: ["animal sound", "soft sounds", "faces"], cover: "baby-sounds" },
     { match: ["mirror me", "mirror play", "mirrors"], cover: "mirror-me" },
     { match: ["color", "colours", "rainbow", "crayon", "paint"], cover: "colors" },
     { match: ["farm", "barn", "rooster", "cow"], cover: "farm" },
@@ -144,6 +164,11 @@
     nature: "camping-adventure",
     "water-play": "water-play-wonders",
     "baby-sounds": "animal-sounds",
+    "black-white-discovery": "black-white-discovery",
+    "healthy-me": "healthy-me",
+    "sensory-discovery": "sensory-discovery",
+    "smiles-expressions": "smiles-expressions",
+    "babys-first-conversations": "babys-first-conversations",
   };
 
   const PHOTO_SLUGS = new Set([
@@ -222,16 +247,16 @@
 
   function coverPath(slug, preferredExt) {
     const photoSlug = THEME_PHOTO_ALIASES[slug] || (PHOTO_SLUGS.has(slug) ? slug : "");
-    if (preferredExt === "jpg" || photoSlug) {
-      return `${COVER_BASE}/${photoSlug || slug}.jpg`;
+    if (preferredExt === "jpg" || photoSlug || PHOTO_SLUGS.has(slug)) {
+      return withCoverCacheBust(`${COVER_BASE}/${photoSlug || slug}.jpg`);
     }
-    return `${COVER_BASE}/${slug}.svg`;
+    return withCoverCacheBust(`${COVER_BASE}/${slug}.svg`);
   }
 
   function getPlanCatalogCover(title) {
     const entry = catalogApi?.getPlanCoverByTitle?.(title);
     if (!entry) return "";
-    return `${COVER_BASE}/${entry.slug}.jpg`;
+    return withCoverCacheBust(`${COVER_BASE}/${entry.slug}.jpg`);
   }
 
   function getMappedThemeCover(title, theme) {
@@ -266,12 +291,13 @@
     const theme = plan.theme || entry.theme || "";
     const age = plan.age || entry.age || "";
     const position = plan.coverImagePosition || entry.coverImagePosition || "center";
-    // Explicit cover on the lesson-plan record wins. Do not treat auto-injected
-    // previewData/thumbnailUrl as custom for curriculum plans — those are display caches.
-    const explicit = String(plan.coverImageUrl || entry.coverImageUrl || "").trim();
+    // Explicit cover on the lesson-plan record wins — unless it is a stale
+    // generic/default placeholder left from an earlier seed/import.
+    const explicitRaw = String(plan.coverImageUrl || entry.coverImageUrl || "").trim();
+    const explicit = explicitRaw && !isPlaceholderCoverUrl(explicitRaw) ? explicitRaw : "";
     if (explicit) {
       return {
-        url: explicit,
+        url: withCoverCacheBust(explicit),
         alt: String(plan.coverImageAlt || entry.coverImageAlt || "").trim()
           || `Cover illustration for ${title}`,
         source: plan.coverImageSource || entry.coverImageSource || "uploaded",
@@ -291,9 +317,9 @@
     const isCurriculum = Boolean(entry._curriculumManaged || plan.dailyPlans);
     if (!isCurriculum) {
       const legacy = String(entry.previewData || entry.thumbnailUrl || plan.thumbnailUrl || "").trim();
-      if (legacy) {
+      if (legacy && !isPlaceholderCoverUrl(legacy)) {
         return {
-          url: legacy,
+          url: withCoverCacheBust(legacy),
           alt: String(plan.coverImageAlt || entry.coverImageAlt || "").trim()
             || `Cover illustration for ${title}`,
           source: "uploaded",
@@ -303,7 +329,7 @@
     }
     const ageCover = getAgeGroupFallback(age);
     return {
-      url: ageCover || DEFAULT_COVER,
+      url: withCoverCacheBust(ageCover || DEFAULT_COVER),
       alt: `Early childhood lesson plan cover for ${age || "preschool"}`,
       source: "default",
       position: "center",
@@ -432,10 +458,15 @@
     const theme = entry.theme || [month, season].filter(Boolean).join(" ") || title;
     const age = entry.age || "Preschool";
     const position = entry.coverImagePosition || "center";
-    const explicit = String(entry.coverImageUrl || "").trim();
-    if (explicit && !explicit.startsWith("data:") && !isStaleGenericSeriesCover(explicit, entry)) {
+    const explicitRaw = String(entry.coverImageUrl || "").trim();
+    const explicit = explicitRaw && !explicitRaw.startsWith("data:")
+      && !isPlaceholderCoverUrl(explicitRaw)
+      && !isStaleGenericSeriesCover(explicitRaw, entry)
+      ? explicitRaw
+      : "";
+    if (explicit) {
       return {
-        url: explicit,
+        url: withCoverCacheBust(explicit),
         alt: String(entry.coverImageAlt || "").trim() || `Cover illustration for ${title}`,
         source: entry.coverImageSource || "uploaded",
         position,
@@ -506,7 +537,7 @@
       };
     }
     return {
-      url: getAgeGroupFallback(age) || DEFAULT_COVER,
+      url: withCoverCacheBust(getAgeGroupFallback(age) || DEFAULT_COVER),
       alt: `Early childhood curriculum cover for ${age}`,
       source: "default",
       position: "center",
@@ -530,6 +561,7 @@
 
   const api = {
     COVER_BASE,
+    COVER_ASSET_VERSION,
     DEFAULT_COVER,
     EXISTING_COVER_LIBRARY,
     SVG_COVER_LIBRARY,
@@ -544,6 +576,8 @@
     getPlanCatalogCover,
     getMappedThemeCover,
     getAgeGroupFallback,
+    isPlaceholderCoverUrl,
+    withCoverCacheBust,
     collectSeriesThemeHaystack,
     detectWeekThemeTokens,
     resolveCompositeSeriesCover,

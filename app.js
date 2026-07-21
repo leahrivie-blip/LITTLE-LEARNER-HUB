@@ -13521,7 +13521,7 @@ function browseRowHtml({ key, title, items, cardHtml, viewAllLabel = "View All",
       <section class="browse-row" data-browse-row="${escapeHtml(key)}">
         <div class="browse-row-header">
           <h3>${escapeHtml(title)}</h3>
-          <button type="button" class="browse-row-view-all" data-lesson-library-type="monthly" aria-label="${escapeHtml(`${viewAllLabel}: ${title}`)}">${escapeHtml(viewAllLabel)}</button>
+          <button type="button" class="browse-row-view-all" data-lesson-library-type="curriculum" aria-label="${escapeHtml(`${viewAllLabel}: ${title}`)}">${escapeHtml(viewAllLabel)}</button>
         </div>
         <div class="browse-row-track-wrap">
           <button type="button" class="browse-row-arrow is-prev" data-browse-scroll="${escapeHtml(trackId)}" data-browse-dir="-1" aria-label="Scroll ${escapeHtml(title)} left">‹</button>
@@ -13819,10 +13819,11 @@ function buildLessonBrowseRows(items) {
   if (featured.length && ageFilter === "All") {
     rows.push({ key: "featured", title: "Featured This Week", items: featured, viewAllLabel: "View All" });
   }
-  // Monthly Curriculums Netflix row — series cards injected at render time (not weekly resources).
+  // Monthly Curriculums Netflix row lives on the Curriculum tab only.
   const monthlyApi = globalThis.LLHMonthlyCurriculumPhase1;
   const monthlySeries = monthlyApi?.publicMonthlySeries?.() || [];
-  if (monthlySeries.length && ageFilter === "All") {
+  const typeFilter = monthlyApi?.getLessonLibraryTypeFilter?.() || "plans";
+  if (monthlySeries.length && ageFilter === "All" && typeFilter === "curriculum") {
     rows.push({
       key: "monthly-curriculums",
       title: "Monthly Curriculums",
@@ -21311,7 +21312,9 @@ function renderCategoryPage(view) {
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
     const monthlyApi = globalThis.LLHMonthlyCurriculumPhase1;
-    const typeFilter = monthlyApi?.getLessonLibraryTypeFilter?.() || "all";
+    const typeFilter = monthlyApi?.normalizeLessonLibraryTypeFilter?.(monthlyApi?.getLessonLibraryTypeFilter?.())
+      || monthlyApi?.getLessonLibraryTypeFilter?.()
+      || "plans";
     const openSeriesId = monthlyApi?.getOpenMonthlySeriesId?.() || "";
     const openSeries = openSeriesId
       ? (monthlyApi.publicMonthlySeries?.() || []).find((entry) => entry.id === openSeriesId)
@@ -21326,40 +21329,75 @@ function renderCategoryPage(view) {
     const isSavedLessonMode = lessonLibraryMode === "saved" || typeFilter === "favorites";
     const lessonUpgradeBanner = !isProUser() ? libraryCompactUpgradeStripHtml() : "";
     const hasSearchOrAdvanced = Boolean(searchInput.value.trim() || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly || lessonLibrarySort !== "recommended");
-    const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced && typeFilter === "all";
+    const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced && typeFilter === "plans";
     let browseBody = "";
-    if (typeFilter === "monthly") {
+    if (typeFilter === "curriculum") {
       const allSeries = monthlyApi?.publicMonthlySeries?.() || [];
       const series = monthlyApi?.filterPublicMonthlySeries?.(allSeries) || allSeries;
       browseBody = `
         ${monthlyApi?.monthlyLibraryFiltersHtml?.(allSeries) || ""}
-        <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid curriculum-series-netflix-grid">
+        <div class="resource-grid lesson-library-grid library-browse-shell curriculum-netflix-shell">
           ${lessonUpgradeBanner}
+          ${activeFilter === "All" ? (monthlyApi?.featuredCurriculumBannerHtml?.(series) || "") : ""}
           ${series.length
-            ? series.map((entry) => monthlyApi.monthlySeriesCardHtml(entry)).join("")
+            ? (monthlyApi?.curriculumBrowseRowsHtml?.(series) || series.map((entry) => monthlyApi.monthlySeriesCardHtml(entry)).join(""))
             : `<div class="empty-state">${allSeries.length ? "No monthly curriculums match these filters." : "No monthly curriculums published yet."}</div>`}
         </div>
       `;
-    } else if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey || typeFilter === "weekly") {
+    } else if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey) {
       let viewAllItems = lessonLibraryViewAllKey ? collectLessonViewAllItems(items, lessonLibraryViewAllKey) : items;
-      if (typeFilter === "favorites") {
+      if (typeFilter === "favorites" || lessonLibraryMode === "saved") {
         viewAllItems = viewAllItems.filter((item) => favorites.includes(item.id));
-      }
-      const viewAllTitle = lessonLibraryViewAllKey
-        ? (buildLessonBrowseRows(items).find((row) => row.key === lessonLibraryViewAllKey)?.title || "All matching plans")
-        : "";
-      browseBody = `
-        ${lessonLibraryViewAllKey ? `
-          <div class="browse-view-all-bar">
-            <h3>${escapeHtml(viewAllTitle)}</h3>
-            <button type="button" class="ghost-button" data-clear-lesson-view-all>← Back to browse</button>
+        const seriesFavs = (monthlyApi?.publicMonthlySeries?.() || []).filter((entry) => favorites.includes(`series:${entry.id}`));
+        browseBody = `
+          <div class="resource-grid lesson-library-grid library-browse-shell">
+            ${lessonUpgradeBanner}
+            ${!hasSearchOrAdvanced && !lessonLibraryViewAllKey && viewAllItems.length
+              ? featuredLessonBannerHtml(viewAllItems)
+              : ""}
+            ${viewAllItems.length || seriesFavs.length
+              ? `
+                ${viewAllItems.length ? `
+                  <section class="browse-row" data-browse-row="favorite-lessons">
+                    <div class="browse-row-header"><h3>Saved Lesson Plans</h3></div>
+                    <div class="browse-row-track-wrap">
+                      <div class="browse-row-track" id="browse-track-favorite-lessons">
+                        ${viewAllItems.map(lessonPlanCard).join("")}
+                      </div>
+                    </div>
+                  </section>
+                ` : ""}
+                ${seriesFavs.length ? `
+                  <section class="browse-row" data-browse-row="favorite-curriculums">
+                    <div class="browse-row-header"><h3>Saved Curriculums</h3></div>
+                    <div class="browse-row-track-wrap">
+                      <div class="browse-row-track" id="browse-track-favorite-curriculums">
+                        ${seriesFavs.map((entry) => monthlyApi.monthlySeriesCardHtml(entry)).join("")}
+                      </div>
+                    </div>
+                  </section>
+                ` : ""}
+              `
+              : lessonLibraryEmptyStateHtml()}
           </div>
-        ` : ""}
-        <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
-          ${lessonUpgradeBanner}
-          ${viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
-        </div>
-      `;
+        `;
+      } else {
+        const viewAllTitle = lessonLibraryViewAllKey
+          ? (buildLessonBrowseRows(items).find((row) => row.key === lessonLibraryViewAllKey)?.title || "All matching plans")
+          : "";
+        browseBody = `
+          ${lessonLibraryViewAllKey ? `
+            <div class="browse-view-all-bar">
+              <h3>${escapeHtml(viewAllTitle)}</h3>
+              <button type="button" class="ghost-button" data-clear-lesson-view-all>← Back to browse</button>
+            </div>
+          ` : ""}
+          <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
+            ${lessonUpgradeBanner}
+            ${viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
+          </div>
+        `;
+      }
     } else if (useBrowseRows) {
       const rows = buildLessonBrowseRows(items);
       browseBody = `
@@ -21375,10 +21413,10 @@ function renderCategoryPage(view) {
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
       ${calendarLessonAssignBannerHtml()}
-      ${isSavedLessonMode && typeFilter === "favorites" ? "" : (monthlyApi?.lessonLibraryTypeTabsHtml?.() || "")}
+      ${isSavedLessonMode && lessonLibraryMode === "saved" && typeFilter !== "favorites" ? "" : (monthlyApi?.lessonLibraryTypeTabsHtml?.() || "")}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : typeFilter === "curriculum" ? "Search monthly curriculums..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
       ${isSavedLessonMode ? "" : `<div class="filter-row lesson-library-age-filters library-filter-scroll" role="group" aria-label="Age group filters">
         ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}" type="button" aria-pressed="${activeFilter === filter ? "true" : "false"}">${filter}</button>`).join("")}

@@ -19,6 +19,24 @@ function assert(condition, message) {
 
 function unitTests() {
   assert(covers.normalizeTheme("Around the World!") === "around the world", "normalizeTheme failed");
+  const blackWhite = covers.resolveLessonPlanCover({
+    title: "Black & White Discovery",
+    theme: "Black & White Discovery",
+    age: "Infant",
+  });
+  assert(blackWhite.url.includes("black-white-discovery.jpg"), `Black & White should map to illustrated cover, got ${blackWhite.url}`);
+  assert(blackWhite.source === "mapped", "Black & White source should be mapped");
+  const stalePlaceholder = covers.resolveLessonPlanCover({
+    title: "Black & White Discovery",
+    age: "Infant",
+    coverImageUrl: "/images/lesson-covers/generic-infant.svg",
+  });
+  assert(
+    stalePlaceholder.url.includes("black-white-discovery.jpg"),
+    `Stale placeholder must yield to catalog cover, got ${stalePlaceholder.url}`,
+  );
+  assert(covers.withCoverCacheBust("/images/lesson-covers/zoo-animals.jpg").includes("?v="), "cover URLs must cache-bust");
+  assert(covers.normalizeTheme("Around the World!") === "around the world", "normalizeTheme failed");
   assert(
     covers.getMappedThemeCover("Around the World", "").includes("around-the-world"),
     "Around the World should map to specific cover",
