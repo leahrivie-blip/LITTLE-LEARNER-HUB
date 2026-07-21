@@ -5230,6 +5230,11 @@ async function loadExpansionFeatureFlagsFromBackend() {
     expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false };
   }
   syncPlatformNavVisibility();
+  updateAdminNavVisibility();
+  // Refresh the unlocked Admin bar so the Director Center CTA appears after flags load.
+  if (isAdminUnlocked() && document.querySelector("#view-admin.active-view") && typeof renderAdminAccessShell === "function") {
+    renderAdminAccessShell();
+  }
   return expansionFeatureFlags();
 }
 
@@ -35619,6 +35624,8 @@ function setAdminSession(sessionDetail) {
     localStorage.setItem("llhAdminPreviewMode", "Admin");
   }
   updateAdminNavVisibility();
+  if (typeof updateBodyAuthClass === "function") updateBodyAuthClass();
+  if (typeof updateAuthButtons === "function") updateAuthButtons();
   refreshAdminPreviewBadge();
   startAdminSessionHeartbeat();
   if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
@@ -35641,6 +35648,8 @@ function clearAdminSession(options = {}) {
   adminAnalyticsCache = null;
   adminAnalyticsLastError = "";
   updateAdminNavVisibility();
+  if (typeof updateBodyAuthClass === "function") updateBodyAuthClass();
+  if (typeof updateAuthButtons === "function") updateAuthButtons();
   refreshAdminPreviewBadge();
   document.body.classList.remove("admin-preview-simulating");
   delete document.body.dataset.adminPreview;
@@ -36972,6 +36981,9 @@ function renderAdminOwnerOverview() {
         <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. ${escapeHtml(loadingNote)}</p>
       </div>
       <div class="account-actions-row">
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          : ""}
         <button class="primary-button" type="button" id="adminOpenNotificationsButton">Notifications${adminNotificationState.unreadCount ? ` (${adminNotificationState.unreadCount})` : ""}</button>
         <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
@@ -37396,7 +37408,7 @@ function renderAdminAccessShell() {
       <div>
         <p class="eyebrow">Private Owner Area</p>
         <strong>Admin dashboard unlocked for ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}</strong>
-        <span>Stays unlocked on this browser until you tap Lock Admin. Provider sign-out will not clear Admin.</span>
+        <span>Stays unlocked on this browser until you tap Lock Admin. Provider sign-out will not clear Admin. On phones and tablets, tap the ☰ menu for the platform sidebar (Director Center, Admin Dashboard, and more).</span>
       </div>
       <div class="admin-unlocked-actions">
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
@@ -51708,6 +51720,13 @@ document.addEventListener("click", async (event) => {
     }
     clearAdminSession({ forgetDevice: true });
     renderAdminDashboard();
+    return;
+  }
+
+  const openDirectorCenter = event.target.closest("[data-admin-open-director-center]");
+  if (openDirectorCenter) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("director-center");
     return;
   }
 

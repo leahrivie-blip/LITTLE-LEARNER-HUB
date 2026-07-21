@@ -14330,20 +14330,18 @@ body:not(.user-authenticated):not(.admin-unlocked) .app-shell {
 }
 
 body:not(.user-authenticated):not(.admin-unlocked) .sidebar {
-  display: none;
+  display: none !important;
 }
 
-body.admin-unlocked:not(.user-authenticated) .app-shell {
-  grid-template-columns: 304px 1fr;
-}
-
-body.admin-unlocked:not(.user-authenticated) .sidebar {
-  display: block;
-}
-
-@media (max-width: 1100px) {
+/* Desktop: restore the normal shell while Admin is unlocked without a member login.
+   At ≤1100px the shared mobile drawer rules already apply — do not force display:none. */
+@media (min-width: 1101px) {
   body.admin-unlocked:not(.user-authenticated) .app-shell {
-    grid-template-columns: 1fr;
+    grid-template-columns: 304px 1fr;
+  }
+
+  body.admin-unlocked:not(.user-authenticated) .sidebar {
+    display: block;
   }
 }
 

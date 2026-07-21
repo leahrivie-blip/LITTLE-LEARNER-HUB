@@ -230,6 +230,19 @@ test("navigation guards prevent post-login/boot yank and sidebar history polluti
   assert.doesNotMatch(html, /Back to Dashboard/);
 });
 
+test("unlocked Admin keeps platform sidebar without a member login", () => {
+  const css = fs.readFileSync(path.join(__dirname, "..", "styles.css"), "utf8");
+  assert.match(css, /body:not\(\.user-authenticated\):not\(\.admin-unlocked\) \.sidebar/);
+  assert.match(css, /body\.admin-unlocked:not\(\.user-authenticated\) \.sidebar/);
+  assert.match(css, /@media \(min-width: 1101px\)/);
+  assert.match(appJs, /classList\.toggle\("admin-unlocked"/);
+  assert.match(appJs, /data-admin-open-director-center/);
+  assert.match(appJs, /closest\("\[data-admin-open-director-center\]"\)/);
+  assert.match(appJs, /setView\("director-center"\)/);
+  assert.match(html, /styles\.css\?v=20260721-admin-sidebar-fix/);
+  assert.match(html, /app\.js\?v=20260721-admin-sidebar-fix/);
+});
+
 if (!process.exitCode) {
   console.log("\nAll platform-nav tests passed.");
 }
