@@ -12,6 +12,7 @@ const BRAND_APEX_HOST = "littlelearnerhub.com";
 const BRAND_WWW_HOST = "www.littlelearnerhub.com";
 const WORKING_APEX_HOST = "littlelearnershubbyleah.com";
 const WORKING_WWW_HOST = "www.littlelearnershubbyleah.com";
+const WORKING_SITE_URL = `https://${WORKING_APEX_HOST}`;
 const CUSTOM_BRAND_DOMAINS = [BRAND_APEX_HOST, BRAND_WWW_HOST];
 const WORKING_BRAND_DOMAINS = [WORKING_APEX_HOST, WORKING_WWW_HOST];
 
@@ -131,19 +132,24 @@ function buildNextSteps({ ready, brand, nameservers }) {
   if (ready) {
     return [
       "DNS points at Render. Confirm both hosts show verified certificates in Render → Custom Domains.",
-      "Optionally set SITE_URL=https://www.littlelearnerhub.com after HTTPS is live everywhere.",
+      `Optionally set SITE_URL=https://www.${BRAND_APEX_HOST} after HTTPS is live everywhere.`,
     ];
   }
   const nsList = (nameservers || []).join(", ") || "unknown";
+  const parkedHint = (brand?.apex?.a || []).some((ip) => String(ip).startsWith("66.235."))
+    || (brand?.www?.a || []).some((ip) => String(ip).startsWith("66.235."));
   return [
+    `DO NOT share https://${BRAND_APEX_HOST} yet — it does not reach the app. Share ${WORKING_SITE_URL} (or https://${RENDER_SERVICE_HOST}).`,
+    parkedHint
+      ? "Brand domain currently resolves to a parking/hosting IP (66.235.x.x) with a challenge/403 response — that is why the website entry link fails."
+      : "",
     `Edit DNS where the domain's nameservers are authoritative (currently: ${nsList}).`,
     "If you changed records at a registrar/host whose nameservers are not listed above, those edits are not live yet — either update the authoritative DNS zone, or point nameservers to the provider where you made the changes.",
     `Set www CNAME → ${RENDER_SERVICE_HOST}`,
     `Set apex (@) A → ${RENDER_LOAD_BALANCER_IPV4}`,
-    "Remove A/AAAA records that do not point at Render.",
-    "In Render → Settings → Custom Domains, add www.littlelearnerhub.com and littlelearnerhub.com if missing.",
+    "Remove A/AAAA records that do not point at Render (including parking/hosting IPs).",
+    `In Render → Settings → Custom Domains, add ${BRAND_WWW_HOST} and ${BRAND_APEX_HOST} if missing.`,
     "Wait for DNS propagation, then Refresh Safety / GET /api/domain-dns-check.",
-    `Keep sharing https://${WORKING_APEX_HOST} until the brand domain is ready.`,
     brand?.www?.issue ? `www: ${brand.www.issue}` : "",
     brand?.apex?.issue ? `apex: ${brand.apex.issue}` : "",
   ].filter(Boolean);
@@ -170,6 +176,10 @@ async function buildDomainDnsReport({ siteUrl = "" } = {}) {
   return {
     checkedAt: new Date().toISOString(),
     ready,
+    shareUrl: WORKING_SITE_URL,
+    entryLinkNote: ready
+      ? `Brand domain is ready. Prefer https://www.${BRAND_APEX_HOST} once certificates are verified.`
+      : `Website entry link for sharing right now: ${WORKING_SITE_URL}. Do not share https://${BRAND_APEX_HOST} until DNS points at Render.`,
     render: {
       serviceHost: RENDER_SERVICE_HOST,
       apexARecord: RENDER_LOAD_BALANCER_IPV4,
@@ -191,6 +201,7 @@ module.exports = {
   RENDER_LOAD_BALANCER_IPV4,
   CUSTOM_BRAND_DOMAINS,
   WORKING_BRAND_DOMAINS,
+  WORKING_SITE_URL,
   BRAND_APEX_HOST,
   BRAND_WWW_HOST,
   normalizeDnsHost,

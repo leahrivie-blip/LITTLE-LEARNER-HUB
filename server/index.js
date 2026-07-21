@@ -12145,10 +12145,11 @@ function handleHealth(request, response) {
       servingKnownAppHost: knownAppHosts.has(host),
       customDomainTargets: CUSTOM_BRAND_DOMAINS,
       workingBrandDomains: WORKING_BRAND_DOMAINS,
+      shareUrl: `https://${WORKING_BRAND_DOMAINS[0]}`,
       renderServiceHost: RENDER_SERVICE_HOST,
       renderApexARecord: RENDER_LOAD_BALANCER_IPV4,
       dnsCheckEndpoint: "/api/domain-dns-check",
-      note: "Brand domain must resolve to Render (www CNAME → little-learner-hub.onrender.com, apex A → 216.24.57.1). Provider-agnostic live status: GET /api/domain-dns-check.",
+      note: "Share https://littlelearnershubbyleah.com until littlelearnerhub.com DNS points at Render. Live status: GET /api/domain-dns-check.",
     },
   });
 }

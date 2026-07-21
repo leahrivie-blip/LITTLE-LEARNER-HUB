@@ -47,8 +47,8 @@ const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260720-promo-existing";
-const SHELL_V = "llh-shell-v105-promo-existing";
+const CACHE_V = "20260721-site-entry-link";
+const SHELL_V = "llh-shell-v106-site-entry-link";
 
 test("classify: Namecheap NS + Render targets is ready", () => {
   const apex = classifyBrandDomainDns({
@@ -112,12 +112,15 @@ test("server/UI/docs stay provider-agnostic", () => {
   assert.doesNotMatch(domainDnsJs, /Still on Bluehost|managedAtBluehost|BLUEHOST_LEGACY|Log into Bluehost/i);
   assert.match(appJs, /Recommended DNS records/);
   assert.match(appJs, /Authoritative nameservers/);
+  assert.match(appJs, /littlelearnershubbyleah\.com/);
   assert.doesNotMatch(appJs, /Recommended Bluehost|Still on Bluehost|Log into Bluehost/i);
   assert.match(doc, /Registrar vs nameservers/);
   assert.match(doc, /216\.24\.57\.1/);
+  assert.match(doc, /littlelearnershubbyleah\.com/);
   assert.match(doc, /provider-agnostic|Provider-agnostic/i);
-  assert.doesNotMatch(doc, /ns1\.bluehost\.com|66\.235\.200\.145|Still on Bluehost/i);
-  assert.doesNotMatch(launchDoc, /not Bluehost|Bluehost/i);
+  assert.doesNotMatch(doc, /Still on Bluehost/i);
+  assert.doesNotMatch(launchDoc, /not Bluehost|Still on Bluehost/i);
+  assert.match(launchDoc, /littlelearnershubbyleah\.com/);
   assert.match(launchDoc, /domain-dns-check|DOMAIN_DNS_FIX/);
 });
 
@@ -206,13 +209,16 @@ function requestJson(port, pathname) {
       const health = await requestJson(port, "/api/health");
       assert.equal(health.status, 200);
       assert.equal(health.data.domain?.dnsCheckEndpoint, "/api/domain-dns-check");
-      assert.doesNotMatch(String(health.data.domain?.note || ""), /Bluehost/i);
+      assert.equal(health.data.domain?.shareUrl, "https://littlelearnershubbyleah.com");
+      assert.match(String(health.data.domain?.note || ""), /littlelearnershubbyleah\.com/);
 
       const dns = await requestJson(port, "/api/domain-dns-check");
       assert.equal(dns.status, 200);
       assert.equal(dns.data.ok, true);
       const report = dns.data.domainDns;
       assert.ok(report);
+      assert.equal(report.shareUrl, "https://littlelearnershubbyleah.com");
+      assert.match(String(report.entryLinkNote || ""), /littlelearnershubbyleah\.com/);
       assert.ok(Array.isArray(report.nameservers));
       assert.ok(report.nameserverNote);
       assert.doesNotMatch(JSON.stringify(report.nextSteps || []), /Log into Bluehost|Still on Bluehost/i);

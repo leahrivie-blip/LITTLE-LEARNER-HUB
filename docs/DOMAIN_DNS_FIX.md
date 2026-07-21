@@ -1,32 +1,49 @@
 # Custom domain DNS (`littlelearnerhub.com`)
 
-Provider-agnostic checklist. The app does **not** assume any DNS host/provider — only whether records point at Render.
+## Share this website link (working now)
 
-## Correct records
+**https://littlelearnershubbyleah.com/**
+
+Also works: https://little-learner-hub.onrender.com/
+
+Render is healthy. `littlelearnershubbyleah.com` is the public entry link to use today.
+
+## Broken brand domain (do not share yet)
+
+https://littlelearnerhub.com/ and https://www.littlelearnerhub.com/ currently fail for visitors (HTTP 403 / challenge page). They do **not** point at Render yet.
+
+Live check: `GET /api/domain-dns-check` (includes `shareUrl` → `https://littlelearnershubbyleah.com`).
+
+Provider-agnostic checklist below. The app does **not** assume any DNS host/provider — only whether records point at Render.
+
+## Correct records for the brand domain
+
+Edit DNS in whatever zone is **authoritative** for `littlelearnerhub.com` (check `dig NS littlelearnerhub.com`):
 
 | Host | Type | Value |
 |---|---|---|
 | `www` | CNAME | `little-learner-hub.onrender.com` |
 | `@` (apex) | A | `216.24.57.1` |
 
-Also in Render → Custom Domains: add both hosts and confirm certificates are issued.
+Also:
+
+1. Remove any A/AAAA that is **not** Render.
+2. In Render → Custom Domains: add both hosts and confirm certificates are issued.
 
 ## Registrar vs nameservers
 
 Where you renew the domain (e.g. Namecheap) can differ from which hosts are **authoritative** for DNS.
 
-1. Check Namecheap → Domain List → Manage → **Nameservers**.
+1. Check the registrar → Domain List → Manage → **Nameservers**.
 2. Public `dig NS littlelearnerhub.com` must match the provider where you edit A/CNAME records.
-3. If nameservers are still custom/third-party, Namecheap **Advanced DNS** changes are ignored until you either:
-   - switch nameservers to Namecheap DNS, **or**
+3. If nameservers are still custom/third-party, registrar **Advanced DNS** changes are ignored until you either:
+   - switch nameservers to that registrar's DNS, **or**
    - edit the zone at the host those nameservers belong to.
 
 ## Live checks in the app
 
-After this change is deployed:
-
 - Admin → Safety Center → **Custom domain DNS**
-- `GET /api/domain-dns-check`
+- `GET /api/domain-dns-check` (includes `shareUrl` + `entryLinkNote`)
 
 Statuses mean:
 
@@ -39,24 +56,27 @@ Statuses mean:
 
 Nameservers are shown only as context (which zone is live), never as a failure reason.
 
-## Working URLs today
-
-- `https://littlelearnershubbyleah.com/` — already on Render (Namecheap nameservers + correct A/CNAME)
-- `https://little-learner-hub.onrender.com/`
-
 ## Verify from any machine
 
 ```bash
 dig +short littlelearnerhub.com NS
-dig +short www.littlelearnerhub.com CNAME   # expect little-learner-hub.onrender.com.
+dig +short www.littlelearnerhub.com CNAME   # expect little-learner-hub.onrender.com
 dig +short littlelearnerhub.com A           # expect 216.24.57.1
-curl -sI https://www.littlelearnerhub.com/ | head
-curl -s https://www.littlelearnerhub.com/api/health
+curl -sI https://littlelearnershubbyleah.com/ | head
+curl -s https://little-learner-hub.onrender.com/api/domain-dns-check
 ```
 
-`/api/domain-dns-check` should report `"ready": true` for both brand apex and www.
+`/api/domain-dns-check` should report `"ready": true` for both brand apex and www before you share the brand domain.
 
-## Optional after brand domain is ready
+## SITE_URL
+
+Keep production on the working domain:
+
+```bash
+SITE_URL=https://littlelearnershubbyleah.com
+```
+
+After `littlelearnerhub.com` is ready and certificates are issued, you may optionally switch:
 
 ```bash
 SITE_URL=https://www.littlelearnerhub.com
