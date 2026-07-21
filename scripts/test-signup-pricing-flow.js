@@ -106,9 +106,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260720-promo-existing");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260720-promo-existing");
-  assert.match(sw, /llh-shell-v105-promo-existing/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-it-pro-monthly");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-it-pro-monthly");
+  assert.match(sw, /llh-shell-v106-it-pro-monthly/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

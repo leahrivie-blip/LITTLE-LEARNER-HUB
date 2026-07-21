@@ -47,6 +47,12 @@
     { match: ["music", "song", "instrument", "melody"], cover: "music" },
     { match: ["movement", "dance", "dancing"], cover: "music-movement" },
     { match: ["shape", "shapes", "circle", "triangle", "square"], cover: "shapes" },
+    // Week-specific October-style themes (before broader seasonal matches).
+    { match: ["friendly halloween"], cover: "friendly-halloween-week" },
+    { match: ["fall leaves", "autumn leaves"], cover: "fall-leaves-week" },
+    { match: ["halloween", "spooky"], cover: "friendly-halloween-week" },
+    { match: ["pumpkin", "pumpkins", "pumpkin patch"], cover: "pumpkins-week" },
+    { match: ["apple", "apples", "orchard"], cover: "apples-week" },
     { match: ["nature", "forest", "outdoor", "leaf", "leaves"], cover: "nature" },
     { match: ["garden", "plant", "seed", "flower", "gardening"], cover: "garden" },
     { match: ["insect", "bug", "butterfly", "bugs"], cover: "insects" },
@@ -60,8 +66,56 @@
     { match: ["letter", "letters", "sounds", "literacy", "number", "numbers", "math"], cover: "kindergarten-readiness" },
     { match: ["camping", "camp"], cover: "nature" },
     { match: ["stem", "science", "scientist", "archaeology"], cover: "kindergarten-readiness" },
-    { match: ["holiday", "easter", "july", "new year", "christmas", "halloween"], cover: "seasons" },
+    { match: ["holiday", "easter", "july", "new year", "christmas"], cover: "seasons" },
+    { match: ["back to school", "classroom helpers", "first week"], cover: "kindergarten-readiness" },
   ];
+
+  // Known weekly theme tokens used to build / match composite monthly covers.
+  const WEEK_THEME_TOKENS = [
+    { id: "fall-leaves", match: ["fall leaves", "autumn leaves", "falling leaves"], cover: "fall-leaves-week" },
+    { id: "apples", match: ["apple", "apples", "orchard"], cover: "apples-week" },
+    { id: "pumpkins", match: ["pumpkin", "pumpkins", "pumpkin patch"], cover: "pumpkins-week" },
+    { id: "halloween", match: ["friendly halloween", "halloween", "spooky"], cover: "friendly-halloween-week" },
+  ];
+
+  // Composite monthly covers that visually combine multiple weekly themes.
+  // `require` = theme token ids that must all be present among linked weeks.
+  const SERIES_COMPOSITE_COVERS = [
+    {
+      slug: "october-preschool-curriculum",
+      titleMatch: ["october preschool", "october curriculum"],
+      month: "october",
+      require: ["fall-leaves", "apples", "pumpkins", "halloween"],
+      minMatches: 3,
+      alt: "October preschool curriculum cover with fall leaves, apples, pumpkins, and friendly Halloween",
+    },
+  ];
+
+  // Monthly curriculum month/season → preferred illustrated cover slug (generic fallback only).
+  const SERIES_MONTH_COVERS = {
+    january: "new-year-celebration",
+    february: "feelings-emotions",
+    march: "gardening-plants",
+    april: "easter-spring-science",
+    may: "gardening-plants",
+    june: "ocean-explorers",
+    july: "july4-celebration",
+    august: "camping-adventure",
+    september: "apple-orchard-adventure",
+    october: "october-preschool-curriculum",
+    november: "seasons-year",
+    december: "new-year-little",
+  };
+
+  const SERIES_SEASON_COVERS = {
+    spring: "gardening-plants",
+    summer: "ocean-explorers",
+    fall: "seasons-year",
+    autumn: "seasons-year",
+    winter: "seasons-year",
+    "back to school": "kindergarten-readiness",
+    holiday: "new-year-celebration",
+  };
 
   // Theme-rule SVG slugs → preferred illustrated JPG slugs when available.
   const THEME_PHOTO_ALIASES = {
@@ -286,6 +340,179 @@
     return [...new Set([resolved.url, mapped, svgFallback, age, DEFAULT_COVER].filter(Boolean))];
   }
 
+  function collectSeriesThemeHaystack(series = {}) {
+    const entry = series && typeof series === "object" ? series : {};
+    const chunks = [
+      entry.title,
+      entry.theme,
+      entry.description,
+      entry.month,
+      entry.season,
+    ];
+    const weekThemes = Array.isArray(entry.weekThemes) ? entry.weekThemes : [];
+    weekThemes.forEach((value) => chunks.push(value));
+    const linked = Array.isArray(entry.linkedPlans)
+      ? entry.linkedPlans
+      : (Array.isArray(entry._linkedPlans) ? entry._linkedPlans : []);
+    linked.forEach((plan) => {
+      if (!plan || typeof plan !== "object") return;
+      chunks.push(plan.title, plan.theme, plan.weeklyOverview);
+    });
+    (Array.isArray(entry.weeks) ? entry.weeks : []).forEach((week) => {
+      if (!week || typeof week !== "object") return;
+      chunks.push(week.title, week.theme, week.label, week.lessonPlanTitle);
+    });
+    return normalizeTheme(chunks.filter(Boolean).join(" "));
+  }
+
+  function detectWeekThemeTokens(haystack) {
+    const padded = ` ${normalizeTheme(haystack)} `;
+    if (!padded.trim()) return [];
+    const found = [];
+    for (const token of WEEK_THEME_TOKENS) {
+      const hit = token.match.some((phrase) => {
+        const normalizedPhrase = normalizeTheme(phrase);
+        return padded.includes(` ${normalizedPhrase} `)
+          || padded.includes(` ${normalizedPhrase}s `);
+      });
+      if (hit) found.push(token.id);
+    }
+    return found;
+  }
+
+  function resolveCompositeSeriesCover(series = {}) {
+    const entry = series && typeof series === "object" ? series : {};
+    const titleKey = normalizeTheme(entry.title || "");
+    const monthKey = normalizeTheme(entry.month || "");
+    const haystack = collectSeriesThemeHaystack(entry);
+    const tokens = detectWeekThemeTokens(haystack);
+    const tokenSet = new Set(tokens);
+
+    for (const composite of SERIES_COMPOSITE_COVERS) {
+      const titleHit = (composite.titleMatch || []).some((phrase) => titleKey.includes(normalizeTheme(phrase)));
+      const monthHit = Boolean(composite.month && monthKey === normalizeTheme(composite.month));
+      const required = composite.require || [];
+      const matchCount = required.filter((id) => tokenSet.has(id)).length;
+      const minMatches = Number(composite.minMatches) || required.length || 1;
+      const themesHit = matchCount >= minMatches;
+      // Use the composite when the series is clearly this month/collection, or when
+      // linked weekly themes match the illustration's combined subjects.
+      if (titleHit || themesHit || (monthHit && (!tokens.length || themesHit))) {
+        return {
+          slug: composite.slug,
+          alt: composite.alt || `Composite monthly curriculum cover for ${entry.title || entry.month || "this month"}`,
+          tokens,
+          matchCount,
+        };
+      }
+    }
+    return null;
+  }
+
+  function isStaleGenericSeriesCover(url, series = {}) {
+    const normalized = String(url || "").trim().toLowerCase();
+    if (!normalized) return false;
+    const monthKey = normalizeTheme(series.month || "");
+    const titleKey = normalizeTheme(series.title || "");
+    const looksOctober = monthKey === "october"
+      || titleKey.includes("october preschool")
+      || titleKey.includes("october curriculum");
+    if (!looksOctober) return false;
+    // Older Phase 1 builds mapped October to the generic seasons image.
+    return normalized.includes("/images/lesson-covers/seasons-year.jpg")
+      || normalized.endsWith("/seasons-year.jpg")
+      || normalized.endsWith("/seasons-year.svg");
+  }
+
+  function resolveCurriculumSeriesCover(series = {}) {
+    const entry = series && typeof series === "object" ? series : {};
+    const title = entry.title || "Monthly Curriculum";
+    const month = String(entry.month || "").trim();
+    const season = String(entry.season || "").trim();
+    const theme = entry.theme || [month, season].filter(Boolean).join(" ") || title;
+    const age = entry.age || "Preschool";
+    const position = entry.coverImagePosition || "center";
+    const explicit = String(entry.coverImageUrl || "").trim();
+    if (explicit && !explicit.startsWith("data:") && !isStaleGenericSeriesCover(explicit, entry)) {
+      return {
+        url: explicit,
+        alt: String(entry.coverImageAlt || "").trim() || `Cover illustration for ${title}`,
+        source: entry.coverImageSource || "uploaded",
+        position,
+      };
+    }
+
+    // 1) Composite illustrated cover that combines the month's weekly themes.
+    const composite = resolveCompositeSeriesCover(entry);
+    if (composite?.slug) {
+      return {
+        url: coverPath(composite.slug),
+        alt: String(entry.coverImageAlt || "").trim() || composite.alt,
+        source: "mapped",
+        position,
+      };
+    }
+
+    // 2) Exact catalog match on the monthly series title.
+    const catalogCover = getPlanCatalogCover(title);
+    if (catalogCover) {
+      return {
+        url: catalogCover,
+        alt: String(entry.coverImageAlt || "").trim()
+          || `Illustrated cover for ${title}`,
+        source: "mapped",
+        position,
+      };
+    }
+
+    // 3) Theme text from linked weeks / series theme (still more specific than bare month).
+    const weekHaystack = collectSeriesThemeHaystack(entry);
+    const weekMapped = getMappedThemeCover(title, weekHaystack || theme);
+    // Avoid collapsing a multi-theme month onto a single week cover when we have
+    // several distinct week tokens — prefer month fallback below instead.
+    const weekTokens = detectWeekThemeTokens(weekHaystack);
+    if (weekMapped && weekTokens.length <= 1) {
+      return {
+        url: weekMapped,
+        alt: String(entry.coverImageAlt || "").trim() || `Illustration for ${theme || title}`,
+        source: "mapped",
+        position,
+      };
+    }
+
+    // 4) Generic month / season library cover (last illustrated resort).
+    const monthKey = normalizeTheme(month);
+    const seasonKey = normalizeTheme(season);
+    const monthSlug = SERIES_MONTH_COVERS[monthKey] || "";
+    const seasonSlug = SERIES_SEASON_COVERS[seasonKey] || "";
+    const preferredSlug = monthSlug || seasonSlug;
+    if (preferredSlug) {
+      return {
+        url: coverPath(preferredSlug),
+        alt: String(entry.coverImageAlt || "").trim()
+          || `Illustrated cover for ${month || season || title}`,
+        source: "mapped",
+        position,
+      };
+    }
+
+    const mapped = getMappedThemeCover(title, theme);
+    if (mapped) {
+      return {
+        url: mapped,
+        alt: String(entry.coverImageAlt || "").trim() || `Illustration for ${theme || title}`,
+        source: "mapped",
+        position,
+      };
+    }
+    return {
+      url: getAgeGroupFallback(age) || DEFAULT_COVER,
+      alt: `Early childhood curriculum cover for ${age}`,
+      source: "default",
+      position: "center",
+    };
+  }
+
   function shortThemeDescription(planOrResource = {}) {
     const entry = planOrResource && typeof planOrResource === "object" ? planOrResource : {};
     const overview = String(entry.weeklyOverview || entry.description || "").replace(/\s+/g, " ").trim();
@@ -309,15 +536,24 @@
     PHOTO_COVER_LIBRARY,
     THEME_COVER_RULES,
     THEME_PHOTO_ALIASES,
+    WEEK_THEME_TOKENS,
+    SERIES_COMPOSITE_COVERS,
     normalizeTheme,
     ageGroupKey,
     coverPath,
     getPlanCatalogCover,
     getMappedThemeCover,
     getAgeGroupFallback,
+    collectSeriesThemeHaystack,
+    detectWeekThemeTokens,
+    resolveCompositeSeriesCover,
+    isStaleGenericSeriesCover,
     resolveLessonPlanCover,
     resolveLessonPlanCoverAlt,
     resolveLessonPlanCoverFallbacks,
+    resolveCurriculumSeriesCover,
+    SERIES_MONTH_COVERS,
+    SERIES_SEASON_COVERS,
     shortThemeDescription,
   };
 

@@ -105,7 +105,20 @@ async function main() {
       console.log(`PASS  seeded ${target.title}`);
     }
     assert.match(output, /curriculum-infant-toddler-pro-batch-seed/);
-    console.log(`\n✅ Seeded ${INFANT_TODDLER_PRO_BATCH_TARGETS.length} Infant/Toddler Pro plans.`);
+    const series = store.siteContent?.curriculum?.series || [];
+    const seriesIds = [
+      "cur-series-infant-animals-care-pro",
+      "cur-series-infant-sensory-movement-pro",
+      "cur-series-toddler-stem-builders-pro",
+      "cur-series-toddler-nature-explorers-pro",
+      "cur-series-toddler-science-lab-pro",
+      "cur-series-toddler-harvest-kitchen-pro",
+    ];
+    for (const id of seriesIds) {
+      assert.ok(series.some((item) => item.id === id), `Missing monthly series ${id}`);
+      console.log(`PASS  series ${id}`);
+    }
+    console.log(`\n✅ Seeded ${INFANT_TODDLER_PRO_BATCH_TARGETS.length} plans + ${seriesIds.length} monthly series.`);
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }

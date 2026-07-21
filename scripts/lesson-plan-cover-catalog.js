@@ -34,10 +34,40 @@
       prompt: "Hand-painted storybook watercolor, 16:9. Sunny apple orchard path with trees full of red apples and harvest baskets. Soft empty sky space for title. No text, no people.",
     },
     {
+      title: "Apples",
+      slug: "apples-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Cheerful apple orchard scene with red and green apples, a harvest basket, and soft autumn light. Single-week apple theme only. No text, no people, no pumpkins or Halloween.",
+    },
+    {
       title: "Apples in the Kitchen",
       slug: "apples-in-the-kitchen",
       age: "Toddler",
       prompt: "Hand-painted storybook watercolor, 16:9. Preschool kitchen counter with applesauce bowl, apple pie, juice pitcher, chef hat and apron resting empty. Soft empty wall space for title. No text, no people.",
+    },
+    {
+      title: "Fall Leaves",
+      slug: "fall-leaves-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Whimsical fall leaf study with red orange yellow maple leaves swirling, leaf piles, and soft blue sky. Single-week leaves theme only. No text, no people, no pumpkins or Halloween.",
+    },
+    {
+      title: "Friendly Halloween",
+      slug: "friendly-halloween-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Friendly not-scary Halloween with smiling jack-o-lantern, cute ghost costume candy bag, and purple twilight sky. Single-week Halloween theme only. No text, no people faces, no gore.",
+    },
+    {
+      title: "October Preschool Curriculum",
+      slug: "october-preschool-curriculum",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. One cohesive October preschool curriculum cover combining fall leaves, apples in a basket, pumpkins, and a friendly Halloween jack-o-lantern together in one autumn scene. No text, no people.",
+    },
+    {
+      title: "Pumpkins",
+      slug: "pumpkins-week",
+      age: "Preschool",
+      prompt: "Children's book illustration, 16:9. Sunny pumpkin patch with orange pumpkins of different sizes, vines, and soft green leaves. Single-week pumpkin theme only. No text, no people, no Halloween costumes.",
     },
     {
       title: "Animal Habitats",

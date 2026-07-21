@@ -154,6 +154,7 @@ Description: Roll and pinch playdough.
 test("V4 detects Free/Pro synonyms", () => {
   const pro = parser.parseCurriculumLessonPlanImportV4(`
 Title: Premium Pack Week
+Age Group: Preschool
 Plan: Premium
 Theme Overview: Members only content.
 Monday
