@@ -26,6 +26,7 @@ const foundationDataModel = require("../scripts/foundation-data-model.js");
 const orgPermissions = require("../scripts/org-permissions.js");
 const entitlementModel = require("../scripts/entitlement-model.js");
 const { createDirectorCenterApi } = require("./director-center-api.js");
+const { createPhase3TeacherApi } = require("./phase3-teacher-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15205,6 +15206,21 @@ function getDirectorCenterApi() {
   return _directorCenterApi;
 }
 
+let _phase3TeacherApi;
+function getPhase3TeacherApi() {
+  if (!_phase3TeacherApi) {
+    _phase3TeacherApi = createPhase3TeacherApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _phase3TeacherApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15256,7 +15272,8 @@ const server = http.createServer(async (request, response) => {
     // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
     if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
-      const handler = getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
+      const handler = getPhase3TeacherApi().matchRoute(request.method, url.pathname, url)
+        || getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
     }
