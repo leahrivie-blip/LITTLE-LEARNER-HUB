@@ -78,6 +78,9 @@ const ACTIONS = Object.freeze({
   FORM_CREATE: "form.create",
   FORM_SEND: "form.send",
   FORM_REVIEW: "form.review",
+  FORM_LIBRARY_BROWSE: "form_library.browse",
+  FORM_LIBRARY_COPY: "form_library.copy",
+  FORM_LIBRARY_MANAGE_TEMPLATES: "form_library.manage_templates",
   FAMILY_MESSAGE: "family.message",
   FAMILY_VIEW_REPORTS: "family.view_reports",
 });
