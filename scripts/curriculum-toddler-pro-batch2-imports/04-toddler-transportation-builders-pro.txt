@@ -1,0 +1,279 @@
+TITLE: Transportation Builders
+AGE_GROUP: Toddler (2-3 Years)
+THEME: Transportation Builders
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Engineering, Science, Math, Language & Literacy, Fine Motor, Gross Motor, Social-Emotional, Creative Arts
+
+WEEKLY_OVERVIEW:
+Toddlers investigate cars, trucks, buses, trains, boats, and planes through building, rolling, ramp testing, road design, sorting, and dramatic play. Children explore how vehicles move, what wheels do, how roads and bridges help transportation, and how people work together to travel safely.
+
+LEARNING_OBJECTIVES:
+- Identify common vehicles and where they travel.
+- Explore wheels, ramps, speed, and cause and effect.
+- Build roads, bridges, tracks, and garages.
+- Count, sort, compare, and match vehicles.
+- Use transportation vocabulary during play.
+- Strengthen hand control, coordination, and large-muscle movement.
+- Practice cooperation and problem-solving.
+
+WEEKLY_MATERIALS:
+Toy cars, trucks, buses, trains, boats, planes, blocks, cardboard, tubes, masking tape, ramps, road signs, cones, large boxes, paint, paper, sponges, playdough, large lids, baskets, water table, foil, craft sticks, picture cards, sorting mats.
+
+VOCABULARY:
+Car, truck, bus, train, boat, plane, wheel, road, track, bridge, tunnel, garage, ramp, fast, slow, stop, go, float, fly, build.
+
+BOOKS:
+Freight Train; Little Blue Truck; The Wheels on the Bus; Goodnight, Goodnight Construction Site; Who Sank the Boat?
+
+SONGS:
+The Wheels on the Bus; Down by the Station; Row, Row, Row Your Boat; I’m a Little Airplane; Driving in My Car.
+
+FAMILY_CONNECTION:
+Ask families to notice vehicles during daily travel and talk about where they go. Invite children to bring or draw a picture of a favorite vehicle.
+
+OBSERVATION_OPPORTUNITIES:
+Observe vehicle naming, sorting, prediction, building strategies, cause-and-effect thinking, spatial language, turn-taking, persistence, and safe movement.
+
+ADAPTATIONS:
+Use large vehicles and foam blocks, visual stop/go cues, low ramps, simplified sorting choices, seated movement options, and prebuilt road sections for children needing support.
+
+MONDAY:
+DAILY_THEME: Wheels and Roads
+DAILY_OBJECTIVES: Identify wheeled vehicles, explore rolling, and create roads.
+DAILY_VOCABULARY: Wheel, roll, road, fast, slow, stop.
+DAILY_MATERIALS: Toy vehicles, tape, blocks, ramps, paint, paper.
+DAILY_LEARNING_DOMAINS: Science, Engineering, Language, Fine Motor, Gross Motor.
+CIRCLE_TIME_IDEAS: Compare vehicles with and without wheels and sing The Wheels on the Bus.
+OUTDOOR_PLAY: Stop-and-Go vehicle path with ride-on toys and visual signs.
+DAILY_OBSERVATION_OPPORTUNITIES: Vehicle naming, speed comparison, response to signs, turn-taking.
+DAILY_ADAPTATIONS: Use hand-pushed toys or seated wheel exploration.
+SAFETY_NOTES: Keep pathways clear and use low stable ramps.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Roll and Compare
+ACTIVITY_1_OBJECTIVE: Compare how different vehicles roll.
+ACTIVITY_1_DESCRIPTION: Children send vehicles down a low ramp and observe speed and distance.
+ACTIVITY_1_MATERIALS: Ramp, blocks, toy cars and trucks, tape finish lines.
+ACTIVITY_1_SETUP: Secure a low ramp and mark stopping distances.
+ACTIVITY_1_DIRECTIONS: 1. Choose a vehicle. 2. Place it at the top. 3. Let go. 4. Watch where it stops. 5. Try another and compare.
+ACTIVITY_1_TEACHER_ROLE: Ask which went faster or farther and encourage retesting.
+ACTIVITY_1_LEARNING_GOALS: Cause and effect, prediction, comparison, tracking.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Release control, attention, comparison words.
+ACTIVITY_1_ADAPTATIONS: Use one wide ramp and chunky vehicles.
+ACTIVITY_1_SAFETY_NOTES: Prevent standing or climbing on ramps.
+ACTIVITY_2_CATEGORY: Engineering
+ACTIVITY_2_NAME: Build a Road
+ACTIVITY_2_OBJECTIVE: Design a path for vehicles.
+ACTIVITY_2_DESCRIPTION: Children use tape and blocks to create roads, turns, and parking areas.
+ACTIVITY_2_MATERIALS: Masking tape, blocks, vehicles, signs.
+ACTIVITY_2_SETUP: Mark a starting point on the floor.
+ACTIVITY_2_DIRECTIONS: 1. Choose where the road goes. 2. Add tape lines. 3. Place signs or blocks. 4. Drive a vehicle through. 5. Fix areas that are blocked.
+ACTIVITY_2_TEACHER_ROLE: Support planning and spatial language.
+ACTIVITY_2_LEARNING_GOALS: Engineering, problem-solving, collaboration, pretend play.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Planning, route changes, peer interaction.
+ACTIVITY_2_ADAPTATIONS: Provide a short pre-made road to extend.
+ACTIVITY_2_SAFETY_NOTES: Press tape flat to prevent tripping.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Wheel Track Painting
+ACTIVITY_3_OBJECTIVE: Explore patterns made by wheels.
+ACTIVITY_3_DESCRIPTION: Children roll vehicles through washable paint and across paper.
+ACTIVITY_3_MATERIALS: Vehicles, washable paint, trays, large paper.
+ACTIVITY_3_SETUP: Tape paper down and use thin paint layers.
+ACTIVITY_3_DIRECTIONS: 1. Dip wheels lightly. 2. Roll across paper. 3. Notice tracks. 4. Change direction. 5. Compare patterns.
+ACTIVITY_3_TEACHER_ROLE: Encourage process art and pattern language.
+ACTIVITY_3_LEARNING_GOALS: Creativity, mark making, visual patterns, hand control.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Pressure, direction, repeated marks.
+ACTIVITY_3_ADAPTATIONS: Roll dry wheels through playdough.
+ACTIVITY_3_SAFETY_NOTES: Use non-toxic paint and clean wheels before floor play.
+
+TUESDAY:
+DAILY_THEME: Bridges and Tunnels
+DAILY_OBJECTIVES: Build structures, test vehicle fit, and solve spatial problems.
+DAILY_VOCABULARY: Bridge, tunnel, over, under, tall, short.
+DAILY_MATERIALS: Blocks, cardboard tubes, boxes, craft sticks, vehicles.
+DAILY_LEARNING_DOMAINS: Engineering, Math, Language, Fine Motor.
+CIRCLE_TIME_IDEAS: Show pictures of bridges and tunnels and act out over/under.
+OUTDOOR_PLAY: Travel over, under, and through a simple obstacle course.
+DAILY_OBSERVATION_OPPORTUNITIES: Spatial words, stability, size comparison, persistence.
+DAILY_ADAPTATIONS: Use large foam pieces and a prebuilt tunnel.
+SAFETY_NOTES: Keep structures low and lightweight.
+ACTIVITY_1_CATEGORY: Engineering
+ACTIVITY_1_NAME: Build a Bridge
+ACTIVITY_1_OBJECTIVE: Create a stable structure a vehicle can cross.
+ACTIVITY_1_DESCRIPTION: Children place a flat piece across two supports and test vehicles.
+ACTIVITY_1_MATERIALS: Blocks, cardboard strips, vehicles.
+ACTIVITY_1_SETUP: Arrange supports and bridge pieces.
+ACTIVITY_1_DIRECTIONS: 1. Place two supports. 2. Add a flat top. 3. Test a vehicle. 4. Notice if it falls. 5. Rebuild and try again.
+ACTIVITY_1_TEACHER_ROLE: Encourage testing without fixing it for the child.
+ACTIVITY_1_LEARNING_GOALS: Stability, balance, problem-solving, persistence.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Structure choices, reaction to collapse, redesign.
+ACTIVITY_1_ADAPTATIONS: Provide wide sturdy bridge pieces.
+ACTIVITY_1_SAFETY_NOTES: Use lightweight materials only.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Will It Fit Through?
+ACTIVITY_2_OBJECTIVE: Compare vehicle and tunnel sizes.
+ACTIVITY_2_DESCRIPTION: Children test different vehicles through tubes and box tunnels.
+ACTIVITY_2_MATERIALS: Large tubes, box tunnels, vehicles.
+ACTIVITY_2_SETUP: Create tunnels of different sizes.
+ACTIVITY_2_DIRECTIONS: 1. Choose a vehicle. 2. Predict if it fits. 3. Push it through. 4. Try another tunnel. 5. Sort fits/does not fit.
+ACTIVITY_2_TEACHER_ROLE: Model bigger, smaller, wide, and narrow.
+ACTIVITY_2_LEARNING_GOALS: Measurement, comparison, prediction, spatial reasoning.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Prediction, size matching, persistence.
+ACTIVITY_2_ADAPTATIONS: Offer two clear choices.
+ACTIVITY_2_SAFETY_NOTES: Ensure tubes are smooth and large.
+ACTIVITY_3_CATEGORY: Dramatic Play
+ACTIVITY_3_NAME: Road Repair Crew
+ACTIVITY_3_OBJECTIVE: Cooperate to repair a pretend road.
+ACTIVITY_3_DESCRIPTION: Children use cones, blocks, and tools to fix broken road sections.
+ACTIVITY_3_MATERIALS: Tape road, cones, blocks, toy tools, trucks.
+ACTIVITY_3_SETUP: Create small “broken” gaps in the road.
+ACTIVITY_3_DIRECTIONS: 1. Find a broken spot. 2. Place a cone. 3. Choose a repair material. 4. Fix and test the road. 5. Reopen it to traffic.
+ACTIVITY_3_TEACHER_ROLE: Model teamwork and simple planning language.
+ACTIVITY_3_LEARNING_GOALS: Cooperation, pretend play, engineering, sequencing.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Role play, sharing tools, problem-solving.
+ACTIVITY_3_ADAPTATIONS: Assign one simple job.
+ACTIVITY_3_SAFETY_NOTES: Use large toy tools with no sharp edges.
+
+WEDNESDAY:
+DAILY_THEME: Trains and Tracks
+DAILY_OBJECTIVES: Connect pieces, make patterns, follow routes, and cooperate.
+DAILY_VOCABULARY: Train, track, station, connect, long, short.
+DAILY_MATERIALS: Trains, track pieces, blocks, station signs, counting cards.
+DAILY_LEARNING_DOMAINS: Engineering, Math, Language, Social-Emotional.
+CIRCLE_TIME_IDEAS: Read Freight Train and sequence colored train cars.
+OUTDOOR_PLAY: Form a child train and follow a curved chalk track.
+DAILY_OBSERVATION_OPPORTUNITIES: Connecting, sequencing, route following, cooperation.
+DAILY_ADAPTATIONS: Use large snap-together track or tape lines.
+SAFETY_NOTES: Avoid small train accessories.
+ACTIVITY_1_CATEGORY: Engineering
+ACTIVITY_1_NAME: Connect the Track
+ACTIVITY_1_OBJECTIVE: Join track pieces to create a route.
+ACTIVITY_1_DESCRIPTION: Children connect large track pieces and test a train.
+ACTIVITY_1_MATERIALS: Large track pieces, trains, blocks.
+ACTIVITY_1_SETUP: Spread pieces on a floor mat.
+ACTIVITY_1_DIRECTIONS: 1. Choose two pieces. 2. Connect the ends. 3. Add more pieces. 4. Test the train. 5. Repair gaps.
+ACTIVITY_1_TEACHER_ROLE: Support alignment and celebrate persistence.
+ACTIVITY_1_LEARNING_GOALS: Fine motor coordination, planning, spatial reasoning.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Connection attempts, route design, frustration tolerance.
+ACTIVITY_1_ADAPTATIONS: Use a simple oval starter track.
+ACTIVITY_1_SAFETY_NOTES: Keep pieces large and intact.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Long Train, Short Train
+ACTIVITY_2_OBJECTIVE: Compare length and count train cars.
+ACTIVITY_2_DESCRIPTION: Children build trains with different numbers of cars.
+ACTIVITY_2_MATERIALS: Connectable train cars, numeral or dot cards.
+ACTIVITY_2_SETUP: Place cards one to five near trains.
+ACTIVITY_2_DIRECTIONS: 1. Pick a card. 2. Count its dots. 3. Connect that many cars. 4. Compare two trains. 5. Name long or short.
+ACTIVITY_2_TEACHER_ROLE: Touch-count and model comparison words.
+ACTIVITY_2_LEARNING_GOALS: Counting, quantity, length comparison.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Counting range, connecting, comparison.
+ACTIVITY_2_ADAPTATIONS: Use one to three cars.
+ACTIVITY_2_SAFETY_NOTES: Use toddler-safe large trains.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Shape Train Collage
+ACTIVITY_3_OBJECTIVE: Arrange shapes to represent a train.
+ACTIVITY_3_DESCRIPTION: Children glue large paper rectangles and circles into train designs.
+ACTIVITY_3_MATERIALS: Large paper shapes, glue sticks, paper, crayons.
+ACTIVITY_3_SETUP: Sort shapes into trays.
+ACTIVITY_3_DIRECTIONS: 1. Choose a rectangle. 2. Add circle wheels. 3. Connect more cars. 4. Add marks or windows. 5. Describe the train.
+ACTIVITY_3_TEACHER_ROLE: Name shapes while preserving child choice.
+ACTIVITY_3_LEARNING_GOALS: Shape awareness, creativity, spatial arrangement.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Shape selection, placement, representation.
+ACTIVITY_3_ADAPTATIONS: Use peel-and-stick foam shapes.
+ACTIVITY_3_SAFETY_NOTES: Use large pieces and supervise glue.
+
+THURSDAY:
+DAILY_THEME: Boats and Floating
+DAILY_OBJECTIVES: Explore sink and float, build simple boats, and observe water movement.
+DAILY_VOCABULARY: Boat, water, float, sink, heavy, light.
+DAILY_MATERIALS: Water bin, foil, sponge pieces, craft sticks, toy boats, large objects.
+DAILY_LEARNING_DOMAINS: Science, Engineering, Math, Fine Motor.
+CIRCLE_TIME_IDEAS: Read Who Sank the Boat? and make sink/float predictions.
+OUTDOOR_PLAY: Water-table boat races using gentle blowing or pouring currents.
+DAILY_OBSERVATION_OPPORTUNITIES: Prediction, testing, comparison, redesign.
+DAILY_ADAPTATIONS: Use dry boat play or teacher-led water demonstration.
+SAFETY_NOTES: Maintain direct water supervision.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Sink or Float Vehicles
+ACTIVITY_1_OBJECTIVE: Predict and test whether objects sink or float.
+ACTIVITY_1_DESCRIPTION: Children test safe toy vehicles and large objects in water.
+ACTIVITY_1_MATERIALS: Water bin, toys, towels, picture sorting mat.
+ACTIVITY_1_SETUP: Fill a shallow bin and prepare objects.
+ACTIVITY_1_DIRECTIONS: 1. Choose an object. 2. Predict sink or float. 3. Place it in water. 4. Observe. 5. Sort it on the mat.
+ACTIVITY_1_TEACHER_ROLE: Use prediction language and encourage retesting.
+ACTIVITY_1_LEARNING_GOALS: Scientific inquiry, cause and effect, classification.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Prediction, attention, sorting.
+ACTIVITY_1_ADAPTATIONS: Let children point to prediction pictures.
+ACTIVITY_1_SAFETY_NOTES: Empty water immediately after use.
+ACTIVITY_2_CATEGORY: Engineering
+ACTIVITY_2_NAME: Build a Foil Boat
+ACTIVITY_2_OBJECTIVE: Shape a material to hold floating cargo.
+ACTIVITY_2_DESCRIPTION: Children press foil around a block form, then test with large counters.
+ACTIVITY_2_MATERIALS: Foil sheets, blocks, water bin, large counters.
+ACTIVITY_2_SETUP: Precut foil and prepare shallow water.
+ACTIVITY_2_DIRECTIONS: 1. Press foil over a block. 2. Lift and shape edges. 3. Place boat in water. 4. Add one cargo piece. 5. Add more and observe.
+ACTIVITY_2_TEACHER_ROLE: Help with sharp foil corners and count cargo.
+ACTIVITY_2_LEARNING_GOALS: Design, buoyancy exploration, counting, persistence.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Shaping, cargo count, redesign.
+ACTIVITY_2_ADAPTATIONS: Provide preformed foil boats.
+ACTIVITY_2_SAFETY_NOTES: Fold all foil edges and supervise closely.
+ACTIVITY_3_CATEGORY: Fine Motor
+ACTIVITY_3_NAME: Rescue the Boats
+ACTIVITY_3_OBJECTIVE: Transfer floating boats using nets or tongs.
+ACTIVITY_3_DESCRIPTION: Children retrieve floating sponge boats and sort them by color.
+ACTIVITY_3_MATERIALS: Sponge boats, nets, tongs, bowls, water.
+ACTIVITY_3_SETUP: Float boats in a shallow bin and place bowls nearby.
+ACTIVITY_3_DIRECTIONS: 1. Choose a tool. 2. Catch one boat. 3. Lift it out. 4. Place in a matching bowl. 5. Return boats and repeat.
+ACTIVITY_3_TEACHER_ROLE: Model safe tool use and color words.
+ACTIVITY_3_LEARNING_GOALS: Coordination, sorting, concentration.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Grip, tracking, matching.
+ACTIVITY_3_ADAPTATIONS: Use hands or larger nets.
+ACTIVITY_3_SAFETY_NOTES: Supervise water continuously.
+
+FRIDAY:
+DAILY_THEME: Planes, Airports, and Travel
+DAILY_OBJECTIVES: Explore flight movement, build runways, sort vehicles by travel location, and review the week.
+DAILY_VOCABULARY: Plane, fly, airport, runway, sky, travel.
+DAILY_MATERIALS: Toy planes, paper planes prepared by adults, tape, blocks, sorting mats, luggage props.
+DAILY_LEARNING_DOMAINS: Science, Gross Motor, Dramatic Play, Math, Language.
+CIRCLE_TIME_IDEAS: Sort vehicles by land, water, and air and sing I’m a Little Airplane.
+OUTDOOR_PLAY: Airplane movement course with takeoff, flying, turning, and landing.
+DAILY_OBSERVATION_OPPORTUNITIES: Sorting, movement control, pretend travel, recall.
+DAILY_ADAPTATIONS: Use seated arm movements and picture sorting.
+SAFETY_NOTES: Provide ample space and avoid throwing planes toward faces.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Paper Plane Test
+ACTIVITY_1_OBJECTIVE: Observe how lightweight objects move through air.
+ACTIVITY_1_DESCRIPTION: Children release adult-folded paper planes from a marked line.
+ACTIVITY_1_MATERIALS: Soft paper planes, tape lines, open space.
+ACTIVITY_1_SETUP: Mark a launch line and clear the area.
+ACTIVITY_1_DIRECTIONS: 1. Hold the plane. 2. Point forward. 3. Gently release. 4. Watch where it lands. 5. Try again with a different motion.
+ACTIVITY_1_TEACHER_ROLE: Model gentle forward releases and compare distances.
+ACTIVITY_1_LEARNING_GOALS: Motion, cause and effect, visual tracking.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Release, direction, comparison.
+ACTIVITY_1_ADAPTATIONS: Let children push a plane down a ramp.
+ACTIVITY_1_SAFETY_NOTES: One child launches at a time.
+ACTIVITY_2_CATEGORY: Engineering
+ACTIVITY_2_NAME: Build an Airport
+ACTIVITY_2_OBJECTIVE: Design runways, gates, and a tower.
+ACTIVITY_2_DESCRIPTION: Children use tape, blocks, and boxes to create an airport.
+ACTIVITY_2_MATERIALS: Tape, blocks, boxes, planes, signs.
+ACTIVITY_2_SETUP: Mark one runway and provide building materials.
+ACTIVITY_2_DIRECTIONS: 1. Extend the runway. 2. Build a gate. 3. Add a tower. 4. Move planes through the airport. 5. Change the design as needed.
+ACTIVITY_2_TEACHER_ROLE: Support spatial planning and cooperative roles.
+ACTIVITY_2_LEARNING_GOALS: Engineering, imagination, collaboration, sequencing.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Planning, structure, role play.
+ACTIVITY_2_ADAPTATIONS: Use a picture model and fewer materials.
+ACTIVITY_2_SAFETY_NOTES: Keep towers low and tape flat.
+ACTIVITY_3_CATEGORY: Math
+ACTIVITY_3_NAME: Land, Water, or Air Sort
+ACTIVITY_3_OBJECTIVE: Classify vehicles by where they travel.
+ACTIVITY_3_DESCRIPTION: Children place vehicle pictures or toys on land, water, or air mats.
+ACTIVITY_3_MATERIALS: Three picture mats, large vehicle toys or cards.
+ACTIVITY_3_SETUP: Place mats side by side.
+ACTIVITY_3_DIRECTIONS: 1. Choose a vehicle. 2. Name or point to it. 3. Decide where it travels. 4. Place it on the mat. 5. Review each group.
+ACTIVITY_3_TEACHER_ROLE: Ask simple either/or questions and model categories.
+ACTIVITY_3_LEARNING_GOALS: Classification, vocabulary, reasoning.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Category accuracy, explanation attempts, recall.
+ACTIVITY_3_ADAPTATIONS: Begin with only land and air.
+ACTIVITY_3_SAFETY_NOTES: Use large cards and sturdy toys.
