@@ -35,6 +35,7 @@
     "test:curriculum-standards": "node scripts/test-curriculum-standards.js",
     "audit:lesson-content": "node scripts/audit-lesson-plan-content.js",
     "audit:infant-toddler-pro-batches": "node scripts/audit-infant-toddler-pro-batches.js",
+    "test:infant-toddler-pro-batch-seed": "node scripts/test-infant-toddler-pro-batch-seed.js",
     "upgrade:curriculum-standards": "node scripts/upgrade-curriculum-to-standards.js",
     "test:curriculum-access-security": "node scripts/test-curriculum-access-security.js",
     "test:pro-lesson-preview-audit": "node scripts/test-pro-lesson-preview-audit.js",
