@@ -10,7 +10,7 @@ Automated PR body updates from this agent environment return HTTP 403
 
 ## Status (transfer-ready)
 
-Private preview work for Director Center → Teacher Classroom → Manual Custom Form Builder.
+Private preview work for Director Center → Teacher Classroom → Manual Custom Form Builder → Built-In Form Library.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -20,7 +20,7 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run all Phase 1–4 automated tests
+5. Run all Phase 1–5 automated tests
 6. Confirm testing-environment safety
 7. Continue only from the next **approved** phase
 8. Never merge or deploy without explicit approval
@@ -41,11 +41,11 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 - Phase 2 Director Center private admin preview
 - Phase 3 teacher/classroom/child connections
 - Phase 4 Manual Custom Form Builder
+- Phase 5 Built-In Form Library — 29 starter templates, browse/search/filter/sort, preview, favorites, recent activity, "Use This Template" → new organization-owned draft, versioning + retirement safety, structured importer (system-admin only), role-scoped access
 
 ### NOT STARTED
 
-- Phase 5 built-in form library
-- Phase 6 form sending, responses, signatures, Child Profile storage
+- Phase 6 form sending, responses, signatures, Child Profile storage, repeatable Medication Administration Log entries
 - Phase 7 AI Form Builder
 - Parent accounts / Family Hub
 - Live pricing changes
@@ -73,6 +73,7 @@ npm run test:director-family-foundation
 npm run test:director-center-phase2
 npm run test:director-center-phase3
 npm run test:forms-center-phase4
+npm run test:forms-center-phase5
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -84,8 +85,9 @@ npm run test:account-access
 - `docs/PHASE_2_TESTING_ENV_SAFETY.md`
 - `docs/PHASE_3_TEACHER_EXPERIENCE_COMPLETION_REPORT.md`
 - `docs/PHASE_4_FORMS_CENTER_COMPLETION_REPORT.md`
+- `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`
 - `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 
 Suggested title:
 
-`Phases 1–4: Director Center, Teacher Classroom, Forms Builder (do not merge/deploy)`
+`Phases 1–5: Director Center, Teacher Classroom, Forms Builder, Built-In Form Library (do not merge/deploy)`
