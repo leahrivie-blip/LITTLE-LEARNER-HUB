@@ -1,0 +1,255 @@
+TITLE: Space Explorers STEM
+AGE_GROUP: Toddler (2-3 Years)
+THEME: Space Explorers STEM
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Science; Engineering; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
+WEEKLY_OVERVIEW: Toddlers explore rockets, the moon, stars, planets, and astronauts through building, sensory play, movement, counting, art, and dramatic play.
+LEARNING_OBJECTIVES: Name basic space objects; count to five; compare big and small; build simple structures; strengthen balance, grasp, communication, and cooperative play.
+WEEKLY_MATERIALS: Cardboard tubes, blocks, foil, stars, balls, black paper, paint, scarves, helmets, boxes, glow stars, books.
+VOCABULARY: Space, rocket, moon, star, planet, astronaut, launch, orbit, big, small.
+BOOKS: Roaring Rockets; Goodnight Moon; Mousetronaut; There's No Place Like Space.
+SONGS: Twinkle Twinkle Little Star; Zoom Zoom Zoom We're Going to the Moon; Five Little Astronauts.
+FAMILY_CONNECTION: Invite families to look for the moon or stars together and share what they noticed.
+OBSERVATION_OPPORTUNITIES: Observe vocabulary, counting, spatial reasoning, movement imitation, creativity, and persistence.
+ADAPTATIONS: Use visual cards, larger pieces, seated movement, pre-built models, and simplified counting.
+
+MONDAY
+DAILY_THEME: Rockets and Launching
+DAILY_OBJECTIVES: Identify rockets and explore up/down movement.
+DAILY_VOCABULARY: Rocket, launch, up, down.
+DAILY_MATERIALS: Tubes, blocks, scarves, boxes.
+DAILY_LEARNING_DOMAINS: Engineering; Language; Gross Motor.
+CIRCLE_TIME_IDEAS: Read Roaring Rockets and practice a countdown.
+OUTDOOR_PLAY: Run a rocket-launch path with countdowns.
+DAILY_OBSERVATION_OPPORTUNITIES: Note sequencing and movement imitation.
+DAILY_ADAPTATIONS: Use seated arm launches.
+SAFETY_NOTES: Keep movement area clear.
+ACTIVITY_1_CATEGORY: Engineering
+ACTIVITY_1_NAME: Build a Rocket
+ACTIVITY_1_OBJECTIVE: Create a standing structure.
+ACTIVITY_1_DESCRIPTION: Children use blocks and tubes to build rockets.
+ACTIVITY_1_MATERIALS: Blocks, cardboard tubes, foil shapes.
+ACTIVITY_1_SETUP: Arrange materials on a rug.
+ACTIVITY_1_DIRECTIONS: 1. Choose a base. 2. Stack pieces. 3. Add a top. 4. Test if it stands. 5. Pretend to launch.
+ACTIVITY_1_TEACHER_ROLE: Encourage problem-solving and rebuilding.
+ACTIVITY_1_LEARNING_GOALS: Stability; planning; persistence.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note response to collapse.
+ACTIVITY_1_ADAPTATIONS: Use wide foam blocks.
+ACTIVITY_1_SAFETY_NOTES: Keep structures low.
+ACTIVITY_2_CATEGORY: Gross Motor
+ACTIVITY_2_NAME: Rocket Countdown Jumps
+ACTIVITY_2_OBJECTIVE: Follow a simple movement sequence.
+ACTIVITY_2_DESCRIPTION: Children crouch, count down, and jump or reach up.
+ACTIVITY_2_MATERIALS: Floor spots.
+ACTIVITY_2_SETUP: Space spots apart.
+ACTIVITY_2_DIRECTIONS: 1. Stand on spot. 2. Count 5-1. 3. Crouch. 4. Jump or reach. 5. Land and freeze.
+ACTIVITY_2_TEACHER_ROLE: Lead slowly and model safe landing.
+ACTIVITY_2_LEARNING_GOALS: Counting; balance; listening.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note anticipation and control.
+ACTIVITY_2_ADAPTATIONS: Reach from seated position.
+ACTIVITY_2_SAFETY_NOTES: Maintain spacing.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Foil Rocket Collage
+ACTIVITY_3_OBJECTIVE: Assemble simple shapes.
+ACTIVITY_3_DESCRIPTION: Children glue foil and paper shapes into rockets.
+ACTIVITY_3_MATERIALS: Foil shapes, paper, glue, crayons.
+ACTIVITY_3_SETUP: Pre-cut large shapes.
+ACTIVITY_3_DIRECTIONS: 1. Choose body. 2. Add top. 3. Add windows. 4. Draw flames. 5. Name the rocket.
+ACTIVITY_3_TEACHER_ROLE: Support shape words and creativity.
+ACTIVITY_3_LEARNING_GOALS: Fine motor; spatial arrangement; art.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note placement and choice.
+ACTIVITY_3_ADAPTATIONS: Use stickers.
+ACTIVITY_3_SAFETY_NOTES: Use non-toxic glue.
+
+TUESDAY
+DAILY_THEME: Moon Explorers
+DAILY_OBJECTIVES: Explore moon texture and pretend walking.
+DAILY_VOCABULARY: Moon, crater, round, gray.
+DAILY_MATERIALS: Gray playdough, balls, flour tray, boots.
+DAILY_LEARNING_DOMAINS: Science; Sensory; Gross Motor.
+CIRCLE_TIME_IDEAS: Look at moon pictures and make round shapes with hands.
+OUTDOOR_PLAY: Take slow moon steps across a path.
+DAILY_OBSERVATION_OPPORTUNITIES: Note texture language and balance.
+DAILY_ADAPTATIONS: Use sealed sensory bags.
+SAFETY_NOTES: Avoid airborne powders.
+ACTIVITY_1_CATEGORY: Sensory Play
+ACTIVITY_1_NAME: Make Moon Craters
+ACTIVITY_1_OBJECTIVE: Explore cause and effect.
+ACTIVITY_1_DESCRIPTION: Children press balls into gray playdough to make craters.
+ACTIVITY_1_MATERIALS: Gray playdough, large balls, trays.
+ACTIVITY_1_SETUP: Flatten dough on trays.
+ACTIVITY_1_DIRECTIONS: 1. Touch dough. 2. Press ball. 3. Lift it. 4. Compare crater sizes. 5. Smooth and repeat.
+ACTIVITY_1_TEACHER_ROLE: Model big/small and deep/shallow.
+ACTIVITY_1_LEARNING_GOALS: Cause and effect; comparison; hand strength.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note pressure and curiosity.
+ACTIVITY_1_ADAPTATIONS: Use softer dough.
+ACTIVITY_1_SAFETY_NOTES: Supervise mouthing.
+ACTIVITY_2_CATEGORY: Gross Motor
+ACTIVITY_2_NAME: Moon Walk
+ACTIVITY_2_OBJECTIVE: Practice slow controlled movement.
+ACTIVITY_2_DESCRIPTION: Children step between moon spots while moving slowly.
+ACTIVITY_2_MATERIALS: Gray floor circles.
+ACTIVITY_2_SETUP: Create a short path.
+ACTIVITY_2_DIRECTIONS: 1. Step slowly. 2. Lift knees. 3. Pause on each moon. 4. Reach for a star. 5. Return.
+ACTIVITY_2_TEACHER_ROLE: Model balance and pacing.
+ACTIVITY_2_LEARNING_GOALS: Coordination; body awareness; self-regulation.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note control.
+ACTIVITY_2_ADAPTATIONS: Hold a hand or step seated.
+ACTIVITY_2_SAFETY_NOTES: Use non-slip markers.
+ACTIVITY_3_CATEGORY: Math
+ACTIVITY_3_NAME: Round Moon Match
+ACTIVITY_3_OBJECTIVE: Recognize circles and compare size.
+ACTIVITY_3_DESCRIPTION: Children match round moon shapes by size.
+ACTIVITY_3_MATERIALS: Large gray circles, matching cards.
+ACTIVITY_3_SETUP: Lay circles in pairs.
+ACTIVITY_3_DIRECTIONS: 1. Choose a moon. 2. Find same size. 3. Place together. 4. Name big or small. 5. Repeat.
+ACTIVITY_3_TEACHER_ROLE: Model comparison words.
+ACTIVITY_3_LEARNING_GOALS: Shape recognition; matching; size comparison.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note visual matching.
+ACTIVITY_3_ADAPTATIONS: Use only two sizes.
+ACTIVITY_3_SAFETY_NOTES: Use large pieces.
+
+WEDNESDAY
+DAILY_THEME: Stars and Night Sky
+DAILY_OBJECTIVES: Count stars and explore light/dark contrast.
+DAILY_VOCABULARY: Star, sky, night, bright.
+DAILY_MATERIALS: Glow stars, black paper, flashlights, paint.
+DAILY_LEARNING_DOMAINS: Science; Math; Creative Arts.
+CIRCLE_TIME_IDEAS: Sing Twinkle Twinkle and count stars.
+OUTDOOR_PLAY: Search for star shapes hidden outdoors.
+DAILY_OBSERVATION_OPPORTUNITIES: Note counting and visual attention.
+DAILY_ADAPTATIONS: Use high-contrast cards.
+SAFETY_NOTES: Do not shine lights into eyes.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Light and Dark Star Search
+ACTIVITY_1_OBJECTIVE: Notice contrast.
+ACTIVITY_1_DESCRIPTION: Children use flashlights to find stars in a dim area.
+ACTIVITY_1_MATERIALS: Flashlights, star cards.
+ACTIVITY_1_SETUP: Place stars around a dim corner.
+ACTIVITY_1_DIRECTIONS: 1. Turn light on. 2. Search slowly. 3. Find a star. 4. Count it. 5. Repeat.
+ACTIVITY_1_TEACHER_ROLE: Model safe use and language.
+ACTIVITY_1_LEARNING_GOALS: Visual tracking; counting; cause and effect.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note attention.
+ACTIVITY_1_ADAPTATIONS: Keep room brighter.
+ACTIVITY_1_SAFETY_NOTES: Supervise flashlights.
+ACTIVITY_2_CATEGORY: Creative Arts
+ACTIVITY_2_NAME: Starry Night Painting
+ACTIVITY_2_OBJECTIVE: Create contrast with light colors on dark paper.
+ACTIVITY_2_DESCRIPTION: Children stamp white and yellow stars onto black paper.
+ACTIVITY_2_MATERIALS: Black paper, paint, star sponges.
+ACTIVITY_2_SETUP: Prepare trays and paper.
+ACTIVITY_2_DIRECTIONS: 1. Dip sponge. 2. Stamp star. 3. Add more stars. 4. Count them. 5. Add moon if desired.
+ACTIVITY_2_TEACHER_ROLE: Encourage process art.
+ACTIVITY_2_LEARNING_GOALS: Fine motor; creativity; counting.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note pressure control.
+ACTIVITY_2_ADAPTATIONS: Use stickers.
+ACTIVITY_2_SAFETY_NOTES: Use washable paint.
+ACTIVITY_3_CATEGORY: Music & Movement
+ACTIVITY_3_NAME: Twinkling Stars
+ACTIVITY_3_OBJECTIVE: Respond to slow and fast music.
+ACTIVITY_3_DESCRIPTION: Children open and close hands like twinkling stars and move scarves.
+ACTIVITY_3_MATERIALS: Star scarves, music.
+ACTIVITY_3_SETUP: Clear floor space.
+ACTIVITY_3_DIRECTIONS: 1. Hold scarf. 2. Twinkle fingers. 3. Move slowly. 4. Move quickly. 5. Freeze.
+ACTIVITY_3_TEACHER_ROLE: Cue tempo changes.
+ACTIVITY_3_LEARNING_GOALS: Rhythm; listening; coordination.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note response to tempo.
+ACTIVITY_3_ADAPTATIONS: Perform seated.
+ACTIVITY_3_SAFETY_NOTES: Avoid neck wrapping.
+
+THURSDAY
+DAILY_THEME: Planets Big and Small
+DAILY_OBJECTIVES: Compare sizes and roll objects.
+DAILY_VOCABULARY: Planet, big, small, round, roll.
+DAILY_MATERIALS: Balls, hoops, paint, planet cards.
+DAILY_LEARNING_DOMAINS: Math; Science; Gross Motor; Art.
+CIRCLE_TIME_IDEAS: Compare planet pictures and round objects.
+OUTDOOR_PLAY: Roll large and small balls toward targets.
+DAILY_OBSERVATION_OPPORTUNITIES: Note comparison and force control.
+DAILY_ADAPTATIONS: Use highly contrasting sizes.
+SAFETY_NOTES: Use soft balls.
+ACTIVITY_1_CATEGORY: Math
+ACTIVITY_1_NAME: Big Planet, Small Planet
+ACTIVITY_1_OBJECTIVE: Sort by size.
+ACTIVITY_1_DESCRIPTION: Children place balls into big and small hoops.
+ACTIVITY_1_MATERIALS: Soft balls, two hoops.
+ACTIVITY_1_SETUP: Label hoops big and small.
+ACTIVITY_1_DIRECTIONS: 1. Choose ball. 2. Compare size. 3. Place in hoop. 4. Repeat. 5. Count groups.
+ACTIVITY_1_TEACHER_ROLE: Model size words.
+ACTIVITY_1_LEARNING_GOALS: Sorting; comparison; counting.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note consistency.
+ACTIVITY_1_ADAPTATIONS: Use only two obvious sizes.
+ACTIVITY_1_SAFETY_NOTES: Keep balls soft and large.
+ACTIVITY_2_CATEGORY: Gross Motor
+ACTIVITY_2_NAME: Planet Roll
+ACTIVITY_2_OBJECTIVE: Practice aiming and rolling.
+ACTIVITY_2_DESCRIPTION: Children roll balls into planet hoops.
+ACTIVITY_2_MATERIALS: Soft balls, hoops.
+ACTIVITY_2_SETUP: Place hoops nearby.
+ACTIVITY_2_DIRECTIONS: 1. Sit or stand. 2. Hold ball. 3. Aim. 4. Roll. 5. Retrieve and repeat.
+ACTIVITY_2_TEACHER_ROLE: Support turn-taking and aim.
+ACTIVITY_2_LEARNING_GOALS: Coordination; force control; spatial awareness.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note bilateral coordination.
+ACTIVITY_2_ADAPTATIONS: Move hoop closer.
+ACTIVITY_2_SAFETY_NOTES: Roll only, no throwing indoors.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Marble Planet Painting
+ACTIVITY_3_OBJECTIVE: Observe rolling marks.
+ACTIVITY_3_DESCRIPTION: Adult-supervised children roll a large paint-covered ball inside a tray over paper.
+ACTIVITY_3_MATERIALS: Tray, paper, large ball, washable paint.
+ACTIVITY_3_SETUP: Tape paper inside tray.
+ACTIVITY_3_DIRECTIONS: 1. Add ball. 2. Tilt tray. 3. Watch tracks. 4. Change direction. 5. Remove finished planet.
+ACTIVITY_3_TEACHER_ROLE: Hold tray with children and describe movement.
+ACTIVITY_3_LEARNING_GOALS: Cause and effect; visual tracking; art.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note prediction and coordination.
+ACTIVITY_3_ADAPTATIONS: Use a sealed paint bag.
+ACTIVITY_3_SAFETY_NOTES: Adult manages paint and ball.
+
+FRIDAY
+DAILY_THEME: Astronaut Training
+DAILY_OBJECTIVES: Review space vocabulary and complete a cooperative mission.
+DAILY_VOCABULARY: Astronaut, mission, helmet, explore.
+DAILY_MATERIALS: Boxes, helmets, stars, beanbags, mission cards.
+DAILY_LEARNING_DOMAINS: Dramatic Play; Gross Motor; Language; Social-Emotional.
+CIRCLE_TIME_IDEAS: Review the week and pretend to prepare for launch.
+OUTDOOR_PLAY: Complete an astronaut obstacle course.
+DAILY_OBSERVATION_OPPORTUNITIES: Note recall, cooperation, and sequencing.
+DAILY_ADAPTATIONS: Use a shortened mission path.
+SAFETY_NOTES: Keep props lightweight and paths clear.
+ACTIVITY_1_CATEGORY: Dramatic Play
+ACTIVITY_1_NAME: Space Station Mission
+ACTIVITY_1_OBJECTIVE: Practice cooperative pretend play.
+ACTIVITY_1_DESCRIPTION: Children enter a box rocket, launch, collect a star, and return.
+ACTIVITY_1_MATERIALS: Large box, toy controls, stars, helmets.
+ACTIVITY_1_SETUP: Create a simple station.
+ACTIVITY_1_DIRECTIONS: 1. Put on helmet. 2. Enter rocket. 3. Count down. 4. Collect star. 5. Return and switch roles.
+ACTIVITY_1_TEACHER_ROLE: Model scripts and sharing.
+ACTIVITY_1_LEARNING_GOALS: Symbolic play; language; cooperation.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note role play and turn-taking.
+ACTIVITY_1_ADAPTATIONS: Use picture roles.
+ACTIVITY_1_SAFETY_NOTES: Keep box exits open.
+ACTIVITY_2_CATEGORY: Gross Motor
+ACTIVITY_2_NAME: Astronaut Training Course
+ACTIVITY_2_OBJECTIVE: Practice crawling, stepping, and balancing.
+ACTIVITY_2_DESCRIPTION: Children move through a safe space-themed path.
+ACTIVITY_2_MATERIALS: Tunnels, floor spots, low beam, beanbags.
+ACTIVITY_2_SETUP: Arrange a short course.
+ACTIVITY_2_DIRECTIONS: 1. Crawl tunnel. 2. Step on moons. 3. Balance across line. 4. Carry moon rock. 5. Finish mission.
+ACTIVITY_2_TEACHER_ROLE: Spot and encourage.
+ACTIVITY_2_LEARNING_GOALS: Coordination; motor planning; confidence.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note balance and persistence.
+ACTIVITY_2_ADAPTATIONS: Remove challenging stations.
+ACTIVITY_2_SAFETY_NOTES: Use low stable equipment.
+ACTIVITY_3_CATEGORY: Language & Literacy
+ACTIVITY_3_NAME: Space Picture Review
+ACTIVITY_3_OBJECTIVE: Recall and name weekly concepts.
+ACTIVITY_3_DESCRIPTION: Children match rocket, moon, star, planet, and astronaut pictures.
+ACTIVITY_3_MATERIALS: Large picture cards.
+ACTIVITY_3_SETUP: Lay cards face up.
+ACTIVITY_3_DIRECTIONS: 1. Choose card. 2. Name or point. 3. Match pair. 4. Make a related motion. 5. Review all words.
+ACTIVITY_3_TEACHER_ROLE: Accept gestures and model short phrases.
+ACTIVITY_3_LEARNING_GOALS: Recall; matching; expressive language.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note vocabulary growth.
+ACTIVITY_3_ADAPTATIONS: Offer two choices.
+ACTIVITY_3_SAFETY_NOTES: Use durable cards.
