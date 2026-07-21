@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-21 (Phase 5 complete)
+**Status date:** 2026-07-21 (Phase 6 complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -11,9 +11,9 @@
 2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
 3. Read this handoff document end to end
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–5 automated tests (commands below)
+5. Run all Phase 1–6 automated tests (commands below)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (Phase 6+ are not started)
+7. Continue only from the next **approved** phase (Phase 7+ are not started)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -24,8 +24,8 @@ Build a private, testing-only foundation for:
 
 - **Director Center** — organization, classrooms, staff, children, program profile, roles
 - **Teacher Classroom Experience** — classroom week, events, daily logs, observations, goals, timeline
-- **Forms Center** — Manual Custom Form Builder (draft / publish / archive; no response collection yet) plus a **Built-In Form Library** (29 starter templates, browse/search/preview/favorite, "Use This Template" → editable program copy)
-- Future **Family Hub** / parent accounts (explicitly not started; must stay OFF)
+- **Forms Center** — Manual Custom Form Builder (draft / publish / archive) plus a **Built-In Form Library** (29 starter templates, browse/search/preview/favorite, "Use This Template" → editable program copy) plus **Assignments, Responses, and Signatures** (send/assign a published form, complete it via a safe testing link, sign electronically, review/approve, and file the response under the correct Child/Staff/Classroom/Program record)
+- Future **Family Hub** / real parent accounts (explicitly not started; must stay OFF)
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -48,7 +48,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify: `git rev-parse HEAD`) |
-| Tip message | Phase 5 Built-In Form Library complete |
+| Tip message | Phase 6 Form Responses, Signatures, and Child Profile Storage complete |
 
 Confirm tip after pull:
 
@@ -100,6 +100,7 @@ git log -1 --oneline origin/cursor/director-family-foundation-bc66
 
 Handoff commits (newest first among transfer docs — update after each new phase commit):
 
+- Phase 6 Form Assignments, Responses, and Signatures (data model, tokens, permissions, admin API, recipient API, fixtures, UI, recipient page, tests, docs)
 - Phase 5 Built-In Form Library (data model, importer, 29 starter templates, fixtures, API, UI, tests, docs)
 - Fix handoff tip SHA and commit history table
 - Add paste-ready PR #324 description for handoff transfer (`da3dba9`)
@@ -112,7 +113,8 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| *(branch tip)* | Phase 5 Built-In Form Library complete |
+| *(branch tip)* | Phase 6 Form Assignments, Responses, and Signatures complete |
+| `dd46c2d` | Phase 5 Built-In Form Library complete |
 | `18f0b0b` | Handoff transfer docs (Phase 1–4) |
 | `da3dba9` | Paste-ready PR #324 description |
 | `cf6a11a` | Transfer handoff document |
@@ -137,13 +139,14 @@ Phase tip history (newest first):
 - **Phase 3 teacher/classroom/child connections** — Teacher Center preview, role preview header, week assignments, events, daily logs, observations, goals, timeline, migration dry-run
 - **Phase 4 Manual Custom Form Builder** — Forms Center Home / My Forms / Templates / Archived / Builder / Preview; draft autosave; immutable publish versions; duplicate/archive/restore; no responses
 - **Phase 5 Built-In Form Library** — 29 system-owned starter templates inside Forms Center; Built-In Library browse/search/filter/sort; preview; favorites; recently previewed/copied; "Use This Template" → new organization-owned draft with fresh IDs; template versioning (newer-version demo) and retirement (retired-template demo) that never breaks existing organization copies; structured importer (system-admin only); role-scoped access (director/owner full, teacher/assistant only with director-granted override, system-admin-only template management). See `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`.
+- **Phase 6 Form Assignments, Responses, and Signatures** — Send/Assign a published form to one/many children, guardians (incl. all verified guardians for a child), staff, classrooms, or the whole program; safe hashed/expiring/revocable testing links (never on production); mobile-first recipient completion page with sections, autosave, review, typed + drawn signatures, and printable confirmation; full response status workflow with review/approve/return/reopen/void/archive; Child/Staff/Classroom/Program filing by permanent ID; form-version protection; Medication Administration Log with non-destructive corrections. See `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`.
 
 ### NOT STARTED
 
-- **Phase 6** form sending, responses, real signatures, Child Profile form storage, and repeatable Medication Administration Log entries
 - **Phase 7** AI Form Builder
-- Parent accounts
-- Family Hub
+- **Phase 8** real parent accounts (claiming/completing assigned forms)
+- **Phase 9** full Family Hub interface
+- Real outbound email/SMS delivery of assignment links and reminders
 - Live pricing changes
 - Production migration
 - Production release
@@ -157,9 +160,15 @@ Policy lives in `scripts/expansion-feature-flags.js`.
 | Flag | Intended stored value on testing (after enable) | Runtime behavior |
 |------|--------------------------------------------------|------------------|
 | `directorCenter` | `true` (testing only) | Requires non-prod host + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW` + verified admin Bearer |
-| `formsCenter` | `true` (testing only, Phase 4/5) | Requires non-prod host + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW` + verified admin Bearer. The Phase 5 Built-In Library rides on this **same** flag (`/api/forms-center/library/*`) — no separate flag was added. |
+| `formsCenter` | `true` (testing only, Phase 4/5/6) | Requires non-prod host + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW` + verified admin Bearer. The Phase 5 Built-In Library (`/api/forms-center/library/*`) and the Phase 6 assignment/response admin API (`/api/forms-center/assignments/*`, `/api/forms-center/responses/*`) all ride on this **same** flag — no separate flag was added. |
 | `familyHub` | **`false` always** | Forced OFF in policy; must remain OFF until approved |
 | Defaults in code | All expansion flags **OFF** | Production hosts stay locked even if store says ON |
+
+The Phase 6 **recipient** API (`/api/form-recipient/*`) is intentionally **not** part of
+this flag table — recipients are never admins, so it cannot require an admin Bearer.
+Instead it has its own independent production lock (`isLiveProductionHost()` inside
+`server/form-recipient-api.js`) plus per-assignment hashed/expiring/revocable tokens.
+See `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` §13.
 
 Required testing env vars (names only; never commit secrets):
 
@@ -186,10 +195,13 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 8. Do **not** change production data, production env, or production Stripe/email/AI settings.
 9. Query-string admin tokens are rejected for expansion APIs; use verified Admin Bearer.
 10. Role preview header (`x-llh-role-preview-membership-id`) is testing-only and must not change stored admin membership role.
-11. Forms Center must not collect responses, send forms, store signatures, or call AI in Phase 4 or Phase 5.
+11. Forms Center must not send real forms by email/SMS, store real signatures, or call AI in Phases 4–6 — only testing-preview signature placeholders and hashed testing links.
 12. Curriculum Only entitlement simulation must continue to block Director/Forms add-ons without charging.
 13. Built-in template administration (`/api/forms-center/library/admin/*`) must remain rejected whenever a role-preview header is active, even for a valid admin bearer token.
 14. "Use This Template" must never modify a built-in template or its immutable version — only create a new organization-owned draft.
+15. Testing links (`/api/form-recipient/*`) must always be rejected outright on a live production host, independent of and in addition to the admin expansion-flag gate.
+16. Raw recipient tokens are never stored, logged, or committed — only a SHA-256 hash persists on the assignment; tokens must remain expiring and revocable.
+17. A submitted signature must never silently change; reopening or returning a response for correction must invalidate its signatures and require a fresh one before resubmission.
 
 **Confirmation:** Production data was **not** changed by this project work. Production migration has **not** started.
 
@@ -259,9 +271,26 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 | `scripts/capture-forms-center-phase5-screens.js` | Screenshots → `/opt/cursor/artifacts/forms-center-phase5/` |
 | `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md` | Completion report |
 
+### Assignments, Responses, and Signatures (Phase 6)
+
+| Path | Role |
+|------|------|
+| `scripts/form-responses-data-model.js` | Assignment/response/signature/audit/medication-log-entry schema, status enums, server-side validation |
+| `scripts/form-recipient-tokens.js` | Hashed testing-link tokens: issue, verify, expire, revoke |
+| `scripts/form-recipient-payload.js` | Shared recipient-view payload builder (public API + admin preview) |
+| `scripts/form-responses-fixtures.js` | Idempotent Phase 6 fixtures: children/guardians/staff/classroom + 16 response scenarios |
+| `server/form-responses-api.js` | Admin-side `/api/forms-center/assignments/*`, `/responses/*`, filing views, recipients directory (shares Forms Center gate) |
+| `server/form-recipient-api.js` | Public, token-authenticated `/api/form-recipient/*` (never behind the admin gate; own production lock) |
+| `forms-responses-ui.js` | Send/Assign modal, Responses Dashboard, response detail/review panel |
+| `form-recipient.html` / `form-recipient-ui.js` | Standalone mobile-first recipient completion page |
+| `styles/llh-form-recipient.css` | Dedicated recipient-page styles |
+| `scripts/test-forms-center-phase6.js` | Phase 6 tests |
+| `scripts/capture-forms-center-phase6-screens.js` | Screenshots → `/opt/cursor/artifacts/forms-center-phase6/` |
+| `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` | Completion report |
+
 ### Shell wiring (shared)
 
-Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html`, `styles.css`, `package.json` (`test:*` scripts), `forms-center-ui.js` (Built-In Library tab added in Phase 5).
+Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html`, `styles.css`, `package.json` (`test:*` scripts), `forms-center-ui.js` (Built-In Library tab added in Phase 5; Responses tab + Send/Assign added in Phase 6), `teacher-center-ui.js` (Forms & Documents child-profile section added in Phase 6).
 
 ---
 
@@ -315,6 +344,21 @@ Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html
 
 ---
 
+## How Assignments, Responses, and Signatures work (Phase 6)
+
+1. **Admin side (gated):** `server/form-responses-api.js` under `/api/forms-center/assignments/*` and `/api/forms-center/responses/*` — same `formsCenter` flag + admin Bearer + role-preview scoping as every other Forms Center route.
+2. **Recipient side (ungated, token-only):** `server/form-recipient-api.js` under `/api/form-recipient/*` — never behind the admin gate (recipients aren't admins). It has its own independent production-host lock and requires a valid, unexpired, unrevoked token via the `x-llh-form-recipient-token` header (never a query string).
+3. **Testing links:** an admin issues a link from a response's detail panel (`POST .../testing-link/issue`), which returns a raw token **exactly once** — only its SHA-256 hash is stored (`assignment.testingLinkTokenHash`). "Regenerate" reissues a new hash; "Revoke" flips `testingLinkRevoked`. The recipient URL is `form-recipient.html#a=<assignmentId>&t=<rawToken>` — the token lives in the URL **fragment**, which browsers never send to the server or record in access logs.
+4. **Bulk separation:** assigning to multiple recipients always creates one assignment + one response **per recipient**; one recipient's token can never resolve another recipient's response (`link_not_issued`).
+5. **Recipient experience:** `form-recipient.html` + `form-recipient-ui.js` — mobile-first sections, autosave, review-before-submit, typed + optional drawn signature, submit, printable confirmation. Standalone page, no admin session, no shared CSS with the main app shell.
+6. **Signatures:** captured via `POST /api/form-recipient/:id/signature` (requires typed name + consent checkbox); a **provider countersignature** is the one exception allowed to be added **after** submission (`isProviderCountersignAfterSubmit` in `form-recipient-api.js`). Reopening or returning a response for correction always invalidates its existing signatures.
+7. **Review workflow:** `server/form-responses-api.js` exposes mark-under-review / approve / return-for-correction / reopen / void / decline / mark-expired / archive / restore, each with its own status-transition guard, plus internal notes and bulk archive/mark-for-review.
+8. **Filing:** `/api/forms-center/{children,staff,classrooms,program}/.../forms` return the same authoritative response records filtered by permanent foundation ID — never duplicated into a separate record. The Teacher Center child profile's new **Forms & Documents** section reads the children endpoint live.
+9. **Medication Administration Log:** `POST .../medication-log` adds a dose entry; `POST .../medication-log/:entryId/correct` creates a new corrected entry and marks the original `supersededByEntryId` — the original is never deleted or overwritten.
+10. **Out of scope (Phase 6):** Real parent-account login (Phase 8), full Family Hub (Phase 9), real outbound email/SMS delivery, AI-assisted anything, automatic version-upgrade jobs for unstarted assignments, and file/attachment upload storage.
+
+---
+
 ## Tests and commands
 
 ### Syntax check
@@ -323,7 +367,7 @@ Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html
 npm run check
 ```
 
-### Phase 1–5 automated suite (run all before handing off or starting Phase 6)
+### Phase 1–6 automated suite (run all before handing off or starting Phase 7)
 
 ```bash
 npm run test:director-family-foundation
@@ -331,6 +375,7 @@ npm run test:director-center-phase2
 npm run test:director-center-phase3
 npm run test:forms-center-phase4
 npm run test:forms-center-phase5
+npm run test:forms-center-phase6
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -342,9 +387,10 @@ node scripts/capture-director-center-phase2-screens.js
 node scripts/capture-director-center-phase3-screens.js
 node scripts/capture-forms-center-phase4-screens.js
 node scripts/capture-forms-center-phase5-screens.js
+node scripts/capture-forms-center-phase6-screens.js
 ```
 
-### Handoff verification results (2026-07-21, Phase 5)
+### Handoff verification results (2026-07-21, Phase 6)
 
 | Command | Result |
 |---------|--------|
@@ -354,12 +400,15 @@ node scripts/capture-forms-center-phase5-screens.js
 | `npm run test:director-center-phase3` | PASS |
 | `npm run test:forms-center-phase4` | PASS |
 | `npm run test:forms-center-phase5` | PASS (43/43) |
+| `npm run test:forms-center-phase6` | PASS (38/38) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Browser smoke tests (homepage, curriculum UX, etc.) are separate from this workstream and
-were spot-checked to confirm no new regressions; any failures there reproduce identically
-on the unmodified branch tip and predate Phase 5. Phase 1–5 gates are the scripts above.
+**182 total assertions across all 8 suites, zero failures.** Browser smoke tests
+(homepage, curriculum UX, etc.) are separate from this workstream and were spot-checked
+to confirm no new regressions; any failures there reproduce identically on the
+unmodified branch tip (confirmed via `git stash`) and predate Phase 6. Phase 1–6 gates
+are the scripts above.
 
 ---
 
@@ -369,40 +418,54 @@ on the unmodified branch tip and predate Phase 5. Phase 1–5 gates are the scri
 2. **Mobile auth checkboxes** — Fixed in `cecbb24`; do not reintroduce giant checkbox CSS that scrambles signup/admin layouts.
 3. **Admin sidebar without member login** — Fixed via `admin-unlocked` shell + Director Center CTA (`744d48b` / `80949ff`); preserve this when editing nav CSS.
 4. **Testing deploy lag** — Agents cannot auto-deploy Render; owner must Manual Deploy testing after pushes; confirm cache busters match tip.
-5. **PR title may still say “Phase 2”** — Body/docs track Phases 1–5; update title when convenient.
+5. **PR title may still say “Phase 2”** — Body/docs track Phases 1–6; update title when convenient.
 6. **ManagePullRequest `update_pr` may fail** on repo rename casing (`little-learner-hub` vs `LITTLE-LEARNER-HUB`); pushes still update the PR head; use GitHub UI or API if body update tooling fails.
-7. **Hard-coded cache-buster regexes in tests** — `test-platform-nav.js` and `test-director-center-phase3.js` previously pinned an exact `?v=20260721-phase4` string for `forms-center-ui.js`/`styles.css`; Phase 5 relaxed those two assertions to `\?v=` so future version bumps don't break unrelated test files. Prefer version-agnostic assertions for shared shell files going forward.
+7. **Hard-coded cache-buster regexes in tests** — `test-platform-nav.js` and `test-director-center-phase3.js` previously pinned an exact `?v=20260721-phase4` string for `forms-center-ui.js`/`styles.css`; relaxed to `\?v=` so future version bumps don't break unrelated test files. Prefer version-agnostic assertions for shared shell files going forward.
+8. **Standalone re-render modules need a bind-guard** — `forms-responses-ui.js` and `form-recipient-ui.js` re-render their whole container on every state change; `bind()` in both files guards against re-attaching duplicate event listeners with a `dataset.*Bound` flag. If you add another standalone re-rendering module, copy this guard — omitting it silently double/triple-fires click handlers (this caused a real bug during Phase 6 development: a checkbox toggle appeared to do nothing because two listeners canceled each other out).
+9. **Provider countersignature timing** — a provider signature is the one signer role allowed to be added **after** submission (see `isProviderCountersignAfterSubmit` in `server/form-recipient-api.js`); every other role must sign before submitting.
 
 ---
 
 ## Incomplete items
 
-- Phase 6–7 (form sending/responses/real signatures/Child Profile form storage, repeatable Medication Administration Log entries, AI Form Builder)
-- Parent accounts and Family Hub product surfaces
+- Phase 7 AI Form Builder
+- Phase 8 real parent accounts (claiming/completing assigned forms)
+- Phase 9 full Family Hub product surfaces
+- Real outbound email/SMS delivery of assignment links and reminders (the `reminder` field is modeled and stored, never sent)
+- Automatic version-upgrade job for unstarted assignments when a newer form version is published (the `versionPolicy` field and comparison logic exist; the bulk-upgrade action itself does not yet)
+- File/attachment upload storage for the "file or attachment placeholder" field type
+- A dedicated one-click "Countersign" button in the admin response detail panel (today a provider signs via the same recipient-facing signature endpoint)
 - Live pricing / entitlement go-live
 - Production migration and production release
 - Any real form delivery, e-sign, or response analytics
 - Automated Render deploy from this agent environment
 - A Forms Center in-app role-preview switcher (Teacher Center has one; Forms Center enforcement is server-side and tested but has no UI toggle yet)
 - Admin UI to grant/revoke teacher/assistant Built-In Library overrides interactively (currently server-side only, seeded via fixtures)
+- Real parent-account login, full Family Hub, AI Form Builder, real email/SMS delivery (see Phase 7 recommendation)
 
 ---
 
-## Phase 6 recommendation
+## Phase 7 recommendation
 
-When approved, start **Phase 6: form sending, responses, and real signatures** that:
+When approved, start **Phase 7: AI Form Builder** (or, if reprioritized, Phase 8 real
+parent accounts) that:
 
-- Reuse Phase 4/5 `fcform_*`/`bftpl_*` IDs and publish immutability rules
+- Reuse Phase 4/5/6 `fcform_*`/`bftpl_*`/`frasg_*`/`frresp_*` IDs and immutability rules
 - Stay behind the same Forms Center preview gates
-- Add real digital-signature capture (replacing today's testing-only placeholders)
-- Add repeatable entries for the Medication Administration Log template (structure already prepared in Phase 5)
-- Add Child Profile form attachment
-- Add focused tests parallel to `test:forms-center-phase5`
+- If building Phase 8 parent accounts first: let a real parent account **claim** an
+  existing `frresp_*` response by `recipientType: "guardian"` + `recipientId` — the
+  Phase 6 data model was deliberately designed so this requires no migration of
+  existing responses
+- If building Phase 7 AI Form Builder first: keep AI suggestions as a drafting aid only,
+  never auto-publish, and never touch built-in templates without going through the
+  existing system-admin-only import pipeline
+- Add focused tests parallel to `test:forms-center-phase6`
 - Keep Family Hub, live pricing, and production migration explicitly out of scope
 
-See `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md` §19 for the full recommendation.
+See `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` §19 for the full list
+of items intentionally deferred.
 
-Do not begin Phase 6 (sending/responses/signatures) until Phase 6 is approved and complete.
+Do not begin Phase 7 until it is approved and Phase 6 is complete (it now is).
 
 ---
 
@@ -410,10 +473,10 @@ Do not begin Phase 6 (sending/responses/signatures) until Phase 6 is approved an
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–5 test suite; confirm all PASS
+3. Run the full Phase 1–6 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=false`
-5. Smoke Director Center → Teacher Center → Forms Center Builder/Preview → Built-In Library browse/preview/use-template with fake data
-6. Wait for owner-written Phase 6 requirements before coding
+5. Smoke Director Center → Teacher Center → Forms Center Builder/Preview → Built-In Library browse/preview/use-template → Send/Assign → Responses dashboard → open a testing link and complete/sign/submit → approve/return/void with fake data
+6. Wait for owner-written Phase 7 requirements before coding
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 
@@ -424,25 +487,28 @@ Do not begin Phase 6 (sending/responses/signatures) until Phase 6 is approved an
 Until explicitly approved otherwise:
 
 - **Family Hub** (`familyHub`) — forced OFF
-- **Parent accounts** / parent login product
+- **Real parent accounts** / parent login product
 - **Live pricing changes** / live entitlement charges for expansion add-ons
-- **Phase 6** form send / responses / real signatures / Child Profile form storage / repeatable Medication Administration Log entries
 - **Phase 7** AI Form Builder
+- **Phase 8** real parent accounts / claiming assigned forms
+- **Phase 9** full Family Hub interface
+- Real outbound email/SMS delivery of assignment links/reminders
 - **Production migration** and **production release** of Director/Forms expansion
 - Any Stripe checkout for classroom/forms add-ons (simulation only)
-- Outbound email / AI calls from Forms Center or the Built-In Library
+- Outbound email / AI calls from Forms Center, the Built-In Library, or Assignments/Responses
 
 ---
 
 ## Production protections
 
 - Expansion feature-flag policy locks production hosts even if stored flags are ON
-- Preview env opt-ins (`ALLOW_*_ADMIN_PREVIEW`) required for Director/Forms APIs (the Built-In Library shares the Forms Center gate)
+- Preview env opt-ins (`ALLOW_*_ADMIN_PREVIEW`) required for Director/Forms APIs (the Built-In Library and Assignments/Responses admin API share the Forms Center gate)
 - Verified admin Bearer required; query-string admin tokens rejected
-- Cross-organization denial (`organization_mismatch`); per-organization isolation of library favorites/recents/copies
-- Curriculum Only entitlement friendly denials (no billing side effects) — blocks both Forms Center and the Built-In Library
-- Forms store and built-in library store have no response/submission collections
+- Cross-organization denial (`organization_mismatch`); per-organization isolation of library favorites/recents/copies and of assignment/response records
+- Curriculum Only entitlement friendly denials (no billing side effects) — blocks Forms Center, the Built-In Library, and Assignments/Responses alike
+- Forms store, built-in library store, and form-responses store have no email/SMS/Stripe/AI capability
 - System-template administration (`/api/forms-center/library/admin/*`) rejected whenever a role-preview header is active, even for a valid admin bearer
+- Recipient testing links (`/api/form-recipient/*`) have their **own independent** production-host lock, in addition to never being reachable through the admin gate, plus hashed/expiring/revocable tokens accepted only via a header (never a query string)
 - Branch not merged to `main`; production not deployed from this workstream
 - Testing uses isolated `local-json` store, not production Postgres
 
@@ -465,12 +531,12 @@ Until explicitly approved otherwise:
 This project did **not**:
 
 - Migrate or write production Postgres data
-- Enable Director Center / Forms Center / Built-In Library / Family Hub on production
+- Enable Director Center / Forms Center / Built-In Library / Assignments-Responses / Family Hub on production
 - Change live Stripe, email, or AI production configuration
 - Merge `cursor/director-family-foundation-bc66` into `main`
-- Deploy this branch to the production Render service as part of Phase 1–5 delivery
+- Deploy this branch to the production Render service as part of Phase 1–6 delivery
 
-All Phase 1–5 work is on the draft PR branch and testing/local preview paths only.
+All Phase 1–6 work is on the draft PR branch and testing/local preview paths only.
 
 ---
 
@@ -484,6 +550,7 @@ All Phase 1–5 work is on the draft PR branch and testing/local preview paths o
 - `docs/PHASE_3_TEACHER_EXPERIENCE_COMPLETION_REPORT.md`
 - `docs/PHASE_4_FORMS_CENTER_COMPLETION_REPORT.md`
 - `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`
+- `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`
 
 ---
 
@@ -491,8 +558,8 @@ All Phase 1–5 work is on the draft PR branch and testing/local preview paths o
 
 - [ ] Branch tip matches GitHub `origin/cursor/director-family-foundation-bc66`
 - [ ] Working tree clean after pull
-- [ ] All Phase 1–5 tests PASS
+- [ ] All Phase 1–6 tests PASS
 - [ ] Testing safety reconfirmed
 - [ ] Family Hub still OFF
-- [ ] Phase 6 requirements received before coding
+- [ ] Phase 7 requirements received before coding
 - [ ] No merge / no production deploy without approval

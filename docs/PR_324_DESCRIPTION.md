@@ -10,7 +10,7 @@ Automated PR body updates from this agent environment return HTTP 403
 
 ## Status (transfer-ready)
 
-Private preview work for Director Center → Teacher Classroom → Manual Custom Form Builder → Built-In Form Library.
+Private preview work for Director Center → Teacher Classroom → Manual Custom Form Builder → Built-In Form Library → Assignments/Responses/Signatures.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -20,7 +20,7 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run all Phase 1–5 automated tests
+5. Run all Phase 1–6 automated tests
 6. Confirm testing-environment safety
 7. Continue only from the next **approved** phase
 8. Never merge or deploy without explicit approval
@@ -42,28 +42,35 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 - Phase 3 teacher/classroom/child connections
 - Phase 4 Manual Custom Form Builder
 - Phase 5 Built-In Form Library — 29 starter templates, browse/search/filter/sort, preview, favorites, recent activity, "Use This Template" → new organization-owned draft, versioning + retirement safety, structured importer (system-admin only), role-scoped access
+- Phase 6 Assignments, Responses, and Signatures — Send/Assign a published form to children/guardians (incl. all verified guardians for a child)/staff/classrooms/program; safe hashed/expiring/revocable testing links (never on production); mobile-first recipient page with sections, autosave, review, typed + drawn signatures, printable confirmation; full response status workflow (review/approve/return/reopen/void/archive); Child/Staff/Classroom/Program filing by permanent ID; form-version protection; Medication Administration Log with non-destructive corrections
 
 ### NOT STARTED
 
-- Phase 6 form sending, responses, signatures, Child Profile storage, repeatable Medication Administration Log entries
 - Phase 7 AI Form Builder
-- Parent accounts / Family Hub
+- Phase 8 real parent accounts (claiming/completing assigned forms)
+- Phase 9 full Family Hub interface
+- Real outbound email/SMS delivery of assignment links/reminders
 - Live pricing changes
 - Production migration / production release
 
 ### Feature flags (testing)
 
 - `directorCenter=true` (with `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`)
-- `formsCenter=true` (with `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`)
+- `formsCenter=true` (with `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`) — Built-In Library and Assignments/Responses admin routes share this same flag
 - `familyHub=false` (**forced OFF** — must remain off)
+
+Recipient testing links (`/api/form-recipient/*`) are intentionally **not** gated by
+this flag table (recipients are never admins); they have their own independent
+production-host lock plus hashed/expiring/revocable per-assignment tokens.
 
 ### Safety
 
 - Fake data only in preview
-- Stripe / email / AI disabled on testing
-- Production hosts locked by expansion flag policy
+- Stripe / email / SMS / AI disabled on testing
+- Production hosts locked by expansion flag policy, plus an independent lock on recipient testing links
 - Production data **not** changed; no production migration applied
 - Agents have no Render deploy hook — owner Manual Deploy on testing only
+- Raw recipient tokens are never stored/logged — only a SHA-256 hash persists
 
 ### Verification commands
 
@@ -74,9 +81,12 @@ npm run test:director-center-phase2
 npm run test:director-center-phase3
 npm run test:forms-center-phase4
 npm run test:forms-center-phase5
+npm run test:forms-center-phase6
 npm run test:platform-nav
 npm run test:account-access
 ```
+
+182 total assertions across all 8 suites — all PASS.
 
 ### Phase docs
 
@@ -86,8 +96,9 @@ npm run test:account-access
 - `docs/PHASE_3_TEACHER_EXPERIENCE_COMPLETION_REPORT.md`
 - `docs/PHASE_4_FORMS_CENTER_COMPLETION_REPORT.md`
 - `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`
+- `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`
 - `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 
 Suggested title:
 
-`Phases 1–5: Director Center, Teacher Classroom, Forms Builder, Built-In Form Library (do not merge/deploy)`
+`Phases 1–6: Director Center, Teacher Classroom, Forms Builder, Built-In Form Library, Assignments/Responses/Signatures (do not merge/deploy)`
