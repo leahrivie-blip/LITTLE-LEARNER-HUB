@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cover mockups — Infant/Toddler Pro batch (approval needed)</title>
+  <style>
+    :root {
+      --ink: #1f2a24;
+      --muted: #5c6b63;
+      --paper: #f3f7f4;
+      --card: #ffffff;
+      --line: #d7e2db;
+      --accent: #2f6f5e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Avenir Next", "Segoe UI", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, #e8f4ec, transparent 40%),
+        linear-gradient(180deg, #eef5f1, var(--paper));
+      padding: 32px 20px 64px;
+    }
+    main { max-width: 1100px; margin: 0 auto; }
+    h1 { font-size: 2rem; margin: 0 0 8px; }
+    .lede { color: var(--muted); max-width: 62ch; line-height: 1.5; }
+    .banner {
+      margin: 24px 0;
+      padding: 14px 16px;
+      border: 1px solid #f0d39a;
+      background: #fff8e8;
+      border-radius: 12px;
+      color: #6a4b12;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 22px;
+      margin-top: 28px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 10px 30px rgba(31, 42, 36, 0.06);
+    }
+    .cover-wrap {
+      position: relative;
+      aspect-ratio: 16 / 9;
+      background: #//111;
+      background: #1b2420;
+    }
+    .cover-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .overlay {
+      position: absolute;
+      inset: auto 0 0 0;
+      padding: 18px 16px 14px;
+      background: linear-gradient(transparent, rgba(10, 16, 14, 0.82));
+      color: white;
+    }
+    .overlay .age {
+      display: inline-block;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: rgba(255,255,255,0.18);
+      padding: 4px 8px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .overlay h2 {
+      margin: 0;
+      font-size: 1.15rem;
+      line-height: 1.25;
+    }
+    .meta {
+      padding: 14px 16px 18px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+    .meta strong { color: var(--ink); }
+    .compare {
+      margin-top: 40px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+    }
+    .compare h3 { margin-bottom: 8px; }
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin: 16px 0 28px;
+    }
+    @media (max-width: 720px) {
+      .pair { grid-template-columns: 1fr; }
+    }
+    .pair figure {
+      margin: 0;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .pair img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; }
+    .pair figcaption { padding: 10px 12px; font-size: 0.88rem; color: var(--muted); }
+    a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Cover mockups for approval</h1>
+    <p class="lede">
+      These are <strong>style samples only</strong> for the new Infant/Toddler Pro themes.
+      Nothing has been imported or applied to the live library yet.
+      Please approve (or request changes) before we generate covers for the full batch.
+    </p>
+    <div class="banner">
+      Approval needed: confirm this illustrated 16:9 cartoon style is correct.
+      Existing library already has some similar JPGs (for example <code>amazing-insects.jpg</code>,
+      <code>zoo-adventure.jpg</code>, <code>weather-watchers.jpg</code>) — new covers should stay consistent with those.
+    </div>
+
+    <section class="grid">
+      <article class="card">
+        <div class="cover-wrap">
+          <img src="mockup-cover-zoo-animals.png" alt="Zoo Animals cover mockup" />
+          <div class="overlay">
+            <span class="age">Infant · Pro</span>
+            <h2>Zoo Animals</h2>
+          </div>
+        </div>
+        <div class="meta">
+          <strong>Mockup A — Zoo Animals</strong><br />
+          Friendly zoo animals, soft sunlight, childcare-safe cartoon look.
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="cover-wrap">
+          <img src="mockup-cover-amazing-insects.png" alt="Amazing Insects cover mockup" />
+          <div class="overlay">
+            <span class="age">Toddler · Pro</span>
+            <h2>Amazing Insects</h2>
+          </div>
+        </div>
+        <div class="meta">
+          <strong>Mockup B — Amazing Insects</strong><br />
+          Ladybug, butterfly, bee, ant in a bright garden exploration scene.
+        </div>
+      </article>
+
+      <article class="card">
+        <div class="cover-wrap">
+          <img src="mockup-cover-weather-lab.png" alt="Weather Lab cover mockup" />
+          <div class="overlay">
+            <span class="age">Toddler · Pro</span>
+            <h2>Weather Lab</h2>
+          </div>
+        </div>
+        <div class="meta">
+          <strong>Mockup C — Weather Lab</strong><br />
+          Sun, clouds, rain, rainbow, and a simple weather-station feel.
+        </div>
+      </article>
+    </section>
+
+    <section class="compare">
+      <h3>Compare with existing library covers</h3>
+      <p class="lede">Side-by-side with current assets already in <code>images/lesson-covers/</code>.</p>
+
+      <div class="pair">
+        <figure>
+          <img src="mockup-cover-zoo-animals.png" alt="New zoo mockup" />
+          <figcaption>New mockup — Zoo Animals</figcaption>
+        </figure>
+        <figure>
+          <img src="../../images/lesson-covers/zoo-adventure.jpg" alt="Existing zoo cover" />
+          <figcaption>Existing — zoo-adventure.jpg</figcaption>
+        </figure>
+      </div>
+
+      <div class="pair">
+        <figure>
+          <img src="mockup-cover-amazing-insects.png" alt="New insects mockup" />
+          <figcaption>New mockup — Amazing Insects</figcaption>
+        </figure>
+        <figure>
+          <img src="../../images/lesson-covers/amazing-insects.jpg" alt="Existing insects cover" />
+          <figcaption>Existing — amazing-insects.jpg</figcaption>
+        </figure>
+      </div>
+
+      <div class="pair">
+        <figure>
+          <img src="mockup-cover-weather-lab.png" alt="New weather mockup" />
+          <figcaption>New mockup — Weather Lab</figcaption>
+        </figure>
+        <figure>
+          <img src="../../images/lesson-covers/weather-watchers.jpg" alt="Existing weather cover" />
+          <figcaption>Existing — weather-watchers.jpg</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <p class="lede">
+      Full pre-import audit:
+      <a href="../../docs/INFANT_TODDLER_PRO_GOLD_AUDIT.md">docs/INFANT_TODDLER_PRO_GOLD_AUDIT.md</a>
+    </p>
+  </main>
+</body>
+</html>
