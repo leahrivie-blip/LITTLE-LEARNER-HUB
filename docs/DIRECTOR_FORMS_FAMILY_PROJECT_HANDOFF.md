@@ -47,8 +47,8 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 |------|--------|
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
-| Tip at handoff | `10383ca2e6dd8a3ef482613b8055131fda451b68` |
-| Tip message | Fix handoff tip SHA and commit history table |
+| Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify: `git rev-parse HEAD`) |
+| Tip message | Handoff complete — Phases 1–4 + transfer docs |
 
 Confirm tip after pull:
 
@@ -90,20 +90,29 @@ Default local store: `DATABASE_PROVIDER=local-json` → `server/data/launch-stor
 
 ## Latest commit
 
-```
-10383ca2e6dd8a3ef482613b8055131fda451b68
-Fix handoff tip SHA and commit history table
+Authoritative tip is always:
+
+```bash
+git fetch origin cursor/director-family-foundation-bc66
+git rev-parse origin/cursor/director-family-foundation-bc66
+git log -1 --oneline origin/cursor/director-family-foundation-bc66
 ```
 
-Confirm after pull with `git rev-parse HEAD` / `git log -1 --oneline`.  
+Handoff commits (newest first among transfer docs):
+
+- Fix handoff tip SHA and commit history table
+- Add paste-ready PR #324 description for handoff transfer (`da3dba9`)
+- Add Director/Forms/Family project handoff for transferability (`cf6a11a`)
+- Phase 4 Manual Custom Form Builder (`f0f393a`)
+
 Paste-ready PR body (GitHub description may be stale): `docs/PR_324_DESCRIPTION.md`.
 
 Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
+| *(branch tip)* | Handoff transfer docs (this file + PR paste file) |
 | `da3dba9` | Paste-ready PR #324 description |
-| `10383ca` | Fix handoff tip SHA and history table |
 | `cf6a11a` | Transfer handoff document |
 | `f0f393a` | Phase 4 Manual Custom Form Builder |
 | `f9d5ee7` | Phase 3 teacher classroom preview UI |
