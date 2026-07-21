@@ -28602,6 +28602,10 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
+  if (typeof window.renderDirectorCenterPreviewUI === "function") {
+    window.renderDirectorCenterPreviewUI();
+    return;
+  }
   if (!isExpansionFeatureEnabled("directorCenter")) {
     section.innerHTML = `
       <section class="platform-placeholder-page director-center-page">
@@ -28615,101 +28619,14 @@ function renderDirectorCenterPage() {
     return;
   }
   section.innerHTML = `
-    <section class="platform-placeholder-page director-center-page" data-director-center-preview="true">
+    <section class="platform-placeholder-page director-center-page">
       <div class="page-title">
         <p class="eyebrow">Director Center · Admin Preview</p>
-        <h2>Private Preview</h2>
-        <p>Admin-only Phase 2 foundation preview. Regular members cannot access this surface.</p>
+        <h2>Admin Preview — Test Data Only</h2>
+        <p>Director Center UI module is loading…</p>
       </div>
-      <div class="platform-placeholder-hero">
-        <span class="badge-coming-soon">Admin Preview</span>
-        <p class="muted-copy">formsCenter and familyHub remain OFF. Production stays locked.</p>
-      </div>
-      <div id="directorCenterPreviewStatus" class="section-block">
-        <p class="muted-copy">Loading preview status…</p>
-      </div>
-      <form id="directorCenterClassroomForm" class="section-block" style="display:grid;gap:0.75rem;max-width:28rem;">
-        <h3>Add classroom</h3>
-        <label>Name <input name="name" required maxlength="80" placeholder="Toddlers" /></label>
-        <label>Age group <input name="ageGroupDefault" maxlength="40" placeholder="Toddler" /></label>
-        <button class="primary-button" type="submit">Create classroom</button>
-      </form>
-      <div id="directorCenterClassroomList" class="section-block"></div>
     </section>
   `;
-  loadDirectorCenterPreview().catch((error) => {
-    const status = document.querySelector("#directorCenterPreviewStatus");
-    if (status) status.innerHTML = `<p class="error-copy">${escapeHtml(error.message || "Could not load Director Center preview.")}</p>`;
-  });
-  const form = document.querySelector("#directorCenterClassroomForm");
-  if (form && !form.dataset.bound) {
-    form.dataset.bound = "1";
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const data = new FormData(form);
-      try {
-        await createDirectorCenterClassroom({
-          name: String(data.get("name") || "").trim(),
-          ageGroupDefault: String(data.get("ageGroupDefault") || "").trim(),
-        });
-        form.reset();
-        await loadDirectorCenterPreview();
-      } catch (error) {
-        window.alert(error.message || "Could not create classroom.");
-      }
-    });
-  }
-}
-
-async function directorCenterAuthHeaders() {
-  const token = adminSession()?.token || "";
-  if (!token || !hasAdminFullAccess()) {
-    throw new Error("Verified admin unlock is required for Director Center preview.");
-  }
-  return {
-    Accept: "application/json",
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-async function loadDirectorCenterPreview() {
-  const status = document.querySelector("#directorCenterPreviewStatus");
-  const list = document.querySelector("#directorCenterClassroomList");
-  if (!status || !list) return;
-  const headers = await directorCenterAuthHeaders();
-  const [overviewRes, classroomsRes] = await Promise.all([
-    fetch("/api/director-center/overview", { headers, cache: "no-store" }),
-    fetch("/api/director-center/classrooms", { headers, cache: "no-store" }),
-  ]);
-  const overview = await overviewRes.json();
-  const classroomsPayload = await classroomsRes.json();
-  if (!overviewRes.ok) throw new Error(overview.error || "Director Center overview unavailable.");
-  if (!classroomsRes.ok) throw new Error(classroomsPayload.error || "Director Center classrooms unavailable.");
-  const profile = overview.programProfile || {};
-  const classrooms = classroomsPayload.classrooms || [];
-  status.innerHTML = `
-    <p><strong>Program:</strong> ${escapeHtml(profile.programName || overview.organization?.name || "Preview Program")}</p>
-    <p><strong>Organization ID:</strong> ${escapeHtml(overview.organization?.id || "")}</p>
-    <p><strong>Classrooms:</strong> ${classrooms.length}</p>
-    <p><strong>Staff memberships:</strong> ${(overview.staffMemberships || []).length}</p>
-    <p><strong>Children:</strong> ${(overview.childRecords || []).length}</p>
-  `;
-  list.innerHTML = classrooms.length
-    ? `<ul>${classrooms.map((room) => `<li><strong>${escapeHtml(room.name)}</strong> · ${escapeHtml(room.id)}${room.ageGroupDefault ? ` · ${escapeHtml(room.ageGroupDefault)}` : ""}</li>`).join("")}</ul>`
-    : `<p class="muted-copy">No classrooms yet.</p>`;
-}
-
-async function createDirectorCenterClassroom(payload) {
-  const headers = await directorCenterAuthHeaders();
-  const response = await fetch("/api/director-center/classrooms", {
-    method: "POST",
-    headers,
-    body: JSON.stringify(payload || {}),
-  });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.error || "Could not create classroom.");
-  return data.classroom;
 }
 
 function renderSupportCategoryPage(category) {

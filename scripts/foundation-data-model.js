@@ -45,6 +45,14 @@ const ASSIGNMENT_STATUS = Object.freeze({
   RESTRICTED: "restricted",
 });
 
+const STAFF_STATUS = Object.freeze({
+  INVITATION_PENDING: "invitation_pending",
+  INVITATION_EXPIRED: "invitation_expired",
+  ACTIVE: "active",
+  INACTIVE: "inactive",
+  DEACTIVATED: "deactivated",
+});
+
 const FOUNDATION_COLLECTIONS = Object.freeze([
   "organizations",
   "programProfiles",
@@ -146,6 +154,7 @@ function createProgramProfileRecord({
   organizationId = "",
   programName = "",
   logoAssetId = "",
+  logoUrl = "",
   directorOwnerName = "",
   address = "",
   phone = "",
@@ -154,6 +163,7 @@ function createProgramProfileRecord({
   website = "",
   programType = PROGRAM_TYPES.HOME_DAYCARE,
   classroomCount = 0,
+  physicalLocationId = "",
 } = {}) {
   const createdAt = nowIso();
   return {
@@ -161,6 +171,7 @@ function createProgramProfileRecord({
     organizationId,
     programName: String(programName || "").trim(),
     logoAssetId: logoAssetId || "",
+    logoUrl: String(logoUrl || "").trim(),
     directorOwnerName: String(directorOwnerName || "").trim(),
     address: String(address || "").trim(),
     phone: String(phone || "").trim(),
@@ -169,6 +180,7 @@ function createProgramProfileRecord({
     website: String(website || "").trim(),
     programType,
     classroomCount: Number(classroomCount) || 0,
+    physicalLocationId: physicalLocationId || newId("loc"),
     createdAt,
     updatedAt: createdAt,
   };
@@ -179,9 +191,13 @@ function createClassroomRecord({
   organizationId = "",
   name = "",
   ageGroupDefault = "",
+  description = "",
+  color = "",
+  capacity = null,
   status = ASSIGNMENT_STATUS.ACTIVE,
   notes = "",
   legacyClassroomId = "",
+  createdByUserId = "",
 } = {}) {
   const createdAt = nowIso();
   return {
@@ -189,9 +205,15 @@ function createClassroomRecord({
     organizationId,
     name: String(name || "").trim(),
     ageGroupDefault: String(ageGroupDefault || "").trim(),
+    description: String(description || notes || "").trim(),
+    color: String(color || "").trim(),
+    capacity: capacity === null || capacity === undefined || capacity === ""
+      ? null
+      : Math.max(0, Number(capacity) || 0),
     status,
     notes: String(notes || "").trim(),
     legacyClassroomId: legacyClassroomId || "",
+    createdByUserId: createdByUserId || "",
     archivedAt: "",
     restrictedAt: "",
     createdAt,
@@ -204,9 +226,14 @@ function createStaffMembershipRecord({
   organizationId = "",
   userId = "",
   userEmail = "",
+  displayName = "",
   role = STAFF_ROLES.LEAD_TEACHER,
-  status = ASSIGNMENT_STATUS.ACTIVE,
+  status = STAFF_STATUS.ACTIVE,
   invitedByUserId = "",
+  invitationExpiresAt = "",
+  lastActiveAt = "",
+  deactivatedAt = "",
+  deactivationReason = "",
 } = {}) {
   const createdAt = nowIso();
   return {
@@ -214,9 +241,14 @@ function createStaffMembershipRecord({
     organizationId,
     userId: userId || "",
     userEmail: String(userEmail || "").trim().toLowerCase(),
+    displayName: String(displayName || "").trim(),
     role,
     status,
     invitedByUserId: invitedByUserId || "",
+    invitationExpiresAt: invitationExpiresAt || "",
+    lastActiveAt: lastActiveAt || "",
+    deactivatedAt: deactivatedAt || "",
+    deactivationReason: String(deactivationReason || "").trim(),
     createdAt,
     updatedAt: createdAt,
     endedAt: "",
@@ -275,6 +307,7 @@ function createClassroomChildAssignmentRecord({
   status = ASSIGNMENT_STATUS.ACTIVE,
   startsAt = "",
   endsAt = "",
+  assignedByUserId = "",
 } = {}) {
   const createdAt = nowIso();
   return {
@@ -285,6 +318,7 @@ function createClassroomChildAssignmentRecord({
     status,
     startsAt: startsAt || createdAt,
     endsAt: endsAt || "",
+    assignedByUserId: assignedByUserId || "",
     createdAt,
     updatedAt: createdAt,
   };
@@ -429,6 +463,7 @@ module.exports = {
   STAFF_ROLES,
   GUARDIAN_ROLES,
   ASSIGNMENT_STATUS,
+  STAFF_STATUS,
   FOUNDATION_COLLECTIONS,
   newId,
   emptyFoundationCollections,

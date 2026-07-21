@@ -86,7 +86,8 @@ const PLANNED_PLAN_CATALOG = Object.freeze({
     annualPriceCents: 19900,
     annualMessage: "Choose annual billing and get approximately two months free.",
     classroomLimit: 1,
-    staffAccountLimit: 2, // owner + one additional
+    // Invited staff seats only — billing owner does not consume a seat.
+    staffAccountLimit: 1,
     locationLimit: 1,
     allowsClassroomAddOns: false,
     upgradeHint: "A Home Daycare needing more than one classroom should upgrade to a center plan.",
@@ -98,6 +99,9 @@ const PLANNED_PLAN_CATALOG = Object.freeze({
       FEATURE_ENTITLEMENTS.DOCUMENTATION_HELPERS,
       FEATURE_ENTITLEMENTS.BEHAVIOR_SUPPORT,
       FEATURE_ENTITLEMENTS.ATTENDANCE,
+      FEATURE_ENTITLEMENTS.DIRECTOR_CENTER,
+      FEATURE_ENTITLEMENTS.CLASSROOM_MANAGEMENT,
+      FEATURE_ENTITLEMENTS.STAFF_ROLES,
       FEATURE_ENTITLEMENTS.FORMS_CENTER,
       FEATURE_ENTITLEMENTS.FAMILY_HUB,
     ],
@@ -430,6 +434,99 @@ function failedPaymentRules() {
   };
 }
 
+/**
+ * Preview-only plan limit evaluation.
+ * Owner/billing account does not count toward staffAccountLimit.
+ */
+function evaluatePlanLimits({
+  basePlanKey = PLAN_KEYS.SMALL_CENTER,
+  classroomAddOnQuantity = 0,
+  activeClassroomCount = 0,
+  invitedStaffCountExcludingOwner = 0,
+  billingInterval = BILLING_INTERVALS.MONTHLY,
+} = {}) {
+  const plan = PLANNED_PLAN_CATALOG[basePlanKey] || PLANNED_PLAN_CATALOG[PLAN_KEYS.SMALL_CENTER];
+  const addOns = Math.max(0, Number(classroomAddOnQuantity) || 0);
+  const classroomLimit = (plan.classroomLimit || 0) + (addOns * CLASSROOM_ADD_ON.classroomsGranted);
+  const staffLimit = (plan.staffAccountLimit || 0) + (addOns * CLASSROOM_ADD_ON.staffAccountsGranted);
+  const classroomsUsed = Math.max(0, Number(activeClassroomCount) || 0);
+  const staffUsed = Math.max(0, Number(invitedStaffCountExcludingOwner) || 0);
+  const classroomsRemaining = Math.max(0, classroomLimit - classroomsUsed);
+  const staffRemaining = Math.max(0, staffLimit - staffUsed);
+  const classroomAtLimit = classroomsUsed >= classroomLimit;
+  const staffAtLimit = staffUsed >= staffLimit;
+  const classroomNearLimit = !classroomAtLimit && classroomLimit > 0 && classroomsRemaining <= 1;
+  const staffNearLimit = !staffAtLimit && staffLimit > 0 && staffRemaining <= 1;
+
+  const upgrade = recommendUpgradeInsteadOfAddOns({
+    currentPlanKey: basePlanKey,
+    billingInterval,
+    additionalClassroomsNeeded: Math.max(1, classroomsUsed + 1 - (plan.classroomLimit || 0)),
+  });
+
+  return {
+    live: false,
+    basePlanKey: plan.key,
+    planLabel: plan.label,
+    billingInterval,
+    classroomLimit,
+    staffAccountLimit: staffLimit,
+    classroomsUsed,
+    staffUsed,
+    classroomsRemaining,
+    staffRemaining,
+    classroomAtLimit,
+    staffAtLimit,
+    classroomNearLimit,
+    staffNearLimit,
+    allowsClassroomAddOns: plan.allowsClassroomAddOns === true,
+    classroomAddOnQuantity: addOns,
+    upgradeRecommendation: upgrade,
+    messages: {
+      classroomWarning: classroomNearLimit
+        ? `You have ${classroomsRemaining} classroom seat remaining on the ${plan.label} plan.`
+        : "",
+      classroomBlocked: classroomAtLimit
+        ? `Classroom limit reached (${classroomLimit}). Archive a classroom or upgrade your plan.`
+        : "",
+      staffWarning: staffNearLimit
+        ? `You have ${staffRemaining} staff seat remaining on the ${plan.label} plan.`
+        : "",
+      staffBlocked: staffAtLimit
+        ? `Staff-account limit reached (${staffLimit}). Deactivate a staff seat or upgrade your plan.`
+        : "",
+      homeDaycareUpgrade: basePlanKey === PLAN_KEYS.HOME_DAYCARE
+        ? "A Home Daycare needing more than one classroom should upgrade to a center plan."
+        : "",
+      addOnUpgrade: upgrade.recommendUpgrade ? upgrade.message : "",
+    },
+  };
+}
+
+function canCreateClassroom(limits) {
+  if (!limits || limits.classroomAtLimit) {
+    return {
+      allowed: false,
+      code: "classroom_limit_reached",
+      error: limits?.messages?.classroomBlocked || "Classroom limit reached.",
+      limits,
+    };
+  }
+  return { allowed: true, limits };
+}
+
+function canInviteStaff(limits) {
+  if (!limits || limits.staffAtLimit) {
+    return {
+      allowed: false,
+      code: "staff_limit_reached",
+      error: limits?.messages?.staffBlocked || "Staff-account limit reached.",
+      limits,
+    };
+  }
+  return { allowed: true, limits };
+}
+
 module.exports = {
   PLAN_KEYS,
   BILLING_INTERVALS,
@@ -447,4 +544,7 @@ module.exports = {
   describeCurrentLiveBillingModel,
   downgradeSafetyRules,
   failedPaymentRules,
+  evaluatePlanLimits,
+  canCreateClassroom,
+  canInviteStaff,
 };

@@ -21632,3 +21632,167 @@ button.aup-btn--danger {
   }
 }
 
+
+/* ── Director Center Phase 2 admin preview ── */
+.dc-shell {
+  display: grid;
+  gap: 16px;
+  padding-bottom: 32px;
+}
+.dc-preview-bar,
+.dc-toolbar,
+.dc-quick-actions,
+.dc-inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.dc-preview-bar,
+.dc-limits-banner,
+.dc-panel,
+.dc-card,
+.dc-form {
+  border: 1px solid rgba(139, 107, 232, 0.18);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f5ff 100%);
+  padding: 16px;
+  box-shadow: 0 8px 24px rgba(80, 60, 140, 0.05);
+}
+.dc-limits-ok { border-color: rgba(91, 155, 213, 0.25); }
+.dc-limits-warn {
+  border-color: rgba(139, 107, 232, 0.45);
+  background: linear-gradient(180deg, #faf7ff 0%, #f3edff 100%);
+}
+.dc-limits-banner ul { margin: 8px 0 0; padding-left: 18px; }
+.dc-subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.dc-subnav-btn {
+  border: 1px solid rgba(139, 107, 232, 0.25);
+  background: #fff;
+  color: #5b4a8a;
+  border-radius: 999px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+.dc-subnav-btn.active,
+.dc-subnav-btn:hover {
+  background: linear-gradient(135deg, #8b6be8, #7055d1);
+  color: #fff;
+  border-color: transparent;
+}
+.dc-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+.dc-metric-card {
+  border-radius: 14px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid rgba(91, 155, 213, 0.18);
+}
+.dc-metric-label { margin: 0; color: #536280; font-size: 0.85rem; }
+.dc-metric-value { margin: 4px 0; font-size: 1.4rem; color: #4a3d7a; font-weight: 700; }
+.dc-metric-detail { margin: 0; color: #536280; font-size: 0.8rem; }
+.dc-program-hero {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+}
+.dc-logo-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 700;
+  background: linear-gradient(135deg, #8b6be8, #5b9bd5);
+}
+.dc-two-col {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+.dc-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.dc-list li {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(90, 110, 140, 0.12);
+}
+.dc-list.compact li { padding: 6px 10px; font-size: 0.85rem; }
+.dc-card-list { display: grid; gap: 12px; margin-top: 12px; }
+.dc-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+.dc-form {
+  display: grid;
+  gap: 10px;
+  margin: 12px 0;
+  max-width: 520px;
+}
+.dc-form-visible { display: grid; }
+.dc-form label { display: grid; gap: 4px; color: #44506a; }
+.dc-form input,
+.dc-form select,
+.dc-form textarea,
+.dc-toolbar input,
+.dc-toolbar select,
+.dc-preview-bar select {
+  border: 1px solid rgba(90, 110, 140, 0.22);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #fff;
+}
+.dc-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  background: #ebe4ff;
+  color: #5b4a8a;
+}
+.dc-badge-active { background: #e5f2ff; color: #2f6fa8; }
+.dc-badge-archived,
+.dc-badge-deactivated,
+.dc-badge-inactive { background: #eef1f6; color: #536280; }
+.dc-badge-invitation-pending { background: #fff3d9; color: #8a6a1f; }
+.dc-badge-warning { background: #ffe8d9; color: #9a4d1a; }
+.dc-badge-info { background: #e5f2ff; color: #2f6fa8; }
+.dc-empty,
+.dc-error { padding: 16px; border-radius: 12px; }
+.dc-error { background: #ffe8e8; color: #8a2f2f; }
+.dc-check { display: inline-flex; gap: 6px; align-items: center; color: #536280; }
+.dc-detail-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin: 12px 0;
+}
+button.linkish {
+  border: 0;
+  background: none;
+  color: #7055d1;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+@media (max-width: 700px) {
+  .dc-card { flex-direction: column; }
+  .dc-subnav-btn { flex: 1 1 calc(50% - 8px); text-align: center; }
+}

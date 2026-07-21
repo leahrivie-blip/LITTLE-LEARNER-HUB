@@ -751,7 +751,8 @@ function expansionFlagsFromStore(store = peekStore()) {
   return expansionFeatureFlags.normalizeExpansionFeatureFlags(siteContent.featureFlags);
 }
 
-function adminTokenFromRequest(request, url = null) {
+function adminTokenFromRequest(request, url = null, options = {}) {
+  const allowQueryToken = options.allowQueryToken !== false;
   const authHeader = String(request?.headers?.authorization || "");
   if (authHeader.toLowerCase().startsWith("bearer ")) {
     const bearer = authHeader.slice(7).trim();
@@ -759,14 +760,15 @@ function adminTokenFromRequest(request, url = null) {
   }
   const headerToken = String(request?.headers?.["x-llh-admin-token"] || "").trim();
   if (headerToken) return headerToken;
-  if (url && typeof url.searchParams?.get === "function") {
+  if (allowQueryToken && url && typeof url.searchParams?.get === "function") {
     return String(url.searchParams.get("adminToken") || "").trim();
   }
   return "";
 }
 
-function resolveVerifiedAdminFromRequest(request, url = null) {
-  const token = adminTokenFromRequest(request, url);
+function resolveVerifiedAdminFromRequest(request, url = null, options = {}) {
+  // Director Center / foundation admin surfaces reject query-string tokens.
+  const token = adminTokenFromRequest(request, url, options);
   if (!token || !validAdminToken(token)) return null;
   const store = peekStore();
   const session = store.adminSessions?.[token] || storeCache?.adminSessions?.[token] || null;
@@ -14995,7 +14997,7 @@ function handleReleaseNotesList(request, response, url) {
 
 function handleFoundationFeatureFlags(request, response, url) {
   const flags = expansionFlagsFromStore(peekStore());
-  const admin = resolveVerifiedAdminFromRequest(request, url);
+  const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
   jsonResponse(response, 200, expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
     environment: expansionEnvironment(),
     isVerifiedAdmin: Boolean(admin),
@@ -15003,17 +15005,28 @@ function handleFoundationFeatureFlags(request, response, url) {
   }));
 }
 
+function requireFoundationAdmin(request, response, url) {
+  const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+  if (admin) return admin;
+  jsonResponse(response, 403, {
+    error: "Verified approved admin access is required.",
+    code: "admin_required",
+  });
+  return null;
+}
+
 function handleFoundationStatus(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
   const store = readStore();
   ensureFoundationCollections(store);
   const flags = expansionFlagsFromStore(store);
-  const admin = resolveVerifiedAdminFromRequest(request, url);
   jsonResponse(response, 200, {
     phase: 2,
     liveExposure: false,
     featureFlags: expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
       environment: expansionEnvironment(),
-      isVerifiedAdmin: Boolean(admin),
+      isVerifiedAdmin: true,
       siteUrl: SITE_URL,
     }),
     foundation: foundationDataModel.foundationStatusSummary(store),
@@ -15037,7 +15050,9 @@ function handleFoundationStatus(request, response, url) {
   });
 }
 
-function handleFoundationMigrationPlan(request, response) {
+function handleFoundationMigrationPlan(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
   const store = readStore();
   ensureFoundationCollections(store);
   jsonResponse(response, 200, {
@@ -15048,14 +15063,18 @@ function handleFoundationMigrationPlan(request, response) {
   });
 }
 
-function handleFoundationPermissionCatalog(request, response) {
+function handleFoundationPermissionCatalog(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
   jsonResponse(response, 200, {
     phase: 1,
     catalog: orgPermissions.permissionCatalog(),
   });
 }
 
-function handleFoundationEntitlementCatalog(request, response) {
+function handleFoundationEntitlementCatalog(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
   jsonResponse(response, 200, {
     phase: 1,
     live: false,
@@ -15070,12 +15089,20 @@ function handleFoundationEntitlementCatalog(request, response) {
 
 /**
  * Reject unfinished expansion APIs unless private-preview + verified admin.
- * Existing production routes (/api/staff, /api/child-data, etc.) are not gated here.
+ * Query-string admin tokens are rejected for Director Center.
  */
 function rejectDisabledExpansionRoute(request, response, url) {
   const flagKey = expansionFeatureFlags.expansionFlagForRoute(url.pathname);
   if (!flagKey) return false;
-  const admin = resolveVerifiedAdminFromRequest(request, url);
+  if (url.searchParams?.get("adminToken")) {
+    jsonResponse(response, 403, {
+      error: "Query-string admin tokens are not accepted for expansion APIs.",
+      code: "query_admin_token_rejected",
+      feature: flagKey,
+    });
+    return true;
+  }
+  const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
   const decision = expansionFeatureFlags.evaluateExpansionAccess({
     flagKey,
     storedFlags: expansionFlagsFromStore(peekStore()),
@@ -15150,13 +15177,13 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/site-content") return await handlePublicSiteContent(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/foundation/feature-flags") return handleFoundationFeatureFlags(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/foundation/status") return handleFoundationStatus(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/foundation/migration-plan") return handleFoundationMigrationPlan(request, response);
-    if (request.method === "GET" && url.pathname === "/api/foundation/permissions") return handleFoundationPermissionCatalog(request, response);
-    if (request.method === "GET" && url.pathname === "/api/foundation/entitlements") return handleFoundationEntitlementCatalog(request, response);
+    if (request.method === "GET" && url.pathname === "/api/foundation/migration-plan") return handleFoundationMigrationPlan(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/permissions") return handleFoundationPermissionCatalog(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/entitlements") return handleFoundationEntitlementCatalog(request, response, url);
     // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
     if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
-      const admin = resolveVerifiedAdminFromRequest(request, url);
-      const handler = getDirectorCenterApi().matchRoute(request.method, url.pathname);
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
     }

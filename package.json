@@ -56,6 +56,7 @@
     "audit:subscription-statuses": "node scripts/audit-repair-subscription-statuses.js",
     "test:account-access": "node scripts/test-account-access.js",
     "test:director-family-foundation": "NODE_ENV=test node scripts/test-director-family-foundation.js",
+    "test:director-center-phase2": "NODE_ENV=test node scripts/test-director-center-phase2.js",
     "test:platform-nav": "node scripts/test-platform-nav.js",
     "test:navigation-history": "node scripts/test-navigation-history-qa.js",
     "test:pwa-install": "node scripts/test-pwa-install-qa.js",
