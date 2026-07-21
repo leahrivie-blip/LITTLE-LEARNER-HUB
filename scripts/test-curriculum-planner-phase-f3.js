@@ -14,7 +14,7 @@ const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-
 const ROOT = path.join(__dirname, "..");
 const PORT = 19850 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-phase-f3-${crypto.randomBytes(4).toString("hex")}.json`);
-const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/premium-garden-scientists-v2.txt");
+const V3_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
 const ADMIN = {
   email: "phase-f3-calendar@test.local",
   password: "phase-f3-calendar-pass",
@@ -123,19 +123,24 @@ function staticChecks() {
 }
 
 async function seedPlan(token, title) {
-  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(V2_SAMPLE, "utf8"));
-  assert(parsed.ok, "V2 parse failed");
+  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(V3_SAMPLE, "utf8"));
+  assert(parsed.ok, parsed.errors?.join(" | ") || "V3 parse failed");
   const site = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
+  const touch = await requestJson("POST", "/api/admin/site-content", {
+    adminToken: token,
+    siteContent: { ...site.json.siteContent, updatedAt: site.json.siteContent?.updatedAt || "" },
+  });
   const id = `cur-lp-f3-${crypto.randomBytes(3).toString("hex")}`;
   const save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
-    expectedUpdatedAt: site.json.siteContent?.updatedAt || "",
+    expectedUpdatedAt: touch.json.siteContent?.updatedAt || site.json.siteContent?.updatedAt || "",
     lessonPlan: {
       ...parsed.data,
       id,
       title,
       plan: "Free",
       status: "published",
+      age: "Preschool",
     },
   });
   assert(save.status === 200, `Seed failed: ${save.status} ${save.text}`);

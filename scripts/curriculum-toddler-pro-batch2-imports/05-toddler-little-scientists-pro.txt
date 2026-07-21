@@ -1,9 +1,15 @@
-TITLE: Little Scientists
-AGE_GROUP: Toddler (2-3 Years)
-THEME: Little Scientists
-PLAN: PRO
-STATUS: Published
-LEARNING_DOMAINS: Science, Math, Language & Literacy, Fine Motor, Gross Motor, Social-Emotional, Creative Arts
+TITLE:
+Little Scientists
+AGE_GROUP:
+Toddler (2-3 Years)
+THEME:
+Little Scientists
+PLAN:
+Pro
+STATUS:
+published
+LEARNING_DOMAINS:
+Science, Math, Language & Literacy, Fine Motor, Gross Motor, Social-Emotional, Creative Arts
 
 WEEKLY_OVERVIEW:
 Toddlers become little scientists through safe, hands-on investigations with water, color, light, sound, motion, texture, and simple cause and effect. Children make predictions, test ideas, describe what they notice, repeat experiments, and build confidence exploring familiar materials in new ways.
@@ -38,242 +44,547 @@ Observe prediction attempts, attention, persistence, sensory tolerance, sorting,
 ADAPTATIONS:
 Use picture choices, larger tools, sealed sensory bags, dry alternatives, fewer test objects, seated options, and adult-assisted pouring. Extend learning by inviting ready children to explain why they think something happened.
 
-MONDAY:
-DAILY_THEME: Colors Mix and Change
-DAILY_OBJECTIVES: Explore color mixing, use droppers, and notice changes.
-DAILY_VOCABULARY: Color, mix, change, same, different, drop.
-DAILY_MATERIALS: Clear cups, water, washable liquid color, droppers, paper towels, sensory bags.
-DAILY_LEARNING_DOMAINS: Science, Fine Motor, Language, Creative Arts.
-CIRCLE_TIME_IDEAS: Read Mouse Paint and predict what two colors might make.
-OUTDOOR_PLAY: Color Hunt for safe objects in the environment.
-DAILY_OBSERVATION_OPPORTUNITIES: Color naming, prediction, dropper control, attention.
-DAILY_ADAPTATIONS: Use sealed color-mixing bags or teacher-led demonstration.
-SAFETY_NOTES: Use non-toxic washable color and supervise all liquids.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Dropper Color Mix
-ACTIVITY_1_OBJECTIVE: Observe how colors change when combined.
-ACTIVITY_1_DESCRIPTION: Children add colored water drop by drop into clear cups.
-ACTIVITY_1_MATERIALS: Clear cups, colored water, droppers, tray.
-ACTIVITY_1_SETUP: Fill cups with small amounts of primary-colored water.
-ACTIVITY_1_DIRECTIONS: 1. Choose a color. 2. Squeeze the dropper. 3. Add drops to clear water. 4. Add another color. 5. Observe and name the change.
-ACTIVITY_1_TEACHER_ROLE: Model prediction language and control liquid amounts.
-ACTIVITY_1_LEARNING_GOALS: Cause and effect, color science, hand strength, observation.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Squeezing, prediction, color recognition.
-ACTIVITY_1_ADAPTATIONS: Use squeeze bottles or adult-assisted droppers.
-ACTIVITY_1_SAFETY_NOTES: Wipe spills promptly and prevent drinking.
-ACTIVITY_2_CATEGORY: Sensory Play
-ACTIVITY_2_NAME: Squish and Mix Color Bag
-ACTIVITY_2_OBJECTIVE: Mix colors through tactile exploration.
-ACTIVITY_2_DESCRIPTION: Children press sealed bags containing two colors of washable paint.
-ACTIVITY_2_MATERIALS: Heavy zip bags, washable paint, tape.
-ACTIVITY_2_SETUP: Seal and tape bags to a table or window.
-ACTIVITY_2_DIRECTIONS: 1. Look at the two colors. 2. Predict the result. 3. Press and slide the paint. 4. Watch colors blend. 5. Trace lines in the paint.
-ACTIVITY_2_TEACHER_ROLE: Narrate changes and support sensory language.
-ACTIVITY_2_LEARNING_GOALS: Color mixing, sensory awareness, pre-writing motion.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Pressure, tracking, tolerance, language.
-ACTIVITY_2_ADAPTATIONS: Let children use a roller over the bag.
-ACTIVITY_2_SAFETY_NOTES: Double-seal bags and inspect for leaks.
-ACTIVITY_3_CATEGORY: Creative Arts
-ACTIVITY_3_NAME: Color Transfer Prints
-ACTIVITY_3_OBJECTIVE: Explore color blending through printmaking.
-ACTIVITY_3_DESCRIPTION: Children press painted sponge shapes onto paper and overlap colors.
-ACTIVITY_3_MATERIALS: Sponges, washable paint, paper, trays.
-ACTIVITY_3_SETUP: Portion paint and tape paper down.
-ACTIVITY_3_DIRECTIONS: 1. Choose a sponge. 2. Press into paint. 3. Stamp paper. 4. Add another color over it. 5. Notice the new color.
-ACTIVITY_3_TEACHER_ROLE: Encourage experimentation rather than a finished product.
-ACTIVITY_3_LEARNING_GOALS: Creativity, color awareness, hand control.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Tool use, overlapping, color choice.
-ACTIVITY_3_ADAPTATIONS: Use easy-grip sponge handles.
-ACTIVITY_3_SAFETY_NOTES: Use non-toxic materials and smocks.
+MONDAY
+DAILY_THEME:
+Colors Mix and Change
+DAILY_OBJECTIVES:
+Explore color mixing, use droppers, and notice changes.
+DAILY_VOCABULARY:
+Color, mix, change, same, different, drop.
+DAILY_MATERIALS:
+Clear cups, water, washable liquid color, droppers, paper towels, sensory bags.
+DAILY_LEARNING_DOMAINS:
+Science, Fine Motor, Language, Creative Arts.
+CIRCLE_TIME:
+Read Mouse Paint and predict what two colors might make.
+OUTDOOR_PLAY:
+Color Hunt for safe objects in the environment.
+DAILY_OBSERVATIONS:
+Color naming, prediction, dropper control, attention.
+DAILY_ADAPTATIONS:
+Use sealed color-mixing bags or teacher-led demonstration.
+SAFETY_NOTES:
+Use non-toxic washable color and supervise all liquids.
 
-TUESDAY:
-DAILY_THEME: Sink, Float, Wet, and Dry
-DAILY_OBJECTIVES: Make predictions, test objects in water, and compare materials.
-DAILY_VOCABULARY: Sink, float, wet, dry, heavy, light.
-DAILY_MATERIALS: Water bin, sponges, foil, corks, large plastic objects, towels, sorting mat.
-DAILY_LEARNING_DOMAINS: Science, Math, Language, Fine Motor.
-CIRCLE_TIME_IDEAS: Show two objects and invite sink-or-float predictions.
-OUTDOOR_PLAY: Sponge Squeeze Water Transfer between buckets.
-DAILY_OBSERVATION_OPPORTUNITIES: Prediction, classification, squeezing, persistence.
-DAILY_ADAPTATIONS: Use picture cards or a dry teacher demonstration.
-SAFETY_NOTES: Maintain direct water supervision.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Sink or Float Test
-ACTIVITY_1_OBJECTIVE: Predict and test how objects behave in water.
-ACTIVITY_1_DESCRIPTION: Children place one object at a time into water and sort results.
-ACTIVITY_1_MATERIALS: Water bin, large safe objects, sink/float mat.
-ACTIVITY_1_SETUP: Fill a shallow bin and arrange test objects.
-ACTIVITY_1_DIRECTIONS: 1. Choose an object. 2. Predict sink or float. 3. Place it in water. 4. Observe. 5. Put it on the matching mat.
-ACTIVITY_1_TEACHER_ROLE: Ask what happened and encourage repeated tests.
-ACTIVITY_1_LEARNING_GOALS: Prediction, cause and effect, classification.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Choice, attention, sorting accuracy.
-ACTIVITY_1_ADAPTATIONS: Let children point while the adult places objects.
-ACTIVITY_1_SAFETY_NOTES: Empty water after the activity.
-ACTIVITY_2_CATEGORY: Fine Motor
-ACTIVITY_2_NAME: Sponge Scientist
-ACTIVITY_2_OBJECTIVE: Explore absorption and strengthen hands.
-ACTIVITY_2_DESCRIPTION: Children soak, lift, and squeeze sponges between containers.
-ACTIVITY_2_MATERIALS: Sponges, two shallow containers, water, towels.
-ACTIVITY_2_SETUP: Put water in one container and leave the other empty.
-ACTIVITY_2_DIRECTIONS: 1. Place sponge in water. 2. Watch it soak. 3. Lift it. 4. Squeeze into the empty bowl. 5. Repeat until water moves.
-ACTIVITY_2_TEACHER_ROLE: Model soak, squeeze, wet, and dry language.
-ACTIVITY_2_LEARNING_GOALS: Absorption, hand strength, transfer, cause and effect.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Squeezing, coordination, concentration.
-ACTIVITY_2_ADAPTATIONS: Use large soft sponges or adult-assisted squeezing.
-ACTIVITY_2_SAFETY_NOTES: Clean spills immediately.
-ACTIVITY_3_CATEGORY: Math
-ACTIVITY_3_NAME: Heavy or Light Basket Sort
-ACTIVITY_3_OBJECTIVE: Compare weight using hands.
-ACTIVITY_3_DESCRIPTION: Children lift paired objects and place them on heavy or light picture mats.
-ACTIVITY_3_MATERIALS: Safe large objects, baskets, picture mats.
-ACTIVITY_3_SETUP: Pair objects with obvious weight differences.
-ACTIVITY_3_DIRECTIONS: 1. Lift one object. 2. Lift the other. 3. Decide which feels heavier. 4. Place each on a mat. 5. Try another pair.
-ACTIVITY_3_TEACHER_ROLE: Model words and avoid requiring correct answers.
-ACTIVITY_3_LEARNING_GOALS: Comparison, sensory awareness, classification.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Lifting, comparison, descriptive language.
-ACTIVITY_3_ADAPTATIONS: Use one pair at a time.
-ACTIVITY_3_SAFETY_NOTES: Keep all objects lightweight enough for toddlers.
+ACTIVITY_NAME:
+Dropper Color Mix
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe how colors change when combined.
+DESCRIPTION:
+Children add colored water drop by drop into clear cups.
+MATERIALS:
+Clear cups, colored water, droppers, tray.
+SETUP:
+Fill cups with small amounts of primary-colored water.
+DIRECTIONS:
+1. Choose a color.
+2. Squeeze the dropper.
+3. Add drops to clear water.
+4. Add another color.
+5. Observe and name the change.
+TEACHER_ROLE:
+Model prediction language and control liquid amounts.
+LEARNING_GOALS:
+Cause and effect, color science, hand strength, observation.
+OBSERVATION_OPPORTUNITIES:
+Squeezing, prediction, color recognition.
+ADAPTATIONS:
+Use squeeze bottles or adult-assisted droppers.
+SAFETY_NOTES:
+Wipe spills promptly and prevent drinking.
 
-WEDNESDAY:
-DAILY_THEME: Light and Shadows
-DAILY_OBJECTIVES: Explore light, shadow, reflection, and shape.
-DAILY_VOCABULARY: Light, dark, shadow, bright, mirror, reflect.
-DAILY_MATERIALS: Flashlights, translucent blocks, mirrors, shape cutouts, white wall or sheet.
-DAILY_LEARNING_DOMAINS: Science, Language, Creative Arts, Gross Motor.
-CIRCLE_TIME_IDEAS: Make hand shadows and read a shadow-themed book.
-OUTDOOR_PLAY: Trace or step on safe outdoor shadows.
-DAILY_OBSERVATION_OPPORTUNITIES: Tracking, cause and effect, shape recognition, movement.
-DAILY_ADAPTATIONS: Use soft natural light and avoid darkened rooms for fearful children.
-SAFETY_NOTES: Never shine flashlights into eyes; use unbreakable mirrors.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Shadow Shape Test
-ACTIVITY_1_OBJECTIVE: Observe how objects block light.
-ACTIVITY_1_DESCRIPTION: Children place large shapes in front of a flashlight to make shadows.
-ACTIVITY_1_MATERIALS: Flashlight, large shape cutouts, wall or sheet.
-ACTIVITY_1_SETUP: Create a softly dimmed area and secure the light.
-ACTIVITY_1_DIRECTIONS: 1. Choose a shape. 2. Hold it near the light. 3. Look for the shadow. 4. Move it closer and farther. 5. Compare the shadow size.
-ACTIVITY_1_TEACHER_ROLE: Control the flashlight and model big/small language.
-ACTIVITY_1_LEARNING_GOALS: Light science, size comparison, visual tracking.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Shape choice, movement, noticing change.
-ACTIVITY_1_ADAPTATIONS: Use a light table or bright window.
-ACTIVITY_1_SAFETY_NOTES: Keep light pointed away from faces.
-ACTIVITY_2_CATEGORY: Sensory Play
-ACTIVITY_2_NAME: Translucent Color Window
-ACTIVITY_2_OBJECTIVE: Explore how light passes through colored materials.
-ACTIVITY_2_DESCRIPTION: Children place translucent blocks or sheets on a light surface.
-ACTIVITY_2_MATERIALS: Translucent blocks, colored acetate sealed in frames, light table or window.
-ACTIVITY_2_SETUP: Arrange materials near safe light.
-ACTIVITY_2_DIRECTIONS: 1. Choose a color. 2. Hold it to the light. 3. Look through it. 4. Overlap another color. 5. Notice changes.
-ACTIVITY_2_TEACHER_ROLE: Encourage comparison and color words.
-ACTIVITY_2_LEARNING_GOALS: Light, transparency, color mixing, observation.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Overlapping, color recognition, attention.
-ACTIVITY_2_ADAPTATIONS: Use large easy-grip pieces.
-ACTIVITY_2_SAFETY_NOTES: Ensure frames are sealed with no sharp edges.
-ACTIVITY_3_CATEGORY: Creative Arts
-ACTIVITY_3_NAME: Shadow Tracing Art
-ACTIVITY_3_OBJECTIVE: Create marks around object shadows.
-ACTIVITY_3_DESCRIPTION: An adult holds an object in light while children mark around the shadow.
-ACTIVITY_3_MATERIALS: Large paper, chunky crayons, safe objects, light source.
-ACTIVITY_3_SETUP: Tape paper down and position light.
-ACTIVITY_3_DIRECTIONS: 1. Choose an object. 2. Find its shadow. 3. Make marks around it. 4. Move the object. 5. Add another shadow shape.
-ACTIVITY_3_TEACHER_ROLE: Hold objects and support mark making.
-ACTIVITY_3_LEARNING_GOALS: Visual-motor coordination, creativity, shape awareness.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Tracking, grip, mark placement.
-ACTIVITY_3_ADAPTATIONS: Let children color inside a pretraced shadow.
-ACTIVITY_3_SAFETY_NOTES: Secure cords and keep lights cool.
+ACTIVITY_NAME:
+Squish and Mix Color Bag
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Mix colors through tactile exploration.
+DESCRIPTION:
+Children press sealed bags containing two colors of washable paint.
+MATERIALS:
+Heavy zip bags, washable paint, tape.
+SETUP:
+Seal and tape bags to a table or window.
+DIRECTIONS:
+1. Look at the two colors.
+2. Predict the result.
+3. Press and slide the paint.
+4. Watch colors blend.
+5. Draw lines in the paint.
+TEACHER_ROLE:
+Narrate changes and support sensory language.
+LEARNING_GOALS:
+Color mixing, sensory awareness, pre-writing motion.
+OBSERVATION_OPPORTUNITIES:
+Pressure, tracking, tolerance, language.
+ADAPTATIONS:
+Let children use a roller over the bag.
+SAFETY_NOTES:
+Double-seal bags and inspect for leaks.
 
-THURSDAY:
-DAILY_THEME: Sound Scientists
-DAILY_OBJECTIVES: Compare loud and quiet sounds, identify sources, and create simple instruments.
-DAILY_VOCABULARY: Sound, loud, quiet, shake, tap, listen.
-DAILY_MATERIALS: Sealed shakers, bells, drums, containers, rhythm sticks, picture cards.
-DAILY_LEARNING_DOMAINS: Science, Music, Language, Gross Motor, Social-Emotional.
-CIRCLE_TIME_IDEAS: Take a listening walk around the room and identify sounds.
-OUTDOOR_PLAY: Outdoor Listening Walk with stop-and-listen signals.
-DAILY_OBSERVATION_OPPORTUNITIES: Sound discrimination, impulse control, rhythm, language.
-DAILY_ADAPTATIONS: Offer headphones, quieter tools, or visual rhythm cues.
-SAFETY_NOTES: Keep sound levels comfortable and inspect sealed instruments.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: What Made That Sound?
-ACTIVITY_1_OBJECTIVE: Match sounds to familiar objects.
-ACTIVITY_1_DESCRIPTION: Children listen while an adult activates an object behind a screen, then choose the matching picture.
-ACTIVITY_1_MATERIALS: Bell, shaker, paper, tapping blocks, picture cards, screen.
-ACTIVITY_1_SETUP: Arrange sound objects out of view.
-ACTIVITY_1_DIRECTIONS: 1. Listen quietly. 2. Hear one sound. 3. Choose a picture. 4. Reveal the object. 5. Try another sound.
-ACTIVITY_1_TEACHER_ROLE: Keep sounds brief and celebrate all guesses.
-ACTIVITY_1_LEARNING_GOALS: Auditory discrimination, memory, matching.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Attention, selection, sound imitation.
-ACTIVITY_1_ADAPTATIONS: Show two object choices instead of pictures.
-ACTIVITY_1_SAFETY_NOTES: Avoid sudden or very loud sounds.
-ACTIVITY_2_CATEGORY: Music & Movement
-ACTIVITY_2_NAME: Loud and Quiet Orchestra
-ACTIVITY_2_OBJECTIVE: Change movement and instrument volume in response to cues.
-ACTIVITY_2_DESCRIPTION: Children play instruments loudly or quietly and stop on a visual cue.
-ACTIVITY_2_MATERIALS: Toddler instruments, loud/quiet and stop/go cards.
-ACTIVITY_2_SETUP: Place instruments in a circle.
-ACTIVITY_2_DIRECTIONS: 1. Choose an instrument. 2. Watch the card. 3. Play quietly. 4. Change to loud. 5. Stop when shown the stop card.
-ACTIVITY_2_TEACHER_ROLE: Model safe volume and clear visual signals.
-ACTIVITY_2_LEARNING_GOALS: Self-regulation, listening, rhythm, concept words.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Response to cues, volume control, participation.
-ACTIVITY_2_ADAPTATIONS: Use tapping hands or scarves instead of instruments.
-ACTIVITY_2_SAFETY_NOTES: Maintain comfortable volume and space between children.
-ACTIVITY_3_CATEGORY: Engineering
-ACTIVITY_3_NAME: Build a Safe Shaker
-ACTIVITY_3_OBJECTIVE: Explore how materials create different sounds.
-ACTIVITY_3_DESCRIPTION: Adults securely prepare clear containers with different safe fillers for children to compare.
-ACTIVITY_3_MATERIALS: Permanently sealed clear containers, large safe fillers, tape.
-ACTIVITY_3_SETUP: Adults fill and fully seal containers before use.
-ACTIVITY_3_DIRECTIONS: 1. Choose a shaker. 2. Shake gently. 3. Listen. 4. Compare another shaker. 5. Sort by louder or quieter.
-ACTIVITY_3_TEACHER_ROLE: Ensure seals remain secure and model comparison words.
-ACTIVITY_3_LEARNING_GOALS: Cause and effect, sound comparison, rhythm.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Grip, shaking, listening, comparison.
-ACTIVITY_3_ADAPTATIONS: Roll containers on a tray instead of shaking.
-ACTIVITY_3_SAFETY_NOTES: Containers must be permanently sealed and inspected before every use.
+ACTIVITY_NAME:
+Color Transfer Prints
+CATEGORY:
+Art
+OBJECTIVE:
+Explore color blending through printmaking.
+DESCRIPTION:
+Children press painted sponge shapes onto paper and overlap colors.
+MATERIALS:
+Sponges, washable paint, paper, trays.
+SETUP:
+Portion paint and tape paper down.
+DIRECTIONS:
+1. Choose a sponge.
+2. Press into paint.
+3. Stamp paper.
+4. Add another color over it.
+5. Notice the new color.
+TEACHER_ROLE:
+Encourage experimentation rather than a finished product.
+LEARNING_GOALS:
+Creativity, color awareness, hand control.
+OBSERVATION_OPPORTUNITIES:
+Tool use, overlapping, color choice.
+ADAPTATIONS:
+Use easy-grip sponge handles.
+SAFETY_NOTES:
+Use non-toxic materials and smocks.
 
-FRIDAY:
-DAILY_THEME: Motion and Scientist Review
-DAILY_OBJECTIVES: Explore rolling and air movement, repeat favorite tests, and review scientific thinking.
-DAILY_VOCABULARY: Roll, move, fast, slow, test, observe, predict.
-DAILY_MATERIALS: Ramps, balls, feathers, fans, tubes, prediction cards, favorite materials from the week.
-DAILY_LEARNING_DOMAINS: Science, Engineering, Gross Motor, Language, Math.
-CIRCLE_TIME_IDEAS: Review “predict, test, observe” with photos or objects from the week.
-OUTDOOR_PLAY: Roll balls down different safe slopes and chase bubbles or scarves moved by air.
-DAILY_OBSERVATION_OPPORTUNITIES: Recall, prediction, repeated testing, comparison, movement control.
-DAILY_ADAPTATIONS: Use tabletop ramps, seated fan exploration, and picture choices.
-SAFETY_NOTES: Use low ramps, soft balls, and guarded child-safe fans.
-ACTIVITY_1_CATEGORY: Science
-ACTIVITY_1_NAME: Ball Ramp Lab
-ACTIVITY_1_OBJECTIVE: Compare how balls move on different ramps.
-ACTIVITY_1_DESCRIPTION: Children release balls down low ramps with different surfaces or heights.
-ACTIVITY_1_MATERIALS: Low ramps, soft balls, textured coverings, tape lines.
-ACTIVITY_1_SETUP: Secure two low ramps and clear the landing area.
-ACTIVITY_1_DIRECTIONS: 1. Choose a ball. 2. Predict which ramp is faster. 3. Release the ball. 4. Watch where it stops. 5. Test again.
-ACTIVITY_1_TEACHER_ROLE: Encourage fair repeated tests and comparison language.
-ACTIVITY_1_LEARNING_GOALS: Motion, prediction, cause and effect, comparison.
-ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Release, tracking, persistence, language.
-ACTIVITY_1_ADAPTATIONS: Use one wide ramp or adult-assisted release.
-ACTIVITY_1_SAFETY_NOTES: Prevent climbing and keep children out of the landing path.
-ACTIVITY_2_CATEGORY: Science
-ACTIVITY_2_NAME: Air Moves Things
-ACTIVITY_2_OBJECTIVE: Observe how moving air affects light objects.
-ACTIVITY_2_DESCRIPTION: Children use guarded fans, cardboard fans, or blowing through large tubes to move feathers and scarves.
-ACTIVITY_2_MATERIALS: Child-safe guarded fan, cardboard fans, scarves, feathers, large tubes.
-ACTIVITY_2_SETUP: Place light objects on a clear table or floor area.
-ACTIVITY_2_DIRECTIONS: 1. Choose an object. 2. Predict if air will move it. 3. Create gentle air. 4. Watch the object. 5. Try another object.
-ACTIVITY_2_TEACHER_ROLE: Control equipment and compare which objects move easily.
-ACTIVITY_2_LEARNING_GOALS: Air movement, cause and effect, prediction.
-ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Attention, comparison, repeated testing.
-ACTIVITY_2_ADAPTATIONS: Use adult-created air while the child observes and points.
-ACTIVITY_2_SAFETY_NOTES: Keep fans guarded and avoid blowing toward faces.
-ACTIVITY_3_CATEGORY: Social-Emotional
-ACTIVITY_3_NAME: Choose Our Favorite Experiment
-ACTIVITY_3_OBJECTIVE: Recall learning, make a choice, and repeat a preferred investigation.
-ACTIVITY_3_DESCRIPTION: Children choose from photo cards representing the week’s experiments and revisit one in a small group.
-ACTIVITY_3_MATERIALS: Photo cards, selected experiment materials, chart paper.
-ACTIVITY_3_SETUP: Display four or five experiment cards.
-ACTIVITY_3_DIRECTIONS: 1. Look at the choices. 2. Pick a favorite. 3. Join the matching group. 4. Repeat the test. 5. Share what happened.
-ACTIVITY_3_TEACHER_ROLE: Record child words and emphasize that scientists repeat tests.
-ACTIVITY_3_LEARNING_GOALS: Recall, decision-making, communication, confidence.
-ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Preference, memory, participation, explanation attempts.
-ACTIVITY_3_ADAPTATIONS: Offer two choices or let children point.
-ACTIVITY_3_SAFETY_NOTES: Follow the original safety procedures for the chosen experiment.
+TUESDAY
+DAILY_THEME:
+Sink, Float, Wet, and Dry
+DAILY_OBJECTIVES:
+Make predictions, test objects in water, and compare materials.
+DAILY_VOCABULARY:
+Sink, float, wet, dry, heavy, light.
+DAILY_MATERIALS:
+Water bin, sponges, foil, corks, large plastic objects, towels, sorting mat.
+DAILY_LEARNING_DOMAINS:
+Science, Math, Language, Fine Motor.
+CIRCLE_TIME:
+Show two objects and invite sink-or-float predictions.
+OUTDOOR_PLAY:
+Sponge Squeeze Water Transfer between buckets.
+DAILY_OBSERVATIONS:
+Prediction, classification, squeezing, persistence.
+DAILY_ADAPTATIONS:
+Use picture cards or a dry teacher demonstration.
+SAFETY_NOTES:
+Maintain direct water supervision.
+
+ACTIVITY_NAME:
+Sink or Float Test
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Predict and test how objects behave in water.
+DESCRIPTION:
+Children place one object at a time into water and sort results.
+MATERIALS:
+Water bin, large safe objects, sink/float mat.
+SETUP:
+Fill a shallow bin and arrange test objects.
+DIRECTIONS:
+1. Choose an object.
+2. Predict sink or float.
+3. Place it in water.
+4. Observe.
+5. Put it on the matching mat.
+TEACHER_ROLE:
+Ask what happened and encourage repeated tests.
+LEARNING_GOALS:
+Prediction, cause and effect, classification.
+OBSERVATION_OPPORTUNITIES:
+Choice, attention, sorting accuracy.
+ADAPTATIONS:
+Let children point while the adult places objects.
+SAFETY_NOTES:
+Empty water after the activity.
+
+ACTIVITY_NAME:
+Sponge Scientist
+CATEGORY:
+Fine Motor
+OBJECTIVE:
+Explore absorption and strengthen hands.
+DESCRIPTION:
+Children soak, lift, and squeeze sponges between containers.
+MATERIALS:
+Sponges, two shallow containers, water, towels.
+SETUP:
+Put water in one container and leave the other empty.
+DIRECTIONS:
+1. Place sponge in water.
+2. Watch it soak.
+3. Lift it.
+4. Squeeze into the empty bowl.
+5. Repeat until water moves.
+TEACHER_ROLE:
+Model soak, squeeze, wet, and dry language.
+LEARNING_GOALS:
+Absorption, hand strength, transfer, cause and effect.
+OBSERVATION_OPPORTUNITIES:
+Squeezing, coordination, concentration.
+ADAPTATIONS:
+Use large soft sponges or adult-assisted squeezing.
+SAFETY_NOTES:
+Clean spills immediately.
+
+ACTIVITY_NAME:
+Heavy or Light Basket Sort
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Compare weight using hands.
+DESCRIPTION:
+Children lift paired objects and place them on heavy or light picture mats.
+MATERIALS:
+Safe large objects, baskets, picture mats.
+SETUP:
+Pair objects with obvious weight differences.
+DIRECTIONS:
+1. Lift one object.
+2. Lift the other.
+3. Decide which feels heavier.
+4. Place each on a mat.
+5. Try another pair.
+TEACHER_ROLE:
+Model words and avoid requiring correct answers.
+LEARNING_GOALS:
+Comparison, sensory awareness, classification.
+OBSERVATION_OPPORTUNITIES:
+Lifting, comparison, descriptive language.
+ADAPTATIONS:
+Use one pair at a time.
+SAFETY_NOTES:
+Keep all objects lightweight enough for toddlers.
+
+WEDNESDAY
+DAILY_THEME:
+Light and Shadows
+DAILY_OBJECTIVES:
+Explore light, shadow, reflection, and shape.
+DAILY_VOCABULARY:
+Light, dark, shadow, bright, mirror, reflect.
+DAILY_MATERIALS:
+Flashlights, translucent blocks, mirrors, shape cutouts, white wall or sheet.
+DAILY_LEARNING_DOMAINS:
+Science, Language, Creative Arts, Gross Motor.
+CIRCLE_TIME:
+Make hand shadows and read a shadow-themed book.
+OUTDOOR_PLAY:
+Draw or step on safe outdoor shadows.
+DAILY_OBSERVATIONS:
+Tracking, cause and effect, shape recognition, movement.
+DAILY_ADAPTATIONS:
+Use soft natural light and avoid darkened rooms for fearful children.
+SAFETY_NOTES:
+Never shine flashlights into eyes; use unbreakable mirrors.
+
+ACTIVITY_NAME:
+Shadow Shape Test
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe how objects block light.
+DESCRIPTION:
+Children place large shapes in front of a flashlight to make shadows.
+MATERIALS:
+Flashlight, large shape cutouts, wall or sheet.
+SETUP:
+Create a softly dimmed area and secure the light.
+DIRECTIONS:
+1. Choose a shape.
+2. Hold it near the light.
+3. Look for the shadow.
+4. Move it closer and farther.
+5. Compare the shadow size.
+TEACHER_ROLE:
+Control the flashlight and model big/small language.
+LEARNING_GOALS:
+Light science, size comparison, visual tracking.
+OBSERVATION_OPPORTUNITIES:
+Shape choice, movement, noticing change.
+ADAPTATIONS:
+Use a light table or bright window.
+SAFETY_NOTES:
+Keep light pointed away from faces.
+
+ACTIVITY_NAME:
+Translucent Color Window
+CATEGORY:
+Sensory Play
+OBJECTIVE:
+Explore how light passes through colored materials.
+DESCRIPTION:
+Children place translucent blocks or sheets on a light surface.
+MATERIALS:
+Translucent blocks, colored acetate sealed in frames, light table or window.
+SETUP:
+Arrange materials near safe light.
+DIRECTIONS:
+1. Choose a color.
+2. Hold it to the light.
+3. Look through it.
+4. Overlap another color.
+5. Notice changes.
+TEACHER_ROLE:
+Encourage comparison and color words.
+LEARNING_GOALS:
+Light, transparency, color mixing, observation.
+OBSERVATION_OPPORTUNITIES:
+Overlapping, color recognition, attention.
+ADAPTATIONS:
+Use large easy-grip pieces.
+SAFETY_NOTES:
+Ensure frames are sealed with no sharp edges.
+
+ACTIVITY_NAME:
+Shadow Outline Art
+CATEGORY:
+Art
+OBJECTIVE:
+Create marks around object shadows.
+DESCRIPTION:
+An adult holds an object in light while children mark around the shadow.
+MATERIALS:
+Large paper, chunky crayons, safe objects, light source.
+SETUP:
+Tape paper down and position light.
+DIRECTIONS:
+1. Choose an object.
+2. Find its shadow.
+3. Make marks around it.
+4. Move the object.
+5. Add another shadow shape.
+TEACHER_ROLE:
+Hold objects and support mark making.
+LEARNING_GOALS:
+Visual-motor coordination, creativity, shape awareness.
+OBSERVATION_OPPORTUNITIES:
+Tracking, grip, mark placement.
+ADAPTATIONS:
+Let children color inside a pretraced shadow.
+SAFETY_NOTES:
+Secure cords and keep lights cool.
+
+THURSDAY
+DAILY_THEME:
+Sound Scientists
+DAILY_OBJECTIVES:
+Compare loud and quiet sounds, identify sources, and create simple instruments.
+DAILY_VOCABULARY:
+Sound, loud, quiet, shake, tap, listen.
+DAILY_MATERIALS:
+Sealed shakers, bells, drums, containers, rhythm sticks, picture cards.
+DAILY_LEARNING_DOMAINS:
+Science, Music, Language, Gross Motor, Social-Emotional.
+CIRCLE_TIME:
+Take a listening walk around the room and identify sounds.
+OUTDOOR_PLAY:
+Outdoor Listening Walk with stop-and-listen signals.
+DAILY_OBSERVATIONS:
+Sound discrimination, impulse control, rhythm, language.
+DAILY_ADAPTATIONS:
+Offer headphones, quieter tools, or visual rhythm cues.
+SAFETY_NOTES:
+Keep sound levels comfortable and inspect sealed instruments.
+
+ACTIVITY_NAME:
+What Made That Sound?
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Match sounds to familiar objects.
+DESCRIPTION:
+Children listen while an adult activates an object behind a screen, then choose the matching picture.
+MATERIALS:
+Bell, shaker, paper, tapping blocks, picture cards, screen.
+SETUP:
+Arrange sound objects out of view.
+DIRECTIONS:
+1. Listen quietly.
+2. Hear one sound.
+3. Choose a picture.
+4. Reveal the object.
+5. Try another sound.
+TEACHER_ROLE:
+Keep sounds brief and celebrate all guesses.
+LEARNING_GOALS:
+Auditory discrimination, memory, matching.
+OBSERVATION_OPPORTUNITIES:
+Attention, selection, sound imitation.
+ADAPTATIONS:
+Show two object choices instead of pictures.
+SAFETY_NOTES:
+Avoid sudden or very loud sounds.
+
+ACTIVITY_NAME:
+Loud and Quiet Orchestra
+CATEGORY:
+Music & Movement
+OBJECTIVE:
+Change movement and instrument volume in response to cues.
+DESCRIPTION:
+Children play instruments loudly or quietly and stop on a visual cue.
+MATERIALS:
+Toddler instruments, loud/quiet and stop/go cards.
+SETUP:
+Place instruments in a circle.
+DIRECTIONS:
+1. Choose an instrument.
+2. Watch the card.
+3. Play quietly.
+4. Change to loud.
+5. Stop when shown the stop card.
+TEACHER_ROLE:
+Model safe volume and clear visual signals.
+LEARNING_GOALS:
+Self-regulation, listening, rhythm, concept words.
+OBSERVATION_OPPORTUNITIES:
+Response to cues, volume control, participation.
+ADAPTATIONS:
+Use tapping hands or scarves instead of instruments.
+SAFETY_NOTES:
+Maintain comfortable volume and space between children.
+
+ACTIVITY_NAME:
+Build a Safe Shaker
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Explore how materials create different sounds.
+DESCRIPTION:
+Adults securely prepare clear containers with different safe fillers for children to compare.
+MATERIALS:
+Permanently sealed clear containers, large safe fillers, tape.
+SETUP:
+Adults fill and fully seal containers before use.
+DIRECTIONS:
+1. Choose a shaker.
+2. Shake gently.
+3. Listen.
+4. Compare another shaker.
+5. Sort by louder or quieter.
+TEACHER_ROLE:
+Ensure seals remain secure and model comparison words.
+LEARNING_GOALS:
+Cause and effect, sound comparison, rhythm.
+OBSERVATION_OPPORTUNITIES:
+Grip, shaking, listening, comparison.
+ADAPTATIONS:
+Roll containers on a tray instead of shaking.
+SAFETY_NOTES:
+Containers must be permanently sealed and inspected before every use.
+
+FRIDAY
+DAILY_THEME:
+Motion and Scientist Review
+DAILY_OBJECTIVES:
+Explore rolling and air movement, repeat favorite tests, and review scientific thinking.
+DAILY_VOCABULARY:
+Roll, move, fast, slow, test, observe, predict.
+DAILY_MATERIALS:
+Ramps, balls, feathers, fans, tubes, prediction cards, favorite materials from the week.
+DAILY_LEARNING_DOMAINS:
+Science, Engineering, Gross Motor, Language, Math.
+CIRCLE_TIME:
+Review “predict, test, observe” with photos or objects from the week.
+OUTDOOR_PLAY:
+Roll balls down different safe slopes and chase bubbles or scarves moved by air.
+DAILY_OBSERVATIONS:
+Recall, prediction, repeated testing, comparison, movement control.
+DAILY_ADAPTATIONS:
+Use tabletop ramps, seated fan exploration, and picture choices.
+SAFETY_NOTES:
+Use low ramps, soft balls, and guarded child-safe fans.
+
+ACTIVITY_NAME:
+Ball Ramp Lab
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Compare how balls move on different ramps.
+DESCRIPTION:
+Children release balls down low ramps with different surfaces or heights.
+MATERIALS:
+Low ramps, soft balls, textured coverings, tape lines.
+SETUP:
+Secure two low ramps and clear the landing area.
+DIRECTIONS:
+1. Choose a ball.
+2. Predict which ramp is faster.
+3. Release the ball.
+4. Watch where it stops.
+5. Test again.
+TEACHER_ROLE:
+Encourage fair repeated tests and comparison language.
+LEARNING_GOALS:
+Motion, prediction, cause and effect, comparison.
+OBSERVATION_OPPORTUNITIES:
+Release, tracking, persistence, language.
+ADAPTATIONS:
+Use one wide ramp or adult-assisted release.
+SAFETY_NOTES:
+Prevent climbing and keep children out of the landing path.
+
+ACTIVITY_NAME:
+Air Moves Things
+CATEGORY:
+STEM/Discovery
+OBJECTIVE:
+Observe how moving air affects light objects.
+DESCRIPTION:
+Children use guarded fans, cardboard fans, or blowing through large tubes to move feathers and scarves.
+MATERIALS:
+Child-safe guarded fan, cardboard fans, scarves, feathers, large tubes.
+SETUP:
+Place light objects on a clear table or floor area.
+DIRECTIONS:
+1. Choose an object.
+2. Predict if air will move it.
+3. Create gentle air.
+4. Watch the object.
+5. Try another object.
+TEACHER_ROLE:
+Control equipment and compare which objects move easily.
+LEARNING_GOALS:
+Air movement, cause and effect, prediction.
+OBSERVATION_OPPORTUNITIES:
+Attention, comparison, repeated testing.
+ADAPTATIONS:
+Use adult-created air while the child observes and points.
+SAFETY_NOTES:
+Keep fans guarded and avoid blowing toward faces.
+
+ACTIVITY_NAME:
+Choose Our Favorite Experiment
+CATEGORY:
+Open-Ended Exploration
+OBJECTIVE:
+Recall learning, make a choice, and repeat a preferred investigation.
+DESCRIPTION:
+Children choose from photo cards representing the week’s experiments and revisit one in a small group.
+MATERIALS:
+Photo cards, selected experiment materials, chart paper.
+SETUP:
+Display four or five experiment cards.
+DIRECTIONS:
+1. Look at the choices.
+2. Pick a favorite.
+3. Join the matching group.
+4. Repeat the test.
+5. Share what happened.
+TEACHER_ROLE:
+Record child words and emphasize that scientists repeat tests.
+LEARNING_GOALS:
+Recall, decision-making, communication, confidence.
+OBSERVATION_OPPORTUNITIES:
+Preference, memory, participation, explanation attempts.
+ADAPTATIONS:
+Offer two choices or let children point.
+SAFETY_NOTES:
+Follow the original safety procedures for the chosen experiment.

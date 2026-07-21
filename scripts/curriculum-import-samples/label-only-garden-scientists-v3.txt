@@ -151,4 +151,52 @@ Document social interactions during pretend play.
 
 THURSDAY:
 
+ACTIVITY_NAME:
+Leaf Rubbing Art
+CATEGORY:
+Art
+OBJECTIVE:
+Children notice leaf shapes and textures through rubbing art.
+DESCRIPTION:
+Children place leaves under paper and rub with crayons to reveal shapes and veins.
+MATERIALS:
+Leaves, paper, crayons
+SETUP:
+Offer a small tray of leaves and paper at the art table.
+TEACHER_ROLE:
+Model gentle rubbing and talk about leaf shapes.
+DIRECTIONS:
+Choose a leaf and place it under the paper.
+Rub the side of a crayon over the paper.
+Compare the rubbing with a friend's leaf.
+LEARNING_GOALS:
+Explore texture and shape
+Use fine-motor control with crayons
+OBSERVATION_OPPORTUNITIES:
+Notice grip and interest in comparing leaf details.
+
 FRIDAY:
+
+ACTIVITY_NAME:
+Garden Sharing Circle
+CATEGORY:
+Circle Time
+OBJECTIVE:
+Children share one garden discovery and practice listening turns.
+DESCRIPTION:
+Children sit in a short circle to share what they planted, noticed, or pretended in the garden.
+MATERIALS:
+Talking piece (soft leaf or ball), garden photos
+SETUP:
+Prepare a small circle space with one talking piece.
+TEACHER_ROLE:
+Facilitate short turns and echo children's garden words.
+DIRECTIONS:
+Pass the talking piece around the circle.
+Share one garden word or discovery.
+Listen while friends take a turn.
+LEARNING_GOALS:
+Take turns speaking and listening
+Use garden vocabulary
+OBSERVATION_OPPORTUNITIES:
+Document language and turn-taking during the circle.

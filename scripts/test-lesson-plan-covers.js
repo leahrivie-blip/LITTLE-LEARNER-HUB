@@ -19,6 +19,24 @@ function assert(condition, message) {
 
 function unitTests() {
   assert(covers.normalizeTheme("Around the World!") === "around the world", "normalizeTheme failed");
+  const blackWhite = covers.resolveLessonPlanCover({
+    title: "Black & White Discovery",
+    theme: "Black & White Discovery",
+    age: "Infant",
+  });
+  assert(blackWhite.url.includes("black-white-discovery.jpg"), `Black & White should map to illustrated cover, got ${blackWhite.url}`);
+  assert(blackWhite.source === "mapped", "Black & White source should be mapped");
+  const stalePlaceholder = covers.resolveLessonPlanCover({
+    title: "Black & White Discovery",
+    age: "Infant",
+    coverImageUrl: "/images/lesson-covers/generic-infant.svg",
+  });
+  assert(
+    stalePlaceholder.url.includes("black-white-discovery.jpg"),
+    `Stale placeholder must yield to catalog cover, got ${stalePlaceholder.url}`,
+  );
+  assert(covers.withCoverCacheBust("/images/lesson-covers/zoo-animals.jpg").includes("?v="), "cover URLs must cache-bust");
+  assert(covers.normalizeTheme("Around the World!") === "around the world", "normalizeTheme failed");
   assert(
     covers.getMappedThemeCover("Around the World", "").includes("around-the-world"),
     "Around the World should map to specific cover",
@@ -214,6 +232,7 @@ async function stopServer(child) {
 
 async function seedPlans(token) {
   const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
+  const freeSample = require("./free-curriculum-sample.js");
   const sample = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(sample, "utf8"));
   if (!parsed.ok) throw new Error("sample import failed");
@@ -222,7 +241,10 @@ async function seedPlans(token) {
     adminToken: token,
     siteContent: { ...bootstrap.json.siteContent, updatedAt: bootstrap.json.siteContent.updatedAt || "" },
   });
-  const freeId = `cur-lp-cover-free-${crypto.randomBytes(3).toString("hex")}`;
+  // Use a curated Free sample id so Free-plan library cards stay unlocked (Use This Plan visible).
+  const freeId = freeSample.PERMANENT_FREE_LESSON_IDS.find((id) => id.includes("preschool"))
+    || freeSample.PERMANENT_FREE_LESSON_IDS[0]
+    || `cur-lp-cover-free-${crypto.randomBytes(3).toString("hex")}`;
   const proId = `cur-lp-cover-pro-${crypto.randomBytes(3).toString("hex")}`;
   const freeTitle = "Colors Everywhere: A Very Long Lesson Plan Title That Still Keeps Every Card Action Visible Cover Test";
   const proTitle = "Ocean Explorers Cover Test";
@@ -309,6 +331,8 @@ async function browserRegression() {
     });
     await page.evaluate(() => setView("lessons"));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
+    await page.waitForSelector(".library-featured-banner-image", { state: "attached", timeout: 20000 });
+    await page.waitForSelector(".browse-row-track", { state: "attached", timeout: 10000 });
     const initialMobileReady = await page.evaluate(() => ({
       featured: Boolean(document.querySelector(".library-featured-banner-image")),
       rows: document.querySelectorAll(".browse-row-track").length,
@@ -443,7 +467,12 @@ async function browserRegression() {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => { searchInput.value = ""; });
     await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
-    await page.waitForSelector(".library-featured-banner-image", { timeout: 10000 });
+    await page.waitForFunction(
+      () => Boolean(document.querySelector(".library-featured-banner-image"))
+        && document.querySelectorAll(".browse-row-track").length > 0,
+      null,
+      { timeout: 15000 },
+    );
     const mobileAudit = await page.evaluate(async () => {
       let track = [...document.querySelectorAll(".browse-row-track")]
         .find((item) => item.scrollWidth > item.clientWidth + 1);

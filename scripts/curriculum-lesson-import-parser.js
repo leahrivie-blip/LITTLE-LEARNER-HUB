@@ -66,7 +66,18 @@ const ACTIVITY_CATEGORY_ALIASES = {
   "open-ended exploration": "Open-Ended Exploration",
 };
 
-const CURRICULUM_LEARNING_DOMAINS = [
+const learningDomainsApi = (function loadLearningDomainsApi() {
+  if (typeof module !== "undefined" && module.exports) {
+    try {
+      return require("./curriculum-learning-domains.js");
+    } catch {
+      /* fall through */
+    }
+  }
+  return globalThis.CurriculumLearningDomains || null;
+})();
+
+const CURRICULUM_LEARNING_DOMAINS = learningDomainsApi?.OFFICIAL_LEARNING_DOMAINS || [
   "Social Emotional",
   "Language & Literacy",
   "Math",
@@ -75,24 +86,29 @@ const CURRICULUM_LEARNING_DOMAINS = [
   "Creative Arts",
 ];
 
-const LEARNING_DOMAIN_ALIASES = {
-  "fine motor": "Physical Development",
-  "gross motor": "Physical Development",
-  "physical": "Physical Development",
-  "motor": "Physical Development",
-  "literacy": "Language & Literacy",
-  "language": "Language & Literacy",
-  "language and literacy": "Language & Literacy",
-  "social": "Social Emotional",
-  "social-emotional": "Social Emotional",
-  "social emotional": "Social Emotional",
-  "sel": "Social Emotional",
-  "art": "Creative Arts",
-  "arts": "Creative Arts",
-  "creative": "Creative Arts",
-  "maths": "Math",
-  "mathematics": "Math",
-};
+/** @deprecated Prefer resolveLearningDomainsWithConfidence — kept for callers that read the map. */
+const LEARNING_DOMAIN_ALIASES = learningDomainsApi?.BUILTIN_DOMAIN_ALIASES
+  ? { ...learningDomainsApi.BUILTIN_DOMAIN_ALIASES }
+  : {
+    "fine motor": "Physical Development",
+    "gross motor": "Physical Development",
+    physical: "Physical Development",
+    motor: "Physical Development",
+    literacy: "Language & Literacy",
+    language: "Language & Literacy",
+    "language and literacy": "Language & Literacy",
+    social: "Social Emotional",
+    "social-emotional": "Social Emotional",
+    "social emotional": "Social Emotional",
+    sel: "Social Emotional",
+    art: "Creative Arts",
+    arts: "Creative Arts",
+    creative: "Creative Arts",
+    maths: "Math",
+    mathematics: "Math",
+    math: "Math",
+    "early math": "Math",
+  };
 
 const CURRICULUM_LESSON_STATUSES = ["draft", "published", "featured", "archived"];
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
@@ -216,15 +232,33 @@ const V3_FIELD_ALIASES = {
   "LEARNING GOAL": "LEARNING_GOALS",
   LEARNING_GOAL: "LEARNING_GOALS",
   "LEARNING OBJECTIVES": "LEARNING_OBJECTIVES",
+  GOALS: "LEARNING_OBJECTIVES",
+  OBJECTIVES: "LEARNING_OBJECTIVES",
+  "LEARNING GOALS WEEKLY": "LEARNING_OBJECTIVES",
   "AGE GROUP": "AGE_GROUP",
   "ACTIVITY NAME": "ACTIVITY_NAME",
   "WEEKLY OVERVIEW": "WEEKLY_OVERVIEW",
   "WEEKLY MATERIALS": "WEEKLY_MATERIALS",
+  SUPPLIES: "WEEKLY_MATERIALS",
+  RESOURCES: "WEEKLY_MATERIALS",
   "FAMILY CONNECTION": "FAMILY_CONNECTION",
   "OBSERVATION OPPORTUNITIES": "OBSERVATION_OPPORTUNITIES",
+  ASSESSMENT: "OBSERVATION_OPPORTUNITIES",
+  "WHAT TO WATCH FOR": "OBSERVATION_OPPORTUNITIES",
   "LEARNING DOMAINS": "LEARNING_DOMAINS",
+  DOMAIN: "LEARNING_DOMAINS",
+  "SKILL AREA": "LEARNING_DOMAINS",
+  "DEVELOPMENTAL AREA": "LEARNING_DOMAINS",
   "TEACHER ROLE": "TEACHER_ROLE",
+  "TEACHER GUIDANCE": "TEACHER_ROLE",
+  "EDUCATOR ROLE": "TEACHER_ROLE",
   "TEACHER LANGUAGE": "TEACHER_LANGUAGE",
+  DIRECTIONS: "DIRECTIONS",
+  STEPS: "DIRECTIONS",
+  INSTRUCTIONS: "DIRECTIONS",
+  PROCEDURE: "DIRECTIONS",
+  MODIFICATIONS: "ADAPTATIONS",
+  DIFFERENTIATION: "ADAPTATIONS",
   "DAILY THEME": "DAILY_THEME",
   "DAILY OBJECTIVES": "DAILY_OBJECTIVES",
   "DAILY VOCABULARY": "DAILY_VOCABULARY",
@@ -235,6 +269,8 @@ const V3_FIELD_ALIASES = {
   "DAILY OBSERVATIONS": "DAILY_OBSERVATIONS",
   "DAILY ADAPTATIONS": "DAILY_ADAPTATIONS",
   "SAFETY NOTES": "SAFETY_NOTES",
+  SAFETY: "SAFETY_NOTES",
+  CAUTIONS: "SAFETY_NOTES",
   "AGE MODIFICATIONS": "AGE_MODIFICATIONS",
 };
 
@@ -367,9 +403,14 @@ function curriculumAgeBucketFromText(value) {
   return "";
 }
 
-function parseLearningDomainsList(text) {
+function resolveLearningDomainsWithConfidence(text, options = {}) {
+  if (learningDomainsApi?.resolveLearningDomainsWithConfidence) {
+    return learningDomainsApi.resolveLearningDomainsWithConfidence(text, options);
+  }
   const seen = new Set();
   const domains = [];
+  const mappings = [];
+  const unmatched = [];
   String(text || "")
     .split(/[,;\n]/)
     .map((item) => normalizedShortText(item))
@@ -378,11 +419,34 @@ function parseLearningDomainsList(text) {
       const exact = CURRICULUM_LEARNING_DOMAINS.find((domain) => domain.toLowerCase() === item.toLowerCase());
       const aliased = LEARNING_DOMAIN_ALIASES[item.toLowerCase()];
       const resolved = exact || aliased || "";
-      if (!resolved || seen.has(resolved)) return;
+      if (!resolved) {
+        unmatched.push({ original: item, token: item.toLowerCase(), choices: [...CURRICULUM_LEARNING_DOMAINS] });
+        mappings.push({
+          original: item,
+          token: item.toLowerCase(),
+          official: "",
+          confidence: "low",
+          choices: [...CURRICULUM_LEARNING_DOMAINS],
+          note: `"${item}" could not be matched.`,
+        });
+        return;
+      }
+      mappings.push({
+        original: item,
+        token: item.toLowerCase(),
+        official: resolved,
+        confidence: "high",
+        note: `"${item}" → ${resolved}`,
+      });
+      if (seen.has(resolved)) return;
       seen.add(resolved);
       domains.push(resolved);
     });
-  return domains;
+  return { domains, mappings, unmatched };
+}
+
+function parseLearningDomainsList(text, options = {}) {
+  return resolveLearningDomainsWithConfidence(text, options).domains;
 }
 
 function normalizeActivityCategory(raw) {
@@ -1948,6 +2012,7 @@ const api = {
   PLAY_ACTIVITY_CATEGORIES: PLAY_ACTIVITY_CATEGORIES_V1,
   APPROVED_V2_ACTIVITY_CATEGORIES,
   CURRICULUM_LEARNING_DOMAINS,
+  LEARNING_DOMAIN_ALIASES,
   CURRICULUM_WEEKDAYS,
   CURRICULUM_LESSON_IMPORT_V2_TEMPLATE,
   CURRICULUM_LESSON_IMPORT_V3_TEMPLATE,
@@ -1960,14 +2025,16 @@ const api = {
   emptyCurriculumDailyPlanDay,
   generateCurriculumItemId,
   parseCurriculumImportListLines,
+  parseLearningDomainsList,
+  resolveLearningDomainsWithConfidence,
+  formatCurriculumLessonPlanImport,
+  formatCurriculumLessonPlanImportV3,
+  formatImportActivity,
   parseCurriculumLessonPlanImport,
   parseCurriculumLessonPlanImportV1,
   parseCurriculumLessonPlanImportV2,
   parseCurriculumLessonPlanImportV3,
   parseCurriculumLessonPlanBulkImport,
-  formatCurriculumLessonPlanImport,
-  formatCurriculumLessonPlanImportV3,
-  formatImportActivity,
 };
 
 if (typeof module !== "undefined" && module.exports) {

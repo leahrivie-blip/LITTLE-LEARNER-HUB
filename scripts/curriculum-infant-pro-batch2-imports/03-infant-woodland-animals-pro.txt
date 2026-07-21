@@ -7,12 +7,8 @@ Infant 0-12 Months
 THEME:
 Woodland Animals and Nature
 
-PLAN:
-Pro
-
-STATUS:
-published
-
+PLAN: Pro
+STATUS: published
 LEARNING_DOMAINS:
 Sensory Exploration, Language & Literacy, Physical Development, Cognitive Development, Social Emotional, Creative Arts
 
@@ -386,7 +382,7 @@ AGE_MODIFICATIONS:
 ACTIVITY_NAME:
 Where Is Bear?
 CATEGORY:
-Cognitive Development
+Open-Ended Exploration
 OBJECTIVE:
 Develop object permanence and searching skills.
 DESCRIPTION:

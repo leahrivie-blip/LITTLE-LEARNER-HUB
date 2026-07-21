@@ -7,12 +7,8 @@ Infant 0-12 Months
 THEME:
 Early Communication Through Signs, Gestures, Sounds, and Responsive Care
 
-PLAN:
-Pro
-
-STATUS:
-published
-
+PLAN: Pro
+STATUS: published
 LEARNING_DOMAINS:
 Language & Literacy, Social Emotional, Cognitive Development, Fine Motor, Music & Movement
 
@@ -114,7 +110,7 @@ Adults control bubbles at all times. Never force hand movements or continue an a
 ACTIVITY_NAME:
 More or All Done Bubble Turns
 CATEGORY:
-Social Emotional
+Open-Ended Exploration
 OBJECTIVE:
 Build turn-taking and connect communication with predictable adult responses.
 DESCRIPTION:
@@ -228,7 +224,7 @@ Follow all feeding, allergy, bottle, choking-prevention, and sanitation procedur
 ACTIVITY_NAME:
 Feeding Routine Sign Talk
 CATEGORY:
-Language & Literacy
+Literacy
 OBJECTIVE:
 Build receptive language and reduce uncertainty during feeding routines.
 DESCRIPTION:
@@ -379,7 +375,7 @@ AGE_MODIFICATIONS:
 ACTIVITY_NAME:
 Help Sign Mirror Imitation
 CATEGORY:
-Social Emotional
+Open-Ended Exploration
 OBJECTIVE:
 Develop awareness of hand movements, faces, and reciprocal imitation.
 DESCRIPTION:
@@ -456,7 +452,7 @@ Blankets are used only in awake supervised play and removed before sleep. Follow
 ACTIVITY_NAME:
 Book Sign Story Choice
 CATEGORY:
-Language & Literacy
+Literacy
 OBJECTIVE:
 Encourage book choice, shared reading, and receptive language.
 DESCRIPTION:

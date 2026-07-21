@@ -26,7 +26,7 @@ const serverJs = fs.readFileSync(path.join(root, "server/index.js"), "utf8");
 const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 
-const CACHE_V = "20260720-promo-existing";
+const CACHE_V = "20260721-cover-netflix-nav";
 
 test("service worker never caches /api/ responses", () => {
   assert.match(sw, /Never cache \/api\//);
@@ -44,7 +44,7 @@ test("cache bust versions align for messages-live deploy", () => {
   assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], CACHE_V);
   assert.equal(indexHtml.match(/comms-center\.js\?v=([^"]+)/)?.[1], CACHE_V);
   assert.match(sw, new RegExp(`app\\.js\\?v=${CACHE_V}`));
-  assert.match(sw, /llh-shell-v105-promo-existing/);
+  assert.match(sw, /llh-shell-v107-cover-netflix-nav/);
 });
 
 test("admin conversations poll and soft-refresh the open thread", () => {

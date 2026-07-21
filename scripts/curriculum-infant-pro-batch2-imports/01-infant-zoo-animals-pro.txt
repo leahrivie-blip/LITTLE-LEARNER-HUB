@@ -7,12 +7,8 @@ Infant 0-12 Months
 THEME:
 Zoo Animals
 
-PLAN:
-Pro
-
-STATUS:
-published
-
+PLAN: Pro
+STATUS: published
 LEARNING_DOMAINS:
 Language & Literacy, Cognitive Development, Physical Development, Social Emotional, Sensory Exploration, Creative Arts
 

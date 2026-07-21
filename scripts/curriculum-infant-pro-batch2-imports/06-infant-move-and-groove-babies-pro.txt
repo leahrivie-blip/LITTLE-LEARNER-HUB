@@ -7,12 +7,8 @@ Infant 0-12 Months
 THEME:
 Music, Movement, and Body Awareness
 
-PLAN:
-Pro
-
-STATUS:
-published
-
+PLAN: Pro
+STATUS: published
 LEARNING_DOMAINS:
 Physical Development, Music & Movement, Social Emotional, Language & Literacy, Cognitive Development, Sensory Exploration
 
@@ -652,7 +648,7 @@ AGE_MODIFICATIONS:
 ACTIVITY_NAME:
 Move Then Rest
 CATEGORY:
-Social Emotional
+Open-Ended Exploration
 OBJECTIVE:
 Practice transitioning from active movement to calm regulation.
 DESCRIPTION:

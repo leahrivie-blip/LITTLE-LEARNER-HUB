@@ -1,17 +1,17 @@
-const CACHE_NAME = "llh-shell-v105-promo-existing";
+const CACHE_NAME = "llh-shell-v108-exact-title-links";
 const OFFLINE_URL = "/offline.html";
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260720-promo-existing",
+  "/styles.css?v=20260721-exact-title-links",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260720-promo-existing",
+  "/styles/llh-messaging.css?v=20260721-exact-title-links",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards",
-  "/scripts/lesson-plan-covers.js?v=20260717-netflix-cover-cards",
+  "/scripts/lesson-plan-cover-catalog.js?v=20260721-exact-title-links",
+  "/scripts/lesson-plan-covers.js?v=20260721-exact-title-links",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
@@ -23,10 +23,12 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
-  "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260720-promo-existing",
-  "/comms-center.js?v=20260720-promo-existing",
+  "/scripts/free-curriculum-sample.js?v=20260721-exact-title-links",
+  "/scripts/free-plan-grandfathering.js?v=20260721-exact-title-links",
+  "/scripts/curriculum-monthly-collections.js?v=20260721-exact-title-links",
+  "/scripts/monthly-curriculum-phase1.js?v=20260721-exact-title-links",
+  "/app.js?v=20260721-exact-title-links",
+  "/comms-center.js?v=20260721-exact-title-links",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
@@ -72,6 +74,8 @@ function isNetworkFirstRequest(request, requestUrl) {
   const path = requestUrl.pathname;
   if (path === "/" || path.endsWith(".html")) return true;
   if (path.endsWith(".js") || path.endsWith(".css") || path.endsWith(".webmanifest")) return true;
+  // Always revalidate lesson covers so replaced artwork is not stuck in cache-first.
+  if (path.startsWith("/images/lesson-covers/")) return true;
   return false;
 }
 

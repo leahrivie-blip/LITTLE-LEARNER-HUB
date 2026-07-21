@@ -78,10 +78,10 @@ test("cache bust versions stay aligned for drilldown", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
   assert.equal(indexCss, indexJs);
-  assert.equal(indexCss, "20260720-promo-existing");
+  assert.equal(indexCss, "20260721-cover-netflix-nav");
   assert.match(sw, new RegExp(`styles\\.css\\?v=${indexCss}`));
   assert.match(sw, new RegExp(`app\\.js\\?v=${indexJs}`));
-  assert.match(sw, /llh-shell-v105-promo-existing/);
+  assert.match(sw, /llh-shell-v107-cover-netflix-nav/);
 });
 
 test("owner command center includes action center and KPI strip", () => {

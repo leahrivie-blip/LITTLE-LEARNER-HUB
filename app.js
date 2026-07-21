@@ -4720,7 +4720,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-series","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
@@ -4734,7 +4734,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 const adminGroups = [
   { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails"], defaultTab: "dashboard" },
   { id: "messages",  icon: "💬", label: "Messages",   tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
+  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-series", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
   { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
   { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
   { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
@@ -4755,6 +4755,7 @@ const adminGroupForTab = {
   "message-templates": "messages",
   "automations": "messages",
   "curriculum-lesson-plans": "content",
+  "curriculum-series": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
   "forms":       "content",
@@ -4801,6 +4802,7 @@ const adminTabLabels = {
   "message-templates": "Templates",
   "automations": "Automations",
   "curriculum-lesson-plans": "Play-Based Lessons",
+  "curriculum-series": "Monthly Curriculums",
   "curriculum-activities": "Curriculum Activities",
   "curriculum-resources": "Curriculum Resources",
   "forms":       "Forms Library (not legacy uploads)",
@@ -5005,6 +5007,7 @@ function emptyCurriculumLibrary() {
     lessonPlans: [],
     activities: [],
     resources: [],
+    series: [],
     updatedAt: "",
   };
 }
@@ -5049,6 +5052,8 @@ function emptyCurriculum() {
     lessonPlans: [],
     activities: [],
     resources: [],
+    series: [],
+    importSynonyms: [],
     updatedAt: "",
   };
 }
@@ -5060,6 +5065,8 @@ function effectiveCurriculum() {
     lessonPlans: Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [],
     activities: Array.isArray(curriculum.activities) ? curriculum.activities : [],
     resources: Array.isArray(curriculum.resources) ? curriculum.resources : [],
+    series: Array.isArray(curriculum.series) ? curriculum.series : [],
+    importSynonyms: Array.isArray(curriculum.importSynonyms) ? curriculum.importSynonyms : [],
     updatedAt: curriculum.updatedAt || "",
   };
 }
@@ -5338,6 +5345,7 @@ function effectiveCurriculumLibrary() {
       lessonPlans: publicPlans,
       activities: Array.isArray(fromPublic.activities) ? fromPublic.activities : [],
       resources: Array.isArray(fromPublic.resources) ? fromPublic.resources : [],
+      series: Array.isArray(fromPublic.series) ? fromPublic.series : [],
       updatedAt: fromPublic.updatedAt || "",
     };
   }
@@ -5354,6 +5362,9 @@ function effectiveCurriculumLibrary() {
   const publicLessonIds = new Set(lessonPlans.map((plan) => plan.id));
   const activities = curriculum.activities.filter((activity) => (
     activity.status === "published" && publicLessonIds.has(activity.lessonPlanId)
+  ));
+  const series = (curriculum.series || []).filter((entry) => (
+    entry && ["published", "featured"].includes(entry.status)
   ));
   const resources = curriculum.resources
     .filter((resource) => resource.status === "published")
@@ -5383,6 +5394,7 @@ function effectiveCurriculumLibrary() {
       };
     }),
     resources,
+    series,
     updatedAt: curriculum.updatedAt || "",
   };
 }
@@ -7733,6 +7745,10 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
+  if (editingPlan) {
+    globalThis.LLHMonthlyCurriculumPhase1?.resetLessonEditorStep?.();
+    queueMicrotask(() => globalThis.LLHMonthlyCurriculumPhase1?.applyGuidedLessonEditorStep?.());
+  }
 }
 
 function countCurriculumDailyPlanItems(dailyPlans) {
@@ -13495,7 +13511,28 @@ function pickUniqueResources(lists, limit = 24) {
   return out;
 }
 
-function browseRowHtml({ key, title, items, cardHtml, viewAllLabel = "View All" }) {
+function browseRowHtml({ key, title, items, cardHtml, viewAllLabel = "View All", seriesItems, isMonthlySeriesRow }) {
+  const monthlyApi = globalThis.LLHMonthlyCurriculumPhase1;
+  if (isMonthlySeriesRow) {
+    const series = Array.isArray(seriesItems) ? seriesItems : [];
+    if (!series.length) return "";
+    const trackId = `browse-track-${String(key || title).replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`;
+    return `
+      <section class="browse-row" data-browse-row="${escapeHtml(key)}">
+        <div class="browse-row-header">
+          <h3>${escapeHtml(title)}</h3>
+          <button type="button" class="browse-row-view-all" data-lesson-library-type="curriculum" aria-label="${escapeHtml(`${viewAllLabel}: ${title}`)}">${escapeHtml(viewAllLabel)}</button>
+        </div>
+        <div class="browse-row-track-wrap">
+          <button type="button" class="browse-row-arrow is-prev" data-browse-scroll="${escapeHtml(trackId)}" data-browse-dir="-1" aria-label="Scroll ${escapeHtml(title)} left">‹</button>
+          <div class="browse-row-track" id="${escapeHtml(trackId)}">
+            ${series.map((entry) => monthlyApi?.monthlySeriesCardHtml?.(entry) || "").join("")}
+          </div>
+          <button type="button" class="browse-row-arrow is-next" data-browse-scroll="${escapeHtml(trackId)}" data-browse-dir="1" aria-label="Scroll ${escapeHtml(title)} right">›</button>
+        </div>
+      </section>
+    `;
+  }
   if (!items?.length) return "";
   const trackId = `browse-track-${String(key || title).replace(/[^a-z0-9_-]+/gi, "-").toLowerCase()}`;
   return `
@@ -13782,6 +13819,20 @@ function buildLessonBrowseRows(items) {
   if (featured.length && ageFilter === "All") {
     rows.push({ key: "featured", title: "Featured This Week", items: featured, viewAllLabel: "View All" });
   }
+  // Monthly Curriculums Netflix row lives on the Curriculum tab only.
+  const monthlyApi = globalThis.LLHMonthlyCurriculumPhase1;
+  const monthlySeries = monthlyApi?.publicMonthlySeries?.() || [];
+  const typeFilter = monthlyApi?.getLessonLibraryTypeFilter?.() || "plans";
+  if (monthlySeries.length && ageFilter === "All" && typeFilter === "curriculum") {
+    rows.push({
+      key: "monthly-curriculums",
+      title: "Monthly Curriculums",
+      items: [],
+      seriesItems: monthlySeries.slice(0, 18),
+      viewAllLabel: "View All",
+      isMonthlySeriesRow: true,
+    });
+  }
   if (continuePlanning.length) {
     rows.push({ key: "continue-planning", title: "Continue Planning", items: continuePlanning, viewAllLabel: "View All" });
   }
@@ -13825,7 +13876,7 @@ function buildLessonBrowseRows(items) {
   if (popular.length) rows.push({ key: "popular", title: "Most Popular", items: popular, viewAllLabel: "View All" });
 
   // When an age tab is selected, put that age's rows first (already ordered above).
-  return rows.filter((row) => row.items.length);
+  return rows.filter((row) => row.items?.length || row.isMonthlySeriesRow || row.seriesItems?.length);
 }
 
 function collectLessonViewAllItems(items, key) {
@@ -21260,28 +21311,93 @@ function renderCategoryPage(view) {
     ? `<div class="empty-state">No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button></div>`
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
-    const isSavedLessonMode = lessonLibraryMode === "saved";
+    const monthlyApi = globalThis.LLHMonthlyCurriculumPhase1;
+    const typeFilter = monthlyApi?.normalizeLessonLibraryTypeFilter?.(monthlyApi?.getLessonLibraryTypeFilter?.())
+      || monthlyApi?.getLessonLibraryTypeFilter?.()
+      || "plans";
+    const openSeriesId = monthlyApi?.getOpenMonthlySeriesId?.() || "";
+    const openSeries = openSeriesId
+      ? (monthlyApi.publicMonthlySeries?.() || []).find((entry) => entry.id === openSeriesId)
+      : null;
+    if (openSeries) {
+      section.innerHTML = `
+        ${renderLessonPlanLibraryHeader()}
+        ${monthlyApi.renderMonthlySeriesDetail(openSeries)}
+      `;
+      return;
+    }
+    const isSavedLessonMode = lessonLibraryMode === "saved" || typeFilter === "favorites";
     const lessonUpgradeBanner = !isProUser() ? libraryCompactUpgradeStripHtml() : "";
     const hasSearchOrAdvanced = Boolean(searchInput.value.trim() || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly || lessonLibrarySort !== "recommended");
-    const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced;
+    const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced && typeFilter === "plans";
     let browseBody = "";
-    if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey) {
-      const viewAllItems = lessonLibraryViewAllKey ? collectLessonViewAllItems(items, lessonLibraryViewAllKey) : items;
-      const viewAllTitle = lessonLibraryViewAllKey
-        ? (buildLessonBrowseRows(items).find((row) => row.key === lessonLibraryViewAllKey)?.title || "All matching plans")
-        : "";
+    if (typeFilter === "curriculum") {
+      const allSeries = monthlyApi?.publicMonthlySeries?.() || [];
+      const series = monthlyApi?.filterPublicMonthlySeries?.(allSeries) || allSeries;
       browseBody = `
-        ${lessonLibraryViewAllKey ? `
-          <div class="browse-view-all-bar">
-            <h3>${escapeHtml(viewAllTitle)}</h3>
-            <button type="button" class="ghost-button" data-clear-lesson-view-all>← Back to browse</button>
-          </div>
-        ` : ""}
-        <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
+        ${monthlyApi?.monthlyLibraryFiltersHtml?.(allSeries) || ""}
+        <div class="resource-grid lesson-library-grid library-browse-shell curriculum-netflix-shell">
           ${lessonUpgradeBanner}
-          ${viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
+          ${activeFilter === "All" ? (monthlyApi?.featuredCurriculumBannerHtml?.(series) || "") : ""}
+          ${series.length
+            ? (monthlyApi?.curriculumBrowseRowsHtml?.(series) || series.map((entry) => monthlyApi.monthlySeriesCardHtml(entry)).join(""))
+            : `<div class="empty-state">${allSeries.length ? "No monthly curriculums match these filters." : "No monthly curriculums published yet."}</div>`}
         </div>
       `;
+    } else if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey) {
+      let viewAllItems = lessonLibraryViewAllKey ? collectLessonViewAllItems(items, lessonLibraryViewAllKey) : items;
+      if (typeFilter === "favorites" || lessonLibraryMode === "saved") {
+        viewAllItems = viewAllItems.filter((item) => favorites.includes(item.id));
+        const seriesFavs = (monthlyApi?.publicMonthlySeries?.() || []).filter((entry) => favorites.includes(`series:${entry.id}`));
+        browseBody = `
+          <div class="resource-grid lesson-library-grid library-browse-shell">
+            ${lessonUpgradeBanner}
+            ${!hasSearchOrAdvanced && !lessonLibraryViewAllKey && viewAllItems.length
+              ? featuredLessonBannerHtml(viewAllItems)
+              : ""}
+            ${viewAllItems.length || seriesFavs.length
+              ? `
+                ${viewAllItems.length ? `
+                  <section class="browse-row" data-browse-row="favorite-lessons">
+                    <div class="browse-row-header"><h3>Saved Lesson Plans</h3></div>
+                    <div class="browse-row-track-wrap">
+                      <div class="browse-row-track" id="browse-track-favorite-lessons">
+                        ${viewAllItems.map(lessonPlanCard).join("")}
+                      </div>
+                    </div>
+                  </section>
+                ` : ""}
+                ${seriesFavs.length ? `
+                  <section class="browse-row" data-browse-row="favorite-curriculums">
+                    <div class="browse-row-header"><h3>Saved Curriculums</h3></div>
+                    <div class="browse-row-track-wrap">
+                      <div class="browse-row-track" id="browse-track-favorite-curriculums">
+                        ${seriesFavs.map((entry) => monthlyApi.monthlySeriesCardHtml(entry)).join("")}
+                      </div>
+                    </div>
+                  </section>
+                ` : ""}
+              `
+              : lessonLibraryEmptyStateHtml()}
+          </div>
+        `;
+      } else {
+        const viewAllTitle = lessonLibraryViewAllKey
+          ? (buildLessonBrowseRows(items).find((row) => row.key === lessonLibraryViewAllKey)?.title || "All matching plans")
+          : "";
+        browseBody = `
+          ${lessonLibraryViewAllKey ? `
+            <div class="browse-view-all-bar">
+              <h3>${escapeHtml(viewAllTitle)}</h3>
+              <button type="button" class="ghost-button" data-clear-lesson-view-all>← Back to browse</button>
+            </div>
+          ` : ""}
+          <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
+            ${lessonUpgradeBanner}
+            ${viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
+          </div>
+        `;
+      }
     } else if (useBrowseRows) {
       const rows = buildLessonBrowseRows(items);
       browseBody = `
@@ -21297,9 +21413,10 @@ function renderCategoryPage(view) {
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
       ${calendarLessonAssignBannerHtml()}
+      ${isSavedLessonMode && lessonLibraryMode === "saved" && typeFilter !== "favorites" ? "" : (monthlyApi?.lessonLibraryTypeTabsHtml?.() || "")}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : typeFilter === "curriculum" ? "Search monthly curriculums..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
       ${isSavedLessonMode ? "" : `<div class="filter-row lesson-library-age-filters library-filter-scroll" role="group" aria-label="Age group filters">
         ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}" type="button" aria-pressed="${activeFilter === filter ? "true" : "false"}">${filter}</button>`).join("")}
@@ -37941,6 +38058,9 @@ function renderAdminContentManager() {
       <section class="admin-manager-section" data-admin-cm-section="curriculum-lesson-plans">
         <div id="adminCurriculumLessonPlanApp"></div>
       </section>
+      <section class="admin-manager-section" data-admin-cm-section="curriculum-series">
+        <div id="adminCurriculumSeriesApp"></div>
+      </section>
       <section class="admin-manager-section" data-admin-cm-section="curriculum-activities">
         <div id="adminCurriculumActivityApp"></div>
       </section>
@@ -37968,6 +38088,9 @@ function renderAdminContentManager() {
     </div>
   `;
   if (adminActiveSectionTab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
+  if (adminActiveSectionTab === "curriculum-series") {
+    globalThis.LLHMonthlyCurriculumPhase1?.renderAdminCurriculumSeriesManager?.();
+  }
   if (adminActiveSectionTab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
   if (adminActiveSectionTab === "curriculum-resources") renderAdminCurriculumResourceManager();
   if (adminActiveSectionTab === "forms") renderAdminFormsManager();
@@ -39419,6 +39542,7 @@ const adminSectionTabs = [
   { id: "dashboard",   label: "Dashboard" },
   { id: "resources",   label: "Legacy File Uploads" },
   { id: "curriculum-lesson-plans", label: "Play-Based Lessons" },
+  { id: "curriculum-series", label: "Monthly Curriculums" },
   { id: "curriculum-activities", label: "Curriculum Activities" },
   { id: "curriculum-resources", label: "Curriculum Resources" },
   { id: "forms",       label: "Forms Library (not legacy uploads)" },
@@ -39482,7 +39606,7 @@ function renderAdminSectionNav() {
   `;
 }
 
-const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
+const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-series", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
 
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
@@ -39528,6 +39652,9 @@ function applyAdminSectionVisibility() {
       el.hidden = el.dataset.adminCmSection !== tab;
     });
     if (tab === "curriculum-lesson-plans") renderAdminCurriculumLessonPlanManager();
+    if (tab === "curriculum-series") {
+      globalThis.LLHMonthlyCurriculumPhase1?.renderAdminCurriculumSeriesManager?.();
+    }
     if (tab === "curriculum-activities") renderAdminCurriculumActivityBrowser();
     if (tab === "curriculum-resources") renderAdminCurriculumResourceManager();
     if (tab === "forms") renderAdminFormsManager();

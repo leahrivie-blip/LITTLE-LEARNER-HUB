@@ -52,7 +52,7 @@ function main() {
   const v3Preview = buildCurriculumImportPreview(v3Parsed, { formatVersion: 3 });
   assert(v3Preview.canConfirm, v3Preview.errors.map((entry) => entry.message).join(" | "));
   assert(v3Preview.data.title === "Garden Scientists", "v3 preview title");
-  assert(v3Preview.summary.activityCount === 4, "v3 activity count");
+  assert(v3Preview.summary.activityCount === 6, "v3 activity count");
   assert(v3Preview.summary.bookCount === 2, "v3 books count");
 
   console.log("4) Invalid category blocks Import & Save");

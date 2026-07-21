@@ -15,6 +15,7 @@ const {
   curriculumLessonDayDetailsHtml,
 } = require("./curriculum-lesson-viewer-render.js");
 const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
+const freeSample = require("./free-curriculum-sample.js");
 
 const ROOT = path.join(__dirname, "..");
 const V2_SAMPLE = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
@@ -221,7 +222,9 @@ async function testServerVisibility(child) {
   });
   let expectedUpdatedAt = touch.json.siteContent.updatedAt;
 
-  const publishedFreeId = `cur-lp-viewer-free-${crypto.randomBytes(3).toString("hex")}`;
+  const publishedFreeId = freeSample.PERMANENT_FREE_LESSON_IDS.find((id) => id.includes("preschool"))
+    || freeSample.PERMANENT_FREE_LESSON_IDS[0]
+    || `cur-lp-viewer-free-${crypto.randomBytes(3).toString("hex")}`;
   const publishedProId = `cur-lp-viewer-pro-${crypto.randomBytes(3).toString("hex")}`;
   const draftId = `cur-lp-viewer-draft-${crypto.randomBytes(3).toString("hex")}`;
   const base = premiumPlan();

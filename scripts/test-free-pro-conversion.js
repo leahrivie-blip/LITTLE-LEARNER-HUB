@@ -100,11 +100,11 @@ test("homepage and FAQ marketing match curated Free", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260720-promo-existing");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260720-promo-existing");
-  assert.match(sw, /llh-shell-v105-promo-existing/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260720-promo-existing/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260720-promo-existing/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-cover-netflix-nav");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-cover-netflix-nav");
+  assert.match(sw, /llh-shell-v107-cover-netflix-nav/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260721-cover-netflix-nav/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260721-cover-netflix-nav/);
 });
 
 function requestJson(method, urlPath, body) {

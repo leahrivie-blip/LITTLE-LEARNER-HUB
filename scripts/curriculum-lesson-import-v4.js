@@ -22,9 +22,34 @@
     TITLE: ["title", "lesson title", "lesson plan title", "plan title", "name"],
     AGE_GROUP: ["age group", "age", "ages", "age range", "age band", "developmental age"],
     THEME: ["theme", "unit", "unit theme", "weekly theme", "focus", "topic"],
-    PLAN: ["plan", "access", "plan type", "membership", "tier", "pricing"],
-    STATUS: ["status", "publish status", "visibility"],
-    LEARNING_DOMAINS: ["learning domains", "domains", "developmental domains", "learning areas"],
+    PLAN: [
+      "plan",
+      "access",
+      "plan type",
+      "membership",
+      "tier",
+      "pricing",
+      "free or pro",
+      "access level",
+      "subscription",
+    ],
+    STATUS: [
+      "status",
+      "publish status",
+      "visibility",
+      "draft or published",
+      "publication status",
+    ],
+    LEARNING_DOMAINS: [
+      "learning domains",
+      "domains",
+      "developmental domains",
+      "learning areas",
+      "domain",
+      "skill area",
+      "developmental area",
+      "learning domain",
+    ],
     WEEKLY_OVERVIEW: [
       "weekly overview",
       "theme overview",
@@ -166,9 +191,12 @@
       "teacher tips",
       "teacher notes",
       "teacher support",
+      "teacher guidance",
       "educator role",
+      "educator guidance",
       "facilitator role",
       "adult role",
+      "adult support",
     ],
     DIRECTIONS: [
       "directions",
@@ -177,6 +205,8 @@
       "how to",
       "procedure",
       "how it works",
+      "what to do",
+      "activity steps",
     ],
     LEARNING_GOALS: [
       "learning goals",
@@ -184,15 +214,44 @@
       "learning outcomes",
       "skills",
       "skills practiced",
+      "skill focus",
+      "developmental goals",
     ],
-    OBSERVATION_OPPORTUNITIES: ["observation opportunities", "observe for", "what to watch for"],
-    VOCABULARY: ["vocabulary", "vocab"],
-    EXTENSIONS: ["extensions", "extend the learning", "enrichment"],
-    ADAPTATIONS: ["adaptations", "modifications", "accommodations", "support strategies"],
-    SAFETY_NOTES: ["safety notes", "safety"],
-    TEACHER_LANGUAGE: ["teacher language", "language prompts", "talking points"],
-    AGE_MODIFICATIONS: ["age modifications", "age adaptations"],
-    LEARNING_DOMAINS: ["learning domains", "domains"],
+    OBSERVATION_OPPORTUNITIES: [
+      "observation opportunities",
+      "observe for",
+      "what to watch for",
+      "assessment",
+      "look fors",
+      "look-fors",
+      "assessment ideas",
+    ],
+    VOCABULARY: ["vocabulary", "vocab", "key words", "words to know"],
+    EXTENSIONS: ["extensions", "extend the learning", "enrichment", "next steps"],
+    ADAPTATIONS: [
+      "adaptations",
+      "modifications",
+      "accommodations",
+      "support strategies",
+      "differentiation",
+      "supports",
+    ],
+    SAFETY_NOTES: ["safety notes", "safety", "cautions", "safety reminders", "supervision notes"],
+    TEACHER_LANGUAGE: [
+      "teacher language",
+      "language prompts",
+      "talking points",
+      "suggested language",
+      "what to say",
+    ],
+    AGE_MODIFICATIONS: ["age modifications", "age adaptations", "age supports"],
+    LEARNING_DOMAINS: [
+      "learning domains",
+      "domains",
+      "skill area",
+      "developmental area",
+      "learning areas",
+    ],
   };
 
   const CATEGORY_INFERENCE_RULES = [
@@ -229,6 +288,27 @@
   const LESSON_LOOKUP = buildSynonymLookup(V4_LESSON_FIELD_SYNONYMS);
   const DAY_LOOKUP = buildSynonymLookup(V4_DAY_FIELD_SYNONYMS);
   const ACTIVITY_LOOKUP = buildSynonymLookup(V4_ACTIVITY_FIELD_SYNONYMS);
+
+  function adminHeadingAliasRules() {
+    try {
+      if (typeof effectiveCurriculum === "function") {
+        return (effectiveCurriculum().importSynonyms || []).filter((rule) => (
+          rule && !rule.disabled && rule.field === "headingAlias"
+        ));
+      }
+    } catch { /* ignore */ }
+    return [];
+  }
+
+  function lookupWithAdminAliases(baseLookup) {
+    const lookup = new Map(baseLookup);
+    adminHeadingAliasRules().forEach((rule) => {
+      const from = normalizeKey(rule.from);
+      const to = String(rule.to || "").trim().toUpperCase();
+      if (from && to) lookup.set(from, to);
+    });
+    return lookup;
+  }
 
   function preserveMultilineText(value, max = 12000) {
     return String(value || "").replace(/\r\n?/g, "\n").replace(/\s+$/gm, "").slice(0, max);
@@ -586,7 +666,7 @@
 
   function parseV4ActivityBlock(block, { dayKey, lineOffset = 1, existingItemIds, generateItemId, baseApi }) {
     const warnings = [];
-    const { fields, unmapped } = parseFlexibleFieldBlock(block, ACTIVITY_LOOKUP, {
+    const { fields, unmapped } = parseFlexibleFieldBlock(block, lookupWithAdminAliases(ACTIVITY_LOOKUP), {
       lineOffset,
       context: `${dayKey}:activity`,
     });
@@ -638,9 +718,7 @@
       title,
       objective: preserveMultilineText(fields.OBJECTIVE),
       description: preserveMultilineText(fields.DESCRIPTION),
-      learningDomains: baseApi?.parseLearningDomainsList
-        ? [] // parseLearningDomainsList may not be exported; handle below
-        : [],
+      learningDomains: [],
       materials: preserveMultilineText(fields.MATERIALS),
       setup: preserveMultilineText(fields.SETUP),
       steps: preserveMultilineText(fields.DIRECTIONS),
@@ -654,18 +732,58 @@
       safetyNotes: preserveMultilineText(fields.SAFETY_NOTES),
       ageModifications: preserveMultilineText(fields.AGE_MODIFICATIONS),
       _categoryInferred: categoryInferred,
+      _domainMappings: [],
     };
 
-    // learning domains via simple split if field present
     if (fields.LEARNING_DOMAINS) {
-      activity.learningDomains = String(fields.LEARNING_DOMAINS)
-        .split(/[,;\n]/)
-        .map((item) => normalizedShortText(item))
-        .filter(Boolean)
-        .slice(0, 6);
+      const resolved = resolveDomainsFlexible(fields.LEARNING_DOMAINS, baseApi);
+      activity.learningDomains = resolved.domains;
+      activity._domainMappings = resolved.mappings;
+      resolved.unmatched.forEach((item) => {
+        unmapped.push({
+          field: "LEARNING_DOMAINS",
+          value: item.original,
+          note: `Needs review: "${item.original}" was not matched to an official learning domain.`,
+        });
+        warnings.push(
+          `${dayKey}: "${title}" learning domain "${item.original}" needs review — original text preserved.`,
+        );
+      });
+      resolved.mappings
+        .filter((m) => m.confidence === "medium" && m.official)
+        .forEach((m) => {
+          warnings.push(`${dayKey}: "${title}" — ${m.note}`);
+        });
     }
 
     return { activity, errors: [], warnings, unmapped };
+  }
+
+  function resolveDomainsFlexible(text, baseApi) {
+    if (baseApi?.resolveLearningDomainsWithConfidence) {
+      return baseApi.resolveLearningDomainsWithConfidence(text);
+    }
+    if (baseApi?.parseLearningDomainsList) {
+      const domains = baseApi.parseLearningDomainsList(text);
+      return {
+        domains,
+        mappings: domains.map((official) => ({
+          original: official,
+          token: official.toLowerCase(),
+          official,
+          confidence: "high",
+          note: `"${official}" matched.`,
+        })),
+        unmatched: [],
+      };
+    }
+    try {
+      // eslint-disable-next-line global-require
+      const domainsApi = require("./curriculum-learning-domains.js");
+      return domainsApi.resolveLearningDomainsWithConfidence(text);
+    } catch {
+      return { domains: [], mappings: [], unmatched: [{ original: String(text || ""), token: "", choices: [] }] };
+    }
   }
 
   function applyDayFields(dayPlan, fields, baseApi) {
@@ -687,11 +805,9 @@
       dayPlan.songs = baseApi.parseCurriculumImportListLines(fields.SONGS, { parts: 2 });
     }
     if (fields.LEARNING_DOMAINS) {
-      dayPlan.learningDomains = String(fields.LEARNING_DOMAINS)
-        .split(/[,;\n]/)
-        .map((item) => normalizedShortText(item))
-        .filter(Boolean)
-        .slice(0, 6);
+      const resolved = resolveDomainsFlexible(fields.LEARNING_DOMAINS, baseApi);
+      dayPlan.learningDomains = resolved.domains;
+      dayPlan._domainMappings = resolved.mappings;
     }
   }
 
@@ -824,7 +940,7 @@
       }])));
 
     const { lessonBody, daySections, dayLineOffsets } = splitFlexibleWeekdaySections(raw);
-    const { fields: lessonFields, unmapped: lessonUnmapped } = parseFlexibleFieldBlock(lessonBody, LESSON_LOOKUP, {
+    const { fields: lessonFields, unmapped: lessonUnmapped } = parseFlexibleFieldBlock(lessonBody, lookupWithAdminAliases(LESSON_LOOKUP), {
       context: "lesson",
     });
     // Soft-unmapped: keep for report but do not block
@@ -925,7 +1041,7 @@
         const firstActivityIndex = dayContent.indexOf(activityBlocks[0]);
         dayFieldText = firstActivityIndex >= 0 ? dayContent.slice(0, firstActivityIndex) : "";
       }
-      const dayParsed = parseFlexibleFieldBlock(dayFieldText, DAY_LOOKUP, {
+      const dayParsed = parseFlexibleFieldBlock(dayFieldText, lookupWithAdminAliases(DAY_LOOKUP), {
         lineOffset: dayLineOffsets[dayKey] || 1,
         context: `${dayKey}:daily`,
       });
@@ -966,11 +1082,21 @@
       errors.push("At least one activity with a name is required under a weekday section (Monday–Friday).");
     }
 
-    const learningDomains = String(lessonFields.LEARNING_DOMAINS || "")
-      .split(/[,;\n]/)
-      .map((item) => normalizedShortText(item))
-      .filter(Boolean)
-      .slice(0, 6);
+    const domainResolved = lessonFields.LEARNING_DOMAINS
+      ? resolveDomainsFlexible(lessonFields.LEARNING_DOMAINS, baseApi)
+      : { domains: [], mappings: [], unmatched: [] };
+    domainResolved.unmatched.forEach((item) => {
+      unmapped.push({
+        field: "LEARNING_DOMAINS",
+        value: item.original,
+        note: `Needs review: "${item.original}" was not matched to an official learning domain.`,
+      });
+      warnings.push(`Learning domain "${item.original}" needs review — original text preserved.`);
+    });
+    domainResolved.mappings
+      .filter((m) => m.confidence === "medium" && m.official)
+      .forEach((m) => warnings.push(m.note));
+    const learningDomains = domainResolved.domains;
 
     const data = {
       _formatVersion: formatVersion,
@@ -981,6 +1107,7 @@
       plan: planInfo.plan || "Free",
       status,
       learningDomains,
+      _domainMappings: domainResolved.mappings,
       weeklyOverview: preserveMultilineText(lessonFields.WEEKLY_OVERVIEW),
       objectives: preserveMultilineText(lessonFields.LEARNING_OBJECTIVES),
       weeklyMaterials: preserveMultilineText(lessonFields.WEEKLY_MATERIALS),
