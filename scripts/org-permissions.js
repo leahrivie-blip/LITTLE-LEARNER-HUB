@@ -81,6 +81,13 @@ const ACTIONS = Object.freeze({
   FORM_LIBRARY_BROWSE: "form_library.browse",
   FORM_LIBRARY_COPY: "form_library.copy",
   FORM_LIBRARY_MANAGE_TEMPLATES: "form_library.manage_templates",
+  FORM_ASSIGNMENT_CREATE: "form_assignment.create",
+  FORM_ASSIGNMENT_MANAGE_LINKS: "form_assignment.manage_links",
+  FORM_RESPONSE_VIEW: "form_response.view",
+  FORM_RESPONSE_REVIEW: "form_response.review",
+  FORM_RESPONSE_APPROVE: "form_response.approve",
+  FORM_RESPONSE_VOID: "form_response.void",
+  FORM_RESPONSE_ARCHIVE: "form_response.archive",
   FAMILY_MESSAGE: "family.message",
   FAMILY_VIEW_REPORTS: "family.view_reports",
 });
@@ -100,6 +107,7 @@ const ASSISTANT_PERMISSION_ACTION_MAP = Object.freeze({
   addCalendarEvents: ACTIONS.CLASSROOM_ADD_EVENT,
   editClassroomLessonPlanCopies: ACTIONS.CLASSROOM_EDIT_LESSON_COPY,
   useDocumentationHelpers: ACTIONS.DOC_HELPERS_USE,
+  viewFormResponses: ACTIONS.FORM_RESPONSE_VIEW,
 });
 
 const ROLE_PERMISSIONS = Object.freeze({
@@ -128,6 +136,8 @@ const ROLE_PERMISSIONS = Object.freeze({
     ACTIONS.FORM_CREATE,
     ACTIONS.FORM_SEND,
     ACTIONS.FORM_REVIEW,
+    ACTIONS.FORM_ASSIGNMENT_CREATE,
+    ACTIONS.FORM_RESPONSE_VIEW,
     ACTIONS.FAMILY_MESSAGE,
     ACTIONS.FAMILY_VIEW_REPORTS,
   ],
