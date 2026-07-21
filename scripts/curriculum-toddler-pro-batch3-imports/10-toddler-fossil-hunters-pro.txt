@@ -1,0 +1,255 @@
+TITLE: Fossil Hunters
+AGE_GROUP: Toddler (2-3 Years)
+THEME: Fossil Hunters
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Science; Math; Language & Literacy; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
+WEEKLY_OVERVIEW: Toddlers become fossil hunters as they dig, brush, match, press, sort, build, and move through playful investigations about bones, rocks, dinosaurs, and clues from long ago.
+LEARNING_OBJECTIVES: Use simple fossil vocabulary; compare rough/smooth and big/small; practice digging and brushing; count to five; match prints and shapes; build persistence and cooperative play.
+WEEKLY_MATERIALS: Kinetic sand or safe digging medium, large toy bones, dinosaur figures, brushes, scoops, rocks, playdough, shells, blocks, magnifiers, paper, paint, books.
+VOCABULARY: Fossil, bone, rock, dig, brush, print, dinosaur, old, rough, smooth.
+BOOKS: Digging Up Dinosaurs; Bones, Bones, Dinosaur Bones; Dinosaur Bones; How Do Dinosaurs Say Good Night?
+SONGS: We Are the Dinosaurs; Dinosaur Stomp; Five Little Dinosaurs.
+FAMILY_CONNECTION: Invite families to look for interesting rocks or leaf prints and talk about clues found in nature.
+OBSERVATION_OPPORTUNITIES: Observe tool use, matching, counting, persistence, comparison language, sensory preferences, and peer interaction.
+ADAPTATIONS: Use sealed digging bags, larger tools, picture cards, seated activities, and pre-exposed objects.
+
+MONDAY
+DAILY_THEME: What Is a Fossil?
+DAILY_OBJECTIVES: Explore fossils as clues from long ago.
+DAILY_VOCABULARY: Fossil, old, clue, rock.
+DAILY_MATERIALS: Fossil photos, rocks, shells, magnifiers.
+DAILY_LEARNING_DOMAINS: Science; Language; Sensory.
+CIRCLE_TIME_IDEAS: Compare fossil pictures with ordinary rocks and discuss how fossils are clues.
+OUTDOOR_PLAY: Search for rocks with different colors and textures.
+DAILY_OBSERVATION_OPPORTUNITIES: Note curiosity and descriptive language.
+DAILY_ADAPTATIONS: Offer large photo cards and touch-free observation.
+SAFETY_NOTES: Use rocks too large to swallow and inspect for sharp edges.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Fossil Look-and-Touch Table
+ACTIVITY_1_OBJECTIVE: Compare rocks, shells, and fossil replicas.
+ACTIVITY_1_DESCRIPTION: Children examine safe objects with magnifiers.
+ACTIVITY_1_MATERIALS: Fossil replicas, smooth rocks, shells, magnifiers, trays.
+ACTIVITY_1_SETUP: Arrange objects in individual trays.
+ACTIVITY_1_DIRECTIONS: 1. Choose an object. 2. Look closely. 3. Touch gently. 4. Compare with another. 5. Describe rough, smooth, big, or small.
+ACTIVITY_1_TEACHER_ROLE: Model careful observation and comparison words.
+ACTIVITY_1_LEARNING_GOALS: Scientific observation; vocabulary; sensory discrimination.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note attention and comparison attempts.
+ACTIVITY_1_ADAPTATIONS: Use photos or sealed display bags.
+ACTIVITY_1_SAFETY_NOTES: Supervise all objects.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Big Fossil, Small Fossil
+ACTIVITY_2_OBJECTIVE: Sort by size.
+ACTIVITY_2_DESCRIPTION: Children sort large fossil pictures into big and small groups.
+ACTIVITY_2_MATERIALS: Large laminated fossil cards, two mats.
+ACTIVITY_2_SETUP: Label mats big and small.
+ACTIVITY_2_DIRECTIONS: 1. Choose a card. 2. Compare size. 3. Place on a mat. 4. Repeat. 5. Count each group.
+ACTIVITY_2_TEACHER_ROLE: Model size language and counting.
+ACTIVITY_2_LEARNING_GOALS: Classification; comparison; number sense.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note sorting accuracy.
+ACTIVITY_2_ADAPTATIONS: Use only two highly contrasting sizes.
+ACTIVITY_2_SAFETY_NOTES: Use durable large cards.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Rock Rubbing Art
+ACTIVITY_3_OBJECTIVE: Explore texture through mark making.
+ACTIVITY_3_DESCRIPTION: Children place paper over textured plates or safe flat rocks and rub crayons across.
+ACTIVITY_3_MATERIALS: Paper, chunky crayons, texture plates or flat rocks.
+ACTIVITY_3_SETUP: Tape objects and paper securely.
+ACTIVITY_3_DIRECTIONS: 1. Place paper. 2. Hold crayon sideways. 3. Rub gently. 4. Watch texture appear. 5. Compare patterns.
+ACTIVITY_3_TEACHER_ROLE: Support grip and describe patterns.
+ACTIVITY_3_LEARNING_GOALS: Fine motor; cause and effect; creativity.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note pressure and visual interest.
+ACTIVITY_3_ADAPTATIONS: Use large handled crayons.
+ACTIVITY_3_SAFETY_NOTES: Use smooth-edged materials.
+
+TUESDAY
+DAILY_THEME: Digging for Bones
+DAILY_OBJECTIVES: Practice digging, brushing, and finding hidden objects.
+DAILY_VOCABULARY: Dig, brush, bone, find.
+DAILY_MATERIALS: Safe digging bin, large bones, brushes, scoops.
+DAILY_LEARNING_DOMAINS: Science; Fine Motor; Sensory.
+CIRCLE_TIME_IDEAS: Demonstrate how paleontologists dig carefully.
+OUTDOOR_PLAY: Dig in a designated soil or sandbox area.
+DAILY_OBSERVATION_OPPORTUNITIES: Note tool control and persistence.
+DAILY_ADAPTATIONS: Partially uncover objects or use a dry sealed bag.
+SAFETY_NOTES: Closely supervise sensory materials.
+ACTIVITY_1_CATEGORY: Sensory Play
+ACTIVITY_1_NAME: Fossil Dig Bin
+ACTIVITY_1_OBJECTIVE: Use tools to uncover hidden objects.
+ACTIVITY_1_DESCRIPTION: Children dig and brush to find large toy bones.
+ACTIVITY_1_MATERIALS: Kinetic sand or shredded paper, large toy bones, scoops, brushes.
+ACTIVITY_1_SETUP: Hide bones shallowly in bin.
+ACTIVITY_1_DIRECTIONS: 1. Choose a tool. 2. Dig slowly. 3. Find a bone. 4. Brush it clean. 5. Place it on a tray.
+ACTIVITY_1_TEACHER_ROLE: Model gentle tool use and narrate discoveries.
+ACTIVITY_1_LEARNING_GOALS: Fine motor; persistence; cause and effect.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note grasp and problem-solving.
+ACTIVITY_1_ADAPTATIONS: Leave bones partly visible.
+ACTIVITY_1_SAFETY_NOTES: Prevent throwing or mouthing materials.
+ACTIVITY_2_CATEGORY: Practical Life
+ACTIVITY_2_NAME: Clean the Fossils
+ACTIVITY_2_OBJECTIVE: Practice brushing and wiping.
+ACTIVITY_2_DESCRIPTION: Children gently clean toy fossils with brushes and cloths.
+ACTIVITY_2_MATERIALS: Toy fossils, dry brushes, cloths, trays.
+ACTIVITY_2_SETUP: Place one fossil and tool set per tray.
+ACTIVITY_2_DIRECTIONS: 1. Hold fossil. 2. Brush dust. 3. Wipe gently. 4. Turn it over. 5. Place in display tray.
+ACTIVITY_2_TEACHER_ROLE: Model care and sequence.
+ACTIVITY_2_LEARNING_GOALS: Independence; hand control; responsibility.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note sustained attention.
+ACTIVITY_2_ADAPTATIONS: Use larger brushes.
+ACTIVITY_2_SAFETY_NOTES: Use soft brushes only.
+ACTIVITY_3_CATEGORY: Gross Motor
+ACTIVITY_3_NAME: Dig, Carry, Deliver
+ACTIVITY_3_OBJECTIVE: Strengthen squatting, lifting, and walking.
+ACTIVITY_3_DESCRIPTION: Children collect soft bone props and carry them to a museum basket.
+ACTIVITY_3_MATERIALS: Foam bones, baskets, floor markers.
+ACTIVITY_3_SETUP: Place bones along a short path.
+ACTIVITY_3_DIRECTIONS: 1. Walk to a bone. 2. Squat. 3. Pick it up. 4. Carry to basket. 5. Return for another.
+ACTIVITY_3_TEACHER_ROLE: Cue safe lifting and turn-taking.
+ACTIVITY_3_LEARNING_GOALS: Coordination; body awareness; cooperation.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note balance and control.
+ACTIVITY_3_ADAPTATIONS: Place items within seated reach.
+ACTIVITY_3_SAFETY_NOTES: Keep path clear.
+
+WEDNESDAY
+DAILY_THEME: Fossil Prints
+DAILY_OBJECTIVES: Create impressions and match prints.
+DAILY_VOCABULARY: Print, press, shape, match.
+DAILY_MATERIALS: Playdough, shells, large dinosaur feet, print cards.
+DAILY_LEARNING_DOMAINS: Science; Fine Motor; Math; Art.
+CIRCLE_TIME_IDEAS: Press an object into dough and reveal its print.
+OUTDOOR_PLAY: Make shoeprints in damp sand or mud.
+DAILY_OBSERVATION_OPPORTUNITIES: Note cause-and-effect understanding and matching.
+DAILY_ADAPTATIONS: Use softer dough and larger tools.
+SAFETY_NOTES: Use washable, non-toxic materials.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Make a Fossil Print
+ACTIVITY_1_OBJECTIVE: Observe how pressure creates an impression.
+ACTIVITY_1_DESCRIPTION: Children press shells and dinosaur feet into playdough.
+ACTIVITY_1_MATERIALS: Playdough, large shells, dinosaur figures, trays.
+ACTIVITY_1_SETUP: Flatten dough on trays.
+ACTIVITY_1_DIRECTIONS: 1. Choose object. 2. Press into dough. 3. Lift carefully. 4. Look at print. 5. Compare prints.
+ACTIVITY_1_TEACHER_ROLE: Model pressing and observation language.
+ACTIVITY_1_LEARNING_GOALS: Cause and effect; visual discrimination; hand strength.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note pressure and comparison.
+ACTIVITY_1_ADAPTATIONS: Use handled stampers.
+ACTIVITY_1_SAFETY_NOTES: Supervise mouthing.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Match the Fossil Print
+ACTIVITY_2_OBJECTIVE: Match objects to impressions.
+ACTIVITY_2_DESCRIPTION: Children pair large objects with matching print cards.
+ACTIVITY_2_MATERIALS: Object and print-card pairs.
+ACTIVITY_2_SETUP: Lay out two or three pairs.
+ACTIVITY_2_DIRECTIONS: 1. Choose a print. 2. Look at its shape. 3. Find matching object. 4. Place together. 5. Repeat.
+ACTIVITY_2_TEACHER_ROLE: Prompt noticing of lines and shapes.
+ACTIVITY_2_LEARNING_GOALS: Matching; visual discrimination; problem-solving.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note strategy and accuracy.
+ACTIVITY_2_ADAPTATIONS: Offer two choices.
+ACTIVITY_2_SAFETY_NOTES: Use large pieces.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Painted Dinosaur Tracks
+ACTIVITY_3_OBJECTIVE: Create repeated patterns through stamping.
+ACTIVITY_3_DESCRIPTION: Children stamp large dinosaur feet into washable paint and across paper.
+ACTIVITY_3_MATERIALS: Dinosaur figures, washable paint, long paper.
+ACTIVITY_3_SETUP: Tape paper down and prepare shallow paint trays.
+ACTIVITY_3_DIRECTIONS: 1. Dip feet. 2. Stamp once. 3. Make a trail. 4. Count prints. 5. Compare colors.
+ACTIVITY_3_TEACHER_ROLE: Support turn-taking and pattern words.
+ACTIVITY_3_LEARNING_GOALS: Fine motor; pattern awareness; creativity.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note repetition and counting.
+ACTIVITY_3_ADAPTATIONS: Use handled footprint stamps.
+ACTIVITY_3_SAFETY_NOTES: Clean figures before reuse.
+
+THURSDAY
+DAILY_THEME: Dinosaur Bone Builders
+DAILY_OBJECTIVES: Build simple skeletons and compare lengths.
+DAILY_VOCABULARY: Bone, skeleton, long, short, build.
+DAILY_MATERIALS: Craft-stick bones, blocks, skeleton pictures, playdough.
+DAILY_LEARNING_DOMAINS: Engineering; Math; Fine Motor; Language.
+CIRCLE_TIME_IDEAS: Look at a simple dinosaur skeleton image and identify head, body, legs, and tail.
+OUTDOOR_PLAY: Make long and short dinosaur paths with sticks or chalk.
+DAILY_OBSERVATION_OPPORTUNITIES: Note planning, comparison, and persistence.
+DAILY_ADAPTATIONS: Use a picture outline and pre-positioned pieces.
+SAFETY_NOTES: Use rounded, oversized materials.
+ACTIVITY_1_CATEGORY: Engineering
+ACTIVITY_1_NAME: Build a Dinosaur Skeleton
+ACTIVITY_1_OBJECTIVE: Arrange pieces into a simple body shape.
+ACTIVITY_1_DESCRIPTION: Children place large craft-stick bones on a dinosaur outline.
+ACTIVITY_1_MATERIALS: Large rounded sticks, dinosaur outlines, playdough connectors.
+ACTIVITY_1_SETUP: Place outlines and materials on trays.
+ACTIVITY_1_DIRECTIONS: 1. Find head. 2. Add body. 3. Add legs. 4. Add tail. 5. Adjust pieces.
+ACTIVITY_1_TEACHER_ROLE: Encourage experimentation without requiring accuracy.
+ACTIVITY_1_LEARNING_GOALS: Spatial reasoning; planning; persistence.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note placement and problem-solving.
+ACTIVITY_1_ADAPTATIONS: Use fewer pieces.
+ACTIVITY_1_SAFETY_NOTES: Use blunt materials.
+ACTIVITY_2_CATEGORY: Math
+ACTIVITY_2_NAME: Long Bone, Short Bone
+ACTIVITY_2_OBJECTIVE: Compare length.
+ACTIVITY_2_DESCRIPTION: Children sort large bone shapes into long and short groups.
+ACTIVITY_2_MATERIALS: Foam bone shapes, two mats.
+ACTIVITY_2_SETUP: Label mats long and short.
+ACTIVITY_2_DIRECTIONS: 1. Choose bone. 2. Compare. 3. Place on mat. 4. Repeat. 5. Count groups.
+ACTIVITY_2_TEACHER_ROLE: Model comparison language.
+ACTIVITY_2_LEARNING_GOALS: Measurement language; sorting; counting.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note visual comparison.
+ACTIVITY_2_ADAPTATIONS: Use obvious length differences.
+ACTIVITY_2_SAFETY_NOTES: Use large foam pieces.
+ACTIVITY_3_CATEGORY: Gross Motor
+ACTIVITY_3_NAME: Dinosaur Bone Balance Path
+ACTIVITY_3_OBJECTIVE: Practice stepping and balance.
+ACTIVITY_3_DESCRIPTION: Children step along large bone-shaped floor markers.
+ACTIVITY_3_MATERIALS: Non-slip foam bone markers.
+ACTIVITY_3_SETUP: Arrange markers in a short path.
+ACTIVITY_3_DIRECTIONS: 1. Step on first bone. 2. Walk to next. 3. Pause and balance. 4. Turn around. 5. Repeat.
+ACTIVITY_3_TEACHER_ROLE: Spot children and cue slow steps.
+ACTIVITY_3_LEARNING_GOALS: Balance; motor planning; confidence.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note control and stability.
+ACTIVITY_3_ADAPTATIONS: Hold a hand or place markers closer.
+ACTIVITY_3_SAFETY_NOTES: Use non-slip markers.
+
+FRIDAY
+DAILY_THEME: Fossil Museum
+DAILY_OBJECTIVES: Review discoveries and participate in cooperative dramatic play.
+DAILY_VOCABULARY: Museum, display, discover, fossil.
+DAILY_MATERIALS: Fossil creations, trays, labels, tickets, blocks, magnifiers.
+DAILY_LEARNING_DOMAINS: Language; Social-Emotional; Dramatic Play; Creative Arts.
+CIRCLE_TIME_IDEAS: Review the week's vocabulary and choose favorite discoveries.
+OUTDOOR_PLAY: Complete a fossil-hunter obstacle course.
+DAILY_OBSERVATION_OPPORTUNITIES: Note recall, communication, role play, and cooperation.
+DAILY_ADAPTATIONS: Use picture role cards and a shorter museum route.
+SAFETY_NOTES: Keep displays stable and pathways clear.
+ACTIVITY_1_CATEGORY: Dramatic Play
+ACTIVITY_1_NAME: Classroom Fossil Museum
+ACTIVITY_1_OBJECTIVE: Practice sharing information and taking roles.
+ACTIVITY_1_DESCRIPTION: Children display fossils, hand out tickets, and guide visitors.
+ACTIVITY_1_MATERIALS: Student creations, trays, large tickets, toy magnifiers.
+ACTIVITY_1_SETUP: Arrange several low display stations.
+ACTIVITY_1_DIRECTIONS: 1. Choose role. 2. Place fossil on display. 3. Give visitor ticket. 4. Show favorite fossil. 5. Switch roles.
+ACTIVITY_1_TEACHER_ROLE: Model short scripts and support sharing.
+ACTIVITY_1_LEARNING_GOALS: Symbolic play; language; social confidence.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note role-taking and communication.
+ACTIVITY_1_ADAPTATIONS: Allow pointing or carrying a role card.
+ACTIVITY_1_SAFETY_NOTES: Use large paper tickets.
+ACTIVITY_2_CATEGORY: Language & Literacy
+ACTIVITY_2_NAME: Fossil Picture Review
+ACTIVITY_2_OBJECTIVE: Recall and match weekly concepts.
+ACTIVITY_2_DESCRIPTION: Children match pictures of fossil, bone, rock, brush, and dinosaur.
+ACTIVITY_2_MATERIALS: Large matching cards.
+ACTIVITY_2_SETUP: Lay out a few pairs at a time.
+ACTIVITY_2_DIRECTIONS: 1. Choose card. 2. Name or point. 3. Find match. 4. Make related action. 5. Review words.
+ACTIVITY_2_TEACHER_ROLE: Accept gestures and expand words into short phrases.
+ACTIVITY_2_LEARNING_GOALS: Recall; matching; expressive language.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note vocabulary growth.
+ACTIVITY_2_ADAPTATIONS: Offer two choices.
+ACTIVITY_2_SAFETY_NOTES: Use durable cards.
+ACTIVITY_3_CATEGORY: Gross Motor
+ACTIVITY_3_NAME: Fossil Hunter Mission
+ACTIVITY_3_OBJECTIVE: Combine crawling, stepping, carrying, and brushing.
+ACTIVITY_3_DESCRIPTION: Children travel through a short course to retrieve and clean a foam fossil.
+ACTIVITY_3_MATERIALS: Tunnel, floor spots, foam fossils, baskets, brushes.
+ACTIVITY_3_SETUP: Arrange a safe mission path.
+ACTIVITY_3_DIRECTIONS: 1. Crawl through tunnel. 2. Step on rocks. 3. Pick up fossil. 4. Carry to station. 5. Brush and display it.
+ACTIVITY_3_TEACHER_ROLE: Spot, encourage, and narrate sequence.
+ACTIVITY_3_LEARNING_GOALS: Motor planning; sequencing; confidence.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note coordination and persistence.
+ACTIVITY_3_ADAPTATIONS: Remove tunnel or shorten path.
+ACTIVITY_3_SAFETY_NOTES: Use low stable equipment.
