@@ -85,7 +85,7 @@ Explore
 AGE_GROUP: Preschool
 THEME: Theme
 PLAN: Free
-STATUS: Published
+STATUS: draft
 WEEKLY_OVERVIEW: Overview text
 MONDAY:
 ACTIVITY_NAME: Inline Activity
@@ -108,10 +108,11 @@ LEARNING_GOALS: Fine motor
   const v3Text = fs.readFileSync(V3_SAMPLE, "utf8");
   const v3 = parseCurriculumLessonPlanImportV3(v3Text);
   if (!v3.ok) throw new Error(v3.errors.join(" | "));
-  assert(v3.parseReport.activityCount === 4, `Expected 4 activities, got ${v3.parseReport.activityCount}`);
+  assert(v3.parseReport.activityCount === 6, `Expected 6 activities, got ${v3.parseReport.activityCount}`);
   const routed = parseCurriculumLessonPlanImport(v3Text);
   assert(routed.ok, routed.errors.join(" "));
   assert(routed.parseReport.formatVersion === 3, "routed format version");
+  assert(routed.parseReport.daysPresent.join(",") === "monday,tuesday,wednesday,thursday,friday", "garden sample has all weekdays");
 
   console.log("8) Bulk import supports multiple TITLE: plans");
   const bulk = parseCurriculumLessonPlanBulkImport(`${CURRICULUM_LESSON_IMPORT_V3_TEMPLATE}\n\nTITLE:\nSecond Ocean Plan\nAGE_GROUP:\nPreschool\nTHEME:\nOcean\nPLAN:\nFree\nSTATUS:\ndraft\nWEEKLY_OVERVIEW:\nOverview\nMONDAY\nACTIVITY_NAME:\nWave Dance\nCATEGORY:\nMusic & Movement\nDESCRIPTION:\nDance.\nMATERIALS:\nSpace\nDIRECTIONS:\n1. Dance.\nTEACHER_ROLE:\nLead.\nLEARNING_GOALS:\nMove\n`);
