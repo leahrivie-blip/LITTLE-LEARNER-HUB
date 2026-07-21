@@ -15931,9 +15931,13 @@ async function fetchAuthorizedCurriculumActivity(activityId) {
   if (!targetId || !canUseLaunchBackend()) return null;
   const cacheKey = `activity:${targetId}`;
   if (curriculumAuthorizedContentCache.has(cacheKey)) return curriculumAuthorizedContentCache.get(cacheKey);
-  const headers = await firebaseAuthHeaders();
+  const authHeaders = typeof firebaseAuthHeaders === "function" ? await firebaseAuthHeaders().catch(() => null) : null;
+  const headers = {
+    ...(await siteContentRequestHeaders()),
+    ...(authHeaders && typeof authHeaders === "object" ? authHeaders : {}),
+  };
   const response = await fetch(`${curriculumAccessConfig.activityEndpoint}/${encodeURIComponent(targetId)}`, {
-    headers: headers || {},
+    headers,
     cache: "no-store",
   });
   if (!response.ok) return null;
