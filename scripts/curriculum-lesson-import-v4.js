@@ -114,7 +114,16 @@
     VOCABULARY: ["daily vocabulary", "vocabulary", "vocab", "words", "daily_vocabulary"],
     BOOKS: ["books", "read aloud", "read-aloud", "story"],
     SONGS: ["songs", "music", "fingerplays"],
-    CIRCLE_TIME: ["circle time", "morning meeting", "group time", "opening circle", "circle", "circle_time"],
+    CIRCLE_TIME: [
+      "circle time",
+      "morning meeting",
+      "group time",
+      "opening circle",
+      "circle",
+      "circle_time",
+      "circle time ideas",
+      "circle_time_ideas",
+    ],
     TRANSITIONS: ["transitions", "transition songs", "transition ideas"],
     OUTDOOR_PLAY: ["outdoor play", "outdoors", "outside play", "playground", "outdoor", "outdoor_play"],
     FAMILY_CONNECTION: ["family connection", "home connection", "family engagement", "at home"],
@@ -126,6 +135,8 @@
       "daily observations",
       "daily_observations",
       "observation opportunities",
+      "daily observation opportunities",
+      "daily_observation_opportunities",
     ],
     ADAPTATIONS: [
       "adaptations",
@@ -273,9 +284,50 @@
     return "";
   }
 
+  function isNumberedActivityFieldLine(line) {
+    return /^ACTIVITY_\d+_[A-Z0-9_]+\s*:/i.test(String(line || "").trim());
+  }
+
+  function rewriteNumberedActivityFieldLine(line) {
+    const match = String(line || "").match(/^(ACTIVITY)_(\d+)_([A-Z0-9_]+)\s*:(.*)$/i);
+    if (!match) return line;
+    const field = String(match[3] || "").toUpperCase();
+    const canonical = field === "NAME" ? "ACTIVITY_NAME" : field;
+    const rest = match[4] == null ? "" : match[4];
+    return `${canonical}:${rest}`;
+  }
+
+  function splitNumberedActivityBlocks(dayContent) {
+    const lines = String(dayContent || "").split(/\r?\n/);
+    const blocks = [];
+    let current = [];
+    let currentNum = null;
+    const flush = () => {
+      const block = current.join("\n").trim();
+      if (block) blocks.push(block);
+      current = [];
+    };
+    lines.forEach((line) => {
+      const match = String(line || "").trim().match(/^ACTIVITY_(\d+)_([A-Z0-9_]+)\s*:/i);
+      if (match) {
+        const num = match[1];
+        if (currentNum !== null && num !== currentNum) flush();
+        currentNum = num;
+        current.push(rewriteNumberedActivityFieldLine(line));
+        return;
+      }
+      if (currentNum !== null) current.push(line);
+    });
+    flush();
+    return blocks;
+  }
+
   function isActivityStartLine(line) {
     const trimmed = String(line || "").trim();
     if (!trimmed) return false;
+    if (isNumberedActivityFieldLine(trimmed) && /^ACTIVITY_\d+_(?:CATEGORY|NAME)\s*:/i.test(trimmed)) {
+      return true;
+    }
     if (/^---+\s*activity\s*---+$/i.test(trimmed)) return true;
     if (/^#{1,3}\s*activity\b/i.test(trimmed)) return true;
     if (/^(activity(?:\s+(?:name|title))?|center(?:\s+activity)?|station)\s*[:\-–]/i.test(trimmed)) return true;
@@ -455,6 +507,10 @@
   function splitFlexibleDayActivities(dayContent) {
     const content = String(dayContent || "");
     if (!content.trim()) return [];
+    // Numbered ChatGPT export style: ACTIVITY_1_CATEGORY / ACTIVITY_1_NAME / …
+    if (/^ACTIVITY_\d+_[A-Z0-9_]+\s*:/im.test(content)) {
+      return splitNumberedActivityBlocks(content);
+    }
     // Prefer ACTIVITY_NAME / Activity Title / Center Activity style splits first
     const activityHeaderRe = /^(?:ACTIVITY[_ ]NAME|Activity Name|Activity Title|Center Activity|Activity)\s*:/im;
     if (activityHeaderRe.test(content)) {
@@ -922,7 +978,10 @@
       // Everything before first activity block = day-level fields
       let dayFieldText = dayContent;
       if (activityBlocks.length) {
-        const firstActivityIndex = dayContent.indexOf(activityBlocks[0]);
+        const numberedStart = dayContent.search(/^ACTIVITY_\d+_[A-Z0-9_]+\s*:/im);
+        const firstActivityIndex = numberedStart >= 0
+          ? numberedStart
+          : dayContent.indexOf(activityBlocks[0]);
         dayFieldText = firstActivityIndex >= 0 ? dayContent.slice(0, firstActivityIndex) : "";
       }
       const dayParsed = parseFlexibleFieldBlock(dayFieldText, DAY_LOOKUP, {

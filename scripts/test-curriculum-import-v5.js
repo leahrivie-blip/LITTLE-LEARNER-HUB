@@ -200,6 +200,44 @@ test("V4 mode still returns formatVersion 4", () => {
   assert.equal(parsed.data.title, "Beach Explorers");
 });
 
+test("V5 imports numbered ACTIVITY_1_NAME ChatGPT export format", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const samplePath = path.join(__dirname, "curriculum-toddler-pro-batch3-imports/10-toddler-fossil-hunters-pro.txt");
+  assert.ok(fs.existsSync(samplePath), "Fossil Hunters sample missing");
+  const text = fs.readFileSync(samplePath, "utf8");
+  const parsed = parser.parseCurriculumLessonPlanImportV5(text);
+  assert.equal(parsed.ok, true, parsed.errors.join("; "));
+  assert.equal(parsed.data.title, "Fossil Hunters");
+  assert.match(parsed.data.age, /Toddler/i);
+  assert.equal(parsed.data.plan, "Pro");
+  assert.equal(parsed.data.status, "published");
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  days.forEach((day) => {
+    const items = parsed.data.dailyPlans[day].items;
+    assert.equal(items.length, 3, `${day} should have 3 activities, got ${items.length}`);
+  });
+  assert.equal(parsed.data.dailyPlans.monday.items[0].title, "Fossil Look-and-Touch Table");
+  assert.equal(parsed.data.dailyPlans.monday.items[0].activityCategory, "STEM/Discovery");
+  assert.match(parsed.data.dailyPlans.monday.items[0].steps || "", /Choose an object/i);
+  assert.ok((parsed.data.dailyPlans.monday.circleTime || []).length >= 1, "circle time ideas mapped");
+});
+
+test("V5 imports Toddler Pro batch3 directory (all complete plans)", () => {
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const dir = path.join(__dirname, "curriculum-toddler-pro-batch3-imports");
+  const files = fs.readdirSync(dir).filter((name) => name.endsWith(".txt")).sort();
+  assert.ok(files.length >= 10, "expected batch3 files");
+  files.forEach((name) => {
+    const parsed = parser.parseCurriculumLessonPlanImportV5(fs.readFileSync(path.join(dir, name), "utf8"));
+    assert.equal(parsed.ok, true, `${name}: ${parsed.errors.join("; ")}`);
+    const total = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+      .reduce((sum, day) => sum + (parsed.data.dailyPlans[day].items || []).length, 0);
+    assert.equal(total, 15, `${name}: expected 15 activities, got ${total}`);
+  });
+});
+
 if (!process.exitCode) {
   console.log("\nAll V5 Flexible Import tests passed.");
 }
