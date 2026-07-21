@@ -1,0 +1,255 @@
+TITLE: Pond Life Explorers
+AGE_GROUP: Toddler (2-3 Years)
+THEME: Pond Life Explorers
+PLAN: PRO
+STATUS: Published
+LEARNING_DOMAINS: Science; Language & Literacy; Math; Fine Motor; Gross Motor; Creative Arts; Social-Emotional
+WEEKLY_OVERVIEW: Toddlers investigate frogs, ducks, fish, turtles, lily pads, and pond water through sensory play, movement, sorting, art, and simple building challenges.
+LEARNING_OBJECTIVES: Identify common pond animals; compare wet/dry and sink/float; count to five; imitate animal movements; practice sorting and cooperative play.
+WEEKLY_MATERIALS: Pond animals, blue fabric, water table, lily-pad shapes, blocks, sponges, paint, scoops, cups, nets, books.
+VOCABULARY: Pond, frog, duck, fish, turtle, lily pad, splash, swim, float, wet.
+BOOKS: In the Small, Small Pond; Little Green Frogs; Five Little Ducks; Over and Under the Pond.
+SONGS: Five Little Ducks; Five Green and Speckled Frogs; Row Row Row Your Boat.
+FAMILY_CONNECTION: Invite families to look for birds, puddles, ponds, or water animals and share what they noticed.
+OBSERVATION_OPPORTUNITIES: Observe animal naming, counting, prediction, movement imitation, sensory tolerance, and peer interaction.
+ADAPTATIONS: Use dry bins, picture cards, larger animals, seated movements, and shortened turns.
+
+MONDAY
+DAILY_THEME: Meet the Pond
+DAILY_OBJECTIVES: Identify pond features and animals.
+DAILY_VOCABULARY: Pond, water, frog, duck.
+DAILY_MATERIALS: Blue fabric, toy animals, books, blocks.
+DAILY_LEARNING_DOMAINS: Science; Language; Dramatic Play.
+CIRCLE_TIME_IDEAS: Read In the Small, Small Pond and introduce pond animals.
+OUTDOOR_PLAY: Waddle like ducks and hop like frogs.
+DAILY_OBSERVATION_OPPORTUNITIES: Notice animal recognition and imitation.
+DAILY_ADAPTATIONS: Offer animal cards for pointing.
+SAFETY_NOTES: Use large washable animals.
+ACTIVITY_1_CATEGORY: Dramatic Play
+ACTIVITY_1_NAME: Build a Pretend Pond
+ACTIVITY_1_OBJECTIVE: Create a simple habitat.
+ACTIVITY_1_DESCRIPTION: Children arrange blue fabric, blocks, and animals to make a pond.
+ACTIVITY_1_MATERIALS: Blue fabric, blocks, toy animals, green shapes.
+ACTIVITY_1_SETUP: Place loose parts on a rug.
+ACTIVITY_1_DIRECTIONS: 1. Spread blue fabric. 2. Add blocks as rocks. 3. Add green lily pads. 4. Place animals. 5. Tell where each animal goes.
+ACTIVITY_1_TEACHER_ROLE: Model habitat language and encourage choices.
+ACTIVITY_1_LEARNING_GOALS: Symbolic play; spatial awareness; vocabulary.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note planning and animal placement.
+ACTIVITY_1_ADAPTATIONS: Pre-build part of the pond.
+ACTIVITY_1_SAFETY_NOTES: Keep fabric flat to prevent slipping.
+ACTIVITY_2_CATEGORY: Fine Motor
+ACTIVITY_2_NAME: Pond Animal Rescue
+ACTIVITY_2_OBJECTIVE: Strengthen grasping and transferring.
+ACTIVITY_2_DESCRIPTION: Children use nets or tongs to move pond animals into bowls.
+ACTIVITY_2_MATERIALS: Large toy animals, nets, bowls.
+ACTIVITY_2_SETUP: Place animals in a shallow bin.
+ACTIVITY_2_DIRECTIONS: 1. Choose a tool. 2. Catch an animal. 3. Name it. 4. Move it to a bowl. 5. Repeat.
+ACTIVITY_2_TEACHER_ROLE: Support tool use and language.
+ACTIVITY_2_LEARNING_GOALS: Hand strength; coordination; naming.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note grasp and persistence.
+ACTIVITY_2_ADAPTATIONS: Allow hand transfer.
+ACTIVITY_2_SAFETY_NOTES: Supervise tools.
+ACTIVITY_3_CATEGORY: Gross Motor
+ACTIVITY_3_NAME: Frog and Duck Moves
+ACTIVITY_3_OBJECTIVE: Practice jumping and waddling.
+ACTIVITY_3_DESCRIPTION: Children move through pond-animal motions.
+ACTIVITY_3_MATERIALS: Floor spots, music.
+ACTIVITY_3_SETUP: Space markers across floor.
+ACTIVITY_3_DIRECTIONS: 1. Hop to a spot. 2. Waddle to the next. 3. Swim arms. 4. Freeze on a lily pad.
+ACTIVITY_3_TEACHER_ROLE: Model and pace movement.
+ACTIVITY_3_LEARNING_GOALS: Balance; coordination; listening.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note imitation and control.
+ACTIVITY_3_ADAPTATIONS: Use seated arm actions.
+ACTIVITY_3_SAFETY_NOTES: Maintain spacing.
+
+TUESDAY
+DAILY_THEME: Frogs and Lily Pads
+DAILY_OBJECTIVES: Count frogs and practice jumping.
+DAILY_VOCABULARY: Frog, hop, lily pad, green.
+DAILY_MATERIALS: Frog counters, lily-pad mats, paint, sponges.
+DAILY_LEARNING_DOMAINS: Math; Gross Motor; Art.
+CIRCLE_TIME_IDEAS: Sing Five Green and Speckled Frogs.
+OUTDOOR_PLAY: Jump between chalk lily pads.
+DAILY_OBSERVATION_OPPORTUNITIES: Note counting and two-foot jumping.
+DAILY_ADAPTATIONS: Step instead of jump.
+SAFETY_NOTES: Keep mats non-slip.
+ACTIVITY_1_CATEGORY: Math
+ACTIVITY_1_NAME: Frogs on Lily Pads
+ACTIVITY_1_OBJECTIVE: Count one to five.
+ACTIVITY_1_DESCRIPTION: Children place frogs onto numbered lily pads.
+ACTIVITY_1_MATERIALS: Large frog counters, lily-pad cards.
+ACTIVITY_1_SETUP: Arrange cards 1-5.
+ACTIVITY_1_DIRECTIONS: 1. Pick a card. 2. Say number. 3. Add frogs. 4. Touch-count. 5. Check together.
+ACTIVITY_1_TEACHER_ROLE: Model one-to-one counting.
+ACTIVITY_1_LEARNING_GOALS: Number sense; matching.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note counting range.
+ACTIVITY_1_ADAPTATIONS: Use 1-3.
+ACTIVITY_1_SAFETY_NOTES: Use jumbo counters.
+ACTIVITY_2_CATEGORY: Creative Arts
+ACTIVITY_2_NAME: Sponge-Painted Lily Pads
+ACTIVITY_2_OBJECTIVE: Explore circular stamping.
+ACTIVITY_2_DESCRIPTION: Children stamp green circles and add frog stickers.
+ACTIVITY_2_MATERIALS: Green paint, round sponges, paper, stickers.
+ACTIVITY_2_SETUP: Prepare paint trays and paper.
+ACTIVITY_2_DIRECTIONS: 1. Dip sponge. 2. Stamp circles. 3. Add frog sticker. 4. Count frogs.
+ACTIVITY_2_TEACHER_ROLE: Describe shapes and colors.
+ACTIVITY_2_LEARNING_GOALS: Fine motor; creativity; counting.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note pressure control.
+ACTIVITY_2_ADAPTATIONS: Use handled sponges.
+ACTIVITY_2_SAFETY_NOTES: Use non-toxic paint.
+ACTIVITY_3_CATEGORY: Gross Motor
+ACTIVITY_3_NAME: Lily Pad Jump
+ACTIVITY_3_OBJECTIVE: Strengthen balance and jumping.
+ACTIVITY_3_DESCRIPTION: Children move between floor lily pads.
+ACTIVITY_3_MATERIALS: Non-slip green mats.
+ACTIVITY_3_SETUP: Place mats close together.
+ACTIVITY_3_DIRECTIONS: 1. Stand on a pad. 2. Bend knees. 3. Jump or step. 4. Land safely. 5. Repeat.
+ACTIVITY_3_TEACHER_ROLE: Spot children and model safe landing.
+ACTIVITY_3_LEARNING_GOALS: Gross motor; motor planning.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note balance and confidence.
+ACTIVITY_3_ADAPTATIONS: Step with support.
+ACTIVITY_3_SAFETY_NOTES: Use non-slip mats.
+
+WEDNESDAY
+DAILY_THEME: Ducks and Feathers
+DAILY_OBJECTIVES: Explore feathers, floating, and waddling.
+DAILY_VOCABULARY: Duck, feather, float, waddle.
+DAILY_MATERIALS: Feathers, toy ducks, water tub, towels.
+DAILY_LEARNING_DOMAINS: Science; Sensory; Gross Motor.
+CIRCLE_TIME_IDEAS: Sing Five Little Ducks and count ducks.
+OUTDOOR_PLAY: Follow-the-leader duck walk.
+DAILY_OBSERVATION_OPPORTUNITIES: Notice sensory reactions and counting.
+DAILY_ADAPTATIONS: Use fabric feathers.
+SAFETY_NOTES: Avoid loose tiny feathers.
+ACTIVITY_1_CATEGORY: Science
+ACTIVITY_1_NAME: Do Ducks Float?
+ACTIVITY_1_OBJECTIVE: Observe floating.
+ACTIVITY_1_DESCRIPTION: Children place toy ducks and safe objects in water.
+ACTIVITY_1_MATERIALS: Shallow tub, ducks, sponge, block, spoon.
+ACTIVITY_1_SETUP: Fill tub shallowly and place towels below.
+ACTIVITY_1_DIRECTIONS: 1. Predict. 2. Add object. 3. Watch. 4. Sort float/sink. 5. Repeat.
+ACTIVITY_1_TEACHER_ROLE: Ask prediction questions.
+ACTIVITY_1_LEARNING_GOALS: Cause and effect; classification.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note prediction attempts.
+ACTIVITY_1_ADAPTATIONS: Use sealed water bag.
+ACTIVITY_1_SAFETY_NOTES: Constant water supervision.
+ACTIVITY_2_CATEGORY: Sensory Play
+ACTIVITY_2_NAME: Soft Feather Exploration
+ACTIVITY_2_OBJECTIVE: Compare soft textures.
+ACTIVITY_2_DESCRIPTION: Children touch, brush, and blow large craft feathers.
+ACTIVITY_2_MATERIALS: Large craft feathers, tray.
+ACTIVITY_2_SETUP: Arrange feathers by color.
+ACTIVITY_2_DIRECTIONS: 1. Touch feather. 2. Brush hand. 3. Blow gently. 4. Sort by color.
+ACTIVITY_2_TEACHER_ROLE: Narrate soft, light, and tickly.
+ACTIVITY_2_LEARNING_GOALS: Sensory language; breath control.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note preferences and sorting.
+ACTIVITY_2_ADAPTATIONS: Use fabric strips.
+ACTIVITY_2_SAFETY_NOTES: Supervise mouthing.
+ACTIVITY_3_CATEGORY: Music & Movement
+ACTIVITY_3_NAME: Duck Waddle Parade
+ACTIVITY_3_OBJECTIVE: Practice rhythm and balance.
+ACTIVITY_3_DESCRIPTION: Children waddle to music while carrying soft duck props.
+ACTIVITY_3_MATERIALS: Music, soft ducks.
+ACTIVITY_3_SETUP: Clear a parade path.
+ACTIVITY_3_DIRECTIONS: 1. Hold duck. 2. Bend knees. 3. Waddle. 4. Stop with music. 5. Quack together.
+ACTIVITY_3_TEACHER_ROLE: Lead movement cues.
+ACTIVITY_3_LEARNING_GOALS: Rhythm; balance; imitation.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note start-stop control.
+ACTIVITY_3_ADAPTATIONS: March instead.
+ACTIVITY_3_SAFETY_NOTES: Keep path clear.
+
+THURSDAY
+DAILY_THEME: Fish and Water
+DAILY_OBJECTIVES: Explore swimming motion and color sorting.
+DAILY_VOCABULARY: Fish, swim, fin, blue.
+DAILY_MATERIALS: Fish shapes, scarves, water table, scoops.
+DAILY_LEARNING_DOMAINS: Science; Math; Fine Motor; Gross Motor.
+CIRCLE_TIME_IDEAS: Move hands like fish fins and count fish.
+OUTDOOR_PLAY: Swim arms through an obstacle path.
+DAILY_OBSERVATION_OPPORTUNITIES: Note sorting and movement control.
+DAILY_ADAPTATIONS: Offer seated movement.
+SAFETY_NOTES: Wipe spills.
+ACTIVITY_1_CATEGORY: Math
+ACTIVITY_1_NAME: Fish Color Sort
+ACTIVITY_1_OBJECTIVE: Sort fish by color.
+ACTIVITY_1_DESCRIPTION: Children place large fish shapes into matching bowls.
+ACTIVITY_1_MATERIALS: Fish shapes, colored bowls.
+ACTIVITY_1_SETUP: Mix fish in one basket.
+ACTIVITY_1_DIRECTIONS: 1. Pick fish. 2. Name color. 3. Match bowl. 4. Count groups.
+ACTIVITY_1_TEACHER_ROLE: Model color words and matching.
+ACTIVITY_1_LEARNING_GOALS: Classification; color recognition.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note accuracy.
+ACTIVITY_1_ADAPTATIONS: Use two colors.
+ACTIVITY_1_SAFETY_NOTES: Use large pieces.
+ACTIVITY_2_CATEGORY: Fine Motor
+ACTIVITY_2_NAME: Scoop the Fish
+ACTIVITY_2_OBJECTIVE: Strengthen scooping and transferring.
+ACTIVITY_2_DESCRIPTION: Children scoop floating fish into containers.
+ACTIVITY_2_MATERIALS: Water tub, large fish, scoops, cups.
+ACTIVITY_2_SETUP: Add fish to shallow water.
+ACTIVITY_2_DIRECTIONS: 1. Scoop fish. 2. Transfer to cup. 3. Count fish. 4. Pour back. 5. Repeat.
+ACTIVITY_2_TEACHER_ROLE: Support tool control.
+ACTIVITY_2_LEARNING_GOALS: Fine motor; counting; cause and effect.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note bilateral coordination.
+ACTIVITY_2_ADAPTATIONS: Use handled nets.
+ACTIVITY_2_SAFETY_NOTES: Constant water supervision.
+ACTIVITY_3_CATEGORY: Gross Motor
+ACTIVITY_3_NAME: Swim Like a Fish
+ACTIVITY_3_OBJECTIVE: Coordinate arms and body.
+ACTIVITY_3_DESCRIPTION: Children move through fish motions with scarves.
+ACTIVITY_3_MATERIALS: Blue scarves, music.
+ACTIVITY_3_SETUP: Clear floor space.
+ACTIVITY_3_DIRECTIONS: 1. Hold scarf. 2. Sway side to side. 3. Swim arms. 4. Dive low. 5. Surface high.
+ACTIVITY_3_TEACHER_ROLE: Model and pace movement.
+ACTIVITY_3_LEARNING_GOALS: Coordination; imagination.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note imitation.
+ACTIVITY_3_ADAPTATIONS: Perform seated.
+ACTIVITY_3_SAFETY_NOTES: Avoid neck wrapping.
+
+FRIDAY
+DAILY_THEME: Pond Habitat Review
+DAILY_OBJECTIVES: Review animals and build a pond habitat.
+DAILY_VOCABULARY: Habitat, pond, animal, home.
+DAILY_MATERIALS: Blocks, fabric, animals, picture cards, art supplies.
+DAILY_LEARNING_DOMAINS: Engineering; Language; Social-Emotional; Creative Arts.
+CIRCLE_TIME_IDEAS: Match each animal to the pond and review songs.
+OUTDOOR_PLAY: Pond-animal movement course.
+DAILY_OBSERVATION_OPPORTUNITIES: Note recall, cooperation, and planning.
+DAILY_ADAPTATIONS: Use a pre-built base.
+SAFETY_NOTES: Keep structures low.
+ACTIVITY_1_CATEGORY: Engineering
+ACTIVITY_1_NAME: Build a Pond Habitat
+ACTIVITY_1_OBJECTIVE: Combine materials into a habitat.
+ACTIVITY_1_DESCRIPTION: Children build pond homes with blocks and fabric.
+ACTIVITY_1_MATERIALS: Blocks, blue fabric, green shapes, animals.
+ACTIVITY_1_SETUP: Arrange materials on rug.
+ACTIVITY_1_DIRECTIONS: 1. Add water area. 2. Build rocks. 3. Add lily pads. 4. Place animals. 5. Explain choices.
+ACTIVITY_1_TEACHER_ROLE: Encourage teamwork and problem-solving.
+ACTIVITY_1_LEARNING_GOALS: Engineering; symbolic play; cooperation.
+ACTIVITY_1_OBSERVATION_OPPORTUNITIES: Note planning and peer interaction.
+ACTIVITY_1_ADAPTATIONS: Offer picture model.
+ACTIVITY_1_SAFETY_NOTES: Use lightweight blocks.
+ACTIVITY_2_CATEGORY: Language & Literacy
+ACTIVITY_2_NAME: Who Lives in the Pond?
+ACTIVITY_2_OBJECTIVE: Match animals to habitat.
+ACTIVITY_2_DESCRIPTION: Children choose pond animals from mixed cards.
+ACTIVITY_2_MATERIALS: Animal cards, pond mat.
+ACTIVITY_2_SETUP: Mix pond and non-pond cards.
+ACTIVITY_2_DIRECTIONS: 1. Pick card. 2. Name animal. 3. Decide if it lives at pond. 4. Place card. 5. Review.
+ACTIVITY_2_TEACHER_ROLE: Ask simple either-or questions.
+ACTIVITY_2_LEARNING_GOALS: Classification; vocabulary; recall.
+ACTIVITY_2_OBSERVATION_OPPORTUNITIES: Note matching.
+ACTIVITY_2_ADAPTATIONS: Offer two choices.
+ACTIVITY_2_SAFETY_NOTES: Use durable cards.
+ACTIVITY_3_CATEGORY: Creative Arts
+ACTIVITY_3_NAME: Pond Mural
+ACTIVITY_3_OBJECTIVE: Create a collaborative representation.
+ACTIVITY_3_DESCRIPTION: Children add painted water, lily pads, and animal stickers to mural paper.
+ACTIVITY_3_MATERIALS: Mural paper, blue paint, green paper, stickers, glue.
+ACTIVITY_3_SETUP: Secure paper to table or wall.
+ACTIVITY_3_DIRECTIONS: 1. Paint water. 2. Add lily pads. 3. Place animals. 4. Name each one. 5. Display mural.
+ACTIVITY_3_TEACHER_ROLE: Support collaboration and language.
+ACTIVITY_3_LEARNING_GOALS: Creativity; fine motor; group belonging.
+ACTIVITY_3_OBSERVATION_OPPORTUNITIES: Note choices and cooperation.
+ACTIVITY_3_ADAPTATIONS: Use sponge rollers and stickers.
+ACTIVITY_3_SAFETY_NOTES: Use washable non-toxic materials.
