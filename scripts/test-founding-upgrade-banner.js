@@ -101,7 +101,7 @@ test("mobile-friendly banner styles", () => {
 test("cache bust versions aligned", () => {
   assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260715-lesson-importer");
   assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260715-lesson-importer");
-  assert.match(sw, /llh-shell-v106-pwa-cold-start/);
+  assert.match(sw, /llh-shell-v107-boot-tdz-fix/);
 });
 
 test("account-access: only owners get billing capability", () => {

@@ -106,9 +106,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-pwa-cold-start");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-pwa-cold-start");
-  assert.match(sw, /llh-shell-v106-pwa-cold-start/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260721-boot-tdz-fix");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260721-boot-tdz-fix");
+  assert.match(sw, /llh-shell-v107-boot-tdz-fix/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {
