@@ -41,6 +41,7 @@ const { createRecordsCenterApi } = require("./records-center-api.js");
 const { createLicensingCenterApi } = require("./licensing-center-api.js");
 const { createTodayHubApi } = require("./today-hub-api.js");
 const { createStaffExperienceApi } = require("./staff-experience-api.js");
+const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15478,6 +15479,21 @@ function getStaffExperienceApi() {
   return _staffExperienceApi;
 }
 
+let _billingSimulatorApi;
+function getBillingSimulatorApi() {
+  if (!_billingSimulatorApi) {
+    _billingSimulatorApi = createBillingSimulatorApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _billingSimulatorApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15531,6 +15547,7 @@ const server = http.createServer(async (request, response) => {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
       const handler = getTodayHubApi().matchRoute(request.method, url.pathname, url)
         || getStaffExperienceApi().matchRoute(request.method, url.pathname, url)
+        || getBillingSimulatorApi().matchRoute(request.method, url.pathname, url)
         || getLicensingCenterApi().matchRoute(request.method, url.pathname, url)
         || getRecordsCenterApi().matchRoute(request.method, url.pathname, url)
         || getEnrollmentApi().matchRoute(request.method, url.pathname, url)

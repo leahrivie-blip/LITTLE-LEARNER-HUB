@@ -24423,3 +24423,126 @@ button.linkish {
     flex: 0 1 auto;
   }
 }
+
+/* Phase 17 Billing Simulator */
+.bs-panel,
+.bs-family-panel {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.bs-banner {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  background: #f3f7f4;
+  border: 1px solid #c5d5c8;
+  border-radius: 8px;
+  color: #1f3b2d;
+  font-weight: 600;
+}
+.bs-computer-recommended {
+  display: none;
+  margin: 0.5rem 0;
+  padding: 0.75rem 1rem;
+  background: #eef6fb;
+  border: 1px solid #c5d9e8;
+  border-radius: 8px;
+  color: #1f3b4d;
+  font-weight: 600;
+}
+.bs-subnav,
+.bs-status-row,
+.bs-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.bs-metric {
+  min-width: 6rem;
+  flex: 1 1 calc(50% - 0.35rem);
+  box-sizing: border-box;
+}
+.bs-plan-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+.bs-plan-card {
+  padding: 0.85rem;
+  border: 1px solid #d7e0e7;
+  border-radius: 8px;
+  background: #f9fbfd;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+.bs-balance {
+  font-size: 1.35rem;
+}
+.bs-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: 0.8rem;
+  background: #f4f7fa;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+.bs-panel .fu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.bs-panel input,
+.bs-panel button,
+.bs-panel select,
+.bs-family-panel button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .bs-computer-recommended {
+    display: block;
+  }
+  .bs-panel .fu-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bs-metric {
+    min-width: calc(50% - 0.35rem);
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .bs-computer-recommended {
+    display: block;
+  }
+  .bs-panel {
+    max-width: 960px;
+  }
+  .bs-plan-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .bs-metric {
+    min-width: 7.5rem;
+    flex: 1 1 calc(25% - 0.5rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  .bs-computer-recommended {
+    display: none;
+  }
+  .bs-plan-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .bs-status-row .bs-metric {
+    min-width: 8rem;
+    flex: 0 1 auto;
+  }
+}

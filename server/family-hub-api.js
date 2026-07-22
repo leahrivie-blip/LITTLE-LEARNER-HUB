@@ -29,6 +29,8 @@ const licensingFixtures = require("../scripts/licensing-center-fixtures.js");
 const licensingModel = require("../scripts/licensing-center-data-model.js");
 const todayHubModel = require("../scripts/today-hub-data-model.js");
 const todayHubFixtures = require("../scripts/today-hub-fixtures.js");
+const billingModel = require("../scripts/billing-simulator-data-model.js");
+const billingFixtures = require("../scripts/billing-simulator-fixtures.js");
 const { createFamilyHubMessagingHandlers } = require("./family-hub-messaging-handlers.js");
 const { createFamilyHubEnrollmentHandlers } = require("./family-hub-enrollment-handlers.js");
 const { createFamilyHubRecordsHandlers } = require("./family-hub-records-handlers.js");
@@ -163,6 +165,7 @@ function createFamilyHubApi({
     recordsFixtures.ensurePhase13Preview(store, { organizationId: actor.organizationId });
     licensingFixtures.ensurePhase14Preview(store, { organizationId: actor.organizationId });
     todayHubFixtures.ensurePhase15Preview(store, { organizationId: actor.organizationId });
+    billingFixtures.ensurePhase17Preview(store, { organizationId: actor.organizationId });
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     // For messaging capability, also include messages-only children and deny when none are messages-capable.
     if (capability === "messages") {
@@ -414,10 +417,10 @@ function createFamilyHubApi({
       // Documents/records are on Home (and tab=records).
       // Licensing document tasks are on Home / Account when authorized (not a sixth bottom-nav item).
       navigation: ["home", "children", "forms", "messages", "account"],
-      deferred: ["billing"],
-      navDecision: "messages_replaces_calendar_in_bottom_nav_calendar_under_account_enrollment_records_licensing_from_home",
+      deferred: [],
+      navDecision: "messages_replaces_calendar_in_bottom_nav_calendar_under_account_enrollment_records_licensing_billing_from_home",
       unreadMessages,
-      roadmapNote: "Billing arrives in a later phase. Outbound email/SMS/push stay disabled.",
+      roadmapNote: "Billing is available as a testing simulator under Account / Home. Outbound email/SMS/push stay disabled.",
       noOutboundEmail: true,
       noOutboundSms: true,
       noPush: true,
@@ -1040,11 +1043,24 @@ function createFamilyHubApi({
     const seeded13 = recordsFixtures.ensurePhase13Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded14 = licensingFixtures.ensurePhase14Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded15 = todayHubFixtures.ensurePhase15Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
+    const seeded17 = billingFixtures.ensurePhase17Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     if (!store.siteContent) store.siteContent = {};
     if (!store.siteContent.featureFlags) store.siteContent.featureFlags = {};
     store.siteContent.featureFlags.familyHub = true;
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, phase14: seeded14, phase15: seeded15, label: TESTING_BANNER });
+    jsonResponse(response, 200, {
+      ok: true,
+      seeded: true,
+      ...seeded9,
+      phase10: seeded10,
+      phase11: seeded11,
+      phase12: seeded12,
+      phase13: seeded13,
+      phase14: seeded14,
+      phase15: seeded15,
+      phase17: seeded17,
+      label: TESTING_BANNER,
+    });
   }
 
   function attendanceStatusForGuardianChildren(store, organizationId, children) {
@@ -1434,6 +1450,156 @@ function createFamilyHubApi({
     });
   }
 
+  async function handleBilling(request, response) {
+    const ctx = withGuardian(request, response, { capability: "billing" });
+    if (!ctx) return;
+    const { store, actor, children } = ctx;
+    billingModel.ensureBillingStore(store);
+    billingFixtures.ensurePhase17Preview(store, { organizationId: actor.organizationId });
+
+    const billingChildren = (children || []).filter((child) => {
+      const access = familyModel.evaluateContactChildAccess({
+        store,
+        organizationId: actor.organizationId,
+        contactId: actor.contact.id,
+        childId: child.childId,
+        capability: "billing",
+      });
+      return access.allowed;
+    });
+    if (!billingChildren.length) {
+      return deny(response, 403, "billing_access_denied", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+    }
+
+    const profiles = listValues(store.billingSimulator.billingProfiles).filter((profile) => (
+      profile.organizationId === actor.organizationId
+      && Array.isArray(profile.responsibleContactIds)
+      && profile.responsibleContactIds.includes(actor.contact.id)
+    ));
+    if (!profiles.length) {
+      writeStore(store);
+      return jsonResponse(response, 200, {
+        ok: true,
+        featureMarker: "phase17-family-billing",
+        testingBanner: billingModel.TESTING_BANNER,
+        empty: true,
+        noRealPayment: true,
+        noPayButtonConnected: true,
+        invoices: [],
+        balanceCents: 0,
+        balanceDisplay: billingModel.formatCents(0),
+      });
+    }
+
+    const profileIds = new Set(profiles.map((p) => p.id));
+    const householdIds = new Set(profiles.map((p) => p.householdId).filter(Boolean));
+    const invoices = listValues(store.billingSimulator.invoices)
+      .filter((inv) => inv.organizationId === actor.organizationId && (
+        profileIds.has(inv.billingProfileId) || householdIds.has(inv.householdId)
+      ))
+      .map((inv) => ({
+        id: inv.id,
+        status: inv.status,
+        dueDate: inv.dueDate,
+        totalCents: inv.totalCents,
+        balanceCents: inv.balanceCents,
+        totalDisplay: billingModel.formatCents(inv.totalCents),
+        balanceDisplay: billingModel.formatCents(inv.balanceCents),
+        discountCents: inv.discountCents,
+        creditCents: inv.creditCents,
+        subsidyCents: inv.subsidyCents,
+        copayCents: inv.copayCents,
+        childIds: inv.childIds,
+        lineItems: (inv.lineItems || []).map((line) => ({
+          id: line.id,
+          chargeType: line.chargeType,
+          description: line.description,
+          childId: line.childId,
+          amountCents: line.amountCents,
+          amountDisplay: billingModel.formatCents(line.amountCents),
+        })),
+        notes: inv.notes || "",
+        // Explicitly omit privateCollectionNotes, other payers, credentials
+        myPayerSplit: (profiles[0]?.payerSplits || []).find((split) => split.contactId === actor.contact.id) || null,
+        testingOnly: true,
+      }));
+
+    const ledger = listValues(store.billingSimulator.ledger)
+      .filter((entry) => entry.organizationId === actor.organizationId
+        && profileIds.has(entry.billingProfileId)
+        && (!entry.payerContactId || entry.payerContactId === actor.contact.id))
+      .map((entry) => ({
+        id: entry.id,
+        type: entry.type,
+        amountCents: entry.amountCents,
+        amountDisplay: billingModel.formatCents(entry.amountCents),
+        invoiceId: entry.invoiceId,
+        note: entry.note,
+        createdAt: entry.createdAt,
+        simulated: true,
+      }));
+
+    const openInvoices = invoices.filter((inv) => [
+      billingModel.INVOICE_STATUSES.OPEN,
+      billingModel.INVOICE_STATUSES.PARTIALLY_PAID,
+      billingModel.INVOICE_STATUSES.PAST_DUE,
+      billingModel.INVOICE_STATUSES.PAYMENT_FAILED_SIM,
+      billingModel.INVOICE_STATUSES.SCHEDULED,
+    ].includes(inv.status));
+    const balanceCents = openInvoices.reduce((sum, inv) => billingModel.addCents(sum, inv.balanceCents), 0);
+    const profile = profiles[0];
+
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      featureMarker: "phase17-family-billing",
+      testingBanner: billingModel.TESTING_BANNER,
+      view: "guardian",
+      noRealPayment: true,
+      noPayButtonConnected: true,
+      noPaymentCredentials: true,
+      autopayPreferencePlaceholder: profile.autopayPreference || "off_placeholder",
+      statementPreference: profile.statementPreference || "portal",
+      balanceCents,
+      balanceDisplay: billingModel.formatCents(balanceCents),
+      openInvoices,
+      invoices,
+      paymentHistory: ledger,
+      credits: ledger.filter((e) => e.type === billingModel.LEDGER_TYPES.CREDIT || e.type === billingModel.LEDGER_TYPES.REFUND),
+      subsidyCopay: {
+        subsidySource: profile.subsidySource || "",
+        copayCents: profile.copayCents || 0,
+        copayDisplay: billingModel.formatCents(profile.copayCents || 0),
+        authorized: true,
+      },
+      printableStatement: {
+        title: "Testing statement (printable)",
+        householdId: profile.householdId,
+        generatedAt: billingModel.nowIso(),
+        balanceDisplay: billingModel.formatCents(balanceCents),
+        testingOnly: true,
+      },
+      simulatedReceiptPlaceholder: {
+        label: "Simulated receipt — no real payment processed",
+        testingOnly: true,
+      },
+      recordRefs: {
+        // Secure references only — ledger stays authoritative in billing simulator
+        invoiceIds: invoices.map((i) => i.id),
+        statementAvailable: true,
+      },
+      children: billingChildren,
+      hiddenFromFamily: [
+        "other_payer_private_information",
+        "other_households",
+        "internal_collection_notes",
+        "provider_wide_financial_reports",
+        "payment_credentials",
+        "restricted_subsidy_notes",
+      ],
+    });
+  }
+
   function matchRoute(method, pathname, url) {
     const path = String(pathname || "");
     const base = "/api/family-hub";
@@ -1492,6 +1658,7 @@ function createFamilyHubApi({
       return (req, res) => recordsHandlers.handleRecordDetail(req, res, id);
     }
     if (method === "GET" && path === `${base}/licensing/tasks`) return (req, res) => handleLicensingTasks(req, res);
+    if (method === "GET" && path === `${base}/billing`) return (req, res) => handleBilling(req, res);
     if (method === "GET" && path === `${base}/updates`) return (req, res) => handleUpdatesFeed(req, res, url);
     if (method === "GET" && path === `${base}/daily-reports`) return (req, res) => handleDailyReports(req, res, url);
     if (method === "GET" && path === `${base}/media`) return (req, res) => handleFamilyMediaList(req, res, url);

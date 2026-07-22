@@ -1,7 +1,7 @@
 /**
  * Phase 9 Family Hub — mobile-first testing preview UI.
- * Navigation: Home, Children, Forms, Calendar, Account.
- * No Messages / Media / Billing. Fake data only.
+ * Navigation: Home, Children, Forms, Messages, Account.
+ * Billing under Account / Home (testing simulator). Fake data only.
  */
 (function initFamilyHubUI(global) {
   const TESTING_BANNER = "Testing Account — Fake Data Only.";
@@ -23,6 +23,7 @@
     recordsList: [],
     recordDetail: null,
     licensingTasks: [],
+    billing: null,
     messageThread: null,
     messageDraft: "",
     notifications: [],
@@ -109,7 +110,7 @@
         ${[["home", "Home"], ["children", "Children"], ["forms", "Forms"], ["messages", "Messages"], ["account", "Account"]].map(([id, label]) => `
           <button type="button" class="fh-side-btn${state.tab === id ? " active" : ""}" data-fh-tab="${id}">${label}${id === "messages" && unread ? ` · ${unread}` : ""}</button>
         `).join("")}
-        <p class="fh-roadmap muted-copy">Calendar is under Account. Billing arrives later.</p>
+        <p class="fh-roadmap muted-copy">Calendar is under Account. Billing is under Account / Home (testing only).</p>
       </aside>
     `;
   }
@@ -159,6 +160,11 @@
           <button type="button" class="primary-button fh-touch" data-fh-tab="licensing">Open licensing documents</button>
         </section>
         ` : ""}
+        <section class="fh-section" data-fh-billing-home-card>
+          <h2>Billing</h2>
+          <p class="muted-copy">Testing Only — No Real Payment Will Be Processed.</p>
+          <button type="button" class="primary-button fh-touch" data-fh-tab="billing">Open billing</button>
+        </section>
         <section class="fh-section">
           <h2>Action Needed</h2>
           ${!(data.actionNeeded || []).length ? `<p class="muted-copy">You're all caught up.</p>` : `
@@ -529,6 +535,7 @@
         <section class="fh-section">
           <h2>More</h2>
           <button type="button" class="ghost-button" data-fh-tab="today">Today</button>
+          <button type="button" class="ghost-button" data-fh-tab="billing">Billing</button>
           ${(state.home?.licensingTaskCount || (state.home?.licensingTasks || []).length || (state.licensingTasks || []).length) ? `
           <button type="button" class="ghost-button" data-fh-tab="licensing">Licensing Documents Needed</button>
           ` : ""}
@@ -750,7 +757,63 @@
     `;
   }
 
-    function messagesHtml() {
+  function billingHtml() {
+    const data = state.billing || {};
+    return `
+      <section class="fh-panel bs-family-panel" data-feature-marker="phase17-family-billing">
+        <p class="fh-banner bs-banner">${escapeHtml(data.testingBanner || "Testing Only — No Real Payment Will Be Processed.")}</p>
+        <h1>Billing</h1>
+        <p class="muted-copy">Household tuition for your children (testing simulator). No real payment will be processed.</p>
+        ${data.empty ? `<p class="muted-copy">No billing profile is linked to your account yet.</p>` : `
+          <section class="fh-section">
+            <h2>Current balance</h2>
+            <p class="bs-balance"><strong>${escapeHtml(data.balanceDisplay || "$0.00")}</strong></p>
+          </section>
+          <section class="fh-section">
+            <h2>Open invoices</h2>
+            <ul class="fh-card-list">
+              ${(data.openInvoices || []).map((inv) => `
+                <li class="fh-card static" data-fh-invoice="${escapeHtml(inv.id)}">
+                  <strong>${escapeHtml(inv.status)}</strong>
+                  <span>${escapeHtml(inv.balanceDisplay)} due ${escapeHtml(inv.dueDate || "")}</span>
+                  ${inv.subsidyCents ? `<span class="muted-copy">Subsidy ${escapeHtml(String((inv.subsidyCents / 100).toFixed(2)))} · Copay ${escapeHtml(String(((inv.copayCents || 0) / 100).toFixed(2)))}</span>` : ""}
+                </li>
+              `).join("") || "<li class=\"muted-copy\">No open invoices.</li>"}
+            </ul>
+          </section>
+          <section class="fh-section">
+            <h2>Payment history</h2>
+            <ul class="fh-card-list">
+              ${(data.paymentHistory || []).map((row) => `
+                <li class="fh-card static">
+                  <strong>${escapeHtml(row.type)}</strong>
+                  <span>${escapeHtml(row.amountDisplay)}</span>
+                  <span class="muted-copy">${escapeHtml(row.note || "")}</span>
+                </li>
+              `).join("") || "<li class=\"muted-copy\">No payment history.</li>"}
+            </ul>
+          </section>
+          <section class="fh-section">
+            <h2>Credits / refunds</h2>
+            <ul class="fh-card-list">
+              ${(data.credits || []).map((row) => `
+                <li class="fh-card static">${escapeHtml(row.type)} · ${escapeHtml(row.amountDisplay)}</li>
+              `).join("") || "<li class=\"muted-copy\">None</li>"}
+            </ul>
+          </section>
+          <section class="fh-section">
+            <h2>Statement</h2>
+            <p class="muted-copy">${escapeHtml(data.printableStatement?.title || "Printable testing statement")}</p>
+            <p class="muted-copy">${escapeHtml(data.simulatedReceiptPlaceholder?.label || "Simulated receipt")}</p>
+            <p class="muted-copy">Autopay preference (placeholder): ${escapeHtml(data.autopayPreferencePlaceholder || "off")}</p>
+          </section>
+        `}
+        <p class="muted-copy">There is no Pay button connected to a real processor.</p>
+      </section>
+    `;
+  }
+
+  function messagesHtml() {
     if (state.messageThread) {
       const thread = state.messageThread;
       const conv = thread.conversation || {};
@@ -822,6 +885,7 @@
     if (state.tab === "records") return recordsHtml();
     if (state.tab === "licensing") return licensingHtml();
     if (state.tab === "today") return todayHtml();
+    if (state.tab === "billing") return billingHtml();
     if (state.tab === "calendar") return calendarHtml();
     if (state.tab === "account") return accountHtml();
     return "";
@@ -881,6 +945,9 @@
         state.today = await api("GET", `/api/family-hub/today${q}`);
         state.children = state.today.children || state.children;
         if (state.today.selectedChildId) state.selectedChildId = state.today.selectedChildId;
+      } else if (state.tab === "billing") {
+        state.billing = await api("GET", "/api/family-hub/billing");
+        state.children = state.billing.children || state.children;
       } else if (state.tab === "messages") {
         if (!state.messageThread) {
           const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";

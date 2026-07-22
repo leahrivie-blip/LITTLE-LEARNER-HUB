@@ -152,6 +152,8 @@
         // Today Hub tab loads via renderTodayHubTab after paint.
       } else if (state.tab === "staff_experience") {
         // Staff Experience tab loads via renderStaffExperienceTab after paint.
+      } else if (state.tab === "billing") {
+        // Billing Simulator tab loads via renderBillingSimulatorTab after paint.
       } else if (state.tab === "roles_permissions") {
         state.roles = await api("GET", "/api/director-center/roles-permissions");
         state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty || 0)}`);
@@ -183,6 +185,7 @@
       ["classrooms", "Classrooms"],
       ["staff", "Staff"],
       ["staff_experience", "Staff Hub"],
+      ["billing", "Billing"],
       ["children", "Children and Assignments"],
       ["families", "Families"],
       ["family_updates", "Family Updates"],
@@ -694,6 +697,9 @@
     if (state.tab === "staff_experience") {
       return `<div id="dc-staff-experience-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Staff Experience…</p></div>`;
     }
+    if (state.tab === "billing") {
+      return `<div id="dc-billing-simulator-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Billing Simulator…</p></div>`;
+    }
     if (state.tab === "program_profile") return programProfileHtml();
     if (state.tab === "roles_permissions") return rolesHtml();
     return "";
@@ -764,6 +770,9 @@
     }
     if (state.tab === "staff_experience" && typeof global.renderStaffExperienceTab === "function") {
       global.renderStaffExperienceTab(section.querySelector("#dc-staff-experience-mount") || section);
+    }
+    if (state.tab === "billing" && typeof global.renderBillingSimulatorTab === "function") {
+      global.renderBillingSimulatorTab(section.querySelector("#dc-billing-simulator-mount") || section);
     }
   }
 
