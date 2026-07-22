@@ -151,6 +151,8 @@ Account type and role remain separate.
 - feature flag availability
 - cross-organization denial
 
+**Phase 8 extension:** family manage actions (`FAMILY_MANAGE_*`) for directors/owners; guardian child scope also honors `familyFoundation` access rules (forms/digital capable levels only). Household/contact/invitation/fake-account stores live in `scripts/family-foundation-data-model.js`. Family Hub product flag remains forced OFF.
+
 Current runtime `account-access.js` capability gates are unchanged so existing users behave the same.
 
 ---
