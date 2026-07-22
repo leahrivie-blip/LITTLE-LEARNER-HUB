@@ -24,8 +24,10 @@ const updatesFixtures = require("../scripts/family-updates-fixtures.js");
 const messagingModel = require("../scripts/family-messaging-data-model.js");
 const messagingFixtures = require("../scripts/family-messaging-fixtures.js");
 const enrollmentFixtures = require("../scripts/enrollment-fixtures.js");
+const recordsFixtures = require("../scripts/records-center-fixtures.js");
 const { createFamilyHubMessagingHandlers } = require("./family-hub-messaging-handlers.js");
 const { createFamilyHubEnrollmentHandlers } = require("./family-hub-enrollment-handlers.js");
+const { createFamilyHubRecordsHandlers } = require("./family-hub-records-handlers.js");
 const formsModel = require("../scripts/forms-center-data-model.js");
 const responsesModel = require("../scripts/form-responses-data-model.js");
 const { buildRecipientPayload } = require("../scripts/form-recipient-payload.js");
@@ -154,6 +156,7 @@ function createFamilyHubApi({
     updatesFixtures.ensurePhase10Preview(store, { organizationId: actor.organizationId });
     messagingFixtures.ensurePhase11Preview(store, { organizationId: actor.organizationId });
     enrollmentFixtures.ensurePhase12Preview(store, { organizationId: actor.organizationId });
+    recordsFixtures.ensurePhase13Preview(store, { organizationId: actor.organizationId });
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     // For messaging capability, also include messages-only children and deny when none are messages-capable.
     if (capability === "messages") {
@@ -210,6 +213,17 @@ function createFamilyHubApi({
   });
 
   const enrollmentHandlers = createFamilyHubEnrollmentHandlers({
+    familyModel,
+    hub,
+    withGuardian,
+    deny,
+    readJson,
+    writeStore,
+    jsonResponse,
+    TESTING_BANNER,
+  });
+
+  const recordsHandlers = createFamilyHubRecordsHandlers({
     familyModel,
     hub,
     withGuardian,
@@ -374,12 +388,13 @@ function createFamilyHubApi({
     updatesFixtures.ensurePhase10Preview(store, { organizationId: actor.organizationId });
     messagingFixtures.ensurePhase11Preview(store, { organizationId: actor.organizationId });
     enrollmentFixtures.ensurePhase12Preview(store, { organizationId: actor.organizationId });
+    recordsFixtures.ensurePhase13Preview(store, { organizationId: actor.organizationId });
     writeStore(store);
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     const unreadMessages = messagingModel.unreadCountForEmail(store, actor.organizationId, actor.email);
     jsonResponse(response, 200, {
       ok: true,
-      phase: 12,
+      phase: 13,
       preview: true,
       label: TESTING_BANNER,
       familyHub: true,
@@ -389,6 +404,7 @@ function createFamilyHubApi({
       // Nav decision: Messages replaces Calendar in the bottom bar (max five).
       // Calendar remains available under Account → Calendar.
       // Enrollment checklist is on Home (and tab=enrollment) to avoid crowding bottom nav.
+      // Documents/records are on Home (and tab=records).
       navigation: ["home", "children", "forms", "messages", "account"],
       deferred: ["billing"],
       navDecision: "messages_replaces_calendar_in_bottom_nav_calendar_under_account_enrollment_from_home",
@@ -399,6 +415,7 @@ function createFamilyHubApi({
       noPush: true,
       noPublicMediaUrls: true,
       noStripeEnrollment: true,
+      noPublicRecordUrls: true,
     });
   }
 
@@ -997,11 +1014,12 @@ function createFamilyHubApi({
     const seeded10 = updatesFixtures.ensurePhase10Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded11 = messagingFixtures.ensurePhase11Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded12 = enrollmentFixtures.ensurePhase12Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
+    const seeded13 = recordsFixtures.ensurePhase13Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     if (!store.siteContent) store.siteContent = {};
     if (!store.siteContent.featureFlags) store.siteContent.featureFlags = {};
     store.siteContent.featureFlags.familyHub = true;
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, label: TESTING_BANNER });
+    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, label: TESTING_BANNER });
   }
 
   async function handleUpdatesFeed(request, response, url) {
@@ -1195,6 +1213,12 @@ function createFamilyHubApi({
     if (method === "POST" && /\/enrollment\/offers\/[^/]+\/respond$/.test(path)) {
       const id = decodeURIComponent(path.split("/enrollment/offers/")[1].split("/respond")[0]);
       return (req, res) => enrollmentHandlers.handleOfferRespond(req, res, id);
+    }
+    if (method === "GET" && path === `${base}/records`) return (req, res) => recordsHandlers.handleRecordsList(req, res, url);
+    if (method === "POST" && path === `${base}/records/upload`) return (req, res) => recordsHandlers.handleUpload(req, res);
+    if (method === "GET" && /^\/api\/family-hub\/records\/[^/]+$/.test(path)) {
+      const id = decodeURIComponent(path.slice(`${base}/records/`.length));
+      return (req, res) => recordsHandlers.handleRecordDetail(req, res, id);
     }
     if (method === "GET" && path === `${base}/updates`) return (req, res) => handleUpdatesFeed(req, res, url);
     if (method === "GET" && path === `${base}/daily-reports`) return (req, res) => handleDailyReports(req, res, url);

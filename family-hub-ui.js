@@ -20,6 +20,8 @@
     messages: [],
     enrollmentCases: [],
     enrollmentDetail: null,
+    recordsList: [],
+    recordDetail: null,
     messageThread: null,
     messageDraft: "",
     notifications: [],
@@ -128,6 +130,11 @@
           <h2>Enrollment</h2>
           <p class="muted-copy">Application progress, tours, offers, and checklist (testing only).</p>
           <button type="button" class="primary-button fh-touch" data-fh-tab="enrollment">Open enrollment checklist</button>
+        </section>
+        <section class="fh-section">
+          <h2>Documents</h2>
+          <p class="muted-copy">Family-visible records for your children (testing only).</p>
+          <button type="button" class="primary-button fh-touch" data-fh-tab="records">Open Documents</button>
         </section>
         <section class="fh-section">
           <h2>Action Needed</h2>
@@ -573,6 +580,39 @@
     `;
   }
 
+  function recordsHtml() {
+    if (state.recordDetail) {
+      const r = state.recordDetail.record || state.recordDetail || {};
+      return `
+        <section class="fh-panel">
+          <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+          <button type="button" class="ghost-button" data-fh-back-records>← Documents</button>
+          <h1>${escapeHtml(r.title || "Document")}</h1>
+          <p class="muted-copy">${escapeHtml(r.category || "")} · ${escapeHtml(r.status || "")}</p>
+          <p class="muted-copy">Expires: ${escapeHtml(r.expirationDate || "—")}</p>
+        </section>
+      `;
+    }
+    const records = state.recordsList || [];
+    return `
+      <section class="fh-panel">
+        <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <h1>Documents</h1>
+        <p class="muted-copy">Only family-visible records for your children are shown.</p>
+        <ul class="fh-card-list">
+          ${records.map((row) => `
+            <li>
+              <button type="button" class="fh-card" data-fh-open-record="${escapeHtml(row.id)}">
+                <strong>${escapeHtml(row.title || "Document")}</strong>
+                <span>${escapeHtml(row.status || "")} · ${escapeHtml(row.category || "")}</span>
+              </button>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No documents yet.</li>"}
+        </ul>
+      </section>
+    `;
+  }
+
     function messagesHtml() {
     if (state.messageThread) {
       const thread = state.messageThread;
@@ -642,6 +682,7 @@
     if (state.tab === "forms") return formsHtml();
     if (state.tab === "messages") return messagesHtml();
     if (state.tab === "enrollment") return enrollmentHtml();
+    if (state.tab === "records") return recordsHtml();
     if (state.tab === "calendar") return calendarHtml();
     if (state.tab === "account") return accountHtml();
     return "";
@@ -685,6 +726,13 @@
         if (!state.enrollmentDetail) {
           const data = await api("GET", "/api/family-hub/enrollment");
           state.enrollmentCases = data.cases || [];
+        }
+      } else if (state.tab === "records") {
+        if (!state.recordDetail) {
+          const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";
+          const data = await api("GET", `/api/family-hub/records${q}`);
+          state.recordsList = data.records || [];
+          state.children = data.children || state.children;
         }
       } else if (state.tab === "messages") {
         if (!state.messageThread) {
@@ -733,6 +781,7 @@
     state.childDetail = null;
     state.messageThread = null;
     state.enrollmentDetail = null;
+    state.recordDetail = null;
     state.notice = "";
     refresh();
   }
@@ -772,6 +821,21 @@
     });
     root.querySelector("[data-fh-back-enrollment]")?.addEventListener("click", () => {
       state.enrollmentDetail = null;
+      refresh();
+    });
+    root.querySelectorAll("[data-fh-open-record]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          state.recordDetail = await api("GET", `/api/family-hub/records/${encodeURIComponent(button.getAttribute("data-fh-open-record"))}`);
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
+    });
+    root.querySelector("[data-fh-back-records]")?.addEventListener("click", () => {
+      state.recordDetail = null;
       refresh();
     });
     root.querySelectorAll("[data-fh-en-save]").forEach((button) => {

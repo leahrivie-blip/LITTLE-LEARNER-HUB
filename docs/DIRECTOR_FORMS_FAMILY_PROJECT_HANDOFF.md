@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 12 complete)
+**Status date:** 2026-07-22 (Phase 13 complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -52,7 +52,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify after push: `git rev-parse HEAD`) |
-| Tip message | Phase 12 Enrollment complete (tip SHA via `git rev-parse` after push) |
+| Tip message | Phase 13 Records / Phase 12 Enrollment complete (tip SHA via `git rev-parse` after push) |
 
 Confirm tip after pull:
 
@@ -117,7 +117,7 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| *(branch tip — set after push via `git rev-parse`)* | Phase 12 Enrollment complete (incl. handoff docs) |
+| *(branch tip — set after push via `git rev-parse`)* | Phase 13 Records / Phase 12 Enrollment complete (incl. handoff docs) |
 | `b69707e` | Tip before Phase 12 feature commit |
 | `a5b1f4c` | Phase 11 family messaging implementation |
 | `99a8aa7` | Phase 10 family updates implementation |
@@ -156,7 +156,8 @@ Phase tip history (newest first):
 - **Phase 9 Responsive Family Hub Base** — Mobile-first Family Hub (Home / Children / Forms / Calendar / Account) for approved fake guardians under testing-preview gate. Production Family Hub remains locked. See `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md`.
 - **Phase 10 Family Updates, Daily Reports, Media, and Sharing** — Provider-controlled updates and Daily Report shares, consent-gated testing media placeholders, shared observations/goals, family acknowledgments. See `docs/PHASE_10_FAMILY_UPDATES_MEDIA_COMPLETION_REPORT.md`.
 - **Phase 11 Messaging, Notifications, and Permanent History** — Org-scoped family/provider messaging, in-app notifications, permanent history/export. Outbound email/SMS/push remain disabled. See `docs/PHASE_11_MESSAGING_NOTIFICATIONS_COMPLETION_REPORT.md`.
-- **Phase 12 Enrollment** — Provider enrollment pipeline + Family Hub checklist/offers (testing only; no Stripe enrollment; Enrollment from Home to keep max-five nav with Messages). See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
+- **Phase 13 Records / Phase 12 Enrollment** — Provider enrollment pipeline + Family Hub checklist/offers (testing only; no Stripe enrollment; Enrollment from Home to keep max-five nav with Messages). See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md`.
+- **Phase 13 Records, Documents, and Communication Archive** — see `docs/PHASE_13_RECORDS_DOCUMENTS_COMMUNICATION_ARCHIVE_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 
 ### NOT STARTED
 
@@ -356,7 +357,7 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 
 ### Shell wiring (shared)
 
-Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html`, `styles.css`, `package.json` (`test:*` scripts), `forms-center-ui.js` (Built-In Library tab added in Phase 5; Responses tab + Send/Assign added in Phase 6), `teacher-center-ui.js` (Forms & Documents child-profile section added in Phase 6), `director-center-ui.js` (Families tab added in Phase 8; Family Updates tab added in Phase 10; Enrollment tab added in Phase 12), `family-hub-ui.js` (Phase 9 base; Phase 10 feed sections; Phase 11 Messages; Phase 12 Enrollment from Home).
+Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html`, `styles.css`, `package.json` (`test:*` scripts), `forms-center-ui.js` (Built-In Library tab added in Phase 5; Responses tab + Send/Assign added in Phase 6), `teacher-center-ui.js` (Forms & Documents child-profile section added in Phase 6), `director-center-ui.js` (Families tab added in Phase 8; Family Updates tab added in Phase 10; Enrollment tab added in Phase 12), `family-hub-ui.js` (Phase 9 base; Phase 10 feed sections; Phase 11 Messages; Phase 13 Records / Phase 12 Enrollment from Home).
 
 ---
 
@@ -450,6 +451,7 @@ npm run test:family-hub-phase9
 npm run test:family-updates-phase10
 npm run test:family-messaging-phase11
 npm run test:family-enrollment-phase12
+npm run test:records-center-phase13
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -471,7 +473,7 @@ node scripts/capture-family-messaging-phase11-screens.js
 node scripts/capture-enrollment-phase12-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 12 complete)
+### Handoff verification results (2026-07-22, Phase 13 complete)
 
 | Command | Result |
 |---------|--------|
@@ -488,7 +490,8 @@ node scripts/capture-enrollment-phase12-screens.js
 | `npm run test:family-hub-phase9` | PASS (21/21) |
 | `npm run test:family-updates-phase10` | PASS (14/14) |
 | `npm run test:family-messaging-phase11` | PASS (13/13) |
-| `npm run test:family-enrollment-phase12` | PASS (19/19) |
+| `npm run test:family-enrollment-phase12
+npm run test:records-center-phase13` | PASS (19/19) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
@@ -513,7 +516,7 @@ Phase gates are the scripts above.
 
 ## Incomplete items
 
-- Phase 13+ expansion (not started — next when owner-approved)
+- Phase 14+ licensing (not started at Phase 13 tip)
 - Phase 18 complete Testing and Preview Lab
 - Real approved AI provider connection (Phase 7 provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (Phase 7 import foundation prepared only)
@@ -534,7 +537,7 @@ Phase gates are the scripts above.
 
 ---
 
-## Phase 13 recommendation
+## Phase 14 recommendation
 
 When approved, start **Phase 13** only from owner-written requirements. Until then:
 
@@ -552,7 +555,8 @@ See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISION
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–12 test suite; confirm all PASS (include `npm run test:family-enrollment-phase12` — **19 PASS**)
+3. Run the full Phase 1–12 test suite; confirm all PASS (include `npm run test:family-enrollment-phase12
+npm run test:records-center-phase13` — **19 PASS**)
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, `ALLOW_FAMILY_HUB_TESTING_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=true` (production must keep Family Hub locked; no production media storage; no Stripe enrollment)
 5. Smoke Director Center (Families + Family Updates + Family Messaging + Enrollment) → Family Hub Home → Enrollment checklist / Messages
 6. Wait for owner-written Phase 13 requirements before coding
