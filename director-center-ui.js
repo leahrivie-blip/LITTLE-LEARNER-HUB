@@ -142,6 +142,8 @@
         if (typeof global.refreshFamilyMessagingTab === "function") {
           await global.refreshFamilyMessagingTab();
         }
+      } else if (state.tab === "enrollment") {
+        // Enrollment tab loads via renderEnrollmentTab after paint.
       } else if (state.tab === "roles_permissions") {
         state.roles = await api("GET", "/api/director-center/roles-permissions");
         state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty || 0)}`);
@@ -176,6 +178,7 @@
       ["families", "Families"],
       ["family_updates", "Family Updates"],
       ["family_messaging", "Family Messaging"],
+      ["enrollment", "Enrollment"],
       ["program_profile", "Program Profile"],
       ["roles_permissions", "Roles and Permissions"],
     ];
@@ -664,6 +667,9 @@
     if (state.tab === "family_messaging") {
       return `<div id="dc-family-messaging-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Family Messaging…</p></div>`;
     }
+    if (state.tab === "enrollment") {
+      return `<div id="dc-enrollment-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Enrollment…</p></div>`;
+    }
     if (state.tab === "program_profile") return programProfileHtml();
     if (state.tab === "roles_permissions") return rolesHtml();
     return "";
@@ -719,6 +725,9 @@
     }
     if (state.tab === "family_messaging" && typeof global.renderFamilyMessagingTab === "function") {
       global.renderFamilyMessagingTab(section.querySelector("#dc-family-messaging-mount") || section);
+    }
+    if (state.tab === "enrollment" && typeof global.renderEnrollmentTab === "function") {
+      global.renderEnrollmentTab(section.querySelector("#dc-enrollment-mount") || section);
     }
   }
 

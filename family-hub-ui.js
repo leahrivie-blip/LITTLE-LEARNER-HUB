@@ -18,6 +18,8 @@
     calendar: [],
     account: null,
     messages: [],
+    enrollmentCases: [],
+    enrollmentDetail: null,
     messageThread: null,
     messageDraft: "",
     notifications: [],
@@ -121,6 +123,11 @@
         <section class="fh-section">
           <h2>Messages ${(data.unreadMessages || 0) ? `<span class="fh-badge">${escapeHtml(String(data.unreadMessages))}</span>` : ""}</h2>
           <button type="button" class="primary-button fh-touch" data-fh-tab="messages">Open Messages</button>
+        </section>
+        <section class="fh-section">
+          <h2>Enrollment</h2>
+          <p class="muted-copy">Application progress, tours, offers, and checklist (testing only).</p>
+          <button type="button" class="primary-button fh-touch" data-fh-tab="enrollment">Open enrollment checklist</button>
         </section>
         <section class="fh-section">
           <h2>Action Needed</h2>
@@ -494,7 +501,79 @@
     `;
   }
 
-  function messagesHtml() {
+  function enrollmentHtml() {
+    const cases = state.enrollmentCases || [];
+    if (state.enrollmentDetail) {
+      const detail = state.enrollmentDetail;
+      const c = detail.case || {};
+      const offer = detail.offer;
+      const packet = detail.packet;
+      return `
+        <section class="fh-panel">
+          <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+          <button type="button" class="ghost-button" data-fh-back-enrollment>← Checklist</button>
+          <h1>${escapeHtml(c.childName || "Enrollment")}</h1>
+          <p class="muted-copy">${escapeHtml(c.statusLabel || "")}</p>
+          <p class="muted-copy">Start date: ${escapeHtml(c.desiredStartDate || "—")}</p>
+          ${detail.tour ? `<p>Tour: ${escapeHtml(detail.tour.status)} ${escapeHtml((detail.tour.scheduledAt || "").slice(0, 16))}</p>` : ""}
+          <h2>Checklist</h2>
+          <ul class="fh-card-list">
+            ${(detail.checklist || []).map((item) => `
+              <li class="fh-card static">
+                <strong>${escapeHtml(item.label || item.labelFriendly || item.key)}</strong>
+                <span>${escapeHtml(item.status || "")}</span>
+                ${item.returnedReason ? `<p>${escapeHtml(item.returnedReason)}</p>` : ""}
+              </li>
+            `).join("")}
+          </ul>
+          ${packet ? `
+            <h2>Forms</h2>
+            <ul class="fh-card-list">
+              ${(packet.items || []).map((item) => `
+                <li class="fh-card static">
+                  <strong>${escapeHtml(item.title)}</strong>
+                  <span>${escapeHtml(item.status)}</span>
+                  ${item.status === "in_progress" || item.status === "not_started" || item.status === "returned" ? `
+                    <button type="button" class="ghost-button" data-fh-en-save="${escapeHtml(item.key)}">Save progress</button>
+                  ` : ""}
+                </li>
+              `).join("")}
+            </ul>
+          ` : ""}
+          ${offer ? `
+            <h2>Fake enrollment offer</h2>
+            <p class="muted-copy">${escapeHtml(offer.fakeLabel || "")}</p>
+            <p>Start ${escapeHtml(offer.proposedStartDate || "")} · ${escapeHtml(offer.schedule || "")}</p>
+            <p>Simulated tuition $${escapeHtml(String(offer.tuitionAmountSimulated || 0))} (no real charge)</p>
+            ${offer.status === "sent_testing" ? `
+              <button type="button" class="primary-button" data-fh-en-accept-offer="${escapeHtml(offer.id)}">Accept offer</button>
+              <button type="button" class="ghost-button" data-fh-en-decline-offer="${escapeHtml(offer.id)}">Decline</button>
+            ` : `<p>Status: ${escapeHtml(offer.status)}</p>`}
+          ` : ""}
+          <p class="muted-copy">${escapeHtml((detail.case && detail.case.programContactNote) || c.programContactNote || "")}</p>
+        </section>
+      `;
+    }
+    return `
+      <section class="fh-panel">
+        <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <h1>Enrollment</h1>
+        <p class="muted-copy">Only your household applications are shown.</p>
+        <ul class="fh-card-list">
+          ${cases.map((row) => `
+            <li>
+              <button type="button" class="fh-card" data-fh-open-enrollment="${escapeHtml(row.id)}">
+                <strong>${escapeHtml(row.childName || "Application")}</strong>
+                <span>${escapeHtml(row.statusLabel || row.stage || "")}</span>
+              </button>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No enrollment applications yet.</li>"}
+        </ul>
+      </section>
+    `;
+  }
+
+    function messagesHtml() {
     if (state.messageThread) {
       const thread = state.messageThread;
       const conv = thread.conversation || {};
@@ -562,6 +641,7 @@
     if (state.tab === "children") return childrenHtml();
     if (state.tab === "forms") return formsHtml();
     if (state.tab === "messages") return messagesHtml();
+    if (state.tab === "enrollment") return enrollmentHtml();
     if (state.tab === "calendar") return calendarHtml();
     if (state.tab === "account") return accountHtml();
     return "";
@@ -601,6 +681,11 @@
         const data = await api("GET", `/api/family-hub/calendar${q}`);
         state.calendar = data.events || [];
         if (data.selectedChildId) state.selectedChildId = data.selectedChildId;
+      } else if (state.tab === "enrollment") {
+        if (!state.enrollmentDetail) {
+          const data = await api("GET", "/api/family-hub/enrollment");
+          state.enrollmentCases = data.cases || [];
+        }
       } else if (state.tab === "messages") {
         if (!state.messageThread) {
           const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";
@@ -647,6 +732,7 @@
     state.formDetail = null;
     state.childDetail = null;
     state.messageThread = null;
+    state.enrollmentDetail = null;
     state.notice = "";
     refresh();
   }
@@ -671,6 +757,74 @@
     root.querySelector("[data-fh-back-messages]")?.addEventListener("click", () => {
       state.messageThread = null;
       refresh();
+    });
+
+    root.querySelectorAll("[data-fh-open-enrollment]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          state.enrollmentDetail = await api("GET", `/api/family-hub/enrollment/${encodeURIComponent(button.getAttribute("data-fh-open-enrollment"))}`);
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
+    });
+    root.querySelector("[data-fh-back-enrollment]")?.addEventListener("click", () => {
+      state.enrollmentDetail = null;
+      refresh();
+    });
+    root.querySelectorAll("[data-fh-en-save]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const caseId = state.enrollmentDetail?.case?.id;
+        if (!caseId) return;
+        try {
+          await api("POST", `/api/family-hub/enrollment/${encodeURIComponent(caseId)}/packet-progress`, {
+            key: button.getAttribute("data-fh-en-save"),
+            status: "in_progress",
+          });
+          state.enrollmentDetail = await api("GET", `/api/family-hub/enrollment/${encodeURIComponent(caseId)}`);
+          state.notice = "Progress saved.";
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
+    });
+    root.querySelectorAll("[data-fh-en-accept-offer]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await api("POST", `/api/family-hub/enrollment/offers/${encodeURIComponent(button.getAttribute("data-fh-en-accept-offer"))}/respond`, {
+            accept: true,
+            acknowledgment: "I acknowledge this fake testing offer.",
+          });
+          const caseId = state.enrollmentDetail?.case?.id;
+          state.enrollmentDetail = await api("GET", `/api/family-hub/enrollment/${encodeURIComponent(caseId)}`);
+          state.notice = "Offer accepted (testing — no charge).";
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
+    });
+    root.querySelectorAll("[data-fh-en-decline-offer]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await api("POST", `/api/family-hub/enrollment/offers/${encodeURIComponent(button.getAttribute("data-fh-en-decline-offer"))}/respond`, {
+            decline: true,
+            reason: "Declined in testing.",
+          });
+          const caseId = state.enrollmentDetail?.case?.id;
+          state.enrollmentDetail = await api("GET", `/api/family-hub/enrollment/${encodeURIComponent(caseId)}`);
+          state.notice = "Offer declined.";
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
     });
     root.querySelector("[data-fh-reply]")?.addEventListener("submit", async (event) => {
       event.preventDefault();

@@ -7,7 +7,7 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 11 Messaging, Notifications, and Permanent Communication History**.
+Private preview work through **Phase 12 Enrollment**.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -17,20 +17,21 @@ Private preview work through **Phase 11 Messaging, Notifications, and Permanent 
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run all Phase 1–11 automated tests
+5. Run all Phase 1–12 automated tests
 6. Confirm testing-environment safety
-7. Continue only from the next **approved** phase (Phase 12+)
+7. Continue only from the next **approved** phase (Phase 13+)
 8. Never merge or deploy without explicit approval
 
 ### COMPLETED
 
-- Phases 1–10
-- Phase 11 Messaging / Notifications / Permanent History — see `docs/PHASE_11_MESSAGING_NOTIFICATIONS_COMPLETION_REPORT.md`
+- Phases 1–11
+- Phase 12 Enrollment — see `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- Phase 12+
-- Live email / SMS / push delivery for family messaging
+- Phase 13+
+- Live Stripe enrollment checkout
+- Live email / SMS / push delivery for family messaging or enrollment
 - Live AI / live pricing / production migration
 
 ### Feature flags (testing)
@@ -38,7 +39,7 @@ Private preview work through **Phase 11 Messaging, Notifications, and Permanent 
 - `directorCenter=true` + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`
 - `formsCenter=true` + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`
 - `familyHub=true` + `ALLOW_FAMILY_HUB_TESTING_PREVIEW`
-- **Production:** expansion flags locked OFF; outbound family delivery disabled
+- **Production:** expansion flags locked OFF; outbound family delivery disabled; no Stripe enrollment
 
 ### Verification
 
@@ -56,15 +57,16 @@ npm run test:family-foundation-phase8
 npm run test:family-hub-phase9
 npm run test:family-updates-phase10
 npm run test:family-messaging-phase11
+npm run test:family-enrollment-phase12
 npm run test:platform-nav
 npm run test:account-access
 ```
 
-### Tip (Phase 11 complete)
+### Tip (Phase 12 complete)
 
-Authoritative tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
-Phase 11 feature commit: `a5b1f4c`. Full regression: all suites PASS. Phase 12 not started. Production Family Hub locked. `main` untouched.
+Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
+Started from `b69707e`. Focused suite: `npm run test:family-enrollment-phase12` — **19 PASS**. Phase 13 not started. Production Family Hub locked. `main` untouched. No Stripe enrollment.
 
 ### Suggested PR title
 
-Phases 1–11: Director/Forms/Family Messaging (do not merge/deploy)
+Phases 1–12: Director/Forms/Family Enrollment (do not merge/deploy)

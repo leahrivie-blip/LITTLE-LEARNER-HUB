@@ -23969,3 +23969,11 @@ button.linkish {
 .fh-message-list .fh-card { word-break: break-word; }
 .fh-withdrawn { opacity: 0.75; font-style: italic; }
 .fm-internal { border-left: 3px solid #8a5a2b; background: rgba(138, 90, 43, 0.08); }
+
+
+/* Phase 12 Enrollment */
+.en-panel { display: grid; gap: 1rem; }
+.en-pipeline-list { display: grid; gap: 0.5rem; }
+.en-case-row { text-align: left; width: 100%; }
+.en-capacity-warn { color: #8a4b08; background: #fff6e8; padding: 0.75rem 1rem; border-radius: 8px; }
+.en-reports pre { max-height: 240px; overflow: auto; white-space: pre-wrap; }
