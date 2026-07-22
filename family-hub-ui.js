@@ -17,6 +17,11 @@
     documents: [],
     calendar: [],
     account: null,
+    messages: [],
+    messageThread: null,
+    messageDraft: "",
+    notifications: [],
+    unreadMessages: 0,
     loading: false,
     error: "",
     notice: "",
@@ -76,27 +81,30 @@
   }
 
   function navHtml() {
+    // Phase 11 nav decision: Messages replaces Calendar in the bottom bar (max five).
+    // Calendar remains available under Account.
+    const unread = state.unreadMessages || state.home?.unreadMessages || 0;
     const items = [
       ["home", "Home"],
       ["children", "Children"],
       ["forms", "Forms"],
-      ["calendar", "Calendar"],
+      ["messages", `Messages${unread ? ` (${unread})` : ""}`],
       ["account", "Account"],
     ];
     return `
       <nav class="fh-bottom-nav" aria-label="Family Hub">
         ${items.map(([id, label]) => `
-          <button type="button" class="fh-nav-btn${state.tab === id ? " active" : ""}" data-fh-tab="${id}">
-            <span class="fh-nav-label">${label}</span>
+          <button type="button" class="fh-nav-btn${state.tab === id ? " active" : ""}" data-fh-tab="${id === "messages" ? "messages" : id.split(" ")[0]}">
+            <span class="fh-nav-label">${id === "messages" ? "Messages" : label}${id === "messages" && unread ? `<span class="fh-badge">${unread}</span>` : ""}</span>
           </button>
         `).join("")}
       </nav>
       <aside class="fh-sidebar" aria-label="Family Hub">
         <p class="fh-brand">Family Hub</p>
-        ${items.map(([id, label]) => `
-          <button type="button" class="fh-side-btn${state.tab === id ? " active" : ""}" data-fh-tab="${id}">${label}</button>
+        ${[["home", "Home"], ["children", "Children"], ["forms", "Forms"], ["messages", "Messages"], ["account", "Account"]].map(([id, label]) => `
+          <button type="button" class="fh-side-btn${state.tab === id ? " active" : ""}" data-fh-tab="${id}">${label}${id === "messages" && unread ? ` · ${unread}` : ""}</button>
         `).join("")}
-        <p class="fh-roadmap muted-copy">More family tools are coming in later phases.</p>
+        <p class="fh-roadmap muted-copy">Calendar is under Account. Billing arrives later.</p>
       </aside>
     `;
   }
@@ -110,6 +118,10 @@
         <h1 class="fh-welcome">${escapeHtml(data.welcome || "Welcome")}</h1>
         ${childSwitcherHtml(data.children, data.selectedChildId)}
         ${data.empty ? `<p class="fh-empty">${escapeHtml(data.emptyMessage || "Nothing needs your attention right now.")}</p>` : ""}
+        <section class="fh-section">
+          <h2>Messages ${(data.unreadMessages || 0) ? `<span class="fh-badge">${escapeHtml(String(data.unreadMessages))}</span>` : ""}</h2>
+          <button type="button" class="primary-button fh-touch" data-fh-tab="messages">Open Messages</button>
+        </section>
         <section class="fh-section">
           <h2>Action Needed</h2>
           ${!(data.actionNeeded || []).length ? `<p class="muted-copy">You're all caught up.</p>` : `
@@ -472,7 +484,75 @@
           <label>New <input type="password" name="newPassword" required minlength="10" autocomplete="new-password" /></label>
           <button type="submit" class="ghost-button">Update password</button>
         </form>
+        <section class="fh-section">
+          <h2>Calendar</h2>
+          <p class="muted-copy">Calendar lives here so Messages can stay in the main navigation (max five items).</p>
+          <button type="button" class="ghost-button" data-fh-open-calendar>Open calendar</button>
+        </section>
         <button type="button" class="primary-button" data-fh-sign-out>Sign out</button>
+      </section>
+    `;
+  }
+
+  function messagesHtml() {
+    if (state.messageThread) {
+      const thread = state.messageThread;
+      const conv = thread.conversation || {};
+      return `
+        <section class="fh-panel">
+          <button type="button" class="ghost-button" data-fh-back-messages>← Inbox</button>
+          <h1>${escapeHtml(conv.subject || "Conversation")}</h1>
+          <p class="muted-copy">${escapeHtml(conv.participantSummary || "")}</p>
+          <ul class="fh-card-list fh-message-list">
+            ${(thread.messages || []).map((msg) => `
+              <li class="fh-card static ${msg.withdrawn ? "fh-withdrawn" : ""}">
+                <strong>${escapeHtml(msg.withdrawn ? (msg.withdrawnNotice || "Withdrawn") : (msg.senderRole || "Message"))}</strong>
+                <span>${escapeHtml((msg.sentAt || "").slice(0, 16).replace("T", " "))}${msg.edited ? " · Edited" : ""}</span>
+                ${msg.withdrawn ? "" : `<p>${escapeHtml(msg.body || "")}</p>`}
+              </li>
+            `).join("") || "<li class=\"muted-copy\">No messages yet</li>"}
+          </ul>
+          ${thread.canReply ? `
+            <form class="fh-form" data-fh-reply>
+              <label>Reply <textarea name="body" rows="3" required placeholder="Write a reply">${escapeHtml(state.messageDraft || "")}</textarea></label>
+              <div class="fu-actions">
+                <button type="button" class="ghost-button" data-fh-save-draft>Save draft</button>
+                <button type="submit" class="primary-button">Send</button>
+              </div>
+            </form>
+          ` : `<p class="muted-copy">Replies are not enabled for this conversation.</p>`}
+        </section>
+      `;
+    }
+    return `
+      <section class="fh-panel">
+        <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <h1>Messages ${(state.unreadMessages || 0) ? `<span class="fh-badge">${escapeHtml(String(state.unreadMessages))}</span>` : ""}</h1>
+        ${childSwitcherHtml(state.home?.children || state.children, state.selectedChildId)}
+        <form class="fh-form" data-fh-msg-search>
+          <label>Search <input name="q" placeholder="Search conversations" /></label>
+        </form>
+        <button type="button" class="ghost-button" data-fh-start-message>Message your program</button>
+        <ul class="fh-card-list">
+          ${(state.messages || []).map((row) => `
+            <li>
+              <button type="button" class="fh-card" data-fh-open-message="${escapeHtml(row.id)}">
+                <strong>${escapeHtml(row.subject || "Conversation")}</strong>
+                <span>${escapeHtml(row.announcement ? "Announcement" : row.type || "")} · ${escapeHtml((row.lastActivityAt || "").slice(0, 10))}</span>
+              </button>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No conversations yet.</li>"}
+        </ul>
+        <h2>Notifications</h2>
+        <ul class="fh-card-list">
+          ${(state.notifications || []).map((row) => `
+            <li class="fh-card static">
+              <strong>${escapeHtml(row.title || "")}</strong>
+              <span>${escapeHtml(row.preview || "")}</span>
+              ${row.read ? "" : `<button type="button" class="fh-link-btn" data-fh-open-note="${escapeHtml(row.id)}">Open</button>`}
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No notifications</li>"}
+        </ul>
       </section>
     `;
   }
@@ -481,6 +561,7 @@
     if (state.tab === "home") return homeHtml();
     if (state.tab === "children") return childrenHtml();
     if (state.tab === "forms") return formsHtml();
+    if (state.tab === "messages") return messagesHtml();
     if (state.tab === "calendar") return calendarHtml();
     if (state.tab === "account") return accountHtml();
     return "";
@@ -495,6 +576,7 @@
         const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";
         state.home = await api("GET", `/api/family-hub/home${q}`);
         state.children = state.home.children || [];
+        state.unreadMessages = state.home.unreadMessages || 0;
         if (state.home.selectedChildId) state.selectedChildId = state.home.selectedChildId;
       } else if (state.tab === "children") {
         if (state.childDetail) {
@@ -519,6 +601,16 @@
         const data = await api("GET", `/api/family-hub/calendar${q}`);
         state.calendar = data.events || [];
         if (data.selectedChildId) state.selectedChildId = data.selectedChildId;
+      } else if (state.tab === "messages") {
+        if (!state.messageThread) {
+          const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";
+          const data = await api("GET", `/api/family-hub/messages${q}`);
+          state.messages = data.conversations || [];
+          state.unreadMessages = data.unreadMessages || 0;
+          state.children = data.children || state.children;
+          const notes = await api("GET", "/api/family-hub/notifications");
+          state.notifications = notes.notifications || [];
+        }
       } else if (state.tab === "account") {
         state.account = await api("GET", "/api/family-hub/account");
         state.children = state.account.children || [];
@@ -554,6 +646,7 @@
     state.tab = tab;
     state.formDetail = null;
     state.childDetail = null;
+    state.messageThread = null;
     state.notice = "";
     refresh();
   }
@@ -561,6 +654,83 @@
   function bind(root) {
     root.querySelectorAll("[data-fh-tab]").forEach((button) => {
       button.addEventListener("click", () => setTab(button.getAttribute("data-fh-tab")));
+    });
+    root.querySelector("[data-fh-open-calendar]")?.addEventListener("click", () => setTab("calendar"));
+    root.querySelectorAll("[data-fh-open-message]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          state.messageThread = await api("GET", `/api/family-hub/messages/${encodeURIComponent(button.getAttribute("data-fh-open-message"))}`);
+          state.unreadMessages = Math.max(0, (state.unreadMessages || 1) - 1);
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
+    });
+    root.querySelector("[data-fh-back-messages]")?.addEventListener("click", () => {
+      state.messageThread = null;
+      refresh();
+    });
+    root.querySelector("[data-fh-reply]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const body = new FormData(form).get("body");
+      try {
+        await api("POST", `/api/family-hub/messages/${encodeURIComponent(state.messageThread.conversation.id)}/reply`, { body });
+        state.messageDraft = "";
+        state.messageThread = await api("GET", `/api/family-hub/messages/${encodeURIComponent(state.messageThread.conversation.id)}`);
+        state.notice = "Message sent to your in-app inbox (not emailed).";
+        render();
+      } catch (error) {
+        state.error = error.message;
+        render();
+      }
+    });
+    root.querySelector("[data-fh-save-draft]")?.addEventListener("click", async () => {
+      const form = root.querySelector("[data-fh-reply]");
+      const body = form ? new FormData(form).get("body") : "";
+      try {
+        await api("POST", "/api/family-hub/messages/draft", {
+          conversationId: state.messageThread.conversation.id,
+          body,
+        });
+        state.messageDraft = String(body || "");
+        state.notice = "Draft autosaved.";
+        render();
+      } catch (error) {
+        state.error = error.message;
+        render();
+      }
+    });
+    root.querySelector("[data-fh-start-message]")?.addEventListener("click", async () => {
+      try {
+        const childId = state.selectedChildId || state.children?.[0]?.childId || state.home?.selectedChildId;
+        const created = await api("POST", "/api/family-hub/messages/start", {
+          childId,
+          subject: "Message to program",
+          body: "Hello — testing family message (fixture).",
+        });
+        state.messageThread = await api("GET", `/api/family-hub/messages/${encodeURIComponent(created.conversation.id)}`);
+        render();
+      } catch (error) {
+        state.error = error.message;
+        render();
+      }
+    });
+    root.querySelectorAll("[data-fh-open-note]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          const opened = await api("GET", `/api/family-hub/notifications/${encodeURIComponent(button.getAttribute("data-fh-open-note"))}/open`);
+          if (opened.notification?.conversationId) {
+            state.messageThread = await api("GET", `/api/family-hub/messages/${encodeURIComponent(opened.notification.conversationId)}`);
+          }
+          await refresh();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
     });
     root.querySelector("[data-fh-child-switch]")?.addEventListener("change", async (event) => {
       state.selectedChildId = event.target.value;

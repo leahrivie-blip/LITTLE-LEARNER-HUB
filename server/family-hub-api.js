@@ -21,6 +21,9 @@ const hub = require("../scripts/family-hub-data-model.js");
 const fixtures = require("../scripts/family-hub-fixtures.js");
 const updatesModel = require("../scripts/family-updates-data-model.js");
 const updatesFixtures = require("../scripts/family-updates-fixtures.js");
+const messagingModel = require("../scripts/family-messaging-data-model.js");
+const messagingFixtures = require("../scripts/family-messaging-fixtures.js");
+const { createFamilyHubMessagingHandlers } = require("./family-hub-messaging-handlers.js");
 const formsModel = require("../scripts/forms-center-data-model.js");
 const responsesModel = require("../scripts/form-responses-data-model.js");
 const { buildRecipientPayload } = require("../scripts/form-recipient-payload.js");
@@ -128,6 +131,8 @@ function createFamilyHubApi({
     });
   }
 
+  let messagingHandlers = null;
+
   function withGuardian(request, response, { capability = "digital", childId = "" } = {}) {
     const store = readStore();
     hub.ensureFamilyHubStore(store);
@@ -145,7 +150,32 @@ function createFamilyHubApi({
     }
     fixtures.ensurePhase9Preview(store, { organizationId: actor.organizationId });
     updatesFixtures.ensurePhase10Preview(store, { organizationId: actor.organizationId });
+    messagingFixtures.ensurePhase11Preview(store, { organizationId: actor.organizationId });
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
+    // For messaging capability, also include messages-only children and deny when none are messages-capable.
+    if (capability === "messages") {
+      const messageChildren = listValues(store.familyFoundation?.accessRules || {})
+        .filter((rule) => rule.contactId === actor.contact.id && rule.organizationId === actor.organizationId && rule.status === "active")
+        .filter((rule) => familyModel.evaluateContactChildAccess({
+          store,
+          organizationId: actor.organizationId,
+          contactId: actor.contact.id,
+          childId: rule.childId,
+          capability: "messages",
+        }).allowed)
+        .map((rule) => {
+          const child = store.childRecords?.[rule.childId];
+          return {
+            childId: rule.childId,
+            displayName: child?.displayName || "",
+            accessLevel: rule.accessLevel,
+          };
+        });
+      if (!messageChildren.length && !childId && !getHeader(request, "x-llh-selected-child-id")) {
+        deny(response, 403, "no_messages_access", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+        return null;
+      }
+    }
     let selectedChildId = String(childId || getHeader(request, "x-llh-selected-child-id") || "").trim();
     if (selectedChildId) {
       const access = hub.requireChildAccess(store, actor.contact, selectedChildId, capability);
@@ -158,6 +188,23 @@ function createFamilyHubApi({
     }
     return { store, actor, children, selectedChildId };
   }
+
+  messagingHandlers = createFamilyHubMessagingHandlers({
+    messagingModel,
+    messagingFixtures,
+    updatesModel,
+    familyModel,
+    hub,
+    listValues,
+    safeLower,
+    withGuardian,
+    deny,
+    readJson,
+    writeStore,
+    jsonResponse,
+    env,
+    TESTING_BANNER,
+  });
 
   function programContact(store, organizationId) {
     const org = store.organizations?.[organizationId];
@@ -311,20 +358,26 @@ function createFamilyHubApi({
     }
     fixtures.ensurePhase9Preview(store, { organizationId: actor.organizationId });
     updatesFixtures.ensurePhase10Preview(store, { organizationId: actor.organizationId });
+    messagingFixtures.ensurePhase11Preview(store, { organizationId: actor.organizationId });
     writeStore(store);
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
+    const unreadMessages = messagingModel.unreadCountForEmail(store, actor.organizationId, actor.email);
     jsonResponse(response, 200, {
       ok: true,
-      phase: 10,
+      phase: 11,
       preview: true,
       label: TESTING_BANNER,
       familyHub: true,
       contactId: actor.contact.id,
       organizationId: actor.organizationId,
       childCount: children.length,
-      navigation: ["home", "children", "forms", "calendar", "account"],
-      deferred: ["messages", "billing"],
-      roadmapNote: "Messaging and notification delivery arrive in a later phase.",
+      // Nav decision: Messages replaces Calendar in the bottom bar (max five).
+      // Calendar remains available under Account → Calendar.
+      navigation: ["home", "children", "forms", "messages", "account"],
+      deferred: ["billing"],
+      navDecision: "messages_replaces_calendar_in_bottom_nav_calendar_under_account",
+      unreadMessages,
+      roadmapNote: "Billing arrives in a later phase. Outbound email/SMS/push stay disabled.",
       noOutboundEmail: true,
       noOutboundSms: true,
       noPush: true,
@@ -412,8 +465,9 @@ function createFamilyHubApi({
       familyMedia: (feed.media || []).slice(0, 8),
       sharedObservations: (feed.observations || []).slice(0, 5),
       sharedGoals: (feed.goals || []).slice(0, 5),
+      unreadMessages: messagingModel.unreadCountForEmail(store, actor.organizationId, actor.email),
       programContact: programContact(store, actor.organizationId),
-      roadmapNote: "Messaging arrives in a later phase.",
+      roadmapNote: "Billing arrives in a later phase.",
     });
   }
 
@@ -924,11 +978,12 @@ function createFamilyHubApi({
     const body = await readJson(request).catch(() => ({}));
     const seeded9 = fixtures.ensurePhase9Preview(store, { organizationId: body.organizationId || "" });
     const seeded10 = updatesFixtures.ensurePhase10Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
+    const seeded11 = messagingFixtures.ensurePhase11Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     if (!store.siteContent) store.siteContent = {};
     if (!store.siteContent.featureFlags) store.siteContent.featureFlags = {};
     store.siteContent.featureFlags.familyHub = true;
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, label: TESTING_BANNER });
+    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, label: TESTING_BANNER });
   }
 
   async function handleUpdatesFeed(request, response, url) {
@@ -1081,6 +1136,35 @@ function createFamilyHubApi({
     if (method === "GET" && path === `${base}/status`) return (req, res) => handleStatus(req, res);
     if (method === "POST" && path === `${base}/seed`) return (req, res) => handleSeed(req, res);
     if (method === "GET" && path === `${base}/home`) return (req, res) => handleHome(req, res, url);
+    if (method === "GET" && path === `${base}/messages`) return (req, res) => messagingHandlers.handleMessagesInbox(req, res, url);
+    if (method === "POST" && path === `${base}/messages/start`) return (req, res) => messagingHandlers.handleStartConversation(req, res);
+    if (method === "POST" && path === `${base}/messages/draft`) return (req, res) => messagingHandlers.handleSaveDraft(req, res);
+    if (method === "POST" && path === `${base}/messages/report-concern`) return (req, res) => messagingHandlers.handleReportConcernMessage(req, res);
+    if (method === "POST" && path === `${base}/messages/attachments`) return (req, res) => messagingHandlers.handleAttachmentUpload(req, res);
+    if (method === "GET" && /^\/api\/family-hub\/messages\/attachments\/[^/]+\/content$/.test(path)) {
+      const id = decodeURIComponent(path.split("/attachments/")[1].split("/content")[0]);
+      return (req, res) => messagingHandlers.handleAttachmentContent(req, res, id);
+    }
+    if (method === "GET" && /^\/api\/family-hub\/messages\/[^/]+$/.test(path)) {
+      const id = decodeURIComponent(path.slice(`${base}/messages/`.length));
+      return (req, res) => messagingHandlers.handleMessageThread(req, res, id);
+    }
+    if (method === "POST" && /\/messages\/[^/]+\/reply$/.test(path)) {
+      const id = decodeURIComponent(path.split("/messages/")[1].split("/reply")[0]);
+      return (req, res) => messagingHandlers.handleMessageReply(req, res, id);
+    }
+    if (method === "POST" && /\/messages\/[^/]+\/prefs$/.test(path)) {
+      const id = decodeURIComponent(path.split("/messages/")[1].split("/prefs")[0]);
+      return (req, res) => messagingHandlers.handleMessagePrefs(req, res, id);
+    }
+    if (method === "GET" && path === `${base}/notifications`) return (req, res) => messagingHandlers.handleFamilyNotifications(req, res);
+    if (method === "POST" && path === `${base}/notifications/mark-read`) return (req, res) => messagingHandlers.handleMarkNotificationsRead(req, res);
+    if (method === "GET" && /^\/api\/family-hub\/notifications\/[^/]+\/open$/.test(path)) {
+      const id = decodeURIComponent(path.split("/notifications/")[1].split("/open")[0]);
+      return (req, res) => messagingHandlers.handleNotificationOpen(req, res, id);
+    }
+    if (method === "GET" && path === `${base}/delivery-preferences`) return (req, res) => messagingHandlers.handleDeliveryPreferences(req, res);
+    if (method === "POST" && path === `${base}/delivery-preferences`) return (req, res) => messagingHandlers.handleDeliveryPreferences(req, res);
     if (method === "GET" && path === `${base}/updates`) return (req, res) => handleUpdatesFeed(req, res, url);
     if (method === "GET" && path === `${base}/daily-reports`) return (req, res) => handleDailyReports(req, res, url);
     if (method === "GET" && path === `${base}/media`) return (req, res) => handleFamilyMediaList(req, res, url);

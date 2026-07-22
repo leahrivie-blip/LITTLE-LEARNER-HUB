@@ -23950,3 +23950,22 @@ button.linkish {
   font: inherit;
 }
 .dc-family-updates-mount { margin-top: 0.5rem; }
+
+/* Phase 11 messaging */
+.fh-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  min-height: 1.25rem;
+  margin-left: 0.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #0f5c4c;
+  color: #fff;
+  font-size: 0.75rem;
+}
+.fh-touch { min-height: 44px; }
+.fh-message-list .fh-card { word-break: break-word; }
+.fh-withdrawn { opacity: 0.75; font-style: italic; }
+.fm-internal { border-left: 3px solid #8a5a2b; background: rgba(138, 90, 43, 0.08); }
