@@ -3792,6 +3792,27 @@ function markProcessedStripeEvent(eventId) {
   writeStore(store);
 }
 
+// Persisted (not just console-logged) audit trail for confirmed curriculum
+// replace/restore actions — high-impact and rare enough to warrant their own record.
+function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
+  store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
+  const session = store.adminSessions?.[String(adminToken || "").trim()];
+  const entry = {
+    id: `curr_restore_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    adminEmail: session?.email || "unknown",
+    note: note || "",
+    beforeLessonPlans: before?.lessonPlans?.length || 0,
+    beforeActivities: before?.activities?.length || 0,
+    afterLessonPlans: after?.lessonPlans?.length || 0,
+    afterActivities: after?.activities?.length || 0,
+    createdAt: new Date().toISOString(),
+  };
+  store.curriculumRestoreAudit.unshift(entry);
+  store.curriculumRestoreAudit = store.curriculumRestoreAudit.slice(0, 200);
+  console.log("[curriculum-restore-audit]", JSON.stringify(entry));
+  return entry;
+}
+
 function appendMembershipLifecycleAudit(email, action, details = {}) {
   const store = readStore();
   store.membershipAudit = store.membershipAudit || [];
@@ -6309,6 +6330,15 @@ async function handleAdminSiteContentSave(request, response) {
       existingLessonPlans: existingCurriculum.lessonPlans.length,
       incomingLessonPlans: attempted.lessonPlans.length,
     }).catch(() => {});
+  } else if (allowCurriculumReplace) {
+    // Explicit, confirmed curriculum restores/rebuilds are rare and high-impact — keep a
+    // durable, queryable record separate from console logs (which are not persisted).
+    appendCurriculumRestoreAudit(store, {
+      adminToken: body.adminToken,
+      before: normalizedCurriculumStore(existingContent.curriculum),
+      after: normalizedCurriculumStore(nextContent.curriculum),
+      note: normalizedShortText(body.restoreSourceNote, 300),
+    });
   }
   const normalizedIds = Object.keys(nextContent.lessonPlans || {});
   console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
@@ -11328,6 +11358,22 @@ function handleAdminCurriculumBackup(request, response, url) {
   jsonResponse(response, 200, buildCurriculumBackupPayload(store));
 }
 
+// Read-only view of the persisted curriculum restore audit trail (see
+// appendCurriculumRestoreAudit). Lets an owner confirm a restore actually happened
+// without trusting console logs, which are not durable.
+function handleAdminCurriculumRestoreAudit(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to view the curriculum restore audit." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, {
+    ok: true,
+    entries: Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [],
+  });
+}
+
 function handleAdminCurriculumBackupFull(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   if (!validAdminToken(adminToken)) {
@@ -15152,6 +15198,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/restore-audit") return handleAdminCurriculumRestoreAudit(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/new") return handleAdminCurriculumBackupNew(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/full") return handleAdminCurriculumBackupFull(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") {

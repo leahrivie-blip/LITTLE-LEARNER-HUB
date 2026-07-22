@@ -242,6 +242,17 @@ async function main() {
     const replacedPublic = await requestJson("GET", "/api/site-content");
     assert.equal((replacedPublic.json.siteContent?.curriculumLibrary?.lessonPlans || []).length, 1);
 
+    // A confirmed REPLACE_CURRICULUM must leave a durable, queryable audit entry —
+    // not just a console log — so an owner can confirm a restore actually happened.
+    const auditView = await requestJson("GET", `/api/admin/curriculum/restore-audit?adminToken=${encodeURIComponent(token)}`);
+    assert.equal(auditView.status, 200, "restore-audit endpoint should respond");
+    assert.ok(Array.isArray(auditView.json.entries) && auditView.json.entries.length >= 1, "restore audit should have at least one entry");
+    const lastAudit = auditView.json.entries[0];
+    assert.equal(lastAudit.afterLessonPlans, 1, "audit entry should record the after-restore lesson plan count");
+    assert.equal(lastAudit.adminEmail, ADMIN.email, "audit entry should record which admin performed the restore");
+    assert.ok(lastAudit.createdAt, "audit entry should have a timestamp");
+    console.log("PASS  confirmed curriculum replace leaves a durable restore-audit entry");
+
     console.log("PASS  curriculum wipe protection via site-content save");
     console.log("PASS  public library empty-wipe regression");
     console.log("\nAll lesson-library empty curriculum hotfix tests passed.");
