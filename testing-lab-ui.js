@@ -269,17 +269,63 @@
     return homeHtml();
   }
 
+  function mobileSummaryHtml() {
+    const d = state.dashboard?.dashboard || {};
+    const previewActive = Boolean(state.preview?.id || d.rolePreviewId || global.sessionStorage?.getItem("llhRolePreviewMembershipId"));
+    const previewLabel = state.preview?.targetKind
+      || state.preview?.label
+      || (previewActive ? "Active (temporary)" : "Not active");
+    const orgSafe = d.organizationId && !/prod|live|stripe|customer/i.test(String(d.organizationId))
+      ? d.organizationId
+      : "";
+    const scenarioSafe = d.scenario || "";
+    return `
+      <section class="tl-mobile-summary" data-feature-marker="phase18-testing-lab-mobile" data-tl-mobile-summary>
+        <p class="tl-computer-recommended" data-tl-computer-recommended>Testing Lab is computer recommended</p>
+        <h2>Use the computer website for Lab setup</h2>
+        <p class="muted-copy">
+          Scenario setup, fake-account management, role preview controls, resets, and device testing
+          should be completed on the computer website. This phone view is a status summary only —
+          the complete Lab is not available here.
+        </p>
+        <ul class="tl-mobile-status fh-card-list">
+          <li class="fh-card static">
+            <strong>Fake organization</strong>
+            <span class="muted-copy">${escapeHtml(orgSafe || "Not loaded on this device")}</span>
+          </li>
+          <li class="fh-card static">
+            <strong>Scenario</strong>
+            <span class="muted-copy">${escapeHtml(scenarioSafe ? scenarioSafe.replace(/_/g, " ") : "—")}</span>
+          </li>
+          <li class="fh-card static">
+            <strong>Role preview</strong>
+            <span class="muted-copy">${escapeHtml(previewLabel)}</span>
+          </li>
+        </ul>
+        <div class="tl-mobile-actions">
+          ${previewActive ? `<button type="button" class="primary-button tl-touch" data-tl-exit-preview>Exit Role Preview</button>` : ""}
+          <button type="button" class="ghost-button tl-touch" data-tl-return-app>Return to the normal app</button>
+        </div>
+        <p class="muted-copy">No passwords, tokens, or Lab admin controls are shown on phone.</p>
+      </section>
+    `;
+  }
+
   function render(mount) {
     if (!mount) return;
+    // Never keep one-time passwords visible when re-rendering for phone captures.
     mount.innerHTML = `
       <section class="tl-panel" data-feature-marker="phase18-testing-lab">
         <p class="tl-banner">${escapeHtml(TESTING_BANNER)}</p>
-        <p class="eyebrow">Testing and Preview Lab</p>
-        <h2>Private testing area</h2>
-        ${state.error ? `<p class="dc-error">${escapeHtml(state.error)}</p>` : ""}
-        ${state.notice ? `<p class="muted-copy">${escapeHtml(state.notice)}</p>` : ""}
-        ${panelNav()}
-        ${state.loading ? `<p class="muted-copy">Loading…</p>` : bodyHtml()}
+        ${mobileSummaryHtml()}
+        <div class="tl-desktop-lab" data-tl-desktop-lab>
+          <p class="eyebrow">Testing and Preview Lab</p>
+          <h2>Private testing area</h2>
+          ${state.error ? `<p class="dc-error">${escapeHtml(state.error)}</p>` : ""}
+          ${state.notice ? `<p class="muted-copy">${escapeHtml(state.notice)}</p>` : ""}
+          ${panelNav()}
+          ${state.loading ? `<p class="muted-copy">Loading…</p>` : bodyHtml()}
+        </div>
       </section>
     `;
     bind(mount);
@@ -313,6 +359,15 @@
         state.error = error.message;
         render(mount);
       }
+    });
+    mount.querySelector("[data-tl-return-app]")?.addEventListener("click", () => {
+      state.oneTimePassword = "";
+      state.issuedEmail = "";
+      if (typeof global.setView === "function") {
+        global.setView("home");
+        return;
+      }
+      global.location.hash = "#home";
     });
     mount.querySelectorAll("[data-tl-load-scenario]").forEach((btn) => {
       btn.addEventListener("click", async () => {
@@ -388,17 +443,19 @@
         }
       });
     });
-    mount.querySelector("[data-tl-exit-preview]")?.addEventListener("click", async () => {
-      try {
-        await api("POST", `${BASE}/role-preview/exit`, { previewId: state.preview?.id });
-        global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
-        state.preview = null;
-        state.notice = "Exited role preview.";
-        render(mount);
-      } catch (error) {
-        state.error = error.message;
-        render(mount);
-      }
+    mount.querySelectorAll("[data-tl-exit-preview]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/role-preview/exit`, { previewId: state.preview?.id });
+          global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
+          state.preview = null;
+          state.notice = "Exited role preview.";
+          render(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
     });
     mount.querySelectorAll("[data-tl-device]").forEach((btn) => {
       btn.addEventListener("click", async () => {

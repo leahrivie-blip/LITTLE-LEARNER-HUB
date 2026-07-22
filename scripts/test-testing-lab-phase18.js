@@ -306,12 +306,120 @@ async function run() {
       const ui = fs.readFileSync(path.join(ROOT, "testing-lab-ui.js"), "utf8");
       const css = fs.readFileSync(path.join(ROOT, "styles.css"), "utf8");
       assert.match(ui, /phase18-testing-lab/);
+      assert.match(ui, /phase18-testing-lab-mobile/);
       assert.match(ui, /phase18-device-preview/);
+      assert.match(ui, /Testing Lab is computer recommended/);
+      assert.match(ui, /data-tl-return-app/);
+      assert.match(ui, /Return to the normal app/);
       assert.match(css, /\.tl-panel/);
+      assert.match(css, /\.tl-mobile-summary/);
+      assert.match(css, /\.tl-desktop-lab/);
       assert.match(css, /@media \(max-width: 480px\)/);
-      assert.match(css, /@media \(min-width: 768px\) and \(max-width: 1024px\)/);
+      assert.match(css, /@media \(min-width: 481px\) and \(max-width: 1024px\)/);
       assert.match(css, /@media \(min-width: 1280px\)/);
       pass("responsive_markers");
+    }
+
+    // Phone intentional summary: ~360 / 390 / 430 — no full Lab, no credentials, no overflow
+    {
+      const playwright = require("playwright");
+      const browser = await playwright.chromium.launch({ headless: true });
+      try {
+        await request(ctx.port, "POST", `${BASE}/seed`, {
+          headers: auth(token),
+          body: { scenario: "small_center", reset: true },
+        });
+        const previewStart = await request(ctx.port, "POST", `${BASE}/role-preview/start`, {
+          headers: auth(token),
+          body: { targetKind: "director" },
+        });
+        assert.equal(previewStart.status, 200);
+
+        for (const width of [360, 390, 430]) {
+          const context = await browser.newContext({ viewport: { width, height: 800 } });
+          const page = await context.newPage();
+          await page.goto(`http://127.0.0.1:${ctx.port}/`, { waitUntil: "networkidle" });
+          await page.evaluate((adminToken) => {
+            localStorage.setItem("llhAdminToken", adminToken);
+            sessionStorage.setItem("llhAdminToken", adminToken);
+          }, token);
+          await page.goto(`http://127.0.0.1:${ctx.port}/#testing-lab`, { waitUntil: "domcontentloaded" });
+          await page.waitForFunction(() => typeof window.renderTestingLabPage === "function", null, { timeout: 20000 });
+          await page.evaluate(async () => {
+            document.querySelectorAll(".view").forEach((el) => {
+              el.classList.remove("active-view");
+              el.hidden = true;
+            });
+            const section = document.querySelector("#view-testing-lab") || document.body;
+            section.classList.add("active-view");
+            section.hidden = false;
+            section.style.display = "block";
+            await window.renderTestingLabPage(section);
+          });
+          await page.waitForSelector('[data-feature-marker="phase18-testing-lab-mobile"]', { timeout: 15000 });
+
+          const checks = await page.evaluate(() => {
+            const mobile = document.querySelector("[data-tl-mobile-summary]");
+            const desktopLab = document.querySelector("[data-tl-desktop-lab]");
+            const banner = document.querySelector(".tl-banner");
+            const recommended = document.querySelector("[data-tl-computer-recommended]");
+            const exitBtn = document.querySelector("[data-tl-exit-preview]");
+            const returnBtn = document.querySelector("[data-tl-return-app]");
+            const display = (el) => (el ? getComputedStyle(el).display : "missing");
+            const box = (el) => {
+              if (!el) return null;
+              const r = el.getBoundingClientRect();
+              return { w: r.width, h: r.height, top: r.top, left: r.left };
+            };
+            const text = (document.body.innerText || "");
+            const clipped = [];
+            for (const el of [banner, recommended, mobile, exitBtn, returnBtn]) {
+              if (!el || display(el) === "none") continue;
+              if (el.scrollWidth > el.clientWidth + 2) {
+                clipped.push(el.className || el.tagName);
+              }
+            }
+            return {
+              mobileDisplay: display(mobile),
+              desktopDisplay: display(desktopLab),
+              banner: banner ? banner.textContent.trim() : "",
+              recommended: recommended ? recommended.textContent.trim() : "",
+              hasPasswordInput: Boolean(document.querySelector('input[type="password"]')),
+              hasOnetime: Boolean(document.querySelector("[data-tl-onetime]")),
+              hasTokenField: /temporaryPassword|api[_-]?key|Bearer\s/i.test(text),
+              hasTable: Boolean(document.querySelector(".tl-desktop-lab table")) && display(desktopLab) !== "none",
+              exitBox: box(exitBtn),
+              returnBox: box(returnBtn),
+              pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
+                || document.body.scrollWidth > document.body.clientWidth + 2,
+              clipped,
+              hasScenarioCopy: /scenario|small center/i.test(text),
+              hasComputerCopy: /computer recommended/i.test(text),
+              hasExplanation: /scenario setup|fake-account|role preview|device testing/i.test(text),
+            };
+          });
+
+          assert.notEqual(checks.mobileDisplay, "none", `${width}px mobile summary hidden`);
+          assert.equal(checks.desktopDisplay, "none", `${width}px desktop lab should be hidden`);
+          assert.match(checks.banner, /Private Testing Environment — Fake Data Only/);
+          assert.match(checks.recommended, /Testing Lab is computer recommended/);
+          assert.equal(checks.hasPasswordInput, false, `${width}px password input exposed`);
+          assert.equal(checks.hasOnetime, false, `${width}px one-time password exposed`);
+          assert.equal(checks.hasTokenField, false, `${width}px token/secret text exposed`);
+          assert.equal(checks.hasTable, false, `${width}px desktop table visible`);
+          assert.equal(checks.pageOverflow, false, `${width}px horizontal overflow`);
+          assert.equal(checks.clipped.length, 0, `${width}px clipped: ${checks.clipped.join(",")}`);
+          assert.ok(checks.exitBox && checks.exitBox.w >= 40 && checks.exitBox.h >= 40, `${width}px Exit inaccessible`);
+          assert.ok(checks.returnBox && checks.returnBox.w >= 40 && checks.returnBox.h >= 40, `${width}px Return inaccessible`);
+          assert.equal(checks.hasComputerCopy, true);
+          assert.equal(checks.hasExplanation, true);
+          assert.equal(checks.hasScenarioCopy, true);
+          await context.close();
+        }
+        pass("phone_mobile_summary_360_390_430");
+      } finally {
+        await browser.close();
+      }
     }
 
     const billing = await request(ctx.port, "GET", "/api/director-center/billing/status", { headers: auth(token) });

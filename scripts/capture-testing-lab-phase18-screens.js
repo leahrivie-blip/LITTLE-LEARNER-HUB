@@ -3,8 +3,8 @@
 
 /**
  * Phase 18 screenshots (max 2):
- * 1) Computer — Testing Lab dashboard
- * 2) Phone-sized device preview of a fake role surface
+ * 1) Computer — Testing Lab dashboard (kept if already valid; regenerated only when missing)
+ * 2) Phone — intentional mobile summary (always replaced; NOT the full Lab / device iframe)
  * Never capture passwords/tokens.
  */
 
@@ -17,6 +17,9 @@ const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-sc
 
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = process.env.TL_PHASE18_SCREENSHOT_DIR || "/opt/cursor/artifacts/testing-lab-phase18";
+const DESKTOP_SHOT = "1-testing-lab-dashboard-desktop.png";
+const PHONE_SHOT = "2-testing-lab-mobile-summary-phone.png";
+const LEGACY_PHONE_SHOT = "2-device-preview-phone.png";
 const ADMIN_EMAIL = "phase18-screens@example.com";
 const ADMIN_PASSWORD = "Phase18ScreenPass!99";
 const ADMIN_CODE = "phase18-screen-code";
@@ -46,13 +49,38 @@ async function waitForHealth(port) {
   throw new Error("health timeout");
 }
 
+async function openTestingLab(page, token) {
+  await page.goto(`http://127.0.0.1:${page._tlPort}/`, { waitUntil: "networkidle" });
+  await page.evaluate((adminToken) => {
+    localStorage.setItem("llhAdminToken", adminToken);
+    sessionStorage.setItem("llhAdminToken", adminToken);
+  }, token);
+  await page.goto(`http://127.0.0.1:${page._tlPort}/#testing-lab`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.renderTestingLabPage === "function", null, { timeout: 20000 });
+  await page.evaluate(async () => {
+    document.querySelectorAll(".view").forEach((el) => {
+      el.classList.remove("active-view");
+      el.hidden = true;
+    });
+    const section = document.querySelector("#view-testing-lab") || document.body;
+    section.classList.add("active-view");
+    section.hidden = false;
+    section.style.display = "block";
+    await window.renderTestingLabPage(section);
+  });
+}
+
 async function main() {
   const playwright = require("playwright");
   fs.mkdirSync(OUT_DIR, { recursive: true });
-  for (const name of ["1-testing-lab-dashboard-desktop.png", "2-device-preview-phone.png"]) {
+  // Replace only the phone shot; remove legacy incorrect phone capture if present.
+  for (const name of [PHONE_SHOT, LEGACY_PHONE_SHOT]) {
     const stale = path.join(OUT_DIR, name);
     if (fs.existsSync(stale)) fs.unlinkSync(stale);
   }
+  const desktopPath = path.join(OUT_DIR, DESKTOP_SHOT);
+  const keepDesktop = fs.existsSync(desktopPath);
+
   const storePath = path.join(os.tmpdir(), `llh-tl-phase18-screens-${Date.now()}.json`);
   fs.writeFileSync(storePath, JSON.stringify({
     siteContent: { featureFlags: { directorCenter: true, formsCenter: true, familyHub: true, testingLab: true } },
@@ -75,73 +103,77 @@ async function main() {
     const login = await request(port, "POST", "/api/admin/login", { body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, code: ADMIN_CODE } });
     const token = login.json.token;
     await request(port, "POST", "/api/testing-lab/seed", { headers: { Authorization: `Bearer ${token}` }, body: { scenario: "small_center", reset: true } });
+    await request(port, "POST", "/api/testing-lab/role-preview/start", {
+      headers: { Authorization: `Bearer ${token}` },
+      body: { targetKind: "director" },
+    });
 
     browser = await playwright.chromium.launch({ headless: true });
 
-    const desktop = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    const deskPage = await desktop.newPage();
-    await deskPage.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
-    await deskPage.evaluate((adminToken) => {
-      localStorage.setItem("llhAdminToken", adminToken);
-      sessionStorage.setItem("llhAdminToken", adminToken);
-    }, token);
-    await deskPage.goto(`http://127.0.0.1:${port}/#testing-lab`, { waitUntil: "domcontentloaded" });
-    await deskPage.waitForFunction(() => typeof window.renderTestingLabPage === "function", null, { timeout: 20000 });
-    await deskPage.evaluate(async () => {
-      document.querySelectorAll(".view").forEach((el) => {
-        el.classList.remove("active-view");
-        el.hidden = true;
-      });
-      const section = document.querySelector("#view-testing-lab") || document.body;
-      section.classList.add("active-view");
-      section.hidden = false;
-      section.style.display = "block";
-      await window.renderTestingLabPage(section);
-    });
-    await deskPage.waitForSelector('[data-feature-marker="phase18-testing-lab"]', { timeout: 15000 });
-    await assertFeatureScreen(deskPage, { marker: "phase18-testing-lab", label: "Phase 18 desktop Testing Lab" });
-    await assertNotHomepageFallback(deskPage, "Phase 18 desktop Testing Lab");
-    // Ensure no password fields captured in one-time area
-    const hasPasswordLeak = await deskPage.locator("[data-tl-onetime]").count();
-    if (hasPasswordLeak > 0) throw new Error("Screenshot blocked: one-time password still on screen");
-    await deskPage.screenshot({ path: path.join(OUT_DIR, "1-testing-lab-dashboard-desktop.png"), fullPage: true });
-    await desktop.close();
+    if (!keepDesktop) {
+      const desktop = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+      const deskPage = await desktop.newPage();
+      deskPage._tlPort = port;
+      await openTestingLab(deskPage, token);
+      await deskPage.waitForSelector('[data-feature-marker="phase18-testing-lab"]', { timeout: 15000 });
+      await assertFeatureScreen(deskPage, { marker: "phase18-testing-lab", label: "Phase 18 desktop Testing Lab" });
+      await assertNotHomepageFallback(deskPage, "Phase 18 desktop Testing Lab");
+      const hasPasswordLeak = await deskPage.locator("[data-tl-onetime]").count();
+      if (hasPasswordLeak > 0) throw new Error("Screenshot blocked: one-time password still on screen");
+      await deskPage.screenshot({ path: desktopPath, fullPage: true });
+      await desktop.close();
+      console.log("Wrote desktop screenshot (was missing)");
+    } else {
+      console.log("Keeping existing desktop screenshot:", desktopPath);
+    }
 
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
     const phonePage = await phone.newPage();
-    await phonePage.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
-    await phonePage.evaluate((adminToken) => {
-      localStorage.setItem("llhAdminToken", adminToken);
-      sessionStorage.setItem("llhAdminToken", adminToken);
-    }, token);
-    await phonePage.goto(`http://127.0.0.1:${port}/#testing-lab`, { waitUntil: "domcontentloaded" });
-    await phonePage.waitForFunction(() => typeof window.renderTestingLabPage === "function", null, { timeout: 20000 });
-    await phonePage.evaluate(async () => {
-      document.querySelectorAll(".view").forEach((el) => {
-        el.classList.remove("active-view");
-        el.hidden = true;
-      });
-      const section = document.querySelector("#view-testing-lab") || document.body;
-      section.classList.add("active-view");
-      section.hidden = false;
-      section.style.display = "block";
-      await window.renderTestingLabPage(section);
-      const btn = document.querySelector('[data-tl-panel="device"]');
-      if (btn) btn.click();
+    phonePage._tlPort = port;
+    await openTestingLab(phonePage, token);
+    await phonePage.waitForSelector('[data-feature-marker="phase18-testing-lab-mobile"]', { timeout: 15000 });
+    await assertFeatureScreen(phonePage, { marker: "phase18-testing-lab-mobile", label: "Phase 18 phone mobile summary" });
+    await assertNotHomepageFallback(phonePage, "Phase 18 phone mobile summary");
+
+    const phoneChecks = await phonePage.evaluate(() => {
+      const mobile = document.querySelector("[data-tl-mobile-summary]");
+      const desktopLab = document.querySelector("[data-tl-desktop-lab]");
+      const banner = document.querySelector(".tl-banner");
+      const recommended = document.querySelector("[data-tl-computer-recommended]");
+      const style = (el) => (el ? getComputedStyle(el).display : "missing");
+      const text = document.body.innerText || "";
+      return {
+        mobileDisplay: style(mobile),
+        desktopDisplay: style(desktopLab),
+        bannerText: banner ? banner.textContent.trim() : "",
+        recommendedText: recommended ? recommended.textContent.trim() : "",
+        hasPasswordInput: Boolean(document.querySelector('input[type="password"]')),
+        hasOnetime: Boolean(document.querySelector("[data-tl-onetime]")),
+        hasExit: Boolean(document.querySelector("[data-tl-exit-preview]")),
+        hasReturn: Boolean(document.querySelector("[data-tl-return-app]")),
+        pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
+        textIncludesComputer: /computer recommended/i.test(text),
+        textIncludesFakeOnly: /Fake Data Only/i.test(text),
+      };
     });
-    await phonePage.waitForTimeout(600);
-    await phonePage.evaluate(async () => {
-      const btn = document.querySelector('[data-tl-device="large_phone"]');
-      if (btn) btn.click();
-      await new Promise((r) => setTimeout(r, 800));
-    });
-    await phonePage.waitForSelector('[data-feature-marker="phase18-device-preview"]', { timeout: 15000 });
-    await assertFeatureScreen(phonePage, { marker: "phase18-device-preview", label: "Phase 18 phone device preview" });
-    await assertNotHomepageFallback(phonePage, "Phase 18 phone device preview");
-    await phonePage.screenshot({ path: path.join(OUT_DIR, "2-device-preview-phone.png"), fullPage: true });
+    if (phoneChecks.mobileDisplay === "none" || phoneChecks.desktopDisplay !== "none") {
+      throw new Error(`Phone layout incorrect: ${JSON.stringify(phoneChecks)}`);
+    }
+    if (phoneChecks.hasPasswordInput || phoneChecks.hasOnetime) {
+      throw new Error("Screenshot blocked: credentials/password UI on phone");
+    }
+    if (phoneChecks.pageOverflow) throw new Error("Phone horizontal overflow detected");
+    if (!phoneChecks.hasExit || !phoneChecks.hasReturn) {
+      throw new Error("Phone missing Exit Role Preview or Return to normal app");
+    }
+    if (!phoneChecks.textIncludesComputer || !phoneChecks.textIncludesFakeOnly) {
+      throw new Error("Phone missing required copy");
+    }
+
+    await phonePage.screenshot({ path: path.join(OUT_DIR, PHONE_SHOT), fullPage: true });
     await phone.close();
 
-    console.log("Wrote screenshots to", OUT_DIR);
+    console.log("Wrote phone mobile-summary screenshot to", OUT_DIR);
   } finally {
     if (browser) await browser.close();
     child.kill("SIGTERM");
