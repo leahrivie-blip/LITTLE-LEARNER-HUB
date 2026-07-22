@@ -1,7 +1,7 @@
 # Overnight decisions and blockers
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 17 Pricing & Family Billing Simulator)
+**Updated:** 2026-07-22 (Phase 18 Testing and Preview Lab)
 
 ## Decisions
 
@@ -37,7 +37,13 @@
 
 ### Capture scripts must assert feature markers
 
-**Decision:** Phase 12–17 screenshot scripts fail loudly unless a unique `data-feature-marker` is visible, and refuse the marketing homepage. Views must use `.active-view` to become visible.
+**Decision:** Phase 12–18 screenshot scripts fail loudly unless a unique `data-feature-marker` is visible, and refuse the marketing homepage. Views must use `.active-view` to become visible.
+
+### Testing Lab access (Phase 18)
+
+**Decision:** Testing Lab uses its own expansion flag `testingLab` + `ALLOW_TESTING_LAB_ADMIN_PREVIEW` + verified admin. It is not nested solely under Director Center so production can reject the lab independently.
+
+**Decision:** Actual Fake Login (password issue once) and Quick Role Preview are both required — preview for UI checks, fake login for end-to-end auth. Passwords are never committed, logged, or screenshotted.
 
 ### Ratio wording (Phase 15)
 
@@ -123,7 +129,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 17 completed 2026-07-22** — see `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 18** until Phase 17 is verified on the branch tip.
+**Phase 18 completed 2026-07-22** — see `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`.
+
+**Do not begin Phase 19** until Phase 18 is verified on the branch tip.
 
 ## Phase 14 notes
 
@@ -152,4 +160,13 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Cross-organization access always rejected. Financial access audited separately.
 - Attendance suggestions never auto-bill. Enrollment acceptance never processes payment.
 - Stripe products/prices/checkout untouched; `DISABLE_STRIPE_CHECKOUT=true`.
-- Deferred: live Stripe seat billing, real family payment processors, Phase 18.
+- Deferred: live Stripe seat billing, real family payment processors.
+
+## Phase 18 notes / permissions
+
+- Testing Lab: verified admin only; production always rejects.
+- Fake accounts remain `@example.invalid`; passwords issued once and never stored in fixtures.
+- Role preview does not mutate stored admin role; expires and exits cleanly.
+- Resets validate fake organization + test host before destructive actions.
+- Checklist notes stay on the testing organization only.
+- Deferred: Phase 19 owner-approved work.

@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 17 Platform Pricing & Family Billing Simulator complete; Phase 18 not started)
+**Status date:** 2026-07-22 (Phase 18 Testing and Preview Lab complete; Phase 19 not started)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -11,9 +11,9 @@
 2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
 3. Read this handoff document end to end
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–17 automated tests (commands below; include `npm run test:billing-simulator-phase17`)
+5. Run all Phase 1–18 automated tests (commands below; include `npm run test:testing-lab-phase18`)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (**Phase 18** — do not start until Phase 17 is verified on the branch tip)
+7. Continue only from the next **approved** phase (**Phase 19** — do not start until Phase 18 is verified on the branch tip)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -36,6 +36,7 @@ Build a private, testing-only foundation for:
 - **Today Hub / Daily Operations** (Phase 15) — role-specific Today Hub, attendance foundation, provider-configured ratios, task aggregation — `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`
 - **Complete Staff Experience** (Phase 16) — Staff Hub directory/profiles, onboarding, schedule, time clock, training, self-service, offboarding — `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`
 - **Platform Pricing & Family Tuition Billing Simulator** (Phase 17) — testing-only plan catalog/entitlement simulator + provider→family tuition billing — `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`
+- **Testing and Preview Lab** (Phase 18) — private admin lab for scenarios, fake logins, role/device preview, resets — `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -58,7 +59,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify after push: `git rev-parse HEAD`) |
-| Tip message | Phase 17 Pricing & Family Billing Simulator complete (tip SHA via `git rev-parse` after push) |
+| Tip message | Phase 18 Testing and Preview Lab complete (tip SHA via `git rev-parse` after push) |
 
 Confirm tip after pull:
 
@@ -123,7 +124,8 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| *(branch tip — set after push via `git rev-parse`)* | Phase 17 Pricing & Family Billing Simulator complete |
+| *(branch tip — set after push via `git rev-parse`)* | Phase 18 Testing and Preview Lab complete |
+| `13c7878` | Phase 17 tip (Phase 18 start) |
 | `c9a33e0` | Phase 16 tip (Phase 17 start) |
 | `c43f345` | Phase 15 tip (Phase 16 start) |
 | `94bc315` | Phase 12–14 remediation tip (Phase 15 start) |
@@ -172,10 +174,11 @@ Phase tip history (newest first):
 - **Phase 15 Today Hub / Daily Operations** — role-specific Today Hub, attendance + ratios, task aggregation — `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`
 - **Phase 16 Complete Staff Experience** — Staff Hub, schedule, time clock, training, self-service, offboarding — `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`
 - **Phase 17 Platform Pricing & Family Tuition Billing Simulator** — plan catalog, entitlement simulator, family tuition ledger — `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`
+- **Phase 18 Testing and Preview Lab** — scenario packs, fake accounts, role/device preview — `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- **Phase 18** complete Testing and Preview Lab
+- **Phase 19** and later owner-approved phases
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
 - Real outbound email/SMS delivery of assignment links and reminders
@@ -195,6 +198,7 @@ Policy lives in `scripts/expansion-feature-flags.js`.
 | `directorCenter` | `true` (testing only) | Requires non-prod host + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW` + verified admin Bearer |
 | `formsCenter` | `true` (testing only, Phase 4/5/6) | Requires non-prod host + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW` + verified admin Bearer. The Phase 5 Built-In Library (`/api/forms-center/library/*`) and the Phase 6 assignment/response admin API (`/api/forms-center/assignments/*`, `/api/forms-center/responses/*`) all ride on this **same** flag — no separate flag was added. |
 | `familyHub` | `true` on testing only with `ALLOW_FAMILY_HUB_TESTING_PREVIEW` | Testing preview for authenticated fake guardians; **production always locked** |
+| `testingLab` | `true` on testing only with `ALLOW_TESTING_LAB_ADMIN_PREVIEW` | Admin-only Testing and Preview Lab; **production always locked** |
 | Defaults in code | All expansion flags **OFF** | Production hosts stay locked even if store says ON |
 
 The Phase 6 **recipient** API (`/api/form-recipient/*`) is intentionally **not** part of
@@ -471,6 +475,7 @@ npm run test:phase12-14-remediation
 npm run test:today-hub-phase15
 npm run test:staff-experience-phase16
 npm run test:billing-simulator-phase17
+npm run test:testing-lab-phase18
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -493,9 +498,10 @@ node scripts/capture-enrollment-phase12-screens.js
 node scripts/capture-today-hub-phase15-screens.js
 node scripts/capture-staff-experience-phase16-screens.js
 node scripts/capture-billing-simulator-phase17-screens.js
+node scripts/capture-testing-lab-phase18-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 17)
+### Handoff verification results (2026-07-22, Phase 18)
 
 | Command | Result |
 |---------|--------|
@@ -519,10 +525,11 @@ node scripts/capture-billing-simulator-phase17-screens.js
 | `npm run test:today-hub-phase15` | PASS (17/17) |
 | `npm run test:staff-experience-phase16` | PASS (23/23) |
 | `npm run test:billing-simulator-phase17` | PASS (21/21) |
+| `npm run test:testing-lab-phase18` | PASS (17/17) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Full Phase 1–17 regression: **PASS**. See `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`.
+Full Phase 1–18 regression: **PASS**. See `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`.
 
 ---
 
@@ -563,16 +570,16 @@ Full Phase 1–17 regression: **PASS**. See `docs/PHASE_17_PRICING_FAMILY_BILLIN
 
 ---
 
-## Phase 18 recommendation
+## Phase 19 recommendation
 
-**Do not begin Phase 18** until Phase 17 is verified on the branch tip (`docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`).
+**Do not begin Phase 19** until Phase 18 is verified on the branch tip (`docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`).
 
 Until then:
 
-- Keep Phases 1–17 green on this branch
-- Keep Family Hub production-locked
+- Keep Phases 1–18 green on this branch
+- Keep Family Hub and Testing Lab production-locked
 - Keep outbound email/SMS/push disabled
-- Keep Stripe checkout disabled (`DISABLE_STRIPE_CHECKOUT=true`); Phase 17 simulators only
+- Keep Stripe checkout disabled (`DISABLE_STRIPE_CHECKOUT=true`)
 - Do not create live Stripe products/prices or process real family payments
 
 See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
@@ -583,10 +590,10 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–17 test suite; confirm all PASS
-4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on, `DISABLE_STRIPE_CHECKOUT=true`
-5. Smoke Director Billing tab → Family Hub Billing → plan downgrade preview
-6. Continue only with owner-written Phase 18 requirements
+3. Run the full Phase 1–18 test suite; confirm all PASS
+4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on (including `ALLOW_TESTING_LAB_ADMIN_PREVIEW`), `DISABLE_STRIPE_CHECKOUT=true`
+5. Smoke Testing Lab → scenario load → fake account issue password (do not screenshot) → Exit Preview
+6. Continue only with owner-written Phase 19 requirements
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 
@@ -603,8 +610,7 @@ Until explicitly approved otherwise:
 - **Live outbound** email/SMS/push for family messaging or enrollment (preference structure / in-app only)
 - **Stripe enrollment checkout** / real deposits or tuition charges (Phase 12 simulation only; `stripe_disabled`)
 - **Public production inquiry intake**
-- **Phase 13** and later expansion phases that are not yet approved
-- **Phase 18** complete Testing and Preview Lab
+- **Phase 18** complete Testing and Preview Lab remains testing-only (never production)
 - Real outbound email/SMS delivery of assignment links/invitations/reminders/updates
 - **Production migration** and **production release** of Director/Forms/Family expansion
 - Any Stripe checkout for classroom/forms add-ons (simulation only)

@@ -7,9 +7,9 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 17** (Platform Pricing & Family Tuition Billing Simulator), including Phases 1–16.
+Private preview work through **Phase 18** (Testing and Preview Lab), including Phases 1–17.
 
-**Do not merge into `main`. Do not deploy to production. Do not begin Phase 18 until Phase 17 is verified.**
+**Do not merge into `main`. Do not deploy to production. Do not begin Phase 19 until Phase 18 is verified.**
 
 ### Start Here (next developer)
 
@@ -17,19 +17,20 @@ Private preview work through **Phase 17** (Platform Pricing & Family Tuition Bil
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run Phase 1–17 automated tests (include `npm run test:billing-simulator-phase17`)
+5. Run Phase 1–18 automated tests (include `npm run test:testing-lab-phase18`)
 6. Confirm testing-environment safety
-7. Continue only after owner-approved Phase 18 requirements
+7. Continue only after owner-approved Phase 19 requirements
 8. Never merge or deploy without explicit approval
 
 ### COMPLETED
 
-- Phases 1–16 (testing preview)
-- Phase 17 Platform Pricing & Family Tuition Billing Simulator — `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`
+- Phases 1–17 (testing preview)
+- Phase 18 Testing and Preview Lab — `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`
+- Owner guide — `docs/TESTING_PREVIEW_LAB_OWNER_GUIDE.md`
 
 ### NOT STARTED
 
-- Phase 18+
+- Phase 19+
 - Live Stripe products/prices/checkout changes
 - Live family payment processing
 - Live email / SMS / push delivery
@@ -40,42 +41,24 @@ Private preview work through **Phase 17** (Platform Pricing & Family Tuition Bil
 - `directorCenter=true` + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`
 - `formsCenter=true` + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`
 - `familyHub=true` + `ALLOW_FAMILY_HUB_TESTING_PREVIEW`
+- `testingLab=true` + `ALLOW_TESTING_LAB_ADMIN_PREVIEW`
 - **Production:** expansion flags locked OFF
-- **Stripe:** `DISABLE_STRIPE_CHECKOUT=true` (Phase 17 simulators only)
+- **Stripe:** `DISABLE_STRIPE_CHECKOUT=true`
 
 ### Verification
 
 ```bash
 npm run check
-npm run test:director-family-foundation
-npm run test:director-center-phase2
-npm run test:director-center-phase3
-npm run test:forms-center-phase4
-npm run test:forms-center-phase5
-npm run test:forms-center-phase6
-npm run test:forms-center-phase6-documents
-npm run test:forms-center-phase7
-npm run test:family-foundation-phase8
-npm run test:family-hub-phase9
-npm run test:family-updates-phase10
-npm run test:family-messaging-phase11
-npm run test:family-enrollment-phase12
-npm run test:records-center-phase13
-npm run test:licensing-center-phase14
-npm run test:phase12-14-remediation
-npm run test:today-hub-phase15
-npm run test:staff-experience-phase16
-npm run test:billing-simulator-phase17
-npm run test:platform-nav
-npm run test:account-access
+npm run test:testing-lab-phase18
+# plus Phase 1–17 suite listed in docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md
 ```
 
 ### Tip
 
-Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
+Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`
 
-Phase 17 focused suite: **21 PASS**. Full Phase 1–17 regression: **PASS**. Tip: `cc70d79`. Stripe and real payments untouched. Production Family Hub locked. `main` untouched. Phase 18 not started.
+Phase 18 focused suite: **17 PASS**. Full Phase 1–18 regression: **PASS**. Tip: `9dda210`. Production locked. `main` untouched. Phase 19 not started.
 
 ### Suggested PR title
 
-Phases 1–17 Pricing & Family Billing Simulator (do not merge/deploy)
+Phases 1–18 Testing and Preview Lab (do not merge/deploy)
