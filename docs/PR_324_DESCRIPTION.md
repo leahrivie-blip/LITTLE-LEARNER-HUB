@@ -62,6 +62,6 @@ npm run test:account-access
 
 ### Tip
 
-Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`
+Authoritative tip after push: `49317fec24694a337c71ef2fdb30777dbc910522` (`git rev-parse origin/cursor/director-family-foundation-bc66`)
 
 Phase 20 focused suite: **12 PASS**. Full Phase 1–20 regression: **PASS**. Production locked. `main` untouched. Integration checkpoint and Phase 21 not started.
