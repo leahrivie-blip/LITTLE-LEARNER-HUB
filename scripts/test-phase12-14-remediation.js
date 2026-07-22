@@ -22,6 +22,7 @@ const { spawn } = require("node:child_process");
 const expansionFlags = require("./expansion-feature-flags.js");
 const { EXPANSION_FEATURE_KEYS } = expansionFlags;
 const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-screen-assert.js");
+const { openFamilyHubTab } = require("./capture-mount-helpers.js");
 
 const ROOT = path.join(__dirname, "..");
 const ADMIN_EMAIL = "phase1214-remediation@example.com";
@@ -177,30 +178,18 @@ async function measureOverflow(page, rootSelector) {
 }
 
 async function openDirectorTab(page, tab, marker) {
-  await page.goto(page.url().split("#")[0] + "#director-center", { waitUntil: "networkidle" });
-  await page.evaluate(() => {
-    if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI();
-  });
-  await page.waitForTimeout(500);
-  const tabBtn = page.locator(`[data-dc-tab="${tab}"]`);
-  if (await tabBtn.count()) {
-    await tabBtn.click();
-  } else {
-    await page.evaluate((t) => {
-      const map = {
-        enrollment: "renderEnrollmentTab",
-        records_center: "renderRecordsCenterTab",
-        licensing_center: "renderLicensingCenterTab",
-      };
-      const fn = window[map[t]];
-      if (typeof fn === "function") {
-        const mount = document.querySelector("#view-director-center") || document.body;
-        mount.innerHTML = `<div id="dc-remediation-mount"></div>`;
-        fn(document.querySelector("#dc-remediation-mount"));
-      }
-    }, tab);
-  }
+  const base = page.url().split("#")[0].replace(/\/$/, "");
+  await page.goto(`${base}/#director-center`, { waitUntil: "domcontentloaded" });
+  const { mountDirectorFeature } = require("./capture-mount-helpers.js");
+  const map = {
+    enrollment: { renderName: "renderEnrollmentTab", mountId: "dc-enrollment-mount" },
+    records_center: { renderName: "renderRecordsCenterTab", mountId: "dc-records-center-mount" },
+    licensing_center: { renderName: "renderLicensingCenterTab", mountId: "dc-licensing-center-mount" },
+  };
+  const cfg = map[tab];
+  await mountDirectorFeature(page, { tab, renderName: cfg.renderName, mountId: cfg.mountId, marker });
   await assertFeatureScreen(page, { marker, label: `director ${tab}` });
+  await assertNotHomepageFallback(page, `director ${tab}`);
 }
 
 async function run() {
@@ -355,9 +344,9 @@ async function run() {
         localStorage.setItem("llhMemberSessionToken", memberToken);
         localStorage.setItem("llhAccountType", "parent");
       }, { email: parent.email, memberToken: parent.token });
-      await page.goto(`http://127.0.0.1:${ctx.port}/#family-hub`, { waitUntil: "networkidle" });
-      await page.evaluate(() => { if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage(); });
-      await page.waitForTimeout(1200);
+      await page.goto(`http://127.0.0.1:${ctx.port}/#family-hub`, { waitUntil: "domcontentloaded" });
+      await openFamilyHubTab(page, "home");
+      await page.waitForTimeout(800);
 
       // Nav stays at five items
       const navCount = await page.locator(".fh-bottom-nav [data-fh-tab]").count();
@@ -367,6 +356,7 @@ async function run() {
       // Home licensing card
       await page.waitForSelector("[data-fh-licensing-home-card]", { timeout: 15000 });
       await page.click('[data-fh-licensing-home-card] [data-fh-tab="licensing"]');
+      await page.waitForTimeout(1000);
       await assertFeatureScreen(page, { marker: "phase14-family-licensing-tasks", label: `${label} licensing` });
       const computerRec = await page.locator("[data-fh-computer-recommended]").first().isVisible();
       assert.equal(computerRec, true);
@@ -376,23 +366,13 @@ async function run() {
       assert.equal(measure.pageOverflow, false, JSON.stringify(measure));
       pass(`${label}_licensing_no_overflow`);
 
-      await page.evaluate(() => {
-        if (typeof window.familyHubUiState === "object") {
-          window.familyHubUiState.tab = "enrollment";
-          window.renderFamilyHubPage();
-        }
-      });
+      await openFamilyHubTab(page, "enrollment");
       await assertFeatureScreen(page, { marker: "phase12-enrollment", label: `${label} enrollment` });
       measure = await measureOverflow(page, "[data-feature-marker='phase12-enrollment']");
       assert.equal(measure.pageOverflow, false, JSON.stringify(measure));
       pass(`${label}_enrollment_no_overflow`);
 
-      await page.evaluate(() => {
-        if (typeof window.familyHubUiState === "object") {
-          window.familyHubUiState.tab = "records";
-          window.renderFamilyHubPage();
-        }
-      });
+      await openFamilyHubTab(page, "records");
       await assertFeatureScreen(page, { marker: "phase13-records", label: `${label} records` });
       measure = await measureOverflow(page, "[data-feature-marker='phase13-records']");
       assert.equal(measure.pageOverflow, false, JSON.stringify(measure));

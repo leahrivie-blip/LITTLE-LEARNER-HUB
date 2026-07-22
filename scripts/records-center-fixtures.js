@@ -19,7 +19,13 @@ function ensurePhase13Preview(store, { adminEmail = "phase13.owner@example.inval
   const orgId = seeded12.organizationId || organizationId;
 
   if (store.recordsCenter.meta?.phase13SeededFor === orgId) {
-    return { organizationId: orgId, alreadySeeded: true, recordIds: store.recordsCenter.meta.phase13RecordIds || {} };
+    return {
+      organizationId: orgId,
+      alreadySeeded: true,
+      recordIds: store.recordsCenter.meta.phase13RecordIds || {},
+      childIds: store.recordsCenter.meta.phase13ChildIds || seeded12.childIds || {},
+      contactIds: store.recordsCenter.meta.phase13ContactIds || seeded12.contactIds || {},
+    };
   }
 
   const childIds = seeded12.childIds || {};
@@ -231,6 +237,8 @@ function ensurePhase13Preview(store, { adminEmail = "phase13.owner@example.inval
 
   store.recordsCenter.meta.phase13SeededFor = orgId;
   store.recordsCenter.meta.phase13RecordIds = recordIds;
+  store.recordsCenter.meta.phase13ChildIds = childIds;
+  store.recordsCenter.meta.phase13ContactIds = contactIds;
   store.recordsCenter.meta.updatedAt = model.nowIso();
 
   return { organizationId: orgId, alreadySeeded: false, recordIds, childIds, contactIds };
@@ -245,6 +253,8 @@ function resetPhase13Preview(store, opts = {}) {
   if (store.recordsCenter.meta) {
     delete store.recordsCenter.meta.phase13SeededFor;
     delete store.recordsCenter.meta.phase13RecordIds;
+    delete store.recordsCenter.meta.phase13ChildIds;
+    delete store.recordsCenter.meta.phase13ContactIds;
   }
   return ensurePhase13Preview(store, opts);
 }

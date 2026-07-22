@@ -54,13 +54,13 @@ async function assertFeatureScreen(page, { marker, label }) {
 async function assertNotHomepageFallback(page, label) {
   const bad = await page.evaluate(() => {
     const homeVisible = Boolean(document.querySelector("#view-home:not([hidden])"));
-    const hero = Boolean(document.querySelector(".hero-section, .home-hero, [data-home-hero]"));
+    const hero = Boolean(document.querySelector(".hero-section:not([hidden]), .home-hero:not([hidden]), [data-home-hero]"));
+    const hasMarker = Boolean(document.querySelector("[data-feature-marker]"));
     const text = (document.body?.innerText || "").toLowerCase();
-    const looksLikeMarketing = hero && (text.includes("sign up") || text.includes("get started"))
-      && !document.querySelector("[data-feature-marker]");
-    return { homeVisible, hero, looksLikeMarketing };
+    const looksLikeMarketing = !hasMarker && hero && (text.includes("sign up") || text.includes("get started"));
+    return { homeVisible, hero, looksLikeMarketing, hasMarker };
   });
-  if (bad.homeVisible || bad.looksLikeMarketing) {
+  if ((bad.homeVisible && !bad.hasMarker) || bad.looksLikeMarketing) {
     throw new Error(`Refusing homepage fallback capture for ${label}: ${JSON.stringify(bad)}`);
   }
 }

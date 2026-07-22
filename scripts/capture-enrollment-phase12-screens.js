@@ -15,6 +15,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-screen-assert.js");
+const { mountDirectorFeature, openFamilyHubTab } = require("./capture-mount-helpers.js");
 
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = process.env.EN_PHASE12_SCREENSHOT_DIR || "/opt/cursor/artifacts/enrollment-phase12";
@@ -100,22 +101,13 @@ async function main() {
       localStorage.setItem("llhAdminToken", adminToken);
       sessionStorage.setItem("llhAdminToken", adminToken);
     }, token);
-    await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "networkidle" });
-    await deskPage.waitForTimeout(800);
-    await deskPage.evaluate(() => { if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI(); });
-    await deskPage.waitForTimeout(600);
-    const tab = deskPage.locator('[data-dc-tab="enrollment"]');
-    if (await tab.count()) {
-      await tab.click();
-    } else {
-      await deskPage.evaluate(() => {
-        if (typeof window.renderEnrollmentTab === "function") {
-          const mount = document.querySelector("#view-director-center") || document.body;
-          mount.innerHTML = '<div id="dc-enrollment-mount"></div>';
-          window.renderEnrollmentTab(document.querySelector("#dc-enrollment-mount"));
-        }
-      });
-    }
+    await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "domcontentloaded" });
+    await mountDirectorFeature(deskPage, {
+      tab: "enrollment",
+      renderName: "renderEnrollmentTab",
+      mountId: "dc-enrollment-mount",
+      marker: "phase12-enrollment",
+    });
     await assertFeatureScreen(deskPage, { marker: "phase12-enrollment", label: "Phase 12 desktop enrollment" });
     await assertNotHomepageFallback(deskPage, "Phase 12 desktop enrollment");
     await deskPage.screenshot({ path: path.join(OUT_DIR, "1-provider-enrollment-pipeline-desktop.png"), fullPage: true });
@@ -128,17 +120,10 @@ async function main() {
       localStorage.setItem("llhMemberSessionToken", mt);
       localStorage.setItem("llhAccountType", "parent");
     }, { email: parent.email, memberToken });
-    await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "networkidle" });
-    await phonePage.waitForTimeout(800);
-    await phonePage.evaluate(() => { if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage(); });
-    await phonePage.waitForTimeout(1000);
-    await phonePage.evaluate(() => {
-      const btn = document.querySelector('[data-fh-tab="enrollment"]');
-      if (btn) btn.click();
-    });
+    await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "domcontentloaded" });
+    await openFamilyHubTab(phonePage, "enrollment");
     await assertFeatureScreen(phonePage, { marker: "phase12-enrollment", label: "Phase 12 phone family checklist" });
     await assertNotHomepageFallback(phonePage, "Phase 12 phone family checklist");
-    // Open first case checklist when available for a richer phone shot
     await phonePage.evaluate(() => {
       const open = document.querySelector("[data-fh-open-enrollment]");
       if (open) open.click();

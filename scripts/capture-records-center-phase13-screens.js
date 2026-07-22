@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-screen-assert.js");
+const { mountDirectorFeature, openFamilyHubTab } = require("./capture-mount-helpers.js");
 
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = process.env.RC_PHASE13_SCREENSHOT_DIR || "/opt/cursor/artifacts/records-center-phase13";
@@ -82,22 +83,13 @@ async function main() {
       localStorage.setItem("llhAdminToken", adminToken);
       sessionStorage.setItem("llhAdminToken", adminToken);
     }, token);
-    await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "networkidle" });
-    await deskPage.waitForTimeout(800);
-    await deskPage.evaluate(() => { if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI(); });
-    await deskPage.waitForTimeout(600);
-    const tab = deskPage.locator('[data-dc-tab="records_center"]');
-    if (await tab.count()) {
-      await tab.click();
-    } else {
-      await deskPage.evaluate(() => {
-        if (typeof window.renderRecordsCenterTab === "function") {
-          const mount = document.querySelector("#view-director-center") || document.body;
-          mount.innerHTML = '<div id="dc-records-center-mount"></div>';
-          window.renderRecordsCenterTab(document.querySelector("#dc-records-center-mount"));
-        }
-      });
-    }
+    await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "domcontentloaded" });
+    await mountDirectorFeature(deskPage, {
+      tab: "records_center",
+      renderName: "renderRecordsCenterTab",
+      mountId: "dc-records-center-mount",
+      marker: "phase13-records",
+    });
     await assertFeatureScreen(deskPage, { marker: "phase13-records", label: "Phase 13 desktop Records Center" });
     await assertNotHomepageFallback(deskPage, "Phase 13 desktop Records Center");
     await deskPage.screenshot({ path: path.join(OUT_DIR, "1-records-center-overview-desktop.png"), fullPage: true });
@@ -110,14 +102,8 @@ async function main() {
       localStorage.setItem("llhMemberSessionToken", mt);
       localStorage.setItem("llhAccountType", "parent");
     }, { email: parent.email, memberToken });
-    await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "networkidle" });
-    await phonePage.waitForTimeout(800);
-    await phonePage.evaluate(() => { if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage(); });
-    await phonePage.waitForTimeout(1000);
-    await phonePage.evaluate(() => {
-      const btn = document.querySelector('[data-fh-tab="records"]');
-      if (btn) btn.click();
-    });
+    await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "domcontentloaded" });
+    await openFamilyHubTab(phonePage, "records");
     await assertFeatureScreen(phonePage, { marker: "phase13-records", label: "Phase 13 phone family documents" });
     await assertNotHomepageFallback(phonePage, "Phase 13 phone family documents");
     await phonePage.evaluate(() => {

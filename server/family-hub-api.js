@@ -467,7 +467,14 @@ function createFamilyHubApi({
     const feed = access.allowed ? familyFeedForChild(store, actor.contact, activeChildId) : {
       updates: [], dailyReports: [], observations: [], goals: [], media: [], acknowledgments: [],
     };
-    const licensingTasks = buildLicensingTasksForGuardian(store, actor, children);
+    const digitalChildren = (children || []).filter((child) => familyModel.evaluateContactChildAccess({
+      store,
+      organizationId: actor.organizationId,
+      contactId: actor.contact.id,
+      childId: child.childId,
+      capability: "digital",
+    }).allowed);
+    const licensingTasks = buildLicensingTasksForGuardian(store, actor, digitalChildren);
 
     const formsToComplete = forms.filter((row) => row.actionNeeded && !row.returned);
     const returnedForms = forms.filter((row) => row.returned);
@@ -1061,7 +1068,11 @@ function createFamilyHubApi({
       .filter((row) => row.organizationId === actor.organizationId && !row.archived && !row.notApplicable)
       .filter((row) => row.scope === "child" && row.relatedChildId && permittedChildIds.has(row.relatedChildId))
       .filter((row) => /immunization|health|permission|emergency|medication/i.test(`${row.key} ${row.category} ${row.title}`))
-      .map((row) => licensingModel.syncRequirementToRecords(store, row))
+      .map((row) => {
+        // Preserve intentional fixture statuses; only refresh when already linked to a record.
+        if (row.connectedRecordId) return licensingModel.syncRequirementToRecords(store, row);
+        return row;
+      })
       .filter((row) => familyVisibleStatuses.has(row.status))
       .map((row) => ({
         id: row.id,
@@ -1087,7 +1098,18 @@ function createFamilyHubApi({
     const ctx = withGuardian(request, response, { capability: "digital" });
     if (!ctx) return;
     const { store, actor, children } = ctx;
-    const tasks = buildLicensingTasksForGuardian(store, actor, children);
+    const digitalChildren = (children || []).filter((child) => familyModel.evaluateContactChildAccess({
+      store,
+      organizationId: actor.organizationId,
+      contactId: actor.contact.id,
+      childId: child.childId,
+      capability: "digital",
+    }).allowed);
+    if (!digitalChildren.length) {
+      deny(response, 403, "no_digital_access", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+      return;
+    }
+    const tasks = buildLicensingTasksForGuardian(store, actor, digitalChildren);
     writeStore(store);
     jsonResponse(response, 200, {
       ok: true,

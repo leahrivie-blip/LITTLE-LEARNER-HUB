@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
 const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-screen-assert.js");
+const { mountDirectorFeature, openFamilyHubTab } = require("./capture-mount-helpers.js");
 
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = process.env.LC_PHASE14_SCREENSHOT_DIR || "/opt/cursor/artifacts/licensing-center-phase14";
@@ -82,22 +83,13 @@ async function main() {
       localStorage.setItem("llhAdminToken", adminToken);
       sessionStorage.setItem("llhAdminToken", adminToken);
     }, token);
-    await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "networkidle" });
-    await deskPage.waitForTimeout(800);
-    await deskPage.evaluate(() => { if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI(); });
-    await deskPage.waitForTimeout(600);
-    const tab = deskPage.locator('[data-dc-tab="licensing_center"]');
-    if (await tab.count()) {
-      await tab.click();
-    } else {
-      await deskPage.evaluate(() => {
-        if (typeof window.renderLicensingCenterTab === "function") {
-          const mount = document.querySelector("#view-director-center") || document.body;
-          mount.innerHTML = '<div id="dc-licensing-center-mount"></div>';
-          window.renderLicensingCenterTab(document.querySelector("#dc-licensing-center-mount"));
-        }
-      });
-    }
+    await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "domcontentloaded" });
+    await mountDirectorFeature(deskPage, {
+      tab: "licensing_center",
+      renderName: "renderLicensingCenterTab",
+      mountId: "dc-licensing-center-mount",
+      marker: "phase14-licensing",
+    });
     await assertFeatureScreen(deskPage, { marker: "phase14-licensing", label: "Phase 14 desktop Licensing Center" });
     await assertNotHomepageFallback(deskPage, "Phase 14 desktop Licensing Center");
     await deskPage.screenshot({ path: path.join(OUT_DIR, "1-licensing-dashboard-desktop.png"), fullPage: true });
@@ -110,26 +102,21 @@ async function main() {
       localStorage.setItem("llhMemberSessionToken", mt);
       localStorage.setItem("llhAccountType", "parent");
     }, { email: parent.email, memberToken });
-    await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "networkidle" });
+    await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "domcontentloaded" });
+    await openFamilyHubTab(phonePage, "home");
     await phonePage.waitForTimeout(800);
-    await phonePage.evaluate(() => { if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage(); });
-    await phonePage.waitForTimeout(1200);
-    // Real app navigation — do not inject HTML overlays
     const opened = await phonePage.evaluate(() => {
-      const cardBtn = document.querySelector('[data-fh-licensing-home-card] [data-fh-tab="licensing"], [data-fh-tab="licensing"]');
+      const cardBtn = document.querySelector('[data-fh-licensing-home-card] [data-fh-tab="licensing"]');
       if (cardBtn) {
         cardBtn.click();
         return "home-card";
       }
-      if (typeof window.familyHubUiState === "object") {
-        window.familyHubUiState.tab = "licensing";
-        if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage();
-        return "state-tab";
-      }
       return "";
     });
     if (!opened) {
-      throw new Error("Could not open Family Hub licensing tasks via real app navigation.");
+      await openFamilyHubTab(phonePage, "licensing");
+    } else {
+      await phonePage.waitForTimeout(1000);
     }
     await assertFeatureScreen(phonePage, { marker: "phase14-family-licensing-tasks", label: "Phase 14 phone family licensing tasks" });
     await assertNotHomepageFallback(phonePage, "Phase 14 phone family licensing tasks");
