@@ -156,9 +156,7 @@ Account type and role remain separate.
 
 Current runtime `account-access.js` capability gates are unchanged so existing users behave the same.
 
----
-
-## 6. Test results
+**Phase 20 security extension:** Testing Lab security review + fake migration / release-readiness APIs live under `/api/testing-lab/*` (`server/phase20-api.js`). Production continues to reject Lab preview routes. See `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md` and `scripts/phase20-security-data-model.js`. Not a formal security certification.
 
 Command:
 

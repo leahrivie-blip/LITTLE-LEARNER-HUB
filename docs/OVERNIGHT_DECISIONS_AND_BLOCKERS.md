@@ -133,7 +133,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 19 completed 2026-07-22** — see `docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 20** until Phase 19 is verified on the branch tip.
+**Phase 20 completed 2026-07-22** — see `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md`.
+
+**Do not begin the testing-site integration checkpoint or Phase 21** without separate instructions.
 
 ## Phase 14 notes
 
@@ -181,3 +183,11 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Draft recovery refuses cross user/org/child/classroom/record restores; secrets stripped from logs.
 - Failed-save metadata is sanitized (no passwords, tokens, message bodies, medical content).
 - Deferred: full screen-reader certification, every legacy modal focus-trap migration, cloud draft sync beyond Lab simulation.
+
+## Phase 20 notes / permissions
+
+- Security review is a Testing Lab checklist + rate limits — not formal certification.
+- Migration simulator: fake organizations only; inspect/preview/confirm/rollback; production rejects.
+- Release Readiness is computer-first; phones show status summary only.
+- Integration plan documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — not executed in Phase 20.
+- Deferred: real production migration, pen test, testing-site deploy, merge to main, Phase 21.

@@ -530,8 +530,9 @@
     const scenarioSafe = d.scenario || "";
     return `
       <section class="tl-mobile-summary" data-feature-marker="phase18-testing-lab-mobile" data-phase20-marker="phase20-release-readiness-mobile" data-tl-mobile-summary>
-        <p class="tl-computer-recommended" data-tl-computer-recommended>Release Readiness is computer recommended</p>
-        <h2>Use the computer website for readiness &amp; migration</h2>
+        <p class="tl-computer-recommended" data-tl-computer-recommended>Testing Lab is computer recommended</p>
+        <p class="muted-copy">Release Readiness is computer recommended — open the computer website for full checklists and migration tools.</p>
+        <h2>Phone status summary</h2>
         <p class="muted-copy">
           Security review details, migration preview/confirm, Release Readiness checklists, scenario setup,
           fake-account management, role preview, resets, and device testing should be completed on the

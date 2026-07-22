@@ -57,6 +57,19 @@ Keep / confirm on the **testing** Render service only:
 4. Confirm banner **Admin Preview — Test Data Only**
 5. Confirm anonymous / regular users get 403 on Director Center APIs
 
+## Phase 20 addendum (security / migration / readiness)
+
+| Check | Expected |
+|-------|----------|
+| Testing Lab migration / readiness APIs | Available only with Lab preview gates + fake orgs |
+| Production Lab / migration / readiness mutations | **Must reject** (403 / locked) — never apply real migrations |
+| Fake-account domain | `@example.invalid` only in Lab fixtures |
+| Rate limits | Admin login + sensitive Lab POSTs limited in-process |
+| Secrets in logs / reports / screenshots | Sanitized — no passwords, tokens, or private PHI |
+| Integration checkpoint | Documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — **not** executed in Phase 20 |
+
+See also: `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md`, `scripts/phase20-security-data-model.js`, `scripts/org-permissions.js`.
+
 ## Agent limitations
 
 - No Render API token / deploy hook in this environment
