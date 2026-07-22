@@ -134,6 +134,10 @@
         } else if (typeof global.refreshFamilyFoundationTab === "function") {
           await global.refreshFamilyFoundationTab();
         }
+      } else if (state.tab === "family_updates") {
+        if (typeof global.refreshFamilyUpdatesTab === "function") {
+          await global.refreshFamilyUpdatesTab();
+        }
       } else if (state.tab === "roles_permissions") {
         state.roles = await api("GET", "/api/director-center/roles-permissions");
         state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty || 0)}`);
@@ -166,6 +170,7 @@
       ["staff", "Staff"],
       ["children", "Children and Assignments"],
       ["families", "Families"],
+      ["family_updates", "Family Updates"],
       ["program_profile", "Program Profile"],
       ["roles_permissions", "Roles and Permissions"],
     ];
@@ -648,6 +653,9 @@
       }
       return `<p class="muted-copy">Family foundation UI is not loaded.</p>`;
     }
+    if (state.tab === "family_updates") {
+      return `<div id="dc-family-updates-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Family Updates…</p></div>`;
+    }
     if (state.tab === "program_profile") return programProfileHtml();
     if (state.tab === "roles_permissions") return rolesHtml();
     return "";
@@ -697,6 +705,9 @@
     bind();
     if (state.tab === "families" && typeof global.bindFamilyFoundationTab === "function") {
       global.bindFamilyFoundationTab(section.querySelector("[data-ff-shell]") || section);
+    }
+    if (state.tab === "family_updates" && typeof global.renderFamilyUpdatesTab === "function") {
+      global.renderFamilyUpdatesTab(section.querySelector("#dc-family-updates-mount") || section);
     }
   }
 

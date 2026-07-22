@@ -150,6 +150,57 @@
           </ul>
         </section>
         <section class="fh-section">
+          <h2>Recent updates</h2>
+          <ul class="fh-card-list">
+            ${(data.recentUpdates || []).map((row) => `
+              <li class="fh-card static">
+                <strong>${escapeHtml(row.title)}</strong>
+                <span>${escapeHtml((row.sharedAt || row.occurredAt || "").slice(0, 10))}${row.isCorrection ? " · corrected" : ""}</span>
+                <p class="muted-copy">${escapeHtml(row.message || "")}</p>
+                <button type="button" class="fh-link-btn" data-fh-ack="update" data-fh-ack-id="${escapeHtml(row.id)}">Acknowledge</button>
+              </li>
+            `).join("") || "<li class=\"muted-copy\">No updates yet</li>"}
+          </ul>
+        </section>
+        <section class="fh-section">
+          <h2>Today’s Daily Report</h2>
+          ${data.todaysDailyReport ? `
+            <div class="fh-card static">
+              <strong>${escapeHtml(data.todaysDailyReport.date || "")}</strong>
+              <p>Arrival: ${escapeHtml(data.todaysDailyReport.arrival || "—")} · Mood: ${escapeHtml(data.todaysDailyReport.mood || "—")}</p>
+              <p>${escapeHtml(data.todaysDailyReport.teacherNote || data.todaysDailyReport.activities || "")}</p>
+              <button type="button" class="fh-link-btn" data-fh-ack="daily_report" data-fh-ack-id="${escapeHtml(data.todaysDailyReport.id)}">Acknowledge</button>
+            </div>
+          ` : `<p class="muted-copy">No Daily Report shared for today.</p>`}
+        </section>
+        <section class="fh-section">
+          <h2>Photos and Videos</h2>
+          <ul class="fh-card-list">
+            ${(data.familyMedia || []).map((row) => `
+              <li class="fh-card static">
+                <strong>${escapeHtml(row.caption || row.kind)}</strong>
+                <span>${escapeHtml(row.placeholderLabel || "")}</span>
+              </li>
+            `).join("") || "<li class=\"muted-copy\">No family-visible media</li>"}
+          </ul>
+        </section>
+        <section class="fh-section">
+          <h2>Shared observations</h2>
+          <ul class="fh-card-list">
+            ${(data.sharedObservations || []).map((row) => `
+              <li class="fh-card static"><strong>${escapeHtml(row.text || "")}</strong></li>
+            `).join("") || "<li class=\"muted-copy\">None shared</li>"}
+          </ul>
+        </section>
+        <section class="fh-section">
+          <h2>Shared goals</h2>
+          <ul class="fh-card-list">
+            ${(data.sharedGoals || []).map((row) => `
+              <li class="fh-card static"><strong>${escapeHtml(row.description || "")}</strong><span>${escapeHtml(row.learningDomain || "")}</span></li>
+            `).join("") || "<li class=\"muted-copy\">None shared</li>"}
+          </ul>
+        </section>
+        <section class="fh-section">
           <h2>Upcoming</h2>
           <ul class="fh-card-list">
             ${(data.upcomingCalendar || []).map((row) => `
@@ -218,6 +269,36 @@
           <ul class="fh-card-list">
             ${(state.childDetail.documents || []).map((row) => `
               <li class="fh-card static"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.status)}</span></li>
+            `).join("") || "<li class=\"muted-copy\">None</li>"}
+          </ul>
+          <h2>Updates</h2>
+          <ul class="fh-card-list">
+            ${(state.childDetail.recentUpdates || []).map((row) => `
+              <li class="fh-card static"><strong>${escapeHtml(row.title)}</strong><span>${escapeHtml(row.message || "")}</span></li>
+            `).join("") || "<li class=\"muted-copy\">None</li>"}
+          </ul>
+          <h2>Daily Reports</h2>
+          <ul class="fh-card-list">
+            ${(state.childDetail.dailyReports || []).map((row) => `
+              <li class="fh-card static"><strong>${escapeHtml(row.date || "")}</strong><span>${escapeHtml(row.teacherNote || row.activities || "")}</span></li>
+            `).join("") || "<li class=\"muted-copy\">None shared</li>"}
+          </ul>
+          <h2>Photos and Videos</h2>
+          <ul class="fh-card-list">
+            ${(state.childDetail.familyMedia || []).map((row) => `
+              <li class="fh-card static"><strong>${escapeHtml(row.caption || row.kind)}</strong></li>
+            `).join("") || "<li class=\"muted-copy\">None</li>"}
+          </ul>
+          <h2>Shared observations</h2>
+          <ul class="fh-card-list">
+            ${(state.childDetail.sharedObservations || []).map((row) => `
+              <li class="fh-card static">${escapeHtml(row.text || "")}</li>
+            `).join("") || "<li class=\"muted-copy\">None</li>"}
+          </ul>
+          <h2>Shared goals</h2>
+          <ul class="fh-card-list">
+            ${(state.childDetail.sharedGoals || []).map((row) => `
+              <li class="fh-card static">${escapeHtml(row.description || "")}</li>
             `).join("") || "<li class=\"muted-copy\">None</li>"}
           </ul>
           <form class="fh-form" data-fh-upload>
@@ -493,7 +574,27 @@
         const href = button.getAttribute("data-fh-open-task");
         const childId = button.getAttribute("data-fh-child");
         if (childId) state.selectedChildId = childId;
+        if (href === "home") {
+          refresh();
+          return;
+        }
         setTab(href === "children" ? "children" : href === "account" ? "account" : "forms");
+      });
+    });
+    root.querySelectorAll("[data-fh-ack]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        try {
+          await api("POST", "/api/family-hub/acknowledge", {
+            targetType: button.getAttribute("data-fh-ack"),
+            targetId: button.getAttribute("data-fh-ack-id"),
+            childId: state.selectedChildId,
+          });
+          state.notice = "Acknowledged. This is not a legal signature.";
+          await refresh();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
       });
     });
     root.querySelectorAll("[data-fh-open-child]").forEach((button) => {

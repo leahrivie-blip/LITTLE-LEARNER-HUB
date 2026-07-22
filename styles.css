@@ -23930,3 +23930,23 @@ button.linkish {
   .fh-bottom-nav { display: none; }
   .fh-main { padding: 24px 28px 40px; }
 }
+
+/* Phase 10 Family Updates provider + feed accents */
+.fu-panel { max-width: 920px; }
+.fu-section { margin: 1.25rem 0; }
+.fu-config { display: grid; gap: 0.75rem; margin: 1rem 0 1.5rem; }
+.fu-check { display: flex; gap: 0.5rem; align-items: center; min-height: 44px; }
+.fu-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.75rem; }
+.fh-link-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 0.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--fh-accent, #0f5c4c);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+.dc-family-updates-mount { margin-top: 0.5rem; }

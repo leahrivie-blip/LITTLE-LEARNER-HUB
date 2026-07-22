@@ -10,7 +10,8 @@
  * - Active verified child relationship + child-specific access
  *
  * Production always rejects. No email/SMS/push/Stripe/live AI.
- * Photos/media/messaging deferred to later phases.
+ * Phase 10 adds family-visible updates, Daily Reports, media (authenticated only).
+ * Full messaging/notifications deferred to Phase 11.
  */
 
 const foundation = require("../scripts/foundation-data-model.js");
@@ -18,6 +19,8 @@ const expansionFlags = require("../scripts/expansion-feature-flags.js");
 const familyModel = require("../scripts/family-foundation-data-model.js");
 const hub = require("../scripts/family-hub-data-model.js");
 const fixtures = require("../scripts/family-hub-fixtures.js");
+const updatesModel = require("../scripts/family-updates-data-model.js");
+const updatesFixtures = require("../scripts/family-updates-fixtures.js");
 const formsModel = require("../scripts/forms-center-data-model.js");
 const responsesModel = require("../scripts/form-responses-data-model.js");
 const { buildRecipientPayload } = require("../scripts/form-recipient-payload.js");
@@ -141,6 +144,7 @@ function createFamilyHubApi({
       return null;
     }
     fixtures.ensurePhase9Preview(store, { organizationId: actor.organizationId });
+    updatesFixtures.ensurePhase10Preview(store, { organizationId: actor.organizationId });
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     let selectedChildId = String(childId || getHeader(request, "x-llh-selected-child-id") || "").trim();
     if (selectedChildId) {
@@ -259,6 +263,38 @@ function createFamilyHubApi({
     }));
   }
 
+  function familyFeedForChild(store, contact, childId) {
+    updatesModel.ensureFamilyUpdatesStore(store);
+    const orgId = contact.organizationId;
+    const updates = updatesModel.updatesVisibleToChild(store, orgId, childId)
+      .map((row) => updatesModel.familySafeUpdate(row, { childId }))
+      .filter(Boolean);
+    const dailyReports = listValues(store.familyUpdates.dailyReportShares)
+      .filter((share) => share.organizationId === orgId && share.childId === childId && share.visibility === updatesModel.VISIBILITY.FAMILY_VISIBLE)
+      .map((share) => updatesModel.familySafeDailyReport(store.previewDailyLogs?.[share.dailyLogId], share))
+      .filter(Boolean)
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
+    const observations = listValues(store.familyUpdates.observationShares)
+      .filter((share) => share.organizationId === orgId && share.childId === childId && share.visibility === updatesModel.VISIBILITY.FAMILY_VISIBLE)
+      .map((share) => updatesModel.familySafeObservation(store.previewObservations?.[share.observationId], share))
+      .filter(Boolean);
+    const goals = listValues(store.familyUpdates.goalShares)
+      .filter((share) => share.organizationId === orgId && share.childId === childId && share.visibility === updatesModel.VISIBILITY.FAMILY_VISIBLE)
+      .map((share) => updatesModel.familySafeGoal(store.previewGoals?.[share.goalId], share))
+      .filter(Boolean);
+    const media = listValues(store.familyUpdates.media)
+      .map((row) => {
+        const gate = updatesModel.guardianMayViewMedia(store, contact, row);
+        if (!gate.allowed) return null;
+        return updatesModel.familySafeMedia(row, gate.visibleChildIds);
+      })
+      .filter(Boolean);
+    const acknowledgments = listValues(store.familyUpdates.acknowledgments).filter((row) => (
+      row.contactId === contact.id && row.childId === childId
+    ));
+    return { updates, dailyReports, observations, goals, media, acknowledgments };
+  }
+
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
   async function handleStatus(request, response) {
@@ -274,11 +310,12 @@ function createFamilyHubApi({
       return;
     }
     fixtures.ensurePhase9Preview(store, { organizationId: actor.organizationId });
+    updatesFixtures.ensurePhase10Preview(store, { organizationId: actor.organizationId });
     writeStore(store);
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     jsonResponse(response, 200, {
       ok: true,
-      phase: 9,
+      phase: 10,
       preview: true,
       label: TESTING_BANNER,
       familyHub: true,
@@ -286,11 +323,12 @@ function createFamilyHubApi({
       organizationId: actor.organizationId,
       childCount: children.length,
       navigation: ["home", "children", "forms", "calendar", "account"],
-      deferred: ["messages", "media", "billing"],
-      roadmapNote: "More family tools (photos, messages, and billing) are coming in later phases.",
+      deferred: ["messages", "billing"],
+      roadmapNote: "Messaging and notification delivery arrive in a later phase.",
       noOutboundEmail: true,
       noOutboundSms: true,
       noPush: true,
+      noPublicMediaUrls: true,
     });
   }
 
@@ -331,6 +369,9 @@ function createFamilyHubApi({
     const docs = documentsForChild(store, actor.organizationId, activeChildId);
     const calendar = calendarForChild(store, actor.organizationId, activeChildId);
     const changes = changeRequestsForContact(store, actor.contact.id, activeChildId);
+    const feed = access.allowed ? familyFeedForChild(store, actor.contact, activeChildId) : {
+      updates: [], dailyReports: [], observations: [], goals: [], media: [], acknowledgments: [],
+    };
 
     const formsToComplete = forms.filter((row) => row.actionNeeded && !row.returned);
     const returnedForms = forms.filter((row) => row.returned);
@@ -339,12 +380,14 @@ function createFamilyHubApi({
     const pendingChangeRequests = changes.filter((row) => row.status === hub.CHANGE_REQUEST_STATUSES.PENDING);
     const recentApproved = forms.filter((row) => row.approved).slice(0, 5);
     const upcomingCalendar = calendar.slice(0, 5);
+    const todaysReport = (feed.dailyReports || []).find((row) => row.date === hub.nowIso().slice(0, 10)) || feed.dailyReports[0] || null;
 
     const actionNeeded = [
       ...formsToComplete.map((row) => ({ kind: "form", id: row.assignmentId, title: row.formTitle, href: "forms", childId: activeChildId })),
       ...returnedForms.map((row) => ({ kind: "form_returned", id: row.assignmentId, title: row.formTitle, href: "forms", childId: activeChildId })),
       ...documentRequests.filter((row) => row.uploadRequested).map((row) => ({ kind: "document_request", id: row.id, title: row.title, href: "children", childId: activeChildId })),
       ...pendingChangeRequests.map((row) => ({ kind: "change_request", id: row.id, title: `Pending ${row.type.replace(/_/g, " ")}`, href: "account", childId: activeChildId })),
+      ...(feed.updates || []).slice(0, 3).map((row) => ({ kind: "update", id: row.id, title: row.title, href: "home", childId: activeChildId })),
     ];
 
     jsonResponse(response, 200, {
@@ -354,7 +397,7 @@ function createFamilyHubApi({
       children,
       selectedChildId: activeChildId,
       accessLevel: access.accessLevel,
-      empty: actionNeeded.length === 0 && upcomingCalendar.length === 0 && recentApproved.length === 0,
+      empty: actionNeeded.length === 0 && upcomingCalendar.length === 0 && recentApproved.length === 0 && !(feed.updates || []).length,
       emptyMessage: "Nothing needs your attention right now.",
       actionNeeded,
       formsToComplete,
@@ -364,8 +407,13 @@ function createFamilyHubApi({
       documentRequests,
       pendingChangeRequests,
       recentApproved,
+      recentUpdates: (feed.updates || []).slice(0, 8),
+      todaysDailyReport: todaysReport,
+      familyMedia: (feed.media || []).slice(0, 8),
+      sharedObservations: (feed.observations || []).slice(0, 5),
+      sharedGoals: (feed.goals || []).slice(0, 5),
       programContact: programContact(store, actor.organizationId),
-      roadmapNote: "More family tools (photos, messages, and billing) are coming in later phases.",
+      roadmapNote: "Messaging arrives in a later phase.",
     });
   }
 
@@ -401,6 +449,7 @@ function createFamilyHubApi({
     ));
     const classroomRecord = classroom ? store.classrooms?.[classroom.classroomId] : null;
     writeStore(store);
+    const feed = familyFeedForChild(store, actor.contact, childId);
     jsonResponse(response, 200, {
       ok: true,
       label: TESTING_BANNER,
@@ -424,7 +473,12 @@ function createFamilyHubApi({
       documents: documentsForChild(store, actor.organizationId, childId),
       pendingChangeRequests: changeRequestsForContact(store, actor.contact.id, childId)
         .filter((row) => row.status === hub.CHANGE_REQUEST_STATUSES.PENDING),
-      // Explicitly omitted: observations, staff notes, licensing, custody, incidents, private timelines
+      recentUpdates: feed.updates,
+      dailyReports: feed.dailyReports,
+      familyMedia: feed.media,
+      sharedObservations: feed.observations,
+      sharedGoals: feed.goals,
+      // Explicitly omitted: internal observations, staff notes, licensing, custody, incidents, private timelines
       restrictedOmitted: true,
     });
   }
@@ -867,15 +921,156 @@ function createFamilyHubApi({
       jsonResponse(response, gate.status || 403, gate.payload);
       return;
     }
-    const authHeader = getHeader(request, "authorization");
-    // Prefer admin for seed; also allow guardian for idempotent ensure
     const body = await readJson(request).catch(() => ({}));
-    const seeded = fixtures.ensurePhase9Preview(store, { organizationId: body.organizationId || "" });
+    const seeded9 = fixtures.ensurePhase9Preview(store, { organizationId: body.organizationId || "" });
+    const seeded10 = updatesFixtures.ensurePhase10Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     if (!store.siteContent) store.siteContent = {};
     if (!store.siteContent.featureFlags) store.siteContent.featureFlags = {};
     store.siteContent.featureFlags.familyHub = true;
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded, label: TESTING_BANNER });
+    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, label: TESTING_BANNER });
+  }
+
+  async function handleUpdatesFeed(request, response, url) {
+    const childId = url?.searchParams?.get("childId") || "";
+    const ctx = withGuardian(request, response, { capability: "digital", childId });
+    if (!ctx) return;
+    const { store, actor, selectedChildId, children } = ctx;
+    const activeChildId = selectedChildId || children[0]?.childId || "";
+    if (!activeChildId) return deny(response, 403, "no_child_access", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+    const feed = familyFeedForChild(store, actor.contact, activeChildId);
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      label: TESTING_BANNER,
+      selectedChildId: activeChildId,
+      children,
+      updates: feed.updates,
+      dailyReports: feed.dailyReports,
+      media: feed.media,
+      observations: feed.observations,
+      goals: feed.goals,
+    });
+  }
+
+  async function handleDailyReports(request, response, url) {
+    const childId = url?.searchParams?.get("childId") || "";
+    const ctx = withGuardian(request, response, { capability: "digital", childId });
+    if (!ctx) return;
+    const { store, actor, selectedChildId, children } = ctx;
+    const activeChildId = selectedChildId || children[0]?.childId || "";
+    if (!activeChildId) return deny(response, 403, "no_child_access", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+    const feed = familyFeedForChild(store, actor.contact, activeChildId);
+    // Isolation: never include another child's report
+    const reports = (feed.dailyReports || []).filter((row) => row.childId === activeChildId);
+    jsonResponse(response, 200, {
+      ok: true,
+      label: TESTING_BANNER,
+      selectedChildId: activeChildId,
+      children,
+      dailyReports: reports,
+    });
+  }
+
+  async function handleFamilyMediaList(request, response, url) {
+    const childId = url?.searchParams?.get("childId") || "";
+    const ctx = withGuardian(request, response, { capability: "digital", childId });
+    if (!ctx) return;
+    const { store, actor, selectedChildId, children } = ctx;
+    const activeChildId = selectedChildId || children[0]?.childId || "";
+    if (!activeChildId) return deny(response, 403, "no_child_access", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+    const feed = familyFeedForChild(store, actor.contact, activeChildId);
+    jsonResponse(response, 200, {
+      ok: true,
+      label: TESTING_BANNER,
+      selectedChildId: activeChildId,
+      media: feed.media,
+    });
+  }
+
+  async function handleMediaContent(request, response, mediaId) {
+    const ctx = withGuardian(request, response, { capability: "digital" });
+    if (!ctx) return;
+    const { store, actor } = ctx;
+    updatesModel.ensureFamilyUpdatesStore(store);
+    const media = store.familyUpdates.media[mediaId];
+    const gate = updatesModel.guardianMayViewMedia(store, actor.contact, media);
+    if (!gate.allowed) return deny(response, 403, gate.reason || "media_denied", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+    if (env().liveProduction) return deny(response, 403, "production_media_locked");
+    // Authenticated-only payload — never a permanent public URL
+    jsonResponse(response, 200, {
+      ok: true,
+      mediaId,
+      mimeType: media.mimeType,
+      placeholderLabel: media.placeholderLabel,
+      contentBase64: media.contentBase64 || "",
+      downloadAllowed: media.downloadPermission === true
+        && gate.visibleChildIds.every((childId) => updatesModel.consentAllowsDownload(store, actor.organizationId, childId)),
+      publicUrl: null,
+    });
+  }
+
+  async function handleAcknowledge(request, response) {
+    const body = await readJson(request);
+    const childId = String(body.childId || "").trim();
+    const ctx = withGuardian(request, response, { capability: "digital", childId });
+    if (!ctx) return;
+    const { store, actor, selectedChildId } = ctx;
+    const activeChildId = childId || selectedChildId;
+    if (!activeChildId) return deny(response, 400, "child_required");
+    const targetType = String(body.targetType || "update");
+    const targetId = String(body.targetId || "").trim();
+    if (!targetId) return deny(response, 400, "target_required");
+    // Validate target is visible to this guardian/child
+    const feed = familyFeedForChild(store, actor.contact, activeChildId);
+    const visible = (
+      (targetType === "update" && feed.updates.some((row) => row.id === targetId))
+      || (targetType === "daily_report" && feed.dailyReports.some((row) => row.id === targetId))
+      || (targetType === "media" && feed.media.some((row) => row.id === targetId))
+      || (targetType === "observation" && feed.observations.some((row) => row.id === targetId))
+      || (targetType === "goal" && feed.goals.some((row) => row.id === targetId))
+    );
+    if (!visible) return deny(response, 403, "target_not_visible", hub.RESTRICTED_UNAVAILABLE_MESSAGE);
+    const ack = updatesModel.createAcknowledgmentRecord({
+      organizationId: actor.organizationId,
+      contactId: actor.contact.id,
+      childId: activeChildId,
+      targetType,
+      targetId,
+      note: body.note || "",
+    });
+    store.familyUpdates.acknowledgments[ack.id] = ack;
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      acknowledgment: ack,
+      isLegalSignature: false,
+      note: "Acknowledgment recorded. This is not a legal signature.",
+    });
+  }
+
+  async function handleConcern(request, response) {
+    const body = await readJson(request);
+    const childId = String(body.childId || "").trim();
+    const ctx = withGuardian(request, response, { capability: "digital", childId });
+    if (!ctx) return;
+    const { store, actor, selectedChildId } = ctx;
+    const activeChildId = childId || selectedChildId;
+    const concern = updatesModel.createConcernRequestRecord({
+      organizationId: actor.organizationId,
+      contactId: actor.contact.id,
+      childId: activeChildId,
+      targetType: body.targetType || "update",
+      targetId: body.targetId || "",
+      message: body.message || "",
+    });
+    store.familyUpdates.concernRequests[concern.id] = concern;
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      concernRequest: concern,
+      note: "Stored for provider review. No message notification was sent.",
+    });
   }
 
   function matchRoute(method, pathname, url) {
@@ -886,6 +1081,15 @@ function createFamilyHubApi({
     if (method === "GET" && path === `${base}/status`) return (req, res) => handleStatus(req, res);
     if (method === "POST" && path === `${base}/seed`) return (req, res) => handleSeed(req, res);
     if (method === "GET" && path === `${base}/home`) return (req, res) => handleHome(req, res, url);
+    if (method === "GET" && path === `${base}/updates`) return (req, res) => handleUpdatesFeed(req, res, url);
+    if (method === "GET" && path === `${base}/daily-reports`) return (req, res) => handleDailyReports(req, res, url);
+    if (method === "GET" && path === `${base}/media`) return (req, res) => handleFamilyMediaList(req, res, url);
+    if (method === "GET" && /^\/api\/family-hub\/media\/[^/]+\/content$/.test(path)) {
+      const id = decodeURIComponent(path.split("/media/")[1].split("/content")[0]);
+      return (req, res) => handleMediaContent(req, res, id);
+    }
+    if (method === "POST" && path === `${base}/acknowledge`) return (req, res) => handleAcknowledge(req, res);
+    if (method === "POST" && path === `${base}/concern-request`) return (req, res) => handleConcern(req, res);
     if (method === "GET" && path === `${base}/children`) return (req, res) => handleChildren(req, res);
     if (method === "GET" && path.startsWith(`${base}/children/`)) {
       const id = decodeURIComponent(path.slice(`${base}/children/`.length).split("/")[0]);

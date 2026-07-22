@@ -34,6 +34,7 @@ const { createAiFormBuilderApi } = require("./ai-form-builder-api.js");
 const { createFormRecipientApi } = require("./form-recipient-api.js");
 const { createFamilyFoundationApi } = require("./family-foundation-api.js");
 const { createFamilyHubApi } = require("./family-hub-api.js");
+const { createFamilyUpdatesApi } = require("./family-updates-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15366,6 +15367,21 @@ function getFamilyHubApi() {
   return _familyHubApi;
 }
 
+let _familyUpdatesApi;
+function getFamilyUpdatesApi() {
+  if (!_familyUpdatesApi) {
+    _familyUpdatesApi = createFamilyUpdatesApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyUpdatesApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15417,7 +15433,8 @@ const server = http.createServer(async (request, response) => {
     // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
     if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
-      const handler = getFamilyFoundationApi().matchDirectorRoute(request.method, url.pathname, url)
+      const handler = getFamilyUpdatesApi().matchRoute(request.method, url.pathname, url)
+        || getFamilyFoundationApi().matchDirectorRoute(request.method, url.pathname, url)
         || getPhase3TeacherApi().matchRoute(request.method, url.pathname, url)
         || getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
