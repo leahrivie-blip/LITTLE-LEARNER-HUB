@@ -1,7 +1,7 @@
 # Overnight decisions and blockers
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 16 Staff Experience)
+**Updated:** 2026-07-22 (Phase 17 Pricing & Family Billing Simulator)
 
 ## Decisions
 
@@ -27,13 +27,29 @@
 
 **Provider side:** Director Center dedicated **Today** tab (`data-dc-tab="today_hub"`).
 
+### Family Hub nav — Billing (Phase 17)
+
+**Decision:** Family Billing is accessed from **Home** (Billing card) and **Account → More** (`tab=billing`), not a sixth bottom-nav item.
+
+**Why:** Same max-five constraint. Billing is financially sensitive and must not displace Messages.
+
+**Provider side:** Director Center dedicated **Billing** tab (`data-dc-tab="billing"`) for platform plan simulator + family tuition overview.
+
 ### Capture scripts must assert feature markers
 
-**Decision:** Phase 12–15 screenshot scripts fail loudly unless a unique `data-feature-marker` is visible, and refuse the marketing homepage. Views must use `.active-view` to become visible.
+**Decision:** Phase 12–17 screenshot scripts fail loudly unless a unique `data-feature-marker` is visible, and refuse the marketing homepage. Views must use `.active-view` to become visible.
 
 ### Ratio wording (Phase 15)
 
 **Decision:** Always label ratios as **provider-configured** guidance. Never claim universal state compliance.
+
+### Billing money representation (Phase 17)
+
+**Decision:** Store all tuition and platform-sim amounts as **integer cents**. Never use floating-point for stored money. Corrections are append-only ledger adjustments.
+
+### Downgrade safety (Phase 17)
+
+**Decision:** Simulated plan downgrades show over-limit classrooms/staff and required actions; they never silently delete classrooms, staff, children, records, forms, or history.
 
 ## Permissions notes (no `docs/PERMISSIONS*` file)
 
@@ -105,7 +121,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 16 completed 2026-07-22** — see `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 17** until Phase 16 is verified on the branch tip.
+**Phase 17 completed 2026-07-22** — see `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`.
+
+**Do not begin Phase 18** until Phase 17 is verified on the branch tip.
 
 ## Phase 14 notes
 
@@ -118,10 +136,20 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 - Today Hub is the daily operations entry point for role-scoped urgent work.
 - In-app notifications only; admin-only notifications stay director-scoped.
-- Deferred: staff scheduling (delivered in Phase 16), billing, external delivery.
+- Deferred: staff scheduling (delivered in Phase 16), billing (delivered in Phase 17), external delivery.
 
 ## Phase 16 notes
 
 - Staff Hub is computer-first for directory/schedule/permissions; phone focuses on My Staff Hub clock/schedule.
 - Private performance notes never appear in directory, Family Hub, or classroom views.
-- Deferred: payroll, tax, banking, external notifications, Phase 17.
+- Deferred: payroll, tax, banking, external notifications.
+
+## Phase 17 notes / permissions
+
+- Platform subscription simulator: primary billing owner (Curriculum Only may view own catalog/subscription only).
+- Provider family billing: owner/director or `billingManager`; teachers/assistants denied by default.
+- Family Hub Billing: financially responsible guardians (`FULL_VERIFIED_GUARDIAN` or `BILLING_ONLY`); pickup/restricted denied.
+- Cross-organization access always rejected. Financial access audited separately.
+- Attendance suggestions never auto-bill. Enrollment acceptance never processes payment.
+- Stripe products/prices/checkout untouched; `DISABLE_STRIPE_CHECKOUT=true`.
+- Deferred: live Stripe seat billing, real family payment processors, Phase 18.

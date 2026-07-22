@@ -183,3 +183,15 @@ Future entitlement status should use `past_due` / `unpaid`, retain records, rest
 
 Phase 1 prepared the technical structure only.  
 **No live pricing implementation. No Stripe products created. No production billing change.**
+
+---
+
+## Phase 17 testing simulator (2026-07-22)
+
+Phase 17 adds a **testing-only** platform plan comparison + entitlement simulator and a provider→family tuition billing simulator. It reuses this catalog’s integer-cent prices and limits (`PLANNED_PLAN_CATALOG`, `CLASSROOM_ADD_ON`, founding $9.99 base protection).
+
+- APIs: `/api/director-center/billing/*`, `/api/family-hub/billing`
+- Modules: `scripts/billing-simulator-data-model.js`, `server/billing-simulator-api.js`
+- Report: `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`
+
+**Still true:** no live Stripe products/prices created or modified; production checkout catalog unchanged; `DISABLE_STRIPE_CHECKOUT` remains required for this workstream.
