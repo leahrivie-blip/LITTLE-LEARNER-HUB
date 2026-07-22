@@ -79,8 +79,9 @@ npm run test:family-hub-phase9
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
-- Latest tip: see `git log -1 --oneline` after push  
+- Latest tip: `e14423e5ac0f0ab80bb8abe141e00fc82450be99`  
 - Pushed to `origin/cursor/director-family-foundation-bc66`  
 - Working tree clean after push  
+- Full regression: **280 PASS**, zero failures  
 - Production Family Hub remains locked; `main` untouched  
 - Phase 10 not started  
