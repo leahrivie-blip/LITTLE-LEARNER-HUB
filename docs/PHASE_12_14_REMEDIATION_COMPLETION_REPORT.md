@@ -66,6 +66,8 @@ Full Phase 1–14 regression (check + phases 1–14 focused suites + platform-na
 
 ## Git
 
-- Latest tip: run `git rev-parse origin/cursor/director-family-foundation-bc66` after pull  
-- Pushed to `origin/cursor/director-family-foundation-bc66`  
-- Working tree clean after docs commit  
+- Latest tip: `a877712b8ece4dca2a98d877c45b75fd8fdc9bf8` (`git rev-parse origin/cursor/director-family-foundation-bc66`)
+- Pushed to `origin/cursor/director-family-foundation-bc66`
+- Working tree clean after docs commit
+- `main` remains `204fa013d7076bb62384d9ec7e7d22168b3d1840` (untouched)
+- Phase 15 not started
