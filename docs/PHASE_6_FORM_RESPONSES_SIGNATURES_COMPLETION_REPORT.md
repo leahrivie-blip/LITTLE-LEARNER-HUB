@@ -282,6 +282,7 @@ npm run test:director-center-phase3
 npm run test:forms-center-phase4
 npm run test:forms-center-phase5
 npm run test:forms-center-phase6
+npm run test:forms-center-phase6-documents
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -295,10 +296,11 @@ npm run test:account-access
 | `npm run test:forms-center-phase4` | **PASS** (19/19) |
 | `npm run test:forms-center-phase5` | **PASS** (43/43) |
 | `npm run test:forms-center-phase6` | **PASS** (38/38) |
+| `npm run test:forms-center-phase6-documents` | **PASS** (15/15) |
 | `npm run test:platform-nav` | **PASS** (14/14) |
 | `npm run test:account-access` | **PASS** (12/12) |
 
-**182 total assertions, zero failures**, run together in one regression pass.
+**198 total assertions, zero failures**, run together in one regression pass.
 
 `npm run test:forms-center-phase6` specifically covers: assignment creation, bulk
 assignment separation (with cross-recipient token isolation), draft saving, repeated
@@ -398,6 +400,94 @@ docs).
 `git status` reports a clean working tree immediately after this phase's commits are
 pushed — nothing is required to make the project buildable and testable from a fresh
 `git clone` + `npm install`.
+
+## 27. Design addition — professional editable digital documents (2026-07-22)
+
+A follow-up design pass made forms feel like professional editable digital
+documents end-to-end, continuing directly from the Phase 6 work above without
+restarting any of it:
+
+**Workflow completed:** Editable provider form (existing Phase 4 Builder,
+unchanged) → secure responsive recipient form (existing Phase 6 recipient
+page, now paper-style) → electronic signatures (existing) → provider review
+(existing) → **locked approved record** (new: approval now auto-generates a
+permanent snapshot) → **printable/downloadable PDF-style snapshot** (new) →
+secure Child/Staff/Classroom/Program storage (existing filing views, now also
+surfacing the document).
+
+**New files:**
+
+| Path | Role |
+|------|------|
+| `scripts/form-document-snapshot.js` | Builds the structured "document" content (program branding, form title/version, status, every Q&A, signatures, correction history) and creates/retrieves the permanent, immutable snapshot |
+| `form-document-view.js` | Shared, dependency-free client renderer (`window.LLHFormDocumentView.render()`) — one HTML template used identically by the recipient page, the admin embedded view, and the standalone print page |
+| `form-document.html` / `form-document-ui.js` | Standalone admin print/download page, opened in a new tab from the Responses Dashboard. Reuses the already-signed-in admin's `localStorage` session — no token in the URL. No app-shell chrome, so printing/saving as PDF is always clean |
+| `scripts/test-forms-center-phase6-documents.js` | 15 new assertions for this addition |
+| `scripts/capture-forms-center-phase6-documents-screens.js` | Desktop/tablet/mobile screenshots of all four workflow stages |
+
+**Updated:** `scripts/form-responses-data-model.js` (document-snapshot schema,
+`documentSnapshotId` on responses), `server/form-responses-api.js` (auto-generate
+on approve; `GET`/`POST .../responses/:id/document`), `server/form-recipient-api.js`
+(`GET .../document` for the recipient's own response), `scripts/form-responses-fixtures.js`
+(pre-generates snapshots for the three already-approved fixtures),
+`forms-responses-ui.js` (View Document / Print / Download PDF in the response
+detail panel), `form-recipient-ui.js` (the post-submission screen is now the
+full read-only document, not a bare confirmation), `styles.css` and
+`styles/llh-form-recipient.css` (paper-style desktop/tablet layout + shared
+`.fdv-*` document styles + print rules), `index.html` and `form-recipient.html`
+(new script includes).
+
+**How the "locked approved record" works:** the response's structured
+`answers` remain the single authoritative record forever. A document
+**snapshot** is generated automatically the moment a response is approved
+(`generateDocumentSnapshot()`), frozen into `formResponses.documentSnapshots`,
+and linked back via `response.documentSnapshotId`. From that point on,
+`GET .../document` (both admin and recipient) always returns that exact
+frozen content — verified in tests to be byte-for-byte identical across
+repeated fetches and across the admin/recipient views. Before approval, the
+same endpoint renders a **live** (non-frozen) read-only document from current
+data, so "submitted forms have a clean read-only document view" even before a
+director reviews them. A manual regenerate is available (system/admin only,
+approved responses only) and is idempotent unless `force: true` is passed —
+forcing creates a **new** snapshot record rather than mutating or deleting the
+old one, so no historical snapshot is ever silently changed.
+
+**Paper-style layout:** at ≥640px (tablet/desktop), the recipient page and
+every document view render as a centered "page" — off-white surrounding
+background, a crisp white card with a subtle multi-layer shadow, and a purple
+top accent bar, evoking a real document. Below 640px, the same content is
+full-width and flat with no page illusion, and the section-by-section
+navigation, inputs, and buttons all meet 44px+ touch targets — verified with
+no horizontal scrolling at 390px.
+
+**Print / Download PDF:** consistent with the rest of this codebase (which
+already implements all of its own "PDF" features via the browser's native
+print-to-PDF, tracked as `generated_pdf` analytics events — there is no
+server-side PDF binary generator anywhere in this app), both "Print" and
+"Download PDF" open a clean, chrome-free document view and call the browser's
+native print dialog, from which "Save as PDF" produces a real PDF file. This
+avoids adding a new server-side dependency while fully satisfying "printable
+or downloadable."
+
+**Never expose one family's answers to another family:** every document
+endpoint reuses the exact same per-recipient token and per-organization admin
+checks already enforced elsewhere in Phase 6 — verified by a new test that a
+different recipient's token cannot open another recipient's document, and a
+different organization's admin cannot open another organization's document.
+
+**Screenshots:** `/opt/cursor/artifacts/forms-center-phase6-documents/` —
+`1-editable-provider-form`, `2-recipient-form`, `3-signed-review`,
+`4-completed-document-admin`, each at desktop (1440px), tablet (834px), and
+mobile (390px).
+
+**Test results:** `npm run test:forms-center-phase6-documents` — **15/15
+PASS**. Full regression re-run across all 9 suites — **198/198 assertions
+PASS, zero failures.**
+
+**Confirmations:** No email/SMS/Stripe/AI added; Family Hub untouched/OFF;
+production untouched; nothing merged into `main`; the structured response
+remains the single authoritative record (the snapshot is always a derived,
+preserved view, never a second editable copy) — verified explicitly in tests.
 
 ## 26. Exact instructions for the next developer
 

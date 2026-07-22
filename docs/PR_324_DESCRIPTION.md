@@ -43,6 +43,7 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 - Phase 4 Manual Custom Form Builder
 - Phase 5 Built-In Form Library — 29 starter templates, browse/search/filter/sort, preview, favorites, recent activity, "Use This Template" → new organization-owned draft, versioning + retirement safety, structured importer (system-admin only), role-scoped access
 - Phase 6 Assignments, Responses, and Signatures — Send/Assign a published form to children/guardians (incl. all verified guardians for a child)/staff/classrooms/program; safe hashed/expiring/revocable testing links (never on production); mobile-first recipient page with sections, autosave, review, typed + drawn signatures, printable confirmation; full response status workflow (review/approve/return/reopen/void/archive); Child/Staff/Classroom/Program filing by permanent ID; form-version protection; Medication Administration Log with non-destructive corrections
+- Phase 6 design addition — paper-style desktop/tablet document layout, full-width mobile section-by-section experience, a clean read-only document view for any submitted response, and a permanent, print/download-ready PDF-style snapshot generated automatically when a response is approved (the "locked approved record" step) — see completion report §27
 
 ### NOT STARTED
 
@@ -82,11 +83,12 @@ npm run test:director-center-phase3
 npm run test:forms-center-phase4
 npm run test:forms-center-phase5
 npm run test:forms-center-phase6
+npm run test:forms-center-phase6-documents
 npm run test:platform-nav
 npm run test:account-access
 ```
 
-182 total assertions across all 8 suites — all PASS.
+198 total assertions across all 9 suites — all PASS.
 
 ### Phase docs
 

@@ -286,7 +286,12 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 | `styles/llh-form-recipient.css` | Dedicated recipient-page styles |
 | `scripts/test-forms-center-phase6.js` | Phase 6 tests |
 | `scripts/capture-forms-center-phase6-screens.js` | Screenshots → `/opt/cursor/artifacts/forms-center-phase6/` |
-| `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` | Completion report |
+| `scripts/form-document-snapshot.js` | Design addition: builds the structured document content + permanent snapshot for the "locked approved record" step |
+| `form-document-view.js` | Design addition: shared client-side document renderer (recipient page, admin panel, standalone print page) |
+| `form-document.html` / `form-document-ui.js` | Design addition: standalone admin print/download page |
+| `scripts/test-forms-center-phase6-documents.js` | Design addition tests |
+| `scripts/capture-forms-center-phase6-documents-screens.js` | Screenshots → `/opt/cursor/artifacts/forms-center-phase6-documents/` |
+| `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` | Completion report (see §27 for the design addition) |
 
 ### Shell wiring (shared)
 
@@ -356,6 +361,7 @@ Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html
 8. **Filing:** `/api/forms-center/{children,staff,classrooms,program}/.../forms` return the same authoritative response records filtered by permanent foundation ID — never duplicated into a separate record. The Teacher Center child profile's new **Forms & Documents** section reads the children endpoint live.
 9. **Medication Administration Log:** `POST .../medication-log` adds a dose entry; `POST .../medication-log/:entryId/correct` creates a new corrected entry and marks the original `supersededByEntryId` — the original is never deleted or overwritten.
 10. **Out of scope (Phase 6):** Real parent-account login (Phase 8), full Family Hub (Phase 9), real outbound email/SMS delivery, AI-assisted anything, automatic version-upgrade jobs for unstarted assignments, and file/attachment upload storage.
+11. **Design addition — locked approved record + PDF-style snapshot:** approving a response (`server/form-responses-api.js` → `handleApprove`) automatically calls `scripts/form-document-snapshot.js` to freeze a permanent, immutable document snapshot (`frdoc_*`, stored in `formResponses.documentSnapshots`, linked via `response.documentSnapshotId`). `GET /api/forms-center/responses/:id/document` (admin) and `GET /api/form-recipient/:id/document` (recipient) always return that frozen snapshot once it exists, or a live read-only view before approval. `form-document-view.js` is a single shared, dependency-free HTML renderer used identically by the recipient page, the admin Responses Dashboard's embedded "View Document" panel, and the standalone `form-document.html` print/download page (opened in a new tab; reuses the admin's existing `localStorage` session, no token in the URL). "Print" and "Download PDF" both trigger the browser's native print dialog — consistent with how every other "PDF" feature in this codebase already works (there is no server-side PDF binary generator anywhere in this app).
 
 ---
 
@@ -376,6 +382,7 @@ npm run test:director-center-phase3
 npm run test:forms-center-phase4
 npm run test:forms-center-phase5
 npm run test:forms-center-phase6
+npm run test:forms-center-phase6-documents
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -388,9 +395,10 @@ node scripts/capture-director-center-phase3-screens.js
 node scripts/capture-forms-center-phase4-screens.js
 node scripts/capture-forms-center-phase5-screens.js
 node scripts/capture-forms-center-phase6-screens.js
+node scripts/capture-forms-center-phase6-documents-screens.js
 ```
 
-### Handoff verification results (2026-07-21, Phase 6)
+### Handoff verification results (2026-07-22, Phase 6 + design addition)
 
 | Command | Result |
 |---------|--------|
@@ -401,10 +409,11 @@ node scripts/capture-forms-center-phase6-screens.js
 | `npm run test:forms-center-phase4` | PASS |
 | `npm run test:forms-center-phase5` | PASS (43/43) |
 | `npm run test:forms-center-phase6` | PASS (38/38) |
+| `npm run test:forms-center-phase6-documents` | PASS (15/15) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-**182 total assertions across all 8 suites, zero failures.** Browser smoke tests
+**198 total assertions across all 9 suites, zero failures.** Browser smoke tests
 (homepage, curriculum UX, etc.) are separate from this workstream and were spot-checked
 to confirm no new regressions; any failures there reproduce identically on the
 unmodified branch tip (confirmed via `git stash`) and predate Phase 6. Phase 1–6 gates
