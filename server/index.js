@@ -30,6 +30,7 @@ const { createPhase3TeacherApi } = require("./phase3-teacher-api.js");
 const { createFormsCenterApi } = require("./forms-center-api.js");
 const { createBuiltInFormLibraryApi } = require("./built-in-form-library-api.js");
 const { createFormResponsesApi } = require("./form-responses-api.js");
+const { createAiFormBuilderApi } = require("./ai-form-builder-api.js");
 const { createFormRecipientApi } = require("./form-recipient-api.js");
 const {
   RENDER_SERVICE_HOST,
@@ -15289,6 +15290,21 @@ function getFormRecipientApi() {
   return _formRecipientApi;
 }
 
+let _aiFormBuilderApi;
+function getAiFormBuilderApi() {
+  if (!_aiFormBuilderApi) {
+    _aiFormBuilderApi = createAiFormBuilderApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _aiFormBuilderApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15349,6 +15365,7 @@ const server = http.createServer(async (request, response) => {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
       const handler = getBuiltInFormLibraryApi().matchRoute(request.method, url.pathname, url)
         || getFormResponsesApi().matchRoute(request.method, url.pathname, url)
+        || getAiFormBuilderApi().matchRoute(request.method, url.pathname, url)
         || getFormsCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FORMS_CENTER);
