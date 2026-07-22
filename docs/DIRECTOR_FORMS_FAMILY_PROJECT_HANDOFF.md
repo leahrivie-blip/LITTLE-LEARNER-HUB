@@ -612,7 +612,7 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 3. Run the full Phase 1–20 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on (including `ALLOW_TESTING_LAB_ADMIN_PREVIEW`), `DISABLE_STRIPE_CHECKOUT=true`
 5. Smoke Testing Lab → Release Readiness → Migration inspect/preview (do not apply on shared hosts without intent)
-6. Continue only with owner-written Phase 22 requirements
+6. Continue Classroom Assistant expansion next (Phase 22 remains paused)
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 
