@@ -12771,6 +12771,9 @@ function setView(view, options = {}) {
   if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
   if (resolvedView === "director-center") renderDirectorCenterPage();
+  if (resolvedView === "guardian-session") {
+    if (typeof renderGuardianSessionPlaceholder === "function") renderGuardianSessionPlaceholder();
+  }
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "forms-center") renderFormsCenterPage();
   if (resolvedView === "resources") renderResourcesHubPage();

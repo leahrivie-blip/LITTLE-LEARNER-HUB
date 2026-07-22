@@ -128,6 +128,12 @@
         const data = await api("GET", "/api/director-center/program-profile");
         state.programProfile = data.programProfile;
         state.limits = data.limits;
+      } else if (state.tab === "families") {
+        if (typeof global.ensureFamilyFoundationLoaded === "function") {
+          await global.ensureFamilyFoundationLoaded();
+        } else if (typeof global.refreshFamilyFoundationTab === "function") {
+          await global.refreshFamilyFoundationTab();
+        }
       } else if (state.tab === "roles_permissions") {
         state.roles = await api("GET", "/api/director-center/roles-permissions");
         state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty || 0)}`);
@@ -159,6 +165,7 @@
       ["classrooms", "Classrooms"],
       ["staff", "Staff"],
       ["children", "Children and Assignments"],
+      ["families", "Families"],
       ["program_profile", "Program Profile"],
       ["roles_permissions", "Roles and Permissions"],
     ];
@@ -635,6 +642,12 @@
     if (state.tab === "classrooms") return classroomsHtml();
     if (state.tab === "staff") return staffHtml();
     if (state.tab === "children") return childrenHtml();
+    if (state.tab === "families") {
+      if (typeof global.renderFamilyFoundationTabHtml === "function") {
+        return global.renderFamilyFoundationTabHtml();
+      }
+      return `<p class="muted-copy">Family foundation UI is not loaded.</p>`;
+    }
     if (state.tab === "program_profile") return programProfileHtml();
     if (state.tab === "roles_permissions") return rolesHtml();
     return "";
@@ -660,7 +673,7 @@
         <div class="page-title">
           <p class="eyebrow">Director Center</p>
           <h2>Admin Preview — Test Data Only</h2>
-          <p>Private admin-preview workflow. Forms Center and Family Hub remain OFF. Production stays locked.</p>
+          <p>Private admin-preview workflow. Family Hub remains OFF. Production stays locked.</p>
         </div>
         <div class="dc-preview-bar">
           <label>Preview scenario
@@ -682,6 +695,9 @@
       </section>
     `;
     bind();
+    if (state.tab === "families" && typeof global.bindFamilyFoundationTab === "function") {
+      global.bindFamilyFoundationTab(section.querySelector("[data-ff-shell]") || section);
+    }
   }
 
   function bind() {

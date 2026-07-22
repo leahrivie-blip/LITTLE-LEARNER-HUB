@@ -90,6 +90,14 @@ const ACTIONS = Object.freeze({
   FORM_RESPONSE_ARCHIVE: "form_response.archive",
   FAMILY_MESSAGE: "family.message",
   FAMILY_VIEW_REPORTS: "family.view_reports",
+  // Phase 8 family/household management (provider-side; Family Hub product remains OFF)
+  FAMILY_MANAGE_HOUSEHOLDS: "family.manage_households",
+  FAMILY_MANAGE_CONTACTS: "family.manage_contacts",
+  FAMILY_MANAGE_ACCESS: "family.manage_access",
+  FAMILY_ISSUE_INVITATIONS: "family.issue_invitations",
+  FAMILY_VIEW_RESTRICTED_NOTES: "family.view_restricted_notes",
+  FAMILY_MANAGE_FAKE_ACCOUNTS: "family.manage_fake_accounts",
+  FAMILY_MERGE_REVIEW: "family.merge_review",
 });
 
 const ASSISTANT_PERMISSION_ACTION_MAP = Object.freeze({
@@ -155,6 +163,13 @@ const ROLE_PERMISSIONS = Object.freeze({
   ],
 });
 
+/** Access levels that count as verified guardian digital/forms scope for child IDs. */
+const GUARDIAN_VERIFIED_DIGITAL_LEVELS = Object.freeze([
+  "full_verified_guardian",
+  "limited_guardian",
+  "forms_only",
+]);
+
 function normalizeOrgRole(role) {
   const key = String(role || "").trim().toLowerCase();
   return LEGACY_ROLE_MAP[key] || "";
@@ -195,6 +210,50 @@ function activeClassroomIdsForStaff(store, organizationId, userId = "") {
     .map((row) => row.classroomId);
 }
 
+function contactIdsForActor(store, organizationId, { contactId = "", userId = "", email = "" } = {}) {
+  const ff = store?.familyFoundation;
+  if (!ff?.contacts || typeof ff.contacts !== "object") return [];
+  const normalizedEmail = String(email || "").trim().toLowerCase();
+  return Object.values(ff.contacts)
+    .filter((contact) => {
+      if (!contact || contact.organizationId !== organizationId) return false;
+      if (contact.status && contact.status !== "active") return false;
+      if (contactId && contact.id === contactId) return true;
+      if (userId && contact.userAccountId === userId) return true;
+      if (normalizedEmail && contact.email === normalizedEmail) return true;
+      return false;
+    })
+    .map((contact) => contact.id);
+}
+
+/**
+ * Child IDs granted by Phase 8 family access rules (forms/digital capable levels).
+ * Pickup-only, emergency-only, suspended, ended, and no-digital do not grant child scope.
+ */
+function familyFoundationGuardianChildIds(store, organizationId, { contactId = "", userId = "", email = "" } = {}) {
+  const ff = store?.familyFoundation;
+  if (!ff?.accessRules || typeof ff.accessRules !== "object") return [];
+  const contactIds = new Set(contactIdsForActor(store, organizationId, { contactId, userId, email }));
+  if (!contactIds.size) return [];
+  const now = Date.now();
+  const childIds = [];
+  Object.values(ff.accessRules).forEach((rule) => {
+    if (!rule || rule.organizationId !== organizationId) return;
+    if (!contactIds.has(rule.contactId)) return;
+    if (rule.status && rule.status !== "active") return;
+    if (!GUARDIAN_VERIFIED_DIGITAL_LEVELS.includes(rule.accessLevel)) return;
+    if (rule.verificationStatus && rule.verificationStatus !== "verified" && rule.accessLevel !== "full_verified_guardian") {
+      return;
+    }
+    if (rule.endsAt) {
+      const ends = new Date(rule.endsAt).getTime();
+      if (Number.isFinite(ends) && ends <= now) return;
+    }
+    if (rule.childId) childIds.push(rule.childId);
+  });
+  return childIds;
+}
+
 function verifiedGuardianChildIds(store, organizationId, guardianId = "", userId = "", email = "") {
   const guardians = store?.guardians && typeof store.guardians === "object"
     ? Object.values(store.guardians)
@@ -214,7 +273,7 @@ function verifiedGuardianChildIds(store, organizationId, guardianId = "", userId
   const relationships = store?.childGuardianRelationships && typeof store.childGuardianRelationships === "object"
     ? Object.values(store.childGuardianRelationships)
     : [];
-  return relationships
+  const fromRelationships = relationships
     .filter((row) => (
       row
       && row.organizationId === organizationId
@@ -223,6 +282,14 @@ function verifiedGuardianChildIds(store, organizationId, guardianId = "", userId
       && (!row.status || row.status === ASSIGNMENT_STATUS.ACTIVE)
     ))
     .map((row) => row.childId);
+
+  // Phase 8: also honor familyFoundation access rules (permanent contact IDs).
+  const fromFamily = familyFoundationGuardianChildIds(store, organizationId, {
+    contactId: guardianId,
+    userId,
+    email,
+  });
+  return [...new Set([...fromRelationships, ...fromFamily])];
 }
 
 function classroomIdsForChild(store, organizationId, childId) {
@@ -374,9 +441,11 @@ function permissionCatalog() {
       teachers: "Lead Teachers only access assigned classrooms and children in those classrooms.",
       assistants: "Assistants require director-granted custom permissions for child care, logs, calendars, and goals.",
       medical: "Medical, emergency, and authorized-pickup fields require explicit care-access permission.",
-      parents: "Parents/Guardians require a verified childGuardianRelationships row for the requested child.",
+      parents: "Parents/Guardians require a verified childGuardianRelationships row or a Phase 8 family access rule (forms/digital capable) for the requested child.",
+      familyAccessLevels: "Pickup-only, emergency-only, suspended, ended, and no-digital access do not grant guardian child scope.",
+      familyManagement: "Household/contact/access management requires director/owner roles (FAMILY_MANAGE_* actions).",
       crossOrganization: "Membership or verified guardian relationship must match organizationId or access is denied.",
-      features: "requiredFeature must be enabled via expansion feature flags.",
+      features: "requiredFeature must be enabled via expansion feature flags. Family Hub product flag remains forced OFF.",
     },
   };
 }
@@ -387,11 +456,14 @@ module.exports = {
   ACTIONS,
   ROLE_PERMISSIONS,
   ASSISTANT_PERMISSION_ACTION_MAP,
+  GUARDIAN_VERIFIED_DIGITAL_LEVELS,
   normalizeOrgRole,
   roleHasAction,
   assistantOverrideAllows,
   activeMemberships,
   activeClassroomIdsForStaff,
+  contactIdsForActor,
+  familyFoundationGuardianChildIds,
   verifiedGuardianChildIds,
   classroomIdsForChild,
   evaluateAccess,

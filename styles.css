@@ -23586,3 +23586,137 @@ button.linkish {
     min-height: 44px;
   }
 }
+
+/* Phase 8 Family foundation (Director Center Families tab + guardian placeholder) */
+.ff-shell { margin-top: 8px; }
+.ff-banner {
+  background: linear-gradient(120deg, rgba(36, 99, 132, 0.12), rgba(196, 145, 58, 0.14));
+  border: 1px solid rgba(36, 99, 132, 0.22);
+  border-radius: 10px;
+  padding: 10px 14px;
+  margin: 0 0 12px;
+  font-weight: 700;
+  color: #1f4d63;
+}
+.ff-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+.ff-list-pane,
+.ff-detail-pane,
+.ff-detail,
+.ff-section {
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(47, 72, 88, 0.12);
+  border-radius: 12px;
+  padding: 14px;
+}
+.ff-household-btn {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 2px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ff-household-btn.active,
+.ff-household-btn:hover {
+  border-color: rgba(36, 99, 132, 0.35);
+  background: rgba(36, 99, 132, 0.08);
+}
+.ff-kicker {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9a5b16;
+  font-weight: 800;
+}
+.ff-access-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(36, 99, 132, 0.12);
+  color: #1f4d63;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.ff-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.ff-check { display: flex; align-items: center; gap: 8px; }
+.ff-rule-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ff-once-secret {
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px dashed rgba(154, 91, 22, 0.45);
+  background: rgba(255, 244, 220, 0.65);
+}
+.ff-once-secret code {
+  display: block;
+  margin-top: 6px;
+  word-break: break-all;
+  font-size: 0.95rem;
+}
+.ff-fake-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.ff-preview-box { border-color: rgba(36, 99, 132, 0.28); }
+.ff-notice { color: #1f4d63; font-weight: 600; }
+.ff-guardian-placeholder {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 28px 18px 48px;
+}
+.ff-guardian-placeholder h1 {
+  font-family: "Fraunces", "Iowan Old Style", Georgia, serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  margin: 12px 0 8px;
+  color: #17384a;
+}
+.ff-hero-copy {
+  font-size: 1.1rem;
+  line-height: 1.5;
+  color: #2f4858;
+  margin-bottom: 18px;
+}
+.ff-forms-note {
+  margin: 18px 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(47, 72, 88, 0.12);
+}
+@media (max-width: 860px) {
+  .ff-layout,
+  .ff-form-grid {
+    grid-template-columns: 1fr;
+  }
+  .ff-rule-actions,
+  .ff-fake-row {
+    width: 100%;
+  }
+  .ff-fake-row .primary-button {
+    width: 100%;
+    min-height: 44px;
+  }
+}

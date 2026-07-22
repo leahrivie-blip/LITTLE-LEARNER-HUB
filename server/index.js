@@ -32,6 +32,7 @@ const { createBuiltInFormLibraryApi } = require("./built-in-form-library-api.js"
 const { createFormResponsesApi } = require("./form-responses-api.js");
 const { createAiFormBuilderApi } = require("./ai-form-builder-api.js");
 const { createFormRecipientApi } = require("./form-recipient-api.js");
+const { createFamilyFoundationApi } = require("./family-foundation-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -6013,6 +6014,11 @@ async function handlePasswordLogin(request, response) {
     return;
   }
   const store = readStore();
+  // Phase 8: production must reject fake-account login mode.
+  if (getFamilyFoundationApi().rejectFakeAccountLogin(store, email, response)) {
+    authAuditLog("password_login_rejected", { email, reason: "fake_account_forbidden_in_production" });
+    return;
+  }
   store.users = store.users || {};
   let user = store.users[email];
   // During a Postgres outage the durable user row may be unavailable. Still allow
@@ -15305,6 +15311,21 @@ function getAiFormBuilderApi() {
   return _aiFormBuilderApi;
 }
 
+let _familyFoundationApi;
+function getFamilyFoundationApi() {
+  if (!_familyFoundationApi) {
+    _familyFoundationApi = createFamilyFoundationApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyFoundationApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15356,10 +15377,18 @@ const server = http.createServer(async (request, response) => {
     // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
     if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
-      const handler = getPhase3TeacherApi().matchRoute(request.method, url.pathname, url)
+      const handler = getFamilyFoundationApi().matchDirectorRoute(request.method, url.pathname, url)
+        || getPhase3TeacherApi().matchRoute(request.method, url.pathname, url)
         || getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
+    }
+    // Phase 8 family foundation public/guardian routes (NOT Family Hub product).
+    if (url.pathname === "/api/family-foundation" || url.pathname.startsWith("/api/family-foundation/")) {
+      const handler = getFamilyFoundationApi().matchPublicRoute(request.method, url.pathname);
+      if (handler) return handler(request, response);
+      jsonResponse(response, 404, { error: "Not found.", code: "not_found", familyHub: false });
+      return;
     }
     if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });

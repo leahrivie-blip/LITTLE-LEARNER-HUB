@@ -3,14 +3,14 @@
 Copy everything below the line into the draft PR description at  
 https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
-Automated PR body updates from this agent environment return HTTP 403  
+Automated PR body updates from this agent environment may return HTTP 403  
 (`pull_requests:write` not granted). Branch pushes still update the PR head.
 
 ---
 
 ## Status (transfer-ready)
 
-Private preview work for Director Center → Teacher Classroom → Manual Custom Form Builder → Built-In Form Library → Assignments/Responses/Signatures → AI Form Builder Foundation.
+Private preview work for Director Center → Teacher Classroom → Manual Custom Form Builder → Built-In Form Library → Assignments/Responses/Signatures → AI Form Builder Foundation → Family / Guardian / Household / Fake-Account Foundation.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -20,9 +20,9 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run all Phase 1–7 automated tests
+5. Run all Phase 1–8 automated tests
 6. Confirm testing-environment safety
-7. Continue only from the next **approved** phase
+7. Continue only from the next **approved** phase (Phase 9+)
 8. Never merge or deploy without explicit approval
 
 ### Links
@@ -42,17 +42,18 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 - Phase 3 teacher/classroom/child connections
 - Phase 4 Manual Custom Form Builder
 - Phase 5 Built-In Form Library — 29 starter templates, browse/search/filter/sort, preview, favorites, recent activity, "Use This Template" → new organization-owned draft, versioning + retirement safety, structured importer (system-admin only), role-scoped access
-- Phase 6 Assignments, Responses, and Signatures — Send/Assign a published form to children/guardians (incl. all verified guardians for a child)/staff/classrooms/program; safe hashed/expiring/revocable testing links (never on production); mobile-first recipient page with sections, autosave, review, typed + drawn signatures, printable confirmation; full response status workflow (review/approve/return/reopen/void/archive); Child/Staff/Classroom/Program filing by permanent ID; form-version protection; Medication Administration Log with non-destructive corrections
-- Phase 6 design addition — paper-style desktop/tablet document layout, full-width mobile section-by-section experience, a clean read-only document view for any submitted response, and a permanent, print/download-ready PDF-style snapshot generated automatically when a response is approved (the "locked approved record" step) — see completion report §27
-- Phase 7 AI-Assisted Form Builder Foundation — describe/paste a childcare form → deterministic mock suggestions (live AI disabled) → review warnings → edit suggested fields → save as a new program-owned draft; never auto-publishes/sends/signs/overwrites; production rejects mock AI; provider interface ready for a later approved live connection — see `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md`
+- Phase 6 Assignments, Responses, and Signatures — Send/Assign, safe testing links, recipient completion/signatures, response workflow, Child/Staff/Classroom/Program filing, Medication Administration Log corrections
+- Phase 6 design addition — paper-style documents + permanent PDF-style snapshot on approve
+- Phase 7 AI-Assisted Form Builder Foundation — describe/paste → mock suggestions → review → save new program-owned draft; live AI off; production rejects mock AI — see `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md`
+- Phase 8 Family / Guardian / Household / Fake-Account Foundation — Director Center Families tab; households; multi-guardian / sibling / multi-household / shared-custody relationships; child-specific access levels; invitations (no email/SMS); resettable `@example.invalid` fake accounts; guardian Family Hub OFF placeholder; production rejects fake accounts — see `docs/PHASE_8_FAMILY_GUARDIAN_FAKE_ACCOUNT_FOUNDATION_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- Phase 8 real parent accounts (claiming/completing assigned forms)
 - Phase 9 full Family Hub interface
+- Phase 18 complete Testing and Preview Lab
 - Real approved AI provider connection
 - PDF / Word / image / scanned-form extraction
-- Real outbound email/SMS delivery of assignment links/reminders
+- Real outbound email/SMS delivery of assignment links/invitations/reminders
 - Live pricing changes
 - Production migration / production release
 
@@ -60,22 +61,21 @@ Private preview work for Director Center → Teacher Classroom → Manual Custom
 
 - `directorCenter=true` (with `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`)
 - `formsCenter=true` (with `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`) — Built-In Library, Assignments/Responses, and AI Form Builder admin routes share this same flag
-- `familyHub=false` (**forced OFF** — must remain off)
+- `familyHub=false` (**forced OFF** — must remain off; Phase 8 is foundation only)
 
-Recipient testing links (`/api/form-recipient/*`) are intentionally **not** gated by
-this flag table (recipients are never admins); they have their own independent
-production-host lock plus hashed/expiring/revocable per-assignment tokens.
+Recipient testing links (`/api/form-recipient/*`) and Phase 8 guardian-session / invitation-accept routes are intentionally **not** Family Hub product surfaces; they have independent production locks.
 
 ### Safety
 
 - Fake data only in preview
 - Stripe / email / SMS / live AI disabled on testing
 - AI Form Builder uses deterministic mock fixtures labeled “Testing Preview — AI Not Called.”
-- Production hosts locked by expansion flag policy, plus an independent lock on recipient testing links and mock AI
+- Fake accounts use `@example.invalid`; passwords issued once via admin action — never hardcoded
+- Production hosts locked by expansion flag policy, plus independent locks on recipient links, mock AI, fake accounts, and invitation accept
 - Production data **not** changed; no production migration applied
 - Agents have no Render deploy hook — owner Manual Deploy on testing only
-- Raw recipient tokens are never stored/logged — only a SHA-256 hash persists
-- The approved-response document snapshot is a derived, preserved view — the structured response answers always remain the single authoritative record
+- Raw invitation / recipient tokens are never stored/logged — only SHA-256 hashes persist
+- Relationship history is preserved on suspend/end — never silently deleted
 
 ### Verification commands
 
@@ -89,11 +89,12 @@ npm run test:forms-center-phase5
 npm run test:forms-center-phase6
 npm run test:forms-center-phase6-documents
 npm run test:forms-center-phase7
+npm run test:family-foundation-phase8
 npm run test:platform-nav
 npm run test:account-access
 ```
 
-Full Phase 1–7 regression — all PASS.
+Full Phase 1–8 regression — all PASS (see handoff).
 
 ### Phase docs
 
@@ -105,8 +106,9 @@ Full Phase 1–7 regression — all PASS.
 - `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`
 - `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`
 - `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md`
+- `docs/PHASE_8_FAMILY_GUARDIAN_FAKE_ACCOUNT_FOUNDATION_COMPLETION_REPORT.md`
 - `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 
 ### Suggested PR title
 
-Phases 1–7: Director Center, Teacher Classroom, Forms Builder, Built-In Form Library, Assignments/Responses/Signatures, AI Form Builder Foundation (do not merge/deploy)
+Phases 1–8: Director Center, Forms, AI Form Builder, Family/Guardian/Fake-Account Foundation (do not merge/deploy)
