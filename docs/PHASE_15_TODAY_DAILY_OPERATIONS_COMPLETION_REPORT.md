@@ -85,4 +85,4 @@ Full Phase 1–15 regression: **PASS** (foundation through Phase 15 + platform-n
 
 Production Family Hub locked. `main` untouched. Fake data only. No merge/deploy.
 
-Latest tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`
+Latest tip: `f97b195c3753c1d9438b6d2e7720f17fe4af0ce8` (pushed to `origin/cursor/director-family-foundation-bc66`). Working tree clean. Production and `main` untouched. Phase 16 not started.

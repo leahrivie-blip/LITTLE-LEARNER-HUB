@@ -72,7 +72,7 @@ npm run test:account-access
 
 Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 
-Phase 15 focused suite: **17 PASS**. Production Family Hub locked. `main` untouched. Phase 16 not started.
+Phase 15 focused suite: **17 PASS**. Full Phase 1–15 regression: **PASS**. Tip: `f97b195`. Production Family Hub locked. `main` untouched. Phase 16 not started.
 
 ### Suggested PR title
 
