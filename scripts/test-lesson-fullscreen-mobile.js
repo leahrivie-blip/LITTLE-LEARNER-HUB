@@ -138,7 +138,7 @@ function staticChecks() {
   assert.match(css, /visibility:\s*hidden/);
   assert.match(app, /lesson-workspace-open/);
   assert.match(app, /classList\.add\("resource-viewer-open"\)/);
-  assert.match(html, /app\.js\?v=20260721-homescreen-sw/);
+  assert.match(html, /app\.js\?v=20260722-lesson-empty-hotfix/);
   console.log("PASS static fullscreen lesson markers");
 }
 

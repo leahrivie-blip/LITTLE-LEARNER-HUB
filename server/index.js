@@ -2882,6 +2882,7 @@ function storeInventoryCounts(store = peekStore()) {
       .map((m) => normalizeEmail(m.conversationEmail || m.toEmail || ""))
       .filter(Boolean),
   );
+  const curriculum = normalizedCurriculumStore(store?.siteContent?.curriculum);
   return {
     users: Object.keys(users).length,
     messages: messages.length,
@@ -2889,6 +2890,9 @@ function storeInventoryCounts(store = peekStore()) {
     foundingMembers: Array.isArray(store?.foundingMembers) ? store.foundingMembers.length : 0,
     notifications: notifications.length,
     supportTickets: Array.isArray(store?.supportTickets) ? store.supportTickets.length : 0,
+    // Lesson plans are the public library source of truth — protect them like user inventory.
+    curriculumLessonPlans: curriculum.lessonPlans.length,
+    curriculumActivities: curriculum.activities.length,
   };
 }
 
@@ -2905,7 +2909,23 @@ function storeCountDropReasons(nextCounts, prevCounts = lastPersistedStoreCounts
   if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) {
     reasons.push(`foundingMembers ${prevCounts.foundingMembers} → ${nextCounts.foundingMembers}`);
   }
+  if (droppedHalf(prevCounts.curriculumLessonPlans, nextCounts.curriculumLessonPlans, 5)) {
+    reasons.push(`curriculumLessonPlans ${prevCounts.curriculumLessonPlans} → ${nextCounts.curriculumLessonPlans}`);
+  }
   return reasons;
+}
+
+// Admin site-content saves often draft from a public hydrate (no curriculum payload) or an
+// emptyCurriculum() fill. Never wipe a populated curriculum through that path unless the
+// caller explicitly confirms REPLACE_CURRICULUM (dedicated wipe endpoint stays separate).
+function shouldPreserveExistingCurriculum(existingCurriculum, incomingCurriculum, { allowReplace = false } = {}) {
+  if (allowReplace) return false;
+  const existingCount = normalizedCurriculumStore(existingCurriculum).lessonPlans.length;
+  if (existingCount <= 0) return false;
+  const incomingCount = normalizedCurriculumStore(incomingCurriculum).lessonPlans.length;
+  if (incomingCount === 0) return true;
+  if (existingCount >= 5 && incomingCount < Math.floor(existingCount * 0.5)) return true;
+  return false;
 }
 
 async function maybeAlertStoreSafety(kind, detail = {}) {
@@ -6264,6 +6284,23 @@ async function handleAdminSiteContentSave(request, response) {
   }
   const mergedIncoming = mergeSiteContentKeepMissingKeys(existingContent, incomingRaw);
   const nextContent = normalizedSiteContent(mergedIncoming);
+  const allowCurriculumReplace = body.confirmCurriculumReplace === "REPLACE_CURRICULUM";
+  if (shouldPreserveExistingCurriculum(existingContent.curriculum, nextContent.curriculum, {
+    allowReplace: allowCurriculumReplace,
+  })) {
+    const existingCurriculum = normalizedCurriculumStore(existingContent.curriculum);
+    const attempted = normalizedCurriculumStore(nextContent.curriculum);
+    console.warn("[DIAG] handleAdminSiteContentSave: preserving existing curriculum — refused empty/partial wipe via site-content save", {
+      existingLessonPlans: existingCurriculum.lessonPlans.length,
+      incomingLessonPlans: attempted.lessonPlans.length,
+      allowCurriculumReplace,
+    });
+    nextContent.curriculum = existingCurriculum;
+    maybeAlertStoreSafety("curriculum_wipe_blocked_site_content_save", {
+      existingLessonPlans: existingCurriculum.lessonPlans.length,
+      incomingLessonPlans: attempted.lessonPlans.length,
+    }).catch(() => {});
+  }
   const normalizedIds = Object.keys(nextContent.lessonPlans || {});
   console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
   if (normalizedIds.length > 0) {
@@ -6272,6 +6309,7 @@ async function handleAdminSiteContentSave(request, response) {
     console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan (", lastNormalizedId, ") fields =", Object.keys(lastNormalizedLesson || {}));
     console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan title =", JSON.stringify(lastNormalizedLesson?.title), "| visible =", lastNormalizedLesson?.visible, "| plan =", JSON.stringify(lastNormalizedLesson?.plan));
   }
+  console.log("[DIAG] handleAdminSiteContentSave: curriculum lesson plans =", (nextContent.curriculum?.lessonPlans || []).length);
   nextContent.updatedAt = new Date().toISOString();
   store.siteContent = nextContent;
   console.log("[DIAG] handleAdminSiteContentSave: calling writeStoreAsync…");

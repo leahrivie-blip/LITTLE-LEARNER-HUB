@@ -86,8 +86,8 @@ function assertStaticGuards() {
   assert.ok(earlyIdx > 0, "index.html must early-register the service worker");
   assert.ok(appIdx > earlyIdx, "early SW register must appear before app.js script tag");
   assert.match(html, /serviceWorker\.register\("\/service-worker\.js"\)/);
-  assert.match(sw, /llh-shell-v108-homescreen-sw/);
-  assert.match(html, /app\.js\?v=20260721-homescreen-sw/);
+  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
+  assert.match(html, /app\.js\?v=20260722-lesson-empty-hotfix/);
 }
 
 async function browserHomescreenBoot() {

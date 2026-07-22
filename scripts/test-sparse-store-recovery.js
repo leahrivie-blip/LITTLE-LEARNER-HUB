@@ -44,14 +44,15 @@ function storeCountDropReasons(nextCounts, prevCounts) {
   if (droppedHalf(prevCounts.users, nextCounts.users, 10)) reasons.push("users");
   if (droppedHalf(prevCounts.messages, nextCounts.messages, 10)) reasons.push("messages");
   if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) reasons.push("foundingMembers");
+  if (droppedHalf(prevCounts.curriculumLessonPlans, nextCounts.curriculumLessonPlans, 5)) reasons.push("curriculumLessonPlans");
   return reasons;
 }
 assert.deepEqual(
-  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0 }, { users: 25, messages: 40, foundingMembers: 13 }),
-  ["users", "messages", "foundingMembers"],
+  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0, curriculumLessonPlans: 0 }, { users: 25, messages: 40, foundingMembers: 13, curriculumLessonPlans: 101 }),
+  ["users", "messages", "foundingMembers", "curriculumLessonPlans"],
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 27, messages: 41, foundingMembers: 13 }, { users: 25, messages: 40, foundingMembers: 13 }),
+  storeCountDropReasons({ users: 27, messages: 41, foundingMembers: 13, curriculumLessonPlans: 101 }, { users: 25, messages: 40, foundingMembers: 13, curriculumLessonPlans: 101 }),
   [],
 );
 console.log("PASS  inventory drop guard logic");

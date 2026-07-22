@@ -58,11 +58,11 @@ test("client detects expired admin server session and offers re-unlock", () => {
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260721-homescreen-sw");
-  assert.equal(indexJs, "20260721-homescreen-sw");
-  assert.match(sw, /styles\.css\?v=20260721-homescreen-sw/);
-  assert.match(sw, /app\.js\?v=20260721-homescreen-sw/);
-  assert.match(sw, /llh-shell-v108-homescreen-sw/);
+  assert.equal(indexCss, "20260722-lesson-empty-hotfix");
+  assert.equal(indexJs, "20260722-lesson-empty-hotfix");
+  assert.match(sw, /styles\.css\?v=20260722-lesson-empty-hotfix/);
+  assert.match(sw, /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
 });
 
 test("admin session heartbeat refreshes unlock without random logout", () => {

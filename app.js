@@ -4371,6 +4371,8 @@ async function siteContentRequestHeaders() {
 const CURRICULUM_LIBRARY_CACHE_KEY = "llhCurriculumLibraryCacheV1";
 let siteContentLoadPromise = null;
 let curriculumLibraryLoading = false;
+let curriculumLibraryLoadFailed = false;
+let curriculumLibraryLoadError = "";
 
 function readCachedCurriculumLibrary() {
   try {
@@ -4456,13 +4458,15 @@ async function refreshPublicCurriculumLibrary() {
   if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) return effectiveSiteContent();
   if (siteContentLoadPromise) return siteContentLoadPromise;
   curriculumLibraryLoading = true;
+  curriculumLibraryLoadFailed = false;
+  curriculumLibraryLoadError = "";
   siteContentLoadPromise = (async () => {
     try {
       const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
         cache: "no-store",
         headers: await siteContentRequestHeaders(),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Could not refresh curriculum library.");
       const incoming = data.siteContent || emptySiteContent();
       // Keep a full public site-content replace so homepage/pricing stay current,
@@ -4474,9 +4478,13 @@ async function refreshPublicCurriculumLibrary() {
       };
       writeCachedCurriculumLibrary(siteContentState.curriculumLibrary);
       syncSiteManagedResources();
+      curriculumLibraryLoadFailed = false;
+      curriculumLibraryLoadError = "";
       return effectiveSiteContent();
     } catch (error) {
       console.warn(error);
+      curriculumLibraryLoadFailed = true;
+      curriculumLibraryLoadError = error?.message || "Could not load lesson plans.";
       return effectiveSiteContent();
     } finally {
       curriculumLibraryLoading = false;
@@ -4484,6 +4492,21 @@ async function refreshPublicCurriculumLibrary() {
     }
   })();
   return siteContentLoadPromise;
+}
+
+async function retryPublicCurriculumLibraryLoad() {
+  curriculumLibraryLoadFailed = false;
+  curriculumLibraryLoadError = "";
+  await refreshPublicCurriculumLibrary();
+  syncSiteManagedResources();
+  const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  if (activeView === "lessons") renderCategoryPage("lessons");
+  else if (activeView === "activities") renderCategoryPage("activities");
+  else if (activeView === "home" || document.querySelector("#view-home.landing-home")) {
+    if (!currentUser) renderHomePublicPreviews();
+  }
+  rerenderActiveContent();
+  return effectiveSiteContent();
 }
 
 async function loadSiteContentFromBackend() {
@@ -4533,7 +4556,12 @@ async function saveAdminSiteContent(nextContent) {
   }
   const lessonPlanIds = Object.keys(nextContent?.lessonPlans || {});
   console.log("[DIAG] saveAdminSiteContent: POSTing to", siteContentConfig.adminEndpoint, "| lessonPlan overrides count =", lessonPlanIds.length, "| ids =", lessonPlanIds.slice(0, 5));
-  const bodyStr = JSON.stringify({ adminToken: token, siteContent: nextContent });
+  // Curriculum is saved only through /api/admin/curriculum/* endpoints. Never send an
+  // empty/public-hydrate curriculum blob here — that previously wiped live lesson plans.
+  const siteContentPayload = { ...(nextContent || {}) };
+  delete siteContentPayload.curriculum;
+  delete siteContentPayload.curriculumLibrary;
+  const bodyStr = JSON.stringify({ adminToken: token, siteContent: siteContentPayload });
   console.log("[DIAG] saveAdminSiteContent: request body size (bytes) =", bodyStr.length);
   const response = await fetch(siteContentConfig.adminEndpoint, {
     method: "POST",
@@ -5551,11 +5579,14 @@ function loadCurriculumManagedLessonPlans() {
   const sourcePlans = hasAdminFullAccess()
     ? effectiveCurriculum().lessonPlans
     : effectiveCurriculumLibrary().lessonPlans;
-  return sourcePlans
-    .filter((item) => item.id && item.title)
-    .map((item) => {
+  const plans = Array.isArray(sourcePlans) ? sourcePlans : [];
+  const mapped = [];
+  plans.forEach((item) => {
+    try {
+      if (!item || !item.id || !item.title) return;
       const plan = normalizeCurriculumLessonPlanForRender(item);
-      return {
+      if (!plan?.id || !plan?.title) return;
+      mapped.push({
       id: plan.id,
       category: "Lesson Plans",
       title: plan.title,
@@ -5587,8 +5618,12 @@ function loadCurriculumManagedLessonPlans() {
       _curriculumManaged: true,
       _curriculumResourceIds: curriculumAsStringArray(plan.resourceIds),
       _curriculumLessonPlan: plan,
-    };
     });
+    } catch (error) {
+      console.warn("Skipping malformed curriculum lesson plan", item?.id || "(unknown)", error);
+    }
+  });
+  return mapped;
 }
 
 function loadCurriculumManagedActivities() {
@@ -5612,8 +5647,9 @@ function loadCurriculumManagedActivities() {
     })()
     : effectiveCurriculumLibrary().activities;
   return sourceActivities
-    .filter((item) => item.id && item.title && item.lessonPlanId)
+    .filter((item) => item && item.id && item.title && item.lessonPlanId)
     .map((item) => {
+      try {
       // Paid members must never see Pro activities as empty locked teasers.
       const lockedTeaser = !hasAdminFullAccess()
         && !isProUser()
@@ -5658,7 +5694,12 @@ function loadCurriculumManagedActivities() {
       _curriculumParentTheme: item.parentTheme || "",
       _curriculumActivity: item,
     };
-    });
+      } catch (error) {
+        console.warn("Skipping malformed curriculum activity", item?.id || "(unknown)", error);
+        return null;
+      }
+    })
+    .filter(Boolean);
 }
 
 const CURRICULUM_WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -13700,6 +13741,7 @@ function activityBrowseCard(resource) {
 }
 
 function lessonPlanCard(resource) {
+  try {
   const locked = !canAccess(resource);
   const favorite = favorites.includes(resource.id);
   const planBadge = libraryPlanBadge(resource);
@@ -13778,6 +13820,10 @@ function lessonPlanCard(resource) {
       </div>
     </article>
   `;
+  } catch (error) {
+    console.warn("Skipping lesson plan card render", resource?.id || "(unknown)", error);
+    return "";
+  }
 }
 
 function activityQuickFilterOptions() {
@@ -21333,7 +21379,10 @@ function lessonLibraryEmptyStateHtml(itemsQueried) {
   if (curriculumLibraryLoading || siteContentLoadPromise) {
     return `<div class="empty-state" role="status" aria-live="polite"><strong>Loading lesson plans…</strong><br />Hang tight — your library is syncing.</div>`;
   }
-  return `<div class="empty-state">New play-based lesson plans are being added.</div>`;
+  if (curriculumLibraryLoadFailed) {
+    return `<div class="empty-state" role="alert"><strong>Lesson plans could not load.</strong><br />${escapeHtml(curriculumLibraryLoadError || "Please check your connection and try again.")}<br /><button class="primary-button" type="button" data-retry-curriculum-library style="margin-top:12px">Retry</button></div>`;
+  }
+  return `<div class="empty-state"><strong>No lesson plans are available right now.</strong><br />If this continues, tap Retry or contact support.<br /><button class="primary-button" type="button" data-retry-curriculum-library style="margin-top:12px">Retry</button></div>`;
 }
 
 function clearLessonLibraryAdvancedFilters() {
@@ -21401,7 +21450,11 @@ function renderCategoryPage(view) {
   if (isLessonPlanCategory && !filters.includes(activeFilter)) activeFilter = "All";
   const displayTitle = view === "lessons" ? "Lesson Plan Library" : category;
   const emptyStateHtml = category === "Activity Center"
-    ? `<div class="empty-state">No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button></div>`
+    ? (curriculumLibraryLoadFailed
+      ? `<div class="empty-state" role="alert"><strong>Activities could not load.</strong><br />${escapeHtml(curriculumLibraryLoadError || "Please check your connection and try again.")}<br /><button class="primary-button" type="button" data-retry-curriculum-library style="margin-top:12px">Retry</button></div>`
+      : (curriculumLibraryLoading || siteContentLoadPromise)
+        ? `<div class="empty-state" role="status" aria-live="polite"><strong>Loading activities…</strong><br />Hang tight — your library is syncing.</div>`
+        : `<div class="empty-state">No activities match your search or filter. Activities appear automatically when lesson plans are published. <button class="inline-link" data-view="lessons" type="button">Browse lesson plans</button>${!searchInput.value.trim() && activeFilter === "All" ? `<br /><button class="primary-button" type="button" data-retry-curriculum-library style="margin-top:12px">Retry</button>` : ""}</div>`)
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
     const isSavedLessonMode = lessonLibraryMode === "saved";
@@ -22413,15 +22466,27 @@ function renderHomePublicPreviews() {
   const activityGrid = document.querySelector("#homeActivityPreviewGrid");
   if (lessonGrid) {
     const lessons = pickHomeLessonPreviewPlans(5);
-    lessonGrid.innerHTML = lessons.length
-      ? lessons.map(homeLessonPreviewCardHtml).join("")
-      : `<div class="llh-preview-empty muted-copy">Free lesson plan previews will appear here as published curriculum is available. <button class="link-button" type="button" data-view="lessons">Browse Lesson Plans</button></div>`;
+    if (lessons.length) {
+      lessonGrid.innerHTML = lessons.map(homeLessonPreviewCardHtml).join("");
+    } else if (curriculumLibraryLoading || siteContentLoadPromise) {
+      lessonGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="status">Loading free lesson plan previews…</div>`;
+    } else if (curriculumLibraryLoadFailed) {
+      lessonGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="alert">Lesson plan previews could not load. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></div>`;
+    } else {
+      lessonGrid.innerHTML = `<div class="llh-preview-empty muted-copy">Free lesson plan previews will appear here as published curriculum is available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button> · <button class="link-button" type="button" data-view="lessons">Browse Lesson Plans</button></div>`;
+    }
   }
   if (activityGrid) {
     const activities = pickHomeActivityPreviews(6);
-    activityGrid.innerHTML = activities.length
-      ? activities.map(homeActivityPreviewCardHtml).join("")
-      : `<div class="llh-preview-empty muted-copy">Activity previews will appear here as published activities are available. <button class="link-button" type="button" data-view="activities">Browse Activities</button></div>`;
+    if (activities.length) {
+      activityGrid.innerHTML = activities.map(homeActivityPreviewCardHtml).join("");
+    } else if (curriculumLibraryLoading || siteContentLoadPromise) {
+      activityGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="status">Loading activity previews…</div>`;
+    } else if (curriculumLibraryLoadFailed) {
+      activityGrid.innerHTML = `<div class="llh-preview-empty muted-copy" role="alert">Activity previews could not load. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button></div>`;
+    } else {
+      activityGrid.innerHTML = `<div class="llh-preview-empty muted-copy">Activity previews will appear here as published activities are available. <button class="link-button" type="button" data-retry-curriculum-library>Retry</button> · <button class="link-button" type="button" data-view="activities">Browse Activities</button></div>`;
+    }
   }
 }
 
@@ -50096,6 +50161,18 @@ document.addEventListener("click", async (event) => {
     clearLessonLibraryAdvancedFilters();
     lessonLibraryFiltersOpen = false;
     renderCategoryPage("lessons");
+    return;
+  }
+
+  const retryCurriculumLibraryButton = event.target.closest("[data-retry-curriculum-library]");
+  if (retryCurriculumLibraryButton) {
+    event.preventDefault();
+    retryCurriculumLibraryButton.disabled = true;
+    retryPublicCurriculumLibraryLoad()
+      .catch(() => {})
+      .finally(() => {
+        retryCurriculumLibraryButton.disabled = false;
+      });
     return;
   }
 
