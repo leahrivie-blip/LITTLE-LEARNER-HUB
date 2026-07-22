@@ -5147,6 +5147,7 @@ const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
 const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
   "director-center": "directorCenter",
   "teacher-center": "directorCenter",
+  "classroom-assistant": "directorCenter",
   "forms-center": "formsCenter",
   "family-hub": "familyHub",
   "testing-lab": "testingLab",
@@ -12842,6 +12843,39 @@ function setView(view, options = {}) {
       });
   }
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
+  if (resolvedView === "classroom-assistant") {
+    const section = document.querySelector("#view-classroom-assistant");
+    if (section && typeof window.renderClassroomAssistantPage !== "function") {
+      section.innerHTML = `
+        <section class="platform-placeholder-page classroom-assistant-page">
+          <div class="page-title">
+            <p class="eyebrow">Classroom Assistant · Admin Preview</p>
+            <h2>Admin Preview — Test Data Only</h2>
+            <p>Classroom Assistant is loading…</p>
+          </div>
+        </section>
+      `;
+    }
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("classroom-assistant"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof window.renderClassroomAssistantPage === "function") {
+          window.renderClassroomAssistantPage({
+            getToken: () => (typeof adminSession === "function" ? (adminSession()?.token || "") : ""),
+          });
+        } else if (section && !isExpansionFeatureEnabled("directorCenter")) {
+          section.innerHTML = `
+            <section class="platform-placeholder-page classroom-assistant-page">
+              <div class="page-title">
+                <p class="eyebrow">Classroom Assistant</p>
+                <h2>Unavailable</h2>
+                <p>Classroom Assistant preview is not available in this environment.</p>
+              </div>
+            </section>
+          `;
+        }
+      });
+  }
   if (resolvedView === "forms-center") {
     Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("forms-center"))
       .catch(() => null)
@@ -37135,7 +37169,8 @@ function renderAdminOwnerOverview() {
       </div>
       <div class="account-actions-row">
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
-          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>
+             <button class="primary-button" type="button" data-admin-open-classroom-assistant>Open Classroom Assistant</button>`
           : ""}
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
           ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
@@ -37571,7 +37606,8 @@ function renderAdminAccessShell() {
       </div>
       <div class="admin-unlocked-actions">
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
-          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>
+             <button class="primary-button" type="button" data-admin-open-classroom-assistant>Open Classroom Assistant</button>`
           : ""}
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
           ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
@@ -51892,6 +51928,13 @@ document.addEventListener("click", async (event) => {
   if (openDirectorCenter) {
     event.preventDefault();
     if (typeof setView === "function") setView("director-center");
+    return;
+  }
+
+  const openClassroomAssistant = event.target.closest("[data-admin-open-classroom-assistant]");
+  if (openClassroomAssistant) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("classroom-assistant");
     return;
   }
 

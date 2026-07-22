@@ -238,12 +238,17 @@ test("unlocked Admin keeps platform sidebar without a member login", () => {
   assert.match(appJs, /classList\.toggle\("admin-unlocked"/);
   assert.match(appJs, /data-admin-open-director-center/);
   assert.match(appJs, /data-admin-open-forms-center/);
+  assert.match(appJs, /data-admin-open-classroom-assistant/);
   assert.match(appJs, /closest\("\[data-admin-open-director-center\]"\)/);
   assert.match(appJs, /closest\("\[data-admin-open-forms-center\]"\)/);
+  assert.match(appJs, /closest\("\[data-admin-open-classroom-assistant\]"\)/);
   assert.match(appJs, /setView\("director-center"\)/);
   assert.match(appJs, /setView\("forms-center"\)/);
+  assert.match(appJs, /setView\("classroom-assistant"\)/);
   assert.match(html, /data-view="forms-center"[^>]*data-feature-flag="formsCenter"[^>]*data-nav-hidden="true"/);
+  assert.match(html, /data-view="classroom-assistant"[^>]*data-feature-flag="directorCenter"[^>]*data-nav-hidden="true"/);
   assert.match(html, /id="view-forms-center" class="view"/);
+  assert.match(html, /id="view-classroom-assistant" class="view"/);
   assert.match(html, /styles\.css\?v=/);
   assert.match(html, /app\.js\?v=20260722-full-int/);
   assert.match(html, /teacher-center-ui\.js\?v=20260721-phase4/);
@@ -251,7 +256,10 @@ test("unlocked Admin keeps platform sidebar without a member login", () => {
   assert.match(html, /platform-perf\.js\?v=/);
   const perfJs = fs.readFileSync(path.join(__dirname, "..", "platform-perf.js"), "utf8");
   assert.match(perfJs, /forms-center-ui\.js\?v=/);
+  assert.match(perfJs, /classroom-assistant-ui\.js\?v=/);
   assert.match(appJs, /ensureViewScripts\?\.\("forms-center"\)/);
+  assert.match(appJs, /ensureViewScripts\?\.\("classroom-assistant"\)/);
+  assert.match(appJs, /"classroom-assistant": "directorCenter"/);
 });
 
 if (!process.exitCode) {

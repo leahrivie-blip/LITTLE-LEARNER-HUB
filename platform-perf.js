@@ -12,12 +12,15 @@
       "family-foundation-ui.js?v=20260722-phase8",
       "today-hub-ui.js?v=20260722-phase15",
       "provider-productivity-ui.js?v=20260722-phase21",
-      "classroom-assistant-ui.js?v=20260722-classroom-assistant-v2",
+      "classroom-assistant-ui.js?v=20260722-classroom-assistant-v3",
       "staff-experience-ui.js?v=20260722-phase16",
       "billing-simulator-ui.js?v=20260722-phase17",
       "enrollment-ui.js?v=20260722-phase12-14-remediation",
       "records-center-ui.js?v=20260722-phase12-14-remediation",
       "licensing-center-ui.js?v=20260722-phase12-14-remediation",
+    ],
+    "classroom-assistant": [
+      "classroom-assistant-ui.js?v=20260722-classroom-assistant-v3",
     ],
     "forms-center": [
       "forms-center-ui.js?v=20260722-phase7",

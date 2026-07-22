@@ -275,33 +275,84 @@ function buildDailySummary({ text, meal, activity, nap, diaper, potty, medicatio
 }
 
 function suggestionSet({ meal, activity, nap, diaper, potty, medication, attendance, difficult }) {
-  const suggestions = [
-    { type: "daily_report", label: "Add to daily reports", oneClick: true },
-    { type: "parent_message", label: "Draft parent-friendly note", oneClick: true },
-    { type: "documentation", label: "File documentation entry", oneClick: true },
+  const ranked = [
+    { type: "parent_message", label: "Parent message", oneClick: true, always: true },
+    { type: "daily_report", label: "Daily report", oneClick: true, always: true },
+    { type: "observation", label: "Observation", oneClick: true, always: true },
+    { type: "documentation", label: "Documentation", oneClick: true, always: true },
+    { type: "developmental_note", label: "Developmental note", oneClick: true, always: true },
+    { type: "behavior_report", label: "Behavior note", oneClick: true, always: Boolean(difficult) || Boolean(activity?.exceptions?.length) },
+    { type: "incident_report", label: "Incident report", oneClick: true, always: Boolean(difficult) },
+    { type: "portfolio", label: "Portfolio entry", oneClick: true, always: Boolean(activity) },
   ];
-  if (activity || nap) {
-    suggestions.push({ type: "observation", label: "Save observation", oneClick: true });
-    suggestions.push({ type: "portfolio", label: "Add portfolio entry", oneClick: true });
-  }
-  if (meal) suggestions.push({ type: "documentation", label: "File meal documentation", oneClick: true });
-  if (nap) suggestions.push({ type: "milestone", label: "Track rest routine", oneClick: true });
-  if (diaper || potty) suggestions.push({ type: "developmental_note", label: "Save developmental care note", oneClick: true });
-  if (medication) suggestions.push({ type: "documentation", label: "Confirm medication documentation", oneClick: true });
-  if (attendance) suggestions.push({ type: "daily_report", label: "Update attendance summary", oneClick: true });
-  if (difficult) {
-    suggestions.push({ type: "incident_report", label: "Draft incident wording", oneClick: true });
-    suggestions.push({ type: "behavior_report", label: "Draft behavior note for families", oneClick: true });
-    suggestions.push({ type: "parent_message", label: "Help with difficult family wording", oneClick: true });
-  }
+  if (meal) ranked.push({ type: "documentation", label: "Meal documentation", oneClick: true, always: false });
+  if (nap) ranked.push({ type: "milestone", label: "Rest routine note", oneClick: true, always: false });
+  if (diaper || potty) ranked.push({ type: "developmental_note", label: "Care / potty note", oneClick: true, always: false });
+  if (medication) ranked.push({ type: "documentation", label: "Medication documentation", oneClick: true, always: false });
+  if (attendance) ranked.push({ type: "daily_report", label: "Attendance summary", oneClick: true, always: false });
+  if (difficult) ranked.push({ type: "parent_message", label: "Difficult conversation wording", oneClick: true, always: false });
+
   const seen = new Set();
-  return suggestions.filter((row) => {
-    const key = row.type;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const out = [];
+  for (const row of ranked) {
+    if (seen.has(row.type)) continue;
+    seen.add(row.type);
+    out.push({
+      type: row.type,
+      label: row.label,
+      oneClick: true,
+      recommended: row.always === true || Boolean(difficult && (row.type === "incident_report" || row.type === "behavior_report" || row.type === "parent_message")),
+    });
+  }
+  // Always offer the core family/communication set after every entry.
+  for (const core of [
+    ["parent_message", "Parent message"],
+    ["incident_report", "Incident report"],
+    ["observation", "Observation"],
+    ["behavior_report", "Behavior note"],
+    ["developmental_note", "Developmental note"],
+    ["daily_report", "Daily report"],
+    ["documentation", "Documentation"],
+  ]) {
+    if (seen.has(core[0])) continue;
+    seen.add(core[0]);
+    out.push({ type: core[0], label: core[1], oneClick: true, recommended: false });
+  }
+  return out;
 }
+
+const EXAMPLE_PROMPTS = Object.freeze([
+  {
+    id: "meal",
+    label: "Group meal",
+    text: "Breakfast was at 8:30. Everyone had bananas, apples, and milk. Timmy decided not to eat his breakfast.",
+  },
+  {
+    id: "activity",
+    label: "Activity highlight",
+    text: "Today we went on a walk and looked for butterflies. Everyone loved it. Susan was especially excited and pointed them out to all her friends.",
+  },
+  {
+    id: "nap",
+    label: "Nap exception",
+    text: "Everyone had a great nap except Ava, who slept for only 20 minutes.",
+  },
+  {
+    id: "summary",
+    label: "Daily summary",
+    text: "Today we painted, played outside, and had pizza for lunch. Everyone enjoyed painting except Jack, who preferred reading books.",
+  },
+  {
+    id: "care",
+    label: "Care logs",
+    text: "Changed Timmy's diaper at 10:15. Wet. Ava used the potty successfully at 10:40.",
+  },
+  {
+    id: "difficult",
+    label: "Hard conversation",
+    text: "Timmy bit a friend today during block play and was upset afterward. We stayed calm, separated the children, and comforted both.",
+  },
+]);
 
 function detectDifficultSituation(text) {
   const source = String(text || "");
@@ -431,8 +482,8 @@ function parseMeal(text, children) {
   if (!mealType) return null;
   const exceptions = [];
   const exceptionPatterns = [
-    /\b([A-Z][a-z]+)\s+(?:decided\s+not\s+to|did\s+not|didn't|would\s+not|wouldn't|refused|declined|chose\s+not\s+to)\s+(?:eat|have)([^.]*)/g,
-    /\bexcept\s+([A-Z][a-z]+)(?:,\s*who)?\s+(?:did\s+not|didn't|would\s+not|wouldn't|refused|declined|chose\s+not\s+to)\s+(?:eat|have)([^.]*)/g,
+    /\b([A-Z][a-z]+)\s+(?:decided\s+not\s+to|did\s+not|didn't|would\s+not|wouldn't|refused|declined|chose\s+not\s+to)\s+(?:eat|have|want)([^.]*)/g,
+    /\bexcept\s+([A-Z][a-z]+)(?:,\s*who)?\s+(?:did\s+not|didn't|would\s+not|wouldn't|refused|declined|chose\s+not\s+to)\s+(?:eat|have|want)([^.]*)/g,
   ];
   for (const pattern of exceptionPatterns) {
     for (const match of String(text || "").matchAll(pattern)) {
@@ -458,7 +509,7 @@ function parseMeal(text, children) {
 
 function parseActivity(text, children) {
   const lower = String(text || "").toLowerCase();
-  const hasActivity = /\b(walk|butterfl|paint|played|outside|activity|read|books|music|dance|garden|looked for)\b/i.test(text);
+  const hasActivity = /\b(walk|butterfl|paint|played|play|outside|outdoor|activity|read|books|music|dance|garden|looked for|block play)\b/i.test(text);
   if (!hasActivity) return null;
   let title = "Classroom activity";
   const went = String(text || "").match(/\b(?:we|children|class)\s+went\s+on\s+a\s+([^.]*)/i);
@@ -492,6 +543,18 @@ function parseActivity(text, children) {
       childName: child.displayName,
       note: cleanText(match[0], 240),
       observation: true,
+    });
+  }
+  const incidentPattern = /\b([A-Z][a-z]+)\s+(fell|bumped|scraped|tripped|got hurt)([^.]*)/gi;
+  for (const match of String(text || "").matchAll(incidentPattern)) {
+    const child = findChildByName(match[1], children);
+    if (!child || highlights.some((row) => row.childId === child.id)) continue;
+    highlights.push({
+      childId: child.id,
+      childName: child.displayName,
+      note: cleanText(match[0], 240),
+      observation: true,
+      incident: true,
     });
   }
   if (!exceptions.length && !highlights.length && findNamedChildren(text, children).length === 1 && /especially|excited|interested|preferred/i.test(text)) {
@@ -582,11 +645,19 @@ function parsePotty(text, children) {
   let groupApplied = false;
   let result = "attempt";
   let time = "";
-  for (const sentence of sentences(text)) {
-    if (!/\bpotty|toilet|bathroom\b/i.test(sentence)) continue;
+  const parts = sentences(text);
+  let inPottyContext = false;
+  for (const sentence of parts) {
+    const mentionsPotty = /\bpotty|toilet|bathroom\b/i.test(sentence);
+    if (mentionsPotty) inPottyContext = true;
+    if (!mentionsPotty && !inPottyContext) continue;
+    if (!mentionsPotty && inPottyContext && !/\b(made it|accident|success|successful|dry|wet pants|missed|changed clothes)\b/i.test(sentence)) {
+      continue;
+    }
     const success = /\b(successful|success|dry|used the potty|went potty|made it)\b/i.test(sentence);
     const accident = /\b(accident|had an accident|wet pants|missed)\b/i.test(sentence);
-    result = accident ? "accident" : success ? "success" : result;
+    if (accident) result = "accident";
+    else if (success) result = "success";
     time = time || extractTime(sentence);
     if (/\b(everyone|all children)\b.+\b(potty|toilet)\b/i.test(sentence)) groupApplied = true;
     for (const child of findNamedChildren(sentence, children)) {
@@ -598,6 +669,7 @@ function parsePotty(text, children) {
         note: cleanText(sentence, 240),
       });
     }
+    if (/\bwe cleaned|changed clothes|comforted\b/i.test(sentence)) inPottyContext = false;
   }
   if (!entries.length && !groupApplied) return null;
   return {
@@ -695,7 +767,7 @@ function parseNaturalNote(text, { organizationId = "", children = [], checkedInI
   const named = findNamedChildren(clean, normalizedChildren);
   const namedIds = named.map((child) => child.id);
   const hasGroupAction = [meal?.groupAte, activity?.groupEnjoyed, nap?.groupSlept, diaper?.groupApplied, potty?.groupApplied, attendance?.groupHere]
-    .some((value) => value === true || value === false)
+    .some((value) => value === true)
     || /\b(everyone|all children|the children)\b/i.test(clean);
   const targetSet = new Set(hasGroupAction ? checkedChildren.map((child) => child.id) : []);
   for (const id of namedIds) targetSet.add(id);
@@ -745,6 +817,7 @@ function parseNaturalNote(text, { organizationId = "", children = [], checkedInI
   };
   plan.planId = plan.id;
   plan.professionalDrafts = buildProfessionalDrafts(plan, { children: normalizedChildren });
+  plan.examplePrompts = EXAMPLE_PROMPTS;
   return plan;
 }
 
@@ -1236,6 +1309,7 @@ module.exports = {
   PHONE_MARKER,
   INCLUDED_CAPABILITIES,
   STORE_MAP_KEYS,
+  EXAMPLE_PROMPTS,
   ensureClassroomAssistantStore,
   getCheckedInChildren,
   parseNaturalNote,

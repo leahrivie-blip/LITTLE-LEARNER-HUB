@@ -270,6 +270,68 @@ async function run() {
   }
 
   {
+    const { seeded, checked, children } = unitFixture();
+    const scenarios = [
+      {
+        name: "morning_arrival_snack_exception",
+        text: "At drop-off Maya arrived at 7:45. Everyone had snack crackers and water. Jack did not want crackers.",
+        assert(plan) {
+          assert.equal(plan.attendance.entries[0].childName, "Maya");
+          assert.equal(plan.meal.mealType, "snack");
+          assert.ok(plan.meal.exceptions.some((row) => row.childName === "Jack"));
+          assert.ok(plan.suggestions.some((row) => row.type === "parent_message"));
+          assert.ok(plan.suggestions.some((row) => row.type === "daily_report"));
+          assert.ok(plan.professionalDrafts.parent_message.body);
+        },
+      },
+      {
+        name: "injury_incident_family_wording",
+        text: "During outdoor play Susan fell and bumped her knee. We cleaned it, applied a cold pack, and comforted her.",
+        assert(plan) {
+          assert.ok(plan.difficultSituation?.detected);
+          assert.ok(plan.difficultSituation.kinds.includes("incident_care"));
+          assert.ok(plan.professionalDrafts.incident_report.body);
+          assert.ok(plan.professionalDrafts.difficult_family_wording.body);
+          assert.ok(plan.targets.includes(children.find((child) => child.displayName === "Susan").id));
+          assert.ok(!plan.targets.includes(children.find((child) => child.displayName === "Ben").id));
+        },
+      },
+      {
+        name: "potty_pair_success_and_accident",
+        text: "Potty time: Ava made it. Timmy had an accident. We cleaned up calmly and changed clothes.",
+        assert(plan) {
+          assert.ok(plan.potty.entries.some((row) => row.childName === "Ava" && row.result === "success"));
+          assert.ok(plan.potty.entries.some((row) => row.childName === "Timmy" && row.result === "accident"));
+        },
+      },
+      {
+        name: "end_of_day_summary_with_exception",
+        text: "Today we painted, played outside, and had pizza for lunch. Everyone enjoyed painting except Jack, who preferred reading books.",
+        assert(plan) {
+          assert.equal(plan.meal.mealType, "lunch");
+          assert.ok(plan.activity);
+          assert.equal(plan.activity.exceptions[0].childName, "Jack");
+          assert.ok(plan.dailySummary.meals.length);
+          assert.ok(plan.dailySummary.activities.length);
+          const core = ["parent_message", "incident_report", "observation", "behavior_report", "developmental_note", "daily_report", "documentation"];
+          for (const type of core) assert.ok(plan.suggestions.some((row) => row.type === type), type);
+        },
+      },
+    ];
+    for (const scenario of scenarios) {
+      const plan = model.parseNaturalNote(scenario.text, {
+        organizationId: seeded.organizationId,
+        children,
+        checkedInIds: checked.map((child) => child.id),
+      });
+      assert.equal(plan.requiresReview, true);
+      assert.equal(plan.liveAiUsed, false);
+      scenario.assert(plan);
+      pass(`scenario_${scenario.name}`);
+    }
+  }
+
+  {
     const prod = await startServer({
       env: { SITE_URL: "https://littlelearnershubbyleah.com", ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true" },
     });
@@ -294,6 +356,7 @@ async function run() {
     assert.equal(seed.body.liveAiUsed, false);
     assert.equal(seed.body.offlineCapable, true);
     assert.ok(seed.body.included.includes("offline_sync"));
+    assert.ok(Array.isArray(seed.body.examplePrompts) && seed.body.examplePrompts.length >= 4);
     assert.ok(seed.body.checkedInChildren.some((child) => child.displayName === "Timmy"));
     pass("seed_dashboard_checked_in");
 
@@ -307,6 +370,8 @@ async function run() {
     assert.equal(parsed.status, 200, JSON.stringify(parsed.body));
     assert.equal(parsed.body.preview, true);
     assert.equal(parsed.body.plan.liveAiUsed, false);
+    assert.ok(parsed.body.plan.suggestions.length >= 7);
+    assert.ok(parsed.body.plan.professionalDrafts.parent_message);
     assert.equal(fs.readFileSync(ctx.storePath, "utf8"), beforeParse);
     pass("parse_preview_does_not_mutate_store");
 
@@ -324,6 +389,7 @@ async function run() {
     });
     assert.equal(applied.status, 200, JSON.stringify(applied.body));
     assert.ok(applied.body.created.mealLogIds.length >= 5);
+    assert.ok(applied.body.created.communicationDraftIds.length >= 1);
     const storeAfterApply = JSON.parse(fs.readFileSync(ctx.storePath, "utf8"));
     const mealLogs = Object.values(storeAfterApply.classroomAssistant.mealLogs);
     assert.ok(mealLogs.some((row) => row.childName === "Timmy" && row.ate === false));
@@ -395,12 +461,23 @@ async function run() {
 
   {
     const ui = fs.readFileSync(path.join(ROOT, "classroom-assistant-ui.js"), "utf8");
+    const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
     assert.ok(ui.includes('data-feature-marker="phase-ca-classroom-assistant"'));
     assert.ok(ui.includes("phase-ca-classroom-assistant-mobile"));
-    assert.ok(ui.includes("Computer recommended"));
+    assert.ok(ui.includes("Computer recommended") || ui.includes("Best on a computer"));
     assert.ok(ui.includes("What's included"));
-    assert.ok(ui.includes("data-ca-offline"));
+    assert.ok(ui.includes("data-ca-offline") || ui.includes("Offline ready"));
     assert.ok(ui.includes("offline/sync"));
+    assert.ok(ui.includes("renderClassroomAssistantPage"));
+    assert.ok(ui.includes("Just tell us what happened"));
+    assert.ok(ui.includes("data-ca-example"));
+    assert.ok(ui.includes("Smart suggestions"));
+    assert.ok(ui.includes("ca-shell-flagship"));
+    assert.ok(html.includes('id="view-classroom-assistant"'));
+    assert.ok(html.includes('data-view="classroom-assistant"'));
+    assert.ok(appJs.includes('"classroom-assistant": "directorCenter"'));
+    assert.ok(appJs.includes('setView("classroom-assistant")'));
     pass("phone_computer_markers_in_ui_file");
   }
 

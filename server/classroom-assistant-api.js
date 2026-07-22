@@ -194,6 +194,7 @@ function createClassroomAssistantApi({
       },
       checkedInChildren,
       recentNotes: recentNotes(store, gate.organization.id),
+      examplePrompts: model.EXAMPLE_PROMPTS,
       counts: {
         mealLogs: listValues(ca.mealLogs).filter((row) => row.organizationId === gate.organization.id).length,
         activityLogs: listValues(ca.activityLogs).filter((row) => row.organizationId === gate.organization.id).length,
