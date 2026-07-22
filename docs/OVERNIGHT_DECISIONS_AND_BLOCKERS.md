@@ -131,7 +131,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 18 completed 2026-07-22** — see `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 19** until Phase 18 is verified on the branch tip.
+**Phase 19 completed 2026-07-22** — see `docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`.
+
+**Do not begin Phase 20** until Phase 19 is verified on the branch tip.
 
 ## Phase 14 notes
 
@@ -169,4 +171,13 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Role preview does not mutate stored admin role; expires and exits cleanly.
 - Resets validate fake organization + test host before destructive actions.
 - Checklist notes stay on the testing organization only.
-- Deferred: Phase 19 owner-approved work.
+- Deferred: owner-approved Phase 20+ work.
+
+## Phase 19 notes / permissions
+
+- Shared a11y/perf/resilience helpers are foundations — not WCAG certification.
+- Expansion UIs lazy-load via `platform-perf.js`; core app.js remains eager.
+- Testing Lab Health + fake backup/restore: fake organizations only; production backup/restore never available.
+- Draft recovery refuses cross user/org/child/classroom/record restores; secrets stripped from logs.
+- Failed-save metadata is sanitized (no passwords, tokens, message bodies, medical content).
+- Deferred: full screen-reader certification, every legacy modal focus-trap migration, cloud draft sync beyond Lab simulation.

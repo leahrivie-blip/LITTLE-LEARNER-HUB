@@ -23,9 +23,12 @@
 
 - Never use this on production  
 - Prefer the computer website for all Lab setup work  
+- Use **Health** for storage/flag/external-service status and sanitized failed-save counts  
+- Use **Data Controls** fake backup/restore simulation only on confirmed fake organizations (preview before confirm)  
 - Never paste temporary passwords into docs, tickets, or screenshots  
 - Resets only affect validated fake organizations  
 - Checklist notes are manual; unchecked items are not automated failures  
+- Accessibility and performance foundations are testing aids — not a WCAG certification claim  
 
 ## Safety switches
 

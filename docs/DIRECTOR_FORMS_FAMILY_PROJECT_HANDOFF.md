@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 18 Testing and Preview Lab complete; Phase 19 not started)
+**Status date:** 2026-07-22 (Phase 19 Accessibility / Performance / Reliability / Recovery complete; Phase 20 not started)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -11,9 +11,9 @@
 2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
 3. Read this handoff document end to end
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–18 automated tests (commands below; include `npm run test:testing-lab-phase18`)
+5. Run all Phase 1–19 automated tests (commands below; include `npm run test:platform-resilience-phase19`)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (**Phase 19** — do not start until Phase 18 is verified on the branch tip)
+7. Continue only from the next **approved** phase (**Phase 20** — do not start until Phase 19 is verified on the branch tip)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -37,6 +37,7 @@ Build a private, testing-only foundation for:
 - **Complete Staff Experience** (Phase 16) — Staff Hub directory/profiles, onboarding, schedule, time clock, training, self-service, offboarding — `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`
 - **Platform Pricing & Family Tuition Billing Simulator** (Phase 17) — testing-only plan catalog/entitlement simulator + provider→family tuition billing — `docs/PHASE_17_PRICING_FAMILY_BILLING_SIMULATOR_COMPLETION_REPORT.md`
 - **Testing and Preview Lab** (Phase 18) — private admin lab for scenarios, fake logins, role/device preview, resets — `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`
+- **Accessibility, Performance, Reliability, Recovery** (Phase 19) — shared a11y/perf/resilience helpers, lazy-loaded expansion UIs, Testing Lab health + fake backup/restore — `docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -178,7 +179,7 @@ Phase tip history (newest first):
 
 ### NOT STARTED
 
-- **Phase 19** and later owner-approved phases
+- **Phase 20** and later owner-approved phases
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
 - Real outbound email/SMS delivery of assignment links and reminders
@@ -476,6 +477,7 @@ npm run test:today-hub-phase15
 npm run test:staff-experience-phase16
 npm run test:billing-simulator-phase17
 npm run test:testing-lab-phase18
+npm run test:platform-resilience-phase19
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -499,9 +501,10 @@ node scripts/capture-today-hub-phase15-screens.js
 node scripts/capture-staff-experience-phase16-screens.js
 node scripts/capture-billing-simulator-phase17-screens.js
 node scripts/capture-testing-lab-phase18-screens.js
+node scripts/capture-platform-resilience-phase19-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 18)
+### Handoff verification results (2026-07-22, Phase 19)
 
 | Command | Result |
 |---------|--------|
@@ -526,10 +529,11 @@ node scripts/capture-testing-lab-phase18-screens.js
 | `npm run test:staff-experience-phase16` | PASS (23/23) |
 | `npm run test:billing-simulator-phase17` | PASS (21/21) |
 | `npm run test:testing-lab-phase18` | PASS (18/18) |
+| `npm run test:platform-resilience-phase19` | PASS (15/15) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Full Phase 1–18 regression: **PASS**. See `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`.
+Full Phase 1–19 regression: **PASS**. See `docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`.
 
 ---
 
@@ -570,13 +574,13 @@ Full Phase 1–18 regression: **PASS**. See `docs/PHASE_18_TESTING_PREVIEW_LAB_C
 
 ---
 
-## Phase 19 recommendation
+## Phase 20 recommendation
 
-**Do not begin Phase 19** until Phase 18 is verified on the branch tip (`docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`).
+**Do not begin Phase 20** until Phase 19 is verified on the branch tip (`docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`).
 
 Until then:
 
-- Keep Phases 1–18 green on this branch
+- Keep Phases 1–19 green on this branch
 - Keep Family Hub and Testing Lab production-locked
 - Keep outbound email/SMS/push disabled
 - Keep Stripe checkout disabled (`DISABLE_STRIPE_CHECKOUT=true`)
@@ -590,10 +594,10 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–18 test suite; confirm all PASS
+3. Run the full Phase 1–19 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on (including `ALLOW_TESTING_LAB_ADMIN_PREVIEW`), `DISABLE_STRIPE_CHECKOUT=true`
-5. Smoke Testing Lab → scenario load → fake account issue password (do not screenshot) → Exit Preview
-6. Continue only with owner-written Phase 19 requirements
+5. Smoke Testing Lab → Health panel → fake backup preview → Exit Preview
+6. Continue only with owner-written Phase 20 requirements
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 
