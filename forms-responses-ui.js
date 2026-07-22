@@ -26,6 +26,9 @@
     voidDraftReason: "",
     noteDraft: "",
     medEntryDraft: null,
+    documentView: null, // { frozen, generatedAt, content } — the clean read-only document
+    documentViewOpen: false,
+    documentLoading: false,
   };
 
   function escapeHtml(value) {
@@ -443,6 +446,8 @@
     state.correctionDraftMessage = "";
     state.voidDraftReason = "";
     state.noteDraft = "";
+    state.documentView = null;
+    state.documentViewOpen = false;
     render();
     try {
       const data = await api("GET", `${API}/responses/${encodeURIComponent(responseId)}`);
@@ -457,7 +462,41 @@
 
   function closeDetail() {
     state.detail = null;
+    state.documentView = null;
+    state.documentViewOpen = false;
     render();
+  }
+
+  /**
+   * The clean, read-only document view for this response — a submitted (or
+   * later) response always has one; an approved response always returns its
+   * permanent, frozen snapshot rather than regenerating anything.
+   */
+  async function loadDocumentView() {
+    const id = state.detail.response.id;
+    state.documentLoading = true;
+    render();
+    try {
+      const data = await api("GET", `${API}/responses/${encodeURIComponent(id)}/document`);
+      state.documentView = data;
+    } catch (error) {
+      state.error = error.message || "A document view is available once this response has been submitted.";
+      state.documentView = null;
+    } finally {
+      state.documentLoading = false;
+      render();
+    }
+  }
+
+  function toggleDocumentView() {
+    state.documentViewOpen = !state.documentViewOpen;
+    if (state.documentViewOpen && !state.documentView) loadDocumentView().catch(() => {});
+    else render();
+  }
+
+  function openPrintableDocument() {
+    const id = state.detail.response.id;
+    window.open(`/form-document.html?responseId=${encodeURIComponent(id)}`, "_blank", "noopener");
   }
 
   async function refreshDetail() {
@@ -465,6 +504,7 @@
     const id = state.detail.response.id;
     const data = await api("GET", `${API}/responses/${encodeURIComponent(id)}`);
     state.detail = data;
+    if (state.documentViewOpen) await loadDocumentView();
   }
 
   async function performResponseAction(action, body) {
@@ -508,6 +548,38 @@
     }
   }
 
+  const EDITABLE_RESPONSE_STATUSES = new Set(["not_started", "in_progress", "returned_for_correction"]);
+
+  /**
+   * Clean, read-only document view — editable → paper-style approved record →
+   * printable/downloadable PDF-style snapshot. The response's structured
+   * answers remain the single authoritative record; this is a preserved
+   * document view/snapshot, never a second editable copy.
+   */
+  function documentSectionHtml(resp) {
+    if (EDITABLE_RESPONSE_STATUSES.has(resp.status)) {
+      return `<p class="muted-copy">A document view will be available once this response is submitted.</p>`;
+    }
+    return `
+      <div class="frd-document-section">
+        <div class="fc-card-actions">
+          <button type="button" class="ghost-button" data-frd-toggle-document>${state.documentViewOpen ? "Hide Document" : "View Document"}</button>
+          <button type="button" class="ghost-button" data-frd-print-document>Print</button>
+          <button type="button" class="primary-button" data-frd-print-document>Download PDF</button>
+        </div>
+        ${state.documentViewOpen ? `
+          <div class="frd-document-embed">
+            ${state.documentLoading ? `<p class="muted-copy">Loading document...</p>` : ""}
+            ${state.documentView?.content ? `
+              <p class="muted-copy">${state.documentView.frozen ? "Permanent approved snapshot — this never changes." : "Live document view — a permanent snapshot is generated automatically once approved."}</p>
+              ${window.LLHFormDocumentView.render(state.documentView.content, { showInternalNotes: true })}
+            ` : ""}
+          </div>
+        ` : ""}
+      </div>
+    `;
+  }
+
   function detailModalHtml() {
     const detail = state.detail;
     const resp = detail.response;
@@ -529,6 +601,8 @@
           ${assignment?.dueDate ? `<p><strong>Due:</strong> ${escapeHtml(assignment.dueDate)}</p>` : ""}
           ${resp.returnMessage ? `<div class="fc-alert error">Return message: ${escapeHtml(resp.returnMessage)}</div>` : ""}
           ${resp.voidReason ? `<div class="fc-alert error">Voided: ${escapeHtml(resp.voidReason)}</div>` : ""}
+
+          ${documentSectionHtml(resp)}
 
           <h4>Signatures</h4>
           ${(detail.response.signatures || []).length ? `
@@ -674,6 +748,8 @@
       }
       if (event.target.closest("[data-frd-issue-link]")) { issueTestingLink().catch(() => {}); return; }
       if (event.target.closest("[data-frd-revoke-link]")) { revokeTestingLink().catch(() => {}); return; }
+      if (event.target.closest("[data-frd-toggle-document]")) { toggleDocumentView(); return; }
+      if (event.target.closest("[data-frd-print-document]")) { openPrintableDocument(); return; }
       if (event.target.closest("[data-frd-add-note]")) {
         if (!state.noteDraft.trim()) return;
         performResponseAction("note", { message: state.noteDraft }).then(() => { state.noteDraft = ""; render(); }).catch(() => {});

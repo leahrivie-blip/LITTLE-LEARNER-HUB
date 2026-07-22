@@ -358,11 +358,262 @@ a:focus-visible {
     border: 1px solid #ccc;
   }
 }
+
+/*
+ * Desktop and tablet: centered, paper-style document layout. Mobile
+ * (below 640px) stays full-width and flat — no page illusion, no pinching or
+ * horizontal scrolling, one section visible at a time.
+ */
 @media (min-width: 640px) {
+  html, body {
+    background: linear-gradient(180deg, #eef1fb 0%, #e6ecfb 100%);
+  }
   .fr-app {
-    padding: 32px 24px 60px;
+    max-width: 780px;
+    padding: 40px 24px 60px;
   }
   .fr-card {
-    padding: 26px;
+    padding: 40px 48px;
+    border-radius: 6px;
+    border: 1px solid rgba(139, 107, 232, 0.14);
+    box-shadow: 0 1px 2px rgba(30, 22, 58, 0.08), 0 18px 40px rgba(30, 22, 58, 0.12);
+    position: relative;
+  }
+  .fr-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    border-top: 6px solid var(--fr-purple);
+    pointer-events: none;
+  }
+}
+@media (min-width: 900px) {
+  .fr-app {
+    max-width: 860px;
+  }
+}
+
+/* ── Document view (.fdv-*) — shared by recipient page, admin detail panel,
+   and the standalone admin print/download page. Rendered by form-document-view.js. */
+.fdv-page {
+  margin-bottom: 16px;
+}
+.fdv-document {
+  display: block;
+}
+.fdv-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid var(--fr-purple-soft);
+  margin-bottom: 14px;
+}
+.fdv-header > div:nth-child(2) {
+  flex: 1;
+}
+.fdv-logo-placeholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #8b6be8, #7055d1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.fdv-program-name {
+  font-weight: 800;
+  color: var(--fr-purple-dark);
+}
+.fdv-program-address {
+  font-size: 0.82rem;
+  color: var(--fr-muted);
+}
+.fdv-header-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+.fdv-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--fr-purple-soft);
+  color: var(--fr-purple-dark);
+  white-space: nowrap;
+}
+.fdv-tone-good { background: #effaf3; color: var(--fr-good); }
+.fdv-tone-warn { background: #fff4e5; color: var(--fr-warn); }
+.fdv-tone-info { background: #edf8ff; color: #28658e; }
+.fdv-title {
+  margin: 0 0 8px;
+  color: var(--fr-purple-dark);
+  font-size: 1.5rem;
+}
+.fdv-meta-row,
+.fdv-dates-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--fr-muted);
+  margin-bottom: 6px;
+}
+.fdv-meta-row span,
+.fdv-dates-row span {
+  background: var(--fr-purple-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.fdv-divider {
+  border: none;
+  border-top: 1px solid rgba(139, 107, 232, 0.25);
+  margin: 16px 0;
+}
+.fdv-section {
+  margin-bottom: 22px;
+}
+.fdv-section-title {
+  color: var(--fr-purple-dark);
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.fdv-section-desc {
+  color: var(--fr-muted);
+  margin: 0 0 10px;
+}
+.fdv-content-heading {
+  color: var(--fr-purple-dark);
+  margin: 14px 0 4px;
+}
+.fdv-content-paragraph {
+  color: var(--fr-muted);
+  margin: 0 0 10px;
+}
+.fdv-qa-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 38%) 1fr;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px dashed rgba(83, 98, 128, 0.18);
+}
+.fdv-qa-label {
+  font-weight: 700;
+  color: var(--fr-purple-dark);
+}
+.fdv-qa-answer {
+  color: var(--fr-ink);
+  word-break: break-word;
+}
+.fdv-qa-answer.is-empty {
+  color: var(--fr-muted);
+  font-style: italic;
+}
+.fdv-required-star {
+  color: var(--fr-error);
+}
+.fdv-signature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+.fdv-signature-block {
+  border-top: 2px solid var(--fr-ink);
+  padding-top: 8px;
+}
+.fdv-signature-block.is-invalidated {
+  opacity: 0.6;
+}
+.fdv-signature-line {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.2rem;
+  font-style: italic;
+  color: var(--fr-ink);
+}
+.fdv-signature-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--fr-muted);
+  margin-top: 2px;
+}
+.fdv-signature-image {
+  max-width: 100%;
+  max-height: 80px;
+  margin-top: 6px;
+}
+.fdv-signature-invalidated {
+  color: var(--fr-error);
+  font-size: 0.8rem;
+  margin: 4px 0 0;
+}
+.fdv-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.fdv-history-list li {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--fr-purple-soft);
+  font-size: 0.85rem;
+}
+.fdv-history-list li p {
+  margin: 4px 0 0;
+  color: var(--fr-ink);
+}
+.fdv-history-list li span {
+  color: var(--fr-muted);
+  font-size: 0.78rem;
+}
+.fdv-internal-notes {
+  background: #fffbe8;
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+.fdv-footer {
+  margin-top: 20px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(139, 107, 232, 0.2);
+  text-align: center;
+  color: var(--fr-muted);
+  font-size: 0.78rem;
+}
+.fdv-empty {
+  text-align: center;
+  padding: 30px;
+  color: var(--fr-muted);
+}
+@media print {
+  .fdv-document {
+    color: #000;
+  }
+  .fdv-header-badges,
+  .fdv-badge {
+    color: #000 !important;
+    background: none !important;
+  }
+}
+@media (max-width: 639px) {
+  .fdv-qa-row {
+    grid-template-columns: 1fr;
+  }
+  .fdv-header {
+    flex-wrap: wrap;
+  }
+  .fdv-header-badges {
+    flex-direction: row;
+    align-items: center;
   }
 }

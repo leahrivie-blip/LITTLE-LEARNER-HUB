@@ -13,7 +13,7 @@
     payload: null,
     answers: {},
     sectionIndex: 0,
-    view: "form", // form | review | confirmation | error
+    view: "form", // form | review | document | error
     fieldErrors: {},
     saveStatus: "",
     autosaveTimer: null,
@@ -22,6 +22,9 @@
     signatureDraft: { typedName: "", consentGiven: false },
     drawing: { canvas: null, ctx: null, hasStrokes: false, points: [] },
     clearConfirmOpen: false,
+    document: null, // the clean read-only document view, once available
+    documentLoading: false,
+    justSubmitted: false,
   };
 
   function escapeHtml(value) {
@@ -103,14 +106,35 @@
       const currentId = data.response.currentSectionId;
       state.sectionIndex = Math.max(0, sections.findIndex((s) => s.id === currentId));
       if (state.sectionIndex < 0) state.sectionIndex = 0;
-      state.view = data.response.status === "not_started" || data.response.status === "in_progress" || data.response.status === "returned_for_correction" ? "form" : "confirmation";
+      const editableStatuses = new Set(["not_started", "in_progress", "returned_for_correction"]);
+      state.view = editableStatuses.has(data.response.status) ? "form" : "document";
       state.error = "";
     } catch (error) {
       state.error = error.message || "This testing link could not be loaded.";
       state.view = "error";
     } finally {
       state.loading = false;
+      if (state.view === "document") await loadDocument();
       render();
+    }
+  }
+
+  /**
+   * The clean, read-only document view — available once the response is no
+   * longer editable (submitted or later). Approved responses always show the
+   * permanent, frozen snapshot; anything else is rendered live from current
+   * data. This is the recipient's own single response only.
+   */
+  async function loadDocument() {
+    state.documentLoading = true;
+    try {
+      const data = await api("GET", `/api/form-recipient/${encodeURIComponent(state.assignmentId)}/document`);
+      state.document = data;
+    } catch (error) {
+      state.document = null;
+      state.error = state.error || error.message || "Could not load your document view.";
+    } finally {
+      state.documentLoading = false;
     }
   }
 
@@ -408,19 +432,40 @@
     `;
   }
 
-  function confirmationScreenHtml() {
+  /**
+   * The clean, read-only document view — shown once the response is
+   * submitted (or later). Reuses the shared window.LLHFormDocumentView
+   * renderer so the recipient's own document, the admin's response detail
+   * view, and the standalone admin print/download page all look identical.
+   */
+  function documentScreenHtml() {
     const status = state.payload?.response?.statusLabel || "Submitted";
+    const frozen = state.document?.frozen === true;
     return `
       ${bannerHtml()}
-      ${headerHtml()}
-      <div class="fr-card fr-confirmation">
-        <h2>Thank you!</h2>
-        <p>Your response status is now <strong>${escapeHtml(status)}</strong>.</p>
-        <p class="fr-help-text">This is a testing preview. No email or text was sent to anyone.</p>
-        <div class="fr-button-row fr-no-print" style="justify-content:center;">
-          <button type="button" class="fr-button fr-button-ghost" data-fr-print>Print / Save Confirmation</button>
+      ${state.justSubmitted ? `
+        <div class="fr-card fr-confirmation fr-no-print">
+          <h2>Thank you!</h2>
+          <p>Your response status is now <strong>${escapeHtml(status)}</strong>.</p>
+          <p class="fr-help-text">This is a testing preview. No email or text was sent to anyone.</p>
         </div>
-      </div>
+      ` : ""}
+      ${headerHtml()}
+      ${state.documentLoading ? `<div class="fr-loading">Loading your document…</div>` : ""}
+      ${state.document?.content ? `
+        <div class="fr-card fdv-page">
+          ${window.LLHFormDocumentView.render(state.document.content, { showInternalNotes: false })}
+        </div>
+        <div class="fr-button-row fr-no-print" style="justify-content:center;">
+          <button type="button" class="fr-button fr-button-ghost" data-fr-print>Print</button>
+          <button type="button" class="fr-button fr-button-primary" data-fr-print>Download PDF</button>
+        </div>
+        ${frozen ? `<p class="fr-help-text" style="text-align:center;">This is your permanent, approved document snapshot.</p>` : `<p class="fr-help-text" style="text-align:center;">This document will become a permanent snapshot once your program approves it.</p>`}
+      ` : (state.documentLoading ? "" : `
+        <div class="fr-card fr-confirmation">
+          <p>Your response status is now <strong>${escapeHtml(status)}</strong>.</p>
+        </div>
+      `)}
     `;
   }
 
@@ -430,7 +475,7 @@
     if (state.loading && !state.payload) { el.innerHTML = `<div class="fr-loading">Loading your form…</div>`; return; }
     if (state.view === "error") { el.innerHTML = errorScreenHtml(); return; }
     if (state.view === "review") { el.innerHTML = reviewScreenHtml(); bind(el); return; }
-    if (state.view === "confirmation") { el.innerHTML = confirmationScreenHtml(); bind(el); return; }
+    if (state.view === "document") { el.innerHTML = documentScreenHtml(); bind(el); return; }
     el.innerHTML = formScreenHtml();
     bind(el);
     setupDrawingCanvases(el);
@@ -537,7 +582,9 @@
       const data = await api("POST", `/api/form-recipient/${encodeURIComponent(state.assignmentId)}/submit`, { answers: state.answers });
       state.payload.response.status = data.status;
       state.payload.response.statusLabel = data.status === "corrected_and_resubmitted" ? "Corrected and Resubmitted" : "Submitted";
-      state.view = "confirmation";
+      state.justSubmitted = true;
+      state.view = "document";
+      await loadDocument();
     } catch (error) {
       if (error.payload?.code === "validation_failed") {
         state.fieldErrors = {};
