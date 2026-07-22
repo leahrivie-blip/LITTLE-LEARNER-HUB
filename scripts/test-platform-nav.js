@@ -245,7 +245,7 @@ test("unlocked Admin keeps platform sidebar without a member login", () => {
   assert.match(html, /data-view="forms-center"[^>]*data-feature-flag="formsCenter"[^>]*data-nav-hidden="true"/);
   assert.match(html, /id="view-forms-center" class="view"/);
   assert.match(html, /styles\.css\?v=/);
-  assert.match(html, /app\.js\?v=20260721-phase4/);
+  assert.match(html, /app\.js\?v=20260722-full-int/);
   assert.match(html, /teacher-center-ui\.js\?v=20260721-phase4/);
   // Phase 19: Forms Center (and other expansion UIs) lazy-load via platform-perf
   assert.match(html, /platform-perf\.js\?v=/);

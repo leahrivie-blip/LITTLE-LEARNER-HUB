@@ -1,7 +1,9 @@
 # Overnight decisions and blockers
 
-**Branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 18 Testing and Preview Lab)
+**Branch:** `testing/full-platform-integration-2026-07` (continuation after integration checkpoint)  
+**Phase 20 backup:** `backup/director-family-phases-1-20`  
+**Frozen feature branch:** `cursor/director-family-foundation-bc66`  
+**Updated:** 2026-07-22 (Testing-only full platform integration checkpoint)
 
 ## Decisions
 
@@ -135,7 +137,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 20 completed 2026-07-22** — see `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md`.
 
-**Do not begin the testing-site integration checkpoint or Phase 21** without separate instructions.
+**Testing-only full platform integration checkpoint completed 2026-07-22** — see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`. Continuation branch: `testing/full-platform-integration-2026-07`. Backup: `backup/director-family-phases-1-20`.
+
+**Do not begin Phase 21** without separate instructions. Never merge to `main` / never deploy production from this checkpoint.
 
 ## Phase 14 notes
 
@@ -184,10 +188,17 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Failed-save metadata is sanitized (no passwords, tokens, message bodies, medical content).
 - Deferred: full screen-reader certification, every legacy modal focus-trap migration, cloud draft sync beyond Lab simulation.
 
+## Integration checkpoint notes (2026-07-22)
+
+- `origin/main` (`204fa01`) was already an ancestor of Phase 20 tip — merge was a no-op; **zero conflicts**.
+- Shell cache busters aligned to `20260722-full-int` / `llh-shell-v109-full-int` so main PWA + Phase tip assets stay consistent.
+- Production remains untouched; testing deploy is **manual owner step** only (no agent Render hook).
+- Deferred: Phase 21, production migration, merge to main.
+
 ## Phase 20 notes / permissions
 
 - Security review is a Testing Lab checklist + rate limits — not formal certification.
 - Migration simulator: fake organizations only; inspect/preview/confirm/rollback; production rejects.
 - Release Readiness is computer-first; phones show status summary only.
-- Integration plan documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — not executed in Phase 20.
-- Deferred: real production migration, pen test, testing-site deploy, merge to main, Phase 21.
+- Integration plan documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — executed as testing-only checkpoint; see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`.
+- Deferred: real production migration, pen test, merge to main, Phase 21.

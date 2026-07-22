@@ -1,19 +1,22 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 20 Security / Migration / Release Readiness complete; integration checkpoint and Phase 21 not started)
+**Status date:** 2026-07-22 (Testing-only full platform integration checkpoint complete; Phase 21 not started)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
+**Canonical continuation branch:** `testing/full-platform-integration-2026-07`  
+**Phase 20 backup:** `backup/director-family-phases-1-20` @ `d731a3951a152028b0539981a8c6b11b8d26fc76`  
+**Frozen feature branch (do not delete):** `cursor/director-family-foundation-bc66` @ `d731a395…`
 
 ---
 
 ## Start Here
 
 1. Fetch the repository: `git fetch origin`
-2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
-3. Read this handoff document end to end
-4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–20 automated tests (commands below; include `npm run test:security-migration-phase20`)
-6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** checkpoint (**testing-site integration** or **Phase 21** — do not start without separate instructions)
+2. Check out the **continuation** branch: `git checkout testing/full-platform-integration-2026-07` then `git pull origin testing/full-platform-integration-2026-07`
+3. Read this handoff document end to end and `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`
+4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324) (Phase 1–20 history) and the integration branch tip
+5. Run all Phase 1–20 automated tests (commands below; include `npm run test:security-migration-phase20`) plus main-branch auth/membership smoke listed in the integration report
+6. Confirm testing-environment safety rules before any preview enablement or testing deploy
+7. Continue only from the next **approved** checkpoint (**Phase 21** — do not start without separate instructions)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -39,6 +42,7 @@ Build a private, testing-only foundation for:
 - **Testing and Preview Lab** (Phase 18) — private admin lab for scenarios, fake logins, role/device preview, resets — `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`
 - **Accessibility, Performance, Reliability, Recovery** (Phase 19) — shared a11y/perf/resilience helpers, lazy-loaded expansion UIs, Testing Lab health + fake backup/restore — `docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`
 - **Security, Data Migration, Release Readiness** (Phase 20) — security review foundations, fake migration simulator, Release Readiness Center — `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md` + `docs/TESTING_SITE_INTEGRATION_PLAN.md`
+- **Testing-only full platform integration** — main + Phases 1–20 on `testing/full-platform-integration-2026-07` — `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -180,7 +184,7 @@ Phase tip history (newest first):
 
 ### NOT STARTED
 
-- **Phase 21** / testing-site integration checkpoint and later owner-approved work
+- **Phase 21** and later owner-approved work (integration checkpoint complete)
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
 - Real outbound email/SMS delivery of assignment links and reminders
@@ -580,7 +584,7 @@ Full Phase 1–20 regression: **PASS**. See `docs/PHASE_20_SECURITY_MIGRATION_RE
 
 ## Next checkpoint recommendation
 
-**Do not begin the testing-site integration checkpoint or Phase 21** without separate owner instructions.
+**Do not begin Phase 21** without separate owner instructions. Never merge to `main` / never deploy production from the integration branch.
 
 Until then:
 
@@ -602,7 +606,7 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 3. Run the full Phase 1–20 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on (including `ALLOW_TESTING_LAB_ADMIN_PREVIEW`), `DISABLE_STRIPE_CHECKOUT=true`
 5. Smoke Testing Lab → Release Readiness → Migration inspect/preview (do not apply on shared hosts without intent)
-6. Continue only with owner-written integration checkpoint or Phase 21 requirements
+6. Continue only with owner-written Phase 21 requirements
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 

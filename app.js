@@ -53696,6 +53696,9 @@ document.addEventListener("submit", async (event) => {
     const trustDevice = form.get("trustDevice") !== null;
     const session = await adminLogin(email, password, code);
     setAdminSession({ ...session, trustedDevice: trustDevice });
+    // Paint Admin shell/nav immediately so unlock is usable before slower site-content/analytics loads.
+    if (typeof renderAdminAccessShell === "function") renderAdminAccessShell();
+    if (typeof renderAdminSectionNav === "function") renderAdminSectionNav();
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
     if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
       await loadExpansionFeatureFlagsFromBackend().catch(() => {});

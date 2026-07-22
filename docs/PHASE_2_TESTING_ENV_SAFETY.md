@@ -66,9 +66,19 @@ Keep / confirm on the **testing** Render service only:
 | Fake-account domain | `@example.invalid` only in Lab fixtures |
 | Rate limits | Admin login + sensitive Lab POSTs limited in-process |
 | Secrets in logs / reports / screenshots | Sanitized — no passwords, tokens, or private PHI |
-| Integration checkpoint | Documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — **not** executed in Phase 20 |
+| Integration checkpoint | **Complete** on `testing/full-platform-integration-2026-07` — see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md` |
 
-See also: `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md`, `scripts/phase20-security-data-model.js`, `scripts/org-permissions.js`.
+## Integration checkpoint addendum (2026-07-22)
+
+| Check | Result |
+|-------|--------|
+| Backup branch | `backup/director-family-phases-1-20` @ `d731a395…` |
+| Main SHA in testing | `204fa013…` (already ancestor; zero conflicts) |
+| Testing SITE_URL | `little-learner-hub-testing.onrender.com` |
+| Testing DB | `local-json` (`/tmp/llh-testing-store.json`) — not production |
+| Kill switches | Stripe checkout / outbound email / AI disabled on testing |
+| Agent deploy | **Not available** — owner Manual Deploy testing service only |
+| Production | Healthy / unchanged; expansion feature-flags 404 |
 
 ## Agent limitations
 

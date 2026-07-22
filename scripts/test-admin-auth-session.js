@@ -28,7 +28,8 @@ test("server preserves adminSessions across stale writeStore clones", () => {
   assert.match(serverJs, /function mergeStorePreserveAdminSessions\(/);
   assert.match(serverJs, /preserve adminSessions/);
   assert.match(serverJs, /mergeStorePreserveAdminSessions\(mergeStorePreferNewerSiteContent\(store\)\)/);
-  assert.match(serverJs, /storeCache = mergeStorePreserveAdminSessions\(store\)/);
+  // Live-site write path preserves email campaigns around adminSessions (main + Phase tip).
+  assert.match(serverJs, /storeCache = mergeStorePreserveEmailCampaigns\(mergeStorePreserveAdminSessions\(store\)\)/);
   assert.match(serverJs, /Always mutate the live cache/);
 });
 
@@ -56,13 +57,14 @@ test("client detects expired admin server session and offers re-unlock", () => {
 });
 
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
+  const CACHE_V = "20260722-full-int";
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260721-homescreen-sw");
-  assert.equal(indexJs, "20260721-homescreen-sw");
-  assert.match(sw, /styles\.css\?v=20260721-homescreen-sw/);
-  assert.match(sw, /app\.js\?v=20260721-homescreen-sw/);
-  assert.match(sw, /llh-shell-v108-homescreen-sw/);
+  assert.equal(indexCss, CACHE_V);
+  assert.equal(indexJs, CACHE_V);
+  assert.match(sw, new RegExp(`styles\\.css\\?v=${CACHE_V}`));
+  assert.match(sw, new RegExp(`app\\.js\\?v=${CACHE_V}`));
+  assert.match(sw, /llh-shell-v109-full-int/);
 });
 
 test("admin session heartbeat refreshes unlock without random logout", () => {
