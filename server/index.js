@@ -6244,6 +6244,19 @@ async function handleSyncPasswordAfterFirebase(request, response) {
 }
 
 async function handleAdminLogin(request, response) {
+  const security = require("../scripts/phase20-security-data-model.js");
+  const rate = security.checkRateLimit(security.clientKeyFromRequest(request, "admin-login"), {
+    limit: 8,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    jsonResponse(response, 429, {
+      error: "Too many admin login attempts. Try again shortly.",
+      code: "rate_limited",
+      retryAfterSec: rate.retryAfterSec,
+    });
+    return;
+  }
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
@@ -6256,6 +6269,12 @@ async function handleAdminLogin(request, response) {
     && timingSafeEqualText(password, ADMIN_PASSWORD)
     && timingSafeEqualText(code, ADMIN_ACCESS_CODE);
   if (!valid) {
+    // Do not echo which field failed; never log password/code.
+    console.warn("[admin-login]", JSON.stringify(security.sanitizeErrorForLog({
+      code: "admin_login_failed",
+      message: "Invalid admin credentials",
+      surface: "admin_login",
+    })));
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
     return;
   }
@@ -6271,7 +6290,7 @@ async function handleAdminLogin(request, response) {
     jsonResponse(response, 500, {
       error: "Admin login succeeded locally but the session could not be saved. Please try again.",
       code: "admin_session_persist_failed",
-      hint: error?.message || "Store write failed.",
+      hint: security.sanitizeErrorForLog({ message: error?.message || "Store write failed.", code: "admin_session_persist_failed" }).message,
     });
   }
 }
@@ -15506,6 +15525,8 @@ function getTestingLabApi() {
       normalizeEmail,
       expansionEnvironment,
       getLaunchReadiness: launchReadinessStatus,
+      getGitSha: () => String(process.env.LLH_GIT_SHA || process.env.GIT_COMMIT || "").slice(0, 40),
+      getBranchName: () => String(process.env.LLH_GIT_BRANCH || "cursor/director-family-foundation-bc66"),
     });
   }
   return _testingLabApi;

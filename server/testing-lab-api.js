@@ -10,6 +10,8 @@ const familyModel = require("../scripts/family-foundation-data-model.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
 const { createPlatformResilienceHandlers } = require("./platform-resilience-api.js");
 const resilienceModel = require("../scripts/platform-resilience-data-model.js");
+const { createPhase20Handlers } = require("./phase20-api.js");
+const securityModel = require("../scripts/phase20-security-data-model.js");
 
 const BASE = "/api/testing-lab";
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
@@ -70,6 +72,8 @@ function createTestingLabApi({
   normalizeEmail,
   expansionEnvironment,
   getLaunchReadiness,
+  getGitSha,
+  getBranchName,
 }) {
   function env() {
     return resolveEnv(expansionEnvironment);
@@ -131,6 +135,20 @@ function createTestingLabApi({
     testingBanner: model.TESTING_BANNER,
   });
 
+  const phase20 = createPhase20Handlers({
+    readStore,
+    writeStore,
+    jsonResponse,
+    readJson,
+    assertLabAccess,
+    deny,
+    env,
+    getLaunchReadiness,
+    testingBanner: model.TESTING_BANNER,
+    getGitSha,
+    getBranchName,
+  });
+
   async function handleStatus(request, response, ctx) {
     const store = readStore();
     if (!assertLabAccess(store, response)) return;
@@ -141,8 +159,10 @@ function createTestingLabApi({
       ok: true,
       phase: 18,
       resiliencePhase: 19,
+      securityMigrationPhase: 20,
       featureMarker: "phase18-testing-lab",
       phase19Marker: resilienceModel.FEATURE_MARKER,
+      phase20Marker: securityModel.FEATURE_MARKER,
       testingBanner: model.TESTING_BANNER,
       testingLab: true,
       noStripe: true,
@@ -584,6 +604,14 @@ function createTestingLabApi({
     if (method === "POST" && path === `${BASE}/restore/confirm`) return (req, res, ctx) => resilience.handleRestoreConfirm(req, res, ctx);
     if (method === "POST" && path === `${BASE}/resilience/seed`) return (req, res, ctx) => resilience.handleSeedFixtures(req, res, ctx);
     if (method === "POST" && path === `${BASE}/performance/record`) return (req, res, ctx) => resilience.handlePerfRecord(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/security-review`) return (req, res, ctx) => phase20.handleSecurityReview(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/release-readiness`) return (req, res, ctx) => phase20.handleReleaseReadiness(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/migration/inspect`) return (req, res, ctx) => phase20.handleMigrationInspect(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/migration/history`) return (req, res, ctx) => phase20.handleMigrationHistory(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/migration/report`) return (req, res, ctx) => phase20.handleMigrationReport(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/migration/preview`) return (req, res, ctx) => phase20.handleMigrationPreview(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/migration/apply`) return (req, res, ctx) => phase20.handleMigrationApply(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/migration/rollback`) return (req, res, ctx) => phase20.handleMigrationRollback(req, res, ctx);
     return null;
   }
 

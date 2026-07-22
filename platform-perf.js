@@ -32,7 +32,7 @@
       "licensing-center-ui.js?v=20260722-phase12-14-remediation",
     ],
     "testing-lab": [
-      "testing-lab-ui.js?v=20260722-phase19",
+      "testing-lab-ui.js?v=20260722-phase20",
     ],
   });
 

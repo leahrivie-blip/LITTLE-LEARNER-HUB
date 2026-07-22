@@ -9,6 +9,12 @@
     panel: "home",
     dashboard: null,
     health: null,
+    releaseReadiness: null,
+    migrationInspect: null,
+    migrationPreview: null,
+    migrationReport: null,
+    migrationHistory: null,
+    lastMigrationBackupId: "",
     restorePreview: null,
     lastBackup: null,
     activityPage: 1,
@@ -52,6 +58,8 @@
     const items = [
       ["home", "Home"],
       ["health", "Health"],
+      ["release", "Release Readiness"],
+      ["migration", "Migration"],
       ["accounts", "Accounts"],
       ["scenarios", "Scenarios"],
       ["preview", "Role Preview"],
@@ -352,8 +360,145 @@
     `;
   }
 
+  function releaseHtml() {
+    const r = state.releaseReadiness || {};
+    const id = r.identity || {};
+    const kills = r.killSwitches || {};
+    const flags = r.featureFlags || {};
+    const mig = r.migrationReadiness || {};
+    const prod = r.productionLock || {};
+    return `
+      <section class="tl-section" data-tl-release data-feature-marker="phase20-release-readiness" aria-labelledby="tl-release-heading">
+        <h3 id="tl-release-heading">Release Readiness Center</h3>
+        <p class="tl-banner" role="status">${escapeHtml(TESTING_BANNER)}</p>
+        <p class="tl-computer-recommended" data-tl-computer-recommended>Release Readiness is computer recommended</p>
+        <p class="muted-copy">Computer-first checklist for safe future integration. Does not deploy, merge to main, or run production migration.</p>
+        <div class="tl-status-row" role="list">
+          <div class="tl-metric fh-card static" role="listitem">
+            <strong>Branch</strong>
+            <span>${escapeHtml(id.branchName || "—")}</span>
+            <span class="muted-copy">${escapeHtml(id.gitSha || "sha unset")}</span>
+          </div>
+          <div class="tl-metric fh-card static" role="listitem">
+            <strong>Storage</strong>
+            <span>${escapeHtml(id.databaseProvider || "—")}</span>
+            <span class="llh-status-pill llh-status-pill--${id.liveProduction ? "error" : "success"}"><span class="llh-status-pill__label">${id.liveProduction ? "Live host" : "Testing"}:</span> ${escapeHtml(id.nodeEnv || "")}</span>
+          </div>
+          <div class="tl-metric fh-card static" role="listitem">
+            <strong>Migration</strong>
+            <span>${escapeHtml(mig.status || "—")}</span>
+            <span class="muted-copy">${escapeHtml(mig.note || "")}</span>
+          </div>
+        </div>
+        <h4>External-service kill switches</h4>
+        <ul class="fh-card-list">
+          ${Object.entries(kills).map(([key, status]) => `
+            <li class="fh-card static"><strong>${escapeHtml(key)}</strong>
+              <span class="llh-status-pill llh-status-pill--${status === "disabled" ? "success" : "warning"}"><span class="llh-status-pill__label">Status:</span> ${escapeHtml(status)}</span>
+            </li>
+          `).join("")}
+        </ul>
+        <h4>Feature flags</h4>
+        <ul class="fh-card-list">
+          ${Object.entries(flags).map(([key, on]) => `
+            <li class="fh-card static"><strong>${escapeHtml(key)}</strong>
+              <span class="llh-status-pill llh-status-pill--${on ? "success" : "info"}"><span class="llh-status-pill__label">${on ? "On" : "Off"}:</span> stored</span>
+            </li>
+          `).join("")}
+        </ul>
+        <h4>Production lock</h4>
+        <ul class="fh-card-list">
+          <li class="fh-card static">Lab rejected on production: <strong>${prod.testingLabRejectedOnProduction ? "yes" : "check"}</strong></li>
+          <li class="fh-card static">Migration mutations rejected on production: <strong>${prod.migrationMutationsRejectedOnProduction ? "yes" : "check"}</strong></li>
+          <li class="fh-card static">main untouched policy: <strong>${prod.mainUntouched ? "yes" : "check"}</strong></li>
+        </ul>
+        <h4>Security checklist (summary)</h4>
+        <ul class="fh-card-list">
+          ${(r.securityChecklist || []).slice(0, 8).map((row) => `
+            <li class="fh-card static">
+              <strong>${escapeHtml(row.label)}</strong>
+              <span class="llh-status-pill llh-status-pill--${row.status === "hardened" ? "success" : "warning"}"><span class="llh-status-pill__label">${escapeHtml(row.status)}:</span> review</span>
+            </li>
+          `).join("")}
+        </ul>
+        <h4>Owner manual checklist</h4>
+        <ul class="fh-card-list">
+          ${(r.ownerManualChecklist || []).map((row) => `
+            <li class="fh-card static"><strong>${escapeHtml(row.label)}</strong><span class="muted-copy">${escapeHtml(row.status)}</span></li>
+          `).join("")}
+        </ul>
+        <h4>Known blockers / deferred</h4>
+        <ul class="fh-card-list">
+          ${(r.knownBlockers || []).map((b) => `<li class="fh-card static">${escapeHtml(b)}</li>`).join("") || "<li class=\"muted-copy\">None flagged for this environment</li>"}
+          ${(r.deferredItems || []).slice(0, 6).map((b) => `<li class="fh-card static muted-copy">Deferred: ${escapeHtml(b)}</li>`).join("")}
+        </ul>
+        <div class="tl-actions-row">
+          <button type="button" class="primary-button tl-touch" data-tl-refresh-release>Refresh readiness</button>
+          <button type="button" class="ghost-button tl-touch" data-tl-panel="migration">Open migration simulator</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function migrationHtml() {
+    const insp = state.migrationInspect || {};
+    const preview = state.migrationPreview || {};
+    const report = state.migrationReport || {};
+    return `
+      <section class="tl-section" data-tl-migration data-feature-marker="phase20-migration-simulator" aria-labelledby="tl-mig-heading">
+        <h3 id="tl-mig-heading">Data migration simulator</h3>
+        <p class="tl-banner" role="status">${escapeHtml(TESTING_BANNER)}</p>
+        <p class="muted-copy">Inspect and preview fake-organization links only. Never runs a real production migration. Original records are preserved; apply requires explicit confirmation.</p>
+        <div class="tl-actions-row">
+          <button type="button" class="primary-button tl-touch" data-tl-mig-inspect>Inspect fake org</button>
+          <button type="button" class="ghost-button tl-touch" data-tl-mig-preview>Preview migration</button>
+          <button type="button" class="ghost-button tl-touch" data-tl-mig-report>Export sanitized report</button>
+          <button type="button" class="ghost-button tl-touch" data-tl-mig-history>Show history</button>
+        </div>
+        ${insp.organizationId ? `
+          <h4>Inspection (read-only)</h4>
+          <pre class="tl-pre" aria-label="Migration inspection">${escapeHtml(JSON.stringify({
+            organizationId: insp.organizationId,
+            counts: insp.counts,
+            issues: insp.issues,
+            classroomLabelMatches: insp.classroomLabelMatches,
+            ownershipPreview: insp.ownershipPreview,
+          }, null, 2))}</pre>
+        ` : ""}
+        ${preview.id ? `
+          <h4>Preview — confirm required</h4>
+          <pre class="tl-pre" aria-label="Migration preview">${escapeHtml(JSON.stringify({
+            id: preview.id,
+            wouldCreate: preview.wouldCreate,
+            wouldUpdate: preview.wouldUpdate,
+            wouldSkip: preview.wouldSkip,
+            wouldFlag: preview.wouldFlag,
+          }, null, 2))}</pre>
+          <button type="button" class="primary-button tl-touch" data-tl-mig-apply="${escapeHtml(preview.id)}">Confirm apply fake migration</button>
+        ` : ""}
+        ${state.lastMigrationBackupId ? `
+          <button type="button" class="ghost-button tl-touch" data-tl-mig-rollback="${escapeHtml(state.lastMigrationBackupId)}">Confirm rollback simulation</button>
+        ` : ""}
+        ${report.reportType ? `
+          <h4>Sanitized report</h4>
+          <pre class="tl-pre" aria-label="Sanitized migration report">${escapeHtml(JSON.stringify(report, null, 2))}</pre>
+        ` : ""}
+        ${state.migrationHistory ? `
+          <h4>Migration history</h4>
+          <ul class="fh-card-list">
+            ${(state.migrationHistory.items || []).map((row) => `
+              <li class="fh-card static"><strong>${escapeHtml(row.action)}</strong><span class="muted-copy">${escapeHtml(row.at || "")}</span></li>
+            `).join("") || "<li class=\"muted-copy\">None</li>"}
+          </ul>
+        ` : ""}
+      </section>
+    `;
+  }
+
   function bodyHtml() {
     if (state.panel === "health") return healthHtml();
+    if (state.panel === "release") return releaseHtml();
+    if (state.panel === "migration") return migrationHtml();
     if (state.panel === "accounts") return accountsHtml();
     if (state.panel === "scenarios") return scenariosHtml();
     if (state.panel === "preview") return previewHtml();
@@ -367,6 +512,7 @@
 
   function mobileSummaryHtml() {
     const d = state.dashboard?.dashboard || {};
+    const phone = state.releaseReadiness?.phoneSummary || {};
     const apiPreview = d.rolePreview && d.rolePreview.active !== false ? d.rolePreview : null;
     const previewActive = Boolean(
       state.preview?.id
@@ -383,13 +529,13 @@
       : "";
     const scenarioSafe = d.scenario || "";
     return `
-      <section class="tl-mobile-summary" data-feature-marker="phase18-testing-lab-mobile" data-tl-mobile-summary>
-        <p class="tl-computer-recommended" data-tl-computer-recommended>Testing Lab is computer recommended</p>
-        <h2>Use the computer website for Lab setup</h2>
+      <section class="tl-mobile-summary" data-feature-marker="phase18-testing-lab-mobile" data-phase20-marker="phase20-release-readiness-mobile" data-tl-mobile-summary>
+        <p class="tl-computer-recommended" data-tl-computer-recommended>Release Readiness is computer recommended</p>
+        <h2>Use the computer website for readiness &amp; migration</h2>
         <p class="muted-copy">
-          Scenario setup, fake-account management, role preview controls, resets, and device testing
-          should be completed on the computer website. This phone view is a status summary only —
-          the complete Lab is not available here.
+          Security review details, migration preview/confirm, Release Readiness checklists, scenario setup,
+          fake-account management, role preview, resets, and device testing should be completed on the
+          computer website. This phone view is a status summary only.
         </p>
         <ul class="tl-mobile-status fh-card-list">
           <li class="fh-card static">
@@ -404,12 +550,20 @@
             <strong>Role preview</strong>
             <span class="muted-copy">${escapeHtml(previewLabel)}</span>
           </li>
+          <li class="fh-card static">
+            <strong>Migration readiness</strong>
+            <span class="muted-copy">${escapeHtml(phone.migrationStatus || state.releaseReadiness?.migrationReadiness?.status || "Open on computer")}</span>
+          </li>
+          <li class="fh-card static">
+            <strong>Kill switches</strong>
+            <span class="muted-copy">${phone.killSwitchesOk === false ? "Review on computer" : "Expect disabled on testing"}</span>
+          </li>
         </ul>
         <div class="tl-mobile-actions">
           ${previewActive ? `<button type="button" class="primary-button tl-touch" data-tl-exit-preview>Exit Role Preview</button>` : ""}
           <button type="button" class="ghost-button tl-touch" data-tl-return-app>Return to the normal app</button>
         </div>
-        <p class="muted-copy">No passwords, tokens, or Lab admin controls are shown on phone.</p>
+        <p class="muted-copy">No passwords, tokens, migration controls, or Lab admin tools are shown on phone.</p>
       </section>
     `;
   }
@@ -445,6 +599,13 @@
             state.error = error.message;
           }
         }
+        if (state.panel === "release") {
+          try {
+            state.releaseReadiness = await api("GET", `${BASE}/release-readiness`);
+          } catch (error) {
+            state.error = error.message;
+          }
+        }
         if (state.panel === "audit") {
           try {
             state.activity = await api("GET", `${BASE}/activity?page=${state.activityPage}&pageSize=20`);
@@ -458,6 +619,83 @@
     mount.querySelector("[data-tl-try-again]")?.addEventListener("click", async () => {
       state.error = "";
       await refresh(mount);
+    });
+    mount.querySelector("[data-tl-refresh-release]")?.addEventListener("click", async () => {
+      try {
+        state.releaseReadiness = await api("GET", `${BASE}/release-readiness`);
+        state.notice = "Release readiness refreshed.";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-mig-inspect]")?.addEventListener("click", async () => {
+      try {
+        state.migrationInspect = await api("GET", `${BASE}/migration/inspect`);
+        state.notice = "Inspection complete (no mutations).";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-mig-preview]")?.addEventListener("click", async () => {
+      try {
+        const data = await api("POST", `${BASE}/migration/preview`, {});
+        state.migrationPreview = data.preview;
+        state.migrationReport = data.report;
+        state.notice = "Migration preview ready — confirm required to apply.";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-mig-report]")?.addEventListener("click", async () => {
+      try {
+        const data = await api("GET", `${BASE}/migration/report`);
+        state.migrationReport = data.report;
+        state.notice = "Sanitized report exported (no secrets).";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-mig-history]")?.addEventListener("click", async () => {
+      try {
+        state.migrationHistory = await api("GET", `${BASE}/migration/history`);
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-mig-apply]")?.addEventListener("click", async (event) => {
+      try {
+        const previewId = event.currentTarget.getAttribute("data-tl-mig-apply");
+        const data = await api("POST", `${BASE}/migration/apply`, { previewId, confirm: true });
+        state.lastMigrationBackupId = data.backupId || "";
+        state.notice = "Fake migration applied (session stamp only).";
+        state.migrationHistory = await api("GET", `${BASE}/migration/history`);
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-mig-rollback]")?.addEventListener("click", async (event) => {
+      try {
+        const backupId = event.currentTarget.getAttribute("data-tl-mig-rollback");
+        await api("POST", `${BASE}/migration/rollback`, { backupId, confirm: true });
+        state.notice = "Fake migration rollback simulation complete.";
+        state.migrationHistory = await api("GET", `${BASE}/migration/history`);
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
     });
     mount.querySelector("[data-tl-refresh-health]")?.addEventListener("click", async () => {
       try {
@@ -770,6 +1008,11 @@
     render(mount);
     try {
       state.dashboard = await api("GET", `${BASE}/dashboard`);
+      try {
+        state.releaseReadiness = await api("GET", `${BASE}/release-readiness`);
+      } catch {
+        /* optional for older sessions */
+      }
     } catch (error) {
       state.error = error.message;
     } finally {
