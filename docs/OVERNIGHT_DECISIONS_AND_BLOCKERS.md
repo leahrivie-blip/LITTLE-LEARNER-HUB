@@ -39,3 +39,10 @@ Family views never expose internal notes, waitlist priority rules, other applica
 ## Blockers
 
 None recorded for Phase 12 completion. Next coding waits on **owner-written Phase 13** requirements.
+
+
+## Phase 14
+- Generic testing pack only — not verified state law.
+- Readiness wording: "Ready based on configured checklist" — never universal "compliant".
+- Inspection packets are read-only, time-limited, revocable, audited.
+- Phone shows Computer Recommended for complex licensing tools.

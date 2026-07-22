@@ -38,6 +38,7 @@ const { createFamilyUpdatesApi } = require("./family-updates-api.js");
 const { createFamilyMessagingApi } = require("./family-messaging-api.js");
 const { createEnrollmentApi } = require("./enrollment-api.js");
 const { createRecordsCenterApi } = require("./records-center-api.js");
+const { createLicensingCenterApi } = require("./licensing-center-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15430,6 +15431,21 @@ function getRecordsCenterApi() {
   return _recordsCenterApi;
 }
 
+let _licensingCenterApi;
+function getLicensingCenterApi() {
+  if (!_licensingCenterApi) {
+    _licensingCenterApi = createLicensingCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _licensingCenterApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15481,7 +15497,8 @@ const server = http.createServer(async (request, response) => {
     // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
     if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
       const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
-      const handler = getRecordsCenterApi().matchRoute(request.method, url.pathname, url)
+      const handler = getLicensingCenterApi().matchRoute(request.method, url.pathname, url)
+        || getRecordsCenterApi().matchRoute(request.method, url.pathname, url)
         || getEnrollmentApi().matchRoute(request.method, url.pathname, url)
         || getFamilyMessagingApi().matchRoute(request.method, url.pathname, url)
         || getFamilyUpdatesApi().matchRoute(request.method, url.pathname, url)

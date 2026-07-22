@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 13 complete)
+**Status date:** 2026-07-22 (Phase 14 complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -157,7 +157,8 @@ Phase tip history (newest first):
 - **Phase 10 Family Updates, Daily Reports, Media, and Sharing** — Provider-controlled updates and Daily Report shares, consent-gated testing media placeholders, shared observations/goals, family acknowledgments. See `docs/PHASE_10_FAMILY_UPDATES_MEDIA_COMPLETION_REPORT.md`.
 - **Phase 11 Messaging, Notifications, and Permanent History** — Org-scoped family/provider messaging, in-app notifications, permanent history/export. Outbound email/SMS/push remain disabled. See `docs/PHASE_11_MESSAGING_NOTIFICATIONS_COMPLETION_REPORT.md`.
 - **Phase 13 Records / Phase 12 Enrollment** — Provider enrollment pipeline + Family Hub checklist/offers (testing only; no Stripe enrollment; Enrollment from Home to keep max-five nav with Messages). See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md`.
-- **Phase 13 Records, Documents, and Communication Archive** — see `docs/PHASE_13_RECORDS_DOCUMENTS_COMMUNICATION_ARCHIVE_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
+- **Phase 13 Records, Documents, and Communication Archive** — see `docs/PHASE_13_RECORDS_DOCUMENTS_COMMUNICATION_ARCHIVE_COMPLETION_REPORT.md`
+- Phase 14 Licensing — `docs/PHASE_14_LICENSING_INSPECTION_READINESS_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 
 ### NOT STARTED
 
@@ -452,6 +453,7 @@ npm run test:family-updates-phase10
 npm run test:family-messaging-phase11
 npm run test:family-enrollment-phase12
 npm run test:records-center-phase13
+npm run test:licensing-center-phase14
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -473,7 +475,7 @@ node scripts/capture-family-messaging-phase11-screens.js
 node scripts/capture-enrollment-phase12-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 13 complete)
+### Handoff verification results (2026-07-22, Phase 14 complete)
 
 | Command | Result |
 |---------|--------|
@@ -491,7 +493,8 @@ node scripts/capture-enrollment-phase12-screens.js
 | `npm run test:family-updates-phase10` | PASS (14/14) |
 | `npm run test:family-messaging-phase11` | PASS (13/13) |
 | `npm run test:family-enrollment-phase12
-npm run test:records-center-phase13` | PASS (19/19) |
+npm run test:records-center-phase13
+npm run test:licensing-center-phase14` | PASS (19/19) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
@@ -537,7 +540,7 @@ Phase gates are the scripts above.
 
 ---
 
-## Phase 14 recommendation
+## Phase 15 recommendation
 
 When approved, start **Phase 13** only from owner-written requirements. Until then:
 
@@ -556,7 +559,8 @@ See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISION
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
 3. Run the full Phase 1–12 test suite; confirm all PASS (include `npm run test:family-enrollment-phase12
-npm run test:records-center-phase13` — **19 PASS**)
+npm run test:records-center-phase13
+npm run test:licensing-center-phase14` — **19 PASS**)
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, `ALLOW_FAMILY_HUB_TESTING_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=true` (production must keep Family Hub locked; no production media storage; no Stripe enrollment)
 5. Smoke Director Center (Families + Family Updates + Family Messaging + Enrollment) → Family Hub Home → Enrollment checklist / Messages
 6. Wait for owner-written Phase 13 requirements before coding

@@ -25,6 +25,8 @@ const messagingModel = require("../scripts/family-messaging-data-model.js");
 const messagingFixtures = require("../scripts/family-messaging-fixtures.js");
 const enrollmentFixtures = require("../scripts/enrollment-fixtures.js");
 const recordsFixtures = require("../scripts/records-center-fixtures.js");
+const licensingFixtures = require("../scripts/licensing-center-fixtures.js");
+const licensingModel = require("../scripts/licensing-center-data-model.js");
 const { createFamilyHubMessagingHandlers } = require("./family-hub-messaging-handlers.js");
 const { createFamilyHubEnrollmentHandlers } = require("./family-hub-enrollment-handlers.js");
 const { createFamilyHubRecordsHandlers } = require("./family-hub-records-handlers.js");
@@ -157,6 +159,7 @@ function createFamilyHubApi({
     messagingFixtures.ensurePhase11Preview(store, { organizationId: actor.organizationId });
     enrollmentFixtures.ensurePhase12Preview(store, { organizationId: actor.organizationId });
     recordsFixtures.ensurePhase13Preview(store, { organizationId: actor.organizationId });
+    licensingFixtures.ensurePhase14Preview(store, { organizationId: actor.organizationId });
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     // For messaging capability, also include messages-only children and deny when none are messages-capable.
     if (capability === "messages") {
@@ -389,12 +392,13 @@ function createFamilyHubApi({
     messagingFixtures.ensurePhase11Preview(store, { organizationId: actor.organizationId });
     enrollmentFixtures.ensurePhase12Preview(store, { organizationId: actor.organizationId });
     recordsFixtures.ensurePhase13Preview(store, { organizationId: actor.organizationId });
+    licensingFixtures.ensurePhase14Preview(store, { organizationId: actor.organizationId });
     writeStore(store);
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     const unreadMessages = messagingModel.unreadCountForEmail(store, actor.organizationId, actor.email);
     jsonResponse(response, 200, {
       ok: true,
-      phase: 13,
+      phase: 14,
       preview: true,
       label: TESTING_BANNER,
       familyHub: true,
@@ -416,6 +420,7 @@ function createFamilyHubApi({
       noPublicMediaUrls: true,
       noStripeEnrollment: true,
       noPublicRecordUrls: true,
+      noLegalComplianceClaim: true,
     });
   }
 
@@ -1015,11 +1020,58 @@ function createFamilyHubApi({
     const seeded11 = messagingFixtures.ensurePhase11Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded12 = enrollmentFixtures.ensurePhase12Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded13 = recordsFixtures.ensurePhase13Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
+    const seeded14 = licensingFixtures.ensurePhase14Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     if (!store.siteContent) store.siteContent = {};
     if (!store.siteContent.featureFlags) store.siteContent.featureFlags = {};
     store.siteContent.featureFlags.familyHub = true;
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, label: TESTING_BANNER });
+    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, phase14: seeded14, label: TESTING_BANNER });
+  }
+
+  async function handleLicensingTasks(request, response) {
+    const ctx = withGuardian(request, response, { capability: "digital" });
+    if (!ctx) return;
+    const { store, actor, children } = ctx;
+    licensingModel.ensureLicensingStore(store);
+    const permittedChildIds = new Set((children || []).map((c) => c.childId));
+    const familyVisibleStatuses = new Set([
+      licensingModel.READINESS.MISSING,
+      licensingModel.READINESS.EXPIRING_SOON,
+      licensingModel.READINESS.EXPIRED,
+      licensingModel.READINESS.DUE_SOON,
+      licensingModel.READINESS.WAITING_UPLOAD,
+      licensingModel.READINESS.WAITING_SIGNATURE,
+    ]);
+    const tasks = listValues(store.licensingCenter.requirements)
+      .filter((row) => row.organizationId === actor.organizationId && !row.archived && !row.notApplicable)
+      .filter((row) => row.scope === "child" && row.relatedChildId && permittedChildIds.has(row.relatedChildId))
+      .filter((row) => /immunization|health|permission|emergency|medication/i.test(`${row.key} ${row.category} ${row.title}`))
+      .map((row) => licensingModel.syncRequirementToRecords(store, row))
+      .filter((row) => familyVisibleStatuses.has(row.status))
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status,
+        childId: row.relatedChildId,
+        category: row.category,
+        plainLanguage: row.plainLanguage,
+        dueDate: row.dueDate || "",
+        expirationDate: row.expirationDate || "",
+        computerRecommended: true,
+        testingOnly: true,
+        noMedicalDecision: true,
+        note: "Document organization only — not a medical decision or compliance certification.",
+      }));
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      label: TESTING_BANNER,
+      disclaimer: licensingModel.DISCLAIMER,
+      tasks,
+      computerRecommended: true,
+      noLegalComplianceClaim: true,
+      noMedicalDecisions: true,
+    });
   }
 
   async function handleUpdatesFeed(request, response, url) {
@@ -1220,6 +1272,7 @@ function createFamilyHubApi({
       const id = decodeURIComponent(path.slice(`${base}/records/`.length));
       return (req, res) => recordsHandlers.handleRecordDetail(req, res, id);
     }
+    if (method === "GET" && path === `${base}/licensing/tasks`) return (req, res) => handleLicensingTasks(req, res);
     if (method === "GET" && path === `${base}/updates`) return (req, res) => handleUpdatesFeed(req, res, url);
     if (method === "GET" && path === `${base}/daily-reports`) return (req, res) => handleDailyReports(req, res, url);
     if (method === "GET" && path === `${base}/media`) return (req, res) => handleFamilyMediaList(req, res, url);

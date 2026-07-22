@@ -7,7 +7,7 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 13 Records (and Phase 12 Enrollment)**.
+Private preview work through **Phase 14 Records (and Phase 12 Enrollment)**.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -59,6 +59,7 @@ npm run test:family-updates-phase10
 npm run test:family-messaging-phase11
 npm run test:family-enrollment-phase12
 npm run test:records-center-phase13
+npm run test:licensing-center-phase14
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -67,7 +68,8 @@ npm run test:account-access
 
 Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 Started from `b69707e`. Focused suite: `npm run test:family-enrollment-phase12
-npm run test:records-center-phase13` — **19 PASS**. Phase 13 not started. Production Family Hub locked. `main` untouched. No Stripe enrollment.
+npm run test:records-center-phase13
+npm run test:licensing-center-phase14` — **19 PASS**. Phase 13 not started. Production Family Hub locked. `main` untouched. No Stripe enrollment.
 
 ### Suggested PR title
 

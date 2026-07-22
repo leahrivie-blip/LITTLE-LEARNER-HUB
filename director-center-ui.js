@@ -146,6 +146,8 @@
         // Enrollment tab loads via renderEnrollmentTab after paint.
       } else if (state.tab === "records_center") {
         // Records Center tab loads via renderRecordsCenterTab after paint.
+      } else if (state.tab === "licensing_center") {
+        // Licensing Center tab loads via renderLicensingCenterTab after paint.
       } else if (state.tab === "roles_permissions") {
         state.roles = await api("GET", "/api/director-center/roles-permissions");
         state.limits = await api("GET", `/api/director-center/limits?additionalClassrooms=${encodeURIComponent(state.addonQty || 0)}`);
@@ -182,6 +184,7 @@
       ["family_messaging", "Family Messaging"],
       ["enrollment", "Enrollment"],
       ["records_center", "Records"],
+      ["licensing_center", "Licensing"],
       ["program_profile", "Program Profile"],
       ["roles_permissions", "Roles and Permissions"],
     ];
@@ -676,6 +679,9 @@
     if (state.tab === "records_center") {
       return `<div id="dc-records-center-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Records Center…</p></div>`;
     }
+    if (state.tab === "licensing_center") {
+      return `<div id="dc-licensing-center-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Licensing Center…</p></div>`;
+    }
     if (state.tab === "program_profile") return programProfileHtml();
     if (state.tab === "roles_permissions") return rolesHtml();
     return "";
@@ -737,6 +743,9 @@
     }
     if (state.tab === "records_center" && typeof global.renderRecordsCenterTab === "function") {
       global.renderRecordsCenterTab(section.querySelector("#dc-records-center-mount") || section);
+    }
+    if (state.tab === "licensing_center" && typeof global.renderLicensingCenterTab === "function") {
+      global.renderLicensingCenterTab(section.querySelector("#dc-licensing-center-mount") || section);
     }
   }
 
