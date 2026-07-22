@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-21 (Phase 6 complete)
+**Status date:** 2026-07-22 (Phase 7 complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -11,9 +11,9 @@
 2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
 3. Read this handoff document end to end
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–6 automated tests (commands below)
+5. Run all Phase 1–7 automated tests (commands below)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (Phase 7+ are not started)
+7. Continue only from the next **approved** phase (Phase 8+ are not started)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -24,7 +24,7 @@ Build a private, testing-only foundation for:
 
 - **Director Center** — organization, classrooms, staff, children, program profile, roles
 - **Teacher Classroom Experience** — classroom week, events, daily logs, observations, goals, timeline
-- **Forms Center** — Manual Custom Form Builder (draft / publish / archive) plus a **Built-In Form Library** (29 starter templates, browse/search/preview/favorite, "Use This Template" → editable program copy) plus **Assignments, Responses, and Signatures** (send/assign a published form, complete it via a safe testing link, sign electronically, review/approve, and file the response under the correct Child/Staff/Classroom/Program record)
+- **Forms Center** — Manual Custom Form Builder (draft / publish / archive) plus a **Built-In Form Library** (29 starter templates, browse/search/preview/favorite, "Use This Template" → editable program copy) plus **Assignments, Responses, and Signatures** (send/assign a published form, complete it via a safe testing link, sign electronically, review/approve, and file the response under the correct Child/Staff/Classroom/Program record) plus an **AI Form Builder** foundation (describe/paste → structured draft suggestions → review → save as program-owned draft; live AI disabled; mock fixtures only)
 - Future **Family Hub** / real parent accounts (explicitly not started; must stay OFF)
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
@@ -48,7 +48,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify: `git rev-parse HEAD`) |
-| Tip message | Phase 6 Form Responses, Signatures, and Child Profile Storage complete |
+| Tip message | Phase 7 AI-Assisted Form Builder Foundation complete |
 
 Confirm tip after pull:
 
@@ -140,12 +140,14 @@ Phase tip history (newest first):
 - **Phase 4 Manual Custom Form Builder** — Forms Center Home / My Forms / Templates / Archived / Builder / Preview; draft autosave; immutable publish versions; duplicate/archive/restore; no responses
 - **Phase 5 Built-In Form Library** — 29 system-owned starter templates inside Forms Center; Built-In Library browse/search/filter/sort; preview; favorites; recently previewed/copied; "Use This Template" → new organization-owned draft with fresh IDs; template versioning (newer-version demo) and retirement (retired-template demo) that never breaks existing organization copies; structured importer (system-admin only); role-scoped access (director/owner full, teacher/assistant only with director-granted override, system-admin-only template management). See `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`.
 - **Phase 6 Form Assignments, Responses, and Signatures** — Send/Assign a published form to one/many children, guardians (incl. all verified guardians for a child), staff, classrooms, or the whole program; safe hashed/expiring/revocable testing links (never on production); mobile-first recipient completion page with sections, autosave, review, typed + drawn signatures, and printable confirmation; full response status workflow with review/approve/return/reopen/void/archive; Child/Staff/Classroom/Program filing by permanent ID; form-version protection; Medication Administration Log with non-destructive corrections. See `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`.
+- **Phase 7 AI-Assisted Form Builder Foundation** — Describe or paste a childcare form → deterministic mock suggestions (live AI disabled) → review warnings → edit suggested fields → save as a new program-owned draft with a permanent ID → continue in the Phase 4 Form Builder. Never auto-publishes, sends, signs, or overwrites. Production rejects mock AI. See `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md`.
 
 ### NOT STARTED
 
-- **Phase 7** AI Form Builder
 - **Phase 8** real parent accounts (claiming/completing assigned forms)
 - **Phase 9** full Family Hub interface
+- Real approved AI provider connection (provider interface is ready; live calls stay off)
+- PDF / Word / image / scanned-form extraction (import foundation prepared only)
 - Real outbound email/SMS delivery of assignment links and reminders
 - Live pricing changes
 - Production migration
@@ -292,6 +294,15 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 | `scripts/test-forms-center-phase6-documents.js` | Design addition tests |
 | `scripts/capture-forms-center-phase6-documents-screens.js` | Screenshots → `/opt/cursor/artifacts/forms-center-phase6-documents/` |
 | `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` | Completion report (see §27 for the design addition) |
+| `scripts/ai-form-builder-provider.js` | Phase 7: clean AI provider interface + mock/live mode resolution + input sanitization |
+| `scripts/ai-form-builder-fixtures.js` | Phase 7: deterministic fake AI suggestions |
+| `scripts/ai-form-builder-analyzer.js` | Phase 7: review warnings before save |
+| `scripts/ai-form-builder-data-model.js` | Phase 7: AI builder session store + audit |
+| `server/ai-form-builder-api.js` | Phase 7: `/api/forms-center/ai-builder/*` |
+| `ai-form-builder-ui.js` | Phase 7: Forms Center AI Form Builder UI |
+| `scripts/test-forms-center-phase7.js` | Phase 7 tests |
+| `scripts/capture-forms-center-phase7-screens.js` | Screenshots → `/opt/cursor/artifacts/forms-center-phase7/` |
+| `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md` | Phase 7 completion report |
 
 ### Shell wiring (shared)
 
@@ -373,7 +384,7 @@ Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html
 npm run check
 ```
 
-### Phase 1–6 automated suite (run all before handing off or starting Phase 7)
+### Phase 1–7 automated suite (run all before handing off or starting Phase 8)
 
 ```bash
 npm run test:director-family-foundation
@@ -383,6 +394,7 @@ npm run test:forms-center-phase4
 npm run test:forms-center-phase5
 npm run test:forms-center-phase6
 npm run test:forms-center-phase6-documents
+npm run test:forms-center-phase7
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -396,9 +408,10 @@ node scripts/capture-forms-center-phase4-screens.js
 node scripts/capture-forms-center-phase5-screens.js
 node scripts/capture-forms-center-phase6-screens.js
 node scripts/capture-forms-center-phase6-documents-screens.js
+node scripts/capture-forms-center-phase7-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 6 + design addition)
+### Handoff verification results (2026-07-22, Phase 7 complete)
 
 | Command | Result |
 |---------|--------|
@@ -410,14 +423,12 @@ node scripts/capture-forms-center-phase6-documents-screens.js
 | `npm run test:forms-center-phase5` | PASS (43/43) |
 | `npm run test:forms-center-phase6` | PASS (38/38) |
 | `npm run test:forms-center-phase6-documents` | PASS (15/15) |
+| `npm run test:forms-center-phase7` | PASS |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-**198 total assertions across all 9 suites, zero failures.** Browser smoke tests
-(homepage, curriculum UX, etc.) are separate from this workstream and were spot-checked
-to confirm no new regressions; any failures there reproduce identically on the
-unmodified branch tip (confirmed via `git stash`) and predate Phase 6. Phase 1–6 gates
-are the scripts above.
+Full Phase 1–7 regression re-run before handoff — all suites PASS, zero failures.
+Phase gates are the scripts above.
 
 ---
 
@@ -427,7 +438,7 @@ are the scripts above.
 2. **Mobile auth checkboxes** — Fixed in `cecbb24`; do not reintroduce giant checkbox CSS that scrambles signup/admin layouts.
 3. **Admin sidebar without member login** — Fixed via `admin-unlocked` shell + Director Center CTA (`744d48b` / `80949ff`); preserve this when editing nav CSS.
 4. **Testing deploy lag** — Agents cannot auto-deploy Render; owner must Manual Deploy testing after pushes; confirm cache busters match tip.
-5. **PR title may still say “Phase 2”** — Body/docs track Phases 1–6; update title when convenient.
+5. **PR title may still say “Phase 2”** — Body/docs track Phases 1–7; update title when convenient.
 6. **ManagePullRequest `update_pr` may fail** on repo rename casing (`little-learner-hub` vs `LITTLE-LEARNER-HUB`); pushes still update the PR head; use GitHub UI or API if body update tooling fails.
 7. **Hard-coded cache-buster regexes in tests** — `test-platform-nav.js` and `test-director-center-phase3.js` previously pinned an exact `?v=20260721-phase4` string for `forms-center-ui.js`/`styles.css`; relaxed to `\?v=` so future version bumps don't break unrelated test files. Prefer version-agnostic assertions for shared shell files going forward.
 8. **Standalone re-render modules need a bind-guard** — `forms-responses-ui.js` and `form-recipient-ui.js` re-render their whole container on every state change; `bind()` in both files guards against re-attaching duplicate event listeners with a `dataset.*Bound` flag. If you add another standalone re-rendering module, copy this guard — omitting it silently double/triple-fires click handlers (this caused a real bug during Phase 6 development: a checkbox toggle appeared to do nothing because two listeners canceled each other out).
@@ -437,9 +448,10 @@ are the scripts above.
 
 ## Incomplete items
 
-- Phase 7 AI Form Builder
 - Phase 8 real parent accounts (claiming/completing assigned forms)
 - Phase 9 full Family Hub product surfaces
+- Real approved AI provider connection (Phase 7 provider interface is ready; live calls stay off)
+- PDF / Word / image / scanned-form extraction (Phase 7 import foundation prepared only)
 - Real outbound email/SMS delivery of assignment links and reminders (the `reminder` field is modeled and stored, never sent)
 - Automatic version-upgrade job for unstarted assignments when a newer form version is published (the `versionPolicy` field and comparison logic exist; the bulk-upgrade action itself does not yet)
 - File/attachment upload storage for the "file or attachment placeholder" field type
@@ -450,31 +462,27 @@ are the scripts above.
 - Automated Render deploy from this agent environment
 - A Forms Center in-app role-preview switcher (Teacher Center has one; Forms Center enforcement is server-side and tested but has no UI toggle yet)
 - Admin UI to grant/revoke teacher/assistant Built-In Library overrides interactively (currently server-side only, seeded via fixtures)
-- Real parent-account login, full Family Hub, AI Form Builder, real email/SMS delivery (see Phase 7 recommendation)
 
 ---
 
-## Phase 7 recommendation
+## Phase 8 recommendation
 
-When approved, start **Phase 7: AI Form Builder** (or, if reprioritized, Phase 8 real
-parent accounts) that:
+When approved, start **Phase 8: real parent accounts** that:
 
-- Reuse Phase 4/5/6 `fcform_*`/`bftpl_*`/`frasg_*`/`frresp_*` IDs and immutability rules
-- Stay behind the same Forms Center preview gates
-- If building Phase 8 parent accounts first: let a real parent account **claim** an
-  existing `frresp_*` response by `recipientType: "guardian"` + `recipientId` — the
-  Phase 6 data model was deliberately designed so this requires no migration of
-  existing responses
-- If building Phase 7 AI Form Builder first: keep AI suggestions as a drafting aid only,
-  never auto-publish, and never touch built-in templates without going through the
-  existing system-admin-only import pipeline
-- Add focused tests parallel to `test:forms-center-phase6`
-- Keep Family Hub, live pricing, and production migration explicitly out of scope
+- Reuse Phase 4/5/6/7 `fcform_*` / `bftpl_*` / `frasg_*` / `frresp_*` / `afbsess_*` IDs and immutability rules
+- Stay behind the same Forms Center preview gates where applicable
+- Let a real parent account **claim** an existing `frresp_*` response by
+  `recipientType: "guardian"` + `recipientId` — the Phase 6 data model was
+  deliberately designed so this requires no migration of existing responses
+- Keep AI Form Builder as a drafting aid only (never auto-publish; live AI only
+  through the existing provider interface when explicitly approved)
+- Keep Family Hub product surfaces, live pricing, and production migration
+  explicitly out of scope until Phase 9+
 
-See `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md` §19 for the full list
-of items intentionally deferred.
+See `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md` for deferred real-AI and
+file-extraction items.
 
-Do not begin Phase 7 until it is approved and Phase 6 is complete (it now is).
+Do not begin Phase 8 until it is approved and Phase 7 is complete (it now is).
 
 ---
 
@@ -482,10 +490,10 @@ Do not begin Phase 7 until it is approved and Phase 6 is complete (it now is).
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–6 test suite; confirm all PASS
+3. Run the full Phase 1–7 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=false`
-5. Smoke Director Center → Teacher Center → Forms Center Builder/Preview → Built-In Library browse/preview/use-template → Send/Assign → Responses dashboard → open a testing link and complete/sign/submit → approve/return/void with fake data
-6. Wait for owner-written Phase 7 requirements before coding
+5. Smoke Director Center → Teacher Center → Forms Center Builder/Preview → Built-In Library → AI Form Builder (generate mock draft → review → save) → Send/Assign → Responses dashboard → testing link complete/sign/submit → approve/return/void with fake data
+6. Wait for owner-written Phase 8 requirements before coding
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 
@@ -498,13 +506,13 @@ Until explicitly approved otherwise:
 - **Family Hub** (`familyHub`) — forced OFF
 - **Real parent accounts** / parent login product
 - **Live pricing changes** / live entitlement charges for expansion add-ons
-- **Phase 7** AI Form Builder
+- **Live AI calls** from the AI Form Builder (mock fixtures only in testing; provider interface ready for a later approved connection)
 - **Phase 8** real parent accounts / claiming assigned forms
 - **Phase 9** full Family Hub interface
 - Real outbound email/SMS delivery of assignment links/reminders
 - **Production migration** and **production release** of Director/Forms expansion
 - Any Stripe checkout for classroom/forms add-ons (simulation only)
-- Outbound email / AI calls from Forms Center, the Built-In Library, or Assignments/Responses
+- Outbound email / Stripe / live AI from Forms Center, the Built-In Library, Assignments/Responses, or the AI Form Builder
 
 ---
 
@@ -543,9 +551,9 @@ This project did **not**:
 - Enable Director Center / Forms Center / Built-In Library / Assignments-Responses / Family Hub on production
 - Change live Stripe, email, or AI production configuration
 - Merge `cursor/director-family-foundation-bc66` into `main`
-- Deploy this branch to the production Render service as part of Phase 1–6 delivery
+- Deploy this branch to the production Render service as part of Phase 1–7 delivery
 
-All Phase 1–6 work is on the draft PR branch and testing/local preview paths only.
+All Phase 1–7 work is on the draft PR branch and testing/local preview paths only.
 
 ---
 
@@ -560,6 +568,7 @@ All Phase 1–6 work is on the draft PR branch and testing/local preview paths o
 - `docs/PHASE_4_FORMS_CENTER_COMPLETION_REPORT.md`
 - `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`
 - `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`
+- `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md`
 
 ---
 
@@ -567,8 +576,9 @@ All Phase 1–6 work is on the draft PR branch and testing/local preview paths o
 
 - [ ] Branch tip matches GitHub `origin/cursor/director-family-foundation-bc66`
 - [ ] Working tree clean after pull
-- [ ] All Phase 1–6 tests PASS
+- [ ] All Phase 1–7 tests PASS
 - [ ] Testing safety reconfirmed
 - [ ] Family Hub still OFF
-- [ ] Phase 7 requirements received before coding
+- [ ] Live AI still disabled / mock-only in testing
+- [ ] Phase 8 requirements received before coding
 - [ ] No merge / no production deploy without approval
