@@ -168,7 +168,12 @@ async function main() {
     const beforePublic = await requestJson("GET", "/api/site-content");
     assert.equal(beforePublic.status, 200, "public site-content should load");
     const beforeCount = (beforePublic.json.siteContent?.curriculumLibrary?.lessonPlans || []).length;
-    assert.equal(beforeCount, 5, `expected 5 public plans before wipe attempt, got ${beforeCount}`);
+    // Startup seeders may add packaged plans on top of the seeded fixture.
+    assert.ok(beforeCount >= 5, `expected seeded/public plans before wipe attempt, got ${beforeCount}`);
+    const beforeIds = new Set(
+      (beforePublic.json.siteContent?.curriculumLibrary?.lessonPlans || []).map((plan) => plan.id),
+    );
+    assert.ok(beforeIds.has("cur-lp-hotfix-featured"), "fixture featured plan must be present before wipe attempt");
 
     const login = await requestJson("POST", "/api/admin/login", ADMIN);
     assert.equal(login.status, 200, "admin login");
@@ -179,7 +184,7 @@ async function main() {
     const wipeAttempt = await requestJson("POST", "/api/admin/site-content", {
       adminToken: token,
       siteContent: {
-        updatedAt: "2026-07-22T10:00:00.000Z",
+        updatedAt: beforePublic.json.siteContent?.updatedAt || "2026-07-22T10:00:00.000Z",
         homepage: { heroHeadline: "Hotfix headline only" },
         curriculum: {
           lessonPlans: [],
@@ -192,12 +197,13 @@ async function main() {
     });
     assert.equal(wipeAttempt.status, 200, `site-content save should succeed while preserving curriculum (${wipeAttempt.text?.slice(0, 200)})`);
     const savedCount = (wipeAttempt.json.siteContent?.curriculum?.lessonPlans || []).length;
-    assert.equal(savedCount, 5, `server must preserve existing curriculum lesson plans, got ${savedCount}`);
+    assert.ok(savedCount >= beforeCount, `server must preserve existing curriculum lesson plans (before=${beforeCount}, after=${savedCount})`);
+    assert.ok(savedCount > 0, "curriculum must not be empty after wipe attempt");
 
     const afterPublic = await requestJson("GET", "/api/site-content");
     assert.equal(afterPublic.status, 200);
     const afterCount = (afterPublic.json.siteContent?.curriculumLibrary?.lessonPlans || []).length;
-    assert.equal(afterCount, 5, `public library must still list plans after empty curriculum save, got ${afterCount}`);
+    assert.equal(afterCount, beforeCount, `public library count must stay stable after empty curriculum save (before=${beforeCount}, after=${afterCount})`);
     assert.ok(
       (afterPublic.json.siteContent?.curriculumLibrary?.lessonPlans || []).some((plan) => plan.id === "cur-lp-hotfix-featured"),
       "featured plan must remain publicly listed",
@@ -212,7 +218,7 @@ async function main() {
       },
     });
     assert.equal(omitSave.status, 200);
-    assert.equal((omitSave.json.siteContent?.curriculum?.lessonPlans || []).length, 5);
+    assert.equal((omitSave.json.siteContent?.curriculum?.lessonPlans || []).length, savedCount);
 
     // Explicit replace remains available for intentional rebuilds.
     const replace = await requestJson("POST", "/api/admin/site-content", {
