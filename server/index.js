@@ -40,6 +40,7 @@ const { createEnrollmentApi } = require("./enrollment-api.js");
 const { createRecordsCenterApi } = require("./records-center-api.js");
 const { createLicensingCenterApi } = require("./licensing-center-api.js");
 const { createTodayHubApi } = require("./today-hub-api.js");
+const { createProviderProductivityApi } = require("./provider-productivity-api.js");
 const { createStaffExperienceApi } = require("./staff-experience-api.js");
 const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
 const { createTestingLabApi } = require("./testing-lab-api.js");
@@ -15484,6 +15485,21 @@ function getTodayHubApi() {
   return _todayHubApi;
 }
 
+let _providerProductivityApi;
+function getProviderProductivityApi() {
+  if (!_providerProductivityApi) {
+    _providerProductivityApi = createProviderProductivityApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _providerProductivityApi;
+}
+
 let _staffExperienceApi;
 function getStaffExperienceApi() {
   if (!_staffExperienceApi) {
@@ -15593,6 +15609,7 @@ const server = http.createServer(async (request, response) => {
         || getFamilyUpdatesApi().matchRoute(request.method, url.pathname, url)
         || getFamilyFoundationApi().matchDirectorRoute(request.method, url.pathname, url)
         || getPhase3TeacherApi().matchRoute(request.method, url.pathname, url)
+        || getProviderProductivityApi().matchRoute(request.method, url.pathname, url)
         || getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);

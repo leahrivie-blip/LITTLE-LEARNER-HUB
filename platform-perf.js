@@ -11,6 +11,7 @@
       "director-center-ui.js?v=20260722-phase8",
       "family-foundation-ui.js?v=20260722-phase8",
       "today-hub-ui.js?v=20260722-phase15",
+      "provider-productivity-ui.js?v=20260722-phase21",
       "staff-experience-ui.js?v=20260722-phase16",
       "billing-simulator-ui.js?v=20260722-phase17",
       "enrollment-ui.js?v=20260722-phase12-14-remediation",

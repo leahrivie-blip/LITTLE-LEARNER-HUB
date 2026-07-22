@@ -24869,3 +24869,69 @@ button.linkish {
     overflow-x: hidden;
   }
 }
+
+/* Phase 21 — Provider Productivity */
+.pp-shell,
+.pp-panel {
+  display: grid;
+  gap: 1rem;
+}
+.pp-nav,
+.pp-metrics,
+.pp-filters,
+.pp-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.pp-nav-btn.active {
+  border-color: #5d4cc8;
+  background: #f2efff;
+}
+.pp-hero,
+.pp-section,
+.pp-phone,
+.pp-row {
+  padding: 1rem;
+  border: 1px solid #ded8f5;
+  border-radius: 14px;
+  background: #fff;
+}
+.pp-row {
+  justify-content: space-between;
+}
+.pp-form,
+.pp-list {
+  display: grid;
+  gap: 0.75rem;
+}
+.pp-form label {
+  display: grid;
+  gap: 0.35rem;
+}
+.pp-inline {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+.pp-computer-note {
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: #fff7df;
+  color: #5d4200;
+  font-weight: 600;
+}
+@media (max-width: 640px) {
+  .pp-row,
+  .pp-filters {
+    align-items: stretch;
+  }
+  .pp-row > *,
+  .pp-filters > * {
+    width: 100%;
+  }
+  .pp-computer-note {
+    font-size: 0.95rem;
+  }
+}

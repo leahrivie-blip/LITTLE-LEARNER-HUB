@@ -150,6 +150,8 @@
         // Licensing Center tab loads via renderLicensingCenterTab after paint.
       } else if (state.tab === "today_hub") {
         // Today Hub tab loads via renderTodayHubTab after paint.
+      } else if (state.tab === "ease_planning") {
+        // Ease & Planning tab loads via renderProviderProductivityTab after paint.
       } else if (state.tab === "staff_experience") {
         // Staff Experience tab loads via renderStaffExperienceTab after paint.
       } else if (state.tab === "billing") {
@@ -191,6 +193,7 @@
       ["family_updates", "Family Updates"],
       ["family_messaging", "Family Messaging"],
       ["today_hub", "Today"],
+      ["ease_planning", "Ease & Planning"],
       ["enrollment", "Enrollment"],
       ["records_center", "Records"],
       ["licensing_center", "Licensing"],
@@ -694,6 +697,9 @@
     if (state.tab === "today_hub") {
       return `<div id="dc-today-hub-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Today Hub…</p></div>`;
     }
+    if (state.tab === "ease_planning") {
+      return `<div id="dc-provider-productivity-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Ease & Planning…</p></div>`;
+    }
     if (state.tab === "staff_experience") {
       return `<div id="dc-staff-experience-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Staff Experience…</p></div>`;
     }
@@ -767,6 +773,13 @@
     }
     if (state.tab === "today_hub" && typeof global.renderTodayHubTab === "function") {
       global.renderTodayHubTab(section.querySelector("#dc-today-hub-mount") || section);
+    }
+    if (state.tab === "ease_planning" && typeof global.renderProviderProductivityTab === "function") {
+      global.renderProviderProductivityTab(section.querySelector("#dc-provider-productivity-mount") || section, {
+        apiBase: "/api/director-center/productivity",
+        getToken: () => (typeof adminSession === "function" ? (adminSession()?.token || "") : ""),
+        organizationId: state.overview?.organization?.id || "",
+      });
     }
     if (state.tab === "staff_experience" && typeof global.renderStaffExperienceTab === "function") {
       global.renderStaffExperienceTab(section.querySelector("#dc-staff-experience-mount") || section);

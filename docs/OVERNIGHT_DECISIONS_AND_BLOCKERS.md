@@ -3,7 +3,7 @@
 **Branch:** `testing/full-platform-integration-2026-07` (continuation after integration checkpoint)  
 **Phase 20 backup:** `backup/director-family-phases-1-20`  
 **Frozen feature branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Testing-only full platform integration checkpoint)
+**Updated:** 2026-07-22 (Phase 21 Provider Productivity / Child-Led Planning)
 
 ## Decisions
 
@@ -139,7 +139,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Testing-only full platform integration checkpoint completed 2026-07-22** — see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`. Continuation branch: `testing/full-platform-integration-2026-07`. Backup: `backup/director-family-phases-1-20`.
 
-**Do not begin Phase 21** without separate instructions. Never merge to `main` / never deploy production from this checkpoint.
+**Phase 21 completed 2026-07-22** — see `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`.
+
+**Do not begin Phase 22** without separate instructions. Never merge to `main` / never deploy production from this checkpoint.
 
 ## Phase 14 notes
 
@@ -193,7 +195,7 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - `origin/main` (`204fa01`) was already an ancestor of Phase 20 tip — merge was a no-op; **zero conflicts**.
 - Shell cache busters aligned to `20260722-full-int` / `llh-shell-v109-full-int` so main PWA + Phase tip assets stay consistent.
 - Production remains untouched; testing deploy is **manual owner step** only (no agent Render hook).
-- Deferred: Phase 21, production migration, merge to main.
+- Deferred: Phase 22, production migration, merge to main.
 
 ## Phase 20 notes / permissions
 
@@ -201,4 +203,13 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Migration simulator: fake organizations only; inspect/preview/confirm/rollback; production rejects.
 - Release Readiness is computer-first; phones show status summary only.
 - Integration plan documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — executed as testing-only checkpoint; see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`.
-- Deferred: real production migration, pen test, merge to main, Phase 21.
+- Deferred: real production migration, pen test, merge to main, Phase 22+.
+
+## Phase 21 notes / permissions
+
+- Planning preference personalizes shortcuts only — lesson plans remain optional and never permanently hidden.
+- Child-led suggestions are local catalog only (`liveAiUsed: false`); provider review required before save.
+- Universal search omits denied domains entirely (no titles/counts leaked).
+- Guided setup: home daycare skips center-only staff step; Skip / Save and continue later supported.
+- Notification prefs keep outbound email/SMS/push forced off in testing.
+- Deferred: live AI generation, real camera OCR, production deploy, Phase 22.
