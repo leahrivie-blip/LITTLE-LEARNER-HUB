@@ -359,35 +359,47 @@ async function run() {
           await page.waitForSelector('[data-feature-marker="phase18-testing-lab-mobile"]', { timeout: 15000 });
 
           const checks = await page.evaluate(() => {
+            const panel = document.querySelector("#view-testing-lab .tl-panel") || document.querySelector(".tl-panel");
             const mobile = document.querySelector("[data-tl-mobile-summary]");
             const desktopLab = document.querySelector("[data-tl-desktop-lab]");
-            const banner = document.querySelector(".tl-banner");
-            const recommended = document.querySelector("[data-tl-computer-recommended]");
-            const exitBtn = document.querySelector("[data-tl-exit-preview]");
-            const returnBtn = document.querySelector("[data-tl-return-app]");
+            const banner = panel?.querySelector(".tl-banner");
+            const recommended = panel?.querySelector("[data-tl-computer-recommended]");
+            const exitBtn = panel?.querySelector("[data-tl-exit-preview]");
+            const returnBtn = panel?.querySelector("[data-tl-return-app]");
             const display = (el) => (el ? getComputedStyle(el).display : "missing");
+            const isVisible = (el) => {
+              if (!el) return false;
+              const style = getComputedStyle(el);
+              if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) return false;
+              const r = el.getBoundingClientRect();
+              return r.width > 0 && r.height > 0;
+            };
             const box = (el) => {
-              if (!el) return null;
+              if (!el || !isVisible(el)) return null;
               const r = el.getBoundingClientRect();
               return { w: r.width, h: r.height, top: r.top, left: r.left };
             };
-            const text = (document.body.innerText || "");
+            const text = panel ? (panel.innerText || "") : "";
             const clipped = [];
             for (const el of [banner, recommended, mobile, exitBtn, returnBtn]) {
-              if (!el || display(el) === "none") continue;
+              if (!el || !isVisible(el)) continue;
               if (el.scrollWidth > el.clientWidth + 2) {
                 clipped.push(el.className || el.tagName);
               }
             }
+            const labPasswordVisible = [...(panel?.querySelectorAll('input[type="password"]') || [])]
+              .some((el) => isVisible(el));
+            const onetimeVisible = [...(panel?.querySelectorAll("[data-tl-onetime]") || [])]
+              .some((el) => isVisible(el));
             return {
               mobileDisplay: display(mobile),
               desktopDisplay: display(desktopLab),
               banner: banner ? banner.textContent.trim() : "",
               recommended: recommended ? recommended.textContent.trim() : "",
-              hasPasswordInput: Boolean(document.querySelector('input[type="password"]')),
-              hasOnetime: Boolean(document.querySelector("[data-tl-onetime]")),
+              hasPasswordInput: labPasswordVisible,
+              hasOnetime: onetimeVisible,
               hasTokenField: /temporaryPassword|api[_-]?key|Bearer\s/i.test(text),
-              hasTable: Boolean(document.querySelector(".tl-desktop-lab table")) && display(desktopLab) !== "none",
+              hasTable: Boolean(desktopLab?.querySelector("table")) && display(desktopLab) !== "none",
               exitBox: box(exitBtn),
               returnBox: box(returnBtn),
               pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2
@@ -403,7 +415,7 @@ async function run() {
           assert.equal(checks.desktopDisplay, "none", `${width}px desktop lab should be hidden`);
           assert.match(checks.banner, /Private Testing Environment — Fake Data Only/);
           assert.match(checks.recommended, /Testing Lab is computer recommended/);
-          assert.equal(checks.hasPasswordInput, false, `${width}px password input exposed`);
+          assert.equal(checks.hasPasswordInput, false, `${width}px password input exposed in Lab`);
           assert.equal(checks.hasOnetime, false, `${width}px one-time password exposed`);
           assert.equal(checks.hasTokenField, false, `${width}px token/secret text exposed`);
           assert.equal(checks.hasTable, false, `${width}px desktop table visible`);

@@ -1,7 +1,7 @@
 # Phase 18 — Testing and Preview Lab
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Status:** Complete (testing preview only)  
+**Status:** Complete (testing preview only) — mobile completion check done  
 **Date:** 2026-07-22  
 **Started from tip:** `13c7878`
 
@@ -23,7 +23,21 @@ Packs: Home Daycare, Small/Growing/Large Center, Curriculum Only, Founding Membe
 
 ## Device Preview
 
-Presets for small/large phone, tablet portrait/landscape, laptop, desktop. Real app UI; dimensions labeled; open-in-tab supported. iframe alone does not claim native-app proof.
+Presets for small/large phone, tablet portrait/landscape, laptop, desktop. Real app UI; dimensions labeled; open-in-tab supported. iframe alone does not claim native-app proof. **Device Preview controls live only in the computer Lab** — they are not the phone website experience.
+
+## Computer-first + intentional phone summary
+
+The complete Testing Lab is **computer recommended** and remains available on computer viewports. Phones (~360–430px) do **not** attempt to fit the full Lab. Instead they show a clean intentional summary:
+
+- Banner: Private Testing Environment — Fake Data Only  
+- “Testing Lab is computer recommended”  
+- Short explanation that scenario setup, fake-account management, role preview controls, resets, and device testing should be completed on the computer website  
+- Current fake organization / scenario when safe  
+- Role-preview status when active, plus **Exit Role Preview** when applicable  
+- **Return to the normal app**  
+- No secrets, passwords, tokens, desktop tables, or unsafe Lab admin controls  
+
+Verified at approximately **360px, 390px, and 430px**: no horizontal overflow, no clipped text, no overlapping controls, no tiny desktop tables, no inaccessible buttons, no exposed credentials.
 
 ## Data reset
 
@@ -35,7 +49,7 @@ Manual owner checklist with Pass / Needs Change / Bug / Question / Not Tested no
 
 ## Security tests
 
-Production rejection, missing env, non-admin denial, query-token rejection, password not logged, real-target reset rejected, role preview exit, Phase 1–17 smoke.
+Production rejection, missing env, non-admin denial, query-token rejection, password not logged, real-target reset rejected, role preview exit, Phase 1–17 smoke. Phone summary checks assert no visible Lab password/token UI.
 
 ## Tests
 
@@ -43,14 +57,14 @@ Production rejection, missing env, non-admin denial, query-token rejection, pass
 npm run test:testing-lab-phase18
 ```
 
-**17 PASS** focused. Full Phase 1–18 regression: **PASS**.
+**18 PASS** focused (includes `phone_mobile_summary_360_390_430`). Full Phase 1–18 regression: **PASS**.
 
 ## Screenshots (max 2)
 
 <img alt="Testing Lab dashboard desktop" src="/opt/cursor/artifacts/testing-lab-phase18/1-testing-lab-dashboard-desktop.png" />
-<img alt="Device preview phone" src="/opt/cursor/artifacts/testing-lab-phase18/2-device-preview-phone.png" />
+<img alt="Testing Lab intentional phone summary" src="/opt/cursor/artifacts/testing-lab-phase18/2-testing-lab-mobile-summary-phone.png" />
 
-No passwords, tokens, or non-`@example.invalid` emails in screenshots.
+Desktop screenshot kept from the valid computer capture. Incorrect phone device-preview capture replaced with the intentional mobile summary only. No passwords, tokens, or non-`@example.invalid` emails in screenshots.
 
 ## Owner guide
 
@@ -58,6 +72,6 @@ No passwords, tokens, or non-`@example.invalid` emails in screenshots.
 
 ## Safety
 
-Stripe/email/SMS/push/live AI/production storage untouched. `main` untouched.
+Stripe/email/SMS/push/live AI/production storage untouched. `main` untouched. Phase 19 not started.
 
-Latest tip: `9dda2109bcebd447cde6e0af4f1bb60021f25a84` (pushed to `origin/cursor/director-family-foundation-bc66`). Working tree clean after docs stamp. Production and `main` untouched. Phase 19 not started.
+Latest tip will be stamped after this docs commit is pushed to `origin/cursor/director-family-foundation-bc66`. Working tree clean after stamp. Production and `main` untouched.

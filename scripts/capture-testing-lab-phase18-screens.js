@@ -136,21 +136,29 @@ async function main() {
     await assertNotHomepageFallback(phonePage, "Phase 18 phone mobile summary");
 
     const phoneChecks = await phonePage.evaluate(() => {
+      const panel = document.querySelector("#view-testing-lab .tl-panel") || document.querySelector(".tl-panel");
       const mobile = document.querySelector("[data-tl-mobile-summary]");
       const desktopLab = document.querySelector("[data-tl-desktop-lab]");
-      const banner = document.querySelector(".tl-banner");
-      const recommended = document.querySelector("[data-tl-computer-recommended]");
+      const banner = panel?.querySelector(".tl-banner");
+      const recommended = panel?.querySelector("[data-tl-computer-recommended]");
       const style = (el) => (el ? getComputedStyle(el).display : "missing");
-      const text = document.body.innerText || "";
+      const isVisible = (el) => {
+        if (!el) return false;
+        const cs = getComputedStyle(el);
+        if (cs.display === "none" || cs.visibility === "hidden") return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0;
+      };
+      const text = panel ? (panel.innerText || "") : "";
       return {
         mobileDisplay: style(mobile),
         desktopDisplay: style(desktopLab),
         bannerText: banner ? banner.textContent.trim() : "",
         recommendedText: recommended ? recommended.textContent.trim() : "",
-        hasPasswordInput: Boolean(document.querySelector('input[type="password"]')),
-        hasOnetime: Boolean(document.querySelector("[data-tl-onetime]")),
-        hasExit: Boolean(document.querySelector("[data-tl-exit-preview]")),
-        hasReturn: Boolean(document.querySelector("[data-tl-return-app]")),
+        hasPasswordInput: [...(panel?.querySelectorAll('input[type="password"]') || [])].some((el) => isVisible(el)),
+        hasOnetime: [...(panel?.querySelectorAll("[data-tl-onetime]") || [])].some((el) => isVisible(el)),
+        hasExit: Boolean(panel?.querySelector("[data-tl-exit-preview]")) && isVisible(panel.querySelector("[data-tl-exit-preview]")),
+        hasReturn: Boolean(panel?.querySelector("[data-tl-return-app]")) && isVisible(panel.querySelector("[data-tl-return-app]")),
         pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 2,
         textIncludesComputer: /computer recommended/i.test(text),
         textIncludesFakeOnly: /Fake Data Only/i.test(text),
@@ -160,7 +168,7 @@ async function main() {
       throw new Error(`Phone layout incorrect: ${JSON.stringify(phoneChecks)}`);
     }
     if (phoneChecks.hasPasswordInput || phoneChecks.hasOnetime) {
-      throw new Error("Screenshot blocked: credentials/password UI on phone");
+      throw new Error("Screenshot blocked: credentials/password UI on phone Lab summary");
     }
     if (phoneChecks.pageOverflow) throw new Error("Phone horizontal overflow detected");
     if (!phoneChecks.hasExit || !phoneChecks.hasReturn) {

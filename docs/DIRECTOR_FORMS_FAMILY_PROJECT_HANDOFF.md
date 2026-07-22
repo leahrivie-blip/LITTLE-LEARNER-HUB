@@ -525,7 +525,7 @@ node scripts/capture-testing-lab-phase18-screens.js
 | `npm run test:today-hub-phase15` | PASS (17/17) |
 | `npm run test:staff-experience-phase16` | PASS (23/23) |
 | `npm run test:billing-simulator-phase17` | PASS (21/21) |
-| `npm run test:testing-lab-phase18` | PASS (17/17) |
+| `npm run test:testing-lab-phase18` | PASS (18/18) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 

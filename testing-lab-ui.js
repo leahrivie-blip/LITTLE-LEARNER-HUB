@@ -271,10 +271,17 @@
 
   function mobileSummaryHtml() {
     const d = state.dashboard?.dashboard || {};
-    const previewActive = Boolean(state.preview?.id || d.rolePreviewId || global.sessionStorage?.getItem("llhRolePreviewMembershipId"));
-    const previewLabel = state.preview?.targetKind
-      || state.preview?.label
-      || (previewActive ? "Active (temporary)" : "Not active");
+    const apiPreview = d.rolePreview && d.rolePreview.active !== false ? d.rolePreview : null;
+    const previewActive = Boolean(
+      state.preview?.id
+      || apiPreview?.id
+      || d.rolePreviewId
+      || global.sessionStorage?.getItem("llhRolePreviewMembershipId"),
+    );
+    const previewKind = state.preview?.targetKind || apiPreview?.targetKind || apiPreview?.label || "";
+    const previewLabel = previewActive
+      ? (previewKind ? `Active — ${String(previewKind).replace(/_/g, " ")}` : "Active (temporary)")
+      : "Not active";
     const orgSafe = d.organizationId && !/prod|live|stripe|customer/i.test(String(d.organizationId))
       ? d.organizationId
       : "";

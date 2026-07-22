@@ -7,8 +7,10 @@
 ## Open the lab
 
 1. Unlock Admin on the testing site  
-2. Open **Testing Lab** from the Admin bar (or `#testing-lab`)  
+2. Open **Testing Lab** from the Admin bar (or `#testing-lab`) on a **computer**  
 3. Confirm the banner: **Private Testing Environment — Fake Data Only**
+
+**Phone note:** On small/large phones the Lab shows a status summary only (“Testing Lab is computer recommended”). Scenario setup, fake accounts, role preview controls, resets, and device testing stay on the computer website. Phone may show current fake org/scenario, role-preview status, Exit Role Preview, and Return to the normal app — never passwords or tokens.
 
 ## Quick start
 
@@ -20,6 +22,7 @@
 ## Rules
 
 - Never use this on production  
+- Prefer the computer website for all Lab setup work  
 - Never paste temporary passwords into docs, tickets, or screenshots  
 - Resets only affect validated fake organizations  
 - Checklist notes are manual; unchecked items are not automated failures  

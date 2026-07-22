@@ -167,6 +167,14 @@ function createTestingLabApi({
         featureState: session.featureState,
         seedStatus: session.seedStatus,
         rolePreviewId: session.rolePreviewId,
+        rolePreview: session.rolePreviewId && store.testingLab.rolePreviews[session.rolePreviewId]
+          ? {
+              id: session.rolePreviewId,
+              targetKind: store.testingLab.rolePreviews[session.rolePreviewId].targetKind || "",
+              label: store.testingLab.rolePreviews[session.rolePreviewId].label || "",
+              active: store.testingLab.rolePreviews[session.rolePreviewId].status !== "exited",
+            }
+          : null,
       },
       scenarios: model.scenarioCatalog(),
       featureStates: model.FEATURE_STATES,
