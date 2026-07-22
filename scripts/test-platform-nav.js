@@ -247,7 +247,11 @@ test("unlocked Admin keeps platform sidebar without a member login", () => {
   assert.match(html, /styles\.css\?v=/);
   assert.match(html, /app\.js\?v=20260721-phase4/);
   assert.match(html, /teacher-center-ui\.js\?v=20260721-phase4/);
-  assert.match(html, /forms-center-ui\.js\?v=/);
+  // Phase 19: Forms Center (and other expansion UIs) lazy-load via platform-perf
+  assert.match(html, /platform-perf\.js\?v=/);
+  const perfJs = fs.readFileSync(path.join(__dirname, "..", "platform-perf.js"), "utf8");
+  assert.match(perfJs, /forms-center-ui\.js\?v=/);
+  assert.match(appJs, /ensureViewScripts\?\.\("forms-center"\)/);
 });
 
 if (!process.exitCode) {
