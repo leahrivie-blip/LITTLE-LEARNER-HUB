@@ -74,7 +74,7 @@ npm run test:account-access
 
 Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 
-Phase 17 focused suite: **21 PASS**. Full Phase 1–17 regression: **PASS**. Tip: `8151b2c`. Stripe and real payments untouched. Production Family Hub locked. `main` untouched. Phase 18 not started.
+Phase 17 focused suite: **21 PASS**. Full Phase 1–17 regression: **PASS**. Tip: `8cad29a`. Stripe and real payments untouched. Production Family Hub locked. `main` untouched. Phase 18 not started.
 
 ### Suggested PR title
 
