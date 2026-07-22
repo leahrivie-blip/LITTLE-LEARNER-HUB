@@ -31,7 +31,7 @@ const commsJs = fs.readFileSync(path.join(root, "comms-center.js"), "utf8");
 const previewJs = fs.readFileSync(path.join(root, "scripts/curriculum-import-preview.js"), "utf8");
 const membershipJs = fs.readFileSync(path.join(root, "scripts/membership-access.js"), "utf8");
 
-const CACHE_V = "20260721-homescreen-sw";
+const CACHE_V = "20260722-lesson-empty-hotfix";
 
 // ─── 1. Admin session durability ─────────────────────────────────────────────
 
@@ -81,7 +81,7 @@ test("index.html and service-worker cache-bust versions stay aligned", () => {
   assert.match(sw, new RegExp(`styles\\.css\\?v=${CACHE_V}`));
   assert.match(sw, new RegExp(`app\\.js\\?v=${CACHE_V}`));
   assert.match(sw, new RegExp(`comms-center\\.js\\?v=${CACHE_V}`));
-  assert.match(sw, /llh-shell-v108-homescreen-sw/);
+  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
 });
 
 // ─── 3. Billing / membership access ──────────────────────────────────────────

@@ -2882,6 +2882,7 @@ function storeInventoryCounts(store = peekStore()) {
       .map((m) => normalizeEmail(m.conversationEmail || m.toEmail || ""))
       .filter(Boolean),
   );
+  const curriculum = normalizedCurriculumStore(store?.siteContent?.curriculum);
   return {
     users: Object.keys(users).length,
     messages: messages.length,
@@ -2889,6 +2890,9 @@ function storeInventoryCounts(store = peekStore()) {
     foundingMembers: Array.isArray(store?.foundingMembers) ? store.foundingMembers.length : 0,
     notifications: notifications.length,
     supportTickets: Array.isArray(store?.supportTickets) ? store.supportTickets.length : 0,
+    // Lesson plans are the public library source of truth — protect them like user inventory.
+    curriculumLessonPlans: curriculum.lessonPlans.length,
+    curriculumActivities: curriculum.activities.length,
   };
 }
 
@@ -2905,7 +2909,32 @@ function storeCountDropReasons(nextCounts, prevCounts = lastPersistedStoreCounts
   if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) {
     reasons.push(`foundingMembers ${prevCounts.foundingMembers} → ${nextCounts.foundingMembers}`);
   }
+  if (droppedHalf(prevCounts.curriculumLessonPlans, nextCounts.curriculumLessonPlans, 5)) {
+    reasons.push(`curriculumLessonPlans ${prevCounts.curriculumLessonPlans} → ${nextCounts.curriculumLessonPlans}`);
+  }
   return reasons;
+}
+
+// Admin site-content saves often draft from a public hydrate (no curriculum payload) or an
+// emptyCurriculum() fill. Never wipe a populated curriculum through that path unless the
+// caller explicitly confirms REPLACE_CURRICULUM (dedicated wipe endpoint stays separate).
+function shouldPreserveExistingCurriculum(existingCurriculum, incomingCurriculum, { allowReplace = false } = {}) {
+  if (allowReplace) return false;
+  const existing = normalizedCurriculumStore(existingCurriculum);
+  const incoming = normalizedCurriculumStore(incomingCurriculum);
+  // Lesson plans and activities are wiped together by the same failure mode (a full
+  // curriculum object replace), but guard each independently — activities are what
+  // populate the Activity Center and can otherwise go empty even if lessonPlans looks intact.
+  const lessonPlansWiped = curriculumFieldDroppedTooMuch(existing.lessonPlans.length, incoming.lessonPlans.length);
+  const activitiesWiped = curriculumFieldDroppedTooMuch(existing.activities.length, incoming.activities.length);
+  return lessonPlansWiped || activitiesWiped;
+}
+
+function curriculumFieldDroppedTooMuch(existingCount, incomingCount) {
+  if (existingCount <= 0) return false;
+  if (incomingCount === 0) return true;
+  if (existingCount >= 5 && incomingCount < Math.floor(existingCount * 0.5)) return true;
+  return false;
 }
 
 async function maybeAlertStoreSafety(kind, detail = {}) {
@@ -3761,6 +3790,27 @@ function markProcessedStripeEvent(eventId) {
       });
   }
   writeStore(store);
+}
+
+// Persisted (not just console-logged) audit trail for confirmed curriculum
+// replace/restore actions — high-impact and rare enough to warrant their own record.
+function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
+  store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
+  const session = store.adminSessions?.[String(adminToken || "").trim()];
+  const entry = {
+    id: `curr_restore_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    adminEmail: session?.email || "unknown",
+    note: note || "",
+    beforeLessonPlans: before?.lessonPlans?.length || 0,
+    beforeActivities: before?.activities?.length || 0,
+    afterLessonPlans: after?.lessonPlans?.length || 0,
+    afterActivities: after?.activities?.length || 0,
+    createdAt: new Date().toISOString(),
+  };
+  store.curriculumRestoreAudit.unshift(entry);
+  store.curriculumRestoreAudit = store.curriculumRestoreAudit.slice(0, 200);
+  console.log("[curriculum-restore-audit]", JSON.stringify(entry));
+  return entry;
 }
 
 function appendMembershipLifecycleAudit(email, action, details = {}) {
@@ -6264,6 +6314,32 @@ async function handleAdminSiteContentSave(request, response) {
   }
   const mergedIncoming = mergeSiteContentKeepMissingKeys(existingContent, incomingRaw);
   const nextContent = normalizedSiteContent(mergedIncoming);
+  const allowCurriculumReplace = body.confirmCurriculumReplace === "REPLACE_CURRICULUM";
+  if (shouldPreserveExistingCurriculum(existingContent.curriculum, nextContent.curriculum, {
+    allowReplace: allowCurriculumReplace,
+  })) {
+    const existingCurriculum = normalizedCurriculumStore(existingContent.curriculum);
+    const attempted = normalizedCurriculumStore(nextContent.curriculum);
+    console.warn("[DIAG] handleAdminSiteContentSave: preserving existing curriculum — refused empty/partial wipe via site-content save", {
+      existingLessonPlans: existingCurriculum.lessonPlans.length,
+      incomingLessonPlans: attempted.lessonPlans.length,
+      allowCurriculumReplace,
+    });
+    nextContent.curriculum = existingCurriculum;
+    maybeAlertStoreSafety("curriculum_wipe_blocked_site_content_save", {
+      existingLessonPlans: existingCurriculum.lessonPlans.length,
+      incomingLessonPlans: attempted.lessonPlans.length,
+    }).catch(() => {});
+  } else if (allowCurriculumReplace) {
+    // Explicit, confirmed curriculum restores/rebuilds are rare and high-impact — keep a
+    // durable, queryable record separate from console logs (which are not persisted).
+    appendCurriculumRestoreAudit(store, {
+      adminToken: body.adminToken,
+      before: normalizedCurriculumStore(existingContent.curriculum),
+      after: normalizedCurriculumStore(nextContent.curriculum),
+      note: normalizedShortText(body.restoreSourceNote, 300),
+    });
+  }
   const normalizedIds = Object.keys(nextContent.lessonPlans || {});
   console.log("[DIAG] handleAdminSiteContentSave: after normalizedSiteContent, lessonPlan count =", normalizedIds.length);
   if (normalizedIds.length > 0) {
@@ -6272,6 +6348,7 @@ async function handleAdminSiteContentSave(request, response) {
     console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan (", lastNormalizedId, ") fields =", Object.keys(lastNormalizedLesson || {}));
     console.log("[DIAG] handleAdminSiteContentSave: normalized last lessonPlan title =", JSON.stringify(lastNormalizedLesson?.title), "| visible =", lastNormalizedLesson?.visible, "| plan =", JSON.stringify(lastNormalizedLesson?.plan));
   }
+  console.log("[DIAG] handleAdminSiteContentSave: curriculum lesson plans =", (nextContent.curriculum?.lessonPlans || []).length);
   nextContent.updatedAt = new Date().toISOString();
   store.siteContent = nextContent;
   console.log("[DIAG] handleAdminSiteContentSave: calling writeStoreAsync…");
@@ -11281,6 +11358,22 @@ function handleAdminCurriculumBackup(request, response, url) {
   jsonResponse(response, 200, buildCurriculumBackupPayload(store));
 }
 
+// Read-only view of the persisted curriculum restore audit trail (see
+// appendCurriculumRestoreAudit). Lets an owner confirm a restore actually happened
+// without trusting console logs, which are not durable.
+function handleAdminCurriculumRestoreAudit(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required to view the curriculum restore audit." });
+    return;
+  }
+  const store = readStore();
+  jsonResponse(response, 200, {
+    ok: true,
+    entries: Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [],
+  });
+}
+
 function handleAdminCurriculumBackupFull(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
   if (!validAdminToken(adminToken)) {
@@ -15105,6 +15198,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/release-notes") return handleReleaseNotesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup") return handleAdminCurriculumBackup(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/restore-audit") return handleAdminCurriculumRestoreAudit(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/new") return handleAdminCurriculumBackupNew(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/backup/full") return handleAdminCurriculumBackupFull(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/wipe") {

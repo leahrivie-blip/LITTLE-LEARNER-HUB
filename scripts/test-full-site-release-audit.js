@@ -454,22 +454,40 @@ async function auditPersona(browser, viewport, personaKey, account) {
       const cards = document.querySelectorAll(".resource-card, .activity-card, .library-card, [data-resource-id]");
       const proResources = (typeof resources !== "undefined" ? resources : [])
         .filter((r) => r && r.category === "Activity Center" && String(r.plan || "") === "Pro");
-      const unlockedProWithBody = proResources.filter((r) => r.steps || r.description || r.teacherLanguage).length;
       return {
         active: document.querySelector(".active-view")?.id || "",
         cards: cards.length,
         proCount: proResources.length,
-        unlockedProWithBody,
+        sampleId: proResources[0]?.id || "",
       };
     });
     assert.equal(activities.active, "view-activities");
     assert.ok(activities.cards > 0, "activity cards should render");
-    if (isPaid) {
+    if (isPaid && activities.proCount > 0) {
+      // Browse-list payloads intentionally omit steps/description/teacherLanguage to keep
+      // /api/site-content small; the real how-to content is lazy-hydrated on open via
+      // /api/curriculum/activities/:id. Open a real card (like a user would) instead of
+      // inspecting the pre-hydration array, which would always read as empty by design.
+      await page.evaluate((id) => {
+        document.querySelector(`[data-view-resource="${id}"]`)?.click();
+      }, activities.sampleId);
+      await page.waitForSelector("#resourceViewerModal.open", { timeout: 8000 }).catch(() => {});
+      await page.waitForTimeout(1200);
+      const hydrated = await page.evaluate(() => ({
+        bodyText: document.querySelector("#resourceViewerBody")?.innerText || "",
+      }));
       assert.ok(
-        activities.proCount === 0 || activities.unlockedProWithBody > 0,
-        `paid users should receive Pro activity content (pro=${activities.proCount}, withBody=${activities.unlockedProWithBody})`,
+        /Directions|Materials|Objective|Description/i.test(hydrated.bodyText),
+        `paid users should receive hydrated Pro activity content on open (got: ${hydrated.bodyText.slice(0, 200)})`,
       );
-      pass(`${label}: Pro activities unlocked with content (${activities.unlockedProWithBody}/${activities.proCount})`);
+      pass(`${label}: Pro activity opens with hydrated how-to content`);
+      await page.evaluate(() => {
+        document.querySelectorAll(".modal.open").forEach((m) => {
+          m.classList.remove("open");
+          m.setAttribute("aria-hidden", "true");
+        });
+      });
+      await page.waitForTimeout(200);
     }
     pass(`${label}: activities (${activities.cards} cards)`);
     await shot(page, `${label}-activities`);
@@ -639,7 +657,11 @@ async function auditApiPermissions() {
       const list = payload?.siteContent?.curriculumLibrary?.lessonPlans
         || payload?.curriculumLibrary?.lessonPlans
         || [];
-      return list.filter((p) => p && p.locked !== true && p.dailyPlans).length;
+      // Browse-list DTOs intentionally omit dailyPlans (fetched lazily on open) for the
+      // fully-authorized Pro/Founding/Trial/admin library, so "unlocked" must be read from
+      // the `locked` flag alone, not dailyPlans presence (which only some legacy/curated
+      // Free list entries still embed inline).
+      return list.filter((p) => p && p.locked !== true).length;
     };
     const freeCount = countUnlocked(freeLib.json);
     const legacyCount = countUnlocked(legacyLib.json);

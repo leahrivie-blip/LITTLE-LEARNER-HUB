@@ -19,28 +19,29 @@ function storeCountDropReasons(nextCounts, prevCounts) {
   if (droppedHalf(prevCounts.users, nextCounts.users, 10)) reasons.push("users");
   if (droppedHalf(prevCounts.messages, nextCounts.messages, 10)) reasons.push("messages");
   if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) reasons.push("foundingMembers");
+  if (droppedHalf(prevCounts.curriculumLessonPlans, nextCounts.curriculumLessonPlans, 5)) reasons.push("curriculumLessonPlans");
   return reasons;
 }
 
-const prev = { users: 52, messages: 1, foundingMembers: 13 };
+const prev = { users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101 };
 assert.deepEqual(
-  storeCountDropReasons({ users: 52, messages: 2, foundingMembers: 13 }, prev),
+  storeCountDropReasons({ users: 52, messages: 2, foundingMembers: 13, curriculumLessonPlans: 101 }, prev),
   [],
   "normal message growth must not trip the guard",
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 53, messages: 1, foundingMembers: 13 }, prev),
+  storeCountDropReasons({ users: 53, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101 }, prev),
   [],
   "normal user growth must not trip the guard",
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 52, messages: 1, foundingMembers: 13 }, prev),
+  storeCountDropReasons({ users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101 }, prev),
   [],
   "identical inventory must not trip the guard",
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0 }, prev),
-  ["users", "foundingMembers"],
+  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0, curriculumLessonPlans: 0 }, prev),
+  ["users", "foundingMembers", "curriculumLessonPlans"],
   "sparse overwrite-shaped drop must be blocked",
 );
 
@@ -58,11 +59,14 @@ assert.match(serverJs, /RECOVER_SPARSE_STORE/);
 assert.match(serverJs, /RECOVER_FIREBASE_PROFILES/);
 assert.match(serverJs, /maybeAlertPostgresDisconnect/);
 assert.match(serverJs, /maybeAlertStoreSafety/);
+assert.match(serverJs, /curriculumLessonPlans/);
+assert.match(serverJs, /shouldPreserveExistingCurriculum/);
 assert.match(renderYaml, /ALLOW_BOOT_SPARSE_STORE_RECOVERY[\s\S]*value: "false"/);
 assert.match(renderYaml, /ALLOW_DESTRUCTIVE_STORE_WRITE[\s\S]*value: "false"/);
 assert.match(appJs, /createAdminStoreBackup/);
 assert.match(appJs, /downloadAdminStoreBackup/);
 assert.match(appJs, /loadAdminStoreBackups/);
+assert.match(appJs, /data-retry-curriculum-library/);
 
 console.log("PASS  store safety guards");
 console.log("\nAll store safety guard tests passed.");
