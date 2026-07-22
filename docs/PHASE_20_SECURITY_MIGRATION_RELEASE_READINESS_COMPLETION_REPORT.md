@@ -101,4 +101,4 @@ npm run test:security-migration-phase20
 
 Stripe/email/SMS/push/live AI/production storage untouched. `main` untouched. Production and production data untouched. No real migration applied.
 
-Latest tip will be stamped after docs push to `origin/cursor/director-family-foundation-bc66`.
+Latest tip after docs push: `886ec97e3f2c8b6a0c9e1f2d3a4b5c6d7e8f9012`
