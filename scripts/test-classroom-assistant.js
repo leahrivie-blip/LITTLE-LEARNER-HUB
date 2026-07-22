@@ -214,6 +214,62 @@ async function run() {
   }
 
   {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Changed Timmy diaper at 10:15. Wet. Ava used the potty successfully. Ben is absent. Gave Timmy his prescribed vitamin at 9:00.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.diaper.entries[0].childName, "Timmy");
+    assert.equal(plan.diaper.entries[0].status, "wet");
+    assert.equal(plan.potty.entries[0].childName, "Ava");
+    assert.equal(plan.potty.entries[0].result, "success");
+    assert.equal(plan.attendance.entries[0].childName, "Ben");
+    assert.equal(plan.attendance.entries[0].action, "absent");
+    assert.equal(plan.medication.entries[0].childName, "Timmy");
+    assert.match(plan.medication.medicationName, /vitamin/i);
+    assert.equal(plan.medication.requiresExtraReview, true);
+    pass("unit_parse_diaper_potty_med_attendance");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Timmy bit a friend today and was upset afterward.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.difficultSituation.detected, true);
+    assert.ok(plan.professionalDrafts.parent_message.body);
+    assert.ok(plan.professionalDrafts.incident_report.body);
+    assert.ok(plan.professionalDrafts.difficult_family_wording.body);
+    assert.ok(plan.suggestions.some((row) => row.type === "incident_report"));
+    pass("unit_professional_drafts_difficult_wording");
+  }
+
+  {
+    const { store, seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Changed Timmy diaper at 10:15. Wet.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    const item = model.createOfflineQueueItem({
+      text: plan.sourceText,
+      plan,
+      organizationId: seeded.organizationId,
+    });
+    assert.equal(item.status, "pending_sync");
+    const synced = model.syncOfflineQueue(store, [item], {
+      confirm: true,
+      organizationId: seeded.organizationId,
+      actorEmail: seeded.actorEmail,
+    });
+    assert.equal(synced.ok, true);
+    assert.equal(synced.syncedIds.length, 1);
+    assert.equal(synced.remaining.length, 0);
+    assert.ok(Object.values(store.classroomAssistant.diaperLogs).some((row) => row.childName === "Timmy"));
+    pass("unit_offline_queue_sync_writes");
+  }
+
+  {
     const prod = await startServer({
       env: { SITE_URL: "https://littlelearnershubbyleah.com", ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true" },
     });
@@ -236,6 +292,8 @@ async function run() {
     assert.equal(seed.status, 200, JSON.stringify(seed.body));
     assert.equal(seed.body.featureMarker, model.FEATURE_MARKER);
     assert.equal(seed.body.liveAiUsed, false);
+    assert.equal(seed.body.offlineCapable, true);
+    assert.ok(seed.body.included.includes("offline_sync"));
     assert.ok(seed.body.checkedInChildren.some((child) => child.displayName === "Timmy"));
     pass("seed_dashboard_checked_in");
 
@@ -303,9 +361,33 @@ async function run() {
     assert.equal(suggestion.body.action.liveAiUsed, false);
     pass("suggestion_accept_fake_confirmed");
 
+    const offlineBlocked = await request(ctx.port, "POST", `${BASE}/offline/sync`, {
+      headers,
+      body: { queue: [{ id: "x", text: "Changed Timmy diaper at 10:15. Wet.", status: "pending_sync" }] },
+    });
+    assert.equal(offlineBlocked.status, 400);
+    assert.equal(offlineBlocked.body.code, "confirm_required");
+    const offlineSync = await request(ctx.port, "POST", `${BASE}/offline/sync`, {
+      headers,
+      body: {
+        confirm: true,
+        queue: [{
+          id: "caoffline_test_1",
+          organizationId: seed.body.organization.id,
+          text: "Changed Timmy diaper at 10:15. Wet.",
+          status: "pending_sync",
+          plan: null,
+        }],
+      },
+    });
+    assert.equal(offlineSync.status, 200, JSON.stringify(offlineSync.body));
+    assert.ok(offlineSync.body.syncedIds.includes("caoffline_test_1"));
+    pass("offline_sync_endpoint_parses_and_writes");
+
     const phone = await request(ctx.port, "GET", `${BASE}/phone-summary`, { headers });
     assert.equal(phone.status, 200);
     assert.equal(phone.body.phone.featureMarker, model.PHONE_MARKER);
+    assert.equal(phone.body.phone.offlineCapable, true);
     pass("phone_summary_marker");
   } finally {
     await stopServer(ctx);
@@ -316,6 +398,9 @@ async function run() {
     assert.ok(ui.includes('data-feature-marker="phase-ca-classroom-assistant"'));
     assert.ok(ui.includes("phase-ca-classroom-assistant-mobile"));
     assert.ok(ui.includes("Computer recommended"));
+    assert.ok(ui.includes("What's included"));
+    assert.ok(ui.includes("data-ca-offline"));
+    assert.ok(ui.includes("offline/sync"));
     pass("phone_computer_markers_in_ui_file");
   }
 

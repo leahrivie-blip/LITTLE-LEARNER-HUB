@@ -145,11 +145,16 @@ function createClassroomAssistantApi({
       ...listValues(ca.activityLogs).map((row) => ({ ...row, kind: "activity", label: row.title || "Activity" })),
       ...listValues(ca.observations).map((row) => ({ ...row, kind: "observation", label: "Observation" })),
       ...listValues(ca.dailySummaries).map((row) => ({ ...row, kind: "summary", label: row.bucket || "Daily summary" })),
+      ...listValues(ca.diaperLogs).map((row) => ({ ...row, kind: "diaper", label: `Diaper (${row.status || "check"})` })),
+      ...listValues(ca.pottyLogs).map((row) => ({ ...row, kind: "potty", label: `Potty (${row.result || "attempt"})` })),
+      ...listValues(ca.medicationLogs).map((row) => ({ ...row, kind: "medication", label: row.medicationName || "Medication" })),
+      ...listValues(ca.attendanceNotes).map((row) => ({ ...row, kind: "attendance", label: row.action || "Attendance" })),
+      ...listValues(ca.communicationDrafts).map((row) => ({ ...row, kind: "communication", label: row.title || row.type || "Draft" })),
     ];
     return rows
       .filter((row) => row.organizationId === organizationId)
       .sort((a, b) => String(b.createdAt || b.at || "").localeCompare(String(a.createdAt || a.at || "")))
-      .slice(0, 12);
+      .slice(0, 16);
   }
 
   function dashboardPayload(store, gate) {
@@ -166,13 +171,16 @@ function createClassroomAssistantApi({
       noPush: true,
       noStripe: true,
       liveAiUsed: false,
+      offlineCapable: true,
       featureMarker: model.FEATURE_MARKER,
       phoneMarker: model.PHONE_MARKER,
       testingBanner: TESTING_BANNER,
+      included: [...model.INCLUDED_CAPABILITIES],
       banners: [
         TESTING_BANNER,
         "Review every preview before saving.",
         "Group notes apply to children checked in today unless a child is named.",
+        "Offline notes queue locally and sync after reconnect (testing).",
       ],
       organization: {
         id: gate.organization.id,
@@ -190,14 +198,20 @@ function createClassroomAssistantApi({
         mealLogs: listValues(ca.mealLogs).filter((row) => row.organizationId === gate.organization.id).length,
         activityLogs: listValues(ca.activityLogs).filter((row) => row.organizationId === gate.organization.id).length,
         observations: listValues(ca.observations).filter((row) => row.organizationId === gate.organization.id).length,
+        diaperLogs: listValues(ca.diaperLogs).filter((row) => row.organizationId === gate.organization.id).length,
+        pottyLogs: listValues(ca.pottyLogs).filter((row) => row.organizationId === gate.organization.id).length,
+        medicationLogs: listValues(ca.medicationLogs).filter((row) => row.organizationId === gate.organization.id).length,
+        attendanceNotes: listValues(ca.attendanceNotes).filter((row) => row.organizationId === gate.organization.id).length,
+        communicationDrafts: listValues(ca.communicationDrafts).filter((row) => row.organizationId === gate.organization.id).length,
         lessonPlanDrafts: listValues(ca.lessonPlanDrafts).filter((row) => row.organizationId === gate.organization.id).length,
+        offlineSynced: listValues(ca.offlineSynced).filter((row) => row.organizationId === gate.organization.id).length,
       },
     };
   }
 
   function resetOrgData(store, organizationId) {
     const ca = model.ensureClassroomAssistantStore(store);
-    for (const key of ["parsedPlans", "mealLogs", "activityLogs", "observations", "dailySummaries", "lessonPlanDrafts", "suggestionActions"]) {
+    for (const key of model.STORE_MAP_KEYS) {
       Object.keys(ca[key] || {}).forEach((id) => {
         if (ca[key][id]?.organizationId === organizationId) delete ca[key][id];
       });
@@ -362,9 +376,31 @@ function createClassroomAssistantApi({
         note: "Use a phone for daily classroom notes. Lesson plan paste review is computer-recommended.",
         checkedInCount: model.getCheckedInChildren(store, gate.organization.id, {}).length,
         computerRecommendedForLessonPlans: true,
+        offlineCapable: true,
       },
       liveAiUsed: false,
       testingBanner: TESTING_BANNER,
+    });
+  }
+
+  async function handleOfflineSync(request, response, ctx) {
+    const body = await readJson(request).catch(() => ({}));
+    const store = readStore();
+    const gate = assertAccess(store, request, response, ctx.adminEmail, { organizationId: body.organizationId || "" });
+    if (!gate) return;
+    if (body.confirm !== true) {
+      return deny(response, 400, "confirm_required", "Offline sync still requires confirm:true after review.");
+    }
+    const queue = Array.isArray(body.queue) ? body.queue : [];
+    const result = model.syncOfflineQueue(store, queue, {
+      confirm: true,
+      organizationId: gate.organization.id,
+      actorEmail: gate.actor.userEmail || ctx.adminEmail,
+    });
+    writeStore(store);
+    jsonResponse(response, result.ok ? 200 : 207, {
+      ...result,
+      dashboard: dashboardPayload(store, gate),
     });
   }
 
@@ -378,6 +414,7 @@ function createClassroomAssistantApi({
     if (method === "POST" && path === `${BASE}/suggestions/accept`) return (req, res, ctx) => handleAcceptSuggestion(req, res, ctx);
     if (method === "POST" && path === `${BASE}/admin/lesson-plan/parse`) return (req, res, ctx) => handleLessonPlanParse(req, res, ctx);
     if (method === "POST" && path === `${BASE}/admin/lesson-plan/confirm`) return (req, res, ctx) => handleLessonPlanConfirm(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/offline/sync`) return (req, res, ctx) => handleOfflineSync(req, res, ctx);
     if (method === "GET" && path === `${BASE}/phone-summary`) return (req, res, ctx) => handlePhoneSummary(req, res, ctx, url);
     return null;
   }

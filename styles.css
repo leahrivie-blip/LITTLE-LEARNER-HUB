@@ -24979,3 +24979,26 @@ button.linkish {
   color: #5d4200;
   font-weight: 700;
 }
+.ca-offline-banner,
+.ca-sensitive {
+  background: #eef7f1;
+  color: #1d4a33;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+}
+.ca-included-list {
+  margin: 0;
+}
+.ca-draft {
+  margin: 0.5rem 0;
+}
+.ca-draft summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+@media (max-width: 720px) {
+  .ca-grid,
+  .ca-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

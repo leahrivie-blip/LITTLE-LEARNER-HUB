@@ -1,15 +1,19 @@
 /**
  * Classroom Assistant UI.
  * Fake/testing only. Local parse preview must be reviewed before save.
+ * Offline notes queue locally and sync after reconnect.
  */
 (function initClassroomAssistantUI(global) {
   const DEFAULT_BASE = "/api/director-center/classroom-assistant";
+  const OFFLINE_KEY_PREFIX = "llh-ca-offline-queue::";
   const state = {
     dashboard: null,
     parsed: null,
     applied: null,
     lessonDraft: null,
     lessonSaved: null,
+    offlineQueue: [],
+    networkState: "online",
     error: "",
     notice: "",
     loading: false,
@@ -28,6 +32,37 @@
     if (typeof options.getToken === "function") return options.getToken() || "";
     if (typeof global.adminSession === "function") return global.adminSession()?.token || "";
     return global.localStorage?.getItem("llhAdminToken") || global.sessionStorage?.getItem("llhAdminToken") || "";
+  }
+
+  function detectNetworkState() {
+    if (global.LLHPlatformResilience?.detectNetworkState) {
+      return global.LLHPlatformResilience.detectNetworkState();
+    }
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return "offline";
+    return "online";
+  }
+
+  function offlineKey(options) {
+    return `${OFFLINE_KEY_PREFIX}${options.organizationId || state.dashboard?.organization?.id || "default"}`;
+  }
+
+  function loadOfflineQueue(options) {
+    try {
+      const raw = global.localStorage?.getItem(offlineKey(options));
+      const parsed = raw ? JSON.parse(raw) : [];
+      state.offlineQueue = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      state.offlineQueue = [];
+    }
+    return state.offlineQueue;
+  }
+
+  function saveOfflineQueue(options, queue) {
+    state.offlineQueue = Array.isArray(queue) ? queue : [];
+    try {
+      global.localStorage?.setItem(offlineKey(options), JSON.stringify(state.offlineQueue));
+    } catch { /* quota */ }
+    return state.offlineQueue;
   }
 
   function headers(options) {
@@ -51,7 +86,7 @@
       body: body ? JSON.stringify(body) : undefined,
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
+    if (!response.ok && response.status !== 207) {
       const error = new Error(data.error || `Request failed (${response.status})`);
       error.payload = data;
       throw error;
@@ -62,6 +97,7 @@
   async function loadDashboard(options) {
     const qs = options.organizationId ? `?organizationId=${encodeURIComponent(options.organizationId)}` : "";
     state.dashboard = await api(options, "GET", `/dashboard${qs}`);
+    loadOfflineQueue(options);
   }
 
   function childChipsHtml() {
@@ -73,40 +109,115 @@
     `;
   }
 
+  function includedHtml() {
+    const items = [
+      "Group meals, activities, naps, diaper changes, potty logs, medication logs, attendance, and daily summaries from natural language",
+      "Recognizes checked-in children and individual exceptions",
+      "Turns short notes into parent messages, incident/behavior reports, observations, developmental notes, daily reports, and documentation",
+      "Helps with wording for difficult family conversations",
+      "Preview everything before saving",
+      "Admin Assistant for lesson plans and curriculum paste → organize → review",
+      "Smart suggestions to reduce repetitive typing",
+      "Offline mode with automatic sync after reconnect",
+    ];
+    return `
+      <section class="ca-card" data-ca-included>
+        <h3>What's included</h3>
+        <ul class="dc-list ca-included-list">
+          ${items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}
+        </ul>
+      </section>
+    `;
+  }
+
+  function simpleCard(title, bodyHtml) {
+    if (!bodyHtml) return "";
+    return `<article class="ca-card"><h4>${escapeHtml(title)}</h4>${bodyHtml}</article>`;
+  }
+
   function mealPreviewHtml(meal) {
     if (!meal) return "";
-    return `
-      <article class="ca-card">
-        <h4>Group meal</h4>
-        <p><strong>${escapeHtml(meal.mealType || "Meal")}</strong>${meal.time ? ` at ${escapeHtml(meal.time)}` : ""}</p>
-        <p>Foods: ${escapeHtml((meal.foods || []).join(", ") || "Not detected")}</p>
-        <p>Group ate: ${escapeHtml(String(meal.groupAte === true))}</p>
-        ${(meal.exceptions || []).length ? `<ul>${meal.exceptions.map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.note || "Exception")}</li>`).join("")}</ul>` : ""}
-      </article>
-    `;
+    return simpleCard("Group meal", `
+      <p><strong>${escapeHtml(meal.mealType || "Meal")}</strong>${meal.time ? ` at ${escapeHtml(meal.time)}` : ""}</p>
+      <p>Foods: ${escapeHtml((meal.foods || []).join(", ") || "Not detected")}</p>
+      <p>Group ate: ${escapeHtml(String(meal.groupAte === true))}</p>
+      ${(meal.exceptions || []).length ? `<ul>${meal.exceptions.map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.note || "Exception")}</li>`).join("")}</ul>` : ""}
+    `);
   }
 
   function activityPreviewHtml(activity) {
     if (!activity) return "";
     const notes = [...(activity.highlights || []), ...(activity.exceptions || [])];
-    return `
-      <article class="ca-card">
-        <h4>Activity / observation</h4>
-        <p><strong>${escapeHtml(activity.title || "Activity")}</strong>${activity.time ? ` at ${escapeHtml(activity.time)}` : ""}</p>
-        ${activity.groupEnjoyed !== undefined ? `<p>Group enjoyed: ${escapeHtml(String(activity.groupEnjoyed))}</p>` : ""}
-        ${notes.length ? `<ul>${notes.map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.note || "Observation")}</li>`).join("")}</ul>` : ""}
-      </article>
-    `;
+    return simpleCard("Activity / observation", `
+      <p><strong>${escapeHtml(activity.title || "Activity")}</strong>${activity.time ? ` at ${escapeHtml(activity.time)}` : ""}</p>
+      ${activity.groupEnjoyed !== undefined ? `<p>Group enjoyed: ${escapeHtml(String(activity.groupEnjoyed))}</p>` : ""}
+      ${notes.length ? `<ul>${notes.map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.note || "Observation")}</li>`).join("")}</ul>` : ""}
+    `);
   }
 
   function napPreviewHtml(nap) {
     if (!nap) return "";
+    return simpleCard("Nap / rest", `
+      <p>Group slept: ${escapeHtml(String(nap.groupSlept === true))}</p>
+      ${(nap.exceptions || []).length ? `<ul>${nap.exceptions.map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.durationMinutes || "")} minutes ${escapeHtml(item.note || "")}</li>`).join("")}</ul>` : ""}
+    `);
+  }
+
+  function carePreviewHtml(plan) {
+    const parts = [];
+    if (plan.diaper) {
+      parts.push(simpleCard("Diaper", `
+        <p>Status: ${escapeHtml(plan.diaper.status || "checked")}${plan.diaper.time ? ` at ${escapeHtml(plan.diaper.time)}` : ""}</p>
+        <ul>${(plan.diaper.entries || []).map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.status || "")}</li>`).join("") || "<li>Group diaper check</li>"}</ul>
+      `));
+    }
+    if (plan.potty) {
+      parts.push(simpleCard("Potty", `
+        <p>Result: ${escapeHtml(plan.potty.result || "attempt")}${plan.potty.time ? ` at ${escapeHtml(plan.potty.time)}` : ""}</p>
+        <ul>${(plan.potty.entries || []).map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.result || "")}</li>`).join("") || "<li>Group potty note</li>"}</ul>
+      `));
+    }
+    if (plan.medication) {
+      parts.push(simpleCard("Medication (extra review)", `
+        <p>${escapeHtml(plan.medication.medicationName || "medication")}${plan.medication.time ? ` at ${escapeHtml(plan.medication.time)}` : ""}</p>
+        <ul>${(plan.medication.entries || []).map((item) => `<li>${escapeHtml(item.childName)}</li>`).join("")}</ul>
+      `));
+    }
+    if (plan.attendance) {
+      parts.push(simpleCard("Attendance", `
+        <p>${escapeHtml(plan.attendance.summary || plan.attendance.action || "Attendance note")}</p>
+        <ul>${(plan.attendance.entries || []).map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.action || "")}</li>`).join("") || ""}</ul>
+      `));
+    }
+    return parts.join("");
+  }
+
+  function draftsHtml(plan) {
+    const drafts = plan?.professionalDrafts || {};
+    const keys = Object.keys(drafts);
+    if (!keys.length) return "";
     return `
-      <article class="ca-card">
-        <h4>Nap / rest</h4>
-        <p>Group slept: ${escapeHtml(String(nap.groupSlept === true))}</p>
-        ${(nap.exceptions || []).length ? `<ul>${nap.exceptions.map((item) => `<li>${escapeHtml(item.childName)}: ${escapeHtml(item.durationMinutes || "")} minutes ${escapeHtml(item.note || "")}</li>`).join("")}</ul>` : ""}
-      </article>
+      <section class="ca-card">
+        <h4>Professional drafts (preview)</h4>
+        <p class="muted-copy">One-click suggestions convert short notes into family-ready wording. Nothing sends outbound.</p>
+        ${keys.map((key) => {
+          const draft = drafts[key];
+          return `<details class="ca-draft"><summary>${escapeHtml(draft.title || key)}</summary><p>${escapeHtml(draft.body || "")}</p></details>`;
+        }).join("")}
+        ${plan.difficultSituation ? `<p class="ca-sensitive">Difficult-situation help detected: ${escapeHtml((plan.difficultSituation.kinds || []).join(", "))}. ${escapeHtml(plan.difficultSituation.guidance || "")}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function offlineHtml() {
+    const pending = (state.offlineQueue || []).filter((row) => row.status === "pending_sync");
+    return `
+      <section class="ca-card" data-ca-offline>
+        <h3>Offline mode</h3>
+        <p class="muted-copy">Network: <strong>${escapeHtml(state.networkState)}</strong>. Pending sync: ${pending.length}.</p>
+        ${pending.length ? `<ul class="dc-list">${pending.slice(0, 5).map((row) => `<li>${escapeHtml(row.text || row.plan?.sourceText || row.id)}</li>`).join("")}</ul>` : "<p class=\"muted-copy\">No queued notes.</p>"}
+        <button type="button" class="ghost-button" data-ca-sync-offline ${state.networkState === "offline" ? "disabled" : ""}>Sync queued notes now</button>
+      </section>
     `;
   }
 
@@ -121,7 +232,9 @@
           ${mealPreviewHtml(plan.meal)}
           ${activityPreviewHtml(plan.activity)}
           ${napPreviewHtml(plan.nap)}
+          ${carePreviewHtml(plan)}
         </div>
+        ${draftsHtml(plan)}
         ${plan.confidence?.unmatchedNames?.length ? `<p class="muted-copy">Unmatched names: ${escapeHtml(plan.confidence.unmatchedNames.join(", "))}</p>` : ""}
         <div class="ca-suggestions">
           ${(plan.suggestions || []).map((suggestion) => `
@@ -156,14 +269,17 @@
 
   function renderInto(container, options) {
     const d = state.dashboard || {};
+    state.networkState = detectNetworkState();
     container.innerHTML = `
-      <section class="ca-shell" data-feature-marker="phase-ca-classroom-assistant">
+      <section class="ca-shell" data-feature-marker="phase-ca-classroom-assistant" data-offline-capable="true">
         <section class="ca-hero">
           <p class="fh-banner">${escapeHtml(d.testingBanner || "Testing Account - Fake Data Only. Not production operations.")}</p>
           <h2>Classroom Assistant</h2>
-          <p>Write one plain-language note. Classroom Assistant creates a preview only. You review before anything saves.</p>
+          <p>Write one plain-language note. Classroom Assistant organizes meals, care logs, reports, and family wording for review before anything saves.</p>
           <p class="muted-copy">No live AI, email, SMS, push, Stripe, or production operations.</p>
+          ${state.networkState === "offline" ? `<p class="ca-offline-banner" role="status">You are offline. Keep working — notes queue locally and sync when connection returns.</p>` : ""}
         </section>
+        ${includedHtml()}
         <section class="ca-card" data-feature-marker="phase-ca-classroom-assistant-mobile">
           <h3>Checked in today</h3>
           ${childChipsHtml()}
@@ -189,10 +305,11 @@
             ${lessonDraftHtml()}
           </section>
         </section>
+        ${offlineHtml()}
         <section class="ca-card">
           <h3>Recent saved notes</h3>
           <ul class="dc-list">
-            ${(d.recentNotes || []).slice(0, 6).map((row) => `<li>${escapeHtml(row.label || row.kind)} - ${escapeHtml(row.childName || (row.childIds || []).join(", ") || "group")} ${row.note ? `- ${escapeHtml(row.note)}` : ""}</li>`).join("") || "<li>No saved notes yet.</li>"}
+            ${(d.recentNotes || []).slice(0, 8).map((row) => `<li>${escapeHtml(row.label || row.kind)} - ${escapeHtml(row.childName || (row.childIds || []).join(", ") || "group")} ${row.note ? `- ${escapeHtml(row.note)}` : ""}</li>`).join("") || "<li>No saved notes yet.</li>"}
           </ul>
         </section>
       </section>
@@ -200,17 +317,104 @@
     bind(container, options);
   }
 
+  async function syncOffline(options, { auto = false } = {}) {
+    loadOfflineQueue(options);
+    const pending = (state.offlineQueue || []).filter((row) => row.status === "pending_sync");
+    if (!pending.length) {
+      if (!auto) state.notice = "No offline notes to sync.";
+      return;
+    }
+    if (detectNetworkState() === "offline") {
+      state.notice = "Still offline. Notes will sync when connection returns.";
+      return;
+    }
+    const result = await api(options, "POST", "/offline/sync", {
+      organizationId: options.organizationId || "",
+      confirm: true,
+      queue: pending,
+    });
+    const synced = new Set(result.syncedIds || []);
+    const next = (state.offlineQueue || []).map((row) => (
+      synced.has(row.id) ? { ...row, status: "synced", syncedAt: new Date().toISOString() } : row
+    )).filter((row) => row.status === "pending_sync");
+    saveOfflineQueue(options, next);
+    if (result.dashboard) state.dashboard = result.dashboard;
+    else await loadDashboard(options);
+    state.notice = `Synced ${synced.size} offline note(s).`;
+  }
+
+  function queueOfflineApply(options, plan) {
+    const item = {
+      id: `caoffline_${Date.now().toString(16)}_${Math.random().toString(16).slice(2, 8)}`,
+      organizationId: options.organizationId || state.dashboard?.organization?.id || "",
+      action: "apply_plan",
+      text: plan.sourceText || "",
+      plan,
+      createdAt: new Date().toISOString(),
+      status: "pending_sync",
+      liveAiUsed: false,
+      testingOnly: true,
+    };
+    const next = [...loadOfflineQueue(options), item];
+    saveOfflineQueue(options, next);
+    return item;
+  }
+
   function bind(container, options) {
     container.querySelector("[data-ca-parse-form]")?.addEventListener("submit", async (event) => {
       event.preventDefault();
       state.error = "";
       state.notice = "";
-      const text = new FormData(event.target).get("text") || "";
+      const text = String(new FormData(event.target).get("text") || "").trim();
       try {
+        if (detectNetworkState() === "offline") {
+          if (!text) {
+            state.error = "Enter a classroom note before queuing offline.";
+            renderInto(container, options);
+            return;
+          }
+          const item = {
+            id: `caoffline_${Date.now().toString(16)}_${Math.random().toString(16).slice(2, 8)}`,
+            organizationId: options.organizationId || state.dashboard?.organization?.id || "",
+            action: "apply_plan",
+            text,
+            plan: null,
+            createdAt: new Date().toISOString(),
+            status: "pending_sync",
+            liveAiUsed: false,
+            testingOnly: true,
+            queuedWithoutPreview: true,
+          };
+          saveOfflineQueue(options, [...loadOfflineQueue(options), item]);
+          state.parsed = {
+            preview: true,
+            plan: {
+              id: item.id,
+              sourceText: text,
+              requiresReview: true,
+              liveAiUsed: false,
+              offlineQueued: true,
+              suggestions: [
+                { type: "daily_report", label: "Will sync to daily reports", oneClick: true },
+                { type: "parent_message", label: "Will draft parent message on sync", oneClick: true },
+              ],
+              professionalDrafts: {},
+              targets: [],
+            },
+          };
+          state.notice = "Offline note queued. It will parse, organize, and sync automatically when connection returns. Review on sync is still confirmed by Sync.";
+          renderInto(container, options);
+          return;
+        }
         state.parsed = await api(options, "POST", "/parse", { text, organizationId: options.organizationId || "" });
         state.notice = "Preview ready. Please review before saving.";
       } catch (error) {
-        state.error = error.message;
+        if (detectNetworkState() === "offline" || /failed to fetch|network/i.test(error.message || "")) {
+          state.networkState = "offline";
+          state.error = "You appear offline. Re-submit to queue the note for automatic sync.";
+        } else {
+          state.error = error.message;
+        }
       }
       renderInto(container, options);
     });
@@ -219,13 +423,41 @@
       if (!state.parsed?.plan) return;
       state.error = "";
       try {
+        if (state.parsed.plan.offlineQueued) {
+          state.notice = "Already queued offline. Use Sync queued notes when online, or wait for automatic reconnect sync.";
+          renderInto(container, options);
+          return;
+        }
+        if (detectNetworkState() === "offline") {
+          queueOfflineApply(options, state.parsed.plan);
+          state.notice = "Saved to offline queue. It will sync automatically when connection returns.";
+          renderInto(container, options);
+          return;
+        }
         state.applied = await api(options, "POST", "/apply", {
           planId: state.parsed.plan.id,
+          plan: state.parsed.plan,
           confirm: true,
           organizationId: options.organizationId || "",
         });
         state.notice = "Reviewed classroom note saved to fake preview records.";
         await loadDashboard(options);
+      } catch (error) {
+        if (detectNetworkState() === "offline" || /failed to fetch|network/i.test(error.message || "")) {
+          queueOfflineApply(options, state.parsed.plan);
+          state.networkState = "offline";
+          state.notice = "Connection lost. Note queued offline and will sync later.";
+        } else {
+          state.error = error.message;
+        }
+      }
+      renderInto(container, options);
+    });
+
+    container.querySelector("[data-ca-sync-offline]")?.addEventListener("click", async () => {
+      state.error = "";
+      try {
+        await syncOffline(options);
       } catch (error) {
         state.error = error.message;
       }
@@ -285,6 +517,20 @@
     });
   }
 
+  function attachNetworkListeners(options, container) {
+    if (container.__caNetworkBound) return;
+    container.__caNetworkBound = true;
+    const refresh = async () => {
+      state.networkState = detectNetworkState();
+      if (state.networkState === "online") {
+        try { await syncOffline(options, { auto: true }); } catch { /* keep queued */ }
+      }
+      renderInto(container, options);
+    };
+    global.addEventListener("online", refresh);
+    global.addEventListener("offline", refresh);
+  }
+
   global.renderClassroomAssistantTab = async function renderClassroomAssistantTab(container, options = {}) {
     if (!container) return;
     const opts = {
@@ -294,9 +540,12 @@
     };
     try {
       await loadDashboard(opts);
+      await syncOffline(opts, { auto: true });
     } catch (error) {
       state.error = error.message;
+      loadOfflineQueue(opts);
     }
     renderInto(container, opts);
+    attachNetworkListeners(opts, container);
   };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -30,6 +30,46 @@ function listValues(map) {
   return map && typeof map === "object" ? Object.values(map) : [];
 }
 
+const STORE_MAP_KEYS = [
+  "parsedPlans",
+  "mealLogs",
+  "activityLogs",
+  "observations",
+  "dailySummaries",
+  "diaperLogs",
+  "pottyLogs",
+  "medicationLogs",
+  "attendanceNotes",
+  "communicationDrafts",
+  "lessonPlanDrafts",
+  "suggestionActions",
+  "offlineSynced",
+];
+
+const INCLUDED_CAPABILITIES = Object.freeze([
+  "group_meals",
+  "group_activities",
+  "naps",
+  "diaper_changes",
+  "potty_logs",
+  "medication_logs",
+  "attendance",
+  "daily_summaries",
+  "checked_in_awareness",
+  "individual_exceptions",
+  "professional_parent_messages",
+  "incident_reports",
+  "behavior_reports",
+  "observations",
+  "developmental_notes",
+  "documentation",
+  "difficult_family_wording",
+  "preview_before_save",
+  "admin_lesson_curriculum",
+  "smart_suggestions",
+  "offline_sync",
+]);
+
 function ensureClassroomAssistantStore(store) {
   if (!store || typeof store !== "object") throw new Error("store required");
   if (!store.classroomAssistant || typeof store.classroomAssistant !== "object") {
@@ -39,19 +79,26 @@ function ensureClassroomAssistantStore(store) {
       activityLogs: {},
       observations: {},
       dailySummaries: {},
+      diaperLogs: {},
+      pottyLogs: {},
+      medicationLogs: {},
+      attendanceNotes: {},
+      communicationDrafts: {},
       lessonPlanDrafts: {},
       suggestionActions: {},
+      offlineSynced: {},
       history: [],
       meta: {
         createdAt: nowIso(),
         fakeDataOnly: true,
         liveAiUsed: false,
         featureMarker: FEATURE_MARKER,
+        offlineCapable: true,
       },
     };
   }
   const ca = store.classroomAssistant;
-  for (const key of ["parsedPlans", "mealLogs", "activityLogs", "observations", "dailySummaries", "lessonPlanDrafts", "suggestionActions"]) {
+  for (const key of STORE_MAP_KEYS) {
     if (!ca[key] || typeof ca[key] !== "object") ca[key] = {};
   }
   if (!Array.isArray(ca.history)) ca.history = [];
@@ -59,6 +106,8 @@ function ensureClassroomAssistantStore(store) {
   ca.meta.fakeDataOnly = true;
   ca.meta.liveAiUsed = false;
   ca.meta.featureMarker = FEATURE_MARKER;
+  ca.meta.offlineCapable = true;
+  ca.meta.includedCapabilities = [...INCLUDED_CAPABILITIES];
   ca.meta.updatedAt = nowIso();
   return ca;
 }
@@ -177,7 +226,7 @@ function extractMealType(text) {
   return "";
 }
 
-function buildDailySummary({ text, meal, activity, nap }) {
+function buildDailySummary({ text, meal, activity, nap, diaper, potty, medication, attendance }) {
   const note = cleanText(text, 1200);
   const dailyReport = [];
   const meals = [];
@@ -201,6 +250,22 @@ function buildDailySummary({ text, meal, activity, nap }) {
     dailyReport.push(nap.groupSlept === false ? "Nap/rest was noted with exceptions." : "Nap/rest was recorded.");
     timeline.push({ type: "nap", label: "Nap/rest", time: nap.time || "" });
   }
+  if (diaper) {
+    dailyReport.push(`Diaper care logged${diaper.time ? ` at ${diaper.time}` : ""}.`);
+    timeline.push({ type: "diaper", label: diaper.status || "diaper", time: diaper.time || "" });
+  }
+  if (potty) {
+    dailyReport.push(`Potty learning logged${potty.time ? ` at ${potty.time}` : ""}.`);
+    timeline.push({ type: "potty", label: potty.result || "potty", time: potty.time || "" });
+  }
+  if (medication) {
+    documentation.push(`Medication log preview: ${medication.medicationName || "medication"} (review required).`);
+    timeline.push({ type: "medication", label: medication.medicationName || "medication", time: medication.time || "" });
+  }
+  if (attendance) {
+    dailyReport.push(attendance.summary || "Attendance note recorded.");
+    timeline.push({ type: "attendance", label: attendance.action || "attendance", time: attendance.time || "" });
+  }
   if (note) {
     dailyReport.push(note);
     parentReport.push(note);
@@ -209,18 +274,156 @@ function buildDailySummary({ text, meal, activity, nap }) {
   return { dailyReport, activities, meals, observations, parentReport, documentation, timeline };
 }
 
-function suggestionSet({ meal, activity, nap }) {
+function suggestionSet({ meal, activity, nap, diaper, potty, medication, attendance, difficult }) {
   const suggestions = [
     { type: "daily_report", label: "Add to daily reports", oneClick: true },
     { type: "parent_message", label: "Draft parent-friendly note", oneClick: true },
+    { type: "documentation", label: "File documentation entry", oneClick: true },
   ];
-  if (activity) {
-    suggestions.push({ type: "observation", label: "Save activity observation", oneClick: true });
-    suggestions.push({ type: "portfolio", label: "Add to portfolio notes", oneClick: true });
+  if (activity || nap) {
+    suggestions.push({ type: "observation", label: "Save observation", oneClick: true });
+    suggestions.push({ type: "portfolio", label: "Add portfolio entry", oneClick: true });
   }
   if (meal) suggestions.push({ type: "documentation", label: "File meal documentation", oneClick: true });
   if (nap) suggestions.push({ type: "milestone", label: "Track rest routine", oneClick: true });
-  return suggestions;
+  if (diaper || potty) suggestions.push({ type: "developmental_note", label: "Save developmental care note", oneClick: true });
+  if (medication) suggestions.push({ type: "documentation", label: "Confirm medication documentation", oneClick: true });
+  if (attendance) suggestions.push({ type: "daily_report", label: "Update attendance summary", oneClick: true });
+  if (difficult) {
+    suggestions.push({ type: "incident_report", label: "Draft incident wording", oneClick: true });
+    suggestions.push({ type: "behavior_report", label: "Draft behavior note for families", oneClick: true });
+    suggestions.push({ type: "parent_message", label: "Help with difficult family wording", oneClick: true });
+  }
+  const seen = new Set();
+  return suggestions.filter((row) => {
+    const key = row.type;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function detectDifficultSituation(text) {
+  const source = String(text || "");
+  const lower = source.toLowerCase();
+  const kinds = [];
+  if (/\b(bit|bite|bitten|hit|hitting|pushed|pushing|kicked|scratch|fought|fight)\b/i.test(source)) kinds.push("peer_conflict");
+  if (/\b(upset|cried|crying|tantrum|meltdown|anxious|afraid|scared|refused|wouldn't)\b/i.test(source)) kinds.push("emotional_support");
+  if (/\b(accident|fell|fall|bump|bruise|injury|injured|bleed|blood|incident)\b/i.test(source)) kinds.push("incident_care");
+  if (/\b(behavior|redirect|limits|sharing|took a turn)\b/i.test(source)) kinds.push("guidance");
+  if (!kinds.length) return null;
+  return {
+    detected: true,
+    kinds,
+    needsSensitiveWording: true,
+    guidance: "Use calm, factual, non-blaming language. Focus on care provided and partnership with families.",
+  };
+}
+
+function childFirst(name) {
+  return cleanText(String(name || "").split(/\s+/)[0] || name || "your child", 80);
+}
+
+function buildProfessionalDrafts(plan, { children = [] } = {}) {
+  const note = cleanText(plan?.sourceText || "", 1200);
+  const named = findNamedChildren(note, (children || []).map(normalizeChild));
+  const focus = named[0] || null;
+  const focusName = focus ? childFirst(focus.displayName) : "your child";
+  const mealBit = plan?.meal
+    ? `${plan.meal.mealType || "Meal"}${plan.meal.time ? ` around ${plan.meal.time}` : ""}${(plan.meal.foods || []).length ? ` with ${(plan.meal.foods || []).join(", ")}` : ""}.`
+    : "";
+  const activityBit = plan?.activity ? `We spent time with ${plan.activity.title || "classroom activities"}.` : "";
+  const napBit = plan?.nap?.exceptions?.[0]
+    ? `${childFirst(plan.nap.exceptions[0].childName)} rested for about ${plan.nap.exceptions[0].durationMinutes} minutes.`
+    : plan?.nap
+      ? "Rest time went well overall."
+      : "";
+  const drafts = {
+    parent_message: {
+      type: "parent_message",
+      title: "Parent message",
+      tone: "warm_professional",
+      body: cleanText([
+        `Hello — a quick update from our classroom today.`,
+        activityBit,
+        mealBit,
+        napBit,
+        focus ? `We wanted to share a note about ${focusName}.` : "",
+        "Please let us know if you have any questions. Thank you for partnering with us.",
+      ].filter(Boolean).join(" "), 1200),
+    },
+    daily_report: {
+      type: "daily_report",
+      title: "Daily report summary",
+      tone: "factual",
+      body: cleanText((plan?.dailySummary?.dailyReport || [note]).join(" "), 1200),
+    },
+    observation: {
+      type: "observation",
+      title: "Observation",
+      tone: "developmental",
+      body: cleanText(
+        plan?.activity?.highlights?.[0]?.note
+          || plan?.activity?.exceptions?.[0]?.note
+          || `Observation from classroom note: ${note}`,
+        1200,
+      ),
+    },
+    developmental_note: {
+      type: "developmental_note",
+      title: "Developmental note",
+      tone: "supportive",
+      body: cleanText([
+        focus ? `${focusName} showed growth opportunities during today's routines.` : "Developmental note from today's classroom routines.",
+        plan?.potty ? `Potty learning: ${plan.potty.result || "attempt noted"}.` : "",
+        plan?.activity?.highlights?.[0]?.note || "",
+        "We will continue offering practice and encouragement.",
+      ].filter(Boolean).join(" "), 1200),
+    },
+    documentation: {
+      type: "documentation",
+      title: "Documentation entry",
+      tone: "record",
+      body: cleanText(`Classroom Assistant documentation preview: ${note}`, 1200),
+    },
+    incident_report: {
+      type: "incident_report",
+      title: "Incident report wording",
+      tone: "calm_factual",
+      body: cleanText([
+        "Incident report draft (review required):",
+        `What happened: ${note}`,
+        "Immediate care/response: Staff stayed with the child, provided comfort/first aid as needed, and supervised the group.",
+        "Follow-up: Family will be informed with facts only. No blame language used.",
+      ].join(" "), 1400),
+    },
+    behavior_report: {
+      type: "behavior_report",
+      title: "Behavior note for families",
+      tone: "partnership",
+      body: cleanText([
+        `Behavior partnership note about ${focusName}:`,
+        `Today we noticed: ${note}`,
+        "How we supported: We used calm redirection, offered choices, and stayed nearby.",
+        "How families can help: Consistent language at home and celebrating small successes together.",
+      ].join(" "), 1400),
+    },
+  };
+  if (plan?.difficultSituation) {
+    drafts.difficult_family_wording = {
+      type: "difficult_family_wording",
+      title: "Help with difficult family wording",
+      tone: "empathetic_clear",
+      body: cleanText([
+        `Hello — I wanted to share something from today involving ${focusName} with care and clarity.`,
+        `In our own words: ${note}`,
+        "We stayed calm, kept everyone safe, and supported the children involved.",
+        "We value our partnership and are happy to talk through what we saw and how we can support together.",
+      ].join(" "), 1400),
+      kinds: plan.difficultSituation.kinds || [],
+    };
+  }
+  return drafts;
 }
 
 function parseMeal(text, children) {
@@ -322,7 +525,157 @@ function parseNap(text, children) {
   }
   return {
     groupSlept: /\beveryone\b.+\b(great\s+nap|slept|rested|nap)\b/i.test(text) || exceptions.length > 0,
+    time: extractTime(text),
     exceptions,
+  };
+}
+
+function sentences(text) {
+  return String(text || "")
+    .split(/(?<=[.!?])\s+|\n+/)
+    .map((part) => cleanText(part, 500))
+    .filter(Boolean);
+}
+
+function parseDiaper(text, children) {
+  if (!/\bdiaper|nappy|changed\b/i.test(text)) return null;
+  const entries = [];
+  let groupApplied = false;
+  let status = "checked";
+  let time = "";
+  const parts = sentences(text);
+  for (let index = 0; index < parts.length; index += 1) {
+    const sentence = parts[index];
+    if (!/\bdiaper|nappy|changed\b/i.test(sentence)) continue;
+    let localStatus = status;
+    const statusMatch = sentence.match(/\b(wet|soiled|dirty|bm|bowel|dry)\b/i)
+      || (parts[index + 1] || "").match(/^(wet|soiled|dirty|bm|bowel|dry)\.?$/i);
+    if (statusMatch) {
+      localStatus = statusMatch[1].toLowerCase().replace("dirty", "soiled").replace("bm", "soiled").replace("bowel", "soiled");
+      status = localStatus;
+    }
+    time = time || extractTime(sentence);
+    if (/\b(everyone|all children|class)\b.+\b(diaper|changed|check)\b/i.test(sentence)) groupApplied = true;
+    for (const child of findNamedChildren(sentence, children)) {
+      if (entries.some((row) => row.childId === child.id)) continue;
+      entries.push({
+        childId: child.id,
+        childName: child.displayName,
+        status: localStatus,
+        note: cleanText([sentence, statusMatch && !/\b(wet|soiled|dirty|bm|bowel|dry)\b/i.test(sentence) ? parts[index + 1] : ""].filter(Boolean).join(" "), 240),
+      });
+    }
+  }
+  if (!entries.length && !groupApplied) return null;
+  return {
+    groupApplied,
+    status,
+    time: time || extractTime(text),
+    entries,
+    exceptions: [],
+  };
+}
+
+function parsePotty(text, children) {
+  if (!/\bpotty|toilet|bathroom\b/i.test(text)) return null;
+  const entries = [];
+  let groupApplied = false;
+  let result = "attempt";
+  let time = "";
+  for (const sentence of sentences(text)) {
+    if (!/\bpotty|toilet|bathroom\b/i.test(sentence)) continue;
+    const success = /\b(successful|success|dry|used the potty|went potty|made it)\b/i.test(sentence);
+    const accident = /\b(accident|had an accident|wet pants|missed)\b/i.test(sentence);
+    result = accident ? "accident" : success ? "success" : result;
+    time = time || extractTime(sentence);
+    if (/\b(everyone|all children)\b.+\b(potty|toilet)\b/i.test(sentence)) groupApplied = true;
+    for (const child of findNamedChildren(sentence, children)) {
+      if (entries.some((row) => row.childId === child.id)) continue;
+      entries.push({
+        childId: child.id,
+        childName: child.displayName,
+        result: accident ? "accident" : success ? "success" : "attempt",
+        note: cleanText(sentence, 240),
+      });
+    }
+  }
+  if (!entries.length && !groupApplied) return null;
+  return {
+    groupApplied,
+    result,
+    time: time || extractTime(text),
+    entries,
+  };
+}
+
+function parseMedication(text, children) {
+  if (!/\b(medication|medicine|meds|inhaler|epipen|vitamin|dose|prescribed)\b/i.test(text)) return null;
+  const entries = [];
+  let medicationName = "medication";
+  let time = "";
+  let note = "";
+  for (const sentence of sentences(text)) {
+    if (!/\b(medication|medicine|meds|inhaler|epipen|vitamin|dose|prescribed)\b/i.test(sentence)) continue;
+    const medMatch = sentence.match(/\b(?:gave|administered|had)\s+(?:him|her|them|[A-Z][a-z]+)?\s*(?:his|her|their)?\s*(?:prescribed\s+)?([A-Za-z][A-Za-z0-9\s-]{1,40}?)(?:\s+at\b|\s+for\b|\.|$)/i)
+      || sentence.match(/\b(vitamin|inhaler|epipen|medication|medicine)\b/i);
+    medicationName = cleanText(medMatch?.[1] || medicationName, 80);
+    time = extractTime(sentence) || time;
+    note = cleanText(sentence, 240);
+    for (const child of findNamedChildren(sentence, children)) {
+      if (entries.some((row) => row.childId === child.id)) continue;
+      entries.push({
+        childId: child.id,
+        childName: child.displayName,
+        medicationName,
+        note,
+      });
+    }
+  }
+  if (!entries.length && !note) return null;
+  return {
+    medicationName,
+    time: time || extractTime(text),
+    requiresExtraReview: true,
+    entries,
+    note: note || cleanText(text, 240),
+  };
+}
+
+function parseAttendance(text, children) {
+  if (!/\b(checked in|check[- ]?in|checked out|check[- ]?out|absent|attendance|here today|arrived)\b/i.test(text)) return null;
+  const entries = [];
+  let groupHere = false;
+  let summary = "";
+  for (const sentence of sentences(text)) {
+    if (!/\b(checked in|check[- ]?in|checked out|check[- ]?out|absent|attendance|here today|arrived)\b/i.test(sentence)) continue;
+    const time = extractTime(sentence);
+    summary = cleanText(sentence, 240);
+    if (/\b(everyone|all children)\s+(is|are|was|were)?\s*(here|present|checked in)\b/i.test(sentence)) {
+      groupHere = true;
+    }
+    for (const match of sentence.matchAll(/\b([A-Z][a-z]+)\s+(?:checked in|arrived|came in)\b/gi)) {
+      const child = findChildByName(match[1], children);
+      if (!child) continue;
+      entries.push({ childId: child.id, childName: child.displayName, action: "checked_in", time, note: cleanText(match[0], 240) });
+    }
+    for (const match of sentence.matchAll(/\b([A-Z][a-z]+)\s+(?:checked out|left|went home)\b/gi)) {
+      const child = findChildByName(match[1], children);
+      if (!child) continue;
+      entries.push({ childId: child.id, childName: child.displayName, action: "checked_out", time, note: cleanText(match[0], 240) });
+    }
+    for (const match of sentence.matchAll(/\b([A-Z][a-z]+)\s+(?:is|was)\s+absent\b/gi)) {
+      const child = findChildByName(match[1], children);
+      if (!child) continue;
+      entries.push({ childId: child.id, childName: child.displayName, action: "absent", time, note: cleanText(match[0], 240) });
+    }
+  }
+  if (!entries.length && !groupHere) return null;
+  return {
+    groupHere,
+    action: groupHere ? "checked_in" : (entries[0]?.action || "attendance_note"),
+    time: entries.find((row) => row.time)?.time || "",
+    entries,
+    summary: summary || cleanText(text, 240),
   };
 }
 
@@ -334,19 +687,29 @@ function parseNaturalNote(text, { organizationId = "", children = [], checkedInI
   const meal = parseMeal(clean, normalizedChildren);
   const activity = parseActivity(clean, normalizedChildren);
   const nap = parseNap(clean, normalizedChildren);
+  const diaper = parseDiaper(clean, normalizedChildren);
+  const potty = parsePotty(clean, normalizedChildren);
+  const medication = parseMedication(clean, normalizedChildren);
+  const attendance = parseAttendance(clean, normalizedChildren);
+  const difficultSituation = detectDifficultSituation(clean);
   const named = findNamedChildren(clean, normalizedChildren);
   const namedIds = named.map((child) => child.id);
-  const hasGroupAction = [meal?.groupAte, activity?.groupEnjoyed, nap?.groupSlept].some((value) => value === true || value === false)
+  const hasGroupAction = [meal?.groupAte, activity?.groupEnjoyed, nap?.groupSlept, diaper?.groupApplied, potty?.groupApplied, attendance?.groupHere]
+    .some((value) => value === true || value === false)
     || /\b(everyone|all children|the children)\b/i.test(clean);
   const targetSet = new Set(hasGroupAction ? checkedChildren.map((child) => child.id) : []);
   for (const id of namedIds) targetSet.add(id);
+  for (const entry of [...(diaper?.entries || []), ...(potty?.entries || []), ...(medication?.entries || []), ...(attendance?.entries || [])]) {
+    if (entry.childId) targetSet.add(entry.childId);
+  }
   const unmatchedNames = [];
   for (const word of clean.match(/\b[A-Z][a-z]{2,}\b/g) || []) {
     if (["Breakfast", "Today", "Everyone", "Ava", "Timmy", "Susan", "Jack"].includes(word)) {
       if (findChildByName(word, normalizedChildren)) continue;
     }
-    if (!findChildByName(word, normalizedChildren) && !["Breakfast", "Today", "Everyone"].includes(word)) unmatchedNames.push(word);
+    if (!findChildByName(word, normalizedChildren) && !["Breakfast", "Today", "Everyone", "Changed", "Gave"].includes(word)) unmatchedNames.push(word);
   }
+  const dailySummary = buildDailySummary({ text: clean, meal, activity, nap, diaper, potty, medication, attendance });
   const plan = {
     id: newId("caplan"),
     planId: "",
@@ -357,11 +720,17 @@ function parseNaturalNote(text, { organizationId = "", children = [], checkedInI
     previewOnly: true,
     liveAiUsed: false,
     localDeterministicParsing: true,
+    offlineCapable: true,
     meal,
     activity,
     nap,
-    dailySummary: buildDailySummary({ text: clean, meal, activity, nap }),
-    suggestions: suggestionSet({ meal, activity, nap }),
+    diaper,
+    potty,
+    medication,
+    attendance,
+    difficultSituation,
+    dailySummary,
+    suggestions: suggestionSet({ meal, activity, nap, diaper, potty, medication, attendance, difficult: Boolean(difficultSituation) }),
     targets: [...targetSet],
     confidence: {
       level: clean ? "medium" : "low",
@@ -369,11 +738,13 @@ function parseNaturalNote(text, { organizationId = "", children = [], checkedInI
         "Local deterministic parser only.",
         "Review before save is required.",
         hasGroupAction ? "Group entries target checked-in children for today." : "Only named children are targeted.",
-      ],
+        medication ? "Medication logs always require extra review." : "",
+      ].filter(Boolean),
       unmatchedNames: [...new Set(unmatchedNames)].slice(0, 8),
     },
   };
   plan.planId = plan.id;
+  plan.professionalDrafts = buildProfessionalDrafts(plan, { children: normalizedChildren });
   return plan;
 }
 
@@ -395,6 +766,11 @@ function createApplyResult({ plan, applied = false, errors = [], created = {} } 
       activityLogIds: created.activityLogIds || [],
       observationIds: created.observationIds || [],
       dailySummaryIds: created.dailySummaryIds || [],
+      diaperLogIds: created.diaperLogIds || [],
+      pottyLogIds: created.pottyLogIds || [],
+      medicationLogIds: created.medicationLogIds || [],
+      attendanceNoteIds: created.attendanceNoteIds || [],
+      communicationDraftIds: created.communicationDraftIds || [],
       suggestionActionIds: created.suggestionActionIds || [],
     },
     testingBanner: TESTING_BANNER,
@@ -434,7 +810,18 @@ function applyParsedPlan(store, plan, { confirm = false, organizationId = "", ac
   }
   const children = childrenForOrg(store, orgId);
   const childIds = (Array.isArray(plan.targets) ? plan.targets : []).filter(Boolean);
-  const created = { mealLogIds: [], activityLogIds: [], observationIds: [], dailySummaryIds: [], suggestionActionIds: [] };
+  const created = {
+    mealLogIds: [],
+    activityLogIds: [],
+    observationIds: [],
+    dailySummaryIds: [],
+    diaperLogIds: [],
+    pottyLogIds: [],
+    medicationLogIds: [],
+    attendanceNoteIds: [],
+    communicationDraftIds: [],
+    suggestionActionIds: [],
+  };
   const at = nowIso();
   const mealExceptionIds = exceptionIds(plan.meal?.exceptions);
   const activityExceptionIds = exceptionIds(plan.activity?.exceptions);
@@ -534,6 +921,134 @@ function applyParsedPlan(store, plan, { confirm = false, organizationId = "", ac
     }
   }
 
+  if (plan.diaper) {
+    const diaperTargets = plan.diaper.groupApplied
+      ? childIds
+      : (plan.diaper.entries || []).map((row) => row.childId).filter(Boolean);
+    for (const childId of [...new Set(diaperTargets)]) {
+      const entry = (plan.diaper.entries || []).find((row) => row.childId === childId);
+      const row = {
+        id: newId("cadpr"),
+        organizationId: orgId,
+        planId: plan.id || plan.planId || "",
+        childId,
+        childName: targetNames(children, [childId])[0],
+        status: entry?.status || plan.diaper.status || "checked",
+        time: plan.diaper.time || "",
+        note: entry?.note || "",
+        groupApplied: plan.diaper.groupApplied === true,
+        actorEmail: cleanText(actorEmail, 160).toLowerCase(),
+        createdAt: at,
+        testingOnly: true,
+        liveAiUsed: false,
+      };
+      ca.diaperLogs[row.id] = row;
+      created.diaperLogIds.push(row.id);
+      writePreviewDailyLog(store, childId, row);
+    }
+  }
+
+  if (plan.potty) {
+    const pottyTargets = plan.potty.groupApplied
+      ? childIds
+      : (plan.potty.entries || []).map((row) => row.childId).filter(Boolean);
+    for (const childId of [...new Set(pottyTargets)]) {
+      const entry = (plan.potty.entries || []).find((row) => row.childId === childId);
+      const row = {
+        id: newId("capot"),
+        organizationId: orgId,
+        planId: plan.id || plan.planId || "",
+        childId,
+        childName: targetNames(children, [childId])[0],
+        result: entry?.result || plan.potty.result || "attempt",
+        time: plan.potty.time || "",
+        note: entry?.note || "",
+        groupApplied: plan.potty.groupApplied === true,
+        actorEmail: cleanText(actorEmail, 160).toLowerCase(),
+        createdAt: at,
+        testingOnly: true,
+        liveAiUsed: false,
+      };
+      ca.pottyLogs[row.id] = row;
+      created.pottyLogIds.push(row.id);
+      writePreviewDailyLog(store, childId, row);
+    }
+  }
+
+  if (plan.medication) {
+    const medTargets = (plan.medication.entries || []).map((row) => row.childId).filter(Boolean);
+    for (const childId of [...new Set(medTargets.length ? medTargets : childIds)]) {
+      const entry = (plan.medication.entries || []).find((row) => row.childId === childId);
+      const row = {
+        id: newId("camed"),
+        organizationId: orgId,
+        planId: plan.id || plan.planId || "",
+        childId,
+        childName: targetNames(children, [childId])[0],
+        medicationName: entry?.medicationName || plan.medication.medicationName || "medication",
+        time: plan.medication.time || "",
+        note: entry?.note || plan.medication.note || "",
+        requiresExtraReview: true,
+        actorEmail: cleanText(actorEmail, 160).toLowerCase(),
+        createdAt: at,
+        testingOnly: true,
+        liveAiUsed: false,
+      };
+      ca.medicationLogs[row.id] = row;
+      created.medicationLogIds.push(row.id);
+      writePreviewDailyLog(store, childId, row);
+    }
+  }
+
+  if (plan.attendance) {
+    const attendanceTargets = plan.attendance.groupHere
+      ? childIds
+      : (plan.attendance.entries || []).map((row) => row.childId).filter(Boolean);
+    for (const childId of [...new Set(attendanceTargets)]) {
+      const entry = (plan.attendance.entries || []).find((row) => row.childId === childId);
+      const row = {
+        id: newId("caatt"),
+        organizationId: orgId,
+        planId: plan.id || plan.planId || "",
+        childId,
+        childName: targetNames(children, [childId])[0],
+        action: entry?.action || plan.attendance.action || "attendance_note",
+        time: entry?.time || plan.attendance.time || "",
+        note: entry?.note || plan.attendance.summary || "",
+        groupApplied: plan.attendance.groupHere === true,
+        actorEmail: cleanText(actorEmail, 160).toLowerCase(),
+        createdAt: at,
+        testingOnly: true,
+        liveAiUsed: false,
+      };
+      ca.attendanceNotes[row.id] = row;
+      created.attendanceNoteIds.push(row.id);
+      writePreviewDailyLog(store, childId, row);
+    }
+  }
+
+  if (plan.professionalDrafts && typeof plan.professionalDrafts === "object") {
+    for (const draft of Object.values(plan.professionalDrafts)) {
+      if (!draft || typeof draft !== "object") continue;
+      const row = {
+        id: newId("cacomm"),
+        organizationId: orgId,
+        planId: plan.id || plan.planId || "",
+        type: draft.type || "documentation",
+        title: draft.title || draft.type || "Draft",
+        tone: draft.tone || "",
+        body: draft.body || "",
+        actorEmail: cleanText(actorEmail, 160).toLowerCase(),
+        createdAt: at,
+        testingOnly: true,
+        liveAiUsed: false,
+        previewShared: false,
+      };
+      ca.communicationDrafts[row.id] = row;
+      created.communicationDraftIds.push(row.id);
+    }
+  }
+
   const summary = {
     id: newId("casum"),
     organizationId: orgId,
@@ -551,6 +1066,88 @@ function applyParsedPlan(store, plan, { confirm = false, organizationId = "", ac
   ca.parsedPlans[plan.id || plan.planId || newId("caplan")] = { ...plan, appliedAt: at, appliedBy: actorEmail, previewOnly: false, liveAiUsed: false };
   appendHistory(ca, { type: "plan_applied", organizationId: orgId, planId: plan.id || plan.planId || "", childIds });
   return createApplyResult({ plan, applied: true, created });
+}
+
+function createOfflineQueueItem({ text = "", plan = null, organizationId = "", action = "apply_plan" } = {}) {
+  return {
+    id: newId("caoffline"),
+    organizationId: cleanText(organizationId, 80),
+    action: cleanText(action, 40) || "apply_plan",
+    text: cleanText(text, 3000),
+    plan: plan && typeof plan === "object" ? plan : null,
+    createdAt: nowIso(),
+    status: "pending_sync",
+    liveAiUsed: false,
+    testingOnly: true,
+  };
+}
+
+function mergeOfflineQueue(existing = [], incoming = []) {
+  const byId = new Map();
+  for (const row of [...(existing || []), ...(incoming || [])]) {
+    if (!row || !row.id) continue;
+    byId.set(row.id, row);
+  }
+  return [...byId.values()].sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+}
+
+function pendingOfflineItems(queue = []) {
+  return (queue || []).filter((row) => row && row.status === "pending_sync");
+}
+
+function markOfflineItemSynced(queue = [], itemId, syncedAt = nowIso()) {
+  return (queue || []).map((row) => (
+    row?.id === itemId
+      ? { ...row, status: "synced", syncedAt, liveAiUsed: false }
+      : row
+  ));
+}
+
+function syncOfflineQueue(store, queue = [], { confirm = false, organizationId = "", actorEmail = "" } = {}) {
+  if (confirm !== true) {
+    return { ok: false, code: "confirm_required", syncedIds: [], remaining: pendingOfflineItems(queue), liveAiUsed: false };
+  }
+  const ca = ensureClassroomAssistantStore(store);
+  const syncedIds = [];
+  const errors = [];
+  let working = [...(queue || [])];
+  for (const item of pendingOfflineItems(working)) {
+    if (item.organizationId && organizationId && item.organizationId !== organizationId) {
+      errors.push({ id: item.id, code: "cross_org_denied" });
+      continue;
+    }
+    const plan = item.plan || parseNaturalNote(item.text || "", {
+      organizationId,
+      children: childrenForOrg(store, organizationId),
+      checkedInIds: getCheckedInChildren(store, organizationId, {}).map((child) => child.id),
+    });
+    const result = applyParsedPlan(store, plan, { confirm: true, organizationId, actorEmail });
+    if (!result.ok) {
+      errors.push({ id: item.id, code: result.errors?.[0] || "apply_failed" });
+      continue;
+    }
+    working = markOfflineItemSynced(working, item.id);
+    const synced = {
+      id: item.id,
+      organizationId,
+      planId: result.planId,
+      syncedAt: nowIso(),
+      testingOnly: true,
+      liveAiUsed: false,
+    };
+    ca.offlineSynced[item.id] = synced;
+    syncedIds.push(item.id);
+  }
+  appendHistory(ca, { type: "offline_sync", organizationId, syncedIds });
+  return {
+    ok: errors.length === 0,
+    syncedIds,
+    remaining: pendingOfflineItems(working),
+    queue: working,
+    errors,
+    liveAiUsed: false,
+    testingBanner: TESTING_BANNER,
+  };
 }
 
 function parseLessonPlanPaste(text) {
@@ -637,6 +1234,8 @@ module.exports = {
   TESTING_BANNER,
   FEATURE_MARKER,
   PHONE_MARKER,
+  INCLUDED_CAPABILITIES,
+  STORE_MAP_KEYS,
   ensureClassroomAssistantStore,
   getCheckedInChildren,
   parseNaturalNote,
@@ -645,6 +1244,13 @@ module.exports = {
   parseLessonPlanPaste,
   createLessonPlanDraftFromPaste,
   confirmLessonPlanDraft,
+  createOfflineQueueItem,
+  mergeOfflineQueue,
+  pendingOfflineItems,
+  markOfflineItemSynced,
+  syncOfflineQueue,
+  buildProfessionalDrafts,
+  detectDifficultSituation,
   newId,
   nowIso,
   todayDate,
