@@ -32,6 +32,8 @@ Guiding question for every feature: **Can we make this faster and easier for the
 
 **Paused.** Do not begin Phase 22 until Classroom Assistant priority work is accepted and the owner writes new Phase 22 instructions.
 
-## Related report
+## Related reports
 
-See `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md` after the foundation lands.
+- `docs/CLASSROOM_ASSISTANT_INCLUDED.md` — product “what’s included” scope
+- `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`
+- `docs/CLASSROOM_ASSISTANT_SCOPE_EXPANSION_COMPLETION_REPORT.md`
