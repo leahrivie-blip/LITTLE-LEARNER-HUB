@@ -40,6 +40,7 @@
     "test:curriculum-access-security": "node scripts/test-curriculum-access-security.js",
     "test:curriculum-library-cold-start": "node scripts/test-curriculum-library-cold-start.js",
     "test:lesson-library-empty-curriculum-hotfix": "node scripts/test-lesson-library-empty-curriculum-hotfix.js",
+    "test:curriculum-activities-wipe-protection": "node scripts/test-curriculum-activities-wipe-protection.js",
     "test:boot-currentuser-tdz": "node scripts/test-boot-currentuser-tdz.js",
     "test:homescreen-pwa-boot": "node scripts/test-homescreen-pwa-boot.js",
     "test:pro-lesson-preview-audit": "node scripts/test-pro-lesson-preview-audit.js",

@@ -2920,9 +2920,18 @@ function storeCountDropReasons(nextCounts, prevCounts = lastPersistedStoreCounts
 // caller explicitly confirms REPLACE_CURRICULUM (dedicated wipe endpoint stays separate).
 function shouldPreserveExistingCurriculum(existingCurriculum, incomingCurriculum, { allowReplace = false } = {}) {
   if (allowReplace) return false;
-  const existingCount = normalizedCurriculumStore(existingCurriculum).lessonPlans.length;
+  const existing = normalizedCurriculumStore(existingCurriculum);
+  const incoming = normalizedCurriculumStore(incomingCurriculum);
+  // Lesson plans and activities are wiped together by the same failure mode (a full
+  // curriculum object replace), but guard each independently — activities are what
+  // populate the Activity Center and can otherwise go empty even if lessonPlans looks intact.
+  const lessonPlansWiped = curriculumFieldDroppedTooMuch(existing.lessonPlans.length, incoming.lessonPlans.length);
+  const activitiesWiped = curriculumFieldDroppedTooMuch(existing.activities.length, incoming.activities.length);
+  return lessonPlansWiped || activitiesWiped;
+}
+
+function curriculumFieldDroppedTooMuch(existingCount, incomingCount) {
   if (existingCount <= 0) return false;
-  const incomingCount = normalizedCurriculumStore(incomingCurriculum).lessonPlans.length;
   if (incomingCount === 0) return true;
   if (existingCount >= 5 && incomingCount < Math.floor(existingCount * 0.5)) return true;
   return false;
