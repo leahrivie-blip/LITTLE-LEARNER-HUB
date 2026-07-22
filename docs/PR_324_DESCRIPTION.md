@@ -7,9 +7,9 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 15** (Today Hub / Daily Operations), including Phase 12–14 remediation.
+Private preview work through **Phase 16** (Complete Staff Experience), including Phases 1–15.
 
-**Do not merge into `main`. Do not deploy to production. Do not begin Phase 16 until Phase 15 is verified.**
+**Do not merge into `main`. Do not deploy to production. Do not begin Phase 17 until Phase 16 is verified.**
 
 ### Start Here (next developer)
 
@@ -17,24 +17,22 @@ Private preview work through **Phase 15** (Today Hub / Daily Operations), includ
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run Phase 1–15 automated tests (include `npm run test:today-hub-phase15`)
+5. Run Phase 1–16 automated tests (include `npm run test:staff-experience-phase16`)
 6. Confirm testing-environment safety
-7. Continue only after owner-approved Phase 16 requirements
+7. Continue only after owner-approved Phase 17 requirements
 8. Never merge or deploy without explicit approval
 
 ### COMPLETED
 
-- Phases 1–14 (testing preview; backend/permissions)
-- Phase 12–14 remediation — `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`
-- Phase 15 Today Hub — `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`
+- Phases 1–15 (testing preview)
+- Phase 16 Staff Experience — `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- Phase 16+
-- Live Stripe enrollment checkout
+- Phase 17+
+- Live Stripe / payroll / banking
 - Live email / SMS / push delivery
-- Live AI / live pricing / production migration
-- Staff scheduling / billing (deferred from Phase 15)
+- Live AI / production migration
 
 ### Feature flags (testing)
 
@@ -64,6 +62,7 @@ npm run test:records-center-phase13
 npm run test:licensing-center-phase14
 npm run test:phase12-14-remediation
 npm run test:today-hub-phase15
+npm run test:staff-experience-phase16
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -72,8 +71,8 @@ npm run test:account-access
 
 Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 
-Phase 15 focused suite: **17 PASS**. Full Phase 1–15 regression: **PASS**. Tip: `f97b195`. Production Family Hub locked. `main` untouched. Phase 16 not started.
+Phase 16 focused suite: **23 PASS**. Full Phase 1–16 regression: **PASS**. Production Family Hub locked. `main` untouched. Phase 17 not started.
 
 ### Suggested PR title
 
-Phases 1–15 Today Hub (do not merge/deploy)
+Phases 1–16 Staff Experience (do not merge/deploy)

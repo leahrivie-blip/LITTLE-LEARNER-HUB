@@ -24327,3 +24327,99 @@ button.linkish {
     gap: 1rem;
   }
 }
+
+/* Phase 16 Staff Experience */
+.sx-panel {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.sx-computer-recommended {
+  display: none;
+  margin: 0.5rem 0;
+  padding: 0.75rem 1rem;
+  background: #eef6fb;
+  border: 1px solid #c5d9e8;
+  border-radius: 8px;
+  color: #1f3b4d;
+  font-weight: 600;
+}
+.sx-subnav,
+.sx-status-row,
+.sx-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.sx-metric {
+  min-width: 6rem;
+  flex: 1 1 calc(50% - 0.35rem);
+  text-align: left;
+  box-sizing: border-box;
+}
+.sx-clock-card {
+  padding: 0.75rem;
+  border: 1px solid #d7e0e7;
+  border-radius: 8px;
+  background: #f7fafc;
+}
+.sx-panel .fu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.sx-panel .fh-card {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.sx-panel input,
+.sx-panel button,
+.sx-panel select {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .sx-computer-recommended {
+    display: block;
+  }
+  .sx-metric {
+    min-width: calc(50% - 0.35rem);
+  }
+  .sx-panel .fu-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .sx-status-row .sx-metric:nth-child(n+5) {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .sx-computer-recommended {
+    display: block;
+  }
+  .sx-panel {
+    max-width: 960px;
+  }
+  .sx-metric {
+    min-width: 7.5rem;
+    flex: 1 1 calc(25% - 0.5rem);
+  }
+}
+
+@media (min-width: 1280px) {
+  .sx-computer-recommended {
+    display: none;
+  }
+  .sx-status-row .sx-metric {
+    min-width: 8rem;
+    flex: 0 1 auto;
+  }
+}

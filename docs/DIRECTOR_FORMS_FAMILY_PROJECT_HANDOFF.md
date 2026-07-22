@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 15 Today Hub complete; Phase 16 not started)
+**Status date:** 2026-07-22 (Phase 16 Staff Experience complete; Phase 17 not started)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -13,7 +13,7 @@
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
 5. Run all Phase 1–14 automated tests + `npm run test:phase12-14-remediation` (commands below)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (**Phase 16** — do not start until Phase 15 is verified on the branch tip)
+7. Continue only from the next **approved** phase (**Phase 17** — do not start until Phase 16 is verified on the branch tip)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -34,6 +34,7 @@ Build a private, testing-only foundation for:
 - **Licensing Center** (Phase 14) — configurable readiness + Family Hub **Licensing Documents Needed** from Home
 - **Phase 12–14 remediation** — responsive `.en-`/`.rc-`/`.lc-*` rules, real Family Hub licensing UI, valid screenshots (`docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`)
 - **Today Hub / Daily Operations** (Phase 15) — role-specific Today Hub, attendance foundation, provider-configured ratios, task aggregation — `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`
+- **Complete Staff Experience** (Phase 16) — Staff Hub directory/profiles, onboarding, schedule, time clock, training, self-service, offboarding — `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -56,7 +57,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify after push: `git rev-parse HEAD`) |
-| Tip message | Phase 15 Today Hub complete (tip SHA via `git rev-parse` after push) |
+| Tip message | Phase 16 Staff Experience complete (tip SHA via `git rev-parse` after push) |
 
 Confirm tip after pull:
 
@@ -121,7 +122,8 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| *(branch tip — set after push via `git rev-parse`)* | Phase 15 Today Hub complete |
+| *(branch tip — set after push via `git rev-parse`)* | Phase 16 Staff Experience complete |
+| `c43f345` | Phase 15 tip (Phase 16 start) |
 | `94bc315` | Phase 12–14 remediation tip (Phase 15 start) |
 | `b69707e` | Tip before Phase 12 feature commit |
 | `a5b1f4c` | Phase 11 family messaging implementation |
@@ -166,10 +168,11 @@ Phase tip history (newest first):
 - **Phase 14 Licensing** — `docs/PHASE_14_LICENSING_INSPECTION_READINESS_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`
 - **Phase 12–14 remediation** — responsive UI, Family Hub licensing Home card, valid screenshots — `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`
 - **Phase 15 Today Hub / Daily Operations** — role-specific Today Hub, attendance + ratios, task aggregation — `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`
+- **Phase 16 Complete Staff Experience** — Staff Hub, schedule, time clock, training, self-service, offboarding — `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- **Phase 16**
+- **Phase 17**
 - **Phase 18** complete Testing and Preview Lab
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
@@ -463,6 +466,7 @@ npm run test:records-center-phase13
 npm run test:licensing-center-phase14
 npm run test:phase12-14-remediation
 npm run test:today-hub-phase15
+npm run test:staff-experience-phase16
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -483,9 +487,10 @@ node scripts/capture-family-updates-phase10-screens.js
 node scripts/capture-family-messaging-phase11-screens.js
 node scripts/capture-enrollment-phase12-screens.js
 node scripts/capture-today-hub-phase15-screens.js
+node scripts/capture-staff-experience-phase16-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 15)
+### Handoff verification results (2026-07-22, Phase 16)
 
 | Command | Result |
 |---------|--------|
@@ -507,10 +512,11 @@ node scripts/capture-today-hub-phase15-screens.js
 | `npm run test:licensing-center-phase14` | PASS (19/19) |
 | `npm run test:phase12-14-remediation` | PASS (24/24) |
 | `npm run test:today-hub-phase15` | PASS (17/17) |
+| `npm run test:staff-experience-phase16` | PASS (23/23) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Full Phase 1–15 regression: **PASS**. See `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`.
+Full Phase 1–16 regression: **PASS**. See `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`.
 
 ---
 
@@ -551,16 +557,16 @@ Full Phase 1–15 regression: **PASS**. See `docs/PHASE_15_TODAY_DAILY_OPERATION
 
 ---
 
-## Phase 16 recommendation
+## Phase 17 recommendation
 
-**Do not begin Phase 16** until Phase 15 is verified on the branch tip (`docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`).
+**Do not begin Phase 17** until Phase 16 is verified on the branch tip (`docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`).
 
 Until then:
 
-- Keep Phases 1–15 green on this branch
+- Keep Phases 1–16 green on this branch
 - Keep Family Hub production-locked
 - Keep outbound email/SMS/push disabled
-- Keep Stripe enrollment checkout disabled
+- Keep Stripe enrollment / payroll / banking disabled
 - Do not claim universal ratio/licensing compliance
 
 See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
@@ -571,10 +577,10 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–15 test suite; confirm all PASS
-4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, `ALLOW_FAMILY_HUB_TESTING_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=true` (production must keep Family Hub locked; no production media storage; no Stripe enrollment)
-5. Smoke Director Center Today Hub → Family Hub Home → Today / Enrollment / Licensing
-6. Continue only with owner-written Phase 16 requirements
+3. Run the full Phase 1–16 test suite; confirm all PASS
+4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on
+5. Smoke Director Center Staff Hub → My Staff Hub clock → Today Hub coverage
+6. Continue only with owner-written Phase 17 requirements
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 

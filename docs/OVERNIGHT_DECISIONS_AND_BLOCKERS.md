@@ -1,7 +1,7 @@
 # Overnight decisions and blockers
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 15 Today Hub)
+**Updated:** 2026-07-22 (Phase 16 Staff Experience)
 
 ## Decisions
 
@@ -67,14 +67,26 @@ Licensing family tasks: digital guardians only; pickup-only / restricted → 403
 
 Attendance history is append-only. Ratio history preserved on classroom transfers/actions.
 
-## Attendance / ratio documentation
+### Staff Experience (Phase 16)
+
+| Actor | Staff Hub access |
+|-------|------------------|
+| Director / owner | Directory, invite (plan limits), onboarding, schedule publish, coverage assign, private notes, offboarding, reports |
+| Lead teacher / assistant | Self-service only: own schedule, clock, time-off, training, permission summary |
+| Teachers/assistants | Cannot open staff directory, private notes, or other personnel records |
+| Cross-org | Profile/actions denied |
+
+Time clock history is append-only. Coverage suggestions never auto-move staff. Payroll/banking/external notifications stay OFF.
+
+## Attendance / ratio / staff documentation
 
 - Statuses: expected, checked_in, absent, late, temporarily_out, moved_classroom, checked_out, early_pickup  
 - Fields: timestamps, classroom, actor, drop-off/pickup person, pickup verification, correction reason, edit history  
 - Ratio config: `maxChildrenPerStaff`, `nearLimitThreshold`, age/classroom label  
 - Disclaimer constant: provider-configured rules — not universal compliance  
+- Phase 16 clock status syncs into Today Hub `staffDuty` for coverage/ratio  
 
-Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`.
+Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `scripts/staff-experience-data-model.js`, `server/staff-experience-api.js`.
 
 ## Safety / still OFF
 
@@ -82,7 +94,8 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`.
 - No public production inquiries  
 - No outbound email/SMS/push  
 - Production Family Hub locked  
-- No staff scheduling / live billing (deferred)
+- No payroll / banking / tax reporting  
+- No staff scheduling external notifications  
 
 ## Blockers / audit remediation
 
@@ -90,7 +103,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`.
 
 **Phase 15 completed 2026-07-22** — see `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 16** until Phase 15 is verified on the branch tip.
+**Phase 16 completed 2026-07-22** — see `docs/PHASE_16_COMPLETE_STAFF_EXPERIENCE_COMPLETION_REPORT.md`.
+
+**Do not begin Phase 17** until Phase 16 is verified on the branch tip.
 
 ## Phase 14 notes
 
@@ -103,4 +118,10 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`.
 
 - Today Hub is the daily operations entry point for role-scoped urgent work.
 - In-app notifications only; admin-only notifications stay director-scoped.
-- Deferred: staff scheduling, billing, external delivery, Phase 16.
+- Deferred: staff scheduling (delivered in Phase 16), billing, external delivery.
+
+## Phase 16 notes
+
+- Staff Hub is computer-first for directory/schedule/permissions; phone focuses on My Staff Hub clock/schedule.
+- Private performance notes never appear in directory, Family Hub, or classroom views.
+- Deferred: payroll, tax, banking, external notifications, Phase 17.
