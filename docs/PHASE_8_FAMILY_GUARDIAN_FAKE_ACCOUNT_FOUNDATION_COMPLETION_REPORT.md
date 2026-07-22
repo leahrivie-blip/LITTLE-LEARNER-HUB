@@ -83,7 +83,7 @@ Full regression (Phases 1–8 + platform/account) run once before completion —
 ## Deferred
 
 - **Phase 9:** complete Family Hub interface / parent product surfaces  
-- **Phase 18:** complete Testing and Preview Lab (quick role preview foundation only here)
+- **Phase 18:** Testing and Preview Lab completed — see `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md` (builds on this fake-account foundation)
 
 ## Handoff confirmations
 
