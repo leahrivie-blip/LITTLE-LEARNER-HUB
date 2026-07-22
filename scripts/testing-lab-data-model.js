@@ -79,6 +79,9 @@ const CHECKLIST_ITEMS = Object.freeze([
   "computer",
   "permissions",
   "empty_error_states",
+  "accessibility_keyboard",
+  "performance_health",
+  "draft_recovery",
 ]);
 
 const NOTE_STATUSES = Object.freeze({

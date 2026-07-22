@@ -5,7 +5,15 @@
  * Shared Director Center / Family Hub mount helpers for Phase 12–14 captures.
  */
 
+async function ensureExpansionScripts(page, viewName) {
+  await page.waitForFunction(() => typeof window.LLHPlatformPerf?.ensureViewScripts === "function", null, { timeout: 20000 });
+  await page.evaluate(async (view) => {
+    await window.LLHPlatformPerf.ensureViewScripts(view);
+  }, viewName);
+}
+
 async function mountDirectorFeature(page, { tab, renderName, mountId, marker }) {
+  await ensureExpansionScripts(page, "director-center");
   await page.waitForFunction((name) => typeof window[name] === "function", renderName, { timeout: 20000 });
   const result = await page.evaluate(async ({ tabName, renderName: fnName, mountId: id }) => {
     document.querySelectorAll(".view").forEach((el) => {
@@ -39,6 +47,7 @@ async function mountDirectorFeature(page, { tab, renderName, mountId, marker }) 
 }
 
 async function openFamilyHubTab(page, tab) {
+  await ensureExpansionScripts(page, "family-hub");
   await page.waitForFunction(() => typeof window.renderFamilyHubPage === "function", null, { timeout: 20000 });
   await page.evaluate(async (nextTab) => {
     document.querySelectorAll(".view").forEach((el) => {
@@ -61,6 +70,7 @@ async function openFamilyHubTab(page, tab) {
 }
 
 module.exports = {
+  ensureExpansionScripts,
   mountDirectorFeature,
   openFamilyHubTab,
 };

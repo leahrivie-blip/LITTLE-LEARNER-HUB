@@ -8,6 +8,11 @@
   const state = {
     panel: "home",
     dashboard: null,
+    health: null,
+    restorePreview: null,
+    lastBackup: null,
+    activityPage: 1,
+    activity: null,
     loading: false,
     error: "",
     notice: "",
@@ -15,6 +20,7 @@
     issuedEmail: "",
     deviceSession: null,
     preview: null,
+    saveStatus: "idle",
   };
 
   function escapeHtml(value) {
@@ -45,6 +51,7 @@
   function panelNav() {
     const items = [
       ["home", "Home"],
+      ["health", "Health"],
       ["accounts", "Accounts"],
       ["scenarios", "Scenarios"],
       ["preview", "Role Preview"],
@@ -55,11 +62,11 @@
       ["audit", "Activity"],
     ];
     return `
-      <div class="tl-subnav">
+      <nav class="tl-subnav" aria-label="Testing Lab panels">
         ${items.map(([id, label]) => `
-          <button type="button" class="ghost-button${state.panel === id ? " active" : ""}" data-tl-panel="${id}">${label}</button>
+          <button type="button" class="ghost-button tl-touch${state.panel === id ? " active" : ""}" data-tl-panel="${id}" aria-current="${state.panel === id ? "page" : "false"}">${label}</button>
         `).join("")}
-      </div>
+      </nav>
     `;
   }
 
@@ -207,32 +214,54 @@
   }
 
   function dataHtml() {
+    const preview = state.restorePreview;
     return `
-      <section class="tl-section" data-tl-data>
-        <h3>Data controls</h3>
-        <p class="muted-copy">Resets only validated fake organizations on this test host. Never production, main, real users, or Stripe.</p>
-        <button type="button" class="ghost-button" data-tl-reset-preview>Preview reset impact</button>
-        <button type="button" class="primary-button" data-tl-reset-confirm>Confirm destructive test-data reset</button>
+      <section class="tl-section" data-tl-data aria-labelledby="tl-data-heading">
+        <h3 id="tl-data-heading">Data controls</h3>
+        <p class="muted-copy">Resets and backup/restore simulation only affect validated fake organizations on this test host. Never production, main, real users, or Stripe.</p>
+        <div class="tl-actions-row">
+          <button type="button" class="ghost-button tl-touch" data-tl-reset-preview>Preview reset impact</button>
+          <button type="button" class="primary-button tl-touch" data-tl-reset-confirm>Confirm destructive test-data reset</button>
+        </div>
+        <h4>Fake backup / restore simulation</h4>
+        <p class="muted-copy">Creates a testing-only snapshot label. No real production backup or restore.</p>
+        <div class="tl-actions-row">
+          <button type="button" class="ghost-button tl-touch" data-tl-backup-simulate>Simulate fake backup</button>
+          ${state.lastBackup ? `<button type="button" class="ghost-button tl-touch" data-tl-restore-preview="${escapeHtml(state.lastBackup.id)}">Preview restore</button>` : ""}
+          ${preview ? `<button type="button" class="primary-button tl-touch" data-tl-restore-confirm="${escapeHtml(preview.id)}">Confirm fake restore</button>` : ""}
+        </div>
+        ${state.lastBackup ? `<pre class="tl-pre" aria-label="Last fake backup">${escapeHtml(JSON.stringify(state.lastBackup, null, 2))}</pre>` : ""}
+        ${preview ? `<pre class="tl-pre" aria-label="Restore preview">${escapeHtml(JSON.stringify(preview, null, 2))}</pre>` : ""}
       </section>
     `;
   }
 
   function checklistHtml() {
+    const statusLabel = {
+      idle: "",
+      saving: "Saving…",
+      saved: "Saved",
+      unsaved: "Unsaved changes",
+      retrying: "Retrying…",
+      failed: "Save failed — try again",
+    }[state.saveStatus] || "";
     return `
-      <section class="tl-section" data-tl-checklist>
-        <h3>Owner test checklist</h3>
+      <section class="tl-section" data-tl-checklist aria-labelledby="tl-checklist-heading">
+        <h3 id="tl-checklist-heading">Owner test checklist</h3>
         <p class="muted-copy">Manual progress only — unchecked items are not automated failures.</p>
+        <p class="tl-save-status" role="status" aria-live="polite" data-save-state="${escapeHtml(state.saveStatus)}">${escapeHtml(statusLabel)}</p>
         <ul class="fh-card-list">
           ${(state.dashboard?.checklist || []).map((row) => `
             <li class="fh-card static">
               <strong>${escapeHtml(row.item.replace(/_/g, " "))}</strong>
-              <span class="dc-badge">${escapeHtml(row.status)}</span>
-              <select data-tl-note-status="${escapeHtml(row.item)}">
+              <span class="llh-status-pill llh-status-pill--info" data-status-tone="info"><span class="llh-status-pill__label">Status:</span> ${escapeHtml(row.status)}</span>
+              <label class="visually-hidden" for="tl-note-${escapeHtml(row.item)}">Status for ${escapeHtml(row.item)}</label>
+              <select id="tl-note-${escapeHtml(row.item)}" data-tl-note-status="${escapeHtml(row.item)}">
                 ${["pass", "needs_change", "bug", "question", "not_tested"].map((s) => `
                   <option value="${s}"${row.status === s ? " selected" : ""}>${s}</option>
                 `).join("")}
               </select>
-              <button type="button" class="ghost-button" data-tl-save-note="${escapeHtml(row.item)}">Save note</button>
+              <button type="button" class="ghost-button tl-touch" data-tl-save-note="${escapeHtml(row.item)}">Save note</button>
             </li>
           `).join("")}
         </ul>
@@ -241,11 +270,14 @@
   }
 
   function auditHtml() {
+    const page = state.activity || {};
+    const items = page.items || state.dashboard?.recentActivity || [];
     return `
-      <section class="tl-section" data-tl-audit>
-        <h3>Test activity / audit</h3>
+      <section class="tl-section" data-tl-audit aria-labelledby="tl-audit-heading">
+        <h3 id="tl-audit-heading">Test activity / audit</h3>
+        <p class="muted-copy">Paginated to keep large histories from freezing the page.</p>
         <ul class="fh-card-list">
-          ${(state.dashboard?.recentActivity || []).map((row) => `
+          ${items.map((row) => `
             <li class="fh-card static">
               <strong>${escapeHtml(row.action)}</strong>
               <span class="muted-copy">${escapeHtml(row.at || "")}</span>
@@ -253,11 +285,75 @@
             </li>
           `).join("") || "<li class=\"muted-copy\">No activity</li>"}
         </ul>
+        <div class="tl-actions-row">
+          <button type="button" class="ghost-button tl-touch" data-tl-activity-prev ${state.activityPage <= 1 ? "disabled" : ""}>Previous</button>
+          <span class="muted-copy">Page ${escapeHtml(String(page.page || state.activityPage))} / ${escapeHtml(String(page.totalPages || 1))}</span>
+          <button type="button" class="ghost-button tl-touch" data-tl-activity-next ${page.hasMore === false ? "disabled" : ""}>Next</button>
+        </div>
+      </section>
+    `;
+  }
+
+  function healthHtml() {
+    const h = state.health || {};
+    const flags = h.featureFlags || {};
+    const external = h.externalServices || {};
+    const failed = h.failedSaves || {};
+    const perf = h.performance || {};
+    return `
+      <section class="tl-section" data-tl-health data-feature-marker="phase19-platform-resilience" aria-labelledby="tl-health-heading">
+        <h3 id="tl-health-heading">System health &amp; performance</h3>
+        <p class="tl-banner" role="status">${escapeHtml(TESTING_BANNER)}</p>
+        <p class="muted-copy">Admin-visible testing summary. External services stay disabled for this workstream. No production backup/restore.</p>
+        <div class="tl-status-row" role="list">
+          <div class="tl-metric fh-card static" role="listitem">
+            <strong>Storage</strong>
+            <span>${escapeHtml(h.storage?.provider || "—")}</span>
+            <span class="llh-status-pill llh-status-pill--${h.storage?.ready ? "success" : "warning"}"><span class="llh-status-pill__label">${h.storage?.ready ? "Ready" : "Warning"}:</span> ${h.storage?.testingSafe ? "testing-safe" : "check provider"}</span>
+          </div>
+          <div class="tl-metric fh-card static" role="listitem">
+            <strong>Failed saves</strong>
+            <span>${escapeHtml(String(failed.openCount ?? 0))} open</span>
+            <span class="muted-copy">Sanitized metadata only</span>
+          </div>
+          <div class="tl-metric fh-card static" role="listitem">
+            <strong>Health timing</strong>
+            <span>${escapeHtml(String(perf.durationMs ?? "—"))} ms</span>
+            <span class="llh-status-pill llh-status-pill--${perf.withinBudget ? "success" : "warning"}"><span class="llh-status-pill__label">${perf.withinBudget ? "Within budget" : "Over budget"}:</span> ${escapeHtml(String(perf.budgetMs || "—"))} ms</span>
+          </div>
+        </div>
+        <h4>Feature flags</h4>
+        <ul class="fh-card-list">
+          ${Object.entries(flags).map(([key, on]) => `
+            <li class="fh-card static"><strong>${escapeHtml(key)}</strong>
+              <span class="llh-status-pill llh-status-pill--${on ? "success" : "info"}"><span class="llh-status-pill__label">${on ? "On" : "Off"}:</span> stored</span>
+            </li>
+          `).join("")}
+        </ul>
+        <h4>External services</h4>
+        <ul class="fh-card-list">
+          ${Object.entries(external).map(([key, status]) => `
+            <li class="fh-card static"><strong>${escapeHtml(key)}</strong>
+              <span class="llh-status-pill llh-status-pill--info"><span class="llh-status-pill__label">Status:</span> ${escapeHtml(status)}</span>
+            </li>
+          `).join("")}
+        </ul>
+        <div class="tl-actions-row">
+          <button type="button" class="primary-button tl-touch" data-tl-refresh-health>Refresh health</button>
+          <button type="button" class="ghost-button tl-touch" data-tl-seed-resilience>Seed resilience fixtures</button>
+        </div>
+        <pre class="tl-pre" aria-label="Health JSON summary">${escapeHtml(JSON.stringify({
+          storage: h.storage,
+          backupRestore: h.backupRestore,
+          launchReadiness: h.launchReadiness,
+          budgets: perf.budgets || null,
+        }, null, 2))}</pre>
       </section>
     `;
   }
 
   function bodyHtml() {
+    if (state.panel === "health") return healthHtml();
     if (state.panel === "accounts") return accountsHtml();
     if (state.panel === "scenarios") return scenariosHtml();
     if (state.panel === "preview") return previewHtml();
@@ -322,16 +418,16 @@
     if (!mount) return;
     // Never keep one-time passwords visible when re-rendering for phone captures.
     mount.innerHTML = `
-      <section class="tl-panel" data-feature-marker="phase18-testing-lab">
-        <p class="tl-banner">${escapeHtml(TESTING_BANNER)}</p>
+      <section class="tl-panel" data-feature-marker="phase18-testing-lab" aria-label="Testing and Preview Lab">
+        <p class="tl-banner" role="status">${escapeHtml(TESTING_BANNER)}</p>
         ${mobileSummaryHtml()}
         <div class="tl-desktop-lab" data-tl-desktop-lab>
           <p class="eyebrow">Testing and Preview Lab</p>
           <h2>Private testing area</h2>
-          ${state.error ? `<p class="dc-error">${escapeHtml(state.error)}</p>` : ""}
-          ${state.notice ? `<p class="muted-copy">${escapeHtml(state.notice)}</p>` : ""}
+          ${state.error ? `<div class="llh-error-summary" role="alert"><p class="dc-error">${escapeHtml(state.error)}</p><button type="button" class="ghost-button" data-tl-try-again>Try Again</button></div>` : ""}
+          ${state.notice ? `<p class="muted-copy" role="status">${escapeHtml(state.notice)}</p>` : ""}
           ${panelNav()}
-          ${state.loading ? `<p class="muted-copy">Loading…</p>` : bodyHtml()}
+          ${state.loading ? `<p class="muted-copy" role="status" aria-live="polite">Loading…</p>` : bodyHtml()}
         </div>
       </section>
     `;
@@ -340,10 +436,94 @@
 
   function bind(mount) {
     mount.querySelectorAll("[data-tl-panel]").forEach((btn) => {
-      btn.addEventListener("click", () => {
+      btn.addEventListener("click", async () => {
         state.panel = btn.getAttribute("data-tl-panel");
+        if (state.panel === "health") {
+          try {
+            state.health = await api("GET", `${BASE}/health`);
+          } catch (error) {
+            state.error = error.message;
+          }
+        }
+        if (state.panel === "audit") {
+          try {
+            state.activity = await api("GET", `${BASE}/activity?page=${state.activityPage}&pageSize=20`);
+          } catch (error) {
+            state.error = error.message;
+          }
+        }
         render(mount);
       });
+    });
+    mount.querySelector("[data-tl-try-again]")?.addEventListener("click", async () => {
+      state.error = "";
+      await refresh(mount);
+    });
+    mount.querySelector("[data-tl-refresh-health]")?.addEventListener("click", async () => {
+      try {
+        state.health = await api("GET", `${BASE}/health`);
+        state.notice = "Health refreshed.";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-seed-resilience]")?.addEventListener("click", async () => {
+      try {
+        await api("POST", `${BASE}/resilience/seed`, {});
+        state.health = await api("GET", `${BASE}/health`);
+        state.notice = "Resilience fixtures seeded (fake org only).";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-backup-simulate]")?.addEventListener("click", async () => {
+      try {
+        const data = await api("POST", `${BASE}/backup/simulate`, {});
+        state.lastBackup = data.backup;
+        state.notice = "Fake backup simulation created.";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-restore-preview]")?.addEventListener("click", async (event) => {
+      try {
+        const backupId = event.currentTarget.getAttribute("data-tl-restore-preview");
+        const data = await api("POST", `${BASE}/restore/preview`, { backupId });
+        state.restorePreview = data.preview;
+        state.notice = "Restore preview ready — confirm to apply fake snapshot labels.";
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-restore-confirm]")?.addEventListener("click", async (event) => {
+      try {
+        const previewId = event.currentTarget.getAttribute("data-tl-restore-confirm");
+        await api("POST", `${BASE}/restore/confirm`, { previewId, confirm: true });
+        state.restorePreview = null;
+        state.notice = "Fake restore simulation applied.";
+        await refresh(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-activity-prev]")?.addEventListener("click", async () => {
+      state.activityPage = Math.max(1, state.activityPage - 1);
+      state.activity = await api("GET", `${BASE}/activity?page=${state.activityPage}&pageSize=20`);
+      render(mount);
+    });
+    mount.querySelector("[data-tl-activity-next]")?.addEventListener("click", async () => {
+      state.activityPage += 1;
+      state.activity = await api("GET", `${BASE}/activity?page=${state.activityPage}&pageSize=20`);
+      render(mount);
     });
     mount.querySelector("[data-tl-quick-start]")?.addEventListener("click", async () => {
       try {
@@ -522,14 +702,47 @@
     });
     mount.querySelectorAll("[data-tl-save-note]").forEach((btn) => {
       btn.addEventListener("click", async () => {
-        try {
-          const item = btn.getAttribute("data-tl-save-note");
-          const select = mount.querySelector(`[data-tl-note-status="${item}"]`);
+        const item = btn.getAttribute("data-tl-save-note");
+        const select = mount.querySelector(`[data-tl-note-status="${item}"]`);
+        const statusEl = mount.querySelector(".tl-save-status");
+        const controller = global.LLHPlatformResilience?.createSaveController?.({
+          statusEl,
+          onStateChange: (next) => { state.saveStatus = next; },
+        });
+        const saveFn = async () => {
           await api("POST", `${BASE}/checklist/note`, {
             checklistItem: item,
             status: select?.value || "not_tested",
             body: `Manual note for ${item}`,
           });
+          // Scoped draft clear after successful save
+          const orgId = state.dashboard?.dashboard?.organizationId || "";
+          global.LLHPlatformResilience?.draftStore?.clear?.({
+            surface: "testing_lab_checklist",
+            organizationId: orgId,
+            userId: "admin",
+            recordId: item,
+          });
+        };
+        if (controller) {
+          const result = await controller.run(saveFn);
+          if (!result.ok) {
+            state.error = result.error?.message || "Save failed";
+            await api("POST", `${BASE}/failed-saves/record`, {
+              code: result.error?.code || "save_failed",
+              message: result.error?.message || "Save failed",
+              surface: "testing_lab_checklist",
+              networkState: result.error?.networkState,
+            }).catch(() => null);
+            render(mount);
+            return;
+          }
+          state.notice = "Checklist note saved.";
+          await refresh(mount);
+          return;
+        }
+        try {
+          await saveFn();
           state.notice = "Checklist note saved.";
           await refresh(mount);
         } catch (error) {

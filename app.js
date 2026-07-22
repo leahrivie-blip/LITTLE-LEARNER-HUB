@@ -12819,18 +12819,34 @@ function setView(view, options = {}) {
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
-  if (resolvedView === "director-center") renderDirectorCenterPage();
+  if (resolvedView === "director-center") {
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("director-center"))
+      .catch(() => null)
+      .then(() => renderDirectorCenterPage());
+  }
   if (resolvedView === "guardian-session") {
     if (typeof renderGuardianSessionPlaceholder === "function") renderGuardianSessionPlaceholder();
   }
   if (resolvedView === "family-hub") {
-    if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("family-hub"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
+      });
   }
   if (resolvedView === "testing-lab") {
-    if (typeof renderTestingLabPage === "function") renderTestingLabPage();
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("testing-lab"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof renderTestingLabPage === "function") renderTestingLabPage();
+      });
   }
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
-  if (resolvedView === "forms-center") renderFormsCenterPage();
+  if (resolvedView === "forms-center") {
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("forms-center"))
+      .catch(() => null)
+      .then(() => renderFormsCenterPage());
+  }
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") {
     if (options.settingsAnchor) renderSettingsHubPage._pendingAnchor = options.settingsAnchor;

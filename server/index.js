@@ -15505,6 +15505,7 @@ function getTestingLabApi() {
       readJson,
       normalizeEmail,
       expansionEnvironment,
+      getLaunchReadiness: launchReadinessStatus,
     });
   }
   return _testingLabApi;

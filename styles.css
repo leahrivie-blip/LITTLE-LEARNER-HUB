@@ -24758,3 +24758,114 @@ button.linkish {
     flex: 0 1 auto;
   }
 }
+
+/* Phase 19 — Accessibility, performance, reliability foundations */
+.llh-skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: 10000;
+  padding: 0.65rem 1rem;
+  background: #1f3b2d;
+  color: #fff;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.llh-skip-link:focus,
+.llh-skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 3px solid #f0c75e;
+  outline-offset: 2px;
+}
+
+:focus-visible {
+  outline: 3px solid #2f6f9f;
+  outline-offset: 2px;
+}
+
+.llh-error-summary {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border: 2px solid #a14b4b;
+  border-radius: 8px;
+  background: #fdf2f2;
+  color: #5c1f1f;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.llh-error-summary__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
+.llh-error-summary__list {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+.llh-error-summary a {
+  color: #5c1f1f;
+  font-weight: 600;
+}
+
+.llh-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+.llh-status-pill__label {
+  font-weight: 700;
+}
+.llh-status-pill--success { color: #1f5a3a; }
+.llh-status-pill--warning { color: #7a4d00; }
+.llh-status-pill--error { color: #8a1f1f; }
+.llh-status-pill--info { color: #1f3b4d; }
+.llh-status-pill--loading { color: #334155; }
+.llh-status-pill--empty { color: #475569; }
+
+.llh-network-banner {
+  margin: 0.75rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  border: 1px solid #c5d9e8;
+  background: #eef6fb;
+  display: grid;
+  gap: 0.5rem;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.tl-save-status[data-save-state="failed"],
+.tl-save-status[data-save-state="unsaved"] {
+  font-weight: 600;
+}
+.tl-touch {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Text zoom / narrow layouts: keep Lab and shared panels wrapping */
+@media (max-width: 480px) {
+  .llh-error-summary,
+  .llh-network-banner,
+  .tl-panel {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+}

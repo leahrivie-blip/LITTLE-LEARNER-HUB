@@ -8,6 +8,8 @@ const model = require("../scripts/testing-lab-data-model.js");
 const fixtures = require("../scripts/testing-lab-fixtures.js");
 const familyModel = require("../scripts/family-foundation-data-model.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
+const { createPlatformResilienceHandlers } = require("./platform-resilience-api.js");
+const resilienceModel = require("../scripts/platform-resilience-data-model.js");
 
 const BASE = "/api/testing-lab";
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
@@ -67,6 +69,7 @@ function createTestingLabApi({
   readJson,
   normalizeEmail,
   expansionEnvironment,
+  getLaunchReadiness,
 }) {
   function env() {
     return resolveEnv(expansionEnvironment);
@@ -116,15 +119,30 @@ function createTestingLabApi({
     };
   }
 
+  const resilience = createPlatformResilienceHandlers({
+    readStore,
+    writeStore,
+    jsonResponse,
+    readJson,
+    assertLabAccess,
+    deny,
+    env,
+    getLaunchReadiness,
+    testingBanner: model.TESTING_BANNER,
+  });
+
   async function handleStatus(request, response, ctx) {
     const store = readStore();
     if (!assertLabAccess(store, response)) return;
     model.ensureTestingLabStore(store);
+    resilienceModel.ensureResilienceStore(store);
     writeStore(store);
     jsonResponse(response, 200, {
       ok: true,
       phase: 18,
+      resiliencePhase: 19,
       featureMarker: "phase18-testing-lab",
+      phase19Marker: resilienceModel.FEATURE_MARKER,
       testingBanner: model.TESTING_BANNER,
       testingLab: true,
       noStripe: true,
@@ -544,6 +562,8 @@ function createTestingLabApi({
     if (!path.startsWith(BASE)) return null;
     if (method === "GET" && path === `${BASE}/status`) return (req, res, ctx) => handleStatus(req, res, ctx);
     if (method === "GET" && path === `${BASE}/dashboard`) return (req, res, ctx) => handleDashboard(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/health`) return (req, res, ctx) => resilience.handleHealth(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/activity`) return (req, res, ctx) => resilience.handleActivityPage(req, res, ctx);
     if (method === "POST" && path === `${BASE}/seed`) return (req, res, ctx) => handleSeed(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/issue-password`) return (req, res, ctx) => handleIssuePassword(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/revoke-session`) return (req, res, ctx) => handleRevokeSession(req, res, ctx);
@@ -555,6 +575,15 @@ function createTestingLabApi({
     if (method === "POST" && path === `${BASE}/checklist/note`) return (req, res, ctx) => handleChecklistNote(req, res, ctx);
     if (method === "POST" && path === `${BASE}/feature-state`) return (req, res, ctx) => handleSetFeatureState(req, res, ctx);
     if (method === "POST" && path === `${BASE}/reset`) return (req, res, ctx) => handleResetPreview(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/failed-saves/record`) return (req, res, ctx) => resilience.handleRecordFailedSave(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/failed-saves/resolve`) return (req, res, ctx) => resilience.handleResolveFailedSave(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/drafts/save`) return (req, res, ctx) => resilience.handleDraftSave(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/drafts/load`) return (req, res, ctx) => resilience.handleDraftLoad(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/backup/simulate`) return (req, res, ctx) => resilience.handleBackupSimulate(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/restore/preview`) return (req, res, ctx) => resilience.handleRestorePreview(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/restore/confirm`) return (req, res, ctx) => resilience.handleRestoreConfirm(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/resilience/seed`) return (req, res, ctx) => resilience.handleSeedFixtures(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/performance/record`) return (req, res, ctx) => resilience.handlePerfRecord(req, res, ctx);
     return null;
   }
 

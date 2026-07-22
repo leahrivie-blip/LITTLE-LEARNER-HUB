@@ -56,6 +56,10 @@ async function openTestingLab(page, token) {
     sessionStorage.setItem("llhAdminToken", adminToken);
   }, token);
   await page.goto(`http://127.0.0.1:${page._tlPort}/#testing-lab`, { waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => typeof window.LLHPlatformPerf?.ensureViewScripts === "function", null, { timeout: 20000 });
+  await page.evaluate(async () => {
+    await window.LLHPlatformPerf.ensureViewScripts("testing-lab");
+  });
   await page.waitForFunction(() => typeof window.renderTestingLabPage === "function", null, { timeout: 20000 });
   await page.evaluate(async () => {
     document.querySelectorAll(".view").forEach((el) => {
