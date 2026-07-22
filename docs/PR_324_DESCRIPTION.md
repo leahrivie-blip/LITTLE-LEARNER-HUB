@@ -62,9 +62,8 @@ npm run test:account-access
 
 ### Tip (Phase 9 complete)
 
-`14d42368f8c650036183a5a413f97cbd6f176dc9` on `cursor/director-family-foundation-bc66`
-
-Full regression: **280 PASS**. Phase 10 not started. Production Family Hub locked. `main` untouched.
+Authoritative tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
+Phase 9 feature commit: `809b83d`. Full regression: **280 PASS**. Phase 10 not started. Production Family Hub locked. `main` untouched.
 
 ### Suggested PR title
 

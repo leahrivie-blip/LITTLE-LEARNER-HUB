@@ -114,7 +114,8 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| `14d4236` | Phase 9 Responsive Family Hub Base complete |
+| *(branch tip)* | Phase 9 Responsive Family Hub Base complete (incl. handoff docs) |
+| `809b83d` | Phase 9 Family Hub base implementation |
 | `ab61b77` | Phase 8 Family / Guardian / Fake-Account Foundation complete |
 | *(earlier)* | Phase 6 Form Assignments, Responses, and Signatures complete |
 | `dd46c2d` | Phase 5 Built-In Form Library complete |

@@ -79,8 +79,10 @@ npm run test:family-hub-phase9
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
-- Latest commit SHA: `14d42368f8c650036183a5a413f97cbd6f176dc9`  
-- Pushed to `origin/cursor/director-family-foundation-bc66` (HEAD matches remote)  
+- Latest tip: `git rev-parse origin/cursor/director-family-foundation-bc66` (must match local `HEAD`; clean tree)  
+- Phase 9 feature commit: `809b83d` — Add Phase 9 responsive Family Hub base  
+- Regression recorded: `767ddf2` — 280 PASS  
+- Pushed to `origin/cursor/director-family-foundation-bc66`  
 - Working tree clean after push  
 - Full regression: **280 PASS**, zero failures  
 - Production Family Hub remains locked; `main` untouched  
