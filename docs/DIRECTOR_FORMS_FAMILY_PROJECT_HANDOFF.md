@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 14 complete)
+**Status date:** 2026-07-22 (Phase 14 + Phase 12–14 remediation complete; Phase 15 not started)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -11,9 +11,9 @@
 2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
 3. Read this handoff document end to end
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–12 automated tests (commands below)
+5. Run all Phase 1–14 automated tests + `npm run test:phase12-14-remediation` (commands below)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (Phase 13+ are not started)
+7. Continue only from the next **approved** phase (**Phase 15 blocked** until owner reviews remediation — see `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -30,6 +30,9 @@ Build a private, testing-only foundation for:
 - **Family updates / Daily Reports / media / sharing** (Phase 10) — provider-controlled family feed, consent-gated placeholder media, acknowledgments
 - **Family messaging / notifications / history** (Phase 11) — org-scoped provider/family messaging + in-app notifications; outbound delivery disabled; platform Messaging Center preserved
 - **Enrollment** (Phase 12) — provider pipeline (inquiry → tour → application → waitlist/offer → forms → enrolled) + Family Hub checklist/offers; no Stripe enrollment; Enrollment from Home (max-five nav keeps Messages)
+- **Records Center** (Phase 13) — authoritative records, unfiled inbox, Family Hub documents
+- **Licensing Center** (Phase 14) — configurable readiness + Family Hub **Licensing Documents Needed** from Home
+- **Phase 12–14 remediation** — responsive `.en-`/`.rc-`/`.lc-*` rules, real Family Hub licensing UI, valid screenshots (`docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`)
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -52,7 +55,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify after push: `git rev-parse HEAD`) |
-| Tip message | Phase 13 Records / Phase 12 Enrollment complete (tip SHA via `git rev-parse` after push) |
+| Tip message | Phase 12–14 remediation complete (tip SHA via `git rev-parse` after push) |
 
 Confirm tip after pull:
 
@@ -156,13 +159,14 @@ Phase tip history (newest first):
 - **Phase 9 Responsive Family Hub Base** — Mobile-first Family Hub (Home / Children / Forms / Calendar / Account) for approved fake guardians under testing-preview gate. Production Family Hub remains locked. See `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md`.
 - **Phase 10 Family Updates, Daily Reports, Media, and Sharing** — Provider-controlled updates and Daily Report shares, consent-gated testing media placeholders, shared observations/goals, family acknowledgments. See `docs/PHASE_10_FAMILY_UPDATES_MEDIA_COMPLETION_REPORT.md`.
 - **Phase 11 Messaging, Notifications, and Permanent History** — Org-scoped family/provider messaging, in-app notifications, permanent history/export. Outbound email/SMS/push remain disabled. See `docs/PHASE_11_MESSAGING_NOTIFICATIONS_COMPLETION_REPORT.md`.
-- **Phase 13 Records / Phase 12 Enrollment** — Provider enrollment pipeline + Family Hub checklist/offers (testing only; no Stripe enrollment; Enrollment from Home to keep max-five nav with Messages). See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md`.
+- **Phase 12 Enrollment** — Provider enrollment pipeline + Family Hub checklist/offers (testing only; no Stripe enrollment; Enrollment from Home to keep max-five nav with Messages). See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md`.
 - **Phase 13 Records, Documents, and Communication Archive** — see `docs/PHASE_13_RECORDS_DOCUMENTS_COMMUNICATION_ARCHIVE_COMPLETION_REPORT.md`
-- Phase 14 Licensing — `docs/PHASE_14_LICENSING_INSPECTION_READINESS_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
+- **Phase 14 Licensing** — `docs/PHASE_14_LICENSING_INSPECTION_READINESS_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`
+- **Phase 12–14 remediation** — responsive UI, Family Hub licensing Home card, valid screenshots — `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- **Phase 13** (not started — next when owner-approved)
+- **Phase 15** (blocked until owner reviews remediation confirmation)
 - **Phase 18** complete Testing and Preview Lab
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
@@ -454,6 +458,7 @@ npm run test:family-messaging-phase11
 npm run test:family-enrollment-phase12
 npm run test:records-center-phase13
 npm run test:licensing-center-phase14
+npm run test:phase12-14-remediation
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -475,11 +480,11 @@ node scripts/capture-family-messaging-phase11-screens.js
 node scripts/capture-enrollment-phase12-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 14 complete)
+### Handoff verification results (2026-07-22, Phase 12–14 remediation)
 
 | Command | Result |
 |---------|--------|
-| `npm run check` | PASS (after Phase 12 paths added) |
+| `npm run check` | PASS |
 | `npm run test:director-family-foundation` | PASS |
 | `npm run test:director-center-phase2` | PASS |
 | `npm run test:director-center-phase3` | PASS |
@@ -492,14 +497,14 @@ node scripts/capture-enrollment-phase12-screens.js
 | `npm run test:family-hub-phase9` | PASS (21/21) |
 | `npm run test:family-updates-phase10` | PASS (14/14) |
 | `npm run test:family-messaging-phase11` | PASS (13/13) |
-| `npm run test:family-enrollment-phase12
-npm run test:records-center-phase13
-npm run test:licensing-center-phase14` | PASS (19/19) |
+| `npm run test:family-enrollment-phase12` | PASS (19/19) |
+| `npm run test:records-center-phase13` | PASS (27/27) |
+| `npm run test:licensing-center-phase14` | PASS (19/19) |
+| `npm run test:phase12-14-remediation` | PASS (24/24) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Phase 12 focused suite: **19 PASS**. Full Phase 1–12 regression should be re-run before handoff push.
-Phase gates are the scripts above.
+Full Phase 1–14 regression + remediation: **PASS**. See `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`.
 
 ---
 
@@ -542,15 +547,17 @@ Phase gates are the scripts above.
 
 ## Phase 15 recommendation
 
-When approved, start **Phase 13** only from owner-written requirements. Until then:
+**Do not begin Phase 15** until the owner reviews the Phase 12–14 remediation completion confirmation (`docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`).
 
-- Keep Phases 1–12 green on this branch
+Until then:
+
+- Keep Phases 1–14 + remediation green on this branch
 - Keep Family Hub production-locked
 - Keep outbound email/SMS/push disabled
 - Keep Stripe enrollment checkout disabled
-- Do not begin Phase 13 coding
+- Do not begin Phase 15 coding
 
-See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
+See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 
 ---
 
@@ -558,12 +565,10 @@ See `docs/PHASE_12_ENROLLMENT_COMPLETION_REPORT.md` and `docs/OVERNIGHT_DECISION
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–12 test suite; confirm all PASS (include `npm run test:family-enrollment-phase12
-npm run test:records-center-phase13
-npm run test:licensing-center-phase14` — **19 PASS**)
+3. Run the full Phase 1–14 test suite + `npm run test:phase12-14-remediation`; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, `ALLOW_FAMILY_HUB_TESTING_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=true` (production must keep Family Hub locked; no production media storage; no Stripe enrollment)
-5. Smoke Director Center (Families + Family Updates + Family Messaging + Enrollment) → Family Hub Home → Enrollment checklist / Messages
-6. Wait for owner-written Phase 13 requirements before coding
+5. Smoke Director Center (Enrollment / Records / Licensing) → Family Hub Home → Licensing Documents Needed / Enrollment checklist / Documents
+6. Wait for owner review of remediation, then owner-written Phase 15 requirements before coding
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 

@@ -1,7 +1,7 @@
 # Phase 13 — Records, Documents, and Communication Archive
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Status:** Complete (testing preview only)  
+**Status:** Complete for backend/permissions; **responsive + screenshots remediated 2026-07-22** (see `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`)  
 **Date:** 2026-07-22  
 **Started from tip:** `80effb47ce0866ab0287e503d3cfee24cb7235cc`
 
@@ -17,9 +17,10 @@ Added a Director Center **Records Center** with authoritative master records, un
 | `scripts/records-center-fixtures.js` | Fake fixtures (unfiled, medical, staff CPR, custody, drills, supersede, archive, message refs) |
 | `server/records-center-api.js` | `/api/director-center/records/*` |
 | `server/family-hub-records-handlers.js` | Family Hub records list/upload |
-| `records-center-ui.js` | Director Records tab |
+| `records-center-ui.js` | Director Records tab + `data-feature-marker="phase13-records"` |
+| `styles.css` | Real `.rc-*` responsive rules (computer-first bulk filing) |
 | `scripts/test-records-center-phase13.js` | Focused suite (**27 PASS**) |
-| `scripts/capture-records-center-phase13-screens.js` | Two screenshots |
+| `scripts/capture-records-center-phase13-screens.js` | Two screenshots (marker-asserted) |
 
 ## Records Center and filing
 
@@ -33,27 +34,37 @@ Records link to child/guardian/household/staff/classroom/enrollment via permanen
 
 Server-side confidentiality levels; teachers/assistants limited; guardians see family-visible only; pickup/curriculum denied patterns; private authenticated file access; allowlist + executable rejection; `publicUrl: null`.
 
+## Responsive (remediated)
+
+- Full Records Center / bulk filing remains **computer-first**
+- Phone shows summaries + Computer Recommended; does not squeeze the full bulk-filing UI
+- Tablet layout verified in remediation suite (no tablet screenshot required)
+
 ## Tests and screenshots
 
 ```bash
 npm run test:records-center-phase13
+npm run test:phase12-14-remediation
 ```
 
-**27 PASS**. Full Phase 1–13 regression run at handoff.
+**27 PASS** focused. Remediation **24 PASS**.
+
+Valid screenshots:
 
 <img alt="Records Center overview desktop" src="/opt/cursor/artifacts/records-center-phase13/1-records-center-overview-desktop.png" />
 <img alt="Family documents phone" src="/opt/cursor/artifacts/records-center-phase13/2-family-documents-phone.png" />
+
+Earlier homepage-identical PNGs were invalid and have been replaced.
 
 ## Deferred
 
 - AI/OCR filing suggestions  
 - Production cloud storage  
-- Verified state licensing packs (Phase 14+)  
 - External reminder delivery  
+- Phase 15 (not started)  
 
 ## Handoff confirmations
 
 - Latest tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
-- Pushed; clean tree after docs push  
 - Production Family Hub locked; `main` untouched  
-- Phase 14 not started in this report  
+- Responsive/screenshot completeness claimed only after remediation  

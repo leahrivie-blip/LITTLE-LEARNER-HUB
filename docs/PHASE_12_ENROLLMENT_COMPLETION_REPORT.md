@@ -1,7 +1,7 @@
 # Phase 12 — Enrollment
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Status:** Complete (testing preview only; feature not yet committed at doc write time)  
+**Status:** Complete for backend/permissions; **responsive + screenshots remediated 2026-07-22** (see `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`)  
 **Date:** 2026-07-22  
 **Started from tip:** `b69707e`
 
@@ -20,10 +20,10 @@ Built a provider Enrollment pipeline (inquiry → tour → application → waitl
 | `server/enrollment-api.js` | Provider `/api/director-center/enrollment/*` |
 | `server/family-hub-enrollment-handlers.js` | Family Hub `/api/family-hub/enrollment/*` (family-safe views) |
 | `server/family-hub-api.js` / `server/index.js` | Mount + seed/status wiring |
-| `enrollment-ui.js` | Director Center **Enrollment** tab |
-| `director-center-ui.js` / `family-hub-ui.js` / `index.html` / `styles.css` | Wiring + Home → Enrollment entry |
+| `enrollment-ui.js` | Director Center **Enrollment** tab + `data-feature-marker="phase12-enrollment"` |
+| `director-center-ui.js` / `family-hub-ui.js` / `index.html` / `styles.css` | Wiring + Home → Enrollment entry + responsive `.en-*` |
 | `scripts/test-family-enrollment-phase12.js` | Focused suite (**19 PASS**) |
-| `scripts/capture-enrollment-phase12-screens.js` | Two screenshots |
+| `scripts/capture-enrollment-phase12-screens.js` | Two screenshots (marker-asserted; fails on homepage) |
 | `package.json` | `test:family-enrollment-phase12` + `check` paths |
 
 ## Pipeline / waitlist
@@ -50,33 +50,38 @@ No dedicated `docs/PERMISSIONS*` file. Notes:
 - Family Hub: own-case checklist only; pickup-only/emergency-only denied for digital enrollment; internal notes never exposed  
 - Production Family Hub enrollment locked  
 
+## Responsive (remediated)
+
+- Pipeline remains **computer-first**
+- Family checklist/status verified on small (~360) and large (~430) phone — no horizontal overflow
+- Tablet (~768–1024) and computer (≥1280) covered in `npm run test:phase12-14-remediation`
+
 ## Tests and screenshots
 
 ```bash
 npm run test:family-enrollment-phase12
+npm run test:phase12-14-remediation
 ```
 
-**19 PASS** focused.
+Focused Phase 12: **19 PASS**. Remediation suite: **24 PASS**.
 
-Screenshots (paths):
+Valid screenshots (re-captured; unique MD5s; feature markers required):
 
 - `/opt/cursor/artifacts/enrollment-phase12/1-provider-enrollment-pipeline-desktop.png`
 - `/opt/cursor/artifacts/enrollment-phase12/2-family-enrollment-checklist-phone.png`
 
-Capture: `node scripts/capture-enrollment-phase12-screens.js`
+Capture: `node scripts/capture-enrollment-phase12-screens.js` (fails loudly if marker missing or homepage detected).
 
 ## Deferred
 
 - Live Stripe enrollment checkout / deposits  
 - Public production inquiry intake  
 - Live email/SMS/push for enrollment events  
-- Phase 13+ work  
+- Phase 15+ work (blocked until owner reviews remediation)  
 
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
-- Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66` (must match local `HEAD`; clean tree)  
-- Feature not yet committed at doc write; tip SHA set after push via `git rev-parse`  
-- Working tree not clean until feature + docs are committed/pushed  
+- Authoritative tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 - Production Family Hub locked; `main` untouched  
-- Phase 13 not started (this report is Phase 12 only)  
+- Earlier claim of complete responsive/screenshot verification was **incorrect** until remediation  
