@@ -486,7 +486,9 @@ async function run() {
   // ── Wiring ──────────────────────────────────────────────────────────────
   try {
     const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-    assert.match(html, /ai-form-builder-ui\.js\?v=/);
+    assert.match(html, /platform-perf\.js\?v=/);
+    const perf = fs.readFileSync(path.join(ROOT, "platform-perf.js"), "utf8");
+    assert.match(perf, /ai-form-builder-ui\.js\?v=/);
     const centerUi = fs.readFileSync(path.join(ROOT, "forms-center-ui.js"), "utf8");
     assert.match(centerUi, /AI Form Builder/);
     assert.match(centerUi, /renderAiFormBuilderUI/);

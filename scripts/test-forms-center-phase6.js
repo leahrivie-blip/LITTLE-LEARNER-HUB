@@ -629,8 +629,10 @@ async function run() {
 
   try {
     const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-    assert.match(html, /forms-responses-ui\.js\?v=/);
-    assert.match(html, /forms-center-ui\.js\?v=/);
+    assert.match(html, /platform-perf\.js\?v=/);
+    const perf = fs.readFileSync(path.join(ROOT, "platform-perf.js"), "utf8");
+    assert.match(perf, /forms-responses-ui\.js\?v=/);
+    assert.match(perf, /forms-center-ui\.js\?v=/);
     assert.ok(fs.existsSync(path.join(ROOT, "form-recipient.html")));
     assert.ok(fs.existsSync(path.join(ROOT, "form-recipient-ui.js")));
     assert.ok(fs.existsSync(path.join(ROOT, "styles", "llh-form-recipient.css")));

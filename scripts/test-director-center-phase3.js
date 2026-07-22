@@ -291,8 +291,10 @@ async function run() {
       const page = await request(server.port, "GET", "/");
       assert.equal(page.status, 200);
       assert.match(page.raw, /teacher-center-ui\.js\?v=20260721-phase4/);
-      assert.match(page.raw, /forms-center-ui\.js\?v=/);
+      assert.match(page.raw, /platform-perf\.js\?v=/);
       assert.match(page.raw, /view-teacher-center/);
+      const perf = require("fs").readFileSync(require("path").join(__dirname, "..", "platform-perf.js"), "utf8");
+      assert.match(perf, /forms-center-ui\.js\?v=/);
       pass("HTML includes Teacher Center shell and script");
     } catch (error) {
       fail("HTML includes teacher-center-ui.js", error);
