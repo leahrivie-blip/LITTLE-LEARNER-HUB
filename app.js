@@ -5136,11 +5136,12 @@ function isPlayBasedCurriculumEnabled() {
   return true;
 }
 
-/** Expansion flags — default OFF. Director/Forms Center are admin-preview only. */
+/** Expansion flags — default OFF. Director/Forms/Testing Lab are admin-preview only. */
 const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
   directorCenter: false,
   formsCenter: false,
   familyHub: false,
+  testingLab: false,
 });
 
 const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
@@ -5148,6 +5149,7 @@ const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
   "teacher-center": "directorCenter",
   "forms-center": "formsCenter",
   "family-hub": "familyHub",
+  "testing-lab": "testingLab",
 });
 
 let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
@@ -5155,16 +5157,19 @@ let expansionFeaturePolicyCache = {
   directorCenter: "admin_preview_only",
   formsCenter: "admin_preview_only",
   familyHub: "testing_preview_only",
+  testingLab: "admin_preview_only",
   productionLocked: true,
   allowDirectorCenterAdminPreview: false,
   allowFormsCenterAdminPreview: false,
   allowFamilyHubTestingPreview: false,
+  allowTestingLabAdminPreview: false,
 };
 let expansionViewerAccessCache = {
   isVerifiedAdmin: false,
   canAccessDirectorCenter: false,
   canAccessFormsCenter: false,
   canAccessFamilyHub: false,
+  canAccessTestingLab: false,
 };
 
 function normalizeExpansionFeatureFlags(value) {
@@ -5173,6 +5178,7 @@ function normalizeExpansionFeatureFlags(value) {
     directorCenter: input.directorCenter === true,
     formsCenter: input.formsCenter === true,
     familyHub: input.familyHub === true,
+    testingLab: input.testingLab === true,
   };
 }
 
@@ -5199,6 +5205,13 @@ function isExpansionFeatureEnabled(flagKey) {
       && typeof hasAdminFullAccess === "function"
       && hasAdminFullAccess();
   }
+  if (flagKey === "testingLab") {
+    return expansionFeatureFlags().testingLab === true
+      && expansionViewerAccessCache.canAccessTestingLab === true
+      && expansionFeaturePolicyCache.allowTestingLabAdminPreview === true
+      && typeof hasAdminFullAccess === "function"
+      && hasAdminFullAccess();
+  }
   return expansionFeatureFlags()[flagKey] === true;
 }
 
@@ -5219,6 +5232,7 @@ async function loadExpansionFeatureFlagsFromBackend() {
     canAccessDirectorCenter: false,
     canAccessFormsCenter: false,
     canAccessFamilyHub: false,
+    canAccessTestingLab: false,
   };
   if (!canUseLaunchBackend()) {
     syncPlatformNavVisibility();
@@ -5247,18 +5261,22 @@ async function loadExpansionFeatureFlagsFromBackend() {
       ...(data?.storedFlags || {}),
       ...(data?.flags || {}),
       familyHub: data?.flags?.familyHub === true || data?.viewer?.canAccessFamilyHub === true,
+      testingLab: data?.flags?.testingLab === true || data?.viewer?.canAccessTestingLab === true,
     });
     expansionFeaturePolicyCache = {
       ...expansionFeaturePolicyCache,
       ...(data?.policy || {}),
       allowFamilyHubTestingPreview: data?.policy?.allowFamilyHubTestingPreview === true,
+      allowTestingLabAdminPreview: data?.policy?.allowTestingLabAdminPreview === true,
       familyHub: data?.policy?.familyHub || "testing_preview_only",
+      testingLab: data?.policy?.testingLab || "admin_preview_only",
     };
     expansionViewerAccessCache = {
       isVerifiedAdmin: data?.viewer?.isVerifiedAdmin === true,
       canAccessDirectorCenter: data?.viewer?.canAccessDirectorCenter === true,
       canAccessFormsCenter: data?.viewer?.canAccessFormsCenter === true,
       canAccessFamilyHub: data?.viewer?.canAccessFamilyHub === true,
+      canAccessTestingLab: data?.viewer?.canAccessTestingLab === true,
     };
   } catch (_) {
     expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
@@ -5267,6 +5285,7 @@ async function loadExpansionFeatureFlagsFromBackend() {
       canAccessDirectorCenter: false,
       canAccessFormsCenter: false,
       canAccessFamilyHub: false,
+      canAccessTestingLab: false,
     };
   }
   syncPlatformNavVisibility();
@@ -12806,6 +12825,9 @@ function setView(view, options = {}) {
   }
   if (resolvedView === "family-hub") {
     if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
+  }
+  if (resolvedView === "testing-lab") {
+    if (typeof renderTestingLabPage === "function") renderTestingLabPage();
   }
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "forms-center") renderFormsCenterPage();
@@ -37102,6 +37124,9 @@ function renderAdminOwnerOverview() {
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
           ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
           : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("testingLab")
+          ? `<button class="primary-button" type="button" data-admin-open-testing-lab>Open Testing Lab</button>`
+          : ""}
         <button class="primary-button" type="button" id="adminOpenNotificationsButton">Notifications${adminNotificationState.unreadCount ? ` (${adminNotificationState.unreadCount})` : ""}</button>
         <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
@@ -37534,6 +37559,9 @@ function renderAdminAccessShell() {
           : ""}
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
           ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
+          : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("testingLab")
+          ? `<button class="primary-button" type="button" data-admin-open-testing-lab>Open Testing Lab</button>`
           : ""}
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
       </div>
@@ -51855,6 +51883,13 @@ document.addEventListener("click", async (event) => {
   if (openFormsCenter) {
     event.preventDefault();
     if (typeof setView === "function") setView("forms-center");
+    return;
+  }
+
+  const openTestingLab = event.target.closest("[data-admin-open-testing-lab]");
+  if (openTestingLab) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("testing-lab");
     return;
   }
 

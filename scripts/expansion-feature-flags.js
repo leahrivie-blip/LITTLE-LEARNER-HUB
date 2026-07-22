@@ -14,24 +14,28 @@ const EXPANSION_FEATURE_KEYS = Object.freeze({
   DIRECTOR_CENTER: "directorCenter",
   FORMS_CENTER: "formsCenter",
   FAMILY_HUB: "familyHub",
+  TESTING_LAB: "testingLab",
 });
 
 const EXPANSION_FEATURE_LABELS = Object.freeze({
   directorCenter: "Director Center",
   formsCenter: "Forms Center",
   familyHub: "Family Hub",
+  testingLab: "Testing and Preview Lab",
 });
 
 const EXPANSION_VIEW_FLAGS = Object.freeze({
   "director-center": EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER,
   "forms-center": EXPANSION_FEATURE_KEYS.FORMS_CENTER,
   "family-hub": EXPANSION_FEATURE_KEYS.FAMILY_HUB,
+  "testing-lab": EXPANSION_FEATURE_KEYS.TESTING_LAB,
 });
 
 const EXPANSION_ROUTE_FLAGS = Object.freeze([
   { prefix: "/api/director-center", flag: EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER },
   { prefix: "/api/forms-center", flag: EXPANSION_FEATURE_KEYS.FORMS_CENTER },
   { prefix: "/api/family-hub", flag: EXPANSION_FEATURE_KEYS.FAMILY_HUB },
+  { prefix: "/api/testing-lab", flag: EXPANSION_FEATURE_KEYS.TESTING_LAB },
 ]);
 
 const LIVE_PRODUCTION_HOST_SUFFIXES = Object.freeze([
@@ -43,6 +47,7 @@ function defaultExpansionFeatureFlags() {
     [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: false,
     [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: false,
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: false,
+    [EXPANSION_FEATURE_KEYS.TESTING_LAB]: false,
   };
 }
 
@@ -65,6 +70,7 @@ function normalizeExpansionFeatureFlags(value) {
     [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: coerceFlag(input[EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]),
     [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: coerceFlag(input[EXPANSION_FEATURE_KEYS.FORMS_CENTER]),
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: coerceFlag(input[EXPANSION_FEATURE_KEYS.FAMILY_HUB]),
+    [EXPANSION_FEATURE_KEYS.TESTING_LAB]: coerceFlag(input[EXPANSION_FEATURE_KEYS.TESTING_LAB]),
   };
 }
 
@@ -100,11 +106,13 @@ function resolveExpansionEnvironment(options = {}) {
   const allowDirectorCenterAdminPreview = !liveProduction && truthyEnv(env.ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW);
   const allowFormsCenterAdminPreview = !liveProduction && truthyEnv(env.ALLOW_FORMS_CENTER_ADMIN_PREVIEW);
   const allowFamilyHubTestingPreview = !liveProduction && truthyEnv(env.ALLOW_FAMILY_HUB_TESTING_PREVIEW);
+  const allowTestingLabAdminPreview = !liveProduction && truthyEnv(env.ALLOW_TESTING_LAB_ADMIN_PREVIEW);
   return {
     liveProduction: Boolean(liveProduction),
     allowDirectorCenterAdminPreview: Boolean(allowDirectorCenterAdminPreview),
     allowFormsCenterAdminPreview: Boolean(allowFormsCenterAdminPreview),
     allowFamilyHubTestingPreview: Boolean(allowFamilyHubTestingPreview),
+    allowTestingLabAdminPreview: Boolean(allowTestingLabAdminPreview),
     siteUrl: String(siteUrl || ""),
     nodeEnv: String(env.NODE_ENV || ""),
   };
@@ -116,10 +124,12 @@ function resolveEffectiveExpansionFlags(storedFlags, environment = {}) {
   const directorAllowedInEnv = env.liveProduction !== true && env.allowDirectorCenterAdminPreview === true;
   const formsAllowedInEnv = env.liveProduction !== true && env.allowFormsCenterAdminPreview === true;
   const familyAllowedInEnv = env.liveProduction !== true && env.allowFamilyHubTestingPreview === true;
+  const testingLabAllowedInEnv = env.liveProduction !== true && env.allowTestingLabAdminPreview === true;
   return {
     [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: directorAllowedInEnv && normalized.directorCenter === true,
     [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: formsAllowedInEnv && normalized.formsCenter === true,
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: familyAllowedInEnv && normalized.familyHub === true,
+    [EXPANSION_FEATURE_KEYS.TESTING_LAB]: testingLabAllowedInEnv && normalized.testingLab === true,
   };
 }
 
@@ -127,9 +137,9 @@ function isExpansionFeatureEnabled(flags, flagKey, environment = null) {
   if (environment) {
     return resolveEffectiveExpansionFlags(flags, environment)[flagKey] === true;
   }
-  // Without an expansion environment, Family Hub stays off — callers must use
-  // resolveEffectiveExpansionFlags / evaluateExpansionAccess for testing preview.
-  if (flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB) {
+  // Without an expansion environment, Family Hub and Testing Lab stay off —
+  // callers must use resolveEffectiveExpansionFlags / evaluateExpansionAccess.
+  if (flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB || flagKey === EXPANSION_FEATURE_KEYS.TESTING_LAB) {
     return false;
   }
   const normalized = normalizeExpansionFeatureFlags(flags);
@@ -278,6 +288,7 @@ function evaluateExpansionAccess({
       allowDirectorCenterAdminPreview: env.allowDirectorCenterAdminPreview === true,
       allowFormsCenterAdminPreview: env.allowFormsCenterAdminPreview === true,
       allowFamilyHubTestingPreview: env.allowFamilyHubTestingPreview === true,
+      allowTestingLabAdminPreview: env.allowTestingLabAdminPreview === true,
     },
     reason: "",
     payload: null,
@@ -318,6 +329,18 @@ function evaluateExpansionAccess({
     });
   }
 
+  if (flagKey === EXPANSION_FEATURE_KEYS.TESTING_LAB) {
+    return evaluateAdminPreviewFeature({
+      flagKey,
+      stored,
+      env,
+      isVerifiedAdmin,
+      allowEnvKey: "allowTestingLabAdminPreview",
+      storedKey: "testingLab",
+      result,
+    });
+  }
+
   result.reason = "feature_unavailable";
   result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
   return result;
@@ -330,6 +353,7 @@ function viewerExpansionFlags(storedFlags, environment, isVerifiedAdmin, options
     directorCenter: effective.directorCenter === true && isVerifiedAdmin === true,
     formsCenter: effective.formsCenter === true && isVerifiedAdmin === true,
     familyHub: canFamily,
+    testingLab: effective.testingLab === true && isVerifiedAdmin === true,
   };
 }
 
@@ -346,22 +370,25 @@ function publicExpansionFeatureFlagsPayload(storedFlags, options = {}) {
     effectiveFlags: effective,
     labels: { ...EXPANSION_FEATURE_LABELS },
     allOff: Object.values(viewerFlags).every((value) => value === false),
-    phase: 9,
+    phase: 18,
     policy: {
       directorCenter: "admin_preview_only",
       formsCenter: "admin_preview_only",
       familyHub: "testing_preview_only",
+      testingLab: "admin_preview_only",
       productionLocked: environment.liveProduction === true,
       allowDirectorCenterAdminPreview: environment.allowDirectorCenterAdminPreview === true,
       allowFormsCenterAdminPreview: environment.allowFormsCenterAdminPreview === true,
       allowFamilyHubTestingPreview: environment.allowFamilyHubTestingPreview === true,
-      note: "Director/Forms Center are admin-only previews. Family Hub is testing-preview only for authenticated fake guardians. Production keeps all expansion flags OFF.",
+      allowTestingLabAdminPreview: environment.allowTestingLabAdminPreview === true,
+      note: "Director/Forms/Testing Lab are admin-only previews. Family Hub is testing-preview only for authenticated fake guardians. Production keeps all expansion flags OFF.",
     },
     viewer: {
       isVerifiedAdmin,
       canAccessDirectorCenter: viewerFlags.directorCenter === true,
       canAccessFormsCenter: viewerFlags.formsCenter === true,
       canAccessFamilyHub: viewerFlags.familyHub === true,
+      canAccessTestingLab: viewerFlags.testingLab === true,
     },
   };
 }

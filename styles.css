@@ -24546,3 +24546,112 @@ button.linkish {
     flex: 0 1 auto;
   }
 }
+
+/* Phase 18 Testing Lab */
+.tl-panel {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.tl-banner {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  background: #eef6f1;
+  border: 1px solid #b9d0c0;
+  border-radius: 8px;
+  color: #1f3b2d;
+  font-weight: 700;
+}
+.tl-computer-recommended,
+.tl-preview-banner {
+  margin: 0.5rem 0;
+  padding: 0.75rem 1rem;
+  background: #eef6fb;
+  border: 1px solid #c5d9e8;
+  border-radius: 8px;
+  color: #1f3b4d;
+  font-weight: 600;
+}
+.tl-computer-recommended { display: none; }
+.tl-subnav,
+.tl-status-row,
+.tl-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.tl-metric {
+  min-width: 6rem;
+  flex: 1 1 calc(50% - 0.35rem);
+  box-sizing: border-box;
+}
+.tl-onetime {
+  padding: 0.75rem;
+  border: 1px dashed #c5d5c8;
+  border-radius: 8px;
+  background: #f7faf8;
+}
+.tl-device-frame {
+  border: 1px solid #d7e0e7;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #f4f7fa;
+  margin-top: 0.75rem;
+}
+.tl-device-label {
+  margin: 0;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  background: #e8eef3;
+}
+.tl-device-iframe {
+  width: 100%;
+  height: calc(100% - 2rem);
+  border: 0;
+  background: #fff;
+}
+.tl-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.8rem;
+  background: #f4f7fa;
+  padding: 0.75rem;
+  border-radius: 8px;
+}
+.tl-check {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+.tl-panel .fu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.tl-panel button,
+.tl-panel select,
+.tl-panel input {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .tl-computer-recommended { display: block; }
+  .tl-panel .fu-toolbar { flex-direction: column; align-items: stretch; }
+  .tl-metric { min-width: calc(50% - 0.35rem); }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .tl-computer-recommended { display: block; }
+  .tl-panel { max-width: 960px; }
+  .tl-metric { min-width: 7.5rem; flex: 1 1 calc(25% - 0.5rem); }
+}
+
+@media (min-width: 1280px) {
+  .tl-computer-recommended { display: none; }
+  .tl-status-row .tl-metric { min-width: 8rem; flex: 0 1 auto; }
+}

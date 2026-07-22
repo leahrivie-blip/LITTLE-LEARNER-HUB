@@ -42,6 +42,7 @@ const { createLicensingCenterApi } = require("./licensing-center-api.js");
 const { createTodayHubApi } = require("./today-hub-api.js");
 const { createStaffExperienceApi } = require("./staff-experience-api.js");
 const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
+const { createTestingLabApi } = require("./testing-lab-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15494,6 +15495,21 @@ function getBillingSimulatorApi() {
   return _billingSimulatorApi;
 }
 
+let _testingLabApi;
+function getTestingLabApi() {
+  if (!_testingLabApi) {
+    _testingLabApi = createTestingLabApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _testingLabApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15592,6 +15608,12 @@ const server = http.createServer(async (request, response) => {
       const handler = getFamilyHubApi().matchRoute(request.method, url.pathname, url);
       if (handler) return handler(request, response);
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FAMILY_HUB);
+    }
+    if (url.pathname === "/api/testing-lab" || url.pathname.startsWith("/api/testing-lab/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getTestingLabApi().matchRoute(request.method, url.pathname, url);
+      if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_LAB);
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));

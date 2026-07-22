@@ -486,4 +486,5 @@ function resetPhase8Preview(store, { organizationId = "" } = {}) {
 module.exports = {
   ensurePhase8Preview,
   resetPhase8Preview,
+  ensureFakeAccount,
 };
