@@ -7,7 +7,7 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 9 Responsive Family Hub Base**.
+Private preview work through **Phase 10 Family Updates, Daily Reports, Media, and Provider-Controlled Sharing**.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -17,20 +17,20 @@ Private preview work through **Phase 9 Responsive Family Hub Base**.
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run all Phase 1–9 automated tests
+5. Run all Phase 1–10 automated tests
 6. Confirm testing-environment safety
-7. Continue only from the next **approved** phase (Phase 10+)
+7. Continue only from the next **approved** phase (Phase 11+)
 8. Never merge or deploy without explicit approval
 
 ### COMPLETED
 
 - Phases 1–7 (Director Center, Teacher Classroom, Forms Builder, Built-In Library, Assignments/Responses/Signatures, AI Form Builder)
 - Phase 8 Family / Guardian / Household / Fake-Account Foundation
-- Phase 9 Responsive Family Hub Base — mobile-first Home/Children/Forms/Calendar/Account for approved fake guardians under `ALLOW_FAMILY_HUB_TESTING_PREVIEW`; production Family Hub remains locked — see `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md`
+- Phase 9 Responsive Family Hub Base — see `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md`
+- Phase 10 Family Updates / Daily Reports / Media / Sharing — provider review controls, consent-gated placeholder media, family feed/acknowledgments — see `docs/PHASE_10_FAMILY_UPDATES_MEDIA_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- Phase 10 photos/videos/daily updates/family sharing
 - Phase 11 messaging and notification delivery
 - Phase 18 Testing and Preview Lab
 - Real AI / outbound email-SMS / live pricing / production migration
@@ -40,7 +40,7 @@ Private preview work through **Phase 9 Responsive Family Hub Base**.
 - `directorCenter=true` + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`
 - `formsCenter=true` + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`
 - `familyHub=true` + `ALLOW_FAMILY_HUB_TESTING_PREVIEW` (authenticated fake guardians only)
-- **Production:** all expansion flags locked OFF (Family Hub included)
+- **Production:** all expansion flags locked OFF (Family Hub included); no production media storage
 
 ### Verification
 
@@ -56,15 +56,16 @@ npm run test:forms-center-phase6-documents
 npm run test:forms-center-phase7
 npm run test:family-foundation-phase8
 npm run test:family-hub-phase9
+npm run test:family-updates-phase10
 npm run test:platform-nav
 npm run test:account-access
 ```
 
-### Tip (Phase 9 complete)
+### Tip (Phase 10 complete)
 
 Authoritative tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
-Phase 9 feature commit: `809b83d`. Full regression: **280 PASS**. Phase 10 not started. Production Family Hub locked. `main` untouched.
+Phase 10 feature commit: `99a8aa7`. Full regression: all suites PASS. Phase 11 not started. Production Family Hub locked. `main` untouched.
 
 ### Suggested PR title
 
-Phases 1–9: Director/Forms/Family Hub Base (do not merge/deploy)
+Phases 1–10: Director/Forms/Family Hub Updates (do not merge/deploy)
