@@ -119,13 +119,14 @@ No visible setup form was added.
 | Flag key | Default | Purpose |
 |----------|---------|---------|
 | `directorCenter` | **OFF** | Director Center expansion (Phase 2: admin private preview only) |
-| `formsCenter` | **OFF** (forced) | Custom Forms Center — remains unavailable |
-| `familyHub` | **OFF** (forced) | Family Hub / parent surfaces — remains unavailable |
+| `formsCenter` | **OFF** until testing preview | Custom Forms Center — testing via `ALLOW_FORMS_CENTER_ADMIN_PREVIEW` |
+| `familyHub` | **OFF** until testing preview | Family Hub — testing via `ALLOW_FAMILY_HUB_TESTING_PREVIEW` + authenticated fake guardian; **production always locked** |
 
 Enforcement:
-- Client: hidden nav + `setView` redirect unless viewer is a verified admin with preview access
+- Client: hidden nav + `setView` redirect unless viewer has the matching testing-preview access
 - Server: `/api/director-center/*` requires private-preview env + stored flag + verified admin session
-- `/api/forms-center/*` and `/api/family-hub/*` always unavailable
+- `/api/forms-center/*` requires Forms testing preview + stored flag + verified admin session
+- `/api/family-hub/*` requires Family Hub testing preview + stored flag + authenticated guardian + child-specific access (production rejects even if stored flag is on)
 - Live production host forces all expansion flags OFF
 - Existing routes such as `/api/staff/invites` are **not** blocked
 

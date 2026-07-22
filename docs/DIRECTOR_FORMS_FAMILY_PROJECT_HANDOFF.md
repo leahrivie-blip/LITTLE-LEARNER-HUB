@@ -114,7 +114,9 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| *(branch tip)* | Phase 6 Form Assignments, Responses, and Signatures complete |
+| `14d4236` | Phase 9 Responsive Family Hub Base complete |
+| `ab61b77` | Phase 8 Family / Guardian / Fake-Account Foundation complete |
+| *(earlier)* | Phase 6 Form Assignments, Responses, and Signatures complete |
 | `dd46c2d` | Phase 5 Built-In Form Library complete |
 | `18f0b0b` | Handoff transfer docs (Phase 1–4) |
 | `da3dba9` | Paste-ready PR #324 description |
@@ -195,7 +197,7 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 2. Preview only on **testing** (`little-learner-hub-testing.onrender.com`) or local — never production.
 3. Use **fake data only** for Director / Teacher / Forms fixtures.
 4. Keep Stripe / outbound email / AI **disabled** on testing.
-5. Keep **Family Hub forced OFF**.
+5. Keep **Family Hub locked on production**; testing preview only via `ALLOW_FAMILY_HUB_TESTING_PREVIEW` + stored `familyHub=true` + authenticated fake guardian.
 6. Do **not** merge to `main`.
 7. Do **not** deploy to production.
 8. Do **not** change production data, production env, or production Stripe/email/AI settings.
@@ -512,8 +514,8 @@ Do not begin Phase 10 until it is approved and Phase 9 is complete (it now is).
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
 3. Run the full Phase 1–9 test suite; confirm all PASS
-4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=false`
-5. Smoke Director Center (incl. Families) → Teacher Center → Forms Center → AI Form Builder → Send/Assign → guardian-session placeholder with fake account
+4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, `ALLOW_FAMILY_HUB_TESTING_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=true` (production must keep Family Hub locked)
+5. Smoke Director Center (incl. Families) → Teacher Center → Forms Center → AI Form Builder → Send/Assign → Family Hub (fake guardian, child switcher)
 6. Wait for owner-written Phase 10 requirements before coding
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval

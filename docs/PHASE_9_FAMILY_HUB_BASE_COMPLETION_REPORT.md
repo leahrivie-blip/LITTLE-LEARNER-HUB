@@ -79,8 +79,8 @@ npm run test:family-hub-phase9
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
-- Latest tip: verify with `git log -1 --oneline` / `git rev-parse HEAD`  
-- Pushed to `origin/cursor/director-family-foundation-bc66`  
+- Latest commit SHA: `14d42368f8c650036183a5a413f97cbd6f176dc9`  
+- Pushed to `origin/cursor/director-family-foundation-bc66` (HEAD matches remote)  
 - Working tree clean after push  
 - Full regression: **280 PASS**, zero failures  
 - Production Family Hub remains locked; `main` untouched  
