@@ -123,6 +123,21 @@
         <h1 class="fh-welcome">${escapeHtml(data.welcome || "Welcome")}</h1>
         ${childSwitcherHtml(data.children, data.selectedChildId)}
         ${data.empty ? `<p class="fh-empty">${escapeHtml(data.emptyMessage || "Nothing needs your attention right now.")}</p>` : ""}
+        <section class="fh-section" data-fh-today-home-card data-feature-marker="phase15-family-today">
+          <h2>Today</h2>
+          <p class="muted-copy">Check-in status, shared Daily Reports, forms, and messages for your children (testing only).</p>
+          ${(data.todayAttendance || []).length ? `
+            <ul class="fh-card-list th-family-attendance">
+              ${(data.todayAttendance || []).map((row) => `
+                <li class="fh-card static">
+                  <strong>${escapeHtml(row.childName)}</strong>
+                  <span class="dc-badge">${escapeHtml(String(row.status || "").replace(/_/g, " "))}</span>
+                </li>
+              `).join("")}
+            </ul>
+          ` : `<p class="muted-copy">No attendance status shared yet today.</p>`}
+          <button type="button" class="primary-button fh-touch" data-fh-tab="today">Open Today</button>
+        </section>
         <section class="fh-section">
           <h2>Messages ${(data.unreadMessages || 0) ? `<span class="fh-badge">${escapeHtml(String(data.unreadMessages))}</span>` : ""}</h2>
           <button type="button" class="primary-button fh-touch" data-fh-tab="messages">Open Messages</button>
@@ -511,12 +526,13 @@
           <p class="muted-copy">Calendar lives here so Messages can stay in the main navigation (max five items).</p>
           <button type="button" class="ghost-button" data-fh-open-calendar>Open calendar</button>
         </section>
-        ${(state.home?.licensingTaskCount || (state.home?.licensingTasks || []).length || (state.licensingTasks || []).length) ? `
-        <section class="fh-section" data-fh-licensing-account-link>
+        <section class="fh-section">
           <h2>More</h2>
+          <button type="button" class="ghost-button" data-fh-tab="today">Today</button>
+          ${(state.home?.licensingTaskCount || (state.home?.licensingTasks || []).length || (state.licensingTasks || []).length) ? `
           <button type="button" class="ghost-button" data-fh-tab="licensing">Licensing Documents Needed</button>
+          ` : ""}
         </section>
-        ` : ""}
         <button type="button" class="primary-button" data-fh-sign-out>Sign out</button>
       </section>
     `;
@@ -677,6 +693,63 @@
     `;
   }
 
+  function todayHtml() {
+    const data = state.today || {};
+    if (data.empty) {
+      return `
+        <section class="fh-panel th-family-panel" data-feature-marker="phase15-family-today">
+          <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+          <h1>Today</h1>
+          <p class="muted-copy">${escapeHtml(data.emptyMessage || "Nothing needs your attention right now.")}</p>
+        </section>
+      `;
+    }
+    return `
+      <section class="fh-panel th-family-panel" data-feature-marker="phase15-family-today">
+        <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <h1>Today</h1>
+        <p class="muted-copy">What needs your attention right now (testing only).</p>
+        ${childSwitcherHtml(data.children || state.children, data.selectedChildId || state.selectedChildId)}
+        <section class="fh-section">
+          <h2>Child check-in status</h2>
+          <ul class="fh-card-list">
+            ${(data.attendance || []).map((row) => `
+              <li class="fh-card static">
+                <strong>${escapeHtml(row.childName)}</strong>
+                <span class="dc-badge">${escapeHtml(String(row.status || "").replace(/_/g, " "))}</span>
+              </li>
+            `).join("") || "<li class=\"muted-copy\">No status for today yet.</li>"}
+          </ul>
+        </section>
+        ${data.todaysDailyReport ? `
+          <section class="fh-section">
+            <h2>Today’s Daily Report</h2>
+            <p class="fh-card static"><strong>${escapeHtml(data.todaysDailyReport.title || "Daily Report")}</strong></p>
+          </section>
+        ` : ""}
+        <section class="fh-section">
+          <h2>Tasks</h2>
+          <ul class="fh-card-list">
+            ${(data.tasks || []).map((task) => `
+              <li>
+                <button type="button" class="fh-card" data-fh-open-task="${escapeHtml(task.href || "home")}" data-fh-task-id="${escapeHtml(task.id)}" data-fh-child="${escapeHtml(task.childId || "")}">
+                  <strong>${escapeHtml(task.title)}</strong>
+                  <span>${escapeHtml(task.summary || task.source || "")}</span>
+                </button>
+              </li>
+            `).join("") || "<li class=\"muted-copy\">You're all caught up.</li>"}
+          </ul>
+        </section>
+        <div class="th-actions-row">
+          <button type="button" class="ghost-button" data-fh-tab="forms">Forms</button>
+          <button type="button" class="ghost-button" data-fh-tab="messages">Messages</button>
+          <button type="button" class="ghost-button" data-fh-tab="enrollment">Enrollment</button>
+          <button type="button" class="ghost-button" data-fh-tab="records">Documents</button>
+        </div>
+      </section>
+    `;
+  }
+
     function messagesHtml() {
     if (state.messageThread) {
       const thread = state.messageThread;
@@ -748,6 +821,7 @@
     if (state.tab === "enrollment") return enrollmentHtml();
     if (state.tab === "records") return recordsHtml();
     if (state.tab === "licensing") return licensingHtml();
+    if (state.tab === "today") return todayHtml();
     if (state.tab === "calendar") return calendarHtml();
     if (state.tab === "account") return accountHtml();
     return "";
@@ -802,6 +876,11 @@
       } else if (state.tab === "licensing") {
         const data = await api("GET", "/api/family-hub/licensing/tasks");
         state.licensingTasks = data.tasks || [];
+      } else if (state.tab === "today") {
+        const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";
+        state.today = await api("GET", `/api/family-hub/today${q}`);
+        state.children = state.today.children || state.children;
+        if (state.today.selectedChildId) state.selectedChildId = state.today.selectedChildId;
       } else if (state.tab === "messages") {
         if (!state.messageThread) {
           const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";

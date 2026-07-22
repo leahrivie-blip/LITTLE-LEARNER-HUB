@@ -7,9 +7,9 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 14**, plus **Phase 12–14 remediation** (responsive UI, real Family Hub licensing navigation, valid screenshots).
+Private preview work through **Phase 15** (Today Hub / Daily Operations), including Phase 12–14 remediation.
 
-**Do not merge into `main`. Do not deploy to production. Do not begin Phase 15 until owner reviews remediation.**
+**Do not merge into `main`. Do not deploy to production. Do not begin Phase 16 until Phase 15 is verified.**
 
 ### Start Here (next developer)
 
@@ -17,22 +17,24 @@ Private preview work through **Phase 14**, plus **Phase 12–14 remediation** (r
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run Phase 1–14 automated tests + `npm run test:phase12-14-remediation`
+5. Run Phase 1–15 automated tests (include `npm run test:today-hub-phase15`)
 6. Confirm testing-environment safety
-7. Continue only after owner-approved Phase 15 requirements
+7. Continue only after owner-approved Phase 16 requirements
 8. Never merge or deploy without explicit approval
 
 ### COMPLETED
 
 - Phases 1–14 (testing preview; backend/permissions)
 - Phase 12–14 remediation — `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`
+- Phase 15 Today Hub — `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- Phase 15+
+- Phase 16+
 - Live Stripe enrollment checkout
 - Live email / SMS / push delivery
 - Live AI / live pricing / production migration
+- Staff scheduling / billing (deferred from Phase 15)
 
 ### Feature flags (testing)
 
@@ -61,6 +63,7 @@ npm run test:family-enrollment-phase12
 npm run test:records-center-phase13
 npm run test:licensing-center-phase14
 npm run test:phase12-14-remediation
+npm run test:today-hub-phase15
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -69,8 +72,8 @@ npm run test:account-access
 
 Authoritative tip after push: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 
-Remediation focused suite: **24 PASS**. Phase 12/13/14 focused: **19 / 27 / 19 PASS**. Full Phase 1–14 regression: **PASS**. Production Family Hub locked. `main` untouched. Phase 15 not started.
+Phase 15 focused suite: **17 PASS**. Production Family Hub locked. `main` untouched. Phase 16 not started.
 
 ### Suggested PR title
 
-Phases 1–14 + Phase 12–14 remediation (do not merge/deploy)
+Phases 1–15 Today Hub (do not merge/deploy)

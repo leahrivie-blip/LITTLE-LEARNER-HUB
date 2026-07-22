@@ -24193,3 +24193,137 @@ button.linkish {
     min-width: 9rem;
   }
 }
+
+/* Phase 15 Today Hub */
+.th-panel,
+.th-family-panel {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.th-computer-recommended {
+  display: none;
+  margin: 0.5rem 0;
+  padding: 0.75rem 1rem;
+  background: #eef6fb;
+  border: 1px solid #c5d9e8;
+  border-radius: 8px;
+  color: #1f3b4d;
+  font-weight: 600;
+}
+.th-metric-row,
+.th-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.th-metric {
+  min-width: 6.5rem;
+  flex: 1 1 calc(50% - 0.35rem);
+  box-sizing: border-box;
+}
+.th-roster {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.th-roster li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  max-width: 100%;
+}
+.th-section-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.th-task-list .th-task {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.th-priority-urgent { border-left: 3px solid #a33; }
+.th-priority-today { border-left: 3px solid #2a6; }
+.th-priority-due_soon,
+.th-priority-dueSoon { border-left: 3px solid #c80; }
+.th-panel .fu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.th-panel input,
+.th-panel button,
+.th-panel select,
+.th-family-panel input,
+.th-family-panel button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 480px) {
+  .th-computer-recommended {
+    display: block;
+  }
+  .th-metric {
+    min-width: calc(50% - 0.35rem);
+  }
+  .th-panel .fu-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .th-panel .fu-toolbar h2 {
+    width: 100%;
+    margin: 0;
+  }
+  .th-roster li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  .th-computer-recommended {
+    display: block;
+  }
+  .th-panel {
+    max-width: 960px;
+  }
+  .th-metric {
+    min-width: 8rem;
+    flex: 1 1 calc(25% - 0.5rem);
+  }
+  .th-classrooms .fh-card-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .th-computer-recommended {
+    display: none;
+  }
+  .th-metric {
+    min-width: 9rem;
+    flex: 0 1 auto;
+  }
+  .th-classrooms .fh-card-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+}

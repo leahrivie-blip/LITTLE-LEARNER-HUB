@@ -1,7 +1,7 @@
 # Overnight decisions and blockers
 
 **Branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 12–14 remediation)
+**Updated:** 2026-07-22 (Phase 15 Today Hub)
 
 ## Decisions
 
@@ -19,9 +19,21 @@
 
 **Why:** Same max-five constraint. Complex licensing tools remain Computer Recommended on phone.
 
+### Family Hub nav — Today (Phase 15)
+
+**Decision:** Guardian Today is accessed from **Home** (Today card) and **Account → More** (`tab=today`), not a sixth bottom-nav item.
+
+**Why:** Same max-five constraint; Today aggregates attendance/status already relevant on Home.
+
+**Provider side:** Director Center dedicated **Today** tab (`data-dc-tab="today_hub"`).
+
 ### Capture scripts must assert feature markers
 
-**Decision:** Phase 12–14 screenshot scripts fail loudly unless a unique `data-feature-marker` is visible, and refuse the marketing homepage. Views must use `.active-view` to become visible.
+**Decision:** Phase 12–15 screenshot scripts fail loudly unless a unique `data-feature-marker` is visible, and refuse the marketing homepage. Views must use `.active-view` to become visible.
+
+### Ratio wording (Phase 15)
+
+**Decision:** Always label ratios as **provider-configured** guidance. Never claim universal state compliance.
 
 ## Permissions notes (no `docs/PERMISSIONS*` file)
 
@@ -41,20 +53,44 @@ Family views never expose internal notes, waitlist priority rules, other applica
 
 Licensing family tasks: digital guardians only; pickup-only / restricted → 403; wrong-child / cross-org remain denied.
 
+### Today Hub / attendance / ratio (Phase 15)
+
+| Actor | Today Hub access |
+|-------|------------------|
+| Director / owner | Org-wide dashboard, attendance actions, ratios, all aggregated tasks |
+| Lead teacher | Assigned classrooms only; attendance + classroom tasks |
+| Assistant | Assigned classrooms; `check_in` / `mark_absent` / group-log only unless overrides grant more; medical/allergy only with medical override |
+| Curriculum Only | Curriculum Today view only; attendance/ratios/ops → 403 |
+| Guardian (digital) | Own children’s attendance status + family tasks via `/api/family-hub/today` |
+| Restricted / pickup / emergency | No digital Today tasks (empty or 403 per existing access rules) |
+| Cross-org | Attendance/actions denied |
+
+Attendance history is append-only. Ratio history preserved on classroom transfers/actions.
+
+## Attendance / ratio documentation
+
+- Statuses: expected, checked_in, absent, late, temporarily_out, moved_classroom, checked_out, early_pickup  
+- Fields: timestamps, classroom, actor, drop-off/pickup person, pickup verification, correction reason, edit history  
+- Ratio config: `maxChildrenPerStaff`, `nearLimitThreshold`, age/classroom label  
+- Disclaimer constant: provider-configured rules — not universal compliance  
+
+Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`.
+
 ## Safety / still OFF
 
 - No Stripe enrollment checkout  
 - No public production inquiries  
-- No outbound email/SMS/push for enrollment  
+- No outbound email/SMS/push  
 - Production Family Hub locked  
+- No staff scheduling / live billing (deferred)
 
 ## Blockers / audit remediation
 
-**Owner audit found Phase 12–14 incomplete for:** responsive verification, Family Hub licensing wiring, and valid screenshots (homepage duplicates).
+**Phase 12–14 remediation completed 2026-07-22** — see `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`.
 
-**Remediation completed 2026-07-22** — see `docs/PHASE_12_14_REMEDIATION_COMPLETION_REPORT.md`.
+**Phase 15 completed 2026-07-22** — see `docs/PHASE_15_TODAY_DAILY_OPERATIONS_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 15** until the owner reviews the remediation completion confirmation.
+**Do not begin Phase 16** until Phase 15 is verified on the branch tip.
 
 ## Phase 14 notes
 
@@ -62,3 +98,9 @@ Licensing family tasks: digital guardians only; pickup-only / restricted → 403
 - Readiness wording: "Ready based on configured checklist" — never universal "compliant".
 - Inspection packets are read-only, time-limited, revocable, audited.
 - Phone shows Computer Recommended for complex licensing tools (**application UI**, not screenshot injection).
+
+## Phase 15 notes
+
+- Today Hub is the daily operations entry point for role-scoped urgent work.
+- In-app notifications only; admin-only notifications stay director-scoped.
+- Deferred: staff scheduling, billing, external delivery, Phase 16.

@@ -27,6 +27,8 @@ const enrollmentFixtures = require("../scripts/enrollment-fixtures.js");
 const recordsFixtures = require("../scripts/records-center-fixtures.js");
 const licensingFixtures = require("../scripts/licensing-center-fixtures.js");
 const licensingModel = require("../scripts/licensing-center-data-model.js");
+const todayHubModel = require("../scripts/today-hub-data-model.js");
+const todayHubFixtures = require("../scripts/today-hub-fixtures.js");
 const { createFamilyHubMessagingHandlers } = require("./family-hub-messaging-handlers.js");
 const { createFamilyHubEnrollmentHandlers } = require("./family-hub-enrollment-handlers.js");
 const { createFamilyHubRecordsHandlers } = require("./family-hub-records-handlers.js");
@@ -160,6 +162,7 @@ function createFamilyHubApi({
     enrollmentFixtures.ensurePhase12Preview(store, { organizationId: actor.organizationId });
     recordsFixtures.ensurePhase13Preview(store, { organizationId: actor.organizationId });
     licensingFixtures.ensurePhase14Preview(store, { organizationId: actor.organizationId });
+    todayHubFixtures.ensurePhase15Preview(store, { organizationId: actor.organizationId });
     const children = hub.permittedChildrenForContact(store, actor.contact.id);
     // For messaging capability, also include messages-only children and deny when none are messages-capable.
     if (capability === "messages") {
@@ -519,6 +522,7 @@ function createFamilyHubApi({
       sharedObservations: (feed.observations || []).slice(0, 5),
       sharedGoals: (feed.goals || []).slice(0, 5),
       unreadMessages: messagingModel.unreadCountForEmail(store, actor.organizationId, actor.email),
+      todayAttendance: attendanceStatusForGuardianChildren(store, actor.organizationId, digitalChildren),
       programContact: programContact(store, actor.organizationId),
       roadmapNote: "Billing arrives in a later phase.",
     });
@@ -1035,11 +1039,177 @@ function createFamilyHubApi({
     const seeded12 = enrollmentFixtures.ensurePhase12Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded13 = recordsFixtures.ensurePhase13Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     const seeded14 = licensingFixtures.ensurePhase14Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
+    const seeded15 = todayHubFixtures.ensurePhase15Preview(store, { organizationId: seeded9.organizationId || body.organizationId || "" });
     if (!store.siteContent) store.siteContent = {};
     if (!store.siteContent.featureFlags) store.siteContent.featureFlags = {};
     store.siteContent.featureFlags.familyHub = true;
     writeStore(store);
-    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, phase14: seeded14, label: TESTING_BANNER });
+    jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, phase14: seeded14, phase15: seeded15, label: TESTING_BANNER });
+  }
+
+  function attendanceStatusForGuardianChildren(store, organizationId, children) {
+    todayHubModel.ensureTodayHubStore(store);
+    const today = todayHubModel.todayDate();
+    const permitted = new Set((children || []).map((c) => c.childId));
+    return listValues(store.todayHub.attendance)
+      .filter((row) => row.organizationId === organizationId && row.date === today && permitted.has(row.childId))
+      .map((row) => ({
+        attendanceId: row.id,
+        childId: row.childId,
+        childName: store.childRecords?.[row.childId]?.displayName || "Child",
+        status: row.status,
+        checkedInAt: row.checkedInAt || "",
+        checkedOutAt: row.checkedOutAt || "",
+        classroomId: row.classroomId,
+        // Guardians never see other children's attendance or staff ratio internals.
+      }));
+  }
+
+  function buildFamilyTodayTasks(store, actor, children, homePayload) {
+    const tasks = [];
+    const attendance = attendanceStatusForGuardianChildren(store, actor.organizationId, children);
+    for (const row of attendance) {
+      tasks.push({
+        id: `att-${row.attendanceId}`,
+        source: "attendance",
+        priority: row.status === todayHubModel.ATTENDANCE_STATUSES.ABSENT ? "today" : "informational",
+        title: `${row.childName}: ${String(row.status || "").replace(/_/g, " ")}`,
+        summary: row.checkedInAt ? `Checked in ${row.checkedInAt}` : (row.checkedOutAt ? `Checked out ${row.checkedOutAt}` : "Attendance status for today"),
+        href: "today",
+        childId: row.childId,
+        sourceRefId: row.attendanceId,
+      });
+    }
+    for (const item of homePayload.actionNeeded || []) {
+      tasks.push({
+        id: `action-${item.kind}-${item.id}`,
+        source: item.kind,
+        priority: "today",
+        title: item.title,
+        summary: String(item.kind || "").replace(/_/g, " "),
+        href: item.href,
+        childId: item.childId || "",
+        sourceRefId: item.id,
+      });
+    }
+    if ((homePayload.unreadMessages || 0) > 0) {
+      tasks.push({
+        id: "unread-messages",
+        source: "messages",
+        priority: "today",
+        title: `${homePayload.unreadMessages} unread message(s)`,
+        summary: "Open Messages",
+        href: "messages",
+        sourceRefId: "unread",
+      });
+    }
+    if (homePayload.todaysDailyReport) {
+      tasks.push({
+        id: `daily-${homePayload.todaysDailyReport.id || "today"}`,
+        source: "daily_logs",
+        priority: "informational",
+        title: "Today’s Daily Report",
+        summary: "Shared when the program releases it",
+        href: "home",
+        childId: homePayload.selectedChildId || "",
+        sourceRefId: homePayload.todaysDailyReport.id || "daily",
+      });
+    }
+    // Dedupe by source|sourceRefId|childId
+    const seen = new Set();
+    return tasks.filter((task) => {
+      const key = `${task.source}|${task.sourceRefId}|${task.childId || ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  async function handleToday(request, response, url) {
+    const childId = url?.searchParams?.get("childId") || "";
+    const ctx = withGuardian(request, response, { capability: "digital", childId });
+    if (!ctx) return;
+    const { store, actor, children, selectedChildId } = ctx;
+    writeStore(store);
+
+    const digitalChildren = (children || []).filter((child) => familyModel.evaluateContactChildAccess({
+      store,
+      organizationId: actor.organizationId,
+      contactId: actor.contact.id,
+      childId: child.childId,
+      capability: "digital",
+    }).allowed);
+
+    if (!digitalChildren.length) {
+      jsonResponse(response, 200, {
+        ok: true,
+        label: TESTING_BANNER,
+        featureMarker: "phase15-family-today",
+        view: "guardian",
+        empty: true,
+        emptyMessage: hub.RESTRICTED_UNAVAILABLE_MESSAGE || "Nothing needs your attention right now.",
+        children: [],
+        attendance: [],
+        tasks: [],
+        notifications: [],
+        noExternalDelivery: true,
+      });
+      return;
+    }
+
+    const activeChildId = selectedChildId || digitalChildren[0].childId;
+    const attendance = attendanceStatusForGuardianChildren(store, actor.organizationId, digitalChildren);
+    const formsAccess = hub.requireChildAccess(store, actor.contact, activeChildId, "forms");
+    const forms = formsAccess.allowed ? formsForContactChild(store, actor.contact, activeChildId) : [];
+    const docs = documentsForChild(store, actor.organizationId, activeChildId);
+    const calendar = calendarForChild(store, actor.organizationId, activeChildId);
+    const feed = hub.requireChildAccess(store, actor.contact, activeChildId, "digital").allowed
+      ? familyFeedForChild(store, actor.contact, activeChildId)
+      : { updates: [], dailyReports: [], observations: [], goals: [], media: [], acknowledgments: [] };
+    const licensingTasks = buildLicensingTasksForGuardian(store, actor, digitalChildren);
+    const formsToComplete = forms.filter((row) => row.actionNeeded && !row.returned);
+    const documentRequests = docs.filter((row) => row.uploadRequested || row.pendingReview || row.status === hub.DOCUMENT_STATUSES.CORRECTION_REQUESTED || row.status === hub.DOCUMENT_STATUSES.REJECTED);
+    const todaysReport = (feed.dailyReports || []).find((row) => row.date === hub.nowIso().slice(0, 10)) || feed.dailyReports[0] || null;
+    const unreadMessages = messagingModel.unreadCountForEmail(store, actor.organizationId, actor.email);
+    const actionNeeded = [
+      ...formsToComplete.map((row) => ({ kind: "form", id: row.assignmentId, title: row.formTitle, href: "forms", childId: activeChildId })),
+      ...documentRequests.filter((row) => row.uploadRequested).map((row) => ({ kind: "document_request", id: row.id, title: row.title, href: "records", childId: activeChildId })),
+      ...licensingTasks.map((row) => ({ kind: "licensing_document", id: row.id, title: row.title, href: "licensing", childId: row.childId })),
+      ...(feed.updates || []).slice(0, 3).map((row) => ({ kind: "update", id: row.id, title: row.title, href: "home", childId: activeChildId })),
+    ];
+    const homePayload = {
+      actionNeeded,
+      unreadMessages,
+      todaysDailyReport: todaysReport,
+      selectedChildId: activeChildId,
+    };
+    const tasks = buildFamilyTodayTasks(store, actor, digitalChildren, homePayload);
+    const notifications = listValues(store.todayHub?.notifications || {})
+      .filter((n) => n.organizationId === actor.organizationId && n.audience === "family" && !n.adminOnly)
+      .filter((n) => !n.recipientEmail || safeLower(n.recipientEmail) === safeLower(actor.email))
+      .filter((n) => !n.childId || digitalChildren.some((c) => c.childId === n.childId));
+
+    jsonResponse(response, 200, {
+      ok: true,
+      label: TESTING_BANNER,
+      featureMarker: "phase15-family-today",
+      view: "guardian",
+      date: todayHubModel.todayDate(),
+      children: digitalChildren,
+      selectedChildId: activeChildId,
+      attendance,
+      todaysDailyReport: todaysReport,
+      formsNeedingAction: formsToComplete,
+      documentsRequested: documentRequests,
+      upcomingCalendar: calendar.slice(0, 5),
+      unreadMessages,
+      licensingTasks,
+      enrollmentHref: "enrollment",
+      tasks,
+      notifications,
+      noExternalDelivery: true,
+      noTaskDuplication: true,
+    });
   }
 
   function buildLicensingTasksForGuardian(store, actor, children) {
@@ -1272,6 +1442,7 @@ function createFamilyHubApi({
     if (method === "GET" && path === `${base}/status`) return (req, res) => handleStatus(req, res);
     if (method === "POST" && path === `${base}/seed`) return (req, res) => handleSeed(req, res);
     if (method === "GET" && path === `${base}/home`) return (req, res) => handleHome(req, res, url);
+    if (method === "GET" && path === `${base}/today`) return (req, res) => handleToday(req, res, url);
     if (method === "GET" && path === `${base}/messages`) return (req, res) => messagingHandlers.handleMessagesInbox(req, res, url);
     if (method === "POST" && path === `${base}/messages/start`) return (req, res) => messagingHandlers.handleStartConversation(req, res);
     if (method === "POST" && path === `${base}/messages/draft`) return (req, res) => messagingHandlers.handleSaveDraft(req, res);
