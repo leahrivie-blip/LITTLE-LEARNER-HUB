@@ -3,7 +3,7 @@
 **Branch:** `testing/full-platform-integration-2026-07` (continuation after integration checkpoint)  
 **Phase 20 backup:** `backup/director-family-phases-1-20`  
 **Frozen feature branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 21 Provider Productivity / Child-Led Planning)
+**Updated:** 2026-07-22 (Classroom Assistant prioritized; Phase 22 paused)
 
 ## Decisions
 
@@ -141,7 +141,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 21 completed 2026-07-22** — see `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`.
 
-**Do not begin Phase 22** without separate instructions. Never merge to `main` / never deploy production from this checkpoint.
+**Classroom Assistant foundation started 2026-07-22** (new highest priority from provider feedback) — see `docs/CLASSROOM_ASSISTANT_PRIORITY.md` and `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`.
+
+**Phase 22 is paused.** Do not begin Phase 22 until Classroom Assistant priority work is accepted and the owner writes new Phase 22 instructions. Never merge to `main` / never deploy production from this checkpoint.
 
 ## Phase 14 notes
 
@@ -212,4 +214,14 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Universal search omits denied domains entirely (no titles/counts leaked).
 - Guided setup: home daycare skips center-only staff step; Skip / Save and continue later supported.
 - Notification prefs keep outbound email/SMS/push forced off in testing.
-- Deferred: live AI generation, real camera OCR, production deploy, Phase 22.
+- Deferred: live AI generation, real camera OCR, production deploy, Phase 22 (paused).
+
+## Classroom Assistant notes / permissions (2026-07-22)
+
+- **Phase 22 paused** in favor of Classroom Assistant.
+- Natural-language notes parse locally only (`liveAiUsed: false`); preview then confirm apply.
+- Group meal/activity/nap writes target **checked-in** children only unless a child is named.
+- Named exceptions update only that child.
+- Admin lesson-plan paste requires review before save.
+- Goal: eliminate repetitive per-profile data entry — “describe what happened” first.
+- Deferred: live AI upgrade, cover art generation, deeper Family Hub write-through, Phase 22.

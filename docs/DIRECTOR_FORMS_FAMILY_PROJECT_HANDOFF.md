@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 21 Provider Productivity / Child-Led Planning complete; Phase 22 not started)
+**Status date:** 2026-07-22 (Classroom Assistant foundation prioritized; Phase 22 paused)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 **Canonical continuation branch:** `testing/full-platform-integration-2026-07`  
 **Phase 20 backup:** `backup/director-family-phases-1-20` @ `d731a3951a152028b0539981a8c6b11b8d26fc76`  
@@ -12,11 +12,11 @@
 
 1. Fetch the repository: `git fetch origin`
 2. Check out the **continuation** branch: `git checkout testing/full-platform-integration-2026-07` then `git pull origin testing/full-platform-integration-2026-07`
-3. Read this handoff document end to end, `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`, and `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`
-4. Review draft PR [#325](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/325) (integration + Phase 21) and [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324) (Phase 1–20 history)
-5. Run all Phase 1–21 automated tests (commands below; include `npm run test:provider-productivity-phase21`)
+3. Read this handoff, `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, and `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`
+4. Review draft PR [#325](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/325)
+5. Run Phase 1–21 suites plus `npm run test:classroom-assistant`
 6. Confirm testing-environment safety rules before any preview enablement or testing deploy
-7. Continue only from the next **approved** checkpoint (**Phase 22** — do not start without separate instructions)
+7. Continue **Classroom Assistant** expansion next — **do not begin Phase 22** while it remains paused
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -44,6 +44,7 @@ Build a private, testing-only foundation for:
 - **Security, Data Migration, Release Readiness** (Phase 20) — security review foundations, fake migration simulator, Release Readiness Center — `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md` + `docs/TESTING_SITE_INTEGRATION_PLAN.md`
 - **Testing-only full platform integration** — main + Phases 1–20 on `testing/full-platform-integration-2026-07` — `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`
 - **Provider Productivity / Child-Led Planning** (Phase 21) — planning preferences, child-led workflow, activity-first tools, universal search, guided setup — `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`
+- **Classroom Assistant (highest priority; Phase 22 paused)** — natural-language group meal/activity/summary logging, checked-in awareness, admin lesson-plan paste with review — `docs/CLASSROOM_ASSISTANT_PRIORITY.md` + `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 

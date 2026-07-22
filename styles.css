@@ -24935,3 +24935,47 @@ button.linkish {
     font-size: 0.95rem;
   }
 }
+
+/* Classroom Assistant */
+.ca-shell,
+.ca-form,
+.ca-preview {
+  display: grid;
+  gap: 1rem;
+}
+.ca-hero,
+.ca-card,
+.ca-review-banner {
+  padding: 1rem;
+  border: 1px solid #d8e2f5;
+  border-radius: 14px;
+  background: #fff;
+}
+.ca-grid,
+.ca-card-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+.ca-chip-row,
+.ca-suggestions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.ca-chip,
+.ca-suggestion-chip {
+  border-radius: 999px;
+}
+.ca-chip {
+  padding: 0.35rem 0.65rem;
+  background: #eef5ff;
+  color: #173b69;
+  font-weight: 700;
+}
+.ca-review-banner,
+.ca-computer-note {
+  background: #fff7df;
+  color: #5d4200;
+  font-weight: 700;
+}

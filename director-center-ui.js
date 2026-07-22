@@ -150,6 +150,8 @@
         // Licensing Center tab loads via renderLicensingCenterTab after paint.
       } else if (state.tab === "today_hub") {
         // Today Hub tab loads via renderTodayHubTab after paint.
+      } else if (state.tab === "classroom_assistant") {
+        // Classroom Assistant tab loads via renderClassroomAssistantTab after paint.
       } else if (state.tab === "ease_planning") {
         // Ease & Planning tab loads via renderProviderProductivityTab after paint.
       } else if (state.tab === "staff_experience") {
@@ -193,6 +195,7 @@
       ["family_updates", "Family Updates"],
       ["family_messaging", "Family Messaging"],
       ["today_hub", "Today"],
+      ["classroom_assistant", "Classroom Assistant"],
       ["ease_planning", "Ease & Planning"],
       ["enrollment", "Enrollment"],
       ["records_center", "Records"],
@@ -697,6 +700,9 @@
     if (state.tab === "today_hub") {
       return `<div id="dc-today-hub-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Today Hub…</p></div>`;
     }
+    if (state.tab === "classroom_assistant") {
+      return `<div id="dc-classroom-assistant-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Classroom Assistant…</p></div>`;
+    }
     if (state.tab === "ease_planning") {
       return `<div id="dc-provider-productivity-mount" class="dc-family-updates-mount"><p class="muted-copy">Loading Ease & Planning…</p></div>`;
     }
@@ -773,6 +779,13 @@
     }
     if (state.tab === "today_hub" && typeof global.renderTodayHubTab === "function") {
       global.renderTodayHubTab(section.querySelector("#dc-today-hub-mount") || section);
+    }
+    if (state.tab === "classroom_assistant" && typeof global.renderClassroomAssistantTab === "function") {
+      global.renderClassroomAssistantTab(section.querySelector("#dc-classroom-assistant-mount") || section, {
+        apiBase: "/api/director-center/classroom-assistant",
+        getToken: () => (typeof adminSession === "function" ? (adminSession()?.token || "") : ""),
+        organizationId: state.overview?.organization?.id || "",
+      });
     }
     if (state.tab === "ease_planning" && typeof global.renderProviderProductivityTab === "function") {
       global.renderProviderProductivityTab(section.querySelector("#dc-provider-productivity-mount") || section, {
