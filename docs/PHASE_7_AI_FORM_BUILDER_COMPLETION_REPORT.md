@@ -73,7 +73,7 @@ Full regression (Phases 1–7 + platform/account) was run once before completion
 
 ## Handoff confirmations
 
-- Latest commit: `f0d2154`  
+- Latest commit: `1806e38`  
 - Branch: `cursor/director-family-foundation-bc66`  
 - Pushed to `origin/cursor/director-family-foundation-bc66`  
 - Working tree clean after push  
