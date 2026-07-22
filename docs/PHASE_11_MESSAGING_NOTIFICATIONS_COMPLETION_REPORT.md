@@ -3,7 +3,7 @@
 **Branch:** `cursor/director-family-foundation-bc66`  
 **Status:** Complete (testing preview only)  
 **Date:** 2026-07-22  
-**Started from tip:** `9797b10870163c92df2c1c63094a4717e542a432`
+**Started from tip:** `9d0e1ce9cbde46d07e3f895e9887d3c06c0065a2`
 
 ## What changed
 
@@ -65,7 +65,7 @@ npm run test:family-messaging-phase11
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
-- Latest tip: `139bb860502bd335df8423451a6d87c44acf2b5b`  
+- Latest tip: `9d0e1ce9cbde46d07e3f895e9887d3c06c0065a2`  
 - Phase 11 feature commit: `a5b1f4c`  
 - Pushed; clean tree after docs push  
 - Production Family Hub locked; `main` untouched  

@@ -116,7 +116,7 @@ Phase tip history (newest first):
 
 | Commit | Summary |
 |--------|---------|
-| *(branch tip)* | Phase 11 Messaging / Notifications / History complete (incl. handoff docs) |
+| `c538140` | Phase 11 Messaging / Notifications / History complete (incl. handoff docs) |
 | `a5b1f4c` | Phase 11 family messaging implementation |
 | `99a8aa7` | Phase 10 family updates implementation |
 | `aa6e9a9` | Phase 9 Responsive Family Hub Base complete |
