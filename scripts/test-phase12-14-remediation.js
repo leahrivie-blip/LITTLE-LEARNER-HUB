@@ -251,7 +251,7 @@ async function run() {
       const locked = expansionFlags.evaluateExpansionAccess({
         flagKey: EXPANSION_FEATURE_KEYS.FAMILY_HUB,
         environment: expansionFlags.resolveExpansionEnvironment({
-          host: "littlelearnershubbyleah.com",
+          siteUrl: "https://littlelearnershubbyleah.com",
           env: { NODE_ENV: "production", ALLOW_FAMILY_HUB_TESTING_PREVIEW: "true" },
         }),
         storedFlags: { familyHub: true },
