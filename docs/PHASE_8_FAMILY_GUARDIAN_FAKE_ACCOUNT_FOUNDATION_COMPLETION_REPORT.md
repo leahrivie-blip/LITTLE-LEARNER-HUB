@@ -70,7 +70,7 @@ npm run test:family-foundation-phase8
 
 **36 PASS** — cross-org denial, wrong-child, siblings/multi-household, restricted/pickup/emergency/suspended/ended, revoked/expired invitations, altered IDs, parent vs staff API denial, fake-account production rejection, Family Hub OFF, history preservation.
 
-Full regression (Phases 1–8 + platform/account) run once before completion — see handoff.
+Full regression (Phases 1–8 + platform/account) run once before completion — all suites PASS, zero failures (Phase 8 focused suite 36/36).
 
 ## Screenshots
 
@@ -88,6 +88,7 @@ Full regression (Phases 1–8 + platform/account) run once before completion —
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
+- Latest tip: see `git log -1 --oneline` on this branch after push  
 - Pushed to `origin/cursor/director-family-foundation-bc66`  
 - Working tree clean after push  
 - Family Hub remains OFF  
