@@ -62,7 +62,7 @@ npm run test:account-access
 
 ### Tip (Phase 11 complete)
 
-Authoritative tip: `d69eec92ffb44c40af0310edda8db0adf09c1d0c`  
+Authoritative tip: `369c4610ac5fe70a3ca55187bedf8b343063afff`  
 Phase 11 feature commit: `a5b1f4c`. Full regression: all suites PASS. Phase 12 not started. Production Family Hub locked. `main` untouched.
 
 ### Suggested PR title

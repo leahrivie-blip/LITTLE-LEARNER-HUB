@@ -65,7 +65,7 @@ npm run test:family-messaging-phase11
 ## Handoff confirmations
 
 - Branch: `cursor/director-family-foundation-bc66`  
-- Latest tip: `d69eec92ffb44c40af0310edda8db0adf09c1d0c`  
+- Latest tip: `369c4610ac5fe70a3ca55187bedf8b343063afff`  
 - Phase 11 feature commit: `a5b1f4c`  
 - Pushed; clean tree after docs push  
 - Production Family Hub locked; `main` untouched  
