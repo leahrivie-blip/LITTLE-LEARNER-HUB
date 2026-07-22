@@ -738,6 +738,7 @@
       ["forms", "My Forms"],
       ["templates", "Program Templates"],
       ["responses", "Responses"],
+      ["ai-builder", "AI Form Builder"],
       ["archived", "Archived Forms"],
       ["builder", "Create Form"],
     ];
@@ -781,12 +782,13 @@
       <section class="fc-panel">
         <div class="fc-hero">
           <div>
-            <p class="eyebrow">Forms Center Phase 4</p>
-            <h2>Manual Custom Form Builder</h2>
-            <p>Create daycare forms, organize sections and fields, publish immutable versions, and preview only. Responses are not being collected.</p>
+            <p class="eyebrow">Forms Center</p>
+            <h2>Build, send, and review childcare forms</h2>
+            <p>Create forms manually, start from the Built-In Library, or describe a form with the AI Form Builder. Publishing and sending always stay under your control.</p>
           </div>
           <div class="fc-hero-actions">
             <button type="button" class="primary-button" data-fc-create>Create Blank Form</button>
+            <button type="button" class="ghost-button" data-fc-tab="ai-builder">AI Form Builder</button>
             <button type="button" class="ghost-button" data-fc-seed>Seed Preview Fixtures</button>
           </div>
         </div>
@@ -1453,12 +1455,17 @@
     return `<div id="fc-responses-mount"></div>`;
   }
 
+  function aiBuilderHtml() {
+    return `<div id="fc-ai-builder-mount"></div>`;
+  }
+
   function bodyHtml() {
     if (state.tab === "home") return homeHtml();
     if (state.tab === "library") return libraryHtml();
     if (state.tab === "forms") return formsHtml();
     if (state.tab === "templates") return templatesHtml();
     if (state.tab === "responses") return responsesHtml();
+    if (state.tab === "ai-builder") return aiBuilderHtml();
     if (state.tab === "archived") return archivedHtml();
     if (state.tab === "builder") return builderHtml();
     if (state.tab === "preview") return previewHtml();
@@ -1476,7 +1483,7 @@
         ${navHtml()}
         ${state.error ? `<div class="fc-alert error" role="alert">${escapeHtml(state.error)}</div>` : ""}
         ${state.message ? `<div class="fc-alert success" role="status">${escapeHtml(state.message)}</div>` : ""}
-        ${state.loading && state.tab !== "responses" ? `<div class="fc-loading">Loading Forms Center...</div>` : ""}
+        ${state.loading && state.tab !== "responses" && state.tab !== "ai-builder" ? `<div class="fc-loading">Loading Forms Center...</div>` : ""}
         ${bodyHtml()}
       </section>
       ${libraryConfirmModalHtml()}
@@ -1484,6 +1491,9 @@
     bind(root);
     if (state.tab === "responses" && typeof window.renderFormResponsesDashboardUI === "function") {
       window.renderFormResponsesDashboardUI();
+    }
+    if (state.tab === "ai-builder" && typeof window.renderAiFormBuilderUI === "function") {
+      window.renderAiFormBuilderUI();
     }
   }
 
@@ -1657,5 +1667,15 @@
     init().catch((error) => {
       setMessage(error.message || "Could not load Forms Center.", true);
     });
+  };
+
+  /**
+   * Open an existing form in the Phase 4 Form Builder. Used by the AI Form
+   * Builder after accepting a suggestion as a new program-owned draft.
+   */
+  global.openFormsCenterBuilder = async function openFormsCenterBuilder(formId) {
+    state.tab = "builder";
+    render();
+    await openBuilder(formId);
   };
 })(window);

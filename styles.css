@@ -23372,3 +23372,217 @@ button.linkish {
     grid-template-columns: repeat(3, 1fr);
   }
 }
+
+/* ── Phase 7 AI Form Builder ─────────────────────────────────────────────── */
+.afb-card {
+  background: #fff;
+  border: 1px solid rgba(139, 107, 232, 0.18);
+  border-radius: 18px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 28px rgba(80, 60, 140, 0.06);
+}
+.afb-card-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 14px;
+}
+.afb-card-header h3 {
+  margin: 4px 0;
+  color: #4a3d7a;
+}
+.afb-badge {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  background: #fff4e5;
+  color: #9a5b00;
+  max-width: 260px;
+  text-align: right;
+}
+.afb-banner {
+  background: #fff4e5;
+  border: 1px solid rgba(154, 91, 0, 0.25);
+  color: #9a5b00;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+  margin-bottom: 14px;
+}
+.afb-label {
+  display: grid;
+  gap: 6px;
+  font-weight: 700;
+  color: #4a3d7a;
+  margin: 12px 0 6px;
+}
+.afb-textarea,
+.afb-label select {
+  width: 100%;
+  border: 1px solid rgba(139, 107, 232, 0.28);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  color: #2d3650;
+  background: #fff;
+  min-height: 44px;
+}
+.afb-textarea {
+  resize: vertical;
+}
+.afb-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.afb-fieldset {
+  border: 1px solid rgba(139, 107, 232, 0.18);
+  border-radius: 14px;
+  padding: 12px 14px;
+  margin: 14px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+.afb-fieldset legend {
+  padding: 0 6px;
+  color: #4a3d7a;
+  font-weight: 800;
+}
+.afb-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 600;
+  color: #2d3650;
+}
+.afb-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 16px;
+}
+.afb-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.afb-meta-row span {
+  background: #f4f0ff;
+  color: #4a3d7a;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.afb-legal {
+  background: #f7f6fb;
+  border-left: 4px solid #7055d1;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 12px 0;
+  color: #2d3650;
+}
+.afb-warnings ul,
+.afb-recommendations ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.afb-warnings li,
+.afb-recommendations li {
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #f4f0ff;
+}
+.afb-warn-high { background: #fff1f1 !important; color: #9f2f34; }
+.afb-warn-medium { background: #fff4e5 !important; color: #9a5b00; }
+.afb-warn-info { background: #edf8ff !important; color: #28658e; }
+.afb-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+.afb-compare pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f7f6fb;
+  border-radius: 12px;
+  padding: 12px;
+  margin: 0;
+  max-height: 260px;
+  overflow: auto;
+  font-size: 0.85rem;
+}
+.afb-section {
+  border-top: 1px solid rgba(139, 107, 232, 0.18);
+  padding-top: 14px;
+  margin-top: 14px;
+}
+.afb-section h4 {
+  margin: 0 0 6px;
+  color: #4a3d7a;
+}
+.afb-field-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.afb-field-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #faf8ff;
+  border: 1px solid rgba(139, 107, 232, 0.12);
+}
+.afb-field-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.afb-required {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #9f2f34;
+  text-transform: uppercase;
+}
+.afb-instructions p {
+  margin: 6px 0;
+}
+@media (max-width: 760px) {
+  .afb-grid,
+  .afb-compare {
+    grid-template-columns: 1fr;
+  }
+  .afb-card-header {
+    flex-direction: column;
+  }
+  .afb-badge {
+    max-width: none;
+    text-align: left;
+  }
+  .afb-field-list li {
+    flex-direction: column;
+  }
+  .afb-field-actions .ghost-button,
+  .afb-actions .primary-button,
+  .afb-actions .ghost-button {
+    min-height: 44px;
+  }
+}
