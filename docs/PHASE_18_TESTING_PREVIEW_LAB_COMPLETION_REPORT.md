@@ -60,4 +60,4 @@ No passwords, tokens, or non-`@example.invalid` emails in screenshots.
 
 Stripe/email/SMS/push/live AI/production storage untouched. `main` untouched.
 
-Latest tip: `9dda2109bcebd447cde6e0af4f1bb60021f25a84` (pushed to `origin/cursor/director-family-foundation-bc66`). Working tree clean after docs stamp. Production and `main` untouched. Phase 19 not started.
+Latest tip: `9dda2109bcebd447cde6e0af4f1bb60021f25a84` (feature); branch tip after docs stamp: `877bb4f998219d92df61eeaaadfb540c0ce8763a` (pushed to `origin/cursor/director-family-foundation-bc66`). Working tree clean after docs stamp. Production and `main` untouched. Phase 19 not started.
