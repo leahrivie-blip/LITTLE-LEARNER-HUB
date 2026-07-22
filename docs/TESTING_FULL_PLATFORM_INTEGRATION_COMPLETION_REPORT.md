@@ -139,4 +139,4 @@ No verified Render API token / deploy hook is available in this agent environmen
 - Backup branch exists remotely at Phase 20 tip
 - Fake data / kill switches preserved for testing work
 
-Latest tip will be stamped after docs push to `origin/testing/full-platform-integration-2026-07`.
+Latest tip: `d90a0bacb186e3c27ee0b8dd7d63f767d6c5391c` (pushed to `origin/testing/full-platform-integration-2026-07`). Working tree clean after docs stamp. Production and `main` untouched. Phase 21 not started.
