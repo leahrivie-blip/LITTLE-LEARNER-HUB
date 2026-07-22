@@ -21,6 +21,30 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const adminNotifications = require("./admin-notifications.js");
 const programOwnership = require("./program-ownership.js");
+const expansionFeatureFlags = require("../scripts/expansion-feature-flags.js");
+const foundationDataModel = require("../scripts/foundation-data-model.js");
+const orgPermissions = require("../scripts/org-permissions.js");
+const entitlementModel = require("../scripts/entitlement-model.js");
+const { createDirectorCenterApi } = require("./director-center-api.js");
+const { createPhase3TeacherApi } = require("./phase3-teacher-api.js");
+const { createFormsCenterApi } = require("./forms-center-api.js");
+const { createBuiltInFormLibraryApi } = require("./built-in-form-library-api.js");
+const { createFormResponsesApi } = require("./form-responses-api.js");
+const { createAiFormBuilderApi } = require("./ai-form-builder-api.js");
+const { createFormRecipientApi } = require("./form-recipient-api.js");
+const { createFamilyFoundationApi } = require("./family-foundation-api.js");
+const { createFamilyHubApi } = require("./family-hub-api.js");
+const { createFamilyUpdatesApi } = require("./family-updates-api.js");
+const { createFamilyMessagingApi } = require("./family-messaging-api.js");
+const { createEnrollmentApi } = require("./enrollment-api.js");
+const { createRecordsCenterApi } = require("./records-center-api.js");
+const { createLicensingCenterApi } = require("./licensing-center-api.js");
+const { createTodayHubApi } = require("./today-hub-api.js");
+const { createProviderProductivityApi } = require("./provider-productivity-api.js");
+const { createClassroomAssistantApi } = require("./classroom-assistant-api.js");
+const { createStaffExperienceApi } = require("./staff-experience-api.js");
+const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
+const { createTestingLabApi } = require("./testing-lab-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -106,6 +130,47 @@ const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
 const EMAIL_AUTOMATIONS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.EMAIL_AUTOMATIONS_ENABLED || "false").trim().toLowerCase(),
 );
+// Absolute outbound-email kill switch for testing/preview environments.
+// When true, sendEmail() never contacts Resend/SendGrid/Postmark.
+const DISABLE_OUTBOUND_EMAIL = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_OUTBOUND_EMAIL || "false").trim().toLowerCase(),
+);
+// Testing/preview: block paid Stripe checkout and AI calls (Phase 2 preview safety).
+const DISABLE_STRIPE_CHECKOUT = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_STRIPE_CHECKOUT || "false").trim().toLowerCase(),
+);
+const DISABLE_AI_CALLS = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_AI_CALLS || "false").trim().toLowerCase(),
+);
+
+function isDirectorCenterPreviewSafeMode() {
+  // Preview-safe mode when Director Center or Forms Center admin preview is opted in on a
+  // non-live host. Live production hosts never enter this mode.
+  const directorOptIn = ["1", "true", "yes", "on"].includes(
+    String(process.env.ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW || "").trim().toLowerCase(),
+  );
+  const formsOptIn = ["1", "true", "yes", "on"].includes(
+    String(process.env.ALLOW_FORMS_CENTER_ADMIN_PREVIEW || "").trim().toLowerCase(),
+  );
+  if (!directorOptIn && !formsOptIn) return false;
+  try {
+    return !expansionFeatureFlags.isLiveProductionSite(SITE_URL);
+  } catch {
+    return false;
+  }
+}
+
+function outboundEmailIsDisabled() {
+  return DISABLE_OUTBOUND_EMAIL === true || isDirectorCenterPreviewSafeMode();
+}
+
+function stripeCheckoutIsDisabled() {
+  return DISABLE_STRIPE_CHECKOUT === true || isDirectorCenterPreviewSafeMode();
+}
+
+function aiCallsAreDisabled() {
+  return DISABLE_AI_CALLS === true || isDirectorCenterPreviewSafeMode();
+}
 const SUPPORT_POSTAL_ADDRESS = String(process.env.SUPPORT_POSTAL_ADDRESS || "").trim();
 const EMAIL_UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || ADMIN_ACCESS_CODE;
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
@@ -507,8 +572,12 @@ function supportEmailConfigStatus() {
   if (usingResendTestSender) {
     note += " A Resend test sender (@resend.dev) was detected in env and is not used.";
   }
+  const outboundDisabled = outboundEmailIsDisabled();
+  if (outboundDisabled) {
+    note = "Outbound email is DISABLED for this environment (DISABLE_OUTBOUND_EMAIL or Director Center preview safe mode). No messages will be sent.";
+  }
   return {
-    ready,
+    ready: outboundDisabled ? false : ready,
     provider: provider || "not configured",
     to: SUPPORT_EMAIL_TO,
     fromConfigured: isConfiguredValue(SUPPORT_EMAIL_FROM),
@@ -525,6 +594,9 @@ function supportEmailConfigStatus() {
     envFromOverridden: envWasOverridden,
     usingResendTestSender,
     automationsEnabled: emailAutomationsEnabled(),
+    outboundEmailDisabled: outboundDisabled,
+    disableOutboundEmailEnv: DISABLE_OUTBOUND_EMAIL,
+    previewSafeMode: isDirectorCenterPreviewSafeMode(),
     note,
   };
 }
@@ -701,6 +773,14 @@ function defaultStore() {
     automationRuns: [],
     archivedConversations: [],
     memberSessions: {},
+    ...foundationDataModel.emptyFoundationCollections(),
+    foundationMeta: {
+      schemaVersion: foundationDataModel.FOUNDATION_SCHEMA_VERSION,
+      createdAt: "",
+      updatedAt: "",
+      migratedExistingUsers: false,
+      note: "Phase 1 foundation collections only. No production user migration has run.",
+    },
   };
 }
 
@@ -717,6 +797,51 @@ function ensureMessagingStore(store) {
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
   return store;
+}
+
+// Phase 1 Director/Family foundation — additive empty collections only.
+function ensureFoundationCollections(store) {
+  return foundationDataModel.ensureFoundationStore(store);
+}
+
+function expansionEnvironment() {
+  return expansionFeatureFlags.resolveExpansionEnvironment({
+    env: process.env,
+    siteUrl: SITE_URL,
+  });
+}
+
+function expansionFlagsFromStore(store = peekStore()) {
+  const siteContent = store?.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : {};
+  return expansionFeatureFlags.normalizeExpansionFeatureFlags(siteContent.featureFlags);
+}
+
+function adminTokenFromRequest(request, url = null, options = {}) {
+  const allowQueryToken = options.allowQueryToken !== false;
+  const authHeader = String(request?.headers?.authorization || "");
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const bearer = authHeader.slice(7).trim();
+    if (bearer) return bearer;
+  }
+  const headerToken = String(request?.headers?.["x-llh-admin-token"] || "").trim();
+  if (headerToken) return headerToken;
+  if (allowQueryToken && url && typeof url.searchParams?.get === "function") {
+    return String(url.searchParams.get("adminToken") || "").trim();
+  }
+  return "";
+}
+
+function resolveVerifiedAdminFromRequest(request, url = null, options = {}) {
+  // Director Center / foundation admin surfaces reject query-string tokens.
+  const token = adminTokenFromRequest(request, url, options);
+  if (!token || !validAdminToken(token)) return null;
+  const store = peekStore();
+  const session = store.adminSessions?.[token] || storeCache?.adminSessions?.[token] || null;
+  const email = normalizeEmail(session?.email || "");
+  if (!email || !isConfiguredAdminEmail(email)) return null;
+  return { token, email, session };
 }
 
 function defaultAiSettings() {
@@ -737,16 +862,29 @@ function defaultAiSettings() {
 
 function defaultFeatureFlags() {
   // Phase 2H: play-based curriculum is the permanent lesson/activity system.
+  // Expansion flags (Director Center / Forms Center / Family Hub) default OFF.
   return {
     playBasedCurriculum: true,
+    ...expansionFeatureFlags.defaultExpansionFeatureFlags(),
   };
 }
 
 function normalizedFeatureFlags(value) {
-  // Phase 2H: play-based curriculum is permanently active.
-  return {
-    playBasedCurriculum: true,
-  };
+  // play-based curriculum is permanently active.
+  // directorCenter / formsCenter / familyHub may be stored only in private/testing
+  // preview environments — never on live production.
+  const merged = expansionFeatureFlags.mergeFeatureFlags(value);
+  const env = expansionEnvironment();
+  if (env.liveProduction || !env.allowDirectorCenterAdminPreview) {
+    merged.directorCenter = false;
+  }
+  if (env.liveProduction || !env.allowFormsCenterAdminPreview) {
+    merged.formsCenter = false;
+  }
+  if (env.liveProduction || !env.allowFamilyHubTestingPreview) {
+    merged.familyHub = false;
+  }
+  return merged;
 }
 
 function defaultFreePlanAccessStore() {
@@ -5890,6 +6028,11 @@ async function handlePasswordLogin(request, response) {
     return;
   }
   const store = readStore();
+  // Phase 8: production must reject fake-account login mode.
+  if (getFamilyFoundationApi().rejectFakeAccountLogin(store, email, response)) {
+    authAuditLog("password_login_rejected", { email, reason: "fake_account_forbidden_in_production" });
+    return;
+  }
   store.users = store.users || {};
   let user = store.users[email];
   // During a Postgres outage the durable user row may be unavailable. Still allow
@@ -6103,6 +6246,19 @@ async function handleSyncPasswordAfterFirebase(request, response) {
 }
 
 async function handleAdminLogin(request, response) {
+  const security = require("../scripts/phase20-security-data-model.js");
+  const rate = security.checkRateLimit(security.clientKeyFromRequest(request, "admin-login"), {
+    limit: 8,
+    windowMs: 60_000,
+  });
+  if (!rate.allowed) {
+    jsonResponse(response, 429, {
+      error: "Too many admin login attempts. Try again shortly.",
+      code: "rate_limited",
+      retryAfterSec: rate.retryAfterSec,
+    });
+    return;
+  }
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
   const password = String(body.password || "");
@@ -6115,6 +6271,12 @@ async function handleAdminLogin(request, response) {
     && timingSafeEqualText(password, ADMIN_PASSWORD)
     && timingSafeEqualText(code, ADMIN_ACCESS_CODE);
   if (!valid) {
+    // Do not echo which field failed; never log password/code.
+    console.warn("[admin-login]", JSON.stringify(security.sanitizeErrorForLog({
+      code: "admin_login_failed",
+      message: "Invalid admin credentials",
+      surface: "admin_login",
+    })));
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
     return;
   }
@@ -6130,7 +6292,7 @@ async function handleAdminLogin(request, response) {
     jsonResponse(response, 500, {
       error: "Admin login succeeded locally but the session could not be saved. Please try again.",
       code: "admin_session_persist_failed",
-      hint: error?.message || "Store write failed.",
+      hint: security.sanitizeErrorForLog({ message: error?.message || "Store write failed.", code: "admin_session_persist_failed" }).message,
     });
   }
 }
@@ -6338,6 +6500,14 @@ async function handlePromoValidation(request, response, url) {
 }
 
 async function handleCheckout(request, response) {
+  if (stripeCheckoutIsDisabled()) {
+    jsonResponse(response, 403, {
+      error: "Checkout is disabled in this testing/preview environment.",
+      code: "stripe_checkout_disabled",
+      previewSafeMode: isDirectorCenterPreviewSafeMode(),
+    });
+    return;
+  }
   if (!requireStripe(response)) return;
   const body = await readJson(request);
   const email = normalizeEmail(body.email);
@@ -7601,6 +7771,14 @@ async function handleStripeWebhook(request, response) {
 }
 
 async function handleAiGenerate(request, response) {
+  if (aiCallsAreDisabled()) {
+    jsonResponse(response, 403, {
+      error: "AI features are disabled in this testing/preview environment.",
+      code: "ai_calls_disabled",
+      previewSafeMode: isDirectorCenterPreviewSafeMode(),
+    });
+    return;
+  }
   const body = await readJson(request);
   const email = normalizeEmail(body.email || "guest");
   const store = readStore();
@@ -10548,6 +10726,18 @@ async function postJson(url, headers, payload) {
 // opts: { to, replyTo, subject, text, html }
 // Returns { sent, configured, provider }
 async function sendEmail(opts = {}) {
+  if (outboundEmailIsDisabled()) {
+    return {
+      sent: false,
+      configured: true,
+      provider: detectedEmailProvider() || "disabled",
+      disabled: true,
+      code: "outbound_email_disabled",
+      reason: DISABLE_OUTBOUND_EMAIL
+        ? "DISABLE_OUTBOUND_EMAIL=true"
+        : "director_center_preview_safe_mode",
+    };
+  }
   const status = supportEmailConfigStatus();
   if (!status.ready) return { sent: false, configured: false, provider: status.provider };
 
@@ -14926,6 +15116,454 @@ function handleReleaseNotesList(request, response, url) {
   jsonResponse(response, 200, { releaseNotes: published.slice(0, 50).map(publicReleaseNote) });
 }
 
+// ─── Phase 1/2 Director / Family / Forms foundation (hidden; admin preview only) ───
+
+function handleFoundationFeatureFlags(request, response, url) {
+  const store = peekStore();
+  const flags = expansionFlagsFromStore(store);
+  const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+  const env = expansionEnvironment();
+  const effective = expansionFeatureFlags.resolveEffectiveExpansionFlags(flags, env);
+  let canAccessFamilyHub = false;
+  if (effective.familyHub === true) {
+    try {
+      const familyHubModel = require("../scripts/family-hub-data-model.js");
+      familyHubModel.ensureFamilyHubStore(store);
+      const authHeader = String(request?.headers?.authorization || "");
+      const memberSession = tempPasswordAuth.resolveMemberSession(store, authHeader);
+      let email = memberSession?.email || "";
+      if (!email && process.env.NODE_ENV === "test" && authHeader.startsWith("Bearer test:")) {
+        email = normalizeEmail(authHeader.slice("Bearer test:".length));
+      }
+      if (email && familyHubModel.findContactByEmailAnyOrg(store, email)) {
+        canAccessFamilyHub = true;
+      }
+    } catch {
+      canAccessFamilyHub = false;
+    }
+  }
+  jsonResponse(response, 200, expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
+    environment: env,
+    isVerifiedAdmin: Boolean(admin),
+    canAccessFamilyHub,
+    siteUrl: SITE_URL,
+  }));
+}
+
+function requireFoundationAdmin(request, response, url) {
+  const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+  if (admin) return admin;
+  jsonResponse(response, 403, {
+    error: "Verified approved admin access is required.",
+    code: "admin_required",
+  });
+  return null;
+}
+
+function handleFoundationStatus(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
+  const store = readStore();
+  ensureFoundationCollections(store);
+  const flags = expansionFlagsFromStore(store);
+  jsonResponse(response, 200, {
+    phase: 2,
+    liveExposure: false,
+    featureFlags: expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
+      environment: expansionEnvironment(),
+      isVerifiedAdmin: true,
+      siteUrl: SITE_URL,
+    }),
+    foundation: foundationDataModel.foundationStatusSummary(store),
+    permissions: {
+      roles: orgPermissions.ORG_ROLES,
+      actions: Object.keys(orgPermissions.ACTIONS),
+    },
+    entitlements: {
+      live: false,
+      plannedPlans: Object.keys(entitlementModel.PLANNED_PLAN_CATALOG),
+      classroomAddOn: {
+        monthlyPriceCents: entitlementModel.CLASSROOM_ADD_ON.monthlyPriceCents,
+        annualPriceCents: entitlementModel.CLASSROOM_ADD_ON.annualPriceCents,
+      },
+      currentLiveBilling: entitlementModel.describeCurrentLiveBillingModel().livePlans,
+    },
+    migration: {
+      executed: store.foundationMeta?.migratedExistingUsers === true,
+      dryRunOnlyInPhase1: true,
+    },
+  });
+}
+
+function handleFoundationMigrationPlan(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
+  const store = readStore();
+  ensureFoundationCollections(store);
+  jsonResponse(response, 200, {
+    phase: 1,
+    executed: false,
+    plan: foundationDataModel.buildExistingUserMigrationPlan(store),
+    note: "Dry-run only. Phase 1 does not apply this migration to production users.",
+  });
+}
+
+function handleFoundationPermissionCatalog(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
+  jsonResponse(response, 200, {
+    phase: 1,
+    catalog: orgPermissions.permissionCatalog(),
+  });
+}
+
+function handleFoundationEntitlementCatalog(request, response, url) {
+  const admin = requireFoundationAdmin(request, response, url);
+  if (!admin) return;
+  jsonResponse(response, 200, {
+    phase: 1,
+    live: false,
+    catalog: entitlementModel.PLANNED_PLAN_CATALOG,
+    classroomAddOn: entitlementModel.CLASSROOM_ADD_ON,
+    currentLiveBilling: entitlementModel.describeCurrentLiveBillingModel(),
+    downgradeSafety: entitlementModel.downgradeSafetyRules(),
+    failedPayment: entitlementModel.failedPaymentRules(),
+    annualMessage: "Choose annual billing and get approximately two months free.",
+  });
+}
+
+/**
+ * Reject unfinished expansion APIs unless private-preview + verified admin.
+ * Query-string admin tokens are rejected for Director Center.
+ */
+function rejectDisabledExpansionRoute(request, response, url) {
+  const flagKey = expansionFeatureFlags.expansionFlagForRoute(url.pathname);
+  if (!flagKey) return false;
+  if (url.searchParams?.get("adminToken")) {
+    jsonResponse(response, 403, {
+      error: "Query-string admin tokens are not accepted for expansion APIs.",
+      code: "query_admin_token_rejected",
+      feature: flagKey,
+    });
+    return true;
+  }
+  const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+  const decision = expansionFeatureFlags.evaluateExpansionAccess({
+    flagKey,
+    storedFlags: expansionFlagsFromStore(peekStore()),
+    environment: expansionEnvironment(),
+    isVerifiedAdmin: Boolean(admin),
+  });
+  if (decision.allowed) return false;
+  jsonResponse(response, decision.status || 403, decision.payload || expansionFeatureFlags.unavailableExpansionPayload(flagKey));
+  return true;
+}
+
+function handleExpansionUnavailableStub(request, response, flagKey) {
+  jsonResponse(response, 403, expansionFeatureFlags.unavailableExpansionPayload(flagKey));
+}
+
+let _directorCenterApi;
+function getDirectorCenterApi() {
+  if (!_directorCenterApi) {
+    _directorCenterApi = createDirectorCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+    });
+  }
+  return _directorCenterApi;
+}
+
+let _phase3TeacherApi;
+function getPhase3TeacherApi() {
+  if (!_phase3TeacherApi) {
+    _phase3TeacherApi = createPhase3TeacherApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _phase3TeacherApi;
+}
+
+let _formsCenterApi;
+function getFormsCenterApi() {
+  if (!_formsCenterApi) {
+    _formsCenterApi = createFormsCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _formsCenterApi;
+}
+
+let _builtInFormLibraryApi;
+function getBuiltInFormLibraryApi() {
+  if (!_builtInFormLibraryApi) {
+    _builtInFormLibraryApi = createBuiltInFormLibraryApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _builtInFormLibraryApi;
+}
+
+let _formResponsesApi;
+function getFormResponsesApi() {
+  if (!_formResponsesApi) {
+    _formResponsesApi = createFormResponsesApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _formResponsesApi;
+}
+
+let _formRecipientApi;
+function getFormRecipientApi() {
+  if (!_formRecipientApi) {
+    _formRecipientApi = createFormRecipientApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      expansionEnvironment,
+    });
+  }
+  return _formRecipientApi;
+}
+
+let _aiFormBuilderApi;
+function getAiFormBuilderApi() {
+  if (!_aiFormBuilderApi) {
+    _aiFormBuilderApi = createAiFormBuilderApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _aiFormBuilderApi;
+}
+
+let _familyFoundationApi;
+function getFamilyFoundationApi() {
+  if (!_familyFoundationApi) {
+    _familyFoundationApi = createFamilyFoundationApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyFoundationApi;
+}
+
+let _familyHubApi;
+function getFamilyHubApi() {
+  if (!_familyHubApi) {
+    _familyHubApi = createFamilyHubApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyHubApi;
+}
+
+let _familyUpdatesApi;
+function getFamilyUpdatesApi() {
+  if (!_familyUpdatesApi) {
+    _familyUpdatesApi = createFamilyUpdatesApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyUpdatesApi;
+}
+
+let _familyMessagingApi;
+function getFamilyMessagingApi() {
+  if (!_familyMessagingApi) {
+    _familyMessagingApi = createFamilyMessagingApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyMessagingApi;
+}
+
+let _enrollmentApi;
+function getEnrollmentApi() {
+  if (!_enrollmentApi) {
+    _enrollmentApi = createEnrollmentApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _enrollmentApi;
+}
+
+let _recordsCenterApi;
+function getRecordsCenterApi() {
+  if (!_recordsCenterApi) {
+    _recordsCenterApi = createRecordsCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _recordsCenterApi;
+}
+
+let _licensingCenterApi;
+function getLicensingCenterApi() {
+  if (!_licensingCenterApi) {
+    _licensingCenterApi = createLicensingCenterApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _licensingCenterApi;
+}
+
+let _todayHubApi;
+function getTodayHubApi() {
+  if (!_todayHubApi) {
+    _todayHubApi = createTodayHubApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _todayHubApi;
+}
+
+let _providerProductivityApi;
+function getProviderProductivityApi() {
+  if (!_providerProductivityApi) {
+    _providerProductivityApi = createProviderProductivityApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _providerProductivityApi;
+}
+
+let _classroomAssistantApi;
+function getClassroomAssistantApi() {
+  if (!_classroomAssistantApi) {
+    _classroomAssistantApi = createClassroomAssistantApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _classroomAssistantApi;
+}
+
+let _staffExperienceApi;
+function getStaffExperienceApi() {
+  if (!_staffExperienceApi) {
+    _staffExperienceApi = createStaffExperienceApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _staffExperienceApi;
+}
+
+let _billingSimulatorApi;
+function getBillingSimulatorApi() {
+  if (!_billingSimulatorApi) {
+    _billingSimulatorApi = createBillingSimulatorApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _billingSimulatorApi;
+}
+
+let _testingLabApi;
+function getTestingLabApi() {
+  if (!_testingLabApi) {
+    _testingLabApi = createTestingLabApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+      getLaunchReadiness: launchReadinessStatus,
+      getGitSha: () => String(process.env.LLH_GIT_SHA || process.env.GIT_COMMIT || "").slice(0, 40),
+      getBranchName: () => String(process.env.LLH_GIT_BRANCH || "cursor/director-family-foundation-bc66"),
+    });
+  }
+  return _testingLabApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -14962,10 +15600,77 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   const comms = getCommsApi();
   try {
+    // Phase 1: unfinished expansion APIs stay unavailable while flags are OFF.
+    if (rejectDisabledExpansionRoute(request, response, url)) return;
+
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return await handlePublicSiteContent(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/feature-flags") return handleFoundationFeatureFlags(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/status") return handleFoundationStatus(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/migration-plan") return handleFoundationMigrationPlan(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/permissions") return handleFoundationPermissionCatalog(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/foundation/entitlements") return handleFoundationEntitlementCatalog(request, response, url);
+    // Director Center Phase 2 — only reached after rejectDisabledExpansionRoute allows verified admin preview.
+    if (url.pathname === "/api/director-center" || url.pathname.startsWith("/api/director-center/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getTodayHubApi().matchRoute(request.method, url.pathname, url)
+        || getStaffExperienceApi().matchRoute(request.method, url.pathname, url)
+        || getBillingSimulatorApi().matchRoute(request.method, url.pathname, url)
+        || getLicensingCenterApi().matchRoute(request.method, url.pathname, url)
+        || getRecordsCenterApi().matchRoute(request.method, url.pathname, url)
+        || getEnrollmentApi().matchRoute(request.method, url.pathname, url)
+        || getFamilyMessagingApi().matchRoute(request.method, url.pathname, url)
+        || getFamilyUpdatesApi().matchRoute(request.method, url.pathname, url)
+        || getFamilyFoundationApi().matchDirectorRoute(request.method, url.pathname, url)
+        || getPhase3TeacherApi().matchRoute(request.method, url.pathname, url)
+        || getProviderProductivityApi().matchRoute(request.method, url.pathname, url)
+        || getClassroomAssistantApi().matchRoute(request.method, url.pathname, url)
+        || getDirectorCenterApi().matchRoute(request.method, url.pathname, url);
+      if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER);
+    }
+    // Phase 8 family foundation public/guardian routes (NOT Family Hub product).
+    if (url.pathname === "/api/family-foundation" || url.pathname.startsWith("/api/family-foundation/")) {
+      const handler = getFamilyFoundationApi().matchPublicRoute(request.method, url.pathname);
+      if (handler) return handler(request, response);
+      jsonResponse(response, 404, { error: "Not found.", code: "not_found", familyHub: false });
+      return;
+    }
+    if (url.pathname === "/api/forms-center" || url.pathname.startsWith("/api/forms-center/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getBuiltInFormLibraryApi().matchRoute(request.method, url.pathname, url)
+        || getFormResponsesApi().matchRoute(request.method, url.pathname, url)
+        || getAiFormBuilderApi().matchRoute(request.method, url.pathname, url)
+        || getFormsCenterApi().matchRoute(request.method, url.pathname, url);
+      if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FORMS_CENTER);
+    }
+    // Phase 6 recipient routes: public, token-authenticated, never behind the
+    // admin expansion-flag gate above (recipients are not verified admins).
+    // The handler itself rejects live production hosts and invalid tokens.
+    if (url.pathname === "/api/form-recipient" || url.pathname.startsWith("/api/form-recipient/")) {
+      const handler = getFormRecipientApi().matchRoute(request.method, url.pathname);
+      if (handler) return handler(request, response);
+      jsonResponse(response, 404, { error: "Not found.", code: "not_found" });
+      return;
+    }
+    if (url.pathname === "/api/family-hub" || url.pathname.startsWith("/api/family-hub/")) {
+      // Testing-preview only. rejectDisabledExpansionRoute already enforced
+      // non-production + ALLOW_FAMILY_HUB_TESTING_PREVIEW + stored flag.
+      // Handlers require authenticated guardian + child-specific access.
+      // Query-string tokens are rejected by rejectDisabledExpansionRoute.
+      const handler = getFamilyHubApi().matchRoute(request.method, url.pathname, url);
+      if (handler) return handler(request, response);
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FAMILY_HUB);
+    }
+    if (url.pathname === "/api/testing-lab" || url.pathname.startsWith("/api/testing-lab/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getTestingLabApi().matchRoute(request.method, url.pathname, url);
+      if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_LAB);
+    }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
       return await handleLessonCoverMedia(request, response, assetId);

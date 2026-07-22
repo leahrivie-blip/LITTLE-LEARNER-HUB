@@ -38,6 +38,7 @@ const USER_ROLES = Object.freeze({
 /** Future roles reserved in product docs — not active yet. */
 const FUTURE_USER_ROLES = Object.freeze({
   FAMILY_MEMBER: "family_member",
+  PARENT_GUARDIAN: "parent_guardian",
   ADMIN: "admin",
 });
 

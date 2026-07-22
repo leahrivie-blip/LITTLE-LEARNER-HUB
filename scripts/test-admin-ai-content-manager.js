@@ -66,9 +66,9 @@ test("curriculum activities bulk actions update parent lesson status", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260721-homescreen-sw");
-  assert.equal(indexJs, "20260721-homescreen-sw");
-  assert.match(sw, /llh-shell-v108-homescreen-sw/);
+  assert.equal(indexCss, "20260722-full-int");
+  assert.equal(indexJs, "20260722-full-int");
+  assert.match(sw, /llh-shell-v109-full-int/);
 });
 
 if (!process.exitCode) {

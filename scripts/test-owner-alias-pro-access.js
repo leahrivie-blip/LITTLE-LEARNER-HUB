@@ -127,7 +127,7 @@ function staticChecks() {
   assert.match(app, /positionItemActionMenuPanel/);
   assert.match(css, /llh-item-menu-backdrop/);
   assert.match(css, /#scheduleEventModal/);
-  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=20260721-homescreen-sw/);
+  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=20260722-full-int/);
   console.log("PASS static owner Pro + mobile overlay markers");
 }
 
@@ -147,6 +147,21 @@ async function seedProLesson(token) {
     },
   });
   const planId = `cur-lp-owner-pro-${crypto.randomBytes(3).toString("hex")}`;
+  const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  const dailyPlans = { ...(parsed.data.dailyPlans || {}) };
+  weekdays.forEach((day, index) => {
+    const dayPlan = dailyPlans[day] && typeof dailyPlans[day] === "object" ? { ...dailyPlans[day] } : {};
+    const items = Array.isArray(dayPlan.items) ? [...dayPlan.items] : [];
+    const hasTitle = items.some((item) => String(item?.title || "").trim());
+    if (!hasTitle) {
+      items.push({
+        id: `act-owner-${day}`,
+        title: `${day} owner access activity ${index + 1}`,
+        steps: index === 0 ? PROTECTED : `Practice steps for ${day}.`,
+      });
+    }
+    dailyPlans[day] = { ...dayPlan, items };
+  });
   const save = await request("POST", "/api/admin/curriculum/lesson-plans", {
     body: {
       adminToken: token,
@@ -159,6 +174,7 @@ async function seedProLesson(token) {
         status: "published",
         age: "Preschool",
         theme: "Owner Access",
+        dailyPlans,
       },
     },
   });

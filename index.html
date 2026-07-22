@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260721-homescreen-sw" />
+  <link rel="stylesheet" href="styles.css?v=20260722-full-int" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260720-promo-existing" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260720-promo-existing" />
@@ -75,6 +75,7 @@
   </style>
   </head>
   <body>
+    <a class="llh-skip-link" id="llh-skip-to-main" href="#main-content">Skip to main content</a>
     <div class="app-shell">
       <aside class="sidebar" aria-label="Main navigation">
         <div class="brand">
@@ -154,11 +155,32 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/></svg></span>
               Dashboard
             </button>
-            <button class="nav-link" data-view="director-center" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="director-center" data-feature-flag="directorCenter" data-nav-hidden="true" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14"/><path d="M7 21v-8h4v8M13 21v-5h4v5"/></svg></span>
               <span class="nav-link-label-stack">
                 <span>Director Center</span>
                 <small class="nav-coming-soon-tag">Coming Soon</small>
+              </span>
+            </button>
+            <button class="nav-link" data-view="teacher-center" data-feature-flag="directorCenter" data-nav-hidden="true" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V5l8-3 8 3v15"/><path d="M8 20v-7h8v7M8 8h8M10 11h4"/></svg></span>
+              <span class="nav-link-label-stack">
+                <span>Teacher Classroom</span>
+                <small class="nav-coming-soon-tag">Admin Preview</small>
+              </span>
+            </button>
+            <button class="nav-link" data-view="classroom-assistant" data-feature-flag="directorCenter" data-nav-hidden="true" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5M8 17h6"/></svg></span>
+              <span class="nav-link-label-stack">
+                <span>Classroom Assistant</span>
+                <small class="nav-coming-soon-tag">Admin Preview</small>
+              </span>
+            </button>
+            <button class="nav-link" data-view="forms-center" data-feature-flag="formsCenter" data-nav-hidden="true" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6M9 8h2"/></svg></span>
+              <span class="nav-link-label-stack">
+                <span>Forms Center</span>
+                <small class="nav-coming-soon-tag">Admin Preview</small>
               </span>
             </button>
             <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav data-nav-hidden="true" hidden>
@@ -223,7 +245,7 @@
         </div>
       </aside>
 
-      <main class="main">
+      <main class="main" id="main-content" tabindex="-1">
         <header class="topbar">
           <div class="mobile-brand">
             <div class="brand-mark small" aria-hidden="true"><span>LL</span></div>
@@ -756,6 +778,12 @@
         <section id="view-messages" class="view"></section>
         <section id="view-whats-new" class="view"></section>
         <section id="view-director-center" class="view"></section>
+        <section id="view-teacher-center" class="view"></section>
+        <section id="view-classroom-assistant" class="view"></section>
+        <section id="view-forms-center" class="view"></section>
+        <section id="view-family-hub" class="view"></section>
+        <section id="view-testing-lab" class="view"></section>
+        <section id="view-guardian-session" class="view"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
         <section id="view-forms-settings" class="view"></section>
@@ -2007,6 +2035,9 @@
       </div>
     </div>
 
+    <script src="platform-a11y.js?v=20260722-phase19" defer></script>
+    <script src="platform-resilience.js?v=20260722-phase19" defer></script>
+    <script src="platform-perf.js?v=20260722-phase19" defer></script>
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards" defer></script>
@@ -2023,7 +2054,10 @@
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260720-promo-existing" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260720-promo-existing" defer></script>
-    <script src="app.js?v=20260721-homescreen-sw" defer></script>
-    <script src="comms-center.js?v=20260721-homescreen-sw" defer></script>
+    <script src="app.js?v=20260722-full-int" defer></script>
+    <!-- Expansion UIs: lazy-loaded by platform-perf when the matching view/flag is used -->
+    <script src="teacher-center-ui.js?v=20260721-phase4" defer></script>
+    <script src="form-document-view.js?v=20260721-phase6" defer></script>
+    <script src="comms-center.js?v=20260722-full-int" defer></script>
   </body>
 </html>

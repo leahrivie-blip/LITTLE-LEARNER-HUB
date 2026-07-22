@@ -1,3 +1,9 @@
+## Family Hub messaging (Phase 11)
+
+Org-scoped family/provider messaging lives under `/api/family-hub/messages/*` and `/api/director-center/family-messaging/*`. It **does not replace** this platform Messaging Center. Family outbound email/SMS/push remain disabled in Phase 11 (`sentExternally: false`). See `docs/PHASE_11_MESSAGING_NOTIFICATIONS_COMPLETION_REPORT.md`.
+
+---
+
 # Member Messaging Center + Push Notifications — Setup
 
 This documents the new in-app messaging system and Web Push notifications

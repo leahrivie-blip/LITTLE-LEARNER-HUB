@@ -5112,6 +5112,9 @@ function emptySiteContent() {
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
+      directorCenter: false,
+      formsCenter: false,
+      familyHub: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -5131,6 +5134,168 @@ function emptyCurriculumLibrary() {
 
 function isPlayBasedCurriculumEnabled() {
   return true;
+}
+
+/** Expansion flags — default OFF. Director/Forms/Testing Lab are admin-preview only. */
+const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
+  directorCenter: false,
+  formsCenter: false,
+  familyHub: false,
+  testingLab: false,
+});
+
+const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
+  "director-center": "directorCenter",
+  "teacher-center": "directorCenter",
+  "classroom-assistant": "directorCenter",
+  "forms-center": "formsCenter",
+  "family-hub": "familyHub",
+  "testing-lab": "testingLab",
+});
+
+let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+let expansionFeaturePolicyCache = {
+  directorCenter: "admin_preview_only",
+  formsCenter: "admin_preview_only",
+  familyHub: "testing_preview_only",
+  testingLab: "admin_preview_only",
+  productionLocked: true,
+  allowDirectorCenterAdminPreview: false,
+  allowFormsCenterAdminPreview: false,
+  allowFamilyHubTestingPreview: false,
+  allowTestingLabAdminPreview: false,
+};
+let expansionViewerAccessCache = {
+  isVerifiedAdmin: false,
+  canAccessDirectorCenter: false,
+  canAccessFormsCenter: false,
+  canAccessFamilyHub: false,
+  canAccessTestingLab: false,
+};
+
+function normalizeExpansionFeatureFlags(value) {
+  const input = value && typeof value === "object" ? value : {};
+  return {
+    directorCenter: input.directorCenter === true,
+    formsCenter: input.formsCenter === true,
+    familyHub: input.familyHub === true,
+    testingLab: input.testingLab === true,
+  };
+}
+
+function expansionFeatureFlags() {
+  return normalizeExpansionFeatureFlags(expansionFeatureFlagsCache);
+}
+
+function isExpansionFeatureEnabled(flagKey) {
+  if (!flagKey) return true;
+  if (flagKey === "familyHub") {
+    return expansionViewerAccessCache.canAccessFamilyHub === true
+      && expansionFeaturePolicyCache.allowFamilyHubTestingPreview === true
+      && expansionFeatureFlags().familyHub === true;
+  }
+  if (flagKey === "directorCenter") {
+    return expansionFeatureFlags().directorCenter === true
+      && expansionViewerAccessCache.canAccessDirectorCenter === true
+      && typeof hasAdminFullAccess === "function"
+      && hasAdminFullAccess();
+  }
+  if (flagKey === "formsCenter") {
+    return expansionFeatureFlags().formsCenter === true
+      && expansionViewerAccessCache.canAccessFormsCenter === true
+      && typeof hasAdminFullAccess === "function"
+      && hasAdminFullAccess();
+  }
+  if (flagKey === "testingLab") {
+    return expansionFeatureFlags().testingLab === true
+      && expansionViewerAccessCache.canAccessTestingLab === true
+      && expansionFeaturePolicyCache.allowTestingLabAdminPreview === true
+      && typeof hasAdminFullAccess === "function"
+      && hasAdminFullAccess();
+  }
+  return expansionFeatureFlags()[flagKey] === true;
+}
+
+function expansionFlagForView(view) {
+  return EXPANSION_VIEW_FEATURE_FLAGS[String(view || "").trim().toLowerCase()] || "";
+}
+
+function isExpansionViewEnabled(view) {
+  const flagKey = expansionFlagForView(view);
+  if (!flagKey) return true;
+  return isExpansionFeatureEnabled(flagKey);
+}
+
+async function loadExpansionFeatureFlagsFromBackend() {
+  expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+  expansionViewerAccessCache = {
+    isVerifiedAdmin: false,
+    canAccessDirectorCenter: false,
+    canAccessFormsCenter: false,
+    canAccessFamilyHub: false,
+    canAccessTestingLab: false,
+  };
+  if (!canUseLaunchBackend()) {
+    syncPlatformNavVisibility();
+    return expansionFeatureFlags();
+  }
+  try {
+    const headers = { Accept: "application/json" };
+    const token = adminSession()?.token || "";
+    if (isAdminUnlocked() && token) {
+      headers.Authorization = `Bearer ${token}`;
+    } else {
+      const memberToken = localStorage.getItem(LLH_MEMBER_SESSION_KEY) || localStorage.getItem("llhMemberSessionToken") || "";
+      const email = localStorage.getItem("llhUser") || "";
+      if (memberToken) headers.Authorization = `Bearer ${memberToken}`;
+      else if (email) headers.Authorization = `Bearer test:${email}`;
+    }
+    const response = await fetch(`/api/foundation/feature-flags?t=${Date.now()}`, {
+      cache: "no-store",
+      headers,
+    });
+    if (!response.ok) throw new Error("feature flags unavailable");
+    const data = await response.json();
+    // Prefer effective/stored for familyHub so testing preview can enable the view
+    // when the guardian is authorized; viewer.flags already includes guardian gate.
+    expansionFeatureFlagsCache = normalizeExpansionFeatureFlags({
+      ...(data?.storedFlags || {}),
+      ...(data?.flags || {}),
+      familyHub: data?.flags?.familyHub === true || data?.viewer?.canAccessFamilyHub === true,
+      testingLab: data?.flags?.testingLab === true || data?.viewer?.canAccessTestingLab === true,
+    });
+    expansionFeaturePolicyCache = {
+      ...expansionFeaturePolicyCache,
+      ...(data?.policy || {}),
+      allowFamilyHubTestingPreview: data?.policy?.allowFamilyHubTestingPreview === true,
+      allowTestingLabAdminPreview: data?.policy?.allowTestingLabAdminPreview === true,
+      familyHub: data?.policy?.familyHub || "testing_preview_only",
+      testingLab: data?.policy?.testingLab || "admin_preview_only",
+    };
+    expansionViewerAccessCache = {
+      isVerifiedAdmin: data?.viewer?.isVerifiedAdmin === true,
+      canAccessDirectorCenter: data?.viewer?.canAccessDirectorCenter === true,
+      canAccessFormsCenter: data?.viewer?.canAccessFormsCenter === true,
+      canAccessFamilyHub: data?.viewer?.canAccessFamilyHub === true,
+      canAccessTestingLab: data?.viewer?.canAccessTestingLab === true,
+    };
+  } catch (_) {
+    expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
+    expansionViewerAccessCache = {
+      isVerifiedAdmin: false,
+      canAccessDirectorCenter: false,
+      canAccessFormsCenter: false,
+      canAccessFamilyHub: false,
+      canAccessTestingLab: false,
+    };
+  }
+  syncPlatformNavVisibility();
+  updateAdminNavVisibility();
+  // Refresh the unlocked Admin bar so the Director Center CTA appears after flags load.
+  if (isAdminUnlocked() && document.querySelector("#view-admin.active-view") && typeof renderAdminAccessShell === "function") {
+    renderAdminAccessShell();
+  }
+  return expansionFeatureFlags();
 }
 
 function useCurriculumLibrarySources() {
@@ -9251,6 +9416,9 @@ function effectiveSiteContent() {
     freePlanAccess: { ...(base.freePlanAccess || {}), ...(overrides.freePlanAccess || {}) },
     featureFlags: {
       playBasedCurriculum: true,
+      directorCenter: false,
+      formsCenter: false,
+      familyHub: false,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
@@ -10439,18 +10607,46 @@ function syncPlatformNavVisibility() {
   document.querySelectorAll("[data-nav-capability]").forEach((button) => {
     const capability = button.getAttribute("data-nav-capability");
     const permanentlyHidden = button.hasAttribute("data-nav-hidden");
-    const allowed = !permanentlyHidden && (!capability || canAccessCapability(account, capability, {
-      adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
-    }));
+    const featureFlag = button.getAttribute("data-feature-flag") || "";
+    const featureAllowed = !featureFlag || isExpansionFeatureEnabled(featureFlag);
+    const adminPreviewReveal = (featureFlag === "directorCenter" || featureFlag === "formsCenter") && featureAllowed;
+    const allowed = (!permanentlyHidden || adminPreviewReveal)
+      && featureAllowed
+      && (!capability || canAccessCapability(account, capability, {
+        adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
+      }));
     button.hidden = !allowed;
     button.setAttribute("aria-hidden", allowed ? "false" : "true");
     if (allowed) button.removeAttribute("tabindex");
     else button.setAttribute("tabindex", "-1");
   });
   document.querySelectorAll("#platformNav [data-nav-hidden='true']").forEach((button) => {
+    const featureFlag = button.getAttribute("data-feature-flag") || "";
+    if (
+      (featureFlag === "directorCenter" && isExpansionFeatureEnabled("directorCenter"))
+      || (featureFlag === "formsCenter" && isExpansionFeatureEnabled("formsCenter"))
+    ) {
+      button.hidden = false;
+      button.setAttribute("aria-hidden", "false");
+      button.removeAttribute("tabindex");
+      button.querySelectorAll(".nav-coming-soon-tag").forEach((tag) => {
+        tag.hidden = true;
+        tag.textContent = "Admin Preview";
+        tag.hidden = false;
+      });
+      return;
+    }
     button.hidden = true;
     button.setAttribute("aria-hidden", "true");
     button.setAttribute("tabindex", "-1");
+  });
+  document.querySelectorAll("#platformNav [data-feature-flag]").forEach((button) => {
+    const featureFlag = button.getAttribute("data-feature-flag") || "";
+    if (featureFlag && !isExpansionFeatureEnabled(featureFlag)) {
+      button.hidden = true;
+      button.setAttribute("aria-hidden", "true");
+      button.setAttribute("tabindex", "-1");
+    }
   });
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
@@ -10489,6 +10685,8 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (buttonView === "calendar" && resolvedView === "planner") return true;
   if (buttonView === "ai" && resolvedView === "generators") return true;
   if (buttonView === "director-center" && resolvedView === "director-center") return true;
+  if (buttonView === "teacher-center" && resolvedView === "teacher-center") return true;
+  if (buttonView === "forms-center" && resolvedView === "forms-center") return true;
   if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
@@ -12174,6 +12372,7 @@ function registerPwaSupport() {
 function updateBodyAuthClass() {
   document.body.classList.toggle("user-authenticated", Boolean(currentUser));
   document.body.classList.toggle("user-pro", Boolean(currentUser) && isProUser());
+  document.body.classList.toggle("admin-unlocked", typeof isAdminUnlocked === "function" && isAdminUnlocked());
   let freeUpgrade = false;
   try {
     // Early boot can call this before PLATFORM_CAPABILITIES is initialized.
@@ -12185,10 +12384,12 @@ function updateBodyAuthClass() {
 }
 
 function updateAdminNavVisibility() {
+  document.body.classList.toggle("admin-unlocked", typeof isAdminUnlocked === "function" && isAdminUnlocked());
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
   });
   refreshAdminNavBadge();
+  if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
 }
 
 let adminNotificationState = { items: [], unreadCount: 0, loaded: false, category: "" };
@@ -12392,6 +12593,10 @@ function setView(view, options = {}) {
       mainCalendarSubView = "week";
     }
     return setView("calendar", { ...options, fromCurriculumPlannerRetirement: true });
+  }
+  // Phase 1: unfinished expansion surfaces stay unreachable while feature flags are OFF.
+  if (!options.skipExpansionFeatureRedirect && !isExpansionViewEnabled(resolvedRequested)) {
+    return setView("calendar", { ...options, skipExpansionFeatureRedirect: true, skipAccessRedirect: true });
   }
   const requestedChildToolTab = childToolTabFromView(view);
   const requestedFutureTool = sidebarFutureToolTargets[requestedView] || "";
@@ -12615,7 +12820,67 @@ function setView(view, options = {}) {
   if (resolvedView === "support-center") renderSupportCenterPage();
   if (resolvedView === "messages") renderMessagesPage(options);
   if (resolvedView === "whats-new" && typeof window.renderChangelogPage === "function") window.renderChangelogPage();
-  if (resolvedView === "director-center") renderDirectorCenterPage();
+  if (resolvedView === "director-center") {
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("director-center"))
+      .catch(() => null)
+      .then(() => renderDirectorCenterPage());
+  }
+  if (resolvedView === "guardian-session") {
+    if (typeof renderGuardianSessionPlaceholder === "function") renderGuardianSessionPlaceholder();
+  }
+  if (resolvedView === "family-hub") {
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("family-hub"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
+      });
+  }
+  if (resolvedView === "testing-lab") {
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("testing-lab"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof renderTestingLabPage === "function") renderTestingLabPage();
+      });
+  }
+  if (resolvedView === "teacher-center") renderTeacherCenterPage();
+  if (resolvedView === "classroom-assistant") {
+    const section = document.querySelector("#view-classroom-assistant");
+    if (section && typeof window.renderClassroomAssistantPage !== "function") {
+      section.innerHTML = `
+        <section class="platform-placeholder-page classroom-assistant-page">
+          <div class="page-title">
+            <p class="eyebrow">Classroom Assistant · Admin Preview</p>
+            <h2>Admin Preview — Test Data Only</h2>
+            <p>Classroom Assistant is loading…</p>
+          </div>
+        </section>
+      `;
+    }
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("classroom-assistant"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof window.renderClassroomAssistantPage === "function") {
+          window.renderClassroomAssistantPage({
+            getToken: () => (typeof adminSession === "function" ? (adminSession()?.token || "") : ""),
+          });
+        } else if (section && !isExpansionFeatureEnabled("directorCenter")) {
+          section.innerHTML = `
+            <section class="platform-placeholder-page classroom-assistant-page">
+              <div class="page-title">
+                <p class="eyebrow">Classroom Assistant</p>
+                <h2>Unavailable</h2>
+                <p>Classroom Assistant preview is not available in this environment.</p>
+              </div>
+            </section>
+          `;
+        }
+      });
+  }
+  if (resolvedView === "forms-center") {
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("forms-center"))
+      .catch(() => null)
+      .then(() => renderFormsCenterPage());
+  }
   if (resolvedView === "resources") renderResourcesHubPage();
   if (resolvedView === "settings") {
     if (options.settingsAnchor) renderSettingsHubPage._pendingAnchor = options.settingsAnchor;
@@ -28475,33 +28740,90 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
-  const planned = [
-    { title: "Staff Management", detail: "Invite staff, assign roles, and manage access." },
-    { title: "Classroom Management", detail: "Organize classrooms and daily classroom workflows." },
-    { title: "Child Assignments", detail: "Assign children to classrooms and staff." },
-    { title: "Classroom Calendars", detail: "Plan by classroom with shared visibility." },
-    { title: "Enrollment", detail: "Track enrollment and onboarding paperwork." },
-    { title: "Forms", detail: "Center forms and administrative documents." },
-    { title: "Center Administration", detail: "Operate your center from one professional hub." },
-  ];
+  if (typeof window.renderDirectorCenterPreviewUI === "function") {
+    window.renderDirectorCenterPreviewUI();
+    return;
+  }
+  if (!isExpansionFeatureEnabled("directorCenter")) {
+    section.innerHTML = `
+      <section class="platform-placeholder-page director-center-page">
+        <div class="page-title">
+          <p class="eyebrow">Director Center</p>
+          <h2>Unavailable</h2>
+          <p>Director Center is not available in this environment.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
   section.innerHTML = `
     <section class="platform-placeholder-page director-center-page">
       <div class="page-title">
-        <p class="eyebrow">Director Center</p>
-        <h2>Coming Soon</h2>
-        <p>Director Center will bring staff, classrooms, enrollment, and center administration into one clear place.</p>
+        <p class="eyebrow">Director Center · Admin Preview</p>
+        <h2>Admin Preview — Test Data Only</h2>
+        <p>Director Center UI module is loading…</p>
       </div>
-      <div class="platform-placeholder-hero">
-        <span class="badge-coming-soon">Coming Soon</span>
-        <p class="muted-copy">Founding Members will receive access to future Director Center features as they are released.</p>
+    </section>
+  `;
+}
+
+function renderTeacherCenterPage() {
+  const section = document.querySelector("#view-teacher-center");
+  if (!section) return;
+  if (typeof window.renderTeacherCenterPreviewUI === "function") {
+    window.renderTeacherCenterPreviewUI();
+    return;
+  }
+  if (!isExpansionFeatureEnabled("directorCenter")) {
+    section.innerHTML = `
+      <section class="platform-placeholder-page director-center-page">
+        <div class="page-title">
+          <p class="eyebrow">Teacher Classroom</p>
+          <h2>Unavailable</h2>
+          <p>Teacher Classroom preview is not available in this environment.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
+  section.innerHTML = `
+    <section class="platform-placeholder-page director-center-page">
+      <div class="page-title">
+        <p class="eyebrow">Teacher Classroom · Admin Preview</p>
+        <h2>Admin Preview — Test Data Only</h2>
+        <p>Teacher Classroom UI module is loading...</p>
       </div>
-      <div class="platform-placeholder-grid">
-        ${planned.map((item) => `
-          <article class="platform-placeholder-card">
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.detail)}</p>
-          </article>
-        `).join("")}
+    </section>
+  `;
+}
+
+function renderFormsCenterPage() {
+  const section = document.querySelector("#view-forms-center");
+  if (!section) return;
+  section.hidden = false;
+  section.removeAttribute("aria-hidden");
+  if (typeof window.renderFormsCenterPreviewUI === "function") {
+    window.renderFormsCenterPreviewUI();
+    return;
+  }
+  if (!isExpansionFeatureEnabled("formsCenter")) {
+    section.innerHTML = `
+      <section class="platform-placeholder-page forms-center-page">
+        <div class="page-title">
+          <p class="eyebrow">Forms Center</p>
+          <h2>Unavailable</h2>
+          <p>Forms Center is not available in this environment.</p>
+        </div>
+      </section>
+    `;
+    return;
+  }
+  section.innerHTML = `
+    <section class="platform-placeholder-page forms-center-page">
+      <div class="page-title">
+        <p class="eyebrow">Forms Center · Admin Preview</p>
+        <h2>Admin Preview — Test Data Only</h2>
+        <p>Forms Center UI module is loading...</p>
       </div>
     </section>
   `;
@@ -35489,8 +35811,13 @@ function setAdminSession(sessionDetail) {
     localStorage.setItem("llhAdminPreviewMode", "Admin");
   }
   updateAdminNavVisibility();
+  if (typeof updateBodyAuthClass === "function") updateBodyAuthClass();
+  if (typeof updateAuthButtons === "function") updateAuthButtons();
   refreshAdminPreviewBadge();
   startAdminSessionHeartbeat();
+  if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
+    loadExpansionFeatureFlagsFromBackend().catch(() => {});
+  }
   return session;
 }
 
@@ -35508,9 +35835,14 @@ function clearAdminSession(options = {}) {
   adminAnalyticsCache = null;
   adminAnalyticsLastError = "";
   updateAdminNavVisibility();
+  if (typeof updateBodyAuthClass === "function") updateBodyAuthClass();
+  if (typeof updateAuthButtons === "function") updateAuthButtons();
   refreshAdminPreviewBadge();
   document.body.classList.remove("admin-preview-simulating");
   delete document.body.dataset.adminPreview;
+  if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
+    loadExpansionFeatureFlagsFromBackend().catch(() => {});
+  }
 }
 
 function markAdminSessionInvalidOnServer(detail = "") {
@@ -36836,6 +37168,16 @@ function renderAdminOwnerOverview() {
         <p>Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}. ${escapeHtml(loadingNote)}</p>
       </div>
       <div class="account-actions-row">
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>
+             <button class="primary-button" type="button" data-admin-open-classroom-assistant>Open Classroom Assistant</button>`
+          : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
+          : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("testingLab")
+          ? `<button class="primary-button" type="button" data-admin-open-testing-lab>Open Testing Lab</button>`
+          : ""}
         <button class="primary-button" type="button" id="adminOpenNotificationsButton">Notifications${adminNotificationState.unreadCount ? ` (${adminNotificationState.unreadCount})` : ""}</button>
         <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Data"}</button>
         <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
@@ -37260,9 +37602,21 @@ function renderAdminAccessShell() {
       <div>
         <p class="eyebrow">Private Owner Area</p>
         <strong>Admin dashboard unlocked for ${escapeHtml(adminSession()?.email || adminOwnerAccount.email)}</strong>
-        <span>Stays unlocked on this browser until you tap Lock Admin. Provider sign-out will not clear Admin.</span>
+        <span>Stays unlocked on this browser until you tap Lock Admin. Provider sign-out will not clear Admin. On phones and tablets, tap the ☰ menu for the platform sidebar (Director Center, Admin Dashboard, and more).</span>
       </div>
-      <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+      <div class="admin-unlocked-actions">
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>
+             <button class="primary-button" type="button" data-admin-open-classroom-assistant>Open Classroom Assistant</button>`
+          : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
+          ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
+          : ""}
+        ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("testingLab")
+          ? `<button class="primary-button" type="button" data-admin-open-testing-lab>Open Testing Lab</button>`
+          : ""}
+        <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
+      </div>
     </div>
     ${adminSessionInvalidOnServer ? `
       <div class="admin-analytics-state is-error" role="alert" data-admin-session-invalid>
@@ -51570,6 +51924,34 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openDirectorCenter = event.target.closest("[data-admin-open-director-center]");
+  if (openDirectorCenter) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("director-center");
+    return;
+  }
+
+  const openClassroomAssistant = event.target.closest("[data-admin-open-classroom-assistant]");
+  if (openClassroomAssistant) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("classroom-assistant");
+    return;
+  }
+
+  const openFormsCenter = event.target.closest("[data-admin-open-forms-center]");
+  if (openFormsCenter) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("forms-center");
+    return;
+  }
+
+  const openTestingLab = event.target.closest("[data-admin-open-testing-lab]");
+  if (openTestingLab) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("testing-lab");
+    return;
+  }
+
   const adminQuick = event.target.closest("[data-admin-quick]");
   if (adminQuick && isAdminUnlocked()) {
     event.preventDefault();
@@ -53357,7 +53739,13 @@ document.addEventListener("submit", async (event) => {
     const trustDevice = form.get("trustDevice") !== null;
     const session = await adminLogin(email, password, code);
     setAdminSession({ ...session, trustedDevice: trustDevice });
+    // Paint Admin shell/nav immediately so unlock is usable before slower site-content/analytics loads.
+    if (typeof renderAdminAccessShell === "function") renderAdminAccessShell();
+    if (typeof renderAdminSectionNav === "function") renderAdminSectionNav();
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
+    if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
+      await loadExpansionFeatureFlagsFromBackend().catch(() => {});
+    }
     await loadAdminSiteContent().catch(() => {});
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     adminAnalyticsCache = null;
@@ -55846,6 +56234,7 @@ if (!currentUser) {
   }
 }
 loadSiteContentFromBackend().catch(() => {});
+loadExpansionFeatureFlagsFromBackend().catch(() => {});
 loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
 
 function initialViewFromLocation() {
