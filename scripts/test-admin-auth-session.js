@@ -28,7 +28,7 @@ test("server preserves adminSessions across stale writeStore clones", () => {
   assert.match(serverJs, /function mergeStorePreserveAdminSessions\(/);
   assert.match(serverJs, /preserve adminSessions/);
   assert.match(serverJs, /mergeStorePreserveAdminSessions\(mergeStorePreferNewerSiteContent\(store\)\)/);
-  assert.match(serverJs, /storeCache = mergeStorePreserveAdminSessions\(store\)/);
+  assert.match(serverJs, /storeCache = mergeStorePreserveEmailCampaigns\(mergeStorePreserveAdminSessions\(store\)\)/);
   assert.match(serverJs, /Always mutate the live cache/);
 });
 
