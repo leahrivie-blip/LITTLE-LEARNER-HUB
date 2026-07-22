@@ -81,13 +81,15 @@ test("sidebar shows rebuilt primary items in the new order", () => {
   assert.doesNotMatch(sidebar, />\s*Founding Member\s*</);
 });
 
-test("removed items stay in DOM but are permanently hidden from main nav", () => {
+test("Dashboard/Director Center/Teacher Center/Forms Center/Classroom Assistant stay permanently hidden from main nav", () => {
   const sidebar = visibleSidebar(html);
+  // These require Admin Preview / a fake org at the API level (not just nav
+  // visibility) — surfacing them for real accounts would just get a 401/403.
   assert.match(sidebar, /data-view="home"[^>]*data-nav-hidden="true"/);
   assert.match(sidebar, /data-view="director-center"[^>]*data-nav-hidden="true"/);
-  assert.match(sidebar, /data-view="reports"[^>]*data-nav-hidden="true"/);
-  assert.match(sidebar, /data-view="resources"[^>]*data-nav-hidden="true"/);
-  assert.match(sidebar, /data-view="forms"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="teacher-center"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="classroom-assistant"[^>]*data-nav-hidden="true"/);
+  assert.match(sidebar, /data-view="forms-center"[^>]*data-nav-hidden="true"/);
   assert.match(html, /id="view-resources"/);
   assert.match(html, /id="view-settings"/);
   assert.match(html, /id="view-staff"/);
@@ -102,11 +104,33 @@ test("removed items stay in DOM but are permanently hidden from main nav", () =>
   assert.doesNotMatch(sidebar, /sidebar-dashboard-card/);
 });
 
-test("Forms & Enrollment is removed from the visible sidebar", () => {
+test("Phase 22: real capability-gated destinations (Forms, Reports, Resources, Classrooms, Families, Enrollment, Staff, Billing) are no longer permanently nav-hidden", () => {
   const sidebar = visibleSidebar(html);
-  const visibleForms = sidebar.match(/<button class="nav-link"[^>]*data-view="forms"(?![^>]*data-nav-hidden="true")[^>]*>[\s\S]*?Forms/i);
-  assert.equal(visibleForms, null);
-  assert.match(sidebar, /data-view="forms"[^>]*data-nav-hidden="true"[^>]*hidden/);
+  // These are real, working, capability-gated pages (renderFormsPage/renderClassroomsPage/
+  // renderFamiliesPage/renderEnrollmentPage/renderStaffManagementPage/renderReportsPage/
+  // billing views) — Phase 22 connects them into the sidebar instead of Settings-only.
+  // Access is still governed purely by data-nav-capability + canAccessCapability, never
+  // by hiding the button.
+  ["forms", "reports", "resources", "classrooms", "families", "enrollment", "staff", "billing"].forEach((view) => {
+    const re = new RegExp(`<button class="nav-link"[^>]*data-view="${view}"[^>]*>`);
+    const match = sidebar.match(re);
+    assert.ok(match, `expected a nav-link for data-view="${view}"`);
+    assert.doesNotMatch(match[0], /data-nav-hidden="true"/, `${view} should not be permanently nav-hidden anymore`);
+  });
+  // They still live inside the "More Tools" section container so
+  // syncRoleAwareNavGrouping() can relocate them per role without moving them
+  // out of #platformNav entirely.
+  assert.match(sidebar, /data-nav-section="more"/);
+});
+
+test("Phase 22: Today is a primary nav item ahead of Calendar", () => {
+  const sidebar = visibleSidebar(html);
+  const todayIndex = sidebar.indexOf('data-view="today"');
+  const calendarIndex = sidebar.indexOf('data-view="calendar"');
+  assert.ok(todayIndex >= 0, "Today nav link should exist");
+  assert.ok(calendarIndex >= 0, "Calendar nav link should exist");
+  assert.ok(todayIndex < calendarIndex, "Today should come before Calendar in the sidebar");
+  assert.match(html, /id="view-today" class="view"/);
 });
 
 test("forms capability is director/owner only", () => {

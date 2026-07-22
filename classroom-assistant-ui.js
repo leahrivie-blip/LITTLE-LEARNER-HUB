@@ -82,7 +82,12 @@
   }
 
   function offlineKey(options) {
-    return `${OFFLINE_KEY_PREFIX}${options.organizationId || state.dashboard?.organization?.id || "default"}`;
+    // Scoped by BOTH organization and the signed-in identity (when known) so a
+    // shared browser/device can never surface one account's queued-but-unsynced
+    // entries to a different account that signs in afterward.
+    const org = options.organizationId || state.dashboard?.organization?.id || "default";
+    const identity = String(options.adminEmail || "").trim().toLowerCase() || "unknown";
+    return `${OFFLINE_KEY_PREFIX}${identity}::${org}`;
   }
 
   function loadOfflineQueue(options) {
@@ -709,6 +714,9 @@
       getToken: options.getToken,
       organizationId: options.organizationId || "",
       layout: options.layout || "flagship",
+      // Phase 22: carried through to offlineKey() so the queue is isolated per
+      // signed-in identity, not only per organization.
+      adminEmail: String(options.adminEmail || "").trim().toLowerCase(),
     };
     state.layout = opts.layout;
     try {

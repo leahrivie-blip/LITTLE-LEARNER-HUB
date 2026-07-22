@@ -186,7 +186,8 @@
     "test:platform-resilience-phase19": "NODE_ENV=test node scripts/test-platform-resilience-phase19.js",
     "test:security-migration-phase20": "NODE_ENV=test node scripts/test-security-migration-phase20.js",
     "test:provider-productivity-phase21": "NODE_ENV=test node scripts/test-provider-productivity-phase21.js",
-    "test:classroom-assistant": "NODE_ENV=test node scripts/test-classroom-assistant.js"
+    "test:classroom-assistant": "NODE_ENV=test node scripts/test-classroom-assistant.js",
+    "test:phase22-role-navigation": "node scripts/test-phase22-role-navigation.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

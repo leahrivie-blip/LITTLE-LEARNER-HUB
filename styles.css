@@ -19677,6 +19677,88 @@ body.lesson-editor-view .main {
   padding-top: 12px;
 }
 
+.nav-section-more {
+  border-top: 1px solid rgba(123, 107, 181, 0.12);
+  margin-top: 8px;
+  padding-top: 10px;
+}
+
+.nav-section-label {
+  margin: 0 0 4px;
+  padding: 0 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #7a879a;
+}
+
+.today-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.today-dashboard-card {
+  border: 1px solid rgba(90, 110, 140, 0.16);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+  padding: 18px;
+  box-shadow: 0 8px 24px rgba(40, 60, 90, 0.04);
+}
+
+.today-dashboard-card h3 {
+  margin: 0 0 10px;
+  font-size: 1.02rem;
+  color: #2f3a4a;
+}
+
+.today-dashboard-card-attention {
+  border-color: rgba(232, 160, 122, 0.4);
+  background: linear-gradient(180deg, #fff7f0 0%, #fff 100%);
+}
+
+.today-dashboard-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.today-dashboard-list-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 6px 0;
+  color: #3a5a8c;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.today-dashboard-list-btn:hover {
+  text-decoration: underline;
+}
+
+.today-dashboard-empty {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.today-dashboard-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 720px) {
+  .today-dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .resources-hub-page,
 .settings-hub-page,
 .platform-placeholder-page {
@@ -19700,6 +19782,54 @@ body.lesson-editor-view .main {
   padding: 18px;
   text-align: left;
   box-shadow: 0 8px 24px rgba(40, 60, 90, 0.04);
+}
+
+.platform-computer-recommended-note {
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(91, 155, 213, 0.1);
+  color: #2f6fa8;
+  font-size: 0.9rem;
+}
+
+.settings-hub-search {
+  display: block;
+  margin: 4px 0 0;
+}
+
+.settings-hub-search input {
+  width: 100%;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(90, 110, 140, 0.24);
+  font-size: 0.95rem;
+}
+
+.settings-hub-search-empty {
+  margin: 4px 0 0;
+}
+
+.settings-hub-tag {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+}
+
+.settings-hub-tag-owner {
+  background: rgba(123, 107, 181, 0.14);
+  color: #6a4fb0;
+}
+
+.settings-hub-tag-computer {
+  background: rgba(91, 155, 213, 0.14);
+  color: #2f6fa8;
 }
 
 .resources-hub-card h3,

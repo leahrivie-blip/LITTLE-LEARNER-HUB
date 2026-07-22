@@ -104,6 +104,10 @@
 
         <nav class="nav-list" id="platformNav">
           <div class="nav-section nav-section-core">
+            <button class="nav-link" data-view="today" data-nav-capability="calendar">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="5"/></svg></span>
+              Today
+            </button>
             <button class="nav-link" data-view="calendar" data-nav-capability="calendar">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
               Calendar
@@ -146,8 +150,10 @@
               Settings
             </button>
 
-            <!-- Preserved but hidden from main navigation. Do not delete. -->
-            <button class="nav-link" data-view="forms" data-nav-capability="forms" data-nav-director-only="true" data-nav-hidden="true" hidden>
+            <!-- Phase 22: real capability-gated view, grouped Core vs. More Tools at
+                 runtime by syncRoleAwareNavGrouping() based on role — capability
+                 gating (data-nav-capability) is the only thing that governs access. -->
+            <button class="nav-link" data-view="forms" data-nav-capability="forms" data-nav-director-only="true">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
               Forms &amp; Enrollment
             </button>
@@ -183,37 +189,42 @@
                 <small class="nav-coming-soon-tag">Admin Preview</small>
               </span>
             </button>
-            <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
               Reports
             </button>
-            <button class="nav-link" data-view="resources" data-nav-capability="resources" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="resources" data-nav-capability="resources">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
               Resources
             </button>
           </div>
 
-          <div class="nav-section nav-section-manage" data-nav-section="manage" hidden>
-            <button class="nav-link" data-view="classrooms" data-nav-capability="classrooms" data-nav-hidden="true" hidden>
+          <!-- Phase 22: "More Tools" — real, capability-gated destinations not
+               primary for most roles. syncRoleAwareNavGrouping() relocates nav-link
+               buttons here (or back to Core) at runtime based on experience role;
+               the section auto-hides itself when nothing inside is visible. -->
+          <div class="nav-section nav-section-more" data-nav-section="more">
+            <p class="nav-section-label" aria-hidden="true">More Tools</p>
+            <button class="nav-link" data-view="classrooms" data-nav-capability="classrooms">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14"/><path d="M7 21v-8h4v8M13 21v-5h4v5"/></svg></span>
               Classrooms
             </button>
-            <button class="nav-link" data-view="families" data-nav-capability="families" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="families" data-nav-capability="families">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
               Families
             </button>
-            <button class="nav-link" data-view="enrollment" data-nav-capability="enrollment" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="enrollment" data-nav-capability="enrollment">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><rect x="4" y="15" width="16" height="6" rx="1"/></svg></span>
               Enrollment
             </button>
-            <button class="nav-link" data-view="staff" data-nav-capability="staff_management" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="staff" data-nav-capability="staff_management">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
-              Users &amp; Staff
+              Staff &amp; Permissions
             </button>
           </div>
 
           <div class="nav-section nav-section-account">
-            <button class="nav-link" data-view="billing" data-nav-capability="billing" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="billing" data-nav-capability="billing">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
               Billing
             </button>
@@ -738,6 +749,14 @@
             <button class="lp-btn-primary" data-checkout-plan="founding" type="button">Get Started — $9.99/month</button>
           </div>
 
+        </section>
+
+        <section id="view-today" class="view">
+          <div class="page-title">
+            <p class="eyebrow" id="todayDashboardEyebrow">Today</p>
+            <h2 id="todayDashboardHeading">What needs your attention today</h2>
+          </div>
+          <div id="todayDashboardApp" class="today-dashboard"><p class="muted-copy">Loading…</p></div>
         </section>
 
         <section id="view-calendar" class="view">

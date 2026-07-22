@@ -3,7 +3,7 @@
 **Branch:** `testing/full-platform-integration-2026-07` (continuation after integration checkpoint)  
 **Phase 20 backup:** `backup/director-family-phases-1-20`  
 **Frozen feature branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Classroom Assistant prioritized; Phase 22 paused)
+**Updated:** 2026-07-22 (Classroom Assistant prioritized and polished; Phase 22 — Role-Based Layout, Navigation, Dashboards, and Settings — complete)
 
 ## Decisions
 
@@ -141,9 +141,9 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 21 completed 2026-07-22** — see `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`.
 
-**Classroom Assistant foundation started 2026-07-22** (new highest priority from provider feedback) — see `docs/CLASSROOM_ASSISTANT_PRIORITY.md` and `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`.
+**Classroom Assistant foundation started 2026-07-22** (new highest priority from provider feedback) — see `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`, `docs/CLASSROOM_ASSISTANT_SCOPE_EXPANSION_COMPLETION_REPORT.md`, and `docs/CLASSROOM_ASSISTANT_POLISH_COMPLETION_REPORT.md`.
 
-**Phase 22 is paused.** Do not begin Phase 22 until Classroom Assistant priority work is accepted and the owner writes new Phase 22 instructions. Never merge to `main` / never deploy production from this checkpoint.
+**Phase 22 completed 2026-07-22** (role-based layout, navigation, dashboards, and Settings redesign) — see `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`. Known limitation carried into Phase 23: Curriculum Only is still a reserved (non-persistent) account type/plan — `resolveExperienceRole()` correctly resolves it when the account object holds it directly, but the existing, deliberate `migrateAccountAccessFields()` boot migration and `normalizeBillingPlan()` reset any unrecognized `accountType`/`plan` value back to `home_daycare`/`Free` on every login, so a real signed-in session can never persist it today — exercise the Curriculum-Only experience via a direct account object (tests) or a future onboarding/pricing project (`docs/FUTURE_ONBOARDING_PRICING.md`), not via Testing Lab role-preview alone. Never merge to `main` / never deploy production from this checkpoint.
 
 ## Phase 14 notes
 
@@ -218,10 +218,20 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 ## Classroom Assistant notes / permissions (2026-07-22)
 
-- **Phase 22 paused** in favor of Classroom Assistant.
 - Natural-language notes parse locally only (`liveAiUsed: false`); preview then confirm apply.
 - Group meal/activity/nap writes target **checked-in** children only unless a child is named.
 - Named exceptions update only that child.
 - Admin lesson-plan paste requires review before save.
 - Goal: eliminate repetitive per-profile data entry — “describe what happened” first.
-- Deferred: live AI upgrade, cover art generation, deeper Family Hub write-through, Phase 22.
+- **Phase 22 addition:** offline queue is now scoped by signed-in identity **and** organization (`llh-ca-offline-queue::{email}::{orgId}`, previously org-only) — logging out on a shared device purges any queued-but-unsynced entries so the next person to sign in can never see them.
+- Deferred: live AI upgrade, cover art generation, deeper Family Hub write-through, Phase 23.
+
+## Phase 22 notes / permissions (2026-07-22)
+
+- **Navigation is UX curation only — never a security boundary.** `syncRoleAwareNavGrouping()` only decides whether an *already-capability-permitted* nav-link renders in the "Core" vs. "More Tools" section; `canAccessCapability()` / `canAccessPlatformFeature()` (unchanged) remain the only real access gate, enforced the same way before and after Phase 22.
+- Connected several already-built, already-capability-gated pages (Classrooms, Families, Enrollment, Staff & Permissions, Billing, Reports, Forms & Enrollment, Resources) into the main sidebar for the first time — they previously existed and worked but were only reachable via Settings Hub cards (or not at all for Classrooms/Families/Enrollment). No new backend surface was added; `test-platform-nav.js` was updated to assert the new (intentional) visibility instead of the old permanently-hidden state.
+- Director Center / Teacher Classroom / Classroom Assistant / Forms Center remain **admin-preview + fake-org gated at the API level** (pre-existing, unrelated to Phase 22 — confirmed via `server/classroom-assistant-api.js` / `server/today-hub-api.js` `assertAccess`, which reject any request without `allowDirectorCenterAdminPreview` + a verified admin + a fake preview org). They intentionally stay out of the main sidebar for real accounts, since surfacing them there would just produce a 401/403 — reached via Testing Lab / Admin Preview as before.
+- New "Today" dashboard (Needs Attention / Today / Recent / Favorites / Quick Actions) is built entirely from data already loaded client-side (schedule cache, favorites, recently-viewed, notification unread count) — no new backend endpoint. Default landing view for logged-in users remains **Calendar** (unchanged) to avoid destabilizing the many existing tests that assert Calendar-as-landing; Today is a new primary nav item, not a forced redirect. Promoting Today to the default landing is a Phase 23 candidate once broader regression coverage exists for that change.
+- Settings Hub redesign preserves every existing capability check; grouping/search is presentation-only. Cancel Subscription remains a real card (`data-view="cancel-subscription"`) inside "Billing and Subscription", discoverable via the new search box.
+- Family Hub's Phase 11 decision (Messages replaces Calendar in the 5-item bottom nav; Calendar lives under Account) was deliberately **kept as-is** rather than reverted to match this phase's literal Guardian-nav wording — reverting a shipped, tested, documented nav decision across many later phases' tests was judged higher-risk than the reordering is worth; flagged for an explicit owner decision before any change.
+- Device rules: added a shared "💻 Best on a computer" note (`renderManageSurfaceShell({ computerRecommended: true })`) to Classrooms, Families, Enrollment, and Staff & Permissions — consistent with the existing `.en-computer-recommended` / `.th-computer-recommended` pattern from earlier phases.

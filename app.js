@@ -9934,6 +9934,207 @@ function canAccessPlatformFeature(capability, account = currentAccount()) {
   });
 }
 
+// ─── Phase 22: role-based experience (navigation/dashboard/Settings curation) ──
+// This is a UX layer only — which already-permitted destinations feel "primary"
+// vs. tucked into More/Tools for a given person. It never grants access on its
+// own: canAccessCapability / canAccessPlatformFeature (server-enforced capability
+// checks) remain the real security boundary, unchanged by anything here.
+const EXPERIENCE_ROLES = Object.freeze({
+  PLATFORM_ADMIN: "platform_admin",
+  DIRECTOR: "director",
+  SOLO_PROVIDER: "solo_provider",
+  LEAD_TEACHER: "lead_teacher",
+  ASSISTANT: "assistant",
+  CURRICULUM_ONLY: "curriculum_only",
+  GUEST: "guest",
+});
+
+function isCurriculumOnlyAccount(account) {
+  if (!account) return false;
+  const plan = String(account.plan || "").trim().toLowerCase();
+  const accountType = String(account.accountType || "").trim().toLowerCase();
+  return plan === "curriculum_only" || accountType === "curriculum_only";
+}
+
+function resolveExperienceRole(account = currentAccount()) {
+  if (typeof hasAdminFullAccess === "function" && hasAdminFullAccess()) return EXPERIENCE_ROLES.PLATFORM_ADMIN;
+  if (!account) return EXPERIENCE_ROLES.GUEST;
+  if (isCurriculumOnlyAccount(account)) return EXPERIENCE_ROLES.CURRICULUM_ONLY;
+  const role = getUserRole(account);
+  if (role === USER_ROLES.ASSISTANT) return EXPERIENCE_ROLES.ASSISTANT;
+  if (role === USER_ROLES.TEACHER) return EXPERIENCE_ROLES.LEAD_TEACHER;
+  const accountType = getAccountType(account);
+  if (accountType === ACCOUNT_TYPES.CENTER && (role === USER_ROLES.OWNER || role === USER_ROLES.DIRECTOR)) {
+    return EXPERIENCE_ROLES.DIRECTOR;
+  }
+  // Home daycare / single-provider owners — the "solo provider" experience.
+  return EXPERIENCE_ROLES.SOLO_PROVIDER;
+}
+
+function experienceRoleLabel(experienceRole) {
+  switch (experienceRole) {
+    case EXPERIENCE_ROLES.PLATFORM_ADMIN: return "Platform Admin";
+    case EXPERIENCE_ROLES.DIRECTOR: return "Director";
+    case EXPERIENCE_ROLES.SOLO_PROVIDER: return "Solo Provider";
+    case EXPERIENCE_ROLES.LEAD_TEACHER: return "Lead Teacher";
+    case EXPERIENCE_ROLES.ASSISTANT: return "Assistant";
+    case EXPERIENCE_ROLES.CURRICULUM_ONLY: return "Curriculum Only";
+    default: return "Guest";
+  }
+}
+
+// Which sidebar destinations feel "primary" (always visible when permitted) vs.
+// grouped under a "More Tools" header, per experience role. Every view listed
+// here still passes through the existing capability gate in
+// syncPlatformNavVisibility — this only controls grouping/order, never access.
+const NAV_PRIMARY_VIEWS_BY_EXPERIENCE = Object.freeze({
+  [EXPERIENCE_ROLES.SOLO_PROVIDER]: ["today", "calendar", "children", "child-tools-daily-logs", "activities", "lessons", "ai", "messages", "settings"],
+  [EXPERIENCE_ROLES.DIRECTOR]: ["today", "classrooms", "staff", "children", "families", "enrollment", "forms", "reports", "billing", "settings"],
+  [EXPERIENCE_ROLES.LEAD_TEACHER]: ["today", "calendar", "children", "child-tools-daily-logs", "activities", "behavior-support", "messages", "settings"],
+  [EXPERIENCE_ROLES.ASSISTANT]: ["today", "children", "child-tools-daily-logs", "activities", "messages"],
+  [EXPERIENCE_ROLES.CURRICULUM_ONLY]: ["lessons", "activities", "calendar", "settings"],
+  [EXPERIENCE_ROLES.PLATFORM_ADMIN]: [],
+});
+
+/** Views that always stay under "More Tools" regardless of role (rarely-used or setup-only). */
+const NAV_ALWAYS_MORE_TOOLS_VIEWS = Object.freeze(["resources", "whats-new"]);
+
+/** Phase 22 Quick Actions — a handful of role-aware shortcuts, not a full menu. */
+function quickActionsForExperienceRole(experienceRole) {
+  const shared = [
+    { label: "Open Calendar", view: "calendar" },
+    { label: "Message support", view: "messages" },
+  ];
+  switch (experienceRole) {
+    case EXPERIENCE_ROLES.DIRECTOR:
+      return [
+        { label: "Add a classroom", view: "classrooms" },
+        { label: "Invite staff", view: "staff" },
+        { label: "Review enrollment", view: "enrollment" },
+        ...shared,
+      ];
+    case EXPERIENCE_ROLES.LEAD_TEACHER:
+    case EXPERIENCE_ROLES.ASSISTANT:
+      return [
+        { label: "Add a daily log", view: "child-tools-daily-logs" },
+        { label: "Browse activities", view: "activities" },
+        ...shared,
+      ];
+    case EXPERIENCE_ROLES.CURRICULUM_ONLY:
+      return [
+        { label: "Browse lesson plans", view: "lessons" },
+        { label: "Browse activities", view: "activities" },
+        { label: "Open Calendar", view: "calendar" },
+      ];
+    case EXPERIENCE_ROLES.SOLO_PROVIDER:
+    default:
+      return [
+        { label: "Add a daily log", view: "child-tools-daily-logs" },
+        { label: "Browse lesson plans", view: "lessons" },
+        { label: "Add a child profile", view: "children" },
+        ...shared,
+      ];
+  }
+}
+
+/**
+ * Phase 22 "Today" dashboard — one calm landing per role: Needs Attention, Today,
+ * Upcoming (this week's plan), Recent, and Quick Actions. Built entirely from data
+ * already loaded client-side (no new backend surface); reads the same schedule/
+ * favorites/recently-viewed/notification state the rest of the app already uses.
+ */
+function renderTodayDashboard() {
+  const app = document.querySelector("#todayDashboardApp");
+  if (!app) return;
+  const account = currentAccount();
+  const experienceRole = resolveExperienceRole(account);
+  const displayName = [account?.firstName, account?.lastName].filter(Boolean).join(" ") || account?.name || "";
+  const heading = document.querySelector("#todayDashboardHeading");
+  const eyebrow = document.querySelector("#todayDashboardEyebrow");
+  if (eyebrow) eyebrow.textContent = experienceRoleLabel(experienceRole);
+  if (heading) {
+    heading.textContent = displayName
+      ? `Good to see you, ${escapeHtml(displayName.split(" ")[0])}`
+      : "What needs your attention today";
+  }
+
+  const needsAttention = [];
+  const unread = Number(notificationBellState?.unreadCount || 0);
+  if (unread > 0) {
+    needsAttention.push({ label: `${unread} unread message${unread === 1 ? "" : "s"}`, view: "messages" });
+  }
+  if (account?.mustChangePassword) {
+    needsAttention.push({ label: "Password change required for account security", view: "account" });
+  }
+  if (currentUser && !isProUser() && experienceRole !== EXPERIENCE_ROLES.ASSISTANT && experienceRole !== EXPERIENCE_ROLES.LEAD_TEACHER) {
+    needsAttention.push({ label: "You're on the Free plan — see what Pro unlocks", view: "plans" });
+  }
+
+  let thisWeekPlan = null;
+  try {
+    const api = typeof getScheduleApi === "function" ? getScheduleApi() : null;
+    if (api && typeof api.lessonForWeek === "function") {
+      const week = curriculumPlannerWeekStartIso(new Date());
+      const doc = (typeof scheduleDocCache !== "undefined" && scheduleDocCache) || api.readCache?.(scheduleApiEmail());
+      const assignment = doc ? api.lessonForWeek(doc, week) : null;
+      if (assignment?.lessonPlanId) {
+        const plan = (resources || []).find((r) => r.id === assignment.lessonPlanId);
+        thisWeekPlan = { title: assignment.lessonPlanTitle || plan?.title || "This week's lesson plan", id: assignment.lessonPlanId };
+      }
+    }
+  } catch { /* schedule not loaded yet — Today card falls back to a calendar prompt */ }
+
+  const recentIds = [...new Set([...(lessonRecentlyViewed || []), ...(activityRecentlyViewed || [])])].slice(0, 6);
+  const recentItems = recentIds.map((id) => (resources || []).find((r) => r.id === id)).filter(Boolean);
+  const favoriteItems = (favorites || []).slice(0, 6).map((id) => (resources || []).find((r) => r.id === id)).filter(Boolean);
+  const quickActions = quickActionsForExperienceRole(experienceRole);
+
+  const cardListHtml = (items, emptyText, viewKey = "view") => (
+    items.length
+      ? `<ul class="today-dashboard-list">${items.map((item) => `
+          <li><button class="today-dashboard-list-btn" type="button" data-${viewKey === "view" ? "view" : viewKey}="${escapeHtml(item.view || item.id || "")}">${escapeHtml(item.label || item.title || "")}</button></li>
+        `).join("")}</ul>`
+      : `<p class="today-dashboard-empty muted-copy">${escapeHtml(emptyText)}</p>`
+  );
+
+  app.innerHTML = `
+    <div class="today-dashboard-grid">
+      <section class="today-dashboard-card today-dashboard-card-attention" data-today-card="needs-attention">
+        <h3>Needs Attention</h3>
+        ${cardListHtml(needsAttention, "Nothing needs your attention right now.")}
+      </section>
+      <section class="today-dashboard-card" data-today-card="today">
+        <h3>Today</h3>
+        ${thisWeekPlan
+          ? `<p>This week's plan: <button class="today-dashboard-list-btn" type="button" data-view-resource="${escapeHtml(thisWeekPlan.id)}">${escapeHtml(thisWeekPlan.title)}</button></p>`
+          : `<p class="today-dashboard-empty muted-copy">No lesson plan assigned to this week yet. <button class="today-dashboard-list-btn" type="button" data-view="calendar">Open Calendar</button></p>`}
+      </section>
+      <section class="today-dashboard-card" data-today-card="recent">
+        <h3>Recent</h3>
+        ${recentItems.length
+          ? `<ul class="today-dashboard-list">${recentItems.map((item) => `<li><button class="today-dashboard-list-btn" type="button" data-view-resource="${escapeHtml(item.id)}">${escapeHtml(item.title || "")}</button></li>`).join("")}</ul>`
+          : `<p class="today-dashboard-empty muted-copy">Lesson plans and activities you open will show up here.</p>`}
+      </section>
+      <section class="today-dashboard-card" data-today-card="favorites">
+        <h3>Favorites</h3>
+        ${favoriteItems.length
+          ? `<ul class="today-dashboard-list">${favoriteItems.map((item) => `<li><button class="today-dashboard-list-btn" type="button" data-view-resource="${escapeHtml(item.id)}">${escapeHtml(item.title || "")}</button></li>`).join("")}</ul>`
+          : `<p class="today-dashboard-empty muted-copy">Save lesson plans and activities to find them here fast.</p>`}
+      </section>
+      <section class="today-dashboard-card today-dashboard-card-actions" data-today-card="quick-actions">
+        <h3>Quick Actions</h3>
+        <div class="today-dashboard-actions">
+          ${quickActions.map((action) => `<button class="ghost-button" type="button" data-view="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+  // Intentionally no auto-refresh loop here: the schedule doc is already loaded
+  // (and cached) by Calendar/lesson-assignment flows elsewhere in the app, so a
+  // second Today visit after visiting Calendar once will show the real plan.
+  // Retrying from inside render itself risks a render → fetch → render cycle.
+}
+
 function ensureAccountAccessMigrated(email = currentUser) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) return null;
@@ -10653,6 +10854,37 @@ function syncPlatformNavVisibility() {
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+  syncRoleAwareNavGrouping(account);
+}
+
+/**
+ * Phase 22: sort already-permitted nav items into "primary" vs. "More Tools" for
+ * the current experience role, and label the More Tools header. Pure UX grouping —
+ * runs after the capability gate above has already decided hidden/visible; this
+ * never shows something a role/capability check would otherwise hide.
+ */
+function syncRoleAwareNavGrouping(account = currentAccount()) {
+  const moreSection = document.querySelector('[data-nav-section="more"]');
+  if (!moreSection) return;
+  const experienceRole = resolveExperienceRole(account);
+  const primaryViews = new Set(NAV_PRIMARY_VIEWS_BY_EXPERIENCE[experienceRole] || []);
+  const coreSection = document.querySelector(".nav-section-core");
+  const allLinks = Array.from(document.querySelectorAll("#platformNav .nav-link[data-view]"));
+  allLinks.forEach((link) => {
+    if (link.hidden) return;
+    const view = link.getAttribute("data-view");
+    if (!view || link.hasAttribute("data-admin-nav") || link.id === "messagesNavLink" || link.id === "whatsNewNavLink") return;
+    const forcedMore = NAV_ALWAYS_MORE_TOOLS_VIEWS.includes(view);
+    const wantsPrimary = primaryViews.has(view) || (primaryViews.size === 0 && !forcedMore);
+    const targetSection = (!forcedMore && wantsPrimary) ? coreSection : moreSection;
+    if (targetSection && link.parentElement !== targetSection) {
+      targetSection.appendChild(link);
+    }
+  });
+  const moreHeader = document.querySelector('[data-nav-section="more"] .nav-section-label');
+  if (moreHeader) {
+    moreHeader.textContent = experienceRole === EXPERIENCE_ROLES.DIRECTOR ? "Center Tools" : "More Tools";
+  }
 }
 
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
@@ -12791,6 +13023,19 @@ function setView(view, options = {}) {
     }
   }
   if (resolvedView !== "admin") localStorage.removeItem("llhAdminLastView");
+  if (resolvedView === "today") {
+    renderTodayDashboard();
+    // Refresh once (from the navigation handler, not from inside the render
+    // function itself) so a not-yet-cached schedule doc doesn't risk a render
+    // -> load -> render loop; this fires at most once per Today visit.
+    if (typeof ensureScheduleLoaded === "function") {
+      ensureScheduleLoaded()
+        .then(() => {
+          if (document.querySelector(".active-view")?.id === "view-today") renderTodayDashboard();
+        })
+        .catch(() => {});
+    }
+  }
   if (resolvedView === "account") renderAccountPage();
   if (resolvedView === "program-settings") renderProgramSettingsPage();
   if (resolvedView === "plans") renderPricingPage();
@@ -12862,6 +13107,10 @@ function setView(view, options = {}) {
         if (typeof window.renderClassroomAssistantPage === "function") {
           window.renderClassroomAssistantPage({
             getToken: () => (typeof adminSession === "function" ? (adminSession()?.token || "") : ""),
+            // Phase 22: scope the offline queue by who is signed in, not only by
+            // organization — prevents Account B from ever seeing Account A's
+            // queued-but-unsynced entries on a shared device/browser.
+            adminEmail: typeof adminSession === "function" ? (adminSession()?.email || "") : "",
           });
         } else if (section && !isExpansionFeatureEnabled("directorCenter")) {
           section.innerHTML = `
@@ -27874,12 +28123,25 @@ function renderResourcesHubPage() {
   `;
 }
 
+/**
+ * Phase 22 Settings redesign: grouped into named categories with short
+ * explanations, a search box, and director-only / computer-recommended tags —
+ * instead of one long undifferentiated list. Access to each card is still
+ * governed entirely by canAccessPlatformFeature() / hasAdminFullAccess();
+ * grouping/search here never grants or hides access beyond what was already
+ * permitted.
+ */
 function renderSettingsHubPage() {
   const section = document.querySelector("#view-settings");
   if (!section) return;
   const canBilling = canAccessPlatformFeature("billing");
   const canStaff = canAccessPlatformFeature("staff_management");
+  const canClassrooms = canAccessPlatformFeature("classrooms");
+  const canFamilies = canAccessPlatformFeature("families");
+  const canForms = canAccessPlatformFeature("forms");
+  const isAdmin = typeof hasAdminFullAccess === "function" && hasAdminFullAccess();
   const account = currentAccount();
+  const experienceRole = resolveExperienceRole(account);
   const accountTypeLabel = accountTypeDisplayLabel(account);
   const roleLabel = roleDisplayLabel(account);
   const rawPlan = String(account?.plan || "").trim();
@@ -27890,8 +28152,8 @@ function renderSettingsHubPage() {
   const email = currentUser || account?.email || "";
   const groups = [
     {
-      title: "Account & Membership",
-      detail: "Profile, plan status, billing, install, and sign-out",
+      title: "My Account",
+      detail: "Profile, membership status, and how you sign in",
       id: "account-membership",
       cards: [
         {
@@ -27902,19 +28164,6 @@ function renderSettingsHubPage() {
           badge: planLabel === "Founding Member" ? "Founding Member" : planLabel,
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
-        { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
-        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
-        { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
-        ...(canBilling
-          ? [
-              { view: "billing", title: "Billing & Subscription", detail: "Manage Subscription, payment method, invoices, and cancellation" },
-              { view: isProUser() ? "billing" : "plans", title: isProUser() ? "Current Plan" : "Upgrade", detail: isProUser() ? "Review your paid plan and Founding Member status" : "Upgrade from Free to Founding Member or Pro" },
-              { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
-              { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
-            ]
-          : [
-              { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
-            ]),
         {
           view: "",
           title: isStandaloneDisplayMode() ? "App Installed" : "Add to Home Screen",
@@ -27927,54 +28176,132 @@ function renderSettingsHubPage() {
       ],
     },
     {
-      title: "Need Help?",
-      detail: "Report bugs, request features, or contact Leah",
-      cards: [
-        { view: "messages", title: "Message Support", detail: "Start a conversation with Leah in Messages" },
-        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
-        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
-        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
-        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
-      ],
+      title: "Billing and Subscription",
+      detail: canBilling ? "Plan, payment method, invoices, and cancellation" : "Only the program owner can change plan or payment",
+      id: "billing-subscription",
+      cards: canBilling
+        ? [
+            { view: "billing", title: "Billing & Subscription", detail: "Manage Subscription, payment method, and invoices" },
+            { view: isProUser() ? "billing" : "plans", title: isProUser() ? "Current Plan" : "Upgrade", detail: isProUser() ? "Review your paid plan and Founding Member status" : "Upgrade from Free to Founding Member or Pro" },
+            { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
+            { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+            { view: "cancel-subscription", title: "Cancel Subscription", detail: "End your paid plan — you'll keep access until the period ends", ownerOnly: true },
+          ]
+        : [
+            { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
+          ],
     },
     {
-      title: "Program Settings",
-      detail: "Business information and classroom defaults",
+      title: "Program",
+      detail: "Business information and program-wide defaults",
+      id: "program",
       cards: [
-        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
+        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding", ownerOnly: true },
       ],
     },
+    ...(canClassrooms
+      ? [{
+          title: "Classrooms",
+          detail: "Rooms, age groups, and classroom assignments",
+          id: "classrooms",
+          cards: [
+            { view: "classrooms", title: "Manage Classrooms", detail: "Add rooms and set default age groups", ownerOnly: true, computerRecommended: true },
+          ],
+        }]
+      : []),
     {
-      title: "Staff & Permissions",
+      title: "Staff and Permissions",
       detail: canStaff ? "Invite staff and control access" : "Owners and directors manage staff",
+      id: "staff-permissions",
       cards: canStaff
         ? [
-            { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers" },
+            { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers", ownerOnly: true, computerRecommended: true },
           ]
         : [
             { view: "", title: "Staff tools unavailable", detail: "Your role does not include staff management", disabled: true },
           ],
     },
     {
-      title: "Forms Settings",
-      detail: "Enrollment and paperwork defaults",
+      title: "Children and Families",
+      detail: "Child profiles, households, and (Center accounts) family records",
+      id: "children-families",
       cards: [
-        { view: "forms-settings", title: "Enrollment & Form Templates", detail: "Digital signatures and paperwork preferences" },
+        { view: "children", title: "Child Profiles", detail: "Manage enrolled children and their records" },
+        ...(canFamilies ? [{ view: "families", title: "Families", detail: "Household and guardian records", ownerOnly: true }] : []),
+        ...(canForms ? [{ view: "enrollment", title: "Enrollment", detail: "Enrollment pipeline and paperwork status", ownerOnly: true }] : []),
       ],
     },
     {
-      title: "Curriculum Settings",
+      title: "Planning Preferences",
       detail: "Calendar and lesson plan defaults",
+      id: "planning-preferences",
       cards: [
         { view: "curriculum-settings", title: "Calendar & Lesson Plan Defaults", detail: "Week start day and planning preferences" },
       ],
     },
     {
-      title: "Support",
-      detail: "Help without leaving Settings",
+      title: "Forms and Records",
+      detail: "Enrollment paperwork and form-template defaults",
+      id: "forms-records",
       cards: [
-        { view: "messages", title: "Help & Support", detail: "Message Leah directly from Messages" },
-        { view: "contact", title: "Help Center & Contact Support", detail: "Ask a question or send a feature request" },
+        { view: "forms-settings", title: "Forms Settings", detail: "Digital signatures and paperwork preferences" },
+        ...(canForms ? [{ view: "forms", title: "Forms & Enrollment", detail: "Open the Forms & Enrollment workspace", ownerOnly: true }] : []),
+      ],
+    },
+    {
+      title: "Communication and Notifications",
+      detail: "Messages, push alerts, and how we reach you",
+      id: "communication-notifications",
+      cards: [
+        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
+        { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
+        { view: "account", title: "Notification Preferences", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+      ],
+    },
+    {
+      title: "Privacy and Security",
+      detail: "Password, recovery, and account safety",
+      id: "privacy-security",
+      cards: [
+        { view: "account", title: "Password & Recovery", detail: "Change your password or update recovery options" },
+        { view: "contact", title: "Report a Security Concern", detail: "Tell us about anything that looks wrong" },
+      ],
+    },
+    {
+      title: "Integrations",
+      detail: "Connect Little Learner Hub to other tools",
+      id: "integrations",
+      cards: [
+        {
+          view: "",
+          title: isStandaloneDisplayMode() ? "Home Screen App Installed" : "Add to Home Screen",
+          detail: "The only integration available today is installing the app itself — calendar/export integrations are not built yet.",
+          action: "install-app",
+          disabled: isStandaloneDisplayMode(),
+        },
+      ],
+    },
+    ...(isAdmin
+      ? [{
+          title: "Testing and Advanced Tools",
+          detail: "Admin-only preview and diagnostics tools",
+          id: "testing-advanced",
+          cards: [
+            { view: "testing-lab", title: "Testing & Preview Lab", detail: "Fake accounts, role preview, and device frames", computerRecommended: true },
+            { view: "curriculum-planner", title: "Curriculum Planner (Legacy)", detail: "Older planning tool kept for reference" },
+          ],
+        }]
+      : []),
+    {
+      title: "Support",
+      detail: "Report bugs, request features, or contact Leah",
+      id: "support",
+      cards: [
+        { view: "messages", title: "Message Support", detail: "Start a conversation with Leah in Messages" },
+        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
+        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
+        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
+        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
         { view: "faq", title: "Release Notes & FAQ", detail: "Common questions and product updates" },
         { view: "resources", title: "Provider Resources", detail: "Behavior, licensing, and classroom help" },
       ],
@@ -27993,18 +28320,42 @@ function renderSettingsHubPage() {
       ],
     },
   ];
+  const cardHtml = (card) => {
+    const tagsHtml = [
+      card.ownerOnly ? `<span class="settings-hub-tag settings-hub-tag-owner">Director/Owner</span>` : "",
+      card.computerRecommended ? `<span class="settings-hub-tag settings-hub-tag-computer">Best on a computer</span>` : "",
+    ].join("");
+    if (card.disabled) {
+      return `<div class="settings-hub-card settings-hub-card-disabled" data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}${card.badge ? ` <span class="settings-hub-badge">${escapeHtml(card.badge)}</span>` : ""}</strong><span>${escapeHtml(card.detail)}</span></div>`;
+    }
+    if (card.action === "feedback") {
+      return `<button class="settings-hub-card" type="button" data-open-feedback="${escapeHtml(card.feedbackType || "General Feedback")}" data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+    }
+    if (card.action === "install-app") {
+      return `<button class="settings-hub-card" type="button" data-install-app="settings" data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+    }
+    if (card.action === "sign-out") {
+      return `<button class="settings-hub-card settings-hub-card-danger" type="button" data-settings-sign-out data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+    }
+    return `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""} data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong>${tagsHtml}<span>${escapeHtml(card.detail)}</span></button>`;
+  };
   section.innerHTML = `
     <section class="settings-hub-page">
       <div class="page-title">
-        <p class="eyebrow">Settings</p>
+        <p class="eyebrow">Settings · ${escapeHtml(experienceRoleLabel(experienceRole))}</p>
         <h2>Configuration &amp; account</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
+      <label class="settings-hub-search">
+        <span class="visually-hidden">Search settings</span>
+        <input type="search" id="settingsHubSearchInput" placeholder="Search settings…" autocomplete="off" />
+      </label>
+      <p class="settings-hub-search-empty muted-copy" id="settingsHubSearchEmpty" hidden>No settings match your search.</p>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
       ${canBilling && !isProUser() && !accountProductStatus(currentAccount()).banner ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
       ${platformInstallCardMarkup("settings-prompt")}
-      <div class="settings-hub-groups">
+      <div class="settings-hub-groups" id="settingsHubGroups">
         ${groups.map((group) => `
           <section class="settings-hub-group"${group.id ? ` id="settings-${escapeHtml(group.id)}" data-settings-group="${escapeHtml(group.id)}"` : ""}>
             <div class="settings-hub-group-header">
@@ -28012,27 +28363,14 @@ function renderSettingsHubPage() {
               <p>${escapeHtml(group.detail)}</p>
             </div>
             <div class="settings-hub-grid">
-              ${group.cards.map((card) => {
-                if (card.disabled) {
-                  return `<div class="settings-hub-card settings-hub-card-disabled"><strong>${escapeHtml(card.title)}${card.badge ? ` <span class="settings-hub-badge">${escapeHtml(card.badge)}</span>` : ""}</strong><span>${escapeHtml(card.detail)}</span></div>`;
-                }
-                if (card.action === "feedback") {
-                  return `<button class="settings-hub-card" type="button" data-open-feedback="${escapeHtml(card.feedbackType || "General Feedback")}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-                }
-                if (card.action === "install-app") {
-                  return `<button class="settings-hub-card" type="button" data-install-app="settings"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-                }
-                if (card.action === "sign-out") {
-                  return `<button class="settings-hub-card settings-hub-card-danger" type="button" data-settings-sign-out><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-                }
-                return `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-              }).join("")}
+              ${group.cards.map(cardHtml).join("")}
             </div>
           </section>
         `).join("")}
       </div>
     </section>
   `;
+  bindSettingsHubSearch();
   if (renderSettingsHubPage._pendingAnchor) {
     const anchor = renderSettingsHubPage._pendingAnchor;
     renderSettingsHubPage._pendingAnchor = "";
@@ -28040,6 +28378,29 @@ function renderSettingsHubPage() {
       document.querySelector(`#settings-${anchor}, [data-settings-group="${anchor}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
+}
+
+/** Phase 22: client-side Settings search — filters cards by title/detail keyword. */
+function bindSettingsHubSearch() {
+  const input = document.querySelector("#settingsHubSearchInput");
+  if (!input) return;
+  input.value = "";
+  input.addEventListener("input", () => {
+    const query = input.value.trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll("#settingsHubGroups .settings-hub-group").forEach((group) => {
+      let groupHasMatch = false;
+      group.querySelectorAll("[data-settings-search-text]").forEach((card) => {
+        const matches = !query || card.getAttribute("data-settings-search-text").includes(query);
+        card.hidden = !matches;
+        if (matches) groupHasMatch = true;
+      });
+      group.hidden = !groupHasMatch;
+      if (groupHasMatch) anyVisible = true;
+    });
+    const emptyNote = document.querySelector("#settingsHubSearchEmpty");
+    if (emptyNote) emptyNote.hidden = anyVisible || !query;
+  });
 }
 
 function renderFormsSettingsPage() {
@@ -28195,7 +28556,7 @@ function buildFamilyHouseholds(records = childRecords()) {
   return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bodyHtml = "" }) {
+function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bodyHtml = "", computerRecommended = false }) {
   return `
     <section class="platform-manage-page">
       <div class="page-title">
@@ -28203,6 +28564,7 @@ function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bo
         <h2>${escapeHtml(title)}</h2>
         <p>${escapeHtml(detail)}</p>
       </div>
+      ${computerRecommended ? `<p class="platform-computer-recommended-note" role="note">💻 Best on a computer — this page has bulk management tools that are easier to use on a larger screen. Everything still works on your phone.</p>` : ""}
       ${actionsHtml ? `<div class="resources-hub-actions platform-manage-actions">${actionsHtml}</div>` : ""}
       ${bodyHtml}
     </section>
@@ -28273,6 +28635,7 @@ function renderStaffManagementPage(options = {}) {
     eyebrow: "Staff & Permissions",
     title: "Staff management",
     detail: "Invite assistants, teachers, and directors. They accept by email link, join your program, and receive the role and classroom you assign.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
       <button class="ghost-button" type="button" data-refresh-staff-invites>Refresh</button>
@@ -28428,6 +28791,7 @@ function renderClassroomsPage() {
     eyebrow: "Classrooms",
     title: "Classroom management",
     detail: "Organize rooms for your center. Active classrooms sync with Calendar lesson assignment.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
       <button class="ghost-button" type="button" data-view="children">Child Profiles</button>
@@ -28519,6 +28883,7 @@ function renderFamiliesPage() {
     eyebrow: "Families",
     title: "Family management",
     detail: "Households are grouped from Child Profiles. Add a parent/guardian on a child’s profile to combine siblings.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
       <button class="ghost-button" type="button" data-view="enrollment">Enrollment</button>
@@ -28575,6 +28940,7 @@ function renderEnrollmentPage() {
     eyebrow: "Enrollment",
     title: "Enrollment management",
     detail: "Track inquiries, waitlist children, and enrolled profiles. Full paperwork automation comes later.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="primary-button" type="button" data-view="forms">Forms &amp; Paperwork</button>
       <button class="ghost-button" type="button" data-view="families">Families</button>
@@ -35826,6 +36192,14 @@ function clearAdminSession(options = {}) {
   adminImpersonationState = null;
   document.body.classList.remove("admin-impersonating");
   delete document.body.dataset.adminImpersonation;
+  // Phase 22: Classroom Assistant offline queues are private, unsynced classroom
+  // notes — logout must not leave them sitting in localStorage for the next
+  // person who signs into this browser/device to stumble onto.
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("llh-ca-offline-queue::"))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch { /* storage unavailable */ }
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");

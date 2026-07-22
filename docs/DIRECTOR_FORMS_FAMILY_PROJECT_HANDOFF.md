@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Classroom Assistant foundation prioritized; Phase 22 paused)
+**Status date:** 2026-07-22 (Phase 22 — Role-Based Layout, Navigation, Dashboards, and Settings — complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 **Canonical continuation branch:** `testing/full-platform-integration-2026-07`  
 **Phase 20 backup:** `backup/director-family-phases-1-20` @ `d731a3951a152028b0539981a8c6b11b8d26fc76`  
@@ -12,11 +12,11 @@
 
 1. Fetch the repository: `git fetch origin`
 2. Check out the **continuation** branch: `git checkout testing/full-platform-integration-2026-07` then `git pull origin testing/full-platform-integration-2026-07`
-3. Read this handoff, `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, and `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`
+3. Read this handoff, `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`, and `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`
 4. Review draft PR [#325](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/325)
-5. Run Phase 1–21 suites plus `npm run test:classroom-assistant`
+5. Run Phase 1–22 suites plus `npm run test:classroom-assistant` and `npm run test:phase22-role-navigation`
 6. Confirm testing-environment safety rules before any preview enablement or testing deploy
-7. Continue **Classroom Assistant** expansion next — **do not begin Phase 22** while it remains paused
+7. **Phase 22 is complete** (role-aware navigation, Today dashboards, redesigned Settings). Phase 23 is next — see the Phase 22 completion report's "Known limitations / Phase 23" section before starting
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -44,7 +44,8 @@ Build a private, testing-only foundation for:
 - **Security, Data Migration, Release Readiness** (Phase 20) — security review foundations, fake migration simulator, Release Readiness Center — `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md` + `docs/TESTING_SITE_INTEGRATION_PLAN.md`
 - **Testing-only full platform integration** — main + Phases 1–20 on `testing/full-platform-integration-2026-07` — `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`
 - **Provider Productivity / Child-Led Planning** (Phase 21) — planning preferences, child-led workflow, activity-first tools, universal search, guided setup — `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`
-- **Classroom Assistant (highest priority; Phase 22 paused)** — natural-language group meal/activity/summary logging, checked-in awareness, admin lesson-plan paste with review — `docs/CLASSROOM_ASSISTANT_PRIORITY.md` + `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`
+- **Classroom Assistant (highest priority)** — natural-language group meal/activity/summary logging, checked-in awareness, admin lesson-plan paste with review — `docs/CLASSROOM_ASSISTANT_PRIORITY.md` + `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md` + `docs/CLASSROOM_ASSISTANT_POLISH_COMPLETION_REPORT.md`
+- **Phase 22 — Role-Based Layout, Navigation, Dashboards, and Settings** — `resolveExperienceRole()` role model (Platform Admin / Director / Solo Provider / Lead Teacher / Assistant / Curriculum Only), role-aware sidebar grouping (Core vs. More Tools, capability gate unchanged), a new "Today" dashboard (Needs Attention / Today / Recent / Favorites / Quick Actions) for every role, and a redesigned, searchable Settings Hub — `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -612,7 +613,7 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 3. Run the full Phase 1–20 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on (including `ALLOW_TESTING_LAB_ADMIN_PREVIEW`), `DISABLE_STRIPE_CHECKOUT=true`
 5. Smoke Testing Lab → Release Readiness → Migration inspect/preview (do not apply on shared hosts without intent)
-6. Continue Classroom Assistant expansion next (Phase 22 remains paused)
+6. Phase 22 (role-based navigation/dashboards/Settings) is complete — see `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md` for Phase 23 candidates (e.g. wiring a real, persistent Curriculum Only account/plan; deeper "Today" data sources; full visual audit of every legacy screen)
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 

@@ -481,6 +481,24 @@ async function run() {
     pass("phone_computer_markers_in_ui_file");
   }
 
+  {
+    // Phase 22 final verification: offline queue isolation by user+org, and
+    // logout clears any private queued-but-unsynced entries from this device.
+    const ui = fs.readFileSync(path.join(ROOT, "classroom-assistant-ui.js"), "utf8");
+    const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+    assert.match(ui, /identity.*org|org.*identity/is, "offlineKey should combine identity and organization scope");
+    assert.match(ui, /adminEmail:\s*String\(options\.adminEmail/);
+    assert.match(appJs, /adminEmail:\s*typeof adminSession === "function"/);
+    assert.match(appJs, /llh-ca-offline-queue::/);
+    assert.match(appJs, /function clearAdminSession/);
+    // The offline-queue cleanup must live inside clearAdminSession (logout path),
+    // not somewhere unrelated.
+    const clearFnStart = appJs.indexOf("function clearAdminSession");
+    const clearFnBody = appJs.slice(clearFnStart, clearFnStart + 800);
+    assert.match(clearFnBody, /llh-ca-offline-queue::/, "clearAdminSession should purge classroom-assistant offline queues");
+    pass("phase22_offline_queue_isolated_by_identity_and_cleared_on_logout");
+  }
+
   console.log(`Classroom Assistant checks passed (${passed}).`);
 }
 
