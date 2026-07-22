@@ -61,4 +61,4 @@ Untouched. No new Stripe products/prices. Production checkout/catalog unchanged.
 
 Production expansion locked. `main` untouched. Fake `@example.invalid` data only.
 
-Latest tip: `cc70d794869f1c329ce49b1a6fae7ae1b4575e59` (pushed to `origin/cursor/director-family-foundation-bc66`). Working tree clean after docs stamp. Production and `main` untouched. Phase 18 not started.
+Latest tip: `8151b2cee2ab32d307e7f486799a4f96918d801a` (pushed to `origin/cursor/director-family-foundation-bc66`). Working tree clean after docs stamp. Production and `main` untouched. Phase 18 not started.
