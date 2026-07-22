@@ -66,7 +66,7 @@ Full Phase 1–14 regression (check + phases 1–14 focused suites + platform-na
 
 ## Git
 
-- Latest tip: `23273693222fbf4d215e175c9ab818a12315e4c6`
+- Latest tip: `de65393c150e54e3a918a1cd518f3dd063fb2a3a` (docs stamp; confirm with `git rev-parse HEAD`)
 - Pushed to `origin/cursor/director-family-foundation-bc66`
 - Working tree clean after final push
 - `main` remains `204fa013d7076bb62384d9ec7e7d22168b3d1840` (untouched)
