@@ -11,6 +11,7 @@ const model = require("./form-responses-data-model.js");
 const formsFixtures = require("./forms-center-preview-fixtures.js");
 const libraryFixtures = require("./built-in-form-library-fixtures.js");
 const { createOrganizationCopyFromTemplate } = require("./built-in-form-library-copy.js");
+const documentSnapshot = require("./form-document-snapshot.js");
 
 function listValues(map) {
   return map && typeof map === "object" ? Object.values(map) : [];
@@ -358,7 +359,7 @@ function ensurePhase6Preview(store, { adminEmail = "forms.preview@example.test",
   // 6. Approved — Carlos's Emergency Contact Form.
   if (emergencyForm) {
     const version = store.formsCenter.versions[emergencyForm.publishedVersionId];
-    const { response } = createAssignmentAndResponse(store, {
+    const { assignment, response } = createAssignmentAndResponse(store, {
       organizationId: orgId, form: emergencyForm, version, recipientType: model.RECIPIENT_TYPES.GUARDIAN, recipientId: elena.id,
       relatedChildId: carlos.id, requiredSignatureRoles: [model.SIGNER_ROLES.PARENT_GUARDIAN], actorEmail,
     });
@@ -368,6 +369,8 @@ function ensurePhase6Preview(store, { adminEmail = "forms.preview@example.test",
     response.approvedAt = response.submittedAt;
     addSignature(store, response, { signerRole: model.SIGNER_ROLES.PARENT_GUARDIAN, signerName: "Elena Rivera", signerIdentity: "guardian:" + elena.id });
     store.formResponses.responses[response.id] = response;
+    // Approval is the "locked approved record" step — freeze a permanent document snapshot.
+    documentSnapshot.generateDocumentSnapshot(store, { assignment, response, actorEmail, reason: "approved" });
     created.push(["approved", response.id]);
   }
 
@@ -461,7 +464,7 @@ function ensurePhase6Preview(store, { adminEmail = "forms.preview@example.test",
   // 14. Multiple signatures — Dana's Emergency Contact Form with guardian + provider both signing.
   if (emergencyForm) {
     const version = store.formsCenter.versions[emergencyForm.publishedVersionId];
-    const { response } = createAssignmentAndResponse(store, {
+    const { assignment, response } = createAssignmentAndResponse(store, {
       organizationId: orgId, form: emergencyForm, version, recipientType: model.RECIPIENT_TYPES.GUARDIAN, recipientId: frank.id,
       relatedChildId: dana.id, requiredSignatureRoles: [model.SIGNER_ROLES.PARENT_GUARDIAN, model.SIGNER_ROLES.PROVIDER],
       requireProviderCountersignature: true, actorEmail,
@@ -473,6 +476,7 @@ function ensurePhase6Preview(store, { adminEmail = "forms.preview@example.test",
     addSignature(store, response, { signerRole: model.SIGNER_ROLES.PARENT_GUARDIAN, signerName: "Frank Cole", signerIdentity: "guardian:" + frank.id, order: 1 });
     addSignature(store, response, { signerRole: model.SIGNER_ROLES.PROVIDER, signerName: "Preview Owner", signerIdentity: "staff:" + owner.id, order: 2 });
     store.formResponses.responses[response.id] = response;
+    documentSnapshot.generateDocumentSnapshot(store, { assignment, response, actorEmail, reason: "approved" });
     created.push(["multiple_signatures", response.id]);
   }
 
@@ -481,7 +485,7 @@ function ensurePhase6Preview(store, { adminEmail = "forms.preview@example.test",
   if (emergencyForm) {
     const v1 = listValues(store.formsCenter.versions).find((version) => version.formId === emergencyForm.id && version.versionNumber === 1);
     if (v1) {
-      const { response } = createAssignmentAndResponse(store, {
+      const { assignment, response } = createAssignmentAndResponse(store, {
         organizationId: orgId, form: emergencyForm, version: v1, recipientType: model.RECIPIENT_TYPES.GUARDIAN, recipientId: elena.id,
         relatedChildId: carlos.id, actorEmail,
       });
@@ -489,6 +493,7 @@ function ensurePhase6Preview(store, { adminEmail = "forms.preview@example.test",
       response.submittedAt = model.nowIso();
       response.approvedAt = response.submittedAt;
       store.formResponses.responses[response.id] = response;
+      documentSnapshot.generateDocumentSnapshot(store, { assignment, response, actorEmail, reason: "approved" });
       created.push(["connected_to_older_form_version", response.id]);
     }
   }

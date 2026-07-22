@@ -20,6 +20,7 @@ const formsModel = require("../scripts/forms-center-data-model.js");
 const model = require("../scripts/form-responses-data-model.js");
 const tokens = require("../scripts/form-recipient-tokens.js");
 const { buildRecipientPayload } = require("../scripts/form-recipient-payload.js");
+const documentSnapshot = require("../scripts/form-document-snapshot.js");
 
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
 const RECIPIENT_PREFIX = "/api/form-recipient";
@@ -117,6 +118,28 @@ function createFormRecipientApi({ readStore, writeStore, jsonResponse, readJson,
     const record = findOrCreateResponse(store, assignment);
     writeStore(store);
     jsonResponse(response, 200, buildRecipientPayload(store, { assignment, response: record }));
+  }
+
+  /**
+   * The recipient's own clean, read-only document view — the same content an
+   * admin sees, scoped to this token's single response. Never exposes any
+   * other recipient's answers. Available once the response is no longer
+   * editable (submitted or later); an approved response always returns the
+   * permanent, frozen snapshot.
+   */
+  async function handleGetOwnDocument(request, response, context = {}, assignmentId) {
+    if (rejectIfProduction(response)) return;
+    const store = readStore();
+    model.ensureFormResponsesStore(store);
+    const assignment = resolveAssignmentAndToken(request, response, store, assignmentId);
+    if (!assignment) return;
+    const record = findOrCreateResponse(store, assignment);
+    if (model.EDITABLE_STATUSES.has(record.status)) {
+      jsonResponse(response, 409, { error: "Your document view will be available once you submit this form.", code: "document_not_available_yet" });
+      return;
+    }
+    const view = documentSnapshot.resolveDocumentView(store, { assignment, response: record });
+    jsonResponse(response, 200, { ok: true, frozen: view.frozen, content: view.content });
   }
 
   async function handleSaveDraft(request, response, context = {}, assignmentId) {
@@ -304,6 +327,7 @@ function createFormRecipientApi({ readStore, writeStore, jsonResponse, readJson,
     if (!assignmentId) return null;
     const id = decodeURIComponent(assignmentId);
     if (!action && method === "GET") return (req, res) => handleResolve(req, res, {}, id);
+    if (action === "document" && method === "GET") return (req, res) => handleGetOwnDocument(req, res, {}, id);
     if (action === "save-draft" && method === "POST") return (req, res) => handleSaveDraft(req, res, {}, id);
     if (action === "clear" && method === "POST") return (req, res) => handleClear(req, res, {}, id);
     if (action === "signature" && method === "POST") return (req, res) => handleSignature(req, res, {}, id);

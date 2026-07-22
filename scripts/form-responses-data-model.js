@@ -147,6 +147,11 @@ function ensureFormResponsesStore(store) {
   fr.signatures = fr.signatures && typeof fr.signatures === "object" && !Array.isArray(fr.signatures) ? fr.signatures : {};
   fr.audit = fr.audit && typeof fr.audit === "object" && !Array.isArray(fr.audit) ? fr.audit : {};
   fr.medicationLogEntries = fr.medicationLogEntries && typeof fr.medicationLogEntries === "object" && !Array.isArray(fr.medicationLogEntries) ? fr.medicationLogEntries : {};
+  // Permanent, immutable document snapshots — generated once a response is
+  // approved (the "locked approved record" step). The response's structured
+  // answers/signatures remain the single source of truth; a snapshot is a
+  // preserved, print/PDF-ready document view, never a second editable record.
+  fr.documentSnapshots = fr.documentSnapshots && typeof fr.documentSnapshots === "object" && !Array.isArray(fr.documentSnapshots) ? fr.documentSnapshots : {};
   fr.meta = {
     ...(fr.meta && typeof fr.meta === "object" ? fr.meta : {}),
     createdAt: fr.meta?.createdAt || nowIso(),
@@ -265,6 +270,7 @@ function createResponseRecord({
     answers: {},
     currentSectionId: "",
     signatureIds: [],
+    documentSnapshotId: "",
     internalNotes: [],
     voidReason: "",
     returnMessage: "",
@@ -357,6 +363,44 @@ function createAuditRecord({
     message: cleanLongText(message, 1000),
     changes: changes && typeof changes === "object" ? changes : null,
     createdAt: nowIso(),
+  };
+}
+
+// ── Document snapshots ("locked approved record" → PDF-style artifact) ──────
+
+/**
+ * A document snapshot is an immutable, print/PDF-ready freeze of an approved
+ * response: program branding, form title/version, status, every question and
+ * answer, every signature with its date, and a correction-history summary.
+ * It is generated once (at approval) and never edited — the response's
+ * structured `answers` remain the single authoritative record.
+ */
+function createDocumentSnapshotRecord({
+  id = "",
+  responseId = "",
+  assignmentId = "",
+  organizationId = "",
+  formId = "",
+  formVersionId = "",
+  formVersionNumber = 1,
+  content = null,
+  generatedByEmail = "",
+  reason = "approved",
+} = {}) {
+  const createdAt = nowIso();
+  return {
+    id: id || newId("frdoc"),
+    responseId,
+    assignmentId,
+    organizationId,
+    formId,
+    formVersionId,
+    formVersionNumber: Math.max(1, Number(formVersionNumber) || 1),
+    content: content && typeof content === "object" ? content : {},
+    generatedByEmail: cleanText(generatedByEmail, 180).toLowerCase(),
+    reason: cleanText(reason, 60) || "approved",
+    immutable: true,
+    generatedAt: createdAt,
   };
 }
 
@@ -513,6 +557,7 @@ module.exports = {
   createSignatureRecord,
   invalidateSignature,
   createAuditRecord,
+  createDocumentSnapshotRecord,
   createMedicationLogEntry,
   medicationLogHistory,
   validateAnswersAgainstVersion,

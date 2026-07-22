@@ -19,6 +19,7 @@ const tokens = require("../scripts/form-recipient-tokens.js");
 const formsFixtures = require("../scripts/forms-center-preview-fixtures.js");
 const fixtures = require("../scripts/form-responses-fixtures.js");
 const { buildRecipientPayload } = require("../scripts/form-recipient-payload.js");
+const documentSnapshot = require("../scripts/form-document-snapshot.js");
 
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
 
@@ -724,6 +725,57 @@ function createFormResponsesApi({
     });
   }
 
+  /**
+   * The clean, read-only "document view" — available for any non-editable
+   * response status. If the response has already been approved, this always
+   * returns the frozen, permanent snapshot (never regenerated). Otherwise it
+   * is built live from current data so a submitted-but-not-yet-approved
+   * response still has a document to read/print.
+   */
+  async function handleGetDocument(request, response, context = {}, responseId) {
+    const ctx = prepare(request, context);
+    if (rejectEntitlement(response, ctx.entitlement)) return;
+    const record = findResponseOr404(response, ctx.store, ctx.organization.id, responseId);
+    if (!record) return;
+    if (rejectAccess(response, resolveResponseAccessDecision(ctx.store, ctx.actor, record))) return;
+    const assignment = ctx.store.formResponses.assignments[record.assignmentId];
+    if (model.EDITABLE_STATUSES.has(record.status)) {
+      jsonResponse(response, 409, { error: "A document view is available once this response has been submitted.", code: "document_not_available_yet" });
+      return;
+    }
+    const view = documentSnapshot.resolveDocumentView(ctx.store, { assignment, response: record });
+    jsonResponse(response, 200, { ok: true, frozen: view.frozen, generatedAt: view.snapshot?.generatedAt || view.content?.generatedAt, content: view.content });
+  }
+
+  /**
+   * Manually (re)generate the permanent snapshot. Only meaningful for an
+   * approved response; normally this happens automatically inside approve().
+   * Never silently overwrites an existing snapshot unless force is passed.
+   */
+  async function handleGenerateDocument(request, response, context = {}, responseId) {
+    const body = await readJson(request).catch(() => ({}));
+    const ctx = prepare(request, context);
+    if (rejectEntitlement(response, ctx.entitlement)) return;
+    const record = findResponseOr404(response, ctx.store, ctx.organization.id, responseId);
+    if (!record) return;
+    if (requireReviewAccess(response, ctx, record, orgPermissions.ACTIONS.FORM_RESPONSE_APPROVE)) return;
+    if (record.status !== model.RESPONSE_STATUSES.APPROVED) {
+      jsonResponse(response, 409, { error: "Only an approved response can have a permanent document snapshot generated.", code: "not_approved" });
+      return;
+    }
+    const assignment = ctx.store.formResponses.assignments[record.assignmentId];
+    const snapshot = documentSnapshot.generateDocumentSnapshot(ctx.store, {
+      assignment,
+      response: record,
+      actorEmail: ctx.actor.email || context.adminEmail,
+      reason: body.force === true ? "regenerated" : "approved",
+      force: body.force === true,
+    });
+    ctx.store.formResponses.responses[record.id] = record;
+    writeStore(ctx.store);
+    jsonResponse(response, 200, { ok: true, documentSnapshotId: snapshot.id, content: snapshot.content, generatedAt: snapshot.generatedAt });
+  }
+
   function requireReviewAccess(response, ctx, record, action) {
     const decisionCheck = orgPermissions.evaluateAccess({
       store: ctx.store,
@@ -789,9 +841,18 @@ function createFormResponsesApi({
     record.approvedAt = model.nowIso();
     record.updatedAt = record.approvedAt;
     ctx.store.formResponses.responses[record.id] = record;
-    addAudit(ctx.store, { organizationId: ctx.organization.id, responseId: record.id, assignmentId: record.assignmentId, action: "approved", actor: ctx.actor, message: "Response approved." });
+    // Approval is the "locked approved record" step — permanently freeze a
+    // print/PDF-ready document snapshot. The response's structured answers
+    // remain the single authoritative record; this snapshot never changes.
+    const snapshot = documentSnapshot.generateDocumentSnapshot(ctx.store, {
+      assignment,
+      response: record,
+      actorEmail: ctx.actor.email || context.adminEmail,
+      reason: "approved",
+    });
+    addAudit(ctx.store, { organizationId: ctx.organization.id, responseId: record.id, assignmentId: record.assignmentId, action: "approved", actor: ctx.actor, message: "Response approved and a permanent document snapshot was generated.", changes: { documentSnapshotId: snapshot.id } });
     writeStore(ctx.store);
-    jsonResponse(response, 200, { ok: true, response: summarizeResponse(ctx.store, record, { includeAnswers: true }) });
+    jsonResponse(response, 200, { ok: true, response: summarizeResponse(ctx.store, record, { includeAnswers: true }), documentSnapshotId: snapshot.id });
   }
 
   async function handleReturnForCorrection(request, response, context = {}, responseId) {
@@ -1182,6 +1243,8 @@ function createFormResponsesApi({
       if (method === "POST" && action === "archive") return (req, res, ctx) => handleArchive(req, res, ctx, id);
       if (method === "POST" && action === "restore") return (req, res, ctx) => handleRestore(req, res, ctx, id);
       if (method === "GET" && action === "medication-log") return (req, res, ctx) => handleMedicationLogList(req, res, ctx, id);
+      if (method === "GET" && action === "document") return (req, res, ctx) => handleGetDocument(req, res, ctx, id);
+      if (method === "POST" && action === "document") return (req, res, ctx) => handleGenerateDocument(req, res, ctx, id);
     }
     if (method === "POST" && /^\/api\/forms-center\/responses\/[^/]+\/medication-log$/.test(path)) {
       const id = decodeURIComponent(path.split("/responses/")[1].split("/medication-log")[0]);
