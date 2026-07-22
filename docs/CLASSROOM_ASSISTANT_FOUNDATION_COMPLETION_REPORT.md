@@ -73,4 +73,4 @@ Also: `npm run check` PASS.
 
 `main` and production remain untouched. Work stays on `testing/full-platform-integration-2026-07`.
 
-Latest tip will be stamped after docs push.
+Latest tip: `31ac27e6d294f45c12a3502852245d3779101184` (pushed to `origin/testing/full-platform-integration-2026-07`). Working tree clean after docs stamp. Production and `main` untouched. Phase 22 remains paused.

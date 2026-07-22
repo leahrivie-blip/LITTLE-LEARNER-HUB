@@ -487,6 +487,7 @@ npm run test:testing-lab-phase18
 npm run test:platform-resilience-phase19
 npm run test:security-migration-phase20
 npm run test:provider-productivity-phase21
+npm run test:classroom-assistant
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -589,7 +590,7 @@ Full Phase 1–21 regression: **PASS**. See `docs/PHASE_21_PROVIDER_PRODUCTIVITY
 
 ## Next checkpoint recommendation
 
-**Do not begin Phase 22** without separate owner instructions. Never merge to `main` / never deploy production from the integration branch.
+**Do not begin Phase 22 while it remains paused.** Continue Classroom Assistant work next. Never merge to `main` / never deploy production from the integration branch.
 
 Until then:
 
