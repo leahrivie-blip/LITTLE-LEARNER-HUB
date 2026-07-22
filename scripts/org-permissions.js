@@ -445,7 +445,7 @@ function permissionCatalog() {
       familyAccessLevels: "Pickup-only, emergency-only, suspended, ended, and no-digital access do not grant guardian child scope.",
       familyManagement: "Household/contact/access management requires director/owner roles (FAMILY_MANAGE_* actions).",
       crossOrganization: "Membership or verified guardian relationship must match organizationId or access is denied.",
-      features: "requiredFeature must be enabled via expansion feature flags. Family Hub product flag remains forced OFF.",
+      features: "requiredFeature must be enabled via expansion feature flags. Family Hub requires testing-preview environment (ALLOW_FAMILY_HUB_TESTING_PREVIEW) and stays OFF on production.",
     },
   };
 }

@@ -5154,15 +5154,17 @@ let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
 let expansionFeaturePolicyCache = {
   directorCenter: "admin_preview_only",
   formsCenter: "admin_preview_only",
-  familyHub: "forced_off",
+  familyHub: "testing_preview_only",
   productionLocked: true,
   allowDirectorCenterAdminPreview: false,
   allowFormsCenterAdminPreview: false,
+  allowFamilyHubTestingPreview: false,
 };
 let expansionViewerAccessCache = {
   isVerifiedAdmin: false,
   canAccessDirectorCenter: false,
   canAccessFormsCenter: false,
+  canAccessFamilyHub: false,
 };
 
 function normalizeExpansionFeatureFlags(value) {
@@ -5170,7 +5172,7 @@ function normalizeExpansionFeatureFlags(value) {
   return {
     directorCenter: input.directorCenter === true,
     formsCenter: input.formsCenter === true,
-    familyHub: false,
+    familyHub: input.familyHub === true,
   };
 }
 
@@ -5180,7 +5182,11 @@ function expansionFeatureFlags() {
 
 function isExpansionFeatureEnabled(flagKey) {
   if (!flagKey) return true;
-  if (flagKey === "familyHub") return false;
+  if (flagKey === "familyHub") {
+    return expansionViewerAccessCache.canAccessFamilyHub === true
+      && expansionFeaturePolicyCache.allowFamilyHubTestingPreview === true
+      && expansionFeatureFlags().familyHub === true;
+  }
   if (flagKey === "directorCenter") {
     return expansionFeatureFlags().directorCenter === true
       && expansionViewerAccessCache.canAccessDirectorCenter === true
@@ -5208,7 +5214,12 @@ function isExpansionViewEnabled(view) {
 
 async function loadExpansionFeatureFlagsFromBackend() {
   expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
-  expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false, canAccessFormsCenter: false };
+  expansionViewerAccessCache = {
+    isVerifiedAdmin: false,
+    canAccessDirectorCenter: false,
+    canAccessFormsCenter: false,
+    canAccessFamilyHub: false,
+  };
   if (!canUseLaunchBackend()) {
     syncPlatformNavVisibility();
     return expansionFeatureFlags();
@@ -5218,6 +5229,11 @@ async function loadExpansionFeatureFlagsFromBackend() {
     const token = adminSession()?.token || "";
     if (isAdminUnlocked() && token) {
       headers.Authorization = `Bearer ${token}`;
+    } else {
+      const memberToken = localStorage.getItem(LLH_MEMBER_SESSION_KEY) || localStorage.getItem("llhMemberSessionToken") || "";
+      const email = localStorage.getItem("llhUser") || "";
+      if (memberToken) headers.Authorization = `Bearer ${memberToken}`;
+      else if (email) headers.Authorization = `Bearer test:${email}`;
     }
     const response = await fetch(`/api/foundation/feature-flags?t=${Date.now()}`, {
       cache: "no-store",
@@ -5225,19 +5241,33 @@ async function loadExpansionFeatureFlagsFromBackend() {
     });
     if (!response.ok) throw new Error("feature flags unavailable");
     const data = await response.json();
-    expansionFeatureFlagsCache = normalizeExpansionFeatureFlags(data?.flags);
+    // Prefer effective/stored for familyHub so testing preview can enable the view
+    // when the guardian is authorized; viewer.flags already includes guardian gate.
+    expansionFeatureFlagsCache = normalizeExpansionFeatureFlags({
+      ...(data?.storedFlags || {}),
+      ...(data?.flags || {}),
+      familyHub: data?.flags?.familyHub === true || data?.viewer?.canAccessFamilyHub === true,
+    });
     expansionFeaturePolicyCache = {
       ...expansionFeaturePolicyCache,
       ...(data?.policy || {}),
+      allowFamilyHubTestingPreview: data?.policy?.allowFamilyHubTestingPreview === true,
+      familyHub: data?.policy?.familyHub || "testing_preview_only",
     };
     expansionViewerAccessCache = {
       isVerifiedAdmin: data?.viewer?.isVerifiedAdmin === true,
       canAccessDirectorCenter: data?.viewer?.canAccessDirectorCenter === true,
       canAccessFormsCenter: data?.viewer?.canAccessFormsCenter === true,
+      canAccessFamilyHub: data?.viewer?.canAccessFamilyHub === true,
     };
   } catch (_) {
     expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
-    expansionViewerAccessCache = { isVerifiedAdmin: false, canAccessDirectorCenter: false, canAccessFormsCenter: false };
+    expansionViewerAccessCache = {
+      isVerifiedAdmin: false,
+      canAccessDirectorCenter: false,
+      canAccessFormsCenter: false,
+      canAccessFamilyHub: false,
+    };
   }
   syncPlatformNavVisibility();
   updateAdminNavVisibility();
@@ -12773,6 +12803,9 @@ function setView(view, options = {}) {
   if (resolvedView === "director-center") renderDirectorCenterPage();
   if (resolvedView === "guardian-session") {
     if (typeof renderGuardianSessionPlaceholder === "function") renderGuardianSessionPlaceholder();
+  }
+  if (resolvedView === "family-hub") {
+    if (typeof renderFamilyHubPage === "function") renderFamilyHubPage();
   }
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "forms-center") renderFormsCenterPage();

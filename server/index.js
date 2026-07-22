@@ -33,6 +33,7 @@ const { createFormResponsesApi } = require("./form-responses-api.js");
 const { createAiFormBuilderApi } = require("./ai-form-builder-api.js");
 const { createFormRecipientApi } = require("./form-recipient-api.js");
 const { createFamilyFoundationApi } = require("./family-foundation-api.js");
+const { createFamilyHubApi } = require("./family-hub-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -859,8 +860,8 @@ function defaultFeatureFlags() {
 
 function normalizedFeatureFlags(value) {
   // play-based curriculum is permanently active.
-  // familyHub stays forced OFF.
-  // directorCenter / formsCenter may be stored only in private preview environments — never on live production.
+  // directorCenter / formsCenter / familyHub may be stored only in private/testing
+  // preview environments — never on live production.
   const merged = expansionFeatureFlags.mergeFeatureFlags(value);
   const env = expansionEnvironment();
   if (env.liveProduction || !env.allowDirectorCenterAdminPreview) {
@@ -869,7 +870,9 @@ function normalizedFeatureFlags(value) {
   if (env.liveProduction || !env.allowFormsCenterAdminPreview) {
     merged.formsCenter = false;
   }
-  merged.familyHub = false;
+  if (env.liveProduction || !env.allowFamilyHubTestingPreview) {
+    merged.familyHub = false;
+  }
   return merged;
 }
 
@@ -15086,11 +15089,33 @@ function handleReleaseNotesList(request, response, url) {
 // ─── Phase 1/2 Director / Family / Forms foundation (hidden; admin preview only) ───
 
 function handleFoundationFeatureFlags(request, response, url) {
-  const flags = expansionFlagsFromStore(peekStore());
+  const store = peekStore();
+  const flags = expansionFlagsFromStore(store);
   const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+  const env = expansionEnvironment();
+  const effective = expansionFeatureFlags.resolveEffectiveExpansionFlags(flags, env);
+  let canAccessFamilyHub = false;
+  if (effective.familyHub === true) {
+    try {
+      const familyHubModel = require("../scripts/family-hub-data-model.js");
+      familyHubModel.ensureFamilyHubStore(store);
+      const authHeader = String(request?.headers?.authorization || "");
+      const memberSession = tempPasswordAuth.resolveMemberSession(store, authHeader);
+      let email = memberSession?.email || "";
+      if (!email && process.env.NODE_ENV === "test" && authHeader.startsWith("Bearer test:")) {
+        email = normalizeEmail(authHeader.slice("Bearer test:".length));
+      }
+      if (email && familyHubModel.findContactByEmailAnyOrg(store, email)) {
+        canAccessFamilyHub = true;
+      }
+    } catch {
+      canAccessFamilyHub = false;
+    }
+  }
   jsonResponse(response, 200, expansionFeatureFlags.publicExpansionFeatureFlagsPayload(flags, {
-    environment: expansionEnvironment(),
+    environment: env,
     isVerifiedAdmin: Boolean(admin),
+    canAccessFamilyHub,
     siteUrl: SITE_URL,
   }));
 }
@@ -15326,6 +15351,21 @@ function getFamilyFoundationApi() {
   return _familyFoundationApi;
 }
 
+let _familyHubApi;
+function getFamilyHubApi() {
+  if (!_familyHubApi) {
+    _familyHubApi = createFamilyHubApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      normalizeEmail,
+      expansionEnvironment,
+    });
+  }
+  return _familyHubApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15409,6 +15449,12 @@ const server = http.createServer(async (request, response) => {
       return;
     }
     if (url.pathname === "/api/family-hub" || url.pathname.startsWith("/api/family-hub/")) {
+      // Testing-preview only. rejectDisabledExpansionRoute already enforced
+      // non-production + ALLOW_FAMILY_HUB_TESTING_PREVIEW + stored flag.
+      // Handlers require authenticated guardian + child-specific access.
+      // Query-string tokens are rejected by rejectDisabledExpansionRoute.
+      const handler = getFamilyHubApi().matchRoute(request.method, url.pathname, url);
+      if (handler) return handler(request, response);
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.FAMILY_HUB);
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {

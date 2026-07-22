@@ -23720,3 +23720,213 @@ button.linkish {
     min-height: 44px;
   }
 }
+
+/* Phase 9 Family Hub — mobile-first */
+.fh-shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  min-height: calc(100vh - 120px);
+  background: linear-gradient(160deg, #e8f2f6 0%, #f7f1e8 48%, #eef4ea 100%);
+}
+.fh-sidebar { display: none; }
+.fh-main {
+  padding: 16px 16px 88px;
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto;
+}
+.fh-banner {
+  background: rgba(255, 244, 220, 0.9);
+  border: 1px solid rgba(154, 91, 22, 0.35);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-weight: 700;
+  color: #7a4a12;
+  margin: 0 0 12px;
+}
+.fh-welcome {
+  font-family: "Fraunces", "Iowan Old Style", Georgia, serif;
+  font-size: clamp(1.8rem, 5vw, 2.4rem);
+  margin: 0 0 12px;
+  color: #17384a;
+}
+.fh-child-switcher {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+.fh-child-switcher select,
+.fh-form input,
+.fh-form select,
+.fh-form textarea {
+  min-height: 44px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid rgba(47, 72, 88, 0.22);
+  padding: 10px 12px;
+  font: inherit;
+}
+.fh-section { margin: 18px 0; }
+.fh-section h2, .fh-panel h1, .fh-panel h2, .fh-panel h3 {
+  color: #17384a;
+  margin: 0 0 8px;
+}
+.fh-card-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.fh-card {
+  width: 100%;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1px solid rgba(47, 72, 88, 0.14);
+  background: rgba(255, 255, 255, 0.78);
+  cursor: pointer;
+  font: inherit;
+}
+.fh-card.static { cursor: default; }
+.fh-card:hover, .fh-card:focus-visible {
+  border-color: rgba(36, 99, 132, 0.4);
+  outline: none;
+}
+.fh-empty {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.65);
+  color: #2f4858;
+}
+.fh-bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid rgba(47, 72, 88, 0.16);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+}
+.fh-nav-btn {
+  min-height: 52px;
+  border: 0;
+  background: transparent;
+  color: #536280;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.fh-nav-btn.active { color: #1f4d63; }
+.fh-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.fh-filter {
+  min-height: 40px;
+  border-radius: 999px;
+  border: 1px solid rgba(47, 72, 88, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 6px 12px;
+  font: inherit;
+}
+.fh-filter.active {
+  background: #1f4d63;
+  color: #fff;
+  border-color: #1f4d63;
+}
+.fh-form {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(47, 72, 88, 0.12);
+}
+.fh-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fh-form-actions .primary-button,
+.fh-form-actions .ghost-button,
+.fh-panel .primary-button,
+.fh-panel .ghost-button {
+  min-height: 44px;
+}
+.fh-child-hero {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin: 12px 0 16px;
+}
+.fh-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #1f4d63;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.3rem;
+}
+.fh-safety {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(159, 47, 52, 0.08);
+  border: 1px solid rgba(159, 47, 52, 0.2);
+}
+.fh-error { color: #9f2f34; font-weight: 700; }
+.fh-notice { color: #1f4d63; font-weight: 600; }
+.fh-roadmap { margin-top: 18px; }
+.fh-check { display: flex; align-items: center; gap: 8px; min-height: 40px; }
+@media (min-width: 900px) {
+  .fh-shell {
+    grid-template-columns: 220px 1fr;
+  }
+  .fh-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 20px 14px;
+    border-right: 1px solid rgba(47, 72, 88, 0.12);
+    background: rgba(255, 255, 255, 0.55);
+  }
+  .fh-brand {
+    font-family: "Fraunces", Georgia, serif;
+    font-size: 1.4rem;
+    margin: 0 0 12px;
+    color: #17384a;
+  }
+  .fh-side-btn {
+    text-align: left;
+    min-height: 44px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    padding: 8px 10px;
+    font: inherit;
+    font-weight: 600;
+    color: #2f4858;
+    cursor: pointer;
+  }
+  .fh-side-btn.active,
+  .fh-side-btn:hover {
+    background: rgba(36, 99, 132, 0.12);
+    color: #1f4d63;
+  }
+  .fh-bottom-nav { display: none; }
+  .fh-main { padding: 24px 28px 40px; }
+}

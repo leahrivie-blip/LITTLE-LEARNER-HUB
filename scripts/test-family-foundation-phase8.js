@@ -293,9 +293,12 @@ async function testUnitModel() {
   });
   ok("fake accounts use @example.invalid with no hardcoded passwords");
 
-  // Family Hub forced off in flags
-  assert.equal(expansionFlags.isExpansionFeatureEnabled({ familyHub: true }, EXPANSION_FEATURE_KEYS.FAMILY_HUB), false);
-  ok("Family Hub remains forced OFF");
+  // Family Hub forced off without testing preview env
+  assert.equal(expansionFlags.isExpansionFeatureEnabled({ familyHub: true }, EXPANSION_FEATURE_KEYS.FAMILY_HUB, {
+    liveProduction: false,
+    allowFamilyHubTestingPreview: false,
+  }), false);
+  ok("Family Hub remains OFF without testing preview env");
 
   // Permissions catalog includes family manage actions
   const catalog = orgPermissions.permissionCatalog();

@@ -204,7 +204,7 @@ async function run() {
       isVerifiedAdmin: true,
     });
     assert.equal(family.allowed, false);
-    assert.equal(family.reason, "feature_forced_off");
+    assert.equal(family.reason, "preview_env_disabled");
     const allowed = expansionFlags.evaluateExpansionAccess({
       flagKey: EXPANSION_FEATURE_KEYS.FORMS_CENTER,
       storedFlags: { formsCenter: true },

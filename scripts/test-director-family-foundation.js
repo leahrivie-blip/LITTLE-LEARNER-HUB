@@ -205,7 +205,8 @@ async function main() {
     });
     assert.equal(normalized.directorCenter, true);
     assert.equal(normalized.formsCenter, true);
-    assert.equal(normalized.familyHub, false);
+    // Phase 9: familyHub may be stored true for testing preview; production still locks it.
+    assert.equal(normalized.familyHub, true);
   });
 
   await test("production locks directorCenter even when stored ON", () => {
@@ -253,7 +254,7 @@ async function main() {
     assert.equal(admin.reason, "ok");
   });
 
-  await test("formsCenter follows private preview env while familyHub stays forced OFF", () => {
+  await test("formsCenter follows private preview env while familyHub stays off without testing preview", () => {
     const formsEnv = expansionFlags.resolveExpansionEnvironment({
       env: { ALLOW_FORMS_CENTER_ADMIN_PREVIEW: "true" },
       siteUrl: "http://localhost:4242",
@@ -284,7 +285,28 @@ async function main() {
       isVerifiedAdmin: true,
     });
     assert.equal(family.allowed, false);
-    assert.equal(family.reason, "feature_forced_off");
+    assert.equal(family.reason, "preview_env_disabled");
+    const familyPreview = expansionFlags.evaluateExpansionAccess({
+      flagKey: "familyHub",
+      storedFlags: { familyHub: true },
+      environment: expansionFlags.resolveExpansionEnvironment({
+        env: { ALLOW_FAMILY_HUB_TESTING_PREVIEW: "true" },
+        siteUrl: "http://localhost:4242",
+      }),
+    });
+    assert.equal(familyPreview.allowed, true);
+    assert.equal(familyPreview.reason, "ok");
+    const familyProd = expansionFlags.evaluateExpansionAccess({
+      flagKey: "familyHub",
+      storedFlags: { familyHub: true },
+      environment: expansionFlags.resolveExpansionEnvironment({
+        liveProduction: true,
+        env: { ALLOW_FAMILY_HUB_TESTING_PREVIEW: "true" },
+        siteUrl: "https://littlelearnershubbyleah.com",
+      }),
+    });
+    assert.equal(familyProd.allowed, false);
+    assert.equal(familyProd.reason, "production_locked");
   });
 
   await test("existing account roles continue to work as before", () => {
@@ -490,12 +512,13 @@ async function main() {
       assert.equal(res.json.flags.formsCenter, false);
       assert.equal(res.json.flags.familyHub, false);
       assert.equal(res.json.policy.formsCenter, "admin_preview_only");
-      assert.equal(res.json.policy.familyHub, "forced_off");
+      assert.equal(res.json.policy.familyHub, "testing_preview_only");
       assert.equal(res.json.policy.directorCenter, "admin_preview_only");
       assert.equal(res.json.viewer.canAccessDirectorCenter, false);
       assert.equal(res.json.viewer.canAccessFormsCenter, false);
       assert.equal(res.json.storedFlags.formsCenter, true);
-      assert.equal(res.json.storedFlags.familyHub, false);
+      assert.equal(res.json.storedFlags.familyHub, true);
+      assert.equal(res.json.effectiveFlags.familyHub, false);
     });
 
     await test("disabled expansion routes reject non-admin access", async () => {
