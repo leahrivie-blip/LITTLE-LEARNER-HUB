@@ -62,7 +62,7 @@ npm run test:account-access
 
 ### Tip (Phase 11 complete)
 
-Authoritative tip: `369c4610ac5fe70a3ca55187bedf8b343063afff`  
+Authoritative tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
 Phase 11 feature commit: `a5b1f4c`. Full regression: all suites PASS. Phase 12 not started. Production Family Hub locked. `main` untouched.
 
 ### Suggested PR title
