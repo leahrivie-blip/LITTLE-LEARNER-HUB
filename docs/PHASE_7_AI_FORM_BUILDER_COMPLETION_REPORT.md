@@ -73,8 +73,7 @@ Full regression (Phases 1–7 + platform/account) was run once before completion
 
 ## Handoff confirmations
 
-- Latest commit: `1806e38`  
-- Branch: `cursor/director-family-foundation-bc66`  
+- Branch: `cursor/director-family-foundation-bc66` (verify tip with `git log -1 --oneline`)  
 - Pushed to `origin/cursor/director-family-foundation-bc66`  
 - Working tree clean after push  
 - Full regression: **223 PASS** across Phase 1–7 + platform/account suites, zero failures  
