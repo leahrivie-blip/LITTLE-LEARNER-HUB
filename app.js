@@ -55896,10 +55896,23 @@ if (currentUser) {
 }
 updateInstallSettingsPanel();
 syncCurriculumPlannerNavVisibility();
+// Password-reset email links use ?view=reset-password&resetToken=... (server-generated,
+// see appBaseUrl() resetUrl) or Firebase's ?mode=resetPassword&oobCode=.... Recognize both —
+// a guest clicking their email link must land on the reset screen, not the homepage/Dashboard.
+function resetPasswordLinkRequestedFromLocation() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("resetToken")) return true;
+  if (params.get("view") === "reset-password") return true;
+  if (params.get("mode") === "resetPassword") return true;
+  return false;
+}
+
 // Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
 // Admin-only unlock (no provider login) restores Admin immediately to avoid Home flash / "kicked out" feel.
 if (!currentUser) {
-  if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+  if (resetPasswordLinkRequestedFromLocation()) {
+    setView("reset-password", { fromBoot: true, replaceHistory: true });
+  } else if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
     setView("admin", { fromBoot: true, replaceHistory: true });
   } else {
     renderHome();
@@ -55909,8 +55922,7 @@ if (!currentUser) {
   // This prevents the old Dashboard from flashing or lingering behind Calendar.
   const earlyLanding = (() => {
     const fromLocation = (() => {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get("mode") === "resetPassword") return "reset-password";
+      if (resetPasswordLinkRequestedFromLocation()) return "reset-password";
       if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
       return adRouteMap[window.location.pathname] || adRouteMap[window.location.hash] || "";
     })();
@@ -55927,7 +55939,7 @@ loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdm
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("mode") === "resetPassword") return "reset-password";
+  if (resetPasswordLinkRequestedFromLocation()) return "reset-password";
   if (lessonPlanEditRouteIdFromLocation()) return "lesson-editor";
   // Deep link used by push notification taps (see service-worker.js
   // notificationclick) and by "Open Little Learner Hub" copy — routes
