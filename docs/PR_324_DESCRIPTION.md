@@ -7,7 +7,7 @@ https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324
 
 ## Status (transfer-ready)
 
-Private preview work through **Phase 10 Family Updates, Daily Reports, Media, and Provider-Controlled Sharing**.
+Private preview work through **Phase 11 Messaging, Notifications, and Permanent Communication History**.
 
 **Do not merge into `main`. Do not deploy to production.**
 
@@ -17,30 +17,28 @@ Private preview work through **Phase 10 Family Updates, Daily Reports, Media, an
 2. Check out `cursor/director-family-foundation-bc66`
 3. Read `docs/DIRECTOR_FORMS_FAMILY_PROJECT_HANDOFF.md`
 4. Review this draft PR (#324)
-5. Run all Phase 1–10 automated tests
+5. Run all Phase 1–11 automated tests
 6. Confirm testing-environment safety
-7. Continue only from the next **approved** phase (Phase 11+)
+7. Continue only from the next **approved** phase (Phase 12+)
 8. Never merge or deploy without explicit approval
 
 ### COMPLETED
 
-- Phases 1–7 (Director Center, Teacher Classroom, Forms Builder, Built-In Library, Assignments/Responses/Signatures, AI Form Builder)
-- Phase 8 Family / Guardian / Household / Fake-Account Foundation
-- Phase 9 Responsive Family Hub Base — see `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md`
-- Phase 10 Family Updates / Daily Reports / Media / Sharing — provider review controls, consent-gated placeholder media, family feed/acknowledgments — see `docs/PHASE_10_FAMILY_UPDATES_MEDIA_COMPLETION_REPORT.md`
+- Phases 1–10
+- Phase 11 Messaging / Notifications / Permanent History — see `docs/PHASE_11_MESSAGING_NOTIFICATIONS_COMPLETION_REPORT.md`
 
 ### NOT STARTED
 
-- Phase 11 messaging and notification delivery
-- Phase 18 Testing and Preview Lab
-- Real AI / outbound email-SMS / live pricing / production migration
+- Phase 12+
+- Live email / SMS / push delivery for family messaging
+- Live AI / live pricing / production migration
 
 ### Feature flags (testing)
 
 - `directorCenter=true` + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`
 - `formsCenter=true` + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`
-- `familyHub=true` + `ALLOW_FAMILY_HUB_TESTING_PREVIEW` (authenticated fake guardians only)
-- **Production:** all expansion flags locked OFF (Family Hub included); no production media storage
+- `familyHub=true` + `ALLOW_FAMILY_HUB_TESTING_PREVIEW`
+- **Production:** expansion flags locked OFF; outbound family delivery disabled
 
 ### Verification
 
@@ -57,15 +55,16 @@ npm run test:forms-center-phase7
 npm run test:family-foundation-phase8
 npm run test:family-hub-phase9
 npm run test:family-updates-phase10
+npm run test:family-messaging-phase11
 npm run test:platform-nav
 npm run test:account-access
 ```
 
-### Tip (Phase 10 complete)
+### Tip (Phase 11 complete)
 
-Authoritative tip: `git rev-parse origin/cursor/director-family-foundation-bc66`  
-Phase 10 feature commit: `99a8aa7`. Full regression: all suites PASS. Phase 11 not started. Production Family Hub locked. `main` untouched.
+Authoritative tip: `139bb860502bd335df8423451a6d87c44acf2b5b`  
+Phase 11 feature commit: `a5b1f4c`. Full regression: all suites PASS. Phase 12 not started. Production Family Hub locked. `main` untouched.
 
 ### Suggested PR title
 
-Phases 1–10: Director/Forms/Family Hub Updates (do not merge/deploy)
+Phases 1–11: Director/Forms/Family Messaging (do not merge/deploy)
