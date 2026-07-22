@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-screen-assert.js");
 
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = process.env.LC_PHASE14_SCREENSHOT_DIR || "/opt/cursor/artifacts/licensing-center-phase14";
@@ -41,6 +42,10 @@ async function waitForHealth(port) {
 async function main() {
   const playwright = require("playwright");
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  for (const name of ["1-licensing-dashboard-desktop.png", "2-family-licensing-tasks-phone.png"]) {
+    const stale = path.join(OUT_DIR, name);
+    if (fs.existsSync(stale)) fs.unlinkSync(stale);
+  }
   const storePath = path.join(os.tmpdir(), `llh-lc-phase14-screens-${Date.now()}.json`);
   fs.writeFileSync(storePath, JSON.stringify({ siteContent: { featureFlags: { directorCenter: true, formsCenter: true, familyHub: true } } }, null, 2));
   const port = 8970 + Math.floor(Math.random() * 80);
@@ -78,13 +83,12 @@ async function main() {
       sessionStorage.setItem("llhAdminToken", adminToken);
     }, token);
     await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "networkidle" });
-    await deskPage.waitForTimeout(1000);
-    await deskPage.evaluate(() => { if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI(); });
     await deskPage.waitForTimeout(800);
+    await deskPage.evaluate(() => { if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI(); });
+    await deskPage.waitForTimeout(600);
     const tab = deskPage.locator('[data-dc-tab="licensing_center"]');
     if (await tab.count()) {
       await tab.click();
-      await deskPage.waitForTimeout(2000);
     } else {
       await deskPage.evaluate(() => {
         if (typeof window.renderLicensingCenterTab === "function") {
@@ -93,8 +97,9 @@ async function main() {
           window.renderLicensingCenterTab(document.querySelector("#dc-licensing-center-mount"));
         }
       });
-      await deskPage.waitForTimeout(2000);
     }
+    await assertFeatureScreen(deskPage, { marker: "phase14-licensing", label: "Phase 14 desktop Licensing Center" });
+    await assertNotHomepageFallback(deskPage, "Phase 14 desktop Licensing Center");
     await deskPage.screenshot({ path: path.join(OUT_DIR, "1-licensing-dashboard-desktop.png"), fullPage: true });
 
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
@@ -106,37 +111,32 @@ async function main() {
       localStorage.setItem("llhAccountType", "parent");
     }, { email: parent.email, memberToken });
     await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "networkidle" });
-    await phonePage.waitForTimeout(1000);
+    await phonePage.waitForTimeout(800);
     await phonePage.evaluate(() => { if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage(); });
     await phonePage.waitForTimeout(1200);
-    // Show Computer Recommended licensing tasks overlay for screenshot
-    await phonePage.evaluate(async () => {
-      const headers = { Accept: "application/json" };
-      const token = localStorage.getItem("llhMemberSessionToken") || "";
-      if (token) headers.Authorization = `Bearer ${token}`;
-      const res = await fetch("/api/family-hub/licensing/tasks", { headers, cache: "no-store" });
-      const data = await res.json().catch(() => ({}));
-      const mount = document.querySelector("#view-family-hub") || document.body;
-      const tasks = data.tasks || [];
-      mount.innerHTML = `
-        <section style="padding:1rem;font-family:system-ui,sans-serif;">
-          <p style="background:#fff3cd;padding:0.5rem;border-radius:4px;">Testing Account — Fake Data Only.</p>
-          <h2>Licensing tasks</h2>
-          <p><strong>Computer Recommended</strong></p>
-          <p style="font-size:0.9rem;color:#444;">Document organization only — not medical decisions or compliance certification.</p>
-          <ul style="list-style:none;padding:0;">
-            ${tasks.map((t) => `
-              <li style="border:1px solid #ddd;border-radius:8px;padding:0.75rem;margin:0.5rem 0;">
-                <strong>${t.title || ""}</strong>
-                <div style="font-size:0.85rem;color:#666;">${t.status || ""} · child ${t.childId || ""}</div>
-                <span style="display:inline-block;margin-top:0.35rem;background:#e8f4ff;padding:0.15rem 0.4rem;border-radius:4px;font-size:0.75rem;">Computer Recommended</span>
-              </li>
-            `).join("") || "<li>No missing/expiring family-visible tasks.</li>"}
-          </ul>
-        </section>
-      `;
+    // Real app navigation — do not inject HTML overlays
+    const opened = await phonePage.evaluate(() => {
+      const cardBtn = document.querySelector('[data-fh-licensing-home-card] [data-fh-tab="licensing"], [data-fh-tab="licensing"]');
+      if (cardBtn) {
+        cardBtn.click();
+        return "home-card";
+      }
+      if (typeof window.familyHubUiState === "object") {
+        window.familyHubUiState.tab = "licensing";
+        if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage();
+        return "state-tab";
+      }
+      return "";
     });
-    await phonePage.waitForTimeout(800);
+    if (!opened) {
+      throw new Error("Could not open Family Hub licensing tasks via real app navigation.");
+    }
+    await assertFeatureScreen(phonePage, { marker: "phase14-family-licensing-tasks", label: "Phase 14 phone family licensing tasks" });
+    await assertNotHomepageFallback(phonePage, "Phase 14 phone family licensing tasks");
+    const hasComputerRecommended = await phonePage.locator("[data-fh-computer-recommended], .fh-computer-recommended-chip").first().isVisible();
+    if (!hasComputerRecommended) {
+      throw new Error("Computer Recommended UI missing from real Family Hub licensing screen.");
+    }
     await phonePage.screenshot({ path: path.join(OUT_DIR, "2-family-licensing-tasks-phone.png"), fullPage: true });
     console.log("Wrote screenshots to", OUT_DIR);
   } finally {

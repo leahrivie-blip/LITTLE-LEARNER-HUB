@@ -177,7 +177,8 @@
     "test:family-messaging-phase11": "NODE_ENV=test node scripts/test-family-messaging-phase11.js",
     "test:family-enrollment-phase12": "NODE_ENV=test node scripts/test-family-enrollment-phase12.js",
     "test:records-center-phase13": "NODE_ENV=test node scripts/test-records-center-phase13.js",
-    "test:licensing-center-phase14": "NODE_ENV=test node scripts/test-licensing-center-phase14.js"
+    "test:licensing-center-phase14": "NODE_ENV=test node scripts/test-licensing-center-phase14.js",
+    "test:phase12-14-remediation": "NODE_ENV=test node scripts/test-phase12-14-remediation.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

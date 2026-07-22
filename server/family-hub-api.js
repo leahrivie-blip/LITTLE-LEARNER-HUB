@@ -409,9 +409,10 @@ function createFamilyHubApi({
       // Calendar remains available under Account → Calendar.
       // Enrollment checklist is on Home (and tab=enrollment) to avoid crowding bottom nav.
       // Documents/records are on Home (and tab=records).
+      // Licensing document tasks are on Home / Account when authorized (not a sixth bottom-nav item).
       navigation: ["home", "children", "forms", "messages", "account"],
       deferred: ["billing"],
-      navDecision: "messages_replaces_calendar_in_bottom_nav_calendar_under_account_enrollment_from_home",
+      navDecision: "messages_replaces_calendar_in_bottom_nav_calendar_under_account_enrollment_records_licensing_from_home",
       unreadMessages,
       roadmapNote: "Billing arrives in a later phase. Outbound email/SMS/push stay disabled.",
       noOutboundEmail: true,
@@ -448,6 +449,8 @@ function createFamilyHubApi({
         documentRequests: [],
         pendingChangeRequests: [],
         recentApproved: [],
+        licensingTasks: [],
+        licensingTaskCount: 0,
         programContact: programContact(store, actor.organizationId),
         roadmapNote: "More family tools are coming in later phases.",
       });
@@ -464,6 +467,7 @@ function createFamilyHubApi({
     const feed = access.allowed ? familyFeedForChild(store, actor.contact, activeChildId) : {
       updates: [], dailyReports: [], observations: [], goals: [], media: [], acknowledgments: [],
     };
+    const licensingTasks = buildLicensingTasksForGuardian(store, actor, children);
 
     const formsToComplete = forms.filter((row) => row.actionNeeded && !row.returned);
     const returnedForms = forms.filter((row) => row.returned);
@@ -478,6 +482,7 @@ function createFamilyHubApi({
       ...formsToComplete.map((row) => ({ kind: "form", id: row.assignmentId, title: row.formTitle, href: "forms", childId: activeChildId })),
       ...returnedForms.map((row) => ({ kind: "form_returned", id: row.assignmentId, title: row.formTitle, href: "forms", childId: activeChildId })),
       ...documentRequests.filter((row) => row.uploadRequested).map((row) => ({ kind: "document_request", id: row.id, title: row.title, href: "children", childId: activeChildId })),
+      ...licensingTasks.map((row) => ({ kind: "licensing_document", id: row.id, title: row.title, href: "licensing", childId: row.childId })),
       ...pendingChangeRequests.map((row) => ({ kind: "change_request", id: row.id, title: `Pending ${row.type.replace(/_/g, " ")}`, href: "account", childId: activeChildId })),
       ...(feed.updates || []).slice(0, 3).map((row) => ({ kind: "update", id: row.id, title: row.title, href: "home", childId: activeChildId })),
     ];
@@ -499,6 +504,8 @@ function createFamilyHubApi({
       documentRequests,
       pendingChangeRequests,
       recentApproved,
+      licensingTasks,
+      licensingTaskCount: licensingTasks.length,
       recentUpdates: (feed.updates || []).slice(0, 8),
       todaysDailyReport: todaysReport,
       familyMedia: (feed.media || []).slice(0, 8),
@@ -1028,12 +1035,11 @@ function createFamilyHubApi({
     jsonResponse(response, 200, { ok: true, seeded: true, ...seeded9, phase10: seeded10, phase11: seeded11, phase12: seeded12, phase13: seeded13, phase14: seeded14, label: TESTING_BANNER });
   }
 
-  async function handleLicensingTasks(request, response) {
-    const ctx = withGuardian(request, response, { capability: "digital" });
-    if (!ctx) return;
-    const { store, actor, children } = ctx;
+  function buildLicensingTasksForGuardian(store, actor, children) {
     licensingModel.ensureLicensingStore(store);
+    licensingFixtures.ensurePhase14Preview(store, { organizationId: actor.organizationId });
     const permittedChildIds = new Set((children || []).map((c) => c.childId));
+    const childNameById = new Map((children || []).map((c) => [c.childId, c.displayName || "Child"]));
     const familyVisibleStatuses = new Set([
       licensingModel.READINESS.MISSING,
       licensingModel.READINESS.EXPIRING_SOON,
@@ -1041,8 +1047,17 @@ function createFamilyHubApi({
       licensingModel.READINESS.DUE_SOON,
       licensingModel.READINESS.WAITING_UPLOAD,
       licensingModel.READINESS.WAITING_SIGNATURE,
+      licensingModel.READINESS.WAITING_PROVIDER_REVIEW,
+      licensingModel.READINESS.RETURNED_FOR_CORRECTION,
     ]);
-    const tasks = listValues(store.licensingCenter.requirements)
+    const uploadAllowedStatuses = new Set([
+      licensingModel.READINESS.MISSING,
+      licensingModel.READINESS.WAITING_UPLOAD,
+      licensingModel.READINESS.EXPIRED,
+      licensingModel.READINESS.EXPIRING_SOON,
+      licensingModel.READINESS.RETURNED_FOR_CORRECTION,
+    ]);
+    return listValues(store.licensingCenter.requirements)
       .filter((row) => row.organizationId === actor.organizationId && !row.archived && !row.notApplicable)
       .filter((row) => row.scope === "child" && row.relatedChildId && permittedChildIds.has(row.relatedChildId))
       .filter((row) => /immunization|health|permission|emergency|medication/i.test(`${row.key} ${row.category} ${row.title}`))
@@ -1053,15 +1068,26 @@ function createFamilyHubApi({
         title: row.title,
         status: row.status,
         childId: row.relatedChildId,
+        childDisplayName: childNameById.get(row.relatedChildId) || "Child",
         category: row.category,
-        plainLanguage: row.plainLanguage,
+        plainLanguage: row.plainLanguage || "",
         dueDate: row.dueDate || "",
         expirationDate: row.expirationDate || "",
+        uploadAllowed: uploadAllowedStatuses.has(row.status),
+        pendingProviderReview: row.status === licensingModel.READINESS.WAITING_PROVIDER_REVIEW
+          || row.status === licensingModel.READINESS.WAITING_SIGNATURE,
         computerRecommended: true,
         testingOnly: true,
         noMedicalDecision: true,
         note: "Document organization only — not a medical decision or compliance certification.",
       }));
+  }
+
+  async function handleLicensingTasks(request, response) {
+    const ctx = withGuardian(request, response, { capability: "digital" });
+    if (!ctx) return;
+    const { store, actor, children } = ctx;
+    const tasks = buildLicensingTasksForGuardian(store, actor, children);
     writeStore(store);
     jsonResponse(response, 200, {
       ok: true,

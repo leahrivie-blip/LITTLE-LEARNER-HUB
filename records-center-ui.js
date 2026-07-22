@@ -51,22 +51,27 @@
       ["archived", "Archived", counts.archived],
     ];
     return `
-      <section class="rc-panel" data-rc-root>
+      <section class="rc-panel" data-rc-root data-feature-marker="phase13-records">
         <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <p class="rc-computer-recommended" data-rc-computer-recommended>Computer Recommended for bulk filing, archival, and complex review workflows. Phone shows summaries and simple review queues only.</p>
         <div class="fu-toolbar">
           <h2>Records Center</h2>
           <button type="button" class="ghost-button" data-rc-seed>Reset fixtures</button>
           <button type="button" class="ghost-button" data-rc-clear-filter>Clear filter</button>
         </div>
-        <div class="rc-overview-cards" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.75rem 0;">
+        <div class="rc-overview-cards">
           ${cards.map(([status, label, value]) => `
-            <button type="button" class="dc-metric-card" data-rc-filter-status="${escapeHtml(status)}" style="cursor:pointer;min-width:7rem;text-align:left;">
+            <button type="button" class="dc-metric-card rc-metric-card" data-rc-filter-status="${escapeHtml(status)}">
               <p class="dc-metric-label">${escapeHtml(label)}</p>
               <p class="dc-metric-value">${escapeHtml(String(value ?? 0))}</p>
             </button>
           `).join("")}
         </div>
-        <section class="fh-section">
+        <section class="fh-section rc-phone-summary" data-rc-phone-summary>
+          <h3>Phone summary</h3>
+          <p class="muted-copy">Unfiled ${escapeHtml(String(counts.unfiled ?? 0))} · Needs review ${escapeHtml(String(counts.needsReview ?? 0))} · Missing ${escapeHtml(String(counts.missing ?? 0))} · Expiring ${escapeHtml(String(counts.expiringSoon ?? 0))}</p>
+        </section>
+        <section class="fh-section rc-inbox-section">
           <h3>Unfiled Inbox</h3>
           <ul class="fh-card-list">
             ${inbox.map((row) => `

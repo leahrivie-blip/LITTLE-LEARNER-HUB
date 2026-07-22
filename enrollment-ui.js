@@ -44,7 +44,7 @@
       const offer = state.caseDetail.offer;
       const waitlist = state.caseDetail.waitlist;
       return `
-        <section class="en-panel" data-en-root>
+        <section class="en-panel" data-en-root data-feature-marker="phase12-enrollment">
           <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
           <button type="button" class="ghost-button" data-en-back>← Pipeline</button>
           <h2>${escapeHtml(c.childName || "Enrollment case")}</h2>
@@ -80,8 +80,9 @@
 
     const cases = state.pipeline?.cases || [];
     return `
-      <section class="en-panel" data-en-root>
+      <section class="en-panel" data-en-root data-feature-marker="phase12-enrollment">
         <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <p class="en-computer-recommended" data-en-computer-recommended>Computer Recommended for the full enrollment pipeline, capacity tools, and bulk conversion. Phone supports case summaries only.</p>
         <div class="fu-toolbar">
           <h2>Enrollment pipeline</h2>
           <button type="button" class="ghost-button" data-en-seed>Reset fixtures</button>

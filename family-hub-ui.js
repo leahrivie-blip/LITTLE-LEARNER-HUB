@@ -22,6 +22,7 @@
     enrollmentDetail: null,
     recordsList: [],
     recordDetail: null,
+    licensingTasks: [],
     messageThread: null,
     messageDraft: "",
     notifications: [],
@@ -136,6 +137,13 @@
           <p class="muted-copy">Family-visible records for your children (testing only).</p>
           <button type="button" class="primary-button fh-touch" data-fh-tab="records">Open Documents</button>
         </section>
+        ${(data.licensingTaskCount || (data.licensingTasks || []).length) ? `
+        <section class="fh-section" data-fh-licensing-home-card data-feature-marker="phase14-family-licensing-home">
+          <h2>Licensing Documents Needed</h2>
+          <p class="muted-copy">${escapeHtml(String(data.licensingTaskCount || (data.licensingTasks || []).length))} document task(s) need attention (testing only).</p>
+          <button type="button" class="primary-button fh-touch" data-fh-tab="licensing">Open licensing documents</button>
+        </section>
+        ` : ""}
         <section class="fh-section">
           <h2>Action Needed</h2>
           ${!(data.actionNeeded || []).length ? `<p class="muted-copy">You're all caught up.</p>` : `
@@ -503,6 +511,12 @@
           <p class="muted-copy">Calendar lives here so Messages can stay in the main navigation (max five items).</p>
           <button type="button" class="ghost-button" data-fh-open-calendar>Open calendar</button>
         </section>
+        ${(state.home?.licensingTaskCount || (state.home?.licensingTasks || []).length || (state.licensingTasks || []).length) ? `
+        <section class="fh-section" data-fh-licensing-account-link>
+          <h2>More</h2>
+          <button type="button" class="ghost-button" data-fh-tab="licensing">Licensing Documents Needed</button>
+        </section>
+        ` : ""}
         <button type="button" class="primary-button" data-fh-sign-out>Sign out</button>
       </section>
     `;
@@ -516,7 +530,7 @@
       const offer = detail.offer;
       const packet = detail.packet;
       return `
-        <section class="fh-panel">
+        <section class="fh-panel en-family-panel" data-feature-marker="phase12-enrollment">
           <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
           <button type="button" class="ghost-button" data-fh-back-enrollment>← Checklist</button>
           <h1>${escapeHtml(c.childName || "Enrollment")}</h1>
@@ -562,7 +576,7 @@
       `;
     }
     return `
-      <section class="fh-panel">
+      <section class="fh-panel en-family-panel" data-feature-marker="phase12-enrollment">
         <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
         <h1>Enrollment</h1>
         <p class="muted-copy">Only your household applications are shown.</p>
@@ -584,21 +598,40 @@
     if (state.recordDetail) {
       const r = state.recordDetail.record || state.recordDetail || {};
       return `
-        <section class="fh-panel">
+        <section class="fh-panel rc-family-panel" data-feature-marker="phase13-records">
           <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
           <button type="button" class="ghost-button" data-fh-back-records>← Documents</button>
           <h1>${escapeHtml(r.title || "Document")}</h1>
           <p class="muted-copy">${escapeHtml(r.category || "")} · ${escapeHtml(r.status || "")}</p>
           <p class="muted-copy">Expires: ${escapeHtml(r.expirationDate || "—")}</p>
+          ${/request|upload|missing|correction|pending|needs_review/i.test(`${r.status || ""} ${r.title || ""}`) ? `
+            <p class="fh-computer-recommended" data-fh-computer-recommended>Computer Recommended for complex filing tools. You can still upload a testing document below when allowed.</p>
+          ` : ""}
         </section>
       `;
     }
     const records = state.recordsList || [];
+    const requested = records.filter((row) => /request|upload|missing|correction|pending|needs_review/i.test(`${row.status || ""} ${row.title || ""}`));
     return `
-      <section class="fh-panel">
+      <section class="fh-panel rc-family-panel" data-feature-marker="phase13-records">
         <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
         <h1>Documents</h1>
         <p class="muted-copy">Only family-visible records for your children are shown.</p>
+        ${requested.length ? `
+          <section class="fh-section" data-fh-requested-docs>
+            <h2>Requested documents</h2>
+            <ul class="fh-card-list">
+              ${requested.map((row) => `
+                <li>
+                  <button type="button" class="fh-card" data-fh-open-record="${escapeHtml(row.id)}">
+                    <strong>${escapeHtml(row.title || "Document")}</strong>
+                    <span>${escapeHtml(row.status || "")} · ${escapeHtml(row.category || "")}</span>
+                  </button>
+                </li>
+              `).join("")}
+            </ul>
+          </section>
+        ` : ""}
         <ul class="fh-card-list">
           ${records.map((row) => `
             <li>
@@ -608,6 +641,37 @@
               </button>
             </li>
           `).join("") || "<li class=\"muted-copy\">No documents yet.</li>"}
+        </ul>
+      </section>
+    `;
+  }
+
+  function licensingHtml() {
+    const tasks = state.licensingTasks || [];
+    return `
+      <section class="fh-panel lc-family-panel" data-feature-marker="phase14-family-licensing-tasks">
+        <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
+        <h1>Licensing Documents Needed</h1>
+        <p class="fh-computer-recommended" data-fh-computer-recommended>Computer Recommended for full licensing configuration, inspection packets, and complex readiness tools. Phone supports assigned document tasks and testing uploads only.</p>
+        <p class="muted-copy">Document organization only — not medical decisions or compliance certification.</p>
+        <ul class="fh-card-list" data-fh-licensing-task-list>
+          ${tasks.map((task) => `
+            <li class="fh-card static" data-fh-licensing-task="${escapeHtml(task.id)}">
+              <strong>${escapeHtml(task.title || "Licensing task")}</strong>
+              <span>${escapeHtml(task.childDisplayName || "Child")} · ${escapeHtml(task.status || "")}</span>
+              <span class="muted-copy">Due: ${escapeHtml(task.dueDate || task.expirationDate || "—")}</span>
+              ${task.pendingProviderReview ? `<p class="muted-copy">Pending provider review</p>` : ""}
+              <span class="fh-computer-recommended-chip">Computer Recommended</span>
+              ${task.uploadAllowed ? `
+                <form class="fh-form" data-fh-licensing-upload data-task-id="${escapeHtml(task.id)}" data-child-id="${escapeHtml(task.childId || "")}">
+                  <label>Upload testing document
+                    <input name="title" required value="${escapeHtml(`${task.title || "Licensing document"} (testing upload)`)}" />
+                  </label>
+                  <button type="submit" class="primary-button">Submit for provider review</button>
+                </form>
+              ` : `<p class="muted-copy">${escapeHtml(task.note || "Upload not available for this status.")}</p>`}
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No licensing document tasks right now.</li>"}
         </ul>
       </section>
     `;
@@ -683,6 +747,7 @@
     if (state.tab === "messages") return messagesHtml();
     if (state.tab === "enrollment") return enrollmentHtml();
     if (state.tab === "records") return recordsHtml();
+    if (state.tab === "licensing") return licensingHtml();
     if (state.tab === "calendar") return calendarHtml();
     if (state.tab === "account") return accountHtml();
     return "";
@@ -734,6 +799,9 @@
           state.recordsList = data.records || [];
           state.children = data.children || state.children;
         }
+      } else if (state.tab === "licensing") {
+        const data = await api("GET", "/api/family-hub/licensing/tasks");
+        state.licensingTasks = data.tasks || [];
       } else if (state.tab === "messages") {
         if (!state.messageThread) {
           const q = state.selectedChildId ? `?childId=${encodeURIComponent(state.selectedChildId)}` : "";
@@ -837,6 +905,29 @@
     root.querySelector("[data-fh-back-records]")?.addEventListener("click", () => {
       state.recordDetail = null;
       refresh();
+    });
+    root.querySelectorAll("[data-fh-licensing-upload]").forEach((form) => {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const childId = form.getAttribute("data-child-id") || "";
+        const title = form.title?.value || "Licensing testing document";
+        try {
+          await api("POST", "/api/family-hub/records/upload", {
+            childId,
+            title,
+            fileName: "licensing-testing-upload.pdf",
+            mimeType: "application/pdf",
+            contentBase64: btoa("%PDF-1.4 FAKE licensing family upload"),
+          });
+          state.notice = "Licensing document submitted for provider review (not auto-approved).";
+          const data = await api("GET", "/api/family-hub/licensing/tasks");
+          state.licensingTasks = data.tasks || [];
+          render();
+        } catch (error) {
+          state.error = error.message;
+          render();
+        }
+      });
     });
     root.querySelectorAll("[data-fh-en-save]").forEach((button) => {
       button.addEventListener("click", async () => {
@@ -959,14 +1050,15 @@
     });
     root.querySelectorAll("[data-fh-open-task]").forEach((button) => {
       button.addEventListener("click", () => {
-        const href = button.getAttribute("data-fh-open-task");
+        const href = button.getAttribute("data-fh-open-task") || "home";
         const childId = button.getAttribute("data-fh-child");
         if (childId) state.selectedChildId = childId;
         if (href === "home") {
           refresh();
           return;
         }
-        setTab(href === "children" ? "children" : href === "account" ? "account" : "forms");
+        const allowed = new Set(["children", "forms", "account", "enrollment", "records", "licensing", "messages", "calendar"]);
+        setTab(allowed.has(href) ? href : "forms");
       });
     });
     root.querySelectorAll("[data-fh-ack]").forEach((button) => {

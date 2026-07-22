@@ -5,6 +5,8 @@
  * Credit-saving Phase 12 screenshots:
  * 1) Computer — enrollment pipeline
  * 2) Phone — family enrollment checklist
+ *
+ * Fails loudly if feature markers do not mount. Never captures marketing homepage.
  */
 
 const http = require("node:http");
@@ -12,6 +14,7 @@ const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { assertFeatureScreen, assertNotHomepageFallback } = require("./capture-screen-assert.js");
 
 const ROOT = path.join(__dirname, "..");
 const OUT_DIR = process.env.EN_PHASE12_SCREENSHOT_DIR || "/opt/cursor/artifacts/enrollment-phase12";
@@ -49,6 +52,11 @@ async function main() {
   try { playwright = require("playwright"); } catch (error) { console.error("playwright required:", error.message); process.exit(1); }
 
   fs.mkdirSync(OUT_DIR, { recursive: true });
+  for (const name of ["1-provider-enrollment-pipeline-desktop.png", "2-family-enrollment-checklist-phone.png"]) {
+    const stale = path.join(OUT_DIR, name);
+    if (fs.existsSync(stale)) fs.unlinkSync(stale);
+  }
+
   const storePath = path.join(os.tmpdir(), `llh-en-phase12-screens-${Date.now()}.json`);
   fs.writeFileSync(storePath, JSON.stringify({
     siteContent: { featureFlags: { directorCenter: true, formsCenter: true, familyHub: true } },
@@ -93,13 +101,12 @@ async function main() {
       sessionStorage.setItem("llhAdminToken", adminToken);
     }, token);
     await deskPage.goto(`http://127.0.0.1:${port}/#director-center`, { waitUntil: "networkidle" });
-    await deskPage.waitForTimeout(1200);
+    await deskPage.waitForTimeout(800);
     await deskPage.evaluate(() => { if (typeof window.renderDirectorCenterPreviewUI === "function") window.renderDirectorCenterPreviewUI(); });
-    await deskPage.waitForTimeout(1000);
+    await deskPage.waitForTimeout(600);
     const tab = deskPage.locator('[data-dc-tab="enrollment"]');
     if (await tab.count()) {
       await tab.click();
-      await deskPage.waitForTimeout(2000);
     } else {
       await deskPage.evaluate(() => {
         if (typeof window.renderEnrollmentTab === "function") {
@@ -108,8 +115,9 @@ async function main() {
           window.renderEnrollmentTab(document.querySelector("#dc-enrollment-mount"));
         }
       });
-      await deskPage.waitForTimeout(2000);
     }
+    await assertFeatureScreen(deskPage, { marker: "phase12-enrollment", label: "Phase 12 desktop enrollment" });
+    await assertNotHomepageFallback(deskPage, "Phase 12 desktop enrollment");
     await deskPage.screenshot({ path: path.join(OUT_DIR, "1-provider-enrollment-pipeline-desktop.png"), fullPage: true });
 
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
@@ -121,14 +129,22 @@ async function main() {
       localStorage.setItem("llhAccountType", "parent");
     }, { email: parent.email, memberToken });
     await phonePage.goto(`http://127.0.0.1:${port}/#family-hub`, { waitUntil: "networkidle" });
-    await phonePage.waitForTimeout(1200);
+    await phonePage.waitForTimeout(800);
     await phonePage.evaluate(() => { if (typeof window.renderFamilyHubPage === "function") window.renderFamilyHubPage(); });
-    await phonePage.waitForTimeout(1500);
+    await phonePage.waitForTimeout(1000);
     await phonePage.evaluate(() => {
       const btn = document.querySelector('[data-fh-tab="enrollment"]');
       if (btn) btn.click();
     });
-    await phonePage.waitForTimeout(2000);
+    await assertFeatureScreen(phonePage, { marker: "phase12-enrollment", label: "Phase 12 phone family checklist" });
+    await assertNotHomepageFallback(phonePage, "Phase 12 phone family checklist");
+    // Open first case checklist when available for a richer phone shot
+    await phonePage.evaluate(() => {
+      const open = document.querySelector("[data-fh-open-enrollment]");
+      if (open) open.click();
+    });
+    await phonePage.waitForTimeout(1200);
+    await assertFeatureScreen(phonePage, { marker: "phase12-enrollment", label: "Phase 12 phone family checklist detail" });
     await phonePage.screenshot({ path: path.join(OUT_DIR, "2-family-enrollment-checklist-phone.png"), fullPage: true });
 
     console.log("Wrote screenshots to", OUT_DIR);

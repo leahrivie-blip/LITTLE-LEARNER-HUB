@@ -23972,8 +23972,224 @@ button.linkish {
 
 
 /* Phase 12 Enrollment */
-.en-panel { display: grid; gap: 1rem; }
+.en-panel {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
 .en-pipeline-list { display: grid; gap: 0.5rem; }
-.en-case-row { text-align: left; width: 100%; }
+.en-case-row { text-align: left; width: 100%; max-width: 100%; box-sizing: border-box; }
 .en-capacity-warn { color: #8a4b08; background: #fff6e8; padding: 0.75rem 1rem; border-radius: 8px; }
 .en-reports pre { max-height: 240px; overflow: auto; white-space: pre-wrap; }
+.en-computer-recommended,
+.rc-computer-recommended,
+.lc-computer-recommended,
+.fh-computer-recommended {
+  display: none;
+  margin: 0.5rem 0;
+  padding: 0.75rem 1rem;
+  background: #eef6fb;
+  border: 1px solid #c5d9e8;
+  border-radius: 8px;
+  color: #1f3b4d;
+  font-weight: 600;
+}
+.fh-computer-recommended-chip {
+  display: inline-block;
+  margin-top: 0.35rem;
+  background: #eef6fb;
+  border: 1px solid #c5d9e8;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #1f3b4d;
+  font-weight: 600;
+}
+.rc-panel,
+.lc-panel {
+  display: grid;
+  gap: 1rem;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.rc-overview-cards,
+.lc-overview-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+.rc-metric-card,
+.lc-metric-card {
+  cursor: pointer;
+  min-width: 7rem;
+  text-align: left;
+  box-sizing: border-box;
+}
+.rc-phone-summary,
+.lc-phone-summary {
+  display: none;
+}
+.lc-family-panel .fh-computer-recommended {
+  display: block;
+}
+.en-family-panel,
+.rc-family-panel,
+.lc-family-panel {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+.en-family-panel .fh-card,
+.rc-family-panel .fh-card,
+.lc-family-panel .fh-card,
+.en-panel .fh-card,
+.rc-panel .fh-card,
+.lc-panel .fh-card {
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.en-panel .fu-toolbar,
+.rc-panel .fu-toolbar,
+.lc-panel .fu-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.en-panel input,
+.en-panel button,
+.en-panel select,
+.en-panel textarea,
+.rc-panel input,
+.rc-panel button,
+.rc-panel select,
+.rc-panel textarea,
+.lc-panel input,
+.lc-panel button,
+.lc-panel select,
+.lc-panel textarea,
+.en-family-panel input,
+.en-family-panel button,
+.rc-family-panel input,
+.rc-family-panel button,
+.lc-family-panel input,
+.lc-family-panel button {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Small phone ~360–390px and large phone ~412–430px */
+@media (max-width: 480px) {
+  .en-computer-recommended,
+  .rc-computer-recommended,
+  .lc-computer-recommended,
+  .fh-computer-recommended {
+    display: block;
+  }
+  .en-panel .en-pipeline-list {
+    display: grid;
+    gap: 0.65rem;
+  }
+  .en-panel .en-case-row {
+    display: grid;
+    gap: 0.25rem;
+  }
+  .en-panel .en-reports,
+  .en-panel [data-en-reports],
+  .rc-panel .rc-inbox-section label,
+  .rc-panel [data-rc-file],
+  .lc-panel [data-lc-prepare] {
+    display: none !important;
+  }
+  .rc-phone-summary,
+  .lc-phone-summary {
+    display: block;
+  }
+  .rc-overview-cards .rc-metric-card,
+  .lc-overview-cards .lc-metric-card {
+    min-width: calc(50% - 0.35rem);
+    flex: 1 1 calc(50% - 0.35rem);
+  }
+  .en-panel .fu-toolbar,
+  .rc-panel .fu-toolbar,
+  .lc-panel .fu-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .en-panel .fu-toolbar h2,
+  .rc-panel .fu-toolbar h2,
+  .lc-panel .fu-toolbar h2 {
+    width: 100%;
+    margin: 0;
+  }
+}
+
+@media (min-width: 412px) and (max-width: 480px) {
+  .rc-overview-cards .rc-metric-card,
+  .lc-overview-cards .lc-metric-card {
+    min-width: calc(33.33% - 0.4rem);
+    flex: 1 1 calc(33.33% - 0.4rem);
+  }
+}
+
+/* Tablet ~768–1024px */
+@media (min-width: 768px) and (max-width: 1024px) {
+  .en-computer-recommended,
+  .rc-computer-recommended,
+  .lc-computer-recommended {
+    display: block;
+  }
+  .en-panel,
+  .rc-panel,
+  .lc-panel {
+    max-width: 960px;
+  }
+  .rc-overview-cards .rc-metric-card,
+  .lc-overview-cards .lc-metric-card {
+    min-width: 8.5rem;
+  }
+  .rc-phone-summary,
+  .lc-phone-summary {
+    display: none;
+  }
+  .en-panel .en-pipeline-list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+}
+
+/* Computer ~1280px+ */
+@media (min-width: 1280px) {
+  .en-computer-recommended,
+  .rc-computer-recommended,
+  .lc-computer-recommended {
+    display: none;
+  }
+  .rc-phone-summary,
+  .lc-phone-summary {
+    display: none;
+  }
+  .en-panel .en-pipeline-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  .rc-overview-cards,
+  .lc-overview-cards {
+    gap: 0.75rem;
+  }
+  .rc-overview-cards .rc-metric-card,
+  .lc-overview-cards .lc-metric-card {
+    min-width: 9rem;
+  }
+}

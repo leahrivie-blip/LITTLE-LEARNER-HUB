@@ -47,9 +47,10 @@
     ];
     const requirements = state.requirements?.requirements || [];
     return `
-      <section class="lc-panel" data-lc-root>
+      <section class="lc-panel" data-lc-root data-feature-marker="phase14-licensing">
         <p class="fh-banner">${escapeHtml(TESTING_BANNER)}</p>
         <p class="muted-copy" data-lc-disclaimer>${escapeHtml(DISCLAIMER)}</p>
+        <p class="lc-computer-recommended" data-lc-computer-recommended>Computer Recommended for state configuration, inspection packets, and reports. Phone shows missing/expiring summaries and simple assigned tasks only.</p>
         <div class="fu-toolbar">
           <h2>Licensing Center</h2>
           <button type="button" class="primary-button" data-lc-prepare>Prepare for visit</button>
@@ -57,15 +58,19 @@
           <button type="button" class="ghost-button" data-lc-clear-filter>Clear filter</button>
         </div>
         <p class="muted-copy">${escapeHtml(state.dashboard?.wording?.overall || "Ready based on configured checklist — not a universal compliance label")}</p>
-        <div class="lc-overview-cards" style="display:flex;flex-wrap:wrap;gap:0.5rem;margin:0.75rem 0;">
+        <div class="lc-overview-cards">
           ${cards.map((card) => `
-            <button type="button" class="dc-metric-card" data-lc-filter-status="${escapeHtml(card.filterStatus || card.key)}" style="cursor:pointer;min-width:7rem;text-align:left;">
+            <button type="button" class="dc-metric-card lc-metric-card" data-lc-filter-status="${escapeHtml(card.filterStatus || card.key)}">
               <p class="dc-metric-label">${escapeHtml(card.label)}</p>
               <p class="dc-metric-value">${escapeHtml(String(card.count ?? 0))}</p>
             </button>
           `).join("")}
         </div>
-        <section class="fh-section">
+        <section class="fh-section lc-phone-summary" data-lc-phone-summary>
+          <h3>Phone summary</h3>
+          <p class="muted-copy">Missing ${escapeHtml(String(counts.missing ?? 0))} · Expiring ${escapeHtml(String(counts.expiringSoon ?? 0))} · Expired ${escapeHtml(String(counts.expired ?? 0))} · Ready ${escapeHtml(String(counts.ready ?? 0))}</p>
+        </section>
+        <section class="fh-section lc-requirements-section">
           <h3>Requirements ${state.filterStatus ? `<span class="muted-copy">(filter: ${escapeHtml(state.filterStatus)})</span>` : ""}</h3>
           <ul class="fh-card-list" data-lc-requirements>
             ${requirements.map((row) => `
