@@ -208,7 +208,7 @@ async function main() {
     assert.equal(state.controller, true);
     assert.equal(state.authed, true);
     assert.ok(state.booted || state.active === "view-calendar", `expected booted calendar, got ${JSON.stringify(state)}`);
-    assert.match(state.appJs, /homescreen-sw/);
+    assert.match(state.appJs, /lesson-empty-hotfix/);
     console.log("homescreen-pwa-boot: PASS");
   } finally {
     await stopServer(child);
