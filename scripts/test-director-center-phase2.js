@@ -435,8 +435,10 @@ async function run() {
 
     {
       const page = await request(server.port, "GET", "/");
-      assert.ok(page.raw.includes("director-center-ui.js"));
+      assert.ok(page.raw.includes("platform-perf.js"), "platform-perf loader present");
       assert.ok(page.raw.includes('data-view="director-center"'));
+      const perf = fs.readFileSync(path.join(__dirname, "..", "platform-perf.js"), "utf8");
+      assert.ok(perf.includes("director-center-ui.js"), "Director Center lazy-loaded via platform-perf");
       pass("Director Center UI assets present");
     }
 
