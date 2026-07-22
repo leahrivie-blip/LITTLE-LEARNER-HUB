@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 8 complete)
+**Status date:** 2026-07-22 (Phase 9 complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 
 ---
@@ -11,9 +11,9 @@
 2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
 3. Read this handoff document end to end
 4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–8 automated tests (commands below)
+5. Run all Phase 1–9 automated tests (commands below)
 6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** phase (Phase 9+ are not started)
+7. Continue only from the next **approved** phase (Phase 10+ are not started)
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -25,8 +25,8 @@ Build a private, testing-only foundation for:
 - **Director Center** — organization, classrooms, staff, children, program profile, roles
 - **Teacher Classroom Experience** — classroom week, events, daily logs, observations, goals, timeline
 - **Forms Center** — Manual Custom Form Builder (draft / publish / archive) plus a **Built-In Form Library** (29 starter templates, browse/search/preview/favorite, "Use This Template" → editable program copy) plus **Assignments, Responses, and Signatures** (send/assign a published form, complete it via a safe testing link, sign electronically, review/approve, and file the response under the correct Child/Staff/Classroom/Program record) plus an **AI Form Builder** foundation (describe/paste → structured draft suggestions → review → save as program-owned draft; live AI disabled; mock fixtures only)
-- **Family / guardian / household foundation** (Phase 8) — households, multi-guardian access levels, invitations (no email/SMS), safe fake accounts; Family Hub product UI still OFF
-- Future **Family Hub** product interface (Phase 9; must stay OFF)
+- **Family / guardian / household foundation** (Phase 8) — households, multi-guardian access levels, invitations (no email/SMS), safe fake accounts
+- **Family Hub base** (Phase 9) — mobile-first Home/Children/Forms/Calendar/Account for fake guardians (testing preview only; production locked)
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -49,7 +49,7 @@ All work is additive, flag-gated, fake-data-only in preview, and must not affect
 | Branch | `cursor/director-family-foundation-bc66` |
 | Base | `main` (do **not** merge without approval) |
 | Tip at handoff | Branch tip on `origin/cursor/director-family-foundation-bc66` (verify: `git rev-parse HEAD`) |
-| Tip message | Phase 8 Family / Guardian / Fake-Account Foundation complete |
+| Tip message | Phase 9 Responsive Family Hub Base complete |
 
 Confirm tip after pull:
 
@@ -142,11 +142,13 @@ Phase tip history (newest first):
 - **Phase 5 Built-In Form Library** — 29 system-owned starter templates inside Forms Center; Built-In Library browse/search/filter/sort; preview; favorites; recently previewed/copied; "Use This Template" → new organization-owned draft with fresh IDs; template versioning (newer-version demo) and retirement (retired-template demo) that never breaks existing organization copies; structured importer (system-admin only); role-scoped access (director/owner full, teacher/assistant only with director-granted override, system-admin-only template management). See `docs/PHASE_5_BUILT_IN_FORM_LIBRARY_COMPLETION_REPORT.md`.
 - **Phase 6 Form Assignments, Responses, and Signatures** — Send/Assign a published form to one/many children, guardians (incl. all verified guardians for a child), staff, classrooms, or the whole program; safe hashed/expiring/revocable testing links (never on production); mobile-first recipient completion page with sections, autosave, review, typed + drawn signatures, and printable confirmation; full response status workflow with review/approve/return/reopen/void/archive; Child/Staff/Classroom/Program filing by permanent ID; form-version protection; Medication Administration Log with non-destructive corrections. See `docs/PHASE_6_FORM_RESPONSES_SIGNATURES_COMPLETION_REPORT.md`.
 - **Phase 7 AI-Assisted Form Builder Foundation** — Describe or paste a childcare form → deterministic mock suggestions (live AI disabled) → review warnings → edit suggested fields → save as a new program-owned draft with a permanent ID → continue in the Phase 4 Form Builder. Never auto-publishes, sends, signs, or overwrites. Production rejects mock AI. See `docs/PHASE_7_AI_FORM_BUILDER_COMPLETION_REPORT.md`.
-- **Phase 8 Family / Guardian / Household / Fake-Account Foundation** — Director Center **Families** tab for households, guardians/contacts, child-specific access levels, invitations (hashed/expiring/revocable; no email/SMS), and resettable `@example.invalid` fake accounts. Guardian login shows a Family Hub OFF placeholder. Production rejects fake accounts. See `docs/PHASE_8_FAMILY_GUARDIAN_FAKE_ACCOUNT_FOUNDATION_COMPLETION_REPORT.md`.
+- **Phase 8 Family / Guardian / Household / Fake-Account Foundation** — Director Center **Families** tab for households, guardians/contacts, child-specific access levels, invitations (hashed/expiring/revocable; no email/SMS), and resettable `@example.invalid` fake accounts. Production rejects fake accounts. See `docs/PHASE_8_FAMILY_GUARDIAN_FAKE_ACCOUNT_FOUNDATION_COMPLETION_REPORT.md`.
+- **Phase 9 Responsive Family Hub Base** — Mobile-first Family Hub (Home / Children / Forms / Calendar / Account) for approved fake guardians under testing-preview gate. Production Family Hub remains locked. See `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md`.
 
 ### NOT STARTED
 
-- **Phase 9** full Family Hub interface
+- **Phase 10** photos, videos, detailed daily updates, family sharing
+- **Phase 11** full messaging and notification delivery
 - **Phase 18** complete Testing and Preview Lab
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
@@ -165,7 +167,7 @@ Policy lives in `scripts/expansion-feature-flags.js`.
 |------|--------------------------------------------------|------------------|
 | `directorCenter` | `true` (testing only) | Requires non-prod host + `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW` + verified admin Bearer |
 | `formsCenter` | `true` (testing only, Phase 4/5/6) | Requires non-prod host + `ALLOW_FORMS_CENTER_ADMIN_PREVIEW` + verified admin Bearer. The Phase 5 Built-In Library (`/api/forms-center/library/*`) and the Phase 6 assignment/response admin API (`/api/forms-center/assignments/*`, `/api/forms-center/responses/*`) all ride on this **same** flag — no separate flag was added. |
-| `familyHub` | **`false` always** | Forced OFF in policy; must remain OFF until approved |
+| `familyHub` | `true` on testing only with `ALLOW_FAMILY_HUB_TESTING_PREVIEW` | Testing preview for authenticated fake guardians; **production always locked** |
 | Defaults in code | All expansion flags **OFF** | Production hosts stay locked even if store says ON |
 
 The Phase 6 **recipient** API (`/api/form-recipient/*`) is intentionally **not** part of
@@ -313,6 +315,12 @@ See also: `docs/PHASE_2_TESTING_ENV_SAFETY.md`.
 | `scripts/test-family-foundation-phase8.js` | Phase 8 tests |
 | `scripts/capture-family-foundation-phase8-screens.js` | Screenshots → `/opt/cursor/artifacts/family-foundation-phase8/` |
 | `docs/PHASE_8_FAMILY_GUARDIAN_FAKE_ACCOUNT_FOUNDATION_COMPLETION_REPORT.md` | Phase 8 completion report |
+| `scripts/family-hub-data-model.js` | Phase 9: documents, change requests, calendar, notification prefs |
+| `scripts/family-hub-fixtures.js` | Phase 9 fixtures |
+| `server/family-hub-api.js` | Phase 9: `/api/family-hub/*` |
+| `family-hub-ui.js` | Phase 9 Family Hub UI |
+| `scripts/test-family-hub-phase9.js` | Phase 9 tests |
+| `docs/PHASE_9_FAMILY_HUB_BASE_COMPLETION_REPORT.md` | Phase 9 completion report |
 
 ### Shell wiring (shared)
 
@@ -394,7 +402,7 @@ Touched across phases (non-exhaustive): `server/index.js`, `app.js`, `index.html
 npm run check
 ```
 
-### Phase 1–8 automated suite (run all before handing off or starting Phase 9)
+### Phase 1–9 automated suite (run all before handing off or starting Phase 10)
 
 ```bash
 npm run test:director-family-foundation
@@ -406,6 +414,7 @@ npm run test:forms-center-phase6
 npm run test:forms-center-phase6-documents
 npm run test:forms-center-phase7
 npm run test:family-foundation-phase8
+npm run test:family-hub-phase9
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -421,9 +430,10 @@ node scripts/capture-forms-center-phase6-screens.js
 node scripts/capture-forms-center-phase6-documents-screens.js
 node scripts/capture-forms-center-phase7-screens.js
 node scripts/capture-family-foundation-phase8-screens.js
+node scripts/capture-family-hub-phase9-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 8 complete)
+### Handoff verification results (2026-07-22, Phase 9 complete)
 
 | Command | Result |
 |---------|--------|
@@ -437,10 +447,11 @@ node scripts/capture-family-foundation-phase8-screens.js
 | `npm run test:forms-center-phase6-documents` | PASS (15/15) |
 | `npm run test:forms-center-phase7` | PASS |
 | `npm run test:family-foundation-phase8` | PASS (36/36) |
+| `npm run test:family-hub-phase9` | PASS (21/21) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Full Phase 1–8 regression re-run before handoff — all suites PASS, zero failures.
+Full Phase 1–9 regression re-run before handoff — all suites PASS, zero failures.
 Phase gates are the scripts above.
 
 ---
@@ -451,7 +462,7 @@ Phase gates are the scripts above.
 2. **Mobile auth checkboxes** — Fixed in `cecbb24`; do not reintroduce giant checkbox CSS that scrambles signup/admin layouts.
 3. **Admin sidebar without member login** — Fixed via `admin-unlocked` shell + Director Center CTA (`744d48b` / `80949ff`); preserve this when editing nav CSS.
 4. **Testing deploy lag** — Agents cannot auto-deploy Render; owner must Manual Deploy testing after pushes; confirm cache busters match tip.
-5. **PR title may still say “Phase 2”** — Body/docs track Phases 1–8; update title when convenient.
+5. **PR title may still say “Phase 2”** — Body/docs track Phases 1–9; update title when convenient.
 6. **ManagePullRequest `update_pr` may fail** on repo rename casing (`little-learner-hub` vs `LITTLE-LEARNER-HUB`); pushes still update the PR head; use GitHub UI or API if body update tooling fails.
 7. **Hard-coded cache-buster regexes in tests** — `test-platform-nav.js` and `test-director-center-phase3.js` previously pinned an exact `?v=20260721-phase4` string for `forms-center-ui.js`/`styles.css`; relaxed to `\?v=` so future version bumps don't break unrelated test files. Prefer version-agnostic assertions for shared shell files going forward.
 8. **Standalone re-render modules need a bind-guard** — `forms-responses-ui.js` and `form-recipient-ui.js` re-render their whole container on every state change; `bind()` in both files guards against re-attaching duplicate event listeners with a `dataset.*Bound` flag. If you add another standalone re-rendering module, copy this guard — omitting it silently double/triple-fires click handlers (this caused a real bug during Phase 6 development: a checkbox toggle appeared to do nothing because two listeners canceled each other out).
@@ -461,7 +472,8 @@ Phase gates are the scripts above.
 
 ## Incomplete items
 
-- Phase 9 full Family Hub product surfaces
+- Phase 10 photos/videos/daily updates/family sharing
+- Phase 11 messaging and notification delivery
 - Phase 18 complete Testing and Preview Lab
 - Real approved AI provider connection (Phase 7 provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (Phase 7 import foundation prepared only)
@@ -479,9 +491,9 @@ Phase gates are the scripts above.
 
 ---
 
-## Phase 9 recommendation
+## Phase 10 recommendation
 
-When approved, start **Phase 9: Family Hub interface** that:
+When approved, start **Phase 10: Family media and daily updates** that:
 
 - Reuses Phase 8 permanent household / contact / access-rule / invitation IDs
 - Remains behind an explicit Family Hub enablement decision (flag stays forced OFF until then)
@@ -491,7 +503,7 @@ When approved, start **Phase 9: Family Hub interface** that:
 
 See `docs/PHASE_8_FAMILY_GUARDIAN_FAKE_ACCOUNT_FOUNDATION_COMPLETION_REPORT.md`.
 
-Do not begin Phase 9 until it is approved and Phase 8 is complete (it now is).
+Do not begin Phase 10 until it is approved and Phase 9 is complete (it now is).
 
 ---
 
@@ -499,10 +511,10 @@ Do not begin Phase 9 until it is approved and Phase 8 is complete (it now is).
 
 1. `git fetch origin && git checkout cursor/director-family-foundation-bc66 && git pull`
 2. Read this file and PR #324
-3. Run the full Phase 1–8 test suite; confirm all PASS
+3. Run the full Phase 1–9 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, `ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW`, `ALLOW_FORMS_CENTER_ADMIN_PREVIEW`, stored `directorCenter=true`, `formsCenter=true`, `familyHub=false`
 5. Smoke Director Center (incl. Families) → Teacher Center → Forms Center → AI Form Builder → Send/Assign → guardian-session placeholder with fake account
-6. Wait for owner-written Phase 9 requirements before coding
+6. Wait for owner-written Phase 10 requirements before coding
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 
@@ -512,10 +524,11 @@ Do not begin Phase 9 until it is approved and Phase 8 is complete (it now is).
 
 Until explicitly approved otherwise:
 
-- **Family Hub** (`familyHub`) — forced OFF (Phase 8 foundation only; no product UI)
+- **Family Hub on production** — always locked; testing preview only via `ALLOW_FAMILY_HUB_TESTING_PREVIEW`
 - **Live pricing changes** / live entitlement charges for expansion add-ons
 - **Live AI calls** from the AI Form Builder (mock fixtures only in testing; provider interface ready for a later approved connection)
-- **Phase 9** full Family Hub interface
+- **Phase 10** photos/videos/daily updates/family sharing
+- **Phase 11** messaging/notification delivery
 - **Phase 18** complete Testing and Preview Lab
 - Real outbound email/SMS delivery of assignment links/invitations/reminders
 - **Production migration** and **production release** of Director/Forms/Family expansion
@@ -585,9 +598,9 @@ All Phase 1–7 work is on the draft PR branch and testing/local preview paths o
 
 - [ ] Branch tip matches GitHub `origin/cursor/director-family-foundation-bc66`
 - [ ] Working tree clean after pull
-- [ ] All Phase 1–8 tests PASS
+- [ ] All Phase 1–9 tests PASS
 - [ ] Testing safety reconfirmed
-- [ ] Family Hub still OFF
+- [ ] Production Family Hub still locked
 - [ ] Live AI still disabled / mock-only in testing
-- [ ] Phase 9 requirements received before coding
+- [ ] Phase 10 requirements received before coding
 - [ ] No merge / no production deploy without approval
