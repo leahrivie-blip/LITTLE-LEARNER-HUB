@@ -18,6 +18,24 @@ const formsFixtures = require("../scripts/forms-center-preview-fixtures.js");
 const model = require("../scripts/ai-form-builder-data-model.js");
 const provider = require("../scripts/ai-form-builder-provider.js");
 const analyzer = require("../scripts/ai-form-builder-analyzer.js");
+const aiTestingSafety = require("../scripts/ai-testing-safety.js");
+
+// Test-only mock transport hook — see server/ai-testing-api.js for the full
+// rationale. Shared here so no automated test for the Form Builder's AI
+// Testing pathway ever makes a real network call either.
+function resolveTestFetchImpl() {
+  if (String(process.env.NODE_ENV || "") !== "test") return undefined;
+  const modulePath = process.env.AI_TESTING_MOCK_TRANSPORT_MODULE;
+  if (!modulePath) return undefined;
+  try {
+    const resolved = require.resolve(modulePath);
+    delete require.cache[resolved];
+    // eslint-disable-next-line global-require, import/no-dynamic-require
+    return require(modulePath);
+  } catch {
+    return undefined;
+  }
+}
 
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
 
@@ -316,6 +334,19 @@ function createAiFormBuilderApi({
     if (rejectEntitlement(response, ctx.entitlement)) return;
     if (requireCreatePermission(response, ctx)) return;
 
+    // Phase 23: an explicit, separate opt-in for a REAL OpenAI draft — never
+    // requested by the client body, only decided server-side by the full
+    // ai-testing-safety.js gate (production lock, ALLOW_OPENAI_TESTING,
+    // stored aiTesting flag, real key, approved caller, rate limit).
+    const aiTestingGate = aiTestingSafety.assertAiTestingAllowed({
+      storedFlags: ctx.store.siteContent?.featureFlags || {},
+      isVerifiedAdmin: Boolean(context.adminEmail),
+      isFakeAccountSession: Boolean(context.fakeAccountEmail),
+      accountEmail: context.adminEmail || context.fakeAccountEmail || "",
+      organizationId: ctx.organization.id,
+      store: ctx.store,
+    });
+
     let generated;
     try {
       generated = await provider.generateFormSuggestion(body, {
@@ -323,6 +354,17 @@ function createAiFormBuilderApi({
         aiCallsDisabled: aiCallsAreDisabled(),
         allowMockInPreview: true,
         requestedMode: body.mode || body.generatorMode || "",
+        aiTestingAllowed: aiTestingGate.allowed === true,
+        aiServiceParams: {
+          store: ctx.store,
+          env: process.env,
+          accountEmail: context.adminEmail || context.fakeAccountEmail || "",
+          organizationId: ctx.organization.id,
+          isVerifiedAdmin: Boolean(context.adminEmail),
+          isFakeAccountSession: Boolean(context.fakeAccountEmail),
+          storedFlags: ctx.store.siteContent?.featureFlags || {},
+          fetchImpl: resolveTestFetchImpl(),
+        },
       });
     } catch (error) {
       jsonResponse(response, error.status || 500, {
@@ -357,7 +399,7 @@ function createAiFormBuilderApi({
       session: model.summarizeSession(session),
       detail: session,
       label: generated.label,
-      aiCalled: false,
+      aiCalled: generated.aiCalled === true,
       neverAutoPublishes: true,
     });
   }
