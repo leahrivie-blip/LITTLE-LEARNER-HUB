@@ -322,17 +322,19 @@ async function main() {
     pass("16. Attendance and billing suggestions remain connected (same organization, same billing overview)");
 
     // Step 17: Provider generates an invoice simulation.
-    const recurringPlanId = billingOverview.json?.recurringPlans?.[0]?.id || billingOverview.json?.meta?.recurringPlanId;
-    if (recurringPlanId) {
-      const cycle = await requestJson("POST", "/api/director-center/billing/family/generate-cycle", {
-        recurringPlanId,
-        cycleKey: "2026-09",
-      }, auth);
-      assert.ok([200, 201, 409].includes(cycle.status), `invoice-cycle generation should succeed or already exist (got ${cycle.status})`);
-      pass("17. Provider generates an invoice simulation (fake data only — no real Stripe/billing touched)");
-    } else {
-      skip("17. Provider generates an invoice simulation", "no recurring billing plan id resolved from overview");
-    }
+    // The billing overview API only ever returns a recurringPlans COUNT, never IDs
+    // (server/billing-simulator-api.js#handleFamilyOverview) — the real provider UI
+    // (billing-simulator-ui.js) discovers a usable recurringPlanId by finding it on an
+    // already-seeded invoice instead, so the E2E test does the same real, reachable
+    // thing a provider actually does, rather than reading the server's store file directly.
+    const recurringPlanId = (billingOverview.json?.invoices || []).find((i) => i.recurringPlanId)?.recurringPlanId;
+    assert.ok(recurringPlanId, "a seeded fake organization should have at least one invoice referencing a recurring plan for the provider to discover");
+    const cycle = await requestJson("POST", "/api/director-center/billing/family/generate-cycle", {
+      recurringPlanId,
+      cycleKey: "2026-09",
+    }, auth);
+    assert.ok([200, 201, 409].includes(cycle.status), `invoice-cycle generation should succeed or already exist (got ${cycle.status})`);
+    pass("17. Provider generates an invoice simulation (fake data only — no real Stripe/billing touched)");
 
     // Step 18: Guardian sees only authorized billing information.
     if (guardianSessionToken) {
