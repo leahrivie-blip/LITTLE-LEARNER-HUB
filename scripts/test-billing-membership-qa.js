@@ -269,6 +269,7 @@ async function main() {
   assert(serverJs.includes("applyCheckoutMembershipUpgrade"), "Shared checkout membership upgrade helper missing");
   assert(serverJs.includes("stripeSubscriptionStatus"), "Checkout statusForPlan must set stripeSubscriptionStatus");
   assert(serverJs.includes("/api/admin/subscription-refresh"), "Admin subscription refresh endpoint missing");
+  assert(serverJs.includes("/api/admin/billing-reconciliation"), "Admin read-only billing reconciliation endpoint missing");
   assert(serverJs.includes("markProcessedStripeEvent"), "Webhook idempotency marker missing");
   assert(serverJs.includes("invoice.paid"), "invoice.paid webhook handling missing");
 
@@ -754,6 +755,26 @@ async function main() {
       assert(readStore().users["ordered-webhook@billing.test"].plan === "Pro", "Older event did not downgrade current access");
       const duplicateRes = await requestJson("POST", "/api/webhooks/stripe", staleEvent);
       assert(duplicateRes.status === 200 && duplicateRes.json?.duplicate === true, "Duplicate Stripe event is idempotent");
+    }
+
+    console.log("9e) Admin billing reconciliation endpoint is read-only and requires auth");
+    {
+      const storeBefore = fs.readFileSync(STORE_PATH, "utf8");
+      const noAuth = await requestJson("GET", "/api/admin/billing-reconciliation?email=paid-founding@billing.test");
+      assert(noAuth.status === 401, "Billing reconciliation requires admin auth");
+      const withAuth = await requestJson(
+        "GET",
+        `/api/admin/billing-reconciliation?adminToken=${encodeURIComponent(adminLogin.json.token)}&email=paid-founding@billing.test`,
+      );
+      // No Stripe keys in this test environment → 503 (route exists and correctly refuses
+      // to guess at Stripe state). If Stripe were configured this would be 200.
+      assert([200, 503].includes(withAuth.status), `Billing reconciliation route should respond, got ${withAuth.status}`);
+      if (withAuth.status === 200) {
+        assert(withAuth.json?.readOnly === true, "Billing reconciliation reports readOnly:true");
+        assert(Array.isArray(withAuth.json?.results), "Billing reconciliation returns a results array");
+      }
+      const storeAfter = fs.readFileSync(STORE_PATH, "utf8");
+      assert(storeAfter === storeBefore, "Billing reconciliation check must never write to the store");
     }
 
     console.log("10) Browser persona labels & access");
