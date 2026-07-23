@@ -56,6 +56,12 @@
     notice: "",
     loading: false,
     layout: "flagship",
+    // Phase 23: testing-only OpenAI pathway — never defaults on, always
+    // falls back to the heuristic result above if AI is unavailable.
+    tryAi: false,
+    aiComparison: null,
+    aiUsePlan: "heuristic",
+    aiFeedbackGiven: false,
   };
 
   function escapeHtml(value) {
@@ -252,6 +258,40 @@
     `;
   }
 
+  function aiComparisonHtml() {
+    const cmp = state.aiComparison;
+    if (!cmp) return "";
+    if (cmp.usedFallback) {
+      return `
+        <div class="ca-ai-panel" data-ca-ai-panel>
+          <p class="ca-ai-warning">⚠ AI suggestion unavailable right now (${escapeHtml(cmp.aiUnavailableReason || "unknown reason")}). Your entry was not lost — the local review above is being used.</p>
+          <button type="button" class="ghost-button" data-ca-ai-retry>Try AI again</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="ca-ai-panel" data-ca-ai-panel>
+        <p class="ca-ai-eyebrow">Testing only — compare with a real OpenAI interpretation before you decide what to save.</p>
+        ${(cmp.aiRawResult?.missingInformationWarnings || []).length ? `<p class="ca-ai-warning">⚠ AI noted missing information: ${escapeHtml(cmp.aiRawResult.missingInformationWarnings.join(" · "))}</p>` : ""}
+        ${(cmp.aiRawResult?.safetyWarnings || []).length ? `<p class="ca-ai-warning">⚠ ${escapeHtml(cmp.aiRawResult.safetyWarnings.join(" · "))}</p>` : ""}
+        <p class="muted-copy">AI summary: ${escapeHtml(cmp.aiRawResult?.summary || "")}</p>
+        <div class="ca-actions-row">
+          <label><input type="radio" name="ca-ai-use-plan" value="heuristic" ${state.aiUsePlan === "heuristic" ? "checked" : ""} data-ca-ai-use-plan/> Use the local review (above)</label>
+          <label><input type="radio" name="ca-ai-use-plan" value="ai" ${state.aiUsePlan === "ai" ? "checked" : ""} data-ca-ai-use-plan/> Use the AI interpretation instead</label>
+        </div>
+        <button type="button" class="ghost-button" data-ca-ai-retry>Regenerate AI suggestion</button>
+        ${!state.aiFeedbackGiven ? `
+          <div class="ca-actions-row">
+            <span class="muted-copy">Was this AI suggestion:</span>
+            <button type="button" class="ghost-button" data-ca-ai-feedback="helpful">Helpful</button>
+            <button type="button" class="ghost-button" data-ca-ai-feedback="needs_changes">Needs changes</button>
+            <button type="button" class="ghost-button" data-ca-ai-feedback="not_usable">Not usable</button>
+          </div>
+        ` : `<p class="muted-copy">Thank you — feedback recorded for this testing session.</p>`}
+      </div>
+    `;
+  }
+
   function previewHtml() {
     const plan = state.parsed?.plan;
     if (!plan) {
@@ -268,6 +308,7 @@
         ${plan.difficultSituation ? `<p class="ca-sensitive">${escapeHtml(plan.difficultSituation.guidance || "Use calm, factual wording.")}</p>` : ""}
         ${previewSummaryHtml(plan)}
         ${suggestionsHtml(plan)}
+        ${aiComparisonHtml()}
         ${plan.offlineQueued ? `
           <p class="muted-copy">Queued offline. Sync will parse and save when you are back online.</p>
         ` : `
@@ -396,6 +437,10 @@
               </button>
               <button type="button" class="ghost-button" data-ca-clear-note>Clear</button>
             </div>
+            <label class="ca-ai-toggle muted-copy">
+              <input type="checkbox" data-ca-try-ai ${state.tryAi ? "checked" : ""}/>
+              Try AI interpretation (testing only — the local review is always kept as a fallback)
+            </label>
           </form>
           ${examplesHtml()}
         </section>
@@ -523,8 +568,33 @@
         return;
       }
       state.loading = true;
+      state.aiComparison = null;
+      state.aiUsePlan = "heuristic";
+      state.aiFeedbackGiven = false;
       renderInto(container, options);
       try {
+        if (state.tryAi && detectNetworkState() !== "offline") {
+          // /api/ai-testing lives outside this module's own /api/director-center/
+          // classroom-assistant base, so this one call bypasses the api() helper's
+          // base-prefixing and calls it directly with the same auth headers.
+          const aiResponse = await fetch("/api/ai-testing/classroom-assistant/interpret", {
+            method: "POST",
+            headers: headers(options),
+            cache: "no-store",
+            body: JSON.stringify({ text, organizationId: options.organizationId || "" }),
+          });
+          const comparison = await aiResponse.json().catch(() => ({}));
+          if (!aiResponse.ok) throw new Error(comparison.error || `AI interpretation request failed (${aiResponse.status})`);
+          state.parsed = { preview: true, plan: comparison.heuristicPlan };
+          state.aiComparison = comparison;
+          if (!comparison.usedFallback) state.aiUsePlan = "ai";
+          state.notice = comparison.usedFallback
+            ? "Preview ready. AI suggestion was unavailable this time — your local review is ready to confirm."
+            : "Preview ready — compare the local review with the AI suggestion below, then confirm.";
+          state.loading = false;
+          renderInto(container, options);
+          return;
+        }
         if (detectNetworkState() === "offline") {
           const item = {
             id: `caoffline_${Date.now().toString(16)}_${Math.random().toString(16).slice(2, 8)}`,
@@ -584,29 +654,34 @@
 
     container.querySelector("[data-ca-confirm-apply]")?.addEventListener("click", async () => {
       if (!state.parsed?.plan || state.parsed.plan.offlineQueued) return;
+      // The provider explicitly chose which reviewed plan to save (heuristic or,
+      // if she selected it above, the AI interpretation) — either way this goes
+      // through the SAME confirm-required /apply endpoint, never a second path.
+      const planToApply = (state.aiUsePlan === "ai" && state.aiComparison?.aiPlan) ? state.aiComparison.aiPlan : state.parsed.plan;
       state.error = "";
       state.loading = true;
       renderInto(container, options);
       try {
         if (detectNetworkState() === "offline") {
-          queueOfflineApply(options, state.parsed.plan);
+          queueOfflineApply(options, planToApply);
           state.notice = "Saved to offline queue. Syncing when connection returns.";
         } else {
           state.applied = await api(options, "POST", "/apply", {
-            planId: state.parsed.plan.id,
-            plan: state.parsed.plan,
+            planId: planToApply.id,
+            plan: planToApply,
             confirm: true,
             organizationId: options.organizationId || "",
           });
           state.notice = "Saved. Ready for the next classroom note.";
           state.parsed = null;
+          state.aiComparison = null;
           state.activeDraftType = "";
           state.draftText = "";
           await loadDashboard(options);
         }
       } catch (error) {
         if (detectNetworkState() === "offline" || /failed to fetch|network/i.test(error.message || "")) {
-          queueOfflineApply(options, state.parsed.plan);
+          queueOfflineApply(options, planToApply);
           state.networkState = "offline";
           state.notice = "Connection lost — note queued offline.";
         } else {
@@ -616,6 +691,66 @@
         state.loading = false;
       }
       renderInto(container, options);
+    });
+
+    container.querySelector("[data-ca-try-ai]")?.addEventListener("change", (event) => {
+      state.tryAi = event.target.checked;
+    });
+
+    container.querySelector("[data-ca-ai-retry]")?.addEventListener("click", async () => {
+      const text = String(state.draftText || state.parsed?.plan?.sourceText || "").trim();
+      if (!text) return;
+      state.loading = true;
+      renderInto(container, options);
+      try {
+        const aiResponse = await fetch("/api/ai-testing/classroom-assistant/interpret", {
+          method: "POST",
+          headers: headers(options),
+          cache: "no-store",
+          body: JSON.stringify({ text, organizationId: options.organizationId || "" }),
+        });
+        const comparison = await aiResponse.json().catch(() => ({}));
+        if (!aiResponse.ok) throw new Error(comparison.error || `AI interpretation request failed (${aiResponse.status})`);
+        state.aiComparison = comparison;
+        state.aiFeedbackGiven = false;
+        state.aiUsePlan = comparison.usedFallback ? "heuristic" : "ai";
+      } catch (error) {
+        state.error = error.message;
+      } finally {
+        state.loading = false;
+      }
+      renderInto(container, options);
+    });
+
+    container.querySelectorAll("[data-ca-ai-use-plan]").forEach((input) => {
+      input.addEventListener("change", (event) => {
+        state.aiUsePlan = event.target.value;
+        renderInto(container, options);
+      });
+    });
+
+    container.querySelectorAll("[data-ca-ai-feedback]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const rating = btn.getAttribute("data-ca-ai-feedback");
+        try {
+          await fetch("/api/ai-testing/feedback", {
+            method: "POST",
+            headers: headers(options),
+            cache: "no-store",
+            body: JSON.stringify({
+              workflowType: "classroom_assistant",
+              rating,
+              model: state.aiComparison?.model || "",
+              promptVersionId: state.aiComparison?.promptVersionId || "",
+              organizationId: options.organizationId || "",
+            }),
+          });
+          state.aiFeedbackGiven = true;
+        } catch {
+          // Feedback is best-effort during testing — never block the provider's workflow on it.
+        }
+        renderInto(container, options);
+      });
     });
 
     container.querySelector("[data-ca-sync-offline]")?.addEventListener("click", async () => {
