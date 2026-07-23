@@ -24,6 +24,7 @@
     notice: "",
     oneTimePassword: "",
     issuedEmail: "",
+    onboardResult: null,
     deviceSession: null,
     preview: null,
     saveStatus: "idle",
@@ -78,15 +79,45 @@
     `;
   }
 
+  function onboardResultHtml() {
+    if (!state.onboardResult) return "";
+    const r = state.onboardResult;
+    return `
+      <div class="tl-onetime" data-tl-onboard-result>
+        <p><strong>Testing environment ready.</strong> ${escapeHtml(r.note || "")}</p>
+        <p class="muted-copy">Feature flags enabled: ${escapeHtml((r.featureFlagsEnabled || []).join(", "))}</p>
+        <table class="tl-onboard-table">
+          <thead>
+            <tr><th>Role</th><th>Email</th><th>Temporary password</th><th>Program</th></tr>
+          </thead>
+          <tbody>
+            ${(r.logins || []).map((row) => `
+              <tr>
+                <td>${escapeHtml(row.role)}</td>
+                <td><code>${escapeHtml(row.email)}</code></td>
+                <td><code>${escapeHtml(row.temporaryPassword)}</code></td>
+                <td class="muted-copy">${escapeHtml(row.program)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+        ${(r.missingRoles || []).length ? `<p class="muted-copy">Could not find fake accounts for: ${escapeHtml(r.missingRoles.join(", "))}</p>` : ""}
+        <button type="button" class="ghost-button" data-tl-clear-onboard>Clear from screen</button>
+      </div>
+    `;
+  }
+
   function homeHtml() {
     const d = state.dashboard?.dashboard || {};
     return `
       <section class="tl-section" data-tl-home>
         <div class="fu-toolbar">
           <h3>Testing Lab dashboard</h3>
-          <button type="button" class="primary-button" data-tl-quick-start>Quick start (Small Center)</button>
+          <button type="button" class="primary-button" data-tl-onboard-everything>Get the testing site ready (seed both programs + all logins)</button>
+          <button type="button" class="ghost-button" data-tl-quick-start>Quick start (Small Center)</button>
           <button type="button" class="ghost-button" data-tl-return-admin>Return to administrator account</button>
         </div>
+        ${onboardResultHtml()}
         <div class="tl-status-row">
           ${[
             ["Organization", d.organizationId || "—"],
@@ -773,6 +804,20 @@
         state.error = error.message;
         render(mount);
       }
+    });
+    mount.querySelector("[data-tl-onboard-everything]")?.addEventListener("click", async () => {
+      try {
+        state.onboardResult = await api("POST", `${BASE}/onboard-everything`, {});
+        state.notice = "Testing site ready — copy every password now, shown once.";
+        await refresh(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-clear-onboard]")?.addEventListener("click", () => {
+      state.onboardResult = null;
+      render(mount);
     });
     mount.querySelector("[data-tl-return-admin]")?.addEventListener("click", async () => {
       try {

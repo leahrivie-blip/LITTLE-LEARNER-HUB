@@ -24776,6 +24776,24 @@ button.linkish {
   border-radius: 8px;
   background: #f7faf8;
 }
+.tl-onboard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.tl-onboard-table th,
+.tl-onboard-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #e0e6e2;
+  text-align: left;
+}
+.tl-onboard-table code {
+  font-size: 0.85rem;
+}
 .tl-device-frame {
   border: 1px solid #d7e0e7;
   border-radius: 12px;

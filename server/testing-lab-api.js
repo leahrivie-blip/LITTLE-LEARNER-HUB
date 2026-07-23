@@ -263,6 +263,196 @@ function createTestingLabApi({
     }
   }
 
+  // Phase 23 final handoff: one owner action that gets the whole testing site
+  // ready — seeds a solo Home Daycare and a multi-classroom Center, turns on
+  // every completed testing feature flag, and issues a fresh one-time
+  // password for all 10 fake-account roles (Platform Admin uses the real
+  // admin login, not a fake account). Every password is generated fresh on
+  // each call and returned exactly once in this response — never stored in
+  // plaintext, never logged, never written to a fixture file.
+  const ONBOARD_ROLE_PLAN = [
+    {
+      role: "Center Owner",
+      kind: familyModel.FAKE_ACCOUNT_KINDS.OWNER,
+      orgFrom: "center",
+      program: "Meadow Lane Growing Center (fake, multi-classroom)",
+      sees: "Everything for her own center: classrooms, staff, billing, enrollment, reports.",
+      denied: "Nothing — she owns this center. (Cannot see other fake organizations.)",
+    },
+    {
+      role: "Director",
+      kind: "director",
+      orgFrom: "center",
+      program: "Meadow Lane Growing Center (fake, multi-classroom)",
+      sees: "Classrooms, staff, enrollment, records, licensing, reports for her center.",
+      denied: "Billing (owner-only in this preview).",
+    },
+    {
+      role: "Solo Home Daycare Provider",
+      kind: "home_daycare",
+      orgFrom: "fixed",
+      program: "Sunny Corner Home Daycare (fake, solo provider)",
+      sees: "Her own solo daycare: children, schedules, forms, billing, Classroom Assistant.",
+      denied: "Any center-only tools (classrooms/staff directory) — she runs a home daycare, not a center.",
+    },
+    {
+      role: "Lead Teacher",
+      kind: "lead_teacher",
+      orgFrom: "center",
+      program: "Meadow Lane Growing Center (fake, multi-classroom)",
+      sees: "Her assigned classroom's children, daily logs, activities, messages.",
+      denied: "Staff management, billing, enrollment, other classrooms' children.",
+    },
+    {
+      role: "Assistant",
+      kind: "assistant_broad",
+      orgFrom: "center",
+      program: "Meadow Lane Growing Center (fake, multi-classroom)",
+      sees: "Daily logs, activities, and messages for the children she's assigned to.",
+      denied: "Staff management, billing, enrollment, director-only tools.",
+    },
+    {
+      role: "Curriculum Only Provider",
+      kind: "curriculum_only",
+      orgFrom: "fixed",
+      program: "(no children/classroom — curriculum-only plan)",
+      sees: "Lesson Plans, Monthly Curriculum, Activity Center, Calendar, her own billing/settings.",
+      denied: "Forms, staff management, permissions, reports, classrooms, families, enrollment.",
+    },
+    {
+      role: "Guardian (multiple children)",
+      kind: "parent_multi_child",
+      orgFrom: "home",
+      program: "Lin Household — Ava Lin & Ben Lin (fake children)",
+      sees: "Only her own children's information in Family Hub.",
+      denied: "Any other family's information, and every provider/staff tool.",
+    },
+    {
+      role: "Financially Responsible Guardian",
+      kind: "financial_guardian",
+      orgFrom: "home",
+      program: "Lin Household (fake) — billing contact",
+      sees: "Her own family's billing/invoices in Family Hub.",
+      denied: "Any other family's billing, and every provider/staff tool.",
+    },
+    {
+      role: "Pickup-Only Guardian",
+      kind: "pickup_only",
+      orgFrom: "home",
+      program: "Cole Household — Dana Cole (fake child)",
+      sees: "Only pickup-relevant information for Dana.",
+      denied: "Billing, forms, messages, and any other family's information.",
+    },
+    {
+      role: "Restricted Guardian",
+      kind: "restricted_guardian",
+      orgFrom: "home",
+      program: "Cole Household — Dana Cole (fake child)",
+      sees: "A limited, access-controlled view — intentionally less than a full guardian.",
+      denied: "Digital access beyond her configured restricted level; any other family's information.",
+    },
+  ];
+
+  async function handleOnboardEverything(request, response, ctx) {
+    const store = readStore();
+    if (!assertLabAccess(store, response)) return;
+    try {
+      const flags = store.siteContent?.featureFlags || {};
+      store.siteContent = store.siteContent || {};
+      store.siteContent.featureFlags = {
+        ...flags,
+        directorCenter: true,
+        formsCenter: true,
+        familyHub: true,
+        testingLab: true,
+      };
+
+      const seededHome = fixtures.ensurePhase18Preview(store, {
+        adminEmail: ctx.adminEmail,
+        scenario: model.SCENARIO_PACKS.HOME_DAYCARE,
+      });
+      const seededCenter = fixtures.ensurePhase18Preview(store, {
+        adminEmail: ctx.adminEmail,
+        scenario: model.SCENARIO_PACKS.GROWING_CENTER,
+      });
+      if (!model.isFakeOrganizationId(seededHome.organizationId) || !model.isFakeOrganizationId(seededCenter.organizationId)) {
+        return deny(response, 403, "real_target_rejected", "Testing Lab cannot target non-fake organizations.");
+      }
+
+      const allAccounts = listValues(store.familyFoundation?.fakeAccounts || {});
+      const orgIdForRole = (orgFrom) => {
+        if (orgFrom === "center") return seededCenter.organizationId;
+        if (orgFrom === "home") return seededHome.organizationId;
+        return ""; // "fixed" kinds (curriculum_only/home_daycare) are unique — no org filter needed.
+      };
+
+      const logins = [];
+      const missing = [];
+      for (const plan of ONBOARD_ROLE_PLAN) {
+        const targetOrgId = orgIdForRole(plan.orgFrom);
+        const account = allAccounts.find((row) => row.kind === plan.kind && (!targetOrgId || row.organizationId === targetOrgId));
+        if (!account) {
+          missing.push(plan.role);
+          continue;
+        }
+        const password = tempPasswordAuth.generateTemporaryPassword();
+        const hash = tempPasswordAuth.hashPasswordSha256(password);
+        account.passwordHash = hash;
+        account.mustChangePassword = false;
+        account.lastPasswordIssuedAt = model.nowIso();
+        account.updatedAt = model.nowIso();
+        store.familyFoundation.fakeAccounts[account.id] = account;
+        const mainAppIdentity = familyModel.mainAppIdentityForFakeAccount(account);
+        store.users = store.users || {};
+        const userKey = safeLower(account.email);
+        store.users[userKey] = {
+          ...(store.users[userKey] || {}),
+          email: account.email,
+          displayName: account.displayName,
+          passwordHash: hash,
+          serverPasswordAuth: true,
+          mustChangePassword: false,
+          testingOnly: true,
+          testingAccount: true,
+          fakeAccountId: account.id,
+          fakeAccountKind: account.kind,
+          organizationId: account.organizationId,
+          role: mainAppIdentity.role,
+          accountType: mainAppIdentity.accountType,
+          familyHubGuardian: mainAppIdentity.familyHubGuardian,
+          updatedAt: model.nowIso(),
+        };
+        logins.push({
+          role: plan.role,
+          email: account.email,
+          temporaryPassword: password,
+          program: plan.program,
+          sees: plan.sees,
+          denied: plan.denied,
+        });
+      }
+      model.appendAudit(store, {
+        organizationId: seededCenter.organizationId,
+        action: "onboard_everything",
+        actorEmail: ctx.adminEmail,
+        detail: `Testing environment onboarded: ${logins.length} fake logins issued (plaintext not logged), feature flags enabled.`,
+      });
+      writeStore(store);
+      jsonResponse(response, 200, {
+        ok: true,
+        testingBanner: model.TESTING_BANNER,
+        note: "Copy every password now — none are stored in plaintext and none will be shown again. This response is never logged.",
+        featureFlagsEnabled: ["directorCenter", "formsCenter", "familyHub", "testingLab"],
+        homeDaycare: { organizationId: seededHome.organizationId, alreadySeeded: Boolean(seededHome.alreadySeeded) },
+        center: { organizationId: seededCenter.organizationId, alreadySeeded: Boolean(seededCenter.alreadySeeded) },
+        logins,
+        missingRoles: missing,
+      });
+    } catch (error) {
+      deny(response, 400, "onboard_failed", error.message || "Onboarding failed.");
+    }
+  }
+
   async function handleIssuePassword(request, response, ctx) {
     const store = readStore();
     if (!assertLabAccess(store, response)) return;
@@ -600,6 +790,7 @@ function createTestingLabApi({
     if (method === "GET" && path === `${BASE}/health`) return (req, res, ctx) => resilience.handleHealth(req, res, ctx);
     if (method === "GET" && path === `${BASE}/activity`) return (req, res, ctx) => resilience.handleActivityPage(req, res, ctx);
     if (method === "POST" && path === `${BASE}/seed`) return (req, res, ctx) => handleSeed(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/onboard-everything`) return (req, res, ctx) => handleOnboardEverything(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/issue-password`) return (req, res, ctx) => handleIssuePassword(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/revoke-session`) return (req, res, ctx) => handleRevokeSession(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/select`) return (req, res, ctx) => handleSelectAccount(req, res, ctx);
