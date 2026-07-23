@@ -24,6 +24,8 @@ That's it — both fake programs (a solo home daycare and a multi-classroom cent
 
 You can select this again any time (e.g., if you lose the passwords) — it issues fresh passwords each time without duplicating the fake programs.
 
+**A note on the newer "real AI" testing feature (optional, separate from the above):** the one-click setup above does **not** turn on real AI. A separate feature flag called **AI Testing** exists purely for trying out a real OpenAI connection on fake data. It is off by default, and everything else on the testing site works exactly the same with or without it. See Section 8-K and Section 13 below if you want to try it — it needs one more thing (a testing OpenAI key) that only the owner can add.
+
 ## 3. Which fake account to use
 
 | If you want to test... | Use this account kind |
@@ -112,6 +114,16 @@ As a Director/Owner, check the billing overview and try generating an invoice si
 ### J. Phone / tablet / computer layouts
 Try a few screens (Today, Settings, Classroom Assistant, Director Center) at a phone width (~390px), a tablet width (~768–1024px), and a normal computer width. Look for sideways scrolling, cut-off menus, or buttons hidden behind other elements.
 
+### K. Trying real AI (optional — Classroom Assistant)
+This step only does anything if the owner has turned on the **AI Testing** flag and added a testing OpenAI key (see Section 13). If it isn't on yet, everything below simply won't appear, and Classroom Assistant works exactly as described in Section H.
+
+1. Sign in as a **Lead Teacher** or **Assistant** and open **Classroom Assistant**.
+2. Describe a note as usual (Section H), but before submitting, check the box labeled **"Try AI interpretation (testing only — the local review is always kept as a fallback)."**
+3. Submit the note. You'll see your normal local review **and**, underneath it, an AI interpretation of the same note side by side.
+4. Choose **"Use the local review (above)"** or **"Use the AI interpretation instead"** — either one goes through the same confirm step before anything is saved, and one is not "more official" than the other.
+5. Rate the AI's attempt — **Helpful**, **Needs changes**, or **Not usable** — with one click. This helps tune the AI over time; it is never required and never blocks you from saving your entry.
+6. If the AI is temporarily unavailable, you'll see a plain message saying so and a **"Try AI again"** button — your note is never lost, and the local review is always ready to confirm on its own.
+
 ## 9. How to report something confusing
 
 If a screen doesn't make sense, or you're not sure what a button does, write down:
@@ -138,6 +150,44 @@ If you think something should work differently (not broken, just could be better
 ## 12. Why no real child information should be used yet
 
 This testing site exists so that new features can be tried safely, by people who are not real families, using data that could never be mistaken for a real child's private information. Real names, real photos, real medical details, real payment information — none of that belongs here. If you're ever unsure whether something is "real" or "pretend," look for the **"Testing Account — Fake Data Only"** banner, or check that the email ends in `@example.invalid` — if you see either, it's safe pretend data.
+
+## 13. AI Testing and "AI Outcomes" (owner/admin only)
+
+This section is for **Leah (the owner/admin)**, not a regular tester. It covers a newer, separate, optional feature: trying a real OpenAI connection on fake data only, and reviewing how it did.
+
+### Turning it on
+1. In an environment variable (only the owner sets this, never a tester), add a real OpenAI key as `OPENAI_API_KEY`, plus `ALLOW_OPENAI_TESTING=true`. This can only ever be set on the **testing** site, never on the real (production) site — the code refuses to use it there even if it were somehow set by mistake.
+2. Sign in to the testing site as **Platform Admin** and turn on the **"AI Testing"** feature flag the same way you turned on Testing Lab (Section 2 / Settings → feature flags).
+3. That's it — the model, the spending limits, and everything else are already configured; see below.
+
+### What model is used, and how much it can spend
+- The model is set once, by the owner, as `OPENAI_MODEL` (defaults to a small, inexpensive model, `gpt-4o-mini`, if not set). No tester can change which model is used for real requests.
+- **Spending/rate controls, on by default, need no setup:** each fake account can make at most 20 AI requests per minute, and each fake organization (all its accounts combined) can make at most 50 per minute — past that, requests are automatically declined with a friendly "try again in a moment" message, never a crash. There is no way to remove these limits from the testing UI.
+- Every AI request's token usage and an estimated cost (in fractions of a cent, for a small model) accumulate in a running total, visible at the top of the **AI Outcomes** panel (see below) — this is an estimate for your own awareness, not a bill; check your OpenAI account for the real, authoritative amount.
+- If you ever want to stop all real AI calls immediately, turning the **"AI Testing"** flag back off (or removing `OPENAI_API_KEY`) takes effect immediately — nothing else on the testing site is affected, and every AI-assisted screen simply goes back to using only the local, non-AI review it always had.
+
+### Production always refuses AI, guaranteed
+The real, live site (`littlelearnershubbyleah.com`) can never make a real AI call, no matter what is set — this is checked the same way as every other testing-only feature (Director Center, Forms Center, Family Hub, Testing Lab), and is covered by an automated test that intentionally tries it and confirms it's blocked every time. If AI Testing is ever accidentally left on and this code somehow reached production, every request would just silently use the same trusted local review it always used — a provider's entry is never lost and no real AI call is ever attempted.
+
+### How to open "AI Outcomes"
+1. Sign in as **Platform Admin** on the testing site.
+2. Open **Testing Lab** from the sidebar.
+3. Click the **"AI Outcomes"** tab in the row of tabs across the top (alongside Home, Health, Release Readiness, etc.).
+
+You'll see: whether AI testing is currently enabled, which model is configured, whether a testing key is present, the running request/cost totals, a list of ready-made fake scenarios you can run, and prompt-version history with the ability to roll back to an earlier version.
+
+### The first 5 scenarios you'll see
+The scenario list currently includes 13 realistic, entirely fake situations. The first five are:
+1. **Scraped knee on the playground** — a minor first-aid note.
+2. **Biting incident** — a same-day incident between two fixture children.
+3. **Difficult drop-off** — a hard-morning note that needs a calm, professional parent update.
+4. **Child refusing lunch** — a meal note with one child's exception.
+5. **Potty accident** — a routine care note.
+
+Click **"Run this scenario"** on any of them to send that exact fake note through both the local review and the real AI side by side, right there in the panel.
+
+### How to rate a result
+After running a scenario (or after trying AI directly in Classroom Assistant — Section 8-K), you'll see three one-click buttons: **Helpful**, **Needs changes**, and **Not usable**. Click whichever matches. That's the entire rating flow — there's no form to fill out, and rating is never required before you can move on or save your own entry.
 
 ---
 
