@@ -20404,6 +20404,56 @@ body.lesson-editor-view .main {
   border-left: 1px solid #e6b975;
 }
 
+.sandbox-role-switcher-actions {
+  display: inline-flex;
+  gap: 8px;
+  padding-left: 8px;
+  border-left: 1px solid #e6b975;
+}
+
+.sandbox-role-switcher-actions button {
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+}
+
+.sandbox-role-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(53, 47, 43, 0.42);
+}
+
+.sandbox-role-picker-modal[hidden] {
+  display: none !important;
+}
+
+.sandbox-role-picker-card {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100dvh - 64px);
+  overflow: auto;
+  background: var(--white);
+  border-radius: 14px;
+  padding: 20px;
+  box-shadow: 0 20px 50px rgba(24, 28, 36, 0.28);
+}
+
+.sandbox-role-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 14px 0;
+}
+
+.sandbox-role-picker-list button {
+  width: 100%;
+  text-align: left;
+  min-height: 44px;
+}
+
 @media (max-width: 480px) {
   .testing-identity-banner {
     font-size: 0.76rem;

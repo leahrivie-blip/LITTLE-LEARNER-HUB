@@ -27,6 +27,9 @@
     createdOrgId: "",
     orgLogins: [],
     orgLoginsOrgId: "",
+    sandboxAccounts: [],
+    sandboxRoleCatalog: [],
+    sandboxNotice: "",
     onboardResult: null,
     aiStatus: null,
     aiScenarios: [],
@@ -458,6 +461,75 @@
         ${(state.dashboard?.accounts || []).length ? `
           <button type="button" class="primary-button" data-tl-issue-org-logins="${escapeHtml(state.dashboard.accounts[0]?.organizationId || "")}">Generate fresh logins for every role in this organization</button>
         ` : ""}
+      </section>
+      ${sandboxManagerHtml()}
+    `;
+  }
+
+  function sandboxRoleLabel(key) {
+    return (state.sandboxRoleCatalog || []).find((entry) => entry.key === key)?.label || key;
+  }
+
+  function sandboxRoleCheckboxesHtml(namePrefix, checkedKeys = []) {
+    const checked = new Set(checkedKeys);
+    const catalog = state.sandboxRoleCatalog || [];
+    return catalog.map(({ key, label }) => `
+      <label class="tl-check">
+        <input type="checkbox" data-sandbox-role-checkbox="${namePrefix}" value="${escapeHtml(key)}" ${checked.has(key) ? "checked" : ""} />
+        ${escapeHtml(label || key)}
+      </label>
+    `).join("") || "<p class=\"muted-copy\">Loading role catalog…</p>";
+  }
+
+  function sandboxManagerHtml() {
+    return `
+      <section class="tl-section" data-tl-sandbox-manager>
+        <h3>External Tester Sandbox — one login, admin-chosen roles</h3>
+        <p class="muted-copy">
+          One external tester login that switches ONLY among the roles you approve below —
+          never Platform Admin, never Testing Lab Admin, never AI Outcomes Admin, never another
+          organization. Enforced on the server, not just hidden in the browser.
+        </p>
+        <div class="tl-actions-row" data-tl-create-sandbox-row>
+          <label>Organization id
+            <input type="text" data-sandbox-org-id placeholder="e.g. ${escapeHtml(state.createdOrgId || state.dashboard?.accounts?.[0]?.organizationId || "org_tester_...")}" value="${escapeHtml(state.createdOrgId || "")}" />
+          </label>
+          <label>Tester email
+            <input type="text" data-sandbox-email placeholder="e.g. sandbox.tester1@example.invalid" />
+          </label>
+          <label>Display name
+            <input type="text" data-sandbox-display-name placeholder="External Tester" />
+          </label>
+        </div>
+        <p class="muted-copy">Allowed roles for this tester:</p>
+        <div class="tl-actions-row" data-sandbox-create-roles>
+          ${sandboxRoleCheckboxesHtml("create")}
+        </div>
+        <button type="button" class="primary-button" data-tl-create-sandbox>Create External Tester Sandbox</button>
+        ${state.sandboxNotice ? `<p class="muted-copy" role="status">${escapeHtml(state.sandboxNotice)}</p>` : ""}
+
+        <h4>Existing External Tester Sandbox accounts</h4>
+        <ul class="fh-card-list">
+          ${(state.sandboxAccounts || []).map((row) => `
+            <li class="fh-card static" data-tl-sandbox-account="${escapeHtml(row.id)}">
+              <strong>${escapeHtml(row.email)}</strong>
+              <span class="dc-badge">${row.active === false ? "Suspended/ended" : "Active"}</span>
+              <p class="muted-copy">Org <code>${escapeHtml(row.organizationId)}</code> · currently viewing as <strong>${escapeHtml(row.activeRoleLabel || "—")}</strong></p>
+              <p class="muted-copy">Approved roles: ${(row.allowedRoleKeys || []).length ? (row.allowedRoleKeys.map((k) => escapeHtml(sandboxRoleLabel(k))).join(", ")) : "(none — login blocked)"}</p>
+              <div class="tl-actions-row" data-sandbox-edit-roles="${escapeHtml(row.id)}">
+                ${sandboxRoleCheckboxesHtml(`edit-${row.id}`, row.allowedRoleKeys || [])}
+              </div>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tl-save-sandbox-roles="${escapeHtml(row.id)}">Save allowed roles</button>
+                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">${row.hasPassword ? "Reissue password" : "Issue password"}</button>
+                ${row.active === false
+                  ? `<button type="button" class="ghost-button" data-tl-reactivate="${escapeHtml(row.id)}">Reactivate</button>`
+                  : `<button type="button" class="ghost-button" data-tl-suspend="${escapeHtml(row.id)}">Suspend</button>`}
+                <button type="button" class="ghost-button" data-tl-end-account="${escapeHtml(row.id)}">End account</button>
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No External Tester Sandbox accounts yet.</li>"}
+        </ul>
       </section>
     `;
   }
@@ -943,6 +1015,9 @@
           state.tfActiveThread = null;
           await loadTestingFeedbackAdminThreads();
         }
+        if (state.panel === "accounts") {
+          await loadSandboxAccounts();
+        }
         render(mount);
       });
     });
@@ -965,6 +1040,16 @@
         state.tfError = "";
       } catch (error) {
         state.tfError = error.message;
+      }
+    }
+
+    async function loadSandboxAccounts() {
+      try {
+        const data = await api("GET", "/api/external-tester/list");
+        state.sandboxAccounts = data.accounts || [];
+        state.sandboxRoleCatalog = data.roleCatalog || [];
+      } catch (error) {
+        state.error = error.message;
       }
     }
 
@@ -1455,6 +1540,41 @@
           state.notice = "Could not access the clipboard — copy the password manually before leaving this screen.";
         }
         render(mount);
+      });
+    });
+    mount.querySelector("[data-tl-create-sandbox]")?.addEventListener("click", async () => {
+      try {
+        const organizationId = String(mount.querySelector("[data-sandbox-org-id]")?.value || "").trim();
+        const email = String(mount.querySelector("[data-sandbox-email]")?.value || "").trim().toLowerCase();
+        const displayName = String(mount.querySelector("[data-sandbox-display-name]")?.value || "").trim();
+        const allowedRoleKeys = Array.from(mount.querySelectorAll('[data-sandbox-role-checkbox="create"]:checked')).map((el) => el.value);
+        if (!organizationId || !email) {
+          state.error = "An organization id and tester email are both required.";
+          render(mount);
+          return;
+        }
+        const data = await api("POST", "/api/external-tester/create", { organizationId, email, displayName, allowedRoleKeys });
+        state.sandboxNotice = `Created ${data.account.email} — currently viewing as ${data.account.activeRoleLabel || "(no role approved yet)"}. Use "Issue password" below to generate its one-time login.`;
+        await loadSandboxAccounts();
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelectorAll("[data-tl-save-sandbox-roles]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const accountId = btn.getAttribute("data-tl-save-sandbox-roles");
+          const allowedRoleKeys = Array.from(mount.querySelectorAll(`[data-sandbox-role-checkbox="edit-${accountId}"]:checked`)).map((el) => el.value);
+          const data = await api("POST", "/api/external-tester/set-allowed-roles", { accountId, allowedRoleKeys });
+          state.sandboxNotice = `Updated allowed roles for ${data.account.email}.`;
+          await loadSandboxAccounts();
+          render(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
       });
     });
     mount.querySelectorAll("[data-tl-start-preview]").forEach((btn) => {

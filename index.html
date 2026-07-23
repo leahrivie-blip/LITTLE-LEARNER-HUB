@@ -311,6 +311,22 @@
         <div id="testingIdentityBanner" class="testing-identity-banner" hidden role="status" aria-live="polite">
           <span id="testingIdentityBannerText">LITTLE LEARNER HUB TESTING — FAKE DATA ONLY</span>
           <span id="testingIdentityRoleText" class="testing-identity-role-text" hidden></span>
+          <span id="sandboxRoleSwitcherActions" class="sandbox-role-switcher-actions" hidden>
+            <button type="button" class="ghost-button" id="sandboxSwitchRoleBtn" data-sandbox-switch-role>Switch Testing Role</button>
+            <button type="button" class="ghost-button" id="sandboxReturnHomeBtn" data-sandbox-return-home>Return to Tester Home</button>
+          </span>
+        </div>
+
+        <!-- External Tester Sandbox role picker — normal document flow modal,
+             never trapping focus/clicks on anything else while hidden. -->
+        <div id="sandboxRolePickerModal" class="sandbox-role-picker-modal" hidden role="dialog" aria-modal="true" aria-label="Switch testing role">
+          <div class="sandbox-role-picker-card">
+            <h3>Switch Testing Role</h3>
+            <p class="muted-copy">Your Platform Admin has approved these roles for this testing account. Switching never changes your assigned testing organization.</p>
+            <div id="sandboxRolePickerList" class="sandbox-role-picker-list"></div>
+            <p id="sandboxRolePickerError" class="tf-error" hidden></p>
+            <button type="button" class="ghost-button" id="sandboxRolePickerClose" data-sandbox-close-picker>Cancel</button>
+          </div>
         </div>
 
         <!-- SITE-WIDE ANNOUNCEMENT BANNER -->

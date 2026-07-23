@@ -10788,6 +10788,7 @@ function updateAuthButtons() {
   if (typeof refreshTestingFeedbackWidget === "function") refreshTestingFeedbackWidget();
   if (typeof refreshTestingIdentityBanner === "function") refreshTestingIdentityBanner();
   if (typeof refreshTopNavExitPreview === "function") refreshTopNavExitPreview();
+  if (typeof refreshExternalTesterSandboxState === "function") refreshExternalTesterSandboxState();
   // Auth state just changed (login, logout, or boot restore) — keep the
   // notification bell in sync either way (it also hides itself when logged out).
   if (typeof refreshNotificationBell === "function") {
@@ -36100,11 +36101,25 @@ function testingIdentityRoleLabel() {
 function refreshTestingIdentityBanner() {
   const banner = document.querySelector("#testingIdentityBanner");
   const roleText = document.querySelector("#testingIdentityRoleText");
+  const switcherActions = document.querySelector("#sandboxRoleSwitcherActions");
   if (!banner) return;
   try {
     const isTesting = !isProductionHostClient();
     banner.hidden = !isTesting;
-    if (!isTesting) return;
+    if (!isTesting) {
+      if (switcherActions) switcherActions.hidden = true;
+      return;
+    }
+    if (isExternalTesterSandbox()) {
+      const roleLabel = externalTesterSandboxState.account?.activeRoleLabel || "";
+      if (roleText) {
+        roleText.hidden = false;
+        roleText.textContent = `CURRENTLY VIEWING AS: ${(roleLabel || "—").toUpperCase()}`;
+      }
+      if (switcherActions) switcherActions.hidden = false;
+      return;
+    }
+    if (switcherActions) switcherActions.hidden = true;
     const roleLabel = testingIdentityRoleLabel();
     if (roleText) {
       roleText.hidden = !roleLabel;
@@ -36112,6 +36127,116 @@ function refreshTestingIdentityBanner() {
     }
   } catch {
     banner.hidden = true;
+  }
+}
+
+// ---- External Tester Sandbox (testing-only, never production) ------------
+// One tester login that self-service switches among a fixed, admin-chosen
+// set of NON-ADMIN roles — every real safety decision (which roles exist at
+// all, which ones THIS account may use, which organization it's locked to)
+// is enforced server-side in scripts/external-tester-sandbox-data-model.js /
+// server/external-tester-sandbox-api.js; this client code only renders the
+// current state and never locally fabricates a switch that the server
+// hasn't confirmed.
+let externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+
+function isExternalTesterSandbox() {
+  return Boolean(externalTesterSandboxState.active);
+}
+
+async function externalTesterSandboxApi(method, path, body) {
+  const response = await fetch(path, {
+    method,
+    headers: testingFeedbackAuthHeaders(),
+    cache: "no-store",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+
+async function refreshExternalTesterSandboxState() {
+  if (!isFakeAccountTester() || isProductionHostClient()) {
+    externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+    return;
+  }
+  try {
+    const data = await externalTesterSandboxApi("GET", "/api/external-tester/me");
+    externalTesterSandboxState = { active: true, account: data.account, roleCatalog: data.roleCatalog || [], loading: false, error: "" };
+  } catch {
+    // 404/401/anything else simply means this fake account is NOT a sandbox
+    // account — the normal fixed-role testing banner applies instead.
+    externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+  }
+  refreshTestingIdentityBanner();
+}
+
+function sandboxRolePickerHtml() {
+  return (externalTesterSandboxState.roleCatalog || []).map((entry) => `
+    <button type="button" class="ghost-button ${entry.key === externalTesterSandboxState.account?.activeRoleKey ? "primary-button" : ""}" data-sandbox-role-option="${escapeHtml(entry.key)}">
+      ${entry.key === externalTesterSandboxState.account?.activeRoleKey ? "● " : ""}${escapeHtml(entry.label)}
+    </button>
+  `).join("") || `<p class="muted-copy">Your Platform Admin has not approved any testing roles for this account yet.</p>`;
+}
+
+function openSandboxRolePicker() {
+  const modal = document.querySelector("#sandboxRolePickerModal");
+  const list = document.querySelector("#sandboxRolePickerList");
+  const errorEl = document.querySelector("#sandboxRolePickerError");
+  if (!modal || !list) return;
+  list.innerHTML = sandboxRolePickerHtml();
+  if (errorEl) errorEl.hidden = true;
+  modal.hidden = false;
+}
+
+function closeSandboxRolePicker() {
+  const modal = document.querySelector("#sandboxRolePickerModal");
+  if (modal) modal.hidden = true;
+}
+
+async function switchSandboxRole(roleKey) {
+  const errorEl = document.querySelector("#sandboxRolePickerError");
+  try {
+    const data = await externalTesterSandboxApi("POST", "/api/external-tester/switch-role", { roleKey });
+    // Update the LOCAL cached account immediately from the server's own
+    // confirmed identity (never from the requested roleKey — always from
+    // what the server actually applied) so a refresh right after switching
+    // can never show a stale/previous role even if nothing else re-syncs
+    // from the server on boot.
+    if (currentUser && typeof updateAccount === "function" && data?.identity) {
+      updateAccount(currentUser, {
+        role: data.identity.role,
+        accountType: data.identity.accountType,
+        familyHubGuardian: data.identity.familyHubGuardian,
+      });
+    }
+    // A full reload is the simplest, most robust way to guarantee every
+    // piece of chrome (nav, capabilities, views already open) re-derives
+    // from the freshly-switched identity — no stale client-side state left
+    // over from the previous role can survive a full reload.
+    location.reload();
+  } catch (error) {
+    if (errorEl) {
+      errorEl.hidden = false;
+      errorEl.textContent = error?.message || "Could not switch role.";
+    } else {
+      showActionFeedback(error?.message || "Could not switch role.");
+    }
+  }
+}
+
+/** "Return to Tester Home" — the safe landing view for the CURRENTLY active role, never a role change. */
+function returnToTesterHome() {
+  try {
+    const account = currentAccount();
+    if (account?.familyHubGuardian && typeof setView === "function") {
+      setView("family-hub");
+      return;
+    }
+    if (typeof setView === "function") setView("today");
+  } catch (error) {
+    console.warn("[sandbox] could not return to tester home:", error?.message || error);
   }
 }
 
@@ -49140,6 +49265,30 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-top-nav-exit-preview]")) {
     event.preventDefault();
     exitAllPreviewModes();
+    return;
+  }
+
+  const sandboxSwitchBtn = event.target.closest("[data-sandbox-switch-role]");
+  if (sandboxSwitchBtn) {
+    event.preventDefault();
+    openSandboxRolePicker();
+    return;
+  }
+  if (event.target.closest("[data-sandbox-close-picker]") || event.target.id === "sandboxRolePickerModal") {
+    event.preventDefault();
+    closeSandboxRolePicker();
+    return;
+  }
+  const sandboxReturnHomeBtn = event.target.closest("[data-sandbox-return-home]");
+  if (sandboxReturnHomeBtn) {
+    event.preventDefault();
+    returnToTesterHome();
+    return;
+  }
+  const sandboxRoleOption = event.target.closest("[data-sandbox-role-option]");
+  if (sandboxRoleOption) {
+    event.preventDefault();
+    switchSandboxRole(sandboxRoleOption.getAttribute("data-sandbox-role-option"));
     return;
   }
 
