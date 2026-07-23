@@ -25,6 +25,12 @@
     oneTimePassword: "",
     issuedEmail: "",
     onboardResult: null,
+    aiStatus: null,
+    aiScenarios: [],
+    aiRunsByScenario: {},
+    aiPromptWorkflow: "classroom_assistant",
+    aiPromptVersions: [],
+    aiError: "",
     deviceSession: null,
     preview: null,
     saveStatus: "idle",
@@ -69,6 +75,7 @@
       ["data", "Data Controls"],
       ["checklist", "Test Checklist"],
       ["audit", "Activity"],
+      ["ai", "AI Outcomes"],
     ];
     return `
       <nav class="tl-subnav" aria-label="Testing Lab panels">
@@ -140,6 +147,91 @@
             <li class="fh-card static"><strong>${escapeHtml(row.action)}</strong><span class="muted-copy">${escapeHtml(row.detail || "")}</span></li>
           `).join("") || "<li class=\"muted-copy\">None yet</li>"}
         </ul>
+      </section>
+    `;
+  }
+
+  const AI_WORKFLOW_LABELS = {
+    classroom_assistant: "Classroom Assistant",
+    professional_draft: "Professional drafts",
+    lesson_plan_assist: "Lesson plan / activity assistance",
+    form_builder: "Form Builder",
+  };
+
+  function aiRunSummaryHtml(run) {
+    if (!run) return "<p class=\"muted-copy\">Not run yet.</p>";
+    return `
+      <div class="tl-ai-run">
+        <p class="muted-copy">Model: ${escapeHtml(run.model || "—")} · Latency: ${escapeHtml(String(run.latencyMs || 0))}ms · Est. cost: ${escapeHtml((run.costCents || 0).toFixed(4))}¢ · Tokens: ${escapeHtml(String(run.tokensUsed?.total || 0))}</p>
+        ${(run.warnings || []).length ? `<p class="tl-ai-warning">⚠ ${escapeHtml(run.warnings.join(" · "))}</p>` : ""}
+        <div class="tl-ai-compare">
+          <div>
+            <h5>Heuristic result</h5>
+            <pre class="tl-ai-json">${escapeHtml(JSON.stringify(run.heuristicResult, null, 2)).slice(0, 1200)}</pre>
+          </div>
+          <div>
+            <h5>OpenAI result</h5>
+            <pre class="tl-ai-json">${run.aiResult ? escapeHtml(JSON.stringify(run.aiResult, null, 2)).slice(0, 1200) : "<em>Unavailable — see warnings above.</em>"}</pre>
+          </div>
+        </div>
+        <div class="tl-actions-row">
+          <button type="button" class="ghost-button" data-tl-ai-rate="${escapeHtml(run.id)}" data-tl-ai-rating="helpful">Helpful</button>
+          <button type="button" class="ghost-button" data-tl-ai-rate="${escapeHtml(run.id)}" data-tl-ai-rating="needs_changes">Needs changes</button>
+          <button type="button" class="ghost-button" data-tl-ai-rate="${escapeHtml(run.id)}" data-tl-ai-rating="not_usable">Not usable</button>
+          ${run.rating ? `<span class="dc-badge">Rated: ${escapeHtml(run.rating)}</span>` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  function aiOutcomesHtml() {
+    const status = state.aiStatus;
+    return `
+      <section class="tl-section" data-tl-ai-outcomes>
+        <h3>AI Outcomes — testing only</h3>
+        <p class="muted-copy">Compare the heuristic result with a real, structured OpenAI response on fake scenarios only. Nothing here ever saves, sends, publishes, bills, or diagnoses automatically.</p>
+        ${status ? `
+          <div class="tl-status-row">
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">AI testing enabled</p><p class="dc-metric-value">${status.enabled ? "Yes" : "No"}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Model configured</p><p class="dc-metric-value">${escapeHtml(status.model || "—")}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Testing key present</p><p class="dc-metric-value">${status.hasApiKey ? "Yes" : "No"}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Total AI requests so far</p><p class="dc-metric-value">${escapeHtml(String(status.usageTotals?.totalRequests || 0))}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Estimated total cost</p><p class="dc-metric-value">${escapeHtml((status.usageTotals?.estimatedCostCents || 0).toFixed(4))}¢</p></article>
+          </div>
+          ${!status.enabled ? `<p class="tl-ai-warning">⚠ AI testing is off (${escapeHtml(status.reason || "unknown reason")}). Turn on the "aiTesting" flag and confirm a testing OPENAI_API_KEY is set — the heuristic system keeps working either way.</p>` : ""}
+        ` : "<p class=\"muted-copy\">Loading status…</p>"}
+
+        <h4>Fake scenario library</h4>
+        <ul class="fh-card-list">
+          ${(state.aiScenarios || []).map((scenario) => `
+            <li class="fh-card static" data-tl-ai-scenario="${escapeHtml(scenario.id)}">
+              <strong>${escapeHtml(scenario.label)}</strong>
+              <span class="dc-badge">${escapeHtml(AI_WORKFLOW_LABELS[scenario.workflowType] || scenario.workflowType)}</span>
+              <p class="muted-copy">"${escapeHtml(scenario.inputText).slice(0, 140)}${scenario.inputText.length > 140 ? "…" : ""}"</p>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tl-ai-run="${escapeHtml(scenario.id)}">Run this scenario</button>
+              </div>
+              ${aiRunSummaryHtml(state.aiRunsByScenario[scenario.id])}
+            </li>
+          `).join("") || "<li class=\"muted-copy\">Loading scenarios…</li>"}
+        </ul>
+
+        <h4>Prompt versions</h4>
+        <select data-tl-ai-prompt-workflow>
+          ${Object.entries(AI_WORKFLOW_LABELS).map(([key, label]) => `<option value="${escapeHtml(key)}" ${state.aiPromptWorkflow === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+        </select>
+        <ul class="fh-card-list">
+          ${(state.aiPromptVersions || []).map((version) => `
+            <li class="fh-card static">
+              <strong>${version.active ? "● Active" : "Inactive"} — ${escapeHtml(version.createdAt || "")}</strong>
+              <p class="muted-copy">${escapeHtml(version.text || "").slice(0, 220)}</p>
+              ${!version.active ? `<button type="button" class="ghost-button" data-tl-ai-rollback="${escapeHtml(version.id)}">Roll back to this version</button>` : ""}
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No versions saved yet — one is created automatically on first use.</li>"}
+        </ul>
+        <textarea data-tl-ai-new-prompt-text rows="4" placeholder="Write a new prompt version for this workflow…" style="width:100%;"></textarea>
+        <button type="button" class="primary-button" data-tl-ai-save-prompt>Save as new version</button>
+        ${state.aiError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.aiError)}</p>` : ""}
       </section>
     `;
   }
@@ -538,6 +630,7 @@
     if (state.panel === "data") return dataHtml();
     if (state.panel === "checklist") return checklistHtml();
     if (state.panel === "audit") return auditHtml();
+    if (state.panel === "ai") return aiOutcomesHtml();
     return homeHtml();
   }
 
@@ -644,6 +737,87 @@
           } catch (error) {
             state.error = error.message;
           }
+        }
+        if (state.panel === "ai") {
+          await loadAiOutcomesData();
+        }
+        render(mount);
+      });
+    });
+    async function loadAiOutcomesData() {
+      try {
+        state.aiStatus = await api("GET", "/api/ai-testing/status");
+        const scenarioData = await api("GET", "/api/ai-testing/scenarios");
+        state.aiScenarios = scenarioData.scenarios || [];
+        const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+        state.aiPromptVersions = promptData.versions || [];
+        state.aiError = "";
+      } catch (error) {
+        state.aiError = error.message;
+      }
+    }
+    mount.querySelectorAll("[data-tl-ai-run]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const scenarioId = btn.getAttribute("data-tl-ai-run");
+        try {
+          const result = await api("POST", `/api/ai-testing/scenarios/${scenarioId}/run`, {});
+          state.aiRunsByScenario[scenarioId] = result.run;
+          state.aiError = result.aiSucceeded ? "" : `AI unavailable for this run: ${result.aiError || "unknown reason"} (heuristic result shown; nothing was lost).`;
+        } catch (error) {
+          state.aiError = error.message;
+        }
+        render(mount);
+      });
+    });
+    mount.querySelectorAll("[data-tl-ai-rate]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const runId = btn.getAttribute("data-tl-ai-rate");
+        const rating = btn.getAttribute("data-tl-ai-rating");
+        try {
+          const result = await api("POST", `/api/ai-testing/runs/${runId}/rate`, { rating });
+          Object.keys(state.aiRunsByScenario).forEach((scenarioId) => {
+            if (state.aiRunsByScenario[scenarioId]?.id === runId) state.aiRunsByScenario[scenarioId] = result.run;
+          });
+        } catch (error) {
+          state.aiError = error.message;
+        }
+        render(mount);
+      });
+    });
+    mount.querySelector("[data-tl-ai-prompt-workflow]")?.addEventListener("change", async (event) => {
+      state.aiPromptWorkflow = event.target.value;
+      try {
+        const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+        state.aiPromptVersions = promptData.versions || [];
+      } catch (error) {
+        state.aiError = error.message;
+      }
+      render(mount);
+    });
+    mount.querySelector("[data-tl-ai-save-prompt]")?.addEventListener("click", async () => {
+      const textarea = mount.querySelector("[data-tl-ai-new-prompt-text]");
+      const text = textarea?.value || "";
+      if (!text.trim()) return;
+      try {
+        await api("POST", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`, { text });
+        const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+        state.aiPromptVersions = promptData.versions || [];
+        state.notice = "New prompt version saved and made active.";
+      } catch (error) {
+        state.aiError = error.message;
+      }
+      render(mount);
+    });
+    mount.querySelectorAll("[data-tl-ai-rollback]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const versionId = btn.getAttribute("data-tl-ai-rollback");
+        try {
+          await api("POST", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/rollback`, { versionId });
+          const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+          state.aiPromptVersions = promptData.versions || [];
+          state.notice = "Rolled back to the selected prompt version.";
+        } catch (error) {
+          state.aiError = error.message;
         }
         render(mount);
       });
