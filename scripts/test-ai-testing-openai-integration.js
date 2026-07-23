@@ -364,6 +364,46 @@ async function main() {
       pass("15b. Form Builder's generateWithLiveProvider returns real structured AI content when the AI Testing gate allows it");
     }
 
+    // 15c. Lesson-plan assist: deep schema validation (not just reachability).
+    // Classroom Assistant (test 4/9) and Form Builder (test 15b) already get a
+    // real structured-response shape assertion each — this closes the same gap
+    // for lesson-plan-assist, which otherwise only had the shallow 200/502
+    // reachability check in test 15.
+    {
+      const DEFAULT_LESSON_PLAN_RESULT = {
+        organizedActivities: [
+          { day: "Monday", title: "Colors Everywhere", materials: ["color cards", "paint"], developmentalFocus: ["fine_motor", "cognitive"] },
+          { day: "Tuesday", title: "Nature Walk", materials: ["collection bags"], developmentalFocus: ["gross_motor", "science_exploration"] },
+        ],
+        ageGroupSuggestions: ["preschool"],
+        playBasedAlternatives: [
+          { originalActivity: "Colors Everywhere", alternative: "Open-ended color sorting with loose parts", looseParts: ["bottle caps", "fabric scraps"] },
+        ],
+        looseSummaryOfSourceText: "A two-day plan covering colors and a nature walk.",
+        missingFields: ["No materials list for Wednesday through Friday."],
+      };
+      setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_LESSON_PLAN_RESULT))}, usage: { input_tokens: 90, output_tokens: 60 } }) })`);
+      const lp = await requestJson("POST", "/api/ai-testing/lesson-plan/assist", {
+        text: "Monday: Colors Everywhere - sorting activity with color cards, painting with primary colors. Tuesday: Nature Walk - collect leaves, sort by shape. No materials list for Wednesday through Friday.",
+        organizationId: "org_lp_deep_test",
+      }, auth);
+      assert.equal(lp.status, 200, "a valid structured lesson-plan response should succeed, not fall back");
+      assert.equal(lp.json.ok, true);
+      assert.ok(Array.isArray(lp.json.result.organizedActivities) && lp.json.result.organizedActivities.length === 2, "organizedActivities should be parsed per-day, not collapsed");
+      assert.deepEqual(lp.json.result.ageGroupSuggestions, ["preschool"]);
+      assert.ok(lp.json.result.playBasedAlternatives[0].looseParts.length > 0, "a play-based/loose-parts alternative should be suggested alongside the original activity, never replacing it silently");
+      assert.ok(lp.json.result.missingFields.length >= 1, "a plan with gaps (no Wed-Fri materials) must surface them, never invent filler content");
+      assert.ok(lp.json.tokensUsed && lp.json.tokensUsed.total > 0, "usage/cost tracking must apply to lesson-plan-assist the same as every other workflow");
+
+      // Malformed structured output must fail cleanly (502), never a false 200.
+      setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: "not valid json {{{", usage: { input_tokens: 10, output_tokens: 5 } }) })`);
+      const lpBad = await requestJson("POST", "/api/ai-testing/lesson-plan/assist", { text: "Monday: colors.", organizationId: "org_lp_deep_test_bad" }, auth);
+      assert.equal(lpBad.status, 502, "malformed structured output must be a definitive failure, never a false success");
+      assert.equal(lpBad.json.ok, false);
+      assert.equal(lpBad.json.code, "invalid_structured_output");
+      pass("15c. Lesson-plan assist: valid structured responses parse into per-day activities/age suggestions/loose-parts alternatives/missing-field warnings, and malformed output fails cleanly (502), matching the depth already proven for Classroom Assistant and Form Builder");
+    }
+
     // 16. Duplicate prevention when the SAME AI-built plan is applied twice
     {
       setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
