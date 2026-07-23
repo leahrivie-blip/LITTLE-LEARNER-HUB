@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Phase 23 — AI Testing REAL smoke test (manual only, never part of the
- * automated regression suite in spirit even though it lives under `test:*`).
+ * AI Testing REAL smoke test (manual only, never part of the automated
+ * regression suite in spirit even though it lives under `test:*`).
  *
  * Every other AI-testing test in this repository (scripts/test-ai-testing-
  * openai-integration.js and friends) mocks the OpenAI transport via
@@ -12,66 +12,76 @@
  * rest of the AI Testing scenario library), so a human can confirm the live
  * integration actually works end-to-end before relying on it.
  *
+ * TWO modes:
+ *
+ * 1. LOCAL mode (default) — spins up its OWN throwaway server on a random
+ *    port with a temp local-json store, using an OPENAI_API_KEY you pass on
+ *    this command line. Useful for developing this feature itself, before
+ *    anything is deployed. The key is only ever in THIS local process/shell.
+ *
+ * 2. REMOTE mode (AI_TESTING_SMOKE_TARGET_URL is set) — makes real HTTPS
+ *    calls against an ALREADY-DEPLOYED testing service (e.g. Render). This
+ *    is the mode to use to verify a real deployment. It NEVER needs the
+ *    OpenAI key at all: the deployed service already has its own
+ *    OPENAI_API_KEY configured server-side (as a Render secret/environment
+ *    variable on that service, never entered here) — this script only logs
+ *    in as the testing site's admin (a normal admin login, not the OpenAI
+ *    key) and calls the same public AI Testing endpoints a real admin
+ *    session would, letting the ALREADY-CONFIGURED server-side key do the
+ *    work. Nothing about the OpenAI key ever appears in this script's
+ *    command line, environment, terminal output, or logs, in this mode.
+ *
  * Safe by construction:
- *   - Skips (exit code 0, not a failure) unless BOTH a real OPENAI_API_KEY
- *     AND an explicit AI_TESTING_REAL_SMOKE_CONFIRM=yes are present. Simply
- *     having OPENAI_API_KEY set in the environment for some other reason is
- *     never enough by itself to spend real money.
- *   - Spins up its own throwaway server on a random port with a temp
- *     local-json store — never touches server/data/launch-store.json, a
- *     real database, or any already-running dev server.
- *   - Uses a non-production SITE_URL, so this is exercising exactly the
- *     same "testing host" path a real tester would use.
- *   - Also spins up a SECOND server with a production-style SITE_URL to
- *     re-confirm, live, that the production lock still stands (zero real
- *     network calls made in that second pass — this is the same guarantee
- *     scripts/test-ai-testing-openai-integration.js's mocked "Production AI
- *     rejection" check makes, just re-verified here against the real
- *     provider client code path instead of a mock).
+ *   - Skips (exit code 0, not a failure) unless explicitly confirmed via
+ *     AI_TESTING_REAL_SMOKE_CONFIRM=yes, AND (local mode: a real
+ *     OPENAI_API_KEY; remote mode: a target URL + admin login).
+ *   - Refuses to run in remote mode against anything that looks like the
+ *     live production hostname, even if someone points it there by mistake.
  *   - Makes at most 4 real calls total (one per workflow type), each on a
  *     short, obviously-fake fixture note. Prints the exact token usage and
  *     estimated cost for every call so a human can see precisely what was
- *     spent.
+ *     spent — never the request/response content itself beyond the small,
+ *     already-fixture-only summaries below.
  *
- * Usage:
+ * Usage (local):
  *   OPENAI_API_KEY=sk-... AI_TESTING_REAL_SMOKE_CONFIRM=yes \
  *     npm run test:ai-testing-real-smoke
  *
+ * Usage (remote, against an already-deployed testing service — see
+ * docs/TESTING_DEPLOYMENT_RENDER_STEPS.md for the exact safe procedure):
+ *   AI_TESTING_SMOKE_TARGET_URL=https://little-learner-hub-testing.onrender.com \
+ *   AI_TESTING_SMOKE_ADMIN_EMAIL=... AI_TESTING_SMOKE_ADMIN_PASSWORD=... AI_TESTING_SMOKE_ADMIN_CODE=... \
+ *   AI_TESTING_REAL_SMOKE_CONFIRM=yes \
+ *     npm run test:ai-testing-real-smoke
+ *
  * Optional:
- *   OPENAI_MODEL=gpt-4o-mini (default if unset)
+ *   OPENAI_MODEL=gpt-4o-mini (local mode only — remote mode always uses
+ *   whatever OPENAI_MODEL is already configured on the deployed service)
  */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const http = require("node:http");
 const os = require("node:os");
 const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
+const expansionFeatureFlags = require("./expansion-feature-flags.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 23400 + Math.floor(Math.random() * 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-ai-real-smoke-${crypto.randomBytes(4).toString("hex")}.json`);
-const ADMIN = { email: "ai-real-smoke-admin@example.invalid", password: "ai-real-smoke-pass", code: "ai-real-smoke-code" };
+const LOCAL_ADMIN = { email: "ai-real-smoke-admin@example.invalid", password: "ai-real-smoke-pass", code: "ai-real-smoke-code" };
 
-function requestJson(method, urlPath, body, headers = {}) {
-  return new Promise((resolve, reject) => {
-    const payload = body ? JSON.stringify(body) : null;
-    const req = http.request(
-      { hostname: "127.0.0.1", port: PORT, path: urlPath, method, headers: { ...headers, ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}) } },
-      (res) => {
-        const chunks = [];
-        res.on("data", (c) => chunks.push(c));
-        res.on("end", () => {
-          const text = Buffer.concat(chunks).toString("utf8");
-          let json = null;
-          try { json = text ? JSON.parse(text) : null; } catch { json = null; }
-          resolve({ status: res.statusCode, json });
-        });
-      },
-    );
-    req.on("error", reject);
-    if (payload) req.write(payload);
-    req.end();
+function requestJson(baseUrl, method, urlPath, body, headers = {}) {
+  const payload = body ? JSON.stringify(body) : undefined;
+  return fetch(`${baseUrl}${urlPath}`, {
+    method,
+    headers: { ...headers, ...(payload ? { "Content-Type": "application/json" } : {}) },
+    body: payload,
+  }).then(async (res) => {
+    const text = await res.text();
+    let json = null;
+    try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+    return { status: res.status, json };
   });
 }
 
@@ -83,9 +93,9 @@ function startServer(envOverrides = {}) {
       ...process.env,
       PORT: String(PORT),
       SITE_URL: `http://127.0.0.1:${PORT}`,
-      ADMIN_EMAIL: ADMIN.email,
-      ADMIN_PASSWORD: ADMIN.password,
-      ADMIN_ACCESS_CODE: ADMIN.code,
+      ADMIN_EMAIL: LOCAL_ADMIN.email,
+      ADMIN_PASSWORD: LOCAL_ADMIN.password,
+      ADMIN_ACCESS_CODE: LOCAL_ADMIN.code,
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
       ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true",
@@ -101,10 +111,10 @@ function startServer(envOverrides = {}) {
   });
 }
 
-async function waitForBoot(child) {
+async function waitForBoot(baseUrl, child) {
   for (let i = 0; i < 100; i += 1) {
     try {
-      const res = await requestJson("GET", "/api/health");
+      const res = await requestJson(baseUrl, "GET", "/api/health");
       if (res.status === 200) return;
     } catch { /* retry */ }
     if (child.exitCode !== null) throw new Error("server exited before becoming healthy");
@@ -122,11 +132,18 @@ async function stopServer(child) {
   });
 }
 
-async function enableAiTesting(token) {
-  const auth = { Authorization: `Bearer ${token}` };
-  const siteContentGet = await requestJson("GET", `/api/admin/site-content?adminToken=${token}`);
-  await requestJson("POST", "/api/admin/site-content", {
-    adminToken: token,
+async function loginAsAdmin(baseUrl, admin) {
+  const login = await requestJson(baseUrl, "POST", "/api/admin/login", admin);
+  if (login.status !== 200 || !login.json?.token) {
+    throw new Error(`Admin login failed against ${baseUrl} (status ${login.status}). Check the admin email/password/code.`);
+  }
+  return { Authorization: `Bearer ${login.json.token}` };
+}
+
+async function enableAiTesting(baseUrl, auth) {
+  const siteContentGet = await requestJson(baseUrl, "GET", `/api/admin/site-content?adminToken=${auth.Authorization.slice(7)}`);
+  await requestJson(baseUrl, "POST", "/api/admin/site-content", {
+    adminToken: auth.Authorization.slice(7),
     siteContent: { updatedAt: siteContentGet.json?.siteContent?.updatedAt || "", featureFlags: { aiTesting: true, directorCenter: true, testingLab: true } },
   });
   return auth;
@@ -159,34 +176,110 @@ const REAL_CALLS = [
   },
 ];
 
-async function main() {
+async function runRealCalls(baseUrl, auth) {
+  let totalCostCents = 0;
+  let totalTokens = 0;
+  const status = await requestJson(baseUrl, "GET", "/api/ai-testing/status", null, auth);
+  assert.equal(status.json.enabled, true, "AI testing should report enabled on a non-production host with a real key and the flag on");
+  console.log(`PASS  Status check: enabled=true, model=${status.json.model}, hasApiKey=${status.json.hasApiKey}\n`);
+
+  for (const call of REAL_CALLS) {
+    const started = Date.now();
+    const res = await requestJson(baseUrl, "POST", call.path, call.body, auth);
+    const elapsedMs = Date.now() - started;
+    if (res.status !== 200 || res.json?.ok === false || res.json?.usedFallback === true) {
+      console.log(`FAIL  ${call.label}`);
+      console.log(`      status=${res.status} body=${JSON.stringify(res.json)}`);
+      process.exitCode = 1;
+      continue;
+    }
+    const tokensUsed = res.json.tokensUsed || {};
+    const costCents = Number(res.json.costCents || 0);
+    totalCostCents += costCents;
+    totalTokens += Number(tokensUsed.total || 0);
+    console.log(`PASS  ${call.label}`);
+    console.log(`      ${call.describe(res.json)}`);
+    console.log(`      tokens=${JSON.stringify(tokensUsed)}  estimatedCost=${costCents.toFixed(4)}c  latency=${res.json.latencyMs || elapsedMs}ms`);
+  }
+
+  console.log(`\nTotal for this run: ~${totalTokens} tokens, ~${totalCostCents.toFixed(4)}c estimated.`);
+  console.log("(Estimate only — check your OpenAI dashboard for the authoritative billed amount.)");
+}
+
+async function runRemote() {
+  const targetUrl = String(process.env.AI_TESTING_SMOKE_TARGET_URL || "").trim().replace(/\/+$/, "");
+  const adminEmail = String(process.env.AI_TESTING_SMOKE_ADMIN_EMAIL || "").trim();
+  const adminPassword = String(process.env.AI_TESTING_SMOKE_ADMIN_PASSWORD || "").trim();
+  const adminCode = String(process.env.AI_TESTING_SMOKE_ADMIN_CODE || "").trim();
+  const confirmed = String(process.env.AI_TESTING_REAL_SMOKE_CONFIRM || "").trim().toLowerCase() === "yes";
+
+  if (!adminEmail || !adminPassword || !confirmed) {
+    console.log("SKIPPED — AI_TESTING_SMOKE_TARGET_URL is set, but admin login credentials and/or confirmation are missing.");
+    console.log("Set AI_TESTING_SMOKE_ADMIN_EMAIL / AI_TESTING_SMOKE_ADMIN_PASSWORD / AI_TESTING_SMOKE_ADMIN_CODE (the testing site's own admin login — never the OpenAI key) and AI_TESTING_REAL_SMOKE_CONFIRM=yes.");
+    if (!adminEmail || !adminPassword) console.log("(missing: AI_TESTING_SMOKE_ADMIN_EMAIL / AI_TESTING_SMOKE_ADMIN_PASSWORD)");
+    if (!confirmed) console.log("(missing: AI_TESTING_REAL_SMOKE_CONFIRM=yes)");
+    process.exitCode = 0;
+    return;
+  }
+
+  // Refuse outright if this ever points at the real production hostname —
+  // this is a REMOTE call over the real network, so this check matters even
+  // though the local-mode "Pass 1" production-lock re-verification below is
+  // skipped (there is no local server to spawn with a manipulated SITE_URL
+  // in remote mode; the deployed target's own SITE_URL is fixed server-side
+  // and is exactly what scripts/test-ai-testing-openai-integration.js's
+  // "Production AI rejection" test already proves cannot be bypassed).
+  if (expansionFeatureFlags.isLiveProductionSite(targetUrl)) {
+    console.error(`REFUSED — AI_TESTING_SMOKE_TARGET_URL (${targetUrl}) looks like the live production hostname. This script will never run against production.`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.log(`Remote mode: ${targetUrl}`);
+  console.log("Using the deployed service's own server-side OPENAI_API_KEY (a Render secret on that service) — this script never sees or needs that key.");
+  console.log("This will make a small number of REAL, billed OpenAI calls using fixture-only text.\n");
+
+  const auth = await enableAiTesting(targetUrl, await loginAsAdmin(targetUrl, { email: adminEmail, password: adminPassword, code: adminCode }));
+  await runRealCalls(targetUrl, auth);
+
+  if (process.exitCode === 1) {
+    console.log("\nOne or more real calls did not succeed — see FAIL lines above.");
+  } else {
+    console.log("\nAll real smoke calls succeeded against the deployed testing service.");
+  }
+}
+
+async function runLocal() {
   const apiKey = String(process.env.OPENAI_API_KEY || "").trim();
   const confirmed = String(process.env.AI_TESTING_REAL_SMOKE_CONFIRM || "").trim().toLowerCase() === "yes";
 
   if (!apiKey || !confirmed) {
     console.log("SKIPPED — this is a manual-only smoke test that makes real, billed calls to api.openai.com.");
-    console.log("To run it on purpose:");
+    console.log("To run it locally:");
     console.log("  OPENAI_API_KEY=sk-... AI_TESTING_REAL_SMOKE_CONFIRM=yes npm run test:ai-testing-real-smoke");
+    console.log("To run it against an already-deployed testing service instead (recommended — never exposes the OpenAI key locally):");
+    console.log("  AI_TESTING_SMOKE_TARGET_URL=https://... AI_TESTING_SMOKE_ADMIN_EMAIL=... AI_TESTING_SMOKE_ADMIN_PASSWORD=... AI_TESTING_REAL_SMOKE_CONFIRM=yes npm run test:ai-testing-real-smoke");
     if (!apiKey) console.log("(missing: OPENAI_API_KEY)");
     if (!confirmed) console.log('(missing: AI_TESTING_REAL_SMOKE_CONFIRM=yes)');
     process.exitCode = 0;
     return;
   }
 
-  console.log(`Model under test: ${process.env.OPENAI_MODEL || "gpt-4o-mini"}`);
+  const localBaseUrl = () => `http://127.0.0.1:${PORT}`;
+
+  console.log(`Local mode. Model under test: ${process.env.OPENAI_MODEL || "gpt-4o-mini"}`);
   console.log("This will make a small number of REAL, billed OpenAI calls using fixture-only text.\n");
 
   // ---- Pass 1: production lock, verified live (zero real network calls) --
   {
     const child = startServer({ OPENAI_API_KEY: apiKey, SITE_URL: "https://littlelearnershubbyleah.com" });
     try {
-      await waitForBoot(child);
-      const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
-      const auth = { Authorization: `Bearer ${adminLogin.json.token}` };
-      const status = await requestJson("GET", "/api/ai-testing/status", null, auth);
+      await waitForBoot(localBaseUrl(), child);
+      const auth = await loginAsAdmin(localBaseUrl(), LOCAL_ADMIN);
+      const status = await requestJson(localBaseUrl(), "GET", "/api/ai-testing/status", null, auth);
       assert.equal(status.json.enabled, false, "AI testing must show disabled on a production-style host even with a real key present");
       assert.equal(status.json.reason, "production_locked");
-      const interpret = await requestJson("POST", "/api/ai-testing/classroom-assistant/interpret", { text: "test note", organizationId: "org_x" }, auth);
+      const interpret = await requestJson(localBaseUrl(), "POST", "/api/ai-testing/classroom-assistant/interpret", { text: "test note", organizationId: "org_x" }, auth);
       assert.equal(interpret.json.usedFallback, true, "production must fall back to the heuristic — the real key must never be used here");
       console.log("PASS  Production lock re-verified live: a real key present + production hostname = zero real network calls, heuristic fallback used.");
     } finally {
@@ -196,38 +289,10 @@ async function main() {
 
   // ---- Pass 2: the real calls, on a non-production testing host ---------
   const child = startServer({ OPENAI_API_KEY: apiKey });
-  let totalCostCents = 0;
-  let totalTokens = 0;
   try {
-    await waitForBoot(child);
-    const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
-    const auth = await enableAiTesting(adminLogin.json.token);
-
-    const status = await requestJson("GET", "/api/ai-testing/status", null, auth);
-    assert.equal(status.json.enabled, true, "AI testing should report enabled on a non-production host with a real key and the flag on");
-    console.log(`PASS  Status check: enabled=true, model=${status.json.model}, hasApiKey=${status.json.hasApiKey}\n`);
-
-    for (const call of REAL_CALLS) {
-      const started = Date.now();
-      const res = await requestJson("POST", call.path, call.body, auth);
-      const elapsedMs = Date.now() - started;
-      if (res.status !== 200 || res.json?.ok === false || res.json?.usedFallback === true) {
-        console.log(`FAIL  ${call.label}`);
-        console.log(`      status=${res.status} body=${JSON.stringify(res.json)}`);
-        process.exitCode = 1;
-        continue;
-      }
-      const tokensUsed = res.json.tokensUsed || {};
-      const costCents = Number(res.json.costCents || 0);
-      totalCostCents += costCents;
-      totalTokens += Number(tokensUsed.total || 0);
-      console.log(`PASS  ${call.label}`);
-      console.log(`      ${call.describe(res.json)}`);
-      console.log(`      tokens=${JSON.stringify(tokensUsed)}  estimatedCost=${costCents.toFixed(4)}c  latency=${res.json.latencyMs || elapsedMs}ms`);
-    }
-
-    console.log(`\nTotal for this run: ~${totalTokens} tokens, ~${totalCostCents.toFixed(4)}c estimated.`);
-    console.log("(Estimate only — check your OpenAI dashboard for the authoritative billed amount.)");
+    await waitForBoot(localBaseUrl(), child);
+    const auth = await enableAiTesting(localBaseUrl(), await loginAsAdmin(localBaseUrl(), LOCAL_ADMIN));
+    await runRealCalls(localBaseUrl(), auth);
   } finally {
     await stopServer(child);
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
@@ -237,6 +302,14 @@ async function main() {
     console.log("\nOne or more real calls did not succeed — see FAIL lines above.");
   } else {
     console.log("\nAll real smoke calls succeeded.");
+  }
+}
+
+async function main() {
+  if (String(process.env.AI_TESTING_SMOKE_TARGET_URL || "").trim()) {
+    await runRemote();
+  } else {
+    await runLocal();
   }
 }
 
