@@ -12,6 +12,8 @@ Before real providers and families use new features, we build a complete pretend
 
 **No real child information should ever be typed into the testing site.** Every name you'll see already has "(Fixture)" or "(Preview)" after it, and every test account's email ends in `@example.invalid` — a domain that can never send or receive real email, on purpose.
 
+**A note for the owner before inviting testers:** the testing site's data only survives server restarts/redeploys if durable storage is set up first — see `docs/TESTING_DEPLOYMENT_RENDER_STEPS.md` Section 0. Without it, everything below still works for a single session, but a restart resets it.
+
 ## 2. Get everything ready in one click
 
 1. Sign in to the testing site as the **Platform Admin** (the real owner login).
@@ -79,6 +81,7 @@ This never changes your real signed-in account, and it automatically expires on 
 - Assistants and teachers should never see billing, staff management, or director-only tools.
 - Nothing should send automatically — messages, approvals, invoices, and publishing all require an explicit confirm step.
 - Phone-sized screens should never require sideways scrolling and should never hide the menu.
+- A **"💬 Testing Feedback"** button should be visible near the bottom-left corner of every screen, the entire time you're signed in — see Section 14.
 
 ## 8. The walkthrough, section by section
 
@@ -188,6 +191,30 @@ Click **"Run this scenario"** on any of them to send that exact fake note throug
 
 ### How to rate a result
 After running a scenario (or after trying AI directly in Classroom Assistant — Section 8-K), you'll see three one-click buttons: **Helpful**, **Needs changes**, and **Not usable**. Click whichever matches. That's the entire rating flow — there's no form to fill out, and rating is never required before you can move on or save your own entry.
+
+## 14. Sending feedback (for testers)
+
+There is no separate "reporting tool" to learn — a single **"💬 Testing Feedback"** button sits near the bottom-left corner of every screen the entire time you're signed in as any fake account. It replaces (but doesn't require you to stop using) the plain-language reporting described in Sections 9–11.
+
+1. Click **"💬 Testing Feedback"** anywhere, any time.
+2. Under **"New Feedback"**, choose the kind of thing you're sharing: **Bug**, **Confusing screen**, **Missing feature**, **Layout problem**, **AI result**, or **Suggestion** (there's also "Other").
+3. Type what happened, in plain language — the same way you would in Sections 9–11 (what screen, what you expected, what actually happened).
+4. Click **Send feedback**. You do not need to say which screen, which device, or which role you are — that's captured automatically.
+5. Click **"My Threads"** any time to see everything you've sent, and Leah's replies. A red dot means there's a reply you haven't seen yet.
+6. Open any thread to read the full back-and-forth and reply again — it stays open as a conversation, not a one-time form.
+7. If Leah asks you to **retest something**, you'll see a clear "Please retest and reply" banner at the top of that thread.
+8. You will only ever see your own threads — never anyone else's, and never Leah's private admin tools.
+
+## 15. Reading and replying to feedback (owner/admin only)
+
+1. Sign in as **Platform Admin** and open **Testing Lab**.
+2. Click the **"Testing Feedback"** tab (next to "AI Outcomes").
+3. You'll see every tester's thread, across both fake programs — who sent it, what kind of feedback it is, its status, and whether it needs your attention (unread) or a retest.
+4. Click **"Open thread"** to read the full conversation and reply — your reply appears in that tester's own "My Threads" immediately, with an unread indicator for her.
+5. Use **status** (Open / In progress / Resolved / Closed) to track your own progress — testers can see the status, but replying to a Resolved/Closed thread automatically reopens it for you.
+6. Use **"Request a retest"** when you've made a fix and want that specific tester to confirm it — she'll see a clear banner on her end.
+7. Use the **private note** box for anything you want to remember about a thread that the tester should never see (e.g., "same root cause as ticket #12, low priority") — private notes are never sent to, or visible to, any tester, ever.
+8. Filter by status, category, "unread only," or "retest requested" to triage a busy inbox quickly.
 
 ---
 

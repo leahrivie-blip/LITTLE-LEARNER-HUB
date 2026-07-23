@@ -183,6 +183,7 @@ This agent does not have Render API credentials or CLI access in this environmen
 - `npm run check` — passes.
 - New Phase 23 suites: `test:phase23-fake-account-identity` (4/4), `test:phase23-platform-walkthrough` (15/15), `test:phase23-provider-workday-e2e` (18/18 — the earlier reported 17/18 skip was a test bug, fixed; see "Fixes summary," item 11), `test:phase23-permission-privacy-audit` (6/6).
 - AI Testing suites (added in a later session on this branch — see Section 14): `test:ai-testing-openai-integration` (19/19, mocked transport, zero real network calls), plus `test:ai-testing-real-smoke` (manual-only, real network calls, skips gracefully without an explicit opt-in and a real key).
+- Testing Feedback and data-durability suites (added in a later session — see Sections 15–16): `test:testing-feedback` (17/17), `test:testing-database-isolation` (3/3).
 - `test:phase22-role-navigation` — 10/10 (unchanged, re-verified).
 - `test:classroom-assistant` — 25/25 (23 existing + 2 new).
 - `test:platform-nav`, `test:account-access`, `test:admin-auth-session`, `test:navigation-history` — all re-run and passing (with landing-view/token-mirror assertions updated for the intentional Phase 23 changes).
@@ -243,6 +244,53 @@ Classroom Assistant and Form Builder both have a real, exercised UI/integration 
 
 All of the above is also written up in plain, non-technical language in `docs/OWNER_AND_PROVIDER_TESTING_GUIDE.md` Section 8-K (trying AI in Classroom Assistant) and Section 13 (AI Testing / AI Outcomes, owner-only setup and spending controls).
 
+## 15. Testing Feedback — persistent tester feedback threads (this session)
+
+A third work session on this branch added a persistent feedback-thread system, requested for exactly this purpose: testers need a simple way to report bugs, confusing screens, missing features, layout problems, AI results, and suggestions, and to have a real back-and-forth conversation with the owner about them — inside their own account, never mixed with anyone else's.
+
+### What was built
+- **Data model** (`scripts/testing-feedback-data-model.js`): threads (one per tester-initiated topic; category, subject, status, retest flag, page/device/role/organization context, per-side unread flags), messages (tester or admin, append-only), and a completely separate `notes` collection for admin-only private notes that no tester-facing accessor ever reads from. Every tester-facing accessor (`getThreadForTester`, `listThreadsForTester`, `listMessagesForTester`) filters by the caller's own email — there is no code path in this file that can return one tester's thread to a different tester.
+- **API** (`server/testing-feedback-api.js`, mounted at `/api/testing-feedback/*`): tester routes (`GET/POST /threads`, `GET /threads/:id`, `POST /threads/:id/messages`, `POST /threads/:id/read`, `GET /unread-count`) require an authenticated fake-account session; admin routes (under `/admin/`: list with filters, get, reply, private note, status, retest, mark read, unread count) require a verified admin session. The thread's `organizationId` and `testerRole` are resolved **server-side** from the tester's own fake-account record (`store.users[email]`), never trusted from client input.
+- **New `testingFeedback` expansion-feature key** (`scripts/expansion-feature-flags.js`'s `evaluateTestingFeedbackAccess`) — deliberately the **one** expansion feature that requires no admin-toggled stored flag and no `ALLOW_*_PREVIEW` env opt-in: a tester needs this available the instant she's logged into a fake account on a non-production host, with no separate setup step. Production is still locked out exactly like every other expansion feature — confirmed by an automated test that hits the production-host case with a verified admin token and asserts a `production_locked` rejection.
+- **Tester-facing UI**: a floating **"💬 Testing Feedback"** button (`app.js`, bottom-left, visible on every screen for any signed-in `@example.invalid` account, mirroring how the existing admin-preview badge is mounted globally) with an unread badge, a "New Feedback" form (category + message; page/device/role/organization context captured automatically, never asked of the tester), and a "My Threads" list/detail view with reply. Every dynamic value rendered here is escaped (`escapeHtml`) before being inserted into the DOM, since thread/message bodies are free-form tester-authored text.
+- **Admin-facing UI**: a new **"Testing Feedback"** tab in Testing Lab (`testing-lab-ui.js`, alongside "AI Outcomes") — an inbox across every fake organization with status/category/unread/retest filters, per-thread reply, a clearly-labeled "Private notes — the tester NEVER sees this section" area, a status dropdown, and a "Request a retest" checkbox.
+
+### Isolation guarantees (tested, not just asserted)
+- A tester's thread list and direct-by-id thread lookup both deny access to a different tester's thread — verified with two testers in two genuinely different fake organizations (seeded with explicit, distinct `organizationId`s, since the default fixture layering can otherwise share a single primary organization across scenario packs — see Section 2).
+- A private admin note is visible in the admin's own view of a thread and is never present in that same thread's tester-facing message history.
+- Admin-only inbox routes reject an authenticated fake-account tester's session (401, not the admin's data).
+- A real (non-`@example.invalid`) account cannot use any tester-facing feedback route.
+- A tester replying to a resolved/closed thread reopens it and flags it unread for admin — she is never stuck unable to follow up.
+- A retest request surfaces as unread for the tester even without a new message.
+- Production always rejects Testing Feedback outright, for every route, even for a verified admin token.
+
+### Test coverage
+- `scripts/test-testing-feedback.js` (`npm run test:testing-feedback`) — **17/17 passing**: production lock, unauthenticated rejection, thread creation with server-resolved context, tester's own thread list, cross-tester/cross-organization isolation (list AND direct-by-id), admin inbox visibility across organizations, admin reply + tester unread flag, tester mark-read, tester-reply-reopens-resolved-thread, private-note tester-invisibility, retest-request unread surfacing, admin-route rejection of a fake-account tester, real-account rejection, category fallback safety, and **persistence across a full server restart against the same local-json store file** (threads, messages, private notes, and status/retest flags all survive).
+- `npm run check` now also syntax-checks every new file.
+
+## 16. Testing-site data durability (this session)
+
+Directly investigated whether the testing site's data survives a normal Render restart/redeploy, per this session's explicit request.
+
+### Finding
+**No, not by default.** `DATABASE_PROVIDER=local-json` (the project default, and the only mode requiring zero setup) writes to a plain file on the web service's filesystem. Render's default web-service filesystem is ephemeral — a restart or redeploy wipes anything not on an attached persistent disk or in an external database. This was true before this session too; it had not been previously called out explicitly for the testing deployment.
+
+### What was built
+A new, dedicated `TESTING_DATABASE_URL` environment variable and an `activeDatabaseUrl()` resolver in `server/index.js`, so the testing service can use real Postgres storage (durable across restarts/redeploys) **without ever being able to connect to the real production database, even by misconfiguration**:
+- On a live production `SITE_URL`, the server always uses `PRODUCTION_DATABASE_URL` (unchanged behavior) and never reads `TESTING_DATABASE_URL`.
+- On any other `SITE_URL` (a testing deployment, local dev, CI), the server always uses `TESTING_DATABASE_URL` and **never reads `PRODUCTION_DATABASE_URL` at all**, even if it happens to also be set (e.g. by a copy-paste mistake). There is no fallback from one to the other in either direction.
+- If the relevant variable for the current host isn't set, Postgres storage simply stays unavailable (falls back to local-json) — never a silent connection to the wrong database.
+- Every one of the half-dozen places `server/index.js` previously read `PRODUCTION_DATABASE_URL` directly (pool creation ×2, the `usePostgresStore()`/`databaseConfigStatus()` readiness checks, and the internal debug status export) now goes through this one resolver, so there is a single place this guarantee is enforced.
+
+An **alternative, lighter-weight option** (a Render persistent disk + `LLH_STORE_PATH` pointed at it, staying on `local-json`) is also documented for a simpler setup that doesn't require standing up a separate Postgres instance.
+
+### Test coverage
+- `scripts/test-testing-database-isolation.js` (`npm run test:testing-database-isolation`) — **3/3 passing**, using a connection-string-capturing mock Postgres driver: (1) a non-production host with both `PRODUCTION_DATABASE_URL` and `TESTING_DATABASE_URL` set connects using ONLY `TESTING_DATABASE_URL`; (2) a live-production-style host with both set connects using ONLY `PRODUCTION_DATABASE_URL`; (3) a non-production host with only `TESTING_DATABASE_URL` set (the recommended setup, Section 12/`docs/TESTING_DEPLOYMENT_RENDER_STEPS.md` Section 0) connects correctly.
+- `scripts/test-testing-feedback.js` test 15 (see Section 15) separately confirms local-json persistence across a same-machine restart — this is a different guarantee than surviving a Render redeploy (which typically provisions a fresh filesystem), which is why the Postgres/persistent-disk options above are the ones that actually matter for a real Render deployment.
+- `scripts/test-store-write-race.js` (pre-existing regression, updated in this session to also set `TESTING_DATABASE_URL` since its `SITE_URL` is a non-production host — otherwise `activeDatabaseUrl()` would have silently resolved to an unset `TESTING_DATABASE_URL` instead of the intended mock Postgres URL and the test would have exercised local-json instead of the Postgres race path it exists to guard) — still passing.
+
+See `docs/TESTING_DEPLOYMENT_RENDER_STEPS.md` Section 0 for the exact owner-facing setup steps for both options.
+
 ## Known limitations / Phase 24 candidates
 
 1. A dedicated, genuinely-solo (no other roles at all) Home Daycare fixture pack was not built — see Section 2.
@@ -253,6 +301,8 @@ All of the above is also written up in plain, non-technical language in `docs/OW
 6. The 37 pre-existing test failures listed above remain open — none block Phase 23's own work, but a dedicated cleanup pass (updating stale legacy-format fixtures, the lesson-library-header layout flake, the use-plan action-panel timing issue, and the `test:e2e` suite) would be a reasonable, self-contained Phase 24 candidate. **Not re-verified against this branch's current tip** — the full sweep in Section "Full regression" above was run before the AI Testing work in Section 14; nothing in Section 14 touched any of the 37 files involved, but a fresh full sweep was not re-run end-to-end after Section 14's changes (see Section 14's targeted-suite confirmation instead).
 7. Lesson Plan Assist has no dedicated UI review screen yet (unlike Classroom Assistant and Form Builder) — see Section 14's "Lesson Plan Assist — depth note." A reasonable, self-contained Phase 24 candidate.
 8. `scripts/ai-testing-real-smoke.js` has not been run end-to-end with a real, valid `OPENAI_API_KEY` in any environment this branch has had access to — only the no-key (skip) and invalid-key (real network call, clean failure) paths have been verified. Run it once with a real key before depending on the live AI path in front of real testers.
+9. Durable storage (Section 16) requires owner action to actually provision it — either a Render Postgres database (`TESTING_DATABASE_URL`) or a Render persistent disk (`LLH_STORE_PATH`). This agent has no Render credentials in this environment and could not provision either. Until one is set up, the testing deployment (once it exists) will lose all fake accounts/program data/feedback threads on every restart or redeploy.
+10. The Testing Feedback system (Section 15) has no automated notification (email/push) when a new reply arrives — a tester (or admin) must open the app and check the unread badge/inbox. Given this project's testing-only, low-volume use case this was judged sufficient for now; a Phase 24 candidate if higher-frequency triage is needed.
 
 ## Safety confirmation
 
@@ -261,5 +311,7 @@ All of the above is also written up in plain, non-technical language in `docs/OW
 - Live AI (real OpenAI calls) was added in Section 14, but strictly opt-in, testing-only, and production-locked the same way every other expansion feature is — see Section 14 for the full safety gate. No automated test in this repository makes a real network call except the one deliberate, manual-only, opt-in exception (`scripts/ai-testing-real-smoke.js`), which itself re-verifies the production lock live before making any other call.
 - No production database credentials were used or required at any point.
 - No real OpenAI spend occurred from this agent's own work in this environment — no `OPENAI_API_KEY` secret was available here; the only real network calls made during verification used a deliberately invalid key and were rejected by OpenAI with `401`, incurring no charge.
+- Testing Feedback (Section 15) is production-locked exactly like every other expansion feature — confirmed by an automated test.
+- The new `TESTING_DATABASE_URL` mechanism (Section 16) cannot connect a testing deployment to the real production database even by misconfiguration — confirmed by an automated test that sets both variables simultaneously and asserts only the correct one is ever used, on both a production and a non-production host.
 - `testing/full-platform-integration-2026-07` is the only branch modified.
 - All fake accounts use `@example.invalid` emails and are rejected outright on production hosts.
