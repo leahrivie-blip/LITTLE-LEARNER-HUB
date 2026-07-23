@@ -146,12 +146,14 @@ Every role was tested on phone (390×844) and computer (1280×800 / 1440×900) v
 
 ## Known limitations / Phase 23 candidates
 
-1. **Curriculum Only cannot persist through a real login yet.** `resolveExperienceRole()`'s logic is correct and tested directly, but the existing, deliberate `migrateAccountAccessFields()` (boot-time) and `normalizeBillingPlan()` (login-time) functions reset any unrecognized `accountType`/`plan` value back to `home_daycare`/`Free` — this is intentional, existing behavior (see `test-account-access.js`, "curriculum_only remains a reserved future account type"), not something this phase should override without a broader onboarding/pricing decision (`docs/FUTURE_ONBOARDING_PRICING.md`). Wiring a real, persistent Curriculum Only account/plan is Phase 23+ work.
-2. **Today's default landing.** Today is a new primary nav item but is **not** the default landing view for logged-in users (Calendar remains the default, unchanged) — promoting Today to the default landing would touch many existing tests across Phases 1–21 that assert Calendar-as-landing; recommended as an explicit, separately-tested Phase 23 change.
-3. **Guardian bottom nav** literal wording (Calendar as a bottom tab) was not implemented — see Section 5 for the reasoning; flagged for an explicit owner decision.
-4. **Tablet-specific viewport testing** (e.g. 768×1024) was not separately run for the new surfaces in this phase; the existing responsive breakpoints are shared with phone/computer and were not observed to break, but were not exhaustively screenshotted at tablet width.
-5. **Full per-screen visual audit** of Director Center's admin-preview tabs and Forms Center (untouched by this phase) remains open — see Section 13.
-6. **The ~15 missing production lesson-plan imports** (Apple Orchard Investigators + Fall Celebrations series, 14 Toddler Pro batch 2/3 plans including Fossil Hunters) identified during the separate production-incident recovery are tracked in that incident's PR (#326) and documentation only — intentionally **not** touched, recreated, or referenced by any Phase 22 code on this branch, per instruction.
+> **Update (Phase 23, 2026-07-23):** items 1, 2, and 4 below are now resolved — see `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md`. Item 3 remains an open owner decision; item 5 was completed as part of Phase 23's Director Center audit; item 6 remains a separate, intentionally-untouched production incident.
+
+1. ~~**Curriculum Only cannot persist through a real login yet.**~~ **Resolved in Phase 23** — `curriculum_only` now passes through `normalizeAccountType()` as itself instead of resetting to `home_daycare`.
+2. ~~**Today's default landing.**~~ **Resolved in Phase 23** — `defaultLoggedInLandingView()` now returns `"today"`.
+3. **Guardian bottom nav** literal wording (Calendar as a bottom tab) was not implemented — see Section 5 for the reasoning; flagged for an explicit owner decision. Still open.
+4. ~~**Tablet-specific viewport testing**~~ **Resolved in Phase 23** — 768px and 1024px explicitly verified with zero errors/overflow for both a provider and a guardian role.
+5. **Full per-screen visual audit** of Director Center's admin-preview tabs — completed in Phase 23 (see its Section 7), which also found and fixed a real authentication bug (`llhAdminToken` never mirrored by the real login flow) affecting 11 of those tabs.
+6. **The ~15 missing production lesson-plan imports** (Apple Orchard Investigators + Fall Celebrations series, 14 Toddler Pro batch 2/3 plans including Fossil Hunters) identified during the separate production-incident recovery are tracked in that incident's PR (#326) and documentation only — intentionally **not** touched, recreated, or referenced by any Phase 22/23 code on this branch, per instruction.
 
 ## Safety confirmation
 

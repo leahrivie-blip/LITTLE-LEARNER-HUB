@@ -1,6 +1,6 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 22 — Role-Based Layout, Navigation, Dashboards, and Settings — complete)
+**Status date:** 2026-07-23 (Phase 23 — Complete Platform Walkthrough, Fake Accounts, Device Audit — complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
 **Canonical continuation branch:** `testing/full-platform-integration-2026-07`  
 **Phase 20 backup:** `backup/director-family-phases-1-20` @ `d731a3951a152028b0539981a8c6b11b8d26fc76`  
@@ -12,11 +12,11 @@
 
 1. Fetch the repository: `git fetch origin`
 2. Check out the **continuation** branch: `git checkout testing/full-platform-integration-2026-07` then `git pull origin testing/full-platform-integration-2026-07`
-3. Read this handoff, `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`, and `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`
+3. Read this handoff, `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`, `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md`, and `docs/OWNER_AND_PROVIDER_TESTING_GUIDE.md`
 4. Review draft PR [#325](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/325)
-5. Run Phase 1–22 suites plus `npm run test:classroom-assistant` and `npm run test:phase22-role-navigation`
+5. Run Phase 1–23 suites plus `npm run test:classroom-assistant`, `npm run test:phase22-role-navigation`, `npm run test:phase23-fake-account-identity`, `npm run test:phase23-platform-walkthrough`, `npm run test:phase23-provider-workday-e2e`, and `npm run test:phase23-permission-privacy-audit`
 6. Confirm testing-environment safety rules before any preview enablement or testing deploy
-7. **Phase 22 is complete** (role-aware navigation, Today dashboards, redesigned Settings). Phase 23 is next — see the Phase 22 completion report's "Known limitations / Phase 23" section before starting
+7. **Phase 23 is complete** (fake-account real-login identity mapping fixed, guardian → Family Hub routing, 11 admin-preview UI modules' auth bug fixed, full role-by-role + device audit, end-to-end provider workday, permission/privacy audit). Phase 24 is next — see the Phase 23 completion report's "Known limitations / Phase 24 candidates" section before starting. **Highest priority carried over from Phase 22: Classroom Assistant expansion** (see `docs/CLASSROOM_ASSISTANT_PRIORITY.md`) remains unaddressed by Phase 23, which focused on the cross-cutting connectivity/identity bugs found during the walkthrough instead.
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -46,6 +46,7 @@ Build a private, testing-only foundation for:
 - **Provider Productivity / Child-Led Planning** (Phase 21) — planning preferences, child-led workflow, activity-first tools, universal search, guided setup — `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`
 - **Classroom Assistant (highest priority)** — natural-language group meal/activity/summary logging, checked-in awareness, admin lesson-plan paste with review — `docs/CLASSROOM_ASSISTANT_PRIORITY.md` + `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md` + `docs/CLASSROOM_ASSISTANT_POLISH_COMPLETION_REPORT.md`
 - **Phase 22 — Role-Based Layout, Navigation, Dashboards, and Settings** — `resolveExperienceRole()` role model (Platform Admin / Director / Solo Provider / Lead Teacher / Assistant / Curriculum Only), role-aware sidebar grouping (Core vs. More Tools, capability gate unchanged), a new "Today" dashboard (Needs Attention / Today / Recent / Favorites / Quick Actions) for every role, and a redesigned, searchable Settings Hub — `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`
+- **Phase 23 — Complete Platform Walkthrough, Fake Accounts, Device Audit, Testing Deployment** — full role-by-role walkthrough (all 11 personas via real logins), 6-viewport device audit, end-to-end 20-step provider workday, permission/privacy audit, and three previously-hidden connectivity bugs found and fixed: fake-account real login was silently rejected, fake-account role/accountType never mapped onto the main app, and 11 admin-preview UI modules never authenticated after a real admin login — `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md`, `docs/OWNER_AND_PROVIDER_TESTING_GUIDE.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 

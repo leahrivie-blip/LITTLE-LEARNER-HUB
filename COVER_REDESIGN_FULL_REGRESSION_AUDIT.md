@@ -1,8 +1,8 @@
 # Cover Redesign Full Regression Audit
 
-**Started:** 2026-07-23T01:56:55.547Z
-**Finished:** 2026-07-23T01:57:38.026Z
-**Commit:** ebf3124
+**Started:** 2026-07-23T02:34:54.954Z
+**Finished:** 2026-07-23T02:35:37.225Z
+**Commit:** 1939ba2
 
 Auditing merged main after PR #272 cover redesign.
 
@@ -18,7 +18,7 @@ Auditing merged main after PR #272 cover redesign.
 ```json
 {
   "planCountApi": 89,
-  "libraryOpenMs": 2148,
+  "libraryOpenMs": 2152,
   "cardAudit": {
     "totalCards": 112,
     "uniqueTitles": 57,
@@ -30,7 +30,7 @@ Auditing merged main after PR #272 cover redesign.
     "Failed to load resource: the server responded with a status of 403 (Forbidden)"
   ],
   "failedRequests": [
-    "403 http://127.0.0.1:19901/api/curriculum/activities/cur-act-bfe1691d6680764f"
+    "403 http://127.0.0.1:19899/api/curriculum/activities/cur-act-bfe1691d6680764f"
   ]
 }
 ```
@@ -39,7 +39,7 @@ Auditing merged main after PR #272 cover redesign.
 
 - Static wiring: overlays, admin upload, 53 JPG covers present
 - Boot seeded lesson plans available (89)
-- Library loads quickly (2148ms)
+- Library loads quickly (2152ms)
 - Lesson cards rendered (112 instances, 57 unique titles)
 - Cover images load correctly (53 checked; 4 offscreen lazy ok)
 - FREE/PRO badges display on cards
