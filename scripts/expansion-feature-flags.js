@@ -16,6 +16,7 @@ const EXPANSION_FEATURE_KEYS = Object.freeze({
   FAMILY_HUB: "familyHub",
   TESTING_LAB: "testingLab",
   AI_TESTING: "aiTesting",
+  TESTING_FEEDBACK: "testingFeedback",
 });
 
 const EXPANSION_FEATURE_LABELS = Object.freeze({
@@ -24,6 +25,7 @@ const EXPANSION_FEATURE_LABELS = Object.freeze({
   familyHub: "Family Hub",
   testingLab: "Testing and Preview Lab",
   aiTesting: "AI Testing (Classroom Assistant, drafts, lesson plans, forms)",
+  testingFeedback: "Testing Feedback",
 });
 
 const EXPANSION_VIEW_FLAGS = Object.freeze({
@@ -287,6 +289,46 @@ function evaluateFamilyHubTestingPreview({ stored, env, result }) {
 }
 
 /**
+ * Testing Feedback gate (route-level). Deliberately the ONE expansion feature
+ * that requires no admin-toggled stored flag and no ALLOW_*_PREVIEW env opt-in —
+ * testers need the "Send Testing Feedback" button available everywhere, the
+ * moment they're logged into a fake account on a non-production host, with no
+ * separate setup step. Production still always rejects outright, exactly like
+ * every other expansion feature. Callers must additionally require the caller
+ * to be a verified admin OR an authenticated fake-account session (never a real
+ * member session) — that identity check happens in server/testing-feedback-api.js
+ * and its mount in server/index.js, not here.
+ */
+function evaluateTestingFeedbackAccess({ env = null, isAuthenticatedTester = false } = {}) {
+  const environment = env || resolveExpansionEnvironment();
+  const result = {
+    allowed: false,
+    status: 403,
+    flagKey: EXPANSION_FEATURE_KEYS.TESTING_FEEDBACK,
+    reason: "",
+    payload: null,
+    environment: { liveProduction: environment.liveProduction === true },
+  };
+  if (environment.liveProduction === true) {
+    result.reason = "production_locked";
+    result.payload = unavailableExpansionPayload(EXPANSION_FEATURE_KEYS.TESTING_FEEDBACK, {
+      reason: result.reason,
+      note: "Testing Feedback is never available on production.",
+    });
+    return result;
+  }
+  if (isAuthenticatedTester !== true) {
+    result.reason = "login_required";
+    result.payload = unauthorizedExpansionPayload(EXPANSION_FEATURE_KEYS.TESTING_FEEDBACK, { reason: result.reason });
+    return result;
+  }
+  result.allowed = true;
+  result.status = 200;
+  result.reason = "ok";
+  return result;
+}
+
+/**
  * Full access decision for an expansion feature.
  * directorCenter / formsCenter require: env preview opt-in + stored flag + verified admin.
  * familyHub requires: env testing preview + stored flag (guardian auth enforced in handlers).
@@ -452,6 +494,7 @@ module.exports = {
   unauthorizedExpansionPayload,
   evaluateExpansionAccess,
   evaluateFamilyHubTestingPreview,
+  evaluateTestingFeedbackAccess,
   viewerExpansionFlags,
   publicExpansionFeatureFlagsPayload,
 };
