@@ -57,6 +57,7 @@
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
     "test:stale-payment-failed-label": "node scripts/test-stale-payment-failed-label.js",
     "test:stripe-billing-reconciliation": "node scripts/test-stripe-billing-reconciliation.js",
+    "test:billing-reconciliation-workflow": "node scripts/test-billing-reconciliation-workflow.js",
     "billing:reconciliation-check": "node scripts/stripe-billing-reconciliation-check.js",
     "test:promo-1month-free": "node scripts/test-promo-1month-free.js",
     "test:subscription-access-notifications": "node scripts/test-subscription-access-notifications.js",

@@ -777,6 +777,196 @@ async function main() {
       assert(storeAfter === storeBefore, "Billing reconciliation check must never write to the store");
     }
 
+    console.log("9f) Failed payment followed by a successful recovery restores access");
+    {
+      const seqStore = readStore();
+      seqStore.users["sequence-recover@billing.test"] = {
+        email: "sequence-recover@billing.test",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+        stripeCustomerId: "cus_seq_recover",
+        stripeSubscriptionId: "sub_seq_recover",
+        currentPeriodEnd: futureIso,
+      };
+      writeStore(seqStore);
+
+      const failedEvent = {
+        id: "evt_seq_failed",
+        created: 100,
+        type: "invoice.payment_failed",
+        data: { object: { id: "in_seq_failed", customer: "cus_seq_recover", customer_email: "sequence-recover@billing.test", amount_paid: 0 } },
+      };
+      const failedRes = await requestJson("POST", "/api/webhooks/stripe", failedEvent);
+      assert(failedRes.status === 200, "invoice.payment_failed webhook accepted");
+      const afterFailed = readStore().users["sequence-recover@billing.test"];
+      assert(afterFailed.plan === "Free", "Payment failure downgrades to Free");
+      assert(afterFailed.stripeSubscriptionStatus === "unpaid", "Payment failure sets stripeSubscriptionStatus=unpaid");
+      assert(!membershipAccess.membershipHasProAccess(afterFailed), "No Pro access immediately after failure");
+
+      // Customer fixes their card; Stripe reports the subscription active again via a
+      // newer (higher event.created) customer.subscription.updated event.
+      const recoveredEvent = {
+        id: "evt_seq_recovered",
+        created: 200,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_seq_recover",
+            customer: "cus_seq_recover",
+            status: "active",
+            current_period_end: Math.floor((Date.now() + 25 * 86400000) / 1000),
+            cancel_at_period_end: false,
+          },
+        },
+      };
+      const recoveredRes = await requestJson("POST", "/api/webhooks/stripe", recoveredEvent);
+      assert(recoveredRes.status === 200, "recovery webhook accepted");
+      const afterRecovered = readStore().users["sequence-recover@billing.test"];
+      assert(membershipAccess.membershipHasProAccess(afterRecovered), "Pro access is restored after the newer recovery event");
+      assert(membershipAccess.membershipStatusDisplay(afterRecovered) !== "Payment Failed", "Status no longer reads Payment Failed after recovery");
+    }
+
+    console.log("9g) An older, delayed failed event cannot overwrite a newer paid/active event");
+    {
+      const orderStore = readStore();
+      orderStore.users["ooo-protect@billing.test"] = {
+        email: "ooo-protect@billing.test",
+        plan: "Free",
+        subscriptionStatus: "No paid subscription",
+        stripeCustomerId: "cus_ooo",
+        stripeSubscriptionId: "sub_ooo",
+      };
+      writeStore(orderStore);
+
+      const newerActiveEvent = {
+        id: "evt_ooo_active",
+        created: 300,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_ooo",
+            customer: "cus_ooo",
+            status: "active",
+            current_period_end: Math.floor((Date.now() + 20 * 86400000) / 1000),
+            cancel_at_period_end: false,
+          },
+        },
+      };
+      const activeRes = await requestJson("POST", "/api/webhooks/stripe", newerActiveEvent);
+      assert(activeRes.status === 200, "newer active webhook accepted");
+      const afterActive = readStore().users["ooo-protect@billing.test"];
+      assert(membershipAccess.membershipHasProAccess(afterActive), "Pro access granted by the newer active event");
+
+      // A stale, delayed invoice.payment_failed with an OLDER event.created arrives after.
+      const olderFailedEvent = {
+        id: "evt_ooo_failed_delayed",
+        created: 150,
+        type: "invoice.payment_failed",
+        data: { object: { id: "in_ooo_delayed", customer: "cus_ooo", customer_email: "ooo-protect@billing.test", amount_paid: 0 } },
+      };
+      const delayedRes = await requestJson("POST", "/api/webhooks/stripe", olderFailedEvent);
+      assert(delayedRes.status === 200 && delayedRes.json?.stale === true, "Older delayed failed event is acknowledged but ignored as stale");
+      const afterDelayed = readStore().users["ooo-protect@billing.test"];
+      assert(membershipAccess.membershipHasProAccess(afterDelayed), "Pro access is NOT reverted by the stale, older failed event");
+      assert(afterDelayed.plan === "Pro" || afterDelayed.plan === "Founding", "Plan remains paid after the stale event is ignored");
+    }
+
+    console.log("9h) Duplicate webhook delivery has no double effect");
+    {
+      const dupStore = readStore();
+      dupStore.users["dup-delivery@billing.test"] = {
+        email: "dup-delivery@billing.test",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+        stripeCustomerId: "cus_dup",
+        stripeSubscriptionId: "sub_dup",
+        currentPeriodEnd: futureIso,
+      };
+      writeStore(dupStore);
+      const dupEvent = {
+        id: "evt_dup_delivery_fixed_id",
+        created: 100,
+        type: "invoice.payment_failed",
+        data: { object: { id: "in_dup", customer: "cus_dup", customer_email: "dup-delivery@billing.test", amount_paid: 0 } },
+      };
+      const firstRes = await requestJson("POST", "/api/webhooks/stripe", dupEvent);
+      assert(firstRes.status === 200 && !firstRes.json?.duplicate, "First delivery is processed normally");
+      const afterFirst = readStore().users["dup-delivery@billing.test"];
+      assert(afterFirst.plan === "Free", "First delivery applies the payment-failed downgrade");
+      const firstFailedAt = afterFirst.lastFailedPaymentAt;
+
+      const secondRes = await requestJson("POST", "/api/webhooks/stripe", dupEvent);
+      assert(secondRes.status === 200 && secondRes.json?.duplicate === true, "Second delivery of the identical event id is recognized as a duplicate");
+      const afterSecond = readStore().users["dup-delivery@billing.test"];
+      assert(afterSecond.lastFailedPaymentAt === firstFailedAt, "Duplicate delivery does not reapply or change any field a second time");
+    }
+
+    console.log("9i) A paid invoice that cannot be matched to any account raises a critical alert, never crashes");
+    {
+      const unmatchedEmail = "totally-unmatched-payer@billing.test";
+      const preStore = readStore();
+      assert(!preStore.users[unmatchedEmail], "Sanity: no local account exists for this email yet");
+
+      const unmatchedEvent = {
+        id: "evt_unmatched_invoice",
+        created: 100,
+        type: "invoice.paid",
+        data: {
+          object: {
+            id: "in_unmatched",
+            customer: "cus_totally_unknown_zzz",
+            customer_email: unmatchedEmail,
+            subscription: "sub_unknown_zzz",
+            amount_paid: 999,
+          },
+        },
+      };
+      const unmatchedRes = await requestJson("POST", "/api/webhooks/stripe", unmatchedEvent);
+      assert(unmatchedRes.status === 200, "Unmatched paid invoice does not crash the webhook handler");
+      const postStore = readStore();
+      assert(!postStore.users[unmatchedEmail], "No new local account is silently created for an unmatched paid invoice");
+
+      const notifRes = await requestJson(
+        "GET",
+        `/api/admin/notifications?adminToken=${encodeURIComponent(adminLogin.json.token)}&category=billing&limit=50`,
+      );
+      assert(notifRes.status === 200, "Admin notifications endpoint responds");
+      const criticalAlert = (notifRes.json?.notifications || []).find((n) => n.type === "admin_paid_access_not_restored");
+      assert(criticalAlert, "A 'Paid in Stripe but access not restored' critical alert was raised for the unmatched invoice");
+    }
+
+    console.log("9j) Reconciliation apply requires admin auth, explicit confirmation, and never writes without both");
+    {
+      assert(serverJs.includes("/api/admin/billing-reconciliation/apply"), "Reconciliation apply endpoint missing");
+      const storeBeforeApply = fs.readFileSync(STORE_PATH, "utf8");
+
+      const noAuthApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        email: "paid-founding@billing.test",
+        confirm: true,
+      });
+      assert(noAuthApply.status === 401, "Reconciliation apply requires admin auth");
+
+      const noConfirmApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+      });
+      assert(noConfirmApply.status === 400, "Reconciliation apply refuses to run without explicit confirm:true");
+
+      // Auth + confirm present, but Stripe is not configured in this test environment —
+      // must refuse (503) rather than guess, and must never write to the store either way.
+      const confirmedApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        confirm: true,
+      });
+      assert([200, 404, 503].includes(confirmedApply.status), `Reconciliation apply route should respond, got ${confirmedApply.status}`);
+
+      const storeAfterApply = fs.readFileSync(STORE_PATH, "utf8");
+      assert(storeAfterApply === storeBeforeApply, "Reconciliation apply must never write to the store when refused (no auth, no confirm, or Stripe unavailable)");
+    }
+
     console.log("10) Browser persona labels & access");
     seedPersonas();
     const browser = await runBrowserChecks(`http://127.0.0.1:${PORT}`);
