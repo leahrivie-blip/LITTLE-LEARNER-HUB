@@ -100,7 +100,11 @@ function classifyUser(user, nowMs = Date.now()) {
   const foundingActive = membership.membershipFoundingActive(user, nowMs);
   const planDisplay = membership.membershipPlanDisplay(user, nowMs);
 
-  if (statusKey === "Past Due" || statusKey === "Payment Failed" || isPastDueOrUnpaid(user)) {
+  if (
+    statusKey === "Past Due"
+    || statusKey === "Payment Failed"
+    || (isPastDueOrUnpaid(user) && !membership.membershipPaymentFailureIsStale(user, nowMs))
+  ) {
     return "Past Due";
   }
 
@@ -202,6 +206,20 @@ function flagMismatches(user, classification, nowMs = Date.now()) {
     mismatches.push({
       code: "stored_hasProAccess_mismatch",
       detail: `stored hasProAccess=${storedHasAccess} but membershipHasProAccess=${hasAccess}`,
+    });
+  }
+
+  // 7) Admin dashboard shows "Payment Failed" for an old, resolved-by-inaction failure:
+  // Stripe has stopped retrying (no pending nextPaymentRetryAt) and it has been long
+  // enough (membership.PAYMENT_FAILURE_STALE_DAYS) since lastFailedPaymentAt with no
+  // newer successful payment. Access is already (correctly) denied either way — this
+  // flags a stale *label*, not a billing or access problem.
+  if (isPastDueOrUnpaid(user) && membership.membershipPaymentFailureIsStale(user, nowMs)) {
+    mismatches.push({
+      code: "stale_payment_failed_label",
+      detail: `subscriptionStatus/stripeSubscriptionStatus still reads as payment-failed but lastFailedPaymentAt is `
+        + `>${membership.PAYMENT_FAILURE_STALE_DAYS} days old with no pending retry — admin dashboard should show `
+        + `"Subscription Ended" / Free, not "Payment Failed". No access change needed (access is already denied).`,
     });
   }
 
