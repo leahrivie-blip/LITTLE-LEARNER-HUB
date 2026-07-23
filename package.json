@@ -55,6 +55,7 @@
     "test:curriculum-planner-e2e": "node scripts/test-curriculum-planner-e2e-verify.js",
     "test:schedule-foundation": "node scripts/test-schedule-foundation.js",
     "test:billing-membership": "node scripts/test-billing-membership-qa.js",
+    "test:stale-payment-failed-label": "node scripts/test-stale-payment-failed-label.js",
     "test:promo-1month-free": "node scripts/test-promo-1month-free.js",
     "test:subscription-access-notifications": "node scripts/test-subscription-access-notifications.js",
     "audit:subscription-statuses": "node scripts/audit-repair-subscription-statuses.js",
