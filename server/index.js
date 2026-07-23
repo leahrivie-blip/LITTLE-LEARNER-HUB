@@ -4,6 +4,7 @@ const http = require("node:http");
 const path = require("node:path");
 const { URL } = require("node:url");
 const membershipAccess = require("../scripts/membership-access.js");
+const stripeBillingReconciliation = require("../scripts/stripe-billing-reconciliation.js");
 const accountAccess = require("../scripts/account-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
@@ -7975,6 +7976,120 @@ async function handleAdminSubscriptionRefresh(request, response) {
   }
 }
 
+const BILLING_RECONCILIATION_BATCH_LIMIT = 25;
+
+/**
+ * READ-ONLY: looks up the most specific Stripe subscription record for a user without
+ * ever writing to the store or to Stripe. Falls back from subscription id → customer id
+ * → email search, matching the specificity order used elsewhere for live syncs, but this
+ * path calls only GET endpoints and never calls upsertUser/upsertStripeSubscription.
+ */
+async function fetchStripeSubscriptionForReconciliation(user) {
+  if (user.stripeSubscriptionId) {
+    try {
+      const subscription = await stripeGet(`subscriptions/${encodeURIComponent(user.stripeSubscriptionId)}`);
+      return { subscription, customerId: subscription?.customer || user.stripeCustomerId || "", lookupMethod: "stored_subscription_id" };
+    } catch (error) {
+      // Subscription id may be stale (deleted in Stripe, or never existed under this id).
+      // Fall through to a broader, still read-only lookup instead of failing outright.
+    }
+  }
+  if (user.stripeCustomerId) {
+    const list = await stripeGet(`subscriptions?customer=${encodeURIComponent(user.stripeCustomerId)}&status=all&limit=10`);
+    const subs = Array.isArray(list?.data) ? list.data : [];
+    const mostRelevant = subs.find((s) => s.status !== "canceled") || subs[0] || null;
+    return { subscription: mostRelevant, customerId: user.stripeCustomerId, lookupMethod: "stored_customer_id", allSubscriptions: subs };
+  }
+  if (user.email) {
+    const match = await findStripeSubscriptionByEmail(user.email);
+    if (match?.subscription) return { subscription: match.subscription, customerId: match.customerId, lookupMethod: "email_search" };
+  }
+  return { subscription: null, customerId: "", lookupMethod: "no_stripe_identifiers" };
+}
+
+/**
+ * READ-ONLY comparison of what's stored locally vs. what Stripe currently reports for one
+ * user. Never mutates the store, never mutates Stripe, never sends emails, never retries
+ * payments. Pure reporting — any correction stays a manual/admin decision. The actual
+ * comparison logic lives in scripts/stripe-billing-reconciliation.js (no network calls, so
+ * it can be unit-tested directly); this function only does the read-only Stripe fetch.
+ */
+async function buildBillingReconciliationComparison(user) {
+  const stripeLookup = await fetchStripeSubscriptionForReconciliation(user);
+  return stripeBillingReconciliation.compareStoredWithStripe(user, stripeLookup);
+}
+
+/**
+ * GET /api/admin/billing-reconciliation — READ-ONLY Stripe reconciliation check.
+ * Compares stored subscriptionStatus/stripeSubscriptionStatus against Stripe's current,
+ * live status for one email, a bounded comma-separated list of emails, or (by default)
+ * every account this app currently flags as "needs_billing_review" (bounded to
+ * BILLING_RECONCILIATION_BATCH_LIMIT). Never writes to the store, never writes to Stripe,
+ * never sends emails, never retries payments — comparison/reporting only.
+ */
+async function handleAdminBillingReconciliation(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (!requireStripe(response)) return;
+
+  const singleEmail = normalizeEmail(url.searchParams.get("email") || "");
+  const batchParam = String(url.searchParams.get("emails") || "").trim();
+  const batchEmails = batchParam
+    ? batchParam.split(",").map((entry) => normalizeEmail(entry)).filter(Boolean)
+    : [];
+
+  const store = readStore();
+  let emails = [];
+  if (singleEmail) {
+    emails = [singleEmail];
+  } else if (batchEmails.length) {
+    emails = batchEmails.slice(0, BILLING_RECONCILIATION_BATCH_LIMIT);
+  } else {
+    emails = Object.values(store.users || {})
+      .filter((user) => membershipAccess.membershipBillingStatusKey(user) === "needs_billing_review")
+      .map((user) => user.email)
+      .filter(Boolean)
+      .slice(0, BILLING_RECONCILIATION_BATCH_LIMIT);
+  }
+
+  if (!emails.length) {
+    jsonResponse(response, 200, {
+      ok: true,
+      readOnly: true,
+      results: [],
+      note: "No accounts matched. Nothing currently flagged as needing billing review.",
+    });
+    return;
+  }
+
+  const results = [];
+  for (const email of emails) {
+    const user = store.users?.[email] || null;
+    if (!user) {
+      results.push({ email, readOnly: true, error: "not_found_locally" });
+      continue;
+    }
+    try {
+      results.push(await buildBillingReconciliationComparison(user));
+    } catch (error) {
+      results.push({ email, readOnly: true, error: error.message || "stripe_lookup_failed" });
+    }
+  }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    readOnly: true,
+    checkedAt: new Date().toISOString(),
+    note: "Read-only comparison only. No Stripe or local records were modified by this check.",
+    batchLimit: BILLING_RECONCILIATION_BATCH_LIMIT,
+    count: results.length,
+    results,
+  });
+}
+
 function handleUserAiUsage(request, response, url) {
   const email = normalizeEmail(url.searchParams.get("email"));
   if (!email) {
@@ -9912,6 +10027,9 @@ function analyticsSummary(store) {
     canceled: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "canceled").length,
     ended: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "ended").length,
     paymentFailed: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "payment_failed").length,
+    // Old failed/unpaid signal, no scheduled retry, not confirmed ended by any Stripe
+    // event — flagged for manual review rather than auto-labeled "ended"/"canceled".
+    needsBillingReview: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "needs_billing_review").length,
     neverSubscribed: users.filter((user) => membershipAccess.membershipBillingStatusKey(user) === "never_subscribed").length,
   };
   const subscriptionAccessAudit = membershipAccess.membershipAdminAuditBuckets(users);
@@ -15253,6 +15371,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/notifications/mark-read") return await handleAdminNotificationsMarkRead(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/subscription-refresh") return await handleAdminSubscriptionRefresh(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/billing-reconciliation") return await handleAdminBillingReconciliation(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-generate-content") return await handleAdminAiGenerateContent(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
