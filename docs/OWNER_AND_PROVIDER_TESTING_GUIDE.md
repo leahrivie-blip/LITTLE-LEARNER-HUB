@@ -20,7 +20,7 @@ Before real providers and families use new features, we build a complete pretend
 2. In **Settings → Testing and Advanced Tools** (or the Admin dashboard's feature flags panel), turn on the **Testing Lab** flag. This one toggle only needs to happen once.
 3. Open **Testing Lab** from the sidebar.
 4. Select **"Get the testing site ready (seed both programs + all logins)."**
-5. A table appears with one row per role: the fake email, a fresh one-time password, and which fake program it belongs to. **Copy every password now** — none are stored anywhere and none are shown again. This also turns on Director Center, Forms Center, and Family Hub testing preview automatically.
+5. A table appears with one row per role: the fake email, a fresh one-time password, and which fake program it belongs to. **Copy every password now** — the plain password is shown to you exactly once here and is never shown again, never logged, and never stored anywhere in plain form (only a securely-scrambled version is kept, the same strong method used for every password in this app, so it can be checked at login without ever being readable). This also turns on Director Center, Forms Center, and Family Hub testing preview automatically.
 
 That's it — both fake programs (a solo home daycare and a multi-classroom center) and all 10 role logins are ready.
 
@@ -164,9 +164,15 @@ This section is for **Leah (the owner/admin)**, not a regular tester. It covers 
 3. That's it — the model, the spending limits, and everything else are already configured; see below.
 
 ### What model is used, and how much it can spend
-- The model is set once, by the owner, as `OPENAI_MODEL` (defaults to a small, inexpensive model, `gpt-4o-mini`, if not set). No tester can change which model is used for real requests.
-- **Spending/rate controls, on by default, need no setup:** each fake account can make at most 20 AI requests per minute, and each fake organization (all its accounts combined) can make at most 50 per minute — past that, requests are automatically declined with a friendly "try again in a moment" message, never a crash. There is no way to remove these limits from the testing UI.
+- The model is set once, by the owner, as `OPENAI_MODEL` (defaults to a small, inexpensive model, `gpt-4o-mini`, if not set). No tester can change which model is used for real requests, and the app never overrides or hardcodes a different model than whatever you set here — this has been directly audited and confirmed.
+- **Spending/rate controls, on by default, need no setup:**
+  - Each tester (fake account) can make at most **5 AI requests per minute**.
+  - Each fake organization (all its testers combined) can make at most **20 AI requests per minute**.
+  - Each fake organization also has a **200-per-day** limit — a second, independent cap so many small bursts across a whole day still can't add up to a surprise.
+  - Past any of these, requests are automatically declined with a clear, specific message (different wording for "you personally" vs. "this organization" vs. "today's limit for this organization") — never a crash, and the tester's entry is never lost (the local review is used instead).
+  - There is no way to remove these limits from the testing UI. They start deliberately conservative and can be raised later once real usage is understood.
 - Every AI request's token usage and an estimated cost (in fractions of a cent, for a small model) accumulate in a running total, visible at the top of the **AI Outcomes** panel (see below) — this is an estimate for your own awareness, not a bill; check your OpenAI account for the real, authoritative amount.
+- A separate **"Usage limits, by organization"** table in the same panel shows, per fake organization, how close it is to its per-minute and per-day limits right now — sanitized counts only, never the actual text of any tester's request or the AI's response.
 - If you ever want to stop all real AI calls immediately, turning the **"AI Testing"** flag back off (or removing `OPENAI_API_KEY`) takes effect immediately — nothing else on the testing site is affected, and every AI-assisted screen simply goes back to using only the local, non-AI review it always had.
 
 ### Production always refuses AI, guaranteed
