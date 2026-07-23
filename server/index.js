@@ -45,6 +45,7 @@ const { createClassroomAssistantApi } = require("./classroom-assistant-api.js");
 const { createStaffExperienceApi } = require("./staff-experience-api.js");
 const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
 const { createTestingLabApi } = require("./testing-lab-api.js");
+const { createAiTestingApi } = require("./ai-testing-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15587,6 +15588,20 @@ function getTestingLabApi() {
   return _testingLabApi;
 }
 
+let _aiTestingApi;
+function getAiTestingApi() {
+  if (!_aiTestingApi) {
+    _aiTestingApi = createAiTestingApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      rawEnv: () => process.env,
+    });
+  }
+  return _aiTestingApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15693,6 +15708,27 @@ const server = http.createServer(async (request, response) => {
       const handler = getTestingLabApi().matchRoute(request.method, url.pathname, url);
       if (handler && admin) return handler(request, response, { adminEmail: admin.email, adminToken: admin.token });
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_LAB);
+    }
+    if (url.pathname === "/api/ai-testing" || url.pathname.startsWith("/api/ai-testing/")) {
+      // Admin-only AI Evaluation Lab routes AND the fake-account-usable AI
+      // review-screen routes both live under this same prefix — every real
+      // safety decision (production lock, ALLOW_OPENAI_TESTING, stored flag,
+      // key presence, rate limit) happens inside ai-testing-safety.js, not
+      // here. This mount only resolves WHO is asking.
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      let fakeAccountEmail = "";
+      if (!admin) {
+        const authHeader = String(request.headers.authorization || "");
+        const memberSession = tempPasswordAuth.resolveMemberSession(peekStore(), authHeader);
+        if (memberSession?.email && memberSession.email.endsWith("@example.invalid")) {
+          fakeAccountEmail = memberSession.email;
+        }
+      }
+      const handler = getAiTestingApi().matchRoute(request.method, url.pathname, url);
+      if (handler && (admin || fakeAccountEmail)) {
+        return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
+      }
+      return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.AI_TESTING);
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));

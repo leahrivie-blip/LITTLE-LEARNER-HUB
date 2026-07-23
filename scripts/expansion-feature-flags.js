@@ -15,6 +15,7 @@ const EXPANSION_FEATURE_KEYS = Object.freeze({
   FORMS_CENTER: "formsCenter",
   FAMILY_HUB: "familyHub",
   TESTING_LAB: "testingLab",
+  AI_TESTING: "aiTesting",
 });
 
 const EXPANSION_FEATURE_LABELS = Object.freeze({
@@ -22,6 +23,7 @@ const EXPANSION_FEATURE_LABELS = Object.freeze({
   formsCenter: "Forms Center",
   familyHub: "Family Hub",
   testingLab: "Testing and Preview Lab",
+  aiTesting: "AI Testing (Classroom Assistant, drafts, lesson plans, forms)",
 });
 
 const EXPANSION_VIEW_FLAGS = Object.freeze({
@@ -31,6 +33,11 @@ const EXPANSION_VIEW_FLAGS = Object.freeze({
   "testing-lab": EXPANSION_FEATURE_KEYS.TESTING_LAB,
 });
 
+// /api/ai-testing is intentionally NOT listed here: unlike the other expansion
+// routes (admin-only), it also accepts authenticated fake-account sessions
+// (never real member sessions, never on production). Its own mount in
+// server/index.js and scripts/ai-testing-safety.js#assertAiTestingAllowed
+// perform the complete, correct gate instead of this generic admin-only one.
 const EXPANSION_ROUTE_FLAGS = Object.freeze([
   { prefix: "/api/director-center", flag: EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER },
   { prefix: "/api/forms-center", flag: EXPANSION_FEATURE_KEYS.FORMS_CENTER },
@@ -48,6 +55,7 @@ function defaultExpansionFeatureFlags() {
     [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: false,
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: false,
     [EXPANSION_FEATURE_KEYS.TESTING_LAB]: false,
+    [EXPANSION_FEATURE_KEYS.AI_TESTING]: false,
   };
 }
 
@@ -71,6 +79,7 @@ function normalizeExpansionFeatureFlags(value) {
     [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: coerceFlag(input[EXPANSION_FEATURE_KEYS.FORMS_CENTER]),
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: coerceFlag(input[EXPANSION_FEATURE_KEYS.FAMILY_HUB]),
     [EXPANSION_FEATURE_KEYS.TESTING_LAB]: coerceFlag(input[EXPANSION_FEATURE_KEYS.TESTING_LAB]),
+    [EXPANSION_FEATURE_KEYS.AI_TESTING]: coerceFlag(input[EXPANSION_FEATURE_KEYS.AI_TESTING]),
   };
 }
 
@@ -107,12 +116,21 @@ function resolveExpansionEnvironment(options = {}) {
   const allowFormsCenterAdminPreview = !liveProduction && truthyEnv(env.ALLOW_FORMS_CENTER_ADMIN_PREVIEW);
   const allowFamilyHubTestingPreview = !liveProduction && truthyEnv(env.ALLOW_FAMILY_HUB_TESTING_PREVIEW);
   const allowTestingLabAdminPreview = !liveProduction && truthyEnv(env.ALLOW_TESTING_LAB_ADMIN_PREVIEW);
+  // AI Testing additionally requires DISABLE_AI_CALLS to not be explicitly true (the
+  // global AI kill switch always wins) and a real OPENAI_API_KEY to be configured —
+  // see scripts/ai-testing-safety.js for the fuller runtime gate used by the AI routes
+  // themselves; this environment object only carries the "is it even switched on" bit.
+  const allowOpenaiTesting = !liveProduction
+    && truthyEnv(env.ALLOW_OPENAI_TESTING)
+    && !truthyEnv(env.DISABLE_AI_CALLS)
+    && Boolean(String(env.OPENAI_API_KEY || "").trim());
   return {
     liveProduction: Boolean(liveProduction),
     allowDirectorCenterAdminPreview: Boolean(allowDirectorCenterAdminPreview),
     allowFormsCenterAdminPreview: Boolean(allowFormsCenterAdminPreview),
     allowFamilyHubTestingPreview: Boolean(allowFamilyHubTestingPreview),
     allowTestingLabAdminPreview: Boolean(allowTestingLabAdminPreview),
+    allowOpenaiTesting: Boolean(allowOpenaiTesting),
     siteUrl: String(siteUrl || ""),
     nodeEnv: String(env.NODE_ENV || ""),
   };
@@ -125,11 +143,13 @@ function resolveEffectiveExpansionFlags(storedFlags, environment = {}) {
   const formsAllowedInEnv = env.liveProduction !== true && env.allowFormsCenterAdminPreview === true;
   const familyAllowedInEnv = env.liveProduction !== true && env.allowFamilyHubTestingPreview === true;
   const testingLabAllowedInEnv = env.liveProduction !== true && env.allowTestingLabAdminPreview === true;
+  const aiTestingAllowedInEnv = env.liveProduction !== true && env.allowOpenaiTesting === true;
   return {
     [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: directorAllowedInEnv && normalized.directorCenter === true,
     [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: formsAllowedInEnv && normalized.formsCenter === true,
     [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: familyAllowedInEnv && normalized.familyHub === true,
     [EXPANSION_FEATURE_KEYS.TESTING_LAB]: testingLabAllowedInEnv && normalized.testingLab === true,
+    [EXPANSION_FEATURE_KEYS.AI_TESTING]: aiTestingAllowedInEnv && normalized.aiTesting === true,
   };
 }
 
@@ -137,9 +157,13 @@ function isExpansionFeatureEnabled(flags, flagKey, environment = null) {
   if (environment) {
     return resolveEffectiveExpansionFlags(flags, environment)[flagKey] === true;
   }
-  // Without an expansion environment, Family Hub and Testing Lab stay off —
+  // Without an expansion environment, Family Hub, Testing Lab, and AI Testing stay off —
   // callers must use resolveEffectiveExpansionFlags / evaluateExpansionAccess.
-  if (flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB || flagKey === EXPANSION_FEATURE_KEYS.TESTING_LAB) {
+  if (
+    flagKey === EXPANSION_FEATURE_KEYS.FAMILY_HUB
+    || flagKey === EXPANSION_FEATURE_KEYS.TESTING_LAB
+    || flagKey === EXPANSION_FEATURE_KEYS.AI_TESTING
+  ) {
     return false;
   }
   const normalized = normalizeExpansionFeatureFlags(flags);
@@ -341,6 +365,18 @@ function evaluateExpansionAccess({
     });
   }
 
+  if (flagKey === EXPANSION_FEATURE_KEYS.AI_TESTING) {
+    return evaluateAdminPreviewFeature({
+      flagKey,
+      stored,
+      env,
+      isVerifiedAdmin,
+      allowEnvKey: "allowOpenaiTesting",
+      storedKey: "aiTesting",
+      result,
+    });
+  }
+
   result.reason = "feature_unavailable";
   result.payload = unavailableExpansionPayload(flagKey, { reason: result.reason });
   return result;
@@ -354,6 +390,7 @@ function viewerExpansionFlags(storedFlags, environment, isVerifiedAdmin, options
     formsCenter: effective.formsCenter === true && isVerifiedAdmin === true,
     familyHub: canFamily,
     testingLab: effective.testingLab === true && isVerifiedAdmin === true,
+    aiTesting: effective.aiTesting === true && isVerifiedAdmin === true,
   };
 }
 
