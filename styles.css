@@ -20380,6 +20380,47 @@ body.lesson-editor-view .main {
 }
 
 /* Admin preview simulator badge + analytics states */
+/* ── Testing identity banner (testing-only, never on production) ────── */
+.testing-identity-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #fff3e0;
+  border-bottom: 1px solid #e6b975;
+  color: #6b4c1f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+  justify-content: center;
+}
+
+.testing-identity-role-text {
+  font-weight: 600;
+  color: #8a5a1f;
+  padding-left: 8px;
+  border-left: 1px solid #e6b975;
+}
+
+@media (max-width: 480px) {
+  .testing-identity-banner {
+    font-size: 0.76rem;
+    padding: 5px 10px;
+  }
+  .testing-identity-role-text {
+    border-left: none;
+    padding-left: 0;
+    flex-basis: 100%;
+  }
+}
+
+#topNavExitPreviewBtn {
+  border-color: #c0392b;
+  color: #922b21;
+}
+
 /* ── Testing Feedback widget (testing-only) ────────────────────────── */
 .testing-feedback-widget {
   position: fixed;
@@ -20481,6 +20522,39 @@ body.lesson-editor-view .main {
   font-size: 0.78rem;
   color: #667;
   margin-top: 8px;
+}
+
+.tf-screenshot-field {
+  margin-bottom: 10px;
+}
+
+.tf-screenshot-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tf-screenshot-preview img {
+  max-width: 90px;
+  max-height: 60px;
+  border-radius: 6px;
+  border: 1px solid rgba(47, 95, 138, 0.28);
+  object-fit: cover;
+}
+
+.tf-screenshot-warning {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #fff3e0;
+  border: 1px solid #e6b975;
+  font-size: 0.85rem;
+}
+
+.tf-screenshot-warning .tf-actions-row {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
 }
 
 .tf-error {
@@ -20609,6 +20683,14 @@ body.lesson-editor-view .main {
   margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.tf-message-screenshot {
+  display: block;
+  max-width: 100%;
+  margin-top: 6px;
+  border-radius: 8px;
+  border: 1px solid rgba(47, 95, 138, 0.2);
 }
 
 @media (max-width: 480px) {

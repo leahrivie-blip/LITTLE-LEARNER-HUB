@@ -10786,6 +10786,8 @@ function updateAuthButtons() {
   refreshAdminPreviewBadge();
   refreshFreePlanUpgradeChrome();
   if (typeof refreshTestingFeedbackWidget === "function") refreshTestingFeedbackWidget();
+  if (typeof refreshTestingIdentityBanner === "function") refreshTestingIdentityBanner();
+  if (typeof refreshTopNavExitPreview === "function") refreshTopNavExitPreview();
   // Auth state just changed (login, logout, or boot restore) — keep the
   // notification bell in sync either way (it also hides itself when logged out).
   if (typeof refreshNotificationBell === "function") {
@@ -12637,6 +12639,12 @@ function updateAdminNavVisibility() {
   document.body.classList.toggle("admin-unlocked", typeof isAdminUnlocked === "function" && isAdminUnlocked());
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
+  });
+  // Testing Lab: always in the primary nav for an unlocked admin on a
+  // non-production host — never only reachable via Settings search or a
+  // button buried inside the Admin Dashboard body. Never shown on production.
+  document.querySelectorAll("[data-testing-lab-nav]").forEach((button) => {
+    button.hidden = !(canSeeAdminNav() && typeof isProductionHostClient === "function" && !isProductionHostClient());
   });
   refreshAdminNavBadge();
   if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
@@ -35832,6 +35840,8 @@ function applyAdminPreviewToPlatform() {
   syncPlatformNavVisibility();
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
+  if (typeof refreshTopNavExitPreview === "function") refreshTopNavExitPreview();
+  if (typeof refreshTestingIdentityBanner === "function") refreshTestingIdentityBanner();
   document.body.classList.toggle("admin-preview-simulating", isAdminPreviewSimulating());
   document.body.dataset.adminPreview = adminPreviewMode() || "";
 
@@ -35841,49 +35851,64 @@ function applyAdminPreviewToPlatform() {
   }
 
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
-  if (activeView === "home") {
-    renderHome();
-  } else if (activeView === "admin") {
-    renderAdminDashboard();
-  } else if (activeView === "generators") {
-    const tool = document.querySelector("#generatorWorkspace")?.dataset.activeTool || "lesson";
-    renderGeneratorWorkspace(tool);
-  } else if (activeView === "ai") {
-    renderAiPage();
-  } else if (activeView === "children" || childToolTabFromView(activeView)) {
-    renderChildManagement();
-  } else if (activeView === "calendar") {
-    renderMainCalendar();
-  } else if (activeView === "planner") {
-    renderWeeklyPlanner();
-  } else if (activeView === "account") {
-    renderAccountPage();
-  } else if (activeView === "favorites") {
-    renderFavoritesPage();
-  } else if (activeView === "billing" || activeView === "subscription" || activeView === "membership") {
-    renderBillingPage();
-  } else if (activeView === "plans") {
-    renderPricingPage();
-  } else if (activeView === "settings") {
-    renderSettingsHubPage();
-  } else if (activeView === "staff") {
-    renderStaffManagementPage();
-  } else if (activeView === "classrooms") {
-    renderClassroomsPage();
-  } else if (activeView === "families") {
-    renderFamiliesPage();
-  } else if (activeView === "enrollment") {
-    renderEnrollmentPage();
-  } else if (activeView === "support-center") {
-    renderSupportCenterPage();
-  } else if (activeView === "resources") {
-    renderResourcesHubPage();
-  } else if (activeView === "reports") {
-    renderReportsPage();
-  } else if (activeView === "tools") {
-    renderFutureTools();
-  } else if (viewMap[activeView]) {
-    renderCategoryPage(activeView);
+  // Refresh-safety: a rendering error while under a non-Admin preview mode must
+  // never leave the page in an unresponsive state with no way back. If ANY of
+  // these renders throws, fall back to Admin mode immediately and land on the
+  // Admin dashboard — the escape hatches (badge, top-nav button) stay usable
+  // throughout since they don't depend on this render succeeding.
+  try {
+    if (activeView === "home") {
+      renderHome();
+    } else if (activeView === "admin") {
+      renderAdminDashboard();
+    } else if (activeView === "generators") {
+      const tool = document.querySelector("#generatorWorkspace")?.dataset.activeTool || "lesson";
+      renderGeneratorWorkspace(tool);
+    } else if (activeView === "ai") {
+      renderAiPage();
+    } else if (activeView === "children" || childToolTabFromView(activeView)) {
+      renderChildManagement();
+    } else if (activeView === "calendar") {
+      renderMainCalendar();
+    } else if (activeView === "planner") {
+      renderWeeklyPlanner();
+    } else if (activeView === "account") {
+      renderAccountPage();
+    } else if (activeView === "favorites") {
+      renderFavoritesPage();
+    } else if (activeView === "billing" || activeView === "subscription" || activeView === "membership") {
+      renderBillingPage();
+    } else if (activeView === "plans") {
+      renderPricingPage();
+    } else if (activeView === "settings") {
+      renderSettingsHubPage();
+    } else if (activeView === "staff") {
+      renderStaffManagementPage();
+    } else if (activeView === "classrooms") {
+      renderClassroomsPage();
+    } else if (activeView === "families") {
+      renderFamiliesPage();
+    } else if (activeView === "enrollment") {
+      renderEnrollmentPage();
+    } else if (activeView === "support-center") {
+      renderSupportCenterPage();
+    } else if (activeView === "resources") {
+      renderResourcesHubPage();
+    } else if (activeView === "reports") {
+      renderReportsPage();
+    } else if (activeView === "tools") {
+      renderFutureTools();
+    } else if (viewMap[activeView]) {
+      renderCategoryPage(activeView);
+    }
+  } catch (error) {
+    console.warn("[admin-preview] render failed under preview mode — falling back to Admin:", error?.message || error);
+    if (adminPreviewMode() !== "Admin") {
+      localStorage.setItem("llhAdminPreviewMode", "Admin");
+      try { refreshAdminPreviewBadge(); } catch { /* */ }
+      try { refreshTopNavExitPreview(); } catch { /* */ }
+      try { setView("admin"); } catch { /* */ }
+    }
   }
 
   showActionFeedback(`Preview mode: ${previewAwarePlanLabel()}`);
@@ -35919,7 +35944,13 @@ function refreshAdminPreviewBadge() {
   }
   if (returnBtn) returnBtn.hidden = mode === "Admin" && !isAdminImpersonating();
   badge.classList.toggle("is-simulating", mode !== "Admin" || isAdminImpersonating());
-  badge.hidden = false;
+  // Only actually show this floating badge while there's something to escape
+  // from. Previously this was unconditionally visible even in plain Admin
+  // mode ("Admin mode" with no button) — a permanent fixed bottom-right
+  // element that could overlap and block other bottom-right content
+  // (e.g. "Open Testing Lab") on narrower/shorter screens, exactly the kind
+  // of obstruction this hotfix requires never happens.
+  badge.hidden = mode === "Admin" && !isAdminImpersonating();
   if (isAdminImpersonating()) {
     if (label) {
       label.textContent = `Viewing as ${adminImpersonationState.account?.name || adminImpersonationState.email} (read-only)`;
@@ -35937,6 +35968,151 @@ function refreshAdminPreviewBadge() {
 
 function isAdminImpersonating() {
   return Boolean(isAdminUnlocked() && adminImpersonationState?.email);
+}
+
+// ---- Admin preview escape hatch (second, always-reachable option) --------
+// A permanent control in the top navigation (normal document flow, never an
+// overlay) that always works regardless of which preview system is active
+// or whether Testing Lab's own UI has an issue — this never depends on the
+// floating admin-preview-badge or Testing Lab's own "Exit Preview" button
+// being reachable/clickable. Every step is independently try/catch-guarded
+// so one failing step (e.g. a network call) can never prevent the others
+// from completing, and this function itself never throws.
+
+function isAnyPreviewActive() {
+  try {
+    const adminPreviewOn = isAdminUnlocked() && isAdminPreviewSimulating();
+    const impersonating = isAdminImpersonating();
+    const rolePreviewOn = Boolean(sessionStorage.getItem("llhRolePreviewMembershipId"));
+    return Boolean(adminPreviewOn || impersonating || rolePreviewOn);
+  } catch {
+    return false;
+  }
+}
+
+function exitAllPreviewModes() {
+  // 1. Admin Dashboard plan/role-label preview mode (Free/Trial/Pro/Founding/Director/Teacher).
+  try {
+    if (isAdminUnlocked() && adminPreviewMode() !== "Admin") {
+      setAdminPreviewMode("Admin");
+    }
+  } catch (error) {
+    console.warn("[preview-escape] could not reset admin preview mode:", error?.message || error);
+  }
+  // 2. Read-only user impersonation ("Viewing as ...").
+  try {
+    if (isAdminImpersonating()) stopAdminImpersonation({ refresh: false });
+  } catch (error) {
+    console.warn("[preview-escape] could not stop impersonation:", error?.message || error);
+  }
+  // 3. Testing Lab's Quick Role Preview — clear the LOCAL flag immediately and
+  // unconditionally (this alone is enough to stop the client from sending the
+  // preview header on future requests); best-effort tell the server too, but
+  // never let that network call block or fail the local escape.
+  try {
+    const previewMembershipId = sessionStorage.getItem("llhRolePreviewMembershipId");
+    if (previewMembershipId) {
+      sessionStorage.removeItem("llhRolePreviewMembershipId");
+      const token = adminSession()?.token || "";
+      if (token) {
+        fetch("/api/testing-lab/role-preview/exit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({}),
+        }).catch(() => { /* local escape already happened above — server confirmation is best-effort only */ });
+      }
+    }
+  } catch (error) {
+    console.warn("[preview-escape] could not clear role preview flag:", error?.message || error);
+  }
+  // 4. Refresh every piece of chrome that reflects preview state, each
+  // independently guarded so one failing refresh never blocks the others.
+  try { refreshAdminPreviewBadge(); } catch { /* */ }
+  try { refreshTopNavExitPreview(); } catch { /* */ }
+  try { refreshTestingIdentityBanner(); } catch { /* */ }
+  try { if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility(); } catch { /* */ }
+  try { showActionFeedback("Exited preview. You're back in your real Admin session."); } catch { /* */ }
+  // 5. Land somewhere always-safe regardless of which view was active.
+  try {
+    const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+    if (activeView !== "admin" && activeView !== "testing-lab") setView("admin");
+  } catch (error) {
+    console.warn("[preview-escape] could not navigate to a safe view:", error?.message || error);
+  }
+}
+
+function refreshTopNavExitPreview() {
+  const btn = document.querySelector("#topNavExitPreviewBtn");
+  if (!btn) return;
+  try {
+    btn.hidden = !isAnyPreviewActive();
+  } catch {
+    btn.hidden = true;
+  }
+}
+
+// ---- Testing identity banners (testing-only, never on production) --------
+// Mirrors the server's own production-hostname check (scripts/expansion-
+// feature-flags.js#LIVE_PRODUCTION_HOST_SUFFIXES) so the client can decide
+// whether to show a purely cosmetic "this is testing" banner. This is
+// informational chrome only — the server remains the sole real enforcement
+// boundary for every actual security decision; this never gates access to
+// anything, it only decides whether to draw a banner.
+const LIVE_PRODUCTION_HOST_SUFFIXES_CLIENT = ["littlelearnershubbyleah.com"];
+
+function isProductionHostClient() {
+  try {
+    const host = String(location.hostname || "").toLowerCase();
+    if (!host || host === "localhost" || host === "127.0.0.1") return false;
+    return LIVE_PRODUCTION_HOST_SUFFIXES_CLIENT.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  } catch {
+    return false;
+  }
+}
+
+/** Plain-language "Testing Account — Viewing as [Role]" label, or "" if none applies. */
+function testingIdentityRoleLabel() {
+  try {
+    if (isProductionHostClient()) return "";
+    const account = currentAccount();
+    if (account?.familyHubGuardian) return "Testing Account — Viewing as Parent";
+    const roleLabels = {
+      director: "Director", owner: "Solo Provider", teacher: "Lead Teacher", assistant: "Assistant",
+    };
+    if (account?.accountType === "curriculum_only") return "Testing Account — Viewing as Curriculum Only";
+    if (currentUser && /@example\.invalid$/i.test(currentUser) && account?.role) {
+      return `Testing Account — Viewing as ${roleLabels[account.role] || account.role}`;
+    }
+    if (isAdminUnlocked()) {
+      const preview = adminPreviewMode();
+      if (preview === "Director") return "Testing Account — Viewing as Director (sandbox preview)";
+      if (preview === "Teacher") return "Testing Account — Viewing as Lead Teacher (sandbox preview)";
+      if (isAdminImpersonating()) return `Testing Account — Viewing as ${adminImpersonationState?.account?.name || "member"} (read-only)`;
+      try {
+        const previewKind = sessionStorage.getItem("llhRolePreviewMembershipId") ? "role preview active" : "";
+        if (previewKind) return "Testing Account — Viewing as previewed role (Quick Role Preview)";
+      } catch { /* */ }
+    }
+  } catch { /* never let a banner-label bug break the page */ }
+  return "";
+}
+
+function refreshTestingIdentityBanner() {
+  const banner = document.querySelector("#testingIdentityBanner");
+  const roleText = document.querySelector("#testingIdentityRoleText");
+  if (!banner) return;
+  try {
+    const isTesting = !isProductionHostClient();
+    banner.hidden = !isTesting;
+    if (!isTesting) return;
+    const roleLabel = testingIdentityRoleLabel();
+    if (roleText) {
+      roleText.hidden = !roleLabel;
+      roleText.textContent = roleLabel;
+    }
+  } catch {
+    banner.hidden = true;
+  }
 }
 
 // ---- Testing Feedback (testing-only, never production) --------------------
@@ -35969,6 +36145,9 @@ const testingFeedbackState = {
   loading: false,
   error: "",
   notice: "",
+  pendingScreenshotDataUrl: "",
+  pendingScreenshotName: "",
+  screenshotWarningFile: null,
 };
 
 let testingFeedbackPollTimer = null;
@@ -36043,8 +36222,26 @@ function testingFeedbackNewFormHtml() {
       </label>
       <label class="tf-field">
         <span>Tell us what happened</span>
-        <textarea data-tf-body rows="4" placeholder="What screen were you on? What did you expect vs. what happened?">${escapeHtml(testingFeedbackState.bodyText || "")}</textarea>
+        <textarea data-tf-new-body-input rows="4" placeholder="What screen were you on? What did you expect vs. what happened?">${escapeHtml(testingFeedbackState.bodyText || "")}</textarea>
       </label>
+      <div class="tf-field tf-screenshot-field">
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-tf-screenshot-input hidden />
+        ${testingFeedbackState.pendingScreenshotDataUrl ? `
+          <div class="tf-screenshot-preview">
+            <img src="${escapeHtml(testingFeedbackState.pendingScreenshotDataUrl)}" alt="Attached screenshot preview" />
+            <button type="button" class="ghost-button" data-tf-remove-screenshot>Remove screenshot</button>
+          </div>
+        ` : `<button type="button" class="ghost-button" data-tf-attach-screenshot>Attach a screenshot (optional)</button>`}
+        ${testingFeedbackState.screenshotWarningFile ? `
+          <div class="tf-screenshot-warning" role="alertdialog" aria-label="Screenshot privacy warning">
+            <p><strong>Before you attach this:</strong> a screenshot shows exactly what was on your screen. Only attach it if you're sure it doesn't show anything private — a real child's name or photo, a password, or anything else you wouldn't want shared.</p>
+            <div class="tf-actions-row">
+              <button type="button" class="primary-button" data-tf-confirm-screenshot>It's safe — attach it</button>
+              <button type="button" class="ghost-button" data-tf-cancel-screenshot>Cancel</button>
+            </div>
+          </div>
+        ` : ""}
+      </div>
       ${testingFeedbackState.error ? `<p class="tf-error">${escapeHtml(testingFeedbackState.error)}</p>` : ""}
       ${testingFeedbackState.notice ? `<p class="tf-notice">${escapeHtml(testingFeedbackState.notice)}</p>` : ""}
       <button type="submit" class="primary-button" ${testingFeedbackState.loading ? "disabled" : ""}>Send feedback</button>
@@ -36092,6 +36289,7 @@ function testingFeedbackThreadDetailHtml() {
         <div class="tf-message tf-message--${escapeHtml(message.senderType)}">
           <span class="tf-message-sender">${message.senderType === "admin" ? "Leah" : "You"}</span>
           <p>${escapeHtml(message.body)}</p>
+          ${message.screenshotDataUrl ? `<img class="tf-message-screenshot" src="${escapeHtml(message.screenshotDataUrl)}" alt="Attached screenshot" />` : ""}
         </div>
       `).join("")}
     </div>
@@ -36208,7 +36406,7 @@ function bindTestingFeedbackWidgetEvents() {
   body?.addEventListener("submit", async (event) => {
     if (event.target.matches("[data-tf-new-form]")) {
       event.preventDefault();
-      const text = String(root.querySelector("[data-tf-body]")?.value || "").trim();
+      const text = String(root.querySelector("[data-tf-new-body-input]")?.value || "").trim();
       if (!text) {
         testingFeedbackState.error = "Please describe what you want to share before sending.";
         renderTestingFeedbackWidget();
@@ -36221,6 +36419,7 @@ function bindTestingFeedbackWidgetEvents() {
         await testingFeedbackApi("POST", "/api/testing-feedback/threads", {
           category: testingFeedbackState.category,
           body: text,
+          screenshotDataUrl: testingFeedbackState.pendingScreenshotDataUrl || "",
           context: {
             page: testingFeedbackCurrentPage(),
             device: testingFeedbackDeviceBucket(),
@@ -36228,6 +36427,8 @@ function bindTestingFeedbackWidgetEvents() {
           },
         });
         testingFeedbackState.bodyText = "";
+        testingFeedbackState.pendingScreenshotDataUrl = "";
+        testingFeedbackState.pendingScreenshotName = "";
         testingFeedbackState.notice = "Sent — thank you! You'll see a reply here, in My Threads.";
       } catch (error) {
         testingFeedbackState.error = error.message;
@@ -36274,6 +36475,80 @@ function bindTestingFeedbackWidgetEvents() {
   body?.addEventListener("change", (event) => {
     if (event.target.matches("[data-tf-category]")) {
       testingFeedbackState.category = event.target.value;
+      return;
+    }
+    // Delegated (not bound directly to the file input) because the input
+    // element itself is recreated on every re-render along with the rest of
+    // this panel's innerHTML — a direct listener would silently stop working
+    // after the very first re-render (e.g. switching category, or the
+    // background unread-count poll).
+    if (event.target.matches("[data-tf-screenshot-input]")) {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = ""; // allow re-selecting the same file later
+      if (!file) return;
+      if (!/^image\//.test(file.type)) {
+        testingFeedbackState.error = "Please choose an image file.";
+        renderTestingFeedbackWidget();
+        return;
+      }
+      // Never attach silently — always show the privacy warning first and
+      // wait for an explicit confirmation click before reading/attaching it.
+      testingFeedbackState.screenshotWarningFile = file;
+      renderTestingFeedbackWidget();
+    }
+  });
+  // Keep the in-progress draft in sync on every keystroke — this widget's
+  // background unread-count poll (every 30s) re-renders the whole panel body,
+  // and without this, anything typed for longer than 30 seconds would be
+  // silently wiped out the moment that poll's render() call replaced the
+  // textarea's innerHTML with the stale (empty) saved draft.
+  body?.addEventListener("input", (event) => {
+    if (event.target.matches("[data-tf-new-body-input]")) {
+      testingFeedbackState.bodyText = event.target.value;
+    } else if (event.target.matches("[data-tf-reply-text]")) {
+      testingFeedbackState.replyText = event.target.value;
+    }
+  });
+
+  body?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-tf-attach-screenshot]")) {
+      root.querySelector("[data-tf-screenshot-input]")?.click();
+      return;
+    }
+    if (event.target.closest("[data-tf-remove-screenshot]")) {
+      testingFeedbackState.pendingScreenshotDataUrl = "";
+      testingFeedbackState.pendingScreenshotName = "";
+      renderTestingFeedbackWidget();
+      return;
+    }
+    if (event.target.closest("[data-tf-cancel-screenshot]")) {
+      testingFeedbackState.screenshotWarningFile = null;
+      renderTestingFeedbackWidget();
+      return;
+    }
+    if (event.target.closest("[data-tf-confirm-screenshot]")) {
+      const file = testingFeedbackState.screenshotWarningFile;
+      testingFeedbackState.screenshotWarningFile = null;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result || "");
+          if (dataUrl.length > 900000) {
+            testingFeedbackState.error = "That image is too large to attach — try a smaller screenshot or crop it first.";
+          } else {
+            testingFeedbackState.pendingScreenshotDataUrl = dataUrl;
+            testingFeedbackState.pendingScreenshotName = file.name || "screenshot";
+            testingFeedbackState.error = "";
+          }
+          renderTestingFeedbackWidget();
+        };
+        reader.onerror = () => {
+          testingFeedbackState.error = "Could not read that image — try a different file.";
+          renderTestingFeedbackWidget();
+        };
+        reader.readAsDataURL(file);
+      }
+      renderTestingFeedbackWidget();
     }
   });
 }
@@ -37920,10 +38195,13 @@ function renderAdminOwnerOverview() {
     .sort((a, b) => new Date(b.updatedAt || b.lastSeenAt || b.createdAt || 0) - new Date(a.updatedAt || a.lastSeenAt || a.createdAt || 0))
     .slice(0, 8);
   const recentEvents = (adminAnalyticsCache?.recentEvents || analyticsEvents()).slice(0, 8);
+  const isTestingHostForAnalyticsNote = typeof isProductionHostClient === "function" && !isProductionHostClient();
   const loadingNote = adminAnalyticsCache
-    ? "Live production data from the server store + Stripe membership fields. Tap any metric card to drill into the users behind it."
+    ? (isTestingHostForAnalyticsNote
+      ? "Testing database loaded — fake data only. Tap any metric card to drill into the fake accounts behind it."
+      : "Live production data from the server store + Stripe membership fields. Tap any metric card to drill into the users behind it.")
     : (adminAnalyticsLoading
-      ? "Loading live production data…"
+      ? (isTestingHostForAnalyticsNote ? "Loading testing database — fake data only…" : "Loading live production data…")
       : (adminAnalyticsLastError
         ? `Server analytics failed to load: ${adminAnalyticsLastError}`
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
@@ -37957,7 +38235,7 @@ function renderAdminOwnerOverview() {
     ${renderAdminQuickActionsBar()}
     ${adminAnalyticsLoading && !adminAnalyticsCache ? `
       <div class="admin-analytics-state is-loading" role="status" data-admin-analytics-state="loading">
-        <p><strong>Loading live production data…</strong></p>
+        <p><strong>${(typeof isProductionHostClient === "function" && !isProductionHostClient()) ? "Loading testing database — fake data only…" : "Loading live production data…"}</strong></p>
         <p class="muted-copy">This usually finishes in a few seconds. If it stalls, use Retry.</p>
       </div>
     ` : ""}
@@ -37972,7 +38250,7 @@ function renderAdminOwnerOverview() {
     ` : ""}
     ${adminAnalyticsCache && !adminAnalyticsLoading ? `
       <div class="admin-analytics-state is-success" role="status" data-admin-analytics-state="success">
-        <p><strong>Live production data loaded.</strong></p>
+        <p><strong>${(typeof isProductionHostClient === "function" && !isProductionHostClient()) ? "Testing database loaded — fake data only." : "Live production data loaded."}</strong></p>
       </div>
     ` : ""}
     <div class="admin-preview-panel">
@@ -48855,14 +49133,31 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", async (event) => {
+  // Checked FIRST, before anything else in this handler (including
+  // analytics tracking below) — the preview escape hatch must never be
+  // blockable by an unrelated exception or slow call earlier in this same
+  // delegated handler.
+  if (event.target.closest("[data-top-nav-exit-preview]")) {
+    event.preventDefault();
+    exitAllPreviewModes();
+    return;
+  }
+
   const clickedButton = event.target.closest("button");
   if (clickedButton && !clickedButton.closest("#adminProtectedContent")) {
-    trackEvent("button_click", {
-      label: (clickedButton.textContent || clickedButton.getAttribute("aria-label") || "Button").replace(/\s+/g, " ").trim(),
-      view: clickedButton.dataset.view || "",
-      checkoutPlan: clickedButton.dataset.checkoutPlan || "",
-      action: clickedButton.id || clickedButton.dataset.view || clickedButton.dataset.checkoutPlan || clickedButton.dataset.proFeature || "button",
-    });
+    try {
+      trackEvent("button_click", {
+        label: (clickedButton.textContent || clickedButton.getAttribute("aria-label") || "Button").replace(/\s+/g, " ").trim(),
+        view: clickedButton.dataset.view || "",
+        checkoutPlan: clickedButton.dataset.checkoutPlan || "",
+        action: clickedButton.id || clickedButton.dataset.view || clickedButton.dataset.checkoutPlan || clickedButton.dataset.proFeature || "button",
+      });
+    } catch (error) {
+      // Analytics must never be able to silently break every OTHER click
+      // handled later in this same delegated listener (this is exactly how
+      // the admin preview escape hatch was found to be unreliable).
+      console.warn("[analytics] button_click tracking failed:", error?.message || error);
+    }
   }
 
   const adminMetricButton = event.target.closest("[data-admin-metric]");

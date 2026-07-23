@@ -238,6 +238,13 @@
               Admin Dashboard
               <span class="nav-badge" id="adminNavBadge" hidden>0</span>
             </button>
+            <!-- Always in the primary nav (never only reachable via Settings search or a
+                 button buried in the Admin Dashboard body) whenever Admin is unlocked on a
+                 non-production/testing host. Never shown on the real production site. -->
+            <button class="nav-link" data-view="testing-lab" data-testing-lab-nav hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/><path d="M8 14h8"/></svg></span>
+              Testing Lab
+            </button>
             <button class="nav-link" data-view="curriculum-planner" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
               Curriculum Planner <small class="nav-legacy-tag">Legacy</small>
@@ -287,12 +294,24 @@
                 </div>
               </div>
             </div>
+            <!-- Second, always-reachable escape from any admin preview mode / Testing Lab
+                 role preview — lives in normal document flow in the persistent top nav,
+                 never an overlay, never able to block or trap clicks on anything else.
+                 Hidden whenever no preview is active. -->
+            <button class="ghost-button" id="topNavExitPreviewBtn" type="button" data-top-nav-exit-preview hidden>Exit Preview</button>
             <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
             <span id="freePlanBadge" class="free-plan-badge" hidden>Free Plan</span>
             <button class="ghost-button" id="signinButton">Log in</button>
             <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
           </div>
         </header>
+
+        <!-- TESTING-ONLY IDENTITY BANNER — never shown on the real production site.
+             Noticeable but non-obstructive: normal document flow, not an overlay. -->
+        <div id="testingIdentityBanner" class="testing-identity-banner" hidden role="status" aria-live="polite">
+          <span id="testingIdentityBannerText">LITTLE LEARNER HUB TESTING — FAKE DATA ONLY</span>
+          <span id="testingIdentityRoleText" class="testing-identity-role-text" hidden></span>
+        </div>
 
         <!-- SITE-WIDE ANNOUNCEMENT BANNER -->
         <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">

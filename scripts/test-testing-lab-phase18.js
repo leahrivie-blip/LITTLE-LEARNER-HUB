@@ -368,7 +368,7 @@ async function run() {
             const desktopLab = document.querySelector("[data-tl-desktop-lab]");
             const banner = panel?.querySelector(".tl-banner");
             const recommended = panel?.querySelector("[data-tl-computer-recommended]");
-            const exitBtn = panel?.querySelector("[data-tl-exit-preview]");
+            const exitBtn = panel?.querySelector("[data-tl-exit-preview-mobile]");
             const returnBtn = panel?.querySelector("[data-tl-return-app]");
             const display = (el) => (el ? getComputedStyle(el).display : "missing");
             const isVisible = (el) => {
