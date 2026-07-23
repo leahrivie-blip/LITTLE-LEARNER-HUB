@@ -3641,6 +3641,7 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
   const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
   const subStatus = String(account.subscriptionStatus || "").toLowerCase();
   const hasAccess = accountHasRemainingPaidAccess(account) || Boolean(account.internalAccessOverride);
+  const staleFailure = paymentFailureIsStale(account, nowMs);
   const hasHistory = Boolean(
     account.subscriptionStartedAt
     || account.stripeSubscriptionId
@@ -3653,7 +3654,7 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
     || /subscription|trial|canceled|ended|past due|payment failed/i.test(subStatus),
   );
 
-  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
+  if (!staleFailure && (subStatus.includes("payment failed") || stripeStatus === "unpaid")) {
     return {
       key: "payment_failed",
       adminKey: "payment_failed",
@@ -3667,7 +3668,7 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
       planLabel: "Free Plan",
     };
   }
-  if (subStatus.includes("past due") || stripeStatus === "past_due") {
+  if (!staleFailure && (subStatus.includes("past due") || stripeStatus === "past_due")) {
     return {
       key: "past_due",
       adminKey: "past_due",
@@ -40063,6 +40064,32 @@ function renderAdminVisibilityDashboard() {
 
 // ─── Admin Users & Memberships Dashboard ─────────────────────────────────────
 
+// Mirrors scripts/membership-access.js membershipPaymentFailureIsStale(). Display-only:
+// once Stripe has clearly stopped retrying and enough time has passed, an old payment
+// failure is history, not a current problem — this never changes access, only the label.
+const PAYMENT_FAILURE_STALE_DAYS = 21;
+
+function paymentFailureIsStale(account, nowMs = Date.now()) {
+  const stripeStatus = String(account?.stripeSubscriptionStatus || "").toLowerCase();
+  const subStatus = String(account?.subscriptionStatus || "").toLowerCase();
+  const isFailedSignal = subStatus.includes("payment failed")
+    || stripeStatus === "unpaid"
+    || subStatus.includes("past due")
+    || stripeStatus === "past_due";
+  if (!isFailedSignal) return false;
+
+  const lastFailedMs = Date.parse(account?.lastFailedPaymentAt || "");
+  if (!Number.isFinite(lastFailedMs)) return false;
+
+  const lastSuccessMs = Date.parse(account?.lastSuccessfulPaymentAt || "");
+  if (Number.isFinite(lastSuccessMs) && lastSuccessMs > lastFailedMs) return false;
+
+  const nextRetryMs = Date.parse(account?.nextPaymentRetryAt || "");
+  if (Number.isFinite(nextRetryMs) && nextRetryMs > nowMs) return false;
+
+  return (nowMs - lastFailedMs) > PAYMENT_FAILURE_STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
 function adminMembershipHasProAccess(account) {
   if (!account) return false;
   if (typeof account.hasProAccess === "boolean") return account.hasProAccess;
@@ -40154,8 +40181,9 @@ function adminMembershipStatusLabel(account) {
   if (account?.membershipStatus) return account.membershipStatus;
   const stripeStatus = String(account?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(account?.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
-  if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
+  const staleFailure = paymentFailureIsStale(account);
+  if (!staleFailure && (status.includes("payment failed") || stripeStatus === "unpaid")) return "Payment Failed";
+  if (!staleFailure && (status.includes("past due") || stripeStatus === "past_due")) return "Past Due";
   const hasAccess = adminMembershipHasProAccess(account);
   const cancelScheduled = Boolean(account?.cancelAtPeriodEnd) || status.includes("access ends");
   const trialEndMs = account?.trialEnd || account?.accessEndsAt;
