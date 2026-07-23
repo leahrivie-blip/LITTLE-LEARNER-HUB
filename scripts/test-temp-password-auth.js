@@ -144,10 +144,19 @@ async function main() {
     assert.equal(login.json.mustChangePassword, true);
     assert.ok(login.json.memberSessionToken);
     assertNoPlaintextLeak(login.raw, knownTemp);
+    // Security fix: this account's tempPasswordHash started in the legacy raw
+    // SHA-256 format (set up above via the local hash() helper, simulating an
+    // account created before this fix) — a successful login must transparently
+    // upgrade it to the secure scrypt format in place, with no forced reset.
+    const afterFirstLogin = JSON.parse(fs.readFileSync(STORE, "utf8")).users[EMAIL];
+    assert.match(afterFirstLogin.tempPasswordHash, /^scrypt\$/, "a legacy tempPasswordHash must be transparently upgraded to the secure format on first successful login");
+    assert.notEqual(afterFirstLogin.tempPasswordHash, knownHash, "the upgraded hash must not still be the original raw SHA-256 digest");
+    console.log("PASS  legacy raw-SHA-256 tempPasswordHash transparently upgrades to secure scrypt format on login, no forced reset");
     // Prefer the latest temp-login session for the forced change.
     let session = login.json.memberSessionToken;
 
-    // Temp password stays usable until forced change completes (or 24h expires).
+    // Temp password stays usable until forced change completes (or 24h expires) —
+    // and still works correctly now that the hash has been upgraded above.
     const second = await request("POST", "/api/auth/password-login", {
       body: { email: EMAIL, password: knownTemp },
     });
@@ -184,7 +193,11 @@ async function main() {
     assert.equal(after.foundingMemberActive, true);
     assert.equal(after.role, "owner");
     assert.equal(after.mustChangePassword, false);
-    assert.equal(after.passwordHash, hash(newPassword));
+    // Security fix: a freshly-created password hash must be the current secure
+    // scrypt format, never a raw SHA-256 digest — verified via the module's own
+    // verify function rather than recomputing SHA-256 directly.
+    assert.doesNotMatch(after.passwordHash, /^[0-9a-f]{64}$/i, "a freshly-created password hash must not be a raw SHA-256 digest");
+    assert.match(after.passwordHash, /^scrypt\$/, "a freshly-created password hash must use the secure scrypt format");
     assert.ok(!after.tempPasswordHash);
 
     // Admin issue endpoint returns a fresh temp password once.
@@ -251,7 +264,8 @@ async function main() {
     assert.equal(syncLogin.json.mustChangePassword, false);
     const syncRow = JSON.parse(fs.readFileSync(STORE, "utf8")).users[syncEmail];
     assert.equal(syncRow.plan, "Founding");
-    assert.equal(syncRow.passwordHash, hash(syncedPassword));
+    assert.doesNotMatch(syncRow.passwordHash, /^[0-9a-f]{64}$/i, "a firebase-synced password hash must not be a raw SHA-256 digest");
+    assert.match(syncRow.passwordHash, /^scrypt\$/, "a firebase-synced password hash must use the secure scrypt format");
     console.log("PASS  sync-password-after-firebase clears gate and preserves Founding");
 
     assert.match(serverLog, /\[auth\] password_login/);

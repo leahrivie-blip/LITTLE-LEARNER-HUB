@@ -870,7 +870,7 @@ function createFamilyFoundationApi({
       return;
     }
     const plaintext = tempPasswordAuth.generateTemporaryPassword();
-    const passwordHash = tempPasswordAuth.hashPasswordSha256(plaintext);
+    const passwordHash = tempPasswordAuth.hashPassword(plaintext);
     account.passwordHash = passwordHash;
     account.lastPasswordIssuedAt = model.nowIso();
     account.updatedAt = account.lastPasswordIssuedAt;

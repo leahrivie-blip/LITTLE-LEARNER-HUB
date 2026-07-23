@@ -2828,6 +2828,21 @@ async function initializeStorage() {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
   }
   try {
+    // Security fix: invalidate any testing-only fake-account password hash still
+    // in the legacy raw-SHA-256 format from before this fix. Never touches a real
+    // user's hash (those migrate transparently on next login instead) and never
+    // invents a plaintext to re-hash — an invalidated fake account simply needs
+    // its password reissued via Testing Lab, which is safe and lossless by design.
+    const store = readStore();
+    const migrated = tempPasswordAuth.invalidateLegacyFakeAccountPasswordHashes(store);
+    if (migrated.invalidatedFakeAccounts > 0 || migrated.invalidatedUsers > 0) {
+      await writeStoreAsync(store);
+      console.log(`[temp-password] invalidated ${migrated.invalidatedFakeAccounts} legacy-hashed fake account(s) and ${migrated.invalidatedUsers} mirrored user row(s) — reissue their passwords via Testing Lab.`);
+    }
+  } catch (error) {
+    console.warn("[temp-password] legacy fake-account hash migration skipped:", error.message);
+  }
+  try {
     const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
     await ensurePreschoolCurriculumSeeded({
       readStore,
@@ -5875,7 +5890,7 @@ async function handleAdminIssueTempPassword(request, response) {
     return;
   }
   const temporaryPassword = tempPasswordAuth.generateTemporaryPassword();
-  const passwordHash = tempPasswordAuth.hashPasswordSha256(temporaryPassword);
+  const passwordHash = tempPasswordAuth.hashPassword(temporaryPassword);
   // Auth fields only — leave plan, founding, promo, role, and all other data untouched.
   store.users[email] = tempPasswordAuth.applyTempPasswordToUser(existing, { passwordHash });
   await writeStoreAsync(store);
@@ -5960,7 +5975,7 @@ async function handlePasswordResetComplete(request, response) {
   }
   store.users[consumed.email] = {
     ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
-    passwordHash: tempPasswordAuth.hashPasswordSha256(newPassword),
+    passwordHash: tempPasswordAuth.hashPassword(newPassword),
     serverPasswordAuth: true,
     mustChangePassword: false,
     emailVerified: user.emailVerified !== false,
@@ -6120,6 +6135,13 @@ async function handlePasswordLogin(request, response) {
       updatedAt: new Date().toISOString(),
     };
   }
+  // Transparently upgrade a legacy-format password hash to the current secure
+  // format the first time it's ever successfully used — this is the only point
+  // the plaintext is available; there is no bulk "re-hash everyone" path.
+  if (verified.upgradeField && verified.upgradeHash) {
+    nextUser = { ...nextUser, [verified.upgradeField]: verified.upgradeHash };
+    authAuditLog("password_hash_upgraded", { email, field: verified.upgradeField });
+  }
   store.users[email] = nextUser;
   const sessionToken = tempPasswordAuth.createMemberSession(
     store,
@@ -6185,7 +6207,7 @@ async function handleCompleteForcedPasswordChange(request, response) {
     jsonResponse(response, 400, { error: "A forced password change is not required for this account." });
     return;
   }
-  const passwordHash = tempPasswordAuth.hashPasswordSha256(newPassword);
+  const passwordHash = tempPasswordAuth.hashPassword(newPassword);
   store.users[email] = {
     ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
     passwordHash,
@@ -6247,7 +6269,7 @@ async function handleSyncPasswordAfterFirebase(request, response) {
   store.users = store.users || {};
   const existing = store.users[email] || { email };
   const passwordHash = newPassword
-    ? tempPasswordAuth.hashPasswordSha256(newPassword)
+    ? tempPasswordAuth.hashPassword(newPassword)
     : (existing.passwordHash || "");
   store.users[email] = {
     ...tempPasswordAuth.clearTempPasswordFields(existing, { keepServerPasswordAuth: true }),

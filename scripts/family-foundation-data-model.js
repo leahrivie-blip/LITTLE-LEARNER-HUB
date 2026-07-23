@@ -391,7 +391,9 @@ function createFakeAccountRecord({
     planKey: cleanText(planKey, 80),
     contactId: cleanText(contactId, 160),
     staffMembershipId: cleanText(staffMembershipId, 160),
-    passwordHash: cleanText(passwordHash, 128),
+    // 256, not 128 — the current secure scrypt-format hash
+    // ("scrypt$N$r$p$saltHex$keyHex") is longer than a raw SHA-256 hex digest.
+    passwordHash: cleanText(passwordHash, 256),
     mustChangePassword: false,
     label: cleanText(label, 120) || "Testing Account — Fake Data Only.",
     testingOnly: true,

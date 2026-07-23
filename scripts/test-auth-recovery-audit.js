@@ -266,7 +266,10 @@ async function main() {
 
       const storeAfter = JSON.parse(fs.readFileSync(STORE, "utf8"));
       const row = storeAfter.users[account.email];
-      assert.equal(row.passwordHash, hash(newPassword), `${account.key} password not persisted`);
+      // Security fix: a freshly-written password hash must be the current secure
+      // scrypt format, never a raw SHA-256 digest.
+      assert.doesNotMatch(row.passwordHash, /^[0-9a-f]{64}$/i, `${account.key} password hash must not be a raw SHA-256 digest`);
+      assert.match(row.passwordHash, /^scrypt\$/, `${account.key} password hash must use the secure scrypt format`);
       assert.equal(row.mustChangePassword, false);
       assert.ok(!row.tempPasswordHash);
 
@@ -327,7 +330,8 @@ async function main() {
     assert.equal(firebaseSync.status, 200, JSON.stringify(firebaseSync.json));
     assert.equal(firebaseSync.json.mustChangePassword, false);
     const afterSync = JSON.parse(fs.readFileSync(STORE, "utf8")).users[stickyEmail];
-    assert.equal(afterSync.passwordHash, hash("After-Firebase-Reset-77!"));
+    assert.doesNotMatch(afterSync.passwordHash, /^[0-9a-f]{64}$/i, "password hash must not be a raw SHA-256 digest");
+    assert.match(afterSync.passwordHash, /^scrypt\$/, "password hash must use the secure scrypt format");
     assert.equal(afterSync.mustChangePassword, false);
     assert.ok(!afterSync.tempPasswordHash);
 
