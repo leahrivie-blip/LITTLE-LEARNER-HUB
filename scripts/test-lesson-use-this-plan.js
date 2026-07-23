@@ -193,7 +193,8 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
+    // Phase 23: logged-in boot finishes on Today (not Calendar).
+    await page.waitForSelector("#view-today.active-view", { timeout: 30000 });
 
     console.log("1) Use This Plan → Add to Calendar opens pick-week form");
     await openLessonWorkspace(page, lessonA.title);

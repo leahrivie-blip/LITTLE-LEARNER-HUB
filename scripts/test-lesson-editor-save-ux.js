@@ -174,7 +174,8 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof openLessonPlanEditor === "function", null, { timeout: 30000 });
-    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
+    // Phase 23: logged-in boot finishes on Today (not Calendar).
+    await page.waitForSelector("#view-today.active-view", { timeout: 30000 });
 
     await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
