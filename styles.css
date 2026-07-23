@@ -3014,6 +3014,23 @@ body.lessons-view .mobile-brand {
   padding: 4px 10px;
 }
 
+.aup-card-billing-detail--review {
+  background: #fbf6ee;
+  border: 1px dashed #d8c39a;
+  border-radius: 10px;
+  padding: 6px 8px;
+  margin-top: 6px;
+}
+
+.aup-card-billing-detail--review span {
+  background: #ffffff;
+}
+
+.aup-card-billing-flag {
+  color: #8a6d3b;
+  font-weight: 700;
+}
+
 .aup-card--disabled {
   opacity: 0.72;
   border-style: dashed;
@@ -3066,6 +3083,7 @@ body.lessons-view .mobile-brand {
 .aup-insight--pro      strong { color: var(--accent); }
 .aup-insight--founding strong { color: #c9a84c; }
 .aup-insight--canceled strong { color: #c0392b; }
+.aup-insight--review   strong { color: #8a6d3b; }
 
 /* Search */
 .aup-search-wrap {
@@ -3192,6 +3210,8 @@ body.lessons-view .mobile-brand {
 .aup-badge--trial    { background: #dbeaf7; color: #3a7abf; }
 .aup-badge--pro      { background: var(--accent-soft); color: var(--accent); }
 .aup-badge--founding { background: #fef9e7; color: #c9a84c; }
+/* Unverified historical payment failure — distinct from an active Payment Failed alert. */
+.aup-badge--review   { background: #efe6d8; color: #8a6d3b; }
 
 .aup-status {
   display: inline-block;
@@ -3205,6 +3225,7 @@ body.lessons-view .mobile-brand {
 .aup-status--trial    { background: #e3f2fd; color: #1565c0; }
 .aup-status--active   { background: #e8f5e9; color: #2e7d32; }
 .aup-status--canceled { background: #fdecea; color: #c0392b; }
+.aup-status--review   { background: #efe6d8; color: #8a6d3b; }
 
 /* User Profile Modal */
 .aup-profile-modal {
