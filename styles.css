@@ -20380,6 +20380,250 @@ body.lesson-editor-view .main {
 }
 
 /* Admin preview simulator badge + analytics states */
+/* ── Testing Feedback widget (testing-only) ────────────────────────── */
+.testing-feedback-widget {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 88;
+  font-size: 0.92rem;
+}
+
+.testing-feedback-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(47, 95, 138, 0.28);
+  background: #2f5f8a;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 10px 28px rgba(26, 43, 74, 0.22);
+  cursor: pointer;
+  position: relative;
+}
+
+.testing-feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #c0392b;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.testing-feedback-panel {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 10px);
+  width: min(360px, calc(100vw - 32px));
+  max-height: min(520px, calc(100vh - 120px));
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 14px;
+  border: 1px solid rgba(47, 95, 138, 0.2);
+  box-shadow: 0 20px 48px rgba(26, 43, 74, 0.28);
+  padding: 14px;
+}
+
+.testing-feedback-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.testing-feedback-panel-header .tf-banner {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8a4b28;
+  font-weight: 700;
+}
+
+.testing-feedback-tabs {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.testing-feedback-tabs button.active {
+  background: #eef6fb;
+  border-color: #2f5f8a;
+  color: #2f5f8a;
+}
+
+.tf-field {
+  display: block;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.tf-field select,
+.tf-field textarea,
+[data-tf-reply-text] {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(47, 95, 138, 0.28);
+  font: inherit;
+}
+
+.tf-context-note {
+  font-size: 0.78rem;
+  color: #667;
+  margin-top: 8px;
+}
+
+.tf-error {
+  color: #922b21;
+  font-weight: 600;
+}
+
+.tf-notice {
+  color: #1f6b3a;
+  font-weight: 600;
+}
+
+.tf-empty {
+  color: #667;
+}
+
+.tf-thread-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tf-thread-row {
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(47, 95, 138, 0.18);
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.tf-thread-row.is-unread {
+  border-color: #c0392b;
+  background: #fff5f5;
+}
+
+.tf-thread-subject {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.tf-thread-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tf-chip {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #eef6fb;
+  color: #2f5f8a;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.tf-chip--retest {
+  background: #fff3e0;
+  color: #8a4b28;
+}
+
+.tf-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c0392b;
+  display: inline-block;
+}
+
+.tf-back {
+  margin-bottom: 8px;
+}
+
+.tf-thread-heading {
+  margin: 0 0 6px;
+}
+
+.tf-thread-status-row {
+  margin: 0 0 10px;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.tf-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.tf-message {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f1f5f9;
+}
+
+.tf-message--admin {
+  background: #eef6fb;
+  align-self: flex-start;
+}
+
+.tf-message--tester {
+  background: #f4f9f4;
+  align-self: flex-end;
+}
+
+.tf-message-sender {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #667;
+  margin-bottom: 2px;
+}
+
+.tf-message p {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 480px) {
+  .testing-feedback-widget {
+    left: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  .tf-toggle-label {
+    display: none;
+  }
+  .testing-feedback-panel {
+    width: calc(100vw - 24px);
+  }
+}
+
 .admin-preview-badge {
   position: fixed;
   right: 16px;

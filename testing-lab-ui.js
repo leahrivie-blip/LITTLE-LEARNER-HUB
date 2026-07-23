@@ -31,6 +31,16 @@
     aiPromptWorkflow: "classroom_assistant",
     aiPromptVersions: [],
     aiError: "",
+    tfThreads: [],
+    tfFilter: { status: "", category: "", unreadOnly: false, retestRequested: false },
+    tfActiveThreadId: "",
+    tfActiveThread: null,
+    tfMessages: [],
+    tfNotes: [],
+    tfReplyText: "",
+    tfNoteText: "",
+    tfError: "",
+    tfUnreadCount: 0,
     deviceSession: null,
     preview: null,
     saveStatus: "idle",
@@ -76,6 +86,7 @@
       ["checklist", "Test Checklist"],
       ["audit", "Activity"],
       ["ai", "AI Outcomes"],
+      ["feedback", "Testing Feedback"],
     ];
     return `
       <nav class="tl-subnav" aria-label="Testing Lab panels">
@@ -158,6 +169,23 @@
     form_builder: "Form Builder",
   };
 
+  const TF_CATEGORY_LABELS = {
+    bug: "Bug",
+    confusing_screen: "Confusing screen",
+    missing_feature: "Missing feature",
+    layout_problem: "Layout problem",
+    ai_result: "AI result",
+    suggestion: "Suggestion",
+    other: "Other",
+  };
+
+  const TF_STATUS_LABELS = {
+    open: "Open",
+    in_progress: "In progress",
+    resolved: "Resolved",
+    closed: "Closed",
+  };
+
   function aiRunSummaryHtml(run) {
     if (!run) return "<p class=\"muted-copy\">Not run yet.</p>";
     return `
@@ -234,6 +262,99 @@
         ${state.aiError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.aiError)}</p>` : ""}
       </section>
     `;
+  }
+
+  function testingFeedbackThreadListHtml() {
+    return `
+      <section class="tl-section" data-tl-testing-feedback>
+        <h3>Testing Feedback — inbox</h3>
+        <p class="muted-copy">Every tester's feedback thread, across every fake organization. Testers only ever see their own thread — never this list, never another tester's thread, never a private note.</p>
+        <div class="tl-actions-row">
+          <select data-tf-admin-filter-status>
+            <option value="">All statuses</option>
+            ${Object.entries(TF_STATUS_LABELS).map(([key, label]) => `<option value="${key}" ${state.tfFilter.status === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+          <select data-tf-admin-filter-category>
+            <option value="">All categories</option>
+            ${Object.entries(TF_CATEGORY_LABELS).map(([key, label]) => `<option value="${key}" ${state.tfFilter.category === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+          <label class="tl-check"><input type="checkbox" data-tf-admin-filter-unread ${state.tfFilter.unreadOnly ? "checked" : ""}/> Unread only</label>
+          <label class="tl-check"><input type="checkbox" data-tf-admin-filter-retest ${state.tfFilter.retestRequested ? "checked" : ""}/> Retest requested</label>
+          <button type="button" class="ghost-button" data-tf-admin-apply-filters>Apply filters</button>
+        </div>
+        ${state.tfError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.tfError)}</p>` : ""}
+        <ul class="fh-card-list">
+          ${(state.tfThreads || []).map((thread) => `
+            <li class="fh-card static" data-tf-admin-thread="${escapeHtml(thread.id)}">
+              <strong>${escapeHtml(thread.subject)}</strong>
+              <span class="dc-badge">${escapeHtml(TF_CATEGORY_LABELS[thread.category] || thread.category)}</span>
+              <span class="dc-badge">${escapeHtml(TF_STATUS_LABELS[thread.status] || thread.status)}</span>
+              ${thread.retestRequested ? `<span class="dc-badge">Retest requested</span>` : ""}
+              ${thread.adminUnread ? `<span class="dc-badge">Unread</span>` : ""}
+              <p class="muted-copy">${escapeHtml(thread.testerEmail)} · org ${escapeHtml(thread.organizationId)} · ${escapeHtml(thread.context?.role || "")} · ${escapeHtml(thread.context?.device || "")} · ${escapeHtml(thread.context?.page || "")}</p>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tf-admin-open="${escapeHtml(thread.id)}">Open thread</button>
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No feedback threads yet.</li>"}
+        </ul>
+      </section>
+    `;
+  }
+
+  function testingFeedbackThreadDetailHtml() {
+    const thread = state.tfActiveThread;
+    if (!thread) return `<p class="muted-copy">Loading…</p>`;
+    return `
+      <section class="tl-section" data-tl-testing-feedback-detail>
+        <button type="button" class="ghost-button" data-tf-admin-back>← Back to inbox</button>
+        <h3>${escapeHtml(thread.subject)}</h3>
+        <p class="muted-copy">
+          Tester: ${escapeHtml(thread.testerEmail)} (${escapeHtml(thread.testerRole || "role unknown")}) ·
+          Org: ${escapeHtml(thread.organizationId)} ·
+          Page: ${escapeHtml(thread.context?.page || "—")} ·
+          Device: ${escapeHtml(thread.context?.device || "—")}
+        </p>
+        <div class="tl-actions-row">
+          <label>Status
+            <select data-tf-admin-status>
+              ${Object.entries(TF_STATUS_LABELS).map(([key, label]) => `<option value="${key}" ${thread.status === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+            </select>
+          </label>
+          <label class="tl-check"><input type="checkbox" data-tf-admin-retest ${thread.retestRequested ? "checked" : ""}/> Request a retest</label>
+        </div>
+        <h4>Conversation (the tester sees everything in this section)</h4>
+        <div class="tl-status-row">
+          ${(state.tfMessages || []).map((message) => `
+            <div class="fh-card static">
+              <strong>${message.senderType === "admin" ? "You (admin)" : escapeHtml(thread.testerEmail)}</strong>
+              <p>${escapeHtml(message.body)}</p>
+              <span class="muted-copy">${escapeHtml(message.createdAt || "")}</span>
+            </div>
+          `).join("") || "<p class=\"muted-copy\">No messages yet.</p>"}
+        </div>
+        <textarea data-tf-admin-reply-text rows="3" placeholder="Reply to the tester…" style="width:100%;"></textarea>
+        <button type="button" class="primary-button" data-tf-admin-send-reply>Send reply (tester will see this)</button>
+
+        <h4>Private notes — the tester NEVER sees this section</h4>
+        <div class="tl-status-row">
+          ${(state.tfNotes || []).map((note) => `
+            <div class="fh-card static">
+              <strong>Private note</strong>
+              <p>${escapeHtml(note.body)}</p>
+              <span class="muted-copy">${escapeHtml(note.createdAt || "")}</span>
+            </div>
+          `).join("") || "<p class=\"muted-copy\">No private notes yet.</p>"}
+        </div>
+        <textarea data-tf-admin-note-text rows="2" placeholder="Private note (never shown to the tester)…" style="width:100%;"></textarea>
+        <button type="button" class="ghost-button" data-tf-admin-add-note>Save private note</button>
+        ${state.tfError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.tfError)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function testingFeedbackInboxHtml() {
+    return state.tfActiveThreadId ? testingFeedbackThreadDetailHtml() : testingFeedbackThreadListHtml();
   }
 
   function accountsHtml() {
@@ -631,6 +752,7 @@
     if (state.panel === "checklist") return checklistHtml();
     if (state.panel === "audit") return auditHtml();
     if (state.panel === "ai") return aiOutcomesHtml();
+    if (state.panel === "feedback") return testingFeedbackInboxHtml();
     return homeHtml();
   }
 
@@ -741,9 +863,111 @@
         if (state.panel === "ai") {
           await loadAiOutcomesData();
         }
+        if (state.panel === "feedback") {
+          state.tfActiveThreadId = "";
+          state.tfActiveThread = null;
+          await loadTestingFeedbackAdminThreads();
+        }
         render(mount);
       });
     });
+
+    function tfFilterQuery() {
+      const params = new URLSearchParams();
+      if (state.tfFilter.status) params.set("status", state.tfFilter.status);
+      if (state.tfFilter.category) params.set("category", state.tfFilter.category);
+      if (state.tfFilter.unreadOnly) params.set("unreadOnly", "true");
+      if (state.tfFilter.retestRequested) params.set("retestRequested", "true");
+      const query = params.toString();
+      return query ? `?${query}` : "";
+    }
+
+    async function loadTestingFeedbackAdminThreads() {
+      try {
+        const data = await api("GET", `/api/testing-feedback/admin/threads${tfFilterQuery()}`);
+        state.tfThreads = data.threads || [];
+        state.tfUnreadCount = data.unreadCount || 0;
+        state.tfError = "";
+      } catch (error) {
+        state.tfError = error.message;
+      }
+    }
+
+    async function openTestingFeedbackAdminThread(threadId) {
+      try {
+        const data = await api("GET", `/api/testing-feedback/admin/threads/${threadId}`);
+        state.tfActiveThreadId = threadId;
+        state.tfActiveThread = data.thread;
+        state.tfMessages = data.messages || [];
+        state.tfNotes = data.notes || [];
+        state.tfError = "";
+        if (data.thread.adminUnread) await api("POST", `/api/testing-feedback/admin/threads/${threadId}/read`, {});
+      } catch (error) {
+        state.tfError = error.message;
+      }
+      render(mount);
+    }
+
+    mount.querySelectorAll("[data-tf-admin-open]").forEach((btn) => {
+      btn.addEventListener("click", () => openTestingFeedbackAdminThread(btn.getAttribute("data-tf-admin-open")));
+    });
+    mount.querySelector("[data-tf-admin-back]")?.addEventListener("click", async () => {
+      state.tfActiveThreadId = "";
+      state.tfActiveThread = null;
+      await loadTestingFeedbackAdminThreads();
+      render(mount);
+    });
+    mount.querySelector("[data-tf-admin-apply-filters]")?.addEventListener("click", async () => {
+      state.tfFilter.status = mount.querySelector("[data-tf-admin-filter-status]")?.value || "";
+      state.tfFilter.category = mount.querySelector("[data-tf-admin-filter-category]")?.value || "";
+      state.tfFilter.unreadOnly = Boolean(mount.querySelector("[data-tf-admin-filter-unread]")?.checked);
+      state.tfFilter.retestRequested = Boolean(mount.querySelector("[data-tf-admin-filter-retest]")?.checked);
+      await loadTestingFeedbackAdminThreads();
+      render(mount);
+    });
+    mount.querySelector("[data-tf-admin-send-reply]")?.addEventListener("click", async () => {
+      const text = String(mount.querySelector("[data-tf-admin-reply-text]")?.value || "").trim();
+      if (!text || !state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/reply`, { body: text });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tf-admin-add-note]")?.addEventListener("click", async () => {
+      const text = String(mount.querySelector("[data-tf-admin-note-text]")?.value || "").trim();
+      if (!text || !state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/notes`, { body: text });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tf-admin-status]")?.addEventListener("change", async (event) => {
+      if (!state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/status`, { status: event.target.value });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tf-admin-retest]")?.addEventListener("change", async (event) => {
+      if (!state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/retest`, { retestRequested: event.target.checked });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+
     async function loadAiOutcomesData() {
       try {
         state.aiStatus = await api("GET", "/api/ai-testing/status");

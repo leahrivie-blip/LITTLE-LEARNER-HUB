@@ -10785,6 +10785,7 @@ function updateAuthButtons() {
   updateBodyAuthClass();
   refreshAdminPreviewBadge();
   refreshFreePlanUpgradeChrome();
+  if (typeof refreshTestingFeedbackWidget === "function") refreshTestingFeedbackWidget();
   // Auth state just changed (login, logout, or boot restore) — keep the
   // notification bell in sync either way (it also hides itself when logged out).
   if (typeof refreshNotificationBell === "function") {
@@ -35936,6 +35937,366 @@ function refreshAdminPreviewBadge() {
 
 function isAdminImpersonating() {
   return Boolean(isAdminUnlocked() && adminImpersonationState?.email);
+}
+
+// ---- Testing Feedback (testing-only, never production) --------------------
+// A floating "Send Testing Feedback" button available on every screen for a
+// logged-in fake-account tester (never a real account, never production —
+// the server enforces both, this client check only decides whether to show
+// the button at all). See scripts/testing-feedback-data-model.js and
+// server/testing-feedback-api.js.
+
+const TESTING_FEEDBACK_CATEGORIES = Object.freeze([
+  ["bug", "Bug"],
+  ["confusing_screen", "Confusing screen"],
+  ["missing_feature", "Missing feature"],
+  ["layout_problem", "Layout problem"],
+  ["ai_result", "AI result"],
+  ["suggestion", "Suggestion"],
+  ["other", "Other"],
+]);
+
+const testingFeedbackState = {
+  tab: "new",
+  category: "bug",
+  bodyText: "",
+  threads: [],
+  activeThreadId: "",
+  activeThread: null,
+  activeMessages: [],
+  replyText: "",
+  unreadCount: 0,
+  loading: false,
+  error: "",
+  notice: "",
+};
+
+let testingFeedbackPollTimer = null;
+
+function isFakeAccountTester() {
+  return /@example\.invalid$/i.test(String(currentUser || "").trim());
+}
+
+function testingFeedbackAuthHeaders() {
+  const headers = { Accept: "application/json", "Content-Type": "application/json" };
+  const token = readMemberSessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  else if (currentUser) headers.Authorization = `Bearer test:${currentUser}`;
+  return headers;
+}
+
+async function testingFeedbackApi(method, path, body) {
+  const response = await fetch(path, {
+    method,
+    headers: testingFeedbackAuthHeaders(),
+    cache: "no-store",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+
+function testingFeedbackDeviceBucket() {
+  const width = window.innerWidth || 0;
+  if (width < 600) return "phone";
+  if (width < 1100) return "tablet";
+  return "computer";
+}
+
+function testingFeedbackCurrentPage() {
+  return document.querySelector(".active-view")?.id?.replace("view-", "") || "unknown";
+}
+
+function testingFeedbackCurrentRole() {
+  const account = currentAccount();
+  return (account && (account.role || account.accountType)) || "";
+}
+
+async function refreshTestingFeedbackUnreadCount() {
+  if (!isFakeAccountTester()) return;
+  try {
+    const data = await testingFeedbackApi("GET", "/api/testing-feedback/unread-count");
+    testingFeedbackState.unreadCount = data.unreadCount || 0;
+    renderTestingFeedbackWidget();
+  } catch {
+    // A testing amenity — never surface an error banner just for a background poll.
+  }
+}
+
+function testingFeedbackStatusLabel(status) {
+  return { open: "Open", in_progress: "In progress", resolved: "Resolved", closed: "Closed" }[status] || status;
+}
+
+function testingFeedbackCategoryLabel(category) {
+  return (TESTING_FEEDBACK_CATEGORIES.find(([key]) => key === category) || [null, "Other"])[1];
+}
+
+function testingFeedbackNewFormHtml() {
+  return `
+    <form data-tf-new-form>
+      <label class="tf-field">
+        <span>What kind of feedback is this?</span>
+        <select data-tf-category>
+          ${TESTING_FEEDBACK_CATEGORIES.map(([key, label]) => `<option value="${key}" ${testingFeedbackState.category === key ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </label>
+      <label class="tf-field">
+        <span>Tell us what happened</span>
+        <textarea data-tf-body rows="4" placeholder="What screen were you on? What did you expect vs. what happened?">${escapeHtml(testingFeedbackState.bodyText || "")}</textarea>
+      </label>
+      ${testingFeedbackState.error ? `<p class="tf-error">${escapeHtml(testingFeedbackState.error)}</p>` : ""}
+      ${testingFeedbackState.notice ? `<p class="tf-notice">${escapeHtml(testingFeedbackState.notice)}</p>` : ""}
+      <button type="submit" class="primary-button" ${testingFeedbackState.loading ? "disabled" : ""}>Send feedback</button>
+      <p class="tf-context-note">We'll automatically include the screen, device size, and your role so this is easy to look into.</p>
+    </form>
+  `;
+}
+
+function testingFeedbackThreadsListHtml() {
+  if (!testingFeedbackState.threads.length) {
+    return `<p class="tf-empty">You haven't sent any feedback yet — use "New Feedback" to start a thread.</p>`;
+  }
+  return `
+    <ul class="tf-thread-list">
+      ${testingFeedbackState.threads.map((thread) => `
+        <li>
+          <button type="button" class="tf-thread-row${thread.testerUnread ? " is-unread" : ""}" data-tf-open-thread="${escapeHtml(thread.id)}">
+            <span class="tf-thread-subject">${escapeHtml(thread.subject)}</span>
+            <span class="tf-thread-meta">
+              <span class="tf-chip">${escapeHtml(testingFeedbackCategoryLabel(thread.category))}</span>
+              <span class="tf-chip tf-chip--status">${escapeHtml(testingFeedbackStatusLabel(thread.status))}</span>
+              ${thread.retestRequested ? `<span class="tf-chip tf-chip--retest">Please retest</span>` : ""}
+              ${thread.testerUnread ? `<span class="tf-dot" aria-label="Unread reply"></span>` : ""}
+            </span>
+          </button>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+function testingFeedbackThreadDetailHtml() {
+  const thread = testingFeedbackState.activeThread;
+  if (!thread) return `<p class="tf-empty">Loading…</p>`;
+  return `
+    <button type="button" class="ghost-button tf-back" data-tf-back>← Back to my threads</button>
+    <h4 class="tf-thread-heading">${escapeHtml(thread.subject)}</h4>
+    <p class="tf-thread-status-row">
+      <span class="tf-chip">${escapeHtml(testingFeedbackCategoryLabel(thread.category))}</span>
+      <span class="tf-chip tf-chip--status">${escapeHtml(testingFeedbackStatusLabel(thread.status))}</span>
+      ${thread.retestRequested ? `<span class="tf-chip tf-chip--retest">Please retest and reply</span>` : ""}
+    </p>
+    <div class="tf-messages">
+      ${testingFeedbackState.activeMessages.map((message) => `
+        <div class="tf-message tf-message--${escapeHtml(message.senderType)}">
+          <span class="tf-message-sender">${message.senderType === "admin" ? "Leah" : "You"}</span>
+          <p>${escapeHtml(message.body)}</p>
+        </div>
+      `).join("")}
+    </div>
+    <form data-tf-reply-form>
+      <textarea data-tf-reply-text rows="3" placeholder="Reply…">${escapeHtml(testingFeedbackState.replyText || "")}</textarea>
+      ${testingFeedbackState.error ? `<p class="tf-error">${escapeHtml(testingFeedbackState.error)}</p>` : ""}
+      <button type="submit" class="primary-button" ${testingFeedbackState.loading ? "disabled" : ""}>Send reply</button>
+    </form>
+  `;
+}
+
+function testingFeedbackBodyHtml() {
+  if (testingFeedbackState.tab === "thread") return testingFeedbackThreadDetailHtml();
+  if (testingFeedbackState.tab === "threads") return testingFeedbackThreadsListHtml();
+  return testingFeedbackNewFormHtml();
+}
+
+function testingFeedbackWidgetShellHtml() {
+  return `
+    <div class="testing-feedback-widget" data-testing-feedback-widget>
+      <button type="button" class="testing-feedback-toggle" data-tf-toggle aria-label="Send Testing Feedback">
+        <span aria-hidden="true">💬</span><span class="tf-toggle-label">Testing Feedback</span>
+        <span class="testing-feedback-badge" data-tf-badge hidden>0</span>
+      </button>
+      <div class="testing-feedback-panel" data-tf-panel hidden role="dialog" aria-label="Testing feedback">
+        <div class="testing-feedback-panel-header">
+          <p class="tf-banner">Testing Account — Fake Data Only.</p>
+          <button type="button" class="ghost-button tf-close" data-tf-close aria-label="Close">×</button>
+        </div>
+        <nav class="testing-feedback-tabs">
+          <button type="button" class="ghost-button" data-tf-tab="new">New Feedback</button>
+          <button type="button" class="ghost-button" data-tf-tab="threads">My Threads</button>
+        </nav>
+        <div class="testing-feedback-panel-body" data-tf-body></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTestingFeedbackWidget() {
+  const root = document.querySelector("[data-testing-feedback-widget]");
+  if (!root) return;
+  const badge = root.querySelector("[data-tf-badge]");
+  if (badge) {
+    badge.hidden = testingFeedbackState.unreadCount <= 0;
+    badge.textContent = testingFeedbackState.unreadCount > 99 ? "99+" : String(testingFeedbackState.unreadCount);
+  }
+  root.querySelectorAll("[data-tf-tab]").forEach((btn) => {
+    btn.classList.toggle("active", testingFeedbackState.tab === btn.getAttribute("data-tf-tab") || (testingFeedbackState.tab === "thread" && btn.getAttribute("data-tf-tab") === "threads"));
+  });
+  const body = root.querySelector("[data-tf-body]");
+  if (body) body.innerHTML = testingFeedbackBodyHtml();
+}
+
+async function openTestingFeedbackThread(threadId) {
+  testingFeedbackState.error = "";
+  testingFeedbackState.loading = true;
+  renderTestingFeedbackWidget();
+  try {
+    const data = await testingFeedbackApi("GET", `/api/testing-feedback/threads/${threadId}`);
+    testingFeedbackState.activeThreadId = threadId;
+    testingFeedbackState.activeThread = data.thread;
+    testingFeedbackState.activeMessages = data.messages || [];
+    testingFeedbackState.tab = "thread";
+    if (data.thread.testerUnread) {
+      await testingFeedbackApi("POST", `/api/testing-feedback/threads/${threadId}/read`, {});
+      testingFeedbackState.activeThread.testerUnread = false;
+    }
+  } catch (error) {
+    testingFeedbackState.error = error.message;
+  } finally {
+    testingFeedbackState.loading = false;
+    renderTestingFeedbackWidget();
+    refreshTestingFeedbackUnreadCount();
+  }
+}
+
+async function loadTestingFeedbackThreads() {
+  try {
+    const data = await testingFeedbackApi("GET", "/api/testing-feedback/threads");
+    testingFeedbackState.threads = data.threads || [];
+  } catch (error) {
+    testingFeedbackState.error = error.message;
+  }
+  renderTestingFeedbackWidget();
+}
+
+function bindTestingFeedbackWidgetEvents() {
+  const root = document.querySelector("[data-testing-feedback-widget]");
+  if (!root) return;
+
+  root.querySelector("[data-tf-toggle]")?.addEventListener("click", () => {
+    const panel = root.querySelector("[data-tf-panel]");
+    const nowOpen = panel.hidden;
+    panel.hidden = !nowOpen;
+    if (nowOpen && testingFeedbackState.tab === "threads") loadTestingFeedbackThreads();
+  });
+  root.querySelector("[data-tf-close]")?.addEventListener("click", () => {
+    const panel = root.querySelector("[data-tf-panel]");
+    if (panel) panel.hidden = true;
+  });
+  root.querySelectorAll("[data-tf-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-tf-tab");
+      testingFeedbackState.tab = tab;
+      testingFeedbackState.error = "";
+      testingFeedbackState.notice = "";
+      renderTestingFeedbackWidget();
+      if (tab === "threads") loadTestingFeedbackThreads();
+    });
+  });
+
+  const body = root.querySelector("[data-tf-body]");
+  body?.addEventListener("submit", async (event) => {
+    if (event.target.matches("[data-tf-new-form]")) {
+      event.preventDefault();
+      const text = String(root.querySelector("[data-tf-body]")?.value || "").trim();
+      if (!text) {
+        testingFeedbackState.error = "Please describe what you want to share before sending.";
+        renderTestingFeedbackWidget();
+        return;
+      }
+      testingFeedbackState.loading = true;
+      testingFeedbackState.error = "";
+      renderTestingFeedbackWidget();
+      try {
+        await testingFeedbackApi("POST", "/api/testing-feedback/threads", {
+          category: testingFeedbackState.category,
+          body: text,
+          context: {
+            page: testingFeedbackCurrentPage(),
+            device: testingFeedbackDeviceBucket(),
+            role: testingFeedbackCurrentRole(),
+          },
+        });
+        testingFeedbackState.bodyText = "";
+        testingFeedbackState.notice = "Sent — thank you! You'll see a reply here, in My Threads.";
+      } catch (error) {
+        testingFeedbackState.error = error.message;
+      } finally {
+        testingFeedbackState.loading = false;
+        renderTestingFeedbackWidget();
+      }
+    } else if (event.target.matches("[data-tf-reply-form]")) {
+      event.preventDefault();
+      const text = String(root.querySelector("[data-tf-reply-text]")?.value || "").trim();
+      if (!text || !testingFeedbackState.activeThreadId) return;
+      testingFeedbackState.loading = true;
+      renderTestingFeedbackWidget();
+      try {
+        const data = await testingFeedbackApi("POST", `/api/testing-feedback/threads/${testingFeedbackState.activeThreadId}/messages`, { body: text });
+        testingFeedbackState.activeThread = data.thread;
+        testingFeedbackState.activeMessages = [...testingFeedbackState.activeMessages, data.message];
+        testingFeedbackState.replyText = "";
+      } catch (error) {
+        testingFeedbackState.error = error.message;
+      } finally {
+        testingFeedbackState.loading = false;
+        renderTestingFeedbackWidget();
+      }
+    }
+  });
+
+  body?.addEventListener("click", (event) => {
+    const openBtn = event.target.closest("[data-tf-open-thread]");
+    if (openBtn) {
+      openTestingFeedbackThread(openBtn.getAttribute("data-tf-open-thread"));
+      return;
+    }
+    if (event.target.closest("[data-tf-back]")) {
+      testingFeedbackState.tab = "threads";
+      testingFeedbackState.activeThreadId = "";
+      testingFeedbackState.activeThread = null;
+      testingFeedbackState.error = "";
+      renderTestingFeedbackWidget();
+      loadTestingFeedbackThreads();
+    }
+  });
+
+  body?.addEventListener("change", (event) => {
+    if (event.target.matches("[data-tf-category]")) {
+      testingFeedbackState.category = event.target.value;
+    }
+  });
+}
+
+function refreshTestingFeedbackWidget() {
+  const existing = document.querySelector("[data-testing-feedback-widget]");
+  if (!isFakeAccountTester()) {
+    existing?.remove();
+    if (testingFeedbackPollTimer) {
+      clearInterval(testingFeedbackPollTimer);
+      testingFeedbackPollTimer = null;
+    }
+    return;
+  }
+  if (!existing) {
+    document.body.insertAdjacentHTML("beforeend", testingFeedbackWidgetShellHtml());
+    bindTestingFeedbackWidgetEvents();
+  }
+  renderTestingFeedbackWidget();
+  refreshTestingFeedbackUnreadCount();
+  if (!testingFeedbackPollTimer) {
+    testingFeedbackPollTimer = setInterval(refreshTestingFeedbackUnreadCount, 30000);
+  }
 }
 
 function stopAdminImpersonation({ refresh = true } = {}) {
