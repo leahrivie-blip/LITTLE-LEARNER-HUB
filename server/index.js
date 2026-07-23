@@ -47,6 +47,7 @@ const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
 const { createTestingLabApi } = require("./testing-lab-api.js");
 const { createAiTestingApi } = require("./ai-testing-api.js");
 const { createTestingFeedbackApi } = require("./testing-feedback-api.js");
+const { createExternalTesterSandboxApi } = require("./external-tester-sandbox-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -15661,6 +15662,20 @@ function getTestingFeedbackApi() {
   return _testingFeedbackApi;
 }
 
+let _externalTesterSandboxApi;
+function getExternalTesterSandboxApi() {
+  if (!_externalTesterSandboxApi) {
+    _externalTesterSandboxApi = createExternalTesterSandboxApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      expansionEnvironment,
+    });
+  }
+  return _externalTesterSandboxApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15813,6 +15828,29 @@ const server = http.createServer(async (request, response) => {
         return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
       }
       return jsonResponse(response, access.status || 403, access.payload || expansionFeatureFlags.unavailableExpansionPayload(expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_FEEDBACK));
+    }
+    if (url.pathname === "/api/external-tester" || url.pathname.startsWith("/api/external-tester/")) {
+      // Same identity-resolution pattern as Testing Lab / Testing Feedback —
+      // this mount only resolves WHO is asking (verified admin vs. an
+      // authenticated fake-account tester). Every real safety decision
+      // (production lock, stored testingLab flag, which roles this specific
+      // sandbox account may use, which organization it's locked to) lives in
+      // scripts/external-tester-sandbox-data-model.js and
+      // server/external-tester-sandbox-api.js, not here.
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      let fakeAccountEmail = "";
+      if (!admin) {
+        const authHeader = String(request.headers.authorization || "");
+        const memberSession = tempPasswordAuth.resolveMemberSession(peekStore(), authHeader);
+        if (memberSession?.email && memberSession.email.endsWith("@example.invalid")) {
+          fakeAccountEmail = memberSession.email;
+        }
+      }
+      const handler = getExternalTesterSandboxApi().matchRoute(request.method, url.pathname, url);
+      if (handler && (admin || fakeAccountEmail)) {
+        return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
+      }
+      return jsonResponse(response, 403, { ok: false, error: "External Tester Sandbox unavailable.", code: "feature_unavailable" });
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
