@@ -99,6 +99,34 @@ test("Lock Admin calls server logout with adminToken before clearing local sessi
   assert.match(appJs, /clearAdminSession\(\{ forgetDevice: true \}\)/);
 });
 
+test("Phase 23: setAdminSession mirrors token into llhAdminToken for admin-preview UI modules", () => {
+  // billing-simulator-ui.js, classroom-assistant-ui.js, enrollment-ui.js,
+  // family-messaging-ui.js, family-updates-ui.js, licensing-center-ui.js,
+  // provider-productivity-ui.js, records-center-ui.js, staff-experience-ui.js,
+  // testing-lab-ui.js, and today-hub-ui.js all read their bearer token from
+  // localStorage/sessionStorage "llhAdminToken" — a real admin unlock via
+  // setAdminSession() never wrote that key (it was only ever set by
+  // test/screenshot scripts), so opening any of those Director Center tabs
+  // after a normal admin login produced an unauthenticated request.
+  const setAdminSessionFn = appJs.slice(appJs.indexOf("function setAdminSession("), appJs.indexOf("function clearAdminSession("));
+  assert.match(setAdminSessionFn, /localStorage\.setItem\("llhAdminToken", session\.token\)/);
+  assert.match(setAdminSessionFn, /sessionStorage\.setItem\("llhAdminToken", session\.token\)/);
+  const clearAdminSessionFn = appJs.slice(appJs.indexOf("function clearAdminSession("), appJs.indexOf("function clearAdminSession(") + 2000);
+  assert.match(clearAdminSessionFn, /localStorage\.removeItem\("llhAdminToken"\)/);
+  assert.match(clearAdminSessionFn, /sessionStorage\.removeItem\("llhAdminToken"\)/);
+  // Every admin-preview UI module must actually consume this key.
+  const modulesExpectedToReadToken = [
+    "billing-simulator-ui.js", "classroom-assistant-ui.js", "enrollment-ui.js",
+    "family-messaging-ui.js", "family-updates-ui.js", "licensing-center-ui.js",
+    "provider-productivity-ui.js", "records-center-ui.js", "staff-experience-ui.js",
+    "testing-lab-ui.js", "today-hub-ui.js",
+  ];
+  for (const moduleFile of modulesExpectedToReadToken) {
+    const moduleJs = fs.readFileSync(path.join(root, moduleFile), "utf8");
+    assert.match(moduleJs, /getItem\("llhAdminToken"\)/, `${moduleFile} should still read llhAdminToken (mirrored by setAdminSession)`);
+  }
+});
+
 test("boot restores Admin before Calendar when last view was admin", () => {
   const boot = appJs.slice(appJs.indexOf("async function initializeAppView()"), appJs.indexOf("initializeAppView();"));
   const adminRestoreIdx = boot.indexOf('llhAdminLastView") === "admin"');

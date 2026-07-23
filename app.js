@@ -36189,6 +36189,19 @@ function setAdminSession(sessionDetail) {
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
   localStorage.setItem("llhAdminRememberEmail", session.email);
+  // Phase 23 fix: billing-simulator-ui.js, classroom-assistant-ui.js, enrollment-ui.js,
+  // family-messaging-ui.js, family-updates-ui.js, licensing-center-ui.js,
+  // provider-productivity-ui.js, records-center-ui.js, staff-experience-ui.js,
+  // testing-lab-ui.js, and today-hub-ui.js all read their own admin bearer token from
+  // this flat "llhAdminToken" key instead of adminSession().token — a real admin who
+  // unlocked Admin normally and opened any of those Director Center tabs got an
+  // unauthenticated 403 on first load (this key was only ever set by test/screenshot
+  // scripts as a workaround, never by the real login flow). Mirror it here so every
+  // admin-preview module authenticates correctly without a broad per-file rewrite.
+  if (session.token) {
+    localStorage.setItem("llhAdminToken", session.token);
+    sessionStorage.setItem("llhAdminToken", session.token);
+  }
   if (session.trustedDevice) rememberAdminDevice();
   else clearRememberedAdminDevice();
   adminSessionInvalidOnServer = false;
@@ -36223,6 +36236,8 @@ function clearAdminSession(options = {}) {
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
+  localStorage.removeItem("llhAdminToken");
+  sessionStorage.removeItem("llhAdminToken");
   // Explicit Lock Admin forgets this browser; re-unlock / expired-session flows keep the nav link.
   if (options.forgetDevice) clearRememberedAdminDevice();
   adminSessionInvalidOnServer = false;

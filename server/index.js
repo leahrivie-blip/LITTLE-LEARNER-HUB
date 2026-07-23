@@ -15144,6 +15144,22 @@ function handleFoundationFeatureFlags(request, response, url) {
       }
       if (email && familyHubModel.findContactByEmailAnyOrg(store, email)) {
         canAccessFamilyHub = true;
+      } else if (email) {
+        // Phase 23 fix: alias guardian fake accounts (financial_guardian,
+        // non_financial_guardian, emergency_only) intentionally share an existing
+        // contact record — e.g. Priya's — under a different login email, so an
+        // email-only contact lookup never matches. Fall back to the fake account's
+        // own contactId, which family-foundation-fixtures.js always sets for these.
+        const familyFoundationModel = require("../scripts/family-foundation-data-model.js");
+        familyFoundationModel.ensureFamilyFoundationStore(store);
+        const fakeAccountByEmail = Object.values(store.familyFoundation.fakeAccounts || {})
+          .find((row) => String(row?.email || "").toLowerCase() === email);
+        const linkedContact = fakeAccountByEmail?.contactId
+          ? store.familyFoundation.contacts?.[fakeAccountByEmail.contactId]
+          : null;
+        if (linkedContact && linkedContact.status === "active") {
+          canAccessFamilyHub = true;
+        }
       }
     } catch {
       canAccessFamilyHub = false;

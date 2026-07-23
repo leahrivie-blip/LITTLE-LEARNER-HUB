@@ -188,7 +188,8 @@
     "test:provider-productivity-phase21": "NODE_ENV=test node scripts/test-provider-productivity-phase21.js",
     "test:classroom-assistant": "NODE_ENV=test node scripts/test-classroom-assistant.js",
     "test:phase22-role-navigation": "node scripts/test-phase22-role-navigation.js",
-    "test:phase23-fake-account-identity": "node scripts/test-phase23-fake-account-identity.js"
+    "test:phase23-fake-account-identity": "node scripts/test-phase23-fake-account-identity.js",
+    "test:phase23-platform-walkthrough": "node scripts/test-phase23-platform-walkthrough.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
