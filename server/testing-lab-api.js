@@ -282,16 +282,31 @@ function createTestingLabApi({
     account.lastPasswordIssuedAt = model.nowIso();
     account.updatedAt = model.nowIso();
     store.familyFoundation.fakeAccounts[account.id] = account;
-    // Mirror into users for password-login without logging plaintext
+    // Mirror into users for password-login without logging plaintext.
+    // Phase 23 fix: this previously omitted serverPasswordAuth (verifyServerPasswordLogin
+    // requires it to be true before it will even compare passwordHash — every fake-account
+    // real login through this endpoint was silently rejected with 401) and never mapped
+    // accountType/role/familyHubGuardian, so a successful login would have landed everyone
+    // on the generic default Solo Provider experience regardless of their actual fake role.
     store.users = store.users || {};
     const userKey = safeLower(account.email);
+    const mainAppIdentity = familyModel.mainAppIdentityForFakeAccount(account);
     store.users[userKey] = {
       ...(store.users[userKey] || {}),
       email: account.email,
       displayName: account.displayName,
       passwordHash: hash,
+      serverPasswordAuth: true,
+      mustChangePassword: account.mustChangePassword,
       testingOnly: true,
+      testingAccount: true,
       fakeAccountId: account.id,
+      fakeAccountKind: account.kind,
+      organizationId: account.organizationId,
+      role: mainAppIdentity.role,
+      accountType: mainAppIdentity.accountType,
+      familyHubGuardian: mainAppIdentity.familyHubGuardian,
+      updatedAt: model.nowIso(),
     };
     model.appendAudit(store, {
       organizationId: account.organizationId,

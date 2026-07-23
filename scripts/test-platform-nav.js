@@ -225,7 +225,7 @@ test("Billing does not also mark Settings active", () => {
   assert.equal(isPlatformNavActive("settings", "billing", "billing"), false);
 });
 
-test("app.js keeps Behavior & Support alias, Director Center, and Calendar landing", () => {
+test("app.js keeps Behavior & Support alias, Director Center, and Today landing", () => {
   assert.match(appJs, /"behavior-support": "support-center"/);
   assert.match(appJs, /buttonView === "billing"/);
   assert.match(appJs, /requestedView === "behavior-support"/);
@@ -233,7 +233,12 @@ test("app.js keeps Behavior & Support alias, Director Center, and Calendar landi
   assert.match(appJs, /data-nav-hidden/);
   assert.match(appJs, /setView\("calendar"/);
   assert.match(appJs, /Admin Preview|Director Center is not available in this environment/);
-  assert.match(appJs, /Logged-in providers land on Calendar/);
+  // Phase 23: Today (not Calendar) is now the default signed-in landing view.
+  assert.match(appJs, /Logged-in providers land on Today/);
+  assert.match(appJs, /function defaultLoggedInLandingView/);
+  const landingFnStart = appJs.indexOf("function defaultLoggedInLandingView");
+  const landingFnBody = appJs.slice(landingFnStart, landingFnStart + 800);
+  assert.match(landingFnBody, /return "today"/);
 });
 
 test("navigation guards prevent post-login/boot yank and sidebar history pollution", () => {

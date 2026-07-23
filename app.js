@@ -3307,7 +3307,7 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
-    setView("calendar", { fromAuthLanding: true });
+    setView(defaultLoggedInLandingView(), { fromAuthLanding: true });
     return;
   }
   if (planChoice === "founding") {
@@ -9731,6 +9731,9 @@ const PLATFORM_CAPABILITIES = Object.freeze([
 ]);
 
 const ACCOUNT_TYPE_ALIASES = Object.freeze({
+  // Phase 23: curriculum_only now passes through as itself (see scripts/account-access.js
+  // for the matching server-side mirror and rationale).
+  curriculum_only: FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY,
   home_daycare: ACCOUNT_TYPES.HOME_DAYCARE,
   "home daycare": ACCOUNT_TYPES.HOME_DAYCARE,
   homedaycare: ACCOUNT_TYPES.HOME_DAYCARE,
@@ -9829,6 +9832,14 @@ function accountTypeAllowsCapability(accountType, capability) {
   const type = normalizeAccountType(accountType);
   if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
     return type === ACCOUNT_TYPES.CENTER;
+  }
+  // Curriculum Only members get curriculum/planning/billing tools, never
+  // center-management/staff/paperwork tools they have no use for.
+  if (
+    type === FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY
+    && ["forms", "staff_management", "permissions", "reports"].includes(capability)
+  ) {
+    return false;
   }
   return true;
 }
@@ -9992,7 +10003,7 @@ const NAV_PRIMARY_VIEWS_BY_EXPERIENCE = Object.freeze({
   [EXPERIENCE_ROLES.DIRECTOR]: ["today", "classrooms", "staff", "children", "families", "enrollment", "forms", "reports", "billing", "settings"],
   [EXPERIENCE_ROLES.LEAD_TEACHER]: ["today", "calendar", "children", "child-tools-daily-logs", "activities", "behavior-support", "messages", "settings"],
   [EXPERIENCE_ROLES.ASSISTANT]: ["today", "children", "child-tools-daily-logs", "activities", "messages"],
-  [EXPERIENCE_ROLES.CURRICULUM_ONLY]: ["lessons", "activities", "calendar", "settings"],
+  [EXPERIENCE_ROLES.CURRICULUM_ONLY]: ["today", "lessons", "activities", "calendar", "settings"],
   [EXPERIENCE_ROLES.PLATFORM_ADMIN]: [],
 });
 
@@ -10404,6 +10415,11 @@ async function loginWithServerPassword(email, password) {
     serverPasswordAuth: Boolean(data.serverPasswordAuth),
     tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
     authProvider: firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication",
+    // Phase 23: adopt the server's accountType/role when it sent one (testing fake
+    // accounts always do; real accounts already match, so this never regresses them).
+    ...(data.accountType ? { accountType: data.accountType } : {}),
+    ...(data.role ? { role: data.role } : {}),
+    familyHubGuardian: Boolean(data.familyHubGuardian),
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
@@ -10411,6 +10427,7 @@ async function loginWithServerPassword(email, password) {
     verified: true,
     mustChangePassword: Boolean(data.mustChangePassword),
     memberSessionToken: data.memberSessionToken || "",
+    familyHubGuardian: Boolean(data.familyHubGuardian),
   };
 }
 
@@ -12810,9 +12827,9 @@ function setView(view, options = {}) {
   if (resolvedRequested === "printables") {
     return setView("activities", options);
   }
-  // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
+  // Logged-in providers never land on the retired Dashboard — Today is the home surface.
   if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
-    return setView("calendar", { ...options, remappedFromHome: true });
+    return setView(defaultLoggedInLandingView(), { ...options, remappedFromHome: true });
   }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
@@ -17869,7 +17886,10 @@ function defaultLoggedInLandingView() {
   ) {
     return remembered;
   }
-  return "calendar";
+  // Phase 23: Today (Needs Attention / Today / Recent / Favorites / Quick Actions)
+  // is now the default landing for every signed-in provider/staff role — Calendar
+  // remains one tap away and is still the landing for any remembered/last view.
+  return "today";
 }
 
 function platformBackView(fallback = "home") {
@@ -54019,6 +54039,21 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     const result = await loginWithProvider(email, password);
     loadAccountState(result.email);
     markAccountLogin(result.email);
+    // Phase 23: testing-only guardian fake accounts land in Family Hub, never the
+    // provider sidebar/Today dashboard — checked before the forced-password-change
+    // gate so a guardian's temp password still routes correctly on first login.
+    // Refresh expansion flags first: the member session token this login just wrote
+    // is what canAccessFamilyHub is keyed on server-side, so the pre-login cached
+    // value (always false, no session yet) cannot be trusted here.
+    if (result.familyHubGuardian) {
+      await loadExpansionFeatureFlagsFromBackend().catch(() => {});
+      if (isExpansionFeatureEnabled("familyHub")) {
+        closeAuthModal();
+        setView("family-hub");
+        trackEvent("account_login_complete", { email: result.email, plan: currentPlan, familyHubGuardian: true });
+        return;
+      }
+    }
     // Forced password change must win immediately. Do not let profile/subscription
     // sync failures surface as "login failed" after a successful temp-password auth.
     if (result.mustChangePassword || accountRequiresPasswordChange()) {
@@ -54058,7 +54093,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     const returnView = pendingAuthReturnView
       && canOpenViewForCurrentAccess(pendingAuthReturnView)
       ? pendingAuthReturnView
-      : "calendar";
+      : defaultLoggedInLandingView();
     pendingAuthReturnView = "";
     setView(returnView, { fromAuthLanding: true });
   } catch (error) {
@@ -54084,7 +54119,7 @@ document.querySelector("#forcePasswordForm")?.addEventListener("submit", async (
     const returnView = pendingAuthReturnView
       && canOpenViewForCurrentAccess(pendingAuthReturnView)
       ? pendingAuthReturnView
-      : "calendar";
+      : defaultLoggedInLandingView();
     pendingAuthReturnView = "";
     setView(returnView, { fromAuthLanding: true });
   } catch (error) {
@@ -56590,8 +56625,8 @@ if (!currentUser) {
     renderHome();
   }
 } else {
-  // Synchronously open Calendar (or last remembered section) before async sync work.
-  // This prevents the old Dashboard from flashing or lingering behind Calendar.
+  // Synchronously open Today (or last remembered section) before async sync work.
+  // This prevents the old Dashboard from flashing or lingering behind Today.
   const earlyLanding = (() => {
     const fromLocation = (() => {
       const params = new URLSearchParams(window.location.search);
@@ -56601,6 +56636,9 @@ if (!currentUser) {
     })();
     if (fromLocation && fromLocation !== "home") return fromLocation;
     if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") return "admin";
+    // Phase 23: a returning guardian fake-account session (refresh, not fresh login)
+    // must land back in Family Hub, never the provider Today dashboard.
+    if (currentAccount()?.familyHubGuardian && isExpansionFeatureEnabled("familyHub")) return "family-hub";
     return defaultLoggedInLandingView();
   })();
   if (earlyLanding !== "lesson-editor") {
@@ -56686,9 +56724,17 @@ async function initializeAppView() {
           loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
           return;
         }
-        // Logged-in providers land on Calendar (or last remembered page on refresh).
+        // Logged-in providers land on Today (or last remembered page on refresh).
+        // Phase 23: guardian fake accounts land in Family Hub instead (see earlyLanding above).
+        // Force a fresh flags check here (awaited, not the fire-and-forget boot call) so a
+        // guardian refreshing the page is never briefly/incorrectly kept on the provider app.
         if (currentUser && !suppressBootLanding) {
-          setView(defaultLoggedInLandingView(), { fromBoot: true, replaceHistory: true });
+          let guardianLanding = defaultLoggedInLandingView();
+          if (currentAccount()?.familyHubGuardian) {
+            await loadExpansionFeatureFlagsFromBackend().catch(() => {});
+            if (isExpansionFeatureEnabled("familyHub")) guardianLanding = "family-hub";
+          }
+          setView(guardianLanding, { fromBoot: true, replaceHistory: true });
           return;
         }
         // Guest marketing homepage.

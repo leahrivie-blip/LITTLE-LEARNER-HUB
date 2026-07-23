@@ -102,10 +102,29 @@ test("role aliases normalize co-teacher and family helper", () => {
   assert.equal(accountAccess.normalizeUserRole("Substitute"), "assistant");
 });
 
-test("curriculum_only remains a reserved future account type (not active)", () => {
+test("Phase 23: curriculum_only now persists as its own account type (no longer resets to home_daycare)", () => {
   assert.equal(accountAccess.FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY, "curriculum_only");
-  // Not wired into normalize/capability matrix yet — unknown types fall back to home_daycare.
-  assert.equal(accountAccess.normalizeAccountType("curriculum_only"), "home_daycare");
+  assert.equal(accountAccess.normalizeAccountType("curriculum_only"), "curriculum_only");
+  // A real login/boot migration must not clobber it back to home_daycare/owner defaults.
+  const migration = accountAccess.migrateAccountAccessFields({ accountType: "curriculum_only", role: "owner" });
+  assert.equal(migration.changed, false, "curriculum_only should not be treated as a migration-worthy unknown value");
+  assert.equal(migration.accountType, "curriculum_only");
+});
+
+test("curriculum_only gets curriculum/billing tools, never center-management/staff/paperwork tools", () => {
+  const account = { accountType: "curriculum_only", role: "owner" };
+  assert.equal(accountAccess.canAccessCapability(account, "calendar"), true);
+  assert.equal(accountAccess.canAccessCapability(account, "lesson_plans"), true);
+  assert.equal(accountAccess.canAccessCapability(account, "activity_library"), true);
+  assert.equal(accountAccess.canAccessCapability(account, "billing"), true);
+  assert.equal(accountAccess.canAccessCapability(account, "settings"), true);
+  assert.equal(accountAccess.canAccessCapability(account, "forms"), false);
+  assert.equal(accountAccess.canAccessCapability(account, "staff_management"), false);
+  assert.equal(accountAccess.canAccessCapability(account, "permissions"), false);
+  assert.equal(accountAccess.canAccessCapability(account, "reports"), false);
+  assert.equal(accountAccess.canAccessCapability(account, "classrooms"), false);
+  assert.equal(accountAccess.canAccessCapability(account, "families"), false);
+  assert.equal(accountAccess.canAccessCapability(account, "enrollment"), false);
 });
 
 if (!process.exitCode) {

@@ -66,6 +66,12 @@ const PLATFORM_CAPABILITIES = Object.freeze([
 ]);
 
 const ACCOUNT_TYPE_ALIASES = Object.freeze({
+  // Phase 23: curriculum_only now passes through as itself (previously fell back to
+  // home_daycare, per the Phase 22 test that documented it as reserved/inactive).
+  // It is still not a *role*, still defaults capabilities like any other account
+  // type, but accountTypeAllowsCapability() below now explicitly denies the
+  // center/staff-management-style tools it should never see.
+  curriculum_only: FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY,
   home_daycare: ACCOUNT_TYPES.HOME_DAYCARE,
   "home daycare": ACCOUNT_TYPES.HOME_DAYCARE,
   homedaycare: ACCOUNT_TYPES.HOME_DAYCARE,
@@ -183,6 +189,14 @@ function accountTypeAllowsCapability(accountType, capability) {
   const type = normalizeAccountType(accountType);
   if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
     return type === ACCOUNT_TYPES.CENTER;
+  }
+  // Curriculum Only members get curriculum/planning/billing tools, never
+  // center-management/staff/paperwork tools they have no use for.
+  if (
+    type === FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY
+    && ["forms", "staff_management", "permissions", "reports"].includes(capability)
+  ) {
+    return false;
   }
   return true;
 }

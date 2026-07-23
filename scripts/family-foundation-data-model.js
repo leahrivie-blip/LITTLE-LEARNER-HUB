@@ -11,6 +11,7 @@
 
 const crypto = require("node:crypto");
 const foundation = require("./foundation-data-model.js");
+const orgPermissions = require("./org-permissions.js");
 
 const ACCESS_LEVELS = Object.freeze({
   FULL_VERIFIED_GUARDIAN: "full_verified_guardian",
@@ -77,6 +78,51 @@ const FAKE_ACCOUNT_KINDS = Object.freeze({
   LARGE_CENTER: "large_center",
   FOUNDING_MEMBER: "founding_member",
 });
+
+// Phase 23: maps a fake account (org-permission role + fixture "kind") onto the
+// accountType/role vocabulary scripts/account-access.js expects on store.users[email],
+// so a real password login into the MAIN provider app (not just admin-preview APIs)
+// produces the matching Director/Solo Provider/Lead Teacher/Assistant/Curriculum Only
+// experience there too. Shared by server/family-foundation-api.js and
+// server/testing-lab-api.js — do not duplicate this mapping in either file.
+const ORG_ROLE_TO_MAIN_APP_ROLE = Object.freeze({
+  [orgPermissions.ORG_ROLES.DIRECTOR_OWNER]: "owner",
+  [orgPermissions.ORG_ROLES.DIRECTOR]: "director",
+  [orgPermissions.ORG_ROLES.LEAD_TEACHER]: "teacher",
+  [orgPermissions.ORG_ROLES.ASSISTANT_STAFF]: "assistant",
+});
+
+const FAKE_ACCOUNT_KIND_TO_ACCOUNT_TYPE = Object.freeze({
+  [FAKE_ACCOUNT_KINDS.CURRICULUM_ONLY]: "curriculum_only",
+  [FAKE_ACCOUNT_KINDS.HOME_DAYCARE]: "home_daycare",
+  [FAKE_ACCOUNT_KINDS.OWNER]: "center",
+  [FAKE_ACCOUNT_KINDS.DIRECTOR]: "center",
+  [FAKE_ACCOUNT_KINDS.LEAD_TEACHER]: "center",
+  [FAKE_ACCOUNT_KINDS.ASSISTANT_BROAD]: "center",
+  [FAKE_ACCOUNT_KINDS.ASSISTANT_LIMITED]: "center",
+  [FAKE_ACCOUNT_KINDS.SMALL_CENTER]: "center",
+  [FAKE_ACCOUNT_KINDS.GROWING_CENTER]: "center",
+  [FAKE_ACCOUNT_KINDS.LARGE_CENTER]: "center",
+  [FAKE_ACCOUNT_KINDS.FOUNDING_MEMBER]: "center",
+});
+
+function mainAppIdentityForFakeAccount(account = {}) {
+  const role = String(account.role || "").trim().toLowerCase();
+  const isGuardian = role === orgPermissions.ORG_ROLES.PARENT_GUARDIAN;
+  if (isGuardian) {
+    // Guardians must never receive provider-owner-level defaults if their fake-account
+    // password is ever used against the main app's shared login endpoint — give them a
+    // role/accountType combination with the fewest possible capabilities, and the
+    // familyHubGuardian flag routes them straight to Family Hub instead.
+    return { role: "assistant", accountType: "home_daycare", familyHubGuardian: true };
+  }
+  const mainRole = ORG_ROLE_TO_MAIN_APP_ROLE[role] || "owner";
+  const accountType = FAKE_ACCOUNT_KIND_TO_ACCOUNT_TYPE[account.kind]
+    // Any staff role not explicitly mapped (e.g. Phase 18 "teacher"/"substitute" extras)
+    // belongs to the same organization as the primary Phase 8 org, which is center-scoped.
+    || (ORG_ROLE_TO_MAIN_APP_ROLE[role] ? "center" : "home_daycare");
+  return { role: mainRole, accountType, familyHubGuardian: false };
+}
 
 function newId(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString("hex")}`;
@@ -570,6 +616,7 @@ module.exports = {
   FORMS_ACCESS_LEVELS,
   INVITATION_STATUSES,
   FAKE_ACCOUNT_KINDS,
+  mainAppIdentityForFakeAccount,
   ensureFamilyFoundationStore,
   createHouseholdRecord,
   createContactRecord,

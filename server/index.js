@@ -6116,6 +6116,13 @@ async function handlePasswordLogin(request, response) {
     mustChangePassword: Boolean(verified.mustChangePassword),
     ...tempPasswordAuth.publicAuthFlags(store.users[email]),
     membership: membershipSummaryForUser(store.users[email], store),
+    // Phase 23: only present on testing fake accounts (see handleIssueFakePassword) —
+    // lets the client land Director/Solo/Teacher/Assistant/Curriculum Only fake
+    // accounts on the correct provider experience, and guardians in Family Hub,
+    // straight after a real password login instead of only inside admin-preview APIs.
+    accountType: store.users[email].accountType || "",
+    role: store.users[email].role || "",
+    familyHubGuardian: Boolean(store.users[email].familyHubGuardian),
   });
 }
 

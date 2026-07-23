@@ -103,7 +103,7 @@ async function main() {
     const browser = await playwright.chromium.launch({ headless: true });
     const baseUrl = `http://127.0.0.1:${PORT}`;
 
-    console.log("1) Logged-in boot opens Calendar — never Dashboard");
+    console.log("1) Logged-in boot opens Today — never Dashboard");
     {
       const page = await browser.newPage();
       await page.addInitScript(() => {
@@ -124,11 +124,12 @@ async function main() {
       const bootState = await page.evaluate(() => ({
         active: document.querySelector(".active-view")?.id || "",
         homeActive: document.querySelector("#view-home")?.classList.contains("active-view") || false,
-        calendarActive: document.querySelector("#view-calendar")?.classList.contains("active-view") || false,
+        // Phase 23: Today (not Calendar) is now the default signed-in landing.
+        todayActive: document.querySelector("#view-today")?.classList.contains("active-view") || false,
         homeDisplay: getComputedStyle(document.querySelector("#view-home")).display,
         bodyHome: document.body.classList.contains("home-view"),
       }));
-      assert(bootState.calendarActive === true, `Boot should activate Calendar, got ${JSON.stringify(bootState)}`);
+      assert(bootState.todayActive === true, `Boot should activate Today, got ${JSON.stringify(bootState)}`);
       assert(bootState.homeActive === false, `Dashboard must not stay active, got ${JSON.stringify(bootState)}`);
       assert(bootState.homeDisplay === "none", `Dashboard must be hidden, got ${JSON.stringify(bootState)}`);
       assert(bootState.bodyHome === false, "body.home-view must not remain for logged-in boot");
