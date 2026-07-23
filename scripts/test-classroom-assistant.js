@@ -270,6 +270,43 @@ async function run() {
   }
 
   {
+    // Phase 23: duplicate sync prevention. A device that loses connectivity right
+    // after a successful sync (never received the confirmation) may legitimately
+    // retry with the same stale queue — this must never write a second copy of
+    // the same meal/nap/diaper/observation entry.
+    const { store, seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Changed Timmy diaper at 10:15. Wet.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    const item = model.createOfflineQueueItem({ text: plan.sourceText, plan, organizationId: seeded.organizationId });
+    const firstSync = model.syncOfflineQueue(store, [item], { confirm: true, organizationId: seeded.organizationId, actorEmail: seeded.actorEmail });
+    assert.equal(firstSync.ok, true);
+    const countAfterFirst = Object.keys(store.classroomAssistant.diaperLogs).length;
+    // Client retries with the SAME (still "pending_sync" in its own stale copy) item.
+    const retrySync = model.syncOfflineQueue(store, [item], { confirm: true, organizationId: seeded.organizationId, actorEmail: seeded.actorEmail });
+    assert.equal(retrySync.ok, true, "a retried sync of an already-synced item should report success, not an error");
+    assert.equal(Object.keys(store.classroomAssistant.diaperLogs).length, countAfterFirst, "retrying a synced item must not create a duplicate diaper log entry");
+    pass("unit_duplicate_sync_prevention_no_second_write_on_retry");
+  }
+
+  {
+    // Outdoor play and loose-parts / open-ended play wording.
+    const { children, checked } = unitFixture();
+    const outdoorPlan = model.parseNaturalNote(
+      "We went outside for outdoor play. Everyone explored the garden and looked for bugs.",
+      { organizationId: "org_ca_unit", children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.notEqual(outdoorPlan.activity, null, "outdoor play should be recognized as an activity entry, not left undetected");
+    const looseParts = model.parseNaturalNote(
+      "Loose-parts and open-ended play with blocks, fabric scraps, and pinecones on the rug.",
+      { organizationId: "org_ca_unit", children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.notEqual(looseParts.activity, null, "loose-parts / open-ended play should be recognized as an activity entry, not left undetected");
+    pass("unit_outdoor_and_loose_parts_open_ended_play_wording");
+  }
+
+  {
     const { seeded, checked, children } = unitFixture();
     const scenarios = [
       {

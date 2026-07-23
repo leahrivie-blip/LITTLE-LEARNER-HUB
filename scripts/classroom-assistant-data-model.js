@@ -1189,6 +1189,15 @@ function syncOfflineQueue(store, queue = [], { confirm = false, organizationId =
       errors.push({ id: item.id, code: "cross_org_denied" });
       continue;
     }
+    // Duplicate-sync prevention: a client that lost connectivity right after sync
+    // (never received the confirmation) may legitimately retry with the same stale
+    // queue. Without this check, re-applying the same item.id would write a second
+    // copy of the same meal/nap/diaper/observation entry.
+    if (ca.offlineSynced[item.id]) {
+      working = markOfflineItemSynced(working, item.id);
+      syncedIds.push(item.id);
+      continue;
+    }
     const plan = item.plan || parseNaturalNote(item.text || "", {
       organizationId,
       children: childrenForOrg(store, organizationId),
