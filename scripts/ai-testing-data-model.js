@@ -39,8 +39,17 @@ const FEEDBACK_REASONS = Object.freeze([
 ]);
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute sliding window
-const RATE_LIMIT_MAX_PER_WINDOW = 20; // per account
-const RATE_LIMIT_MAX_PER_ORG_WINDOW = 50; // per organization, all accounts combined
+// Deliberately conservative initial limits for a brand-new testing feature —
+// easy to raise later once real usage patterns are understood, hard to walk
+// back a surprise bill from limits that started too generous. Overridable
+// via env ONLY for automated tests that need to exercise many functional
+// (non-rate-limit) checks in one process without incidentally tripping the
+// default limit — every test that verifies the limiting behavior itself
+// uses its own dedicated server with the real, un-overridden defaults below.
+const RATE_LIMIT_MAX_PER_WINDOW = Number(process.env.AI_TESTING_RATE_LIMIT_PER_TESTER || 5); // per tester (account), per minute
+const RATE_LIMIT_MAX_PER_ORG_WINDOW = Number(process.env.AI_TESTING_RATE_LIMIT_PER_ORG_MINUTE || 20); // per organization (all accounts combined), per minute
+const RATE_LIMIT_MAX_PER_ORG_DAY = Number(process.env.AI_TESTING_RATE_LIMIT_PER_ORG_DAY || 200); // per organization (all accounts combined), per rolling 24h — a second, independent ceiling so even many short bursts across a day can't add up to runaway usage
+const RATE_LIMIT_DAY_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function newId(prefix) {
   return `${prefix}_${crypto.randomBytes(8).toString("hex")}`;
@@ -121,32 +130,74 @@ function rollbackPromptVersion(store, { workflowType, versionId }) {
 // ---- Rate limiting -----------------------------------------------------
 
 /**
- * Sliding-window rate limit, checked and incremented atomically per call.
- * Returns { allowed, retryAfterMs } and never throws.
+ * Sliding-window rate limits, checked and incremented atomically per call.
+ * Three independent ceilings, checked in order from tightest/shortest to
+ * loosest/longest: per-tester-per-minute, per-organization-per-minute, and
+ * per-organization-per-day. Any one of them being exceeded denies the
+ * request — this never partially allows a call. Returns
+ * { allowed, scope, retryAfterMs } and never throws.
  */
 function checkAndConsumeRateLimit(store, { accountEmail = "", organizationId = "" }) {
   const s = ensureAiTestingStore(store);
   const now = Date.now();
   const accountKey = `account::${String(accountEmail || "").toLowerCase()}`;
   const orgKey = `org::${String(organizationId || "")}`;
+  const orgDayKey = `org-day::${String(organizationId || "")}`;
 
-  function checkBucket(key, max) {
+  function checkBucket(key, max, windowMs) {
     const bucket = s.rateLimitBuckets[key] || { windowStart: now, count: 0 };
-    if (now - bucket.windowStart > RATE_LIMIT_WINDOW_MS) {
+    if (now - bucket.windowStart > windowMs) {
       bucket.windowStart = now;
       bucket.count = 0;
     }
     const allowed = bucket.count < max;
     if (allowed) bucket.count += 1;
     s.rateLimitBuckets[key] = bucket;
-    return { allowed, retryAfterMs: Math.max(0, RATE_LIMIT_WINDOW_MS - (now - bucket.windowStart)) };
+    return { allowed, retryAfterMs: Math.max(0, windowMs - (now - bucket.windowStart)) };
   }
 
-  const accountResult = checkBucket(accountKey, RATE_LIMIT_MAX_PER_WINDOW);
+  const accountResult = checkBucket(accountKey, RATE_LIMIT_MAX_PER_WINDOW, RATE_LIMIT_WINDOW_MS);
   if (!accountResult.allowed) return { allowed: false, scope: "account", ...accountResult };
-  const orgResult = organizationId ? checkBucket(orgKey, RATE_LIMIT_MAX_PER_ORG_WINDOW) : { allowed: true, retryAfterMs: 0 };
+  const orgResult = organizationId ? checkBucket(orgKey, RATE_LIMIT_MAX_PER_ORG_WINDOW, RATE_LIMIT_WINDOW_MS) : { allowed: true, retryAfterMs: 0 };
   if (!orgResult.allowed) return { allowed: false, scope: "organization", ...orgResult };
+  const orgDayResult = organizationId ? checkBucket(orgDayKey, RATE_LIMIT_MAX_PER_ORG_DAY, RATE_LIMIT_DAY_WINDOW_MS) : { allowed: true, retryAfterMs: 0 };
+  if (!orgDayResult.allowed) return { allowed: false, scope: "organization_daily", ...orgDayResult };
   return { allowed: true, scope: "", retryAfterMs: 0 };
+}
+
+/**
+ * Admin-facing, fully sanitized rate-limit/usage breakdown by organization —
+ * counts and numbers only (organization id, current per-minute/per-day
+ * bucket counts against their max, and time-to-reset). NEVER includes a
+ * prompt, a completion, a tester's free-text entry, or any other private
+ * provider request/response content — those only ever appear in an
+ * explicit AI Evaluation Lab scenario run the admin chose to look at, never
+ * in this aggregate usage view.
+ */
+function rateLimitStatusForAdmin(store) {
+  const s = ensureAiTestingStore(store);
+  const now = Date.now();
+  const byOrg = {};
+  Object.entries(s.rateLimitBuckets).forEach(([key, bucket]) => {
+    const separatorIndex = key.indexOf("::");
+    if (separatorIndex === -1) return;
+    const scope = key.slice(0, separatorIndex);
+    const rest = key.slice(separatorIndex + 2);
+    if (scope !== "org" && scope !== "org-day") return;
+    const organizationId = rest;
+    if (!organizationId) return;
+    byOrg[organizationId] = byOrg[organizationId] || { organizationId, perMinute: null, perDay: null };
+    const windowMs = scope === "org-day" ? RATE_LIMIT_DAY_WINDOW_MS : RATE_LIMIT_WINDOW_MS;
+    const active = now - bucket.windowStart <= windowMs;
+    const entry = {
+      count: active ? bucket.count : 0,
+      max: scope === "org-day" ? RATE_LIMIT_MAX_PER_ORG_DAY : RATE_LIMIT_MAX_PER_ORG_WINDOW,
+      resetInMs: active ? Math.max(0, windowMs - (now - bucket.windowStart)) : 0,
+    };
+    if (scope === "org-day") byOrg[organizationId].perDay = entry;
+    else byOrg[organizationId].perMinute = entry;
+  });
+  return Object.values(byOrg).sort((a, b) => a.organizationId.localeCompare(b.organizationId));
 }
 
 // ---- Usage / cost tracking ---------------------------------------------
@@ -287,12 +338,15 @@ module.exports = {
   RATE_LIMIT_WINDOW_MS,
   RATE_LIMIT_MAX_PER_WINDOW,
   RATE_LIMIT_MAX_PER_ORG_WINDOW,
+  RATE_LIMIT_MAX_PER_ORG_DAY,
+  RATE_LIMIT_DAY_WINDOW_MS,
   ensureAiTestingStore,
   savePromptVersion,
   getActivePromptVersion,
   listPromptVersions,
   rollbackPromptVersion,
   checkAndConsumeRateLimit,
+  rateLimitStatusForAdmin,
   estimateCostCents,
   recordUsage,
   saveRun,

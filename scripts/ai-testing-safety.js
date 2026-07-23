@@ -53,6 +53,23 @@ function hasRealOpenAiKey(env = process.env) {
 }
 
 /**
+ * A clear, scope-specific message for the tester the moment a limit is hit —
+ * never a generic "try again" that's wrong for a daily ceiling, and always
+ * reassures her that her entry itself is never lost (the caller falls back
+ * to the local heuristic on any of these).
+ */
+function rateLimitMessage(rate) {
+  const retrySeconds = Math.ceil((rate.retryAfterMs || 0) / 1000);
+  if (rate.scope === "organization_daily") {
+    return "This fake organization has reached today's AI testing limit. Your entry is safe — the local review is being used instead. This resets in about a day, or an admin can review usage in Testing Lab.";
+  }
+  if (rate.scope === "organization") {
+    return `This fake organization has reached its AI testing limit for this minute (shared across every tester in it). Your entry is safe — try again in about ${retrySeconds} second${retrySeconds === 1 ? "" : "s"}.`;
+  }
+  return `You've reached your personal AI testing limit for this minute. Your entry is safe — try again in about ${retrySeconds} second${retrySeconds === 1 ? "" : "s"}.`;
+}
+
+/**
  * The single entry point every AI-testing route handler must call before
  * doing anything else. Returns { allowed: true, model } or
  * { allowed: false, status, payload } — never throws.
@@ -84,7 +101,7 @@ function assertAiTestingAllowed({
         allowed: false,
         status: 429,
         payload: {
-          error: `AI testing rate limit reached for this ${rate.scope}. Try again in a few seconds.`,
+          error: rateLimitMessage(rate),
           code: "rate_limited",
           scope: rate.scope,
           retryAfterMs: rate.retryAfterMs,
@@ -139,6 +156,7 @@ module.exports = {
   resolveAiTestingAccess,
   assertAiTestingAllowed,
   hasRealOpenAiKey,
+  rateLimitMessage,
   sanitizeForAi,
   NEVER_SEND_KEYS,
 };

@@ -89,6 +89,30 @@ function createAiTestingApi({ readStore, writeStore, jsonResponse, readJson, raw
     });
   }
 
+  // ---- Admin-only sanitized usage breakdown ------------------------------
+  // Deliberately its own admin-only handler/route, not folded into the
+  // shared /status above: /status is reachable by a fake-account tester too,
+  // and a per-organization breakdown would leak OTHER organizations' usage
+  // to a tester — that must never happen. This route requires ctx.adminEmail.
+  async function handleAdminUsage(request, response, ctx) {
+    if (!ctx.adminEmail) return deny(response, 401, { error: "Admin session required." });
+    const store = readStore();
+    const s = aiModel.ensureAiTestingStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      // Aggregate counts/cost only — see rateLimitStatusForAdmin's own doc
+      // comment for the guarantee that no prompt/completion content is ever
+      // included here.
+      usageTotals: s.usageTotals,
+      limits: {
+        perTesterPerMinute: aiModel.RATE_LIMIT_MAX_PER_WINDOW,
+        perOrganizationPerMinute: aiModel.RATE_LIMIT_MAX_PER_ORG_WINDOW,
+        perOrganizationPerDay: aiModel.RATE_LIMIT_MAX_PER_ORG_DAY,
+      },
+      organizations: aiModel.rateLimitStatusForAdmin(store),
+    });
+  }
+
   async function handleInterpretClassroomAssistant(request, response, ctx) {
     const store = readStore();
     const body = await readJson(request).catch(() => ({}));
@@ -293,6 +317,7 @@ function createAiTestingApi({ readStore, writeStore, jsonResponse, readJson, raw
     const path = String(pathname || "");
     if (!path.startsWith(BASE)) return null;
     if (method === "GET" && path === `${BASE}/status`) return (req, res, ctx) => handleStatus(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/admin/usage`) return (req, res, ctx) => handleAdminUsage(req, res, ctx);
     if (method === "POST" && path === `${BASE}/classroom-assistant/interpret`) return (req, res, ctx) => handleInterpretClassroomAssistant(req, res, ctx);
     if (method === "POST" && path === `${BASE}/draft`) return (req, res, ctx) => handleProfessionalDraft(req, res, ctx);
     if (method === "POST" && path === `${BASE}/lesson-plan/assist`) return (req, res, ctx) => handleLessonPlanAssist(req, res, ctx);

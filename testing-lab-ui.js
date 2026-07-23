@@ -30,6 +30,7 @@
     aiRunsByScenario: {},
     aiPromptWorkflow: "classroom_assistant",
     aiPromptVersions: [],
+    aiUsage: null,
     aiError: "",
     tfThreads: [],
     tfFilter: { status: "", category: "", unreadOnly: false, retestRequested: false },
@@ -228,6 +229,18 @@
           </div>
           ${!status.enabled ? `<p class="tl-ai-warning">⚠ AI testing is off (${escapeHtml(status.reason || "unknown reason")}). Turn on the "aiTesting" flag and confirm a testing OPENAI_API_KEY is set — the heuristic system keeps working either way.</p>` : ""}
         ` : "<p class=\"muted-copy\">Loading status…</p>"}
+
+        <h4>Usage limits, by organization</h4>
+        <p class="muted-copy">Sanitized counts only — never a prompt, a completion, or any other private provider entry. Limits: ${escapeHtml(String(state.aiUsage?.limits?.perTesterPerMinute ?? 5))}/minute per tester, ${escapeHtml(String(state.aiUsage?.limits?.perOrganizationPerMinute ?? 20))}/minute per organization, ${escapeHtml(String(state.aiUsage?.limits?.perOrganizationPerDay ?? 200))}/day per organization.</p>
+        <ul class="fh-card-list">
+          ${(state.aiUsage?.organizations || []).map((org) => `
+            <li class="fh-card static">
+              <strong>${escapeHtml(org.organizationId)}</strong>
+              <span class="dc-badge">This minute: ${escapeHtml(String(org.perMinute?.count || 0))} / ${escapeHtml(String(org.perMinute?.max || 0))}</span>
+              <span class="dc-badge">Today: ${escapeHtml(String(org.perDay?.count || 0))} / ${escapeHtml(String(org.perDay?.max || 0))}</span>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No AI testing activity yet for any organization.</li>"}
+        </ul>
 
         <h4>Fake scenario library</h4>
         <ul class="fh-card-list">
@@ -975,6 +988,7 @@
         state.aiScenarios = scenarioData.scenarios || [];
         const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
         state.aiPromptVersions = promptData.versions || [];
+        state.aiUsage = await api("GET", "/api/ai-testing/admin/usage");
         state.aiError = "";
       } catch (error) {
         state.aiError = error.message;
