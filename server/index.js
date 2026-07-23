@@ -3822,6 +3822,11 @@ function appendMembershipLifecycleAudit(email, action, details = {}) {
     email: normalizeEmail(email),
     action,
     updates: details.updates || {},
+    // Optional: before-state and Stripe event/subscription/invoice references, used by
+    // the billing reconciliation workflow so every correction has a full audit trail
+    // (before/after values + exactly which Stripe records justified the change).
+    before: details.before || undefined,
+    stripeRefs: details.stripeRefs || undefined,
     adminEmail: details.adminEmail || "system",
     note: details.note || "",
     createdAt: new Date().toISOString(),
@@ -7558,29 +7563,58 @@ async function handleStripeWebhook(request, response) {
       const invoice = event.data.object;
       const store = readStore();
       const userEntry = findUserEntryByStripeCustomer(store, invoice.customer, invoice.customer_email);
-      if (userEntry?.[0] && invoice.subscription) {
+      if (!userEntry) {
+        // A paid invoice that cannot be matched to any local account is exactly the
+        // "processed under the wrong customer/email" failure mode — never drop this
+        // silently. Log it and raise a critical alert so it gets investigated, since the
+        // customer has paid but nothing here will restore their access automatically.
+        console.warn(`[membership] webhook ${event.type} unmatched customer=${invoice.customer || ""} email=${invoice.customer_email || ""} invoice=${invoice.id || ""}`);
+        const unmatchedStore = readStore();
+        await emitAdminAlertSafe(unmatchedStore, {
+          category: "billing",
+          type: "admin_paid_access_not_restored",
+          title: "🔴 CRITICAL: Stripe payment received but no matching account was found",
+          preview: `customer=${invoice.customer || "unknown"} · invoice=${invoice.id || "unknown"} · ${invoice.customer_email || "no email on invoice"}`,
+          email: normalizeEmail(invoice.customer_email || ""),
+          refId: invoice.id || `unmatched_invoice:${invoice.customer || ""}`,
+          sendEmail: true,
+          emailKind: "Billing",
+        });
+        try { writeStore(unmatchedStore); } catch { /* ignore */ }
+      } else if (invoice.subscription) {
+        const [email, existingUser] = userEntry;
+        const eventCreated = Number(event.created || 0);
+        const lastEventCreated = Number(existingUser.lastStripeEventCreatedAt || 0);
+        if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
+          // An out-of-order/delayed paid event must never resurrect membership state
+          // older than what a subsequent event (e.g. a later failure) already recorded.
+          console.warn(`[membership] webhook_stale_ignored event=${event.id} email=${email} created=${eventCreated} last=${lastEventCreated}`);
+          if (event?.id) markProcessedStripeEvent(event.id);
+          jsonResponse(response, 200, { received: true, stale: true });
+          return;
+        }
         try {
           const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(invoice.subscription)}`);
           if (liveSub?.id) {
-            const synced = upsertStripeSubscription(userEntry[0], invoice.customer, liveSub);
+            const synced = upsertStripeSubscription(email, invoice.customer, liveSub);
             const amountPaid = Number(invoice.amount_paid || 0);
             const paidUpdates = {
               lastFailedPaymentAt: "",
               nextPaymentRetryAt: "",
               hasPaymentMethod: Boolean(invoice.payment_intent || invoice.default_payment_method || synced.hasPaymentMethod || amountPaid > 0),
-              lastStripeEventCreatedAt: Math.max(Number(synced.lastStripeEventCreatedAt || 0), Number(event.created || 0)),
+              lastStripeEventCreatedAt: Math.max(Number(synced.lastStripeEventCreatedAt || 0), eventCreated),
               lastStripeEventId: event.id || synced.lastStripeEventId || "",
             };
             // $0 trial invoices must not mark the first paid cycle complete.
             if (amountPaid > 0) {
               const paidAt = new Date(Number(invoice.created || event.created || Date.now() / 1000) * 1000).toISOString();
               paidUpdates.lastSuccessfulPaymentAt = paidAt;
-              paidUpdates.firstPaidInvoiceAt = store.users?.[userEntry[0]]?.firstPaidInvoiceAt || paidAt;
+              paidUpdates.firstPaidInvoiceAt = store.users?.[email]?.firstPaidInvoiceAt || paidAt;
               paidUpdates.foundingSpotReleasable = false;
-              markFoundingReservationConverted(userEntry[0]);
+              markFoundingReservationConverted(email);
             }
-            upsertUser(userEntry[0], paidUpdates);
-            logMembershipTransition("payment_received", userEntry[0], {
+            upsertUser(email, paidUpdates);
+            logMembershipTransition("payment_received", email, {
               plan: synced.plan,
               subscriptionStatus: synced.subscriptionStatus,
               hasProAccess: membershipHasProAccess(synced),
@@ -7594,17 +7628,19 @@ async function handleStripeWebhook(request, response) {
                 category: "billing",
                 type: "admin_subscription_renewed",
                 title: "Subscription renewed",
-                preview: `${userEntry[0]} · ${synced.plan || "Paid"}`,
-                email: userEntry[0],
-                refId: invoice.id || `renew:${userEntry[0]}`,
+                preview: `${email} · ${synced.plan || "Paid"}`,
+                email,
+                refId: invoice.id || `renew:${email}`,
                 sendEmail: false,
               });
               try { writeStore(renewStore); } catch { /* ignore */ }
             }
           }
         } catch (syncError) {
-          console.warn(`[membership] invoice paid sync failed email=${userEntry[0]}:`, syncError.message);
+          console.warn(`[membership] invoice paid sync failed email=${email}:`, syncError.message);
         }
+      } else {
+        console.log(`[membership] webhook ${event.type} matched email=${userEntry[0]} but invoice has no linked subscription (invoice=${invoice.id || ""}) — skipping subscription sync.`);
       }
     }
 
@@ -7666,6 +7702,8 @@ async function handleStripeWebhook(request, response) {
           emailFields: [["Invoice", invoice.id || ""]],
         });
         try { writeStore(alertStore); } catch { /* ignore */ }
+      } else {
+        console.warn(`[membership] webhook ${event.type} unmatched customer=${invoice.customer || ""} email=${invoice.customer_email || ""} invoice=${invoice.id || ""}`);
       }
     }
 
@@ -7979,16 +8017,34 @@ async function handleAdminSubscriptionRefresh(request, response) {
 const BILLING_RECONCILIATION_BATCH_LIMIT = 25;
 
 /**
+ * READ-ONLY: fetches a subscription's latest invoice for the reconciliation preview, if
+ * one is linked. Never writes anything. Tolerates the invoice having been deleted/expired.
+ */
+async function fetchLatestInvoiceForReconciliation(subscription) {
+  const latestInvoiceRef = subscription?.latest_invoice;
+  if (!latestInvoiceRef) return null;
+  if (typeof latestInvoiceRef === "object") return latestInvoiceRef; // already expanded
+  try {
+    return await stripeGet(`invoices/${encodeURIComponent(latestInvoiceRef)}`);
+  } catch (error) {
+    return null;
+  }
+}
+
+/**
  * READ-ONLY: looks up the most specific Stripe subscription record for a user without
- * ever writing to the store or to Stripe. Falls back from subscription id → customer id
- * → email search, matching the specificity order used elsewhere for live syncs, but this
- * path calls only GET endpoints and never calls upsertUser/upsertStripeSubscription.
+ * ever writing to the store or to Stripe. Matches primarily by stored Stripe IDs — never
+ * by email alone: subscription id → customer id → email search (last resort only, and
+ * explicitly flagged as ambiguous if more than one Stripe customer shares that email,
+ * rather than silently guessing which one is correct). This path calls only GET endpoints
+ * and never calls upsertUser/upsertStripeSubscription.
  */
 async function fetchStripeSubscriptionForReconciliation(user) {
   if (user.stripeSubscriptionId) {
     try {
       const subscription = await stripeGet(`subscriptions/${encodeURIComponent(user.stripeSubscriptionId)}`);
-      return { subscription, customerId: subscription?.customer || user.stripeCustomerId || "", lookupMethod: "stored_subscription_id" };
+      const latestInvoice = await fetchLatestInvoiceForReconciliation(subscription);
+      return { subscription, customerId: subscription?.customer || user.stripeCustomerId || "", lookupMethod: "stored_subscription_id", latestInvoice };
     } catch (error) {
       // Subscription id may be stale (deleted in Stripe, or never existed under this id).
       // Fall through to a broader, still read-only lookup instead of failing outright.
@@ -7998,11 +8054,30 @@ async function fetchStripeSubscriptionForReconciliation(user) {
     const list = await stripeGet(`subscriptions?customer=${encodeURIComponent(user.stripeCustomerId)}&status=all&limit=10`);
     const subs = Array.isArray(list?.data) ? list.data : [];
     const mostRelevant = subs.find((s) => s.status !== "canceled") || subs[0] || null;
-    return { subscription: mostRelevant, customerId: user.stripeCustomerId, lookupMethod: "stored_customer_id", allSubscriptions: subs };
+    const latestInvoice = await fetchLatestInvoiceForReconciliation(mostRelevant);
+    return { subscription: mostRelevant, customerId: user.stripeCustomerId, lookupMethod: "stored_customer_id", allSubscriptions: subs, latestInvoice };
   }
-  if (user.email) {
-    const match = await findStripeSubscriptionByEmail(user.email);
-    if (match?.subscription) return { subscription: match.subscription, customerId: match.customerId, lookupMethod: "email_search" };
+  if (user.email && isConfiguredValue(STRIPE_SECRET_KEY)) {
+    const customers = await stripeGet(`customers?email=${encodeURIComponent(user.email)}&limit=10`);
+    const customerList = Array.isArray(customers?.data) ? customers.data : [];
+    if (customerList.length > 1) {
+      // Two Stripe customers with the same email — reconciliation must not guess.
+      return {
+        subscription: null,
+        customerId: "",
+        lookupMethod: "email_search_ambiguous",
+        ambiguousCustomerIds: customerList.map((c) => c.id),
+      };
+    }
+    for (const customer of customerList) {
+      const subscriptions = await stripeGet(`subscriptions?customer=${encodeURIComponent(customer.id)}&status=all&limit=10`);
+      const subs = Array.isArray(subscriptions?.data) ? subscriptions.data : [];
+      const mostRelevant = subs.find((s) => s.status !== "canceled") || subs[0] || null;
+      if (mostRelevant) {
+        const latestInvoice = await fetchLatestInvoiceForReconciliation(mostRelevant);
+        return { subscription: mostRelevant, customerId: customer.id, lookupMethod: "email_search", allSubscriptions: subs, latestInvoice };
+      }
+    }
   }
   return { subscription: null, customerId: "", lookupMethod: "no_stripe_identifiers" };
 }
@@ -8020,12 +8095,36 @@ async function buildBillingReconciliationComparison(user) {
 }
 
 /**
+ * Emits the "Paid in Stripe but access not restored" critical admin alert for a single
+ * reconciliation result. Read-only with respect to Stripe/membership records — this only
+ * writes a notification entry, never touches the account's billing fields.
+ */
+async function emitPaidButFreeCriticalAlert(comparison) {
+  if (!comparison?.criticalPaidButFree) return;
+  const alertStore = readStore();
+  await emitAdminAlertSafe(alertStore, {
+    category: "billing",
+    type: "admin_paid_access_not_restored",
+    title: "🔴 CRITICAL: Paid in Stripe but access not restored",
+    preview: `${comparison.email} · Stripe status "${comparison.stripe?.status || "unknown"}" · website access is Free`,
+    email: comparison.email,
+    refId: `paid_not_restored:${comparison.stripe?.subscriptionId || comparison.email}`,
+    sendEmail: true,
+    emailKind: "Billing",
+  });
+  try { writeStore(alertStore); } catch { /* ignore */ }
+}
+
+/**
  * GET /api/admin/billing-reconciliation — READ-ONLY Stripe reconciliation check.
  * Compares stored subscriptionStatus/stripeSubscriptionStatus against Stripe's current,
- * live status for one email, a bounded comma-separated list of emails, or (by default)
- * every account this app currently flags as "needs_billing_review" (bounded to
- * BILLING_RECONCILIATION_BATCH_LIMIT). Never writes to the store, never writes to Stripe,
- * never sends emails, never retries payments — comparison/reporting only.
+ * live status for one email, a bounded comma-separated list of emails, every account this
+ * app currently flags as "needs_billing_review" (default), or — with `scope=all` — every
+ * local account, paginated via `limit`/`offset` (audit requirement: check every production
+ * user for "Stripe active + latest invoice paid" vs. "website Free/payment-failed").
+ * Never writes to the store, never writes to Stripe, never retries payments — comparison
+ * only. Automatically raises the "Paid in Stripe but access not restored" critical alert
+ * for any account where that exact mismatch is found.
  */
 async function handleAdminBillingReconciliation(request, response, url) {
   const adminToken = url.searchParams.get("adminToken") || "";
@@ -8040,19 +8139,34 @@ async function handleAdminBillingReconciliation(request, response, url) {
   const batchEmails = batchParam
     ? batchParam.split(",").map((entry) => normalizeEmail(entry)).filter(Boolean)
     : [];
+  const scope = String(url.searchParams.get("scope") || "").trim().toLowerCase();
+  const limit = Math.max(1, Math.min(Number(url.searchParams.get("limit")) || BILLING_RECONCILIATION_BATCH_LIMIT, BILLING_RECONCILIATION_BATCH_LIMIT));
+  const offset = Math.max(0, Number(url.searchParams.get("offset")) || 0);
 
   const store = readStore();
   let emails = [];
+  let totalInScope = null;
   if (singleEmail) {
     emails = [singleEmail];
   } else if (batchEmails.length) {
     emails = batchEmails.slice(0, BILLING_RECONCILIATION_BATCH_LIMIT);
+  } else if (scope === "all") {
+    // Every local account, paginated — so a full production audit can be run in bounded
+    // pages instead of hammering Stripe with one giant request.
+    const allEmails = Object.values(store.users || {})
+      .map((user) => user.email)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    totalInScope = allEmails.length;
+    emails = allEmails.slice(offset, offset + limit);
   } else {
-    emails = Object.values(store.users || {})
+    const needsReviewEmails = Object.values(store.users || {})
       .filter((user) => membershipAccess.membershipBillingStatusKey(user) === "needs_billing_review")
       .map((user) => user.email)
       .filter(Boolean)
-      .slice(0, BILLING_RECONCILIATION_BATCH_LIMIT);
+      .sort((a, b) => a.localeCompare(b));
+    totalInScope = needsReviewEmails.length;
+    emails = needsReviewEmails.slice(offset, offset + limit);
   }
 
   if (!emails.length) {
@@ -8060,7 +8174,10 @@ async function handleAdminBillingReconciliation(request, response, url) {
       ok: true,
       readOnly: true,
       results: [],
-      note: "No accounts matched. Nothing currently flagged as needing billing review.",
+      totalInScope,
+      note: scope === "all"
+        ? "No accounts in range for this page."
+        : "No accounts matched. Nothing currently flagged as needing billing review.",
     });
     return;
   }
@@ -8073,20 +8190,159 @@ async function handleAdminBillingReconciliation(request, response, url) {
       continue;
     }
     try {
-      results.push(await buildBillingReconciliationComparison(user));
+      const comparison = await buildBillingReconciliationComparison(user);
+      results.push(comparison);
+      await emitPaidButFreeCriticalAlert(comparison);
     } catch (error) {
       results.push({ email, readOnly: true, error: error.message || "stripe_lookup_failed" });
     }
   }
 
+  const criticalCount = results.filter((r) => r.criticalPaidButFree).length;
   jsonResponse(response, 200, {
     ok: true,
     readOnly: true,
     checkedAt: new Date().toISOString(),
     note: "Read-only comparison only. No Stripe or local records were modified by this check.",
+    scope: scope === "all" ? "all" : (singleEmail || batchEmails.length) ? "explicit" : "needs_billing_review",
+    limit,
+    offset,
+    totalInScope,
     batchLimit: BILLING_RECONCILIATION_BATCH_LIMIT,
     count: results.length,
+    criticalCount,
     results,
+  });
+}
+
+/**
+ * POST /api/admin/billing-reconciliation/apply — the ONLY endpoint in this workflow that
+ * writes anything, and it writes only to the local membership record — never to Stripe.
+ * Requires admin auth AND an explicit `confirm: true` from the caller (the "Platform Admin
+ * confirmation" step). Always re-fetches Stripe fresh (never trusts a client-supplied
+ * snapshot) and recomputes the comparison server-side, so the applied write is always
+ * derived from current truth, not from whatever the admin's UI happened to be showing.
+ *
+ * Idempotent by construction: if the fresh comparison already matches (nothing to change,
+ * or it was already reconciled by an earlier call), this is a no-op — no write, no
+ * duplicate audit entry. Refuses to apply anything when the Stripe-customer match is
+ * ambiguous (two Stripe customers share the account's email) rather than guessing.
+ */
+async function handleAdminBillingReconciliationApply(request, response) {
+  const body = await readJson(request);
+  const adminToken = String(body.adminToken || "");
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (body.confirm !== true) {
+    jsonResponse(response, 400, {
+      error: "Explicit confirmation is required. Set confirm:true after reviewing the preview from GET /api/admin/billing-reconciliation.",
+    });
+    return;
+  }
+  const email = normalizeEmail(body.email);
+  if (!email) {
+    jsonResponse(response, 400, { error: "email is required." });
+    return;
+  }
+  if (!requireStripe(response)) return;
+
+  const store = readStore();
+  const user = store.users?.[email];
+  if (!user) {
+    jsonResponse(response, 404, { error: "No local account found for that email." });
+    return;
+  }
+
+  let comparison;
+  try {
+    comparison = await buildBillingReconciliationComparison(user);
+  } catch (error) {
+    jsonResponse(response, 503, { error: error.message || "Could not fetch current Stripe status." });
+    return;
+  }
+
+  if (comparison.ambiguousCustomerIds && comparison.ambiguousCustomerIds.length > 1) {
+    jsonResponse(response, 409, {
+      ok: false,
+      applied: false,
+      reason: "ambiguous_stripe_customer",
+      ambiguousCustomerIds: comparison.ambiguousCustomerIds,
+      error: "Multiple Stripe customers share this email. Resolve the duplicate in Stripe before reconciling.",
+    });
+    return;
+  }
+
+  if (stripeBillingReconciliation.isAlreadyReconciled(comparison)) {
+    // Idempotent no-op: running this twice (or after webhooks already caught up on their
+    // own) must never duplicate a write or create a second audit entry.
+    jsonResponse(response, 200, {
+      ok: true,
+      applied: false,
+      reason: "already_in_sync",
+      stored: comparison.stored,
+      stripe: comparison.stripe,
+    });
+    return;
+  }
+
+  const { fields, before, after } = comparison.proposedUpdates;
+  if (!fields.length) {
+    jsonResponse(response, 200, {
+      ok: true,
+      applied: false,
+      reason: "no_field_changes",
+      discrepancies: comparison.discrepancies,
+    });
+    return;
+  }
+
+  const adminSession = store.adminSessions?.[adminToken];
+  const adminEmail = adminSession?.email || body.adminEmail || ADMIN_EMAIL || "admin";
+  const saved = upsertUser(email, { ...after, lastStripeSyncAt: new Date().toISOString() });
+
+  const auditEntry = appendMembershipLifecycleAudit(email, "admin_billing_reconciliation", {
+    adminEmail,
+    note: `Reconciled local membership record to match Stripe (lookup: ${comparison.lookupMethod}).`,
+    updates: after,
+    before,
+    stripeRefs: {
+      customerId: comparison.stripe?.customerId || "",
+      subscriptionId: comparison.stripe?.subscriptionId || "",
+      subscriptionStatus: comparison.stripe?.status || "",
+      invoiceId: comparison.latestInvoice?.invoiceId || "",
+      invoicePaid: comparison.latestInvoice ? Boolean(comparison.latestInvoice.paid) : null,
+    },
+  });
+
+  const notifyStore = readStore();
+  await emitAdminAlertSafe(notifyStore, {
+    category: "billing",
+    type: "admin_billing_reconciled",
+    title: "Billing record reconciled with Stripe",
+    preview: `${email} · ${fields.length} field(s) corrected by ${adminEmail}`,
+    email,
+    refId: `reconciled:${auditEntry.id}`,
+    sendEmail: false,
+  });
+  try { writeStore(notifyStore); } catch { /* ignore */ }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    applied: true,
+    email,
+    fieldsChanged: fields,
+    before,
+    after,
+    auditEntryId: auditEntry.id,
+    stripeRefs: {
+      customerId: comparison.stripe?.customerId || "",
+      subscriptionId: comparison.stripe?.subscriptionId || "",
+      subscriptionStatus: comparison.stripe?.status || "",
+      invoiceId: comparison.latestInvoice?.invoiceId || "",
+    },
+    hasProAccess: membershipHasProAccess(saved),
   });
 }
 
@@ -15372,6 +15628,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/subscription-refresh") return await handleAdminSubscriptionRefresh(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/billing-reconciliation") return await handleAdminBillingReconciliation(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/billing-reconciliation/apply") return await handleAdminBillingReconciliationApply(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-test") return await handleAdminAiTest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-generate-content") return await handleAdminAiGenerateContent(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-prompts") return handleAdminAiPrompts(request, response, url);
