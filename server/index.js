@@ -15655,6 +15655,7 @@ function getTestingFeedbackApi() {
       writeStore,
       jsonResponse,
       readJson,
+      getGitSha: () => String(process.env.LLH_GIT_SHA || process.env.GIT_COMMIT || "").slice(0, 40),
     });
   }
   return _testingFeedbackApi;

@@ -68,6 +68,7 @@ function spawnServer(envOverrides = {}) {
       ADMIN_ACCESS_CODE: ADMIN.code,
       DATABASE_PROVIDER: "local-json",
       LLH_STORE_PATH: STORE_PATH,
+      LLH_GIT_SHA: "abc1234deadbeef",
       NODE_ENV: "test",
       ALLOW_TESTING_LAB_ADMIN_PREVIEW: "true",
       ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true",
@@ -211,6 +212,48 @@ async function main() {
       assert.equal(created.json.thread.context.organizationId, teacherA.account.organizationId, "the thread's organizationId must be resolved server-side from the tester's own fake account, never trusted from the client");
       threadId = created.json.thread.id;
       pass("3. Tester can start a feedback thread with category + message + page/device/role context, resolved server-side");
+    }
+
+    // ---- 3b. Screenshot attachment (privacy-warning gated client-side) and
+    // deployedCommit context are both captured and scoped correctly ---------
+    {
+      const tinyPngDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+      const created = await requestJson("POST", "/api/testing-feedback/threads", {
+        category: "ai_result",
+        body: "The AI Lesson Plan Assist gave me a plan for the wrong age group.",
+        screenshotDataUrl: tinyPngDataUrl,
+        context: { page: "ai-lesson-plan", device: "tablet", role: "teacher" },
+      }, teacherA.memberAuth);
+      assert.equal(created.status, 201);
+      assert.equal(created.json.thread.context.deployedCommit, "abc1234deadbeef", "the server's own running commit SHA must be captured on the thread automatically, never trusted from the client");
+      const detail = await requestJson("GET", `/api/testing-feedback/threads/${created.json.thread.id}`, null, teacherA.memberAuth);
+      assert.equal(detail.status, 200);
+      assert.equal(detail.json.messages[0].screenshotDataUrl, tinyPngDataUrl, "a valid, size-bounded image data URL must be preserved on the message");
+      // Admin sees the same screenshot and commit — never stripped for admin, and never a secret.
+      const adminDetail = await requestJson("GET", `/api/testing-feedback/admin/threads/${created.json.thread.id}`, null, adminAuth);
+      assert.equal(adminDetail.status, 200);
+      assert.equal(adminDetail.json.thread.context.deployedCommit, "abc1234deadbeef");
+      assert.equal(adminDetail.json.messages[0].screenshotDataUrl, tinyPngDataUrl);
+
+      // A non-image / malformed / oversized value must be silently dropped, never stored or trusted.
+      const badShot = await requestJson("POST", "/api/testing-feedback/threads", {
+        category: "other",
+        body: "Testing a bad screenshot value.",
+        screenshotDataUrl: `data:text/html;base64,${Buffer.from("<script>alert(1)</script>").toString("base64")}`,
+      }, teacherA.memberAuth);
+      assert.equal(badShot.status, 201);
+      const badDetail = await requestJson("GET", `/api/testing-feedback/threads/${badShot.json.thread.id}`, null, teacherA.memberAuth);
+      assert.equal(badDetail.json.messages[0].screenshotDataUrl, "", "a non-image data URL must never be stored as a screenshot");
+
+      const oversizedShot = await requestJson("POST", "/api/testing-feedback/threads", {
+        category: "other",
+        body: "Testing an oversized screenshot value.",
+        screenshotDataUrl: `data:image/png;base64,${"A".repeat(1_000_000)}`,
+      }, teacherA.memberAuth);
+      assert.equal(oversizedShot.status, 201);
+      const oversizedDetail = await requestJson("GET", `/api/testing-feedback/threads/${oversizedShot.json.thread.id}`, null, teacherA.memberAuth);
+      assert.equal(oversizedDetail.json.messages[0].screenshotDataUrl, "", "an oversized screenshot must never be stored");
+      pass("3b. Screenshot attachments are captured and visible to both tester and admin when valid, silently rejected when malformed/oversized, and every thread automatically records the server's deployed commit SHA");
     }
 
     // ---- 4. Tester sees her own thread in her list --------------------------
