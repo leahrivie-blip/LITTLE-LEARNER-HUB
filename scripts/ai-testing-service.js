@@ -55,7 +55,12 @@ async function callWorkflow({
     env, storedFlags, isVerifiedAdmin, isFakeAccountSession, accountEmail, organizationId, store,
   });
   if (!gate.allowed) {
-    return { ok: false, unavailable: true, status: gate.status, error: gate.payload?.error || "AI testing is unavailable.", code: gate.payload?.code || "unavailable" };
+    return {
+      ok: false, unavailable: true, status: gate.status,
+      error: gate.payload?.error || "AI testing is unavailable.",
+      code: gate.payload?.code || "unavailable",
+      scope: gate.payload?.scope || "",
+    };
   }
 
   const { text: promptText, versionId } = resolvePromptText(store, workflowType);
@@ -140,6 +145,7 @@ async function interpretClassroomAssistantEntry({
       aiUnavailableReason: aiOutcome.error,
       aiUnavailableCode: aiOutcome.code,
       aiUnavailable: aiOutcome.unavailable === true,
+      scope: aiOutcome.scope || "",
     };
   }
 

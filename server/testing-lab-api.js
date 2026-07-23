@@ -396,7 +396,7 @@ function createTestingLabApi({
           continue;
         }
         const password = tempPasswordAuth.generateTemporaryPassword();
-        const hash = tempPasswordAuth.hashPasswordSha256(password);
+        const hash = tempPasswordAuth.hashPassword(password);
         account.passwordHash = hash;
         account.mustChangePassword = false;
         account.lastPasswordIssuedAt = model.nowIso();
@@ -466,7 +466,7 @@ function createTestingLabApi({
       return deny(response, 403, "non_fake_email_rejected", "Fake accounts must use @example.invalid.");
     }
     const password = tempPasswordAuth.generateTemporaryPassword();
-    const hash = tempPasswordAuth.hashPasswordSha256(password);
+    const hash = tempPasswordAuth.hashPassword(password);
     account.passwordHash = hash;
     account.mustChangePassword = body.forceChange === true;
     account.lastPasswordIssuedAt = model.nowIso();

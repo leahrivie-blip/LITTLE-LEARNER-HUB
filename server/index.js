@@ -46,6 +46,7 @@ const { createStaffExperienceApi } = require("./staff-experience-api.js");
 const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
 const { createTestingLabApi } = require("./testing-lab-api.js");
 const { createAiTestingApi } = require("./ai-testing-api.js");
+const { createTestingFeedbackApi } = require("./testing-feedback-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -177,6 +178,25 @@ const EMAIL_UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || ADMIN_A
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
 const PRODUCTION_DATABASE_URL = process.env.PRODUCTION_DATABASE_URL || "";
 const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_KEY || "";
+// A separate, testing-only Postgres connection string. On a live production host this
+// is never read at all — PRODUCTION_DATABASE_URL is used instead (see activeDatabaseUrl()
+// below). On every other host (a testing deployment, local dev, etc.) PRODUCTION_DATABASE_URL
+// is never read at all, even if it happens to be set, so a testing service can never
+// accidentally connect to — or be pointed at — the real production database.
+const TESTING_DATABASE_URL = process.env.TESTING_DATABASE_URL || "";
+
+/**
+ * Which Postgres connection string THIS deployment should use. A live production
+ * host always uses PRODUCTION_DATABASE_URL; every other host (a testing deployment,
+ * local dev, CI, etc.) always uses TESTING_DATABASE_URL instead — PRODUCTION_DATABASE_URL
+ * is never even read in that branch, so a testing service configured with both env
+ * vars set (e.g. by copy-paste mistake) still can never reach the real production
+ * database. If neither var is set for the current host, this returns "" and Postgres
+ * storage stays unavailable — never a silent fallback to the OTHER host's database.
+ */
+function activeDatabaseUrl() {
+  return expansionFeatureFlags.isLiveProductionSite(SITE_URL) ? PRODUCTION_DATABASE_URL : TESTING_DATABASE_URL;
+}
 const DATABASE_SSL = process.env.DATABASE_SSL || "";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
@@ -653,11 +673,14 @@ function databaseConfigStatus() {
   const postgres = provider === "postgres" || provider === "postgresql";
   const external = provider !== "local-json";
   const credentialsReady = postgres
-    ? isConfiguredValue(PRODUCTION_DATABASE_URL)
-    : isConfiguredValue(PRODUCTION_DATABASE_URL) && isConfiguredValue(PRODUCTION_DATABASE_SERVICE_KEY);
-  let note = "Local JSON storage is only for testing. Use a protected hosted database before serious traffic.";
+    ? isConfiguredValue(activeDatabaseUrl())
+    : isConfiguredValue(activeDatabaseUrl()) && isConfiguredValue(PRODUCTION_DATABASE_SERVICE_KEY);
+  const onLiveProduction = expansionFeatureFlags.isLiveProductionSite(SITE_URL);
+  let note = onLiveProduction
+    ? "Local JSON storage is only for testing. Use a protected hosted database before serious traffic."
+    : "Local JSON storage on a non-production host is not durable across restarts/redeploys unless a persistent disk is attached — see docs/OWNER_AND_PROVIDER_TESTING_GUIDE.md.";
   if (postgres && databaseReady) {
-    note = "Postgres storage is connected for launch data.";
+    note = onLiveProduction ? "Postgres storage is connected for launch data." : "Postgres storage (TESTING_DATABASE_URL, a separate testing-only database) is connected.";
   } else if (postgres && credentialsReady && lastPostgresError) {
     note = `Postgres is configured, but the last connection/write failed: ${lastPostgresError}`;
   } else if (external && credentialsReady) {
@@ -2631,7 +2654,7 @@ function uploadedResourcesForResponse(items = [], { admin = false } = {}) {
 
 function usePostgresStore() {
   const provider = DATABASE_PROVIDER.toLowerCase();
-  return (provider === "postgres" || provider === "postgresql") && isConfiguredValue(PRODUCTION_DATABASE_URL);
+  return (provider === "postgres" || provider === "postgresql") && isConfiguredValue(activeDatabaseUrl());
 }
 
 function postgresSslConfig() {
@@ -2643,7 +2666,7 @@ function postgresSslConfig() {
 async function initializePostgresStore() {
   const { Pool } = require("pg");
   postgresPool = new Pool({
-    connectionString: PRODUCTION_DATABASE_URL,
+    connectionString: activeDatabaseUrl(),
     ssl: postgresSslConfig(),
   });
   await postgresPool.query(`
@@ -2721,7 +2744,7 @@ function ensurePostgresPool() {
   try {
     const { Pool } = require("pg");
     postgresPool = new Pool({
-      connectionString: PRODUCTION_DATABASE_URL,
+      connectionString: activeDatabaseUrl(),
       ssl: postgresSslConfig(),
     });
   } catch (error) {
@@ -2803,6 +2826,21 @@ async function initializeStorage() {
     }
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
+  }
+  try {
+    // Security fix: invalidate any testing-only fake-account password hash still
+    // in the legacy raw-SHA-256 format from before this fix. Never touches a real
+    // user's hash (those migrate transparently on next login instead) and never
+    // invents a plaintext to re-hash — an invalidated fake account simply needs
+    // its password reissued via Testing Lab, which is safe and lossless by design.
+    const store = readStore();
+    const migrated = tempPasswordAuth.invalidateLegacyFakeAccountPasswordHashes(store);
+    if (migrated.invalidatedFakeAccounts > 0 || migrated.invalidatedUsers > 0) {
+      await writeStoreAsync(store);
+      console.log(`[temp-password] invalidated ${migrated.invalidatedFakeAccounts} legacy-hashed fake account(s) and ${migrated.invalidatedUsers} mirrored user row(s) — reissue their passwords via Testing Lab.`);
+    }
+  } catch (error) {
+    console.warn("[temp-password] legacy fake-account hash migration skipped:", error.message);
   }
   try {
     const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
@@ -5852,7 +5890,7 @@ async function handleAdminIssueTempPassword(request, response) {
     return;
   }
   const temporaryPassword = tempPasswordAuth.generateTemporaryPassword();
-  const passwordHash = tempPasswordAuth.hashPasswordSha256(temporaryPassword);
+  const passwordHash = tempPasswordAuth.hashPassword(temporaryPassword);
   // Auth fields only — leave plan, founding, promo, role, and all other data untouched.
   store.users[email] = tempPasswordAuth.applyTempPasswordToUser(existing, { passwordHash });
   await writeStoreAsync(store);
@@ -5937,7 +5975,7 @@ async function handlePasswordResetComplete(request, response) {
   }
   store.users[consumed.email] = {
     ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
-    passwordHash: tempPasswordAuth.hashPasswordSha256(newPassword),
+    passwordHash: tempPasswordAuth.hashPassword(newPassword),
     serverPasswordAuth: true,
     mustChangePassword: false,
     emailVerified: user.emailVerified !== false,
@@ -6097,6 +6135,13 @@ async function handlePasswordLogin(request, response) {
       updatedAt: new Date().toISOString(),
     };
   }
+  // Transparently upgrade a legacy-format password hash to the current secure
+  // format the first time it's ever successfully used — this is the only point
+  // the plaintext is available; there is no bulk "re-hash everyone" path.
+  if (verified.upgradeField && verified.upgradeHash) {
+    nextUser = { ...nextUser, [verified.upgradeField]: verified.upgradeHash };
+    authAuditLog("password_hash_upgraded", { email, field: verified.upgradeField });
+  }
   store.users[email] = nextUser;
   const sessionToken = tempPasswordAuth.createMemberSession(
     store,
@@ -6162,7 +6207,7 @@ async function handleCompleteForcedPasswordChange(request, response) {
     jsonResponse(response, 400, { error: "A forced password change is not required for this account." });
     return;
   }
-  const passwordHash = tempPasswordAuth.hashPasswordSha256(newPassword);
+  const passwordHash = tempPasswordAuth.hashPassword(newPassword);
   store.users[email] = {
     ...tempPasswordAuth.clearTempPasswordFields(user, { keepServerPasswordAuth: true }),
     passwordHash,
@@ -6224,7 +6269,7 @@ async function handleSyncPasswordAfterFirebase(request, response) {
   store.users = store.users || {};
   const existing = store.users[email] || { email };
   const passwordHash = newPassword
-    ? tempPasswordAuth.hashPasswordSha256(newPassword)
+    ? tempPasswordAuth.hashPassword(newPassword)
     : (existing.passwordHash || "");
   store.users[email] = {
     ...tempPasswordAuth.clearTempPasswordFields(existing, { keepServerPasswordAuth: true }),
@@ -10853,7 +10898,7 @@ const emailEngagement = createEmailEngagement({
   isCurriculumLessonPublic,
   getDatabaseStatus: () => ({
     ...databaseConfigStatus(),
-    connectionString: PRODUCTION_DATABASE_URL || "",
+    connectionString: activeDatabaseUrl() || "",
   }),
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
@@ -15602,6 +15647,19 @@ function getAiTestingApi() {
   return _aiTestingApi;
 }
 
+let _testingFeedbackApi;
+function getTestingFeedbackApi() {
+  if (!_testingFeedbackApi) {
+    _testingFeedbackApi = createTestingFeedbackApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+    });
+  }
+  return _testingFeedbackApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15729,6 +15787,31 @@ const server = http.createServer(async (request, response) => {
         return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
       }
       return handleExpansionUnavailableStub(request, response, expansionFeatureFlags.EXPANSION_FEATURE_KEYS.AI_TESTING);
+    }
+    if (url.pathname === "/api/testing-feedback" || url.pathname.startsWith("/api/testing-feedback/")) {
+      // Deliberately the ONE expansion feature with no stored-flag/env-preview
+      // requirement — see evaluateTestingFeedbackAccess. Production still always
+      // rejects outright. This mount resolves WHO is asking (admin vs. an
+      // authenticated fake-account tester); server/testing-feedback-api.js's own
+      // handlers enforce which routes each identity may use and every isolation
+      // guarantee (a tester only ever sees her own threads).
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      let fakeAccountEmail = "";
+      if (!admin) {
+        const authHeader = String(request.headers.authorization || "");
+        const memberSession = tempPasswordAuth.resolveMemberSession(peekStore(), authHeader);
+        if (memberSession?.email && memberSession.email.endsWith("@example.invalid")) {
+          fakeAccountEmail = memberSession.email;
+        }
+      }
+      const access = expansionFeatureFlags.evaluateTestingFeedbackAccess({
+        isAuthenticatedTester: Boolean(admin || fakeAccountEmail),
+      });
+      const handler = getTestingFeedbackApi().matchRoute(request.method, url.pathname, url);
+      if (handler && access.allowed) {
+        return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
+      }
+      return jsonResponse(response, access.status || 403, access.payload || expansionFeatureFlags.unavailableExpansionPayload(expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_FEEDBACK));
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));

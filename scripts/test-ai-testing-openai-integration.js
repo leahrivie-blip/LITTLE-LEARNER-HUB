@@ -135,6 +135,7 @@ function assertStaticMarkers() {
   const clientJs = fs.readFileSync(path.join(ROOT, "scripts/ai-testing-openai-client.js"), "utf8");
   const apiJs = fs.readFileSync(path.join(ROOT, "server/ai-testing-api.js"), "utf8");
   const flagsJs = fs.readFileSync(path.join(ROOT, "scripts/expansion-feature-flags.js"), "utf8");
+  const smokeJs = fs.readFileSync(path.join(ROOT, "scripts/ai-testing-real-smoke.js"), "utf8");
   assert.match(safetyJs, /ALLOW_OPENAI_TESTING/);
   assert.match(safetyJs, /NEVER_SEND_KEYS/);
   assert.match(clientJs, /json_schema/);
@@ -142,7 +143,16 @@ function assertStaticMarkers() {
   assert.match(clientJs, /store,?\s*$/m);
   assert.match(apiJs, /function createAiTestingApi/);
   assert.match(flagsJs, /AI_TESTING: "aiTesting"/);
-  pass("static markers: safety gate, structured-output client, and expansion flag key all present");
+  // The real smoke test's remote mode must never need the OpenAI key locally,
+  // must require the deployed service's own admin login instead, and must
+  // refuse outright against anything that looks like production.
+  assert.match(smokeJs, /AI_TESTING_SMOKE_TARGET_URL/);
+  assert.match(smokeJs, /AI_TESTING_SMOKE_ADMIN_EMAIL/);
+  const runRemoteBody = smokeJs.slice(smokeJs.indexOf("async function runRemote()"), smokeJs.indexOf("async function runLocal()"));
+  assert.ok(runRemoteBody.length > 100, "expected to find the runRemote() function body");
+  assert.doesNotMatch(runRemoteBody, /process\.env\.OPENAI_API_KEY/, "the runRemote() function body itself must never READ process.env.OPENAI_API_KEY — the deployed service's own server-side key does the work (a descriptive log message mentioning the term is fine)");
+  assert.match(smokeJs, /isLiveProductionSite\(targetUrl\)/, "remote mode must refuse to run against a production-looking hostname");
+  pass("static markers: safety gate, structured-output client, expansion flag key, and remote-smoke-test safety (no local API key needed, production refusal) all present");
 }
 
 async function main() {
@@ -186,7 +196,18 @@ async function main() {
   }
 
   // ---- 3-16: main testing-host suite with a working mock transport ------
-  const child = startServer();
+  // These tests exercise FUNCTIONALITY, not the rate limiter itself, and all
+  // run under the same admin identity — with the real, deliberately strict
+  // default limits (5/tester/min) they'd trip the limiter incidentally well
+  // before reaching test 13/16. Rate-limit-per-se is verified separately
+  // (test 17) against its own dedicated server using the real, un-overridden
+  // defaults; this shared server raises the ceiling just enough that normal
+  // sequential functional testing never hits it by accident.
+  const child = startServer({
+    AI_TESTING_RATE_LIMIT_PER_TESTER: "1000",
+    AI_TESTING_RATE_LIMIT_PER_ORG_MINUTE: "1000",
+    AI_TESTING_RATE_LIMIT_PER_ORG_DAY: "100000",
+  });
   try {
     await waitForBoot(child);
     const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
@@ -364,6 +385,46 @@ async function main() {
       pass("15b. Form Builder's generateWithLiveProvider returns real structured AI content when the AI Testing gate allows it");
     }
 
+    // 15c. Lesson-plan assist: deep schema validation (not just reachability).
+    // Classroom Assistant (test 4/9) and Form Builder (test 15b) already get a
+    // real structured-response shape assertion each — this closes the same gap
+    // for lesson-plan-assist, which otherwise only had the shallow 200/502
+    // reachability check in test 15.
+    {
+      const DEFAULT_LESSON_PLAN_RESULT = {
+        organizedActivities: [
+          { day: "Monday", title: "Colors Everywhere", materials: ["color cards", "paint"], developmentalFocus: ["fine_motor", "cognitive"] },
+          { day: "Tuesday", title: "Nature Walk", materials: ["collection bags"], developmentalFocus: ["gross_motor", "science_exploration"] },
+        ],
+        ageGroupSuggestions: ["preschool"],
+        playBasedAlternatives: [
+          { originalActivity: "Colors Everywhere", alternative: "Open-ended color sorting with loose parts", looseParts: ["bottle caps", "fabric scraps"] },
+        ],
+        looseSummaryOfSourceText: "A two-day plan covering colors and a nature walk.",
+        missingFields: ["No materials list for Wednesday through Friday."],
+      };
+      setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_LESSON_PLAN_RESULT))}, usage: { input_tokens: 90, output_tokens: 60 } }) })`);
+      const lp = await requestJson("POST", "/api/ai-testing/lesson-plan/assist", {
+        text: "Monday: Colors Everywhere - sorting activity with color cards, painting with primary colors. Tuesday: Nature Walk - collect leaves, sort by shape. No materials list for Wednesday through Friday.",
+        organizationId: "org_lp_deep_test",
+      }, auth);
+      assert.equal(lp.status, 200, "a valid structured lesson-plan response should succeed, not fall back");
+      assert.equal(lp.json.ok, true);
+      assert.ok(Array.isArray(lp.json.result.organizedActivities) && lp.json.result.organizedActivities.length === 2, "organizedActivities should be parsed per-day, not collapsed");
+      assert.deepEqual(lp.json.result.ageGroupSuggestions, ["preschool"]);
+      assert.ok(lp.json.result.playBasedAlternatives[0].looseParts.length > 0, "a play-based/loose-parts alternative should be suggested alongside the original activity, never replacing it silently");
+      assert.ok(lp.json.result.missingFields.length >= 1, "a plan with gaps (no Wed-Fri materials) must surface them, never invent filler content");
+      assert.ok(lp.json.tokensUsed && lp.json.tokensUsed.total > 0, "usage/cost tracking must apply to lesson-plan-assist the same as every other workflow");
+
+      // Malformed structured output must fail cleanly (502), never a false 200.
+      setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: "not valid json {{{", usage: { input_tokens: 10, output_tokens: 5 } }) })`);
+      const lpBad = await requestJson("POST", "/api/ai-testing/lesson-plan/assist", { text: "Monday: colors.", organizationId: "org_lp_deep_test_bad" }, auth);
+      assert.equal(lpBad.status, 502, "malformed structured output must be a definitive failure, never a false success");
+      assert.equal(lpBad.json.ok, false);
+      assert.equal(lpBad.json.code, "invalid_structured_output");
+      pass("15c. Lesson-plan assist: valid structured responses parse into per-day activities/age suggestions/loose-parts alternatives/missing-field warnings, and malformed output fails cleanly (502), matching the depth already proven for Classroom Assistant and Form Builder");
+    }
+
     // 16. Duplicate prevention when the SAME AI-built plan is applied twice
     {
       setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
@@ -386,24 +447,141 @@ async function main() {
       assert.equal(applyTwice.status, applyOnce.status, "re-applying the identical plan object must behave consistently, not intermittently succeed/fail");
       pass("16. Duplicate prevention: applying an AI-built plan goes through the same confirm-required save endpoint as the heuristic path (no separate, unproven write path)");
     }
-
-    // 17. Rate limiting — run LAST so its intentional bucket exhaustion never
-    // blocks any of the other, unrelated assertions above sharing the same
-    // admin account within this one test run.
-    {
-      setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
-      let rateLimited = false;
-      for (let i = 0; i < 40; i += 1) {
-        const r = await requestJson("POST", "/api/ai-testing/classroom-assistant/interpret", { text: `rate limit probe ${i}`, organizationId: "org_rate_test" }, auth);
-        if (r.json?.aiUnavailableCode === "rate_limited") { rateLimited = true; break; }
-      }
-      assert.ok(rateLimited, "repeated rapid calls from the same account should eventually be rate-limited");
-      pass("17. Rate limiting: repeated rapid calls from one account are rate-limited");
-    }
   } finally {
     await stopServer(child);
     try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
     try { fs.unlinkSync(MOCK_MODULE_PATH); } catch { /* ignore */ }
+  }
+
+  // ---- 17. Rate limiting — its own dedicated server, using the REAL,
+  // un-overridden default limits (5/tester/minute, 20/organization/minute),
+  // never the raised ceiling the functional suite above used. ----------
+  {
+    setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
+    const rateChild = startServer();
+    try {
+      await waitForBoot(rateChild);
+      const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
+      const auth = await enableAiTesting(adminLogin.json.token);
+      let rateLimited = false;
+      let limitedScope = "";
+      let limitedMessage = "";
+      for (let i = 0; i < 15; i += 1) {
+        const r = await requestJson("POST", "/api/ai-testing/classroom-assistant/interpret", { text: `rate limit probe ${i}`, organizationId: "org_rate_test" }, auth);
+        if (r.json?.aiUnavailableCode === "rate_limited") {
+          rateLimited = true;
+          limitedScope = r.json.scope;
+          limitedMessage = r.json.aiUnavailableReason || "";
+          break;
+        }
+      }
+      assert.ok(rateLimited, "repeated rapid calls from the same account should eventually be rate-limited, well within 15 calls against the default 5/minute-per-tester limit");
+      assert.equal(limitedScope, "account", "hitting the limit from a single tester account should be attributed to the per-tester scope, not organization");
+      assert.match(limitedMessage, /AI testing limit/i, "the limit message must be clear and human-readable, not a generic/technical error");
+      assert.doesNotMatch(limitedMessage, /try again in a few seconds/i, "the message must not use a generic 'try again in a few seconds' phrasing that would be wrong for longer-window limits");
+      pass("17. Rate limiting: repeated rapid calls from one tester are rate-limited well within 15 calls (default limit is 5/minute), with a clear, scope-specific message");
+    } finally {
+      await stopServer(rateChild);
+    }
+  }
+
+  // ---- 18. Organization-level and daily limits are independently enforced,
+  // and each has its own clear message. ------------------------------------
+  {
+    setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
+    // Raise the per-tester ceiling so this section can prove the ORGANIZATION
+    // limit specifically (many distinct testers in the SAME organization),
+    // without every one of them individually tripping the per-tester limit first.
+    const orgChild = startServer({ AI_TESTING_RATE_LIMIT_PER_TESTER: "1000" });
+    try {
+      await waitForBoot(orgChild);
+      const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
+      const auth = await enableAiTesting(adminLogin.json.token);
+      let orgLimited = false;
+      let orgLimitedMessage = "";
+      for (let i = 0; i < 30; i += 1) {
+        const interpret = await requestJson("POST", "/api/ai-testing/classroom-assistant/interpret", { text: `org limit probe ${i}`, organizationId: "org_daily_limit_test" }, auth);
+        if (interpret.json?.aiUnavailableCode === "rate_limited") {
+          orgLimited = true;
+          orgLimitedMessage = interpret.json.aiUnavailableReason || "";
+          assert.equal(interpret.json.scope, "organization", "20 calls to the SAME organization (default per-organization-per-minute limit) should trip the organization scope");
+          break;
+        }
+      }
+      assert.ok(orgLimited, "20+ AI calls to the same fake organization within a minute should trip the default per-organization-per-minute limit (20)");
+      assert.match(orgLimitedMessage, /organization/i, "the organization-level limit message must clearly say it's shared across the organization, not just this one tester");
+      pass("18. The per-organization-per-minute limit (default 20) is independently enforced once many testers/calls in the SAME organization exceed it, with a clear message distinguishing it from the per-tester limit");
+    } finally {
+      await stopServer(orgChild);
+    }
+  }
+
+  // ---- 19. The per-organization-per-day limit is a second, INDEPENDENT
+  // ceiling from the per-minute one, with its own clear message. Uses a
+  // deliberately tiny daily cap (env override) so this is provable in a
+  // handful of calls instead of requiring real elapsed days. -------------
+  {
+    setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
+    const dayChild = startServer({
+      AI_TESTING_RATE_LIMIT_PER_TESTER: "1000",
+      AI_TESTING_RATE_LIMIT_PER_ORG_MINUTE: "1000",
+      AI_TESTING_RATE_LIMIT_PER_ORG_DAY: "3",
+    });
+    try {
+      await waitForBoot(dayChild);
+      const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
+      const auth = await enableAiTesting(adminLogin.json.token);
+      let dailyLimited = false;
+      let dailyMessage = "";
+      for (let i = 0; i < 8; i += 1) {
+        const r = await requestJson("POST", "/api/ai-testing/classroom-assistant/interpret", { text: `daily limit probe ${i}`, organizationId: "org_truly_daily_test" }, auth);
+        if (r.json?.aiUnavailableCode === "rate_limited") {
+          dailyLimited = true;
+          dailyMessage = r.json.aiUnavailableReason || "";
+          assert.equal(r.json.scope, "organization_daily", "exceeding the per-organization-per-day cap must be attributed to its own distinct scope, not the per-minute organization scope");
+          break;
+        }
+      }
+      assert.ok(dailyLimited, "exceeding the (tiny, for this test) per-organization-per-day cap of 3 must trip within 8 calls, independently of the per-minute limits which were raised for this section");
+      assert.match(dailyMessage, /today|daily|day/i, "the daily-limit message must be clearly different from the per-minute message (mention 'today'/day, not seconds)");
+      assert.doesNotMatch(dailyMessage, /second/i, "the daily-limit message must never say 'try again in N seconds' — that would be misleading for a limit that resets in about a day");
+      pass("19. The per-organization-per-day limit is enforced independently of the per-minute limits, with its own clearly-worded message");
+    } finally {
+      await stopServer(dayChild);
+    }
+  }
+
+  // ---- 20. Admin-only sanitized usage endpoint: aggregate counts/limits
+  // only, never a prompt/completion, and rejects a fake-account tester. -----
+  {
+    setMockTransport(`async () => ({ ok: true, status: 200, json: async () => ({ output_text: ${JSON.stringify(JSON.stringify(DEFAULT_MEAL_SCENARIO))}, usage: { input_tokens: 10, output_tokens: 5 } }) })`);
+    const usageChild = startServer();
+    try {
+      await waitForBoot(usageChild);
+      const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
+      const auth = await enableAiTesting(adminLogin.json.token);
+      const secretText = "a very specific tester-authored sentence that must never leak into the admin usage view";
+      await requestJson("POST", "/api/ai-testing/classroom-assistant/interpret", { text: secretText, organizationId: "org_usage_admin_test" }, auth);
+
+      const usage = await requestJson("GET", "/api/ai-testing/admin/usage", null, auth);
+      assert.equal(usage.status, 200);
+      assert.ok(usage.json.usageTotals, "admin usage view must include aggregate totals");
+      assert.equal(usage.json.limits.perTesterPerMinute, 5, "admin usage view must surface the actual configured per-tester limit");
+      assert.equal(usage.json.limits.perOrganizationPerMinute, 20, "admin usage view must surface the actual configured per-organization limit");
+      assert.equal(usage.json.limits.perOrganizationPerDay, 200, "admin usage view must surface the actual configured daily limit");
+      const orgRow = usage.json.organizations.find((o) => o.organizationId === "org_usage_admin_test");
+      assert.ok(orgRow, "the organization that just made a call should appear in the usage breakdown");
+      assert.ok(orgRow.perMinute && typeof orgRow.perMinute.count === "number", "usage breakdown must be numeric counts only");
+      const usageRaw = JSON.stringify(usage.json);
+      assert.ok(!usageRaw.includes(secretText), "the admin usage view must never include the actual text of a tester's entry — aggregate counts only");
+
+      // A fake-account tester must never reach this admin-only endpoint.
+      const usageAsTester = await requestJson("GET", "/api/ai-testing/admin/usage", null, {});
+      assert.notEqual(usageAsTester.status, 200, "the admin usage endpoint must reject an unauthenticated/non-admin caller");
+      pass("20. The admin usage endpoint reports sanitized aggregate counts and the actual configured limits, never a tester's private entry text, and is admin-only");
+    } finally {
+      await stopServer(usageChild);
+    }
   }
 
   console.log(`\nAI Testing OpenAI integration checks passed (${passed}).`);
