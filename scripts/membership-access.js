@@ -17,7 +17,26 @@
  *   first paid billing cycle, the reserved spot is released back into inventory.
  * - After the first successful paid invoice, canceling ends access at period end but keeps the
  *   numbered spot (foundingMembers[]) so the original 50 paid founding accounts stay fixed.
+ *
+ * STALE PAYMENT-FAILURE LABEL POLICY
+ * - "Payment Failed" / "Past Due" are event-driven labels set only by Stripe webhooks
+ *   (invoice.payment_failed, customer.subscription.updated). There is no polling
+ *   reconciliation, so if Stripe never sends a follow-up event (e.g. it leaves the
+ *   subscription "unpaid" indefinitely instead of canceling it, or a later webhook is
+ *   missed), the label can persist forever even though access was already correctly
+ *   revoked and the account is effectively Free.
+ * - This does NOT affect access: membershipHasProAccess already denies access for
+ *   payment_failed/past_due regardless of staleness, and continues to do so.
+ * - membershipPaymentFailureIsStale() only affects the *display* label (Payment Failed vs.
+ *   Subscription Ended) once Stripe's retry window has clearly closed (no pending
+ *   nextPaymentRetryAt and no newer successful payment) and enough time
+ *   (PAYMENT_FAILURE_STALE_DAYS) has passed since the failure. A missing lastFailedPaymentAt
+ *   timestamp is never treated as stale — the label only clears based on positive evidence.
  */
+
+// Stripe's default Smart Retries schedule finishes well inside this window; once it has
+// passed with no scheduled retry and no recovery, the failure is history, not a live problem.
+const PAYMENT_FAILURE_STALE_DAYS = 21;
 
 function parseIsoMs(value) {
   if (!value) return null;
@@ -28,6 +47,33 @@ function parseIsoMs(value) {
 function stripeStatusIsPaidAccess(status = "") {
   const s = String(status || "").toLowerCase();
   return s === "active" || s === "trialing";
+}
+
+/**
+ * True when a stored "payment failed" / "past due" signal is old news: Stripe is no
+ * longer actively retrying and enough time has passed that this is a historical event,
+ * not a current problem. Used only to pick the display label — never to grant or revoke
+ * access, send emails, or touch Stripe.
+ */
+function membershipPaymentFailureIsStale(user, nowMs = Date.now()) {
+  const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+  const subStatus = String(user?.subscriptionStatus || "").toLowerCase();
+  const isFailedSignal = subStatus.includes("payment failed")
+    || stripeStatus === "unpaid"
+    || subStatus.includes("past due")
+    || stripeStatus === "past_due";
+  if (!isFailedSignal) return false;
+
+  const lastFailedMs = parseIsoMs(user?.lastFailedPaymentAt);
+  if (lastFailedMs === null) return false; // No timestamp evidence — keep showing the alert.
+
+  const lastSuccessMs = parseIsoMs(user?.lastSuccessfulPaymentAt);
+  if (lastSuccessMs !== null && lastSuccessMs > lastFailedMs) return false; // Recovered since.
+
+  const nextRetryMs = parseIsoMs(user?.nextPaymentRetryAt);
+  if (nextRetryMs !== null && nextRetryMs > nowMs) return false; // Stripe is still retrying.
+
+  return (nowMs - lastFailedMs) > PAYMENT_FAILURE_STALE_DAYS * 24 * 60 * 60 * 1000;
 }
 
 function accessEndMs(user) {
@@ -143,9 +189,10 @@ function membershipPreviousPlanDisplay(user) {
 function membershipStatusDisplay(user, nowMs = Date.now()) {
   const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(user?.subscriptionStatus || "").toLowerCase();
+  const staleFailure = membershipPaymentFailureIsStale(user, nowMs);
 
-  if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
-  if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
+  if (!staleFailure && (status.includes("payment failed") || stripeStatus === "unpaid")) return "Payment Failed";
+  if (!staleFailure && (status.includes("past due") || stripeStatus === "past_due")) return "Past Due";
 
   const hasAccess = membershipHasProAccess(user, nowMs);
   const cancelScheduled = Boolean(user?.cancelAtPeriodEnd) || status.includes("access ends");
@@ -204,8 +251,9 @@ function membershipProductStatus(user, nowMs = Date.now()) {
   const subStatus = String(user?.subscriptionStatus || "").toLowerCase();
   const hasAccess = membershipHasProAccess(user, nowMs);
   const hasHistory = membershipHasSubscriptionHistory(user);
+  const staleFailure = membershipPaymentFailureIsStale(user, nowMs);
 
-  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
+  if (!staleFailure && (subStatus.includes("payment failed") || stripeStatus === "unpaid")) {
     return {
       key: "payment_failed",
       adminKey: "payment_failed",
@@ -221,7 +269,7 @@ function membershipProductStatus(user, nowMs = Date.now()) {
     };
   }
 
-  if (subStatus.includes("past due") || stripeStatus === "past_due") {
+  if (!staleFailure && (subStatus.includes("past due") || stripeStatus === "past_due")) {
     return {
       key: "past_due",
       adminKey: "past_due",
@@ -506,6 +554,8 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
 }
 
 module.exports = {
+  PAYMENT_FAILURE_STALE_DAYS,
+  membershipPaymentFailureIsStale,
   membershipHasProAccess,
   membershipUserInTrial,
   membershipFoundingActive,
