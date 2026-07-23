@@ -229,10 +229,19 @@ function membershipStatusDisplay(user, nowMs = Date.now()) {
   const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(user?.subscriptionStatus || "").toLowerCase();
 
-  // Stale is never promoted to "ended"/"canceled" — only flagged as unverified.
-  if (membershipPaymentFailureIsStale(user, nowMs)) return PAYMENT_FAILURE_NEEDS_REVIEW_LABEL;
-  if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
-  if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
+  // A verified Stripe event (customer.subscription.updated/deleted, or the equivalent
+  // Stripe backfill path) already concluded "Subscription Ended"/"Trial Ended" — do not
+  // let a leftover raw stripeSubscriptionStatus echo ("unpaid"/"past_due") resurrect a
+  // Payment Failed/Past Due alert for an account that has already been correctly
+  // downgraded. (subscriptionStatus "ended" is a real conclusion, not an inference from
+  // elapsed time — this is different from, and takes priority over, the staleness check.)
+  const alreadyConcluded = status.includes("ended");
+  if (!alreadyConcluded) {
+    // Stale is never promoted to "ended"/"canceled" — only flagged as unverified.
+    if (membershipPaymentFailureIsStale(user, nowMs)) return PAYMENT_FAILURE_NEEDS_REVIEW_LABEL;
+    if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
+    if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
+  }
 
   const hasAccess = membershipHasProAccess(user, nowMs);
   const cancelScheduled = Boolean(user?.cancelAtPeriodEnd) || status.includes("access ends");
@@ -293,9 +302,15 @@ function membershipProductStatus(user, nowMs = Date.now()) {
   const hasAccess = membershipHasProAccess(user, nowMs);
   const hasHistory = membershipHasSubscriptionHistory(user);
 
+  // A verified Stripe event already concluded "Subscription Ended"/"Trial Ended" for
+  // this account — don't let a leftover raw stripeSubscriptionStatus echo ("unpaid"/
+  // "past_due") resurrect a Payment Failed alert for an account already correctly
+  // downgraded to Free. See membershipStatusDisplay for the matching gate.
+  const alreadyConcluded = subStatus.includes("ended");
+
   // Stale failure: flag for human review. Never assert "ended"/"canceled" from elapsed
   // time alone — that conclusion requires a verified Stripe event or admin reconciliation.
-  if (membershipPaymentFailureIsStale(user, nowMs)) {
+  if (!alreadyConcluded && membershipPaymentFailureIsStale(user, nowMs)) {
     return {
       key: "needs_billing_review",
       adminKey: "needs_billing_review",
@@ -319,7 +334,7 @@ function membershipProductStatus(user, nowMs = Date.now()) {
     };
   }
 
-  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
+  if (!alreadyConcluded && (subStatus.includes("payment failed") || stripeStatus === "unpaid")) {
     return {
       key: "payment_failed",
       adminKey: "payment_failed",
@@ -335,7 +350,7 @@ function membershipProductStatus(user, nowMs = Date.now()) {
     };
   }
 
-  if (subStatus.includes("past due") || stripeStatus === "past_due") {
+  if (!alreadyConcluded && (subStatus.includes("past due") || stripeStatus === "past_due")) {
     return {
       key: "past_due",
       adminKey: "past_due",
