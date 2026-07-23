@@ -24,6 +24,12 @@
     notice: "",
     oneTimePassword: "",
     issuedEmail: "",
+    createdOrgId: "",
+    orgLogins: [],
+    orgLoginsOrgId: "",
+    sandboxAccounts: [],
+    sandboxRoleCatalog: [],
+    sandboxNotice: "",
     onboardResult: null,
     aiStatus: null,
     aiScenarios: [],
@@ -49,6 +55,18 @@
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // Testing Lab's role preview writes directly to sessionStorage without
+  // going through any of app.js's own preview-mode setters, so the global
+  // top-nav "Exit Preview" escape button and testing-identity role banner
+  // (both live in app.js/index.html, outside this module) would otherwise
+  // never learn that a preview just started or ended. Every call here is
+  // optional-chained — this module must keep working standalone (e.g. in
+  // this file's own unit tests) even where those globals don't exist.
+  function notifyGlobalPreviewChrome() {
+    try { global.refreshTopNavExitPreview?.(); } catch { /* */ }
+    try { global.refreshTestingIdentityBanner?.(); } catch { /* */ }
   }
 
   function adminHeaders() {
@@ -326,7 +344,9 @@
           Tester: ${escapeHtml(thread.testerEmail)} (${escapeHtml(thread.testerRole || "role unknown")}) ·
           Org: ${escapeHtml(thread.organizationId)} ·
           Page: ${escapeHtml(thread.context?.page || "—")} ·
-          Device: ${escapeHtml(thread.context?.device || "—")}
+          Device: ${escapeHtml(thread.context?.device || "—")} ·
+          Filed: ${escapeHtml(thread.createdAt || "—")} ·
+          Deployed commit: <code>${escapeHtml(thread.context?.deployedCommit || "unknown")}</code>
         </p>
         <div class="tl-actions-row">
           <label>Status
@@ -342,6 +362,7 @@
             <div class="fh-card static">
               <strong>${message.senderType === "admin" ? "You (admin)" : escapeHtml(thread.testerEmail)}</strong>
               <p>${escapeHtml(message.body)}</p>
+              ${message.screenshotDataUrl ? `<img src="${escapeHtml(message.screenshotDataUrl)}" alt="Tester-attached screenshot" style="max-width:220px;border-radius:8px;display:block;margin-top:6px;" />` : ""}
               <span class="muted-copy">${escapeHtml(message.createdAt || "")}</span>
             </div>
           `).join("") || "<p class=\"muted-copy\">No messages yet.</p>"}
@@ -373,13 +394,49 @@
   function accountsHtml() {
     return `
       <section class="tl-section" data-tl-accounts>
+        <h3>Fake tester organizations</h3>
+        <p class="muted-copy">Create a brand-new fake tester organization (or reset an existing one), then generate separate logins for each role. Nothing here ever touches a real organization or a real password.</p>
+        <div class="tl-actions-row" data-tl-create-org-row>
+          <label>Organization type
+            <select data-tl-org-type>
+              <option value="home_daycare">Solo Home Daycare</option>
+              <option value="small_center">Multi-Classroom Center</option>
+            </select>
+          </label>
+          <label>Label (optional)
+            <input type="text" data-tl-org-label placeholder="e.g. acme-testers" maxlength="40" />
+          </label>
+          <button type="button" class="primary-button" data-tl-create-org>Create / reset fake organization</button>
+        </div>
+        ${state.createdOrgId ? `<p class="tl-onetime" data-tl-created-org><strong>Ready:</strong> organization <code>${escapeHtml(state.createdOrgId)}</code>. Use "Generate core role logins" below for this org, or pick individual accounts.</p>` : ""}
+
         <h3>Actual fake login accounts</h3>
-        <p class="muted-copy">Real authentication flow. Passwords are never stored in fixtures. Issue once, copy immediately.</p>
+        <p class="muted-copy">Real authentication flow. Passwords are never stored in fixtures, and a previously-issued password can never be viewed again — only a fresh reissue shows a new one. Copy immediately.</p>
         ${state.oneTimePassword ? `
           <div class="tl-onetime" data-tl-onetime>
             <p><strong>Temporary password for ${escapeHtml(state.issuedEmail)}</strong> (shown once)</p>
-            <code>${escapeHtml(state.oneTimePassword)}</code>
+            <code data-tl-onetime-value>${escapeHtml(state.oneTimePassword)}</code>
+            <button type="button" class="ghost-button" data-tl-copy-password="${escapeHtml(state.oneTimePassword)}">Copy</button>
             <button type="button" class="ghost-button" data-tl-clear-password>Clear from screen</button>
+          </div>
+        ` : ""}
+        ${(state.orgLogins || []).length ? `
+          <div class="tl-onetime" data-tl-org-logins>
+            <p><strong>Fresh logins for ${escapeHtml(state.orgLoginsOrgId || "this organization")}</strong> (shown once each — copy now)</p>
+            <table class="tl-onboard-table">
+              <thead><tr><th>Role</th><th>Email</th><th>Temporary password</th><th></th></tr></thead>
+              <tbody>
+                ${state.orgLogins.map((login) => `
+                  <tr>
+                    <td>${escapeHtml(login.role || login.kind)}</td>
+                    <td>${escapeHtml(login.email)}</td>
+                    <td><code>${escapeHtml(login.temporaryPassword)}</code></td>
+                    <td><button type="button" class="ghost-button" data-tl-copy-password="${escapeHtml(login.temporaryPassword)}">Copy</button></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+            <button type="button" class="ghost-button" data-tl-clear-org-logins>Clear from screen</button>
           </div>
         ` : ""}
         <ul class="fh-card-list">
@@ -387,14 +444,91 @@
             <li class="fh-card static" data-tl-account="${escapeHtml(row.id)}">
               <strong>${escapeHtml(row.displayName || row.kind)}</strong>
               <span class="dc-badge">${escapeHtml(row.kind)}</span>
-              <span class="muted-copy">${escapeHtml(row.email)} · ${escapeHtml(row.label || "")}</span>
+              <span class="dc-badge">${row.active === false ? "Suspended/ended" : "Active"}</span>
+              <p class="muted-copy">${escapeHtml(row.email)} · org <code>${escapeHtml(row.organizationId)}</code>${row.role ? ` · role ${escapeHtml(row.role)}` : ""}</p>
               <div class="tl-actions-row">
                 <button type="button" class="ghost-button" data-tl-select-account="${escapeHtml(row.id)}">Select</button>
-                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">Issue password</button>
+                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">${row.hasPassword ? "Reissue password" : "Issue password"}</button>
                 <button type="button" class="ghost-button" data-tl-revoke="${escapeHtml(row.id)}">Revoke session</button>
+                ${row.active === false
+                  ? `<button type="button" class="ghost-button" data-tl-reactivate="${escapeHtml(row.id)}">Reactivate</button>`
+                  : `<button type="button" class="ghost-button" data-tl-suspend="${escapeHtml(row.id)}">Suspend</button>`}
+                <button type="button" class="ghost-button" data-tl-end-account="${escapeHtml(row.id)}">End account</button>
               </div>
             </li>
           `).join("") || "<li class=\"muted-copy\">Load a scenario first.</li>"}
+        </ul>
+        ${(state.dashboard?.accounts || []).length ? `
+          <button type="button" class="primary-button" data-tl-issue-org-logins="${escapeHtml(state.dashboard.accounts[0]?.organizationId || "")}">Generate fresh logins for every role in this organization</button>
+        ` : ""}
+      </section>
+      ${sandboxManagerHtml()}
+    `;
+  }
+
+  function sandboxRoleLabel(key) {
+    return (state.sandboxRoleCatalog || []).find((entry) => entry.key === key)?.label || key;
+  }
+
+  function sandboxRoleCheckboxesHtml(namePrefix, checkedKeys = []) {
+    const checked = new Set(checkedKeys);
+    const catalog = state.sandboxRoleCatalog || [];
+    return catalog.map(({ key, label }) => `
+      <label class="tl-check">
+        <input type="checkbox" data-sandbox-role-checkbox="${namePrefix}" value="${escapeHtml(key)}" ${checked.has(key) ? "checked" : ""} />
+        ${escapeHtml(label || key)}
+      </label>
+    `).join("") || "<p class=\"muted-copy\">Loading role catalog…</p>";
+  }
+
+  function sandboxManagerHtml() {
+    return `
+      <section class="tl-section" data-tl-sandbox-manager>
+        <h3>External Tester Sandbox — one login, admin-chosen roles</h3>
+        <p class="muted-copy">
+          One external tester login that switches ONLY among the roles you approve below —
+          never Platform Admin, never Testing Lab Admin, never AI Outcomes Admin, never another
+          organization. Enforced on the server, not just hidden in the browser.
+        </p>
+        <div class="tl-actions-row" data-tl-create-sandbox-row>
+          <label>Organization id
+            <input type="text" data-sandbox-org-id placeholder="e.g. ${escapeHtml(state.createdOrgId || state.dashboard?.accounts?.[0]?.organizationId || "org_tester_...")}" value="${escapeHtml(state.createdOrgId || "")}" />
+          </label>
+          <label>Tester email
+            <input type="text" data-sandbox-email placeholder="e.g. sandbox.tester1@example.invalid" />
+          </label>
+          <label>Display name
+            <input type="text" data-sandbox-display-name placeholder="External Tester" />
+          </label>
+        </div>
+        <p class="muted-copy">Allowed roles for this tester:</p>
+        <div class="tl-actions-row" data-sandbox-create-roles>
+          ${sandboxRoleCheckboxesHtml("create")}
+        </div>
+        <button type="button" class="primary-button" data-tl-create-sandbox>Create External Tester Sandbox</button>
+        ${state.sandboxNotice ? `<p class="muted-copy" role="status">${escapeHtml(state.sandboxNotice)}</p>` : ""}
+
+        <h4>Existing External Tester Sandbox accounts</h4>
+        <ul class="fh-card-list">
+          ${(state.sandboxAccounts || []).map((row) => `
+            <li class="fh-card static" data-tl-sandbox-account="${escapeHtml(row.id)}">
+              <strong>${escapeHtml(row.email)}</strong>
+              <span class="dc-badge">${row.active === false ? "Suspended/ended" : "Active"}</span>
+              <p class="muted-copy">Org <code>${escapeHtml(row.organizationId)}</code> · currently viewing as <strong>${escapeHtml(row.activeRoleLabel || "—")}</strong></p>
+              <p class="muted-copy">Approved roles: ${(row.allowedRoleKeys || []).length ? (row.allowedRoleKeys.map((k) => escapeHtml(sandboxRoleLabel(k))).join(", ")) : "(none — login blocked)"}</p>
+              <div class="tl-actions-row" data-sandbox-edit-roles="${escapeHtml(row.id)}">
+                ${sandboxRoleCheckboxesHtml(`edit-${row.id}`, row.allowedRoleKeys || [])}
+              </div>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tl-save-sandbox-roles="${escapeHtml(row.id)}">Save allowed roles</button>
+                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">${row.hasPassword ? "Reissue password" : "Issue password"}</button>
+                ${row.active === false
+                  ? `<button type="button" class="ghost-button" data-tl-reactivate="${escapeHtml(row.id)}">Reactivate</button>`
+                  : `<button type="button" class="ghost-button" data-tl-suspend="${escapeHtml(row.id)}">Suspend</button>`}
+                <button type="button" class="ghost-button" data-tl-end-account="${escapeHtml(row.id)}">End account</button>
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No External Tester Sandbox accounts yet.</li>"}
         </ul>
       </section>
     `;
@@ -820,7 +954,7 @@
           </li>
         </ul>
         <div class="tl-mobile-actions">
-          ${previewActive ? `<button type="button" class="primary-button tl-touch" data-tl-exit-preview>Exit Role Preview</button>` : ""}
+          ${previewActive ? `<button type="button" class="primary-button tl-touch" data-tl-exit-preview-mobile>Exit Role Preview</button>` : ""}
           <button type="button" class="ghost-button tl-touch" data-tl-return-app>Return to the normal app</button>
         </div>
         <p class="muted-copy">No passwords, tokens, migration controls, or Lab admin tools are shown on phone.</p>
@@ -881,6 +1015,9 @@
           state.tfActiveThread = null;
           await loadTestingFeedbackAdminThreads();
         }
+        if (state.panel === "accounts") {
+          await loadSandboxAccounts();
+        }
         render(mount);
       });
     });
@@ -903,6 +1040,16 @@
         state.tfError = "";
       } catch (error) {
         state.tfError = error.message;
+      }
+    }
+
+    async function loadSandboxAccounts() {
+      try {
+        const data = await api("GET", "/api/external-tester/list");
+        state.sandboxAccounts = data.accounts || [];
+        state.sandboxRoleCatalog = data.roleCatalog || [];
+      } catch (error) {
+        state.error = error.message;
       }
     }
 
@@ -1231,17 +1378,19 @@
       state.onboardResult = null;
       render(mount);
     });
-    mount.querySelector("[data-tl-return-admin]")?.addEventListener("click", async () => {
-      try {
-        await api("POST", `${BASE}/role-preview/exit`, {});
-        global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
-        state.preview = null;
-        state.notice = "Returned to administrator account.";
-        render(mount);
-      } catch (error) {
-        state.error = error.message;
-        render(mount);
-      }
+    mount.querySelector("[data-tl-return-admin]")?.addEventListener("click", () => {
+      // The local escape (clearing the preview flag) must NEVER depend on this
+      // network call succeeding — a slow/failing request here was previously
+      // able to leave an admin stuck unable to return, since state.preview was
+      // only cleared inside the try block, after the awaited call.
+      global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
+      state.preview = null;
+      state.notice = "Returned to administrator account.";
+      notifyGlobalPreviewChrome();
+      render(mount);
+      api("POST", `${BASE}/role-preview/exit`, {}).catch(() => {
+        // Local escape already happened above — server confirmation is best-effort only.
+      });
     });
     mount.querySelector("[data-tl-return-app]")?.addEventListener("click", () => {
       state.oneTimePassword = "";
@@ -1310,6 +1459,124 @@
         }
       });
     });
+    mount.querySelectorAll("[data-tl-suspend]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/accounts/suspend`, { accountId: btn.getAttribute("data-tl-suspend") });
+          state.notice = "Account suspended — login blocked until reactivated. No password was changed or shown.";
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelectorAll("[data-tl-reactivate]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/accounts/reactivate`, { accountId: btn.getAttribute("data-tl-reactivate") });
+          state.notice = "Account reactivated.";
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelectorAll("[data-tl-end-account]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/accounts/end`, { accountId: btn.getAttribute("data-tl-end-account") });
+          state.notice = "Account ended — every stored credential was cleared. Issue a brand-new password to bring it back.";
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelector("[data-tl-create-org]")?.addEventListener("click", async () => {
+      try {
+        const scenario = mount.querySelector("[data-tl-org-type]")?.value || "home_daycare";
+        const label = String(mount.querySelector("[data-tl-org-label]")?.value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 40);
+        const organizationId = `org_tester_${label || scenario}_${Date.now().toString(36)}`;
+        const data = await api("POST", `${BASE}/seed`, { scenario, organizationId, reset: true });
+        state.createdOrgId = data.organizationId || organizationId;
+        state.notice = `Fake organization ready: ${state.createdOrgId}`;
+        await refresh(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelectorAll("[data-tl-issue-org-logins]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const organizationId = btn.getAttribute("data-tl-issue-org-logins") || state.createdOrgId;
+          if (!organizationId) { state.error = "No organization selected yet — create or load one first."; render(mount); return; }
+          const data = await api("POST", `${BASE}/accounts/issue-passwords-for-org`, { organizationId });
+          state.orgLogins = data.logins || [];
+          state.orgLoginsOrgId = organizationId;
+          state.notice = `${state.orgLogins.length} fresh password(s) issued — copy them now, they will not be shown again.`;
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelector("[data-tl-clear-org-logins]")?.addEventListener("click", () => {
+      state.orgLogins = [];
+      state.orgLoginsOrgId = "";
+      render(mount);
+    });
+    mount.querySelectorAll("[data-tl-copy-password]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const value = btn.getAttribute("data-tl-copy-password") || "";
+        try {
+          await global.navigator?.clipboard?.writeText?.(value);
+          state.notice = "Copied to clipboard.";
+        } catch {
+          state.notice = "Could not access the clipboard — copy the password manually before leaving this screen.";
+        }
+        render(mount);
+      });
+    });
+    mount.querySelector("[data-tl-create-sandbox]")?.addEventListener("click", async () => {
+      try {
+        const organizationId = String(mount.querySelector("[data-sandbox-org-id]")?.value || "").trim();
+        const email = String(mount.querySelector("[data-sandbox-email]")?.value || "").trim().toLowerCase();
+        const displayName = String(mount.querySelector("[data-sandbox-display-name]")?.value || "").trim();
+        const allowedRoleKeys = Array.from(mount.querySelectorAll('[data-sandbox-role-checkbox="create"]:checked')).map((el) => el.value);
+        if (!organizationId || !email) {
+          state.error = "An organization id and tester email are both required.";
+          render(mount);
+          return;
+        }
+        const data = await api("POST", "/api/external-tester/create", { organizationId, email, displayName, allowedRoleKeys });
+        state.sandboxNotice = `Created ${data.account.email} — currently viewing as ${data.account.activeRoleLabel || "(no role approved yet)"}. Use "Issue password" below to generate its one-time login.`;
+        await loadSandboxAccounts();
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelectorAll("[data-tl-save-sandbox-roles]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const accountId = btn.getAttribute("data-tl-save-sandbox-roles");
+          const allowedRoleKeys = Array.from(mount.querySelectorAll(`[data-sandbox-role-checkbox="edit-${accountId}"]:checked`)).map((el) => el.value);
+          const data = await api("POST", "/api/external-tester/set-allowed-roles", { accountId, allowedRoleKeys });
+          state.sandboxNotice = `Updated allowed roles for ${data.account.email}.`;
+          await loadSandboxAccounts();
+          render(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
     mount.querySelectorAll("[data-tl-start-preview]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         try {
@@ -1319,6 +1586,7 @@
             global.sessionStorage?.setItem("llhRolePreviewMembershipId", data.preview.membershipId);
           }
           state.notice = "Role preview started (admin stored role unchanged).";
+          notifyGlobalPreviewChrome();
           render(mount);
         } catch (error) {
           state.error = error.message;
@@ -1326,19 +1594,29 @@
         }
       });
     });
-    mount.querySelectorAll("[data-tl-exit-preview]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        try {
-          await api("POST", `${BASE}/role-preview/exit`, { previewId: state.preview?.id });
-          global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
-          state.preview = null;
-          state.notice = "Exited role preview.";
-          render(mount);
-        } catch (error) {
-          state.error = error.message;
-          render(mount);
-        }
-      });
+    // "Exit Role Preview" exists in two places (the desktop Quick Role Preview
+    // panel and the phone-only mobile summary bar) with DISTINCT attributes
+    // (data-tl-exit-preview / data-tl-exit-preview-mobile) — never the same
+    // attribute value on two different elements — so automated tests and
+    // assistive tech never hit an ambiguous multi-match. Both call this same
+    // handler. The local escape (clearing the sessionStorage flag) always
+    // happens FIRST and unconditionally, so it can never be blocked by a
+    // failing/slow network call to the server-side exit endpoint.
+    async function exitRolePreview() {
+      const previewId = state.preview?.id;
+      global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
+      state.preview = null;
+      state.notice = "Exited role preview.";
+      notifyGlobalPreviewChrome();
+      render(mount);
+      try {
+        await api("POST", `${BASE}/role-preview/exit`, { previewId });
+      } catch {
+        // Local escape already happened above — server confirmation is best-effort only.
+      }
+    }
+    mount.querySelectorAll("[data-tl-exit-preview], [data-tl-exit-preview-mobile]").forEach((btn) => {
+      btn.addEventListener("click", () => { exitRolePreview(); });
     });
     mount.querySelectorAll("[data-tl-device]").forEach((btn) => {
       btn.addEventListener("click", async () => {

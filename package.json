@@ -197,7 +197,12 @@
     "test:ai-testing-real-smoke": "node scripts/ai-testing-real-smoke.js",
     "test:testing-feedback": "NODE_ENV=test node scripts/test-testing-feedback.js",
     "test:testing-database-isolation": "node scripts/test-testing-database-isolation.js",
-    "test:password-hash-security": "NODE_ENV=test node scripts/test-password-hash-security.js"
+    "test:password-hash-security": "NODE_ENV=test node scripts/test-password-hash-security.js",
+    "test:admin-preview-escape": "NODE_ENV=test node scripts/test-admin-preview-escape.js",
+    "test:tester-account-manager": "NODE_ENV=test node scripts/test-tester-account-manager.js",
+    "test:admin-clickability-visual": "NODE_ENV=test node scripts/test-admin-clickability-visual.js",
+    "test:external-tester-sandbox": "NODE_ENV=test node scripts/test-external-tester-sandbox.js",
+    "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

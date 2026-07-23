@@ -97,10 +97,28 @@ function normalizeContext(context = {}, fallbackOrganizationId = "") {
     device: cleanText(context.device, 40),
     role: cleanText(context.role, 80),
     organizationId: cleanText(context.organizationId || fallbackOrganizationId, 160),
+    // Which server build (git SHA) was running when this thread was created —
+    // never a secret, purely so the admin can tell whether a report was filed
+    // against an old deploy before investigating. Empty when unset.
+    deployedCommit: cleanText(context.deployedCommit, 40),
   };
 }
 
-function createMessageRecord({ threadId, organizationId, senderType, senderEmail, body }) {
+// A screenshot is opt-in and only ever attached after the CLIENT shows an
+// explicit privacy warning ("only attach if it doesn't show anything
+// private") — this module just validates shape/size, it never decides
+// whether the warning was shown; that's enforced in the UI layer.
+const MAX_SCREENSHOT_DATA_URL_LENGTH = 900_000; // ~650KB of actual image data once base64-decoded
+
+function sanitizeScreenshotDataUrl(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (!/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(raw)) return "";
+  if (raw.length > MAX_SCREENSHOT_DATA_URL_LENGTH) return "";
+  return raw;
+}
+
+function createMessageRecord({ threadId, organizationId, senderType, senderEmail, body, screenshotDataUrl = "" }) {
   return {
     id: newId("tfmsg"),
     threadId,
@@ -108,13 +126,14 @@ function createMessageRecord({ threadId, organizationId, senderType, senderEmail
     senderType, // "tester" | "admin"
     senderEmail: safeLower(senderEmail),
     body: cleanText(body, 8000),
+    screenshotDataUrl: sanitizeScreenshotDataUrl(screenshotDataUrl),
     createdAt: nowIso(),
   };
 }
 
 /** Starts a new thread with its first (tester) message. */
 function createThread(store, {
-  organizationId, testerEmail, testerRole = "", category, subject = "", body, context = {},
+  organizationId, testerEmail, testerRole = "", category, subject = "", body, context = {}, screenshotDataUrl = "",
 } = {}) {
   const s = ensureTestingFeedbackStore(store);
   const now = nowIso();
@@ -141,7 +160,7 @@ function createThread(store, {
   };
   s.threads[thread.id] = thread;
   const message = createMessageRecord({
-    threadId: thread.id, organizationId: thread.organizationId, senderType: "tester", senderEmail: thread.testerEmail, body,
+    threadId: thread.id, organizationId: thread.organizationId, senderType: "tester", senderEmail: thread.testerEmail, body, screenshotDataUrl,
   });
   s.messages[message.id] = message;
   return { thread, message };
@@ -208,12 +227,12 @@ function listNotesForAdmin(store, threadId) {
     .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt)));
 }
 
-function addTesterMessage(store, { threadId, testerEmail, body }) {
+function addTesterMessage(store, { threadId, testerEmail, body, screenshotDataUrl = "" }) {
   const thread = getThreadForTester(store, { threadId, testerEmail });
   if (!thread) return null;
   const s = ensureTestingFeedbackStore(store);
   const message = createMessageRecord({
-    threadId, organizationId: thread.organizationId, senderType: "tester", senderEmail: testerEmail, body,
+    threadId, organizationId: thread.organizationId, senderType: "tester", senderEmail: testerEmail, body, screenshotDataUrl,
   });
   s.messages[message.id] = message;
   thread.updatedAt = message.createdAt;
@@ -314,6 +333,8 @@ module.exports = {
   STATUS_LABELS,
   ensureTestingFeedbackStore,
   createThread,
+  sanitizeScreenshotDataUrl,
+  MAX_SCREENSHOT_DATA_URL_LENGTH,
   listThreadsForTester,
   getThreadForTester,
   listMessagesForTester,

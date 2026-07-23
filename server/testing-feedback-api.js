@@ -24,7 +24,15 @@ const model = require("../scripts/testing-feedback-data-model.js");
 
 const BASE = "/api/testing-feedback";
 
-function createTestingFeedbackApi({ readStore, writeStore, jsonResponse, readJson }) {
+function createTestingFeedbackApi({ readStore, writeStore, jsonResponse, readJson, getGitSha }) {
+  function deployedCommit() {
+    try {
+      return typeof getGitSha === "function" ? String(getGitSha() || "") : "";
+    } catch {
+      return "";
+    }
+  }
+
   function deny(response, status, payload) {
     jsonResponse(response, status, { ok: false, ...payload });
   }
@@ -67,7 +75,9 @@ function createTestingFeedbackApi({ readStore, writeStore, jsonResponse, readJso
         device: body.context?.device || "",
         role: body.context?.role || identity.role || identity.accountType,
         organizationId: identity.organizationId,
+        deployedCommit: deployedCommit(),
       },
+      screenshotDataUrl: body.screenshotDataUrl || "",
     });
     writeStore(store);
     jsonResponse(response, 201, { ok: true, thread, message });
@@ -87,7 +97,7 @@ function createTestingFeedbackApi({ readStore, writeStore, jsonResponse, readJso
     const store = readStore();
     const body = await readJson(request).catch(() => ({}));
     if (!body.body || !String(body.body).trim()) return deny(response, 400, { error: "Message cannot be empty." });
-    const result = model.addTesterMessage(store, { threadId, testerEmail: ctx.fakeAccountEmail, body: body.body });
+    const result = model.addTesterMessage(store, { threadId, testerEmail: ctx.fakeAccountEmail, body: body.body, screenshotDataUrl: body.screenshotDataUrl || "" });
     if (!result) return deny(response, 404, { error: "Thread not found." });
     writeStore(store);
     jsonResponse(response, 200, { ok: true, thread: result.thread, message: result.message });

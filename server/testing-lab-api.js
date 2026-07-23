@@ -547,6 +547,170 @@ function createTestingLabApi({
     jsonResponse(response, 200, { ok: true, revoked: true, testingBanner: model.TESTING_BANNER });
   }
 
+  function revokeMemberSessionsForEmail(store, email) {
+    if (!store.memberSessions) return;
+    const target = safeLower(email);
+    for (const [id, session] of Object.entries(store.memberSessions)) {
+      if (safeLower(session.email) === target) delete store.memberSessions[id];
+    }
+  }
+
+  /** Suspend — reversible. Login is blocked (mirrors the existing real-user "disabled" gate) but the password hash and org/role assignment are preserved so Reactivate can restore access without a reissue. */
+  async function handleSuspendAccount(request, response, ctx) {
+    const store = readStore();
+    if (!assertLabAccess(store, response)) return;
+    const body = await readJson(request).catch(() => ({}));
+    const account = store.familyFoundation?.fakeAccounts?.[body.accountId];
+    if (!account) return deny(response, 404, "not_found");
+    account.active = false;
+    account.updatedAt = model.nowIso();
+    store.familyFoundation.fakeAccounts[account.id] = account;
+    const userKey = safeLower(account.email);
+    if (store.users?.[userKey]) {
+      store.users[userKey].disabled = true;
+      store.users[userKey].updatedAt = model.nowIso();
+    }
+    revokeMemberSessionsForEmail(store, account.email);
+    model.appendAudit(store, {
+      organizationId: account.organizationId,
+      action: "fake_account_suspended",
+      actorEmail: ctx.adminEmail,
+      detail: `Suspended fake account kind=${account.kind} — reversible via Reactivate`,
+    });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, accountId: account.id, active: false, testingBanner: model.TESTING_BANNER });
+  }
+
+  /** Reactivate — restores a suspended (not ended) account to normal login without needing a new password. */
+  async function handleReactivateAccount(request, response, ctx) {
+    const store = readStore();
+    if (!assertLabAccess(store, response)) return;
+    const body = await readJson(request).catch(() => ({}));
+    const account = store.familyFoundation?.fakeAccounts?.[body.accountId];
+    if (!account) return deny(response, 404, "not_found");
+    account.active = true;
+    account.updatedAt = model.nowIso();
+    store.familyFoundation.fakeAccounts[account.id] = account;
+    const userKey = safeLower(account.email);
+    if (store.users?.[userKey]) {
+      store.users[userKey].disabled = false;
+      store.users[userKey].updatedAt = model.nowIso();
+    }
+    model.appendAudit(store, {
+      organizationId: account.organizationId,
+      action: "fake_account_reactivated",
+      actorEmail: ctx.adminEmail,
+      detail: `Reactivated fake account kind=${account.kind}`,
+    });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, accountId: account.id, active: true, testingBanner: model.TESTING_BANNER });
+  }
+
+  /** End — permanent (until explicitly reissued): blocks login AND clears every stored credential so there is nothing left to "view again", matching the never-view-a-previous-password guarantee even for a retired account. */
+  async function handleEndAccount(request, response, ctx) {
+    const store = readStore();
+    if (!assertLabAccess(store, response)) return;
+    const body = await readJson(request).catch(() => ({}));
+    const account = store.familyFoundation?.fakeAccounts?.[body.accountId];
+    if (!account) return deny(response, 404, "not_found");
+    account.active = false;
+    account.passwordHash = "";
+    account.mustChangePassword = false;
+    account.updatedAt = model.nowIso();
+    store.familyFoundation.fakeAccounts[account.id] = account;
+    const userKey = safeLower(account.email);
+    if (store.users?.[userKey]) {
+      store.users[userKey].disabled = true;
+      store.users[userKey].passwordHash = "";
+      store.users[userKey].tempPasswordHash = "";
+      store.users[userKey].updatedAt = model.nowIso();
+    }
+    revokeMemberSessionsForEmail(store, account.email);
+    model.appendAudit(store, {
+      organizationId: account.organizationId,
+      action: "fake_account_ended",
+      actorEmail: ctx.adminEmail,
+      detail: `Ended fake account kind=${account.kind} — every stored credential cleared`,
+    });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, accountId: account.id, active: false, ended: true, testingBanner: model.TESTING_BANNER });
+  }
+
+  /**
+   * Issues a fresh password for every fake account currently assigned to one
+   * fake organization in a single action — "generate the core role logins
+   * for this tester organization" — regardless of exactly which kinds that
+   * organization's scenario pack happens to include. Never re-shows an
+   * already-issued password; every value here is freshly generated.
+   */
+  async function handleIssuePasswordsForOrg(request, response, ctx) {
+    const store = readStore();
+    if (!assertLabAccess(store, response)) return;
+    const body = await readJson(request).catch(() => ({}));
+    const organizationId = String(body.organizationId || "");
+    if (!model.isFakeOrganizationId(organizationId)) {
+      return deny(response, 403, "real_target_rejected", "Testing Lab cannot target non-fake organizations.");
+    }
+    const accounts = listValues(store.familyFoundation?.fakeAccounts || {})
+      .filter((row) => row.organizationId === organizationId && model.isExampleInvalidEmail(row.email));
+    if (!accounts.length) return deny(response, 404, "not_found", "No fake accounts found for that organization.");
+    const logins = [];
+    for (const account of accounts) {
+      const password = tempPasswordAuth.generateTemporaryPassword();
+      const hash = tempPasswordAuth.hashPassword(password);
+      account.passwordHash = hash;
+      account.active = true;
+      account.mustChangePassword = false;
+      account.lastPasswordIssuedAt = model.nowIso();
+      account.updatedAt = model.nowIso();
+      store.familyFoundation.fakeAccounts[account.id] = account;
+      const mainAppIdentity = familyModel.mainAppIdentityForFakeAccount(account);
+      store.users = store.users || {};
+      const userKey = safeLower(account.email);
+      store.users[userKey] = {
+        ...(store.users[userKey] || {}),
+        email: account.email,
+        displayName: account.displayName,
+        passwordHash: hash,
+        serverPasswordAuth: true,
+        mustChangePassword: false,
+        disabled: false,
+        testingOnly: true,
+        testingAccount: true,
+        fakeAccountId: account.id,
+        fakeAccountKind: account.kind,
+        organizationId: account.organizationId,
+        role: mainAppIdentity.role,
+        accountType: mainAppIdentity.accountType,
+        familyHubGuardian: mainAppIdentity.familyHubGuardian,
+        updatedAt: model.nowIso(),
+      };
+      logins.push({
+        accountId: account.id,
+        kind: account.kind,
+        email: account.email,
+        role: mainAppIdentity.role,
+        accountType: mainAppIdentity.accountType,
+        organizationId: account.organizationId,
+        temporaryPassword: password,
+      });
+    }
+    model.appendAudit(store, {
+      organizationId,
+      action: "fake_org_passwords_issued",
+      actorEmail: ctx.adminEmail,
+      detail: `Issued ${logins.length} fresh password(s) for organization ${organizationId} (plaintext not logged)`,
+    });
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      organizationId,
+      logins,
+      note: "Copy every password now — none are stored in plaintext and none will be shown again.",
+      testingBanner: model.TESTING_BANNER,
+    });
+  }
+
   async function handleStartRolePreview(request, response, ctx) {
     const store = readStore();
     if (!assertLabAccess(store, response)) return;
@@ -793,6 +957,10 @@ function createTestingLabApi({
     if (method === "POST" && path === `${BASE}/onboard-everything`) return (req, res, ctx) => handleOnboardEverything(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/issue-password`) return (req, res, ctx) => handleIssuePassword(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/revoke-session`) return (req, res, ctx) => handleRevokeSession(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/accounts/suspend`) return (req, res, ctx) => handleSuspendAccount(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/accounts/reactivate`) return (req, res, ctx) => handleReactivateAccount(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/accounts/end`) return (req, res, ctx) => handleEndAccount(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/accounts/issue-passwords-for-org`) return (req, res, ctx) => handleIssuePasswordsForOrg(req, res, ctx);
     if (method === "POST" && path === `${BASE}/accounts/select`) return (req, res, ctx) => handleSelectAccount(req, res, ctx);
     if (method === "POST" && path === `${BASE}/role-preview/start`) return (req, res, ctx) => handleStartRolePreview(req, res, ctx);
     if (method === "POST" && path === `${BASE}/role-preview/exit`) return (req, res, ctx) => handleExitRolePreview(req, res, ctx);
