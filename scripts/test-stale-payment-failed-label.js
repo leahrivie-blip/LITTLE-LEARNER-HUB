@@ -32,6 +32,16 @@
  *   8. The read-only Stripe reconciliation comparison function (server/index.js) is
  *      exercised indirectly via its pure building blocks in scripts/membership-access.js
  *      (membershipBillingReviewSnapshot) to confirm the four signals stay separate fields.
+ *   9. THE LEADING ROOT-CAUSE CANDIDATE for "Free account showing Payment Failed": a
+ *      *verified* Stripe webhook (customer.subscription.updated/deleted reporting status
+ *      "unpaid") already concluded subscriptionStatus="Subscription Ended"/"Trial Ended"
+ *      (via stripeSubscriptionToMembershipUpdates — the exact function live webhooks and
+ *      the Stripe backfill/recovery tool both call). That conclusion is correct and
+ *      requires no elapsed time. But stripeSubscriptionStatus is left as the raw "unpaid"
+ *      echo from that same event, and — before this fix — the display layer treated that
+ *      raw echo as an independent, unconditional "Payment Failed" trigger, resurrecting an
+ *      alert for an account that was already correctly downgraded. Verifies the fix, that
+ *      access is unaffected, and that the audit script flags this exact pattern.
  *
  * Run: node scripts/test-stale-payment-failed-label.js
  */
@@ -214,6 +224,81 @@ const staleRow = report.users.find((u) => u.email === "stale-failed@example.com"
 assertEqual(staleRow.membershipStatusDisplay, NEEDS_REVIEW, "audit row for the stale user shows the neutral needs-review status, not Subscription Ended");
 const canceledRow = report.users.find((u) => u.email === "really-canceled@example.com");
 assertEqual(canceledRow.membershipStatusDisplay, "Subscription Ended", "audit row for the real cancellation still shows Subscription Ended");
+
+console.log("\n--- 9) Verified 'ended' conclusion must survive a leftover raw unpaid/past_due echo ---");
+{
+  // Exactly what a REAL customer.subscription.updated webhook produces for a
+  // previously-active Pro subscription that Stripe has now marked "unpaid" (dunning
+  // exhausted, not configured to auto-cancel). No lastFailedPaymentAt is set by this path
+  // — only invoice.payment_failed sets that field — so this is NOT the staleness scenario;
+  // it can happen immediately, with zero elapsed time.
+  const priorPaidUser = {
+    email: "was-paid-now-unpaid@example.com",
+    plan: "Pro",
+    subscriptionStatus: "Pro Monthly Subscription Active",
+    stripeSubscriptionStatus: "active",
+    stripeSubscriptionId: "sub_realpaid",
+    stripeCustomerId: "cus_realpaid",
+  };
+  const webhookUpdates = membership.stripeSubscriptionToMembershipUpdates(
+    {
+      id: "sub_realpaid",
+      customer: "cus_realpaid",
+      status: "unpaid",
+      current_period_end: Math.floor((NOW - days(1)) / 1000),
+      cancel_at_period_end: false,
+    },
+    priorPaidUser,
+    "updated",
+  );
+  const afterVerifiedWebhook = { ...priorPaidUser, ...webhookUpdates };
+
+  assertEqual(afterVerifiedWebhook.subscriptionStatus, "Subscription Ended", "the webhook mapping itself already concludes Subscription Ended");
+  assertEqual(afterVerifiedWebhook.stripeSubscriptionStatus, "unpaid", "the raw stripeSubscriptionStatus echo is still 'unpaid' from that same event");
+  assertEqual(afterVerifiedWebhook.plan, "Free", "plan is correctly downgraded to Free by the same verified event");
+  assertEqual(membership.membershipHasProAccess(afterVerifiedWebhook, NOW), false, "access is correctly denied (this was already true before any fix)");
+
+  assertEqual(membership.membershipStatusDisplay(afterVerifiedWebhook, NOW), "Subscription Ended", "display must NOT resurrect Payment Failed from the leftover raw 'unpaid' echo");
+  assertEqual(membership.membershipBillingStatusKey(afterVerifiedWebhook, NOW), "ended", "billing bucket is ended, not payment_failed");
+  assertEqual(membership.membershipProductStatus(afterVerifiedWebhook, NOW).key, "inactive", "product status key is inactive (Subscription Inactive), not payment_failed");
+
+  // Same pattern via a failed trial conversion (endedDuringTrial branch) instead of a
+  // previously-paid subscription — must resolve to "Trial Ended", not Payment Failed.
+  const trialUser = {
+    email: "trial-failed-now-unpaid@example.com",
+    plan: "Free",
+    subscriptionStatus: "Pro Monthly Subscription Trialing",
+    stripeSubscriptionStatus: "trialing",
+    stripeSubscriptionId: "sub_trialfail",
+    trialStatus: "In Trial",
+  };
+  const trialWebhookUpdates = membership.stripeSubscriptionToMembershipUpdates(
+    { id: "sub_trialfail", customer: "cus_trialfail", status: "unpaid", current_period_end: Math.floor((NOW - days(1)) / 1000), cancel_at_period_end: false },
+    trialUser,
+    "updated",
+  );
+  const afterTrialWebhook = { ...trialUser, ...trialWebhookUpdates };
+  assertEqual(afterTrialWebhook.subscriptionStatus, "Trial Ended", "a failed trial conversion concludes Trial Ended");
+  assertEqual(membership.membershipStatusDisplay(afterTrialWebhook, NOW), "Trial Ended", "display must NOT resurrect Payment Failed for a failed trial conversion either");
+
+  // The read-only audit script must flag this exact pattern distinctly.
+  const echoReport = auditMembershipUsers([afterVerifiedWebhook, afterTrialWebhook], { nowMs: NOW, source: "in-memory-test-fixture" });
+  const echoMismatchCodes = {};
+  for (const m of echoReport.mismatches) {
+    echoMismatchCodes[m.email] = echoMismatchCodes[m.email] || [];
+    echoMismatchCodes[m.email].push(m.code);
+  }
+  assertEqual(
+    (echoMismatchCodes["was-paid-now-unpaid@example.com"] || []).includes("unpaid_echo_survives_verified_ended_conclusion"),
+    true,
+    "audit flags the previously-paid case with unpaid_echo_survives_verified_ended_conclusion",
+  );
+  assertEqual(
+    (echoMismatchCodes["was-paid-now-unpaid@example.com"] || []).includes("stale_payment_failed_label"),
+    false,
+    "this is NOT the staleness scenario (no lastFailedPaymentAt at all) — must not double-flag as stale_payment_failed_label",
+  );
+}
 
 console.log(`\n${failures === 0 ? "ALL PASS" : `${failures} FAILURE(S)`}`);
 process.exit(failures === 0 ? 0 : 1);
