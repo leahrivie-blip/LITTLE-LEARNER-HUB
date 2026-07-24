@@ -30,6 +30,8 @@
     sandboxAccounts: [],
     sandboxRoleCatalog: [],
     sandboxNotice: "",
+    pilotWizardResult: null,
+    pilotWizardError: "",
     onboardResult: null,
     aiStatus: null,
     aiScenarios: [],
@@ -462,7 +464,53 @@
           <button type="button" class="primary-button" data-tl-issue-org-logins="${escapeHtml(state.dashboard.accounts[0]?.organizationId || "")}">Generate fresh logins for every role in this organization</button>
         ` : ""}
       </section>
+      ${homeDaycarePilotWizardHtml()}
       ${sandboxManagerHtml()}
+    `;
+  }
+
+  /**
+   * "Add External Tester" wizard — Home Daycare Pilot preset. One admin
+   * action creates the isolated fake org, the sandbox account (approved for
+   * ONLY Solo Home Daycare Provider + Parent/Guardian), a starting set of
+   * connected fake children/guardians, and issues the one-time password —
+   * everything server/external-tester-sandbox-api.js#handleCreatePilot does
+   * in one call. The password/welcome message are shown exactly once.
+   */
+  function homeDaycarePilotWizardHtml() {
+    const result = state.pilotWizardResult;
+    return `
+      <section class="tl-section" data-tl-pilot-wizard>
+        <h3>Add External Tester — Home Daycare Pilot</h3>
+        <p class="muted-copy">
+          Creates one connected, isolated fake home-daycare organization for this tester —
+          she can work as Solo Home Daycare Provider (add fake children/guardians), then switch
+          to Parent/Guardian and see the SAME linked information. Fake data only.
+        </p>
+        ${!result ? `
+          <form data-tl-pilot-create class="mini-form">
+            <label>Tester name<input name="testerName" required placeholder="e.g. Jordan Rivera" /></label>
+            <label>Tester email<input name="email" required type="email" placeholder="jordan.rivera@example.invalid" /></label>
+            <label>Starting fake children<input name="childCount" type="number" min="1" max="6" value="2" /></label>
+            <button class="primary-button" type="submit">Create Home Daycare Pilot</button>
+          </form>
+        ` : `
+          <div class="tl-notice-card">
+            <p><strong>Created — copy this now, the password will not be shown again.</strong></p>
+            <p>Login email: <code>${escapeHtml(result.account.email)}</code></p>
+            <p>Temporary password: <code data-tl-pilot-password>${escapeHtml(result.temporaryPassword)}</code>
+              <button type="button" class="ghost-button" data-tl-copy-password="${escapeHtml(result.temporaryPassword)}">Copy password</button>
+            </p>
+            <label>Welcome message
+              <textarea readonly rows="8" data-tl-pilot-welcome>${escapeHtml(result.welcomeMessage)}</textarea>
+            </label>
+            <button type="button" class="ghost-button" data-tl-copy-welcome>Copy welcome message</button>
+            <p class="muted-copy">Starting fixtures: ${result.children.length} fake child(ren), ${result.guardians.length} fake guardian(s), already linked.</p>
+            <button type="button" class="ghost-button" data-tl-pilot-new">Add another External Tester</button>
+          </div>
+        `}
+        ${state.pilotWizardError ? `<p class="tf-error">${escapeHtml(state.pilotWizardError)}</p>` : ""}
+      </section>
     `;
   }
 
@@ -1541,6 +1589,37 @@
         }
         render(mount);
       });
+    });
+    mount.querySelector("[data-tl-pilot-create]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(event.target);
+      try {
+        const result = await api("POST", "/api/external-tester/create-pilot", {
+          testerName: data.get("testerName"),
+          email: String(data.get("email") || "").trim().toLowerCase(),
+          childCount: Number(data.get("childCount")) || 2,
+        });
+        state.pilotWizardResult = result;
+        state.pilotWizardError = "";
+        await loadSandboxAccounts();
+        render(mount);
+      } catch (error) {
+        state.pilotWizardError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-pilot-new]")?.addEventListener("click", () => {
+      state.pilotWizardResult = null;
+      render(mount);
+    });
+    mount.querySelector("[data-tl-copy-welcome]")?.addEventListener("click", async () => {
+      try {
+        await global.navigator?.clipboard?.writeText?.(state.pilotWizardResult?.welcomeMessage || "");
+        state.notice = "Welcome message copied to clipboard.";
+      } catch {
+        state.notice = "Could not access the clipboard — copy the welcome message manually before leaving this screen.";
+      }
+      render(mount);
     });
     mount.querySelector("[data-tl-create-sandbox]")?.addEventListener("click", async () => {
       try {
