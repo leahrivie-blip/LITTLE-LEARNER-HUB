@@ -105,6 +105,28 @@ test("payment failed still revokes Pro access", () => {
   assert.equal(membershipAccess.membershipHasProAccess(user), false);
 });
 
+test("canceling Stripe Checkout is never mislabeled as a failed/declined payment", () => {
+  // Stripe only ever redirects to cancel_url when the customer backs out of Checkout
+  // themselves (closes the tab / clicks back) — a declined card keeps them ON Stripe's
+  // page to retry instead. This path must never claim a payment failed or was declined,
+  // and must never send them to "Update Payment Method" (no payment method is even at
+  // fault). See failCheckout()/verifyStripeReturnIfNeeded()'s checkout=cancel branch.
+  const failCheckoutSlice = appJs.slice(
+    appJs.indexOf("function failCheckout()"),
+    appJs.indexOf("function failCheckout()") + 800,
+  );
+  assert.doesNotMatch(failCheckoutSlice, /Stripe checkout payment failed or was declined/);
+  assert.match(failCheckoutSlice, /Checkout Canceled/);
+  assert.match(failCheckoutSlice, /no charge was made/i);
+
+  const renderPaymentFailedSlice = appJs.slice(
+    appJs.indexOf("function renderPaymentFailedPage()"),
+    appJs.indexOf("function renderPaymentFailedPage()") + 1500,
+  );
+  assert.match(renderPaymentFailedSlice, /wasCanceledByUser/);
+  assert.match(renderPaymentFailedSlice, /Checkout Canceled/);
+});
+
 test("admin extend-trial wording is recognized as In Trial", () => {
   assert.match(serverJs, /merged\.trialStatus = "In Trial"/);
   const trialUser = {
