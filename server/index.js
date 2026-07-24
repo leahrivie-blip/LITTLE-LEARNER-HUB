@@ -48,6 +48,8 @@ const { createTestingLabApi } = require("./testing-lab-api.js");
 const { createAiTestingApi } = require("./ai-testing-api.js");
 const { createTestingFeedbackApi } = require("./testing-feedback-api.js");
 const { createExternalTesterSandboxApi } = require("./external-tester-sandbox-api.js");
+const externalTesterSandboxModel = require("../scripts/external-tester-sandbox-data-model.js");
+const { createHomeDaycarePilotApi } = require("./home-daycare-pilot-api.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
@@ -6144,6 +6146,13 @@ async function handlePasswordLogin(request, response) {
     authAuditLog("password_hash_upgraded", { email, field: verified.upgradeField });
   }
   store.users[email] = nextUser;
+  // External Tester Sandbox: record this login (timestamp only, never
+  // anything sensitive) for the admin "login activity" view.
+  if (nextUser.externalTesterSandbox === true && nextUser.fakeAccountId) {
+    try {
+      externalTesterSandboxModel.recordLoginActivity(store, nextUser.fakeAccountId);
+    } catch { /* never block a real login over an activity-log write */ }
+  }
   const sessionToken = tempPasswordAuth.createMemberSession(
     store,
     email,
@@ -15698,6 +15707,20 @@ function getExternalTesterSandboxApi() {
   return _externalTesterSandboxApi;
 }
 
+let _homeDaycarePilotApi;
+function getHomeDaycarePilotApi() {
+  if (!_homeDaycarePilotApi) {
+    _homeDaycarePilotApi = createHomeDaycarePilotApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      expansionEnvironment,
+    });
+  }
+  return _homeDaycarePilotApi;
+}
+
 
 // ─── Communication ecosystem API (drafts, message center, tags, health, …) ───
 let _commsApi;
@@ -15873,6 +15896,27 @@ const server = http.createServer(async (request, response) => {
         return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
       }
       return jsonResponse(response, 403, { ok: false, error: "External Tester Sandbox unavailable.", code: "feature_unavailable" });
+    }
+    if (url.pathname === "/api/pilot" || url.pathname.startsWith("/api/pilot/")) {
+      // Home Daycare Pilot's connected provider<->parent data surface.
+      // Same identity-resolution pattern as /api/external-tester above —
+      // every real isolation decision (which organization, which child, is
+      // this a provider or a parent-preview request) lives in
+      // server/home-daycare-pilot-api.js, not here.
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      let fakeAccountEmail = "";
+      if (!admin) {
+        const authHeader = String(request.headers.authorization || "");
+        const memberSession = tempPasswordAuth.resolveMemberSession(peekStore(), authHeader);
+        if (memberSession?.email && memberSession.email.endsWith("@example.invalid")) {
+          fakeAccountEmail = memberSession.email;
+        }
+      }
+      const handler = getHomeDaycarePilotApi().matchRoute(request.method, url.pathname, url);
+      if (handler && (admin || fakeAccountEmail)) {
+        return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
+      }
+      return jsonResponse(response, 403, { ok: false, error: "Home Daycare Pilot unavailable.", code: "feature_unavailable" });
     }
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
