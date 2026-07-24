@@ -46837,15 +46837,25 @@ function renderPaymentSuccessPage() {
 function renderPaymentFailedPage() {
   const target = document.querySelector("#paymentFailedApp");
   if (!target) return;
+  // The most recent billing-history entry (just written by whichever caller routed here)
+  // tells us what actually happened — canceling checkout is NOT the same as a card being
+  // declined, and the copy must not conflate the two.
+  const latest = currentAccount()?.billingHistory?.[0] || null;
+  const wasCanceledByUser = latest?.type === "Checkout Canceled";
+  const eyebrow = wasCanceledByUser ? "Checkout Canceled" : "Payment Failed";
+  const heading = "No plan change was made.";
+  const detail = wasCanceledByUser
+    ? "You canceled checkout before it finished. No charge was made and your account is still on the Free Plan."
+    : "Try checkout again or update the payment method in Stripe Billing Management.";
   target.innerHTML = `
     <section class="section-block failed-panel">
-      <p class="eyebrow">Payment Failed</p>
-      <h3>No plan change was made.</h3>
-      <p class="muted-copy">Try checkout again or update the payment method in Stripe Billing Management.</p>
+      <p class="eyebrow">${escapeHtml(eyebrow)}</p>
+      <h3>${escapeHtml(heading)}</h3>
+      <p class="muted-copy">${escapeHtml(detail)}</p>
       <div class="account-actions-row">
         <button class="ghost-button back-button" data-view="billing" type="button">← Back to Billing Management</button>
         <button class="primary-button" data-view="upgrade" type="button">Try Again</button>
-        <button class="ghost-button" data-update-payment type="button">Update Payment Method</button>
+        ${wasCanceledByUser ? "" : `<button class="ghost-button" data-update-payment type="button">Update Payment Method</button>`}
       </div>
     </section>
   `;
@@ -47668,8 +47678,13 @@ async function verifyStripeReturnIfNeeded() {
 }
 
 function failCheckout() {
+  // Stripe only redirects to cancel_url when the customer backs out of Checkout
+  // themselves (closes the tab, clicks back/cancel) — a declined card keeps them ON
+  // Stripe's page to retry instead. So this path is NEVER a failed/declined payment;
+  // it always means checkout was abandoned before any payment was attempted. Mislabeling
+  // it "Payment Failed" wrongly implied a card was charged and declined.
   const pending = readSavedJson("llhPendingCheckout", null);
-  addBillingHistory("Payment Failed", "Stripe checkout payment failed or was declined.", pending?.amount || "");
+  addBillingHistory("Checkout Canceled", "Checkout was canceled before payment — no charge was made and no plan change occurred.", pending?.amount || "");
   localStorage.removeItem("llhPendingCheckout");
   setView("payment-failed");
 }
