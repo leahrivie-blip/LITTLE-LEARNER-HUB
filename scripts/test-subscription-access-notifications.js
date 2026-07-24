@@ -52,32 +52,34 @@ function testProductStatusExclusive() {
       expectBanner: null,
     },
     {
+      // Confirmed mapping: past_due/unpaid are never canceled/ended — both display the
+      // same neutral "Billing Review Required" label/key, never "Past Due"/"Payment Failed".
       name: "past due",
       user: {
         plan: "Free",
         stripeSubscriptionStatus: "past_due",
-        subscriptionStatus: "Past Due — Access Locked",
+        subscriptionStatus: "Billing Review Required — Access Locked",
         previousPlan: "Pro",
         stripeSubscriptionId: "sub_123",
       },
-      expectKey: "past_due",
-      expectAdmin: "past_due",
+      expectKey: "payment_failed",
+      expectAdmin: "payment_failed",
       expectAccess: false,
-      expectBanner: "payment_failed",
+      expectBanner: "billing_review_required",
     },
     {
       name: "payment failed unpaid",
       user: {
         plan: "Free",
         stripeSubscriptionStatus: "unpaid",
-        subscriptionStatus: "Payment Failed — Access Locked",
+        subscriptionStatus: "Billing Review Required — Access Locked",
         previousPlan: "Pro",
         stripeSubscriptionId: "sub_456",
       },
       expectKey: "payment_failed",
       expectAdmin: "payment_failed",
       expectAccess: false,
-      expectBanner: "payment_failed",
+      expectBanner: "billing_review_required",
     },
     {
       name: "inactive canceled",
@@ -129,8 +131,11 @@ function testAdminBucketsExclusive() {
     { plan: "Founding", foundingMemberActive: true, stripeSubscriptionStatus: "active", subscriptionStatus: "Founding Member Subscription Active" },
     { plan: "Pro", stripeSubscriptionStatus: "active", subscriptionStatus: "Pro Monthly Subscription Active" },
     { plan: "Pro", stripeSubscriptionStatus: "trialing", trialStatus: "In Trial", trialEnd: "2026-07-20T12:00:00.000Z", accessEndsAt: "2026-07-20T12:00:00.000Z", subscriptionStatus: "Trialing" },
-    { plan: "Free", stripeSubscriptionStatus: "past_due", subscriptionStatus: "Past Due — Access Locked", stripeSubscriptionId: "sub_a" },
-    { plan: "Free", stripeSubscriptionStatus: "unpaid", subscriptionStatus: "Payment Failed — Access Locked", stripeSubscriptionId: "sub_b" },
+    // Confirmed mapping: past_due/unpaid are never canceled/ended, and both bucket as the
+    // same "payment_failed" (fresh billing-review) admin key — never a separate "past_due"
+    // bucket, never "ended"/"canceled".
+    { plan: "Free", stripeSubscriptionStatus: "past_due", subscriptionStatus: "Billing Review Required — Access Locked", stripeSubscriptionId: "sub_a" },
+    { plan: "Free", stripeSubscriptionStatus: "unpaid", subscriptionStatus: "Billing Review Required — Access Locked", stripeSubscriptionId: "sub_b" },
     { plan: "Free", stripeSubscriptionStatus: "canceled", subscriptionStatus: "Subscription Ended", subscriptionStartedAt: "2026-01-01T00:00:00.000Z" },
     { plan: "Free", subscriptionStatus: "Free Plan" },
   ];
@@ -138,8 +143,8 @@ function testAdminBucketsExclusive() {
   assert.strictEqual(buckets.founding, 1);
   assert.strictEqual(buckets.active, 1);
   assert.strictEqual(buckets.trial, 1);
-  assert.strictEqual(buckets.past_due, 1);
-  assert.strictEqual(buckets.payment_failed, 1);
+  assert.strictEqual(buckets.past_due, 0, "past_due bucket key is retained for backward compatibility but never populated any more");
+  assert.strictEqual(buckets.payment_failed, 2, "both past_due and unpaid signals land in the unified payment_failed (Billing Review Required) bucket");
   assert.strictEqual(buckets.canceled, 1);
   assert.strictEqual(buckets.free, 1);
   const total = Object.values(buckets).reduce((sum, n) => sum + n, 0);
@@ -151,14 +156,24 @@ function testAccessLockedForFailures() {
   assert.strictEqual(membership.membershipHasProAccess({
     plan: "Free",
     stripeSubscriptionStatus: "past_due",
-    subscriptionStatus: "Past Due — Access Locked",
+    subscriptionStatus: "Billing Review Required — Access Locked",
   }), false);
   assert.strictEqual(membership.membershipHasProAccess({
     plan: "Free",
     stripeSubscriptionStatus: "unpaid",
-    subscriptionStatus: "Payment Failed — Access Locked",
+    subscriptionStatus: "Billing Review Required — Access Locked",
   }), false);
-  console.log("✓ payment failures lock Pro access without deleting identity");
+  // Confirmed mapping: unpaid/past_due never imply "ended" — membershipStatusDisplay must
+  // show the neutral Billing Review Required label, never Subscription Ended, for either.
+  assert.strictEqual(
+    membership.membershipStatusDisplay({ plan: "Free", stripeSubscriptionStatus: "unpaid", subscriptionStatus: "Billing Review Required — Access Locked" }),
+    "Billing Review Required",
+  );
+  assert.strictEqual(
+    membership.membershipStatusDisplay({ plan: "Free", stripeSubscriptionStatus: "past_due", subscriptionStatus: "Billing Review Required — Access Locked" }),
+    "Billing Review Required",
+  );
+  console.log("✓ payment failures lock Pro access without deleting identity, and unpaid/past_due never display as ended/canceled");
 }
 
 async function testLifecycleEmails() {

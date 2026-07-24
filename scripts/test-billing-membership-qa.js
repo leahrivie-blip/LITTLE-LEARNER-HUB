@@ -10,6 +10,7 @@ const os = require("os");
 const { spawn, spawnSync } = require("child_process");
 const crypto = require("crypto");
 const membershipAccess = require("./membership-access.js");
+const stripeBillingReconciliation = require("./stripe-billing-reconciliation.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 19500 + Math.floor(Math.random() * 30);
@@ -21,18 +22,19 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function requestJson(method, urlPath, body) {
+function requestJson(method, urlPath, body, options = {}) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
     const req = http.request(
       {
         hostname: "127.0.0.1",
-        port: PORT,
+        port: options.port || PORT,
         path: urlPath,
         method,
-        headers: payload
-          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
-          : {},
+        headers: {
+          ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+          ...(options.headers || {}),
+        },
         timeout: 30000,
       },
       (res) => {
@@ -52,7 +54,7 @@ function requestJson(method, urlPath, body) {
   });
 }
 
-function startServer() {
+function startServer(envOverrides = {}) {
   const child = spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
     env: {
@@ -67,6 +69,12 @@ function startServer() {
       FOUNDING_MEMBER_LIMIT: String(FOUNDING_LIMIT),
       PUBLIC_FOUNDING_CLAIMED_BASE: String(PUBLIC_CLAIMED_BASE),
       NODE_ENV: "test",
+      // Enabled by default for this suite so the reconciliation apply endpoint's other
+      // safeguards (auth, confirm, preview flow, hostname) can be exercised; the
+      // "disabled by default" behavior itself is verified separately with its own
+      // short-lived server that omits this override (see 9k).
+      ALLOW_BILLING_RECONCILIATION: "true",
+      ...envOverrides,
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -269,6 +277,7 @@ async function main() {
   assert(serverJs.includes("applyCheckoutMembershipUpgrade"), "Shared checkout membership upgrade helper missing");
   assert(serverJs.includes("stripeSubscriptionStatus"), "Checkout statusForPlan must set stripeSubscriptionStatus");
   assert(serverJs.includes("/api/admin/subscription-refresh"), "Admin subscription refresh endpoint missing");
+  assert(serverJs.includes("/api/admin/billing-reconciliation"), "Admin read-only billing reconciliation endpoint missing");
   assert(serverJs.includes("markProcessedStripeEvent"), "Webhook idempotency marker missing");
   assert(serverJs.includes("invoice.paid"), "invoice.paid webhook handling missing");
 
@@ -340,9 +349,17 @@ async function main() {
       access: "founding", billing: "canceling", label: "Cancels at Period End", pro: true,
     },
     {
+      // Confirmed mapping: past_due/unpaid are never canceled/ended — they always display
+      // as the single neutral "Billing Review Required" label (never "Past Due"/"Payment
+      // Failed"/"Ended").
       name: "past due",
-      user: { plan: "Pro", subscriptionStatus: "Past Due", stripeSubscriptionStatus: "past_due" },
-      access: "past_due", billing: "payment_failed", label: "Past Due", pro: false,
+      user: { plan: "Pro", subscriptionStatus: "Billing Review Required", stripeSubscriptionStatus: "past_due" },
+      access: "past_due", billing: "payment_failed", label: "Billing Review Required", pro: false,
+    },
+    {
+      name: "unpaid (never canceled/ended)",
+      user: { plan: "Pro", subscriptionStatus: "Billing Review Required", stripeSubscriptionStatus: "unpaid" },
+      access: "past_due", billing: "payment_failed", label: "Billing Review Required", pro: false,
     },
     {
       name: "promo only",
@@ -417,7 +434,7 @@ async function main() {
   assert(pastDueLock.plan === "Free", "past_due webhook must store Free plan (not stale Founding/Pro label)");
   assert(pastDueLock.foundingMemberActive === false, "past_due must clear foundingMemberActive");
   assert(pastDueLock.foundingMemberHistorical === true, "past_due preserves founding history");
-  assert(String(pastDueLock.subscriptionStatus || "").toLowerCase().includes("past due"), "past_due status label");
+  assert(String(pastDueLock.subscriptionStatus || "").toLowerCase().includes("billing review required"), "past_due status label reads Billing Review Required, never Past Due/Ended");
   assert(membershipAccess.membershipHasProAccess({ ...pastDueLock, stripeSubscriptionStatus: "past_due" }) === false, "past_due locks Pro access");
 
   console.log("2b) Repair script protects converted paid accounts and writes a backup");
@@ -669,13 +686,15 @@ async function main() {
     console.log("9) Payment failure removes access");
     const store = readStore();
     store.users["failed-pay@billing.test"] = {
-      email: "failed-pay@billing.test", plan: "Free", subscriptionStatus: "Payment Failed - Action Needed",
+      email: "failed-pay@billing.test", plan: "Free", subscriptionStatus: "Billing Review Required - Access Locked",
       stripeSubscriptionStatus: "unpaid", monthlyPrice: "$0/month", updatedAt: new Date().toISOString(),
     };
     writeStore(store);
     const failedSub = await requestJson("GET", "/api/subscription-status?email=failed-pay@billing.test");
     assert(failedSub.json.subscription?.hasProAccess === false, "Payment failed user has no Pro access");
-    assert(failedSub.json.subscription?.membershipStatus === "Payment Failed", "Payment failed visible in status");
+    // Confirmed mapping: unpaid is never canceled/ended — it always shows the neutral
+    // "Billing Review Required" label, never "Payment Failed"/"Ended".
+    assert(failedSub.json.subscription?.membershipStatus === "Billing Review Required", "unpaid status shows Billing Review Required, not Payment Failed/Ended");
 
     console.log("9b) Checkout webhook assigns Founding with Stripe status + permissions");
     {
@@ -754,6 +773,380 @@ async function main() {
       assert(readStore().users["ordered-webhook@billing.test"].plan === "Pro", "Older event did not downgrade current access");
       const duplicateRes = await requestJson("POST", "/api/webhooks/stripe", staleEvent);
       assert(duplicateRes.status === 200 && duplicateRes.json?.duplicate === true, "Duplicate Stripe event is idempotent");
+    }
+
+    console.log("9e) Admin billing reconciliation endpoint is read-only and requires auth");
+    {
+      const storeBefore = fs.readFileSync(STORE_PATH, "utf8");
+      const noAuth = await requestJson("GET", "/api/admin/billing-reconciliation?email=paid-founding@billing.test");
+      assert(noAuth.status === 401, "Billing reconciliation requires admin auth");
+      const withAuth = await requestJson(
+        "GET",
+        `/api/admin/billing-reconciliation?adminToken=${encodeURIComponent(adminLogin.json.token)}&email=paid-founding@billing.test`,
+      );
+      // No Stripe keys in this test environment → 503 (route exists and correctly refuses
+      // to guess at Stripe state). If Stripe were configured this would be 200.
+      assert([200, 503].includes(withAuth.status), `Billing reconciliation route should respond, got ${withAuth.status}`);
+      if (withAuth.status === 200) {
+        assert(withAuth.json?.readOnly === true, "Billing reconciliation reports readOnly:true");
+        assert(Array.isArray(withAuth.json?.results), "Billing reconciliation returns a results array");
+      }
+      const storeAfter = fs.readFileSync(STORE_PATH, "utf8");
+      assert(storeAfter === storeBefore, "Billing reconciliation check must never write to the store");
+    }
+
+    console.log("9f) Failed payment followed by a successful recovery restores access");
+    {
+      const seqStore = readStore();
+      seqStore.users["sequence-recover@billing.test"] = {
+        email: "sequence-recover@billing.test",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+        stripeCustomerId: "cus_seq_recover",
+        stripeSubscriptionId: "sub_seq_recover",
+        currentPeriodEnd: futureIso,
+      };
+      writeStore(seqStore);
+
+      const failedEvent = {
+        id: "evt_seq_failed",
+        created: 100,
+        type: "invoice.payment_failed",
+        data: { object: { id: "in_seq_failed", customer: "cus_seq_recover", customer_email: "sequence-recover@billing.test", amount_paid: 0 } },
+      };
+      const failedRes = await requestJson("POST", "/api/webhooks/stripe", failedEvent);
+      assert(failedRes.status === 200, "invoice.payment_failed webhook accepted");
+      const afterFailed = readStore().users["sequence-recover@billing.test"];
+      assert(afterFailed.plan === "Free", "Payment failure downgrades to Free");
+      // A first invoice.payment_failed reflects Stripe's "past_due" state (not yet
+      // "unpaid" — that only happens once Smart Retries exhaust).
+      assert(afterFailed.stripeSubscriptionStatus === "past_due", "Payment failure sets stripeSubscriptionStatus=past_due (not unpaid, not canceled/ended)");
+      assert(!membershipAccess.membershipHasProAccess(afterFailed), "No Pro access immediately after failure");
+
+      // Customer fixes their card; Stripe reports the subscription active again via a
+      // newer (higher event.created) customer.subscription.updated event.
+      const recoveredEvent = {
+        id: "evt_seq_recovered",
+        created: 200,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_seq_recover",
+            customer: "cus_seq_recover",
+            status: "active",
+            current_period_end: Math.floor((Date.now() + 25 * 86400000) / 1000),
+            cancel_at_period_end: false,
+          },
+        },
+      };
+      const recoveredRes = await requestJson("POST", "/api/webhooks/stripe", recoveredEvent);
+      assert(recoveredRes.status === 200, "recovery webhook accepted");
+      const afterRecovered = readStore().users["sequence-recover@billing.test"];
+      assert(membershipAccess.membershipHasProAccess(afterRecovered), "Pro access is restored after the newer recovery event");
+      assert(membershipAccess.membershipStatusDisplay(afterRecovered) !== "Payment Failed", "Status no longer reads Payment Failed after recovery");
+    }
+
+    console.log("9g) An older, delayed failed event cannot overwrite a newer paid/active event");
+    {
+      const orderStore = readStore();
+      orderStore.users["ooo-protect@billing.test"] = {
+        email: "ooo-protect@billing.test",
+        plan: "Free",
+        subscriptionStatus: "No paid subscription",
+        stripeCustomerId: "cus_ooo",
+        stripeSubscriptionId: "sub_ooo",
+      };
+      writeStore(orderStore);
+
+      const newerActiveEvent = {
+        id: "evt_ooo_active",
+        created: 300,
+        type: "customer.subscription.updated",
+        data: {
+          object: {
+            id: "sub_ooo",
+            customer: "cus_ooo",
+            status: "active",
+            current_period_end: Math.floor((Date.now() + 20 * 86400000) / 1000),
+            cancel_at_period_end: false,
+          },
+        },
+      };
+      const activeRes = await requestJson("POST", "/api/webhooks/stripe", newerActiveEvent);
+      assert(activeRes.status === 200, "newer active webhook accepted");
+      const afterActive = readStore().users["ooo-protect@billing.test"];
+      assert(membershipAccess.membershipHasProAccess(afterActive), "Pro access granted by the newer active event");
+
+      // A stale, delayed invoice.payment_failed with an OLDER event.created arrives after.
+      const olderFailedEvent = {
+        id: "evt_ooo_failed_delayed",
+        created: 150,
+        type: "invoice.payment_failed",
+        data: { object: { id: "in_ooo_delayed", customer: "cus_ooo", customer_email: "ooo-protect@billing.test", amount_paid: 0 } },
+      };
+      const delayedRes = await requestJson("POST", "/api/webhooks/stripe", olderFailedEvent);
+      assert(delayedRes.status === 200 && delayedRes.json?.stale === true, "Older delayed failed event is acknowledged but ignored as stale");
+      const afterDelayed = readStore().users["ooo-protect@billing.test"];
+      assert(membershipAccess.membershipHasProAccess(afterDelayed), "Pro access is NOT reverted by the stale, older failed event");
+      assert(afterDelayed.plan === "Pro" || afterDelayed.plan === "Founding", "Plan remains paid after the stale event is ignored");
+    }
+
+    console.log("9h) Duplicate webhook delivery has no double effect");
+    {
+      const dupStore = readStore();
+      dupStore.users["dup-delivery@billing.test"] = {
+        email: "dup-delivery@billing.test",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+        stripeCustomerId: "cus_dup",
+        stripeSubscriptionId: "sub_dup",
+        currentPeriodEnd: futureIso,
+      };
+      writeStore(dupStore);
+      const dupEvent = {
+        id: "evt_dup_delivery_fixed_id",
+        created: 100,
+        type: "invoice.payment_failed",
+        data: { object: { id: "in_dup", customer: "cus_dup", customer_email: "dup-delivery@billing.test", amount_paid: 0 } },
+      };
+      const firstRes = await requestJson("POST", "/api/webhooks/stripe", dupEvent);
+      assert(firstRes.status === 200 && !firstRes.json?.duplicate, "First delivery is processed normally");
+      const afterFirst = readStore().users["dup-delivery@billing.test"];
+      assert(afterFirst.plan === "Free", "First delivery applies the payment-failed downgrade");
+      const firstFailedAt = afterFirst.lastFailedPaymentAt;
+
+      const secondRes = await requestJson("POST", "/api/webhooks/stripe", dupEvent);
+      assert(secondRes.status === 200 && secondRes.json?.duplicate === true, "Second delivery of the identical event id is recognized as a duplicate");
+      const afterSecond = readStore().users["dup-delivery@billing.test"];
+      assert(afterSecond.lastFailedPaymentAt === firstFailedAt, "Duplicate delivery does not reapply or change any field a second time");
+    }
+
+    console.log("9i) A paid invoice that cannot be matched to any account raises a critical alert, never crashes");
+    {
+      const unmatchedEmail = "totally-unmatched-payer@billing.test";
+      const preStore = readStore();
+      assert(!preStore.users[unmatchedEmail], "Sanity: no local account exists for this email yet");
+
+      const unmatchedEvent = {
+        id: "evt_unmatched_invoice",
+        created: 100,
+        type: "invoice.paid",
+        data: {
+          object: {
+            id: "in_unmatched",
+            customer: "cus_totally_unknown_zzz",
+            customer_email: unmatchedEmail,
+            subscription: "sub_unknown_zzz",
+            amount_paid: 999,
+          },
+        },
+      };
+      const unmatchedRes = await requestJson("POST", "/api/webhooks/stripe", unmatchedEvent);
+      assert(unmatchedRes.status === 200, "Unmatched paid invoice does not crash the webhook handler");
+      const postStore = readStore();
+      assert(!postStore.users[unmatchedEmail], "No new local account is silently created for an unmatched paid invoice");
+
+      const notifRes = await requestJson(
+        "GET",
+        `/api/admin/notifications?adminToken=${encodeURIComponent(adminLogin.json.token)}&category=billing&limit=50`,
+      );
+      assert(notifRes.status === 200, "Admin notifications endpoint responds");
+      const criticalAlert = (notifRes.json?.notifications || []).find((n) => n.type === "admin_paid_access_not_restored");
+      assert(criticalAlert, "A 'Paid in Stripe but access not restored' critical alert was raised for the unmatched invoice");
+    }
+
+    console.log("9j) Reconciliation apply: auth, confirm, host, bulk-rejection, and preview-token requirements");
+    {
+      assert(serverJs.includes("/api/admin/billing-reconciliation/apply"), "Reconciliation apply endpoint missing");
+      assert(serverJs.includes("ALLOW_BILLING_RECONCILIATION"), "Reconciliation apply kill-switch missing");
+      // scope=all/batch sweeps must never be apply-able: a previewToken (the only thing
+      // that lets /apply do anything) is only ever issued for a single explicit email
+      // lookup, never for a scope=all or comma-separated batch sweep.
+      assert(/if \(singleEmail && !comparison\.error\)/.test(serverJs), "Preview-token issuance must be gated to a single explicit email — scope=all/batch must never become apply-able");
+      const storeBeforeApply = fs.readFileSync(STORE_PATH, "utf8");
+
+      const noAuthApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        email: "paid-founding@billing.test",
+        confirm: true,
+      });
+      assert(noAuthApply.status === 401, "Reconciliation apply requires admin auth");
+
+      const badHostApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        confirm: true,
+        previewToken: "brp_does_not_matter",
+      }, { headers: { Host: "totally-unexpected-host.example.com" } });
+      assert(badHostApply.status === 403, "Reconciliation apply refuses an unrecognized Host header");
+
+      const noConfirmApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+      });
+      assert(noConfirmApply.status === 400, "Reconciliation apply refuses to run without explicit confirm:true");
+
+      const bulkApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        confirm: true,
+        emails: ["a@billing.test", "b@billing.test"],
+      });
+      assert(bulkApply.status === 400 && bulkApply.json?.code === "bulk_apply_rejected", "Reconciliation apply rejects bulk/list payloads — one account per confirmation only");
+
+      const noPreviewApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        confirm: true,
+      });
+      assert(noPreviewApply.status === 400 && noPreviewApply.json?.code === "preview_required", "Reconciliation apply requires a previewToken from the GET preview — auth+confirm alone are not enough");
+
+      const bogusPreviewApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        confirm: true,
+        previewToken: "brp_this_token_was_never_issued",
+      });
+      assert(bogusPreviewApply.status === 410 && bogusPreviewApply.json?.code === "preview_expired", "An unknown/never-issued preview token is treated the same as an expired one");
+
+      const storeAfterApply = fs.readFileSync(STORE_PATH, "utf8");
+      assert(storeAfterApply === storeBeforeApply, "None of the above refusals ever wrote to the store");
+    }
+
+    console.log("9k) Reconciliation apply is disabled by default (ALLOW_BILLING_RECONCILIATION unset)");
+    {
+      const disabledPort = PORT + 1;
+      const disabledStorePath = path.join(os.tmpdir(), `llh-billing-qa-disabled-${crypto.randomBytes(4).toString("hex")}.json`);
+      const disabledChild = spawn(process.execPath, ["server/index.js"], {
+        cwd: ROOT,
+        env: {
+          ...process.env,
+          PORT: String(disabledPort),
+          SITE_URL: `http://127.0.0.1:${disabledPort}`,
+          ADMIN_EMAIL: "billing-qa@test.local",
+          ADMIN_PASSWORD: "billing-qa-pass",
+          ADMIN_ACCESS_CODE: "billing-qa-code",
+          DATABASE_PROVIDER: "local-json",
+          LLH_STORE_PATH: disabledStorePath,
+          NODE_ENV: "test",
+          ALLOW_BILLING_RECONCILIATION: undefined,
+        },
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      try {
+        for (let i = 0; i < 100; i += 1) {
+          try {
+            const res = await requestJson("GET", "/api/founding-status", null, { port: disabledPort });
+            if (res.status === 200) break;
+          } catch { /* retry */ }
+          if (disabledChild.exitCode !== null) throw new Error("Disabled-flag test server exited early");
+          await new Promise((r) => setTimeout(r, 100));
+        }
+        const disabledLogin = await requestJson("POST", "/api/admin/login", {
+          email: "billing-qa@test.local", password: "billing-qa-pass", code: "billing-qa-code",
+        }, { port: disabledPort });
+        const disabledApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+          adminToken: disabledLogin.json.token,
+          email: "anyone@billing.test",
+          confirm: true,
+          previewToken: "brp_irrelevant",
+        }, { port: disabledPort });
+        assert(disabledApply.status === 403 && disabledApply.json?.code === "reconciliation_disabled", "Reconciliation apply is disabled by default without ALLOW_BILLING_RECONCILIATION=true");
+      } finally {
+        await stopServer(disabledChild);
+        if (fs.existsSync(disabledStorePath)) fs.unlinkSync(disabledStorePath);
+      }
+    }
+
+    console.log("9l) Reconciliation preview tokens expire and cannot be reused for a changed/wrong record");
+    {
+      // Directly seed a preview token exactly as GET /api/admin/billing-reconciliation
+      // would (using the same shared fingerprint function), so this can be tested without
+      // needing live Stripe access in this environment — the apply-side validation logic
+      // under test here is identical either way.
+      const previewUser = {
+        email: "preview-flow@billing.test",
+        plan: "Free",
+        subscriptionStatus: "Billing Review Required — Access Locked",
+        stripeSubscriptionStatus: "unpaid",
+        stripeCustomerId: "cus_previewflow",
+        stripeSubscriptionId: "sub_previewflow",
+        updatedAt: new Date().toISOString(),
+      };
+      const seedStore = readStore();
+      seedStore.users["preview-flow@billing.test"] = previewUser;
+      seedStore.billingReconciliationPreviews = seedStore.billingReconciliationPreviews || {};
+      const token = `brp_test_${crypto.randomBytes(8).toString("hex")}`;
+      seedStore.billingReconciliationPreviews[token] = {
+        email: "preview-flow@billing.test",
+        customerId: "cus_previewflow",
+        subscriptionId: "sub_previewflow",
+        invoiceId: "",
+        storedFingerprint: stripeBillingReconciliation.billingReconciliationFingerprint(previewUser),
+        createdAt: new Date().toISOString(),
+        expiresAt: Date.now() + 5 * 60 * 1000,
+      };
+      writeStore(seedStore);
+
+      // A different account's real email may never redeem someone else's preview token.
+      const wrongAccountApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "paid-founding@billing.test",
+        confirm: true,
+        previewToken: token,
+      });
+      assert(wrongAccountApply.status === 400 && wrongAccountApply.json?.code === "preview_account_mismatch", "Apply refuses a preview token issued for a different account");
+
+      // Mutate the account after the preview was issued — the fingerprint must no
+      // longer match, so apply must refuse even with a syntactically valid, unexpired,
+      // correctly-addressed token.
+      const mutatedStore = readStore();
+      mutatedStore.users["preview-flow@billing.test"].subscriptionStatus = "Something else entirely";
+      mutatedStore.users["preview-flow@billing.test"].updatedAt = new Date(Date.now() + 1000).toISOString();
+      writeStore(mutatedStore);
+
+      const changedApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "preview-flow@billing.test",
+        confirm: true,
+        previewToken: token,
+      });
+      assert(changedApply.status === 409 && changedApply.json?.code === "record_changed_since_preview", "Apply refuses a preview token whose account record changed since the preview was generated");
+
+      // The "changed record" check above already consumed/deleted that token. Restore the
+      // record and seed a fresh token, force-expired directly (bypassing the 5-minute
+      // TTL), to verify expiry is actually enforced, not just checked at issuance time.
+      const expiredToken = `brp_test_${crypto.randomBytes(8).toString("hex")}`;
+      const expireStore = readStore();
+      expireStore.users["preview-flow@billing.test"] = previewUser;
+      expireStore.billingReconciliationPreviews = expireStore.billingReconciliationPreviews || {};
+      expireStore.billingReconciliationPreviews[expiredToken] = {
+        email: "preview-flow@billing.test",
+        customerId: "cus_previewflow",
+        subscriptionId: "sub_previewflow",
+        invoiceId: "",
+        storedFingerprint: stripeBillingReconciliation.billingReconciliationFingerprint(previewUser),
+        createdAt: new Date().toISOString(),
+        expiresAt: Date.now() - 1000,
+      };
+      writeStore(expireStore);
+      const expiredApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "preview-flow@billing.test",
+        confirm: true,
+        previewToken: expiredToken,
+      });
+      assert(expiredApply.status === 410 && expiredApply.json?.code === "preview_expired", "Apply refuses a preview token past its expiry, even if otherwise well-formed");
+
+      // An unknown/never-issued token id behaves identically to an expired one.
+      const bogusApply = await requestJson("POST", "/api/admin/billing-reconciliation/apply", {
+        adminToken: adminLogin.json.token,
+        email: "preview-flow@billing.test",
+        confirm: true,
+        previewToken: "brp_never_issued_at_all",
+      });
+      assert(bogusApply.status === 410 && bogusApply.json?.code === "preview_expired", "An unknown preview token id is treated the same as an expired one");
     }
 
     console.log("10) Browser persona labels & access");

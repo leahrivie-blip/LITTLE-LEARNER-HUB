@@ -99,8 +99,16 @@ function classifyUser(user, nowMs = Date.now()) {
   const inTrial = membership.membershipUserInTrial(user, nowMs);
   const foundingActive = membership.membershipFoundingActive(user, nowMs);
   const planDisplay = membership.membershipPlanDisplay(user, nowMs);
+  // A verified Stripe event already concluded "ended" for this account — a leftover raw
+  // stripeSubscriptionStatus echo ("unpaid"/"past_due") must not reclassify it as a live
+  // Past Due problem. Mirrors the same gate in membershipStatusDisplay.
+  const alreadyConcluded = String(user?.subscriptionStatus || "").toLowerCase().includes("ended");
 
-  if (statusKey === "Past Due" || statusKey === "Payment Failed" || isPastDueOrUnpaid(user)) {
+  if (
+    statusKey === "Past Due"
+    || statusKey === "Payment Failed"
+    || (!alreadyConcluded && isPastDueOrUnpaid(user) && !membership.membershipPaymentFailureIsStale(user, nowMs))
+  ) {
     return "Past Due";
   }
 
@@ -137,6 +145,7 @@ function flagMismatches(user, classification, nowMs = Date.now()) {
   const effectiveHasAccess = hasAccess || storedHasAccess === true;
   const inTrial = membership.membershipUserInTrial(user, nowMs);
   const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+  const subStatus = String(user?.subscriptionStatus || "").toLowerCase();
   const plan = String(user?.plan || "").trim();
   const endMs = membership.accessEndMs(user);
 
@@ -202,6 +211,38 @@ function flagMismatches(user, classification, nowMs = Date.now()) {
     mismatches.push({
       code: "stored_hasProAccess_mismatch",
       detail: `stored hasProAccess=${storedHasAccess} but membershipHasProAccess=${hasAccess}`,
+    });
+  }
+
+  // 7) Admin dashboard shows "Payment Failed" for an old, resolved-by-inaction failure:
+  // Stripe has stopped retrying (no pending nextPaymentRetryAt) and it has been long
+  // enough (membership.PAYMENT_FAILURE_STALE_DAYS) since lastFailedPaymentAt with no
+  // newer successful payment. Access is already (correctly) denied either way — this
+  // flags a stale *label*, not a billing or access problem.
+  if (isPastDueOrUnpaid(user) && membership.membershipPaymentFailureIsStale(user, nowMs)) {
+    mismatches.push({
+      code: "stale_payment_failed_label",
+      detail: `subscriptionStatus/stripeSubscriptionStatus still reads as payment-failed but lastFailedPaymentAt is `
+        + `>${membership.PAYMENT_FAILURE_STALE_DAYS} days old with no pending retry — admin dashboard should show `
+        + `"Subscription Ended" / Free, not "Payment Failed". No access change needed (access is already denied).`,
+    });
+  }
+
+  // 8) A verified Stripe event (customer.subscription.updated/deleted, or the equivalent
+  // Stripe backfill path) already wrote subscriptionStatus="...Ended" — but the raw
+  // stripeSubscriptionStatus field is still "unpaid"/"past_due" from that same event, and
+  // (before the fix) the admin dashboard's Payment-Failed check trusted that raw echo over
+  // the already-correct conclusion. This is the leading candidate explanation for "Free
+  // account showing Payment Failed": no elapsed time is involved, it can happen the instant
+  // the ending webhook is processed. No access change needed — access was already correctly
+  // denied by the same event.
+  if (subStatus.includes("ended") && (stripeStatus === "unpaid" || stripeStatus === "past_due")) {
+    mismatches.push({
+      code: "unpaid_echo_survives_verified_ended_conclusion",
+      detail: `subscriptionStatus already says "${user?.subscriptionStatus}" (a verified Stripe conclusion) `
+        + `but stripeSubscriptionStatus is still the raw "${stripeStatus}" from that same event. The admin `
+        + `dashboard must not resurrect a Payment Failed alert from the raw field alone — display should read `
+        + `Subscription Ended / Free. No access or billing action needed.`,
     });
   }
 

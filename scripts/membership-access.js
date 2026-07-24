@@ -17,7 +17,54 @@
  *   first paid billing cycle, the reserved spot is released back into inventory.
  * - After the first successful paid invoice, canceling ends access at period end but keeps the
  *   numbered spot (foundingMembers[]) so the original 50 paid founding accounts stay fixed.
+ *
+ * STRIPE STATUS MAPPING (confirmed)
+ * - stripeSubscriptionStatus "unpaid" is NEVER treated as canceled or ended.
+ * - stripeSubscriptionStatus "past_due" is NEVER treated as canceled or ended.
+ * - "Subscription Ended" (or "Trial Ended") may ONLY ever be produced by a verified
+ *   customer.subscription.deleted event, or a customer.subscription.updated event whose
+ *   Stripe status is literally "canceled" (or the account's own access period has
+ *   genuinely elapsed). unpaid/past_due are explicitly excluded from that condition.
+ * - unpaid/past_due DO remove paid platform access (membershipHasProAccess still denies
+ *   access for either), but the account is displayed as "Billing Review Required" — never
+ *   "Payment Failed", never "Subscription Ended", never "Canceled". This is a deliberately
+ *   neutral, non-alarmist, non-conclusive label: it asserts only that a human should check
+ *   Stripe, not that the subscription is over.
+ *
+ * BILLING REVIEW LABEL POLICY
+ * - "Billing Review Required" is event-driven, set by Stripe webhooks
+ *   (invoice.payment_failed, customer.subscription.updated reporting unpaid/past_due).
+ *   There is no polling reconciliation, so if Stripe never sends a follow-up event (e.g.
+ *   it leaves the subscription "unpaid" indefinitely instead of canceling it, or a later
+ *   webhook is missed), the label can persist — this is expected and correct: it is NOT
+ *   promoted to "Subscription Ended" just because time has passed (see above).
+ * - This does NOT affect access: membershipHasProAccess already denies access for any
+ *   unpaid/past_due/billing-review signal regardless of staleness, and continues to do so.
+ * - IMPORTANT: elapsed time alone is NEVER proof that a subscription was actually
+ *   canceled or ended. An old unpaid invoice is not the same thing as a confirmed
+ *   cancellation — only a verified Stripe event (webhook) or an explicit admin-authorized
+ *   reconciliation may ever write "Subscription Ended"/"canceled" to a user record.
+ * - membershipPaymentFailureIsStale() distinguishes a fresh billing-review signal (Stripe
+ *   may still be retrying, or the failure just happened) from a stale one (retries have
+ *   clearly stopped, no recovery) — used only to decide whether to keep nagging the
+ *   end-user with an "update payment" banner and which admin bucket it sorts into. The
+ *   displayed label text is "Billing Review Required" either way; a missing
+ *   lastFailedPaymentAt timestamp is never treated as stale.
  */
+
+// Stripe's default Smart Retries schedule finishes well inside this window; once it has
+// passed with no scheduled retry and no recovery, the failure is old enough that Stripe is
+// clearly done retrying — but that elapsed time never implies the subscription was
+// canceled/ended, and the displayed label does not change; only the end-user nag banner
+// and the admin triage bucket do.
+const PAYMENT_FAILURE_STALE_DAYS = 21;
+
+// Single, deliberately neutral label for any unpaid/past_due signal, fresh or historical.
+// Never "Payment Failed", never "Past Due", never "Ended"/"Canceled" — only a verified
+// Stripe event (deleted, or status=canceled) may ever produce those.
+const BILLING_REVIEW_REQUIRED_LABEL = "Billing Review Required";
+// Retained as an alias so any code/tests still referencing the older name keep working.
+const PAYMENT_FAILURE_NEEDS_REVIEW_LABEL = BILLING_REVIEW_REQUIRED_LABEL;
 
 function parseIsoMs(value) {
   if (!value) return null;
@@ -28,6 +75,71 @@ function parseIsoMs(value) {
 function stripeStatusIsPaidAccess(status = "") {
   const s = String(status || "").toLowerCase();
   return s === "active" || s === "trialing";
+}
+
+/**
+ * True when a stored "payment failed" / "past due" signal is old news: Stripe is no
+ * longer actively retrying and enough time has passed that this is a historical event,
+ * not a current problem. Used only to pick the display label — never to grant or revoke
+ * access, send emails, or touch Stripe.
+ */
+/**
+ * True whenever the stored signal is "unpaid"/"past_due" (by raw Stripe status OR by the
+ * older/newer subscriptionStatus text), and the account has not already been concluded
+ * "ended" by a verified Stripe event. This is the ONLY place that decides "is this account
+ * in the billing-review family" — every other function (display label, buckets, access
+ * checks) is built on top of this so they can never drift apart.
+ */
+function membershipIsBillingReviewRequired(user) {
+  const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
+  const subStatus = String(user?.subscriptionStatus || "").toLowerCase();
+  if (subStatus.includes("ended")) return false; // A verified conclusion always wins.
+  return subStatus.includes("billing review required")
+    || subStatus.includes("payment failed")
+    || subStatus.includes("past due")
+    || stripeStatus === "unpaid"
+    || stripeStatus === "past_due";
+}
+
+function membershipPaymentFailureIsStale(user, nowMs = Date.now()) {
+  if (!membershipIsBillingReviewRequired(user)) return false;
+
+  const lastFailedMs = parseIsoMs(user?.lastFailedPaymentAt);
+  if (lastFailedMs === null) return false; // No timestamp evidence — keep showing the alert.
+
+  const lastSuccessMs = parseIsoMs(user?.lastSuccessfulPaymentAt);
+  if (lastSuccessMs !== null && lastSuccessMs > lastFailedMs) return false; // Recovered since.
+
+  const nextRetryMs = parseIsoMs(user?.nextPaymentRetryAt);
+  if (nextRetryMs !== null && nextRetryMs > nowMs) return false; // Stripe is still retrying.
+
+  return (nowMs - lastFailedMs) > PAYMENT_FAILURE_STALE_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Read-only snapshot that keeps the four billing signals visually and structurally
+ * distinct, instead of collapsing them into one label:
+ *   1. currentAccess       — what the user can actually do right now (Free/Trial/Pro/Founding)
+ *   2. stripeSubscriptionStatus — the raw Stripe status string as last recorded locally
+ *   3. lastFailedPaymentAt — when (if ever) a payment failure was last recorded
+ *   4. nextPaymentRetryAt  — whether Stripe still has a retry scheduled
+ * Never mutates anything; used by admin UI and the read-only reconciliation tooling.
+ */
+function membershipBillingReviewSnapshot(user, nowMs = Date.now()) {
+  return {
+    email: user?.email || "",
+    currentAccess: membershipCurrentAccessKey(user, nowMs),
+    currentAccessLabel: membershipPlanDisplay(user, nowMs),
+    hasProAccess: membershipHasProAccess(user, nowMs),
+    stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",
+    subscriptionStatus: user?.subscriptionStatus || "",
+    stripeSubscriptionId: user?.stripeSubscriptionId || "",
+    stripeCustomerId: user?.stripeCustomerId || "",
+    lastFailedPaymentAt: user?.lastFailedPaymentAt || "",
+    nextPaymentRetryAt: user?.nextPaymentRetryAt || "",
+    lastSuccessfulPaymentAt: user?.lastSuccessfulPaymentAt || "",
+    needsBillingReview: membershipPaymentFailureIsStale(user, nowMs),
+  };
 }
 
 function accessEndMs(user) {
@@ -44,10 +156,13 @@ function membershipHasProAccess(user, nowMs = Date.now()) {
   const stripeStatus = String(user.stripeSubscriptionStatus || "").toLowerCase();
   const subStatus = String(user.subscriptionStatus || "").toLowerCase();
 
-  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
-    return false;
-  }
-  if (subStatus.includes("past due") || stripeStatus === "past_due") {
+  // unpaid/past_due (old or new wording) always remove paid access — but this is an
+  // access decision, never a "canceled/ended" conclusion. See membershipIsBillingReviewRequired.
+  if (subStatus.includes("billing review required")
+    || subStatus.includes("payment failed")
+    || subStatus.includes("past due")
+    || stripeStatus === "unpaid"
+    || stripeStatus === "past_due") {
     return false;
   }
 
@@ -144,8 +259,11 @@ function membershipStatusDisplay(user, nowMs = Date.now()) {
   const stripeStatus = String(user?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(user?.subscriptionStatus || "").toLowerCase();
 
-  if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
-  if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
+  // unpaid/past_due — fresh or historical — always display as the single neutral
+  // "Billing Review Required" label. Never "Payment Failed", never "Ended"/"Canceled".
+  // A verified Stripe event (customer.subscription.deleted, or status=canceled) always
+  // takes priority (membershipIsBillingReviewRequired already excludes "...ended" text).
+  if (membershipIsBillingReviewRequired(user)) return BILLING_REVIEW_REQUIRED_LABEL;
 
   const hasAccess = membershipHasProAccess(user, nowMs);
   const cancelScheduled = Boolean(user?.cancelAtPeriodEnd) || status.includes("access ends");
@@ -169,8 +287,7 @@ function membershipStatusDisplay(user, nowMs = Date.now()) {
 }
 
 function membershipCurrentAccessKey(user, nowMs = Date.now()) {
-  const status = membershipStatusDisplay(user, nowMs);
-  if (status === "Past Due" || status === "Payment Failed") return "past_due";
+  if (membershipIsBillingReviewRequired(user)) return "past_due";
   const plan = membershipPlanDisplay(user, nowMs);
   if (plan === "Trial") return "trial";
   if (plan === "Founding Member") return "founding";
@@ -179,12 +296,16 @@ function membershipCurrentAccessKey(user, nowMs = Date.now()) {
 }
 
 function membershipBillingStatusKey(user, nowMs = Date.now()) {
+  // The displayed label is the same ("Billing Review Required") whether fresh or stale;
+  // the admin triage bucket still distinguishes them by the underlying signal, not by text.
+  if (membershipIsBillingReviewRequired(user)) {
+    return membershipPaymentFailureIsStale(user, nowMs) ? "needs_billing_review" : "payment_failed";
+  }
   const status = membershipStatusDisplay(user, nowMs);
   if (status === "No paid subscription") return "never_subscribed";
   if (status === "Cancels at Trial End" || status === "Cancels at Period End") return "canceling";
   if (status === "Trial Canceled") return "canceled";
   if (status === "Trial Ended" || status === "Subscription Ended") return "ended";
-  if (status === "Past Due" || status === "Payment Failed") return "payment_failed";
   return "active";
 }
 
@@ -205,35 +326,35 @@ function membershipProductStatus(user, nowMs = Date.now()) {
   const hasAccess = membershipHasProAccess(user, nowMs);
   const hasHistory = membershipHasSubscriptionHistory(user);
 
-  if (subStatus.includes("payment failed") || stripeStatus === "unpaid") {
+  // unpaid/past_due — fresh or historical — always show the SAME neutral "Billing Review
+  // Required" label. Never "Payment Failed", never "Ended"/"Canceled". Only the admin
+  // triage bucket (key/adminKey) and whether to keep nagging the end user (banner/cta)
+  // differ based on staleness — never the displayed label text.
+  if (membershipIsBillingReviewRequired(user)) {
+    const stale = membershipPaymentFailureIsStale(user, nowMs);
     return {
-      key: "payment_failed",
-      adminKey: "payment_failed",
-      label: "Payment Failed",
-      emoji: "🟠",
-      tone: "warning",
+      key: stale ? "needs_billing_review" : "payment_failed",
+      adminKey: stale ? "needs_billing_review" : "payment_failed",
+      label: BILLING_REVIEW_REQUIRED_LABEL,
+      emoji: "🟤",
+      tone: "review",
       hasProAccess: false,
       daysRemaining: null,
-      banner: "payment_failed",
-      cta: "update_payment",
-      detail: "Your recent payment could not be processed. Update your payment method to keep Pro access.",
+      banner: stale ? null : "billing_review_required",
+      cta: stale ? null : "update_payment",
+      detail: stale
+        ? `A payment issue was recorded, but Stripe has not sent a follow-up update in over `
+          + `${PAYMENT_FAILURE_STALE_DAYS} days and no retry is currently scheduled. This may `
+          + `already be resolved, canceled, or still pending on Stripe's side — an admin should `
+          + `verify the current Stripe status before taking any action. Access remains on the `
+          + `Free Plan either way.`
+        : "Stripe reports an unresolved billing issue on this subscription. Update your payment "
+          + "method to keep Pro access — an admin may also need to verify the current Stripe status.",
       planLabel: "Free Plan (locked)",
-    };
-  }
-
-  if (subStatus.includes("past due") || stripeStatus === "past_due") {
-    return {
-      key: "past_due",
-      adminKey: "past_due",
-      label: "Payment Failed",
-      emoji: "🟠",
-      tone: "warning",
-      hasProAccess: false,
-      daysRemaining: null,
-      banner: "payment_failed",
-      cta: "update_payment",
-      detail: "Your recent payment could not be processed. Your Pro access will expire if payment is not updated.",
-      planLabel: "Free Plan (locked)",
+      currentAccess: "free",
+      stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",
+      lastFailedPaymentAt: user?.lastFailedPaymentAt || "",
+      nextPaymentRetryAt: user?.nextPaymentRetryAt || "",
     };
   }
 
@@ -339,6 +460,7 @@ function membershipAdminAuditBuckets(users = [], nowMs = Date.now()) {
     free: 0,
     past_due: 0,
     payment_failed: 0,
+    needs_billing_review: 0,
     canceled: 0,
     founding: 0,
   };
@@ -406,10 +528,20 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
   const endedDuringTrial = stripeStatus === "trialing"
     || previousStripeStatus === "trialing"
     || (previousTrialStatus.includes("in trial") && previousStatus.includes("trial"));
+  // Confirmed Stripe status mapping: "unpaid" and "past_due" are NEVER canceled/ended.
+  // Only a verified customer.subscription.deleted event, or a live Stripe status of
+  // literally "canceled", may ever produce "Subscription Ended"/"Trial Ended" here. The
+  // period-elapsed fallback below is explicitly excluded for unpaid/past_due so a
+  // naturally-past current_period_end on an unpaid subscription can never masquerade as
+  // "ended" either.
   const ended = eventType === "deleted"
     || stripeStatus === "canceled"
-    || stripeStatus === "unpaid"
-    || (accessEndsAt && parseIsoMs(accessEndsAt) <= nowMs);
+    || (
+      stripeStatus !== "unpaid"
+      && stripeStatus !== "past_due"
+      && Boolean(accessEndsAt)
+      && parseIsoMs(accessEndsAt) <= nowMs
+    );
 
   const planKey = planKeyFromStripeSubscription(subscription, user);
   const wasFounding = Boolean(user.foundingMemberActive || user.foundingMemberHistorical || user.foundingMember || user.plan === "Founding");
@@ -448,13 +580,15 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
   }
 
   // Past due / unpaid: keep historical founding markers but lock Pro/Founding access.
-  // Plan display must not look like an active paid plan while access is denied.
+  // Plan display must not look like an active paid plan while access is denied. Neither
+  // status is ever "ended"/"canceled" (see the ended check above) — both surface as the
+  // single neutral "Billing Review Required" label, never "Payment Failed"/"Past Due".
   if (stripeStatus === "past_due" || stripeStatus === "unpaid") {
     return {
       ...base,
       plan: "Free",
       subscriptionCadence: user.subscriptionCadence || "",
-      subscriptionStatus: stripeStatus === "unpaid" ? "Payment Failed — Access Locked" : "Past Due — Access Locked",
+      subscriptionStatus: "Billing Review Required — Access Locked",
       monthlyPrice: "$0/month",
       foundingMemberActive: false,
       foundingMemberHistorical: wasFounding,
@@ -506,6 +640,12 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
 }
 
 module.exports = {
+  PAYMENT_FAILURE_STALE_DAYS,
+  BILLING_REVIEW_REQUIRED_LABEL,
+  PAYMENT_FAILURE_NEEDS_REVIEW_LABEL,
+  membershipIsBillingReviewRequired,
+  membershipPaymentFailureIsStale,
+  membershipBillingReviewSnapshot,
   membershipHasProAccess,
   membershipUserInTrial,
   membershipFoundingActive,
