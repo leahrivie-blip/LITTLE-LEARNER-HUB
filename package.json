@@ -202,6 +202,8 @@
     "test:tester-account-manager": "NODE_ENV=test node scripts/test-tester-account-manager.js",
     "test:admin-clickability-visual": "NODE_ENV=test node scripts/test-admin-clickability-visual.js",
     "test:external-tester-sandbox": "NODE_ENV=test node scripts/test-external-tester-sandbox.js",
+    "test:stale-build-recovery": "NODE_ENV=test node scripts/test-stale-build-recovery.js",
+    "test:live-style-role-device-walkthrough": "NODE_ENV=test node scripts/test-live-style-role-device-walkthrough.js",
     "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
   "devDependencies": {

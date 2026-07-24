@@ -86,8 +86,8 @@ function assertStaticGuards() {
   assert.ok(earlyIdx > 0, "index.html must early-register the service worker");
   assert.ok(appIdx > earlyIdx, "early SW register must appear before app.js script tag");
   assert.match(html, /serviceWorker\.register\("\/service-worker\.js"\)/);
-  assert.match(sw, /llh-shell-v109-full-int/);
-  assert.match(html, /app\.js\?v=20260722-full-int/);
+  assert.match(sw, /llh-shell-v110-incident-fix/);
+  assert.match(html, /app\.js\?v=20260724-incident-fix/);
 }
 
 async function browserHomescreenBoot() {
@@ -208,7 +208,7 @@ async function main() {
     assert.equal(state.controller, true);
     assert.equal(state.authed, true);
     assert.ok(state.booted || state.active === "view-calendar", `expected booted calendar, got ${JSON.stringify(state)}`);
-    assert.match(state.appJs, /20260722-full-int/);
+    assert.match(state.appJs, /20260724-incident-fix/);
     console.log("homescreen-pwa-boot: PASS");
   } finally {
     await stopServer(child);

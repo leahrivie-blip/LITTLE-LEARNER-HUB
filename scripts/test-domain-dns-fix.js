@@ -47,8 +47,8 @@ const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260722-full-int";
-const SHELL_V = "llh-shell-v109-full-int";
+const CACHE_V = "20260724-incident-fix";
+const SHELL_V = "llh-shell-v110-incident-fix";
 
 test("classify: Namecheap NS + Render targets is ready", () => {
   const apex = classifyBrandDomainDns({

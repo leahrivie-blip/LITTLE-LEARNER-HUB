@@ -20404,6 +20404,26 @@ body.lesson-editor-view .main {
   border-left: 1px solid #e6b975;
 }
 
+.stale-build-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: #fde8e8;
+  border-bottom: 1px solid #e0a3a3;
+  color: #7a2020;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.stale-build-banner button {
+  min-height: 32px;
+  padding: 4px 12px;
+  font-size: 0.82rem;
+}
+
 .sandbox-role-switcher-actions {
   display: inline-flex;
   gap: 8px;
@@ -20474,10 +20494,31 @@ body.lesson-editor-view .main {
 /* ── Testing Feedback widget (testing-only) ────────────────────────── */
 .testing-feedback-widget {
   position: fixed;
-  left: 16px;
+  /* Bottom-RIGHT, not bottom-left: several in-page controls (e.g. the
+     calendar's per-week "Wk" jump buttons, gutter-positioned on the left)
+     can land in the same bottom-left corner on some viewport sizes,
+     letting this floating widget visually cover and block them. Bottom-
+     right is safe here because the only other fixed bottom-right chrome
+     (.admin-preview-badge) is admin-only and this widget is tester-only —
+     the two audiences never see the page at the same time. */
+  right: 16px;
   bottom: 16px;
   z-index: 88;
   font-size: 0.92rem;
+}
+
+/* Family Hub's own bottom tab bar (guardian accounts, any width below
+   900px — see the .fh-bottom-nav / .fh-sidebar breakpoint) spans the full
+   width including this widget's bottom-right corner. Without this, the
+   floating feedback button sits directly on top of its last tab
+   ("Account"), blocking real clicks on it — confirmed via an actual
+   Playwright click, not just a synthetic overlap check. :has() matches on
+   DOM presence regardless of that element's own display state, so this
+   also harmlessly nudges the widget up a little on desktop/guardian pages
+   where .fh-bottom-nav exists in the DOM but is hidden — never a problem
+   since nothing else occupies that space there either. */
+body:has(.fh-bottom-nav) .testing-feedback-widget {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
 }
 
 .testing-feedback-toggle {
@@ -20511,7 +20552,7 @@ body.lesson-editor-view .main {
 
 .testing-feedback-panel {
   position: absolute;
-  left: 0;
+  right: 0;
   bottom: calc(100% + 10px);
   width: min(360px, calc(100vw - 32px));
   max-height: min(520px, calc(100vh - 120px));
@@ -20745,7 +20786,7 @@ body.lesson-editor-view .main {
 
 @media (max-width: 480px) {
   .testing-feedback-widget {
-    left: 12px;
+    right: 12px;
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
   .tf-toggle-label {
