@@ -128,7 +128,7 @@ function staticChecks() {
   assert.match(serverJs, /DEFAULT_ADMIN_EMAIL_ALIASES/, "server must define admin email aliases");
   assert.match(serverJs, /isAdminOnlyNotificationType/, "member APIs must filter admin-only notification types");
   assert.match(indexHtml, /llh-messaging\.css\?v=20260720-promo-existing/);
-  assert.match(indexHtml, /app\.js\?v=20260722-full-int/);
+  assert.match(indexHtml, /app\.js\?v=20260724-incident-fix/);
   console.log("PASS static multi-admin + mobile notification markers");
 }
 

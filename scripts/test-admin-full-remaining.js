@@ -104,9 +104,9 @@ test("persona sandbox modes remain available", () => {
 test("cache bust versions stay aligned", () => {
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260722-full-int");
-  assert.equal(indexJs, "20260722-full-int");
-  assert.match(sw, /llh-shell-v109-full-int/);
+  assert.equal(indexCss, "20260724-incident-fix");
+  assert.equal(indexJs, "20260724-incident-fix");
+  assert.match(sw, /llh-shell-v110-incident-fix/);
 });
 
 test("npm script is registered", () => {
