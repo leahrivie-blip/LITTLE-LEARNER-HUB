@@ -12542,6 +12542,28 @@ async function handleDomainDnsCheck(request, response) {
   }
 }
 
+// The one deployed-build identifier every environment can report without any
+// extra configuration: LLH_GIT_SHA/GIT_COMMIT (set manually, or by a CI
+// step) take priority when present, otherwise RENDER_GIT_COMMIT — which
+// Render injects automatically into every service's environment for the
+// commit it deployed, no setup required. SERVER_BOOT_TIME is this exact
+// running process's own start time, used so the client's stale-build check
+// can also detect "the server restarted" even on the rare occasion the git
+// SHA didn't change (e.g. an env-var-only redeploy).
+const SERVER_BOOT_TIME = new Date().toISOString();
+function deployedGitSha() {
+  return String(process.env.LLH_GIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").slice(0, 40);
+}
+
+function handleBuildVersion(request, response) {
+  jsonResponse(response, 200, {
+    ok: true,
+    gitSha: deployedGitSha(),
+    bootTime: SERVER_BOOT_TIME,
+    time: new Date().toISOString(),
+  });
+}
+
 function handleHealth(request, response) {
   const store = peekStore();
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
@@ -15627,7 +15649,7 @@ function getTestingLabApi() {
       normalizeEmail,
       expansionEnvironment,
       getLaunchReadiness: launchReadinessStatus,
-      getGitSha: () => String(process.env.LLH_GIT_SHA || process.env.GIT_COMMIT || "").slice(0, 40),
+      getGitSha: () => deployedGitSha(),
       getBranchName: () => String(process.env.LLH_GIT_BRANCH || "cursor/director-family-foundation-bc66"),
     });
   }
@@ -15656,7 +15678,7 @@ function getTestingFeedbackApi() {
       writeStore,
       jsonResponse,
       readJson,
-      getGitSha: () => String(process.env.LLH_GIT_SHA || process.env.GIT_COMMIT || "").slice(0, 40),
+      getGitSha: () => deployedGitSha(),
     });
   }
   return _testingFeedbackApi;
@@ -16075,6 +16097,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return await handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/domain-dns-check") return await handleDomainDnsCheck(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
+    if (request.method === "GET" && url.pathname === "/api/build-version") return handleBuildVersion(request, response);
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") return headResponse(response, 200, "application/json; charset=utf-8");
     if (request.method === "GET" || request.method === "HEAD") return serveStatic(request, response, url);

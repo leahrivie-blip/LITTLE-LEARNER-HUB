@@ -36130,6 +36130,101 @@ function refreshTestingIdentityBanner() {
   }
 }
 
+// ---- Stale-build recovery (every host, not testing-only) -----------------
+// A returning visitor's browser (or its service worker's cache-first shell
+// strategy — see service-worker.js) can otherwise keep serving JS/CSS from
+// BEFORE the latest deploy indefinitely, even though the server and its
+// HTML are already fully up to date. This is the root cause behind reports
+// like "the sidebar shows new items but clicking does nothing" or "role
+// nav is missing" — a version MISMATCH between fresh HTML and stale JS, not
+// a bug in the fresh code itself. This never auto-reloads anyone — every
+// reload is a single explicit user click — so it can never trap anyone in
+// a reload loop.
+let staleBuildState = { knownGitSha: "", knownBootTime: "", lastReloadedAt: 0, dismissed: false, checking: false };
+let staleBuildCheckTimer = null;
+
+async function captureCurrentBuildBaseline() {
+  try {
+    const res = await fetch(`/api/build-version?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    staleBuildState.knownGitSha = data.gitSha || "";
+    staleBuildState.knownBootTime = data.bootTime || "";
+  } catch {
+    // Offline or the endpoint is unreachable — never treat that as "stale",
+    // just skip establishing a baseline this time.
+  }
+}
+
+async function checkForStaleBuild() {
+  if (staleBuildState.checking || staleBuildState.dismissed) return;
+  // Never flag a mismatch within the first few seconds after a manual
+  // reload — gives the freshly-loaded page a moment to finish establishing
+  // its OWN baseline first, so a reload can never immediately re-trigger.
+  if (Date.now() - staleBuildState.lastReloadedAt < 8000) return;
+  staleBuildState.checking = true;
+  try {
+    const res = await fetch(`/api/build-version?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverGitSha = data.gitSha || "";
+    const serverBootTime = data.bootTime || "";
+    if (!staleBuildState.knownGitSha && !staleBuildState.knownBootTime) {
+      // First successful check this page load — this IS the baseline, not a mismatch.
+      staleBuildState.knownGitSha = serverGitSha;
+      staleBuildState.knownBootTime = serverBootTime;
+      return;
+    }
+    const shaChanged = Boolean(serverGitSha) && Boolean(staleBuildState.knownGitSha) && serverGitSha !== staleBuildState.knownGitSha;
+    const bootChanged = Boolean(serverBootTime) && Boolean(staleBuildState.knownBootTime) && serverBootTime !== staleBuildState.knownBootTime;
+    if (shaChanged || bootChanged) {
+      showStaleBuildBanner();
+    }
+  } catch {
+    // Network hiccup — never flag stale on a failed check.
+  } finally {
+    staleBuildState.checking = false;
+  }
+}
+
+function showStaleBuildBanner() {
+  const banner = document.querySelector("#staleBuildBanner");
+  if (banner) banner.hidden = false;
+}
+
+function hideStaleBuildBanner() {
+  const banner = document.querySelector("#staleBuildBanner");
+  if (banner) banner.hidden = true;
+}
+
+/** The ONE reload path for this banner — always a direct user click, never automatic, and always a full unregister + cache-clear first so the reload is guaranteed to fetch fresh assets rather than risk hitting the same stale service-worker cache again. */
+async function reloadToLatestBuild() {
+  staleBuildState.lastReloadedAt = Date.now();
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister().catch(() => {})));
+    }
+  } catch { /* best-effort */ }
+  try {
+    if (window.caches?.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key).catch(() => {})));
+    }
+  } catch { /* best-effort */ }
+  location.reload();
+}
+
+function startStaleBuildWatcher() {
+  captureCurrentBuildBaseline();
+  if (staleBuildCheckTimer) clearInterval(staleBuildCheckTimer);
+  staleBuildCheckTimer = setInterval(checkForStaleBuild, 90000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") checkForStaleBuild();
+  });
+  window.addEventListener("focus", () => checkForStaleBuild());
+}
+
 // ---- External Tester Sandbox (testing-only, never production) ------------
 // One tester login that self-service switches among a fixed, admin-chosen
 // set of NON-ADMIN roles — every real safety decision (which roles exist at
@@ -49268,6 +49363,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  if (event.target.closest("[data-stale-build-reload]")) {
+    event.preventDefault();
+    reloadToLatestBuild();
+    return;
+  }
+  if (event.target.closest("[data-stale-build-dismiss]")) {
+    event.preventDefault();
+    staleBuildState.dismissed = true;
+    hideStaleBuildBanner();
+    return;
+  }
+
   const sandboxSwitchBtn = event.target.closest("[data-sandbox-switch-role]");
   if (sandboxSwitchBtn) {
     event.preventDefault();
@@ -56981,6 +57088,7 @@ document.addEventListener("submit", async (event) => {
 
 installMobileNavigation();
 registerPwaSupport();
+startStaleBuildWatcher();
 
 // ─── Program Settings Form Submit ──────────────────────────────────────────
 
