@@ -3540,7 +3540,9 @@ function accountHasRemainingPaidAccess(account = null) {
   if (target.internalAccessOverride) return true;
   const stripeStatus = String(target.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(target.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed") || stripeStatus === "unpaid") return false;
+  // unpaid/past_due (old "Payment Failed"/"Past Due" wording or the current "Billing
+  // Review Required" wording) always remove paid access — never a "canceled/ended" claim.
+  if (status.includes("billing review required") || status.includes("payment failed") || stripeStatus === "unpaid") return false;
   if (status.includes("past due") || stripeStatus === "past_due") return false;
   if (status.includes("free plan")) return false;
   if (status.includes("ended") && !status.includes("access ends")) return false;
@@ -3641,11 +3643,6 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
   const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
   const subStatus = String(account.subscriptionStatus || "").toLowerCase();
   const hasAccess = accountHasRemainingPaidAccess(account) || Boolean(account.internalAccessOverride);
-  const staleFailure = paymentFailureIsStale(account, nowMs);
-  // A verified Stripe event already concluded "ended" — don't let a leftover raw
-  // stripeSubscriptionStatus echo ("unpaid"/"past_due") resurrect a Payment Failed alert
-  // for an account that has already been correctly downgraded to Free.
-  const alreadyConcluded = subStatus.includes("ended");
   const hasHistory = Boolean(
     account.subscriptionStartedAt
     || account.stripeSubscriptionId
@@ -3655,53 +3652,30 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
     || account.trialStart
     || account.trialEnd
     || ["past_due", "unpaid", "canceled", "active", "trialing"].includes(stripeStatus)
-    || /subscription|trial|canceled|ended|past due|payment failed/i.test(subStatus),
+    || /subscription|trial|canceled|ended|past due|payment failed|billing review required/i.test(subStatus),
   );
 
-  // Stale failure: flag for review only. Never asserts "ended"/"canceled" from elapsed
-  // time alone — that requires a verified Stripe event or an authorized reconciliation.
-  if (!alreadyConcluded && staleFailure) {
+  // unpaid/past_due — fresh or historical — always show the SAME neutral "Billing Review
+  // Required" label. Never "Payment Failed", never "Ended"/"Canceled". Only the admin
+  // triage bucket and whether to nag the end user (banner/cta) differ by staleness.
+  if (isBillingReviewRequired(account)) {
+    const stale = paymentFailureIsStale(account, nowMs);
     return {
-      key: "needs_billing_review",
-      adminKey: "needs_billing_review",
-      label: PAYMENT_FAILURE_NEEDS_REVIEW_LABEL,
+      key: stale ? "needs_billing_review" : "payment_failed",
+      adminKey: stale ? "needs_billing_review" : "payment_failed",
+      label: BILLING_REVIEW_REQUIRED_LABEL,
       emoji: "🟤",
       tone: "review",
       hasProAccess: false,
-      banner: null,
-      cta: null,
-      detail: `A payment failure was recorded, but Stripe has not sent a follow-up update in `
-        + `over ${PAYMENT_FAILURE_STALE_DAYS} days and no retry is currently scheduled. This may `
-        + `already be resolved, canceled, or still pending on Stripe's side — an admin should `
-        + `verify the current Stripe status before taking any action.`,
-      planLabel: "Free Plan",
-    };
-  }
-  if (!alreadyConcluded && (subStatus.includes("payment failed") || stripeStatus === "unpaid")) {
-    return {
-      key: "payment_failed",
-      adminKey: "payment_failed",
-      label: "Payment Failed",
-      emoji: "🟠",
-      tone: "warning",
-      hasProAccess: false,
-      banner: "payment_failed",
-      cta: "update_payment",
-      detail: "Your recent payment could not be processed. Update your payment method to keep Pro access.",
-      planLabel: "Free Plan",
-    };
-  }
-  if (!alreadyConcluded && (subStatus.includes("past due") || stripeStatus === "past_due")) {
-    return {
-      key: "past_due",
-      adminKey: "past_due",
-      label: "Payment Failed",
-      emoji: "🟠",
-      tone: "warning",
-      hasProAccess: false,
-      banner: "payment_failed",
-      cta: "update_payment",
-      detail: "Your recent payment could not be processed. Your Pro access will expire if payment is not updated.",
+      banner: stale ? null : "billing_review_required",
+      cta: stale ? null : "update_payment",
+      detail: stale
+        ? `A payment issue was recorded, but Stripe has not sent a follow-up update in over `
+          + `${PAYMENT_FAILURE_STALE_DAYS} days and no retry is currently scheduled. This may `
+          + `already be resolved, canceled, or still pending on Stripe's side — an admin should `
+          + `verify the current Stripe status before taking any action.`
+        : "Stripe reports an unresolved billing issue on this subscription. Update your payment "
+          + "method to keep Pro access — an admin may also need to verify the current Stripe status.",
       planLabel: "Free Plan",
     };
   }
@@ -3790,12 +3764,12 @@ function subscriptionAccessBannerHtml(options = {}) {
   const status = accountProductStatus(account);
   if (!status.banner) return "";
   const variant = options.variant || "dashboard";
-  if (status.banner === "payment_failed") {
+  if (status.banner === "billing_review_required") {
     return `
-      <section class="llh-access-banner llh-access-banner--payment-failed" data-access-banner="payment-failed" data-banner-variant="${escapeHtml(variant)}" role="status">
+      <section class="llh-access-banner llh-access-banner--payment-failed" data-access-banner="billing-review-required" data-banner-variant="${escapeHtml(variant)}" role="status">
         <div class="llh-access-banner-copy">
-          <p class="llh-access-banner-title">⚠️ Your recent payment could not be processed.</p>
-          <p>Your Pro access will expire if payment is not updated.</p>
+          <p class="llh-access-banner-title">⚠️ Stripe reports an unresolved billing issue on this subscription.</p>
+          <p>Update your payment method to keep Pro access.</p>
           <p class="llh-access-banner-status">${accountStatusBadgeHtml(account)}</p>
         </div>
         <div class="llh-access-banner-actions">
@@ -3983,7 +3957,7 @@ function isStripeStatusActive(subscription) {
   if (!subscription) return false;
   if (accountHasRemainingPaidAccess(subscription)) return true;
   const status = String(subscription?.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed")) return false;
+  if (status.includes("billing review required") || status.includes("payment failed")) return false;
   if (status.includes("free plan")) return false;
   if (status.includes("ended") && !status.includes("access ends")) return false;
   const stripeStatus = String(subscription.stripeSubscriptionStatus || "").toLowerCase();
@@ -35774,7 +35748,7 @@ function adminDrilldownStatusBucket(account) {
   if (status === "Trial Canceled") return "Canceled";
   if (status === "Trial Ended" || status === "Subscription Ended") return "Ended";
   if (status === "Cancels at Period End" || status === "Cancels at Trial End") return "Canceling";
-  if (status === "Payment Failed" || status === "Past Due") return "Past Due";
+  if (status === BILLING_REVIEW_REQUIRED_LABEL || status === "Payment Failed" || status === "Past Due") return "Past Due";
   if (status === "Trial Active" || adminMembershipInTrial(account)) return "Trial";
   if (status === "Active" || status === "Manual Access") return "Active";
   if (status === "No paid subscription") return "Never Subscribed";
@@ -35848,7 +35822,7 @@ function adminOwnerMetricMatches(account, metricKey) {
     case "billing-canceled":
       return ["canceled", "ended"].includes(adminBillingStatusKey(account));
     case "billing-past-due":
-      return status === "Payment Failed" || status === "Past Due";
+      return status === BILLING_REVIEW_REQUIRED_LABEL || status === "Payment Failed" || status === "Past Due";
     case "active-today":
       return adminIsSameUtcDay(lastActiveAt);
     case "active-week":
@@ -37048,7 +37022,7 @@ function renderAdminOwnerOverview() {
         ${adminMetric("Founding Access", totals.foundingMembers ?? "—", "", "billing-founding")}
         ${adminMetric("Canceling", totals.cancelingSubscriptions ?? "—", "", "billing-canceling")}
         ${adminMetric("Canceled / Ended", totals.canceledSubscriptions ?? "—", "", "billing-canceled")}
-        ${adminMetric("Past Due / Failed", totals.pastDueUsers ?? totals.failedPayments ?? "—", "", "billing-past-due")}
+        ${adminMetric("Billing Review Required", totals.pastDueUsers ?? totals.failedPayments ?? "—", "", "billing-past-due")}
         ${adminMetric("Open Support", totals.openSupportTickets ?? openTickets.length, "Opens Support tab", "open-support")}
       </div>
     </details>
@@ -40087,23 +40061,37 @@ function renderAdminVisibilityDashboard() {
 
 // ─── Admin Users & Memberships Dashboard ─────────────────────────────────────
 
-// Mirrors scripts/membership-access.js membershipPaymentFailureIsStale(). Display-only:
-// once Stripe has clearly stopped retrying and enough time has passed, an old payment
-// failure is flagged for human review — this NEVER changes access, and NEVER asserts
-// "Subscription Ended"/"canceled" from elapsed time alone. Only a verified Stripe event
-// or an explicit admin-authorized reconciliation may ever write that conclusion to a
-// user record. A missing lastFailedPaymentAt timestamp is never treated as stale.
+// Mirrors scripts/membership-access.js. Display-only: once Stripe has clearly stopped
+// retrying and enough time has passed, an old billing issue is flagged for human review —
+// this NEVER changes access, and NEVER asserts "Subscription Ended"/"canceled" from
+// elapsed time alone. Only a verified Stripe event (customer.subscription.deleted, or a
+// live status of literally "canceled") or an explicit admin-authorized reconciliation may
+// ever write that conclusion to a user record. A missing lastFailedPaymentAt timestamp is
+// never treated as stale.
+//
+// Confirmed Stripe status mapping: "unpaid" and "past_due" are NEVER canceled/ended —
+// both remove paid access but always display as the single, neutral "Billing Review
+// Required" label (never "Payment Failed", never "Past Due", never "Ended"/"Canceled").
 const PAYMENT_FAILURE_STALE_DAYS = 21;
-const PAYMENT_FAILURE_NEEDS_REVIEW_LABEL = "Historical payment failure — Stripe status needs review";
+const BILLING_REVIEW_REQUIRED_LABEL = "Billing Review Required";
+const PAYMENT_FAILURE_NEEDS_REVIEW_LABEL = BILLING_REVIEW_REQUIRED_LABEL;
 
-function paymentFailureIsStale(account, nowMs = Date.now()) {
+// The ONLY place that decides "is this account in the billing-review family" — every
+// other function (label, buckets, access checks) is built on top of this so they can
+// never drift apart. Mirrors scripts/membership-access.js membershipIsBillingReviewRequired().
+function isBillingReviewRequired(account) {
   const stripeStatus = String(account?.stripeSubscriptionStatus || "").toLowerCase();
   const subStatus = String(account?.subscriptionStatus || "").toLowerCase();
-  const isFailedSignal = subStatus.includes("payment failed")
-    || stripeStatus === "unpaid"
+  if (subStatus.includes("ended")) return false; // A verified conclusion always wins.
+  return subStatus.includes("billing review required")
+    || subStatus.includes("payment failed")
     || subStatus.includes("past due")
+    || stripeStatus === "unpaid"
     || stripeStatus === "past_due";
-  if (!isFailedSignal) return false;
+}
+
+function paymentFailureIsStale(account, nowMs = Date.now()) {
+  if (!isBillingReviewRequired(account)) return false;
 
   const lastFailedMs = Date.parse(account?.lastFailedPaymentAt || "");
   if (!Number.isFinite(lastFailedMs)) return false;
@@ -40136,7 +40124,7 @@ function adminMembershipHasProAccess(account) {
   if (account.internalAccessOverride) return true;
   const stripeStatus = String(account.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(account.subscriptionStatus || "").toLowerCase();
-  if (status.includes("payment failed")) return false;
+  if (status.includes("billing review required") || status.includes("payment failed")) return false;
   if (status.includes("past due") || stripeStatus === "past_due" || stripeStatus === "unpaid") return false;
   const endMs = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd;
   const periodStillValid = Boolean(endMs && new Date(endMs).getTime() > Date.now());
@@ -40218,17 +40206,12 @@ function adminPreviousPlanLabel(account) {
 
 function adminMembershipStatusLabel(account) {
   if (account?.membershipStatus) return account.membershipStatus;
+  // unpaid/past_due — fresh or historical — always display the same neutral "Billing
+  // Review Required" label. Never "Payment Failed"/"Past Due"/"Ended"/"Canceled". A
+  // verified Stripe event always takes priority (isBillingReviewRequired excludes "ended").
+  if (isBillingReviewRequired(account)) return BILLING_REVIEW_REQUIRED_LABEL;
   const stripeStatus = String(account?.stripeSubscriptionStatus || "").toLowerCase();
   const status = String(account?.subscriptionStatus || "").toLowerCase();
-  // A verified Stripe event already concluded "ended" — don't let a leftover raw
-  // stripeSubscriptionStatus echo ("unpaid"/"past_due") resurrect a Payment Failed alert.
-  const alreadyConcluded = status.includes("ended");
-  if (!alreadyConcluded) {
-    // Stale is flagged for review, never promoted to "Ended"/"Canceled" from elapsed time alone.
-    if (paymentFailureIsStale(account)) return PAYMENT_FAILURE_NEEDS_REVIEW_LABEL;
-    if (status.includes("payment failed") || stripeStatus === "unpaid") return "Payment Failed";
-    if (status.includes("past due") || stripeStatus === "past_due") return "Past Due";
-  }
   const hasAccess = adminMembershipHasProAccess(account);
   const cancelScheduled = Boolean(account?.cancelAtPeriodEnd) || status.includes("access ends");
   const trialEndMs = account?.trialEnd || account?.accessEndsAt;
@@ -40253,8 +40236,7 @@ function adminMembershipStatusLabel(account) {
 
 function adminCurrentAccessKey(account) {
   if (account?.currentAccess) return account.currentAccess;
-  const status = adminMembershipStatusLabel(account);
-  if (status === "Past Due" || status === "Payment Failed") return "past_due";
+  if (isBillingReviewRequired(account)) return "past_due";
   const plan = adminMembershipPlanLabel(account);
   if (plan === "Trial") return "trial";
   if (plan === "Founding Member") return "founding";
@@ -40264,13 +40246,16 @@ function adminCurrentAccessKey(account) {
 
 function adminBillingStatusKey(account) {
   if (account?.billingStatus) return account.billingStatus;
+  // The displayed label is identical ("Billing Review Required") whether fresh or stale;
+  // the admin triage bucket still distinguishes them by the underlying signal, not text.
+  if (isBillingReviewRequired(account)) {
+    return paymentFailureIsStale(account) ? "needs_billing_review" : "payment_failed";
+  }
   const status = adminMembershipStatusLabel(account);
-  if (status === PAYMENT_FAILURE_NEEDS_REVIEW_LABEL) return "needs_billing_review";
   if (status === "No paid subscription") return "never_subscribed";
   if (status === "Cancels at Trial End" || status === "Cancels at Period End") return "canceling";
   if (status === "Trial Canceled") return "canceled";
   if (status === "Trial Ended" || status === "Subscription Ended") return "ended";
-  if (status === "Past Due" || status === "Payment Failed") return "payment_failed";
   return "active";
 }
 
@@ -40286,8 +40271,12 @@ function adminMembershipDisplayPrice(account) {
 
 function adminUserPlanBadge(account) {
   const status = typeof accountProductStatus === "function" ? accountProductStatus(account) : null;
-  if (status?.key === "needs_billing_review") return `<span class="aup-badge aup-badge--review" title="${escapeHtml(status.detail || "")}">🟤 Needs Billing Review</span>`;
-  if (status?.key === "payment_failed" || status?.key === "past_due") return `<span class="aup-badge aup-badge--canceled">🟠 Payment Failed</span>`;
+  // "payment_failed"/"past_due" and "needs_billing_review" are the same displayed label
+  // ("Billing Review Required") whether fresh or historical — never "Payment Failed",
+  // never "Ended"/"Canceled". Only the internal bucket key differs, for admin triage.
+  if (status?.key === "needs_billing_review" || status?.key === "payment_failed" || status?.key === "past_due") {
+    return `<span class="aup-badge aup-badge--review" title="${escapeHtml(status.detail || "")}">🟤 Billing Review Required</span>`;
+  }
   if (status?.key === "inactive") return `<span class="aup-badge aup-badge--canceled">🔴 Subscription Inactive</span>`;
   if (status?.key === "active_founding") return `<span class="aup-badge aup-badge--founding">⭐ Founding</span>`;
   if (status?.key === "active_pro") {
@@ -40417,8 +40406,10 @@ function renderAdminUsersDashboard() {
   const trial = allAccounts.filter((a) => auditKey(a) === "trial");
   const pro = allAccounts.filter((a) => auditKey(a) === "active");
   const founding = allAccounts.filter((a) => auditKey(a) === "founding");
-  const pastDue = allAccounts.filter((a) => auditKey(a) === "past_due");
-  const paymentFailedAudit = allAccounts.filter((a) => auditKey(a) === "payment_failed");
+  // "past_due" and "payment_failed" auditKeys both now mean the same displayed label
+  // ("Billing Review Required" — unpaid/past_due are never canceled/ended); merge them
+  // into one bucket for the audit strip so counts stay mutually exclusive and accurate.
+  const paymentFailedAudit = allAccounts.filter((a) => auditKey(a) === "payment_failed" || auditKey(a) === "past_due");
   const needsBillingReviewAudit = allAccounts.filter((a) => auditKey(a) === "needs_billing_review");
   const canceledAudit = allAccounts.filter((a) => auditKey(a) === "canceled");
   const serverAudit = adminAnalyticsCache?.totals?.subscriptionAccessAudit || null;
@@ -40473,8 +40464,7 @@ function renderAdminUsersDashboard() {
         <div class="aup-insight-card aup-insight--pro"><strong>${Number(serverAudit?.active ?? pro.length)}</strong><span>Active</span></div>
         <div class="aup-insight-card aup-insight--founding"><strong>${Number(serverAudit?.founding ?? founding.length)}</strong><span>Founding Member</span></div>
         <div class="aup-insight-card aup-insight--trial"><strong>${Number(serverAudit?.trial ?? trial.length)}</strong><span>Trial</span></div>
-        <div class="aup-insight-card aup-insight--canceled"><strong>${Number(serverAudit?.past_due ?? pastDue.length)}</strong><span>Past Due</span></div>
-        <div class="aup-insight-card aup-insight--canceled"><strong>${Number(serverAudit?.payment_failed ?? paymentFailedAudit.length)}</strong><span>Payment Failed</span></div>
+        <div class="aup-insight-card aup-insight--canceled"><strong>${Number((serverAudit?.past_due ?? 0) + (serverAudit?.payment_failed ?? paymentFailedAudit.length))}</strong><span>Billing Review Required</span></div>
         <div class="aup-insight-card aup-insight--review"><strong>${Number(serverAudit?.needs_billing_review ?? needsBillingReviewAudit.length)}</strong><span>Needs Billing Review</span></div>
         <div class="aup-insight-card aup-insight--canceled"><strong>${Number(serverAudit?.canceled ?? canceledAudit.length)}</strong><span>Canceled</span></div>
         <div class="aup-insight-card aup-insight--free"><strong>${Number(serverAudit?.free ?? free.length)}</strong><span>Free</span></div>
@@ -40499,8 +40489,8 @@ function renderAdminUsersDashboard() {
         <span>Founding</span>
       </div>
       <div class="aup-insight-card aup-insight--canceled">
-        <strong>${Number(pastDue.length + paymentFailedAudit.length)}</strong>
-        <span>Past Due / Failed</span>
+        <strong>${Number(paymentFailedAudit.length)}</strong>
+        <span>Billing Review Required</span>
       </div>
       <div class="aup-insight-card aup-insight--canceled">
         <strong>${Number(canceledAudit.length)}</strong>
@@ -40519,8 +40509,7 @@ function renderAdminUsersDashboard() {
       <button class="admin-sub-tab"        id="adminUserTabTrial"    type="button">Trial (${Number(trial.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabPro"      type="button">Pro (${Number(pro.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabFounding" type="button">Founding (${Number(founding.length)})</button>
-      <button class="admin-sub-tab"        id="adminUserTabPastDue"  type="button">Past Due (${Number(pastDue.length)})</button>
-      <button class="admin-sub-tab"        id="adminUserTabPayFail"  type="button">Payment Failed (${Number(paymentFailedAudit.length)})</button>
+      <button class="admin-sub-tab"        id="adminUserTabPayFail"  type="button">Billing Review Required (${Number(paymentFailedAudit.length)})</button>
       <button class="admin-sub-tab"        id="adminUserTabCanceledAccess" type="button">Canceled (${Number(canceledAudit.length)})</button>
     </div>
     <div class="admin-vis-tabs aup-filter-tabs" id="adminUserBillingFilterTabs">
@@ -40529,8 +40518,8 @@ function renderAdminUsersDashboard() {
       <button class="admin-sub-tab" id="adminUserTabCanceling" type="button">Cancels at End (${Number(canceling.length)})</button>
       <button class="admin-sub-tab" id="adminUserTabCanceled" type="button">Trial Canceled (${Number(canceled.length)})</button>
       <button class="admin-sub-tab" id="adminUserTabEnded" type="button">Ended (${Number(ended.length)})</button>
-      <button class="admin-sub-tab" id="adminUserTabPaymentFailed" type="button">Payment Failed (${Number(paymentFailed.length)})</button>
-      <button class="admin-sub-tab" id="adminUserTabNeedsBillingReview" type="button" title="Old failed/unpaid signal, no scheduled retry, not confirmed ended — verify in Stripe">🟤 Needs Billing Review (${Number(needsBillingReview.length)})</button>
+      <button class="admin-sub-tab" id="adminUserTabPaymentFailed" type="button">Billing Review Required (${Number(paymentFailed.length)})</button>
+      <button class="admin-sub-tab" id="adminUserTabNeedsBillingReview" type="button" title="Old unpaid/past_due signal, no scheduled retry, not confirmed ended — verify in Stripe">🟤 Needs Billing Review (${Number(needsBillingReview.length)})</button>
       <button class="admin-sub-tab" id="adminUserTabNeverSubscribed" type="button">Never Subscribed (${Number(neverSubscribed.length)})</button>
     </div>
     <div id="adminUsersList" class="admin-user-list aup-list">
@@ -40552,7 +40541,6 @@ function renderAdminUsersDashboard() {
     { id: "adminUserTabPaymentFailed", items: paymentFailed },
     { id: "adminUserTabNeedsBillingReview", items: needsBillingReview },
     { id: "adminUserTabNeverSubscribed", items: neverSubscribed },
-    { id: "adminUserTabPastDue",  items: pastDue },
     { id: "adminUserTabPayFail", items: paymentFailedAudit },
     { id: "adminUserTabCanceledAccess", items: canceledAudit },
   ];
@@ -47310,7 +47298,7 @@ function updatePlanLabel() {
   if (summary) {
     if (isAdminPreviewSimulating()) {
       summary.textContent = `Admin preview: viewing the platform as ${planLabel} (${priceLabel}). Permissions, locks, and upgrade prompts match that account.`;
-    } else if (productStatus.banner === "payment_failed") {
+    } else if (productStatus.banner === "billing_review_required") {
       summary.textContent = `${productStatus.label}: update your payment method to restore Pro access. Your saved data is safe.`;
     } else if (productStatus.banner === "access_lost") {
       summary.textContent = `${productStatus.label}: you are on the Free Plan. Reactivate anytime — nothing was deleted.`;
