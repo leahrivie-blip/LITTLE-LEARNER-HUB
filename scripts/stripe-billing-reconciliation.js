@@ -16,7 +16,25 @@
  */
 "use strict";
 
+const crypto = require("node:crypto");
 const membership = require("./membership-access.js");
+
+/**
+ * Short, stable fingerprint of the billing-relevant fields a reconciliation preview was
+ * generated from. Used by the apply endpoint to detect "the record changed since the
+ * preview was generated" and refuse to apply against a stale snapshot. Pure/no I/O so it
+ * can be computed identically by both the server and tests.
+ */
+function billingReconciliationFingerprint(user) {
+  return crypto.createHash("sha256").update(JSON.stringify({
+    plan: user?.plan || "",
+    subscriptionStatus: user?.subscriptionStatus || "",
+    stripeSubscriptionStatus: user?.stripeSubscriptionStatus || "",
+    stripeSubscriptionId: user?.stripeSubscriptionId || "",
+    stripeCustomerId: user?.stripeCustomerId || "",
+    updatedAt: user?.updatedAt || "",
+  })).digest("hex");
+}
 
 // Only these fields are ever proposed/applied by reconciliation — the exact same
 // membership fields the trusted live-webhook mapping function produces. This function
@@ -210,6 +228,7 @@ function isAlreadyReconciled(comparison) {
 
 module.exports = {
   RECONCILIATION_FIELD_ALLOWLIST,
+  billingReconciliationFingerprint,
   stripeSubscriptionToSnapshot,
   stripeInvoiceToSnapshot,
   isCriticalPaidButFree,
