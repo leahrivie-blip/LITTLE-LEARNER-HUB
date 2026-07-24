@@ -25,16 +25,15 @@ const NOW = Date.parse("2026-07-23T00:00:00.000Z");
 const days = (n) => n * 24 * 60 * 60 * 1000;
 const iso = (ms) => new Date(ms).toISOString();
 
-console.log("--- Stored 'needs billing review' vs. an unpaid Stripe subscription that is STILL unpaid ---");
+console.log("--- Stored legacy 'Payment Failed' text vs. an unpaid Stripe subscription that is STILL unpaid ---");
 {
   // The raw stripeSubscriptionStatus already agrees ("unpaid" both sides), but the stored
-  // subscriptionStatus text ("Payment Failed — Access Locked", set directly by
-  // invoice.payment_failed) has never converged to the "Subscription Ended" conclusion a
-  // fresh re-derivation from this same still-unpaid subscription would produce. That
-  // convergence is exactly what an explicit, admin-confirmed reconciliation is for — it is
-  // NOT an automatic time-based inference (Stripe's own current live status directly
-  // justifies it), so proposing it here is correct, not a violation of "never infer ended
-  // from elapsed time alone".
+  // subscriptionStatus text is the OLD pre-fix wording ("Payment Failed — Access Locked")
+  // rather than the current canonical "Billing Review Required — Access Locked". A fresh
+  // re-derivation converges the wording — but per the confirmed mapping, unpaid is NEVER
+  // ended/canceled, so the converged conclusion must stay a billing-review label, never
+  // "Subscription Ended". This convergence is a safe, explicit, admin-confirmed wording
+  // fix, not a time-based inference.
   const user = {
     email: "still-unpaid@example.com",
     subscriptionStatus: "Payment Failed — Access Locked",
@@ -48,8 +47,8 @@ console.log("--- Stored 'needs billing review' vs. an unpaid Stripe subscription
   assertEqual(result.readOnly, true, "result self-reports read-only");
   assertEqual(result.discrepancies.length, 0, "the raw stripeSubscriptionStatus field itself already agrees (both 'unpaid')");
   assertEqual(result.matches, false, "but the account is not FULLY reconciled — the subscriptionStatus text has not converged yet");
-  assertEqual(result.proposedUpdates.fields.includes("subscriptionStatus"), true, "reconciliation proposes converging subscriptionStatus to match a fresh re-derivation");
-  assertEqual(result.proposedUpdates.after.subscriptionStatus, "Subscription Ended", "Stripe is still unpaid, so the converged conclusion is Subscription Ended, not a resurrected Payment Failed alert");
+  assertEqual(result.proposedUpdates.fields.includes("subscriptionStatus"), true, "reconciliation proposes converging subscriptionStatus wording to the current canonical text");
+  assertEqual(result.proposedUpdates.after.subscriptionStatus, "Billing Review Required — Access Locked", "Stripe is still unpaid — the converged conclusion is Billing Review Required, NEVER Subscription Ended/Canceled");
   assertEqual(result.criticalPaidButFree, false, "still-unpaid is never flagged critical — Stripe has not reported this account as paid");
   assertEqual(result.stored.needsBillingReview, true, "stored snapshot still flags needsBillingReview (unaffected by the proposed convergence)");
 }

@@ -142,13 +142,13 @@ const ambiguousUnpaidUser = {
 
 console.log("--- 1) Fresh failure (open unpaid invoice, retry pending) ---");
 assertEqual(membership.membershipPaymentFailureIsStale(freshFailedUser, NOW), false, "fresh failure is not stale");
-assertEqual(membership.membershipStatusDisplay(freshFailedUser, NOW), "Payment Failed", "fresh failure still shows Payment Failed");
+assertEqual(membership.membershipStatusDisplay(freshFailedUser, NOW), NEEDS_REVIEW, "fresh failure shows the neutral Billing Review Required label (never Payment Failed)");
 assertEqual(membership.membershipHasProAccess(freshFailedUser, NOW), false, "fresh failure has no Pro access");
 assertEqual(membership.membershipBillingStatusKey(freshFailedUser, NOW), "payment_failed", "fresh failure billing key is payment_failed");
 
 console.log("\n--- 2) Open unpaid invoice mid-retry-window ---");
 assertEqual(membership.membershipPaymentFailureIsStale(openUnpaidInvoiceUser, NOW), false, "open unpaid invoice (retry tomorrow) is not stale");
-assertEqual(membership.membershipStatusDisplay(openUnpaidInvoiceUser, NOW), "Payment Failed", "open unpaid invoice still shows Payment Failed");
+assertEqual(membership.membershipStatusDisplay(openUnpaidInvoiceUser, NOW), NEEDS_REVIEW, "open unpaid invoice shows the neutral Billing Review Required label (never Payment Failed)");
 assertEqual(membership.membershipHasProAccess(openUnpaidInvoiceUser, NOW), false, "open unpaid invoice has no Pro access");
 
 console.log("\n--- 3) Historical/stale failure — must NEVER become Subscription Ended ---");
@@ -157,7 +157,7 @@ assertEqual(membership.membershipStatusDisplay(staleFailedUser, NOW), NEEDS_REVI
 assertEqual(membership.membershipStatusDisplay(staleFailedUser, NOW) !== "Subscription Ended", true, "stale failure is NEVER labeled Subscription Ended");
 assertEqual(membership.membershipBillingStatusKey(staleFailedUser, NOW), "needs_billing_review", "stale failure billing key is needs_billing_review (not ended/canceled)");
 assertEqual(membership.membershipHasProAccess(staleFailedUser, NOW), false, "stale failure STILL has no Pro access (this never grants access)");
-assertEqual(membership.membershipCurrentAccessKey(staleFailedUser, NOW), "free", "stale failure current-access key is plainly free");
+assertEqual(membership.membershipCurrentAccessKey(staleFailedUser, NOW), "past_due", "stale failure current-access key is still past_due (unpaid/past_due always bucket there, fresh or historical)");
 
 const staleProductStatus = membership.membershipProductStatus(staleFailedUser, NOW);
 assertEqual(staleProductStatus.key, "needs_billing_review", "stale failure product-status key is needs_billing_review");
@@ -166,7 +166,7 @@ assertEqual(staleProductStatus.hasProAccess, false, "stale failure product-statu
 assertEqual(staleProductStatus.banner, null, "stale failure shows no user-facing 'update payment' banner (unverified, so no forced action)");
 
 const staleSnapshot = membership.membershipBillingReviewSnapshot(staleFailedUser, NOW);
-assertEqual(staleSnapshot.currentAccess, "free", "snapshot keeps current access as its own separate field (Free)");
+assertEqual(staleSnapshot.currentAccess, "past_due", "snapshot keeps current access as its own separate field (still past_due — a billing issue, not simply Free)");
 assertEqual(staleSnapshot.stripeSubscriptionStatus, "unpaid", "snapshot keeps raw Stripe status as its own separate field");
 assertEqual(staleSnapshot.lastFailedPaymentAt, staleFailedUser.lastFailedPaymentAt, "snapshot keeps last failure date as its own separate field");
 assertEqual(staleSnapshot.nextPaymentRetryAt, "", "snapshot keeps next retry date as its own separate field (none scheduled)");
@@ -185,7 +185,7 @@ assertEqual(membership.membershipHasProAccess(recoveredUser, NOW), true, "recove
 
 console.log("\n--- 6) Missing lastFailedPaymentAt (ambiguous) — never treated as stale ---");
 assertEqual(membership.membershipPaymentFailureIsStale(ambiguousUnpaidUser, NOW), false, "missing lastFailedPaymentAt is never treated as stale");
-assertEqual(membership.membershipStatusDisplay(ambiguousUnpaidUser, NOW), "Payment Failed", "ambiguous unpaid (no timestamp) still shows Payment Failed");
+assertEqual(membership.membershipStatusDisplay(ambiguousUnpaidUser, NOW), NEEDS_REVIEW, "ambiguous unpaid (no timestamp) still shows Billing Review Required (never Ended)");
 assertEqual(membership.membershipHasProAccess(ambiguousUnpaidUser, NOW), false, "ambiguous unpaid has no Pro access");
 
 console.log("\n--- Admin audit buckets stay mutually exclusive and account for the new bucket ---");
@@ -225,13 +225,12 @@ assertEqual(staleRow.membershipStatusDisplay, NEEDS_REVIEW, "audit row for the s
 const canceledRow = report.users.find((u) => u.email === "really-canceled@example.com");
 assertEqual(canceledRow.membershipStatusDisplay, "Subscription Ended", "audit row for the real cancellation still shows Subscription Ended");
 
-console.log("\n--- 9) Verified 'ended' conclusion must survive a leftover raw unpaid/past_due echo ---");
+console.log("\n--- 9) CONFIRMED MAPPING: unpaid/past_due can never produce Subscription Ended ---");
 {
   // Exactly what a REAL customer.subscription.updated webhook produces for a
   // previously-active Pro subscription that Stripe has now marked "unpaid" (dunning
-  // exhausted, not configured to auto-cancel). No lastFailedPaymentAt is set by this path
-  // — only invoice.payment_failed sets that field — so this is NOT the staleness scenario;
-  // it can happen immediately, with zero elapsed time.
+  // exhausted, not configured to auto-cancel). This must NEVER conclude "Subscription
+  // Ended" — only eventType:"deleted" or a live status of literally "canceled" may.
   const priorPaidUser = {
     email: "was-paid-now-unpaid@example.com",
     plan: "Pro",
@@ -253,17 +252,36 @@ console.log("\n--- 9) Verified 'ended' conclusion must survive a leftover raw un
   );
   const afterVerifiedWebhook = { ...priorPaidUser, ...webhookUpdates };
 
-  assertEqual(afterVerifiedWebhook.subscriptionStatus, "Subscription Ended", "the webhook mapping itself already concludes Subscription Ended");
-  assertEqual(afterVerifiedWebhook.stripeSubscriptionStatus, "unpaid", "the raw stripeSubscriptionStatus echo is still 'unpaid' from that same event");
+  assertEqual(afterVerifiedWebhook.subscriptionStatus, "Billing Review Required — Access Locked", "the webhook mapping itself never concludes Subscription Ended for unpaid — even though the period has elapsed");
+  assertEqual(afterVerifiedWebhook.stripeSubscriptionStatus, "unpaid", "the raw stripeSubscriptionStatus is recorded as unpaid");
   assertEqual(afterVerifiedWebhook.plan, "Free", "plan is correctly downgraded to Free by the same verified event");
-  assertEqual(membership.membershipHasProAccess(afterVerifiedWebhook, NOW), false, "access is correctly denied (this was already true before any fix)");
+  assertEqual(membership.membershipHasProAccess(afterVerifiedWebhook, NOW), false, "access is correctly denied");
 
-  assertEqual(membership.membershipStatusDisplay(afterVerifiedWebhook, NOW), "Subscription Ended", "display must NOT resurrect Payment Failed from the leftover raw 'unpaid' echo");
-  assertEqual(membership.membershipBillingStatusKey(afterVerifiedWebhook, NOW), "ended", "billing bucket is ended, not payment_failed");
-  assertEqual(membership.membershipProductStatus(afterVerifiedWebhook, NOW).key, "inactive", "product status key is inactive (Subscription Inactive), not payment_failed");
+  assertEqual(membership.membershipStatusDisplay(afterVerifiedWebhook, NOW), NEEDS_REVIEW, "display shows Billing Review Required, never Subscription Ended/Payment Failed");
+  assertEqual(membership.membershipBillingStatusKey(afterVerifiedWebhook, NOW), "payment_failed", "billing bucket is payment_failed (fresh billing-review), never ended");
+  assertEqual(membership.membershipProductStatus(afterVerifiedWebhook, NOW).key, "payment_failed", "product status key is payment_failed, never inactive/ended");
+
+  // Only a real deletion event may conclude "ended", even for the exact same underlying
+  // unpaid status.
+  const deletedUpdates = membership.stripeSubscriptionToMembershipUpdates(
+    { id: "sub_realpaid", customer: "cus_realpaid", status: "unpaid" },
+    priorPaidUser,
+    "deleted",
+  );
+  assertEqual(deletedUpdates.subscriptionStatus, "Subscription Ended", "a verified customer.subscription.deleted event still legitimately concludes Subscription Ended");
+
+  // A live status of literally "canceled" also legitimately concludes "ended" — this is
+  // the ONLY other path that may, per the confirmed mapping.
+  const canceledUpdates = membership.stripeSubscriptionToMembershipUpdates(
+    { id: "sub_realpaid", customer: "cus_realpaid", status: "canceled" },
+    priorPaidUser,
+    "updated",
+  );
+  assertEqual(canceledUpdates.subscriptionStatus, "Subscription Ended", "a live status of 'canceled' legitimately concludes Subscription Ended");
 
   // Same pattern via a failed trial conversion (endedDuringTrial branch) instead of a
-  // previously-paid subscription — must resolve to "Trial Ended", not Payment Failed.
+  // previously-paid subscription — must resolve to Billing Review Required, never Trial
+  // Ended, for an unpaid status.
   const trialUser = {
     email: "trial-failed-now-unpaid@example.com",
     plan: "Free",
@@ -278,20 +296,36 @@ console.log("\n--- 9) Verified 'ended' conclusion must survive a leftover raw un
     "updated",
   );
   const afterTrialWebhook = { ...trialUser, ...trialWebhookUpdates };
-  assertEqual(afterTrialWebhook.subscriptionStatus, "Trial Ended", "a failed trial conversion concludes Trial Ended");
-  assertEqual(membership.membershipStatusDisplay(afterTrialWebhook, NOW), "Trial Ended", "display must NOT resurrect Payment Failed for a failed trial conversion either");
+  assertEqual(afterTrialWebhook.subscriptionStatus, "Billing Review Required — Access Locked", "a failed trial conversion via unpaid status never concludes Trial Ended");
+  assertEqual(membership.membershipStatusDisplay(afterTrialWebhook, NOW), NEEDS_REVIEW, "display shows Billing Review Required for the failed trial conversion too");
 
-  // The read-only audit script must flag this exact pattern distinctly.
-  const echoReport = auditMembershipUsers([afterVerifiedWebhook, afterTrialWebhook], { nowMs: NOW, source: "in-memory-test-fixture" });
+  // Legacy data audit: a record written before this mapping fix (or edited manually)
+  // could still carry an old "...Ended" text alongside a raw unpaid/past_due field. The
+  // read-only audit script must still flag that specific combination for manual cleanup —
+  // even though today's webhook processing can no longer produce it going forward.
+  const legacyAffectedRecord = {
+    email: "legacy-unpaid-ended@example.com",
+    plan: "Free",
+    subscriptionStatus: "Subscription Ended",
+    stripeSubscriptionStatus: "unpaid",
+    stripeSubscriptionId: "sub_legacy",
+    previousPlan: "Pro",
+  };
+  const echoReport = auditMembershipUsers([afterVerifiedWebhook, afterTrialWebhook, legacyAffectedRecord], { nowMs: NOW, source: "in-memory-test-fixture" });
   const echoMismatchCodes = {};
   for (const m of echoReport.mismatches) {
     echoMismatchCodes[m.email] = echoMismatchCodes[m.email] || [];
     echoMismatchCodes[m.email].push(m.code);
   }
   assertEqual(
-    (echoMismatchCodes["was-paid-now-unpaid@example.com"] || []).includes("unpaid_echo_survives_verified_ended_conclusion"),
+    (echoMismatchCodes["legacy-unpaid-ended@example.com"] || []).includes("unpaid_echo_survives_verified_ended_conclusion"),
     true,
-    "audit flags the previously-paid case with unpaid_echo_survives_verified_ended_conclusion",
+    "audit still flags pre-existing legacy records with this pattern, for manual cleanup via reconciliation",
+  );
+  assertEqual(
+    (echoMismatchCodes["was-paid-now-unpaid@example.com"] || []).includes("unpaid_echo_survives_verified_ended_conclusion"),
+    false,
+    "a freshly-processed unpaid webhook never produces this legacy pattern in the first place",
   );
   assertEqual(
     (echoMismatchCodes["was-paid-now-unpaid@example.com"] || []).includes("stale_payment_failed_label"),
