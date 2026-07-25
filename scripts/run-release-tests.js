@@ -34,13 +34,31 @@ const SUITES = [
   { id: "connected-walkthrough", label: "Connected children/guardians walkthrough", cmd: "npm", args: ["run", "test:home-daycare-connected-walkthrough"] },
   { id: "role-nav", label: "Role navigation (testing accounts)", cmd: "npm", args: ["run", "test:role-navigation-testing-accounts"] },
   { id: "fast-daily-logs", label: "Fast Daily Logs redesign", cmd: "npm", args: ["run", "test:fast-daily-logs"] },
+  { id: "fast-daily-logs-safety", label: "Fast Daily Logs safety (group/undo/meds/summary/print/photos)", cmd: "npm", args: ["run", "test:fast-daily-logs-safety"] },
+  { id: "fast-daily-logs-visual", label: "Fast Daily Logs phone/tablet/computer visual", cmd: "npm", args: ["run", "test:fast-daily-logs-visual"] },
+  { id: "fast-daily-logs-parent-share", label: "Fast Daily Logs Provider nav + Parent share bridge", cmd: "npm", args: ["run", "test:fast-daily-logs-parent-share"] },
   { id: "daily-care-sync", label: "Daily Care server-authoritative sync", cmd: "npm", args: ["run", "test:daily-care-server-authoritative-sync"] },
   { id: "daily-care-offline", label: "Daily Care offline retry / idempotency", cmd: "npm", args: ["run", "test:daily-care-offline-queue-corrections-sync"] },
   { id: "messaging", label: "Messages foundation", cmd: "npm", args: ["run", "test:messaging-lib"] },
   { id: "forms", label: "Forms Center (phase 4 smoke)", cmd: "npm", args: ["run", "test:forms-center-phase4"] },
   { id: "testing-feedback", label: "Testing Feedback", cmd: "npm", args: ["run", "test:testing-feedback"] },
   { id: "external-sandbox", label: "External tester sandbox / organization isolation", cmd: "npm", args: ["run", "test:external-tester-sandbox"] },
+  { id: "deployed-smoke-readiness", label: "Deployed smoke readiness (prod/cred/SHA refuse + cleanup)", cmd: "npm", args: ["run", "test:deployed-smoke-readiness"] },
 ];
+
+/** Opt-in: LLH_RELEASE_INJECT_FAIL=<suite-id> forces that suite to fail so owners can prove the gate exits non-zero. */
+if (process.env.LLH_RELEASE_INJECT_FAIL) {
+  const injectId = String(process.env.LLH_RELEASE_INJECT_FAIL).trim();
+  const idx = SUITES.findIndex((s) => s.id === injectId);
+  if (idx >= 0) {
+    SUITES[idx] = {
+      id: injectId,
+      label: `${SUITES[idx].label} (INJECTED FAILURE)`,
+      cmd: process.execPath,
+      args: ["-e", "console.error('INJECTED intentional failure for release-gate proof'); process.exit(1)"],
+    };
+  }
+}
 
 function runOne(suite) {
   return new Promise((resolve) => {

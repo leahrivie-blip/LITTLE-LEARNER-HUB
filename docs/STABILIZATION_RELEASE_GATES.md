@@ -65,12 +65,12 @@ export LLH_TESTING_SMOKE_URL=https://little-learner-hub-testing.onrender.com
 export LLH_TESTING_SMOKE_ADMIN_EMAIL='…'
 export LLH_TESTING_SMOKE_ADMIN_PASSWORD='…'
 export LLH_TESTING_SMOKE_ADMIN_CODE='…'
-# optional: pin expected deploy
+# optional until smoke readiness gate: pin expected deploy (now REQUIRED by the smoke script)
 export LLH_TESTING_SMOKE_EXPECTED_SHA='2e7f239…'
 npm run test:deployed-testing-smoke
 ```
 
-CI should set `LLH_TESTING_SMOKE_SKIP=1` unless those secrets are configured as GitHub Actions secrets for a scheduled job (not part of the PR gate by default — the PR gate stays local-fixture-only).
+CI should set `LLH_TESTING_SMOKE_SKIP=1` unless those secrets are configured as GitHub Actions secrets for a scheduled job (not part of the PR gate by default — the PR gate stays local-fixture-only). Use `npm run test:deployed-smoke-readiness` in CI to prove the refuse/cleanup/SHA gates without hitting a live host.
 
 ## Sentry safety design (summary)
 
@@ -89,18 +89,33 @@ CI should set `LLH_TESTING_SMOKE_SKIP=1` unless those secrets are configured as 
 | App boot timeout continuing with stale UI | Fixed in #339 (recoverable overlay) — covered by release gate |
 | Testing Lab → Calendar | Fixed in #339 — `test:testing-lab-routing-fix` |
 | Missing Add External Tester workflow | Fixed via Owner Testing Home — `test:owner-testing-home-acceptance` |
-| Daily Logs vs approved redesign | Code present since #334 merge; release gate runs `test:fast-daily-logs`; live mismatch = deploy/cache |
+| Daily Logs vs approved redesign | Landed in this PR gate: `test:fast-daily-logs`, `test:fast-daily-logs-safety`, `test:fast-daily-logs-visual`, `test:fast-daily-logs-parent-share` (Provider nav → redesign → Parent Home bridge) |
 | Incorrect/stale role navigation | Covered by role-nav + home-daycare suites |
 | Hidden role UI before auth | Signed-out Admin uses `signed-out-admin-view` body class |
 | Signed-out `/admin` showing marketing homepage | Fixed in #339 — smoke asserts Admin unlock form + body class |
 
+## Deployed smoke readiness (verified without deploying)
+
+`npm run test:deployed-smoke-readiness` (also part of `test:release`) confirms the smoke script:
+
+- Refuses production hosts (non-zero)
+- Refuses missing Admin smoke credentials (non-zero)
+- **Requires** `LLH_TESTING_SMOKE_EXPECTED_SHA` (never accepts any random build)
+- Resets the disposable fake organization via `POST /api/external-tester/reset-fake-data`
+- Guards against Stripe / email / SMS / OpenAI network calls
+- Sets `process.exitCode = 1` on failure
+
+## GitHub Actions note
+
+If the **Release Tests** / **`npm run test:release`** check fails in ~3–4 seconds with empty job steps, check the annotation: an owner **GitHub billing lock** prevents runners from starting. That is not a test failure — unlock billing, then re-run the workflow.
+
 ## Exact owner setup steps
 
 1. Review draft PR targeting `testing/full-platform-integration-2026-07` only.
-2. Confirm CI job `npm run test:release` is green.
+2. Confirm CI job `npm run test:release` is green (requires unlocked GitHub Actions billing).
 3. Mark that check **required** on the testing branch (and later on `main`).
 4. After merge + testing deploy: set `SENTRY_DSN_TESTING` in Render (never paste here).
-5. Run `npm run test:deployed-testing-smoke` with smoke Admin secrets against the testing URL.
+5. Run `npm run test:deployed-testing-smoke` with smoke Admin secrets **and** `LLH_TESTING_SMOKE_EXPECTED_SHA` pinned to the deployed commit.
 6. Open Owner Testing Home → confirm Admin Health Center shows Working / Disabled for testing labels.
 7. Do **not** enable AI, Stripe live checkout, email/SMS, or Phase 24.
 8. Do **not** touch `main` / production until a separate approved production PR.

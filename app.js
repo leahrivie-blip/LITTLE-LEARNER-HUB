@@ -38031,6 +38031,34 @@ async function fastDlcBridgePhotoToPilotIfApplicable(childId, caption, dataUrl) 
 }
 
 /**
+ * Share-with-Parent bridge for Create Parent Summary: when a Home Daycare
+ * Pilot provider shares a summary, ALSO post it as a real /api/pilot/updates
+ * family update so Parent Home's "Today's update" shows the same text —
+ * never email/SMS/push, only the connected fake parent inbox.
+ */
+async function fastDlcBridgeParentSummaryToPilotIfApplicable(childId, summaryText) {
+  if (!summaryText || !isHomeDaycarePilotAccount() || !(pilotIsProviderNow() || pilotIsStaffNow())) return;
+  try {
+    await pilotApi("POST", "/api/pilot/updates", {
+      childId,
+      title: "Parent Summary",
+      message: String(summaryText).slice(0, 4000),
+    });
+  } catch { /* best-effort — local Communications record already saved */ }
+}
+
+/**
+ * Parent Communication (fast sheet) → /api/pilot/messages so the connected
+ * Parent Messages screen sees the same message the provider just typed.
+ */
+async function fastDlcBridgeParentMessageToPilotIfApplicable(childId, body) {
+  if (!body || !isHomeDaycarePilotAccount() || !(pilotIsProviderNow() || pilotIsStaffNow())) return;
+  try {
+    await pilotApi("POST", "/api/pilot/messages", { childId, body: String(body).slice(0, 4000) });
+  } catch { /* best-effort */ }
+}
+
+/**
  * Bridges the SERVER-SIDE connected children (added via the "Add External
  * Tester" wizard or the Families panel, stored in store.childRecords) into
  * this account's own LOCAL childStore("Profiles") — the store Daily Care
@@ -53127,7 +53155,21 @@ document.addEventListener("click", async (event) => {
       });
       return;
     }
-    fastDlcSheetView = actionId === "parent-message" ? "timeline" : "actions";
+    if (actionId === "parent-message") {
+      fastDlcSheetView = "timeline";
+      saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate(), note });
+      fastDlcSaveNoteDraft(childId, actionId, "");
+      const storeKey = "Communications";
+      const items = childStore(storeKey);
+      const last = items[items.length - 1];
+      if (last && last.childId === childId) {
+        fastDlcLastAction = { childId, storeKey, recordId: last.id, label: "Parent Message", timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now" };
+      }
+      await fastDlcBridgeParentMessageToPilotIfApplicable(childId, note);
+      if (typeof showToast === "function") showToast("Parent message sent to the connected Parent inbox.", "success");
+      return;
+    }
+    fastDlcSheetView = "actions";
     saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate(), note });
     fastDlcSaveNoteDraft(childId, actionId, "");
     const storeKey = noteStoreKeys[actionId];
@@ -53834,6 +53876,7 @@ document.addEventListener("click", async (event) => {
     const summaryText = summaryInput?.value?.trim() || "";
     if (!summaryText) return;
     const shareCheckbox = document.querySelector(`[data-dlc-summary-share="${childId}"]`);
+    const shareWithFamily = shareCheckbox ? shareCheckbox.checked : true;
     const today = dlcActiveDate();
     setDailyLogParentSummaryDraft(childId, today, summaryText);
     appendChildRecord("Communications", {
@@ -53843,8 +53886,14 @@ document.addEventListener("click", async (event) => {
       title: `Parent Summary | ${today}`,
       summary: summaryText.slice(0, 120),
       message: summaryText,
-      shareWithFamily: shareCheckbox ? shareCheckbox.checked : true,
+      shareWithFamily,
     });
+    if (shareWithFamily) {
+      await fastDlcBridgeParentSummaryToPilotIfApplicable(childId, summaryText);
+      if (typeof showToast === "function") showToast("Parent summary shared with the connected Parent inbox.", "success");
+    } else if (typeof showToast === "function") {
+      showToast("Parent summary saved privately.", "success");
+    }
     return;
   }
 
@@ -60215,6 +60264,33 @@ document.addEventListener("change", (event) => {
     };
     reader.readAsDataURL(file);
   });
+});
+
+// Fast Daily Logs photo mini-form: show a private, child-scoped preview
+// before Save — never uploads until the provider confirms.
+document.addEventListener("change", (event) => {
+  const fastInput = event.target.closest("[data-fast-dlc-photo-input]");
+  if (!fastInput) return;
+  const childId = fastInput.getAttribute("data-fast-dlc-photo-input") || "";
+  const preview = document.querySelector(`[data-fast-dlc-photo-preview]`);
+  // Prefer the preview sibling inside the same sheet body when multiple sheets exist.
+  const scopedPreview = fastInput.closest(".fdlc-sheet-body")?.querySelector("[data-fast-dlc-photo-preview]") || preview;
+  if (!scopedPreview) return;
+  scopedPreview.innerHTML = "";
+  const file = fastInput.files?.[0];
+  if (!file) {
+    scopedPreview.hidden = true;
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = document.createElement("img");
+    img.src = e.target.result;
+    img.alt = `Private photo preview for child ${childId}`;
+    scopedPreview.appendChild(img);
+    scopedPreview.hidden = false;
+  };
+  reader.readAsDataURL(file);
 });
 
 if (currentUser) {

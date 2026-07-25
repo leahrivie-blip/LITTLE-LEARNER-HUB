@@ -209,6 +209,7 @@
     "test:fast-daily-logs": "NODE_ENV=test node scripts/test-fast-daily-logs.js",
     "test:fast-daily-logs-safety": "NODE_ENV=test node scripts/test-fast-daily-logs-safety.js",
     "test:fast-daily-logs-visual": "NODE_ENV=test node scripts/test-fast-daily-logs-visual.js",
+    "test:fast-daily-logs-parent-share": "NODE_ENV=test node scripts/test-fast-daily-logs-parent-share.js",
     "test:role-navigation-testing-accounts": "NODE_ENV=test node scripts/test-role-navigation-testing-accounts.js",
     "test:daily-care-families-sync-bridge": "NODE_ENV=test node scripts/test-daily-care-families-sync-bridge.js",
     "test:home-daycare-connected-walkthrough": "NODE_ENV=test node scripts/test-home-daycare-connected-walkthrough.js",
@@ -219,6 +220,7 @@
     "test:owner-testing-home-acceptance": "NODE_ENV=test node scripts/test-owner-testing-home-acceptance.js",
     "test:release": "NODE_ENV=test node scripts/run-release-tests.js",
     "test:deployed-testing-smoke": "NODE_ENV=test node scripts/test-deployed-testing-smoke.js",
+    "test:deployed-smoke-readiness": "NODE_ENV=test node scripts/test-deployed-smoke-readiness.js",
     "test:testing-sentry-sanitize": "NODE_ENV=test node scripts/test-testing-sentry-sanitize.js",
     "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
