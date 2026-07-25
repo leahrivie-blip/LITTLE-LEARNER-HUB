@@ -659,6 +659,111 @@ async function mockPostgresIntegrationTests() {
 }
 
 // ============================================================================
+// C2) Migration test — production-shaped Postgres fixture with legacy sessions
+// ============================================================================
+
+async function mockPostgresMigrationTest() {
+  const port = nextPort();
+  const storePath = tempStorePath("mockpg-migration");
+  const seedStorePath = path.join(os.tmpdir(), `llh-admin-sess-seed-${crypto.randomBytes(4).toString("hex")}.json`);
+  const writeLogPath = path.join(os.tmpdir(), `llh-admin-sess-writelog-${crypto.randomBytes(4).toString("hex")}.jsonl`);
+
+  // Simulate a real production Postgres row from BEFORE this change shipped:
+  // a full-size store that still has legacy sessions embedded in data.adminSessions.
+  const fixture = buildProductionShapedFixture();
+  const legacyToken = `admin_${crypto.randomBytes(24).toString("hex")}`;
+  const legacyEmail = "already-logged-in-owner@example.com";
+  fixture.adminSessions = {
+    [legacyToken]: {
+      email: legacyEmail,
+      createdAt: "2026-07-20T00:00:00.000Z", // old enough that, under the pre-fix code, it never expired
+      lastValidatedAt: "2026-07-24T00:00:00.000Z",
+    },
+  };
+  fs.writeFileSync(seedStorePath, JSON.stringify(fixture));
+  fs.writeFileSync(writeLogPath, "");
+
+  const child = startServer({
+    port,
+    storePath,
+    mockPg: true,
+    extraEnv: { MOCK_PG_WRITE_LOG_PATH: writeLogPath, MOCK_PG_SEED_STORE_PATH: seedStorePath },
+  });
+  try {
+    await waitForBoot(child, port);
+
+    await test("[migration] an admin already logged in under the OLD system (legacy store.adminSessions, production-shaped Postgres fixture) stays logged in after this deploy", async () => {
+      const check = await requestJson(port, "GET", `/api/admin/session?adminToken=${encodeURIComponent(legacyToken)}`);
+      assert.equal(check.status, 200, "a pre-existing legacy admin session must survive the migration and remain valid");
+      assert.equal(check.json.email, legacyEmail);
+    });
+
+    await test("[migration] the legacy session was migrated into llh_admin_sessions with a small write", async () => {
+      const lines = fs.readFileSync(writeLogPath, "utf8").trim().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+      const sessionWrites = lines.filter((l) => l.table === "llh_admin_sessions" && l.op === "insert");
+      // Note: boot legitimately performs several OTHER unrelated llh_store writes on a
+      // fresh/incomplete fixture (curriculum startup seeders topping up missing packaged
+      // content, the one-shot temp-password recovery apply, etc.) — those are pre-existing
+      // boot behaviors unrelated to session migration, not something this change added, so
+      // this test does not assert zero llh_store writes during the *entire* boot sequence.
+      // What it does assert (and what actually matters for this change) is that the
+      // migration itself produced a session-table write, and that write is small — the
+      // same "single row, not the whole document" property already proven for login in
+      // section C. The migration CODE itself never calls any llh_store query at all (see
+      // server/admin-session-store.js migrateLegacySessions(), which only ever queries
+      // llh_admin_sessions) — that is verified directly by static assertion below.
+      assert.ok(sessionWrites.length >= 1, "the legacy session must have been inserted into llh_admin_sessions during migration");
+      assert.ok(sessionWrites[0].bytes < 2000, `migrated session insert should be small, got ${sessionWrites[0].bytes} bytes`);
+      const moduleSrc = fs.readFileSync(path.join(ROOT, "server/admin-session-store.js"), "utf8");
+      const migrateFnSrc = moduleSrc.slice(
+        moduleSrc.indexOf("async function migrateLegacySessions"),
+        moduleSrc.indexOf("async function create(email)"),
+      );
+      assert.doesNotMatch(migrateFnSrc, /llh_store/, "migrateLegacySessions() must never reference llh_store");
+    });
+
+    await test("[migration] curriculum/user counts from the production-shaped fixture are unaffected by the session migration", async () => {
+      const login = await adminLogin(port, child.__admin);
+      const health = await requestJson(port, "GET", `/api/admin/store-health?adminToken=${encodeURIComponent(login.json.token)}`);
+      assert.equal(health.json.health.counts.users, Object.keys(fixture.users).length);
+    });
+
+    await test("[migration] a second full boot cycle against the same production-shaped fixture still correctly migrates/validates the legacy session", async () => {
+      // Note: this mock's llh_admin_sessions table lives in that process's memory and
+      // does not itself persist across a simulated restart (a fresh child process gets
+      // a fresh mock), so this specifically exercises "the migration logic runs safely
+      // and correctly on a fresh boot against production-shaped data" rather than the
+      // real ON CONFLICT (token) DO NOTHING de-duplication SQL clause (which is not
+      // meaningfully mockable and is a single, low-risk, standard SQL clause). The
+      // de-duplication *logic* itself (never re-migrating a token already present) is
+      // covered directly by the local-file unit tests in section A, which do persist
+      // across fresh instances the same way a real restart would.
+      await stopServer(child);
+      fs.writeFileSync(writeLogPath, "");
+      const restarted = startServer({
+        port,
+        storePath,
+        mockPg: true,
+        extraEnv: { MOCK_PG_WRITE_LOG_PATH: writeLogPath, MOCK_PG_SEED_STORE_PATH: seedStorePath },
+      });
+      try {
+        await waitForBoot(restarted, port);
+        const check = await requestJson(port, "GET", `/api/admin/session?adminToken=${encodeURIComponent(legacyToken)}`);
+        assert.equal(check.status, 200, "the same legacy session must still validate correctly after a second boot/migration pass");
+        assert.equal(check.json.email, legacyEmail);
+      } finally {
+        await stopServer(restarted);
+      }
+    });
+  } finally {
+    await stopServer(child);
+    try { fs.unlinkSync(storePath); } catch { /* ignore */ }
+    try { fs.unlinkSync(seedStorePath); } catch { /* ignore */ }
+    try { fs.unlinkSync(writeLogPath); } catch { /* ignore */ }
+  }
+}
+
+// ============================================================================
 // D) Performance fixture — realistic multi-MB production-shaped store
 // ============================================================================
 
@@ -878,6 +983,8 @@ async function main() {
   await localJsonIntegrationTests();
   console.log("\nC) Integration tests (mock Postgres — proves table + byte scope)");
   await mockPostgresIntegrationTests();
+  console.log("\nC2) Migration test (production-shaped Postgres fixture with legacy sessions)");
+  await mockPostgresMigrationTest();
   console.log("\nD) Performance fixture (realistic multi-MB production-shaped store)");
   await performanceFixtureTests();
   console.log("\nE) Founding-count breakdown endpoint");

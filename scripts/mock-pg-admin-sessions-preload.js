@@ -16,6 +16,12 @@
  *   MOCK_PG_WRITE_LOG_PATH       - file path this mock appends one JSON line to per
  *                                  write, so the TEST PROCESS (a different process)
  *                                  can inspect exactly what was written and how big.
+ *   MOCK_PG_SEED_STORE_PATH      - file path to a JSON document used as the INITIAL
+ *                                  llh_store row this mock "already has" before the
+ *                                  server boots — lets tests simulate an existing
+ *                                  production-shaped Postgres row (e.g. one that still
+ *                                  has legacy data.adminSessions entries) rather than
+ *                                  always starting from a fresh/empty database.
  *
  * Usage: node -r ./scripts/mock-pg-admin-sessions-preload.js server/index.js
  */
@@ -26,9 +32,10 @@ const originalRequire = Module.prototype.require;
 const queryDelayMs = Number(process.env.MOCK_PG_QUERY_DELAY_MS || 0);
 const failSessionWrites = process.env.MOCK_PG_FAIL_SESSION_WRITES === "1";
 const writeLogPath = process.env.MOCK_PG_WRITE_LOG_PATH || "";
+const seedStorePath = process.env.MOCK_PG_SEED_STORE_PATH || "";
 
 const state = {
-  store: null,
+  store: seedStorePath && fs.existsSync(seedStorePath) ? JSON.parse(fs.readFileSync(seedStorePath, "utf8")) : null,
   sessions: new Map(), // token -> row
 };
 global.__LLH_MOCK_PG_ADMIN_SESSIONS__ = state;
