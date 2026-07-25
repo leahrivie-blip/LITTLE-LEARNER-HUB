@@ -55,6 +55,8 @@ function ensurePilotStore(store) {
   p.forms = p.forms && typeof p.forms === "object" ? p.forms : {};
   p.billing = p.billing && typeof p.billing === "object" ? p.billing : {};
   p.photos = p.photos && typeof p.photos === "object" ? p.photos : {};
+  p.changeRequests = p.changeRequests && typeof p.changeRequests === "object" ? p.changeRequests : {};
+  p.dailyCareEntries = p.dailyCareEntries && typeof p.dailyCareEntries === "object" ? p.dailyCareEntries : {};
   return p;
 }
 
@@ -328,6 +330,90 @@ function setSharedPhotoVisibility(store, { photoId, sharedWithFamily }) {
   return photo;
 }
 
+// ---- Child contacts (authorized pickup / emergency) for Parent "More" -------
+//
+// Read-only, minimal-field view — a guardian may see WHO else is an
+// authorized pickup or emergency contact for HER linked child, but never
+// email/phone/internal notes for another family's contact.
+
+function listChildContactsForParent(store, { organizationId, childId }) {
+  const rules = listValues(store.familyFoundation?.accessRules || {})
+    .filter((r) => r.organizationId === organizationId && r.childId === childId && r.status === "active" && (r.isAuthorizedPickup || r.isEmergencyContact));
+  return rules.map((rule) => {
+    const contact = store.familyFoundation?.contacts?.[rule.contactId];
+    return {
+      displayName: contact?.displayName || "Contact",
+      relationshipLabel: rule.relationshipLabel || "",
+      isAuthorizedPickup: Boolean(rule.isAuthorizedPickup),
+      isEmergencyContact: Boolean(rule.isEmergencyContact),
+    };
+  });
+}
+
+// ---- Change requests (parent -> provider) ----------------------------------
+//
+// A lightweight, auditable way for a guardian to ask the provider to update
+// emergency/pickup information — never edits the record directly (the
+// provider stays the source of truth), matching "Emergency information the
+// guardian is permitted to [request changes to]."
+
+function addChangeRequest(store, { organizationId, childId, requestedByEmail, message }) {
+  const p = ensurePilotStore(store);
+  p.changeRequests = p.changeRequests && typeof p.changeRequests === "object" ? p.changeRequests : {};
+  const record = {
+    id: newId("pilotchange"),
+    organizationId: cleanText(organizationId, 160),
+    childId: cleanText(childId, 160),
+    requestedByEmail: cleanText(requestedByEmail, 180).toLowerCase(),
+    message: cleanText(message, 1000),
+    status: "pending",
+    createdAt: nowIso(),
+  };
+  p.changeRequests[record.id] = record;
+  return record;
+}
+
+function listChangeRequests(store, organizationId, childId = "") {
+  ensurePilotStore(store);
+  return listValues(store.homeDaycarePilot.changeRequests || {})
+    .filter((r) => r.organizationId === organizationId && (!childId || r.childId === childId))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+// ---- Daily Care entry mirror (cross-login connected data) ------------------
+//
+// Fast Daily Logs (Daily Care) itself is a per-browser, per-account
+// localStorage feature (childStore()) — by itself, an owner and her staff
+// member (two different logins) would each have their OWN, disconnected
+// copy of the SAME child's day, even though they share one organization.
+// This is a generic mirror: any daily-care record (Attendance, Meals,
+// Naps, Diapers, ActivityLogs, Communications, Observations, Photos) an
+// app.js appendChildRecord() call creates for a connected pilot account is
+// ALSO pushed here (organization+child scoped, keyed by the record's OWN
+// id so re-syncing is always idempotent) — and every connected login (the
+// owner AND her one staff member) pulls and merges the full set back into
+// its own local store on load. Never a second data model — just a shared
+// mailbox for the SAME record shape Fast Daily Logs already uses.
+
+function addDailyCareEntry(store, { organizationId, childId, storeKey, record }) {
+  const p = ensurePilotStore(store);
+  p.dailyCareEntries = p.dailyCareEntries && typeof p.dailyCareEntries === "object" ? p.dailyCareEntries : {};
+  const key = `${storeKey}:${record?.id || newId("entry")}`;
+  p.dailyCareEntries[key] = {
+    organizationId: cleanText(organizationId, 160),
+    childId: cleanText(childId, 160),
+    storeKey: cleanText(storeKey, 60),
+    record,
+    mirroredAt: nowIso(),
+  };
+  return p.dailyCareEntries[key];
+}
+
+function listDailyCareEntries(store, organizationId) {
+  ensurePilotStore(store);
+  return listValues(store.homeDaycarePilot.dailyCareEntries || {}).filter((e) => e.organizationId === organizationId);
+}
+
 // ---- Aggregated Parent Home ------------------------------------------------
 
 /** Everything Parent Home should surface, scoped to ONE guardian contact's permitted child(ren). Never returns another child's data. */
@@ -379,6 +465,8 @@ function resetPilotData(store, organizationId) {
   clearMap(store.homeDaycarePilot.forms);
   clearMap(store.homeDaycarePilot.billing);
   clearMap(store.homeDaycarePilot.photos);
+  clearMap(store.homeDaycarePilot.changeRequests);
+  clearMap(store.homeDaycarePilot.dailyCareEntries);
   return { cleared };
 }
 
@@ -498,6 +586,11 @@ module.exports = {
   setSharedPhotoVisibility,
   addStaffMember,
   applyStaffMemberIdentity,
+  listChildContactsForParent,
+  addChangeRequest,
+  listChangeRequests,
+  addDailyCareEntry,
+  listDailyCareEntries,
   parentHomeSnapshot,
   resetPilotData,
   generateFakeChildrenAndGuardians,

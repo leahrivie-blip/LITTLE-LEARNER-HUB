@@ -30,6 +30,7 @@ const sandboxModel = require("../scripts/external-tester-sandbox-data-model.js")
 const labModel = require("../scripts/testing-lab-data-model.js");
 const familyModel = require("../scripts/family-foundation-data-model.js");
 const expansionFlags = require("../scripts/expansion-feature-flags.js");
+const tempPasswordAuth = require("./temp-password-auth.js");
 
 const BASE = "/api/pilot";
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
@@ -85,7 +86,7 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
         deny(response, 403, "real_target_rejected", "Cannot target a non-fake organization.");
         return null;
       }
-      return { kind: "admin", organizationId, role: "provider", email: ctx.adminEmail };
+      return { kind: "admin", organizationId, role: "provider", email: ctx.adminEmail, isOwner: true };
     }
     if (ctx.fakeAccountEmail) {
       const sandboxAccount = sandboxModel.listSandboxAccounts(store).find((row) => row.email === safeLower(ctx.fakeAccountEmail));
@@ -98,6 +99,7 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
           email: sandboxAccount.email,
           accountId: sandboxAccount.id,
           previewContactId: isGuardianRole ? (sandboxAccount.activePreviewContactId || "") : "",
+          isOwner: true, // the External Tester Sandbox account IS the owner, previewing other roles — never a hired staff record.
         };
       }
       // Generalization: ANY other testing-only fake account (e.g. Testing
@@ -119,6 +121,11 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
           email: genericAccount.email,
           accountId: genericAccount.id,
           previewContactId: identity.familyHubGuardian ? cleanText(genericAccount.contactId, 160) : "",
+          // A hired Home Daycare staff member is a "provider" for Daily Care/
+          // Messages/Calendar purposes, but must NEVER receive owner powers
+          // (Families/guardians, Billing, adding more staff, program
+          // settings) — see the isOwner checks throughout this file.
+          isOwner: genericAccount.kind !== "home_daycare_staff",
         };
       }
       deny(response, 404, "not_found", "This account is not a recognized testing account.");
@@ -170,7 +177,10 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     const store = readStore();
     const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
     if (!actor) return;
-    if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider can view the guardian list.");
+    // Families/guardian management is an owner-only capability — a hired
+    // staff member sees only Today/assigned children/Daily Care/Messages/
+    // Calendar/Curriculum/her own profile, never the family roster.
+    if (!actor.isOwner) return deny(response, 403, "owner_only", "Only the owner can view the guardian list.");
     jsonResponse(response, 200, { ok: true, guardians: model.listGuardians(store, actor.organizationId) });
   }
 
@@ -179,7 +189,7 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     const body = await readJson(request).catch(() => ({}));
     const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
     if (!actor) return;
-    if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider can add a guardian.");
+    if (!actor.isOwner) return deny(response, 403, "owner_only", "Only the owner can add a guardian.");
     const orgChildIds = new Set(model.listChildren(store, actor.organizationId).map((c) => c.id));
     const requestedChildIds = Array.isArray(body.childIds) ? body.childIds : [body.childId].filter(Boolean);
     const childIds = requestedChildIds.filter((id) => orgChildIds.has(id));
@@ -207,7 +217,7 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     const body = await readJson(request).catch(() => ({}));
     const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
     if (!actor) return;
-    if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider can change guardian permissions.");
+    if (!actor.isOwner) return deny(response, 403, "owner_only", "Only the owner can change guardian permissions.");
     const contact = store.familyFoundation?.contacts?.[body.contactId];
     if (!contact || contact.organizationId !== actor.organizationId) return deny(response, 404, "not_found");
     const rule = model.updateGuardianAccess(store, {
@@ -342,6 +352,9 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     const store = readStore();
     const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
     if (!actor) return;
+    // Program billing configuration is an owner-only capability — a hired
+    // staff member must never see family balances or invoices.
+    if (actor.role === "provider" && !actor.isOwner) return deny(response, 403, "owner_only", "Billing is only visible to the owner.");
     const childId = url?.searchParams?.get("childId") || "";
     if (actor.role === "parent") {
       if (!childId || !guardianMayAccessChild(store, actor, childId, "billing")) {
@@ -356,7 +369,7 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     const body = await readJson(request).catch(() => ({}));
     const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
     if (!actor) return;
-    if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider can add a fake billing record.");
+    if (!actor.isOwner) return deny(response, 403, "owner_only", "Only the owner can add a fake billing record.");
     const childExists = model.listChildren(store, actor.organizationId).some((c) => c.id === body.childId);
     if (!childExists) return deny(response, 400, "invalid_child");
     const record = model.addBillingRecord(store, {
@@ -367,6 +380,115 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     labModel.appendAudit(store, { organizationId: actor.organizationId, action: "pilot_billing_added", actorEmail: actor.email, detail: `Added fake billing record "${record.description}" for child ${body.childId} (testing only, no real payment)` });
     writeStore(store);
     jsonResponse(response, 200, { ok: true, billing: record });
+  }
+
+  // ---- Daily Care entry mirror (cross-login connected data) -----------------
+
+  async function handleAddDailyCareEntry(request, response, ctx) {
+    const store = readStore();
+    const body = await readJson(request).catch(() => ({}));
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
+    if (!actor) return;
+    if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider (owner or staff) can log Daily Care entries.");
+    if (!body.storeKey || !body.record) return deny(response, 400, "invalid_entry");
+    const entry = model.addDailyCareEntry(store, { organizationId: actor.organizationId, childId: body.childId || body.record.childId, storeKey: body.storeKey, record: body.record });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, entry });
+  }
+
+  async function handleListDailyCareEntries(request, response, ctx, url) {
+    const store = readStore();
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
+    if (!actor) return;
+    if (actor.role !== "provider") return deny(response, 403, "provider_only");
+    jsonResponse(response, 200, { ok: true, entries: model.listDailyCareEntries(store, actor.organizationId) });
+  }
+
+  // ---- Staff (owner + at most one optional staff member) --------------------
+
+  async function handleListStaff(request, response, ctx, url) {
+    const store = readStore();
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
+    if (!actor) return;
+    let staff = listValues(store.familyFoundation?.fakeAccounts || {})
+      .filter((row) => row.organizationId === actor.organizationId && row.kind === "home_daycare_staff")
+      .map((row) => ({ id: row.id, email: row.email, displayName: row.displayName, active: row.active !== false, createdAt: row.createdAt, permissions: row.permissions || {} }));
+    // "Other staff's private records" must never be visible to a staff
+    // member — she may only see her own profile row (the owner sees all).
+    if (!actor.isOwner) staff = staff.filter((row) => row.email === actor.email);
+    jsonResponse(response, 200, { ok: true, staff });
+  }
+
+  /** The OWNER herself (no admin needed) may add exactly ONE staff member for her own organization — self-service, matching "the owner plus one optional staff member." */
+  async function handleAddStaffSelfService(request, response, ctx) {
+    const store = readStore();
+    const body = await readJson(request).catch(() => ({}));
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
+    if (!actor) return;
+    if (!actor.isOwner) return deny(response, 403, "owner_only", "Only the owner can add a staff member.");
+    const existingStaffCount = listValues(store.familyFoundation?.fakeAccounts || {})
+      .filter((row) => row.organizationId === actor.organizationId && row.kind === "home_daycare_staff" && row.active !== false).length;
+    if (existingStaffCount >= 1) {
+      return deny(response, 409, "staff_limit_reached", "A Home Daycare Pilot account may have at most one additional staff member.");
+    }
+    const email = safeLower(body.email || "");
+    if (!labModel.isExampleInvalidEmail(email)) {
+      return deny(response, 403, "non_fake_email_rejected", "Staff accounts must use @example.invalid.");
+    }
+    const staffName = String(body.displayName || "Home Daycare Staff").trim().slice(0, 120);
+    const created = model.addStaffMember(store, {
+      organizationId: actor.organizationId, displayName: staffName, email, createdByEmail: actor.email,
+    });
+    const password = tempPasswordAuth.generateTemporaryPassword();
+    const hash = tempPasswordAuth.hashPassword(password);
+    model.applyStaffMemberIdentity(store, { email, passwordHash: hash });
+    labModel.appendAudit(store, {
+      organizationId: actor.organizationId,
+      action: "home_daycare_staff_added_self_service",
+      actorEmail: actor.email,
+      detail: `Owner added staff member ${staffName} <${email}> (plaintext not logged)`,
+    });
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      staff: { id: created.id, email: created.email, displayName: created.displayName },
+      temporaryPassword: password,
+      note: "Copy the password now — it will not be shown again.",
+    });
+  }
+
+  async function handleChildContacts(request, response, ctx, url) {
+    const store = readStore();
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
+    if (!actor) return;
+    const childId = url?.searchParams?.get("childId") || "";
+    if (actor.role === "parent" && (!childId || !guardianMayAccessChild(store, actor, childId, "digital"))) {
+      return deny(response, 403, "not_linked", "You are not linked to that child.");
+    }
+    jsonResponse(response, 200, { ok: true, contacts: model.listChildContactsForParent(store, { organizationId: actor.organizationId, childId }) });
+  }
+
+  async function handleListChangeRequests(request, response, ctx, url) {
+    const store = readStore();
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
+    if (!actor) return;
+    if (!actor.isOwner) return deny(response, 403, "owner_only", "Only the owner can view change requests.");
+    jsonResponse(response, 200, { ok: true, changeRequests: model.listChangeRequests(store, actor.organizationId) });
+  }
+
+  async function handleAddChangeRequest(request, response, ctx) {
+    const store = readStore();
+    const body = await readJson(request).catch(() => ({}));
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
+    if (!actor) return;
+    const childId = String(body.childId || "");
+    if (actor.role === "parent" && !guardianMayAccessChild(store, actor, childId, "digital")) {
+      return deny(response, 403, "not_linked", "You are not linked to that child.");
+    }
+    const record = model.addChangeRequest(store, { organizationId: actor.organizationId, childId, requestedByEmail: actor.email, message: body.message });
+    labModel.appendAudit(store, { organizationId: actor.organizationId, action: "pilot_change_request", actorEmail: actor.email, detail: `Change request for child ${childId}` });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, changeRequest: record });
   }
 
   // ---- Photos (Photo Safety bridge from fast Daily Logs) --------------------
@@ -452,6 +574,13 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     if (method === "POST" && path === `${BASE}/forms/status`) return (req, res, ctx) => handleUpdateFormStatus(req, res, ctx);
     if (method === "GET" && path === `${BASE}/billing`) return (req, res, ctx) => handleListBilling(req, res, ctx, url);
     if (method === "POST" && path === `${BASE}/billing`) return (req, res, ctx) => handleAddBilling(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/daily-care-entries`) return (req, res, ctx) => handleListDailyCareEntries(req, res, ctx, url);
+    if (method === "POST" && path === `${BASE}/daily-care-entries`) return (req, res, ctx) => handleAddDailyCareEntry(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/staff`) return (req, res, ctx) => handleListStaff(req, res, ctx, url);
+    if (method === "POST" && path === `${BASE}/staff`) return (req, res, ctx) => handleAddStaffSelfService(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/child-contacts`) return (req, res, ctx) => handleChildContacts(req, res, ctx, url);
+    if (method === "GET" && path === `${BASE}/change-request`) return (req, res, ctx) => handleListChangeRequests(req, res, ctx, url);
+    if (method === "POST" && path === `${BASE}/change-request`) return (req, res, ctx) => handleAddChangeRequest(req, res, ctx);
     if (method === "GET" && path === `${BASE}/photos`) return (req, res, ctx) => handleListPhotos(req, res, ctx, url);
     if (method === "POST" && path === `${BASE}/photos`) return (req, res, ctx) => handleAddPhoto(req, res, ctx);
     if (method === "POST" && path === `${BASE}/photos/visibility`) return (req, res, ctx) => handleSetPhotoVisibility(req, res, ctx);

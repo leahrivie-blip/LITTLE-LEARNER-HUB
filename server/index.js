@@ -6179,6 +6179,11 @@ async function handlePasswordLogin(request, response) {
     accountType: store.users[email].accountType || "",
     role: store.users[email].role || "",
     familyHubGuardian: Boolean(store.users[email].familyHubGuardian),
+    // Lets the client recognize a connected testing account (Home Daycare
+    // Pilot owner/staff, or any other Testing Lab fake account now served
+    // by /api/pilot/*) straight after a real password login — see
+    // isHomeDaycarePilotAccount() in app.js.
+    organizationId: store.users[email].organizationId || "",
   });
 }
 
