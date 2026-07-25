@@ -2231,14 +2231,26 @@ function refreshFreePlanFeatureLines(features) {
   if (!Array.isArray(features) || !features.length) {
     return freePlanFeatureList().map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
   }
+  // Stale/repeatedly-re-saved site content could contain several lines that
+  // all match "lesson plan" (e.g. an old count string alongside a newer
+  // one) — replacing EVERY match with the same current label duplicated
+  // the line instead of correcting it. A single pass (reduce, not
+  // separate filter+map calls that can't share state across steps) keeps
+  // only the FIRST match, replaced with the current correct count, and
+  // drops every subsequent duplicate outright.
   let replaced = false;
   const updated = features
     .filter((line) => !printablePattern.test(String(line || "")))
-    .map((line) => {
-      if (!lessonPlanPattern.test(line)) return line;
+    .reduce((acc, line) => {
+      if (!lessonPlanPattern.test(String(line || ""))) {
+        acc.push(line);
+        return acc;
+      }
+      if (replaced) return acc; // drop every duplicate lesson-plan line after the first
       replaced = true;
-      return lessonLine;
-    });
+      acc.push(lessonLine);
+      return acc;
+    }, []);
   if (!replaced) {
     const observationIndex = updated.findIndex((line) => /observation/i.test(line));
     updated.splice(observationIndex >= 0 ? observationIndex + 1 : 2, 0, lessonLine);
@@ -2261,12 +2273,22 @@ function refreshFreePlanFaqAnswer(answer) {
       "No Credit Card Required",
     ].join(", ");
   }
+  let lessonLabelUsed = false;
   const cleaned = String(answer)
     .split(/,\s*/)
     .map((part) => part.trim())
     .filter(Boolean)
     .filter((part) => !/printable/i.test(part))
-    .map((part) => (/lesson plan/i.test(part) ? lessonLabel : part))
+    .reduce((acc, part) => {
+      if (!/lesson plan/i.test(part)) {
+        acc.push(part);
+        return acc;
+      }
+      if (lessonLabelUsed) return acc; // drop every duplicate lesson-plan mention after the first
+      lessonLabelUsed = true;
+      acc.push(lessonLabel);
+      return acc;
+    }, [])
     .join(", ");
   return cleaned || answer;
 }
@@ -5153,6 +5175,31 @@ const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
   "testing-lab": "testingLab",
 });
 
+let expansionFeatureFlagsLoadPromise = null;
+let expansionFeatureFlagsEverLoaded = false;
+
+/**
+ * Ensures loadExpansionFeatureFlagsFromBackend() has completed at least
+ * once (reusing an in-flight request rather than firing a second one),
+ * bounded by timeoutMs so a slow/hanging network call can never block the
+ * UI forever. This exists specifically so an admin-only destination (like
+ * Testing Lab) can wait for the REAL answer instead of silently deciding
+ * based on default/stale flags during the boot race window.
+ */
+async function ensureExpansionFeatureFlagsLoaded({ timeoutMs = 8000, forceRefresh = false } = {}) {
+  if (expansionFeatureFlagsEverLoaded && !forceRefresh) return true;
+  if (!expansionFeatureFlagsLoadPromise || forceRefresh) {
+    expansionFeatureFlagsLoadPromise = loadExpansionFeatureFlagsFromBackend()
+      .then(() => { expansionFeatureFlagsEverLoaded = true; })
+      .catch(() => { /* leave EverLoaded false — caller's timeout race below still resolves */ });
+  }
+  const timedOut = await Promise.race([
+    expansionFeatureFlagsLoadPromise.then(() => false),
+    delayMs(timeoutMs).then(() => true),
+  ]);
+  return !timedOut;
+}
+
 let expansionFeatureFlagsCache = { ...DEFAULT_EXPANSION_FEATURE_FLAGS };
 let expansionFeaturePolicyCache = {
   directorCenter: "admin_preview_only",
@@ -5215,6 +5262,150 @@ function isExpansionFeatureEnabled(flagKey) {
   }
   return expansionFeatureFlags()[flagKey] === true;
 }
+
+/**
+ * Never let an Admin-only expansion tool (Testing Lab, Director Center,
+ * Forms Center) fail silently by bouncing to Calendar with zero
+ * explanation — this renders exactly which gate/flag is blocking access,
+ * straight into the same view container the real tool would have used.
+ */
+/**
+ * Testing Site — Purchases Disabled: on any non-production host, every
+ * real purchase action (Stripe checkout buttons, the marketing "Get
+ * Started" signup CTA) is relabeled so it's never mistaken for a live
+ * purchase — startCheckout() itself is ALSO hard-blocked (see above) as
+ * the real safety net; this is the visible half of that guarantee. A
+ * MutationObserver (rather than one call per render site) means every
+ * button gets caught regardless of which of the many pricing/upgrade
+ * render functions created it.
+ */
+/**
+ * "for life" pricing language, per a pre-merge copy audit: on a testing
+ * host this now reads "locked while your membership remains continuously
+ * active" — clearer about what actually keeps the price, without
+ * implying a literal lifetime guarantee. Production's existing marketing
+ * copy is intentionally left unchanged here (no Stripe price/plan/
+ * eligibility/counter behavior changes either way) — see the handoff
+ * report for the full list of static index.html instances audited but
+ * not modified.
+ */
+function foundingPriceLockPhrase() {
+  return isProductionHostClient() ? "for life" : "locked while your membership remains continuously active";
+}
+
+const TESTING_PURCHASE_DISABLED_LABEL = "Testing Site — Purchases Disabled";
+function relabelTestingPurchaseButtons(root = document) {
+  if (isProductionHostClient()) return;
+  try { document.body?.classList.add("testing-purchases-disabled"); } catch { /* */ }
+  root.querySelectorAll("[data-checkout-plan]").forEach((btn) => {
+    if (btn.dataset.testingPurchaseRelabelled) return;
+    btn.dataset.testingPurchaseRelabelled = "true";
+    btn.dataset.testingPurchaseOriginalLabel = btn.textContent;
+    btn.textContent = TESTING_PURCHASE_DISABLED_LABEL;
+    btn.title = "This is a testing environment — pricing shown is a preview only. No real checkout is ever created here.";
+  });
+  const signupButton = root.querySelector?.("#signupButton") || (root.id === "signupButton" ? root : null);
+  if (signupButton && !signupButton.dataset.testingPurchaseRelabelled && !isLoggedIn()) {
+    signupButton.dataset.testingPurchaseRelabelled = "true";
+    signupButton.textContent = "Testing Site — Preview Only";
+  }
+}
+function installTestingPurchaseRelabelObserver() {
+  if (typeof MutationObserver === "undefined" || isProductionHostClient()) return;
+  let relabelTimer = null;
+  const scheduleRelabel = () => {
+    window.clearTimeout(relabelTimer);
+    relabelTimer = window.setTimeout(() => relabelTestingPurchaseButtons(document), 50);
+  };
+  const start = () => {
+    if (!document.body) return;
+    relabelTestingPurchaseButtons(document);
+    new MutationObserver(scheduleRelabel).observe(document.body, { childList: true, subtree: true });
+  };
+  if (document.body) start();
+  else document.addEventListener("DOMContentLoaded", start, { once: true });
+}
+installTestingPurchaseRelabelObserver();
+
+/** Upgrade-page panel used when a purchase CTA is clicked on a non-production host. */
+function showTestingPurchasesDisabledPanel() {
+  const upgradeTarget = document.querySelector("#upgradeApp");
+  if (!upgradeTarget) return;
+  upgradeTarget.querySelectorAll(".checkout-test-panel").forEach((node) => node.remove());
+  upgradeTarget.insertAdjacentHTML("afterbegin", `
+    <section class="section-block checkout-test-panel testing-purchases-disabled-panel">
+      <p class="eyebrow">Testing Site — Purchases Disabled</p>
+      <h3>No real checkout on this site</h3>
+      <p class="muted-copy">This is a testing environment. Pricing shown is a preview only — no Stripe session is ever created here, and no card is ever charged.</p>
+    </section>
+  `);
+}
+
+function renderAdminExpansionGateDiagnostic(view) {
+  const mount = document.querySelector(`#view-${view}`);
+  if (!mount) return;
+  const flagKey = expansionFlagForView(view);
+  const flags = expansionFeatureFlags();
+  const policy = expansionFeaturePolicyCache;
+  const viewerAccess = expansionViewerAccessCache;
+  const viewLabels = {
+    "testing-lab": "Testing Lab",
+    "director-center": "Director Center",
+    "teacher-center": "Teacher Classroom",
+    "classroom-assistant": "Classroom Assistant",
+    "forms-center": "Forms Center",
+  };
+  const label = viewLabels[view] || view;
+  const checks = [
+    { name: "Admin session unlocked", ok: Boolean(typeof isAdminUnlocked === "function" && isAdminUnlocked()) },
+    { name: "Admin preview mode set to \"Admin\" (not simulating Free/Trial/Pro/Founding/Director/Teacher)", ok: Boolean(typeof hasAdminFullAccess === "function" && hasAdminFullAccess()) },
+  ];
+  if (flagKey) {
+    checks.push({ name: `Stored feature flag "${flagKey}" is ON`, ok: flags[flagKey] === true });
+  }
+  if (view === "testing-lab") {
+    checks.push({ name: "Server confirms this admin can access Testing Lab (viewer.canAccessTestingLab)", ok: viewerAccess.canAccessTestingLab === true });
+    checks.push({ name: "Server policy allows the Testing Lab admin preview (ALLOW_TESTING_LAB_ADMIN_PREVIEW environment gate)", ok: policy.allowTestingLabAdminPreview === true });
+  }
+  if (view === "director-center" || view === "teacher-center" || view === "classroom-assistant") {
+    checks.push({ name: "Server confirms this admin can access Director Center (viewer.canAccessDirectorCenter)", ok: viewerAccess.canAccessDirectorCenter === true });
+  }
+  if (view === "forms-center") {
+    checks.push({ name: "Server confirms this admin can access Forms Center (viewer.canAccessFormsCenter)", ok: viewerAccess.canAccessFormsCenter === true });
+  }
+  checks.push({ name: "Feature flags have finished loading from the server for this session", ok: expansionFeatureFlagsEverLoaded === true });
+  const failing = checks.filter((c) => !c.ok);
+  mount.innerHTML = `
+    <section class="admin-gate-diagnostic-page">
+      <div class="page-title"><p class="eyebrow">Admin-only tool unavailable</p><h2>${escapeHtml(label)} isn't reachable right now</h2></div>
+      ${failing.length ? `
+        <p class="muted-copy">Little Learner Hub never silently redirects you away from an admin tool — here's exactly what's blocking it:</p>
+        <ul class="admin-gate-diagnostic-list">
+          ${failing.map((c) => `<li class="admin-gate-diagnostic-item is-failing"><span aria-hidden="true">✕</span> ${escapeHtml(c.name)}</li>`).join("")}
+        </ul>
+      ` : `
+        <p class="muted-copy">Every access check passed, but the page hasn't loaded yet — this can happen right after the feature-flag fetch first resolves.</p>
+      `}
+      <div class="admin-gate-diagnostic-actions">
+        <button type="button" class="primary-button" data-admin-gate-retry data-gate-view="${escapeHtml(view)}">Try Again</button>
+        <button type="button" class="ghost-button" data-view="admin">Back to Admin</button>
+      </div>
+    </section>
+  `;
+}
+
+document.addEventListener("click", (event) => {
+  const retryBtn = event.target.closest("[data-admin-gate-retry]");
+  if (!retryBtn) return;
+  event.preventDefault();
+  const view = retryBtn.getAttribute("data-gate-view") || "testing-lab";
+  ensureExpansionFeatureFlagsLoaded({ forceRefresh: true, timeoutMs: 8000 }).then(() => {
+    // Re-running setView naturally re-evaluates the gate with fresh flags:
+    // it proceeds normally if now enabled, or re-renders this same
+    // diagnostic (with updated pass/fail state) if still blocked.
+    setView(view, { replaceHistory: true });
+  });
+});
 
 function expansionFlagForView(view) {
   return EXPANSION_VIEW_FEATURE_FLAGS[String(view || "").trim().toLowerCase()] || "";
@@ -10918,6 +11109,19 @@ function syncRoleAwareNavGrouping(account = currentAccount()) {
   }
 }
 
+/**
+ * Where an unlocked Admin lands by default: the Owner Testing Home on a
+ * testing host (so "Add a Home Daycare Tester" is never buried behind the
+ * full Admin Dashboard), or the classic Admin Dashboard on the real
+ * production site (Owner Testing Home is a testing-only concept). An
+ * explicit last-view of either page is always honored on refresh.
+ */
+function defaultAdminLandingView() {
+  const lastView = localStorage.getItem("llhAdminLastView");
+  if (["admin", "owner-testing-home"].includes(lastView)) return lastView;
+  return isProductionHostClient() ? "admin" : "owner-testing-home";
+}
+
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (!buttonView) return false;
   if (buttonView === requestedView) return true;
@@ -12865,6 +13069,18 @@ function setView(view, options = {}) {
   }
   // Phase 1: unfinished expansion surfaces stay unreachable while feature flags are OFF.
   if (!options.skipExpansionFeatureRedirect && !isExpansionViewEnabled(resolvedRequested)) {
+    // Never silently bounce a logged-in Admin to Calendar for one of HER
+    // OWN admin-preview-only tools (Testing Lab, Director Center, Forms
+    // Center) — that reads as "the button is broken" with zero
+    // explanation. Show exactly which gate/flag is missing instead. Every
+    // OTHER account (guests, providers, testers) keeps the original
+    // silent redirect — this is not a new door into anything, only a
+    // clearer failure message for the one audience allowed to see these
+    // tools at all.
+    const adminOnlyView = ["testing-lab", "director-center", "teacher-center", "classroom-assistant", "forms-center"].includes(resolvedRequested);
+    if (adminOnlyView && typeof hasAdminFullAccess === "function" && hasAdminFullAccess() && !options.skipAdminGateDiagnostic) {
+      return setView(resolvedRequested, { ...options, skipExpansionFeatureRedirect: true, skipAccessRedirect: true, adminGateDiagnostic: true });
+    }
     return setView("calendar", { ...options, skipExpansionFeatureRedirect: true, skipAccessRedirect: true });
   }
   const requestedChildToolTab = childToolTabFromView(view);
@@ -13061,7 +13277,11 @@ function setView(view, options = {}) {
         .then(() => renderAdminDashboard());
     }
   }
-  if (resolvedView !== "admin") localStorage.removeItem("llhAdminLastView");
+  if (resolvedView === "owner-testing-home") {
+    localStorage.setItem("llhAdminLastView", "owner-testing-home");
+    renderOwnerTestingHomePage();
+  }
+  if (!["admin", "owner-testing-home"].includes(resolvedView)) localStorage.removeItem("llhAdminLastView");
   if (resolvedView === "today") {
     renderTodayDashboard();
     // Refresh once (from the navigation handler, not from inside the render
@@ -13120,11 +13340,16 @@ function setView(view, options = {}) {
       });
   }
   if (resolvedView === "testing-lab") {
-    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("testing-lab"))
-      .catch(() => null)
-      .then(() => {
-        if (typeof renderTestingLabPage === "function") renderTestingLabPage();
-      });
+    if (options.adminGateDiagnostic) {
+      renderAdminExpansionGateDiagnostic("testing-lab");
+    } else {
+      const initialPanel = options.testingLabPanel || "";
+      Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("testing-lab"))
+        .catch(() => null)
+        .then(() => {
+          if (typeof renderTestingLabPage === "function") renderTestingLabPage(null, { initialPanel });
+        });
+    }
   }
   if (resolvedView === "pilot-families") loadPilotFamiliesData();
   if (resolvedView === "pilot-messages") loadPilotMessages();
@@ -37490,6 +37715,188 @@ function renderPilotBottomNav() {
   `;
 }
 
+// ---- Owner Testing Home ------------------------------------------------
+//
+// The default landing page for an unlocked Admin on a testing host — "Add
+// a Home Daycare Tester" and the other everyday testing actions are one
+// click away, instead of requiring a trip through the full Admin
+// Dashboard first. Never shown on the real production site (see
+// defaultAdminLandingView()).
+
+let ownerTestingHomeState = { status: null, dashboard: null, loading: false, error: "", onboardResult: null, onboardError: "" };
+
+async function loadOwnerTestingHomeData() {
+  ownerTestingHomeState.loading = true;
+  renderOwnerTestingHomePage();
+  try {
+    const [statusRes, dashboardRes] = await Promise.all([
+      adminApiFetch("/api/testing-lab/status"),
+      adminApiFetch("/api/testing-lab/dashboard"),
+    ]);
+    ownerTestingHomeState.status = statusRes;
+    ownerTestingHomeState.dashboard = dashboardRes.dashboard || null;
+    ownerTestingHomeState.error = "";
+  } catch (error) {
+    ownerTestingHomeState.error = error.message || "Could not load testing status.";
+  }
+  ownerTestingHomeState.loading = false;
+  renderOwnerTestingHomePage();
+}
+
+/** Thin admin-authenticated fetch wrapper shared by Owner Testing Home — mirrors the Authorization pattern the rest of the admin UI already uses. */
+async function adminApiFetch(path, options = {}) {
+  const token = adminSession()?.token || "";
+  const response = await fetch(path, {
+    ...options,
+    headers: { Accept: "application/json", "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers || {}) },
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data?.ok === false) throw new Error(data?.error || "Request failed.");
+  return data;
+}
+
+function ownerTestingHomeStatusSummaryHtml() {
+  const s = ownerTestingHomeState.status;
+  if (!s) return `<p class="muted-copy">${ownerTestingHomeState.loading ? "Loading testing status…" : "Testing status unavailable."}</p>`;
+  const pendingSyncCount = PILOT_SYNCED_DAILY_CARE_KEYS
+    ? Array.from(PILOT_SYNCED_DAILY_CARE_KEYS).reduce((sum, key) => sum + childStore(key).filter((item) => item && item._pendingSync).length, 0)
+    : 0;
+  const rows = [
+    ["Deployed commit", s.deployedCommit ? `<code>${escapeHtml(s.deployedCommit.slice(0, 12))}</code>` : "Not reported"],
+    ["Database", s.databaseConnected ? `Connected (${escapeHtml(s.databaseProvider)})` : "⚠️ Not connected"],
+    ["Testing Lab", s.flags?.testingLab ? "Enabled" : "Disabled"],
+    ["Family Hub", s.flags?.familyHub ? "Enabled" : "Disabled"],
+    ["Forms", s.flags?.formsCenter ? "Enabled" : "Disabled"],
+    ["AI (OpenAI)", s.aiEnabled ? "Enabled" : "Disabled — no real calls"],
+    ["Stripe", s.stripeEnabled ? "Enabled" : "Disabled — no real charges"],
+    ["Email / SMS", s.emailSmsEnabled ? "Enabled" : "Disabled — no real sends"],
+    ["Testers created", String(s.testerCount ?? 0)],
+    ["Open feedback threads", String(s.openFeedbackCount ?? 0)],
+    ["Pending offline syncs (this device)", String(pendingSyncCount)],
+    ["Recent boot issue", lastBootDiagnostic?.timedOut || lastBootDiagnostic?.failed ? `${escapeHtml(lastBootDiagnostic.timedOut ? "Timed out" : "Failed")} at ${escapeHtml(lastBootDiagnostic.at || "")}` : "None"],
+  ];
+  return `
+    <table class="owner-testing-status-table">
+      ${rows.map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${value}</td></tr>`).join("")}
+    </table>
+  `;
+}
+
+/**
+ * Ready to Test / Partially Ready / Not Ready Yet / Computer Recommended —
+ * an honest, tester-facing readiness label distinct from any marketing
+ * "Coming Soon" wording, so testers know exactly what to spend time on.
+ */
+const FEATURE_READINESS = Object.freeze([
+  { name: "Home Daycare Pilot (owner + staff + parent, connected data)", status: "ready" },
+  { name: "Fast Daily Logs (classroom grid, quick actions, timeline)", status: "ready" },
+  { name: "External Tester Sandbox (role switching)", status: "ready" },
+  { name: "Testing Feedback (tester threads + Admin inbox)", status: "ready" },
+  { name: "Family Hub / Forms Center / Records Center", status: "partial", note: "Functional in admin preview; not yet organized behind the Home Daycare Pilot nav." },
+  { name: "Center Director / Center Teacher navigation", status: "not-ready", note: "Deferred — Solo Home Daycare Provider nav was prioritized first." },
+  { name: "Classroom Assistant / AI Outcomes", status: "not-ready", note: "OpenAI calls remain disabled on every testing host." },
+  { name: "Billing Simulator / bulk account management", status: "computer", note: "Works, but is easiest to use on a computer." },
+]);
+
+const FEATURE_READINESS_LABELS = {
+  ready: "Ready to Test",
+  partial: "Partially Ready",
+  "not-ready": "Not Ready Yet",
+  computer: "Computer Recommended",
+};
+
+function featureReadinessListHtml() {
+  return `
+    <ul class="feature-readiness-list">
+      ${FEATURE_READINESS.map((f) => `
+        <li class="feature-readiness-item">
+          <span class="feature-readiness-badge feature-readiness-badge--${f.status}">${escapeHtml(FEATURE_READINESS_LABELS[f.status])}</span>
+          <span class="feature-readiness-name">${escapeHtml(f.name)}</span>
+          ${f.note ? `<span class="feature-readiness-note">${escapeHtml(f.note)}</span>` : ""}
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+function renderOwnerTestingHomePage() {
+  const mount = document.querySelector("#view-owner-testing-home");
+  if (!mount) return;
+  const rolePreview = ownerTestingHomeState.dashboard?.rolePreview;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Little Learner Hub — Testing Environment</p><h2>Owner Testing Home</h2></div>
+    <p class="muted-copy">Everyday testing actions, one click away. For anything else, use Advanced Admin Tools below.</p>
+    ${ownerTestingHomeState.error ? `<p class="tf-error">${escapeHtml(ownerTestingHomeState.error)}</p>` : ""}
+    <div class="owner-testing-home-grid">
+      <section class="owner-testing-card">
+        <h3>Get Testing Site Ready</h3>
+        <p class="muted-copy">One click: seed both fake programs and every fixture login.</p>
+        <button type="button" class="primary-button" data-oth-get-ready ${ownerTestingHomeState.loading ? "disabled" : ""}>Get Testing Site Ready</button>
+        ${ownerTestingHomeState.onboardResult ? `<p class="tf-notice">${escapeHtml(ownerTestingHomeState.onboardResult)}</p>` : ""}
+        ${ownerTestingHomeState.onboardError ? `<p class="tf-error">${escapeHtml(ownerTestingHomeState.onboardError)}</p>` : ""}
+      </section>
+      <section class="owner-testing-card">
+        <h3>Add a Home Daycare Tester</h3>
+        <p class="muted-copy">Opens the Home Daycare Pilot wizard directly — no need to find Accounts inside Testing Lab first.</p>
+        <button type="button" class="primary-button" data-view="testing-lab" data-oth-panel="accounts">Add a Home Daycare Tester</button>
+      </section>
+      <section class="owner-testing-card">
+        <h3>View Testing Feedback</h3>
+        <p class="muted-copy">${ownerTestingHomeState.status ? `${ownerTestingHomeState.status.openFeedbackCount ?? 0} open thread(s).` : ""}</p>
+        <button type="button" class="ghost-button" data-view="testing-lab" data-oth-panel="feedback">View Testing Feedback</button>
+      </section>
+      <section class="owner-testing-card">
+        <h3>Test as a Role</h3>
+        ${rolePreview?.active ? `
+          <p>Currently testing as: <strong>${escapeHtml(rolePreview.label || rolePreview.targetKind || "")}</strong></p>
+          <p class="muted-copy">Fake organization: ${escapeHtml(ownerTestingHomeState.dashboard?.organizationId || "—")}</p>
+          <div class="owner-testing-card-actions">
+            <button type="button" class="ghost-button" data-view="testing-lab" data-oth-panel="preview">Switch role</button>
+            <button type="button" class="primary-button" data-oth-return-admin>Return to Platform Admin</button>
+          </div>
+        ` : `
+          <p class="muted-copy">Not currently testing as a role.</p>
+          <button type="button" class="ghost-button" data-view="testing-lab" data-oth-panel="preview">Switch role</button>
+        `}
+      </section>
+      <section class="owner-testing-card owner-testing-card-wide">
+        <h3>Testing Status</h3>
+        ${ownerTestingHomeStatusSummaryHtml()}
+      </section>
+      <section class="owner-testing-card owner-testing-card-wide">
+        <h3>What's Ready to Test</h3>
+        <p class="muted-copy">A clear line between finished testing work and what's still in progress — never "Coming Soon" marketing language mixed into tester instructions.</p>
+        ${featureReadinessListHtml()}
+      </section>
+      <section class="owner-testing-card">
+        <h3>Advanced Admin Tools</h3>
+        <p class="muted-copy">The full Admin Dashboard — accounts, analytics, billing, uploads, and everything else.</p>
+        <button type="button" class="ghost-button" data-view="admin">Advanced Admin Tools</button>
+      </section>
+    </div>
+  `;
+  if (!ownerTestingHomeState.status && !ownerTestingHomeState.loading) loadOwnerTestingHomeData();
+}
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-oth-get-ready]")) {
+    event.preventDefault();
+    ownerTestingHomeState.loading = true;
+    ownerTestingHomeState.onboardError = "";
+    renderOwnerTestingHomePage();
+    adminApiFetch("/api/testing-lab/onboard-everything", { method: "POST", body: JSON.stringify({}) })
+      .then((result) => { ownerTestingHomeState.onboardResult = result.note || "Testing site is ready."; })
+      .catch((error) => { ownerTestingHomeState.onboardError = error.message; })
+      .finally(() => { ownerTestingHomeState.loading = false; renderOwnerTestingHomePage(); });
+  }
+  if (event.target.closest("[data-oth-return-admin]")) {
+    event.preventDefault();
+    adminApiFetch("/api/testing-lab/role-preview/exit", { method: "POST", body: JSON.stringify({}) })
+      .catch(() => {})
+      .finally(() => loadOwnerTestingHomeData());
+  }
+});
+
 /** Curates the sidebar for a Home Daycare Pilot account: swaps the generic capability-based #platformNav for a dedicated, exactly-ordered #pilotProviderNav or #pilotParentNav block, and keeps the phone bottom nav in sync. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about #platformNav's own items. */
 function refreshHomeDaycarePilotNav() {
   const isProviderNow = pilotIsProviderNow();
@@ -40686,12 +41093,20 @@ function renderAdminAccessShell() {
   if (!isAdminUnlocked()) {
     protectedContent.hidden = true;
     lockPanel.hidden = false;
+    // A dedicated, minimal signed-out screen — no marketing chrome, no
+    // pricing/purchase buttons, no hidden role navigation rendered
+    // alongside it (see the body-class toggle in setView's admin
+    // dispatch). Never reveals whether a specific admin email exists —
+    // login failures always show the same generic message regardless of
+    // which part was wrong.
+    document.body.classList.add("signed-out-admin-view");
     const emailValue = escapeHtml(rememberedAdminEmail());
     lockPanel.innerHTML = `
       <div class="admin-lock-content">
         <div>
-          <p class="eyebrow">Private Owner Area</p>
-          <h3>Admin dashboard is protected</h3>
+          <p class="eyebrow">Little Learner Hub</p>
+          <h3>Little Learner Hub Admin</h3>
+          ${!isProductionHostClient() ? `<p class="signed-out-admin-testing-banner">Testing environment — fake data only</p>` : ""}
           <p>Log in as the owner to view accounts, uploads, support tickets, AI usage, billing activity, leads, and private website analytics.</p>
         </div>
         <form id="adminUnlockForm" class="admin-unlock-form">
@@ -40721,10 +41136,12 @@ function renderAdminAccessShell() {
             <button class="ghost-button" type="button" id="localOwnerAdminUnlock">Unlock with signed-in owner account</button>
           </div>
         ` : ""}
+        <button type="button" class="ghost-button signed-out-admin-return-link" data-view="home">Return to website</button>
       </div>
     `;
     return false;
   }
+  document.body.classList.remove("signed-out-admin-view");
   protectedContent.hidden = false;
   lockPanel.hidden = false;
   lockPanel.innerHTML = `
@@ -49849,11 +50266,11 @@ function foundingUpgradeBannerHtml(options = {}) {
     ? "Pro Membership Available"
     : "🔥 Founding Member Spots Still Available";
   const body = soldOut
-    ? `${proUnlockValueProp} Upgrade to Pro for unlimited access to every feature and every future update.`
-    : `Lock in $9.99/month for life. ${proUnlockValueProp}`;
+    ? `${proUnlockValueProp} Upgrade to Pro for full access within your plan's limits, plus new features as they launch.`
+    : `Lock in $9.99/month, ${foundingPriceLockPhrase()}. ${proUnlockValueProp}`;
   const priceBlock = soldOut
     ? `<p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>`
-    : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>for life</em></span></p>
+    : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>${escapeHtml(foundingPriceLockPhrase())}</em></span></p>
        <p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s></p>
        <p class="founding-upgrade-spots">${remaining} founding spot${remaining === 1 ? "" : "s"} remaining</p>`;
   return `
@@ -50688,6 +51105,18 @@ function setFreePlan() {
 }
 
 async function startCheckout(type) {
+  // Testing hosts never create a real Stripe checkout (and never fall
+  // through into the local "Complete Test Payment" simulator either) —
+  // buttons are relabeled via installTestingPurchaseRelabelObserver, and
+  // this is the hard stop. Still navigate to Upgrade so locked-preview /
+  // pricing CTAs remain a coherent flow instead of a dead-end alert.
+  if (!isProductionHostClient()) {
+    if (!requireBillingAccount()) return;
+    closeProFeatureModal?.();
+    setView("upgrade");
+    showTestingPurchasesDisabledPanel();
+    return;
+  }
   if (!requireBillingAccount()) return;
   syncCheckoutPromoCodeFromInput(document);
   if (type === "founding") await syncFoundingStatus({ render: true });
@@ -50700,7 +51129,7 @@ async function startCheckout(type) {
   const amount = checkoutAmount(checkoutType);
   const promoCode = normalizedCheckoutPromoCode();
   const priceConfirmLabel = checkoutType === "founding"
-    ? "Founding Member at $9.99/month for life"
+    ? `Founding Member at $9.99/month ${foundingPriceLockPhrase()}`
     : checkoutType === "annual"
       ? "Pro Annual at $199/year"
       : "Pro Monthly at $19.99/month";
@@ -50792,6 +51221,13 @@ async function startCheckout(type) {
 async function startProTrial() {
   if (!requireBillingAccount()) return;
   closeProFeatureModal();
+  // Same hard stop as startCheckout — testing hosts never open Stripe and
+  // never offer the local test-payment simulator from a trial CTA.
+  if (!isProductionHostClient()) {
+    setView("upgrade");
+    showTestingPurchasesDisabledPanel();
+    return;
+  }
   await syncFoundingStatus({ render: false });
   const checkoutType = "monthly";
   const amount = checkoutAmount(checkoutType);
@@ -51169,7 +51605,9 @@ async function signOut() {
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
   setView(
-    isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin" ? "admin" : "home",
+    isAdminUnlocked() && ["admin", "owner-testing-home"].includes(localStorage.getItem("llhAdminLastView"))
+      ? localStorage.getItem("llhAdminLastView")
+      : "home",
     { allowDashboard: true, replaceHistory: true },
   );
 }
@@ -52074,6 +52512,7 @@ document.addEventListener("click", async (event) => {
     // the previous section + scroll. skipHistory only suppresses nested lesson entries.
     const navOptions = { skipHistory: true };
     if (requestedLessonLibraryMode) navOptions.lessonLibraryMode = requestedLessonLibraryMode;
+    if (viewButton.dataset.othPanel) navOptions.testingLabPanel = viewButton.dataset.othPanel;
     if (nextView === "planner" && viewButton.dataset.plannerFocusWeek) {
       navOptions.weekStartDate = viewButton.dataset.plannerFocusWeek;
     }
@@ -52087,6 +52526,14 @@ document.addEventListener("click", async (event) => {
         view: previousView === "home" && isLoggedIn() ? "calendar" : previousView,
         label: fallbackBackLabel(previousView === "home" && isLoggedIn() ? "calendar" : previousView),
       });
+    }
+    // Testing Lab specifically: never decide with default/stale expansion
+    // flags just because the boot-time fetch hasn't resolved yet — wait
+    // for the real answer first (bounded), so a fast click right after
+    // page load can never land on Calendar purely from a timing race.
+    if (viewButton.dataset.view === "testing-lab" && typeof hasAdminFullAccess === "function" && hasAdminFullAccess() && !expansionFeatureFlagsEverLoaded) {
+      ensureExpansionFeatureFlagsLoaded({ timeoutMs: 8000 }).then(() => setView("testing-lab", navOptions));
+      return;
     }
     setView(viewButton.dataset.view, navOptions);
     if (viewButton.dataset.settingsAnchor === "notifications") {
@@ -57251,10 +57698,18 @@ document.addEventListener("submit", async (event) => {
     await loadAdminSiteContent().catch(() => {});
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     adminAnalyticsCache = null;
-    renderAdminDashboard();
-    await loadAdminAnalyticsFromBackend({ force: true });
-    await fetchAdminNotificationCenter().catch(() => {});
-    renderAdminDashboard();
+    // A fresh login on a testing host lands on the Owner Testing Home —
+    // "Add a Home Daycare Tester" one click away — rather than requiring a
+    // trip through the full Admin Dashboard first. Production is
+    // unaffected (Owner Testing Home never appears there).
+    if (!isProductionHostClient()) {
+      setView("owner-testing-home", { fromAuthLanding: true });
+    } else {
+      renderAdminDashboard();
+      await loadAdminAnalyticsFromBackend({ force: true });
+      await fetchAdminNotificationCenter().catch(() => {});
+      renderAdminDashboard();
+    }
     return;
   } catch (error) {
     if (message) {
@@ -59713,8 +60168,8 @@ syncCurriculumPlannerNavVisibility();
 // Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
 // Admin-only unlock (no provider login) restores Admin immediately to avoid Home flash / "kicked out" feel.
 if (!currentUser) {
-  if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-    setView("admin", { fromBoot: true, replaceHistory: true });
+  if (isAdminUnlocked()) {
+    setView(defaultAdminLandingView(), { fromBoot: true, replaceHistory: true });
   } else {
     renderHome();
   }
@@ -59729,7 +60184,7 @@ if (!currentUser) {
       return adRouteMap[window.location.pathname] || adRouteMap[window.location.hash] || "";
     })();
     if (fromLocation && fromLocation !== "home") return fromLocation;
-    if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") return "admin";
+    if (isAdminUnlocked()) return defaultAdminLandingView();
     // Phase 23: a returning guardian fake-account session (refresh, not fresh login)
     // must land back in Family Hub, never the provider Today dashboard.
     if (currentAccount()?.familyHubGuardian && isExpansionFeatureEnabled("familyHub")) return "family-hub";
@@ -59757,14 +60212,57 @@ function initialViewFromLocation() {
   return pathView || hashView || "home";
 }
 
+/**
+ * Sanitized boot diagnostics — timing/step names and boolean outcomes
+ * only, NEVER tokens, emails, or any account content. Surfaced on a boot
+ * failure/timeout via renderBootFailedRetryScreen() and kept here for
+ * "Try Again" and for Testing Status (see Testing Lab) to read.
+ */
+let lastBootDiagnostic = { pendingSteps: [], timedOut: false, failed: false, at: "" };
+
+function renderBootFailedRetryScreen() {
+  // Never leave an authenticated session staring at a half-booted screen
+  // (or, worse, the pre-boot Calendar placeholder) with no explanation or
+  // way forward — and never guess a role/render stale permissions instead.
+  const host = document.querySelector("#main-content") || document.body;
+  const overlayId = "bootFailedRetryOverlay";
+  if (document.getElementById(overlayId)) return;
+  const overlay = document.createElement("div");
+  overlay.id = overlayId;
+  overlay.className = "boot-failed-retry-overlay";
+  overlay.setAttribute("role", "alertdialog");
+  overlay.setAttribute("aria-modal", "true");
+  overlay.setAttribute("aria-label", "We couldn't load your account");
+  overlay.innerHTML = `
+    <div class="boot-failed-retry-card">
+      <h2>We couldn't load your account</h2>
+      <p class="muted-copy">Your sign-in is fine — we just couldn't finish loading your organization, role, and permissions. Nothing has been changed, and anything you had queued offline is still saved on this device.</p>
+      <button type="button" class="primary-button" data-boot-retry>Try Again</button>
+    </div>
+  `;
+  host.prepend(overlay);
+}
+
+function clearBootFailedRetryScreen() {
+  document.getElementById("bootFailedRetryOverlay")?.remove();
+}
+
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-boot-retry]")) return;
+  clearBootFailedRetryScreen();
+  initializeAppView();
+});
+
 async function initializeAppView() {
   suppressBootLanding = false;
+  clearBootFailedRetryScreen();
   const bootNavGeneration = viewNavigationGeneration;
+  let bootStepsCompleted = false;
   try {
-    await Promise.race([
+    const bootTimedOut = await Promise.race([
       (async () => {
         const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
-        if (handledCheckoutReturn) return;
+        if (handledCheckoutReturn) { bootStepsCompleted = true; return false; }
         if (currentUser) {
           await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false }).catch((error) => {
             console.warn("Subscription sync during boot failed", error);
@@ -59773,6 +60271,15 @@ async function initializeAppView() {
             console.warn("Child data sync during boot failed", error);
           });
           loadUserAiUsage(currentUser).catch(() => {});
+        }
+        // An Admin's role/permissions for Testing Lab/Director Center/Forms
+        // Center are resolved here too — so by the time boot finishes and
+        // the sidebar becomes interactive, clicking one of those tools
+        // never races a still-in-flight flags fetch (see
+        // ensureExpansionFeatureFlagsLoaded / the Testing Lab nav click
+        // handler for the reactive fallback if this is ever slow).
+        if (typeof hasAdminFullAccess === "function" && hasAdminFullAccess()) {
+          await ensureExpansionFeatureFlagsLoaded({ timeoutMs: 8000 }).catch(() => {});
         }
         await syncFoundingStatus({ render: true }).catch(() => {});
         await maybeHandleStaffInviteFromUrl().catch(() => {});
@@ -59812,10 +60319,12 @@ async function initializeAppView() {
           setView(initialView, viewOptions);
           return;
         }
-        // Prefer restoring Admin when this browser left Admin unlocked.
-        if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-          setView("admin", { fromBoot: true, replaceHistory: true });
-          loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+        // Prefer restoring Admin (or Owner Testing Home on a testing host)
+        // when this browser left Admin unlocked.
+        if (isAdminUnlocked()) {
+          const landing = defaultAdminLandingView();
+          setView(landing, { fromBoot: true, replaceHistory: true });
+          if (landing === "admin") loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
           return;
         }
         // Logged-in providers land on Today (or last remembered page on refresh).
@@ -59835,13 +60344,32 @@ async function initializeAppView() {
         if (!currentUser) {
           setView("home", { fromBoot: true, allowDashboard: true, replaceHistory: true });
         }
-      })(),
-      delayMs(12000).then(() => {
-        console.warn("App boot timed out — continuing with local UI");
-      }),
+      })().then(() => { bootStepsCompleted = true; return false; }),
+      delayMs(12000).then(() => true),
     ]);
+    if (bootTimedOut && !bootStepsCompleted) {
+      // "Continuing with local UI" used to mean silently proceeding as
+      // whatever role/permissions happened to already be cached — for a
+      // signed-in session (Admin, provider, staff, or parent) that is
+      // exactly the wrong failure mode: it can render the wrong role or
+      // act on stale/expired permissions with zero indication anything
+      // was wrong. A guest browsing the public marketing pages has no
+      // identity/permissions to get wrong, so she is unaffected.
+      lastBootDiagnostic = {
+        pendingSteps: ["subscription/child-data sync", "expansion feature flags", "founding status"],
+        timedOut: true, failed: false, at: new Date().toISOString(),
+      };
+      console.warn("[boot] timed out after 12000ms — pending: subscription/child-data sync, expansion feature flags, founding status (no tokens/identity logged)");
+      if (currentUser || (typeof isAdminUnlocked === "function" && isAdminUnlocked())) {
+        renderBootFailedRetryScreen();
+      }
+    }
   } catch (error) {
-    console.warn("App boot failed", error);
+    lastBootDiagnostic = { pendingSteps: [], timedOut: false, failed: true, at: new Date().toISOString() };
+    console.warn("[boot] failed:", error?.message || "unknown error");
+    if (currentUser || (typeof isAdminUnlocked === "function" && isAdminUnlocked())) {
+      renderBootFailedRetryScreen();
+    }
   } finally {
     document.body.classList.add("app-booted");
     document.documentElement.classList.remove("llh-boot-authenticated");

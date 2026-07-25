@@ -215,6 +215,8 @@
     "test:home-daycare-staff-restrictions": "NODE_ENV=test node scripts/test-home-daycare-staff-restrictions.js",
     "test:daily-care-server-authoritative-sync": "NODE_ENV=test node scripts/test-daily-care-server-authoritative-sync.js",
     "test:daily-care-offline-queue-corrections-sync": "NODE_ENV=test node scripts/test-daily-care-offline-queue-and-corrections-sync.js",
+    "test:testing-lab-routing-fix": "NODE_ENV=test node scripts/test-testing-lab-routing-fix.js",
+    "test:owner-testing-home-acceptance": "NODE_ENV=test node scripts/test-owner-testing-home-acceptance.js",
     "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
   "devDependencies": {

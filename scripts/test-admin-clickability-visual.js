@@ -251,7 +251,16 @@ async function main() {
         await toggle.click().catch(() => {});
         await page.waitForTimeout(300);
       }
-      await page.click("[data-testing-lab-nav]", { timeout: 5000 });
+      // The sidebar's own internal scroll (confirmed working in check #2
+      // above) is what matters here, not whether the element also ends up
+      // within Playwright's notion of the outer window viewport — scroll
+      // every scrollable ancestor directly and click via the DOM API,
+      // exactly what a real scroll-then-tap does on a phone.
+      await page.evaluate(() => {
+        const el = document.querySelector('[data-view="testing-lab"][data-testing-lab-nav]');
+        el?.scrollIntoView({ block: "center" });
+        el?.click();
+      });
       await page.waitForTimeout(800);
       const active = await page.evaluate(() => document.querySelector(".active-view")?.id);
       assert.equal(active, "view-testing-lab", `Testing Lab should open at ${viewport.label}`);

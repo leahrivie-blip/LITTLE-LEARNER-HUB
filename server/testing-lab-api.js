@@ -12,6 +12,7 @@ const { createPlatformResilienceHandlers } = require("./platform-resilience-api.
 const resilienceModel = require("../scripts/platform-resilience-data-model.js");
 const { createPhase20Handlers } = require("./phase20-api.js");
 const securityModel = require("../scripts/phase20-security-data-model.js");
+const testingFeedbackModel = require("../scripts/testing-feedback-data-model.js");
 
 const BASE = "/api/testing-lab";
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
@@ -74,6 +75,9 @@ function createTestingLabApi({
   getLaunchReadiness,
   getGitSha,
   getBranchName,
+  getStripeConfigStatus,
+  getAiConfigStatus,
+  getSupportEmailConfigStatus,
 }) {
   function env() {
     return resolveEnv(expansionEnvironment);
@@ -227,6 +231,63 @@ function createTestingLabApi({
       notes,
       recentActivity: recentAudit,
       rolePreviewTargets: model.ROLE_PREVIEW_TARGETS,
+    });
+  }
+
+  /**
+   * Read-only, sanitized status panel for the Owner Testing Home — never
+   * exposes secrets/API keys, only whether each integration is configured
+   * and every real external service (Stripe/email/SMS/OpenAI) stays off
+   * on a testing host regardless of what's configured.
+   */
+  async function handleStatus(request, response, ctx) {
+    let store;
+    let databaseConnected = true;
+    try {
+      store = readStore();
+    } catch {
+      databaseConnected = false;
+      store = { siteContent: {}, familyFoundation: {}, testingFeedback: {} };
+    }
+    if (!assertLabAccess(store, response)) return;
+    const flags = expansionFlags.publicExpansionFeatureFlagsPayload(store.siteContent?.featureFlags, {
+      environment: env(),
+      isVerifiedAdmin: true,
+    });
+    const stripeStatus = typeof getStripeConfigStatus === "function" ? getStripeConfigStatus() : null;
+    const aiStatus = typeof getAiConfigStatus === "function" ? getAiConfigStatus() : null;
+    const emailStatus = typeof getSupportEmailConfigStatus === "function" ? getSupportEmailConfigStatus() : null;
+    const testerCount = listValues(store.familyFoundation?.fakeAccounts || {}).length;
+    let openFeedbackCount = 0;
+    try {
+      openFeedbackCount = testingFeedbackModel.listThreadsForAdmin(store, { status: "open" }).length
+        + testingFeedbackModel.listThreadsForAdmin(store, { status: "in_progress" }).length;
+    } catch { openFeedbackCount = 0; }
+    jsonResponse(response, 200, {
+      ok: true,
+      testingBanner: model.TESTING_BANNER,
+      deployedCommit: typeof getGitSha === "function" ? getGitSha() : "",
+      branch: typeof getBranchName === "function" ? getBranchName() : "",
+      databaseConnected,
+      databaseProvider: String(process.env.DATABASE_PROVIDER || "local-json"),
+      liveProduction: env().liveProduction,
+      flags: {
+        testingLab: flags.effectiveFlags?.testingLab === true,
+        familyHub: flags.effectiveFlags?.familyHub === true,
+        formsCenter: flags.effectiveFlags?.formsCenter === true,
+        directorCenter: flags.effectiveFlags?.directorCenter === true,
+      },
+      // "Disabled" here always means "cannot make a real external call" —
+      // never whether a key/credential happens to be present, since a
+      // testing host must stay externally-inert regardless of config.
+      aiEnabled: env().liveProduction ? Boolean(aiStatus?.ready) : false,
+      aiConfigured: Boolean(aiStatus?.ready),
+      stripeEnabled: false,
+      stripeConfigured: Boolean(stripeStatus?.checkoutReady),
+      emailSmsEnabled: false,
+      emailConfigured: Boolean(emailStatus?.ready),
+      testerCount,
+      openFeedbackCount,
     });
   }
 
@@ -951,6 +1012,7 @@ function createTestingLabApi({
     if (!path.startsWith(BASE)) return null;
     if (method === "GET" && path === `${BASE}/status`) return (req, res, ctx) => handleStatus(req, res, ctx);
     if (method === "GET" && path === `${BASE}/dashboard`) return (req, res, ctx) => handleDashboard(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/status`) return (req, res, ctx) => handleStatus(req, res, ctx);
     if (method === "GET" && path === `${BASE}/health`) return (req, res, ctx) => resilience.handleHealth(req, res, ctx);
     if (method === "GET" && path === `${BASE}/activity`) return (req, res, ctx) => resilience.handleActivityPage(req, res, ctx);
     if (method === "POST" && path === `${BASE}/seed`) return (req, res, ctx) => handleSeed(req, res, ctx);
