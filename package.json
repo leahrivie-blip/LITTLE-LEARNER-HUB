@@ -213,6 +213,8 @@
     "test:daily-care-families-sync-bridge": "NODE_ENV=test node scripts/test-daily-care-families-sync-bridge.js",
     "test:home-daycare-connected-walkthrough": "NODE_ENV=test node scripts/test-home-daycare-connected-walkthrough.js",
     "test:home-daycare-staff-restrictions": "NODE_ENV=test node scripts/test-home-daycare-staff-restrictions.js",
+    "test:daily-care-server-authoritative-sync": "NODE_ENV=test node scripts/test-daily-care-server-authoritative-sync.js",
+    "test:daily-care-offline-queue-corrections-sync": "NODE_ENV=test node scripts/test-daily-care-offline-queue-and-corrections-sync.js",
     "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
   "devDependencies": {
