@@ -21,6 +21,7 @@
  */
 
 const model = require("../scripts/testing-feedback-data-model.js");
+const sandboxModel = require("../scripts/external-tester-sandbox-data-model.js");
 
 const BASE = "/api/testing-feedback";
 
@@ -76,9 +77,16 @@ function createTestingFeedbackApi({ readStore, writeStore, jsonResponse, readJso
         role: body.context?.role || identity.role || identity.accountType,
         organizationId: identity.organizationId,
         deployedCommit: deployedCommit(),
+        relatedChildId: body.context?.relatedChildId || "",
       },
       screenshotDataUrl: body.screenshotDataUrl || "",
     });
+    // Home Daycare Pilot checklist: "Submit feedback" — best-effort, never
+    // blocks a real feedback submission if this account isn't a sandbox.
+    try {
+      const sandboxAccount = sandboxModel.listSandboxAccounts(store).find((row) => row.email === String(ctx.fakeAccountEmail || "").toLowerCase());
+      if (sandboxAccount) sandboxModel.setChecklistItemComplete(store, { accountId: sandboxAccount.id, itemKey: "submit_feedback", complete: true });
+    } catch { /* never block feedback submission over a checklist write */ }
     writeStore(store);
     jsonResponse(response, 201, { ok: true, thread, message });
   }

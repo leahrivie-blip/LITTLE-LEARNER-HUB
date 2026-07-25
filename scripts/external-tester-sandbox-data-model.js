@@ -20,8 +20,25 @@
  */
 
 const crypto = require("node:crypto");
+const familyModel = require("./family-foundation-data-model.js");
 
 const SANDBOX_KIND = "external_tester_sandbox";
+
+// A fixed catalog of Home Daycare Pilot checklist items — a sandbox account
+// tracks completion of each by key, persisted on the account itself so it
+// survives refresh/logout/restart/redeploy exactly like everything else here.
+const HOME_DAYCARE_PILOT_CHECKLIST = Object.freeze([
+  { key: "add_child", label: "Add a fake child" },
+  { key: "add_guardian", label: "Add a fake guardian" },
+  { key: "record_care", label: "Record attendance and care" },
+  { key: "send_update", label: "Send a family update" },
+  { key: "send_form", label: "Create/send a form" },
+  { key: "switch_to_parent", label: "Switch to Parent View" },
+  { key: "verify_parent_info", label: "Verify the correct parent information" },
+  { key: "reply_as_parent", label: "Reply as the parent" },
+  { key: "test_billing", label: "Test fake billing records" },
+  { key: "submit_feedback", label: "Submit feedback" },
+]);
 
 // The ONLY role keys a sandbox account can ever hold or switch to. This list
 // is intentionally hardcoded and never derived from admin input — an admin
@@ -166,9 +183,27 @@ function ensureGuardianShadowContact(store, { organizationId, sandboxAccountId, 
     };
   }
 
-  // Clone every one of the donor's ACTIVE access rules onto the shadow
-  // contact, idempotently (stable derived ids so re-running this never
-  // duplicates rules).
+  // Retire every PREVIOUSLY cloned shadow rule that does NOT belong to the
+  // CURRENT donor before cloning fresh ones. Without this, previewing
+  // guardian A then later guardian B would ACCUMULATE access to both
+  // guardians' children on the same shadow contact — a real information
+  // leak ("never expose another child") the first version of this function
+  // did not guard against.
+  const currentDonorChildIds = new Set(
+    listValues(store.familyFoundation.accessRules)
+      .filter((rule) => rule.contactId === donorContactId && rule.status !== "suspended" && rule.status !== "revoked")
+      .map((rule) => rule.childId),
+  );
+  Object.keys(store.familyFoundation.accessRules).forEach((ruleId) => {
+    const rule = store.familyFoundation.accessRules[ruleId];
+    if (rule?.contactId === shadowContactId && !currentDonorChildIds.has(rule.childId)) {
+      delete store.familyFoundation.accessRules[ruleId];
+    }
+  });
+
+  // Clone every one of the (current) donor's ACTIVE access rules onto the
+  // shadow contact, idempotently (stable derived ids so re-running this
+  // never duplicates rules).
   const donorRules = listValues(store.familyFoundation.accessRules)
     .filter((rule) => rule.contactId === donorContactId && rule.status !== "suspended" && rule.status !== "revoked");
   donorRules.forEach((rule) => {
@@ -184,10 +219,65 @@ function ensureGuardianShadowContact(store, { organizationId, sandboxAccountId, 
   return shadowContactId;
 }
 
-/** Resolves the full main-app identity for a role key within a sandbox's fixed organization. Never trusts anything from outside this module's own fixed tables. */
+/**
+ * Every contact in the org with at least one active, digital-access rule —
+ * the tester's "which family would you like to preview" candidate list.
+ * Never includes another sandbox account's own shadow contact.
+ */
+function listGuardianPreviewOptions(store, organizationId) {
+  const contacts = listValues(store.familyFoundation?.contacts || {})
+    .filter((c) => c && c.organizationId === organizationId && !String(c.id).startsWith("fcontact_sandbox_"));
+  const options = [];
+  for (const contact of contacts) {
+    const rules = listValues(store.familyFoundation?.accessRules || {})
+      .filter((r) => r.contactId === contact.id && r.organizationId === organizationId && r.status === "active");
+    const digitalRules = rules.filter((r) => familyModel.accessRuleAllowsDigital(r));
+    if (!digitalRules.length) continue;
+    options.push({
+      contactId: contact.id,
+      displayName: contact.displayName,
+      children: digitalRules.map((r) => ({ childId: r.childId, childName: store.childRecords?.[r.childId]?.displayName || "Child" })),
+    });
+  }
+  return options;
+}
+
+/**
+ * Resolves the full main-app identity for a role key within a sandbox's
+ * fixed organization. Never trusts anything from outside this module's own
+ * fixed tables. For parent_guardian, `explicitContactId` (validated to
+ * belong to this exact organization and to have active digital access) lets
+ * the tester choose WHICH linked guardian/child relationship to preview —
+ * falling back to the legacy fixed-donor-kind search only when none is
+ * given, for backward compatibility with the generic (non-pilot) sandbox.
+ */
 function resolveIdentityForRoleKey(store, organizationId, roleKey, sandboxContext = {}) {
   const generic = SANDBOX_ROLE_GENERIC_IDENTITY[roleKey];
   if (!generic) return null;
+
+  if (generic.familyHubGuardian && sandboxContext.explicitContactId) {
+    const options = listGuardianPreviewOptions(store, organizationId);
+    const chosen = options.find((o) => o.contactId === sandboxContext.explicitContactId);
+    if (!chosen) return null;
+    const shadowId = sandboxContext.sandboxAccountId && sandboxContext.sandboxEmail
+      ? ensureGuardianShadowContact(store, {
+        organizationId,
+        sandboxAccountId: sandboxContext.sandboxAccountId,
+        sandboxEmail: sandboxContext.sandboxEmail,
+        donorContactId: chosen.contactId,
+      })
+      : "";
+    return {
+      role: generic.role,
+      accountType: generic.accountType,
+      familyHubGuardian: generic.familyHubGuardian,
+      contactId: shadowId || "",
+      staffMembershipId: "",
+      donorAccountId: "",
+      previewContactId: chosen.contactId,
+    };
+  }
+
   const donor = findDonorAccount(store, organizationId, roleKey);
   if (!donor) {
     return { ...generic, contactId: "", staffMembershipId: "", donorAccountId: "" };
@@ -209,6 +299,7 @@ function resolveIdentityForRoleKey(store, organizationId, roleKey, sandboxContex
     contactId,
     staffMembershipId: cleanText(donor.staffMembershipId, 160),
     donorAccountId: donor.id,
+    previewContactId: generic.familyHubGuardian ? (donor.contactId || "") : "",
   };
 }
 
@@ -220,7 +311,7 @@ function resolveIdentityForRoleKey(store, organizationId, roleKey, sandboxContex
  * before ever calling this.
  */
 function ensureSandboxAccount(store, {
-  organizationId, email, displayName = "External Tester", allowedRoleKeys = [],
+  organizationId, email, displayName = "External Tester", allowedRoleKeys = [], pilotType = "",
 }) {
   store.familyFoundation = store.familyFoundation || {};
   store.familyFoundation.fakeAccounts = store.familyFoundation.fakeAccounts || {};
@@ -232,6 +323,7 @@ function ensureSandboxAccount(store, {
   if (existing) {
     existing.organizationId = cleanText(organizationId, 160);
     existing.allowedRoleKeys = sanitizedRoles;
+    if (pilotType) existing.pilotType = cleanText(pilotType, 80);
     if (!sanitizedRoles.includes(existing.activeRoleKey)) existing.activeRoleKey = activeRoleKey;
     existing.updatedAt = nowIso();
     store.familyFoundation.fakeAccounts[existing.id] = existing;
@@ -247,6 +339,7 @@ function ensureSandboxAccount(store, {
     planKey: "",
     contactId: "",
     staffMembershipId: "",
+    activePreviewContactId: "",
     passwordHash: "",
     mustChangePassword: false,
     label: "Testing Account — Fake Data Only. External Tester Sandbox.",
@@ -256,9 +349,34 @@ function ensureSandboxAccount(store, {
     updatedAt: nowIso(),
     allowedRoleKeys: sanitizedRoles,
     activeRoleKey,
+    pilotType: cleanText(pilotType, 80),
+    checklistProgress: {},
+    loginActivity: [],
   };
   store.familyFoundation.fakeAccounts[record.id] = record;
   return record;
+}
+
+/** Records one login event (timestamp only — never anything sensitive) for the admin "login activity" view. Keeps the most recent 50. */
+function recordLoginActivity(store, accountId) {
+  const account = store.familyFoundation?.fakeAccounts?.[accountId];
+  if (!account || !isSandboxAccount(account)) return;
+  account.loginActivity = Array.isArray(account.loginActivity) ? account.loginActivity : [];
+  account.loginActivity.push(nowIso());
+  account.loginActivity = account.loginActivity.slice(-50);
+  store.familyFoundation.fakeAccounts[account.id] = account;
+}
+
+/** Marks one checklist item complete for this sandbox account — idempotent, never removes a previously-completed item. */
+function setChecklistItemComplete(store, { accountId, itemKey, complete = true }) {
+  const account = store.familyFoundation?.fakeAccounts?.[accountId];
+  if (!account || !isSandboxAccount(account)) return null;
+  if (!HOME_DAYCARE_PILOT_CHECKLIST.some((item) => item.key === itemKey)) return null;
+  account.checklistProgress = account.checklistProgress && typeof account.checklistProgress === "object" ? account.checklistProgress : {};
+  account.checklistProgress[itemKey] = complete === true;
+  account.updatedAt = nowIso();
+  store.familyFoundation.fakeAccounts[account.id] = account;
+  return account.checklistProgress;
 }
 
 function setAllowedRoleKeys(store, { accountId, allowedRoleKeys }) {
@@ -297,7 +415,7 @@ function setAllowedRoleKeys(store, { accountId, allowedRoleKeys }) {
  *    fully recomputed from this module's own fixed tables, never merged
  *    with whatever the client claims her role should be.
  */
-function switchActiveRole(store, { accountId, testerEmail, roleKey }) {
+function switchActiveRole(store, { accountId, testerEmail, roleKey, previewContactId = "" }) {
   const account = store.familyFoundation?.fakeAccounts?.[accountId];
   if (!account || !isSandboxAccount(account)) {
     return { ok: false, error: "not_found" };
@@ -316,16 +434,21 @@ function switchActiveRole(store, { accountId, testerEmail, roleKey }) {
   if (!allowed.includes(roleKey)) {
     return { ok: false, error: "role_not_allowed" };
   }
+  const cleanPreviewContactId = cleanText(previewContactId, 160);
   const identity = resolveIdentityForRoleKey(store, account.organizationId, roleKey, {
     sandboxAccountId: account.id,
     sandboxEmail: account.email,
+    explicitContactId: cleanPreviewContactId || undefined,
   });
-  if (!identity) return { ok: false, error: "invalid_role" };
+  if (!identity) {
+    return { ok: false, error: cleanPreviewContactId ? "guardian_not_found" : "invalid_role" };
+  }
 
   account.activeRoleKey = roleKey;
   account.role = identity.role;
   account.contactId = identity.contactId;
   account.staffMembershipId = identity.staffMembershipId;
+  account.activePreviewContactId = identity.previewContactId || "";
   account.updatedAt = nowIso();
   store.familyFoundation.fakeAccounts[account.id] = account;
 
@@ -357,6 +480,7 @@ function switchActiveRole(store, { accountId, testerEmail, roleKey }) {
       accountType: identity.accountType,
       familyHubGuardian: identity.familyHubGuardian,
       organizationId: account.organizationId,
+      previewContactId: identity.previewContactId || "",
     },
   };
 }
@@ -373,6 +497,10 @@ function publicSandboxAccount(row) {
     allowedRoleKeys: Array.isArray(row.allowedRoleKeys) ? row.allowedRoleKeys : [],
     activeRoleKey: row.activeRoleKey || "",
     activeRoleLabel: SANDBOX_ROLE_LABELS[row.activeRoleKey] || "",
+    activePreviewContactId: row.activePreviewContactId || "",
+    pilotType: row.pilotType || "",
+    checklistProgress: row.checklistProgress && typeof row.checklistProgress === "object" ? row.checklistProgress : {},
+    loginActivity: Array.isArray(row.loginActivity) ? row.loginActivity.slice(-10) : [],
     createdAt: row.createdAt || "",
     updatedAt: row.updatedAt || "",
   };
@@ -382,6 +510,7 @@ module.exports = {
   SANDBOX_KIND,
   SANDBOX_ROLE_KEYS,
   SANDBOX_ROLE_LABELS,
+  HOME_DAYCARE_PILOT_CHECKLIST,
   isValidRoleKey,
   isSandboxAccount,
   listSandboxAccounts,
@@ -390,5 +519,8 @@ module.exports = {
   setAllowedRoleKeys,
   switchActiveRole,
   resolveIdentityForRoleKey,
+  listGuardianPreviewOptions,
   publicSandboxAccount,
+  recordLoginActivity,
+  setChecklistItemComplete,
 };

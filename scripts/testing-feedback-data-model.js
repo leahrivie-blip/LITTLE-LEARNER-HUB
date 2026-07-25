@@ -101,6 +101,10 @@ function normalizeContext(context = {}, fallbackOrganizationId = "") {
     // never a secret, purely so the admin can tell whether a report was filed
     // against an old deploy before investigating. Empty when unset.
     deployedCommit: cleanText(context.deployedCommit, 40),
+    // Optional: which fake child this report is about (e.g. Home Daycare
+    // Pilot testers previewing a specific family) — a fake-data id, never
+    // any real information. Empty when not applicable.
+    relatedChildId: cleanText(context.relatedChildId, 160),
   };
 }
 

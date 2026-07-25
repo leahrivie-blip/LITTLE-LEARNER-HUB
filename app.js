@@ -10870,6 +10870,7 @@ function syncPlatformNavVisibility() {
       button.setAttribute("tabindex", "-1");
     }
   });
+  if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
@@ -13114,6 +13115,12 @@ function setView(view, options = {}) {
         if (typeof renderTestingLabPage === "function") renderTestingLabPage();
       });
   }
+  if (resolvedView === "pilot-families") loadPilotFamiliesData();
+  if (resolvedView === "pilot-messages") loadPilotMessages();
+  if (resolvedView === "pilot-forms") loadPilotForms();
+  if (resolvedView === "pilot-billing") loadPilotBilling();
+  if (resolvedView === "pilot-parent-home") loadPilotParentHome();
+  if (resolvedView === "pilot-checklist") loadPilotChecklist();
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "classroom-assistant") {
     const section = document.querySelector("#view-classroom-assistant");
@@ -36265,6 +36272,7 @@ async function refreshExternalTesterSandboxState() {
     externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
   }
   refreshTestingIdentityBanner();
+  if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
 }
 
 function sandboxRolePickerHtml() {
@@ -36290,10 +36298,51 @@ function closeSandboxRolePicker() {
   if (modal) modal.hidden = true;
 }
 
+/**
+ * Switching TO Parent/Guardian may need a second choice first: WHICH linked
+ * fake guardian/child relationship to preview, when the tester (as
+ * provider) has created more than one. Shows a second picker screen inside
+ * the SAME modal rather than immediately switching — guessing wrong here
+ * would silently show the wrong family's data.
+ */
+async function maybePickGuardianBeforeSwitching(roleKey) {
+  if (roleKey !== "parent_guardian") return { proceed: true, previewContactId: "" };
+  let options = [];
+  try {
+    const data = await externalTesterSandboxApi("GET", "/api/external-tester/guardian-options");
+    options = data.options || [];
+  } catch {
+    return { proceed: true, previewContactId: "" }; // legacy generic sandbox: falls back to donor-kind search server-side.
+  }
+  if (options.length <= 1) return { proceed: true, previewContactId: options[0]?.contactId || "" };
+  const list = document.querySelector("#sandboxRolePickerList");
+  if (!list) return { proceed: true, previewContactId: options[0].contactId };
+  return new Promise((resolve) => {
+    list.innerHTML = `
+      <p class="muted-copy">Which family would you like to preview?</p>
+      ${options.map((o) => `
+        <button type="button" class="ghost-button" data-sandbox-guardian-option="${escapeHtml(o.contactId)}">
+          ${escapeHtml(o.displayName)} (${o.children.map((c) => escapeHtml(c.childName)).join(", ")})
+        </button>
+      `).join("")}
+      <button type="button" class="ghost-button" data-sandbox-guardian-cancel>← Back</button>
+    `;
+    list.querySelectorAll("[data-sandbox-guardian-option]").forEach((btn) => {
+      btn.addEventListener("click", () => resolve({ proceed: true, previewContactId: btn.getAttribute("data-sandbox-guardian-option") }));
+    });
+    list.querySelector("[data-sandbox-guardian-cancel]")?.addEventListener("click", () => {
+      list.innerHTML = sandboxRolePickerHtml();
+      resolve({ proceed: false, previewContactId: "" });
+    });
+  });
+}
+
 async function switchSandboxRole(roleKey) {
   const errorEl = document.querySelector("#sandboxRolePickerError");
+  const choice = await maybePickGuardianBeforeSwitching(roleKey);
+  if (!choice.proceed) return;
   try {
-    const data = await externalTesterSandboxApi("POST", "/api/external-tester/switch-role", { roleKey });
+    const data = await externalTesterSandboxApi("POST", "/api/external-tester/switch-role", { roleKey, previewContactId: choice.previewContactId });
     // Update the LOCAL cached account immediately from the server's own
     // confirmed identity (never from the requested roleKey — always from
     // what the server actually applied) so a refresh right after switching
@@ -36326,13 +36375,508 @@ function returnToTesterHome() {
   try {
     const account = currentAccount();
     if (account?.familyHubGuardian && typeof setView === "function") {
-      setView("family-hub");
+      setView(isHomeDaycarePilotAccount() ? "pilot-parent-home" : "family-hub");
       return;
     }
     if (typeof setView === "function") setView("today");
   } catch (error) {
     console.warn("[sandbox] could not return to tester home:", error?.message || error);
   }
+}
+
+// ---- Home Daycare Pilot (testing-only) ------------------------------------
+// The connected provider<->parent data surface for external-tester-sandbox
+// accounts created via Testing Lab's "Add External Tester" -> Home Daycare
+// Pilot preset. Every mutation goes through /api/pilot/* (server/home-
+// daycare-pilot-api.js), which resolves organization/child/role access
+// server-side — this client code only renders whatever the server allows.
+let pilotState = {
+  children: [], guardians: [], selectedChildId: "",
+  messages: [], forms: [], billing: [], updates: [],
+  guardianOptions: [], parentHome: null, checklist: [],
+  loading: false, error: "", notice: "",
+};
+
+const pilotApi = externalTesterSandboxApi;
+
+function isHomeDaycarePilotAccount() {
+  return Boolean(isFakeAccountTester() && externalTesterSandboxState.active && externalTesterSandboxState.account?.pilotType === "home_daycare_pilot");
+}
+
+function pilotIsProviderNow() {
+  return isHomeDaycarePilotAccount() && !currentAccount()?.familyHubGuardian;
+}
+
+function pilotIsParentNow() {
+  return isHomeDaycarePilotAccount() && Boolean(currentAccount()?.familyHubGuardian);
+}
+
+/** Curates the sidebar for a Home Daycare Pilot account: shows the pilot's own Families/Messages/Forms/Billing/Home links and hides the equivalent core-app ones they replace, so there is never a confusing duplicate pointing at something disconnected. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about the core items. */
+function refreshHomeDaycarePilotNav() {
+  const isPilot = isHomeDaycarePilotAccount();
+  const isProviderNow = pilotIsProviderNow();
+  const isParentNow = pilotIsParentNow();
+  document.querySelectorAll('[data-pilot-nav="provider"]').forEach((el) => { el.hidden = !isProviderNow; });
+  document.querySelectorAll('[data-pilot-nav="parent"]').forEach((el) => { el.hidden = !isParentNow; });
+  document.querySelectorAll('[data-pilot-nav="both"]').forEach((el) => { el.hidden = !isPilot; });
+  if (isPilot) {
+    document.querySelector('.nav-link[data-view="messages"]')?.setAttribute("hidden", "");
+    document.querySelector('.nav-link[data-view="billing"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+    document.querySelector('.nav-link[data-view="forms"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+    document.querySelector('.nav-link[data-view="families"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+  }
+}
+
+async function pilotMarkChecklistItem(itemKey) {
+  try { await pilotApi("POST", "/api/external-tester/checklist", { itemKey, complete: true }); } catch { /* best-effort */ }
+}
+
+function pilotChildOptionsHtml(selectedId) {
+  return pilotState.children.map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === selectedId ? "selected" : ""}>${escapeHtml(c.displayName)}</option>`).join("");
+}
+
+// ---- Families (provider: add child, add guardian, set permissions) --------
+
+async function loadPilotFamiliesData() {
+  pilotState.loading = true;
+  renderPilotFamiliesPage();
+  try {
+    const [childrenRes, guardiansRes] = await Promise.all([
+      pilotApi("GET", "/api/pilot/children"),
+      pilotApi("GET", "/api/pilot/guardians"),
+    ]);
+    pilotState.children = childrenRes.children || [];
+    pilotState.guardians = guardiansRes.guardians || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  } finally {
+    pilotState.loading = false;
+    renderPilotFamiliesPage();
+  }
+}
+
+function renderPilotFamiliesPage() {
+  const mount = document.querySelector("#view-pilot-families");
+  if (!mount) return;
+  if (!pilotIsProviderNow()) {
+    mount.innerHTML = `<div class="page-title"><h2>Families</h2></div><p class="muted-copy">This screen is part of the Home Daycare Pilot's provider view.</p>`;
+    return;
+  }
+  mount.innerHTML = `
+    <div class="page-title">
+      <p class="eyebrow">Home Daycare Pilot</p>
+      <h2>Families</h2>
+    </div>
+    <p class="muted-copy">Add fake children and guardians, link them, and choose each guardian's permissions. This is fake testing data only.</p>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${pilotState.notice ? `<p class="tf-notice">${escapeHtml(pilotState.notice)}</p>` : ""}
+    <section class="mini-form-card">
+      <h3>Add a fake child</h3>
+      <form data-pilot-add-child class="mini-form">
+        <label>Child's name<input name="displayName" required placeholder="e.g. Ava Lin" /></label>
+        <button class="primary-button" type="submit">Add child</button>
+      </form>
+    </section>
+    <section class="mini-form-card">
+      <h3>Add a fake guardian</h3>
+      <form data-pilot-add-guardian class="mini-form">
+        <label>Guardian's name<input name="displayName" required placeholder="e.g. Priya Lin" /></label>
+        <label>Email (fake)<input name="email" type="email" placeholder="guardian@example.invalid" /></label>
+        <label>Relationship<input name="relationshipLabel" placeholder="parent" value="parent" /></label>
+        <label>Link to child<select name="childId" required>${pilotChildOptionsHtml("")}</select></label>
+        <label>Access level
+          <select name="accessLevel">
+            <option value="full_verified_guardian">Full verified guardian</option>
+            <option value="limited_guardian">Limited guardian</option>
+            <option value="forms_only">Forms only</option>
+            <option value="messages_only">Messages only</option>
+            <option value="billing_only">Billing only</option>
+          </select>
+        </label>
+        <label class="tl-check"><input type="checkbox" name="isFinanciallyResponsible" /> Financially responsible (sees billing reminders)</label>
+        <button class="primary-button" type="submit">Add guardian</button>
+      </form>
+    </section>
+    <section>
+      <h3>Fake children</h3>
+      <ul class="fh-card-list">
+        ${pilotState.children.map((c) => `<li class="fh-card static"><strong>${escapeHtml(c.displayName)}</strong></li>`).join("") || "<li class=\"muted-copy\">No fake children yet.</li>"}
+      </ul>
+    </section>
+    <section>
+      <h3>Fake guardians</h3>
+      <ul class="fh-card-list">
+        ${pilotState.guardians.map((g) => `
+          <li class="fh-card static" data-pilot-guardian="${escapeHtml(g.id)}">
+            <strong>${escapeHtml(g.displayName)}</strong>
+            <span class="muted-copy">${escapeHtml(g.email || "")}</span>
+            ${g.links.map((link) => `
+              <div class="tl-actions-row">
+                <span class="dc-badge">${escapeHtml(link.childName)} · ${escapeHtml(link.accessLevelLabel)}${link.isFinanciallyResponsible ? " · billing" : ""}</span>
+                <select data-pilot-change-access="${escapeHtml(g.id)}" data-pilot-child="${escapeHtml(link.childId)}">
+                  ${["full_verified_guardian", "limited_guardian", "forms_only", "messages_only", "billing_only", "no_digital_access"].map((lvl) => `<option value="${lvl}" ${lvl === link.accessLevel ? "selected" : ""}>${escapeHtml(lvl.replace(/_/g, " "))}</option>`).join("")}
+                </select>
+              </div>
+            `).join("")}
+          </li>
+        `).join("") || "<li class=\"muted-copy\">No fake guardians yet.</li>"}
+      </ul>
+    </section>
+  `;
+  bindPilotFamiliesEvents(mount);
+}
+
+function bindPilotFamiliesEvents(mount) {
+  mount.querySelector("[data-pilot-add-child]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const displayName = new FormData(event.target).get("displayName");
+    try {
+      await pilotApi("POST", "/api/pilot/children", { displayName });
+      pilotState.notice = "Child added.";
+      await pilotMarkChecklistItem("add_child");
+      await loadPilotFamiliesData();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotFamiliesPage();
+    }
+  });
+  mount.querySelector("[data-pilot-add-guardian]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    try {
+      await pilotApi("POST", "/api/pilot/guardians", {
+        displayName: data.get("displayName"),
+        email: data.get("email"),
+        relationshipLabel: data.get("relationshipLabel"),
+        childIds: [data.get("childId")],
+        accessLevel: data.get("accessLevel"),
+        isFinanciallyResponsible: data.get("isFinanciallyResponsible") === "on",
+      });
+      pilotState.notice = "Guardian added and linked.";
+      await pilotMarkChecklistItem("add_guardian");
+      await loadPilotFamiliesData();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotFamiliesPage();
+    }
+  });
+  mount.querySelectorAll("[data-pilot-change-access]").forEach((select) => {
+    select.addEventListener("change", async () => {
+      try {
+        await pilotApi("POST", "/api/pilot/guardians/access", {
+          contactId: select.getAttribute("data-pilot-change-access"),
+          childId: select.getAttribute("data-pilot-child"),
+          accessLevel: select.value,
+        });
+        pilotState.notice = "Guardian permissions updated.";
+        await loadPilotFamiliesData();
+      } catch (error) {
+        pilotState.error = error.message;
+        renderPilotFamiliesPage();
+      }
+    });
+  });
+}
+
+// ---- Messages (provider <-> parent, one thread per child) -----------------
+
+async function loadPilotMessages() {
+  try {
+    if (pilotIsProviderNow() && !pilotState.children.length) {
+      pilotState.children = (await pilotApi("GET", "/api/pilot/children")).children || [];
+    }
+    if (!pilotState.selectedChildId && pilotState.children.length) pilotState.selectedChildId = pilotState.children[0].id;
+    const childId = pilotIsParentNow() ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+    if (childId) pilotState.messages = (await pilotApi("GET", `/api/pilot/messages?childId=${encodeURIComponent(childId)}`)).messages || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotMessagesPage();
+}
+
+function renderPilotMessagesPage() {
+  const mount = document.querySelector("#view-pilot-messages");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const isParent = pilotIsParentNow();
+  const childId = isParent ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Messages</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${!isParent ? `<label>Child<select data-pilot-message-child>${pilotChildOptionsHtml(childId)}</select></label>` : ""}
+    <div class="tf-messages">
+      ${(pilotState.messages || []).map((m) => `
+        <div class="tf-message tf-message--${m.senderRole === "provider" ? "admin" : "tester"}">
+          <span class="tf-message-sender">${m.senderRole === "provider" ? "Provider" : "Parent"}</span>
+          <p>${escapeHtml(m.body)}</p>
+        </div>
+      `).join("") || "<p class=\"muted-copy\">No messages yet.</p>"}
+    </div>
+    <form data-pilot-send-message class="mini-form">
+      <textarea name="body" rows="2" placeholder="Write a message…" required></textarea>
+      <button class="primary-button" type="submit">Send</button>
+    </form>
+  `;
+  mount.querySelector("[data-pilot-message-child]")?.addEventListener("change", (event) => {
+    pilotState.selectedChildId = event.target.value;
+    loadPilotMessages();
+  });
+  mount.querySelector("[data-pilot-send-message]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = new FormData(event.target).get("body");
+    const targetChildId = isParent ? pilotState.parentHomeChildId : pilotState.selectedChildId;
+    try {
+      await pilotApi("POST", "/api/pilot/messages", { childId: targetChildId, body });
+      event.target.reset();
+      await loadPilotMessages();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotMessagesPage();
+    }
+  });
+}
+
+// ---- Forms (simple assignment + status) ------------------------------------
+
+async function loadPilotForms() {
+  try {
+    if (pilotIsProviderNow() && !pilotState.children.length) {
+      pilotState.children = (await pilotApi("GET", "/api/pilot/children")).children || [];
+    }
+    if (!pilotState.selectedChildId && pilotState.children.length) pilotState.selectedChildId = pilotState.children[0].id;
+    const childId = pilotIsParentNow() ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+    if (childId) pilotState.forms = (await pilotApi("GET", `/api/pilot/forms?childId=${encodeURIComponent(childId)}`)).forms || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotFormsPage();
+}
+
+function renderPilotFormsPage() {
+  const mount = document.querySelector("#view-pilot-forms");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const isParent = pilotIsParentNow();
+  const childId = isParent ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Forms &amp; Enrollment</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${!isParent ? `
+      <label>Child<select data-pilot-forms-child>${pilotChildOptionsHtml(childId)}</select></label>
+      <form data-pilot-add-form class="mini-form">
+        <input name="title" required placeholder="Form title, e.g. Field trip permission" />
+        <button class="primary-button" type="submit">Send form</button>
+      </form>
+    ` : ""}
+    <ul class="fh-card-list">
+      ${(pilotState.forms || []).map((f) => `
+        <li class="fh-card static">
+          <strong>${escapeHtml(f.title)}</strong>
+          <span class="dc-badge">${f.status === "complete" ? "Complete" : "Needs action"}</span>
+          ${isParent && f.status !== "complete" ? `<button type="button" class="ghost-button" data-pilot-complete-form="${escapeHtml(f.id)}">Mark complete</button>` : ""}
+        </li>
+      `).join("") || "<li class=\"muted-copy\">No forms yet.</li>"}
+    </ul>
+  `;
+  mount.querySelector("[data-pilot-forms-child]")?.addEventListener("change", (event) => {
+    pilotState.selectedChildId = event.target.value;
+    loadPilotForms();
+  });
+  mount.querySelector("[data-pilot-add-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = new FormData(event.target).get("title");
+    try {
+      await pilotApi("POST", "/api/pilot/forms", { childId: pilotState.selectedChildId, title });
+      await pilotMarkChecklistItem("send_form");
+      await loadPilotForms();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotFormsPage();
+    }
+  });
+  mount.querySelectorAll("[data-pilot-complete-form]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await pilotApi("POST", "/api/pilot/forms/status", { formId: btn.getAttribute("data-pilot-complete-form"), status: "complete" });
+        await loadPilotForms();
+      } catch (error) {
+        pilotState.error = error.message;
+        renderPilotFormsPage();
+      }
+    });
+  });
+}
+
+// ---- Billing (simple fake tuition records) ---------------------------------
+
+async function loadPilotBilling() {
+  try {
+    if (pilotIsProviderNow() && !pilotState.children.length) {
+      pilotState.children = (await pilotApi("GET", "/api/pilot/children")).children || [];
+    }
+    if (!pilotState.selectedChildId && pilotState.children.length) pilotState.selectedChildId = pilotState.children[0].id;
+    const childId = pilotIsParentNow() ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+    if (childId) pilotState.billing = (await pilotApi("GET", `/api/pilot/billing?childId=${encodeURIComponent(childId)}`)).billing || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotBillingPage();
+}
+
+function renderPilotBillingPage() {
+  const mount = document.querySelector("#view-pilot-billing");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const isParent = pilotIsParentNow();
+  const childId = isParent ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Billing</h2></div>
+    <p class="muted-copy">Fake tuition records only — testing simulation, never a real charge.</p>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${!isParent ? `
+      <label>Child<select data-pilot-billing-child>${pilotChildOptionsHtml(childId)}</select></label>
+      <form data-pilot-add-billing class="mini-form">
+        <input name="description" required placeholder="e.g. November tuition" />
+        <input name="amount" type="number" min="0" step="0.01" required placeholder="Amount ($)" />
+        <input name="dueDate" type="date" />
+        <button class="primary-button" type="submit">Add fake billing record</button>
+      </form>
+    ` : ""}
+    <ul class="fh-card-list">
+      ${(pilotState.billing || []).map((b) => `
+        <li class="fh-card static">
+          <strong>${escapeHtml(b.description)}</strong>
+          <span class="dc-badge">$${(b.amountCents / 100).toFixed(2)} · ${escapeHtml(b.status)}</span>
+          <span class="muted-copy">Due ${escapeHtml(b.dueDate || "—")}</span>
+        </li>
+      `).join("") || "<li class=\"muted-copy\">No fake billing records yet.</li>"}
+    </ul>
+  `;
+  mount.querySelector("[data-pilot-billing-child]")?.addEventListener("change", (event) => {
+    pilotState.selectedChildId = event.target.value;
+    loadPilotBilling();
+  });
+  mount.querySelector("[data-pilot-add-billing]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    try {
+      await pilotApi("POST", "/api/pilot/billing", {
+        childId: pilotState.selectedChildId,
+        description: data.get("description"),
+        amountCents: Math.round(Number(data.get("amount")) * 100),
+        dueDate: data.get("dueDate"),
+      });
+      await pilotMarkChecklistItem("test_billing");
+      await loadPilotBilling();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotBillingPage();
+    }
+  });
+}
+
+// ---- Parent Home (aggregated) ----------------------------------------------
+
+async function loadPilotParentHome() {
+  try {
+    const optionsRes = await pilotApi("GET", "/api/external-tester/guardian-options");
+    pilotState.guardianOptions = optionsRes.options || [];
+    const home = await pilotApi("GET", "/api/pilot/parent-home");
+    pilotState.parentHome = home;
+    pilotState.parentHomeChildId = home.children?.[0]?.childId || "";
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotParentHomePage();
+}
+
+function renderPilotParentHomePage() {
+  const mount = document.querySelector("#view-pilot-parent-home");
+  if (!mount) return;
+  if (!pilotIsParentNow()) {
+    mount.innerHTML = `<div class="page-title"><h2>Home</h2></div><p class="muted-copy">Switch to Parent/Guardian to see this screen.</p>`;
+    return;
+  }
+  const options = pilotState.guardianOptions || [];
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot — Testing Account</p><h2>Home</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${options.length > 1 ? `
+      <label>Viewing as guardian for
+        <select data-pilot-guardian-picker>
+          ${options.map((o) => `<option value="${escapeHtml(o.contactId)}" ${o.contactId === externalTesterSandboxState.account?.activePreviewContactId ? "selected" : ""}>${escapeHtml(o.displayName)} (${o.children.map((c) => c.childName).join(", ")})</option>`).join("")}
+        </select>
+      </label>
+    ` : ""}
+    ${(pilotState.parentHome?.children || []).map((c) => `
+      <section class="fh-card static" style="margin-bottom:16px;">
+        <h3>${escapeHtml(c.childName)}</h3>
+        ${c.todaysUpdate ? `<p><strong>Today's update:</strong> ${escapeHtml(c.todaysUpdate.title)} — ${escapeHtml(c.todaysUpdate.message)}</p>` : `<p class="muted-copy">No update yet today.</p>`}
+        <p><strong>Forms needing action:</strong> ${c.formsNeedingAction.length ? c.formsNeedingAction.map((f) => escapeHtml(f.title)).join(", ") : "None"}</p>
+        <p><strong>Unread messages:</strong> ${c.unreadMessageCount}</p>
+        ${c.isFinanciallyResponsible ? `<p><strong>Billing reminders:</strong> ${c.billingReminders.length ? c.billingReminders.map((b) => `${escapeHtml(b.description)} — $${(b.amountCents / 100).toFixed(2)}`).join(", ") : "None"}</p>` : ""}
+      </section>
+    `).join("") || "<p class=\"muted-copy\">No linked child yet — ask the provider to add one and link a guardian.</p>"}
+  `;
+  mount.querySelector("[data-pilot-guardian-picker]")?.addEventListener("change", async (event) => {
+    try {
+      await pilotApi("POST", "/api/external-tester/switch-role", { roleKey: "parent_guardian", previewContactId: event.target.value });
+      await captureCurrentBuildBaseline().catch(() => {});
+      location.reload();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotParentHomePage();
+    }
+  });
+}
+
+// ---- Checklist --------------------------------------------------------------
+
+async function loadPilotChecklist() {
+  try {
+    pilotState.checklist = (await pilotApi("GET", "/api/external-tester/checklist")).checklist || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotChecklistPage();
+}
+
+function renderPilotChecklistPage() {
+  const mount = document.querySelector("#view-pilot-checklist");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const done = (pilotState.checklist || []).filter((i) => i.complete).length;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Testing Checklist</h2></div>
+    <p class="muted-copy">${done} of ${pilotState.checklist.length} complete. Most items check themselves off as you use the app — you can also check any item manually.</p>
+    <ul class="fh-card-list">
+      ${(pilotState.checklist || []).map((item) => `
+        <li class="fh-card static">
+          <label class="tl-check">
+            <input type="checkbox" data-pilot-checklist-item="${escapeHtml(item.key)}" ${item.complete ? "checked" : ""} />
+            ${escapeHtml(item.label)}
+          </label>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+  mount.querySelectorAll("[data-pilot-checklist-item]").forEach((checkbox) => {
+    checkbox.addEventListener("change", async () => {
+      try {
+        await pilotApi("POST", "/api/external-tester/checklist", { itemKey: checkbox.getAttribute("data-pilot-checklist-item"), complete: checkbox.checked });
+        await loadPilotChecklist();
+      } catch (error) {
+        pilotState.error = error.message;
+        renderPilotChecklistPage();
+      }
+    });
+  });
 }
 
 // ---- Testing Feedback (testing-only, never production) --------------------
