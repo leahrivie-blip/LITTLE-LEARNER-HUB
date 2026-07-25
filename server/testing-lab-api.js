@@ -84,6 +84,8 @@ function createTestingLabApi({
   getAiConfigStatus,
   getSupportEmailConfigStatus,
   listRecentErrors,
+  openAutoBugCount,
+  ingestAutoBugFromSmoke,
 }) {
   function env() {
     return resolveEnv(expansionEnvironment);
@@ -331,6 +333,10 @@ function createTestingLabApi({
       openFeedbackCount = testingFeedbackModel.listThreadsForAdmin(store, { status: "open" }).length
         + testingFeedbackModel.listThreadsForAdmin(store, { status: "in_progress" }).length;
     } catch { openFeedbackCount = 0; }
+    let autoBugOpen = 0;
+    try {
+      autoBugOpen = typeof openAutoBugCount === "function" ? Number(openAutoBugCount(store) || 0) : 0;
+    } catch { autoBugOpen = 0; }
 
     const labelFor = (state) => ({
       working: "Working",
@@ -343,7 +349,7 @@ function createTestingLabApi({
     const smoke = health.lastSmokeResult || null;
     const smokeState = !smoke ? "missing" : (smoke.ok ? "working" : "attention");
     const backupState = health.lastBackupAt ? "working" : "missing";
-    const errorsState = recentErrors.length ? "attention" : "working";
+    const errorsState = recentErrors.length || autoBugOpen ? "attention" : "working";
     const syncState = pendingFailedSaves ? "attention" : "working";
     const commit = typeof getGitSha === "function" ? getGitSha() : "";
 
@@ -356,6 +362,7 @@ function createTestingLabApi({
         { key: "database", label: "Database", state: databaseState, stateLabel: labelFor(databaseState), detail: databaseConnected ? String(process.env.DATABASE_PROVIDER || "local-json") : "Not connected" },
         { key: "appBoot", label: "App boot", state: "working", stateLabel: labelFor("working"), detail: "Server is responding. Device-side boot issues appear in Testing Feedback diagnostics." },
         { key: "openErrors", label: "Open errors", state: errorsState, stateLabel: labelFor(errorsState), detail: recentErrors.length ? `${recentErrors.length} recent sanitized error(s)` : "None", errors: recentErrors },
+        { key: "autoBugs", label: "Automated bug records", state: autoBugOpen ? "attention" : "working", stateLabel: labelFor(autoBugOpen ? "attention" : "working"), detail: String(autoBugOpen) },
         { key: "failedSync", label: "Failed sync count", state: syncState, stateLabel: labelFor(syncState), detail: String(pendingFailedSaves) },
         { key: "smokeTest", label: "Latest smoke-test result", state: smokeState, stateLabel: labelFor(smokeState), detail: smoke ? `${smoke.ok ? "Passed" : "Failed"} at ${smoke.at || "unknown"}` : "Not configured", smoke },
         { key: "backup", label: "Last successful backup", state: backupState, stateLabel: labelFor(backupState), detail: health.lastBackupAt || "Not configured" },
@@ -369,6 +376,10 @@ function createTestingLabApi({
       sentry: {
         configured: Boolean(String(process.env.SENTRY_DSN_TESTING || "").trim()) && !env().liveProduction,
         note: "Sentry DSN is never shown here. Configure SENTRY_DSN_TESTING on Render only.",
+      },
+      autoBugs: {
+        openCount: autoBugOpen,
+        note: "Sanitized automated bug records only. Never includes private childcare or payment data.",
       },
     });
   }
@@ -388,6 +399,17 @@ function createTestingLabApi({
       testerEmailDomain: String(body.testerEmailDomain || "example.invalid").slice(0, 80),
     };
     writeStore(store);
+    if (body.ok === false && typeof ingestAutoBugFromSmoke === "function") {
+      try {
+        ingestAutoBugFromSmoke({
+          ok: false,
+          message: String(body.message || "Deployed smoke test failed").slice(0, 240),
+          deployedCommit: health.lastSmokeResult.deployedCommit,
+          targetHost: health.lastSmokeResult.targetHost,
+          failures: Array.isArray(body.failures) ? body.failures : [],
+        });
+      } catch { /* never fail smoke-result write on bug ingest */ }
+    }
     jsonResponse(response, 200, { ok: true, lastSmokeResult: health.lastSmokeResult });
   }
 

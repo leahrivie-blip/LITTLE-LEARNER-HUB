@@ -49,6 +49,7 @@ const { createTestingLabApi } = require("./testing-lab-api.js");
 const { createTestingSentry } = require("./testing-sentry.js");
 const { createAiTestingApi } = require("./ai-testing-api.js");
 const { createTestingFeedbackApi } = require("./testing-feedback-api.js");
+const { createAutoBugApi } = require("./auto-bug-api.js");
 const { createExternalTesterSandboxApi } = require("./external-tester-sandbox-api.js");
 const externalTesterSandboxModel = require("../scripts/external-tester-sandbox-data-model.js");
 const { createHomeDaycarePilotApi } = require("./home-daycare-pilot-api.js");
@@ -15689,6 +15690,41 @@ function getTestingLabApi() {
       getAiConfigStatus: () => aiConfigStatus(),
       getSupportEmailConfigStatus: () => supportEmailConfigStatus(),
       listRecentErrors: () => testingSentry.listRecentErrors(),
+      openAutoBugCount: (store) => {
+        try {
+          const autoBugModel = require("../scripts/auto-bug-data-model.js");
+          return autoBugModel.openCount(store);
+        } catch { return 0; }
+      },
+      ingestAutoBugFromSmoke: (payload) => {
+        try {
+          const autoBugModel = require("../scripts/auto-bug-data-model.js");
+          const store = readStore();
+          const failures = Array.isArray(payload?.failures) && payload.failures.length
+            ? payload.failures
+            : [{
+              errorType: "deployed_smoke_failure",
+              message: payload?.message || "Deployed smoke test failed",
+              page: "deployed-smoke",
+              role: "admin",
+              device: "computer",
+            }];
+          for (const failure of failures.slice(0, 20)) {
+            autoBugModel.ingestFailure(store, {
+              ...failure,
+              errorType: failure.errorType || "deployed_smoke_failure",
+              deployedCommit: payload?.deployedCommit || deployedGitSha(),
+              testingEnvironment: "testing",
+              source: "deployed_smoke",
+              host: payload?.targetHost || "",
+            });
+          }
+          writeStore(store);
+          return { ok: true };
+        } catch {
+          return { ok: false };
+        }
+      },
     });
   }
   return _testingLabApi;
@@ -15720,6 +15756,21 @@ function getTestingFeedbackApi() {
     });
   }
   return _testingFeedbackApi;
+}
+
+let _autoBugApi;
+function getAutoBugApi() {
+  if (!_autoBugApi) {
+    _autoBugApi = createAutoBugApi({
+      readStore,
+      writeStore,
+      jsonResponse,
+      readJson,
+      getGitSha: () => deployedGitSha(),
+      isLiveProduction: () => expansionFeatureFlags.isLiveProductionSite(SITE_URL),
+    });
+  }
+  return _autoBugApi;
 }
 
 let _externalTesterSandboxApi;
@@ -15902,6 +15953,17 @@ const server = http.createServer(async (request, response) => {
         return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "", fakeAccountEmail });
       }
       return jsonResponse(response, access.status || 403, access.payload || expansionFeatureFlags.unavailableExpansionPayload(expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_FEEDBACK));
+    }
+    if (url.pathname === "/api/auto-bugs" || url.pathname.startsWith("/api/auto-bugs/")) {
+      // Testing-only automated bug workflow. Public: client-config + ingest
+      // (sanitized). Admin: list/get/investigation/owner-report/verification.
+      // Production always rejects inside createAutoBugApi.
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getAutoBugApi().matchRoute(request.method, url.pathname, url);
+      if (!handler) {
+        return jsonResponse(response, 404, { ok: false, error: "Auto-bug route not found." });
+      }
+      return handler(request, response, { adminEmail: admin?.email || "", adminToken: admin?.token || "" });
     }
     if (url.pathname === "/api/external-tester" || url.pathname.startsWith("/api/external-tester/")) {
       // Same identity-resolution pattern as Testing Lab / Testing Feedback —
@@ -16185,6 +16247,13 @@ const server = http.createServer(async (request, response) => {
       const body = await readJson(request).catch(() => ({}));
       const safe = testingSentry.sanitizeClientPayload(body);
       const result = await testingSentry.captureSafeEvent(safe);
+      try {
+        getAutoBugApi().ingestFromSafeEvent({
+          ...safe,
+          sanitizedStack: body?.sanitizedStack || body?.stack || "",
+          source: "browser",
+        });
+      } catch { /* never fail client-error intake on bug-record write */ }
       return jsonResponse(response, 200, { ok: true, sent: Boolean(result.sent) });
     }
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
@@ -16194,13 +16263,16 @@ const server = http.createServer(async (request, response) => {
   } catch (error) {
     console.error(error);
     try {
-      testingSentry.captureSafeEvent({
-        errorType: error?.name || "ServerError",
+      const partial = {
+        errorType: "server_exception",
         message: error?.message || "Server error",
         page: "request",
         device: "server",
         source: "server",
-      }).catch(() => {});
+        sanitizedStack: error?.stack || "",
+      };
+      testingSentry.captureSafeEvent(partial).catch(() => {});
+      getAutoBugApi().ingestFromSafeEvent(partial);
     } catch { /* */ }
     jsonResponse(response, 500, { error: error.message || "Server error." });
   }

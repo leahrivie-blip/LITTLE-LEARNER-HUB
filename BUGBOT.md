@@ -41,3 +41,10 @@ Cursor Bugbot must flag the following on every PR. These rules are
 - State which rule number was violated.
 - Prefer a concrete safer alternative (merge write, server gate, idempotency key, diagnostic view, mock).
 - Do **not** request production secrets, real family data, or live API keys in review comments.
+
+## Automated bug workflow (testing only)
+
+18. **Auto-merge / auto-deploy** — any change that merges PRs, deploys Render, or pushes to `main` without an explicit owner approval. Automated bug fixes must stay draft PRs targeting `testing/full-platform-integration-2026-07` only.
+19. **Unsafe auto-bug payloads** — ingesting passwords, tokens, childcare content, medical data, payment data, messages, or form answers into `store.autoBugs` / Sentry / feedback diagnostics.
+20. **Ignoring stop conditions** — Cursor investigation continuing with code changes when expected behavior is unclear, permissions/product/layout must change, real data is involved, Stripe/email/SMS/OpenAI would change, a migration is destructive, unrelated tests fail, or main/production would be touched.
+21. **Skipping owner report / verify** — shipping a prepared auto-bug fix without a plain-language owner report ending in “Approve merge to testing?” or without a post-deploy verification path that can reopen the bug on failure.

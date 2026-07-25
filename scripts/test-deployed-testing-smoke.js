@@ -347,6 +347,54 @@ async function main() {
   } catch (error) {
     console.error("FAIL", error);
     process.exitCode = 1;
+    try {
+      if (adminToken) {
+        const failureMessage = String(error?.message || error || "Deployed smoke test failed").slice(0, 240);
+        await fetchJson("/api/testing-lab/smoke-result", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({
+            ok: false,
+            passed,
+            targetHost: (() => { try { return new URL(BASE).hostname; } catch { return ""; } })(),
+            deployedCommit: EXPECTED_SHA,
+            message: failureMessage,
+            failures: [{
+              errorType: "deployed_smoke_failure",
+              message: failureMessage,
+              page: "deployed-smoke",
+              role: "admin",
+              device: "computer",
+            }],
+            testerEmailDomain: "example.invalid",
+            at: new Date().toISOString(),
+          }),
+        });
+        await fetchJson("/api/auto-bugs/from-smoke", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${adminToken}`,
+          },
+          body: JSON.stringify({
+            ok: false,
+            message: failureMessage,
+            deployedCommit: EXPECTED_SHA,
+            targetHost: (() => { try { return new URL(BASE).hostname; } catch { return ""; } })(),
+            failures: [{
+              errorType: "deployed_smoke_failure",
+              message: failureMessage,
+              page: "deployed-smoke",
+              role: "admin",
+              device: "computer",
+            }],
+          }),
+        });
+      }
+    } catch { /* best-effort bug record on smoke failure */ }
   } finally {
     if (browser) {
       try { await browser.close(); } catch { /* ignore */ }

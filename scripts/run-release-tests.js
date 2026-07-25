@@ -42,6 +42,7 @@ const SUITES = [
   { id: "messaging", label: "Messages foundation", cmd: "npm", args: ["run", "test:messaging-lib"] },
   { id: "forms", label: "Forms Center (phase 4 smoke)", cmd: "npm", args: ["run", "test:forms-center-phase4"] },
   { id: "testing-feedback", label: "Testing Feedback", cmd: "npm", args: ["run", "test:testing-feedback"] },
+  { id: "auto-bug-workflow", label: "Automated bug detection / safe repair workflow", cmd: "npm", args: ["run", "test:auto-bug-workflow"] },
   { id: "external-sandbox", label: "External tester sandbox / organization isolation", cmd: "npm", args: ["run", "test:external-tester-sandbox"] },
   { id: "deployed-smoke-readiness", label: "Deployed smoke readiness (prod/cred/SHA refuse + cleanup)", cmd: "npm", args: ["run", "test:deployed-smoke-readiness"] },
 ];

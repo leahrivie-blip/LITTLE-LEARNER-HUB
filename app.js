@@ -60380,6 +60380,15 @@ function renderBootFailedRetryScreen() {
     </div>
   `;
   host.prepend(overlay);
+  try {
+    if (typeof LLHAutoBug?.send === "function") {
+      LLHAutoBug.send({
+        errorType: "app_boot_timeout",
+        message: "App boot failed/timeout retry screen shown",
+        page: typeof currentView === "string" ? currentView : "boot",
+      });
+    }
+  } catch { /* never break boot recovery for telemetry */ }
 }
 
 function clearBootFailedRetryScreen() {
