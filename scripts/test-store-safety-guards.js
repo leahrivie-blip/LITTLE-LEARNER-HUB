@@ -20,29 +20,35 @@ function storeCountDropReasons(nextCounts, prevCounts) {
   if (droppedHalf(prevCounts.messages, nextCounts.messages, 10)) reasons.push("messages");
   if (droppedHalf(prevCounts.foundingMembers, nextCounts.foundingMembers, 5)) reasons.push("foundingMembers");
   if (droppedHalf(prevCounts.curriculumLessonPlans, nextCounts.curriculumLessonPlans, 5)) reasons.push("curriculumLessonPlans");
+  if (droppedHalf(prevCounts.curriculumActivities, nextCounts.curriculumActivities, 5)) reasons.push("curriculumActivities");
   return reasons;
 }
 
-const prev = { users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101 };
+const prev = { users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101, curriculumActivities: 1500 };
 assert.deepEqual(
-  storeCountDropReasons({ users: 52, messages: 2, foundingMembers: 13, curriculumLessonPlans: 101 }, prev),
+  storeCountDropReasons({ users: 52, messages: 2, foundingMembers: 13, curriculumLessonPlans: 101, curriculumActivities: 1500 }, prev),
   [],
   "normal message growth must not trip the guard",
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 53, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101 }, prev),
+  storeCountDropReasons({ users: 53, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101, curriculumActivities: 1500 }, prev),
   [],
   "normal user growth must not trip the guard",
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101 }, prev),
+  storeCountDropReasons({ users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101, curriculumActivities: 1500 }, prev),
   [],
   "identical inventory must not trip the guard",
 );
 assert.deepEqual(
-  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0, curriculumLessonPlans: 0 }, prev),
-  ["users", "foundingMembers", "curriculumLessonPlans"],
+  storeCountDropReasons({ users: 2, messages: 0, foundingMembers: 0, curriculumLessonPlans: 0, curriculumActivities: 0 }, prev),
+  ["users", "foundingMembers", "curriculumLessonPlans", "curriculumActivities"],
   "sparse overwrite-shaped drop must be blocked",
+);
+assert.deepEqual(
+  storeCountDropReasons({ users: 52, messages: 1, foundingMembers: 13, curriculumLessonPlans: 101, curriculumActivities: 10 }, prev),
+  ["curriculumActivities"],
+  "an activities-only drop (lessonPlans intact) must be caught by the general Postgres-write safety net too — not just curriculumLessonPlans",
 );
 
 assert.match(serverJs, /assertSafePostgresStoreReplacement/);
@@ -60,7 +66,18 @@ assert.match(serverJs, /RECOVER_FIREBASE_PROFILES/);
 assert.match(serverJs, /maybeAlertPostgresDisconnect/);
 assert.match(serverJs, /maybeAlertStoreSafety/);
 assert.match(serverJs, /curriculumLessonPlans/);
+assert.match(serverJs, /curriculumActivities/);
 assert.match(serverJs, /shouldPreserveExistingCurriculum/);
+// The granular curriculum endpoints (lesson plan save, series save, resource save/archive/
+// link/unlink) all funnel through the shared writeSiteCurriculum() helper — it must carry
+// its own wipe guard, not rely solely on the bulk site-content save's inline check, since a
+// stale/empty read or a merge bug in any one of those endpoints previously had zero
+// protection against silently shrinking the live curriculum.
+assert.match(
+  serverJs,
+  /function writeSiteCurriculum\(store, curriculum, \{ updatedAt, allowReplace = false \} = \{\}\) \{[\s\S]{0,800}shouldPreserveExistingCurriculum/,
+);
+assert.match(serverJs, /wipeBlocked/);
 assert.match(renderYaml, /ALLOW_BOOT_SPARSE_STORE_RECOVERY[\s\S]*value: "false"/);
 assert.match(renderYaml, /ALLOW_DESTRUCTIVE_STORE_WRITE[\s\S]*value: "false"/);
 assert.match(appJs, /createAdminStoreBackup/);
