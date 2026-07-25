@@ -10420,6 +10420,10 @@ async function loginWithServerPassword(email, password) {
     ...(data.accountType ? { accountType: data.accountType } : {}),
     ...(data.role ? { role: data.role } : {}),
     familyHubGuardian: Boolean(data.familyHubGuardian),
+    // Lets isHomeDaycarePilotAccount() recognize ANY connected testing
+    // account (Home Daycare Pilot owner/staff, or any other Testing Lab
+    // fake account) straight after a real password login.
+    ...(data.organizationId ? { organizationId: data.organizationId } : {}),
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
@@ -10886,11 +10890,16 @@ function syncPlatformNavVisibility() {
  * never shows something a role/capability check would otherwise hide.
  */
 function syncRoleAwareNavGrouping(account = currentAccount()) {
-  const moreSection = document.querySelector('[data-nav-section="more"]');
+  const moreSection = document.querySelector('#platformNav [data-nav-section="more"]');
   if (!moreSection) return;
   const experienceRole = resolveExperienceRole(account);
   const primaryViews = new Set(NAV_PRIMARY_VIEWS_BY_EXPERIENCE[experienceRole] || []);
-  const coreSection = document.querySelector(".nav-section-core");
+  // Scoped to #platformNav specifically — unscoped ".nav-section-core" would
+  // match #pilotProviderNav/#pilotStaffNav's own core sections too (same
+  // class, but earlier in DOM order), physically moving #platformNav's own
+  // primary items into a hidden pilot nav block instead of reordering them
+  // within #platformNav.
+  const coreSection = document.querySelector("#platformNav .nav-section-core");
   const allLinks = Array.from(document.querySelectorAll("#platformNav .nav-link[data-view]"));
   allLinks.forEach((link) => {
     if (link.hidden) return;
@@ -13123,6 +13132,9 @@ function setView(view, options = {}) {
   if (resolvedView === "pilot-billing") loadPilotBilling();
   if (resolvedView === "pilot-parent-home") loadPilotParentHome();
   if (resolvedView === "pilot-checklist") loadPilotChecklist();
+  if (resolvedView === "pilot-staff") loadPilotStaffPage();
+  if (resolvedView === "pilot-parent-contacts") loadPilotParentContactsPage();
+  if (typeof renderPilotBottomNav === "function") renderPilotBottomNav();
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "classroom-assistant") {
     const section = document.querySelector("#view-classroom-assistant");
@@ -27388,8 +27400,55 @@ async function syncChildDataFromBackend(options = {}) {
   return applied;
 }
 
+/**
+ * Daily Care store keys that are mirrored server-side for a connected Home
+ * Daycare Pilot account (owner + her one optional staff member) — see
+ * pilotQueueDailyCareSync() below. "Profiles"/"Photos"/"Documents"/etc are
+ * synced through their own dedicated bridges (syncPilotChildrenIntoLocalStore,
+ * the Photo Safety bridge) and are intentionally excluded here.
+ */
+const PILOT_SYNCED_DAILY_CARE_KEYS = new Set([
+  "Attendance", "Meals", "Naps", "Diapers", "ActivityLogs", "Communications", "Observations",
+]);
+
+/** Strips client-local sync bookkeeping before comparing/transmitting a record, so the sync-status flag itself never counts as a "real" change and is never sent to the server. */
+function pilotStripSyncMeta(record) {
+  if (!record || typeof record !== "object") return record;
+  const { _pendingSync, ...rest } = record;
+  return rest;
+}
+
+/**
+ * Server/Neon is the authoritative store for a connected Home Daycare
+ * Pilot account's Daily Care data; localStorage here is the offline
+ * write-buffer/cache, not the source of truth. saveChildStore() is the
+ * single chokepoint every Daily Care write already goes through (new
+ * entries via appendChildRecord, in-place updates like attendance
+ * check-out, undo, and corrections) — diffing old vs. new here means every
+ * one of those write paths gets mirrored/re-synced automatically, with no
+ * per-call-site wiring required.
+ */
+function pilotSyncDailyCareChangesIfNeeded(key, previousValue, nextValue) {
+  if (!PILOT_SYNCED_DAILY_CARE_KEYS.has(key)) return;
+  if (typeof isHomeDaycarePilotAccount !== "function" || !isHomeDaycarePilotAccount()) return;
+  if (typeof pilotIsProviderNow !== "function" || !pilotIsProviderNow()) return;
+  const previousById = new Map((previousValue || []).map((item) => [item?.id, item]));
+  (nextValue || []).forEach((item) => {
+    if (!item || !item.id || !item.childId) return;
+    const prior = previousById.get(item.id);
+    const changed = !prior || JSON.stringify(pilotStripSyncMeta(prior)) !== JSON.stringify(pilotStripSyncMeta(item));
+    if (changed) pilotQueueDailyCareSync(key, item);
+  });
+}
+
 function saveChildStore(key, value) {
+  // Capture the previous value and diff BEFORE saving, but only queue the
+  // sync AFTER saveChildStoreLocalOnly has actually written `value` —
+  // pilotQueueDailyCareSync's pending-flag write looks the record up by id
+  // in the store, which must already contain it.
+  const previousValue = childStore(key);
   saveChildStoreLocalOnly(key, value);
+  pilotSyncDailyCareChangesIfNeeded(key, previousValue, value);
   updateSidebarDashboard();
   queueChildDataCloudSave();
 }
@@ -32005,7 +32064,11 @@ function renderDailyLogsCenter(records) {
   // classroom grid first, a bottom-sheet of large quick-action buttons per
   // child, and a chronological timeline instead of a long sectioned form.
   // Real accounts keep the existing Daily Logs experience unchanged below.
-  if (isFakeAccountTester()) return renderFastDailyLogsCenter(records);
+  if (isFakeAccountTester()) {
+    if (typeof syncPilotChildrenIntoLocalStore === "function") syncPilotChildrenIntoLocalStore();
+    if (typeof syncPilotDailyCareEntriesIntoLocalStore === "function") syncPilotDailyCareEntriesIntoLocalStore();
+    return renderFastDailyLogsCenter(records);
+  }
   const backTarget = dlcBackTarget();
   return `
     <section class="simple-child-page daily-logs-page">
@@ -34724,16 +34787,143 @@ function goalItem(item, child = {}) {
   `;
 }
 
+/**
+ * Collision-proof, permanent unique ID / idempotency key for a Daily Care
+ * record. Group Logging (see fastDlcGroupConfirmBtn handler) calls
+ * appendChildRecord synchronously in a tight loop for several children at
+ * once — a Date.now()-only id would collide within the same millisecond
+ * and silently merge two different children's records under one id both
+ * locally (breaking undo/correction lookups) and server-side (the
+ * idempotency key would collide, discarding one child's entry). This id is
+ * never regenerated on retry — it is the same identity across every sync
+ * attempt for this record's whole lifetime.
+ */
+function generateChildRecordId(key) {
+  const random = window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+  return `${key}-${random}`;
+}
+
 function appendChildRecord(key, record) {
   const items = childStore(key);
-  const id = `${key}-${Date.now()}`;
-  saveChildStore(key, [...items, { id, createdAt: new Date().toISOString(), ...record }]);
+  const id = generateChildRecordId(key);
+  const fullRecord = { id, createdAt: new Date().toISOString(), ...record };
+  saveChildStore(key, [...items, fullRecord]);
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
     renderChildManagement();
   }
   return id;
+}
+
+/**
+ * Marks (or clears) a record as having unsynced local work — bookkeeping
+ * only, so it uses saveChildStoreLocalOnly directly rather than
+ * saveChildStore, to avoid re-triggering pilotSyncDailyCareChangesIfNeeded
+ * (which would otherwise see its own flag flip as "a change" and queue
+ * another sync, forever).
+ */
+function pilotSetRecordPendingSyncFlag(storeKey, recordId, pending) {
+  const items = childStore(storeKey);
+  const idx = items.findIndex((item) => item.id === recordId);
+  if (idx === -1) return;
+  if (Boolean(items[idx]._pendingSync) === pending) return;
+  const next = items.slice();
+  const updated = { ...next[idx] };
+  if (pending) updated._pendingSync = true; else delete updated._pendingSync;
+  next[idx] = updated;
+  saveChildStoreLocalOnly(storeKey, next);
+}
+
+/**
+ * Pushes one record to the server-authoritative mirror. Idempotent by
+ * design: the server upserts by this record's own permanent id (see
+ * addDailyCareEntry in home-daycare-pilot-data-model.js), so calling this
+ * again for the same record — whether a manual retry, the reconnect queue
+ * below, or an accidental double-call — can never create a duplicate, only
+ * overwrite the same entry with (at worst) identical data.
+ */
+async function pilotPushDailyCareEntry(storeKey, record) {
+  try {
+    await pilotApi("POST", "/api/pilot/daily-care-entries", { childId: record.childId, storeKey, record: pilotStripSyncMeta(record) });
+    pilotSetRecordPendingSyncFlag(storeKey, record.id, false);
+  } catch {
+    // Stays marked pending — picked up and retried by the reconnect queue
+    // in syncPilotDailyCareEntriesIntoLocalStore() the next time it runs
+    // (boot, opening Daily Care, or any other pilot nav refresh). Never
+    // silently dropped.
+  }
+}
+
+function pilotQueueDailyCareSync(storeKey, record) {
+  pilotSetRecordPendingSyncFlag(storeKey, record.id, true);
+  pilotPushDailyCareEntry(storeKey, record);
+}
+
+/**
+ * Cross-login connected data + offline queue for a Home Daycare Pilot
+ * organization (owner + her one optional staff member), who are two
+ * separate logins that would otherwise each have their own disconnected
+ * local Daily Care store.
+ *
+ * Two passes, in order:
+ *  1. PUSH (reconnect queue): retries every locally pending record —
+ *     anything created/edited while offline or while a prior push failed —
+ *     using the same permanent id, so a retry can only overwrite the same
+ *     server entry, never duplicate it. Flushed before the pull below so a
+ *     reconnect never loses a queued write to a stale read.
+ *  2. PULL (reconciliation): merges every entry from the server into this
+ *     browser's local store. The server's copy WINS for any record this
+ *     browser already has a synced (non-pending) copy of — picking up a
+ *     correction or update made by the other login — but a record still
+ *     marked pending here is left untouched: unsynced local work is never
+ *     silently overwritten or discarded by a pull.
+ */
+async function syncPilotDailyCareEntriesIntoLocalStore() {
+  if (!isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  for (const storeKey of PILOT_SYNCED_DAILY_CARE_KEYS) {
+    const pendingItems = childStore(storeKey).filter((item) => item && item._pendingSync);
+    for (const item of pendingItems) {
+      await pilotPushDailyCareEntry(storeKey, item);
+    }
+  }
+  try {
+    const remote = await pilotApi("GET", "/api/pilot/daily-care-entries");
+    const entries = remote.entries || [];
+    const byStoreKey = {};
+    entries.forEach((e) => {
+      if (!byStoreKey[e.storeKey]) byStoreKey[e.storeKey] = [];
+      byStoreKey[e.storeKey].push(e.record);
+    });
+    let changed = false;
+    Object.entries(byStoreKey).forEach(([storeKey, records]) => {
+      const local = childStore(storeKey);
+      const byId = new Map(local.map((item) => [item.id, item]));
+      const next = local.slice();
+      let storeChanged = false;
+      records.forEach((serverRecord) => {
+        if (!serverRecord || !serverRecord.id) return;
+        const localMatch = byId.get(serverRecord.id);
+        if (!localMatch) {
+          next.push(serverRecord);
+          storeChanged = true;
+          return;
+        }
+        if (localMatch._pendingSync) return; // never clobber unsynced local work
+        if (JSON.stringify(pilotStripSyncMeta(localMatch)) !== JSON.stringify(serverRecord)) {
+          next[next.findIndex((item) => item.id === serverRecord.id)] = serverRecord;
+          storeChanged = true;
+        }
+      });
+      if (storeChanged) {
+        saveChildStoreLocalOnly(storeKey, next); // pulled data is already synced by definition — no re-push loop
+        changed = true;
+      }
+    });
+    if (changed && document.querySelector(".active-view")?.id === "view-children") renderChildManagement();
+  } catch { /* best-effort pull — local data (including anything still queued/pending) remains fully usable offline */ }
 }
 
 /**
@@ -37050,6 +37240,8 @@ async function refreshExternalTesterSandboxState() {
   }
   refreshTestingIdentityBanner();
   if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
+  if (typeof syncPilotChildrenIntoLocalStore === "function") syncPilotChildrenIntoLocalStore();
+  if (typeof syncPilotDailyCareEntriesIntoLocalStore === "function") syncPilotDailyCareEntriesIntoLocalStore();
 }
 
 function sandboxRolePickerHtml() {
@@ -37205,33 +37397,165 @@ document.addEventListener("input", (event) => {
 
 const pilotApi = externalTesterSandboxApi;
 
+/**
+ * Broadened (originally External Tester Sandbox's Home Daycare Pilot
+ * preset only): true for ANY fake/testing account that has an
+ * organizationId — External Tester Sandbox (any pilotType) OR any other
+ * Testing Lab fake account (phase8.owner@example.invalid,
+ * phase8.director@example.invalid, priya.lin@example.invalid, ...) — since
+ * server/home-daycare-pilot-api.js's resolveActor() now serves both. This
+ * is what makes Families/Messages/Forms/Billing/Daily-Care-linked-parent a
+ * real, connected experience for every role's own testing account, not
+ * only the pilot sandbox. Kept under its original name to avoid touching
+ * every call site — the name now means "this account can use the
+ * connected /api/pilot/* surface," which is broader than just the pilot
+ * wizard's own accounts.
+ */
 function isHomeDaycarePilotAccount() {
-  return Boolean(isFakeAccountTester() && externalTesterSandboxState.active && externalTesterSandboxState.account?.pilotType === "home_daycare_pilot");
+  if (!isFakeAccountTester()) return false;
+  if (externalTesterSandboxState.active) return true;
+  return Boolean(currentAccount()?.organizationId);
 }
 
 function pilotIsProviderNow() {
   return isHomeDaycarePilotAccount() && !currentAccount()?.familyHubGuardian;
 }
 
+/** The hired Home Daycare staff member (role: "assistant") — a "provider" for Daily Care/Messages/Calendar purposes, but must see the simplified staff nav, never owner powers (Families, Billing, adding more staff, Program Settings). Server-side enforcement lives in server/home-daycare-pilot-api.js's `isOwner` checks — this is nav/UI-level only. */
+function pilotIsStaffNow() {
+  return pilotIsProviderNow() && currentAccount()?.role === "assistant";
+}
+
 function pilotIsParentNow() {
   return isHomeDaycarePilotAccount() && Boolean(currentAccount()?.familyHubGuardian);
 }
 
-/** Curates the sidebar for a Home Daycare Pilot account: shows the pilot's own Families/Messages/Forms/Billing/Home links and hides the equivalent core-app ones they replace, so there is never a confusing duplicate pointing at something disconnected. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about the core items. */
-function refreshHomeDaycarePilotNav() {
-  const isPilot = isHomeDaycarePilotAccount();
+const PILOT_PROVIDER_BOTTOM_NAV = Object.freeze([
+  { view: "today", label: "Today", icon: "🏠" },
+  { view: "children", label: "Children", icon: "👧" },
+  { view: "child-tools-daily-logs", label: "Log", icon: "📝" },
+  { view: "pilot-messages", label: "Messages", icon: "💬" },
+]);
+
+const PILOT_PARENT_BOTTOM_NAV = Object.freeze([
+  { view: "pilot-parent-home", label: "Home", icon: "🏠" },
+  { view: "pilot-parent-home", label: "My Child", icon: "🧒" },
+  { view: "pilot-messages", label: "Messages", icon: "💬" },
+  { view: "pilot-forms", label: "Forms", icon: "📄" },
+]);
+
+/** The overflow items behind "More" on the phone bottom nav — mirrors each dedicated sidebar's own "More" section so nothing is reachable on desktop but missing on phone. */
+function pilotBottomNavMoreItemsHtml(isParent) {
+  const navId = isParent ? "#pilotParentNav" : (pilotIsStaffNow() ? "#pilotStaffNav" : "#pilotProviderNav");
+  const nav = document.querySelector(navId);
+  if (!nav) return "";
+  const moreSection = nav.querySelector('[data-nav-section="pilot-more"], [data-nav-section="pilot-parent-more"], [data-nav-section="pilot-staff-more"]');
+  const planningSection = !isParent ? nav.querySelectorAll(".nav-section")[1] : null;
+  const buttons = [
+    ...(planningSection ? Array.from(planningSection.querySelectorAll(".nav-link")) : []),
+    ...(moreSection ? Array.from(moreSection.querySelectorAll(".nav-link")) : []),
+  ];
+  return buttons.map((btn) => {
+    const label = btn.querySelector("[data-pilot-staff-nav-label]")?.textContent || btn.textContent.trim();
+    const view = btn.getAttribute("data-view") || "";
+    const isFeedback = btn.hasAttribute("data-pilot-open-feedback");
+    return `<button type="button" class="pilot-bottom-more-item" ${view ? `data-pilot-bottom-nav="${escapeHtml(view)}"` : ""} ${isFeedback ? "data-pilot-open-feedback" : ""}>${escapeHtml(label)}</button>`;
+  }).join("");
+}
+
+function renderPilotBottomNav() {
+  const bar = document.querySelector("#pilotBottomNav");
+  if (!bar) return;
   const isProviderNow = pilotIsProviderNow();
   const isParentNow = pilotIsParentNow();
-  document.querySelectorAll('[data-pilot-nav="provider"]').forEach((el) => { el.hidden = !isProviderNow; });
-  document.querySelectorAll('[data-pilot-nav="parent"]').forEach((el) => { el.hidden = !isParentNow; });
-  document.querySelectorAll('[data-pilot-nav="both"]').forEach((el) => { el.hidden = !isPilot; });
-  if (isPilot) {
-    document.querySelector('.nav-link[data-view="messages"]')?.setAttribute("hidden", "");
-    document.querySelector('.nav-link[data-view="billing"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
-    document.querySelector('.nav-link[data-view="forms"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
-    document.querySelector('.nav-link[data-view="families"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+  if (!isProviderNow && !isParentNow) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
   }
+  const items = isParentNow ? PILOT_PARENT_BOTTOM_NAV : PILOT_PROVIDER_BOTTOM_NAV;
+  const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  bar.hidden = false;
+  bar.innerHTML = `
+    ${items.map((item) => `
+      <button type="button" class="pilot-bottom-nav-item ${item.view === activeView ? "active" : ""}" data-pilot-bottom-nav="${escapeHtml(item.view)}">
+        <span aria-hidden="true">${item.icon}</span>
+        <span>${escapeHtml(item.label)}</span>
+      </button>
+    `).join("")}
+    <button type="button" class="pilot-bottom-nav-item" data-pilot-open-more>
+      <span aria-hidden="true">⋯</span>
+      <span>More</span>
+    </button>
+  `;
 }
+
+/** Curates the sidebar for a Home Daycare Pilot account: swaps the generic capability-based #platformNav for a dedicated, exactly-ordered #pilotProviderNav or #pilotParentNav block, and keeps the phone bottom nav in sync. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about #platformNav's own items. */
+function refreshHomeDaycarePilotNav() {
+  const isProviderNow = pilotIsProviderNow();
+  const isStaffNow = pilotIsStaffNow();
+  const isOwnerNow = isProviderNow && !isStaffNow;
+  const isParentNow = pilotIsParentNow();
+  const platformNav = document.querySelector("#platformNav");
+  const providerNav = document.querySelector("#pilotProviderNav");
+  const staffNav = document.querySelector("#pilotStaffNav");
+  const parentNav = document.querySelector("#pilotParentNav");
+  if (platformNav) platformNav.hidden = isProviderNow || isParentNow;
+  if (providerNav) providerNav.hidden = !isOwnerNow;
+  if (staffNav) staffNav.hidden = !isStaffNow;
+  if (parentNav) parentNav.hidden = !isParentNow;
+  if (isOwnerNow) refreshPilotStaffNavLabel();
+  renderPilotBottomNav();
+}
+
+let pilotStaffNavCache = null;
+
+async function refreshPilotStaffNavLabel() {
+  const labelEl = document.querySelector("[data-pilot-staff-nav-label]");
+  if (!labelEl) return;
+  try {
+    const data = await pilotApi("GET", "/api/pilot/staff");
+    pilotStaffNavCache = data.staff || [];
+    labelEl.textContent = pilotStaffNavCache.length ? "Staff" : "Add Assistant";
+  } catch { /* best-effort label only */ }
+}
+
+document.addEventListener("click", (event) => {
+  const bottomNavBtn = event.target.closest("[data-pilot-bottom-nav]");
+  if (bottomNavBtn) {
+    event.preventDefault();
+    document.querySelector("#pilotBottomNavMoreSheet").hidden = true;
+    setView(bottomNavBtn.getAttribute("data-pilot-bottom-nav"));
+    return;
+  }
+  const openMoreBtn = event.target.closest("[data-pilot-open-more]");
+  if (openMoreBtn) {
+    event.preventDefault();
+    const sheet = document.querySelector("#pilotBottomNavMoreSheet");
+    if (!sheet) return;
+    sheet.innerHTML = `
+      <div class="pilot-bottom-more-backdrop" data-pilot-close-more></div>
+      <div class="pilot-bottom-more-panel">
+        <div class="pilot-bottom-more-header"><strong>More</strong><button type="button" class="ghost-button" data-pilot-close-more>✕</button></div>
+        ${pilotBottomNavMoreItemsHtml(pilotIsParentNow())}
+      </div>
+    `;
+    sheet.hidden = false;
+    return;
+  }
+  if (event.target.closest("[data-pilot-close-more]")) {
+    event.preventDefault();
+    document.querySelector("#pilotBottomNavMoreSheet").hidden = true;
+    return;
+  }
+  const feedbackBtn = event.target.closest("[data-pilot-open-feedback]");
+  if (feedbackBtn) {
+    event.preventDefault();
+    document.querySelector("#pilotBottomNavMoreSheet").hidden = true;
+    document.querySelector("[data-tf-toggle]")?.click();
+    return;
+  }
+});
 
 /**
  * Photo Safety bridge: when a Home Daycare Pilot sandbox tester (in her
@@ -37248,6 +37572,39 @@ async function fastDlcBridgePhotoToPilotIfApplicable(childId, caption, dataUrl) 
   try {
     await pilotApi("POST", "/api/pilot/photos", { childId, caption, dataUrl });
   } catch { /* best-effort — local photo record already saved regardless */ }
+}
+
+/**
+ * Bridges the SERVER-SIDE connected children (added via the "Add External
+ * Tester" wizard or the Families panel, stored in store.childRecords) into
+ * this account's own LOCAL childStore("Profiles") — the store Daily Care
+ * (Fast Daily Logs), Child Profiles, and every other CORE app screen
+ * actually read from. Without this, a Home Daycare Pilot / connected
+ * testing account would see two different, disconnected child rosters:
+ * one on Families (server) and an empty one on Daily Care (local). This
+ * sync is one-way (server -> local) and additive/idempotent — it never
+ * removes or overwrites a locally-edited profile, only adds any pilot
+ * child not yet mirrored locally, matched by the SAME id so it never
+ * duplicates on repeated calls.
+ */
+async function syncPilotChildrenIntoLocalStore() {
+  if (!isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  try {
+    const remote = await pilotApi("GET", "/api/pilot/children");
+    const localProfiles = childStore("Profiles");
+    const existingIds = new Set(localProfiles.map((c) => c.id));
+    const toAdd = (remote.children || []).filter((c) => !existingIds.has(c.id));
+    if (!toAdd.length) return;
+    const merged = [...localProfiles, ...toAdd.map((c) => ({
+      id: c.id,
+      name: c.displayName,
+      ageGroup: "Preschool",
+      status: "active",
+      pilotSynced: true,
+    }))];
+    saveChildStore("Profiles", merged);
+    if (document.querySelector(".active-view")?.id === "view-children") renderChildManagement();
+  } catch { /* best-effort — Daily Care still works locally even if this sync fails */ }
 }
 
 async function pilotMarkChecklistItem(itemKey) {
@@ -37660,6 +38017,138 @@ function renderPilotParentHomePage() {
     } catch (error) {
       pilotState.error = error.message;
       renderPilotParentHomePage();
+    }
+  });
+}
+
+// ---- Staff (owner + at most one optional staff member) ---------------------
+
+async function loadPilotStaffPage() {
+  try {
+    pilotStaffNavCache = (await pilotApi("GET", "/api/pilot/staff")).staff || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotStaffPage();
+}
+
+function renderPilotStaffPage() {
+  const mount = document.querySelector("#view-pilot-staff");
+  if (!mount) return;
+  if (!pilotIsProviderNow()) { mount.innerHTML = ""; return; }
+  const staff = pilotStaffNavCache || [];
+  if (pilotIsStaffNow()) {
+    const me = staff.find((s) => s.email === currentAccount()?.email?.toLowerCase()) || staff[0];
+    mount.innerHTML = `
+      <div class="page-title"><p class="eyebrow">Home Daycare Pilot — Testing Account</p><h2>My Staff Profile</h2></div>
+      <ul class="fh-card-list">
+        <li class="fh-card static">
+          <strong>${escapeHtml(me?.displayName || "You")}</strong>
+          <span class="dc-badge">Active</span>
+          <p class="muted-copy">${escapeHtml(me?.email || "")} — Home Daycare Assistant. You can log Daily Care, message families the owner has connected you to, and view assigned Forms/Calendar. Billing, Families, adding staff, and Program Settings are managed by the owner.</p>
+        </li>
+      </ul>
+    `;
+    return;
+  }
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Staff</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    <p class="muted-copy">The Home Daycare plan includes you (the owner) plus one optional staff member.</p>
+    ${staff.length ? `
+      <ul class="fh-card-list">
+        ${staff.map((s) => `
+          <li class="fh-card static">
+            <strong>${escapeHtml(s.displayName)}</strong>
+            <span class="dc-badge">${s.active ? "Active" : "Ended"}</span>
+            <p class="muted-copy">${escapeHtml(s.email)} · sees the same connected children, Daily Care, Messages, and Calendar — no billing or program settings access.</p>
+          </li>
+        `).join("")}
+      </ul>
+    ` : `
+      <section class="mini-form-card">
+        <h3>Add your assistant</h3>
+        <p class="muted-copy">Give one assistant her own login to the same fake classroom — she'll see Today, assigned children, Daily Care, Messages, Forms/tasks, Calendar, Classroom Assistant, Lesson Plans, and Activities. She will never see billing, subscription, or admin tools.</p>
+        <form data-pilot-add-staff class="mini-form">
+          <label>Assistant's name<input name="displayName" required placeholder="e.g. Robin Lee" /></label>
+          <label>Email (fake)<input name="email" type="email" required placeholder="assistant@example.invalid" /></label>
+          <button type="submit" class="primary-button">Add assistant</button>
+        </form>
+      </section>
+    `}
+  `;
+  mount.querySelector("[data-pilot-add-staff]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    try {
+      const result = await pilotApi("POST", "/api/pilot/staff", { displayName: data.get("displayName"), email: data.get("email") });
+      pilotState.staffWelcome = { email: result.staff.email, password: result.temporaryPassword };
+      await loadPilotStaffPage();
+      await refreshPilotStaffNavLabel();
+      showActionFeedback(`Assistant added — copy her one-time password: ${result.temporaryPassword}`);
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotStaffPage();
+    }
+  });
+}
+
+// ---- Parent "More": authorized pickups / emergency info / change requests --
+
+async function loadPilotParentContactsPage() {
+  try {
+    const home = await pilotApi("GET", "/api/pilot/parent-home");
+    const childId = home.children?.[0]?.childId || "";
+    pilotState.parentContactsChildId = childId;
+    if (childId) {
+      const contacts = await pilotApi("GET", `/api/pilot/child-contacts?childId=${encodeURIComponent(childId)}`);
+      pilotState.parentContacts = contacts.contacts || [];
+    } else {
+      pilotState.parentContacts = [];
+    }
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotParentContactsPage();
+}
+
+function renderPilotParentContactsPage() {
+  const mount = document.querySelector("#view-pilot-parent-contacts");
+  if (!mount) return;
+  if (!pilotIsParentNow()) { mount.innerHTML = ""; return; }
+  const contacts = pilotState.parentContacts || [];
+  const pickups = contacts.filter((c) => c.isAuthorizedPickup);
+  const emergency = contacts.filter((c) => c.isEmergencyContact);
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot — Testing Account</p><h2>Authorized Pickups &amp; Emergency Information</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    <h3>Authorized pickups</h3>
+    <ul class="fh-card-list">
+      ${pickups.map((c) => `<li class="fh-card static">${escapeHtml(c.displayName)} <span class="dc-badge">${escapeHtml(c.relationshipLabel)}</span></li>`).join("") || "<li class=\"muted-copy\">None on file.</li>"}
+    </ul>
+    <h3>Emergency contacts</h3>
+    <ul class="fh-card-list">
+      ${emergency.map((c) => `<li class="fh-card static">${escapeHtml(c.displayName)} <span class="dc-badge">${escapeHtml(c.relationshipLabel)}</span></li>`).join("") || "<li class=\"muted-copy\">None on file.</li>"}
+    </ul>
+    <h3>Request a change</h3>
+    <p class="muted-copy">Ask the provider to update pickup or emergency information — this sends a request, it does not change the record directly.</p>
+    <form data-pilot-change-request class="mini-form">
+      <textarea name="message" rows="3" placeholder="e.g. Please add my sister as an authorized pickup…" required></textarea>
+      <button type="submit" class="primary-button">Send change request</button>
+    </form>
+  `;
+  mount.querySelector("[data-pilot-change-request]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = new FormData(event.target).get("message");
+    try {
+      await pilotApi("POST", "/api/pilot/change-request", { childId: pilotState.parentContactsChildId, message });
+      event.target.reset();
+      showActionFeedback("Change request sent to the provider.");
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotParentContactsPage();
     }
   });
 }
@@ -50637,6 +51126,24 @@ async function signOut() {
   }
   clearMemberSessionToken();
   closeForcePasswordModal();
+  // Identity-specific in-memory caches (Home Daycare Pilot Families/
+  // Messages/Forms/Billing/Staff/Parent-contacts state, and the External
+  // Tester Sandbox role snapshot) are NOT namespaced by user like
+  // localStorage's childStore() already is — without this, a second
+  // tester logging in on the same page (no reload) could briefly see the
+  // previous tester's cached organization data. Reset them here so every
+  // logout leaves a clean slate for whoever logs in next.
+  if (typeof pilotState === "object" && pilotState) {
+    pilotState.children = []; pilotState.guardians = []; pilotState.selectedChildId = "";
+    pilotState.messages = []; pilotState.forms = []; pilotState.billing = []; pilotState.updates = [];
+    pilotState.guardianOptions = []; pilotState.parentHome = null; pilotState.checklist = [];
+    pilotState.loading = false; pilotState.error = ""; pilotState.notice = "";
+    pilotState.parentContacts = []; pilotState.parentContactsChildId = ""; pilotState.staffWelcome = null;
+  }
+  if (typeof pilotStaffNavCache !== "undefined") pilotStaffNavCache = null;
+  if (typeof externalTesterSandboxState === "object" && externalTesterSandboxState) {
+    externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+  }
   // Keep Admin unlock on this browser. Provider sign-out should not force a full
   // Admin re-login — use Lock Admin when you want to clear owner access.
   currentUser = "";

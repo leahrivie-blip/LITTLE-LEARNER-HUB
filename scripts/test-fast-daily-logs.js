@@ -145,7 +145,7 @@ async function main() {
   assert.match(modelJs, /function renderFastDailyLogsCenter/);
   assert.match(modelJs, /function fastDlcChildCardHtml/);
   assert.match(modelJs, /function buildDailyLogTimelineEntries/);
-  assert.match(modelJs, /if \(isFakeAccountTester\(\)\) return renderFastDailyLogsCenter\(records\);/);
+  assert.match(modelJs, /isFakeAccountTester\(\)[\s\S]{0,400}?renderFastDailyLogsCenter\(records\)/);
   pass("static markers: fast Daily Logs render functions exist, gated by isFakeAccountTester()");
 
   const child = startServer();

@@ -197,11 +197,15 @@ async function main() {
       const guardianListText = await page.locator("#view-pilot-families").textContent();
       assert.match(guardianListText, /UI Test Guardian/);
 
+      // The dedicated #pilotProviderNav sidebar entirely replaces the generic
+      // #platformNav (rather than hiding individual duplicate items inside
+      // it) — so "hidden" here means "not effectively visible" (offsetParent
+      // null), not each item's own hidden attribute.
       const navState = await page.evaluate(() => ({
-        familiesShown: document.querySelector('[data-view="pilot-families"]')?.hidden === false,
-        coreMessagesHidden: document.querySelector('.nav-link[data-view="messages"]')?.hidden === true,
-        coreBillingHidden: document.querySelector('.nav-link[data-view="billing"]:not([data-pilot-nav])')?.hidden === true,
-        coreFormsHidden: document.querySelector('.nav-link[data-view="forms"]:not([data-pilot-nav])')?.hidden === true,
+        familiesShown: Boolean(document.querySelector('#pilotProviderNav [data-view="pilot-families"]')?.offsetParent),
+        coreMessagesHidden: !document.querySelector('#platformNav .nav-link[data-view="messages"]')?.offsetParent,
+        coreBillingHidden: !document.querySelector('#platformNav .nav-link[data-view="billing"]')?.offsetParent,
+        coreFormsHidden: !document.querySelector('#platformNav .nav-link[data-view="forms"]')?.offsetParent,
       }));
       assert.deepEqual(navState, { familiesShown: true, coreMessagesHidden: true, coreBillingHidden: true, coreFormsHidden: true }, "the Home Daycare Pilot's curated nav must show Families and hide the equivalent core nav items it replaces");
 
