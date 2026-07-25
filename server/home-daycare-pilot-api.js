@@ -38,6 +38,14 @@ function safeLower(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function listValues(map) {
+  return map && typeof map === "object" ? Object.values(map) : [];
+}
+
+function cleanText(value, max = 1000) {
+  return String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
 function resolveEnv(expansionEnvironment) {
   let env = null;
   if (typeof expansionEnvironment === "function") {
@@ -80,20 +88,41 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
       return { kind: "admin", organizationId, role: "provider", email: ctx.adminEmail };
     }
     if (ctx.fakeAccountEmail) {
-      const account = sandboxModel.listSandboxAccounts(store).find((row) => row.email === safeLower(ctx.fakeAccountEmail));
-      if (!account) {
-        deny(response, 404, "not_found", "This account is not an External Tester Sandbox account.");
-        return null;
+      const sandboxAccount = sandboxModel.listSandboxAccounts(store).find((row) => row.email === safeLower(ctx.fakeAccountEmail));
+      if (sandboxAccount) {
+        const isGuardianRole = sandboxAccount.activeRoleKey === "parent_guardian";
+        return {
+          kind: "tester",
+          organizationId: sandboxAccount.organizationId,
+          role: isGuardianRole ? "parent" : "provider",
+          email: sandboxAccount.email,
+          accountId: sandboxAccount.id,
+          previewContactId: isGuardianRole ? (sandboxAccount.activePreviewContactId || "") : "",
+        };
       }
-      const isGuardianRole = account.activeRoleKey === "parent_guardian";
-      return {
-        kind: "tester",
-        organizationId: account.organizationId,
-        role: isGuardianRole ? "parent" : "provider",
-        email: account.email,
-        accountId: account.id,
-        previewContactId: isGuardianRole ? (account.activePreviewContactId || "") : "",
-      };
+      // Generalization: ANY other testing-only fake account (e.g. Testing
+      // Lab's phase8.homedaycare@example.invalid, phase8.director@example.invalid,
+      // priya.lin@example.invalid, ...) may also act as a provider/parent for
+      // HER OWN organization here — this is what makes Families/Messages/
+      // Forms/Billing genuinely connected (not a placeholder) for every
+      // role's own test account, not only External Tester Sandbox testers.
+      // organizationId/contactId always come from the STORED account record,
+      // never from anything the client claims.
+      const genericAccount = listValues(store.familyFoundation?.fakeAccounts || {})
+        .find((row) => row.email === safeLower(ctx.fakeAccountEmail) && row.kind !== sandboxModel.SANDBOX_KIND);
+      if (genericAccount) {
+        const identity = familyModel.mainAppIdentityForFakeAccount(genericAccount);
+        return {
+          kind: "tester",
+          organizationId: genericAccount.organizationId,
+          role: identity.familyHubGuardian ? "parent" : "provider",
+          email: genericAccount.email,
+          accountId: genericAccount.id,
+          previewContactId: identity.familyHubGuardian ? cleanText(genericAccount.contactId, 160) : "",
+        };
+      }
+      deny(response, 404, "not_found", "This account is not a recognized testing account.");
+      return null;
     }
     deny(response, 401, "auth_required", "Sign in to use the Home Daycare Pilot.");
     return null;

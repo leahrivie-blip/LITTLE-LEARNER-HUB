@@ -210,6 +210,47 @@ function createExternalTesterSandboxApi({
     });
   }
 
+  /**
+   * "A home daycare account includes the owner plus one staff member when
+   * the plan allows it." Adds ONE additional, single-role fake login
+   * scoped to the SAME organization as an existing pilot/owner account —
+   * issues her password immediately (shown once), same as the owner
+   * wizard. Simpler than the multi-role sandbox: one fixed role, no
+   * switching, no ownership/billing-settings access.
+   */
+  async function handleAddStaffMember(request, response, ctx) {
+    if (!ctx.adminEmail) return deny(response, 401, "admin_required", "Admin session required.");
+    const store = readStore();
+    if (!assertAdminAccess(store, response)) return;
+    const body = await readJson(request).catch(() => ({}));
+    const organizationId = String(body.organizationId || "");
+    if (!labModel.isFakeOrganizationId(organizationId)) {
+      return deny(response, 403, "real_target_rejected", "Staff accounts can only be added to a fake organization.");
+    }
+    const email = safeLower(body.email || "");
+    if (!labModel.isExampleInvalidEmail(email)) {
+      return deny(response, 403, "non_fake_email_rejected", "Staff accounts must use @example.invalid.");
+    }
+    const staffName = String(body.displayName || body.staffName || "Home Daycare Staff").trim().slice(0, 120);
+    const record = pilotModel.addStaffMember(store, { organizationId, displayName: staffName, email, createdByEmail: ctx.adminEmail });
+    const password = tempPasswordAuth.generateTemporaryPassword();
+    const hash = tempPasswordAuth.hashPassword(password);
+    pilotModel.applyStaffMemberIdentity(store, { email, passwordHash: hash });
+    labModel.appendAudit(store, {
+      organizationId,
+      action: "home_daycare_staff_added",
+      actorEmail: ctx.adminEmail,
+      detail: `Added home daycare staff member ${staffName} <${email}> (plaintext not logged)`,
+    });
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      staff: { id: record.id, email: record.email, displayName: record.displayName, organizationId: record.organizationId },
+      temporaryPassword: password,
+      note: "Copy the password now — it will not be shown again.",
+    });
+  }
+
   async function handleSetAllowedRoles(request, response, ctx) {
     if (!ctx.adminEmail) return deny(response, 401, "admin_required", "Admin session required.");
     const store = readStore();
@@ -371,6 +412,7 @@ function createExternalTesterSandboxApi({
     if (!path.startsWith(BASE)) return null;
     if (method === "POST" && path === `${BASE}/create`) return (req, res, ctx) => handleCreate(req, res, ctx);
     if (method === "POST" && path === `${BASE}/create-pilot`) return (req, res, ctx) => handleCreatePilot(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/add-staff-member`) return (req, res, ctx) => handleAddStaffMember(req, res, ctx);
     if (method === "POST" && path === `${BASE}/set-allowed-roles`) return (req, res, ctx) => handleSetAllowedRoles(req, res, ctx);
     if (method === "POST" && path === `${BASE}/reset-fake-data`) return (req, res, ctx) => handleResetFakeData(req, res, ctx);
     if (method === "GET" && path === `${BASE}/list`) return (req, res, ctx) => handleList(req, res, ctx, url?.searchParams?.get("organizationId") || "");

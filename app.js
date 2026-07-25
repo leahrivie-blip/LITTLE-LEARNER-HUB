@@ -32005,7 +32005,10 @@ function renderDailyLogsCenter(records) {
   // classroom grid first, a bottom-sheet of large quick-action buttons per
   // child, and a chronological timeline instead of a long sectioned form.
   // Real accounts keep the existing Daily Logs experience unchanged below.
-  if (isFakeAccountTester()) return renderFastDailyLogsCenter(records);
+  if (isFakeAccountTester()) {
+    if (typeof syncPilotChildrenIntoLocalStore === "function") syncPilotChildrenIntoLocalStore();
+    return renderFastDailyLogsCenter(records);
+  }
   const backTarget = dlcBackTarget();
   return `
     <section class="simple-child-page daily-logs-page">
@@ -37050,6 +37053,7 @@ async function refreshExternalTesterSandboxState() {
   }
   refreshTestingIdentityBanner();
   if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
+  if (typeof syncPilotChildrenIntoLocalStore === "function") syncPilotChildrenIntoLocalStore();
 }
 
 function sandboxRolePickerHtml() {
@@ -37205,8 +37209,24 @@ document.addEventListener("input", (event) => {
 
 const pilotApi = externalTesterSandboxApi;
 
+/**
+ * Broadened (originally External Tester Sandbox's Home Daycare Pilot
+ * preset only): true for ANY fake/testing account that has an
+ * organizationId — External Tester Sandbox (any pilotType) OR any other
+ * Testing Lab fake account (phase8.owner@example.invalid,
+ * phase8.director@example.invalid, priya.lin@example.invalid, ...) — since
+ * server/home-daycare-pilot-api.js's resolveActor() now serves both. This
+ * is what makes Families/Messages/Forms/Billing/Daily-Care-linked-parent a
+ * real, connected experience for every role's own testing account, not
+ * only the pilot sandbox. Kept under its original name to avoid touching
+ * every call site — the name now means "this account can use the
+ * connected /api/pilot/* surface," which is broader than just the pilot
+ * wizard's own accounts.
+ */
 function isHomeDaycarePilotAccount() {
-  return Boolean(isFakeAccountTester() && externalTesterSandboxState.active && externalTesterSandboxState.account?.pilotType === "home_daycare_pilot");
+  if (!isFakeAccountTester()) return false;
+  if (externalTesterSandboxState.active) return true;
+  return Boolean(currentAccount()?.organizationId);
 }
 
 function pilotIsProviderNow() {
@@ -37248,6 +37268,39 @@ async function fastDlcBridgePhotoToPilotIfApplicable(childId, caption, dataUrl) 
   try {
     await pilotApi("POST", "/api/pilot/photos", { childId, caption, dataUrl });
   } catch { /* best-effort — local photo record already saved regardless */ }
+}
+
+/**
+ * Bridges the SERVER-SIDE connected children (added via the "Add External
+ * Tester" wizard or the Families panel, stored in store.childRecords) into
+ * this account's own LOCAL childStore("Profiles") — the store Daily Care
+ * (Fast Daily Logs), Child Profiles, and every other CORE app screen
+ * actually read from. Without this, a Home Daycare Pilot / connected
+ * testing account would see two different, disconnected child rosters:
+ * one on Families (server) and an empty one on Daily Care (local). This
+ * sync is one-way (server -> local) and additive/idempotent — it never
+ * removes or overwrites a locally-edited profile, only adds any pilot
+ * child not yet mirrored locally, matched by the SAME id so it never
+ * duplicates on repeated calls.
+ */
+async function syncPilotChildrenIntoLocalStore() {
+  if (!isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  try {
+    const remote = await pilotApi("GET", "/api/pilot/children");
+    const localProfiles = childStore("Profiles");
+    const existingIds = new Set(localProfiles.map((c) => c.id));
+    const toAdd = (remote.children || []).filter((c) => !existingIds.has(c.id));
+    if (!toAdd.length) return;
+    const merged = [...localProfiles, ...toAdd.map((c) => ({
+      id: c.id,
+      name: c.displayName,
+      ageGroup: "Preschool",
+      status: "active",
+      pilotSynced: true,
+    }))];
+    saveChildStore("Profiles", merged);
+    if (document.querySelector(".active-view")?.id === "view-children") renderChildManagement();
+  } catch { /* best-effort — Daily Care still works locally even if this sync fails */ }
 }
 
 async function pilotMarkChecklistItem(itemKey) {

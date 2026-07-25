@@ -382,6 +382,69 @@ function resetPilotData(store, organizationId) {
   return { cleared };
 }
 
+// ---- Optional home daycare staff member ------------------------------------
+//
+// "A home daycare account includes the owner plus one staff member when the
+// plan allows it." A separate, single-role fake login (not a role-switching
+// sandbox) scoped to the SAME organization as the owner — she can use
+// /api/pilot/* as a "provider" for that org (subject to whatever the owner
+// has permitted — see setStaffPermissions), but never sees ownership,
+// billing settings, or the ability to invite/remove other staff.
+
+function addStaffMember(store, { organizationId, displayName, email, createdByEmail = "" }) {
+  familyModel.ensureFamilyFoundationStore(store);
+  store.familyFoundation.fakeAccounts = store.familyFoundation.fakeAccounts || {};
+  const cleanEmail = cleanText(email, 180).toLowerCase();
+  const record = {
+    id: newId("fakeacct"),
+    organizationId: cleanText(organizationId, 160),
+    kind: "home_daycare_staff",
+    email: cleanEmail,
+    displayName: cleanText(displayName, 180) || "Home Daycare Staff",
+    role: "assistant",
+    passwordHash: "",
+    mustChangePassword: false,
+    label: "Testing Account — Fake Data Only. Home Daycare Staff.",
+    testingOnly: true,
+    active: true,
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
+    createdByEmail: cleanText(createdByEmail, 180).toLowerCase(),
+    // Limited by the owner's permissions — never ownership/billing-settings.
+    permissions: { canDocumentDailyCare: true, canMessageFamilies: true, canManageBilling: false, canInviteStaff: false },
+  };
+  store.familyFoundation.fakeAccounts[record.id] = record;
+  return record;
+}
+
+/** Directly sets the main-app identity for a home-daycare staff fake account — bypasses the generic kind->accountType table (which has no "assistant + home_daycare" combination) so she gets the correct simplified Home Daycare Staff experience, never the Center Assistant one. */
+function applyStaffMemberIdentity(store, { email, passwordHash }) {
+  const account = listValues(store.familyFoundation?.fakeAccounts || {}).find((row) => row.email === cleanText(email, 180).toLowerCase() && row.kind === "home_daycare_staff");
+  if (!account) return null;
+  account.passwordHash = passwordHash;
+  store.familyFoundation.fakeAccounts[account.id] = account;
+  store.users = store.users || {};
+  const existing = store.users[account.email] || {};
+  store.users[account.email] = {
+    ...existing,
+    email: account.email,
+    displayName: account.displayName,
+    passwordHash,
+    serverPasswordAuth: true,
+    mustChangePassword: false,
+    testingOnly: true,
+    testingAccount: true,
+    fakeAccountId: account.id,
+    fakeAccountKind: account.kind,
+    organizationId: account.organizationId,
+    role: "assistant",
+    accountType: "home_daycare",
+    familyHubGuardian: false,
+    updatedAt: nowIso(),
+  };
+  return account;
+}
+
 // ---- Fake data generation (for the "Add External Tester" wizard) ----------
 
 const FAKE_CHILD_NAMES = ["Ava Lin", "Ben Rivera", "Carlos Diaz", "Dana Cole", "Elena Cho", "Finn Walsh", "Grace Kim", "Hana Patel"];
@@ -433,6 +496,8 @@ module.exports = {
   addSharedPhoto,
   listSharedPhotos,
   setSharedPhotoVisibility,
+  addStaffMember,
+  applyStaffMemberIdentity,
   parentHomeSnapshot,
   resetPilotData,
   generateFakeChildrenAndGuardians,
