@@ -11,9 +11,9 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 4187;
+const PORT = 41800 + Math.floor(Math.random() * 400);
 const BASE = `http://127.0.0.1:${PORT}`;
-const STORE = path.join(ROOT, "server", `.temp-password-test-store-${process.pid}.json`);
+const STORE = path.join(ROOT, "server", `.temp-password-test-store-${process.pid}-${PORT}.json`);
 const EMAIL = "tclashley@icloud.com";
 const ADMIN_EMAIL = "owner@example.com";
 const ADMIN_PASSWORD = "test-admin-password";
@@ -96,7 +96,7 @@ async function main() {
         appliedOneShotTempPasswordId: "tclashley-temp-20260716c",
         tempPasswordHash: knownHash,
         tempPasswordIssuedAt: new Date().toISOString(),
-        tempPasswordExpiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+        tempPasswordExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
         mustChangePassword: true,
         serverPasswordAuth: true,
       },
