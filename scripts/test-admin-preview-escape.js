@@ -342,9 +342,9 @@ async function main() {
     // ---- 7. Testing Lab is reachable from a persistent nav link (no search) -
     {
       const { page } = await newAdminPage();
-      const navLinkVisible = await page.locator('[data-testing-lab-nav]').isVisible();
+      const navLinkVisible = await page.locator('[data-view="testing-lab"][data-testing-lab-nav]').isVisible();
       assert.equal(navLinkVisible, true, "the Testing Lab nav link must be visible in the primary sidebar for an unlocked admin");
-      await page.click('[data-testing-lab-nav]', { timeout: 5000 });
+      await page.click('[data-view="testing-lab"][data-testing-lab-nav]', { timeout: 5000 });
       await page.waitForTimeout(500);
       const active = await page.evaluate(() => document.querySelector(".active-view")?.id);
       assert.equal(active, "view-testing-lab", "clicking the Testing Lab nav link must open Testing Lab directly");
@@ -358,7 +358,7 @@ async function main() {
       const bannerVisible = await page.locator("#testingIdentityBanner").isVisible();
       assert.equal(bannerVisible, true, "the testing identity banner must be visible on this non-production test host");
       const bannerText = await page.locator("#testingIdentityBannerText").textContent();
-      assert.match(bannerText || "", /LITTLE LEARNER HUB TESTING — FAKE DATA ONLY/);
+      assert.match(bannerText || "", /TESTING ACCOUNT — FAKE DATA/);
       // Load the admin analytics panel and confirm no "Live production data" wording appears.
       await page.evaluate(() => setView("admin"));
       await page.waitForTimeout(1000);

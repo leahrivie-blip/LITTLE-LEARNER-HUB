@@ -484,9 +484,13 @@
             <!-- Always in the primary nav (never only reachable via Settings search or a
                  button buried in the Admin Dashboard body) whenever Admin is unlocked on a
                  non-production/testing host. Never shown on the real production site. -->
+            <button class="nav-link" data-view="owner-testing-home" data-testing-lab-nav hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+              Owner Testing Home
+            </button>
             <button class="nav-link" data-view="testing-lab" data-testing-lab-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/><path d="M8 14h8"/></svg></span>
-              Testing Lab
+              Testing Lab (Advanced)
             </button>
             <button class="nav-link" data-view="curriculum-planner" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
@@ -1099,6 +1103,7 @@
         <section id="view-forms-center" class="view"></section>
         <section id="view-family-hub" class="view"></section>
         <section id="view-testing-lab" class="view"></section>
+        <section id="view-owner-testing-home" class="view"></section>
 
         <!-- Home Daycare Pilot — connected provider<->parent testing views.
              Rendered directly in app.js (renderPilot*Page functions); never

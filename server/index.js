@@ -15665,6 +15665,9 @@ function getTestingLabApi() {
       getLaunchReadiness: launchReadinessStatus,
       getGitSha: () => deployedGitSha(),
       getBranchName: () => String(process.env.LLH_GIT_BRANCH || "cursor/director-family-foundation-bc66"),
+      getStripeConfigStatus: () => stripeConfigStatus(),
+      getAiConfigStatus: () => aiConfigStatus(),
+      getSupportEmailConfigStatus: () => supportEmailConfigStatus(),
     });
   }
   return _testingLabApi;

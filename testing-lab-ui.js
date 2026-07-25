@@ -1836,11 +1836,42 @@
     }
   }
 
-  async function renderTestingLabPage(mountEl) {
+  async function renderTestingLabPage(mountEl, options = {}) {
     const mount = mountEl || document.querySelector("#view-testing-lab");
     if (!mount) return;
-    state.panel = "home";
+    // Lets a deep link (e.g. the Owner Testing Home's "Add a Home Daycare
+    // Tester" card) open the wizard directly instead of always landing on
+    // the generic home panel first.
+    state.panel = options.initialPanel || "home";
     await refresh(mount);
+    // The dashboard/release-readiness fetch above is common to every
+    // panel — each panel's OWN data (accounts, feedback threads, AI
+    // outcomes, ...) is normally loaded by the [data-tl-panel] click
+    // handler, which a deep link bypasses entirely. Mirror that same
+    // per-panel load here so "Add a Home Daycare Tester"/"View Testing
+    // Feedback"/"Test as a Role" show real, populated data immediately
+    // instead of an empty panel.
+    if (state.panel === "feedback") {
+      state.tfActiveThreadId = "";
+      state.tfActiveThread = null;
+      try {
+        const data = await api("GET", "/api/testing-feedback/admin/threads");
+        state.tfThreads = data.threads || [];
+        state.tfUnreadCount = data.unreadCount || 0;
+        state.tfError = "";
+      } catch (error) {
+        state.tfError = error.message;
+      }
+    } else if (state.panel === "accounts") {
+      try {
+        const data = await api("GET", "/api/external-tester/list");
+        state.sandboxAccounts = data.accounts || [];
+        state.sandboxRoleCatalog = data.roleCatalog || [];
+      } catch (error) {
+        state.error = error.message;
+      }
+    }
+    render(mount);
   }
 
   global.renderTestingLabPage = renderTestingLabPage;

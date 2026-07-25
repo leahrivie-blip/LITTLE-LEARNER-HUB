@@ -362,7 +362,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       if (await foundingBtn.count()) {
         // Sticky mobile bar can hide the in-body button visually; force-click is safe here.
         await foundingBtn.first().click({ force: true });
-        await page.waitForTimeout(800);
+        await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
+        await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
       } else {
         // Body CTA can be visually hidden on mobile when the sticky upgrade bar is active.
         assert(await trialBtn.count(), `${label}: trial CTA missing in locked preview`);

@@ -10326,6 +10326,193 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   padding: 7px 8px;
 }
 
+/* A dedicated, minimal signed-out /admin screen — no marketing chrome, no
+   pricing/purchase buttons, no role navigation visible alongside it. */
+.signed-out-admin-view .topbar .search-wrap,
+.signed-out-admin-view .topbar #freePlanBadge,
+.signed-out-admin-view .topbar #signupButton,
+.signed-out-admin-view .sidebar-free-upgrade,
+.signed-out-admin-view #view-admin .founding-banner,
+.signed-out-admin-view #view-admin .plan-callout {
+  display: none !important;
+}
+
+.signed-out-admin-view #platformNav,
+.signed-out-admin-view #pilotProviderNav,
+.signed-out-admin-view #pilotStaffNav,
+.signed-out-admin-view #pilotParentNav {
+  display: none !important;
+}
+
+.signed-out-admin-testing-banner {
+  display: inline-block;
+  background: #fff3cd;
+  color: #7a5b00;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 6px 0;
+}
+
+.signed-out-admin-return-link {
+  margin-top: 12px;
+}
+
+/* Owner Testing Home */
+.owner-testing-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.owner-testing-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+}
+
+.owner-testing-card h3 {
+  margin: 0 0 8px;
+}
+
+.owner-testing-card-wide {
+  grid-column: 1 / -1;
+}
+
+.owner-testing-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.owner-testing-status-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.owner-testing-status-table th {
+  text-align: left;
+  padding: 6px 10px 6px 0;
+  color: var(--ink-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.owner-testing-status-table td {
+  padding: 6px 0;
+}
+
+.feature-readiness-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.feature-readiness-item {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.feature-readiness-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.feature-readiness-badge--ready { background: #e6f7ec; color: #1a7a3f; }
+.feature-readiness-badge--partial { background: #fff3cd; color: #7a5b00; }
+.feature-readiness-badge--not-ready { background: #fdecea; color: #9b2c2c; }
+.feature-readiness-badge--computer { background: #e8effd; color: #2452b3; }
+
+.feature-readiness-name {
+  font-weight: 600;
+}
+
+.feature-readiness-note {
+  color: var(--ink-muted);
+  font-size: 0.85rem;
+  flex-basis: 100%;
+}
+
+/* Boot-failed retry overlay — never leave an authenticated session staring
+   at a half-booted screen with no explanation. */
+.boot-failed-retry-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  padding: 16px;
+}
+
+.boot-failed-retry-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.boot-failed-retry-card h2 {
+  margin: 0 0 10px;
+}
+
+/* Admin-only expansion tool gate diagnostic — never a silent Calendar bounce. */
+.admin-gate-diagnostic-page {
+  max-width: 640px;
+}
+
+.admin-gate-diagnostic-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0;
+}
+
+.admin-gate-diagnostic-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  margin-bottom: 6px;
+  background: #fdf2f2;
+  color: #9b2c2c;
+  font-size: 0.92rem;
+}
+
+.admin-gate-diagnostic-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+/* Testing hosts: purchase CTAs stay clickable (they route to the Upgrade
+   "purchases disabled" panel) but never look like live Stripe checkout. */
+body.testing-purchases-disabled [data-checkout-plan] {
+  opacity: 0.85;
+  cursor: pointer;
+}
+
+.testing-purchases-disabled-panel {
+  border: 1px solid #e2c36b;
+  background: #fffbeb;
+}
+
 /* Home Daycare Pilot phone bottom navigation */
 .pilot-bottom-nav {
   display: none;
@@ -21124,6 +21311,13 @@ body.lesson-editor-view .main {
    where .fh-bottom-nav exists in the DOM but is hidden — never a problem
    since nothing else occupies that space there either. */
 body:has(.fh-bottom-nav) .testing-feedback-widget {
+  bottom: calc(70px + env(safe-area-inset-bottom, 0px));
+}
+
+/* Same fix, same reasoning, for the Home Daycare Pilot's own phone bottom
+   nav (#pilotBottomNav) — its "More" button otherwise sits directly under
+   the floating Testing Feedback widget, blocking real clicks on it. */
+body:has(.pilot-bottom-nav:not([hidden])) .testing-feedback-widget {
   bottom: calc(70px + env(safe-area-inset-bottom, 0px));
 }
 
