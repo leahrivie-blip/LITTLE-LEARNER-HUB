@@ -10420,6 +10420,10 @@ async function loginWithServerPassword(email, password) {
     ...(data.accountType ? { accountType: data.accountType } : {}),
     ...(data.role ? { role: data.role } : {}),
     familyHubGuardian: Boolean(data.familyHubGuardian),
+    // Lets isHomeDaycarePilotAccount() recognize ANY connected testing
+    // account (Home Daycare Pilot owner/staff, or any other Testing Lab
+    // fake account) straight after a real password login.
+    ...(data.organizationId ? { organizationId: data.organizationId } : {}),
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
@@ -10886,11 +10890,16 @@ function syncPlatformNavVisibility() {
  * never shows something a role/capability check would otherwise hide.
  */
 function syncRoleAwareNavGrouping(account = currentAccount()) {
-  const moreSection = document.querySelector('[data-nav-section="more"]');
+  const moreSection = document.querySelector('#platformNav [data-nav-section="more"]');
   if (!moreSection) return;
   const experienceRole = resolveExperienceRole(account);
   const primaryViews = new Set(NAV_PRIMARY_VIEWS_BY_EXPERIENCE[experienceRole] || []);
-  const coreSection = document.querySelector(".nav-section-core");
+  // Scoped to #platformNav specifically — unscoped ".nav-section-core" would
+  // match #pilotProviderNav/#pilotStaffNav's own core sections too (same
+  // class, but earlier in DOM order), physically moving #platformNav's own
+  // primary items into a hidden pilot nav block instead of reordering them
+  // within #platformNav.
+  const coreSection = document.querySelector("#platformNav .nav-section-core");
   const allLinks = Array.from(document.querySelectorAll("#platformNav .nav-link[data-view]"));
   allLinks.forEach((link) => {
     if (link.hidden) return;
@@ -13123,6 +13132,9 @@ function setView(view, options = {}) {
   if (resolvedView === "pilot-billing") loadPilotBilling();
   if (resolvedView === "pilot-parent-home") loadPilotParentHome();
   if (resolvedView === "pilot-checklist") loadPilotChecklist();
+  if (resolvedView === "pilot-staff") loadPilotStaffPage();
+  if (resolvedView === "pilot-parent-contacts") loadPilotParentContactsPage();
+  if (typeof renderPilotBottomNav === "function") renderPilotBottomNav();
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
   if (resolvedView === "classroom-assistant") {
     const section = document.querySelector("#view-classroom-assistant");
@@ -32007,6 +32019,7 @@ function renderDailyLogsCenter(records) {
   // Real accounts keep the existing Daily Logs experience unchanged below.
   if (isFakeAccountTester()) {
     if (typeof syncPilotChildrenIntoLocalStore === "function") syncPilotChildrenIntoLocalStore();
+    if (typeof syncPilotDailyCareEntriesIntoLocalStore === "function") syncPilotDailyCareEntriesIntoLocalStore();
     return renderFastDailyLogsCenter(records);
   }
   const backTarget = dlcBackTarget();
@@ -34730,13 +34743,58 @@ function goalItem(item, child = {}) {
 function appendChildRecord(key, record) {
   const items = childStore(key);
   const id = `${key}-${Date.now()}`;
-  saveChildStore(key, [...items, { id, createdAt: new Date().toISOString(), ...record }]);
+  const fullRecord = { id, createdAt: new Date().toISOString(), ...record };
+  saveChildStore(key, [...items, fullRecord]);
+  // Cross-login connected data: an owner and her one optional staff member
+  // are two separate logins that would otherwise each have their OWN,
+  // disconnected local Daily Care store even though they share one
+  // organization — mirror this record server-side (best-effort, never
+  // blocks the local save) so the other login picks it up on her next
+  // sync. See syncPilotDailyCareEntriesIntoLocalStore().
+  if (typeof isHomeDaycarePilotAccount === "function" && isHomeDaycarePilotAccount() && typeof pilotIsProviderNow === "function" && pilotIsProviderNow() && fullRecord.childId) {
+    pilotApi("POST", "/api/pilot/daily-care-entries", { childId: fullRecord.childId, storeKey: key, record: fullRecord }).catch(() => { /* best-effort mirror only */ });
+  }
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
     renderChildManagement();
   }
   return id;
+}
+
+/**
+ * Pulls every Daily Care entry mirrored by ANY connected login sharing this
+ * organization (owner + her one optional staff member) and merges them
+ * into this browser's own local Daily Care store — additive and
+ * idempotent (matched by the record's own id, so it never duplicates on
+ * repeated syncs, and never overwrites a locally-newer edit). This is what
+ * makes "staff logs care, owner sees it" (and vice versa) actually work,
+ * since Fast Daily Logs' underlying store is otherwise per-browser-login
+ * localStorage.
+ */
+async function syncPilotDailyCareEntriesIntoLocalStore() {
+  if (!isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  try {
+    const remote = await pilotApi("GET", "/api/pilot/daily-care-entries");
+    const entries = remote.entries || [];
+    if (!entries.length) return;
+    const byStoreKey = {};
+    entries.forEach((e) => {
+      if (!byStoreKey[e.storeKey]) byStoreKey[e.storeKey] = [];
+      byStoreKey[e.storeKey].push(e.record);
+    });
+    let changed = false;
+    Object.entries(byStoreKey).forEach(([storeKey, records]) => {
+      const local = childStore(storeKey);
+      const existingIds = new Set(local.map((item) => item.id));
+      const toAdd = records.filter((r) => r && r.id && !existingIds.has(r.id));
+      if (toAdd.length) {
+        saveChildStore(storeKey, [...local, ...toAdd]);
+        changed = true;
+      }
+    });
+    if (changed && document.querySelector(".active-view")?.id === "view-children") renderChildManagement();
+  } catch { /* best-effort — Daily Care still works locally even if this sync fails */ }
 }
 
 /**
@@ -37054,6 +37112,7 @@ async function refreshExternalTesterSandboxState() {
   refreshTestingIdentityBanner();
   if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
   if (typeof syncPilotChildrenIntoLocalStore === "function") syncPilotChildrenIntoLocalStore();
+  if (typeof syncPilotDailyCareEntriesIntoLocalStore === "function") syncPilotDailyCareEntriesIntoLocalStore();
 }
 
 function sandboxRolePickerHtml() {
@@ -37233,25 +37292,141 @@ function pilotIsProviderNow() {
   return isHomeDaycarePilotAccount() && !currentAccount()?.familyHubGuardian;
 }
 
+/** The hired Home Daycare staff member (role: "assistant") — a "provider" for Daily Care/Messages/Calendar purposes, but must see the simplified staff nav, never owner powers (Families, Billing, adding more staff, Program Settings). Server-side enforcement lives in server/home-daycare-pilot-api.js's `isOwner` checks — this is nav/UI-level only. */
+function pilotIsStaffNow() {
+  return pilotIsProviderNow() && currentAccount()?.role === "assistant";
+}
+
 function pilotIsParentNow() {
   return isHomeDaycarePilotAccount() && Boolean(currentAccount()?.familyHubGuardian);
 }
 
-/** Curates the sidebar for a Home Daycare Pilot account: shows the pilot's own Families/Messages/Forms/Billing/Home links and hides the equivalent core-app ones they replace, so there is never a confusing duplicate pointing at something disconnected. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about the core items. */
-function refreshHomeDaycarePilotNav() {
-  const isPilot = isHomeDaycarePilotAccount();
+const PILOT_PROVIDER_BOTTOM_NAV = Object.freeze([
+  { view: "today", label: "Today", icon: "🏠" },
+  { view: "children", label: "Children", icon: "👧" },
+  { view: "child-tools-daily-logs", label: "Log", icon: "📝" },
+  { view: "pilot-messages", label: "Messages", icon: "💬" },
+]);
+
+const PILOT_PARENT_BOTTOM_NAV = Object.freeze([
+  { view: "pilot-parent-home", label: "Home", icon: "🏠" },
+  { view: "pilot-parent-home", label: "My Child", icon: "🧒" },
+  { view: "pilot-messages", label: "Messages", icon: "💬" },
+  { view: "pilot-forms", label: "Forms", icon: "📄" },
+]);
+
+/** The overflow items behind "More" on the phone bottom nav — mirrors each dedicated sidebar's own "More" section so nothing is reachable on desktop but missing on phone. */
+function pilotBottomNavMoreItemsHtml(isParent) {
+  const navId = isParent ? "#pilotParentNav" : (pilotIsStaffNow() ? "#pilotStaffNav" : "#pilotProviderNav");
+  const nav = document.querySelector(navId);
+  if (!nav) return "";
+  const moreSection = nav.querySelector('[data-nav-section="pilot-more"], [data-nav-section="pilot-parent-more"], [data-nav-section="pilot-staff-more"]');
+  const planningSection = !isParent ? nav.querySelectorAll(".nav-section")[1] : null;
+  const buttons = [
+    ...(planningSection ? Array.from(planningSection.querySelectorAll(".nav-link")) : []),
+    ...(moreSection ? Array.from(moreSection.querySelectorAll(".nav-link")) : []),
+  ];
+  return buttons.map((btn) => {
+    const label = btn.querySelector("[data-pilot-staff-nav-label]")?.textContent || btn.textContent.trim();
+    const view = btn.getAttribute("data-view") || "";
+    const isFeedback = btn.hasAttribute("data-pilot-open-feedback");
+    return `<button type="button" class="pilot-bottom-more-item" ${view ? `data-pilot-bottom-nav="${escapeHtml(view)}"` : ""} ${isFeedback ? "data-pilot-open-feedback" : ""}>${escapeHtml(label)}</button>`;
+  }).join("");
+}
+
+function renderPilotBottomNav() {
+  const bar = document.querySelector("#pilotBottomNav");
+  if (!bar) return;
   const isProviderNow = pilotIsProviderNow();
   const isParentNow = pilotIsParentNow();
-  document.querySelectorAll('[data-pilot-nav="provider"]').forEach((el) => { el.hidden = !isProviderNow; });
-  document.querySelectorAll('[data-pilot-nav="parent"]').forEach((el) => { el.hidden = !isParentNow; });
-  document.querySelectorAll('[data-pilot-nav="both"]').forEach((el) => { el.hidden = !isPilot; });
-  if (isPilot) {
-    document.querySelector('.nav-link[data-view="messages"]')?.setAttribute("hidden", "");
-    document.querySelector('.nav-link[data-view="billing"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
-    document.querySelector('.nav-link[data-view="forms"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
-    document.querySelector('.nav-link[data-view="families"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+  if (!isProviderNow && !isParentNow) {
+    bar.hidden = true;
+    bar.innerHTML = "";
+    return;
   }
+  const items = isParentNow ? PILOT_PARENT_BOTTOM_NAV : PILOT_PROVIDER_BOTTOM_NAV;
+  const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+  bar.hidden = false;
+  bar.innerHTML = `
+    ${items.map((item) => `
+      <button type="button" class="pilot-bottom-nav-item ${item.view === activeView ? "active" : ""}" data-pilot-bottom-nav="${escapeHtml(item.view)}">
+        <span aria-hidden="true">${item.icon}</span>
+        <span>${escapeHtml(item.label)}</span>
+      </button>
+    `).join("")}
+    <button type="button" class="pilot-bottom-nav-item" data-pilot-open-more>
+      <span aria-hidden="true">⋯</span>
+      <span>More</span>
+    </button>
+  `;
 }
+
+/** Curates the sidebar for a Home Daycare Pilot account: swaps the generic capability-based #platformNav for a dedicated, exactly-ordered #pilotProviderNav or #pilotParentNav block, and keeps the phone bottom nav in sync. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about #platformNav's own items. */
+function refreshHomeDaycarePilotNav() {
+  const isProviderNow = pilotIsProviderNow();
+  const isStaffNow = pilotIsStaffNow();
+  const isOwnerNow = isProviderNow && !isStaffNow;
+  const isParentNow = pilotIsParentNow();
+  const platformNav = document.querySelector("#platformNav");
+  const providerNav = document.querySelector("#pilotProviderNav");
+  const staffNav = document.querySelector("#pilotStaffNav");
+  const parentNav = document.querySelector("#pilotParentNav");
+  if (platformNav) platformNav.hidden = isProviderNow || isParentNow;
+  if (providerNav) providerNav.hidden = !isOwnerNow;
+  if (staffNav) staffNav.hidden = !isStaffNow;
+  if (parentNav) parentNav.hidden = !isParentNow;
+  if (isOwnerNow) refreshPilotStaffNavLabel();
+  renderPilotBottomNav();
+}
+
+let pilotStaffNavCache = null;
+
+async function refreshPilotStaffNavLabel() {
+  const labelEl = document.querySelector("[data-pilot-staff-nav-label]");
+  if (!labelEl) return;
+  try {
+    const data = await pilotApi("GET", "/api/pilot/staff");
+    pilotStaffNavCache = data.staff || [];
+    labelEl.textContent = pilotStaffNavCache.length ? "Staff" : "Add Assistant";
+  } catch { /* best-effort label only */ }
+}
+
+document.addEventListener("click", (event) => {
+  const bottomNavBtn = event.target.closest("[data-pilot-bottom-nav]");
+  if (bottomNavBtn) {
+    event.preventDefault();
+    document.querySelector("#pilotBottomNavMoreSheet").hidden = true;
+    setView(bottomNavBtn.getAttribute("data-pilot-bottom-nav"));
+    return;
+  }
+  const openMoreBtn = event.target.closest("[data-pilot-open-more]");
+  if (openMoreBtn) {
+    event.preventDefault();
+    const sheet = document.querySelector("#pilotBottomNavMoreSheet");
+    if (!sheet) return;
+    sheet.innerHTML = `
+      <div class="pilot-bottom-more-backdrop" data-pilot-close-more></div>
+      <div class="pilot-bottom-more-panel">
+        <div class="pilot-bottom-more-header"><strong>More</strong><button type="button" class="ghost-button" data-pilot-close-more>✕</button></div>
+        ${pilotBottomNavMoreItemsHtml(pilotIsParentNow())}
+      </div>
+    `;
+    sheet.hidden = false;
+    return;
+  }
+  if (event.target.closest("[data-pilot-close-more]")) {
+    event.preventDefault();
+    document.querySelector("#pilotBottomNavMoreSheet").hidden = true;
+    return;
+  }
+  const feedbackBtn = event.target.closest("[data-pilot-open-feedback]");
+  if (feedbackBtn) {
+    event.preventDefault();
+    document.querySelector("#pilotBottomNavMoreSheet").hidden = true;
+    document.querySelector("[data-tf-toggle]")?.click();
+    return;
+  }
+});
 
 /**
  * Photo Safety bridge: when a Home Daycare Pilot sandbox tester (in her
@@ -37713,6 +37888,138 @@ function renderPilotParentHomePage() {
     } catch (error) {
       pilotState.error = error.message;
       renderPilotParentHomePage();
+    }
+  });
+}
+
+// ---- Staff (owner + at most one optional staff member) ---------------------
+
+async function loadPilotStaffPage() {
+  try {
+    pilotStaffNavCache = (await pilotApi("GET", "/api/pilot/staff")).staff || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotStaffPage();
+}
+
+function renderPilotStaffPage() {
+  const mount = document.querySelector("#view-pilot-staff");
+  if (!mount) return;
+  if (!pilotIsProviderNow()) { mount.innerHTML = ""; return; }
+  const staff = pilotStaffNavCache || [];
+  if (pilotIsStaffNow()) {
+    const me = staff.find((s) => s.email === currentAccount()?.email?.toLowerCase()) || staff[0];
+    mount.innerHTML = `
+      <div class="page-title"><p class="eyebrow">Home Daycare Pilot — Testing Account</p><h2>My Staff Profile</h2></div>
+      <ul class="fh-card-list">
+        <li class="fh-card static">
+          <strong>${escapeHtml(me?.displayName || "You")}</strong>
+          <span class="dc-badge">Active</span>
+          <p class="muted-copy">${escapeHtml(me?.email || "")} — Home Daycare Assistant. You can log Daily Care, message families the owner has connected you to, and view assigned Forms/Calendar. Billing, Families, adding staff, and Program Settings are managed by the owner.</p>
+        </li>
+      </ul>
+    `;
+    return;
+  }
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Staff</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    <p class="muted-copy">The Home Daycare plan includes you (the owner) plus one optional staff member.</p>
+    ${staff.length ? `
+      <ul class="fh-card-list">
+        ${staff.map((s) => `
+          <li class="fh-card static">
+            <strong>${escapeHtml(s.displayName)}</strong>
+            <span class="dc-badge">${s.active ? "Active" : "Ended"}</span>
+            <p class="muted-copy">${escapeHtml(s.email)} · sees the same connected children, Daily Care, Messages, and Calendar — no billing or program settings access.</p>
+          </li>
+        `).join("")}
+      </ul>
+    ` : `
+      <section class="mini-form-card">
+        <h3>Add your assistant</h3>
+        <p class="muted-copy">Give one assistant her own login to the same fake classroom — she'll see Today, assigned children, Daily Care, Messages, Forms/tasks, Calendar, Classroom Assistant, Lesson Plans, and Activities. She will never see billing, subscription, or admin tools.</p>
+        <form data-pilot-add-staff class="mini-form">
+          <label>Assistant's name<input name="displayName" required placeholder="e.g. Robin Lee" /></label>
+          <label>Email (fake)<input name="email" type="email" required placeholder="assistant@example.invalid" /></label>
+          <button type="submit" class="primary-button">Add assistant</button>
+        </form>
+      </section>
+    `}
+  `;
+  mount.querySelector("[data-pilot-add-staff]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    try {
+      const result = await pilotApi("POST", "/api/pilot/staff", { displayName: data.get("displayName"), email: data.get("email") });
+      pilotState.staffWelcome = { email: result.staff.email, password: result.temporaryPassword };
+      await loadPilotStaffPage();
+      await refreshPilotStaffNavLabel();
+      showActionFeedback(`Assistant added — copy her one-time password: ${result.temporaryPassword}`);
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotStaffPage();
+    }
+  });
+}
+
+// ---- Parent "More": authorized pickups / emergency info / change requests --
+
+async function loadPilotParentContactsPage() {
+  try {
+    const home = await pilotApi("GET", "/api/pilot/parent-home");
+    const childId = home.children?.[0]?.childId || "";
+    pilotState.parentContactsChildId = childId;
+    if (childId) {
+      const contacts = await pilotApi("GET", `/api/pilot/child-contacts?childId=${encodeURIComponent(childId)}`);
+      pilotState.parentContacts = contacts.contacts || [];
+    } else {
+      pilotState.parentContacts = [];
+    }
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotParentContactsPage();
+}
+
+function renderPilotParentContactsPage() {
+  const mount = document.querySelector("#view-pilot-parent-contacts");
+  if (!mount) return;
+  if (!pilotIsParentNow()) { mount.innerHTML = ""; return; }
+  const contacts = pilotState.parentContacts || [];
+  const pickups = contacts.filter((c) => c.isAuthorizedPickup);
+  const emergency = contacts.filter((c) => c.isEmergencyContact);
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot — Testing Account</p><h2>Authorized Pickups &amp; Emergency Information</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    <h3>Authorized pickups</h3>
+    <ul class="fh-card-list">
+      ${pickups.map((c) => `<li class="fh-card static">${escapeHtml(c.displayName)} <span class="dc-badge">${escapeHtml(c.relationshipLabel)}</span></li>`).join("") || "<li class=\"muted-copy\">None on file.</li>"}
+    </ul>
+    <h3>Emergency contacts</h3>
+    <ul class="fh-card-list">
+      ${emergency.map((c) => `<li class="fh-card static">${escapeHtml(c.displayName)} <span class="dc-badge">${escapeHtml(c.relationshipLabel)}</span></li>`).join("") || "<li class=\"muted-copy\">None on file.</li>"}
+    </ul>
+    <h3>Request a change</h3>
+    <p class="muted-copy">Ask the provider to update pickup or emergency information — this sends a request, it does not change the record directly.</p>
+    <form data-pilot-change-request class="mini-form">
+      <textarea name="message" rows="3" placeholder="e.g. Please add my sister as an authorized pickup…" required></textarea>
+      <button type="submit" class="primary-button">Send change request</button>
+    </form>
+  `;
+  mount.querySelector("[data-pilot-change-request]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const message = new FormData(event.target).get("message");
+    try {
+      await pilotApi("POST", "/api/pilot/change-request", { childId: pilotState.parentContactsChildId, message });
+      event.target.reset();
+      showActionFeedback("Change request sent to the provider.");
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotParentContactsPage();
     }
   });
 }

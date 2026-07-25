@@ -102,6 +102,218 @@
           </div>
         </div>
 
+        <!-- Home Daycare Pilot — Solo Home Daycare Provider curated navigation.
+             A dedicated, self-contained nav block (not a patch of #platformNav)
+             so its exact Primary/Planning/More grouping and labels never drift
+             from #platformNav's generic capability-based grouping used by every
+             other account. Shown INSTEAD of #platformNav — never both at once —
+             by refreshHomeDaycarePilotNav() in app.js, only when
+             isHomeDaycarePilotAccount() && pilotIsProviderNow(). -->
+        <nav class="nav-list" id="pilotProviderNav" hidden>
+          <div class="nav-section nav-section-core">
+            <button class="nav-link" data-view="today">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="5"/></svg></span>
+              Today
+            </button>
+            <button class="nav-link" data-view="children">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Children
+            </button>
+            <button class="nav-link" data-view="child-tools-daily-logs">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg></span>
+              Daily Care
+            </button>
+            <button class="nav-link" data-view="pilot-families">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Families
+            </button>
+            <button class="nav-link" data-view="pilot-messages">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Messages
+              <span class="nav-badge" id="pilotMessagesNavBadge" hidden>0</span>
+            </button>
+            <button class="nav-link" data-view="pilot-forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
+              Forms &amp; Enrollment
+            </button>
+            <button class="nav-link" data-view="calendar">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+              Calendar
+            </button>
+            <button class="nav-link" data-view="pilot-billing">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
+              Billing
+            </button>
+          </div>
+
+          <div class="nav-section">
+            <p class="nav-section-label" aria-hidden="true">Planning</p>
+            <button class="nav-link" data-view="classroom-assistant">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5M8 17h6"/></svg></span>
+              Classroom Assistant
+            </button>
+            <button class="nav-link" data-view="lessons">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
+              Lesson Plans
+            </button>
+            <button class="nav-link" data-view="activities">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
+              Activities
+            </button>
+          </div>
+
+          <div class="nav-section nav-section-more" data-nav-section="pilot-more">
+            <p class="nav-section-label" aria-hidden="true">More</p>
+            <button class="nav-link" data-view="children">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
+              Documents &amp; Records
+            </button>
+            <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
+              Reports
+            </button>
+            <button class="nav-link" data-view="pilot-staff" data-pilot-staff-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              <span data-pilot-staff-nav-label>Staff</span>
+            </button>
+            <button class="nav-link" data-view="settings">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
+              Program Settings
+            </button>
+            <button class="nav-link" data-view="billing">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
+              Account &amp; Subscription
+            </button>
+            <button class="nav-link" type="button" data-pilot-open-feedback>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Help &amp; Testing Feedback
+            </button>
+          </div>
+        </nav>
+
+        <!-- Home Daycare Pilot — hired Staff member's simplified navigation.
+             Deliberately excludes Families, Billing, Staff, and Program
+             Settings — a staff member never receives owner powers. Server
+             enforces this independently via isOwner checks in
+             server/home-daycare-pilot-api.js; this is nav/UI-level only. -->
+        <nav class="nav-list" id="pilotStaffNav" hidden>
+          <div class="nav-section nav-section-core">
+            <button class="nav-link" data-view="today">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="5"/></svg></span>
+              Today
+            </button>
+            <button class="nav-link" data-view="children">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Assigned Children
+            </button>
+            <button class="nav-link" data-view="child-tools-daily-logs">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/></svg></span>
+              Daily Care
+            </button>
+            <button class="nav-link" data-view="pilot-messages">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Messages
+            </button>
+            <button class="nav-link" data-view="pilot-forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
+              Forms &amp; Tasks
+            </button>
+            <button class="nav-link" data-view="calendar">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+              Calendar
+            </button>
+          </div>
+          <div class="nav-section">
+            <p class="nav-section-label" aria-hidden="true">Planning</p>
+            <button class="nav-link" data-view="classroom-assistant">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5M8 17h6"/></svg></span>
+              Classroom Assistant
+            </button>
+            <button class="nav-link" data-view="lessons">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
+              Lesson Plans
+            </button>
+            <button class="nav-link" data-view="activities">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6v5h5v6h-5v7H9v-7H4V8h5z"/></svg></span>
+              Activities
+            </button>
+          </div>
+          <div class="nav-section nav-section-more" data-nav-section="pilot-staff-more">
+            <p class="nav-section-label" aria-hidden="true">More</p>
+            <button class="nav-link" data-view="pilot-staff">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              My Staff Profile
+            </button>
+            <button class="nav-link" data-view="settings">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
+              Account Settings
+            </button>
+            <button class="nav-link" type="button" data-pilot-open-feedback>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Testing Feedback
+            </button>
+          </div>
+        </nav>
+
+        <!-- Home Daycare Pilot — Parent/Guardian curated navigation. Same
+             "dedicated block" approach as #pilotProviderNav above. Shown only
+             when isHomeDaycarePilotAccount() && pilotIsParentNow(). -->
+        <nav class="nav-list" id="pilotParentNav" hidden>
+          <div class="nav-section nav-section-core">
+            <button class="nav-link" data-view="pilot-parent-home">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+              Home
+            </button>
+            <button class="nav-link" data-view="pilot-parent-home">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg></span>
+              My Child
+            </button>
+            <button class="nav-link" data-view="pilot-messages">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Messages
+            </button>
+            <button class="nav-link" data-view="pilot-forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
+              Forms
+            </button>
+          </div>
+          <div class="nav-section nav-section-more" data-nav-section="pilot-parent-more">
+            <p class="nav-section-label" aria-hidden="true">More</p>
+            <button class="nav-link" data-view="calendar">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+              Calendar
+            </button>
+            <button class="nav-link" data-view="pilot-forms">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
+              Documents
+            </button>
+            <button class="nav-link" data-view="pilot-billing">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
+              Billing &amp; Receipts
+            </button>
+            <button class="nav-link" data-view="pilot-parent-contacts">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Authorized Pickups
+            </button>
+            <button class="nav-link" data-view="pilot-parent-contacts">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3c4.5 0 8 2.5 8 6.5S16 16 12 21C8 16 4 13 4 9.5S7.5 3 12 3z"/><path d="M9.5 10.5h5M12 8v5"/></svg></span>
+              Emergency Information
+            </button>
+            <button class="nav-link" data-view="pilot-parent-contacts">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+              Change Requests
+            </button>
+            <button class="nav-link" data-view="settings">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.7-1L14.5 3h-5l-.3 3.1a7 7 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.5a7 7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.7 1l.3 3.1h5l.3-3.1a7 7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5a7 7 0 0 0 .1-1z"/></svg></span>
+              Account &amp; Security
+            </button>
+            <button class="nav-link" type="button" data-pilot-open-feedback>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Testing Feedback
+            </button>
+          </div>
+        </nav>
+
         <nav class="nav-list" id="platformNav">
           <div class="nav-section nav-section-core">
             <button class="nav-link" data-view="today" data-nav-capability="calendar">
@@ -347,6 +559,14 @@
             <button type="button" class="ghost-button" id="sandboxReturnHomeBtn" data-sandbox-return-home>Return to Tester Home</button>
           </span>
         </div>
+
+        <!-- Home Daycare Pilot phone bottom navigation — Today/Children/Log/
+             Messages/More for the provider, Home/My Child/Messages/Forms/More
+             for the parent. Populated by renderPilotBottomNav() in app.js;
+             hidden above phone width via CSS, and hidden entirely unless
+             isHomeDaycarePilotAccount(). -->
+        <nav id="pilotBottomNav" class="pilot-bottom-nav" hidden aria-label="Quick navigation"></nav>
+        <div id="pilotBottomNavMoreSheet" class="pilot-bottom-nav-more-sheet" hidden></div>
 
         <!-- External Tester Sandbox role picker — normal document flow modal,
              never trapping focus/clicks on anything else while hidden. -->
@@ -891,6 +1111,8 @@
         <section id="view-pilot-billing" class="view"></section>
         <section id="view-pilot-parent-home" class="view"></section>
         <section id="view-pilot-checklist" class="view"></section>
+        <section id="view-pilot-staff" class="view"></section>
+        <section id="view-pilot-parent-contacts" class="view"></section>
         <section id="view-guardian-session" class="view"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
