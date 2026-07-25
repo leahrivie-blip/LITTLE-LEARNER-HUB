@@ -160,6 +160,7 @@
     "dry-run:free-user-welcome-email": "node scripts/free-user-welcome-dry-run.js",
     "test:sparse-store-recovery": "NODE_ENV=test node scripts/test-sparse-store-recovery.js",
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
+    "test:admin-session-storage": "NODE_ENV=test node scripts/test-admin-session-storage.js",
     "test:prod-store-safety-smoke": "node scripts/test-prod-store-safety-smoke.js",
     "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js",
     "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js",

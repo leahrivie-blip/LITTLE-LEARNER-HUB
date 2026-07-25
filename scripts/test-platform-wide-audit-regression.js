@@ -35,15 +35,18 @@ const CACHE_V = "20260722-lesson-empty-hotfix";
 
 // ─── 1. Admin session durability ─────────────────────────────────────────────
 
-test("admin login awaits durable writeStoreAsync before returning token", () => {
+test("admin login awaits a durable dedicated-session write before returning token (not a full-store write)", () => {
   assert.match(serverJs, /async function createAdminToken\(/);
-  assert.match(serverJs, /await writeStoreAsync\(storeCache\)/);
+  assert.match(serverJs, /return adminSessionStore\.create\(normalizeEmail\(email\)\)/);
   const loginSlice = serverJs.slice(
     serverJs.indexOf("async function handleAdminLogin"),
     serverJs.indexOf("async function handleAdminSiteContentSave"),
   );
   assert.match(loginSlice, /await createAdminToken\(/);
   assert.match(loginSlice, /admin_session_persist_failed/);
+  // Admin login must never again serialize/write the entire application store —
+  // see server/admin-session-store.js for the dedicated session storage this replaced.
+  assert.doesNotMatch(loginSlice, /writeStoreAsync\(storeCache\)/);
 });
 
 test("isAdminUnlocked requires a session token", () => {

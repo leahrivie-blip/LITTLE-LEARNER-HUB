@@ -24,12 +24,22 @@ const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 
-test("server preserves adminSessions across stale writeStore clones", () => {
+test("server preserves legacy adminSessions field across stale writeStore clones (rollback safety net)", () => {
+  // Admin sessions are no longer written here going forward (see adminSessionStore in
+  // server/admin-session-store.js) — this merge helper is kept as inert legacy
+  // scaffolding so a rollback to older code still finds a consistent shape.
   assert.match(serverJs, /function mergeStorePreserveAdminSessions\(/);
   assert.match(serverJs, /preserve adminSessions/);
   assert.match(serverJs, /mergeStorePreserveAdminSessions\(mergeStorePreferNewerSiteContent\(store\)\)/);
   assert.match(serverJs, /storeCache = mergeStorePreserveEmailCampaigns\(mergeStorePreserveAdminSessions\(store\)\)/);
-  assert.match(serverJs, /Always mutate the live cache/);
+});
+
+test("admin sessions are stored in a dedicated store, not the shared application document", () => {
+  assert.match(serverJs, /const \{ createAdminSessionStore \} = require\("\.\/admin-session-store\.js"\)/);
+  assert.match(serverJs, /const adminSessionStore = createAdminSessionStore\(/);
+  assert.match(serverJs, /return adminSessionStore\.create\(normalizeEmail\(email\)\)/);
+  assert.match(serverJs, /return Boolean\(adminSessionStore\.validate\(token\)\)/);
+  assert.match(serverJs, /entire multi-MB application store on every single admin login/);
 });
 
 test("server exposes admin session validation endpoint", () => {
@@ -39,11 +49,10 @@ test("server exposes admin session validation endpoint", () => {
   assert.match(serverJs, /Unlock Admin again/);
 });
 
-test("server Lock Admin logout revokes session before merge can reinject it", () => {
+test("server Lock Admin logout revokes the dedicated session record", () => {
   assert.match(serverJs, /async function handleAdminLogout\(/);
   assert.match(serverJs, /\/api\/admin\/logout/);
-  assert.match(serverJs, /Clears live cache first so mergeStorePreserveAdminSessions cannot reinject/);
-  assert.match(serverJs, /delete storeCache\.adminSessions\[token\]/);
+  assert.match(serverJs, /const revoked = await adminSessionStore\.revoke\(token\)/);
 });
 
 test("client detects expired admin server session and offers re-unlock", () => {
@@ -70,7 +79,7 @@ test("admin session heartbeat refreshes unlock without random logout", () => {
   assert.match(appJs, /function stopAdminSessionHeartbeat\(/);
   assert.match(appJs, /lastValidatedAt/);
   assert.match(appJs, /keeping unlock/);
-  assert.match(serverJs, /lastValidatedAt: nowIso/);
+  assert.match(serverJs, /adminSessionStore\.touch\(token\)/);
 });
 
 test("owner can always see Admin nav to reach unlock form", () => {
