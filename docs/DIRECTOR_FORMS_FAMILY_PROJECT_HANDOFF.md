@@ -1,19 +1,22 @@
 # Director / Forms / Family Project — Developer Handoff
 
-**Status date:** 2026-07-22 (Phase 20 Security / Migration / Release Readiness complete; integration checkpoint and Phase 21 not started)
+**Status date:** 2026-07-23 (Phase 23 — Complete Platform Walkthrough, Fake Accounts, Device Audit — complete)
 **Transferability:** Ready for another developer or Cursor account to continue from GitHub.
+**Canonical continuation branch:** `testing/full-platform-integration-2026-07`  
+**Phase 20 backup:** `backup/director-family-phases-1-20` @ `d731a3951a152028b0539981a8c6b11b8d26fc76`  
+**Frozen feature branch (do not delete):** `cursor/director-family-foundation-bc66` @ `d731a395…`
 
 ---
 
 ## Start Here
 
 1. Fetch the repository: `git fetch origin`
-2. Check out the development branch: `git checkout cursor/director-family-foundation-bc66` then `git pull origin cursor/director-family-foundation-bc66`
-3. Read this handoff document end to end
-4. Review draft PR [#324](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/324)
-5. Run all Phase 1–20 automated tests (commands below; include `npm run test:security-migration-phase20`)
-6. Confirm testing-environment safety rules before any preview enablement
-7. Continue only from the next **approved** checkpoint (**testing-site integration** or **Phase 21** — do not start without separate instructions)
+2. Check out the **continuation** branch: `git checkout testing/full-platform-integration-2026-07` then `git pull origin testing/full-platform-integration-2026-07`
+3. Read this handoff, `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`, `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md`, and `docs/OWNER_AND_PROVIDER_TESTING_GUIDE.md`
+4. Review draft PR [#325](https://github.com/leahrivie-blip/LITTLE-LEARNER-HUB/pull/325)
+5. Run Phase 1–23 suites plus `npm run test:classroom-assistant`, `npm run test:phase22-role-navigation`, `npm run test:phase23-fake-account-identity`, `npm run test:phase23-platform-walkthrough`, `npm run test:phase23-provider-workday-e2e`, and `npm run test:phase23-permission-privacy-audit`
+6. Confirm testing-environment safety rules before any preview enablement or testing deploy
+7. **Phase 23 is complete** (fake-account real-login identity mapping fixed, guardian → Family Hub routing, 11 admin-preview UI modules' auth bug fixed, full role-by-role + device audit, end-to-end provider workday, permission/privacy audit). Phase 24 is next — see the Phase 23 completion report's "Known limitations / Phase 24 candidates" section before starting. **Highest priority carried over from Phase 22: Classroom Assistant expansion** (see `docs/CLASSROOM_ASSISTANT_PRIORITY.md`) remains unaddressed by Phase 23, which focused on the cross-cutting connectivity/identity bugs found during the walkthrough instead.
 8. **Never merge into `main` and never deploy to production without explicit owner approval**
 
 ---
@@ -39,6 +42,11 @@ Build a private, testing-only foundation for:
 - **Testing and Preview Lab** (Phase 18) — private admin lab for scenarios, fake logins, role/device preview, resets — `docs/PHASE_18_TESTING_PREVIEW_LAB_COMPLETION_REPORT.md`
 - **Accessibility, Performance, Reliability, Recovery** (Phase 19) — shared a11y/perf/resilience helpers, lazy-loaded expansion UIs, Testing Lab health + fake backup/restore — `docs/PHASE_19_ACCESSIBILITY_PERFORMANCE_RELIABILITY_COMPLETION_REPORT.md`
 - **Security, Data Migration, Release Readiness** (Phase 20) — security review foundations, fake migration simulator, Release Readiness Center — `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md` + `docs/TESTING_SITE_INTEGRATION_PLAN.md`
+- **Testing-only full platform integration** — main + Phases 1–20 on `testing/full-platform-integration-2026-07` — `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`
+- **Provider Productivity / Child-Led Planning** (Phase 21) — planning preferences, child-led workflow, activity-first tools, universal search, guided setup — `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`
+- **Classroom Assistant (highest priority)** — natural-language group meal/activity/summary logging, checked-in awareness, admin lesson-plan paste with review — `docs/CLASSROOM_ASSISTANT_PRIORITY.md` + `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md` + `docs/CLASSROOM_ASSISTANT_POLISH_COMPLETION_REPORT.md`
+- **Phase 22 — Role-Based Layout, Navigation, Dashboards, and Settings** — `resolveExperienceRole()` role model (Platform Admin / Director / Solo Provider / Lead Teacher / Assistant / Curriculum Only), role-aware sidebar grouping (Core vs. More Tools, capability gate unchanged), a new "Today" dashboard (Needs Attention / Today / Recent / Favorites / Quick Actions) for every role, and a redesigned, searchable Settings Hub — `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`
+- **Phase 23 — Complete Platform Walkthrough, Fake Accounts, Device Audit, Testing Deployment** — full role-by-role walkthrough (all 11 personas via real logins), 6-viewport device audit, end-to-end 20-step provider workday, permission/privacy audit, and three previously-hidden connectivity bugs found and fixed: fake-account real login was silently rejected, fake-account role/accountType never mapped onto the main app, and 11 admin-preview UI modules never authenticated after a real admin login — `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md`, `docs/OWNER_AND_PROVIDER_TESTING_GUIDE.md`
 
 All work is additive, flag-gated, fake-data-only in preview, and must not affect live production customers, Stripe, email, or AI until separately approved.
 
@@ -180,7 +188,7 @@ Phase tip history (newest first):
 
 ### NOT STARTED
 
-- **Phase 21** / testing-site integration checkpoint and later owner-approved work
+- **Phase 21** and later owner-approved work (integration checkpoint complete)
 - Real approved AI provider connection (provider interface is ready; live calls stay off)
 - PDF / Word / image / scanned-form extraction (import foundation prepared only)
 - Real outbound email/SMS delivery of assignment links and reminders
@@ -480,6 +488,8 @@ npm run test:billing-simulator-phase17
 npm run test:testing-lab-phase18
 npm run test:platform-resilience-phase19
 npm run test:security-migration-phase20
+npm run test:provider-productivity-phase21
+npm run test:classroom-assistant
 npm run test:platform-nav
 npm run test:account-access
 ```
@@ -505,9 +515,10 @@ node scripts/capture-billing-simulator-phase17-screens.js
 node scripts/capture-testing-lab-phase18-screens.js
 node scripts/capture-platform-resilience-phase19-screens.js
 node scripts/capture-security-migration-phase20-screens.js
+node scripts/capture-provider-productivity-phase21-screens.js
 ```
 
-### Handoff verification results (2026-07-22, Phase 20)
+### Handoff verification results (2026-07-22, Phase 21)
 
 | Command | Result |
 |---------|--------|
@@ -534,10 +545,11 @@ node scripts/capture-security-migration-phase20-screens.js
 | `npm run test:testing-lab-phase18` | PASS (18/18) |
 | `npm run test:platform-resilience-phase19` | PASS (15/15) |
 | `npm run test:security-migration-phase20` | PASS (12/12) |
+| `npm run test:provider-productivity-phase21` | PASS (15/15) |
 | `npm run test:platform-nav` | PASS |
 | `npm run test:account-access` | PASS |
 
-Full Phase 1–20 regression: **PASS**. See `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md`.
+Full Phase 1–21 regression: **PASS**. See `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`.
 
 ---
 
@@ -580,7 +592,7 @@ Full Phase 1–20 regression: **PASS**. See `docs/PHASE_20_SECURITY_MIGRATION_RE
 
 ## Next checkpoint recommendation
 
-**Do not begin the testing-site integration checkpoint or Phase 21** without separate owner instructions.
+**Do not begin Phase 22 while it remains paused.** Continue Classroom Assistant work next. Never merge to `main` / never deploy production from the integration branch.
 
 Until then:
 
@@ -602,7 +614,7 @@ See phase completion reports and `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`.
 3. Run the full Phase 1–20 test suite; confirm all PASS
 4. On testing only: confirm `SITE_URL`, `DATABASE_PROVIDER=local-json`, Stripe/email/AI off, preview flags on (including `ALLOW_TESTING_LAB_ADMIN_PREVIEW`), `DISABLE_STRIPE_CHECKOUT=true`
 5. Smoke Testing Lab → Release Readiness → Migration inspect/preview (do not apply on shared hosts without intent)
-6. Continue only with owner-written integration checkpoint or Phase 21 requirements
+6. Phase 22 (role-based navigation/dashboards/Settings) is complete — see `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md` for Phase 23 candidates (e.g. wiring a real, persistent Curriculum Only account/plan; deeper "Today" data sources; full visual audit of every legacy screen)
 7. Commit/push only to `cursor/director-family-foundation-bc66`; keep PR #324 draft
 8. Never merge/deploy production without written approval
 

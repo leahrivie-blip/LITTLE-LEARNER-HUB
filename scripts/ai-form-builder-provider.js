@@ -55,10 +55,26 @@ function resolveGeneratorMode({
   aiCallsDisabled = true,
   allowMockInPreview = true,
   requestedMode = "",
+  // Phase 23: a SEPARATE, explicit opt-in — set only by server/ai-form-builder-api.js
+  // after scripts/ai-testing-safety.js#assertAiTestingAllowed has already confirmed
+  // production lock, ALLOW_OPENAI_TESTING, the stored aiTesting flag, a real key, an
+  // approved caller, and an available rate-limit slot. Never set from a client-supplied
+  // request field. Existing callers that never pass this get byte-for-byte identical
+  // behavior to before this phase.
+  aiTestingAllowed = false,
 } = {}) {
   const production = isLiveProduction(expansionEnvironment);
   const previewAllowed = expansionEnvironment.allowFormsCenterAdminPreview === true && !production;
   const requested = String(requestedMode || "").trim().toLowerCase();
+
+  if (!production && aiTestingAllowed === true) {
+    return {
+      mode: GENERATOR_MODES.LIVE,
+      ok: true,
+      code: "live_ai_testing",
+      message: "Testing Preview — a real OpenAI structured response was used (fake data only).",
+    };
+  }
 
   if (production) {
     if (requested === GENERATOR_MODES.MOCK_FIXTURE || requested === "mock" || requested === "preview") {
@@ -188,13 +204,80 @@ function validateGenerateInput(body = {}) {
 }
 
 /**
- * Live provider stub — reserved for a future approved AI connection.
- * Never called from the current testing path.
+ * Live provider — Phase 23 AI Testing pathway. Only reached when
+ * resolveGeneratorMode() already decided LIVE mode (i.e. aiTestingAllowed
+ * was true and this is not production). Falls back to the mock fixture —
+ * never a thrown error the provider has to deal with — if the AI call
+ * itself is unavailable, invalid, or times out, since Form Builder's own
+ * safe default is already a good, complete draft.
  */
-async function generateWithLiveProvider() {
-  const error = new Error("A live AI provider is not connected yet.");
-  error.code = "ai_provider_not_configured";
-  throw error;
+async function generateWithLiveProvider(input, context = {}) {
+  const aiService = require("./ai-testing-service.js");
+  const params = context.aiServiceParams || {};
+  const text = [input.prompt, input.pastedText].filter(Boolean).join("\n\n");
+  const outcome = await aiService.draftForm({
+    store: params.store,
+    env: params.env,
+    text,
+    accountEmail: params.accountEmail,
+    organizationId: params.organizationId,
+    isVerifiedAdmin: params.isVerifiedAdmin,
+    isFakeAccountSession: params.isFakeAccountSession,
+    storedFlags: params.storedFlags,
+    fetchImpl: params.fetchImpl,
+  });
+  if (!outcome.ok) {
+    // Never a false success and never a lost request — hand back the same
+    // deterministic mock fixture Form Builder already relies on, with a
+    // clear label so the provider knows AI was attempted but unavailable.
+    const suggestion = fixtures.buildMockSuggestion(input);
+    suggestion.generatorLabel = `AI suggestion unavailable (${outcome.error || "unknown reason"}) — showing the local draft instead.`;
+    suggestion.liveAiUnavailableReason = outcome.error || "";
+    return suggestion;
+  }
+  const ai = outcome.result;
+  return {
+    title: ai.title,
+    description: ai.description,
+    providerInstructions: "Review every field before publishing or sending — this AI draft is a starting point only.",
+    familyInstructions: "",
+    category: ai.category,
+    intendedRecipient: input.intendedRecipient,
+    filingDestination: input.filingDestination,
+    reviewReminder: "Review and edit this AI-generated draft before it is ever published or sent to a family.",
+    expirationReminder: "",
+    disclaimer: ai.reviewDisclaimer || "This draft does not automatically satisfy any licensing or legal requirement — review with your program's policies.",
+    scenario: "ai_testing_live",
+    generatorLabel: "Testing Preview — a real OpenAI structured response was used (fake data only).",
+    originalPrompt: input.prompt || "",
+    originalPastedText: input.pastedText || "",
+    importFoundation: {
+      sourceType: "plain_language",
+      futureSupportedTypes: ["pdf", "word", "image", "scanned_form"],
+      note: "Pasted/typed text only in this testing phase.",
+    },
+    sections: (ai.sections || []).map((section, sectionIndex) => ({
+      title: section.title,
+      description: "",
+      fields: (section.fields || []).map((field, fieldIndex) => ({
+        tempKey: `field_${sectionIndex}_${fieldIndex}`,
+        type: field.fieldType === "long_text" ? "long_text"
+          : field.fieldType === "checkbox" ? "checkbox"
+          : field.fieldType === "date" ? "date"
+          : field.fieldType === "signature" ? "signature"
+          : field.fieldType === "select" ? "select"
+          : "short_text",
+        label: field.label,
+        helpText: "",
+        required: field.required === true,
+        options: [],
+        conditionalOn: null,
+        confidence: 0.7,
+      })),
+    })),
+    aiModel: outcome.model,
+    aiPromptVersionId: outcome.promptVersionId,
+  };
 }
 
 /**
@@ -229,7 +312,7 @@ async function generateFormSuggestion(rawBody = {}, context = {}) {
   return {
     mode: modeDecision.mode,
     label: modeDecision.message,
-    aiCalled: false,
+    aiCalled: modeDecision.mode === GENERATOR_MODES.LIVE && !suggestion.liveAiUnavailableReason,
     input: validated.input,
     suggestion,
     suggestionId: `aigensug_${crypto.randomBytes(8).toString("hex")}`,

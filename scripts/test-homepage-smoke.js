@@ -104,6 +104,21 @@ async function seedProLessonForLockedPreview(token) {
     siteContent: { ...bootstrap.json.siteContent, updatedAt: bootstrap.json.siteContent.updatedAt || "" },
   });
   const planId = `cur-lp-smoke-pro-${crypto.randomBytes(3).toString("hex")}`;
+  const weekdays = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  const dailyPlans = { ...(parsed.data.dailyPlans || {}) };
+  weekdays.forEach((day, index) => {
+    const dayPlan = dailyPlans[day] && typeof dailyPlans[day] === "object" ? { ...dailyPlans[day] } : {};
+    const items = Array.isArray(dayPlan.items) ? [...dayPlan.items] : [];
+    const hasTitle = items.some((item) => String(item?.title || "").trim());
+    if (!hasTitle) {
+      items.push({
+        id: `act-smoke-${day}`,
+        title: `${day} smoke activity ${index + 1}`,
+        steps: `Smoke steps for ${day}.`,
+      });
+    }
+    dailyPlans[day] = { ...dayPlan, items };
+  });
   const save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt: touch.json.siteContent.updatedAt,
@@ -113,6 +128,7 @@ async function seedProLessonForLockedPreview(token) {
       title: "Smoke Test Pro Garden",
       plan: "Pro",
       status: "published",
+      dailyPlans,
     },
   });
   if (save.status !== 200) return null;
@@ -375,6 +391,12 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.click("#adminUnlockForm button[type='submit']");
     await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 15000 });
     await page.waitForSelector("#adminSectionNav", { timeout: 10000 });
+    // Unlock unhides protected content before renderAdminSectionNav fills buttons — wait for real nav.
+    await page.waitForFunction(
+      () => document.querySelectorAll("#adminSectionNav button").length > 0,
+      null,
+      { timeout: 30000 },
+    );
     const navButtons = await page.locator("#adminSectionNav button").count();
     assert(navButtons > 0, `${label}: admin section navigation missing`);
   });

@@ -870,7 +870,7 @@ function createFamilyFoundationApi({
       return;
     }
     const plaintext = tempPasswordAuth.generateTemporaryPassword();
-    const passwordHash = tempPasswordAuth.hashPasswordSha256(plaintext);
+    const passwordHash = tempPasswordAuth.hashPassword(plaintext);
     account.passwordHash = passwordHash;
     account.lastPasswordIssuedAt = model.nowIso();
     account.updatedAt = account.lastPasswordIssuedAt;
@@ -879,7 +879,12 @@ function createFamilyFoundationApi({
     store.users = store.users || {};
     const email = safeLower(account.email);
     const existing = store.users[email] || { email, plan: "Free", preview: true };
+    const mainAppIdentity = model.mainAppIdentityForFakeAccount(account);
     // Do not alter administrator role — create a separate user row for the fake account.
+    // Phase 23: mainAppIdentity maps this fake account onto the SAME accountType/role
+    // vocabulary the main provider app (scripts/account-access.js) understands, so a real
+    // password login here produces the correct Director/Solo/Teacher/Assistant/Curriculum
+    // Only experience there too — not just inside the Director Center admin-preview APIs.
     store.users[email] = {
       ...existing,
       email,
@@ -890,7 +895,11 @@ function createFamilyFoundationApi({
       fakeAccountId: account.id,
       fakeAccountKind: account.kind,
       organizationId: account.organizationId,
-      role: account.role,
+      role: mainAppIdentity.role,
+      accountType: mainAppIdentity.accountType,
+      // Guardian-kind fake accounts must land in Family Hub, never the provider app —
+      // the client checks this flag right after login (see app.js loginWithServerPassword).
+      familyHubGuardian: mainAppIdentity.familyHubGuardian,
       serverPasswordAuth: true,
       passwordHash,
       mustChangePassword: false,

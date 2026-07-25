@@ -99,7 +99,7 @@ function runStaticChecks() {
   assert(indexHtml.includes('id="legalTerms"'), "index.html missing Terms of Service card");
   assert(indexHtml.includes('id="legalCopyright"'), "index.html missing copyright anchor in Terms");
   assert(indexHtml.includes("Terms of Service"), "index.html missing Terms of Service label");
-  assert(indexHtml.includes("llh-copyright.js?v=20260717-copyright"), "index.html missing copyright script");
+  assert(indexHtml.includes("llh-copyright.js?v=20260717-more-menu"), "index.html missing copyright script");
 
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(appJs.includes("llhCopyrightPdfFooter()"), "app.js missing PDF copyright helper usage");
@@ -130,8 +130,8 @@ function runStaticChecks() {
   assert(styles.includes("body.home-view .llh-app-footer"), "styles.css missing home-view footer hide");
 
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
-  assert(sw.includes("llh-copyright.js?v=20260717-copyright"), "service-worker missing copyright script");
-  assert(sw.includes("styles.css?v=20260721-homescreen-sw"), "service-worker missing styles cache bust");
+  assert(sw.includes("llh-copyright.js?v=20260717-more-menu"), "service-worker missing copyright script");
+  assert(/styles\.css\?v=[\w-]+/.test(sw), "service-worker missing styles cache bust");
 }
 
 async function ensureVisibleCopyright(page, selector, label) {

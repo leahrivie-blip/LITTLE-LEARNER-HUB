@@ -279,7 +279,8 @@ async function main() {
     // ═══════════════════════════════════════════
     try {
       await loginAs(page, "audit-pro@example.com", "Pro");
-      await page.waitForSelector("#view-calendar.active-view, #view-home.active-view", { timeout: 30000 });
+      // Phase 23: logged-in boot finishes on Today (not Calendar).
+      await page.waitForSelector("#view-today.active-view, #view-home.active-view", { timeout: 30000 });
       await page.evaluate(() => setView("lessons"));
       await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 15000 });
       // Wait for curriculum refresh

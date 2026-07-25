@@ -1,7 +1,9 @@
 # Overnight decisions and blockers
 
-**Branch:** `cursor/director-family-foundation-bc66`  
-**Updated:** 2026-07-22 (Phase 18 Testing and Preview Lab)
+**Branch:** `testing/full-platform-integration-2026-07` (continuation after integration checkpoint)  
+**Phase 20 backup:** `backup/director-family-phases-1-20`  
+**Frozen feature branch:** `cursor/director-family-foundation-bc66`  
+**Updated:** 2026-07-23 (Phase 23 — Complete Platform Walkthrough, Fake Accounts, Device Audit — complete)
 
 ## Decisions
 
@@ -135,7 +137,13 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 
 **Phase 20 completed 2026-07-22** — see `docs/PHASE_20_SECURITY_MIGRATION_RELEASE_READINESS_COMPLETION_REPORT.md`.
 
-**Do not begin the testing-site integration checkpoint or Phase 21** without separate instructions.
+**Testing-only full platform integration checkpoint completed 2026-07-22** — see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`. Continuation branch: `testing/full-platform-integration-2026-07`. Backup: `backup/director-family-phases-1-20`.
+
+**Phase 21 completed 2026-07-22** — see `docs/PHASE_21_PROVIDER_PRODUCTIVITY_CHILD_LED_PLANNING_COMPLETION_REPORT.md`.
+
+**Classroom Assistant foundation started 2026-07-22** (new highest priority from provider feedback) — see `docs/CLASSROOM_ASSISTANT_PRIORITY.md`, `docs/CLASSROOM_ASSISTANT_FOUNDATION_COMPLETION_REPORT.md`, `docs/CLASSROOM_ASSISTANT_SCOPE_EXPANSION_COMPLETION_REPORT.md`, and `docs/CLASSROOM_ASSISTANT_POLISH_COMPLETION_REPORT.md`.
+
+**Phase 22 completed 2026-07-22** (role-based layout, navigation, dashboards, and Settings redesign) — see `docs/PHASE_22_ROLE_BASED_UX_NAVIGATION_SETTINGS_COMPLETION_REPORT.md`. Known limitation carried into Phase 23: Curriculum Only is still a reserved (non-persistent) account type/plan — `resolveExperienceRole()` correctly resolves it when the account object holds it directly, but the existing, deliberate `migrateAccountAccessFields()` boot migration and `normalizeBillingPlan()` reset any unrecognized `accountType`/`plan` value back to `home_daycare`/`Free` on every login, so a real signed-in session can never persist it today — exercise the Curriculum-Only experience via a direct account object (tests) or a future onboarding/pricing project (`docs/FUTURE_ONBOARDING_PRICING.md`), not via Testing Lab role-preview alone. Never merge to `main` / never deploy production from this checkpoint.
 
 ## Phase 14 notes
 
@@ -184,10 +192,59 @@ Implementation: `scripts/today-hub-data-model.js`, `server/today-hub-api.js`, `s
 - Failed-save metadata is sanitized (no passwords, tokens, message bodies, medical content).
 - Deferred: full screen-reader certification, every legacy modal focus-trap migration, cloud draft sync beyond Lab simulation.
 
+## Integration checkpoint notes (2026-07-22)
+
+- `origin/main` (`204fa01`) was already an ancestor of Phase 20 tip — merge was a no-op; **zero conflicts**.
+- Shell cache busters aligned to `20260722-full-int` / `llh-shell-v109-full-int` so main PWA + Phase tip assets stay consistent.
+- Production remains untouched; testing deploy is **manual owner step** only (no agent Render hook).
+- Deferred: Phase 22, production migration, merge to main.
+
 ## Phase 20 notes / permissions
 
 - Security review is a Testing Lab checklist + rate limits — not formal certification.
 - Migration simulator: fake organizations only; inspect/preview/confirm/rollback; production rejects.
 - Release Readiness is computer-first; phones show status summary only.
-- Integration plan documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — not executed in Phase 20.
-- Deferred: real production migration, pen test, testing-site deploy, merge to main, Phase 21.
+- Integration plan documented in `docs/TESTING_SITE_INTEGRATION_PLAN.md` — executed as testing-only checkpoint; see `docs/TESTING_FULL_PLATFORM_INTEGRATION_COMPLETION_REPORT.md`.
+- Deferred: real production migration, pen test, merge to main, Phase 22+.
+
+## Phase 21 notes / permissions
+
+- Planning preference personalizes shortcuts only — lesson plans remain optional and never permanently hidden.
+- Child-led suggestions are local catalog only (`liveAiUsed: false`); provider review required before save.
+- Universal search omits denied domains entirely (no titles/counts leaked).
+- Guided setup: home daycare skips center-only staff step; Skip / Save and continue later supported.
+- Notification prefs keep outbound email/SMS/push forced off in testing.
+- Deferred: live AI generation, real camera OCR, production deploy, Phase 22 (paused).
+
+## Classroom Assistant notes / permissions (2026-07-22)
+
+- Natural-language notes parse locally only (`liveAiUsed: false`); preview then confirm apply.
+- Group meal/activity/nap writes target **checked-in** children only unless a child is named.
+- Named exceptions update only that child.
+- Admin lesson-plan paste requires review before save.
+- Goal: eliminate repetitive per-profile data entry — “describe what happened” first.
+- **Phase 22 addition:** offline queue is now scoped by signed-in identity **and** organization (`llh-ca-offline-queue::{email}::{orgId}`, previously org-only) — logging out on a shared device purges any queued-but-unsynced entries so the next person to sign in can never see them.
+- Deferred: live AI upgrade, cover art generation, deeper Family Hub write-through, Phase 23.
+
+## Phase 22 notes / permissions (2026-07-22)
+
+- **Navigation is UX curation only — never a security boundary.** `syncRoleAwareNavGrouping()` only decides whether an *already-capability-permitted* nav-link renders in the "Core" vs. "More Tools" section; `canAccessCapability()` / `canAccessPlatformFeature()` (unchanged) remain the only real access gate, enforced the same way before and after Phase 22.
+- Connected several already-built, already-capability-gated pages (Classrooms, Families, Enrollment, Staff & Permissions, Billing, Reports, Forms & Enrollment, Resources) into the main sidebar for the first time — they previously existed and worked but were only reachable via Settings Hub cards (or not at all for Classrooms/Families/Enrollment). No new backend surface was added; `test-platform-nav.js` was updated to assert the new (intentional) visibility instead of the old permanently-hidden state.
+- Director Center / Teacher Classroom / Classroom Assistant / Forms Center remain **admin-preview + fake-org gated at the API level** (pre-existing, unrelated to Phase 22 — confirmed via `server/classroom-assistant-api.js` / `server/today-hub-api.js` `assertAccess`, which reject any request without `allowDirectorCenterAdminPreview` + a verified admin + a fake preview org). They intentionally stay out of the main sidebar for real accounts, since surfacing them there would just produce a 401/403 — reached via Testing Lab / Admin Preview as before.
+- New "Today" dashboard (Needs Attention / Today / Recent / Favorites / Quick Actions) is built entirely from data already loaded client-side (schedule cache, favorites, recently-viewed, notification unread count) — no new backend endpoint. Default landing view for logged-in users was Calendar at the time this phase shipped; **Phase 23 promoted Today to the default landing** (`defaultLoggedInLandingView()`) once broader regression coverage existed — see the Phase 23 notes below.
+- Settings Hub redesign preserves every existing capability check; grouping/search is presentation-only. Cancel Subscription remains a real card (`data-view="cancel-subscription"`) inside "Billing and Subscription", discoverable via the new search box.
+- Family Hub's Phase 11 decision (Messages replaces Calendar in the 5-item bottom nav; Calendar lives under Account) was deliberately **kept as-is** rather than reverted to match this phase's literal Guardian-nav wording — reverting a shipped, tested, documented nav decision across many later phases' tests was judged higher-risk than the reordering is worth; flagged for an explicit owner decision before any change.
+- Device rules: added a shared "💻 Best on a computer" note (`renderManageSurfaceShell({ computerRecommended: true })`) to Classrooms, Families, Enrollment, and Staff & Permissions — consistent with the existing `.en-computer-recommended` / `.th-computer-recommended` pattern from earlier phases.
+
+## Phase 23 notes / permissions (2026-07-23)
+
+- **Today is now the default signed-in landing view** (`defaultLoggedInLandingView()` returns `"today"`). A remembered last-viewed view (e.g., Calendar) still takes priority when one exists — this only changes the *fallback* used for a fresh login/boot with no prior view. Found and fixed four other hardcoded `"calendar"` post-auth fallbacks that bypassed this function (login submit, forced-password-change completion, free-plan signup completion, logged-in home→landing remap). Thirteen `scripts/test-*.js` files that waited on `#view-calendar.active-view` as a boot-settle checkpoint were updated to wait on `#view-today.active-view` instead; three files whose calendar waits were explicit `setView("calendar")` navigations were correctly left unchanged.
+- **`curriculum_only` now persists as a real account type** through a real login. `ACCOUNT_TYPE_ALIASES` (`scripts/account-access.js` + `app.js` mirror) maps `curriculum_only` to itself instead of falling back to `home_daycare`; `accountTypeAllowsCapability()` explicitly denies `forms`/`staff_management`/`permissions`/`reports` for it. This is a **security-relevant capability change**, not just a UX one — server-computed `membership.capabilities` (via `scripts/account-access.js#summarizeAccountAccess`) now correctly exclude those for any account with `accountType === "curriculum_only"`, real or fake.
+- **Fake-account real login was fully broken and is now fixed.** Two independent bugs, both in code that predates this phase: (1) `server/testing-lab-api.js`'s `handleIssuePassword` never set `serverPasswordAuth: true` on the mirrored `store.users[email]` record, which `verifyServerPasswordLogin()` requires before it will compare `passwordHash` at all — every fake-account login through the Testing Lab dashboard flow was silently rejected with 401. (2) Neither `server/family-foundation-api.js`'s nor `server/testing-lab-api.js`'s issue-password handler ever mapped the fake account's org-permission role (`director_owner`/`director`/`lead_teacher`/`assistant_staff`/`parent_guardian`) onto `scripts/account-access.js`'s vocabulary (`owner`/`director`/`teacher`/`assistant`), so even a successful login would have landed every fake staff account on the generic default Solo Provider experience. Fixed via one new shared function, `scripts/family-foundation-data-model.js#mainAppIdentityForFakeAccount()`, used by both API files.
+- **Guardian fake accounts now route into Family Hub after a real login**, which never happened before this phase (Family Hub was previously only reachable via an explicit `setView("family-hub")` call with no automatic guardian-detection anywhere in the login/boot flow). A guardian's real login now sets `familyHubGuardian: true` on her account record; the login submit handler and both boot-landing code paths check this and route accordingly, explicitly refreshing expansion flags first (awaited, not fire-and-forget) so the just-issued member session token is what the server's `canAccessFamilyHub` check is keyed on.
+- **`canAccessFamilyHub`'s email-only contact lookup missed three guardian kinds** (`financial_guardian`, `non_financial_guardian`, `emergency_only`) that intentionally alias an existing contact (e.g., Priya's) under a different login email — added a fallback via the fake account's own `contactId`.
+- **A real, previously-hidden authentication bug affecting roughly half the admin-preview surface**: `billing-simulator-ui.js`, `classroom-assistant-ui.js`, `enrollment-ui.js`, `family-messaging-ui.js`, `family-updates-ui.js`, `licensing-center-ui.js`, `provider-productivity-ui.js`, `records-center-ui.js`, `staff-experience-ui.js`, `testing-lab-ui.js`, and `today-hub-ui.js` all read their own admin bearer token from `localStorage`/`sessionStorage` key `"llhAdminToken"` — a key the real admin login flow (`setAdminSession()`) never wrote; it was only ever set by test/screenshot scripts as a manual workaround. A real admin who unlocked Admin normally and opened any of those Director Center tabs got an unauthenticated 403 on first load. Fixed by mirroring the token into that key from `setAdminSession()`/`clearAdminSession()` — no changes needed in the 11 consuming modules. `director-center-ui.js` was never affected (it already correctly reads `adminSession().token`).
+- **`syncOfflineQueue()` (Classroom Assistant) never prevented duplicate writes on a retried sync** — a device that lost connectivity right after a successful sync and retried with the same stale queue would write a second copy of the same entry. Fixed by checking `offlineSynced[item.id]` before re-applying.
+- **`test-full-site-release-audit.js` never received two lazy-loading false-positive fixes** made on the separate production-hotfix branch (this testing branch's fork point predates those fixes on `main`) — ported them here: checking hydrated modal content instead of the un-hydrated browse-list array for Pro activity content, and removing an incorrect `dailyPlans`-presence requirement from the Pro-vs-Free unlock-count comparison.
+- Fake Home Daycare / Center fixtures (Phases 8/18) were judged to already have sufficient depth for this phase's requirements once the login/identity bugs above were fixed — no new parallel fixture system was built. A genuinely solo-only (no other staff roles) Home Daycare pack remains a documented Phase 24 candidate.
+- No agent Render deploy access exists in this environment; `little-learner-hub-testing` was not deployed by this phase. Exact owner steps are documented in `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md`.

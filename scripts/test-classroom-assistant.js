@@ -1,0 +1,545 @@
+#!/usr/bin/env node
+"use strict";
+
+/**
+ * Classroom Assistant focused suite.
+ * Fake data only. No email/SMS/push/Stripe/live AI.
+ */
+
+const assert = require("node:assert/strict");
+const http = require("node:http");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const { spawn } = require("node:child_process");
+
+const expansionFlags = require("./expansion-feature-flags.js");
+const model = require("./classroom-assistant-data-model.js");
+const fixtures = require("./classroom-assistant-fixtures.js");
+const { EXPANSION_FEATURE_KEYS } = expansionFlags;
+
+const ROOT = path.join(__dirname, "..");
+const ADMIN_EMAIL = "classroom-assistant-admin@example.com";
+const ADMIN_PASSWORD = "ClassroomAssistant!99";
+const ADMIN_CODE = "classroom-assistant-code";
+const BASE = "/api/director-center/classroom-assistant";
+
+let passed = 0;
+function pass(name) {
+  passed += 1;
+  console.log(`PASS ${name}`);
+}
+
+function request(port, method, pathname, { headers = {}, body = null } = {}) {
+  return new Promise((resolve, reject) => {
+    const payload = body == null ? null : JSON.stringify(body);
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: pathname,
+        method,
+        headers: {
+          Accept: "application/json",
+          ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+          ...headers,
+        },
+      },
+      (res) => {
+        let raw = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => { raw += chunk; });
+        res.on("end", () => {
+          let parsed = null;
+          try { parsed = raw ? JSON.parse(raw) : null; } catch { parsed = raw; }
+          resolve({ status: res.statusCode, body: parsed, raw });
+        });
+      },
+    );
+    req.on("error", reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+
+function waitForHealth(port, timeoutMs = 30000) {
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    const tick = async () => {
+      try {
+        const res = await request(port, "GET", "/api/health");
+        if (res.status === 200) return resolve();
+      } catch { /* retry */ }
+      if (Date.now() - started > timeoutMs) return reject(new Error("Server health timeout"));
+      setTimeout(tick, 150);
+    };
+    tick();
+  });
+}
+
+function baseStore() {
+  return {
+    siteContent: {
+      featureFlags: {
+        [EXPANSION_FEATURE_KEYS.DIRECTOR_CENTER]: true,
+        [EXPANSION_FEATURE_KEYS.FORMS_CENTER]: true,
+        [EXPANSION_FEATURE_KEYS.FAMILY_HUB]: true,
+      },
+    },
+  };
+}
+
+async function startServer({ env = {} } = {}) {
+  const storePath = path.join(os.tmpdir(), `llh-ca-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
+  fs.writeFileSync(storePath, JSON.stringify(baseStore(), null, 2));
+  const port = 10300 + Math.floor(Math.random() * 500);
+  const child = spawn("node", ["server/index.js"], {
+    cwd: ROOT,
+    env: {
+      ...process.env,
+      NODE_ENV: "test",
+      PORT: String(port),
+      HOST: "127.0.0.1",
+      DATABASE_PROVIDER: "local-json",
+      LLH_STORE_PATH: storePath,
+      SITE_URL: env.SITE_URL || "http://127.0.0.1",
+      ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true",
+      ADMIN_EMAIL,
+      ADMIN_PASSWORD,
+      ADMIN_ACCESS_CODE: ADMIN_CODE,
+      OPENAI_API_KEY: "",
+      STRIPE_SECRET_KEY: "",
+      DISABLE_OUTBOUND_EMAIL: "true",
+      DISABLE_STRIPE_CHECKOUT: "true",
+      DISABLE_AI_CALLS: "true",
+      ...env,
+    },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  let stderr = "";
+  child.stderr.on("data", (chunk) => { stderr += String(chunk); });
+  try {
+    await waitForHealth(port);
+  } catch (error) {
+    child.kill("SIGTERM");
+    throw new Error(`${error.message}\n${stderr}`);
+  }
+  return { port, child, storePath };
+}
+
+async function stopServer(ctx) {
+  if (!ctx?.child) return;
+  ctx.child.kill("SIGTERM");
+  await new Promise((resolve) => {
+    const timer = setTimeout(resolve, 2000);
+    ctx.child.once("exit", () => { clearTimeout(timer); resolve(); });
+  });
+}
+
+async function adminLogin(port) {
+  const res = await request(port, "POST", "/api/admin/login", {
+    body: { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, code: ADMIN_CODE },
+  });
+  assert.equal(res.status, 200, JSON.stringify(res.body));
+  return res.body.token;
+}
+
+function auth(token) {
+  return { Authorization: `Bearer ${token}` };
+}
+
+function unitFixture() {
+  const store = {};
+  const seeded = fixtures.ensureClassroomAssistantPreview(store, { adminEmail: ADMIN_EMAIL });
+  const checked = model.getCheckedInChildren(store, seeded.organizationId, { date: seeded.date });
+  const children = model.childrenForOrg(store, seeded.organizationId);
+  return { store, seeded, checked, children };
+}
+
+async function run() {
+  {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Breakfast was at 8:30. Everyone had bananas, apples, and milk. Timmy decided not to eat his breakfast.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.liveAiUsed, false);
+    assert.equal(plan.requiresReview, true);
+    assert.equal(plan.meal.mealType, "breakfast");
+    assert.ok(plan.meal.foods.includes("bananas"));
+    assert.ok(plan.meal.foods.includes("apples"));
+    assert.ok(plan.meal.foods.includes("milk"));
+    assert.equal(plan.meal.exceptions[0].childName, "Timmy");
+    assert.equal(plan.meal.exceptions[0].ate, false);
+    pass("unit_parse_breakfast_group_timmy_exception");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Today we went on a walk and looked for butterflies. Everyone loved it. Susan was especially excited to find a yellow butterfly.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.activity.groupEnjoyed, true);
+    assert.ok(/walk/i.test(plan.activity.title));
+    assert.equal(plan.activity.highlights[0].childName, "Susan");
+    assert.equal(plan.activity.highlights[0].observation, true);
+    pass("unit_parse_walk_susan_observation");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Everyone had a great nap except Ava, who slept for only 20 minutes.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.nap.groupSlept, true);
+    assert.equal(plan.nap.exceptions[0].childName, "Ava");
+    assert.equal(plan.nap.exceptions[0].durationMinutes, 20);
+    pass("unit_parse_nap_ava_exception");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const absentBen = children.find((child) => child.displayName === "Ben");
+    const plan = model.parseNaturalNote(
+      "Today we painted, played outside, and had pizza for lunch. Everyone enjoyed painting except Jack, who preferred reading books.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.ok(plan.targets.length >= 5);
+    assert.ok(!plan.targets.includes(absentBen.id));
+    assert.equal(plan.activity.exceptions[0].childName, "Jack");
+    assert.equal(plan.meal.mealType, "lunch");
+    pass("unit_checked_in_only_absent_not_targeted");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Changed Timmy diaper at 10:15. Wet. Ava used the potty successfully. Ben is absent. Gave Timmy his prescribed vitamin at 9:00.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.diaper.entries[0].childName, "Timmy");
+    assert.equal(plan.diaper.entries[0].status, "wet");
+    assert.equal(plan.potty.entries[0].childName, "Ava");
+    assert.equal(plan.potty.entries[0].result, "success");
+    assert.equal(plan.attendance.entries[0].childName, "Ben");
+    assert.equal(plan.attendance.entries[0].action, "absent");
+    assert.equal(plan.medication.entries[0].childName, "Timmy");
+    assert.match(plan.medication.medicationName, /vitamin/i);
+    assert.equal(plan.medication.requiresExtraReview, true);
+    pass("unit_parse_diaper_potty_med_attendance");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Timmy bit a friend today and was upset afterward.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.equal(plan.difficultSituation.detected, true);
+    assert.ok(plan.professionalDrafts.parent_message.body);
+    assert.ok(plan.professionalDrafts.incident_report.body);
+    assert.ok(plan.professionalDrafts.difficult_family_wording.body);
+    assert.ok(plan.suggestions.some((row) => row.type === "incident_report"));
+    pass("unit_professional_drafts_difficult_wording");
+  }
+
+  {
+    const { store, seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Changed Timmy diaper at 10:15. Wet.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    const item = model.createOfflineQueueItem({
+      text: plan.sourceText,
+      plan,
+      organizationId: seeded.organizationId,
+    });
+    assert.equal(item.status, "pending_sync");
+    const synced = model.syncOfflineQueue(store, [item], {
+      confirm: true,
+      organizationId: seeded.organizationId,
+      actorEmail: seeded.actorEmail,
+    });
+    assert.equal(synced.ok, true);
+    assert.equal(synced.syncedIds.length, 1);
+    assert.equal(synced.remaining.length, 0);
+    assert.ok(Object.values(store.classroomAssistant.diaperLogs).some((row) => row.childName === "Timmy"));
+    pass("unit_offline_queue_sync_writes");
+  }
+
+  {
+    // Phase 23: duplicate sync prevention. A device that loses connectivity right
+    // after a successful sync (never received the confirmation) may legitimately
+    // retry with the same stale queue — this must never write a second copy of
+    // the same meal/nap/diaper/observation entry.
+    const { store, seeded, checked, children } = unitFixture();
+    const plan = model.parseNaturalNote(
+      "Changed Timmy diaper at 10:15. Wet.",
+      { organizationId: seeded.organizationId, children, checkedInIds: checked.map((child) => child.id) },
+    );
+    const item = model.createOfflineQueueItem({ text: plan.sourceText, plan, organizationId: seeded.organizationId });
+    const firstSync = model.syncOfflineQueue(store, [item], { confirm: true, organizationId: seeded.organizationId, actorEmail: seeded.actorEmail });
+    assert.equal(firstSync.ok, true);
+    const countAfterFirst = Object.keys(store.classroomAssistant.diaperLogs).length;
+    // Client retries with the SAME (still "pending_sync" in its own stale copy) item.
+    const retrySync = model.syncOfflineQueue(store, [item], { confirm: true, organizationId: seeded.organizationId, actorEmail: seeded.actorEmail });
+    assert.equal(retrySync.ok, true, "a retried sync of an already-synced item should report success, not an error");
+    assert.equal(Object.keys(store.classroomAssistant.diaperLogs).length, countAfterFirst, "retrying a synced item must not create a duplicate diaper log entry");
+    pass("unit_duplicate_sync_prevention_no_second_write_on_retry");
+  }
+
+  {
+    // Outdoor play and loose-parts / open-ended play wording.
+    const { children, checked } = unitFixture();
+    const outdoorPlan = model.parseNaturalNote(
+      "We went outside for outdoor play. Everyone explored the garden and looked for bugs.",
+      { organizationId: "org_ca_unit", children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.notEqual(outdoorPlan.activity, null, "outdoor play should be recognized as an activity entry, not left undetected");
+    const looseParts = model.parseNaturalNote(
+      "Loose-parts and open-ended play with blocks, fabric scraps, and pinecones on the rug.",
+      { organizationId: "org_ca_unit", children, checkedInIds: checked.map((child) => child.id) },
+    );
+    assert.notEqual(looseParts.activity, null, "loose-parts / open-ended play should be recognized as an activity entry, not left undetected");
+    pass("unit_outdoor_and_loose_parts_open_ended_play_wording");
+  }
+
+  {
+    const { seeded, checked, children } = unitFixture();
+    const scenarios = [
+      {
+        name: "morning_arrival_snack_exception",
+        text: "At drop-off Maya arrived at 7:45. Everyone had snack crackers and water. Jack did not want crackers.",
+        assert(plan) {
+          assert.equal(plan.attendance.entries[0].childName, "Maya");
+          assert.equal(plan.meal.mealType, "snack");
+          assert.ok(plan.meal.exceptions.some((row) => row.childName === "Jack"));
+          assert.ok(plan.suggestions.some((row) => row.type === "parent_message"));
+          assert.ok(plan.suggestions.some((row) => row.type === "daily_report"));
+          assert.ok(plan.professionalDrafts.parent_message.body);
+        },
+      },
+      {
+        name: "injury_incident_family_wording",
+        text: "During outdoor play Susan fell and bumped her knee. We cleaned it, applied a cold pack, and comforted her.",
+        assert(plan) {
+          assert.ok(plan.difficultSituation?.detected);
+          assert.ok(plan.difficultSituation.kinds.includes("incident_care"));
+          assert.ok(plan.professionalDrafts.incident_report.body);
+          assert.ok(plan.professionalDrafts.difficult_family_wording.body);
+          assert.ok(plan.targets.includes(children.find((child) => child.displayName === "Susan").id));
+          assert.ok(!plan.targets.includes(children.find((child) => child.displayName === "Ben").id));
+        },
+      },
+      {
+        name: "potty_pair_success_and_accident",
+        text: "Potty time: Ava made it. Timmy had an accident. We cleaned up calmly and changed clothes.",
+        assert(plan) {
+          assert.ok(plan.potty.entries.some((row) => row.childName === "Ava" && row.result === "success"));
+          assert.ok(plan.potty.entries.some((row) => row.childName === "Timmy" && row.result === "accident"));
+        },
+      },
+      {
+        name: "end_of_day_summary_with_exception",
+        text: "Today we painted, played outside, and had pizza for lunch. Everyone enjoyed painting except Jack, who preferred reading books.",
+        assert(plan) {
+          assert.equal(plan.meal.mealType, "lunch");
+          assert.ok(plan.activity);
+          assert.equal(plan.activity.exceptions[0].childName, "Jack");
+          assert.ok(plan.dailySummary.meals.length);
+          assert.ok(plan.dailySummary.activities.length);
+          const core = ["parent_message", "incident_report", "observation", "behavior_report", "developmental_note", "daily_report", "documentation"];
+          for (const type of core) assert.ok(plan.suggestions.some((row) => row.type === type), type);
+        },
+      },
+    ];
+    for (const scenario of scenarios) {
+      const plan = model.parseNaturalNote(scenario.text, {
+        organizationId: seeded.organizationId,
+        children,
+        checkedInIds: checked.map((child) => child.id),
+      });
+      assert.equal(plan.requiresReview, true);
+      assert.equal(plan.liveAiUsed, false);
+      scenario.assert(plan);
+      pass(`scenario_${scenario.name}`);
+    }
+  }
+
+  {
+    const prod = await startServer({
+      env: { SITE_URL: "https://littlelearnershubbyleah.com", ALLOW_DIRECTOR_CENTER_ADMIN_PREVIEW: "true" },
+    });
+    try {
+      const token = await adminLogin(prod.port);
+      const res = await request(prod.port, "GET", `${BASE}/dashboard`, { headers: auth(token) });
+      assert.equal(res.status, 403);
+      assert.ok(["production_preview_rejected", "feature_unavailable"].includes(res.body.code), JSON.stringify(res.body));
+      pass("production_rejection");
+    } finally {
+      await stopServer(prod);
+    }
+  }
+
+  const ctx = await startServer();
+  try {
+    const token = await adminLogin(ctx.port);
+    const headers = auth(token);
+    const seed = await request(ctx.port, "POST", `${BASE}/seed`, { headers, body: { reset: true } });
+    assert.equal(seed.status, 200, JSON.stringify(seed.body));
+    assert.equal(seed.body.featureMarker, model.FEATURE_MARKER);
+    assert.equal(seed.body.liveAiUsed, false);
+    assert.equal(seed.body.offlineCapable, true);
+    assert.ok(seed.body.included.includes("offline_sync"));
+    assert.ok(Array.isArray(seed.body.examplePrompts) && seed.body.examplePrompts.length >= 4);
+    assert.ok(seed.body.checkedInChildren.some((child) => child.displayName === "Timmy"));
+    pass("seed_dashboard_checked_in");
+
+    const beforeParse = fs.readFileSync(ctx.storePath, "utf8");
+    const parsed = await request(ctx.port, "POST", `${BASE}/parse`, {
+      headers,
+      body: {
+        text: "Breakfast was at 8:30. Everyone had bananas, apples, and milk. Timmy decided not to eat his breakfast.",
+      },
+    });
+    assert.equal(parsed.status, 200, JSON.stringify(parsed.body));
+    assert.equal(parsed.body.preview, true);
+    assert.equal(parsed.body.plan.liveAiUsed, false);
+    assert.ok(parsed.body.plan.suggestions.length >= 7);
+    assert.ok(parsed.body.plan.professionalDrafts.parent_message);
+    assert.equal(fs.readFileSync(ctx.storePath, "utf8"), beforeParse);
+    pass("parse_preview_does_not_mutate_store");
+
+    const blocked = await request(ctx.port, "POST", `${BASE}/apply`, {
+      headers,
+      body: { planId: parsed.body.plan.id },
+    });
+    assert.equal(blocked.status, 400);
+    assert.equal(blocked.body.code, "confirm_required");
+    pass("apply_without_confirm_rejected");
+
+    const applied = await request(ctx.port, "POST", `${BASE}/apply`, {
+      headers,
+      body: { planId: parsed.body.plan.id, confirm: true },
+    });
+    assert.equal(applied.status, 200, JSON.stringify(applied.body));
+    assert.ok(applied.body.created.mealLogIds.length >= 5);
+    assert.ok(applied.body.created.communicationDraftIds.length >= 1);
+    const storeAfterApply = JSON.parse(fs.readFileSync(ctx.storePath, "utf8"));
+    const mealLogs = Object.values(storeAfterApply.classroomAssistant.mealLogs);
+    assert.ok(mealLogs.some((row) => row.childName === "Timmy" && row.ate === false));
+    assert.ok(!mealLogs.some((row) => row.childName === "Ben"));
+    pass("apply_with_confirm_writes_group_and_exception");
+
+    const crossOrg = await request(ctx.port, "GET", `${BASE}/dashboard?organizationId=org_cross_org_denied`, { headers });
+    assert.equal(crossOrg.status, 403);
+    assert.equal(crossOrg.body.code, "cross_org_denied");
+    pass("cross_org_denial");
+
+    const lessonParse = await request(ctx.port, "POST", `${BASE}/admin/lesson-plan/parse`, {
+      headers,
+      body: {
+        text: "Title: Butterfly Week\nAge group: Preschool\nDomains: science, language\nMonday: Walk and look for butterflies\nMaterials: paper, crayons, magnifiers\nObjectives: notice nature, describe colors",
+      },
+    });
+    assert.equal(lessonParse.status, 200, JSON.stringify(lessonParse.body));
+    assert.equal(lessonParse.body.draft.requiresReview, true);
+    assert.equal(lessonParse.body.draft.liveAiUsed, false);
+    const lessonConfirm = await request(ctx.port, "POST", `${BASE}/admin/lesson-plan/confirm`, {
+      headers,
+      body: { draftId: lessonParse.body.draft.id, confirm: true },
+    });
+    assert.equal(lessonConfirm.status, 200, JSON.stringify(lessonConfirm.body));
+    assert.equal(lessonConfirm.body.draft.requiresReview, false);
+    assert.equal(lessonConfirm.body.draft.status, "saved_fake_curriculum");
+    pass("lesson_plan_paste_requires_review_confirm_saves");
+
+    const suggestion = await request(ctx.port, "POST", `${BASE}/suggestions/accept`, {
+      headers,
+      body: { planId: parsed.body.plan.id, suggestion: parsed.body.plan.suggestions[0], confirm: true },
+    });
+    assert.equal(suggestion.status, 200);
+    assert.equal(suggestion.body.action.liveAiUsed, false);
+    pass("suggestion_accept_fake_confirmed");
+
+    const offlineBlocked = await request(ctx.port, "POST", `${BASE}/offline/sync`, {
+      headers,
+      body: { queue: [{ id: "x", text: "Changed Timmy diaper at 10:15. Wet.", status: "pending_sync" }] },
+    });
+    assert.equal(offlineBlocked.status, 400);
+    assert.equal(offlineBlocked.body.code, "confirm_required");
+    const offlineSync = await request(ctx.port, "POST", `${BASE}/offline/sync`, {
+      headers,
+      body: {
+        confirm: true,
+        queue: [{
+          id: "caoffline_test_1",
+          organizationId: seed.body.organization.id,
+          text: "Changed Timmy diaper at 10:15. Wet.",
+          status: "pending_sync",
+          plan: null,
+        }],
+      },
+    });
+    assert.equal(offlineSync.status, 200, JSON.stringify(offlineSync.body));
+    assert.ok(offlineSync.body.syncedIds.includes("caoffline_test_1"));
+    pass("offline_sync_endpoint_parses_and_writes");
+
+    const phone = await request(ctx.port, "GET", `${BASE}/phone-summary`, { headers });
+    assert.equal(phone.status, 200);
+    assert.equal(phone.body.phone.featureMarker, model.PHONE_MARKER);
+    assert.equal(phone.body.phone.offlineCapable, true);
+    pass("phone_summary_marker");
+  } finally {
+    await stopServer(ctx);
+  }
+
+  {
+    const ui = fs.readFileSync(path.join(ROOT, "classroom-assistant-ui.js"), "utf8");
+    const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+    assert.ok(ui.includes('data-feature-marker="phase-ca-classroom-assistant"'));
+    assert.ok(ui.includes("phase-ca-classroom-assistant-mobile"));
+    assert.ok(ui.includes("Computer recommended") || ui.includes("Best on a computer"));
+    assert.ok(ui.includes("What's included"));
+    assert.ok(ui.includes("data-ca-offline") || ui.includes("Offline ready"));
+    assert.ok(ui.includes("offline/sync"));
+    assert.ok(ui.includes("renderClassroomAssistantPage"));
+    assert.ok(ui.includes("Just tell us what happened"));
+    assert.ok(ui.includes("data-ca-example"));
+    assert.ok(ui.includes("Smart suggestions"));
+    assert.ok(ui.includes("ca-shell-flagship"));
+    assert.ok(html.includes('id="view-classroom-assistant"'));
+    assert.ok(html.includes('data-view="classroom-assistant"'));
+    assert.ok(appJs.includes('"classroom-assistant": "directorCenter"'));
+    assert.ok(appJs.includes('setView("classroom-assistant")'));
+    pass("phone_computer_markers_in_ui_file");
+  }
+
+  {
+    // Phase 22 final verification: offline queue isolation by user+org, and
+    // logout clears any private queued-but-unsynced entries from this device.
+    const ui = fs.readFileSync(path.join(ROOT, "classroom-assistant-ui.js"), "utf8");
+    const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+    assert.match(ui, /identity.*org|org.*identity/is, "offlineKey should combine identity and organization scope");
+    assert.match(ui, /adminEmail:\s*String\(options\.adminEmail/);
+    assert.match(appJs, /adminEmail:\s*typeof adminSession === "function"/);
+    assert.match(appJs, /llh-ca-offline-queue::/);
+    assert.match(appJs, /function clearAdminSession/);
+    // The offline-queue cleanup must live inside clearAdminSession (logout path),
+    // not somewhere unrelated.
+    const clearFnStart = appJs.indexOf("function clearAdminSession");
+    const clearFnBody = appJs.slice(clearFnStart, clearFnStart + 800);
+    assert.match(clearFnBody, /llh-ca-offline-queue::/, "clearAdminSession should purge classroom-assistant offline queues");
+    pass("phase22_offline_queue_isolated_by_identity_and_cleared_on_logout");
+  }
+
+  console.log(`Classroom Assistant checks passed (${passed}).`);
+}
+
+run().catch((error) => {
+  console.error(error.stack || error.message || error);
+  process.exit(1);
+});

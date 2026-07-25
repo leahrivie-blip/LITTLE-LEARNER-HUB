@@ -150,7 +150,8 @@ async function openLesson(page, lesson) {
     page.reload({ waitUntil: "domcontentloaded" }),
   ]);
   await page.waitForFunction(() => typeof setView === "function" && typeof isLoggedIn === "function" && isLoggedIn(), null, { timeout: 30000 });
-  await page.waitForSelector("#view-calendar.active-view, #view-home.active-view, #view-lessons.active-view", { timeout: 30000 });
+  // Phase 23: logged-in boot finishes on Today (not Calendar).
+  await page.waitForSelector("#view-today.active-view, #view-home.active-view, #view-lessons.active-view", { timeout: 30000 });
   await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 15000 });
   await page.fill("#view-lessons.active-view #lessonPlanSearch", lesson.title);

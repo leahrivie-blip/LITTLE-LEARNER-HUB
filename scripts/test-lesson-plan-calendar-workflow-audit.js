@@ -174,7 +174,8 @@ async function loginAsTeacher(page) {
     page.reload({ waitUntil: "domcontentloaded" }),
   ]);
   await page.waitForFunction(() => typeof setView === "function" && typeof assignScheduleLessonPlan === "function", null, { timeout: 30000 });
-  await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
+  // Phase 23: logged-in boot finishes on Today (not Calendar).
+  await page.waitForSelector("#view-today.active-view", { timeout: 30000 });
 }
 
 async function openLessonWorkspace(page, title) {

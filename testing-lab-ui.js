@@ -24,6 +24,32 @@
     notice: "",
     oneTimePassword: "",
     issuedEmail: "",
+    createdOrgId: "",
+    orgLogins: [],
+    orgLoginsOrgId: "",
+    sandboxAccounts: [],
+    sandboxRoleCatalog: [],
+    sandboxNotice: "",
+    pilotWizardResult: null,
+    pilotWizardError: "",
+    onboardResult: null,
+    aiStatus: null,
+    aiScenarios: [],
+    aiRunsByScenario: {},
+    aiPromptWorkflow: "classroom_assistant",
+    aiPromptVersions: [],
+    aiUsage: null,
+    aiError: "",
+    tfThreads: [],
+    tfFilter: { status: "", category: "", unreadOnly: false, retestRequested: false },
+    tfActiveThreadId: "",
+    tfActiveThread: null,
+    tfMessages: [],
+    tfNotes: [],
+    tfReplyText: "",
+    tfNoteText: "",
+    tfError: "",
+    tfUnreadCount: 0,
     deviceSession: null,
     preview: null,
     saveStatus: "idle",
@@ -31,6 +57,18 @@
 
   function escapeHtml(value) {
     return String(value ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  // Testing Lab's role preview writes directly to sessionStorage without
+  // going through any of app.js's own preview-mode setters, so the global
+  // top-nav "Exit Preview" escape button and testing-identity role banner
+  // (both live in app.js/index.html, outside this module) would otherwise
+  // never learn that a preview just started or ended. Every call here is
+  // optional-chained — this module must keep working standalone (e.g. in
+  // this file's own unit tests) even where those globals don't exist.
+  function notifyGlobalPreviewChrome() {
+    try { global.refreshTopNavExitPreview?.(); } catch { /* */ }
+    try { global.refreshTestingIdentityBanner?.(); } catch { /* */ }
   }
 
   function adminHeaders() {
@@ -68,6 +106,8 @@
       ["data", "Data Controls"],
       ["checklist", "Test Checklist"],
       ["audit", "Activity"],
+      ["ai", "AI Outcomes"],
+      ["feedback", "Testing Feedback"],
     ];
     return `
       <nav class="tl-subnav" aria-label="Testing Lab panels">
@@ -78,15 +118,45 @@
     `;
   }
 
+  function onboardResultHtml() {
+    if (!state.onboardResult) return "";
+    const r = state.onboardResult;
+    return `
+      <div class="tl-onetime" data-tl-onboard-result>
+        <p><strong>Testing environment ready.</strong> ${escapeHtml(r.note || "")}</p>
+        <p class="muted-copy">Feature flags enabled: ${escapeHtml((r.featureFlagsEnabled || []).join(", "))}</p>
+        <table class="tl-onboard-table">
+          <thead>
+            <tr><th>Role</th><th>Email</th><th>Temporary password</th><th>Program</th></tr>
+          </thead>
+          <tbody>
+            ${(r.logins || []).map((row) => `
+              <tr>
+                <td>${escapeHtml(row.role)}</td>
+                <td><code>${escapeHtml(row.email)}</code></td>
+                <td><code>${escapeHtml(row.temporaryPassword)}</code></td>
+                <td class="muted-copy">${escapeHtml(row.program)}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+        ${(r.missingRoles || []).length ? `<p class="muted-copy">Could not find fake accounts for: ${escapeHtml(r.missingRoles.join(", "))}</p>` : ""}
+        <button type="button" class="ghost-button" data-tl-clear-onboard>Clear from screen</button>
+      </div>
+    `;
+  }
+
   function homeHtml() {
     const d = state.dashboard?.dashboard || {};
     return `
       <section class="tl-section" data-tl-home>
         <div class="fu-toolbar">
           <h3>Testing Lab dashboard</h3>
-          <button type="button" class="primary-button" data-tl-quick-start>Quick start (Small Center)</button>
+          <button type="button" class="primary-button" data-tl-onboard-everything>Get the testing site ready (seed both programs + all logins)</button>
+          <button type="button" class="ghost-button" data-tl-quick-start>Quick start (Small Center)</button>
           <button type="button" class="ghost-button" data-tl-return-admin>Return to administrator account</button>
         </div>
+        ${onboardResultHtml()}
         <div class="tl-status-row">
           ${[
             ["Organization", d.organizationId || "—"],
@@ -113,16 +183,262 @@
     `;
   }
 
+  const AI_WORKFLOW_LABELS = {
+    classroom_assistant: "Classroom Assistant",
+    professional_draft: "Professional drafts",
+    lesson_plan_assist: "Lesson plan / activity assistance",
+    form_builder: "Form Builder",
+  };
+
+  const TF_CATEGORY_LABELS = {
+    bug: "Bug",
+    confusing_screen: "Confusing screen",
+    missing_feature: "Missing feature",
+    layout_problem: "Layout problem",
+    ai_result: "AI result",
+    suggestion: "Suggestion",
+    other: "Other",
+  };
+
+  const TF_STATUS_LABELS = {
+    open: "Open",
+    in_progress: "In progress",
+    resolved: "Resolved",
+    closed: "Closed",
+  };
+
+  function aiRunSummaryHtml(run) {
+    if (!run) return "<p class=\"muted-copy\">Not run yet.</p>";
+    return `
+      <div class="tl-ai-run">
+        <p class="muted-copy">Model: ${escapeHtml(run.model || "—")} · Latency: ${escapeHtml(String(run.latencyMs || 0))}ms · Est. cost: ${escapeHtml((run.costCents || 0).toFixed(4))}¢ · Tokens: ${escapeHtml(String(run.tokensUsed?.total || 0))}</p>
+        ${(run.warnings || []).length ? `<p class="tl-ai-warning">⚠ ${escapeHtml(run.warnings.join(" · "))}</p>` : ""}
+        <div class="tl-ai-compare">
+          <div>
+            <h5>Heuristic result</h5>
+            <pre class="tl-ai-json">${escapeHtml(JSON.stringify(run.heuristicResult, null, 2)).slice(0, 1200)}</pre>
+          </div>
+          <div>
+            <h5>OpenAI result</h5>
+            <pre class="tl-ai-json">${run.aiResult ? escapeHtml(JSON.stringify(run.aiResult, null, 2)).slice(0, 1200) : "<em>Unavailable — see warnings above.</em>"}</pre>
+          </div>
+        </div>
+        <div class="tl-actions-row">
+          <button type="button" class="ghost-button" data-tl-ai-rate="${escapeHtml(run.id)}" data-tl-ai-rating="helpful">Helpful</button>
+          <button type="button" class="ghost-button" data-tl-ai-rate="${escapeHtml(run.id)}" data-tl-ai-rating="needs_changes">Needs changes</button>
+          <button type="button" class="ghost-button" data-tl-ai-rate="${escapeHtml(run.id)}" data-tl-ai-rating="not_usable">Not usable</button>
+          ${run.rating ? `<span class="dc-badge">Rated: ${escapeHtml(run.rating)}</span>` : ""}
+        </div>
+      </div>
+    `;
+  }
+
+  function aiOutcomesHtml() {
+    const status = state.aiStatus;
+    return `
+      <section class="tl-section" data-tl-ai-outcomes>
+        <h3>AI Outcomes — testing only</h3>
+        <p class="muted-copy">Compare the heuristic result with a real, structured OpenAI response on fake scenarios only. Nothing here ever saves, sends, publishes, bills, or diagnoses automatically.</p>
+        ${status ? `
+          <div class="tl-status-row">
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">AI testing enabled</p><p class="dc-metric-value">${status.enabled ? "Yes" : "No"}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Model configured</p><p class="dc-metric-value">${escapeHtml(status.model || "—")}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Testing key present</p><p class="dc-metric-value">${status.hasApiKey ? "Yes" : "No"}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Total AI requests so far</p><p class="dc-metric-value">${escapeHtml(String(status.usageTotals?.totalRequests || 0))}</p></article>
+            <article class="dc-metric-card tl-metric"><p class="dc-metric-label">Estimated total cost</p><p class="dc-metric-value">${escapeHtml((status.usageTotals?.estimatedCostCents || 0).toFixed(4))}¢</p></article>
+          </div>
+          ${!status.enabled ? `<p class="tl-ai-warning">⚠ AI testing is off (${escapeHtml(status.reason || "unknown reason")}). Turn on the "aiTesting" flag and confirm a testing OPENAI_API_KEY is set — the heuristic system keeps working either way.</p>` : ""}
+        ` : "<p class=\"muted-copy\">Loading status…</p>"}
+
+        <h4>Usage limits, by organization</h4>
+        <p class="muted-copy">Sanitized counts only — never a prompt, a completion, or any other private provider entry. Limits: ${escapeHtml(String(state.aiUsage?.limits?.perTesterPerMinute ?? 5))}/minute per tester, ${escapeHtml(String(state.aiUsage?.limits?.perOrganizationPerMinute ?? 20))}/minute per organization, ${escapeHtml(String(state.aiUsage?.limits?.perOrganizationPerDay ?? 200))}/day per organization.</p>
+        <ul class="fh-card-list">
+          ${(state.aiUsage?.organizations || []).map((org) => `
+            <li class="fh-card static">
+              <strong>${escapeHtml(org.organizationId)}</strong>
+              <span class="dc-badge">This minute: ${escapeHtml(String(org.perMinute?.count || 0))} / ${escapeHtml(String(org.perMinute?.max || 0))}</span>
+              <span class="dc-badge">Today: ${escapeHtml(String(org.perDay?.count || 0))} / ${escapeHtml(String(org.perDay?.max || 0))}</span>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No AI testing activity yet for any organization.</li>"}
+        </ul>
+
+        <h4>Fake scenario library</h4>
+        <ul class="fh-card-list">
+          ${(state.aiScenarios || []).map((scenario) => `
+            <li class="fh-card static" data-tl-ai-scenario="${escapeHtml(scenario.id)}">
+              <strong>${escapeHtml(scenario.label)}</strong>
+              <span class="dc-badge">${escapeHtml(AI_WORKFLOW_LABELS[scenario.workflowType] || scenario.workflowType)}</span>
+              <p class="muted-copy">"${escapeHtml(scenario.inputText).slice(0, 140)}${scenario.inputText.length > 140 ? "…" : ""}"</p>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tl-ai-run="${escapeHtml(scenario.id)}">Run this scenario</button>
+              </div>
+              ${aiRunSummaryHtml(state.aiRunsByScenario[scenario.id])}
+            </li>
+          `).join("") || "<li class=\"muted-copy\">Loading scenarios…</li>"}
+        </ul>
+
+        <h4>Prompt versions</h4>
+        <select data-tl-ai-prompt-workflow>
+          ${Object.entries(AI_WORKFLOW_LABELS).map(([key, label]) => `<option value="${escapeHtml(key)}" ${state.aiPromptWorkflow === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+        </select>
+        <ul class="fh-card-list">
+          ${(state.aiPromptVersions || []).map((version) => `
+            <li class="fh-card static">
+              <strong>${version.active ? "● Active" : "Inactive"} — ${escapeHtml(version.createdAt || "")}</strong>
+              <p class="muted-copy">${escapeHtml(version.text || "").slice(0, 220)}</p>
+              ${!version.active ? `<button type="button" class="ghost-button" data-tl-ai-rollback="${escapeHtml(version.id)}">Roll back to this version</button>` : ""}
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No versions saved yet — one is created automatically on first use.</li>"}
+        </ul>
+        <textarea data-tl-ai-new-prompt-text rows="4" placeholder="Write a new prompt version for this workflow…" style="width:100%;"></textarea>
+        <button type="button" class="primary-button" data-tl-ai-save-prompt>Save as new version</button>
+        ${state.aiError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.aiError)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function testingFeedbackThreadListHtml() {
+    return `
+      <section class="tl-section" data-tl-testing-feedback>
+        <h3>Testing Feedback — inbox</h3>
+        <p class="muted-copy">Every tester's feedback thread, across every fake organization. Testers only ever see their own thread — never this list, never another tester's thread, never a private note.</p>
+        <div class="tl-actions-row">
+          <select data-tf-admin-filter-status>
+            <option value="">All statuses</option>
+            ${Object.entries(TF_STATUS_LABELS).map(([key, label]) => `<option value="${key}" ${state.tfFilter.status === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+          <select data-tf-admin-filter-category>
+            <option value="">All categories</option>
+            ${Object.entries(TF_CATEGORY_LABELS).map(([key, label]) => `<option value="${key}" ${state.tfFilter.category === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+          </select>
+          <label class="tl-check"><input type="checkbox" data-tf-admin-filter-unread ${state.tfFilter.unreadOnly ? "checked" : ""}/> Unread only</label>
+          <label class="tl-check"><input type="checkbox" data-tf-admin-filter-retest ${state.tfFilter.retestRequested ? "checked" : ""}/> Retest requested</label>
+          <button type="button" class="ghost-button" data-tf-admin-apply-filters>Apply filters</button>
+        </div>
+        ${state.tfError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.tfError)}</p>` : ""}
+        <ul class="fh-card-list">
+          ${(state.tfThreads || []).map((thread) => `
+            <li class="fh-card static" data-tf-admin-thread="${escapeHtml(thread.id)}">
+              <strong>${escapeHtml(thread.subject)}</strong>
+              <span class="dc-badge">${escapeHtml(TF_CATEGORY_LABELS[thread.category] || thread.category)}</span>
+              <span class="dc-badge">${escapeHtml(TF_STATUS_LABELS[thread.status] || thread.status)}</span>
+              ${thread.retestRequested ? `<span class="dc-badge">Retest requested</span>` : ""}
+              ${thread.adminUnread ? `<span class="dc-badge">Unread</span>` : ""}
+              <p class="muted-copy">${escapeHtml(thread.testerEmail)} · org ${escapeHtml(thread.organizationId)} · ${escapeHtml(thread.context?.role || "")} · ${escapeHtml(thread.context?.device || "")} · ${escapeHtml(thread.context?.page || "")}</p>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tf-admin-open="${escapeHtml(thread.id)}">Open thread</button>
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No feedback threads yet.</li>"}
+        </ul>
+      </section>
+    `;
+  }
+
+  function testingFeedbackThreadDetailHtml() {
+    const thread = state.tfActiveThread;
+    if (!thread) return `<p class="muted-copy">Loading…</p>`;
+    return `
+      <section class="tl-section" data-tl-testing-feedback-detail>
+        <button type="button" class="ghost-button" data-tf-admin-back>← Back to inbox</button>
+        <h3>${escapeHtml(thread.subject)}</h3>
+        <p class="muted-copy">
+          Tester: ${escapeHtml(thread.testerEmail)} (${escapeHtml(thread.testerRole || "role unknown")}) ·
+          Org: ${escapeHtml(thread.organizationId)} ·
+          Page: ${escapeHtml(thread.context?.page || "—")} ·
+          Device: ${escapeHtml(thread.context?.device || "—")} ·
+          Filed: ${escapeHtml(thread.createdAt || "—")} ·
+          Deployed commit: <code>${escapeHtml(thread.context?.deployedCommit || "unknown")}</code>
+        </p>
+        <div class="tl-actions-row">
+          <label>Status
+            <select data-tf-admin-status>
+              ${Object.entries(TF_STATUS_LABELS).map(([key, label]) => `<option value="${key}" ${thread.status === key ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
+            </select>
+          </label>
+          <label class="tl-check"><input type="checkbox" data-tf-admin-retest ${thread.retestRequested ? "checked" : ""}/> Request a retest</label>
+        </div>
+        <h4>Conversation (the tester sees everything in this section)</h4>
+        <div class="tl-status-row">
+          ${(state.tfMessages || []).map((message) => `
+            <div class="fh-card static">
+              <strong>${message.senderType === "admin" ? "You (admin)" : escapeHtml(thread.testerEmail)}</strong>
+              <p>${escapeHtml(message.body)}</p>
+              ${message.screenshotDataUrl ? `<img src="${escapeHtml(message.screenshotDataUrl)}" alt="Tester-attached screenshot" style="max-width:220px;border-radius:8px;display:block;margin-top:6px;" />` : ""}
+              <span class="muted-copy">${escapeHtml(message.createdAt || "")}</span>
+            </div>
+          `).join("") || "<p class=\"muted-copy\">No messages yet.</p>"}
+        </div>
+        <textarea data-tf-admin-reply-text rows="3" placeholder="Reply to the tester…" style="width:100%;"></textarea>
+        <button type="button" class="primary-button" data-tf-admin-send-reply>Send reply (tester will see this)</button>
+
+        <h4>Private notes — the tester NEVER sees this section</h4>
+        <div class="tl-status-row">
+          ${(state.tfNotes || []).map((note) => `
+            <div class="fh-card static">
+              <strong>Private note</strong>
+              <p>${escapeHtml(note.body)}</p>
+              <span class="muted-copy">${escapeHtml(note.createdAt || "")}</span>
+            </div>
+          `).join("") || "<p class=\"muted-copy\">No private notes yet.</p>"}
+        </div>
+        <textarea data-tf-admin-note-text rows="2" placeholder="Private note (never shown to the tester)…" style="width:100%;"></textarea>
+        <button type="button" class="ghost-button" data-tf-admin-add-note>Save private note</button>
+        ${state.tfError ? `<p class="tl-ai-warning">⚠ ${escapeHtml(state.tfError)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function testingFeedbackInboxHtml() {
+    return state.tfActiveThreadId ? testingFeedbackThreadDetailHtml() : testingFeedbackThreadListHtml();
+  }
+
   function accountsHtml() {
     return `
       <section class="tl-section" data-tl-accounts>
+        <h3>Fake tester organizations</h3>
+        <p class="muted-copy">Create a brand-new fake tester organization (or reset an existing one), then generate separate logins for each role. Nothing here ever touches a real organization or a real password.</p>
+        <div class="tl-actions-row" data-tl-create-org-row>
+          <label>Organization type
+            <select data-tl-org-type>
+              <option value="home_daycare">Solo Home Daycare</option>
+              <option value="small_center">Multi-Classroom Center</option>
+            </select>
+          </label>
+          <label>Label (optional)
+            <input type="text" data-tl-org-label placeholder="e.g. acme-testers" maxlength="40" />
+          </label>
+          <button type="button" class="primary-button" data-tl-create-org>Create / reset fake organization</button>
+        </div>
+        ${state.createdOrgId ? `<p class="tl-onetime" data-tl-created-org><strong>Ready:</strong> organization <code>${escapeHtml(state.createdOrgId)}</code>. Use "Generate core role logins" below for this org, or pick individual accounts.</p>` : ""}
+
         <h3>Actual fake login accounts</h3>
-        <p class="muted-copy">Real authentication flow. Passwords are never stored in fixtures. Issue once, copy immediately.</p>
+        <p class="muted-copy">Real authentication flow. Passwords are never stored in fixtures, and a previously-issued password can never be viewed again — only a fresh reissue shows a new one. Copy immediately.</p>
         ${state.oneTimePassword ? `
           <div class="tl-onetime" data-tl-onetime>
             <p><strong>Temporary password for ${escapeHtml(state.issuedEmail)}</strong> (shown once)</p>
-            <code>${escapeHtml(state.oneTimePassword)}</code>
+            <code data-tl-onetime-value>${escapeHtml(state.oneTimePassword)}</code>
+            <button type="button" class="ghost-button" data-tl-copy-password="${escapeHtml(state.oneTimePassword)}">Copy</button>
             <button type="button" class="ghost-button" data-tl-clear-password>Clear from screen</button>
+          </div>
+        ` : ""}
+        ${(state.orgLogins || []).length ? `
+          <div class="tl-onetime" data-tl-org-logins>
+            <p><strong>Fresh logins for ${escapeHtml(state.orgLoginsOrgId || "this organization")}</strong> (shown once each — copy now)</p>
+            <table class="tl-onboard-table">
+              <thead><tr><th>Role</th><th>Email</th><th>Temporary password</th><th></th></tr></thead>
+              <tbody>
+                ${state.orgLogins.map((login) => `
+                  <tr>
+                    <td>${escapeHtml(login.role || login.kind)}</td>
+                    <td>${escapeHtml(login.email)}</td>
+                    <td><code>${escapeHtml(login.temporaryPassword)}</code></td>
+                    <td><button type="button" class="ghost-button" data-tl-copy-password="${escapeHtml(login.temporaryPassword)}">Copy</button></td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+            <button type="button" class="ghost-button" data-tl-clear-org-logins>Clear from screen</button>
           </div>
         ` : ""}
         <ul class="fh-card-list">
@@ -130,14 +446,137 @@
             <li class="fh-card static" data-tl-account="${escapeHtml(row.id)}">
               <strong>${escapeHtml(row.displayName || row.kind)}</strong>
               <span class="dc-badge">${escapeHtml(row.kind)}</span>
-              <span class="muted-copy">${escapeHtml(row.email)} · ${escapeHtml(row.label || "")}</span>
+              <span class="dc-badge">${row.active === false ? "Suspended/ended" : "Active"}</span>
+              <p class="muted-copy">${escapeHtml(row.email)} · org <code>${escapeHtml(row.organizationId)}</code>${row.role ? ` · role ${escapeHtml(row.role)}` : ""}</p>
               <div class="tl-actions-row">
                 <button type="button" class="ghost-button" data-tl-select-account="${escapeHtml(row.id)}">Select</button>
-                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">Issue password</button>
+                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">${row.hasPassword ? "Reissue password" : "Issue password"}</button>
                 <button type="button" class="ghost-button" data-tl-revoke="${escapeHtml(row.id)}">Revoke session</button>
+                ${row.active === false
+                  ? `<button type="button" class="ghost-button" data-tl-reactivate="${escapeHtml(row.id)}">Reactivate</button>`
+                  : `<button type="button" class="ghost-button" data-tl-suspend="${escapeHtml(row.id)}">Suspend</button>`}
+                <button type="button" class="ghost-button" data-tl-end-account="${escapeHtml(row.id)}">End account</button>
               </div>
             </li>
           `).join("") || "<li class=\"muted-copy\">Load a scenario first.</li>"}
+        </ul>
+        ${(state.dashboard?.accounts || []).length ? `
+          <button type="button" class="primary-button" data-tl-issue-org-logins="${escapeHtml(state.dashboard.accounts[0]?.organizationId || "")}">Generate fresh logins for every role in this organization</button>
+        ` : ""}
+      </section>
+      ${homeDaycarePilotWizardHtml()}
+      ${sandboxManagerHtml()}
+    `;
+  }
+
+  /**
+   * "Add External Tester" wizard — Home Daycare Pilot preset. One admin
+   * action creates the isolated fake org, the sandbox account (approved for
+   * ONLY Solo Home Daycare Provider + Parent/Guardian), a starting set of
+   * connected fake children/guardians, and issues the one-time password —
+   * everything server/external-tester-sandbox-api.js#handleCreatePilot does
+   * in one call. The password/welcome message are shown exactly once.
+   */
+  function homeDaycarePilotWizardHtml() {
+    const result = state.pilotWizardResult;
+    return `
+      <section class="tl-section" data-tl-pilot-wizard>
+        <h3>Add External Tester — Home Daycare Pilot</h3>
+        <p class="muted-copy">
+          Creates one connected, isolated fake home-daycare organization for this tester —
+          she can work as Solo Home Daycare Provider (add fake children/guardians), then switch
+          to Parent/Guardian and see the SAME linked information. Fake data only.
+        </p>
+        ${!result ? `
+          <form data-tl-pilot-create class="mini-form">
+            <label>Tester name<input name="testerName" required placeholder="e.g. Jordan Rivera" /></label>
+            <label>Tester email<input name="email" required type="email" placeholder="jordan.rivera@example.invalid" /></label>
+            <label>Starting fake children<input name="childCount" type="number" min="1" max="6" value="2" /></label>
+            <button class="primary-button" type="submit">Create Home Daycare Pilot</button>
+          </form>
+        ` : `
+          <div class="tl-notice-card">
+            <p><strong>Created — copy this now, the password will not be shown again.</strong></p>
+            <p>Login email: <code>${escapeHtml(result.account.email)}</code></p>
+            <p>Temporary password: <code data-tl-pilot-password>${escapeHtml(result.temporaryPassword)}</code>
+              <button type="button" class="ghost-button" data-tl-copy-password="${escapeHtml(result.temporaryPassword)}">Copy password</button>
+            </p>
+            <label>Welcome message
+              <textarea readonly rows="8" data-tl-pilot-welcome>${escapeHtml(result.welcomeMessage)}</textarea>
+            </label>
+            <button type="button" class="ghost-button" data-tl-copy-welcome>Copy welcome message</button>
+            <p class="muted-copy">Starting fixtures: ${result.children.length} fake child(ren), ${result.guardians.length} fake guardian(s), already linked.</p>
+            <button type="button" class="ghost-button" data-tl-pilot-new">Add another External Tester</button>
+          </div>
+        `}
+        ${state.pilotWizardError ? `<p class="tf-error">${escapeHtml(state.pilotWizardError)}</p>` : ""}
+      </section>
+    `;
+  }
+
+  function sandboxRoleLabel(key) {
+    return (state.sandboxRoleCatalog || []).find((entry) => entry.key === key)?.label || key;
+  }
+
+  function sandboxRoleCheckboxesHtml(namePrefix, checkedKeys = []) {
+    const checked = new Set(checkedKeys);
+    const catalog = state.sandboxRoleCatalog || [];
+    return catalog.map(({ key, label }) => `
+      <label class="tl-check">
+        <input type="checkbox" data-sandbox-role-checkbox="${namePrefix}" value="${escapeHtml(key)}" ${checked.has(key) ? "checked" : ""} />
+        ${escapeHtml(label || key)}
+      </label>
+    `).join("") || "<p class=\"muted-copy\">Loading role catalog…</p>";
+  }
+
+  function sandboxManagerHtml() {
+    return `
+      <section class="tl-section" data-tl-sandbox-manager>
+        <h3>External Tester Sandbox — one login, admin-chosen roles</h3>
+        <p class="muted-copy">
+          One external tester login that switches ONLY among the roles you approve below —
+          never Platform Admin, never Testing Lab Admin, never AI Outcomes Admin, never another
+          organization. Enforced on the server, not just hidden in the browser.
+        </p>
+        <div class="tl-actions-row" data-tl-create-sandbox-row>
+          <label>Organization id
+            <input type="text" data-sandbox-org-id placeholder="e.g. ${escapeHtml(state.createdOrgId || state.dashboard?.accounts?.[0]?.organizationId || "org_tester_...")}" value="${escapeHtml(state.createdOrgId || "")}" />
+          </label>
+          <label>Tester email
+            <input type="text" data-sandbox-email placeholder="e.g. sandbox.tester1@example.invalid" />
+          </label>
+          <label>Display name
+            <input type="text" data-sandbox-display-name placeholder="External Tester" />
+          </label>
+        </div>
+        <p class="muted-copy">Allowed roles for this tester:</p>
+        <div class="tl-actions-row" data-sandbox-create-roles>
+          ${sandboxRoleCheckboxesHtml("create")}
+        </div>
+        <button type="button" class="primary-button" data-tl-create-sandbox>Create External Tester Sandbox</button>
+        ${state.sandboxNotice ? `<p class="muted-copy" role="status">${escapeHtml(state.sandboxNotice)}</p>` : ""}
+
+        <h4>Existing External Tester Sandbox accounts</h4>
+        <ul class="fh-card-list">
+          ${(state.sandboxAccounts || []).map((row) => `
+            <li class="fh-card static" data-tl-sandbox-account="${escapeHtml(row.id)}">
+              <strong>${escapeHtml(row.email)}</strong>
+              <span class="dc-badge">${row.active === false ? "Suspended/ended" : "Active"}</span>
+              <p class="muted-copy">Org <code>${escapeHtml(row.organizationId)}</code> · currently viewing as <strong>${escapeHtml(row.activeRoleLabel || "—")}</strong></p>
+              <p class="muted-copy">Approved roles: ${(row.allowedRoleKeys || []).length ? (row.allowedRoleKeys.map((k) => escapeHtml(sandboxRoleLabel(k))).join(", ")) : "(none — login blocked)"}</p>
+              <div class="tl-actions-row" data-sandbox-edit-roles="${escapeHtml(row.id)}">
+                ${sandboxRoleCheckboxesHtml(`edit-${row.id}`, row.allowedRoleKeys || [])}
+              </div>
+              <div class="tl-actions-row">
+                <button type="button" class="ghost-button" data-tl-save-sandbox-roles="${escapeHtml(row.id)}">Save allowed roles</button>
+                <button type="button" class="ghost-button" data-tl-issue-password="${escapeHtml(row.id)}">${row.hasPassword ? "Reissue password" : "Issue password"}</button>
+                ${row.active === false
+                  ? `<button type="button" class="ghost-button" data-tl-reactivate="${escapeHtml(row.id)}">Reactivate</button>`
+                  : `<button type="button" class="ghost-button" data-tl-suspend="${escapeHtml(row.id)}">Suspend</button>`}
+                <button type="button" class="ghost-button" data-tl-end-account="${escapeHtml(row.id)}">End account</button>
+              </div>
+            </li>
+          `).join("") || "<li class=\"muted-copy\">No External Tester Sandbox accounts yet.</li>"}
         </ul>
       </section>
     `;
@@ -507,6 +946,8 @@
     if (state.panel === "data") return dataHtml();
     if (state.panel === "checklist") return checklistHtml();
     if (state.panel === "audit") return auditHtml();
+    if (state.panel === "ai") return aiOutcomesHtml();
+    if (state.panel === "feedback") return testingFeedbackInboxHtml();
     return homeHtml();
   }
 
@@ -561,7 +1002,7 @@
           </li>
         </ul>
         <div class="tl-mobile-actions">
-          ${previewActive ? `<button type="button" class="primary-button tl-touch" data-tl-exit-preview>Exit Role Preview</button>` : ""}
+          ${previewActive ? `<button type="button" class="primary-button tl-touch" data-tl-exit-preview-mobile>Exit Role Preview</button>` : ""}
           <button type="button" class="ghost-button tl-touch" data-tl-return-app>Return to the normal app</button>
         </div>
         <p class="muted-copy">No passwords, tokens, migration controls, or Lab admin tools are shown on phone.</p>
@@ -613,6 +1054,203 @@
           } catch (error) {
             state.error = error.message;
           }
+        }
+        if (state.panel === "ai") {
+          await loadAiOutcomesData();
+        }
+        if (state.panel === "feedback") {
+          state.tfActiveThreadId = "";
+          state.tfActiveThread = null;
+          await loadTestingFeedbackAdminThreads();
+        }
+        if (state.panel === "accounts") {
+          await loadSandboxAccounts();
+        }
+        render(mount);
+      });
+    });
+
+    function tfFilterQuery() {
+      const params = new URLSearchParams();
+      if (state.tfFilter.status) params.set("status", state.tfFilter.status);
+      if (state.tfFilter.category) params.set("category", state.tfFilter.category);
+      if (state.tfFilter.unreadOnly) params.set("unreadOnly", "true");
+      if (state.tfFilter.retestRequested) params.set("retestRequested", "true");
+      const query = params.toString();
+      return query ? `?${query}` : "";
+    }
+
+    async function loadTestingFeedbackAdminThreads() {
+      try {
+        const data = await api("GET", `/api/testing-feedback/admin/threads${tfFilterQuery()}`);
+        state.tfThreads = data.threads || [];
+        state.tfUnreadCount = data.unreadCount || 0;
+        state.tfError = "";
+      } catch (error) {
+        state.tfError = error.message;
+      }
+    }
+
+    async function loadSandboxAccounts() {
+      try {
+        const data = await api("GET", "/api/external-tester/list");
+        state.sandboxAccounts = data.accounts || [];
+        state.sandboxRoleCatalog = data.roleCatalog || [];
+      } catch (error) {
+        state.error = error.message;
+      }
+    }
+
+    async function openTestingFeedbackAdminThread(threadId) {
+      try {
+        const data = await api("GET", `/api/testing-feedback/admin/threads/${threadId}`);
+        state.tfActiveThreadId = threadId;
+        state.tfActiveThread = data.thread;
+        state.tfMessages = data.messages || [];
+        state.tfNotes = data.notes || [];
+        state.tfError = "";
+        if (data.thread.adminUnread) await api("POST", `/api/testing-feedback/admin/threads/${threadId}/read`, {});
+      } catch (error) {
+        state.tfError = error.message;
+      }
+      render(mount);
+    }
+
+    mount.querySelectorAll("[data-tf-admin-open]").forEach((btn) => {
+      btn.addEventListener("click", () => openTestingFeedbackAdminThread(btn.getAttribute("data-tf-admin-open")));
+    });
+    mount.querySelector("[data-tf-admin-back]")?.addEventListener("click", async () => {
+      state.tfActiveThreadId = "";
+      state.tfActiveThread = null;
+      await loadTestingFeedbackAdminThreads();
+      render(mount);
+    });
+    mount.querySelector("[data-tf-admin-apply-filters]")?.addEventListener("click", async () => {
+      state.tfFilter.status = mount.querySelector("[data-tf-admin-filter-status]")?.value || "";
+      state.tfFilter.category = mount.querySelector("[data-tf-admin-filter-category]")?.value || "";
+      state.tfFilter.unreadOnly = Boolean(mount.querySelector("[data-tf-admin-filter-unread]")?.checked);
+      state.tfFilter.retestRequested = Boolean(mount.querySelector("[data-tf-admin-filter-retest]")?.checked);
+      await loadTestingFeedbackAdminThreads();
+      render(mount);
+    });
+    mount.querySelector("[data-tf-admin-send-reply]")?.addEventListener("click", async () => {
+      const text = String(mount.querySelector("[data-tf-admin-reply-text]")?.value || "").trim();
+      if (!text || !state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/reply`, { body: text });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tf-admin-add-note]")?.addEventListener("click", async () => {
+      const text = String(mount.querySelector("[data-tf-admin-note-text]")?.value || "").trim();
+      if (!text || !state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/notes`, { body: text });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tf-admin-status]")?.addEventListener("change", async (event) => {
+      if (!state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/status`, { status: event.target.value });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tf-admin-retest]")?.addEventListener("change", async (event) => {
+      if (!state.tfActiveThreadId) return;
+      try {
+        await api("POST", `/api/testing-feedback/admin/threads/${state.tfActiveThreadId}/retest`, { retestRequested: event.target.checked });
+        await openTestingFeedbackAdminThread(state.tfActiveThreadId);
+      } catch (error) {
+        state.tfError = error.message;
+        render(mount);
+      }
+    });
+
+    async function loadAiOutcomesData() {
+      try {
+        state.aiStatus = await api("GET", "/api/ai-testing/status");
+        const scenarioData = await api("GET", "/api/ai-testing/scenarios");
+        state.aiScenarios = scenarioData.scenarios || [];
+        const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+        state.aiPromptVersions = promptData.versions || [];
+        state.aiUsage = await api("GET", "/api/ai-testing/admin/usage");
+        state.aiError = "";
+      } catch (error) {
+        state.aiError = error.message;
+      }
+    }
+    mount.querySelectorAll("[data-tl-ai-run]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const scenarioId = btn.getAttribute("data-tl-ai-run");
+        try {
+          const result = await api("POST", `/api/ai-testing/scenarios/${scenarioId}/run`, {});
+          state.aiRunsByScenario[scenarioId] = result.run;
+          state.aiError = result.aiSucceeded ? "" : `AI unavailable for this run: ${result.aiError || "unknown reason"} (heuristic result shown; nothing was lost).`;
+        } catch (error) {
+          state.aiError = error.message;
+        }
+        render(mount);
+      });
+    });
+    mount.querySelectorAll("[data-tl-ai-rate]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const runId = btn.getAttribute("data-tl-ai-rate");
+        const rating = btn.getAttribute("data-tl-ai-rating");
+        try {
+          const result = await api("POST", `/api/ai-testing/runs/${runId}/rate`, { rating });
+          Object.keys(state.aiRunsByScenario).forEach((scenarioId) => {
+            if (state.aiRunsByScenario[scenarioId]?.id === runId) state.aiRunsByScenario[scenarioId] = result.run;
+          });
+        } catch (error) {
+          state.aiError = error.message;
+        }
+        render(mount);
+      });
+    });
+    mount.querySelector("[data-tl-ai-prompt-workflow]")?.addEventListener("change", async (event) => {
+      state.aiPromptWorkflow = event.target.value;
+      try {
+        const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+        state.aiPromptVersions = promptData.versions || [];
+      } catch (error) {
+        state.aiError = error.message;
+      }
+      render(mount);
+    });
+    mount.querySelector("[data-tl-ai-save-prompt]")?.addEventListener("click", async () => {
+      const textarea = mount.querySelector("[data-tl-ai-new-prompt-text]");
+      const text = textarea?.value || "";
+      if (!text.trim()) return;
+      try {
+        await api("POST", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`, { text });
+        const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+        state.aiPromptVersions = promptData.versions || [];
+        state.notice = "New prompt version saved and made active.";
+      } catch (error) {
+        state.aiError = error.message;
+      }
+      render(mount);
+    });
+    mount.querySelectorAll("[data-tl-ai-rollback]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const versionId = btn.getAttribute("data-tl-ai-rollback");
+        try {
+          await api("POST", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/rollback`, { versionId });
+          const promptData = await api("GET", `/api/ai-testing/prompts/${state.aiPromptWorkflow}/versions`);
+          state.aiPromptVersions = promptData.versions || [];
+          state.notice = "Rolled back to the selected prompt version.";
+        } catch (error) {
+          state.aiError = error.message;
         }
         render(mount);
       });
@@ -774,17 +1412,33 @@
         render(mount);
       }
     });
-    mount.querySelector("[data-tl-return-admin]")?.addEventListener("click", async () => {
+    mount.querySelector("[data-tl-onboard-everything]")?.addEventListener("click", async () => {
       try {
-        await api("POST", `${BASE}/role-preview/exit`, {});
-        global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
-        state.preview = null;
-        state.notice = "Returned to administrator account.";
-        render(mount);
+        state.onboardResult = await api("POST", `${BASE}/onboard-everything`, {});
+        state.notice = "Testing site ready — copy every password now, shown once.";
+        await refresh(mount);
       } catch (error) {
         state.error = error.message;
         render(mount);
       }
+    });
+    mount.querySelector("[data-tl-clear-onboard]")?.addEventListener("click", () => {
+      state.onboardResult = null;
+      render(mount);
+    });
+    mount.querySelector("[data-tl-return-admin]")?.addEventListener("click", () => {
+      // The local escape (clearing the preview flag) must NEVER depend on this
+      // network call succeeding — a slow/failing request here was previously
+      // able to leave an admin stuck unable to return, since state.preview was
+      // only cleared inside the try block, after the awaited call.
+      global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
+      state.preview = null;
+      state.notice = "Returned to administrator account.";
+      notifyGlobalPreviewChrome();
+      render(mount);
+      api("POST", `${BASE}/role-preview/exit`, {}).catch(() => {
+        // Local escape already happened above — server confirmation is best-effort only.
+      });
     });
     mount.querySelector("[data-tl-return-app]")?.addEventListener("click", () => {
       state.oneTimePassword = "";
@@ -853,6 +1507,155 @@
         }
       });
     });
+    mount.querySelectorAll("[data-tl-suspend]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/accounts/suspend`, { accountId: btn.getAttribute("data-tl-suspend") });
+          state.notice = "Account suspended — login blocked until reactivated. No password was changed or shown.";
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelectorAll("[data-tl-reactivate]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/accounts/reactivate`, { accountId: btn.getAttribute("data-tl-reactivate") });
+          state.notice = "Account reactivated.";
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelectorAll("[data-tl-end-account]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await api("POST", `${BASE}/accounts/end`, { accountId: btn.getAttribute("data-tl-end-account") });
+          state.notice = "Account ended — every stored credential was cleared. Issue a brand-new password to bring it back.";
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelector("[data-tl-create-org]")?.addEventListener("click", async () => {
+      try {
+        const scenario = mount.querySelector("[data-tl-org-type]")?.value || "home_daycare";
+        const label = String(mount.querySelector("[data-tl-org-label]")?.value || "").trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").slice(0, 40);
+        const organizationId = `org_tester_${label || scenario}_${Date.now().toString(36)}`;
+        const data = await api("POST", `${BASE}/seed`, { scenario, organizationId, reset: true });
+        state.createdOrgId = data.organizationId || organizationId;
+        state.notice = `Fake organization ready: ${state.createdOrgId}`;
+        await refresh(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelectorAll("[data-tl-issue-org-logins]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const organizationId = btn.getAttribute("data-tl-issue-org-logins") || state.createdOrgId;
+          if (!organizationId) { state.error = "No organization selected yet — create or load one first."; render(mount); return; }
+          const data = await api("POST", `${BASE}/accounts/issue-passwords-for-org`, { organizationId });
+          state.orgLogins = data.logins || [];
+          state.orgLoginsOrgId = organizationId;
+          state.notice = `${state.orgLogins.length} fresh password(s) issued — copy them now, they will not be shown again.`;
+          await refresh(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
+    mount.querySelector("[data-tl-clear-org-logins]")?.addEventListener("click", () => {
+      state.orgLogins = [];
+      state.orgLoginsOrgId = "";
+      render(mount);
+    });
+    mount.querySelectorAll("[data-tl-copy-password]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const value = btn.getAttribute("data-tl-copy-password") || "";
+        try {
+          await global.navigator?.clipboard?.writeText?.(value);
+          state.notice = "Copied to clipboard.";
+        } catch {
+          state.notice = "Could not access the clipboard — copy the password manually before leaving this screen.";
+        }
+        render(mount);
+      });
+    });
+    mount.querySelector("[data-tl-pilot-create]")?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const data = new FormData(event.target);
+      try {
+        const result = await api("POST", "/api/external-tester/create-pilot", {
+          testerName: data.get("testerName"),
+          email: String(data.get("email") || "").trim().toLowerCase(),
+          childCount: Number(data.get("childCount")) || 2,
+        });
+        state.pilotWizardResult = result;
+        state.pilotWizardError = "";
+        await loadSandboxAccounts();
+        render(mount);
+      } catch (error) {
+        state.pilotWizardError = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelector("[data-tl-pilot-new]")?.addEventListener("click", () => {
+      state.pilotWizardResult = null;
+      render(mount);
+    });
+    mount.querySelector("[data-tl-copy-welcome]")?.addEventListener("click", async () => {
+      try {
+        await global.navigator?.clipboard?.writeText?.(state.pilotWizardResult?.welcomeMessage || "");
+        state.notice = "Welcome message copied to clipboard.";
+      } catch {
+        state.notice = "Could not access the clipboard — copy the welcome message manually before leaving this screen.";
+      }
+      render(mount);
+    });
+    mount.querySelector("[data-tl-create-sandbox]")?.addEventListener("click", async () => {
+      try {
+        const organizationId = String(mount.querySelector("[data-sandbox-org-id]")?.value || "").trim();
+        const email = String(mount.querySelector("[data-sandbox-email]")?.value || "").trim().toLowerCase();
+        const displayName = String(mount.querySelector("[data-sandbox-display-name]")?.value || "").trim();
+        const allowedRoleKeys = Array.from(mount.querySelectorAll('[data-sandbox-role-checkbox="create"]:checked')).map((el) => el.value);
+        if (!organizationId || !email) {
+          state.error = "An organization id and tester email are both required.";
+          render(mount);
+          return;
+        }
+        const data = await api("POST", "/api/external-tester/create", { organizationId, email, displayName, allowedRoleKeys });
+        state.sandboxNotice = `Created ${data.account.email} — currently viewing as ${data.account.activeRoleLabel || "(no role approved yet)"}. Use "Issue password" below to generate its one-time login.`;
+        await loadSandboxAccounts();
+        render(mount);
+      } catch (error) {
+        state.error = error.message;
+        render(mount);
+      }
+    });
+    mount.querySelectorAll("[data-tl-save-sandbox-roles]").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          const accountId = btn.getAttribute("data-tl-save-sandbox-roles");
+          const allowedRoleKeys = Array.from(mount.querySelectorAll(`[data-sandbox-role-checkbox="edit-${accountId}"]:checked`)).map((el) => el.value);
+          const data = await api("POST", "/api/external-tester/set-allowed-roles", { accountId, allowedRoleKeys });
+          state.sandboxNotice = `Updated allowed roles for ${data.account.email}.`;
+          await loadSandboxAccounts();
+          render(mount);
+        } catch (error) {
+          state.error = error.message;
+          render(mount);
+        }
+      });
+    });
     mount.querySelectorAll("[data-tl-start-preview]").forEach((btn) => {
       btn.addEventListener("click", async () => {
         try {
@@ -862,6 +1665,7 @@
             global.sessionStorage?.setItem("llhRolePreviewMembershipId", data.preview.membershipId);
           }
           state.notice = "Role preview started (admin stored role unchanged).";
+          notifyGlobalPreviewChrome();
           render(mount);
         } catch (error) {
           state.error = error.message;
@@ -869,19 +1673,29 @@
         }
       });
     });
-    mount.querySelectorAll("[data-tl-exit-preview]").forEach((btn) => {
-      btn.addEventListener("click", async () => {
-        try {
-          await api("POST", `${BASE}/role-preview/exit`, { previewId: state.preview?.id });
-          global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
-          state.preview = null;
-          state.notice = "Exited role preview.";
-          render(mount);
-        } catch (error) {
-          state.error = error.message;
-          render(mount);
-        }
-      });
+    // "Exit Role Preview" exists in two places (the desktop Quick Role Preview
+    // panel and the phone-only mobile summary bar) with DISTINCT attributes
+    // (data-tl-exit-preview / data-tl-exit-preview-mobile) — never the same
+    // attribute value on two different elements — so automated tests and
+    // assistive tech never hit an ambiguous multi-match. Both call this same
+    // handler. The local escape (clearing the sessionStorage flag) always
+    // happens FIRST and unconditionally, so it can never be blocked by a
+    // failing/slow network call to the server-side exit endpoint.
+    async function exitRolePreview() {
+      const previewId = state.preview?.id;
+      global.sessionStorage?.removeItem("llhRolePreviewMembershipId");
+      state.preview = null;
+      state.notice = "Exited role preview.";
+      notifyGlobalPreviewChrome();
+      render(mount);
+      try {
+        await api("POST", `${BASE}/role-preview/exit`, { previewId });
+      } catch {
+        // Local escape already happened above — server confirmation is best-effort only.
+      }
+    }
+    mount.querySelectorAll("[data-tl-exit-preview], [data-tl-exit-preview-mobile]").forEach((btn) => {
+      btn.addEventListener("click", () => { exitRolePreview(); });
     });
     mount.querySelectorAll("[data-tl-device]").forEach((btn) => {
       btn.addEventListener("click", async () => {

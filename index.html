@@ -26,7 +26,7 @@
     <link rel="manifest" href="site.webmanifest" />
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260722-phase7" />
+  <link rel="stylesheet" href="styles.css?v=20260724-incident-fix" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260720-promo-existing" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260720-promo-existing" />
@@ -104,6 +104,10 @@
 
         <nav class="nav-list" id="platformNav">
           <div class="nav-section nav-section-core">
+            <button class="nav-link" data-view="today" data-nav-capability="calendar">
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4"/><circle cx="12" cy="12" r="5"/></svg></span>
+              Today
+            </button>
             <button class="nav-link" data-view="calendar" data-nav-capability="calendar">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
               Calendar
@@ -146,8 +150,10 @@
               Settings
             </button>
 
-            <!-- Preserved but hidden from main navigation. Do not delete. -->
-            <button class="nav-link" data-view="forms" data-nav-capability="forms" data-nav-director-only="true" data-nav-hidden="true" hidden>
+            <!-- Phase 22: real capability-gated view, grouped Core vs. More Tools at
+                 runtime by syncRoleAwareNavGrouping() based on role — capability
+                 gating (data-nav-capability) is the only thing that governs access. -->
+            <button class="nav-link" data-view="forms" data-nav-capability="forms" data-nav-director-only="true">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6"/></svg></span>
               Forms &amp; Enrollment
             </button>
@@ -169,6 +175,13 @@
                 <small class="nav-coming-soon-tag">Admin Preview</small>
               </span>
             </button>
+            <button class="nav-link" data-view="classroom-assistant" data-feature-flag="directorCenter" data-nav-hidden="true" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M8 9h8M8 13h5M8 17h6"/></svg></span>
+              <span class="nav-link-label-stack">
+                <span>Classroom Assistant</span>
+                <small class="nav-coming-soon-tag">Admin Preview</small>
+              </span>
+            </button>
             <button class="nav-link" data-view="forms-center" data-feature-flag="formsCenter" data-nav-hidden="true" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6M9 8h2"/></svg></span>
               <span class="nav-link-label-stack">
@@ -176,39 +189,75 @@
                 <small class="nav-coming-soon-tag">Admin Preview</small>
               </span>
             </button>
-            <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
               Reports
             </button>
-            <button class="nav-link" data-view="resources" data-nav-capability="resources" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="resources" data-nav-capability="resources">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/><path d="M4 5.5V22M8 7h8M8 11h7"/></svg></span>
               Resources
             </button>
           </div>
 
-          <div class="nav-section nav-section-manage" data-nav-section="manage" hidden>
-            <button class="nav-link" data-view="classrooms" data-nav-capability="classrooms" data-nav-hidden="true" hidden>
+          <!-- Phase 22: "More Tools" — real, capability-gated destinations not
+               primary for most roles. syncRoleAwareNavGrouping() relocates nav-link
+               buttons here (or back to Core) at runtime based on experience role;
+               the section auto-hides itself when nothing inside is visible. -->
+          <div class="nav-section nav-section-more" data-nav-section="more">
+            <p class="nav-section-label" aria-hidden="true">More Tools</p>
+            <button class="nav-link" data-view="classrooms" data-nav-capability="classrooms">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14"/><path d="M7 21v-8h4v8M13 21v-5h4v5"/></svg></span>
               Classrooms
             </button>
-            <button class="nav-link" data-view="families" data-nav-capability="families" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="families" data-nav-capability="families">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
               Families
             </button>
-            <button class="nav-link" data-view="enrollment" data-nav-capability="enrollment" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="enrollment" data-nav-capability="enrollment">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v12M8 7l4-4 4 4"/><rect x="4" y="15" width="16" height="6" rx="1"/></svg></span>
               Enrollment
             </button>
-            <button class="nav-link" data-view="staff" data-nav-capability="staff_management" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="staff" data-nav-capability="staff_management">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
-              Users &amp; Staff
+              Staff &amp; Permissions
             </button>
           </div>
 
           <div class="nav-section nav-section-account">
-            <button class="nav-link" data-view="billing" data-nav-capability="billing" data-nav-hidden="true" hidden>
+            <button class="nav-link" data-view="billing" data-nav-capability="billing">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
               Billing
+            </button>
+            <!-- Home Daycare Pilot curated nav — hidden unless this is an
+                 External Tester Sandbox account with pilotType
+                 "home_daycare_pilot" (see refreshHomeDaycarePilotNav() in
+                 app.js), which also hides the equivalent core nav items
+                 above (My Messages/Billing/Forms) to avoid two confusingly
+                 similar links pointing at different things. -->
+            <button class="nav-link" data-view="pilot-families" data-pilot-nav="provider" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Families
+            </button>
+            <button class="nav-link" data-view="pilot-messages" data-pilot-nav="both" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Messages
+              <span class="nav-badge" id="pilotMessagesNavBadge" hidden>0</span>
+            </button>
+            <button class="nav-link" data-view="pilot-forms" data-pilot-nav="both" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span>
+              Forms &amp; Enrollment
+            </button>
+            <button class="nav-link" data-view="pilot-billing" data-pilot-nav="both" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 14h4"/></svg></span>
+              Billing
+            </button>
+            <button class="nav-link" data-view="pilot-parent-home" data-pilot-nav="parent" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+              Home
+            </button>
+            <button class="nav-link" data-view="pilot-checklist" data-pilot-nav="both" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+              Pilot Checklist
             </button>
             <div id="sidebarFreeUpgradeCard" class="sidebar-free-upgrade" hidden>
               <p class="sidebar-free-upgrade-badge">Free Plan</p>
@@ -219,6 +268,13 @@
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
               Admin Dashboard
               <span class="nav-badge" id="adminNavBadge" hidden>0</span>
+            </button>
+            <!-- Always in the primary nav (never only reachable via Settings search or a
+                 button buried in the Admin Dashboard body) whenever Admin is unlocked on a
+                 non-production/testing host. Never shown on the real production site. -->
+            <button class="nav-link" data-view="testing-lab" data-testing-lab-nav hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 3h6M10 3v5.5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8.5V3"/><path d="M8 14h8"/></svg></span>
+              Testing Lab
             </button>
             <button class="nav-link" data-view="curriculum-planner" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
@@ -269,12 +325,51 @@
                 </div>
               </div>
             </div>
+            <!-- Second, always-reachable escape from any admin preview mode / Testing Lab
+                 role preview — lives in normal document flow in the persistent top nav,
+                 never an overlay, never able to block or trap clicks on anything else.
+                 Hidden whenever no preview is active. -->
+            <button class="ghost-button" id="topNavExitPreviewBtn" type="button" data-top-nav-exit-preview hidden>Exit Preview</button>
             <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
             <span id="freePlanBadge" class="free-plan-badge" hidden>Free Plan</span>
             <button class="ghost-button" id="signinButton">Log in</button>
             <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
           </div>
         </header>
+
+        <!-- TESTING-ONLY IDENTITY BANNER — never shown on the real production site.
+             Noticeable but non-obstructive: normal document flow, not an overlay. -->
+        <div id="testingIdentityBanner" class="testing-identity-banner" hidden role="status" aria-live="polite">
+          <span id="testingIdentityBannerText">LITTLE LEARNER HUB TESTING — FAKE DATA ONLY</span>
+          <span id="testingIdentityRoleText" class="testing-identity-role-text" hidden></span>
+          <span id="sandboxRoleSwitcherActions" class="sandbox-role-switcher-actions" hidden>
+            <button type="button" class="ghost-button" id="sandboxSwitchRoleBtn" data-sandbox-switch-role>Switch Testing Role</button>
+            <button type="button" class="ghost-button" id="sandboxReturnHomeBtn" data-sandbox-return-home>Return to Tester Home</button>
+          </span>
+        </div>
+
+        <!-- External Tester Sandbox role picker — normal document flow modal,
+             never trapping focus/clicks on anything else while hidden. -->
+        <div id="sandboxRolePickerModal" class="sandbox-role-picker-modal" hidden role="dialog" aria-modal="true" aria-label="Switch testing role">
+          <div class="sandbox-role-picker-card">
+            <h3>Switch Testing Role</h3>
+            <p class="muted-copy">Your Platform Admin has approved these roles for this testing account. Switching never changes your assigned testing organization.</p>
+            <div id="sandboxRolePickerList" class="sandbox-role-picker-list"></div>
+            <p id="sandboxRolePickerError" class="tf-error" hidden></p>
+            <button type="button" class="ghost-button" id="sandboxRolePickerClose" data-sandbox-close-picker>Cancel</button>
+          </div>
+        </div>
+
+        <!-- Stale-build recovery banner: never shown unless the running page's
+             build is confirmed to differ from what the server currently
+             reports. Never auto-reloads — always a manual click, so this can
+             never trap anyone in a reload loop. Normal document flow, never
+             an overlay. -->
+        <div id="staleBuildBanner" class="stale-build-banner" hidden role="status" aria-live="polite">
+          <span>A new testing version is available.</span>
+          <button type="button" class="primary-button" id="staleBuildReloadBtn" data-stale-build-reload>Reload</button>
+          <button type="button" class="ghost-button" id="staleBuildDismissBtn" data-stale-build-dismiss aria-label="Dismiss">Dismiss</button>
+        </div>
 
         <!-- SITE-WIDE ANNOUNCEMENT BANNER -->
         <div id="siteAnnouncementBanner" class="site-announcement-banner" hidden role="alert" aria-live="polite">
@@ -733,6 +828,14 @@
 
         </section>
 
+        <section id="view-today" class="view">
+          <div class="page-title">
+            <p class="eyebrow" id="todayDashboardEyebrow">Today</p>
+            <h2 id="todayDashboardHeading">What needs your attention today</h2>
+          </div>
+          <div id="todayDashboardApp" class="today-dashboard"><p class="muted-copy">Loading…</p></div>
+        </section>
+
         <section id="view-calendar" class="view">
           <button class="ghost-button back-button" data-contextual-back="calendar" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div id="platformInstallCardHost" class="platform-install-card-host" aria-live="polite"></div>
@@ -772,9 +875,22 @@
         <section id="view-whats-new" class="view"></section>
         <section id="view-director-center" class="view"></section>
         <section id="view-teacher-center" class="view"></section>
+        <section id="view-classroom-assistant" class="view"></section>
         <section id="view-forms-center" class="view"></section>
         <section id="view-family-hub" class="view"></section>
         <section id="view-testing-lab" class="view"></section>
+
+        <!-- Home Daycare Pilot — connected provider<->parent testing views.
+             Rendered directly in app.js (renderPilot*Page functions); never
+             gated by an expansion feature flag — any account may open
+             these, but they only show real content for an External Tester
+             Sandbox account (see scripts/home-daycare-pilot-data-model.js). -->
+        <section id="view-pilot-families" class="view"></section>
+        <section id="view-pilot-messages" class="view"></section>
+        <section id="view-pilot-forms" class="view"></section>
+        <section id="view-pilot-billing" class="view"></section>
+        <section id="view-pilot-parent-home" class="view"></section>
+        <section id="view-pilot-checklist" class="view"></section>
         <section id="view-guardian-session" class="view"></section>
         <section id="view-resources" class="view"></section>
         <section id="view-settings" class="view"></section>
@@ -2046,10 +2162,10 @@
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260720-promo-existing" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260720-promo-existing" defer></script>
-    <script src="app.js?v=20260721-phase4" defer></script>
+    <script src="app.js?v=20260724-incident-fix" defer></script>
     <!-- Expansion UIs: lazy-loaded by platform-perf when the matching view/flag is used -->
     <script src="teacher-center-ui.js?v=20260721-phase4" defer></script>
     <script src="form-document-view.js?v=20260721-phase6" defer></script>
-    <script src="comms-center.js?v=20260721-homescreen-sw" defer></script>
+    <script src="comms-center.js?v=20260724-incident-fix" defer></script>
   </body>
 </html>

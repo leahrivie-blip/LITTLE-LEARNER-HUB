@@ -1009,7 +1009,7 @@ function createFamilyHubApi({
       deny(response, 401, "bad_password", "Current password did not match.");
       return;
     }
-    const nextHash = tempPasswordAuth.hashPasswordSha256(newPassword);
+    const nextHash = tempPasswordAuth.hashPassword(newPassword);
     store.users[actor.email] = {
       ...user,
       passwordHash: nextHash,

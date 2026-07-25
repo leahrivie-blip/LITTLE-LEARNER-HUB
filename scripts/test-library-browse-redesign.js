@@ -184,7 +184,8 @@ async function main() {
 
     // ---- Pro user: Lesson Plan Library browse ----
     await loginAs(page, "browse-pro@example.com", "Pro");
-    await page.waitForSelector("#view-calendar.active-view, #view-home.active-view", { timeout: 30000 });
+    // Phase 23: logged-in boot finishes on Today (not Calendar).
+    await page.waitForSelector("#view-today.active-view, #view-home.active-view", { timeout: 30000 });
     await page.evaluate(() => setView("lessons"));
     await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
 

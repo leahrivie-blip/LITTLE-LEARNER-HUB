@@ -75,7 +75,13 @@ function startServer() {
         ADMIN_ACCESS_CODE: ADMIN.code,
         ADMIN_NAME: "Race Test",
         DATABASE_PROVIDER: "postgres",
+        // SITE_URL above is a non-production host (127.0.0.1), so the server resolves
+        // its active Postgres connection string from TESTING_DATABASE_URL, never
+        // PRODUCTION_DATABASE_URL (see server/index.js's activeDatabaseUrl()) — set
+        // both so this regression test keeps exercising the real Postgres race path
+        // regardless of which one the running code version reads.
         PRODUCTION_DATABASE_URL: "postgres://mock:mock@127.0.0.1:5432/mock",
+        TESTING_DATABASE_URL: "postgres://mock:mock@127.0.0.1:5432/mock",
         NODE_ENV: "test",
       },
       stdio: ["ignore", "pipe", "pipe"],

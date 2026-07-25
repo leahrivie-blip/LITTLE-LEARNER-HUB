@@ -298,7 +298,8 @@ async function runAudit(playwright, baseUrl, seeded) {
   // Plan chooser
   await page.waitForSelector("[data-signup-choose-plan='free']", { timeout: 8000 });
   await page.locator("[data-signup-choose-plan='free']").click();
-  await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
+  // Phase 23: signup completion now lands on Today (not Calendar).
+  await page.waitForSelector("#view-today.active-view", { timeout: 15000 });
   results.calendarLanding = true;
   results.signupButtons.push("hero-start-free-completed");
 

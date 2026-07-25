@@ -1,15 +1,15 @@
 {
   "title": "Cover Redesign Full Regression Audit",
-  "startedAt": "2026-07-17T14:31:04.393Z",
-  "finishedAt": "2026-07-17T14:31:41.334Z",
-  "commit": "50d0d5a",
+  "startedAt": "2026-07-23T02:34:54.954Z",
+  "finishedAt": "2026-07-23T02:35:37.225Z",
+  "commit": "1939ba2",
   "note": "Auditing merged main after PR #272 cover redesign.",
   "passed": [
     "Static wiring: overlays, admin upload, 53 JPG covers present",
-    "Boot seeded lesson plans available (53)",
-    "Library loads quickly (1907ms)",
-    "Lesson cards rendered (88 instances, 40 unique titles)",
-    "Cover images load correctly (38 checked; 2 offscreen lazy ok)",
+    "Boot seeded lesson plans available (89)",
+    "Library loads quickly (2152ms)",
+    "Lesson cards rendered (112 instances, 57 unique titles)",
+    "Cover images load correctly (53 checked; 4 offscreen lazy ok)",
     "FREE/PRO badges display on cards",
     "Age group displays on cards",
     "Lesson plan titles display on cover overlay",
@@ -21,7 +21,6 @@
     "Favorite / Unfavorite toggles on lesson card",
     "View Lesson Plan opens viewer",
     "Viewer shows Use This Plan",
-    "Viewer Print control present",
     "Viewer Download control present",
     "Viewer Back control present",
     "Use This Plan opens assign / calendar choice",
@@ -39,7 +38,7 @@
     "Navigation: behavior",
     "Navigation: settings",
     "Sidebar navigation clicks work (10 links)",
-    "Free user sees free content (30 free badges)",
+    "Free user sees free content (57 free badges)",
     "Free user sees locked PRO / upgrade cues",
     "Free user can open free lesson content path",
     "Founding Member can use plans (Use This Plan visible)",
@@ -47,7 +46,7 @@
     "Admin login API works",
     "Admin UI surface reachable",
     "Admin cover upload endpoint responds (401)",
-    "Cover images persist after refresh (/images/lesson-covers/all-about-me.jpg)",
+    "Cover images persist after refresh (/images/lesson-covers/colors-everywhere.jpg)",
     "Tablet: no horizontal scrolling",
     "Tablet: Use This Plan remains clickable",
     "Tablet: title overlays render",
@@ -62,13 +61,15 @@
     "Pro user Add to Calendar / Use This Plan flow opens"
   ],
   "failed": [],
-  "warnings": [],
+  "warnings": [
+    "Viewer Print control not detected"
+  ],
   "tested": [
     "Static wiring: overlays, admin upload, 53 JPG covers present",
-    "Boot seeded lesson plans available (53)",
-    "Library loads quickly (1907ms)",
-    "Lesson cards rendered (88 instances, 40 unique titles)",
-    "Cover images load correctly (38 checked; 2 offscreen lazy ok)",
+    "Boot seeded lesson plans available (89)",
+    "Library loads quickly (2152ms)",
+    "Lesson cards rendered (112 instances, 57 unique titles)",
+    "Cover images load correctly (53 checked; 4 offscreen lazy ok)",
     "FREE/PRO badges display on cards",
     "Age group displays on cards",
     "Lesson plan titles display on cover overlay",
@@ -80,7 +81,7 @@
     "Favorite / Unfavorite toggles on lesson card",
     "View Lesson Plan opens viewer",
     "Viewer shows Use This Plan",
-    "Viewer Print control present",
+    "Viewer Print control not detected",
     "Viewer Download control present",
     "Viewer Back control present",
     "Use This Plan opens assign / calendar choice",
@@ -98,7 +99,7 @@
     "Navigation: behavior",
     "Navigation: settings",
     "Sidebar navigation clicks work (10 links)",
-    "Free user sees free content (30 free badges)",
+    "Free user sees free content (57 free badges)",
     "Free user sees locked PRO / upgrade cues",
     "Free user can open free lesson content path",
     "Founding Member can use plans (Use This Plan visible)",
@@ -106,7 +107,7 @@
     "Admin login API works",
     "Admin UI surface reachable",
     "Admin cover upload endpoint responds (401)",
-    "Cover images persist after refresh (/images/lesson-covers/all-about-me.jpg)",
+    "Cover images persist after refresh (/images/lesson-covers/colors-everywhere.jpg)",
     "Tablet: no horizontal scrolling",
     "Tablet: Use This Plan remains clickable",
     "Tablet: title overlays render",
@@ -131,20 +132,20 @@
     "/opt/cursor/artifacts/cover-redesign-audit/screenshots/audit-mobile-calendar.png"
   ],
   "stats": {
-    "planCountApi": 53,
-    "libraryOpenMs": 1907,
+    "planCountApi": 89,
+    "libraryOpenMs": 2152,
     "cardAudit": {
-      "totalCards": 88,
-      "uniqueTitles": 40,
-      "jpgLoaded": 38,
-      "freeBadges": 10,
-      "proBadges": 30
+      "totalCards": 112,
+      "uniqueTitles": 57,
+      "jpgLoaded": 39,
+      "freeBadges": 9,
+      "proBadges": 48
     },
     "consoleErrors": [
       "Failed to load resource: the server responded with a status of 403 (Forbidden)"
     ],
     "failedRequests": [
-      "403 http://127.0.0.1:19914/api/curriculum/activities/cur-act-preschool-construction-engineers-monday-2"
+      "403 http://127.0.0.1:19899/api/curriculum/activities/cur-act-bfe1691d6680764f"
     ]
   }
 }

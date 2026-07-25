@@ -3307,7 +3307,7 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
-    setView("calendar", { fromAuthLanding: true });
+    setView(defaultLoggedInLandingView(), { fromAuthLanding: true });
     return;
   }
   if (planChoice === "founding") {
@@ -5147,6 +5147,7 @@ const DEFAULT_EXPANSION_FEATURE_FLAGS = Object.freeze({
 const EXPANSION_VIEW_FEATURE_FLAGS = Object.freeze({
   "director-center": "directorCenter",
   "teacher-center": "directorCenter",
+  "classroom-assistant": "directorCenter",
   "forms-center": "formsCenter",
   "family-hub": "familyHub",
   "testing-lab": "testingLab",
@@ -9730,6 +9731,9 @@ const PLATFORM_CAPABILITIES = Object.freeze([
 ]);
 
 const ACCOUNT_TYPE_ALIASES = Object.freeze({
+  // Phase 23: curriculum_only now passes through as itself (see scripts/account-access.js
+  // for the matching server-side mirror and rationale).
+  curriculum_only: FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY,
   home_daycare: ACCOUNT_TYPES.HOME_DAYCARE,
   "home daycare": ACCOUNT_TYPES.HOME_DAYCARE,
   homedaycare: ACCOUNT_TYPES.HOME_DAYCARE,
@@ -9828,6 +9832,14 @@ function accountTypeAllowsCapability(accountType, capability) {
   const type = normalizeAccountType(accountType);
   if (capability === "classrooms" || capability === "families" || capability === "enrollment") {
     return type === ACCOUNT_TYPES.CENTER;
+  }
+  // Curriculum Only members get curriculum/planning/billing tools, never
+  // center-management/staff/paperwork tools they have no use for.
+  if (
+    type === FUTURE_ACCOUNT_TYPES.CURRICULUM_ONLY
+    && ["forms", "staff_management", "permissions", "reports"].includes(capability)
+  ) {
+    return false;
   }
   return true;
 }
@@ -9931,6 +9943,207 @@ function canAccessPlatformFeature(capability, account = currentAccount()) {
   return canAccessCapability(account, capability, {
     adminOverride: typeof hasAdminFullAccess === "function" && hasAdminFullAccess(),
   });
+}
+
+// ─── Phase 22: role-based experience (navigation/dashboard/Settings curation) ──
+// This is a UX layer only — which already-permitted destinations feel "primary"
+// vs. tucked into More/Tools for a given person. It never grants access on its
+// own: canAccessCapability / canAccessPlatformFeature (server-enforced capability
+// checks) remain the real security boundary, unchanged by anything here.
+const EXPERIENCE_ROLES = Object.freeze({
+  PLATFORM_ADMIN: "platform_admin",
+  DIRECTOR: "director",
+  SOLO_PROVIDER: "solo_provider",
+  LEAD_TEACHER: "lead_teacher",
+  ASSISTANT: "assistant",
+  CURRICULUM_ONLY: "curriculum_only",
+  GUEST: "guest",
+});
+
+function isCurriculumOnlyAccount(account) {
+  if (!account) return false;
+  const plan = String(account.plan || "").trim().toLowerCase();
+  const accountType = String(account.accountType || "").trim().toLowerCase();
+  return plan === "curriculum_only" || accountType === "curriculum_only";
+}
+
+function resolveExperienceRole(account = currentAccount()) {
+  if (typeof hasAdminFullAccess === "function" && hasAdminFullAccess()) return EXPERIENCE_ROLES.PLATFORM_ADMIN;
+  if (!account) return EXPERIENCE_ROLES.GUEST;
+  if (isCurriculumOnlyAccount(account)) return EXPERIENCE_ROLES.CURRICULUM_ONLY;
+  const role = getUserRole(account);
+  if (role === USER_ROLES.ASSISTANT) return EXPERIENCE_ROLES.ASSISTANT;
+  if (role === USER_ROLES.TEACHER) return EXPERIENCE_ROLES.LEAD_TEACHER;
+  const accountType = getAccountType(account);
+  if (accountType === ACCOUNT_TYPES.CENTER && (role === USER_ROLES.OWNER || role === USER_ROLES.DIRECTOR)) {
+    return EXPERIENCE_ROLES.DIRECTOR;
+  }
+  // Home daycare / single-provider owners — the "solo provider" experience.
+  return EXPERIENCE_ROLES.SOLO_PROVIDER;
+}
+
+function experienceRoleLabel(experienceRole) {
+  switch (experienceRole) {
+    case EXPERIENCE_ROLES.PLATFORM_ADMIN: return "Platform Admin";
+    case EXPERIENCE_ROLES.DIRECTOR: return "Director";
+    case EXPERIENCE_ROLES.SOLO_PROVIDER: return "Solo Provider";
+    case EXPERIENCE_ROLES.LEAD_TEACHER: return "Lead Teacher";
+    case EXPERIENCE_ROLES.ASSISTANT: return "Assistant";
+    case EXPERIENCE_ROLES.CURRICULUM_ONLY: return "Curriculum Only";
+    default: return "Guest";
+  }
+}
+
+// Which sidebar destinations feel "primary" (always visible when permitted) vs.
+// grouped under a "More Tools" header, per experience role. Every view listed
+// here still passes through the existing capability gate in
+// syncPlatformNavVisibility — this only controls grouping/order, never access.
+const NAV_PRIMARY_VIEWS_BY_EXPERIENCE = Object.freeze({
+  [EXPERIENCE_ROLES.SOLO_PROVIDER]: ["today", "calendar", "children", "child-tools-daily-logs", "activities", "lessons", "ai", "messages", "settings"],
+  [EXPERIENCE_ROLES.DIRECTOR]: ["today", "classrooms", "staff", "children", "families", "enrollment", "forms", "reports", "billing", "settings"],
+  [EXPERIENCE_ROLES.LEAD_TEACHER]: ["today", "calendar", "children", "child-tools-daily-logs", "activities", "behavior-support", "messages", "settings"],
+  [EXPERIENCE_ROLES.ASSISTANT]: ["today", "children", "child-tools-daily-logs", "activities", "messages"],
+  [EXPERIENCE_ROLES.CURRICULUM_ONLY]: ["today", "lessons", "activities", "calendar", "settings"],
+  [EXPERIENCE_ROLES.PLATFORM_ADMIN]: [],
+});
+
+/** Views that always stay under "More Tools" regardless of role (rarely-used or setup-only). */
+const NAV_ALWAYS_MORE_TOOLS_VIEWS = Object.freeze(["resources", "whats-new"]);
+
+/** Phase 22 Quick Actions — a handful of role-aware shortcuts, not a full menu. */
+function quickActionsForExperienceRole(experienceRole) {
+  const shared = [
+    { label: "Open Calendar", view: "calendar" },
+    { label: "Message support", view: "messages" },
+  ];
+  switch (experienceRole) {
+    case EXPERIENCE_ROLES.DIRECTOR:
+      return [
+        { label: "Add a classroom", view: "classrooms" },
+        { label: "Invite staff", view: "staff" },
+        { label: "Review enrollment", view: "enrollment" },
+        ...shared,
+      ];
+    case EXPERIENCE_ROLES.LEAD_TEACHER:
+    case EXPERIENCE_ROLES.ASSISTANT:
+      return [
+        { label: "Add a daily log", view: "child-tools-daily-logs" },
+        { label: "Browse activities", view: "activities" },
+        ...shared,
+      ];
+    case EXPERIENCE_ROLES.CURRICULUM_ONLY:
+      return [
+        { label: "Browse lesson plans", view: "lessons" },
+        { label: "Browse activities", view: "activities" },
+        { label: "Open Calendar", view: "calendar" },
+      ];
+    case EXPERIENCE_ROLES.SOLO_PROVIDER:
+    default:
+      return [
+        { label: "Add a daily log", view: "child-tools-daily-logs" },
+        { label: "Browse lesson plans", view: "lessons" },
+        { label: "Add a child profile", view: "children" },
+        ...shared,
+      ];
+  }
+}
+
+/**
+ * Phase 22 "Today" dashboard — one calm landing per role: Needs Attention, Today,
+ * Upcoming (this week's plan), Recent, and Quick Actions. Built entirely from data
+ * already loaded client-side (no new backend surface); reads the same schedule/
+ * favorites/recently-viewed/notification state the rest of the app already uses.
+ */
+function renderTodayDashboard() {
+  const app = document.querySelector("#todayDashboardApp");
+  if (!app) return;
+  const account = currentAccount();
+  const experienceRole = resolveExperienceRole(account);
+  const displayName = [account?.firstName, account?.lastName].filter(Boolean).join(" ") || account?.name || "";
+  const heading = document.querySelector("#todayDashboardHeading");
+  const eyebrow = document.querySelector("#todayDashboardEyebrow");
+  if (eyebrow) eyebrow.textContent = experienceRoleLabel(experienceRole);
+  if (heading) {
+    heading.textContent = displayName
+      ? `Good to see you, ${escapeHtml(displayName.split(" ")[0])}`
+      : "What needs your attention today";
+  }
+
+  const needsAttention = [];
+  const unread = Number(notificationBellState?.unreadCount || 0);
+  if (unread > 0) {
+    needsAttention.push({ label: `${unread} unread message${unread === 1 ? "" : "s"}`, view: "messages" });
+  }
+  if (account?.mustChangePassword) {
+    needsAttention.push({ label: "Password change required for account security", view: "account" });
+  }
+  if (currentUser && !isProUser() && experienceRole !== EXPERIENCE_ROLES.ASSISTANT && experienceRole !== EXPERIENCE_ROLES.LEAD_TEACHER) {
+    needsAttention.push({ label: "You're on the Free plan — see what Pro unlocks", view: "plans" });
+  }
+
+  let thisWeekPlan = null;
+  try {
+    const api = typeof getScheduleApi === "function" ? getScheduleApi() : null;
+    if (api && typeof api.lessonForWeek === "function") {
+      const week = curriculumPlannerWeekStartIso(new Date());
+      const doc = (typeof scheduleDocCache !== "undefined" && scheduleDocCache) || api.readCache?.(scheduleApiEmail());
+      const assignment = doc ? api.lessonForWeek(doc, week) : null;
+      if (assignment?.lessonPlanId) {
+        const plan = (resources || []).find((r) => r.id === assignment.lessonPlanId);
+        thisWeekPlan = { title: assignment.lessonPlanTitle || plan?.title || "This week's lesson plan", id: assignment.lessonPlanId };
+      }
+    }
+  } catch { /* schedule not loaded yet — Today card falls back to a calendar prompt */ }
+
+  const recentIds = [...new Set([...(lessonRecentlyViewed || []), ...(activityRecentlyViewed || [])])].slice(0, 6);
+  const recentItems = recentIds.map((id) => (resources || []).find((r) => r.id === id)).filter(Boolean);
+  const favoriteItems = (favorites || []).slice(0, 6).map((id) => (resources || []).find((r) => r.id === id)).filter(Boolean);
+  const quickActions = quickActionsForExperienceRole(experienceRole);
+
+  const cardListHtml = (items, emptyText, viewKey = "view") => (
+    items.length
+      ? `<ul class="today-dashboard-list">${items.map((item) => `
+          <li><button class="today-dashboard-list-btn" type="button" data-${viewKey === "view" ? "view" : viewKey}="${escapeHtml(item.view || item.id || "")}">${escapeHtml(item.label || item.title || "")}</button></li>
+        `).join("")}</ul>`
+      : `<p class="today-dashboard-empty muted-copy">${escapeHtml(emptyText)}</p>`
+  );
+
+  app.innerHTML = `
+    <div class="today-dashboard-grid">
+      <section class="today-dashboard-card today-dashboard-card-attention" data-today-card="needs-attention">
+        <h3>Needs Attention</h3>
+        ${cardListHtml(needsAttention, "Nothing needs your attention right now.")}
+      </section>
+      <section class="today-dashboard-card" data-today-card="today">
+        <h3>Today</h3>
+        ${thisWeekPlan
+          ? `<p>This week's plan: <button class="today-dashboard-list-btn" type="button" data-view-resource="${escapeHtml(thisWeekPlan.id)}">${escapeHtml(thisWeekPlan.title)}</button></p>`
+          : `<p class="today-dashboard-empty muted-copy">No lesson plan assigned to this week yet. <button class="today-dashboard-list-btn" type="button" data-view="calendar">Open Calendar</button></p>`}
+      </section>
+      <section class="today-dashboard-card" data-today-card="recent">
+        <h3>Recent</h3>
+        ${recentItems.length
+          ? `<ul class="today-dashboard-list">${recentItems.map((item) => `<li><button class="today-dashboard-list-btn" type="button" data-view-resource="${escapeHtml(item.id)}">${escapeHtml(item.title || "")}</button></li>`).join("")}</ul>`
+          : `<p class="today-dashboard-empty muted-copy">Lesson plans and activities you open will show up here.</p>`}
+      </section>
+      <section class="today-dashboard-card" data-today-card="favorites">
+        <h3>Favorites</h3>
+        ${favoriteItems.length
+          ? `<ul class="today-dashboard-list">${favoriteItems.map((item) => `<li><button class="today-dashboard-list-btn" type="button" data-view-resource="${escapeHtml(item.id)}">${escapeHtml(item.title || "")}</button></li>`).join("")}</ul>`
+          : `<p class="today-dashboard-empty muted-copy">Save lesson plans and activities to find them here fast.</p>`}
+      </section>
+      <section class="today-dashboard-card today-dashboard-card-actions" data-today-card="quick-actions">
+        <h3>Quick Actions</h3>
+        <div class="today-dashboard-actions">
+          ${quickActions.map((action) => `<button class="ghost-button" type="button" data-view="${escapeHtml(action.view)}">${escapeHtml(action.label)}</button>`).join("")}
+        </div>
+      </section>
+    </div>
+  `;
+  // Intentionally no auto-refresh loop here: the schedule doc is already loaded
+  // (and cached) by Calendar/lesson-assignment flows elsewhere in the app, so a
+  // second Today visit after visiting Calendar once will show the real plan.
+  // Retrying from inside render itself risks a render → fetch → render cycle.
 }
 
 function ensureAccountAccessMigrated(email = currentUser) {
@@ -10202,6 +10415,11 @@ async function loginWithServerPassword(email, password) {
     serverPasswordAuth: Boolean(data.serverPasswordAuth),
     tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
     authProvider: firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication",
+    // Phase 23: adopt the server's accountType/role when it sent one (testing fake
+    // accounts always do; real accounts already match, so this never regresses them).
+    ...(data.accountType ? { accountType: data.accountType } : {}),
+    ...(data.role ? { role: data.role } : {}),
+    familyHubGuardian: Boolean(data.familyHubGuardian),
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
@@ -10209,6 +10427,7 @@ async function loginWithServerPassword(email, password) {
     verified: true,
     mustChangePassword: Boolean(data.mustChangePassword),
     memberSessionToken: data.memberSessionToken || "",
+    familyHubGuardian: Boolean(data.familyHubGuardian),
   };
 }
 
@@ -10566,6 +10785,10 @@ function updateAuthButtons() {
   updateBodyAuthClass();
   refreshAdminPreviewBadge();
   refreshFreePlanUpgradeChrome();
+  if (typeof refreshTestingFeedbackWidget === "function") refreshTestingFeedbackWidget();
+  if (typeof refreshTestingIdentityBanner === "function") refreshTestingIdentityBanner();
+  if (typeof refreshTopNavExitPreview === "function") refreshTopNavExitPreview();
+  if (typeof refreshExternalTesterSandboxState === "function") refreshExternalTesterSandboxState();
   // Auth state just changed (login, logout, or boot restore) — keep the
   // notification bell in sync either way (it also hides itself when logged out).
   if (typeof refreshNotificationBell === "function") {
@@ -10647,11 +10870,43 @@ function syncPlatformNavVisibility() {
       button.setAttribute("tabindex", "-1");
     }
   });
+  if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+  syncRoleAwareNavGrouping(account);
+}
+
+/**
+ * Phase 22: sort already-permitted nav items into "primary" vs. "More Tools" for
+ * the current experience role, and label the More Tools header. Pure UX grouping —
+ * runs after the capability gate above has already decided hidden/visible; this
+ * never shows something a role/capability check would otherwise hide.
+ */
+function syncRoleAwareNavGrouping(account = currentAccount()) {
+  const moreSection = document.querySelector('[data-nav-section="more"]');
+  if (!moreSection) return;
+  const experienceRole = resolveExperienceRole(account);
+  const primaryViews = new Set(NAV_PRIMARY_VIEWS_BY_EXPERIENCE[experienceRole] || []);
+  const coreSection = document.querySelector(".nav-section-core");
+  const allLinks = Array.from(document.querySelectorAll("#platformNav .nav-link[data-view]"));
+  allLinks.forEach((link) => {
+    if (link.hidden) return;
+    const view = link.getAttribute("data-view");
+    if (!view || link.hasAttribute("data-admin-nav") || link.id === "messagesNavLink" || link.id === "whatsNewNavLink") return;
+    const forcedMore = NAV_ALWAYS_MORE_TOOLS_VIEWS.includes(view);
+    const wantsPrimary = primaryViews.has(view) || (primaryViews.size === 0 && !forcedMore);
+    const targetSection = (!forcedMore && wantsPrimary) ? coreSection : moreSection;
+    if (targetSection && link.parentElement !== targetSection) {
+      targetSection.appendChild(link);
+    }
+  });
+  const moreHeader = document.querySelector('[data-nav-section="more"] .nav-section-label');
+  if (moreHeader) {
+    moreHeader.textContent = experienceRole === EXPERIENCE_ROLES.DIRECTOR ? "Center Tools" : "More Tools";
+  }
 }
 
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
@@ -12387,6 +12642,12 @@ function updateAdminNavVisibility() {
   document.querySelectorAll("[data-admin-nav]").forEach((button) => {
     button.hidden = !canSeeAdminNav();
   });
+  // Testing Lab: always in the primary nav for an unlocked admin on a
+  // non-production host — never only reachable via Settings search or a
+  // button buried inside the Admin Dashboard body. Never shown on production.
+  document.querySelectorAll("[data-testing-lab-nav]").forEach((button) => {
+    button.hidden = !(canSeeAdminNav() && typeof isProductionHostClient === "function" && !isProductionHostClient());
+  });
   refreshAdminNavBadge();
   if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
 }
@@ -12577,9 +12838,9 @@ function setView(view, options = {}) {
   if (resolvedRequested === "printables") {
     return setView("activities", options);
   }
-  // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
+  // Logged-in providers never land on the retired Dashboard — Today is the home surface.
   if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
-    return setView("calendar", { ...options, remappedFromHome: true });
+    return setView(defaultLoggedInLandingView(), { ...options, remappedFromHome: true });
   }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
@@ -12647,6 +12908,8 @@ function setView(view, options = {}) {
     activeChildObservationEditId = "";
     activeObservationChildLock = "";
     activePortfolioChildId = "";
+    fastDlcOpenChildId = "";
+    fastDlcSheetView = "actions";
   } else if (requestedChildToolTab) {
     childManagementMode = "tools";
     childToolsTab = requestedChildToolTab;
@@ -12790,6 +13053,19 @@ function setView(view, options = {}) {
     }
   }
   if (resolvedView !== "admin") localStorage.removeItem("llhAdminLastView");
+  if (resolvedView === "today") {
+    renderTodayDashboard();
+    // Refresh once (from the navigation handler, not from inside the render
+    // function itself) so a not-yet-cached schedule doc doesn't risk a render
+    // -> load -> render loop; this fires at most once per Today visit.
+    if (typeof ensureScheduleLoaded === "function") {
+      ensureScheduleLoaded()
+        .then(() => {
+          if (document.querySelector(".active-view")?.id === "view-today") renderTodayDashboard();
+        })
+        .catch(() => {});
+    }
+  }
   if (resolvedView === "account") renderAccountPage();
   if (resolvedView === "program-settings") renderProgramSettingsPage();
   if (resolvedView === "plans") renderPricingPage();
@@ -12841,7 +13117,50 @@ function setView(view, options = {}) {
         if (typeof renderTestingLabPage === "function") renderTestingLabPage();
       });
   }
+  if (resolvedView === "pilot-families") loadPilotFamiliesData();
+  if (resolvedView === "pilot-messages") loadPilotMessages();
+  if (resolvedView === "pilot-forms") loadPilotForms();
+  if (resolvedView === "pilot-billing") loadPilotBilling();
+  if (resolvedView === "pilot-parent-home") loadPilotParentHome();
+  if (resolvedView === "pilot-checklist") loadPilotChecklist();
   if (resolvedView === "teacher-center") renderTeacherCenterPage();
+  if (resolvedView === "classroom-assistant") {
+    const section = document.querySelector("#view-classroom-assistant");
+    if (section && typeof window.renderClassroomAssistantPage !== "function") {
+      section.innerHTML = `
+        <section class="platform-placeholder-page classroom-assistant-page">
+          <div class="page-title">
+            <p class="eyebrow">Classroom Assistant · Admin Preview</p>
+            <h2>Admin Preview — Test Data Only</h2>
+            <p>Classroom Assistant is loading…</p>
+          </div>
+        </section>
+      `;
+    }
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("classroom-assistant"))
+      .catch(() => null)
+      .then(() => {
+        if (typeof window.renderClassroomAssistantPage === "function") {
+          window.renderClassroomAssistantPage({
+            getToken: () => (typeof adminSession === "function" ? (adminSession()?.token || "") : ""),
+            // Phase 22: scope the offline queue by who is signed in, not only by
+            // organization — prevents Account B from ever seeing Account A's
+            // queued-but-unsynced entries on a shared device/browser.
+            adminEmail: typeof adminSession === "function" ? (adminSession()?.email || "") : "",
+          });
+        } else if (section && !isExpansionFeatureEnabled("directorCenter")) {
+          section.innerHTML = `
+            <section class="platform-placeholder-page classroom-assistant-page">
+              <div class="page-title">
+                <p class="eyebrow">Classroom Assistant</p>
+                <h2>Unavailable</h2>
+                <p>Classroom Assistant preview is not available in this environment.</p>
+              </div>
+            </section>
+          `;
+        }
+      });
+  }
   if (resolvedView === "forms-center") {
     Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.("forms-center"))
       .catch(() => null)
@@ -13529,12 +13848,14 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
   }
   if (actionId === "happy" || actionId === "tired" || actionId === "observation") {
     if (actionId === "observation") {
+      const note = String(options.note || "").trim();
       appendChildRecord("Observations", {
         childId,
         date: today,
-        text: "Observation noted from Daily Logs",
+        time,
+        text: note || "Observation noted from Daily Logs",
         title: `Observation | ${today}`,
-        summary: "Observation noted",
+        summary: note ? note.slice(0, 120) : "Observation noted",
         shareWithFamily: false,
       });
       return;
@@ -13543,52 +13864,129 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     return;
   }
   if (actionId === "incident") {
+    const note = String(options.note || "").trim();
     appendChildRecord("Communications", {
       childId,
       date: today,
       time,
       type: "Incident Report",
       title: `Incident Report | ${today}`,
-      summary: "Incident noted — open to add details",
+      summary: note ? note.slice(0, 120) : "Incident noted — open to add details",
+      message: note,
       shareWithFamily: false,
     });
     return;
   }
+  if (actionId === "medication") {
+    // Medication is deliberately never a single free-text field, and never
+    // auto-completed from AI/heuristics — every field below is exactly what
+    // the teacher typed, or blank. Missing REQUIRED fields (name, dosage,
+    // authorization) keep the record at "needs_provider_information" and it
+    // is never marked shareWithFamily — a family must never see an
+    // incomplete medication record presented as done.
+    const med = options.medication && typeof options.medication === "object" ? options.medication : {};
+    const medicationName = String(med.medicationName || "").trim();
+    const dosage = String(med.dosage || "").trim();
+    const authorizationStatus = String(med.authorizationStatus || "").trim();
+    const administeredBy = String(med.administeredBy || "").trim();
+    const notes = String(med.notes || "").trim();
+    const scheduledTime = String(med.scheduledTime || "").trim();
+    const actualTime = String(med.actualTime || time).trim();
+    const parentNotificationStatus = String(med.parentNotificationStatus || "not_notified").trim();
+    const isComplete = Boolean(medicationName && dosage && authorizationStatus);
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time: actualTime,
+      type: "Medication",
+      medicationName,
+      dosage,
+      scheduledTime,
+      actualTime,
+      authorizationStatus,
+      administeredBy,
+      notes,
+      parentNotificationStatus,
+      status: isComplete ? "completed" : "needs_provider_information",
+      title: `Medication | ${today}`,
+      summary: isComplete
+        ? `${medicationName} (${dosage}) — ${authorizationStatus.replace(/_/g, " ")}`
+        : "Needs provider information — medication record incomplete",
+      message: notes,
+      // Never shared with family while incomplete, and medication is
+      // sensitive enough that it stays a manual, explicit share decision
+      // (via Edit) even once complete — never auto-shared.
+      shareWithFamily: false,
+    });
+    return;
+  }
+  if (actionId === "behavior-note") {
+    const note = String(options.note || "").trim();
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Behavior Note",
+      title: `Behavior Note | ${today}`,
+      summary: note ? note.slice(0, 120) : "Behavior noted — open to add details",
+      message: note,
+      shareWithFamily: false,
+    });
+    return;
+  }
+  if (actionId === "milestone") {
+    const note = String(options.note || "").trim();
+    appendChildRecord("Communications", {
+      childId,
+      date: today,
+      time,
+      type: "Milestone",
+      title: `Milestone | ${today}`,
+      summary: note ? note.slice(0, 120) : "Milestone noted — open to add details",
+      message: note,
+      shareWithFamily: true,
+    });
+    return;
+  }
   if (actionId === "parent-message") {
+    const note = String(options.note || "").trim();
     appendChildRecord("Communications", {
       childId,
       date: today,
       time,
       type: "Parent Message",
       title: `Parent Message | ${today}`,
-      summary: "Parent message draft started",
-      message: "",
+      summary: note ? note.slice(0, 120) : "Parent message draft started",
+      message: note,
       shareWithFamily: true,
     });
     return;
   }
   if (actionId === "photo") {
+    const caption = String(options.note || options.caption || "").trim();
     appendChildRecord("Photos", {
       childId,
       date: today,
       time,
-      caption: "Photo moment",
+      src: options.src || "",
+      caption: caption || "Photo moment",
       title: `Photo | ${today}`,
-      summary: "Photo placeholder — add image from Photos tab",
+      summary: options.src ? (caption || "Photo added") : "Photo placeholder — add image from Photos tab",
       shareWithFamily: true,
     });
     return;
   }
   if (actionId === "activity" || actionId === "daily-log") {
     if (actionId === "daily-log") {
+      const note = String(options.note || "").trim();
       appendChildRecord("Communications", {
         childId,
         date: today,
         time,
         type: "Teacher Note",
         title: `Daily Log | ${today}`,
-        summary: "Daily note started",
-        message: "",
+        summary: note ? note.slice(0, 120) : "Daily note started",
+        message: note,
         shareWithFamily: false,
       });
       return;
@@ -13597,9 +13995,9 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       childId,
       date: today,
       time,
-      activity: "Activity",
+      activity: options.note ? String(options.note).trim() : "Activity",
       title: `Activity | ${today}`,
-      summary: "Activity logged",
+      summary: options.note ? String(options.note).trim().slice(0, 120) : "Activity logged",
       shareWithFamily: true,
     });
     return;
@@ -17586,7 +17984,10 @@ function defaultLoggedInLandingView() {
   ) {
     return remembered;
   }
-  return "calendar";
+  // Phase 23: Today (Needs Attention / Today / Recent / Favorites / Quick Actions)
+  // is now the default landing for every signed-in provider/staff role — Calendar
+  // remains one tap away and is still the landing for any remembered/last view.
+  return "today";
 }
 
 function platformBackView(fallback = "home") {
@@ -27840,12 +28241,25 @@ function renderResourcesHubPage() {
   `;
 }
 
+/**
+ * Phase 22 Settings redesign: grouped into named categories with short
+ * explanations, a search box, and director-only / computer-recommended tags —
+ * instead of one long undifferentiated list. Access to each card is still
+ * governed entirely by canAccessPlatformFeature() / hasAdminFullAccess();
+ * grouping/search here never grants or hides access beyond what was already
+ * permitted.
+ */
 function renderSettingsHubPage() {
   const section = document.querySelector("#view-settings");
   if (!section) return;
   const canBilling = canAccessPlatformFeature("billing");
   const canStaff = canAccessPlatformFeature("staff_management");
+  const canClassrooms = canAccessPlatformFeature("classrooms");
+  const canFamilies = canAccessPlatformFeature("families");
+  const canForms = canAccessPlatformFeature("forms");
+  const isAdmin = typeof hasAdminFullAccess === "function" && hasAdminFullAccess();
   const account = currentAccount();
+  const experienceRole = resolveExperienceRole(account);
   const accountTypeLabel = accountTypeDisplayLabel(account);
   const roleLabel = roleDisplayLabel(account);
   const rawPlan = String(account?.plan || "").trim();
@@ -27856,8 +28270,8 @@ function renderSettingsHubPage() {
   const email = currentUser || account?.email || "";
   const groups = [
     {
-      title: "Account & Membership",
-      detail: "Profile, plan status, billing, install, and sign-out",
+      title: "My Account",
+      detail: "Profile, membership status, and how you sign in",
       id: "account-membership",
       cards: [
         {
@@ -27868,19 +28282,6 @@ function renderSettingsHubPage() {
           badge: planLabel === "Founding Member" ? "Founding Member" : planLabel,
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
-        { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
-        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
-        { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
-        ...(canBilling
-          ? [
-              { view: "billing", title: "Billing & Subscription", detail: "Manage Subscription, payment method, invoices, and cancellation" },
-              { view: isProUser() ? "billing" : "plans", title: isProUser() ? "Current Plan" : "Upgrade", detail: isProUser() ? "Review your paid plan and Founding Member status" : "Upgrade from Free to Founding Member or Pro" },
-              { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
-              { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
-            ]
-          : [
-              { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
-            ]),
         {
           view: "",
           title: isStandaloneDisplayMode() ? "App Installed" : "Add to Home Screen",
@@ -27893,54 +28294,132 @@ function renderSettingsHubPage() {
       ],
     },
     {
-      title: "Need Help?",
-      detail: "Report bugs, request features, or contact Leah",
-      cards: [
-        { view: "messages", title: "Message Support", detail: "Start a conversation with Leah in Messages" },
-        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
-        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
-        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
-        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
-      ],
+      title: "Billing and Subscription",
+      detail: canBilling ? "Plan, payment method, invoices, and cancellation" : "Only the program owner can change plan or payment",
+      id: "billing-subscription",
+      cards: canBilling
+        ? [
+            { view: "billing", title: "Billing & Subscription", detail: "Manage Subscription, payment method, and invoices" },
+            { view: isProUser() ? "billing" : "plans", title: isProUser() ? "Current Plan" : "Upgrade", detail: isProUser() ? "Review your paid plan and Founding Member status" : "Upgrade from Free to Founding Member or Pro" },
+            { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
+            { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+            { view: "cancel-subscription", title: "Cancel Subscription", detail: "End your paid plan — you'll keep access until the period ends", ownerOnly: true },
+          ]
+        : [
+            { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
+          ],
     },
     {
-      title: "Program Settings",
-      detail: "Business information and classroom defaults",
+      title: "Program",
+      detail: "Business information and program-wide defaults",
+      id: "program",
       cards: [
-        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
+        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding", ownerOnly: true },
       ],
     },
+    ...(canClassrooms
+      ? [{
+          title: "Classrooms",
+          detail: "Rooms, age groups, and classroom assignments",
+          id: "classrooms",
+          cards: [
+            { view: "classrooms", title: "Manage Classrooms", detail: "Add rooms and set default age groups", ownerOnly: true, computerRecommended: true },
+          ],
+        }]
+      : []),
     {
-      title: "Staff & Permissions",
+      title: "Staff and Permissions",
       detail: canStaff ? "Invite staff and control access" : "Owners and directors manage staff",
+      id: "staff-permissions",
       cards: canStaff
         ? [
-            { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers" },
+            { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers", ownerOnly: true, computerRecommended: true },
           ]
         : [
             { view: "", title: "Staff tools unavailable", detail: "Your role does not include staff management", disabled: true },
           ],
     },
     {
-      title: "Forms Settings",
-      detail: "Enrollment and paperwork defaults",
+      title: "Children and Families",
+      detail: "Child profiles, households, and (Center accounts) family records",
+      id: "children-families",
       cards: [
-        { view: "forms-settings", title: "Enrollment & Form Templates", detail: "Digital signatures and paperwork preferences" },
+        { view: "children", title: "Child Profiles", detail: "Manage enrolled children and their records" },
+        ...(canFamilies ? [{ view: "families", title: "Families", detail: "Household and guardian records", ownerOnly: true }] : []),
+        ...(canForms ? [{ view: "enrollment", title: "Enrollment", detail: "Enrollment pipeline and paperwork status", ownerOnly: true }] : []),
       ],
     },
     {
-      title: "Curriculum Settings",
+      title: "Planning Preferences",
       detail: "Calendar and lesson plan defaults",
+      id: "planning-preferences",
       cards: [
         { view: "curriculum-settings", title: "Calendar & Lesson Plan Defaults", detail: "Week start day and planning preferences" },
       ],
     },
     {
-      title: "Support",
-      detail: "Help without leaving Settings",
+      title: "Forms and Records",
+      detail: "Enrollment paperwork and form-template defaults",
+      id: "forms-records",
       cards: [
-        { view: "messages", title: "Help & Support", detail: "Message Leah directly from Messages" },
-        { view: "contact", title: "Help Center & Contact Support", detail: "Ask a question or send a feature request" },
+        { view: "forms-settings", title: "Forms Settings", detail: "Digital signatures and paperwork preferences" },
+        ...(canForms ? [{ view: "forms", title: "Forms & Enrollment", detail: "Open the Forms & Enrollment workspace", ownerOnly: true }] : []),
+      ],
+    },
+    {
+      title: "Communication and Notifications",
+      detail: "Messages, push alerts, and how we reach you",
+      id: "communication-notifications",
+      cards: [
+        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
+        { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
+        { view: "account", title: "Notification Preferences", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
+      ],
+    },
+    {
+      title: "Privacy and Security",
+      detail: "Password, recovery, and account safety",
+      id: "privacy-security",
+      cards: [
+        { view: "account", title: "Password & Recovery", detail: "Change your password or update recovery options" },
+        { view: "contact", title: "Report a Security Concern", detail: "Tell us about anything that looks wrong" },
+      ],
+    },
+    {
+      title: "Integrations",
+      detail: "Connect Little Learner Hub to other tools",
+      id: "integrations",
+      cards: [
+        {
+          view: "",
+          title: isStandaloneDisplayMode() ? "Home Screen App Installed" : "Add to Home Screen",
+          detail: "The only integration available today is installing the app itself — calendar/export integrations are not built yet.",
+          action: "install-app",
+          disabled: isStandaloneDisplayMode(),
+        },
+      ],
+    },
+    ...(isAdmin
+      ? [{
+          title: "Testing and Advanced Tools",
+          detail: "Admin-only preview and diagnostics tools",
+          id: "testing-advanced",
+          cards: [
+            { view: "testing-lab", title: "Testing & Preview Lab", detail: "Fake accounts, role preview, and device frames", computerRecommended: true },
+            { view: "curriculum-planner", title: "Curriculum Planner (Legacy)", detail: "Older planning tool kept for reference" },
+          ],
+        }]
+      : []),
+    {
+      title: "Support",
+      detail: "Report bugs, request features, or contact Leah",
+      id: "support",
+      cards: [
+        { view: "messages", title: "Message Support", detail: "Start a conversation with Leah in Messages" },
+        { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
+        { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
+        { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
+        { view: "contact", title: "Contact Support", detail: "Open the full support page" },
         { view: "faq", title: "Release Notes & FAQ", detail: "Common questions and product updates" },
         { view: "resources", title: "Provider Resources", detail: "Behavior, licensing, and classroom help" },
       ],
@@ -27959,18 +28438,42 @@ function renderSettingsHubPage() {
       ],
     },
   ];
+  const cardHtml = (card) => {
+    const tagsHtml = [
+      card.ownerOnly ? `<span class="settings-hub-tag settings-hub-tag-owner">Director/Owner</span>` : "",
+      card.computerRecommended ? `<span class="settings-hub-tag settings-hub-tag-computer">Best on a computer</span>` : "",
+    ].join("");
+    if (card.disabled) {
+      return `<div class="settings-hub-card settings-hub-card-disabled" data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}${card.badge ? ` <span class="settings-hub-badge">${escapeHtml(card.badge)}</span>` : ""}</strong><span>${escapeHtml(card.detail)}</span></div>`;
+    }
+    if (card.action === "feedback") {
+      return `<button class="settings-hub-card" type="button" data-open-feedback="${escapeHtml(card.feedbackType || "General Feedback")}" data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+    }
+    if (card.action === "install-app") {
+      return `<button class="settings-hub-card" type="button" data-install-app="settings" data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+    }
+    if (card.action === "sign-out") {
+      return `<button class="settings-hub-card settings-hub-card-danger" type="button" data-settings-sign-out data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
+    }
+    return `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""} data-settings-search-text="${escapeHtml(`${card.title} ${card.detail}`.toLowerCase())}"><strong>${escapeHtml(card.title)}</strong>${tagsHtml}<span>${escapeHtml(card.detail)}</span></button>`;
+  };
   section.innerHTML = `
     <section class="settings-hub-page">
       <div class="page-title">
-        <p class="eyebrow">Settings</p>
+        <p class="eyebrow">Settings · ${escapeHtml(experienceRoleLabel(experienceRole))}</p>
         <h2>Configuration &amp; account</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
+      <label class="settings-hub-search">
+        <span class="visually-hidden">Search settings</span>
+        <input type="search" id="settingsHubSearchInput" placeholder="Search settings…" autocomplete="off" />
+      </label>
+      <p class="settings-hub-search-empty muted-copy" id="settingsHubSearchEmpty" hidden>No settings match your search.</p>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
       ${canBilling && !isProUser() && !accountProductStatus(currentAccount()).banner ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
       ${platformInstallCardMarkup("settings-prompt")}
-      <div class="settings-hub-groups">
+      <div class="settings-hub-groups" id="settingsHubGroups">
         ${groups.map((group) => `
           <section class="settings-hub-group"${group.id ? ` id="settings-${escapeHtml(group.id)}" data-settings-group="${escapeHtml(group.id)}"` : ""}>
             <div class="settings-hub-group-header">
@@ -27978,27 +28481,14 @@ function renderSettingsHubPage() {
               <p>${escapeHtml(group.detail)}</p>
             </div>
             <div class="settings-hub-grid">
-              ${group.cards.map((card) => {
-                if (card.disabled) {
-                  return `<div class="settings-hub-card settings-hub-card-disabled"><strong>${escapeHtml(card.title)}${card.badge ? ` <span class="settings-hub-badge">${escapeHtml(card.badge)}</span>` : ""}</strong><span>${escapeHtml(card.detail)}</span></div>`;
-                }
-                if (card.action === "feedback") {
-                  return `<button class="settings-hub-card" type="button" data-open-feedback="${escapeHtml(card.feedbackType || "General Feedback")}"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-                }
-                if (card.action === "install-app") {
-                  return `<button class="settings-hub-card" type="button" data-install-app="settings"><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-                }
-                if (card.action === "sign-out") {
-                  return `<button class="settings-hub-card settings-hub-card-danger" type="button" data-settings-sign-out><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-                }
-                return `<button class="settings-hub-card" type="button" data-view="${escapeHtml(card.view)}"${card.hash ? ` data-settings-anchor="${escapeHtml(card.hash)}"` : ""}><strong>${escapeHtml(card.title)}</strong><span>${escapeHtml(card.detail)}</span></button>`;
-              }).join("")}
+              ${group.cards.map(cardHtml).join("")}
             </div>
           </section>
         `).join("")}
       </div>
     </section>
   `;
+  bindSettingsHubSearch();
   if (renderSettingsHubPage._pendingAnchor) {
     const anchor = renderSettingsHubPage._pendingAnchor;
     renderSettingsHubPage._pendingAnchor = "";
@@ -28006,6 +28496,29 @@ function renderSettingsHubPage() {
       document.querySelector(`#settings-${anchor}, [data-settings-group="${anchor}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
+}
+
+/** Phase 22: client-side Settings search — filters cards by title/detail keyword. */
+function bindSettingsHubSearch() {
+  const input = document.querySelector("#settingsHubSearchInput");
+  if (!input) return;
+  input.value = "";
+  input.addEventListener("input", () => {
+    const query = input.value.trim().toLowerCase();
+    let anyVisible = false;
+    document.querySelectorAll("#settingsHubGroups .settings-hub-group").forEach((group) => {
+      let groupHasMatch = false;
+      group.querySelectorAll("[data-settings-search-text]").forEach((card) => {
+        const matches = !query || card.getAttribute("data-settings-search-text").includes(query);
+        card.hidden = !matches;
+        if (matches) groupHasMatch = true;
+      });
+      group.hidden = !groupHasMatch;
+      if (groupHasMatch) anyVisible = true;
+    });
+    const emptyNote = document.querySelector("#settingsHubSearchEmpty");
+    if (emptyNote) emptyNote.hidden = anyVisible || !query;
+  });
 }
 
 function renderFormsSettingsPage() {
@@ -28161,7 +28674,7 @@ function buildFamilyHouseholds(records = childRecords()) {
   return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
 }
 
-function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bodyHtml = "" }) {
+function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bodyHtml = "", computerRecommended = false }) {
   return `
     <section class="platform-manage-page">
       <div class="page-title">
@@ -28169,6 +28682,7 @@ function renderManageSurfaceShell({ eyebrow, title, detail, actionsHtml = "", bo
         <h2>${escapeHtml(title)}</h2>
         <p>${escapeHtml(detail)}</p>
       </div>
+      ${computerRecommended ? `<p class="platform-computer-recommended-note" role="note">💻 Best on a computer — this page has bulk management tools that are easier to use on a larger screen. Everything still works on your phone.</p>` : ""}
       ${actionsHtml ? `<div class="resources-hub-actions platform-manage-actions">${actionsHtml}</div>` : ""}
       ${bodyHtml}
     </section>
@@ -28239,6 +28753,7 @@ function renderStaffManagementPage(options = {}) {
     eyebrow: "Staff & Permissions",
     title: "Staff management",
     detail: "Invite assistants, teachers, and directors. They accept by email link, join your program, and receive the role and classroom you assign.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="ghost-button" type="button" data-view="settings">Back to Settings</button>
       <button class="ghost-button" type="button" data-refresh-staff-invites>Refresh</button>
@@ -28394,6 +28909,7 @@ function renderClassroomsPage() {
     eyebrow: "Classrooms",
     title: "Classroom management",
     detail: "Organize rooms for your center. Active classrooms sync with Calendar lesson assignment.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
       <button class="ghost-button" type="button" data-view="children">Child Profiles</button>
@@ -28485,6 +29001,7 @@ function renderFamiliesPage() {
     eyebrow: "Families",
     title: "Family management",
     detail: "Households are grouped from Child Profiles. Add a parent/guardian on a child’s profile to combine siblings.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
       <button class="ghost-button" type="button" data-view="enrollment">Enrollment</button>
@@ -28541,6 +29058,7 @@ function renderEnrollmentPage() {
     eyebrow: "Enrollment",
     title: "Enrollment management",
     detail: "Track inquiries, waitlist children, and enrolled profiles. Full paperwork automation comes later.",
+    computerRecommended: true,
     actionsHtml: `
       <button class="primary-button" type="button" data-view="forms">Forms &amp; Paperwork</button>
       <button class="ghost-button" type="button" data-view="families">Families</button>
@@ -31483,6 +32001,11 @@ function renderDlcDashboard(records) {
 }
 
 function renderDailyLogsCenter(records) {
+  // Fast Daily Logs (testing accounts only) — a full ground-up redesign:
+  // classroom grid first, a bottom-sheet of large quick-action buttons per
+  // child, and a chronological timeline instead of a long sectioned form.
+  // Real accounts keep the existing Daily Logs experience unchanged below.
+  if (isFakeAccountTester()) return renderFastDailyLogsCenter(records);
   const backTarget = dlcBackTarget();
   return `
     <section class="simple-child-page daily-logs-page">
@@ -31495,6 +32018,604 @@ function renderDailyLogsCenter(records) {
       </div>
       ${renderDlcContent(records)}
     </section>
+  `;
+}
+
+// ============================================================================
+// Fast Daily Logs — testing-accounts-only redesign.
+//
+// Ground-up rebuild of the Daily Logs experience: the classroom (not one
+// child) is the landing screen, every child is a compact card with a "+"
+// quick-action button, tapping a card opens a bottom sheet of large
+// one/two-tap actions, and a child's full day renders as a scrolling
+// timeline instead of a long multi-section form. Reuses the EXISTING data
+// stores/functions (childRecords(), saveDailyLogQuickAction,
+// buildDailyLogTimelineEntries, buildDailyLogParentSummary,
+// getChildAttendanceState, renderChildAvatar) so nothing here is a second,
+// disconnected data model — it is the same daily-log records the classic
+// UI already reads and writes, just presented completely differently.
+// Gated by isFakeAccountTester() so real provider accounts are entirely
+// unaffected while this is tried out.
+// ============================================================================
+
+let fastDlcOpenChildId = "";
+let fastDlcSheetView = "actions"; // "actions" | "timeline" | an action id (note/photo mini-form)
+// Accidental Tap Recovery: what to show as "here's exactly what was just
+// recorded, with an Undo" — cleared whenever the sheet closes or a new
+// action starts. { childId, storeKey, recordId, label, timeLabel }
+let fastDlcLastAction = null;
+// Duplicate-tap prevention: `${childId}:${actionId}` -> timestamp of the
+// last time this exact one-tap action fired for this child. A second tap
+// within the cooldown is treated as an accidental double-tap/retry, not a
+// second real event.
+let fastDlcRecentActionAt = {};
+const FAST_DLC_DUPLICATE_COOLDOWN_MS = 4000;
+// Corrections (Section 5): which timeline entry is currently open for
+// editing — { storeKey, recordId, childId } | null.
+let fastDlcEditingRecord = null;
+// Group Logging (Section 1) state.
+let fastDlcGroupLogOpen = false;
+let fastDlcGroupLogStep = "type"; // "type" | "children" | "details" | "preview"
+let fastDlcGroupLogType = "";
+let fastDlcGroupLogSelectedChildIds = [];
+let fastDlcGroupLogSharedNote = "";
+let fastDlcGroupLogExceptions = {}; // childId -> { excluded: bool, note: string }
+
+const FAST_DLC_ICONS = Object.freeze({
+  "Checked In": "✅", "Checked Out": "🚪", Absent: "🚫",
+  Breakfast: "🍳", Lunch: "🍽️", Snack: "🍎", Meal: "🍽️", Bottle: "🍼",
+  "Nap Started": "😴", "Nap Ended": "😴", Nap: "😴",
+  Wet: "🧷", Dirty: "🧷", "Potty - Success": "🚽", "Diaper Change": "🧷", "Diaper / Potty": "🧷",
+  "Outdoor Play": "🌳", "Story Time": "📖", Art: "🎨", Music: "🎵", Activity: "🎨",
+  "Photo Added": "📷",
+  Observation: "📝",
+  "Incident Report": "🚨",
+  Medication: "💊",
+  "Behavior Note": "📌",
+  Milestone: "🌟",
+  "Mood Note": "🙂",
+  "Parent Summary": "💬", "Parent Message": "💬", "Teacher Note": "🗒️", "General Note": "🗒️", "Daily Log": "🗒️",
+});
+
+function fastDlcIconFor(title) {
+  return FAST_DLC_ICONS[title] || "•";
+}
+
+// The 12 requested quick actions. `group` opens a sub-sheet of one-tap
+// presets (reusing the existing data-dlc-quick-action handler — no new
+// wiring needed for those); `note` opens a single-textarea mini-form;
+// `photo` opens a tiny file-picker + caption.
+const FAST_DLC_ACTIONS = Object.freeze([
+  { id: "meal", label: "Meal", icon: "🍽️", kind: "group" },
+  { id: "bottle-group", label: "Bottle", icon: "🍼", kind: "group" },
+  { id: "nap", label: "Nap", icon: "😴", kind: "group" },
+  { id: "diaper", label: "Diaper / Potty", icon: "🧷", kind: "group" },
+  { id: "activity", label: "Activity", icon: "🎨", kind: "activity" },
+  { id: "photo", label: "Photo", icon: "📷", kind: "photo" },
+  { id: "observation", label: "Observation", icon: "📝", kind: "note" },
+  { id: "incident", label: "Incident Report", icon: "🚨", kind: "note" },
+  { id: "medication", label: "Medication", icon: "💊", kind: "note" },
+  { id: "behavior-note", label: "Behavior Note", icon: "📌", kind: "note" },
+  { id: "milestone", label: "Milestone", icon: "🌟", kind: "note" },
+  { id: "parent-message", label: "Parent Communication", icon: "💬", kind: "note" },
+]);
+
+const FAST_DLC_NOTE_LABELS = Object.freeze({
+  observation: "What did you observe?",
+  incident: "What happened?",
+  "behavior-note": "Behavior note",
+  milestone: "Milestone reached",
+  "parent-message": "Message for the family",
+});
+
+const MEDICATION_AUTHORIZATION_OPTIONS = Object.freeze([
+  { value: "", label: "Select…" },
+  { value: "authorized_by_parent", label: "Authorized by parent/guardian" },
+  { value: "authorized_by_physician_order", label: "Authorized by physician order on file" },
+  { value: "not_yet_authorized", label: "Not yet authorized" },
+  { value: "unknown", label: "Unknown — needs follow-up" },
+]);
+
+const PARENT_NOTIFICATION_OPTIONS = Object.freeze([
+  { value: "not_notified", label: "Not yet notified" },
+  { value: "notified", label: "Notified" },
+  { value: "pending", label: "Notification pending" },
+]);
+
+function fastDlcDocumentedIcons(child, records, today) {
+  const snapshot = dlcChildDaySnapshot(child, records, today);
+  const rows = [
+    { key: "meal", icon: "🍽️", done: snapshot.meals.length > 0 },
+    { key: "nap", icon: "😴", done: snapshot.naps.length > 0 },
+    { key: "diaper", icon: "🧷", done: snapshot.diapers.length > 0 },
+    { key: "activity", icon: "🎨", done: snapshot.activities.length > 0 },
+    { key: "photo", icon: "📷", done: snapshot.photos.length > 0 },
+    { key: "observation", icon: "📝", done: snapshot.observations.length > 0 },
+    { key: "incident", icon: "🚨", done: snapshot.communications.some((item) => item.type === "Incident Report") },
+  ];
+  return rows.map((row) => `<span class="fdlc-doc-icon ${row.done ? "is-done" : ""}" title="${escapeHtml(row.key)}${row.done ? " logged" : " not yet logged"}">${row.icon}</span>`).join("");
+}
+
+function fastDlcStatusLabel(status) {
+  return { checked_in: "Checked In", checked_out: "Checked Out", absent: "Absent", not_arrived: "Not Arrived" }[status] || "Not Arrived";
+}
+
+function fastDlcChildCardHtml(child, records, today) {
+  const status = getChildAttendanceState(child, records, today);
+  return `
+    <div class="fdlc-child-card" data-fast-dlc-open-sheet="${escapeHtml(child.id)}">
+      <div class="fdlc-card-top">
+        ${renderChildAvatar(child)}
+        <div class="fdlc-card-name-block">
+          <strong>${escapeHtml(child.name)}</strong>
+          <span class="fdlc-status-badge fdlc-status-${status}">${fastDlcStatusLabel(status)}</span>
+        </div>
+      </div>
+      <div class="fdlc-doc-icons">${fastDlcDocumentedIcons(child, records, today)}</div>
+      <button type="button" class="fdlc-quick-add-btn" data-fast-dlc-open-sheet="${escapeHtml(child.id)}" aria-label="Quick add for ${escapeHtml(child.name)}">+</button>
+    </div>
+  `;
+}
+
+function renderFastDailyLogsCenter(records) {
+  const today = dlcActiveDate();
+  const openChild = fastDlcOpenChildId ? records.children.find((c) => c.id === fastDlcOpenChildId) : null;
+  const present = records.children.filter((c) => getChildAttendanceState(c, records, today) !== "absent" && c.status !== "removed");
+  const absent = records.children.filter((c) => getChildAttendanceState(c, records, today) === "absent");
+  return `
+    <section class="simple-child-page daily-logs-page fdlc-root">
+      <div class="child-page-header">
+        <div>
+          <h2>Daily Logs</h2>
+          <p>Tap a child to document in the moment — no forms, no scrolling.</p>
+        </div>
+      </div>
+      <button type="button" class="ghost-button fdlc-group-log-btn" data-fast-dlc-open-group-log>👥 Log for Multiple Children</button>
+      <div class="fdlc-classroom-grid">
+        ${present.length ? present.map((child) => fastDlcChildCardHtml(child, records, today)).join("") : `
+          <p class="muted-copy">No children yet. Add a child profile to start logging.</p>
+        `}
+      </div>
+      ${absent.length ? `
+        <details class="dlc-hidden-section">
+          <summary class="dlc-hidden-summary">Absent today (${absent.length})</summary>
+          <div class="fdlc-classroom-grid">
+            ${absent.map((child) => fastDlcChildCardHtml(child, records, today)).join("")}
+          </div>
+        </details>
+      ` : ""}
+      ${openChild ? fastDlcSheetHtml(openChild, records, today) : ""}
+      ${fastDlcGroupLogOpen ? fastDlcGroupLogSheetHtml(records, today) : ""}
+    </section>
+  `;
+}
+
+// ---- Group Logging (Section 1) ---------------------------------------------
+// "Log for Multiple Children" — select an action type, then EXPLICITLY
+// select which children participated (nobody is pre-checked — "never
+// assume every checked-in child participated"), enter the shared
+// information once, add per-child exceptions, preview, then confirm. Every
+// confirmed child gets its OWN record (via the same saveDailyLogQuickAction/
+// appendChildRecord path as a single-child action) tagged with a shared
+// groupLogId so the audit trail shows they were logged together.
+
+const FAST_DLC_GROUP_TYPES = Object.freeze([
+  { id: "attendance-in", label: "Attendance — Check In", icon: "✅" },
+  { id: "attendance-out", label: "Attendance — Check Out", icon: "🚪" },
+  { id: "meal", label: "Meal", icon: "🍽️" },
+  { id: "bottle", label: "Bottle", icon: "🍼" },
+  { id: "nap-started", label: "Nap Started", icon: "😴" },
+  { id: "nap-ended", label: "Nap Ended", icon: "☀️" },
+  { id: "diaper", label: "Diaper / Potty Check", icon: "🧷" },
+  { id: "activity", label: "Activity", icon: "🎨" },
+  { id: "update", label: "General Daily Update", icon: "🗒️" },
+]);
+
+function fastDlcGroupLogSheetHtml(records, today) {
+  let body = "";
+  if (fastDlcGroupLogStep === "type") body = fastDlcGroupLogTypeStepHtml();
+  else if (fastDlcGroupLogStep === "children") body = fastDlcGroupLogChildrenStepHtml(records, today);
+  else if (fastDlcGroupLogStep === "details") body = fastDlcGroupLogDetailsStepHtml(records);
+  else if (fastDlcGroupLogStep === "preview") body = fastDlcGroupLogPreviewStepHtml(records);
+  return `
+    <div class="fdlc-sheet-backdrop" data-fast-dlc-close-group-log></div>
+    <div class="fdlc-sheet" role="dialog" aria-modal="true" aria-label="Log for multiple children">
+      <div class="fdlc-sheet-header">
+        <strong>👥 Log for Multiple Children</strong>
+        <button type="button" class="ghost-button" data-fast-dlc-close-group-log aria-label="Close">✕</button>
+      </div>
+      <div class="fdlc-sheet-body">${body}</div>
+    </div>
+  `;
+}
+
+function fastDlcGroupLogTypeStepHtml() {
+  return `
+    <p class="muted-copy">What would you like to log for multiple children?</p>
+    <div class="fdlc-preset-grid">
+      ${FAST_DLC_GROUP_TYPES.map((t) => `
+        <button type="button" class="fdlc-preset-btn" data-fast-dlc-group-type="${escapeHtml(t.id)}">${t.icon} ${escapeHtml(t.label)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function fastDlcGroupLogChildrenStepHtml(records, today) {
+  const groupType = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+  const children = records.children.filter((c) => c.status !== "removed");
+  return `
+    <button type="button" class="ghost-button back-button" data-fast-dlc-group-step="type">← Back</button>
+    <p class="muted-copy"><strong>${escapeHtml(groupType?.label || "")}</strong> — select who this applies to. Nobody is selected by default.</p>
+    <div class="dlc-children-grid">
+      ${children.map((child) => `
+        <label class="dlc-child-check">
+          <input type="checkbox" data-fast-dlc-group-child-check value="${escapeHtml(child.id)}" ${fastDlcGroupLogSelectedChildIds.includes(child.id) ? "checked" : ""} />
+          <span>${escapeHtml(child.name)}</span>
+          <span class="fdlc-status-badge fdlc-status-${getChildAttendanceState(child, records, today)}">${fastDlcStatusLabel(getChildAttendanceState(child, records, today))}</span>
+        </label>
+      `).join("") || "<p class=\"muted-copy\">No children yet.</p>"}
+    </div>
+    <button type="button" class="primary-button" data-fast-dlc-group-step="details" ${fastDlcGroupLogSelectedChildIds.length ? "" : "disabled"}>Continue (${fastDlcGroupLogSelectedChildIds.length} selected) →</button>
+  `;
+}
+
+function fastDlcGroupLogDetailsStepHtml(records) {
+  const groupType = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+  const selectedChildren = records.children.filter((c) => fastDlcGroupLogSelectedChildIds.includes(c.id));
+  return `
+    <button type="button" class="ghost-button back-button" data-fast-dlc-group-step="children">← Back</button>
+    <p class="muted-copy">Shared information for all ${selectedChildren.length} selected children:</p>
+    <textarea class="fdlc-note-input" data-fast-dlc-group-shared-note rows="3" placeholder="e.g. Pancakes and fruit for breakfast">${escapeHtml(fastDlcGroupLogSharedNote)}</textarea>
+    <p class="muted-copy" style="margin-top:14px;">Individual exceptions (optional) — uncheck "Included" for anyone who did NOT participate, or add a note just for them:</p>
+    <div class="fdlc-exception-list">
+      ${selectedChildren.map((child) => {
+        const ex = fastDlcGroupLogExceptions[child.id] || {};
+        return `
+          <div class="fdlc-exception-row">
+            <label class="tl-check"><input type="checkbox" data-fast-dlc-group-exception-included="${escapeHtml(child.id)}" ${ex.excluded ? "" : "checked"} /> ${escapeHtml(child.name)} — Included</label>
+            <input type="text" data-fast-dlc-group-exception-note="${escapeHtml(child.id)}" placeholder="Exception note for ${escapeHtml(child.name)} (optional)" value="${escapeHtml(ex.note || "")}" />
+          </div>
+        `;
+      }).join("")}
+    </div>
+    <button type="button" class="primary-button" data-fast-dlc-group-step="preview">Preview →</button>
+    <p class="muted-copy">Group type: ${escapeHtml(groupType?.label || "")}</p>
+  `;
+}
+
+function fastDlcGroupLogPreviewStepHtml(records) {
+  const groupType = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+  const included = records.children.filter((c) => fastDlcGroupLogSelectedChildIds.includes(c.id) && !fastDlcGroupLogExceptions[c.id]?.excluded);
+  const excluded = records.children.filter((c) => fastDlcGroupLogSelectedChildIds.includes(c.id) && fastDlcGroupLogExceptions[c.id]?.excluded);
+  return `
+    <button type="button" class="ghost-button back-button" data-fast-dlc-group-step="details">← Back</button>
+    <h3>Preview before confirming</h3>
+    <p><strong>${escapeHtml(groupType?.label || "")}</strong>${fastDlcGroupLogSharedNote ? ` — ${escapeHtml(fastDlcGroupLogSharedNote)}` : ""}</p>
+    <p class="muted-copy">Will log for ${included.length} child${included.length === 1 ? "" : "ren"}:</p>
+    <ul class="fh-card-list">
+      ${included.map((c) => `<li class="fh-card static">${escapeHtml(c.name)}${fastDlcGroupLogExceptions[c.id]?.note ? ` — ${escapeHtml(fastDlcGroupLogExceptions[c.id].note)}` : ""}</li>`).join("")}
+    </ul>
+    ${excluded.length ? `
+      <p class="muted-copy">Excluded (will NOT be logged):</p>
+      <ul class="fh-card-list">${excluded.map((c) => `<li class="fh-card static">${escapeHtml(c.name)}</li>`).join("")}</ul>
+    ` : ""}
+    <button type="button" class="primary-button" data-fast-dlc-group-confirm>Confirm — Log for ${included.length} Child${included.length === 1 ? "" : "ren"}</button>
+  `;
+}
+
+function fastDlcSheetHtml(child, records, today) {
+  const view = fastDlcSheetView;
+  let body = "";
+  if (view === "timeline") body = fastDlcTimelineBodyHtml(child, records, today);
+  else if (view === "actions") body = fastDlcActionsBodyHtml(child, records, today);
+  else body = fastDlcSubPanelHtml(view, child, records, today);
+  return `
+    <div class="fdlc-sheet-backdrop" data-fast-dlc-close-sheet></div>
+    <div class="fdlc-sheet" role="dialog" aria-modal="true" aria-label="${escapeHtml(child.name)} daily log">
+      <div class="fdlc-sheet-header">
+        ${renderChildAvatar(child, "small")}
+        <div class="fdlc-sheet-header-text">
+          <strong>${escapeHtml(child.name)}</strong>
+          <span class="fdlc-status-badge fdlc-status-${getChildAttendanceState(child, records, today)}">${fastDlcStatusLabel(getChildAttendanceState(child, records, today))}</span>
+        </div>
+        <button type="button" class="ghost-button" data-fast-dlc-close-sheet aria-label="Close">✕</button>
+      </div>
+      <div class="fdlc-sheet-tabs">
+        <button type="button" class="fdlc-tab ${view === "actions" || view !== "timeline" && !["actions", "timeline"].includes(view) ? "active" : ""}" data-fast-dlc-show="actions">Quick Actions</button>
+        <button type="button" class="fdlc-tab ${view === "timeline" ? "active" : ""}" data-fast-dlc-show="timeline">Timeline</button>
+      </div>
+      <div class="fdlc-sheet-body">${body}</div>
+    </div>
+  `;
+}
+
+const FAST_DLC_ONETAP_STORE_AND_LABEL = Object.freeze({
+  "check-in": ["Attendance", "Checked In"],
+  "check-out": ["Attendance", "Checked Out"],
+  absent: ["Attendance", "Absent"],
+  breakfast: ["Meals", "Breakfast"],
+  meal: ["Meals", "Lunch"],
+  snack: ["Meals", "Snack"],
+  bottle: ["Meals", "Bottle"],
+  "nap-started": ["Naps", "Nap Started"],
+  "nap-ended": ["Naps", "Nap Ended"],
+  "wet-diaper": ["Diapers", "Wet Diaper"],
+  bm: ["Diapers", "Dirty Diaper"],
+  potty: ["Diapers", "Potty Success"],
+  diaper: ["Diapers", "Diaper Change"],
+  "outdoor-play": ["ActivityLogs", "Outdoor Play"],
+  "story-time": ["ActivityLogs", "Story Time"],
+  art: ["ActivityLogs", "Art"],
+  music: ["ActivityLogs", "Music"],
+});
+
+/** After a one-tap action fires, record exactly what was saved so fastDlcLastActionBannerHtml() can show "Logged X for Y at Z" + Undo. */
+function fastDlcRecordLastAction(oneTapKey, childId) {
+  const mapping = FAST_DLC_ONETAP_STORE_AND_LABEL[oneTapKey];
+  if (!mapping) return;
+  const [storeKey, label] = mapping;
+  const items = childStore(storeKey);
+  const last = items[items.length - 1];
+  if (!last || last.childId !== childId) return;
+  fastDlcLastAction = {
+    childId,
+    storeKey,
+    recordId: last.id,
+    label,
+    timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now",
+  };
+}
+
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-fast-dlc-medication-form]");
+  if (!form) return;
+  event.preventDefault();
+  const childId = form.getAttribute("data-fast-dlc-medication-form") || "";
+  if (!childId) return;
+  const data = new FormData(form);
+  // Every value below is exactly what the teacher typed — never invented,
+  // guessed, or defaulted by AI/local heuristics. Blank required fields
+  // simply stay blank, and saveDailyLogQuickAction("medication", ...)
+  // marks the record "needs_provider_information" as a result.
+  saveDailyLogQuickAction("medication", childId, {
+    date: dlcActiveDate(),
+    medication: {
+      medicationName: data.get("medicationName"),
+      dosage: data.get("dosage"),
+      scheduledTime: data.get("scheduledTime"),
+      actualTime: data.get("actualTime"),
+      authorizationStatus: data.get("authorizationStatus"),
+      administeredBy: data.get("administeredBy"),
+      notes: data.get("notes"),
+      parentNotificationStatus: data.get("parentNotificationStatus"),
+    },
+  });
+  const items = childStore("Communications");
+  const last = items[items.length - 1];
+  if (last && last.childId === childId) {
+    fastDlcLastAction = {
+      childId, storeKey: "Communications", recordId: last.id,
+      label: last.status === "completed" ? "Medication" : "Medication (Needs Provider Information)",
+      timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now",
+    };
+  }
+  fastDlcSheetView = "actions";
+  renderChildManagement();
+});
+
+/** Accidental Tap Recovery: "here's exactly what was just recorded" banner, with Undo. */
+function fastDlcLastActionBannerHtml(child) {
+  if (!fastDlcLastAction || fastDlcLastAction.childId !== child.id) return "";
+  const a = fastDlcLastAction;
+  return `
+    <div class="fdlc-last-action-banner" data-fast-dlc-last-action-banner>
+      <span>✅ Logged <strong>${escapeHtml(a.label)}</strong> for ${escapeHtml(child.name)} at ${escapeHtml(a.timeLabel)}</span>
+      <button type="button" class="ghost-button fdlc-undo-btn" data-fast-dlc-undo="${escapeHtml(a.storeKey)}" data-fast-dlc-undo-record="${escapeHtml(a.recordId)}" data-fast-dlc-undo-child="${escapeHtml(child.id)}">Undo</button>
+    </div>
+  `;
+}
+
+function fastDlcActionsBodyHtml(child, records, today) {
+  return `
+    ${fastDlcLastActionBannerHtml(child)}
+    <div class="fdlc-attendance-row">
+      <button type="button" class="ghost-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="check-in">✅ Check In</button>
+      <button type="button" class="ghost-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="check-out">🚪 Check Out</button>
+      <button type="button" class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="absent">🚫 Absent</button>
+    </div>
+    <div class="fdlc-action-grid">
+      ${FAST_DLC_ACTIONS.map((action) => `
+        <button type="button" class="fdlc-action-btn" data-fast-dlc-show="${escapeHtml(action.id)}">
+          <span class="fdlc-action-icon" aria-hidden="true">${action.icon}</span>
+          <span>${escapeHtml(action.label)}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function fastDlcSubPanelHtml(actionId, child, records, today) {
+  if (actionId === "meal") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Log a meal in one tap.</p>
+      <div class="fdlc-preset-grid">
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="breakfast" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="breakfast">🍳 Breakfast</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="meal" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="meal">🍽️ Lunch</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="snack" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="snack">🍎 Snack</button>
+      </div>
+    `;
+  }
+  if (actionId === "bottle-group") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Log a bottle in one tap.</p>
+      <div class="fdlc-preset-grid">
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="bottle" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="bottle">🍼 Bottle Logged</button>
+      </div>
+    `;
+  }
+  if (actionId === "nap") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Start or end nap time in one tap.</p>
+      <div class="fdlc-preset-grid">
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="nap-started" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="nap-started">😴 Nap Started</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="nap-ended" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="nap-ended">☀️ Nap Ended</button>
+      </div>
+    `;
+  }
+  if (actionId === "diaper") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Log a diaper or potty moment in one tap.</p>
+      <div class="fdlc-preset-grid">
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="wet-diaper" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="wet-diaper">💧 Wet</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="bm" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="bm">🧷 Dirty</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="potty" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="potty">🚽 Potty Success</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="diaper" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="diaper">🧷 Change</button>
+      </div>
+    `;
+  }
+  if (actionId === "activity") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Pick a preset, or type your own.</p>
+      <div class="fdlc-preset-grid">
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="outdoor-play" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="outdoor-play">🌳 Outdoor Play</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="story-time" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="story-time">📖 Story Time</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="art" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="art">🎨 Art</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="music" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="music">🎵 Music</button>
+      </div>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="activity" placeholder="Or describe the activity…" rows="2">${escapeHtml(fastDlcGetNoteDraft(child.id, "activity"))}</textarea>
+      <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="activity" data-fast-dlc-save-child="${child.id}">Save Activity</button>
+    `;
+  }
+  if (actionId === "photo") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Add a photo moment.</p>
+      <p class="fdlc-safety-note">⚠️ Testing account — use only fake/placeholder photos. Never upload a real child's photo here.</p>
+      <input type="file" accept="image/*" class="fdlc-photo-input" data-fast-dlc-photo-input="${child.id}" />
+      <div class="fdlc-photo-preview" data-fast-dlc-photo-preview hidden></div>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="photo" placeholder="Caption (optional)…" rows="2">${escapeHtml(fastDlcGetNoteDraft(child.id, "photo"))}</textarea>
+      <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="photo" data-fast-dlc-save-child="${child.id}">Save Photo (scoped to this child only)</button>
+    `;
+  }
+  if (actionId === "medication") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Medication is always structured — never a single free-text field. Missing required fields save as "Needs provider information" instead of a completed record.</p>
+      <form class="fdlc-medication-form" data-fast-dlc-medication-form="${child.id}">
+        <label>Medication name <span class="fdlc-required">*</span><input name="medicationName" placeholder="e.g. Children's Tylenol" /></label>
+        <label>Dosage <span class="fdlc-required">*</span><input name="dosage" placeholder="e.g. 5mL" /></label>
+        <label>Scheduled time<input name="scheduledTime" type="time" /></label>
+        <label>Actual time given<input name="actualTime" type="time" value="${quickActionTime()}" /></label>
+        <label>Authorization status <span class="fdlc-required">*</span>
+          <select name="authorizationStatus">
+            ${MEDICATION_AUTHORIZATION_OPTIONS.map((opt) => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Administered by<input name="administeredBy" placeholder="Your name" /></label>
+        <label>Notes<textarea name="notes" rows="2" placeholder="Optional notes…"></textarea></label>
+        <label>Parent notification status
+          <select name="parentNotificationStatus">
+            ${PARENT_NOTIFICATION_OPTIONS.map((opt) => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`).join("")}
+          </select>
+        </label>
+        <button type="submit" class="primary-button fdlc-save-btn">Save Medication Record</button>
+      </form>
+    `;
+  }
+  if (FAST_DLC_NOTE_LABELS[actionId]) {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">${escapeHtml(FAST_DLC_NOTE_LABELS[actionId])}</p>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="${escapeHtml(actionId)}" placeholder="Type here…" rows="4" autofocus>${escapeHtml(fastDlcGetNoteDraft(child.id, actionId))}</textarea>
+      <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="${escapeHtml(actionId)}" data-fast-dlc-save-child="${child.id}">Save</button>
+    `;
+  }
+  return `<button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>`;
+}
+
+function fastDlcCorrectionFormHtml(entry, child) {
+  return `
+    <div class="fdlc-correction-form">
+      <label>Time<input type="time" data-fast-dlc-correction-time value="${escapeHtml(entry.time || "")}" /></label>
+      <label>Notes<textarea data-fast-dlc-correction-notes rows="2">${escapeHtml(entry.detail || "")}</textarea></label>
+      <label class="tl-check"><input type="checkbox" data-fast-dlc-correction-late ${entry.enteredLate ? "checked" : ""} /> Entered late</label>
+      <label>Reason for correction <span class="fdlc-required">*</span><input type="text" data-fast-dlc-correction-reason placeholder="Why is this being corrected?" required /></label>
+      <div class="fdlc-actions-row">
+        <button type="button" class="primary-button" data-fast-dlc-save-correction="${escapeHtml(entry.storeKey)}" data-fast-dlc-correction-record="${escapeHtml(entry.recordId)}" data-fast-dlc-correction-child="${escapeHtml(child.id)}">Save Correction</button>
+        <button type="button" class="ghost-button" data-fast-dlc-cancel-edit>Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+function fastDlcCorrectionHistoryHtml(record) {
+  if (!Array.isArray(record?.corrections) || !record.corrections.length) return "";
+  return `
+    <details class="fdlc-correction-history">
+      <summary>Correction history (${record.corrections.length})</summary>
+      ${record.corrections.map((c) => `
+        <div class="fdlc-correction-entry">
+          <span>${escapeHtml(new Date(c.correctedAt).toLocaleString())} — ${escapeHtml(c.reason)}${c.enteredLate ? " (entered late)" : ""}</span>
+        </div>
+      `).join("")}
+    </details>
+  `;
+}
+
+function fastDlcTimelineRowHtml(entry, child, records) {
+  const isEditing = fastDlcEditingRecord && fastDlcEditingRecord.storeKey === entry.storeKey && fastDlcEditingRecord.recordId === entry.recordId;
+  const storeMap = { Attendance: "attendance", Meals: "meals", Naps: "naps", Diapers: "diapers", ActivityLogs: "activityLogs", Communications: "communications", Observations: "observations", Photos: "photos" };
+  const record = records[storeMap[entry.storeKey]]?.find((item) => item.id === entry.recordId);
+  return `
+    <div class="fdlc-timeline-row ${entry.needsAttention ? "fdlc-needs-attention" : ""}">
+      <span class="fdlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
+      <span class="fdlc-timeline-icon" aria-hidden="true">${entry.needsAttention ? "⚠️" : fastDlcIconFor(entry.title)}</span>
+      <div class="fdlc-timeline-text-wrap">
+        <span class="fdlc-timeline-text"><strong>${escapeHtml(entry.title)}</strong>${entry.detail ? ` — ${escapeHtml(entry.detail)}` : ""}${entry.enteredLate ? ` <em class="fdlc-late-tag">(entered late)</em>` : ""}</span>
+        ${!isEditing ? `<button type="button" class="ghost-button fdlc-edit-entry-btn" data-fast-dlc-edit-entry="${escapeHtml(entry.storeKey)}" data-fast-dlc-edit-record="${escapeHtml(entry.recordId)}" data-fast-dlc-edit-child="${escapeHtml(child.id)}">Edit</button>` : ""}
+        ${isEditing ? fastDlcCorrectionFormHtml(entry, child) : ""}
+        ${!isEditing && entry.hasCorrections ? fastDlcCorrectionHistoryHtml(record) : ""}
+      </div>
+    </div>
+  `;
+}
+
+function fastDlcTimelineBodyHtml(child, records, today) {
+  const entries = buildDailyLogTimelineEntries(child, records, today);
+  const draft = getDailyLogParentSummaryDraft(child, records, today);
+  const needsAttentionCount = entries.filter((e) => e.needsAttention).length;
+  return `
+    ${fastDlcLastActionBannerHtml(child)}
+    ${needsAttentionCount ? `<p class="fdlc-attention-banner">⚠️ ${needsAttentionCount} record${needsAttentionCount > 1 ? "s" : ""} need${needsAttentionCount > 1 ? "" : "s"} provider information before it can be shared.</p>` : ""}
+    <div class="fdlc-timeline">
+      ${entries.length ? entries.map((entry) => fastDlcTimelineRowHtml(entry, child, records)).join("") : `<p class="muted-copy">Nothing logged yet today — use Quick Actions to get started.</p>`}
+    </div>
+    <div class="fdlc-timeline-print-row">
+      <button type="button" class="ghost-button" data-fast-dlc-print-timeline="${child.id}">🖨️ Print / Save PDF — Daily Report</button>
+    </div>
+    <div class="fdlc-ai-summary-section">
+      <h3>📝 Create Parent Summary</h3>
+      <p class="muted-copy">Generate a draft from everything logged today, edit it, then share it — no live AI call is made (AI Testing stays disabled).</p>
+      <button type="button" class="ghost-button" data-fast-dlc-generate-summary="${child.id}">Generate Draft</button>
+      <textarea class="fdlc-summary-textarea" data-dlc-summary-input="${child.id}" rows="4" placeholder="Tap Generate Draft, then edit as needed…">${escapeHtml(draft)}</textarea>
+      <label class="tl-check"><input type="checkbox" data-dlc-summary-share="${child.id}" checked /> Share with Parent</label>
+      <p class="fdlc-scope-note">"Share with Parent" sends this only to the connected fake Parent/Guardian inbox for this testing account. It never sends an email, SMS, push notification, or public link.</p>
+      <div class="fdlc-actions-row">
+        <button type="button" class="primary-button" data-dlc-save-summary="${child.id}">Share with Parent</button>
+        <button type="button" class="ghost-button" data-fast-dlc-print-summary="${child.id}">🖨️ Print Summary</button>
+      </div>
+    </div>
+    <div class="fdlc-parent-comm-section">
+      <h3>💬 Parent Communication</h3>
+      <p class="muted-copy">Send a quick message to the family, any time.</p>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="parent-message" placeholder="Message for the family…" rows="2">${escapeHtml(fastDlcGetNoteDraft(child.id, "parent-message"))}</textarea>
+      <button type="button" class="ghost-button fdlc-save-btn" data-fast-dlc-save-note="parent-message" data-fast-dlc-save-child="${child.id}">Send Message</button>
+    </div>
   `;
 }
 
@@ -32072,17 +33193,25 @@ function dlcActivityKey(text) {
   return String(text || "").trim().toLowerCase();
 }
 
+/**
+ * Records with `undone: true` (Accidental Tap Recovery's Undo — see
+ * fastDlcUndoAction()) are excluded from every "active" view (timeline,
+ * summary, reminders) here at the source, for BOTH the classic and fast
+ * Daily Logs UIs — but the record itself is never deleted, so it remains a
+ * permanent, auditable part of the store file.
+ */
 function dlcChildDaySnapshot(child, records, today) {
+  const notUndone = (item) => item.undone !== true;
   return {
-    attendance: records.attendance.filter((item) => item.childId === child.id && item.date === today),
-    meals: records.meals.filter((item) => item.childId === child.id && item.date === today),
-    naps: records.naps.filter((item) => item.childId === child.id && item.date === today),
-    diapers: records.diapers.filter((item) => item.childId === child.id && item.date === today),
-    activities: records.activityLogs.filter((item) => item.childId === child.id && item.date === today),
-    communications: records.communications.filter((item) => item.childId === child.id && item.date === today),
-    reports: records.reports.filter((item) => item.childId === child.id && item.date === today),
-    observations: records.observations.filter((item) => item.childId === child.id && item.date === today),
-    photos: (records.photos || []).filter((item) => item.childId === child.id && item.date === today),
+    attendance: records.attendance.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    meals: records.meals.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    naps: records.naps.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    diapers: records.diapers.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    activities: records.activityLogs.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    communications: records.communications.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    reports: records.reports.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    observations: records.observations.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    photos: (records.photos || []).filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
   };
 }
 
@@ -32093,40 +33222,59 @@ function dlcParentSummaryDraftKey(childId, today) {
 function buildDailyLogTimelineEntries(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const entries = [];
+  // recordId/storeKey let the fast Daily Logs UI trace an entry back to its
+  // real stored record for Undo / corrections — the classic UI simply
+  // ignores these two extra fields, so this is fully backward compatible.
+  const base = (item, storeKey) => ({
+    recordId: item.id,
+    storeKey,
+    hasCorrections: Array.isArray(item.corrections) && item.corrections.length > 0,
+    enteredLate: item.enteredLate === true,
+  });
   snapshot.attendance.forEach((item) => {
     if (String(item.status || "").toLowerCase() === "absent") {
-      entries.push({ time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
+      entries.push({ ...base(item, "Attendance"), time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
       return;
     }
-    if (item.dropoff) entries.push({ time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
-    if (item.pickup) entries.push({ time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
+    if (item.dropoff) entries.push({ ...base(item, "Attendance"), time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
+    if (item.pickup) entries.push({ ...base(item, "Attendance"), time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
   });
   snapshot.meals.forEach((item) => {
     const baseTime = dlcRecordTime(item);
-    if (item.breakfast) entries.push({ time: baseTime, title: "Breakfast", detail: item.breakfast, shared: item.shareWithFamily !== false });
-    if (item.lunch) entries.push({ time: baseTime, title: "Lunch", detail: item.lunch, shared: item.shareWithFamily !== false });
-    if (item.snack) entries.push({ time: baseTime, title: "Snack", detail: item.snack, shared: item.shareWithFamily !== false });
-    if (!item.breakfast && !item.lunch && !item.snack) entries.push({ time: baseTime, title: "Meal", detail: item.summary || item.notes || "Meal logged", shared: item.shareWithFamily !== false });
+    if (item.breakfast) entries.push({ ...base(item, "Meals"), time: baseTime, title: "Breakfast", detail: item.breakfast, shared: item.shareWithFamily !== false });
+    if (item.lunch) entries.push({ ...base(item, "Meals"), time: baseTime, title: "Lunch", detail: item.lunch, shared: item.shareWithFamily !== false });
+    if (item.snack) entries.push({ ...base(item, "Meals"), time: baseTime, title: "Snack", detail: item.snack, shared: item.shareWithFamily !== false });
+    if (item.type === "Bottle") entries.push({ ...base(item, "Meals"), time: baseTime, title: "Bottle", detail: item.amount || item.notes || "", shared: item.shareWithFamily !== false });
+    if (!item.breakfast && !item.lunch && !item.snack && item.type !== "Bottle") entries.push({ ...base(item, "Meals"), time: baseTime, title: "Meal", detail: item.summary || item.notes || "Meal logged", shared: item.shareWithFamily !== false });
   });
   snapshot.naps.forEach((item) => {
-    if (item.napStart) entries.push({ time: item.napStart, title: "Nap Started", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
-    if (item.napEnd) entries.push({ time: item.napEnd, title: "Nap Ended", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
-    if (!item.napStart && !item.napEnd) entries.push({ time: dlcRecordTime(item), title: "Nap", detail: item.summary || "Nap logged", shared: item.shareWithFamily !== false });
+    if (item.napStart) entries.push({ ...base(item, "Naps"), time: item.napStart, title: "Nap Started", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
+    if (item.napEnd) entries.push({ ...base(item, "Naps"), time: item.napEnd, title: "Nap Ended", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
+    if (!item.napStart && !item.napEnd) entries.push({ ...base(item, "Naps"), time: dlcRecordTime(item), title: "Nap", detail: item.summary || "Nap logged", shared: item.shareWithFamily !== false });
   });
   snapshot.diapers.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: item.type || "Diaper / Potty", detail: item.notes || "", shared: item.shareWithFamily !== false });
+    entries.push({ ...base(item, "Diapers"), time: dlcRecordTime(item), title: item.type || "Diaper / Potty", detail: item.notes || "", shared: item.shareWithFamily !== false });
   });
   snapshot.activities.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: item.activity || "Activity", detail: item.notes || item.area || "", shared: item.shareWithFamily !== false });
+    entries.push({ ...base(item, "ActivityLogs"), time: dlcRecordTime(item), title: item.activity || "Activity", detail: item.notes || item.area || "", shared: item.shareWithFamily !== false });
   });
   snapshot.communications.forEach((item) => {
     const type = String(item.type || "");
-    if (["Behavior Note", "Mood Note", "Incident Report", "Parent Summary", "Parent Message", "Teacher Note", "General Note", "Daily Log"].includes(type)) {
-      entries.push({ time: dlcRecordTime(item), title: type, detail: item.summary || item.message || "", shared: item.shareWithFamily !== false });
+    if (["Behavior Note", "Mood Note", "Incident Report", "Medication", "Milestone", "Parent Summary", "Parent Message", "Teacher Note", "General Note", "Daily Log"].includes(type)) {
+      const isIncompleteMedication = type === "Medication" && item.status === "needs_provider_information";
+      entries.push({
+        ...base(item, "Communications"),
+        time: dlcRecordTime(item),
+        title: isIncompleteMedication ? "Medication — Needs Provider Information" : type,
+        detail: item.summary || item.message || "",
+        shared: item.shareWithFamily !== false,
+        needsAttention: isIncompleteMedication,
+      });
     }
   });
   snapshot.observations.forEach((item) => {
     entries.push({
+      ...base(item, "Observations"),
       time: dlcRecordTime(item),
       title: "Observation",
       detail: item.text || item.summary || item.developmentArea || "",
@@ -32134,7 +33282,7 @@ function buildDailyLogTimelineEntries(child, records, today) {
     });
   });
   snapshot.photos.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
+    entries.push({ ...base(item, "Photos"), time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
   });
   return entries
     .sort((a, b) => dlcTimeToMinutes(a.time) - dlcTimeToMinutes(b.time) || String(a.title).localeCompare(String(b.title)))
@@ -33578,12 +34726,78 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record) {
   const items = childStore(key);
-  saveChildStore(key, [...items, { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record }]);
+  const id = `${key}-${Date.now()}`;
+  saveChildStore(key, [...items, { id, createdAt: new Date().toISOString(), ...record }]);
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
     renderChildManagement();
   }
+  return id;
+}
+
+/**
+ * Accidental Tap Recovery — Undo. Never deletes: marks the record
+ * `undone: true` (excluded from every active view via
+ * dlcChildDaySnapshot's filter, above) while keeping it permanently in the
+ * store file as an auditable correction, with who/when it was undone.
+ */
+function undoChildRecord(storeKey, recordId) {
+  const items = childStore(storeKey);
+  const target = items.find((item) => item.id === recordId);
+  if (!target || target.undone === true) return false;
+  saveChildStore(storeKey, items.map((item) => (
+    item.id === recordId
+      ? { ...item, undone: true, undoneAt: new Date().toISOString(), undoneBy: currentUser || "" }
+      : item
+  )));
+  return true;
+}
+
+/**
+ * Corrections (Section 5) — never silently replaces the original record.
+ * The FIRST correction snapshots the original time/notes into
+ * originalTime/originalNotes (kept forever), then every correction —
+ * including the first — is appended to a `corrections` array with a
+ * required reason, so the full history is always visible. The record's
+ * live `time`/`notes` fields become the corrected values (what every other
+ * reader — timeline, summary, reports — sees), but originalTime/
+ * originalNotes and the full corrections[] log are never overwritten.
+ */
+function applyChildRecordCorrection(storeKey, recordId, { time, notes, reason, enteredLate, timeField = "time", notesField = "notes" } = {}) {
+  const cleanReason = String(reason || "").trim();
+  if (!cleanReason) return { ok: false, error: "A correction reason is required." };
+  const items = childStore(storeKey);
+  const target = items.find((item) => item.id === recordId);
+  if (!target) return { ok: false, error: "Record not found." };
+  const fromTime = target[timeField] || "";
+  const fromNotes = target[notesField] ?? "";
+  const toTime = time !== undefined && time !== "" ? time : fromTime;
+  const toNotes = notes !== undefined ? notes : fromNotes;
+  const correctionEntry = {
+    correctedAt: new Date().toISOString(),
+    correctedBy: currentUser || "",
+    reason: cleanReason,
+    enteredLate: enteredLate === true,
+    changes: {
+      ...(toTime !== fromTime ? { [timeField]: { from: fromTime, to: toTime } } : {}),
+      ...(toNotes !== fromNotes ? { [notesField]: { from: fromNotes, to: toNotes } } : {}),
+    },
+  };
+  saveChildStore(storeKey, items.map((item) => {
+    if (item.id !== recordId) return item;
+    const next = {
+      ...item,
+      [timeField]: toTime,
+      enteredLate: enteredLate === true || item.enteredLate === true,
+      corrections: [...(Array.isArray(item.corrections) ? item.corrections : []), correctionEntry],
+    };
+    if (item.originalTime === undefined) next.originalTime = fromTime;
+    if (item.originalNotes === undefined) next.originalNotes = fromNotes;
+    if (notes !== undefined) next[notesField] = toNotes;
+    return next;
+  }));
+  return { ok: true };
 }
 
 let afterActionPromptTimeout = null;
@@ -35411,6 +36625,8 @@ function applyAdminPreviewToPlatform() {
   syncPlatformNavVisibility();
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
+  if (typeof refreshTopNavExitPreview === "function") refreshTopNavExitPreview();
+  if (typeof refreshTestingIdentityBanner === "function") refreshTestingIdentityBanner();
   document.body.classList.toggle("admin-preview-simulating", isAdminPreviewSimulating());
   document.body.dataset.adminPreview = adminPreviewMode() || "";
 
@@ -35420,49 +36636,64 @@ function applyAdminPreviewToPlatform() {
   }
 
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "";
-  if (activeView === "home") {
-    renderHome();
-  } else if (activeView === "admin") {
-    renderAdminDashboard();
-  } else if (activeView === "generators") {
-    const tool = document.querySelector("#generatorWorkspace")?.dataset.activeTool || "lesson";
-    renderGeneratorWorkspace(tool);
-  } else if (activeView === "ai") {
-    renderAiPage();
-  } else if (activeView === "children" || childToolTabFromView(activeView)) {
-    renderChildManagement();
-  } else if (activeView === "calendar") {
-    renderMainCalendar();
-  } else if (activeView === "planner") {
-    renderWeeklyPlanner();
-  } else if (activeView === "account") {
-    renderAccountPage();
-  } else if (activeView === "favorites") {
-    renderFavoritesPage();
-  } else if (activeView === "billing" || activeView === "subscription" || activeView === "membership") {
-    renderBillingPage();
-  } else if (activeView === "plans") {
-    renderPricingPage();
-  } else if (activeView === "settings") {
-    renderSettingsHubPage();
-  } else if (activeView === "staff") {
-    renderStaffManagementPage();
-  } else if (activeView === "classrooms") {
-    renderClassroomsPage();
-  } else if (activeView === "families") {
-    renderFamiliesPage();
-  } else if (activeView === "enrollment") {
-    renderEnrollmentPage();
-  } else if (activeView === "support-center") {
-    renderSupportCenterPage();
-  } else if (activeView === "resources") {
-    renderResourcesHubPage();
-  } else if (activeView === "reports") {
-    renderReportsPage();
-  } else if (activeView === "tools") {
-    renderFutureTools();
-  } else if (viewMap[activeView]) {
-    renderCategoryPage(activeView);
+  // Refresh-safety: a rendering error while under a non-Admin preview mode must
+  // never leave the page in an unresponsive state with no way back. If ANY of
+  // these renders throws, fall back to Admin mode immediately and land on the
+  // Admin dashboard — the escape hatches (badge, top-nav button) stay usable
+  // throughout since they don't depend on this render succeeding.
+  try {
+    if (activeView === "home") {
+      renderHome();
+    } else if (activeView === "admin") {
+      renderAdminDashboard();
+    } else if (activeView === "generators") {
+      const tool = document.querySelector("#generatorWorkspace")?.dataset.activeTool || "lesson";
+      renderGeneratorWorkspace(tool);
+    } else if (activeView === "ai") {
+      renderAiPage();
+    } else if (activeView === "children" || childToolTabFromView(activeView)) {
+      renderChildManagement();
+    } else if (activeView === "calendar") {
+      renderMainCalendar();
+    } else if (activeView === "planner") {
+      renderWeeklyPlanner();
+    } else if (activeView === "account") {
+      renderAccountPage();
+    } else if (activeView === "favorites") {
+      renderFavoritesPage();
+    } else if (activeView === "billing" || activeView === "subscription" || activeView === "membership") {
+      renderBillingPage();
+    } else if (activeView === "plans") {
+      renderPricingPage();
+    } else if (activeView === "settings") {
+      renderSettingsHubPage();
+    } else if (activeView === "staff") {
+      renderStaffManagementPage();
+    } else if (activeView === "classrooms") {
+      renderClassroomsPage();
+    } else if (activeView === "families") {
+      renderFamiliesPage();
+    } else if (activeView === "enrollment") {
+      renderEnrollmentPage();
+    } else if (activeView === "support-center") {
+      renderSupportCenterPage();
+    } else if (activeView === "resources") {
+      renderResourcesHubPage();
+    } else if (activeView === "reports") {
+      renderReportsPage();
+    } else if (activeView === "tools") {
+      renderFutureTools();
+    } else if (viewMap[activeView]) {
+      renderCategoryPage(activeView);
+    }
+  } catch (error) {
+    console.warn("[admin-preview] render failed under preview mode — falling back to Admin:", error?.message || error);
+    if (adminPreviewMode() !== "Admin") {
+      localStorage.setItem("llhAdminPreviewMode", "Admin");
+      try { refreshAdminPreviewBadge(); } catch { /* */ }
+      try { refreshTopNavExitPreview(); } catch { /* */ }
+      try { setView("admin"); } catch { /* */ }
+    }
   }
 
   showActionFeedback(`Preview mode: ${previewAwarePlanLabel()}`);
@@ -35498,7 +36729,13 @@ function refreshAdminPreviewBadge() {
   }
   if (returnBtn) returnBtn.hidden = mode === "Admin" && !isAdminImpersonating();
   badge.classList.toggle("is-simulating", mode !== "Admin" || isAdminImpersonating());
-  badge.hidden = false;
+  // Only actually show this floating badge while there's something to escape
+  // from. Previously this was unconditionally visible even in plain Admin
+  // mode ("Admin mode" with no button) — a permanent fixed bottom-right
+  // element that could overlap and block other bottom-right content
+  // (e.g. "Open Testing Lab") on narrower/shorter screens, exactly the kind
+  // of obstruction this hotfix requires never happens.
+  badge.hidden = mode === "Admin" && !isAdminImpersonating();
   if (isAdminImpersonating()) {
     if (label) {
       label.textContent = `Viewing as ${adminImpersonationState.account?.name || adminImpersonationState.email} (read-only)`;
@@ -35516,6 +36753,1418 @@ function refreshAdminPreviewBadge() {
 
 function isAdminImpersonating() {
   return Boolean(isAdminUnlocked() && adminImpersonationState?.email);
+}
+
+// ---- Admin preview escape hatch (second, always-reachable option) --------
+// A permanent control in the top navigation (normal document flow, never an
+// overlay) that always works regardless of which preview system is active
+// or whether Testing Lab's own UI has an issue — this never depends on the
+// floating admin-preview-badge or Testing Lab's own "Exit Preview" button
+// being reachable/clickable. Every step is independently try/catch-guarded
+// so one failing step (e.g. a network call) can never prevent the others
+// from completing, and this function itself never throws.
+
+function isAnyPreviewActive() {
+  try {
+    const adminPreviewOn = isAdminUnlocked() && isAdminPreviewSimulating();
+    const impersonating = isAdminImpersonating();
+    const rolePreviewOn = Boolean(sessionStorage.getItem("llhRolePreviewMembershipId"));
+    return Boolean(adminPreviewOn || impersonating || rolePreviewOn);
+  } catch {
+    return false;
+  }
+}
+
+function exitAllPreviewModes() {
+  // 1. Admin Dashboard plan/role-label preview mode (Free/Trial/Pro/Founding/Director/Teacher).
+  try {
+    if (isAdminUnlocked() && adminPreviewMode() !== "Admin") {
+      setAdminPreviewMode("Admin");
+    }
+  } catch (error) {
+    console.warn("[preview-escape] could not reset admin preview mode:", error?.message || error);
+  }
+  // 2. Read-only user impersonation ("Viewing as ...").
+  try {
+    if (isAdminImpersonating()) stopAdminImpersonation({ refresh: false });
+  } catch (error) {
+    console.warn("[preview-escape] could not stop impersonation:", error?.message || error);
+  }
+  // 3. Testing Lab's Quick Role Preview — clear the LOCAL flag immediately and
+  // unconditionally (this alone is enough to stop the client from sending the
+  // preview header on future requests); best-effort tell the server too, but
+  // never let that network call block or fail the local escape.
+  try {
+    const previewMembershipId = sessionStorage.getItem("llhRolePreviewMembershipId");
+    if (previewMembershipId) {
+      sessionStorage.removeItem("llhRolePreviewMembershipId");
+      const token = adminSession()?.token || "";
+      if (token) {
+        fetch("/api/testing-lab/role-preview/exit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({}),
+        }).catch(() => { /* local escape already happened above — server confirmation is best-effort only */ });
+      }
+    }
+  } catch (error) {
+    console.warn("[preview-escape] could not clear role preview flag:", error?.message || error);
+  }
+  // 4. Refresh every piece of chrome that reflects preview state, each
+  // independently guarded so one failing refresh never blocks the others.
+  try { refreshAdminPreviewBadge(); } catch { /* */ }
+  try { refreshTopNavExitPreview(); } catch { /* */ }
+  try { refreshTestingIdentityBanner(); } catch { /* */ }
+  try { if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility(); } catch { /* */ }
+  try { showActionFeedback("Exited preview. You're back in your real Admin session."); } catch { /* */ }
+  // 5. Land somewhere always-safe regardless of which view was active.
+  try {
+    const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+    if (activeView !== "admin" && activeView !== "testing-lab") setView("admin");
+  } catch (error) {
+    console.warn("[preview-escape] could not navigate to a safe view:", error?.message || error);
+  }
+}
+
+function refreshTopNavExitPreview() {
+  const btn = document.querySelector("#topNavExitPreviewBtn");
+  if (!btn) return;
+  try {
+    btn.hidden = !isAnyPreviewActive();
+  } catch {
+    btn.hidden = true;
+  }
+}
+
+// ---- Testing identity banners (testing-only, never on production) --------
+// Mirrors the server's own production-hostname check (scripts/expansion-
+// feature-flags.js#LIVE_PRODUCTION_HOST_SUFFIXES) so the client can decide
+// whether to show a purely cosmetic "this is testing" banner. This is
+// informational chrome only — the server remains the sole real enforcement
+// boundary for every actual security decision; this never gates access to
+// anything, it only decides whether to draw a banner.
+const LIVE_PRODUCTION_HOST_SUFFIXES_CLIENT = ["littlelearnershubbyleah.com"];
+
+function isProductionHostClient() {
+  try {
+    const host = String(location.hostname || "").toLowerCase();
+    if (!host || host === "localhost" || host === "127.0.0.1") return false;
+    return LIVE_PRODUCTION_HOST_SUFFIXES_CLIENT.some((suffix) => host === suffix || host.endsWith(`.${suffix}`));
+  } catch {
+    return false;
+  }
+}
+
+/** Plain-language "Testing Account — Viewing as [Role]" label, or "" if none applies. */
+function testingIdentityRoleLabel() {
+  try {
+    if (isProductionHostClient()) return "";
+    const account = currentAccount();
+    if (account?.familyHubGuardian) return "Testing Account — Viewing as Parent";
+    const roleLabels = {
+      director: "Director", owner: "Solo Provider", teacher: "Lead Teacher", assistant: "Assistant",
+    };
+    if (account?.accountType === "curriculum_only") return "Testing Account — Viewing as Curriculum Only";
+    if (currentUser && /@example\.invalid$/i.test(currentUser) && account?.role) {
+      return `Testing Account — Viewing as ${roleLabels[account.role] || account.role}`;
+    }
+    if (isAdminUnlocked()) {
+      const preview = adminPreviewMode();
+      if (preview === "Director") return "Testing Account — Viewing as Director (sandbox preview)";
+      if (preview === "Teacher") return "Testing Account — Viewing as Lead Teacher (sandbox preview)";
+      if (isAdminImpersonating()) return `Testing Account — Viewing as ${adminImpersonationState?.account?.name || "member"} (read-only)`;
+      try {
+        const previewKind = sessionStorage.getItem("llhRolePreviewMembershipId") ? "role preview active" : "";
+        if (previewKind) return "Testing Account — Viewing as previewed role (Quick Role Preview)";
+      } catch { /* */ }
+    }
+  } catch { /* never let a banner-label bug break the page */ }
+  return "";
+}
+
+function refreshTestingIdentityBanner() {
+  const banner = document.querySelector("#testingIdentityBanner");
+  const roleText = document.querySelector("#testingIdentityRoleText");
+  const switcherActions = document.querySelector("#sandboxRoleSwitcherActions");
+  if (!banner) return;
+  try {
+    const isTesting = !isProductionHostClient();
+    banner.hidden = !isTesting;
+    if (!isTesting) {
+      if (switcherActions) switcherActions.hidden = true;
+      return;
+    }
+    if (isExternalTesterSandbox()) {
+      const roleLabel = externalTesterSandboxState.account?.activeRoleLabel || "";
+      if (roleText) {
+        roleText.hidden = false;
+        roleText.textContent = `CURRENTLY VIEWING AS: ${(roleLabel || "—").toUpperCase()}`;
+      }
+      if (switcherActions) switcherActions.hidden = false;
+      return;
+    }
+    if (switcherActions) switcherActions.hidden = true;
+    const roleLabel = testingIdentityRoleLabel();
+    if (roleText) {
+      roleText.hidden = !roleLabel;
+      roleText.textContent = roleLabel;
+    }
+  } catch {
+    banner.hidden = true;
+  }
+}
+
+// ---- Stale-build recovery (every host, not testing-only) -----------------
+// A returning visitor's browser (or its service worker's cache-first shell
+// strategy — see service-worker.js) can otherwise keep serving JS/CSS from
+// BEFORE the latest deploy indefinitely, even though the server and its
+// HTML are already fully up to date. This is the root cause behind reports
+// like "the sidebar shows new items but clicking does nothing" or "role
+// nav is missing" — a version MISMATCH between fresh HTML and stale JS, not
+// a bug in the fresh code itself. This never auto-reloads anyone — every
+// reload is a single explicit user click — so it can never trap anyone in
+// a reload loop.
+let staleBuildState = { knownGitSha: "", knownBootTime: "", lastReloadedAt: 0, dismissed: false, checking: false };
+let staleBuildCheckTimer = null;
+
+async function captureCurrentBuildBaseline() {
+  try {
+    const res = await fetch(`/api/build-version?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    staleBuildState.knownGitSha = data.gitSha || "";
+    staleBuildState.knownBootTime = data.bootTime || "";
+  } catch {
+    // Offline or the endpoint is unreachable — never treat that as "stale",
+    // just skip establishing a baseline this time.
+  }
+}
+
+async function checkForStaleBuild() {
+  if (staleBuildState.checking || staleBuildState.dismissed) return;
+  // Never flag a mismatch within the first few seconds after a manual
+  // reload — gives the freshly-loaded page a moment to finish establishing
+  // its OWN baseline first, so a reload can never immediately re-trigger.
+  if (Date.now() - staleBuildState.lastReloadedAt < 8000) return;
+  staleBuildState.checking = true;
+  try {
+    const res = await fetch(`/api/build-version?t=${Date.now()}`, { cache: "no-store" });
+    if (!res.ok) return;
+    const data = await res.json();
+    const serverGitSha = data.gitSha || "";
+    const serverBootTime = data.bootTime || "";
+    if (!staleBuildState.knownGitSha && !staleBuildState.knownBootTime) {
+      // First successful check this page load — this IS the baseline, not a mismatch.
+      staleBuildState.knownGitSha = serverGitSha;
+      staleBuildState.knownBootTime = serverBootTime;
+      return;
+    }
+    const shaChanged = Boolean(serverGitSha) && Boolean(staleBuildState.knownGitSha) && serverGitSha !== staleBuildState.knownGitSha;
+    const bootChanged = Boolean(serverBootTime) && Boolean(staleBuildState.knownBootTime) && serverBootTime !== staleBuildState.knownBootTime;
+    if (shaChanged || bootChanged) {
+      showStaleBuildBanner();
+    }
+  } catch {
+    // Network hiccup — never flag stale on a failed check.
+  } finally {
+    staleBuildState.checking = false;
+  }
+}
+
+function showStaleBuildBanner() {
+  const banner = document.querySelector("#staleBuildBanner");
+  if (banner) banner.hidden = false;
+}
+
+function hideStaleBuildBanner() {
+  const banner = document.querySelector("#staleBuildBanner");
+  if (banner) banner.hidden = true;
+}
+
+/** The ONE reload path for this banner — always a direct user click, never automatic, and always a full unregister + cache-clear first so the reload is guaranteed to fetch fresh assets rather than risk hitting the same stale service-worker cache again. */
+async function reloadToLatestBuild() {
+  staleBuildState.lastReloadedAt = Date.now();
+  try {
+    if ("serviceWorker" in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((registration) => registration.unregister().catch(() => {})));
+    }
+  } catch { /* best-effort */ }
+  try {
+    if (window.caches?.keys) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key).catch(() => {})));
+    }
+  } catch { /* best-effort */ }
+  location.reload();
+}
+
+function startStaleBuildWatcher() {
+  captureCurrentBuildBaseline();
+  if (staleBuildCheckTimer) clearInterval(staleBuildCheckTimer);
+  staleBuildCheckTimer = setInterval(checkForStaleBuild, 90000);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") checkForStaleBuild();
+  });
+  window.addEventListener("focus", () => checkForStaleBuild());
+}
+
+// ---- External Tester Sandbox (testing-only, never production) ------------
+// One tester login that self-service switches among a fixed, admin-chosen
+// set of NON-ADMIN roles — every real safety decision (which roles exist at
+// all, which ones THIS account may use, which organization it's locked to)
+// is enforced server-side in scripts/external-tester-sandbox-data-model.js /
+// server/external-tester-sandbox-api.js; this client code only renders the
+// current state and never locally fabricates a switch that the server
+// hasn't confirmed.
+let externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+
+function isExternalTesterSandbox() {
+  return Boolean(externalTesterSandboxState.active);
+}
+
+async function externalTesterSandboxApi(method, path, body) {
+  const response = await fetch(path, {
+    method,
+    headers: testingFeedbackAuthHeaders(),
+    cache: "no-store",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+
+async function refreshExternalTesterSandboxState() {
+  if (!isFakeAccountTester() || isProductionHostClient()) {
+    externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+    return;
+  }
+  try {
+    const data = await externalTesterSandboxApi("GET", "/api/external-tester/me");
+    externalTesterSandboxState = { active: true, account: data.account, roleCatalog: data.roleCatalog || [], loading: false, error: "" };
+  } catch {
+    // 404/401/anything else simply means this fake account is NOT a sandbox
+    // account — the normal fixed-role testing banner applies instead.
+    externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+  }
+  refreshTestingIdentityBanner();
+  if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
+}
+
+function sandboxRolePickerHtml() {
+  return (externalTesterSandboxState.roleCatalog || []).map((entry) => `
+    <button type="button" class="ghost-button ${entry.key === externalTesterSandboxState.account?.activeRoleKey ? "primary-button" : ""}" data-sandbox-role-option="${escapeHtml(entry.key)}">
+      ${entry.key === externalTesterSandboxState.account?.activeRoleKey ? "● " : ""}${escapeHtml(entry.label)}
+    </button>
+  `).join("") || `<p class="muted-copy">Your Platform Admin has not approved any testing roles for this account yet.</p>`;
+}
+
+function openSandboxRolePicker() {
+  const modal = document.querySelector("#sandboxRolePickerModal");
+  const list = document.querySelector("#sandboxRolePickerList");
+  const errorEl = document.querySelector("#sandboxRolePickerError");
+  if (!modal || !list) return;
+  list.innerHTML = sandboxRolePickerHtml();
+  if (errorEl) errorEl.hidden = true;
+  modal.hidden = false;
+}
+
+function closeSandboxRolePicker() {
+  const modal = document.querySelector("#sandboxRolePickerModal");
+  if (modal) modal.hidden = true;
+}
+
+/**
+ * Switching TO Parent/Guardian may need a second choice first: WHICH linked
+ * fake guardian/child relationship to preview, when the tester (as
+ * provider) has created more than one. Shows a second picker screen inside
+ * the SAME modal rather than immediately switching — guessing wrong here
+ * would silently show the wrong family's data.
+ */
+async function maybePickGuardianBeforeSwitching(roleKey) {
+  if (roleKey !== "parent_guardian") return { proceed: true, previewContactId: "" };
+  let options = [];
+  try {
+    const data = await externalTesterSandboxApi("GET", "/api/external-tester/guardian-options");
+    options = data.options || [];
+  } catch {
+    return { proceed: true, previewContactId: "" }; // legacy generic sandbox: falls back to donor-kind search server-side.
+  }
+  if (options.length <= 1) return { proceed: true, previewContactId: options[0]?.contactId || "" };
+  const list = document.querySelector("#sandboxRolePickerList");
+  if (!list) return { proceed: true, previewContactId: options[0].contactId };
+  return new Promise((resolve) => {
+    list.innerHTML = `
+      <p class="muted-copy">Which family would you like to preview?</p>
+      ${options.map((o) => `
+        <button type="button" class="ghost-button" data-sandbox-guardian-option="${escapeHtml(o.contactId)}">
+          ${escapeHtml(o.displayName)} (${o.children.map((c) => escapeHtml(c.childName)).join(", ")})
+        </button>
+      `).join("")}
+      <button type="button" class="ghost-button" data-sandbox-guardian-cancel>← Back</button>
+    `;
+    list.querySelectorAll("[data-sandbox-guardian-option]").forEach((btn) => {
+      btn.addEventListener("click", () => resolve({ proceed: true, previewContactId: btn.getAttribute("data-sandbox-guardian-option") }));
+    });
+    list.querySelector("[data-sandbox-guardian-cancel]")?.addEventListener("click", () => {
+      list.innerHTML = sandboxRolePickerHtml();
+      resolve({ proceed: false, previewContactId: "" });
+    });
+  });
+}
+
+async function switchSandboxRole(roleKey) {
+  const errorEl = document.querySelector("#sandboxRolePickerError");
+  const choice = await maybePickGuardianBeforeSwitching(roleKey);
+  if (!choice.proceed) return;
+  try {
+    const data = await externalTesterSandboxApi("POST", "/api/external-tester/switch-role", { roleKey, previewContactId: choice.previewContactId });
+    // Update the LOCAL cached account immediately from the server's own
+    // confirmed identity (never from the requested roleKey — always from
+    // what the server actually applied) so a refresh right after switching
+    // can never show a stale/previous role even if nothing else re-syncs
+    // from the server on boot.
+    if (currentUser && typeof updateAccount === "function" && data?.identity) {
+      updateAccount(currentUser, {
+        role: data.identity.role,
+        accountType: data.identity.accountType,
+        familyHubGuardian: data.identity.familyHubGuardian,
+      });
+    }
+    // A full reload is the simplest, most robust way to guarantee every
+    // piece of chrome (nav, capabilities, views already open) re-derives
+    // from the freshly-switched identity — no stale client-side state left
+    // over from the previous role can survive a full reload.
+    location.reload();
+  } catch (error) {
+    if (errorEl) {
+      errorEl.hidden = false;
+      errorEl.textContent = error?.message || "Could not switch role.";
+    } else {
+      showActionFeedback(error?.message || "Could not switch role.");
+    }
+  }
+}
+
+/** "Return to Tester Home" — the safe landing view for the CURRENTLY active role, never a role change. */
+function returnToTesterHome() {
+  try {
+    const account = currentAccount();
+    if (account?.familyHubGuardian && typeof setView === "function") {
+      setView(isHomeDaycarePilotAccount() ? "pilot-parent-home" : "family-hub");
+      return;
+    }
+    if (typeof setView === "function") setView("today");
+  } catch (error) {
+    console.warn("[sandbox] could not return to tester home:", error?.message || error);
+  }
+}
+
+// ---- Home Daycare Pilot (testing-only) ------------------------------------
+// The connected provider<->parent data surface for external-tester-sandbox
+// accounts created via Testing Lab's "Add External Tester" -> Home Daycare
+// Pilot preset. Every mutation goes through /api/pilot/* (server/home-
+// daycare-pilot-api.js), which resolves organization/child/role access
+// server-side — this client code only renders whatever the server allows.
+let pilotState = {
+  children: [], guardians: [], selectedChildId: "",
+  messages: [], forms: [], billing: [], updates: [],
+  guardianOptions: [], parentHome: null, checklist: [],
+  loading: false, error: "", notice: "",
+};
+
+/**
+ * Offline/refresh safety (Section 6): an in-progress note/caption is saved
+ * to localStorage on every keystroke, keyed per child+action, and restored
+ * automatically if the tab is refreshed (or the network drops) before the
+ * teacher taps Save — cleared once the entry is actually saved. This is on
+ * top of the fact that a SAVED entry already persists immediately to
+ * localStorage (appendChildRecord/saveChildStore) with no network
+ * dependency at all — only the background cloud sync needs connectivity,
+ * and it safely retries/re-syncs the full snapshot without ever
+ * duplicating a record.
+ */
+function fastDlcNoteDraftKey(childId, actionId) {
+  return `llhFastDlcDraft:${currentUser}:${childId}:${actionId}`;
+}
+function fastDlcGetNoteDraft(childId, actionId) {
+  try { return localStorage.getItem(fastDlcNoteDraftKey(childId, actionId)) || ""; } catch { return ""; }
+}
+function fastDlcSaveNoteDraft(childId, actionId, value) {
+  try {
+    if (value) localStorage.setItem(fastDlcNoteDraftKey(childId, actionId), value);
+    else localStorage.removeItem(fastDlcNoteDraftKey(childId, actionId));
+  } catch { /* localStorage unavailable — draft persistence is best-effort only */ }
+}
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-fast-dlc-note-input]");
+  if (!input || !fastDlcOpenChildId) return;
+  fastDlcSaveNoteDraft(fastDlcOpenChildId, input.getAttribute("data-fast-dlc-note-input"), input.value);
+});
+
+const pilotApi = externalTesterSandboxApi;
+
+function isHomeDaycarePilotAccount() {
+  return Boolean(isFakeAccountTester() && externalTesterSandboxState.active && externalTesterSandboxState.account?.pilotType === "home_daycare_pilot");
+}
+
+function pilotIsProviderNow() {
+  return isHomeDaycarePilotAccount() && !currentAccount()?.familyHubGuardian;
+}
+
+function pilotIsParentNow() {
+  return isHomeDaycarePilotAccount() && Boolean(currentAccount()?.familyHubGuardian);
+}
+
+/** Curates the sidebar for a Home Daycare Pilot account: shows the pilot's own Families/Messages/Forms/Billing/Home links and hides the equivalent core-app ones they replace, so there is never a confusing duplicate pointing at something disconnected. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about the core items. */
+function refreshHomeDaycarePilotNav() {
+  const isPilot = isHomeDaycarePilotAccount();
+  const isProviderNow = pilotIsProviderNow();
+  const isParentNow = pilotIsParentNow();
+  document.querySelectorAll('[data-pilot-nav="provider"]').forEach((el) => { el.hidden = !isProviderNow; });
+  document.querySelectorAll('[data-pilot-nav="parent"]').forEach((el) => { el.hidden = !isParentNow; });
+  document.querySelectorAll('[data-pilot-nav="both"]').forEach((el) => { el.hidden = !isPilot; });
+  if (isPilot) {
+    document.querySelector('.nav-link[data-view="messages"]')?.setAttribute("hidden", "");
+    document.querySelector('.nav-link[data-view="billing"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+    document.querySelector('.nav-link[data-view="forms"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+    document.querySelector('.nav-link[data-view="families"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
+  }
+}
+
+/**
+ * Photo Safety bridge: when a Home Daycare Pilot sandbox tester (in her
+ * Provider role) saves a photo through the fast Daily Logs UI, ALSO mirror
+ * it into the pilot's server-side, organization+child-scoped photo store
+ * (best-effort, never blocks the local save) — so it becomes visible on
+ * the connected Parent Home view through the SAME org/child/guardian
+ * access checks every other /api/pilot/* route already enforces. A plain
+ * real-account tester (no pilot org) has no server-side "parent" to bridge
+ * to, so this is a safe no-op for her.
+ */
+async function fastDlcBridgePhotoToPilotIfApplicable(childId, caption, dataUrl) {
+  if (!dataUrl || !isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  try {
+    await pilotApi("POST", "/api/pilot/photos", { childId, caption, dataUrl });
+  } catch { /* best-effort — local photo record already saved regardless */ }
+}
+
+async function pilotMarkChecklistItem(itemKey) {
+  try { await pilotApi("POST", "/api/external-tester/checklist", { itemKey, complete: true }); } catch { /* best-effort */ }
+}
+
+function pilotChildOptionsHtml(selectedId) {
+  return pilotState.children.map((c) => `<option value="${escapeHtml(c.id)}" ${c.id === selectedId ? "selected" : ""}>${escapeHtml(c.displayName)}</option>`).join("");
+}
+
+// ---- Families (provider: add child, add guardian, set permissions) --------
+
+async function loadPilotFamiliesData() {
+  pilotState.loading = true;
+  renderPilotFamiliesPage();
+  try {
+    const [childrenRes, guardiansRes] = await Promise.all([
+      pilotApi("GET", "/api/pilot/children"),
+      pilotApi("GET", "/api/pilot/guardians"),
+    ]);
+    pilotState.children = childrenRes.children || [];
+    pilotState.guardians = guardiansRes.guardians || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  } finally {
+    pilotState.loading = false;
+    renderPilotFamiliesPage();
+  }
+}
+
+function renderPilotFamiliesPage() {
+  const mount = document.querySelector("#view-pilot-families");
+  if (!mount) return;
+  if (!pilotIsProviderNow()) {
+    mount.innerHTML = `<div class="page-title"><h2>Families</h2></div><p class="muted-copy">This screen is part of the Home Daycare Pilot's provider view.</p>`;
+    return;
+  }
+  mount.innerHTML = `
+    <div class="page-title">
+      <p class="eyebrow">Home Daycare Pilot</p>
+      <h2>Families</h2>
+    </div>
+    <p class="muted-copy">Add fake children and guardians, link them, and choose each guardian's permissions. This is fake testing data only.</p>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${pilotState.notice ? `<p class="tf-notice">${escapeHtml(pilotState.notice)}</p>` : ""}
+    <section class="mini-form-card">
+      <h3>Add a fake child</h3>
+      <form data-pilot-add-child class="mini-form">
+        <label>Child's name<input name="displayName" required placeholder="e.g. Ava Lin" /></label>
+        <button class="primary-button" type="submit">Add child</button>
+      </form>
+    </section>
+    <section class="mini-form-card">
+      <h3>Add a fake guardian</h3>
+      <form data-pilot-add-guardian class="mini-form">
+        <label>Guardian's name<input name="displayName" required placeholder="e.g. Priya Lin" /></label>
+        <label>Email (fake)<input name="email" type="email" placeholder="guardian@example.invalid" /></label>
+        <label>Relationship<input name="relationshipLabel" placeholder="parent" value="parent" /></label>
+        <label>Link to child<select name="childId" required>${pilotChildOptionsHtml("")}</select></label>
+        <label>Access level
+          <select name="accessLevel">
+            <option value="full_verified_guardian">Full verified guardian</option>
+            <option value="limited_guardian">Limited guardian</option>
+            <option value="forms_only">Forms only</option>
+            <option value="messages_only">Messages only</option>
+            <option value="billing_only">Billing only</option>
+          </select>
+        </label>
+        <label class="tl-check"><input type="checkbox" name="isFinanciallyResponsible" /> Financially responsible (sees billing reminders)</label>
+        <button class="primary-button" type="submit">Add guardian</button>
+      </form>
+    </section>
+    <section>
+      <h3>Fake children</h3>
+      <ul class="fh-card-list">
+        ${pilotState.children.map((c) => `<li class="fh-card static"><strong>${escapeHtml(c.displayName)}</strong></li>`).join("") || "<li class=\"muted-copy\">No fake children yet.</li>"}
+      </ul>
+    </section>
+    <section>
+      <h3>Fake guardians</h3>
+      <ul class="fh-card-list">
+        ${pilotState.guardians.map((g) => `
+          <li class="fh-card static" data-pilot-guardian="${escapeHtml(g.id)}">
+            <strong>${escapeHtml(g.displayName)}</strong>
+            <span class="muted-copy">${escapeHtml(g.email || "")}</span>
+            ${g.links.map((link) => `
+              <div class="tl-actions-row">
+                <span class="dc-badge">${escapeHtml(link.childName)} · ${escapeHtml(link.accessLevelLabel)}${link.isFinanciallyResponsible ? " · billing" : ""}</span>
+                <select data-pilot-change-access="${escapeHtml(g.id)}" data-pilot-child="${escapeHtml(link.childId)}">
+                  ${["full_verified_guardian", "limited_guardian", "forms_only", "messages_only", "billing_only", "no_digital_access"].map((lvl) => `<option value="${lvl}" ${lvl === link.accessLevel ? "selected" : ""}>${escapeHtml(lvl.replace(/_/g, " "))}</option>`).join("")}
+                </select>
+              </div>
+            `).join("")}
+          </li>
+        `).join("") || "<li class=\"muted-copy\">No fake guardians yet.</li>"}
+      </ul>
+    </section>
+  `;
+  bindPilotFamiliesEvents(mount);
+}
+
+function bindPilotFamiliesEvents(mount) {
+  mount.querySelector("[data-pilot-add-child]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const displayName = new FormData(event.target).get("displayName");
+    try {
+      await pilotApi("POST", "/api/pilot/children", { displayName });
+      pilotState.notice = "Child added.";
+      await pilotMarkChecklistItem("add_child");
+      await loadPilotFamiliesData();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotFamiliesPage();
+    }
+  });
+  mount.querySelector("[data-pilot-add-guardian]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    try {
+      await pilotApi("POST", "/api/pilot/guardians", {
+        displayName: data.get("displayName"),
+        email: data.get("email"),
+        relationshipLabel: data.get("relationshipLabel"),
+        childIds: [data.get("childId")],
+        accessLevel: data.get("accessLevel"),
+        isFinanciallyResponsible: data.get("isFinanciallyResponsible") === "on",
+      });
+      pilotState.notice = "Guardian added and linked.";
+      await pilotMarkChecklistItem("add_guardian");
+      await loadPilotFamiliesData();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotFamiliesPage();
+    }
+  });
+  mount.querySelectorAll("[data-pilot-change-access]").forEach((select) => {
+    select.addEventListener("change", async () => {
+      try {
+        await pilotApi("POST", "/api/pilot/guardians/access", {
+          contactId: select.getAttribute("data-pilot-change-access"),
+          childId: select.getAttribute("data-pilot-child"),
+          accessLevel: select.value,
+        });
+        pilotState.notice = "Guardian permissions updated.";
+        await loadPilotFamiliesData();
+      } catch (error) {
+        pilotState.error = error.message;
+        renderPilotFamiliesPage();
+      }
+    });
+  });
+}
+
+// ---- Messages (provider <-> parent, one thread per child) -----------------
+
+async function loadPilotMessages() {
+  try {
+    if (pilotIsProviderNow() && !pilotState.children.length) {
+      pilotState.children = (await pilotApi("GET", "/api/pilot/children")).children || [];
+    }
+    if (!pilotState.selectedChildId && pilotState.children.length) pilotState.selectedChildId = pilotState.children[0].id;
+    const childId = pilotIsParentNow() ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+    if (childId) pilotState.messages = (await pilotApi("GET", `/api/pilot/messages?childId=${encodeURIComponent(childId)}`)).messages || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotMessagesPage();
+}
+
+function renderPilotMessagesPage() {
+  const mount = document.querySelector("#view-pilot-messages");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const isParent = pilotIsParentNow();
+  const childId = isParent ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Messages</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${!isParent ? `<label>Child<select data-pilot-message-child>${pilotChildOptionsHtml(childId)}</select></label>` : ""}
+    <div class="tf-messages">
+      ${(pilotState.messages || []).map((m) => `
+        <div class="tf-message tf-message--${m.senderRole === "provider" ? "admin" : "tester"}">
+          <span class="tf-message-sender">${m.senderRole === "provider" ? "Provider" : "Parent"}</span>
+          <p>${escapeHtml(m.body)}</p>
+        </div>
+      `).join("") || "<p class=\"muted-copy\">No messages yet.</p>"}
+    </div>
+    <form data-pilot-send-message class="mini-form">
+      <textarea name="body" rows="2" placeholder="Write a message…" required></textarea>
+      <button class="primary-button" type="submit">Send</button>
+    </form>
+  `;
+  mount.querySelector("[data-pilot-message-child]")?.addEventListener("change", (event) => {
+    pilotState.selectedChildId = event.target.value;
+    loadPilotMessages();
+  });
+  mount.querySelector("[data-pilot-send-message]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const body = new FormData(event.target).get("body");
+    const targetChildId = isParent ? pilotState.parentHomeChildId : pilotState.selectedChildId;
+    try {
+      await pilotApi("POST", "/api/pilot/messages", { childId: targetChildId, body });
+      event.target.reset();
+      await loadPilotMessages();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotMessagesPage();
+    }
+  });
+}
+
+// ---- Forms (simple assignment + status) ------------------------------------
+
+async function loadPilotForms() {
+  try {
+    if (pilotIsProviderNow() && !pilotState.children.length) {
+      pilotState.children = (await pilotApi("GET", "/api/pilot/children")).children || [];
+    }
+    if (!pilotState.selectedChildId && pilotState.children.length) pilotState.selectedChildId = pilotState.children[0].id;
+    const childId = pilotIsParentNow() ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+    if (childId) pilotState.forms = (await pilotApi("GET", `/api/pilot/forms?childId=${encodeURIComponent(childId)}`)).forms || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotFormsPage();
+}
+
+function renderPilotFormsPage() {
+  const mount = document.querySelector("#view-pilot-forms");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const isParent = pilotIsParentNow();
+  const childId = isParent ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Forms &amp; Enrollment</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${!isParent ? `
+      <label>Child<select data-pilot-forms-child>${pilotChildOptionsHtml(childId)}</select></label>
+      <form data-pilot-add-form class="mini-form">
+        <input name="title" required placeholder="Form title, e.g. Field trip permission" />
+        <button class="primary-button" type="submit">Send form</button>
+      </form>
+    ` : ""}
+    <ul class="fh-card-list">
+      ${(pilotState.forms || []).map((f) => `
+        <li class="fh-card static">
+          <strong>${escapeHtml(f.title)}</strong>
+          <span class="dc-badge">${f.status === "complete" ? "Complete" : "Needs action"}</span>
+          ${isParent && f.status !== "complete" ? `<button type="button" class="ghost-button" data-pilot-complete-form="${escapeHtml(f.id)}">Mark complete</button>` : ""}
+        </li>
+      `).join("") || "<li class=\"muted-copy\">No forms yet.</li>"}
+    </ul>
+  `;
+  mount.querySelector("[data-pilot-forms-child]")?.addEventListener("change", (event) => {
+    pilotState.selectedChildId = event.target.value;
+    loadPilotForms();
+  });
+  mount.querySelector("[data-pilot-add-form]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const title = new FormData(event.target).get("title");
+    try {
+      await pilotApi("POST", "/api/pilot/forms", { childId: pilotState.selectedChildId, title });
+      await pilotMarkChecklistItem("send_form");
+      await loadPilotForms();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotFormsPage();
+    }
+  });
+  mount.querySelectorAll("[data-pilot-complete-form]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      try {
+        await pilotApi("POST", "/api/pilot/forms/status", { formId: btn.getAttribute("data-pilot-complete-form"), status: "complete" });
+        await loadPilotForms();
+      } catch (error) {
+        pilotState.error = error.message;
+        renderPilotFormsPage();
+      }
+    });
+  });
+}
+
+// ---- Billing (simple fake tuition records) ---------------------------------
+
+async function loadPilotBilling() {
+  try {
+    if (pilotIsProviderNow() && !pilotState.children.length) {
+      pilotState.children = (await pilotApi("GET", "/api/pilot/children")).children || [];
+    }
+    if (!pilotState.selectedChildId && pilotState.children.length) pilotState.selectedChildId = pilotState.children[0].id;
+    const childId = pilotIsParentNow() ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+    if (childId) pilotState.billing = (await pilotApi("GET", `/api/pilot/billing?childId=${encodeURIComponent(childId)}`)).billing || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotBillingPage();
+}
+
+function renderPilotBillingPage() {
+  const mount = document.querySelector("#view-pilot-billing");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const isParent = pilotIsParentNow();
+  const childId = isParent ? (pilotState.parentHomeChildId || "") : pilotState.selectedChildId;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Billing</h2></div>
+    <p class="muted-copy">Fake tuition records only — testing simulation, never a real charge.</p>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${!isParent ? `
+      <label>Child<select data-pilot-billing-child>${pilotChildOptionsHtml(childId)}</select></label>
+      <form data-pilot-add-billing class="mini-form">
+        <input name="description" required placeholder="e.g. November tuition" />
+        <input name="amount" type="number" min="0" step="0.01" required placeholder="Amount ($)" />
+        <input name="dueDate" type="date" />
+        <button class="primary-button" type="submit">Add fake billing record</button>
+      </form>
+    ` : ""}
+    <ul class="fh-card-list">
+      ${(pilotState.billing || []).map((b) => `
+        <li class="fh-card static">
+          <strong>${escapeHtml(b.description)}</strong>
+          <span class="dc-badge">$${(b.amountCents / 100).toFixed(2)} · ${escapeHtml(b.status)}</span>
+          <span class="muted-copy">Due ${escapeHtml(b.dueDate || "—")}</span>
+        </li>
+      `).join("") || "<li class=\"muted-copy\">No fake billing records yet.</li>"}
+    </ul>
+  `;
+  mount.querySelector("[data-pilot-billing-child]")?.addEventListener("change", (event) => {
+    pilotState.selectedChildId = event.target.value;
+    loadPilotBilling();
+  });
+  mount.querySelector("[data-pilot-add-billing]")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = new FormData(event.target);
+    try {
+      await pilotApi("POST", "/api/pilot/billing", {
+        childId: pilotState.selectedChildId,
+        description: data.get("description"),
+        amountCents: Math.round(Number(data.get("amount")) * 100),
+        dueDate: data.get("dueDate"),
+      });
+      await pilotMarkChecklistItem("test_billing");
+      await loadPilotBilling();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotBillingPage();
+    }
+  });
+}
+
+// ---- Parent Home (aggregated) ----------------------------------------------
+
+async function loadPilotParentHome() {
+  try {
+    const optionsRes = await pilotApi("GET", "/api/external-tester/guardian-options");
+    pilotState.guardianOptions = optionsRes.options || [];
+    const home = await pilotApi("GET", "/api/pilot/parent-home");
+    pilotState.parentHome = home;
+    pilotState.parentHomeChildId = home.children?.[0]?.childId || "";
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotParentHomePage();
+}
+
+function renderPilotParentHomePage() {
+  const mount = document.querySelector("#view-pilot-parent-home");
+  if (!mount) return;
+  if (!pilotIsParentNow()) {
+    mount.innerHTML = `<div class="page-title"><h2>Home</h2></div><p class="muted-copy">Switch to Parent/Guardian to see this screen.</p>`;
+    return;
+  }
+  const options = pilotState.guardianOptions || [];
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot — Testing Account</p><h2>Home</h2></div>
+    ${pilotState.error ? `<p class="tf-error">${escapeHtml(pilotState.error)}</p>` : ""}
+    ${options.length > 1 ? `
+      <label>Viewing as guardian for
+        <select data-pilot-guardian-picker>
+          ${options.map((o) => `<option value="${escapeHtml(o.contactId)}" ${o.contactId === externalTesterSandboxState.account?.activePreviewContactId ? "selected" : ""}>${escapeHtml(o.displayName)} (${o.children.map((c) => c.childName).join(", ")})</option>`).join("")}
+        </select>
+      </label>
+    ` : ""}
+    ${(pilotState.parentHome?.children || []).map((c) => `
+      <section class="fh-card static" style="margin-bottom:16px;">
+        <h3>${escapeHtml(c.childName)}</h3>
+        ${c.todaysUpdate ? `<p><strong>Today's update:</strong> ${escapeHtml(c.todaysUpdate.title)} — ${escapeHtml(c.todaysUpdate.message)}</p>` : `<p class="muted-copy">No update yet today.</p>`}
+        <p><strong>Forms needing action:</strong> ${c.formsNeedingAction.length ? c.formsNeedingAction.map((f) => escapeHtml(f.title)).join(", ") : "None"}</p>
+        <p><strong>Unread messages:</strong> ${c.unreadMessageCount}</p>
+        ${c.isFinanciallyResponsible ? `<p><strong>Billing reminders:</strong> ${c.billingReminders.length ? c.billingReminders.map((b) => `${escapeHtml(b.description)} — $${(b.amountCents / 100).toFixed(2)}`).join(", ") : "None"}</p>` : ""}
+        ${(c.sharedPhotos || []).length ? `
+          <p><strong>Shared photos:</strong></p>
+          <div class="fh-photo-strip">
+            ${c.sharedPhotos.slice(0, 6).map((p) => `<img src="${p.dataUrl}" alt="${escapeHtml(p.caption || "Shared photo")}" class="fh-shared-photo" />`).join("")}
+          </div>
+        ` : ""}
+      </section>
+    `).join("") || "<p class=\"muted-copy\">No linked child yet — ask the provider to add one and link a guardian.</p>"}
+  `;
+  mount.querySelector("[data-pilot-guardian-picker]")?.addEventListener("change", async (event) => {
+    try {
+      await pilotApi("POST", "/api/external-tester/switch-role", { roleKey: "parent_guardian", previewContactId: event.target.value });
+      await captureCurrentBuildBaseline().catch(() => {});
+      location.reload();
+    } catch (error) {
+      pilotState.error = error.message;
+      renderPilotParentHomePage();
+    }
+  });
+}
+
+// ---- Checklist --------------------------------------------------------------
+
+async function loadPilotChecklist() {
+  try {
+    pilotState.checklist = (await pilotApi("GET", "/api/external-tester/checklist")).checklist || [];
+    pilotState.error = "";
+  } catch (error) {
+    pilotState.error = error.message;
+  }
+  renderPilotChecklistPage();
+}
+
+function renderPilotChecklistPage() {
+  const mount = document.querySelector("#view-pilot-checklist");
+  if (!mount) return;
+  if (!isHomeDaycarePilotAccount()) { mount.innerHTML = ""; return; }
+  const done = (pilotState.checklist || []).filter((i) => i.complete).length;
+  mount.innerHTML = `
+    <div class="page-title"><p class="eyebrow">Home Daycare Pilot</p><h2>Testing Checklist</h2></div>
+    <p class="muted-copy">${done} of ${pilotState.checklist.length} complete. Most items check themselves off as you use the app — you can also check any item manually.</p>
+    <ul class="fh-card-list">
+      ${(pilotState.checklist || []).map((item) => `
+        <li class="fh-card static">
+          <label class="tl-check">
+            <input type="checkbox" data-pilot-checklist-item="${escapeHtml(item.key)}" ${item.complete ? "checked" : ""} />
+            ${escapeHtml(item.label)}
+          </label>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+  mount.querySelectorAll("[data-pilot-checklist-item]").forEach((checkbox) => {
+    checkbox.addEventListener("change", async () => {
+      try {
+        await pilotApi("POST", "/api/external-tester/checklist", { itemKey: checkbox.getAttribute("data-pilot-checklist-item"), complete: checkbox.checked });
+        await loadPilotChecklist();
+      } catch (error) {
+        pilotState.error = error.message;
+        renderPilotChecklistPage();
+      }
+    });
+  });
+}
+
+// ---- Testing Feedback (testing-only, never production) --------------------
+// A floating "Send Testing Feedback" button available on every screen for a
+// logged-in fake-account tester (never a real account, never production —
+// the server enforces both, this client check only decides whether to show
+// the button at all). See scripts/testing-feedback-data-model.js and
+// server/testing-feedback-api.js.
+
+const TESTING_FEEDBACK_CATEGORIES = Object.freeze([
+  ["bug", "Bug"],
+  ["confusing_screen", "Confusing screen"],
+  ["missing_feature", "Missing feature"],
+  ["layout_problem", "Layout problem"],
+  ["ai_result", "AI result"],
+  ["suggestion", "Suggestion"],
+  ["other", "Other"],
+]);
+
+const testingFeedbackState = {
+  tab: "new",
+  category: "bug",
+  bodyText: "",
+  threads: [],
+  activeThreadId: "",
+  activeThread: null,
+  activeMessages: [],
+  replyText: "",
+  unreadCount: 0,
+  loading: false,
+  error: "",
+  notice: "",
+  pendingScreenshotDataUrl: "",
+  pendingScreenshotName: "",
+  screenshotWarningFile: null,
+};
+
+let testingFeedbackPollTimer = null;
+
+function isFakeAccountTester() {
+  return /@example\.invalid$/i.test(String(currentUser || "").trim());
+}
+
+function testingFeedbackAuthHeaders() {
+  const headers = { Accept: "application/json", "Content-Type": "application/json" };
+  const token = readMemberSessionToken();
+  if (token) headers.Authorization = `Bearer ${token}`;
+  else if (currentUser) headers.Authorization = `Bearer test:${currentUser}`;
+  return headers;
+}
+
+async function testingFeedbackApi(method, path, body) {
+  const response = await fetch(path, {
+    method,
+    headers: testingFeedbackAuthHeaders(),
+    cache: "no-store",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok || data.ok === false) throw new Error(data.error || `Request failed (${response.status})`);
+  return data;
+}
+
+function testingFeedbackDeviceBucket() {
+  const width = window.innerWidth || 0;
+  if (width < 600) return "phone";
+  if (width < 1100) return "tablet";
+  return "computer";
+}
+
+function testingFeedbackCurrentPage() {
+  return document.querySelector(".active-view")?.id?.replace("view-", "") || "unknown";
+}
+
+function testingFeedbackCurrentRole() {
+  const account = currentAccount();
+  return (account && (account.role || account.accountType)) || "";
+}
+
+async function refreshTestingFeedbackUnreadCount() {
+  if (!isFakeAccountTester()) return;
+  try {
+    const data = await testingFeedbackApi("GET", "/api/testing-feedback/unread-count");
+    testingFeedbackState.unreadCount = data.unreadCount || 0;
+    renderTestingFeedbackWidget();
+  } catch {
+    // A testing amenity — never surface an error banner just for a background poll.
+  }
+}
+
+function testingFeedbackStatusLabel(status) {
+  return { open: "Open", in_progress: "In progress", resolved: "Resolved", closed: "Closed" }[status] || status;
+}
+
+function testingFeedbackCategoryLabel(category) {
+  return (TESTING_FEEDBACK_CATEGORIES.find(([key]) => key === category) || [null, "Other"])[1];
+}
+
+function testingFeedbackNewFormHtml() {
+  return `
+    <form data-tf-new-form>
+      <label class="tf-field">
+        <span>What kind of feedback is this?</span>
+        <select data-tf-category>
+          ${TESTING_FEEDBACK_CATEGORIES.map(([key, label]) => `<option value="${key}" ${testingFeedbackState.category === key ? "selected" : ""}>${label}</option>`).join("")}
+        </select>
+      </label>
+      <label class="tf-field">
+        <span>Tell us what happened</span>
+        <textarea data-tf-new-body-input rows="4" placeholder="What screen were you on? What did you expect vs. what happened?">${escapeHtml(testingFeedbackState.bodyText || "")}</textarea>
+      </label>
+      <div class="tf-field tf-screenshot-field">
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" data-tf-screenshot-input hidden />
+        ${testingFeedbackState.pendingScreenshotDataUrl ? `
+          <div class="tf-screenshot-preview">
+            <img src="${escapeHtml(testingFeedbackState.pendingScreenshotDataUrl)}" alt="Attached screenshot preview" />
+            <button type="button" class="ghost-button" data-tf-remove-screenshot>Remove screenshot</button>
+          </div>
+        ` : `<button type="button" class="ghost-button" data-tf-attach-screenshot>Attach a screenshot (optional)</button>`}
+        ${testingFeedbackState.screenshotWarningFile ? `
+          <div class="tf-screenshot-warning" role="alertdialog" aria-label="Screenshot privacy warning">
+            <p><strong>Before you attach this:</strong> a screenshot shows exactly what was on your screen. Only attach it if you're sure it doesn't show anything private — a real child's name or photo, a password, or anything else you wouldn't want shared.</p>
+            <div class="tf-actions-row">
+              <button type="button" class="primary-button" data-tf-confirm-screenshot>It's safe — attach it</button>
+              <button type="button" class="ghost-button" data-tf-cancel-screenshot>Cancel</button>
+            </div>
+          </div>
+        ` : ""}
+      </div>
+      ${testingFeedbackState.error ? `<p class="tf-error">${escapeHtml(testingFeedbackState.error)}</p>` : ""}
+      ${testingFeedbackState.notice ? `<p class="tf-notice">${escapeHtml(testingFeedbackState.notice)}</p>` : ""}
+      <button type="submit" class="primary-button" ${testingFeedbackState.loading ? "disabled" : ""}>Send feedback</button>
+      <p class="tf-context-note">We'll automatically include the screen, device size, and your role so this is easy to look into.</p>
+    </form>
+  `;
+}
+
+function testingFeedbackThreadsListHtml() {
+  if (!testingFeedbackState.threads.length) {
+    return `<p class="tf-empty">You haven't sent any feedback yet — use "New Feedback" to start a thread.</p>`;
+  }
+  return `
+    <ul class="tf-thread-list">
+      ${testingFeedbackState.threads.map((thread) => `
+        <li>
+          <button type="button" class="tf-thread-row${thread.testerUnread ? " is-unread" : ""}" data-tf-open-thread="${escapeHtml(thread.id)}">
+            <span class="tf-thread-subject">${escapeHtml(thread.subject)}</span>
+            <span class="tf-thread-meta">
+              <span class="tf-chip">${escapeHtml(testingFeedbackCategoryLabel(thread.category))}</span>
+              <span class="tf-chip tf-chip--status">${escapeHtml(testingFeedbackStatusLabel(thread.status))}</span>
+              ${thread.retestRequested ? `<span class="tf-chip tf-chip--retest">Please retest</span>` : ""}
+              ${thread.testerUnread ? `<span class="tf-dot" aria-label="Unread reply"></span>` : ""}
+            </span>
+          </button>
+        </li>
+      `).join("")}
+    </ul>
+  `;
+}
+
+function testingFeedbackThreadDetailHtml() {
+  const thread = testingFeedbackState.activeThread;
+  if (!thread) return `<p class="tf-empty">Loading…</p>`;
+  return `
+    <button type="button" class="ghost-button tf-back" data-tf-back>← Back to my threads</button>
+    <h4 class="tf-thread-heading">${escapeHtml(thread.subject)}</h4>
+    <p class="tf-thread-status-row">
+      <span class="tf-chip">${escapeHtml(testingFeedbackCategoryLabel(thread.category))}</span>
+      <span class="tf-chip tf-chip--status">${escapeHtml(testingFeedbackStatusLabel(thread.status))}</span>
+      ${thread.retestRequested ? `<span class="tf-chip tf-chip--retest">Please retest and reply</span>` : ""}
+    </p>
+    <div class="tf-messages">
+      ${testingFeedbackState.activeMessages.map((message) => `
+        <div class="tf-message tf-message--${escapeHtml(message.senderType)}">
+          <span class="tf-message-sender">${message.senderType === "admin" ? "Leah" : "You"}</span>
+          <p>${escapeHtml(message.body)}</p>
+          ${message.screenshotDataUrl ? `<img class="tf-message-screenshot" src="${escapeHtml(message.screenshotDataUrl)}" alt="Attached screenshot" />` : ""}
+        </div>
+      `).join("")}
+    </div>
+    <form data-tf-reply-form>
+      <textarea data-tf-reply-text rows="3" placeholder="Reply…">${escapeHtml(testingFeedbackState.replyText || "")}</textarea>
+      ${testingFeedbackState.error ? `<p class="tf-error">${escapeHtml(testingFeedbackState.error)}</p>` : ""}
+      <button type="submit" class="primary-button" ${testingFeedbackState.loading ? "disabled" : ""}>Send reply</button>
+    </form>
+  `;
+}
+
+function testingFeedbackBodyHtml() {
+  if (testingFeedbackState.tab === "thread") return testingFeedbackThreadDetailHtml();
+  if (testingFeedbackState.tab === "threads") return testingFeedbackThreadsListHtml();
+  return testingFeedbackNewFormHtml();
+}
+
+function testingFeedbackWidgetShellHtml() {
+  return `
+    <div class="testing-feedback-widget" data-testing-feedback-widget>
+      <button type="button" class="testing-feedback-toggle" data-tf-toggle aria-label="Send Testing Feedback">
+        <span aria-hidden="true">💬</span><span class="tf-toggle-label">Testing Feedback</span>
+        <span class="testing-feedback-badge" data-tf-badge hidden>0</span>
+      </button>
+      <div class="testing-feedback-panel" data-tf-panel hidden role="dialog" aria-label="Testing feedback">
+        <div class="testing-feedback-panel-header">
+          <p class="tf-banner">Testing Account — Fake Data Only.</p>
+          <button type="button" class="ghost-button tf-close" data-tf-close aria-label="Close">×</button>
+        </div>
+        <nav class="testing-feedback-tabs">
+          <button type="button" class="ghost-button" data-tf-tab="new">New Feedback</button>
+          <button type="button" class="ghost-button" data-tf-tab="threads">My Threads</button>
+        </nav>
+        <div class="testing-feedback-panel-body" data-tf-body></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderTestingFeedbackWidget() {
+  const root = document.querySelector("[data-testing-feedback-widget]");
+  if (!root) return;
+  const badge = root.querySelector("[data-tf-badge]");
+  if (badge) {
+    badge.hidden = testingFeedbackState.unreadCount <= 0;
+    badge.textContent = testingFeedbackState.unreadCount > 99 ? "99+" : String(testingFeedbackState.unreadCount);
+  }
+  root.querySelectorAll("[data-tf-tab]").forEach((btn) => {
+    btn.classList.toggle("active", testingFeedbackState.tab === btn.getAttribute("data-tf-tab") || (testingFeedbackState.tab === "thread" && btn.getAttribute("data-tf-tab") === "threads"));
+  });
+  const body = root.querySelector("[data-tf-body]");
+  if (body) body.innerHTML = testingFeedbackBodyHtml();
+}
+
+async function openTestingFeedbackThread(threadId) {
+  testingFeedbackState.error = "";
+  testingFeedbackState.loading = true;
+  renderTestingFeedbackWidget();
+  try {
+    const data = await testingFeedbackApi("GET", `/api/testing-feedback/threads/${threadId}`);
+    testingFeedbackState.activeThreadId = threadId;
+    testingFeedbackState.activeThread = data.thread;
+    testingFeedbackState.activeMessages = data.messages || [];
+    testingFeedbackState.tab = "thread";
+    if (data.thread.testerUnread) {
+      await testingFeedbackApi("POST", `/api/testing-feedback/threads/${threadId}/read`, {});
+      testingFeedbackState.activeThread.testerUnread = false;
+    }
+  } catch (error) {
+    testingFeedbackState.error = error.message;
+  } finally {
+    testingFeedbackState.loading = false;
+    renderTestingFeedbackWidget();
+    refreshTestingFeedbackUnreadCount();
+  }
+}
+
+async function loadTestingFeedbackThreads() {
+  try {
+    const data = await testingFeedbackApi("GET", "/api/testing-feedback/threads");
+    testingFeedbackState.threads = data.threads || [];
+  } catch (error) {
+    testingFeedbackState.error = error.message;
+  }
+  renderTestingFeedbackWidget();
+}
+
+function bindTestingFeedbackWidgetEvents() {
+  const root = document.querySelector("[data-testing-feedback-widget]");
+  if (!root) return;
+
+  root.querySelector("[data-tf-toggle]")?.addEventListener("click", () => {
+    const panel = root.querySelector("[data-tf-panel]");
+    const nowOpen = panel.hidden;
+    panel.hidden = !nowOpen;
+    if (nowOpen && testingFeedbackState.tab === "threads") loadTestingFeedbackThreads();
+  });
+  root.querySelector("[data-tf-close]")?.addEventListener("click", () => {
+    const panel = root.querySelector("[data-tf-panel]");
+    if (panel) panel.hidden = true;
+  });
+  root.querySelectorAll("[data-tf-tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const tab = btn.getAttribute("data-tf-tab");
+      testingFeedbackState.tab = tab;
+      testingFeedbackState.error = "";
+      testingFeedbackState.notice = "";
+      renderTestingFeedbackWidget();
+      if (tab === "threads") loadTestingFeedbackThreads();
+    });
+  });
+
+  const body = root.querySelector("[data-tf-body]");
+  body?.addEventListener("submit", async (event) => {
+    if (event.target.matches("[data-tf-new-form]")) {
+      event.preventDefault();
+      const text = String(root.querySelector("[data-tf-new-body-input]")?.value || "").trim();
+      if (!text) {
+        testingFeedbackState.error = "Please describe what you want to share before sending.";
+        renderTestingFeedbackWidget();
+        return;
+      }
+      testingFeedbackState.loading = true;
+      testingFeedbackState.error = "";
+      renderTestingFeedbackWidget();
+      try {
+        await testingFeedbackApi("POST", "/api/testing-feedback/threads", {
+          category: testingFeedbackState.category,
+          body: text,
+          screenshotDataUrl: testingFeedbackState.pendingScreenshotDataUrl || "",
+          context: {
+            page: testingFeedbackCurrentPage(),
+            device: testingFeedbackDeviceBucket(),
+            role: testingFeedbackCurrentRole(),
+          },
+        });
+        testingFeedbackState.bodyText = "";
+        testingFeedbackState.pendingScreenshotDataUrl = "";
+        testingFeedbackState.pendingScreenshotName = "";
+        testingFeedbackState.notice = "Sent — thank you! You'll see a reply here, in My Threads.";
+      } catch (error) {
+        testingFeedbackState.error = error.message;
+      } finally {
+        testingFeedbackState.loading = false;
+        renderTestingFeedbackWidget();
+      }
+    } else if (event.target.matches("[data-tf-reply-form]")) {
+      event.preventDefault();
+      const text = String(root.querySelector("[data-tf-reply-text]")?.value || "").trim();
+      if (!text || !testingFeedbackState.activeThreadId) return;
+      testingFeedbackState.loading = true;
+      renderTestingFeedbackWidget();
+      try {
+        const data = await testingFeedbackApi("POST", `/api/testing-feedback/threads/${testingFeedbackState.activeThreadId}/messages`, { body: text });
+        testingFeedbackState.activeThread = data.thread;
+        testingFeedbackState.activeMessages = [...testingFeedbackState.activeMessages, data.message];
+        testingFeedbackState.replyText = "";
+      } catch (error) {
+        testingFeedbackState.error = error.message;
+      } finally {
+        testingFeedbackState.loading = false;
+        renderTestingFeedbackWidget();
+      }
+    }
+  });
+
+  body?.addEventListener("click", (event) => {
+    const openBtn = event.target.closest("[data-tf-open-thread]");
+    if (openBtn) {
+      openTestingFeedbackThread(openBtn.getAttribute("data-tf-open-thread"));
+      return;
+    }
+    if (event.target.closest("[data-tf-back]")) {
+      testingFeedbackState.tab = "threads";
+      testingFeedbackState.activeThreadId = "";
+      testingFeedbackState.activeThread = null;
+      testingFeedbackState.error = "";
+      renderTestingFeedbackWidget();
+      loadTestingFeedbackThreads();
+    }
+  });
+
+  body?.addEventListener("change", (event) => {
+    if (event.target.matches("[data-tf-category]")) {
+      testingFeedbackState.category = event.target.value;
+      return;
+    }
+    // Delegated (not bound directly to the file input) because the input
+    // element itself is recreated on every re-render along with the rest of
+    // this panel's innerHTML — a direct listener would silently stop working
+    // after the very first re-render (e.g. switching category, or the
+    // background unread-count poll).
+    if (event.target.matches("[data-tf-screenshot-input]")) {
+      const file = event.target.files && event.target.files[0];
+      event.target.value = ""; // allow re-selecting the same file later
+      if (!file) return;
+      if (!/^image\//.test(file.type)) {
+        testingFeedbackState.error = "Please choose an image file.";
+        renderTestingFeedbackWidget();
+        return;
+      }
+      // Never attach silently — always show the privacy warning first and
+      // wait for an explicit confirmation click before reading/attaching it.
+      testingFeedbackState.screenshotWarningFile = file;
+      renderTestingFeedbackWidget();
+    }
+  });
+  // Keep the in-progress draft in sync on every keystroke — this widget's
+  // background unread-count poll (every 30s) re-renders the whole panel body,
+  // and without this, anything typed for longer than 30 seconds would be
+  // silently wiped out the moment that poll's render() call replaced the
+  // textarea's innerHTML with the stale (empty) saved draft.
+  body?.addEventListener("input", (event) => {
+    if (event.target.matches("[data-tf-new-body-input]")) {
+      testingFeedbackState.bodyText = event.target.value;
+    } else if (event.target.matches("[data-tf-reply-text]")) {
+      testingFeedbackState.replyText = event.target.value;
+    }
+  });
+
+  body?.addEventListener("click", (event) => {
+    if (event.target.closest("[data-tf-attach-screenshot]")) {
+      root.querySelector("[data-tf-screenshot-input]")?.click();
+      return;
+    }
+    if (event.target.closest("[data-tf-remove-screenshot]")) {
+      testingFeedbackState.pendingScreenshotDataUrl = "";
+      testingFeedbackState.pendingScreenshotName = "";
+      renderTestingFeedbackWidget();
+      return;
+    }
+    if (event.target.closest("[data-tf-cancel-screenshot]")) {
+      testingFeedbackState.screenshotWarningFile = null;
+      renderTestingFeedbackWidget();
+      return;
+    }
+    if (event.target.closest("[data-tf-confirm-screenshot]")) {
+      const file = testingFeedbackState.screenshotWarningFile;
+      testingFeedbackState.screenshotWarningFile = null;
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result || "");
+          if (dataUrl.length > 900000) {
+            testingFeedbackState.error = "That image is too large to attach — try a smaller screenshot or crop it first.";
+          } else {
+            testingFeedbackState.pendingScreenshotDataUrl = dataUrl;
+            testingFeedbackState.pendingScreenshotName = file.name || "screenshot";
+            testingFeedbackState.error = "";
+          }
+          renderTestingFeedbackWidget();
+        };
+        reader.onerror = () => {
+          testingFeedbackState.error = "Could not read that image — try a different file.";
+          renderTestingFeedbackWidget();
+        };
+        reader.readAsDataURL(file);
+      }
+      renderTestingFeedbackWidget();
+    }
+  });
+}
+
+function refreshTestingFeedbackWidget() {
+  const existing = document.querySelector("[data-testing-feedback-widget]");
+  if (!isFakeAccountTester()) {
+    existing?.remove();
+    if (testingFeedbackPollTimer) {
+      clearInterval(testingFeedbackPollTimer);
+      testingFeedbackPollTimer = null;
+    }
+    return;
+  }
+  if (!existing) {
+    document.body.insertAdjacentHTML("beforeend", testingFeedbackWidgetShellHtml());
+    bindTestingFeedbackWidgetEvents();
+  }
+  renderTestingFeedbackWidget();
+  refreshTestingFeedbackUnreadCount();
+  if (!testingFeedbackPollTimer) {
+    testingFeedbackPollTimer = setInterval(refreshTestingFeedbackUnreadCount, 30000);
+  }
 }
 
 function stopAdminImpersonation({ refresh = true } = {}) {
@@ -35769,6 +38418,19 @@ function setAdminSession(sessionDetail) {
   localStorage.setItem("llhAdminSession", JSON.stringify(session));
   localStorage.setItem("llhAdminUnlocked", "true");
   localStorage.setItem("llhAdminRememberEmail", session.email);
+  // Phase 23 fix: billing-simulator-ui.js, classroom-assistant-ui.js, enrollment-ui.js,
+  // family-messaging-ui.js, family-updates-ui.js, licensing-center-ui.js,
+  // provider-productivity-ui.js, records-center-ui.js, staff-experience-ui.js,
+  // testing-lab-ui.js, and today-hub-ui.js all read their own admin bearer token from
+  // this flat "llhAdminToken" key instead of adminSession().token — a real admin who
+  // unlocked Admin normally and opened any of those Director Center tabs got an
+  // unauthenticated 403 on first load (this key was only ever set by test/screenshot
+  // scripts as a workaround, never by the real login flow). Mirror it here so every
+  // admin-preview module authenticates correctly without a broad per-file rewrite.
+  if (session.token) {
+    localStorage.setItem("llhAdminToken", session.token);
+    sessionStorage.setItem("llhAdminToken", session.token);
+  }
   if (session.trustedDevice) rememberAdminDevice();
   else clearRememberedAdminDevice();
   adminSessionInvalidOnServer = false;
@@ -35792,9 +38454,19 @@ function clearAdminSession(options = {}) {
   adminImpersonationState = null;
   document.body.classList.remove("admin-impersonating");
   delete document.body.dataset.adminImpersonation;
+  // Phase 22: Classroom Assistant offline queues are private, unsynced classroom
+  // notes — logout must not leave them sitting in localStorage for the next
+  // person who signs into this browser/device to stumble onto.
+  try {
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith("llh-ca-offline-queue::"))
+      .forEach((key) => localStorage.removeItem(key));
+  } catch { /* storage unavailable */ }
   localStorage.removeItem("llhAdminSession");
   localStorage.removeItem("llhAdminUnlocked");
   localStorage.removeItem("llhAdminPreviewMode");
+  localStorage.removeItem("llhAdminToken");
+  sessionStorage.removeItem("llhAdminToken");
   // Explicit Lock Admin forgets this browser; re-unlock / expired-session flows keep the nav link.
   if (options.forgetDevice) clearRememberedAdminDevice();
   adminSessionInvalidOnServer = false;
@@ -37116,10 +39788,13 @@ function renderAdminOwnerOverview() {
     .sort((a, b) => new Date(b.updatedAt || b.lastSeenAt || b.createdAt || 0) - new Date(a.updatedAt || a.lastSeenAt || a.createdAt || 0))
     .slice(0, 8);
   const recentEvents = (adminAnalyticsCache?.recentEvents || analyticsEvents()).slice(0, 8);
+  const isTestingHostForAnalyticsNote = typeof isProductionHostClient === "function" && !isProductionHostClient();
   const loadingNote = adminAnalyticsCache
-    ? "Live production data from the server store + Stripe membership fields. Tap any metric card to drill into the users behind it."
+    ? (isTestingHostForAnalyticsNote
+      ? "Testing database loaded — fake data only. Tap any metric card to drill into the fake accounts behind it."
+      : "Live production data from the server store + Stripe membership fields. Tap any metric card to drill into the users behind it.")
     : (adminAnalyticsLoading
-      ? "Loading live production data…"
+      ? (isTestingHostForAnalyticsNote ? "Loading testing database — fake data only…" : "Loading live production data…")
       : (adminAnalyticsLastError
         ? `Server analytics failed to load: ${adminAnalyticsLastError}`
         : "Server analytics not loaded yet. Unlock Admin on production or click Refresh Data."));
@@ -37135,7 +39810,8 @@ function renderAdminOwnerOverview() {
       </div>
       <div class="account-actions-row">
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
-          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>
+             <button class="primary-button" type="button" data-admin-open-classroom-assistant>Open Classroom Assistant</button>`
           : ""}
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
           ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
@@ -37152,7 +39828,7 @@ function renderAdminOwnerOverview() {
     ${renderAdminQuickActionsBar()}
     ${adminAnalyticsLoading && !adminAnalyticsCache ? `
       <div class="admin-analytics-state is-loading" role="status" data-admin-analytics-state="loading">
-        <p><strong>Loading live production data…</strong></p>
+        <p><strong>${(typeof isProductionHostClient === "function" && !isProductionHostClient()) ? "Loading testing database — fake data only…" : "Loading live production data…"}</strong></p>
         <p class="muted-copy">This usually finishes in a few seconds. If it stalls, use Retry.</p>
       </div>
     ` : ""}
@@ -37167,7 +39843,7 @@ function renderAdminOwnerOverview() {
     ` : ""}
     ${adminAnalyticsCache && !adminAnalyticsLoading ? `
       <div class="admin-analytics-state is-success" role="status" data-admin-analytics-state="success">
-        <p><strong>Live production data loaded.</strong></p>
+        <p><strong>${(typeof isProductionHostClient === "function" && !isProductionHostClient()) ? "Testing database loaded — fake data only." : "Live production data loaded."}</strong></p>
       </div>
     ` : ""}
     <div class="admin-preview-panel">
@@ -37571,7 +40247,8 @@ function renderAdminAccessShell() {
       </div>
       <div class="admin-unlocked-actions">
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("directorCenter")
-          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>`
+          ? `<button class="primary-button" type="button" data-admin-open-director-center>Open Director Center Preview</button>
+             <button class="primary-button" type="button" data-admin-open-classroom-assistant>Open Classroom Assistant</button>`
           : ""}
         ${typeof isExpansionFeatureEnabled === "function" && isExpansionFeatureEnabled("formsCenter")
           ? `<button class="primary-button" type="button" data-admin-open-forms-center>Open Forms Center Preview</button>`
@@ -48049,14 +50726,67 @@ function showSearchResults() {
 }
 
 document.addEventListener("click", async (event) => {
+  // Checked FIRST, before anything else in this handler (including
+  // analytics tracking below) — the preview escape hatch must never be
+  // blockable by an unrelated exception or slow call earlier in this same
+  // delegated handler.
+  if (event.target.closest("[data-top-nav-exit-preview]")) {
+    event.preventDefault();
+    exitAllPreviewModes();
+    return;
+  }
+
+  if (event.target.closest("[data-stale-build-reload]")) {
+    event.preventDefault();
+    reloadToLatestBuild();
+    return;
+  }
+  if (event.target.closest("[data-stale-build-dismiss]")) {
+    event.preventDefault();
+    staleBuildState.dismissed = true;
+    hideStaleBuildBanner();
+    return;
+  }
+
+  const sandboxSwitchBtn = event.target.closest("[data-sandbox-switch-role]");
+  if (sandboxSwitchBtn) {
+    event.preventDefault();
+    openSandboxRolePicker();
+    return;
+  }
+  if (event.target.closest("[data-sandbox-close-picker]") || event.target.id === "sandboxRolePickerModal") {
+    event.preventDefault();
+    closeSandboxRolePicker();
+    return;
+  }
+  const sandboxReturnHomeBtn = event.target.closest("[data-sandbox-return-home]");
+  if (sandboxReturnHomeBtn) {
+    event.preventDefault();
+    returnToTesterHome();
+    return;
+  }
+  const sandboxRoleOption = event.target.closest("[data-sandbox-role-option]");
+  if (sandboxRoleOption) {
+    event.preventDefault();
+    switchSandboxRole(sandboxRoleOption.getAttribute("data-sandbox-role-option"));
+    return;
+  }
+
   const clickedButton = event.target.closest("button");
   if (clickedButton && !clickedButton.closest("#adminProtectedContent")) {
-    trackEvent("button_click", {
-      label: (clickedButton.textContent || clickedButton.getAttribute("aria-label") || "Button").replace(/\s+/g, " ").trim(),
-      view: clickedButton.dataset.view || "",
-      checkoutPlan: clickedButton.dataset.checkoutPlan || "",
-      action: clickedButton.id || clickedButton.dataset.view || clickedButton.dataset.checkoutPlan || clickedButton.dataset.proFeature || "button",
-    });
+    try {
+      trackEvent("button_click", {
+        label: (clickedButton.textContent || clickedButton.getAttribute("aria-label") || "Button").replace(/\s+/g, " ").trim(),
+        view: clickedButton.dataset.view || "",
+        checkoutPlan: clickedButton.dataset.checkoutPlan || "",
+        action: clickedButton.id || clickedButton.dataset.view || clickedButton.dataset.checkoutPlan || clickedButton.dataset.proFeature || "button",
+      });
+    } catch (error) {
+      // Analytics must never be able to silently break every OTHER click
+      // handled later in this same delegated listener (this is exactly how
+      // the admin preview escape hatch was found to be unreliable).
+      console.warn("[analytics] button_click tracking failed:", error?.message || error);
+    }
   }
 
   const adminMetricButton = event.target.closest("[data-admin-metric]");
@@ -49312,6 +52042,276 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  // ─── Fast Daily Logs handlers (testing accounts only) ─────────────────────
+
+  const fastDlcOpenBtn = event.target.closest("[data-fast-dlc-open-sheet]");
+  if (fastDlcOpenBtn) {
+    event.preventDefault();
+    fastDlcOpenChildId = fastDlcOpenBtn.getAttribute("data-fast-dlc-open-sheet") || "";
+    fastDlcSheetView = "actions";
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcCloseBtn = event.target.closest("[data-fast-dlc-close-sheet]");
+  if (fastDlcCloseBtn) {
+    event.preventDefault();
+    fastDlcOpenChildId = "";
+    fastDlcSheetView = "actions";
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcShowBtn = event.target.closest("[data-fast-dlc-show]");
+  if (fastDlcShowBtn) {
+    event.preventDefault();
+    fastDlcSheetView = fastDlcShowBtn.getAttribute("data-fast-dlc-show") || "actions";
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGenerateBtn = event.target.closest("[data-fast-dlc-generate-summary]");
+  if (fastDlcGenerateBtn) {
+    event.preventDefault();
+    const childId = fastDlcGenerateBtn.getAttribute("data-fast-dlc-generate-summary");
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === childId);
+    if (!child) return;
+    const today = dlcActiveDate();
+    const text = buildDailyLogParentSummary(child, records, today);
+    setDailyLogParentSummaryDraft(childId, today, text);
+    const textarea = document.querySelector(`[data-dlc-summary-input="${childId}"]`);
+    if (textarea) textarea.value = text;
+    return;
+  }
+
+  const fastDlcSaveNoteBtn = event.target.closest("[data-fast-dlc-save-note]");
+  if (fastDlcSaveNoteBtn) {
+    event.preventDefault();
+    const actionId = fastDlcSaveNoteBtn.getAttribute("data-fast-dlc-save-note") || "";
+    const childId = fastDlcSaveNoteBtn.getAttribute("data-fast-dlc-save-child") || "";
+    if (!actionId || !childId) return;
+    const noteInput = document.querySelector(`[data-fast-dlc-note-input="${actionId}"]`);
+    const note = noteInput ? noteInput.value.trim() : "";
+    const noteStoreKeys = { observation: "Observations", incident: "Communications", "behavior-note": "Communications", milestone: "Communications", "parent-message": "Communications", activity: "ActivityLogs", photo: "Photos" };
+    const noteLabels = { observation: "Observation", incident: "Incident Report", "behavior-note": "Behavior Note", milestone: "Milestone", "parent-message": "Parent Message", activity: "Activity", photo: "Photo" };
+    // A brief "Saved" confirmation right on the button, since this UI is
+    // meant to feel fast — the teacher taps Save and is instantly back to
+    // Quick Actions, never a page navigation.
+    if (actionId === "photo") {
+      const fileInput = document.querySelector(`[data-fast-dlc-photo-input="${childId}"]`);
+      const file = fileInput?.files?.[0] || null;
+      Promise.resolve(file ? fileToDataUrl(file) : "").then((src) => {
+        fastDlcSheetView = "timeline";
+        saveDailyLogQuickAction("photo", childId, { date: dlcActiveDate(), note, src });
+        fastDlcRecordLastAction("photo", childId);
+        fastDlcSaveNoteDraft(childId, "photo", "");
+        fastDlcBridgePhotoToPilotIfApplicable(childId, note, src);
+      });
+      return;
+    }
+    fastDlcSheetView = actionId === "parent-message" ? "timeline" : "actions";
+    saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate(), note });
+    fastDlcSaveNoteDraft(childId, actionId, "");
+    const storeKey = noteStoreKeys[actionId];
+    if (storeKey) {
+      const items = childStore(storeKey);
+      const last = items[items.length - 1];
+      if (last && last.childId === childId) {
+        fastDlcLastAction = { childId, storeKey, recordId: last.id, label: noteLabels[actionId] || actionId, timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now" };
+      }
+    }
+    return;
+  }
+
+  const fastDlcUndoBtn = event.target.closest("[data-fast-dlc-undo]");
+  if (fastDlcUndoBtn) {
+    event.preventDefault();
+    const storeKey = fastDlcUndoBtn.getAttribute("data-fast-dlc-undo") || "";
+    const recordId = fastDlcUndoBtn.getAttribute("data-fast-dlc-undo-record") || "";
+    undoChildRecord(storeKey, recordId);
+    fastDlcLastAction = null;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcEditEntryBtn = event.target.closest("[data-fast-dlc-edit-entry]");
+  if (fastDlcEditEntryBtn) {
+    event.preventDefault();
+    fastDlcEditingRecord = {
+      storeKey: fastDlcEditEntryBtn.getAttribute("data-fast-dlc-edit-entry") || "",
+      recordId: fastDlcEditEntryBtn.getAttribute("data-fast-dlc-edit-record") || "",
+    };
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcCancelEditBtn = event.target.closest("[data-fast-dlc-cancel-edit]");
+  if (fastDlcCancelEditBtn) {
+    event.preventDefault();
+    fastDlcEditingRecord = null;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcSaveCorrectionBtn = event.target.closest("[data-fast-dlc-save-correction]");
+  if (fastDlcSaveCorrectionBtn) {
+    event.preventDefault();
+    const storeKey = fastDlcSaveCorrectionBtn.getAttribute("data-fast-dlc-save-correction") || "";
+    const recordId = fastDlcSaveCorrectionBtn.getAttribute("data-fast-dlc-correction-record") || "";
+    const wrap = fastDlcSaveCorrectionBtn.closest(".fdlc-timeline-text-wrap") || document;
+    const time = wrap.querySelector("[data-fast-dlc-correction-time]")?.value || "";
+    const notes = wrap.querySelector("[data-fast-dlc-correction-notes]")?.value || "";
+    const enteredLate = wrap.querySelector("[data-fast-dlc-correction-late]")?.checked || false;
+    const reason = wrap.querySelector("[data-fast-dlc-correction-reason]")?.value || "";
+    // Every store names its "detail" text field differently — the timeline
+    // reads a different field per store, so the correction must write to
+    // that SAME field for the edit to actually show up.
+    const notesFieldByStore = { Observations: "text", Communications: "summary", Diapers: "notes", ActivityLogs: "notes", Naps: "notes", Meals: "notes", Photos: "caption", Attendance: "summary" };
+    const result = applyChildRecordCorrection(storeKey, recordId, { time, notes, notesField: notesFieldByStore[storeKey] || "notes", reason, enteredLate });
+    if (!result.ok) {
+      showActionFeedback(result.error || "Could not save correction.");
+      return;
+    }
+    fastDlcEditingRecord = null;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcPrintTimelineBtn = event.target.closest("[data-fast-dlc-print-timeline]");
+  if (fastDlcPrintTimelineBtn) {
+    event.preventDefault();
+    const childId = fastDlcPrintTimelineBtn.getAttribute("data-fast-dlc-print-timeline") || "";
+    const records = childRecords();
+    const child = records.children.find((c) => c.id === childId);
+    if (!child) return;
+    const today = dlcActiveDate();
+    const entries = buildDailyLogTimelineEntries(child, records, today);
+    const lines = entries.map((e) => `${e.displayTime} — ${e.title}${e.detail ? `: ${e.detail}` : ""}`);
+    printTextDocument(`Daily Report — ${escapeHtml(child.name)} — ${today}`, lines.join("\n"));
+    return;
+  }
+
+  const fastDlcPrintSummaryBtn = event.target.closest("[data-fast-dlc-print-summary]");
+  if (fastDlcPrintSummaryBtn) {
+    event.preventDefault();
+    const childId = fastDlcPrintSummaryBtn.getAttribute("data-fast-dlc-print-summary") || "";
+    const records = childRecords();
+    const child = records.children.find((c) => c.id === childId);
+    if (!child) return;
+    const today = dlcActiveDate();
+    const textarea = document.querySelector(`[data-dlc-summary-input="${childId}"]`);
+    const summaryText = textarea?.value || getDailyLogParentSummaryDraft(child, records, today);
+    printTextDocument(`Parent Summary — ${escapeHtml(child.name)} — ${today}`, summaryText);
+    return;
+  }
+
+  // ─── Group Logging (Section 1) ────────────────────────────────────────────
+
+  const fastDlcOpenGroupLogBtn = event.target.closest("[data-fast-dlc-open-group-log]");
+  if (fastDlcOpenGroupLogBtn) {
+    event.preventDefault();
+    fastDlcGroupLogOpen = true;
+    fastDlcGroupLogStep = "type";
+    fastDlcGroupLogType = "";
+    fastDlcGroupLogSelectedChildIds = [];
+    fastDlcGroupLogSharedNote = "";
+    fastDlcGroupLogExceptions = {};
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcCloseGroupLogBtn = event.target.closest("[data-fast-dlc-close-group-log]");
+  if (fastDlcCloseGroupLogBtn) {
+    event.preventDefault();
+    fastDlcGroupLogOpen = false;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupTypeBtn = event.target.closest("[data-fast-dlc-group-type]");
+  if (fastDlcGroupTypeBtn) {
+    event.preventDefault();
+    fastDlcGroupLogType = fastDlcGroupTypeBtn.getAttribute("data-fast-dlc-group-type") || "";
+    fastDlcGroupLogStep = "children";
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupStepBtn = event.target.closest("[data-fast-dlc-group-step]");
+  if (fastDlcGroupStepBtn) {
+    event.preventDefault();
+    const nextStep = fastDlcGroupStepBtn.getAttribute("data-fast-dlc-group-step") || "type";
+    // Read free-text fields from the DOM right before leaving the
+    // "details" step — avoids re-rendering (and losing focus/cursor
+    // position) on every keystroke while the teacher is typing.
+    if (nextStep === "preview") {
+      const sharedNoteInput = document.querySelector("[data-fast-dlc-group-shared-note]");
+      if (sharedNoteInput) fastDlcGroupLogSharedNote = sharedNoteInput.value.trim();
+      document.querySelectorAll("[data-fast-dlc-group-exception-note]").forEach((input) => {
+        const childId = input.getAttribute("data-fast-dlc-group-exception-note");
+        const existing = fastDlcGroupLogExceptions[childId] || {};
+        fastDlcGroupLogExceptions[childId] = { ...existing, note: input.value.trim() };
+      });
+    }
+    fastDlcGroupLogStep = nextStep;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupConfirmBtn = event.target.closest("[data-fast-dlc-group-confirm]");
+  if (fastDlcGroupConfirmBtn) {
+    event.preventDefault();
+    const groupLogId = `grouplog-${Date.now()}`;
+    const includedChildIds = fastDlcGroupLogSelectedChildIds.filter((id) => !fastDlcGroupLogExceptions[id]?.excluded);
+    const groupTypeMeta = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+    const groupActionIdMap = {
+      "attendance-in": ["check-in", "Attendance"], "attendance-out": ["check-out", "Attendance"],
+      meal: ["meal", "Meals"], bottle: ["bottle", "Meals"],
+      "nap-started": ["nap-started", "Naps"], "nap-ended": ["nap-ended", "Naps"],
+      diaper: ["diaper", "Diapers"], activity: ["activity", "ActivityLogs"], update: ["daily-log", "Communications"],
+    };
+    const [mappedActionId, mappedStoreKey] = groupActionIdMap[fastDlcGroupLogType] || [];
+    includedChildIds.forEach((childId) => {
+      if (!mappedActionId) return;
+      const exceptionNote = fastDlcGroupLogExceptions[childId]?.note || "";
+      const combinedNote = [fastDlcGroupLogSharedNote, exceptionNote].filter(Boolean).join(" — ");
+      saveDailyLogQuickAction(mappedActionId, childId, { date: dlcActiveDate(), note: combinedNote });
+      // Tag the just-created record with the shared groupLogId for audit
+      // (appendChildRecord's write is synchronous, so this always finds
+      // the record just written for THIS child before the next iteration).
+      const items = childStore(mappedStoreKey);
+      const last = items[items.length - 1];
+      if (last && last.childId === childId && !last.groupLogId) {
+        saveChildStore(mappedStoreKey, items.map((item) => (item.id === last.id ? { ...item, groupLogId, groupLogType: fastDlcGroupLogType } : item)));
+      }
+    });
+    showActionFeedback(`Logged "${groupTypeMeta?.label || fastDlcGroupLogType}" for ${includedChildIds.length} child${includedChildIds.length === 1 ? "" : "ren"}.`);
+    fastDlcGroupLogOpen = false;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupChildCheck = event.target.closest("[data-fast-dlc-group-child-check]");
+  if (fastDlcGroupChildCheck && event.type === "click") {
+    const value = fastDlcGroupChildCheck.value;
+    if (fastDlcGroupChildCheck.checked) {
+      if (!fastDlcGroupLogSelectedChildIds.includes(value)) fastDlcGroupLogSelectedChildIds = [...fastDlcGroupLogSelectedChildIds, value];
+    } else {
+      fastDlcGroupLogSelectedChildIds = fastDlcGroupLogSelectedChildIds.filter((id) => id !== value);
+    }
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupExceptionIncluded = event.target.closest("[data-fast-dlc-group-exception-included]");
+  if (fastDlcGroupExceptionIncluded && event.type === "click") {
+    const childId = fastDlcGroupExceptionIncluded.getAttribute("data-fast-dlc-group-exception-included");
+    const existing = fastDlcGroupLogExceptions[childId] || {};
+    fastDlcGroupLogExceptions = { ...fastDlcGroupLogExceptions, [childId]: { ...existing, excluded: !fastDlcGroupExceptionIncluded.checked } };
+    return;
+  }
+
   // ─── Daily Logs Center handlers ───────────────────────────────────────────
 
   // Dashboard date picker
@@ -49445,6 +52445,21 @@ document.addEventListener("click", async (event) => {
     const actionId = dlcQuickActionBtn.dataset.dlcQuickAction || "";
     const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
     if (!actionId || !childId) return;
+    // Accidental Tap Recovery (fast Daily Logs only — data-fast-dlc-onetap
+    // is never present on the classic UI's identical buttons): a second
+    // tap of the SAME one-tap action for the SAME child within the
+    // cooldown window is treated as a double-tap/retry, not a second real
+    // event — it's silently ignored rather than creating a duplicate record.
+    const oneTapKey = dlcQuickActionBtn.dataset.fastDlcOnetap || "";
+    if (oneTapKey) {
+      const dedupeKey = `${childId}:${oneTapKey}`;
+      const now = Date.now();
+      if (fastDlcRecentActionAt[dedupeKey] && now - fastDlcRecentActionAt[dedupeKey] < FAST_DLC_DUPLICATE_COOLDOWN_MS) {
+        showActionFeedback("Already logged — tap Undo above if this was a mistake.");
+        return;
+      }
+      fastDlcRecentActionAt[dedupeKey] = now;
+    }
     const afterTab = dlcQuickActionBtn.dataset.dlcAfterTab || "";
     const formOnlyActions = new Set(["meal", "nap", "diaper", "activity", "photo", "observation", "incident", "parent-message", "daily-log"]);
     const isAttendance = ["check-in", "check-out", "absent"].includes(actionId);
@@ -49455,6 +52470,7 @@ document.addEventListener("click", async (event) => {
         childId,
         date: dlcActiveDate(),
       });
+      if (oneTapKey) fastDlcRecordLastAction(oneTapKey, childId);
     }
     if (afterTab && !isAttendance) {
       selectedChildId = childId;
@@ -51895,6 +54911,13 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openClassroomAssistant = event.target.closest("[data-admin-open-classroom-assistant]");
+  if (openClassroomAssistant) {
+    event.preventDefault();
+    if (typeof setView === "function") setView("classroom-assistant");
+    return;
+  }
+
   const openFormsCenter = event.target.closest("[data-admin-open-forms-center]");
   if (openFormsCenter) {
     event.preventDefault();
@@ -53602,6 +56625,21 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     const result = await loginWithProvider(email, password);
     loadAccountState(result.email);
     markAccountLogin(result.email);
+    // Phase 23: testing-only guardian fake accounts land in Family Hub, never the
+    // provider sidebar/Today dashboard — checked before the forced-password-change
+    // gate so a guardian's temp password still routes correctly on first login.
+    // Refresh expansion flags first: the member session token this login just wrote
+    // is what canAccessFamilyHub is keyed on server-side, so the pre-login cached
+    // value (always false, no session yet) cannot be trusted here.
+    if (result.familyHubGuardian) {
+      await loadExpansionFeatureFlagsFromBackend().catch(() => {});
+      if (isExpansionFeatureEnabled("familyHub")) {
+        closeAuthModal();
+        setView("family-hub");
+        trackEvent("account_login_complete", { email: result.email, plan: currentPlan, familyHubGuardian: true });
+        return;
+      }
+    }
     // Forced password change must win immediately. Do not let profile/subscription
     // sync failures surface as "login failed" after a successful temp-password auth.
     if (result.mustChangePassword || accountRequiresPasswordChange()) {
@@ -53641,7 +56679,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     const returnView = pendingAuthReturnView
       && canOpenViewForCurrentAccess(pendingAuthReturnView)
       ? pendingAuthReturnView
-      : "calendar";
+      : defaultLoggedInLandingView();
     pendingAuthReturnView = "";
     setView(returnView, { fromAuthLanding: true });
   } catch (error) {
@@ -53667,7 +56705,7 @@ document.querySelector("#forcePasswordForm")?.addEventListener("submit", async (
     const returnView = pendingAuthReturnView
       && canOpenViewForCurrentAccess(pendingAuthReturnView)
       ? pendingAuthReturnView
-      : "calendar";
+      : defaultLoggedInLandingView();
     pendingAuthReturnView = "";
     setView(returnView, { fromAuthLanding: true });
   } catch (error) {
@@ -53696,6 +56734,9 @@ document.addEventListener("submit", async (event) => {
     const trustDevice = form.get("trustDevice") !== null;
     const session = await adminLogin(email, password, code);
     setAdminSession({ ...session, trustedDevice: trustDevice });
+    // Paint Admin shell/nav immediately so unlock is usable before slower site-content/analytics loads.
+    if (typeof renderAdminAccessShell === "function") renderAdminAccessShell();
+    if (typeof renderAdminSectionNav === "function") renderAdminSectionNav();
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
     if (typeof loadExpansionFeatureFlagsFromBackend === "function") {
       await loadExpansionFeatureFlagsFromBackend().catch(() => {});
@@ -55706,6 +58747,7 @@ document.addEventListener("submit", async (event) => {
 
 installMobileNavigation();
 registerPwaSupport();
+startStaleBuildWatcher();
 
 // ─── Program Settings Form Submit ──────────────────────────────────────────
 
@@ -56170,8 +59212,8 @@ if (!currentUser) {
     renderHome();
   }
 } else {
-  // Synchronously open Calendar (or last remembered section) before async sync work.
-  // This prevents the old Dashboard from flashing or lingering behind Calendar.
+  // Synchronously open Today (or last remembered section) before async sync work.
+  // This prevents the old Dashboard from flashing or lingering behind Today.
   const earlyLanding = (() => {
     const fromLocation = (() => {
       const params = new URLSearchParams(window.location.search);
@@ -56181,6 +59223,9 @@ if (!currentUser) {
     })();
     if (fromLocation && fromLocation !== "home") return fromLocation;
     if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") return "admin";
+    // Phase 23: a returning guardian fake-account session (refresh, not fresh login)
+    // must land back in Family Hub, never the provider Today dashboard.
+    if (currentAccount()?.familyHubGuardian && isExpansionFeatureEnabled("familyHub")) return "family-hub";
     return defaultLoggedInLandingView();
   })();
   if (earlyLanding !== "lesson-editor") {
@@ -56266,9 +59311,17 @@ async function initializeAppView() {
           loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
           return;
         }
-        // Logged-in providers land on Calendar (or last remembered page on refresh).
+        // Logged-in providers land on Today (or last remembered page on refresh).
+        // Phase 23: guardian fake accounts land in Family Hub instead (see earlyLanding above).
+        // Force a fresh flags check here (awaited, not the fire-and-forget boot call) so a
+        // guardian refreshing the page is never briefly/incorrectly kept on the provider app.
         if (currentUser && !suppressBootLanding) {
-          setView(defaultLoggedInLandingView(), { fromBoot: true, replaceHistory: true });
+          let guardianLanding = defaultLoggedInLandingView();
+          if (currentAccount()?.familyHubGuardian) {
+            await loadExpansionFeatureFlagsFromBackend().catch(() => {});
+            if (isExpansionFeatureEnabled("familyHub")) guardianLanding = "family-hub";
+          }
+          setView(guardianLanding, { fromBoot: true, replaceHistory: true });
           return;
         }
         // Guest marketing homepage.
