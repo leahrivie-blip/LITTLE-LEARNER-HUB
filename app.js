@@ -3084,11 +3084,7 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   proTitle: "Pro Membership",
   proSubtitle: "Everything you need for weekly planning and documentation",
   proCta: "Continue with Pro",
-  // Honest by design: Pro Monthly and Founding include the exact same features (see
-  // billingPlans.Founding vs billingPlans.ProMonthly). There is no feature or
-  // long-term-value reason to prefer Pro Monthly while Founding spots remain — this
-  // copy says so plainly instead of inventing a benefit that doesn't exist.
-  proRationale: "Pro Monthly has the exact same features as Founding — there's no feature difference. It costs more per month with no added benefit. Choose it only if you'd rather not use the discounted Founding rate for any reason.",
+  proRationale: "Regular monthly price after Founding availability ends.",
   freeTitle: "Free Plan",
   freeSubtitle: "A preview of Little Learner Hub — great for exploring before upgrading",
   freeIncludes: Object.freeze([
@@ -3337,10 +3333,10 @@ async function finishSignupWithPlan(planChoice) {
     return;
   }
   if (planChoice === "founding") {
-    await startCheckout("founding", "signup");
+    await startCheckoutWithFoundingGuard("founding", "signup");
     return;
   }
-  await startCheckout("monthly", "signup");
+  await startCheckoutWithFoundingGuard("monthly", "signup");
 }
 
 function analyticsEvents() {
@@ -46580,7 +46576,7 @@ async function startPreferredPaidCheckout() {
     setView("plans");
     return;
   }
-  await startCheckout(preferredPaidCheckoutPlan(), "preferred_cta");
+  await startCheckoutWithFoundingGuard(preferredPaidCheckoutPlan(), "preferred_cta");
 }
 
 function renderHomeFoundingOffer() {
@@ -46611,7 +46607,7 @@ function renderHomeFoundingOffer() {
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
         <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
       </div>
-      ${soldOut ? "" : `<p class="founding-pro-secondary-link muted-copy">Prefer Regular Pro at $19.99/month instead? ${PRO_MONTHLY_RATIONALE} <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>`}
+      ${soldOut ? "" : `<p class="founding-pro-secondary-link muted-copy">Prefer Regular Pro instead? $19.99/month — ${PRO_MONTHLY_RATIONALE} <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>`}
     </div>
   `;
   trackEvent("pricing_cards_shown", {
@@ -46646,11 +46642,7 @@ function pricingCard(planKey, options = {}) {
   `;
 }
 
-// Same honest rationale used on the signup plan chooser — Founding and Pro Monthly
-// have identical features (billingPlans.Founding vs billingPlans.ProMonthly); there is
-// no feature or long-term-value reason to prefer the more expensive option while
-// Founding spots remain, so this says that plainly instead of inventing a benefit.
-const PRO_MONTHLY_RATIONALE = "Pro Monthly has the exact same features as Founding — there's no feature difference. It costs more per month with no added benefit. Choose it only if you'd rather not use the discounted Founding rate for any reason.";
+const PRO_MONTHLY_RATIONALE = "Regular monthly price after Founding availability ends.";
 const FOUNDING_INCLUDES_NOTE = "Includes Pro access. $9.99/month locked while continuously active.";
 
 function promoCodePanel(options = {}) {
@@ -47434,6 +47426,97 @@ function setFreePlan() {
   updatePlanLabel();
   renderPricingPage();
   setView("account");
+}
+
+/**
+ * Mirrors (a client-safe approximation of) the server's handleCheckout eligibility
+ * gate for Founding: "Former Founding Members are not automatically eligible for
+ * $9.99 pricing." The server remains the authoritative check regardless — this is a
+ * UX nicety so genuinely ineligible users are never shown a confirmation offering
+ * them something they cannot actually claim. Uses only fields reliably mirrored to
+ * the client account object (foundingMemberHistorical / foundingMemberActive /
+ * foundingMemberNumber); it does not have foundingSpotReleasedAt or
+ * firstPaidInvoiceAt available client-side, so it is intentionally a close
+ * approximation, not a perfect replica, of the server's narrower exemption for
+ * someone who released their spot during a free promo month.
+ */
+function isEligibleForFoundingCheckout(account = currentAccount()) {
+  if (!account) return true; // guest / brand-new signup — no history, eligible by default
+  const everFounding = Boolean(account.foundingMemberHistorical || account.foundingMember || account.foundingMemberNumber);
+  const currentlyFounding = Boolean(account.foundingMemberActive);
+  return !(everFounding && !currentlyFounding);
+}
+
+function shouldConfirmBeforeRegularPro(type, account = currentAccount()) {
+  if (type !== "monthly") return false;
+  if (foundingSpotsRemaining() <= 0) return false;
+  return isEligibleForFoundingCheckout(account);
+}
+
+/**
+ * Three-way confirmation required when an eligible user picks Regular Pro while
+ * Founding is still open. window.confirm() only supports two buttons, so this is a
+ * small custom modal appended to <body> (works from any page: signup, pricing,
+ * upgrade, homepage).
+ */
+function showFoundingVsProConfirm(onChoice) {
+  document.querySelector("#foundingVsProConfirmModal")?.remove();
+  const remaining = foundingSpotsRemaining();
+  const modal = document.createElement("div");
+  modal.id = "foundingVsProConfirmModal";
+  modal.className = "founding-vs-pro-confirm-overlay";
+  modal.innerHTML = `
+    <div class="founding-vs-pro-confirm-card" role="dialog" aria-modal="true" aria-labelledby="foundingVsProConfirmTitle">
+      <h3 id="foundingVsProConfirmTitle">Founding pricing is still available for $9.99/month.</h3>
+      <p>Are you sure you want Regular Pro for $19.99/month?</p>
+      <p class="founding-vs-pro-confirm-remaining muted-copy">${remaining} founding spot${remaining === 1 ? "" : "s"} remaining right now.</p>
+      <div class="founding-vs-pro-confirm-actions">
+        <button class="primary-button" type="button" data-founding-vs-pro-choice="founding">Choose Founding — \$9.99</button>
+        <button class="ghost-button" type="button" data-founding-vs-pro-choice="pro_monthly">Continue with Regular Pro — \$19.99</button>
+        <button class="link-button" type="button" data-founding-vs-pro-choice="go_back">Go Back</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  trackEvent("pricing_confirm_shown", { foundingRemaining: remaining });
+  modal.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-founding-vs-pro-choice]");
+    if (!button && event.target !== modal) return;
+    const choice = button ? button.dataset.foundingVsProChoice : "go_back";
+    trackEvent("pricing_confirm_selected", { choice });
+    modal.remove();
+    onChoice(choice);
+  });
+}
+
+/**
+ * Wrap around startCheckout() at every entry point that can lead to a "monthly"
+ * (Regular Pro) checkout. Shows the Founding-vs-Pro confirmation only when the user
+ * is eligible for Founding AND spots remain; otherwise behaves exactly like calling
+ * startCheckout() directly (no extra step for founding checkouts, sold-out states,
+ * or genuinely ineligible users).
+ */
+async function startCheckoutWithFoundingGuard(type, trackingContext = "checkout") {
+  // Refresh the founding count from the server before deciding whether to show the
+  // confirmation — a stale client-side cache (e.g. from an earlier page load) must
+  // never cause this decision to be made on outdated data.
+  if (type === "monthly") {
+    await syncFoundingStatus({ render: false }).catch(() => {});
+  }
+  if (!shouldConfirmBeforeRegularPro(type)) {
+    return startCheckout(type, trackingContext);
+  }
+  return new Promise((resolve) => {
+    showFoundingVsProConfirm((choice) => {
+      if (choice === "founding") {
+        resolve(startCheckout("founding", trackingContext));
+      } else if (choice === "pro_monthly") {
+        resolve(startCheckout("monthly", trackingContext));
+      } else {
+        resolve(undefined); // Go Back — stay on the current page, no checkout started
+      }
+    });
+  });
 }
 
 async function startCheckout(type, trackingContext = "checkout") {
@@ -48552,7 +48635,7 @@ document.addEventListener("click", async (event) => {
         : checkoutButton.closest("#homeFoundingOffer")
           ? "homepage_hero"
           : "generic_cta";
-    startCheckout(planType, checkoutContext);
+    startCheckoutWithFoundingGuard(planType, checkoutContext);
     return;
   }
 
@@ -53449,11 +53532,11 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   trackUpgradePromptClick(promptId, { mode });
   closeProFeatureModal();
   if (mode === "founding") {
-    startCheckout("founding", "pro_feature_modal");
+    startCheckoutWithFoundingGuard("founding", "pro_feature_modal");
     return;
   }
   if (mode === "monthly") {
-    startCheckout("monthly", "pro_feature_modal");
+    startCheckoutWithFoundingGuard("monthly", "pro_feature_modal");
     return;
   }
   startProTrial();

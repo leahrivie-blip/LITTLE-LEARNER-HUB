@@ -84,15 +84,45 @@ test("public pricing/upgrade pages show Founding as primary and Pro Monthly as a
   assert.match(upgrade, /\$\{!soldOut\s*\n\s*\? pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
 });
 
-test("the required Founding copy and an honest Pro-vs-Founding rationale exist and are used consistently", () => {
+test("the required Founding copy exists and the 'no meaningful reason' wording has been removed (v2 correction)", () => {
   assert.match(appJs, /Includes Pro access\. \$9\.99\/month locked while continuously active\./);
   assert.match(appJs, /const FOUNDING_INCLUDES_NOTE = "Includes Pro access\. \$9\.99\/month locked while continuously active\."/);
   assert.match(appJs, /foundingIncludesNote: "Includes Pro access\. \$9\.99\/month locked while continuously active\."/);
-  // The rationale must be honest: Founding and Pro Monthly have identical features, so
-  // this must say plainly there is no meaningful feature/value reason to prefer Pro,
-  // not invent one.
-  assert.match(appJs, /const PRO_MONTHLY_RATIONALE = "Pro Monthly has the exact same features as Founding/);
-  assert.match(appJs, /proRationale: "Pro Monthly has the exact same features as Founding/);
+  // Required replacement copy for the Pro Monthly secondary card.
+  assert.match(appJs, /const PRO_MONTHLY_RATIONALE = "Regular monthly price after Founding availability ends\."/);
+  assert.match(appJs, /proRationale: "Regular monthly price after Founding availability ends\."/);
+  // The old "no meaningful reason" framing must be completely gone from the shipped copy.
+  assert.doesNotMatch(appJs, /no meaningful/i);
+  assert.doesNotMatch(appJs, /exact same features as Founding/i);
+});
+
+test("choosing Regular Pro while eligible and Founding is open shows the required 3-button confirmation", () => {
+  assert.match(appJs, /function isEligibleForFoundingCheckout\(account = currentAccount\(\)\)/);
+  assert.match(appJs, /function shouldConfirmBeforeRegularPro\(type, account = currentAccount\(\)\)/);
+  assert.match(appJs, /function showFoundingVsProConfirm\(onChoice\)/);
+  assert.match(appJs, /Founding pricing is still available for \$9\.99\/month\./);
+  assert.match(appJs, /Are you sure you want Regular Pro for \$19\.99\/month\?/);
+  assert.match(appJs, /Choose Founding — \\\$9\.99/);
+  assert.match(appJs, /Continue with Regular Pro — \\\$19\.99/);
+  assert.match(appJs, /data-founding-vs-pro-choice="go_back">Go Back/);
+  assert.match(appJs, /async function startCheckoutWithFoundingGuard\(type, trackingContext = "checkout"\)/);
+  // Confirmation must re-sync the founding count before deciding (stale-counter safety).
+  assert.match(appJs, /await syncFoundingStatus\(\{ render: false \}\)\.catch\(\(\) => \{\}\);/);
+});
+
+test("the confirmation is skipped for genuinely ineligible users and when Founding is sold out", () => {
+  const eligibilityFn = appJs.slice(
+    appJs.indexOf("function isEligibleForFoundingCheckout"),
+    appJs.indexOf("function shouldConfirmBeforeRegularPro"),
+  );
+  // Former Founding members (historical but not currently active) must be ineligible.
+  assert.match(eligibilityFn, /everFounding && !currentlyFounding/);
+  const guardFn = appJs.slice(
+    appJs.indexOf("function shouldConfirmBeforeRegularPro"),
+    appJs.indexOf("function showFoundingVsProConfirm"),
+  );
+  assert.match(guardFn, /if \(type !== "monthly"\) return false;/);
+  assert.match(guardFn, /if \(foundingSpotsRemaining\(\) <= 0\) return false;/);
 });
 
 test("pricing card shown/selected analytics tracking is wired on every Founding-vs-Pro comparison surface", () => {
@@ -102,8 +132,8 @@ test("pricing card shown/selected analytics tracking is wired on every Founding-
   assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "homepage_hero"/);
   assert.match(appJs, /async function startCheckout\(type, trackingContext = "checkout"\)/);
   assert.match(appJs, /trackEvent\("pricing_card_selected", \{\s*\n\s*context: trackingContext/);
-  assert.match(appJs, /await startCheckout\("founding", "signup"\)/);
-  assert.match(appJs, /await startCheckout\("monthly", "signup"\)/);
+  assert.match(appJs, /await startCheckoutWithFoundingGuard\("founding", "signup"\)/);
+  assert.match(appJs, /await startCheckoutWithFoundingGuard\("monthly", "signup"\)/);
 });
 
 test("signup conversion copy is overridable for A/B tests", () => {
