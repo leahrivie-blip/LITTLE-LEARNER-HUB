@@ -318,7 +318,23 @@ async function main() {
       await ownerPage.waitForTimeout(1500);
       await ownerPage.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
       await ownerPage.evaluate((cid) => { pilotState.selectedChildId = cid; setView("pilot-messages"); }, newChildId);
-      await ownerPage.waitForTimeout(800);
+      // Wait for the connected thread to load (API + render), not a fixed sleep.
+      await ownerPage.waitForFunction(() => {
+        const text = document.querySelector("#view-pilot-messages")?.textContent || "";
+        return /Thank you for sharing/i.test(text);
+      }, null, { timeout: 15000 }).catch(async () => {
+        // One retry: force a messages refresh if the first paint raced the switch.
+        await ownerPage.evaluate(async (cid) => {
+          pilotState.selectedChildId = cid;
+          if (typeof loadPilotMessages === "function") await loadPilotMessages();
+          else if (typeof refreshPilotMessages === "function") await refreshPilotMessages();
+          setView("pilot-messages");
+        }, newChildId);
+        await ownerPage.waitForFunction(() => {
+          const text = document.querySelector("#view-pilot-messages")?.textContent || "";
+          return /Thank you for sharing/i.test(text);
+        }, null, { timeout: 10000 });
+      });
       const ownerMessagesText = await ownerPage.locator("#view-pilot-messages").textContent();
       assert.match(ownerMessagesText, /Thank you for sharing/, "the owner must see the parent's reply");
       pass("11. Owner sees the parent's reply — same connected message thread");
