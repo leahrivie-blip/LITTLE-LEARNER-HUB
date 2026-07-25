@@ -9921,15 +9921,15 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 
 .fdlc-quick-add-btn {
   position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 34px;
-  height: 34px;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   border: none;
   background: var(--primary);
   color: #fff;
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -10158,6 +10158,187 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 .fdlc-ai-summary-section h3 {
   margin: 0 0 4px;
   font-size: 1rem;
+}
+
+.fdlc-scope-note {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+  background: var(--bg);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 6px 0;
+}
+
+/* Accidental Tap Recovery banner */
+.fdlc-last-action-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 0.88rem;
+}
+
+.fdlc-undo-btn {
+  white-space: nowrap;
+  padding: 6px 12px;
+}
+
+.fdlc-attention-banner {
+  background: #fef3c7;
+  border: 1px solid #fbbf24;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  margin-bottom: 10px;
+}
+
+.fdlc-needs-attention {
+  background: #fffbeb;
+}
+
+.fdlc-timeline-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fdlc-edit-entry-btn {
+  align-self: flex-start;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+}
+
+.fdlc-late-tag {
+  color: #b45309;
+  font-style: italic;
+}
+
+.fdlc-correction-form {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.fdlc-correction-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.82rem;
+}
+
+.fdlc-correction-form input,
+.fdlc-correction-form textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.fdlc-correction-history {
+  font-size: 0.78rem;
+  color: var(--ink-muted);
+}
+
+.fdlc-correction-entry {
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+}
+
+.fdlc-required {
+  color: #dc2626;
+}
+
+.fdlc-safety-note {
+  font-size: 0.8rem;
+  color: #92400e;
+  background: #fffbeb;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.fdlc-medication-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.fdlc-medication-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.fdlc-medication-form input,
+.fdlc-medication-form select,
+.fdlc-medication-form textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-weight: 400;
+}
+
+.fdlc-actions-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fdlc-timeline-print-row {
+  margin-top: 10px;
+}
+
+/* Group Logging */
+.fdlc-group-log-btn {
+  margin: 8px 0 4px;
+  width: 100%;
+  font-weight: 600;
+}
+
+.fdlc-exception-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.fdlc-exception-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.fdlc-exception-row input[type="text"] {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 8px;
+}
+
+/* Shared photos on Parent Home */
+.fh-photo-strip {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.fh-shared-photo {
+  width: 72px;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--line);
 }
 
 .dlc-hidden-child-row {

@@ -13878,15 +13878,44 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     return;
   }
   if (actionId === "medication") {
-    const note = String(options.note || "").trim();
+    // Medication is deliberately never a single free-text field, and never
+    // auto-completed from AI/heuristics — every field below is exactly what
+    // the teacher typed, or blank. Missing REQUIRED fields (name, dosage,
+    // authorization) keep the record at "needs_provider_information" and it
+    // is never marked shareWithFamily — a family must never see an
+    // incomplete medication record presented as done.
+    const med = options.medication && typeof options.medication === "object" ? options.medication : {};
+    const medicationName = String(med.medicationName || "").trim();
+    const dosage = String(med.dosage || "").trim();
+    const authorizationStatus = String(med.authorizationStatus || "").trim();
+    const administeredBy = String(med.administeredBy || "").trim();
+    const notes = String(med.notes || "").trim();
+    const scheduledTime = String(med.scheduledTime || "").trim();
+    const actualTime = String(med.actualTime || time).trim();
+    const parentNotificationStatus = String(med.parentNotificationStatus || "not_notified").trim();
+    const isComplete = Boolean(medicationName && dosage && authorizationStatus);
     appendChildRecord("Communications", {
       childId,
       date: today,
-      time,
+      time: actualTime,
       type: "Medication",
+      medicationName,
+      dosage,
+      scheduledTime,
+      actualTime,
+      authorizationStatus,
+      administeredBy,
+      notes,
+      parentNotificationStatus,
+      status: isComplete ? "completed" : "needs_provider_information",
       title: `Medication | ${today}`,
-      summary: note ? note.slice(0, 120) : "Medication given — open to add details",
-      message: note,
+      summary: isComplete
+        ? `${medicationName} (${dosage}) — ${authorizationStatus.replace(/_/g, " ")}`
+        : "Needs provider information — medication record incomplete",
+      message: notes,
+      // Never shared with family while incomplete, and medication is
+      // sensitive enough that it stays a manual, explicit share decision
+      // (via Edit) even once complete — never auto-shared.
       shareWithFamily: false,
     });
     return;
@@ -32011,6 +32040,26 @@ function renderDailyLogsCenter(records) {
 
 let fastDlcOpenChildId = "";
 let fastDlcSheetView = "actions"; // "actions" | "timeline" | an action id (note/photo mini-form)
+// Accidental Tap Recovery: what to show as "here's exactly what was just
+// recorded, with an Undo" — cleared whenever the sheet closes or a new
+// action starts. { childId, storeKey, recordId, label, timeLabel }
+let fastDlcLastAction = null;
+// Duplicate-tap prevention: `${childId}:${actionId}` -> timestamp of the
+// last time this exact one-tap action fired for this child. A second tap
+// within the cooldown is treated as an accidental double-tap/retry, not a
+// second real event.
+let fastDlcRecentActionAt = {};
+const FAST_DLC_DUPLICATE_COOLDOWN_MS = 4000;
+// Corrections (Section 5): which timeline entry is currently open for
+// editing — { storeKey, recordId, childId } | null.
+let fastDlcEditingRecord = null;
+// Group Logging (Section 1) state.
+let fastDlcGroupLogOpen = false;
+let fastDlcGroupLogStep = "type"; // "type" | "children" | "details" | "preview"
+let fastDlcGroupLogType = "";
+let fastDlcGroupLogSelectedChildIds = [];
+let fastDlcGroupLogSharedNote = "";
+let fastDlcGroupLogExceptions = {}; // childId -> { excluded: bool, note: string }
 
 const FAST_DLC_ICONS = Object.freeze({
   "Checked In": "✅", "Checked Out": "🚪", Absent: "🚫",
@@ -32054,11 +32103,24 @@ const FAST_DLC_ACTIONS = Object.freeze([
 const FAST_DLC_NOTE_LABELS = Object.freeze({
   observation: "What did you observe?",
   incident: "What happened?",
-  medication: "Medication given",
   "behavior-note": "Behavior note",
   milestone: "Milestone reached",
   "parent-message": "Message for the family",
 });
+
+const MEDICATION_AUTHORIZATION_OPTIONS = Object.freeze([
+  { value: "", label: "Select…" },
+  { value: "authorized_by_parent", label: "Authorized by parent/guardian" },
+  { value: "authorized_by_physician_order", label: "Authorized by physician order on file" },
+  { value: "not_yet_authorized", label: "Not yet authorized" },
+  { value: "unknown", label: "Unknown — needs follow-up" },
+]);
+
+const PARENT_NOTIFICATION_OPTIONS = Object.freeze([
+  { value: "not_notified", label: "Not yet notified" },
+  { value: "notified", label: "Notified" },
+  { value: "pending", label: "Notification pending" },
+]);
 
 function fastDlcDocumentedIcons(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
@@ -32108,6 +32170,7 @@ function renderFastDailyLogsCenter(records) {
           <p>Tap a child to document in the moment — no forms, no scrolling.</p>
         </div>
       </div>
+      <button type="button" class="ghost-button fdlc-group-log-btn" data-fast-dlc-open-group-log>👥 Log for Multiple Children</button>
       <div class="fdlc-classroom-grid">
         ${present.length ? present.map((child) => fastDlcChildCardHtml(child, records, today)).join("") : `
           <p class="muted-copy">No children yet. Add a child profile to start logging.</p>
@@ -32122,7 +32185,121 @@ function renderFastDailyLogsCenter(records) {
         </details>
       ` : ""}
       ${openChild ? fastDlcSheetHtml(openChild, records, today) : ""}
+      ${fastDlcGroupLogOpen ? fastDlcGroupLogSheetHtml(records, today) : ""}
     </section>
+  `;
+}
+
+// ---- Group Logging (Section 1) ---------------------------------------------
+// "Log for Multiple Children" — select an action type, then EXPLICITLY
+// select which children participated (nobody is pre-checked — "never
+// assume every checked-in child participated"), enter the shared
+// information once, add per-child exceptions, preview, then confirm. Every
+// confirmed child gets its OWN record (via the same saveDailyLogQuickAction/
+// appendChildRecord path as a single-child action) tagged with a shared
+// groupLogId so the audit trail shows they were logged together.
+
+const FAST_DLC_GROUP_TYPES = Object.freeze([
+  { id: "attendance-in", label: "Attendance — Check In", icon: "✅" },
+  { id: "attendance-out", label: "Attendance — Check Out", icon: "🚪" },
+  { id: "meal", label: "Meal", icon: "🍽️" },
+  { id: "bottle", label: "Bottle", icon: "🍼" },
+  { id: "nap-started", label: "Nap Started", icon: "😴" },
+  { id: "nap-ended", label: "Nap Ended", icon: "☀️" },
+  { id: "diaper", label: "Diaper / Potty Check", icon: "🧷" },
+  { id: "activity", label: "Activity", icon: "🎨" },
+  { id: "update", label: "General Daily Update", icon: "🗒️" },
+]);
+
+function fastDlcGroupLogSheetHtml(records, today) {
+  let body = "";
+  if (fastDlcGroupLogStep === "type") body = fastDlcGroupLogTypeStepHtml();
+  else if (fastDlcGroupLogStep === "children") body = fastDlcGroupLogChildrenStepHtml(records, today);
+  else if (fastDlcGroupLogStep === "details") body = fastDlcGroupLogDetailsStepHtml(records);
+  else if (fastDlcGroupLogStep === "preview") body = fastDlcGroupLogPreviewStepHtml(records);
+  return `
+    <div class="fdlc-sheet-backdrop" data-fast-dlc-close-group-log></div>
+    <div class="fdlc-sheet" role="dialog" aria-modal="true" aria-label="Log for multiple children">
+      <div class="fdlc-sheet-header">
+        <strong>👥 Log for Multiple Children</strong>
+        <button type="button" class="ghost-button" data-fast-dlc-close-group-log aria-label="Close">✕</button>
+      </div>
+      <div class="fdlc-sheet-body">${body}</div>
+    </div>
+  `;
+}
+
+function fastDlcGroupLogTypeStepHtml() {
+  return `
+    <p class="muted-copy">What would you like to log for multiple children?</p>
+    <div class="fdlc-preset-grid">
+      ${FAST_DLC_GROUP_TYPES.map((t) => `
+        <button type="button" class="fdlc-preset-btn" data-fast-dlc-group-type="${escapeHtml(t.id)}">${t.icon} ${escapeHtml(t.label)}</button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function fastDlcGroupLogChildrenStepHtml(records, today) {
+  const groupType = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+  const children = records.children.filter((c) => c.status !== "removed");
+  return `
+    <button type="button" class="ghost-button back-button" data-fast-dlc-group-step="type">← Back</button>
+    <p class="muted-copy"><strong>${escapeHtml(groupType?.label || "")}</strong> — select who this applies to. Nobody is selected by default.</p>
+    <div class="dlc-children-grid">
+      ${children.map((child) => `
+        <label class="dlc-child-check">
+          <input type="checkbox" data-fast-dlc-group-child-check value="${escapeHtml(child.id)}" ${fastDlcGroupLogSelectedChildIds.includes(child.id) ? "checked" : ""} />
+          <span>${escapeHtml(child.name)}</span>
+          <span class="fdlc-status-badge fdlc-status-${getChildAttendanceState(child, records, today)}">${fastDlcStatusLabel(getChildAttendanceState(child, records, today))}</span>
+        </label>
+      `).join("") || "<p class=\"muted-copy\">No children yet.</p>"}
+    </div>
+    <button type="button" class="primary-button" data-fast-dlc-group-step="details" ${fastDlcGroupLogSelectedChildIds.length ? "" : "disabled"}>Continue (${fastDlcGroupLogSelectedChildIds.length} selected) →</button>
+  `;
+}
+
+function fastDlcGroupLogDetailsStepHtml(records) {
+  const groupType = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+  const selectedChildren = records.children.filter((c) => fastDlcGroupLogSelectedChildIds.includes(c.id));
+  return `
+    <button type="button" class="ghost-button back-button" data-fast-dlc-group-step="children">← Back</button>
+    <p class="muted-copy">Shared information for all ${selectedChildren.length} selected children:</p>
+    <textarea class="fdlc-note-input" data-fast-dlc-group-shared-note rows="3" placeholder="e.g. Pancakes and fruit for breakfast">${escapeHtml(fastDlcGroupLogSharedNote)}</textarea>
+    <p class="muted-copy" style="margin-top:14px;">Individual exceptions (optional) — uncheck "Included" for anyone who did NOT participate, or add a note just for them:</p>
+    <div class="fdlc-exception-list">
+      ${selectedChildren.map((child) => {
+        const ex = fastDlcGroupLogExceptions[child.id] || {};
+        return `
+          <div class="fdlc-exception-row">
+            <label class="tl-check"><input type="checkbox" data-fast-dlc-group-exception-included="${escapeHtml(child.id)}" ${ex.excluded ? "" : "checked"} /> ${escapeHtml(child.name)} — Included</label>
+            <input type="text" data-fast-dlc-group-exception-note="${escapeHtml(child.id)}" placeholder="Exception note for ${escapeHtml(child.name)} (optional)" value="${escapeHtml(ex.note || "")}" />
+          </div>
+        `;
+      }).join("")}
+    </div>
+    <button type="button" class="primary-button" data-fast-dlc-group-step="preview">Preview →</button>
+    <p class="muted-copy">Group type: ${escapeHtml(groupType?.label || "")}</p>
+  `;
+}
+
+function fastDlcGroupLogPreviewStepHtml(records) {
+  const groupType = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+  const included = records.children.filter((c) => fastDlcGroupLogSelectedChildIds.includes(c.id) && !fastDlcGroupLogExceptions[c.id]?.excluded);
+  const excluded = records.children.filter((c) => fastDlcGroupLogSelectedChildIds.includes(c.id) && fastDlcGroupLogExceptions[c.id]?.excluded);
+  return `
+    <button type="button" class="ghost-button back-button" data-fast-dlc-group-step="details">← Back</button>
+    <h3>Preview before confirming</h3>
+    <p><strong>${escapeHtml(groupType?.label || "")}</strong>${fastDlcGroupLogSharedNote ? ` — ${escapeHtml(fastDlcGroupLogSharedNote)}` : ""}</p>
+    <p class="muted-copy">Will log for ${included.length} child${included.length === 1 ? "" : "ren"}:</p>
+    <ul class="fh-card-list">
+      ${included.map((c) => `<li class="fh-card static">${escapeHtml(c.name)}${fastDlcGroupLogExceptions[c.id]?.note ? ` — ${escapeHtml(fastDlcGroupLogExceptions[c.id].note)}` : ""}</li>`).join("")}
+    </ul>
+    ${excluded.length ? `
+      <p class="muted-copy">Excluded (will NOT be logged):</p>
+      <ul class="fh-card-list">${excluded.map((c) => `<li class="fh-card static">${escapeHtml(c.name)}</li>`).join("")}</ul>
+    ` : ""}
+    <button type="button" class="primary-button" data-fast-dlc-group-confirm>Confirm — Log for ${included.length} Child${included.length === 1 ? "" : "ren"}</button>
   `;
 }
 
@@ -32152,12 +32329,99 @@ function fastDlcSheetHtml(child, records, today) {
   `;
 }
 
+const FAST_DLC_ONETAP_STORE_AND_LABEL = Object.freeze({
+  "check-in": ["Attendance", "Checked In"],
+  "check-out": ["Attendance", "Checked Out"],
+  absent: ["Attendance", "Absent"],
+  breakfast: ["Meals", "Breakfast"],
+  meal: ["Meals", "Lunch"],
+  snack: ["Meals", "Snack"],
+  bottle: ["Meals", "Bottle"],
+  "nap-started": ["Naps", "Nap Started"],
+  "nap-ended": ["Naps", "Nap Ended"],
+  "wet-diaper": ["Diapers", "Wet Diaper"],
+  bm: ["Diapers", "Dirty Diaper"],
+  potty: ["Diapers", "Potty Success"],
+  diaper: ["Diapers", "Diaper Change"],
+  "outdoor-play": ["ActivityLogs", "Outdoor Play"],
+  "story-time": ["ActivityLogs", "Story Time"],
+  art: ["ActivityLogs", "Art"],
+  music: ["ActivityLogs", "Music"],
+});
+
+/** After a one-tap action fires, record exactly what was saved so fastDlcLastActionBannerHtml() can show "Logged X for Y at Z" + Undo. */
+function fastDlcRecordLastAction(oneTapKey, childId) {
+  const mapping = FAST_DLC_ONETAP_STORE_AND_LABEL[oneTapKey];
+  if (!mapping) return;
+  const [storeKey, label] = mapping;
+  const items = childStore(storeKey);
+  const last = items[items.length - 1];
+  if (!last || last.childId !== childId) return;
+  fastDlcLastAction = {
+    childId,
+    storeKey,
+    recordId: last.id,
+    label,
+    timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now",
+  };
+}
+
+document.addEventListener("submit", (event) => {
+  const form = event.target.closest("[data-fast-dlc-medication-form]");
+  if (!form) return;
+  event.preventDefault();
+  const childId = form.getAttribute("data-fast-dlc-medication-form") || "";
+  if (!childId) return;
+  const data = new FormData(form);
+  // Every value below is exactly what the teacher typed — never invented,
+  // guessed, or defaulted by AI/local heuristics. Blank required fields
+  // simply stay blank, and saveDailyLogQuickAction("medication", ...)
+  // marks the record "needs_provider_information" as a result.
+  saveDailyLogQuickAction("medication", childId, {
+    date: dlcActiveDate(),
+    medication: {
+      medicationName: data.get("medicationName"),
+      dosage: data.get("dosage"),
+      scheduledTime: data.get("scheduledTime"),
+      actualTime: data.get("actualTime"),
+      authorizationStatus: data.get("authorizationStatus"),
+      administeredBy: data.get("administeredBy"),
+      notes: data.get("notes"),
+      parentNotificationStatus: data.get("parentNotificationStatus"),
+    },
+  });
+  const items = childStore("Communications");
+  const last = items[items.length - 1];
+  if (last && last.childId === childId) {
+    fastDlcLastAction = {
+      childId, storeKey: "Communications", recordId: last.id,
+      label: last.status === "completed" ? "Medication" : "Medication (Needs Provider Information)",
+      timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now",
+    };
+  }
+  fastDlcSheetView = "actions";
+  renderChildManagement();
+});
+
+/** Accidental Tap Recovery: "here's exactly what was just recorded" banner, with Undo. */
+function fastDlcLastActionBannerHtml(child) {
+  if (!fastDlcLastAction || fastDlcLastAction.childId !== child.id) return "";
+  const a = fastDlcLastAction;
+  return `
+    <div class="fdlc-last-action-banner" data-fast-dlc-last-action-banner>
+      <span>✅ Logged <strong>${escapeHtml(a.label)}</strong> for ${escapeHtml(child.name)} at ${escapeHtml(a.timeLabel)}</span>
+      <button type="button" class="ghost-button fdlc-undo-btn" data-fast-dlc-undo="${escapeHtml(a.storeKey)}" data-fast-dlc-undo-record="${escapeHtml(a.recordId)}" data-fast-dlc-undo-child="${escapeHtml(child.id)}">Undo</button>
+    </div>
+  `;
+}
+
 function fastDlcActionsBodyHtml(child, records, today) {
   return `
+    ${fastDlcLastActionBannerHtml(child)}
     <div class="fdlc-attendance-row">
-      <button type="button" class="ghost-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}">✅ Check In</button>
-      <button type="button" class="ghost-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}">🚪 Check Out</button>
-      <button type="button" class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}">🚫 Absent</button>
+      <button type="button" class="ghost-button" data-dlc-quick-action="check-in" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="check-in">✅ Check In</button>
+      <button type="button" class="ghost-button" data-dlc-quick-action="check-out" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="check-out">🚪 Check Out</button>
+      <button type="button" class="ghost-button" data-dlc-quick-action="absent" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="absent">🚫 Absent</button>
     </div>
     <div class="fdlc-action-grid">
       ${FAST_DLC_ACTIONS.map((action) => `
@@ -32176,9 +32440,9 @@ function fastDlcSubPanelHtml(actionId, child, records, today) {
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">Log a meal in one tap.</p>
       <div class="fdlc-preset-grid">
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="breakfast" data-dlc-quick-child="${child.id}">🍳 Breakfast</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="meal" data-dlc-quick-child="${child.id}">🍽️ Lunch</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="snack" data-dlc-quick-child="${child.id}">🍎 Snack</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="breakfast" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="breakfast">🍳 Breakfast</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="meal" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="meal">🍽️ Lunch</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="snack" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="snack">🍎 Snack</button>
       </div>
     `;
   }
@@ -32187,7 +32451,7 @@ function fastDlcSubPanelHtml(actionId, child, records, today) {
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">Log a bottle in one tap.</p>
       <div class="fdlc-preset-grid">
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="bottle" data-dlc-quick-child="${child.id}">🍼 Bottle Logged</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="bottle" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="bottle">🍼 Bottle Logged</button>
       </div>
     `;
   }
@@ -32196,8 +32460,8 @@ function fastDlcSubPanelHtml(actionId, child, records, today) {
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">Start or end nap time in one tap.</p>
       <div class="fdlc-preset-grid">
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="nap-started" data-dlc-quick-child="${child.id}">😴 Nap Started</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="nap-ended" data-dlc-quick-child="${child.id}">☀️ Nap Ended</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="nap-started" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="nap-started">😴 Nap Started</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="nap-ended" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="nap-ended">☀️ Nap Ended</button>
       </div>
     `;
   }
@@ -32206,10 +32470,10 @@ function fastDlcSubPanelHtml(actionId, child, records, today) {
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">Log a diaper or potty moment in one tap.</p>
       <div class="fdlc-preset-grid">
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="wet-diaper" data-dlc-quick-child="${child.id}">💧 Wet</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="bm" data-dlc-quick-child="${child.id}">🧷 Dirty</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="potty" data-dlc-quick-child="${child.id}">🚽 Potty Success</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="diaper" data-dlc-quick-child="${child.id}">🧷 Change</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="wet-diaper" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="wet-diaper">💧 Wet</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="bm" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="bm">🧷 Dirty</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="potty" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="potty">🚽 Potty Success</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="diaper" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="diaper">🧷 Change</button>
       </div>
     `;
   }
@@ -32218,12 +32482,12 @@ function fastDlcSubPanelHtml(actionId, child, records, today) {
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">Pick a preset, or type your own.</p>
       <div class="fdlc-preset-grid">
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="outdoor-play" data-dlc-quick-child="${child.id}">🌳 Outdoor Play</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="story-time" data-dlc-quick-child="${child.id}">📖 Story Time</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="art" data-dlc-quick-child="${child.id}">🎨 Art</button>
-        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="music" data-dlc-quick-child="${child.id}">🎵 Music</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="outdoor-play" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="outdoor-play">🌳 Outdoor Play</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="story-time" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="story-time">📖 Story Time</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="art" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="art">🎨 Art</button>
+        <button type="button" class="fdlc-preset-btn" data-dlc-quick-action="music" data-dlc-quick-child="${child.id}" data-fast-dlc-onetap="music">🎵 Music</button>
       </div>
-      <textarea class="fdlc-note-input" data-fast-dlc-note-input="activity" placeholder="Or describe the activity…" rows="2"></textarea>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="activity" placeholder="Or describe the activity…" rows="2">${escapeHtml(fastDlcGetNoteDraft(child.id, "activity"))}</textarea>
       <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="activity" data-fast-dlc-save-child="${child.id}">Save Activity</button>
     `;
   }
@@ -32231,49 +32495,126 @@ function fastDlcSubPanelHtml(actionId, child, records, today) {
     return `
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">Add a photo moment.</p>
+      <p class="fdlc-safety-note">⚠️ Testing account — use only fake/placeholder photos. Never upload a real child's photo here.</p>
       <input type="file" accept="image/*" class="fdlc-photo-input" data-fast-dlc-photo-input="${child.id}" />
       <div class="fdlc-photo-preview" data-fast-dlc-photo-preview hidden></div>
-      <textarea class="fdlc-note-input" data-fast-dlc-note-input="photo" placeholder="Caption (optional)…" rows="2"></textarea>
-      <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="photo" data-fast-dlc-save-child="${child.id}">Save Photo</button>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="photo" placeholder="Caption (optional)…" rows="2">${escapeHtml(fastDlcGetNoteDraft(child.id, "photo"))}</textarea>
+      <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="photo" data-fast-dlc-save-child="${child.id}">Save Photo (scoped to this child only)</button>
+    `;
+  }
+  if (actionId === "medication") {
+    return `
+      <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
+      <p class="muted-copy">Medication is always structured — never a single free-text field. Missing required fields save as "Needs provider information" instead of a completed record.</p>
+      <form class="fdlc-medication-form" data-fast-dlc-medication-form="${child.id}">
+        <label>Medication name <span class="fdlc-required">*</span><input name="medicationName" placeholder="e.g. Children's Tylenol" /></label>
+        <label>Dosage <span class="fdlc-required">*</span><input name="dosage" placeholder="e.g. 5mL" /></label>
+        <label>Scheduled time<input name="scheduledTime" type="time" /></label>
+        <label>Actual time given<input name="actualTime" type="time" value="${quickActionTime()}" /></label>
+        <label>Authorization status <span class="fdlc-required">*</span>
+          <select name="authorizationStatus">
+            ${MEDICATION_AUTHORIZATION_OPTIONS.map((opt) => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`).join("")}
+          </select>
+        </label>
+        <label>Administered by<input name="administeredBy" placeholder="Your name" /></label>
+        <label>Notes<textarea name="notes" rows="2" placeholder="Optional notes…"></textarea></label>
+        <label>Parent notification status
+          <select name="parentNotificationStatus">
+            ${PARENT_NOTIFICATION_OPTIONS.map((opt) => `<option value="${escapeHtml(opt.value)}">${escapeHtml(opt.label)}</option>`).join("")}
+          </select>
+        </label>
+        <button type="submit" class="primary-button fdlc-save-btn">Save Medication Record</button>
+      </form>
     `;
   }
   if (FAST_DLC_NOTE_LABELS[actionId]) {
     return `
       <button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>
       <p class="muted-copy">${escapeHtml(FAST_DLC_NOTE_LABELS[actionId])}</p>
-      <textarea class="fdlc-note-input" data-fast-dlc-note-input="${escapeHtml(actionId)}" placeholder="Type here…" rows="4" autofocus></textarea>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="${escapeHtml(actionId)}" placeholder="Type here…" rows="4" autofocus>${escapeHtml(fastDlcGetNoteDraft(child.id, actionId))}</textarea>
       <button type="button" class="primary-button fdlc-save-btn" data-fast-dlc-save-note="${escapeHtml(actionId)}" data-fast-dlc-save-child="${child.id}">Save</button>
     `;
   }
   return `<button type="button" class="ghost-button back-button" data-fast-dlc-show="actions">← Back</button>`;
 }
 
+function fastDlcCorrectionFormHtml(entry, child) {
+  return `
+    <div class="fdlc-correction-form">
+      <label>Time<input type="time" data-fast-dlc-correction-time value="${escapeHtml(entry.time || "")}" /></label>
+      <label>Notes<textarea data-fast-dlc-correction-notes rows="2">${escapeHtml(entry.detail || "")}</textarea></label>
+      <label class="tl-check"><input type="checkbox" data-fast-dlc-correction-late ${entry.enteredLate ? "checked" : ""} /> Entered late</label>
+      <label>Reason for correction <span class="fdlc-required">*</span><input type="text" data-fast-dlc-correction-reason placeholder="Why is this being corrected?" required /></label>
+      <div class="fdlc-actions-row">
+        <button type="button" class="primary-button" data-fast-dlc-save-correction="${escapeHtml(entry.storeKey)}" data-fast-dlc-correction-record="${escapeHtml(entry.recordId)}" data-fast-dlc-correction-child="${escapeHtml(child.id)}">Save Correction</button>
+        <button type="button" class="ghost-button" data-fast-dlc-cancel-edit>Cancel</button>
+      </div>
+    </div>
+  `;
+}
+
+function fastDlcCorrectionHistoryHtml(record) {
+  if (!Array.isArray(record?.corrections) || !record.corrections.length) return "";
+  return `
+    <details class="fdlc-correction-history">
+      <summary>Correction history (${record.corrections.length})</summary>
+      ${record.corrections.map((c) => `
+        <div class="fdlc-correction-entry">
+          <span>${escapeHtml(new Date(c.correctedAt).toLocaleString())} — ${escapeHtml(c.reason)}${c.enteredLate ? " (entered late)" : ""}</span>
+        </div>
+      `).join("")}
+    </details>
+  `;
+}
+
+function fastDlcTimelineRowHtml(entry, child, records) {
+  const isEditing = fastDlcEditingRecord && fastDlcEditingRecord.storeKey === entry.storeKey && fastDlcEditingRecord.recordId === entry.recordId;
+  const storeMap = { Attendance: "attendance", Meals: "meals", Naps: "naps", Diapers: "diapers", ActivityLogs: "activityLogs", Communications: "communications", Observations: "observations", Photos: "photos" };
+  const record = records[storeMap[entry.storeKey]]?.find((item) => item.id === entry.recordId);
+  return `
+    <div class="fdlc-timeline-row ${entry.needsAttention ? "fdlc-needs-attention" : ""}">
+      <span class="fdlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
+      <span class="fdlc-timeline-icon" aria-hidden="true">${entry.needsAttention ? "⚠️" : fastDlcIconFor(entry.title)}</span>
+      <div class="fdlc-timeline-text-wrap">
+        <span class="fdlc-timeline-text"><strong>${escapeHtml(entry.title)}</strong>${entry.detail ? ` — ${escapeHtml(entry.detail)}` : ""}${entry.enteredLate ? ` <em class="fdlc-late-tag">(entered late)</em>` : ""}</span>
+        ${!isEditing ? `<button type="button" class="ghost-button fdlc-edit-entry-btn" data-fast-dlc-edit-entry="${escapeHtml(entry.storeKey)}" data-fast-dlc-edit-record="${escapeHtml(entry.recordId)}" data-fast-dlc-edit-child="${escapeHtml(child.id)}">Edit</button>` : ""}
+        ${isEditing ? fastDlcCorrectionFormHtml(entry, child) : ""}
+        ${!isEditing && entry.hasCorrections ? fastDlcCorrectionHistoryHtml(record) : ""}
+      </div>
+    </div>
+  `;
+}
+
 function fastDlcTimelineBodyHtml(child, records, today) {
   const entries = buildDailyLogTimelineEntries(child, records, today);
   const draft = getDailyLogParentSummaryDraft(child, records, today);
+  const needsAttentionCount = entries.filter((e) => e.needsAttention).length;
   return `
+    ${fastDlcLastActionBannerHtml(child)}
+    ${needsAttentionCount ? `<p class="fdlc-attention-banner">⚠️ ${needsAttentionCount} record${needsAttentionCount > 1 ? "s" : ""} need${needsAttentionCount > 1 ? "" : "s"} provider information before it can be shared.</p>` : ""}
     <div class="fdlc-timeline">
-      ${entries.length ? entries.map((entry) => `
-        <div class="fdlc-timeline-row">
-          <span class="fdlc-timeline-time">${escapeHtml(entry.displayTime)}</span>
-          <span class="fdlc-timeline-icon" aria-hidden="true">${fastDlcIconFor(entry.title)}</span>
-          <span class="fdlc-timeline-text"><strong>${escapeHtml(entry.title)}</strong>${entry.detail ? ` — ${escapeHtml(entry.detail)}` : ""}</span>
-        </div>
-      `).join("") : `<p class="muted-copy">Nothing logged yet today — use Quick Actions to get started.</p>`}
+      ${entries.length ? entries.map((entry) => fastDlcTimelineRowHtml(entry, child, records)).join("") : `<p class="muted-copy">Nothing logged yet today — use Quick Actions to get started.</p>`}
+    </div>
+    <div class="fdlc-timeline-print-row">
+      <button type="button" class="ghost-button" data-fast-dlc-print-timeline="${child.id}">🖨️ Print / Save PDF — Daily Report</button>
+    </div>
+    <div class="fdlc-ai-summary-section">
+      <h3>📝 Create Parent Summary</h3>
+      <p class="muted-copy">Generate a draft from everything logged today, edit it, then share it — no live AI call is made (AI Testing stays disabled).</p>
+      <button type="button" class="ghost-button" data-fast-dlc-generate-summary="${child.id}">Generate Draft</button>
+      <textarea class="fdlc-summary-textarea" data-dlc-summary-input="${child.id}" rows="4" placeholder="Tap Generate Draft, then edit as needed…">${escapeHtml(draft)}</textarea>
+      <label class="tl-check"><input type="checkbox" data-dlc-summary-share="${child.id}" checked /> Share with Parent</label>
+      <p class="fdlc-scope-note">"Share with Parent" sends this only to the connected fake Parent/Guardian inbox for this testing account. It never sends an email, SMS, push notification, or public link.</p>
+      <div class="fdlc-actions-row">
+        <button type="button" class="primary-button" data-dlc-save-summary="${child.id}">Share with Parent</button>
+        <button type="button" class="ghost-button" data-fast-dlc-print-summary="${child.id}">🖨️ Print Summary</button>
+      </div>
     </div>
     <div class="fdlc-parent-comm-section">
       <h3>💬 Parent Communication</h3>
       <p class="muted-copy">Send a quick message to the family, any time.</p>
-      <textarea class="fdlc-note-input" data-fast-dlc-note-input="parent-message" placeholder="Message for the family…" rows="2"></textarea>
+      <textarea class="fdlc-note-input" data-fast-dlc-note-input="parent-message" placeholder="Message for the family…" rows="2">${escapeHtml(fastDlcGetNoteDraft(child.id, "parent-message"))}</textarea>
       <button type="button" class="ghost-button fdlc-save-btn" data-fast-dlc-save-note="parent-message" data-fast-dlc-save-child="${child.id}">Send Message</button>
-    </div>
-    <div class="fdlc-ai-summary-section">
-      <h3>✨ AI Parent Summary</h3>
-      <p class="muted-copy">Generate a professional end-of-day summary from everything logged today — edit before sending.</p>
-      <button type="button" class="ghost-button" data-fast-dlc-generate-summary="${child.id}">Generate Summary</button>
-      <textarea class="fdlc-summary-textarea" data-dlc-summary-input="${child.id}" rows="4" placeholder="Tap Generate Summary, then edit as needed…">${escapeHtml(draft)}</textarea>
-      <label class="tl-check"><input type="checkbox" data-dlc-summary-share="${child.id}" checked /> Share with family</label>
-      <button type="button" class="primary-button" data-dlc-save-summary="${child.id}">Send Summary</button>
     </div>
   `;
 }
@@ -32852,17 +33193,25 @@ function dlcActivityKey(text) {
   return String(text || "").trim().toLowerCase();
 }
 
+/**
+ * Records with `undone: true` (Accidental Tap Recovery's Undo — see
+ * fastDlcUndoAction()) are excluded from every "active" view (timeline,
+ * summary, reminders) here at the source, for BOTH the classic and fast
+ * Daily Logs UIs — but the record itself is never deleted, so it remains a
+ * permanent, auditable part of the store file.
+ */
 function dlcChildDaySnapshot(child, records, today) {
+  const notUndone = (item) => item.undone !== true;
   return {
-    attendance: records.attendance.filter((item) => item.childId === child.id && item.date === today),
-    meals: records.meals.filter((item) => item.childId === child.id && item.date === today),
-    naps: records.naps.filter((item) => item.childId === child.id && item.date === today),
-    diapers: records.diapers.filter((item) => item.childId === child.id && item.date === today),
-    activities: records.activityLogs.filter((item) => item.childId === child.id && item.date === today),
-    communications: records.communications.filter((item) => item.childId === child.id && item.date === today),
-    reports: records.reports.filter((item) => item.childId === child.id && item.date === today),
-    observations: records.observations.filter((item) => item.childId === child.id && item.date === today),
-    photos: (records.photos || []).filter((item) => item.childId === child.id && item.date === today),
+    attendance: records.attendance.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    meals: records.meals.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    naps: records.naps.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    diapers: records.diapers.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    activities: records.activityLogs.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    communications: records.communications.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    reports: records.reports.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    observations: records.observations.filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
+    photos: (records.photos || []).filter((item) => item.childId === child.id && item.date === today && notUndone(item)),
   };
 }
 
@@ -32873,40 +33222,59 @@ function dlcParentSummaryDraftKey(childId, today) {
 function buildDailyLogTimelineEntries(child, records, today) {
   const snapshot = dlcChildDaySnapshot(child, records, today);
   const entries = [];
+  // recordId/storeKey let the fast Daily Logs UI trace an entry back to its
+  // real stored record for Undo / corrections — the classic UI simply
+  // ignores these two extra fields, so this is fully backward compatible.
+  const base = (item, storeKey) => ({
+    recordId: item.id,
+    storeKey,
+    hasCorrections: Array.isArray(item.corrections) && item.corrections.length > 0,
+    enteredLate: item.enteredLate === true,
+  });
   snapshot.attendance.forEach((item) => {
     if (String(item.status || "").toLowerCase() === "absent") {
-      entries.push({ time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
+      entries.push({ ...base(item, "Attendance"), time: dlcRecordTime(item) || "08:00", title: "Absent", detail: "", shared: item.shareWithFamily !== false });
       return;
     }
-    if (item.dropoff) entries.push({ time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
-    if (item.pickup) entries.push({ time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
+    if (item.dropoff) entries.push({ ...base(item, "Attendance"), time: item.dropoff, title: "Checked In", detail: item.status || "Present", shared: item.shareWithFamily !== false });
+    if (item.pickup) entries.push({ ...base(item, "Attendance"), time: item.pickup, title: "Checked Out", detail: "", shared: item.shareWithFamily !== false });
   });
   snapshot.meals.forEach((item) => {
     const baseTime = dlcRecordTime(item);
-    if (item.breakfast) entries.push({ time: baseTime, title: "Breakfast", detail: item.breakfast, shared: item.shareWithFamily !== false });
-    if (item.lunch) entries.push({ time: baseTime, title: "Lunch", detail: item.lunch, shared: item.shareWithFamily !== false });
-    if (item.snack) entries.push({ time: baseTime, title: "Snack", detail: item.snack, shared: item.shareWithFamily !== false });
-    if (!item.breakfast && !item.lunch && !item.snack) entries.push({ time: baseTime, title: "Meal", detail: item.summary || item.notes || "Meal logged", shared: item.shareWithFamily !== false });
+    if (item.breakfast) entries.push({ ...base(item, "Meals"), time: baseTime, title: "Breakfast", detail: item.breakfast, shared: item.shareWithFamily !== false });
+    if (item.lunch) entries.push({ ...base(item, "Meals"), time: baseTime, title: "Lunch", detail: item.lunch, shared: item.shareWithFamily !== false });
+    if (item.snack) entries.push({ ...base(item, "Meals"), time: baseTime, title: "Snack", detail: item.snack, shared: item.shareWithFamily !== false });
+    if (item.type === "Bottle") entries.push({ ...base(item, "Meals"), time: baseTime, title: "Bottle", detail: item.amount || item.notes || "", shared: item.shareWithFamily !== false });
+    if (!item.breakfast && !item.lunch && !item.snack && item.type !== "Bottle") entries.push({ ...base(item, "Meals"), time: baseTime, title: "Meal", detail: item.summary || item.notes || "Meal logged", shared: item.shareWithFamily !== false });
   });
   snapshot.naps.forEach((item) => {
-    if (item.napStart) entries.push({ time: item.napStart, title: "Nap Started", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
-    if (item.napEnd) entries.push({ time: item.napEnd, title: "Nap Ended", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
-    if (!item.napStart && !item.napEnd) entries.push({ time: dlcRecordTime(item), title: "Nap", detail: item.summary || "Nap logged", shared: item.shareWithFamily !== false });
+    if (item.napStart) entries.push({ ...base(item, "Naps"), time: item.napStart, title: "Nap Started", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
+    if (item.napEnd) entries.push({ ...base(item, "Naps"), time: item.napEnd, title: "Nap Ended", detail: item.duration || item.notes || "", shared: item.shareWithFamily !== false });
+    if (!item.napStart && !item.napEnd) entries.push({ ...base(item, "Naps"), time: dlcRecordTime(item), title: "Nap", detail: item.summary || "Nap logged", shared: item.shareWithFamily !== false });
   });
   snapshot.diapers.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: item.type || "Diaper / Potty", detail: item.notes || "", shared: item.shareWithFamily !== false });
+    entries.push({ ...base(item, "Diapers"), time: dlcRecordTime(item), title: item.type || "Diaper / Potty", detail: item.notes || "", shared: item.shareWithFamily !== false });
   });
   snapshot.activities.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: item.activity || "Activity", detail: item.notes || item.area || "", shared: item.shareWithFamily !== false });
+    entries.push({ ...base(item, "ActivityLogs"), time: dlcRecordTime(item), title: item.activity || "Activity", detail: item.notes || item.area || "", shared: item.shareWithFamily !== false });
   });
   snapshot.communications.forEach((item) => {
     const type = String(item.type || "");
     if (["Behavior Note", "Mood Note", "Incident Report", "Medication", "Milestone", "Parent Summary", "Parent Message", "Teacher Note", "General Note", "Daily Log"].includes(type)) {
-      entries.push({ time: dlcRecordTime(item), title: type, detail: item.summary || item.message || "", shared: item.shareWithFamily !== false });
+      const isIncompleteMedication = type === "Medication" && item.status === "needs_provider_information";
+      entries.push({
+        ...base(item, "Communications"),
+        time: dlcRecordTime(item),
+        title: isIncompleteMedication ? "Medication — Needs Provider Information" : type,
+        detail: item.summary || item.message || "",
+        shared: item.shareWithFamily !== false,
+        needsAttention: isIncompleteMedication,
+      });
     }
   });
   snapshot.observations.forEach((item) => {
     entries.push({
+      ...base(item, "Observations"),
       time: dlcRecordTime(item),
       title: "Observation",
       detail: item.text || item.summary || item.developmentArea || "",
@@ -32914,7 +33282,7 @@ function buildDailyLogTimelineEntries(child, records, today) {
     });
   });
   snapshot.photos.forEach((item) => {
-    entries.push({ time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
+    entries.push({ ...base(item, "Photos"), time: dlcRecordTime(item), title: "Photo Added", detail: item.caption || "Photo saved to daily log", shared: item.shareWithFamily !== false });
   });
   return entries
     .sort((a, b) => dlcTimeToMinutes(a.time) - dlcTimeToMinutes(b.time) || String(a.title).localeCompare(String(b.title)))
@@ -34358,12 +34726,78 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record) {
   const items = childStore(key);
-  saveChildStore(key, [...items, { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record }]);
+  const id = `${key}-${Date.now()}`;
+  saveChildStore(key, [...items, { id, createdAt: new Date().toISOString(), ...record }]);
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
     renderChildManagement();
   }
+  return id;
+}
+
+/**
+ * Accidental Tap Recovery — Undo. Never deletes: marks the record
+ * `undone: true` (excluded from every active view via
+ * dlcChildDaySnapshot's filter, above) while keeping it permanently in the
+ * store file as an auditable correction, with who/when it was undone.
+ */
+function undoChildRecord(storeKey, recordId) {
+  const items = childStore(storeKey);
+  const target = items.find((item) => item.id === recordId);
+  if (!target || target.undone === true) return false;
+  saveChildStore(storeKey, items.map((item) => (
+    item.id === recordId
+      ? { ...item, undone: true, undoneAt: new Date().toISOString(), undoneBy: currentUser || "" }
+      : item
+  )));
+  return true;
+}
+
+/**
+ * Corrections (Section 5) — never silently replaces the original record.
+ * The FIRST correction snapshots the original time/notes into
+ * originalTime/originalNotes (kept forever), then every correction —
+ * including the first — is appended to a `corrections` array with a
+ * required reason, so the full history is always visible. The record's
+ * live `time`/`notes` fields become the corrected values (what every other
+ * reader — timeline, summary, reports — sees), but originalTime/
+ * originalNotes and the full corrections[] log are never overwritten.
+ */
+function applyChildRecordCorrection(storeKey, recordId, { time, notes, reason, enteredLate, timeField = "time", notesField = "notes" } = {}) {
+  const cleanReason = String(reason || "").trim();
+  if (!cleanReason) return { ok: false, error: "A correction reason is required." };
+  const items = childStore(storeKey);
+  const target = items.find((item) => item.id === recordId);
+  if (!target) return { ok: false, error: "Record not found." };
+  const fromTime = target[timeField] || "";
+  const fromNotes = target[notesField] ?? "";
+  const toTime = time !== undefined && time !== "" ? time : fromTime;
+  const toNotes = notes !== undefined ? notes : fromNotes;
+  const correctionEntry = {
+    correctedAt: new Date().toISOString(),
+    correctedBy: currentUser || "",
+    reason: cleanReason,
+    enteredLate: enteredLate === true,
+    changes: {
+      ...(toTime !== fromTime ? { [timeField]: { from: fromTime, to: toTime } } : {}),
+      ...(toNotes !== fromNotes ? { [notesField]: { from: fromNotes, to: toNotes } } : {}),
+    },
+  };
+  saveChildStore(storeKey, items.map((item) => {
+    if (item.id !== recordId) return item;
+    const next = {
+      ...item,
+      [timeField]: toTime,
+      enteredLate: enteredLate === true || item.enteredLate === true,
+      corrections: [...(Array.isArray(item.corrections) ? item.corrections : []), correctionEntry],
+    };
+    if (item.originalTime === undefined) next.originalTime = fromTime;
+    if (item.originalNotes === undefined) next.originalNotes = fromNotes;
+    if (notes !== undefined) next[notesField] = toNotes;
+    return next;
+  }));
+  return { ok: true };
 }
 
 let afterActionPromptTimeout = null;
@@ -36740,6 +37174,35 @@ let pilotState = {
   loading: false, error: "", notice: "",
 };
 
+/**
+ * Offline/refresh safety (Section 6): an in-progress note/caption is saved
+ * to localStorage on every keystroke, keyed per child+action, and restored
+ * automatically if the tab is refreshed (or the network drops) before the
+ * teacher taps Save — cleared once the entry is actually saved. This is on
+ * top of the fact that a SAVED entry already persists immediately to
+ * localStorage (appendChildRecord/saveChildStore) with no network
+ * dependency at all — only the background cloud sync needs connectivity,
+ * and it safely retries/re-syncs the full snapshot without ever
+ * duplicating a record.
+ */
+function fastDlcNoteDraftKey(childId, actionId) {
+  return `llhFastDlcDraft:${currentUser}:${childId}:${actionId}`;
+}
+function fastDlcGetNoteDraft(childId, actionId) {
+  try { return localStorage.getItem(fastDlcNoteDraftKey(childId, actionId)) || ""; } catch { return ""; }
+}
+function fastDlcSaveNoteDraft(childId, actionId, value) {
+  try {
+    if (value) localStorage.setItem(fastDlcNoteDraftKey(childId, actionId), value);
+    else localStorage.removeItem(fastDlcNoteDraftKey(childId, actionId));
+  } catch { /* localStorage unavailable — draft persistence is best-effort only */ }
+}
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-fast-dlc-note-input]");
+  if (!input || !fastDlcOpenChildId) return;
+  fastDlcSaveNoteDraft(fastDlcOpenChildId, input.getAttribute("data-fast-dlc-note-input"), input.value);
+});
+
 const pilotApi = externalTesterSandboxApi;
 
 function isHomeDaycarePilotAccount() {
@@ -36768,6 +37231,23 @@ function refreshHomeDaycarePilotNav() {
     document.querySelector('.nav-link[data-view="forms"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
     document.querySelector('.nav-link[data-view="families"]:not([data-pilot-nav])')?.setAttribute("hidden", "");
   }
+}
+
+/**
+ * Photo Safety bridge: when a Home Daycare Pilot sandbox tester (in her
+ * Provider role) saves a photo through the fast Daily Logs UI, ALSO mirror
+ * it into the pilot's server-side, organization+child-scoped photo store
+ * (best-effort, never blocks the local save) — so it becomes visible on
+ * the connected Parent Home view through the SAME org/child/guardian
+ * access checks every other /api/pilot/* route already enforces. A plain
+ * real-account tester (no pilot org) has no server-side "parent" to bridge
+ * to, so this is a safe no-op for her.
+ */
+async function fastDlcBridgePhotoToPilotIfApplicable(childId, caption, dataUrl) {
+  if (!dataUrl || !isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  try {
+    await pilotApi("POST", "/api/pilot/photos", { childId, caption, dataUrl });
+  } catch { /* best-effort — local photo record already saved regardless */ }
 }
 
 async function pilotMarkChecklistItem(itemKey) {
@@ -37163,6 +37643,12 @@ function renderPilotParentHomePage() {
         <p><strong>Forms needing action:</strong> ${c.formsNeedingAction.length ? c.formsNeedingAction.map((f) => escapeHtml(f.title)).join(", ") : "None"}</p>
         <p><strong>Unread messages:</strong> ${c.unreadMessageCount}</p>
         ${c.isFinanciallyResponsible ? `<p><strong>Billing reminders:</strong> ${c.billingReminders.length ? c.billingReminders.map((b) => `${escapeHtml(b.description)} — $${(b.amountCents / 100).toFixed(2)}`).join(", ") : "None"}</p>` : ""}
+        ${(c.sharedPhotos || []).length ? `
+          <p><strong>Shared photos:</strong></p>
+          <div class="fh-photo-strip">
+            ${c.sharedPhotos.slice(0, 6).map((p) => `<img src="${p.dataUrl}" alt="${escapeHtml(p.caption || "Shared photo")}" class="fh-shared-photo" />`).join("")}
+          </div>
+        ` : ""}
       </section>
     `).join("") || "<p class=\"muted-copy\">No linked child yet — ask the provider to add one and link a guardian.</p>"}
   `;
@@ -51607,6 +52093,8 @@ document.addEventListener("click", async (event) => {
     if (!actionId || !childId) return;
     const noteInput = document.querySelector(`[data-fast-dlc-note-input="${actionId}"]`);
     const note = noteInput ? noteInput.value.trim() : "";
+    const noteStoreKeys = { observation: "Observations", incident: "Communications", "behavior-note": "Communications", milestone: "Communications", "parent-message": "Communications", activity: "ActivityLogs", photo: "Photos" };
+    const noteLabels = { observation: "Observation", incident: "Incident Report", "behavior-note": "Behavior Note", milestone: "Milestone", "parent-message": "Parent Message", activity: "Activity", photo: "Photo" };
     // A brief "Saved" confirmation right on the button, since this UI is
     // meant to feel fast — the teacher taps Save and is instantly back to
     // Quick Actions, never a page navigation.
@@ -51616,11 +52104,211 @@ document.addEventListener("click", async (event) => {
       Promise.resolve(file ? fileToDataUrl(file) : "").then((src) => {
         fastDlcSheetView = "timeline";
         saveDailyLogQuickAction("photo", childId, { date: dlcActiveDate(), note, src });
+        fastDlcRecordLastAction("photo", childId);
+        fastDlcSaveNoteDraft(childId, "photo", "");
+        fastDlcBridgePhotoToPilotIfApplicable(childId, note, src);
       });
       return;
     }
     fastDlcSheetView = actionId === "parent-message" ? "timeline" : "actions";
     saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate(), note });
+    fastDlcSaveNoteDraft(childId, actionId, "");
+    const storeKey = noteStoreKeys[actionId];
+    if (storeKey) {
+      const items = childStore(storeKey);
+      const last = items[items.length - 1];
+      if (last && last.childId === childId) {
+        fastDlcLastAction = { childId, storeKey, recordId: last.id, label: noteLabels[actionId] || actionId, timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now" };
+      }
+    }
+    return;
+  }
+
+  const fastDlcUndoBtn = event.target.closest("[data-fast-dlc-undo]");
+  if (fastDlcUndoBtn) {
+    event.preventDefault();
+    const storeKey = fastDlcUndoBtn.getAttribute("data-fast-dlc-undo") || "";
+    const recordId = fastDlcUndoBtn.getAttribute("data-fast-dlc-undo-record") || "";
+    undoChildRecord(storeKey, recordId);
+    fastDlcLastAction = null;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcEditEntryBtn = event.target.closest("[data-fast-dlc-edit-entry]");
+  if (fastDlcEditEntryBtn) {
+    event.preventDefault();
+    fastDlcEditingRecord = {
+      storeKey: fastDlcEditEntryBtn.getAttribute("data-fast-dlc-edit-entry") || "",
+      recordId: fastDlcEditEntryBtn.getAttribute("data-fast-dlc-edit-record") || "",
+    };
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcCancelEditBtn = event.target.closest("[data-fast-dlc-cancel-edit]");
+  if (fastDlcCancelEditBtn) {
+    event.preventDefault();
+    fastDlcEditingRecord = null;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcSaveCorrectionBtn = event.target.closest("[data-fast-dlc-save-correction]");
+  if (fastDlcSaveCorrectionBtn) {
+    event.preventDefault();
+    const storeKey = fastDlcSaveCorrectionBtn.getAttribute("data-fast-dlc-save-correction") || "";
+    const recordId = fastDlcSaveCorrectionBtn.getAttribute("data-fast-dlc-correction-record") || "";
+    const wrap = fastDlcSaveCorrectionBtn.closest(".fdlc-timeline-text-wrap") || document;
+    const time = wrap.querySelector("[data-fast-dlc-correction-time]")?.value || "";
+    const notes = wrap.querySelector("[data-fast-dlc-correction-notes]")?.value || "";
+    const enteredLate = wrap.querySelector("[data-fast-dlc-correction-late]")?.checked || false;
+    const reason = wrap.querySelector("[data-fast-dlc-correction-reason]")?.value || "";
+    // Every store names its "detail" text field differently — the timeline
+    // reads a different field per store, so the correction must write to
+    // that SAME field for the edit to actually show up.
+    const notesFieldByStore = { Observations: "text", Communications: "summary", Diapers: "notes", ActivityLogs: "notes", Naps: "notes", Meals: "notes", Photos: "caption", Attendance: "summary" };
+    const result = applyChildRecordCorrection(storeKey, recordId, { time, notes, notesField: notesFieldByStore[storeKey] || "notes", reason, enteredLate });
+    if (!result.ok) {
+      showActionFeedback(result.error || "Could not save correction.");
+      return;
+    }
+    fastDlcEditingRecord = null;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcPrintTimelineBtn = event.target.closest("[data-fast-dlc-print-timeline]");
+  if (fastDlcPrintTimelineBtn) {
+    event.preventDefault();
+    const childId = fastDlcPrintTimelineBtn.getAttribute("data-fast-dlc-print-timeline") || "";
+    const records = childRecords();
+    const child = records.children.find((c) => c.id === childId);
+    if (!child) return;
+    const today = dlcActiveDate();
+    const entries = buildDailyLogTimelineEntries(child, records, today);
+    const lines = entries.map((e) => `${e.displayTime} — ${e.title}${e.detail ? `: ${e.detail}` : ""}`);
+    printTextDocument(`Daily Report — ${escapeHtml(child.name)} — ${today}`, lines.join("\n"));
+    return;
+  }
+
+  const fastDlcPrintSummaryBtn = event.target.closest("[data-fast-dlc-print-summary]");
+  if (fastDlcPrintSummaryBtn) {
+    event.preventDefault();
+    const childId = fastDlcPrintSummaryBtn.getAttribute("data-fast-dlc-print-summary") || "";
+    const records = childRecords();
+    const child = records.children.find((c) => c.id === childId);
+    if (!child) return;
+    const today = dlcActiveDate();
+    const textarea = document.querySelector(`[data-dlc-summary-input="${childId}"]`);
+    const summaryText = textarea?.value || getDailyLogParentSummaryDraft(child, records, today);
+    printTextDocument(`Parent Summary — ${escapeHtml(child.name)} — ${today}`, summaryText);
+    return;
+  }
+
+  // ─── Group Logging (Section 1) ────────────────────────────────────────────
+
+  const fastDlcOpenGroupLogBtn = event.target.closest("[data-fast-dlc-open-group-log]");
+  if (fastDlcOpenGroupLogBtn) {
+    event.preventDefault();
+    fastDlcGroupLogOpen = true;
+    fastDlcGroupLogStep = "type";
+    fastDlcGroupLogType = "";
+    fastDlcGroupLogSelectedChildIds = [];
+    fastDlcGroupLogSharedNote = "";
+    fastDlcGroupLogExceptions = {};
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcCloseGroupLogBtn = event.target.closest("[data-fast-dlc-close-group-log]");
+  if (fastDlcCloseGroupLogBtn) {
+    event.preventDefault();
+    fastDlcGroupLogOpen = false;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupTypeBtn = event.target.closest("[data-fast-dlc-group-type]");
+  if (fastDlcGroupTypeBtn) {
+    event.preventDefault();
+    fastDlcGroupLogType = fastDlcGroupTypeBtn.getAttribute("data-fast-dlc-group-type") || "";
+    fastDlcGroupLogStep = "children";
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupStepBtn = event.target.closest("[data-fast-dlc-group-step]");
+  if (fastDlcGroupStepBtn) {
+    event.preventDefault();
+    const nextStep = fastDlcGroupStepBtn.getAttribute("data-fast-dlc-group-step") || "type";
+    // Read free-text fields from the DOM right before leaving the
+    // "details" step — avoids re-rendering (and losing focus/cursor
+    // position) on every keystroke while the teacher is typing.
+    if (nextStep === "preview") {
+      const sharedNoteInput = document.querySelector("[data-fast-dlc-group-shared-note]");
+      if (sharedNoteInput) fastDlcGroupLogSharedNote = sharedNoteInput.value.trim();
+      document.querySelectorAll("[data-fast-dlc-group-exception-note]").forEach((input) => {
+        const childId = input.getAttribute("data-fast-dlc-group-exception-note");
+        const existing = fastDlcGroupLogExceptions[childId] || {};
+        fastDlcGroupLogExceptions[childId] = { ...existing, note: input.value.trim() };
+      });
+    }
+    fastDlcGroupLogStep = nextStep;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupConfirmBtn = event.target.closest("[data-fast-dlc-group-confirm]");
+  if (fastDlcGroupConfirmBtn) {
+    event.preventDefault();
+    const groupLogId = `grouplog-${Date.now()}`;
+    const includedChildIds = fastDlcGroupLogSelectedChildIds.filter((id) => !fastDlcGroupLogExceptions[id]?.excluded);
+    const groupTypeMeta = FAST_DLC_GROUP_TYPES.find((t) => t.id === fastDlcGroupLogType);
+    const groupActionIdMap = {
+      "attendance-in": ["check-in", "Attendance"], "attendance-out": ["check-out", "Attendance"],
+      meal: ["meal", "Meals"], bottle: ["bottle", "Meals"],
+      "nap-started": ["nap-started", "Naps"], "nap-ended": ["nap-ended", "Naps"],
+      diaper: ["diaper", "Diapers"], activity: ["activity", "ActivityLogs"], update: ["daily-log", "Communications"],
+    };
+    const [mappedActionId, mappedStoreKey] = groupActionIdMap[fastDlcGroupLogType] || [];
+    includedChildIds.forEach((childId) => {
+      if (!mappedActionId) return;
+      const exceptionNote = fastDlcGroupLogExceptions[childId]?.note || "";
+      const combinedNote = [fastDlcGroupLogSharedNote, exceptionNote].filter(Boolean).join(" — ");
+      saveDailyLogQuickAction(mappedActionId, childId, { date: dlcActiveDate(), note: combinedNote });
+      // Tag the just-created record with the shared groupLogId for audit
+      // (appendChildRecord's write is synchronous, so this always finds
+      // the record just written for THIS child before the next iteration).
+      const items = childStore(mappedStoreKey);
+      const last = items[items.length - 1];
+      if (last && last.childId === childId && !last.groupLogId) {
+        saveChildStore(mappedStoreKey, items.map((item) => (item.id === last.id ? { ...item, groupLogId, groupLogType: fastDlcGroupLogType } : item)));
+      }
+    });
+    showActionFeedback(`Logged "${groupTypeMeta?.label || fastDlcGroupLogType}" for ${includedChildIds.length} child${includedChildIds.length === 1 ? "" : "ren"}.`);
+    fastDlcGroupLogOpen = false;
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupChildCheck = event.target.closest("[data-fast-dlc-group-child-check]");
+  if (fastDlcGroupChildCheck && event.type === "click") {
+    const value = fastDlcGroupChildCheck.value;
+    if (fastDlcGroupChildCheck.checked) {
+      if (!fastDlcGroupLogSelectedChildIds.includes(value)) fastDlcGroupLogSelectedChildIds = [...fastDlcGroupLogSelectedChildIds, value];
+    } else {
+      fastDlcGroupLogSelectedChildIds = fastDlcGroupLogSelectedChildIds.filter((id) => id !== value);
+    }
+    renderChildManagement();
+    return;
+  }
+
+  const fastDlcGroupExceptionIncluded = event.target.closest("[data-fast-dlc-group-exception-included]");
+  if (fastDlcGroupExceptionIncluded && event.type === "click") {
+    const childId = fastDlcGroupExceptionIncluded.getAttribute("data-fast-dlc-group-exception-included");
+    const existing = fastDlcGroupLogExceptions[childId] || {};
+    fastDlcGroupLogExceptions = { ...fastDlcGroupLogExceptions, [childId]: { ...existing, excluded: !fastDlcGroupExceptionIncluded.checked } };
     return;
   }
 
@@ -51757,6 +52445,21 @@ document.addEventListener("click", async (event) => {
     const actionId = dlcQuickActionBtn.dataset.dlcQuickAction || "";
     const childId = dlcQuickActionBtn.dataset.dlcQuickChild || selectedChildId;
     if (!actionId || !childId) return;
+    // Accidental Tap Recovery (fast Daily Logs only — data-fast-dlc-onetap
+    // is never present on the classic UI's identical buttons): a second
+    // tap of the SAME one-tap action for the SAME child within the
+    // cooldown window is treated as a double-tap/retry, not a second real
+    // event — it's silently ignored rather than creating a duplicate record.
+    const oneTapKey = dlcQuickActionBtn.dataset.fastDlcOnetap || "";
+    if (oneTapKey) {
+      const dedupeKey = `${childId}:${oneTapKey}`;
+      const now = Date.now();
+      if (fastDlcRecentActionAt[dedupeKey] && now - fastDlcRecentActionAt[dedupeKey] < FAST_DLC_DUPLICATE_COOLDOWN_MS) {
+        showActionFeedback("Already logged — tap Undo above if this was a mistake.");
+        return;
+      }
+      fastDlcRecentActionAt[dedupeKey] = now;
+    }
     const afterTab = dlcQuickActionBtn.dataset.dlcAfterTab || "";
     const formOnlyActions = new Set(["meal", "nap", "diaper", "activity", "photo", "observation", "incident", "parent-message", "daily-log"]);
     const isAttendance = ["check-in", "check-out", "absent"].includes(actionId);
@@ -51767,6 +52470,7 @@ document.addEventListener("click", async (event) => {
         childId,
         date: dlcActiveDate(),
       });
+      if (oneTapKey) fastDlcRecordLastAction(oneTapKey, childId);
     }
     if (afterTab && !isAttendance) {
       selectedChildId = childId;
