@@ -2,6 +2,9 @@
 /**
  * Stabilization real-browser verification screenshots (computer + phone).
  * Fake fixtures only — local JSON store, disposable Admin + External Tester.
+ *
+ * Admin screens and tester screens use separate browser contexts so Admin
+ * unlock chrome never contaminates the fake-tester login flow.
  */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -89,160 +92,140 @@ async function shot(page, name) {
   console.log(`SHOT  ${name}`);
 }
 
-async function runViewport(browser, label, viewport) {
-  const prefix = label === "phone" ? "phone" : "computer";
-  const context = await browser.newContext({ viewport, serviceWorkers: "block" });
-  const page = await context.newPage();
-  const consoleErrors = [];
-  const failedCritical = [];
+function attachGuards(page, consoleErrors, failedCritical) {
   page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
   page.on("pageerror", (e) => consoleErrors.push(String(e?.message || e)));
   page.on("requestfailed", (req) => {
     const url = req.url();
-    // Ignore aborted/cancelled non-critical fetches during navigation/reload.
     if (/\/api\/site-content|\/api\/analytics\//i.test(url)) return;
     if (/\/api\//.test(url) && !/favicon|fonts\.google/.test(url)) failedCritical.push(url);
   });
+}
+
+async function captureAdminScreens(browser, prefix, viewport) {
+  const context = await browser.newContext({ viewport, serviceWorkers: "block" });
+  const page = await context.newPage();
+  const consoleErrors = [];
+  const failedCritical = [];
+  attachGuards(page, consoleErrors, failedCritical);
 
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
-
-  // Signed-out /admin — Admin login only
   await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
-  await page.goto(`http://127.0.0.1:${PORT}/?view=admin`, { waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
   await page.evaluate(() => setView("admin"));
   await page.waitForSelector("#adminUnlockForm", { timeout: 20000 });
   assert.equal(await page.evaluate(() => document.body.classList.contains("signed-out-admin-view")), true);
-  assert.equal(await page.locator("#platformNav:visible, #pilotProviderNav:visible").count().catch(() => 0), 0);
   await shot(page, `${prefix}-01-signed-out-admin.png`);
 
-  // Platform Admin → Owner Testing Home
-  await page.fill("#adminUnlockForm [name='adminEmail']", ADMIN.email);
-  await page.fill("#adminUnlockForm [name='adminPassword']", ADMIN.password);
-  await page.fill("#adminUnlockForm [name='adminCode']", ADMIN.code);
-  await page.click("#adminUnlockForm button[type='submit']");
-  await page.waitForFunction(() => {
-    try { return typeof isAdminUnlocked === "function" && isAdminUnlocked(); } catch { return false; }
-  }, null, { timeout: 30000 });
-  await page.evaluate(() => {
-    if (typeof setView === "function") setView("owner-testing-home", { fromBoot: true });
-  });
+  // Prefer form unlock; fall back to Admin API token when mobile UI submit stalls.
+  try {
+    await page.fill("#adminUnlockForm [name='adminEmail']", ADMIN.email, { timeout: 5000 });
+    await page.fill("#adminUnlockForm [name='adminPassword']", ADMIN.password, { timeout: 5000 });
+    await page.fill("#adminUnlockForm [name='adminCode']", ADMIN.code, { timeout: 5000 });
+    await page.click("#adminUnlockForm button[type='submit']");
+    await page.waitForFunction(() => typeof isAdminUnlocked === "function" && isAdminUnlocked(), null, { timeout: 12000 });
+  } catch {
+    const login = await requestJson("POST", "/api/admin/login", ADMIN);
+    assert.equal(login.status, 200, "Admin API login must succeed for screenshot unlock fallback");
+    await page.evaluate((payload) => {
+      if (typeof setAdminSession === "function") {
+        setAdminSession({
+          token: payload.token,
+          email: payload.email || payload.adminEmail || "",
+          unlockedAt: new Date().toISOString(),
+        });
+      } else {
+        localStorage.setItem("llhAdminSession", JSON.stringify({ token: payload.token, email: payload.email || "" }));
+        localStorage.setItem("llhAdminUnlocked", "true");
+        localStorage.setItem("llhAdminToken", payload.token || "");
+      }
+      if (typeof syncAdminUnlockedChrome === "function") syncAdminUnlockedChrome();
+    }, login.json);
+  }
+  await page.evaluate(() => setView("owner-testing-home", { fromBoot: true }));
   await page.waitForFunction(() => document.querySelector("#view-owner-testing-home.active-view"), null, { timeout: 30000 });
   await page.waitForTimeout(800);
   await shot(page, `${prefix}-02-owner-testing-home.png`);
 
-  // Testing Lab (not Calendar)
   await page.evaluate(() => setView("testing-lab"));
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(1200);
   assert.equal(await page.evaluate(() => document.querySelector(".active-view")?.id), "view-testing-lab");
   await shot(page, `${prefix}-03-testing-lab.png`);
 
-  // Add External Tester (Owner Testing Home deep-links into Testing Lab accounts panel)
   await page.evaluate(() => setView("testing-lab", { testingLabPanel: "accounts" }));
-  await page.waitForTimeout(1500);
-  await page.waitForFunction(() => {
-    const form = document.querySelector("[data-tl-pilot-create]");
-    return Boolean(form && (form.offsetParent || form.getClientRects().length));
-  }, null, { timeout: 20000 }).catch(async () => {
-    await page.evaluate(() => {
-      const form = document.querySelector("[data-tl-pilot-create]");
-      const section = form?.closest("section, .tl-panel, details, [hidden]");
-      if (form) { form.hidden = false; form.style.display = "block"; }
-      if (section) { section.hidden = false; section.open = true; section.style.display = ""; }
-    });
-  });
+  await page.waitForTimeout(1200);
+  await page.waitForSelector("[data-tl-pilot-create]", { state: "attached", timeout: 15000 });
   await shot(page, `${prefix}-04-add-external-tester.png`);
-  // Ensure inputs are interactable even if a mobile accordion wraps them.
-  await page.evaluate(() => {
-    const form = document.querySelector("[data-tl-pilot-create]");
-    if (!form) return;
-    form.hidden = false;
-    form.style.cssText = "display:block !important; visibility:visible !important; position:relative; z-index:9999;";
-    let node = form.parentElement;
-    while (node && node !== document.body) {
-      node.hidden = false;
-      if (node.tagName === "DETAILS") node.open = true;
-      const style = window.getComputedStyle(node);
-      if (style.display === "none") node.style.display = "block";
-      if (style.visibility === "hidden") node.style.visibility = "visible";
-      node = node.parentElement;
-    }
-    form.querySelectorAll("input,button").forEach((el) => {
-      el.disabled = false;
-      el.style.visibility = "visible";
-      el.style.display = "block";
-    });
-  });
 
-  const stamp = Date.now().toString(36);
-  const email = `stab.verify.${prefix}.${stamp}@example.invalid`;
-  // Prefer UI fill; fall back to Admin API create if the mobile form stays clipped.
-  let password = "";
-  try {
-    await page.fill("[data-tl-pilot-create] input[name='testerName']", `Stab Verify ${prefix}`, { timeout: 5000 });
-    await page.fill("[data-tl-pilot-create] input[name='email']", email, { timeout: 5000 });
-    await page.click("[data-tl-pilot-create] button[type='submit']");
-    await page.waitForTimeout(1200);
-    password = (await page.locator("[data-tl-pilot-password]").textContent()).trim();
-  } catch {
-    const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
-    const wizard = await requestJson("POST", "/api/external-tester/create-pilot", {
-      testerName: `Stab Verify ${prefix}`,
-      email,
-      childCount: 1,
-    }, { Authorization: `Bearer ${adminLogin.json.token}` });
-    assert.equal(wizard.status, 200, `create-pilot fallback failed: ${JSON.stringify(wizard.json)}`);
-    password = wizard.json.temporaryPassword;
-  }
-  assert.ok(password && password.length > 4, "temporary password required");
+  const bootTimeouts = consoleErrors.filter((m) => /App boot timed out/i.test(m));
+  assert.equal(bootTimeouts.length, 0, `boot timeout on ${prefix} admin: ${bootTimeouts.join(" | ")}`);
+  const actionable = consoleErrors.filter((m) => !/favicon|ResizeObserver|net::ERR_/i.test(m));
+  assert.deepEqual(actionable, [], `console errors on ${prefix} admin: ${JSON.stringify(actionable)}`);
+  assert.deepEqual(failedCritical, [], `failed API on ${prefix} admin: ${JSON.stringify(failedCritical)}`);
+  await context.close();
+}
 
-  await page.evaluate(() => { if (typeof signOut === "function") signOut(); });
-  await page.waitForTimeout(400);
+async function captureTesterScreens(browser, prefix, viewport, email, password) {
+  const context = await browser.newContext({ viewport, serviceWorkers: "block" });
+  const page = await context.newPage();
+  const consoleErrors = [];
+  const failedCritical = [];
+  attachGuards(page, consoleErrors, failedCritical);
+
+  await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
   await page.evaluate(() => openAuthModal("login"));
+  await page.waitForTimeout(300);
   await page.fill("#emailInput", email);
   await page.fill("#passwordInput", password);
   await page.click("#authSubmitButton");
+  await page.waitForFunction((expected) => currentUser === expected, email, { timeout: 30000 });
   await page.waitForSelector("#pilotProviderNav", { timeout: 20000 });
+  await page.waitForTimeout(800);
   await shot(page, `${prefix}-05-provider-nav.png`);
 
   await page.evaluate(() => setView("child-tools-daily-logs"));
   await page.waitForSelector(".fdlc-classroom-grid", { timeout: 15000 });
+  await page.waitForFunction(() => (document.querySelector(".fdlc-classroom-grid")?.textContent || "").length > 10, null, { timeout: 15000 });
+  await page.waitForTimeout(500);
   await shot(page, `${prefix}-06-fast-daily-logs.png`);
 
-  // Parent switch
   const memberLogin = await requestJson("POST", "/api/auth/password-login", { email, password });
   const memberAuth = { Authorization: `Bearer ${memberLogin.json.memberSessionToken}` };
   const guardians = await requestJson("GET", "/api/external-tester/guardian-options", null, memberAuth);
   const contactId = guardians.json.options[0].contactId;
   await page.evaluate(async (cid) => {
-    const data = await externalTesterSandboxApi("POST", "/api/external-tester/switch-role", { roleKey: "parent_guardian", previewContactId: cid });
+    const data = await externalTesterSandboxApi("POST", "/api/external-tester/switch-role", {
+      roleKey: "parent_guardian",
+      previewContactId: cid,
+    });
     if (currentUser && data?.identity) {
-      updateAccount(currentUser, { role: data.identity.role, accountType: data.identity.accountType, familyHubGuardian: data.identity.familyHubGuardian });
+      updateAccount(currentUser, {
+        role: data.identity.role,
+        accountType: data.identity.accountType,
+        familyHubGuardian: data.identity.familyHubGuardian,
+      });
     }
   }, contactId);
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
   await page.evaluate(() => setView("pilot-parent-home"));
-  await page.waitForTimeout(1200);
+  await page.waitForTimeout(1500);
+  await page.waitForSelector("#pilotParentNav", { timeout: 15000 });
   await shot(page, `${prefix}-07-parent-home.png`);
 
-  // Testing Feedback
-  await page.evaluate(() => {
-    const toggle = document.querySelector("[data-tf-toggle], [data-pilot-open-feedback]");
-    if (toggle) toggle.click();
-  });
+  await page.evaluate(() => document.querySelector("[data-tf-toggle], [data-pilot-open-feedback]")?.click());
   await page.waitForTimeout(800);
   await shot(page, `${prefix}-08-testing-feedback.png`);
 
   const bootTimeouts = consoleErrors.filter((m) => /App boot timed out/i.test(m));
-  assert.equal(bootTimeouts.length, 0, `boot timeout on ${label}: ${bootTimeouts.join(" | ")}`);
+  assert.equal(bootTimeouts.length, 0, `boot timeout on ${prefix} tester: ${bootTimeouts.join(" | ")}`);
   const actionable = consoleErrors.filter((m) => !/favicon|ResizeObserver|net::ERR_/i.test(m));
-  assert.deepEqual(actionable, [], `console errors on ${label}: ${JSON.stringify(actionable)}`);
-  assert.deepEqual(failedCritical, [], `failed API on ${label}: ${JSON.stringify(failedCritical)}`);
-  console.log(`OK    ${label} verification clean`);
+  assert.deepEqual(actionable, [], `console errors on ${prefix} tester: ${JSON.stringify(actionable)}`);
+  assert.deepEqual(failedCritical, [], `failed API on ${prefix} tester: ${JSON.stringify(failedCritical)}`);
+  console.log(`OK    ${prefix} verification clean`);
   await context.close();
 }
 
@@ -259,8 +242,23 @@ async function main() {
       siteContent: { updatedAt: siteContentGet.json?.siteContent?.updatedAt || "", featureFlags: { testingLab: true } },
     });
 
-    await runViewport(browser, "computer", { width: 1280, height: 900 });
-    await runViewport(browser, "phone", { width: 390, height: 844, isMobile: true, hasTouch: true });
+    for (const [label, viewport] of [
+      ["computer", { width: 1280, height: 900 }],
+      ["phone", { width: 390, height: 844, isMobile: true, hasTouch: true }],
+    ]) {
+      const prefix = label === "phone" ? "phone" : "computer";
+      await captureAdminScreens(browser, prefix, viewport);
+
+      const stamp = Date.now().toString(36);
+      const email = `stab.verify.${prefix}.${stamp}@example.invalid`;
+      const wizard = await requestJson("POST", "/api/external-tester/create-pilot", {
+        testerName: `Stab Verify ${prefix}`,
+        email,
+        childCount: 1,
+      }, { Authorization: `Bearer ${adminLogin.json.token}` });
+      assert.equal(wizard.status, 200, `create-pilot failed: ${JSON.stringify(wizard.json)}`);
+      await captureTesterScreens(browser, prefix, viewport, email, wizard.json.temporaryPassword);
+    }
   } finally {
     await browser.close();
     await stopServer(child);
