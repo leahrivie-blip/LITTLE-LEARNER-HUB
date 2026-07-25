@@ -9,7 +9,15 @@ production writes were used for anything in this document or its accompanying co
 changes/tests**).
 
 **Branch:** `cursor/admin-session-storage-audit-1d13`
-**Status:** draft PR, not merged, not deployed.
+**PR:** #335, targeting `main`
+**Head commit (full 40-char SHA):** `9bbe2e51d5638ba1165287524464c7bfd5fb286d`
+**Working tree / remote match:** clean; local branch tip matches `origin/cursor/admin-session-storage-audit-1d13` exactly (`git diff origin/... HEAD` produces no output).
+**Status:** draft PR, **not merged, not deployed to `main`/production.** A separate,
+adapted validation of this exact change has been deployed-path-prepared against the
+`little-learner-hub-testing` service — see §9 below and
+`docs/audits/PR335_TESTING_VALIDATION_2026-07-25.md` (PR #338, branch
+`testing/pr335-session-storage-validation-2026-07-25`, targeting
+`testing/full-platform-integration-2026-07`, not `main`).
 
 ---
 
@@ -414,3 +422,85 @@ was changed to produce this endpoint — it is a pure read, gated by the existin
 
 **This PR has not been merged or deployed.** It is a draft PR targeting `main`,
 stopped here for approval as instructed.
+
+---
+
+## 9. Real testing-environment validation (required before this is considered for `main`)
+
+Per explicit instruction, this change must be validated on a real deployment
+(`little-learner-hub-testing`, with its own separate Neon database) before being
+considered for `main`. Full detail: `docs/audits/PR335_TESTING_VALIDATION_2026-07-25.md`
+(PR #338, branch `testing/pr335-session-storage-validation-2026-07-25`).
+
+**Summary of that work:**
+- The exact functional change from this PR was **adapted** (not blindly cherry-picked —
+  `server/index.js` on the testing integration branch has diverged from `main` by
+  ~1,985 lines) onto `testing/full-platform-integration-2026-07`'s current tip, in a
+  separate branch, without pulling in unrelated `main` history.
+- That branch's own existing, stricter admin-login rate limiter was deliberately left
+  untouched rather than duplicated.
+- Local pre-flight (syntax check, this branch's own `test-admin-auth-session.js`,
+  `test-director-center-phase2/3.js`, and a rate-limit-aware sanity script) all pass,
+  confirming boot, login, session validation, **session survival across a real process
+  restart**, logout/revocation, post-logout rejection, concurrent logins with distinct
+  tokens, wrong-credential rejection, and health-check responsiveness.
+- **Limitation, stated plainly:** this agent has no Render dashboard/API access
+  (verified: no `RENDER_*` env vars, no `render` CLI) and no admin credentials for the
+  `little-learner-hub-testing` service itself (verified: not present in this
+  environment, not discoverable in the repo — the same limitation prior agent sessions
+  on this repo already documented in
+  `docs/PHASE_23_COMPLETE_PLATFORM_WALKTHROUGH_COMPLETION_REPORT.md` and
+  `docs/OVERNIGHT_DECISIONS_AND_BLOCKERS.md`). The branch is pushed and a validation PR
+  (#338) is open against the testing integration branch, but the admin-authenticated and
+  real-database portions of the checklist (byte-size measured on the actual Neon testing
+  instance, lockout against the real host, etc.) require an owner with Render/testing
+  credentials to run — see the checklist in that document.
+
+**Only once that real-environment checklist passes should PR #335 be merged to `main`.**
+It has not been merged.
+
+## 10. Production deployment checklist (for when #335 is eventually approved for `main`)
+
+This is **not yet needed** — #335 is not being merged now — but is provided as
+requested, ready for when it is:
+
+1. **Backup confirmation.** Before deploying, confirm a recent verified backup exists:
+   `GET /api/admin/store-backups` (admin-gated) lists recent backups with a `verified`
+   flag; trigger a fresh one (`POST /api/admin/store-backups`) immediately before
+   deploying if the most recent one isn't from the last few hours. This deploy does not
+   touch `llh_store` at all (see §1/§4), but a fresh backup costs nothing and covers the
+   unrelated risk of any other concurrent change.
+2. **Low-traffic deployment window.** Deploy during the platform's lowest-traffic hours
+   (check `/api/admin/analytics` for typical daily active patterns) to minimize the
+   number of admins mid-session during the restart.
+3. **Health checks.** Immediately after deploy: `GET /api/health` returns `200` with
+   `ok: true`. Watch for a few minutes, not just the instant after boot.
+4. **Admin login verification.** Log in as admin on the live site; confirm the returned
+   token validates via `GET /api/admin/session`; confirm an admin action (e.g. viewing
+   `/api/admin/store-health`) succeeds.
+5. **Existing admin session verification.** If any admin was already logged in before
+   the deploy (their session token predates the restart), confirm their existing token
+   is *still valid* after the deploy (proves the boot-time legacy-session migration
+   worked against the real production `store.adminSessions` data, not just synthetic
+   test fixtures).
+6. **Normal member login verification.** Log in as (or ask a real user to confirm) an
+   ordinary member account; this deploy does not touch member auth
+   (`store.memberSessions`/`temp-password-auth.js`) at all, but verifying it stays
+   unaffected is a cheap, valuable smoke check.
+7. **Monitor for 503s and authentication failures** for the following hour: watch
+   Render's own metrics/logs (outside this app) for elevated 5xx rates, and watch this
+   app's own `[store-safety]`/`[admin-session-store]` console logs for unexpected
+   errors. A brief window of normal deploy-restart 503s (Render swapping instances) is
+   expected and not a rollback trigger by itself; sustained or admin-login-specific
+   failures after the first minute would be.
+8. **Exact rollback command:** revert the merge commit and redeploy `main` at its prior
+   tip:
+   ```
+   git revert -m 1 <merge-commit-sha-of-this-PR-into-main>
+   git push origin main
+   ```
+   (or, if Render allows redeploying a specific prior commit directly from its
+   dashboard, redeploy `main`'s tip *before* this PR's merge commit — equally valid and
+   faster). No database migration/teardown is required either way — `store.adminSessions`
+   and its merge-preservation helper were never removed, and the new
+   `llh_admin_sessions` table/file can simply be left in place unused after a rollback.
