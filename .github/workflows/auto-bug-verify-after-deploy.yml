@@ -1,0 +1,85 @@
+name: Auto-bug verify after deploy
+
+# Manual-only verification after the owner approves a fix and deploys it
+# to the testing site. Never merges. Never deploys. Never targets production.
+on:
+  workflow_dispatch:
+    inputs:
+      bug_id:
+        description: "Automated bug record id (abug_…)"
+        required: true
+        type: string
+      expected_sha:
+        description: "Exact deployed commit SHA that should be live on testing"
+        required: true
+        type: string
+      skip_smoke:
+        description: "Set to 1 to skip live smoke (commit + API verify only)"
+        required: false
+        default: "0"
+        type: string
+
+concurrency:
+  group: auto-bug-verify-${{ github.event.inputs.bug_id }}
+  cancel-in-progress: false
+
+jobs:
+  verify-after-deploy:
+    name: Verify auto-bug after testing deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      CI: "true"
+      NODE_ENV: test
+      LLH_AUTO_BUG_ID: ${{ github.event.inputs.bug_id }}
+      LLH_TESTING_SMOKE_EXPECTED_SHA: ${{ github.event.inputs.expected_sha }}
+      LLH_AUTO_BUG_SKIP_SMOKE: ${{ github.event.inputs.skip_smoke }}
+      LLH_TESTING_SMOKE_URL: ${{ secrets.LLH_TESTING_SMOKE_URL }}
+      LLH_TESTING_SMOKE_ADMIN_EMAIL: ${{ secrets.LLH_TESTING_SMOKE_ADMIN_EMAIL }}
+      LLH_TESTING_SMOKE_ADMIN_PASSWORD: ${{ secrets.LLH_TESTING_SMOKE_ADMIN_PASSWORD }}
+      LLH_TESTING_SMOKE_ADMIN_CODE: ${{ secrets.LLH_TESTING_SMOKE_ADMIN_CODE }}
+      # Never inject production / payment / AI secrets.
+      ALLOW_OPENAI_TESTING: "false"
+      STRIPE_SECRET_KEY: ""
+      OPENAI_API_KEY: ""
+      RESEND_API_KEY: ""
+      TWILIO_AUTH_TOKEN: ""
+      PRODUCTION_DATABASE_URL: ""
+    steps:
+      - name: Refuse missing testing secrets
+        run: |
+          if [ -z "$LLH_TESTING_SMOKE_URL" ] || [ -z "$LLH_TESTING_SMOKE_ADMIN_EMAIL" ] || [ -z "$LLH_TESTING_SMOKE_ADMIN_PASSWORD" ] || [ -z "$LLH_TESTING_SMOKE_ADMIN_CODE" ]; then
+            echo "Missing LLH_TESTING_SMOKE_* GitHub Actions secrets. Configure them for the testing host only."
+            exit 1
+          fi
+          case "$LLH_TESTING_SMOKE_URL" in
+            *littlelearnershubbyleah.com*|*little-learner-hub.onrender.com*)
+              echo "Refusing production URL in verify workflow."
+              exit 1
+              ;;
+          esac
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        if: ${{ github.event.inputs.skip_smoke != '1' }}
+        run: npx playwright install chromium --with-deps
+
+      - name: Verify after deploy (testing only)
+        run: npm run test:auto-bug-verify-after-deploy
+
+      - name: Reminder
+        if: always()
+        run: |
+          echo "This workflow never merges PRs and never deploys."
+          echo "If verification failed, the bug record was automatically reopened."

@@ -20,3 +20,10 @@ Little Learner Hub is a single Node.js service (no build step) that serves a sta
 - Test scripts are the `test:*` entries in `package.json` (run via `npm run test:<name>`), e.g. `npm run test:homepage-smoke`.
 - Browser-based tests (e.g. `test:homepage-smoke`, `test:lesson-library-header`, `test:curriculum-ux`, `test:curriculum-publish`) use **Playwright Chromium (headless)** and require the browser binaries (installed via `npx playwright install --with-deps chromium`).
 - Each test **spawns its own server instance on a random port with a temp JSON store**, so tests do not depend on (or conflict with) a separately running dev server.
+
+### Automated bug workflow (testing only)
+- Sanitized detection + bug records: `docs/AUTO_BUG_SAFE_REPAIR.md`
+- Local check: `npm run test:auto-bug-workflow`
+- Cursor investigation helper: `npm run prepare:auto-bug-investigation -- --fixture`
+- Post-deploy verify (manual / workflow_dispatch only): `npm run test:auto-bug-verify-after-deploy`
+- **Never** auto-merge, auto-deploy, push to `main`, or change production from this workflow.
