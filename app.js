@@ -27400,8 +27400,55 @@ async function syncChildDataFromBackend(options = {}) {
   return applied;
 }
 
+/**
+ * Daily Care store keys that are mirrored server-side for a connected Home
+ * Daycare Pilot account (owner + her one optional staff member) — see
+ * pilotQueueDailyCareSync() below. "Profiles"/"Photos"/"Documents"/etc are
+ * synced through their own dedicated bridges (syncPilotChildrenIntoLocalStore,
+ * the Photo Safety bridge) and are intentionally excluded here.
+ */
+const PILOT_SYNCED_DAILY_CARE_KEYS = new Set([
+  "Attendance", "Meals", "Naps", "Diapers", "ActivityLogs", "Communications", "Observations",
+]);
+
+/** Strips client-local sync bookkeeping before comparing/transmitting a record, so the sync-status flag itself never counts as a "real" change and is never sent to the server. */
+function pilotStripSyncMeta(record) {
+  if (!record || typeof record !== "object") return record;
+  const { _pendingSync, ...rest } = record;
+  return rest;
+}
+
+/**
+ * Server/Neon is the authoritative store for a connected Home Daycare
+ * Pilot account's Daily Care data; localStorage here is the offline
+ * write-buffer/cache, not the source of truth. saveChildStore() is the
+ * single chokepoint every Daily Care write already goes through (new
+ * entries via appendChildRecord, in-place updates like attendance
+ * check-out, undo, and corrections) — diffing old vs. new here means every
+ * one of those write paths gets mirrored/re-synced automatically, with no
+ * per-call-site wiring required.
+ */
+function pilotSyncDailyCareChangesIfNeeded(key, previousValue, nextValue) {
+  if (!PILOT_SYNCED_DAILY_CARE_KEYS.has(key)) return;
+  if (typeof isHomeDaycarePilotAccount !== "function" || !isHomeDaycarePilotAccount()) return;
+  if (typeof pilotIsProviderNow !== "function" || !pilotIsProviderNow()) return;
+  const previousById = new Map((previousValue || []).map((item) => [item?.id, item]));
+  (nextValue || []).forEach((item) => {
+    if (!item || !item.id || !item.childId) return;
+    const prior = previousById.get(item.id);
+    const changed = !prior || JSON.stringify(pilotStripSyncMeta(prior)) !== JSON.stringify(pilotStripSyncMeta(item));
+    if (changed) pilotQueueDailyCareSync(key, item);
+  });
+}
+
 function saveChildStore(key, value) {
+  // Capture the previous value and diff BEFORE saving, but only queue the
+  // sync AFTER saveChildStoreLocalOnly has actually written `value` —
+  // pilotQueueDailyCareSync's pending-flag write looks the record up by id
+  // in the store, which must already contain it.
+  const previousValue = childStore(key);
   saveChildStoreLocalOnly(key, value);
+  pilotSyncDailyCareChangesIfNeeded(key, previousValue, value);
   updateSidebarDashboard();
   queueChildDataCloudSave();
 }
@@ -34740,20 +34787,29 @@ function goalItem(item, child = {}) {
   `;
 }
 
+/**
+ * Collision-proof, permanent unique ID / idempotency key for a Daily Care
+ * record. Group Logging (see fastDlcGroupConfirmBtn handler) calls
+ * appendChildRecord synchronously in a tight loop for several children at
+ * once — a Date.now()-only id would collide within the same millisecond
+ * and silently merge two different children's records under one id both
+ * locally (breaking undo/correction lookups) and server-side (the
+ * idempotency key would collide, discarding one child's entry). This id is
+ * never regenerated on retry — it is the same identity across every sync
+ * attempt for this record's whole lifetime.
+ */
+function generateChildRecordId(key) {
+  const random = window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
+  return `${key}-${random}`;
+}
+
 function appendChildRecord(key, record) {
   const items = childStore(key);
-  const id = `${key}-${Date.now()}`;
+  const id = generateChildRecordId(key);
   const fullRecord = { id, createdAt: new Date().toISOString(), ...record };
   saveChildStore(key, [...items, fullRecord]);
-  // Cross-login connected data: an owner and her one optional staff member
-  // are two separate logins that would otherwise each have their OWN,
-  // disconnected local Daily Care store even though they share one
-  // organization — mirror this record server-side (best-effort, never
-  // blocks the local save) so the other login picks it up on her next
-  // sync. See syncPilotDailyCareEntriesIntoLocalStore().
-  if (typeof isHomeDaycarePilotAccount === "function" && isHomeDaycarePilotAccount() && typeof pilotIsProviderNow === "function" && pilotIsProviderNow() && fullRecord.childId) {
-    pilotApi("POST", "/api/pilot/daily-care-entries", { childId: fullRecord.childId, storeKey: key, record: fullRecord }).catch(() => { /* best-effort mirror only */ });
-  }
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
@@ -34763,21 +34819,79 @@ function appendChildRecord(key, record) {
 }
 
 /**
- * Pulls every Daily Care entry mirrored by ANY connected login sharing this
- * organization (owner + her one optional staff member) and merges them
- * into this browser's own local Daily Care store — additive and
- * idempotent (matched by the record's own id, so it never duplicates on
- * repeated syncs, and never overwrites a locally-newer edit). This is what
- * makes "staff logs care, owner sees it" (and vice versa) actually work,
- * since Fast Daily Logs' underlying store is otherwise per-browser-login
- * localStorage.
+ * Marks (or clears) a record as having unsynced local work — bookkeeping
+ * only, so it uses saveChildStoreLocalOnly directly rather than
+ * saveChildStore, to avoid re-triggering pilotSyncDailyCareChangesIfNeeded
+ * (which would otherwise see its own flag flip as "a change" and queue
+ * another sync, forever).
+ */
+function pilotSetRecordPendingSyncFlag(storeKey, recordId, pending) {
+  const items = childStore(storeKey);
+  const idx = items.findIndex((item) => item.id === recordId);
+  if (idx === -1) return;
+  if (Boolean(items[idx]._pendingSync) === pending) return;
+  const next = items.slice();
+  const updated = { ...next[idx] };
+  if (pending) updated._pendingSync = true; else delete updated._pendingSync;
+  next[idx] = updated;
+  saveChildStoreLocalOnly(storeKey, next);
+}
+
+/**
+ * Pushes one record to the server-authoritative mirror. Idempotent by
+ * design: the server upserts by this record's own permanent id (see
+ * addDailyCareEntry in home-daycare-pilot-data-model.js), so calling this
+ * again for the same record — whether a manual retry, the reconnect queue
+ * below, or an accidental double-call — can never create a duplicate, only
+ * overwrite the same entry with (at worst) identical data.
+ */
+async function pilotPushDailyCareEntry(storeKey, record) {
+  try {
+    await pilotApi("POST", "/api/pilot/daily-care-entries", { childId: record.childId, storeKey, record: pilotStripSyncMeta(record) });
+    pilotSetRecordPendingSyncFlag(storeKey, record.id, false);
+  } catch {
+    // Stays marked pending — picked up and retried by the reconnect queue
+    // in syncPilotDailyCareEntriesIntoLocalStore() the next time it runs
+    // (boot, opening Daily Care, or any other pilot nav refresh). Never
+    // silently dropped.
+  }
+}
+
+function pilotQueueDailyCareSync(storeKey, record) {
+  pilotSetRecordPendingSyncFlag(storeKey, record.id, true);
+  pilotPushDailyCareEntry(storeKey, record);
+}
+
+/**
+ * Cross-login connected data + offline queue for a Home Daycare Pilot
+ * organization (owner + her one optional staff member), who are two
+ * separate logins that would otherwise each have their own disconnected
+ * local Daily Care store.
+ *
+ * Two passes, in order:
+ *  1. PUSH (reconnect queue): retries every locally pending record —
+ *     anything created/edited while offline or while a prior push failed —
+ *     using the same permanent id, so a retry can only overwrite the same
+ *     server entry, never duplicate it. Flushed before the pull below so a
+ *     reconnect never loses a queued write to a stale read.
+ *  2. PULL (reconciliation): merges every entry from the server into this
+ *     browser's local store. The server's copy WINS for any record this
+ *     browser already has a synced (non-pending) copy of — picking up a
+ *     correction or update made by the other login — but a record still
+ *     marked pending here is left untouched: unsynced local work is never
+ *     silently overwritten or discarded by a pull.
  */
 async function syncPilotDailyCareEntriesIntoLocalStore() {
   if (!isHomeDaycarePilotAccount() || !pilotIsProviderNow()) return;
+  for (const storeKey of PILOT_SYNCED_DAILY_CARE_KEYS) {
+    const pendingItems = childStore(storeKey).filter((item) => item && item._pendingSync);
+    for (const item of pendingItems) {
+      await pilotPushDailyCareEntry(storeKey, item);
+    }
+  }
   try {
     const remote = await pilotApi("GET", "/api/pilot/daily-care-entries");
     const entries = remote.entries || [];
-    if (!entries.length) return;
     const byStoreKey = {};
     entries.forEach((e) => {
       if (!byStoreKey[e.storeKey]) byStoreKey[e.storeKey] = [];
@@ -34786,15 +34900,30 @@ async function syncPilotDailyCareEntriesIntoLocalStore() {
     let changed = false;
     Object.entries(byStoreKey).forEach(([storeKey, records]) => {
       const local = childStore(storeKey);
-      const existingIds = new Set(local.map((item) => item.id));
-      const toAdd = records.filter((r) => r && r.id && !existingIds.has(r.id));
-      if (toAdd.length) {
-        saveChildStore(storeKey, [...local, ...toAdd]);
+      const byId = new Map(local.map((item) => [item.id, item]));
+      const next = local.slice();
+      let storeChanged = false;
+      records.forEach((serverRecord) => {
+        if (!serverRecord || !serverRecord.id) return;
+        const localMatch = byId.get(serverRecord.id);
+        if (!localMatch) {
+          next.push(serverRecord);
+          storeChanged = true;
+          return;
+        }
+        if (localMatch._pendingSync) return; // never clobber unsynced local work
+        if (JSON.stringify(pilotStripSyncMeta(localMatch)) !== JSON.stringify(serverRecord)) {
+          next[next.findIndex((item) => item.id === serverRecord.id)] = serverRecord;
+          storeChanged = true;
+        }
+      });
+      if (storeChanged) {
+        saveChildStoreLocalOnly(storeKey, next); // pulled data is already synced by definition — no re-push loop
         changed = true;
       }
     });
     if (changed && document.querySelector(".active-view")?.id === "view-children") renderChildManagement();
-  } catch { /* best-effort — Daily Care still works locally even if this sync fails */ }
+  } catch { /* best-effort pull — local data (including anything still queued/pending) remains fully usable offline */ }
 }
 
 /**
@@ -50997,6 +51126,24 @@ async function signOut() {
   }
   clearMemberSessionToken();
   closeForcePasswordModal();
+  // Identity-specific in-memory caches (Home Daycare Pilot Families/
+  // Messages/Forms/Billing/Staff/Parent-contacts state, and the External
+  // Tester Sandbox role snapshot) are NOT namespaced by user like
+  // localStorage's childStore() already is — without this, a second
+  // tester logging in on the same page (no reload) could briefly see the
+  // previous tester's cached organization data. Reset them here so every
+  // logout leaves a clean slate for whoever logs in next.
+  if (typeof pilotState === "object" && pilotState) {
+    pilotState.children = []; pilotState.guardians = []; pilotState.selectedChildId = "";
+    pilotState.messages = []; pilotState.forms = []; pilotState.billing = []; pilotState.updates = [];
+    pilotState.guardianOptions = []; pilotState.parentHome = null; pilotState.checklist = [];
+    pilotState.loading = false; pilotState.error = ""; pilotState.notice = "";
+    pilotState.parentContacts = []; pilotState.parentContactsChildId = ""; pilotState.staffWelcome = null;
+  }
+  if (typeof pilotStaffNavCache !== "undefined") pilotStaffNavCache = null;
+  if (typeof externalTesterSandboxState === "object" && externalTesterSandboxState) {
+    externalTesterSandboxState = { active: false, account: null, roleCatalog: [], loading: false, error: "" };
+  }
   // Keep Admin unlock on this browser. Provider sign-out should not force a full
   // Admin re-login — use Lock Admin when you want to clear owner access.
   currentUser = "";

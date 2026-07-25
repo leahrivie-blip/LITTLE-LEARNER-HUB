@@ -398,9 +398,16 @@ function listChangeRequests(store, organizationId, childId = "") {
 function addDailyCareEntry(store, { organizationId, childId, storeKey, record }) {
   const p = ensurePilotStore(store);
   p.dailyCareEntries = p.dailyCareEntries && typeof p.dailyCareEntries === "object" ? p.dailyCareEntries : {};
-  const key = `${storeKey}:${record?.id || newId("entry")}`;
+  // Keyed by organizationId+storeKey+record.id — an upsert (idempotent
+  // retry/correction re-sync never duplicates, always overwrites the same
+  // entry) that is ALSO cross-org-collision-proof by construction: two
+  // different organizations' clients can never overwrite each other's
+  // entry even in the astronomically unlikely event they generated the
+  // same record id.
+  const safeOrgId = cleanText(organizationId, 160);
+  const key = `${safeOrgId}:${storeKey}:${record?.id || newId("entry")}`;
   p.dailyCareEntries[key] = {
-    organizationId: cleanText(organizationId, 160),
+    organizationId: safeOrgId,
     childId: cleanText(childId, 160),
     storeKey: cleanText(storeKey, 60),
     record,
