@@ -100,9 +100,10 @@ test("provider sign-out keeps Admin unlock on this browser", () => {
   assert.match(appJs, /Stays unlocked on this browser until you tap Lock Admin/);
 });
 
-test("Lock Admin calls server logout with adminToken before clearing local session", () => {
+test("Lock Admin calls server logout with the token sent as an Authorization header (not a body/query field) before clearing local session", () => {
   assert.match(appJs, /\/api\/admin\/logout/);
-  assert.match(appJs, /adminToken:\s*token/);
+  assert.match(appJs, /Authorization: `Bearer \$\{token\}`/);
+  assert.doesNotMatch(appJs, /adminToken:\s*token/);
   assert.match(appJs, /clearAdminSession\(\{ forgetDevice: true \}\)/);
 });
 

@@ -150,6 +150,14 @@ const MAX_BACKFILL_REPORT_ITEMS = 500;
 let lastPersistedStoreCounts = null;
 let lastStoreSafetyAlertAt = 0;
 let lastPostgresDisconnectAlertAt = 0;
+// Phase 2 of the admin-token-in-URL security follow-up: sanitized counters only —
+// never the token value itself — so the still-supported legacy query/body auth paths
+// can be monitored during the client migration and safely removed (Phase 3) once
+// usage reaches zero. Reset on process restart; that's fine, this is a monitoring
+// signal, not an audit trail requiring durability.
+let legacyAdminQueryTokenUseCount = 0;
+let legacyAdminBodyTokenUseCount = 0;
+const processBootAt = Date.now();
 const STORE_BACKUP_RETENTION = Math.max(3, Number(process.env.STORE_BACKUP_RETENTION || 14));
 const STORE_BACKUP_INTERVAL_MS = Math.max(60 * 60 * 1000, Number(process.env.STORE_BACKUP_INTERVAL_MS || 24 * 60 * 60 * 1000));
 const ALLOW_DESTRUCTIVE_STORE_WRITE = ["1", "true", "yes", "on"].includes(
@@ -5339,7 +5347,7 @@ FINAL AI VALIDATION — complete before returning the JSON:
 
 async function handleAdminGenerateLessonPlan(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5380,7 +5388,7 @@ async function handleAdminGenerateLessonPlan(request, response) {
 
 async function handleAdminAiTest(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5441,7 +5449,7 @@ function buildAdminAiContentUserPrompt(body = {}) {
 
 async function handleAdminAiGenerateContent(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5474,7 +5482,7 @@ async function handleAdminAiGenerateContent(request, response) {
 async function handleAdminGenerateLessonPlan(request, response) {
   // Compatibility wrapper for the retired dedicated endpoint — uses the content generator.
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5516,7 +5524,7 @@ async function handleAdminGenerateLessonPlan(request, response) {
 }
 
 function handleAdminAiPrompts(request, response, url) {
-  const token = url.searchParams.get("adminToken");
+  const token = extractAdminToken(request, url);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5534,7 +5542,7 @@ function handleAdminAiPrompts(request, response, url) {
 
 async function handleAdminAiPromptsSave(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5582,7 +5590,7 @@ async function handleAdminAiPromptsSave(request, response) {
 
 async function handleAdminAiPromptsRestore(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5624,7 +5632,7 @@ async function handleAdminAiPromptsRestore(request, response) {
 }
 
 function handleAdminAiSettings(request, response, url) {
-  const token = url.searchParams.get("adminToken");
+  const token = extractAdminToken(request, url);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5636,7 +5644,7 @@ function handleAdminAiSettings(request, response, url) {
 
 async function handleAdminAiSettingsSave(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5649,7 +5657,7 @@ async function handleAdminAiSettingsSave(request, response) {
 }
 
 function handleAdminAiUsage(request, response, url) {
-  const token = url.searchParams.get("adminToken");
+  const token = extractAdminToken(request, url);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -5814,7 +5822,7 @@ async function handleAccountProfileSync(request, response) {
 
 async function handleAdminIssueTempPassword(request, response) {
   const body = await readJson(request);
-  const adminToken = String(body.adminToken || "").trim();
+  const adminToken = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -6275,11 +6283,7 @@ async function handleAdminLogin(request, response) {
  */
 async function handleAdminLogout(request, response) {
   const body = await readJson(request);
-  const authHeader = String(request.headers.authorization || "");
-  const bearer = authHeader.toLowerCase().startsWith("bearer ")
-    ? authHeader.slice(7).trim()
-    : "";
-  const token = String(body.adminToken || bearer || "").trim();
+  const token = extractAdminTokenFromBody(request, body);
   if (!token) {
     jsonResponse(response, 400, { error: "Admin token is required." });
     return;
@@ -6289,7 +6293,7 @@ async function handleAdminLogout(request, response) {
 }
 
 async function handleAdminNotificationsList(request, response, url) {
-  const token = String(url.searchParams.get("adminToken") || "").trim();
+  const token = String(extractAdminToken(request, url) || "").trim();
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -6324,7 +6328,7 @@ async function handleAdminNotificationsList(request, response, url) {
 
 async function handleAdminNotificationsMarkRead(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "").trim();
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -6345,8 +6349,9 @@ async function handleAdminNotificationsMarkRead(request, response) {
 async function handleAdminSiteContentSave(request, response) {
   console.log("[DIAG] handleAdminSiteContentSave: POST /api/admin/site-content received");
   const body = await readJson(request);
-  console.log("[DIAG] handleAdminSiteContentSave: body keys =", Object.keys(body || {}), "| hasAdminToken =", !!(body?.adminToken));
-  if (!validAdminToken(body.adminToken || "")) {
+  const adminAuthToken = extractAdminTokenFromBody(request, body);
+  console.log("[DIAG] handleAdminSiteContentSave: body keys =", Object.keys(body || {}), "| hasAdminToken =", Boolean(adminAuthToken));
+  if (!validAdminToken(adminAuthToken)) {
     console.error("[DIAG] handleAdminSiteContentSave: REJECTED — invalid admin token");
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
@@ -6399,7 +6404,7 @@ async function handleAdminSiteContentSave(request, response) {
     // Explicit, confirmed curriculum restores/rebuilds are rare and high-impact — keep a
     // durable, queryable record separate from console logs (which are not persisted).
     appendCurriculumRestoreAudit(store, {
-      adminToken: body.adminToken,
+      adminToken: adminAuthToken,
       before: normalizedCurriculumStore(existingContent.curriculum),
       after: normalizedCurriculumStore(nextContent.curriculum),
       note: normalizedShortText(body.restoreSourceNote, 300),
@@ -8047,7 +8052,7 @@ async function handleSubscriptionStatus(request, response, url) {
 
 async function handleAdminSubscriptionRefresh(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8262,7 +8267,7 @@ async function emitPaidButFreeCriticalAlert(comparison) {
  * for any account where that exact mismatch is found.
  */
 async function handleAdminBillingReconciliation(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8402,7 +8407,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
     return;
   }
   const body = await readJson(request);
-  const adminToken = String(body.adminToken || "");
+  const adminToken = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8614,7 +8619,7 @@ function handleUserAiUsage(request, response, url) {
 
 async function handleAdminStripeBackfill(request, response) {
   const body = await readJson(request);
-  const token = String(body.adminToken || "");
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8631,7 +8636,7 @@ async function handleAdminStripeBackfill(request, response) {
 }
 
 function handleAdminStoreHealth(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8663,7 +8668,7 @@ function liveConnectAuthorized(urlOrBody = {}) {
  * (or ALLOW_LIVE_PROGRAM_MIGRATE / ALLOW_LIVE_ACCOUNT_LINK env flags).
  */
 function handleAdminProgramMigrationPlan(request, response, url) {
-  const token = String(url.searchParams.get("adminToken") || "").trim();
+  const token = String(extractAdminToken(request, url) || "").trim();
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8859,7 +8864,7 @@ function handleAdminProgramMigrationPlan(request, response, url) {
 
 function handleAdminProgramMigrationRollback(request, response) {
   return readJson(request).then((body) => {
-    const token = String(body.adminToken || "").trim();
+    const token = extractAdminTokenFromBody(request, body);
     if (!validAdminToken(token)) {
       jsonResponse(response, 401, { error: "Admin access is required." });
       return;
@@ -8887,7 +8892,7 @@ function handleAdminProgramMigrationRollback(request, response) {
  * Does not modify Postgres. Media bytes stay in llh_media_assets (IDs listed only).
  */
 function handleAdminStoreExport(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -8927,7 +8932,7 @@ function handleAdminStoreExport(request, response, url) {
 
 async function handleAdminRecoverSparseStore(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -8957,7 +8962,7 @@ async function handleAdminRecoverSparseStore(request, response) {
  */
 async function handleAdminRecoverFirebaseProfiles(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -9053,7 +9058,7 @@ async function handleAdminRecoverFirebaseProfiles(request, response) {
 }
 
 async function handleAdminStoreBackupsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -9080,7 +9085,7 @@ async function handleAdminStoreBackupsList(request, response, url) {
 
 async function handleAdminStoreBackupCreate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -9097,7 +9102,7 @@ async function handleAdminStoreBackupCreate(request, response) {
 }
 
 async function handleAdminStoreBackupDownload(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -9148,7 +9153,7 @@ async function handleAdminStoreBackupDownload(request, response, url) {
  */
 async function handleAdminStoreRestore(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -9221,7 +9226,7 @@ async function handleAdminStoreRestore(request, response) {
 }
 
 function handleAdminPromoCodesList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -9252,7 +9257,7 @@ function handleAdminPromoCodesList(request, response, url) {
 
 async function handleAdminPromoCodeSave(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -9298,7 +9303,7 @@ async function handleAdminPromoCodeSave(request, response) {
 
 async function handleAdminPromoCodeDelete(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -9325,7 +9330,7 @@ async function handleAdminPromoCodeDelete(request, response) {
 }
 
 function handleAdminUserDetail(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -9480,6 +9485,50 @@ function adminAuthFailurePayload(extra = {}) {
   };
 }
 
+/**
+ * Phase 1/2 of the admin-token-in-URL security follow-up (see
+ * docs/audits/ADMIN_TOKEN_URL_SECURITY_FOLLOWUP.md): reads the admin token from
+ * the Authorization header when present, falling back to the legacy
+ * ?adminToken=... query parameter so every existing GET endpoint and every
+ * existing client call keeps working unchanged. This is purely additive — no
+ * endpoint's accepted inputs are removed by this change, and callers that keep
+ * sending the token in the URL are completely unaffected. The intent is for
+ * client code to migrate to sending only the header over time (tracked in the
+ * doc above), after which the query-param fallback can be removed in a later,
+ * separate change.
+ *
+ * Combines with admin-session-storage (#335): extractAdminToken() supplies WHERE
+ * the token comes from; adminSessionStore.validate() (below) supplies HOW it is
+ * checked. Together, admin auth checks touch neither the shared store document
+ * nor a URL-embedded secret.
+ */
+function extractAdminToken(request, url) {
+  const authHeader = String(request?.headers?.authorization || "");
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const headerToken = authHeader.slice(7).trim();
+    if (headerToken) return headerToken;
+  }
+  const queryToken = String(url?.searchParams?.get("adminToken") || "").trim();
+  if (queryToken) legacyAdminQueryTokenUseCount += 1;
+  return queryToken;
+}
+
+/**
+ * Same idea as extractAdminToken(), for POST/PUT endpoints that read the token from
+ * a JSON body field instead of a query string. Authorization header first, legacy
+ * body.adminToken field as the fallback — purely additive, nothing removed.
+ */
+function extractAdminTokenFromBody(request, body) {
+  const authHeader = String(request?.headers?.authorization || "");
+  if (authHeader.toLowerCase().startsWith("bearer ")) {
+    const headerToken = authHeader.slice(7).trim();
+    if (headerToken) return headerToken;
+  }
+  const bodyToken = String(body?.adminToken || "").trim();
+  if (bodyToken) legacyAdminBodyTokenUseCount += 1;
+  return bodyToken;
+}
+
 // Pure in-memory check against adminSessionStore — no store clone, no disk/DB I/O.
 // This used to call readStore(), which for Postgres deep-clones the entire
 // multi-MB application store on every single authenticated admin request.
@@ -9487,8 +9536,29 @@ function validAdminToken(token) {
   return Boolean(adminSessionStore.validate(token));
 }
 
+/**
+ * Read-only, admin-gated, sanitized monitoring endpoint for the Phase 2 client
+ * migration — reports HOW MANY requests still used the legacy query/body token
+ * fields since this process booted, never the token values themselves. Intended
+ * use: confirm usage has dropped to (and stayed at) zero across a full deploy cycle
+ * before removing the legacy fallback entirely (Phase 3).
+ */
+function handleAdminLegacyAuthUsage(request, response, url) {
+  if (!validAdminToken(extractAdminToken(request, url))) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    sinceProcessBootAt: new Date(processBootAt).toISOString(),
+    legacyQueryTokenRequests: legacyAdminQueryTokenUseCount,
+    legacyBodyTokenRequests: legacyAdminBodyTokenUseCount,
+    note: "Counts only — never logs or returns token values. Safe to monitor toward zero before removing the legacy fallback (Phase 3).",
+  });
+}
+
 function handleAdminSession(request, response, url) {
-  const token = String(url.searchParams.get("adminToken") || "").trim();
+  const token = extractAdminToken(request, url);
   const session = adminSessionStore.validate(token);
   if (!session) {
     jsonResponse(response, 401, adminAuthFailurePayload());
@@ -10834,7 +10904,7 @@ function analyticsSummary(store) {
 
 function handleAdminAnalytics(request, response, url) {
   const startedAt = Date.now();
-  const token = String(url.searchParams.get("adminToken") || "").trim();
+  const token = String(extractAdminToken(request, url) || "").trim();
   const tokenPrefix = token ? `${token.slice(0, 12)}…` : "(empty)";
   console.log("[admin-analytics] request", {
     tokenPrefix,
@@ -10888,7 +10958,7 @@ function handleAdminAnalytics(request, response, url) {
 
 async function handleAdminMembershipUpdate(request, response) {
   const body = await readJson(request);
-  const token = body.adminToken || "";
+  const token = extractAdminTokenFromBody(request, body);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -11190,7 +11260,7 @@ async function handlePublicCurriculumResourceFile(request, response, url) {
 }
 
 function handleAdminSiteContent(request, response, url) {
-  const token = url.searchParams.get("adminToken");
+  const token = extractAdminToken(request, url);
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -11736,7 +11806,7 @@ async function handleSupportTicketCreate(request, response) {
 
 async function handleSupportTicketUpdate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to update support tickets." });
     return;
   }
@@ -11867,7 +11937,7 @@ async function handleSupportTicketUpdate(request, response) {
 }
 
 async function handleSupportTicketsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const store = peekStore();
   const allTickets = store.supportTickets || [];
   if (validAdminToken(adminToken)) {
@@ -11961,7 +12031,7 @@ function buildFullCurriculumBackupPayload(store) {
 }
 
 function handleAdminCurriculumBackup(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
     return;
@@ -11974,7 +12044,7 @@ function handleAdminCurriculumBackup(request, response, url) {
 // appendCurriculumRestoreAudit). Lets an owner confirm a restore actually happened
 // without trusting console logs, which are not durable.
 function handleAdminCurriculumRestoreAudit(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to view the curriculum restore audit." });
     return;
@@ -11987,7 +12057,7 @@ function handleAdminCurriculumRestoreAudit(request, response, url) {
 }
 
 function handleAdminCurriculumBackupFull(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
     return;
@@ -11997,7 +12067,7 @@ function handleAdminCurriculumBackupFull(request, response, url) {
 }
 
 function handleAdminCurriculumBackupNew(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to export the curriculum backup." });
     return;
@@ -12016,7 +12086,7 @@ async function handleAdminCurriculumWipe(request, response) {
   }
   try {
     const body = await readJson(request);
-    if (!validAdminToken(body.adminToken || "")) {
+    if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
       console.warn("[curriculum-wipe] rejected unauthorized wipe attempt", {
         hasToken: Boolean(body?.adminToken),
         ip: request.socket?.remoteAddress || "",
@@ -12111,7 +12181,7 @@ async function handleAdminCurriculumWipe(request, response) {
 async function handleAdminCurriculumSeriesSave(request, response) {
   try {
     const body = await readJson(request);
-    if (!validAdminToken(body.adminToken || "")) {
+    if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
       jsonResponse(response, 401, { error: "Admin access is required to save curriculum series." });
       return;
     }
@@ -12201,7 +12271,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     step = "readJson";
     const body = await readJson(request);
     step = "auth";
-    if (!validAdminToken(body.adminToken || "")) {
+    if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
       jsonResponse(response, 401, { error: "Admin access is required to save curriculum lesson plans." });
       return;
     }
@@ -12330,7 +12400,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
 }
 
 function handleAdminCurriculumResourcesList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to list curriculum resources." });
     return;
@@ -12346,7 +12416,7 @@ function handleAdminCurriculumResourcesList(request, response, url) {
 }
 
 function handleAdminCurriculumResourceFile(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to open curriculum resource files." });
     return;
@@ -12372,7 +12442,7 @@ function handleAdminCurriculumResourceFile(request, response, url) {
 
 async function handleAdminCurriculumResourceUpload(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to upload curriculum resources." });
     return;
   }
@@ -12396,7 +12466,7 @@ async function handleAdminCurriculumResourceUpload(request, response) {
 
 async function handleAdminLessonCoverUpload(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to upload lesson-plan covers." });
     return;
   }
@@ -12474,7 +12544,7 @@ async function handleLessonCoverMedia(request, response, assetId) {
 
 async function handleAdminCurriculumResourceSave(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to save curriculum resources." });
     return;
   }
@@ -12568,7 +12638,7 @@ async function handleAdminCurriculumResourceSave(request, response) {
 
 async function handleAdminCurriculumResourceArchive(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to archive curriculum resources." });
     return;
   }
@@ -12634,7 +12704,7 @@ async function handleAdminCurriculumResourceArchive(request, response) {
 
 async function handleAdminCurriculumResourceLink(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to link curriculum resources." });
     return;
   }
@@ -12686,7 +12756,7 @@ async function handleAdminCurriculumResourceLink(request, response) {
 
 async function handleAdminCurriculumResourceUnlink(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to unlink curriculum resources." });
     return;
   }
@@ -12737,7 +12807,7 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
 }
 
 function handleUploadedResourcesList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const admin = validAdminToken(adminToken);
   const store = readStore();
   store.uploadedResources = dedupeUploadedResources(store.uploadedResources || [], MAX_UPLOADED_RESOURCES);
@@ -12746,7 +12816,7 @@ function handleUploadedResourcesList(request, response, url) {
 
 async function handleAdminUploadedResourcesMigrate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required for upload migration." });
     return;
   }
@@ -12777,7 +12847,7 @@ async function handleAdminUploadedResourcesMigrate(request, response) {
 
 async function handleAdminUploadedResourceUpsert(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to save uploads." });
     return;
   }
@@ -12804,7 +12874,7 @@ async function handleAdminUploadedResourceUpsert(request, response) {
 
 async function handleAdminUploadedResourceDelete(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to delete uploads." });
     return;
   }
@@ -13433,7 +13503,7 @@ async function handleBugReportCreate(request, response) {
 
 async function handleBugReportUpdate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to update bug reports." });
     return;
   }
@@ -13476,7 +13546,7 @@ async function handleBugReportUpdate(request, response) {
 }
 
 async function handleBugReportsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const store = readStore();
   const allReports = store.bugReports || [];
   if (validAdminToken(adminToken)) {
@@ -13585,7 +13655,7 @@ async function handleFeatureRequestVote(request, response) {
 
 async function handleFeatureRequestUpdate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to update feature requests." });
     return;
   }
@@ -13641,7 +13711,7 @@ async function handleFeatureRequestUpdate(request, response) {
 }
 
 function handleFeatureRequestsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const store = readStore();
   const allItems = store.featureRequests || [];
   const isAdmin = validAdminToken(adminToken);
@@ -13740,7 +13810,7 @@ async function handleFeedbackCreate(request, response) {
 
 async function handleFeedbackUpdate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to update feedback." });
     return;
   }
@@ -13771,7 +13841,7 @@ async function handleFeedbackUpdate(request, response) {
 }
 
 async function handleFeedbackList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const store = readStore();
   const allItems = store.feedbackItems || [];
   if (validAdminToken(adminToken)) {
@@ -13795,7 +13865,7 @@ async function handleFeedbackList(request, response, url) {
 
 async function handleAdminReply(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to send replies." });
     return;
   }
@@ -13840,7 +13910,7 @@ async function handleAdminReply(request, response) {
 }
 
 function handleCommunicationsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -13860,7 +13930,7 @@ const ANNOUNCEMENT_STATUSES = new Set(["draft", "published", "archived"]);
 
 async function handleAnnouncementCreate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to create announcements." });
     return;
   }
@@ -13894,7 +13964,7 @@ async function handleAnnouncementCreate(request, response) {
 
 async function handleAnnouncementUpdate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to update announcements." });
     return;
   }
@@ -13925,7 +13995,7 @@ async function handleAnnouncementUpdate(request, response) {
 }
 
 function handleAnnouncementsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const store = readStore();
   const all = store.announcements || [];
   if (validAdminToken(adminToken)) {
@@ -14192,7 +14262,7 @@ function messagePreviewText(body, maxLength = 160) {
 
 async function handleAdminMessagePreview(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -14221,7 +14291,7 @@ async function handleAdminMessagePreview(request, response) {
 
 async function handleAdminMessageSend(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to send messages." });
     return;
   }
@@ -14385,7 +14455,7 @@ async function handleAdminMessageSend(request, response) {
 
 async function handleAdminMessageDraftSave(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -14416,7 +14486,7 @@ async function handleAdminMessageDraftSave(request, response) {
 }
 
 function handleAdminMessageDraftsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -14427,7 +14497,7 @@ function handleAdminMessageDraftsList(request, response, url) {
 
 async function handleAdminMessageDraftDelete(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -14450,7 +14520,7 @@ function isAdminConversationUnreadNotification(n, adminEmail = ADMIN_EMAIL) {
 }
 
 function handleAdminConversationsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -14528,7 +14598,7 @@ function publicConversationUserProfile(store, email) {
 }
 
 function handleAdminConversationMessages(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -14905,7 +14975,7 @@ function handleVapidPublicKey(request, response) {
 }
 
 function handleAdminPushSubscriptionsList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -14925,7 +14995,7 @@ function handleAdminPushSubscriptionsList(request, response, url) {
 }
 
 function handleAdminPushDeliveryLog(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -14940,7 +15010,7 @@ function handleAdminPushDeliveryLog(request, response, url) {
 // must never reach a real member.
 async function handleAdminPushTest(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -14972,7 +15042,7 @@ async function handleAdminPushTest(request, response) {
 // ─── Email Engagement (onboarding + weekly What's New) ─────────────────────────
 
 function handleAdminEmailEngagementGet(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -15017,7 +15087,7 @@ function handleAdminEmailEngagementGet(request, response, url) {
 }
 
 function handleAdminEmailDiagnostics(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -15071,7 +15141,7 @@ function handleAdminEmailDiagnostics(request, response, url) {
 
 async function handleAdminEmailEngagementPreflightAudit(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15090,7 +15160,7 @@ async function handleAdminEmailEngagementPreflightAudit(request, response) {
 
 async function handleAdminEmailEngagementPrepareOneTime(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15103,7 +15173,7 @@ async function handleAdminEmailEngagementPrepareOneTime(request, response) {
 
 async function handleAdminEmailEngagementSendOneTime(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15148,11 +15218,11 @@ async function handleAdminFoundingMemberEmailDryRun(request, response, url) {
   let includeAdmin = false;
   let token = "";
   if (request.method === "GET") {
-    token = url.searchParams.get("adminToken") || "";
+    token = extractAdminToken(request, url) || "";
     includeAdmin = url.searchParams.get("includeAdmin") === "true";
   } else {
     const body = await readJson(request);
-    token = body.adminToken || "";
+    token = extractAdminTokenFromBody(request, body);
     includeAdmin = body.includeAdmin === true;
   }
   if (!validAdminToken(token)) {
@@ -15181,7 +15251,7 @@ async function handleAdminFoundingMemberEmailDryRun(request, response, url) {
  */
 async function handleAdminFoundingMemberEmailSend(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15240,7 +15310,7 @@ async function handleAdminFoundingMemberEmailSend(request, response) {
 }
 
 async function handleAdminFoundingMemberEmailReport(request, response, url) {
-  const token = url.searchParams.get("adminToken") || "";
+  const token = extractAdminToken(request, url) || "";
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -15297,10 +15367,10 @@ async function handleResendEmailWebhook(request, response) {
 async function handleAdminFreeUserWelcomeEmailDryRun(request, response, url) {
   let token = "";
   if (request.method === "GET") {
-    token = url.searchParams.get("adminToken") || "";
+    token = extractAdminToken(request, url) || "";
   } else {
     const body = await readJson(request);
-    token = body.adminToken || "";
+    token = extractAdminTokenFromBody(request, body);
   }
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
@@ -15322,7 +15392,7 @@ async function handleAdminFreeUserWelcomeEmailDryRun(request, response, url) {
 
 async function handleAdminFreeUserWelcomeEmailSend(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15380,7 +15450,7 @@ async function handleAdminFreeUserWelcomeEmailSend(request, response) {
 }
 
 async function handleAdminFreeUserWelcomeEmailReport(request, response, url) {
-  const token = url.searchParams.get("adminToken") || "";
+  const token = extractAdminToken(request, url) || "";
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
@@ -15396,7 +15466,7 @@ async function handleAdminFreeUserWelcomeEmailReport(request, response, url) {
 
 async function handleAdminEmailEngagementSettings(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15421,7 +15491,7 @@ async function handleAdminEmailEngagementSettings(request, response) {
 
 async function handleAdminEmailEngagementRunOnboarding(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15438,7 +15508,7 @@ async function handleAdminEmailEngagementRunOnboarding(request, response) {
 
 async function handleAdminEmailEngagementRunWeekly(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15455,7 +15525,7 @@ async function handleAdminEmailEngagementRunWeekly(request, response) {
 
 async function handleAdminEmailEngagementSendStep(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15513,7 +15583,7 @@ function freeReengagementSafetyStatus(store = readStore()) {
 
 async function handleAdminFreeReengagementPreview(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15522,7 +15592,7 @@ async function handleAdminFreeReengagementPreview(request, response) {
 
 async function handleAdminFreeReengagementTest(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15537,7 +15607,7 @@ async function handleAdminFreeReengagementTest(request, response) {
 
 async function handleAdminFreeReengagementSend(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
@@ -15643,7 +15713,7 @@ const RELEASE_NOTE_STATUSES = new Set(["draft", "published"]);
 
 async function handleReleaseNoteCreate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to create release notes." });
     return;
   }
@@ -15678,7 +15748,7 @@ async function handleReleaseNoteCreate(request, response) {
 
 async function handleReleaseNoteUpdate(request, response) {
   const body = await readJson(request);
-  if (!validAdminToken(body.adminToken || "")) {
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
     jsonResponse(response, 401, { error: "Admin access is required to update release notes." });
     return;
   }
@@ -15710,7 +15780,7 @@ async function handleReleaseNoteUpdate(request, response) {
 }
 
 function handleReleaseNotesList(request, response, url) {
-  const adminToken = url.searchParams.get("adminToken") || "";
+  const adminToken = extractAdminToken(request, url) || "";
   const store = readStore();
   const all = store.releaseNotes || [];
   if (validAdminToken(adminToken)) {
@@ -15761,6 +15831,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/legacy-auth-usage") return handleAdminLegacyAuthUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/site-content") return await handlePublicSiteContent(request, response, url);
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));

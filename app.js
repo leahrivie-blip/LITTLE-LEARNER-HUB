@@ -4559,8 +4559,8 @@ async function loadSiteContentFromBackend() {
 async function loadAdminSiteContent() {
   const token = adminSession()?.token || "";
   if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) return effectiveSiteContent();
-  const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
-  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`, { cache: "no-store" });
+  const params = new URLSearchParams({ t: String(Date.now()) });
+  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
   siteContentState = data.siteContent || emptySiteContent();
@@ -4581,11 +4581,11 @@ async function saveAdminSiteContent(nextContent) {
   const siteContentPayload = { ...(nextContent || {}) };
   delete siteContentPayload.curriculum;
   delete siteContentPayload.curriculumLibrary;
-  const bodyStr = JSON.stringify({ adminToken: token, siteContent: siteContentPayload });
+  const bodyStr = JSON.stringify({ siteContent: siteContentPayload });
   console.log("[DIAG] saveAdminSiteContent: request body size (bytes) =", bodyStr.length);
   const response = await fetch(siteContentConfig.adminEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: bodyStr,
   });
   console.log("[DIAG] saveAdminSiteContent: response status =", response.status, response.statusText);
@@ -7580,9 +7580,8 @@ async function uploadAdminCurriculumLessonCover(file) {
   if (!fileData) throw new Error("Could not read that image.");
   const response = await fetch("/api/admin/curriculum/lesson-covers/upload", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      adminToken: token,
       fileName: file.name || "lesson-cover",
       fileData,
     }),
@@ -7814,9 +7813,8 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
     try {
       const response = await fetch(curriculumLessonPlanConfig.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          adminToken: token,
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
           lessonPlan: normalizeCurriculumLessonPlanForRender({ ...plan, status }),
         }),
@@ -8183,9 +8181,8 @@ async function saveAdminCurriculumLessonPlanForm(form) {
     try {
       response = await fetch(curriculumLessonPlanConfig.endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          adminToken: token,
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
           lessonPlan,
         }),
@@ -8474,10 +8471,11 @@ async function fetchCurriculumResourceFile(resourceId) {
   const token = adminSession()?.token || "";
   if (!token || !resourceId) throw new Error("Admin login and resource id are required.");
   const params = new URLSearchParams({
-    adminToken: token,
     id: resourceId,
   });
-  const response = await fetch(`${curriculumResourceConfig.fileEndpoint}?${params.toString()}`);
+  const response = await fetch(`${curriculumResourceConfig.fileEndpoint}?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not open resource file.");
   const href = curriculumResourceFileHref(data.resource);
@@ -8497,9 +8495,8 @@ async function uploadCurriculumResourceFile({ resourceId, file }) {
   if (!fileData) throw new Error("Could not read the selected file.");
   const response = await fetch(curriculumResourceConfig.uploadEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      adminToken: token,
       resourceId: resourceId || "",
       fileName: file.name || "upload",
       fileData,
@@ -8702,9 +8699,8 @@ async function saveAdminCurriculumResourceForm(form) {
     const postResource = async () => {
       const response = await fetch(curriculumResourceConfig.saveEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          adminToken: token,
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
           resource: {
             id,
@@ -8762,9 +8758,8 @@ async function archiveAdminCurriculumResource(id) {
     actionFn: async () => {
       const response = await fetch(curriculumResourceConfig.archiveEndpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          adminToken: token,
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
           id,
         }),
@@ -8791,9 +8786,8 @@ async function linkCurriculumResourceToLesson(resourceId, lessonPlanId) {
   if (!canUseLaunchBackend() || !token || !resourceId || !lessonPlanId) return;
   const response = await fetch(curriculumResourceConfig.linkEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      adminToken: token,
       expectedUpdatedAt: curriculumExpectedUpdatedAt(),
       resourceId,
       lessonPlanId,
@@ -8813,9 +8807,8 @@ async function unlinkCurriculumResourceFromLesson(resourceId, lessonPlanId) {
   if (!canUseLaunchBackend() || !token || !resourceId || !lessonPlanId) return;
   const response = await fetch(curriculumResourceConfig.unlinkEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      adminToken: token,
       expectedUpdatedAt: curriculumExpectedUpdatedAt(),
       resourceId,
       lessonPlanId,
@@ -11467,8 +11460,8 @@ async function refreshAdminConversationThreadLive(userEmail) {
   const token = adminSession()?.token || "";
   if (!token) return;
   const res = await fetch(
-    `/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(clean)}`,
-    { cache: "no-store" },
+    `/api/admin/messages/conversation?userEmail=${encodeURIComponent(clean)}`,
+    { cache: "no-store", headers: { Authorization: `Bearer ${token}` } },
   );
   const data = await res.json().catch(() => ({}));
   if (!assertAdminApiResponse(res, data, { render: false })) return;
@@ -11501,7 +11494,7 @@ async function refreshAdminConversationsLive() {
   try {
     const token = adminSession()?.token || "";
     if (!token) return;
-    const res = await fetch(`/api/admin/conversations?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/conversations`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!assertAdminApiResponse(res, data, { render: false })) {
       adminMessagesState.authError = "Admin session expired. Unlock Admin again to refresh conversations.";
@@ -11719,8 +11712,8 @@ async function adminMessagesPreview(payload) {
   const token = adminSession()?.token || "";
   const res = await fetch("/api/admin/messages/preview", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ...payload }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...payload }),
   });
   return res.json().catch(() => ({}));
 }
@@ -11729,8 +11722,8 @@ async function adminMessagesSend(payload) {
   const token = adminSession()?.token || "";
   const res = await fetch("/api/admin/messages/send", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ...payload }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...payload }),
   });
   const data = await res.json().catch(() => ({}));
   return { ok: res.ok, ...data };
@@ -11825,7 +11818,7 @@ async function renderAdminMessagesConversations(container) {
   container.innerHTML = `<p class="messages-loading">Loading conversations…</p>`;
   const token = adminSession()?.token || "";
   try {
-    const res = await fetch(`/api/admin/conversations?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/conversations`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!assertAdminApiResponse(res, data, { render: false })) {
       adminMessagesState.authError = "Admin session expired. Unlock Admin again to load conversations.";
@@ -11908,7 +11901,7 @@ async function openAdminConversation(userEmail) {
   if (threadEl) threadEl.innerHTML = `<p class="messages-loading">Loading…</p>`;
   const token = adminSession()?.token || "";
   try {
-    const res = await fetch(`/api/admin/messages/conversation?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(clean)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/messages/conversation?userEmail=${encodeURIComponent(clean)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!assertAdminApiResponse(res, data, { render: false })) {
       if (threadEl) {
@@ -12274,10 +12267,10 @@ async function fetchAdminNotificationCenter(options = {}) {
   const category = typeof options.category === "string"
     ? options.category
     : (document.querySelector("#adminNotifCategoryFilter")?.value || adminNotificationState.category || "");
-  const params = new URLSearchParams({ adminToken: token, limit: "100" });
+  const params = new URLSearchParams({ limit: "100" });
   if (category) params.set("category", category);
   try {
-    const response = await fetch(`/api/admin/notifications?${params.toString()}`, { cache: "no-store" });
+    const response = await fetch(`/api/admin/notifications?${params.toString()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await assertAdminApiResponse(response, "Admin notifications");
     adminNotificationState = {
       items: Array.isArray(data.notifications) ? data.notifications : [],
@@ -12338,8 +12331,8 @@ async function markAdminNotificationsRead(ids = [], all = false) {
   if (!token || !canUseLaunchBackend()) return;
   const response = await fetch("/api/admin/notifications/mark-read", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ids, all }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ids, all }),
   });
   await assertAdminApiResponse(response, "Mark admin notifications read");
   await fetchAdminNotificationCenter();
@@ -34209,9 +34202,9 @@ async function loadUploadedResourcesFromBackend({ admin = false, migrateLocal = 
   if (!canUseLaunchBackend()) return uploadedResources();
   const params = new URLSearchParams({ t: String(Date.now()) });
   const token = adminSession()?.token || "";
-  if (admin && token) params.set("adminToken", token);
+  const requestHeaders = admin && token ? { Authorization: `Bearer ${token}` } : {};
   try {
-    const response = await fetch(`${uploadedResourcesConfig.listEndpoint}?${params.toString()}`, { cache: "no-store" });
+    const response = await fetch(`${uploadedResourcesConfig.listEndpoint}?${params.toString()}`, { cache: "no-store", headers: requestHeaders });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load uploaded resources.");
     const remoteUploads = dedupeUploadedResourcesList(data.uploads || []);
@@ -34239,8 +34232,8 @@ async function migrateUploadedResourcesFromLocalStorage() {
   try {
     const response = await fetch(uploadedResourcesConfig.migrateEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, uploads: localUploads }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ uploads: localUploads }),
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not migrate uploads.");
@@ -34267,8 +34260,8 @@ async function saveUploadedResourceToBackend(upload) {
   }
   const response = await fetch(uploadedResourcesConfig.upsertEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, upload }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ upload }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not save uploaded resource.");
@@ -34283,8 +34276,8 @@ async function deleteUploadedResourceFromBackend(id) {
   }
   const response = await fetch(uploadedResourcesConfig.deleteEndpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, id }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ id }),
   });
   const data = await response.json();
   if (!response.ok) throw new Error(data?.error || "Could not delete uploaded resource.");
@@ -34317,7 +34310,7 @@ async function loadSupportTicketsFromBackend({ admin = false } = {}) {
   const params = new URLSearchParams();
   const headers = { Accept: "application/json" };
   if (admin && adminSession()?.token) {
-    params.set("adminToken", adminSession().token);
+    headers.Authorization = `Bearer ${adminSession().token}`;
   } else if (currentUser) {
     // List endpoint requires authenticated identity — do not rely on ?email= alone.
     const auth = await firebaseAuthHeaders().catch(() => null);
@@ -34636,8 +34629,8 @@ async function updateAdminFeedbackItem(id, updates = {}) {
   if (!token || !canUseLaunchBackend()) return { ok: false, error: "Admin token required." };
   const response = await fetch("/api/admin/feedback-update", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, id, ...updates }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ id, ...updates }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) return { ok: false, error: data?.error || "Update failed." };
@@ -34653,7 +34646,7 @@ async function loadAdminEmailEngagement(force = false) {
   const token = adminSession()?.token;
   if (!token || !canUseLaunchBackend()) return null;
   if (adminEmailEngagementCache && !force) return adminEmailEngagementCache;
-  const response = await fetch(`/api/admin/email-engagement?adminToken=${encodeURIComponent(token)}`);
+  const response = await fetch(`/api/admin/email-engagement`, { headers: { Authorization: `Bearer ${token}` } });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Could not load email engagement.");
   adminEmailEngagementCache = data;
@@ -34977,8 +34970,8 @@ async function adminEmailEngagementPost(path, body = {}) {
   if (!token) throw new Error("Admin login required.");
   const response = await fetch(path, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ...body }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...body }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data?.error || "Request failed.");
@@ -35080,8 +35073,8 @@ async function updateTicket(id, updates = {}) {
     try {
       const response = await fetch("/api/support-ticket-update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, adminToken: adminSession().token, ...payload }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${adminSession().token}` },
+        body: JSON.stringify({ id, ...payload }),
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result?.error || "Could not update support ticket.");
@@ -35333,7 +35326,7 @@ async function fetchAdminUserDetail(email) {
   if (adminUserDetailCache[clean]?.fetchedAt && Date.now() - adminUserDetailCache[clean].fetchedAt < 15000) {
     return adminUserDetailCache[clean].data;
   }
-  const res = await fetch(`/api/admin/user-detail?adminToken=${encodeURIComponent(token)}&email=${encodeURIComponent(clean)}`, { cache: "no-store" });
+  const res = await fetch(`/api/admin/user-detail?email=${encodeURIComponent(clean)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Could not load user detail.");
   adminUserDetailCache[clean] = { fetchedAt: Date.now(), data };
@@ -35370,8 +35363,8 @@ async function adminIssueTempPassword(email) {
   if (!token || !canUseLaunchBackend()) throw new Error("Admin session required.");
   const res = await fetch("/api/admin/users/issue-temp-password", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, email }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ email }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Could not issue temporary password.");
@@ -35381,7 +35374,7 @@ async function adminIssueTempPassword(email) {
 async function downloadAdminStoreExport() {
   const token = adminSession()?.token || "";
   if (!token || !canUseLaunchBackend()) throw new Error("Admin session required.");
-  const res = await fetch(`/api/admin/store-export?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+  const res = await fetch(`/api/admin/store-export`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Store export failed.");
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
@@ -35401,9 +35394,8 @@ async function restoreAdminStoreFromBackup(backupId) {
   if (!token || !canUseLaunchBackend()) throw new Error("Admin session required.");
   const res = await fetch("/api/admin/store-restore", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({
-      adminToken: token,
       backupId,
       confirm: "RESTORE_STORE_FROM_BACKUP",
     }),
@@ -35419,7 +35411,7 @@ async function loadAdminPromoCodes() {
   adminPromoCodesState.loading = true;
   adminPromoCodesState.error = "";
   try {
-    const res = await fetch(`/api/admin/promo-codes?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/promo-codes`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Could not load promo codes.");
     adminPromoCodesState.items = data.promoCodes || [];
@@ -35437,8 +35429,8 @@ async function saveAdminPromoCode(payload) {
   if (!token) throw new Error("Admin session required.");
   const res = await fetch("/api/admin/promo-codes", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ...payload }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...payload }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Could not save promo code.");
@@ -35450,8 +35442,8 @@ async function deleteAdminPromoCode(id) {
   if (!token) throw new Error("Admin session required.");
   const res = await fetch("/api/admin/promo-code-delete", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, id }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ id }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Could not delete promo code.");
@@ -35464,7 +35456,7 @@ async function loadAdminInAppAnnouncements() {
   adminCommsAnnouncementsState.loading = true;
   adminCommsAnnouncementsState.error = "";
   try {
-    const res = await fetch(`/api/admin/announcements?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/announcements`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Could not load announcements.");
     adminCommsAnnouncementsState.items = data.announcements || [];
@@ -35481,8 +35473,8 @@ async function saveAdminInAppAnnouncement(payload) {
   const endpoint = payload.id ? "/api/admin/announcement-update" : "/api/admin/announcements";
   const res = await fetch(endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ...payload }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...payload }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Could not save announcement.");
@@ -35633,8 +35625,9 @@ async function validateAdminSessionOnServer(options = {}) {
   if (!isAdminUnlocked() || !token || !canUseLaunchBackend()) return true;
   if (LOCAL_ADMIN_TOKENS.has(String(token))) return true;
   try {
-    const response = await fetch(`/api/admin/session?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, {
+    const response = await fetch(`/api/admin/session?t=${Date.now()}`, {
       cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data?.valid === false || isAdminSessionAuthError(data, response)) {
@@ -37587,7 +37580,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
 
   adminAnalyticsLoadPromise = (async () => {
     const session = adminSession() || {};
-    const requestUrl = `${analyticsConfig.adminEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`;
+    const requestUrl = `${analyticsConfig.adminEndpoint}?t=${Date.now()}`;
     console.info("[admin-analytics:client] request", {
       url: analyticsConfig.adminEndpoint,
       email: session.email || "",
@@ -37596,7 +37589,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       tokenPrefix: token ? `${String(token).slice(0, 12)}…` : "",
     });
     try {
-      const response = await fetch(requestUrl, { cache: "no-store", signal: controller.signal });
+      const response = await fetch(requestUrl, { cache: "no-store", signal: controller.signal, headers: { Authorization: `Bearer ${token}` } });
       const rawText = await response.text();
       let data = {};
       try {
@@ -38778,10 +38771,11 @@ async function exportCurriculumBackup() {
     msgEl.classList.remove("success");
   }
   try {
-    const params = new URLSearchParams({ adminToken: token, t: String(Date.now()) });
-    let response = await fetch(`${curriculumBackupConfig.fullEndpoint}?${params.toString()}`, { cache: "no-store" });
+    const params = new URLSearchParams({ t: String(Date.now()) });
+    const backupFetchOptions = { cache: "no-store", headers: { Authorization: `Bearer ${token}` } };
+    let response = await fetch(`${curriculumBackupConfig.fullEndpoint}?${params.toString()}`, backupFetchOptions);
     if (response.status === 404) {
-      response = await fetch(`${curriculumBackupConfig.endpoint}?${params.toString()}`, { cache: "no-store" });
+      response = await fetch(`${curriculumBackupConfig.endpoint}?${params.toString()}`, backupFetchOptions);
     }
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not export curriculum backup.");
@@ -40923,7 +40917,7 @@ function openAdminUserProfile(email, startTab) {
     Promise.all([
       fetchAdminUserDetail(email).catch((error) => ({ error: error.message })),
       token && canUseLaunchBackend()
-        ? fetch(`/api/admin/user-timeline?adminToken=${encodeURIComponent(token)}&userEmail=${encodeURIComponent(email)}`, { cache: "no-store" })
+        ? fetch(`/api/admin/user-timeline?userEmail=${encodeURIComponent(email)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } })
             .then(async (res) => ({ ok: res.ok, data: await res.json().catch(() => ({})) }))
             .catch((error) => ({ ok: false, data: { error: error.message } }))
         : Promise.resolve(null),
@@ -40991,9 +40985,8 @@ async function adminUpdateMembershipOnServer(email, updates, action, note) {
   try {
     const response = await fetch("/api/admin/membership-update", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        adminToken: token,
         email,
         updates,
         action,
@@ -41017,9 +41010,8 @@ async function adminRefreshSubscriptionFromStripe(email) {
   try {
     const response = await fetch("/api/admin/subscription-refresh", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        adminToken: token,
         email,
         adminEmail: adminSession()?.email || "admin",
       }),
@@ -42886,8 +42878,8 @@ async function callAdminAiTest(systemPrompt, userPrompt, wantScore) {
   if (!canUseLaunchBackend()) throw new Error("Backend server is required for admin AI testing.");
   const res = await fetch(adminAiTestConfig.endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, systemPrompt, userPrompt, score: wantScore }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ systemPrompt, userPrompt, score: wantScore }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "AI test generation failed.");
@@ -42900,8 +42892,8 @@ async function callAdminGenerateLessonPlan(age, theme, lessonNumber) {
   if (!canUseLaunchBackend()) throw new Error("Backend server is required for lesson plan generation.");
   const res = await fetch(adminLessonGenerateConfig.endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, age, theme, lessonNumber }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ age, theme, lessonNumber }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "Lesson plan could not be generated. Please try again.");
@@ -42914,8 +42906,8 @@ async function callAdminAiGenerateContent(payload = {}) {
   if (!canUseLaunchBackend()) throw new Error("Backend server is required for Admin AI Tools.");
   const res = await fetch(adminAiContentGenerateConfig.endpoint, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ adminToken: token, ...payload }),
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ ...payload }),
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || "AI content generation failed.");
@@ -43071,7 +43063,7 @@ async function loadAdminAiPrompts() {
   adminAiPromptsState.loading = true;
   renderAdminAiPromptsTab();
   try {
-    const res = await fetch(`${adminAiPromptsConfig.getEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${adminAiPromptsConfig.getEndpoint}?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to load prompts.");
     adminAiPromptsState.aiPrompts = data.aiPrompts || {};
@@ -43095,7 +43087,6 @@ async function saveAdminAiPrompts(tool) {
   adminAiPromptsState.error = "";
   renderAdminAiPromptsTab();
   const body = {
-    adminToken: token,
     tool,
     adminEmail: adminSession()?.email || "",
   };
@@ -43105,7 +43096,7 @@ async function saveAdminAiPrompts(tool) {
   try {
     const res = await fetch(adminAiPromptsConfig.saveEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
@@ -43130,8 +43121,8 @@ async function restoreAdminAiPromptVersion(versionId) {
   try {
     const res = await fetch(adminAiPromptsConfig.restoreEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, versionId, adminEmail: adminSession()?.email || "" }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ versionId, adminEmail: adminSession()?.email || "" }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to restore version.");
@@ -43261,7 +43252,7 @@ async function loadAdminAiSettings() {
   adminAiSettingsState.loading = true;
   renderAdminAiSettingsTab();
   try {
-    const res = await fetch(`${adminAiSettingsConfig.getEndpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${adminAiSettingsConfig.getEndpoint}?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to load AI settings.");
     adminAiSettingsState.aiSettings = data.aiSettings || null;
@@ -43295,8 +43286,8 @@ async function saveAdminAiSettings() {
   try {
     const res = await fetch(adminAiSettingsConfig.saveEndpoint, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, aiSettings: { masterEnabled, tools } }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ aiSettings: { masterEnabled, tools } }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to save AI settings.");
@@ -43396,7 +43387,7 @@ async function loadAdminAiUsage() {
   adminAiUsageState.loading = true;
   renderAdminAiUsageTab();
   try {
-    const res = await fetch(`${adminAiUsageConfig.endpoint}?adminToken=${encodeURIComponent(token)}&t=${Date.now()}`, { cache: "no-store" });
+    const res = await fetch(`${adminAiUsageConfig.endpoint}?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to load AI usage data.");
     adminAiUsageState.data = data.aiUsage || null;
@@ -43546,8 +43537,8 @@ async function loadStripeBackfillPreview() {
   try {
     const res = await fetch("/api/admin/stripe-backfill", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, dryRun: true }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ dryRun: true }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Stripe backfill preview failed.");
@@ -43569,8 +43560,8 @@ async function runStripeBackfillConfirm() {
   try {
     const res = await fetch("/api/admin/stripe-backfill", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, dryRun: false }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ dryRun: false }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Stripe backfill failed.");
@@ -43649,7 +43640,7 @@ async function loadAdminStoreHealth() {
   adminStoreHealthState.loading = true;
   adminStoreHealthState.error = "";
   try {
-    const res = await fetch(`/api/admin/store-health?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/store-health`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Could not load store health.");
     adminStoreHealthState.health = data.health || null;
@@ -43666,7 +43657,7 @@ async function loadAdminStoreBackups() {
   adminStoreHealthState.backupsLoading = true;
   adminStoreHealthState.backupError = "";
   try {
-    const res = await fetch(`/api/admin/store-backups?adminToken=${encodeURIComponent(token)}`, { cache: "no-store" });
+    const res = await fetch(`/api/admin/store-backups`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Could not load store backups.");
     adminStoreHealthState.backups = Array.isArray(data.backups) ? data.backups : [];
@@ -43686,8 +43677,8 @@ async function createAdminStoreBackup() {
   try {
     const res = await fetch("/api/admin/store-backups", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ adminToken: token, source: "manual-admin" }),
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ source: "manual-admin" }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Could not create store backup.");
@@ -43708,8 +43699,8 @@ async function downloadAdminStoreBackup(backupId) {
   adminStoreHealthState.backupError = "";
   try {
     const res = await fetch(
-      `/api/admin/store-backups/download?adminToken=${encodeURIComponent(token)}&id=${encodeURIComponent(id)}`,
-      { cache: "no-store" },
+      `/api/admin/store-backups/download?id=${encodeURIComponent(id)}`,
+      { cache: "no-store", headers: { Authorization: `Bearer ${token}` } },
     );
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Could not download backup.");
@@ -43738,9 +43729,8 @@ async function runAdminSparseStoreRecovery({ force = false } = {}) {
   try {
     const res = await fetch("/api/admin/recover-sparse-store", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({
-        adminToken: token,
         force: force === true,
         confirm: "RECOVER_SPARSE_STORE",
       }),
@@ -48328,7 +48318,7 @@ document.addEventListener("click", async (event) => {
     const msg = document.querySelector("#adminFoundingEmailMessage");
     try {
       const token = adminSession()?.token;
-      const response = await fetch(`/api/admin/founding-member-email/report?adminToken=${encodeURIComponent(token || "")}&refresh=1`);
+      const response = await fetch(`/api/admin/founding-member-email/report?refresh=1`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Could not load report.");
       window.__adminFoundingEmailReport = data.report || null;
@@ -48406,7 +48396,7 @@ document.addEventListener("click", async (event) => {
     const msg = document.querySelector("#adminFreeWelcomeEmailMessage");
     try {
       const token = adminSession()?.token;
-      const response = await fetch(`/api/admin/free-user-welcome-email/report?adminToken=${encodeURIComponent(token || "")}&refresh=1`);
+      const response = await fetch(`/api/admin/free-user-welcome-email/report?refresh=1`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Could not load report.");
       window.__adminFreeWelcomeEmailReport = data.report || null;
@@ -51906,8 +51896,8 @@ document.addEventListener("click", async (event) => {
     if (token && canUseLaunchBackend()) {
       fetch("/api/admin/logout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ adminToken: token }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({}),
       }).catch(() => {});
     }
     clearAdminSession({ forgetDevice: true });
