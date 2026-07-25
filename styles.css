@@ -10513,6 +10513,61 @@ body.testing-purchases-disabled [data-checkout-plan] {
   background: #fffbeb;
 }
 
+/* Admin Health Center (Owner Testing Home) */
+.admin-health-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+}
+
+.admin-health-item {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  gap: 4px 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  align-items: baseline;
+}
+
+.admin-health-state {
+  grid-column: 1;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.admin-health-item--working .admin-health-state { color: #1f7a3f; }
+.admin-health-item--attention .admin-health-state { color: #9a6700; }
+.admin-health-item--missing .admin-health-state { color: #6b7280; }
+.admin-health-item--disabled .admin-health-state { color: #6b7280; }
+
+.admin-health-label {
+  font-weight: 600;
+}
+
+.admin-health-detail {
+  grid-column: 2;
+  color: var(--ink-muted);
+  font-size: 0.9rem;
+}
+
+.admin-health-sentry-note {
+  margin-top: 12px;
+}
+
+.admin-health-errors {
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 700px) {
+  .admin-health-item {
+    grid-template-columns: 1fr;
+  }
+  .admin-health-detail { grid-column: 1; }
+}
+
 /* Home Daycare Pilot phone bottom navigation */
 .pilot-bottom-nav {
   display: none;

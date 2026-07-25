@@ -37349,6 +37349,10 @@ async function captureCurrentBuildBaseline() {
     const data = await res.json();
     staleBuildState.knownGitSha = data.gitSha || "";
     staleBuildState.knownBootTime = data.bootTime || "";
+    try {
+      window.__LLH_BUILD_SHA = staleBuildState.knownGitSha;
+      if (staleBuildState.knownGitSha) localStorage.setItem("llhBuildSha", staleBuildState.knownGitSha);
+    } catch { /* */ }
   } catch {
     // Offline or the endpoint is unreachable — never treat that as "stale",
     // just skip establishing a baseline this time.
@@ -37723,18 +37727,20 @@ function renderPilotBottomNav() {
 // Dashboard first. Never shown on the real production site (see
 // defaultAdminLandingView()).
 
-let ownerTestingHomeState = { status: null, dashboard: null, loading: false, error: "", onboardResult: null, onboardError: "" };
+let ownerTestingHomeState = { status: null, dashboard: null, healthCenter: null, loading: false, error: "", onboardResult: null, onboardError: "" };
 
 async function loadOwnerTestingHomeData() {
   ownerTestingHomeState.loading = true;
   renderOwnerTestingHomePage();
   try {
-    const [statusRes, dashboardRes] = await Promise.all([
+    const [statusRes, dashboardRes, healthRes] = await Promise.all([
       adminApiFetch("/api/testing-lab/status"),
       adminApiFetch("/api/testing-lab/dashboard"),
+      adminApiFetch("/api/testing-lab/health-center").catch(() => null),
     ]);
     ownerTestingHomeState.status = statusRes;
     ownerTestingHomeState.dashboard = dashboardRes.dashboard || null;
+    ownerTestingHomeState.healthCenter = healthRes;
     ownerTestingHomeState.error = "";
   } catch (error) {
     ownerTestingHomeState.error = error.message || "Could not load testing status.";
@@ -37819,6 +37825,44 @@ function featureReadinessListHtml() {
   `;
 }
 
+function ownerTestingHealthCenterHtml() {
+  const health = ownerTestingHomeState.healthCenter;
+  if (!health?.items?.length) {
+    return `<p class="muted-copy">${ownerTestingHomeState.loading ? "Loading Admin Health Center…" : "Health Center unavailable."}</p>`;
+  }
+  const openErrors = health.items.find((item) => item.key === "openErrors");
+  const sentryNote = health.sentry?.configured
+    ? "Sanitized error reporting is configured for this testing host."
+    : "Error monitoring is not configured yet (site still works normally).";
+  return `
+    <ul class="admin-health-list">
+      ${health.items.map((item) => `
+        <li class="admin-health-item admin-health-item--${escapeHtml(item.state || "working")}">
+          <span class="admin-health-state">${escapeHtml(item.stateLabel || item.state || "")}</span>
+          <span class="admin-health-label">${escapeHtml(item.label || "")}</span>
+          <span class="admin-health-detail">${escapeHtml(item.detail || "")}</span>
+        </li>
+      `).join("")}
+    </ul>
+    <p class="muted-copy admin-health-sentry-note">${escapeHtml(sentryNote)}</p>
+    ${openErrors?.errors?.length ? `
+      <details class="admin-health-errors">
+        <summary>Recent sanitized errors (Admin only)</summary>
+        <ul>
+          ${openErrors.errors.slice(0, 5).map((err) => `
+            <li>
+              <code>${escapeHtml(err.errorType || "error")}</code>
+              on ${escapeHtml(err.page || "unknown")}
+              (${escapeHtml(err.roleCategory || "unknown")} / ${escapeHtml(err.device || "unknown")})
+              ${err.deployedCommit ? `· <code>${escapeHtml(String(err.deployedCommit).slice(0, 12))}</code>` : ""}
+            </li>
+          `).join("")}
+        </ul>
+      </details>
+    ` : ""}
+  `;
+}
+
 function renderOwnerTestingHomePage() {
   const mount = document.querySelector("#view-owner-testing-home");
   if (!mount) return;
@@ -37858,6 +37902,11 @@ function renderOwnerTestingHomePage() {
           <p class="muted-copy">Not currently testing as a role.</p>
           <button type="button" class="ghost-button" data-view="testing-lab" data-oth-panel="preview">Switch role</button>
         `}
+      </section>
+      <section class="owner-testing-card owner-testing-card-wide">
+        <h3>Admin Health Center</h3>
+        <p class="muted-copy">Plain-language status for the testing site — never raw logs for external testers.</p>
+        ${ownerTestingHealthCenterHtml()}
       </section>
       <section class="owner-testing-card owner-testing-card-wide">
         <h3>Testing Status</h3>
@@ -37979,6 +38028,34 @@ async function fastDlcBridgePhotoToPilotIfApplicable(childId, caption, dataUrl) 
   try {
     await pilotApi("POST", "/api/pilot/photos", { childId, caption, dataUrl });
   } catch { /* best-effort — local photo record already saved regardless */ }
+}
+
+/**
+ * Share-with-Parent bridge for Create Parent Summary: when a Home Daycare
+ * Pilot provider shares a summary, ALSO post it as a real /api/pilot/updates
+ * family update so Parent Home's "Today's update" shows the same text —
+ * never email/SMS/push, only the connected fake parent inbox.
+ */
+async function fastDlcBridgeParentSummaryToPilotIfApplicable(childId, summaryText) {
+  if (!summaryText || !isHomeDaycarePilotAccount() || !(pilotIsProviderNow() || pilotIsStaffNow())) return;
+  try {
+    await pilotApi("POST", "/api/pilot/updates", {
+      childId,
+      title: "Parent Summary",
+      message: String(summaryText).slice(0, 4000),
+    });
+  } catch { /* best-effort — local Communications record already saved */ }
+}
+
+/**
+ * Parent Communication (fast sheet) → /api/pilot/messages so the connected
+ * Parent Messages screen sees the same message the provider just typed.
+ */
+async function fastDlcBridgeParentMessageToPilotIfApplicable(childId, body) {
+  if (!body || !isHomeDaycarePilotAccount() || !(pilotIsProviderNow() || pilotIsStaffNow())) return;
+  try {
+    await pilotApi("POST", "/api/pilot/messages", { childId, body: String(body).slice(0, 4000) });
+  } catch { /* best-effort */ }
 }
 
 /**
@@ -38612,13 +38689,11 @@ function renderPilotChecklistPage() {
 // server/testing-feedback-api.js.
 
 const TESTING_FEEDBACK_CATEGORIES = Object.freeze([
-  ["bug", "Bug"],
-  ["confusing_screen", "Confusing screen"],
-  ["missing_feature", "Missing feature"],
+  ["bug", "Something is broken"],
+  ["confusing_screen", "This is confusing"],
+  ["missing_feature", "Something is missing"],
   ["layout_problem", "Layout problem"],
-  ["ai_result", "AI result"],
   ["suggestion", "Suggestion"],
-  ["other", "Other"],
 ]);
 
 const testingFeedbackState = {
@@ -38681,6 +38756,26 @@ function testingFeedbackCurrentRole() {
   return (account && (account.role || account.accountType)) || "";
 }
 
+/** Sanitized diagnostics for one-click bug reports — never form/message/name/token content. */
+function testingFeedbackDiagnosticContext() {
+  const fromClient = (typeof LLHTestingSentry !== "undefined" && LLHTestingSentry.diagnosticSnapshot)
+    ? LLHTestingSentry.diagnosticSnapshot()
+    : { online: typeof navigator !== "undefined" ? Boolean(navigator.onLine) : true, recentFailedRequests: [], recentConsoleErrors: [] };
+  let deployedCommit = "";
+  try {
+    deployedCommit = String(window.__LLH_BUILD_SHA || localStorage.getItem("llhBuildSha") || "").slice(0, 40);
+  } catch { /* */ }
+  return {
+    page: testingFeedbackCurrentPage(),
+    device: testingFeedbackDeviceBucket(),
+    role: testingFeedbackCurrentRole(),
+    deployedCommit,
+    online: fromClient.online !== false,
+    recentFailedRequests: Array.isArray(fromClient.recentFailedRequests) ? fromClient.recentFailedRequests.slice(0, 8) : [],
+    recentConsoleErrors: Array.isArray(fromClient.recentConsoleErrors) ? fromClient.recentConsoleErrors.slice(0, 8) : [],
+  };
+}
+
 async function refreshTestingFeedbackUnreadCount() {
   if (!isFakeAccountTester()) return;
   try {
@@ -38734,7 +38829,7 @@ function testingFeedbackNewFormHtml() {
       ${testingFeedbackState.error ? `<p class="tf-error">${escapeHtml(testingFeedbackState.error)}</p>` : ""}
       ${testingFeedbackState.notice ? `<p class="tf-notice">${escapeHtml(testingFeedbackState.notice)}</p>` : ""}
       <button type="submit" class="primary-button" ${testingFeedbackState.loading ? "disabled" : ""}>Send feedback</button>
-      <p class="tf-context-note">We'll automatically include the screen, device size, and your role so this is easy to look into.</p>
+      <p class="tf-context-note">One click also attaches the screen, role, device, deploy commit, online/offline status, and recent failed request names — never form contents, messages, names, or tokens.</p>
     </form>
   `;
 }
@@ -38909,11 +39004,7 @@ function bindTestingFeedbackWidgetEvents() {
           category: testingFeedbackState.category,
           body: text,
           screenshotDataUrl: testingFeedbackState.pendingScreenshotDataUrl || "",
-          context: {
-            page: testingFeedbackCurrentPage(),
-            device: testingFeedbackDeviceBucket(),
-            role: testingFeedbackCurrentRole(),
-          },
+          context: testingFeedbackDiagnosticContext(),
         });
         testingFeedbackState.bodyText = "";
         testingFeedbackState.pendingScreenshotDataUrl = "";
@@ -53064,7 +53155,21 @@ document.addEventListener("click", async (event) => {
       });
       return;
     }
-    fastDlcSheetView = actionId === "parent-message" ? "timeline" : "actions";
+    if (actionId === "parent-message") {
+      fastDlcSheetView = "timeline";
+      saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate(), note });
+      fastDlcSaveNoteDraft(childId, actionId, "");
+      const storeKey = "Communications";
+      const items = childStore(storeKey);
+      const last = items[items.length - 1];
+      if (last && last.childId === childId) {
+        fastDlcLastAction = { childId, storeKey, recordId: last.id, label: "Parent Message", timeLabel: dlcFormatTime(dlcRecordTime(last)) || "just now" };
+      }
+      await fastDlcBridgeParentMessageToPilotIfApplicable(childId, note);
+      if (typeof showToast === "function") showToast("Parent message sent to the connected Parent inbox.", "success");
+      return;
+    }
+    fastDlcSheetView = "actions";
     saveDailyLogQuickAction(actionId, childId, { date: dlcActiveDate(), note });
     fastDlcSaveNoteDraft(childId, actionId, "");
     const storeKey = noteStoreKeys[actionId];
@@ -53771,6 +53876,7 @@ document.addEventListener("click", async (event) => {
     const summaryText = summaryInput?.value?.trim() || "";
     if (!summaryText) return;
     const shareCheckbox = document.querySelector(`[data-dlc-summary-share="${childId}"]`);
+    const shareWithFamily = shareCheckbox ? shareCheckbox.checked : true;
     const today = dlcActiveDate();
     setDailyLogParentSummaryDraft(childId, today, summaryText);
     appendChildRecord("Communications", {
@@ -53780,8 +53886,14 @@ document.addEventListener("click", async (event) => {
       title: `Parent Summary | ${today}`,
       summary: summaryText.slice(0, 120),
       message: summaryText,
-      shareWithFamily: shareCheckbox ? shareCheckbox.checked : true,
+      shareWithFamily,
     });
+    if (shareWithFamily) {
+      await fastDlcBridgeParentSummaryToPilotIfApplicable(childId, summaryText);
+      if (typeof showToast === "function") showToast("Parent summary shared with the connected Parent inbox.", "success");
+    } else if (typeof showToast === "function") {
+      showToast("Parent summary saved privately.", "success");
+    }
     return;
   }
 
@@ -60152,6 +60264,33 @@ document.addEventListener("change", (event) => {
     };
     reader.readAsDataURL(file);
   });
+});
+
+// Fast Daily Logs photo mini-form: show a private, child-scoped preview
+// before Save — never uploads until the provider confirms.
+document.addEventListener("change", (event) => {
+  const fastInput = event.target.closest("[data-fast-dlc-photo-input]");
+  if (!fastInput) return;
+  const childId = fastInput.getAttribute("data-fast-dlc-photo-input") || "";
+  const preview = document.querySelector(`[data-fast-dlc-photo-preview]`);
+  // Prefer the preview sibling inside the same sheet body when multiple sheets exist.
+  const scopedPreview = fastInput.closest(".fdlc-sheet-body")?.querySelector("[data-fast-dlc-photo-preview]") || preview;
+  if (!scopedPreview) return;
+  scopedPreview.innerHTML = "";
+  const file = fastInput.files?.[0];
+  if (!file) {
+    scopedPreview.hidden = true;
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const img = document.createElement("img");
+    img.src = e.target.result;
+    img.alt = `Private photo preview for child ${childId}`;
+    scopedPreview.appendChild(img);
+    scopedPreview.hidden = false;
+  };
+  reader.readAsDataURL(file);
 });
 
 if (currentUser) {

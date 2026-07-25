@@ -46,6 +46,7 @@ const { createClassroomAssistantApi } = require("./classroom-assistant-api.js");
 const { createStaffExperienceApi } = require("./staff-experience-api.js");
 const { createBillingSimulatorApi } = require("./billing-simulator-api.js");
 const { createTestingLabApi } = require("./testing-lab-api.js");
+const { createTestingSentry } = require("./testing-sentry.js");
 const { createAiTestingApi } = require("./ai-testing-api.js");
 const { createTestingFeedbackApi } = require("./testing-feedback-api.js");
 const { createExternalTesterSandboxApi } = require("./external-tester-sandbox-api.js");
@@ -63,6 +64,20 @@ loadEnvFile(path.join(__dirname, "..", ".env"));
 
 const PORT = Number(process.env.PORT || 4242);
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
+
+const testingSentry = createTestingSentry({
+  getGitSha: () => deployedGitShaSafe(),
+  isLiveProduction: () => {
+    try { return expansionFeatureFlags.isLiveProductionSite(SITE_URL); } catch { return false; }
+  },
+  env: process.env,
+});
+testingSentry.installProcessHandlers();
+
+/** Safe early SHA helper — deployedGitSha() is declared later in this file. */
+function deployedGitShaSafe() {
+  return String(process.env.LLH_GIT_SHA || process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || "").slice(0, 40);
+}
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRY1MONTH").trim();
@@ -15673,6 +15688,7 @@ function getTestingLabApi() {
       getStripeConfigStatus: () => stripeConfigStatus(),
       getAiConfigStatus: () => aiConfigStatus(),
       getSupportEmailConfigStatus: () => supportEmailConfigStatus(),
+      listRecentErrors: () => testingSentry.listRecentErrors(),
     });
   }
   return _testingLabApi;
@@ -16155,12 +16171,37 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/domain-dns-check") return await handleDomainDnsCheck(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
     if (request.method === "GET" && url.pathname === "/api/build-version") return handleBuildVersion(request, response);
+    if (request.method === "GET" && url.pathname === "/api/testing-health/sentry-config") {
+      // Public, non-secret config for the browser reporter. Never includes the DSN.
+      if (expansionFeatureFlags.isLiveProductionSite(SITE_URL)) {
+        return jsonResponse(response, 200, { enabled: false, clientIntake: "", note: "Disabled on production." });
+      }
+      return jsonResponse(response, 200, testingSentry.publicConfig());
+    }
+    if (request.method === "POST" && url.pathname === "/api/testing-health/client-error") {
+      if (expansionFeatureFlags.isLiveProductionSite(SITE_URL)) {
+        return jsonResponse(response, 403, { ok: false, error: "Testing error intake is disabled on production." });
+      }
+      const body = await readJson(request).catch(() => ({}));
+      const safe = testingSentry.sanitizeClientPayload(body);
+      const result = await testingSentry.captureSafeEvent(safe);
+      return jsonResponse(response, 200, { ok: true, sent: Boolean(result.sent) });
+    }
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") return headResponse(response, 200, "application/json; charset=utf-8");
     if (request.method === "GET" || request.method === "HEAD") return serveStatic(request, response, url);
     jsonResponse(response, 405, { error: "Method not allowed." });
   } catch (error) {
     console.error(error);
+    try {
+      testingSentry.captureSafeEvent({
+        errorType: error?.name || "ServerError",
+        message: error?.message || "Server error",
+        page: "request",
+        device: "server",
+        source: "server",
+      }).catch(() => {});
+    } catch { /* */ }
     jsonResponse(response, 500, { error: error.message || "Server error." });
   }
 });

@@ -64,14 +64,14 @@ test("client detects expired admin server session and offers re-unlock", () => {
 });
 
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
-  const CACHE_V = "20260724-incident-fix";
+  const CACHE_V = "20260725-stabilization";
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
   assert.equal(indexCss, CACHE_V);
   assert.equal(indexJs, CACHE_V);
   assert.match(sw, new RegExp(`styles\\.css\\?v=${CACHE_V}`));
   assert.match(sw, new RegExp(`app\\.js\\?v=${CACHE_V}`));
-  assert.match(sw, /llh-shell-v110-incident-fix/);
+  assert.match(sw, /llh-shell-v111-stabilization/);
 });
 
 test("admin session heartbeat refreshes unlock without random logout", () => {
@@ -134,13 +134,21 @@ test("Phase 23: setAdminSession mirrors token into llhAdminToken for admin-previ
   }
 });
 
-test("boot restores Admin before Calendar when last view was admin", () => {
-  const boot = appJs.slice(appJs.indexOf("async function initializeAppView()"), appJs.indexOf("initializeAppView();"));
-  const adminRestoreIdx = boot.indexOf('llhAdminLastView") === "admin"');
+test("boot restores Admin (or Owner Testing Home) before Calendar when Admin was unlocked", () => {
+  const bootStart = appJs.indexOf("async function initializeAppView()");
+  assert.ok(bootStart > 0, "initializeAppView missing");
+  // End at the trailing top-level call (not the earlier Try Again click handler).
+  const bootEnd = appJs.indexOf("\ninitializeAppView();", bootStart);
+  assert.ok(bootEnd > bootStart, "trailing initializeAppView() call missing");
+  const boot = appJs.slice(bootStart, bootEnd);
+  const adminRestoreIdx = boot.indexOf("defaultAdminLandingView()");
   const landingIdx = boot.indexOf("defaultLoggedInLandingView()");
-  assert.ok(adminRestoreIdx > 0, "admin restore missing from boot");
+  assert.ok(adminRestoreIdx > 0, "admin restore via defaultAdminLandingView() missing from boot");
   assert.ok(landingIdx > 0, "default logged-in landing missing from boot");
-  assert.ok(adminRestoreIdx < landingIdx, "admin restore must run before default calendar landing");
+  assert.ok(adminRestoreIdx < landingIdx, "admin restore must run before default calendar/today landing");
+  const helper = appJs.slice(appJs.indexOf("function defaultAdminLandingView()"), appJs.indexOf("function defaultAdminLandingView()") + 500);
+  assert.match(helper, /owner-testing-home/);
+  assert.match(helper, /llhAdminLastView/);
 });
 
 if (!process.exitCode) {
