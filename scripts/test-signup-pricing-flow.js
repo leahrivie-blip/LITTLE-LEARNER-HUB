@@ -70,14 +70,40 @@ test("signup chooser keeps Free as preview while featuring paid plans", () => {
   assert.ok(foundingIdx > -1 && freeIdx > foundingIdx, "Free preview should render after paid cards");
 });
 
-test("public pricing/upgrade pages still hide Pro until founding sells out", () => {
+test("public pricing/upgrade pages show Founding as primary and Pro Monthly as a visible secondary option while spots remain (pricing-clarity change)", () => {
   const pricing = appJs.slice(appJs.indexOf("function renderPricingPage"), appJs.indexOf("function renderUpgradePage"));
-  assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding"/);
-  assert.match(pricing, /\$\{soldOut \? pricingCard\("ProAnnual"/);
+  // Founding renders featured/primary while spots remain.
+  assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
+  // Pro Monthly is ALSO rendered (as a secondary card, not hidden) while spots remain.
+  assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
+  assert.match(pricing, /includesNote: FOUNDING_INCLUDES_NOTE/);
+  assert.match(pricing, /rationale: PRO_MONTHLY_RATIONALE/);
 
   const upgrade = appJs.slice(appJs.indexOf("function renderUpgradePage"), appJs.indexOf("function subscriptionSummaryHtml"));
-  assert.match(upgrade, /\$\{soldOut \? pricingCard\("ProAnnual"/);
-  assert.doesNotMatch(upgrade, /!soldOut \? pricingCard\("ProMonthly"/);
+  assert.match(upgrade, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
+  assert.match(upgrade, /\$\{!soldOut\s*\n\s*\? pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
+});
+
+test("the required Founding copy and an honest Pro-vs-Founding rationale exist and are used consistently", () => {
+  assert.match(appJs, /Includes Pro access\. \$9\.99\/month locked while continuously active\./);
+  assert.match(appJs, /const FOUNDING_INCLUDES_NOTE = "Includes Pro access\. \$9\.99\/month locked while continuously active\."/);
+  assert.match(appJs, /foundingIncludesNote: "Includes Pro access\. \$9\.99\/month locked while continuously active\."/);
+  // The rationale must be honest: Founding and Pro Monthly have identical features, so
+  // this must say plainly there is no meaningful feature/value reason to prefer Pro,
+  // not invent one.
+  assert.match(appJs, /const PRO_MONTHLY_RATIONALE = "Pro Monthly has the exact same features as Founding/);
+  assert.match(appJs, /proRationale: "Pro Monthly has the exact same features as Founding/);
+});
+
+test("pricing card shown/selected analytics tracking is wired on every Founding-vs-Pro comparison surface", () => {
+  assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "signup"/);
+  assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "pricing_page"/);
+  assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "upgrade_page"/);
+  assert.match(appJs, /trackEvent\("pricing_cards_shown", \{\s*\n\s*context: "homepage_hero"/);
+  assert.match(appJs, /async function startCheckout\(type, trackingContext = "checkout"\)/);
+  assert.match(appJs, /trackEvent\("pricing_card_selected", \{\s*\n\s*context: trackingContext/);
+  assert.match(appJs, /await startCheckout\("founding", "signup"\)/);
+  assert.match(appJs, /await startCheckout\("monthly", "signup"\)/);
 });
 
 test("signup conversion copy is overridable for A/B tests", () => {

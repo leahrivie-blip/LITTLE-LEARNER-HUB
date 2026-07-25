@@ -5422,7 +5422,10 @@ body.lessons-view .mobile-brand {
 }
 
 .pricing-grid--founding-open {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Now renders Founding (primary) + Pro Monthly (secondary) side by side, plus Free
+     on the pricing page — auto-fit instead of a fixed column count so it still looks
+     right whether 2 or 3 cards are present. */
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
 .pricing-grid--founding-open > :only-child {
@@ -20801,6 +20804,45 @@ body.auth-modal-open {
   color: #5a4638;
   font-size: 0.9rem;
   line-height: 1.4;
+}
+
+/* Pricing clarity: Founding-primary / Pro-secondary comparison cards. */
+.signup-plan-card--recommended {
+  position: relative;
+}
+
+.signup-plan-includes-note,
+.price-card-includes-note,
+.founding-includes-note {
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(91, 155, 213, 0.12);
+  color: #2f5f86;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.signup-plan-card--secondary,
+.price-card--secondary {
+  opacity: 0.92;
+}
+
+.price-card-rationale {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.founding-pro-secondary-link {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.founding-pro-secondary-link .link-button {
+  margin-left: 4px;
 }
 
 .signup-plan-includes,
