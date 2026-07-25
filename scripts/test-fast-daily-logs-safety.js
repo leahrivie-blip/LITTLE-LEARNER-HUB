@@ -375,6 +375,7 @@ async function main() {
     assert.deepEqual(pageErrors, [], `Fast Daily Logs safety flows should have zero console errors: ${JSON.stringify(pageErrors)}`);
     await context.close();
   } finally {
+    try { await browser.close(); } catch { /* ignore */ }
     await stopServer(child);
   }
 

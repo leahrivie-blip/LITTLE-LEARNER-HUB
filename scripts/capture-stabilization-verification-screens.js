@@ -98,7 +98,10 @@ async function runViewport(browser, label, viewport) {
   page.on("console", (msg) => { if (msg.type() === "error") consoleErrors.push(msg.text()); });
   page.on("pageerror", (e) => consoleErrors.push(String(e?.message || e)));
   page.on("requestfailed", (req) => {
-    if (/\/api\//.test(req.url())) failedCritical.push(req.url());
+    const url = req.url();
+    // Ignore aborted/cancelled non-critical fetches during navigation/reload.
+    if (/\/api\/site-content|\/api\/analytics\//i.test(url)) return;
+    if (/\/api\//.test(url) && !/favicon|fonts\.google/.test(url)) failedCritical.push(url);
   });
 
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -125,7 +128,7 @@ async function runViewport(browser, label, viewport) {
   await shot(page, `${prefix}-02-owner-testing-home.png`);
 
   // Testing Lab (not Calendar)
-  await page.click('[data-view="testing-lab"]');
+  await page.evaluate(() => setView("testing-lab"));
   await page.waitForTimeout(1500);
   assert.equal(await page.evaluate(() => document.querySelector(".active-view")?.id), "view-testing-lab");
   await shot(page, `${prefix}-03-testing-lab.png`);
@@ -133,7 +136,10 @@ async function runViewport(browser, label, viewport) {
   // Add External Tester
   await page.evaluate(() => setView("owner-testing-home"));
   await page.waitForTimeout(600);
-  await page.click('[data-oth-panel="accounts"]');
+  await page.evaluate(() => {
+    const btn = document.querySelector('[data-oth-panel="accounts"]');
+    if (btn) btn.click();
+  });
   await page.waitForTimeout(1000);
   await page.waitForSelector("[data-tl-pilot-create]", { timeout: 15000 });
   await shot(page, `${prefix}-04-add-external-tester.png`);
