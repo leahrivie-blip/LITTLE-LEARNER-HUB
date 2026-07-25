@@ -28,9 +28,9 @@ const CATEGORIES = Object.freeze({
 });
 
 const CATEGORY_LABELS = Object.freeze({
-  bug: "Bug",
-  confusing_screen: "Confusing screen",
-  missing_feature: "Missing feature",
+  bug: "Something is broken",
+  confusing_screen: "This is confusing",
+  missing_feature: "Something is missing",
   layout_problem: "Layout problem",
   ai_result: "AI result",
   suggestion: "Suggestion",
@@ -92,6 +92,20 @@ function defaultSubjectFor(category, body) {
 }
 
 function normalizeContext(context = {}, fallbackOrganizationId = "") {
+  const failed = Array.isArray(context.recentFailedRequests)
+    ? context.recentFailedRequests.slice(0, 8).map((item) => ({
+      name: cleanText(item?.name || item?.path || "", 180),
+      status: Number(item?.status) || 0,
+      at: cleanText(item?.at, 40),
+    })).filter((item) => item.name)
+    : [];
+  const consoleErrors = Array.isArray(context.recentConsoleErrors)
+    ? context.recentConsoleErrors.slice(0, 8).map((item) => ({
+      type: cleanText(item?.type, 40),
+      message: cleanText(item?.message, 240),
+      at: cleanText(item?.at, 40),
+    })).filter((item) => item.message)
+    : [];
   return {
     page: cleanText(context.page, 200),
     device: cleanText(context.device, 40),
@@ -105,6 +119,9 @@ function normalizeContext(context = {}, fallbackOrganizationId = "") {
     // Pilot testers previewing a specific family) — a fake-data id, never
     // any real information. Empty when not applicable.
     relatedChildId: cleanText(context.relatedChildId, 160),
+    online: context.online !== false,
+    recentFailedRequests: failed,
+    recentConsoleErrors: consoleErrors,
   };
 }
 

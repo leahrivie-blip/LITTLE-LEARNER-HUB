@@ -65,6 +65,11 @@ function resolveEnv(expansionEnvironment) {
   };
 }
 
+function ensureTestingHealth(store) {
+  store.testingHealth = store.testingHealth && typeof store.testingHealth === "object" ? store.testingHealth : {};
+  return store.testingHealth;
+}
+
 function createTestingLabApi({
   readStore,
   writeStore,
@@ -78,6 +83,7 @@ function createTestingLabApi({
   getStripeConfigStatus,
   getAiConfigStatus,
   getSupportEmailConfigStatus,
+  listRecentErrors,
 }) {
   function env() {
     return resolveEnv(expansionEnvironment);
@@ -288,7 +294,101 @@ function createTestingLabApi({
       emailConfigured: Boolean(emailStatus?.ready),
       testerCount,
       openFeedbackCount,
+      lastSmokeResult: ensureTestingHealth(store).lastSmokeResult || null,
+      lastBackupAt: ensureTestingHealth(store).lastBackupAt || null,
+      openErrorCount: typeof listRecentErrors === "function" ? listRecentErrors().length : 0,
     });
+  }
+
+  /** Plain-language Admin Health Center payload for Owner Testing Home. */
+  async function handleHealthCenter(request, response, ctx) {
+    let store;
+    let databaseConnected = true;
+    try {
+      store = readStore();
+    } catch {
+      databaseConnected = false;
+      store = { siteContent: {}, familyFoundation: {}, testingFeedback: {}, platformResilience: {} };
+    }
+    if (!assertLabAccess(store, response)) return;
+    const flags = expansionFlags.publicExpansionFeatureFlagsPayload(store.siteContent?.featureFlags, {
+      environment: env(),
+      isVerifiedAdmin: true,
+    });
+    const stripeStatus = typeof getStripeConfigStatus === "function" ? getStripeConfigStatus() : null;
+    const aiStatus = typeof getAiConfigStatus === "function" ? getAiConfigStatus() : null;
+    const emailStatus = typeof getSupportEmailConfigStatus === "function" ? getSupportEmailConfigStatus() : null;
+    const health = ensureTestingHealth(store);
+    const recentErrors = typeof listRecentErrors === "function" ? listRecentErrors().slice(0, 8) : [];
+    const pendingFailedSaves = (() => {
+      try {
+        return listValues(store.platformResilience?.failedSaves || {}).filter((item) => item && !item.resolvedAt).length;
+      } catch { return 0; }
+    })();
+    const testerCount = listValues(store.familyFoundation?.fakeAccounts || {}).length;
+    let openFeedbackCount = 0;
+    try {
+      openFeedbackCount = testingFeedbackModel.listThreadsForAdmin(store, { status: "open" }).length
+        + testingFeedbackModel.listThreadsForAdmin(store, { status: "in_progress" }).length;
+    } catch { openFeedbackCount = 0; }
+
+    const labelFor = (state) => ({
+      working: "Working",
+      attention: "Needs attention",
+      missing: "Not configured",
+      disabled: "Disabled for testing",
+    }[state] || state);
+
+    const databaseState = databaseConnected ? "working" : "attention";
+    const smoke = health.lastSmokeResult || null;
+    const smokeState = !smoke ? "missing" : (smoke.ok ? "working" : "attention");
+    const backupState = health.lastBackupAt ? "working" : "missing";
+    const errorsState = recentErrors.length ? "attention" : "working";
+    const syncState = pendingFailedSaves ? "attention" : "working";
+    const commit = typeof getGitSha === "function" ? getGitSha() : "";
+
+    jsonResponse(response, 200, {
+      ok: true,
+      testingBanner: model.TESTING_BANNER,
+      deployedCommit: commit,
+      items: [
+        { key: "deployedCommit", label: "Deployed commit", state: commit ? "working" : "missing", stateLabel: labelFor(commit ? "working" : "missing"), detail: commit ? commit.slice(0, 12) : "Not reported" },
+        { key: "database", label: "Database", state: databaseState, stateLabel: labelFor(databaseState), detail: databaseConnected ? String(process.env.DATABASE_PROVIDER || "local-json") : "Not connected" },
+        { key: "appBoot", label: "App boot", state: "working", stateLabel: labelFor("working"), detail: "Server is responding. Device-side boot issues appear in Testing Feedback diagnostics." },
+        { key: "openErrors", label: "Open errors", state: errorsState, stateLabel: labelFor(errorsState), detail: recentErrors.length ? `${recentErrors.length} recent sanitized error(s)` : "None", errors: recentErrors },
+        { key: "failedSync", label: "Failed sync count", state: syncState, stateLabel: labelFor(syncState), detail: String(pendingFailedSaves) },
+        { key: "smokeTest", label: "Latest smoke-test result", state: smokeState, stateLabel: labelFor(smokeState), detail: smoke ? `${smoke.ok ? "Passed" : "Failed"} at ${smoke.at || "unknown"}` : "Not configured", smoke },
+        { key: "backup", label: "Last successful backup", state: backupState, stateLabel: labelFor(backupState), detail: health.lastBackupAt || "Not configured" },
+        { key: "testingLab", label: "Testing Lab flag", state: flags.effectiveFlags?.testingLab ? "working" : "attention", stateLabel: labelFor(flags.effectiveFlags?.testingLab ? "working" : "attention"), detail: flags.effectiveFlags?.testingLab ? "Enabled" : "Disabled" },
+        { key: "stripe", label: "Stripe", state: "disabled", stateLabel: labelFor("disabled"), detail: stripeStatus?.checkoutReady ? "Credentials present — still disabled for testing" : "Disabled for testing" },
+        { key: "emailSms", label: "Email / SMS", state: "disabled", stateLabel: labelFor("disabled"), detail: emailStatus?.ready ? "Credentials present — still disabled for testing" : "Disabled for testing" },
+        { key: "ai", label: "AI (OpenAI)", state: "disabled", stateLabel: labelFor("disabled"), detail: aiStatus?.ready ? "Credentials present — still disabled for testing" : "Disabled for testing" },
+        { key: "testers", label: "Active tester count", state: "working", stateLabel: labelFor("working"), detail: String(testerCount) },
+        { key: "feedback", label: "Open feedback count", state: openFeedbackCount ? "attention" : "working", stateLabel: labelFor(openFeedbackCount ? "attention" : "working"), detail: String(openFeedbackCount) },
+      ],
+      sentry: {
+        configured: Boolean(String(process.env.SENTRY_DSN_TESTING || "").trim()) && !env().liveProduction,
+        note: "Sentry DSN is never shown here. Configure SENTRY_DSN_TESTING on Render only.",
+      },
+    });
+  }
+
+  async function handleSmokeResult(request, response, ctx) {
+    const store = readStore();
+    if (!assertLabAccess(store, response)) return;
+    const body = await readJson(request).catch(() => ({}));
+    const health = ensureTestingHealth(store);
+    health.lastSmokeResult = {
+      ok: body.ok === true,
+      passed: Number(body.passed) || 0,
+      targetHost: String(body.targetHost || "").slice(0, 120),
+      deployedCommit: String(body.deployedCommit || (typeof getGitSha === "function" ? getGitSha() : "")).slice(0, 40),
+      at: String(body.at || new Date().toISOString()).slice(0, 40),
+      // Never persist the tester email — only the disposable domain marker.
+      testerEmailDomain: String(body.testerEmailDomain || "example.invalid").slice(0, 80),
+    };
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, lastSmokeResult: health.lastSmokeResult });
   }
 
   async function handleSeed(request, response, ctx) {
@@ -1012,7 +1112,8 @@ function createTestingLabApi({
     if (!path.startsWith(BASE)) return null;
     if (method === "GET" && path === `${BASE}/status`) return (req, res, ctx) => handleStatus(req, res, ctx);
     if (method === "GET" && path === `${BASE}/dashboard`) return (req, res, ctx) => handleDashboard(req, res, ctx);
-    if (method === "GET" && path === `${BASE}/status`) return (req, res, ctx) => handleStatus(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/health-center`) return (req, res, ctx) => handleHealthCenter(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/smoke-result`) return (req, res, ctx) => handleSmokeResult(req, res, ctx);
     if (method === "GET" && path === `${BASE}/health`) return (req, res, ctx) => resilience.handleHealth(req, res, ctx);
     if (method === "GET" && path === `${BASE}/activity`) return (req, res, ctx) => resilience.handleActivityPage(req, res, ctx);
     if (method === "POST" && path === `${BASE}/seed`) return (req, res, ctx) => handleSeed(req, res, ctx);

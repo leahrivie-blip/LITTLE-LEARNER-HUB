@@ -349,7 +349,21 @@
           Device: ${escapeHtml(thread.context?.device || "—")} ·
           Filed: ${escapeHtml(thread.createdAt || "—")} ·
           Deployed commit: <code>${escapeHtml(thread.context?.deployedCommit || "unknown")}</code>
+          ${thread.context?.online === false ? " · Offline when filed" : ""}
         </p>
+        ${(thread.context?.recentFailedRequests?.length || thread.context?.recentConsoleErrors?.length) ? `
+          <details class="tl-feedback-diagnostics">
+            <summary>Sanitized diagnostics (no names, messages, tokens, or form contents)</summary>
+            ${thread.context?.recentFailedRequests?.length ? `
+              <p><strong>Recent failed requests</strong></p>
+              <ul>${thread.context.recentFailedRequests.map((item) => `<li><code>${escapeHtml(item.name || "")}</code> → ${escapeHtml(String(item.status ?? ""))}</li>`).join("")}</ul>
+            ` : ""}
+            ${thread.context?.recentConsoleErrors?.length ? `
+              <p><strong>Recent console error types</strong></p>
+              <ul>${thread.context.recentConsoleErrors.map((item) => `<li>${escapeHtml(item.type || "error")}: ${escapeHtml(item.message || "")}</li>`).join("")}</ul>
+            ` : ""}
+          </details>
+        ` : ""}
         <div class="tl-actions-row">
           <label>Status
             <select data-tf-admin-status>
