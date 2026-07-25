@@ -54,6 +54,7 @@ function ensurePilotStore(store) {
   p.messages = p.messages && typeof p.messages === "object" ? p.messages : {};
   p.forms = p.forms && typeof p.forms === "object" ? p.forms : {};
   p.billing = p.billing && typeof p.billing === "object" ? p.billing : {};
+  p.photos = p.photos && typeof p.photos === "object" ? p.photos : {};
   return p;
 }
 
@@ -283,6 +284,50 @@ function listBilling(store, organizationId, childId = "") {
     .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 }
 
+// ---- Shared photos (Photo Safety bridge from the fast Daily Logs UI) ------
+//
+// Organization- and child-scoped, exactly like every other pilot record.
+// `sharedWithFamily` defaults true on creation but can be toggled off
+// ("Unshare") WITHOUT deleting the provider's original record — the photo
+// stays in the provider's own list either way; only the Parent Home
+// visibility changes.
+
+function addSharedPhoto(store, { organizationId, childId, caption = "", dataUrl = "", createdByEmail = "" }) {
+  const p = ensurePilotStore(store);
+  p.photos = p.photos && typeof p.photos === "object" ? p.photos : {};
+  const record = {
+    id: newId("pilotphoto"),
+    organizationId: cleanText(organizationId, 160),
+    childId: cleanText(childId, 160),
+    caption: cleanText(caption, 300),
+    // A data: URL only — never a public URL; nothing here is ever served
+    // from a publicly reachable path.
+    dataUrl: String(dataUrl || "").startsWith("data:") ? dataUrl.slice(0, 2_000_000) : "",
+    sharedWithFamily: true,
+    createdByEmail: cleanText(createdByEmail, 180).toLowerCase(),
+    createdAt: nowIso(),
+    testingOnly: true,
+  };
+  p.photos[record.id] = record;
+  return record;
+}
+
+function listSharedPhotos(store, organizationId, childId = "") {
+  ensurePilotStore(store);
+  return listValues(store.homeDaycarePilot.photos || {})
+    .filter((p) => p.organizationId === organizationId && (!childId || p.childId === childId))
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+function setSharedPhotoVisibility(store, { photoId, sharedWithFamily }) {
+  ensurePilotStore(store);
+  const photo = store.homeDaycarePilot.photos?.[photoId];
+  if (!photo) return null;
+  photo.sharedWithFamily = sharedWithFamily === true;
+  store.homeDaycarePilot.photos[photoId] = photo;
+  return photo;
+}
+
 // ---- Aggregated Parent Home ------------------------------------------------
 
 /** Everything Parent Home should surface, scoped to ONE guardian contact's permitted child(ren). Never returns another child's data. */
@@ -297,6 +342,7 @@ function parentHomeSnapshot(store, { organizationId, contactId }) {
     const messages = listMessages(store, organizationId, childId);
     const unreadMessages = messages.filter((m) => !m.readByParent).length;
     const billing = rule.isFinanciallyResponsible ? listBilling(store, organizationId, childId).filter((b) => b.status !== BILLING_STATUSES.PAID) : [];
+    const sharedPhotos = listSharedPhotos(store, organizationId, childId).filter((p) => p.sharedWithFamily !== false);
     return {
       childId,
       childName: child?.displayName || "Child",
@@ -306,6 +352,7 @@ function parentHomeSnapshot(store, { organizationId, contactId }) {
       formsNeedingAction: forms,
       unreadMessageCount: unreadMessages,
       billingReminders: billing,
+      sharedPhotos,
     };
   });
   return { children };
@@ -331,6 +378,7 @@ function resetPilotData(store, organizationId) {
   clearMap(store.homeDaycarePilot.messages);
   clearMap(store.homeDaycarePilot.forms);
   clearMap(store.homeDaycarePilot.billing);
+  clearMap(store.homeDaycarePilot.photos);
   return { cleared };
 }
 
@@ -382,6 +430,9 @@ module.exports = {
   updateFormStatus,
   addBillingRecord,
   listBilling,
+  addSharedPhoto,
+  listSharedPhotos,
+  setSharedPhotoVisibility,
   parentHomeSnapshot,
   resetPilotData,
   generateFakeChildrenAndGuardians,

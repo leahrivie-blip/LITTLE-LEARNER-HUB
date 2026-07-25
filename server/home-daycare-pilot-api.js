@@ -340,6 +340,55 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     jsonResponse(response, 200, { ok: true, billing: record });
   }
 
+  // ---- Photos (Photo Safety bridge from fast Daily Logs) --------------------
+
+  async function handleListPhotos(request, response, ctx, url) {
+    const store = readStore();
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
+    if (!actor) return;
+    const childId = url?.searchParams?.get("childId") || "";
+    if (actor.role === "parent" && (!childId || !guardianMayAccessChild(store, actor, childId, "digital"))) {
+      return deny(response, 403, "not_linked", "You are not linked to that child.");
+    }
+    const photos = model.listSharedPhotos(store, actor.organizationId, childId)
+      .filter((p) => actor.role === "provider" || p.sharedWithFamily !== false);
+    jsonResponse(response, 200, { ok: true, photos });
+  }
+
+  async function handleAddPhoto(request, response, ctx) {
+    const store = readStore();
+    const body = await readJson(request).catch(() => ({}));
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
+    if (!actor) return;
+    if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider can add a photo.");
+    const childExists = model.listChildren(store, actor.organizationId).some((c) => c.id === body.childId);
+    if (!childExists) return deny(response, 400, "invalid_child");
+    const record = model.addSharedPhoto(store, {
+      organizationId: actor.organizationId, childId: body.childId, caption: body.caption, dataUrl: body.dataUrl, createdByEmail: actor.email,
+    });
+    labModel.appendAudit(store, { organizationId: actor.organizationId, action: "pilot_photo_added", actorEmail: actor.email, detail: `Added a fake testing photo for child ${body.childId}` });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, photo: { ...record, dataUrl: undefined } });
+  }
+
+  async function handleSetPhotoVisibility(request, response, ctx) {
+    const store = readStore();
+    const body = await readJson(request).catch(() => ({}));
+    const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: body.organizationId || "" });
+    if (!actor) return;
+    if (actor.role !== "provider") return deny(response, 403, "provider_only");
+    const photo = store.homeDaycarePilot?.photos?.[body.photoId];
+    // Cross-organization access is rejected here — a photo from a
+    // DIFFERENT organization is treated exactly like "not found", never
+    // revealing whether it exists.
+    if (!photo || photo.organizationId !== actor.organizationId) return deny(response, 404, "not_found");
+    // Unsharing NEVER deletes the provider's original record — only the
+    // family-visible flag changes.
+    const updated = model.setSharedPhotoVisibility(store, { photoId: body.photoId, sharedWithFamily: body.sharedWithFamily !== false });
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, photo: { ...updated, dataUrl: undefined } });
+  }
+
   // ---- Parent Home (aggregated) ----------------------------------------------
 
   async function handleParentHome(request, response, ctx, url) {
@@ -374,6 +423,9 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     if (method === "POST" && path === `${BASE}/forms/status`) return (req, res, ctx) => handleUpdateFormStatus(req, res, ctx);
     if (method === "GET" && path === `${BASE}/billing`) return (req, res, ctx) => handleListBilling(req, res, ctx, url);
     if (method === "POST" && path === `${BASE}/billing`) return (req, res, ctx) => handleAddBilling(req, res, ctx);
+    if (method === "GET" && path === `${BASE}/photos`) return (req, res, ctx) => handleListPhotos(req, res, ctx, url);
+    if (method === "POST" && path === `${BASE}/photos`) return (req, res, ctx) => handleAddPhoto(req, res, ctx);
+    if (method === "POST" && path === `${BASE}/photos/visibility`) return (req, res, ctx) => handleSetPhotoVisibility(req, res, ctx);
     if (method === "GET" && path === `${BASE}/parent-home`) return (req, res, ctx) => handleParentHome(req, res, ctx, url);
     return null;
   }

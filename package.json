@@ -206,6 +206,9 @@
     "test:live-style-role-device-walkthrough": "NODE_ENV=test node scripts/test-live-style-role-device-walkthrough.js",
     "test:home-daycare-pilot": "NODE_ENV=test node scripts/test-home-daycare-pilot.js",
     "test:home-daycare-pilot-ui": "NODE_ENV=test node scripts/test-home-daycare-pilot-ui.js",
+    "test:fast-daily-logs": "NODE_ENV=test node scripts/test-fast-daily-logs.js",
+    "test:fast-daily-logs-safety": "NODE_ENV=test node scripts/test-fast-daily-logs-safety.js",
+    "test:fast-daily-logs-visual": "NODE_ENV=test node scripts/test-fast-daily-logs-visual.js",
     "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
   "devDependencies": {
