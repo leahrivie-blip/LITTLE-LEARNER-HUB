@@ -120,6 +120,31 @@ Screenshots: `docs/screenshots/home-daycare-connected-walkthrough/1-owner-famili
 
 ---
 
+## 3b. Daily Care storage architecture — pre-merge review findings and fixes
+
+Before merging PR #324, the owner asked for an explicit confirmation of 10 storage-architecture properties. Investigating them honestly surfaced **real gaps in the code committed above**, which are now fixed and tested (all in the same PR, before merge):
+
+| Requirement | Before this fix | After this fix |
+|---|---|---|
+| Server/Neon is the authoritative source | Local write was final; server mirror was fire-and-forget with no retry — a failed POST was silently dropped forever | Server is reconciled as authoritative: every write is queued and retried until confirmed; a pull always takes the server's value for any record this browser doesn't have unsynced local work on |
+| localStorage is only an offline queue/cache | Local was the permanent, only copy if the mirror POST ever failed | Local is the write-buffer: records are saved locally immediately (so nothing is ever lost, even offline), then pushed to the server, and re-pulled/reconciled on every sync pass |
+| On reconnect, queued entries sync idempotently | No reconnect/retry logic existed at all | `syncPilotDailyCareEntriesIntoLocalStore()` now flushes every locally-pending record on each call (boot, opening Daily Care, or any pilot nav refresh) |
+| Each entry has a permanent unique id/idempotency key | `` `${key}-${Date.now()}` `` — **a real bug**: Group Logging calls `appendChildRecord` synchronously in a loop for several children, so two different children's records could get the exact same id within the same millisecond | `generateChildRecordId()` uses `crypto.randomUUID()` (with a safe fallback), collision-proof regardless of loop timing, never regenerated on retry |
+| Owner/staff cannot create duplicates by retrying | Not actually exercised (no retry existed) — but the server-side upsert-by-id was already correct | Verified directly: 5 concurrent retries of the same idempotency key resolve to exactly one server entry |
+| Server records win during reconciliation without silently deleting unsynced work | The pull step was purely additive — it never updated an existing local record with a newer server version (so a correction made on one login was invisible to the other), and had no concept of "unsynced" to protect anyway | Pull now updates any local record that is **not** marked pending with the server's version, while a pending (unsynced) record is left completely untouched — never overwritten, never deleted |
+| Logout clears identity-specific cached information | `pilotState` and `pilotStaffNavCache` were plain module-level variables never reset on `signOut()` — a second tester logging in on the same page (no reload) could momentarily see the previous tester's organization data | `signOut()` now resets `pilotState`, `pilotStaffNavCache`, and `externalTesterSandboxState` |
+| One organization cannot read another's entries | Already true for reads (`resolveActor()` scopes every query to the caller's own `organizationId`, never a client-supplied value) — but the server's storage **key** for an entry was only `` `${storeKey}:${record.id}` ``, not org-scoped, an unnecessary (if astronomically unlikely with the new UUID ids) cross-org collision risk | Storage key is now `` `${organizationId}:${storeKey}:${record.id}` `` — cross-org collision-proof by construction, in addition to the existing read-side isolation |
+| Corrections preserve history | Already true locally (`applyChildRecordCorrection` appends to a `corrections[]` array and keeps `originalTime`/`originalNotes`) | Unchanged — and now this correction is also pushed to the server as part of the same fix, so the history travels with every synced copy |
+| Restart/redeploy retains the records | Already true (the mirror lives in the same JSON/Postgres-backed `store` object) | Re-verified after all of the above changes, including that a correction made before a restart is what survives it (not the stale pre-correction value) |
+
+**Where this lives:** `app.js` — `saveChildStore()` is the single chokepoint every Daily Care write already went through (new entries, in-place updates like attendance check-out, undo, and corrections), so hooking the sync there (`pilotSyncDailyCareChangesIfNeeded`, `pilotQueueDailyCareSync`, `pilotSetRecordPendingSyncFlag`, `pilotPushDailyCareEntry`, rewritten `syncPilotDailyCareEntriesIntoLocalStore`) covers every write path with no per-call-site wiring. `scripts/home-daycare-pilot-data-model.js` — `addDailyCareEntry()`'s storage key is now organization-scoped.
+
+**New tests:**
+- `scripts/test-daily-care-server-authoritative-sync.js` (6 checks, server-contract level): permanent id + idempotent retry, a 5-way concurrent retry storm resolving to one entry, a correction updating in place with history intact, cross-org read AND write isolation (including a same-id write attempt from a different org), and restart/redeploy retention of the corrected value.
+- `scripts/test-daily-care-offline-queue-and-corrections-sync.js` (4 checks, real browser): an entry logged with the network actually blocked (`page.route(...).abort()`) is saved locally and marked pending, then flushes to the server exactly once on reconnect (verified via a fresh, independent login); a correction made after syncing reaches the staff member's next sync; logging out clears the in-memory pilot cache.
+
+Both suites pass, alongside the full regression list below (re-run after these fixes).
+
 ## 4. Full regression run (this turn)
 
 | Suite | Result |
@@ -127,6 +152,8 @@ Screenshots: `docs/screenshots/home-daycare-connected-walkthrough/1-owner-famili
 | `test-home-daycare-pilot-ui.js` | 4/4 pass |
 | `test-home-daycare-connected-walkthrough.js` (new) | 12/12 pass |
 | `test-home-daycare-staff-restrictions.js` (new) | 17/17 pass |
+| `test-daily-care-server-authoritative-sync.js` (new) | 6/6 pass |
+| `test-daily-care-offline-queue-and-corrections-sync.js` (new) | 4/4 pass |
 | `test-role-navigation-testing-accounts.js` | 8/8 pass |
 | `test-daily-care-families-sync-bridge.js` | 3/3 pass |
 | `test-external-tester-sandbox.js` | 15/15 pass |
@@ -160,7 +187,7 @@ No Stripe, email, SMS, or OpenAI calls occur anywhere in this work — Home Dayc
 - `server/index.js` — password-login response now includes `organizationId`.
 - `server/home-daycare-pilot-api.js` — `isOwner` on every resolved actor; new endpoints (`/api/pilot/staff`, `/api/pilot/daily-care-entries`, `/api/pilot/child-contacts`, `/api/pilot/change-request`); owner-only gating on Families/Billing/staff-add/change-requests.
 - `scripts/home-daycare-pilot-data-model.js` — daily-care-entry mirror, child-contacts lookup, change-request storage.
-- `scripts/test-home-daycare-connected-walkthrough.js` (new), `scripts/test-home-daycare-staff-restrictions.js` (new), `scripts/capture-home-daycare-nav-screens.js` (new).
+- `scripts/test-home-daycare-connected-walkthrough.js` (new), `scripts/test-home-daycare-staff-restrictions.js` (new), `scripts/capture-home-daycare-nav-screens.js` (new), `scripts/test-daily-care-server-authoritative-sync.js` (new), `scripts/test-daily-care-offline-queue-and-corrections-sync.js` (new).
 - `package.json` — new test scripts.
 - `docs/screenshots/home-daycare-navigation/`, `docs/screenshots/home-daycare-connected-walkthrough/` (new screenshots).
 
