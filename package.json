@@ -154,6 +154,7 @@
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
     "test:email-system-audit": "NODE_ENV=test node scripts/test-email-system-audit.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",
+    "test:founding-vs-pro-confirmation-browser": "node scripts/test-founding-vs-pro-confirmation-browser.js",
     "dry-run:founding-member-email": "node scripts/founding-member-thank-you-dry-run.js",
     "test:free-user-welcome-email": "NODE_ENV=test node scripts/test-free-user-welcome-email.js",
     "dry-run:free-user-welcome-email": "node scripts/free-user-welcome-dry-run.js",

@@ -3078,11 +3078,13 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   foundingBadge: "Most Popular",
   foundingTitle: "Founding Member",
   foundingSubtitle: "Best value for childcare providers — lock in lifetime pricing",
+  foundingIncludesNote: "Includes Pro access. $9.99/month locked while continuously active.",
   foundingCta: "Claim My Founding Spot",
   proBadge: "Full Access",
   proTitle: "Pro Membership",
   proSubtitle: "Everything you need for weekly planning and documentation",
   proCta: "Continue with Pro",
+  proRationale: "Regular monthly price after Founding availability ends.",
   freeTitle: "Free Plan",
   freeSubtitle: "A preview of Little Learner Hub — great for exploring before upgrading",
   freeIncludes: Object.freeze([
@@ -3211,29 +3213,40 @@ function renderSignupPlanChooser() {
   const copy = signupPlanCopy();
   syncFoundingStatus({ render: false }).catch(() => {});
   const foundingCard = !soldOut ? `
-    <article class="signup-plan-card signup-plan-card--founding signup-plan-card--featured${preferFounding ? " is-preferred" : ""}">
+    <article class="signup-plan-card signup-plan-card--founding signup-plan-card--featured signup-plan-card--recommended${preferFounding ? " is-preferred" : ""}" data-pricing-card="founding">
       <span class="signup-plan-badge">${escapeHtml(copy.foundingBadge)}</span>
       <h3>${escapeHtml(copy.foundingTitle)}</h3>
       <p class="signup-plan-subtitle">${escapeHtml(copy.foundingSubtitle)}</p>
       <p class="signup-plan-price-compare"><s>$19.99/month</s></p>
       <p class="signup-plan-price signup-plan-price--founding"><strong>$9.99</strong><span>/month FOR LIFE</span></p>
+      <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      <p class="signup-plan-spots">Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong></p>
+      <p class="signup-plan-spots" data-founding-spots-remaining="${remaining}">Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong></p>
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
   const proCard = `
-    <article class="signup-plan-card signup-plan-card--pro${soldOut ? " signup-plan-card--pro-featured signup-plan-card--featured" : ""}">
+    <article class="signup-plan-card signup-plan-card--pro signup-plan-card--secondary${soldOut ? " signup-plan-card--pro-featured signup-plan-card--featured" : ""}" data-pricing-card="pro-monthly">
       <span class="signup-plan-badge">${escapeHtml(soldOut ? "Recommended" : copy.proBadge)}</span>
       <h3>${escapeHtml(copy.proTitle)}</h3>
       <p class="signup-plan-subtitle">${escapeHtml(copy.proSubtitle)}</p>
       <p class="signup-plan-price"><strong>$19.99</strong><span>/month</span></p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      ${soldOut ? "" : `<p class="signup-plan-provider-note muted-copy">Same full toolkit — regular membership pricing after founding spots are gone.</p>`}
+      ${soldOut
+        ? ""
+        : `<p class="signup-plan-provider-note muted-copy">${escapeHtml(copy.proRationale)}</p>`}
       <button class="primary-button" type="button" data-signup-choose-plan="monthly">${escapeHtml(copy.proCta)}</button>
     </article>
   `;
+  trackEvent("pricing_cards_shown", {
+    context: "signup",
+    variant: copy.variant,
+    foundingShown: !soldOut,
+    foundingRemaining: remaining,
+    soldOut,
+    primaryCard: soldOut ? "pro-monthly" : "founding",
+  });
   target.innerHTML = `
     <div id="signupPlanChooserMain" class="signup-plan-chooser-main" data-signup-variant="${escapeHtml(copy.variant)}">
       <p class="signup-plan-intro">${escapeHtml(copy.intro)}</p>
@@ -3282,6 +3295,15 @@ async function finishSignupWithPlan(planChoice) {
     return;
   }
   trackEvent("signup_plan_selected", { email, plan: planChoice, persona: signupPersonaChoice });
+  if (planChoice === "free") {
+    // founding/monthly selection is tracked centrally inside startCheckout() below
+    // (context: "signup") so it is never double-counted.
+    trackEvent("pricing_card_selected", {
+      context: "signup",
+      card: "free",
+      foundingWasAvailable: foundingSpotsRemaining() > 0,
+    });
+  }
   const grandfatherApi = freePlanGrandfatheringApi();
   const freeLessonAccessMode = planChoice === "free"
     ? (grandfatherApi?.modeForNewSignup?.(freePlanAccessExtra()) || "curated")
@@ -3311,10 +3333,10 @@ async function finishSignupWithPlan(planChoice) {
     return;
   }
   if (planChoice === "founding") {
-    await startCheckout("founding");
+    await startCheckoutWithFoundingGuard("founding", "signup");
     return;
   }
-  await startCheckout("monthly");
+  await startCheckoutWithFoundingGuard("monthly", "signup");
 }
 
 function analyticsEvents() {
@@ -46554,7 +46576,7 @@ async function startPreferredPaidCheckout() {
     setView("plans");
     return;
   }
-  await startCheckout(preferredPaidCheckoutPlan());
+  await startCheckoutWithFoundingGuard(preferredPaidCheckoutPlan(), "preferred_cta");
 }
 
 function renderHomeFoundingOffer() {
@@ -46571,21 +46593,30 @@ function renderHomeFoundingOffer() {
   const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "for life");
   const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Claim Founding Member Pricing");
   target.innerHTML = `
-    <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}">
+    <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}" data-pricing-card="${soldOut ? "pro-monthly" : "founding"}">
       <h2>${escapeHtml(heading)}</h2>
       <div class="founding-price-row">
         <span class="founding-price-prefix">${escapeHtml(pricePrefix)}</span>
         <strong>${soldOut ? "$19.99" : "$9.99"}</strong>
         <em>/month <span>${escapeHtml(priceLifeLabel)}</span></em>
       </div>
+      ${soldOut ? "" : `<p class="founding-includes-note">${escapeHtml(FOUNDING_INCLUDES_NOTE)}</p>`}
       <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>
       <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${escapeHtml(ctaButtonText)}</button>
       <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
         <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
       </div>
+      ${soldOut ? "" : `<p class="founding-pro-secondary-link muted-copy">Prefer Regular Pro instead? $19.99/month — ${PRO_MONTHLY_RATIONALE} <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>`}
     </div>
   `;
+  trackEvent("pricing_cards_shown", {
+    context: "homepage_hero",
+    foundingShown: !soldOut,
+    foundingRemaining: remaining,
+    soldOut,
+    primaryCard: soldOut ? "pro-monthly" : "founding",
+  });
 }
 
 function billingPlanFeatures(planKey) {
@@ -46598,16 +46629,21 @@ function pricingCard(planKey, options = {}) {
   const buttonClass = options.primary ? "primary-button" : "ghost-button";
   const buttonText = options.buttonText || "Choose Plan";
   return `
-    <article class="price-card ${options.featured ? "featured" : ""}">
+    <article class="price-card ${options.featured ? "featured" : ""}${options.secondary ? " price-card--secondary" : ""}" data-pricing-card="${escapeHtml(options.pricingCardId || planKey.toLowerCase())}">
       ${options.eyebrow ? `<p class="eyebrow">${escapeHtml(options.eyebrow)}</p>` : ""}
       <h3>${escapeHtml(plan.name)}</h3>
       <p class="price">${plan.price}<span>${plan.interval}</span></p>
+      ${options.includesNote ? `<p class="price-card-includes-note">${escapeHtml(options.includesNote)}</p>` : ""}
       ${featureListHtml(billingPlanFeatures(planKey))}
+      ${options.rationale ? `<p class="price-card-rationale muted-copy">${escapeHtml(options.rationale)}</p>` : ""}
       <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}"`} type="button">${escapeHtml(buttonText)}</button>
       ${options.free ? "" : `<p class="muted-copy">${escapeHtml(proTrialUpgradeSummary)}</p>`}
     </article>
   `;
 }
+
+const PRO_MONTHLY_RATIONALE = "Regular monthly price after Founding availability ends.";
+const FOUNDING_INCLUDES_NOTE = "Includes Pro access. $9.99/month locked while continuously active.";
 
 function promoCodePanel(options = {}) {
   const stored = normalizedCheckoutPromoCode();
@@ -46645,9 +46681,18 @@ function renderPricingPage() {
     <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${pricingCard("Free", { free: true, buttonText: "Use Free" })}
       ${!soldOut
-        ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "First 50 Members", checkoutType: "founding", buttonText: "Claim Founding Spot" })
-        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly" })}
-      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual" }) : ""}
+        ? pricingCard("Founding", {
+          featured: true, primary: true, eyebrow: "First 50 Members — Recommended", checkoutType: "founding",
+          buttonText: "Claim Founding Spot", includesNote: FOUNDING_INCLUDES_NOTE, pricingCardId: "founding",
+        })
+        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Main Paid Plan", checkoutType: "monthly", buttonText: "Choose Pro Monthly", pricingCardId: "pro-monthly" })}
+      ${!soldOut
+        ? pricingCard("ProMonthly", {
+          secondary: true, eyebrow: "Regular Price", checkoutType: "monthly", buttonText: "Choose Pro Monthly",
+          rationale: PRO_MONTHLY_RATIONALE, pricingCardId: "pro-monthly",
+        })
+        : ""}
+      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Choose Pro Annual", pricingCardId: "pro-annual" }) : ""}
     </div>
     <section class="section-block billing-links">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
@@ -46657,6 +46702,13 @@ function renderPricingPage() {
       <button class="ghost-button" data-view="billing-history" type="button">Billing History</button>
     </section>
   `;
+  trackEvent("pricing_cards_shown", {
+    context: "pricing_page",
+    foundingShown: !soldOut,
+    foundingRemaining: remaining,
+    soldOut,
+    primaryCard: soldOut ? "pro-monthly" : "founding",
+  });
 }
 
 function renderUpgradePage() {
@@ -46669,9 +46721,18 @@ function renderUpgradePage() {
     ${promoCodePanel({ context: "upgrade" })}
     <div class="pricing-grid ${soldOut ? "pricing-grid--sold-out" : "pricing-grid--founding-open"}">
       ${!soldOut
-        ? pricingCard("Founding", { featured: true, primary: true, eyebrow: "Best Launch Offer", checkoutType: "founding", buttonText: "Checkout for $9.99/month" })
-        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro", checkoutType: "monthly", buttonText: "Checkout for $19.99/month" })}
-      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual" }) : ""}
+        ? pricingCard("Founding", {
+          featured: true, primary: true, eyebrow: "Best Launch Offer — Recommended", checkoutType: "founding",
+          buttonText: "Checkout for $9.99/month", includesNote: FOUNDING_INCLUDES_NOTE, pricingCardId: "founding",
+        })
+        : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro", checkoutType: "monthly", buttonText: "Checkout for $19.99/month", pricingCardId: "pro-monthly" })}
+      ${!soldOut
+        ? pricingCard("ProMonthly", {
+          secondary: true, eyebrow: "Regular Price", checkoutType: "monthly", buttonText: "Checkout for $19.99/month",
+          rationale: PRO_MONTHLY_RATIONALE, pricingCardId: "pro-monthly",
+        })
+        : ""}
+      ${soldOut ? pricingCard("ProAnnual", { checkoutType: "annual", buttonText: "Checkout Annual", pricingCardId: "pro-annual" }) : ""}
     </div>
     <section class="section-block">
       <button class="ghost-button back-button" data-view="settings" type="button">← Back to Settings</button>
@@ -46680,6 +46741,13 @@ function renderUpgradePage() {
       <p class="muted-copy">In production, these buttons create a Stripe Checkout Session on your server. In this local file, they run a safe test checkout simulation so billing permissions can be verified.</p>
     </section>
   `;
+  trackEvent("pricing_cards_shown", {
+    context: "upgrade_page",
+    foundingShown: !soldOut,
+    foundingRemaining: remaining,
+    soldOut,
+    primaryCard: soldOut ? "pro-monthly" : "founding",
+  });
 }
 
 function subscriptionSummaryHtml() {
@@ -47360,9 +47428,105 @@ function setFreePlan() {
   setView("account");
 }
 
-async function startCheckout(type) {
+/**
+ * Mirrors (a client-safe approximation of) the server's handleCheckout eligibility
+ * gate for Founding: "Former Founding Members are not automatically eligible for
+ * $9.99 pricing." The server remains the authoritative check regardless — this is a
+ * UX nicety so genuinely ineligible users are never shown a confirmation offering
+ * them something they cannot actually claim. Uses only fields reliably mirrored to
+ * the client account object (foundingMemberHistorical / foundingMemberActive /
+ * foundingMemberNumber); it does not have foundingSpotReleasedAt or
+ * firstPaidInvoiceAt available client-side, so it is intentionally a close
+ * approximation, not a perfect replica, of the server's narrower exemption for
+ * someone who released their spot during a free promo month.
+ */
+function isEligibleForFoundingCheckout(account = currentAccount()) {
+  if (!account) return true; // guest / brand-new signup — no history, eligible by default
+  const everFounding = Boolean(account.foundingMemberHistorical || account.foundingMember || account.foundingMemberNumber);
+  const currentlyFounding = Boolean(account.foundingMemberActive);
+  return !(everFounding && !currentlyFounding);
+}
+
+function shouldConfirmBeforeRegularPro(type, account = currentAccount()) {
+  if (type !== "monthly") return false;
+  if (foundingSpotsRemaining() <= 0) return false;
+  return isEligibleForFoundingCheckout(account);
+}
+
+/**
+ * Three-way confirmation required when an eligible user picks Regular Pro while
+ * Founding is still open. window.confirm() only supports two buttons, so this is a
+ * small custom modal appended to <body> (works from any page: signup, pricing,
+ * upgrade, homepage).
+ */
+function showFoundingVsProConfirm(onChoice) {
+  document.querySelector("#foundingVsProConfirmModal")?.remove();
+  const remaining = foundingSpotsRemaining();
+  const modal = document.createElement("div");
+  modal.id = "foundingVsProConfirmModal";
+  modal.className = "founding-vs-pro-confirm-overlay";
+  modal.innerHTML = `
+    <div class="founding-vs-pro-confirm-card" role="dialog" aria-modal="true" aria-labelledby="foundingVsProConfirmTitle">
+      <h3 id="foundingVsProConfirmTitle">Founding pricing is still available for $9.99/month.</h3>
+      <p>Are you sure you want Regular Pro for $19.99/month?</p>
+      <p class="founding-vs-pro-confirm-remaining muted-copy">${remaining} founding spot${remaining === 1 ? "" : "s"} remaining right now.</p>
+      <div class="founding-vs-pro-confirm-actions">
+        <button class="primary-button" type="button" data-founding-vs-pro-choice="founding">Choose Founding — \$9.99</button>
+        <button class="ghost-button" type="button" data-founding-vs-pro-choice="pro_monthly">Continue with Regular Pro — \$19.99</button>
+        <button class="link-button" type="button" data-founding-vs-pro-choice="go_back">Go Back</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+  trackEvent("pricing_confirm_shown", { foundingRemaining: remaining });
+  modal.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-founding-vs-pro-choice]");
+    if (!button && event.target !== modal) return;
+    const choice = button ? button.dataset.foundingVsProChoice : "go_back";
+    trackEvent("pricing_confirm_selected", { choice });
+    modal.remove();
+    onChoice(choice);
+  });
+}
+
+/**
+ * Wrap around startCheckout() at every entry point that can lead to a "monthly"
+ * (Regular Pro) checkout. Shows the Founding-vs-Pro confirmation only when the user
+ * is eligible for Founding AND spots remain; otherwise behaves exactly like calling
+ * startCheckout() directly (no extra step for founding checkouts, sold-out states,
+ * or genuinely ineligible users).
+ */
+async function startCheckoutWithFoundingGuard(type, trackingContext = "checkout") {
+  // Refresh the founding count from the server before deciding whether to show the
+  // confirmation — a stale client-side cache (e.g. from an earlier page load) must
+  // never cause this decision to be made on outdated data.
+  if (type === "monthly") {
+    await syncFoundingStatus({ render: false }).catch(() => {});
+  }
+  if (!shouldConfirmBeforeRegularPro(type)) {
+    return startCheckout(type, trackingContext);
+  }
+  return new Promise((resolve) => {
+    showFoundingVsProConfirm((choice) => {
+      if (choice === "founding") {
+        resolve(startCheckout("founding", trackingContext));
+      } else if (choice === "pro_monthly") {
+        resolve(startCheckout("monthly", trackingContext));
+      } else {
+        resolve(undefined); // Go Back — stay on the current page, no checkout started
+      }
+    });
+  });
+}
+
+async function startCheckout(type, trackingContext = "checkout") {
   if (!requireBillingAccount()) return;
   syncCheckoutPromoCodeFromInput(document);
+  trackEvent("pricing_card_selected", {
+    context: trackingContext,
+    card: type === "founding" ? "founding" : type === "annual" ? "pro-annual" : "pro-monthly",
+    foundingWasAvailable: foundingSpotsRemaining() > 0,
+  });
   if (type === "founding") await syncFoundingStatus({ render: true });
   if (type === "founding" && foundingSpotsRemaining() <= 0) {
     setFormMessage("#upgradeApp", "Founding Membership is sold out. All 50 lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
@@ -48421,7 +48585,7 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (normalizedCheckoutPromoCode()) {
-      startCheckout("monthly");
+      startCheckout("monthly", "free_plan_promo_override");
       return;
     }
     setFreePlan();
@@ -48464,7 +48628,14 @@ document.addEventListener("click", async (event) => {
       });
       return;
     }
-    startCheckout(planType);
+    const checkoutContext = checkoutButton.closest("#pricingApp")
+      ? "pricing_page"
+      : checkoutButton.closest("#upgradeApp")
+        ? "upgrade_page"
+        : checkoutButton.closest("#homeFoundingOffer")
+          ? "homepage_hero"
+          : "generic_cta";
+    startCheckoutWithFoundingGuard(planType, checkoutContext);
     return;
   }
 
@@ -53361,11 +53532,11 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   trackUpgradePromptClick(promptId, { mode });
   closeProFeatureModal();
   if (mode === "founding") {
-    startCheckout("founding");
+    startCheckoutWithFoundingGuard("founding", "pro_feature_modal");
     return;
   }
   if (mode === "monthly") {
-    startCheckout("monthly");
+    startCheckoutWithFoundingGuard("monthly", "pro_feature_modal");
     return;
   }
   startProTrial();
