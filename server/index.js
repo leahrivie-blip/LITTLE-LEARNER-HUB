@@ -2118,19 +2118,58 @@ function readSiteCurriculum(store) {
   return siteContent.curriculum || defaultCurriculumStore();
 }
 
-function writeSiteCurriculum(store, curriculum, { updatedAt } = {}) {
+// This is the SHARED low-level write path for every granular curriculum mutation
+// endpoint (lesson plan save, series save, resource save/archive/link/unlink, etc.) — not
+// just the bulk admin site-content save. A prior hotfix added wipe protection only to the
+// bulk save's own inline write; this function is the actual root-cause fix, since it's the
+// one place all of those granular endpoints funnel through. Every one of them reads the
+// EXISTING curriculum, changes one small piece, and writes the WHOLE curriculum back — so
+// if readStore() ever returns a stale/empty siteContent snapshot for any reason (a
+// concurrent write race, a slow/failed Postgres read, a caller passing the wrong base), an
+// otherwise-tiny edit (e.g. archiving a single resource) would silently overwrite a
+// populated library with an empty/partial one, with no guard catching it before this fix.
+/**
+ * Returns { stamp, wipeBlocked }. `stamp` is always a plain string (the new/kept
+ * siteContent.updatedAt). `wipeBlocked` is true when the wipe guard refused this write and
+ * preserved the existing curriculum instead — callers MUST check this and respond with an
+ * error (never claim success) when it's true, so a granular edit's failure mode (e.g. a
+ * stale/empty read) can never silently take the whole public library down with it.
+ */
+function writeSiteCurriculum(store, curriculum, { updatedAt, allowReplace = false } = {}) {
   // Avoid full normalizedSiteContent() here — production siteContent can embed
   // multi-MB lesson-plan resource data URLs. Curriculum saves only touch curriculum + stamp.
   const existing = store.siteContent && typeof store.siteContent === "object"
     ? store.siteContent
     : defaultSiteContentStore();
   const stamp = normalizedShortText(updatedAt, 80) || new Date().toISOString();
+  const incomingCurriculum = normalizedCurriculumStore(curriculum);
+  if (shouldPreserveExistingCurriculum(existing.curriculum, incomingCurriculum, { allowReplace })) {
+    const existingCurriculum = normalizedCurriculumStore(existing.curriculum);
+    console.warn("[curriculum-wipe-guard] writeSiteCurriculum: refused to shrink curriculum — preserving existing library", {
+      existingLessonPlans: existingCurriculum.lessonPlans.length,
+      incomingLessonPlans: incomingCurriculum.lessonPlans.length,
+      existingActivities: existingCurriculum.activities.length,
+      incomingActivities: incomingCurriculum.activities.length,
+    });
+    maybeAlertStoreSafety("curriculum_wipe_blocked_write_site_curriculum", {
+      existingLessonPlans: existingCurriculum.lessonPlans.length,
+      incomingLessonPlans: incomingCurriculum.lessonPlans.length,
+    }).catch(() => {});
+    // Never wipe: keep the existing curriculum untouched so this granular edit's own
+    // failure mode cannot take the whole public library down with it.
+    store.siteContent = {
+      ...existing,
+      curriculum: existingCurriculum,
+      updatedAt: stamp,
+    };
+    return { stamp, wipeBlocked: true };
+  }
   store.siteContent = {
     ...existing,
-    curriculum: normalizedCurriculumStore(curriculum),
+    curriculum: incomingCurriculum,
     updatedAt: stamp,
   };
-  return stamp;
+  return { stamp, wipeBlocked: false };
 }
 
 function unlinkCurriculumResourceFromAllLessonPlans(curriculum, resourceId) {
@@ -2912,6 +2951,13 @@ function storeCountDropReasons(nextCounts, prevCounts = lastPersistedStoreCounts
   }
   if (droppedHalf(prevCounts.curriculumLessonPlans, nextCounts.curriculumLessonPlans, 5)) {
     reasons.push(`curriculumLessonPlans ${prevCounts.curriculumLessonPlans} → ${nextCounts.curriculumLessonPlans}`);
+  }
+  // Lesson plans and activities are wiped by the same failure mode but are independent
+  // arrays — an activities-only drop (lessonPlans looks intact) must be caught too, or this
+  // general Postgres-write safety net misses exactly the failure mode the dedicated
+  // curriculum-activities wipe-protection test covers for the site-content save endpoint.
+  if (droppedHalf(prevCounts.curriculumActivities, nextCounts.curriculumActivities, 5)) {
+    reasons.push(`curriculumActivities ${prevCounts.curriculumActivities} → ${nextCounts.curriculumActivities}`);
   }
   return reasons;
 }
@@ -12118,12 +12164,19 @@ async function handleAdminCurriculumSeriesSave(request, response) {
       jsonResponse(response, 400, integrityError);
       return;
     }
-    const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
     await writeStoreAsync(store);
     jsonResponse(response, 200, {
       series,
       curriculum: curriculumWithoutFileData(nextCurriculum),
-      siteContentUpdatedAt,
+      siteContentUpdatedAt: writeResult.stamp,
     });
   } catch (error) {
     console.error("[curriculum-series-save] failed", error);
@@ -12228,7 +12281,15 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     const savedPlan = syncedCurriculum.lessonPlans.find((item) => item.id === id);
     const savedActivities = syncedCurriculum.activities.filter((activity) => activity.lessonPlanId === id);
     step = "writeSiteCurriculum";
-    const siteContentUpdatedAt = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
+    const writeResult = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      console.error("[curriculum-lesson-save] refused — would have shrunk the live curriculum unexpectedly", { id, step });
+      jsonResponse(response, 409, {
+        error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
 
     step = "writeStoreAsync";
     try {
@@ -12248,7 +12309,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       lessonPlan: savedPlan,
       activities: savedActivities,
       curriculum: curriculumWithoutFileData(syncedCurriculum),
-      siteContentUpdatedAt,
+      siteContentUpdatedAt: writeResult.stamp,
     });
   } catch (error) {
     console.error("[curriculum-lesson-save] failed at step", step, error);
@@ -12474,7 +12535,14 @@ async function handleAdminCurriculumResourceSave(request, response) {
     jsonResponse(response, 400, integrityError);
     return;
   }
-  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -12485,7 +12553,7 @@ async function handleAdminCurriculumResourceSave(request, response) {
   jsonResponse(response, 200, {
     resource,
     curriculum: curriculumWithoutFileData(nextCurriculum),
-    siteContentUpdatedAt,
+    siteContentUpdatedAt: writeResult.stamp,
   });
 }
 
@@ -12534,7 +12602,14 @@ async function handleAdminCurriculumResourceArchive(request, response) {
     jsonResponse(response, 400, integrityError);
     return;
   }
-  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -12544,7 +12619,7 @@ async function handleAdminCurriculumResourceArchive(request, response) {
   jsonResponse(response, 200, {
     resource: curriculumResourceMetadata(resource),
     curriculum: curriculumWithoutFileData(nextCurriculum),
-    siteContentUpdatedAt,
+    siteContentUpdatedAt: writeResult.stamp,
   });
 }
 
@@ -12578,7 +12653,14 @@ async function handleAdminCurriculumResourceLink(request, response) {
     return;
   }
   const now = new Date().toISOString();
-  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -12589,7 +12671,7 @@ async function handleAdminCurriculumResourceLink(request, response) {
     resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
     lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
     curriculum: curriculumWithoutFileData(nextCurriculum),
-    siteContentUpdatedAt,
+    siteContentUpdatedAt: writeResult.stamp,
   });
 }
 
@@ -12623,7 +12705,14 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     return;
   }
   const now = new Date().toISOString();
-  const siteContentUpdatedAt = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
   try {
     await writeStoreAsync(store);
   } catch (error) {
@@ -12634,7 +12723,7 @@ async function handleAdminCurriculumResourceUnlink(request, response) {
     resource: curriculumResourceMetadata(nextCurriculum.resources.find((item) => item.id === resourceId)),
     lessonPlan: nextCurriculum.lessonPlans.find((item) => item.id === lessonPlanId),
     curriculum: curriculumWithoutFileData(nextCurriculum),
-    siteContentUpdatedAt,
+    siteContentUpdatedAt: writeResult.stamp,
   });
 }
 
