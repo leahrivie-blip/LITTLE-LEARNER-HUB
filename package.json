@@ -211,6 +211,8 @@
     "test:fast-daily-logs-visual": "NODE_ENV=test node scripts/test-fast-daily-logs-visual.js",
     "test:role-navigation-testing-accounts": "NODE_ENV=test node scripts/test-role-navigation-testing-accounts.js",
     "test:daily-care-families-sync-bridge": "NODE_ENV=test node scripts/test-daily-care-families-sync-bridge.js",
+    "test:home-daycare-connected-walkthrough": "NODE_ENV=test node scripts/test-home-daycare-connected-walkthrough.js",
+    "test:home-daycare-staff-restrictions": "NODE_ENV=test node scripts/test-home-daycare-staff-restrictions.js",
     "capture:external-tester-sandbox-screens": "NODE_ENV=test node scripts/capture-external-tester-sandbox-screens.js"
   },
   "devDependencies": {
