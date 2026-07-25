@@ -20,6 +20,7 @@ const { createCommsApi } = require("./comms-api.js");
 const commsLib = require("./comms-lib.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
+const { createAdminSessionStore } = require("./admin-session-store.js");
 const adminNotifications = require("./admin-notifications.js");
 const programOwnership = require("./program-ownership.js");
 const {
@@ -125,6 +126,15 @@ const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
 const storePath = process.env.LLH_STORE_PATH || path.join(dataDir, "launch-store.json");
 const storeRecordId = "launch-store";
+// Admin sessions live in their own storage (Postgres table in production, a small
+// side file in local-json/test mode) — never inside the shared store document. See
+// server/admin-session-store.js for why this exists (it replaces admin login writing
+// the entire multi-MB application store, and admin auth checks cloning it).
+// Derived from storePath (not a fixed name) so parallel test runs — which each set
+// LLH_STORE_PATH to their own temp file — never collide on a shared sessions file.
+const adminSessionStorePath = process.env.LLH_ADMIN_SESSIONS_PATH
+  || storePath.replace(/(\.json)?$/, ".admin-sessions.json");
+const adminSessionStore = createAdminSessionStore({ localFilePath: adminSessionStorePath });
 const spaRoutePaths = new Set([
   "/admin",
 ]);
@@ -2695,6 +2705,22 @@ async function initializeStorage() {
   }
   startPostgresReconnectLoop();
   try {
+    // Admin sessions use their own storage, kept in sync with whatever the main
+    // store ended up using (Postgres if it's ready, local file otherwise) — see
+    // server/admin-session-store.js. This never touches store.adminSessions.
+    adminSessionStore.configure({ pool: postgresPool, usingPostgres: usePostgresStore() && databaseReady });
+    await adminSessionStore.initTable();
+    await adminSessionStore.loadFromStorage();
+    const legacyStore = readStore();
+    const migration = await adminSessionStore.migrateLegacySessions(legacyStore.adminSessions);
+    if (migration.migratedCount) {
+      console.log(`[admin-session-store] boot migration moved ${migration.migratedCount} legacy session(s) out of the shared store`);
+    }
+    adminSessionStore.startPruneScheduler();
+  } catch (error) {
+    console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
+  }
+  try {
     // One-user sealed temp-password apply (hash only). Never logs plaintext.
     const store = readStore();
     const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
@@ -3613,23 +3639,14 @@ async function resolveCurriculumAccessUser(request, url) {
   };
 }
 
+// Admin sessions are persisted by adminSessionStore (its own Postgres table / local
+// file — see server/admin-session-store.js), NOT inside storeCache.adminSessions.
+// This used to call writeStoreAsync(storeCache), which serialized and rewrote the
+// entire multi-MB application store on every single admin login; it now writes
+// exactly one session row. store.adminSessions itself is retained only as the
+// legacy field that boot-time migration reads once (see initializeStorage()).
 async function createAdminToken(email) {
-  const token = `admin_${crypto.randomBytes(24).toString("hex")}`;
-  // Always mutate the live cache (not a stale readStore clone) so concurrent
-  // analytics writeStore(readStore()) calls cannot drop this session.
-  if (!storeCache) readStore();
-  storeCache = storeCache || defaultStore();
-  storeCache.adminSessions = storeCache.adminSessions || {};
-  const nowIso = new Date().toISOString();
-  storeCache.adminSessions[token] = {
-    email: normalizeEmail(email),
-    createdAt: nowIso,
-    lastValidatedAt: nowIso,
-  };
-  // Await durable persist so login never returns a token that disappears after
-  // a restart/deploy race (browser unlocked, server missing the session).
-  await writeStoreAsync(storeCache);
-  return token;
+  return adminSessionStore.create(normalizeEmail(email));
 }
 
 function foundingClaimedCount(store) {
@@ -3843,7 +3860,7 @@ function markProcessedStripeEvent(eventId) {
 // replace/restore actions — high-impact and rare enough to warrant their own record.
 function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
   store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
-  const session = store.adminSessions?.[String(adminToken || "").trim()];
+  const session = adminSessionStore.validate(adminToken);
   const entry = {
     id: `curr_restore_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
     adminEmail: session?.email || "unknown",
@@ -6213,14 +6230,28 @@ async function handleAdminLogin(request, response) {
     jsonResponse(response, 503, { error: "Admin login is not configured on the server." });
     return;
   }
+  // Lockout check happens before verifying credentials so a locked-out attacker
+  // cannot use response timing/content to keep brute-forcing during the window.
+  const lockout = adminSessionStore.lockoutStatus(email);
+  if (lockout.lockedOut) {
+    jsonResponse(response, 429, {
+      error: "Too many failed admin login attempts. Please try again later.",
+      code: "admin_login_locked_out",
+      retryAfterSeconds: Math.ceil(lockout.retryAfterMs / 1000),
+    });
+    return;
+  }
   const valid = isConfiguredAdminEmail(email)
     && timingSafeEqualText(password, ADMIN_PASSWORD)
     && timingSafeEqualText(code, ADMIN_ACCESS_CODE);
   if (!valid) {
+    adminSessionStore.recordFailedAttempt(email);
     jsonResponse(response, 401, { error: "The owner email, password, or admin code did not match." });
     return;
   }
+  adminSessionStore.recordSuccessfulAttempt(email);
   try {
+    // Always mints a brand-new, independent random token — see createAdminToken().
     const token = await createAdminToken(email);
     jsonResponse(response, 200, {
       token,
@@ -6239,7 +6270,8 @@ async function handleAdminLogin(request, response) {
 
 /**
  * Lock Admin / logout — revoke the current admin session token server-side.
- * Clears live cache first so mergeStorePreserveAdminSessions cannot reinject it.
+ * Session revocation now lives entirely in adminSessionStore (see
+ * server/admin-session-store.js) — no store read/write involved.
  */
 async function handleAdminLogout(request, response) {
   const body = await readJson(request);
@@ -6252,26 +6284,7 @@ async function handleAdminLogout(request, response) {
     jsonResponse(response, 400, { error: "Admin token is required." });
     return;
   }
-  let revoked = false;
-  if (storeCache?.adminSessions && storeCache.adminSessions[token]) {
-    delete storeCache.adminSessions[token];
-    revoked = true;
-  }
-  try {
-    const store = readStore();
-    store.adminSessions = store.adminSessions || {};
-    if (store.adminSessions[token]) {
-      delete store.adminSessions[token];
-      revoked = true;
-      writeStore(store);
-    }
-  } catch (error) {
-    jsonResponse(response, 500, {
-      error: "Could not revoke admin session.",
-      hint: error?.message || "Store write failed.",
-    });
-    return;
-  }
+  const revoked = await adminSessionStore.revoke(token);
   jsonResponse(response, 200, { ok: true, revoked });
 }
 
@@ -8527,7 +8540,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
     return;
   }
 
-  const adminSession = store.adminSessions?.[adminToken];
+  const adminSession = adminSessionStore.validate(adminToken);
   const adminEmail = adminSession?.email || body.adminEmail || ADMIN_EMAIL || "admin";
   const saved = upsertUser(email, { ...after, lastStripeSyncAt: new Date().toISOString() });
 
@@ -9467,33 +9480,29 @@ function adminAuthFailurePayload(extra = {}) {
   };
 }
 
+// Pure in-memory check against adminSessionStore — no store clone, no disk/DB I/O.
+// This used to call readStore(), which for Postgres deep-clones the entire
+// multi-MB application store on every single authenticated admin request.
 function validAdminToken(token) {
-  const clean = String(token || "").trim();
-  if (!clean) return false;
-  const store = readStore();
-  return Boolean(store.adminSessions?.[clean]);
+  return Boolean(adminSessionStore.validate(token));
 }
 
 function handleAdminSession(request, response, url) {
   const token = String(url.searchParams.get("adminToken") || "").trim();
-  if (!validAdminToken(token)) {
+  const session = adminSessionStore.validate(token);
+  if (!session) {
     jsonResponse(response, 401, adminAuthFailurePayload());
     return;
   }
-  // Soft-touch the live session so unlock stays warm without a full disk write on every poll.
-  const nowIso = new Date().toISOString();
-  if (storeCache?.adminSessions?.[token]) {
-    storeCache.adminSessions[token] = {
-      ...storeCache.adminSessions[token],
-      lastValidatedAt: nowIso,
-    };
-  }
-  const session = (storeCache?.adminSessions?.[token]) || readStore().adminSessions?.[token] || {};
+  // Soft-touch (sliding expiration) — updates the in-memory record immediately and
+  // persists it as a single lightweight row write, never a full disk/DB write of
+  // the whole store.
+  adminSessionStore.touch(token);
   jsonResponse(response, 200, {
     valid: true,
     email: session.email || "",
-    createdAt: session.createdAt || "",
-    lastValidatedAt: session.lastValidatedAt || nowIso,
+    createdAt: session.createdAt ? new Date(session.createdAt).toISOString() : "",
+    lastValidatedAt: new Date().toISOString(),
     adminConfigured: adminConfigStatus().ready,
   });
 }
@@ -10844,7 +10853,7 @@ function handleAdminAnalytics(request, response, url) {
   try {
     // peekStore: do not structuredClone the entire production store for this read.
     const store = peekStore();
-    const session = store.adminSessions?.[token] || {};
+    const session = adminSessionStore.validate(token) || {};
     const userCount = Object.keys(store.users || {}).length;
     const eventCount = (store.analyticsEvents || []).length;
     console.log("[admin-analytics] building summary", {
@@ -13080,6 +13089,54 @@ function handleHealth(request, response) {
 
 function handleFoundingStatus(request, response) {
   jsonResponse(response, 200, { founding: foundingStatusPayload(peekStore()) });
+}
+
+/**
+ * Read-only, admin-only breakdown that clearly labels the different "founding"
+ * numbers that show up in different Admin surfaces, so they stop looking like a
+ * discrepancy/data-loss bug. This does NOT change eligibility, pricing, Stripe,
+ * or subscription/access logic in any way — it only reads and clearly labels
+ * existing counts:
+ *
+ * - totalFoundingSpots: the fixed cap (FOUNDING_LIMIT env var).
+ * - everClaimed: store.foundingMembers is an append-only spot-number ledger —
+ *   once an email is added it is NEVER removed, even if that person later
+ *   downgrades/cancels. This is the same number shown as "claimed" on
+ *   /api/health and /api/founding-status.
+ * - currentlyActive: users whose CURRENT membership access key resolves to
+ *   "founding" right now (membershipCurrentAccessKey(user) === "founding") —
+ *   i.e. actually paying the founding rate today.
+ * - canceledOrExpired: everClaimed minus currentlyActive — people who claimed a
+ *   spot at some point but are not currently active founding payers (matches
+ *   the "Historical Founding Member (no auto $9.99)" label used on user cards).
+ * - remainingAvailable: totalFoundingSpots minus everClaimed (spots still
+ *   available to claim) — the same "remaining" shown publicly.
+ */
+function handleAdminFoundingBreakdown(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  const store = readStore();
+  const users = Object.values(store.users || {});
+  const everClaimed = foundingClaimedCount(store);
+  const currentlyActive = users.filter((user) => membershipAccess.membershipCurrentAccessKey(user) === "founding").length;
+  jsonResponse(response, 200, {
+    ok: true,
+    labels: {
+      totalFoundingSpots: "Fixed cap on founding spots ever offered.",
+      everClaimed: "Every email that has ever claimed a spot number — never decreases, even after a cancellation.",
+      currentlyActive: "Users whose membership access is 'founding' right now (actually paying the founding rate today).",
+      canceledOrExpired: "Claimed a spot at some point but is not a currently active founding payer.",
+      remainingAvailable: "Spots left to claim (totalFoundingSpots minus everClaimed).",
+    },
+    totalFoundingSpots: FOUNDING_LIMIT,
+    everClaimed,
+    currentlyActive,
+    canceledOrExpired: Math.max(everClaimed - currentlyActive, 0),
+    remainingAvailable: foundingSpotsRemaining(store),
+  });
 }
 
 function handleClientConfig(request, response) {
@@ -15926,6 +15983,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-firebase-profiles") return await handleAdminRecoverFirebaseProfiles(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/founding-breakdown") return handleAdminFoundingBreakdown(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return await handleLaunchReadiness(request, response);

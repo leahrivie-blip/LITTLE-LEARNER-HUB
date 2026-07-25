@@ -13,4 +13,8 @@ yarn-error.log*
 scripts/data/
 server/.*-test-*.json
 server/.staff-invite-test-store-*.json
+# Sibling admin-session files derived from any test's LLH_STORE_PATH (see
+# server/admin-session-store.js / adminSessionStorePath in server/index.js).
+server/*.admin-sessions.json
+server/data/*.admin-sessions.json
 
