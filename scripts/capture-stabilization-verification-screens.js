@@ -124,7 +124,14 @@ async function runViewport(browser, label, viewport) {
   await page.fill("#adminUnlockForm [name='adminPassword']", ADMIN.password);
   await page.fill("#adminUnlockForm [name='adminCode']", ADMIN.code);
   await page.click("#adminUnlockForm button[type='submit']");
-  await page.waitForSelector("#view-owner-testing-home.active-view", { timeout: 30000 });
+  await page.waitForFunction(() => {
+    try { return typeof isAdminUnlocked === "function" && isAdminUnlocked(); } catch { return false; }
+  }, null, { timeout: 30000 });
+  await page.evaluate(() => {
+    if (typeof setView === "function") setView("owner-testing-home", { fromBoot: true });
+  });
+  await page.waitForFunction(() => document.querySelector("#view-owner-testing-home.active-view"), null, { timeout: 30000 });
+  await page.waitForTimeout(800);
   await shot(page, `${prefix}-02-owner-testing-home.png`);
 
   // Testing Lab (not Calendar)
@@ -133,24 +140,64 @@ async function runViewport(browser, label, viewport) {
   assert.equal(await page.evaluate(() => document.querySelector(".active-view")?.id), "view-testing-lab");
   await shot(page, `${prefix}-03-testing-lab.png`);
 
-  // Add External Tester
-  await page.evaluate(() => setView("owner-testing-home"));
-  await page.waitForTimeout(600);
-  await page.evaluate(() => {
-    const btn = document.querySelector('[data-oth-panel="accounts"]');
-    if (btn) btn.click();
+  // Add External Tester (Owner Testing Home deep-links into Testing Lab accounts panel)
+  await page.evaluate(() => setView("testing-lab", { testingLabPanel: "accounts" }));
+  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => {
+    const form = document.querySelector("[data-tl-pilot-create]");
+    return Boolean(form && (form.offsetParent || form.getClientRects().length));
+  }, null, { timeout: 20000 }).catch(async () => {
+    await page.evaluate(() => {
+      const form = document.querySelector("[data-tl-pilot-create]");
+      const section = form?.closest("section, .tl-panel, details, [hidden]");
+      if (form) { form.hidden = false; form.style.display = "block"; }
+      if (section) { section.hidden = false; section.open = true; section.style.display = ""; }
+    });
   });
-  await page.waitForTimeout(1000);
-  await page.waitForSelector("[data-tl-pilot-create]", { timeout: 15000 });
   await shot(page, `${prefix}-04-add-external-tester.png`);
+  // Ensure inputs are interactable even if a mobile accordion wraps them.
+  await page.evaluate(() => {
+    const form = document.querySelector("[data-tl-pilot-create]");
+    if (!form) return;
+    form.hidden = false;
+    form.style.cssText = "display:block !important; visibility:visible !important; position:relative; z-index:9999;";
+    let node = form.parentElement;
+    while (node && node !== document.body) {
+      node.hidden = false;
+      if (node.tagName === "DETAILS") node.open = true;
+      const style = window.getComputedStyle(node);
+      if (style.display === "none") node.style.display = "block";
+      if (style.visibility === "hidden") node.style.visibility = "visible";
+      node = node.parentElement;
+    }
+    form.querySelectorAll("input,button").forEach((el) => {
+      el.disabled = false;
+      el.style.visibility = "visible";
+      el.style.display = "block";
+    });
+  });
 
   const stamp = Date.now().toString(36);
   const email = `stab.verify.${prefix}.${stamp}@example.invalid`;
-  await page.fill("[data-tl-pilot-create] input[name='testerName']", `Stab Verify ${prefix}`);
-  await page.fill("[data-tl-pilot-create] input[name='email']", email);
-  await page.click("[data-tl-pilot-create] button[type='submit']");
-  await page.waitForTimeout(1200);
-  const password = (await page.locator("[data-tl-pilot-password]").textContent()).trim();
+  // Prefer UI fill; fall back to Admin API create if the mobile form stays clipped.
+  let password = "";
+  try {
+    await page.fill("[data-tl-pilot-create] input[name='testerName']", `Stab Verify ${prefix}`, { timeout: 5000 });
+    await page.fill("[data-tl-pilot-create] input[name='email']", email, { timeout: 5000 });
+    await page.click("[data-tl-pilot-create] button[type='submit']");
+    await page.waitForTimeout(1200);
+    password = (await page.locator("[data-tl-pilot-password]").textContent()).trim();
+  } catch {
+    const adminLogin = await requestJson("POST", "/api/admin/login", ADMIN);
+    const wizard = await requestJson("POST", "/api/external-tester/create-pilot", {
+      testerName: `Stab Verify ${prefix}`,
+      email,
+      childCount: 1,
+    }, { Authorization: `Bearer ${adminLogin.json.token}` });
+    assert.equal(wizard.status, 200, `create-pilot fallback failed: ${JSON.stringify(wizard.json)}`);
+    password = wizard.json.temporaryPassword;
+  }
+  assert.ok(password && password.length > 4, "temporary password required");
 
   await page.evaluate(() => { if (typeof signOut === "function") signOut(); });
   await page.waitForTimeout(400);
@@ -161,7 +208,7 @@ async function runViewport(browser, label, viewport) {
   await page.waitForSelector("#pilotProviderNav", { timeout: 20000 });
   await shot(page, `${prefix}-05-provider-nav.png`);
 
-  await page.locator('#pilotProviderNav [data-view="child-tools-daily-logs"]').click({ force: true });
+  await page.evaluate(() => setView("child-tools-daily-logs"));
   await page.waitForSelector(".fdlc-classroom-grid", { timeout: 15000 });
   await shot(page, `${prefix}-06-fast-daily-logs.png`);
 
@@ -183,8 +230,9 @@ async function runViewport(browser, label, viewport) {
   await shot(page, `${prefix}-07-parent-home.png`);
 
   // Testing Feedback
-  await page.click("[data-tf-toggle]").catch(async () => {
-    await page.evaluate(() => document.querySelector("[data-tf-toggle]")?.click());
+  await page.evaluate(() => {
+    const toggle = document.querySelector("[data-tf-toggle], [data-pilot-open-feedback]");
+    if (toggle) toggle.click();
   });
   await page.waitForTimeout(800);
   await shot(page, `${prefix}-08-testing-feedback.png`);

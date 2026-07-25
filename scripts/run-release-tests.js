@@ -60,6 +60,12 @@ if (process.env.LLH_RELEASE_INJECT_FAIL) {
   }
 }
 
+/** Opt-in: LLH_RELEASE_MAX_SUITES=N truncates the suite list (used for fast non-zero exit proofs). */
+if (process.env.LLH_RELEASE_MAX_SUITES) {
+  const max = Math.max(1, Number(process.env.LLH_RELEASE_MAX_SUITES) || 0);
+  SUITES.splice(max);
+}
+
 function runOne(suite) {
   return new Promise((resolve) => {
     const started = Date.now();
