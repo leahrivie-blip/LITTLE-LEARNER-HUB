@@ -155,13 +155,18 @@ async function main() {
     assert.equal(orgBRead.json.entries.filter((e) => e.record.id === recordId).length, 0, "Org B must never see Org A's Daily Care entries");
     pass("4a. One organization can never READ another organization's Daily Care entries");
 
-    // Org B attempts to write using Org A's exact child id (guessed/reused) — must be scoped to Org B's own organizationId regardless, and never visible to/overwritable by Org A.
+    // Org B attempts to write using Org A's exact child id — must be rejected with 403.
     const crossWriteAttempt = await requestJson("POST", "/api/pilot/daily-care-entries", { childId: childIdA, storeKey: "Observations", record: { id: recordId, childId: childIdA, text: "Malicious overwrite attempt from Org B" } }, authB);
-    assert.equal(crossWriteAttempt.status, 200); // the write itself succeeds (it's just scoped to Org B's own organizationId — childId isn't independently validated against the caller's org here, since Daily Care entries are keyed by organizationId+storeKey+id)
+    assert.equal(crossWriteAttempt.status, 403, "writing Daily Care for another org's child must return 403");
+    assert.equal(crossWriteAttempt.json?.code, "wrong_child");
     const orgAAfterCrossWrite = await requestJson("GET", "/api/pilot/daily-care-entries", null, authA);
     const orgAEntryStillIntact = orgAAfterCrossWrite.json.entries.find((e) => e.record.id === recordId);
     assert.equal(orgAEntryStillIntact.record.text, "Corrected observation text.", "Org A's own entry must be completely unaffected by another organization's write using the same record id");
-    pass("4b. Org A's entry is completely unaffected by Org B writing a same-id record — entries are namespaced by organizationId+storeKey+id, so two organizations can never collide or overwrite each other's data even via a guessed/reused id");
+    pass("4b. Cross-organization / wrong-child Daily Care writes return 403 and never overwrite Org A's entry");
+
+    const wrongChildList = await requestJson("GET", `/api/pilot/daily-care-entries?childId=${encodeURIComponent(childIdA)}`, null, authB);
+    assert.equal(wrongChildList.status, 403, "listing another org's child Daily Care must return 403");
+    pass("4c. Cross-organization Daily Care list by wrong childId returns 403");
 
     // ---- 5. Restart/redeploy retains records ----
     await stopServer(child);

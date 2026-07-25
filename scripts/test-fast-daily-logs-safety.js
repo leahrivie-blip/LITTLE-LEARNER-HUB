@@ -257,6 +257,20 @@ async function main() {
     assert.equal(incompleteMed.status, "needs_provider_information");
     assert.equal(incompleteMed.medicationName, "", "a blank required field must stay blank, never invented");
     assert.equal(incompleteMed.shareWithFamily, false, "an incomplete medication record must never be shareWithFamily");
+    const shareBlocked = await page.evaluate(async (recordId) => {
+      const before = childStore("Communications").find((c) => c.id === recordId);
+      const ok = await setChildRecordFamilyShare("Communications", recordId, true);
+      const after = childStore("Communications").find((c) => c.id === recordId);
+      return {
+        ok,
+        beforeShared: before?.shareWithFamily === true,
+        afterShared: after?.shareWithFamily === true,
+        status: after?.status,
+      };
+    }, incompleteMed.id);
+    assert.equal(shareBlocked.ok, false, "incomplete medication drafts must refuse shareWithFamily=true");
+    assert.equal(shareBlocked.afterShared, false, "incomplete medication must remain unshared after a share attempt");
+    assert.equal(shareBlocked.status, "needs_provider_information");
     await page.evaluate(() => setView("child-tools-daily-logs"));
     await page.waitForTimeout(300);
     await page.locator(`[data-fast-dlc-open-sheet="${avaId}"]`).first().click();
@@ -428,9 +442,10 @@ async function main() {
       const loginB = await requestJson("POST", "/api/auth/password-login", { email: "photo.tester.b@example.invalid", password: wizardB.json.temporaryPassword });
       const memberAuthB = { Authorization: `Bearer ${loginB.json.memberSessionToken}` };
       const crossOrgAttempt = await requestJson("GET", `/api/pilot/photos?childId=${childId}`, null, memberAuthB);
-      assert.equal(crossOrgAttempt.json.photos.length, 0, "a different organization's tester must never see another organization's photos, even by guessing a childId");
+      assert.equal(crossOrgAttempt.status, 403, "a different organization's tester must get 403 for another org's childId");
+      assert.equal(crossOrgAttempt.json?.code, "wrong_child");
       void orgId;
-      pass("8c. Cross-organization photo access is rejected server-side — a different pilot organization's tester never sees another organization's photos");
+      pass("8c. Cross-organization photo access is rejected server-side with 403 — a different pilot organization's tester never sees another organization's photos");
     } finally {
       await stopServer(pilotChild);
       try { fs.unlinkSync(STORE_PATH); } catch { /* ignore */ }
