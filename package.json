@@ -141,6 +141,7 @@
     "test:admin-ai-content-manager": "node scripts/test-admin-ai-content-manager.js",
     "test:admin-full-remaining": "node scripts/test-admin-full-remaining.js",
     "test:admin-token-header-auth": "node scripts/test-admin-token-header-auth.js",
+    "test:admin-token-no-leak-browser": "node scripts/test-admin-token-no-leak-browser.js",
     "test:admin-content-finish": "node scripts/test-admin-content-finish.js",
     "test:admin-notifications-pwa": "node scripts/test-admin-notifications-pwa.js",
     "test:admin-emails-message-scope": "node scripts/test-admin-emails-and-message-scope.js",
