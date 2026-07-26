@@ -266,8 +266,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   await step("founding member button", async () => {
     await page.evaluate(() => setView("home"));
     await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
-    await page.waitForSelector("#homeFoundingOffer .founding-cta-button", { timeout: 10000 });
-    const foundingBtn = page.locator("#homeFoundingOffer .founding-cta-button");
+    await page.waitForSelector('#homePricing [data-checkout-plan="founding"]', { timeout: 10000 });
+    const foundingBtn = page.locator('#homePricing [data-checkout-plan="founding"]');
     const foundingPlan = await foundingBtn.getAttribute("data-checkout-plan");
     assert(foundingPlan === "founding" || foundingPlan === "monthly", `${label}: founding CTA has checkout plan`);
     await foundingBtn.click();

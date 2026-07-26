@@ -51,27 +51,53 @@ body.home-view #siteAnnouncementBanner:not([hidden]) {
   box-shadow: 0 6px 18px rgba(42, 42, 53, 0.12);
 }
 
+.llh-announce-banner[hidden] {
+  display: none;
+}
+
 .llh-announce-banner-inner {
   max-width: 1180px;
   margin: 0 auto;
-  padding: 12px 20px;
+  padding: 10px 20px;
+  min-height: 0;
+  max-height: 100px;
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
 }
 
-.llh-announce-copy strong {
-  display: block;
-  font-size: 0.95rem;
-  letter-spacing: 0.01em;
+.llh-announce-copy {
+  flex: 1;
+  min-width: 0;
 }
 
 .llh-announce-copy p {
-  margin: 4px 0 0;
+  margin: 0;
   font-size: 0.86rem;
-  line-height: 1.4;
-  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.95);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.llh-announce-dismiss {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 6px;
+  opacity: 0.85;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.llh-announce-dismiss:hover,
+.llh-announce-dismiss:focus-visible {
+  opacity: 1;
 }
 
 /* Public sticky nav */
@@ -642,18 +668,58 @@ body.llh-public-menu-open {
   color: #8a6a18;
 }
 
-.llh-founding-callout {
-  margin-top: 22px;
-  padding: 20px;
-  border-radius: 16px;
-  text-align: center;
-  background: linear-gradient(135deg, rgba(232, 160, 122, 0.16), rgba(123, 107, 181, 0.12));
-  border: 1px solid rgba(232, 160, 122, 0.35);
+.llh-coming-grid--categories {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.llh-founding-callout p {
-  margin: 0 0 10px;
+.llh-coming-category {
+  display: block;
+}
+
+.llh-coming-list {
+  margin: 10px 0 0;
+  padding-left: 1.1rem;
+  color: var(--llh-home-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.llh-coming-list li + li {
+  margin-top: 4px;
+}
+
+.llh-pricing-founding-meter {
+  max-width: 1180px;
+  margin: 0 auto 18px;
+  padding: 0 22px;
+}
+
+.llh-founding-meter {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid var(--llh-home-line);
+  text-align: center;
+}
+
+.llh-founding-meter p {
+  margin: 0;
   color: var(--llh-home-ink);
+  font-size: 0.95rem;
+}
+
+.llh-founding-meter--loading p,
+.llh-founding-meter--error p {
+  color: var(--llh-home-muted);
+}
+
+.llh-founding-meter-summary {
+  margin-bottom: 8px !important;
+  font-weight: 500;
+}
+
+.llh-founding-meter .founding-live-meter {
+  margin-top: 8px;
 }
 
 /* Features / audience */
@@ -832,7 +898,7 @@ body.llh-public-menu-open {
   font-size: 0.85rem;
 }
 
-/* Founding slot polish */
+/* Founding slot polish (legacy pages only) */
 .landing-home #homeFoundingOffer {
   max-width: 1180px;
   margin: 8px auto 24px;
@@ -1004,13 +1070,31 @@ body.llh-public-menu-open {
 
 @media (max-width: 700px) {
   .llh-announce-banner-inner {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
     text-align: left;
+    max-height: none;
+    padding: 10px 14px;
+  }
+
+  .llh-announce-copy {
+    flex: 1 1 calc(100% - 44px);
+  }
+
+  .llh-announce-copy p {
+    -webkit-line-clamp: 3;
+    font-size: 0.82rem;
   }
 
   .llh-announce-banner .llh-btn-accent {
+    flex: 1 1 100%;
     width: 100%;
+    min-height: 44px;
+  }
+
+  .llh-coming-grid--categories {
+    grid-template-columns: 1fr;
   }
 
   .llh-public-brand-text {

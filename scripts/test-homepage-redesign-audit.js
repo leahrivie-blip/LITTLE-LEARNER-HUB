@@ -169,9 +169,9 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForFunction(() => typeof setView === "function" && typeof openAuthModal === "function", null, { timeout: 30000 });
 
   const sectionIds = [
-    "homeHero", "homeLessonPlans", "homeComingSoon", "homeActivities",
-    "homeFeatures", "homeAudience", "homeFounder", "homeReviews",
-    "homePricing", "homeCompare", "homeFinalCta",
+    "homeHero", "homeLessonPlans", "homeActivities", "homeFeatures", "homeComingSoon",
+    "homeAudience", "homeFounder", "homeReviews",
+    "homePricing", "homeFinalCta",
   ];
   for (const id of sectionIds) {
     const exists = await page.locator(`#${id}`).count();
@@ -187,8 +187,7 @@ async function runAudit(playwright, baseUrl, seeded) {
   // Pricing must show $9.99 founding, not conflict with outdated $19.99 as the offer.
   const pricingText = await page.locator("#homePricing").innerText();
   assert(/\$9\.99/.test(pricingText), "Founding price missing on pricing section");
-  assert(/for life/i.test(pricingText), "For life messaging missing");
-  assert(/Future regular pricing:\s*\$19\.99/i.test(pricingText), "Future regular price note missing");
+  assert(/continuously active/i.test(pricingText), "Continuous membership messaging missing");
   results.foundingPrice = true;
 
   // Desktop login / signup
