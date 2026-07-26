@@ -69,9 +69,9 @@
     })();
   </script>
   <style>
-    html.llh-boot-authenticated body:not(.app-booted) #view-home { display: none !important; }
-    html.llh-boot-authenticated body:not(.app-booted) #view-calendar { display: block !important; }
-    html.llh-boot-authenticated body:not(.app-booted).home-view { /* prevent marketing chrome flash */ }
+    html.llh-boot-authenticated body:not(.app-boot-ready) #view-home { display: none !important; }
+    html.llh-boot-authenticated body:not(.app-boot-ready) #view-calendar { display: block !important; }
+    html.llh-boot-authenticated body:not(.app-boot-ready).home-view { /* prevent marketing chrome flash */ }
   </style>
   </head>
   <body>

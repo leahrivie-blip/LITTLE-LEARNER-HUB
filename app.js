@@ -4704,6 +4704,115 @@ let lessonNavHistorySilent = false;
 let pendingAuthReturnView = "";
 let suppressBootLanding = false;
 let viewNavigationGeneration = 0;
+const APP_BOOT_VERIFY_TIMEOUT_MS = 10000;
+let appBootState = "ready";
+let appBootError = "";
+let appBootRunId = 0;
+
+function requiresVerifiedAppBoot() {
+  return Boolean(currentUser) && canUseLaunchBackend();
+}
+
+function ensureAppBootGate() {
+  if (document.querySelector("#appBootGate")) return;
+  document.body.insertAdjacentHTML("beforeend", `
+    <div id="appBootGate" class="app-boot-gate" hidden role="alertdialog" aria-modal="true" aria-labelledby="appBootGateTitle" aria-describedby="appBootGateMessage">
+      <div class="app-boot-gate-card">
+        <p class="eyebrow">Little Learner Hub</p>
+        <h2 id="appBootGateTitle">Verifying your account…</h2>
+        <p class="app-boot-gate-message" id="appBootGateMessage">Syncing membership and permissions before unlocking navigation.</p>
+        <div class="app-boot-gate-actions" id="appBootGateActions" hidden>
+          <button type="button" class="primary-button" id="appBootGateRetry">Try Again</button>
+          <button type="button" class="ghost-button" id="appBootGateSignOut">Sign Out</button>
+        </div>
+      </div>
+    </div>
+  `);
+  document.querySelector("#appBootGateRetry")?.addEventListener("click", () => {
+    retryVerifiedAppBoot().catch(() => {});
+  });
+  document.querySelector("#appBootGateSignOut")?.addEventListener("click", () => {
+    signOut();
+  });
+}
+
+function setAppBootGateMode(mode, message = "") {
+  ensureAppBootGate();
+  const gate = document.querySelector("#appBootGate");
+  const title = document.querySelector("#appBootGateTitle");
+  const msg = document.querySelector("#appBootGateMessage");
+  const actions = document.querySelector("#appBootGateActions");
+  if (!gate || !title || !msg || !actions) return;
+  if (mode === "hidden") {
+    gate.hidden = true;
+    document.body.classList.remove("app-boot-verifying");
+    return;
+  }
+  gate.hidden = false;
+  document.body.classList.add("app-boot-verifying");
+  if (mode === "loading") {
+    title.textContent = "Verifying your account…";
+    msg.textContent = message || "Syncing membership and permissions before unlocking navigation.";
+    actions.hidden = true;
+    return;
+  }
+  title.textContent = "Could not verify your session";
+  msg.textContent = message || "We could not confirm your membership and permissions. Navigation stays locked until verification succeeds.";
+  actions.hidden = false;
+}
+
+function markAppBootReady() {
+  appBootState = "ready";
+  appBootError = "";
+  document.body.classList.add("app-boot-ready");
+  document.documentElement.classList.remove("llh-boot-authenticated");
+  setAppBootGateMode("hidden");
+}
+
+function markAppBootFailed(error) {
+  appBootState = "failed";
+  appBootError = String(error?.message || error || "Boot verification failed.");
+  console.warn("App boot verification failed", appBootError);
+  setAppBootGateMode("error", appBootError);
+}
+
+function isAppBootInteractive() {
+  return !requiresVerifiedAppBoot() || appBootState === "ready";
+}
+
+async function withBootVerificationTimeout(label, task, timeoutMs = APP_BOOT_VERIFY_TIMEOUT_MS) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(task),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`${label} did not finish in time.`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+async function runSignedInBootVerification() {
+  if (!currentUser) return;
+  if (stripeCheckoutConfig.subscriptionStatusEndpoint) {
+    await withBootVerificationTimeout("Membership sync", async () => {
+      const data = await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false });
+      if (data === null) throw new Error("Membership could not be verified.");
+    });
+  }
+  if (firebaseAuthEnabled) {
+    await withBootVerificationTimeout("Child data sync", () => syncChildDataFromBackend({ render: false }));
+  }
+  await withBootVerificationTimeout("Founding status", () => syncFoundingStatus({ render: false })).catch(() => {});
+  await withBootVerificationTimeout("Staff invite", () => maybeHandleStaffInviteFromUrl()).catch(() => {});
+  loadUserAiUsage(currentUser).catch(() => {});
+}
+
+async function retryVerifiedAppBoot() {
+  await initializeAppView({ retry: true });
+}
 let viewScrollPositions = Object.create(null);
 let platformHistoryPrimed = false;
 let platformHistorySilent = false;
@@ -12415,6 +12524,14 @@ function canSeeAdminNav() {
 }
 
 function setView(view, options = {}) {
+  if (
+    requiresVerifiedAppBoot()
+    && !isAppBootInteractive()
+    && !options.fromBoot
+    && !options.allowDuringBootVerification
+  ) {
+    return;
+  }
   const requestedView = view;
   let resolvedRequested = resolveSidebarView(view);
   // Temporary-password accounts must create a new password before using the app.
@@ -12584,7 +12701,9 @@ function setView(view, options = {}) {
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
   document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
   document.body.classList.add("app-booted");
-  document.documentElement.classList.remove("llh-boot-authenticated");
+  if (isAppBootInteractive()) {
+    document.documentElement.classList.remove("llh-boot-authenticated");
+  }
   if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
   document.body.classList.toggle("home-view", resolvedView === "home" && !isLoggedIn());
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
@@ -21075,6 +21194,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
 }
 
 async function openResourceViewer(resourceId, options = {}) {
+  if (!isAppBootInteractive()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
   if (!isResourceVisibleToCurrentUser(resource)) {
@@ -47978,6 +48098,11 @@ async function signOut() {
     sessionStorage.removeItem(PLATFORM_LAST_VIEW_KEY);
   } catch { /* ignore */ }
   document.documentElement.classList.remove("llh-boot-authenticated");
+  appBootState = "ready";
+  appBootError = "";
+  document.body.classList.remove("app-boot-ready");
+  document.body.classList.remove("app-boot-verifying");
+  setAppBootGateMode("hidden");
   updateAuthButtons();
   updatePlanLabel();
   updateAdminNavVisibility();
@@ -53627,6 +53752,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
     await syncSubscriptionFromBackend(result.email, { forceRefresh: true });
     await syncChildDataFromBackend();
     loadUserAiUsage(result.email).catch(() => {});
+    markAppBootReady();
     trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
     closeAuthModal();
     // If the user already clicked a sidebar section during login sync, do not yank them to Calendar.
@@ -53660,6 +53786,7 @@ document.querySelector("#forcePasswordForm")?.addEventListener("submit", async (
     closeForcePasswordModal();
     trackEvent("forced_password_change_complete", { email: currentUser });
     await syncChildDataFromBackend().catch(() => {});
+    markAppBootReady();
     const returnView = pendingAuthReturnView
       && canOpenViewForCurrentAccess(pendingAuthReturnView)
       ? pendingAuthReturnView
@@ -56147,6 +56274,10 @@ if (currentUser) {
   loadAccountState(currentUser);
   document.body.classList.add("user-authenticated");
   document.body.classList.remove("home-view");
+  if (requiresVerifiedAppBoot()) {
+    appBootState = "pending";
+    setAppBootGateMode("loading");
+  }
 } else {
   updateAuthButtons();
   updatePlanLabel();
@@ -56209,86 +56340,89 @@ function initialViewFromLocation() {
   return pathView || hashView || "home";
 }
 
-async function initializeAppView() {
-  suppressBootLanding = false;
+async function initializeAppView(options = {}) {
+  const runId = ++appBootRunId;
+  if (!options.retry) {
+    suppressBootLanding = false;
+  }
   const bootNavGeneration = viewNavigationGeneration;
+  const needsVerification = requiresVerifiedAppBoot();
+  if (needsVerification) {
+    appBootState = "pending";
+    setAppBootGateMode("loading");
+  }
   try {
-    await Promise.race([
-      (async () => {
-        const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
-        if (handledCheckoutReturn) return;
-        if (currentUser) {
-          await syncSubscriptionFromBackend(currentUser, { renderFounding: true, forceRefresh: false }).catch((error) => {
-            console.warn("Subscription sync during boot failed", error);
-          });
-          await syncChildDataFromBackend({ render: true }).catch((error) => {
-            console.warn("Child data sync during boot failed", error);
-          });
-          loadUserAiUsage(currentUser).catch(() => {});
-        }
-        await syncFoundingStatus({ render: true }).catch(() => {});
-        await maybeHandleStaffInviteFromUrl().catch(() => {});
-        // User already navigated while boot sync was in flight — never override their section.
-        if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
-          return;
-        }
-        const initialView = initialViewFromLocation();
-        const lessonEditId = lessonPlanEditRouteIdFromLocation();
-        if (!currentAttribution()?.firstSeenAt) {
-          saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
-        }
-        // website_visit = one session visit. page_view is recorded by setView() so
-        // home boot does not double-count a page view.
-        trackEvent("website_visit", { view: initialView, source: trafficSource() });
-        if (lessonEditId) {
-          const route = window.location.pathname || window.location.hash;
-          saveAttribution({ route, view: "lesson-editor" });
-          trackEvent("ad_route_visit", { route, view: "lesson-editor" });
-          if (isLoggedIn() || hasAdminFullAccess()) {
-            await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
-          } else {
-            pendingAuthReturnView = "lessons";
-            openAuthModal("login");
-          }
-          return;
-        }
-        if (initialView !== "home") {
-          const route = window.location.pathname || window.location.hash;
-          saveAttribution({ route, view: initialView });
-          trackEvent("ad_route_visit", { route, view: initialView });
-          const viewOptions = { fromBoot: true, replaceHistory: true };
-          if (initialView === "messages") {
-            const conversationParam = new URLSearchParams(window.location.search).get("conversation") || "";
-            if (conversationParam) viewOptions.conversation = conversationParam;
-          }
-          setView(initialView, viewOptions);
-          return;
-        }
-        // Prefer restoring Admin when this browser left Admin unlocked.
-        if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
-          setView("admin", { fromBoot: true, replaceHistory: true });
-          loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
-          return;
-        }
-        // Logged-in providers land on Calendar (or last remembered page on refresh).
-        if (currentUser && !suppressBootLanding) {
-          setView(defaultLoggedInLandingView(), { fromBoot: true, replaceHistory: true });
-          return;
-        }
-        // Guest marketing homepage.
-        if (!currentUser) {
-          setView("home", { fromBoot: true, allowDashboard: true, replaceHistory: true });
-        }
-      })(),
-      delayMs(12000).then(() => {
-        console.warn("App boot timed out — continuing with local UI");
-      }),
-    ]);
+    const handledCheckoutReturn = await verifyStripeReturnIfNeeded();
+    if (handledCheckoutReturn) {
+      if (runId !== appBootRunId) return;
+      markAppBootReady();
+      return;
+    }
+    if (needsVerification) {
+      await runSignedInBootVerification();
+      if (runId !== appBootRunId) return;
+      markAppBootReady();
+    } else if (!document.body.classList.contains("app-boot-ready")) {
+      markAppBootReady();
+    }
+    if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
+      return;
+    }
+    const initialView = initialViewFromLocation();
+    const lessonEditId = lessonPlanEditRouteIdFromLocation();
+    if (!currentAttribution()?.firstSeenAt) {
+      saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
+    }
+    trackEvent("website_visit", { view: initialView, source: trafficSource() });
+    if (lessonEditId) {
+      const route = window.location.pathname || window.location.hash;
+      saveAttribution({ route, view: "lesson-editor" });
+      trackEvent("ad_route_visit", { route, view: "lesson-editor" });
+      if (isLoggedIn() || hasAdminFullAccess()) {
+        await openLessonPlanEditor(lessonEditId, { returnView: "lessons", skipEditorRoute: true });
+      } else {
+        pendingAuthReturnView = "lessons";
+        openAuthModal("login");
+      }
+      return;
+    }
+    if (initialView !== "home") {
+      const route = window.location.pathname || window.location.hash;
+      saveAttribution({ route, view: initialView });
+      trackEvent("ad_route_visit", { route, view: initialView });
+      const viewOptions = { fromBoot: true, replaceHistory: true };
+      if (initialView === "messages") {
+        const conversationParam = new URLSearchParams(window.location.search).get("conversation") || "";
+        if (conversationParam) viewOptions.conversation = conversationParam;
+      }
+      setView(initialView, viewOptions);
+      return;
+    }
+    if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+      setView("admin", { fromBoot: true, replaceHistory: true });
+      loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+      return;
+    }
+    if (currentUser && !suppressBootLanding) {
+      setView(defaultLoggedInLandingView(), { fromBoot: true, replaceHistory: true });
+      return;
+    }
+    if (!currentUser) {
+      setView("home", { fromBoot: true, allowDashboard: true, replaceHistory: true });
+    }
   } catch (error) {
-    console.warn("App boot failed", error);
+    if (runId !== appBootRunId) return;
+    if (needsVerification) {
+      markAppBootFailed(error);
+    } else {
+      console.warn("App boot failed", error);
+      markAppBootReady();
+    }
   } finally {
     document.body.classList.add("app-booted");
-    document.documentElement.classList.remove("llh-boot-authenticated");
+    if (!needsVerification && !document.body.classList.contains("app-boot-ready")) {
+      markAppBootReady();
+    }
   }
 }
 

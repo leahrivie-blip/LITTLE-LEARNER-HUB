@@ -57,10 +57,12 @@ test("Admin analytics load coalesces and supports force refresh", () => {
   assert.match(appJs, /AbortController/);
 });
 
-test("boot path has a timeout so hang cannot blank the site forever", () => {
-  assert.match(appJs, /App boot timed out/);
-  assert.match(appJs, /delayMs\(12000\)/);
-  assert.match(appJs, /Promise\.race\(\[\s*client\.auth\.authStateReady\(\)/);
+test("boot path verifies signed-in session before unlocking navigation", () => {
+  assert.match(appJs, /appBootGate/);
+  assert.match(appJs, /runSignedInBootVerification/);
+  assert.match(appJs, /markAppBootFailed/);
+  assert.match(appJs, /app-boot-ready/);
+  assert.doesNotMatch(appJs, /App boot timed out — continuing with local UI/);
 });
 
 if (!process.exitCode) {
