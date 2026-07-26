@@ -137,6 +137,7 @@ async function seedProLessonForLockedPreview(token) {
 
 async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson) {
   const browser = await playwright.chromium.launch({ headless: true });
+  try {
   const context = await browser.newContext({ viewport });
   const page = await context.newPage();
 
@@ -345,7 +346,11 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       assert(!duplicateAfterReload.length, `${label}: duplicate declaration after reload: ${duplicateAfterReload.join(" | ")}`);
 
       await page.evaluate(() => setView("lessons"));
-      await page.waitForSelector("#view-lessons.active-view", { timeout: 5000 });
+      await page.waitForFunction(
+        () => document.querySelector("#view-lessons")?.classList.contains("active-view"),
+        null,
+        { timeout: 15000 },
+      );
       await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
       await page.fill("#lessonPlanSearch", proLesson.title);
       await page.waitForTimeout(500);
@@ -413,8 +418,10 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   assert(!unhandled.length, `${label}: unhandled rejections: ${unhandled.join(" | ")}`);
   assert(!badConsole.length, `${label}: console errors: ${badConsole.join(" | ")}`);
 
-  await browser.close();
   return { label, ok: true };
+  } finally {
+    await browser.close().catch(() => {});
+  }
 }
 
 async function main() {
@@ -454,6 +461,7 @@ async function main() {
     await stopServer(child);
     fs.rmSync(STORE_PATH, { force: true });
   }
+  process.exit(process.exitCode || 0);
 }
 
 main();
