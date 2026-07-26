@@ -1725,10 +1725,12 @@ const foundingMemberLimit = 50;
 const foundingPublicClaimedBase = 0;
 let foundingStatusCache = {
   limit: foundingMemberLimit,
-  claimed: foundingPublicClaimedBase,
-  remaining: foundingMemberLimit - foundingPublicClaimedBase,
+  claimed: null,
+  remaining: null,
   soldOut: false,
-  source: "local",
+  source: "pending",
+  loaded: false,
+  loadError: false,
   updatedAt: "",
 };
 const adminOwnerAccount = {
@@ -2389,6 +2391,17 @@ const HOME_NAV_SECTION_IDS = {
   pricing: "homePricing",
   reviews: "homeReviews",
 };
+
+const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
+  "Selected free lesson plans across age groups",
+  "Preview the complete lesson-plan library",
+  "Print available free lesson plans",
+  "Explore selected planning tools",
+  "Upgrade anytime for the complete library",
+]);
+
+const HOMEPAGE_FOUNDING_PRICE_NOTE = "$9.99/month locked while your Founding Membership remains continuously active.";
+const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
 
 const HOME_LESSON_PREVIEW_HINTS = [
   "Familiar Faces",
@@ -3207,7 +3220,8 @@ function renderSignupPlanChooser() {
   const target = document.querySelector("#signupPlanChooser");
   if (!target) return;
   const remaining = foundingSpotsRemaining();
-  const soldOut = remaining <= 0;
+  const soldOut = foundingStatusLoaded() && remaining <= 0;
+  const spotsRemainingLabel = foundingStatusLoaded() ? remaining : "…";
   const preferredPlan = preferredSignupPlanFromStorage();
   const preferFounding = preferredPlan === "founding" && !soldOut;
   const copy = signupPlanCopy();
@@ -3222,7 +3236,7 @@ function renderSignupPlanChooser() {
       <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      <p class="signup-plan-spots" data-founding-spots-remaining="${remaining}">Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong></p>
+      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? `Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong>` : "Checking Founding Member availability…"}</p>
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
@@ -3243,7 +3257,7 @@ function renderSignupPlanChooser() {
     context: "signup",
     variant: copy.variant,
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -3264,7 +3278,7 @@ function renderSignupPlanChooser() {
       ${!soldOut ? `
         <p class="signup-founding-urgency" role="status">
           <span>${escapeHtml(copy.foundingUrgency)}</span>
-          <strong>Founding Spots Remaining: ${remaining}</strong>
+          <strong>Founding Spots Remaining: ${spotsRemainingLabel}</strong>
         </p>
       ` : `
         <p class="signup-founding-urgency is-sold-out" role="status">
@@ -3862,27 +3876,41 @@ function applyFoundingStatus(status = {}) {
     remaining,
     soldOut: Boolean(status.soldOut) || remaining <= 0,
     source: status.source || "server",
+    loaded: true,
+    loadError: false,
     updatedAt: new Date().toISOString(),
   };
   return foundingStatusCache;
 }
 
+function foundingStatusLoaded() {
+  return Boolean(foundingStatusCache.loaded);
+}
+
+function foundingStatusLoadFailed() {
+  return Boolean(foundingStatusCache.loadError);
+}
+
 function foundingSpotsClaimed() {
-  return Math.min(Number(foundingStatusCache.claimed || localFoundingSpotsClaimed()), foundingMemberLimit);
+  if (!foundingStatusLoaded()) return null;
+  return Math.min(Number(foundingStatusCache.claimed ?? localFoundingSpotsClaimed()), foundingMemberLimit);
 }
 
 function foundingSpotsRemaining() {
-  return Math.max(Number(foundingStatusCache.remaining ?? (foundingMemberLimit - foundingSpotsClaimed())), 0);
+  if (!foundingStatusLoaded()) return null;
+  return Math.max(Number(foundingStatusCache.remaining ?? (foundingMemberLimit - (foundingSpotsClaimed() || 0))), 0);
 }
 
 function foundingProgressPercent() {
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-  if (!limit) return 0;
-  return Math.min(100, Math.max(0, Math.round((foundingSpotsClaimed() / limit) * 100)));
+  const claimed = foundingSpotsClaimed();
+  if (!limit || claimed == null) return 0;
+  return Math.min(100, Math.max(0, Math.round((claimed / limit) * 100)));
 }
 
 function foundingUrgencyText() {
   const remaining = foundingSpotsRemaining();
+  if (remaining == null) return "";
   if (remaining <= 0) return "Founding spots are filled. Regular Pro pricing is now active.";
   if (remaining <= 3) return "Almost gone. Regular Pro pricing starts after these last spots.";
   if (remaining <= 10) return "Moving fast. These founding price-lock spots are almost filled.";
@@ -3890,6 +3918,9 @@ function foundingUrgencyText() {
 }
 
 function foundingMeterHtml() {
+  if (!foundingStatusLoaded()) {
+    return `<div class="spots-meter spots-meter--loading" role="status"><small>Checking Founding Member availability…</small></div>`;
+  }
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
@@ -3927,6 +3958,14 @@ async function syncFoundingStatus(options = {}) {
     applyFoundingStatus(data?.founding || data);
     if (options.render) refreshFoundingDisplays();
   } catch (error) {
+    foundingStatusCache = {
+      ...foundingStatusCache,
+      loaded: false,
+      loadError: true,
+      source: "error",
+      updatedAt: new Date().toISOString(),
+    };
+    if (options.render) refreshFoundingDisplays();
     console.warn("Founding status sync did not complete", error);
   }
   return foundingStatusCache;
@@ -22053,7 +22092,7 @@ function renderManagedPricingText() {
   const content = effectiveSiteContent();
   const pricing = content.pricing || {};
   if (pricing._draft) return;
-  // Homepage redesign features Founding Member ($9.99/mo for life) as the paid plan.
+  // Homepage redesign features Founding Member ($9.99/mo locked while continuously active) as the paid plan.
   // Never let legacy CMS "Pro $19.99" copy overwrite that offer.
   if (document.querySelector(".llh-founding-card")) {
     const setText = (selector, value) => {
@@ -22066,11 +22105,9 @@ function renderManagedPricingText() {
     if (freePriceStrong && pricing.freePlanPrice) freePriceStrong.textContent = pricing.freePlanPrice;
     const freePriceSpan = document.querySelector(".lp-free-card .lp-price-amount span");
     if (freePriceSpan && pricing.freePlanPriceInterval) freePriceSpan.textContent = pricing.freePlanPriceInterval;
-    if (pricing.freePlanFeatures?.length) {
-      const freeList = document.querySelector(".lp-free-card .lp-price-features");
-      if (freeList) {
-        freeList.innerHTML = refreshFreePlanFeatureLines(pricing.freePlanFeatures).map((f) => `<li>${escapeHtml(f)}</li>`).join("");
-      }
+    const freeList = document.querySelector(".lp-free-card .lp-price-features[data-homepage-free-features], .lp-free-card .lp-price-features");
+    if (freeList) {
+      freeList.innerHTML = HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES.map((feature) => `<li>✓ ${escapeHtml(feature)}</li>`).join("");
     }
     return;
   }
@@ -22154,6 +22191,12 @@ function renderManagedAnnouncementBanner() {
   const banner = document.querySelector("#siteAnnouncementBanner");
   const textEl = document.querySelector("#siteAnnouncementText");
   if (!banner || !textEl) return;
+  // Public marketing homepage uses the dedicated founding announcement banner instead.
+  if (!currentUser && document.querySelector("#view-home.landing-home .llh-announce-banner")) {
+    banner.hidden = true;
+    textEl.textContent = "";
+    return;
+  }
   const content = effectiveSiteContent();
   const ann = content.announcement || {};
   const dismissed = sessionStorage.getItem("llhAnnouncementDismissed") === ann.text;
@@ -22402,6 +22445,20 @@ function bindHomePublicChrome() {
     backdrop.dataset.bound = "1";
     backdrop.addEventListener("click", () => setHomePublicMenuOpen(false));
   }
+  const foundingAnnounce = document.querySelector("#llhFoundingAnnounceBanner");
+  const foundingDismiss = document.querySelector("#llhFoundingAnnounceDismiss");
+  if (foundingAnnounce && foundingDismiss && !foundingDismiss.dataset.bound) {
+    foundingDismiss.dataset.bound = "1";
+    try {
+      if (sessionStorage.getItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY) === "1") {
+        foundingAnnounce.hidden = true;
+      }
+    } catch { /* ignore */ }
+    foundingDismiss.addEventListener("click", () => {
+      foundingAnnounce.hidden = true;
+      try { sessionStorage.setItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY, "1"); } catch { /* ignore */ }
+    });
+  }
   setHomePublicMenuOpen(false);
 }
 
@@ -22634,7 +22691,7 @@ function renderHome() {
     homeSection.classList.add("landing-home");
     homeSection.classList.remove("user-dashboard-view");
   }
-  if (!document.querySelector("#homeFoundingOffer")) {
+  if (!document.querySelector("#homePricing")) {
     if (homeSection) homeSection.innerHTML = homeViewTemplate;
   }
   renderManagedHomeContent();
@@ -22676,6 +22733,7 @@ function renderHome() {
   const footerYear = document.querySelector("#llhFooterYear");
   if (footerYear) footerYear.textContent = String(new Date().getFullYear());
   if (canUseLaunchBackend()) {
+    syncFoundingStatus({ render: true }).catch(() => {});
     refreshPublicCurriculumLibrary()
       .catch(() => {})
       .then(() => {
@@ -46323,6 +46381,28 @@ function featureListHtml(items) {
 }
 
 function foundingStatusCard() {
+  if (foundingStatusLoadFailed()) {
+    return `
+      <section class="founding-banner founding-banner--compact founding-banner--error">
+        <div>
+          <p class="eyebrow">Founding Member Availability</p>
+          <h3>Could not load founding spot count</h3>
+          <p>Founding Member availability could not be loaded. Please try again.</p>
+        </div>
+        <button class="ghost-button" type="button" data-retry-founding-status>Try again</button>
+      </section>
+    `;
+  }
+  if (!foundingStatusLoaded()) {
+    return `
+      <section class="founding-banner founding-banner--compact founding-banner--loading" aria-busy="true">
+        <div>
+          <p class="eyebrow">Founding Member Availability</p>
+          <h3>Checking Founding Member availability…</h3>
+        </div>
+      </section>
+    `;
+  }
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
   const soldOut = remaining <= 0;
@@ -46330,7 +46410,7 @@ function foundingStatusCard() {
     <section class="founding-banner founding-banner--compact ${soldOut ? "founding-sold-out" : ""}">
       <div>
         <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding spots are filled" : `$9.99/month for life · ${remaining} spots left`}</h3>
+        <h3>${soldOut ? "Founding spots are filled" : `$9.99/month locked while continuously active · ${remaining} spots left`}</h3>
         <p>${soldOut ? "Pro is $19.99/month or $199/year." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
       </div>
       ${foundingMeterHtml()}
@@ -46352,6 +46432,7 @@ function canSeePaidUpgradeOffer(account = currentAccount()) {
 }
 
 function foundingSpotsStillAvailable() {
+  if (!foundingStatusLoaded()) return true;
   return foundingSpotsRemaining() > 0;
 }
 
@@ -46689,20 +46770,68 @@ async function startPreferredPaidCheckout() {
   await startCheckoutWithFoundingGuard(preferredPaidCheckoutPlan(), "preferred_cta");
 }
 
-function renderHomeFoundingOffer() {
-  const target = document.querySelector("#homeFoundingOffer");
-  if (!target) return;
+function homeFoundingMeterHtml() {
+  if (foundingStatusLoadFailed()) {
+    return `
+      <div class="llh-founding-meter llh-founding-meter--error" role="status">
+        <p>Founding Member availability could not be loaded. Please try again.</p>
+        <button class="link-button" type="button" data-retry-founding-status>Try again</button>
+      </div>
+    `;
+  }
+  if (!foundingStatusLoaded()) {
+    return `
+      <div class="llh-founding-meter llh-founding-meter--loading" role="status" aria-busy="true">
+        <p>Checking Founding Member availability…</p>
+      </div>
+    `;
+  }
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
   const soldOut = remaining <= 0;
+  if (soldOut) {
+    return `
+      <div class="llh-founding-meter llh-founding-meter--sold-out" role="status">
+        <p><strong>Founding Member spots are filled.</strong> Regular Pro pricing is $19.99/month.</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="llh-founding-meter" role="status" aria-label="${claimed} of ${limit} founding spots claimed, ${remaining} remaining">
+      <p class="llh-founding-meter-summary"><strong>${remaining}</strong> spots remaining · <strong>${claimed}</strong> of ${limit} claimed</p>
+      <div class="founding-live-meter" aria-hidden="true">
+        <span><i style="width: ${foundingProgressPercent()}%"></i></span>
+        <small>${claimed} of ${limit} claimed</small>
+      </div>
+    </div>
+  `;
+}
+
+function renderHomeFoundingOffer() {
+  const pricingMeter = document.querySelector("#homeFoundingMeter");
+  if (pricingMeter) {
+    pricingMeter.innerHTML = homeFoundingMeterHtml();
+    return;
+  }
+  const legacyTarget = document.querySelector("#homeFoundingOffer");
+  if (!legacyTarget) return;
+  const remaining = foundingSpotsRemaining();
+  const claimed = foundingSpotsClaimed();
+  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
+  const soldOut = foundingStatusLoaded() && remaining <= 0;
   const f = (effectiveSiteContent().founding || {});
   if (f._draft) return;
   const heading = soldOut ? (f.soldOutHeading || "Founding Member spots are filled") : (f.heading || "Founding Member Pricing");
   const pricePrefix = f.pricePrefix || "Get Pro for";
-  const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "for life");
-  const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Claim Founding Member Pricing");
-  target.innerHTML = `
+  const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "while continuously active");
+  const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Lock In $9.99 Pricing");
+  const meterBlock = !foundingStatusLoaded()
+    ? `<p class="founding-remaining" role="status">Checking Founding Member availability…</p>`
+    : foundingStatusLoadFailed()
+      ? `<p class="founding-remaining founding-remaining--error" role="alert">Founding Member availability could not be loaded. Please try again. <button class="link-button" type="button" data-retry-founding-status>Try again</button></p>`
+      : `<p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>`;
+  legacyTarget.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}" data-pricing-card="${soldOut ? "pro-monthly" : "founding"}">
       <h2>${escapeHtml(heading)}</h2>
       <div class="founding-price-row">
@@ -46711,19 +46840,20 @@ function renderHomeFoundingOffer() {
         <em>/month <span>${escapeHtml(priceLifeLabel)}</span></em>
       </div>
       ${soldOut ? "" : `<p class="founding-includes-note">${escapeHtml(FOUNDING_INCLUDES_NOTE)}</p>`}
-      <p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>
+      ${meterBlock}
       <button class="primary-button founding-cta-button" data-checkout-plan="${soldOut ? "monthly" : "founding"}" type="button">${escapeHtml(ctaButtonText)}</button>
+      ${foundingStatusLoaded() && !foundingStatusLoadFailed() ? `
       <div class="founding-live-meter" aria-label="${claimed} of ${limit} founding spots claimed">
         <span><i style="width: ${foundingProgressPercent()}%"></i></span>
         <small>${soldOut ? "All founding spots are claimed" : `${claimed} of ${limit} Spots Claimed`}</small>
-      </div>
+      </div>` : ""}
       ${soldOut ? "" : `<p class="founding-pro-secondary-link muted-copy">Prefer Regular Pro instead? $19.99/month — ${PRO_MONTHLY_RATIONALE} <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>`}
     </div>
   `;
   trackEvent("pricing_cards_shown", {
     context: "homepage_hero",
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -46815,7 +46945,7 @@ function renderPricingPage() {
   trackEvent("pricing_cards_shown", {
     context: "pricing_page",
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -46854,7 +46984,7 @@ function renderUpgradePage() {
   trackEvent("pricing_cards_shown", {
     context: "upgrade_page",
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -50555,6 +50685,24 @@ document.addEventListener("click", async (event) => {
       .catch(() => {})
       .finally(() => {
         retryCurriculumLibraryButton.disabled = false;
+      });
+    return;
+  }
+
+  const retryFoundingStatusButton = event.target.closest("[data-retry-founding-status]");
+  if (retryFoundingStatusButton) {
+    event.preventDefault();
+    retryFoundingStatusButton.disabled = true;
+    foundingStatusCache = {
+      ...foundingStatusCache,
+      loaded: false,
+      loadError: false,
+      source: "pending",
+    };
+    syncFoundingStatus({ render: true })
+      .catch(() => {})
+      .finally(() => {
+        retryFoundingStatusButton.disabled = false;
       });
     return;
   }

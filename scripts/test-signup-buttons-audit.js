@@ -187,15 +187,14 @@ async function runViewport(browser, viewport, label) {
     { sel: ".llh-announce-banner [data-checkout-plan='founding']", name: "announce banner founding" },
     { sel: ".llh-public-nav-actions [data-action='start-free']", name: "public nav Sign Up" },
     { sel: ".lp-hero-actions [data-action='start-free']", name: "hero Sign Up" },
-    { sel: "#homeComingSoon [data-checkout-plan='founding']", name: "coming soon founding" },
     { sel: "#homePricing [data-action='start-free']", name: "pricing Create Free Account" },
     { sel: "#homePricing [data-checkout-plan='founding']", name: "pricing founding Claim" },
-    { sel: "#homeCompare [data-action='start-free']", name: "compare Create Free Account" },
-    { sel: "#homeCompare [data-checkout-plan='founding']", name: "compare Become Founding" },
+    { sel: "#homeFinalCta [data-action='start-free']", name: "final CTA Create Free Account" },
+    { sel: "#homeFinalCta [data-checkout-plan='founding']", name: "final CTA founding" },
     { sel: ".llh-final-cta [data-checkout-plan='founding'], .lp-final-cta [data-checkout-plan='founding']", name: "final CTA founding" },
     { sel: ".llh-final-cta [data-action='start-free'], .lp-final-cta [data-action='start-free']", name: "final CTA Create Free" },
     { sel: ".llh-home-footer [data-action='start-free'], footer [data-action='start-free']", name: "footer Sign Up" },
-    { sel: ".lp-mobile-sticky-cta [data-checkout-plan='founding']", name: "mobile sticky Get Started" },
+    { sel: ".lp-mobile-sticky-cta [data-action='start-free']", name: "mobile sticky Get Started" },
   ];
 
   // Mobile menu signup (open menu first on small screens)
