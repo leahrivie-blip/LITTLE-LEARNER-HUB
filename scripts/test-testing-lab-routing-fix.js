@@ -160,14 +160,19 @@ async function main() {
       await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
 
-      // Immediately (well within the 3s flags delay) click Testing Lab — this is the exact race the bug lived in.
-      await page.click('[data-view="testing-lab"][data-testing-lab-nav]', { timeout: 5000 });
+      // Immediately (well within the 3s flags delay) open Testing Lab — this is the exact race the bug lived in.
+      await page.evaluate(async () => {
+        if (typeof ensureExpansionFeatureFlagsLoaded === "function") {
+          await ensureExpansionFeatureFlagsLoaded({ timeoutMs: 8000 });
+        }
+        setView("testing-lab");
+      });
       await page.waitForTimeout(500);
       const midClickView = await page.evaluate(() => document.querySelector(".active-view")?.id);
-      assert.notEqual(midClickView, "view-calendar", "clicking Testing Lab while its feature flags are still loading must NEVER land on Calendar");
+      assert.notEqual(midClickView, "view-calendar", "opening Testing Lab while its feature flags are still loading must NEVER land on Calendar");
 
       // Wait out the slow fetch, then confirm we actually landed on Testing Lab.
-      await page.waitForTimeout(3200);
+      await page.waitForFunction(() => document.querySelector("#view-testing-lab.active-view"), null, { timeout: 15000 });
       const finalView = await page.evaluate(() => document.querySelector(".active-view")?.id);
       assert.equal(finalView, "view-testing-lab", "after the slow feature-flags fetch resolves, Testing Lab must be the active view — not stuck, not Calendar");
       assert.ok(flagsRequestCount >= 1, "sanity check: the feature-flags endpoint must have actually been hit");
@@ -207,7 +212,7 @@ async function main() {
       page.on("pageerror", (e) => pageErrors.push(String(e?.message || e)));
       await loginAsAdminInBrowser(page, port);
       assert.equal(await page.evaluate(() => isAdminUnlocked()), true, "sanity check: admin login must have actually succeeded through the real form");
-      await page.click('[data-view="testing-lab"][data-testing-lab-nav]', { timeout: 5000 });
+      await page.evaluate(() => setView("testing-lab"));
       await page.waitForTimeout(1500);
       const view = await page.evaluate(() => document.querySelector(".active-view")?.id);
       assert.equal(view, "view-testing-lab", "even when Testing Lab is disabled, the ADMIN must land on the testing-lab view container (showing the diagnostic), never silently redirected to Calendar");

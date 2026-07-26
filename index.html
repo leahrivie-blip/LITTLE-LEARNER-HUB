@@ -102,6 +102,41 @@
           </div>
         </div>
 
+        <!-- Platform Admin workspace — replaces provider sidebar while Admin is active. -->
+        <nav class="nav-list admin-workspace-nav" id="adminWorkspaceNav" hidden aria-label="Admin workspace">
+          <div class="nav-section">
+            <p class="nav-section-label">Admin Workspace</p>
+            <button class="nav-link" type="button" data-view="admin-home" data-admin-workspace-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg></span>
+              Admin Home
+            </button>
+            <button class="nav-link" type="button" data-view="admin-testers" data-admin-workspace-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
+              Testers
+            </button>
+            <button class="nav-link" type="button" data-view="admin-content" data-admin-workspace-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v17H6.5A2.5 2.5 0 0 0 4 22z"/></svg></span>
+              Content
+            </button>
+            <button class="nav-link" type="button" data-view="admin-feedback" data-admin-workspace-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
+              Feedback
+            </button>
+            <button class="nav-link" type="button" data-view="admin-health" data-admin-workspace-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/></svg></span>
+              System Health
+            </button>
+            <button class="nav-link" type="button" data-view="admin-advanced" data-admin-workspace-nav>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/></svg></span>
+              Advanced Tools
+            </button>
+            <button class="nav-link" type="button" data-aw-exit-admin>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg></span>
+              Exit Admin
+            </button>
+          </div>
+        </nav>
+
         <!-- Home Daycare Pilot — Solo Home Daycare Provider curated navigation.
              A dedicated, self-contained nav block (not a patch of #platformNav)
              so its exact Primary/Planning/More grouping and labels never drift
@@ -1104,6 +1139,13 @@
         <section id="view-family-hub" class="view"></section>
         <section id="view-testing-lab" class="view"></section>
         <section id="view-owner-testing-home" class="view"></section>
+        <section id="view-admin-home" class="view"></section>
+        <section id="view-admin-testers" class="view"></section>
+        <section id="view-admin-content" class="view"></section>
+        <section id="view-admin-feedback" class="view"></section>
+        <section id="view-admin-health" class="view"></section>
+        <section id="view-admin-advanced" class="view"></section>
+        <section id="view-admin-role-preview" class="view"></section>
 
         <!-- Home Daycare Pilot — connected provider<->parent testing views.
              Rendered directly in app.js (renderPilot*Page functions); never

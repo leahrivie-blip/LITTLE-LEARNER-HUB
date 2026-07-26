@@ -1889,4 +1889,61 @@
   }
 
   global.renderTestingLabPage = renderTestingLabPage;
+
+  async function loadSandboxAccountsForEmbed() {
+    try {
+      const data = await api("GET", "/api/external-tester/list");
+      state.sandboxAccounts = data.accounts || [];
+      state.sandboxRoleCatalog = data.roleCatalog || [];
+      state.error = "";
+    } catch (error) {
+      state.error = error.message;
+    }
+  }
+
+  async function renderEmbeddedPanel(mountEl, panelKind) {
+    const mount = mountEl;
+    if (!mount) return;
+    state.panel = panelKind;
+    state.error = "";
+    state.tfError = "";
+    if (panelKind === "accounts") {
+      await loadSandboxAccountsForEmbed();
+      mount.innerHTML = `
+        <div class="tl-embedded-panel">
+          <div class="tl-actions-row">
+            <button type="button" class="primary-button" data-tl-onboard-everything>Get Testing Site Ready</button>
+          </div>
+          ${state.error ? `<p class="tf-error">${escapeHtml(state.error)}</p>` : ""}
+          ${homeDaycarePilotWizardHtml()}
+          ${sandboxManagerHtml()}
+        </div>
+      `;
+    } else if (panelKind === "feedback") {
+      try {
+        const data = await api("GET", "/api/testing-feedback/admin/threads");
+        state.tfThreads = data.threads || [];
+        state.tfUnreadCount = data.unreadCount || 0;
+      } catch (error) {
+        state.tfError = error.message;
+      }
+      mount.innerHTML = `<div class="tl-embedded-panel">${testingFeedbackInboxHtml()}</div>`;
+    } else if (panelKind === "preview") {
+      try {
+        state.dashboard = await api("GET", `${BASE}/dashboard`);
+      } catch { /* optional */ }
+      const previewActive = Boolean(global.sessionStorage?.getItem("llhRolePreviewMembershipId"));
+      mount.innerHTML = `
+        <p class="aw-preview-active-banner" role="status">
+          <strong>ADMIN PREVIEW — CURRENTLY VIEWING AS: ${previewActive ? "TEST ROLE (see banner in app)" : "NONE — pick a role below"}</strong>
+        </p>
+        <div class="tl-embedded-panel">${previewHtml()}</div>
+      `;
+    }
+    bind(mount);
+  }
+
+  global.renderTestingLabTesterPanel = (m) => renderEmbeddedPanel(m, "accounts");
+  global.renderTestingLabFeedbackPanel = (m) => renderEmbeddedPanel(m, "feedback");
+  global.renderTestingLabRolePreviewPanel = (m) => renderEmbeddedPanel(m, "preview");
 })(typeof window !== "undefined" ? window : globalThis);

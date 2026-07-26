@@ -50,6 +50,7 @@ const { createTestingSentry } = require("./testing-sentry.js");
 const { createAiTestingApi } = require("./ai-testing-api.js");
 const { createTestingFeedbackApi } = require("./testing-feedback-api.js");
 const { createExternalTesterSandboxApi } = require("./external-tester-sandbox-api.js");
+const { createAdminWorkspaceApi } = require("./admin-workspace-api.js");
 const externalTesterSandboxModel = require("../scripts/external-tester-sandbox-data-model.js");
 const { createHomeDaycarePilotApi } = require("./home-daycare-pilot-api.js");
 const {
@@ -15694,6 +15695,21 @@ function getTestingLabApi() {
   return _testingLabApi;
 }
 
+let _adminWorkspaceApi;
+function getAdminWorkspaceApi() {
+  if (!_adminWorkspaceApi) {
+    _adminWorkspaceApi = createAdminWorkspaceApi({
+      readStore,
+      jsonResponse,
+      expansionEnvironment,
+      getGitSha: () => deployedGitSha(),
+      getBranchName: () => String(process.env.LLH_GIT_BRANCH || ""),
+      listRecentErrors: () => testingSentry.listRecentErrors(),
+    });
+  }
+  return _adminWorkspaceApi;
+}
+
 let _aiTestingApi;
 function getAiTestingApi() {
   if (!_aiTestingApi) {
@@ -15958,6 +15974,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/activities/")) {
       const activityId = decodeURIComponent(url.pathname.slice("/api/curriculum/activities/".length));
       return await handleCurriculumActivityDetail(request, response, url, activityId);
+    }
+    if (url.pathname === "/api/admin/workspace" || url.pathname.startsWith("/api/admin/workspace/")) {
+      const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+      const handler = getAdminWorkspaceApi().matchRoute(request.method, url.pathname);
+      if (handler && admin) return handler(request, response);
+      return jsonResponse(response, 403, { ok: false, error: "Admin access is required." });
     }
     if (request.method === "GET" && url.pathname === "/api/admin/site-content") return handleAdminSiteContent(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/site-content") return await handleAdminSiteContentSave(request, response);

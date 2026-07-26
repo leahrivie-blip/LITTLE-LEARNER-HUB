@@ -26613,3 +26613,175 @@ button.linkish {
     width: 100%;
   }
 }
+
+/* Admin Workspace redesign */
+body.admin-workspace-active .sidebar .admin-workspace-nav {
+  display: block;
+}
+
+.admin-workspace-nav[hidden] {
+  display: none !important;
+}
+
+body.admin-workspace-active #platformNav,
+body.admin-workspace-active #pilotProviderNav,
+body.admin-workspace-active #pilotStaffNav,
+body.admin-workspace-active #pilotParentNav {
+  display: none !important;
+}
+
+.aw-page {
+  max-width: 960px;
+  padding: 0 4px 32px;
+}
+
+.aw-page-header h2 {
+  font-size: 1.75rem;
+  margin: 0.25rem 0 0.5rem;
+}
+
+.aw-section {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 16px;
+}
+
+.aw-section h3 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+
+.aw-primary-cta {
+  font-size: 1.05rem;
+  padding: 12px 20px;
+}
+
+.aw-status-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.aw-status-grid li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.aw-status {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.aw-status--working { background: #e8f5e9; color: #2e7d32; }
+.aw-status--attention { background: #fff3e0; color: #e65100; }
+.aw-status--missing { background: #f5f5f5; color: #616161; }
+.aw-status--disabled { background: #eceff1; color: #546e7a; }
+
+.aw-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aw-all-good {
+  color: #2e7d32;
+  font-weight: 600;
+}
+
+.aw-attention-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.aw-attention-list li {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.aw-env-hint code {
+  font-size: 0.85rem;
+}
+
+.aw-error-card,
+.aw-loading-card,
+.aw-warning-card {
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.aw-warning-card {
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+}
+
+.aw-error-card {
+  background: #ffebee;
+  border: 1px solid #ffcdd2;
+}
+
+.aw-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.aw-health-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fafafa;
+}
+
+.aw-count-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.aw-count-card {
+  text-align: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.aw-count-card strong {
+  display: block;
+  font-size: 1.5rem;
+}
+
+.aw-preview-active-banner {
+  background: #7b6bb5;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 16px;
+}
+
+.aw-advanced-section {
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+@media (max-width: 640px) {
+  .aw-quick-actions .ghost-button,
+  .aw-quick-actions .primary-button {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 140px;
+  }
+}
