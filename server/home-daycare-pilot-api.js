@@ -391,7 +391,17 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     if (!actor) return;
     if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider (owner or staff) can log Daily Care entries.");
     if (!body.storeKey || !body.record) return deny(response, 400, "invalid_entry");
-    const entry = model.addDailyCareEntry(store, { organizationId: actor.organizationId, childId: body.childId || body.record.childId, storeKey: body.storeKey, record: body.record });
+    const childId = String(body.childId || body.record?.childId || "");
+    const childExists = model.listChildren(store, actor.organizationId).some((c) => c.id === childId);
+    if (!childId || !childExists) {
+      return deny(response, 403, "wrong_child", "That child is not in this organization.");
+    }
+    const entry = model.addDailyCareEntry(store, {
+      organizationId: actor.organizationId,
+      childId,
+      storeKey: body.storeKey,
+      record: body.record,
+    });
     writeStore(store);
     jsonResponse(response, 200, { ok: true, entry });
   }
@@ -401,7 +411,14 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     const actor = resolveActor(store, response, ctx, { organizationIdFromQuery: url?.searchParams?.get("organizationId") || "" });
     if (!actor) return;
     if (actor.role !== "provider") return deny(response, 403, "provider_only");
-    jsonResponse(response, 200, { ok: true, entries: model.listDailyCareEntries(store, actor.organizationId) });
+    const childId = url?.searchParams?.get("childId") || "";
+    if (childId) {
+      const childExists = model.listChildren(store, actor.organizationId).some((c) => c.id === childId);
+      if (!childExists) return deny(response, 403, "wrong_child", "That child is not in this organization.");
+    }
+    const entries = model.listDailyCareEntries(store, actor.organizationId)
+      .filter((entry) => !childId || entry.childId === childId);
+    jsonResponse(response, 200, { ok: true, entries });
   }
 
   // ---- Staff (owner + at most one optional staff member) --------------------
@@ -501,6 +518,10 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     if (actor.role === "parent" && (!childId || !guardianMayAccessChild(store, actor, childId, "digital"))) {
       return deny(response, 403, "not_linked", "You are not linked to that child.");
     }
+    if (actor.role === "provider" && childId) {
+      const childExists = model.listChildren(store, actor.organizationId).some((c) => c.id === childId);
+      if (!childExists) return deny(response, 403, "wrong_child", "That child is not in this organization.");
+    }
     const photos = model.listSharedPhotos(store, actor.organizationId, childId)
       .filter((p) => actor.role === "provider" || p.sharedWithFamily !== false);
     jsonResponse(response, 200, { ok: true, photos });
@@ -513,7 +534,7 @@ function createHomeDaycarePilotApi({ readStore, writeStore, jsonResponse, readJs
     if (!actor) return;
     if (actor.role !== "provider") return deny(response, 403, "provider_only", "Only the provider can add a photo.");
     const childExists = model.listChildren(store, actor.organizationId).some((c) => c.id === body.childId);
-    if (!childExists) return deny(response, 400, "invalid_child");
+    if (!childExists) return deny(response, 403, "wrong_child", "That child is not in this organization.");
     const record = model.addSharedPhoto(store, {
       organizationId: actor.organizationId, childId: body.childId, caption: body.caption, dataUrl: body.dataUrl, createdByEmail: actor.email,
     });

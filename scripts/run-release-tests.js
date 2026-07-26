@@ -36,6 +36,7 @@ const SUITES = [
   { id: "fast-daily-logs", label: "Fast Daily Logs redesign", cmd: "npm", args: ["run", "test:fast-daily-logs"] },
   { id: "fast-daily-logs-safety", label: "Fast Daily Logs safety (group/undo/meds/summary/print/photos)", cmd: "npm", args: ["run", "test:fast-daily-logs-safety"] },
   { id: "fast-daily-logs-visual", label: "Fast Daily Logs phone/tablet/computer visual", cmd: "npm", args: ["run", "test:fast-daily-logs-visual"] },
+    { id: "fast-daily-logs-architecture", label: "Fast Daily Logs architecture (server authority / isolation / persistence)", cmd: "npm", args: ["run", "test:fast-daily-logs-architecture"] },
   { id: "fast-daily-logs-parent-share", label: "Fast Daily Logs Provider nav + Parent share bridge", cmd: "npm", args: ["run", "test:fast-daily-logs-parent-share"] },
   { id: "daily-care-sync", label: "Daily Care server-authoritative sync", cmd: "npm", args: ["run", "test:daily-care-server-authoritative-sync"] },
   { id: "daily-care-offline", label: "Daily Care offline retry / idempotency", cmd: "npm", args: ["run", "test:daily-care-offline-queue-corrections-sync"] },

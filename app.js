@@ -35512,6 +35512,17 @@ async function archiveChildRecord(storeKey, recordId, shouldArchive = true) {
 
 async function setChildRecordFamilyShare(storeKey, recordId, shared) {
   if (!storeKey || !recordId) return false;
+  const existing = childStore(storeKey).find((item) => item && item.id === recordId);
+  if (!existing) return false;
+  // Incomplete medication drafts must stay private — never flip share on.
+  if (shared && storeKey === "Communications" && existing.status === "needs_provider_information") {
+    showActionFeedback("Finish the required medication fields before sharing with family.");
+    return false;
+  }
+  if (shared && existing.type === "Medication" && existing.status === "needs_provider_information") {
+    showActionFeedback("Finish the required medication fields before sharing with family.");
+    return false;
+  }
   if (!shared) {
     const confirmed = await confirmAction({
       title: storeKey === "Photos" ? "Remove from parent view?" : "Stop sharing with Family Hub?",
