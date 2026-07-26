@@ -36,7 +36,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 26500 + Math.floor(Math.random() * 200);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(26500, 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-admin-preview-escape-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "preview-escape-admin@example.invalid", password: "preview-escape-pass", code: "preview-escape-code" };
 

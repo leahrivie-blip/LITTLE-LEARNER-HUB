@@ -32,7 +32,8 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 27300 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(27300, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-fdlc-arch-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "fdlc-arch-admin@example.invalid", password: "fdlc-arch-pass", code: "fdlc-arch-code" };
 

@@ -13278,6 +13278,9 @@ function setView(view, options = {}) {
   }
   if (resolvedView === "admin") {
     localStorage.setItem("llhAdminLastView", "admin");
+    if (window.__llhAdminWorkspaceLegacy && typeof window.renderAdminWorkspaceLegacyBanner === "function") {
+      window.renderAdminWorkspaceLegacyBanner(window.__llhAdminContentFocus || "");
+    }
     renderAdminDashboard();
     // Reload full admin site content (includes hidden lesson plans) whenever the
     // admin area is entered so that edits to hidden plans are never missing after

@@ -27,7 +27,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 25900 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(25900, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-home-daycare-pilot-ui-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "pilot-ui-admin@example.invalid", password: "pilot-ui-admin-pass", code: "pilot-ui-admin-code" };
 const SCREENSHOT_DIR = path.join(ROOT, "docs/screenshots/home-daycare-pilot");

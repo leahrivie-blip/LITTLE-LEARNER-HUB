@@ -271,6 +271,20 @@
     }
   }
 
+  function contentCard(id, title, count, description, buttonLabel, focus, primary = false) {
+    return `
+      <article class="aw-content-card" id="aw-content-${id}">
+        <header class="aw-content-card-header">
+          <h3>${escapeHtml(title)}</h3>
+          <span class="aw-content-card-count">${escapeHtml(String(count ?? "—"))}</span>
+        </header>
+        <p class="muted-copy aw-content-card-desc">${escapeHtml(description)}</p>
+        <p class="aw-content-card-opens"><strong>Opens:</strong> Legacy ${escapeHtml(title)} manager (full owner dashboard section — not the provider app).</p>
+        <button type="button" class="${primary ? "primary-button" : "ghost-button"}" data-aw-legacy-admin data-aw-admin-focus="${escapeHtml(focus)}">${escapeHtml(buttonLabel)}</button>
+      </article>
+    `;
+  }
+
   function contentHtml() {
     const c = state.home?.contentCounts || {};
     const gate = state.home?.testingLabGate;
@@ -278,41 +292,52 @@
     const gateBanner = envBlocked ? `
       <div class="aw-warning-card">
         <p><strong>${escapeHtml(TESTING_LAB_DISABLED_MSG)}</strong></p>
-        <p class="muted-copy">In Render → your testing web service → Environment, add <code>ALLOW_TESTING_LAB_ADMIN_PREVIEW=true</code> and redeploy. Content counts below still load from Admin Home.</p>
+        <p class="muted-copy">In Render → your testing web service → Environment, add <code>ALLOW_TESTING_LAB_ADMIN_PREVIEW=true</code> and redeploy. Counts below still reflect this testing site.</p>
       </div>
     ` : "";
     return shellHtml(
       "Content",
-      "Lesson plans, activities, curriculum organization, and forms on this testing site.",
+      "Choose what to manage on the testing site. Each card opens one focused legacy manager — you can always return here.",
       `
-        ${gateBanner}
-        <div class="aw-content-sections">
-          <section class="aw-content-section" id="aw-content-lesson-plans">
-            <h3>Lesson Plans</h3>
-            <p class="muted-copy">${escapeHtml(c.lessonPlans ?? 0)} lesson plans in the testing library.</p>
-            <button type="button" class="primary-button" data-aw-legacy-admin data-aw-admin-focus="lessons">Open Lesson Plan Manager</button>
-          </section>
-          <section class="aw-content-section" id="aw-content-activities">
-            <h3>Activities</h3>
-            <p class="muted-copy">${escapeHtml(c.activities ?? 0)} activities available for providers.</p>
-            <button type="button" class="ghost-button" data-aw-legacy-admin data-aw-admin-focus="activities">Open Activity Manager</button>
-          </section>
-          <section class="aw-content-section" id="aw-content-curriculum">
-            <h3>Curriculum organization</h3>
-            <p class="muted-copy">${escapeHtml(c.monthlyCurriculum ?? 0)} monthly curriculum units · ${escapeHtml(c.printables ?? 0)} printables</p>
-            <button type="button" class="ghost-button" data-aw-legacy-admin data-aw-admin-focus="curriculum">Open Curriculum Tools</button>
-          </section>
-          <section class="aw-content-section" id="aw-content-forms">
-            <h3>Forms &amp; templates</h3>
-            <p class="muted-copy">${escapeHtml(c.forms ?? 0)} forms · ${escapeHtml(c.announcements ?? 0)} announcements</p>
-            <button type="button" class="ghost-button" data-aw-legacy-admin data-aw-admin-focus="forms">Open Forms Library</button>
-          </section>
+        <div class="aw-content-intro">
+          <p class="muted-copy">This is your calm Content landing page. Legacy managers are powerful but dense; use <strong>Return to Admin Workspace</strong> after editing.</p>
+          <button type="button" class="ghost-button" data-view="admin-home">Back to Admin Home</button>
         </div>
-        <div class="aw-count-row aw-content-summary">
-          <div class="aw-count-card"><strong>${escapeHtml(c.lessonPlans ?? "—")}</strong><span>Lesson Plans</span></div>
-          <div class="aw-count-card"><strong>${escapeHtml(c.activities ?? "—")}</strong><span>Activities</span></div>
-          <div class="aw-count-card"><strong>${escapeHtml(c.monthlyCurriculum ?? 0)}</strong><span>Monthly Curriculum</span></div>
-          <div class="aw-count-card"><strong>${escapeHtml(c.forms ?? 0)}</strong><span>Forms</span></div>
+        ${gateBanner}
+        <div class="aw-content-card-grid">
+          ${contentCard(
+            "lesson-plans",
+            "Lesson Plans",
+            c.lessonPlans ?? 0,
+            "Browse, hide, publish, and import lesson plans for the testing library.",
+            "Open Lesson Plan Manager",
+            "lessons",
+            true,
+          )}
+          ${contentCard(
+            "activities",
+            "Activities",
+            c.activities ?? 0,
+            "Manage activity center items providers see in the testing app.",
+            "Open Activity Manager",
+            "activities",
+          )}
+          ${contentCard(
+            "curriculum",
+            "Curriculum",
+            c.monthlyCurriculum ?? 0,
+            `${c.printables ?? 0} printables · organize monthly curriculum units and related assets.`,
+            "Open Curriculum Tools",
+            "curriculum",
+          )}
+          ${contentCard(
+            "forms",
+            "Forms & templates",
+            c.forms ?? 0,
+            `${c.announcements ?? 0} announcements · built-in forms library and templates.`,
+            "Open Forms Library",
+            "forms",
+          )}
         </div>
       `,
     );
@@ -481,7 +506,48 @@
     if (typeof global.setView === "function") {
       global.setView("admin", { adminWorkspaceContext: true, replaceHistory: false });
     }
+    global.requestAnimationFrame(() => {
+      if (typeof global.renderAdminWorkspaceLegacyBanner === "function") {
+        global.renderAdminWorkspaceLegacyBanner(focus);
+      }
+    });
   }
+
+  function renderAdminWorkspaceLegacyBanner(focusLabel) {
+    const view = global.document?.querySelector("#view-admin");
+    if (!view || !global.__llhAdminWorkspaceLegacy) return;
+    let bar = view.querySelector("#awLegacyReturnBar");
+    if (!bar) {
+      bar = global.document.createElement("div");
+      bar.id = "awLegacyReturnBar";
+      bar.className = "aw-legacy-return-bar";
+      view.insertBefore(bar, view.firstChild);
+    }
+    const section = focusLabel ? String(focusLabel).replace(/-/g, " ") : "content";
+    bar.innerHTML = `
+      <div class="aw-legacy-return-inner">
+        <p><strong>Legacy Content Manager</strong> — you opened <em>${escapeHtml(section)}</em> from Admin Workspace. This screen has many sections; use the button below when you are done.</p>
+        <div class="aw-legacy-return-actions">
+          <button type="button" class="primary-button" data-aw-return-workspace>Return to Admin Workspace</button>
+          <button type="button" class="ghost-button" data-aw-return-workspace-content>Back to Content landing</button>
+        </div>
+      </div>
+    `;
+    bar.querySelector("[data-aw-return-workspace]")?.addEventListener("click", () => {
+      global.__llhAdminWorkspaceLegacy = false;
+      global.__llhAdminContentFocus = "";
+      bar.remove();
+      if (typeof global.setView === "function") global.setView("admin-home", { replaceHistory: false });
+    });
+    bar.querySelector("[data-aw-return-workspace-content]")?.addEventListener("click", () => {
+      global.__llhAdminWorkspaceLegacy = false;
+      global.__llhAdminContentFocus = "";
+      bar.remove();
+      if (typeof global.setView === "function") global.setView("admin-content", { replaceHistory: false });
+    });
+  }
+
+  global.renderAdminWorkspaceLegacyBanner = renderAdminWorkspaceLegacyBanner;
 
   function openAdminContentSection(sectionId) {
     if (typeof global.setView !== "function") return;

@@ -25,7 +25,8 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 26400 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(26400, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-role-nav-testing-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "role-nav-admin@example.invalid", password: "role-nav-pass", code: "role-nav-code" };
 

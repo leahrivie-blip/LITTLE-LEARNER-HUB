@@ -26808,6 +26808,105 @@ body.admin-workspace-active #pilotParentNav {
   margin-top: 8px;
 }
 
+.aw-content-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.aw-content-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.aw-content-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 220px;
+}
+
+.aw-content-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.aw-content-card-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.aw-content-card-count {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--brand, #5b4bb7);
+}
+
+.aw-content-card-opens {
+  font-size: 0.88rem;
+  margin: 0;
+}
+
+.aw-legacy-return-bar {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 2px solid #7b6bb5;
+  background: #f3f0ff;
+}
+
+.aw-legacy-return-inner p {
+  margin: 0 0 10px;
+}
+
+.aw-legacy-return-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+body.admin-workspace-active .admin-workspace-nav .nav-link {
+  min-height: 44px;
+  font-size: 0.95rem;
+}
+
+body.admin-workspace-active .aw-quick-actions .ghost-button,
+body.admin-workspace-active .aw-quick-actions .primary-button,
+body.admin-workspace-active .aw-content-card button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@media (max-width: 640px) {
+  .aw-page {
+    padding-bottom: 24px;
+  }
+  .aw-content-card-grid {
+    grid-template-columns: 1fr;
+  }
+  .aw-health-grid {
+    grid-template-columns: 1fr;
+  }
+  .aw-legacy-return-actions .primary-button,
+  .aw-legacy-return-actions .ghost-button {
+    flex: 1 1 100%;
+  }
+}
+
 @media (max-width: 640px) {
   .aw-quick-actions .ghost-button,
   .aw-quick-actions .primary-button {

@@ -28,7 +28,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 27100 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(27100, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-connected-walkthrough-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "walkthrough-admin@example.invalid", password: "walkthrough-pass", code: "walkthrough-code" };
 const SCREENSHOT_DIR = path.join(ROOT, "docs/screenshots/home-daycare-connected-walkthrough");

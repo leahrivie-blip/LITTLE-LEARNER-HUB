@@ -39,6 +39,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
+const { resolveTestPort, allocatePort } = require("./test-port.js");
 const ADMIN = { email: "tlrouting-admin@example.invalid", password: "tlrouting-pass", code: "tlrouting-code" };
 
 let passed = 0;
@@ -123,7 +124,7 @@ async function loginAsAdminInBrowser(page, port) {
 async function main() {
   // ---- 1 & 3. Slow-but-successful flags fetch never causes a Calendar fallback ----
   {
-    const port = 27600 + Math.floor(Math.random() * 200);
+    const port = resolveTestPort(27600, 200);
     const storePath = path.join(os.tmpdir(), `llh-tlrouting-slow-${crypto.randomBytes(4).toString("hex")}.json`);
     const child = startServer(port, storePath);
     const browser = await chromium.launch({ headless: true });
@@ -198,7 +199,7 @@ async function main() {
 
   // ---- 2. Genuinely disabled Testing Lab shows an explicit diagnostic, never a silent Calendar bounce ----
   {
-    const port = 27800 + Math.floor(Math.random() * 200);
+    const port = await allocatePort();
     const storePath = path.join(os.tmpdir(), `llh-tlrouting-disabled-${crypto.randomBytes(4).toString("hex")}.json`);
     // ALLOW_TESTING_LAB_ADMIN_PREVIEW is OFF for this server — the exact
     // environment-gate failure mode called out in the report.

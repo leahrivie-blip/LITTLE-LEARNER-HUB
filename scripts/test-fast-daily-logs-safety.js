@@ -26,7 +26,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 25800 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(25800, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-fast-daily-logs-safety-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "fdlc-safety-admin@example.invalid", password: "fdlc-safety-pass", code: "fdlc-safety-code" };
 const SCREENSHOT_DIR = path.join(ROOT, "docs/screenshots/fast-daily-logs-safety");
@@ -86,7 +87,10 @@ async function waitForBoot(child) {
       const res = await requestJson("GET", "/api/health");
       if (res.status === 200) return;
     } catch { /* retry */ }
-    if (child.exitCode !== null) throw new Error("server exited");
+    if (child.exitCode !== null) {
+      const errText = child.stderr?.read?.()?.toString?.() || "";
+      throw new Error(`server exited (${child.exitCode}): ${errText.slice(0, 400)}`);
+    }
     await new Promise((r) => setTimeout(r, 100));
   }
   throw new Error("boot timeout");

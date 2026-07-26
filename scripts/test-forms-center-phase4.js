@@ -19,6 +19,7 @@ const entitlements = require("./entitlement-model.js");
 
 const { EXPANSION_FEATURE_KEYS } = expansionFlags;
 const ROOT = path.join(__dirname, "..");
+const { resolveTestPort } = require("./test-port.js");
 const ADMIN_EMAIL = "phase4-forms-admin@example.com";
 const ADMIN_PASSWORD = "Phase4FormsPass!99";
 const ADMIN_CODE = "phase4-forms-code";
@@ -95,7 +96,7 @@ async function startServer({
 } = {}) {
   const storePath = path.join(os.tmpdir(), `llh-fc-phase4-${Date.now()}-${Math.random().toString(16).slice(2)}.json`);
   fs.writeFileSync(storePath, JSON.stringify(store || baseStore(flags), null, 2));
-  const port = 6100 + Math.floor(Math.random() * 800);
+  let port = resolveTestPort(6100, 800);
   const child = spawn("node", ["server/index.js"], {
     cwd: ROOT,
     env: {

@@ -30,7 +30,8 @@ const { spawn } = require("node:child_process");
 const ROOT = path.join(__dirname, "..");
 const tempPasswordAuth = require(path.join(ROOT, "server/temp-password-auth.js"));
 
-const PORT = 25100 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(25100, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-password-hash-security-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "pwhash-admin@example.invalid", password: "pwhash-admin-pass", code: "pwhash-admin-code" };
 

@@ -25,6 +25,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
+const { resolveTestPort, allocatePort } = require("./test-port.js");
 const ADMIN = { email: "oth-accept-admin@example.invalid", password: "oth-accept-pass", code: "oth-accept-code" };
 
 let passed = 0;
@@ -109,7 +110,7 @@ async function enableFlags(port) {
 }
 
 async function runFullFlow(viewport, label, { restartServerMidway = false } = {}) {
-  const port = 27900 + Math.floor(Math.random() * 900);
+  const port = resolveTestPort(27900, 900);
   const storePath = path.join(os.tmpdir(), `llh-oth-accept-${crypto.randomBytes(4).toString("hex")}.json`);
   let child = startServer(port, storePath);
   const browser = await chromium.launch({ headless: true });

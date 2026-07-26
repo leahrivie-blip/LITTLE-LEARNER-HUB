@@ -28,7 +28,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 27500 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(27500, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-staff-restrictions-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "staffrestrict-admin@example.invalid", password: "staffrestrict-pass", code: "staffrestrict-code" };
 
