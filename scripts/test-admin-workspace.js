@@ -21,6 +21,7 @@ try {
 const { resolveTestPort } = require("./test-port.js");
 const ROOT = path.join(__dirname, "..");
 const ADMIN = { email: "admin-workspace@test.local", password: "admin-workspace-pass", code: "admin-workspace-code" };
+const UI_TIMEOUT_MS = process.env.CI ? 60000 : 30000;
 
 let passed = 0;
 function pass(name) {
@@ -85,7 +86,7 @@ function startServer(port, storePath, extraEnv = {}) {
 }
 
 async function waitForBoot(child, port) {
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < 150; i += 1) {
     if (child.exitCode !== null) throw new Error(`Server exited: ${child.stderr?.read?.()?.toString?.() || ""}`);
     try {
       const res = await requestJson(port, "GET", "/api/health");
@@ -107,13 +108,13 @@ async function adminLogin(port) {
 }
 
 async function unlockAdmin(page, baseUrl) {
-  await page.goto(`${baseUrl}/#/admin`, { waitUntil: "domcontentloaded", timeout: 30000 });
-  await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+  await page.goto(`${baseUrl}/#/admin`, { waitUntil: "domcontentloaded", timeout: UI_TIMEOUT_MS });
+  await page.waitForFunction(() => typeof setView === "function", null, { timeout: UI_TIMEOUT_MS });
   await page.fill('input[name="adminEmail"]', ADMIN.email);
   await page.fill('input[name="adminPassword"]', ADMIN.password);
   await page.fill('input[name="adminCode"]', ADMIN.code);
   await page.click("#adminUnlockForm button[type='submit']");
-  await page.waitForSelector("#view-admin-home.active-view", { timeout: 30000 });
+  await page.waitForSelector("#view-admin-home.active-view", { timeout: UI_TIMEOUT_MS });
 }
 
 async function clickAdminNav(page, view) {

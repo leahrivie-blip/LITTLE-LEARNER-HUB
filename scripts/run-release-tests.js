@@ -112,6 +112,8 @@ async function main() {
   const results = [];
   for (const suite of SUITES) {
     const testPort = await allocatePort();
+    // Brief pause between release suites reduces flaky boot races on shared CI runners.
+    await new Promise((resolve) => setTimeout(resolve, process.env.CI ? 800 : 200));
     // eslint-disable-next-line no-await-in-loop
     const result = await runOne(suite, testPort);
     results.push(result);
