@@ -18,7 +18,7 @@ try {
   chromium = null;
 }
 
-const { resolveTestPort } = require("./test-port.js");
+const { resolveTestPort, allocatePort } = require("./test-port.js");
 const ROOT = path.join(__dirname, "..");
 const ADMIN = { email: "admin-workspace@test.local", password: "admin-workspace-pass", code: "admin-workspace-code" };
 const UI_TIMEOUT_MS = process.env.CI ? 60000 : 30000;
@@ -124,7 +124,8 @@ async function clickAdminNav(page, view) {
   assert.equal(onCalendar, false, `click nav ${view} must not open Calendar`);
 }
 
-async function runOwnerColdWalkthrough(port) {
+async function runOwnerColdWalkthrough() {
+  const port = await allocatePort();
   const storePath = path.join(os.tmpdir(), `llh-aw-walk-${crypto.randomBytes(4).toString("hex")}.json`);
   const child = startServer(port, storePath);
   const baseUrl = `http://127.0.0.1:${port}`;
@@ -347,10 +348,10 @@ async function main() {
     await context.close();
     await browser.close();
 
-    await runOwnerColdWalkthrough(resolveTestPort(28000, 100));
+    await runOwnerColdWalkthrough();
 
     // Missing ALLOW_TESTING_LAB_ADMIN_PREVIEW — separate server instance
-    const port2 = resolveTestPort(27400, 100);
+    const port2 = await allocatePort();
     const store2 = path.join(os.tmpdir(), `llh-admin-workspace-gate-${crypto.randomBytes(3).toString("hex")}.json`);
     const child2 = startServer(port2, store2, { ALLOW_TESTING_LAB_ADMIN_PREVIEW: "" });
     try {
