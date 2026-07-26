@@ -209,7 +209,7 @@ test("app.js keeps Behavior & Support alias, Director Center, and Calendar landi
   assert.match(appJs, /data-nav-hidden/);
   assert.match(appJs, /setView\("calendar"/);
   assert.match(appJs, /Founding Members will receive access to future Director Center features/);
-  assert.match(appJs, /Logged-in providers land on Calendar/);
+  assert.match(appJs, /Logged-in providers never land on the retired Dashboard/);
 });
 
 test("navigation guards prevent post-login/boot yank and sidebar history pollution", () => {
