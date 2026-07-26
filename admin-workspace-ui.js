@@ -14,6 +14,7 @@
   ]);
 
   const LOAD_TIMEOUT_MS = 12000;
+  const TESTING_LAB_DISABLED_MSG = "Testing Lab is disabled in the Render testing environment.";
   const state = {
     home: null,
     health: null,
@@ -193,10 +194,10 @@
             <button type="button" class="ghost-button" data-view="admin-testers">Manage Testers</button>
             <button type="button" class="ghost-button" data-aw-preview-role="solo_provider">Preview Home Daycare Provider</button>
             <button type="button" class="ghost-button" data-aw-preview-role="parent_guardian">Preview Parent</button>
-            <button type="button" class="ghost-button" data-view="child-tools-daily-logs">Open Daily Care</button>
+            <button type="button" class="ghost-button" data-aw-preview-role="solo_provider">Preview Daily Care</button>
             <button type="button" class="ghost-button" data-view="admin-feedback">Review Feedback</button>
-            <button type="button" class="ghost-button" data-view="lessons">Manage Lesson Plans</button>
-            <button type="button" class="ghost-button" data-view="activities">Manage Activities</button>
+            <button type="button" class="ghost-button" data-aw-admin-content-section="lesson-plans">Manage Lesson Plans</button>
+            <button type="button" class="ghost-button" data-aw-admin-content-section="activities">Manage Activities</button>
           </div>
         </section>
 
@@ -241,12 +242,16 @@
       renderHome(mount);
     });
     mount.querySelector("[data-aw-onboard]")?.addEventListener("click", async () => {
+      const cta = mount.querySelector(".aw-start-here");
+      cta?.querySelector(".aw-onboard-error")?.remove();
       try {
         await apiFetch("/api/testing-lab/onboard-everything", { method: "POST", body: "{}" });
+        state.home = null;
         await loadHome();
         renderHome(mount);
       } catch (error) {
-        mount.querySelector(".aw-start-here").insertAdjacentHTML("beforeend", `<p class="tf-error">${escapeHtml(error.message)}</p>`);
+        const msg = error.message || "Setup failed.";
+        cta?.insertAdjacentHTML("beforeend", `<p class="tf-error aw-onboard-error">${escapeHtml(msg)}</p>`);
       }
     });
   }
@@ -268,22 +273,46 @@
 
   function contentHtml() {
     const c = state.home?.contentCounts || {};
+    const gate = state.home?.testingLabGate;
+    const envBlocked = gate?.checks?.find((row) => row.key === "env_preview" && !row.ok);
+    const gateBanner = envBlocked ? `
+      <div class="aw-warning-card">
+        <p><strong>${escapeHtml(TESTING_LAB_DISABLED_MSG)}</strong></p>
+        <p class="muted-copy">In Render → your testing web service → Environment, add <code>ALLOW_TESTING_LAB_ADMIN_PREVIEW=true</code> and redeploy. Content counts below still load from Admin Home.</p>
+      </div>
+    ` : "";
     return shellHtml(
       "Content",
-      "Lesson plans, activities, and curriculum assets on the testing site.",
+      "Lesson plans, activities, curriculum organization, and forms on this testing site.",
       `
-        <div class="aw-count-row">
+        ${gateBanner}
+        <div class="aw-content-sections">
+          <section class="aw-content-section" id="aw-content-lesson-plans">
+            <h3>Lesson Plans</h3>
+            <p class="muted-copy">${escapeHtml(c.lessonPlans ?? 0)} lesson plans in the testing library.</p>
+            <button type="button" class="primary-button" data-aw-legacy-admin data-aw-admin-focus="lessons">Open Lesson Plan Manager</button>
+          </section>
+          <section class="aw-content-section" id="aw-content-activities">
+            <h3>Activities</h3>
+            <p class="muted-copy">${escapeHtml(c.activities ?? 0)} activities available for providers.</p>
+            <button type="button" class="ghost-button" data-aw-legacy-admin data-aw-admin-focus="activities">Open Activity Manager</button>
+          </section>
+          <section class="aw-content-section" id="aw-content-curriculum">
+            <h3>Curriculum organization</h3>
+            <p class="muted-copy">${escapeHtml(c.monthlyCurriculum ?? 0)} monthly curriculum units · ${escapeHtml(c.printables ?? 0)} printables</p>
+            <button type="button" class="ghost-button" data-aw-legacy-admin data-aw-admin-focus="curriculum">Open Curriculum Tools</button>
+          </section>
+          <section class="aw-content-section" id="aw-content-forms">
+            <h3>Forms &amp; templates</h3>
+            <p class="muted-copy">${escapeHtml(c.forms ?? 0)} forms · ${escapeHtml(c.announcements ?? 0)} announcements</p>
+            <button type="button" class="ghost-button" data-aw-legacy-admin data-aw-admin-focus="forms">Open Forms Library</button>
+          </section>
+        </div>
+        <div class="aw-count-row aw-content-summary">
           <div class="aw-count-card"><strong>${escapeHtml(c.lessonPlans ?? "—")}</strong><span>Lesson Plans</span></div>
           <div class="aw-count-card"><strong>${escapeHtml(c.activities ?? "—")}</strong><span>Activities</span></div>
           <div class="aw-count-card"><strong>${escapeHtml(c.monthlyCurriculum ?? 0)}</strong><span>Monthly Curriculum</span></div>
           <div class="aw-count-card"><strong>${escapeHtml(c.forms ?? 0)}</strong><span>Forms</span></div>
-          <div class="aw-count-card"><strong>${escapeHtml(c.printables ?? 0)}</strong><span>Printables</span></div>
-          <div class="aw-count-card"><strong>${escapeHtml(c.announcements ?? 0)}</strong><span>Announcements</span></div>
-        </div>
-        <div class="aw-quick-actions">
-          <button type="button" class="primary-button" data-view="lessons">Lesson Plans</button>
-          <button type="button" class="ghost-button" data-view="activities">Activities</button>
-          <button type="button" class="ghost-button" data-view="admin">Open Legacy Content Manager</button>
         </div>
       `,
     );
@@ -389,12 +418,6 @@
   async function renderAdvanced(mount) {
     mount.innerHTML = advancedHtml();
     bindCommon(mount);
-    mount.querySelectorAll("[data-aw-legacy-admin]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        global.__llhAdminWorkspaceLegacy = true;
-        if (typeof global.setView === "function") global.setView("admin", { adminWorkspaceContext: true });
-      });
-    });
   }
 
   async function renderRolePreview(mount) {
@@ -452,9 +475,32 @@
     }
   }
 
+  function openLegacyAdminDashboard(focus) {
+    global.__llhAdminWorkspaceLegacy = true;
+    global.__llhAdminContentFocus = focus || "";
+    if (typeof global.setView === "function") {
+      global.setView("admin", { adminWorkspaceContext: true, replaceHistory: false });
+    }
+  }
+
+  function openAdminContentSection(sectionId) {
+    if (typeof global.setView !== "function") return;
+    global.setView("admin-content");
+    global.requestAnimationFrame(() => {
+      const el = global.document?.getElementById(`aw-content-${sectionId}`);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function bindCommon(mount) {
     mount.querySelectorAll("[data-aw-preview-role]").forEach((btn) => {
       btn.addEventListener("click", () => startRolePreview(btn.getAttribute("data-aw-preview-role")));
+    });
+    mount.querySelectorAll("[data-aw-admin-content-section]").forEach((btn) => {
+      btn.addEventListener("click", () => openAdminContentSection(btn.getAttribute("data-aw-admin-content-section")));
+    });
+    mount.querySelectorAll("[data-aw-legacy-admin]").forEach((btn) => {
+      btn.addEventListener("click", () => openLegacyAdminDashboard(btn.getAttribute("data-aw-admin-focus") || ""));
     });
     mount.querySelectorAll("[data-view]").forEach((btn) => {
       if (btn.hasAttribute("data-admin-workspace-nav")) return;
@@ -462,6 +508,20 @@
         const view = btn.getAttribute("data-view");
         if (!view || typeof global.setView !== "function") return;
         event.preventDefault();
+        if (isAdminWorkspaceMode()) {
+          if (view === "lessons" || view === "activities") {
+            openAdminContentSection(view === "lessons" ? "lesson-plans" : "activities");
+            return;
+          }
+          if (view === "child-tools-daily-logs") {
+            startRolePreview("solo_provider");
+            return;
+          }
+          if (view === "testing-lab" || view === "owner-testing-home") {
+            global.setView(view, { skipAdminWorkspaceRedirect: true, adminGateDiagnostic: true });
+            return;
+          }
+        }
         global.setView(view);
       });
     });

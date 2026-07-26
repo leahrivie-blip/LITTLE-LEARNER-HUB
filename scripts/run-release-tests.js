@@ -24,6 +24,7 @@ const SUITES = [
   { id: "password-hash", label: "Password hash security", cmd: "npm", args: ["run", "test:password-hash-security"] },
   { id: "temp-password", label: "Temp password auth (signup/login session)", cmd: "npm", args: ["run", "test:temp-password-auth"] },
   { id: "admin-auth", label: "Admin auth session", cmd: "npm", args: ["run", "test:admin-auth-session"] },
+  { id: "admin-workspace", label: "Admin workspace (cold start, gates, no Calendar bounce)", cmd: "npm", args: ["run", "test:admin-workspace"] },
   { id: "db-isolation", label: "Testing database isolation + production locks", cmd: "npm", args: ["run", "test:testing-database-isolation"] },
   { id: "homepage-smoke", label: "Homepage / signup CTAs / admin unlock smoke", cmd: "npm", args: ["run", "test:homepage-smoke"] },
   { id: "testing-lab-routing", label: "Testing Lab routing (no Calendar bounce)", cmd: "npm", args: ["run", "test:testing-lab-routing-fix"] },

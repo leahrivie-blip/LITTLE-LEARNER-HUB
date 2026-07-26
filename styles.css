@@ -26778,6 +26778,36 @@ body.admin-workspace-active #pilotParentNav {
   padding: 12px;
 }
 
+.aw-content-sections {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.aw-content-section {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px 18px;
+  background: #fff;
+}
+
+.aw-content-section h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.aw-gate-blocked {
+  border: 1px solid #f0c36d;
+  background: #fff8e6;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.aw-content-summary {
+  margin-top: 8px;
+}
+
 @media (max-width: 640px) {
   .aw-quick-actions .ghost-button,
   .aw-quick-actions .primary-button {

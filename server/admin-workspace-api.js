@@ -9,6 +9,7 @@ const testingFeedbackModel = require("../scripts/testing-feedback-data-model.js"
 const familyModel = require("../scripts/family-foundation-data-model.js");
 
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
+const TESTING_LAB_DISABLED_MSG = "Testing Lab is disabled in the Render testing environment.";
 
 function listValues(map) {
   return map && typeof map === "object" ? Object.values(map) : [];
@@ -82,7 +83,7 @@ function createAdminWorkspaceApi({
         label: "Testing Lab environment setting",
         detail: e.allowTestingLabAdminPreview
           ? "ALLOW_TESTING_LAB_ADMIN_PREVIEW is enabled on this server."
-          : "ALLOW_TESTING_LAB_ADMIN_PREVIEW is missing or off on this Render service.",
+          : TESTING_LAB_DISABLED_MSG,
         ownerAction: e.allowTestingLabAdminPreview
           ? null
           : "In Render → your testing web service → Environment, add ALLOW_TESTING_LAB_ADMIN_PREVIEW=true and redeploy.",

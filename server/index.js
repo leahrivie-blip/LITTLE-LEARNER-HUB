@@ -15375,6 +15375,17 @@ function rejectDisabledExpansionRoute(request, response, url) {
     return true;
   }
   const admin = resolveVerifiedAdminFromRequest(request, url, { allowQueryToken: false });
+  // Verified Platform Admin may bootstrap Testing Lab even when the stored
+  // testingLab flag is still OFF — onboard-everything turns flags on safely.
+  if (
+    admin
+    && flagKey === expansionFeatureFlags.EXPANSION_FEATURE_KEYS.TESTING_LAB
+    && request.method === "POST"
+    && url.pathname === "/api/testing-lab/onboard-everything"
+  ) {
+    const env = expansionEnvironment();
+    if (!env.liveProduction && env.allowTestingLabAdminPreview) return false;
+  }
   const decision = expansionFeatureFlags.evaluateExpansionAccess({
     flagKey,
     storedFlags: expansionFlagsFromStore(peekStore()),
