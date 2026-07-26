@@ -66,6 +66,7 @@
     "test:platform-nav": "node scripts/test-platform-nav.js",
     "test:navigation-history": "node scripts/test-navigation-history-qa.js",
     "test:signed-in-nav-boot-hotfix": "node scripts/test-signed-in-nav-boot-hotfix.js",
+    "test:signed-in-nav-audit": "node scripts/test-signed-in-nav-audit.js",
     "test:pwa-install": "node scripts/test-pwa-install-qa.js",
     "test:documentation-helpers-phase6": "node scripts/test-documentation-helpers-phase6.js",
     "test:doc-helpers-post-generate": "node scripts/test-doc-helpers-post-generate.js",

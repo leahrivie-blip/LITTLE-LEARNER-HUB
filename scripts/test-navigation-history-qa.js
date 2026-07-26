@@ -84,6 +84,7 @@ async function main() {
   assert(html.includes("llh-boot-authenticated"), "Early authenticated boot class missing");
   assert(html.includes("app-boot-ready"), "Early authenticated boot class must gate on verified boot");
   assert(html.includes("body:not(.app-boot-ready) #view-home"), "Boot CSS must hide marketing home before verified boot");
+  assert(html.includes("body:not(.app-boot-ready) .view.active-view"), "Boot CSS must respect active-view during verified boot");
   assert(html.includes('data-fallback-view="calendar"'), "Curriculum/calendar fallbacks should prefer Calendar");
   assert(!/Back to Dashboard/.test(html), "Visible Back to Dashboard copy should be removed");
   assert(appJs.includes("pushPlatformNavHistory"), "Platform history helper missing");

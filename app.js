@@ -4806,6 +4806,44 @@ function markAppBootReady() {
   document.body.classList.add("app-boot-ready");
   document.documentElement.classList.remove("llh-boot-authenticated");
   setAppBootGateMode("hidden");
+  ensureNavigationShellReady();
+}
+
+/** Keep signed-in navigation shell consistent: one active view, no stuck overlays. */
+function ensureNavigationShellReady() {
+  if (isAppBootInteractive()) {
+    document.documentElement.classList.remove("llh-boot-authenticated");
+  }
+  const activeSections = [...document.querySelectorAll(".view.active-view")];
+  if (activeSections.length > 1) {
+    const keep = activeSections[activeSections.length - 1];
+    activeSections.forEach((section) => {
+      if (section !== keep) section.classList.remove("active-view");
+    });
+  }
+  const viewerOpen = document.querySelector("#resourceViewerModal.open");
+  if (!viewerOpen) {
+    document.body.classList.remove(
+      "resource-viewer-open",
+      "lesson-workspace-open",
+      "lesson-workspace-sheet-open",
+      "lesson-workspace-more-open",
+      "printing-resource",
+    );
+    resetLessonWorkspaceState();
+  }
+  const sheetOpen = document.querySelector(".lesson-workspace-action-sheet:not([hidden])");
+  const moreOpen = document.querySelector(".lesson-workspace-more-menu:not([hidden])");
+  if (!sheetOpen && !moreOpen) {
+    document.body.classList.remove("lesson-workspace-sheet-open");
+  }
+}
+
+function guardNavigationDuringBootVerification() {
+  if (!requiresVerifiedAppBoot() || isAppBootInteractive()) return false;
+  ensureAppBootGate();
+  setAppBootGateMode("loading");
+  return true;
 }
 
 function markAppBootFailed(error) {
@@ -12564,10 +12602,9 @@ function canSeeAdminNav() {
 
 function setView(view, options = {}) {
   if (
-    requiresVerifiedAppBoot()
-    && !isAppBootInteractive()
-    && !options.fromBoot
+    !options.fromBoot
     && !options.allowDuringBootVerification
+    && guardNavigationDuringBootVerification()
   ) {
     return;
   }
@@ -12738,11 +12775,14 @@ function setView(view, options = {}) {
     });
   }
   document.querySelectorAll(".view").forEach((section) => section.classList.remove("active-view"));
-  document.querySelector(`#view-${resolvedView}`)?.classList.add("active-view");
-  document.body.classList.add("app-booted");
-  if (isAppBootInteractive()) {
-    document.documentElement.classList.remove("llh-boot-authenticated");
+  const nextSection = document.querySelector(`#view-${resolvedView}`);
+  if (!nextSection) {
+    console.error("Navigation target view is missing from the shell", resolvedView);
+    return;
   }
+  nextSection.classList.add("active-view");
+  document.body.classList.add("app-booted");
+  ensureNavigationShellReady();
   if (activeView === "ai" && resolvedView !== "ai") selectedDocHelperType = "";
   document.body.classList.toggle("home-view", resolvedView === "home" && !isLoggedIn());
   document.body.classList.toggle("lessons-view", resolvedView === "lessons");
@@ -12772,6 +12812,8 @@ function setView(view, options = {}) {
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend()) {
     hydrateCurriculumLibraryFromCache();
   }
+  let viewRenderError = null;
+  try {
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
   if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend()) {
     refreshPublicCurriculumLibrary()
@@ -12891,6 +12933,13 @@ function setView(view, options = {}) {
   } else {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }
+  } catch (error) {
+    viewRenderError = error;
+    console.error("Navigation render failed", { view: resolvedView, error });
+  } finally {
+    ensureNavigationShellReady();
+  }
+  if (viewRenderError) return;
 }
 
 function canAccess(resource) {
@@ -17445,6 +17494,7 @@ function closeResourceViewer() {
   if (wasOpen) restoreLessonLibraryBrowseState();
   if (wasOpen) restoreHomePreviewScrollPosition();
   if (wasOpen) maybeShowFreePlanSoftNudge(closingResource);
+  ensureNavigationShellReady();
 }
 
 function updateResourceViewerBackButton() {
@@ -17733,6 +17783,7 @@ function handleLessonNavPopState(event) {
     } finally {
       platformHistorySilent = false;
     }
+    ensureNavigationShellReady();
     return;
   }
 
@@ -21233,7 +21284,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
 }
 
 async function openResourceViewer(resourceId, options = {}) {
-  if (!isAppBootInteractive()) return;
+  if (guardNavigationDuringBootVerification()) return;
   const resource = resources.find((item) => item.id === resourceId);
   if (!resource) return;
   if (!isResourceVisibleToCurrentUser(resource)) {
@@ -21698,6 +21749,9 @@ function renderCategoryPage(view) {
     const freeCount = visibleResourcesForCategory("Activity Center")
       .filter((item) => String(item.plan || "Free").trim() !== "Pro").length;
     const proCount = Math.max((accessCounts?.total || 0) - freeCount, 0);
+    const activityStatsLine = (curriculumLibraryLoading || siteContentLoadPromise)
+      ? `<p class="library-stats-line" role="status" aria-live="polite">Syncing activity library…</p>`
+      : `<p class="library-stats-line">${accessCounts.total} Activities · ${Math.min(freeCount, accessCounts.total)} Free · ${proCount} Pro</p>`;
     let activityBody = "";
     if (activityLibraryViewAllKey || hasSearchOrAdvanced) {
       const viewAllItems = activityLibraryViewAllKey
@@ -21737,7 +21791,7 @@ function renderCategoryPage(view) {
           ${libraryAccessBadgeHtml()}
         </div>
         <p class="library-compact-subtitle">Browse ready-to-use activities by age, theme, or activity type.</p>
-        <p class="library-stats-line">${accessCounts.total} Activities · ${Math.min(freeCount, accessCounts.total)} Free · ${proCount} Pro</p>
+        ${activityStatsLine}
       </header>
       ${searchedChild ? renderChildLessonSearchContext(searchedChild) : ""}
       ${activeActivityLessonPlanId ? renderActivityLessonFilterBanner() : ""}
