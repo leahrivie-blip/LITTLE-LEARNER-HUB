@@ -82,7 +82,8 @@ async function main() {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(html.includes("llh-boot-authenticated"), "Early authenticated boot class missing");
-  assert(html.includes("body:not(.app-booted) #view-home"), "Boot CSS must hide Dashboard before app.js");
+  assert(html.includes("app-boot-ready"), "Early authenticated boot class must gate on verified boot");
+  assert(html.includes("body:not(.app-boot-ready) #view-home"), "Boot CSS must hide marketing home before verified boot");
   assert(html.includes('data-fallback-view="calendar"'), "Curriculum/calendar fallbacks should prefer Calendar");
   assert(!/Back to Dashboard/.test(html), "Visible Back to Dashboard copy should be removed");
   assert(appJs.includes("pushPlatformNavHistory"), "Platform history helper missing");
@@ -120,7 +121,7 @@ async function main() {
         }));
       });
       await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => typeof setView === "function" && document.body.classList.contains("app-booted"), null, { timeout: 60000 });
+      await page.waitForFunction(() => typeof setView === "function" && document.body.classList.contains("app-boot-ready"), null, { timeout: 60000 });
       const bootState = await page.evaluate(() => ({
         active: document.querySelector(".active-view")?.id || "",
         homeActive: document.querySelector("#view-home")?.classList.contains("active-view") || false,
@@ -177,7 +178,7 @@ async function main() {
         }));
       });
       await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => typeof setView === "function" && document.body.classList.contains("app-booted"), null, { timeout: 60000 });
+      await page.waitForFunction(() => typeof setView === "function" && document.body.classList.contains("app-boot-ready"), null, { timeout: 60000 });
       await page.evaluate(() => {
         setView("calendar", { fromBoot: true, replaceHistory: true });
         setView("lessons", { skipHistory: true });
@@ -281,7 +282,7 @@ async function main() {
         }));
       });
       await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
-      await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
+      await page.waitForFunction(() => typeof setView === "function" && document.body.classList.contains("app-boot-ready"), null, { timeout: 60000 });
       for (const view of ["calendar", "lessons", "activities", "ai", "children", "settings"]) {
         await page.evaluate((v) => setView(v, { skipHistory: true }), view);
         const active = await page.evaluate(() => document.querySelector(".active-view")?.id || "");
