@@ -95,7 +95,7 @@ async function stopServer(child) {
 
 async function seedProLessonForLockedPreview(token) {
   const { parseCurriculumLessonPlanImport } = require("./curriculum-lesson-import-parser.js");
-  const sample = path.join(ROOT, "scripts/curriculum-import-samples/label-only-garden-scientists-v3.txt");
+  const sample = path.join(ROOT, "scripts/curriculum-import-samples/label-only-full-workflow-v3.txt");
   const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(sample, "utf8"));
   if (!parsed.ok) return null;
   const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
@@ -328,8 +328,9 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       const duplicateAfterReload = pageErrors.filter((msg) => /already been declared/i.test(msg));
       assert(!duplicateAfterReload.length, `${label}: duplicate declaration after reload: ${duplicateAfterReload.join(" | ")}`);
 
+      await page.waitForSelector("body.app-boot-ready", { timeout: 20000 });
       await page.evaluate(() => setView("lessons"));
-      await page.waitForSelector("#view-lessons.active-view", { timeout: 5000 });
+      await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
       await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
       await page.fill("#lessonPlanSearch", proLesson.title);
       await page.waitForTimeout(500);

@@ -162,6 +162,14 @@ async function runViewportAudit(browser, baseUrl, viewport, label, seeded) {
   const pricingText = await page.locator("#homePricing").innerText();
   assert(/continuously active/i.test(pricingText), `${label}: pricing must mention continuously active membership`);
 
+  const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
+  const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
+  const twitterDescription = await page.locator('meta[name="twitter:description"]').getAttribute("content");
+  const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
+  for (const text of [metaDescription, ogDescription, twitterDescription, structuredData]) {
+    assert(/\$9\.99\/month locked while continuously active/i.test(text || ""), `${label}: social/meta pricing language missing continuous-membership condition`);
+  }
+
   assert(await page.locator("#homeCompare").count() === 0, `${label}: duplicate compare section should be removed`);
   assert(await page.locator("#homeFoundingOffer").count() === 0, `${label}: duplicate founding offer block should be removed`);
 

@@ -188,6 +188,12 @@ async function runAudit(playwright, baseUrl, seeded) {
   const pricingText = await page.locator("#homePricing").innerText();
   assert(/\$9\.99/.test(pricingText), "Founding price missing on pricing section");
   assert(/continuously active/i.test(pricingText), "Continuous membership messaging missing");
+  const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
+  const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
+  const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
+  assert(/\$9\.99\/month locked while continuously active/i.test(metaDescription || ""), "Meta description missing continuous membership language");
+  assert(/\$9\.99\/month locked while continuously active/i.test(ogDescription || ""), "OG description missing continuous membership language");
+  assert(/\$9\.99\/month locked while continuously active/i.test(structuredData || ""), "Structured data missing continuous membership language");
   results.foundingPrice = true;
 
   // Desktop login / signup
@@ -297,6 +303,11 @@ async function runAudit(playwright, baseUrl, seeded) {
   // Plan chooser
   await page.waitForSelector("[data-signup-choose-plan='free']", { timeout: 8000 });
   await page.locator("[data-signup-choose-plan='free']").click();
+  const freeConfirm = page.locator("[data-signup-confirm-free]");
+  if (await freeConfirm.count()) {
+    await freeConfirm.click();
+  }
+  await page.waitForSelector("body.app-boot-ready", { timeout: 20000 });
   await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
   results.calendarLanding = true;
   results.signupButtons.push("hero-start-free-completed");

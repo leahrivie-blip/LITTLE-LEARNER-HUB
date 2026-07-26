@@ -3221,6 +3221,7 @@ function renderSignupPlanChooser() {
   if (!target) return;
   const remaining = foundingSpotsRemaining();
   const soldOut = foundingStatusLoaded() && remaining <= 0;
+  const spotsRemainingLabel = foundingStatusLoaded() ? remaining : "…";
   const preferredPlan = preferredSignupPlanFromStorage();
   const preferFounding = preferredPlan === "founding" && !soldOut;
   const copy = signupPlanCopy();
@@ -3235,7 +3236,7 @@ function renderSignupPlanChooser() {
       <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      <p class="signup-plan-spots" data-founding-spots-remaining="${remaining ?? ""}">${foundingStatusLoaded() ? `Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong>` : "Checking Founding Member availability…"}</p>
+      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? `Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong>` : "Checking Founding Member availability…"}</p>
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
@@ -3256,7 +3257,7 @@ function renderSignupPlanChooser() {
     context: "signup",
     variant: copy.variant,
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -3277,7 +3278,7 @@ function renderSignupPlanChooser() {
       ${!soldOut ? `
         <p class="signup-founding-urgency" role="status">
           <span>${escapeHtml(copy.foundingUrgency)}</span>
-          <strong>Founding Spots Remaining: ${remaining}</strong>
+          <strong>Founding Spots Remaining: ${spotsRemainingLabel}</strong>
         </p>
       ` : `
         <p class="signup-founding-urgency is-sold-out" role="status">
@@ -46852,7 +46853,7 @@ function renderHomeFoundingOffer() {
   trackEvent("pricing_cards_shown", {
     context: "homepage_hero",
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -46944,7 +46945,7 @@ function renderPricingPage() {
   trackEvent("pricing_cards_shown", {
     context: "pricing_page",
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
@@ -46983,7 +46984,7 @@ function renderUpgradePage() {
   trackEvent("pricing_cards_shown", {
     context: "upgrade_page",
     foundingShown: !soldOut,
-    foundingRemaining: remaining,
+    foundingRemaining: foundingStatusLoaded() ? remaining : null,
     soldOut,
     primaryCard: soldOut ? "pro-monthly" : "founding",
   });
