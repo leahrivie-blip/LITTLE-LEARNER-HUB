@@ -275,16 +275,15 @@ async function runOwnerColdWalkthrough() {
     pass("walkthrough: Solo Home Daycare Provider view");
 
     await page.click("[data-sandbox-switch-role]");
-    await page.waitForTimeout(300);
+    await page.waitForSelector("#sandboxRolePickerModal:not([hidden])", { timeout: UI_TIMEOUT_MS });
     await page.click('[data-sandbox-role-option="parent_guardian"]');
-    await page.waitForTimeout(300);
+    await page.waitForTimeout(500);
     if (await page.locator("[data-sandbox-guardian-option]").count()) {
       await page.locator("[data-sandbox-guardian-option]").first().click();
     }
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#pilotParentNav");
-      return el && !el.hidden;
-    }, null, { timeout: UI_TIMEOUT_MS });
+    await page.waitForLoadState("domcontentloaded", { timeout: UI_TIMEOUT_MS });
+    await page.waitForFunction(() => typeof setView === "function", null, { timeout: UI_TIMEOUT_MS });
+    await page.waitForSelector("#pilotParentNav:not([hidden])", { timeout: UI_TIMEOUT_MS });
     pass("walkthrough: switched to Parent view");
 
     const feedbackText = `Admin workspace walkthrough ${Date.now()}`;
