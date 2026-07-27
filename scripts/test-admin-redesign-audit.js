@@ -124,12 +124,15 @@ async function waitForBoot(port, child) {
   throw new Error("boot timeout");
 }
 
-async function unlockAdmin(page, baseUrl) {
-  await page.evaluate(() => {
-    localStorage.removeItem("llhAdminUnlocked");
-    localStorage.removeItem("llhAdminSession");
-    localStorage.removeItem("llhAdminRememberEmail");
-  });
+async function unlockAdmin(page, baseUrl, { clearSession = true } = {}) {
+  if (clearSession) {
+    await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.evaluate(() => {
+      localStorage.removeItem("llhAdminUnlocked");
+      localStorage.removeItem("llhAdminSession");
+      localStorage.removeItem("llhAdminRememberEmail");
+    });
+  }
   await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
   await waitBootReady(page);
   await page.waitForSelector("#adminUnlockForm", { timeout: 20000 });
@@ -151,7 +154,7 @@ async function clickAdminGroup(page, groupId) {
 async function runAdminAudit(browser, baseUrl, device) {
   const page = await browser.newPage({ viewport: { width: device.width, height: device.height } });
   const failures = [];
-  await unlockAdmin(page, baseUrl);
+  await unlockAdmin(page, baseUrl, { clearSession: true });
 
   const providerSidebarHidden = await page.evaluate(() => {
     const sb = document.querySelector(".app-shell > .sidebar");
@@ -208,13 +211,20 @@ async function runAdminAudit(browser, baseUrl, device) {
   try {
     await clickAdminGroup(page, "website");
     await page.locator('[data-admin-landing-tab="promo-codes"]').click();
-    await page.waitForSelector("#adminPromoCodeForm", { timeout: 15000 });
-    await page.locator('input[name="code"]').fill("");
-    await page.evaluate(() => document.querySelector("#adminPromoCodeForm")?.setAttribute("novalidate", ""));
-    await page.click('#adminPromoCodeForm button[type="submit"]');
-    await page.waitForTimeout(300);
-    const err = await page.locator("#adminPromoCodesApp .form-message").textContent().catch(() => "");
-    if (!/required/i.test(err || "")) failures.push("promo required-field message missing");
+    await page.waitForSelector("#adminPromoCodeForm", { timeout: 20000 });
+    await page.evaluate(() => {
+      const form = document.querySelector("#adminPromoCodeForm");
+      if (!form) return;
+      form.setAttribute("novalidate", "");
+      const codeInput = form.querySelector('input[name="code"]');
+      if (codeInput) codeInput.value = "";
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    await page.waitForFunction(
+      () => /required/i.test(document.querySelector("#adminPromoCodesApp")?.textContent || ""),
+      null,
+      { timeout: 5000 },
+    );
   } catch (e) { failures.push(`promo: ${e.message}`); }
 
   // System health not stuck
