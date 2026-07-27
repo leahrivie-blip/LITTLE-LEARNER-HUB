@@ -111,7 +111,26 @@ function ensureCommsStore(store) {
   store.automations = Array.isArray(store.automations) ? store.automations : [];
   store.automationRuns = Array.isArray(store.automationRuns) ? store.automationRuns : [];
   store.archivedConversations = Array.isArray(store.archivedConversations) ? store.archivedConversations : [];
+  store.adminInboxArchive = Array.isArray(store.adminInboxArchive) ? store.adminInboxArchive : [];
   return store;
+}
+
+function isTestOrInternalInboxEmail(email) {
+  const local = String(email || "").split("@")[0].toLowerCase();
+  if (/^(test|prod-up|regression-probe|e2e|smoke|llh-signup|signup-ui|ui-test|probe)/i.test(local)) return true;
+  return false;
+}
+
+function isTestOrInternalInboxItem(item, { isAdminMemberEmail } = {}) {
+  if (!item) return false;
+  const email = String(item.email || "").trim().toLowerCase();
+  if (email && typeof isAdminMemberEmail === "function" && isAdminMemberEmail(email)) return true;
+  if (isTestOrInternalInboxEmail(email)) return true;
+  const hay = `${item.title || ""} ${item.preview || ""} ${item.body || ""} ${item.name || ""}`;
+  if (/\[(test|probe|internal)\]/i.test(hay)) return true;
+  if (/^(test|probe|smoke|e2e|regression)[:\-\s]/i.test(String(item.title || "").trim())) return true;
+  if (/\b(regression probe|smoke test|e2e test|test ticket|probe ticket)\b/i.test(hay)) return true;
+  return false;
 }
 
 function recordTimeline(store, { email, type, title, detail }) {
@@ -857,10 +876,16 @@ function createCommsApi(deps) {
     return !s || s === "new" || s === "open";
   }
 
+  function adminInboxArchivedIds(store) {
+    return new Set((store.adminInboxArchive || []).map((row) => String(row.id || "")).filter(Boolean));
+  }
+
   function handleAdminInboxGet(request, response, url) {
     if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
     const store = ensureCommsStore(ensureMessagingStore(readStore()));
     const adminEmail = normalizeEmail(ADMIN_EMAIL || "");
+    const includeArchived = ["1", "true", "yes"].includes(String(url.searchParams.get("includeArchived") || "").toLowerCase());
+    const archivedIds = adminInboxArchivedIds(store);
     const items = [];
 
     (store.supportTickets || []).forEach((ticket) => {
@@ -995,16 +1020,54 @@ function createCommsApi(deps) {
 
     items.sort((a, b) => String(a.createdAt || "") < String(b.createdAt || "") ? 1 : -1);
 
+    items.forEach((item) => {
+      item.isTestInternal = isTestOrInternalInboxItem(item, { isAdminMemberEmail });
+      item.isArchived = archivedIds.has(item.id);
+    });
+
+    const visibleItems = includeArchived ? items : items.filter((item) => !item.isArchived);
+
     const summary = {
-      total: items.length,
-      support: items.filter((i) => i.kind === "support").length,
-      feature: items.filter((i) => i.kind === "feature").length,
-      bug: items.filter((i) => i.kind === "bug").length,
-      feedback: items.filter((i) => i.kind === "feedback").length,
-      message: items.filter((i) => i.kind === "message").length,
+      total: visibleItems.length,
+      support: visibleItems.filter((i) => i.kind === "support").length,
+      feature: visibleItems.filter((i) => i.kind === "feature").length,
+      bug: visibleItems.filter((i) => i.kind === "bug").length,
+      feedback: visibleItems.filter((i) => i.kind === "feedback").length,
+      message: visibleItems.filter((i) => i.kind === "message").length,
+      testInternal: visibleItems.filter((i) => i.isTestInternal).length,
+      archived: items.filter((i) => i.isArchived).length,
     };
 
-    jsonResponse(response, 200, { items, summary });
+    jsonResponse(response, 200, { items: visibleItems, summary });
+  }
+
+  async function handleAdminInboxArchive(request, response) {
+    const body = await readJson(request);
+    if (!requireAdmin(body.adminToken || "", response)) return;
+    const id = String(body.id || "").trim();
+    if (!id) {
+      jsonResponse(response, 400, { error: "id is required." });
+      return;
+    }
+    if (body.confirm !== true) {
+      jsonResponse(response, 400, {
+        error: "Archive requires admin confirmation. Set confirm: true after reviewing the item.",
+        code: "confirm_required",
+      });
+      return;
+    }
+    const store = ensureCommsStore(ensureMessagingStore(readStore()));
+    store.adminInboxArchive = Array.isArray(store.adminInboxArchive) ? store.adminInboxArchive : [];
+    if (!store.adminInboxArchive.some((row) => row.id === id)) {
+      store.adminInboxArchive.unshift({
+        id,
+        archivedAt: new Date().toISOString(),
+        archivedBy: normalizeEmail(ADMIN_EMAIL || ""),
+      });
+      store.adminInboxArchive = clampArray(store.adminInboxArchive, MAX_ARCHIVED);
+    }
+    writeStore(store);
+    jsonResponse(response, 200, { ok: true, archived: true, id });
   }
 
   // ─── Automations (admin) ───────────────────────────────────────────────────
@@ -1093,6 +1156,7 @@ function createCommsApi(deps) {
     handleUserTimelineGet,
     handleUserHealthGet,
     handleAdminInboxGet,
+    handleAdminInboxArchive,
     handleAutomationsGet,
     handleAutomationsSave,
     handleBroadcastLogGet,

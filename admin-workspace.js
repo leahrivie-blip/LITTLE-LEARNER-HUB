@@ -138,13 +138,9 @@
           <p class="muted-copy">Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount?.email || "owner")}. Detailed charts and developer tools live under Advanced.</p>
         </div>
         <div class="account-actions-row">
-          <button class="primary-button" type="button" id="adminOpenNotificationsButton">
-            Alerts${unread ? ` (${unread})` : ""}
-          </button>
           <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>
             ${adminAnalyticsLoading ? "Refreshing…" : "Refresh"}
           </button>
-          <button class="ghost-button" type="button" id="adminLockButton">Lock Admin</button>
         </div>
       </div>
       <div class="admin-home-grid">
@@ -309,12 +305,13 @@
   }
 
   function healthStatusCard(name, status, detail) {
-    const normalized = ["working", "attention", "disabled", "not-configured"].includes(status) ? status : "attention";
+    const normalized = ["working", "attention", "disabled", "not-configured", "not-verified"].includes(status) ? status : "not-verified";
     const labels = {
       working: "Working",
       attention: "Needs attention",
       disabled: "Disabled",
       "not-configured": "Not configured",
+      "not-verified": "Not verified",
     };
     return `
       <article class="admin-health-card" data-status="${normalized}">
@@ -327,32 +324,156 @@
 
   function renderAdminSystemHealth(target) {
     if (!target) return;
-    const dbOk = Boolean(adminAnalyticsCache);
-    const messagesOk = typeof window.renderAdminInbox === "function";
-    const billingOk = !adminAnalyticsLastError;
-    const aiConfigured = Boolean(adminAiSettingsState?.aiSettings);
-    target.innerHTML = `
-      <div class="section-heading">
-        <div><p class="eyebrow">System Health</p><h3>Plain-language status</h3><p class="muted-copy">No secrets or raw logs are shown here.</p></div>
-        <button type="button" class="ghost-button" data-admin-health-refresh>Refresh</button>
-      </div>
-      <div class="admin-health-grid">
-        ${healthStatusCard("Website", "working", "Static app shell is serving.")}
-        ${healthStatusCard("Database", dbOk ? "working" : adminAnalyticsLoading ? "attention" : "not-configured", dbOk ? "Server store reachable." : "Waiting for analytics load.")}
-        ${healthStatusCard("Admin loading", adminAnalyticsLastError ? "attention" : adminAnalyticsCache ? "working" : "attention", adminAnalyticsLastError || "Admin panels use timeout + retry.")}
-        ${healthStatusCard("Messages", messagesOk ? "working" : "disabled", "Admin inbox module loaded.")}
-        ${healthStatusCard("Curriculum", "working", "Curriculum managers available in Content.")}
-        ${healthStatusCard("Billing connection", billingOk ? "working" : "attention", billingOk ? "Stripe fields available." : "Billing analytics unavailable.")}
-        ${healthStatusCard("Email", canUseLaunchBackend() ? "working" : "not-configured", canUseLaunchBackend() ? "Email engagement tools available." : "Local mode — email tools limited.")}
-        ${healthStatusCard("AI", aiConfigured ? (adminAiSettingsState?.aiSettings?.enabled ? "working" : "disabled") : "not-configured", aiConfigured ? "AI settings loaded." : "AI settings not loaded yet.")}
-      </div>
-    `;
-    target.querySelector("[data-admin-health-refresh]")?.addEventListener("click", async () => {
+    const paint = (snapshot) => {
+      const cards = snapshot?.cards || {};
+      const card = (key, label) => {
+        const row = cards[key] || { status: "not-verified", detail: "Not checked yet. Tap Refresh." };
+        return healthStatusCard(label, row.status, row.detail);
+      };
+      const checked = snapshot?.checkedAt
+        ? `Last checked ${new Date(snapshot.checkedAt).toLocaleString()}.`
+        : "Tap Refresh to run live checks.";
+      target.innerHTML = `
+        <div class="section-heading">
+          <div><p class="eyebrow">System Health</p><h3>Verified service status</h3><p class="muted-copy">${escapeHtml(checked)} Status is based on live checks — not UI availability alone.</p></div>
+          <button type="button" class="ghost-button" data-admin-health-refresh ${adminSystemHealthLoading ? "disabled" : ""}>${adminSystemHealthLoading ? "Checking…" : "Refresh"}</button>
+        </div>
+        <div class="admin-health-grid">
+          ${card("website", "Website / app shell")}
+          ${card("database", "Database")}
+          ${card("stripeApi", "Stripe API connection")}
+          ${card("stripeWebhook", "Stripe webhook health")}
+          ${card("resend", "Resend configuration")}
+          ${card("emailDelivery", "Recent email delivery")}
+          ${card("curriculum", "Curriculum counts")}
+          ${card("adminInbox", "Admin inbox loading")}
+          ${card("openai", "OpenAI configuration")}
+        </div>
+      `;
+      target.querySelector("[data-admin-health-refresh]")?.addEventListener("click", () => refreshAdminSystemHealth(target));
+    };
+    if (adminSystemHealthCache && !adminSystemHealthLoading) {
+      paint(adminSystemHealthCache);
+      return;
+    }
+    target.innerHTML = adminAsyncShell("Running system health checks…");
+    refreshAdminSystemHealth(target);
+  }
+
+  let adminSystemHealthCache = null;
+  let adminSystemHealthLoading = false;
+
+  async function refreshAdminSystemHealth(target) {
+    if (!target) return;
+    adminSystemHealthLoading = true;
+    paintLoading(target);
+    const cards = {};
+    const setCard = (key, status, detail) => {
+      cards[key] = { status, detail };
+    };
+
+    try {
+      const healthRes = await adminFetchWithTimeout("/api/health");
+      const health = await healthRes.json().catch(() => ({}));
+      setCard(
+        "website",
+        healthRes.ok && health.ok ? "working" : "attention",
+        healthRes.ok && health.ok ? `HTTP ${healthRes.status} · ${health.status || "ok"}.` : "App health endpoint did not return OK.",
+      );
+    } catch {
+      setCard("website", "not-verified", "Could not reach /api/health.");
+    }
+
+    let launchReady = null;
+    try {
+      const readyRes = await adminFetchWithTimeout("/api/launch-readiness");
+      launchReady = await readyRes.json().catch(() => ({}));
+      const db = launchReady?.required?.database;
+      setCard(
+        "database",
+        db?.ready ? "working" : (db ? "attention" : "not-configured"),
+        db?.note || (db?.ready ? "Database connection verified." : "Database is not launch-ready."),
+      );
+      const ai = launchReady?.required?.ai;
+      setCard(
+        "openai",
+        ai?.ready ? "working" : (ai ? "not-configured" : "not-verified"),
+        ai?.note || (ai?.ready ? "OpenAI keys and settings configured." : "OpenAI is not configured."),
+      );
+      const resend = launchReady?.optional?.supportEmail;
+      setCard(
+        "resend",
+        resend?.ready ? "working" : (resend ? "not-configured" : "not-verified"),
+        resend?.note || (resend?.ready ? "Resend/email transport configured." : "Resend is not configured."),
+      );
+    } catch {
+      setCard("database", "not-verified", "Launch readiness was not checked.");
+      setCard("openai", "not-verified", "OpenAI configuration was not checked.");
+      setCard("resend", "not-verified", "Resend configuration was not checked.");
+    }
+
+    try {
+      const billingRes = await adminFetchWithTimeout("/api/billing-readiness");
+      const billing = await billingRes.json().catch(() => ({}));
+      const keys = billing?.keysConnected;
+      setCard(
+        "stripeApi",
+        keys?.ready ? "working" : (keys ? "not-configured" : "not-verified"),
+        keys?.note || (keys?.ready ? "Stripe secret and publishable keys verified." : "Stripe API keys missing."),
+      );
+      const webhook = billing?.webhookReady;
+      setCard(
+        "stripeWebhook",
+        webhook?.ready ? "working" : (webhook ? "attention" : "not-configured"),
+        webhook?.note || (webhook?.ready ? "Webhook secret configured." : "Stripe webhook secret not configured."),
+      );
+    } catch {
+      setCard("stripeApi", "not-verified", "Stripe API connection was not checked.");
+      setCard("stripeWebhook", "not-verified", "Stripe webhook health was not checked.");
+    }
+
+    try {
       if (typeof loadAdminAnalyticsFromBackend === "function") {
         await loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
       }
-      renderAdminSystemHealth(target);
-    });
+    } catch { /* optional */ }
+
+    const lessonCount = (typeof curriculumLessonPlansForAdmin === "function" ? curriculumLessonPlansForAdmin() : []).length;
+    const actCount = (typeof curriculumActivitiesForAdmin === "function" ? curriculumActivitiesForAdmin() : []).length;
+    const totals = adminAnalyticsCache?.totals || {};
+    setCard(
+      "curriculum",
+      lessonCount || actCount || totals.curriculumLessonPlans
+        ? "working"
+        : "attention",
+      `${lessonCount || totals.curriculumLessonPlans || 0} lesson plans · ${actCount || totals.curriculumActivities || 0} activities visible to admin.`,
+    );
+
+    const inboxState = window.__adminInboxLastLoadOk;
+    setCard(
+      "adminInbox",
+      inboxState === true ? "working" : (inboxState === false ? "attention" : "not-verified"),
+      inboxState === true
+        ? "Last admin inbox load succeeded."
+        : (inboxState === false ? "Last admin inbox load failed — open Messages to retry." : "Open Messages once to verify inbox loading."),
+    );
+
+    const emailEvents = Array.isArray(adminAnalyticsCache?.recentEmailEvents) ? adminAnalyticsCache.recentEmailEvents.length : null;
+    setCard(
+      "emailDelivery",
+      emailEvents === null ? "not-verified" : (emailEvents > 0 ? "working" : "attention"),
+      emailEvents === null
+        ? "Recent delivery history not exposed in analytics."
+        : `${emailEvents} recent email event(s) in analytics snapshot.`,
+    );
+
+    adminSystemHealthCache = { cards, checkedAt: new Date().toISOString() };
+    adminSystemHealthLoading = false;
+    renderAdminSystemHealth(target);
+  }
+
+  function paintLoading(target) {
+    target.innerHTML = adminAsyncShell("Running system health checks…");
   }
 
   function renderAdminAdvancedHome(target) {
@@ -384,11 +505,6 @@
         <div><p class="eyebrow">Settings</p><h3>Admin preferences</h3><p class="muted-copy">Device trust, lock admin, and workspace preferences.</p></div>
       </div>
       <div class="admin-home-grid">
-        <article class="admin-home-card">
-          <h4>Lock Admin</h4>
-          <p class="muted-copy">Revoke this device's admin unlock and require the access code again.</p>
-          <button type="button" class="ghost-button" id="adminLockButton">Lock Admin</button>
-        </article>
         <article class="admin-home-card">
           <h4>Media Library</h4>
           <p class="muted-copy">Manage site images (formerly under Settings).</p>
