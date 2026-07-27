@@ -208,10 +208,11 @@ async function runAdminAudit(browser, baseUrl, device) {
   try {
     await clickAdminGroup(page, "website");
     await page.locator('[data-admin-landing-tab="promo-codes"]').click();
-    await page.waitForTimeout(400);
+    await page.waitForSelector("#adminPromoCodeForm", { timeout: 15000 });
+    await page.evaluate(() => document.querySelector("#adminPromoCodeForm")?.setAttribute("novalidate", ""));
     await page.click('#adminPromoCodeForm button[type="submit"]');
     await page.waitForTimeout(300);
-    const err = await page.locator(".form-message").textContent().catch(() => "");
+    const err = await page.locator("#adminPromoCodesApp .form-message").textContent().catch(() => "");
     if (!/required/i.test(err || "")) failures.push("promo required-field message missing");
   } catch (e) { failures.push(`promo: ${e.message}`); }
 
@@ -229,6 +230,7 @@ async function runAdminAudit(browser, baseUrl, device) {
     const tabBefore = await page.evaluate(() => localStorage.getItem("llhAdminActiveSection"));
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitBootReady(page);
+    await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
     await page.waitForSelector(".admin-sidebar-btn", { timeout: 15000 });
     const tabAfter = await page.evaluate(() => localStorage.getItem("llhAdminActiveSection"));
     if (tabBefore !== tabAfter) failures.push("admin tab not preserved on refresh");
@@ -236,7 +238,7 @@ async function runAdminAudit(browser, baseUrl, device) {
 
   // Exit admin
   try {
-    await page.locator('[data-view="home"]').filter({ hasText: "Exit Admin" }).click();
+    await page.locator('.admin-sidebar-btn[data-view="home"]').click();
     await page.waitForSelector("#view-calendar.active-view, #view-home.active-view", { timeout: 15000 });
   } catch (e) { failures.push(`exit-admin: ${e.message}`); }
 
