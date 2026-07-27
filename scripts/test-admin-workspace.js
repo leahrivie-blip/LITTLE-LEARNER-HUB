@@ -271,7 +271,7 @@ async function runOwnerColdWalkthrough() {
     assert.equal(await page.evaluate(() => currentUser), testerEmail);
     pass("walkthrough: signed in as tester");
 
-    await page.waitForSelector("#pilotProviderNav:not([hidden])", { timeout: 15000 });
+    await page.waitForSelector("#pilotProviderNav:not([hidden])", { timeout: UI_TIMEOUT_MS });
     pass("walkthrough: Solo Home Daycare Provider view");
 
     await page.click("[data-sandbox-switch-role]");
@@ -284,7 +284,7 @@ async function runOwnerColdWalkthrough() {
     await page.waitForFunction(() => {
       const el = document.querySelector("#pilotParentNav");
       return el && !el.hidden;
-    }, null, { timeout: 15000 });
+    }, null, { timeout: UI_TIMEOUT_MS });
     pass("walkthrough: switched to Parent view");
 
     const feedbackText = `Admin workspace walkthrough ${Date.now()}`;
@@ -306,8 +306,8 @@ async function runOwnerColdWalkthrough() {
     pass("walkthrough: Admin sees feedback in inbox");
 
     await page.close();
-    await browser.close();
   } finally {
+    await browser?.close?.().catch(() => {});
     child.kill("SIGTERM");
     fs.rmSync(storePath, { force: true });
   }
