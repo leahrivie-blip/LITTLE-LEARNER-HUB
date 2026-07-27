@@ -22538,13 +22538,13 @@ function bindHomePublicChrome() {
   if (foundingAnnounce && foundingDismiss && !foundingDismiss.dataset.bound) {
     foundingDismiss.dataset.bound = "1";
     try {
-      if (sessionStorage.getItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY) === "1") {
+      if (localStorage.getItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY) === "1") {
         foundingAnnounce.hidden = true;
       }
     } catch { /* ignore */ }
     foundingDismiss.addEventListener("click", () => {
       foundingAnnounce.hidden = true;
-      try { sessionStorage.setItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY, "1"); } catch { /* ignore */ }
+      try { localStorage.setItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY, "1"); } catch { /* ignore */ }
     });
   }
   setHomePublicMenuOpen(false);
@@ -22691,10 +22691,40 @@ function homeLessonPreviewCardHtml(resource) {
   `;
 }
 
+function homeActivityPreviewDescription(resource) {
+  const activity = resource?._curriculumActivity || {};
+  const candidates = [
+    resource?.description,
+    activity.description,
+    resource?.objective,
+    activity.objective,
+    Array.isArray(activity.learningGoals) && activity.learningGoals.length
+      ? activity.learningGoals.slice(0, 2).join(" · ")
+      : "",
+    Array.isArray(resource?.learningDomains) && resource.learningDomains.length
+      ? `${resource.learningDomains.slice(0, 2).join(" · ")} focus`
+      : "",
+    resource?._curriculumParentTitle ? `From ${resource._curriculumParentTitle}` : "",
+    activity.parentTitle ? `From ${activity.parentTitle}` : "",
+    resource?.theme,
+    activity.parentTheme,
+  ].map((value) => String(value || "").trim()).filter(Boolean);
+  const seen = new Set();
+  for (const candidate of candidates) {
+    const key = candidate.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    return candidate;
+  }
+  const category = resource?.activityCategory || activity.activityCategory || "Activity";
+  const age = normalizeAgeGroup(resource?.age || activity.parentAge) || "all ages";
+  return `${category} for ${age}.`;
+}
+
 function homeActivityPreviewCardHtml(resource) {
   const category = resource.activityCategory || resource.tags?.[0] || "Activity";
-  const overview = String(resource.description || "").trim();
-  const shortOverview = overview.length > 120 ? `${overview.slice(0, 117)}…` : overview || "Play-based classroom activity.";
+  const overview = homeActivityPreviewDescription(resource);
+  const shortOverview = overview.length > 120 ? `${overview.slice(0, 117)}…` : overview;
   return `
     <article class="llh-preview-card" data-home-preview-resource="${escapeHtml(resource.id)}">
       <div class="llh-preview-meta">
@@ -22737,6 +22767,56 @@ async function openHomePublicPreview(resourceId, sectionId = "") {
       body.insertAdjacentHTML("beforeend", publicActivityPreviewCtaHtml());
     }
   }
+}
+
+function renderHomeHeroInventory(data) {
+  const host = document.querySelector("#homeHeroInventory");
+  if (!host) return;
+  const lessonPlanCount = Number(data?.lessonPlanCount || 0);
+  const activityCount = Number(data?.activityCount || 0);
+  if (!lessonPlanCount && !activityCount) {
+    host.setAttribute("data-state", "loading");
+    host.setAttribute("aria-busy", "true");
+    host.innerHTML = `<p class="llh-hero-inventory-loading">Loading live curriculum inventory…</p>`;
+    return;
+  }
+  const coverage = data?.ageCoverage || {};
+  const coverageLabels = [];
+  if (coverage.infant) coverageLabels.push("Infant");
+  if (coverage.toddler) coverageLabels.push("Toddler");
+  if (coverage.preschool) coverageLabels.push("Preschool");
+  host.setAttribute("data-state", "ready");
+  host.setAttribute("aria-busy", "false");
+  host.innerHTML = `
+    <ul class="llh-hero-inventory-list" aria-label="Published curriculum inventory">
+      <li><strong>${lessonPlanCount}</strong> published lesson plans</li>
+      <li><strong>${activityCount}</strong> published activities</li>
+      <li><span class="llh-hero-inventory-coverage">Coverage: <strong>${escapeHtml(coverageLabels.join(", ") || "All ages")}</strong></span></li>
+    </ul>
+  `;
+}
+
+let homeHeroInventoryPromise = null;
+
+async function refreshHomeHeroInventory() {
+  const host = document.querySelector("#homeHeroInventory");
+  if (!host || currentUser || !canUseLaunchBackend()) return;
+  if (homeHeroInventoryPromise) return homeHeroInventoryPromise;
+  homeHeroInventoryPromise = (async () => {
+    try {
+      const response = await fetch(`/api/public/home-inventory?t=${Date.now()}`, { cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) throw new Error(data?.error || "inventory_unavailable");
+      renderHomeHeroInventory(data);
+    } catch (error) {
+      host.setAttribute("data-state", "unavailable");
+      host.setAttribute("aria-busy", "false");
+      host.innerHTML = `<p class="llh-hero-inventory-fallback muted-copy">Live curriculum inventory is temporarily unavailable.</p>`;
+    } finally {
+      homeHeroInventoryPromise = null;
+    }
+  })();
+  return homeHeroInventoryPromise;
 }
 
 function renderHomePublicPreviews() {
@@ -22817,6 +22897,7 @@ function renderHome() {
   if (newThisMonth) newThisMonth.innerHTML = newItems.map(compactItem).join("");
   renderHomeFoundingOffer();
   renderHomePublicPreviews();
+  refreshHomeHeroInventory().catch(() => {});
   bindHomePublicChrome();
   const footerYear = document.querySelector("#llhFooterYear");
   if (footerYear) footerYear.textContent = String(new Date().getFullYear());
@@ -56730,7 +56811,7 @@ function initialViewFromLocation() {
 
 async function initializeAppView(options = {}) {
   const runId = ++appBootRunId;
-  if (!options.retry) {
+  if (!options.retry && viewNavigationGeneration === 0) {
     suppressBootLanding = false;
   }
   const bootNavGeneration = viewNavigationGeneration;

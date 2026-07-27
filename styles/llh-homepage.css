@@ -18,6 +18,7 @@
 
 body.home-view {
   --llh-home-nav-offset: 0px;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
 }
 
 body.home-view .landing-home {
@@ -405,11 +406,65 @@ body.llh-public-menu-open {
   font-size: 0.98rem;
 }
 
+.llh-hero-inventory {
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(123, 107, 181, 0.14);
+}
+
+.llh-hero-inventory[data-state="loading"] .llh-hero-inventory-loading,
+.llh-hero-inventory[data-state="unavailable"] .llh-hero-inventory-fallback {
+  margin: 0;
+  color: var(--llh-home-muted);
+  font-size: 0.92rem;
+}
+
+.llh-hero-inventory-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.llh-hero-inventory-list li {
+  margin: 0;
+  font-size: 0.95rem;
+  color: var(--llh-home-ink, #2a2a35);
+}
+
+.llh-hero-inventory-list strong {
+  color: var(--llh-primary-deep, #5a4d8a);
+}
+
+.llh-hero-inventory-coverage {
+  color: var(--llh-home-muted);
+}
+
 .landing-home .lp-hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 12px;
+  align-items: center;
+}
+
+.landing-home .lp-hero-actions .llh-hero-login-link {
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+  border: 0;
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.landing-home .lp-hero-actions .llh-hero-login-link:hover,
+.landing-home .lp-hero-actions .llh-hero-login-link:focus-visible {
+  color: var(--llh-primary, #7b6bb5);
 }
 
 .landing-home .lp-hero-founding-note a {
@@ -1123,8 +1178,14 @@ body.llh-public-menu-open {
     justify-content: center;
   }
 
-  .landing-home .lp-hero-actions [data-home-nav="lessons"] {
+  .landing-home .lp-hero-actions [data-home-nav="lessons"],
+  .landing-home .lp-hero-actions [data-checkout-plan="founding"] {
     flex: 1 1 100%;
+  }
+
+  .landing-home .lp-hero-actions .llh-hero-login-link {
+    flex: 1 1 100%;
+    text-align: center;
   }
 
   .llh-feature-grid {

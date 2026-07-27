@@ -78,6 +78,8 @@ async function stopServer(child) {
   });
 }
 
+const shellManifest = require("./llh-shell-manifest.js");
+
 function assertStaticGuards() {
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
@@ -86,8 +88,8 @@ function assertStaticGuards() {
   assert.ok(earlyIdx > 0, "index.html must early-register the service worker");
   assert.ok(appIdx > earlyIdx, "early SW register must appear before app.js script tag");
   assert.match(html, /serviceWorker\.register\("\/service-worker\.js"\)/);
-  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
-  assert.match(html, /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(sw, new RegExp(shellManifest.cacheName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(html, new RegExp(`app\\.js\\?v=${shellManifest.version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 }
 
 async function browserHomescreenBoot() {

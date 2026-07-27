@@ -11075,6 +11075,34 @@ async function handleAdminMembershipUpdate(request, response) {
   });
 }
 
+async function handlePublicHomeInventory(request, response) {
+  const store = peekStore();
+  const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const library = publicCurriculumLibraryDto(content, {
+    legacyFree: false,
+    mode: "curated",
+    siteContent: content,
+  }) || { lessonPlans: [], activities: [], updatedAt: "" };
+  const lessonPlans = Array.isArray(library.lessonPlans) ? library.lessonPlans : [];
+  const activities = Array.isArray(library.activities) ? library.activities : [];
+  const ageCoverage = { infant: false, toddler: false, preschool: false };
+  const markAgeCoverage = (ageText) => {
+    const age = String(ageText || "").toLowerCase();
+    if (age.includes("infant")) ageCoverage.infant = true;
+    if (age.includes("toddler")) ageCoverage.toddler = true;
+    if (age.includes("preschool")) ageCoverage.preschool = true;
+  };
+  lessonPlans.forEach((plan) => markAgeCoverage(plan.age));
+  activities.forEach((activity) => markAgeCoverage(activity.parentAge));
+  jsonResponse(response, 200, {
+    ok: true,
+    lessonPlanCount: lessonPlans.length,
+    activityCount: activities.length,
+    ageCoverage,
+    updatedAt: library.updatedAt || content.updatedAt || "",
+  });
+}
+
 async function handlePublicSiteContent(request, response, url) {
   const store = peekStore();
   const content = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
@@ -15851,6 +15879,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/legacy-auth-usage") return handleAdminLegacyAuthUsage(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/public/home-inventory") return await handlePublicHomeInventory(request, response);
     if (request.method === "GET" && url.pathname === "/api/site-content") return await handlePublicSiteContent(request, response, url);
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/lesson-covers/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));

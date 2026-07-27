@@ -210,8 +210,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   });
 
   await step("start free button", async () => {
-    await page.locator(".lp-hero-actions [data-action='start-free']").scrollIntoViewIfNeeded();
-    await page.click(".lp-hero-actions [data-action='start-free']");
+    await page.locator(".llh-public-nav-actions [data-action='start-free']").first().scrollIntoViewIfNeeded();
+    await page.locator(".llh-public-nav-actions [data-action='start-free']").first().click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
