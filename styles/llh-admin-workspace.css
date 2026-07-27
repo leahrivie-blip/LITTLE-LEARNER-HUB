@@ -1,0 +1,219 @@
+/* Admin-only workspace styles — scoped under #view-admin so signed-in/public UI is unaffected */
+
+#view-admin.admin-workspace-active .page-title {
+  display: none;
+}
+
+#view-admin .admin-workspace-shell {
+  display: grid;
+  grid-template-columns: minmax(200px, 240px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+#view-admin .admin-workspace-sidebar {
+  position: sticky;
+  top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(26, 43, 74, 0.06);
+}
+
+#view-admin .admin-sidebar-brand {
+  margin: 0 0 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line, #e6e8ef);
+}
+
+#view-admin .admin-sidebar-brand strong {
+  display: block;
+  font-size: 1rem;
+}
+
+#view-admin .admin-sidebar-brand span {
+  color: var(--muted, #5f5f70);
+  font-size: 0.85rem;
+}
+
+#view-admin .admin-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#view-admin .admin-sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+#view-admin .admin-sidebar-btn:hover {
+  background: rgba(123, 107, 181, 0.08);
+}
+
+#view-admin .admin-sidebar-btn.active {
+  background: rgba(123, 107, 181, 0.14);
+  border-color: rgba(123, 107, 181, 0.22);
+  font-weight: 600;
+}
+
+#view-admin .admin-sidebar-btn .admin-nav-badge {
+  margin-left: auto;
+  min-width: 1.4rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #d94f4f;
+  color: #fff;
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+#view-admin .admin-sidebar-footer {
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line, #e6e8ef);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+#view-admin .admin-workspace-main {
+  min-width: 0;
+}
+
+#view-admin .admin-sub-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+#view-admin .admin-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+#view-admin .admin-home-card,
+#view-admin .admin-landing-card {
+  padding: 16px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 14px;
+  background: #fff;
+}
+
+#view-admin .admin-home-card h4,
+#view-admin .admin-landing-card h4 {
+  margin: 6px 0 8px;
+}
+
+#view-admin .admin-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+#view-admin .admin-landing-card button,
+#view-admin .admin-home-card button {
+  margin-top: 10px;
+}
+
+#view-admin .admin-users-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 12px;
+}
+
+#view-admin .admin-users-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+
+#view-admin .admin-users-table th,
+#view-admin .admin-users-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line, #e6e8ef);
+  text-align: left;
+  vertical-align: top;
+}
+
+#view-admin .admin-users-table tbody tr:hover {
+  background: rgba(123, 107, 181, 0.05);
+}
+
+#view-admin .admin-users-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 12px;
+}
+
+#view-admin .admin-async-state {
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line, #e6e8ef);
+  background: #fafbff;
+}
+
+#view-admin .admin-async-state.is-error {
+  border-color: #efb4b4;
+  background: #fff7f7;
+}
+
+#view-admin .admin-health-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+#view-admin .admin-health-card {
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, #e6e8ef);
+}
+
+#view-admin .admin-health-card[data-status="working"] {
+  border-color: #9fd5b0;
+  background: #f4fff7;
+}
+
+#view-admin .admin-health-card[data-status="attention"] {
+  border-color: #f0c27b;
+  background: #fffaf2;
+}
+
+#view-admin .admin-health-card[data-status="disabled"],
+#view-admin .admin-health-card[data-status="not-configured"] {
+  border-color: #d5d8e2;
+  background: #f7f8fb;
+}
+
+#view-admin .admin-notifications-panel {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  #view-admin .admin-workspace-shell {
+    grid-template-columns: 1fr;
+  }
+
+  #view-admin .admin-workspace-sidebar {
+    position: static;
+  }
+}

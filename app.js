@@ -5074,35 +5074,46 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
-const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "dashboard";
+const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
 // Old Settings → Homepage tab removed; Site Editor is the only homepage editor. Redirect stale preference.
-const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage" ? "images" : adminActiveSectionTabRaw;
-let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNormalized) ? adminActiveSectionTabNormalized : "dashboard";
+const adminActiveSectionTabNormalized = adminActiveSectionTabRaw === "homepage" ? "images" : (adminActiveSectionTabRaw === "dashboard" ? "admin-home" : adminActiveSectionTabRaw);
+let adminActiveSectionTab = adminValidSectionTabs.has(adminActiveSectionTabNormalized) ? adminActiveSectionTabNormalized : "admin-home";
 if (adminActiveSectionTab === "lesson-plans") adminActiveSectionTab = "curriculum-lesson-plans";
 if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-activities";
 
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
-  { id: "dashboard", icon: "🏠", label: "Dashboard",  tabs: ["dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails"], defaultTab: "dashboard" },
-  { id: "messages",  icon: "💬", label: "Messages",   tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
-  { id: "content",   icon: "📚", label: "Content",    tabs: ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "resources"], defaultTab: "curriculum-lesson-plans" },
-  { id: "visibility",icon: "👁", label: "Visibility", tabs: ["visibility"], defaultTab: "visibility" },
-  { id: "users",     icon: "👥", label: "Users",      tabs: ["users", "user-health", "stripe-backfill"], defaultTab: "users" },
-  { id: "settings",  icon: "⚙️", label: "Settings",   tabs: ["images"], defaultTab: "images" },
-  { id: "site-editor", icon: "✏️", label: "Site Editor", tabs: ["hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog"], defaultTab: "hero" },
-  { id: "ai",        icon: "🤖", label: "AI",         tabs: ["ai-tools", "prompts", "settings", "usage", "ai-testing"], defaultTab: "ai-tools" },
+  { id: "admin-home", icon: "🏠", label: "Admin Home", tabs: ["admin-home", "admin-notifications"], defaultTab: "admin-home" },
+  { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
+  { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home"], defaultTab: "billing-home" },
+  { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
+  { id: "messages", icon: "💬", label: "Messages", tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
+  { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
+  { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "usage", "settings"], defaultTab: "ai-home" },
+  { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
+  { id: "advanced", icon: "🔧", label: "Advanced", tabs: ["advanced-home", "dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails", "visibility", "resources", "stripe-backfill", "prompts", "ai-testing", "admin-settings"], defaultTab: "advanced-home" },
 ];
 const adminGroupForTab = {
-  "dashboard":   "dashboard",
-  "analytics":   "dashboard",
-  "support":     "dashboard",
-  "feedback":    "dashboard",
-  "feature-requests": "dashboard",
-  "bug-reports": "dashboard",
-  "emails":      "dashboard",
+  "admin-home": "admin-home",
+  "admin-notifications": "admin-home",
+  "billing-home": "billing",
+  "content-home": "content",
+  "website-home": "website",
+  "ai-home": "ai",
+  "system-health": "system-health",
+  "advanced-home": "advanced",
+  "admin-settings": "advanced",
+  "taxonomy-audit": "content",
+  "dashboard": "advanced",
+  "analytics": "advanced",
+  "support": "advanced",
+  "feedback": "advanced",
+  "feature-requests": "advanced",
+  "bug-reports": "advanced",
+  "emails": "advanced",
   "admin-inbox": "messages",
   "messages-compose": "messages",
   "messages-conversations": "messages",
@@ -5111,82 +5122,98 @@ const adminGroupForTab = {
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
   "curriculum-resources": "content",
-  "forms":       "content",
-  "printables":  "content",
-  "menus":       "content",
-  "observations":"content",
+  "forms": "content",
+  "printables": "content",
+  "menus": "content",
+  "observations": "content",
   "resource-categories": "content",
-  "reviews":     "content",
-  "founder":     "content",
-  "resources":   "content",
-  "visibility":  "visibility",
-  "users":       "users",
+  "reviews": "content",
+  "founder": "content",
+  "resources": "advanced",
+  "visibility": "advanced",
+  "users": "users",
   "user-health": "users",
-  "stripe-backfill": "users",
-  "images":      "settings",
-  "pricing":     "site-editor",
-  "free-plan":   "site-editor",
-  "faqs":        "site-editor",
-  "announcement":"site-editor","in-app-announcements":"site-editor","promo-codes":"site-editor",
-  "upgrade-msg": "site-editor",
-  "changelog":   "site-editor",
-  "hero":        "site-editor",
-  "trust":       "site-editor",
-  "journey":     "site-editor",
-  "reviews-cta": "site-editor",
-  "founding":    "site-editor",
-  "ai-testing":  "ai",
-  "ai-tools":    "ai",
-  "prompts":     "ai",
-  "settings":    "ai",
-  "usage":       "ai",
+  "stripe-backfill": "advanced",
+  "images": "website",
+  "pricing": "website",
+  "free-plan": "website",
+  "faqs": "website",
+  "announcement": "website",
+  "in-app-announcements": "website",
+  "promo-codes": "website",
+  "upgrade-msg": "website",
+  "changelog": "website",
+  "hero": "website",
+  "trust": "website",
+  "journey": "website",
+  "reviews-cta": "website",
+  "founding": "website",
+  "ai-testing": "advanced",
+  "ai-tools": "ai",
+  "prompts": "advanced",
+  "settings": "ai",
+  "usage": "ai",
 };
 const adminTabLabels = {
-  "dashboard":   "Overview",
-  "analytics":   "Analytics",
-  "support":     "Support",
-  "feedback":    "Feedback",
+  "admin-home": "Admin Home",
+  "admin-notifications": "Alerts Inbox",
+  "billing-home": "Billing Overview",
+  "content-home": "Content Home",
+  "website-home": "Website Home",
+  "ai-home": "AI Home",
+  "system-health": "System Health",
+  "advanced-home": "Advanced Home",
+  "admin-settings": "Settings",
+  "taxonomy-audit": "Taxonomy Audit",
+  "dashboard": "Full Dashboard",
+  "analytics": "Analytics",
+  "support": "Support",
+  "feedback": "Feedback",
   "feature-requests": "Feature Requests",
   "bug-reports": "Bug Reports",
-  "emails":      "Emails",
+  "emails": "Emails",
   "admin-inbox": "Admin Inbox",
   "messages-compose": "Message Someone",
   "messages-conversations": "Conversations",
   "message-templates": "Templates",
   "automations": "Automations",
-  "curriculum-lesson-plans": "Play-Based Lessons",
-  "curriculum-activities": "Curriculum Activities",
-  "curriculum-resources": "Curriculum Resources",
-  "forms":       "Forms Library (not legacy uploads)",
-  "printables":  "Printables Library (not legacy uploads)",
-  "menus":       "Menu Center",
-  "observations":"Observation Packs",
+  "curriculum-lesson-plans": "Lesson Plans",
+  "curriculum-activities": "Activities",
+  "curriculum-resources": "Curriculum",
+  "forms": "Forms and Templates",
+  "printables": "Printables and Resources",
+  "menus": "Menus",
+  "observations": "Observation Packs",
   "resource-categories": "Resource Categories",
-  "reviews":     "Reviews",
-  "founder":     "Founder",
-  "resources":   "Legacy File Uploads",
-  "visibility":  "Visibility",
-  "users":       "Users",
+  "reviews": "Reviews",
+  "founder": "Founder Content",
+  "resources": "Legacy File Uploads",
+  "visibility": "Visibility",
+  "users": "Users",
   "user-health": "User Health",
   "stripe-backfill": "Stripe Backfill",
-  "images":      "Images",
-  "pricing":     "Pricing",
-  "free-plan":   "Free Plan Access",
-  "faqs":        "FAQs",
-  "announcement":"Announcement","in-app-announcements":"In-App Announcements","promo-codes":"Promo Codes",
-  "upgrade-msg": "Upgrade Msg",
-  "hero":        "Hero",
-  "trust":       "Trust & Showcase",
-  "journey":     "Journey & Why",
+  "images": "Media Library",
+  "pricing": "Pricing and Founding",
+  "free-plan": "Free Plan Access",
+  "faqs": "FAQs",
+  "announcement": "Announcements",
+  "in-app-announcements": "In-App Announcements",
+  "promo-codes": "Promo Codes",
+  "upgrade-msg": "Upgrade Messages",
+  "hero": "Homepage",
+  "trust": "Trust & Showcase",
+  "journey": "Journey & Why",
   "reviews-cta": "Reviews & CTA",
-  "founding":    "Founding",
-  "ai-testing":  "AI Testing",
-  "ai-tools":    "AI Tools",
-  "prompts":     "Prompt Manager",
-  "settings":    "AI Settings",
-  "usage":       "Usage Monitor",
+  "founding": "Founding",
+  "changelog": "Changelog",
+  "ai-testing": "AI Testing",
+  "ai-tools": "Generate Content",
+  "prompts": "Prompt Manager",
+  "settings": "Safety and Limits",
+  "usage": "Usage",
 };
-let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "dashboard";
+let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
+const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
    Desktop side-nav remains from 1101px up (covers iPad portrait/landscape). */
 const mobileNavMaxWidth = 1100;
@@ -12477,7 +12504,7 @@ function renderAdminNotificationCenter() {
   const panel = document.querySelector("#adminNotificationsPanel");
   const target = document.querySelector("#adminNotificationCenter");
   if (!panel || !target) return;
-  panel.hidden = !isAdminUnlocked();
+  panel.hidden = true;
   if (!isAdminUnlocked()) return;
   const items = adminNotificationState.items || [];
   if (!adminNotificationState.loaded) {
@@ -35774,6 +35801,11 @@ function adminSession() {
   return readSavedJson("llhAdminSession", null);
 }
 
+window.adminSession = adminSession;
+window.setAdminSectionTab = setAdminSectionTab;
+window.startAdminMessageToUser = startAdminMessageToUser;
+window.openAdminUserProfile = openAdminUserProfile;
+
 function isLocalPreview() {
   return window.location.protocol === "file:" || ["4173", "4179"].includes(window.location.port);
 }
@@ -39912,20 +39944,40 @@ function setAdminGroup(groupId) {
 function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
-  const currentGroup = adminActiveGroup || "dashboard";
+  const currentGroup = adminActiveGroup || "admin-home";
   const group = adminGroups.find((g) => g.id === currentGroup);
   const subTabs = group && group.tabs.length > 1 ? group.tabs : null;
+  const unread = Number(adminNotificationState.unreadCount || 0);
+  const sidebarItems = [
+    { id: "admin-home", icon: "🏠", label: "Admin Home" },
+    { id: "users", icon: "👥", label: "Users" },
+    { id: "billing", icon: "💳", label: "Billing" },
+    { id: "content", icon: "📚", label: "Content" },
+    { id: "messages", icon: "💬", label: "Messages" },
+    { id: "website", icon: "🌐", label: "Website" },
+    { id: "ai", icon: "🤖", label: "AI Tools" },
+    { id: "system-health", icon: "💚", label: "System Health" },
+    { id: "advanced", icon: "🔧", label: "Advanced" },
+  ];
   nav.innerHTML = `
-    <div class="admin-group-nav">
-      <button class="ghost-button admin-back-btn" data-view="home" type="button">← Home</button>
-      <div class="admin-group-grid">
-        ${adminGroups.map((g) => `
-          <button class="admin-group-btn${g.id === currentGroup ? " active" : ""}" data-admin-group="${g.id}" type="button" aria-pressed="${g.id === currentGroup}">
-            <span class="admin-group-icon" aria-hidden="true">${g.icon}</span>
-            <span class="admin-group-label">${g.label}</span>
-          </button>
-        `).join("")}
-      </div>
+    <div class="admin-sidebar-brand">
+      <strong>Little Learner Hub</strong>
+      <span>Owner workspace</span>
+    </div>
+    <div class="admin-sidebar-nav" role="navigation" aria-label="Admin sidebar">
+      ${sidebarItems.map((item) => `
+        <button class="admin-sidebar-btn${item.id === currentGroup ? " active" : ""}" data-admin-group="${item.id}" type="button" aria-pressed="${item.id === currentGroup}">
+          <span aria-hidden="true">${item.icon}</span>
+          <span>${item.label}</span>
+          ${item.id === "admin-home" && unread ? `<span class="admin-nav-badge" id="adminSidebarNotifBadge">${unread > 99 ? "99+" : unread}</span>` : ""}
+        </button>
+      `).join("")}
+    </div>
+    <div class="admin-sidebar-footer">
+      <button class="ghost-button admin-sidebar-btn" type="button" data-admin-open-notifications>
+        Alerts${unread ? ` (${unread})` : ""}
+      </button>
+      <button class="ghost-button admin-sidebar-btn" type="button" data-view="home">Exit Admin</button>
     </div>
     ${subTabs ? `
       <div class="admin-sub-nav" role="tablist" aria-label="${group.label} sections">
@@ -39935,6 +39987,9 @@ function renderAdminSectionNav() {
       </div>
     ` : ""}
   `;
+  if (typeof window.AdminWorkspace?.updateSidebarNotificationBadge === "function") {
+    window.AdminWorkspace.updateSidebarNotificationBadge();
+  }
 }
 
 const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "images"];
@@ -39942,8 +39997,10 @@ const adminCmSectionIds = ["curriculum-lesson-plans", "curriculum-activities", "
 function applyAdminSectionVisibility() {
   const tab = adminActiveSectionTab;
   const isCmSection = adminCmSectionIds.includes(tab);
+  const isLandingTab = adminWorkspaceLandingTabs.has(tab);
 
   const topSelectors = [
+    ".admin-workspace-landing-panel",
     ".admin-content-manager-panel",
     ".admin-layout",
     ".admin-owner-panel",
@@ -39969,12 +40026,66 @@ function applyAdminSectionVisibility() {
     ".admin-changelog-panel",
     ".admin-feature-requests-panel",
     ".admin-bug-reports-panel",
+    ".admin-notifications-panel",
   ];
 
   topSelectors.forEach((sel) => {
     const el = document.querySelector(sel);
     if (el) el.hidden = true;
   });
+
+  const notifPanel = document.querySelector("#adminNotificationsPanel");
+  if (notifPanel) {
+    notifPanel.hidden = true;
+    if (notifPanel.hidden && notifPanel.parentElement?.id === "adminWorkspaceLandingApp") {
+      const main = document.querySelector("#adminWorkspaceMain");
+      if (main && !main.contains(notifPanel)) main.insertBefore(notifPanel, main.firstChild);
+    }
+  }
+
+  if (isLandingTab) {
+    const landingPanel = document.querySelector(".admin-workspace-landing-panel");
+    const landingApp = document.querySelector("#adminWorkspaceLandingApp");
+    if (landingPanel) landingPanel.hidden = false;
+    const ws = window.AdminWorkspace;
+    if (landingApp && ws) {
+      if (tab === "admin-home") ws.renderAdminHomeWorkspace(landingApp);
+      else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
+      else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
+      else if (tab === "website-home") ws.renderAdminWebsiteHome(landingApp);
+      else if (tab === "ai-home") ws.renderAdminAiHome(landingApp);
+      else if (tab === "billing-home") ws.renderAdminBillingHome(landingApp);
+      else if (tab === "system-health") ws.renderAdminSystemHealth(landingApp);
+      else if (tab === "advanced-home") ws.renderAdminAdvancedHome(landingApp);
+      else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
+      else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
+    }
+    if (tab === "admin-home" && notifPanel) {
+      notifPanel.hidden = true;
+      if (landingApp) {
+        let inlineNotif = landingApp.querySelector("#adminHomeNotificationsInline");
+        if (!inlineNotif) {
+          inlineNotif = document.createElement("div");
+          inlineNotif.id = "adminHomeNotificationsInline";
+          inlineNotif.className = "admin-notifications-panel";
+          landingApp.appendChild(inlineNotif);
+        }
+        inlineNotif.innerHTML = `<div id="adminNotificationCenterInline"></div>`;
+        const target = inlineNotif.querySelector("#adminNotificationCenterInline");
+        if (target && adminNotificationState.loaded) {
+          target.innerHTML = document.querySelector("#adminNotificationCenter")?.innerHTML || "";
+        } else if (target) {
+          target.innerHTML = `<p class="muted-copy">Loading owner alerts…</p>`;
+          fetchAdminNotificationCenter().then(() => {
+            renderAdminNotificationCenter();
+            const source = document.querySelector("#adminNotificationCenter");
+            if (source && target) target.innerHTML = source.innerHTML;
+          });
+        }
+      }
+    }
+    return;
+  }
 
   if (isCmSection) {
     const cm = document.querySelector(".admin-content-manager-panel");
@@ -40643,6 +40754,10 @@ function adminUserCard(account) {
 function renderAdminUsersDashboard() {
   const target = document.querySelector("#adminUsersApp");
   if (!target || !isAdminUnlocked()) return;
+  if (typeof window.AdminWorkspace?.renderAdminUsersCompactTable === "function") {
+    window.AdminWorkspace.renderAdminUsersCompactTable(target);
+    return;
+  }
   // Prefer backend users (authoritative); merge any local-only accounts on top.
   const serverUsers = (adminAnalyticsCache?.users || []);
   const serverEmails = new Set(serverUsers.map((u) => u.email).filter(Boolean));
@@ -42901,6 +43016,9 @@ function closeAdminLessonImportModal() {
 
 function renderAdminDashboard() {
   if (!renderAdminAccessShell()) return;
+  if (typeof window.AdminWorkspace?.activateWorkspaceShell === "function") {
+    window.AdminWorkspace.activateWorkspaceShell();
+  }
   const table = document.querySelector("#adminContentTable");
   const summary = document.querySelector("#adminSummary");
   if (!table || !summary) return;
@@ -42941,6 +43059,7 @@ function renderAdminDashboard() {
     fetchAdminNotificationCenter()
       .then(() => {
         renderAdminNotificationCenter();
+        renderAdminSectionNav();
         refreshAdminNavBadge();
         const openBtn = document.querySelector("#adminOpenNotificationsButton");
         if (openBtn) {
@@ -52237,7 +52356,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     const action = adminQuick.getAttribute("data-admin-quick") || "";
     if (action === "notifications" || action === "install") {
-      document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (action === "notifications") setAdminSectionTab("admin-notifications");
       if (action === "install" && typeof openInstallAppModal === "function") openInstallAppModal("admin-quick");
       else fetchAdminNotificationCenter().then(() => renderAdminNotificationCenter());
       return;
@@ -52260,13 +52379,7 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (action === "billing") {
-      setAdminSectionTab("dashboard");
-      adminOwnerSectionsOpen.billing = true;
-      persistAdminOwnerSectionsOpen();
-      renderAdminOwnerOverview();
-      requestAnimationFrame(() => {
-        document.querySelector("#adminOwnerBilling")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      });
+      setAdminSectionTab("billing-home");
       return;
     }
     if (action === "upload-lesson" || action === "publish-drafts" || action === "create-theme") {
@@ -52298,7 +52411,11 @@ document.addEventListener("click", async (event) => {
       return;
     }
     if (action === "ai-tools") {
-      setAdminSectionTab("ai-tools");
+      setAdminSectionTab("ai-home");
+      return;
+    }
+    if (action === "homepage") {
+      setAdminSectionTab("hero");
       return;
     }
   }
@@ -54046,18 +54163,49 @@ document.addEventListener("submit", async (event) => {
   await handleAdminAiToolsGenerate(event.target);
 });
 
+let adminPromoSaveInFlight = false;
 document.addEventListener("submit", async (event) => {
   if (!event.target.matches("#adminPromoCodeForm")) return;
   event.preventDefault();
+  if (adminPromoSaveInFlight) return;
   const form = event.target;
+  const submitBtn = form.querySelector("button[type='submit']");
   const fd = new FormData(form);
   adminPromoCodesState.error = "";
   adminPromoCodesState.success = "";
+  const code = String(fd.get("code") || "").trim();
+  if (!code) {
+    adminPromoCodesState.error = "Promo code is required.";
+    renderAdminPromoCodesSection();
+    return;
+  }
+  const trialDays = Number(fd.get("trialDays") || 0);
+  if (!trialDays || trialDays < 1) {
+    adminPromoCodesState.error = "Free days must be at least 1.";
+    renderAdminPromoCodesSection();
+    return;
+  }
+  const expiresRaw = String(fd.get("expiresAt") || "").trim();
+  if (expiresRaw) {
+    const expiresDate = new Date(expiresRaw);
+    if (Number.isNaN(expiresDate.getTime()) || expiresDate.getTime() <= Date.now()) {
+      adminPromoCodesState.error = "Expiration must be a future date.";
+      renderAdminPromoCodesSection();
+      return;
+    }
+  }
+  const maxRaw = String(fd.get("maxRedemptions") || "").trim();
+  if (maxRaw && Number(maxRaw) < 1) {
+    adminPromoCodesState.error = "Max redemptions must be at least 1 when set.";
+    renderAdminPromoCodesSection();
+    return;
+  }
+  adminPromoSaveInFlight = true;
+  if (submitBtn) submitBtn.disabled = true;
   try {
-    const expiresRaw = String(fd.get("expiresAt") || "").trim();
     await saveAdminPromoCode({
-      code: fd.get("code"),
-      trialDays: Number(fd.get("trialDays") || 0),
+      code,
+      trialDays,
       label: fd.get("label"),
       maxRedemptions: fd.get("maxRedemptions"),
       expiresAt: expiresRaw ? new Date(expiresRaw).toISOString() : "",
@@ -54071,6 +54219,9 @@ document.addEventListener("submit", async (event) => {
   } catch (error) {
     adminPromoCodesState.error = error.message || "Could not save promo code.";
     renderAdminPromoCodesSection();
+  } finally {
+    adminPromoSaveInFlight = false;
+    if (submitBtn) submitBtn.disabled = false;
   }
 });
 
@@ -54325,6 +54476,11 @@ document.addEventListener("click", async (event) => {
     const groupId = groupBtn.dataset.adminGroup;
     if (groupId !== adminActiveGroup && !confirmDiscardAdminLessonChanges()) return;
     setAdminGroup(groupId);
+    return;
+  }
+
+  if (event.target.closest("[data-admin-open-notifications]")) {
+    setAdminSectionTab("admin-notifications");
     return;
   }
 

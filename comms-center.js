@@ -1442,10 +1442,20 @@
     } else if (body && typeof body === "object" && !(body instanceof FormData)) {
       body = JSON.stringify({ adminToken: token, ...body });
     }
-    const res = await fetch(finalUrl, { ...options, method, headers, body, cache: "no-store" });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
-    return data;
+    const timeoutMs = Number(options.timeoutMs) || 20000;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const res = await fetch(finalUrl, { ...options, method, headers, body, cache: "no-store", signal: controller.signal });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      return data;
+    } catch (error) {
+      if (error?.name === "AbortError") throw new Error("Request timed out. Please try again.");
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function adminPanelShell(title, bodyHtml, eyebrow = "Admin") {
@@ -1671,56 +1681,115 @@
 
   async function renderAdminInbox(container) {
     if (!container) return;
-    container.innerHTML = `<p class="messages-loading">Loading admin inbox…</p>`;
     let items = [];
     let summary = { total: 0, support: 0, feature: 0, bug: 0, feedback: 0, message: 0 };
-    try {
-      const data = await adminFetchJson("/api/admin/inbox");
-      items = Array.isArray(data.items) ? data.items : [];
-      summary = data.summary || summary;
-    } catch (error) {
-      container.innerHTML = adminPanelShell("Admin Inbox", `
-        <div class="empty-state">${escapeHtml(error.message || "Could not load inbox.")}</div>
-      `);
-      return;
+    let loadError = "";
+    let selectedId = "";
+    let kindFilter = "all";
+    let searchQuery = "";
+    let conversationHtml = "";
+    let conversationLoading = false;
+    let conversationError = "";
+    const pageSize = 20;
+    let page = 0;
+
+    function inboxErrorHtml(message) {
+      return adminPanelShell("Admin Inbox", `
+        <div class="admin-async-state is-error" role="alert">
+          <p><strong>${escapeHtml(message || "Could not load inbox.")}</strong></p>
+          <p class="muted-copy">Check your connection or open System Health. You can retry without refreshing the page.</p>
+          <button type="button" class="primary-button" data-inbox-retry>Retry</button>
+        </div>
+      `, "Messaging");
     }
 
-    let selectedId = items[0]?.id || "";
-    let kindFilter = "all";
+    async function loadInboxItems() {
+      container.innerHTML = adminPanelShell("Admin Inbox", `
+        <div class="admin-async-state" role="status">
+          <p><strong>Loading admin inbox…</strong></p>
+          <p class="muted-copy">This should finish within a few seconds.</p>
+        </div>
+      `, "Messaging");
+      loadError = "";
+      try {
+        const data = await adminFetchJson("/api/admin/inbox");
+        items = Array.isArray(data.items) ? data.items : [];
+        summary = data.summary || summary;
+        selectedId = items[0]?.id || "";
+      } catch (error) {
+        loadError = error.message || "Could not load inbox.";
+        container.innerHTML = inboxErrorHtml(loadError);
+        container.querySelector("[data-inbox-retry]")?.addEventListener("click", () => loadInboxItems().then(() => paint()));
+        return false;
+      }
+      return true;
+    }
+
+    async function loadConversation(selected) {
+      conversationHtml = "";
+      conversationError = "";
+      if (!selected?.email) return;
+      conversationLoading = true;
+      paint();
+      try {
+        const convo = await adminFetchJson(
+          `/api/admin/messages/conversation?userEmail=${encodeURIComponent(selected.email)}`,
+        );
+        const messages = Array.isArray(convo.messages) ? convo.messages.slice(-8) : [];
+        conversationHtml = messages.length
+          ? `<div class="admin-inbox-thread">
+              <h4>Conversation</h4>
+              ${messages.map((m) => `
+                <article class="admin-inbox-thread-item ${m.senderType === "admin" ? "from-admin" : "from-user"}">
+                  <strong>${escapeHtml(m.senderType === "admin" ? "You" : (selected.name || selected.email))}</strong>
+                  <p>${escapeHtml(m.body || m.subject || "")}</p>
+                  <small>${escapeHtml(m.createdAt ? messagingRelativeTime(m.createdAt) : "")}</small>
+                </article>
+              `).join("")}
+            </div>`
+          : `<p class="muted-copy">No conversation history yet.</p>`;
+      } catch (error) {
+        conversationError = error.message || "Conversation history unavailable.";
+        conversationHtml = `<div class="admin-async-state is-error"><p>${escapeHtml(conversationError)}</p><button type="button" class="ghost-button" data-inbox-conversation-retry>Retry conversation</button></div>`;
+      } finally {
+        conversationLoading = false;
+      }
+    }
+
+    function visibleItems() {
+      let visible = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
+      const q = searchQuery.trim().toLowerCase();
+      if (q) {
+        visible = visible.filter((item) => {
+          const hay = `${item.title || ""} ${item.name || ""} ${item.email || ""} ${item.preview || ""}`.toLowerCase();
+          return hay.includes(q);
+        });
+      }
+      return visible;
+    }
 
     async function paint(selectedOverride) {
       if (selectedOverride) selectedId = selectedOverride;
-      const visible = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
+      if (loadError) {
+        container.innerHTML = inboxErrorHtml(loadError);
+        container.querySelector("[data-inbox-retry]")?.addEventListener("click", () => loadInboxItems().then(() => paint()));
+        return;
+      }
+      const visible = visibleItems();
+      const totalPages = Math.max(1, Math.ceil(visible.length / pageSize));
+      if (page >= totalPages) page = Math.max(0, totalPages - 1);
+      const pageItems = visible.slice(page * pageSize, (page + 1) * pageSize);
       if (selectedId && !visible.some((i) => i.id === selectedId)) {
         selectedId = visible[0]?.id || "";
       }
       const selected = visible.find((i) => i.id === selectedId) || null;
-      let conversationHtml = "";
-      if (selected?.email && (selected.kind === "message" || selected.email)) {
-        try {
-          const convo = await adminFetchJson(
-            `/api/admin/messages/conversation?userEmail=${encodeURIComponent(selected.email)}`,
-          );
-          const messages = Array.isArray(convo.messages) ? convo.messages.slice(-8) : [];
-          conversationHtml = messages.length
-            ? `<div class="admin-inbox-thread">
-                <h4>Conversation</h4>
-                ${messages.map((m) => `
-                  <article class="admin-inbox-thread-item ${m.senderType === "admin" ? "from-admin" : "from-user"}">
-                    <strong>${escapeHtml(m.senderType === "admin" ? "You" : (selected.name || selected.email))}</strong>
-                    <p>${escapeHtml(m.body || m.subject || "")}</p>
-                    <small>${escapeHtml(m.createdAt ? messagingRelativeTime(m.createdAt) : "")}</small>
-                  </article>
-                `).join("")}
-              </div>`
-            : `<p class="muted-copy">No conversation history yet.</p>`;
-        } catch {
-          conversationHtml = `<p class="muted-copy">Conversation history unavailable.</p>`;
-        }
-      }
 
       container.innerHTML = adminPanelShell("Admin Inbox", `
         <p class="muted-copy">New support, bug, feature, and feedback submissions plus unread member messages — in one place.</p>
+        <label class="search-wrap admin-search">
+          <span>Search conversations</span>
+          <input type="search" data-inbox-search placeholder="Search title, name, or email" value="${escapeHtml(searchQuery)}" />
+        </label>
         <div class="admin-inbox-summary">
           <button type="button" class="comms-admin-tab${kindFilter === "all" ? " active" : ""}" data-inbox-kind="all">All (${summary.total || items.length})</button>
           <button type="button" class="comms-admin-tab${kindFilter === "message" ? " active" : ""}" data-inbox-kind="message">Messages (${summary.message || 0})</button>
@@ -1731,7 +1800,7 @@
         </div>
         <div class="admin-inbox-layout">
           <div class="admin-inbox-list" role="list">
-            ${visible.length ? visible.map((item) => `
+            ${pageItems.length ? pageItems.map((item) => `
               <button type="button" class="admin-inbox-item${item.id === selectedId ? " is-selected" : ""}" data-inbox-id="${escapeHtml(item.id)}" role="listitem">
                 <span class="status-pill">${escapeHtml(item.kindLabel || item.kind)}</span>
                 <strong>${escapeHtml(item.title || "Untitled")}</strong>
@@ -1756,8 +1825,16 @@
                   <button type="button" class="ghost-button" data-inbox-user="${escapeHtml(selected.email)}">View user</button>
                 ` : ""}
               </div>
-              ${conversationHtml}
+              ${conversationLoading ? `<p class="muted-copy">Loading conversation…</p>` : conversationHtml}
             ` : `<div class="empty-state">Select an item to review.</div>`}
+          </div>
+        </div>
+        <div class="admin-users-pagination">
+          <span>Page ${page + 1} of ${totalPages}</span>
+          <div class="account-actions-row">
+            <button type="button" class="ghost-button" data-inbox-page="prev" ${page <= 0 ? "disabled" : ""}>Previous</button>
+            <button type="button" class="ghost-button" data-inbox-page="next" ${page >= totalPages - 1 ? "disabled" : ""}>Next</button>
+            <button type="button" class="ghost-button" data-inbox-retry>Refresh inbox</button>
           </div>
         </div>
       `, "Messaging");
@@ -1765,11 +1842,33 @@
       container.querySelectorAll("[data-inbox-kind]").forEach((btn) => {
         btn.addEventListener("click", () => {
           kindFilter = btn.getAttribute("data-inbox-kind") || "all";
+          page = 0;
           paint();
         });
       });
       container.querySelectorAll("[data-inbox-id]").forEach((btn) => {
-        btn.addEventListener("click", () => paint(btn.getAttribute("data-inbox-id") || ""));
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-inbox-id") || "";
+          selectedId = id;
+          const sel = visibleItems().find((i) => i.id === id);
+          if (sel?.email) await loadConversation(sel);
+          else paint(id);
+        });
+      });
+      container.querySelector("[data-inbox-search]")?.addEventListener("input", (event) => {
+        searchQuery = event.target.value;
+        page = 0;
+        paint();
+      });
+      container.querySelector("[data-inbox-page='prev']")?.addEventListener("click", () => { page -= 1; paint(); });
+      container.querySelector("[data-inbox-page='next']")?.addEventListener("click", () => { page += 1; paint(); });
+      container.querySelectorAll("[data-inbox-retry]").forEach((btn) => {
+        btn.addEventListener("click", () => loadInboxItems().then(() => paint()));
+      });
+      container.querySelector("[data-inbox-conversation-retry]")?.addEventListener("click", async () => {
+        const sel = visibleItems().find((i) => i.id === selectedId);
+        if (sel) await loadConversation(sel);
+        paint();
       });
       container.querySelectorAll("[data-inbox-reply]").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -1794,6 +1893,10 @@
       });
     }
 
+    const loaded = await loadInboxItems();
+    if (!loaded) return;
+    const initial = items[0];
+    if (initial?.email) await loadConversation(initial);
     await paint();
   }
 
