@@ -1,5 +1,10 @@
 /* Admin-only workspace styles — scoped under #view-admin so signed-in/public UI is unaffected */
 
+/* Hide signed-in provider sidebar while Admin workspace is the active view */
+body:has(#view-admin.active-view) .app-shell > .sidebar {
+  display: none !important;
+}
+
 #view-admin.admin-workspace-active .page-title {
   display: none;
 }

@@ -347,8 +347,10 @@
         ${healthStatusCard("AI", aiConfigured ? (adminAiSettingsState?.aiSettings?.enabled ? "working" : "disabled") : "not-configured", aiConfigured ? "AI settings loaded." : "AI settings not loaded yet.")}
       </div>
     `;
-    target.querySelector("[data-admin-health-refresh]")?.addEventListener("click", () => {
-      if (typeof refreshAdminAnalytics === "function") refreshAdminAnalytics();
+    target.querySelector("[data-admin-health-refresh]")?.addEventListener("click", async () => {
+      if (typeof loadAdminAnalyticsFromBackend === "function") {
+        await loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+      }
       renderAdminSystemHealth(target);
     });
   }
