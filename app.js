@@ -5081,7 +5081,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5097,7 +5097,7 @@ const adminGroups = [
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home"], defaultTab: "billing-home" },
   { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
-  { id: "messages", icon: "💬", label: "Messages", tabs: ["admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "automations"], defaultTab: "messages-conversations" },
+  { id: "messages", icon: "💬", label: "Messages", tabs: ["admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-conversations" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "usage", "settings"], defaultTab: "ai-home" },
   { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
@@ -5129,6 +5129,7 @@ const adminGroupForTab = {
   "messages-archived": "messages",
   "messages-email": "messages",
   "message-templates": "messages",
+  "welcome-messages": "messages",
   "automations": "messages",
   "curriculum-lesson-plans": "content",
   "curriculum-activities": "content",
@@ -5191,6 +5192,7 @@ const adminTabLabels = {
   "messages-archived": "Archived",
   "messages-email": "Email User",
   "message-templates": "Templates",
+  "welcome-messages": "Welcome Messages",
   "automations": "Automations",
   "curriculum-lesson-plans": "Lesson Plans",
   "curriculum-activities": "Activities",
@@ -40414,6 +40416,7 @@ function applyAdminSectionVisibility() {
     ".admin-messages-panel",
     ".admin-inbox-panel",
     ".admin-templates-panel",
+    ".admin-welcome-messages-panel",
     ".admin-user-health-panel",
     ".admin-automations-panel",
     ".admin-changelog-panel",
@@ -40605,6 +40608,12 @@ function applyAdminSectionVisibility() {
     if (el) el.hidden = false;
     if (typeof window.renderAdminMessageTemplates === "function") {
       window.renderAdminMessageTemplates(document.querySelector("#adminTemplatesApp"));
+    }
+  } else if (tab === "welcome-messages") {
+    const el = document.querySelector(".admin-welcome-messages-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminWelcomeMessages === "function") {
+      window.renderAdminWelcomeMessages(document.querySelector("#adminWelcomeMessagesApp"));
     }
   } else if (tab === "automations") {
     const el = document.querySelector(".admin-automations-panel");

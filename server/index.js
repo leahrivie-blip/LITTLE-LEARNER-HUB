@@ -11,6 +11,7 @@ const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
+const { createOnboardingWelcome, defaultOnboardingWelcomeStore } = require("./onboarding-welcome.js");
 const { createFoundingMemberEmail } = require("./founding-member-email.js");
 const { createFreeUserWelcomeEmail } = require("./free-user-welcome-email.js");
 const billingLifecycleEmail = require("./billing-lifecycle-email.js");
@@ -720,6 +721,7 @@ function defaultStore() {
     automationRuns: [],
     archivedConversations: [],
     memberSessions: {},
+    onboardingWelcome: defaultOnboardingWelcomeStore(),
   };
 }
 
@@ -5770,14 +5772,13 @@ async function handleAccountProfileSync(request, response) {
     updates.lastSeenAt = updates.lastLoginAt;
   }
   const user = upsertUser(email, updates);
-  // Once-only welcome email on first signup stamp (soft-fail if email unconfigured).
-  // Hard-gated by EMAIL_AUTOMATIONS_ENABLED — no automatic welcome until approved.
-  // Await before admin-alert fan-out so a stale store snapshot cannot wipe the stamp.
-  if (body.signup === true && !existing.signupAt && emailAutomationsEnabled()) {
+  // Configurable Free-member welcome (in-app + email). Runs immediately on signup;
+  // does not require EMAIL_AUTOMATIONS_ENABLED. Pro/Founding/Trial signups are skipped.
+  if (body.signup === true && !existing.signupAt) {
     try {
-      await emailEngagement.maybeSendWelcomeOnSignup(email);
+      await onboardingWelcome.maybeDeliverOnSignup(email);
     } catch (err) {
-      console.warn("[email-engagement] welcome email failed:", err.message);
+      console.warn("[onboarding-welcome] free welcome failed:", err.message);
     }
   }
   if (body.signup === true && !existing.signupAt) {
@@ -14331,6 +14332,126 @@ function messagePreviewText(body, maxLength = 160) {
   return clean.length > maxLength ? `${clean.slice(0, maxLength - 1)}…` : clean;
 }
 
+const onboardingWelcome = createOnboardingWelcome({
+  readStore,
+  writeStore,
+  upsertUser,
+  sendEmail,
+  fanOutNotificationsAndPush,
+  ensureMessagingStore,
+  messagingRandomId,
+  messagePreviewText,
+  messagingLib,
+  foundingSpotsRemaining,
+  ADMIN_EMAIL,
+  ADMIN_NAME,
+  SUPPORT_EMAIL_TO,
+  SITE_URL,
+  htmlEscape,
+  recordTimeline: (store, entry) => {
+    try {
+      getCommsApi().recordTimeline(store, entry);
+    } catch {
+      // Comms API may not be initialized during early boot.
+    }
+  },
+});
+
+function handleAdminOnboardingWelcomeGet(request, response, url) {
+  if (!validAdminToken(extractAdminToken(request, url))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const config = onboardingWelcome.getConfig(store);
+  const founding = foundingStatusPayload(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    ...config,
+    foundingOpen: founding.remaining > 0,
+    founding,
+    variables: onboardingWelcome.TEMPLATE_VARIABLES,
+  });
+}
+
+async function handleAdminOnboardingWelcomeSave(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const saved = onboardingWelcome.saveConfig(body.sequence || body);
+  jsonResponse(response, 200, { ok: true, ...saved });
+}
+
+async function handleAdminOnboardingWelcomePreview(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const email = normalizeEmail(body.email) || ADMIN_EMAIL;
+  const user = store.users?.[email] || {
+    email,
+    firstName: String(body.firstName || "Alex").trim(),
+    plan: "Free",
+    subscriptionStatus: "Free Plan",
+  };
+  const draftSequence = body.sequence ? onboardingWelcome.normalizeSequencePayload(body.sequence) : null;
+  if (draftSequence) {
+    store.onboardingWelcome = store.onboardingWelcome || defaultOnboardingWelcomeStore();
+    store.onboardingWelcome.sequences = store.onboardingWelcome.sequences || {};
+    store.onboardingWelcome.sequences[onboardingWelcome.SEQUENCE_ID] = draftSequence;
+  }
+  const channel = String(body.channel || "both").toLowerCase();
+  const previews = {};
+  if (channel === "in_app" || channel === "both") {
+    previews.inApp = onboardingWelcome.buildWelcomePreview(user, store, {
+      SITE_URL,
+      foundingSpotsRemaining,
+      htmlEscape,
+    }, "in_app");
+  }
+  if (channel === "email" || channel === "both") {
+    previews.email = onboardingWelcome.buildWelcomePreview(user, store, {
+      SITE_URL,
+      foundingSpotsRemaining,
+      htmlEscape,
+    }, "email");
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    previews,
+    foundingOpen: foundingStatusPayload(store).remaining > 0,
+  });
+}
+
+async function handleAdminOnboardingWelcomeBackfill(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  if (body.confirmPhrase !== onboardingWelcome.BACKFILL_CONFIRM_PHRASE) {
+    const store = readStore();
+    const pending = onboardingWelcome.listRecentFreeSignupsWithoutWelcome(store, Number(body.count) || 5);
+    jsonResponse(response, 200, {
+      ok: true,
+      dryRun: true,
+      confirmPhrase: onboardingWelcome.BACKFILL_CONFIRM_PHRASE,
+      count: pending.length,
+      recipients: pending,
+    });
+    return;
+  }
+  const result = await onboardingWelcome.backfillRecentFreeMembers(Number(body.count) || 5, {
+    reason: "admin_backfill",
+    force: Boolean(body.force),
+  });
+  jsonResponse(response, 200, { ok: true, ...result });
+}
+
 async function handleAdminMessagePreview(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -16094,6 +16215,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/message-templates") return comms.handleTemplatesGet(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/message-templates") return await comms.handleTemplatesSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/message-templates/delete") return await comms.handleTemplatesDelete(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/onboarding-welcome") return handleAdminOnboardingWelcomeGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/onboarding-welcome") return await handleAdminOnboardingWelcomeSave(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/onboarding-welcome/preview") return await handleAdminOnboardingWelcomePreview(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/onboarding-welcome/backfill") return await handleAdminOnboardingWelcomeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/user-tags") return comms.handleUserTagsGet(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/user-tags") return await comms.handleUserTagsSet(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/user-timeline") return comms.handleUserTimelineGet(request, response, url);
