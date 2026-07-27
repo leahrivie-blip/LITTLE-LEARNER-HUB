@@ -26,7 +26,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 26100 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(26100, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-fast-daily-logs-visual-${crypto.randomBytes(4).toString("hex")}.json`);
 const SCREENSHOT_DIR = path.join(ROOT, "docs/screenshots/fast-daily-logs-visual");
 

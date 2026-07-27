@@ -11,7 +11,8 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 41800 + Math.floor(Math.random() * 400);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(41800, 400);
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.temp-password-test-store-${process.pid}-${PORT}.json`);
 const EMAIL = "tclashley@icloud.com";

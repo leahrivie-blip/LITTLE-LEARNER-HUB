@@ -24,6 +24,7 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 
 const BASE = "/api/external-tester";
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
+const TESTING_LAB_DISABLED_MSG = "Testing Lab is disabled in the Render testing environment.";
 
 function safeLower(value) {
   return String(value || "").trim().toLowerCase();
@@ -65,13 +66,17 @@ function createExternalTesterSandboxApi({
 
   /** Same production-lock + stored-flag gate as the rest of Testing Lab — an External Tester Sandbox is an admin-provisioned Testing Lab feature. */
   function assertAdminAccess(store, response) {
-    if (env().liveProduction || !env().allowTestingLabAdminPreview) {
+    if (env().liveProduction) {
       deny(response, 403, "production_preview_rejected", "External Tester Sandbox is unavailable in production.");
+      return false;
+    }
+    if (!env().allowTestingLabAdminPreview) {
+      deny(response, 403, "testing_lab_disabled", TESTING_LAB_DISABLED_MSG);
       return false;
     }
     const stored = store?.siteContent?.featureFlags || {};
     if (stored.testingLab !== true) {
-      deny(response, 403, "feature_unavailable", "Testing Lab feature flag is off.");
+      deny(response, 403, "feature_unavailable", "Testing Lab feature flag is off. Tap Set Up Testing Site on Admin Home first.");
       return false;
     }
     return true;

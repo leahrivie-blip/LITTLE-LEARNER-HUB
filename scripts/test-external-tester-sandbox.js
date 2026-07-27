@@ -22,7 +22,8 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 25400 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(25400, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-external-tester-sandbox-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "ets-admin@example.invalid", password: "ets-admin-pass", code: "ets-admin-code" };
 

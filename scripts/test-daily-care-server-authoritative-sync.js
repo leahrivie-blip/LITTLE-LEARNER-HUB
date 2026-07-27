@@ -32,7 +32,8 @@ const crypto = require("node:crypto");
 const { spawn } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 27200 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(27200, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-dlc-server-sync-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "dlcsync-admin@example.invalid", password: "dlcsync-pass", code: "dlcsync-code" };
 

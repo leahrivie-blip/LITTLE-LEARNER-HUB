@@ -218,6 +218,7 @@
     "test:daily-care-offline-queue-corrections-sync": "NODE_ENV=test node scripts/test-daily-care-offline-queue-and-corrections-sync.js",
     "test:testing-lab-routing-fix": "NODE_ENV=test node scripts/test-testing-lab-routing-fix.js",
     "test:owner-testing-home-acceptance": "NODE_ENV=test node scripts/test-owner-testing-home-acceptance.js",
+    "test:admin-workspace": "NODE_ENV=test node scripts/test-admin-workspace.js",
     "test:release": "NODE_ENV=test node scripts/run-release-tests.js",
     "test:deployed-testing-smoke": "NODE_ENV=test node scripts/test-deployed-testing-smoke.js",
     "test:deployed-smoke-readiness": "NODE_ENV=test node scripts/test-deployed-smoke-readiness.js",

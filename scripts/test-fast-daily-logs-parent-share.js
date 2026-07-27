@@ -24,7 +24,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 25900 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(25900, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-fdlc-parent-share-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "fdlc-parent-admin@example.invalid", password: "fdlc-parent-pass", code: "fdlc-parent-code" };
 const SCREENSHOT_DIR = path.join(ROOT, "docs/screenshots/fast-daily-logs-parent-share");

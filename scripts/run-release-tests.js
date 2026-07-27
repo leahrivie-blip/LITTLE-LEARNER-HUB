@@ -14,6 +14,7 @@
  */
 const { spawn } = require("node:child_process");
 const path = require("node:path");
+const { allocatePort } = require("./test-port.js");
 
 const ROOT = path.join(__dirname, "..");
 
@@ -24,6 +25,7 @@ const SUITES = [
   { id: "password-hash", label: "Password hash security", cmd: "npm", args: ["run", "test:password-hash-security"] },
   { id: "temp-password", label: "Temp password auth (signup/login session)", cmd: "npm", args: ["run", "test:temp-password-auth"] },
   { id: "admin-auth", label: "Admin auth session", cmd: "npm", args: ["run", "test:admin-auth-session"] },
+  { id: "admin-workspace", label: "Admin workspace (cold start, gates, no Calendar bounce)", cmd: "npm", args: ["run", "test:admin-workspace"] },
   { id: "db-isolation", label: "Testing database isolation + production locks", cmd: "npm", args: ["run", "test:testing-database-isolation"] },
   { id: "homepage-smoke", label: "Homepage / signup CTAs / admin unlock smoke", cmd: "npm", args: ["run", "test:homepage-smoke"] },
   { id: "testing-lab-routing", label: "Testing Lab routing (no Calendar bounce)", cmd: "npm", args: ["run", "test:testing-lab-routing-fix"] },
@@ -67,7 +69,7 @@ if (process.env.LLH_RELEASE_MAX_SUITES) {
   SUITES.splice(max);
 }
 
-function runOne(suite) {
+function runOne(suite, testPort) {
   return new Promise((resolve) => {
     const started = Date.now();
     console.log(`\n━━━ [${suite.id}] ${suite.label} ━━━`);
@@ -77,6 +79,7 @@ function runOne(suite) {
         ...process.env,
         NODE_ENV: process.env.NODE_ENV || "test",
         CI: process.env.CI || "1",
+        LLH_TEST_PORT: String(testPort),
         // Never allow release suites to point at live external services.
         ALLOW_OPENAI_TESTING: "false",
         STRIPE_SECRET_KEY: "",
@@ -108,8 +111,11 @@ async function main() {
   console.log(`Suites: ${SUITES.length} (fake fixtures / local JSON only; no production secrets)`);
   const results = [];
   for (const suite of SUITES) {
+    const testPort = await allocatePort();
+    // Brief pause between release suites reduces flaky boot races on shared CI runners.
+    await new Promise((resolve) => setTimeout(resolve, process.env.CI ? 800 : 200));
     // eslint-disable-next-line no-await-in-loop
-    const result = await runOne(suite);
+    const result = await runOne(suite, testPort);
     results.push(result);
     if (!result.ok) {
       console.error(`\nFAIL  [${result.id}] exited ${result.code}${result.signal ? ` (${result.signal})` : ""} after ${result.ms}ms`);

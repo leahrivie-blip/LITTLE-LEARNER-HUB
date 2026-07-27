@@ -29,7 +29,8 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 27300 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(27300, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-dlc-offline-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "dlcoffline-admin@example.invalid", password: "dlcoffline-pass", code: "dlcoffline-code" };
 

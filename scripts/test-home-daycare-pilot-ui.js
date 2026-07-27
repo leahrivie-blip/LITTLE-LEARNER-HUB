@@ -27,7 +27,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 25900 + Math.floor(Math.random() * 300);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(25900, 300);
 const STORE_PATH = path.join(os.tmpdir(), `llh-home-daycare-pilot-ui-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "pilot-ui-admin@example.invalid", password: "pilot-ui-admin-pass", code: "pilot-ui-admin-code" };
 const SCREENSHOT_DIR = path.join(ROOT, "docs/screenshots/home-daycare-pilot");
@@ -140,10 +141,9 @@ async function main() {
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
       await page.waitForTimeout(800);
-      await page.evaluate(() => setView("testing-lab"));
-      await page.waitForTimeout(600);
-      await page.evaluate(() => { document.querySelector('[data-tl-panel="accounts"]')?.click(); });
-      await page.waitForTimeout(600);
+      await page.evaluate(() => setView("admin-testers"));
+      await page.waitForSelector("#view-admin-testers.active-view", { timeout: 15000 });
+      await page.waitForSelector('[data-tl-pilot-create] input[name="testerName"]', { timeout: 20000 });
 
       await page.fill('[data-tl-pilot-create] input[name="testerName"]', "UI Pilot Tester");
       await page.fill('[data-tl-pilot-create] input[name="email"]', testerEmail);

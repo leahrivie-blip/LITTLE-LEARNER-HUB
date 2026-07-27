@@ -11,7 +11,8 @@ const { spawn } = require("child_process");
 const crypto = require("crypto");
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 19440 + Math.floor(Math.random() * 40);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(19440, 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-home-smoke-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = {
   email: "homepage-smoke@test.local",

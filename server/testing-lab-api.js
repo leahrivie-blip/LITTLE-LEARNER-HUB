@@ -16,6 +16,7 @@ const testingFeedbackModel = require("../scripts/testing-feedback-data-model.js"
 
 const BASE = "/api/testing-lab";
 const PRODUCTION_HOST = "littlelearnershubbyleah.com";
+const TESTING_LAB_DISABLED_MSG = "Testing Lab is disabled in the Render testing environment.";
 
 function listValues(map) {
   return map && typeof map === "object" ? Object.values(map) : [];
@@ -99,14 +100,23 @@ function createTestingLabApi({
     });
   }
 
-  function assertLabAccess(store, response) {
-    if (env().liveProduction || !env().allowTestingLabAdminPreview) {
+  function assertLabEnvironment(response) {
+    if (env().liveProduction) {
       deny(response, 403, "production_preview_rejected", "Testing Lab unavailable in production.");
       return false;
     }
+    if (!env().allowTestingLabAdminPreview) {
+      deny(response, 403, "testing_lab_disabled", TESTING_LAB_DISABLED_MSG);
+      return false;
+    }
+    return true;
+  }
+
+  function assertLabAccess(store, response) {
+    if (!assertLabEnvironment(response)) return false;
     const stored = store?.siteContent?.featureFlags || {};
     if (stored.testingLab !== true) {
-      deny(response, 403, "feature_unavailable", "Testing Lab feature flag is off.");
+      deny(response, 403, "feature_unavailable", "Testing Lab feature flag is off. Use Set Up Testing Site from Admin Home first.");
       return false;
     }
     return true;
@@ -516,7 +526,7 @@ function createTestingLabApi({
 
   async function handleOnboardEverything(request, response, ctx) {
     const store = readStore();
-    if (!assertLabAccess(store, response)) return;
+    if (!assertLabEnvironment(response)) return;
     try {
       const flags = store.siteContent?.featureFlags || {};
       store.siteContent = store.siteContent || {};

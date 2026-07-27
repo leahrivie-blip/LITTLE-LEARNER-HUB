@@ -147,7 +147,7 @@ test("boot restores Admin (or Owner Testing Home) before Calendar when Admin was
   assert.ok(landingIdx > 0, "default logged-in landing missing from boot");
   assert.ok(adminRestoreIdx < landingIdx, "admin restore must run before default calendar/today landing");
   const helper = appJs.slice(appJs.indexOf("function defaultAdminLandingView()"), appJs.indexOf("function defaultAdminLandingView()") + 500);
-  assert.match(helper, /owner-testing-home/);
+  assert.match(helper, /admin-home/);
   assert.match(helper, /llhAdminLastView/);
 });
 

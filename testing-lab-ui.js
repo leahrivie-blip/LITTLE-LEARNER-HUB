@@ -1430,9 +1430,18 @@
       try {
         state.onboardResult = await api("POST", `${BASE}/onboard-everything`, {});
         state.notice = "Testing site ready — copy every password now, shown once.";
+        state.error = "";
+        if (mount.id === "awTestersLabMount" || mount.querySelector(".tl-embedded-panel")) {
+          await renderEmbeddedPanel(mount);
+          return;
+        }
         await refresh(mount);
       } catch (error) {
         state.error = error.message;
+        if (mount.id === "awTestersLabMount" || mount.querySelector(".tl-embedded-panel")) {
+          await renderEmbeddedPanel(mount);
+          return;
+        }
         render(mount);
       }
     });
@@ -1889,4 +1898,107 @@
   }
 
   global.renderTestingLabPage = renderTestingLabPage;
+
+  async function loadWorkspaceHomeForEmbed() {
+    try {
+      const response = await fetch("/api/admin/workspace/home", { headers: adminHeaders(), cache: "no-store" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not load Admin status.");
+      state.workspaceHome = data;
+      state.workspaceHomeError = "";
+      return data;
+    } catch (error) {
+      state.workspaceHome = null;
+      state.workspaceHomeError = error.message || "Could not load Admin status.";
+      return null;
+    }
+  }
+
+  function embeddedEnvGateHtml(home) {
+    const envCheck = (home?.testingLabGate?.checks || []).find((row) => row.key === "env_preview" && !row.ok);
+    if (!envCheck) return "";
+    return `
+      <div class="aw-gate-blocked" role="alert">
+        <p class="tf-error"><strong>Testing Lab is disabled in the Render testing environment.</strong></p>
+        <p class="muted-copy">${escapeHtml(envCheck.ownerAction || "In Render → your testing web service → Environment, add ALLOW_TESTING_LAB_ADMIN_PREVIEW=true and redeploy.")}</p>
+      </div>
+    `;
+  }
+
+  async function loadSandboxAccountsForEmbed() {
+    try {
+      const data = await api("GET", "/api/external-tester/list");
+      state.sandboxAccounts = data.accounts || [];
+      state.sandboxRoleCatalog = data.roleCatalog || [];
+      state.error = "";
+    } catch (error) {
+      const msg = error.message || "Request failed.";
+      if (/feature flag is off/i.test(msg)) {
+        state.error = "Testing Lab is not enabled yet. Tap Get Testing Site Ready first.";
+      } else if (/disabled in the Render testing environment/i.test(msg)) {
+        state.error = "Testing Lab is disabled in the Render testing environment.";
+      } else if (/unavailable/i.test(msg) && msg.length < 24) {
+        state.error = "Missing requirement: verified Platform Admin session and ALLOW_TESTING_LAB_ADMIN_PREVIEW on Render.";
+      } else {
+        state.error = msg;
+      }
+    }
+  }
+
+  async function renderEmbeddedPanel(mountEl, panelKind) {
+    const mount = mountEl;
+    if (!mount) return;
+    state.panel = panelKind;
+    state.error = "";
+    state.tfError = "";
+    if (panelKind === "accounts") {
+      const home = await loadWorkspaceHomeForEmbed();
+      const envGateHtml = embeddedEnvGateHtml(home);
+      if (envGateHtml) {
+        mount.innerHTML = `<div class="tl-embedded-panel">${envGateHtml}<p class="muted-copy">You can still use Admin Home and System Health. After updating Render, refresh and return here.</p></div>`;
+        bind(mount);
+        return;
+      }
+      const flagOff = (home?.testingLabGate?.checks || []).some((row) => row.key === "stored_flag" && !row.ok);
+      if (!flagOff) {
+        await loadSandboxAccountsForEmbed();
+      }
+      mount.innerHTML = `
+        <div class="tl-embedded-panel">
+          <div class="tl-actions-row">
+            <button type="button" class="primary-button" data-tl-onboard-everything>${flagOff ? "Set Up Testing Site" : "Get Testing Site Ready"}</button>
+          </div>
+          ${flagOff ? `<p class="muted-copy"><strong>Next step:</strong> Testing Lab is not enabled in stored site content yet. Tap Set Up Testing Site to enable flags and seed fake programs safely.</p>` : ""}
+          ${state.error ? `<p class="tf-error"><strong>Missing requirement:</strong> ${escapeHtml(state.error)}</p>` : ""}
+          ${homeDaycarePilotWizardHtml()}
+          ${flagOff ? "" : sandboxManagerHtml()}
+        </div>
+      `;
+    } else if (panelKind === "feedback") {
+      try {
+        const data = await api("GET", "/api/testing-feedback/admin/threads");
+        state.tfThreads = data.threads || [];
+        state.tfUnreadCount = data.unreadCount || 0;
+      } catch (error) {
+        state.tfError = error.message;
+      }
+      mount.innerHTML = `<div class="tl-embedded-panel">${testingFeedbackInboxHtml()}</div>`;
+    } else if (panelKind === "preview") {
+      try {
+        state.dashboard = await api("GET", `${BASE}/dashboard`);
+      } catch { /* optional */ }
+      const previewActive = Boolean(global.sessionStorage?.getItem("llhRolePreviewMembershipId"));
+      mount.innerHTML = `
+        <p class="aw-preview-active-banner" role="status">
+          <strong>ADMIN PREVIEW — CURRENTLY VIEWING AS: ${previewActive ? "TEST ROLE (see banner in app)" : "NONE — pick a role below"}</strong>
+        </p>
+        <div class="tl-embedded-panel">${previewHtml()}</div>
+      `;
+    }
+    bind(mount);
+  }
+
+  global.renderTestingLabTesterPanel = (m) => renderEmbeddedPanel(m, "accounts");
+  global.renderTestingLabFeedbackPanel = (m) => renderEmbeddedPanel(m, "feedback");
+  global.renderTestingLabRolePreviewPanel = (m) => renderEmbeddedPanel(m, "preview");
 })(typeof window !== "undefined" ? window : globalThis);

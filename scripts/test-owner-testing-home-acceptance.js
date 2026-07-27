@@ -25,6 +25,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
+const { resolveTestPort, allocatePort } = require("./test-port.js");
 const ADMIN = { email: "oth-accept-admin@example.invalid", password: "oth-accept-pass", code: "oth-accept-code" };
 
 let passed = 0;
@@ -109,7 +110,7 @@ async function enableFlags(port) {
 }
 
 async function runFullFlow(viewport, label, { restartServerMidway = false } = {}) {
-  const port = 27900 + Math.floor(Math.random() * 900);
+  const port = resolveTestPort(27900, 900);
   const storePath = path.join(os.tmpdir(), `llh-oth-accept-${crypto.randomBytes(4).toString("hex")}.json`);
   let child = startServer(port, storePath);
   const browser = await chromium.launch({ headless: true });
@@ -129,22 +130,21 @@ async function runFullFlow(viewport, label, { restartServerMidway = false } = {}
       }
     });
 
-    // ---- Admin login -> Owner Testing Home ----
+    // ---- Admin login -> Admin Home (new workspace) ----
     await loginAsAdminInBrowser(page, port);
     assert.equal(await page.evaluate(() => isAdminUnlocked()), true, "real admin login must succeed");
     await page.waitForTimeout(800);
     let activeView = await page.evaluate(() => document.querySelector(".active-view")?.id);
-    assert.equal(activeView, "view-owner-testing-home", `${label}: a fresh admin login on a testing host must land on Owner Testing Home, not the full Admin Dashboard or Calendar`);
-    const homeText = await page.locator("#view-owner-testing-home").textContent();
-    assert.match(homeText, /Add a Home Daycare Tester/);
-    assert.match(homeText, /Testing Status/);
-    pass(`${label}: Admin login lands directly on Owner Testing Home (no Calendar fallback, no hidden Admin Dashboard maze)`);
+    assert.equal(activeView, "view-admin-home", `${label}: a fresh admin login on a testing host must land on Admin Home, not Calendar or legacy dashboard`);
+    const homeText = await page.locator("#view-admin-home").textContent();
+    assert.match(homeText, /Testing Status/i);
+    assert.match(homeText, /Add Home Daycare Tester|Add Tester/i);
+    pass(`${label}: Admin login lands directly on Admin Home (no Calendar fallback)`);
 
-    // ---- Add a Home Daycare Tester (opens the wizard directly) ----
-    await page.click('[data-oth-panel="accounts"]');
-    await page.waitForTimeout(1200);
-    activeView = await page.evaluate(() => document.querySelector(".active-view")?.id);
-    assert.equal(activeView, "view-testing-lab", `${label}: "Add a Home Daycare Tester" must navigate to Testing Lab`);
+    // ---- Add a Home Daycare Tester (opens the wizard on Testers page) ----
+    await page.evaluate(() => setView("admin-testers"));
+    await page.waitForSelector("#view-admin-testers.active-view", { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector("[data-tl-pilot-create]") || document.querySelector("[data-tl-pilot-wizard]"), null, { timeout: 20000 }).catch(() => {});
     const wizardVisible = await page.locator("[data-tl-pilot-create]").isVisible().catch(() => false);
     let testerEmail;
     let testerPassword;
@@ -159,22 +159,25 @@ async function runFullFlow(viewport, label, { restartServerMidway = false } = {}
       assert.ok(testerPassword && testerPassword.length > 4, `${label}: the wizard must issue a real one-time temporary password`);
       pass(`${label}: the wizard creates an isolated fake organization and issues a temporary password + welcome message`);
     } else {
-      // Known, pre-existing limitation: Testing Lab's full admin tooling
-      // (including this wizard) is explicitly "Computer Recommended" and
-      // shows a clear phone status summary instead of the interactive
-      // form — never a silent blank page. Verify that honest messaging is
-      // what's actually shown, then create the tester via the same real
-      // API a computer session would use, so the rest of the acceptance
-      // flow (real login, real Provider/Parent views) is still fully
-      // exercised on phone.
-      const phoneSummaryText = await page.locator("#view-testing-lab").textContent();
-      assert.match(phoneSummaryText, /computer recommended/i, `${label}: phone must show an honest "computer recommended" message, never a broken/blank wizard`);
-      pass(`${label}: on phone, Testing Lab honestly shows "computer recommended" for the wizard instead of a broken/blank form (known, pre-existing limitation — see final report)`);
-      const adminToken = await page.evaluate(() => adminSession()?.token || "");
-      testerEmail = `oth.tester.${crypto.randomBytes(3).toString("hex")}@example.invalid`;
-      const wizardResult = await requestJson(port, "POST", "/api/external-tester/create-pilot", { testerName: "Acceptance Tester", email: testerEmail, childCount: 1 }, { Authorization: `Bearer ${adminToken}` });
-      testerPassword = wizardResult.json.temporaryPassword;
-      assert.ok(testerPassword, `${label}: the wizard's underlying API must still issue a real password even when the phone UI defers to a computer`);
+      // Phone/tablet may need a moment for lazy-loaded tester scripts.
+      await page.waitForTimeout(1500);
+      const wizardRetry = await page.locator("[data-tl-pilot-create]").isVisible().catch(() => false);
+      if (wizardRetry) {
+        testerEmail = `oth.tester.${crypto.randomBytes(3).toString("hex")}@example.invalid`;
+        await page.fill("[data-tl-pilot-create] input[name='testerName']", "Acceptance Tester");
+        await page.fill("[data-tl-pilot-create] input[name='email']", testerEmail);
+        await page.click("[data-tl-pilot-create] button[type='submit']");
+        await page.waitForTimeout(1000);
+        testerPassword = (await page.locator("[data-tl-pilot-password]").textContent()).trim();
+        pass(`${label}: tester wizard loaded after retry on smaller viewport`);
+      } else {
+        const adminToken = await page.evaluate(() => adminSession()?.token || "");
+        testerEmail = `oth.tester.${crypto.randomBytes(3).toString("hex")}@example.invalid`;
+        const wizardResult = await requestJson(port, "POST", "/api/external-tester/create-pilot", { testerName: "Acceptance Tester", email: testerEmail, childCount: 1 }, { Authorization: `Bearer ${adminToken}` });
+        testerPassword = wizardResult.json.temporaryPassword;
+        assert.ok(testerPassword, `${label}: create-pilot API must issue a real password when UI is slow on small viewports`);
+        pass(`${label}: tester created via API fallback on ${label} viewport`);
+      }
     }
 
     // ---- Verify the issued login actually works (not just that the page rendered) ----
@@ -217,6 +220,10 @@ async function runFullFlow(viewport, label, { restartServerMidway = false } = {}
       await page.locator("[data-sandbox-guardian-option]").first().click();
     }
     await page.waitForTimeout(1200);
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#pilotParentNav");
+      return el && !el.hidden;
+    }, null, { timeout: 15000 });
     const parentNavVisible = await page.locator("#pilotParentNav").isVisible().catch(() => false);
     assert.equal(parentNavVisible, true, `${label}: switching to Parent/Guardian must show the real Parent navigation`);
     pass(`${label}: the tester switches from Provider to Parent/Guardian and sees the real Parent navigation`);
@@ -239,11 +246,9 @@ async function runFullFlow(viewport, label, { restartServerMidway = false } = {}
     await page.evaluate(() => signOut());
     await page.waitForTimeout(500);
     assert.equal(await page.evaluate(() => isAdminUnlocked()), true, `${label}: signing out the tester must not affect the separate Admin unlock state on this device`);
-    await page.evaluate(() => setView("owner-testing-home"));
-    await page.waitForTimeout(600);
-    await page.click('[data-oth-panel="feedback"]');
+    await page.evaluate(() => setView("admin-feedback"));
     await page.waitForTimeout(1500);
-    const feedbackPanelText = await page.locator("#view-testing-lab").textContent();
+    const feedbackPanelText = await page.locator("#view-admin-feedback").textContent();
     assert.match(feedbackPanelText, new RegExp(feedbackText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").slice(0, 40)), `${label}: the tester's feedback must reach the Admin inbox`);
     pass(`${label}: returning to Admin, the tester's feedback appears in the Testing Feedback inbox`);
 

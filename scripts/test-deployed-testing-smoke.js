@@ -203,10 +203,10 @@ async function main() {
     await page.fill("#adminUnlockForm [name='adminCode']", ADMIN.code);
     await page.click("#adminUnlockForm button[type='submit']");
     await page.waitForTimeout(2000);
-    await page.waitForSelector("#view-owner-testing-home.active-view, #view-admin.active-view", { timeout: 30000 });
+    await page.waitForSelector("#view-admin-home.active-view, #view-admin.active-view", { timeout: 30000 });
     const landing = await page.evaluate(() => document.querySelector(".active-view")?.id);
-    assert.equal(landing, "view-owner-testing-home", "Platform Admin must reach Owner Testing Home");
-    pass("Platform Admin reaches Owner Testing Home");
+    assert.equal(landing, "view-admin-home", "Platform Admin must reach Admin Home");
+    pass("Platform Admin reaches Admin Home");
 
     await page.click('[data-view="testing-lab"][data-testing-lab-nav], [data-view="testing-lab"]');
     await page.waitForTimeout(2000);
@@ -215,9 +215,8 @@ async function main() {
     assert.notEqual(afterLab, "view-calendar", "must not bounce to Calendar");
     pass("Testing Lab opens instead of Calendar");
 
-    await page.evaluate(() => setView("owner-testing-home"));
+    await page.evaluate(() => setView("admin-testers"));
     await page.waitForTimeout(800);
-    await page.click('[data-oth-panel="accounts"]');
     await page.waitForTimeout(1500);
     const wizardVisible = await page.locator("[data-tl-pilot-create]").isVisible().catch(() => false);
     assert.equal(wizardVisible, true, "Add External Tester wizard must open");

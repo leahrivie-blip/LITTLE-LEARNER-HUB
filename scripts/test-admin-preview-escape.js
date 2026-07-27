@@ -36,7 +36,8 @@ try {
 }
 
 const ROOT = path.join(__dirname, "..");
-const PORT = 26500 + Math.floor(Math.random() * 200);
+const { resolveTestPort } = require("./test-port.js");
+const PORT = resolveTestPort(26500, 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-admin-preview-escape-${crypto.randomBytes(4).toString("hex")}.json`);
 const ADMIN = { email: "preview-escape-admin@example.invalid", password: "preview-escape-pass", code: "preview-escape-code" };
 
@@ -181,7 +182,12 @@ async function main() {
       }, { email: ADMIN.email, token });
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-      await page.waitForTimeout(800);
+      await page.evaluate(() => {
+        window.__llhAdminWorkspaceLegacy = true;
+        setView("admin", { adminWorkspaceContext: true, skipAdminWorkspaceRedirect: true });
+      });
+      await page.waitForSelector("[data-admin-preview]", { timeout: 15000 });
+      await page.waitForTimeout(400);
       return { page, pageErrors };
     }
 
@@ -339,16 +345,16 @@ async function main() {
       await page.close();
     }
 
-    // ---- 7. Testing Lab is reachable from a persistent nav link (no search) -
+    // ---- 7. Testing Lab is reachable from Admin workspace (Advanced Tools) -
     {
       const { page } = await newAdminPage();
-      const navLinkVisible = await page.locator('[data-view="testing-lab"][data-testing-lab-nav]').isVisible();
-      assert.equal(navLinkVisible, true, "the Testing Lab nav link must be visible in the primary sidebar for an unlocked admin");
-      await page.click('[data-view="testing-lab"][data-testing-lab-nav]', { timeout: 5000 });
-      await page.waitForTimeout(500);
-      const active = await page.evaluate(() => document.querySelector(".active-view")?.id);
-      assert.equal(active, "view-testing-lab", "clicking the Testing Lab nav link must open Testing Lab directly");
-      pass("7. Testing Lab is reachable via a persistent, always-visible nav link — never only through Settings search or a button buried in the Admin Dashboard body");
+      await page.evaluate(() => setView("admin-advanced"));
+      await page.waitForSelector("#view-admin-advanced.active-view", { timeout: 10000 });
+      const labLinkCount = await page.locator('[data-view="testing-lab"]').count();
+      assert.ok(labLinkCount > 0, "Testing Lab must be reachable from Advanced Tools in the Admin workspace");
+      await page.evaluate(() => setView("testing-lab"));
+      await page.waitForFunction(() => document.querySelector("#view-testing-lab.active-view"), null, { timeout: 15000 });
+      pass("7. Testing Lab is reachable from Admin workspace Advanced Tools — not buried without a path");
       await page.close();
     }
 

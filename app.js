@@ -2397,6 +2397,7 @@ const viewMap = {
 // All other views redirect to the login modal for unauthenticated visitors.
 const guestAllowedViews = new Set([
   "home", "plans", "upgrade", "legal", "faq", "contact", "admin",
+  "admin-home", "admin-testers", "admin-content", "admin-feedback", "admin-health", "admin-advanced", "admin-role-preview",
   "reset-password", "payment-success", "payment-failed",
   // Public curriculum browsing for approved Free previews (Pro stays locked).
   "lessons", "activities",
@@ -11118,8 +11119,10 @@ function syncRoleAwareNavGrouping(account = currentAccount()) {
  */
 function defaultAdminLandingView() {
   const lastView = localStorage.getItem("llhAdminLastView");
-  if (["admin", "owner-testing-home"].includes(lastView)) return lastView;
-  return isProductionHostClient() ? "admin" : "owner-testing-home";
+  if (["admin", "owner-testing-home", "admin-home"].includes(lastView)) {
+    return lastView === "owner-testing-home" ? "admin-home" : lastView;
+  }
+  return isProductionHostClient() ? "admin" : "admin-home";
 }
 
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
@@ -12862,6 +12865,9 @@ function updateAdminNavVisibility() {
     button.hidden = !(canSeeAdminNav() && typeof isProductionHostClient === "function" && !isProductionHostClient());
   });
   refreshAdminNavBadge();
+  if (typeof window.LLHAdminWorkspace?.refreshAdminWorkspaceNav === "function") {
+    window.LLHAdminWorkspace.refreshAdminWorkspaceNav();
+  }
   if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
 }
 
@@ -13078,7 +13084,11 @@ function setView(view, options = {}) {
     // clearer failure message for the one audience allowed to see these
     // tools at all.
     const adminOnlyView = ["testing-lab", "director-center", "teacher-center", "classroom-assistant", "forms-center"].includes(resolvedRequested);
-    if (adminOnlyView && typeof hasAdminFullAccess === "function" && hasAdminFullAccess() && !options.skipAdminGateDiagnostic) {
+    const adminWorkspaceView = typeof window.LLHAdminWorkspace?.isAdminWorkspaceView === "function"
+      && window.LLHAdminWorkspace.isAdminWorkspaceView(resolvedRequested);
+    if (adminWorkspaceView && typeof hasAdminFullAccess === "function" && hasAdminFullAccess()) {
+      // Admin workspace pages never silently fall back to Calendar.
+    } else if (adminOnlyView && typeof hasAdminFullAccess === "function" && hasAdminFullAccess() && !options.skipAdminGateDiagnostic) {
       return setView(resolvedRequested, { ...options, skipExpansionFeatureRedirect: true, skipAccessRedirect: true, adminGateDiagnostic: true });
     }
     return setView("calendar", { ...options, skipExpansionFeatureRedirect: true, skipAccessRedirect: true });
@@ -13263,8 +13273,14 @@ function setView(view, options = {}) {
       });
   }
   if (resolvedView === "home") renderHome();
+  if (resolvedView === "admin" && !isProductionHostClient() && isAdminUnlocked() && !options.adminWorkspaceContext && !options.adminGateDiagnostic && !options.skipAdminWorkspaceRedirect) {
+    return setView("admin-home", { ...options, skipAdminWorkspaceRedirect: true });
+  }
   if (resolvedView === "admin") {
     localStorage.setItem("llhAdminLastView", "admin");
+    if (window.__llhAdminWorkspaceLegacy && typeof window.renderAdminWorkspaceLegacyBanner === "function") {
+      window.renderAdminWorkspaceLegacyBanner(window.__llhAdminContentFocus || "");
+    }
     renderAdminDashboard();
     // Reload full admin site content (includes hidden lesson plans) whenever the
     // admin area is entered so that edits to hidden plans are never missing after
@@ -13281,7 +13297,22 @@ function setView(view, options = {}) {
     localStorage.setItem("llhAdminLastView", "owner-testing-home");
     renderOwnerTestingHomePage();
   }
-  if (!["admin", "owner-testing-home"].includes(resolvedView)) localStorage.removeItem("llhAdminLastView");
+  const adminWorkspaceViewIds = ["admin-home", "admin-testers", "admin-content", "admin-feedback", "admin-health", "admin-advanced", "admin-role-preview"];
+  if (adminWorkspaceViewIds.includes(resolvedView)) {
+    localStorage.setItem("llhAdminLastView", "admin-home");
+    window.__llhAdminWorkspaceLegacy = false;
+    Promise.resolve(window.LLHPlatformPerf?.ensureViewScripts?.(resolvedView))
+      .catch(() => null)
+      .then(() => {
+        if (typeof window.LLHAdminWorkspace?.renderPage === "function") {
+          return window.LLHAdminWorkspace.renderPage(resolvedView);
+        }
+        if (typeof window.LLHAdminWorkspace?.renderAdminErrorScreen === "function") {
+          window.LLHAdminWorkspace.renderAdminErrorScreen("Admin workspace failed to load.");
+        }
+      });
+  }
+  if (!["admin", "owner-testing-home", "admin-home"].includes(resolvedView)) localStorage.removeItem("llhAdminLastView");
   if (resolvedView === "today") {
     renderTodayDashboard();
     // Refresh once (from the navigation handler, not from inside the render
@@ -13459,6 +13490,10 @@ function setView(view, options = {}) {
   updateSidebarDashboard();
   setMobileNavOpen(false);
   refreshContextualViewBackButtons();
+  if (typeof window.LLHAdminWorkspace?.refreshAdminWorkspaceNav === "function") {
+    window.LLHAdminWorkspace.refreshAdminWorkspaceNav();
+  }
+  if (typeof refreshHomeDaycarePilotNav === "function") refreshHomeDaycarePilotNav();
   if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
     restoreViewScroll(resolvedView, options.restoreScrollY);
   } else if (activeView === resolvedView && Number.isFinite(viewScrollPositions[resolvedView])) {
@@ -37959,6 +37994,18 @@ document.addEventListener("click", (event) => {
 
 /** Curates the sidebar for a Home Daycare Pilot account: swaps the generic capability-based #platformNav for a dedicated, exactly-ordered #pilotProviderNav or #pilotParentNav block, and keeps the phone bottom nav in sync. Must run AFTER syncPlatformNavVisibility() on every refresh, since that function only knows about #platformNav's own items. */
 function refreshHomeDaycarePilotNav() {
+  if (typeof window.LLHAdminWorkspace?.isAdminWorkspaceMode === "function" && window.LLHAdminWorkspace.isAdminWorkspaceMode()) {
+    const platformNav = document.querySelector("#platformNav");
+    const providerNav = document.querySelector("#pilotProviderNav");
+    const staffNav = document.querySelector("#pilotStaffNav");
+    const parentNav = document.querySelector("#pilotParentNav");
+    if (platformNav) platformNav.hidden = true;
+    if (providerNav) providerNav.hidden = true;
+    if (staffNav) staffNav.hidden = true;
+    if (parentNav) parentNav.hidden = true;
+    renderPilotBottomNav();
+    return;
+  }
   const isProviderNow = pilotIsProviderNow();
   const isStaffNow = pilotIsStaffNow();
   const isOwnerNow = isProviderNow && !isStaffNow;
@@ -51707,8 +51754,8 @@ async function signOut() {
   updateAdminNavVisibility();
   refreshAdminPreviewBadge();
   setView(
-    isAdminUnlocked() && ["admin", "owner-testing-home"].includes(localStorage.getItem("llhAdminLastView"))
-      ? localStorage.getItem("llhAdminLastView")
+    isAdminUnlocked() && ["admin", "owner-testing-home", "admin-home"].includes(localStorage.getItem("llhAdminLastView"))
+      ? (localStorage.getItem("llhAdminLastView") === "owner-testing-home" ? "admin-home" : localStorage.getItem("llhAdminLastView"))
       : "home",
     { allowDashboard: true, replaceHistory: true },
   );
@@ -57826,7 +57873,7 @@ document.addEventListener("submit", async (event) => {
     // trip through the full Admin Dashboard first. Production is
     // unaffected (Owner Testing Home never appears there).
     if (!isProductionHostClient()) {
-      setView("owner-testing-home", { fromAuthLanding: true });
+      setView("admin-home", { fromAuthLanding: true });
     } else {
       renderAdminDashboard();
       await loadAdminAnalyticsFromBackend({ force: true });
