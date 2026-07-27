@@ -290,7 +290,7 @@ async function runAudit(playwright, baseUrl, seeded) {
   // Free signup + login lands on Calendar
   const email = `home-audit-${Date.now()}@example.com`;
   await page.evaluate(() => setView("home"));
-  await page.locator(".lp-hero-actions [data-action='start-free']").click();
+  await page.locator(".llh-public-nav-actions [data-action='start-free']").first().click();
   await page.waitForSelector("#authModal.open");
   await page.locator("#fullNameInput").fill("Audit Provider");
   await page.locator("#emailInput").fill(email);
@@ -310,7 +310,7 @@ async function runAudit(playwright, baseUrl, seeded) {
   await page.waitForSelector("body.app-boot-ready", { timeout: 20000 });
   await page.waitForSelector("#view-calendar.active-view", { timeout: 15000 });
   results.calendarLanding = true;
-  results.signupButtons.push("hero-start-free-completed");
+  results.signupButtons.push("public-nav-start-free-completed");
 
   // Founding checkout amount in client helper
   const foundingAmount = await page.evaluate(() => {

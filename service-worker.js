@@ -1,16 +1,18 @@
-const CACHE_NAME = "llh-shell-v111-admin-cleanup";
+const CACHE_NAME = "llh-shell-v112-home-reliability";
+const SHELL_VERSION = "20260727-home-reliability";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260727-admin-cleanup",
-  "/styles/llh-admin-workspace.css?v=20260727-admin-cleanup",
+  "/styles.css?v=20260727-home-reliability",
+  "/styles/llh-admin-workspace.css?v=20260727-home-reliability",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
+  "/styles/llh-homepage.css?v=20260727-home-reliability",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
   "/styles/llh-messaging.css?v=20260720-promo-existing",
+  "/styles/llh-comms.css?v=20260720-promo-existing",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards",
   "/scripts/lesson-plan-covers.js?v=20260717-netflix-cover-cards",
@@ -27,9 +29,9 @@ const APP_SHELL = [
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260727-admin-cleanup",
-  "/admin-workspace.js?v=20260727-admin-cleanup",
-  "/comms-center.js?v=20260727-admin-cleanup",
+  "/app.js?v=20260727-home-reliability",
+  "/admin-workspace.js?v=20260727-home-reliability",
+  "/comms-center.js?v=20260727-home-reliability",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
@@ -95,8 +97,20 @@ function networkWithTimeout(request, timeoutMs) {
   return fetch(request, { signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+function isValidShellAssetResponse(requestUrl, response) {
+  if (!response || response.status !== 200 || response.type !== "basic") return false;
+  const assetPath = requestUrl.pathname;
+  const contentType = String(response.headers.get("content-type") || "").toLowerCase();
+  if (assetPath.endsWith(".css")) return contentType.includes("text/css");
+  if (assetPath.endsWith(".js")) return contentType.includes("javascript") || contentType.includes("ecmascript");
+  if (assetPath.endsWith(".webmanifest")) return contentType.includes("json");
+  if (assetPath.endsWith(".html") || assetPath === "/") return contentType.includes("html");
+  if (/\.(png|jpg|jpeg|webp|svg)$/.test(assetPath)) return contentType.startsWith("image/");
+  return true;
+}
+
 function putInCache(request, response) {
-  if (!response || response.status !== 200 || response.type !== "basic") return;
+  if (!isValidShellAssetResponse(new URL(request.url), response)) return;
   const cloned = response.clone();
   caches.open(CACHE_NAME).then((cache) => cache.put(request, cloned)).catch(() => {});
 }
@@ -118,19 +132,18 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Installed-app cold start: serve cached JS/CSS immediately, refresh in background.
-  // Waiting on a slow network for a multi-MB app.js makes the PWA feel broken.
+  // Versioned shell assets: network-first so deploys never serve a stale CSS/JS shell
+  // that mismatches fresh HTML (the root cause of unstyled first loads).
   if (isShellAssetRequest(requestUrl)) {
     event.respondWith(
-      caches.match(event.request).then((cached) => {
-        const networkFetch = fetch(event.request)
-          .then((response) => {
+      fetch(event.request)
+        .then((response) => {
+          if (isValidShellAssetResponse(requestUrl, response)) {
             putInCache(event.request, response);
-            return response;
-          })
-          .catch(() => cached);
-        return cached || networkFetch;
-      }),
+          }
+          return response;
+        })
+        .catch(() => caches.match(event.request)),
     );
     return;
   }

@@ -24,15 +24,20 @@ const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const homeCss = fs.readFileSync(path.join(root, "styles/llh-homepage.css"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 
-test("hero has Sign Up / Log In CTAs above Browse and founding positioning", () => {
+test("hero prioritizes Preview Free Lesson Plans, founding pricing, and Log In text link", () => {
   const actionsIdx = html.indexOf('class="lp-hero-actions"');
   assert.ok(actionsIdx > -1, "hero actions missing");
   const actionsHtml = html.slice(actionsIdx, actionsIdx + 700);
-  assert.match(actionsHtml, /data-action="start-free"/);
+  assert.match(actionsHtml, /data-home-nav="lessons"/);
+  assert.match(actionsHtml, /Preview Free Lesson Plans/);
+  assert.match(actionsHtml, /data-checkout-plan="founding"/);
+  assert.match(actionsHtml, /Lock In \$9\.99 Pricing/);
   assert.match(actionsHtml, /data-action="open-login"/);
-  assert.match(actionsHtml, />Sign Up</);
-  assert.match(actionsHtml, />Log In</);
-  assert.match(html, /Browse Lesson Plans/);
+  assert.match(actionsHtml, /llh-hero-login-link/);
+  assert.doesNotMatch(actionsHtml, />Sign Up</);
+  assert.doesNotMatch(actionsHtml, /Browse Lesson Plans/);
+  assert.match(html, /Curriculum today\. Growing into the complete childcare platform providers need\./);
+  assert.match(html, /#homeHeroInventory/);
   assert.match(html, /\$9\.99\/month/);
   assert.match(html, /Affordable Childcare Curriculum/);
 });
@@ -96,9 +101,17 @@ test("guest library browse keeps a signup path", () => {
   assert.match(appJs, /dismissOverlaysForAuthOrUpgrade\(\);\s*\n\s*setPreferredSignupPlan\("founding"\)/);
 });
 
+test("founding announcement dismissal persists in localStorage", () => {
+  assert.match(appJs, /LLH_FOUNDING_ANNOUNCE_DISMISS_KEY/);
+  const slice = appJs.slice(appJs.indexOf("function bindHomePublicChrome"), appJs.indexOf("function scrollToHomeSection"));
+  assert.match(slice, /localStorage\.getItem\(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY\)/);
+  assert.match(slice, /localStorage\.setItem\(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY/);
+});
+
 test("guest public previews and founding checkout wiring exist", () => {
   assert.match(appJs, /function renderHomePublicPreviews/);
   assert.match(appJs, /function openHomePublicPreview/);
+  assert.match(appJs, /function refreshHomeHeroInventory/);
   assert.match(appJs, /Create an account to use, edit, plan, print, and download lesson plans/);
   assert.match(appJs, /"lessons", "activities"/);
 });
