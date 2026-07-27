@@ -128,7 +128,7 @@ async function runSignedOutFlows(page, baseUrl, device) {
   } catch (e) { record("signed-out", device, "sign-in-ui", "fail", e.message); }
 
   try {
-    await page.goto(`${baseUrl}/?view=admin`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
     await page.waitForSelector("#adminUnlockForm", { timeout: 15000 });
     const lock = await page.evaluate(() => ({
       lock: !document.querySelector("#adminLockPanel")?.hidden,
@@ -183,7 +183,7 @@ async function runSignedInFlows(page, baseUrl, device, role, persona) {
         await card.click();
         const opened = await Promise.race([
           page.waitForSelector("#resourceViewerModal.open", { timeout: 15000 }).then(() => "viewer"),
-          page.waitForSelector("#proFeatureModal.open, .feature-preview-modal.open", { timeout: 15000 }).then(() => "upgrade"),
+          page.waitForSelector("#featurePreviewModal.open", { timeout: 15000 }).then(() => "upgrade"),
         ]).catch(() => "none");
         if (opened === "viewer") {
           await page.locator("#closeResourceViewer").click();
@@ -211,7 +211,7 @@ async function runSignedInFlows(page, baseUrl, device, role, persona) {
         await card.click();
         const opened = await Promise.race([
           page.waitForSelector("#resourceViewerModal.open", { timeout: 15000 }).then(() => "viewer"),
-          page.waitForSelector("#proFeatureModal.open, .feature-preview-modal.open", { timeout: 15000 }).then(() => "upgrade"),
+          page.waitForSelector("#featurePreviewModal.open", { timeout: 15000 }).then(() => "upgrade"),
         ]).catch(() => "none");
         if (opened === "viewer") {
           await page.locator("#closeResourceViewer").click();

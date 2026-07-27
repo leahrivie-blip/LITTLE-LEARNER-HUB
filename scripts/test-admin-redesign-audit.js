@@ -125,7 +125,13 @@ async function waitForBoot(port, child) {
 }
 
 async function unlockAdmin(page, baseUrl) {
-  await page.goto(`${baseUrl}/?view=admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await page.addInitScript(() => {
+    localStorage.removeItem("llhAdminUnlocked");
+    localStorage.removeItem("llhAdminSession");
+    localStorage.removeItem("llhAdminRememberEmail");
+  });
+  await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
+  await waitBootReady(page);
   await page.waitForSelector("#adminUnlockForm", { timeout: 20000 });
   await page.fill('input[name="adminEmail"]', "admin-audit@test.local");
   await page.fill('input[name="adminPassword"]', "admin-audit-pass");
@@ -217,23 +223,22 @@ async function runAdminAudit(browser, baseUrl, device) {
     if (loading) failures.push("system-health stuck loading");
   } catch (e) { failures.push(`system-health: ${e.message}`); }
 
+  // Refresh persistence (while admin is still unlocked)
+  try {
+    await clickAdminGroup(page, "users");
+    const tabBefore = await page.evaluate(() => localStorage.getItem("llhAdminActiveSection"));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitBootReady(page);
+    await page.waitForSelector(".admin-sidebar-btn", { timeout: 15000 });
+    const tabAfter = await page.evaluate(() => localStorage.getItem("llhAdminActiveSection"));
+    if (tabBefore !== tabAfter) failures.push("admin tab not preserved on refresh");
+  } catch (e) { failures.push(`refresh: ${e.message}`); }
+
   // Exit admin
   try {
     await page.locator('[data-view="home"]').filter({ hasText: "Exit Admin" }).click();
     await page.waitForSelector("#view-calendar.active-view, #view-home.active-view", { timeout: 15000 });
   } catch (e) { failures.push(`exit-admin: ${e.message}`); }
-
-  // Refresh persistence
-  try {
-    await page.goto(`${baseUrl}/?view=admin`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".admin-sidebar-btn", { timeout: 15000 });
-    await clickAdminGroup(page, "users");
-    const tabBefore = await page.evaluate(() => localStorage.getItem("llhAdminActiveSection"));
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector(".admin-sidebar-btn", { timeout: 15000 });
-    const tabAfter = await page.evaluate(() => localStorage.getItem("llhAdminActiveSection"));
-    if (tabBefore !== tabAfter) failures.push("admin tab not preserved on refresh");
-  } catch (e) { failures.push(`refresh: ${e.message}`); }
 
   // Signed-out admin lock
   try {
@@ -241,7 +246,8 @@ async function runAdminAudit(browser, baseUrl, device) {
       localStorage.removeItem("llhAdminUnlocked");
       localStorage.removeItem("llhAdminSession");
     });
-    await page.goto(`${baseUrl}/?view=admin`, { waitUntil: "domcontentloaded" });
+    await page.goto(`${baseUrl}/admin`, { waitUntil: "domcontentloaded" });
+    await waitBootReady(page);
     const lock = await page.evaluate(() => !document.querySelector("#adminLockPanel")?.hidden);
     assert.ok(lock);
   } catch (e) { failures.push(`signed-out-lock: ${e.message}`); }

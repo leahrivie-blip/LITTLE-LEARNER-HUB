@@ -48532,6 +48532,12 @@ document.addEventListener("click", async (event) => {
     openFeedbackModal(openFeedbackButton.dataset.openFeedback || "General Feedback");
     return;
   }
+  const settingsSignOutButton = event.target.closest("[data-settings-sign-out]");
+  if (settingsSignOutButton) {
+    event.preventDefault();
+    signOut();
+    return;
+  }
   if (event.target.closest("#closeFeedbackModal") || event.target.closest("#cancelFeedbackModal")) {
     event.preventDefault();
     closeFeedbackModal();
