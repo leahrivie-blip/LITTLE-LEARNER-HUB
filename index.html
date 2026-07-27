@@ -111,11 +111,6 @@
         if (!token) return false;
         var bodyFont = window.getComputedStyle(document.body).fontFamily || "";
         if (!/Plus Jakarta Sans|Fraunces/i.test(bodyFont)) return false;
-        var sidebar = document.querySelector(".sidebar");
-        if (sidebar) {
-          var sidebarDisplay = window.getComputedStyle(sidebar).display;
-          if (sidebarDisplay !== "none") return false;
-        }
         return true;
       }
       function recoverShell() {
