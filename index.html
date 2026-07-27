@@ -71,6 +71,9 @@
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
     // perform a one-time safe recovery without looping.
     (function () {
+      try {
+        if (localStorage.getItem("llhUser")) return;
+      } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
       var SHELL_VERSION = "20260727-home-reliability";
       function shellStylesheetLinks() {
