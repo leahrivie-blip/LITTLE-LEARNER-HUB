@@ -51,7 +51,7 @@ test("conversations API and list are name-first with search", () => {
   assert.match(apiSlice, /businessName: profile\.businessName/);
   assert.match(appJs, /function filteredAdminConversations\(/);
   assert.match(appJs, /id="adminConversationsSearch"/);
-  assert.match(appJs, /Search by name, email, or program/);
+  assert.match(appJs, /Search by name, email, or subject/);
   assert.match(appJs, /admin-conversation-email/);
 });
 
@@ -65,8 +65,9 @@ test("Message User and View Conversation exist on Users surfaces", () => {
   assert.match(appJs, /setAdminSectionTab\("messages-conversations"\)/);
 });
 
-test("admin Messages nav labels point people to Message Someone", () => {
-  assert.match(appJs, /"messages-compose": "Message Someone"/);
+test("admin Messages nav labels point people to compose + conversations", () => {
+  assert.match(appJs, /"messages-compose": "New Message"/);
+  assert.match(appJs, /"messages-conversations": "All Conversations"/);
 });
 
 test("member Messages tab clearly starts with Message Leah", () => {

@@ -1006,3 +1006,124 @@
     box-sizing: border-box;
   }
 }
+
+/* Admin communications workspace (Messages section) */
+.admin-messages-workspace-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.admin-messages-workspace-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 999px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+
+.admin-messages-workspace-btn:hover {
+  background: rgba(123, 107, 181, 0.08);
+}
+
+.admin-messages-workspace-btn.active {
+  border-color: rgba(123, 107, 181, 0.35);
+  background: rgba(123, 107, 181, 0.14);
+  font-weight: 600;
+}
+
+.admin-messages-workspace-btn.is-primary {
+  border-color: rgba(123, 107, 181, 0.45);
+}
+
+.admin-messages-workspace-badge {
+  min-width: 1.2rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #d94f4f;
+  color: #fff;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.admin-messages-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-messages-list-item {
+  padding: 14px;
+  border: 1px solid var(--line, #e6e8ef);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.admin-messages-list-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.admin-messages-list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.admin-message-channel-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(123, 107, 181, 0.12);
+  color: #4a3f73;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.admin-message-channel-badge.admin-message-channel-email {
+  background: rgba(46, 125, 210, 0.12);
+  color: #1f5f99;
+}
+
+.admin-message-channel-badge.admin-message-channel-in-app-email {
+  background: rgba(76, 175, 80, 0.12);
+  color: #2e6b31;
+}
+
+.admin-message-delivery-status {
+  font-size: 0.78rem;
+  color: var(--muted, #5f5f70);
+}
+
+.admin-inbox-thread-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.message-bubble-subject {
+  margin: 4px 0 6px;
+}
+
+@media (max-width: 720px) {
+  .admin-messages-workspace-nav {
+    gap: 6px;
+  }
+
+  .admin-messages-workspace-btn {
+    flex: 1 1 calc(50% - 6px);
+    justify-content: center;
+    min-height: 44px;
+  }
+}

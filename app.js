@@ -5081,7 +5081,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5097,7 +5097,7 @@ const adminGroups = [
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home"], defaultTab: "billing-home" },
   { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
-  { id: "messages", icon: "💬", label: "Messages", tabs: ["admin-inbox", "messages-compose", "messages-conversations", "message-templates", "automations"], defaultTab: "admin-inbox" },
+  { id: "messages", icon: "💬", label: "Messages", tabs: ["admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "automations"], defaultTab: "messages-conversations" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "usage", "settings"], defaultTab: "ai-home" },
   { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
@@ -5124,6 +5124,10 @@ const adminGroupForTab = {
   "admin-inbox": "messages",
   "messages-compose": "messages",
   "messages-conversations": "messages",
+  "messages-sent": "messages",
+  "messages-drafts": "messages",
+  "messages-archived": "messages",
+  "messages-email": "messages",
   "message-templates": "messages",
   "automations": "messages",
   "curriculum-lesson-plans": "content",
@@ -5179,9 +5183,13 @@ const adminTabLabels = {
   "feature-requests": "Feature Requests",
   "bug-reports": "Bug Reports",
   "emails": "Emails",
-  "admin-inbox": "Admin Inbox",
-  "messages-compose": "Message Someone",
-  "messages-conversations": "Conversations",
+  "admin-inbox": "Inbox",
+  "messages-compose": "New Message",
+  "messages-conversations": "All Conversations",
+  "messages-sent": "Sent",
+  "messages-drafts": "Drafts",
+  "messages-archived": "Archived",
+  "messages-email": "Email User",
   "message-templates": "Templates",
   "automations": "Automations",
   "curriculum-lesson-plans": "Lesson Plans",
@@ -11609,15 +11617,78 @@ let adminMessagesState = {
   toUserName: "",
   selectedEmails: [],
   conversationSearch: "",
+  sentSearch: "",
+  archivedSearch: "",
   subject: "",
   body: "",
   kind: "message",
+  deliverVia: "in_app",
   conversations: [],
+  sentMessages: [],
+  messageDrafts: [],
+  archivedItems: { inbox: [], conversations: [] },
   activeConversationEmail: "",
   activeConversationMessages: [],
   activeConversationUser: null,
   authError: "",
 };
+
+const adminMessagesWorkspaceTabs = [
+  { id: "admin-inbox", label: "Inbox" },
+  { id: "messages-conversations", label: "All Conversations" },
+  { id: "messages-sent", label: "Sent" },
+  { id: "messages-drafts", label: "Drafts" },
+  { id: "messages-archived", label: "Archived" },
+  { id: "messages-compose", label: "New Message", primary: true },
+  { id: "messages-email", label: "Email User", primary: true },
+];
+
+function adminMessagesWorkspaceUnreadCount() {
+  return (adminMessagesState.conversations || []).reduce((sum, row) => sum + Number(row.unreadFromUser || 0), 0);
+}
+
+function adminMessagesWorkspaceNavHtml(activeTabId) {
+  const unread = adminMessagesWorkspaceUnreadCount();
+  const inboxUnread = unread;
+  return `
+    <nav class="admin-messages-workspace-nav" aria-label="Communications workspace">
+      ${adminMessagesWorkspaceTabs.map((tab) => `
+        <button type="button" class="admin-messages-workspace-btn${tab.id === activeTabId ? " active" : ""}${tab.primary ? " is-primary" : ""}" data-admin-messages-workspace-tab="${escapeHtml(tab.id)}">
+          ${escapeHtml(tab.label)}
+          ${tab.id === "messages-conversations" && unread ? `<span class="admin-messages-workspace-badge">${unread > 99 ? "99+" : unread}</span>` : ""}
+          ${tab.id === "admin-inbox" && inboxUnread ? `<span class="admin-messages-workspace-badge">${inboxUnread > 99 ? "99+" : inboxUnread}</span>` : ""}
+        </button>
+      `).join("")}
+    </nav>
+  `;
+}
+
+window.adminMessagesWorkspaceNavHtml = adminMessagesWorkspaceNavHtml;
+
+function adminMessageChannelLabel(message) {
+  const via = String(message?.deliverVia || message?.channel || "in_app");
+  if (via === "email" || message?.channel === "email") return "Email";
+  if (via === "both" || message?.channel === "in_app_email") return "In-app + Email";
+  return "In-app";
+}
+
+function adminMessageDeliveryStatusHtml(message) {
+  const channel = adminMessageChannelLabel(message);
+  const channelBadge = `<span class="admin-message-channel-badge admin-message-channel-${channel.toLowerCase().replace(/[^a-z]+/g, "-")}">${escapeHtml(channel)}</span>`;
+  const summary = message?.emailSummary;
+  const delivery = message?.emailDelivery;
+  let status = "";
+  if (channel.includes("Email") && summary) {
+    if (summary.failed > 0 && summary.sent === 0) status = "Email failed";
+    else if (summary.sent > 0 && summary.failed > 0) status = `Email sent (${summary.sent}), failed (${summary.failed})`;
+    else if (summary.sent > 0) status = "Email accepted";
+    else status = "Email queued";
+  } else if (delivery) {
+    status = delivery.sent ? "Email accepted" : (delivery.error || "Email not sent");
+  }
+  const statusHtml = status ? `<span class="admin-message-delivery-status">${escapeHtml(status)}</span>` : "";
+  return `${channelBadge}${statusHtml}`;
+}
 
 let adminConversationsPollTimer = null;
 let adminConversationsRefreshInFlight = false;
@@ -11925,7 +11996,10 @@ function applyAdminMessageTemplate(templateId) {
     audience: template.audience || adminMessagesState.audience,
   });
   const container = document.querySelector("#adminMessagesApp");
-  if (container) renderAdminMessagesCompose(container);
+  if (container) {
+    const composeMode = adminActiveSectionTab === "messages-email" ? "email" : "message";
+    renderAdminMessagesCompose(container, { mode: composeMode });
+  }
 }
 
 async function adminMessagesPreview(payload) {
@@ -11950,19 +12024,46 @@ async function adminMessagesSend(payload) {
 }
 
 function renderAdminMessagesCenter(tab) {
-  adminMessagesState.tab = tab === "messages-conversations" ? "conversations" : "compose";
+  const composeTabs = new Set(["messages-compose", "messages-email"]);
+  adminMessagesState.tab = tab === "messages-conversations"
+    ? "conversations"
+    : composeTabs.has(tab)
+      ? "compose"
+      : tab.replace("messages-", "");
   const container = document.querySelector("#adminMessagesApp");
   if (!container) return;
-  if (adminMessagesState.tab === "compose") {
+  if (tab === "messages-compose") {
     stopAdminConversationsLiveRefresh();
-    renderAdminMessagesCompose(container);
-  } else {
+    renderAdminMessagesCompose(container, { mode: "message" });
+  } else if (tab === "messages-email") {
+    stopAdminConversationsLiveRefresh();
+    adminMessagesState.audience = "private";
+    adminMessagesState.deliverVia = "email";
+    renderAdminMessagesCompose(container, { mode: "email" });
+  } else if (tab === "messages-conversations") {
     renderAdminMessagesConversations(container);
+  } else if (tab === "messages-sent") {
+    stopAdminConversationsLiveRefresh();
+    renderAdminMessagesSent(container);
+  } else if (tab === "messages-drafts") {
+    stopAdminConversationsLiveRefresh();
+    renderAdminMessagesDrafts(container);
+  } else if (tab === "messages-archived") {
+    stopAdminConversationsLiveRefresh();
+    renderAdminMessagesArchived(container);
+  } else {
+    stopAdminConversationsLiveRefresh();
+    renderAdminMessagesCompose(container, { mode: "message" });
   }
 }
 
-function renderAdminMessagesCompose(container) {
+function renderAdminMessagesCompose(container, options = {}) {
+  const mode = options.mode === "email" ? "email" : "message";
   const s = adminMessagesState;
+  if (mode === "email") {
+    s.audience = "private";
+    s.deliverVia = "email";
+  }
   const kindOptions = [
     ["message", "Direct message"],
     ["announcement", "Announcement"],
@@ -11970,12 +12071,16 @@ function renderAdminMessagesCompose(container) {
   ];
   const selectedUser = s.toEmail ? adminMessagingUserByEmail(s.toEmail) : null;
   const selectedName = s.toUserName || selectedUser?.name || "";
+  const heading = mode === "email"
+    ? { eyebrow: "Email", title: "Email a member", hint: "Sends via support email when Resend is configured. The message is also logged for your records." }
+    : { eyebrow: "Member Messaging", title: "Start a new message", hint: "Search by name first. Email is filled in automatically — you do not need to remember it." };
   container.innerHTML = `
+    ${adminMessagesWorkspaceNavHtml(mode === "email" ? "messages-email" : "messages-compose")}
     <div class="section-heading">
       <div>
-        <p class="eyebrow">Member Messaging</p>
-        <h3>Message someone</h3>
-        <p class="muted-copy">Search by name first. Email is filled in automatically — you do not need to remember it.</p>
+        <p class="eyebrow">${heading.eyebrow}</p>
+        <h3>${heading.title}</h3>
+        <p class="muted-copy">${heading.hint}</p>
       </div>
     </div>
     <div class="admin-message-templates" aria-label="Message templates">
@@ -11987,7 +12092,7 @@ function renderAdminMessagesCompose(container) {
       </div>
     </div>
     <form class="admin-compose-form" id="adminMessagesComposeForm">
-      <label>Send to
+      <label ${mode === "email" ? "hidden" : ""}>Send to
         <select name="audience" id="adminMessagesAudience">
           ${Object.entries(adminAudienceLabels).map(([value, label]) => `<option value="${value}" ${s.audience === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
         </select>
@@ -12011,21 +12116,22 @@ function renderAdminMessagesCompose(container) {
           ${kindOptions.map(([value, label]) => `<option value="${value}" ${s.kind === value ? "selected" : ""}>${escapeHtml(label)}</option>`).join("")}
         </select>
       </label>
-      <label ${s.audience === "private" ? "hidden" : ""}>Delivery
+      <label ${mode === "email" || s.audience === "private" ? "hidden" : ""}>Delivery
         <select name="deliverVia" id="adminMessagesDeliverVia">
           <option value="in_app" ${s.deliverVia === "in_app" || !s.deliverVia ? "selected" : ""}>In-app only</option>
           <option value="email" ${s.deliverVia === "email" ? "selected" : ""}>Email only</option>
           <option value="both" ${s.deliverVia === "both" ? "selected" : ""}>In-app + Email</option>
         </select>
       </label>
-      <label>Subject ${s.audience === "private" ? "(optional)" : ""}
-        <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added"}" />
+      ${mode === "email" ? `<p class="form-note">This message will be delivered by email. In-app notifications are not sent for email-only delivery.</p>` : ""}
+      <label>Subject ${s.audience === "private" && mode !== "email" ? "(optional)" : ""}
+        <input type="text" name="subject" value="${escapeHtml(s.subject)}" maxlength="300" placeholder="${mode === "email" ? "e.g. Quick follow-up" : (s.audience === "private" ? "e.g. Welcome!" : "e.g. New lesson plans added")}" ${mode === "email" ? "required" : ""} />
       </label>
       <label>Message
         <textarea name="body" rows="5" maxlength="8000" placeholder="Write your message…">${escapeHtml(s.body)}</textarea>
       </label>
       <div class="admin-compose-actions">
-        <button type="submit" class="primary-button">${s.audience === "private" ? "Send Message" : "Preview & Send"}</button>
+        <button type="submit" class="primary-button">${mode === "email" ? "Send Email" : (s.audience === "private" ? "Send Message" : "Preview & Send")}</button>
       </div>
       <p class="admin-compose-message" id="adminMessagesComposeMessage"></p>
     </form>
@@ -12083,6 +12189,151 @@ function filteredAdminConversations() {
   });
 }
 
+async function renderAdminMessagesSent(container) {
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-loading">Loading sent messages…</p>`;
+  const token = adminSession()?.token || "";
+  const q = encodeURIComponent(adminMessagesState.sentSearch || "");
+  try {
+    const res = await fetch(`/api/admin/messages/sent?q=${q}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!assertAdminApiResponse(res, data, { render: false })) {
+      container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-empty">Admin session expired. Unlock Admin again.</p>`;
+      return;
+    }
+    adminMessagesState.sentMessages = Array.isArray(data.messages) ? data.messages : [];
+  } catch {
+    container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-empty">Could not load sent messages.</p>`;
+    return;
+  }
+  const rows = adminMessagesState.sentMessages;
+  const listHtml = rows.length
+    ? rows.map((m) => `
+      <article class="admin-messages-list-item">
+        <div class="admin-messages-list-head">
+          <strong>${escapeHtml(m.userName || m.userEmail || "Member")}</strong>
+          <span class="muted-copy">${escapeHtml(messagingRelativeTime(m.sentAt || m.createdAt))}</span>
+        </div>
+        <p class="muted-copy">${escapeHtml(m.userEmail || "")}</p>
+        ${m.subject ? `<p><strong>${escapeHtml(m.subject)}</strong></p>` : ""}
+        <p>${escapeHtml(m.body || "")}</p>
+        <div class="admin-messages-list-meta">${adminMessageDeliveryStatusHtml(m)}</div>
+        <button type="button" class="ghost-button" data-admin-open-sent-thread="${escapeHtml(m.userEmail || m.conversationEmail || "")}">Open thread</button>
+      </article>
+    `).join("")
+    : `<p class="messages-empty">No sent messages yet.</p>`;
+  container.innerHTML = `
+    ${adminMessagesWorkspaceNavHtml("messages-sent")}
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Member Messaging</p>
+        <h3>Sent</h3>
+        <p class="muted-copy">Messages you have sent to members, newest first.</p>
+      </div>
+    </div>
+    <div class="admin-conversations-toolbar">
+      <label class="admin-conversations-search-label" for="adminSentSearch">Search sent</label>
+      <input type="search" id="adminSentSearch" class="admin-conversations-search" placeholder="Search by user, email, or subject…" value="${escapeHtml(adminMessagesState.sentSearch || "")}" />
+    </div>
+    <div class="admin-messages-list">${listHtml}</div>
+  `;
+}
+
+async function renderAdminMessagesDrafts(container) {
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}<p class="messages-loading">Loading drafts…</p>`;
+  const token = adminSession()?.token || "";
+  try {
+    const res = await fetch("/api/admin/messages/drafts", { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!assertAdminApiResponse(res, data, { render: false })) {
+      container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}<p class="messages-empty">Admin session expired. Unlock Admin again.</p>`;
+      return;
+    }
+    adminMessagesState.messageDrafts = Array.isArray(data.drafts) ? data.drafts : [];
+  } catch {
+    container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}<p class="messages-empty">Could not load drafts.</p>`;
+    return;
+  }
+  const drafts = adminMessagesState.messageDrafts;
+  const listHtml = drafts.length
+    ? drafts.map((d) => `
+      <article class="admin-messages-list-item">
+        <div class="admin-messages-list-head">
+          <strong>${escapeHtml(d.subject || "Untitled draft")}</strong>
+          <span class="muted-copy">${escapeHtml(messagingRelativeTime(d.updatedAt || d.createdAt))}</span>
+        </div>
+        <p class="muted-copy">${escapeHtml(d.audience || "all")}${d.toEmail ? ` · ${escapeHtml(d.toEmail)}` : ""}</p>
+        <p>${escapeHtml((d.body || "").slice(0, 220))}${(d.body || "").length > 220 ? "…" : ""}</p>
+        <div class="account-actions-row">
+          <button type="button" class="ghost-button" data-admin-draft-resume="${escapeHtml(d.id)}">Resume</button>
+          <button type="button" class="ghost-button" data-admin-draft-delete="${escapeHtml(d.id)}">Delete</button>
+        </div>
+      </article>
+    `).join("")
+    : `<p class="messages-empty">No drafts saved.</p>`;
+  container.innerHTML = `
+    ${adminMessagesWorkspaceNavHtml("messages-drafts")}
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Member Messaging</p>
+        <h3>Drafts</h3>
+        <p class="muted-copy">Saved broadcast and message drafts — nothing is sent until you confirm.</p>
+      </div>
+    </div>
+    <div class="admin-messages-list">${listHtml}</div>
+  `;
+}
+
+async function renderAdminMessagesArchived(container) {
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}<p class="messages-loading">Loading archived items…</p>`;
+  const token = adminSession()?.token || "";
+  const q = encodeURIComponent(adminMessagesState.archivedSearch || "");
+  try {
+    const res = await fetch(`/api/admin/messages/archived?q=${q}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!assertAdminApiResponse(res, data, { render: false })) {
+      container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}<p class="messages-empty">Admin session expired. Unlock Admin again.</p>`;
+      return;
+    }
+    adminMessagesState.archivedItems = {
+      inbox: Array.isArray(data.inbox) ? data.inbox : [],
+      conversations: Array.isArray(data.conversations) ? data.conversations : [],
+    };
+  } catch {
+    container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}<p class="messages-empty">Could not load archived items.</p>`;
+    return;
+  }
+  const { inbox, conversations } = adminMessagesState.archivedItems;
+  const rows = [...inbox, ...conversations];
+  const listHtml = rows.length
+    ? rows.map((row) => `
+      <article class="admin-messages-list-item">
+        <div class="admin-messages-list-head">
+          <strong>${escapeHtml(row.title || "Archived item")}</strong>
+          <span class="muted-copy">${escapeHtml(messagingRelativeTime(row.archivedAt))}</span>
+        </div>
+        <p class="muted-copy">${escapeHtml(row.kind === "conversation" ? "Archived conversation" : "Archived inbox item")}${row.email ? ` · ${escapeHtml(row.email)}` : ""}</p>
+        <p>${escapeHtml(row.preview || "")}</p>
+        ${row.email ? `<button type="button" class="ghost-button" data-admin-open-archived-thread="${escapeHtml(row.email)}">Open conversation history</button>` : ""}
+      </article>
+    `).join("")
+    : `<p class="messages-empty">Nothing archived yet. Archiving only hides items — history is preserved.</p>`;
+  container.innerHTML = `
+    ${adminMessagesWorkspaceNavHtml("messages-archived")}
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Member Messaging</p>
+        <h3>Archived</h3>
+        <p class="muted-copy">Hidden inbox items and member-archived threads. Nothing here is deleted.</p>
+      </div>
+    </div>
+    <div class="admin-conversations-toolbar">
+      <label class="admin-conversations-search-label" for="adminArchivedSearch">Search archived</label>
+      <input type="search" id="adminArchivedSearch" class="admin-conversations-search" placeholder="Search by user, email, or subject…" value="${escapeHtml(adminMessagesState.archivedSearch || "")}" />
+    </div>
+    <div class="admin-messages-list">${listHtml}</div>
+  `;
+}
+
 function renderAdminConversationsBody(container) {
   const conversations = filteredAdminConversations();
   const total = adminMessagesState.conversations.length;
@@ -12090,16 +12341,17 @@ function renderAdminConversationsBody(container) {
     ? conversations.map(adminConversationItemHtml).join("")
     : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
   container.innerHTML = `
+    ${adminMessagesWorkspaceNavHtml("messages-conversations")}
     <div class="section-heading">
       <div>
         <p class="eyebrow">Member Messaging</p>
-        <h3>Conversations</h3>
-        <p class="muted-copy">Find people by name. Email stays available under each name. Open threads refresh automatically.</p>
+        <h3>All conversations</h3>
+        <p class="muted-copy">Full private-message history with each member. Search by name, email, or subject. Open a thread to reply.</p>
       </div>
     </div>
     <div class="admin-conversations-toolbar">
       <label class="admin-conversations-search-label" for="adminConversationsSearch">Search conversations</label>
-      <input type="search" id="adminConversationsSearch" class="admin-conversations-search" placeholder="Search by name, email, or program…" value="${escapeHtml(adminMessagesState.conversationSearch || "")}" />
+      <input type="search" id="adminConversationsSearch" class="admin-conversations-search" placeholder="Search by name, email, or subject…" value="${escapeHtml(adminMessagesState.conversationSearch || "")}" />
     </div>
     <div class="admin-conversations-layout">
       <div class="admin-conversations-list">${listHtml}</div>
@@ -12190,7 +12442,12 @@ function renderAdminConversationThread() {
   const bubbles = messages.length
     ? messages.map((m) => `
       <div class="message-bubble ${m.senderType === "admin" ? "message-bubble-mine" : "message-bubble-admin"}">
-        <div class="message-bubble-meta"><strong>${escapeHtml(m.senderType === "admin" ? "You" : displayName)}</strong><span>${escapeHtml(messagingRelativeTime(m.createdAt))}</span></div>
+        <div class="message-bubble-meta">
+          <strong>${escapeHtml(m.senderType === "admin" ? "You" : displayName)}</strong>
+          <span>${escapeHtml(messagingRelativeTime(m.createdAt))}</span>
+          ${m.senderType === "admin" ? adminMessageDeliveryStatusHtml(m) : ""}
+        </div>
+        ${m.subject ? `<p class="message-bubble-subject"><strong>${escapeHtml(m.subject)}</strong></p>` : ""}
         <div class="message-bubble-body">${escapeHtml(m.body || "").replace(/\n/g, "<br>")}</div>
       </div>
     `).join("")
@@ -12216,7 +12473,8 @@ document.addEventListener("change", (event) => {
     adminMessagesState.kind = String(form.kind?.value || adminMessagesState.kind || "message");
   }
   adminMessagesState.audience = event.target.value;
-  renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"));
+  const composeMode = adminActiveSectionTab === "messages-email" ? "email" : "message";
+  renderAdminMessagesCompose(document.querySelector("#adminMessagesApp"), { mode: composeMode });
 });
 
 document.addEventListener("submit", async (event) => {
@@ -12240,6 +12498,7 @@ document.addEventListener("submit", async (event) => {
   if (!body) { setFormMessage(messageEl, "Write a message before sending.", false); return; }
   if (audience === "private" && !toEmail) { setFormMessage(messageEl, "Choose a member by name before sending.", false); return; }
   if (audience === "selected" && !selectedEmails.length) { setFormMessage(messageEl, "Add at least one member by name before sending.", false); return; }
+  if (adminActiveSectionTab === "messages-email" && !subject) { setFormMessage(messageEl, "Add a subject before sending email.", false); return; }
 
   const submitBtn = form.querySelector("button[type='submit']");
   if (submitBtn) submitBtn.disabled = true;
@@ -12278,6 +12537,50 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const workspaceTab = event.target.closest("[data-admin-messages-workspace-tab]");
+  if (workspaceTab) {
+    event.preventDefault();
+    const tab = workspaceTab.dataset.adminMessagesWorkspaceTab;
+    if (tab) setAdminSectionTab(tab);
+    return;
+  }
+  const sentThreadBtn = event.target.closest("[data-admin-open-sent-thread], [data-admin-open-archived-thread]");
+  if (sentThreadBtn) {
+    event.preventDefault();
+    const email = sentThreadBtn.dataset.adminOpenSentThread || sentThreadBtn.dataset.adminOpenArchivedThread;
+    if (email) startAdminMessageToUser(email, { openConversation: true });
+    return;
+  }
+  const draftResumeBtn = event.target.closest("[data-admin-draft-resume]");
+  if (draftResumeBtn) {
+    event.preventDefault();
+    const draft = (adminMessagesState.messageDrafts || []).find((d) => d.id === draftResumeBtn.dataset.adminDraftResume);
+    if (!draft) return;
+    Object.assign(adminMessagesState, {
+      audience: draft.audience || "private",
+      toEmail: draft.toEmail || "",
+      selectedEmails: Array.isArray(draft.selectedEmails) ? draft.selectedEmails : [],
+      subject: draft.subject || "",
+      body: draft.body || "",
+      kind: draft.kind || "message",
+    });
+    setAdminSectionTab("messages-compose");
+    return;
+  }
+  const draftDeleteBtn = event.target.closest("[data-admin-draft-delete]");
+  if (draftDeleteBtn) {
+    event.preventDefault();
+    const id = draftDeleteBtn.dataset.adminDraftDelete;
+    if (!id) return;
+    const token = adminSession()?.token || "";
+    await fetch("/api/admin/messages/draft-delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id }),
+    });
+    renderAdminMessagesDrafts(document.querySelector("#adminMessagesApp"));
+    return;
+  }
   const messageUserBtn = event.target.closest("[data-aup-message]");
   if (messageUserBtn) {
     event.preventDefault();
@@ -12353,6 +12656,17 @@ document.addEventListener("input", (event) => {
   if (event.target.matches("#adminConversationsSearch")) {
     adminMessagesState.conversationSearch = event.target.value || "";
     updateAdminConversationsListDom();
+    return;
+  }
+  if (event.target.matches("#adminSentSearch")) {
+    adminMessagesState.sentSearch = event.target.value || "";
+    renderAdminMessagesSent(document.querySelector("#adminMessagesApp"));
+    return;
+  }
+  if (event.target.matches("#adminArchivedSearch")) {
+    adminMessagesState.archivedSearch = event.target.value || "";
+    renderAdminMessagesArchived(document.querySelector("#adminMessagesApp"));
+    return;
   }
   // Keep compose state in sync while typing so audience/template remounts never erase text.
   const composeForm = event.target.closest?.("#adminMessagesComposeForm");
@@ -40275,7 +40589,14 @@ function applyAdminSectionVisibility() {
     if (typeof window.renderAdminInbox === "function") {
       window.renderAdminInbox(document.querySelector("#adminInboxApp"));
     }
-  } else if (tab === "messages-compose" || tab === "messages-conversations") {
+  } else if (
+    tab === "messages-compose"
+    || tab === "messages-conversations"
+    || tab === "messages-sent"
+    || tab === "messages-drafts"
+    || tab === "messages-archived"
+    || tab === "messages-email"
+  ) {
     const el = document.querySelector(".admin-messages-panel");
     if (el) el.hidden = false;
     renderAdminMessagesCenter(tab);

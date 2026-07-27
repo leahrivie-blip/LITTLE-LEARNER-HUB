@@ -1431,22 +1431,19 @@
     if (!token) throw new Error("Admin login required.");
     const headers = {
       "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
       ...(options.headers || {}),
     };
     const method = (options.method || "GET").toUpperCase();
-    let finalUrl = url;
     let body = options.body;
-    if (method === "GET") {
-      const sep = url.includes("?") ? "&" : "?";
-      finalUrl = `${url}${sep}adminToken=${encodeURIComponent(token)}`;
-    } else if (body && typeof body === "object" && !(body instanceof FormData)) {
-      body = JSON.stringify({ adminToken: token, ...body });
+    if (body && typeof body === "object" && !(body instanceof FormData)) {
+      body = JSON.stringify(body);
     }
     const timeoutMs = Number(options.timeoutMs) || 20000;
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const res = await fetch(finalUrl, { ...options, method, headers, body, cache: "no-store", signal: controller.signal });
+      const res = await fetch(url, { ...options, method, headers, body, cache: "no-store", signal: controller.signal });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
       return data;
@@ -1737,10 +1734,13 @@
         const convo = await adminFetchJson(
           `/api/admin/messages/conversation?userEmail=${encodeURIComponent(selected.email)}`,
         );
-        const messages = Array.isArray(convo.messages) ? convo.messages.slice(-8) : [];
+        const messages = Array.isArray(convo.messages) ? convo.messages : [];
         conversationHtml = messages.length
           ? `<div class="admin-inbox-thread">
-              <h4>Conversation</h4>
+              <div class="admin-inbox-thread-head">
+                <h4>Full conversation (${messages.length} message${messages.length === 1 ? "" : "s"})</h4>
+                <button type="button" class="ghost-button" data-inbox-conversation="${escapeHtml(selected.email)}">Open in All Conversations</button>
+              </div>
               ${messages.map((m) => `
                 <article class="admin-inbox-thread-item ${m.senderType === "admin" ? "from-admin" : "from-user"}">
                   <strong>${escapeHtml(m.senderType === "admin" ? "You" : (selected.name || selected.email))}</strong>
@@ -1792,6 +1792,7 @@
       const selected = visible.find((i) => i.id === selectedId) || null;
 
       container.innerHTML = adminPanelShell("Admin Inbox", `
+        ${typeof window.adminMessagesWorkspaceNavHtml === "function" ? window.adminMessagesWorkspaceNavHtml("admin-inbox") : ""}
         <p class="muted-copy">New support, bug, feature, and feedback submissions plus unread member messages — in one place.</p>
         <label class="search-wrap admin-search">
           <span>Search conversations</span>
@@ -1913,8 +1914,7 @@
           try {
             await adminFetchJson("/api/admin/inbox/archive", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ confirm: true, id }),
+              body: { confirm: true, id },
             });
             items = items.filter((i) => i.id !== id);
             if (selectedId === id) selectedId = items[0]?.id || "";

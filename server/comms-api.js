@@ -195,6 +195,8 @@ function createCommsApi(deps) {
     SUPPORT_EMAIL_TO: _SUPPORT_EMAIL_TO,
     publicMessage,
     publicNotification,
+    extractAdminToken,
+    extractAdminTokenFromBody,
   } = deps;
 
   const adminEmailAllowlist = new Set(
@@ -213,6 +215,20 @@ function createCommsApi(deps) {
       return false;
     }
     return true;
+  }
+
+  function adminTokenFromRequest(request, url) {
+    if (typeof extractAdminToken === "function") return extractAdminToken(request, url) || "";
+    const authHeader = String(request?.headers?.authorization || "");
+    if (authHeader.toLowerCase().startsWith("bearer ")) return authHeader.slice(7).trim();
+    return String(url?.searchParams?.get("adminToken") || "").trim();
+  }
+
+  function adminTokenFromBody(request, body) {
+    if (typeof extractAdminTokenFromBody === "function") return extractAdminTokenFromBody(request, body) || "";
+    const authHeader = String(request?.headers?.authorization || "");
+    if (authHeader.toLowerCase().startsWith("bearer ")) return authHeader.slice(7).trim();
+    return String(body?.adminToken || "").trim();
   }
 
   async function resolveMemberOrFail(request, response) {
@@ -458,7 +474,7 @@ function createCommsApi(deps) {
 
     let ownerEmail = "";
     if (scope === "admin") {
-      if (!requireAdmin(body.adminToken || "", response)) return;
+      if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
       ownerEmail = normalizeEmail(ADMIN_EMAIL || "admin");
     } else {
       const identity = await resolveMemberOrFail(request, response);
@@ -495,7 +511,7 @@ function createCommsApi(deps) {
 
     let ownerEmail = "";
     if (scope === "admin" || body.adminToken) {
-      if (!requireAdmin(body.adminToken || "", response)) return;
+      if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
       ownerEmail = normalizeEmail(ADMIN_EMAIL || "admin");
     } else {
       const identity = await resolveMemberOrFail(request, response);
@@ -645,7 +661,7 @@ function createCommsApi(deps) {
   // ─── Templates (admin) ─────────────────────────────────────────────────────
 
   function handleTemplatesGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const store = ensureCommsStore(readStore());
     jsonResponse(response, 200, {
       templates: commsLib.mergeTemplates(store.messageTemplates),
@@ -654,7 +670,7 @@ function createCommsApi(deps) {
 
   async function handleTemplatesSave(request, response) {
     const body = await readJson(request);
-    if (!requireAdmin(body.adminToken || "", response)) return;
+    if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
     const source = body.template && typeof body.template === "object" ? body.template : body;
     const store = ensureCommsStore(readStore());
     const id = commsLib.clampText(source.id, 80) || randomId("tmpl");
@@ -684,7 +700,7 @@ function createCommsApi(deps) {
 
   async function handleTemplatesDelete(request, response) {
     const body = await readJson(request);
-    if (!requireAdmin(body.adminToken || "", response)) return;
+    if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
     const id = String(body.id || "").trim();
     if (!id) {
       jsonResponse(response, 400, { error: "Template id is required." });
@@ -715,7 +731,7 @@ function createCommsApi(deps) {
   // ─── User tags (admin) ─────────────────────────────────────────────────────
 
   function handleUserTagsGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const store = ensureCommsStore(readStore());
     const email = normalizeEmail(url.searchParams.get("email") || "");
     if (email) {
@@ -734,7 +750,7 @@ function createCommsApi(deps) {
 
   async function handleUserTagsSet(request, response) {
     const body = await readJson(request);
-    if (!requireAdmin(body.adminToken || "", response)) return;
+    if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
     const email = normalizeEmail(body.email || "");
     if (!email) {
       jsonResponse(response, 400, { error: "email is required." });
@@ -759,7 +775,7 @@ function createCommsApi(deps) {
   // ─── Timeline (admin) ──────────────────────────────────────────────────────
 
   function handleUserTimelineGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const userEmail = normalizeEmail(url.searchParams.get("userEmail") || url.searchParams.get("email") || "");
     if (!userEmail) {
       jsonResponse(response, 400, { error: "userEmail is required." });
@@ -785,7 +801,7 @@ function createCommsApi(deps) {
   }
 
   function handleUserHealthGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const store = ensureCommsStore(ensureMessagingStore(readStore()));
     const adminEmail = normalizeEmail(ADMIN_EMAIL || "");
     const events = store.analyticsEvents || [];
@@ -881,7 +897,7 @@ function createCommsApi(deps) {
   }
 
   function handleAdminInboxGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const store = ensureCommsStore(ensureMessagingStore(readStore()));
     const adminEmail = normalizeEmail(ADMIN_EMAIL || "");
     const includeArchived = ["1", "true", "yes"].includes(String(url.searchParams.get("includeArchived") || "").toLowerCase());
@@ -1043,7 +1059,7 @@ function createCommsApi(deps) {
 
   async function handleAdminInboxArchive(request, response) {
     const body = await readJson(request);
-    if (!requireAdmin(body.adminToken || "", response)) return;
+    if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
     const id = String(body.id || "").trim();
     if (!id) {
       jsonResponse(response, 400, { error: "id is required." });
@@ -1073,7 +1089,7 @@ function createCommsApi(deps) {
   // ─── Automations (admin) ───────────────────────────────────────────────────
 
   function handleAutomationsGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const store = ensureCommsStore(readStore());
     jsonResponse(response, 200, {
       automations: commsLib.mergeAutomations(store.automations),
@@ -1083,7 +1099,7 @@ function createCommsApi(deps) {
 
   async function handleAutomationsSave(request, response) {
     const body = await readJson(request);
-    if (!requireAdmin(body.adminToken || "", response)) return;
+    if (!requireAdmin(adminTokenFromBody(request, body), response)) return;
     const store = ensureCommsStore(readStore());
     const now = new Date().toISOString();
 
@@ -1130,7 +1146,7 @@ function createCommsApi(deps) {
   // ─── Broadcast log (admin) ─────────────────────────────────────────────────
 
   function handleBroadcastLogGet(request, response, url) {
-    if (!requireAdmin(url.searchParams.get("adminToken") || "", response)) return;
+    if (!requireAdmin(adminTokenFromRequest(request, url), response)) return;
     const store = ensureCommsStore(readStore());
     const limit = Math.min(Number(url.searchParams.get("limit")) || 100, 500);
     jsonResponse(response, 200, {

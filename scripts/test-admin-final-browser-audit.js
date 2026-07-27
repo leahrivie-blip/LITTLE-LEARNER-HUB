@@ -30,7 +30,7 @@ const ADMIN_SECTIONS = [
   { group: "users", label: "Users", expect: ".admin-users-table" },
   { group: "billing", label: "Billing" },
   { group: "content", label: "Content" },
-  { group: "messages", label: "Messages", expect: "#adminInboxApp" },
+  { group: "messages", label: "Messages", expect: "#adminMessagesApp .admin-messages-workspace-nav" },
   { group: "website", label: "Website" },
   { group: "ai", label: "AI Tools" },
   { group: "system-health", label: "System Health", expect: ".admin-health-card" },
