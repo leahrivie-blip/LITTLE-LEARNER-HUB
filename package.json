@@ -78,6 +78,8 @@
     "test:child-documents-tab": "node scripts/test-child-documents-tab.js",
     "test:child-profile-redesign": "node scripts/test-child-profile-redesign.js",
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
+    "test:admin-redesign-audit": "node scripts/test-admin-redesign-audit.js",
+    "test:live-user-protection-matrix": "node scripts/test-live-user-protection-matrix.js",
     "test:domain-dns-fix": "node scripts/test-domain-dns-fix.js",
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
     "test:signup-buttons-audit": "node scripts/test-signup-buttons-audit.js",

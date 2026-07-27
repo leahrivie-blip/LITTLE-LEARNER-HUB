@@ -62,7 +62,8 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260716-hero-mock-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260722-lesson-empty-hotfix" />
+  <link rel="stylesheet" href="styles.css?v=20260725-admin-redesign" />
+  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260725-admin-redesign" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260720-promo-existing" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260720-promo-existing" />
@@ -900,7 +901,12 @@
           </div>
           <section id="adminLockPanel" class="section-block admin-lock-panel"></section>
           <div id="adminProtectedContent">
-          <nav id="adminSectionNav" class="admin-section-nav" aria-label="Admin sections"></nav>
+          <div class="admin-workspace-shell">
+          <nav id="adminSectionNav" class="admin-workspace-sidebar admin-section-nav" aria-label="Admin sections"></nav>
+          <div class="admin-workspace-main" id="adminWorkspaceMain">
+          <section class="section-block admin-workspace-landing-panel" hidden>
+            <div id="adminWorkspaceLandingApp"></div>
+          </section>
           <section class="section-block admin-content-manager-panel">
             <div id="adminContentManagerApp"></div>
           </section>
@@ -1087,6 +1093,8 @@
             <div id="adminInAppAnnouncementsApp"></div>
             <div id="adminUpgradeMsgApp"></div>
           </section>
+          </div>
+          </div>
           </div>
         </section>
 
@@ -2004,7 +2012,8 @@
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260720-promo-existing" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260720-promo-existing" defer></script>
-    <script src="app.js?v=20260722-lesson-empty-hotfix" defer></script>
-    <script src="comms-center.js?v=20260722-lesson-empty-hotfix" defer></script>
+    <script src="app.js?v=20260725-admin-redesign" defer></script>
+    <script src="admin-workspace.js?v=20260725-admin-redesign" defer></script>
+    <script src="comms-center.js?v=20260725-admin-redesign" defer></script>
   </body>
 </html>
