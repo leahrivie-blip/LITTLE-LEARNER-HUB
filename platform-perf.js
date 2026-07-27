@@ -40,29 +40,29 @@
       "testing-lab-ui.js?v=20260726-admin-workspace",
     ],
     "admin-home": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
       "testing-lab-ui.js?v=20260726-admin-workspace",
     ],
     "admin-testers": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
       "testing-lab-ui.js?v=20260726-admin-workspace",
     ],
     "admin-feedback": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
       "testing-lab-ui.js?v=20260726-admin-workspace",
     ],
     "admin-role-preview": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
       "testing-lab-ui.js?v=20260726-admin-workspace",
     ],
     "admin-content": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
     ],
     "admin-health": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
     ],
     "admin-advanced": [
-      "admin-workspace-ui.js?v=20260726-admin-workspace",
+      "admin-workspace-ui.js?v=20260727-admin-mobile-menu",
     ],
   });
 

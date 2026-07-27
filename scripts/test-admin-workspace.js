@@ -110,6 +110,28 @@ async function adminLogin(port) {
 async function unlockAdmin(page, baseUrl) {
   await page.goto(`${baseUrl}/#/admin`, { waitUntil: "domcontentloaded", timeout: UI_TIMEOUT_MS });
   await page.waitForFunction(() => typeof setView === "function", null, { timeout: UI_TIMEOUT_MS });
+  const alreadyUnlocked = await page.locator("#view-admin-home.active-view").isVisible().catch(() => false);
+  if (alreadyUnlocked) return;
+  await page.waitForSelector("input[name='adminEmail']", { timeout: UI_TIMEOUT_MS });
+  await page.fill('input[name="adminEmail"]', ADMIN.email);
+  await page.fill('input[name="adminPassword"]', ADMIN.password);
+  await page.fill('input[name="adminCode"]', ADMIN.code);
+  await page.click("#adminUnlockForm button[type='submit']");
+  await page.waitForSelector("#view-admin-home.active-view", { timeout: UI_TIMEOUT_MS });
+}
+
+async function reUnlockAdminWorkspace(page) {
+  await page.evaluate(() => {
+    try {
+      localStorage.removeItem("llhAdminSession");
+      localStorage.removeItem("llhAdminUnlocked");
+      localStorage.removeItem("llhAdminToken");
+      localStorage.removeItem("llhAdminPreviewMode");
+      sessionStorage.removeItem("llhAdminToken");
+    } catch { /* storage unavailable */ }
+    if (typeof setView === "function") setView("admin");
+  });
+  await page.waitForSelector("input[name='adminEmail']", { timeout: UI_TIMEOUT_MS });
   await page.fill('input[name="adminEmail"]', ADMIN.email);
   await page.fill('input[name="adminPassword"]', ADMIN.password);
   await page.fill('input[name="adminCode"]', ADMIN.code);
@@ -122,6 +144,70 @@ async function clickAdminNav(page, view) {
   await page.waitForSelector(`#view-${view}.active-view`, { timeout: 20000 });
   const onCalendar = await page.evaluate(() => document.querySelector("#view-calendar")?.classList.contains("active-view"));
   assert.equal(onCalendar, false, `click nav ${view} must not open Calendar`);
+}
+
+async function openAdminMobileMenu(page) {
+  const toggle = page.locator("#adminWorkspaceMenuToggle");
+  await toggle.waitFor({ state: "visible", timeout: UI_TIMEOUT_MS });
+  const isOpen = await page.evaluate(() => document.body.classList.contains("admin-mobile-menu-open"));
+  if (!isOpen) {
+    await toggle.click();
+    await page.waitForFunction(() => document.body.classList.contains("admin-mobile-menu-open"), null, { timeout: 10000 });
+  }
+}
+
+async function assertAdminMobileMenuClosed(page) {
+  await page.waitForFunction(() => !document.body.classList.contains("admin-mobile-menu-open"), null, { timeout: 10000 });
+}
+
+async function clickAdminMobileNav(page, view) {
+  await openAdminMobileMenu(page);
+  await page.click(`#adminWorkspaceMobileMenu [data-admin-workspace-nav][data-view="${view}"]`);
+  await page.waitForSelector(`#view-${view}.active-view`, { timeout: 20000 });
+  await assertAdminMobileMenuClosed(page);
+  const onCalendar = await page.evaluate(() => document.querySelector("#view-calendar")?.classList.contains("active-view"));
+  assert.equal(onCalendar, false, `mobile tap ${view} must not open Calendar`);
+}
+
+async function clickAdminMobileExit(page) {
+  await openAdminMobileMenu(page);
+  await page.click("#adminWorkspaceMobileMenu [data-aw-exit-admin]");
+  await assertAdminMobileMenuClosed(page);
+  await page.waitForFunction(() => !document.querySelector("#view-admin-home.active-view"), null, { timeout: 15000 });
+}
+
+const PHONE_NAV_VIEWS = [
+  ["admin-home", /Admin Home|Start Here|Testing Status/i],
+  ["admin-testers", /Home Daycare|External Tester|Testing Site/i],
+  ["admin-content", /Content landing|Lesson Plans|Forms & templates/i],
+  ["admin-feedback", /Feedback|Testing Feedback/i],
+  ["admin-health", /Website|Database|Working|Needs Attention|Checking/i],
+  ["admin-advanced", /Advanced tools/i],
+];
+
+async function runPhoneAdminNavClicks(page, width) {
+  await page.setViewportSize({ width, height: 844 });
+  await page.waitForSelector("#adminWorkspaceMenuToggle:not([hidden])", { timeout: UI_TIMEOUT_MS });
+  const toggleVisible = await page.locator("#adminWorkspaceMenuToggle").isVisible();
+  assert.equal(toggleVisible, true, `${width}px: Admin menu button must be visible`);
+
+  for (const [view, pattern] of PHONE_NAV_VIEWS) {
+    await clickAdminMobileNav(page, view);
+    if (view === "admin-health") {
+      await page.waitForFunction(() => {
+        const t = document.querySelector("#view-admin-health")?.textContent || "";
+        return /Website|Database|Working|Needs Attention|Checking|Retry|timed out/i.test(t);
+      }, null, { timeout: 20000 });
+    }
+    const text = await page.locator(`#view-${view}`).textContent();
+    assert.match(text, pattern, `${width}px mobile tap: ${view} must show real content`);
+    pass(`${width}px real tap: ${view} opens via Admin menu`);
+  }
+
+  await clickAdminMobileExit(page);
+  pass(`${width}px real tap: Exit Admin leaves workspace via Admin menu`);
+
+  await reUnlockAdminWorkspace(page);
 }
 
 async function runOwnerColdWalkthrough() {
@@ -324,19 +410,8 @@ async function main() {
     await clickAdminNav(page, "admin-home");
     pass("Return to Admin Home from nav click");
 
-    const viewports = [
-      { name: "phone", width: 390, height: 844 },
-      { name: "tablet", width: 820, height: 1180 },
-    ];
-    for (const vp of viewports) {
-      await page.setViewportSize({ width: vp.width, height: vp.height });
-      for (const view of ["admin-home", "admin-testers", "admin-content", "admin-health"]) {
-        await page.evaluate((v) => setView(v), view);
-        await page.waitForSelector(`#view-${view}.active-view`, { timeout: 15000 });
-        const onCalendar = await page.evaluate(() => document.querySelector("#view-calendar")?.classList.contains("active-view"));
-        assert.equal(onCalendar, false, `${vp.name} ${view} must not open Calendar`);
-      }
-      pass(`${vp.name}: workspace views render without Calendar redirect`);
+    for (const width of [360, 390, 430]) {
+      await runPhoneAdminNavClicks(page, width);
     }
 
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -368,8 +443,7 @@ async function main() {
       const browser2 = await chromium.launch({ headless: true });
       const page2 = await browser2.newPage({ viewport: { width: 390, height: 844 } });
       await unlockAdmin(page2, `http://127.0.0.1:${port2}`);
-      await page2.evaluate(() => setView("admin-testers"));
-      await page2.waitForSelector("#view-admin-testers.active-view", { timeout: 15000 });
+      await clickAdminMobileNav(page2, "admin-testers");
       await page2.waitForFunction(() => {
         const t = document.querySelector("#view-admin-testers")?.textContent || "";
         return /Testing Lab is disabled in the Render testing environment/i.test(t);

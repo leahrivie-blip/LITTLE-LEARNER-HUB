@@ -88,7 +88,90 @@
     );
   }
 
+  const ADMIN_MOBILE_MENU_ITEMS = Object.freeze([
+    { view: "admin-home", label: "Admin Home" },
+    { view: "admin-testers", label: "Testers" },
+    { view: "admin-content", label: "Content" },
+    { view: "admin-feedback", label: "Feedback" },
+    { view: "admin-health", label: "System Health" },
+    { view: "admin-advanced", label: "Advanced Tools" },
+  ]);
+
+  function isMobileLayout() {
+    return Boolean(global.matchMedia?.("(max-width: 1100px)")?.matches);
+  }
+
+  function setAdminMobileMenuOpen(open) {
+    const shouldOpen = Boolean(open) && isAdminWorkspaceMode() && isMobileLayout();
+    global.document?.body?.classList.toggle("admin-mobile-menu-open", shouldOpen);
+    const toggle = global.document?.querySelector("#adminWorkspaceMenuToggle");
+    const menu = global.document?.querySelector("#adminWorkspaceMobileMenu");
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", String(shouldOpen));
+      toggle.setAttribute("aria-label", shouldOpen ? "Close Admin menu" : "Open Admin menu");
+    }
+    if (menu) menu.classList.toggle("is-open", shouldOpen);
+    if (shouldOpen && typeof global.setMobileNavOpen === "function") {
+      global.setMobileNavOpen(false);
+    }
+  }
+
+  function adminMobileMenuHtml() {
+    const links = ADMIN_MOBILE_MENU_ITEMS.map((item) => `
+      <button class="admin-workspace-mobile-nav-link" type="button" data-view="${escapeHtml(item.view)}" data-admin-workspace-nav>
+        ${escapeHtml(item.label)}
+      </button>
+    `).join("");
+    return `
+      <button type="button" class="admin-workspace-mobile-menu-backdrop" data-aw-mobile-menu-backdrop aria-label="Close Admin menu"></button>
+      <nav class="admin-workspace-mobile-menu-panel" aria-label="Admin workspace destinations">
+        <div class="admin-workspace-mobile-menu-header">
+          <p class="eyebrow">Platform Admin</p>
+          <strong>Admin Workspace</strong>
+        </div>
+        <div class="admin-workspace-mobile-menu-links">
+          ${links}
+          <button class="admin-workspace-mobile-nav-link admin-workspace-mobile-nav-link--exit" type="button" data-aw-exit-admin>Exit Admin</button>
+        </div>
+      </nav>
+    `;
+  }
+
+  function installAdminMobileMenu() {
+    const mobileBrand = global.document?.querySelector(".mobile-brand");
+    if (!mobileBrand || global.document?.querySelector("#adminWorkspaceMenuToggle")) return;
+    const toggle = global.document.createElement("button");
+    toggle.id = "adminWorkspaceMenuToggle";
+    toggle.className = "admin-workspace-menu-toggle";
+    toggle.type = "button";
+    toggle.hidden = true;
+    toggle.setAttribute("aria-label", "Open Admin menu");
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.setAttribute("aria-controls", "adminWorkspaceMobileMenu");
+    toggle.innerHTML = `
+      <span class="admin-workspace-menu-toggle-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </span>
+      <span class="admin-workspace-menu-toggle-label">Admin menu</span>
+    `;
+    mobileBrand.prepend(toggle);
+    const menu = global.document.createElement("div");
+    menu.id = "adminWorkspaceMobileMenu";
+    menu.className = "admin-workspace-mobile-menu";
+    menu.hidden = true;
+    menu.innerHTML = adminMobileMenuHtml();
+    global.document?.body?.appendChild(menu);
+    toggle.addEventListener("click", () => {
+      setAdminMobileMenuOpen(!global.document?.body?.classList.contains("admin-mobile-menu-open"));
+    });
+    menu.querySelector("[data-aw-mobile-menu-backdrop]")?.addEventListener("click", () => setAdminMobileMenuOpen(false));
+    global.window?.addEventListener("resize", () => {
+      if (!isMobileLayout()) setAdminMobileMenuOpen(false);
+    });
+  }
+
   function refreshAdminWorkspaceNav() {
+    installAdminMobileMenu();
     const nav = global.document?.querySelector("#adminWorkspaceNav");
     const platformNav = global.document?.querySelector("#platformNav");
     const pilotNavs = global.document?.querySelectorAll("#pilotProviderNav, #pilotStaffNav, #pilotParentNav");
@@ -100,11 +183,30 @@
     pilotNavs?.forEach((el) => {
       if (mode) el.hidden = true;
     });
+    const toggle = global.document?.querySelector("#adminWorkspaceMenuToggle");
+    const mobileMenu = global.document?.querySelector("#adminWorkspaceMobileMenu");
+    const brandLabel = global.document?.querySelector(".mobile-brand strong");
+    if (toggle) toggle.hidden = !mode;
+    if (mobileMenu) {
+      if (!mode) {
+        mobileMenu.hidden = true;
+        setAdminMobileMenuOpen(false);
+      } else {
+        mobileMenu.hidden = false;
+      }
+    }
+    if (brandLabel) {
+      brandLabel.textContent = mode ? "Platform Admin" : "Little Learner Hub";
+    }
+    const syncActive = (btn) => {
+      const view = btn.getAttribute("data-view");
+      btn.classList.toggle("active", view === active);
+    };
     if (nav) {
-      nav.querySelectorAll("[data-admin-workspace-nav]").forEach((btn) => {
-        const view = btn.getAttribute("data-view");
-        btn.classList.toggle("active", view === active);
-      });
+      nav.querySelectorAll("[data-admin-workspace-nav]").forEach(syncActive);
+    }
+    if (mobileMenu) {
+      mobileMenu.querySelectorAll("[data-admin-workspace-nav]").forEach(syncActive);
     }
   }
 
@@ -594,12 +696,19 @@
   }
 
   function exitAdminWorkspace() {
-    if (typeof global.lockAdminSession === "function") {
-      global.lockAdminSession();
-      return;
+    setAdminMobileMenuOpen(false);
+    try {
+      global.localStorage?.removeItem("llhAdminSession");
+      global.localStorage?.removeItem("llhAdminUnlocked");
+      global.localStorage?.removeItem("llhAdminToken");
+      global.localStorage?.removeItem("llhAdminPreviewMode");
+      global.sessionStorage?.removeItem("llhAdminToken");
+    } catch {
+      /* storage unavailable */
     }
-    global.localStorage?.removeItem("llhAdminUnlocked");
-    global.localStorage?.removeItem("llhAdminToken");
+    if (typeof global.updateAdminNavVisibility === "function") {
+      global.updateAdminNavVisibility();
+    }
     if (typeof global.setView === "function") global.setView("home", { replaceHistory: true });
   }
 
@@ -661,13 +770,17 @@
     const navBtn = event.target.closest("[data-admin-workspace-nav]");
     if (navBtn) {
       event.preventDefault();
+      setAdminMobileMenuOpen(false);
       const view = navBtn.getAttribute("data-view");
       if (view && typeof global.setView === "function") global.setView(view);
       return;
     }
     if (event.target.closest("[data-aw-exit-admin]")) {
       event.preventDefault();
+      setAdminMobileMenuOpen(false);
       exitAdminWorkspace();
     }
   });
+
+  installAdminMobileMenu();
 })(typeof window !== "undefined" ? window : globalThis);
