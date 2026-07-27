@@ -78,7 +78,7 @@ async function adminToken(port) {
   const login = await requestJson(port, "POST", "/api/admin/login", {
     email: "promo-audit@test.local",
     password: "promo-audit-pass",
-    accessCode: "promo-audit-code",
+    code: "promo-audit-code",
   });
   assert.equal(login.status, 200, JSON.stringify(login.json));
   return login.json.token;
@@ -152,29 +152,40 @@ async function main() {
       const before = JSON.parse(fs.readFileSync(storePath, "utf8"));
       const beforeCount = (before.promoCodes || []).length;
       const blocked = await requestJson(port, "POST", "/api/admin/promo-codes", {
+        adminToken: token,
         code: "TRY1MONTH",
         trialDays: 30,
         label: "Duplicate attempt",
-      }, { Authorization: `Bearer ${token}` });
+      });
       assert.equal(blocked.status, 409, JSON.stringify(blocked.json));
       assert.equal(blocked.json.code, "promo_env_duplicate");
       const after = JSON.parse(fs.readFileSync(storePath, "utf8"));
       assert.equal((after.promoCodes || []).length, beforeCount);
     });
 
-    await test("creating duplicate stored code is blocked", async () => {
-      const blocked = await requestJson(port, "POST", "/api/admin/promo-codes", {
+    await test("stealing another stored promo code returns conflict", async () => {
+      const first = await requestJson(port, "POST", "/api/admin/promo-codes", {
+        adminToken: token,
         code: "INFLUENCER30",
         trialDays: 30,
         label: "First",
-      }, { Authorization: `Bearer ${token}` });
-      assert.equal(blocked.status, 200, JSON.stringify(blocked.json));
-      const dup = await requestJson(port, "POST", "/api/admin/promo-codes", {
+      });
+      assert.equal(first.status, 200, JSON.stringify(first.json));
+      const second = await requestJson(port, "POST", "/api/admin/promo-codes", {
+        adminToken: token,
+        code: "PARTNER14",
+        trialDays: 14,
+        label: "Second",
+      });
+      assert.equal(second.status, 200, JSON.stringify(second.json));
+      const steal = await requestJson(port, "POST", "/api/admin/promo-codes", {
+        adminToken: token,
+        id: second.json.promoCode.id,
         code: "INFLUENCER30",
         trialDays: 14,
-        label: "Duplicate",
-      }, { Authorization: `Bearer ${token}` });
-      assert.equal(dup.status, 409, JSON.stringify(dup.json));
+        label: "Steal attempt",
+      });
+      assert.equal(steal.status, 409, JSON.stringify(steal.json));
     });
 
     if (!process.exitCode) {

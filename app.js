@@ -39973,7 +39973,7 @@ function renderAdminSectionNav() {
     </div>
     <div class="admin-sidebar-nav" role="navigation" aria-label="Admin sidebar">
       ${sidebarItems.map((item) => `
-        <button class="admin-sidebar-btn${item.alertsOnly ? (adminActiveSectionTab === "admin-notifications" ? " active" : "") : (item.id === currentGroup ? " active" : "")}" data-admin-group="${item.alertsOnly ? "" : item.id}"${item.alertsOnly ? ' data-admin-open-notifications type="button"' : ' type="button"'} aria-pressed="${item.alertsOnly ? adminActiveSectionTab === "admin-notifications" : item.id === currentGroup}">
+        <button class="admin-sidebar-btn${item.alertsOnly ? (adminActiveSectionTab === "admin-notifications" ? " active" : "") : (item.id === currentGroup ? " active" : "")}"${item.alertsOnly ? ' data-admin-open-notifications type="button"' : ` data-admin-group="${item.id}" type="button"`} aria-pressed="${item.alertsOnly ? adminActiveSectionTab === "admin-notifications" : item.id === currentGroup}">
           <span aria-hidden="true">${item.icon}</span>
           <span>${item.label}</span>
           ${item.alertsOnly && unread ? `<span class="admin-nav-badge" id="adminSidebarNotifBadge">${unread > 99 ? "99+" : unread}</span>` : ""}
@@ -54502,7 +54502,8 @@ document.addEventListener("click", async (event) => {
   // Admin section navigation — group buttons (top-level 6-section nav)
   const groupBtn = event.target.closest("[data-admin-group]");
   if (groupBtn) {
-    const groupId = groupBtn.dataset.adminGroup;
+    const groupId = groupBtn.dataset.adminGroup || "";
+    if (!groupId) return;
     if (groupId !== adminActiveGroup && !confirmDiscardAdminLessonChanges()) return;
     setAdminGroup(groupId);
     return;

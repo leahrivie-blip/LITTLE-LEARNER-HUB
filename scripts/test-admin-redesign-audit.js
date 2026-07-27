@@ -24,7 +24,7 @@ const ADMIN_SECTIONS = [
   { group: "ai", slug: "ai", expect: "#adminWorkspaceLandingApp" },
   { group: "system-health", slug: "system-health", expect: ".admin-health-card" },
   { group: "advanced", slug: "advanced", expect: "#adminWorkspaceLandingApp" },
-  { group: "alerts", slug: "alerts", expect: "#adminNotificationCenterDedicated, #adminNotificationCenter", alerts: true },
+  { group: "alerts", slug: "alerts", expect: "#adminNotificationCenterDedicated", alerts: true },
 ];
 
 function test(name, fn) {
@@ -211,7 +211,11 @@ async function runAdminAudit(browser, baseUrl, device) {
   for (const section of ADMIN_SECTIONS) {
     try {
       await clickAdminGroup(page, section.group, section);
-      await page.waitForSelector(section.expect, { timeout: 20000 });
+      if (section.alerts) {
+        await page.getByRole("heading", { name: "Owner alerts inbox" }).waitFor({ state: "visible", timeout: 20000 });
+      } else {
+        await page.waitForSelector(section.expect, { state: "visible", timeout: 20000 });
+      }
       const stuck = await page.locator(".messages-loading, [data-admin-async='loading']").first().isVisible().catch(() => false);
       if (stuck && section.group === "messages") {
         await page.waitForFunction(() => {
