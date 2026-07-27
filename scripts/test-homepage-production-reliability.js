@@ -117,6 +117,10 @@ async function evaluateHomeHealth(page) {
     }
     const shellCssRules = countShellCssRules();
     const bodyFont = window.getComputedStyle(document.body).fontFamily || "";
+    const landingFont = (() => {
+      const landing = document.querySelector(".landing-home");
+      return landing ? window.getComputedStyle(landing).fontFamily || "" : bodyFont;
+    })();
     const token = window.getComputedStyle(document.documentElement).getPropertyValue("--llh-primary").trim();
     const sidebarVisible = (() => {
       const sidebar = document.querySelector(".sidebar");
@@ -145,12 +149,13 @@ async function evaluateHomeHealth(page) {
     return {
       shellCssRules,
       bodyFont,
+      landingFont,
       token,
       sidebarVisible,
       publicNavVisible,
       visibleViews,
       activeViews,
-      timesNewRoman: /Times New Roman/i.test(bodyFont),
+      timesNewRoman: /Times New Roman/i.test(bodyFont) || /Times New Roman/i.test(landingFont),
     };
   });
 }

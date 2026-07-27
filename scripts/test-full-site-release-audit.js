@@ -222,6 +222,7 @@ async function openAs(page, account) {
   page.setDefaultTimeout(45000);
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
   await page.waitForFunction(() => typeof setView === "function", null, { timeout: 60000 });
+  await page.waitForFunction(() => document.body.classList.contains("app-boot-ready"), null, { timeout: 60000 });
   await page.waitForTimeout(400);
   if (account) {
     await page.evaluate(() => {
@@ -312,7 +313,12 @@ async function auditGuest(browser, viewport) {
       });
       if (typeof setView === "function") setView("lessons");
     });
-    await page.waitForTimeout(700);
+    await page.waitForFunction(
+      () => document.querySelector(".active-view")?.id === "view-lessons",
+      null,
+      { timeout: 15000 },
+    );
+    await page.waitForTimeout(300);
     const lessons = await page.evaluate(() => {
       const cards = document.querySelectorAll(".resource-card, .lesson-card, .library-card, [data-resource-id]");
       const locked = document.querySelectorAll(".is-locked, .resource-card.locked, [data-locked='true'], .pro-lock, .locked-preview");

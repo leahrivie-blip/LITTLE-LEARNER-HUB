@@ -56811,7 +56811,7 @@ function initialViewFromLocation() {
 
 async function initializeAppView(options = {}) {
   const runId = ++appBootRunId;
-  if (!options.retry) {
+  if (!options.retry && viewNavigationGeneration === 0) {
     suppressBootLanding = false;
   }
   const bootNavGeneration = viewNavigationGeneration;

@@ -112,8 +112,17 @@
         if (countShellCssRules() < 20) return false;
         var token = window.getComputedStyle(document.documentElement).getPropertyValue("--llh-primary").trim();
         if (!token) return false;
-        var bodyFont = window.getComputedStyle(document.body).fontFamily || "";
-        if (!/Plus Jakarta Sans|Fraunces/i.test(bodyFont)) return false;
+        var landing = document.querySelector(".landing-home");
+        if (landing) {
+          var landingFont = window.getComputedStyle(landing).fontFamily || "";
+          if (!/Plus Jakarta Sans|Fraunces/i.test(landingFont)) return false;
+        }
+        try {
+          if (!localStorage.getItem("llhUser")) {
+            var sidebar = document.querySelector(".sidebar");
+            if (sidebar && window.getComputedStyle(sidebar).display !== "none") return false;
+          }
+        } catch (error) { /* ignore */ }
         return true;
       }
       function recoverShell() {
@@ -123,6 +132,7 @@
         } catch (error) {
           return;
         }
+        window.__LLH_SW_RELOADING = true;
         var reload = function () { window.location.reload(); };
         if ("serviceWorker" in navigator) {
           navigator.serviceWorker.getRegistrations()

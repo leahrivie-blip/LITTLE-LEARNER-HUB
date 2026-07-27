@@ -18,6 +18,7 @@
 
 body.home-view {
   --llh-home-nav-offset: 0px;
+  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
 }
 
 body.home-view .landing-home {
