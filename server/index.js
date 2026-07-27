@@ -14089,8 +14089,9 @@ function isDuplicateSend(fingerprint) {
   return false;
 }
 
-function publicMessage(message) {
-  return {
+function publicMessage(message, options = {}) {
+  const adminView = options.admin === true;
+  const payload = {
     id: message.id,
     kind: message.kind,
     audience: message.audience,
@@ -14106,6 +14107,29 @@ function publicMessage(message) {
     sentAt: message.sentAt || message.createdAt,
     pushSummary: message.pushSummary || null,
   };
+  if (adminView) {
+    payload.deliverVia = message.deliverVia || "in_app";
+    payload.channel = payload.deliverVia === "email"
+      ? "email"
+      : payload.deliverVia === "both"
+        ? "in_app_email"
+        : "in_app";
+    if (message.emailSummary && typeof message.emailSummary === "object") {
+      payload.emailSummary = {
+        attempted: Number(message.emailSummary.attempted) || 0,
+        sent: Number(message.emailSummary.sent) || 0,
+        failed: Number(message.emailSummary.failed) || 0,
+      };
+    }
+    if (message.emailResult && typeof message.emailResult === "object") {
+      payload.emailDelivery = {
+        sent: Boolean(message.emailResult.sent),
+        configured: Boolean(message.emailResult.configured),
+        error: String(message.emailResult.error || ""),
+      };
+    }
+  }
+  return payload;
 }
 
 function publicNotification(notification) {
@@ -14554,6 +14578,91 @@ async function handleAdminMessageDraftDelete(request, response) {
   jsonResponse(response, 200, { ok: true });
 }
 
+function adminMessageMatchesSearch(message, query) {
+  const q = String(query || "").trim().toLowerCase();
+  if (!q) return true;
+  const haystack = [
+    message.subject,
+    message.body,
+    message.toEmail,
+    message.conversationEmail,
+    message.senderName,
+  ].map((value) => String(value || "").toLowerCase()).join(" ");
+  return haystack.includes(q);
+}
+
+function handleAdminMessagesSentList(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const query = String(url.searchParams.get("q") || "");
+  const store = ensureMessagingStore(readStore());
+  const messages = store.messages
+    .filter((m) => m.senderType === "admin" && (m.audience === "private" || m.toEmail))
+    .filter((m) => adminMessageMatchesSearch(m, query))
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .slice(0, 500)
+    .map((m) => {
+      const profile = publicConversationUserProfile(store, m.conversationEmail || m.toEmail);
+      return {
+        ...publicMessage(m, { admin: true }),
+        userName: profile.name || m.toEmail || "",
+        userEmail: m.conversationEmail || m.toEmail || "",
+      };
+    });
+  jsonResponse(response, 200, { messages });
+}
+
+function handleAdminMessagesArchivedList(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const query = String(url.searchParams.get("q") || "").trim().toLowerCase();
+  const store = ensureMessagingStore(readStore());
+  const commsStore = store;
+  const inboxRows = (commsStore.adminInboxArchive || [])
+    .map((row) => ({
+      id: row.id,
+      kind: "inbox",
+      title: row.title || row.id || "Archived inbox item",
+      email: row.email || "",
+      archivedAt: row.archivedAt || "",
+      preview: row.preview || "",
+    }))
+    .filter((row) => {
+      if (!query) return true;
+      const hay = `${row.title} ${row.email} ${row.preview}`.toLowerCase();
+      return hay.includes(query);
+    });
+  const conversationRows = (commsStore.archivedConversations || [])
+    .map((row) => {
+      const email = normalizeEmail(row.conversationEmail || row.email);
+      const profile = email ? publicConversationUserProfile(store, email) : { name: "", email: "" };
+      return {
+        id: `archived-${email}`,
+        kind: "conversation",
+        title: profile.name || email || "Archived conversation",
+        email,
+        archivedAt: row.archivedAt || "",
+        preview: "Member archived this thread on their side — history is preserved.",
+      };
+    })
+    .filter((row) => {
+      if (!query) return true;
+      const hay = `${row.title} ${row.email} ${row.preview}`.toLowerCase();
+      return hay.includes(query);
+    });
+  jsonResponse(response, 200, {
+    inbox: inboxRows,
+    conversations: conversationRows,
+    total: inboxRows.length + conversationRows.length,
+  });
+}
+
 function isAdminConversationUnreadNotification(n, adminEmail = ADMIN_EMAIL) {
   if (!n || n.read) return false;
   if (!isConfiguredAdminEmail(n.email) && normalizeEmail(n.email) !== normalizeEmail(adminEmail || "")) {
@@ -14673,7 +14782,7 @@ function handleAdminConversationMessages(request, response, url) {
   const messages = store.messages
     .filter((m) => m.audience === "private" && m.conversationEmail === userEmail)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
-    .map(publicMessage);
+    .map((m) => publicMessage(m, { admin: true }));
   jsonResponse(response, 200, {
     userEmail,
     messages,
@@ -15866,6 +15975,8 @@ function getCommsApi() {
       SUPPORT_EMAIL_TO,
       publicMessage,
       publicNotification,
+      extractAdminToken,
+      extractAdminTokenFromBody,
     });
   }
   return _commsApi;
@@ -15998,6 +16109,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/messages/draft") return await handleAdminMessageDraftSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/drafts") return handleAdminMessageDraftsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/messages/draft-delete") return await handleAdminMessageDraftDelete(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/messages/sent") return handleAdminMessagesSentList(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/messages/archived") return handleAdminMessagesArchivedList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/conversations") return handleAdminConversationsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/conversation") return handleAdminConversationMessages(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/push/subscriptions") return handleAdminPushSubscriptionsList(request, response, url);

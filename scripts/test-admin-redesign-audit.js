@@ -19,7 +19,7 @@ const ADMIN_SECTIONS = [
   { group: "users", slug: "users", expect: ".admin-users-table" },
   { group: "billing", slug: "billing", expect: "#adminWorkspaceLandingApp" },
   { group: "content", slug: "content", expect: "#adminWorkspaceLandingApp" },
-  { group: "messages", slug: "messages", expect: "#adminInboxApp" },
+  { group: "messages", slug: "messages", expect: "#adminMessagesApp .admin-messages-workspace-nav" },
   { group: "website", slug: "website", expect: "#adminWorkspaceLandingApp" },
   { group: "ai", slug: "ai", expect: "#adminWorkspaceLandingApp" },
   { group: "system-health", slug: "system-health", expect: ".admin-health-card" },
