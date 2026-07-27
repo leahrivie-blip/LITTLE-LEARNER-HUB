@@ -1716,8 +1716,10 @@
         items = Array.isArray(data.items) ? data.items : [];
         summary = data.summary || summary;
         selectedId = items[0]?.id || "";
+        window.__adminInboxLastLoadOk = true;
       } catch (error) {
         loadError = error.message || "Could not load inbox.";
+        window.__adminInboxLastLoadOk = false;
         container.innerHTML = inboxErrorHtml(loadError);
         container.querySelector("[data-inbox-retry]")?.addEventListener("click", () => loadInboxItems().then(() => paint()));
         return false;
@@ -1757,7 +1759,12 @@
     }
 
     function visibleItems() {
-      let visible = kindFilter === "all" ? items : items.filter((i) => i.kind === kindFilter);
+      let visible = items;
+      if (kindFilter === "test-internal") {
+        visible = items.filter((i) => i.isTestInternal);
+      } else if (kindFilter !== "all") {
+        visible = items.filter((i) => i.kind === kindFilter);
+      }
       const q = searchQuery.trim().toLowerCase();
       if (q) {
         visible = visible.filter((item) => {
@@ -1797,12 +1804,13 @@
           <button type="button" class="comms-admin-tab${kindFilter === "bug" ? " active" : ""}" data-inbox-kind="bug">Bugs (${summary.bug || 0})</button>
           <button type="button" class="comms-admin-tab${kindFilter === "feature" ? " active" : ""}" data-inbox-kind="feature">Features (${summary.feature || 0})</button>
           <button type="button" class="comms-admin-tab${kindFilter === "feedback" ? " active" : ""}" data-inbox-kind="feedback">Feedback (${summary.feedback || 0})</button>
+          <button type="button" class="comms-admin-tab${kindFilter === "test-internal" ? " active" : ""}" data-inbox-kind="test-internal">Test / Internal (${summary.testInternal || 0})</button>
         </div>
         <div class="admin-inbox-layout">
           <div class="admin-inbox-list" role="list">
             ${pageItems.length ? pageItems.map((item) => `
-              <button type="button" class="admin-inbox-item${item.id === selectedId ? " is-selected" : ""}" data-inbox-id="${escapeHtml(item.id)}" role="listitem">
-                <span class="status-pill">${escapeHtml(item.kindLabel || item.kind)}</span>
+              <button type="button" class="admin-inbox-item${item.id === selectedId ? " is-selected" : ""}${item.isTestInternal ? " is-test-internal" : ""}" data-inbox-id="${escapeHtml(item.id)}" role="listitem">
+                <span class="status-pill">${escapeHtml(item.kindLabel || item.kind)}${item.isTestInternal ? '<span class="admin-inbox-test-badge">Test / Internal</span>' : ""}</span>
                 <strong>${escapeHtml(item.title || "Untitled")}</strong>
                 <span>${escapeHtml(item.name || item.email || "Unknown")}</span>
                 <small>${escapeHtml(item.createdAt ? messagingRelativeTime(item.createdAt) : "")}${item.unreadCount ? ` · ${item.unreadCount} unread` : ""}</small>
@@ -1813,7 +1821,7 @@
           <div class="admin-inbox-detail">
             ${selected ? `
               <div class="admin-inbox-detail-header">
-                <p class="eyebrow">${escapeHtml(selected.kindLabel || selected.kind)} · ${escapeHtml(selected.status || "")}</p>
+                <p class="eyebrow">${escapeHtml(selected.kindLabel || selected.kind)} · ${escapeHtml(selected.status || "")}${selected.isTestInternal ? ' · <span class="admin-inbox-test-badge">Test / Internal</span>' : ""}</p>
                 <h3>${escapeHtml(selected.title || "")}</h3>
                 <p>${escapeHtml(selected.name || "—")} · ${escapeHtml(selected.email || "—")}</p>
               </div>
@@ -1824,6 +1832,7 @@
                   <button type="button" class="ghost-button" data-inbox-conversation="${escapeHtml(selected.email)}">Open conversation</button>
                   <button type="button" class="ghost-button" data-inbox-user="${escapeHtml(selected.email)}">View user</button>
                 ` : ""}
+                <button type="button" class="ghost-button" data-inbox-archive="${escapeHtml(selected.id)}">Archive (hide from inbox)</button>
               </div>
               ${conversationLoading ? `<p class="muted-copy">Loading conversation…</p>` : conversationHtml}
             ` : `<div class="empty-state">Select an item to review.</div>`}
@@ -1889,6 +1898,31 @@
           const email = btn.getAttribute("data-inbox-user");
           if (email && typeof window.openAdminUserProfile === "function") window.openAdminUserProfile(email, "view");
           else if (email && typeof window.setAdminSectionTab === "function") window.setAdminSectionTab("users");
+        });
+      });
+      container.querySelectorAll("[data-inbox-archive]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const id = btn.getAttribute("data-inbox-archive") || "";
+          if (!id) return;
+          const item = visibleItems().find((i) => i.id === id);
+          const label = item?.title || id;
+          const ok = window.confirm(
+            `Archive "${label}"?\n\nThis hides the item from the admin inbox without deleting the underlying support record or message history.`,
+          );
+          if (!ok) return;
+          try {
+            await adminFetchJson("/api/admin/inbox/archive", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ confirm: true, id }),
+            });
+            items = items.filter((i) => i.id !== id);
+            if (selectedId === id) selectedId = items[0]?.id || "";
+            paint();
+          } catch (error) {
+            loadError = error.message || "Could not archive inbox item.";
+            paint();
+          }
         });
       });
     }

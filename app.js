@@ -4974,7 +4974,7 @@ let adminSafetyLoading = false;
 let adminDomainDnsReport = null;
 let adminImpersonationState = null; // { email, account, planPreview, startedAt }
 let adminUserDetailCache = {};
-let adminPromoCodesState = { loading: false, items: [], envPromo: null, redemptions: [], error: "", success: "" };
+let adminPromoCodesState = { loading: false, items: [], envPromo: null, redemptions: [], audit: null, error: "", success: "" };
 let adminCommsAnnouncementsState = { loading: false, items: [], error: "", success: "" };
 let adminCurriculumListFilters = { query: "", status: "", plan: "", age: "", theme: "" };
 let adminCurriculumSelectedIds = new Set();
@@ -35683,6 +35683,7 @@ async function loadAdminPromoCodes() {
     adminPromoCodesState.items = data.promoCodes || [];
     adminPromoCodesState.envPromo = data.envPromo || null;
     adminPromoCodesState.redemptions = data.redemptions || [];
+    adminPromoCodesState.audit = data.audit || null;
   } catch (error) {
     adminPromoCodesState.error = error.message || "Promo codes unavailable.";
   } finally {
@@ -39952,8 +39953,6 @@ function renderAdminSectionNav() {
   const nav = document.querySelector("#adminSectionNav");
   if (!nav || !isAdminUnlocked()) return;
   const currentGroup = adminActiveGroup || "admin-home";
-  const group = adminGroups.find((g) => g.id === currentGroup);
-  const subTabs = group && group.tabs.length > 1 ? group.tabs : null;
   const unread = Number(adminNotificationState.unreadCount || 0);
   const sidebarItems = [
     { id: "admin-home", icon: "🏠", label: "Admin Home" },
@@ -39965,6 +39964,7 @@ function renderAdminSectionNav() {
     { id: "ai", icon: "🤖", label: "AI Tools" },
     { id: "system-health", icon: "💚", label: "System Health" },
     { id: "advanced", icon: "🔧", label: "Advanced" },
+    { id: "alerts", icon: "🔔", label: "Alerts", alertsOnly: true },
   ];
   nav.innerHTML = `
     <div class="admin-sidebar-brand">
@@ -39973,26 +39973,17 @@ function renderAdminSectionNav() {
     </div>
     <div class="admin-sidebar-nav" role="navigation" aria-label="Admin sidebar">
       ${sidebarItems.map((item) => `
-        <button class="admin-sidebar-btn${item.id === currentGroup ? " active" : ""}" data-admin-group="${item.id}" type="button" aria-pressed="${item.id === currentGroup}">
+        <button class="admin-sidebar-btn${item.alertsOnly ? (adminActiveSectionTab === "admin-notifications" ? " active" : "") : (item.id === currentGroup ? " active" : "")}" data-admin-group="${item.alertsOnly ? "" : item.id}"${item.alertsOnly ? ' data-admin-open-notifications type="button"' : ' type="button"'} aria-pressed="${item.alertsOnly ? adminActiveSectionTab === "admin-notifications" : item.id === currentGroup}">
           <span aria-hidden="true">${item.icon}</span>
           <span>${item.label}</span>
-          ${item.id === "admin-home" && unread ? `<span class="admin-nav-badge" id="adminSidebarNotifBadge">${unread > 99 ? "99+" : unread}</span>` : ""}
+          ${item.alertsOnly && unread ? `<span class="admin-nav-badge" id="adminSidebarNotifBadge">${unread > 99 ? "99+" : unread}</span>` : ""}
         </button>
       `).join("")}
     </div>
     <div class="admin-sidebar-footer">
-      <button class="ghost-button admin-sidebar-btn" type="button" data-admin-open-notifications>
-        Alerts${unread ? ` (${unread})` : ""}
-      </button>
+      <button class="ghost-button admin-sidebar-btn" type="button" data-admin-lock>Lock Admin</button>
       <button class="ghost-button admin-sidebar-btn" type="button" data-view="home">Exit Admin</button>
     </div>
-    ${subTabs ? `
-      <div class="admin-sub-nav" role="tablist" aria-label="${group.label} sections">
-        ${subTabs.map((tabId) => `
-          <button class="admin-sub-tab${adminActiveSectionTab === tabId ? " active" : ""}" data-admin-section-tab="${tabId}" type="button" role="tab" aria-selected="${adminActiveSectionTab === tabId}">${adminTabLabels[tabId] || tabId}</button>
-        `).join("")}
-      </div>
-    ` : ""}
   `;
   if (typeof window.AdminWorkspace?.updateSidebarNotificationBadge === "function") {
     window.AdminWorkspace.updateSidebarNotificationBadge();
@@ -42541,16 +42532,25 @@ function renderAdminPromoCodesSection() {
   }
   const items = adminPromoCodesState.items || [];
   const envPromo = adminPromoCodesState.envPromo;
+  const audit = adminPromoCodesState.audit;
   const redemptions = (adminPromoCodesState.redemptions || []).slice(0, 12);
+  const duplicateWarning = audit?.duplicateEnvAndStore
+    ? `<div class="admin-promo-audit-warning" role="alert">
+        <p><strong>Duplicate promo detected:</strong> <code>${escapeHtml(audit.envCode || envPromo?.code || "TRY1MONTH")}</code> exists as both an environment code and a stored code.</p>
+        <p class="muted-copy">No codes were changed automatically. At checkout, the <strong>stored active promo wins</strong>; the environment row is a fallback display only.</p>
+        <p class="muted-copy">Redemption counts come from the shared <code>promoRedemptions</code> ledger (filtered by normalized code) — not separate per row.</p>
+      </div>`
+    : "";
   target.innerHTML = `
     <div class="section-heading">
       <div>
         <p class="eyebrow">Growth</p>
         <h3>Promo Code Manager</h3>
-        <p class="muted-copy">Create multi-code free months (example: TRY1MONTH). Env promo still works as a fallback launch code. Card is always required at signup.</p>
+        <p class="muted-copy">Create multi-code free months (example: TRY1MONTH). Environment and stored promos are listed separately. Card is always required at signup.</p>
       </div>
       <button class="ghost-button" type="button" data-admin-promo-refresh>Refresh</button>
     </div>
+    ${duplicateWarning}
     ${adminPromoCodesState.error ? `<p class="form-message">${escapeHtml(adminPromoCodesState.error)}</p>` : ""}
     ${adminPromoCodesState.success ? `<p class="form-message success">${escapeHtml(adminPromoCodesState.success)}</p>` : ""}
     <form id="adminPromoCodeForm" class="panel-form admin-stacked-form">
@@ -52346,7 +52346,7 @@ document.addEventListener("click", async (event) => {
   const adminDelete = event.target.closest("[data-admin-delete]");
   if (adminDelete) await deleteAdminResource(adminDelete.dataset.adminDelete);
 
-  const adminLockButton = event.target.closest("#adminLockButton");
+  const adminLockButton = event.target.closest("[data-admin-lock], #adminLockButton");
   if (adminLockButton) {
     event.preventDefault();
     const token = adminSession()?.token || "";
@@ -54209,6 +54209,23 @@ document.addEventListener("submit", async (event) => {
   const maxRaw = String(fd.get("maxRedemptions") || "").trim();
   if (maxRaw && Number(maxRaw) < 1) {
     adminPromoCodesState.error = "Max redemptions must be at least 1 when set.";
+    renderAdminPromoCodesSection();
+    return;
+  }
+  const normalizedCode = code.replace(/\s+/g, "").toUpperCase();
+  const envCode = String(adminPromoCodesState.envPromo?.code || adminPromoCodesState.audit?.envCode || "").replace(/\s+/g, "").toUpperCase();
+  const editingId = String(fd.get("id") || "").trim();
+  if (envCode && normalizedCode === envCode && !editingId) {
+    adminPromoCodesState.error = `Code ${code} matches the environment promo. Do not create a duplicate stored code — checkout already prefers the stored row when present.`;
+    renderAdminPromoCodesSection();
+    return;
+  }
+  const storedConflict = (adminPromoCodesState.items || []).find((item) => (
+    String(item.code || "").replace(/\s+/g, "").toUpperCase() === normalizedCode
+    && String(item.id || "") !== editingId
+  ));
+  if (storedConflict) {
+    adminPromoCodesState.error = `Promo code ${code} already exists in stored codes.`;
     renderAdminPromoCodesSection();
     return;
   }

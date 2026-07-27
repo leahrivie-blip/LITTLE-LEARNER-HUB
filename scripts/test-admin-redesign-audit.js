@@ -24,6 +24,7 @@ const ADMIN_SECTIONS = [
   { group: "ai", slug: "ai", expect: "#adminWorkspaceLandingApp" },
   { group: "system-health", slug: "system-health", expect: ".admin-health-card" },
   { group: "advanced", slug: "advanced", expect: "#adminWorkspaceLandingApp" },
+  { group: "alerts", slug: "alerts", expect: "#adminNotificationCenterDedicated, #adminNotificationCenter", alerts: true },
 ];
 
 function test(name, fn) {
@@ -49,6 +50,17 @@ test("admin session bridge + inbox reliability", () => {
   assert.match(commsJs, /Request timed out/);
   assert.match(commsJs, /data-inbox-retry/);
   assert.match(commsJs, /data-inbox-search/);
+  assert.match(commsJs, /test-internal/);
+  assert.match(commsJs, /data-inbox-archive/);
+  assert.match(commsJs, /__adminInboxLastLoadOk/);
+});
+
+test("public chrome hidden and duplicate admin controls removed", () => {
+  assert.match(adminCss, /#view-admin\.active-view\) \.topbar/);
+  assert.match(adminCss, /#view-admin \.admin-sub-nav/);
+  assert.match(adminCss, /#view-admin #adminLockButton/);
+  assert.match(appJs, /data-admin-open-notifications/);
+  assert.match(appJs, /data-admin-lock/);
 });
 
 test("taxonomy audit is read-only", () => {
@@ -57,9 +69,18 @@ test("taxonomy audit is read-only", () => {
   assert.doesNotMatch(workspaceJs, /saveTaxonomy|renameTheme|bulkRename/i);
 });
 
-test("promo validation guards present", () => {
+test("system health uses verified status labels", () => {
+  assert.match(workspaceJs, /not-verified/);
+  assert.match(workspaceJs, /Website \/ app shell/);
+  assert.match(workspaceJs, /Stripe API connection/);
+  assert.match(workspaceJs, /Recent email delivery/);
+});
+
+test("promo audit warnings and duplicate guards present", () => {
   assert.match(appJs, /adminPromoSaveInFlight/);
   assert.match(appJs, /Promo code is required/);
+  assert.match(appJs, /duplicateEnvAndStore/);
+  assert.match(appJs, /admin-promo-audit-warning/);
 });
 
 function requestJson(port, method, urlPath, body) {
@@ -144,10 +165,16 @@ async function unlockAdmin(page, baseUrl, { clearSession = true } = {}) {
   await page.waitForSelector(".admin-sidebar-btn", { timeout: 20000 });
 }
 
-async function clickAdminGroup(page, groupId) {
-  const btn = page.locator(`[data-admin-group="${groupId}"]`);
-  await btn.waitFor({ state: "visible", timeout: 10000 });
-  await btn.click();
+async function clickAdminGroup(page, groupId, section = null) {
+  if (section?.alerts) {
+    const btn = page.locator("[data-admin-open-notifications]");
+    await btn.waitFor({ state: "visible", timeout: 10000 });
+    await btn.click();
+  } else {
+    const btn = page.locator(`[data-admin-group="${groupId}"]`);
+    await btn.waitFor({ state: "visible", timeout: 10000 });
+    await btn.click();
+  }
   await page.waitForTimeout(350);
 }
 
@@ -163,9 +190,27 @@ async function runAdminAudit(browser, baseUrl, device) {
   });
   if (!providerSidebarHidden) failures.push("provider sidebar visible in admin");
 
+  const publicChromeHidden = await page.evaluate(() => {
+    const topbar = document.querySelector(".topbar");
+    const publicNav = document.querySelector(".llh-public-nav");
+    const topbarHidden = !topbar || getComputedStyle(topbar).display === "none";
+    const navHidden = !publicNav || getComputedStyle(publicNav).display === "none";
+    return topbarHidden && navHidden;
+  });
+  if (!publicChromeHidden) failures.push("public marketing chrome visible in admin");
+
+  const lockButtons = await page.evaluate(() => ({
+    sidebarLock: document.querySelectorAll("[data-admin-lock]").length,
+    legacyLockVisible: [...document.querySelectorAll("#adminLockButton")].filter((el) => getComputedStyle(el).display !== "none").length,
+    subNavVisible: [...document.querySelectorAll(".admin-sub-nav")].filter((el) => getComputedStyle(el).display !== "none").length,
+  }));
+  if (lockButtons.sidebarLock < 1) failures.push("sidebar Lock Admin missing");
+  if (lockButtons.legacyLockVisible > 0) failures.push("duplicate legacy Lock Admin visible");
+  if (lockButtons.subNavVisible > 0) failures.push("duplicate admin sub-nav pills visible");
+
   for (const section of ADMIN_SECTIONS) {
     try {
-      await clickAdminGroup(page, section.group);
+      await clickAdminGroup(page, section.group, section);
       await page.waitForSelector(section.expect, { timeout: 20000 });
       const stuck = await page.locator(".messages-loading, [data-admin-async='loading']").first().isVisible().catch(() => false);
       if (stuck && section.group === "messages") {
@@ -247,9 +292,9 @@ async function runAdminAudit(browser, baseUrl, device) {
     if (tabBefore !== tabAfter) failures.push("admin tab not preserved on refresh");
   } catch (e) { failures.push(`refresh: ${e.message}`); }
 
-  // Exit admin
+  // Exit admin via sidebar footer
   try {
-    await page.locator('.admin-sidebar-btn[data-view="home"]').click();
+    await page.locator('.admin-sidebar-footer [data-view="home"]').click();
     await page.waitForSelector("#view-calendar.active-view, #view-home.active-view", { timeout: 15000 });
   } catch (e) { failures.push(`exit-admin: ${e.message}`); }
 

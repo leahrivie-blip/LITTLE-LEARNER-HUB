@@ -9235,6 +9235,9 @@ function handleAdminPromoCodesList(request, response, url) {
   seedDefaultPromoCodes(store);
   const envCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
   const managed = promoCodeRecords(store).map(publicPromoCode);
+  const storedDuplicateOfEnv = envCode
+    ? managed.find((item) => normalizePromoCode(item.code) === envCode)
+    : null;
   const envRow = envCode ? publicPromoCode({
     id: "env-promo",
     code: envCode,
@@ -9252,6 +9255,14 @@ function handleAdminPromoCodesList(request, response, url) {
     promoCodes: managed,
     envPromo: envRow,
     redemptions: promoRedemptionRecords(store).slice(0, 200),
+    audit: {
+      duplicateEnvAndStore: Boolean(storedDuplicateOfEnv),
+      envCode: envCode || "",
+      storedDuplicateId: storedDuplicateOfEnv?.id || "",
+      redemptionCountSource: "promoRedemptions records (global list filtered by normalized code)",
+      checkoutResolution: "Stored active promo wins at checkout; environment promo is fallback only when no matching stored code is active.",
+      envRedemptionCountNote: "Environment row display count reflects promoRedemptions for that code — same ledger as stored codes.",
+    },
   });
 }
 
@@ -9269,6 +9280,14 @@ async function handleAdminPromoCodeSave(request, response) {
   }
   const store = readStore();
   store.promoCodes = promoCodeRecords(store);
+  const envCode = normalizePromoCode(PROMO_FREE_TRIAL_CODE);
+  if (envCode && code === envCode && !String(body.id || "").trim()) {
+    jsonResponse(response, 409, {
+      error: `Code ${code} matches the environment promo (${envCode}). Do not create a duplicate stored code — checkout already prefers the stored row when present.`,
+      code: "promo_env_duplicate",
+    });
+    return;
+  }
   const id = String(body.id || "").trim() || `promo_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
   const existingIndex = store.promoCodes.findIndex((item) => item.id === id || normalizePromoCode(item.code) === code);
   const next = {
@@ -15940,6 +15959,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/user-timeline") return comms.handleUserTimelineGet(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/user-health") return comms.handleUserHealthGet(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/inbox") return comms.handleAdminInboxGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/inbox/archive") return await comms.handleAdminInboxArchive(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/automations") return comms.handleAutomationsGet(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/automations") return await comms.handleAutomationsSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/broadcast-log") return comms.handleBroadcastLogGet(request, response, url);

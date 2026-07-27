@@ -5,6 +5,24 @@ body:has(#view-admin.active-view) .app-shell > .sidebar {
   display: none !important;
 }
 
+/* Private admin workspace — hide public marketing chrome */
+body:has(#view-admin.active-view) .topbar,
+body:has(#view-admin.active-view) #freePlanReminderBar,
+body:has(#view-admin.active-view) #freePlanSoftNudge,
+body:has(#view-admin.active-view) #siteAnnouncementBanner,
+body:has(#view-admin.active-view) .llh-public-nav {
+  display: none !important;
+}
+
+/* Duplicate sub-nav pills removed — sidebar is the only section switcher */
+#view-admin .admin-sub-nav {
+  display: none !important;
+}
+
+#view-admin #adminLockButton {
+  display: none !important;
+}
+
 #view-admin.admin-workspace-active .page-title {
   display: none;
 }
@@ -204,9 +222,33 @@ body:has(#view-admin.active-view) .app-shell > .sidebar {
 }
 
 #view-admin .admin-health-card[data-status="disabled"],
-#view-admin .admin-health-card[data-status="not-configured"] {
+#view-admin .admin-health-card[data-status="not-configured"],
+#view-admin .admin-health-card[data-status="not-verified"] {
   border-color: #d5d8e2;
   background: #f7f8fb;
+}
+
+#view-admin .admin-inbox-item.is-test-internal {
+  border-left: 3px solid #c9a227;
+}
+
+#view-admin .admin-inbox-test-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #7a5b00;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+#view-admin .admin-promo-audit-warning {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #f0c27b;
+  background: #fffaf2;
 }
 
 #view-admin .admin-notifications-panel {

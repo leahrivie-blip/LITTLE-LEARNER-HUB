@@ -1,12 +1,12 @@
-const CACHE_NAME = "llh-shell-v110-admin-redesign";
+const CACHE_NAME = "llh-shell-v111-admin-cleanup";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260725-admin-redesign",
-  "/styles/llh-admin-workspace.css?v=20260725-admin-redesign",
+  "/styles.css?v=20260727-admin-cleanup",
+  "/styles/llh-admin-workspace.css?v=20260727-admin-cleanup",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260716-hero-mock-fix",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -27,9 +27,9 @@ const APP_SHELL = [
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260725-admin-redesign",
-  "/admin-workspace.js?v=20260725-admin-redesign",
-  "/comms-center.js?v=20260725-admin-redesign",
+  "/app.js?v=20260727-admin-cleanup",
+  "/admin-workspace.js?v=20260727-admin-cleanup",
+  "/comms-center.js?v=20260727-admin-cleanup",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",
