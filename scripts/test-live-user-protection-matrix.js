@@ -19,6 +19,7 @@ const {
   seedSession,
   waitBootReady,
   clickSidebarNav,
+  clickSettingsSignOut,
   evaluateShell,
   assertSingleView,
 } = require("./test-helpers/llh-browser-nav");
@@ -279,10 +280,7 @@ async function runSignedInFlows(page, baseUrl, device, role, persona) {
       name: "logout",
       run: async () => {
         await clickSidebarNav(page, "settings");
-        const signOut = page.locator('[data-settings-sign-out]');
-        await signOut.waitFor({ state: "visible", timeout: 10000 });
-        await signOut.click();
-        await page.waitForFunction(() => !localStorage.getItem("llhUser"), null, { timeout: 15000 });
+        await clickSettingsSignOut(page);
       },
     },
   ];

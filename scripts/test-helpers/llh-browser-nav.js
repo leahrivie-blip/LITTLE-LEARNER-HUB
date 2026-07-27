@@ -156,6 +156,22 @@ async function closeMobileNavIfOpen(page) {
   await page.waitForFunction(() => !document.body.classList.contains("mobile-nav-open"), null, { timeout: 5000 });
 }
 
+async function dismissFreePlanNudgeIfPresent(page) {
+  const dismiss = page.locator("[data-dismiss-free-plan-nudge]");
+  if (await dismiss.isVisible().catch(() => false)) {
+    await dismiss.click();
+    await page.waitForFunction(() => document.querySelector("#freePlanSoftNudge")?.hidden, null, { timeout: 5000 });
+  }
+}
+
+async function clickSettingsSignOut(page) {
+  await dismissFreePlanNudgeIfPresent(page);
+  const signOut = page.locator("[data-settings-sign-out]");
+  await signOut.scrollIntoViewIfNeeded();
+  await signOut.click();
+  await page.waitForFunction(() => !localStorage.getItem("llhUser"), null, { timeout: 15000 });
+}
+
 async function clickSidebarNav(page, navView, resolvedView = navView) {
   await openMobileNavIfNeeded(page);
   const clicked = await page.evaluate((view) => {
@@ -209,6 +225,8 @@ module.exports = {
   openMobileNavIfNeeded,
   closeMobileNavIfOpen,
   clickSidebarNav,
+  dismissFreePlanNudgeIfPresent,
+  clickSettingsSignOut,
   evaluateShell,
   assertSingleView,
 };

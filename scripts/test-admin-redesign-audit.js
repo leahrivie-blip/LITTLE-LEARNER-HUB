@@ -125,7 +125,7 @@ async function waitForBoot(port, child) {
 }
 
 async function unlockAdmin(page, baseUrl) {
-  await page.addInitScript(() => {
+  await page.evaluate(() => {
     localStorage.removeItem("llhAdminUnlocked");
     localStorage.removeItem("llhAdminSession");
     localStorage.removeItem("llhAdminRememberEmail");
@@ -209,6 +209,7 @@ async function runAdminAudit(browser, baseUrl, device) {
     await clickAdminGroup(page, "website");
     await page.locator('[data-admin-landing-tab="promo-codes"]').click();
     await page.waitForSelector("#adminPromoCodeForm", { timeout: 15000 });
+    await page.locator('input[name="code"]').fill("");
     await page.evaluate(() => document.querySelector("#adminPromoCodeForm")?.setAttribute("novalidate", ""));
     await page.click('#adminPromoCodeForm button[type="submit"]');
     await page.waitForTimeout(300);
