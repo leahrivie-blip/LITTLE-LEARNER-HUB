@@ -3657,6 +3657,13 @@ function billingPriceLabel(account = currentAccount()) {
   return "$0/month";
 }
 
+// Billing-review constants must live before accountProductStatus — early setView() during
+// script init can call accountProductStatus for past_due/unpaid accounts before later
+// declarations would run (TDZ ReferenceError on PAYMENT_FAILURE_STALE_DAYS).
+const PAYMENT_FAILURE_STALE_DAYS = 21;
+const BILLING_REVIEW_REQUIRED_LABEL = "Billing Review Required";
+const PAYMENT_FAILURE_NEEDS_REVIEW_LABEL = BILLING_REVIEW_REQUIRED_LABEL;
+
 /** Mutually exclusive product status for badges/banners (mirrors membership-access.js). */
 function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
   if (account?.productStatus?.key && account?.productStatus?.label) {
@@ -40431,9 +40438,8 @@ function renderAdminVisibilityDashboard() {
 // Confirmed Stripe status mapping: "unpaid" and "past_due" are NEVER canceled/ended —
 // both remove paid access but always display as the single, neutral "Billing Review
 // Required" label (never "Payment Failed", never "Past Due", never "Ended"/"Canceled").
-const PAYMENT_FAILURE_STALE_DAYS = 21;
-const BILLING_REVIEW_REQUIRED_LABEL = "Billing Review Required";
-const PAYMENT_FAILURE_NEEDS_REVIEW_LABEL = BILLING_REVIEW_REQUIRED_LABEL;
+// PAYMENT_FAILURE_STALE_DAYS + BILLING_REVIEW_REQUIRED_LABEL are declared earlier
+// (before accountProductStatus) to avoid TDZ errors during early setView boot.
 
 // The ONLY place that decides "is this account in the billing-review family" — every
 // other function (label, buckets, access checks) is built on top of this so they can

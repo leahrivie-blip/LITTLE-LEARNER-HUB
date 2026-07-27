@@ -142,7 +142,13 @@ async function runSignedOutFlows(page, baseUrl, device) {
 async function runSignedInFlows(page, baseUrl, device, role, persona) {
   await seedSession(page, persona, { lastView: "calendar", cacheActivities: 120 });
   await page.goto(`${baseUrl}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await waitBootReady(page);
+  try {
+    await waitBootReady(page);
+  } catch (error) {
+    record(role, device, "verified-boot", "fail", error.message);
+    await page.screenshot({ path: path.join(ARTIFACT_DIR, `matrix-fail-${role}-${device}-boot.png`), fullPage: true }).catch(() => {});
+    return;
+  }
 
   const flows = [
     {
