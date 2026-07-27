@@ -80,6 +80,7 @@
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
     "test:admin-redesign-audit": "node scripts/test-admin-redesign-audit.js",
     "test:admin-promo-audit": "node scripts/test-admin-promo-audit.js",
+    "test:admin-final-browser-audit": "node scripts/test-admin-final-browser-audit.js",
     "test:live-user-protection-matrix": "node scripts/test-live-user-protection-matrix.js",
     "test:domain-dns-fix": "node scripts/test-domain-dns-fix.js",
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",

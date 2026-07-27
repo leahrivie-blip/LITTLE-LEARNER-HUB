@@ -1,0 +1,68 @@
+name: Release Tests
+
+# Critical release gate for Little Learner Hub.
+# Runs npm run test:release on PRs targeting the testing integration branch
+# and main. Uses fake fixtures + local JSON stores only — never production
+# data, production secrets, Stripe, email, SMS, or live OpenAI.
+on:
+  pull_request:
+    branches:
+      - testing/full-platform-integration-2026-07
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: release-tests-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-tests:
+    name: npm run test:release
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      CI: "true"
+      NODE_ENV: test
+      # Explicitly blank — never inject production/payment/AI secrets into CI.
+      ALLOW_OPENAI_TESTING: "false"
+      STRIPE_SECRET_KEY: ""
+      STRIPE_WEBHOOK_SECRET: ""
+      OPENAI_API_KEY: ""
+      RESEND_API_KEY: ""
+      TWILIO_ACCOUNT_SID: ""
+      TWILIO_AUTH_TOKEN: ""
+      SENTRY_DSN_TESTING: ""
+      PRODUCTION_DATABASE_URL: ""
+      # Testing DB URL is unused by local-json suites; keep blank so accidental
+      # Postgres use would fail closed rather than hit a real database.
+      TESTING_DATABASE_URL: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium --with-deps
+
+      - name: Run release gate
+        run: npm run test:release
+
+      - name: Upload failure logs (if any)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-test-artifacts
+          path: |
+            test-results/
+            playwright-report/
+            /tmp/llh-*
+          if-no-files-found: ignore
+          retention-days: 14
