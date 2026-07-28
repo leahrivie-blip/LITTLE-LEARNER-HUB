@@ -457,8 +457,8 @@
     }
 
     try {
-      if (typeof loadAdminAnalyticsFromBackend === "function") {
-        await loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+      if (typeof loadAdminAnalyticsFromBackend === "function" && !adminAnalyticsCacheFresh()) {
+        await loadAdminAnalyticsFromBackend({ force: false, renderLoading: false }).catch(() => {});
       }
     } catch { /* optional */ }
 
