@@ -694,6 +694,7 @@ function defaultStore() {
     analyticsEvents: [],
     billingEvents: [],
     membershipAudit: [],
+    roleReconciliationAudit: [],
     processedStripeEvents: {},
     leads: [],
     promoRedemptions: [],
@@ -3955,6 +3956,35 @@ function appendMembershipLifecycleAudit(email, action, details = {}) {
   return entry;
 }
 
+function appendRoleReconciliationAudit({
+  email = "",
+  userId = "",
+  programId = "",
+  previousRole = "",
+  newRole = "",
+  reason = "",
+} = {}, store = null) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return null;
+  const targetStore = store || readStore();
+  targetStore.roleReconciliationAudit = targetStore.roleReconciliationAudit || [];
+  const entry = {
+    id: `role_rc_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    email: cleanEmail,
+    userId: String(userId || "").trim(),
+    programId: String(programId || "").trim(),
+    previousRole: String(previousRole || "").trim().toLowerCase(),
+    newRole: String(newRole || "").trim().toLowerCase(),
+    reason: String(reason || "linked_program_member_reconcile").trim(),
+    createdAt: new Date().toISOString(),
+  };
+  targetStore.roleReconciliationAudit.unshift(entry);
+  targetStore.roleReconciliationAudit = targetStore.roleReconciliationAudit.slice(0, 500);
+  if (!store) writeStore(targetStore);
+  console.log("[role-reconciliation-audit]", JSON.stringify(entry));
+  return entry;
+}
+
 function applyCheckoutMembershipUpgrade(email, {
   planKey,
   customerId,
@@ -4164,10 +4194,12 @@ function repairFoundingMemberPricing(user = {}) {
   };
 }
 
-function upsertUser(email, updates) {
+function upsertUser(email, updates = {}, options = {}) {
   const store = readStore();
   store.users = store.users || {};
   const existing = store.users[email] || { email };
+  const beforeRole = String(existing.role || "").trim().toLowerCase();
+  const beforeProgramId = String(existing.programId || "").trim();
   let merged = {
     ...existing,
     ...updates,
@@ -4181,6 +4213,20 @@ function upsertUser(email, updates) {
   merged.role = accessFields.role;
   // Keep active founding members on the locked $9.99 price in stored billing fields.
   merged = repairFoundingMemberPricing(merged);
+  const afterRole = String(merged.role || "").trim().toLowerCase();
+  const afterProgramId = String(merged.programId || "").trim();
+  const linkedOwner = normalizeEmail(merged.linkedProgramOwnerEmail || "");
+  const isLinkedMember = Boolean(linkedOwner && linkedOwner !== normalizeEmail(email));
+  if (isLinkedMember && (afterRole !== beforeRole || (afterProgramId && afterProgramId !== beforeProgramId))) {
+    appendRoleReconciliationAudit({
+      email,
+      userId: merged.firebaseUid || existing.firebaseUid || "",
+      programId: afterProgramId,
+      previousRole: beforeRole || "unknown",
+      newRole: afterRole,
+      reason: options.reconcileReason || "linked_program_member_reconcile",
+    }, store);
+  }
   store.users[email] = merged;
   writeStore(store);
   return store.users[email];
@@ -5957,7 +6003,9 @@ async function handleAccountProfileSync(request, response) {
     updates.lastLoginAt = new Date().toISOString();
     updates.lastSeenAt = updates.lastLoginAt;
   }
-  const user = upsertUser(email, updates);
+  const user = upsertUser(email, updates, {
+    reconcileReason: body.lastLogin ? "profile_sync_login" : "profile_sync",
+  });
   // Configurable Free-member welcome (in-app + email). Runs immediately on signup;
   // does not require EMAIL_AUTOMATIONS_ENABLED. Pro/Founding/Trial signups are skipped.
   if (body.signup === true && !existing.signupAt) {
@@ -8226,10 +8274,11 @@ async function syncUserMembershipFromStripe(email, { force = false, reason = "su
   if (subscription) {
     const linkedOwner = normalizeEmail(subscription.linkedProgramOwnerEmail || "");
     if (linkedOwner && linkedOwner !== cleanEmail) {
-      const reconciled = programOwnership.reconcileLinkedProgramMember(subscription, readStore());
+      const storeForRepair = readStore();
+      const reconciled = programOwnership.reconcileLinkedProgramMember(subscription, storeForRepair);
       const normalizedRole = accountAccess.resolveUserRole(reconciled);
       if (normalizedRole !== subscription.role || (reconciled.programId && reconciled.programId !== subscription.programId)) {
-        subscription = upsertUser(cleanEmail, {});
+        subscription = upsertUser(cleanEmail, {}, { reconcileReason: reason });
       }
     }
   }

@@ -168,6 +168,8 @@
     "test:auth-recovery-audit": "NODE_ENV=test node scripts/test-auth-recovery-audit.js",
     "test:shared-program-ownership": "NODE_ENV=test node scripts/test-shared-program-ownership.js",
     "test:linked-program-role-repair": "NODE_ENV=test node scripts/test-linked-program-role-repair.js",
+    "test:linked-program-release-candidate": "NODE_ENV=test node scripts/test-linked-program-release-candidate.js",
+    "test:release-candidate-regression": "NODE_ENV=test node scripts/run-release-candidate-regression.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
     "test:email-system-audit": "NODE_ENV=test node scripts/test-email-system-audit.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",

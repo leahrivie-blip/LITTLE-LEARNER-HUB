@@ -104,6 +104,11 @@ async function main() {
     assert.equal(before.status, 200);
     assert.equal(before.json.subscription.role, "director", "subscription-status should repair role on read");
 
+    const storeAfterRepair = JSON.parse(fs.readFileSync(STORE, "utf8"));
+    const audits = storeAfterRepair.roleReconciliationAudit || [];
+    assert.ok(audits.some((e) => e.email === DIRECTOR && e.previousRole === "owner" && e.newRole === "director"),
+      "audit log should record role reconciliation");
+
     const profile = await request("POST", "/api/account/profile", {
       body: {
         email: DIRECTOR,
