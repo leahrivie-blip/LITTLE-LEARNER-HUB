@@ -167,6 +167,7 @@
     "test:temp-password-auth": "NODE_ENV=test node scripts/test-temp-password-auth.js",
     "test:auth-recovery-audit": "NODE_ENV=test node scripts/test-auth-recovery-audit.js",
     "test:shared-program-ownership": "NODE_ENV=test node scripts/test-shared-program-ownership.js",
+    "test:linked-program-role-repair": "NODE_ENV=test node scripts/test-linked-program-role-repair.js",
     "test:email-engagement": "NODE_ENV=test node scripts/test-email-engagement.js",
     "test:email-system-audit": "NODE_ENV=test node scripts/test-email-system-audit.js",
     "test:founding-member-email": "NODE_ENV=test node scripts/test-founding-member-email.js",

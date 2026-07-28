@@ -21760,6 +21760,14 @@ button.aup-btn--danger {
 .account-access-banner-host:empty {
   display: none;
 }
+.account-program-connection {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle, rgba(0, 0, 0, 0.08));
+}
+.account-program-connection[hidden] {
+  display: none;
+}
 .aup-access-audit {
   margin-bottom: 18px;
 }

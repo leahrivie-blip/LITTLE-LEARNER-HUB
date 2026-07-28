@@ -4174,6 +4174,7 @@ function upsertUser(email, updates) {
     email,
     updatedAt: new Date().toISOString(),
   };
+  merged = programOwnership.reconcileLinkedProgramMember(merged, store);
   // Persist normalized accountType + role (defaults: home_daycare / owner).
   const accessFields = accountAccess.migrateAccountAccessFields(merged);
   merged.accountType = accessFields.accountType;
@@ -5923,7 +5924,13 @@ async function handleAccountProfileSync(request, response) {
     updates.programName = businessName;
   }
   if (accountType) updates.accountType = accountType;
-  if (role) updates.role = role;
+  if (role) {
+    const linkedOwner = normalizeEmail(existing.linkedProgramOwnerEmail || "");
+    const isLinkedMember = Boolean(linkedOwner && linkedOwner !== email);
+    if (!(isLinkedMember && role === accountAccess.USER_ROLES.OWNER)) {
+      updates.role = role;
+    }
+  }
   // Optional signup center pathway metadata (join/create/independent/skip).
   // Only set when provided — never clears existing associations on unrelated profile syncs.
   const centerAssociation = normalizedShortText(body.centerAssociation, 40);
@@ -8214,6 +8221,16 @@ async function syncUserMembershipFromStripe(email, { force = false, reason = "su
       subscription = upsertUser(cleanEmail, repaired);
     } else {
       subscription = repaired;
+    }
+  }
+  if (subscription) {
+    const linkedOwner = normalizeEmail(subscription.linkedProgramOwnerEmail || "");
+    if (linkedOwner && linkedOwner !== cleanEmail) {
+      const reconciled = programOwnership.reconcileLinkedProgramMember(subscription, readStore());
+      const normalizedRole = accountAccess.resolveUserRole(reconciled);
+      if (normalizedRole !== subscription.role || (reconciled.programId && reconciled.programId !== subscription.programId)) {
+        subscription = upsertUser(cleanEmail, {});
+      }
     }
   }
   if (subscription) {
