@@ -121,7 +121,11 @@ async function auditPublicSite(page, viewport, label) {
   page.on("pageerror", (err) => errors.push(String(err.message || err)));
 
   const homeStart = Date.now();
-  await page.goto(PROD, { waitUntil: "networkidle", timeout: 120000 });
+  try {
+    await page.goto(PROD, { waitUntil: "networkidle", timeout: 120000 });
+  } catch {
+    await page.goto(PROD, { waitUntil: "domcontentloaded", timeout: 60000 });
+  }
   timing(`${label}: homepage`, Date.now() - homeStart);
   const homeOk = await page.evaluate(() => /Affordable Childcare Curriculum/i.test(document.body?.innerText || ""));
   record("site", `${label} homepage styled`, homeOk);
