@@ -273,6 +273,7 @@
       </div>
       <div class="admin-card-grid">
         ${landingCard("Generate Content", "Open AI content tools.", "ai-tools", "Create")}
+        ${landingCard("AI Health", "Operational status, errors, and safe test.", "ai-health", "Health")}
         ${landingCard("Usage", "Monitor AI usage and limits.", "usage", "Monitor")}
         ${landingCard("Safety and Limits", "Review AI settings and guardrails.", "settings", "Safety")}
       </div>

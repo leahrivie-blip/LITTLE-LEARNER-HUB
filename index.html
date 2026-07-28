@@ -976,6 +976,14 @@
                 <button class="ghost-button" id="docHelperCreateAnotherBtn" type="button">Create Another</button>
               </div>
             </div>
+            <div id="docHelperDraftActions" class="doc-helper-draft-actions" hidden>
+              <button class="ghost-button" type="button" data-doc-draft-action="regenerate">Regenerate</button>
+              <button class="ghost-button" type="button" data-doc-draft-action="shorten">Shorten</button>
+              <button class="ghost-button" type="button" data-doc-draft-action="friendlier">Make Friendlier</button>
+              <button class="ghost-button" type="button" data-doc-draft-action="professional">Make More Professional</button>
+              <button class="ghost-button" type="button" data-doc-draft-action="restore-note">Restore Original Note</button>
+              <button class="ghost-button" type="button" data-doc-draft-action="start-over">Start Over</button>
+            </div>
             <div id="docHelperOutput" class="ai-output-rendered" contenteditable="false" spellcheck="true"></div>
             <div id="docHelperPostSavePanel" class="section-block" hidden style="margin-top:16px;">
               <p class="eyebrow">Saved</p>
@@ -1174,6 +1182,9 @@
           </section>
           <section class="section-block admin-ai-usage-panel" hidden>
             <div id="adminAiUsageApp"></div>
+          </section>
+          <section class="section-block admin-ai-health-panel" hidden>
+            <div id="adminAiHealthApp"></div>
           </section>
           <section class="section-block admin-visibility-panel" hidden>
             <div id="adminVisibilityApp"></div>

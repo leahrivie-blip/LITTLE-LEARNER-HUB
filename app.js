@@ -359,8 +359,8 @@ const docHelperToolMap = {
   "daily-log": "daily",
   "parent-message": "parentMessage",
   "lesson-plan": "lesson",
-  "behavior-note": "behavior",
-  "incident-report": "incident",
+  "behavior-note": "behaviorNote",
+  "incident-report": "incidentReport",
   "activity-idea": "activity",
 };
 const docTypeLabels = {
@@ -409,6 +409,12 @@ function resetDocHelperResultsPanel() {
     note.value = "";
     note.focus();
   }
+  docHelperDraftState.originalNote = "";
+  docHelperDraftState.lastOutput = "";
+  docHelperDraftState.lastData = null;
+  docHelperDraftState.toolId = "";
+  docHelperDraftState.docType = "";
+  setDocHelperDraftActionsVisible(false);
   document.querySelector("#docHelperDebugPanel")?.setAttribute("hidden", "hidden");
   const typeSelect = document.querySelector("#docHelperType");
   if (typeSelect?.value) selectDocHelperType(typeSelect.value, { focusNote: true, scroll: true });
@@ -1872,6 +1878,10 @@ const adminAiSettingsConfig = {
 const adminAiUsageConfig = {
   endpoint: "/api/admin/ai-usage",
 };
+const adminAiHealthConfig = {
+  endpoint: "/api/admin/ai-health",
+  testEndpoint: "/api/admin/ai-health/test",
+};
 const userAiUsageConfig = {
   endpoint: "/api/user/ai-usage",
 };
@@ -2292,6 +2302,14 @@ const freeObservationRecordLimit = 10;
 const freeDailyLogPhotoLimit = 3;
 const freeDailyLogHistoryDays = 14;
 const AI_GENERATION_TIMEOUT_MS = 120000; // must exceed server's 90s per-attempt OpenAI timeout
+let aiGenerationInFlight = false;
+const docHelperDraftState = {
+  originalNote: "",
+  lastOutput: "",
+  lastData: null,
+  toolId: "",
+  docType: "",
+};
 const proFeatureList = [
   "1,500+ Observations",
   "200+ Lesson Plans",
@@ -5083,7 +5101,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5101,7 +5119,7 @@ const adminGroups = [
   { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
   { id: "messages", icon: "💬", label: "Messages", tabs: ["messages-home", "admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-home" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
-  { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "usage", "settings"], defaultTab: "ai-home" },
+  { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "ai-health", "usage", "settings"], defaultTab: "ai-home" },
   { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
   { id: "advanced", icon: "🔧", label: "Advanced", tabs: ["advanced-home", "dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails", "visibility", "resources", "stripe-backfill", "prompts", "ai-testing", "admin-settings"], defaultTab: "advanced-home" },
 ];
@@ -5165,6 +5183,7 @@ const adminGroupForTab = {
   "founding": "website",
   "ai-testing": "advanced",
   "ai-tools": "ai",
+  "ai-health": "ai",
   "prompts": "advanced",
   "settings": "ai",
   "usage": "ai",
@@ -5176,6 +5195,7 @@ const adminTabLabels = {
   "content-home": "Content Home",
   "website-home": "Website Home",
   "ai-home": "AI Home",
+  "ai-health": "AI Health",
   "system-health": "System Health",
   "advanced-home": "Advanced Home",
   "admin-settings": "Settings",
@@ -13453,6 +13473,9 @@ function aiMonthlyLimit() {
 }
 
 function aiUsageRemaining() {
+  if (serverAiUsed !== null && serverAiLimit !== null) {
+    return Math.max(serverAiLimit - serverAiUsed, 0);
+  }
   return Math.max(aiMonthlyLimit() - aiUsageCount(), 0);
 }
 
@@ -13469,13 +13492,6 @@ function aiResetLabel() {
   const nextMonth = new Date();
   nextMonth.setMonth(nextMonth.getMonth() + 1, 1);
   return nextMonth.toLocaleDateString();
-}
-
-function aiUsageRemaining() {
-  if (serverAiUsed !== null && serverAiLimit !== null) {
-    return Math.max(serverAiLimit - serverAiUsed, 0);
-  }
-  return Math.max(aiMonthlyLimit() - aiUsageCount(), 0);
 }
 
 function canUseAi() {
@@ -40467,6 +40483,7 @@ function applyAdminSectionVisibility() {
     ".admin-ai-prompts-panel",
     ".admin-ai-settings-panel",
     ".admin-ai-usage-panel",
+    ".admin-ai-health-panel",
     ".admin-visibility-panel",
     ".admin-users-panel",
     ".admin-stripe-backfill-panel",
@@ -40617,6 +40634,10 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-ai-usage-panel");
     if (el) el.hidden = false;
     loadAdminAiUsage();
+  } else if (tab === "ai-health") {
+    const el = document.querySelector(".admin-ai-health-panel");
+    if (el) el.hidden = false;
+    loadAdminAiHealth();
   } else if (tab === "visibility") {
     const el = document.querySelector(".admin-visibility-panel");
     if (el) el.hidden = false;
@@ -44219,6 +44240,156 @@ let adminAiUsageState = {
   data: null,
 };
 
+let adminAiHealthState = {
+  loading: false,
+  testing: false,
+  error: "",
+  data: null,
+  testResult: "",
+};
+
+async function loadAdminAiHealth() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiHealthState.loading = true;
+  renderAdminAiHealthTab();
+  try {
+    const res = await fetch(`${adminAiHealthConfig.endpoint}?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Failed to load AI health.");
+    adminAiHealthState.data = data.aiHealth || null;
+    adminAiHealthState.error = "";
+  } catch (error) {
+    adminAiHealthState.error = error.message || "Could not load AI health.";
+    adminAiHealthState.data = null;
+  }
+  adminAiHealthState.loading = false;
+  renderAdminAiHealthTab();
+}
+
+async function runAdminAiHealthTest() {
+  const token = adminSession()?.token || "";
+  if (!token || !canUseLaunchBackend()) return;
+  adminAiHealthState.testing = true;
+  adminAiHealthState.testResult = "";
+  renderAdminAiHealthTab();
+  try {
+    const res = await fetch(adminAiHealthConfig.testEndpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ adminEmail: adminSession()?.email || "" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "AI health test failed.");
+    adminAiHealthState.testResult = `OK — ${data.output || "Test passed."} (Ref: ${data.requestId || "n/a"})`;
+  } catch (error) {
+    adminAiHealthState.testResult = error.message || "AI health test failed.";
+  }
+  adminAiHealthState.testing = false;
+  renderAdminAiHealthTab();
+}
+
+function renderAdminAiHealthTab() {
+  const target = document.querySelector("#adminAiHealthApp");
+  if (!target) return;
+  const state = adminAiHealthState;
+  if (state.loading) {
+    target.innerHTML = `<p class="ai-pm-loading">Loading AI health…</p>`;
+    return;
+  }
+  const d = state.data;
+  if (!d) {
+    target.innerHTML = `
+      <div class="section-heading"><div><p class="eyebrow">Admin Only</p><h3>AI Health</h3></div></div>
+      ${state.error ? `<p class="form-error">${escapeHtml(state.error)}</p>` : ""}
+      <p>Could not load AI health. <button class="ghost-button" type="button" id="aiHealthRetryBtn">Retry</button></p>
+    `;
+    return;
+  }
+  const formatMs = (ms) => ms == null ? "—" : ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
+  const statusClass = d.operational ? "ai-stat-success" : "ai-stat-failed";
+  const toolRows = Object.entries(d.toolSettings || {}).map(([toolId, cfg]) => `
+    <div class="ai-health-tool-row">
+      <div>
+        <strong>${escapeHtml(AI_TOOL_LABELS[toolId] || toolId)}</strong>
+        <p class="muted-copy">${cfg.enabled === false ? "Disabled" : "Enabled"}${cfg.generationLimit ? ` · limit ${cfg.generationLimit}/month` : ""}</p>
+      </div>
+      <span class="ai-health-pill ${cfg.enabled === false ? "is-off" : "is-on"}">${cfg.enabled === false ? "Off" : "On"}</span>
+    </div>
+  `).join("");
+  const errorRows = (d.recentErrors || []).map((row) => `
+    <tr>
+      <td>${escapeHtml(row.createdAt ? new Date(row.createdAt).toLocaleString() : "—")}</td>
+      <td>${escapeHtml(AI_TOOL_LABELS[row.tool] || row.tool || "—")}</td>
+      <td><code>${escapeHtml(row.requestId || "—")}</code></td>
+      <td>${escapeHtml(row.errorMessage || "—")}</td>
+    </tr>
+  `).join("") || `<tr><td colspan="4">No failures logged today.</td></tr>`;
+
+  target.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Admin Only</p>
+        <h3>AI Health</h3>
+        <p>Operational status, today's traffic, sanitized errors, and per-tool controls.</p>
+      </div>
+      <div class="output-actions">
+        <button class="ghost-button" type="button" id="aiHealthRefreshBtn">Refresh</button>
+        <button class="primary-button" type="button" id="aiHealthTestBtn" ${state.testing ? "disabled" : ""}>${state.testing ? "Testing…" : "Run Safe Test"}</button>
+      </div>
+    </div>
+    <div class="ai-usage-stats-grid">
+      <div class="ai-usage-stat-card ${statusClass}">
+        <p class="ai-stat-label">Status</p>
+        <p class="ai-stat-value">${d.operational ? "Operational" : "Unavailable"}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Provider / Model</p>
+        <p class="ai-stat-value" style="font-size:1rem;">${escapeHtml(d.provider)} · ${escapeHtml(d.model)}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Requests Today</p>
+        <p class="ai-stat-value">${Number(d.requestsToday || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card ai-stat-success">
+        <p class="ai-stat-label">Successful Today</p>
+        <p class="ai-stat-value">${Number(d.successfulToday || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card ai-stat-failed">
+        <p class="ai-stat-label">Failed Today</p>
+        <p class="ai-stat-value">${Number(d.failedToday || 0).toLocaleString()}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Avg Response Today</p>
+        <p class="ai-stat-value">${formatMs(d.avgResponseMs)}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Est. Cost Today</p>
+        <p class="ai-stat-value">$${Number(d.estimatedCostUsdToday || 0).toFixed(4)}</p>
+      </div>
+      <div class="ai-usage-stat-card">
+        <p class="ai-stat-label">Top Failing Tool</p>
+        <p class="ai-stat-value" style="font-size:1rem;">${escapeHtml(AI_TOOL_LABELS[d.topFailingTool] || d.topFailingTool || "—")}</p>
+      </div>
+    </div>
+    ${state.testResult ? `<p class="form-note">${escapeHtml(state.testResult)}</p>` : ""}
+    <div class="ai-health-tools section-block">
+      <p class="eyebrow">Per-tool switches</p>
+      <p class="muted-copy">Disable one tool without turning off all AI. Manage limits in AI Settings.</p>
+      ${toolRows}
+    </div>
+    <div class="ai-usage-log-section section-block">
+      <p class="eyebrow">Recent sanitized errors (today)</p>
+      <div class="ai-usage-log-table-wrap">
+        <table class="ai-usage-log-table">
+          <thead><tr><th>Time</th><th>Tool</th><th>Request ID</th><th>Error</th></tr></thead>
+          <tbody>${errorRows}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
 async function loadAdminAiUsage() {
   const token = adminSession()?.token || "";
   if (!token || !canUseLaunchBackend()) return;
@@ -45582,51 +45753,61 @@ function aiPromptFromForm(toolId, data) {
   ].filter(Boolean).join("\n");
 }
 
-async function generateToolOutputWithBackend(toolId, data) {
+async function generateToolOutputWithBackend(toolId, data, options = {}) {
   if (!aiGenerationConfig.endpoint || !canUseLaunchBackend()) {
     throw new Error("Document creation is currently unavailable. Please try again shortly or contact support.");
   }
+  if (aiGenerationInFlight && !options.allowParallel) {
+    throw new Error("A document is already being created. Please wait for it to finish.");
+  }
+  aiGenerationInFlight = true;
   const ageValue = data.age || data.ageGroup || data.group || "";
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), AI_GENERATION_TIMEOUT_MS);
-  let response;
   try {
-    response = await fetch(aiGenerationConfig.endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: currentUser || "guest",
-        plan: currentPlan,
-        tool: toolId,
-        age: ageValue,
-        prompt: aiPromptFromForm(toolId, data),
-        debug: aiDebugEnabled(),
-      }),
-      signal: controller.signal,
-    });
-  } catch (err) {
-    if (err.name === "AbortError") {
-      throw new Error("The request timed out. Please check your connection and try again.");
+    let response;
+    try {
+      response = await fetch(aiGenerationConfig.endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: currentUser || "guest",
+          plan: currentPlan,
+          tool: toolId,
+          age: ageValue,
+          prompt: aiPromptFromForm(toolId, data),
+          debug: aiDebugEnabled(),
+        }),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (err.name === "AbortError") {
+        throw new Error("The request timed out. Please check your connection and try again.");
+      }
+      throw new Error("We couldn't create your document right now. Please try again.");
+    } finally {
+      clearTimeout(timeoutId);
     }
-    throw new Error("We couldn't create your document right now. Please try again.");
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const baseMessage = result?.error || "We couldn't create your document right now. Please try again.";
+      throw new Error(result?.requestId ? `${baseMessage} (Ref: ${result.requestId})` : baseMessage);
+    }
+    if (!result.output) {
+      throw new Error("We couldn't create your document right now. Please try again.");
+    }
+    return {
+      output: result.output,
+      backendUsed: true,
+      used: result.used,
+      limit: result.limit,
+      model: result.model,
+      requestId: result.requestId || "",
+      debug: result.debug || null,
+    };
   } finally {
-    clearTimeout(timeoutId);
+    aiGenerationInFlight = false;
   }
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(result?.error || "We couldn't create your document right now. Please try again.");
-  }
-  if (!result.output) {
-    throw new Error("We couldn't create your document right now. Please try again.");
-  }
-  return {
-    output: result.output,
-    backendUsed: true,
-    used: result.used,
-    limit: result.limit,
-    model: result.model,
-    debug: result.debug || null,
-  };
 }
 
 function cleanPromptTheme(prompt) {
@@ -53406,6 +53587,51 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const docDraftActionBtn = event.target.closest("[data-doc-draft-action]");
+  if (docDraftActionBtn) {
+    event.preventDefault();
+    const action = docDraftActionBtn.dataset.docDraftAction || "";
+    const form = document.querySelector("#docHelperForm");
+    const childId = form?.querySelector("#docHelperChild")?.value || "";
+    const docType = docHelperDraftState.docType || form?.querySelector("#docHelperType")?.value || "observation";
+    const noteEl = document.querySelector("#docHelperNote");
+    if (action === "start-over") {
+      if (docHelperDraftState.originalNote && noteEl) noteEl.value = docHelperDraftState.originalNote;
+      const outputEl = document.querySelector("#docHelperOutput");
+      if (outputEl) {
+        outputEl.innerHTML = "";
+        delete outputEl.dataset.rawMarkdown;
+      }
+      docHelperDraftState.lastOutput = "";
+      setDocHelperDraftActionsVisible(false);
+      const hint = document.querySelector("#docHelperNextStepHint");
+      if (hint) hint.textContent = "Your original note is restored. Edit it and tap Create Documentation when ready.";
+      return;
+    }
+    if (action === "restore-note") {
+      restoreDocHelperOriginalNote();
+      showActionFeedback("Original note restored.");
+      return;
+    }
+    const outputEl = document.querySelector("#docHelperOutput");
+    const currentDraft = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
+    if (currentDraft && noteEl?.value.trim() && currentDraft !== docHelperDraftState.lastOutput) {
+      const proceed = window.confirm("Replace your edited draft with a new AI version?");
+      if (!proceed) return;
+    }
+    const note = action === "regenerate"
+      ? (docHelperDraftState.originalNote || noteEl?.value.trim() || "")
+      : (noteEl?.value.trim() || docHelperDraftState.originalNote || "");
+    if (!note && !docHelperDraftState.lastOutput) return;
+    void runDocHelperGeneration({
+      docType,
+      note: note || docHelperDraftState.originalNote,
+      childId,
+      draftAction: action === "regenerate" ? "" : action,
+    });
+    return;
+  }
+
   const docHelperCreateAnotherBtn = event.target.closest("#docHelperCreateAnotherBtn, #docHelperCreateAnotherBtn2");
   if (docHelperCreateAnotherBtn) {
     event.preventDefault();
@@ -55780,22 +56006,27 @@ document.addEventListener("change", (event) => {
 document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const promptBox = document.querySelector("#aiPrompt");
+  const submitBtn = event.target.querySelector("[type='submit']");
   const prompt = promptBox.value.trim();
   if (!prompt) return;
+  if (submitBtn?.disabled) return;
   if (!canUseAi()) {
     addAiMessage("assistant", aiLimitMessage());
     return;
   }
   addAiMessage("user", prompt);
   promptBox.value = "";
+  if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
+  addAiMessage("assistant", "Creating your document…");
+  const assistantPlaceholder = document.querySelector("#aiChatMessages .ai-message.assistant:last-child");
   const lower = prompt.toLowerCase();
   const age = detectAgeFromPrompt(lower);
   let toolId = "lesson";
   if (lower.includes("observation") || lower.includes("developmental")) toolId = "observation";
   else if (lower.includes("newsletter")) toolId = "newsletter";
   else if (lower.includes("daily report")) toolId = "daily";
-  else if (lower.includes("incident") || lower.includes("injury")) toolId = "incident";
-  else if (lower.includes("behavior")) toolId = "behavior";
+  else if (lower.includes("incident") || lower.includes("injury")) toolId = "incidentReport";
+  else if (lower.includes("behavior")) toolId = "behaviorNote";
   else if (lower.includes("activity") || lower.includes("sensory") || lower.includes("art")) toolId = "activity";
   else if (lower.includes("parent message") || lower.includes("parent note")) toolId = "parentMessage";
   else if (lower.includes("menu")) toolId = "menu";
@@ -55810,11 +56041,22 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
       details: prompt,
       programName: settings.programName || "",
     });
-    addAiMessage("assistant", result.output);
+    if (assistantPlaceholder) {
+      assistantPlaceholder.textContent = result.output;
+    } else {
+      addAiMessage("assistant", result.output);
+    }
     recordAiUse(result.used, result.limit);
     trackEvent("ai_generation_success", { tool: "chat", promptLength: prompt.length, plan: currentPlan, backendUsed: result.backendUsed });
   } catch (error) {
-    addAiMessage("assistant", error.message || "We couldn't create your document right now. Please try again.");
+    const message = error.message || "We couldn't create your document right now. Please try again.";
+    if (assistantPlaceholder) {
+      assistantPlaceholder.textContent = message;
+    } else {
+      addAiMessage("assistant", message);
+    }
+  } finally {
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Send"; }
   }
 });
 
@@ -55826,27 +56068,26 @@ document.addEventListener("change", (event) => {
   updateDocHelperComposeHint();
 });
 
-document.addEventListener("submit", async (event) => {
-  if (!event.target.matches("#docHelperForm")) return;
-  event.preventDefault();
-  const form = event.target;
-  const submitBtn = form.querySelector("[type='submit']");
+function setDocHelperDraftActionsVisible(visible) {
+  const actions = document.querySelector("#docHelperDraftActions");
+  if (actions) actions.hidden = !visible;
+}
 
-  // Prevent duplicate submissions
-  if (submitBtn && submitBtn.disabled) return;
+function restoreDocHelperOriginalNote() {
+  const note = document.querySelector("#docHelperNote");
+  if (!note || !docHelperDraftState.originalNote) return;
+  note.value = docHelperDraftState.originalNote;
+}
 
-  const childId = form.querySelector("#docHelperChild")?.value || document.querySelector("#docHelperChild")?.value || "";
-  const docType = form.querySelector("#docHelperType")?.value || "observation";
-  const note = form.querySelector("#docHelperNote")?.value.trim() || "";
-  if (!note) return;
-
+async function runDocHelperGeneration({ docType, note, childId, draftAction = "" } = {}) {
+  const form = document.querySelector("#docHelperForm");
+  const submitBtn = form?.querySelector("[type='submit']");
   const resultsEl = document.querySelector("#docHelperResults");
   const outputEl = document.querySelector("#docHelperOutput");
   const titleEl = document.querySelector("#docHelperResultTitle");
   const labelEl = document.querySelector("#docHelperResultLabel");
   const saveBtn = document.querySelector("#docHelperSaveBtn");
-
-  if (!outputEl || !resultsEl) return;
+  if (!outputEl || !resultsEl || !note) return;
 
   if (!canUseAi()) {
     resultsEl.hidden = false;
@@ -55854,6 +56095,7 @@ document.addEventListener("submit", async (event) => {
     delete outputEl.dataset.rawMarkdown;
     if (titleEl) titleEl.textContent = "Limit Reached";
     if (labelEl) labelEl.textContent = "Notice";
+    setDocHelperDraftActionsVisible(false);
     return;
   }
 
@@ -55864,7 +56106,6 @@ document.addEventListener("submit", async (event) => {
   const ageGroup = normalizeAgeGroup(child?.ageGroup) || "Preschool";
   const programName = settings.programName || "";
   const today = new Date().toISOString().slice(0, 10);
-
   const toolId = docHelperToolMap[docType] || "observation";
   const label = docTypeLabels[docType] || "Documentation";
 
@@ -55882,6 +56123,25 @@ document.addEventListener("submit", async (event) => {
     topic: label,
     date: today,
   };
+
+  if (draftAction === "shorten" && docHelperDraftState.lastOutput) {
+    data.note = `Shorten this draft while keeping every fact accurate. Do not add new details.\n\n${docHelperDraftState.lastOutput}`;
+    data.details = data.note;
+  } else if (draftAction === "friendlier" && docHelperDraftState.lastOutput) {
+    data.note = `Rewrite this draft in a warmer, friendlier tone while keeping every fact accurate. Do not add new details.\n\n${docHelperDraftState.lastOutput}`;
+    data.details = data.note;
+  } else if (draftAction === "professional" && docHelperDraftState.lastOutput) {
+    data.note = `Rewrite this draft in a more professional tone while keeping every fact accurate. Do not add new details.\n\n${docHelperDraftState.lastOutput}`;
+    data.details = data.note;
+  }
+
+  const previousOutput = (outputEl.dataset.rawMarkdown || outputEl.textContent || "").trim();
+  if (!docHelperDraftState.originalNote) {
+    docHelperDraftState.originalNote = note;
+  }
+  docHelperDraftState.lastData = data;
+  docHelperDraftState.toolId = toolId;
+  docHelperDraftState.docType = docType;
 
   resultsEl.hidden = false;
   outputEl.textContent = "Creating your document…";
@@ -55905,37 +56165,67 @@ document.addEventListener("submit", async (event) => {
   }
   const editBtn = document.querySelector("#docHelperEditBtn");
   if (editBtn) editBtn.textContent = "Edit Generated Content";
-
-  // Disable submit button during generation
+  setDocHelperDraftActionsVisible(false);
   if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = "Creating…"; }
+  document.querySelectorAll("[data-doc-draft-action]").forEach((btn) => { btn.disabled = true; });
 
   try {
     const result = await generateToolOutputWithBackend(toolId, data);
     outputEl.innerHTML = renderMarkdown(result.output);
     outputEl.dataset.rawMarkdown = result.output;
+    docHelperDraftState.lastOutput = result.output;
     renderAiDebugPanel("#docHelperDebugPanel", result.debug, result.output);
-    if (labelEl) labelEl.textContent = "Result";
+    if (labelEl) labelEl.textContent = "Draft";
     if (hint) {
       hint.textContent = childId
-        ? "Next: edit if needed, then Save to Child Profile — or Copy to paste into an email/app."
-        : "Next: pick a child above and regenerate, or Copy this draft to use elsewhere.";
+        ? "Review this draft before saving. Use Regenerate or tone options, or edit the text directly."
+        : "Review this draft. Pick a child above before saving, or copy to use elsewhere.";
     }
     recordAiUse(result.used, result.limit);
     renderAiUsagePanel();
-    trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed) });
+    setDocHelperDraftActionsVisible(true);
+    trackEvent("ai_generation_success", { tool: "doc-helper", docType, plan: currentPlan, backendUsed: Boolean(result.backendUsed), draftAction: draftAction || "create" });
     if (docType === "observation") trackEvent("observation_created", { source: "doc-helper" });
     if (docType === "parent-message") trackEvent("parent_message_generated", { source: "doc-helper" });
-    if (docType === "incident" || docType === "incident-report") trackEvent("incident_report_created", { source: "doc-helper" });
-    if (docType === "daily-report" || docType === "daily-summary") trackEvent("daily_report_saved", { source: "doc-helper", docType });
+    if (docType === "incident-report") trackEvent("incident_report_created", { source: "doc-helper" });
+    if (docType === "daily-log") trackEvent("daily_report_saved", { source: "doc-helper", docType });
   } catch (error) {
     renderAiDebugPanel("#docHelperDebugPanel");
-    outputEl.textContent = error.message || "We couldn't create your document right now. Please try again.";
-    delete outputEl.dataset.rawMarkdown;
-    if (labelEl) labelEl.textContent = "Error";
-    if (hint) hint.textContent = "Generation failed. Edit your note and try Create Documentation again.";
+    if (previousOutput) {
+      outputEl.innerHTML = renderMarkdown(previousOutput);
+      outputEl.dataset.rawMarkdown = previousOutput;
+      docHelperDraftState.lastOutput = previousOutput;
+      setDocHelperDraftActionsVisible(true);
+      if (labelEl) labelEl.textContent = "Draft";
+      if (hint) hint.textContent = "Generation failed. Your previous draft is still here. Edit your note or try again.";
+    } else {
+      outputEl.textContent = error.message || "We couldn't create your document right now. Please try again.";
+      delete outputEl.dataset.rawMarkdown;
+      if (labelEl) labelEl.textContent = "Error";
+      if (hint) hint.textContent = "Generation failed. Your note is unchanged — edit it and try Create Documentation again.";
+      setDocHelperDraftActionsVisible(false);
+    }
   } finally {
     if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = "Create Documentation"; }
+    document.querySelectorAll("[data-doc-draft-action]").forEach((btn) => { btn.disabled = false; });
   }
+}
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#docHelperForm")) return;
+  event.preventDefault();
+  const form = event.target;
+  const submitBtn = form.querySelector("[type='submit']");
+  if (submitBtn && submitBtn.disabled) return;
+
+  const childId = form.querySelector("#docHelperChild")?.value || document.querySelector("#docHelperChild")?.value || "";
+  const docType = form.querySelector("#docHelperType")?.value || "observation";
+  const note = form.querySelector("#docHelperNote")?.value.trim() || "";
+  if (!note) return;
+
+  docHelperDraftState.originalNote = note;
+  docHelperDraftState.lastOutput = "";
+  await runDocHelperGeneration({ docType, note, childId });
 });
 
 document.querySelector("#preferencesForm")?.addEventListener("submit", (event) => {
@@ -57594,6 +57884,14 @@ document.addEventListener("click", (event) => {
   // AI Usage retry/refresh
   if (event.target.matches("#aiUsageRetryBtn") || event.target.matches("#aiUsageRefreshBtn")) {
     loadAdminAiUsage();
+    return;
+  }
+  if (event.target.matches("#aiHealthRetryBtn") || event.target.matches("#aiHealthRefreshBtn")) {
+    loadAdminAiHealth();
+    return;
+  }
+  if (event.target.matches("#aiHealthTestBtn")) {
+    runAdminAiHealthTest();
     return;
   }
 });
