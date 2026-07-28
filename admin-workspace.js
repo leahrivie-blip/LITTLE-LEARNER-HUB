@@ -239,6 +239,30 @@
     bindLandingTabs(target);
   }
 
+  function renderAdminMessagesHome(target) {
+    if (!target) return;
+    const unread = typeof window.adminMessagesWorkspaceUnreadCount === "function" ? window.adminMessagesWorkspaceUnreadCount() : 0;
+    const unreadNote = unread
+      ? `<p class="muted-copy"><strong>${unread}</strong> unread conversation${unread === 1 ? "" : "s"}.</p>`
+      : "";
+    target.innerHTML = `
+      <div class="section-heading">
+        <div><p class="eyebrow">Messages</p><h3>Communications workspace</h3><p class="muted-copy">Member inbox, conversations, templates, and welcome sequences.</p>${unreadNote}</div>
+      </div>
+      <div class="admin-card-grid">
+        ${landingCard("Inbox", "Support, feedback, and unread member messages.", "admin-inbox", "Inbox")}
+        ${landingCard("All Conversations", "Search and reply to member threads.", "messages-conversations", "Messaging")}
+        ${landingCard("Sent & Drafts", "Review sent messages and saved drafts.", "messages-sent", "Messaging")}
+        ${landingCard("New Message", "Compose an in-app message to a member.", "messages-compose", "Compose")}
+        ${landingCard("Email User", "Send a one-off email when Resend is configured.", "messages-email", "Compose")}
+        ${landingCard("Message Templates", "Reusable templates for compose.", "message-templates", "Templates")}
+        ${landingCard("Welcome Messages", "Free signup welcome sequence (in-app + email).", "welcome-messages", "Onboarding")}
+        ${landingCard("Automations", "Trial and founding member email sequences.", "automations", "Automation")}
+      </div>
+    `;
+    bindLandingTabs(target);
+  }
+
   function renderAdminAiHome(target) {
     if (!target) return;
     const aiReady = Boolean(adminAiSettingsState?.aiSettings?.enabled);
@@ -739,6 +763,7 @@
     renderAdminHomeWorkspace,
     renderAdminContentHome,
     renderAdminWebsiteHome,
+    renderAdminMessagesHome,
     renderAdminAiHome,
     renderAdminBillingHome,
     renderAdminSystemHealth,

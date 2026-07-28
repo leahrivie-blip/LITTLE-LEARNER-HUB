@@ -5081,7 +5081,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5097,7 +5097,7 @@ const adminGroups = [
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home"], defaultTab: "billing-home" },
   { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
-  { id: "messages", icon: "💬", label: "Messages", tabs: ["admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-conversations" },
+  { id: "messages", icon: "💬", label: "Messages", tabs: ["messages-home", "admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-home" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "usage", "settings"], defaultTab: "ai-home" },
   { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
@@ -5121,6 +5121,7 @@ const adminGroupForTab = {
   "feature-requests": "advanced",
   "bug-reports": "advanced",
   "emails": "advanced",
+  "messages-home": "messages",
   "admin-inbox": "messages",
   "messages-compose": "messages",
   "messages-conversations": "messages",
@@ -5184,6 +5185,7 @@ const adminTabLabels = {
   "feature-requests": "Feature Requests",
   "bug-reports": "Bug Reports",
   "emails": "Emails",
+  "messages-home": "Messages Home",
   "admin-inbox": "Inbox",
   "messages-compose": "New Message",
   "messages-conversations": "All Conversations",
@@ -5230,7 +5232,7 @@ const adminTabLabels = {
   "usage": "Usage",
 };
 let adminActiveGroup = adminGroupForTab[adminActiveSectionTab] || "admin-home";
-const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit"]);
+const adminWorkspaceLandingTabs = new Set(["admin-home", "admin-notifications", "content-home", "website-home", "ai-home", "billing-home", "system-health", "advanced-home", "admin-settings", "taxonomy-audit", "messages-home"]);
 /* Tablet + phone: collapse the full sidebar into the hamburger drawer.
    Desktop side-nav remains from 1101px up (covers iPad portrait/landscape). */
 const mobileNavMaxWidth = 1100;
@@ -11643,6 +11645,9 @@ const adminMessagesWorkspaceTabs = [
   { id: "messages-archived", label: "Archived" },
   { id: "messages-compose", label: "New Message", primary: true },
   { id: "messages-email", label: "Email User", primary: true },
+  { id: "message-templates", label: "Templates" },
+  { id: "welcome-messages", label: "Welcome Messages" },
+  { id: "automations", label: "Automations" },
 ];
 
 function adminMessagesWorkspaceUnreadCount() {
@@ -40455,6 +40460,7 @@ function applyAdminSectionVisibility() {
       else if (tab === "advanced-home") ws.renderAdminAdvancedHome(landingApp);
       else if (tab === "admin-settings") ws.renderAdminSettingsLanding(landingApp);
       else if (tab === "taxonomy-audit") ws.renderAdminTaxonomyAudit(landingApp);
+      else if (tab === "messages-home") ws.renderAdminMessagesHome(landingApp);
     }
     if (tab === "admin-home" && notifPanel) {
       notifPanel.hidden = true;
@@ -54566,9 +54572,16 @@ document.addEventListener("submit", async (event) => {
     await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
     adminAnalyticsCache = null;
     renderAdminDashboard();
-    await loadAdminAnalyticsFromBackend({ force: true });
-    await fetchAdminNotificationCenter().catch(() => {});
-    renderAdminDashboard();
+    // Do not block unlock on analytics/notifications — panels render immediately; data loads in background.
+    void loadAdminAnalyticsFromBackend({ force: true }).then(() => {
+      renderAdminDashboard();
+    }).catch(() => {});
+    void fetchAdminNotificationCenter().then(() => {
+      renderAdminNotificationCenter();
+      renderAdminSectionNav();
+      refreshAdminNavBadge();
+      renderAdminDashboard();
+    }).catch(() => {});
     return;
   } catch (error) {
     if (message) {

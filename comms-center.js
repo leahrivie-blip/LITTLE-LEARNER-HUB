@@ -1455,8 +1455,12 @@
     }
   }
 
-  function adminPanelShell(title, bodyHtml, eyebrow = "Admin") {
+  function adminPanelShell(title, bodyHtml, eyebrow = "Admin", activeTabId = "") {
+    const nav = activeTabId && typeof window.adminMessagesWorkspaceNavHtml === "function"
+      ? window.adminMessagesWorkspaceNavHtml(activeTabId)
+      : "";
     return `
+      ${nav}
       <div class="admin-comms-panel">
         <div class="section-heading">
           <div><p class="eyebrow">${escapeHtml(eyebrow)}</p><h3>${escapeHtml(title)}</h3></div>
@@ -1496,7 +1500,7 @@
         `).join("")}
       </div>
       <p class="form-note" id="adminTemplatesMessage"></p>
-    `);
+    `, "Messaging", "message-templates");
 
     container.querySelectorAll("[data-admin-template-use]").forEach((btn) => {
       btn.addEventListener("click", () => {
@@ -1531,7 +1535,7 @@
     try {
       config = await adminFetchJson("/api/admin/onboarding-welcome");
     } catch (error) {
-      container.innerHTML = adminPanelShell("Welcome Messages", `<div class="empty-state">${escapeHtml(error.message || "Could not load welcome configuration.")}</div>`);
+      container.innerHTML = adminPanelShell("Welcome Messages", `<div class="empty-state">${escapeHtml(error.message || "Could not load welcome configuration.")}</div>`, "Messaging", "welcome-messages");
       return;
     }
 
@@ -1663,7 +1667,7 @@
         </div>
         <div id="adminWelcomePreviewBody" class="admin-welcome-preview-body"></div>
       </div>
-    `);
+    `, "Messaging", "welcome-messages");
 
     const form = container.querySelector("#adminWelcomeMessagesForm");
 
@@ -2259,7 +2263,7 @@
         `).join("") || `<div class="empty-state">No automations configured.</div>`}
       </div>
       <p class="form-note" id="adminAutomationsMessage"></p>
-    `);
+    `, "Messaging", "automations");
 
     container.querySelectorAll("[data-automation-toggle]").forEach((input) => {
       input.addEventListener("change", async () => {
