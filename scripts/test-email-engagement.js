@@ -83,7 +83,7 @@ async function main() {
   assert.match(moduleJs, /intentionally NEVER scheduled/);
   assert.match(moduleJs, /willSend: false/);
   assert.match(serverJs, /\/api\/admin\/email-engagement/);
-  assert.match(serverJs, /emailEngagement\.maybeSendWelcomeOnSignup/);
+  assert.match(serverJs, /onboardingWelcome\.maybeDeliverOnSignup/);
   assert.match(serverJs, /preflight-audit/);
   assert.match(serverJs, /prepare-one-time/);
   assert.match(serverJs, /send-one-time/);

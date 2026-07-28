@@ -1524,6 +1524,271 @@
 
   window.renderAdminMessageTemplates = renderAdminMessageTemplates;
 
+  async function renderAdminWelcomeMessages(container) {
+    if (!container) return;
+    container.innerHTML = `<p class="messages-loading">Loading welcome messages…</p>`;
+    let config = null;
+    try {
+      config = await adminFetchJson("/api/admin/onboarding-welcome");
+    } catch (error) {
+      container.innerHTML = adminPanelShell("Welcome Messages", `<div class="empty-state">${escapeHtml(error.message || "Could not load welcome configuration.")}</div>`);
+      return;
+    }
+
+    const sequence = config.sequence || {};
+    const variables = Array.isArray(config.variables) ? config.variables : [];
+    const foundingOpen = Boolean(config.foundingOpen);
+    const scheduledSteps = Array.isArray(sequence.scheduledSteps) ? sequence.scheduledSteps : [];
+
+    container.innerHTML = adminPanelShell("Communication Templates · Welcome Messages", `
+      <p class="muted-copy">Configure the automatic welcome sequence for new Free accounts. In-app and email messages send once per account immediately after signup. Pro, Founding Member, and Trial signups are skipped.</p>
+      <div class="admin-welcome-status-row">
+        <span class="admin-pill ${sequence.enabled === false ? "is-muted" : "is-success"}">${sequence.enabled === false ? "Sequence paused" : "Sequence active"}</span>
+        <span class="admin-pill ${foundingOpen ? "is-warning" : "is-muted"}">${foundingOpen ? "Founding spots open" : "Founding section hidden"}</span>
+      </div>
+      <form class="panel-form admin-welcome-form" id="adminWelcomeMessagesForm">
+        <fieldset class="admin-welcome-fieldset">
+          <legend>Sequence</legend>
+          <label class="checkbox-row">
+            <input type="checkbox" name="sequenceEnabled" ${sequence.enabled === false ? "" : "checked"} />
+            Enable Free welcome sequence
+          </label>
+        </fieldset>
+
+        <fieldset class="admin-welcome-fieldset">
+          <legend>In-app welcome message</legend>
+          <label class="checkbox-row">
+            <input type="checkbox" name="inAppEnabled" ${sequence.inApp?.enabled === false ? "" : "checked"} />
+            Send in-app message from Leah
+          </label>
+          <label>Title
+            <input name="inAppTitle" maxlength="300" value="${escapeHtml(sequence.inApp?.title || "")}" />
+          </label>
+          <label>Message
+            <textarea name="inAppBody" rows="12">${escapeHtml(sequence.inApp?.body || "")}</textarea>
+          </label>
+        </fieldset>
+
+        <fieldset class="admin-welcome-fieldset">
+          <legend>Welcome email</legend>
+          <label class="checkbox-row">
+            <input type="checkbox" name="emailEnabled" ${sequence.email?.enabled === false ? "" : "checked"} />
+            Send welcome email
+          </label>
+          <label>Subject
+            <input name="emailSubject" maxlength="300" value="${escapeHtml(sequence.email?.subject || "")}" />
+          </label>
+          <label>Body
+            <textarea name="emailBody" rows="12">${escapeHtml(sequence.email?.body || "")}</textarea>
+          </label>
+          <div class="admin-welcome-cta-grid">
+            <label>Primary button label
+              <input name="primaryCtaLabel" maxlength="120" value="${escapeHtml(sequence.email?.primaryCtaLabel || "Explore Free Resources")}" />
+            </label>
+            <label>Primary button URL
+              <input name="primaryCtaUrl" maxlength="500" value="${escapeHtml(sequence.email?.primaryCtaUrl || "{{LessonsUrl}}")}" />
+            </label>
+            <label>Secondary button label
+              <input name="secondaryCtaLabel" maxlength="120" value="${escapeHtml(sequence.email?.secondaryCtaLabel || "Upgrade to Pro")}" />
+            </label>
+            <label>Secondary button URL
+              <input name="secondaryCtaUrl" maxlength="500" value="${escapeHtml(sequence.email?.secondaryCtaUrl || "{{UpgradeUrl}}")}" />
+            </label>
+          </div>
+          <label>Email footer
+            <input name="emailFooter" maxlength="500" value="${escapeHtml(sequence.email?.footerNote || "")}" />
+          </label>
+        </fieldset>
+
+        <fieldset class="admin-welcome-fieldset">
+          <legend>Founding Member section</legend>
+          <label class="checkbox-row">
+            <input type="checkbox" name="foundingEnabled" ${sequence.foundingSection?.enabled === false ? "" : "checked"} />
+            Show when Founding Member spots are available
+          </label>
+          <label>In-app / text version
+            <textarea name="foundingText" rows="5">${escapeHtml(sequence.foundingSection?.inAppText || "")}</textarea>
+          </label>
+          <label>Email HTML block
+            <textarea name="foundingHtml" rows="6">${escapeHtml(sequence.foundingSection?.emailHtml || "")}</textarea>
+          </label>
+        </fieldset>
+
+        <fieldset class="admin-welcome-fieldset">
+          <legend>Scheduled follow-ups (future-ready)</legend>
+          <p class="form-note">These steps are saved for future automation. They do not send automatically yet.</p>
+          <div class="admin-welcome-schedule-list">
+            ${scheduledSteps.map((step, index) => `
+              <article class="ticket-card admin-welcome-schedule-card">
+                <div class="ticket-card-header">
+                  <div>
+                    <p class="eyebrow">Day ${escapeHtml(String(step.delayDays ?? 0))}</p>
+                    <h4>${escapeHtml(step.label || step.id || `Step ${index + 1}`)}</h4>
+                  </div>
+                  <label class="checkbox-row">
+                    <input type="checkbox" name="stepEnabled_${index}" ${step.enabled ? "checked" : ""} />
+                    Enabled (future)
+                  </label>
+                </div>
+                <input type="hidden" name="stepId_${index}" value="${escapeHtml(step.id || `step-${index}`)}" />
+                <input type="hidden" name="stepDelay_${index}" value="${escapeHtml(String(step.delayDays ?? 0))}" />
+                <label>Step label
+                  <input name="stepLabel_${index}" maxlength="120" value="${escapeHtml(step.label || "")}" />
+                </label>
+              </article>
+            `).join("")}
+          </div>
+        </fieldset>
+
+        <details class="admin-welcome-variables">
+          <summary>Dynamic variables</summary>
+          <ul class="admin-welcome-variable-list">
+            ${variables.map((v) => `<li><code>{{${escapeHtml(v.key)}}}</code> — ${escapeHtml(v.description || "")}</li>`).join("")}
+          </ul>
+        </details>
+
+        <div class="account-actions-row admin-welcome-actions">
+          <button type="submit" class="primary-button">Save welcome messages</button>
+          <button type="button" class="ghost-button" id="adminWelcomePreviewInAppBtn">Preview in-app</button>
+          <button type="button" class="ghost-button" id="adminWelcomePreviewEmailBtn">Preview email</button>
+          <button type="button" class="ghost-button" id="adminWelcomeBackfillBtn">Backfill last 5 Free signups</button>
+        </div>
+        <p class="form-note" id="adminWelcomeMessagesMessage"></p>
+      </form>
+
+      <div class="admin-welcome-preview-wrap" id="adminWelcomePreviewWrap" hidden>
+        <div class="section-heading">
+          <div><p class="eyebrow">Preview</p><h4 id="adminWelcomePreviewTitle"></h4></div>
+          <button type="button" class="ghost-button" id="adminWelcomePreviewCloseBtn">Close</button>
+        </div>
+        <div id="adminWelcomePreviewBody" class="admin-welcome-preview-body"></div>
+      </div>
+    `);
+
+    const form = container.querySelector("#adminWelcomeMessagesForm");
+
+    function collectSequenceFromForm() {
+      const fd = new FormData(form);
+      const steps = scheduledSteps.map((step, index) => ({
+        id: String(fd.get(`stepId_${index}`) || step.id || `step-${index}`),
+        delayDays: Number(fd.get(`stepDelay_${index}`) || step.delayDays || 0),
+        enabled: fd.get(`stepEnabled_${index}`) === "on",
+        label: String(fd.get(`stepLabel_${index}`) || step.label || ""),
+        inApp: step.inApp || { enabled: false, title: "", body: "" },
+        email: step.email || { enabled: false, subject: "", body: "" },
+      }));
+      return {
+        enabled: fd.get("sequenceEnabled") === "on",
+        inApp: {
+          enabled: fd.get("inAppEnabled") === "on",
+          title: String(fd.get("inAppTitle") || ""),
+          body: String(fd.get("inAppBody") || ""),
+        },
+        email: {
+          enabled: fd.get("emailEnabled") === "on",
+          subject: String(fd.get("emailSubject") || ""),
+          body: String(fd.get("emailBody") || ""),
+          primaryCtaLabel: String(fd.get("primaryCtaLabel") || ""),
+          primaryCtaUrl: String(fd.get("primaryCtaUrl") || ""),
+          secondaryCtaLabel: String(fd.get("secondaryCtaLabel") || ""),
+          secondaryCtaUrl: String(fd.get("secondaryCtaUrl") || ""),
+          footerNote: String(fd.get("emailFooter") || ""),
+        },
+        foundingSection: {
+          enabled: fd.get("foundingEnabled") === "on",
+          inAppText: String(fd.get("foundingText") || ""),
+          emailHtml: String(fd.get("foundingHtml") || ""),
+          emailText: String(fd.get("foundingText") || ""),
+        },
+        scheduledSteps: steps,
+      };
+    }
+
+    function showPreview(preview, channel) {
+      const wrap = container.querySelector("#adminWelcomePreviewWrap");
+      const titleEl = container.querySelector("#adminWelcomePreviewTitle");
+      const bodyEl = container.querySelector("#adminWelcomePreviewBody");
+      if (!wrap || !titleEl || !bodyEl) return;
+      const payload = preview?.previews?.[channel] || preview;
+      titleEl.textContent = payload?.title || payload?.subject || "Preview";
+      if (channel === "email" && payload?.html) {
+        bodyEl.innerHTML = `<div class="admin-welcome-email-preview">${payload.html}</div>`;
+      } else {
+        bodyEl.innerHTML = `<pre class="admin-welcome-preview-text">${escapeHtml(payload?.body || payload?.text || "")}</pre>`;
+      }
+      wrap.hidden = false;
+    }
+
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      try {
+        setFormMessage("#adminWelcomeMessagesMessage", "Saving…", true);
+        await adminFetchJson("/api/admin/onboarding-welcome", {
+          method: "POST",
+          body: { sequence: collectSequenceFromForm() },
+        });
+        setFormMessage("#adminWelcomeMessagesMessage", "Welcome messages saved.", true);
+        renderAdminWelcomeMessages(container);
+      } catch (error) {
+        setFormMessage("#adminWelcomeMessagesMessage", error.message || "Save failed.", false);
+      }
+    });
+
+    container.querySelector("#adminWelcomePreviewInAppBtn")?.addEventListener("click", async () => {
+      try {
+        const data = await adminFetchJson("/api/admin/onboarding-welcome/preview", {
+          method: "POST",
+          body: { channel: "in_app", sequence: collectSequenceFromForm(), firstName: "Alex" },
+        });
+        showPreview(data, "inApp");
+      } catch (error) {
+        setFormMessage("#adminWelcomeMessagesMessage", error.message || "Preview failed.", false);
+      }
+    });
+
+    container.querySelector("#adminWelcomePreviewEmailBtn")?.addEventListener("click", async () => {
+      try {
+        const data = await adminFetchJson("/api/admin/onboarding-welcome/preview", {
+          method: "POST",
+          body: { channel: "email", sequence: collectSequenceFromForm(), firstName: "Alex" },
+        });
+        showPreview(data, "email");
+      } catch (error) {
+        setFormMessage("#adminWelcomeMessagesMessage", error.message || "Preview failed.", false);
+      }
+    });
+
+    container.querySelector("#adminWelcomePreviewCloseBtn")?.addEventListener("click", () => {
+      const wrap = container.querySelector("#adminWelcomePreviewWrap");
+      if (wrap) wrap.hidden = true;
+    });
+
+    container.querySelector("#adminWelcomeBackfillBtn")?.addEventListener("click", async () => {
+      try {
+        const dryRun = await adminFetchJson("/api/admin/onboarding-welcome/backfill", {
+          method: "POST",
+          body: { count: 5 },
+        });
+        if (!dryRun.recipients?.length) {
+          setFormMessage("#adminWelcomeMessagesMessage", "No eligible Free signups found for backfill.", false);
+          return;
+        }
+        const names = dryRun.recipients.map((r) => r.email).join(", ");
+        const ok = window.confirm(`Send welcome to the last ${dryRun.count} Free signups?\n\n${names}\n\nThis cannot be undone for accounts that already received the welcome.`);
+        if (!ok) return;
+        const result = await adminFetchJson("/api/admin/onboarding-welcome/backfill", {
+          method: "POST",
+          body: { count: 5, confirmPhrase: dryRun.confirmPhrase },
+        });
+        setFormMessage("#adminWelcomeMessagesMessage", `Backfill complete for ${result.count} account(s).`, true);
+      } catch (error) {
+        setFormMessage("#adminWelcomeMessagesMessage", error.message || "Backfill failed.", false);
+      }
+    });
+  }
+
+  window.renderAdminWelcomeMessages = renderAdminWelcomeMessages;
+
   function formatHealthDate(iso) {
     if (!iso) return "—";
     const ms = new Date(iso).getTime();
