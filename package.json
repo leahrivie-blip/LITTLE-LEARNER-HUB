@@ -82,6 +82,7 @@
     "test:admin-promo-audit": "node scripts/test-admin-promo-audit.js",
     "test:admin-final-browser-audit": "node scripts/test-admin-final-browser-audit.js",
     "test:admin-messaging-hotfix": "node scripts/test-admin-messaging-hotfix.js",
+    "test:admin-panel-loading": "node scripts/test-admin-panel-loading-audit.js",
     "test:free-welcome-onboarding": "NODE_ENV=test node scripts/test-free-welcome-onboarding.js",
     "test:live-user-protection-matrix": "node scripts/test-live-user-protection-matrix.js",
     "test:domain-dns-fix": "node scripts/test-domain-dns-fix.js",

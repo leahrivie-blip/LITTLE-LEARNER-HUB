@@ -11,6 +11,7 @@ const { chromium } = require("playwright");
 const {
   ROOT, request, waitForHealth, startServer, seedStore, test,
 } = require("./lib/messaging-test-harness.js");
+const { unlockAdminInBrowser } = require("./lib/admin-browser-unlock.js");
 
 const PORT = 4348;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -45,15 +46,11 @@ function appSource() {
 }
 
 async function unlockAdmin(page) {
-  await page.goto(`${BASE}/admin`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.waitForSelector("#adminUnlockForm", { timeout: 30000 });
-  await page.fill('input[name="adminEmail"]', ADMIN_EMAIL);
-  await page.fill('input[name="adminPassword"]', "test-password");
-  await page.fill('input[name="adminCode"]', "test-code");
-  await page.click('#adminUnlockForm button[type="submit"]');
-  await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 30000 });
-  await page.locator('[data-admin-group="messages"]').click();
-  await page.waitForSelector(".admin-messages-workspace-nav", { timeout: 30000 });
+  await unlockAdminInBrowser(page, BASE, { openMessages: true });
+  await page.evaluate(() => {
+    if (typeof window.setAdminSectionTab === "function") window.setAdminSectionTab("messages-conversations");
+  });
+  await page.waitForSelector(".admin-messages-workspace-nav", { timeout: 20000 });
 }
 
 async function main() {
@@ -67,7 +64,7 @@ async function main() {
     assert.match(appJs, /messages-drafts/);
     assert.match(appJs, /messages-archived/);
     assert.match(appJs, /messages-email/);
-    assert.match(appJs, /defaultTab: "messages-conversations"/);
+    assert.match(appJs, /defaultTab: "messages-home"/);
     assert.match(appJs, /adminMessageDeliveryStatusHtml/);
   });
 
