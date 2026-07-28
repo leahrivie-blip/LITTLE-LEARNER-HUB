@@ -838,7 +838,52 @@ function normalizedShortText(value, maxLength = 240) {
 }
 
 const AI_VALID_TOOLS = new Set(["observation", "lesson", "daily", "parentMessage", "activity", "behaviorNote", "incidentReport"]);
+const AI_TOOL_ALIASES = {
+  behavior: "behaviorNote",
+  "behavior-note": "behaviorNote",
+  incident: "incidentReport",
+  "incident-report": "incidentReport",
+  "parent-message": "parentMessage",
+  "daily-log": "daily",
+  "daily-report": "daily",
+  "activity-idea": "activity",
+  "lesson-plan": "lesson",
+  lesson_plan: "lesson",
+};
 const AI_PROMPT_LAYERS = ["masterPrompt", "toolSpecificPrompt", "writingIntelligence", "outputFormatting"];
+const AI_MAX_OUTPUT_TOKENS = {
+  observation: 2200,
+  lesson: 4500,
+  daily: 1600,
+  parentMessage: 1400,
+  activity: 1800,
+  behaviorNote: 1800,
+  incidentReport: 1800,
+};
+const AI_DEFAULT_MAX_OUTPUT_TOKENS = 2000;
+
+function normalizeAiToolId(tool) {
+  const raw = String(tool || "").trim();
+  if (!raw) return "observation";
+  const mapped = AI_TOOL_ALIASES[raw] || AI_TOOL_ALIASES[raw.toLowerCase()] || raw;
+  return AI_VALID_TOOLS.has(mapped) ? mapped : raw;
+}
+
+function createAiRequestId() {
+  return `air_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+}
+
+function aiMaxOutputTokensForTool(tool) {
+  const normalized = normalizeAiToolId(tool);
+  return AI_MAX_OUTPUT_TOKENS[normalized] || AI_DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+function aiModelCostRates(model) {
+  const modelName = String(model || "").toLowerCase();
+  if (modelName.includes("gpt-4o-mini")) return { inputPer1k: 0.00015, outputPer1k: 0.0006 };
+  if (modelName.includes("gpt-4o")) return { inputPer1k: 0.0025, outputPer1k: 0.01 };
+  return { inputPer1k: 0.0025, outputPer1k: 0.01 };
+}
 const AI_PROMPT_MAX_CHARS = 32000;
 
 function normalizedAiToolSettings(value) {
@@ -4275,7 +4320,7 @@ function canUseServerAi(email, plan) {
   return { used, limit: aiLimitForPlan(plan), allowed: used < aiLimitForPlan(plan), key };
 }
 
-function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null } = {}) {
+function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null, requestId = "" } = {}) {
   const store = readStore();
   const usage = canUseServerAi(email, plan);
   store.aiUsage = store.aiUsage || {};
@@ -4294,6 +4339,7 @@ function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = nu
   store.aiUsageLogs = store.aiUsageLogs || [];
   store.aiUsageLogs.unshift({
     id: logId,
+    requestId: String(requestId || logId),
     tool: String(tool || "unknown"),
     email,
     plan,
@@ -4753,47 +4799,92 @@ Rules:
 YOU ARE WRITING A PROFESSIONAL INCIDENT REPORT FOR A CHILDCARE PROVIDER.
 Create a factual, organized report using objective, licensing-appropriate language.
 
-Required sections:
+Required sections (use only details the provider entered — do not invent):
 1. Program Name, Date, and Time of Incident
 2. Child's Name and Age
-3. Location or Setting (where the incident occurred)
-4. Objective Description of What Happened (past tense, active voice, factual only — describe what was observed)
-5. What Occurred Immediately Before (if provided; if not, note "Not observed")
-6. Immediate Response and First Aid or Support Given
-7. Follow-Up Actions and Next Steps
-8. Parent or Guardian Notification (time contacted, method, and summary of what was shared)
-9. Provider Signature Line and Date
+3. Location or Setting
+4. Objective Description of What Happened (past tense, observed facts only)
+5. What Occurred Immediately Before (if provided; otherwise write "Not provided — provider should add if known")
+6. Witnesses or Others Present (if provided)
+7. Immediate Response and First Aid or Support Given
+8. Follow-Up Actions and Next Steps
+9. Parent or Guardian Notification (time contacted, method, and summary — only if provided)
+10. Provider Signature Line and Date
 
 Rules:
-- Use objective, factual language in every section. No opinions, speculation, or assumptions.
-- Do not admit fault or assign blame to any person.
-- Do not diagnose injuries or suggest causes that were not directly observed.
-- If a detail was not provided, leave the field neutral — do not invent it.
-- Remind providers at the end to follow their state's licensing requirements for incident documentation.`,
+- Separate observed facts from staff actions. Use objective language. Do not assign fault or blame.
+- Do not diagnose injuries, assign causes, or make medical claims beyond what was observed.
+- Preserve exact dates, times, names, locations, and notification details exactly as entered.
+- If a required detail was not provided, leave a short placeholder line asking the provider to add it — do not make it up.
+- Use a calm, professional tone. Serious incidents should not sound casual.
+- End with one line reminding the provider to review against their state's licensing requirements before filing.`,
+
+    incidentReport: base + `
+
+YOU ARE WRITING A PROFESSIONAL INCIDENT REPORT FOR A CHILDCARE PROVIDER.
+Create a factual, organized report using objective, licensing-appropriate language.
+
+Required sections (use only details the provider entered — do not invent):
+1. Program Name, Date, and Time of Incident
+2. Child's Name and Age
+3. Location or Setting
+4. Objective Description of What Happened (past tense, observed facts only)
+5. What Occurred Immediately Before (if provided; otherwise write "Not provided — provider should add if known")
+6. Witnesses or Others Present (if provided)
+7. Immediate Response and First Aid or Support Given
+8. Follow-Up Actions and Next Steps
+9. Parent or Guardian Notification (time contacted, method, and summary — only if provided)
+10. Provider Signature Line and Date
+
+Rules:
+- Separate observed facts from staff actions. Use objective language. Do not assign fault or blame.
+- Do not diagnose injuries, assign causes, or make medical claims beyond what was observed.
+- Preserve exact dates, times, names, locations, and notification details exactly as entered.
+- If a required detail was not provided, leave a short placeholder line asking the provider to add it — do not make it up.
+- Use a calm, professional tone. Serious incidents should not sound casual.
+- End with one line reminding the provider to review against their state's licensing requirements before filing.`,
 
     behavior: base + `
 
-YOU ARE CREATING A BEHAVIOR SUPPORT PLAN FOR A CHILDCARE PROVIDER.
-Frame behavior as communication — the child is expressing an unmet need or an underdeveloped skill.
+YOU ARE DOCUMENTING OBSERVED BEHAVIOR FOR A CHILDCARE PROVIDER.
+Describe what was seen — not labels or judgments.
 
 Required sections:
-1. Behavior Observed (factual description only — no interpretation in this section)
-2. Possible Unmet Need or Trigger (what the child may be communicating through this behavior)
-3. Proactive Strategies (what the provider can do before the behavior occurs to reduce the likelihood)
-4. In-the-Moment Response Strategies (concrete, calm actions for when the behavior happens)
-5. Environment or Schedule Modifications (practical changes that may help reduce the trigger)
-6. Age-Appropriate Replacement Skill to Teach (one specific, teachable alternative behavior)
-7. Parent Communication Wording (warm, collaborative message for the family)
+1. Behavior Observed (factual, observable description — what the child did, said, or showed)
+2. Context Before the Behavior (if provided)
+3. Staff Response (calm actions taken in the moment)
+4. Current Status (how the child was doing when documented)
+5. Proactive Strategies (only if enough detail was provided; otherwise ask provider to add)
+6. Skill to Support (one age-appropriate replacement skill or coping strategy to teach)
+7. Parent Communication Draft (warm, collaborative wording families can read on a phone)
 
 Rules:
-- Use strength-based, non-blaming language throughout.
-- Keep all strategies developmentally appropriate for the stated age group.
-- No punitive, shaming, or developmentally inappropriate approaches.
-- Infant: cues, responsive care, routines, sensory regulation.
-- Young Toddler: co-regulation, simple language, predictability, visual cues.
-- Older Toddler: short phrases, transition support, turning-taking, simple replacement skills.
-- Preschool: feeling words, problem-solving steps, peer support, practiced replacement behavior.
-- School Age: reflection, self-advocacy, collaborative problem-solving, repair and accountability.`,
+- Describe observable behavior only. Never use words like bad, aggressive child, manipulative, defiant, or naughty.
+- Do not diagnose, label the child, or blame the family.
+- Include what happened before, what the child did, and how staff responded when that information is provided.
+- If key details are missing, note what the provider should add instead of inventing triggers, injuries, or outcomes.
+- Keep strategies realistic for the stated age group and a typical childcare setting.`,
+
+    behaviorNote: base + `
+
+YOU ARE DOCUMENTING OBSERVED BEHAVIOR FOR A CHILDCARE PROVIDER.
+Describe what was seen — not labels or judgments.
+
+Required sections:
+1. Behavior Observed (factual, observable description — what the child did, said, or showed)
+2. Context Before the Behavior (if provided)
+3. Staff Response (calm actions taken in the moment)
+4. Current Status (how the child was doing when documented)
+5. Proactive Strategies (only if enough detail was provided; otherwise ask provider to add)
+6. Skill to Support (one age-appropriate replacement skill or coping strategy to teach)
+7. Parent Communication Draft (warm, collaborative wording families can read on a phone)
+
+Rules:
+- Describe observable behavior only. Never use words like bad, aggressive child, manipulative, defiant, or naughty.
+- Do not diagnose, label the child, or blame the family.
+- Include what happened before, what the child did, and how staff responded when that information is provided.
+- If key details are missing, note what the provider should add instead of inventing triggers, injuries, or outcomes.
+- Keep strategies realistic for the stated age group and a typical childcare setting.`,
 
     handbook: base + `
 
@@ -5105,14 +5196,14 @@ const AI_REQUEST_TIMEOUT_MS = 90000;
 const AI_MAX_RETRIES = 2;
 // Base delay in ms between retry attempts (multiplied by attempt number)
 const AI_RETRY_BASE_DELAY_MS = 3000;
-// Temperature for generation: high enough for variety, conservative enough for consistency
-const AI_TEMPERATURE = 0.9;
+// Temperature for generation: balanced for consistency with enough variety for natural wording
+const AI_TEMPERATURE = 0.7;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function callOpenAiOnce(systemPrompt, userContent, email, label) {
+async function callOpenAiOnce(systemPrompt, userContent, email, label, { maxOutputTokens = AI_DEFAULT_MAX_OUTPUT_TOKENS, requestId = "" } = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
   try {
@@ -5125,6 +5216,7 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label) {
       body: JSON.stringify({
         model: OPENAI_MODEL,
         temperature: AI_TEMPERATURE,
+        max_output_tokens: maxOutputTokens,
         input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userContent },
@@ -5138,7 +5230,7 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label) {
       const errType = String(data?.error?.type || "unknown");
       const errMsg = String(data?.error?.message || "");
       const errCode = String(data?.error?.code || "");
-      console.error(`[openai-error] ${label} status=${response.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} email=${email} message=${errMsg}`);
+      console.error(`[openai-error] ${label} requestId=${requestId || "n/a"} status=${response.status} type=${errType} code=${errCode} model=${OPENAI_MODEL} email=${email} message=${errMsg}`);
       if (errCode === "insufficient_quota" || errMsg.toLowerCase().includes("quota") || errMsg.toLowerCase().includes("billing")) {
         const err = new Error("Document creation quota has been reached. Please contact support or try again later.");
         err.noRetry = true;
@@ -5168,12 +5260,11 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label) {
   }
 }
 
-async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) {
-  if (!OPENAI_API_KEY) {
-    throw new Error("Document creation is not available right now. Please contact support or try again later.");
-  }
+async function generateOpenAiContent({ tool, prompt, age, plan, email, debug, requestId: incomingRequestId }) {
+  const requestId = incomingRequestId || createAiRequestId();
+  const normalizedTool = normalizeAiToolId(tool);
 
-  // Check per-tool enabled flag and global master switch
+  // Check per-tool enabled flag and global master switch before provider calls
   const store = readStore();
   const aiSettings = normalizedAiSettings(store.aiSettings || defaultAiSettings());
   if (!aiSettings.masterEnabled) {
@@ -5181,7 +5272,7 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
     err.toolDisabled = true;
     throw err;
   }
-  const toolConfig = aiSettings.tools[tool];
+  const toolConfig = aiSettings.tools[normalizedTool];
   if (toolConfig && !toolConfig.enabled) {
     const msg = toolConfig.fallbackMessage?.trim() || "This AI tool is currently unavailable. Please try again later.";
     const err = new Error(msg);
@@ -5189,25 +5280,35 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
     throw err;
   }
 
-  const systemPrompt = getToolSystemPromptResolved(tool);
+  if (!OPENAI_API_KEY) {
+    throw new Error("Document creation is not available right now. Please contact support or try again later.");
+  }
+
+  const systemPrompt = getToolSystemPromptResolved(normalizedTool);
   const userContent = buildOpenAiUserPrompt(prompt, age);
 
   let lastError;
   for (let attempt = 1; attempt <= AI_MAX_RETRIES + 1; attempt++) {
     try {
-      const label = `tool=${tool} attempt=${attempt}`;
-      const { output, rawResponse } = await callOpenAiOnce(systemPrompt, userContent, email, label);
+      const label = `requestId=${requestId} tool=${normalizedTool} attempt=${attempt}`;
+      const { output, rawResponse } = await callOpenAiOnce(systemPrompt, userContent, email, label, {
+        maxOutputTokens: aiMaxOutputTokensForTool(normalizedTool),
+        requestId,
+      });
       if (attempt > 1) {
-        console.log(`[helper-retry-success] tool=${tool} email=${email} attempt=${attempt}`);
+        console.log(`[helper-retry-success] requestId=${requestId} tool=${normalizedTool} email=${email} attempt=${attempt}`);
       }
       return {
         output,
         model: OPENAI_MODEL,
+        requestId,
+        tool: normalizedTool,
         // Always capture token usage for monitoring; rawResponse.usage is available in both /v1/responses and /v1/chat/completions
         inputTokens: rawResponse?.usage?.input_tokens ?? rawResponse?.usage?.prompt_tokens ?? null,
         outputTokens: rawResponse?.usage?.output_tokens ?? rawResponse?.usage?.completion_tokens ?? null,
         debug: debug ? {
-          tool,
+          tool: normalizedTool,
+          requestId,
           model: OPENAI_MODEL,
           systemPrompt,
           userPrompt: userContent,
@@ -5220,10 +5321,10 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug }) 
     } catch (error) {
       lastError = error;
       const isRetryable = !error.noRetry && attempt <= AI_MAX_RETRIES;
-      console.error(`[helper-generate-error] tool=${tool} email=${email} attempt=${attempt}/${AI_MAX_RETRIES + 1} retryable=${isRetryable} error=${error.message}`);
+      console.error(`[helper-generate-error] requestId=${requestId} tool=${normalizedTool} email=${email} attempt=${attempt}/${AI_MAX_RETRIES + 1} retryable=${isRetryable} error=${error.message}`);
       if (!isRetryable) break;
       const delay = AI_RETRY_BASE_DELAY_MS * attempt;
-      console.log(`[helper-retry] tool=${tool} email=${email} waiting ${delay}ms before attempt ${attempt + 1}`);
+      console.log(`[helper-retry] requestId=${requestId} tool=${normalizedTool} email=${email} waiting ${delay}ms before attempt ${attempt + 1}`);
       await sleep(delay);
     }
   }
@@ -5675,9 +5776,8 @@ function handleAdminAiUsage(request, response, url) {
   const avgResponseMs = successTimings.length ? Math.round(successTimings.reduce((a, b) => a + b, 0) / successTimings.length) : null;
   const totalInputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.inputTokens) ? l.inputTokens : 0), 0);
   const totalOutputTokens = logs.reduce((sum, l) => sum + (Number.isFinite(l.outputTokens) ? l.outputTokens : 0), 0);
-  // Cost estimate uses approximate gpt-4o pricing ($0.0025/1K input + $0.01/1K output).
-  // This is an approximation only — actual costs depend on the configured model and OpenAI's current rates.
-  const estimatedCostUsd = Number(((totalInputTokens / 1000) * 0.0025 + (totalOutputTokens / 1000) * 0.01).toFixed(4));
+  const rates = aiModelCostRates(OPENAI_MODEL);
+  const estimatedCostUsd = Number(((totalInputTokens / 1000) * rates.inputPer1k + (totalOutputTokens / 1000) * rates.outputPer1k).toFixed(4));
   for (const log of logs) {
     const t = log.tool || "unknown";
     if (!byTool[t]) byTool[t] = { total: 0, successful: 0, failed: 0 };
@@ -5709,8 +5809,87 @@ function handleAdminAiUsage(request, response, url) {
       totalOutputTokens,
       estimatedCostUsd,
       recentLogs,
+      model: OPENAI_MODEL,
     },
   });
+}
+
+function aiLogsForToday(logs) {
+  const today = new Date().toISOString().slice(0, 10);
+  return logs.filter((log) => String(log.createdAt || "").slice(0, 10) === today);
+}
+
+function handleAdminAiHealth(request, response, url) {
+  const token = extractAdminToken(request, url);
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const logs = store.aiUsageLogs || [];
+  const todayLogs = aiLogsForToday(logs);
+  const todaySuccessful = todayLogs.filter((l) => l.success).length;
+  const todayFailed = todayLogs.filter((l) => !l.success).length;
+  const todayTimings = todayLogs.filter((l) => l.success && Number.isFinite(l.responseTimeMs)).map((l) => l.responseTimeMs);
+  const todayAvgResponseMs = todayTimings.length
+    ? Math.round(todayTimings.reduce((a, b) => a + b, 0) / todayTimings.length)
+    : null;
+  const failCounts = {};
+  for (const log of todayLogs.filter((l) => !l.success)) {
+    const key = log.tool || "unknown";
+    failCounts[key] = (failCounts[key] || 0) + 1;
+  }
+  const topFailingTool = Object.entries(failCounts).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+  const aiSettings = normalizedAiSettings(store.aiSettings || defaultAiSettings());
+  const config = aiConfigStatus();
+  const rates = aiModelCostRates(OPENAI_MODEL);
+  const todayInputTokens = todayLogs.reduce((sum, l) => sum + (Number.isFinite(l.inputTokens) ? l.inputTokens : 0), 0);
+  const todayOutputTokens = todayLogs.reduce((sum, l) => sum + (Number.isFinite(l.outputTokens) ? l.outputTokens : 0), 0);
+  const todayEstimatedCostUsd = Number(((todayInputTokens / 1000) * rates.inputPer1k + (todayOutputTokens / 1000) * rates.outputPer1k).toFixed(4));
+  const recentErrors = todayLogs
+    .filter((l) => !l.success)
+    .slice(0, 12)
+    .map((l) => ({
+      requestId: l.requestId || l.id,
+      tool: l.tool || "unknown",
+      errorMessage: String(l.errorMessage || "unknown").slice(0, 200),
+      createdAt: l.createdAt,
+    }));
+  jsonResponse(response, 200, {
+    aiHealth: {
+      provider: "openai",
+      model: OPENAI_MODEL,
+      configured: config.ready,
+      masterEnabled: aiSettings.masterEnabled,
+      operational: config.ready && aiSettings.masterEnabled,
+      requestsToday: todayLogs.length,
+      successfulToday: todaySuccessful,
+      failedToday: todayFailed,
+      avgResponseMs: todayAvgResponseMs,
+      estimatedCostUsdToday: todayEstimatedCostUsd,
+      topFailingTool,
+      toolSettings: aiSettings.tools,
+      recentErrors,
+    },
+  });
+}
+
+async function handleAdminAiHealthTest(request, response) {
+  const body = await readJson(request);
+  const token = extractAdminTokenFromBody(request, body);
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const requestId = createAiRequestId();
+  const systemPrompt = "You are a connectivity test for Little Learner Hub. Respond with exactly one short sentence confirming the AI service is reachable. Do not mention children, families, or user data.";
+  const userPrompt = "Reply with: Little Learner Hub AI is operational.";
+  try {
+    const output = await callOpenAiRaw(systemPrompt, userPrompt);
+    jsonResponse(response, 200, { ok: true, requestId, output: String(output || "").slice(0, 240), model: OPENAI_MODEL });
+  } catch (error) {
+    jsonResponse(response, 503, { ok: false, requestId, error: error.message || "AI health test failed." });
+  }
 }
 
 async function handleAccountProfileSync(request, response) {
@@ -7801,63 +7980,80 @@ async function handleAiGenerate(request, response) {
   const store = readStore();
   const user = store.users?.[email] || null;
   const plan = resolvedPlanForUser(user);
-  const tool = String(body.tool || "unknown");
-  console.log(`[access] ai-generate email=${email} tool=${tool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
+  const rawTool = String(body.tool || "unknown");
+  const tool = normalizeAiToolId(rawTool);
+  const requestId = createAiRequestId();
+  console.log(`[access] ai-generate requestId=${requestId} email=${email} tool=${tool} rawTool=${rawTool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const lessonTools = new Set(["lesson", "lesson-plan", "lesson_plan"]);
-  if (lessonTools.has(tool) && !membershipHasProAccess(user || {})) {
-    jsonResponse(response, 403, {
-      error: "Generate custom lesson plans in seconds. Available with Pro Membership. Start Your 7-Day Free Trial. Card required. Cancel anytime.",
-      code: "pro_required",
-      tool,
-    });
-    return;
+  if (lessonTools.has(rawTool) || lessonTools.has(tool)) {
+    if (!membershipHasProAccess(user || {})) {
+      jsonResponse(response, 403, {
+        error: "Generate custom lesson plans in seconds. Available with Pro Membership. Start Your 7-Day Free Trial. Card required. Cancel anytime.",
+        code: "pro_required",
+        tool,
+        requestId,
+      });
+      return;
+    }
   }
   const usage = canUseServerAi(email, plan);
   if (!usage.allowed) {
-    jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit });
+    jsonResponse(response, 429, { error: `Monthly helper limit reached. ${usage.used} of ${usage.limit} documents created this month.`, used: usage.used, limit: usage.limit, requestId });
     return;
   }
   const startTime = Date.now();
   try {
-    const aiResult = await generateOpenAiContent(body);
+    const aiResult = await generateOpenAiContent({ ...body, tool, requestId });
     const responseTimeMs = Date.now() - startTime;
     const inputTokens = aiResult.inputTokens ?? null;
     const outputTokens = aiResult.outputTokens ?? null;
-    const recorded = recordServerAiUse(email, plan, aiResult.output, { tool, responseTimeMs, inputTokens, outputTokens, success: true });
+    const recorded = recordServerAiUse(email, plan, aiResult.output, { tool: aiResult.tool || tool, responseTimeMs, inputTokens, outputTokens, success: true, requestId });
     jsonResponse(response, 200, {
       output: aiResult.output,
       model: aiResult.model,
+      requestId: aiResult.requestId || requestId,
+      tool: aiResult.tool || tool,
       debug: aiResult.debug,
       ...recorded,
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
     const responseTimeMs = Date.now() - startTime;
-    console.error(`[helper-generate-failure] email=${email} tool=${tool} plan=${plan} error=${error.message || "unknown"}`);
+    const sanitizedError = String(error.message || "unknown").slice(0, 500);
+    console.error(`[helper-generate-failure] requestId=${requestId} email=${email} tool=${tool} plan=${plan} error=${sanitizedError}`);
     // Log failed generations to aiUsageLogs without incrementing the monthly counter
     try {
       const failStore = readStore();
       failStore.aiUsageLogs = failStore.aiUsageLogs || [];
       failStore.aiUsageLogs.unshift({
         id: `ai_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`,
+        requestId,
         tool,
         email,
         plan,
         responseTimeMs,
         success: false,
-        errorMessage: String(error.message || "unknown").slice(0, 500),
+        errorMessage: sanitizedError,
         inputTokens: null,
         outputTokens: null,
         createdAt: new Date().toISOString(),
       });
       failStore.aiUsageLogs = failStore.aiUsageLogs.slice(0, 5000);
       writeStore(failStore);
+      await emitAdminAlertSafe(failStore, {
+        category: "ai",
+        type: "ai_generation_failed",
+        title: "AI generation failed",
+        preview: `Tool: ${tool}. Request ID: ${requestId}.`,
+        refId: requestId,
+        sendEmail: false,
+      });
     } catch (err) { console.warn("[ai-fail-log] Could not write failure to aiUsageLogs:", err.message); }
     if (error.toolDisabled) {
-      jsonResponse(response, 503, { error: error.message });
+      jsonResponse(response, 503, { error: error.message, requestId });
       return;
     }
-    jsonResponse(response, 503, { error: error.message || "We couldn't create your document right now. Please try again." });
+    jsonResponse(response, 503, { error: error.message || "We couldn't create your document right now. Please try again.", requestId });
   }
 }
 
@@ -16324,6 +16520,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/ai-settings") return handleAdminAiSettings(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/ai-settings") return await handleAdminAiSettingsSave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/ai-usage") return handleAdminAiUsage(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-health") return handleAdminAiHealth(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-health/test") return await handleAdminAiHealthTest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);

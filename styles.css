@@ -20160,6 +20160,61 @@ body.lesson-editor-view .main {
   margin-top: 24px;
 }
 
+.doc-helper-draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 16px;
+}
+
+.doc-helper-result-actions {
+  flex-wrap: wrap;
+}
+
+.ai-health-tools {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-health-tool-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(90, 110, 140, 0.14);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.ai-health-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.ai-health-pill.is-on {
+  background: rgba(46, 125, 79, 0.12);
+  color: #1f6b43;
+}
+
+.ai-health-pill.is-off {
+  background: rgba(180, 60, 60, 0.12);
+  color: #9b2c2c;
+}
+
+@media (max-width: 640px) {
+  .doc-helper-draft-actions .ghost-button,
+  .doc-helper-result-actions .ghost-button,
+  .doc-helper-result-actions .primary-button {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+}
+
 .doc-helpers-more-tools {
   margin-top: 28px;
 }
