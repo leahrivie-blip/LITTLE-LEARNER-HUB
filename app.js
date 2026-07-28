@@ -4921,8 +4921,10 @@ let adminAnalyticsLoading = false;
 let adminAnalyticsLastError = "";
 let adminAnalyticsLoadPromise = null;
 let adminAnalyticsAbortController = null;
+let adminAnalyticsFetchedAt = 0;
 let adminSessionInvalidOnServer = false;
 const ADMIN_ANALYTICS_TIMEOUT_MS = 25000;
+const ADMIN_ANALYTICS_CACHE_MS = 90 * 1000;
 const LOCAL_ADMIN_TOKENS = new Set(["local-preview-admin", "local-owner-account"]);
 let adminOwnerDrilldown = {
   metricKey: "",
@@ -38232,6 +38234,14 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
     return adminAnalyticsLoadPromise;
   }
 
+  if (!options.force && adminAnalyticsCacheFresh()) {
+    if (options.renderLoading !== false) {
+      renderAdminOwnerOverview();
+      renderAdminAnalytics();
+    }
+    return adminAnalyticsCache;
+  }
+
   // Force refresh: abort any hung in-flight request instead of waiting forever.
   if (options.force && adminAnalyticsAbortController) {
     try { adminAnalyticsAbortController.abort(); } catch { /* ignore */ }
@@ -38298,6 +38308,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
         );
       }
       adminAnalyticsCache = data.analytics || data;
+      adminAnalyticsFetchedAt = Date.now();
       adminAnalyticsLastError = "";
       adminSessionInvalidOnServer = false;
       renderAdminAnalytics();
@@ -38470,8 +38481,8 @@ function renderAdminAnalytics() {
     </article>
     <p class="muted-copy">Server analytics are stored historically in the launch store and are only visible with Admin access. If the backend is unavailable, this dashboard shows local browser history until the server responds.</p>
   `;
-  if (!adminAnalyticsCache && !adminAnalyticsLoading && !adminAnalyticsLastError) {
-    loadAdminAnalyticsFromBackend();
+  if (!adminAnalyticsCache && !adminAnalyticsLoading && !adminAnalyticsLastError && adminTabNeedsAnalytics(adminActiveSectionTab)) {
+    loadAdminAnalyticsFromBackend({ renderLoading: false });
   }
 }
 
@@ -40336,11 +40347,53 @@ function setAdminSectionTab(tabId) {
   let resolvedTabId = tabId === "homepage" ? "images" : tabId;
   if (resolvedTabId === "lesson-plans") resolvedTabId = "curriculum-lesson-plans";
   if (resolvedTabId === "activities") resolvedTabId = "curriculum-activities";
+  if (resolvedTabId !== adminActiveSectionTab && adminAnalyticsAbortController) {
+    try { adminAnalyticsAbortController.abort(); } catch { /* ignore */ }
+    adminAnalyticsAbortController = null;
+    adminAnalyticsLoadPromise = null;
+    adminAnalyticsLoading = false;
+  }
   adminActiveSectionTab = resolvedTabId;
   adminActiveGroup = adminGroupForTab[resolvedTabId] || "dashboard";
   localStorage.setItem("llhAdminActiveSection", resolvedTabId);
   renderAdminSectionNav();
-  applyAdminSectionVisibility();
+  renderAdminDashboard({ sectionChange: true });
+  prefetchAdminSectionData(resolvedTabId);
+}
+
+const adminAnalyticsTabs = new Set([
+  "admin-home", "users", "billing-home", "user-health", "dashboard", "analytics", "system-health", "stripe-backfill",
+]);
+
+function adminTabNeedsAnalytics(tab) {
+  return adminAnalyticsTabs.has(tab);
+}
+
+function adminAnalyticsCacheFresh() {
+  return Boolean(
+    adminAnalyticsCache
+    && adminAnalyticsFetchedAt
+    && (Date.now() - adminAnalyticsFetchedAt) < ADMIN_ANALYTICS_CACHE_MS,
+  );
+}
+
+function prefetchAdminSectionData(tab) {
+  if (!isAdminUnlocked() || !canUseLaunchBackend()) return;
+  if (adminTabNeedsAnalytics(tab) && !adminAnalyticsCacheFresh()) {
+    void loadAdminAnalyticsFromBackend({ renderLoading: false }).catch(() => {});
+  }
+  if (tab === "admin-home" || tab === "admin-notifications") {
+    void fetchAdminNotificationCenter().then(() => {
+      if (adminActiveSectionTab === tab) {
+        renderAdminNotificationCenter();
+        renderAdminSectionNav();
+        refreshAdminNavBadge();
+      }
+    }).catch(() => {});
+  }
+  if (tab === "resources") {
+    void loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
+  }
 }
 
 function setAdminGroup(groupId) {
@@ -43437,16 +43490,10 @@ function closeAdminLessonImportModal() {
   modal.setAttribute("aria-hidden", "true");
 }
 
-function renderAdminDashboard() {
-  if (!renderAdminAccessShell()) return;
-  if (typeof window.AdminWorkspace?.activateWorkspaceShell === "function") {
-    window.AdminWorkspace.activateWorkspaceShell();
-  }
+function renderAdminLegacyUploadsPanel() {
   const table = document.querySelector("#adminContentTable");
   const summary = document.querySelector("#adminSummary");
   if (!table || !summary) return;
-  renderAdminSectionNav();
-  renderAdminContentManager();
   const query = (document.querySelector("#adminSearchInput")?.value || "").trim().toLowerCase();
   const category = document.querySelector("#adminCategoryFilter")?.value || "All Categories";
   const uploads = uploadedResources();
@@ -43470,28 +43517,45 @@ function renderAdminDashboard() {
       </td>
     </tr>
   `;
-  renderAdminOwnerOverview();
-  renderAdminNotificationCenter();
-  renderAdminAnalytics();
-  renderLaunchReadiness();
-  renderAdminTickets();
-  renderAdminAiToolsPanel();
-  renderAdminAiTestCenter();
+}
+
+function renderAdminDashboard(options = {}) {
+  if (!renderAdminAccessShell()) return;
+  if (typeof window.AdminWorkspace?.activateWorkspaceShell === "function") {
+    window.AdminWorkspace.activateWorkspaceShell();
+  }
+  const tab = adminActiveSectionTab;
+  const group = adminActiveGroup || "admin-home";
+  renderAdminSectionNav();
+
+  if (tab === "resources" || group === "advanced") {
+    renderAdminLegacyUploadsPanel();
+  }
+  if (group === "content" || adminCmSectionIds.includes(tab)) {
+    renderAdminContentManager();
+  }
+  if (adminTabNeedsAnalytics(tab) || tab === "dashboard" || tab === "analytics") {
+    renderAdminOwnerOverview();
+    renderAdminAnalytics();
+  }
+  if (tab === "admin-home" || tab === "admin-notifications") {
+    renderAdminNotificationCenter();
+  }
+  if (tab === "dashboard" || tab === "analytics" || tab === "advanced-home") {
+    renderLaunchReadiness();
+  }
+  if (tab === "support" || tab === "dashboard") {
+    renderAdminTickets();
+  }
+  if (group === "ai" || tab === "ai-tools" || tab === "ai-testing") {
+    renderAdminAiToolsPanel();
+    renderAdminAiTestCenter();
+  }
+
   applyAdminSectionVisibility();
-  if (isAdminUnlocked() && canUseLaunchBackend()) {
-    fetchAdminNotificationCenter()
-      .then(() => {
-        renderAdminNotificationCenter();
-        renderAdminSectionNav();
-        refreshAdminNavBadge();
-        const openBtn = document.querySelector("#adminOpenNotificationsButton");
-        if (openBtn) {
-          openBtn.textContent = adminNotificationState.unreadCount
-            ? `Notifications (${adminNotificationState.unreadCount})`
-            : "Notifications";
-        }
-      })
-      .catch(() => {});
+
+  if (!options.sectionChange && isAdminUnlocked() && canUseLaunchBackend()) {
+    prefetchAdminSectionData(tab);
   }
 }
 
@@ -49321,9 +49385,10 @@ document.addEventListener("click", async (event) => {
       mode: "local-owner-account",
     });
     trackEvent("admin_unlocked", { email: currentUser, mode: "local-owner-account" });
-    await loadAdminSiteContent().catch(() => {});
-    await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
+    void loadAdminSiteContent().catch(() => {});
+    void loadUploadedResourcesFromBackend({ admin: true, migrateLocal: false }).catch(() => {});
     renderAdminDashboard();
+    prefetchAdminSectionData(adminActiveSectionTab || "admin-home");
     return;
   }
 
@@ -54568,19 +54633,18 @@ document.addEventListener("submit", async (event) => {
     const session = await adminLogin(email, password, code);
     setAdminSession({ ...session, trustedDevice: trustDevice });
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
-    await loadAdminSiteContent().catch(() => {});
-    await loadUploadedResourcesFromBackend({ admin: true, migrateLocal: true }).catch(() => {});
+    void loadAdminSiteContent().catch(() => {});
+    void loadUploadedResourcesFromBackend({ admin: true, migrateLocal: false }).catch(() => {});
     adminAnalyticsCache = null;
+    adminAnalyticsFetchedAt = 0;
     renderAdminDashboard();
-    // Do not block unlock on analytics/notifications — panels render immediately; data loads in background.
-    void loadAdminAnalyticsFromBackend({ force: true }).then(() => {
-      renderAdminDashboard();
-    }).catch(() => {});
-    void fetchAdminNotificationCenter().then(() => {
-      renderAdminNotificationCenter();
-      renderAdminSectionNav();
-      refreshAdminNavBadge();
-      renderAdminDashboard();
+    prefetchAdminSectionData(adminActiveSectionTab || "admin-home");
+    void loadAdminAnalyticsFromBackend({ force: true, renderLoading: false }).then(() => {
+      if (adminTabNeedsAnalytics(adminActiveSectionTab)) {
+        renderAdminOwnerOverview();
+        renderAdminAnalytics();
+        if (adminActiveSectionTab === "users") renderAdminUsersDashboard();
+      }
     }).catch(() => {});
     return;
   } catch (error) {
@@ -57136,7 +57200,7 @@ if (!currentUser) {
   }
 }
 loadSiteContentFromBackend().catch(() => {});
-loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: isAdminUnlocked() }).catch(() => {});
+loadUploadedResourcesFromBackend({ admin: isAdminUnlocked(), migrateLocal: false }).catch(() => {});
 
 function initialViewFromLocation() {
   const params = new URLSearchParams(window.location.search);
