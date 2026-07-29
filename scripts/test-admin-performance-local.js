@@ -12,7 +12,7 @@ const { unlockAdminInBrowser } = require("./lib/admin-browser-unlock.js");
 const PORT = 4371;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(__dirname, "..", "server", `.admin-perf-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 
 const SECTIONS = [
   "admin-home", "users", "billing-home", "content-home", "messages-home",

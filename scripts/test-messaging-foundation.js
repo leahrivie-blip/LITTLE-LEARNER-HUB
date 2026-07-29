@@ -13,7 +13,7 @@ const {
 const PORT = 4321;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.messaging-foundation-test-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const FREE_USER = "free-parent@example.com";
 
 async function main() {

@@ -21,7 +21,7 @@ Optional environment variables let you override that behavior:
 # auto-generated once and persisted in the store.
 VAPID_PUBLIC_KEY=
 VAPID_PRIVATE_KEY=
-VAPID_SUBJECT=mailto:support@littlelearnerhub.com
+VAPID_SUBJECT=mailto:support@littlelearnershubbyleah.com
 
 # Optional — tuning for bulk sends (defaults shown).
 PUSH_BULK_BATCH_SIZE=20          # concurrent push sends per batch

@@ -47,18 +47,18 @@ const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260722-lesson-empty-hotfix";
-const SHELL_V = "llh-shell-v109-lesson-empty-hotfix";
+const CACHE_V = "20260727-home-reliability";
+const SHELL_V = "llh-shell-v112-home-reliability";
 
 test("classify: Namecheap NS + Render targets is ready", () => {
   const apex = classifyBrandDomainDns({
-    host: "littlelearnerhub.com",
+    host: "littlelearnershubbyleah.com",
     a: [RENDER_LOAD_BALANCER_IPV4],
     cname: [],
     ns: ["dns1.registrar-servers.com", "dns2.registrar-servers.com"],
   });
   const www = classifyBrandDomainDns({
-    host: "www.littlelearnerhub.com",
+    host: "www.littlelearnershubbyleah.com",
     a: [],
     cname: [RENDER_SERVICE_HOST],
     ns: ["dns1.registrar-servers.com", "dns2.registrar-servers.com"],
@@ -71,7 +71,7 @@ test("classify: Namecheap NS + Render targets is ready", () => {
 
 test("classify: arbitrary third-party NS + Render targets is still ready", () => {
   const apex = classifyBrandDomainDns({
-    host: "littlelearnerhub.com",
+    host: "littlelearnershubbyleah.com",
     a: [RENDER_LOAD_BALANCER_IPV4],
     cname: [],
     ns: ["ns1.example-dns.net", "ns2.example-dns.net"],
@@ -83,7 +83,7 @@ test("classify: arbitrary third-party NS + Render targets is still ready", () =>
 
 test("classify: wrong A record is misconfigured regardless of provider", () => {
   const apex = classifyBrandDomainDns({
-    host: "littlelearnerhub.com",
+    host: "littlelearnershubbyleah.com",
     a: ["203.0.113.10"],
     cname: [],
     ns: ["dns1.registrar-servers.com"],
@@ -97,9 +97,9 @@ test("classify: wrong A record is misconfigured regardless of provider", () => {
 
 test("classify: www CNAME to apex that resolves via Render A is ready", () => {
   const www = classifyBrandDomainDns({
-    host: "www.littlelearnerhub.com",
+    host: "www.littlelearnershubbyleah.com",
     a: [RENDER_LOAD_BALANCER_IPV4],
-    cname: ["littlelearnerhub.com"],
+    cname: ["littlelearnershubbyleah.com"],
     ns: ["dns1.registrar-servers.com"],
   });
   assert.equal(www.status, "ready");
@@ -108,7 +108,7 @@ test("classify: www CNAME to apex that resolves via Render A is ready", () => {
 test("server/UI/docs stay provider-agnostic", () => {
   assert.match(serverJs, /require\("\.\/domain-dns\.js"\)/);
   assert.match(serverJs, /\/api\/domain-dns-check/);
-  assert.match(domainDnsJs, /Provider-agnostic|provider-agnostic/i);
+  assert.match(domainDnsJs, /Official site: https:\/\/littlelearnershubbyleah\.com/);
   assert.doesNotMatch(domainDnsJs, /Still on Bluehost|managedAtBluehost|BLUEHOST_LEGACY|Log into Bluehost/i);
   assert.match(appJs, /Recommended DNS records/);
   assert.match(appJs, /Authoritative nameservers/);
@@ -117,7 +117,7 @@ test("server/UI/docs stay provider-agnostic", () => {
   assert.match(doc, /216\.24\.57\.1/);
   assert.match(doc, /provider-agnostic|Provider-agnostic/i);
   assert.doesNotMatch(doc, /ns1\.bluehost\.com|66\.235\.200\.145|Still on Bluehost/i);
-  assert.doesNotMatch(launchDoc, /not Bluehost|Bluehost/i);
+  assert.doesNotMatch(appJs, /littlelearnerhub/i);
   assert.match(launchDoc, /domain-dns-check|DOMAIN_DNS_FIX/);
 });
 
@@ -216,9 +216,8 @@ function requestJson(port, pathname) {
       assert.ok(Array.isArray(report.nameservers));
       assert.ok(report.nameserverNote);
       assert.doesNotMatch(JSON.stringify(report.nextSteps || []), /Log into Bluehost|Still on Bluehost/i);
-      assert.ok(report.workingDomain?.apex?.ready === true || report.workingDomain?.www?.ready === true);
-      assert.ok(["ready", "misconfigured", "missing", "error", "unknown"].includes(report.brandDomain?.apex?.status));
-      assert.notEqual(report.brandDomain?.apex?.status, "bluehost");
+      assert.ok(report.officialDomain?.apex?.ready === true || report.officialDomain?.www?.ready === true);
+      assert.ok(["ready", "misconfigured", "missing", "error", "unknown"].includes(report.officialDomain?.apex?.status));
     });
   });
 

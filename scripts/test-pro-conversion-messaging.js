@@ -114,7 +114,7 @@ async function main() {
       PORT: String(PORT),
       LLH_STORE_PATH: STORE,
       NODE_ENV: "test",
-      ADMIN_EMAIL: "leah@littlelearnerhub.com",
+      ADMIN_EMAIL: "admin@test.local",
       ADMIN_PASSWORD: "test-password",
       ADMIN_ACCESS_CODE: "test-code",
     },

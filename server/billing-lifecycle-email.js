@@ -3,7 +3,7 @@
  * Idempotent per user via lastPaymentFailedEmailAt / lastAccessExpiredEmailAt.
  */
 
-const SITE_URL = String(process.env.SITE_URL || "https://www.littlelearnerhub.com").replace(/\/$/, "");
+const SITE_URL = String(process.env.SITE_URL || "https://littlelearnershubbyleah.com").replace(/\/$/, "");
 
 function billingUpdateUrl() {
   return `${SITE_URL}/#billing`;

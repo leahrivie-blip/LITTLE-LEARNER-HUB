@@ -167,7 +167,7 @@ function makeAuditToken() {
 }
 
 function siteBase(siteUrl) {
-  return String(siteUrl || "").replace(/\/$/, "") || "https://www.littlelearnerhub.com";
+  return String(siteUrl || "").replace(/\/$/, "") || "https://littlelearnershubbyleah.com";
 }
 
 function weekKey(date = new Date()) {

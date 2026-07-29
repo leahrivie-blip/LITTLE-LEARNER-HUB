@@ -16,7 +16,7 @@ const PORT = 4355;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.admin-panel-audit-${process.pid}.json`);
 const ARTIFACT_DIR = "/opt/cursor/artifacts/screenshots";
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 
 const SECTIONS = [
   { tab: "admin-home", expect: "#adminWorkspaceLandingApp", label: "Admin Home" },

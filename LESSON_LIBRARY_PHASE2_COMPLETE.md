@@ -9,7 +9,7 @@
 - Cache refresh prepared so clients pull post-merge assets (`llh-shell-v6-lesson-library-phase2`)
 
 ## Production QA account
-- Firebase QA account: `prod.test@littlelearnerhub.com`
+- Firebase QA account: `prod.test@littlelearnershubbyleah.com`
 - Password is not stored in this repository.
 - Production child-data API verified empty (`data: null`; no update timestamp).
 - Account has no Stripe subscription, no admin access, and `hasProAccess: false`.

@@ -37221,19 +37221,18 @@ async function refreshAdminSafetyStatus() {
 
 function renderAdminDomainDnsPanel() {
   const report = adminDomainDnsReport;
+  const officialUrl = report?.officialSiteUrl || "https://littlelearnershubbyleah.com";
   if (!report) {
     return `
       <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
         <h4>Custom domain DNS</h4>
-        <p class="muted-copy">Brand domain check unavailable. Tap Refresh Safety to retry.</p>
-        <p class="muted-copy">Until <strong>littlelearnerhub.com</strong> points at Render, share <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+        <p class="muted-copy">Domain check unavailable. Tap Refresh Safety to retry.</p>
+        <p class="muted-copy">Official site: <a href="${escapeHtml(officialUrl)}" target="_blank" rel="noopener">littlelearnershubbyleah.com</a></p>
       </article>
     `;
   }
-  const brandApex = report.brandDomain?.apex || {};
-  const brandWww = report.brandDomain?.www || {};
-  const workingApex = report.workingDomain?.apex || {};
-  const workingWww = report.workingDomain?.www || {};
+  const officialApex = report.officialDomain?.apex || report.workingDomain?.apex || {};
+  const officialWww = report.officialDomain?.www || report.workingDomain?.www || {};
   const nameservers = Array.isArray(report.nameservers) ? report.nameservers : [];
   const formatHostLine = (entry) => {
     const host = entry.host || "—";
@@ -37252,15 +37251,10 @@ function renderAdminDomainDnsPanel() {
   return `
     <article class="analytics-card" style="margin-top:12px;" id="adminDomainDnsPanel">
       <h4>Custom domain DNS · ${report.ready ? "Ready" : "Action needed"}</h4>
-      <p class="muted-copy">Checks whether <strong>littlelearnerhub.com</strong> resolves to Render — not which registrar/DNS host you use. Share link while fixing: <a href="https://littlelearnershubbyleah.com" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>.</p>
+      <p class="muted-copy">Official site: <a href="${escapeHtml(officialUrl)}" target="_blank" rel="noopener">littlelearnershubbyleah.com</a>. Checks whether your domain resolves to Render.</p>
       ${nameservers.length ? `<p class="muted-copy">Authoritative nameservers: <code>${escapeHtml(nameservers.join(", "))}</code>. ${escapeHtml(report.nameserverNote || "Edit DNS in the zone those nameservers serve.")}</p>` : ""}
-      ${formatHostLine(brandWww)}
-      ${formatHostLine(brandApex)}
-      <details style="margin-top:8px;">
-        <summary class="muted-copy">Working domain (already on Render)</summary>
-        ${formatHostLine(workingWww)}
-        ${formatHostLine(workingApex)}
-      </details>
+      ${formatHostLine(officialWww)}
+      ${formatHostLine(officialApex)}
       <h5 style="margin-top:12px;">Recommended DNS records</h5>
       ${recommended || `<p class="muted-copy">No recommended records listed.</p>`}
       <ol class="muted-copy" style="margin-top:8px; padding-left:1.2rem;">${steps}</ol>
@@ -55961,7 +55955,7 @@ document.querySelector("#adminNotifCategoryFilter")?.addEventListener("change", 
 
 
 document.querySelector("#demoAccountButton")?.addEventListener("click", () => {
-  loadAccountState("demo@littlelearnerhub.com");
+  loadAccountState("demo@littlelearnershubbyleah.com");
   renderAccountPage();
 });
 

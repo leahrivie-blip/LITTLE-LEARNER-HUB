@@ -10,7 +10,7 @@ const membershipAccess = require("../scripts/membership-access.js");
 const { createMessagingCenter, pushCopyForNotification } = require("../server/messaging-lib.js");
 
 const messaging = createMessagingCenter({ membershipAccess });
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 
 function test(name, fn) {
   try {

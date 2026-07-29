@@ -1,6 +1,6 @@
 /**
- * Provider-agnostic custom-domain DNS checks for Little Learner Hub.
- * Only cares whether records point at Render — never assumes a DNS host/provider.
+ * Custom-domain DNS checks for Little Learner Hub.
+ * Official site: https://littlelearnershubbyleah.com
  */
 
 const dns = require("node:dns").promises;
@@ -8,12 +8,12 @@ const dns = require("node:dns").promises;
 const RENDER_SERVICE_HOST = "little-learner-hub.onrender.com";
 const RENDER_LOAD_BALANCER_IPV4 = "216.24.57.1";
 const RENDER_LOAD_BALANCER_PREFIX = "216.24.57.";
-const BRAND_APEX_HOST = "littlelearnerhub.com";
-const BRAND_WWW_HOST = "www.littlelearnerhub.com";
-const WORKING_APEX_HOST = "littlelearnershubbyleah.com";
-const WORKING_WWW_HOST = "www.littlelearnershubbyleah.com";
-const CUSTOM_BRAND_DOMAINS = [BRAND_APEX_HOST, BRAND_WWW_HOST];
-const WORKING_BRAND_DOMAINS = [WORKING_APEX_HOST, WORKING_WWW_HOST];
+const OFFICIAL_APEX_HOST = "littlelearnershubbyleah.com";
+const OFFICIAL_WWW_HOST = "www.littlelearnershubbyleah.com";
+const OFFICIAL_DOMAINS = [OFFICIAL_APEX_HOST, OFFICIAL_WWW_HOST];
+const WORKING_APEX_HOST = OFFICIAL_APEX_HOST;
+const WORKING_WWW_HOST = OFFICIAL_WWW_HOST;
+const WORKING_BRAND_DOMAINS = OFFICIAL_DOMAINS;
 
 function normalizeDnsHost(value) {
   return String(value || "").trim().toLowerCase().replace(/\.$/, "");
@@ -29,11 +29,7 @@ function isRenderLoadBalancerIp(value) {
   return ip === RENDER_LOAD_BALANCER_IPV4 || ip.startsWith(RENDER_LOAD_BALANCER_PREFIX);
 }
 
-/**
- * Classify one hostname's DNS records against Render targets.
- * @param {{ a?: string[], aaaa?: string[], cname?: string[], ns?: string[], error?: string, host?: string }} records
- */
-function classifyBrandDomainDns(records = {}) {
+function classifyDomainDns(records = {}) {
   const host = normalizeDnsHost(records.host);
   const a = (records.a || []).map((value) => String(value || "").trim()).filter(Boolean);
   const aaaa = (records.aaaa || []).map((value) => String(value || "").trim()).filter(Boolean);
@@ -116,7 +112,7 @@ function buildHostReport(lookup) {
     cname: lookup.cname,
     ns: lookup.ns,
     error: lookup.error || "",
-    ...classifyBrandDomainDns(lookup),
+    ...classifyDomainDns(lookup),
   };
 }
 
@@ -127,49 +123,43 @@ function buildRecommendedDns() {
   ];
 }
 
-function buildNextSteps({ ready, brand, nameservers }) {
+function buildNextSteps({ ready, official, nameservers }) {
   if (ready) {
     return [
       "DNS points at Render. Confirm both hosts show verified certificates in Render → Custom Domains.",
-      "Optionally set SITE_URL=https://www.littlelearnerhub.com after HTTPS is live everywhere.",
+      `Set SITE_URL=https://${OFFICIAL_APEX_HOST} in Render environment variables.`,
     ];
   }
   const nsList = (nameservers || []).join(", ") || "unknown";
   return [
-    `Edit DNS where the domain's nameservers are authoritative (currently: ${nsList}).`,
-    "If you changed records at a registrar/host whose nameservers are not listed above, those edits are not live yet — either update the authoritative DNS zone, or point nameservers to the provider where you made the changes.",
+    `Edit DNS where ${OFFICIAL_APEX_HOST} nameservers are authoritative (currently: ${nsList}).`,
     `Set www CNAME → ${RENDER_SERVICE_HOST}`,
     `Set apex (@) A → ${RENDER_LOAD_BALANCER_IPV4}`,
     "Remove A/AAAA records that do not point at Render.",
-    "In Render → Settings → Custom Domains, add www.littlelearnerhub.com and littlelearnerhub.com if missing.",
+    `In Render → Settings → Custom Domains, add ${OFFICIAL_WWW_HOST} and ${OFFICIAL_APEX_HOST} if missing.`,
     "Wait for DNS propagation, then Refresh Safety / GET /api/domain-dns-check.",
-    `Keep sharing https://${WORKING_APEX_HOST} until the brand domain is ready.`,
-    brand?.www?.issue ? `www: ${brand.www.issue}` : "",
-    brand?.apex?.issue ? `apex: ${brand.apex.issue}` : "",
+    official?.www?.issue ? `www: ${official.www.issue}` : "",
+    official?.apex?.issue ? `apex: ${official.apex.issue}` : "",
   ].filter(Boolean);
 }
 
 async function buildDomainDnsReport({ siteUrl = "" } = {}) {
-  const targets = [...new Set([...CUSTOM_BRAND_DOMAINS, ...WORKING_BRAND_DOMAINS])];
   const lookups = {};
-  await Promise.all(targets.map(async (host) => {
+  await Promise.all(OFFICIAL_DOMAINS.map(async (host) => {
     lookups[host] = await resolveDnsRecords(host);
   }));
 
-  const brand = {
-    apex: buildHostReport(lookups[BRAND_APEX_HOST]),
-    www: buildHostReport(lookups[BRAND_WWW_HOST]),
+  const official = {
+    apex: buildHostReport(lookups[OFFICIAL_APEX_HOST]),
+    www: buildHostReport(lookups[OFFICIAL_WWW_HOST]),
   };
-  const working = {
-    apex: buildHostReport(lookups[WORKING_APEX_HOST]),
-    www: buildHostReport(lookups[WORKING_WWW_HOST]),
-  };
-  const ready = brand.apex.ready && brand.www.ready;
-  const nameservers = [...new Set([...(brand.apex.ns || []), ...(brand.www.ns || [])])];
+  const ready = official.apex.ready && official.www.ready;
+  const nameservers = [...new Set([...(official.apex.ns || []), ...(official.www.ns || [])])];
 
   return {
     checkedAt: new Date().toISOString(),
     ready,
+    officialSiteUrl: `https://${OFFICIAL_APEX_HOST}`,
     render: {
       serviceHost: RENDER_SERVICE_HOST,
       apexARecord: RENDER_LOAD_BALANCER_IPV4,
@@ -179,26 +169,26 @@ async function buildDomainDnsReport({ siteUrl = "" } = {}) {
     nameservers,
     nameserverNote:
       "Authoritative nameservers decide which DNS zone is live. Your registrar login can differ from the DNS host when custom nameservers are set.",
-    brandDomain: brand,
-    workingDomain: working,
+    officialDomain: official,
     siteUrl,
-    nextSteps: buildNextSteps({ ready, brand, nameservers }),
+    nextSteps: buildNextSteps({ ready, official, nameservers }),
   };
 }
 
 module.exports = {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
-  CUSTOM_BRAND_DOMAINS,
-  WORKING_BRAND_DOMAINS,
-  BRAND_APEX_HOST,
-  BRAND_WWW_HOST,
+  OFFICIAL_APEX_HOST,
+  OFFICIAL_WWW_HOST,
+  OFFICIAL_DOMAINS,
   WORKING_APEX_HOST,
   WORKING_WWW_HOST,
+  WORKING_BRAND_DOMAINS,
   normalizeDnsHost,
   isRenderServiceHost,
   isRenderLoadBalancerIp,
-  classifyBrandDomainDns,
+  classifyDomainDns,
+  classifyBrandDomainDns: classifyDomainDns,
   resolveDnsRecords,
   buildDomainDnsReport,
 };

@@ -13,7 +13,7 @@
 
 const webpush = require("web-push");
 
-const DEFAULT_SUBJECT = "mailto:support@littlelearnerhub.com";
+const DEFAULT_SUBJECT = "mailto:support@littlelearnershubbyleah.com";
 
 function isConfiguredValue(value) {
   const text = String(value || "").trim();

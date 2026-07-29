@@ -1,4 +1,4 @@
-# Custom domain DNS (`littlelearnerhub.com`)
+# Custom domain DNS (`littlelearnershubbyleah.com`)
 
 Provider-agnostic checklist. The app does **not** assume any DNS host/provider — only whether records point at Render.
 
@@ -16,7 +16,7 @@ Also in Render → Custom Domains: add both hosts and confirm certificates are i
 Where you renew the domain (e.g. Namecheap) can differ from which hosts are **authoritative** for DNS.
 
 1. Check Namecheap → Domain List → Manage → **Nameservers**.
-2. Public `dig NS littlelearnerhub.com` must match the provider where you edit A/CNAME records.
+2. Public `dig NS littlelearnershubbyleah.com` must match the provider where you edit A/CNAME records.
 3. If nameservers are still custom/third-party, Namecheap **Advanced DNS** changes are ignored until you either:
    - switch nameservers to Namecheap DNS, **or**
    - edit the zone at the host those nameservers belong to.
@@ -47,11 +47,11 @@ Nameservers are shown only as context (which zone is live), never as a failure r
 ## Verify from any machine
 
 ```bash
-dig +short littlelearnerhub.com NS
-dig +short www.littlelearnerhub.com CNAME   # expect little-learner-hub.onrender.com.
-dig +short littlelearnerhub.com A           # expect 216.24.57.1
-curl -sI https://www.littlelearnerhub.com/ | head
-curl -s https://www.littlelearnerhub.com/api/health
+dig +short littlelearnershubbyleah.com NS
+dig +short www.littlelearnershubbyleah.com CNAME   # expect little-learner-hub.onrender.com.
+dig +short littlelearnershubbyleah.com A           # expect 216.24.57.1
+curl -sI https://littlelearnershubbyleah.com/ | head
+curl -s https://littlelearnershubbyleah.com/api/health
 ```
 
 `/api/domain-dns-check` should report `"ready": true` for both brand apex and www.
@@ -59,5 +59,5 @@ curl -s https://www.littlelearnerhub.com/api/health
 ## Optional after brand domain is ready
 
 ```bash
-SITE_URL=https://www.littlelearnerhub.com
+SITE_URL=https://littlelearnershubbyleah.com
 ```

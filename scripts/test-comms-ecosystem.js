@@ -14,7 +14,7 @@ const commsLib = require("../server/comms-lib.js");
 const PORT = 4335;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.comms-ecosystem-test-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const FREE_USER = "comms-free@example.com";
 
 async function main() {

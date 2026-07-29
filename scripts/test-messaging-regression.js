@@ -17,7 +17,7 @@ const {
 const PORT = 4324;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.messaging-regression-test-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 
 async function main() {
   await test("node --check passes for every edited/added server file", () => {

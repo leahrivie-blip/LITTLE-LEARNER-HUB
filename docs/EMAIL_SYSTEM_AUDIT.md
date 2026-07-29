@@ -33,7 +33,7 @@ Required for Resend transactional mail:
 - `RESEND_API_KEY`
 - `SUPPORT_EMAIL_FROM=Little Learner Hub <support@littlelearnershubbyleah.com>`
 - `SUPPORT_EMAIL_TO=support@littlelearnershubbyleah.com`
-- `SITE_URL=https://www.littlelearnerhub.com` (or the final public app URL)
+- `SITE_URL=https://littlelearnershubbyleah.com` (or the final public app URL)
 
 Optional:
 

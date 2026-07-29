@@ -53,7 +53,7 @@ The backend enforces AI limits:
 When the website is hosted, update `.env` / Render Environment:
 
 ```bash
-SITE_URL=https://www.littlelearnerhub.com
+SITE_URL=https://littlelearnershubbyleah.com
 ```
 
 Use that same domain for Stripe redirect URLs and webhook setup.
@@ -61,10 +61,10 @@ Use that same domain for Stripe redirect URLs and webhook setup.
 Stripe webhook URL:
 
 ```bash
-https://www.littlelearnerhub.com/api/webhooks/stripe
+https://littlelearnershubbyleah.com/api/webhooks/stripe
 ```
 
-**Important:** `littlelearnerhub.com` must resolve to Render (`www` CNAME → `little-learner-hub.onrender.com`, apex A → `216.24.57.1`), regardless of registrar/DNS host.  
+**Important:** `littlelearnershubbyleah.com` must resolve to Render (`www` CNAME → `little-learner-hub.onrender.com`, apex A → `216.24.57.1`), regardless of registrar/DNS host.  
 See **`docs/DOMAIN_DNS_FIX.md`** and Admin → Safety Center → Custom domain DNS (`GET /api/domain-dns-check`).
 
 Working public URLs while the brand domain is propagating:
