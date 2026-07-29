@@ -1,6 +1,7 @@
 /**
  * Monthly Curriculum Series — links existing weekly lesson plans into
- * Week 1–4/5 collections without duplicating plan records.
+ * Week 1–4/5 age tracks. Multiple series that share a collectionKey form one
+ * Curriculum Collection (e.g. Family Connections → Infant / Toddler / Preschool).
  */
 (function curriculumSeriesModule() {
   const SERIES_STATUSES = ["draft", "needs_review", "published", "featured", "archived"];
@@ -13,6 +14,40 @@
 
   function shortText(value, max = 180) {
     return String(value || "").trim().slice(0, max);
+  }
+
+  function slugifyCollectionKey(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 80);
+  }
+
+  function deriveCollectionKey(entry = {}) {
+    const explicit = shortText(entry.collectionKey, 80);
+    if (explicit) return slugifyCollectionKey(explicit);
+    const theme = shortText(entry.theme, 120);
+    if (theme) return slugifyCollectionKey(theme);
+    const title = shortText(entry.title, 180);
+    // "Family Connections — Infant" → family-connections
+    const withoutAge = title
+      .replace(/\s*[—\-|:]\s*(Infant|Toddler|Preschool).*$/i, "")
+      .replace(/\s*\((Infant|Toddler|Preschool)\).*$/i, "");
+    return slugifyCollectionKey(withoutAge || title);
+  }
+
+  function deriveCollectionTitle(entry = {}) {
+    const explicit = shortText(entry.collectionTitle, 180);
+    if (explicit) return explicit;
+    const theme = shortText(entry.theme, 120);
+    if (theme) return theme;
+    const title = shortText(entry.title, 180);
+    return title
+      .replace(/\s*[—\-|:]\s*(Infant|Toddler|Preschool).*$/i, "")
+      .replace(/\s*\((Infant|Toddler|Preschool)\).*$/i, "")
+      .trim() || title || "Curriculum Collection";
   }
 
   function multiline(value, max = 4000) {
@@ -126,11 +161,15 @@
       .map(normalizedSong)
       .filter(Boolean)
       .slice(0, 20);
+    const collectionKey = deriveCollectionKey(entry);
+    const collectionTitle = deriveCollectionTitle(entry);
     return {
       id,
+      collectionKey,
+      collectionTitle,
       title: shortText(entry.title, 180) || "Untitled Curriculum",
       description: multiline(entry.description, 4000),
-      theme: shortText(entry.theme, 120),
+      theme: shortText(entry.theme, 120) || collectionTitle,
       age: SERIES_AGES.includes(age) ? age : (age || "Preschool"),
       month: SERIES_MONTHS.includes(month) ? month : month,
       season: SERIES_SEASONS.includes(season) ? season : season,
@@ -157,6 +196,101 @@
       updatedAt: shortText(entry.updatedAt, 80),
       publishedAt: shortText(entry.publishedAt, 80),
     };
+  }
+
+  /**
+   * Group age-track series into browseable Curriculum Collections.
+   * Data-driven: unlimited collections/weeks via collectionKey — no hardcoding.
+   */
+  function groupSeriesIntoCollections(seriesList = [], { includeDrafts = false } = {}) {
+    const groups = new Map();
+    (Array.isArray(seriesList) ? seriesList : []).forEach((raw) => {
+      const series = publicSeriesDto(raw, { includeDrafts });
+      if (!series) return;
+      const key = series.collectionKey || deriveCollectionKey(series);
+      if (!key) return;
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          title: series.collectionTitle || deriveCollectionTitle(series),
+          description: series.description || "",
+          theme: series.theme || series.collectionTitle || "",
+          coverImageUrl: series.coverImageUrl || "",
+          coverImageAlt: series.coverImageAlt || "",
+          coverImageSource: series.coverImageSource || "",
+          coverImagePosition: series.coverImagePosition || "center",
+          plan: series.plan || "Free",
+          featured: Boolean(series.featured),
+          displayOrder: Number(series.displayOrder) || 0,
+          ages: {},
+          seriesIds: [],
+          weekPlanIds: [],
+          updatedAt: series.updatedAt || "",
+        });
+      }
+      const collection = groups.get(key);
+      collection.seriesIds.push(series.id);
+      if (series.featured) collection.featured = true;
+      if (series.plan === "Pro") collection.plan = "Pro";
+      if (!collection.coverImageUrl && series.coverImageUrl) {
+        collection.coverImageUrl = series.coverImageUrl;
+        collection.coverImageAlt = series.coverImageAlt || "";
+        collection.coverImageSource = series.coverImageSource || "";
+        collection.coverImagePosition = series.coverImagePosition || "center";
+      }
+      if (!collection.description && series.description) collection.description = series.description;
+      if (String(series.updatedAt || "") > String(collection.updatedAt || "")) {
+        collection.updatedAt = series.updatedAt;
+      }
+      if ((Number(series.displayOrder) || 0) && (!collection.displayOrder || series.displayOrder < collection.displayOrder)) {
+        collection.displayOrder = series.displayOrder;
+      }
+      const ageKey = SERIES_AGES.includes(series.age) ? series.age : "Preschool";
+      const weeks = (series.weeks || [])
+        .filter((week) => week.lessonPlanId)
+        .slice()
+        .sort((a, b) => (a.weekNumber || 0) - (b.weekNumber || 0))
+        .map((week) => ({
+          weekNumber: week.weekNumber,
+          lessonPlanId: week.lessonPlanId,
+          label: week.label || `Week ${week.weekNumber}`,
+          displayOrder: week.displayOrder || week.weekNumber,
+        }));
+      weeks.forEach((week) => {
+        if (week.lessonPlanId) collection.weekPlanIds.push(week.lessonPlanId);
+      });
+      collection.ages[ageKey] = {
+        age: ageKey,
+        seriesId: series.id,
+        plan: series.plan,
+        status: series.status,
+        weekCount: series.weekCount,
+        filledWeekCount: weeks.length,
+        coverImageUrl: series.coverImageUrl || collection.coverImageUrl,
+        weeks,
+      };
+    });
+
+    return [...groups.values()]
+      .map((collection) => {
+        const ageOrder = SERIES_AGES.filter((age) => collection.ages[age]);
+        const totalWeeks = ageOrder.reduce((sum, age) => sum + (collection.ages[age]?.filledWeekCount || 0), 0);
+        return {
+          ...collection,
+          ageOrder,
+          ageCount: ageOrder.length,
+          totalWeeks,
+          weekPlanIds: [...new Set(collection.weekPlanIds)],
+        };
+      })
+      .filter((collection) => collection.totalWeeks > 0)
+      .sort((a, b) => {
+        const featuredDelta = (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
+        if (featuredDelta) return featuredDelta;
+        const orderDelta = (a.displayOrder || 0) - (b.displayOrder || 0);
+        if (orderDelta) return orderDelta;
+        return String(a.title || "").localeCompare(String(b.title || ""));
+      });
   }
 
   /**
@@ -263,10 +397,14 @@
     emptySeriesWeek,
     defaultSeriesWeeks,
     mergeSeriesWeeks,
+    slugifyCollectionKey,
+    deriveCollectionKey,
+    deriveCollectionTitle,
     normalizedCurriculumSeries,
     validateCurriculumSeriesForPublish,
     seriesFilledWeekCount,
     publicSeriesDto,
+    groupSeriesIntoCollections,
   };
 
   if (typeof module !== "undefined" && module.exports) {

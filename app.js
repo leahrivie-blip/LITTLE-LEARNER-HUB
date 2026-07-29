@@ -4489,6 +4489,7 @@ function readCachedCurriculumLibrary() {
       lessonPlans: parsed.lessonPlans,
       activities: Array.isArray(parsed.activities) ? parsed.activities : [],
       resources: Array.isArray(parsed.resources) ? parsed.resources : [],
+      series: Array.isArray(parsed.series) ? parsed.series : [],
       updatedAt: parsed.updatedAt || "",
     };
   } catch {
@@ -4530,10 +4531,36 @@ function writeCachedCurriculumLibrary(library) {
       parentPlan: activity.parentPlan,
       updatedAt: activity.updatedAt,
     }));
+    const slimSeries = (library.series || []).slice(0, 200).map((entry) => ({
+      id: entry.id,
+      collectionKey: entry.collectionKey || "",
+      collectionTitle: entry.collectionTitle || "",
+      title: entry.title,
+      description: entry.description || "",
+      theme: entry.theme || "",
+      age: entry.age,
+      weekCount: entry.weekCount,
+      plan: entry.plan,
+      status: entry.status,
+      featured: entry.featured,
+      displayOrder: entry.displayOrder,
+      coverImageUrl: entry.coverImageUrl,
+      coverImageAlt: entry.coverImageAlt,
+      coverImageSource: entry.coverImageSource,
+      coverImagePosition: entry.coverImagePosition,
+      weeks: Array.isArray(entry.weeks) ? entry.weeks.map((week) => ({
+        weekNumber: week.weekNumber,
+        lessonPlanId: week.lessonPlanId,
+        label: week.label || "",
+        displayOrder: week.displayOrder,
+      })) : [],
+      updatedAt: entry.updatedAt || "",
+    }));
     localStorage.setItem(CURRICULUM_LIBRARY_CACHE_KEY, JSON.stringify({
       lessonPlans: slimPlans,
       activities: slimActivities,
       resources: Array.isArray(library.resources) ? library.resources.slice(0, 100) : [],
+      series: slimSeries,
       updatedAt: library.updatedAt || "",
       cachedAt: new Date().toISOString(),
     }));
@@ -4763,7 +4790,8 @@ syncFreePlanMarketingCopy();
 let activeFilter = "All";
 let lessonLibraryReturnView = "calendar";
 let lessonLibraryInfoOpen = false;
-let lessonLibraryMode = "browse"; // browse | saved
+let lessonLibraryMode = "browse"; // browse | saved | collection
+let lessonLibraryCollectionKey = "";
 let lessonLibraryShowAssignedOnly = false;
 let lessonLibraryPlanFilter = "All"; // All | Free | Pro
 let lessonLibrarySort = "recommended"; // recommended | newest | az | recent
@@ -5452,6 +5480,7 @@ function emptyCurriculumLibrary() {
     lessonPlans: [],
     activities: [],
     resources: [],
+    series: [],
     updatedAt: "",
   };
 }
@@ -5496,6 +5525,7 @@ function emptyCurriculum() {
     lessonPlans: [],
     activities: [],
     resources: [],
+    series: [],
     updatedAt: "",
   };
 }
@@ -5507,8 +5537,65 @@ function effectiveCurriculum() {
     lessonPlans: Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [],
     activities: Array.isArray(curriculum.activities) ? curriculum.activities : [],
     resources: Array.isArray(curriculum.resources) ? curriculum.resources : [],
+    series: Array.isArray(curriculum.series) ? curriculum.series : [],
     updatedAt: curriculum.updatedAt || "",
   };
+}
+
+function curriculumSeriesApi() {
+  return (typeof globalThis !== "undefined" && globalThis.CurriculumSeries) || null;
+}
+
+function effectiveCurriculumSeriesList() {
+  const library = effectiveCurriculumLibrary();
+  if (Array.isArray(library.series) && library.series.length) return library.series;
+  return effectiveCurriculum().series.filter((entry) => ["published", "featured"].includes(String(entry?.status || "")));
+}
+
+function curriculumCollections() {
+  const api = curriculumSeriesApi();
+  const series = effectiveCurriculumSeriesList();
+  if (api?.groupSeriesIntoCollections) {
+    return api.groupSeriesIntoCollections(series, { includeDrafts: false });
+  }
+  // Lightweight fallback if the series module has not loaded yet.
+  const byKey = new Map();
+  series.forEach((entry) => {
+    const key = String(entry.collectionKey || entry.theme || entry.title || "").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    if (!key) return;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        key,
+        title: entry.collectionTitle || entry.theme || entry.title,
+        description: entry.description || "",
+        coverImageUrl: entry.coverImageUrl || "",
+        coverImageAlt: entry.coverImageAlt || "",
+        plan: entry.plan || "Free",
+        featured: Boolean(entry.featured),
+        ages: {},
+        ageOrder: [],
+        totalWeeks: 0,
+        weekPlanIds: [],
+      });
+    }
+    const collection = byKey.get(key);
+    const weeks = (entry.weeks || []).filter((week) => week.lessonPlanId);
+    collection.ages[entry.age] = { age: entry.age, weeks, filledWeekCount: weeks.length, seriesId: entry.id, plan: entry.plan };
+    collection.totalWeeks += weeks.length;
+    weeks.forEach((week) => collection.weekPlanIds.push(week.lessonPlanId));
+  });
+  return [...byKey.values()].map((collection) => ({
+    ...collection,
+    ageOrder: ["Infant", "Toddler", "Preschool"].filter((age) => collection.ages[age]),
+    ageCount: ["Infant", "Toddler", "Preschool"].filter((age) => collection.ages[age]).length,
+    weekPlanIds: [...new Set(collection.weekPlanIds)],
+  })).filter((collection) => collection.totalWeeks > 0);
+}
+
+function curriculumCollectionByKey(key) {
+  const target = String(key || "").trim();
+  if (!target) return null;
+  return curriculumCollections().find((entry) => entry.key === target) || null;
 }
 
 function curriculumLessonPlanById(id) {
@@ -5785,6 +5872,7 @@ function effectiveCurriculumLibrary() {
       lessonPlans: publicPlans,
       activities: Array.isArray(fromPublic.activities) ? fromPublic.activities : [],
       resources: Array.isArray(fromPublic.resources) ? fromPublic.resources : [],
+      series: Array.isArray(fromPublic.series) ? fromPublic.series : [],
       updatedAt: fromPublic.updatedAt || "",
     };
   }
@@ -5816,6 +5904,9 @@ function effectiveCurriculumLibrary() {
       hasFile: Boolean(resource.fileData || resource.hasFile),
       updatedAt: resource.updatedAt || "",
     }));
+  const series = (curriculum.series || []).filter((entry) => (
+    entry && ["published", "featured"].includes(String(entry.status || ""))
+  ));
   return {
     lessonPlans,
     activities: activities.map((activity) => {
@@ -5830,6 +5921,7 @@ function effectiveCurriculumLibrary() {
       };
     }),
     resources,
+    series,
     updatedAt: curriculum.updatedAt || "",
   };
 }
@@ -14572,6 +14664,141 @@ function infantExactAgeGroups(items) {
   return rows;
 }
 
+function collectionCoverUrl(collection) {
+  const url = sanitizedImageSource(collection?.coverImageUrl || "");
+  if (url) return url;
+  const themeCover = lessonPlanCoversApi()?.getMappedThemeCover?.(collection?.title || "", collection?.theme || "");
+  return themeCover
+    || lessonPlanCoversApi()?.DEFAULT_COVER
+    || "/images/lesson-covers/default.svg";
+}
+
+function curriculumCollectionCard(collection) {
+  if (!collection) return "";
+  const coverUrl = collectionCoverUrl(collection);
+  const coverAlt = String(collection.coverImageAlt || "").trim()
+    || `Cover illustration for ${collection.title} curriculum collection`;
+  const planBadge = collection.plan === "Pro" ? "Pro" : "Free";
+  const ageSummary = (collection.ageOrder || []).join(" · ") || "Multi-age";
+  const weekLabel = collection.totalWeeks === 1 ? "1 week" : `${collection.totalWeeks} weeks`;
+  return `
+    <article class="browse-card curriculum-collection-card netflix-cover-card" data-open-curriculum-collection="${escapeHtml(collection.key)}">
+      <button type="button" class="browse-card-media-button" data-open-curriculum-collection="${escapeHtml(collection.key)}" aria-label="Open ${escapeHtml(collection.title)} collection">
+        <img
+          class="lesson-plan-card__cover browse-card-cover"
+          src="${escapeHtml(coverUrl)}"
+          alt="${escapeHtml(coverAlt)}"
+          width="320"
+          height="180"
+          loading="lazy"
+          decoding="async"
+          style="object-position:${escapeHtml(collection.coverImagePosition || "center")}"
+          onerror="handleLessonCoverImageError(this)"
+        />
+        <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+        <div class="browse-card-overlay">
+          <h3 class="browse-card-title-overlay">${escapeHtml(collection.title)}</h3>
+          <p class="browse-card-meta-overlay">${escapeHtml(ageSummary)} · ${escapeHtml(weekLabel)}</p>
+        </div>
+      </button>
+      <div class="browse-card-actions">
+        <button type="button" class="primary-button" data-open-curriculum-collection="${escapeHtml(collection.key)}">Open Collection</button>
+      </div>
+    </article>
+  `;
+}
+
+function filterCurriculumCollectionsForBrowse(collections = []) {
+  const ageFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
+  const query = String(searchInput?.value || "").trim().toLowerCase();
+  return (collections || []).filter((collection) => {
+    if (lessonLibraryPlanFilter === "Free" && collection.plan === "Pro") return false;
+    if (lessonLibraryPlanFilter === "Pro" && collection.plan !== "Pro") return false;
+    if (ageFilter !== "All" && !(collection.ageOrder || []).includes(ageFilter)) return false;
+    if (!query) return true;
+    const haystack = [
+      collection.title,
+      collection.theme,
+      collection.description,
+      ...(collection.ageOrder || []),
+    ].join(" ").toLowerCase();
+    return haystack.includes(query);
+  });
+}
+
+function curriculumCollectionDetailHtml(collection, lessonItems = []) {
+  if (!collection) {
+    return `<div class="empty-state">This curriculum collection could not be found.</div>`;
+  }
+  const coverUrl = collectionCoverUrl(collection);
+  const coverAlt = String(collection.coverImageAlt || "").trim()
+    || `Cover illustration for ${collection.title}`;
+  const planBadge = collection.plan === "Pro" ? "Pro" : "Free";
+  const ageSections = (collection.ageOrder || []).map((age) => {
+    const track = collection.ages[age];
+    if (!track) return "";
+    const weeks = (track.weeks || []).map((week) => {
+      const plan = lessonItems.find((item) => item.id === week.lessonPlanId)
+        || loadCurriculumManagedLessonPlans().find((item) => item.id === week.lessonPlanId);
+      const title = plan?.title || week.label || `Week ${week.weekNumber}`;
+      const locked = plan ? !canAccess(plan) : collection.plan === "Pro" && !isProUser();
+      return `
+        <li class="curriculum-collection-week">
+          <div class="curriculum-collection-week-copy">
+            <p class="curriculum-collection-week-label">Week ${escapeHtml(String(week.weekNumber))}</p>
+            <h4>${escapeHtml(title)}</h4>
+          </div>
+          <button
+            type="button"
+            class="${locked ? "ghost-button" : "primary-button"}"
+            data-view-resource="${escapeHtml(week.lessonPlanId)}"
+            ${locked && plan ? `data-locked-resource="${escapeHtml(week.lessonPlanId)}"` : ""}
+          >${locked ? "Preview" : "Open Week"}</button>
+        </li>
+      `;
+    }).join("");
+    return `
+      <section class="curriculum-collection-age-block" aria-label="${escapeHtml(age)} weeks">
+        <div class="curriculum-collection-age-header">
+          <h3>${escapeHtml(age)}</h3>
+          <p class="muted-copy">${track.filledWeekCount || 0} of ${track.weekCount || 4} weeks</p>
+        </div>
+        <ul class="curriculum-collection-week-list">
+          ${weeks || `<li class="muted-copy">Weeks for ${escapeHtml(age)} are coming soon.</li>`}
+        </ul>
+      </section>
+    `;
+  }).join("");
+
+  return `
+    <article class="curriculum-collection-detail">
+      <div class="curriculum-collection-detail-hero">
+        <img
+          class="curriculum-collection-detail-cover"
+          src="${escapeHtml(coverUrl)}"
+          alt="${escapeHtml(coverAlt)}"
+          width="960"
+          height="540"
+          loading="eager"
+          decoding="async"
+          style="object-position:${escapeHtml(collection.coverImagePosition || "center")}"
+          onerror="handleLessonCoverImageError(this)"
+        />
+        <div class="curriculum-collection-detail-copy">
+          <p class="eyebrow">Curriculum Collection</p>
+          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
+          <h3>${escapeHtml(collection.title)}</h3>
+          <p>${escapeHtml(collection.description || collection.theme || "A complete multi-week curriculum collection.")}</p>
+          <p class="muted-copy">${escapeHtml((collection.ageOrder || []).join(" · "))} · ${collection.totalWeeks} weekly plans</p>
+        </div>
+      </div>
+      <div class="curriculum-collection-age-stack">
+        ${ageSections || `<div class="empty-state">No weeks are published in this collection yet.</div>`}
+      </div>
+    </article>
+  `;
+}
+
 function buildLessonBrowseRows(items) {
   const byRecent = (ids) => ids.map((id) => items.find((item) => item.id === id)).filter(Boolean);
   const featured = items.filter((item) => item.featured).slice(0, 18);
@@ -14585,6 +14812,27 @@ function buildLessonBrowseRows(items) {
   const popular = sortResourcesPopular(items).slice(0, 18);
   const ageFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
   const rows = [];
+  const collections = filterCurriculumCollectionsForBrowse(curriculumCollections());
+
+  if (collections.length && ageFilter === "All") {
+    rows.push({
+      key: "curriculum-collections",
+      title: "Curriculum Collections",
+      items: collections,
+      viewAllLabel: "View All",
+      cardHtml: curriculumCollectionCard,
+      kind: "collections",
+    });
+  } else if (collections.length && ageFilter !== "All") {
+    rows.push({
+      key: "curriculum-collections",
+      title: `${ageFilter} Curriculum Collections`,
+      items: collections,
+      viewAllLabel: "View All",
+      cardHtml: curriculumCollectionCard,
+      kind: "collections",
+    });
+  }
 
   if (featured.length && ageFilter === "All") {
     rows.push({ key: "featured", title: "Featured This Week", items: featured, viewAllLabel: "View All" });
@@ -14637,6 +14885,7 @@ function buildLessonBrowseRows(items) {
 
 function collectLessonViewAllItems(items, key) {
   if (!key) return items;
+  if (key === "curriculum-collections") return [];
   if (key === "featured") return items.filter((item) => item.featured);
   if (key === "continue-planning") {
     return pickUniqueResources([
@@ -21922,6 +22171,18 @@ function renderLessonPlanLibraryHeader() {
       </header>
     `;
   }
+  if (lessonLibraryMode === "collection" && lessonLibraryCollectionKey) {
+    const collection = curriculumCollectionByKey(lessonLibraryCollectionKey);
+    return `
+      <header class="lesson-library-header">
+        <button class="ghost-button back-button lesson-library-back" data-lesson-library-mode="browse" type="button" aria-label="Back to Lesson Plans">← Back to Lesson Plans</button>
+        <div class="lesson-library-title-row">
+          <h2 class="lesson-library-title">${escapeHtml(collection?.title || "Curriculum Collection")}</h2>
+        </div>
+        <p class="muted-copy lesson-library-subtitle">Open any week, or browse by age group. Individual lesson plans still work the same way.</p>
+      </header>
+    `;
+  }
   return `
     <header class="lesson-library-header">
       <button class="ghost-button back-button lesson-library-back" data-view="${escapeHtml(backView)}" type="button" aria-label="Back">${lessonLibraryBackLabel(backView)}</button>
@@ -22023,8 +22284,22 @@ function clearLessonLibraryAdvancedFilters() {
   lessonLibraryPlanFilter = "All";
   lessonLibrarySort = "recommended";
   lessonLibraryViewAllKey = "";
+  lessonLibraryMode = lessonLibraryMode === "collection" ? "browse" : lessonLibraryMode;
+  lessonLibraryCollectionKey = "";
   activeFilter = "All";
   if (searchInput) searchInput.value = "";
+}
+
+function openCurriculumCollection(collectionKey) {
+  const key = String(collectionKey || "").trim();
+  if (!key || !curriculumCollectionByKey(key)) return false;
+  lessonLibraryMode = "collection";
+  lessonLibraryCollectionKey = key;
+  lessonLibraryViewAllKey = "";
+  lessonLibraryFiltersOpen = false;
+  if (typeof setView === "function") setView("lessons");
+  else renderCategoryPage("lessons");
+  return true;
 }
 
 function libraryCompactUpgradeStripHtml() {
@@ -22091,14 +22366,46 @@ function renderCategoryPage(view) {
     : `<div class="empty-state">No resources found. Try another search or filter.</div>`;
   if (isLessonPlanCategory) {
     const isSavedLessonMode = lessonLibraryMode === "saved";
+    const isCollectionMode = lessonLibraryMode === "collection" && Boolean(lessonLibraryCollectionKey);
+    const activeCollection = isCollectionMode ? curriculumCollectionByKey(lessonLibraryCollectionKey) : null;
     const lessonUpgradeBanner = !isProUser() ? libraryCompactUpgradeStripHtml() : "";
     const hasSearchOrAdvanced = Boolean(searchInput.value.trim() || lessonLibraryPlanFilter !== "All" || lessonLibraryShowAssignedOnly || lessonLibrarySort !== "recommended");
-    const useBrowseRows = !isSavedLessonMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced;
+    const useBrowseRows = !isSavedLessonMode && !isCollectionMode && !lessonLibraryViewAllKey && !hasSearchOrAdvanced;
     let browseBody = "";
-    if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey) {
-      const viewAllItems = lessonLibraryViewAllKey ? collectLessonViewAllItems(items, lessonLibraryViewAllKey) : items;
+    if (isCollectionMode) {
+      browseBody = `
+        <div class="resource-grid lesson-library-grid library-browse-shell is-collection-detail">
+          ${lessonUpgradeBanner}
+          ${curriculumCollectionDetailHtml(activeCollection, items)}
+        </div>
+      `;
+    } else if (isSavedLessonMode || hasSearchOrAdvanced || lessonLibraryViewAllKey) {
+      const matchingCollections = (!isSavedLessonMode && searchInput.value.trim())
+        ? filterCurriculumCollectionsForBrowse(curriculumCollections())
+        : [];
+      const isCollectionsViewAll = lessonLibraryViewAllKey === "curriculum-collections";
+      const collectionsViewAll = isCollectionsViewAll
+        ? filterCurriculumCollectionsForBrowse(curriculumCollections())
+        : [];
+      const viewAllItems = lessonLibraryViewAllKey && !isCollectionsViewAll
+        ? collectLessonViewAllItems(items, lessonLibraryViewAllKey)
+        : (isCollectionsViewAll ? [] : items);
       const viewAllTitle = lessonLibraryViewAllKey
-        ? (buildLessonBrowseRows(items).find((row) => row.key === lessonLibraryViewAllKey)?.title || "All matching plans")
+        ? (isCollectionsViewAll
+          ? "Curriculum Collections"
+          : (buildLessonBrowseRows(items).find((row) => row.key === lessonLibraryViewAllKey)?.title || "All matching plans"))
+        : "";
+      const collectionResults = (!lessonLibraryViewAllKey && matchingCollections.length)
+        ? `
+          <section class="browse-row" data-browse-row="curriculum-collections-search">
+            <div class="browse-row-header"><h3>Matching Collections</h3></div>
+            <div class="browse-row-track-wrap">
+              <div class="browse-row-track">
+                ${matchingCollections.map(curriculumCollectionCard).join("")}
+              </div>
+            </div>
+          </section>
+        `
         : "";
       browseBody = `
         ${lessonLibraryViewAllKey ? `
@@ -22109,7 +22416,10 @@ function renderCategoryPage(view) {
         ` : ""}
         <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
           ${lessonUpgradeBanner}
-          ${viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : lessonLibraryEmptyStateHtml()}
+          ${collectionResults}
+          ${isCollectionsViewAll
+            ? (collectionsViewAll.length ? collectionsViewAll.map(curriculumCollectionCard).join("") : lessonLibraryEmptyStateHtml())
+            : (viewAllItems.length ? viewAllItems.map(lessonPlanCard).join("") : (collectionResults ? "" : lessonLibraryEmptyStateHtml()))}
         </div>
       `;
     } else if (useBrowseRows) {
@@ -22119,7 +22429,7 @@ function renderCategoryPage(view) {
           ${lessonUpgradeBanner}
           ${activeFilter === "All" ? featuredLessonBannerHtml(items) : ""}
           ${rows.length
-            ? rows.map((row) => browseRowHtml({ ...row, cardHtml: lessonPlanCard })).join("")
+            ? rows.map((row) => browseRowHtml({ ...row, cardHtml: row.cardHtml || lessonPlanCard })).join("")
             : lessonLibraryEmptyStateHtml()}
         </div>
       `;
@@ -22129,12 +22439,12 @@ function renderCategoryPage(view) {
       ${calendarLessonAssignBannerHtml()}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
-        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : "Search lesson plans..."}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
+        <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : (isCollectionMode ? "Search this collection..." : "Search lesson plans...")}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
       </div>
-      ${isSavedLessonMode ? "" : `<div class="filter-row lesson-library-age-filters library-filter-scroll" role="group" aria-label="Age group filters">
+      ${isSavedLessonMode || isCollectionMode ? "" : `<div class="filter-row lesson-library-age-filters library-filter-scroll" role="group" aria-label="Age group filters">
         ${filters.map((filter) => `<button class="${activeFilter === filter ? "active-filter" : ""}" data-filter="${filter}" type="button" aria-pressed="${activeFilter === filter ? "true" : "false"}">${filter}</button>`).join("")}
       </div>`}
-      ${isSavedLessonMode ? "" : renderLessonLibrarySecondaryControls()}
+      ${isSavedLessonMode || isCollectionMode ? "" : renderLessonLibrarySecondaryControls()}
       ${browseBody}
     `;
     return;
@@ -51390,6 +51700,14 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openCollectionButton = event.target.closest("[data-open-curriculum-collection]");
+  if (openCollectionButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    openCurriculumCollection(openCollectionButton.dataset.openCurriculumCollection || "");
+    return;
+  }
+
   const browseViewAllButton = event.target.closest("[data-browse-view-all]");
   if (browseViewAllButton) {
     event.preventDefault();
@@ -51397,6 +51715,16 @@ document.addEventListener("click", async (event) => {
     const key = browseViewAllButton.dataset.browseViewAll || "";
     const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
     if (activeView === "lessons") {
+      if (key === "curriculum-collections") {
+        const collections = filterCurriculumCollectionsForBrowse(curriculumCollections());
+        lessonLibraryViewAllKey = "";
+        lessonLibraryMode = "browse";
+        // Re-render filtered grid of collection cards only via temporary search-less path:
+        // keep mode browse and show a dedicated view-all key handled in render.
+        lessonLibraryViewAllKey = "curriculum-collections";
+        renderCategoryPage("lessons");
+        return;
+      }
       lessonLibraryViewAllKey = key;
       renderCategoryPage("lessons");
     } else if (activeView === "activities") {
@@ -51518,6 +51846,7 @@ document.addEventListener("click", async (event) => {
     }
     const previousMode = lessonLibraryMode;
     lessonLibraryMode = mode;
+    if (mode === "browse") lessonLibraryCollectionKey = "";
     lessonLibraryViewAllKey = "";
     if (mode === "saved") {
       lessonLibraryFiltersOpen = false;

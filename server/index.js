@@ -9,6 +9,7 @@ const accountAccess = require("../scripts/account-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
+const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
 const { createOnboardingWelcome, defaultOnboardingWelcomeStore } = require("./onboarding-welcome.js");
@@ -1595,13 +1596,40 @@ function normalizedCurriculumResource(value) {
   };
 }
 
+// Raised for large curriculum uploads over time. Keep in sync with the bulk
+// import pipeline capacity checks (scripts/curriculum-bulk-import-pipeline.js).
+const MAX_CURRICULUM_LESSON_PLANS = 2000;
+const MAX_CURRICULUM_ACTIVITIES = 12000;
+const MAX_CURRICULUM_RESOURCES = 5000;
+const MAX_CURRICULUM_SERIES = 500;
+
+function withAutoAssignedLessonCover(entry) {
+  const plan = entry && typeof entry === "object" ? entry : {};
+  if (sanitizedLessonCoverUrl(plan.coverImageUrl || plan.thumbnailUrl || "")) {
+    return plan;
+  }
+  try {
+    const fields = lessonPlanCoverAssign.assignCoverFields(plan);
+    return {
+      ...plan,
+      coverImageUrl: fields.coverImageUrl,
+      coverImageAlt: fields.coverImageAlt || plan.coverImageAlt,
+      coverImageSource: fields.coverImageSource || "mapped",
+      coverImagePosition: fields.coverImagePosition || plan.coverImagePosition || "center",
+    };
+  } catch (error) {
+    console.warn("[lesson-cover-assign] skipped:", error.message);
+    return plan;
+  }
+}
+
 function normalizedCurriculumStore(value) {
   const input = value && typeof value === "object" ? value : {};
   return {
-    lessonPlans: normalizedList(input.lessonPlans, 500, normalizedCurriculumLessonPlan),
-    activities: normalizedList(input.activities, 3000, normalizedCurriculumActivity),
-    resources: normalizedList(input.resources, 3000, normalizedCurriculumResource),
-    series: normalizedList(input.series, 500, normalizedCurriculumSeries),
+    lessonPlans: normalizedList(input.lessonPlans, MAX_CURRICULUM_LESSON_PLANS, normalizedCurriculumLessonPlan),
+    activities: normalizedList(input.activities, MAX_CURRICULUM_ACTIVITIES, normalizedCurriculumActivity),
+    resources: normalizedList(input.resources, MAX_CURRICULUM_RESOURCES, normalizedCurriculumResource),
+    series: normalizedList(input.series, MAX_CURRICULUM_SERIES, normalizedCurriculumSeries),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -2110,10 +2138,32 @@ function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
       return meta;
     })
     .filter(Boolean);
+  // Public library only exposes published/featured curriculum collections (series).
+  // Draft / needs_review stay on admin site-content for preview before publish.
   const series = (store.series || [])
-    .filter((entry) => entry && ["published", "featured", "needs_review"].includes(entry.status))
+    .filter((entry) => entry && ["published", "featured"].includes(entry.status))
     .map((entry) => ({
-      ...entry,
+      id: entry.id,
+      collectionKey: entry.collectionKey || "",
+      collectionTitle: entry.collectionTitle || "",
+      title: entry.title,
+      description: entry.description || "",
+      theme: entry.theme || "",
+      age: entry.age,
+      month: entry.month || "",
+      season: entry.season || "",
+      year: entry.year || "",
+      weekCount: entry.weekCount,
+      plan: entry.plan,
+      status: entry.status,
+      featured: Boolean(entry.featured) || entry.status === "featured",
+      displayOrder: entry.displayOrder || 0,
+      coverImageUrl: entry.coverImageUrl || "",
+      coverImageAlt: entry.coverImageAlt || "",
+      coverImageSource: entry.coverImageSource || "",
+      coverImagePosition: entry.coverImagePosition || "center",
+      learningDomains: entry.learningDomains || [],
+      updatedAt: entry.updatedAt || "",
       weeks: (entry.weeks || []).map((week) => ({
         weekNumber: week.weekNumber,
         lessonPlanId: week.lessonPlanId,
@@ -12768,13 +12818,18 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       // Legacy public plans: keep a stable stamp so weekly digests don't re-fire on every edit.
       publishedAt = existingPlan?.createdAt || now;
     }
-    const planInput = {
+    const planInput = withAutoAssignedLessonCover({
       ...incomingPlan,
+      // Preserve an existing cover when the client omits cover fields on update.
+      coverImageUrl: incomingPlan.coverImageUrl || existingPlan?.coverImageUrl || "",
+      coverImageAlt: incomingPlan.coverImageAlt || existingPlan?.coverImageAlt || "",
+      coverImageSource: incomingPlan.coverImageSource || existingPlan?.coverImageSource || "",
+      coverImagePosition: incomingPlan.coverImagePosition || existingPlan?.coverImagePosition || "center",
       id,
       createdAt: existingPlan?.createdAt || normalizedShortText(incomingPlan.createdAt, 80) || now,
       updatedAt: now,
       publishedAt,
-    };
+    });
 
     // Published/featured plans must keep activities on every weekday so the
     // lesson viewer never shows "No activities scheduled." after a save.

@@ -23,6 +23,8 @@
   // Most-specific phrases first (multi-word before single-word).
   const THEME_COVER_RULES = [
     { match: ["around the world", "world travel", "global"], cover: "around-the-world" },
+    // Family Connections unit + belonging themes before generic "faces" infant rule.
+    { match: ["family connections", "people who love", "my home and my family", "caring hearts", "we belong together", "classroom family", "belonging"], cover: "family" },
     { match: ["reaching", "grasping", "reach and grasp"], cover: "reaching-grasping" },
     { match: ["tummy time", "tummy-time"], cover: "tummy-time" },
     { match: ["peek a boo", "peek-a-boo", "peekaboo"], cover: "peek-a-boo" },
@@ -58,6 +60,14 @@
     { match: ["season", "seasons", "autumn", "winter", "spring", "summer"], cover: "seasons" },
     { match: ["crawl", "crawling"], cover: "crawling" },
     { match: ["letter", "letters", "sounds", "literacy", "number", "numbers", "math"], cover: "kindergarten-readiness" },
+    { match: ["apple", "apples", "orchard", "johnny appleseed"], cover: "garden" },
+    { match: ["friend", "friends", "friendship", "welcome", "classroom community"], cover: "family" },
+    { match: ["baker", "baking", "bakery", "cookies", "kitchen"], cover: "healthy-habits" },
+    { match: ["pond", "frog", "duckling", "wetland"], cover: "nature" },
+    { match: ["fossil", "fossils", "paleontology"], cover: "dinosaurs" },
+    { match: ["ice cream", "popsicle", "summer treat"], cover: "seasons" },
+    { match: ["superhero", "superheroes", "hero training"], cover: "community-helpers" },
+    { match: ["pet", "pets", "vet", "veterinarian"], cover: "animals" },
     { match: ["camping", "camp"], cover: "nature" },
     { match: ["stem", "science", "scientist", "archaeology"], cover: "kindergarten-readiness" },
     { match: ["holiday", "easter", "july", "new year", "christmas", "halloween"], cover: "seasons" },
