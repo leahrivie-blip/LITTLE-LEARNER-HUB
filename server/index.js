@@ -725,6 +725,7 @@ function defaultStore() {
     supportTickets: [],
     bugReports: [],
     featureRequests: [],
+    lessonPlanRequests: [],
     feedbackItems: [],
     communications: [],
     announcements: [],
@@ -14488,6 +14489,251 @@ async function handleBugReportsList(request, response, url) {
 
 // ─── Feature Request handlers ─────────────────────────────────────────────────
 
+
+const LESSON_PLAN_REQUEST_STATUSES = new Set([
+  "Received",
+  "Planned",
+  "In Progress",
+  "Published",
+  "Not Planned",
+]);
+
+function normalizeLessonPlanRequestTheme(value) {
+  return String(value || "").trim().toLowerCase().replace(/\s+/g, " ").slice(0, 200);
+}
+
+function lessonPlanRequestOrgKey(item = {}) {
+  return String(item.programId || item.ownerEmail || item.email || "").trim().toLowerCase();
+}
+
+function publicLessonPlanRequest(item, { admin = false } = {}) {
+  const payload = {
+    id: item.id,
+    ageGroup: item.ageGroup || "",
+    theme: item.theme || "",
+    neededBy: item.neededBy || "",
+    details: item.details || "",
+    status: item.status || "Received",
+    linkedLessonPlanId: item.linkedLessonPlanId || "",
+    linkedLessonPlanTitle: item.linkedLessonPlanTitle || "",
+    createdAt: item.createdAt,
+    updatedAt: item.updatedAt,
+    programId: item.programId || "",
+  };
+  if (admin) {
+    payload.email = item.email || "";
+    payload.name = item.name || "";
+    payload.ownerEmail = item.ownerEmail || item.email || "";
+    payload.adminNotes = Array.isArray(item.adminNotes) ? item.adminNotes : [];
+  } else {
+    payload.email = item.email || "";
+    payload.name = item.name || "";
+  }
+  return payload;
+}
+
+async function handleLessonPlanRequestCreate(request, response) {
+  let identity = null;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch {
+    identity = null;
+  }
+  const body = await readJson(request);
+  const email = normalizeEmail(identity?.email || body.email);
+  if (!email) {
+    jsonResponse(response, 401, { error: "Sign in to request a lesson plan." });
+    return;
+  }
+  const ageGroup = String(body.ageGroup || "").trim().slice(0, 80);
+  const theme = String(body.theme || "").trim().slice(0, 200);
+  const neededBy = String(body.neededBy || "").trim().slice(0, 120);
+  const details = String(body.details || "").trim().slice(0, 4000);
+  if (!ageGroup || !theme || !neededBy) {
+    jsonResponse(response, 400, { error: "Age group, theme/topic, and when it is needed are required." });
+    return;
+  }
+  const store = readStore();
+  store.lessonPlanRequests = Array.isArray(store.lessonPlanRequests) ? store.lessonPlanRequests : [];
+  store.users = store.users && typeof store.users === "object" ? store.users : {};
+  const user = store.users[email] || {};
+  let programId = "";
+  try {
+    const ensured = programOwnership.ensureProgramForOwner(store, email, {
+      ownerUid: identity?.uid || user.firebaseUid || "",
+      name: user.businessName || user.programName || "",
+      actorEmail: email,
+    });
+    programId = ensured?.id || programOwnership.programIdForOwnerEmail(email) || "";
+  } catch {
+    try {
+      programId = programOwnership.programIdForOwnerEmail(email);
+    } catch {
+      programId = "";
+    }
+  }
+  const themeKey = normalizeLessonPlanRequestTheme(theme);
+  const ageKey = ageGroup.toLowerCase();
+  const orgKey = String(programId || email).toLowerCase();
+  const openStatuses = new Set(["Received", "Planned", "In Progress"]);
+  const duplicate = store.lessonPlanRequests.find((item) => {
+    if (!item) return false;
+    const sameOrg = lessonPlanRequestOrgKey(item) === orgKey
+      || normalizeEmail(item.email) === email
+      || normalizeEmail(item.ownerEmail) === email;
+    if (!sameOrg) return false;
+    if (!openStatuses.has(String(item.status || "Received"))) return false;
+    return normalizeLessonPlanRequestTheme(item.theme) === themeKey
+      && String(item.ageGroup || "").trim().toLowerCase() === ageKey;
+  });
+  if (duplicate) {
+    jsonResponse(response, 409, {
+      error: "You already have an open request for this age group and theme.",
+      lessonPlanRequest: publicLessonPlanRequest(duplicate),
+      duplicate: true,
+    });
+    return;
+  }
+  const item = {
+    id: `lpr-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
+    ageGroup,
+    theme,
+    neededBy,
+    details,
+    email,
+    ownerEmail: email,
+    name: String(body.name || user.name || user.firstName || "Provider").slice(0, 120),
+    programId,
+    status: "Received",
+    linkedLessonPlanId: "",
+    linkedLessonPlanTitle: "",
+    adminNotes: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  store.lessonPlanRequests.unshift(item);
+  store.lessonPlanRequests = store.lessonPlanRequests.slice(0, 2000);
+  try {
+    const { recordTimeline, notifyAdminsInApp } = getCommsApi();
+    recordTimeline(store, {
+      email,
+      type: "lesson_plan_request",
+      title: `${ageGroup}: ${theme}`,
+      detail: details.slice(0, 400) || neededBy,
+    });
+    notifyAdminsInApp(store, {
+      type: "admin_lesson_plan_request",
+      title: "New lesson plan request",
+      preview: `${ageGroup} · ${theme}`,
+      refId: item.id,
+    }).catch(() => {});
+  } catch {}
+  writeStore(store);
+  jsonResponse(response, 200, {
+    lessonPlanRequest: publicLessonPlanRequest(item),
+    message: "Request received. Popular requests help shape what we create next, but submitting a request does not guarantee publication or a specific completion date.",
+  });
+}
+
+async function handleLessonPlanRequestsList(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  const isAdmin = validAdminToken(adminToken);
+  let identity = null;
+  try {
+    identity = await resolveMemberIdentity(request);
+  } catch {
+    identity = null;
+  }
+  const email = normalizeEmail(identity?.email || url.searchParams.get("email") || "");
+  if (!isAdmin && !email) {
+    jsonResponse(response, 401, { error: "Sign in to view lesson plan requests." });
+    return;
+  }
+  const store = readStore();
+  const allItems = Array.isArray(store.lessonPlanRequests) ? store.lessonPlanRequests : [];
+  let items;
+  if (isAdmin) {
+    items = allItems.slice();
+  } else {
+    let programId = "";
+    try {
+      programId = programOwnership.programIdForOwnerEmail(email);
+    } catch {
+      programId = "";
+    }
+    items = allItems.filter((item) => (
+      normalizeEmail(item.email) === email
+      || normalizeEmail(item.ownerEmail) === email
+      || (programId && String(item.programId || "") === programId)
+    ));
+  }
+  items.sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  jsonResponse(response, 200, {
+    lessonPlanRequests: items.slice(0, 300).map((item) => publicLessonPlanRequest(item, { admin: isAdmin })),
+    statuses: Array.from(LESSON_PLAN_REQUEST_STATUSES),
+  });
+}
+
+async function handleLessonPlanRequestUpdate(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required to update lesson plan requests." });
+    return;
+  }
+  const id = String(body.id || "");
+  const store = readStore();
+  store.lessonPlanRequests = Array.isArray(store.lessonPlanRequests) ? store.lessonPlanRequests : [];
+  const index = store.lessonPlanRequests.findIndex((item) => item.id === id);
+  if (index < 0) {
+    jsonResponse(response, 404, { error: "Lesson plan request was not found." });
+    return;
+  }
+  const previous = store.lessonPlanRequests[index];
+  const previousStatus = previous.status;
+  const rawStatus = body.status ? String(body.status).slice(0, 40) : "";
+  const nextStatus = rawStatus && LESSON_PLAN_REQUEST_STATUSES.has(rawStatus) ? rawStatus : previous.status;
+  const linkedLessonPlanId = body.linkedLessonPlanId != null
+    ? String(body.linkedLessonPlanId || "").trim().slice(0, 120)
+    : (previous.linkedLessonPlanId || "");
+  const linkedLessonPlanTitle = body.linkedLessonPlanTitle != null
+    ? String(body.linkedLessonPlanTitle || "").trim().slice(0, 200)
+    : (previous.linkedLessonPlanTitle || "");
+  store.lessonPlanRequests[index] = {
+    ...previous,
+    status: nextStatus,
+    linkedLessonPlanId,
+    linkedLessonPlanTitle,
+    updatedAt: new Date().toISOString(),
+  };
+  if (body.adminNote) {
+    store.lessonPlanRequests[index].adminNotes = store.lessonPlanRequests[index].adminNotes || [];
+    store.lessonPlanRequests[index].adminNotes.push({
+      note: String(body.adminNote).slice(0, 2000),
+      addedAt: new Date().toISOString(),
+    });
+  }
+  const updated = store.lessonPlanRequests[index];
+  const requesterEmail = normalizeEmail(updated.email || updated.ownerEmail || "");
+  const becamePublished = nextStatus === "Published" && previousStatus !== "Published";
+  writeStore(store);
+  if (requesterEmail && (becamePublished || nextStatus !== previousStatus)) {
+    const messagingStore = ensureMessagingStore(readStore());
+    const preview = becamePublished
+      ? (updated.linkedLessonPlanTitle
+        ? `Your lesson plan request was published: ${updated.linkedLessonPlanTitle}`
+        : "Your lesson plan request was published.")
+      : `Lesson plan request update: ${nextStatus}`;
+    await fanOutNotificationsAndPush(messagingStore, {
+      type: becamePublished ? "lesson_plan_request_published" : "lesson_plan_request_status",
+      recipients: [requesterEmail],
+      title: becamePublished ? "Lesson plan request published" : "Lesson plan request update",
+      preview,
+      refId: id,
+    }).catch((error) => console.warn("[messaging] lesson plan request notification failed:", error.message));
+  }
+  jsonResponse(response, 200, { lessonPlanRequest: publicLessonPlanRequest(updated, { admin: true }) });
+}
+
 const FEATURE_REQUEST_STATUSES = new Set(commsLib.FEATURE_REQUEST_STATUSES);
 
 async function handleFeatureRequestCreate(request, response) {
@@ -17056,6 +17302,9 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/bug-report-update") return await handleBugReportUpdate(request, response);
     if (request.method === "GET" && url.pathname === "/api/bug-reports") return await handleBugReportsList(request, response, url);
     // Phase 6-A: Feature Requests
+    if (request.method === "POST" && url.pathname === "/api/lesson-plan-request") return await handleLessonPlanRequestCreate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/lesson-plan-requests") return await handleLessonPlanRequestsList(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/lesson-plan-request-update") return await handleLessonPlanRequestUpdate(request, response);
     if (request.method === "POST" && url.pathname === "/api/feature-request") return await handleFeatureRequestCreate(request, response);
     if (request.method === "POST" && url.pathname === "/api/feature-request/vote") return await handleFeatureRequestVote(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/feature-request-update") return await handleFeatureRequestUpdate(request, response);

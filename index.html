@@ -61,9 +61,9 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260729-conversion-finish" />
-  <link rel="stylesheet" href="styles.css?v=20260729-conversion-finish" />
-  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-conversion-finish" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260729-homepage-cleanup" />
+  <link rel="stylesheet" href="styles.css?v=20260729-homepage-cleanup" />
+  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-homepage-cleanup" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260720-promo-existing" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260720-promo-existing" />
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260729-conversion-finish";
+      var SHELL_VERSION = "20260729-homepage-cleanup";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -335,7 +335,7 @@
             </button>
             <div id="sidebarFreeUpgradeCard" class="sidebar-free-upgrade" hidden>
               <p class="sidebar-free-upgrade-badge">Free Plan</p>
-              <p class="sidebar-free-upgrade-copy">Only 2 Founding Member spots remaining. Regular price will be $19.99/month.</p>
+              <p class="sidebar-free-upgrade-copy" data-founding-spots-copy>Checking Founding Member availability… Regular price will be $19.99/month.</p>
               <button class="primary-button sidebar-free-upgrade-btn" type="button" data-checkout-plan="founding">⭐ Lock In Founding Member Pricing</button>
             </div>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
@@ -410,7 +410,7 @@
           <div class="free-plan-reminder-inner">
             <div class="free-plan-reminder-copy">
               <strong>⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active</strong>
-              <p>Only 2 Founding Member spots remaining. Regular price will be $19.99/month.</p>
+              <p data-founding-spots-copy>Checking Founding Member availability… Regular price will be $19.99/month.</p>
             </div>
             <div class="free-plan-reminder-actions">
               <button class="primary-button" type="button" id="freePlanReminderPrimary" data-checkout-plan="founding">⭐ Lock In Founding Member Pricing</button>
@@ -435,7 +435,7 @@
           <div class="llh-announce-banner" id="llhFoundingAnnounceBanner" role="region" aria-label="Founding Member announcement">
             <div class="llh-announce-banner-inner">
               <div class="llh-announce-copy">
-                <p>Only 2 Founding Member spots remaining. Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is $19.99/month.</p>
+                <p data-founding-spots-copy>Checking Founding Member availability… Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is $19.99/month.</p>
               </div>
               <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Lock In $9.99 Pricing</button>
               <button class="llh-announce-dismiss" id="llhFoundingAnnounceDismiss" type="button" aria-label="Dismiss announcement">✕</button>
@@ -504,7 +504,7 @@
               <p class="lp-hero-badge">Curriculum today. Growing into the complete childcare platform providers need.</p>
               <h2 class="lp-hero-headline">Affordable Childcare Curriculum &amp; Planning Tools</h2>
               <p class="lp-hero-sub">Access a growing library of play-based lesson plans, activities, calendar planning tools, and classroom resources created by a childcare provider.</p>
-              <p class="llh-hero-support">Only 2 Founding Member spots remaining. Founding Members lock in $9.99/month while your membership remains continuously active and receive new curriculum and platform features as they launch.</p>
+              <p class="llh-hero-support">Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.</p>
               <div id="homeHeroInventory" class="llh-hero-inventory" data-state="loading" aria-live="polite" aria-busy="true">
                 <p class="llh-hero-inventory-loading">Loading live curriculum inventory…</p>
               </div>
@@ -549,6 +549,7 @@
             <div class="llh-preview-grid" id="homeLessonPreviewGrid">
               <div class="llh-preview-empty muted-copy">Loading free lesson plan previews…</div>
             </div>
+            <p class="llh-lesson-request-note muted-copy">New plans added weekly—members can request future themes.</p>
             <div class="llh-section-actions">
               <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
             </div>
@@ -598,7 +599,7 @@
               <article class="llh-feature-card">
                 <span aria-hidden="true">🔄</span>
                 <h3>New Content Added Regularly</h3>
-                <p>Continue adding new lesson plans, activities, and resources.</p>
+                <p>New lesson plans, activities, and resources are added regularly.</p>
               </article>
               <article class="llh-feature-card">
                 <span aria-hidden="true">🧸</span>
@@ -612,52 +613,30 @@
           <section class="llh-section llh-coming-soon-section" id="homeComingSoon" aria-label="What we are building">
             <div class="lp-section-header">
               <h2 class="lp-section-title">What We Are Building</h2>
-              <p class="lp-section-sub">Big updates are coming. Little Learner Hub is growing into an all-in-one childcare platform — child profiles, daily logs, family communication, enrollment tools, and center management. These features are not all available yet; here is an honest look at the roadmap.</p>
+              <p class="lp-section-sub">Curriculum and planning are available now. These next tools are being developed or tested — not advertised as ready today.</p>
             </div>
-            <div class="llh-coming-grid llh-coming-grid--categories">
+            <div class="llh-coming-grid llh-coming-grid--preview">
               <article class="llh-coming-card llh-coming-category">
-                <h3>Children and Documentation <span class="llh-status-pill">In Development</span></h3>
-                <ul class="llh-coming-list">
-                  <li>Child profiles</li>
-                  <li>Observations</li>
-                  <li>Goals and progress</li>
-                  <li>Child portfolios</li>
-                  <li>Daily reports</li>
-                </ul>
+                <h3>Home Daycare tools <span class="llh-status-pill">In Development</span></h3>
+                <p>Child profiles, observations, and documentation helpers tailored for mixed-age home programs.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
-                <h3>Family Communication and Forms <span class="llh-status-pill">Testing in Progress</span></h3>
-                <ul class="llh-coming-list">
-                  <li>Parent messaging</li>
-                  <li>Family Hub</li>
-                  <li>Digital forms</li>
-                  <li>Signatures</li>
-                  <li>Enrollment</li>
-                </ul>
+                <h3>Family Hub and forms <span class="llh-status-pill">Testing</span></h3>
+                <p>Family communication, digital forms, and enrollment workflows currently in testing.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
-                <h3>Daily Operations <span class="llh-status-pill">Coming Later</span></h3>
-                <ul class="llh-coming-list">
-                  <li>Attendance</li>
-                  <li>Meals</li>
-                  <li>Naps</li>
-                  <li>Diapers and potty</li>
-                  <li>Daily Logs</li>
-                  <li>Classroom Assistant</li>
-                </ul>
-              </article>
-              <article class="llh-coming-card llh-coming-category">
-                <h3>Staff and Program Management <span class="llh-status-pill">Coming Later</span></h3>
-                <ul class="llh-coming-list">
-                  <li>Classrooms</li>
-                  <li>Staff access</li>
-                  <li>Scheduling</li>
-                  <li>Training records</li>
-                  <li>Program management</li>
-                  <li>Center tools</li>
-                </ul>
+                <h3>Daily operations <span class="llh-status-pill">In Development</span></h3>
+                <p>Attendance, meals, naps, and daily logs for smoother classroom routines.</p>
               </article>
             </div>
+            <details class="llh-roadmap-more">
+              <summary>See what we&rsquo;re building</summary>
+              <ul class="llh-coming-list">
+                <li>Child portfolios and progress goals</li>
+                <li>Parent messaging and signatures</li>
+                <li>Classroom Assistant and center staff tools</li>
+              </ul>
+            </details>
           </section>
 
           <!-- WHO IT'S FOR -->
@@ -688,8 +667,27 @@
           <!-- FOUNDER -->
           <section class="lp-founder-section llh-founder-section" id="homeFounder" aria-label="About the founder">
             <div class="lp-founder-photo-wrap">
-              <img class="lp-founder-photo lp-founder-photo-img" src="images/leah-founder.jpg" alt="Leah, founder of Little Learner Hub" width="160" height="160" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='grid'" />
-              <div class="lp-founder-photo lp-founder-photo-fallback" aria-label="Leah, founder of Little Learner Hub" style="display:none"><span aria-hidden="true">LH</span></div>
+              <img class="lp-founder-photo lp-founder-photo-img" src="images/leah-founder.jpg" alt="Leah, founder of Little Learner Hub" width="160" height="160" loading="lazy" data-founder-default-src="images/leah-founder.jpg" onerror="this.style.display='none';var fb=this.nextElementSibling; if(fb){ fb.hidden=false; fb.style.display='grid'; }" />
+              <div class="lp-founder-photo lp-founder-photo-fallback llh-founder-brand-fallback" aria-label="Little Learner Hub" hidden>
+                <span class="llh-founder-brand-mark" aria-hidden="true">
+                  <svg viewBox="0 0 48 48" width="72" height="72" focusable="false">
+                    <line x1="24" y1="24" x2="24" y2="8" stroke="#7B6BB5" stroke-width="2"/>
+                    <line x1="24" y1="24" x2="38" y2="16" stroke="#7BA8C9" stroke-width="2"/>
+                    <line x1="24" y1="24" x2="38" y2="32" stroke="#5DB89A" stroke-width="2"/>
+                    <line x1="24" y1="24" x2="24" y2="40" stroke="#E8A07A" stroke-width="2"/>
+                    <line x1="24" y1="24" x2="10" y2="32" stroke="#E8C96A" stroke-width="2"/>
+                    <line x1="24" y1="24" x2="10" y2="16" stroke="#7B6BB5" stroke-width="2"/>
+                    <circle cx="24" cy="24" r="3.5" fill="#7B6BB5"/>
+                    <circle cx="24" cy="8" r="3" fill="#7B6BB5"/>
+                    <circle cx="38" cy="16" r="3" fill="#7BA8C9"/>
+                    <circle cx="38" cy="32" r="3" fill="#5DB89A"/>
+                    <circle cx="24" cy="40" r="3" fill="#E8A07A"/>
+                    <circle cx="10" cy="32" r="3" fill="#E8C96A"/>
+                    <circle cx="10" cy="16" r="3" fill="#A78BC9"/>
+                  </svg>
+                </span>
+                <span class="llh-founder-brand-label">Little Learner Hub</span>
+              </div>
             </div>
             <div class="lp-founder-content">
               <h2>Created by Someone Who Understands Childcare</h2>
@@ -722,7 +720,7 @@
           <section class="lp-pricing-section llh-pricing-section" id="homePricing" aria-label="Founding Member pricing">
             <div class="lp-section-header">
               <h2 class="lp-section-title">Simple, Honest Pricing</h2>
-              <p class="lp-section-sub">Only 2 Founding Member spots remaining. Start free or lock in $9.99/month while your membership remains continuously active before Founding closes.</p>
+              <p class="lp-section-sub" data-founding-spots-copy>Checking Founding Member availability… Start free or lock in $9.99/month while your membership remains continuously active before Founding closes.</p>
             </div>
             <div id="homeFoundingMeter" class="llh-pricing-founding-meter" aria-live="polite"></div>
             <div class="lp-pricing-grid llh-pricing-grid">
@@ -742,7 +740,7 @@
                 <p class="lp-price-note">No credit card required. Free is a curated preview — not the full library.</p>
               </div>
               <div class="lp-pricing-card lp-pro-card llh-founding-card">
-                <div class="lp-pro-highlight-badge">Only 2 Founding Member spots remaining</div>
+                <div class="lp-pro-highlight-badge" data-founding-spots-copy>Checking Founding Member availability…</div>
                 <div class="lp-price-header">
                   <h3>Founding Member</h3>
                   <div class="lp-price-amount"><strong>$9.99</strong><span>/month locked while continuously active</span></div>
@@ -758,7 +756,7 @@
                   <li>✓ Built by a childcare provider · Cancel anytime</li>
                 </ul>
                 <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="founding" type="button">Lock In $9.99 Pricing</button>
-                <p class="lp-price-note">Only 2 Founding Member spots remaining at $9.99/month locked while your membership remains continuously active. After those spots are claimed, new Pro subscriptions are $19.99/month. Existing Founding Members stay grandfathered. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>
+                <p class="lp-price-note" data-founding-price-note>Checking Founding Member availability… $9.99/month locked while your membership remains continuously active. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>
               </div>
             </div>
           </section>
@@ -766,10 +764,9 @@
           <!-- FINAL CTA -->
           <section class="lp-final-cta llh-final-cta" id="homeFinalCta" aria-label="Ready to get started">
             <h2>Ready to Plan a Better Week?</h2>
-            <p class="lp-cta-body">Browse lesson plans and activities, create a free account, or lock in Founding Member pricing while spots remain.</p>
+            <p class="lp-cta-body">Browse lesson plans and activities, or create a free account to get started.</p>
             <div class="llh-final-actions">
               <button class="llh-btn llh-btn-secondary" type="button" data-home-nav="lessons">Browse Lesson Plans</button>
-              <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Lock In $9.99 Pricing</button>
               <button class="llh-btn llh-btn-ghost" type="button" data-action="start-free">Create Free Account</button>
             </div>
           </section>
@@ -1149,6 +1146,9 @@
           <section class="section-block admin-feature-requests-panel" hidden>
             <div id="adminFeatureRequestsApp"></div>
           </section>
+          <section class="section-block admin-lesson-plan-requests-panel" hidden>
+            <div id="adminLessonPlanRequestsApp"></div>
+          </section>
           <section class="section-block admin-bug-reports-panel" hidden>
             <div id="adminBugReportsApp"></div>
           </section>
@@ -1218,7 +1218,7 @@
           <div class="page-title">
             <p class="eyebrow">⭐ Founding Member</p>
             <h2>Lock In Founding Member Pricing</h2>
-            <p>Only 2 Founding Member spots remaining. $9.99/month locked while your membership remains continuously active. Regular price will be $19.99/month.</p>
+            <p data-founding-spots-copy>Checking Founding Member availability… $9.99/month locked while your membership remains continuously active. Regular price will be $19.99/month.</p>
           </div>
           <div id="pricingApp"></div>
         </section>
@@ -1264,7 +1264,7 @@
           <div class="page-title">
             <p class="eyebrow">⭐ Founding Member</p>
             <h2>Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active</h2>
-            <p>Only 2 Founding Member spots remaining. Regular price will be $19.99/month.</p>
+            <p data-founding-spots-copy>Checking Founding Member availability… Regular price will be $19.99/month.</p>
           </div>
           <div id="upgradeApp"></div>
         </section>
@@ -1868,6 +1868,7 @@
       <div class="modal-card auth-modal-card">
         <button class="close-button" id="closeModal" type="button" aria-label="Close">&times;</button>
         <h2 id="authTitle">Log in to Little Learner Hub</h2>
+        <p id="authFoundingContinueNote" class="auth-founding-continue-note muted-copy" hidden>Create your account to continue with Founding Membership.</p>
         <div id="signupWizardProgress" class="signup-wizard-progress hidden-field" aria-hidden="true">
           <div class="signup-wizard-steps" role="list">
             <span class="signup-wizard-step is-active" data-signup-step-indicator="1" role="listitem">1. Account</span>
@@ -2124,15 +2125,15 @@
     <script src="scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260716-curriculum-standards" defer></script>
-    <script src="scripts/curriculum-lesson-viewer-render.js?v=20260717-more-menu" defer></script>
+    <script src="scripts/curriculum-lesson-viewer-render.js?v=20260729-homepage-cleanup" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260720-promo-existing" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260720-promo-existing" defer></script>
-    <script src="app.js?v=20260729-conversion-finish" defer></script>
-    <script src="admin-workspace.js?v=20260729-conversion-finish" defer></script>
-    <script src="comms-center.js?v=20260729-conversion-finish" defer></script>
+    <script src="app.js?v=20260729-homepage-cleanup" defer></script>
+    <script src="admin-workspace.js?v=20260729-homepage-cleanup" defer></script>
+    <script src="comms-center.js?v=20260729-homepage-cleanup" defer></script>
   </body>
 </html>

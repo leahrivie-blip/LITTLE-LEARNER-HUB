@@ -148,7 +148,7 @@ async function main() {
   record("client sold-out wording avoids fixed 50 total", !/All \$\{limit\} lifetime spots/.test(appJs) && /All available Founding Member spots have been claimed/.test(appJs));
   record("client has spots-left helper", appJs.includes("function foundingSpotsLeftMessage"));
   record("client syncs homepage when sold out", appJs.includes("function syncPublicFoundingOfferUi"));
-  record("homepage static copy mentions final 2 spots", /Only 2 Founding Member spots remaining/.test(indexHtml));
+  record("homepage uses live founding spots copy hooks", /data-founding-spots-copy/.test(indexHtml) && !/Only 2 Founding Member spots remaining/.test(indexHtml));
   record("FAQ explains founding closeout", /What is Founding Member pricing/.test(indexHtml));
   record("no silent founding→monthly fallback in startCheckout", !/foundingSpotsRemaining\(\) <= 0 \? "monthly"/.test(appJs));
 

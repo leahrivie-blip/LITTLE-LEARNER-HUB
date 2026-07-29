@@ -1,15 +1,15 @@
-const CACHE_NAME = "llh-shell-v114-conversion-finish";
-const SHELL_VERSION = "20260729-conversion-finish";
+const CACHE_NAME = "llh-shell-v115-homepage-cleanup";
+const SHELL_VERSION = "20260729-homepage-cleanup";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260729-conversion-finish",
-  "/styles/llh-admin-workspace.css?v=20260729-conversion-finish",
+  "/styles.css?v=20260729-homepage-cleanup",
+  "/styles/llh-admin-workspace.css?v=20260729-homepage-cleanup",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260729-conversion-finish",
+  "/styles/llh-homepage.css?v=20260729-homepage-cleanup",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
   "/styles/llh-messaging.css?v=20260720-promo-existing",
   "/styles/llh-comms.css?v=20260720-promo-existing",
@@ -22,16 +22,16 @@ const APP_SHELL = [
   "/scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-preview.js?v=20260716-curriculum-standards",
   "/scripts/llh-copyright.js?v=20260717-more-menu",
-  "/scripts/curriculum-lesson-viewer-render.js?v=20260717-more-menu",
+  "/scripts/curriculum-lesson-viewer-render.js?v=20260729-homepage-cleanup",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260729-conversion-finish",
-  "/admin-workspace.js?v=20260729-conversion-finish",
-  "/comms-center.js?v=20260729-conversion-finish",
+  "/app.js?v=20260729-homepage-cleanup",
+  "/admin-workspace.js?v=20260729-homepage-cleanup",
+  "/comms-center.js?v=20260729-homepage-cleanup",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

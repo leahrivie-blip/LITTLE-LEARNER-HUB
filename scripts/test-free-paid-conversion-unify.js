@@ -154,11 +154,12 @@ async function main() {
   assert.match(appJs, /function planComparisonTableHtml/);
   assert.match(appJs, /function lockedContentUnlockLines/);
   assert.match(appJs, /Lock In Founding Member Pricing/);
-  assert.match(appJs, /Only \$\{remaining\} Founding Member spots remaining/);
+  assert.match(appJs, /function foundingSpotsLeftMessageFromCount|Only \$\{(?:count|remaining)\} Founding Member spots remaining/);
   assert.match(appJs, /Truthful CTA: data-start-pro-trial must start a real trial/);
   assert.match(appJs, /Banner-fatigue guard/);
   assert.match(indexHtml, /Lock In Founding Member Pricing/);
-  assert.match(indexHtml, /Only 2 Founding Member spots remaining/);
+  assert.match(indexHtml, /data-founding-spots-copy/);
+  assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
   // Misleading trial CTA must not remain on paid checkout entry points
   assert.doesNotMatch(
     appJs.slice(appJs.indexOf("function freePlannerUpgradeNudgeHtml"), appJs.indexOf("function foundingUpgradeBannerHtml")),
@@ -313,7 +314,7 @@ async function main() {
       };
     });
     assert.equal(modal.open, true);
-    assert.match(modal.label, /Lock In Founding Member Pricing/i);
+    assert.match(modal.label, /Lock In Founding Member/i);
     assert.equal(modal.mode, "founding");
     assert.equal(modal.plan, "founding");
     assert.match(modal.body, /free lesson plans|additional lesson plans|New curriculum/i);
