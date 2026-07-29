@@ -107,13 +107,28 @@ Events handled:
 
 ## Founding Member Logic
 
-The server tracks Founding Member inventory in `foundingMembers[]` (local JSON or Postgres). Cap is `FOUNDING_MEMBER_LIMIT` (production closeout: **46**, leaving 2 new spots after 44 claimed). Checkout claims are durable: Postgres uses `pg_advisory_xact_lock` + `SELECT … FOR UPDATE` + a jsonb inventory patch (and full-document upserts union `foundingMembers` so a stale instance write cannot drop a claim). When remaining hits 0, Founding closes everywhere and new Pro is `$19.99/month`. Existing Founding Members stay grandfathered at `$9.99/month` for life.
+The server tracks Founding Member inventory in `foundingMembers[]` (local JSON or Postgres). Cap is `FOUNDING_MEMBER_LIMIT` (production closeout: set from the live claimed count so exactly 2 new spots remain — currently **47** after 45 claimed). Checkout claims are durable: Postgres uses `pg_advisory_xact_lock` + `SELECT … FOR UPDATE` + a jsonb inventory patch (and full-document upserts union `foundingMembers` so a stale instance write cannot drop a claim). When remaining hits 0, Founding closes everywhere and new Pro is `$19.99/month`. Existing Founding Members keep `$9.99/month locked while your membership remains continuously active`.
 
 ```bash
 server/data/launch-store.json
 ```
 
 `PUBLIC_FOUNDING_CLAIMED_BASE` (production: 15) is a marketing offset added to the ledger length for public countdown display.
+
+## Owner task — Stripe Tax product classification (do not auto-change)
+
+**Status:** Separate owner review required. Do **not** change this automatically in code or via agents.
+
+Stripe currently shows the catalog products as **“Needs info”** and classifies them as **SaaS – personal use**.
+
+Little Learner Hub is primarily **business-use software for childcare providers** (home daycares, centers, preschool teachers). Before enabling or changing **automatic tax**, the owner must:
+
+1. Review each product in Stripe Dashboard → Product catalog → tax code / product tax code.
+2. Confirm whether the correct classification is business-use SaaS (or the closest Stripe Tax code for B2B childcare-provider software), not personal-use SaaS.
+3. Resolve any “Needs info” prompts in Stripe Tax / Product tax settings.
+4. Only then enable or adjust automatic tax / tax behavior on Checkout or invoices.
+
+Do not create, edit, archive, or replace Stripe products or prices as part of routine app deploys. Tax classification is an owner/compliance decision.
 
 ## Before Launch
 
@@ -125,3 +140,4 @@ server/data/launch-store.json
 - Run one test cancellation from the Stripe Customer Portal.
 - Move billing records from the local JSON file to a real database before paid launch.
 - Run `node server/launch-check.js` and confirm the full website launch check says `READY`.
+- Complete the **Stripe Tax product classification** owner task above before enabling automatic tax.

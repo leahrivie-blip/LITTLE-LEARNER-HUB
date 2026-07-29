@@ -5623,6 +5623,22 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   .free-plan-reminder-actions .primary-button,
   .free-plan-reminder-actions .ghost-button {
     flex: 1 1 auto;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  .free-plan-reminder-copy strong {
+    overflow-wrap: anywhere;
+  }
+
+  .pricing-card .primary-button,
+  .pricing-card .ghost-button,
+  .founding-upgrade-card .primary-button {
+    white-space: normal;
+    max-width: 100%;
+    line-height: 1.25;
   }
 
   .free-plan-badge {
@@ -5631,6 +5647,7 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 }
 
 .free-welcome-card,
+.free-dashboard-upgrade-card,
 .free-library-conversion-banner {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(200px, 240px);
@@ -5646,12 +5663,14 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 
 @media (max-width: 900px) {
   .free-welcome-card,
+  .free-dashboard-upgrade-card,
   .free-library-conversion-banner {
     grid-template-columns: 1fr;
   }
 }
 
 .free-welcome-card-badge,
+.free-dashboard-upgrade-card-badge,
 .free-library-conversion-badge {
   display: inline-block;
   margin: 0 0 6px;
@@ -5665,21 +5684,24 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   background: rgba(91, 155, 213, 0.18);
 }
 
-.free-welcome-card h3 {
+.free-welcome-card h3,
+.free-dashboard-upgrade-card h3 {
   margin: 0;
   font-size: 1.2rem;
   line-height: 1.3;
   color: var(--ink, #1a2b4a);
 }
 
-.free-welcome-card-copy p {
+.free-welcome-card-copy p,
+.free-dashboard-upgrade-card-copy p {
   margin: 8px 0 0;
   color: var(--muted);
   line-height: 1.45;
   font-size: 0.95rem;
 }
 
-.free-welcome-card-copy p strong {
+.free-welcome-card-copy p strong,
+.free-dashboard-upgrade-card-copy p strong {
   color: var(--ink, #1a2b4a);
   font-weight: 650;
 }
@@ -5693,7 +5715,8 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   font-size: 0.95rem;
 }
 
-.free-welcome-card-actions {
+.free-welcome-card-actions,
+.free-dashboard-upgrade-card-actions {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -5701,10 +5724,51 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 }
 
 .free-welcome-card-actions .primary-button,
-.free-welcome-card-actions .ghost-button {
+.free-welcome-card-actions .ghost-button,
+.free-dashboard-upgrade-card-actions .primary-button,
+.free-dashboard-upgrade-card-actions .ghost-button {
   width: 100%;
   min-height: 44px;
   justify-content: center;
+}
+
+.content-growth-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.content-growth-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 1px solid var(--line, #d7e2ee);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff, #f7fbff);
+  text-align: center;
+}
+
+.content-growth-stat strong {
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: var(--ink, #1a2b4a);
+}
+
+.content-growth-stat span {
+  font-size: 0.82rem;
+  color: var(--muted, #5b6b7c);
+}
+
+.plan-comparison-section {
+  margin: 28px 0 12px;
+}
+
+@media (max-width: 720px) {
+  .content-growth-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .free-library-conversion-banner h3 {
@@ -21023,6 +21087,7 @@ body.auth-modal-open {
 
   .founding-upgrade-banner,
   .free-welcome-card,
+  .free-dashboard-upgrade-card,
   .free-library-conversion-banner {
     grid-template-columns: 1fr;
     padding: 14px;
@@ -21030,6 +21095,7 @@ body.auth-modal-open {
 
   .founding-upgrade-banner-actions,
   .free-welcome-card-actions,
+  .free-dashboard-upgrade-card-actions,
   .free-library-conversion-banner-actions {
     min-width: 0;
   }
@@ -21809,6 +21875,14 @@ body.app-boot-verifying .topbar,
 body.app-boot-verifying .llh-app-footer {
   pointer-events: none;
   user-select: none;
+}
+
+/* First-login overlay budget: boot gate alone — hide reminder/install while verifying */
+body.app-boot-verifying .free-plan-reminder,
+body.app-boot-verifying #platformInstallCardHost,
+body.app-boot-verifying .dashboard-install-card,
+body.app-boot-verifying .platform-install-card {
+  display: none !important;
 }
 
 .app-boot-gate {

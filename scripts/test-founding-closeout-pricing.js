@@ -17,7 +17,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19620 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-founding-closeout-${crypto.randomBytes(4).toString("hex")}.json`);
-const FOUNDING_LIMIT = 46;
+const FOUNDING_LIMIT = 47;
 const PUBLIC_CLAIMED_BASE = 0;
 const OUT_DIR = process.env.AUDIT_OUT_DIR
   || path.join("/opt/cursor/artifacts", "founding-closeout-pricing");
@@ -139,7 +139,7 @@ async function main() {
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const renderYaml = fs.readFileSync(path.join(ROOT, "render.yaml"), "utf8");
-  record("render.yaml founding limit is 46", /FOUNDING_MEMBER_LIMIT[\s\S]*?value:\s*"?46"?/.test(renderYaml));
+  record("render.yaml founding limit is 47", /FOUNDING_MEMBER_LIMIT[\s\S]*?value:\s*"?47"?/.test(renderYaml));
   record("atomic reserve helper exists", serverJs.includes("reserveFoundingSpotAtomic") && serverJs.includes("withFoundingClaimLock"));
   record("postgres durable claim uses advisory lock + FOR UPDATE", serverJs.includes("pg_advisory_xact_lock") && serverJs.includes("FOR UPDATE") && serverJs.includes("mutateFoundingInventoryInPostgres"));
   record("postgres upsert unions foundingMembers (anti-clobber)", /jsonb_array_elements_text\(COALESCE\(llh_store\.data->'foundingMembers'/.test(serverJs));
@@ -148,7 +148,7 @@ async function main() {
   record("client sold-out wording avoids fixed 50 total", !/All \$\{limit\} lifetime spots/.test(appJs) && /All available Founding Member spots have been claimed/.test(appJs));
   record("client has spots-left helper", appJs.includes("function foundingSpotsLeftMessage"));
   record("client syncs homepage when sold out", appJs.includes("function syncPublicFoundingOfferUi"));
-  record("homepage static copy mentions final 2 spots", /Only 2 Founding Member spots left/.test(indexHtml));
+  record("homepage static copy mentions final 2 spots", /Only 2 Founding Member spots remaining/.test(indexHtml));
   record("FAQ explains founding closeout", /What is Founding Member pricing/.test(indexHtml));
   record("no silent founding→monthly fallback in startCheckout", !/foundingSpotsRemaining\(\) <= 0 \? "monthly"/.test(appJs));
 
@@ -163,8 +163,8 @@ async function main() {
       assert.equal(status.status, 200);
       assert.equal(status.json.founding.remaining, 2);
       assert.equal(status.json.founding.soldOut, false);
-      assert.match(status.json.founding.spotsLeftMessage || "", /Only 2 Founding Member spots left/);
-      record("API shows 2 spots left", true, status.json.founding.spotsLeftMessage);
+      assert.match(status.json.founding.spotsLeftMessage || "", /Only 2 Founding Member spots remaining/);
+      record("API shows 2 spots remaining", true, status.json.founding.spotsLeftMessage);
 
       const checkout = await requestJson("POST", "/api/create-checkout-session", {
         email: "new-founder-a@test.local",
@@ -278,7 +278,7 @@ async function main() {
         }).catch(() => {});
         await page.waitForTimeout(800);
         const bodyOpen = await page.locator("body").innerText();
-        assert.match(bodyOpen, /Only 2 Founding Member spots left|2 spots/i);
+        assert.match(bodyOpen, /Only 2 Founding Member spots remaining|2 spots/i);
         assert.match(bodyOpen, /\$9\.99/);
         await page.screenshot({ path: path.join(OUT_DIR, "spots-remain-homepage.png"), fullPage: true });
         record("browser: spots remain shows $9.99 founding offer", true);

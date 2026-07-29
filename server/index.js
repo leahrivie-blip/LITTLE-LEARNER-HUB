@@ -57,14 +57,19 @@ const FOUNDING_CHECKOUT_HOLD_MS = Math.max(
 );
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
-// Production closeout: leave exactly 2 new spots after 44 claimed → limit 46.
-// Cap overrides a stale Dashboard FOUNDING_MEMBER_LIMIT=50 if Blueprint sync lags.
-const FOUNDING_CLOSEOUT_LIMIT = 46;
+// Production closeout: live claimed count must leave exactly 2 new spots.
+// 2026-07-29 live recount: claimed 45 → limit 47 → remaining 2.
+// Always use the closeout constant in production so a stale lower Dashboard env
+// (e.g. 46) cannot leave only 1 spot after deploy. Tests may override via env.
+const FOUNDING_CLOSEOUT_LIMIT = 47;
 const FOUNDING_LIMIT_ENV = Number(process.env.FOUNDING_MEMBER_LIMIT || FOUNDING_CLOSEOUT_LIMIT);
-const FOUNDING_LIMIT = Math.min(
-  Number.isFinite(FOUNDING_LIMIT_ENV) && FOUNDING_LIMIT_ENV > 0 ? FOUNDING_LIMIT_ENV : FOUNDING_CLOSEOUT_LIMIT,
-  FOUNDING_CLOSEOUT_LIMIT,
-);
+const FOUNDING_LIMIT = (
+  process.env.NODE_ENV === "test"
+  && Number.isFinite(FOUNDING_LIMIT_ENV)
+  && FOUNDING_LIMIT_ENV > 0
+)
+  ? FOUNDING_LIMIT_ENV
+  : FOUNDING_CLOSEOUT_LIMIT;
 // Optional marketing offset only — defaults to 0 so claimed counts reflect real foundingMembers[].
 const PUBLIC_FOUNDING_CLAIMED_BASE = Number(process.env.PUBLIC_FOUNDING_CLAIMED_BASE || 0);
 const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "");
@@ -3993,8 +3998,8 @@ function foundingStatusPayload(store = readStore()) {
   const spotsLeftMessage = remaining <= 0
     ? "Founding Member pricing is sold out. Pro is $19.99/month."
     : (remaining === 1
-      ? "Only 1 Founding Member spot left."
-      : `Only ${remaining} Founding Member spots left.`);
+      ? "Only 1 Founding Member spot remaining."
+      : `Only ${remaining} Founding Member spots remaining.`);
   return {
     limit: FOUNDING_LIMIT,
     claimed,

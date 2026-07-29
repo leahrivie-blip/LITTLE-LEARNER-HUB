@@ -117,6 +117,8 @@
     "test:signup-paid-focus": "node scripts/test-signup-paid-focus.js",
     "test:support-reply-email": "NODE_ENV=test node scripts/test-support-reply-email.js",
     "test:free-user-upgrade-experience": "node scripts/test-free-user-upgrade-experience.js",
+    "test:free-paid-conversion-unify": "node scripts/test-free-paid-conversion-unify.js",
+    "test:conversion-finish-approval": "node scripts/test-conversion-finish-approval.js",
     "test:free-pro-conversion": "node scripts/test-free-pro-conversion.js",
     "test:free-plan-grandfathering": "node scripts/test-free-plan-grandfathering.js",
     "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",

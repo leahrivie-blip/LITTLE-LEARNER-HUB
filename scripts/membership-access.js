@@ -9,7 +9,7 @@
  * - Trial cancel uses Stripe cancel_at_period_end: no future charge, access through trial end.
  *
  * FOUNDING MEMBER POLICY
- * - $9.99/month for life only while the founding subscription stays continuously active.
+ * - $9.99/month locked while your membership remains continuously active only while the founding subscription stays continuously active.
  * - foundingMemberHistorical / foundingMemberNumber may remain after cancel of a *paid* founding cycle;
  *   they do NOT grant paid access, and former paid founding members are NOT auto-routed to $9.99 on return.
  * - Admin may intentionally restore $9.99 via foundingMemberActive + restoreFoundingPrice override.

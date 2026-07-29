@@ -58,14 +58,16 @@ async function main() {
 
   assertIncludes(appJs, "Save hours every week with unlimited lesson plans", "value prop");
   assertIncludes(appJs, "Ready to save hours every week?", "free library headline");
-  assertIncludes(appJs, "If the Free sample feels this good", "dashboard headline");
+  assertIncludes(appJs, "Ready for the full lesson plan library", "dashboard headline");
   assertIncludes(appJs, "Generate custom lesson plans in seconds and save hours of planning every week.", "AI gate message");
   assertIncludes(appJs, "function canGenerateAiLessonPlans()", "AI gate helper");
   assertIncludes(appJs, "function freeLibraryConversionBannerHtml", "dashboard banner helper");
   assertIncludes(appJs, "function freeWelcomeCardHtml", "new Free welcome card helper");
   assertIncludes(appJs, "function refreshFreePlanUpgradeChrome", "persistent free chrome helper");
   assertIncludes(appJs, "function renderLessonPlanLibraryCountsHtml", "library counts helper");
-  assertIncludes(appJs, "Start Your 7-Day Free Trial", "trial CTA");
+  assertIncludes(appJs, "function freeUpgradePrimaryButtonLabel", "unified CTA helper");
+  assertIncludes(appJs, "function planComparisonTableHtml", "comparison table helper");
+  assertIncludes(appJs, "Lock In Founding Member Pricing", "founding CTA");
   assertIncludes(appJs, "Converts to Pro Monthly after trial", "trial conversion note");
   assertIncludes(appJs, "freeCalendarPlanningDays = 30", "free calendar horizon");
   assertIncludes(appJs, "freeFavoriteLimit = 20", "free favorites limit");
@@ -73,7 +75,7 @@ async function main() {
   assertIncludes(viewerJs, "This is a Pro Lesson Plan.", "locked preview headline");
   assertIncludes(viewerJs, "Complete Monday–Friday lesson plans", "locked preview unlock list");
   assertIncludes(viewerJs, "New lesson plans added every week", "locked preview weekly language");
-  assertIncludes(indexHtml, "Start Your 7-Day Free Trial", "modal CTA");
+  assertIncludes(indexHtml, "Lock In Founding Member Pricing", "modal CTA");
   assertIncludes(indexHtml, "freePlanBadge", "free plan badge");
   assertIncludes(indexHtml, "freePlanReminderBar", "free plan reminder bar");
   assertIncludes(indexHtml, "sidebarFreeUpgradeCard", "sidebar free upgrade card");

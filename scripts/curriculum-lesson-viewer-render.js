@@ -352,7 +352,7 @@ function lockedFoundingOfferHtml(showFoundingOffer) {
   return `
     <div class="fp-founding-offer" data-fp-founding-offer>
       <p class="fp-founding-offer-eyebrow">🔥 Founding Member Pricing Still Available</p>
-      <p>Lock in <strong>$9.99/month for life</strong> and receive unlimited access to:</p>
+      <p>Lock in <strong>$9.99/month locked while your membership remains continuously active</strong> and receive unlimited access to:</p>
       <ul class="fp-pro-upgrade-benefits fp-founding-benefits">
         <li>• Every Pro Lesson Plan</li>
         <li>• Every Activity</li>

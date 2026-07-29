@@ -28,7 +28,7 @@
 - [ ] Staff cannot open billing or director-only settings
 - [ ] Directors can open staff, forms, enrollment, billing
 - [ ] Upgrade prompts route to the correct plan
-- [ ] Founding members remain $9.99/month for life
+- [ ] Founding members remain $9.99/month locked while membership remains continuously active
 - [ ] No production Stripe mutations during testing
 
 ## Notes

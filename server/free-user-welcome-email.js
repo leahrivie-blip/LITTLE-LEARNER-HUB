@@ -54,7 +54,7 @@ const EMAIL_TEXT = [
   "",
   "🔥 Founding Member spots are still available!",
   "",
-  "Lock in $9.99/month for life and keep that price as Little Learner Hub continues to grow.",
+  "Lock in $9.99/month while your membership remains continuously active and keep that price as Little Learner Hub continues to grow.",
   "",
   "Regular Pro pricing is higher, but Founding Members keep their rate forever.",
   "",
@@ -167,9 +167,9 @@ function foundingReminderBlock(foundingOpen) {
       "",
       "🔥 Only a few Founding Member spots left!",
       "",
-      "Lock in $9.99/month for life before Founding closes. After the final spots are claimed, new Pro is $19.99/month.",
+      "Lock in $9.99/month while your membership remains continuously active before Founding closes. After the final spots are claimed, new Pro is $19.99/month.",
       "",
-      "Existing Founding Members keep $9.99/month for life.",
+      "Existing Founding Members keep $9.99/month locked while your membership remains continuously active.",
     ].join("\n");
   }
   return [
@@ -177,7 +177,7 @@ function foundingReminderBlock(foundingOpen) {
     "",
     "Founding Member spots are filled.",
     "",
-    "New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.",
+    "New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.",
   ].join("\n");
 }
 
@@ -190,7 +190,7 @@ function emailBodyText(foundingOpen = true) {
         "",
         "🔥 Founding Member spots are still available!",
         "",
-        "Lock in $9.99/month for life and keep that price as Little Learner Hub continues to grow.",
+        "Lock in $9.99/month while your membership remains continuously active and keep that price as Little Learner Hub continues to grow.",
         "",
         "Regular Pro pricing is higher, but Founding Members keep their rate forever.",
       ].join("\n"),

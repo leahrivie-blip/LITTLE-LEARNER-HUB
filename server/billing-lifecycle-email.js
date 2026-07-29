@@ -101,7 +101,7 @@ function cancellationEmailContent(user = {}, {
     if (foundingReleased) {
       lines.push("Because you canceled during your free month, your reserved Founding Member spot has been released back into inventory.");
     } else {
-      lines.push("Important: canceling a Founding Member subscription means you may permanently lose your $9.99/month-for-life rate. Returning later may require regular Pro pricing.");
+      lines.push("Important: canceling a Founding Member subscription means you may permanently lose your $9.99/month locked while your membership remains continuously active. Returning later may require regular Pro pricing.");
     }
   }
   lines.push(
@@ -123,7 +123,7 @@ function cancellationEmailContent(user = {}, {
         : `You'll keep full access until <strong>${escapeHtml(endLabel)}</strong>. After that date your account returns to the Free plan and no further charges will be made.`}</p>
       ${wasFounding || foundingReleased ? `<p style="color:#6b3d2a;">${foundingReleased
         ? "Because you canceled during your free month, your reserved Founding Member spot has been released back into inventory."
-        : "Important: canceling a Founding Member subscription means you may permanently lose your $9.99/month-for-life rate. Returning later may require regular Pro pricing."}</p>` : ""}
+        : "Important: canceling a Founding Member subscription means you may permanently lose your $9.99/month locked while your membership remains continuously active. Returning later may require regular Pro pricing."}</p>` : ""}
       <p style="margin:24px 0;">
         <a href="${escapeHtml(billingUpdateUrl())}" style="background:#5b3d8f;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none;display:inline-block;">Manage Billing</a>
       </p>

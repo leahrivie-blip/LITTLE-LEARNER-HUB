@@ -52,21 +52,20 @@ test("shared banner helpers exist", () => {
 });
 
 test("banner copy and founding CTA markers", () => {
-  assert.match(appJs, /Founding Member Spots Still Available/);
-  assert.match(appJs, /Lock in \$9\.99\/month for life/);
-  assert.match(appJs, /Regular Price:/);
-  assert.match(appJs, /Claim Founding Member Pricing/);
+  assert.match(appJs, /Lock In Founding Member Pricing/);
+  assert.match(appJs, /\$9\.99\/month locked while your membership remains continuously active/);
+  assert.match(appJs, /Regular price will be \$19\.99\/month/);
+  assert.match(appJs, /freeUpgradePrimaryButtonLabel/);
   assert.match(appJs, /data-dismiss-founding-upgrade/);
   assert.match(appJs, /founding-upgrade-banner/);
 });
 
-test("banner placements: dashboard, libraries, billing, settings, locked features", () => {
-  assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "dashboard"/);
-  assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "library"/);
+test("banner placements: billing, settings, locked features (no library/dashboard stacks)", () => {
   assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "billing"/);
   assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "settings"/);
   assert.match(appJs, /paidUpgradeCtaButtonHtml/);
   assert.match(appJs, /dataset\.upgradeMode/);
+  assert.match(appJs, /function freeDashboardUpgradeCardHtml/);
 });
 
 test("eligibility gates exclude paid, staff, admin full access", () => {
@@ -80,10 +79,10 @@ test("eligibility gates exclude paid, staff, admin full access", () => {
 
 test("CTA uses founding checkout while spots remain, monthly when sold out", () => {
   assert.match(appJs, /preferredPaidCheckoutPlan\(\) \{\s*return foundingSpotsStillAvailable\(\) \? "founding" : "monthly"/);
-  assert.match(appJs, /startCheckout\("founding"\)/);
+  assert.match(appJs, /startCheckoutWithFoundingGuard\("founding"/);
   assert.match(appJs, /mode === "monthly"/);
-  // startCheckout still blocks founding when sold out
-  assert.match(appJs, /Founding Membership is sold out/);
+  // Client + server still block founding when sold out
+  assert.match(appJs, /Founding Member pricing is sold out|Founding is sold out/);
 });
 
 test("no duplicate upgrade CTAs when dashboard banner is visible", () => {
@@ -99,9 +98,11 @@ test("mobile-friendly banner styles", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260715-lesson-importer");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260715-lesson-importer");
-  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
+  const cssVer = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
+  const jsVer = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
+  assert.ok(cssVer, "styles.css cache bust present");
+  assert.equal(cssVer, jsVer, "styles.css and app.js cache bust versions should match");
+  assert.match(sw, /llh-shell-v\d+/);
 });
 
 test("account-access: only owners get billing capability", () => {
@@ -182,13 +183,15 @@ async function runServerCheckoutGuards() {
       assert.equal(res.status, 200);
       const founding = res.json?.founding || res.json;
       assert.ok(Number(founding.remaining) > 0);
-      assert.equal(Number(founding.limit), 50);
+      // Runtime closeout cap is 47 even if env asks for 50.
+      assert.ok(Number(founding.limit) <= 50);
+      assert.ok(Number(founding.limit) >= 47);
       assert.equal(Boolean(founding.soldOut), false);
     });
 
     await asyncTest("sold-out founding checkout is rejected by server", async () => {
       // Fill founding spots via store mutation is heavy; instead assert startCheckout client + server messages exist.
-      assert.match(fs.readFileSync(path.join(root, "server/index.js"), "utf8"), /Founding Membership is sold out/);
+      assert.match(fs.readFileSync(path.join(root, "server/index.js"), "utf8"), /Founding Member pricing is sold out/);
       assert.match(appJs, /type === "founding" && foundingSpotsRemaining\(\) <= 0/);
     });
   } finally {

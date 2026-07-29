@@ -42,10 +42,10 @@ services:
         value: Leah
       - key: SUPPORT_POSTAL_ADDRESS
         sync: false
-      # Closeout: production has 44 claimed founding spots. Limit 46 leaves exactly 2 new spots.
-      # Existing Founding Members stay grandfathered at $9.99/month for life regardless of this limit.
+      # Closeout: live claimed was 45 on 2026-07-29. Limit 47 leaves exactly 2 new spots.
+      # Existing Founding Members keep $9.99/month locked while continuously active regardless of this limit.
       - key: FOUNDING_MEMBER_LIMIT
-        value: "46"
+        value: "47"
       - key: PUBLIC_FOUNDING_CLAIMED_BASE
         value: 15
       - key: DATABASE_PROVIDER

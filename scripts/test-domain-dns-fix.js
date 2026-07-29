@@ -47,7 +47,7 @@ const sw = fs.readFileSync(path.join(root, "service-worker.js"), "utf8");
 const indexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 
-const CACHE_V = "20260727-home-reliability";
+const CACHE_V = "20260729-conversion-finish";
 const SHELL_V = "llh-shell-v112-home-reliability";
 
 test("classify: Namecheap NS + Render targets is ready", () => {

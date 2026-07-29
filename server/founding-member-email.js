@@ -26,7 +26,7 @@ const EMAIL_TEXT = [
   "",
   "When I started building this platform, I had one goal: to create an affordable, all-in-one resource built by a childcare provider, for childcare providers. Your early support has helped make that possible.",
   "",
-  "As a reminder, your Founding Member pricing is locked in for life. No matter how many new features, lesson plans, activities, printables, tools, or updates are added in the future, you will continue to keep your special Founding Member rate as long as your membership remains active and in good standing.",
+  "As a reminder, your Founding Member pricing is $9.99/month locked while your membership remains continuously active. No matter how many new features, lesson plans, activities, printables, tools, or updates are added in the future, you will continue to keep your special Founding Member rate as long as your membership remains active and in good standing.",
   "",
   "Little Learner Hub already includes a growing lesson plan library, hundreds of activities, calendar and planning tools, documentation helpers, child profiles, daily logs, messaging, and more. New lesson plans are added weekly, and many more tools and resources are still being built.",
   "",
