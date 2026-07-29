@@ -1,8 +1,10 @@
 # Handoff: Postgres safety emails + “site can’t be found” (2026-07-29)
 
 **For:** next agent / Leah  
-**Status as of:** 2026-07-29 ~02:50 UTC  
-**Owner action still needed:** Bluehost redirect for old domain (see below)
+**Status as of:** 2026-07-29 ~03:00 UTC  
+**Owner action still needed:**
+1. **Render:** upgrade web service **Free → Starter** (see `docs/RENDER_STARTER_UPGRADE.md`) — this is the durable Postgres-disconnect fix  
+2. **Bluehost:** 301 redirect old domain (see below)
 
 ---
 
@@ -12,6 +14,7 @@
 2. Some people said the website **“can’t be found.”**
 3. We investigated, fixed connection recovery, merged to production, and added keepalive.
 4. Official site is healthy. Old domain `littlelearnerhub.com` still does **not** point at this app.
+5. **Root cause still live on Render:** production web service plan is **`free`** (spins down). `render.yaml` says `starter`, but the Dashboard instance was never upgraded. API plan change returned HTTP 500 — Leah must flip it in the Dashboard.
 
 ---
 
@@ -100,7 +103,18 @@ Artifacts from investigation/verification:
 
 ## Owner action still required (Leah)
 
-### Redirect the old domain (this is the main remaining “can’t be found” fix)
+### 1) Upgrade Render Free → Starter (fixes Postgres disconnect root cause)
+
+Follow **`docs/RENDER_STARTER_UPGRADE.md`**.
+
+Short version:
+1. Open https://dashboard.render.com/web/srv-d8o3f3r6sc1c73comlc0 → **Settings**
+2. **Instance Type:** Free → **Starter** → save (add payment method if asked)
+3. Confirm deploy finishes; check `/api/launch-readiness` still shows Postgres ready
+
+Until this is done, Free-tier spin-down can still sever DB connections even with pool retry + keepalive.
+
+### 2) Redirect the old domain (remaining “can’t be found” fix)
 
 In **Bluehost** (nameservers were `ns1.bluehost.com` / `ns2.bluehost.com`):
 
@@ -111,8 +125,9 @@ In **Bluehost** (nameservers were `ns1.bluehost.com` / `ns2.bluehost.com`):
 App code cannot fix DNS we don’t control. Until Bluehost forwards the old name, old bookmarks will keep looking broken.
 
 ### Optional
-- Confirm Render auto-deploy of #358/#359 finished (sites were healthy after merge).
-- Watch whether `[LLH SAFETY] postgres_disconnect` emails drop off. Rare emails during a real/long outage are still expected.
+- Confirm Render auto-deploy of #358/#359/#360 finished (sites were healthy after merge).
+- After Starter upgrade, watch whether `[LLH SAFETY] postgres_disconnect` emails stop. Rare emails during a real/long outage are still expected.
+- GitHub Actions → **Keepalive** should ping every 5 minutes (and on each `main` push).
 
 ---
 
@@ -140,9 +155,10 @@ App code cannot fix DNS we don’t control. Until Bluehost forwards the old name
 | `scripts/mock-pg-preload.js` | Dropped-connection mock for pool tests |
 | `scripts/mock-pg-admin-sessions-preload.js` | Admin-session mock `pool.on` compatibility |
 | `scripts/test-postgres-pool-hardening.js` | Regression suite for disconnect/retry/alerts |
-| `.github/workflows/keepalive.yml` | Scheduled health pings |
+| `.github/workflows/keepalive.yml` | Scheduled health pings (every 5 min + on `main` push) |
 | `docs/DOMAIN_DNS_FIX.md` | Official DNS + old-domain redirect instructions |
-| `render.yaml` | Web service `starter` plan (spin-down behavior) |
+| `docs/RENDER_STARTER_UPGRADE.md` | **Required** Dashboard steps: Free → Starter |
+| `render.yaml` | Declares `starter`; live service was still `free` until Dashboard upgrade |
 
 ---
 
@@ -170,8 +186,8 @@ curl -sSI https://littlelearnerhub.com/ | head
 
 | Question | Answer |
 |---|---|
-| Will the safety emails stop? | Mostly yes for brief deploy/cold-start blips after #358. Keepalive (#359) also reduces cold starts. A real/long outage can still alert once per cooldown. |
-| Is the official website working? | Yes — `littlelearnershubbyleah.com`. |
-| Why do people still say can’t be found? | They’re likely on **`littlelearnerhub.com`** (old Bluehost domain) or hitting a rare cold-start. |
+| Will the safety emails stop? | Mostly after **Free → Starter** upgrade. #358/#359 already soften blips; Free spin-down is still the root cause until Starter. A real/long outage can still alert once per cooldown. |
+| Is the official website working? | Yes — `littlelearnershubbyleah.com` (Postgres ready, 89 lessons / 1500 activities verified). |
+| Why do people still say can’t be found? | They’re likely on **`littlelearnerhub.com`** (old Bluehost domain) or hitting a Free-tier cold-start. |
 | Was any user/lesson data deleted? | No evidence of loss; inventory and key accounts verified after incident + merges. |
-| What does Leah still need to do? | Bluehost 301 redirect old domain → official site. |
+| What does Leah still need to do? | (1) Render Free → Starter. (2) Bluehost 301 redirect old domain → official site. |
