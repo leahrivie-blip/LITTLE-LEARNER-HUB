@@ -323,7 +323,8 @@
       }
       weekNumbers.add(week.weekNumber);
       if (!week.lessonPlanId) {
-        errors.push(`Week ${week.weekNumber} is missing.`);
+        // Allow empty weeks so multi-age collections can publish tracks progressively
+        // (e.g. Preschool Weeks 2–4 live while Week 1 is still coming).
         return;
       }
       if (occupied.has(week.lessonPlanId)) {
@@ -373,6 +374,9 @@
         errors.push(`Two lesson plans are assigned to Week ${weekNumber}.`);
       }
     });
+    if (occupied.size === 0) {
+      errors.push("At least one week must be linked to a lesson plan before publishing.");
+    }
     return [...new Set(errors)];
   }
 

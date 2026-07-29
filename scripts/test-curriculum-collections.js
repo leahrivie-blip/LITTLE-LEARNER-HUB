@@ -257,7 +257,7 @@ async function browserSmoke() {
         ],
       },
     });
-    // Same plan linked to multiple weeks may fail validation — if so, only week 1.
+    // Same plan linked to multiple weeks fails validation — fall back to progressive publish (week 1 only).
     let seriesOk = seriesSave.status === 200;
     if (!seriesOk) {
       const seriesSave2 = await requestJson("POST", "/api/admin/curriculum/series", {
@@ -281,9 +281,8 @@ async function browserSmoke() {
           ],
         },
       });
-      // weekCount 4 with missing weeks fails publish — use draft? Need all weeks filled for publish.
-      // Create 3 more tiny stub plans.
-      assert(seriesSave2.status !== 200, "expected multi-link failure path");
+      // Progressive publish: weekCount 4 with only some weeks linked is allowed.
+      assert(seriesSave2.status === 200, `expected progressive single-week publish ${seriesSave2.status} ${seriesSave2.text}`);
     }
 
     // Create 3 additional stub copies for weeks 2-4

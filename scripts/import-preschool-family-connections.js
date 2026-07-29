@@ -171,7 +171,7 @@ function buildSeries(planIdsByWeek) {
     season: "Back to School",
     weekCount: 4,
     plan: "Pro",
-    status: "needs_review",
+    status: "published",
     featured: true,
     displayOrder: 12,
     coverImageUrl: "/images/lesson-covers/all-about-me.jpg",
@@ -286,7 +286,7 @@ async function main() {
     const linkedWeeks = (savedSeries.weeks || []).filter((week) => week.lessonPlanId);
     assert(linkedWeeks.length >= 3, "expected at least 3 linked weeks");
 
-    console.log("Preschool Family Connections collection saved (needs_review until Week 1 is linked):");
+    console.log("Preschool Family Connections collection published (Week 1 slot reserved until content arrives):");
     console.log(`  collectionKey=${COLLECTION_KEY}`);
     console.log(`  series=${SERIES_ID}`);
     console.log(`  weeks=${WEEK_META.map((w) => `${w.weekNumber}:${planIdsByWeek[w.weekNumber]}`).join(", ")}`);
