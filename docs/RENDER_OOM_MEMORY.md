@@ -58,8 +58,8 @@ curl -sS https://littlelearnershubbyleah.com/api/health
 
 In Render → Metrics, confirm memory stays below ~70% after imports/admin use.
 
-## Longer-term (optional)
+## Longer-term (required follow-up)
 
-- Prefer `peekStore()` on more read-only handlers (avoid clones).
-- Move analytics events out of the main `llh_store` JSONB blob.
-- Split curriculum into its own table/document so lesson imports do not rewrite users/messages/etc.
+Standard RAM buys time. The durable fix is to stop keeping growing collections in one in-memory JSON document.
+
+See **`docs/STORE_SPLIT_FOLLOWUP.md`** for the phased plan (analytics → curriculum → messaging → slim account core).

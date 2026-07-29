@@ -2941,12 +2941,52 @@ async function initializeStorage() {
     console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
   }
   try {
-    // Shrink oversized analytics history once at boot so Render Starter is not
-    // holding a multi‑MB event log that gets deep-cloned on every readStore().
-    const store = readStore();
+    // Trim analyticsEvents only on the live store reference. Never rebuild users,
+    // curriculum, messages, or billing from a stale clone — peekStore() returns
+    // storeCache in Postgres mode, so this mutates the in-memory document in place
+    // and writeStoreAsync persists that same object (API routes are still 503).
+    const store = peekStore();
+    const inventoryBefore = {
+      users: Object.keys(store.users || {}).length,
+      messages: Array.isArray(store.messages) ? store.messages.length : 0,
+      lessonPlans: Array.isArray(store.siteContent?.curriculum?.lessonPlans)
+        ? store.siteContent.curriculum.lessonPlans.length
+        : 0,
+      activities: Array.isArray(store.siteContent?.curriculum?.activities)
+        ? store.siteContent.curriculum.activities.length
+        : 0,
+      series: Array.isArray(store.siteContent?.curriculum?.series)
+        ? store.siteContent.curriculum.series.length
+        : 0,
+      foundingMembers: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
+    };
     const pruned = pruneAnalyticsEventsInStore(store);
     if (pruned.trimmed) {
       await writeStoreAsync(store);
+      const inventoryAfter = {
+        users: Object.keys(store.users || {}).length,
+        messages: Array.isArray(store.messages) ? store.messages.length : 0,
+        lessonPlans: Array.isArray(store.siteContent?.curriculum?.lessonPlans)
+          ? store.siteContent.curriculum.lessonPlans.length
+          : 0,
+        activities: Array.isArray(store.siteContent?.curriculum?.activities)
+          ? store.siteContent.curriculum.activities.length
+          : 0,
+        series: Array.isArray(store.siteContent?.curriculum?.series)
+          ? store.siteContent.curriculum.series.length
+          : 0,
+        foundingMembers: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
+      };
+      const inventoryChanged = Object.keys(inventoryBefore).some(
+        (key) => inventoryBefore[key] !== inventoryAfter[key],
+      );
+      if (inventoryChanged) {
+        console.error("[analytics] boot prune inventory mismatch — refusing silent continue", {
+          before: inventoryBefore,
+          after: inventoryAfter,
+        });
+        throw new Error("Analytics boot prune changed non-analytics inventory counts.");
+      }
       console.log(`[analytics] boot prune ${pruned.before} → ${pruned.after} events (cap=${MAX_ANALYTICS_EVENTS})`);
     }
   } catch (error) {
