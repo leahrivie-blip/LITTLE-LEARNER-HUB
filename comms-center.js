@@ -2449,6 +2449,106 @@
 
   window.renderAdminFeatureRequests = renderAdminFeatureRequests;
 
+  const LESSON_PLAN_REQUEST_STATUSES = Object.freeze([
+    "Received",
+    "Planned",
+    "In Progress",
+    "Published",
+    "Not Planned",
+  ]);
+
+  async function renderAdminLessonPlanRequests(container) {
+    if (!container) return;
+    container.innerHTML = `<p class="messages-loading">Loading lesson plan requests…</p>`;
+    let items = [];
+    try {
+      const data = await adminFetchJson("/api/lesson-plan-requests");
+      items = Array.isArray(data.lessonPlanRequests) ? data.lessonPlanRequests : [];
+    } catch (error) {
+      container.innerHTML = adminPanelShell("Lesson Plan Requests", `<div class="empty-state">${escapeHtml(error.message)}</div>`);
+      return;
+    }
+
+    container.innerHTML = adminPanelShell("Lesson Plan Requests", `
+      <p class="form-note">Review member theme requests. Status updates notify the requester in-app. Publishing does not promise every request will be created.</p>
+      <div class="ticket-list">
+        ${items.length ? items.map((item) => `
+          <article class="ticket-card" data-lesson-plan-request-id="${escapeHtml(item.id)}">
+            <div class="ticket-card-header">
+              <div>
+                <p class="eyebrow">${escapeHtml(item.ageGroup || "")} · Needed ${escapeHtml(item.neededBy || "—")}</p>
+                <h3>${escapeHtml(item.theme || "")}</h3>
+                <p>${escapeHtml(item.name || "")} · ${escapeHtml(item.email || "")}</p>
+                <small>${escapeHtml(messagingRelativeTime(item.createdAt))}</small>
+              </div>
+              <label>Status
+                ${statusSelectHtml(LESSON_PLAN_REQUEST_STATUSES, item.status || "Received", "data-lesson-plan-request-status", item.id)}
+              </label>
+            </div>
+            ${item.details ? `<p>${escapeHtml(item.details)}</p>` : ""}
+            <div class="account-actions-row" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+              <label>Linked lesson plan id
+                <input type="text" data-lesson-plan-request-link-id="${escapeHtml(item.id)}" value="${escapeHtml(item.linkedLessonPlanId || "")}" placeholder="curriculum lesson id" />
+              </label>
+              <label>Linked title
+                <input type="text" data-lesson-plan-request-link-title="${escapeHtml(item.id)}" value="${escapeHtml(item.linkedLessonPlanTitle || "")}" placeholder="Published plan title" />
+              </label>
+              <button class="ghost-button" type="button" data-lesson-plan-request-save-link="${escapeHtml(item.id)}">Save link</button>
+            </div>
+          </article>
+        `).join("") : `<div class="empty-state">No lesson plan requests yet.</div>`}
+      </div>
+      <p class="form-note" id="adminLessonPlanRequestsMessage"></p>
+    `);
+
+    container.querySelectorAll("[data-lesson-plan-request-status]").forEach((select) => {
+      select.addEventListener("change", async () => {
+        const id = select.getAttribute("data-lesson-plan-request-status");
+        const linkId = container.querySelector(`[data-lesson-plan-request-link-id="${CSS.escape(id)}"]`)?.value || "";
+        const linkTitle = container.querySelector(`[data-lesson-plan-request-link-title="${CSS.escape(id)}"]`)?.value || "";
+        try {
+          await adminFetchJson("/api/admin/lesson-plan-request-update", {
+            method: "POST",
+            body: {
+              id,
+              status: select.value,
+              linkedLessonPlanId: linkId,
+              linkedLessonPlanTitle: linkTitle,
+            },
+          });
+          setFormMessage("#adminLessonPlanRequestsMessage", "Status updated.", true);
+        } catch (error) {
+          setFormMessage("#adminLessonPlanRequestsMessage", error.message || "Update failed.", false);
+        }
+      });
+    });
+    container.querySelectorAll("[data-lesson-plan-request-save-link]").forEach((button) => {
+      button.addEventListener("click", async () => {
+        const id = button.getAttribute("data-lesson-plan-request-save-link");
+        const linkId = container.querySelector(`[data-lesson-plan-request-link-id="${CSS.escape(id)}"]`)?.value || "";
+        const linkTitle = container.querySelector(`[data-lesson-plan-request-link-title="${CSS.escape(id)}"]`)?.value || "";
+        const status = container.querySelector(`[data-lesson-plan-request-status="${CSS.escape(id)}"]`)?.value || "Received";
+        try {
+          await adminFetchJson("/api/admin/lesson-plan-request-update", {
+            method: "POST",
+            body: {
+              id,
+              status: linkId || linkTitle ? "Published" : status,
+              linkedLessonPlanId: linkId,
+              linkedLessonPlanTitle: linkTitle,
+            },
+          });
+          setFormMessage("#adminLessonPlanRequestsMessage", "Linked lesson plan saved.", true);
+          renderAdminLessonPlanRequests(container);
+        } catch (error) {
+          setFormMessage("#adminLessonPlanRequestsMessage", error.message || "Save failed.", false);
+        }
+      });
+    });
+  }
+
+  window.renderAdminLessonPlanRequests = renderAdminLessonPlanRequests;
+
   async function renderAdminBugReports(container) {
     if (!container) return;
     container.innerHTML = `<p class="messages-loading">Loading bug reports…</p>`;

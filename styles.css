@@ -21919,3 +21919,37 @@ body.app-boot-verifying .platform-install-card {
   gap: 10px;
 }
 
+
+/* Lesson plan request panel (signed-in library) */
+.lesson-plan-request-panel {
+  margin: 12px 0 18px;
+  padding: 16px 18px;
+  border: 1px solid rgba(36, 48, 71, 0.12);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(123, 168, 201, 0.08), rgba(255, 255, 255, 0.95));
+}
+.lesson-plan-request-intro h3 {
+  margin: 0 0 8px;
+}
+.lesson-plan-request-intro p {
+  margin: 0 0 12px;
+  color: var(--muted, #5b6578);
+  line-height: 1.5;
+}
+.lesson-plan-request-form {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+.lesson-plan-request-list {
+  margin-top: 14px;
+}
+.lesson-plan-request-list-title {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+.lp-founder-photo-fallback.llh-founder-brand-fallback {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 12px 30px rgba(36, 48, 71, 0.12);
+}

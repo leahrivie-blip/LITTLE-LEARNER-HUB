@@ -224,7 +224,8 @@ async function main() {
       };
     });
     assert.equal(guest.remaining, 2);
-    assert.match(`${guest.announce}\n${guest.hero}\n${guest.pricing}`, /Only 2 Founding Member spots remaining|2 spots/i);
+    assert.match(`${guest.announce}\n${guest.pricing}`, /Only 2 Founding Member spots remaining/i);
+    assert.doesNotMatch(guest.hero || "", /Only \d+ Founding Member spots? remaining/i);
     assert.equal(guest.forLife, false);
     await shot(page, "01-guest-homepage-founding");
     console.log("PASS guest homepage Founding count");

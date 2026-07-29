@@ -3255,7 +3255,7 @@ function renderSignupPlanChooser() {
       <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? `${escapeHtml(foundingSpotsLeftMessage(remaining))} <strong>${remaining} spot${remaining === 1 ? "" : "s"} remaining.</strong>` : "Checking Founding Member availability…"}</p>
+      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? escapeHtml(foundingSpotsLeftMessage(remaining)) : "Checking Founding Member availability…"}</p>
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
@@ -3552,9 +3552,24 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     `;
   }
   if (upgradeBtn) {
-    upgradeBtn.textContent = proTrialBtnText;
-    upgradeBtn.dataset.checkoutPlan = offerFounding ? "founding" : (offerPro ? "monthly" : "");
-    upgradeBtn.dataset.upgradeMode = offerFounding ? "founding" : (offerPro ? "monthly" : "trial");
+    if (offerFounding) {
+      upgradeBtn.textContent = "Lock In Founding Member — $9.99/month";
+      upgradeBtn.dataset.checkoutPlan = "founding";
+      upgradeBtn.dataset.upgradeMode = "founding";
+      upgradeBtn.removeAttribute("data-start-pro-trial");
+    } else if (offerPro) {
+      upgradeBtn.textContent = "Upgrade to Pro Monthly — $19.99/month";
+      upgradeBtn.dataset.checkoutPlan = "monthly";
+      upgradeBtn.dataset.upgradeMode = "monthly";
+      upgradeBtn.removeAttribute("data-start-pro-trial");
+    } else {
+      upgradeBtn.textContent = proTrialBtnText.includes("Trial")
+        ? "Start 7-Day Pro Trial — then $19.99/month"
+        : proTrialBtnText;
+      upgradeBtn.dataset.checkoutPlan = "";
+      upgradeBtn.dataset.upgradeMode = "trial";
+      upgradeBtn.dataset.startProTrial = "1";
+    }
   }
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -3893,10 +3908,22 @@ function localFoundingSpotsClaimed() {
 }
 
 function applyFoundingStatus(status = {}) {
-  const limit = Number(status.limit || foundingMemberLimit);
+  // Live /api/founding-status is authoritative. Do not inflate claimed from local
+  // foundingMembers — that caused public vs signed-in spot-count mismatches.
+  const hasServerClaimed = status.claimed != null && status.claimed !== "";
+  const hasServerRemaining = status.remaining != null && status.remaining !== "";
+  const limit = Math.max(1, Number(status.limit || foundingMemberLimit) || foundingMemberLimit);
   const localClaimed = localFoundingSpotsClaimed();
-  const claimed = Math.min(Math.max(Number(status.claimed ?? localClaimed), localClaimed), limit);
-  const remaining = Math.max(Number(status.remaining ?? (limit - claimed)), 0);
+  const claimed = Math.min(
+    hasServerClaimed ? Number(status.claimed) : localClaimed,
+    limit,
+  );
+  const remaining = Math.max(
+    hasServerRemaining ? Number(status.remaining) : (limit - claimed),
+    0,
+  );
+  const spotsLeftMessage = String(status.spotsLeftMessage || "").trim()
+    || foundingSpotsLeftMessageFromCount(remaining);
   foundingStatusCache = {
     ...foundingStatusCache,
     ...status,
@@ -3904,18 +3931,22 @@ function applyFoundingStatus(status = {}) {
     claimed,
     remaining,
     soldOut: Boolean(status.soldOut) || remaining <= 0,
-    spotsLeftMessage: status.spotsLeftMessage
-      || (remaining <= 0
-        ? "Founding Member pricing is sold out. Pro is $19.99/month."
-        : (remaining === 1
-          ? "Only 1 Founding Member spot remaining."
-          : `Only ${remaining} Founding Member spots remaining.`)),
-    source: status.source || "server",
+    spotsLeftMessage,
+    source: status.source || (hasServerClaimed ? "server" : "local"),
     loaded: true,
     loadError: false,
     updatedAt: new Date().toISOString(),
   };
   return foundingStatusCache;
+}
+
+function foundingSpotsLeftMessageFromCount(remaining) {
+  const count = Number(remaining);
+  if (!Number.isFinite(count) || count <= 0) {
+    return "Founding Member pricing is sold out. Pro is $19.99/month.";
+  }
+  if (count === 1) return "Only 1 Founding Member spot remaining.";
+  return `Only ${count} Founding Member spots remaining.`;
 }
 
 function foundingStatusLoaded() {
@@ -3946,10 +3977,13 @@ function foundingProgressPercent() {
 }
 
 function foundingSpotsLeftMessage(remaining = foundingSpotsRemaining()) {
-  if (remaining == null) return foundingStatusCache.spotsLeftMessage || "Checking Founding Member availability…";
-  if (remaining <= 0) return "Founding Member pricing is sold out. Pro is $19.99/month.";
-  if (remaining === 1) return "Only 1 Founding Member spot remaining.";
-  return `Only ${remaining} Founding Member spots remaining.`;
+  if (remaining == null) {
+    return foundingStatusCache.spotsLeftMessage || "Checking Founding Member availability…";
+  }
+  if (foundingStatusLoaded() && foundingStatusCache.spotsLeftMessage && remaining === foundingSpotsRemaining()) {
+    return foundingStatusCache.spotsLeftMessage;
+  }
+  return foundingSpotsLeftMessageFromCount(remaining);
 }
 
 function foundingUrgencyText() {
@@ -3987,21 +4021,44 @@ function syncPublicFoundingOfferUi() {
   const soldOut = !foundingSpotsStillAvailable();
   const remaining = foundingSpotsRemaining();
   const spotsMsg = foundingSpotsLeftMessage(remaining);
+  const spotsWithRegular = soldOut
+    ? spotsMsg
+    : `${spotsMsg} Regular price will be $19.99/month.`;
+
+  // Keep every Founding count surface on the same server-provided message.
+  document.querySelectorAll("[data-founding-spots-copy]").forEach((node) => {
+    if (!node || node.closest(".llh-founding-card .lp-price-note")) return;
+    if (node.matches("#homePricing .lp-section-sub")) {
+      node.textContent = soldOut
+        ? "Start free, or upgrade to Pro at $19.99/month."
+        : `${spotsMsg} Start free or lock in Founding Member pricing while spots remain.`;
+      return;
+    }
+    if (node.matches(".lp-pro-highlight-badge")) {
+      node.textContent = soldOut ? "Full Access" : (remaining <= 2 ? spotsMsg : "Most Popular · Best Value");
+      return;
+    }
+    if (node.closest("#freePlanReminderBar, #sidebarFreeUpgradeCard, #view-plans, #view-upgrade")) {
+      node.textContent = spotsWithRegular;
+      return;
+    }
+    if (node.closest("#llhFoundingAnnounceBanner")) {
+      node.textContent = soldOut
+        ? spotsMsg
+        : `${spotsMsg} Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is $19.99/month.`;
+      return;
+    }
+    node.textContent = spotsMsg;
+  });
 
   const announce = document.querySelector("#llhFoundingAnnounceBanner");
   if (announce) {
-    const copy = announce.querySelector("p");
     const cta = announce.querySelector("[data-checkout-plan]");
     if (soldOut) {
       announce.hidden = true;
-    } else {
-      if (copy) {
-        copy.textContent = `${spotsMsg} Lock in Founding Member pricing at $9.99/month locked while your membership remains continuously active.`;
-      }
-      if (cta) {
-        cta.dataset.checkoutPlan = "founding";
-        cta.textContent = "Lock In $9.99 Pricing";
-      }
+    } else if (cta) {
+      cta.dataset.checkoutPlan = "founding";
+      cta.textContent = "Lock In $9.99 Pricing";
     }
   }
 
@@ -4010,15 +4067,12 @@ function syncPublicFoundingOfferUi() {
     const title = foundingCard.querySelector(".lp-price-header h3");
     const amountStrong = foundingCard.querySelector(".lp-price-amount strong");
     const amountSpan = foundingCard.querySelector(".lp-price-amount span");
-    const badge = foundingCard.querySelector(".lp-pro-highlight-badge");
     const cta = foundingCard.querySelector("[data-checkout-plan]");
     const note = foundingCard.querySelector(".lp-price-note");
-    const sectionSub = document.querySelector("#homePricing .lp-section-sub");
     if (soldOut) {
       if (title) title.textContent = "Pro Monthly";
       if (amountStrong) amountStrong.textContent = "$19.99";
       if (amountSpan) amountSpan.textContent = "/month";
-      if (badge) badge.textContent = "Full Access";
       if (cta) {
         cta.dataset.checkoutPlan = "monthly";
         cta.textContent = "Choose Pro Monthly";
@@ -4026,13 +4080,11 @@ function syncPublicFoundingOfferUi() {
       if (note) {
         note.innerHTML = "Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.";
       }
-      if (sectionSub) sectionSub.textContent = "Start free, or upgrade to Pro at $19.99/month.";
       foundingCard.classList.add("llh-founding-card--sold-out");
     } else {
       if (title) title.textContent = "Founding Member";
       if (amountStrong) amountStrong.textContent = "$9.99";
       if (amountSpan) amountSpan.textContent = "/month locked while continuously active";
-      if (badge) badge.textContent = remaining <= 2 ? spotsMsg : "Most Popular · Best Value";
       if (cta) {
         cta.dataset.checkoutPlan = "founding";
         cta.textContent = "Lock In $9.99 Pricing";
@@ -4040,7 +4092,6 @@ function syncPublicFoundingOfferUi() {
       if (note) {
         note.innerHTML = `${escapeHtml(spotsMsg)} $9.99/month locked while your Founding Membership remains continuously active. Future regular pricing: $19.99/month. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button>`;
       }
-      if (sectionSub) sectionSub.textContent = `${spotsMsg} Start free or lock in Founding Member pricing while spots remain.`;
       foundingCard.classList.remove("llh-founding-card--sold-out");
     }
   }
@@ -4062,19 +4113,22 @@ function syncPublicFoundingOfferUi() {
   });
 
   const heroSupport = document.querySelector(".llh-hero-support");
-  if (heroSupport && !soldOut) {
-    heroSupport.textContent = `${spotsMsg} Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.`;
-  } else if (heroSupport && soldOut) {
-    heroSupport.textContent = "Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active. Unlock the full curriculum library and planning tools.";
+  if (heroSupport) {
+    heroSupport.textContent = soldOut
+      ? "Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active."
+      : "Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.";
   }
 
   const finalCtaBody = document.querySelector("#homeFinalCta .lp-cta-body");
   if (finalCtaBody) {
     finalCtaBody.textContent = soldOut
       ? "Browse lesson plans and activities, create a free account, or upgrade to Pro at $19.99/month."
-      : `${spotsMsg} Browse lesson plans and activities, create a free account, or lock in Founding Member pricing while spots remain.`;
+      : "Browse lesson plans and activities, or create a free account to get started.";
   }
 
+  if (typeof refreshFreePlanUpgradeChrome === "function") {
+    try { refreshFreePlanUpgradeChrome(); } catch { /* ignore */ }
+  }
   updateAuthButtons();
 }
 
@@ -5282,7 +5336,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5302,7 +5356,7 @@ const adminGroups = [
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "ai-health", "usage", "settings"], defaultTab: "ai-home" },
   { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
-  { id: "advanced", icon: "🔧", label: "Advanced", tabs: ["advanced-home", "dashboard", "analytics", "support", "feedback", "feature-requests", "bug-reports", "emails", "visibility", "resources", "stripe-backfill", "prompts", "ai-testing", "admin-settings"], defaultTab: "advanced-home" },
+  { id: "advanced", icon: "🔧", label: "Advanced", tabs: ["advanced-home", "dashboard", "analytics", "support", "feedback", "feature-requests", "lesson-plan-requests", "bug-reports", "emails", "visibility", "resources", "stripe-backfill", "prompts", "ai-testing", "admin-settings"], defaultTab: "advanced-home" },
 ];
 const adminGroupForTab = {
   "admin-home": "admin-home",
@@ -5320,6 +5374,7 @@ const adminGroupForTab = {
   "support": "advanced",
   "feedback": "advanced",
   "feature-requests": "advanced",
+  "lesson-plan-requests": "advanced",
   "bug-reports": "advanced",
   "emails": "advanced",
   "messages-home": "messages",
@@ -5386,6 +5441,7 @@ const adminTabLabels = {
   "support": "Support",
   "feedback": "Feedback",
   "feature-requests": "Feature Requests",
+  "lesson-plan-requests": "Lesson Plan Requests",
   "bug-reports": "Bug Reports",
   "emails": "Emails",
   "messages-home": "Messages Home",
@@ -10526,8 +10582,18 @@ function setAuthMode(mode) {
   passwordField.autocomplete = mode === "signup" ? "new-password" : "current-password";
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
   submitButton.hidden = false;
+  const foundingContinueNote = document.querySelector("#authFoundingContinueNote");
+  const preferFoundingSignup = mode === "signup"
+    && preferredSignupPlanFromStorage() === "founding"
+    && (!foundingStatusLoaded() || foundingSpotsStillAvailable());
+  if (foundingContinueNote) {
+    foundingContinueNote.hidden = !preferFoundingSignup;
+    foundingContinueNote.textContent = "Create your account to continue with Founding Membership.";
+  }
   if (mode === "signup") {
-    title.textContent = "Create Your Free Little Learner Hub Account";
+    title.textContent = preferFoundingSignup
+      ? "Continue with Founding Membership"
+      : "Create Your Free Little Learner Hub Account";
     submitButton.textContent = "Continue";
     forgotButton.style.display = "none";
     switchButton.textContent = "Already have an account? Log in";
@@ -22026,14 +22092,28 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     ? "Pro Lesson Plan Preview"
     : (isLockedActivity ? "Pro Activity Preview" : "Pro Resource Preview");
   featurePreviewTitle.textContent = resource.title;
-  const lockedUpgradeCta = paidUpgradeCtaButtonHtml();
-  const stickyUpgradeCta = lockedUpgradeCta;
-  const lockedUpgradeNote = canSeePaidUpgradeOffer()
-    ? freeUpgradeSupportingText()
-    : (typeof proTrialUpgradeSummary === "string"
-      ? proTrialUpgradeSummary
-      : "7-Day Free Trial · Card required · Cancel anytime.");
   const showFoundingOffer = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
+  const showProMonthlyOffer = canSeePaidUpgradeOffer() && !foundingSpotsStillAvailable();
+  const showProTrialOffer = !canSeePaidUpgradeOffer() && !isProUser();
+  // Never mix Founding ($9.99 locked) with Pro trial (converts to $19.99/month).
+  const lockedUpgradeCta = showFoundingOffer
+    ? paidUpgradeCtaButtonHtml({
+      label: "Lock In Founding Member — $9.99/month",
+      short: true,
+    })
+    : (showProMonthlyOffer
+      ? paidUpgradeCtaButtonHtml({ label: "Upgrade to Pro Monthly — $19.99/month", short: true })
+      : (showProTrialOffer
+        ? `<button class="primary-button" type="button" data-start-pro-trial="1">Start 7-Day Pro Trial — then $19.99/month</button>`
+        : paidUpgradeCtaButtonHtml()));
+  const stickyUpgradeCta = lockedUpgradeCta;
+  const lockedUpgradeNote = showFoundingOffer
+    ? `${foundingSpotsLeftMessage()} $9.99/month locked while your membership remains continuously active. This is Founding Membership — not a Pro trial.`
+    : (showProMonthlyOffer
+      ? "Pro Monthly is $19.99/month. Existing Founding Members keep their locked price while continuously active."
+      : (showProTrialOffer
+        ? "7-day Pro trial. Card required. Cancel anytime. Converts to Pro Monthly at $19.99/month after the trial — not Founding Member pricing."
+        : ""));
   const renderApi = curriculumViewerRenderApi();
   const lockedCurriculum = isLockedLessonPlan
     ? renderApi?.lockedCurriculumLessonPreviewHtml(resource, {
@@ -22314,6 +22394,147 @@ function renderLessonPlanLibraryCountsHtml() {
   `;
 }
 
+function lessonPlanRequestPanelHtml() {
+  if (!isLoggedIn() && !hasAdminFullAccess()) return "";
+  return `
+    <section class="lesson-plan-request-panel" id="lessonPlanRequestPanel" aria-label="Request a Lesson Plan">
+      <div class="lesson-plan-request-intro">
+        <h3>Request a Lesson Plan</h3>
+        <p>New lesson plans are added every week. Looking for a specific age group or theme? Send us a request. Popular requests help shape what we create next, but submitting a request does not guarantee publication or a specific completion date.</p>
+        <button class="ghost-button" type="button" data-toggle-lesson-plan-request>Request a Lesson Plan</button>
+      </div>
+      <form class="panel-form lesson-plan-request-form" id="lessonPlanRequestForm" hidden>
+        <label>Age group
+          <select id="lessonPlanRequestAge" required>
+            <option value="">Select age group</option>
+            <option>Infant</option>
+            <option>Toddler</option>
+            <option>Preschool</option>
+            <option>Mixed Ages</option>
+          </select>
+        </label>
+        <label>Requested theme/topic
+          <input id="lessonPlanRequestTheme" type="text" maxlength="200" required placeholder="e.g. Ocean Animals" />
+        </label>
+        <label>When it is needed
+          <input id="lessonPlanRequestNeededBy" type="text" maxlength="120" required placeholder="e.g. Next month / Spring theme week" />
+        </label>
+        <label>Optional details
+          <textarea id="lessonPlanRequestDetails" rows="3" maxlength="4000" placeholder="Any classroom notes, materials limits, or goals"></textarea>
+        </label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit">Submit request</button>
+          <button class="ghost-button" type="button" data-cancel-lesson-plan-request>Cancel</button>
+        </div>
+        <p class="form-message" id="lessonPlanRequestMessage" aria-live="polite"></p>
+      </form>
+      <div id="lessonPlanRequestList" class="lesson-plan-request-list" aria-live="polite"></div>
+    </section>
+  `;
+}
+
+async function loadLessonPlanRequestsForCurrentUser() {
+  const host = document.querySelector("#lessonPlanRequestList");
+  if (!host || !currentUser) return;
+  host.innerHTML = `<p class="muted-copy">Loading your requests…</p>`;
+  try {
+    const headers = await firebaseAuthHeaders();
+    const response = await fetch(`/api/lesson-plan-requests?email=${encodeURIComponent(currentUser)}`, {
+      cache: "no-store",
+      headers: headers || {},
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Could not load requests.");
+    const items = Array.isArray(data.lessonPlanRequests) ? data.lessonPlanRequests : [];
+    if (!items.length) {
+      host.innerHTML = `<p class="muted-copy">No lesson plan requests yet.</p>`;
+      return;
+    }
+    host.innerHTML = `
+      <h4 class="lesson-plan-request-list-title">Your requests</h4>
+      <div class="ticket-list">
+        ${items.map((item) => `
+          <article class="ticket-card lesson-plan-request-card">
+            <div class="ticket-card-header">
+              <div>
+                <p class="eyebrow">${escapeHtml(item.ageGroup || "")} · ${escapeHtml(item.status || "Received")}</p>
+                <h3>${escapeHtml(item.theme || "Lesson plan request")}</h3>
+                <p>Needed: ${escapeHtml(item.neededBy || "—")}</p>
+                ${item.linkedLessonPlanTitle ? `<p class="muted-copy">Published: ${escapeHtml(item.linkedLessonPlanTitle)}</p>` : ""}
+                <small>${escapeHtml(item.updatedAt || item.createdAt || "")}</small>
+              </div>
+            </div>
+            ${item.details ? `<p>${escapeHtml(item.details)}</p>` : ""}
+          </article>
+        `).join("")}
+      </div>
+    `;
+  } catch (error) {
+    host.innerHTML = `<p class="form-message">${escapeHtml(error.message || "Could not load requests.")}</p>`;
+  }
+}
+
+async function submitLessonPlanRequestForm(form) {
+  if (!currentUser) {
+    openAuthModal("login");
+    return;
+  }
+  const messageEl = form.querySelector("#lessonPlanRequestMessage") || document.querySelector("#lessonPlanRequestMessage");
+  const ageGroup = String(form.querySelector("#lessonPlanRequestAge")?.value || "").trim();
+  const theme = String(form.querySelector("#lessonPlanRequestTheme")?.value || "").trim();
+  const neededBy = String(form.querySelector("#lessonPlanRequestNeededBy")?.value || "").trim();
+  const details = String(form.querySelector("#lessonPlanRequestDetails")?.value || "").trim();
+  if (!ageGroup || !theme || !neededBy) {
+    if (messageEl) {
+      messageEl.textContent = "Age group, theme/topic, and when it is needed are required.";
+      messageEl.dataset.state = "error";
+    }
+    return;
+  }
+  if (messageEl) {
+    messageEl.textContent = "Submitting…";
+    messageEl.dataset.state = "";
+  }
+  try {
+    const headers = await firebaseAuthHeaders();
+    const account = currentAccount() || {};
+    const response = await fetch("/api/lesson-plan-request", {
+      method: "POST",
+      headers: headers || { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: currentUser,
+        name: displayUserName(account) || account.name || "",
+        ageGroup,
+        theme,
+        neededBy,
+        details,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      if (messageEl) {
+        messageEl.textContent = data.error || "You already have an open request for this age group and theme.";
+        messageEl.dataset.state = "error";
+      }
+      await loadLessonPlanRequestsForCurrentUser();
+      return;
+    }
+    if (!response.ok) throw new Error(data.error || "Could not submit request.");
+    form.reset();
+    form.hidden = true;
+    if (messageEl) {
+      messageEl.textContent = data.message || "Request received.";
+      messageEl.dataset.state = "success";
+    }
+    await loadLessonPlanRequestsForCurrentUser();
+  } catch (error) {
+    if (messageEl) {
+      messageEl.textContent = error.message || "Could not submit request.";
+      messageEl.dataset.state = "error";
+    }
+  }
+}
+
 function renderLessonPlanLibraryHeader() {
   const backView = resolveLessonLibraryBackView();
   if (lessonLibraryMode === "saved") {
@@ -22580,6 +22801,7 @@ function renderCategoryPage(view) {
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
       ${calendarLessonAssignBannerHtml()}
+      ${!isSavedLessonMode && !isCollectionMode ? lessonPlanRequestPanelHtml() : ""}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
         <input id="lessonPlanSearch" type="search" placeholder="${isSavedLessonMode ? "Search saved plans..." : (isCollectionMode ? "Search this collection..." : "Search lesson plans...")}" value="${escapeHtml(searchInput.value)}" autocomplete="off" />
@@ -22590,6 +22812,9 @@ function renderCategoryPage(view) {
       ${isSavedLessonMode || isCollectionMode ? "" : renderLessonLibrarySecondaryControls()}
       ${browseBody}
     `;
+    if (!isSavedLessonMode && !isCollectionMode) {
+      loadLessonPlanRequestsForCurrentUser().catch(() => {});
+    }
     return;
   }
 
@@ -22989,20 +23214,22 @@ function renderManagedHomeContent() {
   }
   const founderImg = document.querySelector(".lp-founder-photo-img");
   const founderFallback = document.querySelector(".lp-founder-photo-fallback");
-  const founderImage = founder.homeImageUrl || founder.profileImageUrl || "";
+  const defaultFounderSrc = founderImg?.dataset?.founderDefaultSrc || "images/leah-founder.jpg";
+  const founderImage = founder.homeImageUrl || founder.profileImageUrl || defaultFounderSrc;
   if (founderImg) {
-    if (founderImage) {
-      founderImg.src = founderImage;
-      founderImg.style.display = "";
-      if (founderFallback) founderFallback.style.display = "none";
-    } else {
-      founderImg.removeAttribute("src");
+    founderImg.src = founderImage;
+    founderImg.style.display = "";
+    if (founderFallback) {
+      founderFallback.hidden = true;
+      founderFallback.style.display = "none";
+    }
+    founderImg.onerror = () => {
       founderImg.style.display = "none";
       if (founderFallback) {
+        founderFallback.hidden = false;
         founderFallback.style.display = "grid";
-        founderFallback.innerHTML = `<span aria-hidden="true">${escapeHtml(initialsFromName(founder.name || founder.title || "LL"))}</span>`;
       }
-    }
+    };
   }
 }
 
@@ -23570,12 +23797,16 @@ function homeActivityPreviewCardHtml(resource) {
 
 function publicActivityPreviewCtaHtml() {
   if (isLoggedIn() || hasAdminFullAccess()) return "";
+  const foundingOpen = !foundingStatusLoaded() || foundingSpotsStillAvailable();
+  const paidCta = foundingOpen
+    ? `<button class="ghost-button" type="button" data-checkout-plan="founding">Lock In Founding Member — $9.99/month</button>`
+    : `<button class="ghost-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly — $19.99/month</button>`;
   return `
     <section class="llh-public-preview-cta">
       <p>Create an account to save activities and use them in your weekly planning.</p>
       <div class="llh-public-preview-cta-actions">
         <button class="primary-button" type="button" data-action="start-free">Create Free Account</button>
-        <button class="ghost-button" type="button" data-checkout-plan="founding">Get Full Access for $9.99/month</button>
+        ${paidCta}
       </div>
     </section>
   `;
@@ -41001,6 +41232,7 @@ function applyAdminSectionVisibility() {
     ".admin-automations-panel",
     ".admin-changelog-panel",
     ".admin-feature-requests-panel",
+    ".admin-lesson-plan-requests-panel",
     ".admin-bug-reports-panel",
     ".admin-notifications-panel",
   ];
@@ -41101,6 +41333,12 @@ function applyAdminSectionVisibility() {
     if (el) el.hidden = false;
     if (typeof window.renderAdminFeatureRequests === "function") {
       window.renderAdminFeatureRequests(document.querySelector("#adminFeatureRequestsApp"));
+    }
+  } else if (tab === "lesson-plan-requests") {
+    const el = document.querySelector(".admin-lesson-plan-requests-panel");
+    if (el) el.hidden = false;
+    if (typeof window.renderAdminLessonPlanRequests === "function") {
+      window.renderAdminLessonPlanRequests(document.querySelector("#adminLessonPlanRequestsApp"));
     }
   } else if (tab === "bug-reports") {
     const el = document.querySelector(".admin-bug-reports-panel");
@@ -52385,6 +52623,24 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const toggleLessonPlanRequest = event.target.closest("[data-toggle-lesson-plan-request]");
+  if (toggleLessonPlanRequest) {
+    event.preventDefault();
+    const form = document.querySelector("#lessonPlanRequestForm");
+    if (form) form.hidden = !form.hidden;
+    return;
+  }
+  const cancelLessonPlanRequest = event.target.closest("[data-cancel-lesson-plan-request]");
+  if (cancelLessonPlanRequest) {
+    event.preventDefault();
+    const form = document.querySelector("#lessonPlanRequestForm");
+    if (form) {
+      form.hidden = true;
+      form.reset();
+    }
+    return;
+  }
+
   if (document.querySelector(".lesson-workspace-more-menu:not([hidden])")
     && !event.target.closest(".lesson-workspace-more-menu, [data-lesson-workspace-more-toggle], [data-lesson-workspace-more-backdrop], [data-lesson-workspace-more-close]")) {
     toggleLessonWorkspaceMoreMenu(false);
@@ -54946,9 +55202,22 @@ async function completeSignupProgramStep({ allowSkip = false } = {}) {
     hasCenterName: Boolean(resolvedName),
     hasInviteCode: Boolean(inviteCode),
   });
-  signupWizardStep = 3;
   setFormMessage("#authMessage", "");
   await syncFoundingStatus({ render: false }).catch(() => {});
+  const preferredPlan = preferredSignupPlanFromStorage();
+  // Preserve Founding selection: after account + program, continue to Founding checkout
+  // instead of the Free/Pro chooser (which could drop the selected plan).
+  if (preferredPlan === "founding" && foundingSpotsStillAvailable()) {
+    updateAccount(currentUser, { selectedPlanAtSignup: "Founding", preferredCheckoutPlan: "founding" });
+    await finishSignupWithPlan("founding");
+    return;
+  }
+  if (preferredPlan === "monthly") {
+    updateAccount(currentUser, { selectedPlanAtSignup: "Pro", preferredCheckoutPlan: "monthly" });
+    await finishSignupWithPlan("monthly");
+    return;
+  }
+  signupWizardStep = 3;
   renderSignupWizardStep();
 }
 
@@ -55522,10 +55791,17 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         if (!firstName) throw new Error("Please enter your name.");
         const result = await signUpWithProvider(email, password, phone, firstName, lastName);
         loadAccountState(result.email);
+        const preferredPlan = preferredSignupPlanFromStorage();
+        const selectedAtSignup = preferredPlan === "founding"
+          ? "Founding"
+          : preferredPlan === "monthly"
+            ? "Pro"
+            : "Free";
         updateAccount(result.email, {
           signupAt: new Date().toISOString(),
           lastLoginAt: new Date().toISOString(),
-          selectedPlanAtSignup: "Free",
+          selectedPlanAtSignup: selectedAtSignup,
+          preferredCheckoutPlan: preferredPlan || "",
           firstName,
           lastName,
           name: [firstName, lastName].filter(Boolean).join(" "),
@@ -55543,7 +55819,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         loadUserAiUsage(result.email).catch(() => {});
         trackEvent("account_signup_complete", {
           email: result.email,
-          plan: "Free",
+          plan: selectedAtSignup,
+          preferredPlan: preferredPlan || "free",
           source: trafficSource(),
           firstName,
           lastName,
@@ -55639,6 +55916,12 @@ document.querySelector("#forcePasswordForm")?.addEventListener("submit", async (
   } finally {
     if (button) button.disabled = false;
   }
+});
+
+document.addEventListener("submit", async (event) => {
+  if (!event.target.matches("#lessonPlanRequestForm")) return;
+  event.preventDefault();
+  await submitLessonPlanRequestForm(event.target);
 });
 
 document.addEventListener("submit", async (event) => {

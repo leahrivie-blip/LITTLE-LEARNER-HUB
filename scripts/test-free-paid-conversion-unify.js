@@ -158,7 +158,8 @@ async function main() {
   assert.match(appJs, /Truthful CTA: data-start-pro-trial must start a real trial/);
   assert.match(appJs, /Banner-fatigue guard/);
   assert.match(indexHtml, /Lock In Founding Member Pricing/);
-  assert.match(indexHtml, /Only 2 Founding Member spots remaining/);
+  assert.match(indexHtml, /data-founding-spots-copy/);
+  assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
   // Misleading trial CTA must not remain on paid checkout entry points
   assert.doesNotMatch(
     appJs.slice(appJs.indexOf("function freePlannerUpgradeNudgeHtml"), appJs.indexOf("function foundingUpgradeBannerHtml")),

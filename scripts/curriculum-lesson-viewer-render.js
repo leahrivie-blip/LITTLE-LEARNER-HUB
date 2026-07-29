@@ -351,8 +351,8 @@ function lockedFoundingOfferHtml(showFoundingOffer) {
   if (!showFoundingOffer) return "";
   return `
     <div class="fp-founding-offer" data-fp-founding-offer>
-      <p class="fp-founding-offer-eyebrow">🔥 Founding Member Pricing Still Available</p>
-      <p>Lock in <strong>$9.99/month locked while your membership remains continuously active</strong> and receive unlimited access to:</p>
+      <p class="fp-founding-offer-eyebrow">Founding Member — $9.99/month</p>
+      <p>Lock in <strong>$9.99/month while your membership remains continuously active</strong>. This is Founding Membership, not a Pro trial.</p>
       <ul class="fp-pro-upgrade-benefits fp-founding-benefits">
         <li>• Every Pro Lesson Plan</li>
         <li>• Every Activity</li>
@@ -360,7 +360,7 @@ function lockedFoundingOfferHtml(showFoundingOffer) {
         <li>• Documentation Helpers</li>
         <li>• New Features as They Launch</li>
       </ul>
-      <p class="fp-founding-regular-price">Regular Price: <span>$19.99/month</span></p>
+      <p class="fp-founding-regular-price">Regular Pro Monthly: <span>$19.99/month</span></p>
     </div>
   `;
 }
