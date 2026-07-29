@@ -1,0 +1,47 @@
+name: Keepalive
+
+# Pings the live site every 10 minutes so the Render starter web service
+# does not spin down from idle. Cold starts were causing brief 502/503s that
+# looked like "site can't be found" and also severed Postgres connections
+# (LLH SAFETY emails). Read-only GET only — never mutates data.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Ping production health
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Wake official site + Render host
+        run: |
+          set -euo pipefail
+          for url in \
+            "https://littlelearnershubbyleah.com/api/health" \
+            "https://www.littlelearnershubbyleah.com/api/health" \
+            "https://little-learner-hub.onrender.com/api/health"
+          do
+            echo "GET $url"
+            # Retry a few times so a mid-deploy 503 does not fail the whole job.
+            ok=0
+            for i in 1 2 3 4 5; do
+              code=$(curl -sS -m 45 -o /tmp/keepalive.json -w "%{http_code}" -L "$url" || echo "000")
+              echo "  try $i => HTTP $code"
+              if [ "$code" = "200" ]; then
+                ok=1
+                break
+              fi
+              sleep 8
+            done
+            if [ "$ok" != "1" ]; then
+              echo "WARN: $url did not return 200 after retries (may be mid-deploy)"
+            fi
+          done
+          # Soft success — keepalive should not page on a single blip.
+          exit 0

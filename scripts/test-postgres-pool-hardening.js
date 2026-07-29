@@ -221,6 +221,8 @@ async function main() {
   assert.match(serverJs, /idleTimeoutMillis:\s*POSTGRES_IDLE_TIMEOUT_MS/);
   assert.match(serverJs, /pool\.on\("error"/);
   assert.match(serverJs, /POSTGRES_TRANSIENT_RETRY_COUNT/);
+  assert.match(serverJs, /sticky lastPostgresError/);
+  assert.match(serverJs, /if \(databaseReady\) lastPostgresError = ""/);
   console.log("PASS  source contains pool hardening helpers");
 
   const child = startServer();
