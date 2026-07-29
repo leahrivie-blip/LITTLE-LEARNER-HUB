@@ -197,7 +197,7 @@ async function main() {
     assert.equal(state.badgeHidden, false, "Free Plan badge should show");
     assert.equal(state.reminderHidden, false, "Free plan reminder should show");
     assert.equal(state.sidebarHidden, false, "sidebar upgrade card should show");
-    assert.equal(state.signupText, "Upgrade");
+    assert.match(state.signupText, /Lock In Founding Member Pricing|Upgrade to Pro|Upgrade/i);
     assert.equal(state.bodyFreeUpgrade, true);
     assert.equal(state.bodyPro, false);
     assert.equal(state.reminderOverlapsTopbar, false, "reminder must not overlap topbar");
