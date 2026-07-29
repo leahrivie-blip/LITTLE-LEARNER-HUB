@@ -156,11 +156,15 @@ async function main() {
       await test("homepage shows the required Founding copy + live remaining count while spots are open (desktop)", async () => {
         const page = await newPage(browser, { width: 1280, height: 900 });
         await loadHome(page, port);
-        await page.waitForSelector("#homeFoundingOffer .founding-hero-card", { timeout: 10000 });
-        const text = await page.locator("#homeFoundingOffer").innerText();
-        assert.match(text, /Includes Pro access\. \$9\.99\/month locked while continuously active\./);
-        assert.match(text, /Spots Remaining/i);
-        assert.doesNotMatch(text, /no meaningful/i, "the removed 'no meaningful reason' wording must not appear anywhere");
+        await page.waitForSelector("#homePricing .llh-founding-card, #homeFoundingMeter", { timeout: 10000 });
+        await page.waitForFunction(() => {
+          const meter = document.querySelector("#homeFoundingMeter");
+          return meter && /spots remaining|Founding Member spots left/i.test(meter.innerText || "");
+        }, null, { timeout: 15000 });
+        const pricingText = await page.locator("#homePricing").innerText();
+        assert.match(pricingText, /\$9\.99/);
+        assert.match(pricingText, /spots remaining|Founding Member spots left/i);
+        assert.doesNotMatch(pricingText, /no meaningful/i, "the removed 'no meaningful reason' wording must not appear anywhere");
         await page.screenshot({ path: path.join(SHOT_DIR, "01-homepage-founding-open-desktop.png"), fullPage: true });
         await page.close();
       });
@@ -344,7 +348,17 @@ async function main() {
       await test("sold-out: homepage shows the sold-out state, no Founding card, no confirmation when choosing Pro", async () => {
         const page = await newPage(browser, { width: 1280, height: 900 });
         await loadHome(page, port);
-        await page.waitForSelector("#homeFoundingOffer .founding-hero-card.founding-sold-out", { timeout: 10000 });
+        await page.waitForFunction(() => {
+          const meter = document.querySelector("#homeFoundingMeter");
+          const card = document.querySelector("#homePricing .llh-founding-card");
+          const meterSoldOut = meter && /filled|\$19\.99|regular Pro/i.test(meter.innerText || "");
+          const cardSoldOut = card && (
+            card.classList.contains("llh-founding-card--sold-out")
+            || /Pro Monthly/i.test(card.innerText || "")
+          );
+          const foundingCtas = document.querySelectorAll('#homePricing [data-checkout-plan="founding"], #homeHero [data-checkout-plan="founding"], #homeFinalCta [data-checkout-plan="founding"]');
+          return Boolean(meterSoldOut || cardSoldOut) && foundingCtas.length === 0;
+        }, null, { timeout: 15000 });
         await page.screenshot({ path: path.join(SHOT_DIR, "07-homepage-sold-out-desktop.png"), fullPage: true });
         await signUpAndSeed(page, "soldout-signup@example.com", "TestPass123!");
         await openSignupPlanStep(page);

@@ -160,15 +160,55 @@ function htmlEscape(value) {
     .replace(/'/g, "&#39;");
 }
 
+function foundingReminderBlock(foundingOpen) {
+  if (foundingOpen) {
+    return [
+      "Special Reminder",
+      "",
+      "🔥 Only a few Founding Member spots left!",
+      "",
+      "Lock in $9.99/month for life before Founding closes. After the final spots are claimed, new Pro is $19.99/month.",
+      "",
+      "Existing Founding Members keep $9.99/month for life.",
+    ].join("\n");
+  }
+  return [
+    "Special Reminder",
+    "",
+    "Founding Member spots are filled.",
+    "",
+    "New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.",
+  ].join("\n");
+}
+
+function emailBodyText(foundingOpen = true) {
+  const foundingBlock = foundingReminderBlock(foundingOpen);
+  return EMAIL_TEXT
+    .replace(
+      [
+        "Special Reminder",
+        "",
+        "🔥 Founding Member spots are still available!",
+        "",
+        "Lock in $9.99/month for life and keep that price as Little Learner Hub continues to grow.",
+        "",
+        "Regular Pro pricing is higher, but Founding Members keep their rate forever.",
+      ].join("\n"),
+      foundingBlock,
+    );
+}
+
 function buildEmailContent(options = {}) {
   const escape = typeof options.htmlEscape === "function" ? options.htmlEscape : htmlEscape;
-  const paragraphs = EMAIL_TEXT.split("\n\n").map((block) => {
+  const foundingOpen = options.foundingOpen !== false;
+  const text = emailBodyText(foundingOpen);
+  const paragraphs = text.split("\n\n").map((block) => {
     const lines = block.split("\n").map((line) => escape(line)).join("<br>");
     return `<p style="margin:0 0 16px;line-height:1.55;color:#1f2937;font-size:16px;">${lines}</p>`;
   }).join("");
   return {
     subject: EMAIL_SUBJECT,
-    text: EMAIL_TEXT,
+    text,
     html: [
       '<div style="font-family:Georgia,\'Times New Roman\',serif;max-width:640px;margin:0 auto;padding:24px;">',
       paragraphs,
@@ -360,7 +400,11 @@ function buildFreeUserRecipientDryRun(store, options = {}) {
     return plan === "Free" && !membershipAccess.membershipHasProAccess(user, nowMs);
   }).length;
 
-  const content = buildEmailContent({ htmlEscape: options.htmlEscape || htmlEscape });
+  const foundingOpen = options.foundingOpen !== false;
+  const content = buildEmailContent({
+    htmlEscape: options.htmlEscape || htmlEscape,
+    foundingOpen,
+  });
 
   return {
     dryRun: true,
@@ -540,7 +584,17 @@ function createFreeUserWelcomeEmail(deps = {}) {
     getAdminEmail = () => "",
     getSupportEmailStatus = () => ({ ready: false }),
     fetchResendEmailStatus = null,
+    foundingSpotsRemaining = null,
   } = deps;
+
+  function foundingOfferOpen(store) {
+    if (typeof foundingSpotsRemaining !== "function") return true;
+    try {
+      return foundingSpotsRemaining(store) > 0;
+    } catch {
+      return true;
+    }
+  }
 
   function dryRun(options = {}) {
     const store = options.store || readStore();
@@ -549,6 +603,7 @@ function createFreeUserWelcomeEmail(deps = {}) {
       adminEmail,
       nowMs: options.nowMs,
       htmlEscape: htmlEscapeFn,
+      foundingOpen: foundingOfferOpen(store),
     });
 
     const state = ensureCampaignState(store);
@@ -793,7 +848,10 @@ function createFreeUserWelcomeEmail(deps = {}) {
       };
     }
 
-    const content = buildEmailContent({ htmlEscape: htmlEscapeFn });
+    const content = buildEmailContent({
+      htmlEscape: htmlEscapeFn,
+      foundingOpen: foundingOfferOpen(store),
+    });
     let sentCount = 0;
     let failCount = 0;
     let softSkip = 0;

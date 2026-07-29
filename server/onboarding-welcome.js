@@ -20,11 +20,11 @@ const TEMPLATE_VARIABLES = Object.freeze([
 ]);
 
 const DEFAULT_FOUNDING_SECTION_TEXT = [
-  "🔥 Founding Member spots are still available!",
+  "🔥 Only a few Founding Member spots left!",
   "",
-  "Lock in $9.99/month for life and keep that rate as Little Learner Hub continues to grow.",
+  "Lock in $9.99/month for life before Founding closes. After the final spots are claimed, new Pro is $19.99/month.",
   "",
-  "Regular Pro pricing is higher, but Founding Members keep their rate forever.",
+  "Existing Founding Members keep $9.99/month for life.",
 ].join("\n");
 
 const DEFAULT_IN_APP_BODY = [
@@ -72,9 +72,9 @@ function defaultFreeWelcomeSequence() {
       enabled: true,
       inAppText: DEFAULT_FOUNDING_SECTION_TEXT,
       emailHtml: `<div style="background:#fff8e8;border:1px solid #e8c96a;border-radius:10px;padding:16px 18px;margin:20px 0;">
-  <p style="margin:0 0 8px;font-weight:700;color:#7a4f00;">🔥 Founding Member spots are still available!</p>
-  <p style="margin:0 0 8px;color:#3d2f1f;">Lock in <strong>$9.99/month for life</strong> and keep that rate as Little Learner Hub continues to grow.</p>
-  <p style="margin:0;color:#3d2f1f;">Regular Pro pricing is higher, but Founding Members keep their rate forever.</p>
+  <p style="margin:0 0 8px;font-weight:700;color:#7a4f00;">🔥 Only a few Founding Member spots left!</p>
+  <p style="margin:0 0 8px;color:#3d2f1f;">Lock in <strong>$9.99/month for life</strong> before Founding closes. After the final spots are claimed, new Pro is <strong>$19.99/month</strong>.</p>
+  <p style="margin:0;color:#3d2f1f;">Existing Founding Members keep $9.99/month for life.</p>
 </div>`,
       emailText: DEFAULT_FOUNDING_SECTION_TEXT,
     },

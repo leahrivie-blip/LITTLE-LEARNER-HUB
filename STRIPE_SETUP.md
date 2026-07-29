@@ -107,13 +107,13 @@ Events handled:
 
 ## Founding Member Logic
 
-The server tracks the first 50 paid founding subscribers in:
+The server tracks Founding Member inventory in `foundingMembers[]` (local JSON or Postgres). Cap is `FOUNDING_MEMBER_LIMIT` (production closeout: **46**, leaving 2 new spots after 44 claimed). Checkout claims are durable: Postgres uses `pg_advisory_xact_lock` + `SELECT … FOR UPDATE` + a jsonb inventory patch (and full-document upserts union `foundingMembers` so a stale instance write cannot drop a claim). When remaining hits 0, Founding closes everywhere and new Pro is `$19.99/month`. Existing Founding Members stay grandfathered at `$9.99/month` for life.
 
 ```bash
 server/data/launch-store.json
 ```
 
-The public site shows 15 founding spots already filled and counts down from there. In production, move this tracking to Firestore or another secure database so the first-50 logic is protected and durable.
+`PUBLIC_FOUNDING_CLAIMED_BASE` (production: 15) is a marketing offset added to the ledger length for public countdown display.
 
 ## Before Launch
 

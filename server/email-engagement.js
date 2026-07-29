@@ -588,11 +588,17 @@ function buildAudienceReport(store) {
   };
 }
 
-function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUrl, postalAddress }) {
+function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUrl, postalAddress, foundingOpen = true } = {}) {
   const base = siteBase(siteUrl);
   const safeBase = htmlEscape(base);
   const safeUnsubscribe = htmlEscape(unsubscribeUrl || `${base}/`);
   const safePostalAddress = htmlEscape(postalAddress || "");
+  const foundingPsText = foundingOpen
+    ? "P.S. Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features."
+    : "P.S. Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.";
+  const foundingPsHtml = foundingOpen
+    ? `<p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.</p>`
+    : `<p><strong>P.S.</strong> Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.</p>`;
   const text = [
     "Hi!",
     "",
@@ -629,7 +635,7 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
     "Leah Ivie",
     "Founder, Little Learner Hub",
     "",
-    "P.S. Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.",
+    foundingPsText,
     "",
     `Unsubscribe from marketing emails: ${unsubscribeUrl || `${base}/`}`,
     postalAddress || "",
@@ -656,7 +662,7 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
       <p><strong>👉 Login Here:</strong><br><a href="${safeBase}">${safeBase}</a></p>
       <p>Thank you for being part of helping build Little Learner Hub! ❤️</p>
       <p>Leah Ivie<br>Founder, Little Learner Hub</p>
-      <p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.</p>
+      ${foundingPsHtml}
       <hr style="border:0;border-top:1px solid #ddd;margin:28px 0 16px">
       <p style="font-size:12px;color:#6f675d">You are receiving this because you have an active Free Little Learner Hub account. <a href="${safeUnsubscribe}">Unsubscribe from marketing emails</a>.<br>${safePostalAddress}</p>
     </div>
@@ -685,9 +691,19 @@ function createEmailEngagement(deps) {
     getAdminEmail = () => "",
     getSupportEmailStatus = () => ({ ready: false, provider: "not configured", fromConfigured: false }),
     areAutomationsEnabled = () => false,
+    foundingSpotsRemaining = null,
     // Optional: when provided, used to cross-check audience "all" recipients.
     resolveAudienceRecipients = null,
   } = deps;
+
+  function foundingOfferStillOpen(store) {
+    if (typeof foundingSpotsRemaining !== "function") return true;
+    try {
+      return foundingSpotsRemaining(store) > 0;
+    } catch {
+      return true;
+    }
+  }
 
   function automationsAllowed() {
     try {
@@ -715,6 +731,7 @@ function createEmailEngagement(deps) {
       htmlEscape,
       unsubscribeUrl: "{{signed_unsubscribe_url}}",
       postalAddress,
+      foundingOpen: foundingOfferStillOpen(readStore()),
     });
     return crypto.createHash("sha256")
       .update(`${content.subject}\n${content.text}\n${content.html}`)
@@ -952,6 +969,7 @@ function createEmailEngagement(deps) {
       htmlEscape,
       unsubscribeUrl,
       postalAddress,
+      foundingOpen: foundingOfferStillOpen(readStore()),
     });
     let emailResult;
     try {
@@ -1059,6 +1077,7 @@ function createEmailEngagement(deps) {
           htmlEscape,
           unsubscribeUrl,
           postalAddress,
+          foundingOpen: foundingOfferStillOpen(latestStore),
         });
         const deliveryClaim = await claimEmailCampaignDelivery({
           campaignId: FREE_REENGAGEMENT_CAMPAIGN_ID,
