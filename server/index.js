@@ -29,6 +29,10 @@ const {
   RENDER_LOAD_BALANCER_IPV4,
   CUSTOM_BRAND_DOMAINS,
   WORKING_BRAND_DOMAINS,
+  BRAND_APEX_HOST,
+  BRAND_WWW_HOST,
+  WORKING_APEX_HOST,
+  WORKING_WWW_HOST,
   buildDomainDnsReport,
 } = require("./domain-dns.js");
 
@@ -13577,6 +13581,52 @@ function clientAppScript(filePath) {
   return clientAppScriptCache;
 }
 
+function maybeCanonicalHostRedirect(request, response, url) {
+  const host = String(request.headers.host || "").split(":")[0].toLowerCase();
+  let canonicalHost = WORKING_APEX_HOST;
+  try {
+    canonicalHost = new URL(SITE_URL).hostname.toLowerCase();
+  } catch { /* use working apex */ }
+  const redirectMap = new Map([
+    [WORKING_WWW_HOST, canonicalHost],
+    [BRAND_APEX_HOST, canonicalHost],
+    [BRAND_WWW_HOST, canonicalHost],
+  ]);
+  const targetHost = redirectMap.get(host);
+  if (!targetHost || targetHost === host) return false;
+  const location = `https://${targetHost}${url.pathname}${url.search}`;
+  response.writeHead(301, { Location: location, "Cache-Control": "no-store" });
+  response.end();
+  return true;
+}
+
+function shouldServeSpaShell(routePath = "") {
+  const normalized = String(routePath || "/").trim() || "/";
+  if (normalized === "/index.html") return false;
+  const ext = path.extname(normalized).toLowerCase();
+  // Missing static assets (e.g. /app.js typo) should 404; app routes without extensions get index.html.
+  return !ext || ext === ".html";
+}
+
+function serveSpaIndex(request, response) {
+  const indexPath = path.join(publicDir, "index.html");
+  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  if (request.method === "HEAD") {
+    response.end();
+    return;
+  }
+  const stream = fs.createReadStream(indexPath);
+  stream.on("error", (error) => {
+    console.error(error);
+    if (!response.headersSent) {
+      textResponse(response, 500, "Server error.");
+      return;
+    }
+    response.destroy(error);
+  });
+  stream.pipe(response);
+}
+
 function serveStatic(request, response, url) {
   const routePath = decodeURIComponent(url.pathname || "/").replace(/\.\.+/g, "");
   const safePath = routePath === "/" ? "/index.html" : routePath;
@@ -13586,23 +13636,8 @@ function serveStatic(request, response, url) {
     return;
   }
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    if (spaRoutePaths.has(routePath)) {
-      const indexPath = path.join(publicDir, "index.html");
-      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      if (request.method === "HEAD") {
-        response.end();
-        return;
-      }
-      const stream = fs.createReadStream(indexPath);
-      stream.on("error", (error) => {
-        console.error(error);
-        if (!response.headersSent) {
-          textResponse(response, 500, "Server error.");
-          return;
-        }
-        response.destroy(error);
-      });
-      stream.pipe(response);
+    if (shouldServeSpaShell(routePath)) {
+      serveSpaIndex(request, response);
       return;
     }
     request.method === "HEAD" ? headResponse(response, 404) : textResponse(response, 404, "Not found");
@@ -16369,6 +16404,7 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   const comms = getCommsApi();
   try {
+    if (maybeCanonicalHostRedirect(request, response, url)) return;
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);
