@@ -155,6 +155,25 @@ const MAX_BACKFILL_REPORT_ITEMS = 500;
 let lastPersistedStoreCounts = null;
 let lastStoreSafetyAlertAt = 0;
 let lastPostgresDisconnectAlertAt = 0;
+const STORE_SAFETY_ALERT_COOLDOWN_MS = Math.max(
+  0,
+  Number(process.env.STORE_SAFETY_ALERT_COOLDOWN_MS || 15 * 60 * 1000),
+);
+const POSTGRES_POOL_MAX = Math.max(1, Number(process.env.POSTGRES_POOL_MAX || 5));
+const POSTGRES_IDLE_TIMEOUT_MS = Math.max(1000, Number(process.env.POSTGRES_IDLE_TIMEOUT_MS || 30000));
+const POSTGRES_CONNECTION_TIMEOUT_MS = Math.max(
+  1000,
+  Number(process.env.POSTGRES_CONNECTION_TIMEOUT_MS || 10000),
+);
+// Retry only once for idempotent/safe queries after a dropped or stale connection.
+const POSTGRES_TRANSIENT_RETRY_COUNT = Math.max(
+  0,
+  Number(process.env.POSTGRES_TRANSIENT_RETRY_COUNT || 1),
+);
+const POSTGRES_RECONNECT_INTERVAL_MS = Math.max(
+  1000,
+  Number(process.env.POSTGRES_RECONNECT_INTERVAL_MS || 15000),
+);
 // Phase 2 of the admin-token-in-URL security follow-up: sanitized counters only —
 // never the token value itself — so the still-supported legacy query/body auth paths
 // can be monitored during the client migration and safely removed (Phase 3) once
@@ -624,12 +643,14 @@ function databaseConfigStatus() {
 }
 
 async function probePostgresReadiness() {
-  if (!usePostgresStore() || !postgresPool) return false;
+  if (!usePostgresStore()) return false;
+  ensurePostgresPool();
+  if (!postgresPool) return false;
   try {
-    await withTimeout(
-      postgresPool.query("SELECT 1 AS ok"),
-      5000,
-      "Postgres readiness probe",
+    await postgresQueryWithTransientRetry(
+      "SELECT 1 AS ok",
+      [],
+      { label: "Postgres readiness probe", timeoutMs: 5000 },
     );
     // Connectivity only — do NOT mark databaseReady here. Ready means the authentic
     // Postgres store has been loaded into memory. Marking ready on SELECT 1 would let
@@ -2611,20 +2632,96 @@ function postgresSslConfig() {
   return undefined;
 }
 
-async function initializePostgresStore() {
+function isTransientPostgresConnectionError(error) {
+  const msg = String(error?.message || error || "").toLowerCase();
+  const code = String(error?.code || "");
+  return (
+    msg.includes("connection terminated")
+    || msg.includes("server closed the connection")
+    || msg.includes("connection ended unexpectedly")
+    || msg.includes("client was closed")
+    || msg.includes("cannot use a pool after calling end")
+    || code === "ECONNRESET"
+    || code === "ECONNREFUSED"
+    || code === "ETIMEDOUT"
+    || code === "EPIPE"
+    || code === "57P01" // admin_shutdown
+    || code === "57P02" // crash_shutdown
+    || code === "57P03" // cannot_connect_now
+    || code === "08006" // connection_failure
+    || code === "08003" // connection_does_not_exist
+    || code === "08001" // sqlclient_unable_to_establish_sqlconnection
+  );
+}
+
+function createConfiguredPostgresPool() {
   const { Pool } = require("pg");
-  postgresPool = new Pool({
+  const pool = new Pool({
     connectionString: PRODUCTION_DATABASE_URL,
     ssl: postgresSslConfig(),
+    max: POSTGRES_POOL_MAX,
+    idleTimeoutMillis: POSTGRES_IDLE_TIMEOUT_MS,
+    connectionTimeoutMillis: POSTGRES_CONNECTION_TIMEOUT_MS,
+    allowExitOnIdle: true,
   });
-  await postgresPool.query(`
+  // Idle clients dropped by deploy/restart/proxy must not crash the process.
+  // The pool discards the dead client; the next query opens a fresh connection.
+  if (typeof pool.on === "function") {
+    pool.on("error", (error) => {
+      lastPostgresError = error.message || "Postgres pool idle client error.";
+      console.error(
+        "[store] Postgres pool idle client error (will reconnect on next query):",
+        lastPostgresError,
+      );
+    });
+  }
+  return pool;
+}
+
+/**
+ * Run a Postgres query with a single retry for transient connection drops.
+ * Only use for idempotent / safe operations (SELECT, upsert ON CONFLICT, CREATE IF NOT EXISTS).
+ * Do not use for non-idempotent inserts that could create duplicate rows.
+ */
+async function postgresQueryWithTransientRetry(
+  sql,
+  params = [],
+  {
+    label = "Postgres query",
+    retries = POSTGRES_TRANSIENT_RETRY_COUNT,
+    timeoutMs = POSTGRES_QUERY_TIMEOUT_MS,
+  } = {},
+) {
+  if (!postgresPool) ensurePostgresPool();
+  if (!postgresPool) throw new Error("Postgres pool is not available.");
+  let lastError;
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await withTimeout(postgresPool.query(sql, params), timeoutMs, label);
+    } catch (error) {
+      lastError = error;
+      const canRetry = isTransientPostgresConnectionError(error) && attempt < retries;
+      if (!canRetry) throw error;
+      console.warn(
+        `[store] transient Postgres error on ${label} — retry ${attempt + 1}/${retries}:`,
+        error.message || error,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 75 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
+async function initializePostgresStore() {
+  postgresPool = createConfiguredPostgresPool();
+  await postgresQueryWithTransientRetry(`
     CREATE TABLE IF NOT EXISTS llh_store (
       id TEXT PRIMARY KEY,
       data JSONB NOT NULL,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
-  `);
-  await postgresPool.query(`
+  `, [], { label: "Postgres create llh_store" });
+  await postgresQueryWithTransientRetry(`
     CREATE TABLE IF NOT EXISTS llh_media_assets (
       id TEXT PRIMARY KEY,
       kind TEXT NOT NULL,
@@ -2633,8 +2730,8 @@ async function initializePostgresStore() {
       bytes BYTEA NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
-  `);
-  await postgresPool.query(`
+  `, [], { label: "Postgres create llh_media_assets" });
+  await postgresQueryWithTransientRetry(`
     CREATE TABLE IF NOT EXISTS llh_email_campaign_deliveries (
       campaign_id TEXT NOT NULL,
       email TEXT NOT NULL,
@@ -2647,8 +2744,8 @@ async function initializePostgresStore() {
       completed_at TIMESTAMPTZ,
       PRIMARY KEY (campaign_id, email)
     )
-  `);
-  await postgresPool.query(`
+  `, [], { label: "Postgres create llh_email_campaign_deliveries" });
+  await postgresQueryWithTransientRetry(`
     CREATE TABLE IF NOT EXISTS llh_store_backups (
       id TEXT PRIMARY KEY,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -2661,15 +2758,21 @@ async function initializePostgresStore() {
       verified BOOLEAN NOT NULL DEFAULT FALSE,
       data JSONB NOT NULL
     )
-  `);
-  const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+  `, [], { label: "Postgres create llh_store_backups" });
+  const result = await postgresQueryWithTransientRetry(
+    "SELECT data FROM llh_store WHERE id = $1",
+    [storeRecordId],
+    { label: "Postgres load store" },
+  );
   if (result.rows.length) {
     storeCache = result.rows[0].data || defaultStore();
   } else {
     storeCache = defaultStore();
-    await postgresPool.query(
+    // Initial insert is not ON CONFLICT — do not retry (avoids duplicate-key races).
+    await postgresQueryWithTransientRetry(
       "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW())",
       [storeRecordId, JSON.stringify(storeCache)],
+      { label: "Postgres bootstrap store insert", retries: 0 },
     );
   }
   databaseReady = true;
@@ -2690,11 +2793,7 @@ function loadLocalJsonStoreFallback() {
 function ensurePostgresPool() {
   if (!usePostgresStore() || postgresPool) return postgresPool;
   try {
-    const { Pool } = require("pg");
-    postgresPool = new Pool({
-      connectionString: PRODUCTION_DATABASE_URL,
-      ssl: postgresSslConfig(),
-    });
+    postgresPool = createConfiguredPostgresPool();
   } catch (error) {
     console.warn("[store] could not create Postgres pool:", error.message);
   }
@@ -2703,7 +2802,11 @@ function ensurePostgresPool() {
 
 async function reloadStoreFromPostgres() {
   if (!usePostgresStore() || !postgresPool) return false;
-  const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
+  const result = await postgresQueryWithTransientRetry(
+    "SELECT data FROM llh_store WHERE id = $1",
+    [storeRecordId],
+    { label: "Postgres reload store" },
+  );
   if (!result.rows.length) return false;
   storeCache = result.rows[0].data || defaultStore();
   databaseReady = true;
@@ -2729,6 +2832,7 @@ function startPostgresReconnectLoop() {
       const loaded = await reloadStoreFromPostgres();
       if (!loaded) return;
       lastPersistedStoreCounts = storeInventoryCounts(storeCache);
+      console.log("[store] Postgres reconnect restored authentic store");
       try {
         const store = readStore();
         const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
@@ -2742,7 +2846,7 @@ function startPostgresReconnectLoop() {
     })().catch((error) => {
       console.warn("[store] Postgres reconnect failed:", error.message || error);
     });
-  }, 15000);
+  }, POSTGRES_RECONNECT_INTERVAL_MS);
 }
 
 async function initializeStorage() {
@@ -2950,8 +3054,16 @@ async function readStoreFresh() {
   if (usePostgresStore()) {
     await postgresWriteChain.catch(() => {});
     if (postgresPool && databaseReady) {
-      const result = await postgresPool.query("SELECT data FROM llh_store WHERE id = $1", [storeRecordId]);
-      if (result.rows[0]?.data) storeCache = result.rows[0].data;
+      try {
+        const result = await postgresQueryWithTransientRetry(
+          "SELECT data FROM llh_store WHERE id = $1",
+          [storeRecordId],
+          { label: "Postgres readStoreFresh" },
+        );
+        if (result.rows[0]?.data) storeCache = result.rows[0].data;
+      } catch (error) {
+        console.warn("[store] readStoreFresh fell back to in-memory cache:", error.message || error);
+      }
     }
     return structuredClone(storeCache || defaultStore());
   }
@@ -3072,7 +3184,7 @@ function curriculumFieldDroppedTooMuch(existingCount, incomingCount) {
 
 async function maybeAlertStoreSafety(kind, detail = {}) {
   const now = Date.now();
-  if (now - lastStoreSafetyAlertAt < 15 * 60 * 1000) return;
+  if (now - lastStoreSafetyAlertAt < STORE_SAFETY_ALERT_COOLDOWN_MS) return;
   lastStoreSafetyAlertAt = now;
   const subject = `[LLH SAFETY] ${kind}`;
   const text = [
@@ -3099,7 +3211,7 @@ async function maybeAlertStoreSafety(kind, detail = {}) {
 
 function maybeAlertPostgresDisconnect(reason = "postgres_unavailable") {
   const now = Date.now();
-  if (now - lastPostgresDisconnectAlertAt < 15 * 60 * 1000) return;
+  if (now - lastPostgresDisconnectAlertAt < STORE_SAFETY_ALERT_COOLDOWN_MS) return;
   lastPostgresDisconnectAlertAt = now;
   maybeAlertStoreSafety("postgres_disconnect", {
     reason,
@@ -3230,10 +3342,12 @@ function enqueuePostgresStoreWrite() {
       throw error;
     }
     const payload = JSON.stringify(storeCache);
-    await withTimeout(
-      postgresPool.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]),
-      POSTGRES_QUERY_TIMEOUT_MS,
-      "Postgres store upsert",
+    // Upsert is idempotent (ON CONFLICT DO UPDATE). Retry once on dropped/stale
+    // connections so deploys/cold starts do not mark the DB down or duplicate rows.
+    await postgresQueryWithTransientRetry(
+      POSTGRES_UPSERT_STORE,
+      [storeRecordId, payload],
+      { label: "Postgres store upsert" },
     );
     databaseReady = true;
     lastPostgresError = "";

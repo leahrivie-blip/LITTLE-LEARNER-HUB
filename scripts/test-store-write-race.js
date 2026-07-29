@@ -93,8 +93,13 @@ function startServer() {
 }
 
 async function waitForBoot(child) {
-  for (let i = 0; i < 100; i += 1) {
-    if (child.__output().includes("running on")) return;
+  for (let i = 0; i < 150; i += 1) {
+    try {
+      const res = await requestJson("GET", "/api/health");
+      if (res.status === 200 && res.json?.ok) return;
+    } catch {
+      /* retry while storage boots */
+    }
     if (child.exitCode !== null) throw new Error(`Server exited early: ${child.__output()}`);
     await new Promise((r) => setTimeout(r, 100));
   }

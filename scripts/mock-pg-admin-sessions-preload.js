@@ -53,11 +53,27 @@ Module.prototype.require = function mockPgRequire(id) {
   if (id !== "pg") return originalRequire.apply(this, arguments);
   return {
     Pool: class MockPool {
+      constructor(options = {}) {
+        this.options = options;
+        this._errorHandlers = [];
+      }
+
+      on(event, handler) {
+        // Real node-pg Pool emits idle-client errors; production attaches pool.on("error").
+        if (event === "error" && typeof handler === "function") this._errorHandlers.push(handler);
+        return this;
+      }
+
       async query(sql, params = []) {
         const text = String(sql || "");
 
         if (text.includes("CREATE TABLE") || text.includes("CREATE INDEX")) {
           return { rows: [] };
+        }
+
+        // Readiness / reconnect probes used by hardened pool helpers.
+        if (text.includes("SELECT 1")) {
+          return { rows: [{ ok: 1 }] };
         }
 
         // ─── llh_store (the shared application document) ──────────────────
