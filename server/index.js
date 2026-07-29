@@ -2138,10 +2138,32 @@ function publicCurriculumLibraryDto(siteContent, accessContext = {}) {
       return meta;
     })
     .filter(Boolean);
+  // Public library only exposes published/featured curriculum collections (series).
+  // Draft / needs_review stay on admin site-content for preview before publish.
   const series = (store.series || [])
-    .filter((entry) => entry && ["published", "featured", "needs_review"].includes(entry.status))
+    .filter((entry) => entry && ["published", "featured"].includes(entry.status))
     .map((entry) => ({
-      ...entry,
+      id: entry.id,
+      collectionKey: entry.collectionKey || "",
+      collectionTitle: entry.collectionTitle || "",
+      title: entry.title,
+      description: entry.description || "",
+      theme: entry.theme || "",
+      age: entry.age,
+      month: entry.month || "",
+      season: entry.season || "",
+      year: entry.year || "",
+      weekCount: entry.weekCount,
+      plan: entry.plan,
+      status: entry.status,
+      featured: Boolean(entry.featured) || entry.status === "featured",
+      displayOrder: entry.displayOrder || 0,
+      coverImageUrl: entry.coverImageUrl || "",
+      coverImageAlt: entry.coverImageAlt || "",
+      coverImageSource: entry.coverImageSource || "",
+      coverImagePosition: entry.coverImagePosition || "center",
+      learningDomains: entry.learningDomains || [],
+      updatedAt: entry.updatedAt || "",
       weeks: (entry.weeks || []).map((week) => ({
         weekNumber: week.weekNumber,
         lessonPlanId: week.lessonPlanId,
