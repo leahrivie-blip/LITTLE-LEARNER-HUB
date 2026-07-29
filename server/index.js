@@ -38,6 +38,8 @@ loadEnvFile(path.join(__dirname, "..", ".env"));
 
 const PORT = Number(process.env.PORT || 4242);
 const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
+/** False until initializeStorage() finishes — API routes return 503 with Retry-After meanwhile. */
+let storageBootReady = false;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
 const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRY1MONTH").trim();
@@ -13451,6 +13453,16 @@ async function handleDomainDnsCheck(request, response) {
 }
 
 function handleHealth(request, response) {
+  if (!storageBootReady) {
+    jsonResponse(response, 503, {
+      ok: false,
+      starting: true,
+      service: "Little Learner Hub",
+      time: new Date().toISOString(),
+      note: "Storage is still initializing after a cold start or deploy.",
+    });
+    return;
+  }
   const store = peekStore();
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
   const configuredHost = (() => {
@@ -16419,10 +16431,41 @@ function getCommsApi() {
   return _commsApi;
 }
 
+function respondStorageBooting(response) {
+  response.writeHead(503, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Retry-After": "2",
+    "Cache-Control": "no-store",
+  });
+  response.end(JSON.stringify({
+    ok: false,
+    starting: true,
+    error: "Server is starting. Please retry shortly.",
+  }));
+}
+
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   const comms = getCommsApi();
   try {
+    if (!storageBootReady) {
+      const bootPath = url.pathname || "/";
+      const isHealth = bootPath === "/api/health";
+      const isStatic = request.method === "GET" || request.method === "HEAD";
+      if (bootPath.startsWith("/api/") && !isHealth) {
+        respondStorageBooting(response);
+        return;
+      }
+      if (isHealth) {
+        handleHealth(request, response);
+        return;
+      }
+      if (!isStatic || bootPath.startsWith("/api/")) {
+        respondStorageBooting(response);
+        return;
+      }
+      // Static shell assets (HTML/CSS/JS) are served during boot so the client can load and retry APIs.
+    }
     if (maybeCanonicalHostRedirect(request, response, url)) return;
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
@@ -16667,13 +16710,19 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/domain-dns-check") return await handleDomainDnsCheck(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
-    if (request.method === "HEAD" && url.pathname === "/api/health") return headResponse(response, 200, "application/json; charset=utf-8");
+    if (request.method === "HEAD" && url.pathname === "/api/health") {
+      return headResponse(response, storageBootReady ? 200 : 503, "application/json; charset=utf-8");
+    }
     if (request.method === "GET" || request.method === "HEAD") return serveStatic(request, response, url);
     jsonResponse(response, 405, { error: "Method not allowed." });
   } catch (error) {
     console.error(error);
     jsonResponse(response, 500, { error: error.message || "Server error." });
   }
+});
+
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Little Learner Hub launch server listening on 0.0.0.0:${PORT} (storage initializing…)`);
 });
 
 initializeStorage()
@@ -16724,24 +16773,23 @@ initializeStorage()
     } catch (error) {
       console.warn("[store-backup] scheduler failed to start:", error.message || error);
     }
-    server.listen(PORT, () => {
-      console.log(`Little Learner Hub launch server running on http://localhost:${PORT}`);
-      try {
-        if (!emailAutomationsEnabled()) {
-          const paused = pauseEmailAutomationsInStore("boot:EMAIL_AUTOMATIONS_ENABLED=false");
-          console.log(
-            `[email-engagement] automations paused (EMAIL_AUTOMATIONS_ENABLED=false)`
-            + `${paused.changed ? "; store toggles forced off" : "; store toggles already off"}`
-            + `; From=${SUPPORT_EMAIL_FROM}`,
-          );
-        } else {
-          emailEngagement.startScheduler();
-          console.log("[email-engagement] scheduler started (hourly onboarding + Monday What's New)");
-        }
-      } catch (err) {
-        console.warn("[email-engagement] scheduler/bootstrap failed:", err.message);
+    storageBootReady = true;
+    console.log(`[boot] storage ready — API routes unlocked (${new Date().toISOString()})`);
+    try {
+      if (!emailAutomationsEnabled()) {
+        const paused = pauseEmailAutomationsInStore("boot:EMAIL_AUTOMATIONS_ENABLED=false");
+        console.log(
+          `[email-engagement] automations paused (EMAIL_AUTOMATIONS_ENABLED=false)`
+          + `${paused.changed ? "; store toggles forced off" : "; store toggles already off"}`
+          + `; From=${SUPPORT_EMAIL_FROM}`,
+        );
+      } else {
+        emailEngagement.startScheduler();
+        console.log("[email-engagement] scheduler started (hourly onboarding + Monday What's New)");
       }
-    });
+    } catch (err) {
+      console.warn("[email-engagement] scheduler/bootstrap failed:", err.message);
+    }
   })
   .catch((error) => {
     console.error("Could not initialize Little Learner Hub storage.");

@@ -55,7 +55,7 @@ async function measureAdminShell(page, label) {
   const started = Date.now();
   await page.goto(`${PROD}/admin`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.waitForSelector("body.app-boot-ready", { timeout: 30000 }).catch(() => {});
-  await page.waitForSelector("#adminUnlockForm", { state: "visible", timeout: 30000 });
+  await page.waitForSelector("#adminUnlockForm", { state: "visible", timeout: 60000 });
   const usableMs = Date.now() - started;
   timing(`${label}: admin unlock shell`, usableMs);
   const state = await page.evaluate(() => ({
