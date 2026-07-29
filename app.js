@@ -3903,7 +3903,7 @@ function applyFoundingStatus(status = {}) {
     soldOut: Boolean(status.soldOut) || remaining <= 0,
     spotsLeftMessage: status.spotsLeftMessage
       || (remaining <= 0
-        ? "Founding Member spots are filled. Pro is $19.99/month."
+        ? "Founding Member pricing is sold out. Pro is $19.99/month."
         : (remaining === 1
           ? "Only 1 Founding Member spot left."
           : `Only ${remaining} Founding Member spots left.`)),
@@ -3944,7 +3944,7 @@ function foundingProgressPercent() {
 
 function foundingSpotsLeftMessage(remaining = foundingSpotsRemaining()) {
   if (remaining == null) return foundingStatusCache.spotsLeftMessage || "Checking Founding Member availability…";
-  if (remaining <= 0) return "Founding Member spots are filled. Pro is $19.99/month.";
+  if (remaining <= 0) return "Founding Member pricing is sold out. Pro is $19.99/month.";
   if (remaining === 1) return "Only 1 Founding Member spot left.";
   return `Only ${remaining} Founding Member spots left.`;
 }
@@ -49110,8 +49110,7 @@ async function startCheckout(type, trackingContext = "checkout") {
   });
   if (type === "founding") await syncFoundingStatus({ render: true });
   if (type === "founding" && foundingSpotsRemaining() <= 0) {
-    const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-    setFormMessage("#upgradeApp", `Founding Membership is sold out. All ${limit} lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.`, false);
+    setFormMessage("#upgradeApp", "Founding Member pricing is sold out. All available Founding Member spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
     setView("upgrade");
     return;
   }

@@ -3193,7 +3193,32 @@ function peekStore() {
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
-const POSTGRES_UPSERT_STORE = "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated_at = NOW()";
+// Full-document upsert that never drops Founding emails already persisted by a
+// concurrent multi-instance claim (unions foundingMembers arrays).
+const POSTGRES_UPSERT_STORE = `
+INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW())
+ON CONFLICT (id) DO UPDATE SET
+  data = jsonb_set(
+    EXCLUDED.data,
+    '{foundingMembers}',
+    COALESCE((
+      SELECT jsonb_agg(to_jsonb(email) ORDER BY email)
+      FROM (
+        SELECT DISTINCT lower(btrim(value)) AS email
+        FROM (
+          SELECT jsonb_array_elements_text(COALESCE(llh_store.data->'foundingMembers', '[]'::jsonb)) AS value
+          UNION ALL
+          SELECT jsonb_array_elements_text(COALESCE(EXCLUDED.data->'foundingMembers', '[]'::jsonb)) AS value
+        ) emails
+        WHERE btrim(value) <> ''
+      ) uniq
+    ), '[]'::jsonb),
+    true
+  ),
+  updated_at = NOW()
+`;
+/** Stable advisory-lock namespace shared by Founding claims and Postgres store upserts. */
+const FOUNDING_ADVISORY_LOCK_NS = 87442201;
 const POSTGRES_WRITE_CHAIN_WAIT_MS = 20000;
 const POSTGRES_QUERY_TIMEOUT_MS = 45000;
 // Monotonic generation so a stale write queued behind a newer write cannot clobber it.
@@ -3452,13 +3477,24 @@ function enqueuePostgresStoreWrite() {
       throw error;
     }
     const payload = JSON.stringify(storeCache);
-    // Upsert is idempotent (ON CONFLICT DO UPDATE). Retry once on dropped/stale
-    // connections so deploys/cold starts do not mark the DB down or duplicate rows.
-    await postgresQueryWithTransientRetry(
-      POSTGRES_UPSERT_STORE,
-      [storeRecordId, payload],
-      { label: "Postgres store upsert" },
-    );
+    // Serialize with Founding inventory transactions (same advisory lock) so a
+    // multi-instance full upsert cannot race a checkout claim mid-write.
+    // Upsert also unions foundingMembers as a second safety net.
+    const client = await postgresPool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "SELECT pg_advisory_xact_lock($1, hashtext($2))",
+        [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
+      );
+      await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
+      await client.query("COMMIT");
+    } catch (error) {
+      try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+      throw error;
+    } finally {
+      client.release();
+    }
     databaseReady = true;
     lastPostgresError = "";
     lastPersistedStoreCounts = nextCounts;
@@ -3948,7 +3984,7 @@ function foundingStatusPayload(store = readStore()) {
   const claimed = foundingClaimedCount(store);
   const remaining = foundingSpotsRemaining(store);
   const spotsLeftMessage = remaining <= 0
-    ? "Founding Member spots are filled. Pro is $19.99/month."
+    ? "Founding Member pricing is sold out. Pro is $19.99/month."
     : (remaining === 1
       ? "Only 1 Founding Member spot left."
       : `Only ${remaining} Founding Member spots left.`);
@@ -3972,8 +4008,7 @@ function foundingMemberNumberForEmail(store, email) {
 }
 
 function foundingSoldOutMessage(store = peekStore()) {
-  const limit = FOUNDING_LIMIT;
-  return `Founding Membership is sold out. All ${limit} lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.`;
+  return "Founding Member pricing is sold out. All available Founding Member spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.";
 }
 
 /** Process-local mutex so two checkouts cannot claim the final Founding spot concurrently. */
@@ -4049,28 +4084,112 @@ function reserveFoundingSpot(email, details = {}) {
 }
 
 /**
+ * Persist Founding inventory inside a Postgres transaction:
+ * advisory lock + row FOR UPDATE + jsonb patch. Safe across multiple Render instances.
+ */
+async function mutateFoundingInventoryInPostgres(mutator) {
+  if (!postgresPool || !databaseReady) {
+    throw new Error("Postgres store is not ready for Founding inventory claims.");
+  }
+  // Drain in-process writes first so this transaction sees durable state.
+  await postgresWriteChain.catch(() => {});
+  const client = await postgresPool.connect();
+  try {
+    await client.query("BEGIN");
+    await client.query(
+      "SELECT pg_advisory_xact_lock($1, hashtext($2))",
+      [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
+    );
+    const result = await client.query(
+      "SELECT data FROM llh_store WHERE id = $1 FOR UPDATE",
+      [storeRecordId],
+    );
+    if (!result.rows[0]?.data) {
+      await client.query("ROLLBACK");
+      return { ok: false, reason: "store_missing" };
+    }
+    const store = result.rows[0].data;
+    const outcome = mutator(store);
+    if (outcome?.persist === false) {
+      await client.query("ROLLBACK");
+      return outcome.result;
+    }
+    await client.query(
+      `UPDATE llh_store
+       SET data = jsonb_set(
+             jsonb_set(COALESCE(data, '{}'::jsonb), '{foundingMembers}', $2::jsonb, true),
+             '{foundingReservations}', $3::jsonb, true
+           ),
+           updated_at = NOW()
+       WHERE id = $1`,
+      [
+        storeRecordId,
+        JSON.stringify(Array.isArray(store.foundingMembers) ? store.foundingMembers : []),
+        JSON.stringify(Array.isArray(store.foundingReservations) ? store.foundingReservations : []),
+      ],
+    );
+    if (storeCache && typeof storeCache === "object") {
+      storeCache.foundingMembers = Array.isArray(store.foundingMembers) ? store.foundingMembers : [];
+      storeCache.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
+    }
+    await client.query("COMMIT");
+    return outcome.result;
+  } catch (error) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Atomic Founding inventory claim for checkout / concurrent last-spot races.
- * Uses a process mutex and mutates the live store (Postgres cache or local JSON) before responding.
+ * - Postgres (production): transaction advisory lock + SELECT FOR UPDATE + jsonb patch
+ * - local-json (dev/tests): process mutex + synchronous file write
+ * Full-document upserts also union foundingMembers so a stale instance write cannot drop a claim.
  */
 async function reserveFoundingSpotAtomic(email, details = {}) {
   return withFoundingClaimLock(async () => {
     const clean = normalizeEmail(email);
     if (!clean) return { ok: false, reason: "missing_email" };
-    let store;
-    if (usePostgresStore()) {
-      await postgresWriteChain.catch(() => {});
-      if (!storeCache) readStore();
-      store = storeCache || defaultStore();
-    } else {
-      store = readStore();
+
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      return mutateFoundingInventoryInPostgres((store) => {
+        const claim = applyFoundingMemberClaim(store, clean);
+        if (!claim.foundingMember) {
+          return {
+            persist: false,
+            result: {
+              ok: false,
+              reason: claim.reason || "sold_out",
+              foundingMember: false,
+              foundingMemberNumber: null,
+            },
+          };
+        }
+        const expiresAt = applyFoundingReservation(store, clean, details);
+        return {
+          persist: true,
+          result: {
+            ok: true,
+            reserved: true,
+            foundingMember: true,
+            foundingMemberNumber: claim.foundingMemberNumber,
+            expiresAt,
+            reason: claim.reason,
+            durable: "postgres",
+          },
+        };
+      });
     }
+
+    const store = readStore();
     const claim = applyFoundingMemberClaim(store, clean);
     if (!claim.foundingMember) {
       return { ok: false, reason: claim.reason || "sold_out", foundingMember: false, foundingMemberNumber: null };
     }
     const expiresAt = applyFoundingReservation(store, clean, details);
-    if (usePostgresStore()) await writeStoreAsync(store);
-    else writeStore(store);
+    writeStore(store);
     return {
       ok: true,
       reserved: true,
@@ -4078,6 +4197,7 @@ async function reserveFoundingSpotAtomic(email, details = {}) {
       foundingMemberNumber: claim.foundingMemberNumber,
       expiresAt,
       reason: claim.reason,
+      durable: "local-json",
     };
   });
 }
@@ -4086,23 +4206,40 @@ async function claimFoundingSpotAtomic(email) {
   return withFoundingClaimLock(async () => {
     const clean = normalizeEmail(email);
     if (!clean) return { foundingMember: false, foundingMemberNumber: null, reason: "missing_email" };
-    let store;
-    if (usePostgresStore()) {
-      await postgresWriteChain.catch(() => {});
-      if (!storeCache) readStore();
-      store = storeCache || defaultStore();
-    } else {
-      store = readStore();
+
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      return mutateFoundingInventoryInPostgres((store) => {
+        const claim = applyFoundingMemberClaim(store, clean);
+        if (claim.reason !== "claimed" && claim.reason !== "already_claimed") {
+          return {
+            persist: false,
+            result: {
+              foundingMember: false,
+              foundingMemberNumber: null,
+              reason: claim.reason || "sold_out",
+            },
+          };
+        }
+        return {
+          persist: claim.reason === "claimed",
+          result: {
+            foundingMember: Boolean(claim.foundingMember),
+            foundingMemberNumber: claim.foundingMemberNumber,
+            reason: claim.reason,
+            durable: "postgres",
+          },
+        };
+      });
     }
+
+    const store = readStore();
     const claim = applyFoundingMemberClaim(store, clean);
-    if (claim.reason === "claimed") {
-      if (usePostgresStore()) await writeStoreAsync(store);
-      else writeStore(store);
-    }
+    if (claim.reason === "claimed") writeStore(store);
     return {
       foundingMember: Boolean(claim.foundingMember),
       foundingMemberNumber: claim.foundingMemberNumber,
       reason: claim.reason,
+      durable: "local-json",
     };
   });
 }
@@ -11679,7 +11816,7 @@ async function handleAdminMembershipUpdate(request, response) {
   const restoringFounding = updates.restoreFoundingPrice === true || (updates.foundingMemberActive === true && membershipAccess.membershipFoundingHistorical(existing));
   const assigningNewFounding = (updates.plan === "Founding" || updates.foundingMemberActive) && !existing.foundingMemberNumber && !(store.foundingMembers || []).includes(email);
   if (assigningNewFounding && foundingSpotsRemaining(store) <= 0) {
-    jsonResponse(response, 409, { error: `All ${FOUNDING_LIMIT} Founding Member spots are claimed. Cannot assign a new founding spot.` });
+    jsonResponse(response, 409, { error: "Founding Member pricing is sold out. All available Founding Member spots have been claimed. Cannot assign a new founding spot." });
     return;
   }
   const auditEntry = {

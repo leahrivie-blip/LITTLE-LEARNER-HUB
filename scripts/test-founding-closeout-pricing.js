@@ -141,8 +141,11 @@ async function main() {
   const renderYaml = fs.readFileSync(path.join(ROOT, "render.yaml"), "utf8");
   record("render.yaml founding limit is 46", /FOUNDING_MEMBER_LIMIT[\s\S]*?value:\s*"?46"?/.test(renderYaml));
   record("atomic reserve helper exists", serverJs.includes("reserveFoundingSpotAtomic") && serverJs.includes("withFoundingClaimLock"));
+  record("postgres durable claim uses advisory lock + FOR UPDATE", serverJs.includes("pg_advisory_xact_lock") && serverJs.includes("FOR UPDATE") && serverJs.includes("mutateFoundingInventoryInPostgres"));
+  record("postgres upsert unions foundingMembers (anti-clobber)", /jsonb_array_elements_text\(COALESCE\(llh_store\.data->'foundingMembers'/.test(serverJs));
   record("checkout uses atomic reserve", /await reserveFoundingSpotAtomic\(/.test(serverJs));
-  record("sold-out message is dynamic (not hardcoded All 50)", !/All 50 lifetime spots/.test(serverJs) && serverJs.includes("foundingSoldOutMessage"));
+  record("sold-out wording avoids claiming a fixed 50 total", !/All 50 lifetime spots/.test(serverJs) && !/All \$\{limit\} lifetime spots/.test(serverJs) && /All available Founding Member spots have been claimed/.test(serverJs));
+  record("client sold-out wording avoids fixed 50 total", !/All \$\{limit\} lifetime spots/.test(appJs) && /All available Founding Member spots have been claimed/.test(appJs));
   record("client has spots-left helper", appJs.includes("function foundingSpotsLeftMessage"));
   record("client syncs homepage when sold out", appJs.includes("function syncPublicFoundingOfferUi"));
   record("homepage static copy mentions final 2 spots", /Only 2 Founding Member spots left/.test(indexHtml));
@@ -209,7 +212,7 @@ async function main() {
       const loser = a.status === 409 ? a : b;
       assert.equal(winner.json.plan, "founding");
       assert.equal(loser.json.soldOut, true);
-      assert.match(String(loser.json.error || ""), /sold out|All 46/i);
+      assert.match(String(loser.json.error || ""), /sold out|All available Founding Member spots/i);
       const store = readStore();
       const raceEmails = store.foundingMembers.filter((e) => String(e).startsWith("race-"));
       assert.equal(raceEmails.length, 1, `exactly one race claim, got ${raceEmails.join(",")}`);
