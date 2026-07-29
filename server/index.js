@@ -2666,13 +2666,15 @@ function createConfiguredPostgresPool() {
   });
   // Idle clients dropped by deploy/restart/proxy must not crash the process.
   // The pool discards the dead client; the next query opens a fresh connection.
-  pool.on("error", (error) => {
-    lastPostgresError = error.message || "Postgres pool idle client error.";
-    console.error(
-      "[store] Postgres pool idle client error (will reconnect on next query):",
-      lastPostgresError,
-    );
-  });
+  if (typeof pool.on === "function") {
+    pool.on("error", (error) => {
+      lastPostgresError = error.message || "Postgres pool idle client error.";
+      console.error(
+        "[store] Postgres pool idle client error (will reconnect on next query):",
+        lastPostgresError,
+      );
+    });
+  }
   return pool;
 }
 
