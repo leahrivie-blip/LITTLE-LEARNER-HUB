@@ -285,13 +285,14 @@ function copyrightFooterHtml() {
 function renderCurriculumLessonPlanHtml(plan = {}, options = {}) {
   const normalized = normalizePlanForRender(plan);
   const showAdminStatus = Boolean(options.showAdminStatus);
+  const accessLabel = String(options.accessLabel || normalized.plan || "Free").trim() || "Free";
   return `
     <header class="curriculum-lesson-header">
       <h3>${escapeHtml(normalized.title || "Lesson Plan")}</h3>
       <div class="tag-row">
         <span class="tag">${escapeHtml(normalized.age || "Preschool")}</span>
         ${normalized.theme ? `<span class="tag">${escapeHtml(normalized.theme)}</span>` : ""}
-        <span class="tag access-tag">${escapeHtml(normalized.plan || "Free")}</span>
+        <span class="tag access-tag">${escapeHtml(accessLabel)}</span>
         ${showAdminStatus && normalized.status ? `<span class="tag">${escapeHtml(normalized.status)}</span>` : ""}
       </div>
       ${curriculumLessonWeeklySectionsHtml(normalized) ? `<section class="curriculum-lesson-weekly">${curriculumLessonWeeklySectionsHtml(normalized)}</section>` : ""}

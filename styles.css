@@ -19856,6 +19856,31 @@ body.lesson-editor-view .main {
   gap: 12px;
 }
 
+.dlc-att-section--compact-empty {
+  gap: 0;
+}
+
+.dlc-att-compact-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  padding: 10px 12px;
+  border: 1px solid rgba(90, 110, 140, 0.14);
+  border-radius: 12px;
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.dlc-att-compact-row h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.dlc-att-empty--inline {
+  margin: 0;
+  flex: 1 1 160px;
+}
+
 .dlc-att-section-header {
   display: flex;
   align-items: center;

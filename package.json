@@ -211,6 +211,7 @@
     "dry-run:firebase-postgres": "node scripts/compare-firebase-postgres-dry-run.js",
     "test:cover-redesign-full-regression-audit": "node scripts/test-cover-redesign-full-regression-audit.js",
     "test:full-site-release-audit": "node scripts/test-full-site-release-audit.js",
+    "test:signed-in-live-audit-fixes": "node scripts/test-signed-in-live-audit-fixes.js",
     "test:release": "npm run test:full-site-release-audit",
     "test:e2e": "node e2e/scripts/free-port.js && playwright test",
     "test:e2e:headed": "node e2e/scripts/free-port.js && playwright test --headed",

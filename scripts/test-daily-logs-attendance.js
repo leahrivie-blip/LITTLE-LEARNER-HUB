@@ -70,6 +70,9 @@ test("app.js includes attendance-first Daily Logs markers", () => {
   assert.match(appJs, /dlc-completion-chips/);
   assert.match(appJs, /formOnlyActions/);
   assert.match(appJs, /const today = dlcActiveDate\(\)/);
+  assert.match(appJs, /dlc-att-section--compact-empty/);
+  assert.match(appJs, /compactEmpty:\s*true/);
+  assert.match(appJs, /Not Arrived[\s\S]{0,200}compactEmpty:\s*false/);
 });
 
 test("server child-data keys sync naps/diapers/activities/photos", () => {

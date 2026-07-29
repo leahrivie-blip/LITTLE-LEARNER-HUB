@@ -191,7 +191,7 @@
   const DEFAULT_MESSAGE_TEMPLATES = Object.freeze([
     { id: "welcome", label: "Welcome Message", subject: "Welcome to Little Learner Hub!", body: "Hi! Welcome to Little Learner Hub. We're so glad you're here. Reply anytime if you need help getting started." },
     { id: "trial-welcome", label: "Trial Welcome", subject: "Your trial has started", body: "Welcome to your Little Learner Hub trial! Explore lesson plans, activities, and the calendar — we're here if you need anything." },
-    { id: "founding-welcome", label: "Founding Member Welcome", subject: "Thank you, Founding Member!", body: "Thank you for joining as a Founding Member. You have lifetime $9.99 pricing and early access to new features as we grow." },
+    { id: "founding-welcome", label: "Founding Member Welcome", subject: "Thank you, Founding Member!", body: "Thank you for joining as a Founding Member. You have $9.99/month locked while your membership remains continuously active and early access to new features as we grow." },
     { id: "billing", label: "Billing Response", subject: "About your billing question", body: "Thanks for reaching out about billing. I've looked into your account and wanted to follow up personally." },
     { id: "password-help", label: "Password Help", subject: "Password help", body: "Sorry you're having trouble signing in. Try resetting your password from the login screen — if that doesn't work, reply here and I'll help." },
     { id: "support-follow-up", label: "Support Follow-Up", subject: "Just checking in", body: "Hi! Just following up on your support request. Did that resolve things, or can I help with anything else?" },
@@ -648,15 +648,15 @@
   // ─── 2. My Messages & Requests page ─────────────────────────────────────────
 
   const MESSAGES_TABS = Object.freeze([
-    { id: "conversation", label: "Message Leah" },
-    { id: "inbox", label: "Inbox" },
+    { id: "conversation", label: "Direct Messages" },
+    { id: "inbox", label: "Announcements" },
+    { id: "unread", label: "Unread" },
+    { id: "support", label: "Support" },
     { id: "sent", label: "Sent" },
     { id: "drafts", label: "Drafts" },
-    { id: "support", label: "Support" },
     { id: "features", label: "Features" },
     { id: "bugs", label: "Bugs" },
     { id: "archived", label: "Archived" },
-    { id: "unread", label: "Unread" },
     { id: "preferences", label: "Notification Settings" },
   ]);
 
@@ -969,16 +969,27 @@
   function renderInboxTab() {
     const items = myMessagesState.data.inbox || [];
     if (!items.length) {
-      return emptyStateHtml("No messages yet", "Announcements and updates from Little Learner Hub will appear here.");
+      return `
+        <div class="messages-center-section-intro">
+          <p class="muted-copy">Announcements and platform updates (separate from direct messages with Leah).</p>
+        </div>
+        ${emptyStateHtml("No announcements yet", "Announcements and updates from Little Learner Hub will appear here.")}
+      `;
     }
-    return `<div class="messages-center-list">${items.map((item) => listItemHtml({
+    return `
+      <div class="messages-center-section-intro">
+        <p class="muted-copy">Announcements and platform updates (separate from direct messages with Leah).</p>
+        <button type="button" class="ghost-button" data-messages-mark-all-read>Mark all read</button>
+      </div>
+      <div class="messages-center-list">${items.map((item) => listItemHtml({
       id: item.id,
       title: item.title,
       preview: item.preview,
       time: messagingRelativeTime(item.createdAt),
       status: item.status,
       unread: item.unread,
-      meta: item.kind,
+      meta: item.kind || "Announcement",
+      actionAttr: item.id ? `data-messages-open-item="${escapeHtml(item.id)}"` : "",
     })).join("")}</div>`;
   }
 
@@ -989,6 +1000,9 @@
       : emptyStateHtml("Message Support anytime", "Ask a question, report a bug, request a feature, or just say hello — Leah will reply here.");
     return `
       <div class="messages-conversation">
+        <div class="messages-center-section-intro">
+          <p class="muted-copy">Direct messages with Leah / support (separate from announcements).</p>
+        </div>
         <div class="messages-thread" id="messagesThread">${list}</div>
         <form class="messages-reply-form" id="messagesReplyForm"
           data-draft-scope="message"
@@ -1101,16 +1115,29 @@
 
   function renderUnreadTab() {
     const items = myMessagesState.data.unread || [];
-    if (!items.length) return emptyStateHtml("You're all caught up", "No unread messages right now.");
-    return `<div class="messages-center-list">${items.map((item) => listItemHtml({
-      id: item.id,
-      title: item.title,
-      preview: item.preview || item.body,
-      time: messagingRelativeTime(item.createdAt),
-      status: "Unread",
-      unread: true,
-      meta: item.kind,
-    })).join("")}</div>`;
+    if (!items.length) {
+      return `
+        <div class="messages-center-section-intro">
+          <p class="muted-copy">Unread direct messages and announcements. Opening or marking read updates counts — history is never deleted.</p>
+        </div>
+        ${emptyStateHtml("You're all caught up", "No unread messages right now.")}
+      `;
+    }
+    return `
+      <div class="messages-center-section-intro">
+        <p class="muted-copy">Unread direct messages and announcements. Opening or marking read updates counts — history is never deleted.</p>
+        <button type="button" class="ghost-button" data-messages-mark-all-read>Mark all read</button>
+      </div>
+      <div class="messages-center-list">${items.map((item) => listItemHtml({
+        id: item.id,
+        title: item.title,
+        preview: item.preview || item.body,
+        time: messagingRelativeTime(item.createdAt),
+        status: "Unread",
+        unread: true,
+        meta: item.kind || (item.source === "conversation" ? "Direct Message" : "Announcement"),
+        actionAttr: item.id ? `data-messages-open-item="${escapeHtml(item.id)}"` : "",
+      })).join("")}</div>`;
   }
 
   function renderNotificationSettingsSubSection() {
@@ -1383,10 +1410,10 @@
       <section class="founding-experience-card" aria-label="Founding Member experience">
         <div class="founding-experience-badge">⭐ Founding Member${memberNumber ? ` ${escapeHtml(memberNumber)}` : ""}</div>
         <h3>Thank you for being a Founding Member</h3>
-        <p>You have lifetime $9.99/month pricing and early access to new features as Little Learner Hub grows.</p>
+        <p>You have $9.99/month locked while your membership remains continuously active and early access to new features as Little Learner Hub grows.</p>
         <dl class="founding-experience-meta">
           <div><dt>Joined</dt><dd>${escapeHtml(joinLabel)}</dd></div>
-          <div><dt>Pricing</dt><dd>$9.99/month · Lifetime lock</dd></div>
+          <div><dt>Pricing</dt><dd>$9.99/month locked while continuously active</dd></div>
           <div><dt>Access</dt><dd>Early access to new features</dd></div>
         </dl>
         <p class="muted-copy founding-spots-note">${escapeHtml(spotsNote)}</p>
@@ -2748,7 +2775,38 @@
 
   // ─── Event delegation for messages center ───────────────────────────────────
 
-  document.addEventListener("click", (event) => {
+  document.addEventListener("click", async (event) => {
+    const markAllBtn = event.target.closest("[data-messages-mark-all-read]");
+    if (markAllBtn) {
+      event.preventDefault();
+      const unreadCount = Number((myMessagesState.data.unread || []).length || myMessagesState.data.unreadCount || 0);
+      const confirmed = window.confirm(
+        unreadCount > 0
+          ? `Mark all ${unreadCount} message${unreadCount === 1 ? "" : "s"} as read?\n\nMessage history will not be deleted.`
+          : "Mark all messages as read?\n\nMessage history will not be deleted.",
+      );
+      if (!confirmed) return;
+      if (typeof window.markNotificationRead === "function") {
+        await window.markNotificationRead({ all: true });
+      }
+      await renderMyMessagesCenter({ tab: myMessagesState.tab || "unread" });
+      refreshNotificationBellSafe();
+      return;
+    }
+
+    const openItem = event.target.closest("[data-messages-open-item]");
+    if (openItem) {
+      event.preventDefault();
+      const id = openItem.getAttribute("data-messages-open-item") || openItem.getAttribute("data-item-id") || "";
+      if (id && typeof window.markNotificationRead === "function") {
+        await window.markNotificationRead({ id });
+      }
+      // Keep the item visible; refresh counts after an explicit open/mark action.
+      await renderMyMessagesCenter({ tab: myMessagesState.tab || "inbox" });
+      refreshNotificationBellSafe();
+      return;
+    }
+
     const tabBtn = event.target.closest("[data-messages-center-tab]");
     if (tabBtn) {
       event.preventDefault();

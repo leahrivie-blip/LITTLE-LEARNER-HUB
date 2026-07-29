@@ -61,12 +61,12 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260729-homepage-cleanup" />
-  <link rel="stylesheet" href="styles.css?v=20260729-homepage-cleanup" />
-  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-homepage-cleanup" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260729-signed-in-audit" />
+  <link rel="stylesheet" href="styles.css?v=20260729-signed-in-audit" />
+  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260720-promo-existing" />
-  <link rel="stylesheet" href="styles/llh-comms.css?v=20260720-promo-existing" />
+  <link rel="stylesheet" href="styles/llh-comms.css?v=20260729-signed-in-audit" />
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
     // perform a one-time safe recovery without looping.
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260729-homepage-cleanup";
+      var SHELL_VERSION = "20260729-signed-in-audit";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -859,11 +859,12 @@
 
           <section class="doc-helpers-child-step" aria-label="Select a child">
             <label class="doc-helpers-child-picker">
-              <span class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(optional)</span></span>
+              <span class="doc-helpers-section-heading">Who is this for? <span class="doc-helpers-optional-label">(select only when saving to a child)</span></span>
               <select name="childId" id="docHelperChild">
-                <option value="">All Children</option>
+                <option value="">No child selected</option>
               </select>
             </label>
+            <p class="form-note doc-helpers-child-hint">No child is selected by default. Choose a child only when this document should be saved to that child’s profile.</p>
           </section>
 
           <section class="doc-helpers-most-used" aria-label="Most used helpers">
@@ -947,10 +948,10 @@
                 </select>
               </label>
               <label>Your note
-                <textarea name="note" id="docHelperNote" rows="4" placeholder="Liam counted to ten while building with blocks."></textarea>
+                <textarea name="note" id="docHelperNote" rows="4" placeholder="During block play, the child counted ten blocks and described the tower."></textarea>
               </label>
               <p class="form-note">Keep it simple. One or two sentences are enough. You can edit the result before saving.</p>
-              <label class="settings-check-label ai-debug-toggle">
+              <label class="settings-check-label ai-debug-toggle" hidden>
                 <input type="checkbox" data-ai-debug-toggle />
                 Debug mode
               </label>
@@ -2125,15 +2126,15 @@
     <script src="scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260716-curriculum-standards" defer></script>
-    <script src="scripts/curriculum-lesson-viewer-render.js?v=20260729-homepage-cleanup" defer></script>
+    <script src="scripts/curriculum-lesson-viewer-render.js?v=20260729-signed-in-audit" defer></script>
     <script src="scripts/llh-schedule.js?v=20260714-prod-priority-fixes" defer></script>
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260720-promo-existing" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260720-promo-existing" defer></script>
-    <script src="app.js?v=20260729-homepage-cleanup" defer></script>
-    <script src="admin-workspace.js?v=20260729-homepage-cleanup" defer></script>
-    <script src="comms-center.js?v=20260729-homepage-cleanup" defer></script>
+    <script src="app.js?v=20260729-signed-in-audit" defer></script>
+    <script src="admin-workspace.js?v=20260729-signed-in-audit" defer></script>
+    <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>
 </html>
