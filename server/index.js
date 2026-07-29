@@ -57,7 +57,14 @@ const FOUNDING_CHECKOUT_HOLD_MS = Math.max(
 );
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
-const FOUNDING_LIMIT = Number(process.env.FOUNDING_MEMBER_LIMIT || 50);
+// Production closeout: leave exactly 2 new spots after 44 claimed → limit 46.
+// Cap overrides a stale Dashboard FOUNDING_MEMBER_LIMIT=50 if Blueprint sync lags.
+const FOUNDING_CLOSEOUT_LIMIT = 46;
+const FOUNDING_LIMIT_ENV = Number(process.env.FOUNDING_MEMBER_LIMIT || FOUNDING_CLOSEOUT_LIMIT);
+const FOUNDING_LIMIT = Math.min(
+  Number.isFinite(FOUNDING_LIMIT_ENV) && FOUNDING_LIMIT_ENV > 0 ? FOUNDING_LIMIT_ENV : FOUNDING_CLOSEOUT_LIMIT,
+  FOUNDING_CLOSEOUT_LIMIT,
+);
 // Optional marketing offset only — defaults to 0 so claimed counts reflect real foundingMembers[].
 const PUBLIC_FOUNDING_CLAIMED_BASE = Number(process.env.PUBLIC_FOUNDING_CLAIMED_BASE || 0);
 const ADMIN_EMAIL = normalizeEmail(process.env.ADMIN_EMAIL || "");
