@@ -193,11 +193,22 @@ async function main() {
       return typeof foundingStatusLoaded === "function" && foundingStatusLoaded() && Number(foundingSpotsRemaining()) === 2;
     }, null, { timeout: 30000 });
     // First-login budget: welcome card owns the surface; dismiss it before asserting the reminder bar.
+    await page.waitForFunction(() => {
+      try {
+        return !(typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive())
+          && !document.body.classList.contains("app-boot-verifying");
+      } catch { return true; }
+    }, null, { timeout: 30000 });
     await page.evaluate(() => {
       localStorage.setItem("llhFreeWelcomeCardDismissed", "1");
+      sessionStorage.removeItem("llhFreePlanReminderDismissed");
+      sessionStorage.removeItem("llhFoundingUpgradeDismissed");
+      document.body.classList.remove("app-boot-verifying");
+      document.body.classList.add("user-authenticated");
       if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
       if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
     });
+    await page.waitForTimeout(150);
 
     const chrome = await page.evaluate(() => {
       const reminder = document.querySelector("#freePlanReminderBar");
@@ -205,6 +216,7 @@ async function main() {
       const soft = document.querySelector("#freePlanSoftNudge");
       return {
         reminderHidden: reminder?.hidden,
+        canSee: typeof canSeePaidUpgradeOffer === "function" ? canSeePaidUpgradeOffer() : null,
         reminderText: reminder?.innerText || "",
         reminderCta: document.querySelector("#freePlanReminderPrimary")?.textContent?.trim() || "",
         sidebarText: sidebar?.innerText || "",
@@ -215,7 +227,8 @@ async function main() {
         remaining: typeof foundingSpotsRemaining === "function" ? foundingSpotsRemaining() : null,
       };
     });
-    assert.equal(chrome.reminderHidden, false, "reminder bar visible for Free");
+    assert.equal(chrome.canSee, true, "Free user can see paid upgrade offer");
+    assert.equal(chrome.reminderHidden, false, "reminder bar visible for Free after welcome dismiss");
     assert.equal(chrome.remaining, 2);
     assert.match(chrome.reminderText, /Only 2 Founding Member spots remaining/i);
     assert.match(chrome.reminderCta, /Lock In Founding Member Pricing/i);

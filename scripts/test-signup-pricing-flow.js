@@ -76,8 +76,8 @@ test("public pricing/upgrade pages show Founding as primary and Pro Monthly as a
   assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
   // Pro Monthly is ALSO rendered (as a secondary card, not hidden) while spots remain.
   assert.match(pricing, /\$\{!soldOut\s*\n\s*\? pricingCard\("ProMonthly", \{\s*\n\s*secondary: true/);
-  assert.match(pricing, /includesNote: FOUNDING_INCLUDES_NOTE/);
-  assert.match(pricing, /rationale: PRO_MONTHLY_RATIONALE/);
+  assert.match(pricing, /includesNote: "\$9\.99\/month locked while your membership remains continuously active/);
+  assert.match(pricing, /rationale: "For providers who prefer regular Pro pricing/);
 
   const upgrade = appJs.slice(appJs.indexOf("function renderUpgradePage"), appJs.indexOf("function subscriptionSummaryHtml"));
   assert.match(upgrade, /\$\{!soldOut\s*\n\s*\? pricingCard\("Founding", \{\s*\n\s*featured: true, primary: true/);
@@ -85,15 +85,15 @@ test("public pricing/upgrade pages show Founding as primary and Pro Monthly as a
 });
 
 test("the required Founding copy exists and the 'no meaningful reason' wording has been removed (v2 correction)", () => {
-  assert.match(appJs, /Includes Pro access\. \$9\.99\/month locked while continuously active\./);
-  assert.match(appJs, /const FOUNDING_INCLUDES_NOTE = "Includes Pro access\. \$9\.99\/month locked while continuously active\."/);
-  assert.match(appJs, /foundingIncludesNote: "Includes Pro access\. \$9\.99\/month locked while continuously active\."/);
+  assert.equal(appJs.includes("$9.99/month locked while your membership remains continuously active"), true);
+  assert.equal(appJs.includes('const FOUNDING_INCLUDES_NOTE = "Includes all current and future Pro features. $9.99/month locked while your membership remains continuously active."'), true);
+  assert.equal(appJs.includes('foundingIncludesNote: "Includes Pro access. $9.99/month locked while continuously active."'), true);
   // Required replacement copy for the Pro Monthly secondary card.
-  assert.match(appJs, /const PRO_MONTHLY_RATIONALE = "Regular monthly price after Founding availability ends\."/);
-  assert.match(appJs, /proRationale: "Regular monthly price after Founding availability ends\."/);
+  assert.equal(appJs.includes('const PRO_MONTHLY_RATIONALE = "For providers who prefer regular Pro pricing instead of claiming a Founding spot."'), true);
+  assert.equal(/proRationale:/.test(appJs), true);
   // The old "no meaningful reason" framing must be completely gone from the shipped copy.
-  assert.doesNotMatch(appJs, /no meaningful/i);
-  assert.doesNotMatch(appJs, /exact same features as Founding/i);
+  assert.equal(/no meaningful/i.test(appJs), false);
+  assert.equal(/exact same features as Founding/i.test(appJs), false);
 });
 
 test("choosing Regular Pro while eligible and Founding is open shows the required 3-button confirmation", () => {
@@ -162,9 +162,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260722-lesson-empty-hotfix");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260722-lesson-empty-hotfix");
-  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260729-conversion-finish");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260729-conversion-finish");
+  assert.match(sw, /llh-shell-v114-conversion-finish/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

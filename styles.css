@@ -5623,6 +5623,22 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   .free-plan-reminder-actions .primary-button,
   .free-plan-reminder-actions .ghost-button {
     flex: 1 1 auto;
+    max-width: 100%;
+    white-space: normal;
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  .free-plan-reminder-copy strong {
+    overflow-wrap: anywhere;
+  }
+
+  .pricing-card .primary-button,
+  .pricing-card .ghost-button,
+  .founding-upgrade-card .primary-button {
+    white-space: normal;
+    max-width: 100%;
+    line-height: 1.25;
   }
 
   .free-plan-badge {
