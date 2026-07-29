@@ -23,6 +23,8 @@
   // Most-specific phrases first (multi-word before single-word).
   const THEME_COVER_RULES = [
     { match: ["around the world", "world travel", "global"], cover: "around-the-world" },
+    // Family Connections unit + belonging themes before generic "faces" infant rule.
+    { match: ["family connections", "people who love", "my home and my family", "caring hearts", "we belong together", "classroom family", "belonging"], cover: "family" },
     { match: ["reaching", "grasping", "reach and grasp"], cover: "reaching-grasping" },
     { match: ["tummy time", "tummy-time"], cover: "tummy-time" },
     { match: ["peek a boo", "peek-a-boo", "peekaboo"], cover: "peek-a-boo" },
