@@ -258,11 +258,13 @@ async function browserSmoke() {
       },
     });
     // Same plan linked to multiple weeks fails validation — fall back to progressive publish (week 1 only).
-    let seriesOk = seriesSave.status === 200;
-    if (!seriesOk) {
+    let stamp = seriesSave.status === 200
+      ? seriesSave.json.siteContentUpdatedAt
+      : savePlan.json.siteContentUpdatedAt;
+    if (seriesSave.status !== 200) {
       const seriesSave2 = await requestJson("POST", "/api/admin/curriculum/series", {
         adminToken: token,
-        expectedUpdatedAt: savePlan.json.siteContentUpdatedAt,
+        expectedUpdatedAt: stamp,
         series: {
           id: "cur-series-collections-ui-family",
           collectionKey: "family-connections",
@@ -283,10 +285,10 @@ async function browserSmoke() {
       });
       // Progressive publish: weekCount 4 with only some weeks linked is allowed.
       assert(seriesSave2.status === 200, `expected progressive single-week publish ${seriesSave2.status} ${seriesSave2.text}`);
+      stamp = seriesSave2.json.siteContentUpdatedAt;
     }
 
     // Create 3 additional stub copies for weeks 2-4
-    let stamp = savePlan.json.siteContentUpdatedAt;
     const weekIds = [planId];
     for (let week = 2; week <= 4; week += 1) {
       const id = `cur-lp-collections-ui-week${week}`;
