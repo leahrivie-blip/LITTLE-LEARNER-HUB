@@ -159,11 +159,11 @@ async function main() {
         await page.waitForSelector("#homePricing .llh-founding-card, #homeFoundingMeter", { timeout: 10000 });
         await page.waitForFunction(() => {
           const meter = document.querySelector("#homeFoundingMeter");
-          return meter && /spots remaining|Founding Member spots left/i.test(meter.innerText || "");
+          return meter && /spots remaining|Founding Member spots remaining|Founding Member spots left/i.test(meter.innerText || "");
         }, null, { timeout: 15000 });
         const pricingText = await page.locator("#homePricing").innerText();
         assert.match(pricingText, /\$9\.99/);
-        assert.match(pricingText, /spots remaining|Founding Member spots left/i);
+        assert.match(pricingText, /spots remaining|Founding Member spots remaining|Founding Member spots left/i);
         assert.doesNotMatch(pricingText, /no meaningful/i, "the removed 'no meaningful reason' wording must not appear anywhere");
         await page.screenshot({ path: path.join(SHOT_DIR, "01-homepage-founding-open-desktop.png"), fullPage: true });
         await page.close();

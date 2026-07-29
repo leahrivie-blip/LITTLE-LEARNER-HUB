@@ -165,7 +165,7 @@ async function main() {
 
   assert.match(appJs, /function refreshFreePlanUpgradeChrome/);
   assert.match(appJs, /function maybeShowFreePlanSoftNudge/);
-  assert.match(appJs, /If the Free sample feels this good/);
+  assert.match(appJs, /Ready for the full lesson plan library\?|Lock In Founding Member Pricing/);
   assert.match(appJs, /Ready to save hours every week\?/);
   assert.match(appJs, /freeWelcomeCardHtml/);
   assert.match(appJs, /freeCalendarPlanningDays\s*=\s*30/);
@@ -306,10 +306,22 @@ async function main() {
       };
     });
     assert.equal(afterDismiss.dismissed, true, "welcome dismiss persists");
-    assert.equal(afterDismiss.hasWelcome, false, "welcome card dismisses");
-    assert.equal(afterDismiss.hasBanner, true, "conversion banner appears after welcome dismiss");
-    assert.match(afterDismiss.text, /If the Free sample feels this good|save hours every week|Upgrade/i);
-    console.log("PASS welcome dismiss reveals conversion banner");
+    // After welcome dismiss: one dashboard upgrade card (not a second stacked conversion banner).
+    const afterCard = await page.evaluate(() => {
+      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
+      const card = root?.querySelector(".free-welcome-card, .free-dashboard-upgrade-card");
+      const banner = root?.querySelector(".free-library-conversion-banner");
+      return {
+        hasCard: Boolean(card),
+        hasBanner: Boolean(banner),
+        text: card?.innerText?.slice(0, 400) || "",
+        cta: card?.querySelector("[data-checkout-plan]")?.textContent?.trim() || "",
+      };
+    });
+    assert.equal(afterCard.hasBanner, false, "no stacked conversion banner after welcome dismiss");
+    assert.equal(afterCard.hasCard, true, "dashboard upgrade card remains after welcome dismiss");
+    assert.match(afterCard.text + afterCard.cta, /Lock In Founding|Upgrade to Pro|Founding Member|lesson plans/i);
+    console.log("PASS welcome dismiss keeps one dashboard upgrade card");
 
     console.log("\nAll free user upgrade experience tests passed.");
   } catch (error) {

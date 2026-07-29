@@ -52,21 +52,20 @@ test("shared banner helpers exist", () => {
 });
 
 test("banner copy and founding CTA markers", () => {
-  assert.match(appJs, /Founding Member Spots Still Available/);
-  assert.match(appJs, /Lock in \$9\.99\/month for life/);
-  assert.match(appJs, /Regular Price:/);
-  assert.match(appJs, /Claim Founding Member Pricing/);
+  assert.match(appJs, /Lock In Founding Member Pricing/);
+  assert.match(appJs, /\$9\.99\/month for life/);
+  assert.match(appJs, /Regular price will be \$19\.99\/month/);
+  assert.match(appJs, /freeUpgradePrimaryButtonLabel/);
   assert.match(appJs, /data-dismiss-founding-upgrade/);
   assert.match(appJs, /founding-upgrade-banner/);
 });
 
-test("banner placements: dashboard, libraries, billing, settings, locked features", () => {
-  assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "dashboard"/);
-  assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "library"/);
+test("banner placements: billing, settings, locked features (no library/dashboard stacks)", () => {
   assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "billing"/);
   assert.match(appJs, /foundingUpgradeBannerHtml\(\{ variant: "settings"/);
   assert.match(appJs, /paidUpgradeCtaButtonHtml/);
   assert.match(appJs, /dataset\.upgradeMode/);
+  assert.match(appJs, /function freeDashboardUpgradeCardHtml/);
 });
 
 test("eligibility gates exclude paid, staff, admin full access", () => {

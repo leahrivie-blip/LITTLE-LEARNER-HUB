@@ -3993,8 +3993,8 @@ function foundingStatusPayload(store = readStore()) {
   const spotsLeftMessage = remaining <= 0
     ? "Founding Member pricing is sold out. Pro is $19.99/month."
     : (remaining === 1
-      ? "Only 1 Founding Member spot left."
-      : `Only ${remaining} Founding Member spots left.`);
+      ? "Only 1 Founding Member spot remaining."
+      : `Only ${remaining} Founding Member spots remaining.`);
   return {
     limit: FOUNDING_LIMIT,
     claimed,

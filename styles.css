@@ -5707,6 +5707,45 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   justify-content: center;
 }
 
+.content-growth-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 18px;
+}
+
+.content-growth-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  border: 1px solid var(--line, #d7e2ee);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #fff, #f7fbff);
+  text-align: center;
+}
+
+.content-growth-stat strong {
+  font-size: 1.35rem;
+  line-height: 1.1;
+  color: var(--ink, #1a2b4a);
+}
+
+.content-growth-stat span {
+  font-size: 0.82rem;
+  color: var(--muted, #5b6b7c);
+}
+
+.plan-comparison-section {
+  margin: 28px 0 12px;
+}
+
+@media (max-width: 720px) {
+  .content-growth-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 .free-library-conversion-banner h3 {
   margin: 0;
   font-size: 1.15rem;
