@@ -655,6 +655,8 @@ async function probePostgresReadiness() {
     // Connectivity only — do NOT mark databaseReady here. Ready means the authentic
     // Postgres store has been loaded into memory. Marking ready on SELECT 1 would let
     // a sparse local fallback get upserted over real membership data.
+    // If the authentic store is already loaded, clear a stale lastError from an idle drop.
+    if (databaseReady) lastPostgresError = "";
     return true;
   } catch (error) {
     lastPostgresError = error.message || "Postgres readiness probe failed.";
@@ -2668,10 +2670,11 @@ function createConfiguredPostgresPool() {
   // The pool discards the dead client; the next query opens a fresh connection.
   if (typeof pool.on === "function") {
     pool.on("error", (error) => {
-      lastPostgresError = error.message || "Postgres pool idle client error.";
+      // Idle drops are expected during deploys/cold starts. Log only — do not flip
+      // readiness or sticky lastPostgresError (that made recovered DBs still look failed).
       console.error(
         "[store] Postgres pool idle client error (will reconnect on next query):",
-        lastPostgresError,
+        error.message || error,
       );
     });
   }

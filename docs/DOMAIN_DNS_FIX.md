@@ -42,7 +42,25 @@ Nameservers are shown only as context (which zone is live), never as a failure r
 ## Working URLs today
 
 - `https://littlelearnershubbyleah.com/` — already on Render (Namecheap nameservers + correct A/CNAME)
+- `https://www.littlelearnershubbyleah.com/` — redirects to the apex official site
 - `https://little-learner-hub.onrender.com/`
+
+## Deprecated domain (`littlelearnerhub.com`) — why people see “can’t be found”
+
+`littlelearnerhub.com` is **not** this app anymore. Public DNS for that old name points at **Bluehost / Cloudflare**, not Render. Browsers hit a Cloudflare challenge or a parking page — it looks like the site is missing.
+
+**Official site only:** `https://littlelearnershubbyleah.com`
+
+### Fix for the old domain (do this in Bluehost / wherever `littlelearnerhub.com` DNS is hosted)
+
+Point the old name at a redirect to the official site (do **not** leave it on a parked Bluehost page):
+
+1. Log into Bluehost (nameservers today: `ns1.bluehost.com` / `ns2.bluehost.com`).
+2. For `littlelearnerhub.com` and `www.littlelearnerhub.com`, set a **domain redirect / forwarding** to  
+   `https://littlelearnershubbyleah.com` (301 permanent).
+3. Or, if you prefer DNS-only: add the old apex/www as Render custom domains and CNAME/A them like the official domain — then the app can serve/redirect. Forwarding at Bluehost is usually simpler.
+
+Until that redirect is set, anyone using the old bookmark/link will keep saying the website “can’t be found.”
 
 ## Verify from any machine
 
