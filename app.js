@@ -9932,8 +9932,20 @@ function resolveAccountType(account = {}) {
 }
 
 function resolveUserRole(account = {}) {
-  if (account?.role) return normalizeUserRole(account.role);
-  if (account?.userRole) return normalizeUserRole(account.userRole);
+  const email = String(account?.email || currentUser || "").trim().toLowerCase();
+  const linkedOwner = String(account?.linkedProgramOwnerEmail || "").trim().toLowerCase();
+  const isLinkedMember = Boolean(linkedOwner && email && linkedOwner !== email);
+  if (account?.role) {
+    const role = normalizeUserRole(account.role, isLinkedMember ? USER_ROLES.DIRECTOR : USER_ROLES.OWNER);
+    if (isLinkedMember && role === USER_ROLES.OWNER) return USER_ROLES.DIRECTOR;
+    return role;
+  }
+  if (account?.userRole) {
+    const role = normalizeUserRole(account.userRole, isLinkedMember ? USER_ROLES.DIRECTOR : USER_ROLES.OWNER);
+    if (isLinkedMember && role === USER_ROLES.OWNER) return USER_ROLES.DIRECTOR;
+    return role;
+  }
+  if (isLinkedMember) return USER_ROLES.DIRECTOR;
   return USER_ROLES.OWNER;
 }
 
@@ -28764,7 +28776,10 @@ function renderStaffManagementPage(options = {}) {
   const invites = cache.invites?.length ? cache.invites : centerProgramData().staffInvites;
   const members = Array.isArray(cache.members) ? cache.members : [];
   const classrooms = activeScheduleClassrooms();
-  const ownerEmail = currentUser || "";
+  const account = currentAccount() || {};
+  const programOwnerEmail = account.linkedProgramOwnerEmail || currentUser || "";
+  const isLinkedMember = Boolean(account.linkedProgramOwnerEmail);
+  const activeRole = getUserRole(account);
   const emailNote = cache.emailDeliveryReady
     ? "Invite emails send automatically when delivery is configured."
     : "If email delivery is not configured on the server, you will still get a shareable accept link.";
@@ -28780,13 +28795,30 @@ function renderStaffManagementPage(options = {}) {
       <section class="section-block platform-manage-card">
         <h3>Current access</h3>
         <div class="platform-manage-list">
+          ${isLinkedMember ? `
           <article class="platform-manage-row">
             <div>
-              <strong>${escapeHtml(ownerEmail || "Owner")}</strong>
+              <strong>${escapeHtml(programOwnerEmail)}</strong>
+              <p class="muted-copy">Program owner · billing and subscription</p>
+            </div>
+            <span class="tag">Owner</span>
+          </article>
+          <article class="platform-manage-row">
+            <div>
+              <strong>${escapeHtml(currentUser || "You")}</strong>
+              <p class="muted-copy">${escapeHtml(roleLabel(activeRole))} · active on this device · shared program data</p>
+            </div>
+            <span class="tag">${escapeHtml(roleLabel(activeRole))}</span>
+          </article>
+          ` : `
+          <article class="platform-manage-row">
+            <div>
+              <strong>${escapeHtml(programOwnerEmail || "Owner")}</strong>
               <p class="muted-copy">Owner · Active on this device</p>
             </div>
             <span class="tag">Owner</span>
           </article>
+          `}
           ${members.map((member) => `
             <article class="platform-manage-row">
               <div>
@@ -48295,6 +48327,25 @@ function renderAccountPage() {
   detailLabel.innerHTML = canBilling
     ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? "Lifetime" : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
+  const programConnectionHost = document.querySelector("#accountProgramConnection");
+  if (programConnectionHost) {
+    if (account?.linkedProgramOwnerEmail) {
+      programConnectionHost.hidden = false;
+      programConnectionHost.innerHTML = `
+        <p class="eyebrow">Shared program</p>
+        <p class="muted-copy">You are connected to <strong>${escapeHtml(account.linkedProgramOwnerEmail)}</strong> as ${escapeHtml(roleLabel(getUserRole(account)))}. Children, calendar, and documentation use the shared program. Each person keeps a separate login — there is no account switcher.</p>
+      `;
+    } else if (canAccessPlatformFeature("staff_management", account)) {
+      const teamMembers = Array.isArray(staffInviteRemoteCache.members) ? staffInviteRemoteCache.members : [];
+      programConnectionHost.hidden = false;
+      programConnectionHost.innerHTML = teamMembers.length
+        ? `<p class="eyebrow">Program team</p><p class="muted-copy">Active members: ${teamMembers.map((m) => escapeHtml(m.email || "staff")).join(", ")}. Each teammate signs in with their own email.</p>`
+        : `<p class="eyebrow">Program team</p><p class="muted-copy">Invite directors and teachers from Settings → Staff management. They sign in separately and share this program's data.</p>`;
+    } else {
+      programConnectionHost.hidden = true;
+      programConnectionHost.innerHTML = "";
+    }
+  }
   const accountBannerHost = document.querySelector("#accountAccessBanner");
   if (accountBannerHost) {
     accountBannerHost.innerHTML = canBilling ? subscriptionAccessBannerHtml({ variant: "account" }) : "";

@@ -193,6 +193,8 @@ module.exports = {
   WORKING_BRAND_DOMAINS,
   BRAND_APEX_HOST,
   BRAND_WWW_HOST,
+  WORKING_APEX_HOST,
+  WORKING_WWW_HOST,
   normalizeDnsHost,
   isRenderServiceHost,
   isRenderLoadBalancerIp,

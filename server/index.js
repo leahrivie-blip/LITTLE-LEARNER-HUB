@@ -29,6 +29,10 @@ const {
   RENDER_LOAD_BALANCER_IPV4,
   CUSTOM_BRAND_DOMAINS,
   WORKING_BRAND_DOMAINS,
+  BRAND_APEX_HOST,
+  BRAND_WWW_HOST,
+  WORKING_APEX_HOST,
+  WORKING_WWW_HOST,
   buildDomainDnsReport,
 } = require("./domain-dns.js");
 
@@ -694,6 +698,7 @@ function defaultStore() {
     analyticsEvents: [],
     billingEvents: [],
     membershipAudit: [],
+    roleReconciliationAudit: [],
     processedStripeEvents: {},
     leads: [],
     promoRedemptions: [],
@@ -3955,6 +3960,35 @@ function appendMembershipLifecycleAudit(email, action, details = {}) {
   return entry;
 }
 
+function appendRoleReconciliationAudit({
+  email = "",
+  userId = "",
+  programId = "",
+  previousRole = "",
+  newRole = "",
+  reason = "",
+} = {}, store = null) {
+  const cleanEmail = normalizeEmail(email);
+  if (!cleanEmail) return null;
+  const targetStore = store || readStore();
+  targetStore.roleReconciliationAudit = targetStore.roleReconciliationAudit || [];
+  const entry = {
+    id: `role_rc_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    email: cleanEmail,
+    userId: String(userId || "").trim(),
+    programId: String(programId || "").trim(),
+    previousRole: String(previousRole || "").trim().toLowerCase(),
+    newRole: String(newRole || "").trim().toLowerCase(),
+    reason: String(reason || "linked_program_member_reconcile").trim(),
+    createdAt: new Date().toISOString(),
+  };
+  targetStore.roleReconciliationAudit.unshift(entry);
+  targetStore.roleReconciliationAudit = targetStore.roleReconciliationAudit.slice(0, 500);
+  if (!store) writeStore(targetStore);
+  console.log("[role-reconciliation-audit]", JSON.stringify(entry));
+  return entry;
+}
+
 function applyCheckoutMembershipUpgrade(email, {
   planKey,
   customerId,
@@ -4164,22 +4198,39 @@ function repairFoundingMemberPricing(user = {}) {
   };
 }
 
-function upsertUser(email, updates) {
+function upsertUser(email, updates = {}, options = {}) {
   const store = readStore();
   store.users = store.users || {};
   const existing = store.users[email] || { email };
+  const beforeRole = String(existing.role || "").trim().toLowerCase();
+  const beforeProgramId = String(existing.programId || "").trim();
   let merged = {
     ...existing,
     ...updates,
     email,
     updatedAt: new Date().toISOString(),
   };
+  merged = programOwnership.reconcileLinkedProgramMember(merged, store);
   // Persist normalized accountType + role (defaults: home_daycare / owner).
   const accessFields = accountAccess.migrateAccountAccessFields(merged);
   merged.accountType = accessFields.accountType;
   merged.role = accessFields.role;
   // Keep active founding members on the locked $9.99 price in stored billing fields.
   merged = repairFoundingMemberPricing(merged);
+  const afterRole = String(merged.role || "").trim().toLowerCase();
+  const afterProgramId = String(merged.programId || "").trim();
+  const linkedOwner = normalizeEmail(merged.linkedProgramOwnerEmail || "");
+  const isLinkedMember = Boolean(linkedOwner && linkedOwner !== normalizeEmail(email));
+  if (isLinkedMember && (afterRole !== beforeRole || (afterProgramId && afterProgramId !== beforeProgramId))) {
+    appendRoleReconciliationAudit({
+      email,
+      userId: merged.firebaseUid || existing.firebaseUid || "",
+      programId: afterProgramId,
+      previousRole: beforeRole || "unknown",
+      newRole: afterRole,
+      reason: options.reconcileReason || "linked_program_member_reconcile",
+    }, store);
+  }
   store.users[email] = merged;
   writeStore(store);
   return store.users[email];
@@ -5923,7 +5974,13 @@ async function handleAccountProfileSync(request, response) {
     updates.programName = businessName;
   }
   if (accountType) updates.accountType = accountType;
-  if (role) updates.role = role;
+  if (role) {
+    const linkedOwner = normalizeEmail(existing.linkedProgramOwnerEmail || "");
+    const isLinkedMember = Boolean(linkedOwner && linkedOwner !== email);
+    if (!(isLinkedMember && role === accountAccess.USER_ROLES.OWNER)) {
+      updates.role = role;
+    }
+  }
   // Optional signup center pathway metadata (join/create/independent/skip).
   // Only set when provided — never clears existing associations on unrelated profile syncs.
   const centerAssociation = normalizedShortText(body.centerAssociation, 40);
@@ -5950,7 +6007,9 @@ async function handleAccountProfileSync(request, response) {
     updates.lastLoginAt = new Date().toISOString();
     updates.lastSeenAt = updates.lastLoginAt;
   }
-  const user = upsertUser(email, updates);
+  const user = upsertUser(email, updates, {
+    reconcileReason: body.lastLogin ? "profile_sync_login" : "profile_sync",
+  });
   // Configurable Free-member welcome (in-app + email). Runs immediately on signup;
   // does not require EMAIL_AUTOMATIONS_ENABLED. Pro/Founding/Trial signups are skipped.
   if (body.signup === true && !existing.signupAt) {
@@ -8214,6 +8273,17 @@ async function syncUserMembershipFromStripe(email, { force = false, reason = "su
       subscription = upsertUser(cleanEmail, repaired);
     } else {
       subscription = repaired;
+    }
+  }
+  if (subscription) {
+    const linkedOwner = normalizeEmail(subscription.linkedProgramOwnerEmail || "");
+    if (linkedOwner && linkedOwner !== cleanEmail) {
+      const storeForRepair = readStore();
+      const reconciled = programOwnership.reconcileLinkedProgramMember(subscription, storeForRepair);
+      const normalizedRole = accountAccess.resolveUserRole(reconciled);
+      if (normalizedRole !== subscription.role || (reconciled.programId && reconciled.programId !== subscription.programId)) {
+        subscription = upsertUser(cleanEmail, {}, { reconcileReason: reason });
+      }
     }
   }
   if (subscription) {
@@ -13511,6 +13581,52 @@ function clientAppScript(filePath) {
   return clientAppScriptCache;
 }
 
+function maybeCanonicalHostRedirect(request, response, url) {
+  const host = String(request.headers.host || "").split(":")[0].toLowerCase();
+  let canonicalHost = WORKING_APEX_HOST;
+  try {
+    canonicalHost = new URL(SITE_URL).hostname.toLowerCase();
+  } catch { /* use working apex */ }
+  const redirectMap = new Map([
+    [WORKING_WWW_HOST, canonicalHost],
+    [BRAND_APEX_HOST, canonicalHost],
+    [BRAND_WWW_HOST, canonicalHost],
+  ]);
+  const targetHost = redirectMap.get(host);
+  if (!targetHost || targetHost === host) return false;
+  const location = `https://${targetHost}${url.pathname}${url.search}`;
+  response.writeHead(301, { Location: location, "Cache-Control": "no-store" });
+  response.end();
+  return true;
+}
+
+function shouldServeSpaShell(routePath = "") {
+  const normalized = String(routePath || "/").trim() || "/";
+  if (normalized === "/index.html") return false;
+  const ext = path.extname(normalized).toLowerCase();
+  // Missing static assets (e.g. /app.js typo) should 404; app routes without extensions get index.html.
+  return !ext || ext === ".html";
+}
+
+function serveSpaIndex(request, response) {
+  const indexPath = path.join(publicDir, "index.html");
+  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  if (request.method === "HEAD") {
+    response.end();
+    return;
+  }
+  const stream = fs.createReadStream(indexPath);
+  stream.on("error", (error) => {
+    console.error(error);
+    if (!response.headersSent) {
+      textResponse(response, 500, "Server error.");
+      return;
+    }
+    response.destroy(error);
+  });
+  stream.pipe(response);
+}
+
 function serveStatic(request, response, url) {
   const routePath = decodeURIComponent(url.pathname || "/").replace(/\.\.+/g, "");
   const safePath = routePath === "/" ? "/index.html" : routePath;
@@ -13520,23 +13636,8 @@ function serveStatic(request, response, url) {
     return;
   }
   if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    if (spaRoutePaths.has(routePath)) {
-      const indexPath = path.join(publicDir, "index.html");
-      response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      if (request.method === "HEAD") {
-        response.end();
-        return;
-      }
-      const stream = fs.createReadStream(indexPath);
-      stream.on("error", (error) => {
-        console.error(error);
-        if (!response.headersSent) {
-          textResponse(response, 500, "Server error.");
-          return;
-        }
-        response.destroy(error);
-      });
-      stream.pipe(response);
+    if (shouldServeSpaShell(routePath)) {
+      serveSpaIndex(request, response);
       return;
     }
     request.method === "HEAD" ? headResponse(response, 404) : textResponse(response, 404, "Not found");
@@ -16303,6 +16404,7 @@ const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   const comms = getCommsApi();
   try {
+    if (maybeCanonicalHostRedirect(request, response, url)) return;
     if (request.method === "POST" && url.pathname === "/api/admin/login") return await handleAdminLogin(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/logout") return await handleAdminLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/session") return handleAdminSession(request, response, url);

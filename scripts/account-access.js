@@ -134,12 +134,21 @@ function resolveAccountType(account = {}) {
 }
 
 function resolveUserRole(account = {}) {
+  const email = String(account.email || "").trim().toLowerCase();
+  const linkedOwner = String(account.linkedProgramOwnerEmail || "").trim().toLowerCase();
+  const isLinkedMember = Boolean(linkedOwner && email && linkedOwner !== email);
   if (account.role) {
-    return normalizeUserRole(account.role);
+    const role = normalizeUserRole(account.role, isLinkedMember ? USER_ROLES.DIRECTOR : USER_ROLES.OWNER);
+    // Linked program members are never billing owners, even if legacy data says owner.
+    if (isLinkedMember && role === USER_ROLES.OWNER) return USER_ROLES.DIRECTOR;
+    return role;
   }
   if (account.userRole) {
-    return normalizeUserRole(account.userRole);
+    const role = normalizeUserRole(account.userRole, isLinkedMember ? USER_ROLES.DIRECTOR : USER_ROLES.OWNER);
+    if (isLinkedMember && role === USER_ROLES.OWNER) return USER_ROLES.DIRECTOR;
+    return role;
   }
+  if (isLinkedMember) return USER_ROLES.DIRECTOR;
   // Single-account providers today are effectively owners.
   return USER_ROLES.OWNER;
 }

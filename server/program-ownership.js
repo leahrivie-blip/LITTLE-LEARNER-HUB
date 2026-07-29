@@ -127,6 +127,63 @@ function resolveOwnerEmailForUser(user = {}, fallbackEmail = "") {
   return email;
 }
 
+function programOwnerKey(email) {
+  return normalizeEmail(email);
+}
+
+/**
+ * Keep linked program members aligned with owner programs.
+ * Repairs legacy rows where a director still has role=owner after profile sync.
+ */
+function reconcileLinkedProgramMember(user = {}, store = null) {
+  const email = normalizeEmail(user.email);
+  const ownerEmail = normalizeEmail(user.linkedProgramOwnerEmail || "");
+  if (!email || !ownerEmail || ownerEmail === email) return user;
+
+  let role = String(user.role || "director").trim().toLowerCase();
+  if (role === "owner") role = "director";
+
+  const owner = store?.users?.[ownerEmail] || {};
+  const programId = user.programId || owner.programId || programIdForOwnerEmail(ownerEmail);
+  const next = {
+    ...user,
+    email,
+    role,
+    programId,
+    linkedProgramOwnerEmail: ownerEmail,
+    programAccessViaOwner: user.programAccessViaOwner !== false,
+  };
+
+  if (store) {
+    store.programMembers = store.programMembers && typeof store.programMembers === "object"
+      ? store.programMembers
+      : {};
+    const key = programOwnerKey(ownerEmail);
+    const members = Array.isArray(store.programMembers[key]) ? store.programMembers[key] : [];
+    const idx = members.findIndex((entry) => normalizeEmail(entry.email) === email);
+    const memberRow = {
+      email,
+      uid: user.firebaseUid || (idx >= 0 ? members[idx].uid : "") || "",
+      role,
+      classroomId: idx >= 0 ? members[idx].classroomId || "" : "",
+      classroomName: idx >= 0 ? members[idx].classroomName || "" : "",
+      status: "active",
+      joinedAt: idx >= 0 ? members[idx].joinedAt || new Date().toISOString() : new Date().toISOString(),
+      inviteId: idx >= 0 ? members[idx].inviteId || "reconciled" : "reconciled",
+      programId,
+    };
+    if (idx >= 0) {
+      const updated = members.slice();
+      updated[idx] = { ...members[idx], ...memberRow };
+      store.programMembers[key] = updated;
+    } else {
+      store.programMembers[key] = [...members, memberRow];
+    }
+  }
+
+  return next;
+}
+
 /**
  * Resolve which shared program an authenticated actor should read/write.
  * Single-provider owners get a stable programId for their own email.
@@ -160,7 +217,8 @@ function resolveProgramContext(store, identity = {}) {
       updatedAt: new Date().toISOString(),
     };
   }
-  const role = String((ownerEmail === actorEmail ? (user.role || "owner") : (user.role || "teacher"))).toLowerCase();
+  let role = String((ownerEmail === actorEmail ? (user.role || "owner") : (user.role || "director"))).toLowerCase();
+  if (ownerEmail !== actorEmail && role === "owner") role = "director";
   const canManageStaff = role === "owner" || role === "director" || !user.role;
   const canWriteProgramData = true; // all active members can contribute operational data
   return {
@@ -715,6 +773,7 @@ module.exports = {
   ensureProgramsCollection,
   ensureProgramForOwner,
   resolveOwnerEmailForUser,
+  reconcileLinkedProgramMember,
   resolveProgramContext,
   readProgramChildData,
   writeProgramChildData,

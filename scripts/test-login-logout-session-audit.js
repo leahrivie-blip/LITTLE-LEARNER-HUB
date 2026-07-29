@@ -232,7 +232,11 @@ async function main() {
       await page.waitForTimeout(300);
       await page.goto(`http://127.0.0.1:${PORT}/?resetToken=fake-reset-token-for-routing-check`, { waitUntil: "domcontentloaded", timeout: 30000 });
       await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-      await page.waitForTimeout(500);
+      await page.waitForFunction(
+        () => document.querySelector(".active-view")?.id === "view-reset-password",
+        null,
+        { timeout: 30000 },
+      );
       const resetRouting = await page.evaluate(() => ({
         active: document.querySelector(".active-view")?.id || "",
         message: document.querySelector("#resetPasswordMessage")?.textContent || "",
