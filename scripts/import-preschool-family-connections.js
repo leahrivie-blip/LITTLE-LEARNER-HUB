@@ -263,21 +263,44 @@ async function main() {
     }
 
     const series = buildSeries(planIdsByWeek);
-    const save = await requestJson("POST", "/api/admin/curriculum/series", {
+    let stamp = site.json.siteContent?.updatedAt || "";
+    let save = await requestJson("POST", "/api/admin/curriculum/series", {
       adminToken: token,
-      expectedUpdatedAt: site.json.siteContent?.updatedAt || "",
+      expectedUpdatedAt: stamp,
       series,
     });
     if (save.status === 409 && save.json?.siteContentUpdatedAt) {
-      const retry = await requestJson("POST", "/api/admin/curriculum/series", {
+      stamp = save.json.siteContentUpdatedAt;
+      save = await requestJson("POST", "/api/admin/curriculum/series", {
         adminToken: token,
-        expectedUpdatedAt: save.json.siteContentUpdatedAt,
+        expectedUpdatedAt: stamp,
         series,
       });
-      assert(retry.status === 200, `Series save retry failed: ${retry.status} ${retry.text?.slice(0, 300)}`);
-    } else {
-      assert(save.status === 200, `Series save failed: ${save.status} ${save.text?.slice(0, 300)}`);
     }
+    // Older production builds reject empty Week 1 while status=published. Stage as
+    // needs_review until progressive-publish validation is deployed, then re-run.
+    const missingWeekPublishBlock =
+      save.status === 400
+      && Array.isArray(save.json?.validationErrors)
+      && save.json.validationErrors.some((err) => /Week \d+ is missing/i.test(String(err || "")));
+    if (missingWeekPublishBlock) {
+      console.warn("Published series blocked by missing Week 1 on this server; staging as needs_review.");
+      series.status = "needs_review";
+      stamp = save.json?.siteContentUpdatedAt || stamp;
+      save = await requestJson("POST", "/api/admin/curriculum/series", {
+        adminToken: token,
+        expectedUpdatedAt: stamp,
+        series,
+      });
+      if (save.status === 409 && save.json?.siteContentUpdatedAt) {
+        save = await requestJson("POST", "/api/admin/curriculum/series", {
+          adminToken: token,
+          expectedUpdatedAt: save.json.siteContentUpdatedAt,
+          series,
+        });
+      }
+    }
+    assert(save.status === 200, `Series save failed: ${save.status} ${save.text?.slice(0, 300)}`);
 
     const adminContent = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
     const savedSeries = (adminContent.json?.siteContent?.curriculum?.series || []).find((entry) => entry.id === SERIES_ID);
@@ -286,9 +309,15 @@ async function main() {
     const linkedWeeks = (savedSeries.weeks || []).filter((week) => week.lessonPlanId);
     assert(linkedWeeks.length >= 3, "expected at least 3 linked weeks");
 
-    console.log("Preschool Family Connections collection published (Week 1 slot reserved until content arrives):");
+    const published = ["published", "featured"].includes(String(savedSeries.status || "").toLowerCase());
+    console.log(
+      published
+        ? "Preschool Family Connections collection published (Week 1 slot reserved until content arrives):"
+        : "Preschool Family Connections collection staged as needs_review (merge progressive-publish + re-run to publish):",
+    );
     console.log(`  collectionKey=${COLLECTION_KEY}`);
     console.log(`  series=${SERIES_ID}`);
+    console.log(`  status=${savedSeries.status}`);
     console.log(`  weeks=${WEEK_META.map((w) => `${w.weekNumber}:${planIdsByWeek[w.weekNumber]}`).join(", ")}`);
     console.log(`  cover=${series.coverImageUrl}`);
   } finally {
