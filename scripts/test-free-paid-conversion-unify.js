@@ -19,7 +19,7 @@ const PORT = 19710 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-conversion-unify-${crypto.randomBytes(4).toString("hex")}.json`);
 const OUT_DIR = process.env.AUDIT_OUT_DIR
   || path.join("/opt/cursor/artifacts", "free-paid-conversion-unify");
-const FOUNDING_LIMIT = 47;
+const FOUNDING_LIMIT = 48;
 
 function requestJson(method, urlPath, body) {
   return new Promise((resolve, reject) => {

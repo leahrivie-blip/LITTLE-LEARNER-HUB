@@ -1727,7 +1727,7 @@ function buildPrintableLibrary() {
 }
 
 const accessRank = { Free: 0, Founding: 1, Pro: 1, Premium: 2 };
-const foundingMemberLimit = 47;
+const foundingMemberLimit = 48;
 const foundingPublicClaimedBase = 0;
 let foundingStatusCache = {
   limit: foundingMemberLimit,
