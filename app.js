@@ -47879,15 +47879,24 @@ function contentGrowthStatsHtml() {
   const stats = contentGrowthStats();
   if (!stats.totalPlans && !stats.totalActivities && !stats.totalCollections) return "";
   const libraryLoading = Boolean(curriculumLibraryLoading || siteContentLoadPromise);
-  // Suppress a misleading "0 collections" while the curriculum library/series is still loading.
-  const collectionsValue = (libraryLoading && !stats.totalCollections)
-    ? "—"
-    : String(stats.totalCollections);
-  const collectionsLabel = (libraryLoading && !stats.totalCollections)
-    ? "Collections loading"
-    : "Curriculum collections";
+  let seriesCount = 0;
+  try {
+    seriesCount = (typeof effectiveCurriculumSeriesList === "function" ? effectiveCurriculumSeriesList() : []).length;
+  } catch {
+    seriesCount = 0;
+  }
+  // Suppress a misleading "0 collections" while library/series data is still settling.
+  // Also hide a bare zero when plans/activities are present but series/collections are empty
+  // (common during cold start before series hydrate, or when series seeds are absent).
+  const collectionsPending = !stats.totalCollections && (
+    libraryLoading
+    || !curriculumSeriesApi()
+    || (stats.totalPlans > 0 && seriesCount === 0)
+  );
+  const collectionsValue = collectionsPending ? "—" : String(stats.totalCollections);
+  const collectionsLabel = collectionsPending ? "Collections loading" : "Curriculum collections";
   return `
-    <section class="content-growth-stats" role="status" aria-label="Library content growth" aria-busy="${libraryLoading ? "true" : "false"}">
+    <section class="content-growth-stats" role="status" aria-label="Library content growth" aria-busy="${collectionsPending ? "true" : "false"}">
       <div class="content-growth-stat"><strong>${stats.totalPlans}</strong><span>Lesson plans</span></div>
       <div class="content-growth-stat"><strong>${escapeHtml(collectionsValue)}</strong><span>${escapeHtml(collectionsLabel)}</span></div>
       <div class="content-growth-stat"><strong>${stats.totalActivities}</strong><span>Activities</span></div>
