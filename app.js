@@ -3045,7 +3045,16 @@ function renderSignupWizardStep() {
   }
 
   if (signupWizardStep === 1) {
-    title.textContent = "Create Your Free Little Learner Hub Account";
+    const preferFoundingSignup = preferredSignupPlanFromStorage() === "founding"
+      && (!foundingStatusLoaded() || foundingSpotsStillAvailable());
+    title.textContent = preferFoundingSignup
+      ? "Continue with Founding Membership"
+      : "Create Your Free Little Learner Hub Account";
+    const foundingContinueNote = document.querySelector("#authFoundingContinueNote");
+    if (foundingContinueNote) {
+      foundingContinueNote.hidden = !preferFoundingSignup;
+      foundingContinueNote.textContent = "Create your account to continue with Founding Membership.";
+    }
     submitButton.textContent = "Continue";
     submitButton.hidden = false;
     skipButton?.classList.add("hidden-field");
@@ -3053,6 +3062,8 @@ function renderSignupWizardStep() {
     actions?.classList.remove("signup-wizard-actions--split");
   } else if (signupWizardStep === 2) {
     title.textContent = "Your program setup";
+    const foundingContinueNoteStep2 = document.querySelector("#authFoundingContinueNote");
+    if (foundingContinueNoteStep2) foundingContinueNoteStep2.hidden = true;
     submitButton.textContent = "Continue";
     submitButton.hidden = false;
     skipButton?.classList.remove("hidden-field");

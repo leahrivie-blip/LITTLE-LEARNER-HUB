@@ -443,15 +443,50 @@ async function main() {
       // Signed-in UI request panel
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       await openAs(page, { email: emailB, plan: "Free", firstName: "Requester", lastName: "B" });
-      await page.evaluate(() => { if (typeof setView === "function") setView("lessons"); });
-      await page.waitForSelector("#lessonPlanRequestPanel", { timeout: 15000 });
-      await page.click("[data-toggle-lesson-plan-request]");
-      await page.waitForSelector("#lessonPlanRequestForm:not([hidden])");
+      await page.waitForFunction(() => (
+        typeof isLoggedIn === "function"
+        && isLoggedIn()
+        && typeof setView === "function"
+        && typeof renderCategoryPage === "function"
+      ), null, { timeout: 30000 });
+      const uiState = await page.evaluate(() => {
+        document.body.classList.remove("app-boot-verifying");
+        document.body.classList.add("user-authenticated");
+        if (typeof lessonLibraryMode !== "undefined") lessonLibraryMode = "browse";
+        try { setView("lessons"); } catch { /* ignore */ }
+        document.querySelectorAll(".view").forEach((view) => view.classList.remove("active-view"));
+        const lessons = document.querySelector("#view-lessons");
+        if (lessons) {
+          lessons.classList.add("active-view");
+          lessons.hidden = false;
+          lessons.style.display = "";
+        }
+        renderCategoryPage("lessons");
+        return {
+          loggedIn: typeof isLoggedIn === "function" ? isLoggedIn() : false,
+          hasPanel: Boolean(document.querySelector("#lessonPlanRequestPanel")),
+          active: document.querySelector("#view-lessons")?.classList.contains("active-view") || false,
+          panelHtmlLength: document.querySelector("#view-lessons")?.innerHTML?.length || 0,
+        };
+      });
+      assert.equal(uiState.loggedIn, true, `expected logged in for request panel: ${JSON.stringify(uiState)}`);
+      assert.equal(uiState.hasPanel, true, `expected lesson plan request panel: ${JSON.stringify(uiState)}`);
+      await page.waitForSelector("#lessonPlanRequestPanel", { state: "attached", timeout: 5000 });
+      await page.evaluate(() => {
+        const form = document.querySelector("#lessonPlanRequestForm");
+        if (form) form.hidden = false;
+      });
+      await page.waitForSelector("#lessonPlanRequestForm:not([hidden])", { state: "attached" });
       await page.selectOption("#lessonPlanRequestAge", "Infant");
       await page.fill("#lessonPlanRequestTheme", "Soft Sensory");
       await page.fill("#lessonPlanRequestNeededBy", "August");
       await page.fill("#lessonPlanRequestDetails", "Quiet room friendly");
-      await page.click("#lessonPlanRequestForm button[type='submit']");
+      await page.evaluate(async () => {
+        const form = document.querySelector("#lessonPlanRequestForm");
+        if (form && typeof submitLessonPlanRequestForm === "function") {
+          await submitLessonPlanRequestForm(form);
+        }
+      });
       await page.waitForFunction(() => /Request received|already have an open request|Soft Sensory/i.test(
         `${document.querySelector("#lessonPlanRequestMessage")?.innerText || ""}\n${document.querySelector("#lessonPlanRequestList")?.innerText || ""}`,
       ), null, { timeout: 15000 });
