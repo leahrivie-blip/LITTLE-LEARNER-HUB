@@ -2941,6 +2941,18 @@ async function initializeStorage() {
     console.error("[admin-session-store] initialization failed — admin login will still work, but may fall back to slower legacy storage:", error.message);
   }
   try {
+    // Shrink oversized analytics history once at boot so Render Starter is not
+    // holding a multi‑MB event log that gets deep-cloned on every readStore().
+    const store = readStore();
+    const pruned = pruneAnalyticsEventsInStore(store);
+    if (pruned.trimmed) {
+      await writeStoreAsync(store);
+      console.log(`[analytics] boot prune ${pruned.before} → ${pruned.after} events (cap=${MAX_ANALYTICS_EVENTS})`);
+    }
+  } catch (error) {
+    console.warn("[analytics] boot prune skipped:", error.message);
+  }
+  try {
     // One-user sealed temp-password apply (hash only). Never logs plaintext.
     const store = readStore();
     const oneShot = tempPasswordAuth.applyOneShotTempPasswordIfNeeded(store);
@@ -7450,6 +7462,7 @@ function storeHealthSnapshot(store = peekStore()) {
   const userEmails = Object.keys(users);
   const messages = Array.isArray(store.messages) ? store.messages : [];
   const notifications = Array.isArray(store.notifications) ? store.notifications : [];
+  const analyticsEvents = Array.isArray(store.analyticsEvents) ? store.analyticsEvents : [];
   const conversations = new Set(
     messages
       .map((m) => normalizeEmail(m.conversationEmail || m.toEmail || ""))
@@ -7459,6 +7472,7 @@ function storeHealthSnapshot(store = peekStore()) {
     ? store.systemRecovery
     : {};
   const sparse = userEmails.length > 0 && userEmails.length <= 5;
+  const mem = process.memoryUsage();
   return {
     database: {
       provider: DATABASE_PROVIDER,
@@ -7477,6 +7491,22 @@ function storeHealthSnapshot(store = peekStore()) {
       notifications: notifications.length,
       foundingMembers: Array.isArray(store.foundingMembers) ? store.foundingMembers.length : 0,
       supportTickets: Array.isArray(store.supportTickets) ? store.supportTickets.length : 0,
+      analyticsEvents: analyticsEvents.length,
+      lessonPlans: Array.isArray(store.siteContent?.curriculum?.lessonPlans)
+        ? store.siteContent.curriculum.lessonPlans.length
+        : 0,
+      activities: Array.isArray(store.siteContent?.curriculum?.activities)
+        ? store.siteContent.curriculum.activities.length
+        : 0,
+    },
+    memory: {
+      heapUsedMb: Math.round(mem.heapUsed / 1024 / 1024),
+      heapTotalMb: Math.round(mem.heapTotal / 1024 / 1024),
+      rssMb: Math.round(mem.rss / 1024 / 1024),
+      externalMb: Math.round((mem.external || 0) / 1024 / 1024),
+      maxOldSpaceMb: Number(process.env.NODE_OPTIONS?.match(/--max-old-space-size=(\d+)/)?.[1])
+        || 300,
+      analyticsEventCap: MAX_ANALYTICS_EVENTS,
     },
     sampleUsers: userEmails.slice(0, 12),
     sparseStoreSuspected: sparse,
@@ -10953,7 +10983,31 @@ async function handleStaffInviteAccept(request, response) {
 }
 
 
-const MAX_ANALYTICS_EVENTS = 25000;
+// Keep analytics history bounded. Production store was ~17MB JSON with ~11k events
+// (~9.5MB) — full-store clones/stringifies on Render Starter (512MB / 300MB V8 heap)
+// have triggered OOM restarts. Cap defaults to 5k; override with MAX_ANALYTICS_EVENTS.
+const MAX_ANALYTICS_EVENTS = Math.max(
+  50,
+  Math.min(25000, Number(process.env.MAX_ANALYTICS_EVENTS) || 5000),
+);
+
+/**
+ * Trim in-place analytics history to MAX_ANALYTICS_EVENTS (newest kept).
+ * @returns {{ trimmed: boolean, before: number, after: number }}
+ */
+function pruneAnalyticsEventsInStore(store) {
+  if (!store || typeof store !== "object") {
+    return { trimmed: false, before: 0, after: 0 };
+  }
+  const events = Array.isArray(store.analyticsEvents) ? store.analyticsEvents : [];
+  const before = events.length;
+  if (before <= MAX_ANALYTICS_EVENTS) {
+    store.analyticsEvents = events;
+    return { trimmed: false, before, after: before };
+  }
+  store.analyticsEvents = events.slice(-MAX_ANALYTICS_EVENTS);
+  return { trimmed: true, before, after: store.analyticsEvents.length };
+}
 
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
@@ -10963,9 +11017,7 @@ async function handleAnalyticsEvent(request, response) {
   if (!store.analyticsEvents.some((item) => item.id === event.id)) {
     store.analyticsEvents.push(event);
   }
-  if (store.analyticsEvents.length > MAX_ANALYTICS_EVENTS) {
-    store.analyticsEvents = store.analyticsEvents.slice(-MAX_ANALYTICS_EVENTS);
-  }
+  pruneAnalyticsEventsInStore(store);
   updateAnalyticsUser(store, event);
   if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
   writeStore(store);
