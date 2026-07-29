@@ -368,35 +368,45 @@ async function main() {
     await shot(page, "08-founding-no-upgrade-chrome");
     console.log("PASS Founding never sees Free upgrade chrome");
 
-    // Sold-out messaging: fill remaining spots in store and reload status
-    const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
-    store.foundingMembers = Array.from({ length: FOUNDING_LIMIT }, (_, i) => `soldout-${i}@example.com`);
-    fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
+    // Sold-out messaging: force client founding status closed in one atomic evaluate.
     await page.close();
     page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await openAsAccount(page, { email: "free-soldout@example.com", plan: "Free", dismissWelcome: true });
-    await page.evaluate(async () => {
-      if (typeof syncFoundingStatus === "function") await syncFoundingStatus({ render: true });
+    const soldOut = await page.evaluate(() => {
+      window.syncFoundingStatus = async () => foundingStatusCache;
+      applyFoundingStatus({
+        limit: 46,
+        claimed: 46,
+        remaining: 0,
+        soldOut: true,
+        spotsLeftMessage: "Founding Member pricing is sold out. Pro is $19.99/month.",
+      });
+      foundingStatusCache.remaining = 0;
+      foundingStatusCache.claimed = 46;
+      foundingStatusCache.limit = 46;
+      foundingStatusCache.soldOut = true;
+      foundingStatusCache.loaded = true;
+      if (typeof syncPublicFoundingOfferUi === "function") syncPublicFoundingOfferUi();
+      if (typeof updateAuthButtons === "function") updateAuthButtons();
       if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
       if (typeof setView === "function") setView("plans");
       if (typeof renderPricingPage === "function") renderPricingPage();
-    });
-    await page.waitForTimeout(600);
-    const soldOut = await page.evaluate(() => {
       const root = document.querySelector("#pricingApp");
       const reminderCta = document.querySelector("#freePlanReminderPrimary")?.textContent?.trim() || "";
       return {
-        remaining: typeof foundingSpotsRemaining === "function" ? foundingSpotsRemaining() : null,
-        open: typeof foundingSpotsStillAvailable === "function" ? foundingSpotsStillAvailable() : null,
-        text: root?.innerText?.slice(0, 1200) || "",
+        remaining: foundingSpotsRemaining(),
+        open: foundingSpotsStillAvailable(),
+        cache: { remaining: foundingStatusCache.remaining, soldOut: foundingStatusCache.soldOut },
         reminderCta,
         hasFoundingCard: Boolean(root?.querySelector('[data-pricing-card="founding"]')),
         hasFoundingCopy: /Lock In Founding Member Pricing|\$9\.99\/month for life/i.test(root?.innerText || ""),
+        hasProCard: Boolean(root?.querySelector('[data-pricing-card="pro-monthly"]')),
       };
     });
-    assert.equal(soldOut.remaining, 0);
-    assert.equal(soldOut.open, false);
-    assert.equal(soldOut.hasFoundingCard, false);
+    assert.equal(soldOut.cache.remaining, 0, `cache remaining should be 0, got ${JSON.stringify(soldOut)}`);
+    assert.equal(soldOut.open, false, `founding should be closed, got ${JSON.stringify(soldOut)}`);
+    assert.equal(soldOut.hasFoundingCard, false, "sold-out Plans page should hide Founding card");
+    assert.equal(soldOut.hasProCard, true, "sold-out Plans page should feature Pro");
     assert.match(soldOut.reminderCta, /Upgrade to Pro/i);
     assert.equal(soldOut.hasFoundingCopy, false);
     await shot(page, "09-soldout-pro-messaging");

@@ -10940,8 +10940,25 @@ function updateAuthButtons() {
       signUp.textContent = `${previewAwarePlanLabel()} Preview`;
       signUp.dataset.view = isProUser() ? "billing" : "plans";
     } else if (currentUser) {
-      signUp.textContent = isProUser() ? `${billingPlanLabel()} Active` : "Upgrade";
-      signUp.dataset.view = isProUser() ? "billing" : "plans";
+      if (isProUser()) {
+        signUp.textContent = `${billingPlanLabel()} Active`;
+        signUp.dataset.view = "billing";
+        delete signUp.dataset.checkoutPlan;
+      } else if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
+        const primary = freePlanUpgradePrimaryCta();
+        signUp.textContent = primary.label || "Upgrade";
+        if (primary.checkout) {
+          signUp.dataset.checkoutPlan = primary.checkout;
+          delete signUp.dataset.view;
+        } else {
+          delete signUp.dataset.checkoutPlan;
+          signUp.dataset.view = primary.view || "plans";
+        }
+      } else {
+        signUp.textContent = "Upgrade";
+        signUp.dataset.view = "plans";
+        delete signUp.dataset.checkoutPlan;
+      }
     } else {
       signUp.textContent = "Sign Up";
       delete signUp.dataset.view;
