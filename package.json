@@ -28,6 +28,7 @@
     "import:infant-family-connections:validate": "node scripts/import-infant-family-connections.js --validate-only",
     "test:curriculum-bulk-import-pipeline": "node scripts/test-curriculum-bulk-import-pipeline.js",
     "test:curriculum-collections": "node scripts/test-curriculum-collections.js",
+    "test:family-connections-infant-qa": "node scripts/verify-family-connections-infant-qa.js",
     "test:toddler-back-to-school": "NODE_ENV=test node scripts/test-toddler-back-to-school-imports.js",
     "test:toddler-apple-unit": "NODE_ENV=test node scripts/test-toddler-apple-unit-imports.js",
     "test:curriculum-import": "node scripts/test-curriculum-import-parser.js",
