@@ -1727,7 +1727,7 @@ function buildPrintableLibrary() {
 }
 
 const accessRank = { Free: 0, Founding: 1, Pro: 1, Premium: 2 };
-const foundingMemberLimit = 46;
+const foundingMemberLimit = 47;
 const foundingPublicClaimedBase = 0;
 let foundingStatusCache = {
   limit: foundingMemberLimit,
@@ -1815,7 +1815,7 @@ const billingPlans = {
       "Documentation Helpers for observations, parent messages, and reports",
       "Child Profiles, Daily Logs, and Behavior & Support tools",
       "Future Pro features included",
-      "Founding Member $9.99/month locked for life",
+      "Founding Member $9.99/month locked while your membership remains continuously active",
       "250 Document Creations Per Month",
     ],
   },
@@ -3147,7 +3147,7 @@ const SIGNUP_PLAN_VARIANT_OVERRIDES = Object.freeze({
   "urgency-first": {
     headline: "Founding pricing won’t last — lock it in while spots remain.",
     foundingBadge: "Best Value",
-    foundingCta: "Lock In $9.99/month for Life",
+    foundingCta: "Lock In Founding Member Pricing",
   },
 });
 
@@ -3251,7 +3251,7 @@ function renderSignupPlanChooser() {
       <h3>${escapeHtml(copy.foundingTitle)}</h3>
       <p class="signup-plan-subtitle">${escapeHtml(copy.foundingSubtitle)}</p>
       <p class="signup-plan-price-compare"><s>$19.99/month</s></p>
-      <p class="signup-plan-price signup-plan-price--founding"><strong>$9.99</strong><span>/month FOR LIFE</span></p>
+      <p class="signup-plan-price signup-plan-price--founding"><strong>$9.99</strong><span>/month locked while continuously active</span></p>
       <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
@@ -3512,7 +3512,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   const offerPro = canSeePaidUpgradeOffer() && !foundingSpotsStillAvailable();
   const unlockLines = lockedContentUnlockLines();
   const upgradePopupBody = offerFounding
-    ? `Lock in $9.99/month for life. ${freeUpgradeSupportingText()}`
+    ? `Lock in $9.99/month while your membership remains continuously active. ${freeUpgradeSupportingText()}`
     : (offerPro
       ? "Upgrade to Pro for unlimited access to every feature, lesson plan, and future update."
       : ((!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage));
@@ -3535,7 +3535,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       <p class="muted-copy">What you’re missing:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
-      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month for life</strong> · Regular price will be $19.99/month</p>` : ""}
+      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
     `;
   } else {
     const popupHeadline = offerFounding
@@ -3548,7 +3548,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       <p class="muted-copy">What you’ll unlock:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
-      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month for life</strong> · Regular price will be $19.99/month</p>` : ""}
+      ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
     `;
   }
   if (upgradeBtn) {
@@ -3956,7 +3956,7 @@ function foundingUrgencyText() {
   const remaining = foundingSpotsRemaining();
   if (remaining == null) return "";
   if (remaining <= 0) return "Founding spots are filled. Regular Pro pricing is now active.";
-  if (remaining <= 2) return `${foundingSpotsLeftMessage(remaining)} Lock in $9.99/month for life before the offer closes.`;
+  if (remaining <= 2) return `${foundingSpotsLeftMessage(remaining)} Lock in $9.99/month while your membership remains continuously active before the offer closes.`;
   if (remaining <= 3) return "Almost gone. Regular Pro pricing starts after these last spots.";
   if (remaining <= 10) return "Moving fast. These founding price-lock spots are almost filled.";
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
@@ -3996,7 +3996,7 @@ function syncPublicFoundingOfferUi() {
       announce.hidden = true;
     } else {
       if (copy) {
-        copy.textContent = `${spotsMsg} Lock in Founding Member pricing at $9.99/month for life while your membership remains continuously active.`;
+        copy.textContent = `${spotsMsg} Lock in Founding Member pricing at $9.99/month locked while your membership remains continuously active.`;
       }
       if (cta) {
         cta.dataset.checkoutPlan = "founding";
@@ -4024,7 +4024,7 @@ function syncPublicFoundingOfferUi() {
         cta.textContent = "Choose Pro Monthly";
       }
       if (note) {
-        note.innerHTML = "Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.";
+        note.innerHTML = "Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.";
       }
       if (sectionSub) sectionSub.textContent = "Start free, or upgrade to Pro at $19.99/month.";
       foundingCard.classList.add("llh-founding-card--sold-out");
@@ -4065,7 +4065,7 @@ function syncPublicFoundingOfferUi() {
   if (heroSupport && !soldOut) {
     heroSupport.textContent = `${spotsMsg} Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.`;
   } else if (heroSupport && soldOut) {
-    heroSupport.textContent = "Pro is $19.99/month. Existing Founding Members keep $9.99/month for life. Unlock the full curriculum library and planning tools.";
+    heroSupport.textContent = "Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active. Unlock the full curriculum library and planning tools.";
   }
 
   const finalCtaBody = document.querySelector("#homeFinalCta .lp-cta-body");
@@ -4443,7 +4443,7 @@ function normalizedCheckoutPromoCode() {
 
 function checkoutPromoSummary() {
   return normalizedCheckoutPromoCode()
-    ? "Promo applied at checkout: first month $0 with a card on file. If Founding spots remain, you lock in $9.99/month for life after the free month."
+    ? "Promo applied at checkout: first month $0 with a card on file. If Founding spots remain, you lock in $9.99/month while your membership remains continuously active after the free month."
     : currentUser
       ? "Already have an account? Enter your promo code (example: TRY1MONTH) here, tap Apply, then choose a plan. First month is free with a card on file; membership continues automatically unless you cancel before renewal."
       : "Enter a promo code (example: TRY1MONTH) before choosing a plan. Log in or create an account first so the free month can attach to your membership.";
@@ -5001,6 +5001,13 @@ function markAppBootReady() {
   document.documentElement.classList.remove("llh-boot-authenticated");
   setAppBootGateMode("hidden");
   ensureNavigationShellReady();
+  // Restore Free upgrade chrome only after verification finishes (no stack with boot gate).
+  try {
+    if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
+    if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Keep signed-in navigation shell consistent: one active view, no stuck overlays. */
@@ -9722,7 +9729,7 @@ function captureDefaultSiteContent() {
       heading: "Founding Member Pricing",
       soldOutHeading: "Founding Member spots are filled",
       pricePrefix: "Get Pro for",
-      priceLifeLabel: "for life",
+      priceLifeLabel: "locked while continuously active",
       ctaButtonText: "Claim Founding Member Pricing",
       soldOutCtaText: "Choose Pro Monthly",
       _draft: false,
@@ -11111,7 +11118,13 @@ function shouldShowInstallPromptCard() {
   const state = installPromptState();
   if (state.installedAt) return false;
   if (state.deferredUntil && new Date(state.deferredUntil).getTime() > Date.now()) return false;
-  // Show for signed-in users always; guests see it once they visit Calendar/homepage install surfaces.
+  // First-login overlay budget: never stack install with boot verification or Free upgrade chrome.
+  if (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive()) return false;
+  if (document.body.classList.contains("app-boot-verifying")) return false;
+  if (typeof canSeePaidUpgradeOffer === "function" && canSeePaidUpgradeOffer()) {
+    if (!isFreeWelcomeCardDismissed()) return false;
+    if (!isFreePlanReminderDismissed()) return false;
+  }
   return true;
 }
 
@@ -13650,7 +13663,7 @@ function showLessonCustomizationUpgrade(resourceId = "") {
   body.innerHTML = `
     <p>${escapeHtml(lessonCustomizationUpgradeBody).replace(/\n/g, "<br>")}</p>
     <ul class="pro-modal-benefit-list">${lockedContentUnlockLines().map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
-    ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month for life</strong> · ${escapeHtml(foundingSpotsLeftMessage())}</p>` : ""}
+    ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · ${escapeHtml(foundingSpotsLeftMessage())}</p>` : ""}
   `;
   if (upgradeBtn) {
     upgradeBtn.textContent = freeUpgradePrimaryButtonLabel({ short: true });
@@ -43032,7 +43045,7 @@ function renderAdminFoundingSection() {
           <label>Section heading<input name="heading" value="${escapeHtml(f.heading || "")}" placeholder="Founding Member Pricing" /></label>
           <div class="form-grid-two">
             <label>Price prefix text<input name="pricePrefix" value="${escapeHtml(f.pricePrefix || "")}" placeholder="Get Pro for" /></label>
-            <label>&ldquo;for life&rdquo; label<input name="priceLifeLabel" value="${escapeHtml(f.priceLifeLabel || "")}" placeholder="for life" /></label>
+            <label>Price lock label<input name="priceLifeLabel" value="${escapeHtml(f.priceLifeLabel || "")}" placeholder="locked while continuously active" /></label>
           </div>
           <label>CTA button text<input name="ctaButtonText" value="${escapeHtml(f.ctaButtonText || "")}" placeholder="Claim Founding Member Pricing" /></label>
         </div>
@@ -47865,10 +47878,18 @@ function contentGrowthStats() {
 function contentGrowthStatsHtml() {
   const stats = contentGrowthStats();
   if (!stats.totalPlans && !stats.totalActivities && !stats.totalCollections) return "";
+  const libraryLoading = Boolean(curriculumLibraryLoading || siteContentLoadPromise);
+  // Suppress a misleading "0 collections" while the curriculum library/series is still loading.
+  const collectionsValue = (libraryLoading && !stats.totalCollections)
+    ? "—"
+    : String(stats.totalCollections);
+  const collectionsLabel = (libraryLoading && !stats.totalCollections)
+    ? "Collections loading"
+    : "Curriculum collections";
   return `
-    <section class="content-growth-stats" role="status" aria-label="Library content growth">
+    <section class="content-growth-stats" role="status" aria-label="Library content growth" aria-busy="${libraryLoading ? "true" : "false"}">
       <div class="content-growth-stat"><strong>${stats.totalPlans}</strong><span>Lesson plans</span></div>
-      <div class="content-growth-stat"><strong>${stats.totalCollections}</strong><span>Curriculum collections</span></div>
+      <div class="content-growth-stat"><strong>${escapeHtml(collectionsValue)}</strong><span>${escapeHtml(collectionsLabel)}</span></div>
       <div class="content-growth-stat"><strong>${stats.totalActivities}</strong><span>Activities</span></div>
       <div class="content-growth-stat"><strong>${stats.newThisWeek}</strong><span>New this week</span></div>
     </section>
@@ -47916,7 +47937,7 @@ function freeUpgradePrimaryButtonLabel(options = {}) {
   if (foundingSpotsStillAvailable()) {
     return short
       ? "⭐ Lock In Founding Member Pricing"
-      : "⭐ Lock In Founding Member Pricing – $9.99/month for life";
+      : "⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
   }
   return short ? "Upgrade to Pro" : "Upgrade to Pro – $19.99/month";
 }
@@ -47942,7 +47963,7 @@ function planComparisonTableHtml() {
     ["Lesson customization", "Not included", "Customize & save your versions"],
     ["Calendar planning", "About 30 days", "Unlimited"],
     ["Documentation Helpers", "Limited free docs", "Full helpers + higher monthly limits"],
-    ["Price", "$0", foundingOpen ? "$9.99/month for life" : "$19.99/month"],
+    ["Price", "$0", foundingOpen ? "$9.99/month locked while your membership remains continuously active" : "$19.99/month"],
     ["Price lock", "—", foundingOpen ? "Never increases while continuously active" : "Standard Pro pricing"],
   ];
   return `
@@ -48108,7 +48129,15 @@ function refreshFreePlanUpgradeChrome() {
   }
   if (reminder) {
     // Keep badge/sidebar always; reminder bar is dismissible for the session.
-    reminder.hidden = isFreePlanReminderDismissed() || isFoundingUpgradeBannerDismissed();
+    // Hide during account verification so boot gate + reminder never stack.
+    const bootBusy = document.body.classList.contains("app-boot-verifying")
+      || (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive());
+    // Prefer the dashboard welcome/upgrade card over the top reminder on first login.
+    const welcomeActive = !hasLegacyFreeLessonAccess() && !isFreeWelcomeCardDismissed();
+    reminder.hidden = bootBusy
+      || welcomeActive
+      || isFreePlanReminderDismissed()
+      || isFoundingUpgradeBannerDismissed();
     const copyEl = reminder.querySelector(".free-plan-reminder-copy");
     if (copyEl) {
       if (hasLegacyFreeLessonAccess()) {
@@ -48118,10 +48147,7 @@ function refreshFreePlanUpgradeChrome() {
           <p>${escapeHtml(cfg.earlySupporterBody || "You’re grandfathered into the original Free plan and keep the Free lesson plans you’ve been using.")}</p>
         `;
       } else {
-        const foundingOpen = foundingSpotsStillAvailable();
-        copyEl.innerHTML = foundingOpen
-          ? `<strong>${escapeHtml(freeUpgradePrimaryButtonLabel())}</strong><p>${escapeHtml(freeUpgradeSupportingText())}</p>`
-          : `<strong>${escapeHtml(freeUpgradePrimaryButtonLabel())}</strong><p>${escapeHtml(freeUpgradeSupportingText())}</p>`;
+        copyEl.innerHTML = `<strong>${escapeHtml(freeUpgradePrimaryButtonLabel())}</strong><p>${escapeHtml(freeUpgradeSupportingText())}</p>`;
       }
     }
   }
@@ -48217,13 +48243,13 @@ function foundingUpgradeBannerHtml(options = {}) {
   const ctaLabel = freeUpgradePrimaryButtonLabel();
   const title = soldOut
     ? "⭐ Upgrade to Pro – $19.99/month"
-    : "⭐ Lock In Founding Member Pricing – $9.99/month for life";
+    : "⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
   const body = soldOut
     ? lockedContentUnlockLines().slice(0, 4).join(" ")
     : lockedContentUnlockLines().slice(0, 4).join(" ");
   const priceBlock = soldOut
     ? `<p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>`
-    : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>for life</em></span></p>
+    : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>locked while continuously active</em></span></p>
        <p class="founding-upgrade-compare">Regular price will be $19.99/month</p>
        <p class="founding-upgrade-spots">${escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
   return `
@@ -48368,7 +48394,7 @@ function pricingCard(planKey, options = {}) {
     || (options.free
       ? ""
       : (checkoutType === "founding"
-        ? "Secure Stripe checkout · $9.99/month for life while continuously active"
+        ? "Secure Stripe checkout · $9.99/month locked while your membership remains continuously active"
         : (checkoutType === "annual"
           ? "Secure Stripe checkout · billed annually"
           : "Secure Stripe checkout · $19.99/month · Cancel anytime")));
@@ -48387,7 +48413,7 @@ function pricingCard(planKey, options = {}) {
 }
 
 const PRO_MONTHLY_RATIONALE = "For providers who prefer regular Pro pricing instead of claiming a Founding spot.";
-const FOUNDING_INCLUDES_NOTE = "Includes all current and future Pro features. $9.99/month for life while continuously active.";
+const FOUNDING_INCLUDES_NOTE = "Includes all current and future Pro features. $9.99/month locked while your membership remains continuously active.";
 
 function promoCodePanel(options = {}) {
   const stored = normalizedCheckoutPromoCode();
@@ -48450,8 +48476,8 @@ function renderPricingPage() {
     }
     if (support) {
       support.textContent = soldOut
-        ? "Pro is $19.99/month. Existing Founding Members keep $9.99/month for life."
-        : `${foundingSpotsLeftMessage(remaining)} $9.99/month for life. Regular price will be $19.99/month.`;
+        ? "Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active."
+        : `${foundingSpotsLeftMessage(remaining)} $9.99/month locked while your membership remains continuously active. Regular price will be $19.99/month.`;
     }
   }
   target.innerHTML = `
@@ -48462,7 +48488,7 @@ function renderPricingPage() {
       ${!soldOut
         ? pricingCard("Founding", {
           featured: true, primary: true, eyebrow: "⭐ Founding Member — Recommended", checkoutType: "founding",
-          buttonText: freeUpgradePrimaryButtonLabel(), includesNote: "$9.99/month for life · Includes all current and future Pro features", pricingCardId: "founding",
+          buttonText: freeUpgradePrimaryButtonLabel(), includesNote: "$9.99/month locked while your membership remains continuously active · Includes all current and future Pro features", pricingCardId: "founding",
         })
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro Monthly", checkoutType: "monthly", buttonText: freeUpgradePrimaryButtonLabel(), pricingCardId: "pro-monthly" })}
       ${pricingCard("Free", { free: true, buttonText: "Continue with Free", secondary: !soldOut })}
@@ -48509,11 +48535,11 @@ function renderUpgradePage() {
     if (heading) {
       heading.textContent = soldOut
         ? "Upgrade to Pro – $19.99/month"
-        : "Lock In Founding Member Pricing – $9.99/month for life";
+        : "Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
     }
     if (support) {
       support.textContent = soldOut
-        ? "Secure Stripe checkout for Pro Monthly. Existing Founding Members keep $9.99/month for life."
+        ? "Secure Stripe checkout for Pro Monthly. Existing Founding Members keep $9.99/month locked while your membership remains continuously active."
         : `${foundingSpotsLeftMessage(remaining)} Regular price will be $19.99/month.`;
     }
   }
@@ -48525,7 +48551,7 @@ function renderUpgradePage() {
       ${!soldOut
         ? pricingCard("Founding", {
           featured: true, primary: true, eyebrow: "⭐ Founding Member — Recommended", checkoutType: "founding",
-          buttonText: freeUpgradePrimaryButtonLabel(), includesNote: "$9.99/month for life · Includes all current and future Pro features", pricingCardId: "founding",
+          buttonText: freeUpgradePrimaryButtonLabel(), includesNote: "$9.99/month locked while your membership remains continuously active · Includes all current and future Pro features", pricingCardId: "founding",
         })
         : pricingCard("ProMonthly", { featured: true, primary: true, eyebrow: "Pro Monthly", checkoutType: "monthly", buttonText: freeUpgradePrimaryButtonLabel(), pricingCardId: "pro-monthly" })}
       ${!soldOut
@@ -48790,8 +48816,8 @@ function renderCancelSubscriptionPage() {
             : "<li>No further charges will be made after that date.</li>"}
           ${isFounding
             ? inTrial
-              ? "<li><strong>Founding Member:</strong> canceling during the free month releases your reserved $9.99/month-for-life spot back into inventory.</li>"
-              : "<li><strong>Founding Member warning:</strong> canceling may permanently lose your $9.99/month-for-life rate. Returning later may require regular Pro pricing.</li>"
+              ? "<li><strong>Founding Member:</strong> canceling during the free month releases your reserved $9.99/month locked while continuously active spot back into inventory.</li>"
+              : "<li><strong>Founding Member warning:</strong> canceling may permanently lose your $9.99/month locked while continuously active rate. Returning later may require regular Pro pricing.</li>"
             : ""}
         </ul>
         <div class="account-actions-row">
@@ -48808,7 +48834,7 @@ function renderCancelSubscriptionPage() {
       <p class="eyebrow">Final confirmation</p>
       <h3>Confirm cancellation?</h3>
       <p class="muted-copy">This schedules cancellation in Stripe. Status will show <strong>Canceled — Access Ends ${escapeHtml(endLabel)}</strong>${inTrial ? " and you will not be charged" : ""}.</p>
-      ${isFounding && !inTrial ? `<p class="muted-copy"><strong>Last chance:</strong> you may permanently lose Founding Member $9.99/month-for-life pricing.</p>` : ""}
+      ${isFounding && !inTrial ? `<p class="muted-copy"><strong>Last chance:</strong> you may permanently lose Founding Member $9.99/month locked while continuously active pricing.</p>` : ""}
       <div class="account-actions-row">
         <button class="ghost-button" data-cancel-step="1" type="button">← Go back</button>
         <button class="danger-button" data-confirm-cancel type="button">Yes, cancel my subscription</button>
@@ -49359,12 +49385,12 @@ async function startCheckout(type, trackingContext = "checkout") {
   const amount = checkoutAmount(checkoutType);
   const promoCode = normalizedCheckoutPromoCode();
   const priceConfirmLabel = checkoutType === "founding"
-    ? "Founding Member at $9.99/month for life"
+    ? "Founding Member at $9.99/month locked while your membership remains continuously active"
     : checkoutType === "annual"
       ? "Pro Annual at $199/year"
       : "Pro Monthly at $19.99/month";
   const promoConfirm = promoCode
-    ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " Founding spots still available will be reserved for your $9.99/month-for-life rate." : " Founding is sold out — you will continue at regular Pro pricing."}`
+    ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " Founding spots still available will be reserved for your $9.99/month locked while continuously active rate." : " Founding is sold out — you will continue at regular Pro pricing."}`
     : "";
   if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?${promoConfirm}`)) return;
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);

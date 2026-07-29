@@ -19,7 +19,7 @@ const PORT = 19710 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-conversion-unify-${crypto.randomBytes(4).toString("hex")}.json`);
 const OUT_DIR = process.env.AUDIT_OUT_DIR
   || path.join("/opt/cursor/artifacts", "free-paid-conversion-unify");
-const FOUNDING_LIMIT = 46;
+const FOUNDING_LIMIT = 47;
 
 function requestJson(method, urlPath, body) {
   return new Promise((resolve, reject) => {
@@ -192,8 +192,11 @@ async function main() {
       } catch { /* ignore */ }
       return typeof foundingStatusLoaded === "function" && foundingStatusLoaded() && Number(foundingSpotsRemaining()) === 2;
     }, null, { timeout: 30000 });
+    // First-login budget: welcome card owns the surface; dismiss it before asserting the reminder bar.
     await page.evaluate(() => {
+      localStorage.setItem("llhFreeWelcomeCardDismissed", "1");
       if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
+      if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
     });
 
     const chrome = await page.evaluate(() => {
@@ -218,7 +221,7 @@ async function main() {
     assert.match(chrome.reminderCta, /Lock In Founding Member Pricing/i);
     assert.match(chrome.sidebarCta, /Lock In Founding Member Pricing/i);
     assert.equal(chrome.softHidden, true, "soft nudge hidden to reduce fatigue");
-    assert.match(chrome.primaryLabel, /\$9\.99\/month for life/);
+    assert.match(chrome.primaryLabel, /\$9\.99\/month locked while your membership remains continuously active/);
     await shot(page, "01-free-reminder-sidebar");
     console.log("PASS free chrome Founding-primary");
 
@@ -375,15 +378,15 @@ async function main() {
     const soldOut = await page.evaluate(() => {
       window.syncFoundingStatus = async () => foundingStatusCache;
       applyFoundingStatus({
-        limit: 46,
-        claimed: 46,
+        limit: 47,
+        claimed: 47,
         remaining: 0,
         soldOut: true,
         spotsLeftMessage: "Founding Member pricing is sold out. Pro is $19.99/month.",
       });
       foundingStatusCache.remaining = 0;
-      foundingStatusCache.claimed = 46;
-      foundingStatusCache.limit = 46;
+      foundingStatusCache.claimed = 47;
+      foundingStatusCache.limit = 47;
       foundingStatusCache.soldOut = true;
       foundingStatusCache.loaded = true;
       if (typeof syncPublicFoundingOfferUi === "function") syncPublicFoundingOfferUi();
@@ -399,7 +402,7 @@ async function main() {
         cache: { remaining: foundingStatusCache.remaining, soldOut: foundingStatusCache.soldOut },
         reminderCta,
         hasFoundingCard: Boolean(root?.querySelector('[data-pricing-card="founding"]')),
-        hasFoundingCopy: /Lock In Founding Member Pricing|\$9\.99\/month for life/i.test(root?.innerText || ""),
+        hasFoundingCopy: /Lock In Founding Member Pricing|\$9\.99\/month locked while your membership remains continuously active/i.test(root?.innerText || ""),
         hasProCard: Boolean(root?.querySelector('[data-pricing-card="pro-monthly"]')),
       };
     });

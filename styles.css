@@ -21850,6 +21850,14 @@ body.app-boot-verifying .llh-app-footer {
   user-select: none;
 }
 
+/* First-login overlay budget: boot gate alone — hide reminder/install while verifying */
+body.app-boot-verifying .free-plan-reminder,
+body.app-boot-verifying #platformInstallCardHost,
+body.app-boot-verifying .dashboard-install-card,
+body.app-boot-verifying .platform-install-card {
+  display: none !important;
+}
+
 .app-boot-gate {
   position: fixed;
   inset: 0;

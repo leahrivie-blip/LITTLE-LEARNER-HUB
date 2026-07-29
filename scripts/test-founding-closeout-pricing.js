@@ -17,7 +17,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19620 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-founding-closeout-${crypto.randomBytes(4).toString("hex")}.json`);
-const FOUNDING_LIMIT = 46;
+const FOUNDING_LIMIT = 47;
 const PUBLIC_CLAIMED_BASE = 0;
 const OUT_DIR = process.env.AUDIT_OUT_DIR
   || path.join("/opt/cursor/artifacts", "founding-closeout-pricing");
@@ -139,7 +139,7 @@ async function main() {
   const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const renderYaml = fs.readFileSync(path.join(ROOT, "render.yaml"), "utf8");
-  record("render.yaml founding limit is 46", /FOUNDING_MEMBER_LIMIT[\s\S]*?value:\s*"?46"?/.test(renderYaml));
+  record("render.yaml founding limit is 47", /FOUNDING_MEMBER_LIMIT[\s\S]*?value:\s*"?47"?/.test(renderYaml));
   record("atomic reserve helper exists", serverJs.includes("reserveFoundingSpotAtomic") && serverJs.includes("withFoundingClaimLock"));
   record("postgres durable claim uses advisory lock + FOR UPDATE", serverJs.includes("pg_advisory_xact_lock") && serverJs.includes("FOR UPDATE") && serverJs.includes("mutateFoundingInventoryInPostgres"));
   record("postgres upsert unions foundingMembers (anti-clobber)", /jsonb_array_elements_text\(COALESCE\(llh_store\.data->'foundingMembers'/.test(serverJs));

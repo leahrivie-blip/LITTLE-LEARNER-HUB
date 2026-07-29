@@ -53,7 +53,7 @@ test("shared banner helpers exist", () => {
 
 test("banner copy and founding CTA markers", () => {
   assert.match(appJs, /Lock In Founding Member Pricing/);
-  assert.match(appJs, /\$9\.99\/month for life/);
+  assert.match(appJs, /\$9\.99\/month locked while your membership remains continuously active/);
   assert.match(appJs, /Regular price will be \$19\.99\/month/);
   assert.match(appJs, /freeUpgradePrimaryButtonLabel/);
   assert.match(appJs, /data-dismiss-founding-upgrade/);
@@ -183,9 +183,9 @@ async function runServerCheckoutGuards() {
       assert.equal(res.status, 200);
       const founding = res.json?.founding || res.json;
       assert.ok(Number(founding.remaining) > 0);
-      // Runtime closeout cap is 46 even if env asks for 50.
+      // Runtime closeout cap is 47 even if env asks for 50.
       assert.ok(Number(founding.limit) <= 50);
-      assert.ok(Number(founding.limit) >= 46);
+      assert.ok(Number(founding.limit) >= 47);
       assert.equal(Boolean(founding.soldOut), false);
     });
 

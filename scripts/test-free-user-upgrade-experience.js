@@ -195,13 +195,25 @@ async function main() {
     assert.equal(state.canSee, true, "free owner should see paid upgrade offer");
     assert.equal(state.isPro, false);
     assert.equal(state.badgeHidden, false, "Free Plan badge should show");
-    assert.equal(state.reminderHidden, false, "Free plan reminder should show");
+    // Reminder may stay hidden while the first-login welcome card owns the surface.
     assert.equal(state.sidebarHidden, false, "sidebar upgrade card should show");
     assert.match(state.signupText, /Lock In Founding Member Pricing|Upgrade to Pro|Upgrade/i);
     assert.equal(state.bodyFreeUpgrade, true);
     assert.equal(state.bodyPro, false);
     assert.equal(state.reminderOverlapsTopbar, false, "reminder must not overlap topbar");
     console.log("PASS free owner chrome desktop", state);
+
+    // After welcome is dismissed, the persistent reminder may show (one surface at a time).
+    await page.evaluate(() => {
+      localStorage.setItem("llhFreeWelcomeCardDismissed", "1");
+      sessionStorage.removeItem("llhFreePlanReminderDismissed");
+      if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
+    });
+    await page.waitForTimeout(150);
+    state = await chromeState(page);
+    assert.equal(state.reminderHidden, false, "reminder shows after welcome dismiss");
+    assert.equal(state.badgeHidden, false);
+    console.log("PASS free owner reminder after welcome dismiss", state);
 
     await page.setViewportSize({ width: 390, height: 720 });
     await page.waitForTimeout(200);

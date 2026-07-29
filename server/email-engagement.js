@@ -594,11 +594,11 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
   const safeUnsubscribe = htmlEscape(unsubscribeUrl || `${base}/`);
   const safePostalAddress = htmlEscape(postalAddress || "");
   const foundingPsText = foundingOpen
-    ? "P.S. Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features."
-    : "P.S. Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.";
+    ? "P.S. Founding Member spots are still available. Lock in $9.99/month while your membership remains continuously active before pricing increases and receive unlimited access to all current and future features."
+    : "P.S. Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.";
   const foundingPsHtml = foundingOpen
-    ? `<p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month for life before pricing increases and receive unlimited access to all current and future features.</p>`
-    : `<p><strong>P.S.</strong> Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.</p>`;
+    ? `<p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month while your membership remains continuously active before pricing increases and receive unlimited access to all current and future features.</p>`
+    : `<p><strong>P.S.</strong> Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.</p>`;
   const text = [
     "Hi!",
     "",

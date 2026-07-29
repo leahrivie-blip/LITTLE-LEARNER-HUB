@@ -41,7 +41,7 @@ test("plan chooser features paid-first Founding/Pro and Free preview", () => {
   assert.match(appJs, /Start with Free Preview/);
   assert.match(appJs, /Continue with Pro/);
   assert.match(appJs, /Most Popular/);
-  assert.match(appJs, /FOR LIFE/);
+  assert.match(appJs, /locked while continuously active/);
   assert.match(appJs, /Founding Spots Remaining/);
   assert.match(appJs, /Created by a Childcare Provider/);
   assert.match(appJs, /Stop spending hours planning each week/);
