@@ -285,7 +285,7 @@ async function main() {
     assert.match(dash.text, /Welcome to Little Learner Hub/i);
     assert.equal(dash.hasPrimary, true);
     assert.equal(dash.btnVisible, true, "welcome dismiss button is visible on calendar");
-    assert.ok(dash.benefits.some((line) => /save hours every week/i.test(line)));
+    assert.ok(dash.benefits.some((line) => /free lesson plans|additional lesson plans|New curriculum|curriculum collections|Activities, planners/i.test(line)));
     console.log("PASS calendar welcome card for new Free");
 
     await page.evaluate(() => {

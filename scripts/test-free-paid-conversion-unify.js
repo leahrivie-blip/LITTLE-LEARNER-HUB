@@ -175,8 +175,9 @@ async function main() {
   try {
     await waitForBoot(child);
     const status = await requestJson("GET", "/api/founding-status");
-    assert.equal(status.json?.remaining, 2);
-    assert.match(status.json?.spotsLeftMessage || "", /Only 2 Founding Member spots remaining/);
+    const founding = status.json?.founding || status.json || {};
+    assert.equal(founding.remaining, 2);
+    assert.match(founding.spotsLeftMessage || "", /Only 2 Founding Member spots remaining/);
     console.log("PASS founding status remaining=2");
 
     let page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
@@ -185,9 +186,17 @@ async function main() {
       plan: "Free",
       clearWelcomeDismiss: true,
     });
+    await page.waitForFunction(async () => {
+      try {
+        if (typeof syncFoundingStatus === "function") await syncFoundingStatus({ render: true });
+      } catch { /* ignore */ }
+      return typeof foundingStatusLoaded === "function" && foundingStatusLoaded() && Number(foundingSpotsRemaining()) === 2;
+    }, null, { timeout: 30000 });
+    await page.evaluate(() => {
+      if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
+    });
 
     const chrome = await page.evaluate(() => {
-      if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
       const reminder = document.querySelector("#freePlanReminderBar");
       const sidebar = document.querySelector("#sidebarFreeUpgradeCard");
       const soft = document.querySelector("#freePlanSoftNudge");
@@ -200,9 +209,11 @@ async function main() {
         softHidden: soft?.hidden !== false,
         foundingOpen: typeof foundingSpotsStillAvailable === "function" ? foundingSpotsStillAvailable() : null,
         primaryLabel: typeof freeUpgradePrimaryButtonLabel === "function" ? freeUpgradePrimaryButtonLabel() : "",
+        remaining: typeof foundingSpotsRemaining === "function" ? foundingSpotsRemaining() : null,
       };
     });
     assert.equal(chrome.reminderHidden, false, "reminder bar visible for Free");
+    assert.equal(chrome.remaining, 2);
     assert.match(chrome.reminderText, /Only 2 Founding Member spots remaining/i);
     assert.match(chrome.reminderCta, /Lock In Founding Member Pricing/i);
     assert.match(chrome.sidebarCta, /Lock In Founding Member Pricing/i);
