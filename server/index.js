@@ -13998,6 +13998,47 @@ async function handleDomainDnsCheck(request, response) {
   }
 }
 
+function readShellVersionFromDisk() {
+  try {
+    const swPath = path.join(__dirname, "..", "service-worker.js");
+    const sw = fs.readFileSync(swPath, "utf8");
+    const match = sw.match(/const\s+SHELL_VERSION\s*=\s*["']([^"']+)["']/);
+    return match ? match[1] : null;
+  } catch {
+    return null;
+  }
+}
+
+function buildVersionPayload() {
+  const commit =
+    String(process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || process.env.COMMIT_SHA || "").trim()
+    || null;
+  const branch =
+    String(process.env.RENDER_GIT_BRANCH || process.env.GIT_BRANCH || "").trim()
+    || null;
+  const serviceId =
+    String(process.env.RENDER_SERVICE_ID || "").trim()
+    || null;
+  const shellVersion = readShellVersionFromDisk();
+  return {
+    ok: true,
+    service: "Little Learner Hub",
+    time: new Date().toISOString(),
+    commit,
+    shortSha: commit ? commit.slice(0, 7) : null,
+    branch,
+    serviceId,
+    shellVersion,
+    nodeEnv: process.env.NODE_ENV || null,
+  };
+}
+
+function handleBuildVersion(request, response) {
+  // Read-only deploy identity — available even during storage boot so health
+  // dashboards can confirm which SHA is serving before the DB is ready.
+  jsonResponse(response, 200, buildVersionPayload());
+}
+
 function handleHealth(request, response) {
   if (!storageBootReady) {
     jsonResponse(response, 503, {
@@ -17242,13 +17283,18 @@ const server = http.createServer(async (request, response) => {
     if (!storageBootReady) {
       const bootPath = url.pathname || "/";
       const isHealth = bootPath === "/api/health";
+      const isBuildVersion = bootPath === "/api/build-version";
       const isStatic = request.method === "GET" || request.method === "HEAD";
-      if (bootPath.startsWith("/api/") && !isHealth) {
+      if (bootPath.startsWith("/api/") && !isHealth && !isBuildVersion) {
         respondStorageBooting(response);
         return;
       }
       if (isHealth) {
         handleHealth(request, response);
+        return;
+      }
+      if (isBuildVersion) {
+        handleBuildVersion(request, response);
         return;
       }
       if (!isStatic || bootPath.startsWith("/api/")) {
@@ -17503,6 +17549,10 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/launch-readiness") return await handleLaunchReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/domain-dns-check") return await handleDomainDnsCheck(request, response);
     if (request.method === "GET" && url.pathname === "/api/health") return handleHealth(request, response);
+    if (request.method === "GET" && url.pathname === "/api/build-version") return handleBuildVersion(request, response);
+    if (request.method === "HEAD" && url.pathname === "/api/build-version") {
+      return headResponse(response, 200, "application/json; charset=utf-8");
+    }
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") {
       return headResponse(response, storageBootReady ? 200 : 503, "application/json; charset=utf-8");
