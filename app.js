@@ -48346,6 +48346,15 @@ function pricingCard(planKey, options = {}) {
   const plan = billingPlans[planKey];
   const buttonClass = options.primary ? "primary-button" : "ghost-button";
   const buttonText = options.buttonText || "Choose Plan";
+  const checkoutType = String(options.checkoutType || "");
+  const footnote = options.footnote
+    || (options.free
+      ? ""
+      : (checkoutType === "founding"
+        ? "Secure Stripe checkout · $9.99/month for life while continuously active"
+        : (checkoutType === "annual"
+          ? "Secure Stripe checkout · billed annually"
+          : "Secure Stripe checkout · $19.99/month · Cancel anytime")));
   return `
     <article class="price-card ${options.featured ? "featured" : ""}${options.secondary ? " price-card--secondary" : ""}" data-pricing-card="${escapeHtml(options.pricingCardId || planKey.toLowerCase())}">
       ${options.eyebrow ? `<p class="eyebrow">${escapeHtml(options.eyebrow)}</p>` : ""}
@@ -48354,8 +48363,8 @@ function pricingCard(planKey, options = {}) {
       ${options.includesNote ? `<p class="price-card-includes-note">${escapeHtml(options.includesNote)}</p>` : ""}
       ${featureListHtml(billingPlanFeatures(planKey))}
       ${options.rationale ? `<p class="price-card-rationale muted-copy">${escapeHtml(options.rationale)}</p>` : ""}
-      <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${options.checkoutType}"`} type="button">${escapeHtml(buttonText)}</button>
-      ${options.free ? "" : `<p class="muted-copy">${escapeHtml(proTrialUpgradeSummary)}</p>`}
+      <button class="${buttonClass}" ${options.free ? `data-plan="Free"` : `data-checkout-plan="${escapeHtml(checkoutType)}"`} type="button">${escapeHtml(buttonText)}</button>
+      ${footnote ? `<p class="muted-copy">${escapeHtml(footnote)}</p>` : ""}
     </article>
   `;
 }
