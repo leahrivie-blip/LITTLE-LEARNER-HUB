@@ -2508,6 +2508,9 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
     lessonPlans: [...otherPlans, updatedPlan],
     activities: [...otherActivities, ...normalizedSynced],
     resources: store.resources,
+    // Preserve curriculum collections / age-track series across lesson saves.
+    // Omitting series here previously wiped published collections on every plan upsert.
+    series: store.series,
     updatedAt: now,
   });
 }
