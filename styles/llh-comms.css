@@ -37,11 +37,29 @@
   border-color: var(--llh-ink, #2a2a35);
 }
 
+.messages-center-section-intro {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  margin: 0 0 12px;
+}
+
+.messages-center-section-intro .muted-copy {
+  margin: 0;
+  flex: 1 1 220px;
+}
+
 .messages-center-list,
 .comms-request-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+.messages-center-item[data-messages-open-item] {
+  cursor: pointer;
 }
 
 .messages-center-item,

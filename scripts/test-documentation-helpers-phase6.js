@@ -37,6 +37,9 @@ test("Documentation Helpers page is helper-first, not AI-first", () => {
   assert.match(section, /Turn quick classroom notes into professional childcare documentation in seconds/);
   assert.match(section, /Who is this for\?/);
   assert.match(section, /id="docHelperChild"/);
+  assert.match(section, /No child selected/);
+  assert.match(section, /During block play, the child counted ten blocks/);
+  assert.match(section, /ai-debug-toggle" hidden/);
   assert.match(section, /Most Used/);
   assert.match(section, /What do you want to create today\?/);
   assert.match(section, /class="doc-helper-card"/);
@@ -49,6 +52,7 @@ test("Documentation Helpers page is helper-first, not AI-first", () => {
   assert.doesNotMatch(section, /document creations used/);
   assert.doesNotMatch(section, /aiUsagePanel/);
   assert.doesNotMatch(section, /What do you need help creating today\?/);
+  assert.doesNotMatch(section, /Liam counted/);
 });
 
 test("Homepage showcase promotes Documentation Helpers", () => {

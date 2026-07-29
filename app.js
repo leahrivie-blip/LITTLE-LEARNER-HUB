@@ -426,11 +426,11 @@ function updateDocHelperComposeHint() {
   const childSelect = document.querySelector("#docHelperChild");
   const childId = childSelect?.value || "";
   const childName = childSelect?.selectedOptions?.[0]?.textContent?.trim() || "";
-  if (childId && childName && childName !== "All Children") {
-    hint.textContent = `Writing for ${childName}. Add a quick note, generate documentation, then review before saving.`;
+  if (childId && childName && childName !== "No child selected") {
+    hint.textContent = `Selected child: ${childName}. Add a quick note, generate documentation, then review before saving.`;
     return;
   }
-  hint.textContent = "Add a quick note, generate documentation, then review before saving.";
+  hint.textContent = "No child selected. Add a quick note, generate a draft, then choose a child explicitly before saving to a profile.";
 }
 
 function selectDocHelperType(docType, options = {}) {
@@ -1899,6 +1899,8 @@ const siteContentConfig = {
 const AI_DEBUG_STORAGE_KEY = "llhAiDebugMode";
 
 function aiDebugEnabled() {
+  // Customer-facing Debug mode is admin-only (server-authorized admin session).
+  if (typeof hasAdminFullAccess === "function" && !hasAdminFullAccess()) return false;
   return localStorage.getItem(AI_DEBUG_STORAGE_KEY) === "true";
 }
 
@@ -2048,7 +2050,7 @@ const adminPromptLayers = [
 
 const adminTestSampleNotes = [
   { label: "Counting Blocks", note: "Mia counted to five while stacking blocks." },
-  { label: "Emotional Regulation", note: "Liam became upset when another child took his truck." },
+  { label: "Emotional Regulation", note: "A child became upset when another child took a truck during play." },
   { label: "Art", note: "We painted with red and blue today." },
   { label: "Infant Reaching", note: "Ava reached for a toy during tummy time." },
   { label: "Outdoor Play", note: "Children explored bugs and leaves on the playground." },
@@ -3120,8 +3122,8 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   ]),
   foundingBadge: "Most Popular",
   foundingTitle: "Founding Member",
-  foundingSubtitle: "Best value for childcare providers — lock in lifetime pricing",
-  foundingIncludesNote: "Includes Pro access. $9.99/month locked while continuously active.",
+  foundingSubtitle: "Best value for childcare providers — $9.99/month locked while your membership remains continuously active",
+  foundingIncludesNote: "Includes Pro access. $9.99/month locked while your membership remains continuously active.",
   foundingCta: "Claim My Founding Spot",
   proBadge: "Full Access",
   proTitle: "Pro Membership",
@@ -5980,6 +5982,7 @@ function structuredCurriculumLessonPlanHtml(resource, options = {}) {
   if (!api) return "";
   return api.renderCurriculumLessonPlanHtml(plan, {
     ...options,
+    accessLabel: options.accessLabel || authoritativeLessonPlanAccessLabel(resource),
     showAdminStatus: hasAdminFullAccess(),
     resolveActivityId: resolvePublishedCurriculumActivityId,
   });
@@ -11649,6 +11652,7 @@ async function markNotificationRead({ id, conversationEmail, all } = {}) {
   }
   await refreshNotificationBell();
 }
+window.markNotificationRead = markNotificationRead;
 
 function startNotificationBellPolling() {
   if (notificationBellPollTimer) clearInterval(notificationBellPollTimer);
@@ -14498,16 +14502,47 @@ function libraryCoverToneClass(seed = "") {
   return `cover-tone-${Math.abs(hash) % 8}`;
 }
 
-function libraryPlanBadge(resource) {
-  if (resource?._curriculumManaged || resource?._curriculumLessonPlan || resource?._userLessonCopy) {
+/**
+ * Single authoritative Free/Pro display label for every lesson-plan surface
+ * (library cards, featured, collections, search, viewer, print/PDF, calendar).
+ * Entitlement for access still uses canAccess(); this is display/classification only.
+ */
+function authoritativeLessonPlanAccessLabel(resource) {
+  if (!resource) return "Free";
+  if (resource._curriculumManaged || resource._curriculumLessonPlan || resource._userLessonCopy) {
     if (isFreeAccessibleCurriculumPlan(resource)) {
       return hasLegacyFreeLessonAccess() ? "Free" : "Free Sample";
     }
     return "Pro";
   }
-  const locked = !canAccess(resource);
-  if (locked || String(resource.plan || "").trim() === "Pro") return "Pro";
-  return "Free";
+  const stored = String(resource.plan || resource._curriculumLessonPlan?.plan || "").trim();
+  if (stored === "Pro" || stored === "Premium") return "Pro";
+  if (stored === "Free Sample") return "Free Sample";
+  if (stored === "Free") return "Free";
+  // Non-curriculum resources: label from stored plan, not from locked-state
+  // (locked Free samples must still read Free/Free Sample in the viewer).
+  return stored || "Free";
+}
+
+/** Customer-facing Founding price-lock copy (never show internal "Lifetime" storage values). */
+const FOUNDING_PRICE_LOCK_COPY = "$9.99/month locked while your membership remains continuously active.";
+
+function foundingPriceLockDisplayLabel(accountOrLock) {
+  if (typeof accountOrLock === "string") {
+    if (/^lifetime$/i.test(accountOrLock.trim())) return FOUNDING_PRICE_LOCK_COPY;
+    return accountOrLock || FOUNDING_PRICE_LOCK_COPY;
+  }
+  const account = accountOrLock || {};
+  const raw = String(account.priceLock || account.foundingPriceLock || "").trim();
+  if (/^lifetime$/i.test(raw) || account.foundingMemberActive || account.foundingMember
+    || normalizeBillingPlan(account.plan, account) === "Founding") {
+    return FOUNDING_PRICE_LOCK_COPY;
+  }
+  return raw || FOUNDING_PRICE_LOCK_COPY;
+}
+
+function libraryPlanBadge(resource) {
+  return authoritativeLessonPlanAccessLabel(resource);
 }
 
 function libraryAccessBadgeHtml() {
@@ -15300,7 +15335,9 @@ function resourceCard(resource) {
   const favorite = favorites.includes(resource.id);
   const viewText = locked ? "Preview" : "View";
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
-  const accessText = locked ? "Pro" : isProUser() ? "Included" : "Free Sample";
+  const accessText = resource.category === "Lesson Plans"
+    ? authoritativeLessonPlanAccessLabel(resource)
+    : (locked ? "Pro" : isProUser() ? "Included" : "Free Sample");
   const lessonContext = resource._childRecommendation || null;
   const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumActivityCountForLesson(resource.id)
@@ -15963,7 +16000,7 @@ function resourceFileText(resource) {
     "",
     `Category: ${resource.category}`,
     `Age Group: ${resource.age}`,
-    `Access: ${resource.plan}`,
+    `Access: ${resource.category === "Lesson Plans" ? authoritativeLessonPlanAccessLabel(resource) : resource.plan}`,
     `Format: ${resource.format || "In-app resource"}`,
     `Tags: ${resource.tags.join(", ")}`,
     "",
@@ -19530,7 +19567,7 @@ function lessonPlanPrintHeaderHtml(resource, title, options = {}) {
       <div class="tag-row">
         <span class="tag">${escapeHtml(resource?.age || plan.age || "Preschool")}</span>
         ${plan.theme ? `<span class="tag">${escapeHtml(plan.theme)}</span>` : ""}
-        <span class="tag access-tag">${escapeHtml(resource?.plan || plan.plan || "Free")}</span>
+        <span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>
       </div>
       ${lead ? `<p class="curriculum-lesson-overview-lead">${escapeHtml(lead)}</p>` : ""}
       ${llhCopyrightNoticeHtml("llh-copyright-notice lesson-print-copyright")}
@@ -19980,7 +20017,7 @@ function lessonPlanVariantText(resource, printVariant = "week") {
     "",
     `Age Group: ${resource?.age || plan.age || "Preschool"}`,
     plan.theme ? `Theme: ${plan.theme}` : "",
-    `Access: ${resource?.plan || plan.plan || "Free"}`,
+    `Access: ${authoritativeLessonPlanAccessLabel(resource)}`,
     "",
   ].filter((line) => line !== "");
 
@@ -21033,8 +21070,8 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
 function lessonWorkspaceChromeHtml(resource) {
   const plan = normalizeCurriculumLessonPlanForRender(resource._curriculumLessonPlan);
   const age = resource.age || plan.age || "Preschool";
-  const planLabel = resource.plan || plan.plan || "Free";
-  const planBadgeClass = String(planLabel).trim() === "Pro" ? "pro-badge" : "free-badge";
+  const planLabel = authoritativeLessonPlanAccessLabel(resource);
+  const planBadgeClass = /pro/i.test(String(planLabel)) ? "pro-badge" : "free-badge";
   const theme = String(resource.theme || plan.theme || "").trim();
   const tabs = [
     ["week", "Week"],
@@ -21355,7 +21392,7 @@ function buildTextResourcePdfBlob(resource) {
     page.push("0.20 0.38 0.38 rg 36 724 540 32 re f");
     page.push(`1 1 1 rg BT /F2 12 Tf 50 736 Td (${pdfEscapeText("Little Learner Hub")}) Tj ET`);
     page.push(`0 0 0 rg BT /F2 16 Tf 50 704 Td (${pdfEscapeText(resource.title)}) Tj ET`);
-    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText(`${resource.category} | ${resource.age} | ${resource.plan}`)}) Tj ET`);
+    page.push(`0.25 0.25 0.25 rg BT /F1 9 Tf 50 688 Td (${pdfEscapeText(`${resource.category} | ${resource.age} | ${resource.category === "Lesson Plans" ? authoritativeLessonPlanAccessLabel(resource) : resource.plan}`)}) Tj ET`);
     page.push("0.82 0.82 0.82 RG 1 w 50 676 m 544 676 l S");
     y = 654;
   };
@@ -22038,11 +22075,13 @@ function openGeneratedPrintableResource(resource) {
     pdfButton.dataset.pdfResource = "";
   }
   document.querySelector("#resourceViewerTags").innerHTML = [
-    resource.age,
-    resource.plan,
-    resource.format || "Print-ready PDF",
-    ...resource.tags.slice(0, 4),
-  ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+    resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
+    resource.category === "Lesson Plans"
+      ? `<span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>`
+      : (resource.plan ? `<span class="tag access-tag">${escapeHtml(resource.plan)}</span>` : ""),
+    resource.format ? `<span class="tag">${escapeHtml(resource.format || "Print-ready PDF")}</span>` : "",
+    ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
+  ].filter(Boolean).join("");
   const body = document.querySelector("#resourceViewerBody");
   if (body) body.innerHTML = resourcePrintableHtml(resource);
   const viewer = document.querySelector("#resourceViewerModal");
@@ -22219,12 +22258,14 @@ async function openResourceViewer(resourceId, options = {}) {
     ? `From lesson: ${resource._curriculumParentTitle || resource._curriculumLessonPlanId}`
     : "";
   document.querySelector("#resourceViewerTags").innerHTML = [
-    resource.age,
-    resource.plan,
-    resource.format || "In-app resource",
-    parentLessonLabel,
-    ...resource.tags.slice(0, 4),
-  ].filter(Boolean).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+    resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
+    resource.category === "Lesson Plans"
+      ? `<span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>`
+      : (resource.plan ? `<span class="tag access-tag">${escapeHtml(resource.plan)}</span>` : ""),
+    resource.format ? `<span class="tag">${escapeHtml(resource.format || "In-app resource")}</span>` : "",
+    parentLessonLabel ? `<span class="tag">${escapeHtml(parentLessonLabel)}</span>` : "",
+    ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
+  ].filter(Boolean).join("");
   const body = document.querySelector("#resourceViewerBody");
   body.innerHTML = `<p class="admin-generator-note">Loading resource…</p>`;
   let viewerResource = resource;
@@ -27629,13 +27670,19 @@ function renderAiPage() {
   const childSelect = document.querySelector("#docHelperChild");
   if (childSelect) {
     const records = childRecords();
-    const preferredChildId = childSelect.value || selectedChildId || "";
-    childSelect.innerHTML = `<option value="">All Children</option>` +
+    // Never silently preselect a real child — providers must choose explicitly.
+    const explicitChildId = String(childSelect.dataset.explicitChildId || childSelect.value || "").trim();
+    childSelect.innerHTML = `<option value="">No child selected</option>` +
       records.children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("");
-    if (preferredChildId && records.children.some((child) => child.id === preferredChildId)) {
-      childSelect.value = preferredChildId;
+    if (explicitChildId && records.children.some((child) => child.id === explicitChildId)) {
+      childSelect.value = explicitChildId;
+      childSelect.dataset.explicitChildId = explicitChildId;
+    } else {
+      childSelect.value = "";
+      delete childSelect.dataset.explicitChildId;
     }
   }
+  syncDocHelperDebugVisibility();
   updateDocHelperComposeHint();
   if (pendingAiDocType) {
     const nextType = pendingAiDocType;
@@ -27648,6 +27695,26 @@ function renderAiPage() {
     return;
   }
   clearDocHelperSelection();
+}
+
+function syncDocHelperDebugVisibility() {
+  const canDebug = typeof hasAdminFullAccess === "function" && hasAdminFullAccess();
+  document.querySelectorAll(".ai-debug-toggle, [data-ai-debug-toggle]").forEach((node) => {
+    const row = node.closest("label") || node;
+    if (row) row.hidden = !canDebug;
+    if (!canDebug && node.matches?.("input")) {
+      node.checked = false;
+    }
+  });
+  if (!canDebug && aiDebugEnabled()) {
+    setAiDebugEnabled(false);
+  }
+  document.querySelectorAll("#docHelperDebugPanel, #generatorDebugPanel").forEach((panel) => {
+    if (!canDebug && panel) {
+      panel.hidden = true;
+      panel.innerHTML = "";
+    }
+  });
 }
 
 function renderAiUsagePanel() {
@@ -32578,7 +32645,19 @@ function renderDlcChildStatusCard(child, records, today) {
   `;
 }
 
-function renderDlcAttendanceSection(title, children, records, today, emptyLabel) {
+function renderDlcAttendanceSection(title, children, records, today, emptyLabel, options = {}) {
+  const compactEmpty = options.compactEmpty !== false;
+  if (!children.length && compactEmpty) {
+    return `
+      <section class="dlc-att-section dlc-att-section--compact-empty" aria-label="${escapeHtml(title)}: 0 children">
+        <div class="dlc-att-compact-row">
+          <h3>${escapeHtml(title)}</h3>
+          <span class="dlc-att-count">0</span>
+          <p class="dlc-att-empty dlc-att-empty--inline">${escapeHtml(emptyLabel)}</p>
+        </div>
+      </section>
+    `;
+  }
   return `
     <section class="dlc-att-section">
       <div class="dlc-att-section-header">
@@ -32656,10 +32735,10 @@ function renderDlcDashboard(records) {
       </div>
 
       ${activeChildren.length ? `
-        ${renderDlcAttendanceSection("Present", presentChildren, records, today, "No children checked in yet.")}
-        ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.")}
-        ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.")}
-        ${renderDlcAttendanceSection("Not Arrived", waitingChildren, records, today, "Everyone has an attendance status.")}
+        ${renderDlcAttendanceSection("Not Arrived", waitingChildren, records, today, "Everyone has an attendance status.", { compactEmpty: false })}
+        ${renderDlcAttendanceSection("Present", presentChildren, records, today, "No children checked in yet.", { compactEmpty: true })}
+        ${renderDlcAttendanceSection("Checked Out", checkedOutChildren, records, today, "No children checked out yet.", { compactEmpty: true })}
+        ${renderDlcAttendanceSection("Absent", absentChildren, records, today, "No absences marked.", { compactEmpty: true })}
       ` : `
         <div class="section-block empty-state">
           <p>No active children. <button class="inline-link" data-child-view="add" type="button">Add a child profile</button> to start today's logs.</p>
@@ -48848,7 +48927,7 @@ function subscriptionSummaryHtml() {
     <div class="billing-summary-grid">
       <div><span>Current Plan</span><strong>${escapeHtml(planLabel)}</strong></div>
       <div><span>Monthly Price</span><strong>${escapeHtml(billingPriceLabel(account))}</strong></div>
-      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? "Lifetime" : "Regular Pro pricing") : "None"}</strong></div>
+      <div><span>Price Lock</span><strong>${paidBilling ? (account?.foundingMemberActive || normalizeBillingPlan(account?.plan, account) === "Founding" || account?.foundingMember ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : "Regular Pro pricing") : "None"}</strong></div>
       <div><span>Account Status</span><strong class="llh-billing-status-value llh-billing-status-value--${escapeHtml(status?.tone || "neutral")}">${escapeHtml(statusLabel)}</strong></div>
       <div><span>AI Usage</span><strong>${serverAiUsed !== null ? serverAiUsed : aiUsageCount()} / ${serverAiLimit !== null ? serverAiLimit : aiMonthlyLimit()}</strong></div>
       <div><span>AI Reset</span><strong>${escapeHtml(aiResetLabel())}</strong></div>
@@ -49300,7 +49379,7 @@ function renderAccountPage() {
   const productStatus = accountProductStatus(account);
   statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
-    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? "Lifetime" : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
+    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
   const programConnectionHost = document.querySelector("#accountProgramConnection");
   if (programConnectionHost) {
@@ -54719,17 +54798,27 @@ document.addEventListener("click", async (event) => {
 
   const docHelperSaveBtn = event.target.closest("#docHelperSaveBtn");
   if (docHelperSaveBtn) {
+    if (docHelperSaveBtn.dataset.saving === "1") return;
     const docType = docHelperSaveBtn.dataset.docType || "observation";
-    const childId = docHelperSaveBtn.dataset.childId || document.querySelector("#docHelperChild")?.value || "";
+    const childSelect = document.querySelector("#docHelperChild");
+    const childId = childSelect?.value || docHelperSaveBtn.dataset.childId || "";
     const outputEl = document.querySelector("#docHelperOutput");
     const text = (outputEl?.dataset.rawMarkdown || outputEl?.textContent || "").trim();
     if (!text || text === "Generating..." || text === "Creating your document…") return;
     const config = docHelperSaveConfig[docType] || { key: "Reports", view: "children", childTab: "overview", label: "documentation" };
     if (config.key && !childId) {
       window.alert("Choose a child above before saving to a child profile.");
-      document.querySelector("#docHelperChild")?.focus();
+      childSelect?.focus();
       return;
     }
+    const childName = childRecords().children.find((c) => c.id === childId)?.name || "this child";
+    const confirmed = window.confirm(
+      config.key
+        ? `Save this ${docTypeLabels[docType] || "document"} to ${childName}'s profile?\n\nSelected child: ${childName}`
+        : "Save this document to your history?",
+    );
+    if (!confirmed) return;
+    docHelperSaveBtn.dataset.saving = "1";
     const today = new Date().toISOString().slice(0, 10);
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
@@ -54740,18 +54829,14 @@ document.addEventListener("click", async (event) => {
         summary: text.slice(0, 200),
         message: text,
         type: docTypeLabels[docType] || "Documentation",
+        idempotencyKey: `doc-helper-${docType}-${childId}-${String(text).slice(0, 80)}-${today}`,
       });
-      if (childId) {
-        selectedChildId = childId;
-        localStorage.setItem("llhSelectedChild", selectedChildId);
-      }
     } else {
       const result = { id: `ai-${Date.now()}`, title, toolId: "lesson", text, date: new Date().toLocaleDateString() };
       saveGeneratedOutputs([result, ...generatedOutputs()]);
     }
     docHelperSaveBtn.textContent = "Saved!";
     docHelperSaveBtn.disabled = true;
-    const childName = childRecords().children.find((c) => c.id === childId)?.name || "child";
     const postSave = document.querySelector("#docHelperPostSavePanel");
     const postTitle = document.querySelector("#docHelperPostSaveTitle");
     const postDetail = document.querySelector("#docHelperPostSaveDetail");
@@ -54773,6 +54858,7 @@ document.addEventListener("click", async (event) => {
     setTimeout(() => {
       docHelperSaveBtn.textContent = childId ? "Save to Child Profile" : "Save";
       docHelperSaveBtn.disabled = false;
+      delete docHelperSaveBtn.dataset.saving;
     }, 2500);
     showActionFeedback(config.key ? "Saved to child profile." : "Saved to document history.");
     return;
@@ -57156,11 +57242,22 @@ document.querySelector("#aiChatForm")?.addEventListener("submit", async (event) 
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("#docHelperType")) {
+    // Changing document type must not silently change the selected child.
+    updateDocHelperComposeHint();
+    return;
+  }
   if (!event.target.matches("#docHelperChild")) return;
-  selectedChildId = event.target.value || "";
-  if (selectedChildId) localStorage.setItem("llhSelectedChild", selectedChildId);
-  else localStorage.removeItem("llhSelectedChild");
+  const childId = event.target.value || "";
+  if (childId) event.target.dataset.explicitChildId = childId;
+  else delete event.target.dataset.explicitChildId;
+  // Do not rewrite global selectedChildId from Documentation Helpers — that caused silent preselection.
   updateDocHelperComposeHint();
+  const reviewChild = document.querySelector("#docHelperSelectedChildLabel");
+  if (reviewChild) {
+    const name = event.target.selectedOptions?.[0]?.textContent?.trim() || "No child selected";
+    reviewChild.textContent = childId ? `Selected child: ${name}` : "Selected child: none";
+  }
 });
 
 function setDocHelperDraftActionsVisible(visible) {
@@ -57195,17 +57292,26 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   }
 
   const records = childRecords();
-  const child = records.children.find((c) => c.id === childId) || null;
+  const child = (childId && records.children.find((c) => c.id === childId)) || null;
   const settings = getProgramSettings();
+  // Never send a real child name to AI unless the provider explicitly selected that child.
   const childName = child?.name || "";
-  const ageGroup = normalizeAgeGroup(child?.ageGroup) || "Preschool";
+  const ageGroup = child ? (normalizeAgeGroup(child.ageGroup) || "Preschool") : "Preschool";
   const programName = settings.programName || "";
   const today = new Date().toISOString().slice(0, 10);
   const toolId = docHelperToolMap[docType] || "observation";
   const label = docTypeLabels[docType] || "Documentation";
 
+  const missingFactWarnings = [];
+  if (/incident/i.test(docType) && !/\b(when|where|time|date|location|happened)\b/i.test(note)) {
+    missingFactWarnings.push("Incident drafts work best with when/where details. Missing facts will stay blank — AI will not invent them.");
+  }
+  if (/\b(medication|medicine|dose|dosage|epipen|inhaler)\b/i.test(note) && !/\b(mg|ml|dose|given|administered|time)\b/i.test(note)) {
+    missingFactWarnings.push("Medication details look incomplete. Confirm dose/time yourself — AI will not invent medication facts.");
+  }
+
   const data = {
-    childName,
+    childName: childName || "the child",
     age: ageGroup,
     programName,
     note,
@@ -57217,6 +57323,8 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
     skill: "play-based learning",
     topic: label,
     date: today,
+    // Explicit flag so prompts/backends can avoid treating a placeholder as a real child.
+    childExplicitlySelected: Boolean(childId && child),
   };
 
   if (draftAction === "shorten" && docHelperDraftState.lastOutput) {
@@ -57246,10 +57354,31 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
   if (labelEl) labelEl.textContent = "Creating";
   const postSave = document.querySelector("#docHelperPostSavePanel");
   if (postSave) postSave.hidden = true;
+  let warnHost = resultsEl.querySelector("[data-doc-helper-fact-warnings]");
+  if (!warnHost) {
+    warnHost = document.createElement("div");
+    warnHost.dataset.docHelperFactWarnings = "";
+    warnHost.className = "form-note doc-helper-fact-warnings";
+    resultsEl.insertBefore(warnHost, resultsEl.firstChild);
+  }
+  warnHost.innerHTML = missingFactWarnings.length
+    ? missingFactWarnings.map((w) => `<p role="status">${escapeHtml(w)}</p>`).join("")
+    : "";
+  const selectedChildLabel = resultsEl.querySelector("#docHelperSelectedChildLabel")
+    || (() => {
+      const el = document.createElement("p");
+      el.id = "docHelperSelectedChildLabel";
+      el.className = "form-note";
+      resultsEl.insertBefore(el, warnHost.nextSibling);
+      return el;
+    })();
+  selectedChildLabel.textContent = child
+    ? `Selected child: ${child.name}`
+    : "Selected child: none — choose a child above before saving to a profile.";
   const hint = document.querySelector("#docHelperNextStepHint");
   if (hint) {
     hint.textContent = childId
-      ? "Writing your draft… When it is ready, edit, copy, or save it to the child profile."
+      ? "Writing your draft… When it is ready, edit, copy, or confirm the child before saving."
       : "Writing your draft… Choose a child before saving to a profile, or copy the text when ready.";
   }
   if (saveBtn) {
@@ -59024,6 +59153,13 @@ document.addEventListener("click", async (event) => {
   const markAllBtn = event.target.closest("#notificationMarkAllBtn");
   if (markAllBtn) {
     event.preventDefault();
+    const unread = Number(notificationBellState.unreadCount || 0);
+    const confirmed = window.confirm(
+      unread > 0
+        ? `Mark all ${unread} notification${unread === 1 ? "" : "s"} as read? Message history will not be deleted.`
+        : "Mark all notifications as read? Message history will not be deleted.",
+    );
+    if (!confirmed) return;
     await markNotificationRead({ all: true });
     return;
   }

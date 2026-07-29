@@ -1,18 +1,18 @@
-const CACHE_NAME = "llh-shell-v115-homepage-cleanup";
-const SHELL_VERSION = "20260729-homepage-cleanup";
+const CACHE_NAME = "llh-shell-v116-signed-in-audit";
+const SHELL_VERSION = "20260729-signed-in-audit";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260729-homepage-cleanup",
-  "/styles/llh-admin-workspace.css?v=20260729-homepage-cleanup",
+  "/styles.css?v=20260729-signed-in-audit",
+  "/styles/llh-admin-workspace.css?v=20260729-signed-in-audit",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260729-homepage-cleanup",
+  "/styles/llh-homepage.css?v=20260729-signed-in-audit",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
   "/styles/llh-messaging.css?v=20260720-promo-existing",
-  "/styles/llh-comms.css?v=20260720-promo-existing",
+  "/styles/llh-comms.css?v=20260729-signed-in-audit",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-cover-catalog.js?v=20260717-netflix-cover-cards",
   "/scripts/lesson-plan-covers.js?v=20260717-netflix-cover-cards",
@@ -22,16 +22,16 @@ const APP_SHELL = [
   "/scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-preview.js?v=20260716-curriculum-standards",
   "/scripts/llh-copyright.js?v=20260717-more-menu",
-  "/scripts/curriculum-lesson-viewer-render.js?v=20260729-homepage-cleanup",
+  "/scripts/curriculum-lesson-viewer-render.js?v=20260729-signed-in-audit",
   "/scripts/llh-schedule.js?v=20260714-prod-priority-fixes",
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
   "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260729-homepage-cleanup",
-  "/admin-workspace.js?v=20260729-homepage-cleanup",
-  "/comms-center.js?v=20260729-homepage-cleanup",
+  "/app.js?v=20260729-signed-in-audit",
+  "/admin-workspace.js?v=20260729-signed-in-audit",
+  "/comms-center.js?v=20260729-signed-in-audit",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

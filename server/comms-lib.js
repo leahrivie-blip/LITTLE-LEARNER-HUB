@@ -45,7 +45,7 @@ const COMM_NOTIFICATION_TYPES = Object.freeze([
 const DEFAULT_MESSAGE_TEMPLATES = Object.freeze([
   { id: "welcome", label: "Welcome Message", subject: "Welcome to Little Learner Hub!", body: "Hi! Welcome to Little Learner Hub. We're so glad you're here. Reply anytime if you need help getting started." },
   { id: "trial-welcome", label: "Trial Welcome", subject: "Your trial has started", body: "Welcome to your Little Learner Hub trial! Explore lesson plans, activities, and the calendar — we're here if you need anything." },
-  { id: "founding-welcome", label: "Founding Member Welcome", subject: "Thank you, Founding Member!", body: "Thank you for joining as a Founding Member. You have lifetime $9.99 pricing and early access to new features as we grow." },
+  { id: "founding-welcome", label: "Founding Member Welcome", subject: "Thank you, Founding Member!", body: "Thank you for joining as a Founding Member. You have $9.99/month locked while your membership remains continuously active and early access to new features as we grow." },
   { id: "billing", label: "Billing Response", subject: "About your billing question", body: "Thanks for reaching out about billing. I've looked into your account and wanted to follow up personally." },
   { id: "password-help", label: "Password Help", subject: "Password help", body: "Sorry you're having trouble signing in. Try resetting your password from the login screen — if that doesn't work, reply here and I'll help." },
   { id: "support-follow-up", label: "Support Follow-Up", subject: "Just checking in", body: "Hi! Just following up on your support request. Did that resolve things, or can I help with anything else?" },
