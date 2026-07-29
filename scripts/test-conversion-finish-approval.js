@@ -24,7 +24,7 @@ const PORT = 19770 + Math.floor(Math.random() * 40);
 const STORE_PATH = path.join(os.tmpdir(), `llh-conversion-finish-${crypto.randomBytes(4).toString("hex")}.json`);
 const OUT_DIR = process.env.AUDIT_OUT_DIR
   || path.join("/opt/cursor/artifacts", "conversion-finish-approval");
-const LIVE_CLAIMED = 45; // read from production founding-status before this run
+const LIVE_CLAIMED = 46; // read from production founding-status before this run
 const FOUNDING_LIMIT = LIVE_CLAIMED + 2; // exactly 2 spots remaining
 
 function requestJson(method, urlPath, body, port = PORT) {
@@ -148,9 +148,9 @@ async function main() {
   assert.equal(/\$9\.99\/month for life/i.test(appJs), false);
   assert.equal(/\$9\.99\/month for life/i.test(indexHtml), false);
   assert.equal(appJs.includes("$9.99/month locked while your membership remains continuously active"), true);
-  assert.equal(serverJs.includes("FOUNDING_CLOSEOUT_LIMIT = 47"), true);
-  assert.match(renderYaml, /FOUNDING_MEMBER_LIMIT[\s\S]*value:\s*"47"/);
-  assert.equal(appJs.includes("const foundingMemberLimit = 47"), true);
+  assert.equal(serverJs.includes("FOUNDING_CLOSEOUT_LIMIT = 48"), true);
+  assert.match(renderYaml, /FOUNDING_MEMBER_LIMIT[\s\S]*value:\s*"48"/);
+  assert.equal(appJs.includes("const foundingMemberLimit = 48"), true);
   assert.equal(/Collections loading|libraryLoading && !stats\.totalCollections/.test(appJs), true);
   assert.equal(appJs.includes("welcomeActive"), true);
   assert.equal(appJs.includes("app-boot-verifying"), true);
@@ -354,8 +354,8 @@ async function main() {
     const soldOut = await page.evaluate(() => {
       window.syncFoundingStatus = async () => foundingStatusCache;
       applyFoundingStatus({
-        limit: 47,
-        claimed: 47,
+        limit: 48,
+        claimed: 48,
         remaining: 0,
         soldOut: true,
         spotsLeftMessage: "Founding Member pricing is sold out. Pro is $19.99/month.",

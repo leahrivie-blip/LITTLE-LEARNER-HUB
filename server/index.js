@@ -58,15 +58,13 @@ const FOUNDING_CHECKOUT_HOLD_MS = Math.max(
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4o";
 // Production closeout: live claimed count must leave exactly 2 new spots.
-// 2026-07-29 live recount: claimed 45 → limit 47 → remaining 2.
-// Always use the closeout constant in production so a stale lower Dashboard env
-// (e.g. 46) cannot leave only 1 spot after deploy. Tests may override via env.
-const FOUNDING_CLOSEOUT_LIMIT = 47;
+// 2026-07-29 recount: claimed 46 → limit 48 → remaining 2.
+// Prefer FOUNDING_MEMBER_LIMIT when set; fall back to closeout constant.
+// Tests may override via FOUNDING_MEMBER_LIMIT under NODE_ENV=test.
+const FOUNDING_CLOSEOUT_LIMIT = 48;
 const FOUNDING_LIMIT_ENV = Number(process.env.FOUNDING_MEMBER_LIMIT || FOUNDING_CLOSEOUT_LIMIT);
 const FOUNDING_LIMIT = (
-  process.env.NODE_ENV === "test"
-  && Number.isFinite(FOUNDING_LIMIT_ENV)
-  && FOUNDING_LIMIT_ENV > 0
+  Number.isFinite(FOUNDING_LIMIT_ENV) && FOUNDING_LIMIT_ENV > 0
 )
   ? FOUNDING_LIMIT_ENV
   : FOUNDING_CLOSEOUT_LIMIT;
