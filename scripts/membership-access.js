@@ -16,7 +16,7 @@
  * - Promo / free-month signups reserve a Founding spot immediately. If the member cancels before the
  *   first paid billing cycle, the reserved spot is released back into inventory.
  * - After the first successful paid invoice, canceling ends access at period end but keeps the
- *   numbered spot (foundingMembers[]) so the original 50 paid founding accounts stay fixed.
+ *   numbered spot (foundingMembers[]) so the original paid founding accounts stay fixed.
  *
  * STRIPE STATUS MAPPING (confirmed)
  * - stripeSubscriptionStatus "unpaid" is NEVER treated as canceled or ended.

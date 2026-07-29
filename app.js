@@ -1727,13 +1727,14 @@ function buildPrintableLibrary() {
 }
 
 const accessRank = { Free: 0, Founding: 1, Pro: 1, Premium: 2 };
-const foundingMemberLimit = 50;
+const foundingMemberLimit = 46;
 const foundingPublicClaimedBase = 0;
 let foundingStatusCache = {
   limit: foundingMemberLimit,
   claimed: null,
   remaining: null,
   soldOut: false,
+  spotsLeftMessage: "",
   source: "pending",
   loaded: false,
   loadError: false,
@@ -3254,7 +3255,7 @@ function renderSignupPlanChooser() {
       <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? `Only available to the first 50 founding members. <strong>${remaining} spots remaining.</strong>` : "Checking Founding Member availability…"}</p>
+      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? `${escapeHtml(foundingSpotsLeftMessage(remaining))} <strong>${remaining} spot${remaining === 1 ? "" : "s"} remaining.</strong>` : "Checking Founding Member availability…"}</p>
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
@@ -3900,6 +3901,12 @@ function applyFoundingStatus(status = {}) {
     claimed,
     remaining,
     soldOut: Boolean(status.soldOut) || remaining <= 0,
+    spotsLeftMessage: status.spotsLeftMessage
+      || (remaining <= 0
+        ? "Founding Member spots are filled. Pro is $19.99/month."
+        : (remaining === 1
+          ? "Only 1 Founding Member spot left."
+          : `Only ${remaining} Founding Member spots left.`)),
     source: status.source || "server",
     loaded: true,
     loadError: false,
@@ -3918,12 +3925,14 @@ function foundingStatusLoadFailed() {
 
 function foundingSpotsClaimed() {
   if (!foundingStatusLoaded()) return null;
-  return Math.min(Number(foundingStatusCache.claimed ?? localFoundingSpotsClaimed()), foundingMemberLimit);
+  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
+  return Math.min(Number(foundingStatusCache.claimed ?? localFoundingSpotsClaimed()), limit);
 }
 
 function foundingSpotsRemaining() {
   if (!foundingStatusLoaded()) return null;
-  return Math.max(Number(foundingStatusCache.remaining ?? (foundingMemberLimit - (foundingSpotsClaimed() || 0))), 0);
+  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
+  return Math.max(Number(foundingStatusCache.remaining ?? (limit - (foundingSpotsClaimed() || 0))), 0);
 }
 
 function foundingProgressPercent() {
@@ -3933,13 +3942,22 @@ function foundingProgressPercent() {
   return Math.min(100, Math.max(0, Math.round((claimed / limit) * 100)));
 }
 
+function foundingSpotsLeftMessage(remaining = foundingSpotsRemaining()) {
+  if (remaining == null) return foundingStatusCache.spotsLeftMessage || "Checking Founding Member availability…";
+  if (remaining <= 0) return "Founding Member spots are filled. Pro is $19.99/month.";
+  if (remaining === 1) return "Only 1 Founding Member spot left.";
+  return `Only ${remaining} Founding Member spots left.`;
+}
+
 function foundingUrgencyText() {
   const remaining = foundingSpotsRemaining();
   if (remaining == null) return "";
   if (remaining <= 0) return "Founding spots are filled. Regular Pro pricing is now active.";
+  if (remaining <= 2) return `${foundingSpotsLeftMessage(remaining)} Lock in $9.99/month for life before the offer closes.`;
   if (remaining <= 3) return "Almost gone. Regular Pro pricing starts after these last spots.";
   if (remaining <= 10) return "Moving fast. These founding price-lock spots are almost filled.";
-  return "Founding spots are filling now. The price changes to regular Pro when all 50 are claimed.";
+  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
+  return `Founding spots are filling now. The price changes to regular Pro when all ${limit} are claimed.`;
 }
 
 function foundingMeterHtml() {
@@ -3961,8 +3979,105 @@ function foundingMeterHtml() {
   `;
 }
 
+function syncPublicFoundingOfferUi() {
+  if (!foundingStatusLoaded()) return;
+  const soldOut = !foundingSpotsStillAvailable();
+  const remaining = foundingSpotsRemaining();
+  const spotsMsg = foundingSpotsLeftMessage(remaining);
+
+  const announce = document.querySelector("#llhFoundingAnnounceBanner");
+  if (announce) {
+    const copy = announce.querySelector("p");
+    const cta = announce.querySelector("[data-checkout-plan]");
+    if (soldOut) {
+      announce.hidden = true;
+    } else {
+      if (copy) {
+        copy.textContent = `${spotsMsg} Lock in Founding Member pricing at $9.99/month for life while your membership remains continuously active.`;
+      }
+      if (cta) {
+        cta.dataset.checkoutPlan = "founding";
+        cta.textContent = "Lock In $9.99 Pricing";
+      }
+    }
+  }
+
+  const foundingCard = document.querySelector(".llh-founding-card");
+  if (foundingCard) {
+    const title = foundingCard.querySelector(".lp-price-header h3");
+    const amountStrong = foundingCard.querySelector(".lp-price-amount strong");
+    const amountSpan = foundingCard.querySelector(".lp-price-amount span");
+    const badge = foundingCard.querySelector(".lp-pro-highlight-badge");
+    const cta = foundingCard.querySelector("[data-checkout-plan]");
+    const note = foundingCard.querySelector(".lp-price-note");
+    const sectionSub = document.querySelector("#homePricing .lp-section-sub");
+    if (soldOut) {
+      if (title) title.textContent = "Pro Monthly";
+      if (amountStrong) amountStrong.textContent = "$19.99";
+      if (amountSpan) amountSpan.textContent = "/month";
+      if (badge) badge.textContent = "Full Access";
+      if (cta) {
+        cta.dataset.checkoutPlan = "monthly";
+        cta.textContent = "Choose Pro Monthly";
+      }
+      if (note) {
+        note.innerHTML = "Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month for life.";
+      }
+      if (sectionSub) sectionSub.textContent = "Start free, or upgrade to Pro at $19.99/month.";
+      foundingCard.classList.add("llh-founding-card--sold-out");
+    } else {
+      if (title) title.textContent = "Founding Member";
+      if (amountStrong) amountStrong.textContent = "$9.99";
+      if (amountSpan) amountSpan.textContent = "/month locked while continuously active";
+      if (badge) badge.textContent = remaining <= 2 ? spotsMsg : "Most Popular · Best Value";
+      if (cta) {
+        cta.dataset.checkoutPlan = "founding";
+        cta.textContent = "Lock In $9.99 Pricing";
+      }
+      if (note) {
+        note.innerHTML = `${escapeHtml(spotsMsg)} $9.99/month locked while your Founding Membership remains continuously active. Future regular pricing: $19.99/month. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button>`;
+      }
+      if (sectionSub) sectionSub.textContent = `${spotsMsg} Start free or lock in Founding Member pricing while spots remain.`;
+      foundingCard.classList.remove("llh-founding-card--sold-out");
+    }
+  }
+
+  // Remap every public founding checkout control when sold out — server still rejects
+  // $9.99, but the UI must not advertise a closed offer.
+  document.querySelectorAll("[data-checkout-plan='founding']").forEach((button) => {
+    if (!button || button.closest("#signupPlanChooser")) return;
+    if (soldOut) {
+      button.dataset.checkoutPlan = "monthly";
+      if (/Get Started/i.test(button.textContent || "")) {
+        button.textContent = "Get Started — $19.99/month";
+      } else if (/Upgrade/i.test(button.textContent || "")) {
+        button.textContent = "Upgrade to Pro";
+      } else {
+        button.textContent = "Choose Pro Monthly";
+      }
+    }
+  });
+
+  const heroSupport = document.querySelector(".llh-hero-support");
+  if (heroSupport && !soldOut) {
+    heroSupport.textContent = `${spotsMsg} Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.`;
+  } else if (heroSupport && soldOut) {
+    heroSupport.textContent = "Pro is $19.99/month. Existing Founding Members keep $9.99/month for life. Unlock the full curriculum library and planning tools.";
+  }
+
+  const finalCtaBody = document.querySelector("#homeFinalCta .lp-cta-body");
+  if (finalCtaBody) {
+    finalCtaBody.textContent = soldOut
+      ? "Browse lesson plans and activities, create a free account, or upgrade to Pro at $19.99/month."
+      : `${spotsMsg} Browse lesson plans and activities, create a free account, or lock in Founding Member pricing while spots remain.`;
+  }
+
+  updateAuthButtons();
+}
+
 function refreshFoundingDisplays() {
   renderHomeFoundingOffer();
+  syncPublicFoundingOfferUi();
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (activeView === "plans") renderPricingPage();
   if (activeView === "upgrade") renderUpgradePage();
@@ -4001,6 +4116,9 @@ async function syncFoundingStatus(options = {}) {
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load founding status.");
     applyFoundingStatus(data?.founding || data);
+    // Always remap public founding/Pro CTAs after a successful status load so sold-out
+    // closeout cannot leave stale $9.99 buttons on the homepage after a soft boot sync.
+    syncPublicFoundingOfferUi();
     if (options.render) refreshFoundingDisplays();
   } catch (error) {
     foundingStatusCache = {
@@ -10828,7 +10946,9 @@ function updateAuthButtons() {
   } else {
     signIn.textContent = "Log in";
     delete signIn.dataset.view;
-    signUp.textContent = "Get Started — $9.99/month";
+    signUp.textContent = (foundingStatusLoaded() && !foundingSpotsStillAvailable())
+      ? "Get Started — $19.99/month"
+      : "Get Started — $9.99/month";
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
@@ -42004,7 +42124,7 @@ function openAdminUserProfile(email, startTab) {
           <div><span>Original Join Date</span><strong>${escapeHtml(joined)}</strong></div>
           ${account.foundingMemberNumber ? `<div><span>Founding Member #</span><strong>${escapeHtml(String(account.foundingMemberNumber))}</strong></div>` : ""}
         </div>
-        <p class="aup-founding-note">Founding pricing ($9.99/month) applies only while continuously active. Historical founding status does not auto-grant paid access or Stripe founding checkout. Numbered spots are retained by the original 50 accounts — canceling ends access but does not release the spot. Restore $9.99 only via intentional Admin override.</p>
+        <p class="aup-founding-note">Founding pricing ($9.99/month) applies only while continuously active. Historical founding status does not auto-grant paid access or Stripe founding checkout. Numbered spots are retained by the original Founding accounts — canceling ends access but does not release the spot. Restore $9.99 only via intentional Admin override.</p>
       </fieldset>
       ` : ""}
 
@@ -47612,7 +47732,7 @@ function foundingStatusCard() {
     <section class="founding-banner founding-banner--compact ${soldOut ? "founding-sold-out" : ""}">
       <div>
         <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding spots are filled" : `$9.99/month locked while continuously active · ${remaining} spots left`}</h3>
+        <h3>${soldOut ? "Founding spots are filled" : `$9.99/month locked while continuously active · ${foundingSpotsLeftMessage(remaining)}`}</h3>
         <p>${soldOut ? "Pro is $19.99/month or $199/year." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
       </div>
       ${foundingMeterHtml()}
@@ -47925,7 +48045,7 @@ function foundingUpgradeBannerHtml(options = {}) {
   const ctaLabel = preferredPaidCheckoutButtonLabel();
   const title = soldOut
     ? "Pro Membership Available"
-    : "🔥 Founding Member Spots Still Available";
+    : foundingSpotsLeftMessage(remaining);
   const body = soldOut
     ? `${proUnlockValueProp} Upgrade to Pro for unlimited access to every feature and every future update.`
     : `Lock in $9.99/month for life. ${proUnlockValueProp}`;
@@ -47933,7 +48053,7 @@ function foundingUpgradeBannerHtml(options = {}) {
     ? `<p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>`
     : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>for life</em></span></p>
        <p class="founding-upgrade-compare">Regular Price: <s>$19.99/month</s></p>
-       <p class="founding-upgrade-spots">${remaining} founding spot${remaining === 1 ? "" : "s"} remaining</p>`;
+       <p class="founding-upgrade-spots">${escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
   return `
     <section class="founding-upgrade-banner founding-upgrade-banner--${escapeHtml(variant)}${soldOut ? " is-sold-out" : ""}" role="region" aria-label="${soldOut ? "Pro upgrade offer" : "Founding Member upgrade offer"}">
       <div class="founding-upgrade-banner-copy">
@@ -48032,7 +48152,7 @@ function renderHomeFoundingOffer() {
     ? `<p class="founding-remaining" role="status">Checking Founding Member availability…</p>`
     : foundingStatusLoadFailed()
       ? `<p class="founding-remaining founding-remaining--error" role="alert">Founding Member availability could not be loaded. Please try again. <button class="link-button" type="button" data-retry-founding-status>Try again</button></p>`
-      : `<p class="founding-remaining">${soldOut ? "Founding pricing is closed" : `Only <strong>${remaining}</strong> Spots Remaining`}</p>`;
+      : `<p class="founding-remaining">${soldOut ? "Founding pricing is closed" : escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
   legacyTarget.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}" data-pricing-card="${soldOut ? "pro-monthly" : "founding"}">
       <h2>${escapeHtml(heading)}</h2>
@@ -48990,7 +49110,8 @@ async function startCheckout(type, trackingContext = "checkout") {
   });
   if (type === "founding") await syncFoundingStatus({ render: true });
   if (type === "founding" && foundingSpotsRemaining() <= 0) {
-    setFormMessage("#upgradeApp", "Founding Membership is sold out. All 50 lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
+    const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
+    setFormMessage("#upgradeApp", `Founding Membership is sold out. All ${limit} lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.`, false);
     setView("upgrade");
     return;
   }

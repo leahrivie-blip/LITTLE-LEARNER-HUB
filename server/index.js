@@ -47,6 +47,8 @@ const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRY1M
 const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 30);
 const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "";
 const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "";
+const STRIPE_CHECKOUT_SIMULATION = process.env.NODE_ENV === "test"
+  && ["1", "true", "yes"].includes(String(process.env.LLH_STRIPE_CHECKOUT_SIMULATION || "").toLowerCase());
 const STRIPE_AUTOMATIC_TAX = String(process.env.STRIPE_AUTOMATIC_TAX || "").toLowerCase() === "true"
   || String(process.env.STRIPE_AUTOMATIC_TAX || "") === "1";
 const FOUNDING_CHECKOUT_HOLD_MS = Math.max(
@@ -3945,6 +3947,11 @@ function foundingStatusPayload(store = readStore()) {
   purgeExpiredFoundingReservations(store);
   const claimed = foundingClaimedCount(store);
   const remaining = foundingSpotsRemaining(store);
+  const spotsLeftMessage = remaining <= 0
+    ? "Founding Member spots are filled. Pro is $19.99/month."
+    : (remaining === 1
+      ? "Only 1 Founding Member spot left."
+      : `Only ${remaining} Founding Member spots left.`);
   return {
     limit: FOUNDING_LIMIT,
     claimed,
@@ -3953,34 +3960,52 @@ function foundingStatusPayload(store = readStore()) {
     foundingPrice: "$9.99/month",
     regularMonthlyPrice: "$19.99/month",
     regularAnnualPrice: "$199/year",
+    spotsLeftMessage,
   };
 }
 
-function claimFoundingSpot(email) {
-  const store = readStore();
+function foundingMemberNumberForEmail(store, email) {
+  const clean = normalizeEmail(email);
+  const idx = (store.foundingMembers || []).findIndex((value) => normalizeEmail(value) === clean);
+  if (idx < 0) return null;
+  return PUBLIC_FOUNDING_CLAIMED_BASE + idx + 1;
+}
+
+function foundingSoldOutMessage(store = peekStore()) {
+  const limit = FOUNDING_LIMIT;
+  return `Founding Membership is sold out. All ${limit} lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.`;
+}
+
+/** Process-local mutex so two checkouts cannot claim the final Founding spot concurrently. */
+let foundingClaimChain = Promise.resolve();
+function withFoundingClaimLock(fn) {
+  const run = foundingClaimChain.then(() => fn(), () => fn());
+  foundingClaimChain = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+function applyFoundingMemberClaim(store, email) {
   seedDefaultPromoCodes(store);
   purgeExpiredFoundingReservations(store);
-  store.foundingMembers = store.foundingMembers || [];
+  store.foundingMembers = Array.isArray(store.foundingMembers) ? store.foundingMembers : [];
   const clean = normalizeEmail(email);
-  if (clean && !store.foundingMembers.includes(clean) && foundingSpotsRemaining(store) > 0) {
-    store.foundingMembers.push(clean);
-    writeStore(store);
+  if (!clean) {
+    return { foundingMember: false, foundingMemberNumber: null, reason: "missing_email" };
   }
+  const already = store.foundingMembers.some((value) => normalizeEmail(value) === clean);
+  if (!already && foundingSpotsRemaining(store) <= 0) {
+    return { foundingMember: false, foundingMemberNumber: null, reason: "sold_out" };
+  }
+  if (!already) store.foundingMembers.push(clean);
   return {
-    foundingMember: store.foundingMembers.includes(clean),
-    foundingMemberNumber: store.foundingMembers.indexOf(clean) >= 0
-      ? PUBLIC_FOUNDING_CLAIMED_BASE + store.foundingMembers.indexOf(clean) + 1
-      : null,
+    foundingMember: true,
+    foundingMemberNumber: foundingMemberNumberForEmail(store, clean),
+    reason: already ? "already_claimed" : "claimed",
   };
 }
 
-/** Hold a Founding spot at promo/checkout signup so inventory stays reserved through the free month. */
-function reserveFoundingSpot(email, details = {}) {
+function applyFoundingReservation(store, email, details = {}) {
   const clean = normalizeEmail(email);
-  if (!clean) return { ok: false, reason: "missing_email" };
-  const claim = claimFoundingSpot(clean);
-  if (!claim.foundingMember) return { ok: false, reason: "sold_out", ...claim };
-  const store = readStore();
   store.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
   const holdMs = Number(details.ttlMs) > 0 ? Number(details.ttlMs) : FOUNDING_CHECKOUT_HOLD_MS;
   const expiresAt = details.expiresAt
@@ -3998,8 +4023,88 @@ function reserveFoundingSpot(email, details = {}) {
   const index = store.foundingReservations.findIndex((item) => normalizeEmail(item.email) === clean && item.status === "held");
   if (index >= 0) store.foundingReservations[index] = { ...store.foundingReservations[index], ...row };
   else store.foundingReservations.unshift(row);
+  return expiresAt;
+}
+
+function claimFoundingSpot(email) {
+  const store = readStore();
+  const claim = applyFoundingMemberClaim(store, email);
+  if (claim.reason === "claimed") writeStore(store);
+  return {
+    foundingMember: Boolean(claim.foundingMember),
+    foundingMemberNumber: claim.foundingMemberNumber,
+  };
+}
+
+/** Hold a Founding spot at promo/checkout signup so inventory stays reserved through the free month. */
+function reserveFoundingSpot(email, details = {}) {
+  const clean = normalizeEmail(email);
+  if (!clean) return { ok: false, reason: "missing_email" };
+  const store = readStore();
+  const claim = applyFoundingMemberClaim(store, email);
+  if (!claim.foundingMember) return { ok: false, reason: claim.reason || "sold_out", ...claim };
+  const expiresAt = applyFoundingReservation(store, clean, details);
   writeStore(store);
-  return { ok: true, reserved: true, ...claim, expiresAt };
+  return { ok: true, reserved: true, foundingMember: true, foundingMemberNumber: claim.foundingMemberNumber, expiresAt };
+}
+
+/**
+ * Atomic Founding inventory claim for checkout / concurrent last-spot races.
+ * Uses a process mutex and mutates the live store (Postgres cache or local JSON) before responding.
+ */
+async function reserveFoundingSpotAtomic(email, details = {}) {
+  return withFoundingClaimLock(async () => {
+    const clean = normalizeEmail(email);
+    if (!clean) return { ok: false, reason: "missing_email" };
+    let store;
+    if (usePostgresStore()) {
+      await postgresWriteChain.catch(() => {});
+      if (!storeCache) readStore();
+      store = storeCache || defaultStore();
+    } else {
+      store = readStore();
+    }
+    const claim = applyFoundingMemberClaim(store, clean);
+    if (!claim.foundingMember) {
+      return { ok: false, reason: claim.reason || "sold_out", foundingMember: false, foundingMemberNumber: null };
+    }
+    const expiresAt = applyFoundingReservation(store, clean, details);
+    if (usePostgresStore()) await writeStoreAsync(store);
+    else writeStore(store);
+    return {
+      ok: true,
+      reserved: true,
+      foundingMember: true,
+      foundingMemberNumber: claim.foundingMemberNumber,
+      expiresAt,
+      reason: claim.reason,
+    };
+  });
+}
+
+async function claimFoundingSpotAtomic(email) {
+  return withFoundingClaimLock(async () => {
+    const clean = normalizeEmail(email);
+    if (!clean) return { foundingMember: false, foundingMemberNumber: null, reason: "missing_email" };
+    let store;
+    if (usePostgresStore()) {
+      await postgresWriteChain.catch(() => {});
+      if (!storeCache) readStore();
+      store = storeCache || defaultStore();
+    } else {
+      store = readStore();
+    }
+    const claim = applyFoundingMemberClaim(store, clean);
+    if (claim.reason === "claimed") {
+      if (usePostgresStore()) await writeStoreAsync(store);
+      else writeStore(store);
+    }
+    return {
+      foundingMember: Boolean(claim.foundingMember),
+      foundingMemberNumber: claim.foundingMemberNumber,
+      reason: claim.reason,
+    };
+  });
 }
 
 function releaseFoundingSpot(email, reason = "canceled_before_first_payment") {
@@ -4526,12 +4631,20 @@ function markPromoRedeemed(email, code, details = {}) {
 
 function getPriceId(planKey) {
   const config = planConfig[planKey];
-  return config ? process.env[config.priceEnv] || "" : "";
+  if (!config) return "";
+  const configured = process.env[config.priceEnv] || "";
+  if (configured) return configured;
+  if (STRIPE_CHECKOUT_SIMULATION) {
+    if (planKey === "founding") return "price_sim_founding_monthly";
+    if (planKey === "monthly") return "price_sim_pro_monthly";
+    if (planKey === "annual") return "price_sim_pro_annual";
+  }
+  return "";
 }
 
 function requireStripe(response) {
   const status = stripeConfigStatus();
-  if (status.checkoutReady) return true;
+  if (status.checkoutReady || STRIPE_CHECKOUT_SIMULATION) return true;
   jsonResponse(response, 503, {
     error: "Stripe is not configured. Add real Stripe keys and price IDs to .env.",
     missing: status.missing,
@@ -4540,6 +4653,22 @@ function requireStripe(response) {
 }
 
 async function stripeRequest(pathname, params) {
+  if (STRIPE_CHECKOUT_SIMULATION) {
+    if (pathname === "customers") {
+      return { id: `cus_sim_${crypto.randomBytes(6).toString("hex")}`, email: params.email || "" };
+    }
+    if (pathname === "checkout/sessions") {
+      const plan = params["metadata[plan]"] || params["subscription_data[metadata][plan]"] || "monthly";
+      const price = params["line_items[0][price]"] || "";
+      return {
+        id: `cs_sim_${crypto.randomBytes(8).toString("hex")}`,
+        url: `${SITE_URL}/?checkout=simulated&plan=${encodeURIComponent(plan)}&price=${encodeURIComponent(price)}`,
+        mode: "subscription",
+        metadata: { email: params["metadata[email]"] || "", plan },
+      };
+    }
+    return { id: `sim_${crypto.randomBytes(6).toString("hex")}`, object: pathname };
+  }
   const response = await fetch(`https://api.stripe.com/v1/${pathname}`, {
     method: "POST",
     headers: {
@@ -6967,7 +7096,7 @@ async function handleCheckout(request, response) {
   let requestedPlan = body.plan || "monthly";
   if (requestedPlan === "founding" && foundingSpotsRemaining(store) <= 0) {
     jsonResponse(response, 409, {
-      error: "Founding Membership is sold out. All 50 lifetime spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.",
+      error: foundingSoldOutMessage(store),
       founding: foundingStatusPayload(store),
       soldOut: true,
     });
@@ -7042,10 +7171,10 @@ async function handleCheckout(request, response) {
     return;
   }
 
-  // Reserve Founding inventory as soon as checkout starts so the free month cannot lose the spot.
+  // Atomically reserve Founding inventory so two checkouts cannot take the final spot.
   let foundingReservation = null;
   if (planKey === "founding") {
-    foundingReservation = reserveFoundingSpot(email, {
+    foundingReservation = await reserveFoundingSpotAtomic(email, {
       promoCode: promo.valid ? promo.code : "",
       reason: "checkout_started",
       releasableUntilFirstPayment: Boolean(promo.valid || trial7day),
@@ -7057,7 +7186,7 @@ async function handleCheckout(request, response) {
         planRemapped = "monthly_sold_out";
       } else {
         jsonResponse(response, 409, {
-          error: "Founding Membership just sold out. Choose Pro Monthly or Pro Annual instead.",
+          error: foundingSoldOutMessage(readStore()),
           founding: foundingStatusPayload(readStore()),
           soldOut: true,
         });
@@ -7102,7 +7231,7 @@ async function handleCheckout(request, response) {
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
     if (planKey === "founding" && foundingReservation?.ok) {
-      reserveFoundingSpot(email, {
+      await reserveFoundingSpotAtomic(email, {
         promoCode: promo.valid ? promo.code : "",
         reason: "checkout_started",
         sessionId: session.id || "",
@@ -11550,7 +11679,7 @@ async function handleAdminMembershipUpdate(request, response) {
   const restoringFounding = updates.restoreFoundingPrice === true || (updates.foundingMemberActive === true && membershipAccess.membershipFoundingHistorical(existing));
   const assigningNewFounding = (updates.plan === "Founding" || updates.foundingMemberActive) && !existing.foundingMemberNumber && !(store.foundingMembers || []).includes(email);
   if (assigningNewFounding && foundingSpotsRemaining(store) <= 0) {
-    jsonResponse(response, 409, { error: "All 50 Founding Member spots are claimed. Cannot assign a new founding spot." });
+    jsonResponse(response, 409, { error: `All ${FOUNDING_LIMIT} Founding Member spots are claimed. Cannot assign a new founding spot.` });
     return;
   }
   const auditEntry = {
@@ -12017,6 +12146,7 @@ const emailEngagement = createEmailEngagement({
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
   areAutomationsEnabled: () => emailAutomationsEnabled(),
+  foundingSpotsRemaining,
   resolveAudienceRecipients: (store, opts) => messagingCenter.resolveAudienceRecipients(store, opts),
 });
 
@@ -12185,6 +12315,7 @@ const freeUserWelcomeEmail = createFreeUserWelcomeEmail({
   getAdminEmail: () => ADMIN_EMAIL,
   getSupportEmailStatus: () => supportEmailConfigStatus(),
   fetchResendEmailStatus,
+  foundingSpotsRemaining,
 });
 
 function pauseEmailAutomationsInStore(reason = "EMAIL_AUTOMATIONS_ENABLED=false") {
