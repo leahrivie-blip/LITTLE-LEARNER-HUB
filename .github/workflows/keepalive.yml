@@ -1,13 +1,20 @@
 name: Keepalive
 
-# Pings the live site every 10 minutes so the Render starter web service
-# does not spin down from idle. Cold starts were causing brief 502/503s that
-# looked like "site can't be found" and also severed Postgres connections
-# (LLH SAFETY emails). Read-only GET only — never mutates data.
+# Pings the live site so a Render Free web service does not spin down from idle.
+# Cold starts cause brief 502/503s ("site can't be found") and sever Postgres
+# connections (LLH SAFETY postgres_disconnect emails).
+#
+# Durable fix: upgrade the live service Free → Starter (see docs/RENDER_STARTER_UPGRADE.md).
+# Keep this workflow even after upgrade — cheap health signal after deploys.
+#
+# Read-only GET only — never mutates data.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    # Free tier spins down ~15 min idle; GH cron can lag, so ping every 5 minutes.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
+  push:
+    branches: [main]
 
 concurrency:
   group: keepalive
