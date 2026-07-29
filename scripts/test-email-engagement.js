@@ -140,7 +140,7 @@ async function main() {
       fakeEvents.push("send");
       return { sent: true, configured: true, provider: "test" };
     },
-    SITE_URL: "https://www.littlelearnerhub.com",
+    SITE_URL: "https://littlelearnershubbyleah.com",
     htmlEscape: (v) => String(v ?? "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -162,7 +162,7 @@ async function main() {
   await test("kill-switch blocks campaign sends", async () => {
     const blockedEng = createEmailEngagement({
       sendEmail: async () => ({ sent: true, configured: true, provider: "test" }),
-      SITE_URL: "https://www.littlelearnerhub.com",
+      SITE_URL: "https://littlelearnershubbyleah.com",
       htmlEscape: (v) => String(v ?? ""),
       readStore: () => fakeStore,
       writeStore: (s) => { fakeStore = s; },
@@ -254,19 +254,19 @@ async function main() {
 
   await test("onboarding copy matches designed flow", async () => {
     const welcome = eng.buildOnboardingContent("welcome", { firstName: "Ava" }, {
-      siteUrl: "https://www.littlelearnerhub.com",
+      siteUrl: "https://littlelearnershubbyleah.com",
       htmlEscape: (v) => String(v ?? ""),
     });
     assert.match(welcome.text, /New lesson plans are added regularly/);
     assert.match(welcome.text, /feedback/i);
     const tips = eng.buildOnboardingContent("tips", { firstName: "Ava" }, {
-      siteUrl: "https://www.littlelearnerhub.com",
+      siteUrl: "https://littlelearnershubbyleah.com",
       htmlEscape: (v) => String(v ?? ""),
     });
     assert.match(tips.text, /bug/i);
     assert.match(tips.text, /feedback/i);
     const explore = eng.buildOnboardingContent("explore", { firstName: "Ava" }, {
-      siteUrl: "https://www.littlelearnerhub.com",
+      siteUrl: "https://littlelearnershubbyleah.com",
       htmlEscape: (v) => String(v ?? ""),
     });
     assert.match(explore.text, /coming next/i);

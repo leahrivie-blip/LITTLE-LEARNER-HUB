@@ -16,7 +16,7 @@ const {
 const PORT = 4323;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.push-test-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const USER = "device-owner@example.com";
 
 async function main() {

@@ -17,7 +17,7 @@ const PORT = 4348;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.admin-messaging-hotfix-${process.pid}.json`);
 const ARTIFACT_DIR = "/opt/cursor/artifacts/screenshots";
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const USER_A = "hotfix-user-a@example.com";
 const USER_B = "hotfix-user-b@example.com";
 

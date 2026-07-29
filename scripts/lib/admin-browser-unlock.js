@@ -3,7 +3,7 @@
  * Uses the login API directly to avoid form-handler race conditions during boot.
  */
 async function unlockAdminInBrowser(page, base, {
-  email = "leah@littlelearnerhub.com",
+  email = "admin@test.local",
   password = "test-password",
   code = "test-code",
   openMessages = false,

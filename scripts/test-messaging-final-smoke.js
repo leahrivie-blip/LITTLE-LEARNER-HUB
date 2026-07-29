@@ -18,7 +18,7 @@ const {
 const PORT = 4331;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.messaging-final-smoke-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const FREE_USER = "free-smoke@example.com";
 const OTHER_FREE = "other-free@example.com";
 const PRO_USER = "pro-smoke@example.com";

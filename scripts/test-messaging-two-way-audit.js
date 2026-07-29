@@ -16,7 +16,7 @@ const {
 const PORT = 4337;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.messaging-two-way-audit-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const USER_A = "audit-user-a@example.com";
 const USER_B = "audit-user-b@example.com";
 

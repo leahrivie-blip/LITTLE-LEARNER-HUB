@@ -27,12 +27,10 @@ const programOwnership = require("./program-ownership.js");
 const {
   RENDER_SERVICE_HOST,
   RENDER_LOAD_BALANCER_IPV4,
-  CUSTOM_BRAND_DOMAINS,
+  OFFICIAL_DOMAINS,
   WORKING_BRAND_DOMAINS,
-  BRAND_APEX_HOST,
-  BRAND_WWW_HOST,
-  WORKING_APEX_HOST,
-  WORKING_WWW_HOST,
+  OFFICIAL_APEX_HOST,
+  OFFICIAL_WWW_HOST,
   buildDomainDnsReport,
 } = require("./domain-dns.js");
 
@@ -121,7 +119,7 @@ const PRODUCTION_DATABASE_SERVICE_KEY = process.env.PRODUCTION_DATABASE_SERVICE_
 const DATABASE_SSL = process.env.DATABASE_SSL || "";
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || "";
 const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY || "";
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${SUPPORT_EMAIL_TO || "support@littlelearnerhub.com"}`;
+const VAPID_SUBJECT = process.env.VAPID_SUBJECT || `mailto:${SUPPORT_EMAIL_TO || "support@littlelearnershubbyleah.com"}`;
 const PUSH_BULK_BATCH_SIZE = Number(process.env.PUSH_BULK_BATCH_SIZE || 20);
 const PUSH_BULK_BATCH_DELAY_MS = Number(process.env.PUSH_BULK_BATCH_DELAY_MS || 75);
 const PUSH_BULK_MAX_RECIPIENTS = Number(process.env.PUSH_BULK_MAX_RECIPIENTS || 2000);
@@ -4198,6 +4196,17 @@ function repairFoundingMemberPricing(user = {}) {
   };
 }
 
+function reconcileStaleAuthFlags(user = {}) {
+  if (!user?.mustChangePassword) return user;
+  if (tempPasswordAuth.tempPasswordStillValid(user)) return user;
+  if (user.tempPasswordHash || user.mustChangePassword) {
+    return tempPasswordAuth.clearTempPasswordFields(user, {
+      keepServerPasswordAuth: Boolean(user.serverPasswordAuth || user.passwordHash),
+    });
+  }
+  return user;
+}
+
 function upsertUser(email, updates = {}, options = {}) {
   const store = readStore();
   store.users = store.users || {};
@@ -4217,6 +4226,7 @@ function upsertUser(email, updates = {}, options = {}) {
   merged.role = accessFields.role;
   // Keep active founding members on the locked $9.99 price in stored billing fields.
   merged = repairFoundingMemberPricing(merged);
+  merged = reconcileStaleAuthFlags(merged);
   const afterRole = String(merged.role || "").trim().toLowerCase();
   const afterProgramId = String(merged.programId || "").trim();
   const linkedOwner = normalizeEmail(merged.linkedProgramOwnerEmail || "");
@@ -8285,6 +8295,16 @@ async function syncUserMembershipFromStripe(email, { force = false, reason = "su
         subscription = upsertUser(cleanEmail, {}, { reconcileReason: reason });
       }
     }
+    const reconciledAuth = reconcileStaleAuthFlags(subscription);
+    if (reconciledAuth !== subscription && reconciledAuth.mustChangePassword !== subscription.mustChangePassword) {
+      subscription = upsertUser(cleanEmail, {
+        mustChangePassword: reconciledAuth.mustChangePassword,
+        tempPasswordHash: reconciledAuth.tempPasswordHash || "",
+        tempPasswordExpiresAt: reconciledAuth.tempPasswordExpiresAt || "",
+        tempPasswordIssuedAt: reconciledAuth.tempPasswordIssuedAt || "",
+        tempPasswordConsumedAt: reconciledAuth.tempPasswordConsumedAt || "",
+      }, { reconcileReason: `${reason}_auth_flags` });
+    }
   }
   if (subscription) {
     logMembershipTransition("permissions_updated", cleanEmail, {
@@ -8385,7 +8405,7 @@ function isKnownAppHost(hostHeader) {
     "localhost",
     "127.0.0.1",
     ...WORKING_BRAND_DOMAINS,
-    ...CUSTOM_BRAND_DOMAINS,
+    ...WORKING_BRAND_DOMAINS,
   ].filter(Boolean).map((h) => String(h).toLowerCase()));
   return knownHosts.has(host);
 }
@@ -13446,7 +13466,7 @@ function handleHealth(request, response) {
     "localhost",
     "127.0.0.1",
     ...WORKING_BRAND_DOMAINS,
-    ...CUSTOM_BRAND_DOMAINS,
+    ...WORKING_BRAND_DOMAINS,
   ].filter(Boolean));
   jsonResponse(response, 200, {
     ok: true,
@@ -13461,12 +13481,13 @@ function handleHealth(request, response) {
       configuredSiteUrl: SITE_URL,
       configuredHost: configuredHost || null,
       servingKnownAppHost: knownAppHosts.has(host),
-      customDomainTargets: CUSTOM_BRAND_DOMAINS,
+      officialDomainTargets: OFFICIAL_DOMAINS,
       workingBrandDomains: WORKING_BRAND_DOMAINS,
+      officialSiteUrl: `https://${OFFICIAL_APEX_HOST}`,
       renderServiceHost: RENDER_SERVICE_HOST,
       renderApexARecord: RENDER_LOAD_BALANCER_IPV4,
       dnsCheckEndpoint: "/api/domain-dns-check",
-      note: "Brand domain must resolve to Render (www CNAME → little-learner-hub.onrender.com, apex A → 216.24.57.1). Provider-agnostic live status: GET /api/domain-dns-check.",
+      note: `Official site: https://${OFFICIAL_APEX_HOST}. www should CNAME → ${RENDER_SERVICE_HOST}, apex A → ${RENDER_LOAD_BALANCER_IPV4}.`,
     },
   });
 }
@@ -13583,14 +13604,12 @@ function clientAppScript(filePath) {
 
 function maybeCanonicalHostRedirect(request, response, url) {
   const host = String(request.headers.host || "").split(":")[0].toLowerCase();
-  let canonicalHost = WORKING_APEX_HOST;
+  let canonicalHost = OFFICIAL_APEX_HOST;
   try {
     canonicalHost = new URL(SITE_URL).hostname.toLowerCase();
   } catch { /* use working apex */ }
   const redirectMap = new Map([
-    [WORKING_WWW_HOST, canonicalHost],
-    [BRAND_APEX_HOST, canonicalHost],
-    [BRAND_WWW_HOST, canonicalHost],
+    [OFFICIAL_WWW_HOST, canonicalHost],
   ]);
   const targetHost = redirectMap.get(host);
   if (!targetHost || targetHost === host) return false;

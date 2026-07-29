@@ -17,7 +17,7 @@ const {
 const PORT = 4325;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.messaging-ui-test-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const USER_EMAIL = "ui-test-user@example.com";
 
 async function main() {
@@ -128,9 +128,9 @@ async function main() {
     adminPage.on("console", (msg) => { if (msg.type() === "error") adminConsoleErrors.push(msg.text()); });
     adminPage.on("dialog", (dialog) => dialog.accept());
     await adminPage.addInitScript((token) => {
-      localStorage.setItem("llhAdminSession", JSON.stringify({ token, email: "leah@littlelearnerhub.com" }));
+      localStorage.setItem("llhAdminSession", JSON.stringify({ token, email: "admin@test.local" }));
       localStorage.setItem("llhAdminUnlocked", "true");
-      localStorage.setItem("llhAdminRememberEmail", "leah@littlelearnerhub.com");
+      localStorage.setItem("llhAdminRememberEmail", "admin@test.local");
     }, adminToken);
     await adminPage.goto(`${BASE}/index.html`, { waitUntil: "domcontentloaded" });
     await adminPage.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });

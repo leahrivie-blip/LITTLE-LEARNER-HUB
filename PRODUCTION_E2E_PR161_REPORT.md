@@ -5,7 +5,7 @@
 - Produced: 2026-07-13T15:21:33Z
 - Production: https://little-learner-hub.onrender.com
 - Merge commit: `a28875a` (PR #161 already merged — not re-merged)
-- TEST account: `prod.test@littlelearnerhub.com` (Firebase; created for this run)
+- TEST account: `prod.test@littlelearnershubbyleah.com` (Firebase; created for this run)
 - Results: **24 PASS / 0 FAIL / 0 SKIP**
 
 ## Coverage
@@ -52,7 +52,7 @@ Key proofs:
 
 ```bash
 export LLH_PROD_URL=https://little-learner-hub.onrender.com
-export LLH_TEST_EMAIL='prod.test@littlelearnerhub.com'
+export LLH_TEST_EMAIL='prod.test@littlelearnershubbyleah.com'
 export LLH_TEST_PASSWORD='…'   # from owner / agent handoff — not stored in repo
 export LLH_CLIENT_PRO=1        # set 0 if account already has real Pro
 npm run test:prod-e2e-pr161

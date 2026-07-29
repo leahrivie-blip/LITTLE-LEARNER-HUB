@@ -112,7 +112,7 @@ function startServer({ port, storeFile, extraEnv = {} }) {
       PORT: String(port),
       LLH_STORE_PATH: storeFile,
       ALLOW_EMAIL_SCHEDULE_AUTH: "true",
-      ADMIN_EMAIL: "leah@littlelearnerhub.com",
+      ADMIN_EMAIL: "admin@test.local",
       ADMIN_PASSWORD: "test-password",
       ADMIN_ACCESS_CODE: "test-code",
       ADMIN_NAME: "Leah",

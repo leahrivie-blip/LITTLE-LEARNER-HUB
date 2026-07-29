@@ -13,7 +13,7 @@ const ROOT = path.join(__dirname, "..");
 const PORT = 4193;
 const BASE = `http://127.0.0.1:${PORT}`;
 const STORE = path.join(ROOT, "server", `.free-welcome-test-store-${process.pid}.json`);
-const ADMIN_EMAIL = "leah@littlelearnerhub.com";
+const ADMIN_EMAIL = "admin@test.local";
 const ADMIN_PASSWORD = "test-password";
 const ADMIN_ACCESS_CODE = "test-code";
 
