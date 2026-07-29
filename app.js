@@ -22075,11 +22075,13 @@ function openGeneratedPrintableResource(resource) {
     pdfButton.dataset.pdfResource = "";
   }
   document.querySelector("#resourceViewerTags").innerHTML = [
-    resource.age,
-    resource.plan,
-    resource.format || "Print-ready PDF",
-    ...resource.tags.slice(0, 4),
-  ].map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+    resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
+    resource.category === "Lesson Plans"
+      ? `<span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>`
+      : (resource.plan ? `<span class="tag access-tag">${escapeHtml(resource.plan)}</span>` : ""),
+    resource.format ? `<span class="tag">${escapeHtml(resource.format || "Print-ready PDF")}</span>` : "",
+    ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
+  ].filter(Boolean).join("");
   const body = document.querySelector("#resourceViewerBody");
   if (body) body.innerHTML = resourcePrintableHtml(resource);
   const viewer = document.querySelector("#resourceViewerModal");
@@ -22256,12 +22258,14 @@ async function openResourceViewer(resourceId, options = {}) {
     ? `From lesson: ${resource._curriculumParentTitle || resource._curriculumLessonPlanId}`
     : "";
   document.querySelector("#resourceViewerTags").innerHTML = [
-    resource.age,
-    resource.plan,
-    resource.format || "In-app resource",
-    parentLessonLabel,
-    ...resource.tags.slice(0, 4),
-  ].filter(Boolean).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join("");
+    resource.age ? `<span class="tag">${escapeHtml(resource.age)}</span>` : "",
+    resource.category === "Lesson Plans"
+      ? `<span class="tag access-tag">${escapeHtml(authoritativeLessonPlanAccessLabel(resource))}</span>`
+      : (resource.plan ? `<span class="tag access-tag">${escapeHtml(resource.plan)}</span>` : ""),
+    resource.format ? `<span class="tag">${escapeHtml(resource.format || "In-app resource")}</span>` : "",
+    parentLessonLabel ? `<span class="tag">${escapeHtml(parentLessonLabel)}</span>` : "",
+    ...resource.tags.slice(0, 4).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`),
+  ].filter(Boolean).join("");
   const body = document.querySelector("#resourceViewerBody");
   body.innerHTML = `<p class="admin-generator-note">Loading resource…</p>`;
   let viewerResource = resource;

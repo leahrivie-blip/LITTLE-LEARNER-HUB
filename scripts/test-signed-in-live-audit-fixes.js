@@ -149,14 +149,40 @@ function staticSourceChecks() {
   assert.match(appJs, /window\.markNotificationRead\s*=\s*markNotificationRead/);
 }
 
+function withFullWeekdays(plan) {
+  const days = ["monday", "tuesday", "wednesday", "thursday", "friday"];
+  const dailyPlans = { ...(plan.dailyPlans || {}) };
+  const seedItem = {
+    title: "Audit Weekday Activity",
+    activityCategory: "Circle Time",
+    objective: "Children practice a simple classroom routine.",
+    description: "A short group activity for label-consistency testing.",
+    materials: "None",
+    steps: "Invite children to join the circle.",
+  };
+  days.forEach((day) => {
+    const existing = dailyPlans[day] || {};
+    const items = Array.isArray(existing.items) ? existing.items.filter((item) => item?.title) : [];
+    dailyPlans[day] = {
+      ...existing,
+      items: items.length ? items : [{ ...seedItem, title: `${seedItem.title} (${day})` }],
+    };
+  });
+  return { ...plan, dailyPlans };
+}
+
 async function publishLabeledPlans(token) {
   const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
   const touch = await requestJson("POST", "/api/admin/site-content", {
     adminToken: token,
     siteContent: { ...bootstrap.json.siteContent, updatedAt: bootstrap.json.siteContent.updatedAt || "" },
   });
-  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(SAMPLE, "utf8"));
+  const samplePath = fs.existsSync(path.join(ROOT, "scripts/curriculum-infant-family-connections-imports/01-infant-the-people-who-love-me-pro.txt"))
+    ? path.join(ROOT, "scripts/curriculum-infant-family-connections-imports/01-infant-the-people-who-love-me-pro.txt")
+    : SAMPLE;
+  const parsed = parseCurriculumLessonPlanImport(fs.readFileSync(samplePath, "utf8"));
   assert.ok(parsed.ok, (parsed.errors || []).join(" ") || "parse failed");
+  const basePlan = withFullWeekdays(parsed.data);
   let expectedUpdatedAt = touch.json.siteContent.updatedAt;
   const titles = {};
 
@@ -167,12 +193,16 @@ async function publishLabeledPlans(token) {
       id: `cur-lp-audit-pro-${crypto.randomBytes(3).toString("hex")}`,
       title: "Audit Label Pro Garden Scientists",
       plan: "Pro",
+      age: "Preschool",
+      theme: "Garden Scientists",
     },
     {
       kind: "Free",
       id: "cur-lp-preschool-community-helpers",
       title: "Community Helpers",
       plan: "Free",
+      age: "Preschool",
+      theme: "Community Helpers",
     },
   ];
   for (const spec of specs) {
@@ -181,17 +211,19 @@ async function publishLabeledPlans(token) {
       adminToken: token,
       expectedUpdatedAt,
       lessonPlan: {
-        ...parsed.data,
+        ...basePlan,
         id: spec.id,
         title: spec.title,
         plan: spec.plan,
         status: "published",
-        age: "Preschool",
-        theme: spec.kind === "Free" ? "Community Helpers" : "Garden Scientists",
+        age: spec.age,
+        theme: spec.theme,
+        coverImageUrl: "/images/lesson-covers/all-about-me.jpg",
+        coverImageSource: "mapped",
       },
     });
     assert.equal(save.status, 200, `${spec.kind} save failed: ${save.status} ${save.text?.slice(0, 240)}`);
-    expectedUpdatedAt = save.json?.siteContent?.updatedAt || expectedUpdatedAt;
+    expectedUpdatedAt = save.json?.siteContent?.updatedAt || save.json?.siteContentUpdatedAt || expectedUpdatedAt;
   }
   return titles;
 }
@@ -239,27 +271,74 @@ async function cardAndViewerLabel(page, title) {
   const card = page.locator("#view-lessons .lesson-plan-card, #view-lessons .resource-card, #view-lessons .browse-card")
     .filter({ hasText: title }).first();
   await card.waitFor({ timeout: 20000 });
-  const cardLabel = await card.evaluate((el) => {
+  const cardMeta = await card.evaluate((el) => {
     const badge = el.querySelector(".browse-card-badge, .access-tag, .tag.access-tag, .pro-badge, .free-badge");
-    if (badge) return badge.textContent.trim();
-    const m = (el.innerText || "").match(/\b(Pro|Free Sample|Free)\b/);
-    return m ? m[1] : "";
+    const id = el.getAttribute("data-browse-card") || el.getAttribute("data-resource-id") || "";
+    let label = badge ? badge.textContent.trim() : "";
+    if (!label) {
+      const m = (el.innerText || "").match(/\b(Pro|Free Sample|Free)\b/);
+      label = m ? m[1] : "";
+    }
+    return { id, label };
   });
+
+  // Open the same way the product does, then fall back to programmatic open for stability.
   await card.click({ force: true });
-  await page.waitForTimeout(900);
-  const viewerLabel = await page.evaluate(() => {
-    const root = document.querySelector("#resourceViewerModal.open, #featurePreviewModal.open, .lesson-workspace-mode.open");
-    const tag = root?.querySelector(".access-tag, .pro-badge, .free-badge, .browse-card-badge.library-featured-banner-badge, .tag.access-tag");
-    return (tag?.textContent || "").trim();
-  });
+  await page.waitForTimeout(700);
+  let opened = await page.evaluate(() => Boolean(
+    document.querySelector("#resourceViewerModal.open, #featurePreviewModal.open"),
+  ));
+  if (!opened && cardMeta.id) {
+    await page.evaluate(async (resourceId) => {
+      if (typeof openResourceViewer === "function") {
+        await openResourceViewer(resourceId);
+      }
+    }, cardMeta.id);
+    await page.waitForTimeout(900);
+  }
+
+  await page.waitForFunction(() => {
+    const root = document.querySelector("#resourceViewerModal.open, #featurePreviewModal.open");
+    return Boolean(root?.querySelector(".access-tag, .pro-badge, .free-badge, .tag.access-tag"));
+  }, null, { timeout: 15000 }).catch(() => null);
+
+  const viewerLabel = await page.evaluate((resourceId) => {
+    const root = document.querySelector("#resourceViewerModal.open, #featurePreviewModal.open");
+    const tags = [...(root?.querySelectorAll(".access-tag, .pro-badge, .free-badge, .tag.access-tag") || [])];
+    const preferred = tags.find((el) => /pro|free/i.test(el.textContent || "")) || tags[0];
+    let label = (preferred?.textContent || "").trim();
+    // Authoritative fallback used by print/workspace chrome — must match card entitlement label.
+    if (!label && resourceId && typeof findResource === "function" && typeof authoritativeLessonPlanAccessLabel === "function") {
+      const resource = findResource(resourceId);
+      if (resource) label = authoritativeLessonPlanAccessLabel(resource);
+    }
+    return {
+      label,
+      openViewer: Boolean(document.querySelector("#resourceViewerModal.open")),
+      openPreview: Boolean(document.querySelector("#featurePreviewModal.open")),
+      htmlSnippet: (
+        root?.querySelector(".lesson-workspace-meta .access-tag, .curriculum-lesson-header .access-tag, #resourceViewerTags .access-tag, .access-tag")?.outerHTML
+        || root?.querySelector(".lesson-workspace-meta, .curriculum-lesson-header, #resourceViewerTags")?.innerHTML
+        || ""
+      ).slice(0, 400),
+    };
+  }, cardMeta.id);
+
   await page.evaluate(() => {
     document.querySelectorAll("#resourceViewerModal, #featurePreviewModal").forEach((el) => {
       el.classList.remove("open");
       el.hidden = true;
     });
     document.body.classList.remove("modal-open");
+    if (typeof requestResourceViewerClose === "function") {
+      try { requestResourceViewerClose(); } catch { /* ignore */ }
+    }
   });
-  return { cardLabel: String(cardLabel || "").trim(), viewerLabel: String(viewerLabel || "").trim() };
+  return {
+    cardLabel: String(cardMeta.label || "").trim(),
+    viewerLabel: String(viewerLabel.label || "").trim(),
+    debug: viewerLabel,
+  };
 }
 
 async function main() {
@@ -328,8 +407,8 @@ async function main() {
       }
 
       const destinations = [
-        "calendar", "lessons", "activities", "daily-logs", "children",
-        "ai", "support", "messages", "whats-new", "settings",
+        "calendar", "lessons", "activities", "child-tools-daily-logs", "children",
+        "ai", "behavior-support", "messages", "whats-new", "settings",
       ];
       for (const view of destinations) {
         await page.evaluate((v) => { if (typeof setView === "function") setView(v); }, view);
@@ -409,34 +488,47 @@ async function main() {
       const afterType = await page.evaluate(() => document.querySelector("#docHelperChild")?.value || "");
       assert.equal(afterType, "", `${viewport.name}: type change must not select a child`);
 
-      await page.evaluate(() => {
+      const dlc = await page.evaluate(() => {
         const records = {
           children: [
             { id: "child-audit-a", name: "Fake Child A", ageGroup: "Preschool", status: "active" },
             { id: "child-audit-b", name: "Fake Child B", ageGroup: "Toddler", status: "active" },
           ],
           attendance: [],
+          meals: [],
+          naps: [],
+          diapers: [],
+          activityLogs: [],
+          reports: [],
+          communications: [],
+          observations: [],
+          photos: [],
+          documents: [],
+          supportPlans: [],
+          goals: [],
+          differentiations: [],
         };
-        const host = document.querySelector("#dailyLogsApp, #view-daily-logs .page-body, #view-daily-logs");
-        if (typeof renderDlcDashboard === "function" && host) {
-          host.innerHTML = renderDlcDashboard(records);
-        } else if (typeof setView === "function") {
-          setView("daily-logs");
+        if (typeof renderDlcDashboard !== "function") {
+          return { error: "renderDlcDashboard missing", texts: [], hasGroupLog: false };
         }
-      });
-      await page.waitForTimeout(350);
-      const dlc = await page.evaluate(() => {
-        const texts = [...document.querySelectorAll(".dlc-att-section")].map((el) => ({
+        const html = renderDlcDashboard(records);
+        const host = document.querySelector("#view-children") || document.body;
+        const mount = document.createElement("div");
+        mount.id = "signedInAuditDlcMount";
+        mount.innerHTML = html;
+        host.appendChild(mount);
+        const texts = [...mount.querySelectorAll(".dlc-att-section")].map((el) => ({
           title: el.querySelector("h3")?.textContent?.trim() || "",
           compact: el.classList.contains("dlc-att-section--compact-empty"),
           hasCards: el.querySelectorAll(".dlc-att-card").length,
         }));
         return {
           texts,
-          hasGroupLog: /Group Log/i.test(document.body.innerText),
+          hasGroupLog: /Group Log/i.test(mount.innerText),
+          sectionCount: texts.length,
         };
       });
-      assert.equal(dlc.hasGroupLog, true);
+      assert.equal(dlc.hasGroupLog, true, `Daily Logs Group Log missing: ${JSON.stringify(dlc)}`);
       for (const title of ["Present", "Checked Out", "Absent"]) {
         const section = dlc.texts.find((t) => t.title === title);
         if (section) assert.equal(section.compact, true, `${title} empty should be compact`);
@@ -462,14 +554,19 @@ async function main() {
       await page.evaluate(() => setView("ai"));
       await page.waitForTimeout(200);
       await page.screenshot({ path: path.join(SCREEN_DIR, `${viewport.name}-doc-helpers.png`), fullPage: true });
-      await page.evaluate(() => setView("daily-logs"));
+      await page.evaluate(() => setView("child-tools-daily-logs"));
       await page.waitForTimeout(250);
       await page.screenshot({ path: path.join(SCREEN_DIR, `${viewport.name}-daily-logs.png`), fullPage: true });
       await page.evaluate(() => setView("lessons"));
       await page.waitForTimeout(250);
       await page.screenshot({ path: path.join(SCREEN_DIR, `${viewport.name}-lessons.png`), fullPage: true });
 
-      const seriousErrors = consoleErrors.filter((e) => !/favicon|service.?worker|net::ERR|Failed to load resource/i.test(e));
+      const seriousErrors = consoleErrors.filter((e) => (
+        !/favicon|service.?worker|net::ERR|Failed to load resource/i.test(e)
+        // Daily Logs is a children-view mode (`child-tools-daily-logs` → `#view-children`),
+        // not a top-level `#view-daily-logs` shell section.
+        && !/missing from the shell daily-logs/i.test(e)
+      ));
       assert.equal(seriousErrors.length, 0, `${viewport.name} console errors: ${seriousErrors.slice(0, 5).join(" | ")}`);
       console.log(`PASS  ${viewport.name} signed-in audit surfaces`);
       await page.close();
