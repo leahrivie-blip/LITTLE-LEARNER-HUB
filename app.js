@@ -3974,10 +3974,30 @@ function refreshFoundingDisplays() {
   if (activeView === "settings") renderSettingsHubPage();
 }
 
+/** Retry transient 502/503/504 (Render cold start / deploy) before surfacing errors to users. */
+async function fetchWithWakeRetry(input, init = {}, options = {}) {
+  const maxAttempts = Number(options.maxAttempts || 4);
+  const retryStatuses = new Set([502, 503, 504]);
+  const baseDelayMs = Number(options.baseDelayMs || 800);
+  let lastError = null;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      const response = await fetch(input, init);
+      if (!retryStatuses.has(response.status) || attempt >= maxAttempts) return response;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
+    } catch (error) {
+      lastError = error;
+      if (attempt >= maxAttempts) throw error;
+      await new Promise((resolve) => setTimeout(resolve, baseDelayMs * attempt));
+    }
+  }
+  throw lastError || new Error("fetchWithWakeRetry failed");
+}
+
 async function syncFoundingStatus(options = {}) {
   if (!stripeCheckoutConfig.foundingStatusEndpoint || !canUseLaunchBackend()) return foundingStatusCache;
   try {
-    const response = await fetch(`${stripeCheckoutConfig.foundingStatusEndpoint}?t=${Date.now()}`, { cache: "no-store" });
+    const response = await fetchWithWakeRetry(`${stripeCheckoutConfig.foundingStatusEndpoint}?t=${Date.now()}`, { cache: "no-store" });
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not load founding status.");
     applyFoundingStatus(data?.founding || data);
@@ -4164,7 +4184,7 @@ async function syncSubscriptionFromBackend(email, options = {}) {
   if (!cleanEmail || !stripeCheckoutConfig.subscriptionStatusEndpoint || !canUseStripeBackend()) return null;
   try {
     const refreshParam = options.forceRefresh ? "&refresh=1" : "";
-    const response = await fetch(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}${refreshParam}`);
+    const response = await fetchWithWakeRetry(`${stripeCheckoutConfig.subscriptionStatusEndpoint}?email=${encodeURIComponent(cleanEmail)}${refreshParam}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data?.error || "Could not sync subscription.");
     if (data?.founding) applyFoundingStatus(data.founding);
@@ -4546,7 +4566,7 @@ async function refreshPublicCurriculumLibrary() {
   curriculumLibraryLoadError = "";
   siteContentLoadPromise = (async () => {
     try {
-      const response = await fetch(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
+      const response = await fetchWithWakeRetry(`${siteContentConfig.publicEndpoint}?t=${Date.now()}`, {
         cache: "no-store",
         headers: await siteContentRequestHeaders(),
       });
@@ -4768,7 +4788,7 @@ let lessonNavHistorySilent = false;
 let pendingAuthReturnView = "";
 let suppressBootLanding = false;
 let viewNavigationGeneration = 0;
-const APP_BOOT_VERIFY_TIMEOUT_MS = 10000;
+const APP_BOOT_VERIFY_TIMEOUT_MS = 18000;
 let appBootState = "ready";
 let appBootError = "";
 let appBootRunId = 0;
@@ -4905,7 +4925,12 @@ async function runSignedInBootVerification() {
     });
   }
   if (firebaseAuthEnabled) {
-    await withBootVerificationTimeout("Child data sync", () => syncChildDataFromBackend({ render: false }));
+    await withBootVerificationTimeout("Child data sync", async () => {
+      const headers = await firebaseAuthHeaders();
+      const hasCloudAuth = headers && !/^Bearer test:/i.test(String(headers.Authorization || ""));
+      if (!hasCloudAuth) return;
+      await syncChildDataFromBackend({ render: false });
+    }).catch(() => {});
   }
   await withBootVerificationTimeout("Founding status", () => syncFoundingStatus({ render: false })).catch(() => {});
   await withBootVerificationTimeout("Staff invite", () => maybeHandleStaffInviteFromUrl()).catch(() => {});
