@@ -247,7 +247,7 @@ async function main() {
       if (typeof setView === "function") setView("calendar");
       if (typeof renderMainCalendar === "function") renderMainCalendar();
       if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
-      const welcome = Boolean(document.querySelector(".free-welcome-card"));
+      const welcome = Boolean(document.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]'));
       const reminderWithWelcome = !document.querySelector("#freePlanReminderBar")?.hidden;
       const installWithWelcome = Boolean(document.querySelector("#platformInstallCardHost")?.innerHTML?.trim()
         || document.querySelector(".dashboard-install-card, .platform-install-card"));
@@ -297,7 +297,7 @@ async function main() {
         bootVerifying: document.body.classList.contains("app-boot-verifying"),
         authenticated: document.body.classList.contains("user-authenticated"),
         install: Boolean(document.querySelector("#platformInstallCardHost")?.innerHTML?.trim()),
-        upgradeCard: Boolean(document.querySelector(".free-dashboard-upgrade-card, .free-welcome-card")),
+        upgradeCard: Boolean(document.querySelector(".free-dashboard-upgrade-card")),
         cta: document.querySelector("#freePlanReminderPrimary")?.textContent?.trim() || "",
         label: typeof freeUpgradePrimaryButtonLabel === "function" ? freeUpgradePrimaryButtonLabel() : "",
       };

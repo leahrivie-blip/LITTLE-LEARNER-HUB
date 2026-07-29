@@ -343,10 +343,13 @@ async function auditGuest(browser, viewport) {
     const chrome = await page.evaluate(() => ({
       badge: document.querySelector("#freePlanBadge")?.hidden,
       reminder: document.querySelector("#freePlanReminderBar")?.hidden,
-      welcome: Boolean(document.querySelector(".free-welcome-card")),
+      welcome: Boolean(document.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]')),
+      upgradeCard: Boolean(document.querySelector(".free-dashboard-upgrade-card")),
     }));
     assert.notEqual(chrome.badge, false, "guest must not see Free badge");
     assert.notEqual(chrome.reminder, false, "guest must not see Free reminder");
+    assert.equal(chrome.welcome, false, "guest must not see Free welcome card");
+    assert.equal(chrome.upgradeCard, false, "guest must not see Free upgrade card");
     pass(`${label}: no Free-owner chrome`);
   } catch (error) {
     fail(`${label}`, error);
@@ -369,7 +372,13 @@ async function auditPersona(browser, viewport, personaKey, account) {
       active: document.querySelector(".active-view")?.id || "",
       badgeHidden: document.querySelector("#freePlanBadge")?.hidden,
       reminderHidden: document.querySelector("#freePlanReminderBar")?.hidden,
-      welcome: Boolean(document.querySelector("#mainCalendarApp .free-welcome-card, .free-welcome-card")),
+      // New first-visit welcome only — never count the persistent upgrade card as welcome.
+      welcome: Boolean(document.querySelector(
+        '#mainCalendarApp .free-welcome-card[aria-label="Welcome to Little Learner Hub"], .free-welcome-card[aria-label="Welcome to Little Learner Hub"]',
+      )),
+      upgradeCard: Boolean(document.querySelector(
+        "#mainCalendarApp .free-dashboard-upgrade-card, .free-dashboard-upgrade-card",
+      )),
       conversion: Boolean(document.querySelector("#mainCalendarApp .free-library-conversion-banner, .free-library-conversion-banner")),
     }));
 
@@ -384,6 +393,7 @@ async function auditPersona(browser, viewport, personaKey, account) {
       assert.equal(state.canSeeUpgrade, false, "paid persona should not see Free upgrade offer");
       assert.notEqual(state.badgeHidden, false, "paid persona must not show Free badge");
       assert.equal(state.welcome, false, "paid persona must not see Free welcome");
+      assert.equal(state.upgradeCard, false, "paid persona must not see Free upgrade card");
       pass(`${label}: paid permissions correct`);
     } else if (personaKey === "freeCurated") {
       assert.equal(state.isPro, false);
@@ -391,12 +401,14 @@ async function auditPersona(browser, viewport, personaKey, account) {
       assert.equal(state.legacy, false);
       assert.equal(state.badgeHidden, false, "curated Free should show badge");
       assert.equal(state.welcome || state.conversion, true, "curated Free should see welcome or conversion");
+      assert.equal(state.upgradeCard, false, "curated Free welcome owns the surface before dismiss");
       pass(`${label}: curated Free permissions + upgrade chrome`);
     } else if (personaKey === "freeLegacy") {
       assert.equal(state.isPro, false);
       assert.equal(state.canSeeUpgrade, true);
       assert.equal(state.legacy, true);
       assert.equal(state.welcome, false, "legacy Free should not see new welcome card");
+      assert.equal(state.upgradeCard, true, "legacy Free should see persistent upgrade card (not the new welcome)");
       pass(`${label}: legacy Free permissions`);
     }
 

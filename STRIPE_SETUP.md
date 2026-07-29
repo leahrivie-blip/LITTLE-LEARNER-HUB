@@ -115,6 +115,21 @@ server/data/launch-store.json
 
 `PUBLIC_FOUNDING_CLAIMED_BASE` (production: 15) is a marketing offset added to the ledger length for public countdown display.
 
+## Owner task — Stripe Tax product classification (do not auto-change)
+
+**Status:** Separate owner review required. Do **not** change this automatically in code or via agents.
+
+Stripe currently shows the catalog products as **“Needs info”** and classifies them as **SaaS – personal use**.
+
+Little Learner Hub is primarily **business-use software for childcare providers** (home daycares, centers, preschool teachers). Before enabling or changing **automatic tax**, the owner must:
+
+1. Review each product in Stripe Dashboard → Product catalog → tax code / product tax code.
+2. Confirm whether the correct classification is business-use SaaS (or the closest Stripe Tax code for B2B childcare-provider software), not personal-use SaaS.
+3. Resolve any “Needs info” prompts in Stripe Tax / Product tax settings.
+4. Only then enable or adjust automatic tax / tax behavior on Checkout or invoices.
+
+Do not create, edit, archive, or replace Stripe products or prices as part of routine app deploys. Tax classification is an owner/compliance decision.
+
 ## Before Launch
 
 - Use live Stripe keys only when ready to accept real payments.
@@ -125,3 +140,4 @@ server/data/launch-store.json
 - Run one test cancellation from the Stripe Customer Portal.
 - Move billing records from the local JSON file to a real database before paid launch.
 - Run `node server/launch-check.js` and confirm the full website launch check says `READY`.
+- Complete the **Stripe Tax product classification** owner task above before enabling automatic tax.

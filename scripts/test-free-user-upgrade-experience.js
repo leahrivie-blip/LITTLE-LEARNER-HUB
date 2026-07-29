@@ -276,7 +276,7 @@ async function main() {
     await page.waitForTimeout(500);
     const dash = await page.evaluate(() => {
       const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
-      const welcome = root?.querySelector(".free-welcome-card");
+      const welcome = root?.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]');
       const banner = root?.querySelector(".free-library-conversion-banner");
       const active = document.querySelector(".active-view")?.id || "";
       const btn = root?.querySelector("[data-dismiss-free-welcome]");
@@ -308,7 +308,7 @@ async function main() {
     await page.waitForTimeout(400);
     const afterDismiss = await page.evaluate(() => {
       const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
-      const welcome = root?.querySelector(".free-welcome-card");
+      const welcome = root?.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]');
       const banner = root?.querySelector(".free-library-conversion-banner");
       return {
         hasWelcome: Boolean(welcome),
@@ -318,10 +318,11 @@ async function main() {
       };
     });
     assert.equal(afterDismiss.dismissed, true, "welcome dismiss persists");
+    assert.equal(afterDismiss.hasWelcome, false, "new welcome card is gone after dismiss");
     // After welcome dismiss: one dashboard upgrade card (not a second stacked conversion banner).
     const afterCard = await page.evaluate(() => {
       const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
-      const card = root?.querySelector(".free-welcome-card, .free-dashboard-upgrade-card");
+      const card = root?.querySelector(".free-dashboard-upgrade-card");
       const banner = root?.querySelector(".free-library-conversion-banner");
       return {
         hasCard: Boolean(card),

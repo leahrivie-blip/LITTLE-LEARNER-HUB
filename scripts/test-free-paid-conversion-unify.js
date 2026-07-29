@@ -246,18 +246,21 @@ async function main() {
     await page.waitForTimeout(500);
     const dash = await page.evaluate(() => {
       const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
-      const welcome = root?.querySelector(".free-welcome-card");
+      const welcome = root?.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]');
+      const upgrade = root?.querySelector(".free-dashboard-upgrade-card");
       const conversion = root?.querySelector(".free-library-conversion-banner");
       const libraryStrip = document.querySelector(".library-upgrade-strip:not(.library-upgrade-strip--guest)");
       return {
-        hasUpgradeCard: Boolean(welcome),
+        hasWelcome: Boolean(welcome),
+        hasUpgradeCard: Boolean(upgrade),
         hasConversionBanner: Boolean(conversion),
         hasLibraryStrip: Boolean(libraryStrip),
-        cardText: welcome?.innerText?.slice(0, 600) || "",
-        cta: welcome?.querySelector("[data-checkout-plan]")?.textContent?.trim() || "",
-        checkoutPlan: welcome?.querySelector("[data-checkout-plan]")?.dataset?.checkoutPlan || "",
+        cardText: upgrade?.innerText?.slice(0, 600) || "",
+        cta: upgrade?.querySelector("[data-checkout-plan]")?.textContent?.trim() || "",
+        checkoutPlan: upgrade?.querySelector("[data-checkout-plan]")?.dataset?.checkoutPlan || "",
       };
     });
+    assert.equal(dash.hasWelcome, false, "new welcome card dismissed");
     assert.equal(dash.hasUpgradeCard, true, "one dashboard upgrade card after welcome dismiss");
     assert.equal(dash.hasConversionBanner, false, "no stacked conversion banner");
     assert.equal(dash.hasLibraryStrip, false, "no library upgrade strip for Free");

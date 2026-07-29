@@ -47822,7 +47822,8 @@ function dismissFreeWelcomeCard() {
   } catch {
     /* ignore */
   }
-  document.querySelectorAll(".free-welcome-card").forEach((node) => node.remove());
+  // Remove only the first-visit welcome card — keep the persistent upgrade card surface.
+  document.querySelectorAll('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]').forEach((node) => node.remove());
   const activeView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
   try {
     if (activeView === "home" && typeof renderHome === "function") renderHome();
@@ -48048,14 +48049,14 @@ function freeDashboardUpgradeCardHtml() {
   const foundingOpen = foundingSpotsStillAvailable();
   const unlockLines = lockedContentUnlockLines();
   return `
-    <section class="free-welcome-card free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer">
-      <div class="free-welcome-card-copy">
-        <p class="free-welcome-card-badge">${foundingOpen ? "⭐ Founding Member" : "Pro"}</p>
+    <section class="free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer">
+      <div class="free-dashboard-upgrade-card-copy">
+        <p class="free-dashboard-upgrade-card-badge">${foundingOpen ? "⭐ Founding Member" : "Pro"}</p>
         <h3>${escapeHtml(freeUpgradePrimaryButtonLabel({ short: true }))}</h3>
         <p>${escapeHtml(unlockLines.slice(0, 3).join(" "))}</p>
         <p class="muted-copy">${escapeHtml(freeUpgradeSupportingText())}</p>
       </div>
-      <div class="free-welcome-card-actions">
+      <div class="free-dashboard-upgrade-card-actions">
         <button class="primary-button" type="button" data-checkout-plan="${preferredPaidCheckoutPlan()}">${escapeHtml(freeUpgradePrimaryButtonLabel())}</button>
         <button class="ghost-button" type="button" data-view="plans">Compare Plans</button>
       </div>
