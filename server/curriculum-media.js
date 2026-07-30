@@ -38,6 +38,31 @@ function sha256Buffer(buffer) {
   return crypto.createHash("sha256").update(buffer).digest("hex");
 }
 
+function validateCurriculumUploadBuffer(mimeType, buffer) {
+  if (!buffer || !buffer.length) return false;
+  const mime = String(mimeType || "").trim().toLowerCase();
+  if (mime === "application/pdf") {
+    return buffer.slice(0, 5).toString("ascii") === "%PDF-";
+  }
+  if (mime === "image/png") {
+    return buffer.length >= 8
+      && buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47;
+  }
+  if (mime === "image/jpeg") {
+    return buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  }
+  if (mime === "image/gif") {
+    const head = buffer.slice(0, 6).toString("ascii");
+    return head === "GIF87a" || head === "GIF89a";
+  }
+  if (mime === "image/webp") {
+    return buffer.length >= 12
+      && buffer.slice(0, 4).toString("ascii") === "RIFF"
+      && buffer.slice(8, 12).toString("ascii") === "WEBP";
+  }
+  return false;
+}
+
 function decodeInlineCurriculumFileData(fileData) {
   const text = String(fileData || "").trim();
   const match = text.match(/^data:([^;]+);base64,([a-z0-9+/=\s]+)$/i);
@@ -45,6 +70,7 @@ function decodeInlineCurriculumFileData(fileData) {
   const mimeType = String(match[1] || "").trim().toLowerCase();
   const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
   if (!buffer.length) return null;
+  if (!validateCurriculumUploadBuffer(mimeType, buffer)) return null;
   return {
     mimeType,
     buffer,
@@ -163,6 +189,7 @@ module.exports = {
   isInlineCurriculumFileData,
   isHttpsCurriculumFileRef,
   sha256Buffer,
+  validateCurriculumUploadBuffer,
   decodeInlineCurriculumFileData,
   insertMediaAsset,
   readMediaAsset,

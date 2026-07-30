@@ -121,9 +121,20 @@ Expected after full inline removal: **~49 MB** removed from blob → **~14–16 
 
 ```bash
 npm run check
-npm run test:curriculum-media-migration
+npm run test:curriculum-media-migration   # unit + Postgres integration (requires DB URL)
+npm run test:curriculum-media-access      # media auth + upload validation (requires DB URL)
 node scripts/test-curriculum-uploads-storage.js   # local-json inline path unchanged
 ```
+
+### Postgres backup scope
+
+Render Postgres backups snapshot the **entire database**, including `llh_store`, `llh_media_assets`, and `llh_curriculum_media_migrations`. No separate backup configuration is required for media tables.
+
+### Logging / migration safety
+
+- Migration progress table stores **checksums and byte counts only** — never binary or base64 payloads.
+- API inventory and migration responses expose metadata only (`sha256`, sizes, IDs).
+- Server logs on media read/upload failures log `error.message` only, not file bytes.
 
 ## Manual checklist (post-migration — for site owner)
 

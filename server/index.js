@@ -150,7 +150,15 @@ const MAX_PUSH_DEVICES_PER_USER = Number(process.env.MAX_PUSH_DEVICES_PER_USER |
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
 const storePath = process.env.LLH_STORE_PATH || path.join(dataDir, "launch-store.json");
-const storeRecordId = "launch-store";
+const storeRecordId = String(process.env.LLH_STORE_RECORD_ID || "launch-store").trim() || "launch-store";
+
+function shouldSkipStartupCurriculumSeed() {
+  if (["1", "true", "yes"].includes(String(process.env.LLH_SKIP_STARTUP_CURRICULUM_SEED || "").trim().toLowerCase())) {
+    return true;
+  }
+  // Isolated Postgres store records used by integration tests must not be overwritten by boot seeds.
+  return process.env.NODE_ENV === "test" && storeRecordId !== "launch-store";
+}
 // Admin sessions live in their own storage (Postgres table in production, a small
 // side file in local-json/test mode) — never inside the shared store document. See
 // server/admin-session-store.js for why this exists (it replaces admin login writing
@@ -2322,7 +2330,9 @@ function generateCurriculumResourceId() {
 }
 
 function sanitizeCurriculumUploadFileName(value) {
-  return String(value || "file")
+  const baseName = path.basename(String(value || "file").replace(/\\/g, "/"));
+  return baseName
+    .replace(/\.\.+/g, "")
     .replace(/[^a-zA-Z0-9._-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "")
@@ -2337,6 +2347,7 @@ function parseCurriculumUploadDataUrl(value) {
   if (!CURRICULUM_UPLOAD_MIME_TYPES.has(mimeType)) return null;
   const buffer = Buffer.from(match[2].replace(/\s+/g, ""), "base64");
   if (!buffer.length || buffer.length > MAX_CURRICULUM_UPLOAD_BYTES) return null;
+  if (!curriculumMedia.validateCurriculumUploadBuffer(mimeType, buffer)) return null;
   // Keep the original data URL, but enforce the shared sanitizer length/format rules.
   const fileData = sanitizedCurriculumFileData(text);
   if (!fileData.startsWith("data:")) return null;
@@ -3103,6 +3114,7 @@ async function initializeStorage() {
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
   }
+  if (!shouldSkipStartupCurriculumSeed()) {
   try {
     const { ensurePreschoolCurriculumSeeded } = require("./curriculum-preschool-seed.js");
     await ensurePreschoolCurriculumSeeded({
@@ -3242,6 +3254,7 @@ async function initializeStorage() {
     });
   } catch (error) {
     console.error("[curriculum-preschool-priority-seed] startup seed failed:", error.message);
+  }
   }
 }
 
@@ -14351,6 +14364,19 @@ async function handleAdminCurriculumResourceSave(request, response) {
   const incoming = body.resource && typeof body.resource === "object" ? body.resource : null;
   if (!incoming) {
     jsonResponse(response, 400, { error: "A resource payload is required." });
+    return;
+  }
+  const incomingInlineFileData = sanitizedCurriculumFileData(incoming.fileData)
+    || sanitizedCurriculumFileData(incoming.fileUrl);
+  if (
+    usePostgresStore()
+    && curriculumMedia.isInlineCurriculumFileData(incomingInlineFileData)
+    && !normalizedShortText(incoming.mediaAssetId, 160)
+  ) {
+    jsonResponse(response, 400, {
+      error: "Inline base64 curriculum files cannot be saved in Postgres mode. Upload the file again so it is stored in llh_media_assets, or provide an HTTPS URL.",
+      code: "inline_curriculum_file_blocked",
+    });
     return;
   }
   const now = new Date().toISOString();

@@ -33,6 +33,7 @@
     "import:preschool-family-connections": "node scripts/import-preschool-family-connections.js",
     "import:preschool-family-connections:validate": "node scripts/import-preschool-family-connections.js --validate-only",
     "test:curriculum-media-migration": "node scripts/test-curriculum-media-migration.js",
+    "test:curriculum-media-access": "node scripts/test-curriculum-media-access.js",
     "inventory:inline-curriculum-resources": "node scripts/inventory-inline-curriculum-resources.js",
     "migrate:inline-curriculum-resources": "node scripts/migrate-inline-curriculum-resources.js",
     "test:curriculum-collections": "node scripts/test-curriculum-collections.js",

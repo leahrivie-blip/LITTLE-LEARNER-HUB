@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Curriculum media migration + inline upload freeze tests.
+ * Includes Postgres integration when TEST_DATABASE_URL / PRODUCTION_DATABASE_URL is set.
  */
 const assert = require("node:assert/strict");
 const crypto = require("node:crypto");
@@ -8,6 +9,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const { spawn } = require("node:child_process");
+const { Pool } = require("pg");
 
 const curriculumMedia = require("../server/curriculum-media.js");
 const curriculumResourceMigration = require("../server/curriculum-resource-migration.js");
@@ -90,6 +92,16 @@ async function testDecodeAndInventory() {
   console.log("PASS  decode + inventory");
 }
 
+async function testUploadSignatureValidation() {
+  const fake = curriculumMedia.decodeInlineCurriculumFileData(
+    `data:image/png;base64,${Buffer.from("notpng").toString("base64")}`,
+  );
+  assert.equal(fake, null);
+  assert.ok(curriculumMedia.validateCurriculumUploadBuffer("image/png", Buffer.from(PNG_BASE64, "base64")));
+  assert.equal(curriculumMedia.validateCurriculumUploadBuffer("image/png", Buffer.from("bad")), false);
+  console.log("PASS  upload signature validation");
+}
+
 async function testDryRunMigration() {
   const pool = mockPool();
   const store = buildFixtureStore();
@@ -165,44 +177,111 @@ function requestJson(port, method, urlPath, body) {
   });
 }
 
-async function testPostgresUploadFreeze() {
-  const port = 4400 + Math.floor(Math.random() * 200);
-  const storePath = path.join(ROOT, "server/data/test-media-migration-store.json");
-  fs.rmSync(storePath, { force: true });
-  const child = spawn(process.execPath, ["server/index.js"], {
-    cwd: ROOT,
-    env: {
-      ...process.env,
-      PORT: String(port),
-      NODE_ENV: "test",
-      DATABASE_PROVIDER: "postgres",
-      PRODUCTION_DATABASE_URL: process.env.PRODUCTION_DATABASE_URL || process.env.DATABASE_URL || "",
-      ADMIN_EMAIL: "media@test.local",
-      ADMIN_PASSWORD: "media-test-pass",
-      ADMIN_ACCESS_CODE: "media-test-code",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
+async function testPostgresIntegration() {
+  const dbUrl = process.env.TEST_DATABASE_URL
+    || process.env.PRODUCTION_DATABASE_URL
+    || process.env.DATABASE_URL
+    || "";
+  if (!dbUrl) {
+    console.error("FAIL  Postgres integration requires TEST_DATABASE_URL or PRODUCTION_DATABASE_URL");
+    process.exit(1);
+  }
+  const storeRecordId = `test-media-migration-${crypto.randomBytes(4).toString("hex")}`;
+  const resourceId = `cur-res-pg-int-${crypto.randomBytes(3).toString("hex")}`;
+  const mediaAssetId = curriculumMedia.curriculumResourceMediaAssetId(resourceId);
+  const pool = new Pool({
+    connectionString: dbUrl,
+    ssl: dbUrl.includes("sslmode=require") ? { rejectUnauthorized: false } : undefined,
   });
-  const shutdown = async () => {
-    if (child.exitCode === null) child.kill("SIGTERM");
-    await new Promise((resolve) => child.on("exit", resolve));
-  };
+  const port = 4410 + Math.floor(Math.random() * 200);
+  let child = null;
   try {
-    if (!process.env.PRODUCTION_DATABASE_URL && !process.env.DATABASE_URL) {
-      console.log("SKIP  postgres upload freeze (no DATABASE_URL in env)");
-      return;
-    }
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS llh_store (id TEXT PRIMARY KEY, data JSONB NOT NULL, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())
+    `);
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS llh_media_assets (
+        id TEXT PRIMARY KEY, kind TEXT NOT NULL, mime_type TEXT NOT NULL, file_name TEXT NOT NULL,
+        bytes BYTEA NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await curriculumResourceMigration.initMigrationTable(pool);
+
+    const store = {
+      siteContent: {
+        updatedAt: "2026-07-30T00:00:00.000Z",
+        curriculum: {
+          updatedAt: "2026-07-30T00:00:00.000Z",
+          lessonPlans: [{ id: "cur-lp-pg", title: "PG", status: "published", plan: "Free" }],
+          activities: [],
+          resources: [{
+            id: resourceId,
+            title: "PG Inline",
+            resourceCategory: "Classroom Resources",
+            fileData: PNG_DATA_URL,
+            fileName: "tiny.png",
+            mimeType: "image/png",
+            lessonPlanIds: ["cur-lp-pg"],
+            status: "published",
+          }],
+          series: [],
+        },
+      },
+    };
+    await pool.query(
+      "INSERT INTO llh_store (id, data, updated_at) VALUES ($1, $2::jsonb, NOW())",
+      [storeRecordId, JSON.stringify(store)],
+    );
+
+    const summary = await curriculumResourceMigration.runInlineResourceMigration(pool, store, {
+      dryRun: false,
+      resourceIds: [resourceId],
+    });
+    assert.equal(summary.results[0].status, "verified");
+    const row = await curriculumResourceMigration.getMigrationRow(pool, resourceId);
+    assert.equal(row.status, "verified");
+    assert.match(row.sha256, /^[a-f0-9]{64}$/);
+    assert.equal(typeof row.original_bytes, "string");
+    assert.ok(Number(row.base64_chars) > 0);
+    assert.ok(!String(row.error || "").includes("data:"), "migration row must not contain inline data");
+
+    const dup = await curriculumResourceMigration.runInlineResourceMigration(pool, store, {
+      dryRun: false,
+      resourceIds: [resourceId],
+    });
+    assert.equal(dup.results[0].status, "skipped");
+    const count = await pool.query(
+      "SELECT COUNT(*)::int AS n FROM llh_media_assets WHERE id = $1",
+      [mediaAssetId],
+    );
+    assert.equal(count.rows[0].n, 1, "idempotent migration must not duplicate media row");
+
+    child = spawn(process.execPath, ["server/index.js"], {
+      cwd: ROOT,
+      env: {
+        ...process.env,
+        PORT: String(port),
+        NODE_ENV: "test",
+        DATABASE_PROVIDER: "postgres",
+        PRODUCTION_DATABASE_URL: dbUrl,
+        LLH_STORE_RECORD_ID: storeRecordId,
+        ADMIN_EMAIL: "pg-mig@test.local",
+        ADMIN_PASSWORD: "pg-mig-pass",
+        ADMIN_ACCESS_CODE: "pg-mig-code",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let ready = false;
-    for (let i = 0; i < 40; i += 1) {
+    for (let i = 0; i < 60; i += 1) {
       const health = await requestJson(port, "GET", "/api/health").catch(() => ({ status: 0 }));
       if (health.status === 200 && health.json?.ok) { ready = true; break; }
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 200));
     }
     assert.ok(ready, "server did not become ready");
     const login = await requestJson(port, "POST", "/api/admin/login", {
-      email: "media@test.local",
-      password: "media-test-pass",
-      code: "media-test-code",
+      email: "pg-mig@test.local",
+      password: "pg-mig-pass",
+      code: "pg-mig-code",
     });
     const token = login.json?.token;
     assert.ok(token);
@@ -211,13 +290,8 @@ async function testPostgresUploadFreeze() {
       fileName: "tiny.png",
       fileData: PNG_DATA_URL,
     });
-    if (upload.status === 503 && upload.json?.code === "media_storage_unavailable") {
-      console.log("SKIP  postgres upload freeze (Postgres not ready in test server boot window)");
-      return;
-    }
     assert.equal(upload.status, 200, JSON.stringify(upload.json));
     assert.ok(upload.json.mediaAssetId);
-    assert.ok(upload.json.mediaUrl);
     assert.equal(upload.json.fileData, undefined);
     const blocked = await requestJson(port, "POST", "/api/admin/curriculum/resources/save", {
       adminToken: token,
@@ -233,20 +307,24 @@ async function testPostgresUploadFreeze() {
     });
     assert.equal(blocked.status, 400);
     assert.equal(blocked.json?.code, "inline_curriculum_file_blocked");
-    console.log("PASS  postgres upload freeze + inline save block");
+    console.log("PASS  postgres integration (migration + upload freeze + no duplicate row)");
   } finally {
-    await shutdown();
-    fs.rmSync(storePath, { force: true });
+    if (child && child.exitCode === null) child.kill("SIGTERM");
+    await pool.query("DELETE FROM llh_media_assets WHERE id = $1", [mediaAssetId]).catch(() => {});
+    await pool.query("DELETE FROM llh_curriculum_media_migrations WHERE resource_id = $1", [resourceId]).catch(() => {});
+    await pool.query("DELETE FROM llh_store WHERE id = $1", [storeRecordId]).catch(() => {});
+    await pool.end();
   }
 }
 
 async function main() {
   await testDecodeAndInventory();
+  await testUploadSignatureValidation();
   await testDryRunMigration();
   await testExecuteKeepsInlineUntilRemoved();
   await testIdempotentSecondRun();
   await testRemoveInlineAfterVerify();
-  await testPostgresUploadFreeze();
+  await testPostgresIntegration();
   console.log("\nAll curriculum media migration tests passed.");
 }
 
