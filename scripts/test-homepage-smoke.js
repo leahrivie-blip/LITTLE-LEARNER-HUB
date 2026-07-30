@@ -180,6 +180,7 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
   assert(!js404.length, `${label}: JavaScript 404/failed loads: ${js404.map((e) => e.url).join(", ")}`);
 
   // Sign Up / Log In stay in the sticky public nav on every viewport.
+  // Primary nav Sign Up may open Founding signup while spots remain.
   await step("signup button", async () => {
     const publicSignup = page.locator(".llh-public-nav-actions [data-action='start-free']");
     if (await publicSignup.count()) {
@@ -188,7 +189,12 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       await page.locator(".lp-hero-actions [data-action='start-free']").click();
     }
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
-    assert((await page.locator("#authTitle").innerText()).toLowerCase().includes("create"), `${label}: signup modal title`);
+    const title = (await page.locator("#authTitle").innerText()).toLowerCase();
+    const body = (await page.locator("#authModal").innerText()).toLowerCase();
+    assert(
+      title.includes("create") || title.includes("founding") || body.includes("create your account"),
+      `${label}: signup modal should open (title="${title}")`,
+    );
     await page.click("#closeModal");
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
@@ -345,8 +351,9 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
       if (await foundingBtn.count()) {
-        // Sticky mobile bar can hide the in-body button visually; force-click is safe here.
-        await foundingBtn.first().click({ force: true });
+        await page.evaluate(() => {
+          document.querySelector("#featurePreviewModal [data-checkout-plan='founding']")?.click?.();
+        });
         await page.waitForTimeout(800);
       } else {
         // Body CTA can be visually hidden on mobile when the sticky upgrade bar is active.

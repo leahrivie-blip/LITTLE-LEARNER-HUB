@@ -38,7 +38,7 @@ test("three-step signup wizard markup and state exist", () => {
 
 test("plan chooser features paid-first Founding/Pro and Free preview", () => {
   assert.match(appJs, /Claim My Founding Spot/);
-  assert.match(appJs, /Start with Free Preview/);
+  assert.match(appJs, /Create Free Account/);
   assert.match(appJs, /Continue with Pro/);
   assert.match(appJs, /Most Popular/);
   assert.match(appJs, /locked while continuously active/);
@@ -87,7 +87,7 @@ test("public pricing/upgrade pages show Founding as primary and Pro Monthly as a
 test("the required Founding copy exists and the 'no meaningful reason' wording has been removed (v2 correction)", () => {
   assert.equal(appJs.includes("$9.99/month locked while your membership remains continuously active"), true);
   assert.equal(appJs.includes('const FOUNDING_INCLUDES_NOTE = "Includes all current and future Pro features. $9.99/month locked while your membership remains continuously active."'), true);
-  assert.equal(appJs.includes('foundingIncludesNote: "Includes Pro access. $9.99/month locked while continuously active."'), true);
+  assert.equal(appJs.includes('foundingIncludesNote: "Includes Pro access. $9.99/month locked while your membership remains continuously active."'), true);
   // Required replacement copy for the Pro Monthly secondary card.
   assert.equal(appJs.includes('const PRO_MONTHLY_RATIONALE = "For providers who prefer regular Pro pricing instead of claiming a Founding spot."'), true);
   assert.equal(/proRationale:/.test(appJs), true);
@@ -162,9 +162,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260729-conversion-finish");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260729-conversion-finish");
-  assert.match(sw, /llh-shell-v114-conversion-finish/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
+  assert.match(sw, /llh-shell-v119-trial-free-finish2/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {
