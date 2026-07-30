@@ -61,11 +61,11 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-reviews-fix" />
-  <link rel="stylesheet" href="styles.css?v=20260730-reviews-fix" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-trust-faq" />
+  <link rel="stylesheet" href="styles.css?v=20260730-trust-faq" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-reviews-fix" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-trust-faq" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260729-signed-in-audit" />
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260730-reviews-fix";
+      var SHELL_VERSION = "20260730-trust-faq";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -1752,24 +1752,41 @@
           <div class="page-title">
             <p class="eyebrow">Help Center</p>
             <h2>Little Learner Hub FAQ</h2>
-            <p>Quick answers for home daycare and childcare providers using the platform.</p>
+            <p>Clear answers for skeptical and experienced childcare providers before they pay — and for members who already use the library.</p>
           </div>
           <section class="section-block faq-list" id="faqList">
             <!-- FAQs rendered dynamically from site content; default FAQs are below as fallback -->
           </section>
           <!-- Default FAQ content (hidden; used as baseline for site content capture) -->
           <section id="defaultFaqList" hidden aria-hidden="true">
-            <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, incident reports, and paperwork in one place so documentation takes minutes instead of hours.</p></article>
+            <article class="faq-item"><h3>Are the lesson plans editable?</h3><p>Yes. You can customize a plan before saving or printing it. Add, remove, or change activities, materials, books, learning goals, notes, and other sections to fit your children and program. Your edits create your own version and do not change the original plan for anyone else.</p></article>
+            <article class="faq-item"><h3>Can I print the lesson plans after editing them?</h3><p>Yes. Your customized version can be printed or saved as a PDF with your changes included. Empty sections and website controls should not appear in the printed version.</p></article>
+            <article class="faq-item"><h3>Are these just generic themed lesson plans?</h3><p>No. The library includes play-based activities, learning objectives, materials, books, songs, observation ideas, extensions, and experiences across different learning areas. Some plans are organized by familiar themes, and the library is also expanding to include child-interest and observation-based planning.</p></article>
+            <article class="faq-item"><h3>Can I request a lesson plan that is not already available?</h3><p>Yes. Members can message directly through the website and explain the age group, topic, interest, learning areas, curriculum approach, or specific sections they need. Requested plans can then be created and published to the library. Most complete requests are created within one week, depending on complexity and request volume.</p></article>
+            <article class="faq-item"><h3>Can you create interest-based plans instead of only themes?</h3><p>Yes. Providers can request plans based on what children are currently exploring, such as ramps, babies, building, pouring, nature collecting, animals, or dramatic play. The plan can extend that interest across literacy, math, science, art, sensory play, movement, and social-emotional learning.</p></article>
+            <article class="faq-item"><h3>Do the plans meet my state licensing requirements?</h3><p>Requirements vary by state, program, and curriculum approach. The plans include many commonly documented areas, but providers are responsible for checking and adapting them to their own licensing, accreditation, curriculum, and program requirements.</p></article>
+            <article class="faq-item"><h3>Are the plans individualized for each child?</h3><p>The published plans are starting points for the group, not automatically individualized plans. Providers can edit them based on each child&rsquo;s development, interests, culture, abilities, family input, and support needs.</p></article>
+            <article class="faq-item"><h3>How is this different from Pinterest, AI, books, or free websites?</h3><p>Little Learner Hub brings organized, ready-to-use plans into one place instead of making providers search, compare, rewrite, and format ideas themselves. Plans are editable, printable, organized by age, and supported by direct provider requests.</p></article>
+            <article class="faq-item"><h3>Does the website automatically build my weekly calendar?</h3><p>You can add lesson plans to your calendar for a chosen week and then customize days, notes, and events. Complete auto-generated weeks are not the current experience — sample calendars and more automated weekly planning are planned features.</p></article>
+            <article class="faq-item"><h3>Can I use the plans for infants, toddlers, and preschoolers?</h3><p>Yes. Content is organized by age group, and providers should still adjust activities based on the specific children&rsquo;s development and abilities.</p></article>
+            <article class="faq-item"><h3>Can I use a plan with mixed-age children?</h3><p>Yes, but it may need modifications. Providers can edit activities, simplify or extend experiences, and add separate expectations for younger and older children.</p></article>
+            <article class="faq-item"><h3>Are new plans added regularly?</h3><p>Yes. New plans and activities are added weekly, including plans based on provider requests.</p></article>
+            <article class="faq-item"><h3>Can I save my own customized version?</h3><p>Yes. Customized plans are saved to your account so you can reopen them, continue editing, add them to the calendar, and print them later.</p></article>
+            <article class="faq-item"><h3>Will my edits affect the original lesson plan?</h3><p>No. Editing creates a personal copy. The original published plan remains unchanged.</p></article>
+            <article class="faq-item"><h3>Can other users see my customized plans?</h3><p>No. Personal edits and saved copies remain private unless a future sharing option is intentionally added.</p></article>
+            <article class="faq-item"><h3>Is Little Learner Hub a complete curriculum?</h3><p>Little Learner Hub provides lesson plans, activities, planning tools, and curriculum resources that programs can adapt to their own approach. It does not replace state requirements, program policies, or educator judgment.</p></article>
+            <article class="faq-item"><h3>What happens if I cannot find the exact plan I need?</h3><p>Search by age group or topic, or message through the website with the exact request. Include the age, interest or topic, learning goals, required sections, and deadline so the plan can be built correctly.</p></article>
+            <article class="faq-item"><h3>What is included in the free account versus the paid membership?</h3><p>Free includes 10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)—no credit card required. Free members can print and download those 10 starter plans, browse titles and previews across the complete library, plan about 30 days ahead on the calendar, save up to 20 favorites, use up to 5 Child Profiles, 10 observations per month, 6 forms, and 10 document creations per month. Paid membership (Pro at $19.99/month, or Founding at $9.99/month locked while continuously active for existing Founding Members) unlocks the complete lesson-plan and activity libraries, unlimited curriculum printing and downloads, new plans added weekly, classroom customization and saved copies, fuller calendar planning, and higher documentation limits (including 250 document creations per month on Pro).</p></article>
+            <article class="faq-item"><h3>Can I cancel anytime?</h3><p>Yes. You can cancel anytime from your account settings. Access continues through the end of your current billing period (or trial), and no further subscription charges are made after that date. Your account and saved information remain available; after paid access ends, library and printing limits return to Free plan rules.</p></article>
+            <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers plan and document with play-based lesson plans, activities, calendar tools, and provider-requested curriculum — built by a childcare provider for real classrooms.</p></article>
             <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.</p></article>
-            <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)</li><li>Print and download your Free starter plans</li><li>Browse titles and previews across the complete library</li><li>About 30 days of calendar planning</li><li>Up to 20 favorites</li><li>5 Child Profiles</li><li>10 Observations Per Month</li><li>6 Forms</li><li>10 Document Creations</li><li>No Credit Card Required</li></ul></article>
             <article class="faq-item"><h3>What is included with a Pro trial?</h3><p>Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start the trial. You are not charged during the 7 days — right after the trial ends, Stripe charges Pro Monthly ($19.99/month) unless you cancel first. Your own records, notes, calendars, and documents are never limited by this trial allowance.</p></article>
             <article class="faq-item"><h3>What is included in the Pro Plan?</h3><p>Pro includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $19.99/month, plus child management features and 250 document creations per month.</p></article>
-            <article class="faq-item"><h3>What is Founding Member pricing?</h3><p>Founding Member pricing is $9.99/month locked while your membership remains continuously active for the final limited spots. When those spots are claimed, the Founding offer closes everywhere and new members can only purchase Pro at $19.99/month. Existing Founding Members remain grandfathered at $9.99/month locked while your membership remains continuously active.</p></article>
-            <article class="faq-item"><h3>Can I cancel my subscription?</h3><p>Yes. You may cancel your subscription at any time through your account settings.</p></article>
-            <article class="faq-item"><h3>Do I need to enter payment information for the Free Plan?</h3><p>No. The Free Plan is available without a paid subscription.</p></article>
-            <article class="faq-item"><h3>What ages are supported?</h3><ul><li>Infants</li><li>Toddlers</li><li>Preschoolers</li></ul></article>
-            <article class="faq-item"><h3>What Documentation Helpers are included?</h3><ul><li>Observation Helper</li><li>Lesson Plan Helper</li><li>Daily Report Helper</li><li>Parent Newsletter Helper</li><li>Parent Handbook Helper</li><li>Contract Helper</li></ul></article>
-            <article class="faq-item"><h3>How do I contact support?</h3><p>Visit the Contact Us page or submit a support request through the Help Center.</p></article>
+            <article class="faq-item"><h3>What is Founding Member pricing?</h3><p>Founding Member pricing is $9.99/month locked while your membership remains continuously active. When Founding spots are claimed, the Founding offer closes and new members purchase Pro at $19.99/month. Existing Founding Members remain grandfathered at $9.99/month locked while membership remains continuously active.</p></article>
+            <article class="faq-item"><h3>Do I need to enter payment information for the Free Plan?</h3><p>No. The Free Plan is available without a paid subscription and without a credit card.</p></article>
+            <article class="faq-item"><h3>What ages are supported?</h3><p>Infants, Toddlers, and Preschoolers — content is organized by age group.</p></article>
+            <article class="faq-item"><h3>What Documentation Helpers are included?</h3><p>Observation Helper, Lesson Plan Helper, Daily Report Helper, Parent Newsletter Helper, Parent Handbook Helper, and Contract Helper.</p></article>
+            <article class="faq-item"><h3>How do I contact support?</h3><p>Visit the Contact Us page or submit a support request through the Help Center. Members can also message directly through the website for lesson plan requests and account help.</p></article>
           </section>
         </section>
 
@@ -2179,8 +2196,8 @@
 
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
-    <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-reviews-fix" defer></script>
-    <script src="scripts/lesson-plan-covers.js?v=20260730-reviews-fix" defer></script>
+    <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-trust-faq" defer></script>
+    <script src="scripts/lesson-plan-covers.js?v=20260730-trust-faq" defer></script>
     <script src="scripts/curriculum-series.js?v=20260729-curriculum-collections" defer></script>
     <script src="scripts/curriculum-standards.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards" defer></script>
@@ -2192,11 +2209,11 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="scripts/free-curriculum-sample.js?v=20260730-reviews-fix" defer></script>
-    <script src="scripts/trial-curriculum-exports.js?v=20260730-reviews-fix" defer></script>
-    <script src="scripts/free-plan-grandfathering.js?v=20260730-reviews-fix" defer></script>
-    <script src="app.js?v=20260730-reviews-fix" defer></script>
-    <script src="admin-workspace.js?v=20260730-reviews-fix" defer></script>
+    <script src="scripts/free-curriculum-sample.js?v=20260730-trust-faq" defer></script>
+    <script src="scripts/trial-curriculum-exports.js?v=20260730-trust-faq" defer></script>
+    <script src="scripts/free-plan-grandfathering.js?v=20260730-trust-faq" defer></script>
+    <script src="app.js?v=20260730-trust-faq" defer></script>
+    <script src="admin-workspace.js?v=20260730-trust-faq" defer></script>
     <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>
 </html>
