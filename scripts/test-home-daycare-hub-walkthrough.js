@@ -124,9 +124,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v139-hdh-switcher-devices/);
+  assert.match(sw, /llh-shell-v140-hdh-full-tester-invite/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v139-hdh-switcher-devices");
+  assert.equal(manifest.cacheName, "llh-shell-v140-hdh-full-tester-invite");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);

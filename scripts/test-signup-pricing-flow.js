@@ -164,7 +164,7 @@ test("founding banners stay compact", () => {
 test("cache bust versions aligned", () => {
   assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-full-tester-invite");
   assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-full-tester-invite");
-  assert.match(sw, /llh-shell-v139-hdh-switcher-devices/);
+  assert.match(sw, /llh-shell-v140-hdh-full-tester-invite/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

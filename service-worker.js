@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v139-hdh-switcher-devices";
+const CACHE_NAME = "llh-shell-v140-hdh-full-tester-invite";
 const SHELL_VERSION = "20260730-hdh-full-tester-invite";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
