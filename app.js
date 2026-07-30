@@ -23793,21 +23793,25 @@ function renderManagedHomeContent() {
   setText(".lp-reviews-section .lp-section-title", homepage.reviewsSectionHeading);
 
   const reviewsGrid = document.querySelector(".lp-reviews-grid");
-  // Keep Tiffany's hardcoded featured review on the redesigned homepage.
-  // Additional CMS reviews can append once; never replace Tiffany's card.
+  // Redesigned homepage ships a curated multi-review grid in HTML (Tiffany + peers).
+  // Never wipe those cards when CMS reviews load — only append unique extras once.
   if (reviewsGrid && reviews.length && !redesignedHome) {
     reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
   } else if (reviewsGrid && reviews.length && redesignedHome) {
-    const tiffanyCard = reviewsGrid.querySelector(".llh-review-featured");
-    reviewsGrid.querySelectorAll(".lp-review-card:not(.llh-review-featured)").forEach((node) => node.remove());
-    const extra = reviews
-      .filter((item) => !/tiffany/i.test(`${item.name || ""} ${item.author || ""}`))
-      .map(reviewCardHtml)
-      .join("");
-    if (tiffanyCard) {
-      tiffanyCard.insertAdjacentHTML("afterend", extra);
-    } else {
-      reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
+    if (reviewsGrid.dataset.cmsReviewsAppended !== "1") {
+      const existingNames = new Set(
+        Array.from(reviewsGrid.querySelectorAll(".lp-reviewer strong"))
+          .map((node) => String(node.textContent || "").trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const extras = reviews.filter((item) => {
+        const name = String(item.name || item.author || "").trim().toLowerCase();
+        return Boolean(name) && !existingNames.has(name);
+      });
+      if (extras.length) {
+        reviewsGrid.insertAdjacentHTML("beforeend", extras.map(reviewCardHtml).join(""));
+      }
+      reviewsGrid.dataset.cmsReviewsAppended = "1";
     }
   }
 

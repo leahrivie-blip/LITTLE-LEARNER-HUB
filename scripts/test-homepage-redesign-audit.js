@@ -183,10 +183,23 @@ async function runAudit(playwright, baseUrl, seeded) {
     results.sections.push(id);
   }
 
-  const tiffanyText = await page.locator("#homeReviews").innerText();
-  assert(/I actually love it/.test(tiffanyText), "Tiffany review text missing");
-  assert(/Tiffany/.test(tiffanyText), "Tiffany name missing");
+  // Wait for managed site-content apply — it must NOT wipe the curated multi-review grid.
+  await page.waitForFunction(() => {
+    try {
+      return typeof renderManagedHomeContent === "function"
+        && document.querySelectorAll("#homeReviews .lp-review-card").length >= 6;
+    } catch { return false; }
+  }, null, { timeout: 15000 }).catch(() => null);
+  const reviewsText = await page.locator("#homeReviews").innerText();
+  assert(/I actually love it/.test(reviewsText), "Tiffany review text missing");
+  assert(/Tiffany/.test(reviewsText), "Tiffany name missing");
+  for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
+    assert(new RegExp(name).test(reviewsText), `${name} review missing after site-content apply`);
+  }
+  const reviewCardCount = await page.locator("#homeReviews .lp-review-card").count();
+  assert(reviewCardCount >= 6, `expected >=6 review cards, got ${reviewCardCount}`);
   results.tiffany = true;
+  results.multiReviews = reviewCardCount;
 
   // Pricing must show $9.99 founding, not conflict with outdated $19.99 as the offer.
   const pricingText = await page.locator("#homePricing").innerText();
