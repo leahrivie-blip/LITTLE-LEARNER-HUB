@@ -484,6 +484,9 @@ let childPortfolioDateFilter = "";
 let activeObservationEditId = "";
 let childManagementMode = "list";
 let childProfileTab = "overview";
+let childFormsRecordsQuery = "";
+let childFormsRecordsStatus = "all";
+let childFormsRecordsCategory = "all";
 let childToolsTab = "attendance";
 let dailyLogsSection = "home";
 let dailyLogsChildTab = "overview";
@@ -5919,6 +5922,30 @@ function isPlayBasedCurriculumEnabled() {
   return true;
 }
 
+/** Home Daycare Hub is fenced to the testing site via HOME_DAYCARE_HUB_TESTING. */
+function isHomeDaycareHubTestingEnabled() {
+  try {
+    if (typeof window !== "undefined" && window.LLH_CONFIG && typeof window.LLH_CONFIG === "object") {
+      return Boolean(window.LLH_CONFIG.homeDaycareHubTesting);
+    }
+  } catch (_error) { /* ignore */ }
+  return false;
+}
+
+const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
+  "Enrollment",
+  "Emergency contacts",
+  "Allergy / medical",
+  "Sunscreen authorization",
+  "Photo release",
+  "Incident report",
+  "Field trip",
+  "Handbook acknowledgment",
+  "Infant safe sleep",
+  "Diaper cream authorization",
+  "Other",
+]);
+
 function useCurriculumLibrarySources() {
   return true;
 }
@@ -11349,11 +11376,23 @@ function syncPlatformNavVisibility() {
     button.setAttribute("aria-hidden", "true");
     button.setAttribute("tabindex", "-1");
   });
+  syncHomeDaycareHubNavVisibility();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+}
+
+function syncHomeDaycareHubNavVisibility() {
+  const enabled = isHomeDaycareHubTestingEnabled() && isLoggedIn();
+  document.body.classList.toggle("hdh-testing", isHomeDaycareHubTestingEnabled());
+  document.querySelectorAll("[data-nav-hdh-testing='true']").forEach((button) => {
+    button.hidden = !enabled;
+    button.setAttribute("aria-hidden", enabled ? "false" : "true");
+    if (enabled) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
 }
 
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
@@ -11386,6 +11425,7 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (buttonView === "calendar" && resolvedView === "planner") return true;
   if (buttonView === "ai" && resolvedView === "generators") return true;
   if (buttonView === "director-center" && resolvedView === "director-center") return true;
+  if (buttonView === "home-daycare-hub" && resolvedView === "home-daycare-hub") return true;
   if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
@@ -13755,6 +13795,10 @@ function setView(view, options = {}) {
   if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
     return setView("calendar", { ...options, remappedFromHome: true });
   }
+  // Home Daycare Hub is testing-site only (HOME_DAYCARE_HUB_TESTING).
+  if (resolvedRequested === "home-daycare-hub" && !isHomeDaycareHubTestingEnabled() && !options.allowHomeDaycareHubPreview) {
+    return setView("calendar", { ...options, skipAccessRedirect: true });
+  }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
     pendingCurriculumPlannerRetirementNotice = true;
@@ -14004,6 +14048,7 @@ function setView(view, options = {}) {
   }
   if (resolvedView === "forms-settings") renderFormsSettingsPage();
   if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
+  if (resolvedView === "home-daycare-hub") renderHomeDaycareHubPage();
   if (resolvedView === "staff") renderStaffManagementPage();
   if (resolvedView === "classrooms") renderClassroomsPage();
   if (resolvedView === "families") renderFamiliesPage();
@@ -29943,6 +29988,60 @@ function renderSettingsHubPage() {
   }
 }
 
+function renderHomeDaycareHubPage() {
+  const section = document.querySelector("#view-home-daycare-hub");
+  if (!section) return;
+  if (!isHomeDaycareHubTestingEnabled()) {
+    section.innerHTML = `
+      <section class="simple-child-page hdh-hub-page">
+        <div class="child-page-header">
+          <div>
+            <h2>Home Daycare Hub</h2>
+            <p>This workspace is only available on the testing site while we build it.</p>
+          </div>
+        </div>
+        <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
+      </section>
+    `;
+    return;
+  }
+  const children = childRecords().children || [];
+  section.innerHTML = `
+    <section class="simple-child-page hdh-hub-page">
+      <div class="child-page-header">
+        <div>
+          <p class="eyebrow">Testing only</p>
+          <h2>Home Daycare Hub</h2>
+          <p>Forms, family access, and staff tools for your home daycare — built here on testing first, then brought to live when ready.</p>
+        </div>
+      </div>
+      <p class="hdh-disclaimer" role="note">Form templates are not state-specific. Always check your state licensing requirements before using paperwork with families.</p>
+      <div class="hdh-hub-sections">
+        <section class="section-block">
+          <p class="eyebrow">Step A</p>
+          <h3>Child Forms &amp; Records</h3>
+          <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
+          <div class="account-actions-row">
+            <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
+            ${children[0] ? `<button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(children[0].id)}" data-open-child-tab="forms-records">Open ${escapeHtml(children[0].name)}’s forms</button>` : ""}
+          </div>
+        </section>
+        <section class="section-block hdh-coming-section">
+          <p class="eyebrow">Coming next</p>
+          <h3>Forms pack, Family Hub, Staff</h3>
+          <ul class="hdh-coming-list">
+            <li>Common home-daycare forms pack (enrollment, emergency, allergy, sunscreen, photo, incident, trip, handbook, infant safe sleep, diaper cream)</li>
+            <li>AI-assisted form drafts with review before send</li>
+            <li>Family Hub login + text/phone magic link — one household login for all kids</li>
+            <li>Staff invite links with preset + custom visibility checkboxes</li>
+            <li>CPR / training tracker and packets</li>
+          </ul>
+        </section>
+      </div>
+    </section>
+  `;
+}
+
 function renderFormsSettingsPage() {
   const section = document.querySelector("#view-forms-settings");
   if (!section) return;
@@ -32264,8 +32363,15 @@ function renderSimpleGoalCard(child, goal, records) {
 function normalizeChildProfileTab(tab = childProfileTab) {
   const raw = String(tab || "overview").trim().toLowerCase();
   if (raw === "photos") return "reports";
-  if (raw === "documents" || raw === "timeline") return "records";
-  if (["overview", "observations", "goals", "reports", "records", "daily-log", "attendance", "notes", "family"].includes(raw)) {
+  if (raw === "forms-records" || raw === "forms_records") {
+    return isHomeDaycareHubTestingEnabled() ? "forms-records" : "records";
+  }
+  if (raw === "documents") {
+    return isHomeDaycareHubTestingEnabled() ? "forms-records" : "records";
+  }
+  if (raw === "timeline") return "records";
+  if (["overview", "observations", "goals", "reports", "records", "forms-records", "daily-log", "attendance", "notes", "family"].includes(raw)) {
+    if (raw === "forms-records" && !isHomeDaycareHubTestingEnabled()) return "records";
     return raw;
   }
   return "overview";
@@ -32525,6 +32631,7 @@ function renderChildProfileTabs() {
     ["observations", "Observations"],
     ["goals", "Goals"],
     ["reports", "Reports & Photos"],
+    ...(isHomeDaycareHubTestingEnabled() ? [["forms-records", "Forms & Records"]] : []),
     ["records", "Records"],
   ];
   return `
@@ -32545,10 +32652,15 @@ function renderChildProfileTabContent(child, records) {
   if (tab === "observations") return renderChildObservationsTab(child, observations, summary);
   if (tab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
   if (tab === "reports") return renderChildReportsPhotosTab(child, records, observations, goals, supportPlans, differentiations);
+  if (tab === "forms-records") return renderChildFormsRecordsTab(child, records);
   if (tab === "records") return renderChildRecordsTab(child, records);
   // Legacy deep-links kept for older buttons / saved flows.
   if (childProfileTab === "timeline") return renderChildTimelineTab(child, records);
-  if (childProfileTab === "documents") return renderChildDocumentsTab(child, records);
+  if (childProfileTab === "documents") {
+    return isHomeDaycareHubTestingEnabled()
+      ? renderChildFormsRecordsTab(child, records)
+      : renderChildDocumentsTab(child, records);
+  }
   if (childProfileTab === "photos") {
     const photos = (records.photos || []).filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Photos", "Saved photo moments for this child.", renderDlcPhotoSection(records), filterDailyLogHistory(photos), "Photos");
@@ -32598,11 +32710,123 @@ function renderChildReportsPhotosTab(child, records, observations, goals, suppor
 }
 
 function renderChildRecordsTab(child, records) {
+  if (isHomeDaycareHubTestingEnabled()) {
+    return `
+      <div class="profile-combined-tab profile-records-tab">
+        ${renderChildTimelineTab(child, records)}
+      </div>
+    `;
+  }
   return `
     <div class="profile-combined-tab profile-records-tab">
       ${renderChildDocumentsTab(child, records)}
       ${renderChildTimelineTab(child, records)}
     </div>
+  `;
+}
+
+function renderChildFormsRecordsTab(child, records) {
+  const documents = (records.documents || []).filter((item) => item.childId === child.id);
+  const query = String(childFormsRecordsQuery || "").trim().toLowerCase();
+  const statusFilter = String(childFormsRecordsStatus || "all").toLowerCase();
+  const categoryFilter = String(childFormsRecordsCategory || "all");
+  const filtered = documents.filter((item) => {
+    if (statusFilter !== "all" && String(item.status || "").toLowerCase() !== statusFilter) return false;
+    if (categoryFilter !== "all" && String(item.category || "Other") !== categoryFilter) return false;
+    if (!query) return true;
+    const haystack = [
+      item.title,
+      item.statusLabel,
+      item.status,
+      item.category,
+      item.notes,
+    ].map((part) => String(part || "").toLowerCase()).join(" ");
+    return haystack.includes(query);
+  });
+  const sorted = [...filtered].sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+  const categoryOptions = HOME_DAYCARE_FORM_CATEGORIES.map((category) => (
+    `<option value="${escapeHtml(category)}" ${categoryFilter === category ? "selected" : ""}>${escapeHtml(category)}</option>`
+  )).join("");
+  return `
+    <section class="section-block child-documents-tab child-forms-records-tab">
+      <div class="child-page-header" style="margin-bottom:12px;">
+        <div>
+          <p class="eyebrow">Forms &amp; Records</p>
+          <h3>Child file for ${escapeHtml(child.name)}</h3>
+          <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
+        </div>
+      </div>
+      <p class="hdh-disclaimer" role="note">These form templates are not state-specific. Always check your state licensing requirements before using paperwork with families.</p>
+      <div class="hdh-forms-filters" aria-label="Search and filter forms">
+        <label>Search
+          <input type="search" data-hdh-forms-search value="${escapeHtml(childFormsRecordsQuery || "")}" placeholder="Search title, notes, status…" />
+        </label>
+        <label>Status
+          <select data-hdh-forms-status>
+            <option value="all" ${statusFilter === "all" ? "selected" : ""}>All statuses</option>
+            <option value="needed" ${statusFilter === "needed" ? "selected" : ""}>Needed</option>
+            <option value="requested" ${statusFilter === "requested" ? "selected" : ""}>Requested from family</option>
+            <option value="received" ${statusFilter === "received" ? "selected" : ""}>Received</option>
+            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed / complete</option>
+          </select>
+        </label>
+        <label>Category
+          <select data-hdh-forms-category>
+            <option value="all" ${categoryFilter === "all" ? "selected" : ""}>All categories</option>
+            ${categoryOptions}
+          </select>
+        </label>
+      </div>
+      <div class="account-actions-row" style="margin-bottom:16px;">
+        <button class="primary-button" type="button" data-view="home-daycare-hub">Home Daycare Hub</button>
+        <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
+      </div>
+      <form id="childDocumentStubForm" class="panel-form" data-child-document-form="${escapeHtml(child.id)}">
+        <p class="eyebrow">Add to child file</p>
+        <div class="form-grid-two">
+          <label>Document title
+            <input name="title" required maxlength="120" placeholder="Enrollment packet, sunscreen form, handbook receipt…" />
+          </label>
+          <label>Category
+            <select name="category">
+              ${HOME_DAYCARE_FORM_CATEGORIES.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Status
+            <select name="status">
+              <option value="needed">Needed</option>
+              <option value="requested">Requested from family</option>
+              <option value="received">Received</option>
+              <option value="signed">Signed / complete</option>
+            </select>
+          </label>
+        </div>
+        <label>Notes
+          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
+        </label>
+        <button class="primary-button" type="submit">Save to Child File</button>
+        <p class="form-note">Upload, e-sign, and parent send come next. This file keeps status organized while those pieces land.</p>
+      </form>
+      <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list>
+        ${sorted.length
+          ? sorted.map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Document")}</strong>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+              </div>
+              <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+            </article>
+          `).join("")
+          : renderProfileEmptyState({
+            title: documents.length ? "No forms match these filters" : "No forms in this child’s file yet",
+            body: documents.length
+              ? "Try clearing search or choosing All statuses / All categories."
+              : "Add a placeholder above, or open Home Daycare Hub for the forms pack roadmap.",
+            actionsHtml: `<button class="ghost-button" type="button" data-view="home-daycare-hub">Open Home Daycare Hub</button>`,
+          })}
+      </div>
+    </section>
   `;
 }
 
@@ -52207,7 +52431,7 @@ document.addEventListener("click", async (event) => {
     if (!docId) return;
     const next = childStore("Documents").filter((item) => item.id !== docId);
     saveChildStore("Documents", next);
-    childProfileTab = "documents";
+    childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     renderChildManagement();
     showActionFeedback("Document removed from child file.");
@@ -55776,6 +56000,20 @@ document.addEventListener("input", (event) => {
     childObservationSearch = event.target.value;
     renderChildManagement();
   }
+  if (event.target.matches("[data-hdh-forms-search]")) {
+    childFormsRecordsQuery = event.target.value;
+    const active = document.activeElement;
+    const selectionStart = active?.selectionStart;
+    const selectionEnd = active?.selectionEnd;
+    renderChildManagement();
+    const next = document.querySelector("[data-hdh-forms-search]");
+    if (next) {
+      next.focus();
+      if (Number.isFinite(selectionStart) && Number.isFinite(selectionEnd)) {
+        try { next.setSelectionRange(selectionStart, selectionEnd); } catch { /* ignore */ }
+      }
+    }
+  }
   if (event.target.matches("#childObservationDate")) {
     childObservationDateFilter = event.target.value;
     renderChildManagement();
@@ -55846,6 +56084,20 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-hdh-forms-status]")) {
+    childFormsRecordsStatus = event.target.value || "all";
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    renderChildManagement();
+    return;
+  }
+  if (event.target.matches("[data-hdh-forms-category]")) {
+    childFormsRecordsCategory = event.target.value || "all";
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    renderChildManagement();
+    return;
+  }
   if (event.target.matches("[data-calendar-jump-month], [data-calendar-jump-year]")) {
     const monthSelect = document.querySelector("[data-calendar-jump-month]");
     const yearSelect = document.querySelector("[data-calendar-jump-year]");
@@ -59253,19 +59505,22 @@ document.addEventListener("submit", async (event) => {
       received: "Received",
       signed: "Signed / complete",
     };
+    const category = String(data.category || "Other").trim() || "Other";
     appendChildRecord("Documents", {
       childId,
       title,
+      category,
       status,
       statusLabel: statusLabels[status] || status,
       notes: String(data.notes || "").trim(),
       date: new Date().toISOString().slice(0, 10),
       updatedAt: new Date().toISOString(),
     });
-    childProfileTab = "documents";
+    childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     event.target.reset();
     showActionFeedback("Document saved to child file.");
+    renderChildManagement();
     return;
   }
 

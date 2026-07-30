@@ -22036,3 +22036,57 @@ body.printing-resource .trial-curriculum-watermark-print {
   font-size: 0.92rem;
   line-height: 1.4;
 }
+
+/* Home Daycare Hub (testing fence) */
+.hdh-disclaimer {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-left: 3px solid #5a8f7b;
+  background: rgba(90, 143, 123, 0.08);
+  color: #3d534a;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.hdh-hub-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.hdh-coming-list {
+  margin: 10px 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted, #5b6578);
+  line-height: 1.5;
+}
+
+.hdh-coming-list li + li {
+  margin-top: 6px;
+}
+
+.hdh-forms-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.hdh-forms-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted, #5b6578);
+}
+
+.hdh-forms-filters input,
+.hdh-forms-filters select {
+  width: 100%;
+  min-height: 42px;
+}
+
+@media (max-width: 720px) {
+  .hdh-forms-filters {
+    grid-template-columns: 1fr;
+  }
+}

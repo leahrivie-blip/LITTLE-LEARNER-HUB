@@ -142,6 +142,14 @@ const PUSH_BULK_BATCH_SIZE = Number(process.env.PUSH_BULK_BATCH_SIZE || 20);
 const PUSH_BULK_BATCH_DELAY_MS = Number(process.env.PUSH_BULK_BATCH_DELAY_MS || 75);
 const PUSH_BULK_MAX_RECIPIENTS = Number(process.env.PUSH_BULK_MAX_RECIPIENTS || 2000);
 const MAX_PUSH_DEVICES_PER_USER = Number(process.env.MAX_PUSH_DEVICES_PER_USER || 8);
+/** Testing-site fence for Home Daycare Hub (forms/family/staff). Never enable on production. */
+const HOME_DAYCARE_HUB_TESTING = ["1", "true", "yes", "on"].includes(
+  String(process.env.HOME_DAYCARE_HUB_TESTING || "").trim().toLowerCase(),
+);
+
+function isHomeDaycareHubTestingEnabled() {
+  return HOME_DAYCARE_HUB_TESTING;
+}
 
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
@@ -14343,6 +14351,7 @@ function handleHealth(request, response) {
     stripeCheckoutReady: stripeConfigStatus().checkoutReady,
     launchReady: launchReadinessStatus().ready,
     supportEmailReady: supportEmailConfigStatus().ready,
+    homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
     founding: foundingStatusPayload(store),
     domain: {
       requestHost: host || null,
@@ -15010,6 +15019,7 @@ function handleClientConfig(request, response) {
       supported: Boolean(pushService && pushService.configured()),
       publicKey: pushService ? pushService.publicKey() : "",
     },
+    homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
   };
   response.writeHead(200, {
     "Content-Type": "text/javascript; charset=utf-8",
