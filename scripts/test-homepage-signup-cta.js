@@ -50,23 +50,27 @@ test("founding, free, and final CTAs exist", () => {
   assert.match(html, /data-checkout-plan="founding"/);
 });
 
-test("Tiffany review remains on homepage", () => {
+test("Tiffany review remains on homepage without star ratings", () => {
   assert.match(html, /I actually love it\. I would definitely use it for our lesson planning/);
   assert.match(html, /Tiffany/);
   assert.match(html, /What Childcare Providers Are Saying/);
-  assert.match(html, /Rated 5 stars by teachers/);
   assert.match(html, /Built with providers, not for a textbook/);
   assert.match(html, /data-action="request-lesson-plan"/);
   assert.match(html, /I requested a theme and it showed up in the library/);
   assert.match(html, /Works for my mixed ages without rewriting everything/);
   assert.match(html, /made by someone who(?:'|\&rsquo;|&apos;)?s been in the room/);
-  assert.match(html, /llh-nav-rating/);
+  assert.match(html, /id="homeReviews"/);
+  assert.doesNotMatch(html, /Rated 5 stars/);
+  assert.doesNotMatch(html, /llh-nav-rating/);
+  assert.doesNotMatch(html, /lp-review-stars|llh-reviews-stars/);
+  assert.doesNotMatch(html, /★★★★★|⭐⭐⭐⭐⭐/);
   for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
     assert.match(html, new RegExp(`<strong>${name}</strong>`));
   }
   // CMS apply must append unique reviews — never wipe the curated cards.
   assert.match(appJs, /cmsReviewsAppended/);
   assert.doesNotMatch(appJs, /\.lp-review-card:not\(\.llh-review-featured\)/);
+  assert.doesNotMatch(appJs, /lp-review-stars|⭐⭐⭐⭐⭐/);
   // Keep fake business contact placeholders off the public homepage.
   assert.doesNotMatch(html, /123 Main/);
   assert.doesNotMatch(html, /\(555\)\s*123-4567|555-123-4567/);
