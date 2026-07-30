@@ -22136,3 +22136,33 @@ body.printing-resource .trial-curriculum-watermark-print {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+.hdh-ai-draft-panel {
+  scroll-margin-top: 88px;
+}
+
+.hdh-ai-draft-form {
+  margin-top: 8px;
+}
+
+.hdh-ai-draft-results {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, rgba(36, 48, 71, 0.12));
+}
+
+.hdh-ai-draft-output {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  white-space: normal;
+  line-height: 1.5;
+  min-height: 160px;
+}
+
+.hdh-ai-draft-output[contenteditable="true"] {
+  outline: 2px solid rgba(90, 143, 123, 0.35);
+  background: #fff;
+}

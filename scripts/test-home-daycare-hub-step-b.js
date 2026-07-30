@@ -66,8 +66,8 @@ const REQUIRED_PACK_TITLES = [
 ];
 
 test("shell version bumped for step B", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-step-b"/);
-  assert.match(indexHtml, /app\.js\?v=20260730-hdh-step-b/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-step-c"/);
+  assert.match(indexHtml, /app\.js\?v=20260730-hdh-step-c/);
 });
 
 test("forms pack definition includes all 10 titles and resource ids", () => {
@@ -137,7 +137,7 @@ async function main() {
       return {
         hasHubNav: Boolean(document.querySelector('[data-view="home-daycare-hub"]')),
         hasHubView: Boolean(document.querySelector("#view-home-daycare-hub")),
-        shellHint: /hdh-step-b/.test(source) || /home-daycare-hub/.test(source),
+        shellHint: /hdh-step-[bc]/.test(source) || /home-daycare-hub/.test(source),
       };
     });
     assert.equal(packCheck.hasHubNav, true);
@@ -145,7 +145,7 @@ async function main() {
 
     // Validate pack helpers exist on the loaded app by evaluating after temporarily exposing via Function lookup in app scope is not possible;
     // instead confirm pack-only resources are in the page script payload and openable IDs resolve through static markers already asserted.
-    const appSource = await requestText(port, "/app.js?v=20260730-hdh-step-b");
+    const appSource = await requestText(port, "/app.js?v=20260730-hdh-step-c");
     assert.equal(appSource.status, 200);
     for (const title of REQUIRED_PACK_TITLES) {
       assert.ok(appSource.text.includes(title), `served app.js missing ${title}`);
