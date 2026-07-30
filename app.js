@@ -2636,7 +2636,7 @@ const HOME_NAV_SECTION_IDS = {
   features: "homeFeatures",
   "coming-soon": "homeComingSoon",
   pricing: "homePricing",
-  reviews: "homePricing",
+  reviews: "homeReviews",
 };
 
 const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
@@ -25221,10 +25221,26 @@ function renderManagedHomeContent() {
   setText(".lp-reviews-section .lp-section-title", homepage.reviewsSectionHeading);
 
   const reviewsGrid = document.querySelector(".lp-reviews-grid");
-  // Public homepage does not ship unverified review cards. CMS reviews only render
-  // when an explicit reviews grid is present (legacy layouts / approved future UI).
+  // Redesigned homepage ships a curated multi-review grid in HTML (Tiffany + peers).
+  // Never wipe those cards when CMS reviews load — only append unique extras once.
   if (reviewsGrid && reviews.length && !redesignedHome) {
     reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
+  } else if (reviewsGrid && reviews.length && redesignedHome) {
+    if (reviewsGrid.dataset.cmsReviewsAppended !== "1") {
+      const existingNames = new Set(
+        Array.from(reviewsGrid.querySelectorAll(".lp-reviewer strong"))
+          .map((node) => String(node.textContent || "").trim().toLowerCase())
+          .filter(Boolean),
+      );
+      const extras = reviews.filter((item) => {
+        const name = String(item.name || item.author || "").trim().toLowerCase();
+        return Boolean(name) && !existingNames.has(name);
+      });
+      if (extras.length) {
+        reviewsGrid.insertAdjacentHTML("beforeend", extras.map(reviewCardHtml).join(""));
+      }
+      reviewsGrid.dataset.cmsReviewsAppended = "1";
+    }
   }
 
   if (!redesignedHome) {

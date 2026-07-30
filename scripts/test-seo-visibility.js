@@ -104,8 +104,8 @@ async function main() {
   assert(!forbiddenFacebookLabel.test(indexHtml), "homepage HTML must not display Facebook page name");
   assert(indexHtml.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
   assert(!/123 Main/i.test(indexHtml), "homepage HTML must not include fake 123 Main address placeholder");
-  assert(!/Rated 5 stars/i.test(indexHtml), "homepage HTML must not claim unverified 5-star ratings");
-  assert(!/llh-nav-rating|homeReviews|lp-review-card/i.test(indexHtml), "homepage HTML must not ship unverified review UI");
+  assert(/Rated 5 stars/i.test(indexHtml), "homepage HTML must include star-rating copy");
+  assert(/llh-nav-rating/i.test(indexHtml) && /homeReviews/i.test(indexHtml) && /lp-review-card/i.test(indexHtml), "homepage HTML must ship reviews/stars UI");
   assert(!/AggregateRating|reviewCount/i.test(indexHtml), "homepage must not include review schema markup");
   assert(!/\(555\)\s*123-4567|555-123-4567/i.test(indexHtml), "homepage HTML must not include fake 555 phone placeholders");
 
@@ -166,7 +166,7 @@ async function main() {
     assert(home.body.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
     assert(!forbiddenFacebookLabel.test(home.body), "homepage must not display Facebook page name");
     assert(!/123 Main/i.test(home.body), "served homepage must not include fake address placeholder");
-    assert(!/Rated 5 stars|llh-nav-rating|homeReviews/i.test(home.body), "served homepage must not include unverified review UI");
+    assert(/Rated 5 stars/i.test(home.body) && /llh-nav-rating/i.test(home.body) && /homeReviews/i.test(home.body), "served homepage must include reviews/stars UI");
     assert(!/AggregateRating|reviewCount/i.test(home.body), "served homepage must not include review schema");
     assert(!/LocalBusiness/i.test(home.body), "homepage must not include LocalBusiness schema");
 
