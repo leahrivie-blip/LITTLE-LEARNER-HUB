@@ -2426,50 +2426,52 @@ function formatLessonPlanAgeBreakdown(byAge) {
 }
 
 function refreshFreePlanFeatureLines(features) {
-  const lessonLine = `✓ ${freeLessonPlanMarketingLabel()}`;
-  const lessonPlanPattern = /lesson plan/i;
-  const printablePattern = /printable/i;
+  // Authoritative Free offer lines — do not let stale CMS/localStorage feature lists
+  // rewrite the 10-plan starter library messaging.
   if (!Array.isArray(features) || !features.length) {
-    return freePlanFeatureList().map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
+    return HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES.map((feature) => (feature.startsWith("✓") ? feature : `✓ ${feature}`));
   }
-  let replaced = false;
-  const updated = features
-    .filter((line) => !printablePattern.test(String(line || "")))
-    .map((line) => {
-      if (!lessonPlanPattern.test(line)) return line;
-      replaced = true;
-      return lessonLine;
+  const hasExactFreeCore = features.some((line) => /10 complete starter lesson plans across Infant/i.test(String(line || "")));
+  if (hasExactFreeCore) {
+    return features.map((feature) => {
+      const line = String(feature || "").trim();
+      return line.startsWith("✓") ? line : `✓ ${line}`;
     });
-  if (!replaced) {
-    const observationIndex = updated.findIndex((line) => /observation/i.test(line));
-    updated.splice(observationIndex >= 0 ? observationIndex + 1 : 2, 0, lessonLine);
   }
-  return updated;
+  return HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES.map((feature) => `✓ ${feature}`);
 }
 
-function refreshFreePlanFaqAnswer(answer) {
-  const lessonLabel = freeLessonPlanMarketingLabel();
-  if (!answer) {
+function refreshFreePlanFaqAnswer(answer, question = "") {
+  if (/is there a free plan/i.test(question)) {
+    return `Yes. ${MEMBERSHIP_COPY.freeCore} ${MEMBERSHIP_COPY.freeBrowse}`;
+  }
+  if (/what is included in the free plan/i.test(question)) {
     return [
-      "5 Child Profiles",
-      "10 Observations Per Month",
-      lessonLabel,
+      "10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)",
+      "Print and download your Free starter plans",
+      "Browse titles and previews across the complete library",
       "About 30 days of calendar planning",
       "Up to 20 favorites",
-      "8 Activity Ideas",
+      "5 Child Profiles",
+      "10 Observations Per Month",
       "6 Forms",
       "10 Document Creations",
       "No Credit Card Required",
     ].join(", ");
   }
-  const cleaned = String(answer)
-    .split(/,\s*/)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .filter((part) => !/printable/i.test(part))
-    .map((part) => (/lesson plan/i.test(part) ? lessonLabel : part))
-    .join(", ");
-  return cleaned || answer;
+  if (!answer) {
+    return [
+      "5 Child Profiles",
+      "10 Observations Per Month",
+      "10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)",
+      "About 30 days of calendar planning",
+      "Up to 20 favorites",
+      "6 Forms",
+      "10 Document Creations",
+      "No Credit Card Required",
+    ].join(", ");
+  }
+  return String(answer);
 }
 
 function syncFreePlanMarketingCopy() {
@@ -2600,11 +2602,11 @@ const HOME_NAV_SECTION_IDS = {
 };
 
 const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
-  "Selected free lesson plans across age groups",
-  "Preview the complete lesson-plan library",
-  "Print available free lesson plans",
+  "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
+  "Browse the complete library and preview additional themes.",
+  "Print and download your 10 Free starter plans",
   "Explore selected planning tools",
-  "Upgrade anytime for the complete library",
+  "Upgrade anytime for unlimited curriculum printing and downloads",
 ]);
 
 const HOMEPAGE_FOUNDING_PRICE_NOTE = "$9.99/month locked while your Founding Membership remains continuously active.";
@@ -23684,7 +23686,7 @@ function renderManagedFaqContent() {
   target.innerHTML = faqs.map((f) => {
     let answer = f.answer || "";
     if (/what is included in the free plan/i.test(f.question || "") || /is there a free plan/i.test(f.question || "")) {
-      answer = refreshFreePlanFaqAnswer(answer);
+      answer = refreshFreePlanFaqAnswer(answer, f.question || "");
     }
     answer = String(answer)
       .replace(/,?\s*printables,?/gi, ",")
