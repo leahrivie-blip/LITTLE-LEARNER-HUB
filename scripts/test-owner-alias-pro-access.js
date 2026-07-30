@@ -196,17 +196,19 @@ async function main() {
     const freeDenied = await request("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(planId)}`, {
       headers: memberHeaders(FREE_MEMBER),
     });
-    assert.equal(freeDenied.status, 403, "regular Free member must not receive Pro body");
+    assert.equal(freeDenied.status, 200, "Free members may browse a locked Pro preview");
+    assert.equal(freeDenied.json?.lessonPlan?.locked, true, "regular Free member must get locked Pro preview");
+    assert.ok(!freeDenied.json?.lessonPlan?.dailyPlans, "regular Free member must not receive full dailyPlans");
 
     const ownerAllowed = await request("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(planId)}`, {
       headers: memberHeaders(OWNER),
     });
     assert.equal(ownerAllowed.status, 200, `owner Free membership must still get Pro curriculum (${ownerAllowed.status})`);
+    assert.equal(ownerAllowed.json?.lessonPlan?.locked, false, "owner must receive unlocked Pro body");
     assert.ok(
-      JSON.stringify(ownerAllowed.json).includes("Owner Pro Access Plan")
-        || JSON.stringify(ownerAllowed.json).includes(PROTECTED)
-        || ownerAllowed.json?.lessonPlan
-        || ownerAllowed.json?.id === planId,
+      ownerAllowed.json?.lessonPlan?.dailyPlans
+        || JSON.stringify(ownerAllowed.json).includes("Owner Pro Access Plan")
+        || JSON.stringify(ownerAllowed.json).includes(PROTECTED),
       "owner response should include full lesson plan payload",
     );
     console.log("PASS server grants Pro curriculum to Free owner alias");
