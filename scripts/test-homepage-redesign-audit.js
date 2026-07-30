@@ -211,9 +211,9 @@ async function runAudit(playwright, baseUrl, seeded) {
   const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
   const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
   const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
-  assert(/\$9\.99\/month locked while continuously active/i.test(metaDescription || ""), "Meta description missing continuous membership language");
-  assert(/\$9\.99\/month locked while continuously active/i.test(ogDescription || ""), "OG description missing continuous membership language");
-  assert(/\$9\.99\/month locked while continuously active/i.test(structuredData || ""), "Structured data missing continuous membership language");
+  assert(/ready-to-use lesson plans/i.test(metaDescription || ""), "Meta description missing curriculum SEO copy");
+  assert(/ready-to-use lesson plans/i.test(ogDescription || ""), "OG description missing curriculum SEO copy");
+  assert(/WebApplication/i.test(structuredData || "") && /Organization/i.test(structuredData || ""), "Structured data missing Organization/WebApplication");
   results.foundingPrice = true;
 
   // Desktop login / signup
