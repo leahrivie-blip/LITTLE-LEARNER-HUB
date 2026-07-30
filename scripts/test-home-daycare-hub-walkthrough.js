@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260730-admin-boot-landing";
+const SHELL = "20260730-hdh-role-switcher";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";
@@ -123,9 +123,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v136-admin-boot-landing/);
+  assert.match(sw, /llh-shell-v137-hdh-role-switcher/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v136-admin-boot-landing");
+  assert.equal(manifest.cacheName, "llh-shell-v137-hdh-role-switcher");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);
@@ -211,6 +211,9 @@ async function main() {
         packCount: packItems.length,
         hasGuide: Boolean(document.querySelector("#hdhTesterGuidePanel")),
         guideText: document.querySelector("#hdhTesterGuidePanel")?.innerText || "",
+        hasRoleSwitcher: Boolean(document.querySelector("#hdhRoleSwitcher")),
+        hasParentSwitch: Boolean(document.querySelector("[data-hdh-role-switch='parent']")),
+        hasTeacherSwitch: Boolean(document.querySelector("[data-hdh-role-switch='teacher']")),
         hasAi: Boolean(document.querySelector("#hdhAiDraftPanel")),
         hasFamily: Boolean(document.querySelector("#hdhFamilyHubInviteForm")),
         hasStaff: Boolean(document.querySelector("#hdhStaffInviteForm")),
@@ -231,7 +234,49 @@ async function main() {
     assert.match(hubSnapshot.disclaimer, /state licensing/i);
     assert.equal(hubSnapshot.hasGuide, true, "tester guide should be at top of hub");
     assert.match(hubSnapshot.guideText || "", /What testers see/i);
+    assert.equal(hubSnapshot.hasRoleSwitcher, true, "multi-role switcher should be on hub");
+    assert.equal(hubSnapshot.hasParentSwitch, true);
+    assert.equal(hubSnapshot.hasTeacherSwitch, true);
     console.log("PASS  browser hub shell shows A–G panels + 10-form pack");
+
+    // Role switcher: teacher → staff helper → staff lead → parent → teacher
+    const visibleRole = (role) => page.locator(`[data-hdh-role-switch='${role}']:visible`).first();
+    await visibleRole("staff-helper").click();
+    await page.waitForFunction(() => document.body.dataset.hdhTesterPersona === "staff-helper", { timeout: 15000 });
+    const helperMode = await page.evaluate(() => ({
+      persona: document.body.dataset.hdhTesterPersona || "",
+      hubNavHidden: Boolean(document.querySelector("[data-nav-hdh-testing='true']")?.hidden),
+    }));
+    assert.equal(helperMode.persona, "staff-helper");
+    assert.equal(helperMode.hubNavHidden, true, "Staff Helper should hide Home Daycare Hub nav");
+
+    await visibleRole("staff-lead").click();
+    await page.waitForFunction(() => document.body.dataset.hdhTesterPersona === "staff-lead", { timeout: 15000 });
+    const leadMode = await page.evaluate(() => ({
+      persona: document.body.dataset.hdhTesterPersona || "",
+      hubNavHidden: Boolean(document.querySelector("[data-nav-hdh-testing='true']")?.hidden),
+    }));
+    assert.equal(leadMode.persona, "staff-lead");
+    assert.equal(leadMode.hubNavHidden, false, "Staff Lead should keep Home Daycare Hub nav");
+
+    await visibleRole("parent").click();
+    await page.waitForFunction(() => {
+      return document.querySelector("#view-family-hub.active-view")
+        && (document.querySelector("#familyHubParentApp")?.innerText || "").length > 20;
+    }, { timeout: 20000 });
+    const parentMode = await page.evaluate(() => ({
+      active: Boolean(document.querySelector("#view-family-hub.active-view")),
+      persona: document.body.dataset.hdhTesterPersona || "",
+      hasBack: Boolean(document.querySelector("[data-hdh-role-switch='teacher']:not([disabled])")),
+      text: document.querySelector("#familyHubParentApp")?.innerText || "",
+    }));
+    assert.equal(parentMode.active, true, "Parent view should open from role switcher");
+    assert.equal(parentMode.persona, "parent");
+    assert.equal(parentMode.hasBack, true, "Parent view should offer Back to Teacher");
+    assert.match(parentMode.text, /household|Children|Forms/i);
+    await visibleRole("teacher").click();
+    await page.waitForSelector("#view-home-daycare-hub.active-view #hdhRoleSwitcher", { timeout: 15000 });
+    console.log("PASS  teacher ↔ staff ↔ parent role switcher");
 
     // Step C: AI draft → save to child (drive helpers directly so hub re-render races don't drop the submit)
     const draftOk = await page.evaluate(async (childId) => {

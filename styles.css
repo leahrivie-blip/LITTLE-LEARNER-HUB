@@ -22058,6 +22058,114 @@ body.printing-resource .trial-curriculum-watermark-print {
   background: linear-gradient(180deg, rgba(90, 143, 123, 0.08), rgba(255, 255, 255, 0.55));
 }
 
+.hdh-tester-switcher-chrome {
+  margin: 0;
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid rgba(61, 83, 74, 0.14);
+  background: linear-gradient(180deg, rgba(90, 143, 123, 0.12), rgba(255, 255, 255, 0.92));
+}
+
+.hdh-tester-switcher-chrome .hdh-role-switcher {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.hdh-role-switcher {
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border: 1px solid rgba(61, 83, 74, 0.18);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.hdh-role-switcher-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.hdh-role-switcher-copy {
+  margin: 4px 0 0;
+  color: var(--muted, #5b6578);
+  line-height: 1.45;
+}
+
+.hdh-role-switcher-now {
+  margin: 0;
+  font-size: 0.92rem;
+  color: #3d534a;
+}
+
+.hdh-role-switcher-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+@media (min-width: 720px) {
+  .hdh-role-switcher-tabs {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.hdh-role-tab {
+  appearance: none;
+  border: 1px solid rgba(61, 83, 74, 0.22);
+  background: #fff;
+  color: #3d534a;
+  font: inherit;
+  font-weight: 700;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.hdh-role-tab.is-active {
+  background: #3d534a;
+  border-color: #3d534a;
+  color: #fff;
+}
+
+.hdh-role-tab:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hdh-role-switcher-childrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-top: 12px;
+}
+
+.hdh-role-child-label {
+  flex: 1 1 220px;
+  display: grid;
+  gap: 4px;
+  font-size: 0.92rem;
+  color: #3d534a;
+}
+
+.hdh-role-child-label select {
+  width: 100%;
+}
+
+.hdh-family-hub-parent .hdh-role-switcher {
+  margin-top: 4px;
+}
+
+body.hdh-persona-parent .sidebar {
+  display: none;
+}
+
+body.hdh-persona-parent .main {
+  margin-left: 0;
+}
+
 .hdh-tester-roles {
   display: grid;
   gap: 12px;

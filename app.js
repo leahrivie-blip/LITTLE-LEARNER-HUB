@@ -12662,6 +12662,7 @@ function syncPlatformNavVisibility() {
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+  syncHdhTesterSwitcherChrome();
 }
 
 function syncHomeDaycareHubNavVisibility() {
@@ -15358,6 +15359,7 @@ function setView(view, options = {}) {
   if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
   if (resolvedView === "home-daycare-hub") renderHomeDaycareHubPage();
   if (resolvedView === "family-hub") renderFamilyHubPage();
+  syncHdhTesterSwitcherChrome();
   if (resolvedView === "ai-guide") renderAiGuidePage();
   if (resolvedView === "staff") renderStaffManagementPage();
   if (resolvedView === "classrooms") renderClassroomsPage();
@@ -31314,6 +31316,9 @@ function renderSettingsHubPage() {
 }
 
 const FAMILY_HUB_SESSION_KEY = "llhFamilyHubSession";
+const FAMILY_HUB_TESTER_INVITE_KEY = "llhFamilyHubTesterInvite";
+const HDH_TESTER_PERSONA_KEY = "llhHdhTesterPersona";
+const HDH_TESTER_ROLES = Object.freeze(["teacher", "staff-helper", "staff-lead", "parent"]);
 
 function getFamilyHubSessionToken() {
   try {
@@ -31332,6 +31337,345 @@ function setFamilyHubSessionToken(token) {
 
 function clearFamilyHubSession() {
   setFamilyHubSessionToken("");
+}
+
+function readTesterFamilyHubInvite() {
+  try {
+    const raw = localStorage.getItem(FAMILY_HUB_TESTER_INVITE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      token: String(parsed.token || "").trim(),
+      email: String(parsed.email || "").trim(),
+      loginCode: String(parsed.loginCode || "").trim(),
+      magicUrl: String(parsed.magicUrl || "").trim(),
+    };
+  } catch (_error) {
+    return null;
+  }
+}
+
+function saveTesterFamilyHubInvite(invite = {}) {
+  try {
+    const payload = {
+      token: String(invite.token || "").trim(),
+      email: String(invite.email || "").trim(),
+      loginCode: String(invite.loginCode || "").trim(),
+      magicUrl: String(invite.magicUrl || "").trim(),
+      savedAt: new Date().toISOString(),
+    };
+    if (!payload.token && !payload.loginCode) {
+      localStorage.removeItem(FAMILY_HUB_TESTER_INVITE_KEY);
+      return;
+    }
+    localStorage.setItem(FAMILY_HUB_TESTER_INVITE_KEY, JSON.stringify(payload));
+  } catch (_error) { /* ignore */ }
+}
+
+function getHdhTesterPersona() {
+  try {
+    const raw = localStorage.getItem(HDH_TESTER_PERSONA_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== "object") {
+      return { role: "teacher", teacherEmail: String(currentUser || "").trim(), focusChildId: "" };
+    }
+    const role = HDH_TESTER_ROLES.includes(parsed.role) ? parsed.role : "teacher";
+    return {
+      role,
+      teacherEmail: String(parsed.teacherEmail || currentUser || "").trim(),
+      focusChildId: String(parsed.focusChildId || "").trim(),
+    };
+  } catch (_error) {
+    return { role: "teacher", teacherEmail: String(currentUser || "").trim(), focusChildId: "" };
+  }
+}
+
+function setHdhTesterPersona(updates = {}) {
+  const prev = getHdhTesterPersona();
+  const next = {
+    role: HDH_TESTER_ROLES.includes(updates.role) ? updates.role : (prev.role || "teacher"),
+    teacherEmail: String(updates.teacherEmail != null ? updates.teacherEmail : prev.teacherEmail || currentUser || "").trim(),
+    focusChildId: String(updates.focusChildId != null ? updates.focusChildId : prev.focusChildId || "").trim(),
+    updatedAt: new Date().toISOString(),
+  };
+  if (isLoggedIn() && next.role === "teacher") {
+    next.teacherEmail = String(currentUser || next.teacherEmail || "").trim();
+  }
+  try {
+    localStorage.setItem(HDH_TESTER_PERSONA_KEY, JSON.stringify(next));
+  } catch (_error) { /* ignore */ }
+  document.body.dataset.hdhTesterPersona = next.role;
+  document.body.classList.toggle("hdh-persona-parent", next.role === "parent");
+  document.body.classList.toggle("hdh-persona-staff", next.role === "staff-helper" || next.role === "staff-lead");
+  return next;
+}
+
+function rememberHdhTesterTeacherEmail() {
+  if (!isLoggedIn() || !isHomeDaycareHubTestingEnabled()) return;
+  const account = currentAccount() || {};
+  // Staff members linked to another owner are not the teacher seed account.
+  if (account.linkedProgramOwnerEmail) return;
+  const persona = getHdhTesterPersona();
+  if (persona.teacherEmail === currentUser && persona.role) return;
+  setHdhTesterPersona({ ...persona, teacherEmail: currentUser });
+}
+
+function testerParentEmailForCurrentUser() {
+  const persona = getHdhTesterPersona();
+  const email = String(persona.teacherEmail || currentUser || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return "parent.tester@littlelearnerhub.local";
+  const [local, domain] = email.split("@");
+  return `${local}+parent@${domain}`;
+}
+
+function hdhTesterRoleLabel(role) {
+  if (role === "staff-helper") return "Staff Helper";
+  if (role === "staff-lead") return "Staff Lead";
+  if (role === "parent") return "Parent";
+  return "Teacher";
+}
+
+function renderHdhRoleSwitcher(activeRole = "") {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const persona = getHdhTesterPersona();
+  const role = activeRole || persona.role || "teacher";
+  const teacherReady = isLoggedIn() || Boolean(persona.teacherEmail);
+  const children = childRecords().children || [];
+  const notes = {
+    teacher: "Full home daycare teacher workspace — Hub, forms, staff, packets.",
+    "staff-helper": "Staff Helper preview — Hub/Forms hidden. Calendar + daily care stay available.",
+    "staff-lead": "Staff Lead preview — Hub, forms, and curriculum stay available.",
+    parent: "Parent Family Hub — household kids + form status only. Teacher login stays underneath.",
+  };
+  return `
+    <section class="hdh-role-switcher" id="hdhRoleSwitcher" aria-label="Tester role switcher">
+      <div class="hdh-role-switcher-head">
+        <div>
+          <p class="eyebrow">Tester switcher</p>
+          <p class="hdh-role-switcher-copy">Bounce through every angle — <strong>Teacher</strong>, <strong>Staff</strong>, <strong>Parent</strong>, and each <strong>child’s file</strong> — then report what feels wrong.</p>
+        </div>
+        <p class="hdh-role-switcher-now">Now: <strong>${escapeHtml(hdhTesterRoleLabel(role))}</strong></p>
+      </div>
+      <div class="hdh-role-switcher-tabs" role="group" aria-label="Choose tester role">
+        <button class="hdh-role-tab${role === "teacher" ? " is-active" : ""}" type="button" data-hdh-role-switch="teacher" ${teacherReady ? "" : "disabled"}>Teacher</button>
+        <button class="hdh-role-tab${role === "staff-helper" ? " is-active" : ""}" type="button" data-hdh-role-switch="staff-helper" ${teacherReady ? "" : "disabled"}>Staff Helper</button>
+        <button class="hdh-role-tab${role === "staff-lead" ? " is-active" : ""}" type="button" data-hdh-role-switch="staff-lead" ${teacherReady ? "" : "disabled"}>Staff Lead</button>
+        <button class="hdh-role-tab${role === "parent" ? " is-active" : ""}" type="button" data-hdh-role-switch="parent" ${teacherReady || children.length ? "" : "disabled"}>Parent</button>
+      </div>
+      <div class="hdh-role-switcher-childrow">
+        <label class="hdh-role-child-label">Child file (teacher angle)
+          <select data-hdh-tester-child ${children.length && role !== "parent" ? "" : "disabled"}>
+            <option value="">Open a child’s forms…</option>
+            ${children.map((child) => `
+              <option value="${escapeHtml(child.id)}" ${persona.focusChildId === child.id ? "selected" : ""}>${escapeHtml(child.name || "Child")}</option>
+            `).join("")}
+          </select>
+        </label>
+        ${children.length
+          ? `<button class="ghost-button" type="button" data-hdh-tester-children ${role === "parent" ? "disabled" : ""}>All children</button>`
+          : `<button class="ghost-button" type="button" data-view="children">Add a child</button>`}
+      </div>
+      <p class="form-note">${escapeHtml(notes[role] || notes.teacher)}</p>
+    </section>
+  `;
+}
+
+function syncHdhTesterSwitcherChrome() {
+  const hostParent = document.querySelector(".main") || document.body;
+  let chrome = document.querySelector("#hdhTesterSwitcherChrome");
+  const show = isHomeDaycareHubTestingEnabled() && (isLoggedIn() || getHdhTesterPersona().role === "parent");
+  if (!show) {
+    chrome?.remove();
+    document.body.classList.remove("hdh-tester-switching", "hdh-persona-parent", "hdh-persona-staff");
+    delete document.body.dataset.hdhTesterPersona;
+    return;
+  }
+  rememberHdhTesterTeacherEmail();
+  if (!chrome) {
+    chrome = document.createElement("div");
+    chrome.id = "hdhTesterSwitcherChrome";
+    chrome.className = "hdh-tester-switcher-chrome";
+    const topbar = hostParent.querySelector(".topbar");
+    if (topbar?.nextSibling) hostParent.insertBefore(chrome, topbar.nextSibling);
+    else hostParent.prepend(chrome);
+  }
+  const persona = getHdhTesterPersona();
+  document.body.classList.add("hdh-tester-switching");
+  document.body.dataset.hdhTesterPersona = persona.role;
+  document.body.classList.toggle("hdh-persona-parent", persona.role === "parent");
+  document.body.classList.toggle("hdh-persona-staff", persona.role === "staff-helper" || persona.role === "staff-lead");
+  // Avoid duplicating controls when the hub/family page already renders one.
+  const pageHasSwitcher = Boolean(document.querySelector("#view-home-daycare-hub.active-view #hdhRoleSwitcher, #view-family-hub.active-view #hdhRoleSwitcher"));
+  if (pageHasSwitcher) {
+    chrome.hidden = true;
+    chrome.innerHTML = "";
+    return;
+  }
+  chrome.hidden = false;
+  chrome.innerHTML = renderHdhRoleSwitcher(persona.role);
+}
+
+async function familyHubSessionStillValid() {
+  const headers = familyHubAuthHeaders();
+  if (!headers) return false;
+  try {
+    const response = await fetch("/api/family-hub/me", { headers, cache: "no-store" });
+    if (response.ok) return true;
+  } catch (_error) { /* ignore */ }
+  clearFamilyHubSession();
+  return false;
+}
+
+async function ensureTesterParentHouseholdSession() {
+  if (!isHomeDaycareHubTestingEnabled()) {
+    throw new Error("Role switching is only on the testing site.");
+  }
+  if (!isLoggedIn()) {
+    throw new Error("Sign in as the home daycare teacher first, then switch roles.");
+  }
+  if (await familyHubSessionStillValid()) return { reused: true };
+
+  const stored = readTesterFamilyHubInvite();
+  if (stored?.token) {
+    try {
+      await redeemFamilyHubInviteToken(stored.token);
+      return { reused: true };
+    } catch (_error) {
+      saveTesterFamilyHubInvite({});
+    }
+  }
+  if (stored?.email && stored?.loginCode) {
+    const loginResponse = await fetch("/api/family-hub/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email: stored.email, code: stored.loginCode }),
+    });
+    const loginResult = await loginResponse.json().catch(() => ({}));
+    if (loginResponse.ok && loginResult.sessionToken) {
+      setFamilyHubSessionToken(loginResult.sessionToken);
+      return { reused: true };
+    }
+  }
+
+  const children = (childRecords().children || []).map((child) => ({
+    id: child.id,
+    name: child.name,
+  }));
+  if (!children.length) {
+    throw new Error("Add a child under Child Profiles first, then switch to Parent view.");
+  }
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) {
+    throw new Error("Parent view needs the testing server backend.");
+  }
+  const settings = getProgramSettings();
+  const email = testerParentEmailForCurrentUser();
+  const response = await fetch("/api/family-hub/households", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      label: "Tester parent household",
+      email,
+      phone: "",
+      children,
+      documents: familyHubDocumentSnapshotForChildren(children.map((child) => child.id)),
+      programName: settings.programName || settings.businessName || "Little Learner Hub program",
+      appOrigin: window.location.origin,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.error || "Could not create tester parent household.");
+  const magicUrl = String(result.magicUrl || result.household?.magicUrl || "");
+  let token = "";
+  try {
+    token = new URL(magicUrl, window.location.origin).searchParams.get("familyHub") || "";
+  } catch (_error) {
+    token = "";
+  }
+  const loginCode = String(result.loginCode || result.household?.loginCode || "");
+  saveTesterFamilyHubInvite({ token, email, loginCode, magicUrl });
+  if (token) {
+    await redeemFamilyHubInviteToken(token);
+    return { created: true, email, magicUrl, loginCode };
+  }
+  if (loginCode) {
+    const loginResponse = await fetch("/api/family-hub/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ email, code: loginCode }),
+    });
+    const loginResult = await loginResponse.json().catch(() => ({}));
+    if (!loginResponse.ok || !loginResult.sessionToken) {
+      throw new Error(loginResult?.error || "Could not open Parent view.");
+    }
+    setFamilyHubSessionToken(loginResult.sessionToken);
+    return { created: true, email, magicUrl, loginCode };
+  }
+  throw new Error("Could not open Parent view — invite was created without a usable link.");
+}
+
+async function switchHdhTesterRole(role) {
+  if (!isHomeDaycareHubTestingEnabled()) {
+    throw new Error("Role switching is only on the testing site.");
+  }
+  const cleanRole = HDH_TESTER_ROLES.includes(role) ? role : "teacher";
+  if (!isLoggedIn() && cleanRole !== "parent") {
+    openAuthModal("login");
+    throw new Error("Sign in as the home daycare teacher first.");
+  }
+  rememberHdhTesterTeacherEmail();
+
+  if (cleanRole === "parent") {
+    await ensureTesterParentHouseholdSession();
+    setHdhTesterPersona({ role: "parent" });
+    syncPlatformNavVisibility();
+    setView("family-hub");
+    syncHdhTesterSwitcherChrome();
+    showActionFeedback("Parent view — bounce back anytime with Teacher / Staff.");
+    return;
+  }
+
+  // Leaving parent preview: keep Family Hub session cached so return is instant.
+  setHdhTesterPersona({ role: cleanRole });
+  syncPlatformNavVisibility();
+  if (cleanRole === "teacher") {
+    setView(staffMaySeeHdhView("home-daycare-hub") ? "home-daycare-hub" : "calendar");
+    syncHdhTesterSwitcherChrome();
+    showActionFeedback("Teacher view — full Home Daycare Hub.");
+    return;
+  }
+  if (cleanRole === "staff-helper") {
+    setView(staffMaySeeHdhView("home-daycare-hub") ? "home-daycare-hub" : "calendar");
+    syncHdhTesterSwitcherChrome();
+    showActionFeedback("Staff Helper view — Hub/Forms should be hidden.");
+    return;
+  }
+  setView(staffMaySeeHdhView("home-daycare-hub") ? "home-daycare-hub" : "calendar");
+  syncHdhTesterSwitcherChrome();
+  showActionFeedback("Staff Lead view — Hub and curriculum stay available.");
+}
+
+function openHdhTesterChildFile(childId) {
+  const id = String(childId || "").trim();
+  if (!id) return;
+  const persona = getHdhTesterPersona();
+  if (persona.role === "parent") {
+    setHdhTesterPersona({ role: "teacher", focusChildId: id });
+    syncPlatformNavVisibility();
+  } else {
+    setHdhTesterPersona({ focusChildId: id });
+  }
+  const button = document.createElement("button");
+  button.type = "button";
+  button.hidden = true;
+  button.setAttribute("data-view-child-profile", id);
+  button.setAttribute("data-open-child-tab", "forms-records");
+  document.body.appendChild(button);
+  button.click();
+  button.remove();
+  syncHdhTesterSwitcherChrome();
+  showActionFeedback("Opened child file — check Forms & Records, then switch roles again.");
 }
 
 function familyHubAuthHeaders() {
@@ -31413,9 +31757,9 @@ function renderFamilyHubProviderPanel() {
         </fieldset>
         <div class="account-actions-row">
           <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create household invite</button>
-          <button class="ghost-button" type="button" data-view="family-hub">Open parent Family Hub view</button>
+          <button class="ghost-button" type="button" data-hdh-role-switch="parent">Switch to Parent view</button>
         </div>
-        <p class="form-note">SMS is simulated on testing — you will get a magic link to copy/text. Email sends when delivery is configured.</p>
+        <p class="form-note">SMS is simulated on testing — you will get a magic link to copy/text. Email sends when delivery is configured. Use <strong>Switch to Parent view</strong> to bounce into the parent side yourself.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
@@ -31472,6 +31816,7 @@ function renderFamilyHubPage() {
           <p>One login for all of your children. Review form status here. Signing and returns come later.</p>
         </div>
       </div>
+      ${renderHdhRoleSwitcher("parent")}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div id="familyHubParentApp">
         ${token
@@ -31479,7 +31824,7 @@ function renderFamilyHubPage() {
           : `
             <section class="section-block">
               <h3>Sign in to Family Hub</h3>
-              <p class="muted-copy">Use the magic link from your provider, or enter your household email and 6-digit code.</p>
+              <p class="muted-copy">Use the magic link from your provider, or enter your household email and 6-digit code. If you are the teacher tester, use <strong>Teacher view</strong> above instead.</p>
               <form id="familyHubLoginForm" class="panel-form">
                 <div class="form-grid-two">
                   <label>Email<input name="email" type="email" required placeholder="parent@example.com" /></label>
@@ -31520,7 +31865,9 @@ async function loadFamilyHubParentDashboard() {
     <section class="section-block">
       <div class="account-actions-row" style="margin-bottom:12px;">
         <strong>${escapeHtml(data.household?.label || "Your household")}</strong>
-        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+        ${isLoggedIn() ? `<button class="primary-button" type="button" data-hdh-role-switch="teacher">Back to Teacher</button>` : ""}
+        ${isLoggedIn() ? `<button class="ghost-button" type="button" data-hdh-role-switch="staff-helper">Staff Helper</button>` : ""}
+        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out of Parent view</button>
       </div>
       <p class="muted-copy">${escapeHtml(data.note || "One household login covers all linked children.")}</p>
       <h3>Children</h3>
@@ -31695,6 +32042,11 @@ function renderHdhStaffVisibilityFields(prefix = "") {
 }
 
 function currentAccountHdhVisibility() {
+  if (isHomeDaycareHubTestingEnabled()) {
+    const persona = getHdhTesterPersona();
+    if (persona.role === "staff-helper") return hdhStaffVisibilityFromPreset("helper");
+    if (persona.role === "staff-lead") return hdhStaffVisibilityFromPreset("lead");
+  }
   const account = currentAccount() || {};
   if (!account.linkedProgramOwnerEmail) return null;
   if (!account.hdhVisibility || typeof account.hdhVisibility !== "object") return null;
@@ -31702,8 +32054,20 @@ function currentAccountHdhVisibility() {
 }
 
 function staffMaySeeHdhView(view) {
+  if (!isHomeDaycareHubTestingEnabled()) return true;
+  const persona = getHdhTesterPersona();
+  if (persona.role === "staff-helper" || persona.role === "staff-lead") {
+    const visibility = currentAccountHdhVisibility() || {};
+    const option = HDH_STAFF_VISIBILITY_OPTIONS.find((item) => item.views.includes(view));
+    if (!option) return true;
+    return Boolean(visibility[option.key]);
+  }
+  if (persona.role === "parent") {
+    // Parent preview uses Family Hub; provider tools stay available under Teacher/Staff switch-back.
+    return view === "family-hub";
+  }
   const visibility = currentAccountHdhVisibility();
-  if (!visibility || !isHomeDaycareHubTestingEnabled()) return true;
+  if (!visibility) return true;
   const role = getUserRole();
   if (role === "owner" || role === "director") return true;
   const option = HDH_STAFF_VISIBILITY_OPTIONS.find((item) => item.views.includes(view));
@@ -31914,19 +32278,20 @@ function renderHomeDaycareTesterGuidePanel() {
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>What testers see (simple map)</h3>
-      <p class="muted-copy">This page is what a signed-in <strong>provider</strong> sees on the testing site. Live production stays off. Use this map when you are confused about roles.</p>
+      <p class="muted-copy">Use the switcher to bounce through <strong>Teacher</strong>, <strong>Staff Helper</strong>, <strong>Staff Lead</strong>, <strong>Parent</strong>, and each <strong>child’s file</strong>. Live production stays off. Note anything confusing and send it back.</p>
+      ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
-          <strong>1. You / provider</strong>
-          <p>Signed into Little Learner Hub. Left nav shows <em>Home Daycare Hub</em>. You fill forms, invite families, invite staff, track CPR, and make packets.</p>
+          <strong>1. Teacher</strong>
+          <p>Full Home Daycare Hub — forms, family invites, staff, CPR, packets, child files.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>2. Parent (Family Hub)</strong>
-          <p>Does <em>not</em> use the full app login. They open a magic link (or email + code) and only see their household’s kids + form status. SMS is simulated on testing — copy the link and open it in a private window.</p>
+          <strong>2. Staff Helper / Lead</strong>
+          <p>Same login, staff preview. Helper hides Hub/Forms. Lead keeps them. Flip back to Teacher anytime.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Staff helper</strong>
-          <p>Accepts a staff invite. “Helper” preset hides Home Daycare Hub / Forms. “Lead” can see them. That is how you check what staff see.</p>
+          <strong>3. Parent + child files</strong>
+          <p>Parent opens Family Hub for household status. Child file opens Forms &amp; Records for that kid so you can check the teacher paperwork angle.</p>
         </article>
       </div>
       <h4 class="hdh-tester-path-title">Try this path (about 10 minutes)</h4>
@@ -31934,10 +32299,10 @@ function renderHomeDaycareTesterGuidePanel() {
         <li>${childReady
           ? `You already have a child on file — good.`
           : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button> first.`}</li>
-        <li>Open a form from the pack, or generate an <strong>AI draft</strong>, review it, then <strong>Save to child file</strong>. Nothing emails parents automatically.</li>
-        <li>Create a <strong>Family Hub</strong> invite → copy the magic link → open it in a private/incognito window (that is the parent view).</li>
-        <li>Invite a helper with the <strong>Helper</strong> preset. Sign in as that staff account (or accept invite) and confirm Hub is hidden.</li>
-        <li>Add a <strong>CPR / training</strong> row, then create an <strong>enrollment packet</strong> and mark one item signed.</li>
+        <li>As <strong>Teacher</strong>: open a form / AI draft, save to the child file.</li>
+        <li>Switch <strong>Staff Helper</strong> → confirm Hub is hidden → switch <strong>Staff Lead</strong> → confirm Hub is back.</li>
+        <li>Open a <strong>child file</strong>, then switch <strong>Parent</strong> and check household form status.</li>
+        <li>Bounce back to <strong>Teacher</strong>, add a CPR row + packet item, then send Leah notes on anything confusing.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
@@ -54880,7 +55245,46 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     clearFamilyHubSession();
     renderFamilyHubPage();
-    showActionFeedback("Signed out of Family Hub.");
+    showActionFeedback("Signed out of Parent view.");
+    return;
+  }
+
+  const roleSwitch = event.target.closest("[data-hdh-role-switch]");
+  if (roleSwitch) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const role = String(roleSwitch.getAttribute("data-hdh-role-switch") || "").trim();
+    if (!HDH_TESTER_ROLES.includes(role)) return;
+    const buttons = document.querySelectorAll("[data-hdh-role-switch]");
+    buttons.forEach((button) => { button.disabled = true; });
+    switchHdhTesterRole(role)
+      .catch((error) => {
+        showActionFeedback(error.message || "Could not switch tester role.");
+      })
+      .finally(() => {
+        syncHdhTesterSwitcherChrome();
+        document.querySelectorAll("[data-hdh-role-switch]").forEach((button) => {
+          const buttonRole = button.getAttribute("data-hdh-role-switch");
+          if (buttonRole !== "parent" && !isLoggedIn()) {
+            button.disabled = true;
+            return;
+          }
+          button.disabled = false;
+        });
+      });
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-tester-children]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    if (getHdhTesterPersona().role === "parent") {
+      switchHdhTesterRole("teacher").then(() => setView("children")).catch((error) => {
+        showActionFeedback(error.message || "Could not open children.");
+      });
+      return;
+    }
+    setView("children");
     return;
   }
 
@@ -58628,6 +59032,14 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-hdh-tester-child]")) {
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const childId = String(event.target.value || "").trim();
+    if (!childId) return;
+    openHdhTesterChildFile(childId);
+    event.target.value = "";
+    return;
+  }
   if (event.target.matches("[data-hdh-forms-status]")) {
     childFormsRecordsStatus = event.target.value || "all";
     childProfileTab = "forms-records";

@@ -162,9 +162,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-admin-boot-landing");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-admin-boot-landing");
-  assert.match(sw, /llh-shell-v136-admin-boot-landing/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-role-switcher");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-role-switcher");
+  assert.match(sw, /llh-shell-v137-hdh-role-switcher/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {
