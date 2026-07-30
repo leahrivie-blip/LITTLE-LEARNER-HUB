@@ -145,6 +145,10 @@ Module.prototype.require = function mockPgRequire(id) {
             writeStatus();
             return { rows: state.analyticsEvents.slice().reverse() };
           }
+          if (text.includes("DELETE FROM llh_analytics_events")) {
+            writeStatus();
+            return { rowCount: 0, rows: [] };
+          }
           if (text.includes("INSERT INTO llh_analytics_events")) {
             state.analyticsInserts += 1;
             state.analyticsEvents.push({

@@ -196,6 +196,18 @@ const STORE_WRITE_DEBOUNCE_MS = Math.max(
   0,
   Number(process.env.STORE_WRITE_DEBOUNCE_MS ?? 2500),
 );
+const ANALYTICS_TABLE_RETENTION_DAYS = Math.max(
+  30,
+  Math.min(365, Number(process.env.ANALYTICS_TABLE_RETENTION_DAYS || 90)),
+);
+const ANALYTICS_TABLE_MAX_ROWS = Math.max(
+  5000,
+  Math.min(250000, Number(process.env.ANALYTICS_TABLE_MAX_ROWS || 50000)),
+);
+const ANALYTICS_PRUNE_INTERVAL_MS = Math.max(
+  60 * 60 * 1000,
+  Number(process.env.ANALYTICS_PRUNE_INTERVAL_MS || 24 * 60 * 60 * 1000),
+);
 const POSTGRES_STORE_WRITE_RETRY_COUNT = Math.max(
   0,
   Number(process.env.POSTGRES_STORE_WRITE_RETRY_COUNT || 4),
@@ -204,6 +216,7 @@ const POSTGRES_WRITE_RETRY_BACKOFF_MS = [75, 150, 300, 600, 1200];
 const storeWriteMetrics = storeWriteMetricsLib.createStoreWriteMetrics();
 let debouncedStoreWriteTimer = null;
 let debouncedStoreWritePending = false;
+let shutdownFlushInProgress = false;
 // Phase 2 of the admin-token-in-URL security follow-up: sanitized counters only —
 // never the token value itself — so the still-supported legacy query/body auth paths
 // can be monitored during the client migration and safely removed (Phase 3) once
@@ -3593,6 +3606,57 @@ function scheduleDebouncedPostgresStoreWrite() {
   }, STORE_WRITE_DEBOUNCE_MS);
 }
 
+async function flushPendingStoreWritesForShutdown() {
+  if (shutdownFlushInProgress) return;
+  shutdownFlushInProgress = true;
+  logStorePersistence("shutdown_flush_start", {});
+  try {
+    await flushDebouncedPostgresStoreWrite();
+    await postgresWriteChain.catch(() => {});
+  } catch (error) {
+    logStorePersistence("shutdown_flush_failed", { error: error.message || String(error) });
+  }
+  logStorePersistence("shutdown_flush_complete", {});
+}
+
+function registerGracefulShutdownHandlers() {
+  if (global.__llhShutdownHandlersRegistered) return;
+  global.__llhShutdownHandlersRegistered = true;
+  const onSignal = (signal) => {
+    logStorePersistence("temporary_deploy_disconnect", {
+      signal,
+      note: "graceful shutdown — flushing debounced store writes before exit",
+    });
+    flushPendingStoreWritesForShutdown()
+      .then(() => process.exit(0))
+      .catch(() => process.exit(1));
+  };
+  process.once("SIGTERM", () => onSignal("SIGTERM"));
+  process.once("SIGINT", () => onSignal("SIGINT"));
+}
+
+function startAnalyticsRetentionScheduler() {
+  if (!usePostgresStore() || global.__llhAnalyticsPruneStarted) return;
+  global.__llhAnalyticsPruneStarted = true;
+  const tick = async () => {
+    if (!postgresPool || !databaseReady) return;
+    try {
+      const result = await analyticsStore.pruneOldAnalyticsEvents(
+        postgresPool,
+        postgresQueryWithTransientRetry,
+        { retentionDays: ANALYTICS_TABLE_RETENTION_DAYS, maxRows: ANALYTICS_TABLE_MAX_ROWS },
+      );
+      if (result.deletedByAge || result.deletedByCount) {
+        console.log("[analytics] pruned table rows", result);
+      }
+    } catch (error) {
+      console.warn("[analytics] retention prune skipped:", error.message);
+    }
+  };
+  setTimeout(() => { tick().catch(() => {}); }, 60 * 1000);
+  setInterval(() => { tick().catch(() => {}); }, ANALYTICS_PRUNE_INTERVAL_MS);
+}
+
 async function flushDebouncedPostgresStoreWrite() {
   if (debouncedStoreWriteTimer) {
     clearTimeout(debouncedStoreWriteTimer);
@@ -3794,7 +3858,7 @@ function mergeStorePreserveEmailCampaigns(incomingStore) {
   };
 }
 
-function writeStore(store, { immediate = false } = {}) {
+function writeStore(store, { immediate = true, debounced = false } = {}) {
   const nextStore = mergeStorePreserveEmailCampaigns(
     mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store)),
   );
@@ -3802,14 +3866,14 @@ function writeStore(store, { immediate = false } = {}) {
   // Only upsert to Postgres after the authentic DB store is loaded. While on local
   // fallback, never push a sparse in-memory store over production membership data.
   if (usePostgresStore() && postgresPool && databaseReady) {
-    if (immediate) {
+    if (debounced && !immediate) {
+      scheduleDebouncedPostgresStoreWrite();
+    } else {
       enqueuePostgresStoreWrite().writePromise.catch((error) => {
         if (error?.code === "store_count_drop_blocked") {
           console.error("[store] fire-and-forget write blocked by inventory guard:", error.message);
         }
       });
-    } else {
-      scheduleDebouncedPostgresStoreWrite();
     }
     return;
   }
@@ -3882,6 +3946,20 @@ async function writeStoreAsync(store) {
     }
   }
   writeLocalJsonStore(storeCache);
+}
+
+/** Await durable Postgres persistence before returning success to the client. */
+async function respondAfterPersist(store, response, status, body, failMessage = "Could not save. Please try again.") {
+  try {
+    await writeStoreAsync(store);
+    jsonResponse(response, status, body);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: failMessage,
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 function normalizeEmail(email) {
@@ -4939,7 +5017,7 @@ function upsertUser(email, updates = {}, options = {}) {
     }, store);
   }
   store.users[email] = merged;
-  writeStore(store);
+  if (!options.deferPersist) writeStore(store);
   return store.users[email];
 }
 
@@ -6760,6 +6838,7 @@ async function handleAccountProfileSync(request, response) {
   }
   const user = upsertUser(email, updates, {
     reconcileReason: body.lastLogin ? "profile_sync_login" : "profile_sync",
+    deferPersist: true,
   });
   // Configurable Free-member welcome (in-app + email). Runs immediately on signup;
   // does not require EMAIL_AUTOMATIONS_ENABLED. Pro/Founding/Trial signups are skipped.
@@ -6790,6 +6869,16 @@ async function handleAccountProfileSync(request, response) {
     }).then(() => {
       try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
     }).catch(() => {});
+  }
+  try {
+    await writeStoreAsync(readStore());
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Could not save your account profile. Please try again.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
   }
   jsonResponse(response, 200, {
     ok: true,
@@ -10989,8 +11078,7 @@ async function handleSchedulePut(request, response) {
       items: body.items,
       updatedAt: new Date().toISOString(),
     });
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await respondAfterPersist(store, response, 200, {
       ok: true,
       uid: saved.uid,
       email: saved.email,
@@ -10998,7 +11086,7 @@ async function handleSchedulePut(request, response) {
       items: saved.items,
       updatedAt: saved.updatedAt,
       schemaVersion: 1,
-    });
+    }, "Could not save schedule.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not save schedule." });
   }
@@ -11021,8 +11109,7 @@ async function handleScheduleItemUpsert(request, response, itemId) {
       id: itemId || body.id,
     });
     const saved = writeScheduleRecord(store, identity, doc);
-    writeStore(store);
-    jsonResponse(response, 200, { ok: true, item, updatedAt: saved.updatedAt, classrooms: saved.classrooms });
+    await respondAfterPersist(store, response, 200, { ok: true, item, updatedAt: saved.updatedAt, classrooms: saved.classrooms }, "Could not save schedule item.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not save schedule item." });
   }
@@ -11040,8 +11127,7 @@ async function handleScheduleItemDelete(request, response, itemId) {
   const current = readScheduleRecord(store, identity);
   const doc = scheduleLib.deleteScheduleItem(current, itemId);
   const saved = writeScheduleRecord(store, identity, doc);
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true, updatedAt: saved.updatedAt });
+  await respondAfterPersist(store, response, 200, { ok: true, updatedAt: saved.updatedAt }, "Could not delete schedule item.");
 }
 
 async function handleScheduleWeekAssign(request, response, weekStartParam) {
@@ -11073,13 +11159,12 @@ async function handleScheduleWeekAssign(request, response, weekStartParam) {
     });
     const { doc, item: savedItem } = scheduleLib.upsertScheduleItem(current, item);
     const saved = writeScheduleRecord(store, identity, doc);
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await respondAfterPersist(store, response, 200, {
       ok: true,
       item: savedItem,
       updatedAt: saved.updatedAt,
       classrooms: saved.classrooms,
-    });
+    }, "Could not assign lesson plan to week.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not assign lesson plan to week." });
   }
@@ -11129,15 +11214,14 @@ async function handleScheduleMigrate(request, response) {
       items: mergedItems,
       updatedAt: new Date().toISOString(),
     });
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await respondAfterPersist(store, response, 200, {
       ok: true,
       migratedCount: migrated.items.length,
       itemCount: saved.items.length,
       classrooms: saved.classrooms,
       items: saved.items,
       updatedAt: saved.updatedAt,
-    });
+    }, "Could not migrate schedule data.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not migrate schedule data." });
   }
@@ -11221,13 +11305,12 @@ async function handleChildData(request, response) {
     const body = await readJson(request);
     const data = sanitizeChildDataPayload(body.data || {});
     const result = programOwnership.writeProgramChildData(store, context, data);
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await respondAfterPersist(store, response, 200, {
       ok: true,
       updatedAt: result.updatedAt,
       programId: result.programId,
       ownerEmail: context.ownerEmail,
-    });
+    }, "Could not save child data.");
   } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Could not save child data." });
   }
@@ -11624,11 +11707,12 @@ function pruneAnalyticsEventsInStore(store) {
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
   const event = sanitizeAnalyticsEvent(body, request);
+  const userStorePatch = analyticsStore.requiresUserStorePatch(event.name);
+  const billingStorePatch = analyticsStore.requiresBillingStorePatch(event.name);
   const highVolume = analyticsStore.isHighVolumeAnalyticsEvent(event.name);
-  const needsImmediateStore = analyticsStore.requiresImmediateStoreWrite(event.name);
 
   let analyticsTablePersisted = false;
-  if (usePostgresStore() && postgresPool) {
+  if (usePostgresStore() && postgresPool && databaseReady) {
     try {
       await analyticsStore.insertAnalyticsEvent(postgresPool, postgresQueryWithTransientRetry, event);
       analyticsTablePersisted = true;
@@ -11636,48 +11720,54 @@ async function handleAnalyticsEvent(request, response) {
       if (highVolume) storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
     } catch (error) {
       console.warn("[analytics] Postgres table insert failed:", error.message);
-      if (highVolume && !needsImmediateStore) {
-        jsonResponse(response, 503, {
-          ok: false,
-          error: "Analytics temporarily unavailable.",
-          code: "analytics_not_persisted",
+      logStorePersistence("analytics_insert_failed", { name: event.name, error: error.message });
+      // Optional tracking must not break the user-facing page flow.
+      if (!userStorePatch && !billingStorePatch) {
+        jsonResponse(response, 200, {
+          ok: true,
+          tracking: false,
+          persisted: "none",
+          analyticsTable: false,
         });
         return;
       }
     }
   }
 
-  if (!usePostgresStore() || needsImmediateStore || !highVolume) {
+  // Critical account / billing side-effects — durable store write, analytics row already in table.
+  if (userStorePatch || billingStorePatch || !usePostgresStore()) {
     const store = readStore();
-    store.analyticsEvents = store.analyticsEvents || [];
-    if (!store.analyticsEvents.some((item) => item.id === event.id)) {
-      store.analyticsEvents.push(event);
-    }
-    pruneAnalyticsEventsInStore(store);
-    updateAnalyticsUser(store, event);
-    if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
-    try {
-      if (needsImmediateStore) {
-        await writeStoreAsync(store);
-      } else {
-        writeStore(store);
+    if (!usePostgresStore()) {
+      store.analyticsEvents = store.analyticsEvents || [];
+      if (!store.analyticsEvents.some((item) => item.id === event.id)) {
+        store.analyticsEvents.push(event);
       }
+      pruneAnalyticsEventsInStore(store);
+    }
+    if (event.user && event.user !== "guest") {
+      updateAnalyticsUser(store, event);
+    }
+    if (billingStorePatch) recordBillingEvent(store, event);
+    try {
+      await writeStoreAsync(store);
     } catch (error) {
       jsonResponse(response, error.code === "store_not_persisted" || error.code === "store_write_failed" ? 503 : 500, {
         ok: false,
-        error: error.message || "Could not save analytics update.",
+        error: error.message || "Could not save account or billing update.",
         code: error.code || "store_write_failed",
       });
       return;
     }
     jsonResponse(response, 200, {
       ok: true,
-      persisted: needsImmediateStore ? "store" : "store_debounced",
+      persisted: "store",
       analyticsTable: analyticsTablePersisted,
+      tracking: analyticsTablePersisted || !usePostgresStore(),
     });
     return;
   }
 
+  // High-volume optional tracking: table row only; lastSeenAt may debounce a store touch.
   if (event.user && event.user !== "guest") {
     if (!storeCache) storeCache = defaultStore();
     updateAnalyticsUser(storeCache, event);
@@ -11686,7 +11776,8 @@ async function handleAnalyticsEvent(request, response) {
 
   jsonResponse(response, 200, {
     ok: true,
-    persisted: analyticsTablePersisted ? "analytics_table" : "memory_only",
+    tracking: analyticsTablePersisted,
+    persisted: analyticsTablePersisted ? "analytics_table" : "none",
     analyticsTable: analyticsTablePersisted,
   });
 }
@@ -13037,7 +13128,16 @@ async function handleSupportTicketCreate(request, response) {
       refId: ticket.id,
     }).catch(() => {});
   } catch {}
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Your support request could not be saved. Please try again.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
+  }
   let emailNotification = { sent: false, configured: false, provider: "not configured" };
   try {
     emailNotification = await notifySupportTicket(ticket);
@@ -13175,7 +13275,16 @@ async function handleSupportTicketUpdate(request, response) {
   }
 
   store.supportTickets = tickets;
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Could not save support ticket update.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
+  }
   // Notify the ticket owner (bell + push) only when there is an actual new
   // reply for them to read — never on trivial internal status housekeeping.
   if (ticketOwnerEmail && nextReply && (replyChanged || forceResend) && !refreshOnly) {
@@ -15149,12 +15258,11 @@ async function handleAdminFreeStarterLibrarySave(request, response) {
     updatedAt: new Date().toISOString(),
     updatedBy: String(body.adminEmail || "admin").slice(0, 120),
   };
-  writeStore(store);
-  jsonResponse(response, 200, {
+  await respondAfterPersist(store, response, 200, {
     ok: true,
     saved: true,
     freeStarterLibrary: resolveFreeStarterLibrary(store),
-  });
+  }, "Could not save Free Starter Library.");
 }
 
 /**
@@ -15509,7 +15617,16 @@ async function handleBugReportCreate(request, response) {
       refId: report.id,
     }).catch(() => {});
   } catch {}
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Your bug report could not be saved. Please try again.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
+  }
   // Admin notification (best-effort)
   notifyAdmin({
     kind: "Bug Report",
@@ -15882,7 +15999,16 @@ async function handleFeatureRequestCreate(request, response) {
       refId: item.id,
     }).catch(() => {});
   } catch {}
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Your feature request could not be saved. Please try again.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
+  }
   notifyAdmin({
     kind: "Feature Request",
     title: item.title,
@@ -16057,7 +16183,16 @@ async function handleFeedbackCreate(request, response) {
       refId: item.id,
     }).catch(() => {});
   } catch {}
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Your feedback could not be saved. Please try again.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
+  }
   notifyAdmin({
     kind: "Feedback",
     title: item.subject || item.type,
@@ -16175,8 +16310,7 @@ async function handleAdminReply(request, response) {
   store.communications = store.communications || [];
   store.communications.unshift(entry);
   store.communications = store.communications.slice(0, 5000);
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true, communication: entry, emailResult });
+  await respondAfterPersist(store, response, 200, { ok: true, communication: entry, emailResult }, "Could not save admin reply.");
 }
 
 function handleCommunicationsList(request, response, url) {
@@ -16815,7 +16949,16 @@ async function handleAdminMessageSend(request, response) {
       });
     }
   } catch {}
-  writeStore(store);
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+      ok: false,
+      error: "Message could not be saved. Please try again.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
+  }
 
   let summary = { targeted: 0, sent: 0, failed: 0, skipped: 0 };
   if (deliverVia === "in_app" || deliverVia === "both") {
@@ -16862,7 +17005,16 @@ async function handleAdminMessageSend(request, response) {
     store2.messages[index].pushSummary = summary;
     store2.messages[index].emailSummary = emailSummary;
     store2.messages[index].deliverVia = deliverVia;
-    writeStore(store2);
+    try {
+      await writeStoreAsync(store2);
+    } catch (error) {
+      jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+        ok: false,
+        error: "Message delivery metadata could not be saved.",
+        code: error?.code || "store_write_failed",
+      });
+      return;
+    }
   }
 
   jsonResponse(response, 200, {
@@ -17378,9 +17530,7 @@ async function handleMemberMessageReply(request, response) {
       }
     }
   }
-  writeStore(store);
-
-  jsonResponse(response, 200, { ok: true, message: publicMessage(message) });
+  await respondAfterPersist(store, response, 200, { ok: true, message: publicMessage(message) }, "Your message could not be saved. Please try again.");
 }
 
 async function handleMemberInbox(request, response) {
@@ -18446,6 +18596,7 @@ function getCommsApi() {
     _commsApi = createCommsApi({
       readStore,
       writeStore,
+      writeStoreAsync,
       ensureMessagingStore,
       jsonResponse,
       readJson,
@@ -18846,6 +18997,8 @@ initializeStorage()
     } catch (error) {
       console.warn("[store-backup] scheduler failed to start:", error.message || error);
     }
+    startAnalyticsRetentionScheduler();
+    registerGracefulShutdownHandlers();
     storageBootReady = true;
     console.log(`[boot] storage ready — API routes unlocked (${new Date().toISOString()})`);
     try {

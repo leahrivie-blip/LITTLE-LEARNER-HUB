@@ -134,17 +134,20 @@ async function main() {
     );
     console.log("PASS  analytics isolated from full-store writes");
 
-    console.log("2) Debounced writeStore coalesces rapid mutations");
+    console.log("2) Login analytics — table row + durable user patch, no blob analytics array");
     const login = await requestJson("POST", "/api/analytics/event", {
       name: "account_login_complete",
       user: "debounce-user@example.com",
       sessionId: "login-session",
     });
     assert.equal(login.status, 200, login.text);
+    assert.equal(login.json?.persisted, "store", login.text);
+    assert.equal(login.json?.analyticsTable, true, "analytics event should land in llh_analytics_events");
     await new Promise((r) => setTimeout(r, 600));
     const afterLogin = readStatus();
-    assert.ok(afterLogin.conflictUpsertSuccesses >= beforeWrites + 1, "login should persist store once");
-    console.log("PASS  critical analytics still persists store");
+    assert.ok(afterLogin.conflictUpsertSuccesses >= beforeWrites + 1, "login user patch should persist store once");
+    assert.ok(afterLogin.analyticsInserts >= beforeAnalytics + 13, "login should also insert analytics table row");
+    console.log("PASS  critical analytics persists user fields without blob analytics rewrite");
 
     console.log("\nAll store write debounce tests passed.");
   } catch (error) {

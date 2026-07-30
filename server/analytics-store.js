@@ -1,11 +1,20 @@
 /**
  * Append-only analytics events in Postgres — avoids rewriting the ~17MB llh_store blob
  * on every page_view / website_visit.
+ *
+ * Analytics rows are idempotent (ON CONFLICT DO NOTHING on event id).
+ * User/billing side-effects for login/signup/checkout use separate store patches.
  */
 
-const ANALYTICS_IMMEDIATE_STORE_EVENTS = new Set([
+/** Events that may update users / billing in llh_store — never the analytics array in Postgres mode. */
+const ANALYTICS_USER_STORE_PATCH_EVENTS = new Set([
   "account_signup_complete",
   "account_login_complete",
+  "checkout_success",
+  "subscription_canceled",
+]);
+
+const ANALYTICS_BILLING_STORE_PATCH_EVENTS = new Set([
   "checkout_success",
   "subscription_canceled",
 ]);
@@ -28,10 +37,14 @@ const ANALYTICS_TABLE_SQL = `
   )
 `;
 
-const ANALYTICS_INDEX_SQL = `
-  CREATE INDEX IF NOT EXISTS llh_analytics_events_created_at_idx
-  ON llh_analytics_events (created_at DESC)
-`;
+const ANALYTICS_INDEX_SQL = [
+  `CREATE INDEX IF NOT EXISTS llh_analytics_events_created_at_idx
+   ON llh_analytics_events (created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS llh_analytics_events_user_created_idx
+   ON llh_analytics_events (user_email, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS llh_analytics_events_name_created_idx
+   ON llh_analytics_events (name, created_at DESC)`,
+];
 
 function rowToEvent(row) {
   if (!row) return null;
@@ -56,7 +69,9 @@ function rowToEvent(row) {
 
 async function initAnalyticsTable(pool, queryFn) {
   await queryFn(ANALYTICS_TABLE_SQL, [], { label: "Postgres create llh_analytics_events" });
-  await queryFn(ANALYTICS_INDEX_SQL, [], { label: "Postgres index llh_analytics_events" });
+  for (const sql of ANALYTICS_INDEX_SQL) {
+    await queryFn(sql, [], { label: "Postgres index llh_analytics_events" });
+  }
 }
 
 async function insertAnalyticsEvent(pool, queryFn, event) {
@@ -101,8 +116,39 @@ async function fetchRecentAnalyticsEvents(pool, queryFn, { limit = 10000, days =
   return (result.rows || []).map(rowToEvent).filter(Boolean);
 }
 
-function requiresImmediateStoreWrite(eventName) {
-  return ANALYTICS_IMMEDIATE_STORE_EVENTS.has(String(eventName || ""));
+async function pruneOldAnalyticsEvents(pool, queryFn, { retentionDays = 90, maxRows = 50000 } = {}) {
+  const days = Math.max(30, Math.min(365, Number(retentionDays) || 90));
+  const cap = Math.max(1000, Math.min(250000, Number(maxRows) || 50000));
+  const byAge = await queryFn(
+    `DELETE FROM llh_analytics_events
+     WHERE created_at < NOW() - ($1::text || ' days')::interval`,
+    [String(days)],
+    { label: "Postgres prune analytics by age" },
+  );
+  const byCount = await queryFn(
+    `DELETE FROM llh_analytics_events
+     WHERE id IN (
+       SELECT id FROM llh_analytics_events
+       ORDER BY created_at DESC
+       OFFSET $1
+     )`,
+    [cap],
+    { label: "Postgres prune analytics by count" },
+  );
+  return {
+    deletedByAge: byAge.rowCount || 0,
+    deletedByCount: byCount.rowCount || 0,
+    retentionDays: days,
+    maxRows: cap,
+  };
+}
+
+function requiresUserStorePatch(eventName) {
+  return ANALYTICS_USER_STORE_PATCH_EVENTS.has(String(eventName || ""));
+}
+
+function requiresBillingStorePatch(eventName) {
+  return ANALYTICS_BILLING_STORE_PATCH_EVENTS.has(String(eventName || ""));
 }
 
 function isHighVolumeAnalyticsEvent(eventName) {
@@ -112,11 +158,20 @@ function isHighVolumeAnalyticsEvent(eventName) {
     || name === "event";
 }
 
+/** @deprecated use requiresUserStorePatch */
+function requiresImmediateStoreWrite(eventName) {
+  return requiresUserStorePatch(eventName);
+}
+
 module.exports = {
-  ANALYTICS_IMMEDIATE_STORE_EVENTS,
+  ANALYTICS_USER_STORE_PATCH_EVENTS,
+  ANALYTICS_BILLING_STORE_PATCH_EVENTS,
   initAnalyticsTable,
   insertAnalyticsEvent,
   fetchRecentAnalyticsEvents,
+  pruneOldAnalyticsEvents,
+  requiresUserStorePatch,
+  requiresBillingStorePatch,
   requiresImmediateStoreWrite,
   isHighVolumeAnalyticsEvent,
   rowToEvent,
