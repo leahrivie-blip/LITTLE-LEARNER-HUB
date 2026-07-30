@@ -30,6 +30,16 @@ const TITLE_TARGETS = [
   "Sensory Discovery",
   "Baby's First Conversations",
   "Smiles & Expressions",
+  // Family/grandfriends weeks that were stuck on animal-sounds.jpg / generic family.svg
+  "Grandfriends and Loving Faces",
+  "Family Faces and Loving People",
+  "My Family and Familiar Faces",
+  "Grandfriends, Photos and Little Keepsakes",
+  "Friendship Problem Solvers",
+  "Hello Fall, Little One",
+  "Family Songs and Loving Rhythms",
+  "Healthy Me",
+  "Preschool Classroom Explorers",
 ];
 
 async function main() {

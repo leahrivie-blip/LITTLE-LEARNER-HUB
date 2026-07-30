@@ -134,6 +134,27 @@ function unitTests() {
     covers.getMappedThemeCover("All About Me", "").includes("all-about-me.jpg"),
     "All About Me keeps its illustrated cover",
   );
+  // Bare "faces" must not route family weeks onto animal-sounds.jpg.
+  assert(
+    covers.getMappedThemeCover("Grandfriends and Loving Faces", "").includes("grandfriends-loving-faces.svg"),
+    "Grandfriends and Loving Faces must not use animal-sounds",
+  );
+  assert(
+    !covers.getMappedThemeCover("Family Faces and Loving People", "").includes("animal-sounds"),
+    "Family Faces must not use animal-sounds",
+  );
+  assert(
+    covers.getMappedThemeCover("My Family and Familiar Faces", "").includes("my-family-familiar-faces.svg"),
+    "My Family and Familiar Faces needs its own cartoon cover",
+  );
+  assert(
+    covers.getMappedThemeCover("Healthy Me", "").includes("healthy-me.svg"),
+    "Healthy Me must not fall back to generic toddler",
+  );
+  assert(
+    covers.getMappedThemeCover("Friendship Problem Solvers", "").includes("friendship-problem-solvers.svg"),
+    "Friendship Problem Solvers needs a unique cover",
+  );
 
   const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(app.includes("lesson-plan-card__cover"), "card cover img class missing");

@@ -369,6 +369,194 @@ const covers = {
       <path d="M385 330 q15 12 30 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
     `,
   },
+  "grandfriends-loving-faces": {
+    bg: ["#FFF5F0", "#E8F4FF"],
+    body: `
+      <ellipse cx="400" cy="410" rx="300" ry="40" fill="#F0E0D0" opacity="0.75"/>
+      <circle cx="260" cy="210" r="52" fill="#E8C4A8"/>
+      <circle cx="245" cy="198" r="5" fill="#5A4A42"/>
+      <circle cx="275" cy="198" r="5" fill="#5A4A42"/>
+      <path d="M245 225 q15 14 30 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <path d="M230 175 q15 -18 30 0" fill="none" stroke="#B0B8C8" stroke-width="6" stroke-linecap="round"/>
+      <circle cx="520" cy="230" r="40" fill="#FFD4B8"/>
+      <circle cx="508" cy="220" r="5" fill="#5A4A42"/>
+      <circle cx="532" cy="220" r="5" fill="#5A4A42"/>
+      <path d="M508 242 q12 12 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <ellipse cx="520" cy="300" rx="36" ry="42" fill="#FF8FAB"/>
+      <ellipse cx="260" cy="300" rx="48" ry="55" fill="#6C8CFF"/>
+      <path d="M320 250 Q400 300 460 250" fill="none" stroke="#F2C14E" stroke-width="8" stroke-linecap="round"/>
+      <rect x="600" y="160" width="70" height="90" rx="10" fill="#FFF8F0" stroke="#D0D8E8" stroke-width="4"/>
+      <circle cx="635" cy="200" r="18" fill="#E8C4A8"/>
+      <circle cx="628" cy="195" r="3" fill="#5A4A42"/>
+      <circle cx="642" cy="195" r="3" fill="#5A4A42"/>
+    `,
+  },
+  "family-faces-loving-people": {
+    bg: ["#E8FFF4", "#FFF8E8"],
+    body: `
+      <ellipse cx="400" cy="400" rx="320" ry="42" fill="#D8EFD0" opacity="0.8"/>
+      <circle cx="220" cy="200" r="44" fill="#E8B898"/>
+      <circle cx="400" cy="180" r="48" fill="#FFD4B8"/>
+      <circle cx="580" cy="200" r="44" fill="#E8C4A8"/>
+      <circle cx="310" cy="290" r="36" fill="#FFD4B8"/>
+      <circle cx="490" cy="290" r="36" fill="#E8B898"/>
+      <circle cx="205" cy="188" r="5" fill="#5A4A42"/>
+      <circle cx="235" cy="188" r="5" fill="#5A4A42"/>
+      <path d="M205 212 q15 12 30 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <circle cx="385" cy="168" r="5" fill="#5A4A42"/>
+      <circle cx="415" cy="168" r="5" fill="#5A4A42"/>
+      <path d="M385 195 q15 14 30 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <circle cx="565" cy="188" r="5" fill="#5A4A42"/>
+      <circle cx="595" cy="188" r="5" fill="#5A4A42"/>
+      <path d="M565 212 q15 12 30 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <circle cx="400" cy="100" r="18" fill="#E85D5D"/>
+    `,
+  },
+  "my-family-familiar-faces": {
+    bg: ["#FFF0F8", "#E8F4FF"],
+    body: `
+      <ellipse cx="400" cy="405" rx="300" ry="38" fill="#F0E0D8" opacity="0.75"/>
+      <rect x="140" y="140" width="150" height="170" rx="18" fill="#FFF8F0" stroke="#E0D0C8" stroke-width="5"/>
+      <circle cx="215" cy="210" r="36" fill="#FFD4B8"/>
+      <circle cx="203" cy="200" r="4" fill="#5A4A42"/>
+      <circle cx="227" cy="200" r="4" fill="#5A4A42"/>
+      <path d="M203 222 q12 10 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <rect x="325" y="130" width="150" height="180" rx="18" fill="#FFF8F0" stroke="#E0D0C8" stroke-width="5"/>
+      <circle cx="400" cy="205" r="40" fill="#E8B898"/>
+      <circle cx="386" cy="193" r="4" fill="#5A4A42"/>
+      <circle cx="414" cy="193" r="4" fill="#5A4A42"/>
+      <path d="M386 218 q14 12 28 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <rect x="510" y="145" width="150" height="165" rx="18" fill="#FFF8F0" stroke="#E0D0C8" stroke-width="5"/>
+      <circle cx="585" cy="210" r="34" fill="#FFD4B8"/>
+      <circle cx="574" cy="200" r="4" fill="#5A4A42"/>
+      <circle cx="596" cy="200" r="4" fill="#5A4A42"/>
+      <path d="M574 222 q11 9 22 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <circle cx="400" cy="80" r="16" fill="#F2C14E"/>
+    `,
+  },
+  "grandfriends-photos-keepsakes": {
+    bg: ["#FFF8E8", "#F0E8FF"],
+    body: `
+      <ellipse cx="400" cy="410" rx="310" ry="40" fill="#E8DCC8" opacity="0.7"/>
+      <rect x="180" y="120" width="120" height="140" rx="12" fill="#FFF" stroke="#C4A484" stroke-width="8"/>
+      <circle cx="240" cy="180" r="28" fill="#E8C4A8"/>
+      <circle cx="232" cy="172" r="3" fill="#5A4A42"/>
+      <circle cx="248" cy="172" r="3" fill="#5A4A42"/>
+      <rect x="340" y="150" width="130" height="150" rx="12" fill="#FFF" stroke="#6C8CFF" stroke-width="8"/>
+      <circle cx="405" cy="215" r="32" fill="#FFD4B8"/>
+      <circle cx="395" cy="205" r="3" fill="#5A4A42"/>
+      <circle cx="415" cy="205" r="3" fill="#5A4A42"/>
+      <path d="M395 228 q10 8 20 0" fill="none" stroke="#C47A5A" stroke-width="2"/>
+      <rect x="520" y="130" width="110" height="130" rx="12" fill="#FFF" stroke="#E85D5D" stroke-width="8"/>
+      <circle cx="575" cy="185" r="26" fill="#E8B898"/>
+      <circle cx="180" cy="320" r="22" fill="#F2C14E"/>
+      <circle cx="250" cy="340" r="16" fill="#FF8FAB"/>
+      <rect x="560" y="300" width="50" height="40" rx="8" fill="#7DCE82"/>
+      <path d="M300 100 q40 -30 80 0" fill="none" stroke="#B388FF" stroke-width="6" stroke-linecap="round"/>
+    `,
+  },
+  "friendship-problem-solvers": {
+    bg: ["#E8F8FF", "#FFF5E8"],
+    body: `
+      <ellipse cx="400" cy="400" rx="280" ry="38" fill="#E0E8F0" opacity="0.75"/>
+      <circle cx="300" cy="220" r="42" fill="#FFD4B8"/>
+      <circle cx="500" cy="220" r="42" fill="#E8B898"/>
+      <ellipse cx="300" cy="310" rx="46" ry="52" fill="#6C8CFF"/>
+      <ellipse cx="500" cy="310" rx="46" ry="52" fill="#7DCE82"/>
+      <circle cx="288" cy="208" r="5" fill="#5A4A42"/>
+      <circle cx="312" cy="208" r="5" fill="#5A4A42"/>
+      <circle cx="488" cy="208" r="5" fill="#5A4A42"/>
+      <circle cx="512" cy="208" r="5" fill="#5A4A42"/>
+      <path d="M288 232 q12 8 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <path d="M488 232 q12 8 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <circle cx="400" cy="160" r="34" fill="#FFE66D"/>
+      <path d="M388 145 q12 -14 24 0 q0 14 -12 18" fill="none" stroke="#5A4A42" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="400" cy="178" r="4" fill="#5A4A42"/>
+      <path d="M340 250 Q400 280 460 250" fill="none" stroke="#F2C14E" stroke-width="7" stroke-linecap="round"/>
+    `,
+  },
+  "hello-fall-little-one": {
+    bg: ["#FFF4E0", "#FFE8D0"],
+    body: `
+      <ellipse cx="400" cy="410" rx="340" ry="42" fill="#E8C9A0"/>
+      <circle cx="160" cy="120" r="45" fill="#F2C14E" opacity="0.85"/>
+      <path d="M280 100 q30 80 10 160" fill="none" stroke="#C45C26" stroke-width="8" stroke-linecap="round"/>
+      <ellipse cx="300" cy="140" rx="28" ry="16" fill="#E85D5D" transform="rotate(-20 300 140)"/>
+      <ellipse cx="340" cy="200" rx="26" ry="15" fill="#F2C14E" transform="rotate(15 340 200)"/>
+      <ellipse cx="280" cy="230" rx="24" ry="14" fill="#E07050" transform="rotate(-10 280 230)"/>
+      <rect x="480" y="200" width="18" height="140" rx="5" fill="#8B5A3C"/>
+      <ellipse cx="489" cy="190" rx="50" ry="30" fill="#C45C26"/>
+      <ellipse cx="460" cy="210" rx="30" ry="20" fill="#E07050"/>
+      <ellipse cx="520" cy="210" rx="30" ry="20" fill="#E85D5D"/>
+      <circle cx="620" cy="260" r="40" fill="#FFD4B8"/>
+      <circle cx="608" cy="248" r="5" fill="#5A4A42"/>
+      <circle cx="632" cy="248" r="5" fill="#5A4A42"/>
+      <path d="M608 272 q12 12 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <ellipse cx="620" cy="330" rx="38" ry="45" fill="#FF8FAB"/>
+    `,
+  },
+  "family-songs-loving-rhythms": {
+    bg: ["#FFF0F5", "#E8FFF8"],
+    body: `
+      <ellipse cx="400" cy="405" rx="300" ry="38" fill="#E8D0E0" opacity="0.7"/>
+      <circle cx="280" cy="220" r="40" fill="#FFD4B8"/>
+      <circle cx="500" cy="220" r="40" fill="#E8B898"/>
+      <ellipse cx="280" cy="305" rx="42" ry="50" fill="#B388FF"/>
+      <ellipse cx="500" cy="305" rx="42" ry="50" fill="#6C8CFF"/>
+      <circle cx="268" cy="208" r="5" fill="#5A4A42"/>
+      <circle cx="292" cy="208" r="5" fill="#5A4A42"/>
+      <circle cx="488" cy="208" r="5" fill="#5A4A42"/>
+      <circle cx="512" cy="208" r="5" fill="#5A4A42"/>
+      <path d="M268 232 q12 10 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <path d="M488 232 q12 10 24 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <circle cx="400" cy="140" r="28" fill="#F2C14E"/>
+      <path d="M400 110 v-30 M385 95 h30" stroke="#F2C14E" stroke-width="6" stroke-linecap="round"/>
+      <path d="M180 160 q20 -40 40 0" fill="none" stroke="#FF8FAB" stroke-width="5"/>
+      <path d="M580 150 q25 -45 50 0" fill="none" stroke="#7DCE82" stroke-width="5"/>
+      <ellipse cx="650" cy="280" rx="18" ry="28" fill="#E85D5D"/>
+      <rect x="665" y="220" width="6" height="70" rx="2" fill="#5A4A42"/>
+    `,
+  },
+  "healthy-me": {
+    bg: ["#E8FFF0", "#FFF8E0"],
+    body: `
+      <ellipse cx="400" cy="405" rx="300" ry="40" fill="#C8E8C0" opacity="0.75"/>
+      <circle cx="400" cy="180" r="50" fill="#FFD4B8"/>
+      <circle cx="385" cy="168" r="5" fill="#5A4A42"/>
+      <circle cx="415" cy="168" r="5" fill="#5A4A42"/>
+      <path d="M385 195 q15 14 30 0" fill="none" stroke="#C47A5A" stroke-width="3"/>
+      <ellipse cx="400" cy="290" rx="55" ry="65" fill="#7DCE82"/>
+      <circle cx="220" cy="240" r="36" fill="#E85D5D"/>
+      <ellipse cx="210" cy="255" rx="14" ry="18" fill="#FFF" opacity="0.35"/>
+      <circle cx="580" cy="240" r="34" fill="#F2C14E"/>
+      <path d="M580 210 q8 -20 0 -35" fill="none" stroke="#3D8B6E" stroke-width="5" stroke-linecap="round"/>
+      <ellipse cx="160" cy="320" rx="30" ry="20" fill="#FF8FAB"/>
+      <ellipse cx="640" cy="320" rx="28" ry="18" fill="#6C8CFF"/>
+      <path d="M300 120 q50 -40 100 0" fill="none" stroke="#A8D4FF" stroke-width="8" stroke-linecap="round" opacity="0.7"/>
+    `,
+  },
+  "preschool-classroom-explorers": {
+    bg: ["#E8F4FF", "#FFF8F0"],
+    body: `
+      <rect x="120" y="100" width="560" height="280" rx="24" fill="#FFF8F0" stroke="#D0D8E8" stroke-width="6"/>
+      <rect x="160" y="140" width="80" height="60" rx="10" fill="#A8D4FF"/>
+      <rect x="270" y="140" width="80" height="60" rx="10" fill="#FFE66D"/>
+      <rect x="380" y="140" width="80" height="60" rx="10" fill="#FFB3C6"/>
+      <rect x="490" y="140" width="80" height="60" rx="10" fill="#7DCE82"/>
+      <circle cx="250" cy="280" r="32" fill="#FFD4B8"/>
+      <circle cx="400" cy="270" r="34" fill="#E8B898"/>
+      <circle cx="550" cy="280" r="32" fill="#FFD4B8"/>
+      <circle cx="240" cy="270" r="4" fill="#5A4A42"/>
+      <circle cx="260" cy="270" r="4" fill="#5A4A42"/>
+      <circle cx="388" cy="258" r="4" fill="#5A4A42"/>
+      <circle cx="412" cy="258" r="4" fill="#5A4A42"/>
+      <circle cx="540" cy="270" r="4" fill="#5A4A42"/>
+      <circle cx="560" cy="270" r="4" fill="#5A4A42"/>
+      <rect x="200" y="330" width="120" height="28" rx="8" fill="#6C8CFF"/>
+      <rect x="360" y="330" width="90" height="28" rx="8" fill="#F2C14E"/>
+      <rect x="480" y="330" width="110" height="28" rx="8" fill="#FF8FAB"/>
+    `,
+  },
 };
 
 let written = 0;

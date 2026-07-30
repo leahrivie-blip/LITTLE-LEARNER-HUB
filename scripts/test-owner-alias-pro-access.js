@@ -127,7 +127,7 @@ function staticChecks() {
   assert.match(app, /positionItemActionMenuPanel/);
   assert.match(css, /llh-item-menu-backdrop/);
   assert.match(css, /#scheduleEventModal/);
-  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=/);
   console.log("PASS static owner Pro + mobile overlay markers");
 }
 
@@ -139,6 +139,20 @@ async function seedProLesson(token) {
   }
   const parsed = parseCurriculumLessonPlanImport(source);
   assert.equal(parsed.ok, true, parsed.error || "parse failed");
+  const dailyPlans = { ...(parsed.data.dailyPlans || {}) };
+  for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday"]) {
+    const items = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
+    const hasTitle = items.some((item) => String(item?.title || "").trim());
+    if (!hasTitle) {
+      dailyPlans[day] = {
+        ...(dailyPlans[day] || {}),
+        items: [{
+          title: `${day} owner access activity`,
+          steps: PROTECTED,
+        }],
+      };
+    }
+  }
   const bootstrap = await request("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
   const touch = await request("POST", "/api/admin/site-content", {
     body: {
@@ -153,6 +167,7 @@ async function seedProLesson(token) {
       expectedUpdatedAt: touch.json.siteContent.updatedAt,
       lessonPlan: {
         ...parsed.data,
+        dailyPlans,
         id: planId,
         title: "Owner Pro Access Plan",
         plan: "Pro",
@@ -181,17 +196,19 @@ async function main() {
     const freeDenied = await request("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(planId)}`, {
       headers: memberHeaders(FREE_MEMBER),
     });
-    assert.equal(freeDenied.status, 403, "regular Free member must not receive Pro body");
+    assert.equal(freeDenied.status, 200, "Free members may browse a locked Pro preview");
+    assert.equal(freeDenied.json?.lessonPlan?.locked, true, "regular Free member must get locked Pro preview");
+    assert.ok(!freeDenied.json?.lessonPlan?.dailyPlans, "regular Free member must not receive full dailyPlans");
 
     const ownerAllowed = await request("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(planId)}`, {
       headers: memberHeaders(OWNER),
     });
     assert.equal(ownerAllowed.status, 200, `owner Free membership must still get Pro curriculum (${ownerAllowed.status})`);
+    assert.equal(ownerAllowed.json?.lessonPlan?.locked, false, "owner must receive unlocked Pro body");
     assert.ok(
-      JSON.stringify(ownerAllowed.json).includes("Owner Pro Access Plan")
-        || JSON.stringify(ownerAllowed.json).includes(PROTECTED)
-        || ownerAllowed.json?.lessonPlan
-        || ownerAllowed.json?.id === planId,
+      ownerAllowed.json?.lessonPlan?.dailyPlans
+        || JSON.stringify(ownerAllowed.json).includes("Owner Pro Access Plan")
+        || JSON.stringify(ownerAllowed.json).includes(PROTECTED),
       "owner response should include full lesson plan payload",
     );
     console.log("PASS server grants Pro curriculum to Free owner alias");
