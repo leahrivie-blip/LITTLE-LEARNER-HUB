@@ -1,15 +1,15 @@
-const CACHE_NAME = "llh-shell-v122-cover-refresh";
-const SHELL_VERSION = "20260730-cover-refresh";
+const CACHE_NAME = "llh-shell-v123-request-reviews";
+const SHELL_VERSION = "20260730-request-reviews";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260730-cover-refresh",
+  "/styles.css?v=20260730-request-reviews",
   "/styles/llh-admin-workspace.css?v=20260729-signed-in-audit",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260729-signed-in-audit",
+  "/styles/llh-homepage.css?v=20260730-request-reviews",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
   "/styles/llh-messaging.css?v=20260730-cover-refresh",
   "/styles/llh-comms.css?v=20260729-signed-in-audit",
@@ -30,7 +30,7 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-cover-refresh",
   "/scripts/trial-curriculum-exports.js?v=20260730-cover-refresh",
   "/scripts/free-plan-grandfathering.js?v=20260730-cover-refresh",
-  "/app.js?v=20260730-cover-refresh",
+  "/app.js?v=20260730-request-reviews",
   "/admin-workspace.js?v=20260730-cover-refresh",
   "/comms-center.js?v=20260729-signed-in-audit",
   "/site.webmanifest",

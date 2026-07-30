@@ -51431,6 +51431,27 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const requestLessonPlanButton = event.target.closest("[data-action='request-lesson-plan']");
+  if (requestLessonPlanButton) {
+    event.preventDefault();
+    dismissOverlaysForAuthOrUpgrade();
+    if (!currentUser) {
+      setPreferredSignupPlan("free");
+      openAuthModal("signup");
+      return;
+    }
+    // Members land on the lesson library request form (and can also message Leah).
+    setView("lessons");
+    window.setTimeout(() => {
+      const panel = document.querySelector("#lessonPlanRequestPanel");
+      const form = document.querySelector("#lessonPlanRequestForm");
+      const toggle = document.querySelector("[data-toggle-lesson-plan-request]");
+      if (form && form.hidden && toggle) toggle.click();
+      panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 350);
+    return;
+  }
+
   const startFreeButton = event.target.closest("[data-action='start-free']");
   if (startFreeButton) {
     event.preventDefault();

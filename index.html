@@ -61,8 +61,8 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260729-signed-in-audit" />
-  <link rel="stylesheet" href="styles.css?v=20260730-cover-refresh" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-request-reviews" />
+  <link rel="stylesheet" href="styles.css?v=20260730-request-reviews" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-cover-refresh" />
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260729-signed-in-audit";
+      var SHELL_VERSION = "20260730-request-reviews";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -549,10 +549,20 @@
             <div class="llh-preview-grid" id="homeLessonPreviewGrid">
               <div class="llh-preview-empty muted-copy">Loading free lesson plan previews…</div>
             </div>
-            <p class="llh-lesson-request-note muted-copy">New plans added weekly—members can request future themes.</p>
-            <div class="llh-section-actions">
-              <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
-            </div>
+            <aside class="llh-provider-built" aria-label="Member-requested lesson plans">
+              <h3 class="llh-provider-built-eyebrow">Built with providers, not for a textbook.</h3>
+              <p class="llh-provider-built-copy">Providers request themes in Messages. Leah builds them. They&rsquo;re published for everyone — often within the week.</p>
+              <p class="llh-provider-built-examples" aria-label="Recent member-requested themes">
+                <span>Rainforest</span>
+                <span>Hibernation</span>
+                <span>Christmas</span>
+                <span>Family Connections</span>
+              </p>
+              <div class="llh-provider-built-actions">
+                <button class="llh-btn llh-btn-primary" type="button" data-action="request-lesson-plan">Request a Lesson Plan</button>
+                <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
+              </div>
+            </aside>
           </section>
 
           <!-- ACTIVITY PREVIEW -->
@@ -702,18 +712,38 @@
           <section class="lp-reviews-section llh-reviews-section" id="homeReviews" aria-label="Provider reviews">
             <div class="lp-section-header">
               <h2 class="lp-section-title">What Childcare Providers Are Saying</h2>
+              <p class="lp-section-sub llh-reviews-rating" aria-label="Rated 5 stars by teachers and providers">
+                <span class="llh-reviews-stars" aria-hidden="true">★★★★★</span>
+                Rated 5 stars by teachers &amp; providers
+              </p>
             </div>
-            <div class="lp-reviews-grid llh-reviews-grid">
+            <div class="lp-reviews-grid llh-reviews-grid llh-reviews-grid--trio">
               <article class="lp-review-card featured llh-review-featured">
-                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                <p>&ldquo;I actually love it. I would definitely use it for our lesson planning and things like that. I&rsquo;m excited about it. It&rsquo;s really good.&rdquo;</p>
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;I actually love it. I would definitely use it for our lesson planning. I&rsquo;m excited about it — it&rsquo;s really good.&rdquo;</p>
                 <div class="lp-reviewer">
                   <span class="lp-reviewer-avatar" aria-hidden="true">T</span>
                   <div><strong>Tiffany</strong><small>Little Saints Daycare</small></div>
                 </div>
               </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;Super helpful. Leah got right back to me super fast when I asked about a theme for my classroom.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">M</span>
+                  <div><strong>Maria</strong><small>Home daycare provider</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;I love how affordable it is. The lesson plans have so much detail — ready for real mixed-age days.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">A</span>
+                  <div><strong>Ashley</strong><small>Preschool teacher</small></div>
+                </div>
+              </article>
             </div>
-            <p class="llh-reviews-more muted-copy">More provider stories coming soon.</p>
+            <p class="llh-reviews-more muted-copy">Member ratings &amp; reviews are coming soon for paid plans — we&rsquo;d love to hear how it&rsquo;s working in your classroom.</p>
           </section>
 
           <!-- PRICING -->
@@ -2137,7 +2167,7 @@
     <script src="scripts/free-curriculum-sample.js?v=20260730-cover-refresh" defer></script>
     <script src="scripts/trial-curriculum-exports.js?v=20260730-cover-refresh" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-cover-refresh" defer></script>
-    <script src="app.js?v=20260730-cover-refresh" defer></script>
+    <script src="app.js?v=20260730-request-reviews" defer></script>
     <script src="admin-workspace.js?v=20260730-cover-refresh" defer></script>
     <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>
