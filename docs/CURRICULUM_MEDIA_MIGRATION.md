@@ -61,6 +61,7 @@ PR #385 fixed analytics page-view isolation; it did **not** cause this bloat. Th
 | `scripts/inventory-inline-curriculum-resources.js` | Production inventory CLI |
 | `scripts/migrate-inline-curriculum-resources.js` | Controlled migration CLI |
 | `scripts/test-curriculum-media-migration.js` | Unit + optional Postgres integration tests |
+| `scripts/verify-migration-manual-checks.js` | Production sign-off automation (`RENDER_API_KEY` required) |
 | `package.json` | Scripts + syntax check entries |
 | `docs/CURRICULUM_MEDIA_MIGRATION.md` | This plan |
 
