@@ -88,12 +88,22 @@ async function waitForBoot(child) {
   for (let i = 0; i < 120; i += 1) {
     try {
       const res = await requestJson("GET", "/api/health");
-      if (res.status === 200 && res.json?.ok) return;
+      if (res.status === 200 && res.json?.ok) break;
     } catch { /* retry */ }
     if (child.exitCode !== null) throw new Error(child.__output().slice(-1500));
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error(`boot timeout:\n${child.__output().slice(-1500)}`);
+  // Curriculum seed writes may still be chaining after /api/health returns 200.
+  let stable = 0;
+  let last = -1;
+  for (let i = 0; i < 40; i += 1) {
+    const count = readStatus().conflictUpsertSuccesses || 0;
+    if (count === last) stable += 1;
+    else stable = 0;
+    last = count;
+    if (stable >= 3) return;
+    await new Promise((r) => setTimeout(r, 150));
+  }
 }
 
 async function stopServer(child) {
@@ -148,6 +158,26 @@ async function main() {
     assert.ok(afterLogin.conflictUpsertSuccesses >= beforeWrites + 1, "login user patch should persist store once");
     assert.ok(afterLogin.analyticsInserts >= beforeAnalytics + 13, "login should also insert analytics table row");
     console.log("PASS  critical analytics persists user fields without blob analytics rewrite");
+
+    console.log("3) Logged-in page_view debounces optional lastSeenAt only");
+    const beforeDebounced = readStatus().conflictUpsertSuccesses || 0;
+    for (let i = 0; i < 6; i += 1) {
+      const res = await requestJson("POST", "/api/analytics/event", {
+        name: "page_view",
+        path: `/debounce-lastseen-${i}`,
+        user: "debounce-user@example.com",
+        sessionId: `debounce-lastseen-session-${i}`,
+      });
+      assert.equal(res.status, 200, res.text);
+      assert.equal(res.json?.persisted, "analytics_table", res.text);
+    }
+    await new Promise((r) => setTimeout(r, 700));
+    const afterDebounced = readStatus();
+    assert.ok(
+      afterDebounced.conflictUpsertSuccesses <= beforeDebounced + 1,
+      `lastSeenAt debounce should coalesce (got ${afterDebounced.conflictUpsertSuccesses} vs ${beforeDebounced})`,
+    );
+    console.log("PASS  lastSeenAt debounce coalesces logged-in page views");
 
     console.log("\nAll store write debounce tests passed.");
   } catch (error) {
