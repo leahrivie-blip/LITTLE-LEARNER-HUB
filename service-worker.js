@@ -1,21 +1,21 @@
-const CACHE_NAME = "llh-shell-v132-hdh-guide";
-const SHELL_VERSION = "20260730-hdh-guide";
+const CACHE_NAME = "llh-shell-v134-ai-guide-all";
+const SHELL_VERSION = "20260730-ai-guide-all";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260730-hdh-guide",
+  "/styles.css?v=20260730-ai-guide-all",
   "/styles/llh-admin-workspace.css?v=20260729-signed-in-audit",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260730-hdh-guide",
+  "/styles/llh-homepage.css?v=20260730-ai-guide-all",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260730-hdh-guide",
+  "/styles/llh-messaging.css?v=20260730-ai-guide-all",
   "/styles/llh-comms.css?v=20260729-signed-in-audit",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-guide",
-  "/scripts/lesson-plan-covers.js?v=20260730-hdh-guide",
+  "/scripts/lesson-plan-cover-catalog.js?v=20260730-ai-guide-all",
+  "/scripts/lesson-plan-covers.js?v=20260730-ai-guide-all",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
@@ -27,11 +27,11 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260730-hdh-guide",
-  "/scripts/trial-curriculum-exports.js?v=20260730-hdh-guide",
-  "/scripts/free-plan-grandfathering.js?v=20260730-hdh-guide",
-  "/app.js?v=20260730-hdh-guide",
-  "/admin-workspace.js?v=20260730-hdh-guide",
+  "/scripts/free-curriculum-sample.js?v=20260730-ai-guide-all",
+  "/scripts/trial-curriculum-exports.js?v=20260730-ai-guide-all",
+  "/scripts/free-plan-grandfathering.js?v=20260730-ai-guide-all",
+  "/app.js?v=20260730-ai-guide-all",
+  "/admin-workspace.js?v=20260730-ai-guide-all",
   "/comms-center.js?v=20260729-signed-in-audit",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",

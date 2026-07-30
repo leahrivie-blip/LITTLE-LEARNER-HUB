@@ -22297,3 +22297,151 @@ body.printing-resource .trial-curriculum-watermark-print {
 .hdh-family-household-list h4 {
   margin: 0 0 8px;
 }
+
+.ai-guide-page .eyebrow {
+  margin: 0 0 4px;
+}
+
+.ai-guide-banner {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(180, 120, 40, 0.28);
+  background: rgba(250, 220, 150, 0.28);
+  color: var(--ink, #243047);
+  font-weight: 600;
+}
+
+.ai-guide-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.ai-guide-category-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  background: rgba(255, 255, 255, 0.88);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ai-guide-category-card:hover:not(:disabled),
+.ai-guide-category-card:focus-visible:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: rgba(90, 143, 123, 0.45);
+  box-shadow: 0 8px 18px rgba(36, 48, 71, 0.08);
+  outline: none;
+}
+
+.ai-guide-category-card:disabled {
+  opacity: 0.62;
+  cursor: not-allowed;
+}
+
+.ai-guide-category-card strong {
+  font-size: 1.02rem;
+}
+
+.ai-guide-category-card span,
+.ai-guide-category-card em {
+  color: var(--muted, #5b6578);
+  font-size: 0.92rem;
+  font-style: normal;
+}
+
+.ai-guide-compose,
+.ai-guide-draft-panel {
+  margin-top: 18px;
+}
+
+.ai-guide-revise-row {
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 14px;
+}
+
+.ai-guide-missing {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 143, 123, 0.24);
+  background: rgba(90, 143, 123, 0.08);
+}
+
+.ai-guide-missing ul {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+}
+
+.ai-guide-feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+#aiGuideDraftText {
+  width: 100%;
+  min-height: 220px;
+}
+
+@media (max-width: 720px) {
+  .ai-guide-category-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.ai-guide-insights {
+  margin: 12px 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 143, 123, 0.24);
+  background: rgba(90, 143, 123, 0.08);
+}
+
+.ai-guide-insights ul,
+.ai-guide-citations ul {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+}
+
+.ai-guide-citations {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.ai-guide-source-fieldset {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  border-radius: 12px;
+}
+
+.ai-guide-source-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.ai-guide-fixture-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 12px;
+}

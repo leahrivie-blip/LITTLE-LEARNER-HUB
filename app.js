@@ -5947,6 +5947,690 @@ function isHomeDaycareHubTestingEnabled() {
   return false;
 }
 
+/** AI Guide is fenced to the testing site via AI_GUIDE_ENABLED (+ testing-only). */
+function isAiGuideEnabled() {
+  try {
+    if (typeof window !== "undefined" && window.LLH_CONFIG && typeof window.LLH_CONFIG === "object") {
+      return Boolean(window.LLH_CONFIG.aiGuideEnabled);
+    }
+  } catch (_error) { /* ignore */ }
+  return false;
+}
+
+let aiGuideState = {
+  screen: "home",
+  config: null,
+  categoryId: "",
+  featureId: "",
+  notes: "",
+  childName: "",
+  ageGroup: "",
+  length: "standard",
+  tone: "",
+  state: "",
+  sourceRecordIds: [],
+  draft: null,
+  insights: [],
+  busy: false,
+  message: "",
+};
+
+function syncAiGuideNavVisibility() {
+  const enabled = isAiGuideEnabled() && isLoggedIn();
+  document.body.classList.toggle("ai-guide-testing", isAiGuideEnabled());
+  document.querySelectorAll("[data-nav-ai-guide='true']").forEach((button) => {
+    button.hidden = !enabled;
+    button.setAttribute("aria-hidden", enabled ? "false" : "true");
+    if (enabled) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+}
+
+async function loadAiGuideConfig() {
+  const headers = await staffAuthHeaders();
+  if (!headers) throw new Error("Please sign in to use AI Guide.");
+  const response = await fetch("/api/ai-guide/config", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "AI Guide is unavailable.");
+  aiGuideState.config = data;
+  return data;
+}
+
+function renderAiGuideReviewBanner() {
+  return `<p class="ai-guide-banner" role="note">AI-generated draft. Review for accuracy before saving, sharing, signing, or using.</p>`;
+}
+
+function aiGuideLocalObservations() {
+  try {
+    return (childStore("Observations") || []).slice(0, 40).map((item) => ({
+      id: item.id || "",
+      type: "observation",
+      title: item.title || item.area || "Observation",
+      summary: item.notes || item.text || item.observation || "",
+      date: item.date || item.createdAt || "",
+      childId: item.childId || "",
+      childName: item.childName || "",
+    })).filter((item) => item.summary);
+  } catch (_error) {
+    return [];
+  }
+}
+
+function renderAiGuideHome() {
+  const categories = aiGuideState.config?.categories || [];
+  const askOn = aiGuideState.config?.askEnabled !== false;
+  return `
+    <section class="ai-guide-home">
+      <p class="muted-copy">Choose what you need help creating. AI drafts never send or publish by themselves.</p>
+      <div class="account-actions-row" style="margin:12px 0;">
+        <button class="ghost-button" type="button" data-ai-guide-insights>Documentation insights</button>
+        ${askOn ? `<button class="ghost-button" type="button" data-ai-guide-category="ask-program">Ask About My Program</button>` : ""}
+      </div>
+      ${(aiGuideState.insights || []).length ? `
+        <div class="ai-guide-insights" id="aiGuideInsightsPanel">
+          <strong>Insights (suggestions only)</strong>
+          <ul>${aiGuideState.insights.map((item) => `<li><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.detail || "")}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
+      <div class="ai-guide-category-grid">
+        ${categories.map((category) => {
+          const ready = Array.isArray(category.featureIds) && category.featureIds.length > 0;
+          const askBlocked = category.askMode && !askOn;
+          return `
+            <button class="ai-guide-category-card" type="button" data-ai-guide-category="${escapeHtml(category.id)}" ${ready && !askBlocked ? "" : "disabled"}>
+              <strong>${escapeHtml(category.label)}</strong>
+              <span>${escapeHtml(category.blurb)}</span>
+              <em>Phase ${escapeHtml(String(category.phase || 1))}</em>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderAiGuideCompose() {
+  const category = (aiGuideState.config?.categories || []).find((item) => item.id === aiGuideState.categoryId);
+  const askMode = Boolean(category?.askMode);
+  const features = askMode
+    ? [{ id: "askProgram", title: "Ask About My Program", needsSourceRecords: true }]
+    : (aiGuideState.config?.features || []).filter((feature) => category ? category.featureIds.includes(feature.id) : false);
+  const feature = features.find((item) => item.id === aiGuideState.featureId) || features[0];
+  if (feature && !aiGuideState.featureId) aiGuideState.featureId = feature.id;
+  const featureMeta = (aiGuideState.config?.features || []).find((item) => item.id === aiGuideState.featureId) || feature || {};
+  const children = childRecords().children || [];
+  const observations = aiGuideLocalObservations();
+  const templates = (aiGuideState.config?.templates || []).filter((item) => !askMode && item.featureId === (aiGuideState.featureId || feature?.id));
+  const fixtures = (aiGuideState.config?.demoFixtures || []).filter((item) => item.featureId === (aiGuideState.featureId || feature?.id));
+  const states = aiGuideState.config?.states || [];
+  const placeholders = {
+    observation: "Example: Maya stacked blocks and they fell. She tried again three times and then made a tower with five blocks.",
+    parentMessage: "Example: Noah had a hard drop-off but was okay after blocks.",
+    incident: "Example: 10:15 playground. Eli tripped while running and scraped left knee. Washed it and added bandage. Mom called.",
+    lesson: "Example: Toddler room, families theme, mostly play-based, outdoor morning, avoid worksheets.",
+    activity: "Example: Preschool, family photos, blocks area, 15 minutes, low mess.",
+    form: "Example: Emergency contacts and authorized pickup form for enrollment.",
+    daily: "Example: Outdoor 9:30–10:15. Painted. Ate most of lunch. Nap 12:30–2. Happy at pickup.",
+    behaviorNote: "Example: During blocks, Jordan grabbed a peer’s block. Teacher named the feeling and offered a turn timer.",
+    developmentSummary: "Optional focus: persistence during block play this week.",
+    policyHandbook: "Example: Late pickup policy for families, plain language, include who to call.",
+    enrollmentMessage: "Example: Thanks for touring yesterday — share next steps for applying.",
+    staffMessage: "Example: Reminder for Friday fire drill at 10:00 and who covers the toddler room.",
+    adminWriting: "Example: Short reminder to update allergy lists before Monday.",
+    askProgram: "Example: Which children still need a photo release based on the records I selected?",
+  };
+  const needsState = Boolean(featureMeta.needsState || aiGuideState.featureId === "policyHandbook");
+  const needsSources = Boolean(featureMeta.needsSourceRecords || askMode || aiGuideState.featureId === "developmentSummary");
+  return `
+    <section class="ai-guide-compose">
+      <button class="ghost-button" type="button" data-ai-guide-back-home>← All categories</button>
+      <h3>${askMode ? "Ask About My Program" : "What would you like help creating?"}</h3>
+      ${askMode ? `<p class="form-note">Read-only answers from records you select. AI cannot change enrollment, send messages, or file reports.</p>` : ""}
+      <form id="aiGuideComposeForm" class="panel-form" data-ai-guide-ask="${askMode ? "true" : "false"}">
+        ${askMode ? `<input type="hidden" name="featureId" value="askProgram" />` : `
+        <label>Helper
+          <select name="featureId" required>
+            ${features.map((item) => `
+              <option value="${escapeHtml(item.id)}" ${item.id === aiGuideState.featureId ? "selected" : ""}>${escapeHtml(item.title)}</option>
+            `).join("")}
+          </select>
+        </label>`}
+        ${templates.length ? `
+          <label>Saved template
+            <select name="templateId" data-ai-guide-template>
+              <option value="">Start fresh</option>
+              ${templates.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)}</option>`).join("")}
+            </select>
+          </label>
+        ` : ""}
+        ${fixtures.length ? `
+          <div class="ai-guide-fixture-row">
+            <span class="form-note">Try a sample:</span>
+            ${fixtures.map((item) => `
+              <button class="ghost-button" type="button" data-ai-guide-fixture="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>
+            `).join("")}
+          </div>
+        ` : ""}
+        <label>${askMode ? "Your question" : "Your notes"}
+          <textarea name="notes" rows="5" maxlength="4000" required placeholder="${escapeHtml(placeholders[aiGuideState.featureId] || "Type a short description…")}">${escapeHtml(aiGuideState.notes || "")}</textarea>
+        </label>
+        ${needsSources ? `
+          <fieldset class="ai-guide-source-fieldset">
+            <legend>Source records ${askMode || aiGuideState.featureId === "developmentSummary" ? "(recommended)" : "(optional)"}</legend>
+            <p class="form-note">Only selected records are used. Nothing is changed.</p>
+            <div class="ai-guide-source-list">
+              ${observations.length ? observations.map((item) => `
+                <label class="settings-check-label">
+                  <input type="checkbox" name="sourceRecordIds" value="${escapeHtml(item.id)}" ${aiGuideState.sourceRecordIds.includes(item.id) ? "checked" : ""} />
+                  ${escapeHtml(item.title)}${item.date ? ` · ${escapeHtml(String(item.date).slice(0, 10))}` : ""}
+                </label>
+              `).join("") : `<p class="form-note">No local observations found yet. Paste facts in your notes, or add observations first.</p>`}
+            </div>
+          </fieldset>
+        ` : ""}
+        <div class="form-grid-two">
+          <label>Child name (optional)
+            <input name="childName" maxlength="80" list="aiGuideChildList" value="${escapeHtml(aiGuideState.childName || "")}" />
+            <datalist id="aiGuideChildList">
+              ${children.map((child) => `<option value="${escapeHtml(child.name)}"></option>`).join("")}
+            </datalist>
+          </label>
+          <label>Age group (optional)
+            <select name="ageGroup">
+              ${["", "Infant", "Toddler", "Preschool", "School Age"].map((age) => `
+                <option value="${escapeHtml(age)}" ${aiGuideState.ageGroup === age ? "selected" : ""}>${age || "No age selected"}</option>
+              `).join("")}
+            </select>
+          </label>
+          <label>Length
+            <select name="length">
+              <option value="quick" ${aiGuideState.length === "quick" ? "selected" : ""}>Quick</option>
+              <option value="standard" ${aiGuideState.length === "standard" ? "selected" : ""}>Standard</option>
+              <option value="detailed" ${aiGuideState.length === "detailed" ? "selected" : ""}>Detailed</option>
+            </select>
+          </label>
+          <label>Tone (messages)
+            <select name="tone">
+              ${["", "warm", "direct", "professional", "brief"].map((tone) => `
+                <option value="${escapeHtml(tone)}" ${aiGuideState.tone === tone ? "selected" : ""}>${tone || "Default"}</option>
+              `).join("")}
+            </select>
+          </label>
+          ${needsState ? `
+            <label>US state (for policy draft)
+              <select name="state">
+                <option value="">Select state</option>
+                ${states.map((st) => `<option value="${escapeHtml(st)}" ${aiGuideState.state === st ? "selected" : ""}>${escapeHtml(st)}</option>`).join("")}
+              </select>
+            </label>
+          ` : ""}
+        </div>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit" ${aiGuideState.busy ? "disabled" : ""}>${aiGuideState.busy ? "Working…" : (askMode ? "Ask (read-only)" : "Generate Draft")}</button>
+          ${askMode ? "" : `<button class="ghost-button" type="button" data-ai-guide-save-template>Save as template</button>`}
+        </div>
+        <p class="form-note">${askMode ? "Answers are read-only. Nothing is sent or changed." : "Nothing is sent, published, signed, or filed automatically."}</p>
+        <span class="form-message" id="aiGuideComposeMessage">${escapeHtml(aiGuideState.message || "")}</span>
+      </form>
+    </section>
+  `;
+}
+
+function renderAiGuideDraftPanel() {
+  const draft = aiGuideState.draft;
+  if (!draft) return "";
+  const output = draft.outputText || "";
+  return `
+    <section class="ai-guide-draft-panel" id="aiGuideDraftPanel">
+      ${renderAiGuideReviewBanner()}
+      <p class="form-note">${escapeHtml(draft.sourceLabel || "AI Guide")}${draft.localFallback ? " · local starter used" : ""}</p>
+      <div class="account-actions-row ai-guide-revise-row">
+        <button class="ghost-button" type="button" data-ai-guide-revise="make_shorter">Make shorter</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="add_detail">Add more detail</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="make_warmer">Make warmer</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="make_direct">Make more direct</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="make_family_friendly">Make more family-friendly</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="make_professional">Make more professional</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="simpler_words">Use simpler words</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="remove_edu_wording">Remove educational wording</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="facts_only">Keep only the facts</button>
+        <button class="ghost-button" type="button" data-ai-guide-revise="missing_info_prompts">Add missing-info prompts</button>
+      </div>
+      <label>Draft
+        <textarea id="aiGuideDraftText" rows="12">${escapeHtml(output)}</textarea>
+      </label>
+      ${(draft.missingInfoPrompts || []).length ? `
+        <div class="ai-guide-missing">
+          <strong>Still needed</strong>
+          <ul>${draft.missingInfoPrompts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
+      ${(draft.citations || []).length ? `
+        <div class="ai-guide-citations">
+          <strong>Sources used</strong>
+          <ul>${draft.citations.map((item) => `<li>${escapeHtml(item.type || "record")}: ${escapeHtml(item.title || item.id || "")}${item.date ? ` · ${escapeHtml(String(item.date).slice(0, 10))}` : ""}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
+      ${draft.askMode ? `<p class="form-note">Read-only answer — AI Guide did not change any records.</p>` : ""}
+      <label class="settings-check-label">
+        <input type="checkbox" id="aiGuideReviewAck" ${draft.reviewAcknowledgedAt ? "checked" : ""} />
+        I reviewed this AI-generated draft for accuracy before using it.
+      </label>
+      <div class="account-actions-row">
+        <button class="primary-button" type="button" data-ai-guide-save-draft>Save as Draft</button>
+        <button class="ghost-button" type="button" data-ai-guide-copy>Copy text</button>
+        ${draft.askMode ? "" : `<button class="ghost-button" type="button" data-ai-guide-use-helpers>Use in Documentation Helpers</button>`}
+        <button class="ghost-button" type="button" data-ai-guide-clear-draft>Clear</button>
+      </div>
+      <div class="ai-guide-feedback" aria-label="Draft feedback">
+        <span class="form-note">Was this helpful?</span>
+        <button class="ghost-button" type="button" data-ai-guide-feedback="helpful">Helpful</button>
+        <button class="ghost-button" type="button" data-ai-guide-feedback="needs_improvement">Needs Improvement</button>
+        <button class="ghost-button" type="button" data-ai-guide-feedback="incorrect">Incorrect</button>
+        <button class="ghost-button" type="button" data-ai-guide-feedback="unsafe">Unsafe or Inappropriate</button>
+        <button class="ghost-button" type="button" data-ai-guide-feedback="missing_info">Missing Information</button>
+      </div>
+      <span class="form-message" id="aiGuideDraftMessage" aria-live="polite"></span>
+    </section>
+  `;
+}
+
+function renderAiGuidePage() {
+  const section = document.querySelector("#view-ai-guide");
+  if (!section) return;
+  if (!isAiGuideEnabled()) {
+    section.innerHTML = `
+      <section class="simple-child-page">
+        <div class="child-page-header">
+          <div>
+            <h2>AI Guide</h2>
+            <p>AI Guide is only available on the testing site while we build it.</p>
+          </div>
+        </div>
+        <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
+      </section>
+    `;
+    return;
+  }
+  section.innerHTML = `
+    <section class="simple-child-page ai-guide-page">
+      <button class="ghost-button back-button" data-view="calendar" type="button">← Back to Calendar</button>
+      <div class="child-page-header">
+        <div>
+          <p class="eyebrow">Testing only · Phases 1–3</p>
+          <h2>AI Guide</h2>
+          <p>Turn short notes into childcare drafts you review before using. Ask mode is read-only. Nothing sends or publishes on its own.</p>
+        </div>
+      </div>
+      <div id="aiGuideBody">
+        ${aiGuideState.screen === "compose" || aiGuideState.screen === "draft"
+          ? `${renderAiGuideCompose()}${aiGuideState.draft ? renderAiGuideDraftPanel() : ""}`
+          : `<p class="muted-copy">Loading AI Guide…</p>`}
+      </div>
+    </section>
+  `;
+  if (!aiGuideState.config) {
+    loadAiGuideConfig()
+      .then(() => {
+        if (!document.querySelector("#view-ai-guide.active-view")) return;
+        aiGuideState.screen = aiGuideState.screen === "home" || !aiGuideState.screen ? "home" : aiGuideState.screen;
+        const body = document.querySelector("#aiGuideBody");
+        if (!body) return;
+        if (aiGuideState.screen === "home") body.innerHTML = renderAiGuideHome();
+        else renderAiGuidePage();
+      })
+      .catch((error) => {
+        const body = document.querySelector("#aiGuideBody");
+        if (body) body.innerHTML = `<p class="form-message">${escapeHtml(error.message || "AI Guide unavailable.")}</p>`;
+      });
+    return;
+  }
+  const body = document.querySelector("#aiGuideBody");
+  if (!body) return;
+  if (aiGuideState.screen === "home") body.innerHTML = renderAiGuideHome();
+}
+
+function aiGuideFeatureToDocType(featureId) {
+  const map = {
+    observation: "observation",
+    parentMessage: "parent-message",
+    incident: "incident-report",
+    lesson: "lesson-plan",
+    activity: "activity-idea",
+    form: "observation",
+    daily: "daily-log",
+    behaviorNote: "behavior-note",
+    developmentSummary: "observation",
+    enrollmentMessage: "parent-message",
+    staffMessage: "parent-message",
+    adminWriting: "parent-message",
+    policyHandbook: "observation",
+  };
+  return map[featureId] || "observation";
+}
+
+function collectAiGuideSourceRecordsFromForm(form) {
+  const ids = Array.from(form.querySelectorAll('input[name="sourceRecordIds"]:checked')).map((el) => el.value);
+  aiGuideState.sourceRecordIds = ids;
+  const all = aiGuideLocalObservations();
+  return all.filter((item) => ids.includes(item.id));
+}
+
+function currentAiGuideDraftText() {
+  const live = document.querySelector("#aiGuideDraftText");
+  if (live) return String(live.value || "").trim();
+  return String(aiGuideState.draft?.outputText || "").trim();
+}
+
+function setAiGuideDraftMessage(text) {
+  const el = document.querySelector("#aiGuideDraftMessage");
+  if (el) el.textContent = text || "";
+}
+
+function setAiGuideComposeMessage(text) {
+  aiGuideState.message = text || "";
+  const el = document.querySelector("#aiGuideComposeMessage");
+  if (el) el.textContent = text || "";
+}
+
+async function generateAiGuideDraftFromForm(form) {
+  if (!isAiGuideEnabled() || aiGuideState.busy) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setAiGuideComposeMessage("Please sign in to use AI Guide.");
+    return;
+  }
+  const data = new FormData(form);
+  const askMode = form.dataset.aiGuideAsk === "true" || String(data.get("featureId") || "") === "askProgram";
+  aiGuideState.featureId = String(data.get("featureId") || "").trim();
+  aiGuideState.notes = String(data.get("notes") || "").trim();
+  aiGuideState.childName = String(data.get("childName") || "").trim();
+  aiGuideState.ageGroup = String(data.get("ageGroup") || "").trim();
+  aiGuideState.length = String(data.get("length") || "standard").trim() || "standard";
+  aiGuideState.tone = String(data.get("tone") || "").trim();
+  aiGuideState.state = String(data.get("state") || "").trim().toUpperCase();
+  const sourceRecords = collectAiGuideSourceRecordsFromForm(form);
+  if (!aiGuideState.notes) {
+    setAiGuideComposeMessage(askMode ? "Add a question first." : "Add a short description or notes first.");
+    return;
+  }
+  aiGuideState.busy = true;
+  setAiGuideComposeMessage(askMode ? "Looking up a read-only answer…" : "Creating draft…");
+  renderAiGuidePage();
+  try {
+    const response = await fetch(askMode ? "/api/ai-guide/ask" : "/api/ai-guide/generate", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        featureId: aiGuideState.featureId,
+        notes: aiGuideState.notes,
+        question: aiGuideState.notes,
+        childName: aiGuideState.childName,
+        ageGroup: aiGuideState.ageGroup,
+        length: aiGuideState.length,
+        tone: aiGuideState.tone,
+        state: aiGuideState.state,
+        sourceRecords,
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || (askMode ? "Could not answer." : "Could not create draft."));
+    aiGuideState.draft = payload.draft || null;
+    aiGuideState.screen = "draft";
+    aiGuideState.message = payload.draft?.localFallback
+      ? "Local starter ready — review before using."
+      : (askMode ? "Read-only answer ready — review sources before using." : "Draft ready — review before saving or sharing.");
+  } catch (error) {
+    aiGuideState.message = error.message || "Could not create draft.";
+  } finally {
+    aiGuideState.busy = false;
+    renderAiGuidePage();
+  }
+}
+
+async function saveAiGuideTemplateFromForm() {
+  const form = document.querySelector("#aiGuideComposeForm");
+  if (!form || aiGuideState.busy) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setAiGuideComposeMessage("Please sign in to save a template.");
+    return;
+  }
+  const data = new FormData(form);
+  const featureId = String(data.get("featureId") || aiGuideState.featureId || "").trim();
+  const notes = String(data.get("notes") || "").trim();
+  if (!notes) {
+    setAiGuideComposeMessage("Add notes before saving a template.");
+    return;
+  }
+  try {
+    const response = await fetch("/api/ai-guide/templates", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        featureId,
+        title: `${featureId} template`,
+        notes,
+        length: String(data.get("length") || "standard"),
+        tone: String(data.get("tone") || ""),
+        ageGroup: String(data.get("ageGroup") || ""),
+        state: String(data.get("state") || ""),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not save template.");
+    await loadAiGuideConfig();
+    setAiGuideComposeMessage("Template saved for this helper.");
+    renderAiGuidePage();
+  } catch (error) {
+    setAiGuideComposeMessage(error.message || "Could not save template.");
+  }
+}
+
+async function loadAiGuideInsights() {
+  if (!isAiGuideEnabled()) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) return;
+  const children = (childRecords().children || []).slice(0, 20).map((child) => ({ id: child.id, name: child.name }));
+  const observations = aiGuideLocalObservations().map((item) => ({
+    childId: item.childId,
+    childName: item.childName,
+    id: item.id,
+  }));
+  const forms = [];
+  try {
+    (childStore("Documents") || []).slice(0, 40).forEach((doc) => {
+      forms.push({ childId: doc.childId || "", childName: doc.childName || "", id: doc.id || "", title: doc.title || "" });
+    });
+  } catch (_error) { /* ignore */ }
+  try {
+    const response = await fetch("/api/ai-guide/insights", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ children, observations, forms }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not load insights.");
+    aiGuideState.insights = Array.isArray(payload.insights) ? payload.insights : [];
+    aiGuideState.screen = "home";
+    renderAiGuidePage();
+  } catch (error) {
+    aiGuideState.message = error.message || "Could not load insights.";
+    renderAiGuidePage();
+  }
+}
+
+async function reviseAiGuideDraft(action) {
+  if (!aiGuideState.draft?.id || aiGuideState.busy) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setAiGuideDraftMessage("Please sign in to revise this draft.");
+    return;
+  }
+  const outputText = currentAiGuideDraftText();
+  aiGuideState.busy = true;
+  setAiGuideDraftMessage("Updating draft…");
+  try {
+    if (outputText && outputText !== String(aiGuideState.draft.outputText || "").trim()) {
+      await fetch(`/api/ai-guide/drafts/${encodeURIComponent(aiGuideState.draft.id)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ outputText }),
+      });
+    }
+    const response = await fetch("/api/ai-guide/revise", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ draftId: aiGuideState.draft.id, action }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not revise draft.");
+    aiGuideState.draft = payload.draft || aiGuideState.draft;
+    aiGuideState.screen = "draft";
+    renderAiGuidePage();
+    setAiGuideDraftMessage("Draft updated — review before using.");
+  } catch (error) {
+    setAiGuideDraftMessage(error.message || "Could not revise draft.");
+  } finally {
+    aiGuideState.busy = false;
+  }
+}
+
+async function saveAiGuideDraft() {
+  if (!aiGuideState.draft?.id) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setAiGuideDraftMessage("Please sign in to save this draft.");
+    return;
+  }
+  const ack = document.querySelector("#aiGuideReviewAck");
+  if (!ack?.checked) {
+    setAiGuideDraftMessage("Check the review box before saving.");
+    return;
+  }
+  try {
+    const response = await fetch(`/api/ai-guide/drafts/${encodeURIComponent(aiGuideState.draft.id)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({
+        outputText: currentAiGuideDraftText(),
+        acknowledgeReview: true,
+        status: "draft",
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not save draft.");
+    aiGuideState.draft = payload.draft || aiGuideState.draft;
+    setAiGuideDraftMessage("Saved as draft. Nothing was sent or published.");
+  } catch (error) {
+    setAiGuideDraftMessage(error.message || "Could not save draft.");
+  }
+}
+
+async function acknowledgeAiGuideReview(checked) {
+  if (!aiGuideState.draft?.id || !checked) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) return;
+  try {
+    const response = await fetch(`/api/ai-guide/drafts/${encodeURIComponent(aiGuideState.draft.id)}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ acknowledgeReview: true, outputText: currentAiGuideDraftText() }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok && payload.draft) aiGuideState.draft = payload.draft;
+  } catch (_error) { /* ignore */ }
+}
+
+async function submitAiGuideFeedback(rating) {
+  if (!aiGuideState.draft?.id) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setAiGuideDraftMessage("Please sign in to send feedback.");
+    return;
+  }
+  try {
+    const response = await fetch(`/api/ai-guide/drafts/${encodeURIComponent(aiGuideState.draft.id)}/feedback`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ rating }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not save feedback.");
+    setAiGuideDraftMessage("Thanks — feedback saved.");
+  } catch (error) {
+    setAiGuideDraftMessage(error.message || "Could not save feedback.");
+  }
+}
+
+async function copyAiGuideDraft() {
+  const text = currentAiGuideDraftText();
+  if (!text) {
+    setAiGuideDraftMessage("Nothing to copy yet.");
+    return;
+  }
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+    else {
+      const area = document.createElement("textarea");
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand("copy");
+      area.remove();
+    }
+    setAiGuideDraftMessage("Copied. Review before pasting anywhere families will see.");
+  } catch (_error) {
+    setAiGuideDraftMessage("Could not copy automatically — select the draft text instead.");
+  }
+}
+
+function useAiGuideDraftInDocHelpers() {
+  const text = currentAiGuideDraftText();
+  if (!text) {
+    setAiGuideDraftMessage("Generate a draft first.");
+    return;
+  }
+  const docType = aiGuideFeatureToDocType(aiGuideState.draft?.featureId || aiGuideState.featureId);
+  const notes = String(aiGuideState.notes || aiGuideState.draft?.notes || "").trim();
+  pendingAiDocType = docType;
+  docHelperDraftState.originalNote = notes || text;
+  docHelperDraftState.lastOutput = text;
+  docHelperDraftState.docType = docType;
+  docHelperDraftState.toolId = docHelperToolMap[docType] || "observation";
+  setView("ai");
+  queueMicrotask(() => {
+    const note = document.querySelector("#docHelperNote");
+    if (note) note.value = notes || text;
+    const results = document.querySelector("#docHelperResults");
+    const output = document.querySelector("#docHelperOutput");
+    if (results) results.hidden = false;
+    if (output) {
+      output.textContent = text;
+      output.dataset.rawMarkdown = text;
+    }
+    setDocHelperDraftActionsVisible(true);
+    const hint = document.querySelector("#docHelperNextStepHint");
+    if (hint) hint.textContent = "Transferred from AI Guide. Review for accuracy before saving or sharing.";
+  });
+}
+
+async function clearAiGuideDraft() {
+  const draftId = aiGuideState.draft?.id;
+  if (draftId) {
+    try {
+      const headers = await staffAuthHeaders();
+      if (headers) {
+        await fetch(`/api/ai-guide/drafts/${encodeURIComponent(draftId)}`, { method: "DELETE", headers });
+      }
+    } catch (_error) { /* ignore */ }
+  }
+  aiGuideState.draft = null;
+  aiGuideState.screen = "compose";
+  aiGuideState.message = "";
+  renderAiGuidePage();
+}
+
 const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
   "Enrollment",
   "Emergency contacts",
@@ -11972,6 +12656,7 @@ function syncPlatformNavVisibility() {
     button.setAttribute("tabindex", "-1");
   });
   syncHomeDaycareHubNavVisibility();
+  syncAiGuideNavVisibility();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
@@ -14409,6 +15094,10 @@ function setView(view, options = {}) {
   if (resolvedRequested === "family-hub" && !isHomeDaycareHubTestingEnabled()) {
     return setView(isLoggedIn() ? "calendar" : "home", { ...options, skipAccessRedirect: true });
   }
+  // AI Guide is testing-site only (AI_GUIDE_ENABLED).
+  if (resolvedRequested === "ai-guide" && !isAiGuideEnabled()) {
+    return setView(isLoggedIn() ? "ai" : "home", { ...options, skipAccessRedirect: true });
+  }
   if (
     isLoggedIn()
     && isHomeDaycareHubTestingEnabled()
@@ -14669,6 +15358,7 @@ function setView(view, options = {}) {
   if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
   if (resolvedView === "home-daycare-hub") renderHomeDaycareHubPage();
   if (resolvedView === "family-hub") renderFamilyHubPage();
+  if (resolvedView === "ai-guide") renderAiGuidePage();
   if (resolvedView === "staff") renderStaffManagementPage();
   if (resolvedView === "classrooms") renderClassroomsPage();
   if (resolvedView === "families") renderFamiliesPage();
@@ -47270,6 +47960,112 @@ async function saveAdminAiSettings() {
   renderAdminAiSettingsTab();
 }
 
+let adminAiGuideState = {
+  loading: false,
+  saving: false,
+  error: "",
+  success: "",
+  overview: null,
+};
+
+async function loadAdminAiGuideOverview() {
+  if (!isAiGuideEnabled() || !isAdminUnlocked()) {
+    adminAiGuideState.overview = null;
+    return;
+  }
+  const token = adminSession()?.token || "";
+  if (!token) return;
+  adminAiGuideState.loading = true;
+  adminAiGuideState.error = "";
+  renderAdminAiGuideControls();
+  try {
+    const res = await fetch(`/api/admin/ai-guide/overview?t=${Date.now()}`, {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not load AI Guide overview.");
+    adminAiGuideState.overview = data;
+  } catch (error) {
+    adminAiGuideState.error = error.message || "Could not load AI Guide overview.";
+    adminAiGuideState.overview = null;
+  }
+  adminAiGuideState.loading = false;
+  renderAdminAiGuideControls();
+}
+
+async function saveAdminAiGuideKillSwitch(killOn) {
+  const token = adminSession()?.token || "";
+  if (!token || !isAdminUnlocked()) return;
+  adminAiGuideState.saving = true;
+  adminAiGuideState.success = "";
+  adminAiGuideState.error = "";
+  renderAdminAiGuideControls();
+  try {
+    const res = await fetch("/api/admin/ai-guide/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ emergencyKillSwitch: Boolean(killOn) }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data?.error || "Could not update AI Guide kill switch.");
+    if (adminAiGuideState.overview) {
+      adminAiGuideState.overview.settings = data.settings || adminAiGuideState.overview.settings;
+    }
+    adminAiGuideState.success = killOn
+      ? "AI Guide emergency kill switch is ON — user generate/revise is blocked."
+      : "AI Guide emergency kill switch is OFF.";
+  } catch (error) {
+    adminAiGuideState.error = error.message || "Could not update kill switch.";
+  }
+  adminAiGuideState.saving = false;
+  renderAdminAiGuideControls();
+}
+
+function renderAdminAiGuideControls() {
+  const host = document.querySelector("#adminAiGuideControls");
+  if (!host) return;
+  if (!isAiGuideEnabled()) {
+    host.innerHTML = `
+      <div class="section-heading">
+        <div>
+          <p class="eyebrow">Testing only</p>
+          <h3>AI Guide</h3>
+          <p>AI Guide env fence is off on this server. Set AI_GUIDE_ENABLED=true only on the testing service.</p>
+        </div>
+      </div>
+    `;
+    return;
+  }
+  if (adminAiGuideState.loading) {
+    host.innerHTML = `<p class="ai-pm-loading">Loading AI Guide controls…</p>`;
+    return;
+  }
+  const overview = adminAiGuideState.overview;
+  const settings = overview?.settings || {};
+  const totals = overview?.totals || {};
+  const killed = Boolean(settings.emergencyKillSwitch);
+  host.innerHTML = `
+    <div class="section-heading">
+      <div>
+        <p class="eyebrow">Testing only</p>
+        <h3>AI Guide controls</h3>
+        <p>Phase 1 helpers never auto-send or auto-publish. Use the kill switch if drafts look unsafe.</p>
+      </div>
+    </div>
+    ${adminAiGuideState.error ? `<p class="form-error">${escapeHtml(adminAiGuideState.error)}</p>` : ""}
+    ${adminAiGuideState.success ? `<p class="form-success">${escapeHtml(adminAiGuideState.success)}</p>` : ""}
+    <p class="form-note">Generations: ${escapeHtml(String(totals.generations ?? "—"))} · Drafts: ${escapeHtml(String(totals.drafts ?? "—"))} · Feedback: ${escapeHtml(String(totals.feedback ?? "—"))} · Templates: ${escapeHtml(String(totals.templates ?? "—"))} · Ask queries: ${escapeHtml(String(totals.askQueries ?? "—"))}</p>
+    <p class="form-note">Status: <strong>${killed ? "Blocked by admin" : "Available on testing"}</strong></p>
+    <div class="account-actions-row">
+      <button class="primary-button" type="button" data-ai-guide-kill="on" ${adminAiGuideState.saving || killed ? "disabled" : ""}>Turn kill switch ON</button>
+      <button class="ghost-button" type="button" data-ai-guide-kill="off" ${adminAiGuideState.saving || !killed ? "disabled" : ""}>Turn kill switch OFF</button>
+      <button class="ghost-button" type="button" id="aiGuideAdminRefreshBtn">Refresh</button>
+    </div>
+  `;
+  document.querySelector("#aiGuideAdminRefreshBtn")?.addEventListener("click", () => loadAdminAiGuideOverview());
+}
+
 function renderAdminAiSettingsTab() {
   const target = document.querySelector("#adminAiSettingsApp");
   if (!target || !isAdminUnlocked()) return;
@@ -47285,7 +48081,10 @@ function renderAdminAiSettingsTab() {
       <div class="section-heading"><div><p class="eyebrow">Admin Only</p><h3>AI Settings</h3></div></div>
       ${state.error ? `<p class="form-error">${escapeHtml(state.error)}</p>` : ""}
       <p>Could not load AI settings. <button class="ghost-button" type="button" id="aiSettingsRetryBtn">Retry</button></p>
+      <div id="adminAiGuideControls" class="section-block" style="margin-top:24px;"></div>
     `;
+    renderAdminAiGuideControls();
+    loadAdminAiGuideOverview();
     return;
   }
 
@@ -47340,7 +48139,10 @@ function renderAdminAiSettingsTab() {
         </button>
       </div>
     </form>
+    <div id="adminAiGuideControls" class="section-block" style="margin-top:28px;"></div>
   `;
+  renderAdminAiGuideControls();
+  loadAdminAiGuideOverview();
 }
 
 // ─── AI Usage Monitor ─────────────────────────────────────────────────────────
@@ -53739,6 +54541,110 @@ document.addEventListener("click", async (event) => {
     const url = new URL(window.location.href);
     url.searchParams.delete("staffInvite");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    return;
+  }
+
+  const aiGuideCategory = event.target.closest("[data-ai-guide-category]");
+  if (aiGuideCategory) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    aiGuideState.categoryId = aiGuideCategory.dataset.aiGuideCategory || "";
+    aiGuideState.featureId = aiGuideState.categoryId === "ask-program" ? "askProgram" : "";
+    aiGuideState.draft = null;
+    aiGuideState.sourceRecordIds = [];
+    aiGuideState.screen = "compose";
+    aiGuideState.message = "";
+    renderAiGuidePage();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-insights]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    loadAiGuideInsights();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-save-template]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    saveAiGuideTemplateFromForm();
+    return;
+  }
+
+  const aiGuideFixture = event.target.closest("[data-ai-guide-fixture]");
+  if (aiGuideFixture) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    const fixture = (aiGuideState.config?.demoFixtures || []).find((item) => item.id === aiGuideFixture.dataset.aiGuideFixture);
+    if (!fixture) return;
+    aiGuideState.featureId = fixture.featureId || aiGuideState.featureId;
+    aiGuideState.notes = fixture.notes || "";
+    renderAiGuidePage();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-back-home]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    aiGuideState.screen = "home";
+    aiGuideState.categoryId = "";
+    aiGuideState.featureId = "";
+    aiGuideState.draft = null;
+    aiGuideState.message = "";
+    renderAiGuidePage();
+    return;
+  }
+
+  const aiGuideRevise = event.target.closest("[data-ai-guide-revise]");
+  if (aiGuideRevise) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    reviseAiGuideDraft(aiGuideRevise.dataset.aiGuideRevise || "");
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-save-draft]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    saveAiGuideDraft();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-copy]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    copyAiGuideDraft();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-use-helpers]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    useAiGuideDraftInDocHelpers();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-clear-draft]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    clearAiGuideDraft();
+    return;
+  }
+
+  const aiGuideFeedback = event.target.closest("[data-ai-guide-feedback]");
+  if (aiGuideFeedback) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    submitAiGuideFeedback(aiGuideFeedback.dataset.aiGuideFeedback || "");
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-kill]")) {
+    event.preventDefault();
+    if (!isAdminUnlocked()) return;
+    const kill = event.target.closest("[data-ai-guide-kill]").dataset.aiGuideKill === "on";
+    saveAdminAiGuideKillSwitch(kill);
     return;
   }
 
@@ -62014,6 +62920,46 @@ document.addEventListener("submit", (event) => {
     event.preventDefault();
     saveAdminAiSettings();
     return;
+  }
+  if (event.target.matches("#aiGuideComposeForm")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    generateAiGuideDraftFromForm(event.target);
+  }
+});
+
+document.addEventListener("change", (event) => {
+  if (event.target.matches("#aiGuideReviewAck")) {
+    acknowledgeAiGuideReview(Boolean(event.target.checked));
+    return;
+  }
+  if (event.target.matches("[data-ai-guide-template]")) {
+    const templateId = String(event.target.value || "").trim();
+    const template = (aiGuideState.config?.templates || []).find((item) => item.id === templateId);
+    if (!template) return;
+    aiGuideState.featureId = template.featureId || aiGuideState.featureId;
+    aiGuideState.notes = template.notes || "";
+    aiGuideState.length = template.length || "standard";
+    aiGuideState.tone = template.tone || "";
+    aiGuideState.ageGroup = template.ageGroup || "";
+    aiGuideState.state = template.state || "";
+    renderAiGuidePage();
+    return;
+  }
+  if (event.target.matches("#aiGuideComposeForm [name='featureId']")) {
+    aiGuideState.featureId = String(event.target.value || "").trim();
+    const form = document.querySelector("#aiGuideComposeForm");
+    if (form) {
+      const data = new FormData(form);
+      aiGuideState.notes = String(data.get("notes") || "");
+      aiGuideState.childName = String(data.get("childName") || "");
+      aiGuideState.ageGroup = String(data.get("ageGroup") || "");
+      aiGuideState.length = String(data.get("length") || "standard");
+      aiGuideState.tone = String(data.get("tone") || "");
+      aiGuideState.state = String(data.get("state") || "");
+      aiGuideState.sourceRecordIds = Array.from(form.querySelectorAll('input[name="sourceRecordIds"]:checked')).map((el) => el.value);
+    }
+    renderAiGuidePage();
   }
 });
 
