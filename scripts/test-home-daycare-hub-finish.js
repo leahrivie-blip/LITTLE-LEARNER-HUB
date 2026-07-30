@@ -79,10 +79,13 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell finish markers + E/F/G UI", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-finish"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-guide"/);
   assert.match(appJs, /function renderHomeDaycareStaffInvitePanel/);
   assert.match(appJs, /function renderHomeDaycareTrainingsPanel/);
   assert.match(appJs, /function renderHomeDaycarePacketsPanel/);
+  assert.match(appJs, /function renderHomeDaycareTesterGuidePanel/);
+  assert.match(appJs, /What testers see \(simple map\)/);
+  assert.match(appJs, /data-hdh-jump/);
   assert.match(appJs, /HDH_STAFF_VISIBILITY_OPTIONS/);
   assert.match(appJs, /What this staff member can see/);
   assert.match(appJs, /CPR &amp; training tracker/);

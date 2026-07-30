@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260730-hdh-finish";
+const SHELL = "20260730-hdh-guide";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";
@@ -123,9 +123,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v131-hdh-finish/);
+  assert.match(sw, /llh-shell-v132-hdh-guide/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v131-hdh-finish");
+  assert.equal(manifest.cacheName, "llh-shell-v132-hdh-guide");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);
@@ -209,6 +209,8 @@ async function main() {
       return {
         title: document.querySelector("#view-home-daycare-hub h2")?.textContent?.trim() || "",
         packCount: packItems.length,
+        hasGuide: Boolean(document.querySelector("#hdhTesterGuidePanel")),
+        guideText: document.querySelector("#hdhTesterGuidePanel")?.innerText || "",
         hasAi: Boolean(document.querySelector("#hdhAiDraftPanel")),
         hasFamily: Boolean(document.querySelector("#hdhFamilyHubInviteForm")),
         hasStaff: Boolean(document.querySelector("#hdhStaffInviteForm")),
@@ -227,6 +229,8 @@ async function main() {
     assert.equal(hubSnapshot.hasTraining, true);
     assert.equal(hubSnapshot.hasPacket, true);
     assert.match(hubSnapshot.disclaimer, /state licensing/i);
+    assert.equal(hubSnapshot.hasGuide, true, "tester guide should be at top of hub");
+    assert.match(hubSnapshot.guideText || "", /What testers see/i);
     console.log("PASS  browser hub shell shows A–G panels + 10-form pack");
 
     // Step C: AI draft → save to child (drive helpers directly so hub re-render races don't drop the submit)

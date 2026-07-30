@@ -31201,6 +31201,62 @@ function renderHomeDaycarePacketsPanel() {
   `;
 }
 
+function renderHomeDaycareTesterGuidePanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const children = childRecords().children || [];
+  const childReady = children.length > 0;
+  return `
+    <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
+      <p class="eyebrow">Start here</p>
+      <h3>What testers see (simple map)</h3>
+      <p class="muted-copy">This page is what a signed-in <strong>provider</strong> sees on the testing site. Live production stays off. Use this map when you are confused about roles.</p>
+      <div class="hdh-tester-roles" role="list">
+        <article class="hdh-tester-role" role="listitem">
+          <strong>1. You / provider</strong>
+          <p>Signed into Little Learner Hub. Left nav shows <em>Home Daycare Hub</em>. You fill forms, invite families, invite staff, track CPR, and make packets.</p>
+        </article>
+        <article class="hdh-tester-role" role="listitem">
+          <strong>2. Parent (Family Hub)</strong>
+          <p>Does <em>not</em> use the full app login. They open a magic link (or email + code) and only see their household’s kids + form status. SMS is simulated on testing — copy the link and open it in a private window.</p>
+        </article>
+        <article class="hdh-tester-role" role="listitem">
+          <strong>3. Staff helper</strong>
+          <p>Accepts a staff invite. “Helper” preset hides Home Daycare Hub / Forms. “Lead” can see them. That is how you check what staff see.</p>
+        </article>
+      </div>
+      <h4 class="hdh-tester-path-title">Try this path (about 10 minutes)</h4>
+      <ol class="hdh-tester-path">
+        <li>${childReady
+          ? `You already have a child on file — good.`
+          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button> first.`}</li>
+        <li>Open a form from the pack, or generate an <strong>AI draft</strong>, review it, then <strong>Save to child file</strong>. Nothing emails parents automatically.</li>
+        <li>Create a <strong>Family Hub</strong> invite → copy the magic link → open it in a private/incognito window (that is the parent view).</li>
+        <li>Invite a helper with the <strong>Helper</strong> preset. Sign in as that staff account (or accept invite) and confirm Hub is hidden.</li>
+        <li>Add a <strong>CPR / training</strong> row, then create an <strong>enrollment packet</strong> and mark one item signed.</li>
+      </ol>
+      <p class="form-note">Jump to a section on this page:</p>
+      <div class="account-actions-row hdh-tester-jumps">
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFormsPackPanel">Forms pack</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI drafts</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhFamilyHubPanel">Family Hub</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Staff visibility</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhTrainingsPanel">CPR / trainings</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhPacketsPanel">Packets</button>
+        <button class="ghost-button" type="button" data-view="children">Child forms tab</button>
+      </div>
+      <details class="hdh-tester-details">
+        <summary>What is NOT working yet (so testers are not surprised)</summary>
+        <ul class="hdh-coming-list">
+          <li>Real SMS / Twilio texts (testing shows a copyable link instead)</li>
+          <li>E-sign / parent signing inside the app</li>
+          <li>Auto-sending filled form bodies to parents</li>
+          <li>Live production — Hub stays hidden there on purpose</li>
+        </ul>
+      </details>
+    </section>
+  `;
+}
+
 function renderHomeDaycareHubPage(options = {}) {
   const section = document.querySelector("#view-home-daycare-hub");
   if (!section) return;
@@ -31231,7 +31287,8 @@ function renderHomeDaycareHubPage(options = {}) {
       </div>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
-        <section class="section-block">
+        ${renderHomeDaycareTesterGuidePanel()}
+        <section class="section-block" id="hdhFormsPackPanel">
           <p class="eyebrow">Step B</p>
           <h3>Home daycare forms pack</h3>
           <p class="muted-copy">Ten common forms for home daycare paperwork. Open a template to print or edit, then track status on each child’s Forms &amp; Records tab.</p>
@@ -31252,7 +31309,7 @@ function renderHomeDaycareHubPage(options = {}) {
         ${renderHomeDaycareStaffInvitePanel()}
         ${renderHomeDaycareTrainingsPanel()}
         ${renderHomeDaycarePacketsPanel()}
-        <section class="section-block">
+        <section class="section-block" id="hdhFormsRecordsPanel">
           <p class="eyebrow">Step A</p>
           <h3>Child Forms &amp; Records</h3>
           <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
@@ -53775,6 +53832,25 @@ document.addEventListener("click", async (event) => {
     }
     if (resultsEl) resultsEl.hidden = true;
     if (clearBtn) clearBtn.hidden = true;
+    return;
+  }
+
+  const hdhJump = event.target.closest("[data-hdh-jump]");
+  if (hdhJump) {
+    event.preventDefault();
+    const targetId = String(hdhJump.dataset.hdhJump || "").trim();
+    if (!targetId) return;
+    if (!document.querySelector("#view-home-daycare-hub.active-view")) {
+      setView("home-daycare-hub");
+    }
+    queueMicrotask(() => {
+      const target = document.getElementById(targetId);
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        target.classList.add("hdh-jump-flash");
+        window.setTimeout(() => target.classList.remove("hdh-jump-flash"), 1400);
+      }
+    });
     return;
   }
 
