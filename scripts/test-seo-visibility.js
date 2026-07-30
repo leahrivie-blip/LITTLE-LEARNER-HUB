@@ -83,7 +83,13 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   assert(indexHtml.includes(seo.SEO_TITLE), "homepage title missing proposed SEO title");
   assert(indexHtml.includes(seo.SEO_DESCRIPTION), "homepage description missing proposed copy");
-  assert(!indexHtml.includes('"@type": "Product"'), "homepage still uses Product schema");
+  assert(indexHtml.includes('"@type": "Product"'), "homepage missing Product schema for Founding Membership");
+  assert(indexHtml.includes("Little Learner Hub Founding Membership"), "homepage Product missing Founding Membership name");
+  assert(
+    indexHtml.includes('"image"') && indexHtml.includes("/images/icons/icon-512.png"),
+    "homepage Product schema must include a valid image URL"
+  );
+  assert(!/shippingDetails|hasMerchantReturnPolicy/i.test(indexHtml), "digital subscription Product must omit physical shipping/return schema");
   assert(indexHtml.includes('"@type": "Organization"'), "homepage missing Organization schema");
   assert(indexHtml.includes('"@type": "WebApplication"'), "homepage missing WebApplication schema");
   assert(indexHtml.includes('"sameAs"'), "homepage Organization schema missing sameAs");
