@@ -12245,7 +12245,10 @@ function normalizeHdhStaffVisibility(input = {}, preset = "") {
   return next;
 }
 
-function publicStaffInvite(invite = {}) {
+function publicStaffInvite(invite = {}, options = {}) {
+  const origin = String(options.appOrigin || "").replace(/\/$/, "");
+  const token = String(invite.token || "").trim();
+  const pending = String(invite.status || "pending") === "pending" && token;
   return {
     id: invite.id || "",
     email: invite.email || "",
@@ -12263,6 +12266,9 @@ function publicStaffInvite(invite = {}) {
     hdhVisibility: invite.hdhVisibility && typeof invite.hdhVisibility === "object"
       ? invite.hdhVisibility
       : null,
+    acceptUrl: pending && origin
+      ? `${origin}/?staffInvite=${encodeURIComponent(token)}`
+      : "",
   };
 }
 
@@ -12287,7 +12293,7 @@ function programOwnerKey(email) {
 function listProgramInvites(store, ownerEmail) {
   const key = programOwnerKey(ownerEmail);
   return Object.values(store.staffInvites || {})
-    .filter((invite) => programOwnerKey(invite.invitedByEmail) === key)
+    .filter((invite) => programOwnerKey(invite.ownerEmail || invite.invitedByEmail) === key)
     .sort((a, b) => String(b.invitedAt || "").localeCompare(String(a.invitedAt || "")));
 }
 
@@ -12321,9 +12327,17 @@ async function handleStaffInvitesList(request, response) {
     return;
   }
   const ownerEmail = user.linkedProgramOwnerEmail || identity.email;
+  let appOrigin = "";
+  try {
+    const raw = String(request.headers.origin || "").trim()
+      || (request.headers.referer ? new URL(String(request.headers.referer)).origin : "");
+    appOrigin = raw.replace(/\/$/, "");
+  } catch {
+    appOrigin = "";
+  }
   jsonResponse(response, 200, {
     ok: true,
-    invites: listProgramInvites(store, ownerEmail).map(publicStaffInvite),
+    invites: listProgramInvites(store, ownerEmail).map((invite) => publicStaffInvite(invite, { appOrigin })),
     members: listProgramMembers(store, ownerEmail),
     emailDeliveryReady: supportEmailConfigStatus().ready,
   });
