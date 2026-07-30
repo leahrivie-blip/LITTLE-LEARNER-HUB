@@ -15,7 +15,9 @@ const statusPath = String(process.env.MOCK_PG_STATUS_PATH || "").trim();
 
 const state = {
   store: null,
+  analyticsEvents: [],
   writes: [],
+  analyticsInserts: 0,
   queryDelayMs: Number(process.env.MOCK_PG_QUERY_DELAY_MS || 40),
   selectCount: 0,
   conflictUpsertAttempts: 0,
@@ -117,6 +119,16 @@ Module.prototype.require = function mockPgRequire(id) {
           return this;
         }
 
+        connect() {
+          const pool = this;
+          return {
+            async query(sql, params = []) {
+              return pool.query(sql, params);
+            },
+            release() {},
+          };
+        }
+
         async query(sql, params = []) {
           if (this.ended) {
             const err = new Error("Cannot use a pool after calling end on the pool");
@@ -125,7 +137,31 @@ Module.prototype.require = function mockPgRequire(id) {
           }
           maybeEmitIdleError(this);
           const text = String(sql || "");
-          if (text.includes("CREATE TABLE")) {
+          if (text.includes("CREATE TABLE") || text.includes("CREATE INDEX")) {
+            writeStatus();
+            return { rows: [] };
+          }
+          if (text.includes("FROM llh_analytics_events")) {
+            writeStatus();
+            return { rows: state.analyticsEvents.slice().reverse() };
+          }
+          if (text.includes("INSERT INTO llh_analytics_events")) {
+            state.analyticsInserts += 1;
+            state.analyticsEvents.push({
+              id: params[0],
+              name: params[1],
+              user_email: params[2],
+              visitor_id: params[3],
+              session_id: params[4],
+              path: params[5],
+              plan: params[6],
+              detail: JSON.parse(params[7] || "{}"),
+              attribution: JSON.parse(params[8] || "{}"),
+              referrer: params[9],
+              user_agent: params[10],
+              ip_hash: params[11],
+              created_at: params[12],
+            });
             writeStatus();
             return { rows: [] };
           }

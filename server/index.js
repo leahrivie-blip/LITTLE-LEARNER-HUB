@@ -24,6 +24,8 @@ const commsLib = require("./comms-lib.js");
 const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
+const analyticsStore = require("./analytics-store.js");
+const storeWriteMetricsLib = require("./store-write-metrics.js");
 const adminNotifications = require("./admin-notifications.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
@@ -190,6 +192,18 @@ const POSTGRES_RECONNECT_INTERVAL_MS = Math.max(
   1000,
   Number(process.env.POSTGRES_RECONNECT_INTERVAL_MS || 15000),
 );
+const STORE_WRITE_DEBOUNCE_MS = Math.max(
+  0,
+  Number(process.env.STORE_WRITE_DEBOUNCE_MS ?? 2500),
+);
+const POSTGRES_STORE_WRITE_RETRY_COUNT = Math.max(
+  0,
+  Number(process.env.POSTGRES_STORE_WRITE_RETRY_COUNT || 4),
+);
+const POSTGRES_WRITE_RETRY_BACKOFF_MS = [75, 150, 300, 600, 1200];
+const storeWriteMetrics = storeWriteMetricsLib.createStoreWriteMetrics();
+let debouncedStoreWriteTimer = null;
+let debouncedStoreWritePending = false;
 // Phase 2 of the admin-token-in-URL security follow-up: sanitized counters only —
 // never the token value itself — so the still-supported legacy query/body auth paths
 // can be monitored during the client migration and safely removed (Phase 3) once
@@ -2877,6 +2891,7 @@ async function initializePostgresStore() {
       data JSONB NOT NULL
     )
   `, [], { label: "Postgres create llh_store_backups" });
+  await analyticsStore.initAnalyticsTable(postgresPool, postgresQueryWithTransientRetry);
   const result = await postgresQueryWithTransientRetry(
     "SELECT data FROM llh_store WHERE id = $1",
     [storeRecordId],
@@ -3416,12 +3431,39 @@ async function maybeAlertStoreSafety(kind, detail = {}) {
   }
 }
 
+function logStorePersistence(kind, detail = {}) {
+  console.log(`[store-persistence] ${kind}`, detail);
+}
+
+function createStorePersistenceError(message, code, extra = {}) {
+  const err = new Error(message);
+  err.code = code;
+  Object.assign(err, extra);
+  return err;
+}
+
+function isProductionPostgresDeployment() {
+  return usePostgresStore()
+    && String(process.env.NODE_ENV || "").toLowerCase() === "production";
+}
+
+function classifyPostgresDisconnectReason(reason = "") {
+  const text = String(reason || "").toLowerCase();
+  if (text.includes("deploy") || text.includes("boot")) return "temporary_deploy_disconnect";
+  if (text.includes("write_async") || text.includes("write_failed")) return "failed_write";
+  if (text.includes("reconnect")) return "database_unavailable";
+  return "database_unavailable";
+}
+
 function maybeAlertPostgresDisconnect(reason = "postgres_unavailable") {
   const now = Date.now();
   if (now - lastPostgresDisconnectAlertAt < STORE_SAFETY_ALERT_COOLDOWN_MS) return;
   lastPostgresDisconnectAlertAt = now;
-  maybeAlertStoreSafety("postgres_disconnect", {
+  const category = classifyPostgresDisconnectReason(reason);
+  logStorePersistence(category, { reason, lastError: lastPostgresError || "" });
+  maybeAlertStoreSafety(`postgres_disconnect:${category}`, {
     reason,
+    category,
     lastError: lastPostgresError || "",
   }).catch(() => {});
 }
@@ -3513,6 +3555,106 @@ function startStoreBackupScheduler() {
   setInterval(() => { tick().catch(() => {}); }, 60 * 60 * 1000);
 }
 
+function writeLocalJsonStore(store) {
+  if (isProductionPostgresDeployment()) {
+    storeWriteMetrics.ephemeralOnlyAttempts += 1;
+    logStorePersistence("ephemeral_only", {
+      action: "skip_local_json",
+      note: "Render ephemeral filesystem — not treating local file as durable",
+    });
+    return;
+  }
+  ensureStore();
+  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
+}
+
+function scheduleDebouncedPostgresStoreWrite() {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return;
+  if (debouncedStoreWriteTimer) {
+    storeWriteMetrics.debouncedCoalesced += 1;
+  } else {
+    storeWriteMetrics.debouncedScheduled += 1;
+  }
+  debouncedStoreWritePending = true;
+  if (debouncedStoreWriteTimer) clearTimeout(debouncedStoreWriteTimer);
+  debouncedStoreWriteTimer = setTimeout(() => {
+    debouncedStoreWriteTimer = null;
+    if (!debouncedStoreWritePending) return;
+    debouncedStoreWritePending = false;
+    storeWriteMetrics.debouncedFlushed += 1;
+    logStorePersistence("debounced_flushed", {});
+    enqueuePostgresStoreWrite().writePromise.catch((error) => {
+      if (error?.code === "store_count_drop_blocked") {
+        console.error("[store] debounced write blocked by inventory guard:", error.message);
+        return;
+      }
+      logStorePersistence("failed_write", { action: "debounced_flush", error: error.message || String(error) });
+    });
+  }, STORE_WRITE_DEBOUNCE_MS);
+}
+
+async function flushDebouncedPostgresStoreWrite() {
+  if (debouncedStoreWriteTimer) {
+    clearTimeout(debouncedStoreWriteTimer);
+    debouncedStoreWriteTimer = null;
+  }
+  if (!debouncedStoreWritePending) return;
+  debouncedStoreWritePending = false;
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return;
+  const { writePromise } = enqueuePostgresStoreWrite();
+  await writePromise.catch((error) => {
+    if (error?.code !== "store_count_drop_blocked") throw error;
+  });
+}
+
+async function executePostgresStoreUpsert(payload, nextCounts) {
+  let lastError;
+  for (let attempt = 0; attempt <= POSTGRES_STORE_WRITE_RETRY_COUNT; attempt += 1) {
+    const started = Date.now();
+    try {
+      const client = await postgresPool.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(
+          "SELECT pg_advisory_xact_lock($1, hashtext($2))",
+          [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
+        );
+        await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
+        await client.query("COMMIT");
+      } catch (error) {
+        try { await client.query("ROLLBACK"); } catch { /* ignore */ }
+        throw error;
+      } finally {
+        client.release();
+      }
+      const durationMs = Date.now() - started;
+      storeWriteMetricsLib.recordWriteSuccess(storeWriteMetrics, durationMs);
+      if (attempt > 0) {
+        storeWriteMetrics.retrySuccesses += 1;
+        logStorePersistence("retry_success", { attempt, durationMs, payloadBytes: payload.length });
+      }
+      databaseReady = true;
+      lastPostgresError = "";
+      lastPersistedStoreCounts = nextCounts;
+      return;
+    } catch (error) {
+      lastError = error;
+      const canRetry = isTransientPostgresConnectionError(error) && attempt < POSTGRES_STORE_WRITE_RETRY_COUNT;
+      if (!canRetry) throw error;
+      storeWriteMetrics.retryAttempts += 1;
+      const delay = POSTGRES_WRITE_RETRY_BACKOFF_MS[Math.min(attempt, POSTGRES_WRITE_RETRY_BACKOFF_MS.length - 1)];
+      logStorePersistence("write_retry", {
+        attempt: attempt + 1,
+        maxAttempts: POSTGRES_STORE_WRITE_RETRY_COUNT,
+        delayMs: delay,
+        error: error.message || String(error),
+      });
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw lastError;
+}
+
 function enqueuePostgresStoreWrite() {
   const writeGeneration = ++postgresWriteGeneration;
   const writePromise = (async () => {
@@ -3530,6 +3672,7 @@ function enqueuePostgresStoreWrite() {
       postgresWriteChain = Promise.resolve();
     }
     if (writeGeneration !== postgresWriteGeneration) {
+      storeWriteMetrics.staleGenerationsSkipped += 1;
       console.log("[store-write] skip stale generation", {
         writeGeneration,
         latest: postgresWriteGeneration,
@@ -3549,32 +3692,24 @@ function enqueuePostgresStoreWrite() {
       throw error;
     }
     const payload = JSON.stringify(storeCache);
-    // Serialize with Founding inventory transactions (same advisory lock) so a
-    // multi-instance full upsert cannot race a checkout claim mid-write.
-    // Upsert also unions foundingMembers as a second safety net.
-    const client = await postgresPool.connect();
-    try {
-      await client.query("BEGIN");
-      await client.query(
-        "SELECT pg_advisory_xact_lock($1, hashtext($2))",
-        [FOUNDING_ADVISORY_LOCK_NS, `founding:${storeRecordId}`],
-      );
-      await client.query(POSTGRES_UPSERT_STORE, [storeRecordId, payload]);
-      await client.query("COMMIT");
-    } catch (error) {
-      try { await client.query("ROLLBACK"); } catch { /* ignore */ }
-      throw error;
-    } finally {
-      client.release();
-    }
-    databaseReady = true;
-    lastPostgresError = "";
-    lastPersistedStoreCounts = nextCounts;
+    storeWriteMetricsLib.recordWriteStart(storeWriteMetrics, Buffer.byteLength(payload, "utf8"));
+    logStorePersistence("full_store_write_start", {
+      generation: writeGeneration,
+      payloadBytes: Buffer.byteLength(payload, "utf8"),
+    });
+    await executePostgresStoreUpsert(payload, nextCounts);
+    logStorePersistence("full_store_write_success", {
+      generation: writeGeneration,
+      payloadBytes: Buffer.byteLength(payload, "utf8"),
+      lastDurationMs: storeWriteMetrics.lastDurationMs,
+    });
   })();
   postgresWriteChain = writePromise.catch((error) => {
     if (error?.code !== "store_count_drop_blocked") {
       databaseReady = false;
       lastPostgresError = error.message || "Postgres store write failed.";
+      storeWriteMetricsLib.recordWriteFailure(storeWriteMetrics);
+      logStorePersistence("failed_write", { error: lastPostgresError });
       maybeAlertPostgresDisconnect("postgres_write_failed");
     }
     console.error("Could not persist launch store to Postgres:", lastPostgresError || error.message);
@@ -3639,12 +3774,6 @@ function mergeStorePreserveAdminSessions(incomingStore) {
   };
 }
 
-function writeLocalJsonStore(store) {
-  ensureStore();
-  fs.writeFileSync(storePath, JSON.stringify(store, null, 2));
-}
-
-
 function mergeStorePreserveEmailCampaigns(incomingStore) {
   const cachedCampaigns = storeCache?.emailEngagement?.campaigns;
   if (!cachedCampaigns || typeof cachedCampaigns !== "object" || !Object.keys(cachedCampaigns).length) {
@@ -3665,7 +3794,7 @@ function mergeStorePreserveEmailCampaigns(incomingStore) {
   };
 }
 
-function writeStore(store) {
+function writeStore(store, { immediate = false } = {}) {
   const nextStore = mergeStorePreserveEmailCampaigns(
     mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store)),
   );
@@ -3673,17 +3802,22 @@ function writeStore(store) {
   // Only upsert to Postgres after the authentic DB store is loaded. While on local
   // fallback, never push a sparse in-memory store over production membership data.
   if (usePostgresStore() && postgresPool && databaseReady) {
-    enqueuePostgresStoreWrite().writePromise.catch((error) => {
-      if (error?.code === "store_count_drop_blocked") {
-        console.error("[store] fire-and-forget write blocked by inventory guard:", error.message);
-      }
-    });
+    if (immediate) {
+      enqueuePostgresStoreWrite().writePromise.catch((error) => {
+        if (error?.code === "store_count_drop_blocked") {
+          console.error("[store] fire-and-forget write blocked by inventory guard:", error.message);
+        }
+      });
+    } else {
+      scheduleDebouncedPostgresStoreWrite();
+    }
     return;
   }
   if (usePostgresStore() && !databaseReady) {
-    // Degraded mode: keep an emergency local copy, but do not pretend Postgres accepted it.
-    writeLocalJsonStore(nextStore);
-    stampLocalStoreCacheMtime(nextStore);
+    logStorePersistence("database_unavailable", {
+      action: "writeStore_memory_only",
+      note: "Changes kept in memory only until Postgres reconnects",
+    });
     return;
   }
   writeLocalJsonStore(nextStore);
@@ -3708,8 +3842,20 @@ async function writeStoreAsync(store) {
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
   // Always preserve adminSessions so a concurrent login is not erased mid-save.
   storeCache = mergeStorePreserveEmailCampaigns(mergeStorePreserveAdminSessions(store));
+  if (usePostgresStore() && !databaseReady) {
+    logStorePersistence("database_unavailable", {
+      action: "writeStoreAsync_rejected",
+      note: "Refusing to report success without Postgres persistence",
+    });
+    throw createStorePersistenceError(
+      "Database is not ready. Your changes were not saved to production storage.",
+      "store_not_persisted",
+      { persistence: "memory_only" },
+    );
+  }
   if (usePostgresStore() && postgresPool && databaseReady) {
     try {
+      await flushDebouncedPostgresStoreWrite();
       const { writeGeneration, writePromise } = enqueuePostgresStoreWrite();
       await writePromise;
       // If a newer write superseded us while we waited, wait for that newer persist too
@@ -3724,19 +3870,16 @@ async function writeStoreAsync(store) {
         console.error("[store] Postgres writeAsync blocked by inventory guard:", error.message);
         throw error;
       }
-      // Keep auth recovery and admin writes available during Postgres blips.
       databaseReady = false;
       lastPostgresError = error.message || "Postgres store write failed.";
+      logStorePersistence("failed_write", { action: "writeStoreAsync", error: lastPostgresError });
       maybeAlertPostgresDisconnect("postgres_write_async_failed");
-      console.error("[store] Postgres writeAsync failed — persisting local JSON fallback:", lastPostgresError);
-      writeLocalJsonStore(storeCache);
-      return;
+      throw createStorePersistenceError(
+        "Could not save to the database. Please try again in a moment.",
+        "store_write_failed",
+        { persistence: "none", cause: lastPostgresError },
+      );
     }
-  }
-  // Production Postgres mode with DB not ready: emergency local JSON only.
-  // Reconnect reloads Postgres and must never upsert this local copy over production.
-  if (usePostgresStore() && !databaseReady) {
-    console.warn("[store] writeAsync in degraded mode — local JSON only; Postgres upsert blocked until authentic reload");
   }
   writeLocalJsonStore(storeCache);
 }
@@ -4147,7 +4290,7 @@ function applyFoundingReservation(store, email, details = {}) {
 function claimFoundingSpot(email) {
   const store = readStore();
   const claim = applyFoundingMemberClaim(store, email);
-  if (claim.reason === "claimed") writeStore(store);
+  if (claim.reason === "claimed") writeStore(store, { immediate: true });
   return {
     foundingMember: Boolean(claim.foundingMember),
     foundingMemberNumber: claim.foundingMemberNumber,
@@ -4162,7 +4305,7 @@ function reserveFoundingSpot(email, details = {}) {
   const claim = applyFoundingMemberClaim(store, email);
   if (!claim.foundingMember) return { ok: false, reason: claim.reason || "sold_out", ...claim };
   const expiresAt = applyFoundingReservation(store, clean, details);
-  writeStore(store);
+  writeStore(store, { immediate: true });
   return { ok: true, reserved: true, foundingMember: true, foundingMemberNumber: claim.foundingMemberNumber, expiresAt };
 }
 
@@ -4317,7 +4460,7 @@ async function claimFoundingSpotAtomic(email) {
 
     const store = readStore();
     const claim = applyFoundingMemberClaim(store, clean);
-    if (claim.reason === "claimed") writeStore(store);
+    if (claim.reason === "claimed") writeStore(store, { immediate: true });
     return {
       foundingMember: Boolean(claim.foundingMember),
       foundingMemberNumber: claim.foundingMemberNumber,
@@ -4663,7 +4806,7 @@ function applyCheckoutMembershipUpgrade(email, {
         ["Subscription", subscriptionId || ""],
       ],
     }).then(() => {
-      try { writeStore(storeForAlert); } catch { /* ignore */ }
+      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
     }).catch(() => {});
   } catch (alertError) {
     console.warn("[admin-notifications] checkout alert failed:", alertError?.message || alertError);
@@ -6645,7 +6788,7 @@ async function handleAccountProfileSync(request, response) {
         ["Plan", user.plan || "Free"],
       ],
     }).then(() => {
-      try { writeStore(storeForAlert); } catch { /* ignore */ }
+      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
     }).catch(() => {});
   }
   jsonResponse(response, 200, {
@@ -7973,6 +8116,7 @@ function storeHealthSnapshot(store = peekStore()) {
         || 300,
       analyticsEventCap: MAX_ANALYTICS_EVENTS,
     },
+    storeWrites: storeWriteMetricsLib.snapshot(storeWriteMetrics),
     sampleUsers: userEmails.slice(0, 12),
     sparseStoreSuspected: sparse,
     recovery,
@@ -8535,7 +8679,7 @@ async function handleStripeWebhook(request, response) {
             sendEmail: true,
             emailKind: "Billing",
           });
-          try { writeStore(cancelStore); } catch { /* ignore */ }
+          try { writeStore(cancelStore, { immediate: true }); } catch { /* ignore */ }
         } else if (updates.cancelAtPeriodEnd && !user.cancelAtPeriodEnd) {
           const cancelStore = readStore();
           await emitAdminAlertSafe(cancelStore, {
@@ -8547,7 +8691,7 @@ async function handleStripeWebhook(request, response) {
             refId: `canceling:${subscription.id || email}`,
             sendEmail: false,
           });
-          try { writeStore(cancelStore); } catch { /* ignore */ }
+          try { writeStore(cancelStore, { immediate: true }); } catch { /* ignore */ }
         }
       } else {
         console.warn(`[membership] webhook ${event.type} unmatched customer=${subscription.customer}`);
@@ -8575,7 +8719,7 @@ async function handleStripeWebhook(request, response) {
           sendEmail: true,
           emailKind: "Billing",
         });
-        try { writeStore(unmatchedStore); } catch { /* ignore */ }
+        try { writeStore(unmatchedStore, { immediate: true }); } catch { /* ignore */ }
       } else if (invoice.subscription) {
         const [email, existingUser] = userEntry;
         const eventCreated = Number(event.created || 0);
@@ -8626,7 +8770,7 @@ async function handleStripeWebhook(request, response) {
                 refId: invoice.id || `renew:${email}`,
                 sendEmail: false,
               });
-              try { writeStore(renewStore); } catch { /* ignore */ }
+              try { writeStore(renewStore, { immediate: true }); } catch { /* ignore */ }
             }
           }
         } catch (syncError) {
@@ -8698,7 +8842,7 @@ async function handleStripeWebhook(request, response) {
           emailKind: "Billing",
           emailFields: [["Invoice", invoice.id || ""]],
         });
-        try { writeStore(alertStore); } catch { /* ignore */ }
+        try { writeStore(alertStore, { immediate: true }); } catch { /* ignore */ }
       } else {
         console.warn(`[membership] webhook ${event.type} unmatched customer=${invoice.customer || ""} email=${invoice.customer_email || ""} invoice=${invoice.id || ""}`);
       }
@@ -9209,7 +9353,7 @@ async function emitPaidButFreeCriticalAlert(comparison) {
     sendEmail: true,
     emailKind: "Billing",
   });
-  try { writeStore(alertStore); } catch { /* ignore */ }
+  try { writeStore(alertStore, { immediate: true }); } catch { /* ignore */ }
 }
 
 /**
@@ -9305,7 +9449,7 @@ async function handleAdminBillingReconciliation(request, response, url) {
     }
   }
   if (previewStoreDirty) {
-    try { writeStore(previewStore); } catch { /* ignore — apply will simply require a fresh preview */ }
+    try { writeStore(previewStore, { immediate: true }); } catch { /* ignore — apply will simply require a fresh preview */ }
   }
 
   const criticalCount = results.filter((r) => r.criticalPaidButFree).length;
@@ -9427,7 +9571,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
     // The local record changed after the preview was generated (another webhook landed,
     // an admin made a different edit, etc.) — never apply against a stale snapshot.
     delete store.billingReconciliationPreviews[previewToken];
-    try { writeStore(store); } catch { /* ignore */ }
+    try { writeStore(store, { immediate: true }); } catch { /* ignore */ }
     jsonResponse(response, 409, {
       error: "This account's record changed since the preview was generated. Request a fresh preview before applying.",
       code: "record_changed_since_preview",
@@ -9476,7 +9620,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
 
   // The preview token is single-use regardless of outcome from here on.
   delete store.billingReconciliationPreviews[previewToken];
-  try { writeStore(store); } catch { /* ignore */ }
+  try { writeStore(store, { immediate: true }); } catch { /* ignore */ }
 
   if (stripeBillingReconciliation.isAlreadyReconciled(comparison)) {
     // Idempotent no-op: running this twice (or after webhooks already caught up on their
@@ -9530,7 +9674,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
     refId: `reconciled:${auditEntry.id}`,
     sendEmail: false,
   });
-  try { writeStore(notifyStore); } catch { /* ignore */ }
+  try { writeStore(notifyStore, { immediate: true }); } catch { /* ignore */ }
 
   jsonResponse(response, 200, {
     ok: true,
@@ -11480,16 +11624,71 @@ function pruneAnalyticsEventsInStore(store) {
 async function handleAnalyticsEvent(request, response) {
   const body = await readJson(request);
   const event = sanitizeAnalyticsEvent(body, request);
-  const store = readStore();
-  store.analyticsEvents = store.analyticsEvents || [];
-  if (!store.analyticsEvents.some((item) => item.id === event.id)) {
-    store.analyticsEvents.push(event);
+  const highVolume = analyticsStore.isHighVolumeAnalyticsEvent(event.name);
+  const needsImmediateStore = analyticsStore.requiresImmediateStoreWrite(event.name);
+
+  let analyticsTablePersisted = false;
+  if (usePostgresStore() && postgresPool) {
+    try {
+      await analyticsStore.insertAnalyticsEvent(postgresPool, postgresQueryWithTransientRetry, event);
+      analyticsTablePersisted = true;
+      storeWriteMetrics.analyticsTableInserts += 1;
+      if (highVolume) storeWriteMetrics.analyticsFullStoreWritesAvoided += 1;
+    } catch (error) {
+      console.warn("[analytics] Postgres table insert failed:", error.message);
+      if (highVolume && !needsImmediateStore) {
+        jsonResponse(response, 503, {
+          ok: false,
+          error: "Analytics temporarily unavailable.",
+          code: "analytics_not_persisted",
+        });
+        return;
+      }
+    }
   }
-  pruneAnalyticsEventsInStore(store);
-  updateAnalyticsUser(store, event);
-  if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true });
+
+  if (!usePostgresStore() || needsImmediateStore || !highVolume) {
+    const store = readStore();
+    store.analyticsEvents = store.analyticsEvents || [];
+    if (!store.analyticsEvents.some((item) => item.id === event.id)) {
+      store.analyticsEvents.push(event);
+    }
+    pruneAnalyticsEventsInStore(store);
+    updateAnalyticsUser(store, event);
+    if (["checkout_success", "subscription_canceled"].includes(event.name)) recordBillingEvent(store, event);
+    try {
+      if (needsImmediateStore) {
+        await writeStoreAsync(store);
+      } else {
+        writeStore(store);
+      }
+    } catch (error) {
+      jsonResponse(response, error.code === "store_not_persisted" || error.code === "store_write_failed" ? 503 : 500, {
+        ok: false,
+        error: error.message || "Could not save analytics update.",
+        code: error.code || "store_write_failed",
+      });
+      return;
+    }
+    jsonResponse(response, 200, {
+      ok: true,
+      persisted: needsImmediateStore ? "store" : "store_debounced",
+      analyticsTable: analyticsTablePersisted,
+    });
+    return;
+  }
+
+  if (event.user && event.user !== "guest") {
+    if (!storeCache) storeCache = defaultStore();
+    updateAnalyticsUser(storeCache, event);
+    if (databaseReady) scheduleDebouncedPostgresStoreWrite();
+  }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    persisted: analyticsTablePersisted ? "analytics_table" : "memory_only",
+    analyticsTable: analyticsTablePersisted,
+  });
 }
 
 function countEventsNamed(events, names) {
@@ -11554,9 +11753,9 @@ function ensureFoundingMemberUserStubs(store) {
   return changed;
 }
 
-function analyticsSummary(store) {
+function analyticsSummary(store, { events: eventsOverride } = {}) {
   ensureFoundingMemberUserStubs(store);
-  const events = (store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const events = (eventsOverride || store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const chronological = events.slice().reverse();
   const users = Object.values(store.users || {});
   // Session visits = website_visit only. Page views are counted separately so one
@@ -11900,7 +12099,7 @@ function analyticsSummary(store) {
   };
 }
 
-function handleAdminAnalytics(request, response, url) {
+async function handleAdminAnalytics(request, response, url) {
   const startedAt = Date.now();
   const token = String(extractAdminToken(request, url) || "").trim();
   const tokenPrefix = token ? `${token.slice(0, 12)}…` : "(empty)";
@@ -11922,15 +12121,29 @@ function handleAdminAnalytics(request, response, url) {
     // peekStore: do not structuredClone the entire production store for this read.
     const store = peekStore();
     const session = adminSessionStore.validate(token) || {};
+    let mergedEvents = Array.isArray(store.analyticsEvents) ? store.analyticsEvents.slice() : [];
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      try {
+        const tableEvents = await analyticsStore.fetchRecentAnalyticsEvents(
+          postgresPool,
+          postgresQueryWithTransientRetry,
+        );
+        const byId = new Map(mergedEvents.map((evt) => [evt.id, evt]));
+        tableEvents.forEach((evt) => byId.set(evt.id, evt));
+        mergedEvents = Array.from(byId.values());
+      } catch (error) {
+        console.warn("[admin-analytics] table fetch failed:", error.message);
+      }
+    }
     const userCount = Object.keys(store.users || {}).length;
-    const eventCount = (store.analyticsEvents || []).length;
+    const eventCount = mergedEvents.length;
     console.log("[admin-analytics] building summary", {
       email: session.email || "",
       userCount,
       eventCount,
       heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
     });
-    const analytics = analyticsSummary(store);
+    const analytics = analyticsSummary(store, { events: mergedEvents });
     console.log("[admin-analytics] success", {
       email: session.email || "",
       ms: Date.now() - startedAt,
@@ -18518,7 +18731,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/cancel-subscription") return await handleCancelSubscription(request, response);
     if (request.method === "GET" && url.pathname === "/api/subscription-status") return await handleSubscriptionStatus(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/user/ai-usage") return handleUserAiUsage(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/admin/analytics") return handleAdminAnalytics(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/analytics") return await handleAdminAnalytics(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/notifications") return await handleAdminNotificationsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/notifications/mark-read") return await handleAdminNotificationsMarkRead(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/membership-update") return await handleAdminMembershipUpdate(request, response);

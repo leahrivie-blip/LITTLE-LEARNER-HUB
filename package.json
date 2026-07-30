@@ -208,6 +208,8 @@
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
     "test:postgres-pool-hardening": "NODE_ENV=test node scripts/test-postgres-pool-hardening.js",
     "test:store-write-race": "NODE_ENV=test node scripts/test-store-write-race.js",
+    "test:store-write-debounce": "NODE_ENV=test node scripts/test-store-write-debounce.js",
+    "test:store-write-degraded": "NODE_ENV=test node scripts/test-store-write-degraded.js",
     "test:admin-session-storage": "NODE_ENV=test node scripts/test-admin-session-storage.js",
     "test:analytics-event-cap": "NODE_ENV=test node scripts/test-analytics-event-cap.js",
     "test:prod-store-safety-smoke": "node scripts/test-prod-store-safety-smoke.js",
