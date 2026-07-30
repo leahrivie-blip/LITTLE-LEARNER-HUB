@@ -162,9 +162,9 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trust-faq");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trust-faq");
-  assert.match(sw, /llh-shell-v130-trust-faq/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-finish");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-finish");
+  assert.match(sw, /llh-shell-v131-hdh-finish/);
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

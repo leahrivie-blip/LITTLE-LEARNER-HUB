@@ -484,6 +484,20 @@ let childPortfolioDateFilter = "";
 let activeObservationEditId = "";
 let childManagementMode = "list";
 let childProfileTab = "overview";
+let childFormsRecordsQuery = "";
+let childFormsRecordsStatus = "all";
+let childFormsRecordsCategory = "all";
+let hdhAiDraftState = {
+  packFormId: "",
+  childId: "",
+  notes: "",
+  lastOutput: "",
+  editing: false,
+};
+let familyHubHouseholdCache = { households: [], loadedAt: 0 };
+let familyHubInviteResult = null;
+let hdhStaffTrainingsCache = { trainings: [], trainingTypes: [], loadedAt: 0 };
+let hdhPacketsCache = { packets: [], loadedAt: 0 };
 let childToolsTab = "attendance";
 let dailyLogsSection = "home";
 let dailyLogsChildTab = "overview";
@@ -835,6 +849,7 @@ function isResourceVisibleToCurrentUser(resource) {
   if (resource.archived === true && !hasAdminFullAccess()) return false;
   if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
+  if (resource.homeDaycareHubOnly && !isHomeDaycareHubTestingEnabled() && !hasAdminFullAccess()) return false;
   return true;
 }
 
@@ -2607,6 +2622,8 @@ const guestAllowedViews = new Set([
   "reset-password", "payment-success", "payment-failed",
   // Public curriculum browsing for approved Free previews (Pro stays locked).
   "lessons", "activities",
+  // Family Hub parent portal (testing fence enforced in renderer + APIs).
+  "family-hub",
 ]);
 
 const HOME_NAV_SECTION_IDS = {
@@ -5384,6 +5401,7 @@ async function runSignedInBootVerification() {
   }
   await withBootVerificationTimeout("Founding status", () => syncFoundingStatus({ render: false })).catch(() => {});
   await withBootVerificationTimeout("Staff invite", () => maybeHandleStaffInviteFromUrl()).catch(() => {});
+  await withBootVerificationTimeout("Family Hub invite", () => maybeHandleFamilyHubInviteFromUrl()).catch(() => {});
   loadUserAiUsage(currentUser).catch(() => {});
 }
 
@@ -5917,6 +5935,597 @@ function emptyCurriculumLibrary() {
 
 function isPlayBasedCurriculumEnabled() {
   return true;
+}
+
+/** Home Daycare Hub is fenced to the testing site via HOME_DAYCARE_HUB_TESTING. */
+function isHomeDaycareHubTestingEnabled() {
+  try {
+    if (typeof window !== "undefined" && window.LLH_CONFIG && typeof window.LLH_CONFIG === "object") {
+      return Boolean(window.LLH_CONFIG.homeDaycareHubTesting);
+    }
+  } catch (_error) { /* ignore */ }
+  return false;
+}
+
+const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
+  "Enrollment",
+  "Emergency contacts",
+  "Allergy / medical",
+  "Sunscreen authorization",
+  "Photo release",
+  "Incident report",
+  "Field trip",
+  "Handbook acknowledgment",
+  "Infant safe sleep",
+  "Diaper cream authorization",
+  "Other",
+]);
+
+/** Curated home-daycare forms pack (testing Hub Step B). Links existing library IDs + pack-only templates. */
+const HOME_DAYCARE_FORMS_PACK = Object.freeze([
+  {
+    id: "hdh-pack-enrollment",
+    title: "Enrollment Packet",
+    category: "Enrollment",
+    resourceId: "form-enrollment-forms-enrollment-packet",
+    description: "Start-of-care checklist and family signatures.",
+  },
+  {
+    id: "hdh-pack-emergency",
+    title: "Emergency Contact Form",
+    category: "Emergency contacts",
+    resourceId: "form-enrollment-forms-emergency-contact-form",
+    description: "Emergency contacts and authorized pick-up details.",
+  },
+  {
+    id: "hdh-pack-allergy",
+    title: "Allergy Form",
+    category: "Allergy / medical",
+    resourceId: "form-medical-forms-allergy-form",
+    description: "Allergies, reactions, and emergency medical notes.",
+  },
+  {
+    id: "hdh-pack-sunscreen",
+    title: "Sunscreen Authorization",
+    category: "Sunscreen authorization",
+    resourceId: "form-medical-forms-sunscreen-authorization",
+    description: "Parent permission to apply sunscreen.",
+  },
+  {
+    id: "hdh-pack-photo",
+    title: "Photo Release Form",
+    category: "Photo release",
+    resourceId: "form-enrollment-forms-photo-release-form",
+    description: "Permission for photos and classroom documentation.",
+  },
+  {
+    id: "hdh-pack-incident",
+    title: "Incident Report",
+    category: "Incident report",
+    resourceId: "form-daily-forms-incident-report",
+    description: "Document incidents, injuries, and parent notification.",
+  },
+  {
+    id: "hdh-pack-field-trip",
+    title: "Field Trip Permission",
+    category: "Field trip",
+    resourceId: "form-enrollment-forms-field-trip-permission",
+    description: "Permission for off-site trips and outings.",
+  },
+  {
+    id: "hdh-pack-handbook",
+    title: "Handbook Acknowledgment",
+    category: "Handbook acknowledgment",
+    resourceId: "hdh-form-handbook-acknowledgment",
+    description: "Parent receipt and acknowledgment of your handbook.",
+  },
+  {
+    id: "hdh-pack-safe-sleep",
+    title: "Infant Safe Sleep Authorization",
+    category: "Infant safe sleep",
+    resourceId: "hdh-form-infant-safe-sleep",
+    description: "Safe sleep practices acknowledgment for infants.",
+  },
+  {
+    id: "hdh-pack-diaper-cream",
+    title: "Diaper Cream Authorization",
+    category: "Diaper cream authorization",
+    resourceId: "hdh-form-diaper-cream-authorization",
+    description: "Permission to apply family-provided diaper cream.",
+  },
+]);
+
+function homeDaycareFormsPackDisclaimer() {
+  return "These form templates are not state-specific. Always check your state licensing requirements before using paperwork with families.";
+}
+
+function homeDaycarePackFormContent(kind) {
+  const disclaimer = `IMPORTANT
+${homeDaycareFormsPackDisclaimer()}
+Customize this form to match your program policies, handbook, and licensing rules.`;
+  if (kind === "handbook") {
+    return `Handbook Acknowledgment
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Parent/Guardian Name: ____________________________________
+Date: ____________________________________________________
+
+${disclaimer}
+
+I acknowledge that I have received a copy of the Parent Handbook (or have been given access to review it), and I agree to follow the program policies described in it.
+
+Handbook version / date received: _________________________
+
+${formCheckboxes([
+  "I received a printed handbook",
+  "I received a digital handbook / link",
+  "I understand tuition, hours, illness, and pickup policies",
+  "I understand emergency and safety policies",
+  "I will ask the provider if I have questions",
+])}
+
+Parent/family notes:
+________________________________________________________________________
+________________________________________________________________________
+
+${formSignatureBlock()}`;
+  }
+  if (kind === "safe-sleep") {
+    return `Infant Safe Sleep Authorization
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Date of Birth: ___________________________________________
+Parent/Guardian Name: ____________________________________
+Date: ____________________________________________________
+
+${disclaimer}
+
+Safe Sleep Practices
+This program follows safe sleep practices for infants. Unless a physician provides a written exception, infants are placed to sleep on their back in a safety-approved crib or pack-and-play with a firm, flat sleep surface and no soft bedding, pillows, stuffed toys, or loose blankets.
+
+${formCheckboxes([
+  "I understand back-to-sleep placement is used unless a written physician exception is on file",
+  "I will provide only approved sleep clothing / wearable blanket if needed",
+  "I will not request soft bedding, pillows, stuffed toys, or positioners in the sleep space",
+  "I will notify the provider of any sleep-related medical needs in writing",
+])}
+
+Physician exception on file? [ ] Yes  [ ] No
+Details / medical notes:
+________________________________________________________________________
+________________________________________________________________________
+
+${formSignatureBlock()}`;
+  }
+  return `Diaper Cream Authorization
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Parent/Guardian Name: ____________________________________
+Date: ____________________________________________________
+
+${disclaimer}
+
+I authorize the childcare provider to apply the diaper cream / topical ointment listed below when needed during diaper changes, according to the product label and my instructions.
+
+Product name: ____________________________________________
+Provided by family? [ ] Yes  [ ] No
+When to apply: ___________________________________________
+Special instructions:
+________________________________________________________________________
+________________________________________________________________________
+
+Known skin sensitivities / do not use:
+________________________________________________________________________
+
+Authorization end date (optional): ________________________
+
+${formSignatureBlock()}`;
+}
+
+function buildHomeDaycareFormsPackResources() {
+  const shared = {
+    category: "Forms Library",
+    age: "All Ages",
+    plan: "Free",
+    month: "All Year",
+    format: "PDF + Editable",
+    tags: ["Home Daycare Hub", "PDF", "Editable", "In-App"],
+    homeDaycareHubOnly: true,
+    visible: true,
+    archived: false,
+  };
+  return [
+    {
+      ...shared,
+      id: "hdh-form-handbook-acknowledgment",
+      title: "Handbook Acknowledgment",
+      formCategory: "Handbook acknowledgment",
+      description: "Parent receipt and acknowledgment of your program handbook.",
+      customContent: homeDaycarePackFormContent("handbook"),
+    },
+    {
+      ...shared,
+      id: "hdh-form-infant-safe-sleep",
+      title: "Infant Safe Sleep Authorization",
+      formCategory: "Infant safe sleep",
+      description: "Safe sleep practices acknowledgment for infants in home daycare.",
+      customContent: homeDaycarePackFormContent("safe-sleep"),
+    },
+    {
+      ...shared,
+      id: "hdh-form-diaper-cream-authorization",
+      title: "Diaper Cream Authorization",
+      formCategory: "Diaper cream authorization",
+      description: "Permission to apply family-provided diaper cream during care.",
+      customContent: homeDaycarePackFormContent("diaper-cream"),
+    },
+  ];
+}
+
+function renderHomeDaycareFormsPackList(options = {}) {
+  const { childId = "", showAddToFile = false, showAiDraft = false } = options;
+  return `
+    <div class="hdh-forms-pack-list" role="list">
+      ${HOME_DAYCARE_FORMS_PACK.map((form) => `
+        <article class="hdh-forms-pack-item" role="listitem">
+          <div>
+            <strong>${escapeHtml(form.title)}</strong>
+            <p class="muted-copy">${escapeHtml(form.category)} — ${escapeHtml(form.description)}</p>
+          </div>
+          <div class="hdh-forms-pack-actions">
+            <button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(form.resourceId)}">Open form</button>
+            ${showAiDraft ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(form.id)}"${childId ? ` data-child-id="${escapeHtml(childId)}"` : ""}>AI draft</button>` : ""}
+            ${showAddToFile && childId ? `<button class="primary-button" type="button" data-hdh-add-pack-form="${escapeHtml(form.id)}" data-child-id="${escapeHtml(childId)}">Add to file</button>` : ""}
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function homeDaycareAiDraftSelectedPackForm() {
+  return HOME_DAYCARE_FORMS_PACK.find((item) => item.id === hdhAiDraftState.packFormId) || HOME_DAYCARE_FORMS_PACK[0] || null;
+}
+
+function renderHomeDaycareAiDraftPanel(options = {}) {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const children = childRecords().children || [];
+  if (options.childId) hdhAiDraftState.childId = options.childId;
+  if (options.packFormId) hdhAiDraftState.packFormId = options.packFormId;
+  if (!hdhAiDraftState.packFormId && HOME_DAYCARE_FORMS_PACK[0]) {
+    hdhAiDraftState.packFormId = HOME_DAYCARE_FORMS_PACK[0].id;
+  }
+  if (!hdhAiDraftState.childId && (options.preferChildId || children[0]?.id)) {
+    hdhAiDraftState.childId = options.preferChildId || children[0].id;
+  }
+  const selectedPackId = hdhAiDraftState.packFormId || "";
+  const selectedChildId = hdhAiDraftState.childId || "";
+  const hasDraft = Boolean(String(hdhAiDraftState.lastOutput || "").trim());
+  return `
+    <section class="section-block hdh-ai-draft-panel" id="hdhAiDraftPanel">
+      <p class="eyebrow">Step C</p>
+      <h3>AI form draft</h3>
+      <p class="muted-copy">Generate a filled draft from short notes. Review and edit before saving. Family send comes later — nothing is sent automatically.</p>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
+      <form id="hdhAiDraftForm" class="panel-form hdh-ai-draft-form">
+        <div class="form-grid-two">
+          <label>Form
+            <select name="packFormId" required>
+              ${HOME_DAYCARE_FORMS_PACK.map((form) => `
+                <option value="${escapeHtml(form.id)}" ${form.id === selectedPackId ? "selected" : ""}>${escapeHtml(form.title)}</option>
+              `).join("")}
+            </select>
+          </label>
+          <label>Child
+            <select name="childId">
+              <option value="">No child selected</option>
+              ${children.map((child) => `
+                <option value="${escapeHtml(child.id)}" ${child.id === selectedChildId ? "selected" : ""}>${escapeHtml(child.name)}</option>
+              `).join("")}
+            </select>
+          </label>
+        </div>
+        <label>Notes for this draft
+          <textarea name="notes" rows="4" maxlength="2000" placeholder="Facts only — allergies, schedule, trip date, product name, handbook version, what happened… AI will not invent missing details.">${escapeHtml(hdhAiDraftState.notes || "")}</textarea>
+        </label>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit">Generate draft</button>
+          <button class="ghost-button" type="button" data-hdh-ai-clear ${hasDraft ? "" : "hidden"}>Clear draft</button>
+        </div>
+        <p class="form-note">Use only real facts from the family or your records. Leave blanks for anything missing.</p>
+      </form>
+      <div id="hdhAiDraftResults" class="hdh-ai-draft-results" ${hasDraft ? "" : "hidden"}>
+        <div class="account-actions-row">
+          <button class="ghost-button" type="button" data-hdh-ai-edit>${hdhAiDraftState.editing ? "Done editing" : "Edit draft"}</button>
+          <button class="ghost-button" type="button" data-hdh-ai-regenerate>Regenerate</button>
+          <button class="primary-button" type="button" data-hdh-ai-save>Save to child file</button>
+          <button class="ghost-button" type="button" data-hdh-ai-print>Print</button>
+          <button class="ghost-button" type="button" data-hdh-ai-send-later title="Invite or open Family Hub for this child">Send later (Family Hub)</button>
+        </div>
+        <p class="form-note" id="hdhAiDraftHint">Review this draft carefully before saving or printing. Sending to families is not available yet.</p>
+        <div id="hdhAiDraftOutput" class="hdh-ai-draft-output" ${hdhAiDraftState.editing ? 'contenteditable="true"' : ""}>${hasDraft ? renderMarkdown(hdhAiDraftState.lastOutput) : ""}</div>
+      </div>
+    </section>
+  `;
+}
+
+function collectHomeDaycareAiDraftFormState(form = document.querySelector("#hdhAiDraftForm")) {
+  if (!form) return null;
+  const data = collectFormData(form);
+  hdhAiDraftState.packFormId = String(data.packFormId || "").trim();
+  hdhAiDraftState.childId = String(data.childId || "").trim();
+  hdhAiDraftState.notes = String(data.notes || "").trim();
+  return { ...hdhAiDraftState };
+}
+
+function homeDaycareAiDraftTemplateExcerpt(packForm) {
+  if (!packForm?.resourceId) return "";
+  const resource = (typeof resources !== "undefined" ? resources : []).find((item) => item.id === packForm.resourceId);
+  if (!resource) return "";
+  try {
+    return String(formPrintableText(resource) || "").slice(0, 2800);
+  } catch (_error) {
+    return "";
+  }
+}
+
+function buildHomeDaycareAiFormDraftData(packForm, child, notes) {
+  const settings = getProgramSettings();
+  const programName = settings.programName || settings.businessName || "";
+  const childName = child?.name || "";
+  const ageGroup = child ? (normalizeAgeGroup(child.ageGroup) || "") : "";
+  const today = new Date().toISOString().slice(0, 10);
+  const templateExcerpt = homeDaycareAiDraftTemplateExcerpt(packForm);
+  const knownFacts = [
+    childName ? `Child name: ${childName}` : "",
+    child?.dob ? `Date of birth: ${child.dob}` : "",
+    ageGroup ? `Age group: ${ageGroup}` : "",
+    child?.parentInfo ? `Parent/guardian: ${child.parentInfo}` : "",
+    child?.classroom ? `Classroom: ${child.classroom}` : "",
+    notes ? `Provider notes: ${notes}` : "",
+  ].filter(Boolean).join("\n");
+  return {
+    formType: packForm.title,
+    program: programName || "Your home daycare",
+    programName: programName || "Your home daycare",
+    purpose: `${packForm.description} Fill only facts provided. Leave blanks for missing information. Include a short reminder to check state licensing requirements.`,
+    fieldsNeeded: "Program name, child name, parent/guardian name, date, required form fields, notes, parent signature, provider signature",
+    childName: childName || "",
+    age: ageGroup || "Mixed Ages",
+    ageGroup: ageGroup || "",
+    providerNotes: notes || "",
+    details: [
+      homeDaycareFormsPackDisclaimer(),
+      "",
+      "Known facts (do not invent anything beyond this):",
+      knownFacts || "No extra child facts were provided.",
+      "",
+      "Blank template reference (keep structure; fill only known facts):",
+      templateExcerpt || packForm.title,
+    ].join("\n"),
+    date: today,
+    childExplicitlySelected: Boolean(child),
+  };
+}
+
+async function runHomeDaycareAiFormDraft({ draftAction = "" } = {}) {
+  if (!isHomeDaycareHubTestingEnabled()) return;
+  const form = document.querySelector("#hdhAiDraftForm");
+  const resultsEl = document.querySelector("#hdhAiDraftResults");
+  const outputEl = document.querySelector("#hdhAiDraftOutput");
+  const hintEl = document.querySelector("#hdhAiDraftHint");
+  const submitBtn = form?.querySelector("[type='submit']");
+  if (!form || !resultsEl || !outputEl) return;
+  collectHomeDaycareAiDraftFormState(form);
+  const packForm = homeDaycareAiDraftSelectedPackForm();
+  if (!packForm) return;
+  const notes = String(hdhAiDraftState.notes || "").trim();
+  if (!notes && !hdhAiDraftState.lastOutput) {
+    if (hintEl) hintEl.textContent = "Add a few facts in Notes before generating a draft.";
+    resultsEl.hidden = false;
+    return;
+  }
+  const records = childRecords();
+  const child = records.children.find((item) => item.id === hdhAiDraftState.childId) || null;
+  let data = buildHomeDaycareAiFormDraftData(packForm, child, notes);
+  if (draftAction === "regenerate" && hdhAiDraftState.lastOutput) {
+    data = {
+      ...data,
+      providerNotes: `Regenerate this childcare form draft. Keep every provided fact accurate. Do not invent missing details. Improve clarity and keep signature lines.\n\nCurrent draft:\n${hdhAiDraftState.lastOutput}\n\nProvider notes:\n${notes || "(none)"}`,
+      details: data.details,
+    };
+  }
+  const previousOutput = hdhAiDraftState.lastOutput;
+  resultsEl.hidden = false;
+  outputEl.contentEditable = "false";
+  hdhAiDraftState.editing = false;
+  outputEl.textContent = "Creating your form draft…";
+  if (hintEl) hintEl.textContent = "Writing your draft… Review it carefully when ready.";
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Creating…";
+  }
+  document.querySelectorAll("[data-hdh-ai-regenerate], [data-hdh-ai-save], [data-hdh-ai-print], [data-hdh-ai-edit]").forEach((btn) => {
+    btn.disabled = true;
+  });
+  try {
+    let output = "";
+    let used;
+    let limit;
+    if (canUseLaunchBackend() && canUseAi()) {
+      try {
+        const result = await generateToolOutputWithBackend("form", data);
+        output = String(result.output || "").trim();
+        used = result.used;
+        limit = result.limit;
+        recordAiUse(used, limit);
+      } catch (error) {
+        output = generateDaycareForm(data);
+        if (hintEl) {
+          hintEl.textContent = `${error.message || "AI was unavailable."} Showing a local template draft instead — edit before use.`;
+        }
+      }
+    } else {
+      output = generateDaycareForm(data);
+      if (hintEl) hintEl.textContent = "Local template draft ready. Edit before saving or printing. AI backend was not used.";
+    }
+    if (!output) throw new Error("We couldn't create your form draft. Please try again.");
+    hdhAiDraftState.lastOutput = output;
+    outputEl.innerHTML = renderMarkdown(output);
+    if (hintEl && !/local template|unavailable/i.test(hintEl.textContent || "")) {
+      hintEl.textContent = child
+        ? `Draft ready for ${child.name}. Review and edit before saving. Nothing is sent to families yet.`
+        : "Draft ready. Choose a child before saving to a file. Nothing is sent to families yet.";
+    }
+    trackEvent("ai_generation_success", { tool: "home-daycare-form-draft", form: packForm.id, plan: currentPlan, draftAction: draftAction || "create" });
+  } catch (error) {
+    if (previousOutput) {
+      hdhAiDraftState.lastOutput = previousOutput;
+      outputEl.innerHTML = renderMarkdown(previousOutput);
+      if (hintEl) hintEl.textContent = "Generation failed. Your previous draft is still here.";
+    } else {
+      outputEl.textContent = error.message || "We couldn't create your form draft. Please try again.";
+      hdhAiDraftState.lastOutput = "";
+      if (hintEl) hintEl.textContent = "Generation failed. Edit your notes and try again.";
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Generate draft";
+    }
+    document.querySelectorAll("[data-hdh-ai-regenerate], [data-hdh-ai-save], [data-hdh-ai-print], [data-hdh-ai-edit]").forEach((btn) => {
+      btn.disabled = false;
+    });
+    const clearBtn = document.querySelector("[data-hdh-ai-clear]");
+    if (clearBtn) clearBtn.hidden = !String(hdhAiDraftState.lastOutput || "").trim();
+    const editBtn = document.querySelector("[data-hdh-ai-edit]");
+    if (editBtn) editBtn.textContent = "Edit draft";
+  }
+}
+
+function readHomeDaycareAiDraftOutputText() {
+  const outputEl = document.querySelector("#hdhAiDraftOutput");
+  if (!outputEl) return String(hdhAiDraftState.lastOutput || "").trim();
+  if (outputEl.isContentEditable || hdhAiDraftState.editing) {
+    const raw = String(outputEl.innerText || outputEl.textContent || "").trim();
+    if (raw) {
+      hdhAiDraftState.lastOutput = raw;
+      return raw;
+    }
+  }
+  return String(hdhAiDraftState.lastOutput || outputEl.dataset?.rawMarkdown || "").trim();
+}
+
+function saveHomeDaycareAiFormDraftToChild() {
+  if (!isHomeDaycareHubTestingEnabled()) return;
+  collectHomeDaycareAiDraftFormState();
+  const packForm = homeDaycareAiDraftSelectedPackForm();
+  const childId = hdhAiDraftState.childId;
+  const draftText = readHomeDaycareAiDraftOutputText();
+  const hintEl = document.querySelector("#hdhAiDraftHint");
+  if (!packForm) return;
+  if (!childId) {
+    if (hintEl) hintEl.textContent = "Choose a child before saving this draft to a file.";
+    showActionFeedback("Choose a child before saving.");
+    return;
+  }
+  if (!draftText) {
+    if (hintEl) hintEl.textContent = "Generate and review a draft before saving.";
+    showActionFeedback("Generate a draft first.");
+    return;
+  }
+  selectedChildId = childId;
+  localStorage.setItem("llhSelectedChild", selectedChildId);
+  appendChildRecord("Documents", {
+    childId,
+    title: `${packForm.title} (AI draft)`,
+    category: packForm.category,
+    packFormId: packForm.id,
+    resourceId: packForm.resourceId,
+    status: "received",
+    statusLabel: "Draft ready — review before family use",
+    notes: "AI-assisted draft. Review for accuracy and licensing before sharing with families.",
+    draftText,
+    date: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString(),
+  });
+  childProfileTab = "forms-records";
+  childManagementMode = "profile";
+  if (hintEl) hintEl.textContent = "Saved to the child’s Forms & Records file. Family send is not available yet.";
+  showActionFeedback("AI form draft saved to child file.");
+  trackEvent("hdh_ai_form_draft_saved", { form: packForm.id });
+}
+
+function homeDaycarePackDocumentStatusLabel(status = "needed") {
+  const statusLabels = {
+    needed: "Needed",
+    requested: "Requested from family",
+    received: "Received",
+    signed: "Signed / complete",
+  };
+  return statusLabels[status] || status;
+}
+
+function childAlreadyHasHomeDaycarePackForm(existingForChild, packForm) {
+  return existingForChild.some((item) => (
+    String(item.packFormId || "") === packForm.id
+    || String(item.resourceId || "") === packForm.resourceId
+    || String(item.title || "").trim().toLowerCase() === String(packForm.title || "").trim().toLowerCase()
+  ));
+}
+
+function addHomeDaycarePackFormToChild(childId, packForm, status = "needed") {
+  if (!childId || !packForm) return false;
+  const existing = childStore("Documents").filter((item) => item.childId === childId);
+  if (childAlreadyHasHomeDaycarePackForm(existing, packForm)) return false;
+  appendChildRecord("Documents", {
+    childId,
+    title: packForm.title,
+    category: packForm.category,
+    packFormId: packForm.id,
+    resourceId: packForm.resourceId,
+    status,
+    statusLabel: homeDaycarePackDocumentStatusLabel(status),
+    notes: "",
+    date: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+function addAllHomeDaycarePackFormsToChild(childId) {
+  if (!childId) return 0;
+  const allDocs = childStore("Documents");
+  const existingForChild = allDocs.filter((item) => item.childId === childId);
+  const next = [...allDocs];
+  let added = 0;
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  HOME_DAYCARE_FORMS_PACK.forEach((form) => {
+    if (childAlreadyHasHomeDaycarePackForm(existingForChild, form)) return;
+    const record = {
+      id: `Documents-${Date.now().toString(36)}-${added}-${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: now,
+      childId,
+      title: form.title,
+      category: form.category,
+      packFormId: form.id,
+      resourceId: form.resourceId,
+      status: "needed",
+      statusLabel: homeDaycarePackDocumentStatusLabel("needed"),
+      notes: "",
+      date: today,
+      updatedAt: now,
+    };
+    next.push(record);
+    existingForChild.push(record);
+    added += 1;
+  });
+  if (added) saveChildStore("Documents", next);
+  return added;
 }
 
 function useCurriculumLibrarySources() {
@@ -10248,6 +10857,7 @@ function loadResources() {
   return applyObservationEdits([
     ...starterWithoutOldGenerated,
     ...supportingLibrary,
+    ...buildHomeDaycareFormsPackResources(),
     ...loadCurriculumManagedLessonPlans(),
     ...loadCurriculumManagedActivities(),
     ...loadAdminManagedForms(),
@@ -11349,11 +11959,35 @@ function syncPlatformNavVisibility() {
     button.setAttribute("aria-hidden", "true");
     button.setAttribute("tabindex", "-1");
   });
+  syncHomeDaycareHubNavVisibility();
   document.querySelectorAll("[data-nav-section]").forEach((section) => {
     const hasVisibleLink = Array.from(section.querySelectorAll(".nav-link")).some((link) => !link.hidden);
     section.hidden = !hasVisibleLink;
   });
   syncCurriculumPlannerNavVisibility();
+}
+
+function syncHomeDaycareHubNavVisibility() {
+  const enabled = isHomeDaycareHubTestingEnabled() && isLoggedIn() && staffMaySeeHdhView("home-daycare-hub");
+  document.body.classList.toggle("hdh-testing", isHomeDaycareHubTestingEnabled());
+  document.querySelectorAll("[data-nav-hdh-testing='true']").forEach((button) => {
+    button.hidden = !enabled;
+    button.setAttribute("aria-hidden", enabled ? "false" : "true");
+    if (enabled) button.removeAttribute("tabindex");
+    else button.setAttribute("tabindex", "-1");
+  });
+  if (!isHomeDaycareHubTestingEnabled() || !isLoggedIn()) return;
+  const visibility = currentAccountHdhVisibility();
+  if (!visibility) return;
+  document.querySelectorAll("#platformNav .nav-link[data-view]").forEach((button) => {
+    if (button.hasAttribute("data-nav-hidden")) return;
+    const view = button.dataset.view;
+    if (!staffMaySeeHdhView(view)) {
+      button.hidden = true;
+      button.setAttribute("aria-hidden", "true");
+      button.setAttribute("tabindex", "-1");
+    }
+  });
 }
 
 function isPlatformNavActive(buttonView, requestedView, resolvedView) {
@@ -11386,6 +12020,7 @@ function isPlatformNavActive(buttonView, requestedView, resolvedView) {
   if (buttonView === "calendar" && resolvedView === "planner") return true;
   if (buttonView === "ai" && resolvedView === "generators") return true;
   if (buttonView === "director-center" && resolvedView === "director-center") return true;
+  if (buttonView === "home-daycare-hub" && resolvedView === "home-daycare-hub") return true;
   if (buttonView === "home" && resolvedView === "home") return true;
   return false;
 }
@@ -13755,6 +14390,22 @@ function setView(view, options = {}) {
   if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
     return setView("calendar", { ...options, remappedFromHome: true });
   }
+  // Home Daycare Hub is testing-site only (HOME_DAYCARE_HUB_TESTING).
+  if (resolvedRequested === "home-daycare-hub" && !isHomeDaycareHubTestingEnabled() && !options.allowHomeDaycareHubPreview) {
+    return setView("calendar", { ...options, skipAccessRedirect: true });
+  }
+  if (resolvedRequested === "family-hub" && !isHomeDaycareHubTestingEnabled()) {
+    return setView(isLoggedIn() ? "calendar" : "home", { ...options, skipAccessRedirect: true });
+  }
+  if (
+    isLoggedIn()
+    && isHomeDaycareHubTestingEnabled()
+    && currentAccountHdhVisibility()
+    && !staffMaySeeHdhView(resolvedRequested)
+    && !options.skipAccessRedirect
+  ) {
+    return setView("calendar", { ...options, skipAccessRedirect: true });
+  }
   // Soft-retire Curriculum Planner: redirect to Calendar unless rollback flag is on.
   if (resolvedRequested === "curriculum-planner" && !isCurriculumPlannerLegacyEnabled()) {
     pendingCurriculumPlannerRetirementNotice = true;
@@ -14004,6 +14655,8 @@ function setView(view, options = {}) {
   }
   if (resolvedView === "forms-settings") renderFormsSettingsPage();
   if (resolvedView === "curriculum-settings") renderCurriculumSettingsPage();
+  if (resolvedView === "home-daycare-hub") renderHomeDaycareHubPage();
+  if (resolvedView === "family-hub") renderFamilyHubPage();
   if (resolvedView === "staff") renderStaffManagementPage();
   if (resolvedView === "classrooms") renderClassroomsPage();
   if (resolvedView === "families") renderFamiliesPage();
@@ -16525,6 +17178,16 @@ ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________`;
 
+  if (label.includes("handbook acknowledgment") || label.includes("handbook acknowledgement") || label.includes("handbook receipt")) {
+    return homeDaycarePackFormContent("handbook");
+  }
+  if (label.includes("infant safe sleep") || (label.includes("safe sleep") && label.includes("authorization"))) {
+    return homeDaycarePackFormContent("safe-sleep");
+  }
+  if (label.includes("diaper cream")) {
+    return homeDaycarePackFormContent("diaper-cream");
+  }
+
   if (label.includes("enrollment packet")) {
     return `${header}
 
@@ -17141,6 +17804,8 @@ function lessonAgeData(data, age) {
 }
 
 function formPrintableText(resource) {
+  const custom = String(resource?.customContent || "").trim();
+  if (custom) return custom;
   return formResourceContent(resource);
 }
 
@@ -29943,6 +30608,674 @@ function renderSettingsHubPage() {
   }
 }
 
+const FAMILY_HUB_SESSION_KEY = "llhFamilyHubSession";
+
+function getFamilyHubSessionToken() {
+  try {
+    return String(localStorage.getItem(FAMILY_HUB_SESSION_KEY) || "").trim();
+  } catch (_error) {
+    return "";
+  }
+}
+
+function setFamilyHubSessionToken(token) {
+  try {
+    if (token) localStorage.setItem(FAMILY_HUB_SESSION_KEY, token);
+    else localStorage.removeItem(FAMILY_HUB_SESSION_KEY);
+  } catch (_error) { /* ignore */ }
+}
+
+function clearFamilyHubSession() {
+  setFamilyHubSessionToken("");
+}
+
+function familyHubAuthHeaders() {
+  const token = getFamilyHubSessionToken();
+  if (!token) return null;
+  return {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+    "X-LLH-Family-Session": token,
+  };
+}
+
+function familyHubDocumentSnapshotForChildren(childIds = []) {
+  const idSet = new Set(childIds.map((id) => String(id)));
+  return (childStore("Documents") || [])
+    .filter((doc) => idSet.has(String(doc.childId || "")))
+    .map((doc) => ({
+      childId: doc.childId,
+      title: doc.title || "Form",
+      category: doc.category || "Other",
+      status: doc.status || "needed",
+      statusLabel: doc.statusLabel || doc.status || "Needed",
+    }));
+}
+
+async function refreshFamilyHubHouseholds() {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) {
+    familyHubHouseholdCache = { households: familyHubHouseholdCache.households || [], loadedAt: Date.now(), localOnly: true };
+    return familyHubHouseholdCache;
+  }
+  const response = await fetch("/api/family-hub/households", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load Family Hub households.");
+  familyHubHouseholdCache = {
+    households: Array.isArray(data.households) ? data.households : [],
+    emailDeliveryReady: Boolean(data.emailDeliveryReady),
+    loadedAt: Date.now(),
+  };
+  return familyHubHouseholdCache;
+}
+
+function renderFamilyHubProviderPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const children = childRecords().children || [];
+  const households = familyHubHouseholdCache.households || [];
+  const invite = familyHubInviteResult;
+  return `
+    <section class="section-block hdh-family-hub-panel" id="hdhFamilyHubPanel">
+      <p class="eyebrow">Step D</p>
+      <h3>Family Hub</h3>
+      <p class="muted-copy">One household login covers all linked kids. Parents open a magic link (email or text) or sign in with email + code. No per-child logins.</p>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
+      <form id="hdhFamilyHubInviteForm" class="panel-form hdh-family-hub-form">
+        <div class="form-grid-two">
+          <label>Household name
+            <input name="label" maxlength="80" placeholder="The Rivera family" />
+          </label>
+          <label>Parent email
+            <input name="email" type="email" maxlength="120" placeholder="parent@example.com" />
+          </label>
+          <label>Parent phone (text magic link)
+            <input name="phone" type="tel" maxlength="40" placeholder="555-123-4567" />
+          </label>
+        </div>
+        <fieldset class="hdh-child-pick-fieldset">
+          <legend>Children on this household login</legend>
+          <div class="hdh-child-pick-grid">
+            ${children.length
+              ? children.map((child) => `
+                <label class="area-check">
+                  <input type="checkbox" name="childIds" value="${escapeHtml(child.id)}" ${children.length === 1 ? "checked" : ""} />
+                  <span>${escapeHtml(child.name)}</span>
+                </label>
+              `).join("")
+              : `<p class="muted-copy">Add a child profile before inviting Family Hub access.</p>`}
+          </div>
+        </fieldset>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create household invite</button>
+          <button class="ghost-button" type="button" data-view="family-hub">Open parent Family Hub view</button>
+        </div>
+        <p class="form-note">SMS is simulated on testing — you will get a magic link to copy/text. Email sends when delivery is configured.</p>
+        <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
+      </form>
+      ${invite ? `
+        <div class="hdh-family-invite-result" role="status">
+          <strong>Invite ready for ${escapeHtml(invite.label || "family")}</strong>
+          <p class="muted-copy">Magic link (email/text): <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
+          ${invite.loginCode ? `<p class="muted-copy">Login code: <code class="hdh-code">${escapeHtml(invite.loginCode)}</code></p>` : ""}
+          <div class="account-actions-row">
+            <button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(invite.magicUrl || "")}">Copy magic link</button>
+            ${invite.loginCode ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(invite.loginCode)}">Copy login code</button>` : ""}
+          </div>
+        </div>
+      ` : ""}
+      <div class="hdh-family-household-list">
+        <h4>Household invites</h4>
+        ${households.length
+          ? households.map((item) => `
+            <article class="hdh-forms-pack-item">
+              <div>
+                <strong>${escapeHtml(item.label || "Family")}</strong>
+                <p class="muted-copy">${escapeHtml(item.email || "No email")}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
+              </div>
+              <div class="hdh-forms-pack-actions">
+                ${item.magicUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.magicUrl)}">Copy link</button>` : ""}
+                <button class="ghost-button" type="button" data-hdh-family-revoke="${escapeHtml(item.id)}">Revoke</button>
+              </div>
+            </article>
+          `).join("")
+          : `<p class="muted-copy">No household invites yet.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderFamilyHubPage() {
+  const section = document.querySelector("#view-family-hub");
+  if (!section) return;
+  if (!isHomeDaycareHubTestingEnabled()) {
+    section.innerHTML = `
+      <section class="simple-child-page">
+        <div class="child-page-header"><div><h2>Family Hub</h2><p>Family Hub is only available on the testing site.</p></div></div>
+        <button class="ghost-button" data-view="home" type="button">Back</button>
+      </section>
+    `;
+    return;
+  }
+  const token = getFamilyHubSessionToken();
+  section.innerHTML = `
+    <section class="simple-child-page hdh-family-hub-parent">
+      <div class="child-page-header">
+        <div>
+          <p class="eyebrow">Family Hub · Testing</p>
+          <h2>Your household</h2>
+          <p>One login for all of your children. Review form status here. Signing and returns come later.</p>
+        </div>
+      </div>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
+      <div id="familyHubParentApp">
+        ${token
+          ? `<p class="muted-copy">Loading your household…</p>`
+          : `
+            <section class="section-block">
+              <h3>Sign in to Family Hub</h3>
+              <p class="muted-copy">Use the magic link from your provider, or enter your household email and 6-digit code.</p>
+              <form id="familyHubLoginForm" class="panel-form">
+                <div class="form-grid-two">
+                  <label>Email<input name="email" type="email" required placeholder="parent@example.com" /></label>
+                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" /></label>
+                </div>
+                <button class="primary-button" type="submit">Sign in</button>
+                <span class="form-message" id="familyHubLoginMessage" aria-live="polite"></span>
+              </form>
+            </section>
+          `}
+      </div>
+    </section>
+  `;
+  if (token) {
+    loadFamilyHubParentDashboard().catch((error) => {
+      const app = document.querySelector("#familyHubParentApp");
+      if (app) {
+        app.innerHTML = `<p class="muted-copy">${escapeHtml(error.message || "Could not load Family Hub.")}</p>
+          <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>`;
+      }
+    });
+  }
+}
+
+async function loadFamilyHubParentDashboard() {
+  const headers = familyHubAuthHeaders();
+  const app = document.querySelector("#familyHubParentApp");
+  if (!headers || !app) return;
+  const response = await fetch("/api/family-hub/me", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    clearFamilyHubSession();
+    throw new Error(data?.error || "Family Hub session expired.");
+  }
+  const children = Array.isArray(data.children) ? data.children : [];
+  const documents = Array.isArray(data.documents) ? data.documents : [];
+  app.innerHTML = `
+    <section class="section-block">
+      <div class="account-actions-row" style="margin-bottom:12px;">
+        <strong>${escapeHtml(data.household?.label || "Your household")}</strong>
+        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+      </div>
+      <p class="muted-copy">${escapeHtml(data.note || "One household login covers all linked children.")}</p>
+      <h3>Children</h3>
+      <ul class="hdh-coming-list">
+        ${children.length ? children.map((child) => `<li>${escapeHtml(child.name || "Child")}</li>`).join("") : "<li>No children linked yet.</li>"}
+      </ul>
+      <h3>Forms &amp; records status</h3>
+      <div class="resource-list compact">
+        ${documents.length
+          ? documents.map((doc) => {
+            const childName = children.find((c) => c.id === doc.childId)?.name || "Child";
+            return `
+              <article class="resource-row">
+                <div>
+                  <strong>${escapeHtml(doc.title || "Form")}</strong>
+                  <p class="muted-copy">${escapeHtml(childName)} · ${escapeHtml(doc.category || "Other")} · ${escapeHtml(doc.statusLabel || doc.status || "Needed")}</p>
+                </div>
+                <span class="tag">Review only</span>
+              </article>
+            `;
+          }).join("")
+          : renderProfileEmptyState({
+            title: "No forms shared yet",
+            body: "When your provider tracks paperwork for your children, status will show here. E-sign comes later.",
+          })}
+      </div>
+      <p class="form-note">Signing, uploads, and returning forms are not available yet on Family Hub testing.</p>
+    </section>
+  `;
+}
+
+async function createFamilyHubHouseholdInvite(form) {
+  const data = collectFormData(form);
+  const selected = Array.from(form.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
+  const records = childRecords();
+  const children = records.children
+    .filter((child) => selected.includes(child.id))
+    .map((child) => ({ id: child.id, name: child.name }));
+  if (!children.length) throw new Error("Select at least one child for this household login.");
+  const email = String(data.email || "").trim();
+  const phone = String(data.phone || "").trim();
+  if (!email && !phone) throw new Error("Enter a parent email and/or phone number.");
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) throw new Error("Family Hub invites need the testing server backend.");
+  const settings = getProgramSettings();
+  const response = await fetch("/api/family-hub/households", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      label: String(data.label || "").trim(),
+      email,
+      phone,
+      children,
+      documents: familyHubDocumentSnapshotForChildren(children.map((child) => child.id)),
+      programName: settings.programName || settings.businessName || "Little Learner Hub program",
+      appOrigin: window.location.origin,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.error || "Could not create Family Hub invite.");
+  familyHubInviteResult = {
+    label: result.household?.label || data.label || "Family",
+    magicUrl: result.magicUrl || result.household?.magicUrl || "",
+    loginCode: result.loginCode || result.household?.loginCode || "",
+  };
+  await refreshFamilyHubHouseholds().catch(() => {});
+  return result;
+}
+
+async function redeemFamilyHubInviteToken(token) {
+  const response = await fetch("/api/family-hub/invites/redeem", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ token }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not open Family Hub invite.");
+  if (!data.sessionToken) throw new Error("Family Hub session was not created.");
+  setFamilyHubSessionToken(data.sessionToken);
+  return data;
+}
+
+async function maybeHandleFamilyHubInviteFromUrl() {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  const params = new URLSearchParams(window.location.search);
+  const token = String(params.get("familyHub") || "").trim();
+  if (!token) return false;
+  const peek = await fetch(`/api/family-hub/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
+  const panel = document.createElement("div");
+  panel.className = "section-block";
+  panel.id = "familyHubAcceptPanel";
+  panel.style.cssText = "max-width:640px;margin:24px auto;padding:20px;";
+  const mount = () => {
+    const home = document.querySelector("#view-home") || document.querySelector("main") || document.body;
+    document.querySelector("#familyHubAcceptPanel")?.remove();
+    home.prepend(panel);
+  };
+  if (!peek?.ok && !peek?.invite) {
+    panel.innerHTML = `<h3>Family Hub</h3><p>${escapeHtml(peek?.error || "This Family Hub link is not valid.")}</p>`;
+    mount();
+    return true;
+  }
+  const invite = peek.invite || {};
+  panel.innerHTML = `
+    <p class="eyebrow">Family Hub invite</p>
+    <h3>Open ${escapeHtml(invite.programName || "Family Hub")}</h3>
+    <p>Household: <strong>${escapeHtml(invite.label || "Your family")}</strong></p>
+    <p class="muted-copy">Children: ${escapeHtml((invite.children || []).map((c) => c.name).join(", ") || "Linked by your provider")}</p>
+    <p class="muted-copy">One household login covers all linked children. No separate login per child.</p>
+    <div class="account-actions-row">
+      <button class="primary-button" type="button" data-redeem-family-hub="${escapeHtml(token)}">Open Family Hub</button>
+      <button class="ghost-button" type="button" data-dismiss-family-hub-invite>Not now</button>
+    </div>
+    <p class="form-message" id="familyHubAcceptMessage" aria-live="polite"></p>
+  `;
+  mount();
+  return true;
+}
+
+const HDH_STAFF_VISIBILITY_OPTIONS = Object.freeze([
+  { key: "calendar", label: "Calendar", views: ["calendar", "planner"] },
+  { key: "daily_logs", label: "Daily Logs", views: ["child-tools-daily-logs"] },
+  { key: "children", label: "Child Profiles", views: ["children"] },
+  { key: "forms_records", label: "Forms & Records / Hub", views: ["home-daycare-hub", "forms"] },
+  { key: "lessons", label: "Lesson Plans", views: ["lessons", "lesson-editor"] },
+  { key: "activities", label: "Activities", views: ["activities"] },
+]);
+
+const HDH_STAFF_VISIBILITY_PRESETS = Object.freeze({
+  helper: { calendar: true, daily_logs: true, children: true, forms_records: false, lessons: false, activities: false },
+  lead: { calendar: true, daily_logs: true, children: true, forms_records: true, lessons: true, activities: true },
+  full: { calendar: true, daily_logs: true, children: true, forms_records: true, lessons: true, activities: true },
+});
+
+function hdhStaffVisibilityFromPreset(preset = "lead") {
+  return { ...(HDH_STAFF_VISIBILITY_PRESETS[preset] || HDH_STAFF_VISIBILITY_PRESETS.lead) };
+}
+
+function collectHdhStaffVisibilityFromForm(form) {
+  const preset = String(form?.querySelector?.("[name='visibilityPreset']")?.value || "lead").trim().toLowerCase();
+  const visibility = hdhStaffVisibilityFromPreset(preset);
+  HDH_STAFF_VISIBILITY_OPTIONS.forEach((option) => {
+    const input = form.querySelector(`[name="hdhVisibility.${option.key}"]`);
+    if (input) visibility[option.key] = Boolean(input.checked);
+  });
+  return { visibilityPreset: preset === "custom" ? "custom" : preset, hdhVisibility: visibility };
+}
+
+function renderHdhStaffVisibilityFields(prefix = "") {
+  const idPrefix = prefix ? `${prefix}-` : "";
+  return `
+    <label>Visibility preset
+      <select name="visibilityPreset" data-hdh-visibility-preset="${escapeHtml(idPrefix)}preset">
+        <option value="helper">Helper — daily care basics</option>
+        <option value="lead" selected>Lead — care + curriculum + forms</option>
+        <option value="full">Full — same as lead (customizable below)</option>
+        <option value="custom">Custom checkboxes</option>
+      </select>
+    </label>
+    <fieldset class="hdh-child-pick-fieldset">
+      <legend>What this staff member can see</legend>
+      <div class="hdh-child-pick-grid">
+        ${HDH_STAFF_VISIBILITY_OPTIONS.map((option) => `
+          <label class="area-check">
+            <input type="checkbox" name="hdhVisibility.${option.key}" value="1" data-hdh-visibility-key="${escapeHtml(option.key)}" ${HDH_STAFF_VISIBILITY_PRESETS.lead[option.key] ? "checked" : ""} />
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        `).join("")}
+      </div>
+    </fieldset>
+  `;
+}
+
+function currentAccountHdhVisibility() {
+  const account = currentAccount() || {};
+  if (!account.linkedProgramOwnerEmail) return null;
+  if (!account.hdhVisibility || typeof account.hdhVisibility !== "object") return null;
+  return account.hdhVisibility;
+}
+
+function staffMaySeeHdhView(view) {
+  const visibility = currentAccountHdhVisibility();
+  if (!visibility || !isHomeDaycareHubTestingEnabled()) return true;
+  const role = getUserRole();
+  if (role === "owner" || role === "director") return true;
+  const option = HDH_STAFF_VISIBILITY_OPTIONS.find((item) => item.views.includes(view));
+  if (!option) return true;
+  return Boolean(visibility[option.key]);
+}
+
+async function refreshHdhStaffTrainings() {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) {
+    hdhStaffTrainingsCache = { ...hdhStaffTrainingsCache, loadedAt: Date.now(), localOnly: true };
+    return hdhStaffTrainingsCache;
+  }
+  const response = await fetch("/api/home-daycare-hub/staff-trainings", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load trainings.");
+  hdhStaffTrainingsCache = {
+    trainings: Array.isArray(data.trainings) ? data.trainings : [],
+    trainingTypes: Array.isArray(data.trainingTypes) ? data.trainingTypes : [],
+    loadedAt: Date.now(),
+  };
+  return hdhStaffTrainingsCache;
+}
+
+async function refreshHdhPackets() {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) {
+    hdhPacketsCache = { ...hdhPacketsCache, loadedAt: Date.now(), localOnly: true };
+    return hdhPacketsCache;
+  }
+  const response = await fetch("/api/home-daycare-hub/packets", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load packets.");
+  hdhPacketsCache = {
+    packets: Array.isArray(data.packets) ? data.packets : [],
+    loadedAt: Date.now(),
+  };
+  return hdhPacketsCache;
+}
+
+function renderHomeDaycareStaffInvitePanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const invites = staffInviteRemoteCache.invites || centerProgramData().staffInvites || [];
+  const members = staffInviteRemoteCache.members || [];
+  return `
+    <section class="section-block" id="hdhStaffInvitePanel">
+      <p class="eyebrow">Step E</p>
+      <h3>Staff invites &amp; visibility</h3>
+      <p class="muted-copy">Invite helpers with a link, choose a preset, then customize exactly what they can see.</p>
+      <form id="hdhStaffInviteForm" class="panel-form">
+        <div class="form-grid-two">
+          <label>Email<input name="email" type="email" required placeholder="helper@example.com" /></label>
+          <label>Role
+            <select name="role" required>
+              <option value="assistant">Assistant / Staff</option>
+              <option value="teacher">Lead Teacher</option>
+              <option value="director">Director</option>
+            </select>
+          </label>
+        </div>
+        ${renderHdhStaffVisibilityFields("hdh")}
+        <button class="primary-button" type="submit">Send staff invite</button>
+        <p class="form-note">Uses the same invite link flow as Users &amp; Staff. Visibility applies on Home Daycare Hub testing.</p>
+        <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
+      </form>
+      <div class="hdh-family-household-list">
+        <h4>Pending / active staff</h4>
+        ${[...members.map((m) => ({ ...m, status: "active" })), ...invites.filter((i) => i.status === "pending")].length
+          ? [...members.map((m) => ({ ...m, status: "active" })), ...invites.filter((i) => i.status === "pending")].map((item) => `
+            <article class="hdh-forms-pack-item">
+              <div>
+                <strong>${escapeHtml(item.email || "Staff")}</strong>
+                <p class="muted-copy">${escapeHtml(item.role || "staff")} · ${escapeHtml(item.status || "pending")}${item.visibilityPreset ? ` · ${escapeHtml(item.visibilityPreset)}` : ""}</p>
+              </div>
+            </article>
+          `).join("")
+          : `<p class="muted-copy">No staff invites yet.</p>`}
+      </div>
+      <div class="account-actions-row">
+        <button class="ghost-button" type="button" data-view="staff">Open full Staff page</button>
+      </div>
+    </section>
+  `;
+}
+
+function renderHomeDaycareTrainingsPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const trainings = hdhStaffTrainingsCache.trainings || [];
+  const types = hdhStaffTrainingsCache.trainingTypes?.length
+    ? hdhStaffTrainingsCache.trainingTypes
+    : ["CPR", "First Aid", "Bloodborne Pathogens", "Safe Sleep", "Child Abuse Prevention", "Other"];
+  const members = staffInviteRemoteCache.members || [];
+  return `
+    <section class="section-block" id="hdhTrainingsPanel">
+      <p class="eyebrow">Step F</p>
+      <h3>CPR &amp; training tracker</h3>
+      <p class="muted-copy">Track staff certifications with completion and expiry dates.</p>
+      <form id="hdhTrainingForm" class="panel-form">
+        <div class="form-grid-two">
+          <label>Staff email
+            <input name="staffEmail" type="email" required list="hdhTrainingStaffList" placeholder="helper@example.com" />
+            <datalist id="hdhTrainingStaffList">
+              ${members.map((m) => `<option value="${escapeHtml(m.email || "")}"></option>`).join("")}
+              ${currentUser ? `<option value="${escapeHtml(currentUser)}"></option>` : ""}
+            </datalist>
+          </label>
+          <label>Staff name (optional)<input name="staffName" maxlength="80" placeholder="Optional" /></label>
+          <label>Training type
+            <select name="type" required>
+              ${types.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Completed<input name="completedAt" type="date" required /></label>
+          <label>Expires<input name="expiresAt" type="date" /></label>
+        </div>
+        <label>Notes<textarea name="notes" rows="2" maxlength="500" placeholder="Card number, trainer, renewals…"></textarea></label>
+        <button class="primary-button" type="submit">Save training</button>
+        <span class="form-message" id="hdhTrainingMessage" aria-live="polite"></span>
+      </form>
+      <div class="resource-list compact" style="margin-top:14px;">
+        ${trainings.length
+          ? trainings.map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.type)} · ${escapeHtml(item.staffName || item.staffEmail)}</strong>
+                <p class="muted-copy">Completed ${escapeHtml(item.completedAt || "—")}${item.expiresAt ? ` · Expires ${escapeHtml(item.expiresAt)}` : ""}${item.expired ? " · Expired" : ""}</p>
+              </div>
+              <button class="ghost-button" type="button" data-hdh-training-delete="${escapeHtml(item.id)}">Remove</button>
+            </article>
+          `).join("")
+          : `<p class="muted-copy">No trainings tracked yet.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderHomeDaycarePacketsPanel() {
+  if (!isHomeDaycareHubTestingEnabled()) return "";
+  const children = childRecords().children || [];
+  const households = familyHubHouseholdCache.households || [];
+  const packets = hdhPacketsCache.packets || [];
+  return `
+    <section class="section-block" id="hdhPacketsPanel">
+      <p class="eyebrow">Step G</p>
+      <h3>Enrollment &amp; forms packets</h3>
+      <p class="muted-copy">Bundle the home-daycare forms pack for a child, track each item, and optionally link a Family Hub household.</p>
+      <form id="hdhPacketForm" class="panel-form">
+        <div class="form-grid-two">
+          <label>Child
+            <select name="childId" required>
+              <option value="">Select child</option>
+              ${children.map((child) => `<option value="${escapeHtml(child.id)}">${escapeHtml(child.name)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Packet title
+            <input name="title" maxlength="120" placeholder="Enrollment packet" />
+          </label>
+          <label>Link Family Hub household (optional)
+            <select name="householdId">
+              <option value="">None</option>
+              ${households.map((h) => `<option value="${escapeHtml(h.id)}">${escapeHtml(h.label || h.email || h.id)}</option>`).join("")}
+            </select>
+          </label>
+        </div>
+        <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create packet from forms pack</button>
+        <p class="form-note">Creates a tracked packet with all 10 pack forms as Needed, and adds any missing items to the child’s Forms &amp; Records file.</p>
+        <span class="form-message" id="hdhPacketMessage" aria-live="polite"></span>
+      </form>
+      <div class="hdh-family-household-list">
+        ${packets.length
+          ? packets.map((packet) => `
+            <article class="section-block" style="margin-top:12px;">
+              <div class="account-actions-row">
+                <div>
+                  <strong>${escapeHtml(packet.title)}</strong>
+                  <p class="muted-copy">${escapeHtml(packet.childName)}${packet.householdLabel ? ` · ${escapeHtml(packet.householdLabel)}` : ""} · ${escapeHtml(packet.status)}</p>
+                </div>
+                <button class="ghost-button" type="button" data-hdh-packet-delete="${escapeHtml(packet.id)}">Delete</button>
+              </div>
+              <div class="resource-list compact">
+                ${(packet.items || []).map((item) => `
+                  <article class="resource-row">
+                    <div>
+                      <strong>${escapeHtml(item.title)}</strong>
+                      <p class="muted-copy">${escapeHtml(item.category)} · ${escapeHtml(item.statusLabel || item.status)}</p>
+                    </div>
+                    <select data-hdh-packet-item-status="${escapeHtml(packet.id)}" data-item-id="${escapeHtml(item.id)}">
+                      ${["needed", "requested", "received", "signed"].map((status) => `
+                        <option value="${status}" ${item.status === status ? "selected" : ""}>${status}</option>
+                      `).join("")}
+                    </select>
+                  </article>
+                `).join("")}
+              </div>
+            </article>
+          `).join("")
+          : `<p class="muted-copy">No packets yet.</p>`}
+      </div>
+    </section>
+  `;
+}
+
+function renderHomeDaycareHubPage(options = {}) {
+  const section = document.querySelector("#view-home-daycare-hub");
+  if (!section) return;
+  if (!isHomeDaycareHubTestingEnabled()) {
+    section.innerHTML = `
+      <section class="simple-child-page hdh-hub-page">
+        <div class="child-page-header">
+          <div>
+            <h2>Home Daycare Hub</h2>
+            <p>This workspace is only available on the testing site while we build it.</p>
+          </div>
+        </div>
+        <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
+      </section>
+    `;
+    return;
+  }
+  const children = childRecords().children || [];
+  const firstChild = children[0] || null;
+  section.innerHTML = `
+    <section class="simple-child-page hdh-hub-page">
+      <div class="child-page-header">
+        <div>
+          <p class="eyebrow">Testing only</p>
+          <h2>Home Daycare Hub</h2>
+          <p>Forms, family access, and staff tools for your home daycare — built here on testing first, then brought to live when ready.</p>
+        </div>
+      </div>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
+      <div class="hdh-hub-sections">
+        <section class="section-block">
+          <p class="eyebrow">Step B</p>
+          <h3>Home daycare forms pack</h3>
+          <p class="muted-copy">Ten common forms for home daycare paperwork. Open a template to print or edit, then track status on each child’s Forms &amp; Records tab.</p>
+          ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
+          ${firstChild ? `
+            <div class="account-actions-row" style="margin-top:14px;">
+              <button class="primary-button" type="button" data-hdh-add-pack-all="${escapeHtml(firstChild.id)}">Add all needed to ${escapeHtml(firstChild.name)}’s file</button>
+              <button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(firstChild.id)}" data-open-child-tab="forms-records">Open ${escapeHtml(firstChild.name)}’s forms</button>
+            </div>
+          ` : `
+            <div class="account-actions-row" style="margin-top:14px;">
+              <button class="primary-button" type="button" data-view="children">Add a child to track forms</button>
+            </div>
+          `}
+        </section>
+        ${renderHomeDaycareAiDraftPanel({ preferChildId: firstChild?.id || "" })}
+        ${renderFamilyHubProviderPanel()}
+        ${renderHomeDaycareStaffInvitePanel()}
+        ${renderHomeDaycareTrainingsPanel()}
+        ${renderHomeDaycarePacketsPanel()}
+        <section class="section-block">
+          <p class="eyebrow">Step A</p>
+          <h3>Child Forms &amp; Records</h3>
+          <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
+          <div class="account-actions-row">
+            <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
+          </div>
+        </section>
+      </div>
+    </section>
+  `;
+  if (options.refreshHouseholds !== false) {
+    Promise.all([
+      refreshFamilyHubHouseholds().catch(() => {}),
+      refreshStaffInvitesFromBackend().catch(() => {}),
+      refreshHdhStaffTrainings().catch(() => {}),
+      refreshHdhPackets().catch(() => {}),
+    ]).then(() => {
+      if (!document.querySelector("#view-home-daycare-hub.active-view")) return;
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+    });
+  }
+}
+
 function renderFormsSettingsPage() {
   const section = document.querySelector("#view-forms-settings");
   if (!section) return;
@@ -30246,6 +31579,7 @@ function renderStaffManagementPage(options = {}) {
               ${classrooms.map((room) => `<option value="${escapeHtml(room.id)}">${escapeHtml(room.name || room.id)}</option>`).join("")}
             </select>
           </label>
+          ${isHomeDaycareHubTestingEnabled() ? renderHdhStaffVisibilityFields("staff") : ""}
           <button class="primary-button" type="submit">Send Invite</button>
           <p class="form-note">${escapeHtml(emailNote)}</p>
           <span class="form-message" id="staffInviteMessage" aria-live="polite"></span>
@@ -30289,6 +31623,8 @@ async function acceptStaffInviteToken(token) {
       classroomIds: data.account.classroomIds || [],
       classroomName: data.account.classroomName || "",
       programAccessViaOwner: Boolean(data.account.programAccessViaOwner),
+      visibilityPreset: data.account.visibilityPreset || "",
+      hdhVisibility: data.account.hdhVisibility || null,
     });
     ensureAccountAccessMigrated(currentUser);
     updateAuthButtons();
@@ -32264,8 +33600,15 @@ function renderSimpleGoalCard(child, goal, records) {
 function normalizeChildProfileTab(tab = childProfileTab) {
   const raw = String(tab || "overview").trim().toLowerCase();
   if (raw === "photos") return "reports";
-  if (raw === "documents" || raw === "timeline") return "records";
-  if (["overview", "observations", "goals", "reports", "records", "daily-log", "attendance", "notes", "family"].includes(raw)) {
+  if (raw === "forms-records" || raw === "forms_records") {
+    return isHomeDaycareHubTestingEnabled() ? "forms-records" : "records";
+  }
+  if (raw === "documents") {
+    return isHomeDaycareHubTestingEnabled() ? "forms-records" : "records";
+  }
+  if (raw === "timeline") return "records";
+  if (["overview", "observations", "goals", "reports", "records", "forms-records", "daily-log", "attendance", "notes", "family"].includes(raw)) {
+    if (raw === "forms-records" && !isHomeDaycareHubTestingEnabled()) return "records";
     return raw;
   }
   return "overview";
@@ -32525,6 +33868,7 @@ function renderChildProfileTabs() {
     ["observations", "Observations"],
     ["goals", "Goals"],
     ["reports", "Reports & Photos"],
+    ...(isHomeDaycareHubTestingEnabled() ? [["forms-records", "Forms & Records"]] : []),
     ["records", "Records"],
   ];
   return `
@@ -32545,10 +33889,15 @@ function renderChildProfileTabContent(child, records) {
   if (tab === "observations") return renderChildObservationsTab(child, observations, summary);
   if (tab === "goals") return renderChildGoalsTab(child, goals, activeGoals, observations, records);
   if (tab === "reports") return renderChildReportsPhotosTab(child, records, observations, goals, supportPlans, differentiations);
+  if (tab === "forms-records") return renderChildFormsRecordsTab(child, records);
   if (tab === "records") return renderChildRecordsTab(child, records);
   // Legacy deep-links kept for older buttons / saved flows.
   if (childProfileTab === "timeline") return renderChildTimelineTab(child, records);
-  if (childProfileTab === "documents") return renderChildDocumentsTab(child, records);
+  if (childProfileTab === "documents") {
+    return isHomeDaycareHubTestingEnabled()
+      ? renderChildFormsRecordsTab(child, records)
+      : renderChildDocumentsTab(child, records);
+  }
   if (childProfileTab === "photos") {
     const photos = (records.photos || []).filter((item) => item.childId === child.id);
     return renderChildSimpleRecordTab("Photos", "Saved photo moments for this child.", renderDlcPhotoSection(records), filterDailyLogHistory(photos), "Photos");
@@ -32598,11 +33947,135 @@ function renderChildReportsPhotosTab(child, records, observations, goals, suppor
 }
 
 function renderChildRecordsTab(child, records) {
+  if (isHomeDaycareHubTestingEnabled()) {
+    return `
+      <div class="profile-combined-tab profile-records-tab">
+        ${renderChildTimelineTab(child, records)}
+      </div>
+    `;
+  }
   return `
     <div class="profile-combined-tab profile-records-tab">
       ${renderChildDocumentsTab(child, records)}
       ${renderChildTimelineTab(child, records)}
     </div>
+  `;
+}
+
+function renderChildFormsRecordsTab(child, records) {
+  const documents = (records.documents || []).filter((item) => item.childId === child.id);
+  const query = String(childFormsRecordsQuery || "").trim().toLowerCase();
+  const statusFilter = String(childFormsRecordsStatus || "all").toLowerCase();
+  const categoryFilter = String(childFormsRecordsCategory || "all");
+  const filtered = documents.filter((item) => {
+    if (statusFilter !== "all" && String(item.status || "").toLowerCase() !== statusFilter) return false;
+    if (categoryFilter !== "all" && String(item.category || "Other") !== categoryFilter) return false;
+    if (!query) return true;
+    const haystack = [
+      item.title,
+      item.statusLabel,
+      item.status,
+      item.category,
+      item.notes,
+    ].map((part) => String(part || "").toLowerCase()).join(" ");
+    return haystack.includes(query);
+  });
+  const sorted = [...filtered].sort((a, b) => String(b.updatedAt || b.date || "").localeCompare(String(a.updatedAt || a.date || "")));
+  const categoryOptions = HOME_DAYCARE_FORM_CATEGORIES.map((category) => (
+    `<option value="${escapeHtml(category)}" ${categoryFilter === category ? "selected" : ""}>${escapeHtml(category)}</option>`
+  )).join("");
+  return `
+    <section class="section-block child-documents-tab child-forms-records-tab">
+      <div class="child-page-header" style="margin-bottom:12px;">
+        <div>
+          <p class="eyebrow">Forms &amp; Records</p>
+          <h3>Child file for ${escapeHtml(child.name)}</h3>
+          <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
+        </div>
+      </div>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
+      <div class="hdh-forms-filters" aria-label="Search and filter forms">
+        <label>Search
+          <input type="search" data-hdh-forms-search value="${escapeHtml(childFormsRecordsQuery || "")}" placeholder="Search title, notes, status…" />
+        </label>
+        <label>Status
+          <select data-hdh-forms-status>
+            <option value="all" ${statusFilter === "all" ? "selected" : ""}>All statuses</option>
+            <option value="needed" ${statusFilter === "needed" ? "selected" : ""}>Needed</option>
+            <option value="requested" ${statusFilter === "requested" ? "selected" : ""}>Requested from family</option>
+            <option value="received" ${statusFilter === "received" ? "selected" : ""}>Received</option>
+            <option value="signed" ${statusFilter === "signed" ? "selected" : ""}>Signed / complete</option>
+          </select>
+        </label>
+        <label>Category
+          <select data-hdh-forms-category>
+            <option value="all" ${categoryFilter === "all" ? "selected" : ""}>All categories</option>
+            ${categoryOptions}
+          </select>
+        </label>
+      </div>
+      <div class="account-actions-row" style="margin-bottom:16px;">
+        <button class="primary-button" type="button" data-view="home-daycare-hub">Home Daycare Hub</button>
+        <button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>
+        <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
+      </div>
+      <details class="hdh-pack-details section-block">
+        <summary>Home daycare forms pack</summary>
+        <p class="muted-copy">Open a template, start an AI draft, or add it to this child’s file as Needed.</p>
+        ${renderHomeDaycareFormsPackList({ childId: child.id, showAddToFile: true, showAiDraft: true })}
+      </details>
+      ${renderHomeDaycareAiDraftPanel({ childId: child.id, preferChildId: child.id })}
+      <form id="childDocumentStubForm" class="panel-form" data-child-document-form="${escapeHtml(child.id)}">
+        <p class="eyebrow">Add to child file</p>
+        <div class="form-grid-two">
+          <label>Document title
+            <input name="title" required maxlength="120" placeholder="Enrollment packet, sunscreen form, handbook receipt…" />
+          </label>
+          <label>Category
+            <select name="category">
+              ${HOME_DAYCARE_FORM_CATEGORIES.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join("")}
+            </select>
+          </label>
+          <label>Status
+            <select name="status">
+              <option value="needed">Needed</option>
+              <option value="requested">Requested from family</option>
+              <option value="received">Received</option>
+              <option value="signed">Signed / complete</option>
+            </select>
+          </label>
+        </div>
+        <label>Notes
+          <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
+        </label>
+        <button class="primary-button" type="submit">Save to Child File</button>
+        <p class="form-note">Upload, e-sign, and parent send come next. This file keeps status organized while those pieces land.</p>
+      </form>
+      <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list>
+        ${sorted.length
+          ? sorted.map((item) => `
+            <article class="resource-row">
+              <div>
+                <strong>${escapeHtml(item.title || "Document")}</strong>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+              </div>
+              <div class="hdh-forms-pack-actions">
+                ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
+                ${item.draftText ? `<button class="ghost-button" type="button" data-hdh-ai-print-saved="${escapeHtml(item.id)}">Print draft</button>` : ""}
+                ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
+                <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              </div>
+            </article>
+          `).join("")
+          : renderProfileEmptyState({
+            title: documents.length ? "No forms match these filters" : "No forms in this child’s file yet",
+            body: documents.length
+              ? "Try clearing search or choosing All statuses / All categories."
+              : "Add forms from the pack above, or save a custom placeholder.",
+            actionsHtml: `<button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>`,
+          })}
+      </div>
+    </section>
   `;
 }
 
@@ -52200,6 +53673,301 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const openHdhForm = event.target.closest("[data-hdh-open-form]");
+  if (openHdhForm) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const resourceId = openHdhForm.dataset.hdhOpenForm;
+    if (!resourceId) return;
+    openResourceViewer(resourceId, { returnTo: document.querySelector(".active-view")?.id.replace("view-", "") || "home-daycare-hub" });
+    return;
+  }
+
+  const hdhAiDraftBtn = event.target.closest("[data-hdh-ai-draft]");
+  if (hdhAiDraftBtn) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    hdhAiDraftState.packFormId = hdhAiDraftBtn.dataset.hdhAiDraft || hdhAiDraftState.packFormId;
+    if (hdhAiDraftBtn.dataset.childId) hdhAiDraftState.childId = hdhAiDraftBtn.dataset.childId;
+    if (document.querySelector("#view-home-daycare-hub.active-view")) {
+      renderHomeDaycareHubPage();
+    } else {
+      childProfileTab = "forms-records";
+      childManagementMode = "profile";
+      renderChildManagement();
+    }
+    queueMicrotask(() => {
+      document.querySelector("#hdhAiDraftPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.querySelector("#hdhAiDraftForm textarea[name='notes']")?.focus();
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-ai-edit]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const outputEl = document.querySelector("#hdhAiDraftOutput");
+    const editBtn = event.target.closest("[data-hdh-ai-edit]");
+    if (!outputEl || !String(hdhAiDraftState.lastOutput || "").trim()) return;
+    hdhAiDraftState.editing = !hdhAiDraftState.editing;
+    if (hdhAiDraftState.editing) {
+      outputEl.contentEditable = "true";
+      outputEl.focus();
+      if (editBtn) editBtn.textContent = "Done editing";
+    } else {
+      readHomeDaycareAiDraftOutputText();
+      outputEl.contentEditable = "false";
+      outputEl.innerHTML = renderMarkdown(hdhAiDraftState.lastOutput);
+      if (editBtn) editBtn.textContent = "Edit draft";
+    }
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-ai-regenerate]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    runHomeDaycareAiFormDraft({ draftAction: "regenerate" });
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-ai-save]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    saveHomeDaycareAiFormDraftToChild();
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-ai-print]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const packForm = homeDaycareAiDraftSelectedPackForm();
+    const text = readHomeDaycareAiDraftOutputText();
+    if (!text) {
+      showActionFeedback("Generate a draft before printing.");
+      return;
+    }
+    printTextDocument(packForm?.title || "Form draft", text);
+    return;
+  }
+
+  const printSavedDraft = event.target.closest("[data-hdh-ai-print-saved]");
+  if (printSavedDraft) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const docId = printSavedDraft.dataset.hdhAiPrintSaved;
+    const item = childStore("Documents").find((doc) => doc.id === docId);
+    if (!item?.draftText) return;
+    printTextDocument(item.title || "Form draft", item.draftText);
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-ai-clear]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    hdhAiDraftState.lastOutput = "";
+    hdhAiDraftState.editing = false;
+    const resultsEl = document.querySelector("#hdhAiDraftResults");
+    const outputEl = document.querySelector("#hdhAiDraftOutput");
+    const clearBtn = event.target.closest("[data-hdh-ai-clear]");
+    if (outputEl) {
+      outputEl.textContent = "";
+      outputEl.contentEditable = "false";
+    }
+    if (resultsEl) resultsEl.hidden = true;
+    if (clearBtn) clearBtn.hidden = true;
+    return;
+  }
+
+  if (event.target.closest("[data-hdh-ai-send-later]")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) {
+      showActionFeedback("Family Hub is only available on the testing site.");
+      return;
+    }
+    collectHomeDaycareAiDraftFormState();
+    const childId = hdhAiDraftState.childId || selectedChildId;
+    if (childId) {
+      selectedChildId = childId;
+      localStorage.setItem("llhSelectedChild", selectedChildId);
+    }
+    setView("home-daycare-hub");
+    queueMicrotask(() => {
+      document.querySelector("#hdhFamilyHubPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const form = document.querySelector("#hdhFamilyHubInviteForm");
+      if (form && childId) {
+        form.querySelectorAll('input[name="childIds"]').forEach((input) => {
+          input.checked = input.value === childId;
+        });
+      }
+      showActionFeedback("Invite this household to Family Hub, then share the magic link. Forms are not auto-sent.");
+    });
+    return;
+  }
+
+  const copyHdhText = event.target.closest("[data-hdh-copy-text]");
+  if (copyHdhText) {
+    event.preventDefault();
+    const text = copyHdhText.dataset.hdhCopyText || "";
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => showActionFeedback("Copied.")).catch(() => {
+        window.prompt("Copy this value:", text);
+      });
+    } else {
+      window.prompt("Copy this value:", text);
+    }
+    return;
+  }
+
+  const revokeFamily = event.target.closest("[data-hdh-family-revoke]");
+  if (revokeFamily) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const householdId = revokeFamily.dataset.hdhFamilyRevoke;
+    if (!householdId) return;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/family-hub/households/${encodeURIComponent(householdId)}`, {
+        method: "DELETE",
+        headers,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not revoke household invite.");
+        return;
+      }
+      await refreshFamilyHubHouseholds().catch(() => {});
+      familyHubInviteResult = null;
+      renderHomeDaycareHubPage();
+      showActionFeedback("Family Hub invite revoked.");
+    })();
+    return;
+  }
+
+  const redeemFamily = event.target.closest("[data-redeem-family-hub]");
+  if (redeemFamily) {
+    event.preventDefault();
+    const token = redeemFamily.dataset.redeemFamilyHub;
+    const message = document.querySelector("#familyHubAcceptMessage");
+    redeemFamily.disabled = true;
+    redeemFamilyHubInviteToken(token)
+      .then(() => {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("familyHub");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+        document.querySelector("#familyHubAcceptPanel")?.remove();
+        setView("family-hub");
+        showActionFeedback("Family Hub opened for your household.");
+      })
+      .catch((error) => {
+        if (message) message.textContent = error.message || "Could not open Family Hub.";
+        redeemFamily.disabled = false;
+      });
+    return;
+  }
+
+  if (event.target.closest("[data-dismiss-family-hub-invite]")) {
+    event.preventDefault();
+    document.querySelector("#familyHubAcceptPanel")?.remove();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("familyHub");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    return;
+  }
+
+  if (event.target.closest("[data-family-hub-sign-out]")) {
+    event.preventDefault();
+    clearFamilyHubSession();
+    renderFamilyHubPage();
+    showActionFeedback("Signed out of Family Hub.");
+    return;
+  }
+
+  const deleteTraining = event.target.closest("[data-hdh-training-delete]");
+  if (deleteTraining) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const trainingId = deleteTraining.dataset.hdhTrainingDelete;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/home-daycare-hub/staff-trainings/${encodeURIComponent(trainingId)}`, {
+        method: "DELETE",
+        headers,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not remove training.");
+        return;
+      }
+      await refreshHdhStaffTrainings();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Training removed.");
+    })();
+    return;
+  }
+
+  const deletePacket = event.target.closest("[data-hdh-packet-delete]");
+  if (deletePacket) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const packetId = deletePacket.dataset.hdhPacketDelete;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/home-daycare-hub/packets/${encodeURIComponent(packetId)}`, {
+        method: "DELETE",
+        headers,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not delete packet.");
+        return;
+      }
+      await refreshHdhPackets();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Packet deleted.");
+    })();
+    return;
+  }
+
+  const addHdhPackForm = event.target.closest("[data-hdh-add-pack-form]");
+  if (addHdhPackForm) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const packId = addHdhPackForm.dataset.hdhAddPackForm;
+    const childId = addHdhPackForm.dataset.childId || selectedChildId;
+    const packForm = HOME_DAYCARE_FORMS_PACK.find((item) => item.id === packId);
+    if (!childId || !packForm) return;
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    const added = addHomeDaycarePackFormToChild(childId, packForm, "needed");
+    showActionFeedback(added ? `${packForm.title} added to child file.` : `${packForm.title} is already on this child’s file.`);
+    if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage();
+    else renderChildManagement();
+    return;
+  }
+
+  const addHdhPackAll = event.target.closest("[data-hdh-add-pack-all]");
+  if (addHdhPackAll) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const childId = addHdhPackAll.dataset.hdhAddPackAll || selectedChildId;
+    if (!childId) return;
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    const added = addAllHomeDaycarePackFormsToChild(childId);
+    showActionFeedback(added ? `Added ${added} form${added === 1 ? "" : "s"} to the child file.` : "All pack forms are already on this child’s file.");
+    if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage();
+    else renderChildManagement();
+    return;
+  }
+
   const deleteChildDocument = event.target.closest("[data-delete-child-document]");
   if (deleteChildDocument) {
     event.preventDefault();
@@ -52207,7 +53975,7 @@ document.addEventListener("click", async (event) => {
     if (!docId) return;
     const next = childStore("Documents").filter((item) => item.id !== docId);
     saveChildStore("Documents", next);
-    childProfileTab = "documents";
+    childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     renderChildManagement();
     showActionFeedback("Document removed from child file.");
@@ -55776,6 +57544,20 @@ document.addEventListener("input", (event) => {
     childObservationSearch = event.target.value;
     renderChildManagement();
   }
+  if (event.target.matches("[data-hdh-forms-search]")) {
+    childFormsRecordsQuery = event.target.value;
+    const active = document.activeElement;
+    const selectionStart = active?.selectionStart;
+    const selectionEnd = active?.selectionEnd;
+    renderChildManagement();
+    const next = document.querySelector("[data-hdh-forms-search]");
+    if (next) {
+      next.focus();
+      if (Number.isFinite(selectionStart) && Number.isFinite(selectionEnd)) {
+        try { next.setSelectionRange(selectionStart, selectionEnd); } catch { /* ignore */ }
+      }
+    }
+  }
   if (event.target.matches("#childObservationDate")) {
     childObservationDateFilter = event.target.value;
     renderChildManagement();
@@ -55846,6 +57628,55 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-hdh-forms-status]")) {
+    childFormsRecordsStatus = event.target.value || "all";
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    renderChildManagement();
+    return;
+  }
+  if (event.target.matches("[data-hdh-forms-category]")) {
+    childFormsRecordsCategory = event.target.value || "all";
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    renderChildManagement();
+    return;
+  }
+  if (event.target.matches("[name='visibilityPreset']")) {
+    const form = event.target.closest("form");
+    if (!form) return;
+    const preset = String(event.target.value || "lead").trim().toLowerCase();
+    const values = hdhStaffVisibilityFromPreset(preset === "custom" ? "lead" : preset);
+    HDH_STAFF_VISIBILITY_OPTIONS.forEach((option) => {
+      const input = form.querySelector(`[name="hdhVisibility.${option.key}"]`);
+      if (input) input.checked = Boolean(values[option.key]);
+    });
+    return;
+  }
+  if (event.target.matches("[data-hdh-packet-item-status]")) {
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const select = event.target;
+    const packetId = select.dataset.hdhPacketItemStatus;
+    const itemId = select.dataset.itemId;
+    const status = select.value;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/home-daycare-hub/packets/${encodeURIComponent(packetId)}/items`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ itemId, status }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not update packet item.");
+        return;
+      }
+      await refreshHdhPackets();
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+    })();
+    return;
+  }
   if (event.target.matches("[data-calendar-jump-month], [data-calendar-jump-year]")) {
     const monthSelect = document.querySelector("[data-calendar-jump-month]");
     const yearSelect = document.querySelector("[data-calendar-jump-year]");
@@ -58201,6 +60032,197 @@ async function runDocHelperGeneration({ docType, note, childId, draftAction = ""
 }
 
 document.addEventListener("submit", async (event) => {
+  if (event.target.matches("#hdhAiDraftForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const submitBtn = event.target.querySelector("[type='submit']");
+    if (submitBtn && submitBtn.disabled) return;
+    hdhAiDraftState.lastOutput = "";
+    await runHomeDaycareAiFormDraft({ draftAction: "create" });
+    return;
+  }
+
+  if (event.target.matches("#hdhFamilyHubInviteForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const submitBtn = form.querySelector("[type='submit']");
+    const message = document.querySelector("#hdhFamilyHubInviteMessage");
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating…";
+    }
+    try {
+      const result = await createFamilyHubHouseholdInvite(form);
+      if (message) message.textContent = result.message || "Family Hub invite created.";
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Family Hub household invite ready.");
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not create invite.";
+      showActionFeedback(error.message || "Could not create Family Hub invite.");
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create household invite";
+      }
+    }
+    return;
+  }
+
+  if (event.target.matches("#familyHubLoginForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#familyHubLoginMessage");
+    const data = collectFormData(form);
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const response = await fetch("/api/family-hub/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: data.email, code: data.code }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not sign in to Family Hub.");
+      setFamilyHubSessionToken(result.sessionToken);
+      renderFamilyHubPage();
+      showActionFeedback("Signed in to Family Hub.");
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not sign in.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#hdhStaffInviteForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#hdhStaffInviteMessage");
+    const data = collectFormData(form);
+    const email = String(data.email || "").trim().toLowerCase();
+    const submitBtn = form.querySelector("[type='submit']");
+    if (!email) return;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending…";
+    }
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers || !canUseLaunchBackend()) throw new Error("Staff invites need the testing server backend.");
+      const visibility = collectHdhStaffVisibilityFromForm(form);
+      const settings = getProgramSettings();
+      const response = await fetch("/api/staff/invites", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          email,
+          role: String(data.role || "assistant").trim() || "assistant",
+          programName: settings.programName || "",
+          appOrigin: window.location.origin,
+          ...visibility,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not send invite.");
+      await refreshStaffInvitesFromBackend();
+      if (message) message.textContent = result.message || "Invite sent.";
+      showActionFeedback(result.acceptUrl && !result.email?.sent ? `Invite ready: ${result.acceptUrl}` : "Staff invite created.");
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not send invite.";
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Send staff invite";
+      }
+    }
+    return;
+  }
+
+  if (event.target.matches("#hdhTrainingForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#hdhTrainingMessage");
+    const data = collectFormData(form);
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = await staffAuthHeaders();
+      if (!headers || !canUseLaunchBackend()) throw new Error("Training tracker needs the testing server backend.");
+      const response = await fetch("/api/home-daycare-hub/staff-trainings", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(data),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not save training.");
+      await refreshHdhStaffTrainings();
+      form.reset();
+      if (message) message.textContent = "Training saved.";
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Training saved.");
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not save training.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#hdhPacketForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#hdhPacketMessage");
+    const data = collectFormData(form);
+    const childId = String(data.childId || "").trim();
+    const child = (childRecords().children || []).find((item) => item.id === childId);
+    if (!child) return;
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      addAllHomeDaycarePackFormsToChild(childId);
+      const household = (familyHubHouseholdCache.households || []).find((item) => item.id === data.householdId);
+      const headers = await staffAuthHeaders();
+      if (!headers || !canUseLaunchBackend()) throw new Error("Packets need the testing server backend.");
+      const response = await fetch("/api/home-daycare-hub/packets", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          title: String(data.title || "").trim() || `${child.name} enrollment packet`,
+          childId: child.id,
+          childName: child.name,
+          householdId: household?.id || "",
+          householdLabel: household?.label || "",
+          items: HOME_DAYCARE_FORMS_PACK.map((formItem, index) => ({
+            id: `item-${index + 1}`,
+            packFormId: formItem.id,
+            title: formItem.title,
+            category: formItem.category,
+            status: "needed",
+            statusLabel: "Needed",
+          })),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not create packet.");
+      await refreshHdhPackets();
+      form.reset();
+      if (message) message.textContent = "Packet created.";
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      showActionFeedback("Packet created and child file updated.");
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not create packet.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
   if (!event.target.matches("#docHelperForm")) return;
   event.preventDefault();
   const form = event.target;
@@ -59199,6 +61221,9 @@ document.addEventListener("submit", async (event) => {
           return;
         }
         const settings = getProgramSettings();
+        const visibility = isHomeDaycareHubTestingEnabled()
+          ? collectHdhStaffVisibilityFromForm(form)
+          : { visibilityPreset: "", hdhVisibility: null };
         const response = await fetch("/api/staff/invites", {
           method: "POST",
           headers,
@@ -59209,6 +61234,7 @@ document.addEventListener("submit", async (event) => {
             classroomName,
             programName: settings.programName || "",
             appOrigin: window.location.origin,
+            ...visibility,
           }),
         });
         const result = await response.json().catch(() => ({}));
@@ -59253,19 +61279,22 @@ document.addEventListener("submit", async (event) => {
       received: "Received",
       signed: "Signed / complete",
     };
+    const category = String(data.category || "Other").trim() || "Other";
     appendChildRecord("Documents", {
       childId,
       title,
+      category,
       status,
       statusLabel: statusLabels[status] || status,
       notes: String(data.notes || "").trim(),
       date: new Date().toISOString().slice(0, 10),
       updatedAt: new Date().toISOString(),
     });
-    childProfileTab = "documents";
+    childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     event.target.reset();
     showActionFeedback("Document saved to child file.");
+    renderChildManagement();
     return;
   }
 

@@ -22036,3 +22036,180 @@ body.printing-resource .trial-curriculum-watermark-print {
   font-size: 0.92rem;
   line-height: 1.4;
 }
+
+/* Home Daycare Hub (testing fence) */
+.hdh-disclaimer {
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border-left: 3px solid #5a8f7b;
+  background: rgba(90, 143, 123, 0.08);
+  color: #3d534a;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.hdh-hub-sections {
+  display: grid;
+  gap: 16px;
+}
+
+.hdh-coming-list {
+  margin: 10px 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted, #5b6578);
+  line-height: 1.5;
+}
+
+.hdh-coming-list li + li {
+  margin-top: 6px;
+}
+
+.hdh-forms-filters {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 16px;
+}
+
+.hdh-forms-filters label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted, #5b6578);
+}
+
+.hdh-forms-filters input,
+.hdh-forms-filters select {
+  width: 100%;
+  min-height: 42px;
+}
+
+@media (max-width: 720px) {
+  .hdh-forms-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hdh-pack-details {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.hdh-pack-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--ink, #243047);
+}
+
+.hdh-forms-pack-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hdh-forms-pack-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line, rgba(36, 48, 71, 0.12));
+}
+
+.hdh-forms-pack-item:last-child {
+  border-bottom: 0;
+}
+
+.hdh-forms-pack-item strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.hdh-forms-pack-item .muted-copy {
+  margin: 0;
+}
+
+.hdh-forms-pack-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hdh-ai-draft-panel {
+  scroll-margin-top: 88px;
+}
+
+.hdh-ai-draft-form {
+  margin-top: 8px;
+}
+
+.hdh-ai-draft-results {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line, rgba(36, 48, 71, 0.12));
+}
+
+.hdh-ai-draft-output {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.92);
+  white-space: normal;
+  line-height: 1.5;
+  min-height: 160px;
+}
+
+.hdh-ai-draft-output[contenteditable="true"] {
+  outline: 2px solid rgba(90, 143, 123, 0.35);
+  background: #fff;
+}
+
+.hdh-family-hub-form {
+  margin-top: 8px;
+}
+
+.hdh-child-pick-fieldset {
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+}
+
+.hdh-child-pick-fieldset legend {
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.hdh-child-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.hdh-family-invite-result {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(90, 143, 123, 0.28);
+  border-radius: 12px;
+  background: rgba(90, 143, 123, 0.08);
+}
+
+.hdh-code {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  word-break: break-all;
+  font-size: 0.9rem;
+}
+
+.hdh-family-household-list {
+  margin-top: 18px;
+}
+
+.hdh-family-household-list h4 {
+  margin: 0 0 8px;
+}

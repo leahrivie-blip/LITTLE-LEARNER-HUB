@@ -38,10 +38,12 @@ test("documents tab renderer and handlers exist", () => {
   assert.match(appJs, /appendChildRecord\("Documents"/);
 });
 
-test("legacy documents/timeline tabs normalize into Records", () => {
+test("legacy documents/timeline tabs normalize into Records (or Forms & Records when hub testing)", () => {
   assert.match(appJs, /function normalizeChildProfileTab/);
-  assert.match(appJs, /raw === "documents" \|\| raw === "timeline"/);
+  assert.match(appJs, /raw === "documents"/);
+  assert.match(appJs, /raw === "timeline"/);
   assert.match(appJs, /return "records"/);
+  assert.match(appJs, /forms-records/);
 });
 
 test("Documents store is included in client and server child data keys", () => {

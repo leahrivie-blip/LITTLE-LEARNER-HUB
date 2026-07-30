@@ -61,11 +61,11 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-trust-faq" />
-  <link rel="stylesheet" href="styles.css?v=20260730-trust-faq" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-hdh-finish" />
+  <link rel="stylesheet" href="styles.css?v=20260730-hdh-finish" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-trust-faq" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-hdh-finish" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260729-signed-in-audit" />
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260730-trust-faq";
+      var SHELL_VERSION = "20260730-hdh-finish";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -260,6 +260,10 @@
             <button class="nav-link" data-view="children" data-nav-capability="child_profiles">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0M13.5 20a4 4 0 0 1 7.5 0"/></svg></span>
               Child Profiles
+            </button>
+            <button class="nav-link" data-view="home-daycare-hub" data-nav-hdh-testing="true" hidden>
+              <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1z"/><path d="M9 14h6"/></svg></span>
+              Home Daycare Hub
             </button>
             <button class="nav-link" data-view="ai" data-nav-capability="documentation_helpers">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 12h6M9 16h6M9 8h2"/></svg></span>
@@ -905,6 +909,8 @@
         <section id="view-enrollment" class="view"></section>
         <section id="view-observations" class="view"></section>
         <section id="view-forms" class="view"></section>
+        <section id="view-home-daycare-hub" class="view"></section>
+        <section id="view-family-hub" class="view"></section>
         <section id="view-activities" class="view"></section>
         <section id="view-menus" class="view"></section>
 
@@ -2196,8 +2202,8 @@
 
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
-    <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-trust-faq" defer></script>
-    <script src="scripts/lesson-plan-covers.js?v=20260730-trust-faq" defer></script>
+    <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-finish" defer></script>
+    <script src="scripts/lesson-plan-covers.js?v=20260730-hdh-finish" defer></script>
     <script src="scripts/curriculum-series.js?v=20260729-curriculum-collections" defer></script>
     <script src="scripts/curriculum-standards.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards" defer></script>
@@ -2209,11 +2215,12 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="scripts/free-curriculum-sample.js?v=20260730-trust-faq" defer></script>
-    <script src="scripts/trial-curriculum-exports.js?v=20260730-trust-faq" defer></script>
-    <script src="scripts/free-plan-grandfathering.js?v=20260730-trust-faq" defer></script>
-    <script src="app.js?v=20260730-trust-faq" defer></script>
-    <script src="admin-workspace.js?v=20260730-trust-faq" defer></script>
+    <script src="scripts/free-curriculum-sample.js?v=20260730-hdh-finish" defer></script>
+    <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-finish" defer></script>
+    <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-finish" defer></script>
+    <script src="/api/client-config.js" defer></script>
+    <script src="app.js?v=20260730-hdh-finish" defer></script>
+    <script src="admin-workspace.js?v=20260730-hdh-finish" defer></script>
     <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>
 </html>

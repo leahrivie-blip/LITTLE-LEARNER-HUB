@@ -144,6 +144,14 @@ const PUSH_BULK_BATCH_SIZE = Number(process.env.PUSH_BULK_BATCH_SIZE || 20);
 const PUSH_BULK_BATCH_DELAY_MS = Number(process.env.PUSH_BULK_BATCH_DELAY_MS || 75);
 const PUSH_BULK_MAX_RECIPIENTS = Number(process.env.PUSH_BULK_MAX_RECIPIENTS || 2000);
 const MAX_PUSH_DEVICES_PER_USER = Number(process.env.MAX_PUSH_DEVICES_PER_USER || 8);
+/** Testing-site fence for Home Daycare Hub (forms/family/staff). Never enable on production. */
+const HOME_DAYCARE_HUB_TESTING = ["1", "true", "yes", "on"].includes(
+  String(process.env.HOME_DAYCARE_HUB_TESTING || "").trim().toLowerCase(),
+);
+
+function isHomeDaycareHubTestingEnabled() {
+  return HOME_DAYCARE_HUB_TESTING;
+}
 
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
@@ -708,6 +716,22 @@ async function probePostgresReadiness() {
   }
 }
 
+function homeDaycareHubStatus() {
+  const enabled = isHomeDaycareHubTestingEnabled();
+  return {
+    enabled,
+    ready: true,
+    testingOnly: true,
+    envVar: "HOME_DAYCARE_HUB_TESTING",
+    features: enabled
+      ? ["forms-pack", "ai-drafts", "family-hub", "staff-visibility", "trainings", "packets"]
+      : [],
+    note: enabled
+      ? "Home Daycare Hub testing surfaces are ON. Keep this flag off on live production."
+      : "Home Daycare Hub testing surfaces are OFF (set HOME_DAYCARE_HUB_TESTING=true only on the testing service).",
+  };
+}
+
 function launchReadinessStatus() {
   const stripe = stripeConfigStatus();
   const admin = adminConfigStatus();
@@ -715,6 +739,7 @@ function launchReadinessStatus() {
   const site = siteConfigStatus();
   const database = databaseConfigStatus();
   const supportEmail = supportEmailConfigStatus();
+  const homeDaycareHub = homeDaycareHubStatus();
   const required = { stripe, admin, ai, site, database };
   const blockers = Object.entries(required)
     .filter(([, value]) => !value.ready)
@@ -723,7 +748,7 @@ function launchReadinessStatus() {
     ready: blockers.length === 0,
     blockers,
     required,
-    optional: { supportEmail },
+    optional: { supportEmail, homeDaycareHub },
     message: blockers.length
       ? `Not launch-ready yet. Fix: ${blockers.join(", ")}.`
       : "Website launch requirements are configured.",
@@ -11400,8 +11425,770 @@ async function handleChildData(request, response) {
   }
 }
 
+const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+
+function requireHomeDaycareHubTesting(response) {
+  if (isHomeDaycareHubTestingEnabled()) return true;
+  jsonResponse(response, 404, { error: "Family Hub is only available on the testing site." });
+  return false;
+}
+
+function ensureFamilyHubCollections(store) {
+  store.familyHouseholds = store.familyHouseholds && typeof store.familyHouseholds === "object" ? store.familyHouseholds : {};
+  store.familyMagicLinks = store.familyMagicLinks && typeof store.familyMagicLinks === "object" ? store.familyMagicLinks : {};
+  store.familySessions = store.familySessions && typeof store.familySessions === "object" ? store.familySessions : {};
+  return store;
+}
+
+function publicFamilyHousehold(household = {}) {
+  return {
+    id: household.id || "",
+    label: household.label || "Family",
+    email: household.email || "",
+    phone: household.phone || "",
+    childIds: Array.isArray(household.childIds) ? household.childIds : [],
+    children: Array.isArray(household.children) ? household.children : [],
+    status: household.status || "invited",
+    invitedAt: household.invitedAt || "",
+    expiresAt: household.expiresAt || "",
+    lastAccessAt: household.lastAccessAt || "",
+    emailSent: Boolean(household.emailSent),
+    smsSimulated: Boolean(household.smsSimulated),
+    programName: household.programName || "Little Learner Hub program",
+    magicUrl: household.magicUrl || "",
+    loginCodeHint: household.loginCode ? "A 6-digit login code was created for this household." : "",
+  };
+}
+
+function familyInviteIsExpired(row, nowMs = Date.now()) {
+  const exp = Date.parse(row?.expiresAt || "");
+  if (Number.isFinite(exp)) return exp <= nowMs;
+  const created = Date.parse(row?.invitedAt || row?.createdAt || "");
+  if (!Number.isFinite(created)) return false;
+  return created + FAMILY_HUB_INVITE_TTL_MS <= nowMs;
+}
+
+function familySessionIsExpired(session, nowMs = Date.now()) {
+  const exp = Date.parse(session?.expiresAt || "");
+  return Number.isFinite(exp) ? exp <= nowMs : true;
+}
+
+function hashFamilyLoginCode(code) {
+  return crypto.createHash("sha256").update(String(code || "").trim()).digest("hex");
+}
+
+function createFamilyLoginCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function listFamilyHouseholdsForOwner(store, ownerEmail) {
+  const key = normalizeEmail(ownerEmail);
+  return Object.values(store.familyHouseholds || {})
+    .filter((item) => normalizeEmail(item.ownerEmail) === key && item.status !== "revoked")
+    .sort((a, b) => String(b.invitedAt || "").localeCompare(String(a.invitedAt || "")));
+}
+
+function resolveFamilySession(request) {
+  const authHeader = String(request.headers.authorization || "");
+  const headerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const token = headerToken || String(request.headers["x-llh-family-session"] || "").trim();
+  if (!token || !token.startsWith("llh_family_")) return null;
+  const store = ensureFamilyHubCollections(readStore());
+  const session = store.familySessions[token];
+  if (!session || familySessionIsExpired(session)) return null;
+  const household = store.familyHouseholds[session.householdId];
+  if (!household || household.status === "revoked") return null;
+  return { token, session, household, store };
+}
+
+function mintFamilySession(store, household) {
+  const token = `llh_family_${crypto.randomBytes(24).toString("hex")}`;
+  const now = new Date();
+  store.familySessions[token] = {
+    token,
+    householdId: household.id,
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + FAMILY_HUB_SESSION_TTL_MS).toISOString(),
+  };
+  household.status = "active";
+  household.lastAccessAt = now.toISOString();
+  store.familyHouseholds[household.id] = household;
+  return token;
+}
+
+async function handleFamilyHubHouseholdsList(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing Family Hub." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  jsonResponse(response, 200, {
+    ok: true,
+    households: listFamilyHouseholdsForOwner(store, ownerEmail).map(publicFamilyHousehold),
+    emailDeliveryReady: supportEmailConfigStatus().ready,
+    smsDeliveryReady: false,
+    testingOnly: true,
+  });
+}
+
+async function handleFamilyHubHouseholdCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before inviting a family." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid Family Hub invite payload." });
+    return;
+  }
+  const email = normalizeEmail(body.email || "");
+  const phone = String(body.phone || "").trim();
+  if (!email && !phone) {
+    jsonResponse(response, 400, { error: "Enter a parent email and/or phone number for the household login." });
+    return;
+  }
+  const childrenInput = Array.isArray(body.children) ? body.children : [];
+  const children = childrenInput
+    .map((child) => ({
+      id: String(child?.id || "").trim(),
+      name: String(child?.name || "Child").trim() || "Child",
+    }))
+    .filter((child) => child.id);
+  if (!children.length) {
+    jsonResponse(response, 400, { error: "Select at least one child for this household login." });
+    return;
+  }
+  const documents = Array.isArray(body.documents)
+    ? body.documents.map((doc) => ({
+      childId: String(doc?.childId || "").trim(),
+      title: String(doc?.title || "Form").trim() || "Form",
+      category: String(doc?.category || "Other").trim() || "Other",
+      status: String(doc?.status || "needed").trim() || "needed",
+      statusLabel: String(doc?.statusLabel || doc?.status || "Needed").trim() || "Needed",
+    })).filter((doc) => doc.childId)
+    : [];
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const now = new Date();
+  const loginCode = createFamilyLoginCode();
+  const magicToken = crypto.randomBytes(24).toString("hex");
+  const householdId = `family-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
+  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub.onrender.com";
+  const magicUrl = `${origin}/?familyHub=${encodeURIComponent(magicToken)}`;
+  const label = String(body.label || children.map((c) => c.name).join(" & ") || "Family").trim() || "Family";
+  const programName = String(body.programName || "Little Learner Hub program").trim() || "Little Learner Hub program";
+  const household = {
+    id: householdId,
+    ownerEmail,
+    label,
+    email,
+    phone,
+    childIds: children.map((child) => child.id),
+    children,
+    documents,
+    status: "invited",
+    invitedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + FAMILY_HUB_INVITE_TTL_MS).toISOString(),
+    loginCodeHash: hashFamilyLoginCode(loginCode),
+    loginCode, // testing-only convenience for provider copy; never expose on public peek
+    programName,
+    emailSent: false,
+    smsSimulated: Boolean(phone),
+    magicToken,
+    magicUrl,
+  };
+  store.familyHouseholds[householdId] = household;
+  store.familyMagicLinks[magicToken] = {
+    token: magicToken,
+    householdId,
+    createdAt: now.toISOString(),
+    expiresAt: household.expiresAt,
+    channel: phone && !email ? "sms" : (phone ? "email+sms" : "email"),
+    status: "pending",
+  };
+  writeStore(store);
+
+  let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };
+  if (email) {
+    try {
+      emailResult = await sendEmail({
+        to: email,
+        replyTo: identity.email,
+        subject: `Family Hub access for ${programName}`,
+        text: [
+          `Hi,`,
+          ``,
+          `${identity.email} invited your household to Family Hub for ${programName}.`,
+          `Children linked: ${children.map((c) => c.name).join(", ")}`,
+          ``,
+          `Open your Family Hub magic link:`,
+          magicUrl,
+          ``,
+          `Or sign in with email ${email} and login code: ${loginCode}`,
+          ``,
+          `This access link expires on ${household.expiresAt.slice(0, 10)}.`,
+          `One household login covers all linked children.`,
+          ``,
+          `— Little Learner Hub (testing)`,
+        ].join("\n"),
+        html: `
+          <p>Hi,</p>
+          <p><strong>${htmlEscape(identity.email)}</strong> invited your household to Family Hub for <strong>${htmlEscape(programName)}</strong>.</p>
+          <p>Children linked: ${htmlEscape(children.map((c) => c.name).join(", "))}</p>
+          <p><a href="${htmlEscape(magicUrl)}">Open Family Hub</a></p>
+          <p>Or sign in with email <strong>${htmlEscape(email)}</strong> and login code <strong>${htmlEscape(loginCode)}</strong>.</p>
+          <p>This access link expires on ${htmlEscape(household.expiresAt.slice(0, 10))}.</p>
+          <p>One household login covers all linked children.</p>
+          <p>— Little Learner Hub (testing)</p>
+        `,
+      });
+    } catch (error) {
+      emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: error.message };
+    }
+    household.emailSent = Boolean(emailResult.sent);
+    household.emailError = emailResult.error || "";
+    store.familyHouseholds[householdId] = household;
+    writeStore(store);
+  }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    household: {
+      ...publicFamilyHousehold(household),
+      loginCode, // provider-only response so they can share when email/SMS is not configured
+      magicUrl,
+    },
+    magicUrl,
+    loginCode,
+    email: emailResult,
+    sms: phone
+      ? { simulated: true, ready: false, magicUrl, message: "SMS is simulated on testing. Share the magic link by text manually." }
+      : { simulated: false, ready: false },
+    message: emailResult.sent
+      ? "Family Hub invite created and email sent."
+      : (phone
+        ? "Family Hub invite created. SMS is simulated — copy the magic link to text the family."
+        : "Family Hub invite created. Share the magic link or login code with the family."),
+  });
+}
+
+function handleFamilyHubInvitePeek(request, response, url) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const token = String(url.searchParams.get("token") || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Missing Family Hub invite token." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const link = store.familyMagicLinks[token];
+  if (!link) {
+    jsonResponse(response, 404, { error: "This Family Hub link is invalid or has already been removed." });
+    return;
+  }
+  const household = store.familyHouseholds[link.householdId];
+  if (!household || household.status === "revoked") {
+    jsonResponse(response, 404, { error: "This Family Hub invite is no longer available." });
+    return;
+  }
+  if (familyInviteIsExpired(link) || familyInviteIsExpired(household)) {
+    link.status = "expired";
+    household.status = household.status === "active" ? "active" : "expired";
+    store.familyMagicLinks[token] = link;
+    store.familyHouseholds[household.id] = household;
+    writeStore(store);
+    jsonResponse(response, 410, { error: "This Family Hub link has expired. Ask your provider for a new invite." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    invite: {
+      programName: household.programName || "Little Learner Hub program",
+      label: household.label || "Family",
+      email: household.email || "",
+      phone: household.phone ? "on file" : "",
+      children: Array.isArray(household.children) ? household.children.map((c) => ({ id: c.id, name: c.name })) : [],
+      expiresAt: household.expiresAt || "",
+    },
+  });
+}
+
+function handleFamilyHubInviteRedeem(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  readJson(request).then((body) => {
+    const token = String(body?.token || "").trim();
+    if (!token) {
+      jsonResponse(response, 400, { error: "Missing Family Hub invite token." });
+      return;
+    }
+    const store = ensureFamilyHubCollections(readStore());
+    const link = store.familyMagicLinks[token];
+    if (!link) {
+      jsonResponse(response, 404, { error: "This Family Hub link is invalid or has already been removed." });
+      return;
+    }
+    const household = store.familyHouseholds[link.householdId];
+    if (!household || household.status === "revoked") {
+      jsonResponse(response, 404, { error: "This Family Hub invite is no longer available." });
+      return;
+    }
+    if (familyInviteIsExpired(link) || familyInviteIsExpired(household)) {
+      jsonResponse(response, 410, { error: "This Family Hub link has expired. Ask your provider for a new invite." });
+      return;
+    }
+    const sessionToken = mintFamilySession(store, household);
+    link.status = "redeemed";
+    link.redeemedAt = new Date().toISOString();
+    store.familyMagicLinks[token] = link;
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      sessionToken,
+      household: publicFamilyHousehold(household),
+    });
+  }).catch(() => {
+    jsonResponse(response, 400, { error: "Invalid redeem payload." });
+  });
+}
+
+function handleFamilyHubLogin(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  readJson(request).then((body) => {
+    const email = normalizeEmail(body?.email || "");
+    const code = String(body?.code || "").trim();
+    if (!email || !code) {
+      jsonResponse(response, 400, { error: "Enter the household email and 6-digit login code." });
+      return;
+    }
+    const store = ensureFamilyHubCollections(readStore());
+    const codeHash = hashFamilyLoginCode(code);
+    const household = Object.values(store.familyHouseholds).find((item) => (
+      normalizeEmail(item.email) === email
+      && item.status !== "revoked"
+      && item.loginCodeHash === codeHash
+      && !familyInviteIsExpired(item)
+    ));
+    if (!household) {
+      jsonResponse(response, 401, { error: "That email and login code do not match an active Family Hub invite." });
+      return;
+    }
+    const sessionToken = mintFamilySession(store, household);
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      sessionToken,
+      household: publicFamilyHousehold(household),
+    });
+  }).catch(() => {
+    jsonResponse(response, 400, { error: "Invalid login payload." });
+  });
+}
+
+function handleFamilyHubMe(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired. Open your magic link or sign in with your login code." });
+    return;
+  }
+  const { household } = resolved;
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    household: publicFamilyHousehold(household),
+    children: Array.isArray(household.children) ? household.children : [],
+    documents: Array.isArray(household.documents) ? household.documents : [],
+    note: "One household login covers all linked children. E-sign and form return come in a later step.",
+  });
+}
+
+async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing Family Hub." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const household = store.familyHouseholds[householdId];
+  if (!household || normalizeEmail(household.ownerEmail) !== normalizeEmail(identity.email)) {
+    jsonResponse(response, 404, { error: "Household invite not found." });
+    return;
+  }
+  household.status = "revoked";
+  household.revokedAt = new Date().toISOString();
+  store.familyHouseholds[householdId] = household;
+  Object.values(store.familyMagicLinks).forEach((link) => {
+    if (link.householdId === householdId) {
+      link.status = "revoked";
+      store.familyMagicLinks[link.token] = link;
+    }
+  });
+  Object.entries(store.familySessions).forEach(([token, session]) => {
+    if (session.householdId === householdId) delete store.familySessions[token];
+  });
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, household: publicFamilyHousehold(household) });
+}
+
+const HDH_TRAINING_TYPES = Object.freeze([
+  "CPR",
+  "First Aid",
+  "Bloodborne Pathogens",
+  "Safe Sleep",
+  "Child Abuse Prevention",
+  "Other",
+]);
+
+function ensureHomeDaycareHubCollections(store) {
+  store.staffTrainings = store.staffTrainings && typeof store.staffTrainings === "object" ? store.staffTrainings : {};
+  store.formPackets = store.formPackets && typeof store.formPackets === "object" ? store.formPackets : {};
+  return store;
+}
+
+function ownerTrainingKey(email) {
+  return normalizeEmail(email);
+}
+
+function listStaffTrainingsForOwner(store, ownerEmail) {
+  const list = Array.isArray(store.staffTrainings?.[ownerTrainingKey(ownerEmail)])
+    ? store.staffTrainings[ownerTrainingKey(ownerEmail)]
+    : [];
+  return list.slice().sort((a, b) => String(b.completedAt || b.createdAt || "").localeCompare(String(a.completedAt || a.createdAt || "")));
+}
+
+function listFormPacketsForOwner(store, ownerEmail) {
+  const list = Array.isArray(store.formPackets?.[ownerTrainingKey(ownerEmail)])
+    ? store.formPackets[ownerTrainingKey(ownerEmail)]
+    : [];
+  return list.slice().sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
+function publicStaffTraining(item = {}) {
+  return {
+    id: item.id || "",
+    staffEmail: item.staffEmail || "",
+    staffName: item.staffName || "",
+    type: item.type || "Other",
+    completedAt: item.completedAt || "",
+    expiresAt: item.expiresAt || "",
+    notes: item.notes || "",
+    createdAt: item.createdAt || "",
+    expired: item.expiresAt ? Date.parse(item.expiresAt) < Date.now() : false,
+  };
+}
+
+function publicFormPacket(packet = {}) {
+  return {
+    id: packet.id || "",
+    title: packet.title || "Enrollment packet",
+    childId: packet.childId || "",
+    childName: packet.childName || "",
+    householdId: packet.householdId || "",
+    householdLabel: packet.householdLabel || "",
+    status: packet.status || "open",
+    createdAt: packet.createdAt || "",
+    updatedAt: packet.updatedAt || "",
+    items: Array.isArray(packet.items) ? packet.items : [],
+  };
+}
+
+async function handleHdhStaffTrainingsList(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    trainingTypes: HDH_TRAINING_TYPES,
+    trainings: listStaffTrainingsForOwner(store, identity.email).map(publicStaffTraining),
+  });
+}
+
+async function handleHdhStaffTrainingCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid training payload." });
+    return;
+  }
+  const type = String(body.type || "").trim() || "Other";
+  if (!type) {
+    jsonResponse(response, 400, { error: "Choose a training type." });
+    return;
+  }
+  const staffEmail = normalizeEmail(body.staffEmail || "");
+  if (!staffEmail) {
+    jsonResponse(response, 400, { error: "Enter the staff member email." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  const key = ownerTrainingKey(identity.email);
+  const now = new Date().toISOString();
+  const training = {
+    id: `training-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+    staffEmail,
+    staffName: String(body.staffName || "").trim(),
+    type,
+    completedAt: String(body.completedAt || now.slice(0, 10)).trim(),
+    expiresAt: String(body.expiresAt || "").trim(),
+    notes: String(body.notes || "").trim().slice(0, 500),
+    createdAt: now,
+  };
+  store.staffTrainings[key] = [...listStaffTrainingsForOwner(store, identity.email), training];
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, testingOnly: true, training: publicStaffTraining(training) });
+}
+
+async function handleHdhStaffTrainingDelete(request, response, trainingId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  const key = ownerTrainingKey(identity.email);
+  const next = listStaffTrainingsForOwner(store, identity.email).filter((item) => item.id !== trainingId);
+  if (next.length === listStaffTrainingsForOwner(store, identity.email).length) {
+    jsonResponse(response, 404, { error: "Training record not found." });
+    return;
+  }
+  store.staffTrainings[key] = next;
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true });
+}
+
+async function handleHdhPacketsList(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    packets: listFormPacketsForOwner(store, identity.email).map(publicFormPacket),
+  });
+}
+
+async function handleHdhPacketCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid packet payload." });
+    return;
+  }
+  const childId = String(body.childId || "").trim();
+  const childName = String(body.childName || "Child").trim() || "Child";
+  if (!childId) {
+    jsonResponse(response, 400, { error: "Select a child for this packet." });
+    return;
+  }
+  const itemsInput = Array.isArray(body.items) ? body.items : [];
+  const items = itemsInput.map((item, index) => ({
+    id: String(item?.id || `item-${index + 1}`),
+    packFormId: String(item?.packFormId || "").trim(),
+    title: String(item?.title || "Form").trim() || "Form",
+    category: String(item?.category || "Other").trim() || "Other",
+    status: String(item?.status || "needed").trim() || "needed",
+    statusLabel: String(item?.statusLabel || item?.status || "Needed").trim() || "Needed",
+  })).filter((item) => item.title);
+  if (!items.length) {
+    jsonResponse(response, 400, { error: "Packet needs at least one form item." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  const key = ownerTrainingKey(identity.email);
+  const now = new Date().toISOString();
+  const packet = {
+    id: `packet-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+    title: String(body.title || `${childName} enrollment packet`).trim() || "Enrollment packet",
+    childId,
+    childName,
+    householdId: String(body.householdId || "").trim(),
+    householdLabel: String(body.householdLabel || "").trim(),
+    status: "open",
+    createdAt: now,
+    updatedAt: now,
+    items,
+  };
+  store.formPackets[key] = [...listFormPacketsForOwner(store, identity.email), packet];
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, testingOnly: true, packet: publicFormPacket(packet) });
+}
+
+async function handleHdhPacketItemUpdate(request, response, packetId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid packet update." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  const key = ownerTrainingKey(identity.email);
+  const packets = listFormPacketsForOwner(store, identity.email);
+  const packet = packets.find((item) => item.id === packetId);
+  if (!packet) {
+    jsonResponse(response, 404, { error: "Packet not found." });
+    return;
+  }
+  const itemId = String(body.itemId || "").trim();
+  const status = String(body.status || "").trim();
+  const statusLabels = {
+    needed: "Needed",
+    requested: "Requested from family",
+    received: "Received",
+    signed: "Signed / complete",
+  };
+  if (!itemId || !statusLabels[status]) {
+    jsonResponse(response, 400, { error: "Provide itemId and a valid status." });
+    return;
+  }
+  packet.items = (packet.items || []).map((item) => (
+    item.id === itemId
+      ? { ...item, status, statusLabel: statusLabels[status] }
+      : item
+  ));
+  const allDone = packet.items.every((item) => item.status === "signed" || item.status === "received");
+  packet.status = allDone ? "complete" : "open";
+  packet.updatedAt = new Date().toISOString();
+  store.formPackets[key] = packets.map((item) => (item.id === packetId ? packet : item));
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, packet: publicFormPacket(packet) });
+}
+
+async function handleHdhPacketDelete(request, response, packetId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in." });
+    return;
+  }
+  const store = ensureHomeDaycareHubCollections(readStore());
+  const key = ownerTrainingKey(identity.email);
+  const before = listFormPacketsForOwner(store, identity.email);
+  const next = before.filter((item) => item.id !== packetId);
+  if (next.length === before.length) {
+    jsonResponse(response, 404, { error: "Packet not found." });
+    return;
+  }
+  store.formPackets[key] = next;
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true });
+}
+
 const STAFF_INVITE_ROLES = new Set(["teacher", "assistant", "director", "owner"]);
 const STAFF_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+
+const HDH_STAFF_VISIBILITY_KEYS = Object.freeze([
+  "calendar",
+  "daily_logs",
+  "children",
+  "forms_records",
+  "lessons",
+  "activities",
+]);
+
+const HDH_STAFF_VISIBILITY_PRESETS = Object.freeze({
+  helper: {
+    calendar: true,
+    daily_logs: true,
+    children: true,
+    forms_records: false,
+    lessons: false,
+    activities: false,
+  },
+  lead: {
+    calendar: true,
+    daily_logs: true,
+    children: true,
+    forms_records: true,
+    lessons: true,
+    activities: true,
+  },
+  full: {
+    calendar: true,
+    daily_logs: true,
+    children: true,
+    forms_records: true,
+    lessons: true,
+    activities: true,
+  },
+});
+
+function normalizeHdhStaffVisibility(input = {}, preset = "") {
+  const base = HDH_STAFF_VISIBILITY_PRESETS[String(preset || "").trim().toLowerCase()]
+    || HDH_STAFF_VISIBILITY_PRESETS.lead;
+  const source = input && typeof input === "object" ? input : {};
+  const next = {};
+  HDH_STAFF_VISIBILITY_KEYS.forEach((key) => {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      next[key] = Boolean(source[key]);
+    } else {
+      next[key] = Boolean(base[key]);
+    }
+  });
+  return next;
+}
 
 function publicStaffInvite(invite = {}) {
   return {
@@ -11417,6 +12204,10 @@ function publicStaffInvite(invite = {}) {
     expiresAt: invite.expiresAt || "",
     emailSent: Boolean(invite.emailSent),
     programName: invite.programName || "Little Learner Hub program",
+    visibilityPreset: invite.visibilityPreset || "",
+    hdhVisibility: invite.hdhVisibility && typeof invite.hdhVisibility === "object"
+      ? invite.hdhVisibility
+      : null,
   };
 }
 
@@ -11528,6 +12319,10 @@ async function handleStaffInviteCreate(request, response) {
   }
   const token = crypto.randomBytes(24).toString("hex");
   const now = new Date();
+  const visibilityPreset = String(body.visibilityPreset || "").trim().toLowerCase();
+  const hdhVisibility = (body.hdhVisibility || visibilityPreset)
+    ? normalizeHdhStaffVisibility(body.hdhVisibility, visibilityPreset || "lead")
+    : null;
   const invite = {
     id: `invite-${Date.now().toString(36)}`,
     token,
@@ -11544,6 +12339,8 @@ async function handleStaffInviteCreate(request, response) {
     accountType: inviter.accountType || "home_daycare",
     programName: String(body.programName || inviter.programSettings?.programName || "Little Learner Hub program").trim(),
     emailSent: false,
+    visibilityPreset: hdhVisibility ? (visibilityPreset || "custom") : "",
+    hdhVisibility,
   };
   store.staffInvites[token] = invite;
 
@@ -11706,6 +12503,9 @@ async function handleStaffInviteAccept(request, response) {
     actorEmail: identity.email,
   });
   const now = new Date().toISOString();
+  const hdhVisibility = invite.hdhVisibility && typeof invite.hdhVisibility === "object"
+    ? normalizeHdhStaffVisibility(invite.hdhVisibility, invite.visibilityPreset || "")
+    : null;
   const memberRecord = {
     email: identity.email,
     uid: identity.uid,
@@ -11716,6 +12516,8 @@ async function handleStaffInviteAccept(request, response) {
     joinedAt: now,
     inviteId: invite.id,
     programId: program.id,
+    visibilityPreset: invite.visibilityPreset || "",
+    hdhVisibility,
   };
   const existingMembers = listProgramMembers(store, ownerEmail).filter((member) => normalizeEmail(member.email) !== identity.email);
   store.programMembers[programOwnerKey(ownerEmail)] = [...existingMembers, memberRecord];
@@ -11735,6 +12537,8 @@ async function handleStaffInviteAccept(request, response) {
     classroomIds: invite.classroomId ? [invite.classroomId] : [],
     classroomName: invite.classroomName || "",
     programAccessViaOwner: ownerHasPro,
+    visibilityPreset: invite.visibilityPreset || "",
+    hdhVisibility,
     staffInviteAcceptedAt: now,
     updatedAt: now,
   };
@@ -11751,6 +12555,8 @@ async function handleStaffInviteAccept(request, response) {
       classroomIds: invite.classroomId ? [invite.classroomId] : [],
       classroomName: invite.classroomName || "",
       programAccessViaOwner: ownerHasPro,
+      visibilityPreset: invite.visibilityPreset || "",
+      hdhVisibility,
     },
   }, "Could not save staff invite acceptance.");
 }
@@ -14752,6 +15558,8 @@ function handleHealth(request, response) {
     stripeCheckoutReady: stripeConfigStatus().checkoutReady,
     launchReady: launchReadinessStatus().ready,
     supportEmailReady: supportEmailConfigStatus().ready,
+    homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
+    homeDaycareHub: homeDaycareHubStatus(),
     founding: foundingStatusPayload(store),
     domain: {
       requestHost: host || null,
@@ -15418,6 +16226,7 @@ function handleClientConfig(request, response) {
       supported: Boolean(pushService && pushService.configured()),
       publicKey: pushService ? pushService.publicKey() : "",
     },
+    homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
   };
   response.writeHead(200, {
     "Content-Type": "text/javascript; charset=utf-8",
@@ -19011,6 +19820,33 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdsList(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdCreate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/invites/peek") return handleFamilyHubInvitePeek(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/invites/redeem") return handleFamilyHubInviteRedeem(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/login") return handleFamilyHubLogin(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/me") return handleFamilyHubMe(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/family-hub/households/")) {
+      const householdId = decodeURIComponent(url.pathname.slice("/api/family-hub/households/".length));
+      return await handleFamilyHubHouseholdRevoke(request, response, householdId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/staff-trainings") return await handleHdhStaffTrainingsList(request, response);
+    if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/staff-trainings") return await handleHdhStaffTrainingCreate(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/home-daycare-hub/staff-trainings/")) {
+      const trainingId = decodeURIComponent(url.pathname.slice("/api/home-daycare-hub/staff-trainings/".length));
+      return await handleHdhStaffTrainingDelete(request, response, trainingId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/packets") return await handleHdhPacketsList(request, response);
+    if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/packets") return await handleHdhPacketCreate(request, response);
+    if (request.method === "PATCH" && url.pathname.startsWith("/api/home-daycare-hub/packets/") && url.pathname.endsWith("/items")) {
+      const raw = url.pathname.slice("/api/home-daycare-hub/packets/".length);
+      const packetId = decodeURIComponent(raw.replace(/\/items$/, ""));
+      return await handleHdhPacketItemUpdate(request, response, packetId);
+    }
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/home-daycare-hub/packets/")) {
+      const packetId = decodeURIComponent(url.pathname.slice("/api/home-daycare-hub/packets/".length));
+      return await handleHdhPacketDelete(request, response, packetId);
+    }
     if (request.method === "GET" && url.pathname === "/api/staff/invites") return await handleStaffInvitesList(request, response);
     if (request.method === "POST" && url.pathname === "/api/staff/invites") return await handleStaffInviteCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/staff/invites/peek") return await handleStaffInvitePeek(request, response, url);
