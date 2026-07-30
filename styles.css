@@ -22053,6 +22053,90 @@ body.printing-resource .trial-curriculum-watermark-print {
   gap: 16px;
 }
 
+.hdh-tester-guide {
+  border: 1px solid rgba(90, 143, 123, 0.28);
+  background: linear-gradient(180deg, rgba(90, 143, 123, 0.08), rgba(255, 255, 255, 0.55));
+}
+
+.hdh-tester-roles {
+  display: grid;
+  gap: 12px;
+  margin: 14px 0 0;
+}
+
+@media (min-width: 820px) {
+  .hdh-tester-roles {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.hdh-tester-role {
+  padding: 12px 14px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(61, 83, 74, 0.12);
+}
+
+.hdh-tester-role strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.hdh-tester-role p {
+  margin: 0;
+  color: var(--muted, #5b6578);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.hdh-tester-path-title {
+  margin: 18px 0 8px;
+  font-size: 1rem;
+}
+
+.hdh-tester-path {
+  margin: 0 0 14px;
+  padding-left: 1.25rem;
+  color: #3d534a;
+  line-height: 1.5;
+}
+
+.hdh-tester-path li + li {
+  margin-top: 8px;
+}
+
+.hdh-tester-jumps {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hdh-tester-details {
+  margin-top: 14px;
+}
+
+.hdh-tester-details summary {
+  cursor: pointer;
+  font-weight: 700;
+  color: #3d534a;
+}
+
+.linkish-button {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.hdh-jump-flash {
+  outline: 2px solid #5a8f7b;
+  outline-offset: 4px;
+  transition: outline-color 1.2s ease;
+}
+
 .hdh-coming-list {
   margin: 10px 0 0;
   padding-left: 1.2rem;
