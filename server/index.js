@@ -689,6 +689,22 @@ async function probePostgresReadiness() {
   }
 }
 
+function homeDaycareHubStatus() {
+  const enabled = isHomeDaycareHubTestingEnabled();
+  return {
+    enabled,
+    ready: true,
+    testingOnly: true,
+    envVar: "HOME_DAYCARE_HUB_TESTING",
+    features: enabled
+      ? ["forms-pack", "ai-drafts", "family-hub", "staff-visibility", "trainings", "packets"]
+      : [],
+    note: enabled
+      ? "Home Daycare Hub testing surfaces are ON. Keep this flag off on live production."
+      : "Home Daycare Hub testing surfaces are OFF (set HOME_DAYCARE_HUB_TESTING=true only on the testing service).",
+  };
+}
+
 function launchReadinessStatus() {
   const stripe = stripeConfigStatus();
   const admin = adminConfigStatus();
@@ -696,6 +712,7 @@ function launchReadinessStatus() {
   const site = siteConfigStatus();
   const database = databaseConfigStatus();
   const supportEmail = supportEmailConfigStatus();
+  const homeDaycareHub = homeDaycareHubStatus();
   const required = { stripe, admin, ai, site, database };
   const blockers = Object.entries(required)
     .filter(([, value]) => !value.ready)
@@ -704,7 +721,7 @@ function launchReadinessStatus() {
     ready: blockers.length === 0,
     blockers,
     required,
-    optional: { supportEmail },
+    optional: { supportEmail, homeDaycareHub },
     message: blockers.length
       ? `Not launch-ready yet. Fix: ${blockers.join(", ")}.`
       : "Website launch requirements are configured.",
@@ -15133,6 +15150,7 @@ function handleHealth(request, response) {
     launchReady: launchReadinessStatus().ready,
     supportEmailReady: supportEmailConfigStatus().ready,
     homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
+    homeDaycareHub: homeDaycareHubStatus(),
     founding: foundingStatusPayload(store),
     domain: {
       requestHost: host || null,

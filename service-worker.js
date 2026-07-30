@@ -1,21 +1,21 @@
-const CACHE_NAME = "llh-shell-v130-trust-faq";
-const SHELL_VERSION = "20260730-trust-faq";
+const CACHE_NAME = "llh-shell-v131-hdh-finish";
+const SHELL_VERSION = "20260730-hdh-finish";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260730-trust-faq",
+  "/styles.css?v=20260730-hdh-finish",
   "/styles/llh-admin-workspace.css?v=20260729-signed-in-audit",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260730-trust-faq",
+  "/styles/llh-homepage.css?v=20260730-hdh-finish",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260730-trust-faq",
+  "/styles/llh-messaging.css?v=20260730-hdh-finish",
   "/styles/llh-comms.css?v=20260729-signed-in-audit",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
-  "/scripts/lesson-plan-cover-catalog.js?v=20260730-trust-faq",
-  "/scripts/lesson-plan-covers.js?v=20260730-trust-faq",
+  "/scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-finish",
+  "/scripts/lesson-plan-covers.js?v=20260730-hdh-finish",
   "/scripts/curriculum-standards.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards",
   "/scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards",
@@ -27,11 +27,11 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260730-trust-faq",
-  "/scripts/trial-curriculum-exports.js?v=20260730-trust-faq",
-  "/scripts/free-plan-grandfathering.js?v=20260730-trust-faq",
-  "/app.js?v=20260730-trust-faq",
-  "/admin-workspace.js?v=20260730-trust-faq",
+  "/scripts/free-curriculum-sample.js?v=20260730-hdh-finish",
+  "/scripts/trial-curriculum-exports.js?v=20260730-hdh-finish",
+  "/scripts/free-plan-grandfathering.js?v=20260730-hdh-finish",
+  "/app.js?v=20260730-hdh-finish",
+  "/admin-workspace.js?v=20260730-hdh-finish",
   "/comms-center.js?v=20260729-signed-in-audit",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
