@@ -75,6 +75,9 @@ test("Tiffany review remains on homepage without star ratings", () => {
   assert.doesNotMatch(html, /123 Main/);
   assert.doesNotMatch(html, /\(555\)\s*123-4567|555-123-4567/);
   assert.doesNotMatch(html, /example@email\.com/);
+  assert.doesNotMatch(html, /Sunshine Learning Center/);
+  assert.doesNotMatch(html, /placeholder="Jane Smith"/);
+  assert.doesNotMatch(html, /placeholder="Little Learner Home Daycare"/);
 });
 
 test("public nav and mobile menu markers exist", () => {
