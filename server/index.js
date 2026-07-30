@@ -28,6 +28,7 @@ const analyticsStore = require("./analytics-store.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
+const seo = require("./seo.js");
 const adminNotifications = require("./admin-notifications.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
@@ -16619,16 +16620,14 @@ function serveSpaIndex(request, response) {
     response.end();
     return;
   }
-  const stream = fs.createReadStream(indexPath);
-  stream.on("error", (error) => {
-    console.error(error);
-    if (!response.headersSent) {
+  fs.readFile(indexPath, "utf8", (error, html) => {
+    if (error) {
+      console.error(error);
       textResponse(response, 500, "Server error.");
       return;
     }
-    response.destroy(error);
+    response.end(seo.injectHomeHtmlHead(html));
   });
-  stream.pipe(response);
 }
 
 function serveStatic(request, response, url) {
@@ -16666,6 +16665,17 @@ function serveStatic(request, response, url) {
   }
   if (safePath === "/app.js") {
     response.end(clientAppScript(filePath));
+    return;
+  }
+  if (safePath === "/index.html") {
+    fs.readFile(filePath, "utf8", (error, html) => {
+      if (error) {
+        console.error(error);
+        textResponse(response, 500, "Server error.");
+        return;
+      }
+      response.end(seo.injectHomeHtmlHead(html));
+    });
     return;
   }
   const stream = fs.createReadStream(filePath);
@@ -20284,6 +20294,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "HEAD" && url.pathname === "/api/health") {
       return headResponse(response, storageBootReady ? 200 : 503, "application/json; charset=utf-8");
     }
+    if (seo.handleSeoRoute(request, response, url.pathname)) return;
     if (request.method === "GET" || request.method === "HEAD") return serveStatic(request, response, url);
     jsonResponse(response, 405, { error: "Method not allowed." });
   } catch (error) {

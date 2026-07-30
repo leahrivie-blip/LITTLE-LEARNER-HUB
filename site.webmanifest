@@ -1,8 +1,8 @@
 {
   "id": "/",
-  "name": "Little Learner Hub",
+  "name": "Little Learner Hub by Leah",
   "short_name": "LLH",
-  "description": "Childcare provider platform with lesson plans, observations, printables, AI tools, billing, support tickets, in-app messaging, and child management.",
+  "description": "Online childcare platform with lesson plans, activities, planning tools, documentation helpers, forms, and classroom support for infants, toddlers, and preschoolers.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

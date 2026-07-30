@@ -993,6 +993,22 @@ body.llh-public-menu-open {
   text-decoration: none;
 }
 
+.llh-public-social-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.llh-public-social-links a {
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.llh-public-social-links a:hover {
+  text-decoration: underline;
+}
+
 .llh-footer-copy {
   margin: 0;
   color: var(--llh-home-muted);

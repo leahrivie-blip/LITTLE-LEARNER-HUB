@@ -21726,6 +21726,36 @@ canvas {
   border-top: 1px solid rgba(40, 50, 70, 0.1);
   text-align: center;
 }
+.llh-public-footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 16px;
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+}
+.llh-public-footer-nav a {
+  color: #5b4f9a;
+  text-decoration: none;
+}
+.llh-public-footer-nav a:hover {
+  text-decoration: underline;
+}
+.llh-public-social-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 16px;
+  margin-bottom: 10px;
+  font-size: 0.88rem;
+}
+.llh-public-social-links a {
+  color: #5b4f9a;
+  text-decoration: none;
+}
+.llh-public-social-links a:hover {
+  text-decoration: underline;
+}
 .llh-copyright-notice,
 .llh-footer-copy {
   margin: 0;
