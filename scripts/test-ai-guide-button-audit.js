@@ -421,7 +421,7 @@ async function main() {
     "",
     "## Testing site status (at audit time)",
     "",
-    "- Code on testing: `20260730-auth-button-audit` / merge commit present",
+    "- Code on testing: `20260730-hdh-switcher-devices` / merge commit present",
     "- Feature flag: requires `AI_GUIDE_ENABLED=true` + `AI_GUIDE_TESTING_ONLY=true` on testing only",
     "- Production must keep these unset",
     "",

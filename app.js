@@ -31461,33 +31461,61 @@ function hdhTesterRoleLabel(role) {
   return "Teacher";
 }
 
-function renderHdhRoleSwitcher(activeRole = "") {
+function ensureTesterDemoChild() {
+  const existing = childRecords().children || [];
+  if (existing.length) return existing[0];
+  if (!currentUser || typeof saveChildStore !== "function") return null;
+  const child = {
+    id: `tester-child-${Date.now().toString(36)}`,
+    name: "Demo Child",
+    ageGroup: "Toddler",
+    createdAt: new Date().toISOString(),
+    notes: "Auto-added for tester Parent / Teacher switching on the testing site.",
+  };
+  const next = [...existing, child];
+  saveChildStore("Profiles", next);
+  return child;
+}
+
+function renderHdhRoleSwitcher(activeRole = "", options = {}) {
   if (!isHomeDaycareHubTestingEnabled()) return "";
+  const compact = Boolean(options.compact);
   const persona = getHdhTesterPersona();
   const role = activeRole || persona.role || "teacher";
   const teacherReady = isLoggedIn() || Boolean(persona.teacherEmail);
   const children = childRecords().children || [];
   const notes = {
-    teacher: "Full home daycare teacher workspace — Hub, forms, staff, packets.",
-    "staff-helper": "Staff Helper preview — Hub/Forms hidden. Calendar + daily care stay available.",
-    "staff-lead": "Staff Lead preview — Hub, forms, and curriculum stay available.",
-    parent: "Parent Family Hub — household kids + form status only. Teacher login stays underneath.",
+    teacher: "Teacher — full Hub, forms, staff, packets.",
+    "staff-helper": "Staff Helper — Hub/Forms hidden.",
+    "staff-lead": "Staff Lead — Hub stays available.",
+    parent: "Parent — Family Hub household view.",
   };
   return `
-    <section class="hdh-role-switcher" id="hdhRoleSwitcher" aria-label="Tester role switcher">
+    <section class="hdh-role-switcher${compact ? " hdh-role-switcher--compact" : ""}" ${compact ? "" : 'id="hdhRoleSwitcher"'} aria-label="Tester role switcher">
       <div class="hdh-role-switcher-head">
         <div>
-          <p class="eyebrow">Tester switcher</p>
-          <p class="hdh-role-switcher-copy">Bounce through every angle — <strong>Teacher</strong>, <strong>Staff</strong>, <strong>Parent</strong>, and each <strong>child’s file</strong> — then report what feels wrong.</p>
+          <p class="eyebrow">Tester switcher · any device</p>
+          ${compact
+            ? `<p class="hdh-role-switcher-copy">Tap to bounce views. Stays with you on phone, tablet, and computer.</p>`
+            : `<p class="hdh-role-switcher-copy">Bounce through every angle — <strong>Teacher</strong>, <strong>Staff</strong>, <strong>Parent</strong>, and each <strong>child’s file</strong> — then report what feels wrong.</p>`}
         </div>
         <p class="hdh-role-switcher-now">Now: <strong>${escapeHtml(hdhTesterRoleLabel(role))}</strong></p>
       </div>
       <div class="hdh-role-switcher-tabs" role="group" aria-label="Choose tester role">
-        <button class="hdh-role-tab${role === "teacher" ? " is-active" : ""}" type="button" data-hdh-role-switch="teacher" ${teacherReady ? "" : "disabled"}>Teacher</button>
-        <button class="hdh-role-tab${role === "staff-helper" ? " is-active" : ""}" type="button" data-hdh-role-switch="staff-helper" ${teacherReady ? "" : "disabled"}>Staff Helper</button>
-        <button class="hdh-role-tab${role === "staff-lead" ? " is-active" : ""}" type="button" data-hdh-role-switch="staff-lead" ${teacherReady ? "" : "disabled"}>Staff Lead</button>
-        <button class="hdh-role-tab${role === "parent" ? " is-active" : ""}" type="button" data-hdh-role-switch="parent" ${teacherReady || children.length ? "" : "disabled"}>Parent</button>
+        <button class="hdh-role-tab${role === "teacher" ? " is-active" : ""}" type="button" data-hdh-role-switch="teacher" ${teacherReady ? "" : "disabled"}>
+          <span class="hdh-role-tab-full">Teacher</span><span class="hdh-role-tab-short">Teacher</span>
+        </button>
+        <button class="hdh-role-tab${role === "staff-helper" ? " is-active" : ""}" type="button" data-hdh-role-switch="staff-helper" ${teacherReady ? "" : "disabled"}>
+          <span class="hdh-role-tab-full">Staff Helper</span><span class="hdh-role-tab-short">Helper</span>
+        </button>
+        <button class="hdh-role-tab${role === "staff-lead" ? " is-active" : ""}" type="button" data-hdh-role-switch="staff-lead" ${teacherReady ? "" : "disabled"}>
+          <span class="hdh-role-tab-full">Staff Lead</span><span class="hdh-role-tab-short">Lead</span>
+        </button>
+        <button class="hdh-role-tab${role === "parent" ? " is-active" : ""}" type="button" data-hdh-role-switch="parent" ${teacherReady ? "" : "disabled"}>
+          <span class="hdh-role-tab-full">Parent</span><span class="hdh-role-tab-short">Parent</span>
+        </button>
       </div>
+      ${compact ? "" : `
       <div class="hdh-role-switcher-childrow">
         <label class="hdh-role-child-label">Child file (teacher angle)
           <select data-hdh-tester-child ${children.length && role !== "parent" ? "" : "disabled"}>
@@ -31501,13 +31529,12 @@ function renderHdhRoleSwitcher(activeRole = "") {
           ? `<button class="ghost-button" type="button" data-hdh-tester-children ${role === "parent" ? "disabled" : ""}>All children</button>`
           : `<button class="ghost-button" type="button" data-view="children">Add a child</button>`}
       </div>
-      <p class="form-note">${escapeHtml(notes[role] || notes.teacher)}</p>
+      <p class="form-note">${escapeHtml(notes[role] || notes.teacher)}</p>`}
     </section>
   `;
 }
 
 function syncHdhTesterSwitcherChrome() {
-  const hostParent = document.querySelector(".main") || document.body;
   let chrome = document.querySelector("#hdhTesterSwitcherChrome");
   const show = isHomeDaycareHubTestingEnabled() && (isLoggedIn() || getHdhTesterPersona().role === "parent");
   if (!show) {
@@ -31521,24 +31548,17 @@ function syncHdhTesterSwitcherChrome() {
     chrome = document.createElement("div");
     chrome.id = "hdhTesterSwitcherChrome";
     chrome.className = "hdh-tester-switcher-chrome";
-    const topbar = hostParent.querySelector(".topbar");
-    if (topbar?.nextSibling) hostParent.insertBefore(chrome, topbar.nextSibling);
-    else hostParent.prepend(chrome);
+    // Body-level sticky so it stays visible on phone while scrolling Hub content.
+    document.body.prepend(chrome);
   }
   const persona = getHdhTesterPersona();
   document.body.classList.add("hdh-tester-switching");
   document.body.dataset.hdhTesterPersona = persona.role;
   document.body.classList.toggle("hdh-persona-parent", persona.role === "parent");
   document.body.classList.toggle("hdh-persona-staff", persona.role === "staff-helper" || persona.role === "staff-lead");
-  // Avoid duplicating controls when the hub/family page already renders one.
-  const pageHasSwitcher = Boolean(document.querySelector("#view-home-daycare-hub.active-view #hdhRoleSwitcher, #view-family-hub.active-view #hdhRoleSwitcher"));
-  if (pageHasSwitcher) {
-    chrome.hidden = true;
-    chrome.innerHTML = "";
-    return;
-  }
+  // Always keep a compact sticky switcher available on every device / view.
   chrome.hidden = false;
-  chrome.innerHTML = renderHdhRoleSwitcher(persona.role);
+  chrome.innerHTML = renderHdhRoleSwitcher(persona.role, { compact: true });
 }
 
 async function familyHubSessionStillValid() {
@@ -31550,6 +31570,21 @@ async function familyHubSessionStillValid() {
   } catch (_error) { /* ignore */ }
   clearFamilyHubSession();
   return false;
+}
+
+async function fetchJsonWithTimeout(url, init = {}, timeoutMs = 8000) {
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+  try {
+    const response = await fetch(url, {
+      ...init,
+      signal: controller?.signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 async function ensureTesterParentHouseholdSession() {
@@ -31571,24 +31606,28 @@ async function ensureTesterParentHouseholdSession() {
     }
   }
   if (stored?.email && stored?.loginCode) {
-    const loginResponse = await fetch("/api/family-hub/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ email: stored.email, code: stored.loginCode }),
-    });
-    const loginResult = await loginResponse.json().catch(() => ({}));
-    if (loginResponse.ok && loginResult.sessionToken) {
-      setFamilyHubSessionToken(loginResult.sessionToken);
-      return { reused: true };
+    try {
+      const { response, data } = await fetchJsonWithTimeout("/api/family-hub/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ email: stored.email, code: stored.loginCode }),
+      }, 8000);
+      if (response.ok && data.sessionToken) {
+        setFamilyHubSessionToken(data.sessionToken);
+        return { reused: true };
+      }
+    } catch (_error) {
+      /* create a fresh household below */
     }
   }
 
+  ensureTesterDemoChild();
   const children = (childRecords().children || []).map((child) => ({
     id: child.id,
     name: child.name,
   }));
   if (!children.length) {
-    throw new Error("Add a child under Child Profiles first, then switch to Parent view.");
+    throw new Error("Could not create a demo child for Parent view. Add a child under Child Profiles, then try again.");
   }
   const headers = await staffAuthHeaders();
   if (!headers || !canUseLaunchBackend()) {
@@ -31596,20 +31635,25 @@ async function ensureTesterParentHouseholdSession() {
   }
   const settings = getProgramSettings();
   const email = testerParentEmailForCurrentUser();
-  const response = await fetch("/api/family-hub/households", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      label: "Tester parent household",
-      email,
-      phone: "",
-      children,
-      documents: familyHubDocumentSnapshotForChildren(children.map((child) => child.id)),
-      programName: settings.programName || settings.businessName || "Little Learner Hub program",
-      appOrigin: window.location.origin,
-    }),
-  });
-  const result = await response.json().catch(() => ({}));
+  let response;
+  let result;
+  try {
+    ({ response, data: result } = await fetchJsonWithTimeout("/api/family-hub/households", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        label: "Tester parent household",
+        email,
+        phone: "",
+        children,
+        documents: familyHubDocumentSnapshotForChildren(children.map((child) => child.id)),
+        programName: settings.programName || settings.businessName || "Little Learner Hub program",
+        appOrigin: window.location.origin,
+      }),
+    }, 10000));
+  } catch (error) {
+    throw new Error("Parent view is taking too long. Check your connection and tap Parent again.");
+  }
   if (!response.ok) throw new Error(result?.error || "Could not create tester parent household.");
   const magicUrl = String(result.magicUrl || result.household?.magicUrl || "");
   let token = "";
@@ -31625,16 +31669,15 @@ async function ensureTesterParentHouseholdSession() {
     return { created: true, email, magicUrl, loginCode };
   }
   if (loginCode) {
-    const loginResponse = await fetch("/api/family-hub/login", {
+    const login = await fetchJsonWithTimeout("/api/family-hub/login", {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify({ email, code: loginCode }),
-    });
-    const loginResult = await loginResponse.json().catch(() => ({}));
-    if (!loginResponse.ok || !loginResult.sessionToken) {
-      throw new Error(loginResult?.error || "Could not open Parent view.");
+    }, 8000);
+    if (!login.response.ok || !login.data.sessionToken) {
+      throw new Error(login.data?.error || "Could not open Parent view.");
     }
-    setFamilyHubSessionToken(loginResult.sessionToken);
+    setFamilyHubSessionToken(login.data.sessionToken);
     return { created: true, email, magicUrl, loginCode };
   }
   throw new Error("Could not open Parent view — invite was created without a usable link.");
@@ -32302,32 +32345,32 @@ function renderHomeDaycareTesterGuidePanel() {
   return `
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
-      <h3>What testers see (simple map)</h3>
-      <p class="muted-copy">Use the switcher to bounce through <strong>Teacher</strong>, <strong>Staff Helper</strong>, <strong>Staff Lead</strong>, <strong>Parent</strong>, and each <strong>child’s file</strong>. Live production stays off. Note anything confusing and send it back.</p>
-      ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
+      <h3>Where to add testers</h3>
+      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. The sticky switcher at the top works on phone, tablet, and computer.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
-          <strong>1. Teacher</strong>
-          <p>Full Home Daycare Hub — forms, family invites, staff, CPR, packets, child files.</p>
+          <strong>1. Test it yourself</strong>
+          <p>Use the sticky <em>Teacher / Helper / Lead / Parent</em> buttons at the top. No second account needed.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>2. Staff Helper / Lead</strong>
-          <p>Same login, staff preview. Helper hides Hub/Forms. Lead keeps them. Flip back to Teacher anytime.</p>
+          <strong>2. Add a parent tester</strong>
+          <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Parent + child files</strong>
-          <p>Parent opens Family Hub for household status. Child file opens Forms &amp; Records for that kid so you can check the teacher paperwork angle.</p>
+          <strong>3. Add a staff tester</strong>
+          <p>Scroll to <em>Staff invites</em> → send invite with Helper or Lead preset → they accept the link.</p>
         </article>
       </div>
+      ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
       <h4 class="hdh-tester-path-title">Try this path (about 10 minutes)</h4>
       <ol class="hdh-tester-path">
         <li>${childReady
           ? `You already have a child on file — good.`
-          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button> first.`}</li>
+          : `Add a child under <button class="linkish-button" type="button" data-view="children">Child Profiles</button> (or tap Parent — a demo child is created for you).`}</li>
         <li>As <strong>Teacher</strong>: open a form / AI draft, save to the child file.</li>
-        <li>Switch <strong>Staff Helper</strong> → confirm Hub is hidden → switch <strong>Staff Lead</strong> → confirm Hub is back.</li>
-        <li>Open a <strong>child file</strong>, then switch <strong>Parent</strong> and check household form status.</li>
-        <li>Bounce back to <strong>Teacher</strong>, add a CPR row + packet item, then send Leah notes on anything confusing.</li>
+        <li>Switch <strong>Helper</strong> → confirm Hub is hidden → switch <strong>Lead</strong> → confirm Hub is back.</li>
+        <li>Tap <strong>Parent</strong>, check household form status, then tap <strong>Teacher</strong> to return.</li>
+        <li>Optional: invite a real parent/staff below, then send Leah notes on anything confusing.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
@@ -55278,24 +55321,36 @@ document.addEventListener("click", async (event) => {
   if (roleSwitch) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
+    if (roleSwitch.disabled || document.body.dataset.hdhRoleSwitchBusy === "1") return;
     const role = String(roleSwitch.getAttribute("data-hdh-role-switch") || "").trim();
     if (!HDH_TESTER_ROLES.includes(role)) return;
+    document.body.dataset.hdhRoleSwitchBusy = "1";
     const buttons = document.querySelectorAll("[data-hdh-role-switch]");
     buttons.forEach((button) => { button.disabled = true; });
+    const releaseButtons = () => {
+      delete document.body.dataset.hdhRoleSwitchBusy;
+      syncHdhTesterSwitcherChrome();
+      // Re-query after chrome/page re-render so buttons never stay stuck disabled.
+      document.querySelectorAll("[data-hdh-role-switch]").forEach((button) => {
+        const buttonRole = button.getAttribute("data-hdh-role-switch");
+        if (buttonRole !== "parent" && !isLoggedIn()) {
+          button.disabled = true;
+          return;
+        }
+        button.disabled = false;
+      });
+    };
+    const busyWatchdog = setTimeout(() => {
+      releaseButtons();
+      showActionFeedback("Switcher took too long — tap again.");
+    }, 12000);
     switchHdhTesterRole(role)
       .catch((error) => {
         showActionFeedback(error.message || "Could not switch tester role.");
       })
       .finally(() => {
-        syncHdhTesterSwitcherChrome();
-        document.querySelectorAll("[data-hdh-role-switch]").forEach((button) => {
-          const buttonRole = button.getAttribute("data-hdh-role-switch");
-          if (buttonRole !== "parent" && !isLoggedIn()) {
-            button.disabled = true;
-            return;
-          }
-          button.disabled = false;
-        });
+        clearTimeout(busyWatchdog);
+        releaseButtons();
       });
     return;
   }
