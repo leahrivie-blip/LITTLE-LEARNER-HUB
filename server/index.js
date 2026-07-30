@@ -6945,36 +6945,8 @@ async function handleAccountProfileSync(request, response) {
     reconcileReason: body.lastLogin ? "profile_sync_login" : "profile_sync",
     deferPersist: true,
   });
-  // Configurable Free-member welcome (in-app + email). Runs immediately on signup;
-  // does not require EMAIL_AUTOMATIONS_ENABLED. Pro/Founding/Trial signups are skipped.
-  if (body.signup === true && !existing.signupAt) {
-    try {
-      await onboardingWelcome.maybeDeliverOnSignup(email);
-    } catch (err) {
-      console.warn("[onboarding-welcome] free welcome failed:", err.message);
-    }
-  }
-  if (body.signup === true && !existing.signupAt) {
-    const storeForAlert = readStore();
-    emitAdminAlertSafe(storeForAlert, {
-      category: "signup",
-      type: "admin_new_signup",
-      title: "New account created",
-      preview: `${user.name || email} signed up (${user.accountType || "provider"} · ${user.plan || "Free"})`,
-      email,
-      name: user.name || "",
-      refId: `signup:${email}`,
-      sendEmail: true,
-      emailKind: "Signup",
-      emailFields: [
-        ["Account type", user.accountType || ""],
-        ["Role", user.role || ""],
-        ["Plan", user.plan || "Free"],
-      ],
-    }).then(() => {
-      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
-    }).catch(() => {});
-  }
+  // Persist profile first so signup/login UI is never blocked by welcome email or admin alerts.
+  const isNewSignup = body.signup === true && !existing.signupAt;
   try {
     await writeStoreAsync(readStore());
   } catch (error) {
@@ -7002,6 +6974,32 @@ async function handleAccountProfileSync(request, response) {
       ...tempPasswordAuth.publicAuthFlags(user),
     },
   });
+
+  // Side effects after the response — never delay Create Account / Log In UI.
+  if (isNewSignup) {
+    onboardingWelcome.maybeDeliverOnSignup(email).catch((err) => {
+      console.warn("[onboarding-welcome] free welcome failed:", err.message);
+    });
+    const storeForAlert = readStore();
+    emitAdminAlertSafe(storeForAlert, {
+      category: "signup",
+      type: "admin_new_signup",
+      title: "New account created",
+      preview: `${user.name || email} signed up (${user.accountType || "provider"} · ${user.plan || "Free"})`,
+      email,
+      name: user.name || "",
+      refId: `signup:${email}`,
+      sendEmail: true,
+      emailKind: "Signup",
+      emailFields: [
+        ["Account type", user.accountType || ""],
+        ["Role", user.role || ""],
+        ["Plan", user.plan || "Free"],
+      ],
+    }).then(() => {
+      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
+    }).catch(() => {});
+  }
 }
 
 async function handleAdminIssueTempPassword(request, response) {
