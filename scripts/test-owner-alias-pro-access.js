@@ -141,11 +141,12 @@ async function seedProLesson(token) {
   assert.equal(parsed.ok, true, parsed.error || "parse failed");
   const dailyPlans = { ...(parsed.data.dailyPlans || {}) };
   for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday"]) {
-    const activities = Array.isArray(dailyPlans[day]?.activities) ? dailyPlans[day].activities : [];
-    if (!activities.length) {
+    const items = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
+    const hasTitle = items.some((item) => String(item?.title || "").trim());
+    if (!hasTitle) {
       dailyPlans[day] = {
         ...(dailyPlans[day] || {}),
-        activities: [{
+        items: [{
           title: `${day} owner access activity`,
           steps: PROTECTED,
         }],
