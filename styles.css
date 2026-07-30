@@ -22166,3 +22166,50 @@ body.printing-resource .trial-curriculum-watermark-print {
   outline: 2px solid rgba(90, 143, 123, 0.35);
   background: #fff;
 }
+
+.hdh-family-hub-form {
+  margin-top: 8px;
+}
+
+.hdh-child-pick-fieldset {
+  margin: 12px 0;
+  padding: 0;
+  border: 0;
+}
+
+.hdh-child-pick-fieldset legend {
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.hdh-child-pick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px;
+}
+
+.hdh-family-invite-result {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(90, 143, 123, 0.28);
+  border-radius: 12px;
+  background: rgba(90, 143, 123, 0.08);
+}
+
+.hdh-code {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.85);
+  word-break: break-all;
+  font-size: 0.9rem;
+}
+
+.hdh-family-household-list {
+  margin-top: 18px;
+}
+
+.hdh-family-household-list h4 {
+  margin: 0 0 8px;
+}

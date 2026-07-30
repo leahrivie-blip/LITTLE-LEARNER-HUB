@@ -11097,6 +11097,429 @@ async function handleChildData(request, response) {
   }
 }
 
+const FAMILY_HUB_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+const FAMILY_HUB_SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+
+function requireHomeDaycareHubTesting(response) {
+  if (isHomeDaycareHubTestingEnabled()) return true;
+  jsonResponse(response, 404, { error: "Family Hub is only available on the testing site." });
+  return false;
+}
+
+function ensureFamilyHubCollections(store) {
+  store.familyHouseholds = store.familyHouseholds && typeof store.familyHouseholds === "object" ? store.familyHouseholds : {};
+  store.familyMagicLinks = store.familyMagicLinks && typeof store.familyMagicLinks === "object" ? store.familyMagicLinks : {};
+  store.familySessions = store.familySessions && typeof store.familySessions === "object" ? store.familySessions : {};
+  return store;
+}
+
+function publicFamilyHousehold(household = {}) {
+  return {
+    id: household.id || "",
+    label: household.label || "Family",
+    email: household.email || "",
+    phone: household.phone || "",
+    childIds: Array.isArray(household.childIds) ? household.childIds : [],
+    children: Array.isArray(household.children) ? household.children : [],
+    status: household.status || "invited",
+    invitedAt: household.invitedAt || "",
+    expiresAt: household.expiresAt || "",
+    lastAccessAt: household.lastAccessAt || "",
+    emailSent: Boolean(household.emailSent),
+    smsSimulated: Boolean(household.smsSimulated),
+    programName: household.programName || "Little Learner Hub program",
+    magicUrl: household.magicUrl || "",
+    loginCodeHint: household.loginCode ? "A 6-digit login code was created for this household." : "",
+  };
+}
+
+function familyInviteIsExpired(row, nowMs = Date.now()) {
+  const exp = Date.parse(row?.expiresAt || "");
+  if (Number.isFinite(exp)) return exp <= nowMs;
+  const created = Date.parse(row?.invitedAt || row?.createdAt || "");
+  if (!Number.isFinite(created)) return false;
+  return created + FAMILY_HUB_INVITE_TTL_MS <= nowMs;
+}
+
+function familySessionIsExpired(session, nowMs = Date.now()) {
+  const exp = Date.parse(session?.expiresAt || "");
+  return Number.isFinite(exp) ? exp <= nowMs : true;
+}
+
+function hashFamilyLoginCode(code) {
+  return crypto.createHash("sha256").update(String(code || "").trim()).digest("hex");
+}
+
+function createFamilyLoginCode() {
+  return String(crypto.randomInt(100000, 1000000));
+}
+
+function listFamilyHouseholdsForOwner(store, ownerEmail) {
+  const key = normalizeEmail(ownerEmail);
+  return Object.values(store.familyHouseholds || {})
+    .filter((item) => normalizeEmail(item.ownerEmail) === key && item.status !== "revoked")
+    .sort((a, b) => String(b.invitedAt || "").localeCompare(String(a.invitedAt || "")));
+}
+
+function resolveFamilySession(request) {
+  const authHeader = String(request.headers.authorization || "");
+  const headerToken = authHeader.startsWith("Bearer ") ? authHeader.slice(7).trim() : "";
+  const token = headerToken || String(request.headers["x-llh-family-session"] || "").trim();
+  if (!token || !token.startsWith("llh_family_")) return null;
+  const store = ensureFamilyHubCollections(readStore());
+  const session = store.familySessions[token];
+  if (!session || familySessionIsExpired(session)) return null;
+  const household = store.familyHouseholds[session.householdId];
+  if (!household || household.status === "revoked") return null;
+  return { token, session, household, store };
+}
+
+function mintFamilySession(store, household) {
+  const token = `llh_family_${crypto.randomBytes(24).toString("hex")}`;
+  const now = new Date();
+  store.familySessions[token] = {
+    token,
+    householdId: household.id,
+    createdAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + FAMILY_HUB_SESSION_TTL_MS).toISOString(),
+  };
+  household.status = "active";
+  household.lastAccessAt = now.toISOString();
+  store.familyHouseholds[household.id] = household;
+  return token;
+}
+
+async function handleFamilyHubHouseholdsList(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing Family Hub." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  jsonResponse(response, 200, {
+    ok: true,
+    households: listFamilyHouseholdsForOwner(store, ownerEmail).map(publicFamilyHousehold),
+    emailDeliveryReady: supportEmailConfigStatus().ready,
+    smsDeliveryReady: false,
+    testingOnly: true,
+  });
+}
+
+async function handleFamilyHubHouseholdCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before inviting a family." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid Family Hub invite payload." });
+    return;
+  }
+  const email = normalizeEmail(body.email || "");
+  const phone = String(body.phone || "").trim();
+  if (!email && !phone) {
+    jsonResponse(response, 400, { error: "Enter a parent email and/or phone number for the household login." });
+    return;
+  }
+  const childrenInput = Array.isArray(body.children) ? body.children : [];
+  const children = childrenInput
+    .map((child) => ({
+      id: String(child?.id || "").trim(),
+      name: String(child?.name || "Child").trim() || "Child",
+    }))
+    .filter((child) => child.id);
+  if (!children.length) {
+    jsonResponse(response, 400, { error: "Select at least one child for this household login." });
+    return;
+  }
+  const documents = Array.isArray(body.documents)
+    ? body.documents.map((doc) => ({
+      childId: String(doc?.childId || "").trim(),
+      title: String(doc?.title || "Form").trim() || "Form",
+      category: String(doc?.category || "Other").trim() || "Other",
+      status: String(doc?.status || "needed").trim() || "needed",
+      statusLabel: String(doc?.statusLabel || doc?.status || "Needed").trim() || "Needed",
+    })).filter((doc) => doc.childId)
+    : [];
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const now = new Date();
+  const loginCode = createFamilyLoginCode();
+  const magicToken = crypto.randomBytes(24).toString("hex");
+  const householdId = `family-${Date.now().toString(36)}-${crypto.randomBytes(3).toString("hex")}`;
+  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub.onrender.com";
+  const magicUrl = `${origin}/?familyHub=${encodeURIComponent(magicToken)}`;
+  const label = String(body.label || children.map((c) => c.name).join(" & ") || "Family").trim() || "Family";
+  const programName = String(body.programName || "Little Learner Hub program").trim() || "Little Learner Hub program";
+  const household = {
+    id: householdId,
+    ownerEmail,
+    label,
+    email,
+    phone,
+    childIds: children.map((child) => child.id),
+    children,
+    documents,
+    status: "invited",
+    invitedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + FAMILY_HUB_INVITE_TTL_MS).toISOString(),
+    loginCodeHash: hashFamilyLoginCode(loginCode),
+    loginCode, // testing-only convenience for provider copy; never expose on public peek
+    programName,
+    emailSent: false,
+    smsSimulated: Boolean(phone),
+    magicToken,
+    magicUrl,
+  };
+  store.familyHouseholds[householdId] = household;
+  store.familyMagicLinks[magicToken] = {
+    token: magicToken,
+    householdId,
+    createdAt: now.toISOString(),
+    expiresAt: household.expiresAt,
+    channel: phone && !email ? "sms" : (phone ? "email+sms" : "email"),
+    status: "pending",
+  };
+  writeStore(store);
+
+  let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };
+  if (email) {
+    try {
+      emailResult = await sendEmail({
+        to: email,
+        replyTo: identity.email,
+        subject: `Family Hub access for ${programName}`,
+        text: [
+          `Hi,`,
+          ``,
+          `${identity.email} invited your household to Family Hub for ${programName}.`,
+          `Children linked: ${children.map((c) => c.name).join(", ")}`,
+          ``,
+          `Open your Family Hub magic link:`,
+          magicUrl,
+          ``,
+          `Or sign in with email ${email} and login code: ${loginCode}`,
+          ``,
+          `This access link expires on ${household.expiresAt.slice(0, 10)}.`,
+          `One household login covers all linked children.`,
+          ``,
+          `— Little Learner Hub (testing)`,
+        ].join("\n"),
+        html: `
+          <p>Hi,</p>
+          <p><strong>${htmlEscape(identity.email)}</strong> invited your household to Family Hub for <strong>${htmlEscape(programName)}</strong>.</p>
+          <p>Children linked: ${htmlEscape(children.map((c) => c.name).join(", "))}</p>
+          <p><a href="${htmlEscape(magicUrl)}">Open Family Hub</a></p>
+          <p>Or sign in with email <strong>${htmlEscape(email)}</strong> and login code <strong>${htmlEscape(loginCode)}</strong>.</p>
+          <p>This access link expires on ${htmlEscape(household.expiresAt.slice(0, 10))}.</p>
+          <p>One household login covers all linked children.</p>
+          <p>— Little Learner Hub (testing)</p>
+        `,
+      });
+    } catch (error) {
+      emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: error.message };
+    }
+    household.emailSent = Boolean(emailResult.sent);
+    household.emailError = emailResult.error || "";
+    store.familyHouseholds[householdId] = household;
+    writeStore(store);
+  }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    household: {
+      ...publicFamilyHousehold(household),
+      loginCode, // provider-only response so they can share when email/SMS is not configured
+      magicUrl,
+    },
+    magicUrl,
+    loginCode,
+    email: emailResult,
+    sms: phone
+      ? { simulated: true, ready: false, magicUrl, message: "SMS is simulated on testing. Share the magic link by text manually." }
+      : { simulated: false, ready: false },
+    message: emailResult.sent
+      ? "Family Hub invite created and email sent."
+      : (phone
+        ? "Family Hub invite created. SMS is simulated — copy the magic link to text the family."
+        : "Family Hub invite created. Share the magic link or login code with the family."),
+  });
+}
+
+function handleFamilyHubInvitePeek(request, response, url) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const token = String(url.searchParams.get("token") || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Missing Family Hub invite token." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const link = store.familyMagicLinks[token];
+  if (!link) {
+    jsonResponse(response, 404, { error: "This Family Hub link is invalid or has already been removed." });
+    return;
+  }
+  const household = store.familyHouseholds[link.householdId];
+  if (!household || household.status === "revoked") {
+    jsonResponse(response, 404, { error: "This Family Hub invite is no longer available." });
+    return;
+  }
+  if (familyInviteIsExpired(link) || familyInviteIsExpired(household)) {
+    link.status = "expired";
+    household.status = household.status === "active" ? "active" : "expired";
+    store.familyMagicLinks[token] = link;
+    store.familyHouseholds[household.id] = household;
+    writeStore(store);
+    jsonResponse(response, 410, { error: "This Family Hub link has expired. Ask your provider for a new invite." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    invite: {
+      programName: household.programName || "Little Learner Hub program",
+      label: household.label || "Family",
+      email: household.email || "",
+      phone: household.phone ? "on file" : "",
+      children: Array.isArray(household.children) ? household.children.map((c) => ({ id: c.id, name: c.name })) : [],
+      expiresAt: household.expiresAt || "",
+    },
+  });
+}
+
+function handleFamilyHubInviteRedeem(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  readJson(request).then((body) => {
+    const token = String(body?.token || "").trim();
+    if (!token) {
+      jsonResponse(response, 400, { error: "Missing Family Hub invite token." });
+      return;
+    }
+    const store = ensureFamilyHubCollections(readStore());
+    const link = store.familyMagicLinks[token];
+    if (!link) {
+      jsonResponse(response, 404, { error: "This Family Hub link is invalid or has already been removed." });
+      return;
+    }
+    const household = store.familyHouseholds[link.householdId];
+    if (!household || household.status === "revoked") {
+      jsonResponse(response, 404, { error: "This Family Hub invite is no longer available." });
+      return;
+    }
+    if (familyInviteIsExpired(link) || familyInviteIsExpired(household)) {
+      jsonResponse(response, 410, { error: "This Family Hub link has expired. Ask your provider for a new invite." });
+      return;
+    }
+    const sessionToken = mintFamilySession(store, household);
+    link.status = "redeemed";
+    link.redeemedAt = new Date().toISOString();
+    store.familyMagicLinks[token] = link;
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      sessionToken,
+      household: publicFamilyHousehold(household),
+    });
+  }).catch(() => {
+    jsonResponse(response, 400, { error: "Invalid redeem payload." });
+  });
+}
+
+function handleFamilyHubLogin(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  readJson(request).then((body) => {
+    const email = normalizeEmail(body?.email || "");
+    const code = String(body?.code || "").trim();
+    if (!email || !code) {
+      jsonResponse(response, 400, { error: "Enter the household email and 6-digit login code." });
+      return;
+    }
+    const store = ensureFamilyHubCollections(readStore());
+    const codeHash = hashFamilyLoginCode(code);
+    const household = Object.values(store.familyHouseholds).find((item) => (
+      normalizeEmail(item.email) === email
+      && item.status !== "revoked"
+      && item.loginCodeHash === codeHash
+      && !familyInviteIsExpired(item)
+    ));
+    if (!household) {
+      jsonResponse(response, 401, { error: "That email and login code do not match an active Family Hub invite." });
+      return;
+    }
+    const sessionToken = mintFamilySession(store, household);
+    writeStore(store);
+    jsonResponse(response, 200, {
+      ok: true,
+      testingOnly: true,
+      sessionToken,
+      household: publicFamilyHousehold(household),
+    });
+  }).catch(() => {
+    jsonResponse(response, 400, { error: "Invalid login payload." });
+  });
+}
+
+function handleFamilyHubMe(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired. Open your magic link or sign in with your login code." });
+    return;
+  }
+  const { household } = resolved;
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    household: publicFamilyHousehold(household),
+    children: Array.isArray(household.children) ? household.children : [],
+    documents: Array.isArray(household.documents) ? household.documents : [],
+    note: "One household login covers all linked children. E-sign and form return come in a later step.",
+  });
+}
+
+async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing Family Hub." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const household = store.familyHouseholds[householdId];
+  if (!household || normalizeEmail(household.ownerEmail) !== normalizeEmail(identity.email)) {
+    jsonResponse(response, 404, { error: "Household invite not found." });
+    return;
+  }
+  household.status = "revoked";
+  household.revokedAt = new Date().toISOString();
+  store.familyHouseholds[householdId] = household;
+  Object.values(store.familyMagicLinks).forEach((link) => {
+    if (link.householdId === householdId) {
+      link.status = "revoked";
+      store.familyMagicLinks[link.token] = link;
+    }
+  });
+  Object.entries(store.familySessions).forEach(([token, session]) => {
+    if (session.householdId === householdId) delete store.familySessions[token];
+  });
+  writeStore(store);
+  jsonResponse(response, 200, { ok: true, household: publicFamilyHousehold(household) });
+}
+
 const STAFF_INVITE_ROLES = new Set(["teacher", "assistant", "director", "owner"]);
 const STAFF_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 
@@ -18501,6 +18924,16 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/upsert") return await handleAdminUploadedResourceUpsert(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/uploads/delete") return await handleAdminUploadedResourceDelete(request, response);
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdsList(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdCreate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/invites/peek") return handleFamilyHubInvitePeek(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/invites/redeem") return handleFamilyHubInviteRedeem(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/login") return handleFamilyHubLogin(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/me") return handleFamilyHubMe(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/family-hub/households/")) {
+      const householdId = decodeURIComponent(url.pathname.slice("/api/family-hub/households/".length));
+      return await handleFamilyHubHouseholdRevoke(request, response, householdId);
+    }
     if (request.method === "GET" && url.pathname === "/api/staff/invites") return await handleStaffInvitesList(request, response);
     if (request.method === "POST" && url.pathname === "/api/staff/invites") return await handleStaffInviteCreate(request, response);
     if (request.method === "GET" && url.pathname === "/api/staff/invites/peek") return handleStaffInvitePeek(request, response, url);

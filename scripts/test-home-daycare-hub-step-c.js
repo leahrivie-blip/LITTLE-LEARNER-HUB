@@ -52,8 +52,8 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell version bumped for step C", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-step-c"/);
-  assert.match(indexHtml, /app\.js\?v=20260730-hdh-step-c/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-step-d"/);
+  assert.match(indexHtml, /app\.js\?v=20260730-hdh-step-d/);
 });
 
 test("AI draft panel helpers and review-before-send markers", () => {
@@ -71,8 +71,8 @@ test("AI draft panel helpers and review-before-send markers", () => {
   assert.match(appJs, /generateToolOutputWithBackend\("form"/);
   assert.match(appJs, /generateDaycareForm\(/);
   assert.match(appJs, /Send later \(Family Hub\)/);
-  assert.match(appJs, /disabled title="Family Hub send comes in a later step"/);
-  assert.match(appJs, /Nothing is sent to families yet|not available yet|comes later/i);
+  assert.match(appJs, /data-hdh-ai-send-later/);
+  assert.match(appJs, /Nothing is sent to families yet|not available yet|comes later|Invite this household to Family Hub/i);
   assert.match(appJs, /Draft ready — review before family use/);
   assert.doesNotMatch(
     appJs.slice(appJs.indexOf("function runHomeDaycareAiFormDraft"), appJs.indexOf("function saveHomeDaycareAiFormDraftToChild")),
@@ -110,7 +110,7 @@ async function main() {
   try {
     const health = await waitForHealth(port, child);
     assert.equal(health.homeDaycareHubTesting, true);
-    const appSource = await requestText(port, "/app.js?v=20260730-hdh-step-c");
+    const appSource = await requestText(port, "/app.js?v=20260730-hdh-step-d");
     assert.equal(appSource.status, 200);
     assert.match(appSource.text, /function runHomeDaycareAiFormDraft/);
     assert.match(appSource.text, /data-hdh-ai-send-later/);
