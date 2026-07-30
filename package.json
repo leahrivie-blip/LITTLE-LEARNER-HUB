@@ -94,6 +94,7 @@
     "test:home-daycare-hub-step-b": "node scripts/test-home-daycare-hub-step-b.js",
     "test:home-daycare-hub-step-c": "node scripts/test-home-daycare-hub-step-c.js",
     "test:home-daycare-hub-step-d": "node scripts/test-home-daycare-hub-step-d.js",
+    "test:home-daycare-hub-finish": "node scripts/test-home-daycare-hub-finish.js",
     "test:child-profile-redesign": "node scripts/test-child-profile-redesign.js",
     "test:prod-load-admin-fix": "node scripts/test-prod-load-admin-fix.js",
     "test:admin-redesign-audit": "node scripts/test-admin-redesign-audit.js",
