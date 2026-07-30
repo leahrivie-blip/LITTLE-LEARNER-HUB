@@ -297,7 +297,12 @@ async function main() {
     assert.match(dash.text, /Welcome to Little Learner Hub/i);
     assert.equal(dash.hasPrimary, true);
     assert.equal(dash.btnVisible, true, "welcome dismiss button is visible on calendar");
-    assert.ok(dash.benefits.some((line) => /free lesson plans|additional lesson plans|New curriculum|curriculum collections|Activities, planners/i.test(line)));
+    // Welcome benefits: Free starter value + clear upgrade path (Founding when open, else Pro).
+    assert.ok(
+      dash.benefits.some((line) => /complete plans included|Free starter plans|Unlimited curriculum printing/i.test(line)),
+      `welcome benefits missing Free/upgrade value lines: ${JSON.stringify(dash.benefits)}`,
+    );
+    assert.match(dash.text, /Upgrade to Founding or Pro|Upgrade to Pro|Founding Member/i);
     console.log("PASS calendar welcome card for new Free");
 
     await page.evaluate(() => {

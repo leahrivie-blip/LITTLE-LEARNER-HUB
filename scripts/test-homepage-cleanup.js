@@ -178,7 +178,10 @@ async function main() {
   assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
   assert.match(indexHtml, /New lesson plans, activities, and resources are added regularly/);
   assert.doesNotMatch(indexHtml, /Continue adding new lesson plans/);
-  assert.match(indexHtml, /New plans added weekly—members can request future themes/);
+  // Homepage redesign: provider-built request strip replaces the old weekly note line.
+  assert.match(indexHtml, /Built with providers, not for a textbook/);
+  assert.match(indexHtml, /Request a Lesson Plan/);
+  assert.match(indexHtml, /Providers request themes in Messages/);
   assert.match(indexHtml, /Home Daycare tools/);
   assert.match(indexHtml, /Family Hub and forms/);
   assert.match(indexHtml, /Daily operations/);
@@ -252,7 +255,7 @@ async function main() {
           finalCta: document.querySelector("#homeFinalCta")?.innerText || "",
           roadmap: document.querySelector("#homeComingSoon")?.innerText || "",
           founderFallback: Boolean(document.querySelector(".llh-founder-brand-fallback")),
-          lessonNote: document.querySelector(".llh-lesson-request-note")?.innerText || "",
+          providerBuilt: document.querySelector(".llh-provider-built")?.innerText || "",
           foundingCtas: Array.from(document.querySelectorAll("#view-home [data-checkout-plan='founding']")).length,
           announceVisible: !document.querySelector("#llhFoundingAnnounceBanner")?.hidden,
           scrollWidth: document.documentElement.scrollWidth,
@@ -267,7 +270,8 @@ async function main() {
       assert.match(guest.roadmap, /Home Daycare tools/i);
       assert.match(guest.roadmap, /Family Hub and forms/i);
       assert.match(guest.roadmap, /Daily operations/i);
-      assert.match(guest.lessonNote, /New plans added weekly/i);
+      assert.match(guest.providerBuilt, /Built with providers/i);
+      assert.match(guest.providerBuilt, /Request a Lesson Plan|request themes/i);
       assert.equal(guest.announceVisible, true);
       assert.ok(guest.foundingCtas >= 1 && guest.foundingCtas <= 3, `unexpected founding CTA count ${guest.foundingCtas}`);
       assert.ok(guest.scrollWidth <= guest.clientWidth + 1, `${viewport.name} horizontal scroll`);
@@ -310,8 +314,9 @@ async function main() {
         spotsMsg: foundingSpotsLeftMessage(),
       }));
       assert.equal(chrome.remaining, 2);
-      assert.match(chrome.reminder, /Only 2 Founding Member spots remaining/i);
-      assert.match(chrome.sidebar, /Only 2 Founding Member spots remaining/i);
+      // Reminder/sidebar lead with Free Starter value; spots urgency stays on foundingSpotsLeftMessage().
+      assert.match(chrome.reminder, /Free Starter Library|Starter Lesson Plans|Founding or Pro/i);
+      assert.match(chrome.sidebar, /Starter Lesson Plans|Founding or Pro/i);
       assert.equal(chrome.spotsMsg, "Only 2 Founding Member spots remaining.");
       results.push(await shot(page, "signed-in-free-chrome"));
       await page.close();

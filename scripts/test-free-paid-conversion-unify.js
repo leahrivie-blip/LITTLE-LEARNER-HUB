@@ -231,7 +231,8 @@ async function main() {
     assert.equal(chrome.canSee, true, "Free user can see paid upgrade offer");
     assert.equal(chrome.reminderHidden, false, "reminder bar visible for Free after welcome dismiss");
     assert.equal(chrome.remaining, 2);
-    assert.match(chrome.reminderText, /Only 2 Founding Member spots remaining/i);
+    // Reminder leads with Free Starter value; CTA stays Founding-primary while spots remain.
+    assert.match(chrome.reminderText, /Free Starter Library|Starter Lesson Plans|Founding or Pro/i);
     assert.match(chrome.reminderCta, /Lock In Founding Member Pricing/i);
     assert.match(chrome.sidebarCta, /Lock In Founding Member Pricing/i);
     assert.equal(chrome.softHidden, true, "soft nudge hidden to reduce fatigue");
