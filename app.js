@@ -9219,6 +9219,11 @@ function curriculumResourceStatusLabel(status) {
 }
 
 function curriculumResourceFileHref(resource) {
+  const mediaUrl = String(resource?.mediaUrl || "").trim();
+  if (mediaUrl) {
+    if (mediaUrl.startsWith("/")) return mediaUrl;
+    if (/^https:\/\//i.test(mediaUrl)) return mediaUrl;
+  }
   const fileData = String(resource?.fileData || resource?.fileUrl || "").trim();
   if (!fileData) return "";
   // Data URLs and HTTPS URLs open directly (same pattern as Forms / Printables / legacy Uploads).
@@ -9354,7 +9359,7 @@ function renderAdminCurriculumResourceForm(resource) {
     <form id="adminCurriculumResourceForm" class="panel-form admin-stacked-form">
       <input type="hidden" name="id" value="${escapeHtml(record.id || "")}" />
       <h4>${record.id ? `Editing: ${escapeHtml(record.title || "Resource")}` : "New curriculum resource"}</h4>
-      <p class="muted-copy">PDF or image up to ${CURRICULUM_UPLOAD_MAX_MB} MB. Files are stored in the app database (same durable pattern as Forms and Printables).</p>
+      <p class="muted-copy">PDF or image up to ${CURRICULUM_UPLOAD_MAX_MB} MB. In production, files are stored in Postgres media storage (not inside the main store blob).</p>
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
         <label>Category
@@ -9400,7 +9405,7 @@ function renderAdminCurriculumResourceManager() {
       <div>
         <p class="eyebrow">Play-Based Curriculum (Beta)</p>
         <h3>Curriculum resources</h3>
-        <p class="muted-copy">Files are stored in Postgres as data URLs (same durable pattern as Forms and Printables). Max ${CURRICULUM_UPLOAD_MAX_MB} MB per file.</p>
+        <p class="muted-copy">Files are stored in Postgres media storage when available. Max ${CURRICULUM_UPLOAD_MAX_MB} MB per file.</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumResourceButton">+ Upload resource</button>
     </div>
@@ -9481,21 +9486,27 @@ async function saveAdminCurriculumResourceForm(form) {
     const id = normalizedShortText(formData.get("id")) || `cur-res-${Date.now().toString(16)}${Math.random().toString(16).slice(2, 10)}`;
     const existing = curriculumResourceById(id);
     let fileData = "";
+    let mediaAssetId = existing?.mediaAssetId || "";
+    let mediaUrl = existing?.mediaUrl || "";
     let fileName = existing?.fileName || "";
     let mimeType = existing?.mimeType || "";
     const httpsUrl = sanitizedUrl(formData.get("fileUrl"));
     if (httpsUrl && /^https:\/\//i.test(httpsUrl)) {
       fileData = httpsUrl;
       fileName = fileName || httpsUrl.split("/").pop() || "link";
+      mediaAssetId = "";
+      mediaUrl = "";
     }
     const file = formData.get("file");
     if (file && file.size) {
       const uploaded = await uploadCurriculumResourceFile({ resourceId: id, file });
       fileData = uploaded.fileData || fileData;
+      mediaAssetId = uploaded.mediaAssetId || mediaAssetId;
+      mediaUrl = uploaded.mediaUrl || mediaUrl;
       fileName = uploaded.fileName || file.name || fileName;
       mimeType = uploaded.mimeType || mimeType;
     }
-    if (!fileData && !curriculumResourceHasFile(existing)) {
+    if (!fileData && !mediaAssetId && !curriculumResourceHasFile(existing)) {
       throw new Error(`Upload a PDF/image (max ${CURRICULUM_UPLOAD_MAX_MB} MB) or provide an HTTPS URL.`);
     }
     const postResource = async () => {
@@ -9509,6 +9520,7 @@ async function saveAdminCurriculumResourceForm(form) {
             title: normalizedShortText(formData.get("title")) || "Resource",
             resourceCategory: normalizedShortText(formData.get("resourceCategory")) || "Classroom Resources",
             ...(fileData ? { fileData } : {}),
+            ...(mediaAssetId ? { mediaAssetId, mediaUrl } : {}),
             fileName,
             mimeType,
             status: ["draft", "published"].includes(formData.get("status")) ? formData.get("status") : "draft",

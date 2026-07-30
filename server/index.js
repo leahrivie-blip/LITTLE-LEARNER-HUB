@@ -26,6 +26,8 @@ const emailAuth = require("./email-auth.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const analyticsStore = require("./analytics-store.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
+const curriculumMedia = require("./curriculum-media.js");
+const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const adminNotifications = require("./admin-notifications.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
@@ -1624,12 +1626,16 @@ function normalizedCurriculumResource(value) {
   // Prefer fileData; accept legacy fileUrl only when it is an HTTPS URL (not disk paths).
   const legacyUrl = String(entry.fileUrl || "").trim();
   const legacyHttps = /^https:\/\//i.test(legacyUrl) ? sanitizedCurriculumFileData(legacyUrl) : "";
+  const mediaAssetId = normalizedShortText(entry.mediaAssetId, 160);
+  const mediaUrl = normalizedShortText(entry.mediaUrl, 400);
   const fileData = sanitizedCurriculumFileData(entry.fileData) || legacyHttps;
   return {
     id,
     title: normalizedShortText(entry.title, 180) || "Resource",
     resourceCategory: CURRICULUM_RESOURCE_CATEGORIES.has(category) ? category : "Classroom Resources",
     fileData,
+    mediaAssetId,
+    mediaUrl: mediaUrl || (mediaAssetId ? curriculumMedia.curriculumResourceMediaUrl(mediaAssetId) : ""),
     mimeType: normalizedShortText(entry.mimeType, 80),
     fileName: normalizedShortText(entry.fileName, 180),
     lessonPlanIds: normalizedList(entry.lessonPlanIds, 50, (item) => normalizedShortText(item, 160)).filter(Boolean),
@@ -1637,6 +1643,7 @@ function normalizedCurriculumResource(value) {
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
     publishedAt: normalizedShortText(entry.publishedAt, 80),
+    inlineFileDataRetained: entry.inlineFileDataRetained === true,
   };
 }
 
@@ -1732,7 +1739,9 @@ function curriculumResourceMetadata(resource) {
     status: entry.status,
     createdAt: entry.createdAt,
     updatedAt: entry.updatedAt,
-    hasFile: Boolean(entry.fileData),
+    hasFile: curriculumMedia.curriculumResourceHasDeliverableFile(entry),
+    mediaAssetId: entry.mediaAssetId || "",
+    mediaUrl: entry.mediaUrl || "",
   };
 }
 
@@ -2905,6 +2914,7 @@ async function initializePostgresStore() {
     )
   `, [], { label: "Postgres create llh_store_backups" });
   await analyticsStore.initAnalyticsTable(postgresPool, postgresQueryWithTransientRetry);
+  await curriculumResourceMigration.initMigrationTable(postgresPool, postgresQueryWithTransientRetry);
   const result = await postgresQueryWithTransientRetry(
     "SELECT data FROM llh_store WHERE id = $1",
     [storeRecordId],
@@ -12665,22 +12675,16 @@ async function handlePublicCurriculumResourceFile(request, response, url) {
       return;
     }
   }
-  if (!resource.fileData) {
+  if (!resource.fileData && !resource.mediaAssetId) {
     jsonResponse(response, 404, { error: "Resource file data is not available." });
     return;
   }
-  jsonResponse(response, 200, {
-    resource: {
-      id: resource.id,
-      title: resource.title,
-      resourceCategory: resource.resourceCategory,
-      mimeType: resource.mimeType,
-      fileName: resource.fileName,
-      status: resource.status,
-      fileData: resource.fileData,
-      hasFile: true,
-    },
-  });
+  const payload = await buildCurriculumResourceFilePayload(resource);
+  if (!payload) {
+    jsonResponse(response, 404, { error: "Resource file data is not available." });
+    return;
+  }
+  jsonResponse(response, 200, { resource: payload });
 }
 
 function handleAdminSiteContent(request, response, url) {
@@ -13857,6 +13861,94 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
   }
 }
 
+async function persistCurriculumUploadToMediaAsset({ resourceId, parsed, fileName }) {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    const error = new Error("Persistent media storage is unavailable.");
+    error.code = "media_storage_unavailable";
+    throw error;
+  }
+  const mediaAssetId = curriculumMedia.curriculumResourceMediaAssetId(resourceId);
+  await curriculumMedia.insertMediaAsset(postgresPool, {
+    id: mediaAssetId,
+    kind: curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND,
+    mimeType: parsed.mimeType,
+    fileName: fileName || "resource",
+    buffer: parsed.buffer,
+  });
+  return {
+    mediaAssetId,
+    mediaUrl: curriculumMedia.curriculumResourceMediaUrl(mediaAssetId),
+    mimeType: parsed.mimeType,
+    fileName: fileName || "resource",
+    sha256: curriculumMedia.sha256Buffer(parsed.buffer),
+    byteLen: parsed.buffer.length,
+  };
+}
+
+function findCurriculumResourceByMediaAssetId(store, mediaAssetId) {
+  const curriculum = readSiteCurriculum(store);
+  return (curriculum.resources || []).find((item) => item.mediaAssetId === mediaAssetId) || null;
+}
+
+async function buildCurriculumResourceFilePayload(resource) {
+  const normalized = normalizedCurriculumResource(resource);
+  if (!normalized) return null;
+  if (normalized.mediaAssetId && usePostgresStore() && postgresPool && databaseReady) {
+    const asset = await curriculumMedia.readMediaAsset(
+      postgresPool,
+      normalized.mediaAssetId,
+      curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND,
+    );
+    if (asset?.buffer?.length) {
+      return curriculumMedia.curriculumResourcePublicDto(normalized, {
+        fileData: "",
+        mediaUrl: normalized.mediaUrl || curriculumMedia.curriculumResourceMediaUrl(normalized.mediaAssetId),
+      });
+    }
+  }
+  if (curriculumMedia.isHttpsCurriculumFileRef(normalized.fileData)) {
+    return curriculumMedia.curriculumResourcePublicDto(normalized, {
+      fileData: normalized.fileData,
+      mediaUrl: normalized.fileData,
+    });
+  }
+  if (curriculumMedia.isInlineCurriculumFileData(normalized.fileData)) {
+    return curriculumMedia.curriculumResourcePublicDto(normalized, {
+      fileData: normalized.fileData,
+      mediaUrl: normalized.mediaUrl || "",
+    });
+  }
+  if (normalized.mediaUrl) {
+    return curriculumMedia.curriculumResourcePublicDto(normalized, {
+      fileData: "",
+      mediaUrl: normalized.mediaUrl,
+    });
+  }
+  return null;
+}
+
+async function authorizePublicCurriculumResource(store, resource, request, url) {
+  if (!resource || !isCurriculumResourcePublic(resource.status)) {
+    return { ok: false, status: 404, error: "Resource not found." };
+  }
+  const curriculum = readSiteCurriculum(store);
+  const publicLessons = curriculum.lessonPlans
+    .map((plan) => curriculumParentPlanMeta(plan))
+    .filter(Boolean);
+  const linkedLessons = publicLessons.filter((plan) => (resource.lessonPlanIds || []).includes(plan.id));
+  if (!linkedLessons.length) {
+    return { ok: false, status: 404, error: "Resource not found." };
+  }
+  const requiresProAccess = linkedLessons.some((plan) => plan.plan === "Pro");
+  if (requiresProAccess) {
+    const access = await resolveCurriculumAccessUser(request, url);
+    if (!access.authorized) {
+      return { ok: false, status: 403, error: "Pro access is required for this resource." };
+    }
+  }
+  return { ok: true };
+}
+
 function handleAdminCurriculumResourcesList(request, response, url) {
   const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
@@ -13873,7 +13965,7 @@ function handleAdminCurriculumResourcesList(request, response, url) {
   });
 }
 
-function handleAdminCurriculumResourceFile(request, response, url) {
+async function handleAdminCurriculumResourceFile(request, response, url) {
   const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required to open curriculum resource files." });
@@ -13891,11 +13983,12 @@ function handleAdminCurriculumResourceFile(request, response, url) {
     jsonResponse(response, 404, { error: "Resource not found." });
     return;
   }
-  if (!resource.fileData) {
+  const payload = await buildCurriculumResourceFilePayload(resource);
+  if (!payload) {
     jsonResponse(response, 404, { error: "Resource file data is not available." });
     return;
   }
-  jsonResponse(response, 200, { resource });
+  jsonResponse(response, 200, { resource: payload });
 }
 
 async function handleAdminCurriculumResourceUpload(request, response) {
@@ -13913,12 +14006,42 @@ async function handleAdminCurriculumResourceUpload(request, response) {
     });
     return;
   }
-  // Validate only — durable bytes are saved with the resource metadata in Postgres.
+  if (usePostgresStore()) {
+    if (!postgresPool || !databaseReady) {
+      jsonResponse(response, 503, {
+        error: "Persistent media storage is unavailable. The file was not saved to the curriculum store. Retry when Postgres is connected or paste a durable HTTPS URL instead.",
+        code: "media_storage_unavailable",
+      });
+      return;
+    }
+    try {
+      const stored = await persistCurriculumUploadToMediaAsset({ resourceId, parsed, fileName });
+      jsonResponse(response, 200, {
+        resourceId,
+        fileName: stored.fileName,
+        mimeType: stored.mimeType,
+        mediaAssetId: stored.mediaAssetId,
+        mediaUrl: stored.mediaUrl,
+        persistent: true,
+        byteLen: stored.byteLen,
+        sha256: stored.sha256,
+      });
+      return;
+    } catch (error) {
+      console.error("[curriculum-resource-upload] media write failed", error.message);
+      jsonResponse(response, 503, {
+        error: "The file could not be saved to persistent media storage. It was not embedded in the main store.",
+        code: error.code || "media_storage_unavailable",
+      });
+      return;
+    }
+  }
   jsonResponse(response, 200, {
     resourceId,
     fileName,
     mimeType: parsed.mimeType,
     fileData: parsed.fileData,
+    persistent: false,
   });
 }
 
@@ -14102,6 +14225,123 @@ async function handleLessonCoverMedia(request, response, assetId) {
   }
 }
 
+async function handleCurriculumResourceMedia(request, response, assetId, { admin = false, requestUrl = null } = {}) {
+  const id = normalizedShortText(assetId, 160);
+  if (!id || !id.startsWith("curriculum-resource-") || !usePostgresStore() || !postgresPool || !databaseReady) {
+    textResponse(response, 404, "Resource not found.");
+    return;
+  }
+  const store = readStore();
+  const resource = findCurriculumResourceByMediaAssetId(store, id);
+  if (!resource) {
+    textResponse(response, 404, "Resource not found.");
+    return;
+  }
+  if (!admin) {
+    const auth = await authorizePublicCurriculumResource(store, resource, request, requestUrl || new URL(request.url, SITE_URL));
+    if (!auth.ok) {
+      textResponse(response, auth.status || 404, auth.error || "Resource not found.");
+      return;
+    }
+  }
+  try {
+    const asset = await curriculumMedia.readMediaAsset(
+      postgresPool,
+      id,
+      curriculumMedia.CURRICULUM_RESOURCE_MEDIA_KIND,
+    );
+    if (!asset?.buffer?.length) {
+      textResponse(response, 404, "Resource not found.");
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": asset.mimeType,
+      "Content-Length": asset.buffer.length,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+    });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    response.end(asset.buffer);
+  } catch (error) {
+    console.error("[curriculum-resource-media] read failed", error.message);
+    textResponse(response, 503, "Resource temporarily unavailable.");
+  }
+}
+
+async function handleAdminCurriculumInlineInventory(request, response) {
+  const body = request.method === "POST" ? await readJson(request) : {};
+  const token = extractAdminToken(request, new URL(request.url, SITE_URL))
+    || extractAdminTokenFromBody(request, body);
+  if (!validAdminToken(token)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const inventory = curriculumResourceMigration.inventoryInlineCurriculumResources(store);
+  const storeBytes = Buffer.byteLength(JSON.stringify(store), "utf8");
+  jsonResponse(response, 200, {
+    ok: true,
+    count: inventory.length,
+    storeBytes,
+    storeMegabytes: +(storeBytes / 1024 / 1024).toFixed(2),
+    inlineBytes: inventory.reduce((sum, row) => sum + (row.base64Chars || 0), 0),
+    inventory,
+  });
+}
+
+async function handleAdminCurriculumMigrateInlineMedia(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required to migrate curriculum media." });
+    return;
+  }
+  if (!usePostgresStore() || !postgresPool || !databaseReady) {
+    jsonResponse(response, 503, {
+      error: "Postgres media storage must be connected before running curriculum media migration.",
+      code: "media_storage_unavailable",
+    });
+    return;
+  }
+  const dryRun = body.dryRun !== false && body.execute !== true;
+  const limit = Math.max(0, Math.min(100, Number(body.limit) || 0));
+  const resourceIds = Array.isArray(body.resourceIds)
+    ? body.resourceIds.map((id) => normalizedShortText(id, 160)).filter(Boolean)
+    : (normalizedShortText(body.resourceId, 160) ? [normalizedShortText(body.resourceId, 160)] : []);
+  const removeInlineAfterVerify = body.removeInlineAfterVerify === true;
+  const store = readStore();
+  const beforeBytes = Buffer.byteLength(JSON.stringify(store), "utf8");
+  const summary = await curriculumResourceMigration.runInlineResourceMigration(postgresPool, store, {
+    dryRun,
+    limit,
+    resourceIds,
+    removeInlineAfterVerify,
+  });
+  if (!dryRun) {
+    try {
+      await writeStoreAsync(store);
+    } catch (error) {
+      jsonResponse(response, 503, {
+        error: "Migration steps completed in media storage but the store could not be persisted.",
+        code: "store_write_failed",
+        summary,
+      });
+      return;
+    }
+  }
+  const afterBytes = Buffer.byteLength(JSON.stringify(store), "utf8");
+  jsonResponse(response, 200, {
+    ok: true,
+    dryRun,
+    beforeBytes,
+    afterBytes,
+    bytesRemoved: Math.max(0, beforeBytes - afterBytes),
+    summary,
+  });
+}
+
 async function handleAdminCurriculumResourceSave(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -14126,9 +14366,27 @@ async function handleAdminCurriculumResourceSave(request, response) {
   const existing = curriculum.resources.find((item) => item.id === id);
   const incomingFileData = sanitizedCurriculumFileData(incoming.fileData)
     || sanitizedCurriculumFileData(incoming.fileUrl);
-  const fileData = incomingFileData || existing?.fileData || "";
-  if (!fileData) {
-    jsonResponse(response, 400, { error: "A file upload or HTTPS URL is required." });
+  const incomingMediaAssetId = normalizedShortText(incoming.mediaAssetId, 160);
+  const incomingMediaUrl = normalizedShortText(incoming.mediaUrl, 400);
+  let fileData = incomingFileData || existing?.fileData || "";
+  let mediaAssetId = incomingMediaAssetId || existing?.mediaAssetId || "";
+  let mediaUrl = incomingMediaUrl || existing?.mediaUrl || "";
+  if (incomingMediaAssetId) {
+    mediaAssetId = incomingMediaAssetId;
+    mediaUrl = incomingMediaUrl || curriculumMedia.curriculumResourceMediaUrl(mediaAssetId);
+    if (usePostgresStore() && curriculumMedia.isInlineCurriculumFileData(fileData)) {
+      fileData = existing?.fileData?.startsWith("https://") ? existing.fileData : "";
+    }
+  }
+  if (!fileData && !mediaAssetId) {
+    jsonResponse(response, 400, { error: "A file upload, media asset, or HTTPS URL is required." });
+    return;
+  }
+  if (usePostgresStore() && curriculumMedia.isInlineCurriculumFileData(fileData)) {
+    jsonResponse(response, 400, {
+      error: "Inline base64 curriculum files cannot be saved in Postgres mode. Upload the file again so it is stored in llh_media_assets, or provide an HTTPS URL.",
+      code: "inline_curriculum_file_blocked",
+    });
     return;
   }
   if (fileData.startsWith("data:")) {
@@ -14151,6 +14409,8 @@ async function handleAdminCurriculumResourceSave(request, response) {
     ...incoming,
     id,
     fileData,
+    mediaAssetId,
+    mediaUrl: mediaUrl || (mediaAssetId ? curriculumMedia.curriculumResourceMediaUrl(mediaAssetId) : ""),
     fileName: normalizedShortText(incoming.fileName, 180) || existing?.fileName || "",
     mimeType: normalizedShortText(incoming.mimeType, 80) || existing?.mimeType || "",
     lessonPlanIds: existing?.lessonPlanIds || incoming.lessonPlanIds || [],
@@ -18830,6 +19090,11 @@ const server = http.createServer(async (request, response) => {
       const assetId = decodeURIComponent(url.pathname.slice("/api/media/lesson-covers/".length));
       return await handleLessonCoverMedia(request, response, assetId);
     }
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/curriculum-resources/")) {
+      const assetId = decodeURIComponent(url.pathname.slice("/api/media/curriculum-resources/".length));
+      const adminMedia = url.searchParams.get("admin") === "1" && validAdminToken(extractAdminToken(request, url));
+      return await handleCurriculumResourceMedia(request, response, assetId, { admin: adminMedia, requestUrl: url });
+    }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
       const planId = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
       return await handleCurriculumLessonPlanDetail(request, response, url, planId);
@@ -18999,9 +19264,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/upload") return await handleAdminLessonCoverUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/upload") return await handleAdminCurriculumResourceUpload(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/inline-inventory") return await handleAdminCurriculumInlineInventory(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/inline-inventory") return await handleAdminCurriculumInlineInventory(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/migrate-inline-media") return await handleAdminCurriculumMigrateInlineMedia(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/save") return await handleAdminCurriculumResourceSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/archive") return await handleAdminCurriculumResourceArchive(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/resources/link") return await handleAdminCurriculumResourceLink(request, response);
