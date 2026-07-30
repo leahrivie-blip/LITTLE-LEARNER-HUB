@@ -61,11 +61,11 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-owner-covers" />
-  <link rel="stylesheet" href="styles.css?v=20260730-owner-covers" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-trial-card" />
+  <link rel="stylesheet" href="styles.css?v=20260730-trial-card" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-owner-covers" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-trial-card" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260729-signed-in-audit" />
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260730-owner-covers";
+      var SHELL_VERSION = "20260730-trial-card";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -1762,7 +1762,7 @@
             <article class="faq-item"><h3>What is Little Learner Hub?</h3><p>Little Learner Hub helps childcare providers organize observations, lesson plans, child goals, forms, incident reports, and paperwork in one place so documentation takes minutes instead of hours.</p></article>
             <article class="faq-item"><h3>Is there a free plan?</h3><p>Yes. Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.</p></article>
             <article class="faq-item"><h3>What is included in the Free Plan?</h3><ul><li>10 complete starter lesson plans (3 Infant, 3 Toddler, 4 Preschool)</li><li>Print and download your Free starter plans</li><li>Browse titles and previews across the complete library</li><li>About 30 days of calendar planning</li><li>Up to 20 favorites</li><li>5 Child Profiles</li><li>10 Observations Per Month</li><li>6 Forms</li><li>10 Document Creations</li><li>No Credit Card Required</li></ul></article>
-            <article class="faq-item"><h3>What is included with a Pro trial?</h3><p>Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. Upgrade to Founding or Pro for unlimited curriculum access, printing and downloads. Your own records, notes, calendars, and documents are never limited by this trial allowance.</p></article>
+            <article class="faq-item"><h3>What is included with a Pro trial?</h3><p>Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start the trial. You are not charged during the 7 days — right after the trial ends, Stripe charges Pro Monthly ($19.99/month) unless you cancel first. Your own records, notes, calendars, and documents are never limited by this trial allowance.</p></article>
             <article class="faq-item"><h3>What is included in the Pro Plan?</h3><p>Pro includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $19.99/month, plus child management features and 250 document creations per month.</p></article>
             <article class="faq-item"><h3>What is Founding Member pricing?</h3><p>Founding Member pricing is $9.99/month locked while your membership remains continuously active for the final limited spots. When those spots are claimed, the Founding offer closes everywhere and new members can only purchase Pro at $19.99/month. Existing Founding Members remain grandfathered at $9.99/month locked while your membership remains continuously active.</p></article>
             <article class="faq-item"><h3>Can I cancel my subscription?</h3><p>Yes. You may cancel your subscription at any time through your account settings.</p></article>
@@ -2179,8 +2179,8 @@
 
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
-    <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-owner-covers" defer></script>
-    <script src="scripts/lesson-plan-covers.js?v=20260730-owner-covers" defer></script>
+    <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-trial-card" defer></script>
+    <script src="scripts/lesson-plan-covers.js?v=20260730-trial-card" defer></script>
     <script src="scripts/curriculum-series.js?v=20260729-curriculum-collections" defer></script>
     <script src="scripts/curriculum-standards.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards" defer></script>
@@ -2192,11 +2192,11 @@
     <script src="scripts/llh-lesson-docx.js?v=20260714-lesson-docx" defer></script>
     <script src="scripts/lesson-plan-weekly-export.js?v=20260717-more-menu" defer></script>
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
-    <script src="scripts/free-curriculum-sample.js?v=20260730-owner-covers" defer></script>
-    <script src="scripts/trial-curriculum-exports.js?v=20260730-owner-covers" defer></script>
-    <script src="scripts/free-plan-grandfathering.js?v=20260730-owner-covers" defer></script>
-    <script src="app.js?v=20260730-owner-covers" defer></script>
-    <script src="admin-workspace.js?v=20260730-owner-covers" defer></script>
+    <script src="scripts/free-curriculum-sample.js?v=20260730-trial-card" defer></script>
+    <script src="scripts/trial-curriculum-exports.js?v=20260730-trial-card" defer></script>
+    <script src="scripts/free-plan-grandfathering.js?v=20260730-trial-card" defer></script>
+    <script src="app.js?v=20260730-trial-card" defer></script>
+    <script src="admin-workspace.js?v=20260730-trial-card" defer></script>
     <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>
 </html>

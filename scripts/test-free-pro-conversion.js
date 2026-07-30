@@ -103,12 +103,12 @@ test("homepage and FAQ marketing match Free starter library", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-owner-covers");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-owner-covers");
-  assert.match(sw, /llh-shell-v127-owner-covers/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-owner-covers/);
-  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-owner-covers/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-owner-covers/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trial-card");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trial-card");
+  assert.match(sw, /llh-shell-v128-trial-card/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-trial-card/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-trial-card/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-trial-card/);
 });
 
 function requestJson(method, urlPath, body) {
