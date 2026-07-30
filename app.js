@@ -14053,7 +14053,9 @@ function setView(view, options = {}) {
   updateSidebarDashboard();
   setMobileNavOpen(false);
   refreshContextualViewBackButtons();
-  if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
+  if (options.skipScrollReset) {
+    // Caller will position the window (e.g. homepage section nav).
+  } else if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
     restoreViewScroll(resolvedView, options.restoreScrollY);
   } else if (activeView === resolvedView && Number.isFinite(viewScrollPositions[resolvedView])) {
     restoreViewScroll(resolvedView);
@@ -24226,15 +24228,44 @@ function bindHomePublicChrome() {
   setHomePublicMenuOpen(false);
 }
 
+function homeStickyNavOffsetPx() {
+  const nav = document.querySelector("body.home-view .llh-public-nav");
+  if (!nav) return 72;
+  const height = nav.getBoundingClientRect().height;
+  return Math.max(56, Math.ceil(height || 72));
+}
+
 function scrollToHomeSection(sectionKeyOrId) {
   const sectionId = HOME_NAV_SECTION_IDS[sectionKeyOrId] || sectionKeyOrId;
   const target = document.getElementById(sectionId);
   if (!target) return false;
-  setView("home", { allowDashboard: true });
+  const alreadyOnHome = Boolean(document.querySelector("#view-home.active-view"));
+  // Avoid setView's default scroll-to-top — it races section scrolling and makes
+  // Home / Lesson Plans / Reviews nav links feel like they do nothing.
+  if (!alreadyOnHome) {
+    setView("home", { allowDashboard: true, skipScrollReset: true });
+  } else {
+    document.body.classList.add("home-view");
+  }
   setHomePublicMenuOpen(false);
-  requestAnimationFrame(() => {
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
-  });
+  // Instant scroll (not smooth): sticky-nav offset math stays accurate and section
+  // links feel reliable on long homepage pages / mobile menu close.
+  window.setTimeout(() => {
+    const el = document.getElementById(sectionId);
+    if (!el) return;
+    const offset = homeStickyNavOffsetPx() + 10;
+    const top = Math.max(0, window.scrollY + el.getBoundingClientRect().top - offset);
+    window.scrollTo({ top, behavior: "auto" });
+    try {
+      if (sectionId === "homeHero") {
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      } else {
+        history.replaceState(null, "", `#${sectionId}`);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, alreadyOnHome ? 40 : 120);
   return true;
 }
 
@@ -51428,6 +51459,27 @@ document.addEventListener("click", async (event) => {
       homePreviewButton.dataset.homeOpenPreview || "",
       homePreviewButton.dataset.homePreviewSection || "",
     );
+    return;
+  }
+
+  const requestLessonPlanButton = event.target.closest("[data-action='request-lesson-plan']");
+  if (requestLessonPlanButton) {
+    event.preventDefault();
+    dismissOverlaysForAuthOrUpgrade();
+    if (!currentUser) {
+      setPreferredSignupPlan("free");
+      openAuthModal("signup");
+      return;
+    }
+    // Members land on the lesson library request form (and can also message Leah).
+    setView("lessons");
+    window.setTimeout(() => {
+      const panel = document.querySelector("#lessonPlanRequestPanel");
+      const form = document.querySelector("#lessonPlanRequestForm");
+      const toggle = document.querySelector("[data-toggle-lesson-plan-request]");
+      if (form && form.hidden && toggle) toggle.click();
+      panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 350);
     return;
   }
 
