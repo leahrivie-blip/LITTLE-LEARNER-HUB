@@ -155,6 +155,14 @@ function isHomeDaycareHubTestingEnabled() {
   return HOME_DAYCARE_HUB_TESTING;
 }
 
+const aiGuide = require("./ai-guide");
+const {
+  isAiGuideEnabled,
+  aiGuideStatus,
+  ensureAiGuideCollections,
+  createAiGuideHandlers,
+} = aiGuide;
+
 const publicDir = path.join(__dirname, "..");
 const dataDir = path.join(__dirname, "data");
 const storePath = process.env.LLH_STORE_PATH || path.join(dataDir, "launch-store.json");
@@ -750,6 +758,7 @@ function launchReadinessStatus() {
   const database = databaseConfigStatus();
   const supportEmail = supportEmailConfigStatus();
   const homeDaycareHub = homeDaycareHubStatus();
+  const aiGuide = aiGuideStatus();
   const required = { stripe, admin, ai, site, database };
   const blockers = Object.entries(required)
     .filter(([, value]) => !value.ready)
@@ -758,7 +767,7 @@ function launchReadinessStatus() {
     ready: blockers.length === 0,
     blockers,
     required,
-    optional: { supportEmail, homeDaycareHub },
+    optional: { supportEmail, homeDaycareHub, aiGuide },
     message: blockers.length
       ? `Not launch-ready yet. Fix: ${blockers.join(", ")}.`
       : "Website launch requirements are configured.",
@@ -787,6 +796,10 @@ function defaultStore() {
     aiPrompts: {},
     aiPromptVersions: [],
     aiUsageLogs: [],
+    aiGuideDrafts: [],
+    aiGuideFeedback: [],
+    aiGuideUsage: [],
+    aiGuideSettings: aiGuide.defaultAiGuideSettings(),
     supportTickets: [],
     bugReports: [],
     featureRequests: [],
@@ -11457,6 +11470,24 @@ function requireHomeDaycareHubTesting(response) {
   return false;
 }
 
+const aiGuideHandlers = createAiGuideHandlers({
+  readStore: () => ensureAiGuideCollections(readStore()),
+  writeStoreAsync,
+  jsonResponse,
+  readJson,
+  normalizeEmail,
+  generateOpenAiContent,
+  resolveIdentity: resolveScheduleIdentity,
+  requireAdmin: async (request, response) => {
+    const token = extractAdminToken(request);
+    if (!validAdminToken(token)) {
+      jsonResponse(response, 401, { error: "Admin access is required." });
+      return false;
+    }
+    return true;
+  },
+});
+
 function ensureFamilyHubCollections(store) {
   store.familyHouseholds = store.familyHouseholds && typeof store.familyHouseholds === "object" ? store.familyHouseholds : {};
   store.familyMagicLinks = store.familyMagicLinks && typeof store.familyMagicLinks === "object" ? store.familyMagicLinks : {};
@@ -15846,6 +15877,8 @@ function handleHealth(request, response) {
     supportEmailReady: supportEmailConfigStatus().ready,
     homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
     homeDaycareHub: homeDaycareHubStatus(),
+    aiGuideEnabled: isAiGuideEnabled(),
+    aiGuide: aiGuideStatus(),
     founding: foundingStatusPayload(store),
     domain: {
       requestHost: host || null,
@@ -16513,6 +16546,7 @@ function handleClientConfig(request, response) {
       publicKey: pushService ? pushService.publicKey() : "",
     },
     homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
+    aiGuideEnabled: isAiGuideEnabled(),
   };
   response.writeHead(200, {
     "Content-Type": "text/javascript; charset=utf-8",
@@ -19945,6 +19979,25 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/create-customer-portal-session") return await handlePortal(request, response);
     if (request.method === "POST" && (url.pathname === "/api/webhooks/stripe" || url.pathname === "/api/stripe/webhook")) return await handleStripeWebhook(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/ai-guide/config") return await aiGuideHandlers.handleConfig(request, response);
+    if (request.method === "POST" && url.pathname === "/api/ai-guide/generate") return await aiGuideHandlers.handleGenerate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/ai-guide/revise") return await aiGuideHandlers.handleRevise(request, response);
+    if (request.method === "GET" && url.pathname === "/api/ai-guide/drafts") return await aiGuideHandlers.handleListDrafts(request, response);
+    if (request.method === "PATCH" && url.pathname.startsWith("/api/ai-guide/drafts/") && url.pathname.endsWith("/feedback")) {
+      const draftId = decodeURIComponent(url.pathname.slice("/api/ai-guide/drafts/".length, -"/feedback".length));
+      return await aiGuideHandlers.handleFeedback(request, response, draftId);
+    }
+    if (request.method === "PATCH" && url.pathname.startsWith("/api/ai-guide/drafts/")) {
+      const draftId = decodeURIComponent(url.pathname.slice("/api/ai-guide/drafts/".length));
+      return await aiGuideHandlers.handlePatchDraft(request, response, draftId);
+    }
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/ai-guide/drafts/")) {
+      const draftId = decodeURIComponent(url.pathname.slice("/api/ai-guide/drafts/".length));
+      return await aiGuideHandlers.handleDeleteDraft(request, response, draftId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-guide/overview") return await aiGuideHandlers.handleAdminOverview(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/ai-guide/settings") return await aiGuideHandlers.handleAdminSettings(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/ai-guide/settings") return await aiGuideHandlers.handleAdminSettings(request, response);
     if (request.method === "POST" && url.pathname === "/api/analytics/event") return await handleAnalyticsEvent(request, response);
     if (request.method === "POST" && url.pathname === "/api/account/profile") return await handleAccountProfileSync(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/users/issue-temp-password") return await handleAdminIssueTempPassword(request, response);
