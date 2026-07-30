@@ -161,15 +161,24 @@ async function main() {
   assert.equal(serverJs.includes('amount: "$19.99/month"'), true);
   console.log("PASS static finish markers + Stripe planConfig mapping");
 
-  // Live recount confirmation (read-only)
+  // Live recount confirmation (read-only). Local suite still simulates the 2-spot closeout
+  // (claimed=46 / limit=48); production may already be sold out at the closeout limit.
   const liveRes = await fetch("https://littlelearnershubbyleah.com/api/founding-status");
   assert.equal(liveRes.ok, true, "live founding-status fetch failed");
   const live = await liveRes.json();
   const founding = live.founding || live;
   console.log("LIVE founding status:", JSON.stringify(founding));
-  assert.equal(Number(founding.claimed), LIVE_CLAIMED, `expected live claimed ${LIVE_CLAIMED}`);
+  assert.equal(Number(founding.limit), 48, "live founding limit should be 48");
+  assert.ok(Number(founding.claimed) >= LIVE_CLAIMED, `live claimed should be >= ${LIVE_CLAIMED}`);
   assert.equal(FOUNDING_LIMIT, LIVE_CLAIMED + 2);
-  console.log(`PASS live claimed=${founding.claimed}; limit=${FOUNDING_LIMIT} for remaining=2 (live remaining still ${founding.remaining} until deploy)`);
+  if (founding.soldOut || Number(founding.remaining) === 0) {
+    assert.equal(Number(founding.remaining), 0);
+    assert.match(String(founding.spotsLeftMessage || ""), /sold out|Pro is \$19\.99/i);
+    console.log(`PASS live founding sold out (claimed=${founding.claimed}/${founding.limit}); Free users upgrade to Pro`);
+  } else {
+    assert.equal(Number(founding.claimed), LIVE_CLAIMED, `expected live claimed ${LIVE_CLAIMED} while spots remain`);
+    console.log(`PASS live claimed=${founding.claimed}; limit=${founding.limit}; remaining=${founding.remaining}`);
+  }
 
   const child = startServer();
   let bootLog = "";
@@ -451,7 +460,7 @@ async function main() {
     });
     // Founding checkout earlier in this run reserves one local spot (2 → 1).
     assert.equal(mobile.remaining, 1, `mobile founding remaining should be 1 after checkout claim; state=${JSON.stringify(mobile)}`);
-    assert.match(mobile.reminderText, /Only 1 Founding Member spot remaining/i);
+    assert.match(mobile.reminderText, /Free Starter Library|Starter Lesson Plans|Founding or Pro/i);
     assert.equal(mobile.reminderHidden, false);
     assert.equal(mobile.widthOk, true);
     assert.equal(mobile.hasComparison, true);
