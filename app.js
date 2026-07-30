@@ -2123,6 +2123,8 @@ const MEMBERSHIP_COPY = Object.freeze({
   freeStarterProgress: "10 complete plans included with your Free account.",
   unlockLibrary: "Unlock the Complete Library",
   lockedFreePlan: "This plan is not included in the 10-plan Free Starter Library. Upgrade to unlock the complete plan.",
+  freePolicyNotice: "Your Free account includes 10 complete Starter Lesson Plans across Infant, Toddler and Preschool. Your saved information remains available, but additional premium plans require Founding or Pro access.",
+  watermarkTryAgain: "We couldn’t finish this premium curriculum export safely. Please try again.",
 });
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
 /** New Free users can plan about a month ahead (weeks starting within this window). */
@@ -2176,12 +2178,16 @@ function resolveCurrentFreeLessonAccessMode() {
   return api.resolveFreeLessonAccessMode(account, freePlanAccessExtra());
 }
 
-/** Existing Free users before curated Free launch keep the original Free experience. */
+/** Legacy Free unlock is retired — every Free account uses the 10-plan Starter Library. */
 function hasLegacyFreeLessonAccess() {
-  if (isProUser() || hasAdminFullAccess()) return false;
+  return false;
+}
+
+function freePolicyNoticeText() {
   const api = freePlanGrandfatheringApi();
-  if (!api?.hasLegacyFreeLessonAccess) return false;
-  return api.hasLegacyFreeLessonAccess(currentAccount() || {}, freePlanAccessExtra());
+  return api?.freePolicyNotice?.(freePlanAccessExtra())
+    || api?.FREE_POLICY_NOTICE
+    || MEMBERSHIP_COPY.freePolicyNotice;
 }
 
 function freeStarterOverrideIdsFromSite() {
@@ -2208,12 +2214,6 @@ function isCuratedFreeCurriculumPlan(planOrResource) {
 
 function isFreeAccessibleCurriculumPlan(planOrResource) {
   if (planOrResource?._userLessonCopy) return true;
-  if (hasLegacyFreeLessonAccess()) {
-    const plan = planOrResource?._curriculumLessonPlan || planOrResource;
-    const api = freePlanGrandfatheringApi();
-    if (api?.isLegacyStoreFreePlan) return api.isLegacyStoreFreePlan(plan || planOrResource);
-    return String(plan?.plan || planOrResource?.plan || "Free").trim() !== "Pro";
-  }
   return isCuratedFreeCurriculumPlan(planOrResource);
 }
 
@@ -2379,15 +2379,33 @@ async function confirmTrialCurriculumExport(resource, action = "print") {
   }
 }
 
-async function releaseTrialCurriculumExport(idempotencyKey) {
-  if (!idempotencyKey || !currentUser) return;
-  try {
-    await fetch("/api/trial-curriculum-exports/release", {
-      method: "POST",
-      headers: trialExportAuthHeaders(),
-      body: JSON.stringify({ idempotencyKey }),
-    });
-  } catch { /* ignore */ }
+async function releaseTrialCurriculumExport() {
+  // Client-claimed failures must never restore allowance. Only verified
+  // server-side generation failures (generate-pdf) may restore uses.
+  return { released: false, denied: true };
+}
+
+function requireTrialWatermarkOrBlock(watermark, counted) {
+  if (!counted) return true;
+  if (String(watermark || "").trim()) return true;
+  if (typeof showToast === "function") {
+    showToast(MEMBERSHIP_COPY.watermarkTryAgain);
+  } else {
+    window.alert(MEMBERSHIP_COPY.watermarkTryAgain);
+  }
+  return false;
+}
+
+function assertBlobContainsTrialWatermark(blob, watermark) {
+  if (!watermark) return Promise.resolve(false);
+  return blob.arrayBuffer().then((buf) => {
+    const api = trialCurriculumExportsApi();
+    if (api?.assertWatermarkPresent) {
+      return api.assertWatermarkPresent(new Uint8Array(buf), watermark).ok;
+    }
+    const text = Array.from(new Uint8Array(buf)).map((b) => String.fromCharCode(b)).join("");
+    return text.includes(watermark);
+  }).catch(() => false);
 }
 
 function applyTrialCurriculumWatermark(rootEl, watermark) {
@@ -2415,7 +2433,7 @@ function trialWatermarkForCurrentView(resource) {
   if (!isPremiumHubCurriculumResource(resource)) return "";
   const api = trialCurriculumExportsApi();
   const account = currentAccount() || { email: currentUser };
-  return api?.watermarkText?.(account) || `Little Learner Hub Trial Preview • Account LLH-MEMBER`;
+  return api?.watermarkText?.(account) || "Little Learner Hub Trial Preview - Account LLH-MEMBER";
 }
 
 function formatLessonPlanAgeBreakdown(byAge) {
@@ -13921,7 +13939,7 @@ function canAccess(resource) {
 
 function canCustomizeLessonPlans() {
   // Grandfathered Free users keep edit/customize access they already had.
-  return isProUser() || hasAdminFullAccess() || hasLegacyFreeLessonAccess();
+  return isProUser() || hasAdminFullAccess();
 }
 
 function trackUpgradePrompt(promptId, extra = {}) {
@@ -13988,7 +14006,7 @@ function isWeekWithinFreeCalendarPlanningWindow(weekStartDate, fromDate = new Da
 }
 
 function canAssignMoreFreeCalendarPlans(weekStartDate = "") {
-  if (isProUser() || hasAdminFullAccess() || hasLegacyFreeLessonAccess()) return true;
+  if (isProUser() || hasAdminFullAccess()) return true;
   if (!weekStartDate) return true;
   const week = curriculumPlannerWeekStartIso(weekStartDate);
   if (!week) return true;
@@ -14724,7 +14742,7 @@ function authoritativeLessonPlanAccessLabel(resource) {
   if (!resource) return "Free";
   if (resource._curriculumManaged || resource._curriculumLessonPlan || resource._userLessonCopy) {
     if (isFreeAccessibleCurriculumPlan(resource)) {
-      return hasLegacyFreeLessonAccess() ? "Free" : "Free Sample";
+      return "Free Sample";
     }
     return "Pro";
   }
@@ -20988,6 +21006,26 @@ function downloadLessonPlanVariantPdf(printVariant = "week") {
   downloadLessonPlanVariant(printVariant);
 }
 
+async function downloadTrialPremiumPdfViaServer(resource, idempotencyKey) {
+  const res = await fetch("/api/trial-curriculum-exports/generate-pdf", {
+    method: "POST",
+    headers: trialExportAuthHeaders(),
+    body: JSON.stringify({
+      resourceId: resource.id || resource._curriculumLessonPlanId || "",
+      idempotencyKey,
+    }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (typeof showToast === "function") showToast(data.message || MEMBERSHIP_COPY.watermarkTryAgain);
+    else window.alert(data.message || MEMBERSHIP_COPY.watermarkTryAgain);
+    return false;
+  }
+  const blob = await res.blob();
+  downloadBlob(blob, `${slug(resource.title || "lesson")}-trial-export.pdf`);
+  return true;
+}
+
 async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
   const viewerResource = activeResourceViewerResource;
   if (!canDownloadLessonWorkspacePlan(viewerResource)) return;
@@ -20996,8 +21034,32 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
   const allowed = new Set(["week", "week-detail", "planning", "materials", "full"]);
   const normalizedVariant = (printVariant === "teacher-planner") ? "week" : printVariant;
   const safeVariant = allowed.has(normalizedVariant) ? normalizedVariant : "week";
-  // Weekly classroom downloads are PDF-only (no garbled DOCX).
   const preferDocx = options.format === "docx" && safeVariant === "full";
+  const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
+  if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
+
+  // Trial premium downloads use server-generated watermarked PDFs (fail-closed).
+  if (gate.counted) {
+    const ok = await downloadTrialPremiumPdfViaServer(viewerResource, gate.idempotencyKey);
+    if (!ok) return;
+    if (!savedDownloads.includes(viewerResource.id)) {
+      savedDownloads = [...savedDownloads, viewerResource.id];
+      saveDownloads();
+      updatePlanLabel();
+    }
+    trackEvent("resource_pdf_download", {
+      resourceId: viewerResource.id,
+      title: viewerResource.title,
+      category: viewerResource.category,
+      age: viewerResource.age,
+      access: viewerResource.plan,
+      printVariant: safeVariant,
+      format: "pdf",
+      trialServerGenerated: true,
+    });
+    return;
+  }
+
   try {
     recordResourceOutputRequest({
       mode: "download",
@@ -21018,8 +21080,8 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
             ? "classroom-planning-sheet"
             : "teacher-weekly-planner";
     const weekStartDate = lessonPlanAssignedWeekStart(viewerResource.id);
-    const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
     if (preferDocx && safeVariant === "full") {
+      // DOCX is not used for Trial premium (server PDF path above). Free/paid may proceed.
       downloadBlob(
         buildLessonPlanFullDocxBlob(viewerResource, { weekStartDate, trialWatermark: watermark }),
         `${slug(viewerResource.title)}-${variantLabel}.docx`,
@@ -21031,7 +21093,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         trialWatermark: watermark,
       });
       if (!plannerBlob) {
-        await releaseTrialCurriculumExport(gate.idempotencyKey);
+        if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
         return;
       }
       downloadBlob(plannerBlob, `${slug(viewerResource.title)}-${variantLabel}.pdf`);
@@ -21073,7 +21135,7 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       format: preferDocx ? "docx" : "pdf",
     });
   } catch (error) {
-    await releaseTrialCurriculumExport(gate.idempotencyKey);
+    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
     throw error;
   }
 }
@@ -21457,6 +21519,7 @@ async function printResourceViewer(options = {}) {
   const printVariant = options.printVariant || "full";
   const mode = options.download ? "download" : "print";
   const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
+  if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
   try {
     if (canDownloadLessonWorkspacePlan(viewerResource) && body) {
       const weekVariants = new Set(["week", "week-detail", "planning"]);
@@ -21469,6 +21532,16 @@ async function printResourceViewer(options = {}) {
     }
     if (watermark && body) {
       applyTrialCurriculumWatermark(body, watermark);
+    }
+    // Fail-closed: premium trial print HTML must contain the watermark text.
+    if (gate.counted) {
+      const html = String(body?.innerHTML || "");
+      if (!html.includes(watermark)) {
+        if (body) body.innerHTML = previousHtml;
+        if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
+        else window.alert(MEMBERSHIP_COPY.watermarkTryAgain);
+        return;
+      }
     }
     recordResourceOutputRequest({
       mode,
@@ -21504,7 +21577,7 @@ async function printResourceViewer(options = {}) {
     window.print();
     setTimeout(cleanup, 1600);
   } catch (error) {
-    await releaseTrialCurriculumExport(gate.idempotencyKey);
+    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
     throw error;
   }
 }
@@ -22253,8 +22326,13 @@ async function downloadResourcePdf(id) {
   if (!hasResourcePdf(resource) || !canAccess(resource)) return;
   const gate = await confirmTrialCurriculumExport(resource, "download");
   if (!gate.allowed) return;
+  const watermark = gate.watermark || trialWatermarkForCurrentView(resource);
+  if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
+  if (gate.counted) {
+    await downloadTrialPremiumPdfViaServer(resource, gate.idempotencyKey);
+    return;
+  }
   try {
-    const watermark = gate.watermark || trialWatermarkForCurrentView(resource);
     const pdfResource = watermark ? { ...resource, trialWatermark: watermark } : resource;
     recordResourceOutputRequest({
       mode: "download",
@@ -22264,7 +22342,8 @@ async function downloadResourcePdf(id) {
       category: resource.category,
       trialExportCounted: Boolean(gate.counted),
     });
-    downloadBlob(buildResourcePdfBlob(pdfResource), resourcePdfFileName(resource));
+    const blob = buildResourcePdfBlob(pdfResource);
+    downloadBlob(blob, resourcePdfFileName(resource));
     if (!savedDownloads.includes(resource.id)) {
       savedDownloads = [...savedDownloads, resource.id];
       saveDownloads();
@@ -22278,7 +22357,7 @@ async function downloadResourcePdf(id) {
       access: resource.plan,
     });
   } catch (error) {
-    await releaseTrialCurriculumExport(gate.idempotencyKey);
+    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
     throw error;
   }
 }
@@ -22287,8 +22366,13 @@ async function downloadActiveResourcePdf() {
   if (activeGeneratedPdfResource) {
     const gate = await confirmTrialCurriculumExport(activeGeneratedPdfResource, "download");
     if (!gate.allowed) return;
+    const watermark = gate.watermark || trialWatermarkForCurrentView(activeGeneratedPdfResource);
+    if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
+    if (gate.counted) {
+      await downloadTrialPremiumPdfViaServer(activeGeneratedPdfResource, gate.idempotencyKey);
+      return;
+    }
     try {
-      const watermark = gate.watermark || trialWatermarkForCurrentView(activeGeneratedPdfResource);
       const pdfResource = watermark
         ? { ...activeGeneratedPdfResource, trialWatermark: watermark }
         : activeGeneratedPdfResource;
@@ -22309,7 +22393,7 @@ async function downloadActiveResourcePdf() {
         access: activeGeneratedPdfResource.plan,
       });
     } catch (error) {
-      await releaseTrialCurriculumExport(gate.idempotencyKey);
+      if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
       throw error;
     }
     return;
@@ -22318,8 +22402,13 @@ async function downloadActiveResourcePdf() {
   if (viewerResource && hasResourcePdf(viewerResource) && canAccess(viewerResource)) {
     const gate = await confirmTrialCurriculumExport(viewerResource, "download");
     if (!gate.allowed) return;
+    const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
+    if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
+    if (gate.counted) {
+      await downloadTrialPremiumPdfViaServer(viewerResource, gate.idempotencyKey);
+      return;
+    }
     try {
-      const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
       const pdfResource = watermark ? { ...viewerResource, trialWatermark: watermark } : viewerResource;
       recordResourceOutputRequest({
         mode: "download",
@@ -22343,7 +22432,7 @@ async function downloadActiveResourcePdf() {
         access: viewerResource.plan,
       });
     } catch (error) {
-      await releaseTrialCurriculumExport(gate.idempotencyKey);
+      if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
       throw error;
     }
     return;
@@ -22985,18 +23074,20 @@ function freeStarterLibraryBannerHtml() {
   if (!isLoggedIn() || hasAdminFullAccess()) return "";
   if (accountIsInTrial()) {
     return `
-      <section class="free-starter-library-banner trial-export-reminder-banner" aria-label="Trial curriculum access">
+      <section class="free-starter-library-banner trial-export-reminder-banner" aria-label="Trial curriculum access" data-trial-allowance-banner="true">
         <h3>Pro Trial Curriculum Access</h3>
         <p>${escapeHtml(MEMBERSHIP_COPY.trialCore)}</p>
+        <p class="muted-copy" data-trial-allowance-counter>Up to 3 premium curriculum prints or downloads during your trial.</p>
         <p class="muted-copy">This limit applies to Little Learner Hub premium curriculum only—not your own records, notes, calendars, or documents.</p>
       </section>
     `;
   }
-  if (isProUser() || hasLegacyFreeLessonAccess()) return "";
+  if (isProUser()) return "";
   return `
-    <section class="free-starter-library-banner" aria-label="Free starter plans">
+    <section class="free-starter-library-banner" aria-label="Free starter plans" data-free-starter-banner="true">
       <h3>${escapeHtml(MEMBERSHIP_COPY.freeStarterSection)}</h3>
       <p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)}</p>
+      <p>${escapeHtml(freePolicyNoticeText())}</p>
       <p>${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>
     </section>
     <h3 class="free-starter-unlock-heading">${escapeHtml(MEMBERSHIP_COPY.unlockLibrary)}</h3>
@@ -48804,6 +48895,7 @@ function freeWelcomeCardHtml() {
         <p class="free-welcome-card-badge">Free Plan</p>
         <h3>Welcome to Little Learner Hub</h3>
         <p>${escapeHtml(MEMBERSHIP_COPY.freeCore)}</p>
+        <p>${escapeHtml(freePolicyNoticeText())}</p>
         <p>${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>
         <p class="muted-copy">${escapeHtml(freeUpgradeSupportingText())}</p>
         <ul class="free-welcome-card-benefits">
@@ -48912,9 +49004,7 @@ function refreshFreePlanUpgradeChrome() {
   }
   const sidebarCopy = sidebarCard?.querySelector(".sidebar-free-upgrade-copy");
   if (sidebarCopy) {
-    sidebarCopy.textContent = hasLegacyFreeLessonAccess()
-      ? "You’re an early supporter on the original Free plan. Upgrade anytime for unlimited Pro tools."
-      : freeUpgradeSupportingText();
+    sidebarCopy.textContent = freePolicyNoticeText();
   }
   if (reminder) {
     // Keep badge/sidebar always; reminder bar is dismissible for the session.
@@ -48922,27 +49012,17 @@ function refreshFreePlanUpgradeChrome() {
     const bootBusy = document.body.classList.contains("app-boot-verifying")
       || (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive());
     // Prefer the dashboard welcome/upgrade card over the top reminder on first login.
-    const welcomeActive = !hasLegacyFreeLessonAccess() && !isFreeWelcomeCardDismissed();
+    const welcomeActive = !isFreeWelcomeCardDismissed();
     reminder.hidden = bootBusy
       || welcomeActive
       || isFreePlanReminderDismissed()
       || isFoundingUpgradeBannerDismissed();
     const copyEl = reminder.querySelector(".free-plan-reminder-copy");
     if (copyEl) {
-      if (hasLegacyFreeLessonAccess()) {
-        const cfg = freePlanGrandfatheringApi()?.resolveConfig?.(freePlanAccessExtra()) || {};
-        copyEl.innerHTML = `
-          <strong>${escapeHtml(cfg.earlySupporterTitle || "Early supporter Free access")}</strong>
-          <p>${escapeHtml(cfg.earlySupporterBody || "You’re grandfathered into the original Free plan and keep the Free lesson plans you’ve been using.")}</p>
-        `;
-      } else {
-        copyEl.innerHTML = `<strong>${escapeHtml(freeUpgradePrimaryButtonLabel())}</strong><p>${escapeHtml(freeUpgradeSupportingText())}</p>`;
-      }
+      copyEl.innerHTML = `<strong>Free Starter Library</strong><p>${escapeHtml(freePolicyNoticeText())}</p>`;
     }
   }
-  if (badge && hasLegacyFreeLessonAccess()) {
-    badge.textContent = "Free Plan · Early Supporter";
-  } else if (badge) {
+  if (badge) {
     badge.textContent = "Free Plan";
   }
 }
@@ -48982,16 +49062,12 @@ function freeLibraryConversionBannerHtml(options = {}) {
   const foundingOpen = foundingSpotsStillAvailable();
   const primaryCheckout = preferredPaidCheckoutPlan();
   const primaryLabel = freeUpgradePrimaryButtonLabel();
-  const legacy = hasLegacyFreeLessonAccess();
-  const cfg = freePlanGrandfatheringApi()?.resolveConfig?.(freePlanAccessExtra()) || {};
-  const headline = legacy ? (cfg.earlySupporterTitle || "Early supporter Free access") : freeLibraryDashboardHeadline;
-  const body = legacy
-    ? (cfg.earlySupporterBody || freeLibraryDashboardBody)
-    : freeLibraryDashboardBody;
+  const headline = freeLibraryDashboardHeadline;
+  const body = `${freePolicyNoticeText()} ${freeLibraryDashboardBody}`;
   return `
     <section class="free-library-conversion-banner free-library-conversion-banner--${escapeHtml(variant)}" role="region" aria-label="Free plan upgrade offer">
       <div class="free-library-conversion-banner-copy">
-        <p class="free-library-conversion-badge">${legacy ? "Early Supporter Free Plan" : "Free Plan"}</p>
+        <p class="free-library-conversion-badge">Free Plan</p>
         <h3>${escapeHtml(headline)}</h3>
         <p class="free-library-conversion-body">${escapeHtml(body)}</p>
         <p class="free-library-conversion-body">${escapeHtml(freeUpgradeSupportingText())}</p>

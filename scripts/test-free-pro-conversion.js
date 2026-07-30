@@ -103,12 +103,12 @@ test("homepage and FAQ marketing match Free starter library", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260729-trial-free-starter");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260729-trial-free-starter");
-  assert.match(sw, /llh-shell-v117-trial-free-starter/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260729-trial-free-starter/);
-  assert.match(sw, /trial-curriculum-exports\.js\?v=20260729-trial-free-starter/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260720-promo-existing/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
+  assert.match(sw, /llh-shell-v119-trial-free-finish2/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-trial-free-finish2/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-trial-free-finish2/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-trial-free-finish2/);
 });
 
 function requestJson(method, urlPath, body) {
@@ -168,13 +168,14 @@ function startServer(seedPlans) {
 }
 
 async function waitForBoot(child) {
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < 160; i += 1) {
     if (child.exitCode !== null) throw new Error("Server exited early");
     try {
       const res = await requestJson("GET", "/api/health");
-      if (res.status === 200 && res.json?.ok) return;
+      const site = await requestJson("GET", "/api/site-content");
+      if (res.status === 200 && res.json?.ok && site.status === 200) return;
     } catch { /* retry */ }
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 200));
   }
   throw new Error("boot timeout");
 }

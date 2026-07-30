@@ -24,12 +24,12 @@
    * Strong play-based demos across ages — entitlement only; curriculum records unchanged.
    */
   const DEFAULT_FREE_STARTER_LESSON_IDS = Object.freeze([
-    // Infant (3)
-    "cur-lp-infant-soft-sounds-faces",
+    // Infant (3) — published evergreen demos only (entitlement IDs; records unchanged)
     "cur-lp-infant-animal-sounds-discovery",
     "cur-lp-infant-summer-colors",
+    "cur-lp-infant-colors-all-around-us",
     // Toddler (3)
-    "cur-lp-2f-color-hunt",
+    "cur-lp-toddler-colors-everywhere",
     "cur-lp-toddler-construction-crew",
     "cur-lp-toddler-bugs-and-butterflies",
     // Preschool (4)
@@ -42,11 +42,12 @@
   /** @deprecated Use DEFAULT_FREE_STARTER_LESSON_IDS — kept for older tests/imports. */
   const PERMANENT_FREE_LESSON_IDS = DEFAULT_FREE_STARTER_LESSON_IDS;
 
+  /** Display/admin helpers only — Free unlock is ID-authoritative (exactly these 10). */
   const PERMANENT_FREE_TITLE_MATCHERS = Object.freeze([
-    { age: "Infant", pattern: /soft\s*sounds|familiar\s*faces/i },
     { age: "Infant", pattern: /animal\s*sounds/i },
-    { age: "Infant", pattern: /summer\s*colors|colors\s*all\s*around/i },
-    { age: "Toddler", pattern: /color\s*hunt/i },
+    { age: "Infant", pattern: /^summer\s*colors$/i },
+    { age: "Infant", pattern: /colors\s*all\s*around/i },
+    { age: "Toddler", pattern: /colors\s*everywhere/i },
     { age: "Toddler", pattern: /construction\s*crew/i },
     { age: "Toddler", pattern: /bugs?\s*(&|and)?\s*butterflies/i },
     { age: "Preschool", pattern: /community\s*helpers/i },
@@ -139,14 +140,14 @@
   function isCuratedFreeLessonPlan(plan, date = new Date(), overrideIds) {
     if (!plan) return false;
     if (plan._userLessonCopy) return true;
-    const id = String(plan.id || plan._curriculumLessonPlanId || plan._sourceLessonPlanId || "").trim();
+    // Entitlement is ID-authoritative so Free unlock stays exactly the 10 starters
+    // (title matchers must not grant extra premium plans).
+    const id = String(plan.id || plan._curriculumLessonPlanId || "").trim();
     const ids = curatedFreeLessonIdSet(date, overrideIds);
     if (id && ids.has(id)) return true;
     const sourceId = String(plan._sourceLessonPlanId || "").trim();
     if (sourceId && ids.has(sourceId)) return true;
-    // Title matchers only when using default catalog (not custom admin override).
-    if (overrideIds && sanitizeIdList(overrideIds).length === REQUIRED_COUNT) return false;
-    return PERMANENT_FREE_TITLE_MATCHERS.some((matcher) => matchesTitleAge(plan, matcher));
+    return false;
   }
 
   function effectivePlanTier(plan, date = new Date(), overrideIds) {

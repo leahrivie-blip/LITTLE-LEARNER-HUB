@@ -404,12 +404,12 @@ async function auditPersona(browser, viewport, personaKey, account) {
       assert.equal(state.upgradeCard, false, "curated Free welcome owns the surface before dismiss");
       pass(`${label}: curated Free permissions + upgrade chrome`);
     } else if (personaKey === "freeLegacy") {
+      // Business policy: legacy Free unlock is retired — same 10-plan Starter Library as curated Free.
       assert.equal(state.isPro, false);
       assert.equal(state.canSeeUpgrade, true);
-      assert.equal(state.legacy, true);
-      assert.equal(state.welcome, false, "legacy Free should not see new welcome card");
-      assert.equal(state.upgradeCard, true, "legacy Free should see persistent upgrade card (not the new welcome)");
-      pass(`${label}: legacy Free permissions`);
+      assert.equal(state.legacy, false, "legacy Free bypass must be disabled");
+      assert.equal(state.welcome || state.upgradeCard || state.conversion, true, "existing Free should see Free policy/upgrade chrome");
+      pass(`${label}: existing Free uses curated Starter Library (no legacy bypass)`);
     }
 
     // Lesson library
@@ -684,10 +684,11 @@ async function auditApiPermissions() {
     const freeCount = countUnlocked(freeLib.json);
     const legacyCount = countUnlocked(legacyLib.json);
     const proCount = countUnlocked(proLib.json);
-    assert.ok(proCount > legacyCount, `Pro (${proCount}) should unlock more than legacy Free (${legacyCount})`);
-    assert.ok(legacyCount >= freeCount, `legacy Free (${legacyCount}) should unlock >= curated Free (${freeCount})`);
+    assert.equal(legacyCount, freeCount, `existing Free (${legacyCount}) must match curated Free unlock count (${freeCount}) — no legacy bypass`);
+    assert.ok(proCount > freeCount, `Pro (${proCount}) should unlock more than Free (${freeCount})`);
     assert.ok(proCount >= 40, `Pro should unlock nearly the full published library (got ${proCount})`);
-    pass(`${label}: unlock counts curated=${freeCount} legacy=${legacyCount} pro=${proCount}`);
+    assert.equal(freeCount, 10, `Free must unlock exactly 10 Starter Library plans (got ${freeCount})`);
+    pass(`${label}: unlock counts curated=${freeCount} existingFree=${legacyCount} pro=${proCount}`);
   } catch (error) {
     fail(label, error);
   }

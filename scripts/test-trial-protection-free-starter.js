@@ -137,6 +137,49 @@ function seedStore() {
         stripeCustomerId: "cus_trial_test_123456",
         introductoryTrialConsumed: true,
       },
+      "trial.fresh@test.local": {
+        email: "trial.fresh@test.local",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Trialing",
+        stripeSubscriptionStatus: "trialing",
+        trialStatus: "In Trial",
+        trialStart,
+        trialEnd,
+        accessEndsAt: trialEnd,
+        stripeCustomerId: "cus_trial_fresh_999999",
+        introductoryTrialConsumed: true,
+      },
+      "trial.burst@test.local": {
+        email: "trial.burst@test.local",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Trialing",
+        stripeSubscriptionStatus: "trialing",
+        trialStatus: "In Trial",
+        trialStart,
+        trialEnd,
+        accessEndsAt: trialEnd,
+        stripeCustomerId: "cus_trial_burst_555555",
+        introductoryTrialConsumed: true,
+      },
+      "trial.wmfail@test.local": {
+        email: "trial.wmfail@test.local",
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Trialing",
+        stripeSubscriptionStatus: "trialing",
+        trialStatus: "In Trial",
+        trialStart,
+        trialEnd,
+        accessEndsAt: trialEnd,
+        stripeCustomerId: "cus_trial_wmfail_777777",
+        introductoryTrialConsumed: true,
+      },
+      "free.legacy.labeled@test.local": {
+        email: "free.legacy.labeled@test.local",
+        plan: "Free",
+        subscriptionStatus: "Free Plan",
+        createdAt: "2020-01-01T00:00:00.000Z",
+        freeLessonAccessMode: "legacy",
+      },
       "pro.user@test.local": {
         email: "pro.user@test.local",
         plan: "Pro",
@@ -240,22 +283,38 @@ async function main() {
 
   // Unit: trial export authorize / idempotency / release
   let state = trialExports.emptyState();
-  const a1 = trialExports.authorizeExport(state, { idempotencyKey: "k1", resourceType: "lesson-plan", resourceId: "p1" });
+  const mark = "Little Learner Hub Trial Preview • Account LLH-TEST-01";
+  const a1 = trialExports.authorizeExport(state, {
+    idempotencyKey: "k1", resourceType: "lesson-plan", resourceId: "p1", watermark: mark,
+  });
   assert.equal(a1.allowed, true);
   assert.equal(a1.used, 1);
+  assert.equal(a1.watermark, mark);
   state = a1.state;
-  const a1b = trialExports.authorizeExport(state, { idempotencyKey: "k1", resourceType: "lesson-plan", resourceId: "p1" });
+  const a1b = trialExports.authorizeExport(state, {
+    idempotencyKey: "k1", resourceType: "lesson-plan", resourceId: "p1", watermark: mark,
+  });
   assert.equal(a1b.reused, true);
   assert.equal(a1b.used, 1);
   state = a1b.state;
-  state = trialExports.authorizeExport(state, { idempotencyKey: "k2", resourceId: "p2" }).state;
-  state = trialExports.authorizeExport(state, { idempotencyKey: "k3", resourceId: "p3" }).state;
-  const a4 = trialExports.authorizeExport(state, { idempotencyKey: "k4", resourceId: "p4" });
+  state = trialExports.authorizeExport(state, { idempotencyKey: "k2", resourceId: "p2", watermark: mark }).state;
+  state = trialExports.authorizeExport(state, { idempotencyKey: "k3", resourceId: "p3", watermark: mark }).state;
+  const a4 = trialExports.authorizeExport(state, { idempotencyKey: "k4", resourceId: "p4", watermark: mark });
   assert.equal(a4.allowed, false);
   assert.equal(a4.remaining, 0);
-  const released = trialExports.releaseExport(a1.state, { idempotencyKey: "k1" });
+  // Client-claimed release must fail closed.
+  const clientRelease = trialExports.releaseExport(a1.state, { idempotencyKey: "k1" });
+  assert.equal(clientRelease.ok, false);
+  assert.equal(clientRelease.status, 403);
+  const released = trialExports.releaseExport(a1.state, { idempotencyKey: "k1", serverVerifiedFailure: true });
   assert.equal(released.released, true);
   assert.equal(released.used, 0);
+  assert.equal(trialExports.assertWatermarkPresent(`hello ${mark}`, mark).ok, true);
+  assert.equal(trialExports.assertWatermarkPresent("hello", mark).ok, false);
+  // No legacy Free bypass
+  assert.equal(require("./free-plan-grandfathering.js").hasLegacyFreeLessonAccess({
+    plan: "Free", createdAt: "2020-01-01T00:00:00.000Z", freeLessonAccessMode: "legacy",
+  }), false);
 
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
@@ -333,9 +392,99 @@ async function main() {
     assert.equal(owned.json.allowed, true);
     assert.equal(owned.json.counted, false);
 
-    // Failed export release restores allowance from a fresh authorize in release window
-    // (use a new trial user state via release of exp-1 — already used; create via release of a newly authorized key on pro? skip if exhausted)
-    // Pro unlimited
+    // Client cannot fraudulently release allowance
+    const fraudRelease = await request("POST", "/api/trial-curriculum-exports/release", {
+      idempotencyKey: "exp-1",
+    }, headers);
+    assert.equal(fraudRelease.status, 403);
+    assert.equal(fraudRelease.json.released, false);
+
+    // Concurrent fourth export blocked (5 simultaneous after 3 used)
+    const concurrent = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => request("POST", "/api/trial-curriculum-exports/authorize", {
+        idempotencyKey: `concurrent-${i}`,
+        resourceId: `concurrent-${i}`,
+        action: "print",
+      }, headers)),
+    );
+    const allowedConcurrent = concurrent.filter((r) => r.json?.allowed === true).length;
+    assert.equal(allowedConcurrent, 0, "after 3 used, five simultaneous requests must not grant more exports");
+
+    // Five simultaneous requests from a fresh trial cannot exceed 3 exports
+    const burstHeaders = authHeaders("trial.burst@test.local");
+    const burst = await Promise.all(
+      Array.from({ length: 5 }, (_, i) => request("POST", "/api/trial-curriculum-exports/authorize", {
+        idempotencyKey: `burst-${i}`,
+        resourceId: `burst-plan-${i}`,
+        action: "print",
+      }, burstHeaders)),
+    );
+    const burstAllowed = burst.filter((r) => r.json?.allowed === true).length;
+    assert.equal(burstAllowed, 3, "five simultaneous requests cannot exceed 3 exports");
+    const burstStatus = await request("GET", "/api/trial-curriculum-exports", null, burstHeaders);
+    assert.equal(burstStatus.json.used, 3);
+    assert.equal(burstStatus.json.remaining, 0);
+
+    // Server restart preserves allowance (re-read status)
+    const statusAfter = await request("GET", "/api/trial-curriculum-exports", null, headers);
+    assert.equal(statusAfter.json.used, 3);
+    assert.equal(statusAfter.json.remaining, 0);
+
+    // Cross-device: same account headers still see same used count
+    const statusDeviceB = await request("GET", "/api/trial-curriculum-exports", null, {
+      ...headers,
+      "User-Agent": "OtherDevice/1.0",
+    });
+    assert.equal(statusDeviceB.json.used, 3);
+
+    // Exhausted trial generate must block
+    const genBlocked = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
+      resourceId: "cur-lp-preschool-letters-and-sounds",
+      idempotencyKey: "gen-watermark-blocked",
+    }, authHeaders("trial.user@test.local"));
+    assert.ok(genBlocked.status === 403 || genBlocked.json?.allowed === false);
+
+    // Fresh trial: watermarked PDF bytes must contain Trial watermark
+    const genOk = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
+      resourceId: "cur-lp-preschool-letters-and-sounds",
+      idempotencyKey: "gen-watermark-ok",
+    }, authHeaders("trial.fresh@test.local"));
+    assert.equal(genOk.status, 200, genOk.text?.slice?.(0, 200) || genOk.text);
+    assert.match(genOk.text, /Trial Preview/);
+    assert.ok(e1.json.watermark && /Trial Preview/.test(e1.json.watermark));
+
+    // Watermark-generation failure blocks export (fail closed) and restores allowance server-side only
+    const wmFailHeaders = authHeaders("trial.wmfail@test.local");
+    const genFail = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
+      resourceId: "cur-lp-preschool-letters-and-sounds",
+      idempotencyKey: "gen-watermark-fail",
+      forceWatermarkFailure: true,
+    }, wmFailHeaders);
+    assert.equal(genFail.status, 500, genFail.text?.slice?.(0, 300) || genFail.text);
+    assert.match(genFail.json?.message || genFail.text || "", /try again/i);
+    assert.equal(genFail.json?.allowanceRestored, true);
+    const afterFail = await request("GET", "/api/trial-curriculum-exports", null, wmFailHeaders);
+    assert.equal(afterFail.json.used, 0, "verified server-side generation failure restores allowance");
+
+    // Existing Free unlocks exactly the 10 starters (no legacy bypass extras)
+    const freeLib = await request("GET", "/api/site-content", null, authHeaders("free.user@test.local"));
+    const freePlans = freeLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [];
+    const freeUnlocked = freePlans.filter((p) => p && p.locked !== true);
+    assert.equal(freeUnlocked.length, 10, `existing Free must unlock exactly 10 plans (got ${freeUnlocked.length})`);
+    const legacyLib = await request("GET", "/api/site-content", null, authHeaders("free.legacy.labeled@test.local"));
+    const legacyUnlocked = (legacyLib.json?.siteContent?.curriculumLibrary?.lessonPlans || [])
+      .filter((p) => p && p.locked !== true);
+    assert.equal(legacyUnlocked.length, 10, "legacy-labeled Free must also unlock exactly 10 (no bypass)");
+
+    // Free starter generate has no trial watermark requirement
+    const freeGen = await request("POST", "/api/trial-curriculum-exports/generate-pdf", {
+      resourceId: freeId,
+      idempotencyKey: "gen-free",
+    }, authHeaders("free.user@test.local"));
+    assert.equal(freeGen.status, 200);
+    assert.doesNotMatch(freeGen.text, /Trial Preview/);
+
+    // Pro unlimited / unwatermarked authorize
     const proAuth = await request("POST", "/api/trial-curriculum-exports/authorize", {
       idempotencyKey: "pro-1", resourceId: "any",
     }, authHeaders("pro.user@test.local"));
@@ -347,6 +496,25 @@ async function main() {
       idempotencyKey: "founding-1", resourceId: "any",
     }, authHeaders("founding.user@test.local"));
     assert.equal(foundingAuth.json.unlimited, true);
+    assert.equal(foundingAuth.json.watermark, "");
+
+    // Existing Free with legacy mode label still only unlocks curated starters (no bypass)
+    const legacyStarter = await request("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(freeId)}`, null, authHeaders("free.legacy.labeled@test.local"));
+    assert.equal(legacyStarter.status, 200);
+    assert.equal(legacyStarter.json.lessonPlan.locked, false);
+    const legacyPremium = await request("GET", "/api/curriculum/lesson-plans/cur-lp-preschool-letters-and-sounds", null, authHeaders("free.legacy.labeled@test.local"));
+    assert.ok(legacyPremium.status === 200 || legacyPremium.status === 403);
+    if (legacyPremium.status === 200) {
+      assert.equal(legacyPremium.json.lessonPlan.locked, true);
+      assert.equal(legacyPremium.json.lessonPlan.dailyPlans, undefined);
+    }
+    // Distribution 3/3/4
+    const ages = freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.map((id, idx) => (
+      idx < 3 ? "Infant" : idx < 6 ? "Toddler" : "Preschool"
+    ));
+    assert.equal(ages.filter((a) => a === "Infant").length, 3);
+    assert.equal(ages.filter((a) => a === "Toddler").length, 3);
+    assert.equal(ages.filter((a) => a === "Preschool").length, 4);
 
     // Site content exposes free starter + membership copy
     const site = await request("GET", "/api/site-content");

@@ -32,6 +32,12 @@
     beforeExport: "This will use 1 of your 3 trial curriculum exports.",
     remaining: (n) => `You have ${n} trial curriculum exports remaining.`,
     unlimitedLabel: "Unlimited curriculum printing and downloads",
+    watermarkRequired:
+      "Trial premium exports require a Trial watermark. We couldn’t prepare a watermarked file — please try again.",
+    tryAgain:
+      "We couldn’t finish this premium curriculum export safely. Please try again. Your trial allowance was not used for this failed attempt.",
+    clientReleaseDenied:
+      "Export allowance can only be restored after a verified server-side generation failure.",
     freeCore:
       "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
     freeBrowse:
@@ -58,7 +64,34 @@
   }
 
   function watermarkText(user) {
-    return `Little Learner Hub Trial Preview • Account ${shortAccountRef(user)}`;
+    // ASCII-only so PDF/text generators can embed and verify the exact string.
+    return `Little Learner Hub Trial Preview - Account ${shortAccountRef(user)}`;
+  }
+
+  /** Fail-closed: content must include the exact watermark string. */
+  function assertWatermarkPresent(content, watermark) {
+    const mark = String(watermark || "").trim();
+    if (!mark) {
+      return { ok: false, error: COPY.watermarkRequired };
+    }
+    let haystack = "";
+    if (typeof content === "string") {
+      haystack = content;
+    } else if (content && typeof content === "object" && typeof content.byteLength === "number") {
+      try {
+        haystack = typeof Buffer !== "undefined"
+          ? Buffer.from(content).toString("latin1")
+          : Array.from(new Uint8Array(content)).map((b) => String.fromCharCode(b)).join("");
+      } catch {
+        haystack = "";
+      }
+    } else {
+      haystack = String(content || "");
+    }
+    if (!haystack.includes(mark)) {
+      return { ok: false, error: COPY.watermarkRequired };
+    }
+    return { ok: true };
   }
 
   function emptyState(nowIso = new Date().toISOString()) {
@@ -122,6 +155,7 @@
     resourceId,
     action,
     stripeCustomerId,
+    watermark = "",
     nowMs = Date.now(),
   } = {}) {
     const key = String(idempotencyKey || "").trim();
@@ -166,6 +200,7 @@
     }
 
     const eventId = `tce_${nowMs.toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    const issuedWatermark = String(watermark || "").trim();
     next.used += 1;
     next.remaining = Math.max(0, TRIAL_EXPORT_ALLOWANCE - next.used);
     next.lastExportAt = new Date(nowMs).toISOString();
@@ -179,6 +214,7 @@
       action: String(action || "export"),
       at: next.lastExportAt,
       released: false,
+      watermark: issuedWatermark,
     };
     next.events = [...next.events, event].slice(-50);
     next.idempotency[key] = {
@@ -188,6 +224,7 @@
       resourceType: event.resourceType,
       resourceId: event.resourceId,
       action: event.action,
+      watermark: issuedWatermark,
     };
     return {
       ok: true,
@@ -195,7 +232,7 @@
       reused: false,
       remaining: next.remaining,
       used: next.used,
-      watermark: "",
+      watermark: issuedWatermark,
       state: next,
       eventId,
       message: COPY.remaining(next.remaining),
@@ -203,8 +240,24 @@
     };
   }
 
-  /** Release a just-authorized export after a failed print/download (same key, short window). */
-  function releaseExport(state, { idempotencyKey, nowMs = Date.now() } = {}) {
+  /**
+   * Release a just-authorized export ONLY after verified server-side generation failure.
+   * Client-originated release requests must not pass serverVerifiedFailure=true.
+   */
+  function releaseExport(state, {
+    idempotencyKey,
+    nowMs = Date.now(),
+    serverVerifiedFailure = false,
+  } = {}) {
+    if (!serverVerifiedFailure) {
+      return {
+        ok: false,
+        error: COPY.clientReleaseDenied,
+        status: 403,
+        state: normalizeState(state),
+        released: false,
+      };
+    }
     const key = String(idempotencyKey || "").trim();
     let next = pruneIdempotency(normalizeState(state), nowMs);
     const prior = next.idempotency[key];
@@ -274,6 +327,7 @@
     COPY,
     shortAccountRef,
     watermarkText,
+    assertWatermarkPresent,
     emptyState,
     normalizeState,
     isProtectedCurriculumExport,

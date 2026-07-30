@@ -1888,9 +1888,9 @@ function userMayUnlockFreeCurriculumPlan(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry) return false;
   const storeOrContent = accessContext?.store || accessContext?.siteContent || null;
-  if (isStoreCuratedFreeLessonPlan(entry, storeOrContent)) return true;
-  if (accessContext?.legacyFree && freePlanGrandfathering.isLegacyStoreFreePlan(entry)) return true;
-  return false;
+  // Policy: every Free account unlocks only the curated 10-plan Starter Library.
+  // Legacy Free bypass is permanently disabled.
+  return isStoreCuratedFreeLessonPlan(entry, storeOrContent);
 }
 
 function authorizedCurriculumLessonPlanDto(plan) {
@@ -14179,6 +14179,99 @@ function trialExportRateBuckets() {
   return globalThis.__llhTrialExportRateBuckets;
 }
 
+function trialExportUserLocks() {
+  if (!globalThis.__llhTrialExportUserLocks) globalThis.__llhTrialExportUserLocks = new Map();
+  return globalThis.__llhTrialExportUserLocks;
+}
+
+async function withTrialExportUserLock(email, fn) {
+  const key = normalizeEmail(email);
+  const locks = trialExportUserLocks();
+  while (locks.get(key)) {
+    await locks.get(key);
+  }
+  let release;
+  const gate = new Promise((resolve) => { release = resolve; });
+  locks.set(key, gate);
+  try {
+    return await fn();
+  } finally {
+    locks.delete(key);
+    release();
+  }
+}
+
+function isServerProviderOwnedCurriculum(store, email, resourceId) {
+  const id = String(resourceId || "").trim();
+  if (!id) return false;
+  const user = store.users?.[normalizeEmail(email)] || {};
+  const ownedLists = [
+    user.userLessonPlans,
+    user.customLessonPlans,
+    user.providerLessonPlans,
+    user.savedLessonCopies,
+  ];
+  for (const list of ownedLists) {
+    if (!Array.isArray(list)) continue;
+    if (list.some((item) => String(item?.id || item?._id || "") === id || item?._userLessonCopy)) {
+      return true;
+    }
+  }
+  // Explicit provider-owned prefix conventions used by the client.
+  if (/^(user-|provider-|copy-|custom-lp-)/i.test(id)) return true;
+  return false;
+}
+
+/** Minimal watermarked PDF for server-side Trial export generation (fail-closed). */
+function buildTrialWatermarkedPdfBuffer({ title, bodyText, watermark }) {
+  const mark = String(watermark || "").trim();
+  if (!mark) throw new Error(trialCurriculumExports.COPY.watermarkRequired);
+  const escapePdf = (value) => String(value || "")
+    .replace(/\\/g, "\\\\")
+    .replace(/\(/g, "\\(")
+    .replace(/\)/g, "\\)")
+    .replace(/[^\x20-\x7E]/g, "?");
+  const lines = [
+    "Little Learner Hub",
+    String(title || "Curriculum export").slice(0, 90),
+    "",
+    ...String(bodyText || "").split(/\r?\n/).map((line) => line.slice(0, 96)).slice(0, 40),
+    "",
+    mark,
+  ];
+  let y = 760;
+  const content = ["BT", "/F1 11 Tf", "50 780 Td", `(${escapePdf("Little Learner Hub Trial Export")}) Tj`];
+  lines.forEach((line, index) => {
+    y = 750 - (index * 14);
+    content.push("ET", "BT", `/F1 ${index === lines.length - 1 ? 8 : 10} Tf`, `50 ${y} Td`, `(${escapePdf(line)}) Tj`);
+  });
+  content.push("ET");
+  const stream = content.join("\n");
+  const objects = [];
+  objects.push("<< /Type /Catalog /Pages 2 0 R >>");
+  objects.push("<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
+  objects.push("<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>");
+  objects.push(`<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`);
+  objects.push("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+  let pdf = "%PDF-1.4\n";
+  const offsets = [0];
+  objects.forEach((obj, i) => {
+    offsets.push(Buffer.byteLength(pdf));
+    pdf += `${i + 1} 0 obj\n${obj}\nendobj\n`;
+  });
+  const xref = Buffer.byteLength(pdf);
+  pdf += `xref\n0 ${objects.length + 1}\n`;
+  pdf += "0000000000 65535 f \n";
+  for (let i = 1; i <= objects.length; i += 1) {
+    pdf += `${String(offsets[i]).padStart(10, "0")} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
+  const buf = Buffer.from(pdf, "utf8");
+  const check = trialCurriculumExports.assertWatermarkPresent(buf, mark);
+  if (!check.ok) throw new Error(check.error || trialCurriculumExports.COPY.watermarkRequired);
+  return buf;
+}
+
 function publicMembershipCopyPayload(store = peekStore()) {
   const founding = foundingStatusPayload(store);
   return {
@@ -14313,9 +14406,9 @@ async function handleTrialCurriculumExportAuthorize(request, response, url) {
   const resourceType = String(body.resourceType || "").trim();
   const resourceId = String(body.resourceId || "").trim();
   const action = String(body.action || "export").trim();
-  const isProviderOwned = body.isProviderOwned === true;
-  const isFreeCurriculum = body.isFreeCurriculum === true
-    || (resourceType === "lesson-plan" && isStoreCuratedFreeLessonPlan({ id: resourceId }, store));
+  // Never trust client-owned flags — resolve Free / provider-owned on the server.
+  const isProviderOwned = isServerProviderOwnedCurriculum(store, email, resourceId);
+  const isFreeCurriculum = resourceType === "lesson-plan" && isStoreCuratedFreeLessonPlan({ id: resourceId }, store);
 
   if (isProviderOwned || isFreeCurriculum) {
     jsonResponse(response, 200, {
@@ -14343,43 +14436,69 @@ async function handleTrialCurriculumExportAuthorize(request, response, url) {
   }
   buckets.set(rateKey, rate.hits);
 
-  const result = trialCurriculumExports.authorizeExport(user.trialCurriculumExports, {
-    idempotencyKey: body.idempotencyKey,
-    resourceType,
-    resourceId,
-    action,
-    stripeCustomerId: user.stripeCustomerId || "",
-  });
-  if (!result.ok) {
-    jsonResponse(response, result.status || 400, { error: result.error });
-    return;
-  }
-  upsertUser(email, {
-    trialCurriculumExports: result.state,
-    stripeCustomerId: user.stripeCustomerId || result.state.stripeCustomerId || "",
-  });
-  jsonResponse(response, 200, {
-    ok: true,
-    allowed: result.allowed,
-    reused: result.reused,
-    counted: result.allowed && !result.reused,
-    remaining: result.remaining,
-    used: result.used,
-    watermark: result.allowed ? trialCurriculumExports.watermarkText(user) : "",
-    accountRef: trialCurriculumExports.shortAccountRef(user),
-    message: result.message,
-    beforeMessage: trialCurriculumExports.COPY.beforeExport,
-    copy: trialCurriculumExports.COPY,
+  await withTrialExportUserLock(email, async () => {
+    const fresh = peekStore().users?.[normalizeEmail(email)] || user;
+    const watermark = trialCurriculumExports.watermarkText(fresh);
+    const result = trialCurriculumExports.authorizeExport(fresh.trialCurriculumExports, {
+      idempotencyKey: body.idempotencyKey,
+      resourceType,
+      resourceId,
+      action,
+      stripeCustomerId: fresh.stripeCustomerId || "",
+      watermark,
+    });
+    if (!result.ok) {
+      jsonResponse(response, result.status || 400, { error: result.error });
+      return;
+    }
+    if (result.allowed && !String(result.watermark || watermark || "").trim()) {
+      jsonResponse(response, 500, {
+        ok: false,
+        allowed: false,
+        error: trialCurriculumExports.COPY.watermarkRequired,
+        message: trialCurriculumExports.COPY.tryAgain,
+      });
+      return;
+    }
+    upsertUser(email, {
+      trialCurriculumExports: result.state,
+      stripeCustomerId: fresh.stripeCustomerId || result.state.stripeCustomerId || "",
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      allowed: result.allowed,
+      reused: result.reused,
+      counted: result.allowed && !result.reused,
+      remaining: result.remaining,
+      used: result.used,
+      watermark: result.allowed ? (result.watermark || watermark) : "",
+      accountRef: trialCurriculumExports.shortAccountRef(fresh),
+      message: result.message,
+      beforeMessage: trialCurriculumExports.COPY.beforeExport,
+      copy: trialCurriculumExports.COPY,
+      // Client cannot restore allowance; only server generate-failure can.
+      clientReleaseAllowed: false,
+    });
   });
 }
 
 async function handleTrialCurriculumExportRelease(request, response, url) {
+  // Never trust a client claim that an export failed.
+  jsonResponse(response, 403, {
+    ok: false,
+    released: false,
+    error: trialCurriculumExports.COPY.clientReleaseDenied,
+    message: trialCurriculumExports.COPY.clientReleaseDenied,
+  });
+}
+
+async function handleTrialCurriculumExportGeneratePdf(request, response, url) {
   const resolved = await resolveMemberUserFromRequest(request, url);
   if (!resolved.ok) {
     jsonResponse(response, resolved.status, { error: resolved.error });
     return;
   }
-  const { email, user } = resolved;
+  const { email, user, store } = resolved;
   let body = {};
   try {
     body = await readJson(request);
@@ -14387,22 +14506,122 @@ async function handleTrialCurriculumExportRelease(request, response, url) {
     jsonResponse(response, 400, { error: "Invalid JSON body." });
     return;
   }
-  const result = trialCurriculumExports.releaseExport(user.trialCurriculumExports, {
-    idempotencyKey: body.idempotencyKey,
-  });
-  if (!result.ok) {
-    jsonResponse(response, result.status || 400, { error: result.error });
+  const resourceId = String(body.resourceId || "").trim();
+  const idempotencyKey = String(body.idempotencyKey || `gen-${Date.now().toString(36)}`).trim();
+  if (!resourceId) {
+    jsonResponse(response, 400, { error: "resourceId is required." });
     return;
   }
-  if (result.released) {
-    upsertUser(email, { trialCurriculumExports: result.state });
+
+  const unlimited = membershipAccess.membershipHasProAccess(user) && !membershipAccess.membershipUserInTrial(user);
+  const isFreeCurriculum = isStoreCuratedFreeLessonPlan({ id: resourceId }, store);
+  const isProviderOwned = isServerProviderOwnedCurriculum(store, email, resourceId);
+  const curriculum = readSiteCurriculum(store);
+  const plan = curriculum.lessonPlans.find((item) => item.id === resourceId);
+  if (!plan) {
+    jsonResponse(response, 404, { error: "Curriculum resource not found." });
+    return;
   }
-  jsonResponse(response, 200, {
-    ok: true,
-    released: result.released,
-    remaining: result.remaining,
-    used: result.used,
-  });
+
+  const requiresTrialWatermark = !unlimited && !isFreeCurriculum && !isProviderOwned;
+  let watermark = "";
+  if (requiresTrialWatermark) {
+    if (!membershipAccess.membershipUserInTrial(user)) {
+      jsonResponse(response, 403, { error: "Pro access is required for this export." });
+      return;
+    }
+    const authOutcome = await withTrialExportUserLock(email, async () => {
+      const fresh = peekStore().users?.[normalizeEmail(email)] || user;
+      const mark = trialCurriculumExports.watermarkText(fresh);
+      const result = trialCurriculumExports.authorizeExport(fresh.trialCurriculumExports, {
+        idempotencyKey,
+        resourceType: "lesson-plan",
+        resourceId,
+        action: "download",
+        stripeCustomerId: fresh.stripeCustomerId || "",
+        watermark: mark,
+      });
+      if (!result.ok) return { status: result.status || 400, body: { error: result.error } };
+      if (!result.allowed) {
+        return {
+          status: 403,
+          body: {
+            ok: false,
+            allowed: false,
+            message: result.message,
+            remaining: result.remaining,
+            used: result.used,
+          },
+        };
+      }
+      upsertUser(email, { trialCurriculumExports: result.state });
+      return { status: 200, watermark: result.watermark || mark };
+    });
+    if (authOutcome.status !== 200) {
+      jsonResponse(response, authOutcome.status, authOutcome.body);
+      return;
+    }
+    watermark = authOutcome.watermark;
+    if (!String(watermark || "").trim()) {
+      jsonResponse(response, 500, {
+        ok: false,
+        message: trialCurriculumExports.COPY.tryAgain,
+        error: trialCurriculumExports.COPY.watermarkRequired,
+      });
+      return;
+    }
+  }
+
+  try {
+    // Test-only hook: simulate watermark generation failure (fail-closed path).
+    if (
+      requiresTrialWatermark
+      && body.forceWatermarkFailure === true
+      && (process.env.NODE_ENV === "test" || process.env.LLH_ALLOW_WATERMARK_FAIL_HOOK === "1")
+    ) {
+      throw new Error(trialCurriculumExports.COPY.watermarkRequired);
+    }
+    const footer = requiresTrialWatermark ? watermark : "Little Learner Hub";
+    const pdf = buildTrialWatermarkedPdfBuffer({
+      title: plan.title,
+      bodyText: [
+        `Age: ${plan.age || ""}`,
+        `Theme: ${plan.theme || ""}`,
+        String(plan.weeklyOverview || "").slice(0, 600),
+      ].join("\n"),
+      watermark: footer,
+    });
+    if (requiresTrialWatermark) {
+      const check = trialCurriculumExports.assertWatermarkPresent(pdf, watermark);
+      if (!check.ok) throw new Error(check.error);
+    }
+    response.writeHead(200, {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${String(plan.title || "lesson").replace(/[^\w.-]+/g, "-").slice(0, 60)}.pdf"`,
+      "Cache-Control": "no-store",
+      ...(requiresTrialWatermark ? { "X-LLH-Trial-Watermark": "1" } : {}),
+    });
+    response.end(pdf);
+  } catch (error) {
+    if (requiresTrialWatermark && idempotencyKey) {
+      await withTrialExportUserLock(email, async () => {
+        const fresh = peekStore().users?.[normalizeEmail(email)] || user;
+        const released = trialCurriculumExports.releaseExport(fresh.trialCurriculumExports, {
+          idempotencyKey,
+          serverVerifiedFailure: true,
+        });
+        if (released.ok && released.released) {
+          upsertUser(email, { trialCurriculumExports: released.state });
+        }
+      });
+    }
+    jsonResponse(response, 500, {
+      ok: false,
+      error: error.message || trialCurriculumExports.COPY.watermarkRequired,
+      message: trialCurriculumExports.COPY.tryAgain,
+      allowanceRestored: Boolean(requiresTrialWatermark),
+    });
+  }
 }
 
 function handleAdminTrialUsage(request, response, url) {
@@ -17986,6 +18205,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/trial-curriculum-exports") return await handleTrialCurriculumExportStatus(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/trial-curriculum-exports/authorize") return await handleTrialCurriculumExportAuthorize(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/trial-curriculum-exports/release") return await handleTrialCurriculumExportRelease(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/trial-curriculum-exports/generate-pdf") return await handleTrialCurriculumExportGeneratePdf(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/trial-usage") return handleAdminTrialUsage(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/free-starter-library") return handleAdminFreeStarterLibraryGet(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/free-starter-library") return await handleAdminFreeStarterLibrarySave(request, response);
