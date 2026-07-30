@@ -24248,13 +24248,14 @@ function scrollToHomeSection(sectionKeyOrId) {
     document.body.classList.add("home-view");
   }
   setHomePublicMenuOpen(false);
-  // One scroll only — a second smooth pass mid-animation mis-measures and overshoots.
+  // Instant scroll (not smooth): sticky-nav offset math stays accurate and section
+  // links feel reliable on long homepage pages / mobile menu close.
   window.setTimeout(() => {
     const el = document.getElementById(sectionId);
     if (!el) return;
     const offset = homeStickyNavOffsetPx() + 10;
     const top = Math.max(0, window.scrollY + el.getBoundingClientRect().top - offset);
-    window.scrollTo({ top, behavior: "smooth" });
+    window.scrollTo({ top, behavior: "auto" });
     try {
       if (sectionId === "homeHero") {
         history.replaceState(null, "", window.location.pathname + window.location.search);
