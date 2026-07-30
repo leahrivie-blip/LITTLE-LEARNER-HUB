@@ -2111,7 +2111,7 @@ const freePlanBaseFeatures = [
 const MEMBERSHIP_COPY = Object.freeze({
   freeCore: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
   freeBrowse: "Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
-  trialCore: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. Upgrade to Founding or Pro for unlimited curriculum access, printing and downloads.",
+  trialCore: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first.",
   foundingWhileOpen: "Founding Members receive unlimited curriculum access for $9.99/month locked while membership remains continuously active.",
   foundingCard: "Founding includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $9.99/month locked while membership remains continuously active.",
   proMonthly: "Pro includes unlimited curriculum access, printing and downloads for $19.99/month.",
@@ -2536,8 +2536,8 @@ const freeAiLimitMessage = `${freeDocumentationLimitMessage}\n\nYou’ve used al
 const paidAiLimitMessage = "You have used all 250 document creations for this month. Your access will reset next month.";
 const proUnlockValueProp = "Save hours every week with unlimited lesson plans, new plans added every week, classroom customization, Documentation Helpers, and everything you need in one place.";
 const freeResourceLimitMessage = `Ready for more?\n\n${proUnlockValueProp}`;
-const proTrialUpgradeMessage = `${MEMBERSHIP_COPY.trialCore} Card required. Cancel anytime.`;
-const proTrialUpgradeSummary = "7-Day Pro Trial · Full library browsing · Up to 3 premium curriculum prints/downloads · Card required · Cancel anytime";
+const proTrialUpgradeMessage = `${MEMBERSHIP_COPY.trialCore} Cancel anytime before day 7 to avoid being charged.`;
+const proTrialUpgradeSummary = "7-Day Pro Trial · Full library browsing · Up to 3 premium curriculum prints/downloads · Card required · Charged $19.99/month after 7 days · Cancel anytime";
 const freeLibraryUpgradeHeadline = "Ready to save hours every week?";
 const freeLibraryUpgradeBody = `${MEMBERSHIP_COPY.freeCore} ${MEMBERSHIP_COPY.freeBrowse}`;
 const aiLessonPlanUpgradeMessage = "Generate custom lesson plans in seconds and save hours of planning every week.\n\nAvailable with Pro Membership.";
@@ -10006,7 +10006,7 @@ function captureDefaultSiteContent() {
       proPlanFeatures: Array.from(document.querySelectorAll(".lp-pro-card .lp-price-features li")).map((li) => li.textContent.trim()).filter(Boolean),
       proPlanHighlightBadge: document.querySelector(".lp-pro-highlight-badge")?.textContent?.trim() || "Most Popular",
       trialButtonText: document.querySelector(".lp-pro-card [data-action='upgrade-trial']")?.textContent?.trim() || "Start Your 7-Day Free Pro Trial",
-      trialNoteText: document.querySelector(".lp-price-note")?.textContent?.trim() || "Credit card required. Cancel anytime. Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads.",
+      trialNoteText: document.querySelector(".lp-price-note")?.textContent?.trim() || "Credit card required. You are charged Pro Monthly after 7 days unless you cancel. Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads.",
       creditCardText: "Credit card required.",
       cancelText: "Cancel anytime.",
       _draft: false,
@@ -10022,10 +10022,10 @@ function captureDefaultSiteContent() {
     upgradeMessaging: {
       upgradePopupHeadline: "This is a Pro Feature",
       upgradeLimitHeadline: "Ready to save hours every week?",
-      upgradePopupBody: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. Upgrade to Founding or Pro for unlimited curriculum access, printing and downloads. Card required. Cancel anytime.",
+      upgradePopupBody: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first.",
       proTrialButtonText: "Start Your 7-Day Free Trial",
       freeLimitMessage: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
-      trialUpgradeSummary: "7-Day Pro Trial · Browse the full Pro library · Up to 3 premium curriculum prints or downloads · Card required · Cancel anytime · Converts to Pro Monthly after trial.",
+      trialUpgradeSummary: "7-Day Pro Trial · Browse the full Pro library · Up to 3 premium curriculum prints or downloads · Card required · Charged $19.99/month after 7 days · Cancel anytime.",
       _draft: false,
     },
     founding: {
@@ -22696,7 +22696,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     : (showProMonthlyOffer
       ? "Pro Monthly is $19.99/month. Existing Founding Members keep their locked price while continuously active."
       : (showProTrialOffer
-        ? "7-day Pro trial. Card required. Cancel anytime. Converts to Pro Monthly at $19.99/month after the trial — not Founding Member pricing."
+        ? "7-day Pro trial. Card required at signup. You are charged Pro Monthly ($19.99/month) right after the trial ends unless you cancel — not Founding Member pricing."
         : ""));
   const renderApi = curriculumViewerRenderApi();
   const lockedCurriculum = isLockedLessonPlan
@@ -50550,7 +50550,7 @@ async function startProTrial() {
   await syncFoundingStatus({ render: false });
   const checkoutType = "monthly";
   const amount = checkoutAmount(checkoutType);
-  if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nA credit card is required. Cancel anytime before the trial ends to avoid converting to Pro Monthly.`)) return;
+  if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) return;
   const pending = {
     type: checkoutType,
     amount,
@@ -50595,9 +50595,9 @@ async function startProTrial() {
     upgradeTarget.insertAdjacentHTML("afterbegin", `
       <section class="section-block checkout-test-panel">
         <p class="eyebrow">7-Day Pro Trial</p>
-        <h3>${escapeHtml(amount)} after 7-day Pro trial</h3>
+        <h3>${escapeHtml(amount)} charged after the 7-day Pro trial</h3>
         <p class="muted-copy">${escapeHtml(MEMBERSHIP_COPY.trialCore)}</p>
-        <p class="muted-copy">Local test mode is active because the Stripe backend is not running or not configured yet.</p>
+        <p class="muted-copy">Local test mode is active because the Stripe backend is not running or not configured yet. In production, Stripe Checkout collects your card and charges automatically when the trial ends.</p>
         <div class="account-actions-row">
           <button class="primary-button" data-complete-checkout type="button">Complete Test Payment</button>
           <button class="ghost-button" data-fail-checkout type="button">Simulate Payment Failure</button>

@@ -4568,6 +4568,8 @@ function applyCheckoutMembershipUpgrade(email, {
     checkoutTrialUpdates.trialStatus = "In Trial";
     checkoutTrialUpdates.trialStart = new Date().toISOString();
     checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
+    // Card-required intro trial is consumed as soon as Checkout completes — even before the first paid invoice.
+    checkoutTrialUpdates.introductoryTrialConsumed = true;
   }
   logMembershipTransition("payment_received", cleanEmail, {
     plan: planConfig[planKey]?.plan || planKey,
@@ -4880,11 +4882,31 @@ async function stripeRequest(pathname, params) {
     if (pathname === "checkout/sessions") {
       const plan = params["metadata[plan]"] || params["subscription_data[metadata][plan]"] || "monthly";
       const price = params["line_items[0][price]"] || "";
+      const trialDays = params["subscription_data[trial_period_days]"] || "";
+      const paymentMethodCollection = params.payment_method_collection || "";
+      const trialMissingPm = params["subscription_data[trial_settings][end_behavior][missing_payment_method]"] || "";
+      const promoTrialDays = params["metadata[promoTrialDays]"] || "";
+      const query = new URLSearchParams({
+        checkout: "simulated",
+        plan: String(plan),
+        price: String(price),
+      });
+      if (trialDays) query.set("trial_days", String(trialDays));
+      if (promoTrialDays) query.set("promo_trial_days", String(promoTrialDays));
+      if (paymentMethodCollection) query.set("payment_method_collection", String(paymentMethodCollection));
+      if (trialMissingPm) query.set("trial_missing_pm", String(trialMissingPm));
       return {
         id: `cs_sim_${crypto.randomBytes(8).toString("hex")}`,
-        url: `${SITE_URL}/?checkout=simulated&plan=${encodeURIComponent(plan)}&price=${encodeURIComponent(price)}`,
+        url: `${SITE_URL}/?${query.toString()}`,
         mode: "subscription",
-        metadata: { email: params["metadata[email]"] || "", plan },
+        payment_method_collection: paymentMethodCollection || "always",
+        metadata: {
+          email: params["metadata[email]"] || "",
+          plan,
+          promoTrialDays: String(promoTrialDays || trialDays || ""),
+          promoLabel: params["metadata[promoLabel]"] || "",
+          trial7day: params["metadata[trial7day]"] || "",
+        },
       };
     }
     return { id: `sim_${crypto.randomBytes(6).toString("hex")}`, object: pathname };
@@ -7486,10 +7508,19 @@ async function handleCheckout(request, response) {
       sessionParams["subscription_data[metadata][promoLabel]"] = promo.label;
       sessionParams["subscription_data[metadata][promoTrialDays]"] = String(promo.trialDays);
       sessionParams["subscription_data[trial_period_days]"] = String(promo.trialDays);
+      // Card is collected at Checkout; if it is somehow missing at trial end, cancel instead of leaving an unpaid sub.
+      sessionParams["subscription_data[trial_settings][end_behavior][missing_payment_method]"] = "cancel";
     } else if (trial7day) {
+      // Stripe Checkout collects a card now (payment_method_collection=always), starts a 7-day
+      // trial at $0, then automatically invoices/charges Pro Monthly when the trial ends.
       sessionParams["subscription_data[trial_period_days]"] = "7";
+      sessionParams["metadata[promoTrialDays]"] = "7";
+      sessionParams["metadata[trial7day]"] = "true";
       sessionParams["metadata[promoLabel]"] = "7-Day Pro Trial";
+      sessionParams["subscription_data[metadata][promoTrialDays]"] = "7";
+      sessionParams["subscription_data[metadata][trial7day]"] = "true";
       sessionParams["subscription_data[metadata][promoLabel]"] = "7-Day Pro Trial";
+      sessionParams["subscription_data[trial_settings][end_behavior][missing_payment_method]"] = "cancel";
     }
     const session = await stripeRequest("checkout/sessions", sessionParams);
     if (planKey === "founding" && foundingReservation?.ok) {
@@ -8320,6 +8351,9 @@ async function handleCheckoutStatus(request, response, url) {
       subscriptionId: session.subscription,
       customerId: session.customer,
       promo: promoCode ? { applied: true, trialDays: promoTrialDays, label: promoLabel } : null,
+      trial: promoTrialDays > 0
+        ? { applied: true, trialDays: promoTrialDays, label: promoLabel || "Trial", paymentMethodRequired: true }
+        : null,
       founding: foundingStatusPayload(readStore()),
       membership: upgradedUser ? membershipSummaryForUser(upgradedUser) : null,
     });

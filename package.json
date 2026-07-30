@@ -121,6 +121,7 @@
     "test:conversion-finish-approval": "node scripts/test-conversion-finish-approval.js",
     "test:free-pro-conversion": "node scripts/test-free-pro-conversion.js",
     "test:trial-protection-free-starter": "NODE_ENV=test node scripts/test-trial-protection-free-starter.js",
+    "test:pro-trial-card-charge": "NODE_ENV=test node scripts/test-pro-trial-card-charge.js",
     "test:free-plan-grandfathering": "node scripts/test-free-plan-grandfathering.js",
     "test:homepage-redesign-audit": "node scripts/test-homepage-redesign-audit.js",
     "test:homepage-cleanup": "node scripts/test-homepage-cleanup.js",
