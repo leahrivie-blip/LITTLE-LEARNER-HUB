@@ -172,7 +172,7 @@ async function main() {
     await page.waitForFunction(() => {
       const program = document.querySelector("#signupStepProgram");
       return program && !program.classList.contains("hidden-field");
-    }, { timeout: 60000 });
+    }, null, { timeout: 60000 });
     await page.click('[data-signup-persona="home_daycare"]');
     await page.click('[data-signup-pathway="independent"]');
     await page.fill("#signupProgramNameInput", "Home Daycare");
@@ -180,7 +180,7 @@ async function main() {
     await page.waitForFunction(() => {
       const plan = document.querySelector("#signupStepPlan");
       return plan && !plan.classList.contains("hidden-field");
-    }, { timeout: 20000 });
+    }, null, { timeout: 20000 });
     const planText = await page.locator("#signupPlanChooser").innerText();
     assert.match(planText, /Claim My Founding Spot|Founding Member/);
     console.log("PASS founding plan chooser reachable after account email entry");
