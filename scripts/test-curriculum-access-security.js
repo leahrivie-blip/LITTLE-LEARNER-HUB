@@ -306,7 +306,17 @@ async function main() {
     assert(proPublic.weeklyOverview, "pro preview should include weekly overview");
     assert(proPublic.theme, "pro preview should include theme");
     assertNoProtectedStrings(proPublic, "logged-out pro lesson public DTO");
-    assert(freePublic?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow", "curated free lesson still has full public content");
+    // Browse list keeps Free starters unlocked but omits full body (same pattern as Pro list).
+    assert(freePublic && freePublic.locked !== true, "curated free lesson is unlocked in browse list");
+    assert(!freePublic.dailyPlans, "curated free browse list must not embed dailyPlans");
+    const freeDetailPublic = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.freeId)}`);
+    assert(freeDetailPublic.status === 200, "curated free detail available publicly");
+    assert(freeDetailPublic.json.lessonPlan?.locked !== true, "curated free detail unlocked");
+    assert(
+      freeDetailPublic.json.lessonPlan?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow"
+      || (freeDetailPublic.json.lessonPlan?.books || []).some((b) => /Planting a Rainbow/i.test(b?.title || "")),
+      "curated free detail still has full public content",
+    );
     const lockedFreePublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.lockedFreeId);
     assert(lockedFreePublic?.locked === true, "non-curated Free-tagged lesson is locked for guests/new Free");
     assert(!lockedFreePublic?.dailyPlans, "non-curated Free lesson must not leak dailyPlans publicly");
@@ -385,8 +395,11 @@ async function main() {
     assertHasProtectedStrings(proActivityAllowed.json.activity, "pro user activity detail");
 
     const freeActivityPublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.activities || []).find((item) => item.lessonPlanId === ids.freeId);
-    assert(freeActivityPublic && freeActivityPublic.locked !== true, "free activity remains public");
-    assert(String(freeActivityPublic.teacherLanguage || "").includes("damp"), "free activity keeps teacher language publicly");
+    assert(freeActivityPublic && freeActivityPublic.locked !== true, "free activity remains unlocked in browse list");
+    assert(!freeActivityPublic.teacherLanguage, "free activity browse list omits teacher language");
+    const freeActivityDetail = await requestJson("GET", `/api/curriculum/activities/${encodeURIComponent(ids.freeActivityId)}`);
+    assert(freeActivityDetail.status === 200, "free activity detail available publicly");
+    assert(String(freeActivityDetail.json.activity?.teacherLanguage || "").includes("damp"), "free activity detail keeps teacher language");
 
     console.log("7) Client plan spoofing does not unlock server endpoint");
     const spoofed = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.proId)}`, null, {

@@ -1784,10 +1784,10 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
   return days;
 }
 
-function publicCurriculumLessonPlanPreviewDto(plan) {
+function publicCurriculumLessonPlanPreviewDto(plan, storeOrContent = null) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (isStoreCuratedFreeLessonPlan(entry, peekStore())) return null;
+  if (isStoreCuratedFreeLessonPlan(entry, storeOrContent)) return null;
   // Public Pro teaser: overview metadata only. Do not ship objectives, materials,
   // vocabulary, books, songs, or activity names — those unlock with paid access.
   let activityCount = 0;
@@ -1845,11 +1845,23 @@ function curriculumLessonPlanUnlockedFreeDto(plan) {
   };
 }
 
-function publicCurriculumLessonPlanFreeDto(plan) {
+function publicCurriculumLessonPlanFreeDto(plan, storeOrContent = null) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (!isStoreCuratedFreeLessonPlan(entry, peekStore())) return null;
+  if (!isStoreCuratedFreeLessonPlan(entry, storeOrContent)) return null;
   return curriculumLessonPlanUnlockedFreeDto(plan);
+}
+
+/** Browse-list card for unlocked Free starters — full body stays on the detail endpoint. */
+function publicCurriculumLessonPlanFreeListDto(plan) {
+  const list = authorizedCurriculumLessonPlanListDto(plan);
+  if (!list) return null;
+  const entry = normalizedCurriculumLessonPlan(plan);
+  return {
+    ...list,
+    plan: freePlanGrandfathering.isLegacyStoreFreePlan(entry) ? "Free" : (entry?.plan || "Free"),
+    locked: false,
+  };
 }
 
 function freePlanAccessContextFromUser(user, siteContent = null) {
@@ -1928,17 +1940,18 @@ function authorizedCurriculumLessonPlanDto(plan) {
 function publicCurriculumLessonPlanDto(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
+  const storeOrContent = accessContext?.store || accessContext?.siteContent || null;
   if (userMayUnlockFreeCurriculumPlan(entry, accessContext)) {
-    return curriculumLessonPlanUnlockedFreeDto(plan);
+    return publicCurriculumLessonPlanFreeListDto(plan);
   }
-  return publicCurriculumLessonPlanPreviewDto(plan);
+  return publicCurriculumLessonPlanPreviewDto(plan, storeOrContent);
 }
 
-function publicCurriculumActivityPreviewDto(activity, parentPlan) {
+function publicCurriculumActivityPreviewDto(activity, parentPlan, storeOrContent = null) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
-  if (isStoreCuratedFreeLessonPlan(parentPlan, peekStore())) return null;
+  if (isStoreCuratedFreeLessonPlan(parentPlan, storeOrContent)) return null;
   // Overview teaser only — no description/materials/steps/teacher language/etc.
   return {
     id: entry.id,
@@ -1990,9 +2003,15 @@ function curriculumActivityUnlockedFreeDto(activity, parentPlan) {
   };
 }
 
-function publicCurriculumActivityFreeDto(activity, parentPlan) {
-  if (!parentPlan || !isStoreCuratedFreeLessonPlan(parentPlan, peekStore())) return null;
+function publicCurriculumActivityFreeDto(activity, parentPlan, storeOrContent = null) {
+  if (!parentPlan || !isStoreCuratedFreeLessonPlan(parentPlan, storeOrContent)) return null;
   return curriculumActivityUnlockedFreeDto(activity, parentPlan);
+}
+
+function publicCurriculumActivityFreeListDto(activity, parentPlan) {
+  const list = authorizedCurriculumActivityListDto(activity, parentPlan);
+  if (!list) return null;
+  return { ...list, plan: "Free", locked: false };
 }
 
 function authorizedCurriculumActivityDto(activity, parentPlan) {
@@ -2084,10 +2103,11 @@ function publicCurriculumActivityDto(activity, parentPlan, accessContext = {}) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
+  const storeOrContent = accessContext?.store || accessContext?.siteContent || null;
   if (userMayUnlockFreeCurriculumPlan(parentPlan, accessContext)) {
-    return curriculumActivityUnlockedFreeDto(activity, parentPlan);
+    return publicCurriculumActivityFreeListDto(activity, parentPlan);
   }
-  return publicCurriculumActivityPreviewDto(activity, parentPlan);
+  return publicCurriculumActivityPreviewDto(activity, parentPlan, storeOrContent);
 }
 
 function curriculumParentPlanMeta(plan) {
@@ -3227,7 +3247,19 @@ function peekStore() {
     return storeCache || defaultStore();
   }
   ensureStore();
-  return JSON.parse(fs.readFileSync(storePath, "utf8"));
+  // Cache local-json peeks by mtime so hot DTO loops do not re-parse multi-MB stores.
+  try {
+    const stat = fs.statSync(storePath);
+    if (storeCache && storeCache._llhLocalMtimeMs === stat.mtimeMs) {
+      return storeCache;
+    }
+    const parsed = JSON.parse(fs.readFileSync(storePath, "utf8"));
+    parsed._llhLocalMtimeMs = stat.mtimeMs;
+    storeCache = parsed;
+    return storeCache;
+  } catch {
+    return JSON.parse(fs.readFileSync(storePath, "utf8"));
+  }
 }
 
 // Full-document upsert that never drops Founding emails already persisted by a
@@ -3648,9 +3680,20 @@ function writeStore(store) {
   if (usePostgresStore() && !databaseReady) {
     // Degraded mode: keep an emergency local copy, but do not pretend Postgres accepted it.
     writeLocalJsonStore(nextStore);
+    stampLocalStoreCacheMtime(nextStore);
     return;
   }
   writeLocalJsonStore(nextStore);
+  stampLocalStoreCacheMtime(nextStore);
+}
+
+function stampLocalStoreCacheMtime(store) {
+  if (!store || usePostgresStore()) return;
+  try {
+    store._llhLocalMtimeMs = fs.statSync(storePath).mtimeMs;
+  } catch {
+    /* ignore */
+  }
 }
 
 // Writes the store and waits for the Postgres write to complete before returning.
@@ -11978,6 +12021,7 @@ async function handlePublicHomeInventory(request, response) {
     legacyFree: false,
     mode: "curated",
     siteContent: content,
+    store,
   }) || { lessonPlans: [], activities: [], updatedAt: "" };
   const lessonPlans = Array.isArray(library.lessonPlans) ? library.lessonPlans : [];
   const activities = Array.isArray(library.activities) ? library.activities : [];
@@ -12034,8 +12078,8 @@ async function handlePublicSiteContent(request, response, url) {
       curriculumLibrary = authorizedCurriculumLibraryDto(content) || curriculumLibrary;
     } else {
       const accessContext = access?.user
-        ? freePlanAccessContextFromUser(access.user, content)
-        : { legacyFree: false, mode: "curated", siteContent: content };
+        ? { ...freePlanAccessContextFromUser(access.user, content), store }
+        : { legacyFree: false, mode: "curated", siteContent: content, store };
       curriculumLibrary = publicCurriculumLibraryDto(content, accessContext) || curriculumLibrary;
     }
   } catch {
@@ -12043,6 +12087,7 @@ async function handlePublicSiteContent(request, response, url) {
       legacyFree: false,
       mode: "curated",
       siteContent: content,
+      store,
     }) || curriculumLibrary;
   }
   const grandfatherConfig = freePlanGrandfathering.resolveConfig({ siteContent: content });
@@ -12114,7 +12159,7 @@ async function handleCurriculumLessonPlanDetail(request, response, url, planId) 
   }
   // Free / anonymous members may browse titles, covers, age, theme, and a short
   // overview of the full library. Complete contents stay locked (preview DTO).
-  const preview = publicCurriculumLessonPlanPreviewDto(rawPlan);
+  const preview = publicCurriculumLessonPlanPreviewDto(rawPlan, store);
   if (preview) {
     jsonResponse(response, 200, { lessonPlan: preview });
     return;
@@ -12153,7 +12198,10 @@ async function handleCurriculumActivityDetail(request, response, url, activityId
     return;
   }
   const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
-  const accessContext = freePlanAccessContextFromUser(access.user, siteContent);
+  const accessContext = {
+    ...freePlanAccessContextFromUser(access.user, siteContent),
+    store,
+  };
   const unlockedEntry = entries.find((entry) => userMayUnlockFreeCurriculumPlan(entry.parentMeta, accessContext));
   if (unlockedEntry) {
     jsonResponse(response, 200, {
