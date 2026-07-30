@@ -24248,7 +24248,8 @@ function scrollToHomeSection(sectionKeyOrId) {
     document.body.classList.add("home-view");
   }
   setHomePublicMenuOpen(false);
-  const runScroll = () => {
+  // One scroll only — a second smooth pass mid-animation mis-measures and overshoots.
+  window.setTimeout(() => {
     const el = document.getElementById(sectionId);
     if (!el) return;
     const offset = homeStickyNavOffsetPx() + 10;
@@ -24263,12 +24264,7 @@ function scrollToHomeSection(sectionKeyOrId) {
     } catch {
       /* ignore */
     }
-  };
-  requestAnimationFrame(() => {
-    requestAnimationFrame(runScroll);
-  });
-  // Second pass after layout/menu close settles (mobile menu + sticky nav height).
-  window.setTimeout(runScroll, alreadyOnHome ? 120 : 260);
+  }, alreadyOnHome ? 40 : 120);
   return true;
 }
 
