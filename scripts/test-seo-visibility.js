@@ -91,6 +91,8 @@ async function main() {
   const graph = seo.buildStructuredDataGraph({ foundingSoldOut: true });
   assert(graph["@graph"].some((node) => node["@type"] === "Organization"), "seo graph missing Organization");
   assert(!graph["@graph"].some((node) => node["@type"] === "LocalBusiness"), "seo graph must not include LocalBusiness");
+  const org = graph["@graph"].find((node) => node["@type"] === "Organization");
+  assert(!org.sameAs || org.sameAs.length === 0, "sameAs must be omitted when social env vars are unset");
 
   const child = startServer();
   try {
@@ -118,6 +120,20 @@ async function main() {
 
     const faq = await request("GET", "/faq");
     assert(faq.body.includes("FAQPage") || faq.body.includes('"@type":"FAQPage"') || faq.body.includes('"@type": "FAQPage"'), "faq page missing FAQPage schema");
+
+    const features = await request("GET", "/features");
+    assert(features.body.includes("Available Now"), "features page missing Available Now");
+    assert(features.body.includes("Currently Being Built or Tested"), "features page missing in-progress section");
+    assert(features.body.includes("Future Plans"), "features page missing Future Plans");
+    assert(!features.body.includes("sameAs"), "features page must not include placeholder social schema");
+
+    const pricing = await request("GET", "/pricing");
+    assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly price");
+    assert(pricing.body.includes("$199/year"), "pricing page missing Pro Annual price");
+    assert(pricing.body.includes("sold out for new signups"), "pricing page must state founding sold out for new signups");
+
+    const contact = await request("GET", "/contact");
+    assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");
 
     const home = await request("GET", "/");
     assert(home.body.includes('rel="canonical"'), "homepage missing injected canonical");

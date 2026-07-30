@@ -15,6 +15,7 @@ const SUITES = [
   { name: "Syntax check", cmd: "npm", args: ["run", "check"] },
   { name: "Curriculum media migration", cmd: "npm", args: ["run", "test:curriculum-media-migration"] },
   { name: "Curriculum media access", cmd: "npm", args: ["run", "test:curriculum-media-access"] },
+  { name: "SEO visibility", cmd: "npm", args: ["run", "test:seo-visibility"] },
   { name: "Linked program RC", cmd: "npm", args: ["run", "test:linked-program-release-candidate"] },
   { name: "Linked program role repair", cmd: "npm", args: ["run", "test:linked-program-role-repair"] },
   { name: "Shared program ownership", cmd: "npm", args: ["run", "test:shared-program-ownership"] },

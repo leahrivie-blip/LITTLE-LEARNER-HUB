@@ -8,7 +8,13 @@ const path = require("node:path");
 const BUSINESS_NAME = "Little Learner Hub by Leah";
 const SHORT_NAME = "Little Learner Hub";
 const DEFAULT_SITE_URL = "https://littlelearnershubbyleah.com";
-const SUPPORT_EMAIL = "support@littlelearnershubbyleah.com";
+function supportEmailAddress() {
+  const raw = String(process.env.SUPPORT_EMAIL_TO || "support@littlelearnershubbyleah.com").trim();
+  const match = raw.match(/<([^>]+)>/);
+  return (match ? match[1] : raw).trim().toLowerCase();
+}
+
+const SUPPORT_EMAIL = supportEmailAddress();
 const FOUNDER_NAME = process.env.ADMIN_NAME || "Leah";
 
 const SEO_TITLE = "Little Learner Hub by Leah | Lesson Plans and Childcare Tools";
@@ -302,7 +308,7 @@ function renderAboutPage() {
       <h2>Why it was created</h2>
       <p>The goal is to give providers one affordable online place to find curriculum today and manage more of their program over time — without pretending the platform is a physical childcare location or in-person service.</p>
       <h2>Future plans</h2>
-      <p class="muted">Roadmap items such as expanded family communication, enrollment workflows, attendance, meals, naps, and center staff tools are labeled clearly as <strong>in development</strong>, <strong>testing</strong>, or <strong>coming later</strong> on the <a href="/features">Features page</a>. They are not advertised as fully available until launched.</p>
+      <p class="muted">Roadmap items are labeled on the <a href="/features">Features page</a> as <strong>Available Now</strong>, <strong>Currently Being Built or Tested</strong>, or <strong>Future Plans</strong>. They are not advertised as fully available until launched.</p>
     `,
   });
 }
@@ -310,7 +316,7 @@ function renderAboutPage() {
 function renderFeaturesPage() {
   return renderPublicPage({
     title: `Features | ${BUSINESS_NAME}`,
-    description: "See what is available now on Little Learner Hub by Leah, what is currently testing, and what is planned for later — with no misleading claims.",
+    description: "See what is available now on Little Learner Hub by Leah, what is currently being built or tested, and what is planned for the future — with no misleading claims.",
     canonicalPath: "/features",
     bodyHtml: `
       <h1>Platform Features</h1>
@@ -329,14 +335,14 @@ function renderFeaturesPage() {
         <li>Free plan with 10 complete starter lesson plans (no credit card required)</li>
         <li>Pro membership for full library access and expanded limits</li>
       </ul>
-      <h2>Currently Testing <span class="pill status-testing">Testing</span></h2>
+      <h2>Currently Being Built or Tested <span class="pill status-testing">In progress</span></h2>
       <ul>
         <li>Expanded Home Daycare Hub workflows (child profiles, observations, and documentation helpers in dedicated hub surfaces)</li>
         <li>Family Hub and digital forms workflows</li>
-        <li>Selected enrollment and family-communication experiments</li>
+        <li>Selected enrollment and family-communication tools</li>
       </ul>
-      <p class="muted">Testing features may only appear on the dedicated testing environment and should not be described as generally available.</p>
-      <h2>Coming Later <span class="pill status-later">Planned</span></h2>
+      <p class="muted">These items are in active development or limited testing. They are not advertised as fully available for every account until launched.</p>
+      <h2>Future Plans <span class="pill status-later">Planned</span></h2>
       <ul>
         <li>Attendance, meals, naps, and daily logs</li>
         <li>Child portfolios and progress goals</li>
@@ -359,7 +365,8 @@ function renderFaqPage() {
     ["Can childcare centers use it?", "Yes. Centers, home daycares, preschool classrooms, and family childcare programs can use the platform for curriculum and planning today, with additional center-management tools planned for later."],
     ["Can providers request lesson plans?", "Yes. Members can message through the website with age group, topic, interests, and learning goals to request new plans."],
     ["Is it an app?", "Little Learner Hub is a web application that works in modern browsers on phones, tablets, and computers. It can be installed to your home screen like an app, but it is not a separate native App Store download today."],
-    ["What features are coming later?", "Future roadmap items include attendance, meals, naps, daily logs, expanded family communication, enrollment workflows, and center staff tools. See the Features page for the current Available Now / Testing / Coming Later split."],
+    ["What features are coming later?", "Future plans include attendance, meals, naps, daily logs, expanded family communication, enrollment workflows, and center staff tools. See the Features page for the Available Now, Currently Being Built or Tested, and Future Plans sections."],
+    ["What is Founding Member pricing?", "Founding Member pricing was $9.99/month locked while membership remains continuously active. Founding spots are sold out for new signups. Existing Founding Members remain grandfathered. New members choose Pro Monthly at $19.99/month or Pro Annual at $199/year."],
   ];
   const faqHtml = faqItems.map(([q, a]) => `<article><h2>${escapeHtml(q)}</h2><p>${escapeHtml(a)}</p></article>`).join("\n");
   const faqSchema = {
@@ -383,16 +390,31 @@ function renderFaqPage() {
 function renderPricingPage() {
   return renderPublicPage({
     title: `Pricing | ${BUSINESS_NAME}`,
-    description: "Free starter lesson plans and Pro membership pricing for Little Learner Hub by Leah. Founding Member pricing is grandfathered for existing members when sold out.",
+    description: "Free starter lesson plans plus Pro Monthly ($19.99/month) and Pro Annual ($199/year) for Little Learner Hub by Leah. Founding Member pricing is grandfathered for existing members only.",
     canonicalPath: "/pricing",
     bodyHtml: `
       <h1>Pricing</h1>
-      <h2>Free Plan</h2>
-      <p>Includes 10 complete starter lesson plans across Infant, Toddler, and Preschool, library browsing and previews, calendar planning, favorites, child profiles, forms, observations, and document creation with Free-plan limits. No credit card required.</p>
-      <h2>Pro Monthly</h2>
-      <p>Unlocks the complete lesson-plan and activity libraries, unlimited curriculum printing and downloads, saved customized copies, and expanded documentation limits. Current public Pro pricing is <strong>$19.99/month</strong>.</p>
-      <h2>Founding Members</h2>
-      <p>Existing Founding Members who joined while the offer was open keep <strong>$9.99/month</strong> locked while membership remains continuously active. When Founding spots are sold out, new members join at standard Pro pricing.</p>
+      <p class="muted">Current public offers for new members. Existing Founding Member accounts keep their grandfathered billing rate while membership remains continuously active.</p>
+      <h2>Free Plan — $0</h2>
+      <ul>
+        <li>10 complete starter lesson plans across Infant, Toddler, and Preschool</li>
+        <li>Browse the library and preview additional themes</li>
+        <li>About 30 days of calendar planning, up to 20 favorites, up to 5 child profiles</li>
+        <li>10 observations per month, 6 forms, and 10 document creations per month</li>
+        <li>No credit card required</li>
+      </ul>
+      <h2>Pro Monthly — $19.99/month</h2>
+      <ul>
+        <li>Complete lesson-plan and activity libraries</li>
+        <li>Unlimited curriculum printing and downloads</li>
+        <li>New content added regularly</li>
+        <li>Customizable and saved lesson-plan copies</li>
+        <li>Expanded documentation limits, including 250 document creations per month</li>
+      </ul>
+      <h2>Pro Annual — $199/year</h2>
+      <p>Same Pro library and printing access as Pro Monthly, billed annually.</p>
+      <h2>Founding Member — $9.99/month (existing members only)</h2>
+      <p>Founding Member pricing is <strong>sold out for new signups</strong>. Members who joined while Founding spots were available keep <strong>$9.99/month</strong> locked while membership remains continuously active. New members choose Pro Monthly or Pro Annual instead.</p>
       <p class="muted">This page describes membership pricing only. Little Learner Hub is an online platform and does not operate as a physical childcare location.</p>
     `,
   });
@@ -464,6 +486,7 @@ module.exports = {
   logoUrl,
   ogImageUrl,
   socialProfileUrls,
+  supportEmailAddress,
   buildStructuredDataGraph,
   renderRobotsTxt,
   renderSitemapXml,

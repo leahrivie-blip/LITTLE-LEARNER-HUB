@@ -3,7 +3,7 @@
 **Business:** Little Learner Hub by Leah  
 **Website:** https://littlelearnershubbyleah.com  
 **Business type:** Online childcare lesson-planning, activity, documentation, and program-management platform  
-**Status:** Prepared on testing branch only — **not deployed to production**
+**Status:** Production codebase branch — **merged to `main` only after approval; not deployed live**
 
 ---
 
@@ -161,7 +161,7 @@ Populate when provided via environment variables:
 |-----|-------|-------------------|--------|
 | `/` | Little Learner Hub by Leah \| Lesson Plans and Childcare Tools | Platform summary + ages | Yes |
 | `/about` | About \| Little Learner Hub by Leah | Who it’s for, founder, mission, online-only | Yes |
-| `/features` | Features \| Little Learner Hub by Leah | Available Now / Testing / Coming Later | Yes |
+| `/features` | Features \| Little Learner Hub by Leah | Available Now / Currently Being Built or Tested / Future Plans | Yes |
 | `/faq` | FAQ \| Little Learner Hub by Leah | Top 10 questions + FAQPage schema | Yes |
 | `/pricing` | Pricing \| Little Learner Hub by Leah | Free + Pro $19.99; founding grandfather note | Yes |
 | `/contact` | Contact \| Little Learner Hub by Leah | support@ email; remote support only | Yes |
@@ -173,7 +173,7 @@ Populate when provided via environment variables:
 
 ---
 
-## 5. Files changed on testing branch
+## 5. Files changed on production SEO branch
 
 | File | Purpose |
 |------|---------|
@@ -275,7 +275,7 @@ After testing deploy:
 
 ## 10. Rollout checklist (production — do not run until approved)
 
-- [ ] Deploy SEO branch to testing service
+- [ ] Deploy SEO branch to testing or production Render service **only after Leah approves and explicitly requests deploy**
 - [ ] Run `npm run test:seo-visibility`
 - [ ] Rich Results Test on `/` and `/faq`
 - [ ] Verify robots.txt and sitemap.xml on testing URL
