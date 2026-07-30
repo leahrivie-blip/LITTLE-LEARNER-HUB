@@ -84,7 +84,7 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell + view markers for Family Hub", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-full-tester-invite"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-own-tester-kid"/);
   assert.match(indexHtml, /id="view-family-hub"/);
   assert.match(appJs, /family-hub/);
   assert.match(appJs, /function renderFamilyHubProviderPanel/);

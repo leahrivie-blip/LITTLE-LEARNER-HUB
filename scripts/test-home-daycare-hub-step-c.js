@@ -52,8 +52,8 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell version bumped for step C", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-full-tester-invite"/);
-  assert.match(indexHtml, /app\.js\?v=20260730-hdh-full-tester-invite/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-own-tester-kid"/);
+  assert.match(indexHtml, /app\.js\?v=20260730-hdh-own-tester-kid/);
 });
 
 test("AI draft panel helpers and review-before-send markers", () => {
@@ -110,7 +110,7 @@ async function main() {
   try {
     const health = await waitForHealth(port, child);
     assert.equal(health.homeDaycareHubTesting, true);
-    const appSource = await requestText(port, "/app.js?v=20260730-hdh-full-tester-invite");
+    const appSource = await requestText(port, "/app.js?v=20260730-hdh-own-tester-kid");
     assert.equal(appSource.status, 200);
     assert.match(appSource.text, /function runHomeDaycareAiFormDraft/);
     assert.match(appSource.text, /data-hdh-ai-send-later/);

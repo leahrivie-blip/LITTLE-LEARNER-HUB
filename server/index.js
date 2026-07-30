@@ -11903,6 +11903,367 @@ async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
   jsonResponse(response, 200, { ok: true, household: publicFamilyHousehold(household) });
 }
 
+const HDH_TESTER_INVITE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
+
+function ensureHdhTesterInviteCollections(store) {
+  store.hdhTesterInvites = store.hdhTesterInvites && typeof store.hdhTesterInvites === "object"
+    ? store.hdhTesterInvites
+    : {};
+  return store;
+}
+
+function publicHdhTesterInvite(invite = {}, options = {}) {
+  const origin = String(options.appOrigin || "").replace(/\/$/, "");
+  const token = String(invite.token || "").trim();
+  const pending = String(invite.status || "pending") === "pending" && token;
+  return {
+    id: invite.id || "",
+    email: invite.email || "",
+    childName: invite.childName || "Demo Child",
+    status: invite.status || "pending",
+    invitedAt: invite.invitedAt || "",
+    invitedByEmail: invite.invitedByEmail || "",
+    acceptedAt: invite.acceptedAt || "",
+    expiresAt: invite.expiresAt || "",
+    emailSent: Boolean(invite.emailSent),
+    acceptUrl: pending && origin
+      ? `${origin}/?testerInvite=${encodeURIComponent(token)}`
+      : "",
+  };
+}
+
+function hdhTesterInviteExpired(invite, nowMs = Date.now()) {
+  const exp = Date.parse(invite?.expiresAt || "");
+  if (Number.isFinite(exp)) return exp <= nowMs;
+  const created = Date.parse(invite?.invitedAt || "");
+  if (!Number.isFinite(created)) return false;
+  return created + HDH_TESTER_INVITE_TTL_MS <= nowMs;
+}
+
+function listHdhTesterInvitesForOwner(store, ownerEmail) {
+  const key = normalizeEmail(ownerEmail);
+  return Object.values(store.hdhTesterInvites || {})
+    .filter((invite) => normalizeEmail(invite.invitedByEmail) === key)
+    .sort((a, b) => String(b.invitedAt || "").localeCompare(String(a.invitedAt || "")));
+}
+
+function buildIndependentTesterDemoChildData(childName = "Demo Child") {
+  const now = new Date().toISOString();
+  const name = String(childName || "Demo Child").trim() || "Demo Child";
+  const empty = sanitizeChildDataPayload({});
+  empty.Profiles = [{
+    id: `tester-child-${Date.now().toString(36)}`,
+    name,
+    ageGroup: "Toddler",
+    createdAt: now,
+    notes: "Your own starter child for testing. Rename or add more kids anytime — this is not shared with other testers.",
+  }];
+  return empty;
+}
+
+async function handleHdhTesterInvitesList(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing tester invites." });
+    return;
+  }
+  const store = ensureHdhTesterInviteCollections(readStore());
+  let appOrigin = "";
+  try {
+    const raw = String(request.headers.origin || "").trim()
+      || (request.headers.referer ? new URL(String(request.headers.referer)).origin : "");
+    appOrigin = raw.replace(/\/$/, "");
+  } catch {
+    appOrigin = "";
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    invites: listHdhTesterInvitesForOwner(store, identity.email).map((invite) => publicHdhTesterInvite(invite, { appOrigin })),
+    emailDeliveryReady: supportEmailConfigStatus().ready,
+    testingOnly: true,
+  });
+}
+
+async function handleHdhTesterInviteCreate(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before inviting a tester." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid tester invite payload." });
+    return;
+  }
+  const email = normalizeEmail(body.email || "");
+  if (!email) {
+    jsonResponse(response, 400, { error: "Enter the tester's email address." });
+    return;
+  }
+  if (email === normalizeEmail(identity.email)) {
+    jsonResponse(response, 400, { error: "You cannot invite your own account." });
+    return;
+  }
+  const store = ensureHdhTesterInviteCollections(readStore());
+  const existing = listHdhTesterInvitesForOwner(store, identity.email).find(
+    (invite) => invite.email === email && invite.status === "pending" && !hdhTesterInviteExpired(invite),
+  );
+  if (existing) {
+    const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "";
+    jsonResponse(response, 409, {
+      error: "That email already has a pending tester invite.",
+      invite: publicHdhTesterInvite(existing, { appOrigin: origin }),
+      acceptUrl: publicHdhTesterInvite(existing, { appOrigin: origin }).acceptUrl,
+    });
+    return;
+  }
+  const token = crypto.randomBytes(24).toString("hex");
+  const now = new Date();
+  const childName = String(body.childName || "Demo Child").trim() || "Demo Child";
+  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
+  const acceptUrl = `${origin}/?testerInvite=${encodeURIComponent(token)}`;
+  const invite = {
+    id: `tester-invite-${Date.now().toString(36)}`,
+    token,
+    email,
+    childName,
+    status: "pending",
+    invitedAt: now.toISOString(),
+    expiresAt: new Date(now.getTime() + HDH_TESTER_INVITE_TTL_MS).toISOString(),
+    invitedByEmail: normalizeEmail(identity.email),
+    invitedByUid: identity.uid || "",
+    emailSent: false,
+  };
+  store.hdhTesterInvites[token] = invite;
+
+  let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };
+  try {
+    emailResult = await sendEmail({
+      to: email,
+      replyTo: identity.email,
+      subject: "You're invited to test Little Learner Hub",
+      text: [
+        `Hi,`,
+        ``,
+        `${identity.email} invited you to test Little Learner Hub on the testing site.`,
+        `You'll get your own Teacher account and your own starter child ("${childName}") — not shared with other testers.`,
+        `You will not get Admin access. Message Leah anytime inside Messages.`,
+        ``,
+        `Accept your invite:`,
+        acceptUrl,
+        ``,
+        `This invite expires on ${invite.expiresAt.slice(0, 10)}.`,
+        ``,
+        `— Little Learner Hub`,
+      ].join("\n"),
+      html: `
+        <p>Hi,</p>
+        <p><strong>${htmlEscape(identity.email)}</strong> invited you to test Little Learner Hub.</p>
+        <p>You'll get your <strong>own Teacher account</strong> and your <strong>own starter child</strong> ("${htmlEscape(childName)}") — not shared with other testers. No Admin access. Message Leah in Messages anytime.</p>
+        <p><a href="${htmlEscape(acceptUrl)}">Accept your invite</a></p>
+        <p>This invite expires on ${htmlEscape(invite.expiresAt.slice(0, 10))}.</p>
+        <p>— Little Learner Hub</p>
+      `,
+    });
+  } catch (error) {
+    emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: error.message };
+  }
+  invite.emailSent = Boolean(emailResult.sent);
+  invite.emailError = emailResult.error || "";
+  store.hdhTesterInvites[token] = invite;
+  await respondAfterPersist(store, response, 200, {
+    ok: true,
+    invite: publicHdhTesterInvite(invite, { appOrigin: origin }),
+    acceptUrl,
+    email: emailResult,
+    message: emailResult.sent
+      ? "Tester invite created and email sent."
+      : "Tester invite created. Share the accept link manually (email may be off on testing).",
+  }, "Could not save tester invite.");
+}
+
+async function handleHdhTesterInvitePeek(request, response, url) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const token = String(url.searchParams.get("token") || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Missing invite token." });
+    return;
+  }
+  const store = ensureHdhTesterInviteCollections(readStore());
+  const invite = store.hdhTesterInvites[token];
+  if (!invite) {
+    jsonResponse(response, 404, { error: "This tester invite link is invalid or has already been removed." });
+    return;
+  }
+  if (invite.status === "revoked") {
+    jsonResponse(response, 410, { error: "This tester invite was revoked." });
+    return;
+  }
+  if (hdhTesterInviteExpired(invite)) {
+    invite.status = "expired";
+    store.hdhTesterInvites[token] = invite;
+    writeStore(store);
+    jsonResponse(response, 410, { error: "This tester invite has expired. Ask for a new one." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    invite: {
+      email: invite.email,
+      childName: invite.childName || "Demo Child",
+      status: invite.status,
+      invitedByEmail: invite.invitedByEmail || "",
+      expiresAt: invite.expiresAt || "",
+    },
+  });
+}
+
+async function handleHdhTesterInviteAccept(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Log in or create an account to accept this invite." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid accept payload." });
+    return;
+  }
+  const token = String(body.token || "").trim();
+  if (!token) {
+    jsonResponse(response, 400, { error: "Missing invite token." });
+    return;
+  }
+  const store = ensureHdhTesterInviteCollections(readStore());
+  const invite = store.hdhTesterInvites[token];
+  if (!invite) {
+    jsonResponse(response, 404, { error: "This tester invite link is invalid or has already been removed." });
+    return;
+  }
+  if (invite.status === "revoked") {
+    jsonResponse(response, 410, { error: "This tester invite was revoked." });
+    return;
+  }
+  if (hdhTesterInviteExpired(invite)) {
+    invite.status = "expired";
+    store.hdhTesterInvites[token] = invite;
+    await respondAfterPersist(store, response, 410, { error: "This tester invite has expired. Ask for a new one." }, "Could not update invite.");
+    return;
+  }
+  if (normalizeEmail(identity.email) !== normalizeEmail(invite.email)) {
+    jsonResponse(response, 403, {
+      error: `Sign in as ${invite.email} to accept this invite. You are currently signed in as ${identity.email}.`,
+      requiredEmail: invite.email,
+    });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const childName = String(body.childName || invite.childName || "Demo Child").trim() || "Demo Child";
+  // Independent owner account — NOT linked to the inviter's program / children.
+  const existingUser = store.users?.[identity.email] || { email: identity.email };
+  store.users = store.users || {};
+  store.users[identity.email] = {
+    ...existingUser,
+    email: identity.email,
+    role: "owner",
+    accountType: "home_daycare",
+    linkedProgramOwnerEmail: "",
+    programAccessViaOwner: false,
+    hdhIndependentTester: true,
+    hdhTesterInvitedByEmail: invite.invitedByEmail || "",
+    testingInviteAcceptedAt: now,
+    plan: "Pro",
+    subscriptionStatus: "Pro Subscription Active",
+    stripeSubscriptionStatus: "active",
+    updatedAt: now,
+  };
+  const program = programOwnership.ensureProgramForOwner(store, identity.email, {
+    ownerUid: identity.uid || existingUser.firebaseUid || "",
+    name: `${childName}'s home daycare`,
+    actorEmail: identity.email,
+  });
+  store.users[identity.email].programId = program.id;
+
+  const context = programOwnership.resolveProgramContext(store, identity);
+  const existingChild = programOwnership.readProgramChildData(store, context);
+  const alreadyHasKids = Array.isArray(existingChild?.data?.Profiles) && existingChild.data.Profiles.length > 0;
+  let demoChild = alreadyHasKids ? existingChild.data.Profiles[0] : null;
+  if (!alreadyHasKids) {
+    const seed = buildIndependentTesterDemoChildData(childName);
+    demoChild = seed.Profiles[0];
+    programOwnership.writeProgramChildData(store, context, seed);
+  }
+
+  invite.status = "accepted";
+  invite.acceptedAt = now;
+  invite.acceptedByUid = identity.uid || "";
+  invite.childName = childName;
+  store.hdhTesterInvites[token] = invite;
+
+  await respondAfterPersist(store, response, 200, {
+    ok: true,
+    invite: publicHdhTesterInvite(invite),
+    account: {
+      email: identity.email,
+      role: "owner",
+      accountType: "home_daycare",
+      linkedProgramOwnerEmail: "",
+      programAccessViaOwner: false,
+      hdhIndependentTester: true,
+      hdhTesterInvitedByEmail: invite.invitedByEmail || "",
+      testingInviteAcceptedAt: now,
+      plan: "Pro",
+      subscriptionStatus: "Pro Subscription Active",
+      programId: program.id,
+    },
+    demoChild,
+    message: alreadyHasKids
+      ? "Invite accepted. Your own Teacher account is ready — keep using your existing child profiles."
+      : `Invite accepted. You have your own Teacher account and a starter child named ${childName}.`,
+  }, "Could not accept tester invite.");
+}
+
+async function handleHdhTesterInviteRevoke(request, response, inviteId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (error) {
+    jsonResponse(response, 401, { error: error.message || "Please log in before managing tester invites." });
+    return;
+  }
+  const store = ensureHdhTesterInviteCollections(readStore());
+  const match = Object.entries(store.hdhTesterInvites).find(([, invite]) => (
+    invite.id === inviteId && normalizeEmail(invite.invitedByEmail) === normalizeEmail(identity.email)
+  ));
+  if (!match) {
+    jsonResponse(response, 404, { error: "Tester invite not found." });
+    return;
+  }
+  const [token, invite] = match;
+  invite.status = "revoked";
+  invite.revokedAt = new Date().toISOString();
+  store.hdhTesterInvites[token] = invite;
+  await respondAfterPersist(store, response, 200, {
+    ok: true,
+    invite: publicHdhTesterInvite(invite),
+  }, "Could not revoke tester invite.");
+}
+
 const HDH_TRAINING_TYPES = Object.freeze([
   "CPR",
   "First Aid",
@@ -20208,6 +20569,14 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "DELETE" && url.pathname.startsWith("/api/family-hub/households/")) {
       const householdId = decodeURIComponent(url.pathname.slice("/api/family-hub/households/".length));
       return await handleFamilyHubHouseholdRevoke(request, response, householdId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/tester-invites") return await handleHdhTesterInvitesList(request, response);
+    if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites") return await handleHdhTesterInviteCreate(request, response);
+    if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/tester-invites/peek") return await handleHdhTesterInvitePeek(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/tester-invites/accept") return await handleHdhTesterInviteAccept(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/home-daycare-hub/tester-invites/")) {
+      const inviteId = decodeURIComponent(url.pathname.slice("/api/home-daycare-hub/tester-invites/".length));
+      return await handleHdhTesterInviteRevoke(request, response, inviteId);
     }
     if (request.method === "GET" && url.pathname === "/api/home-daycare-hub/staff-trainings") return await handleHdhStaffTrainingsList(request, response);
     if (request.method === "POST" && url.pathname === "/api/home-daycare-hub/staff-trainings") return await handleHdhStaffTrainingCreate(request, response);
