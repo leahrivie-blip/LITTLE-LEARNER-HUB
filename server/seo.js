@@ -326,20 +326,18 @@ function renderAboutPage() {
       <p>I wanted to build one organized place that saves providers time and gives them resources they can actually use in real classrooms. I actively listen to provider requests and continue adding content and tools based on what teachers actually need.</p>
 
       <h2>What Little Learner Hub Does Now</h2>
-      <p>These are features members can use today:</p>
+      <p>These are features signed-in members can use today:</p>
       <ul>
-        <li>Infant, Toddler, and Preschool lesson plans</li>
-        <li>Activity library with practical classroom ideas</li>
-        <li>Printable weekly plans</li>
+        <li>Infant, Toddler, and Preschool lesson plans (10 starter plans on Free; full library on Pro)</li>
+        <li>Activity library with practical classroom ideas (samples on Free; full library on Pro)</li>
+        <li>Printable weekly plans for starter and Pro library content</li>
         <li>Books, songs, materials, and daily activity ideas inside published plans</li>
-        <li>Favorites and saved customized lesson-plan copies</li>
-        <li>Calendar and weekly planning tools</li>
-        <li>Documentation helpers for observations, lesson plans, daily reports, parent communication support, newsletters, handbooks, and contracts</li>
-        <li>Observations with plan-based limits</li>
-        <li>Forms and document creation tools</li>
-        <li>Child profiles with plan-based limits</li>
+        <li>Calendar and weekly planning (about 30 days ahead on Free; unlimited on Pro)</li>
+        <li>Documentation helpers for observations, lesson plans, daily reports, parent communication support, newsletters, handbooks, and contracts (with monthly limits on Free)</li>
+        <li>Observations and child profiles (with plan-based limits on Free)</li>
+        <li>Forms library with starter forms on Free and expanded forms on Pro</li>
         <li>Provider support and in-app messaging, including lesson-plan requests</li>
-        <li>Free access with starter lesson plans and Pro access for the full library and expanded limits</li>
+        <li>Pro unlocks saved favorites, customized lesson-plan copies, the full curriculum library, and expanded limits</li>
       </ul>
       <p>See the <a href="/features">Features page</a> for a fuller breakdown of what is live today.</p>
 
@@ -381,22 +379,22 @@ function renderFeaturesPage() {
       <p>Little Learner Hub is an <strong>online</strong> childcare platform. This page separates live features from testing and future roadmap work.</p>
       <h2>Available Now <span class="pill">Live</span></h2>
       <ul>
-        <li>Lesson Plan Library for Infant, Toddler, and Preschool</li>
-        <li>Activity Library organized by age, category, and theme</li>
-        <li>Weekly calendar planning for lessons, activities, and notes</li>
-        <li>Print and download tools for classroom-ready plans</li>
-        <li>Customizable and saved lesson-plan copies</li>
-        <li>Documentation Helpers (observation, lesson plan, daily report, newsletter, handbook, and contract support)</li>
-        <li>Forms library and document creation tools</li>
-        <li>Child profiles, observations, and favorites with plan-based limits</li>
-        <li>Provider messaging and lesson-plan requests</li>
+        <li>Lesson Plan Library for Infant, Toddler, and Preschool (10 starter plans on Free; full library on Pro)</li>
+        <li>Activity Library organized by age, category, and theme (samples on Free; full library on Pro)</li>
+        <li>Weekly calendar planning for lessons, activities, and notes (about 30 days on Free; unlimited on Pro)</li>
+        <li>Print and download tools for classroom-ready starter and Pro library plans</li>
+        <li>Documentation Helpers for observations, lesson plans, daily reports, newsletters, handbooks, and contracts (with monthly limits on Free)</li>
+        <li>Forms library and document-creation tools with plan-based limits</li>
+        <li>Child profiles and observations with plan-based limits on Free</li>
+        <li>Provider messaging and lesson-plan requests for signed-in members</li>
         <li>Free plan with 10 complete starter lesson plans (no credit card required)</li>
-        <li>Pro membership for full library access and expanded limits</li>
+        <li>Pro membership for full library access, saved favorites, customized lesson-plan copies, and expanded limits</li>
       </ul>
       <h2>Currently Being Built or Tested <span class="pill status-testing">In progress</span></h2>
       <ul>
-        <li>Expanded Home Daycare Hub workflows (child profiles, observations, and documentation helpers in dedicated hub surfaces)</li>
+        <li>Expanded Home Daycare Hub workflows (testing-site only today)</li>
         <li>Family Hub and digital forms workflows</li>
+        <li>AI Guide tools for lesson plans, forms, observations, and documentation</li>
         <li>Selected enrollment and family-communication tools</li>
       </ul>
       <p class="muted">These items are in active development or limited testing. They are not advertised as fully available for every account until launched.</p>
@@ -457,8 +455,8 @@ function renderPricingPage() {
       <ul>
         <li>10 complete starter lesson plans across Infant, Toddler, and Preschool</li>
         <li>Browse the library and preview additional themes</li>
-        <li>About 30 days of calendar planning, up to 20 favorites, up to 5 child profiles</li>
-        <li>10 observations per month, 6 forms, and 10 document creations per month</li>
+        <li>About 30 days of calendar planning and up to 5 child profiles</li>
+        <li>10 observations, 6 starter forms, and 10 document creations per month</li>
         <li>No credit card required</li>
       </ul>
       <h2>Pro Monthly — $19.99/month</h2>
