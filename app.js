@@ -6024,7 +6024,7 @@ function renderAiGuideHome() {
       <p class="muted-copy">Choose what you need help creating. AI drafts never send or publish by themselves.</p>
       <div class="account-actions-row" style="margin:12px 0;">
         <button class="ghost-button" type="button" data-ai-guide-insights>Documentation insights</button>
-        ${askOn ? `<button class="ghost-button" type="button" data-ai-guide-category="ask-program">Ask About My Program</button>` : ""}
+        ${askOn ? `<button class="ghost-button" type="button" data-ai-guide-open-ask>Ask About My Program</button>` : ""}
       </div>
       ${(aiGuideState.insights || []).length ? `
         <div class="ai-guide-insights" id="aiGuideInsightsPanel">
@@ -54544,12 +54544,15 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const aiGuideCategory = event.target.closest("[data-ai-guide-category]");
+  const aiGuideCategory = event.target.closest("[data-ai-guide-category], [data-ai-guide-open-ask]");
   if (aiGuideCategory) {
     event.preventDefault();
     if (!isAiGuideEnabled()) return;
-    aiGuideState.categoryId = aiGuideCategory.dataset.aiGuideCategory || "";
-    aiGuideState.featureId = aiGuideState.categoryId === "ask-program" ? "askProgram" : "";
+    const categoryId = aiGuideCategory.hasAttribute("data-ai-guide-open-ask")
+      ? "ask-program"
+      : (aiGuideCategory.dataset.aiGuideCategory || "");
+    aiGuideState.categoryId = categoryId;
+    aiGuideState.featureId = categoryId === "ask-program" ? "askProgram" : "";
     aiGuideState.draft = null;
     aiGuideState.sourceRecordIds = [];
     aiGuideState.screen = "compose";
