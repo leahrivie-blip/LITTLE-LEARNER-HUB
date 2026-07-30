@@ -103,6 +103,11 @@ async function main() {
   const forbiddenFacebookLabel = /Little learners hub/i;
   assert(!forbiddenFacebookLabel.test(indexHtml), "homepage HTML must not display Facebook page name");
   assert(indexHtml.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
+  assert(!/123 Main/i.test(indexHtml), "homepage HTML must not include fake 123 Main address placeholder");
+  assert(!/Rated 5 stars/i.test(indexHtml), "homepage HTML must not claim unverified 5-star ratings");
+  assert(!/llh-nav-rating|homeReviews|lp-review-card/i.test(indexHtml), "homepage HTML must not ship unverified review UI");
+  assert(!/AggregateRating|reviewCount/i.test(indexHtml), "homepage must not include review schema markup");
+  assert(!/\(555\)\s*123-4567|555-123-4567/i.test(indexHtml), "homepage HTML must not include fake 555 phone placeholders");
 
   const child = startServer();
   try {
@@ -160,10 +165,15 @@ async function main() {
     assert(home.body.includes('name="msvalidate.01"'), "homepage missing bing verification injection");
     assert(home.body.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
     assert(!forbiddenFacebookLabel.test(home.body), "homepage must not display Facebook page name");
+    assert(!/123 Main/i.test(home.body), "served homepage must not include fake address placeholder");
+    assert(!/Rated 5 stars|llh-nav-rating|homeReviews/i.test(home.body), "served homepage must not include unverified review UI");
+    assert(!/AggregateRating|reviewCount/i.test(home.body), "served homepage must not include review schema");
+    assert(!/LocalBusiness/i.test(home.body), "homepage must not include LocalBusiness schema");
 
     for (const route of ["/about", "/features", "/faq", "/pricing", "/contact"]) {
       const page = await request("GET", route);
       assert(!forbiddenFacebookLabel.test(page.body), `${route} must not display Facebook page name`);
+      assert(!/123 Main|LocalBusiness|AggregateRating/i.test(page.body), `${route} must not include fake address or review/local business schema`);
     }
 
     console.log("PASS: seo visibility checks");

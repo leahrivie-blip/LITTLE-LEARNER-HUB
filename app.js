@@ -2636,7 +2636,7 @@ const HOME_NAV_SECTION_IDS = {
   features: "homeFeatures",
   "coming-soon": "homeComingSoon",
   pricing: "homePricing",
-  reviews: "homeReviews",
+  reviews: "homePricing",
 };
 
 const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
@@ -3187,8 +3187,8 @@ function syncSignupCenterPathwayUi() {
     nameInput.placeholder = signupCenterPathway === "join_existing"
       ? "Search or type your center name"
       : signupCenterPathway === "create_new"
-        ? "Sunshine Learning Center"
-        : "Sunshine Home Daycare";
+        ? "Your center or program name"
+        : "Your home daycare or program name";
   }
   if (helper) {
     if (signupCenterPathway === "join_existing") {
@@ -25221,26 +25221,10 @@ function renderManagedHomeContent() {
   setText(".lp-reviews-section .lp-section-title", homepage.reviewsSectionHeading);
 
   const reviewsGrid = document.querySelector(".lp-reviews-grid");
-  // Redesigned homepage ships a curated multi-review grid in HTML (Tiffany + peers).
-  // Never wipe those cards when CMS reviews load — only append unique extras once.
+  // Public homepage does not ship unverified review cards. CMS reviews only render
+  // when an explicit reviews grid is present (legacy layouts / approved future UI).
   if (reviewsGrid && reviews.length && !redesignedHome) {
     reviewsGrid.innerHTML = reviews.map(reviewCardHtml).join("");
-  } else if (reviewsGrid && reviews.length && redesignedHome) {
-    if (reviewsGrid.dataset.cmsReviewsAppended !== "1") {
-      const existingNames = new Set(
-        Array.from(reviewsGrid.querySelectorAll(".lp-reviewer strong"))
-          .map((node) => String(node.textContent || "").trim().toLowerCase())
-          .filter(Boolean),
-      );
-      const extras = reviews.filter((item) => {
-        const name = String(item.name || item.author || "").trim().toLowerCase();
-        return Boolean(name) && !existingNames.has(name);
-      });
-      if (extras.length) {
-        reviewsGrid.insertAdjacentHTML("beforeend", extras.map(reviewCardHtml).join(""));
-      }
-      reviewsGrid.dataset.cmsReviewsAppended = "1";
-    }
   }
 
   if (!redesignedHome) {
@@ -31841,7 +31825,7 @@ function renderFamilyHubProviderPanel() {
             <input name="email" type="email" maxlength="120" placeholder="parent@example.com" />
           </label>
           <label>Parent phone (text magic link)
-            <input name="phone" type="tel" maxlength="40" placeholder="555-123-4567" />
+            <input name="phone" type="tel" maxlength="40" placeholder="Phone (optional)" />
           </label>
         </div>
         <fieldset class="hdh-child-pick-fieldset">
