@@ -61,13 +61,17 @@ function socialProfileUrls() {
   return OFFICIAL_SOCIAL_PROFILES.map((profile) => profile.url);
 }
 
+function socialLinkAriaLabel(platformLabel) {
+  return `${BUSINESS_NAME} on ${platformLabel}`;
+}
+
 function renderSocialLinksHtml({ heading = "" } = {}) {
   const items = OFFICIAL_SOCIAL_PROFILES.map((profile) => (
-    `<a href="${escapeHtml(profile.url)}" rel="noopener noreferrer" target="_blank">${escapeHtml(profile.label)}</a>`
+    `<a href="${escapeHtml(profile.url)}" rel="noopener noreferrer" target="_blank" aria-label="${escapeHtml(socialLinkAriaLabel(profile.label))}">${escapeHtml(profile.label)}</a>`
   )).join(" · ");
   if (!items) return "";
   const headingHtml = heading ? `<p class="social-heading">${escapeHtml(heading)}</p>` : "";
-  return `<nav class="social-links" aria-label="Official social profiles">${headingHtml}<p>${items}</p></nav>`;
+  return `<nav class="social-links" aria-label="${escapeHtml(BUSINESS_NAME)} official social profiles">${headingHtml}<p>${items}</p></nav>`;
 }
 
 function renderPublicFooterHtml() {
@@ -364,7 +368,7 @@ function renderAboutPage() {
       </ul>
       <p class="muted">Some items are in active development or limited testing. They are labeled clearly on the <a href="/features">Features page</a> and are not presented as fully live until launched.</p>
 
-      ${renderSocialLinksHtml({ heading: "Connect with Little Learner Hub" })}
+      ${renderSocialLinksHtml({ heading: `Connect with ${BUSINESS_NAME}` })}
     `,
   });
 }
@@ -486,8 +490,8 @@ function renderContactPage() {
       <p>Need help with your account, billing, lesson plans, documentation tools, or a technical issue?</p>
       <p><strong>Email:</strong> <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}">${escapeHtml(SUPPORT_EMAIL)}</a></p>
       <p>Members can also use in-app messaging and the Contact form after signing in at <a href="/?view=contact">littlelearnershubbyleah.com</a>.</p>
-      ${renderSocialLinksHtml({ heading: "Follow Little Learner Hub" })}
-      <p class="muted">Little Learner Hub is an online platform. Support is provided remotely; there is no public in-person office or customer walk-in location.</p>
+      ${renderSocialLinksHtml({ heading: `Follow ${BUSINESS_NAME}` })}
+      <p class="muted">${escapeHtml(BUSINESS_NAME)} is an online platform. Support is provided remotely; there is no public in-person office or customer walk-in location.</p>
     `,
   });
 }
