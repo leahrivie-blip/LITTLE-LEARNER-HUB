@@ -240,7 +240,8 @@
     "repair:incomplete-curriculum": "node scripts/repair-incomplete-curriculum-plans.js",
     "test:admin-messaging-inbox": "NODE_ENV=test node scripts/test-admin-messaging-inbox.js",
     "generate:theme-unique-covers": "node scripts/generate-theme-unique-covers.js",
-    "live:assign-unique-covers": "node scripts/live-assign-unique-covers.js"
+    "live:assign-unique-covers": "node scripts/live-assign-unique-covers.js",
+    "test:ai-guide-button-audit": "node scripts/test-ai-guide-button-audit.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
