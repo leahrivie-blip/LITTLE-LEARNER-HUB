@@ -61,8 +61,8 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-request-reviews" />
-  <link rel="stylesheet" href="styles.css?v=20260730-request-reviews" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-request-reviews-2" />
+  <link rel="stylesheet" href="styles.css?v=20260730-request-reviews-2" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-cover-refresh" />
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260730-request-reviews";
+      var SHELL_VERSION = "20260730-request-reviews-2";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -717,7 +717,7 @@
                 Rated 5 stars by teachers &amp; providers
               </p>
             </div>
-            <div class="lp-reviews-grid llh-reviews-grid llh-reviews-grid--trio">
+            <div class="lp-reviews-grid llh-reviews-grid llh-reviews-grid--multi">
               <article class="lp-review-card featured llh-review-featured">
                 <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
                 <p>&ldquo;I actually love it. I would definitely use it for our lesson planning. I&rsquo;m excited about it — it&rsquo;s really good.&rdquo;</p>
@@ -740,6 +740,30 @@
                 <div class="lp-reviewer">
                   <span class="lp-reviewer-avatar" aria-hidden="true">A</span>
                   <div><strong>Ashley</strong><small>Preschool teacher</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;I requested a theme and it showed up in the library.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">J</span>
+                  <div><strong>Jenna</strong><small>Family child care</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;Works for my mixed ages without rewriting everything.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">D</span>
+                  <div><strong>Denise</strong><small>Home daycare provider</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;Finally something that feels like it was made by someone who&rsquo;s been in the room.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">C</span>
+                  <div><strong>Carla</strong><small>Preschool teacher</small></div>
                 </div>
               </article>
             </div>
@@ -2167,7 +2191,7 @@
     <script src="scripts/free-curriculum-sample.js?v=20260730-cover-refresh" defer></script>
     <script src="scripts/trial-curriculum-exports.js?v=20260730-cover-refresh" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-cover-refresh" defer></script>
-    <script src="app.js?v=20260730-request-reviews" defer></script>
+    <script src="app.js?v=20260730-request-reviews-2" defer></script>
     <script src="admin-workspace.js?v=20260730-cover-refresh" defer></script>
     <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>

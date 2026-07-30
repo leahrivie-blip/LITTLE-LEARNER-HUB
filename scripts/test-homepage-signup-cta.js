@@ -57,6 +57,9 @@ test("Tiffany review remains on homepage", () => {
   assert.match(html, /Rated 5 stars by teachers/);
   assert.match(html, /Built with providers, not for a textbook/);
   assert.match(html, /data-action="request-lesson-plan"/);
+  assert.match(html, /I requested a theme and it showed up in the library/);
+  assert.match(html, /Works for my mixed ages without rewriting everything/);
+  assert.match(html, /made by someone who.?s been in the room/);
 });
 
 test("public nav and mobile menu markers exist", () => {

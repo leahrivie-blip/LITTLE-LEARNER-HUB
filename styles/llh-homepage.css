@@ -1316,14 +1316,14 @@ body.llh-public-menu-open {
   font-size: 1.05rem;
 }
 
-.llh-reviews-grid--trio {
+.llh-reviews-grid--multi {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
   align-items: stretch;
 }
 
-.llh-reviews-grid--trio .lp-review-card {
+.llh-reviews-grid--multi .lp-review-card {
   margin: 0;
   max-width: none;
   height: 100%;
@@ -1337,7 +1337,7 @@ body.llh-public-menu-open {
 }
 
 @media (max-width: 900px) {
-  .llh-reviews-grid--trio {
+  .llh-reviews-grid--multi {
     grid-template-columns: 1fr;
   }
 }
