@@ -161,11 +161,15 @@ async function runAudit(playwright, baseUrl, seeded) {
     bugs: [],
   };
 
+  try {
   const page = await browser.newContext({ viewport: { width: 1280, height: 900 } }).then((c) => c.newPage());
   page.on("dialog", async (d) => d.accept());
 
-  await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
-  await page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 });
+  // Race-safe: site-content can finish during goto before waitForResponse attaches.
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }).catch(() => null),
+    page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" }),
+  ]);
   await page.waitForFunction(() => typeof setView === "function" && typeof openAuthModal === "function", null, { timeout: 30000 });
 
   const sectionIds = [
@@ -220,9 +224,14 @@ async function runAudit(playwright, baseUrl, seeded) {
   results.loginButtons.push("footer");
   await page.click("#closeModal");
 
-  // Nav scroll
+  // Nav scroll — section jump uses sticky-nav offset; wait until section is on screen.
   await page.locator('.llh-public-nav-links [data-home-nav="coming-soon"]').click();
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => {
+    const el = document.getElementById("homeComingSoon");
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.top < window.innerHeight && rect.bottom > 0;
+  }, null, { timeout: 5000 });
   const comingVisible = await page.locator("#homeComingSoon").evaluate((el) => {
     const rect = el.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0;
@@ -328,8 +337,10 @@ async function runAudit(playwright, baseUrl, seeded) {
   const installHost = await page.locator("#platformInstallCardHost, [data-install-app]").count();
   assert(/Home Screen|Install|Add to Home/i.test(settingsText) || installHost > 0, "Add to Home Screen guidance missing after redesign");
 
-  await browser.close();
   return results;
+  } finally {
+    await browser.close().catch(() => {});
+  }
 }
 
 async function main() {

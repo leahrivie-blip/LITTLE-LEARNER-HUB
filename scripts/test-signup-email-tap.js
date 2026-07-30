@@ -104,7 +104,10 @@ async function inspectEmailTapTarget(page) {
 async function openFoundingSignup(page, viewport) {
   await page.setViewportSize(viewport);
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.locator('.llh-announce-banner [data-checkout-plan="founding"], #homePricing [data-checkout-plan="founding"], [data-checkout-plan="founding"]:not(#freePlanReminderPrimary)').first().click({ force: true });
+  // Prefer visible homepage Founding CTAs — never the hidden logged-out sidebar button.
+  const foundingCta = page.locator('.llh-announce-banner:not([hidden]) [data-checkout-plan="founding"], #homePricing [data-checkout-plan="founding"]').first();
+  await foundingCta.scrollIntoViewIfNeeded();
+  await foundingCta.click({ force: true, timeout: 10000 });
   await page.waitForSelector("#authModal.open", { timeout: 10000 });
   await page.waitForFunction(() => {
     const step = document.querySelector("#signupStepAccount");
@@ -136,8 +139,8 @@ async function main() {
   assert.match(appJs, /help\.hidden = inWizard/);
   assert.match(css, /#authModal \.signup-wizard-body/);
   assert.match(css, /min-height:\s*min\(320px,\s*42dvh\)/);
-  assert.match(indexHtml, /styles\.css\?v=20260722-lesson-empty-hotfix/);
-  assert.match(indexHtml, /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(indexHtml, /styles\.css\?v=20260730-signup-verify/);
+  assert.match(indexHtml, /app\.js\?v=20260730-signup-verify/);
 
   const child = startServer();
   let bootLog = "";
@@ -169,18 +172,36 @@ async function main() {
     await page.waitForFunction(() => {
       const program = document.querySelector("#signupStepProgram");
       return program && !program.classList.contains("hidden-field");
-    }, { timeout: 60000 });
+    }, null, { timeout: 60000 });
     await page.click('[data-signup-persona="home_daycare"]');
     await page.click('[data-signup-pathway="independent"]');
     await page.fill("#signupProgramNameInput", "Home Daycare");
     await page.click("#authSubmitButton");
+    // Current founding path may show the plan chooser, or finish account creation
+    // and close the modal once program setup is saved.
     await page.waitForFunction(() => {
       const plan = document.querySelector("#signupStepPlan");
-      return plan && !plan.classList.contains("hidden-field");
-    }, { timeout: 20000 });
-    const planText = await page.locator("#signupPlanChooser").innerText();
-    assert.match(planText, /Claim My Founding Spot|Founding Member/);
-    console.log("PASS founding plan chooser reachable after account email entry");
+      const planVisible = plan && !plan.classList.contains("hidden-field");
+      const authenticated = document.body.classList.contains("user-authenticated")
+        || Boolean(localStorage.getItem("llhUser"));
+      return Boolean(planVisible || authenticated);
+    }, null, { timeout: 20000 });
+    const planVisible = await page.evaluate(() => {
+      const plan = document.querySelector("#signupStepPlan");
+      return Boolean(plan && !plan.classList.contains("hidden-field"));
+    });
+    if (planVisible) {
+      const planText = await page.locator("#signupPlanChooser").innerText();
+      assert.match(planText, /Claim My Founding Spot|Founding Member/);
+      console.log("PASS founding plan chooser reachable after account email entry");
+    } else {
+      const authed = await page.evaluate(() => (
+        document.body.classList.contains("user-authenticated")
+        || Boolean(localStorage.getItem("llhUser"))
+      ));
+      assert.equal(authed, true, "expected plan chooser or authenticated session after program setup");
+      console.log("PASS founding signup completed after account email entry (authenticated)");
+    }
     console.log("\nAll signup email tap tests passed.");
   } catch (error) {
     console.error(error);

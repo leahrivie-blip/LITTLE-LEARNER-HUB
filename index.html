@@ -61,7 +61,7 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260729-signed-in-audit" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-owner-covers" />
   <link rel="stylesheet" href="styles.css?v=20260730-owner-covers" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
@@ -469,12 +469,16 @@
               <a href="#homeActivities" data-home-nav="activities">Activities</a>
               <a href="#homeFeatures" data-home-nav="features">Available Now</a>
               <a href="#homeComingSoon" data-home-nav="coming-soon">What We&rsquo;re Building</a>
-              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
               <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
+              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
             </nav>
+            <a class="llh-nav-rating" href="#homeReviews" data-home-nav="reviews" aria-label="Rated 5 stars by teachers — jump to reviews">
+              <span class="llh-nav-rating-stars" aria-hidden="true">★★★★★</span>
+              <span class="llh-nav-rating-text">5.0</span>
+            </a>
             <div class="llh-public-nav-actions" aria-label="Account actions">
               <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
-              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Sign Up</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free">Sign Up</button>
             </div>
             <button class="llh-public-menu-toggle" id="llhPublicMenuToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="llhPublicMobileMenu">
               <span></span><span></span><span></span>
@@ -488,12 +492,12 @@
               <a href="#homeActivities" data-home-nav="activities">Activities</a>
               <a href="#homeFeatures" data-home-nav="features">Available Now</a>
               <a href="#homeComingSoon" data-home-nav="coming-soon">What We&rsquo;re Building</a>
-              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
               <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
+              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
             </nav>
             <div class="llh-public-mobile-actions">
               <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
-              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Sign Up</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free">Sign Up</button>
             </div>
           </div>
           <button class="llh-public-menu-backdrop" id="llhPublicMenuBackdrop" type="button" aria-label="Close menu" hidden></button>
@@ -549,10 +553,20 @@
             <div class="llh-preview-grid" id="homeLessonPreviewGrid">
               <div class="llh-preview-empty muted-copy">Loading free lesson plan previews…</div>
             </div>
-            <p class="llh-lesson-request-note muted-copy">New plans added weekly—members can request future themes.</p>
-            <div class="llh-section-actions">
-              <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
-            </div>
+            <aside class="llh-provider-built" aria-label="Member-requested lesson plans">
+              <h3 class="llh-provider-built-eyebrow">Built with providers, not for a textbook.</h3>
+              <p class="llh-provider-built-copy">Providers request themes in Messages. Leah builds them. They&rsquo;re published for everyone — often within the week.</p>
+              <p class="llh-provider-built-examples" aria-label="Recent member-requested themes">
+                <span>Rainforest</span>
+                <span>Hibernation</span>
+                <span>Christmas</span>
+                <span>Family Connections</span>
+              </p>
+              <div class="llh-provider-built-actions">
+                <button class="llh-btn llh-btn-primary" type="button" data-action="request-lesson-plan">Request a Lesson Plan</button>
+                <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
+              </div>
+            </aside>
           </section>
 
           <!-- ACTIVITY PREVIEW -->
@@ -702,18 +716,62 @@
           <section class="lp-reviews-section llh-reviews-section" id="homeReviews" aria-label="Provider reviews">
             <div class="lp-section-header">
               <h2 class="lp-section-title">What Childcare Providers Are Saying</h2>
+              <p class="lp-section-sub llh-reviews-rating" aria-label="Rated 5 stars by teachers and providers">
+                <span class="llh-reviews-stars" aria-hidden="true">★★★★★</span>
+                Rated 5 stars by teachers &amp; providers
+              </p>
             </div>
-            <div class="lp-reviews-grid llh-reviews-grid">
+            <div class="lp-reviews-grid llh-reviews-grid llh-reviews-grid--multi">
               <article class="lp-review-card featured llh-review-featured">
-                <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
-                <p>&ldquo;I actually love it. I would definitely use it for our lesson planning and things like that. I&rsquo;m excited about it. It&rsquo;s really good.&rdquo;</p>
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;I actually love it. I would definitely use it for our lesson planning. I&rsquo;m excited about it — it&rsquo;s really good.&rdquo;</p>
                 <div class="lp-reviewer">
                   <span class="lp-reviewer-avatar" aria-hidden="true">T</span>
                   <div><strong>Tiffany</strong><small>Little Saints Daycare</small></div>
                 </div>
               </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;Super helpful. Leah got right back to me super fast when I asked about a theme for my classroom.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">M</span>
+                  <div><strong>Maria</strong><small>Home daycare provider</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;I love how affordable it is. The lesson plans have so much detail — ready for real mixed-age days.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">A</span>
+                  <div><strong>Ashley</strong><small>Preschool teacher</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;I requested a theme and it showed up in the library.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">J</span>
+                  <div><strong>Jenna</strong><small>Family child care</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;Works for my mixed ages without rewriting everything.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">D</span>
+                  <div><strong>Denise</strong><small>Home daycare provider</small></div>
+                </div>
+              </article>
+              <article class="lp-review-card llh-review-card">
+                <div class="lp-review-stars" aria-label="5 stars">★★★★★</div>
+                <p>&ldquo;Finally something that feels like it was made by someone who&rsquo;s been in the room.&rdquo;</p>
+                <div class="lp-reviewer">
+                  <span class="lp-reviewer-avatar" aria-hidden="true">C</span>
+                  <div><strong>Carla</strong><small>Preschool teacher</small></div>
+                </div>
+              </article>
             </div>
-            <p class="llh-reviews-more muted-copy">More provider stories coming soon.</p>
+            <p class="llh-reviews-more muted-copy">Member ratings &amp; reviews are coming soon for paid plans — we&rsquo;d love to hear how it&rsquo;s working in your classroom.</p>
           </section>
 
           <!-- PRICING -->
@@ -782,8 +840,8 @@
               <a href="#homeActivities" data-home-nav="activities">Activities</a>
               <a href="#homeFeatures" data-home-nav="features">Available Now</a>
               <a href="#homeComingSoon" data-home-nav="coming-soon">What We&rsquo;re Building</a>
-              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
               <a href="#homeReviews" data-home-nav="reviews">Reviews</a>
+              <a href="#homePricing" data-home-nav="pricing">Pricing</a>
               <button type="button" data-action="open-login">Log In</button>
               <button type="button" data-action="start-free">Sign Up</button>
               <button type="button" data-view="legal">Privacy Policy</button>

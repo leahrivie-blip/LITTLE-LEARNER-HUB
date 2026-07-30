@@ -158,7 +158,8 @@ async function clickSignupAndExpectModal(page, locator, label) {
   }
 
   const title = (await page.locator("#authTitle").innerText()).toLowerCase();
-  const isSignup = /create|sign up|free/.test(title) && !/^log in/.test(title);
+  // Free signup titles ("Create…") and Founding checkout signup ("Continue with Founding Membership").
+  const isSignup = /create|sign up|free|founding|membership/.test(title) && !/^log in/.test(title);
   if (!isSignup) {
     return { ok: false, label, reason: `expected signup modal, got title: ${title}`, coverInfo };
   }
