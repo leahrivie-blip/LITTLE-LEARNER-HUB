@@ -165,8 +165,11 @@ async function runAudit(playwright, baseUrl, seeded) {
   const page = await browser.newContext({ viewport: { width: 1280, height: 900 } }).then((c) => c.newPage());
   page.on("dialog", async (d) => d.accept());
 
-  await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" });
-  await page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 });
+  // Race-safe: site-content can finish during goto before waitForResponse attaches.
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }).catch(() => null),
+    page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded" }),
+  ]);
   await page.waitForFunction(() => typeof setView === "function" && typeof openAuthModal === "function", null, { timeout: 30000 });
 
   const sectionIds = [
