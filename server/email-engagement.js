@@ -696,6 +696,15 @@ function createEmailEngagement(deps) {
     resolveAudienceRecipients = null,
   } = deps;
 
+  async function persistEngagementStore(store, options = {}) {
+    if (options.deferPersist) return;
+    if (typeof writeStoreAsync === "function") {
+      await writeStoreAsync(store);
+      return;
+    }
+    writeStore(store);
+  }
+
   function foundingOfferStillOpen(store) {
     if (typeof foundingSpotsRemaining !== "function") return true;
     try {
@@ -1212,7 +1221,7 @@ function createEmailEngagement(deps) {
         to: clean,
         subject: "",
       });
-      writeStore(store);
+      if (!options.deferPersist) await persistEngagementStore(store);
       return { sent: false, reason: "unsubscribed" };
     }
 
@@ -1263,7 +1272,7 @@ function createEmailEngagement(deps) {
         updatedAt: new Date().toISOString(),
       };
     }
-    writeStore(store);
+    if (!options.deferPersist) await persistEngagementStore(store);
     return {
       sent: Boolean(emailResult.sent),
       configured: Boolean(emailResult.configured),
@@ -1313,7 +1322,7 @@ function createEmailEngagement(deps) {
         if (step.key === "explore" && !flags.tipsSentAt) continue;
 
         processed += 1;
-        const result = await sendOnboardingStep(email, step.key, { force: options.force });
+        const result = await sendOnboardingStep(email, step.key, { force: options.force, deferPersist: true });
         details.push({ email, step: step.key, reason: result.reason, sent: result.sent });
         if (result.sent) sent += 1;
         else skipped += 1;
@@ -1325,7 +1334,7 @@ function createEmailEngagement(deps) {
     const fresh = readStore();
     const freshEng = ensureEmailEngagement(fresh);
     freshEng.settings.lastOnboardingSweepAt = new Date().toISOString();
-    writeStore(fresh);
+    await persistEngagementStore(fresh);
 
     return { processed, sent, skipped, details: details.slice(0, 50) };
   }
@@ -1379,7 +1388,7 @@ function createEmailEngagement(deps) {
         subject: "What’s New this week",
         meta: { weekKey: key, lessonCount: 0, activityCount: 0, resourceCount: 0, printableCount: 0 },
       });
-      writeStore(store);
+      await persistEngagementStore(store);
       return { sent: 0, skipped: true, reason: "no_new_content", weekKey: key, digest };
     }
 
@@ -1444,7 +1453,7 @@ function createEmailEngagement(deps) {
     if (!sentCount && !recipients.length) {
       eng.settings.lastWeeklySkippedAt = eng.settings.lastWeeklyRunAt;
     }
-    writeStore(store);
+    await persistEngagementStore(store);
 
     return {
       sent: sentCount,
@@ -1520,7 +1529,7 @@ function createEmailEngagement(deps) {
    * Does not send mail. Issues a short-lived audit token used to unlock the
    * one-time welcome/update send.
    */
-  function runPreflightAudit(options = {}) {
+  async function runPreflightAudit(options = {}) {
     const store = options.store || readStore();
     const eng = ensureEmailEngagement(store);
     const adminEmail = String(options.adminEmail || getAdminEmail() || "").trim().toLowerCase();
@@ -1711,7 +1720,7 @@ function createEmailEngagement(deps) {
       lastAuditPassed: auditPassed,
       lastAuditToken: auditToken,
     };
-    writeStore(store);
+    await persistEngagementStore(store);
 
     return {
       auditPassed,
@@ -1760,7 +1769,7 @@ function createEmailEngagement(deps) {
    * Build the one-time welcome/update email + recipient list without sending.
    * Safe to run anytime after (or with) the preflight audit.
    */
-  function prepareOneTimeWelcomeUpdate(options = {}) {
+  async function prepareOneTimeWelcomeUpdate(options = {}) {
     const store = options.store || readStore();
     const eng = ensureEmailEngagement(store);
     const state = eng.settings.oneTimeWelcomeUpdate || defaultOneTimeWelcomeUpdate();
@@ -1784,7 +1793,7 @@ function createEmailEngagement(deps) {
       preparedRecipientCount: recipients.length,
       preparedSubject: content.subject,
     };
-    writeStore(store);
+    await persistEngagementStore(store);
 
     return {
       prepared: true,
@@ -1930,7 +1939,7 @@ function createEmailEngagement(deps) {
       lastAuditToken: "",
       lastAuditPassed: false,
     };
-    writeStore(store);
+    await persistEngagementStore(store);
 
     return {
       sent: sentCount,
@@ -1954,7 +1963,7 @@ function createEmailEngagement(deps) {
     if (typeof partial.weeklyWhatsNewEnabled === "boolean") {
       eng.settings.weeklyWhatsNewEnabled = partial.weeklyWhatsNewEnabled;
     }
-    writeStore(store);
+    await persistEngagementStore(store);
     return eng.settings;
   }
 
@@ -1982,7 +1991,7 @@ function createEmailEngagement(deps) {
       to: clean,
       subject: "",
     });
-    writeStore(store);
+    await persistEngagementStore(store);
     return { ok: true };
   }
 

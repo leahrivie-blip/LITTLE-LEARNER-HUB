@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Regression: writeStoreAsync must throw (not false-success) when Postgres is unavailable.
+ * Regression: critical admin/user saves must return 503 (not false 200) when Postgres cannot persist.
  *
  * Run: NODE_ENV=test node scripts/test-store-write-degraded.js
  */
@@ -111,6 +111,12 @@ async function stopServer(child) {
   });
 }
 
+function assertPersistFailure(label, res, child) {
+  assert.ok(res.status === 503 || res.status >= 500, `${label}: expected failure status, got ${res.status}`);
+  assert.match(res.text, /database|save|persist|Could not/i, `${label}: expected persist error message`);
+  assert.match(child.__output(), /writeStoreAsync_rejected|failed_write|store_not_persisted|Could not save/i, `${label}: expected server persist log`);
+}
+
 async function main() {
   const child = startServer();
   try {
@@ -124,8 +130,9 @@ async function main() {
     const token = login.json.token;
 
     writeControl({ failAllConflictUpserts: true });
+
     const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
-    const save = await requestJson("POST", "/api/admin/site-content", {
+    const siteSave = await requestJson("POST", "/api/admin/site-content", {
       adminToken: token,
       siteContent: {
         ...bootstrap.json.siteContent,
@@ -133,10 +140,40 @@ async function main() {
         updatedAt: bootstrap.json.siteContent?.updatedAt || "",
       },
     });
-    assert.ok(save.status >= 500 || save.status === 503, `expected failure status, got ${save.status}`);
-    assert.match(save.text, /database|save|persist/i);
-    assert.match(child.__output(), /writeStoreAsync_rejected|failed_write|store_not_persisted|Could not save/i);
-    console.log("PASS  admin save does not false-success when Postgres write fails");
+    assertPersistFailure("admin site-content save", siteSave, child);
+    console.log("PASS  admin site-content save returns 503 when Postgres write fails");
+
+    const membershipSave = await requestJson("POST", "/api/admin/membership-update", {
+      adminToken: token,
+      email: "member@example.com",
+      updates: { subscriptionStatus: "Test hold" },
+    });
+    assertPersistFailure("admin membership-update", membershipSave, child);
+    console.log("PASS  admin membership-update returns 503 when Postgres write fails");
+
+    const announcementSave = await requestJson("POST", "/api/admin/announcements", {
+      adminToken: token,
+      title: "Degraded announcement",
+      body: "Should not persist",
+      audience: "all",
+    });
+    assertPersistFailure("admin announcement create", announcementSave, child);
+    console.log("PASS  admin announcement create returns 503 when Postgres write fails");
+
+    const settingsSave = await requestJson("POST", "/api/admin/messaging-settings", {
+      adminToken: token,
+      emailOnMemberMessage: false,
+    });
+    assertPersistFailure("admin messaging settings", settingsSave, child);
+    console.log("PASS  admin messaging-settings returns 503 when Postgres write fails");
+
+    const emailSettingsSave = await requestJson("POST", "/api/admin/email-engagement/settings", {
+      adminToken: token,
+      onboardingEnabled: false,
+      weeklyWhatsNewEnabled: false,
+    });
+    assertPersistFailure("admin email-engagement settings", emailSettingsSave, child);
+    console.log("PASS  admin email-engagement settings returns 503 when Postgres write fails");
 
     const readiness = await requestJson("GET", "/api/launch-readiness");
     assert.equal(readiness.json?.required?.database?.ready, false);

@@ -3248,6 +3248,15 @@ function readStore() {
   return JSON.parse(fs.readFileSync(storePath, "utf8"));
 }
 
+/** In-process mutable store for helpers that batch writes (deferPersist / webhook flush). */
+function writableStore() {
+  if (usePostgresStore()) {
+    if (!storeCache) storeCache = defaultStore();
+    return storeCache;
+  }
+  return peekStore();
+}
+
 async function readStoreFresh() {
   if (usePostgresStore()) {
     await postgresWriteChain.catch(() => {});
@@ -3948,18 +3957,29 @@ async function writeStoreAsync(store) {
   writeLocalJsonStore(storeCache);
 }
 
-/** Await durable Postgres persistence before returning success to the client. */
-async function respondAfterPersist(store, response, status, body, failMessage = "Could not save. Please try again.") {
+function storePersistenceFailureStatus(error) {
+  return error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500;
+}
+
+/** Await durable Postgres persistence; return false and respond 503 on failure. */
+async function persistStoreOr503(store, response, failMessage = "Could not save. Please try again.") {
   try {
     await writeStoreAsync(store);
-    jsonResponse(response, status, body);
+    return true;
   } catch (error) {
-    jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
       ok: false,
       error: failMessage,
       code: error?.code || "store_write_failed",
     });
+    return false;
   }
+}
+
+/** Await durable Postgres persistence before returning success to the client. */
+async function respondAfterPersist(store, response, status, body, failMessage = "Could not save. Please try again.") {
+  if (!(await persistStoreOr503(store, response, failMessage))) return;
+  jsonResponse(response, status, body);
 }
 
 function normalizeEmail(email) {
@@ -4548,10 +4568,10 @@ async function claimFoundingSpotAtomic(email) {
   });
 }
 
-function releaseFoundingSpot(email, reason = "canceled_before_first_payment") {
+function releaseFoundingSpot(email, reason = "canceled_before_first_payment", options = {}) {
   const clean = normalizeEmail(email);
   if (!clean) return { released: false };
-  const store = readStore();
+  const store = writableStore();
   const before = (store.foundingMembers || []).length;
   store.foundingMembers = (store.foundingMembers || []).filter((value) => normalizeEmail(value) !== clean);
   store.foundingReservations = (Array.isArray(store.foundingReservations) ? store.foundingReservations : []).map((row) => {
@@ -4565,14 +4585,14 @@ function releaseFoundingSpot(email, reason = "canceled_before_first_payment") {
     };
   });
   const released = store.foundingMembers.length < before;
-  if (released || reason) writeStore(store);
+  if ((released || reason) && !options.deferPersist) writeStore(store);
   return { released, foundingMembersRemaining: store.foundingMembers.length };
 }
 
-function markFoundingReservationConverted(email) {
+function markFoundingReservationConverted(email, options = {}) {
   const clean = normalizeEmail(email);
   if (!clean) return;
-  const store = readStore();
+  const store = writableStore();
   let changed = false;
   store.foundingReservations = (Array.isArray(store.foundingReservations) ? store.foundingReservations : []).map((row) => {
     if (normalizeEmail(row.email) !== clean || row.status === "converted") return row;
@@ -4584,7 +4604,7 @@ function markFoundingReservationConverted(email) {
       expiresAt: "",
     };
   });
-  if (changed) writeStore(store);
+  if (changed && !options.deferPersist) writeStore(store);
 }
 
 function userNeverCompletedPaidCycle(user = {}) {
@@ -4664,9 +4684,9 @@ function hasProcessedStripeEvent(eventId) {
   return Boolean(store.processedStripeEvents?.[eventId]);
 }
 
-function markProcessedStripeEvent(eventId) {
+function markProcessedStripeEvent(eventId, options = {}) {
   if (!eventId) return;
-  const store = readStore();
+  const store = writableStore();
   store.processedStripeEvents = store.processedStripeEvents || {};
   store.processedStripeEvents[eventId] = {
     processedAt: new Date().toISOString(),
@@ -4681,7 +4701,27 @@ function markProcessedStripeEvent(eventId) {
         delete store.processedStripeEvents[id];
       });
   }
-  writeStore(store);
+  if (!options.deferPersist) writeStore(store);
+}
+
+async function flushDurableStoreOrWebhookError(response, failMessage = "Webhook processing could not persist state.") {
+  try {
+    // Never re-read from disk here — deferred mutations live on storeCache only until flush.
+    const target = storeCache || writableStore();
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      await writeStoreAsync(target);
+    } else {
+      writeStore(target);
+    }
+    return true;
+  } catch (error) {
+    console.error("[membership] webhook_persist_failed:", error.message || error);
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      error: failMessage,
+      code: error?.code || "store_write_failed",
+    });
+    return false;
+  }
 }
 
 // Persisted (not just console-logged) audit trail for confirmed curriculum
@@ -4705,8 +4745,8 @@ function appendCurriculumRestoreAudit(store, { adminToken, before, after, note =
   return entry;
 }
 
-function appendMembershipLifecycleAudit(email, action, details = {}) {
-  const store = readStore();
+function appendMembershipLifecycleAudit(email, action, details = {}, options = {}) {
+  const store = writableStore();
   store.membershipAudit = store.membershipAudit || [];
   const entry = {
     id: `mem_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
@@ -4724,7 +4764,7 @@ function appendMembershipLifecycleAudit(email, action, details = {}) {
   };
   store.membershipAudit.unshift(entry);
   store.membershipAudit = store.membershipAudit.slice(0, 500);
-  writeStore(store);
+  if (!options.deferPersist) writeStore(store);
   return entry;
 }
 
@@ -4766,7 +4806,8 @@ function applyCheckoutMembershipUpgrade(email, {
   promoLabel = "",
   sessionId = "",
   source = "checkout",
-} = {}) {
+} = {}, options = {}) {
+  const persistOpts = options.deferPersist ? { deferPersist: true } : {};
   const cleanEmail = normalizeEmail(email);
   if (!cleanEmail) {
     logMembershipTransition("payment_received_missing_email", "", { extra: { planKey, source, sessionId } });
@@ -4820,16 +4861,16 @@ function applyCheckoutMembershipUpgrade(email, {
     pendingPromoLabel: "",
     promoCodeUsed: promoCode || undefined,
     promoLabelUsed: promoLabel || undefined,
-  });
+  }, persistOpts);
   if (promoCode) {
     markPromoRedeemed(cleanEmail, promoCode, {
       label: promoLabel,
       trialDays: promoTrialDays,
       stripeSessionId: sessionId,
       stripeSubscriptionId: subscriptionId,
-    });
+    }, persistOpts);
   }
-  appendBillingEvent(cleanEmail, "checkout_success", planKey, planConfig[planKey]?.amount || "");
+  appendBillingEvent(cleanEmail, "checkout_success", planKey, planConfig[planKey]?.amount || "", persistOpts);
   appendMembershipLifecycleAudit(cleanEmail, "membership_assigned", {
     note: `Membership assigned from ${source}`,
     updates: {
@@ -4838,7 +4879,7 @@ function applyCheckoutMembershipUpgrade(email, {
       stripeSubscriptionStatus: user.stripeSubscriptionStatus,
       hasProAccess: membershipHasProAccess(user),
     },
-  });
+  }, persistOpts);
   logMembershipTransition("membership_assigned", cleanEmail, {
     plan: user.plan,
     subscriptionStatus: user.subscriptionStatus,
@@ -4883,9 +4924,10 @@ function applyCheckoutMembershipUpgrade(email, {
         ["Source", source],
         ["Subscription", subscriptionId || ""],
       ],
-    }).then(() => {
-      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
     }).catch(() => {});
+    if (!options.deferPersist) {
+      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
+    }
   } catch (alertError) {
     console.warn("[admin-notifications] checkout alert failed:", alertError?.message || alertError);
   }
@@ -4983,7 +5025,7 @@ function reconcileStaleAuthFlags(user = {}) {
 }
 
 function upsertUser(email, updates = {}, options = {}) {
-  const store = readStore();
+  const store = writableStore();
   store.users = store.users || {};
   const existing = store.users[email] || { email };
   const beforeRole = String(existing.role || "").trim().toLowerCase();
@@ -5037,11 +5079,11 @@ function promoUsedByAccount(email, code, store = readStore()) {
   ));
 }
 
-function markPromoRedeemed(email, code, details = {}) {
+function markPromoRedeemed(email, code, details = {}, options = {}) {
   const cleanEmail = normalizeEmail(email);
   const promoCode = normalizePromoCode(code);
   if (!cleanEmail || !promoCode) return null;
-  const store = readStore();
+  const store = writableStore();
   store.promoRedemptions = promoRedemptionRecords(store);
   const existing = store.promoRedemptions.find((record) => (
     normalizeEmail(record.email) === cleanEmail && normalizePromoCode(record.code) === promoCode
@@ -5071,7 +5113,7 @@ function markPromoRedeemed(email, code, details = {}) {
     promoLabelUsed: details.label || user.promoLabelUsed || "",
     updatedAt: new Date().toISOString(),
   };
-  writeStore(store);
+  if (!options.deferPersist) writeStore(store);
   return record;
 }
 
@@ -5200,7 +5242,7 @@ function canUseServerAi(email, plan) {
   return { used, limit: aiLimitForPlan(plan), allowed: used < aiLimitForPlan(plan), key };
 }
 
-function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null, requestId = "" } = {}) {
+async function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = null, inputTokens = null, outputTokens = null, success = true, errorMessage = null, requestId = "" } = {}) {
   const store = readStore();
   const usage = canUseServerAi(email, plan);
   store.aiUsage = store.aiUsage || {};
@@ -5231,7 +5273,7 @@ function recordServerAiUse(email, plan, output, { tool = "", responseTimeMs = nu
     createdAt: new Date().toISOString(),
   });
   store.aiUsageLogs = store.aiUsageLogs.slice(0, 5000);
-  writeStore(store);
+  await writeStoreAsync(store);
   return { used: usage.used + 1, limit: usage.limit };
 }
 
@@ -7418,11 +7460,10 @@ async function handleAdminNotificationsMarkRead(request, response) {
     all: Boolean(body.all),
     adminEmails: ADMIN_EMAILS,
   });
-  writeStore(store);
   const unreadCount = (store.notifications || []).filter(
     (n) => n && isConfiguredAdminEmail(n.email) && !n.read,
   ).length;
-  jsonResponse(response, 200, { ok: true, changed, unreadCount });
+  await respondAfterPersist(store, response, 200, { ok: true, changed, unreadCount }, "Could not save notification read state.");
 }
 
 async function handleAdminSiteContentSave(request, response) {
@@ -7641,7 +7682,16 @@ async function handleCheckout(request, response) {
           note: "Introductory trial requested for an account sharing a Stripe customer that already has trial history.",
         });
         store.adminReviewFlags = flags.slice(-200);
-        writeStore(store);
+        try {
+          await writeStoreAsync(store);
+        } catch (error) {
+          jsonResponse(response, storePersistenceFailureStatus(error), {
+            ok: false,
+            error: "Could not save admin review flag.",
+            code: error?.code || "store_write_failed",
+          });
+          return;
+        }
         jsonResponse(response, 409, {
           error: "This billing customer already used an introductory Pro trial on another account. Contact support if this is a separate childcare organization.",
           code: "trial_customer_already_used",
@@ -7775,7 +7825,17 @@ async function handleCheckout(request, response) {
       pendingTrialDays: promo.valid ? promo.trialDays : trial7day ? 7 : 0,
       pendingPromoLabel: promo.valid ? promo.label : trial7day ? "7-Day Pro Trial" : "",
       foundingSpotReleasable: planKey === "founding" && Boolean(promo.valid || trial7day),
-    });
+    }, { deferPersist: true });
+    try {
+      await writeStoreAsync(writableStore());
+    } catch (error) {
+      jsonResponse(response, storePersistenceFailureStatus(error), {
+        ok: false,
+        error: "Could not save checkout state.",
+        code: error?.code || "store_write_failed",
+      });
+      return;
+    }
     jsonResponse(response, 200, {
       url: session.url,
       id: session.id,
@@ -8493,7 +8553,7 @@ function nextStripeWatermark(existingWatermark, subscription, eventCreated) {
   );
 }
 
-function upsertStripeSubscription(email, customerId, subscription, { eventCreated = 0, eventId = "" } = {}) {
+function upsertStripeSubscription(email, customerId, subscription, { eventCreated = 0, eventId = "", deferPersist = false } = {}) {
   const cleanEmail = normalizeEmail(email);
   const store = readStore();
   const user = store.users?.[cleanEmail] || {};
@@ -8513,7 +8573,7 @@ function upsertStripeSubscription(email, customerId, subscription, { eventCreate
     pendingPlan: "",
     lastStripeEventCreatedAt: watermark,
     lastStripeEventId: eventId || user.lastStripeEventId || "",
-  });
+  }, deferPersist ? { deferPersist: true } : {});
 }
 
 async function findStripeSubscriptionByEmail(email) {
@@ -8559,13 +8619,13 @@ async function handleCheckoutStatus(request, response, url) {
         promoLabel,
         sessionId: session.id,
         source: "checkout_status",
-      });
+      }, { deferPersist: true });
       // Prefer live Stripe subscription fields when available so period end is exact.
       if (session.subscription && typeof session.subscription === "string") {
         try {
           const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
           if (liveSub?.id) {
-            upgradedUser = upsertStripeSubscription(email, session.customer, liveSub);
+            upgradedUser = upsertStripeSubscription(email, session.customer, liveSub, { deferPersist: true });
             logMembershipTransition("membership_synced_from_subscription", email, {
               plan: upgradedUser.plan,
               subscriptionStatus: upgradedUser.subscriptionStatus,
@@ -8576,6 +8636,16 @@ async function handleCheckoutStatus(request, response, url) {
         } catch (syncError) {
           console.warn(`[membership] checkout_status subscription sync failed email=${email}:`, syncError.message);
         }
+      }
+      try {
+        await writeStoreAsync(writableStore());
+      } catch (error) {
+        jsonResponse(response, storePersistenceFailureStatus(error), {
+          ok: false,
+          error: "Could not save checkout status.",
+          code: error?.code || "store_write_failed",
+        });
+        return;
       }
     }
     jsonResponse(response, 200, {
@@ -8641,6 +8711,7 @@ async function handleStripeWebhook(request, response) {
   }
 
   try {
+    const WEBHOOK_DEFER = usePostgresStore() ? { deferPersist: true } : {};
     if (event.type === "checkout.session.completed") {
       const session = event.data.object;
       const store = readStore();
@@ -8664,12 +8735,12 @@ async function handleStripeWebhook(request, response) {
           promoLabel,
           sessionId: session.id,
           source: "webhook_checkout.session.completed",
-        });
+        }, WEBHOOK_DEFER);
         if (session.subscription && typeof session.subscription === "string") {
           try {
             const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(session.subscription)}`);
             if (liveSub?.id) {
-              const synced = upsertStripeSubscription(email, session.customer, liveSub, { eventCreated: Number(event.created || 0), eventId: event.id || "" });
+              const synced = upsertStripeSubscription(email, session.customer, liveSub, { eventCreated: Number(event.created || 0), eventId: event.id || "", deferPersist: true });
               logMembershipTransition("permissions_updated", email, {
                 plan: synced.plan,
                 membershipStatus: membershipStatusDisplay(synced),
@@ -8701,13 +8772,16 @@ async function handleStripeWebhook(request, response) {
         const lastEventCreated = Number(user.lastStripeEventCreatedAt || 0);
         if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
           console.warn(`[membership] webhook_stale_ignored event=${event.id} email=${email} created=${eventCreated} last=${lastEventCreated}`);
-          if (event?.id) markProcessedStripeEvent(event.id);
+          if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+          if (usePostgresStore() && postgresPool && databaseReady) {
+            if (!(await flushDurableStoreOrWebhookError(response))) return;
+          }
           jsonResponse(response, 200, { received: true, stale: true });
           return;
         }
         const updates = membershipUpdatesFromStripeSubscription(subscription, user, eventType);
         if (updates.cancelAtPeriodEnd && shouldReleaseFoundingSpotOnCancel(user)) {
-          releaseFoundingSpot(email, "canceled_before_first_payment");
+          releaseFoundingSpot(email, "canceled_before_first_payment", WEBHOOK_DEFER);
           updates.foundingMemberActive = false;
           updates.foundingMemberHistorical = false;
           updates.foundingMember = false;
@@ -8726,7 +8800,7 @@ async function handleStripeWebhook(request, response) {
           updates.foundingMember = true;
         }
         if (eventType === "deleted" && shouldReleaseFoundingSpotOnCancel(user)) {
-          releaseFoundingSpot(email, "subscription_deleted_before_first_payment");
+          releaseFoundingSpot(email, "subscription_deleted_before_first_payment", WEBHOOK_DEFER);
           updates.foundingMemberActive = false;
           updates.foundingMemberHistorical = false;
           updates.foundingMember = false;
@@ -8739,7 +8813,7 @@ async function handleStripeWebhook(request, response) {
           lastStripeEventId: event.id || user.lastStripeEventId || "",
           paymentMethod: updates.plan === "Free" ? user.paymentMethod || "Managed in Stripe" : "Managed in Stripe",
           pendingPlan: "",
-        });
+        }, WEBHOOK_DEFER);
         logMembershipTransition("membership_assigned", email, {
           plan: saved.plan,
           subscriptionStatus: saved.subscriptionStatus,
@@ -8753,12 +8827,11 @@ async function handleStripeWebhook(request, response) {
             label: subscription.metadata?.promoLabel || user.pendingPromoLabel || "",
             trialDays: Number(subscription.metadata?.promoTrialDays || user.pendingTrialDays || 0),
             stripeSubscriptionId: subscription.id,
-          });
+          }, WEBHOOK_DEFER);
         }
         if (!membershipAccess.membershipHasProAccess({ ...user, ...updates })) {
-          appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0");
-          const cancelStore = readStore();
-          await emitAdminAlertSafe(cancelStore, {
+          appendBillingEvent(email, "subscription_canceled", planKeyFromStripe(subscription, user), "$0", WEBHOOK_DEFER);
+          await emitAdminAlertSafe(readStore(), {
             category: "billing",
             type: "admin_subscription_canceled",
             title: "Subscription canceled / ended",
@@ -8768,10 +8841,8 @@ async function handleStripeWebhook(request, response) {
             sendEmail: true,
             emailKind: "Billing",
           });
-          try { writeStore(cancelStore, { immediate: true }); } catch { /* ignore */ }
         } else if (updates.cancelAtPeriodEnd && !user.cancelAtPeriodEnd) {
-          const cancelStore = readStore();
-          await emitAdminAlertSafe(cancelStore, {
+          await emitAdminAlertSafe(readStore(), {
             category: "billing",
             type: "admin_subscription_canceling",
             title: "Subscription set to cancel at period end",
@@ -8780,7 +8851,6 @@ async function handleStripeWebhook(request, response) {
             refId: `canceling:${subscription.id || email}`,
             sendEmail: false,
           });
-          try { writeStore(cancelStore, { immediate: true }); } catch { /* ignore */ }
         }
       } else {
         console.warn(`[membership] webhook ${event.type} unmatched customer=${subscription.customer}`);
@@ -8808,7 +8878,6 @@ async function handleStripeWebhook(request, response) {
           sendEmail: true,
           emailKind: "Billing",
         });
-        try { writeStore(unmatchedStore, { immediate: true }); } catch { /* ignore */ }
       } else if (invoice.subscription) {
         const [email, existingUser] = userEntry;
         const eventCreated = Number(event.created || 0);
@@ -8817,14 +8886,17 @@ async function handleStripeWebhook(request, response) {
           // An out-of-order/delayed paid event must never resurrect membership state
           // older than what a subsequent event (e.g. a later failure) already recorded.
           console.warn(`[membership] webhook_stale_ignored event=${event.id} email=${email} created=${eventCreated} last=${lastEventCreated}`);
-          if (event?.id) markProcessedStripeEvent(event.id);
+          if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+          if (usePostgresStore() && postgresPool && databaseReady) {
+            if (!(await flushDurableStoreOrWebhookError(response))) return;
+          }
           jsonResponse(response, 200, { received: true, stale: true });
           return;
         }
         try {
           const liveSub = await stripeGet(`subscriptions/${encodeURIComponent(invoice.subscription)}`);
           if (liveSub?.id) {
-            const synced = upsertStripeSubscription(email, invoice.customer, liveSub, { eventCreated, eventId: event.id || "" });
+            const synced = upsertStripeSubscription(email, invoice.customer, liveSub, { eventCreated, eventId: event.id || "", deferPersist: true });
             const amountPaid = Number(invoice.amount_paid || 0);
             const paidUpdates = {
               lastFailedPaymentAt: "",
@@ -8837,9 +8909,9 @@ async function handleStripeWebhook(request, response) {
               paidUpdates.lastSuccessfulPaymentAt = paidAt;
               paidUpdates.firstPaidInvoiceAt = store.users?.[email]?.firstPaidInvoiceAt || paidAt;
               paidUpdates.foundingSpotReleasable = false;
-              markFoundingReservationConverted(email);
+              markFoundingReservationConverted(email, WEBHOOK_DEFER);
             }
-            upsertUser(email, paidUpdates);
+            upsertUser(email, paidUpdates, WEBHOOK_DEFER);
             logMembershipTransition("payment_received", email, {
               plan: synced.plan,
               subscriptionStatus: synced.subscriptionStatus,
@@ -8849,8 +8921,7 @@ async function handleStripeWebhook(request, response) {
             // Renewal / successful invoice — skip noisy first checkout duplicates via refId window.
             const billingReason = String(invoice.billing_reason || "");
             if (amountPaid > 0 && (billingReason === "subscription_cycle" || billingReason === "subscription_update")) {
-              const renewStore = readStore();
-              await emitAdminAlertSafe(renewStore, {
+              await emitAdminAlertSafe(readStore(), {
                 category: "billing",
                 type: "admin_subscription_renewed",
                 title: "Subscription renewed",
@@ -8859,7 +8930,6 @@ async function handleStripeWebhook(request, response) {
                 refId: invoice.id || `renew:${email}`,
                 sendEmail: false,
               });
-              try { writeStore(renewStore, { immediate: true }); } catch { /* ignore */ }
             }
           }
         } catch (syncError) {
@@ -8880,7 +8950,10 @@ async function handleStripeWebhook(request, response) {
         const lastEventCreated = Number(existing.lastStripeEventCreatedAt || 0);
         if (eventCreated && lastEventCreated && eventCreated < lastEventCreated) {
           console.warn(`[membership] webhook_stale_ignored event=${event.id} email=${email} created=${eventCreated} last=${lastEventCreated}`);
-          if (event?.id) markProcessedStripeEvent(event.id);
+          if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+          if (usePostgresStore() && postgresPool && databaseReady) {
+            if (!(await flushDurableStoreOrWebhookError(response))) return;
+          }
           jsonResponse(response, 200, { received: true, stale: true });
           return;
         }
@@ -8907,11 +8980,11 @@ async function handleStripeWebhook(request, response) {
             : "",
           lastStripeEventCreatedAt: eventCreated || lastEventCreated,
           lastStripeEventId: event.id || existing.lastStripeEventId || "",
-        });
+        }, WEBHOOK_DEFER);
         appendMembershipLifecycleAudit(email, "payment_failed", {
           note: "Payment failed — Pro access revoked until Stripe recovers",
           updates: { stripeSubscriptionStatus: "past_due", invoiceId: invoice.id },
-        });
+        }, WEBHOOK_DEFER);
         logMembershipTransition("payment_failed", email, {
           plan: updated.plan,
           subscriptionStatus: updated.subscriptionStatus,
@@ -8919,8 +8992,7 @@ async function handleStripeWebhook(request, response) {
           extra: { invoiceId: invoice.id },
         });
         await maybeSendBillingLifecycleEmails(email, existing, updated);
-        const alertStore = readStore();
-        await emitAdminAlertSafe(alertStore, {
+        await emitAdminAlertSafe(readStore(), {
           category: "billing",
           type: "admin_payment_failed",
           title: "Payment failed",
@@ -8931,13 +9003,15 @@ async function handleStripeWebhook(request, response) {
           emailKind: "Billing",
           emailFields: [["Invoice", invoice.id || ""]],
         });
-        try { writeStore(alertStore, { immediate: true }); } catch { /* ignore */ }
       } else {
         console.warn(`[membership] webhook ${event.type} unmatched customer=${invoice.customer || ""} email=${invoice.customer_email || ""} invoice=${invoice.id || ""}`);
       }
     }
 
-    if (event?.id) markProcessedStripeEvent(event.id);
+    if (event?.id) markProcessedStripeEvent(event.id, WEBHOOK_DEFER);
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      if (!(await flushDurableStoreOrWebhookError(response))) return;
+    }
     jsonResponse(response, 200, { received: true });
   } catch (error) {
     // Return 500 so Stripe retries failed webhook processing.
@@ -8979,7 +9053,7 @@ async function handleAiGenerate(request, response) {
     const responseTimeMs = Date.now() - startTime;
     const inputTokens = aiResult.inputTokens ?? null;
     const outputTokens = aiResult.outputTokens ?? null;
-    const recorded = recordServerAiUse(email, plan, aiResult.output, { tool: aiResult.tool || tool, responseTimeMs, inputTokens, outputTokens, success: true, requestId });
+    const recorded = await recordServerAiUse(email, plan, aiResult.output, { tool: aiResult.tool || tool, responseTimeMs, inputTokens, outputTokens, success: true, requestId });
     jsonResponse(response, 200, {
       output: aiResult.output,
       model: aiResult.model,
@@ -8990,6 +9064,14 @@ async function handleAiGenerate(request, response) {
       resetCycle: currentAiCycle(),
     });
   } catch (error) {
+    if (error?.code === "store_not_persisted" || error?.code === "store_write_failed") {
+      jsonResponse(response, 503, {
+        error: "Your document was generated but could not be saved. Please try again.",
+        code: error.code,
+        requestId,
+      });
+      return;
+    }
     const responseTimeMs = Date.now() - startTime;
     const sanitizedError = String(error.message || "unknown").slice(0, 500);
     console.error(`[helper-generate-failure] requestId=${requestId} email=${email} tool=${tool} plan=${plan} error=${sanitizedError}`);
@@ -9011,7 +9093,7 @@ async function handleAiGenerate(request, response) {
         createdAt: new Date().toISOString(),
       });
       failStore.aiUsageLogs = failStore.aiUsageLogs.slice(0, 5000);
-      writeStore(failStore);
+      await writeStoreAsync(failStore);
       await emitAdminAlertSafe(failStore, {
         category: "ai",
         type: "ai_generation_failed",
@@ -9269,7 +9351,8 @@ async function handleAdminSubscriptionRefresh(request, response) {
         afterPlan: subscription?.plan || "Free",
         recoveredFromStripe,
       },
-    });
+    }, { deferPersist: true });
+    if (!(await persistStoreOr503(readStore(), response, "Could not save refreshed subscription data."))) return;
     jsonResponse(response, 200, {
       ok: true,
       email,
@@ -9660,7 +9743,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
     // The local record changed after the preview was generated (another webhook landed,
     // an admin made a different edit, etc.) — never apply against a stale snapshot.
     delete store.billingReconciliationPreviews[previewToken];
-    try { writeStore(store, { immediate: true }); } catch { /* ignore */ }
+    if (!(await persistStoreOr503(store, response, "Could not save reconciliation state."))) return;
     jsonResponse(response, 409, {
       error: "This account's record changed since the preview was generated. Request a fresh preview before applying.",
       code: "record_changed_since_preview",
@@ -9709,11 +9792,11 @@ async function handleAdminBillingReconciliationApply(request, response) {
 
   // The preview token is single-use regardless of outcome from here on.
   delete store.billingReconciliationPreviews[previewToken];
-  try { writeStore(store, { immediate: true }); } catch { /* ignore */ }
 
   if (stripeBillingReconciliation.isAlreadyReconciled(comparison)) {
     // Idempotent no-op: running this twice (or after webhooks already caught up on their
     // own) must never duplicate a write or create a second audit entry.
+    if (!(await persistStoreOr503(store, response, "Could not save reconciliation state."))) return;
     jsonResponse(response, 200, {
       ok: true,
       applied: false,
@@ -9726,6 +9809,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
 
   const { fields, before, after } = comparison.proposedUpdates;
   if (!fields.length) {
+    if (!(await persistStoreOr503(store, response, "Could not save reconciliation state."))) return;
     jsonResponse(response, 200, {
       ok: true,
       applied: false,
@@ -9737,7 +9821,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
 
   const adminSession = adminSessionStore.validate(adminToken);
   const adminEmail = adminSession?.email || body.adminEmail || ADMIN_EMAIL || "admin";
-  const saved = upsertUser(email, { ...after, lastStripeSyncAt: new Date().toISOString() });
+  upsertUser(email, { ...after, lastStripeSyncAt: new Date().toISOString() }, { deferPersist: true });
 
   const auditEntry = appendMembershipLifecycleAudit(email, "admin_billing_reconciliation", {
     adminEmail,
@@ -9751,7 +9835,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
       invoiceId: liveInvoiceId,
       invoicePaid: comparison.latestInvoice ? Boolean(comparison.latestInvoice.paid) : null,
     },
-  });
+  }, { deferPersist: true });
 
   const notifyStore = readStore();
   await emitAdminAlertSafe(notifyStore, {
@@ -9763,7 +9847,7 @@ async function handleAdminBillingReconciliationApply(request, response) {
     refId: `reconciled:${auditEntry.id}`,
     sendEmail: false,
   });
-  try { writeStore(notifyStore, { immediate: true }); } catch { /* ignore */ }
+  if (!(await persistStoreOr503(notifyStore, response, "Could not save billing reconciliation."))) return;
 
   jsonResponse(response, 200, {
     ok: true,
@@ -9857,7 +9941,7 @@ function liveConnectAuthorized(urlOrBody = {}) {
  * Live Ashley/Ladiisha apply requires admin token + confirm=CONNECT_ASHLEY_LADIISHA
  * (or ALLOW_LIVE_PROGRAM_MIGRATE / ALLOW_LIVE_ACCOUNT_LINK env flags).
  */
-function handleAdminProgramMigrationPlan(request, response, url) {
+async function handleAdminProgramMigrationPlan(request, response, url) {
   const token = String(extractAdminToken(request, url) || "").trim();
   if (!validAdminToken(token)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
@@ -10024,7 +10108,7 @@ function handleAdminProgramMigrationPlan(request, response, url) {
         };
       }
     }
-    writeStore(store);
+    if (!(await persistStoreOr503(store, response, "Could not save program migration."))) return;
     report.ashleyBillingProtected = {
       email: programOwnerEmail,
       plan: store.users[programOwnerEmail]?.plan || "",
@@ -10052,8 +10136,9 @@ function handleAdminProgramMigrationPlan(request, response, url) {
   });
 }
 
-function handleAdminProgramMigrationRollback(request, response) {
-  return readJson(request).then((body) => {
+async function handleAdminProgramMigrationRollback(request, response) {
+  try {
+    const body = await readJson(request);
     const token = extractAdminTokenFromBody(request, body);
     if (!validAdminToken(token)) {
       jsonResponse(response, 401, { error: "Admin access is required." });
@@ -10070,11 +10155,10 @@ function handleAdminProgramMigrationRollback(request, response) {
       jsonResponse(response, 404, result);
       return;
     }
-    writeStore(store);
-    jsonResponse(response, 200, result);
-  }).catch((error) => {
+    await respondAfterPersist(store, response, 200, result, "Could not save program migration rollback.");
+  } catch (error) {
     jsonResponse(response, 400, { error: error.message || "Invalid rollback payload." });
-  });
+  }
 }
 
 /**
@@ -10942,8 +11026,8 @@ function recordBillingEvent(store, event) {
   });
 }
 
-function appendBillingEvent(email, type, planKey, amount) {
-  const store = readStore();
+function appendBillingEvent(email, type, planKey, amount, options = {}) {
+  const store = writableStore();
   const cleanEmail = normalizeEmail(email);
   const now = Date.now();
   const duplicate = (store.billingEvents || []).some((event) => {
@@ -10962,7 +11046,7 @@ function appendBillingEvent(email, type, planKey, amount) {
     amount,
     createdAt: new Date().toISOString(),
   });
-  writeStore(store);
+  if (!options.deferPersist) writeStore(store);
 }
 
 async function resolveScheduleIdentity(request) {
@@ -11462,7 +11546,6 @@ async function handleStaffInviteCreate(request, response) {
     emailSent: false,
   };
   store.staffInvites[token] = invite;
-  writeStore(store);
 
   const origin = String(body.appOrigin || "").replace(/\/$/, "") || "https://little-learner-hub.onrender.com";
   const acceptUrl = `${origin}/?staffInvite=${encodeURIComponent(token)}`;
@@ -11501,9 +11584,8 @@ async function handleStaffInviteCreate(request, response) {
   invite.emailSent = Boolean(emailResult.sent);
   invite.emailError = emailResult.error || "";
   store.staffInvites[token] = invite;
-  writeStore(store);
 
-  jsonResponse(response, 200, {
+  await respondAfterPersist(store, response, 200, {
     ok: true,
     invite: publicStaffInvite(invite),
     acceptUrl,
@@ -11513,7 +11595,7 @@ async function handleStaffInviteCreate(request, response) {
       : (emailResult.configured
         ? "Invite created, but the email could not be sent. Share the accept link manually."
         : "Invite created. Email delivery is not configured yet — share the accept link with your staff member."),
-  });
+  }, "Could not save staff invite.");
 }
 
 async function handleStaffInviteRevoke(request, response, inviteId) {
@@ -11540,11 +11622,10 @@ async function handleStaffInviteRevoke(request, response, inviteId) {
   invite.status = "revoked";
   invite.revokedAt = new Date().toISOString();
   store.staffInvites[token] = invite;
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true, invite: publicStaffInvite(invite) });
+  await respondAfterPersist(store, response, 200, { ok: true, invite: publicStaffInvite(invite) }, "Could not revoke staff invite.");
 }
 
-function handleStaffInvitePeek(request, response, url) {
+async function handleStaffInvitePeek(request, response, url) {
   const token = String(url.searchParams.get("token") || "").trim();
   if (!token) {
     jsonResponse(response, 400, { error: "Missing invite token." });
@@ -11567,8 +11648,7 @@ function handleStaffInvitePeek(request, response, url) {
   if (staffInviteIsExpired(invite)) {
     invite.status = "expired";
     store.staffInvites[token] = invite;
-    writeStore(store);
-    jsonResponse(response, 410, { error: "This invite has expired. Ask the owner to send a new one.", invite: publicStaffInvite(invite) });
+    await respondAfterPersist(store, response, 410, { error: "This invite has expired. Ask the owner to send a new one.", invite: publicStaffInvite(invite) }, "Could not update invite status.");
     return;
   }
   jsonResponse(response, 200, { ok: true, invite: publicStaffInvite(invite) });
@@ -11607,8 +11687,7 @@ async function handleStaffInviteAccept(request, response) {
   if (staffInviteIsExpired(invite)) {
     invite.status = "expired";
     store.staffInvites[token] = invite;
-    writeStore(store);
-    jsonResponse(response, 410, { error: "This invite has expired. Ask the owner to send a new one." });
+    await respondAfterPersist(store, response, 410, { error: "This invite has expired. Ask the owner to send a new one." }, "Could not update invite status.");
     return;
   }
   if (normalizeEmail(identity.email) !== normalizeEmail(invite.email)) {
@@ -11659,8 +11738,7 @@ async function handleStaffInviteAccept(request, response) {
     staffInviteAcceptedAt: now,
     updatedAt: now,
   };
-  writeStore(store);
-  jsonResponse(response, 200, {
+  await respondAfterPersist(store, response, 200, {
     ok: true,
     invite: publicStaffInvite(invite),
     member: memberRecord,
@@ -11674,7 +11752,7 @@ async function handleStaffInviteAccept(request, response) {
       classroomName: invite.classroomName || "",
       programAccessViaOwner: ownerHasPro,
     },
-  });
+  }, "Could not save staff invite acceptance.");
 }
 
 
@@ -12350,7 +12428,7 @@ async function handleAdminMembershipUpdate(request, response) {
   merged.role = accessFields.role;
   store.users = store.users || {};
   store.users[email] = merged;
-  writeStore(store);
+  if (!(await persistStoreOr503(store, response, "Could not save membership update."))) return;
   jsonResponse(response, 200, {
     ok: true,
     user: { ...merged, ...membershipSummaryForUser(merged) },
@@ -13288,13 +13366,22 @@ async function handleSupportTicketUpdate(request, response) {
   // Notify the ticket owner (bell + push) only when there is an actual new
   // reply for them to read — never on trivial internal status housekeeping.
   if (ticketOwnerEmail && nextReply && (replyChanged || forceResend) && !refreshOnly) {
-    await fanOutNotificationsAndPush(store, {
-      type: "support_reply",
-      recipients: [ticketOwnerEmail],
-      title: "Support request update",
-      preview: messagePreviewText(nextReply),
-      refId: id,
-    }).catch((error) => console.warn("[messaging] support reply notification failed:", error.message));
+    try {
+      await fanOutNotificationsAndPush(store, {
+        type: "support_reply",
+        recipients: [ticketOwnerEmail],
+        title: "Support request update",
+        preview: messagePreviewText(nextReply),
+        refId: id,
+      });
+    } catch (error) {
+      jsonResponse(response, storePersistenceFailureStatus(error), {
+        ok: false,
+        error: "Support ticket saved but notification delivery could not be persisted.",
+        code: error?.code || "store_write_failed",
+      });
+      return;
+    }
   }
   jsonResponse(response, 200, {
     ticket: publicTicket(tickets[index]),
@@ -15672,17 +15759,26 @@ async function handleBugReportUpdate(request, response) {
     });
   }
   store.bugReports = items;
-  writeStore(store);
-  // Notify the reporter (bug-fix update) only on a real status change.
   const reporterEmail = normalizeEmail(items[index].email || "");
-  if (reporterEmail && items[index].status !== previousStatus) {
-    await fanOutNotificationsAndPush(store, {
-      type: "bug_update",
-      recipients: [reporterEmail],
-      title: "Bug report update",
-      preview: `Status: ${items[index].status}`,
-      refId: id,
-    }).catch((error) => console.warn("[messaging] bug update notification failed:", error.message));
+  try {
+    if (reporterEmail && items[index].status !== previousStatus) {
+      await fanOutNotificationsAndPush(store, {
+        type: "bug_update",
+        recipients: [reporterEmail],
+        title: "Bug report update",
+        preview: `Status: ${items[index].status}`,
+        refId: id,
+      });
+    } else if (!(await persistStoreOr503(store, response, "Could not save bug report update."))) {
+      return;
+    }
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save bug report update.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
   }
   jsonResponse(response, 200, { bugReport: publicBugReport(items[index]) });
 }
@@ -15848,7 +15944,7 @@ async function handleLessonPlanRequestCreate(request, response) {
       refId: item.id,
     }).catch(() => {});
   } catch {}
-  writeStore(store);
+  if (!(await persistStoreOr503(store, response, "Could not save lesson plan request."))) return;
   jsonResponse(response, 200, {
     lessonPlanRequest: publicLessonPlanRequest(item),
     message: "Request received. Popular requests help shape what we create next, but submitting a request does not guarantee publication or a specific completion date.",
@@ -15935,21 +16031,30 @@ async function handleLessonPlanRequestUpdate(request, response) {
   const updated = store.lessonPlanRequests[index];
   const requesterEmail = normalizeEmail(updated.email || updated.ownerEmail || "");
   const becamePublished = nextStatus === "Published" && previousStatus !== "Published";
-  writeStore(store);
-  if (requesterEmail && (becamePublished || nextStatus !== previousStatus)) {
-    const messagingStore = ensureMessagingStore(readStore());
-    const preview = becamePublished
-      ? (updated.linkedLessonPlanTitle
-        ? `Your lesson plan request was published: ${updated.linkedLessonPlanTitle}`
-        : "Your lesson plan request was published.")
-      : `Lesson plan request update: ${nextStatus}`;
-    await fanOutNotificationsAndPush(messagingStore, {
-      type: becamePublished ? "lesson_plan_request_published" : "lesson_plan_request_status",
-      recipients: [requesterEmail],
-      title: becamePublished ? "Lesson plan request published" : "Lesson plan request update",
-      preview,
-      refId: id,
-    }).catch((error) => console.warn("[messaging] lesson plan request notification failed:", error.message));
+  try {
+    if (requesterEmail && (becamePublished || nextStatus !== previousStatus)) {
+      const preview = becamePublished
+        ? (updated.linkedLessonPlanTitle
+          ? `Your lesson plan request was published: ${updated.linkedLessonPlanTitle}`
+          : "Your lesson plan request was published.")
+        : `Lesson plan request update: ${nextStatus}`;
+      await fanOutNotificationsAndPush(store, {
+        type: becamePublished ? "lesson_plan_request_published" : "lesson_plan_request_status",
+        recipients: [requesterEmail],
+        title: becamePublished ? "Lesson plan request published" : "Lesson plan request update",
+        preview,
+        refId: id,
+      });
+    } else if (!(await persistStoreOr503(store, response, "Could not save lesson plan request update."))) {
+      return;
+    }
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save lesson plan request update.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
   }
   jsonResponse(response, 200, { lessonPlanRequest: publicLessonPlanRequest(updated, { admin: true }) });
 }
@@ -16044,7 +16149,7 @@ async function handleFeatureRequestVote(request, response) {
     items[index].votes = items[index].voterEmails.length;
     items[index].updatedAt = new Date().toISOString();
     store.featureRequests = items;
-    writeStore(store);
+    if (!(await persistStoreOr503(store, response, "Could not save your vote."))) return;
   }
   jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]), alreadyVoted });
 }
@@ -16091,17 +16196,26 @@ async function handleFeatureRequestUpdate(request, response) {
     }
   }
   store.featureRequests = items;
-  writeStore(store);
   const reporterEmail = normalizeEmail(items[index].email || "");
-  if (reporterEmail && items[index].status !== previousStatus) {
-    const messagingStore = ensureMessagingStore(readStore());
-    await fanOutNotificationsAndPush(messagingStore, {
-      type: "feature_status",
-      recipients: [reporterEmail],
-      title: "Feature request update",
-      preview: `Status: ${items[index].status}`,
-      refId: id,
-    }).catch((error) => console.warn("[messaging] feature status notification failed:", error.message));
+  try {
+    if (reporterEmail && items[index].status !== previousStatus) {
+      await fanOutNotificationsAndPush(store, {
+        type: "feature_status",
+        recipients: [reporterEmail],
+        title: "Feature request update",
+        preview: `Status: ${items[index].status}`,
+        refId: id,
+      });
+    } else if (!(await persistStoreOr503(store, response, "Could not save feature request update."))) {
+      return;
+    }
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save feature request update.",
+      code: error?.code || "store_write_failed",
+    });
+    return;
   }
   jsonResponse(response, 200, { featureRequest: publicFeatureRequest(items[index]) });
 }
@@ -16241,8 +16355,7 @@ async function handleFeedbackUpdate(request, response) {
     });
   }
   store.feedbackItems = items;
-  writeStore(store);
-  jsonResponse(response, 200, { feedback: publicFeedback(items[index]) });
+  await respondAfterPersist(store, response, 200, { feedback: publicFeedback(items[index]) }, "Could not save feedback update.");
 }
 
 async function handleFeedbackList(request, response, url) {
@@ -16362,8 +16475,7 @@ async function handleAnnouncementCreate(request, response) {
   };
   store.announcements.unshift(item);
   store.announcements = store.announcements.slice(0, 500);
-  writeStore(store);
-  jsonResponse(response, 200, { announcement: publicAnnouncement(item) });
+  await respondAfterPersist(store, response, 200, { announcement: publicAnnouncement(item) }, "Could not save announcement.");
 }
 
 async function handleAnnouncementUpdate(request, response) {
@@ -16394,8 +16506,7 @@ async function handleAnnouncementUpdate(request, response) {
     updatedAt: new Date().toISOString(),
   };
   store.announcements = items;
-  writeStore(store);
-  jsonResponse(response, 200, { announcement: publicAnnouncement(items[index]) });
+  await respondAfterPersist(store, response, 200, { announcement: publicAnnouncement(items[index]) }, "Could not save announcement.");
 }
 
 function handleAnnouncementsList(request, response, url) {
@@ -16616,7 +16727,7 @@ async function fanOutNotificationsAndPush(store, {
   };
 
   if (!pushService || !pushService.configured()) {
-    writeStore(store);
+    await writeStoreAsync(store);
     return summary;
   }
 
@@ -16686,7 +16797,7 @@ async function fanOutNotificationsAndPush(store, {
     });
   }
 
-  writeStore(store);
+  await writeStoreAsync(store);
   return summary;
 }
 
@@ -16744,7 +16855,8 @@ async function handleAdminOnboardingWelcomeSave(request, response) {
     jsonResponse(response, 401, { error: "Admin access is required." });
     return;
   }
-  const saved = onboardingWelcome.saveConfig(body.sequence || body);
+  const saved = onboardingWelcome.saveConfig(body.sequence || body, { deferPersist: true });
+  if (!(await persistStoreOr503(readStore(), response, "Could not save onboarding welcome settings."))) return;
   jsonResponse(response, 200, { ok: true, ...saved });
 }
 
@@ -17054,9 +17166,7 @@ async function handleAdminMessageDraftSave(request, response) {
     store.messageDrafts.unshift(draft);
   }
   store.messageDrafts = capArray(store.messageDrafts, 500);
-  writeStore(store);
-  // Drafts are never fanned out to notifications and never trigger push.
-  jsonResponse(response, 200, { ok: true, draft });
+  await respondAfterPersist(store, response, 200, { ok: true, draft }, "Could not save message draft.");
 }
 
 function handleAdminMessageDraftsList(request, response, url) {
@@ -17077,8 +17187,7 @@ async function handleAdminMessageDraftDelete(request, response) {
   }
   const store = ensureMessagingStore(readStore());
   store.messageDrafts = store.messageDrafts.filter((d) => d.id !== String(body.id || ""));
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true });
+  await respondAfterPersist(store, response, 200, { ok: true }, "Could not delete message draft.");
 }
 
 function adminMessageMatchesSearch(message, query) {
@@ -17301,7 +17410,7 @@ function publicConversationUserProfile(store, email) {
   };
 }
 
-function handleAdminConversationMessages(request, response, url) {
+async function handleAdminConversationMessages(request, response, url) {
   const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
     jsonResponse(response, 401, { error: "Admin access is required." });
@@ -17325,7 +17434,7 @@ function handleAdminConversationMessages(request, response, url) {
       read: true,
       isAdminConversationUnreadNotification,
     });
-    if (marked) writeStore(store);
+    if (marked && !(await persistStoreOr503(store, response, "Could not save conversation read state."))) return;
   }
   const messages = store.messages
     .filter((m) => m.audience === "private" && normalizeEmail(m.conversationEmail) === userEmail)
@@ -17361,7 +17470,7 @@ async function handleAdminConversationMarkReadState(request, response, read) {
     isAdminConversationUnreadNotification,
     createUnreadIfMissing: !read,
   });
-  if (changed) writeStore(store);
+  if (changed && !(await persistStoreOr503(store, response, "Could not save conversation read state."))) return;
   jsonResponse(response, 200, { ok: true, changed, read: Boolean(read), userEmail });
 }
 
@@ -17390,11 +17499,10 @@ async function handleAdminMessagingSettingsSave(request, response) {
   if (typeof body.emailOnMemberMessage === "boolean") {
     settings.emailOnMemberMessage = body.emailOnMemberMessage;
   }
-  writeStore(store);
-  jsonResponse(response, 200, {
+  await respondAfterPersist(store, response, 200, {
     ok: true,
     emailOnMemberMessage: settings.emailOnMemberMessage !== false,
-  });
+  }, "Could not save messaging settings.");
 }
 
 // ─── Member-facing messaging endpoints ─────────────────────────────────────────
@@ -17585,7 +17693,7 @@ async function handleMemberMarkRead(request, response) {
       updated += 1;
     }
   });
-  if (updated) writeStore(store);
+  if (updated && !(await persistStoreOr503(store, response, "Could not save notification read state."))) return;
   jsonResponse(response, 200, { ok: true, updated });
 }
 
@@ -17631,7 +17739,7 @@ async function handleMemberNotificationsMarkAllRead(request, response) {
     n.readAt = now;
     updated += 1;
   });
-  if (updated) writeStore(store);
+  if (updated && !(await persistStoreOr503(store, response, "Could not save notification read state."))) return;
   jsonResponse(response, 200, { ok: true, updated });
 }
 
@@ -17672,11 +17780,7 @@ async function handleNotificationPreferencesSet(request, response) {
     updatedAt: now,
   };
   store.notificationPreferences[identity.email] = next;
-  // Turning notifications off is a soft toggle — subscriptions stay on file so
-  // re-enabling does not require the browser permission dance again. Denying
-  // does not delete devices either; it only stops future push sends.
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true, preference: next });
+  await respondAfterPersist(store, response, 200, { ok: true, preference: next }, "Could not save notification preferences.");
 }
 
 function subscriptionEndpointFingerprint(endpoint) {
@@ -17739,8 +17843,7 @@ async function handlePushSubscribe(request, response) {
       expired: false,
     });
   }
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true, deviceCount: store.pushSubscriptions.filter((s) => s.email === identity.email).length });
+  await respondAfterPersist(store, response, 200, { ok: true, deviceCount: store.pushSubscriptions.filter((s) => s.email === identity.email).length }, "Could not save push subscription.");
 }
 
 async function handlePushUnsubscribe(request, response) {
@@ -17759,8 +17862,7 @@ async function handlePushUnsubscribe(request, response) {
   // an endpoint value is guessed or replayed.
   store.pushSubscriptions = store.pushSubscriptions.filter((s) => !(s.email === identity.email && (!endpoint || s.endpoint === endpoint)));
   const removed = before - store.pushSubscriptions.length;
-  writeStore(store);
-  jsonResponse(response, 200, { ok: true, removed });
+  await respondAfterPersist(store, response, 200, { ok: true, removed }, "Could not save push unsubscribe.");
 }
 
 function handleVapidPublicKey(request, response) {
@@ -17944,14 +18046,22 @@ async function handleAdminEmailEngagementPreflightAudit(request, response) {
   const store = ensureMessagingStore(readStore());
   // Rebuild inbox totals from the same store collections the admin inbox uses.
   const inboxSummary = emailEngagement.countAdminInboxFromStore(store, ADMIN_EMAIL);
-  const audit = emailEngagement.runPreflightAudit({
-    store,
-    adminEmail: ADMIN_EMAIL,
-    inboxSummary,
-    nodeEnv: process.env.NODE_ENV || "",
-    allowLocalForTests: process.env.NODE_ENV === "test",
-  });
-  jsonResponse(response, 200, { ok: true, audit });
+  try {
+    const audit = await emailEngagement.runPreflightAudit({
+      store,
+      adminEmail: ADMIN_EMAIL,
+      inboxSummary,
+      nodeEnv: process.env.NODE_ENV || "",
+      allowLocalForTests: process.env.NODE_ENV === "test",
+    });
+    jsonResponse(response, 200, { ok: true, audit });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save preflight audit state.",
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 async function handleAdminEmailEngagementPrepareOneTime(request, response) {
@@ -17961,10 +18071,18 @@ async function handleAdminEmailEngagementPrepareOneTime(request, response) {
     return;
   }
   // Dry-run only — builds subject/body/recipients and never calls sendEmail().
-  const prepared = emailEngagement.prepareOneTimeWelcomeUpdate({
-    adminEmail: ADMIN_EMAIL,
-  });
-  jsonResponse(response, 200, { ok: true, prepared, sent: false });
+  try {
+    const prepared = await emailEngagement.prepareOneTimeWelcomeUpdate({
+      adminEmail: ADMIN_EMAIL,
+    });
+    jsonResponse(response, 200, { ok: true, prepared, sent: false });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save one-time welcome prepare state.",
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 async function handleAdminEmailEngagementSendOneTime(request, response) {
@@ -17980,30 +18098,38 @@ async function handleAdminEmailEngagementSendOneTime(request, response) {
     });
     return;
   }
-  const result = await emailEngagement.sendOneTimeWelcomeUpdate({
-    auditToken: body.auditToken || "",
-    confirm: body.confirm === true,
-    adminEmail: ADMIN_EMAIL,
-    forceResend: false,
-    skipAuditToken: false,
-  });
-  if (result.skipped && result.reason === "audit_required") {
-    jsonResponse(response, 400, { error: "Run and pass the admin preflight audit before sending.", result });
-    return;
+  try {
+    const result = await emailEngagement.sendOneTimeWelcomeUpdate({
+      auditToken: body.auditToken || "",
+      confirm: body.confirm === true,
+      adminEmail: ADMIN_EMAIL,
+      forceResend: false,
+      skipAuditToken: false,
+    });
+    if (result.skipped && result.reason === "audit_required") {
+      jsonResponse(response, 400, { error: "Run and pass the admin preflight audit before sending.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "audit_expired") {
+      jsonResponse(response, 400, { error: "Audit expired. Re-run the preflight audit.", result });
+      return;
+    }
+    if (result.skipped && result.reason === "confirmation_required") {
+      jsonResponse(response, 400, { error: "Confirmation required (confirm: true).", result });
+      return;
+    }
+    if (result.skipped && result.reason === "already_sent") {
+      jsonResponse(response, 409, { error: "This one-time welcome/update email was already sent.", result });
+      return;
+    }
+    jsonResponse(response, 200, { ok: true, result });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save one-time welcome send state.",
+      code: error?.code || "store_write_failed",
+    });
   }
-  if (result.skipped && result.reason === "audit_expired") {
-    jsonResponse(response, 400, { error: "Audit expired. Re-run the preflight audit.", result });
-    return;
-  }
-  if (result.skipped && result.reason === "confirmation_required") {
-    jsonResponse(response, 400, { error: "Confirmation required (confirm: true).", result });
-    return;
-  }
-  if (result.skipped && result.reason === "already_sent") {
-    jsonResponse(response, 409, { error: "This one-time welcome/update email was already sent.", result });
-    return;
-  }
-  jsonResponse(response, 200, { ok: true, result });
 }
 
 /**
@@ -18274,15 +18400,23 @@ async function handleAdminEmailEngagementSettings(request, response) {
     });
     return;
   }
-  const settings = await emailEngagement.updateSettings({
-    onboardingEnabled: body.onboardingEnabled,
-    weeklyWhatsNewEnabled: body.weeklyWhatsNewEnabled,
-  });
-  jsonResponse(response, 200, {
-    ok: true,
-    settings,
-    automationsEnabled: emailAutomationsEnabled(),
-  });
+  try {
+    const settings = await emailEngagement.updateSettings({
+      onboardingEnabled: body.onboardingEnabled,
+      weeklyWhatsNewEnabled: body.weeklyWhatsNewEnabled,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      settings,
+      automationsEnabled: emailAutomationsEnabled(),
+    });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not save email engagement settings.",
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 async function handleAdminEmailEngagementRunOnboarding(request, response) {
@@ -18298,8 +18432,16 @@ async function handleAdminEmailEngagementRunOnboarding(request, response) {
     });
     return;
   }
-  const result = await emailEngagement.processOnboardingDrip({ force: Boolean(body.force) });
-  jsonResponse(response, 200, { ok: true, result });
+  try {
+    const result = await emailEngagement.processOnboardingDrip({ force: Boolean(body.force) });
+    jsonResponse(response, 200, { ok: true, result });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Onboarding sweep could not be persisted.",
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 async function handleAdminEmailEngagementRunWeekly(request, response) {
@@ -18315,8 +18457,16 @@ async function handleAdminEmailEngagementRunWeekly(request, response) {
     });
     return;
   }
-  const result = await emailEngagement.runWeeklyWhatsNew({ force: Boolean(body.force) });
-  jsonResponse(response, 200, { ok: true, result });
+  try {
+    const result = await emailEngagement.runWeeklyWhatsNew({ force: Boolean(body.force) });
+    jsonResponse(response, 200, { ok: true, result });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Weekly digest run could not be persisted.",
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 async function handleAdminEmailEngagementSendStep(request, response) {
@@ -18333,17 +18483,25 @@ async function handleAdminEmailEngagementSendStep(request, response) {
   }
   // Single-user admin test sends are allowed even when automations are paused,
   // so delivery can be verified with test accounts before re-enabling campaigns.
-  const result = await emailEngagement.sendOnboardingStep(email, step, {
-    force: true,
-    adminTest: true,
-    forceStampOnSoftFail: true,
-  });
-  jsonResponse(response, 200, {
-    ok: true,
-    result,
-    automationsEnabled: emailAutomationsEnabled(),
-    note: "Admin single-user test send (force). Not a bulk campaign.",
-  });
+  try {
+    const result = await emailEngagement.sendOnboardingStep(email, step, {
+      force: true,
+      adminTest: true,
+      forceStampOnSoftFail: true,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      result,
+      automationsEnabled: emailAutomationsEnabled(),
+      note: "Admin single-user test send (force). Not a bulk campaign.",
+    });
+  } catch (error) {
+    jsonResponse(response, storePersistenceFailureStatus(error), {
+      ok: false,
+      error: "Could not persist onboarding test send state.",
+      code: error?.code || "store_write_failed",
+    });
+  }
 }
 
 
@@ -18538,8 +18696,7 @@ async function handleReleaseNoteCreate(request, response) {
   };
   store.releaseNotes.unshift(item);
   store.releaseNotes = store.releaseNotes.slice(0, 200);
-  writeStore(store);
-  jsonResponse(response, 200, { releaseNote: publicReleaseNote(item) });
+  await respondAfterPersist(store, response, 200, { releaseNote: publicReleaseNote(item) }, "Could not save release note.");
 }
 
 async function handleReleaseNoteUpdate(request, response) {
@@ -18571,8 +18728,7 @@ async function handleReleaseNoteUpdate(request, response) {
     updatedAt: new Date().toISOString(),
   };
   store.releaseNotes = items;
-  writeStore(store);
-  jsonResponse(response, 200, { releaseNote: publicReleaseNote(items[index]) });
+  await respondAfterPersist(store, response, 200, { releaseNote: publicReleaseNote(items[index]) }, "Could not save release note.");
 }
 
 function handleReleaseNotesList(request, response, url) {
@@ -18797,7 +18953,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/messages/sent") return handleAdminMessagesSentList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/archived") return handleAdminMessagesArchivedList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/conversations") return handleAdminConversationsList(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/admin/messages/conversation") return handleAdminConversationMessages(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/messages/conversation") return await handleAdminConversationMessages(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/messages/mark-read") {
       return await handleAdminConversationMarkReadState(request, response, true);
     }
@@ -18857,7 +19013,7 @@ const server = http.createServer(async (request, response) => {
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/staff/invites") return await handleStaffInvitesList(request, response);
     if (request.method === "POST" && url.pathname === "/api/staff/invites") return await handleStaffInviteCreate(request, response);
-    if (request.method === "GET" && url.pathname === "/api/staff/invites/peek") return handleStaffInvitePeek(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/staff/invites/peek") return await handleStaffInvitePeek(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/staff/invites/accept") return await handleStaffInviteAccept(request, response);
     if (request.method === "DELETE" && url.pathname.startsWith("/api/staff/invites/")) {
       const inviteId = decodeURIComponent(url.pathname.slice("/api/staff/invites/".length));
@@ -18902,8 +19058,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
-    if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return handleAdminProgramMigrationPlan(request, response, url);
-    if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return handleAdminProgramMigrationRollback(request, response);
+    if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return await handleAdminProgramMigrationPlan(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return await handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupsList(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/store-backups") return await handleAdminStoreBackupCreate(request, response);
