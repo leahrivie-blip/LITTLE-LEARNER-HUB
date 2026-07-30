@@ -25112,7 +25112,6 @@ function reviewCardHtml(review) {
   const image = sanitizedImageSource(review.imageUrl);
   return `
     <article class="lp-review-card${review.order === 1 ? " featured" : ""}">
-      <div class="lp-review-stars" aria-label="5 stars">⭐⭐⭐⭐⭐</div>
       <p>${escapeHtml(review.text || "")}</p>
       <div class="lp-reviewer">
         ${image

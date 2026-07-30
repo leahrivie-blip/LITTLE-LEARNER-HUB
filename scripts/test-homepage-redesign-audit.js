@@ -198,8 +198,8 @@ async function runAudit(playwright, baseUrl, seeded) {
   }
   const reviewCardCount = await page.locator("#homeReviews .lp-review-card").count();
   assert(reviewCardCount >= 6, `expected >=6 review cards, got ${reviewCardCount}`);
-  assert((await page.locator(".llh-nav-rating").count()) > 0, "nav star rating missing");
-  assert(/Rated 5 stars/i.test(reviewsText), "star-rating copy missing");
+  assert((await page.locator(".llh-nav-rating, .lp-review-stars, .llh-reviews-stars").count()) === 0, "star rating UI still present");
+  assert(!/Rated 5 stars/i.test(reviewsText), "star-rating copy still present");
   assert(!/123 Main/i.test(await page.content()), "homepage still contains fake address placeholder");
   results.tiffany = true;
   results.multiReviews = reviewCardCount;
