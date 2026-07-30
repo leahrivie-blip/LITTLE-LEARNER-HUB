@@ -13475,6 +13475,108 @@ async function handleAdminCurriculumResourceUpload(request, response) {
   });
 }
 
+/**
+ * Cover-only patch — updates cover fields without rewriting daily plans/activities.
+ * Body: { assignments: [{ id|title, coverImageUrl?, coverImageAlt?, clear?: boolean }] }
+ * When coverImageUrl is omitted, auto-assigns from the cover resolver for that title/theme.
+ */
+async function handleAdminLessonCoverAssign(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required to assign lesson-plan covers." });
+    return;
+  }
+  const assignments = Array.isArray(body.assignments) ? body.assignments : [];
+  if (!assignments.length) {
+    jsonResponse(response, 400, { error: "assignments[] is required." });
+    return;
+  }
+  if (assignments.length > 300) {
+    jsonResponse(response, 400, { error: "Assign at most 300 covers per request." });
+    return;
+  }
+  const store = readStore();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const curriculum = siteContent.curriculum || defaultCurriculumStore();
+  const plans = Array.isArray(curriculum.lessonPlans) ? curriculum.lessonPlans : [];
+  const byId = new Map(plans.map((p) => [String(p.id || ""), p]));
+  const now = new Date().toISOString();
+  const updated = [];
+  const missing = [];
+
+  for (const row of assignments) {
+    if (!row || typeof row !== "object") continue;
+    const id = normalizedShortText(row.id, 160);
+    const titleKey = String(row.title || "").trim().toLowerCase();
+    let plan = id ? byId.get(id) : null;
+    if (!plan && titleKey) {
+      plan = plans.find((p) => String(p.title || "").trim().toLowerCase() === titleKey) || null;
+    }
+    if (!plan) {
+      missing.push(id || titleKey || "(unknown)");
+      continue;
+    }
+    let nextUrl = sanitizedLessonCoverUrl(row.coverImageUrl || "");
+    let nextAlt = normalizedShortText(row.coverImageAlt, 180);
+    let nextSource = normalizedShortText(row.coverImageSource, 40) || "mapped";
+    if (row.clear === true) {
+      nextUrl = "";
+      nextAlt = "";
+      nextSource = "";
+    } else if (!nextUrl) {
+      const assigned = withAutoAssignedLessonCover({
+        ...plan,
+        coverImageUrl: "",
+        thumbnailUrl: "",
+        coverImageSource: "",
+      });
+      nextUrl = sanitizedLessonCoverUrl(assigned.coverImageUrl || "");
+      nextAlt = normalizedShortText(assigned.coverImageAlt || nextAlt || `Illustration for ${plan.title || "lesson plan"}`, 180);
+      nextSource = normalizedShortText(assigned.coverImageSource, 40) || "mapped";
+    }
+    if (!nextUrl && row.clear !== true) {
+      missing.push(plan.id);
+      continue;
+    }
+    plan.coverImageUrl = nextUrl;
+    plan.coverImageAlt = nextAlt || `Illustration for ${plan.title || "lesson plan"}`;
+    plan.coverImageSource = nextSource || "mapped";
+    plan.coverImagePosition = normalizedShortText(row.coverImagePosition || plan.coverImagePosition || "center", 40) || "center";
+    plan.updatedAt = now;
+    updated.push({
+      id: plan.id,
+      title: plan.title,
+      coverImageUrl: plan.coverImageUrl,
+    });
+  }
+
+  if (!updated.length) {
+    jsonResponse(response, 404, { error: "No matching lesson plans found to update.", missing });
+    return;
+  }
+
+  curriculum.updatedAt = now;
+  siteContent.curriculum = curriculum;
+  siteContent.updatedAt = now;
+  store.siteContent = siteContent;
+  try {
+    await writeStoreAsync(store);
+  } catch (error) {
+    console.error("[lesson-cover-assign] write failed", error.message);
+    jsonResponse(response, 503, { error: "Covers could not be saved. Please try again." });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    updatedCount: updated.length,
+    updated,
+    missing,
+    curriculumUpdatedAt: now,
+  });
+}
+
 async function handleAdminLessonCoverUpload(request, response) {
   const body = await readJson(request);
   if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
@@ -18337,6 +18439,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/series") return await handleAdminCurriculumSeriesSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/upload") return await handleAdminLessonCoverUpload(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);
