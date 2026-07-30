@@ -162,8 +162,8 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-switcher-devices");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-switcher-devices");
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-full-tester-invite");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-full-tester-invite");
   assert.match(sw, /llh-shell-v139-hdh-switcher-devices/);
 });
 

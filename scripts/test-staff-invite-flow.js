@@ -111,11 +111,22 @@ async function main() {
           classroomName: "Room A",
           programName: "Sunshine Center",
           appOrigin: BASE,
+          visibilityPreset: "full",
+          hdhVisibility: {
+            calendar: true,
+            daily_logs: true,
+            children: true,
+            forms_records: true,
+            lessons: true,
+            activities: true,
+          },
         },
       });
       assert.equal(res.status, 200, JSON.stringify(res.json));
       assert.equal(res.json.invite.email, "teacher@example.com");
       assert.equal(res.json.invite.role, "teacher");
+      assert.equal(res.json.invite.visibilityPreset, "full");
+      assert.equal(res.json.invite.hdhVisibility?.forms_records, true);
       assert.ok(res.json.acceptUrl.includes("staffInvite="));
       globalThis.__inviteToken = new URL(res.json.acceptUrl).searchParams.get("staffInvite");
       globalThis.__inviteId = res.json.invite.id;

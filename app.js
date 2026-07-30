@@ -496,6 +496,7 @@ let hdhAiDraftState = {
 };
 let familyHubHouseholdCache = { households: [], loadedAt: 0 };
 let familyHubInviteResult = null;
+let hdhStaffInviteResult = null;
 let hdhStaffTrainingsCache = { trainings: [], trainingTypes: [], loadedAt: 0 };
 let hdhPacketsCache = { packets: [], loadedAt: 0 };
 let childToolsTab = "attendance";
@@ -13184,7 +13185,12 @@ function renderNotificationBell() {
   const wrap = document.querySelector("#notificationBellWrap");
   if (wrap) wrap.hidden = !isLoggedIn();
   const supportBtn = document.querySelector("#messageSupportBtn");
-  if (supportBtn) supportBtn.hidden = !isLoggedIn();
+  if (supportBtn) {
+    supportBtn.hidden = !isLoggedIn();
+    if (isLoggedIn()) {
+      supportBtn.textContent = isLinkedProgramStaffAccount() ? "Message Leah" : "Message Support";
+    }
+  }
   const count = notificationBellState.unreadCount;
   const badgeText = count > 99 ? "99+" : String(count);
   [document.querySelector("#notificationBellBadge"), document.querySelector("#messagesNavBadge")].forEach((el) => {
@@ -15073,10 +15079,18 @@ function isSignedInPlatformOwner() {
   return Boolean(ownerEmails.has(email) || (sessionEmail && email === sessionEmail));
 }
 
+function isLinkedProgramStaffAccount(account = currentAccount()) {
+  const email = String(account?.email || currentUser || "").trim().toLowerCase();
+  const linkedOwner = String(account?.linkedProgramOwnerEmail || "").trim().toLowerCase();
+  return Boolean(linkedOwner && email && linkedOwner !== email);
+}
+
 function canSeeAdminNav() {
   // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
   // The floating preview badge still provides Return to Admin.
   if (isAdminPreviewSimulating()) return false;
+  // Invited staff / full-access testers never see Admin unlock — Leah-only.
+  if (isLinkedProgramStaffAccount()) return false;
   // Keep Admin reachable when unlocked, awaiting re-auth, signed in as owner,
   // or on a browser that has unlocked Admin before (so the unlock form is one tap away).
   return isAdminUnlocked()
@@ -15112,6 +15126,10 @@ function setView(view, options = {}) {
   // Logged-in providers never land on the retired Dashboard — Calendar is the home surface.
   if (resolvedRequested === "home" && isLoggedIn() && !options.allowDashboard) {
     return setView("calendar", { ...options, remappedFromHome: true });
+  }
+  // Invited testers / staff never open Admin (even via deep link).
+  if (resolvedRequested === "admin" && isLinkedProgramStaffAccount() && !options.allowAdminForLinkedStaff) {
+    return setView("messages", { ...options, skipAccessRedirect: true });
   }
   // Home Daycare Hub is testing-site only (HOME_DAYCARE_HUB_TESTING).
   if (resolvedRequested === "home-daycare-hub" && !isHomeDaycareHubTestingEnabled() && !options.allowHomeDaycareHubPreview) {
@@ -31536,7 +31554,10 @@ function renderHdhRoleSwitcher(activeRole = "", options = {}) {
 
 function syncHdhTesterSwitcherChrome() {
   let chrome = document.querySelector("#hdhTesterSwitcherChrome");
-  const show = isHomeDaycareHubTestingEnabled() && (isLoggedIn() || getHdhTesterPersona().role === "parent");
+  // Owner/self-test switcher only — invited staff use their real linked role, not the persona tabs.
+  const show = isHomeDaycareHubTestingEnabled()
+    && !isLinkedProgramStaffAccount()
+    && (isLoggedIn() || getHdhTesterPersona().role === "parent");
   if (!show) {
     chrome?.remove();
     document.body.classList.remove("hdh-tester-switching", "hdh-persona-parent", "hdh-persona-staff");
@@ -32176,46 +32197,106 @@ async function refreshHdhPackets() {
   return hdhPacketsCache;
 }
 
+async function createHdhStaffInviteRequest({ email, role, visibilityPreset, hdhVisibility }) {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) throw new Error("Staff invites need the testing server backend.");
+  // Push your child profiles to the shared program so the invitee can see them after accept.
+  try {
+    await saveChildDataToBackend({ force: true });
+  } catch (_error) { /* invite still works if sync fails */ }
+  const settings = getProgramSettings();
+  const response = await fetch("/api/staff/invites", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      email,
+      role,
+      programName: settings.programName || "",
+      appOrigin: window.location.origin,
+      visibilityPreset,
+      hdhVisibility,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result?.error || "Could not send invite.");
+  await refreshStaffInvitesFromBackend();
+  return result;
+}
+
 function renderHomeDaycareStaffInvitePanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
+  if (isLinkedProgramStaffAccount()) return "";
   const invites = staffInviteRemoteCache.invites || centerProgramData().staffInvites || [];
   const members = staffInviteRemoteCache.members || [];
+  const pendingAndActive = [
+    ...members.map((m) => ({ ...m, status: "active", acceptUrl: "" })),
+    ...invites.filter((i) => i.status === "pending"),
+  ];
+  const invite = hdhStaffInviteResult;
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
       <p class="eyebrow">Step E</p>
-      <h3>Staff invites &amp; visibility</h3>
-      <p class="muted-copy">Invite helpers with a link, choose a preset, then customize exactly what they can see.</p>
-      <form id="hdhStaffInviteForm" class="panel-form">
-        <div class="form-grid-two">
-          <label>Email<input name="email" type="email" required placeholder="helper@example.com" /></label>
-          <label>Role
-            <select name="role" required>
-              <option value="assistant">Assistant / Staff</option>
-              <option value="teacher">Lead Teacher</option>
-              <option value="director">Director</option>
-            </select>
-          </label>
-        </div>
-        ${renderHdhStaffVisibilityFields("hdh")}
-        <button class="primary-button" type="submit">Send staff invite</button>
-        <p class="form-note">Uses the same invite link flow as Users &amp; Staff. Visibility applies on Home Daycare Hub testing.</p>
-        <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
+      <h3>Invite people who see everything</h3>
+      <p class="muted-copy">Add a real tester with one email. They get Teacher tools on your shared testing program: child profiles, Hub, forms, lessons, calendar, and daily logs. They do <strong>not</strong> get Admin. They can <strong>Message Leah</strong> in Messages anytime.</p>
+      <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
+        <label>Tester email
+          <input name="email" type="email" required placeholder="friend@example.com" autocomplete="email" />
+        </label>
+        <button class="primary-button" type="submit">Invite full-access tester</button>
+        <p class="form-note">Sends a <strong>Lead Teacher</strong> invite with <strong>full</strong> visibility (all testing areas). Not Admin. Billing stays on your owner account.</p>
+        <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
       </form>
+      ${invite ? `
+        <div class="hdh-family-invite-result hdh-staff-invite-result" role="status">
+          <strong>Full-access invite ready for ${escapeHtml(invite.email || "tester")}</strong>
+          <p class="muted-copy">They must use this exact email. Share the accept link:</p>
+          <p><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
+          <ol class="hdh-tester-path">
+            <li>They open the link on the testing site.</li>
+            <li>Sign Up or log in with <strong>${escapeHtml(invite.email || "that email")}</strong>.</li>
+            <li>Tap <strong>Accept invite</strong> — then open Child Profiles / Home Daycare Hub.</li>
+            <li>To reach you: <strong>Messages → Message Leah</strong> (not Admin).</li>
+          </ol>
+          <div class="account-actions-row">
+            <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy accept link</button>
+          </div>
+        </div>
+      ` : ""}
+      <details class="hdh-tester-details" id="hdhStaffCustomInviteDetails">
+        <summary>Custom staff invite (Helper / Lead / limited visibility)</summary>
+        <p class="muted-copy">Use this when you want a helper who should <em>not</em> see Hub, lessons, or forms.</p>
+        <form id="hdhStaffInviteForm" class="panel-form">
+          <div class="form-grid-two">
+            <label>Email<input name="email" type="email" required placeholder="helper@example.com" /></label>
+            <label>Role
+              <select name="role" required>
+                <option value="assistant">Assistant / Staff</option>
+                <option value="teacher" selected>Lead Teacher</option>
+                <option value="director">Director</option>
+              </select>
+            </label>
+          </div>
+          ${renderHdhStaffVisibilityFields("hdh")}
+          <button class="primary-button" type="submit">Send staff invite</button>
+          <p class="form-note">Uses the same invite link flow. Visibility applies on Home Daycare Hub testing. Never grants Admin.</p>
+          <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
+        </form>
+      </details>
       <div class="hdh-family-household-list">
         <h4>Pending / active staff</h4>
-        ${[...members.map((m) => ({ ...m, status: "active" })), ...invites.filter((i) => i.status === "pending")].length
-          ? [...members.map((m) => ({ ...m, status: "active" })), ...invites.filter((i) => i.status === "pending")].map((item) => `
+        ${pendingAndActive.length
+          ? pendingAndActive.map((item) => `
             <article class="hdh-forms-pack-item">
               <div>
                 <strong>${escapeHtml(item.email || "Staff")}</strong>
                 <p class="muted-copy">${escapeHtml(item.role || "staff")} · ${escapeHtml(item.status || "pending")}${item.visibilityPreset ? ` · ${escapeHtml(item.visibilityPreset)}` : ""}</p>
               </div>
+              <div class="hdh-forms-pack-actions">
+                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
+              </div>
             </article>
           `).join("")
           : `<p class="muted-copy">No staff invites yet.</p>`}
-      </div>
-      <div class="account-actions-row">
-        <button class="ghost-button" type="button" data-view="staff">Open full Staff page</button>
       </div>
     </section>
   `;
@@ -32340,13 +32421,37 @@ function renderHomeDaycarePacketsPanel() {
 
 function renderHomeDaycareTesterGuidePanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
+  if (isLinkedProgramStaffAccount()) {
+    const children = childRecords().children || [];
+    const ownerEmail = String(currentAccount()?.linkedProgramOwnerEmail || "").trim();
+    return `
+      <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
+        <p class="eyebrow">Testing invite</p>
+        <h3>You’re on the shared testing program</h3>
+        <p class="muted-copy">You can use Teacher tools and the same child profiles as <strong>${escapeHtml(ownerEmail || "the program owner")}</strong>. You do <strong>not</strong> have Admin. Questions or bugs? Message Leah directly in the site.</p>
+        <div class="account-actions-row hdh-tester-jumps">
+          <button class="primary-button" type="button" data-view="messages">Message Leah</button>
+          <button class="ghost-button" type="button" data-view="children">Child Profiles (${children.length})</button>
+          <button class="ghost-button" type="button" data-view="home-daycare-hub">Stay on Hub</button>
+          <button class="ghost-button" type="button" data-view="calendar">Calendar</button>
+        </div>
+        <details class="hdh-tester-details">
+          <summary>What you can and cannot see</summary>
+          <ul class="hdh-coming-list">
+            <li><strong>Yes:</strong> Child profiles, Hub, forms pack, lessons, calendar, daily logs, Messages to Leah</li>
+            <li><strong>No:</strong> Admin workspace, billing, or owner unlock screens</li>
+          </ul>
+        </details>
+      </section>
+    `;
+  }
   const children = childRecords().children || [];
   const childReady = children.length > 0;
   return `
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>Where to add testers</h3>
-      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. The sticky switcher at the top works on phone, tablet, and computer.</p>
+      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. Invited people never get Admin. They message you in <strong>Messages → Message Leah</strong>.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
           <strong>1. Test it yourself</strong>
@@ -32357,8 +32462,12 @@ function renderHomeDaycareTesterGuidePanel() {
           <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Add a staff tester</strong>
-          <p>Scroll to <em>Staff invites</em> → send invite with Helper or Lead preset → they accept the link.</p>
+          <strong>3. Add someone who sees Teacher/Staff everything</strong>
+          <p>Scroll to <em>Invite people who see everything</em> → enter their email → copy the accept link. They get your shared child profiles + Hub tools. <strong>Not Admin.</strong> They can Message Leah in the site.</p>
+        </article>
+        <article class="hdh-tester-role" role="listitem">
+          <strong>4. Add a limited helper (optional)</strong>
+          <p>Same section → open <em>Custom staff invite</em> → Helper preset hides Hub/forms/lessons.</p>
         </article>
       </div>
       ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
@@ -32370,14 +32479,15 @@ function renderHomeDaycareTesterGuidePanel() {
         <li>As <strong>Teacher</strong>: open a form / AI draft, save to the child file.</li>
         <li>Switch <strong>Helper</strong> → confirm Hub is hidden → switch <strong>Lead</strong> → confirm Hub is back.</li>
         <li>Tap <strong>Parent</strong>, check household form status, then tap <strong>Teacher</strong> to return.</li>
-        <li>Optional: invite a real parent/staff below, then send Leah notes on anything confusing.</li>
+        <li>Optional: invite a real tester below — they Message Leah from Messages (not Admin).</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
         <button class="ghost-button" type="button" data-hdh-jump="hdhFormsPackPanel">Forms pack</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI drafts</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhFamilyHubPanel">Family Hub</button>
-        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Staff visibility</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Invite full-access tester</button>
+        <button class="ghost-button" type="button" data-view="messages">Message Leah</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhTrainingsPanel">CPR / trainings</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhPacketsPanel">Packets</button>
         <button class="ghost-button" type="button" data-view="children">Child forms tab</button>
@@ -32389,6 +32499,7 @@ function renderHomeDaycareTesterGuidePanel() {
           <li>E-sign / parent signing inside the app</li>
           <li>Auto-sending filled form bodies to parents</li>
           <li>Live production — Hub stays hidden there on purpose</li>
+          <li>Admin — testers never see Admin; they Message Leah instead</li>
         </ul>
       </details>
     </section>
@@ -32824,7 +32935,14 @@ async function acceptStaffInviteToken(token) {
     ensureAccountAccessMigrated(currentUser);
     updateAuthButtons();
     updatePlanLabel();
+    updateAdminNavVisibility();
     syncPlatformNavVisibility();
+    syncHdhTesterSwitcherChrome();
+    // Pull shared program child profiles so invited testers see the same kids.
+    try {
+      await syncChildDataFromBackend({ render: false });
+    } catch (_error) { /* non-blocking */ }
+    renderNotificationBell();
   }
   return data;
 }
@@ -32853,7 +32971,7 @@ async function maybeHandleStaffInviteFromUrl() {
     <p class="eyebrow">Staff invite</p>
     <h3>Join ${escapeHtml(invite.programName || "this program")}</h3>
     <p>You were invited as <strong>${escapeHtml(invite.role || "teacher")}</strong>${invite.classroomName ? ` for <strong>${escapeHtml(invite.classroomName)}</strong>` : ""}.</p>
-    <p class="muted-copy">Sign in with <strong>${escapeHtml(invite.email)}</strong> to accept.</p>
+    <p class="muted-copy">Sign in with <strong>${escapeHtml(invite.email)}</strong> to accept. You’ll see shared child profiles and Teacher tools — not Admin. Questions go to <strong>Messages → Message Leah</strong>.</p>
     <div class="account-actions-row">
       <button class="primary-button" type="button" data-accept-staff-invite="${escapeHtml(token)}">Accept Invite</button>
       <button class="ghost-button" type="button" data-dismiss-staff-invite>Not now</button>
@@ -61594,6 +61712,50 @@ document.addEventListener("submit", async (event) => {
     return;
   }
 
+  if (event.target.matches("#hdhFullAccessInviteForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const message = document.querySelector("#hdhFullAccessInviteMessage");
+    const data = collectFormData(form);
+    const email = String(data.email || "").trim().toLowerCase();
+    const submitBtn = form.querySelector("[type='submit']");
+    if (!email) return;
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Sending…";
+    }
+    try {
+      const result = await createHdhStaffInviteRequest({
+        email,
+        role: "teacher",
+        visibilityPreset: "full",
+        hdhVisibility: hdhStaffVisibilityFromPreset("full"),
+      });
+      hdhStaffInviteResult = {
+        email,
+        role: "teacher",
+        visibilityPreset: "full",
+        acceptUrl: result.acceptUrl || "",
+      };
+      if (message) {
+        message.textContent = result.email?.sent
+          ? "Invite emailed. They can also use the copyable accept link below."
+          : "Invite ready — copy the accept link and send it (email delivery may be off on testing).";
+      }
+      showActionFeedback("Full-access tester invite ready. They will not see Admin — they Message Leah in Messages.");
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+    } catch (error) {
+      if (message) message.textContent = error.message || "Could not send invite.";
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Invite full-access tester";
+      }
+    }
+    return;
+  }
+
   if (event.target.matches("#hdhStaffInviteForm")) {
     event.preventDefault();
     if (!isHomeDaycareHubTestingEnabled()) return;
@@ -61608,24 +61770,19 @@ document.addEventListener("submit", async (event) => {
       submitBtn.textContent = "Sending…";
     }
     try {
-      const headers = await staffAuthHeaders();
-      if (!headers || !canUseLaunchBackend()) throw new Error("Staff invites need the testing server backend.");
       const visibility = collectHdhStaffVisibilityFromForm(form);
-      const settings = getProgramSettings();
-      const response = await fetch("/api/staff/invites", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          email,
-          role: String(data.role || "assistant").trim() || "assistant",
-          programName: settings.programName || "",
-          appOrigin: window.location.origin,
-          ...visibility,
-        }),
+      const result = await createHdhStaffInviteRequest({
+        email,
+        role: String(data.role || "assistant").trim() || "assistant",
+        visibilityPreset: visibility.visibilityPreset,
+        hdhVisibility: visibility.hdhVisibility,
       });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result?.error || "Could not send invite.");
-      await refreshStaffInvitesFromBackend();
+      hdhStaffInviteResult = {
+        email,
+        role: String(data.role || "assistant").trim() || "assistant",
+        visibilityPreset: visibility.visibilityPreset,
+        acceptUrl: result.acceptUrl || "",
+      };
       if (message) message.textContent = result.message || "Invite sent.";
       showActionFeedback(result.acceptUrl && !result.email?.sent ? `Invite ready: ${result.acceptUrl}` : "Staff invite created.");
       renderHomeDaycareHubPage({ refreshHouseholds: false });

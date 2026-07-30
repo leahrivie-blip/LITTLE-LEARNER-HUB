@@ -74,7 +74,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell + nav + view markers", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-switcher-devices"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-full-tester-invite"/);
   assert.match(indexHtml, /data-view="ai-guide"/);
   assert.match(indexHtml, /data-nav-ai-guide="true"/);
   assert.match(indexHtml, /id="view-ai-guide"/);

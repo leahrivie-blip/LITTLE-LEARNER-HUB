@@ -79,12 +79,17 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell finish markers + E/F/G UI", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-switcher-devices"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-full-tester-invite"/);
   assert.match(appJs, /function renderHomeDaycareStaffInvitePanel/);
   assert.match(appJs, /function renderHomeDaycareTrainingsPanel/);
   assert.match(appJs, /function renderHomeDaycarePacketsPanel/);
   assert.match(appJs, /function renderHomeDaycareTesterGuidePanel/);
   assert.match(appJs, /Where to add testers/);
+  assert.match(appJs, /Invite full-access tester/);
+  assert.match(appJs, /hdhFullAccessInviteForm/);
+  assert.match(appJs, /function createHdhStaffInviteRequest/);
+  assert.match(appJs, /function isLinkedProgramStaffAccount/);
+  assert.match(appJs, /Message Leah/);
   assert.match(appJs, /function renderHdhRoleSwitcher/);
   assert.match(appJs, /function switchHdhTesterRole/);
   assert.match(appJs, /function syncHdhTesterSwitcherChrome/);
