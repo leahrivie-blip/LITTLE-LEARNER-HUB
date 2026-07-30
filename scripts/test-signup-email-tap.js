@@ -104,7 +104,10 @@ async function inspectEmailTapTarget(page) {
 async function openFoundingSignup(page, viewport) {
   await page.setViewportSize(viewport);
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  await page.locator('.llh-announce-banner [data-checkout-plan="founding"], #homePricing [data-checkout-plan="founding"], [data-checkout-plan="founding"]:not(#freePlanReminderPrimary)').first().click({ force: true });
+  // Prefer visible homepage Founding CTAs — never the hidden logged-out sidebar button.
+  const foundingCta = page.locator('.llh-announce-banner:not([hidden]) [data-checkout-plan="founding"], #homePricing [data-checkout-plan="founding"]').first();
+  await foundingCta.scrollIntoViewIfNeeded();
+  await foundingCta.click({ force: true, timeout: 10000 });
   await page.waitForSelector("#authModal.open", { timeout: 10000 });
   await page.waitForFunction(() => {
     const step = document.querySelector("#signupStepAccount");
