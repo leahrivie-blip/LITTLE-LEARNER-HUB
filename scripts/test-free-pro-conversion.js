@@ -92,10 +92,11 @@ test("homepage and FAQ marketing match Free starter library", () => {
   assert.match(indexHtml, /10 complete starter lesson plans across Infant, Toddler and Preschool/i);
   assert.match(indexHtml, /Print and download your 10 Free starter plans/i);
   assert.match(indexHtml, /Customize, save, and reuse your own lesson plans/i);
-  assert.match(indexHtml, /About 30 days of calendar planning/);
-  assert.match(indexHtml, /Up to 20 favorites/);
+  assert.match(indexHtml, /plan about 30 days ahead on the calendar|About 30 days of calendar planning/i);
+  assert.match(indexHtml, /up to 20 favorites|Up to 20 favorites/i);
   assert.match(indexHtml, /5 Child Profiles/);
   assert.match(indexHtml, /up to 3 premium curriculum prints or downloads/i);
+  assert.match(indexHtml, /Are the lesson plans editable\?/);
   assert.match(appJs, /Welcome to Little Learner Hub/);
   assert.match(appJs, /Ready to save hours every week\?/);
   assert.match(appJs, /MEMBERSHIP_COPY/);
@@ -103,12 +104,12 @@ test("homepage and FAQ marketing match Free starter library", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-reviews-fix");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-reviews-fix");
-  assert.match(sw, /llh-shell-v129-reviews-fix/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-reviews-fix/);
-  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-reviews-fix/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-reviews-fix/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trust-faq");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trust-faq");
+  assert.match(sw, /llh-shell-v130-trust-faq/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-trust-faq/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-trust-faq/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-trust-faq/);
 });
 
 function requestJson(method, urlPath, body) {
