@@ -34,8 +34,11 @@ const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 const sw = fs.readFileSync(path.join(ROOT, "service-worker.js"), "utf8");
 const serverJs = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
 
-test("curated free sample covers ages and seasons", () => {
-  assert.ok(freeSample.PERMANENT_FREE_LESSON_IDS.length >= 8);
+test("free starter library is exactly 10 plans (3/3/4)", () => {
+  assert.equal(freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.length, 10);
+  assert.equal(freeSample.PERMANENT_FREE_LESSON_IDS.length, 10);
+  assert.deepEqual(freeSample.REQUIRED_DISTRIBUTION, { Infant: 3, Toddler: 3, Preschool: 4 });
+  assert.equal(freeSample.activeSeasonalIds().length, 0);
   assert.ok(freeSample.isCuratedFreeLessonPlan({
     id: "cur-lp-preschool-community-helpers",
     title: "Community Helpers",
@@ -51,8 +54,8 @@ test("curated free sample covers ages and seasons", () => {
     title: "Letters & Sounds",
     age: "Preschool",
   }), false);
-  assert.ok(freeSample.activeSeasonalIds().length >= 1);
-  assert.match(freeSample.MARKETING.recommendationSummary, /curated sample/i);
+  assert.match(freeSample.MARKETING.freeCore, /10 complete starter lesson plans/);
+  assert.match(freeSample.MARKETING.recommendationSummary, /exactly 10 complete starter/i);
 });
 
 test("client and server gate on curated free sample", () => {
@@ -85,26 +88,27 @@ test("printing stays available; customization is locked for Free", () => {
   }
 });
 
-test("homepage and FAQ marketing match curated Free", () => {
-  assert.match(indexHtml, /selected free lesson plans/i);
-  assert.match(indexHtml, /Print free lesson plans/i);
-  assert.match(indexHtml, /Preview Pro lesson plans/i);
-  assert.match(indexHtml, /Why providers upgrade from Free/i);
+test("homepage and FAQ marketing match Free starter library", () => {
+  assert.match(indexHtml, /10 complete starter lesson plans across Infant, Toddler and Preschool/i);
+  assert.match(indexHtml, /Print and download your 10 Free starter plans/i);
   assert.match(indexHtml, /Customize, save, and reuse your own lesson plans/i);
-  assert.match(indexHtml, /Selected Free Lesson Plans \(sample library\)/);
   assert.match(indexHtml, /About 30 days of calendar planning/);
   assert.match(indexHtml, /Up to 20 favorites/);
   assert.match(indexHtml, /5 Child Profiles/);
-  assert.match(appJs, /Welcome to Little Learner Hub!/);
+  assert.match(indexHtml, /up to 3 premium curriculum prints or downloads/i);
+  assert.match(appJs, /Welcome to Little Learner Hub/);
   assert.match(appJs, /Ready to save hours every week\?/);
+  assert.match(appJs, /MEMBERSHIP_COPY/);
+  assert.match(appJs, /confirmTrialCurriculumExport/);
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260722-lesson-empty-hotfix");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260722-lesson-empty-hotfix");
-  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260720-promo-existing/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260720-promo-existing/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
+  assert.match(sw, /llh-shell-v119-trial-free-finish2/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-trial-free-finish2/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-trial-free-finish2/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-trial-free-finish2/);
 });
 
 function requestJson(method, urlPath, body) {
@@ -164,13 +168,14 @@ function startServer(seedPlans) {
 }
 
 async function waitForBoot(child) {
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < 160; i += 1) {
     if (child.exitCode !== null) throw new Error("Server exited early");
     try {
       const res = await requestJson("GET", "/api/health");
-      if (res.status === 200 && res.json?.ok) return;
+      const site = await requestJson("GET", "/api/site-content");
+      if (res.status === 200 && res.json?.ok && site.status === 200) return;
     } catch { /* retry */ }
-    await new Promise((r) => setTimeout(r, 150));
+    await new Promise((r) => setTimeout(r, 200));
   }
   throw new Error("boot timeout");
 }
@@ -241,7 +246,7 @@ async function browserMain() {
     console.log("PASS  effectivePlanTier curated override");
 
     const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
-    await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });
 
     // Seed curriculum into client local store shape via evaluate after login path.
     await page.evaluate(() => {
@@ -261,8 +266,8 @@ async function browserMain() {
       };
       localStorage.setItem("llhAccounts", JSON.stringify(accounts));
     });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForTimeout(800);
+    await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });
+    await page.waitForTimeout(1200);
 
     const access = await page.evaluate(() => {
       const api = window.LLHFreeCurriculumSample;
@@ -287,7 +292,7 @@ async function browserMain() {
 
     // Homepage messaging visible
     const homeCopy = await page.evaluate(() => document.body.innerText);
-    assert.match(homeCopy, /selected free lesson plans|Selected Free Lesson Plans|Free Plan/i);
+    assert.match(homeCopy, /10 complete starter lesson plans|Free Plan/i);
     assert.doesNotMatch(homeCopy, /30 Total Free Lesson Plans/);
     console.log("PASS  homepage Free messaging");
 

@@ -306,7 +306,17 @@ async function main() {
     assert(proPublic.weeklyOverview, "pro preview should include weekly overview");
     assert(proPublic.theme, "pro preview should include theme");
     assertNoProtectedStrings(proPublic, "logged-out pro lesson public DTO");
-    assert(freePublic?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow", "curated free lesson still has full public content");
+    // Browse list keeps Free starters unlocked but omits full body (same pattern as Pro list).
+    assert(freePublic && freePublic.locked !== true, "curated free lesson is unlocked in browse list");
+    assert(!freePublic.dailyPlans, "curated free browse list must not embed dailyPlans");
+    const freeDetailPublic = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.freeId)}`);
+    assert(freeDetailPublic.status === 200, "curated free detail available publicly");
+    assert(freeDetailPublic.json.lessonPlan?.locked !== true, "curated free detail unlocked");
+    assert(
+      freeDetailPublic.json.lessonPlan?.dailyPlans?.monday?.books?.[0]?.title === "Planting a Rainbow"
+      || (freeDetailPublic.json.lessonPlan?.books || []).some((b) => /Planting a Rainbow/i.test(b?.title || "")),
+      "curated free detail still has full public content",
+    );
     const lockedFreePublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.lessonPlans || []).find((item) => item.id === ids.lockedFreeId);
     assert(lockedFreePublic?.locked === true, "non-curated Free-tagged lesson is locked for guests/new Free");
     assert(!lockedFreePublic?.dailyPlans, "non-curated Free lesson must not leak dailyPlans publicly");
@@ -318,7 +328,13 @@ async function main() {
     const freeUserDetail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.proId)}`, null, {
       headers: authHeader("free@security.test"),
     });
-    assert(freeUserDetail.status === 403, `free user detail expected 403, got ${freeUserDetail.status}`);
+    // Free members may browse locked previews (title/theme/overview) but must never receive full content.
+    assert([200, 403].includes(freeUserDetail.status), `free user detail unexpected status ${freeUserDetail.status}`);
+    if (freeUserDetail.status === 200) {
+      assert(freeUserDetail.json.lessonPlan?.locked === true, "free user pro detail must remain locked");
+      assert(!freeUserDetail.json.lessonPlan?.dailyPlans, "free user pro detail must not include dailyPlans");
+      assert(!freeUserDetail.json.lessonPlan?.objectives, "free user pro detail must not include objectives");
+    }
     assertNoProtectedStrings(freeUserDetail.json, "free-user pro detail");
 
     console.log("3) Authorized personas can retrieve full Pro lesson content");
@@ -379,14 +395,21 @@ async function main() {
     assertHasProtectedStrings(proActivityAllowed.json.activity, "pro user activity detail");
 
     const freeActivityPublic = (publicLoggedOut.json.siteContent?.curriculumLibrary?.activities || []).find((item) => item.lessonPlanId === ids.freeId);
-    assert(freeActivityPublic && freeActivityPublic.locked !== true, "free activity remains public");
-    assert(String(freeActivityPublic.teacherLanguage || "").includes("damp"), "free activity keeps teacher language publicly");
+    assert(freeActivityPublic && freeActivityPublic.locked !== true, "free activity remains unlocked in browse list");
+    assert(!freeActivityPublic.teacherLanguage, "free activity browse list omits teacher language");
+    const freeActivityDetail = await requestJson("GET", `/api/curriculum/activities/${encodeURIComponent(ids.freeActivityId)}`);
+    assert(freeActivityDetail.status === 200, "free activity detail available publicly");
+    assert(String(freeActivityDetail.json.activity?.teacherLanguage || "").includes("damp"), "free activity detail keeps teacher language");
 
     console.log("7) Client plan spoofing does not unlock server endpoint");
     const spoofed = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.proId)}`, null, {
       headers: { Authorization: "Bearer test:free@security.test", "X-LLH-Plan": "Pro" },
     });
-    assert(spoofed.status === 403, `spoofed plan header must not unlock detail (${spoofed.status})`);
+    assert([200, 403].includes(spoofed.status), `spoofed plan header unexpected status ${spoofed.status}`);
+    if (spoofed.status === 200) {
+      assert(spoofed.json.lessonPlan?.locked === true, "spoofed Free user must still receive locked preview only");
+      assert(!spoofed.json.lessonPlan?.dailyPlans, "spoofed Free user must not receive dailyPlans");
+    }
     assertNoProtectedStrings(spoofed.json, "spoofed plan response");
 
     console.log("\nAll curriculum access security checks passed.");

@@ -633,6 +633,8 @@ function stripeSubscriptionToMembershipUpdates(subscription, user = {}, eventTyp
     foundingMemberHistorical: wasFounding || isFoundingCheckout,
     foundingMember: wasFounding || isFoundingCheckout,
     trialStatus: inTrial ? "In Trial" : (user.trialStatus === "In Trial" ? "Trial Ended" : user.trialStatus || ""),
+    // Once Stripe starts an introductory trial, mark it consumed so it cannot be re-granted.
+    introductoryTrialConsumed: Boolean(user.introductoryTrialConsumed) || inTrial || Boolean(base.trialStart),
     priceLock: isFoundingCheckout ? "Lifetime" : user.priceLock || "",
     internalAccessOverride: false,
     manualAccessGranted: false,

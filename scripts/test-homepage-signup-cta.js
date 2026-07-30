@@ -94,7 +94,7 @@ test("start-free opens signup modal for guests", () => {
 
 test("guest library browse keeps a signup path", () => {
   assert.match(appJs, /library-upgrade-strip--guest/);
-  assert.match(appJs, /Create a free account to save free sample plans and unlock Pro/);
+  assert.match(appJs, /Create a free account to save free sample plans and explore Founding Member pricing/);
   const browseCss = fs.readFileSync(path.join(root, "styles/llh-library-browse.css"), "utf8");
   assert.match(browseCss, /body\.activities-view:not\(\.user-authenticated\) \.topbar \.account-actions/);
   assert.match(css, /body\.lessons-view:not\(\.user-authenticated\) \.topbar \.account-actions/);

@@ -1,15 +1,13 @@
 /**
- * Configurable Free-plan grandfathering.
+ * Free-plan access policy.
  *
- * Existing Free accounts created before the curated Free launch keep the legacy
- * Free experience (all store Free-tier lesson plans + prior Free feature access).
- * New Free signups after the cutoff get the curated Free sample + new limits.
+ * Business policy (2026-07): every Free account — new and existing — receives
+ * exactly the same 10-plan Free Starter Library. Legacy/grandfathered Free
+ * unlock is permanently disabled.
  *
- * Override sources (later wins on the client; server uses env + siteContent):
- * - Env: FREE_PLAN_GRANDFATHERING_ENABLED, FREE_PLAN_CURATED_CUTOFF_AT
- * - siteContent.freePlanAccess / featureFlags
- * - account.freeLessonAccessMode = "legacy" | "curated"
- * - window.LLH_FREE_PLAN_ACCESS / localStorage llhFreePlanAccess (client tests)
+ * Saved favorites, calendar entries, and provider-created work are preserved,
+ * but premium curriculum contents stay locked unless the plan is one of the 10
+ * curated starters (or the resource is provider-owned).
  */
 (function (root, factory) {
   const api = factory();
@@ -22,17 +20,18 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
+  const FREE_POLICY_NOTICE =
+    "Your Free account includes 10 complete Starter Lesson Plans across Infant, Toddler and Preschool. Your saved information remains available, but additional premium plans require Founding or Pro access.";
+
   const DEFAULTS = Object.freeze({
-    enabled: true,
-    // Accounts created strictly before this timestamp keep legacy Free access.
-    // Adjust via env/siteContent without a code change.
+    // Legacy Free unlock is retired — always curated for every Free account.
+    enabled: false,
     curatedCutoffAt: "2026-07-18T00:00:00.000Z",
-    // Safer for pre-existing accounts that never stored createdAt/signupAt.
-    missingDateMeansLegacy: true,
+    missingDateMeansLegacy: false,
     accountModeField: "freeLessonAccessMode",
-    earlySupporterTitle: "Early supporter Free access",
-    earlySupporterBody:
-      "You’re an early Little Learner Hub supporter, so you were grandfathered into the original Free plan. You keep the Free lesson plans and Free tools you’ve already been using. New Free accounts after our Free-plan update get a smaller curated sample — upgrade anytime for unlimited Pro access.",
+    earlySupporterTitle: "Free Starter Library",
+    earlySupporterBody: FREE_POLICY_NOTICE,
+    freePolicyNotice: FREE_POLICY_NOTICE,
   });
 
   function envFlag(name, fallback) {
@@ -55,11 +54,13 @@
   function parseOverrides(raw) {
     if (!raw || typeof raw !== "object") return {};
     const next = {};
+    // enabled may still be read for admin display, but access mode ignores it.
     if (typeof raw.enabled === "boolean") next.enabled = raw.enabled;
     if (raw.curatedCutoffAt) next.curatedCutoffAt = String(raw.curatedCutoffAt).trim();
     if (typeof raw.missingDateMeansLegacy === "boolean") next.missingDateMeansLegacy = raw.missingDateMeansLegacy;
     if (raw.earlySupporterTitle) next.earlySupporterTitle = String(raw.earlySupporterTitle);
     if (raw.earlySupporterBody) next.earlySupporterBody = String(raw.earlySupporterBody);
+    if (raw.freePolicyNotice) next.freePolicyNotice = String(raw.freePolicyNotice);
     if (raw.accountModeField) next.accountModeField = String(raw.accountModeField);
     return next;
   }
@@ -85,7 +86,6 @@
       }
     }
     const site = parseOverrides(extra.siteContent?.freePlanAccess || extra.siteContent?.featureFlags || {});
-    // featureFlags may include unrelated keys — only pick known ones.
     const flagPick = {};
     const flags = extra.siteContent?.featureFlags || {};
     if (typeof flags.freePlanGrandfatheringEnabled === "boolean") {
@@ -102,6 +102,9 @@
       ...fromWindow,
       ...fromStorage,
       ...parseOverrides(extra),
+      // Policy lock: grandfathering cannot be re-enabled via CMS/env for unlock.
+      enabled: false,
+      missingDateMeansLegacy: false,
     };
   }
 
@@ -126,48 +129,32 @@
     return "";
   }
 
-  function resolveFreeLessonAccessMode(account = {}, extra = {}) {
-    const config = resolveConfig(extra);
-    if (!config.enabled) return "curated";
-
-    const field = config.accountModeField || "freeLessonAccessMode";
-    const explicit = normalizeAccessMode(account?.[field] || account?.freePlanAccessMode || account?.freeAccessMode);
-    if (explicit) return explicit;
-
-    // Paid / staff paths shouldn't be classified as Free access modes.
-    const plan = String(account?.plan || "Free").trim();
-    if (plan && plan !== "Free") return "curated";
-
-    const signupMs = accountSignupMs(account);
-    const cutoffMs = Date.parse(config.curatedCutoffAt);
-    if (!Number.isFinite(cutoffMs)) {
-      return config.missingDateMeansLegacy ? "legacy" : "curated";
-    }
-    if (signupMs === null) {
-      return config.missingDateMeansLegacy ? "legacy" : "curated";
-    }
-    return signupMs < cutoffMs ? "legacy" : "curated";
+  /** Every Free account uses the curated 10-plan Starter Library. */
+  function resolveFreeLessonAccessMode() {
+    return "curated";
   }
 
-  function hasLegacyFreeLessonAccess(account = {}, extra = {}) {
-    return resolveFreeLessonAccessMode(account, extra) === "legacy";
+  /** Legacy Free unlock is retired — always false. */
+  function hasLegacyFreeLessonAccess() {
+    return false;
   }
 
   function isLegacyStoreFreePlan(plan = {}) {
     return String(plan?.plan || "Free").trim() !== "Pro";
   }
 
-  function modeForNewSignup(extra = {}) {
-    const config = resolveConfig(extra);
-    if (!config.enabled) return "curated";
-    const now = Date.now();
-    const cutoffMs = Date.parse(config.curatedCutoffAt);
-    if (Number.isFinite(cutoffMs) && now < cutoffMs) return "legacy";
+  function modeForNewSignup() {
     return "curated";
+  }
+
+  function freePolicyNotice(extra = {}) {
+    const config = resolveConfig(extra);
+    return config.freePolicyNotice || FREE_POLICY_NOTICE;
   }
 
   return {
     DEFAULTS,
+    FREE_POLICY_NOTICE,
     resolveConfig,
     accountSignupMs,
     normalizeAccessMode,
@@ -175,5 +162,6 @@
     hasLegacyFreeLessonAccess,
     isLegacyStoreFreePlan,
     modeForNewSignup,
+    freePolicyNotice,
   };
 });
