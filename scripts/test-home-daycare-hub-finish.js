@@ -79,12 +79,20 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell finish markers + E/F/G UI", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-admin-boot-landing"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-role-switcher"/);
   assert.match(appJs, /function renderHomeDaycareStaffInvitePanel/);
   assert.match(appJs, /function renderHomeDaycareTrainingsPanel/);
   assert.match(appJs, /function renderHomeDaycarePacketsPanel/);
   assert.match(appJs, /function renderHomeDaycareTesterGuidePanel/);
   assert.match(appJs, /What testers see \(simple map\)/);
+  assert.match(appJs, /function renderHdhRoleSwitcher/);
+  assert.match(appJs, /function switchHdhTesterRole/);
+  assert.match(appJs, /function syncHdhTesterSwitcherChrome/);
+  assert.match(appJs, /data-hdh-role-switch/);
+  assert.match(appJs, /staff-helper/);
+  assert.match(appJs, /staff-lead/);
+  assert.match(appJs, /data-hdh-tester-child/);
+  assert.match(appJs, /Bounce through every angle/);
   assert.match(appJs, /data-hdh-jump/);
   assert.match(appJs, /HDH_STAFF_VISIBILITY_OPTIONS/);
   assert.match(appJs, /What this staff member can see/);
