@@ -22059,10 +22059,14 @@ body.printing-resource .trial-curriculum-watermark-print {
 }
 
 .hdh-tester-switcher-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 1200;
   margin: 0;
-  padding: 10px 16px 12px;
-  border-bottom: 1px solid rgba(61, 83, 74, 0.14);
-  background: linear-gradient(180deg, rgba(90, 143, 123, 0.12), rgba(255, 255, 255, 0.92));
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid rgba(61, 83, 74, 0.16);
+  background: linear-gradient(180deg, rgba(245, 250, 247, 0.98), rgba(255, 255, 255, 0.96));
+  box-shadow: 0 6px 18px rgba(35, 52, 44, 0.08);
 }
 
 .hdh-tester-switcher-chrome .hdh-role-switcher {
@@ -22082,34 +22086,29 @@ body.printing-resource .trial-curriculum-watermark-print {
 .hdh-role-switcher-head {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 16px;
+  gap: 6px 16px;
   align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .hdh-role-switcher-copy {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   color: var(--muted, #5b6578);
-  line-height: 1.45;
+  line-height: 1.4;
+  font-size: 0.92rem;
 }
 
 .hdh-role-switcher-now {
   margin: 0;
-  font-size: 0.92rem;
+  font-size: 0.9rem;
   color: #3d534a;
 }
 
 .hdh-role-switcher-tabs {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-@media (min-width: 720px) {
-  .hdh-role-switcher-tabs {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .hdh-role-tab {
@@ -22119,8 +22118,14 @@ body.printing-resource .trial-curriculum-watermark-print {
   color: #3d534a;
   font: inherit;
   font-weight: 700;
-  padding: 10px 12px;
+  padding: 10px 8px;
   cursor: pointer;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.hdh-role-tab-short {
+  display: none;
 }
 
 .hdh-role-tab.is-active {
@@ -22154,8 +22159,12 @@ body.printing-resource .trial-curriculum-watermark-print {
   width: 100%;
 }
 
-.hdh-family-hub-parent .hdh-role-switcher {
+.hdh-family-hub-parent .hdh-role-switcher:not(.hdh-role-switcher--compact) {
   margin-top: 4px;
+}
+
+body.hdh-tester-switching {
+  padding-top: 0;
 }
 
 body.hdh-persona-parent .sidebar {
@@ -22164,6 +22173,33 @@ body.hdh-persona-parent .sidebar {
 
 body.hdh-persona-parent .main {
   margin-left: 0;
+}
+
+@media (max-width: 719px) {
+  .hdh-tester-switcher-chrome {
+    padding: 8px 10px 10px;
+  }
+
+  .hdh-role-switcher-copy {
+    font-size: 0.86rem;
+  }
+
+  .hdh-role-tab {
+    padding: 10px 4px;
+    font-size: 0.86rem;
+  }
+
+  .hdh-role-tab-full {
+    display: none;
+  }
+
+  .hdh-role-tab-short {
+    display: inline;
+  }
+
+  .hdh-role-switcher:not(.hdh-role-switcher--compact) .hdh-role-switcher-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .hdh-tester-roles {

@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260730-auth-button-audit";
+const SHELL = "20260730-hdh-switcher-devices";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";
@@ -123,9 +123,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v138-auth-button-audit/);
+  assert.match(sw, /llh-shell-v139-hdh-switcher-devices/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v138-auth-button-audit");
+  assert.equal(manifest.cacheName, "llh-shell-v139-hdh-switcher-devices");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);
@@ -233,7 +233,7 @@ async function main() {
     assert.equal(hubSnapshot.hasPacket, true);
     assert.match(hubSnapshot.disclaimer, /state licensing/i);
     assert.equal(hubSnapshot.hasGuide, true, "tester guide should be at top of hub");
-    assert.match(hubSnapshot.guideText || "", /What testers see/i);
+    assert.match(hubSnapshot.guideText || "", /Where to add testers/i);
     assert.equal(hubSnapshot.hasRoleSwitcher, true, "multi-role switcher should be on hub");
     assert.equal(hubSnapshot.hasParentSwitch, true);
     assert.equal(hubSnapshot.hasTeacherSwitch, true);
