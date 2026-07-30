@@ -3089,19 +3089,44 @@ function openAuthModal(mode = "login") {
   }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
+  modal.hidden = false;
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
+  // Close the public mobile menu so it cannot sit above / steal taps from auth.
+  if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
   if (mode === "signup") renderSignupWizardStep();
+}
+
+async function runAuthSyncWithTimeout(label, task, timeoutMs = 6000) {
+  let timer = null;
+  try {
+    return await Promise.race([
+      Promise.resolve().then(task),
+      new Promise((resolve) => {
+        timer = setTimeout(() => {
+          console.warn(`[auth] ${label} timed out after ${timeoutMs}ms — continuing UI`);
+          resolve(null);
+        }, timeoutMs);
+      }),
+    ]);
+  } catch (error) {
+    console.warn(`[auth] ${label} failed`, error);
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function closeAuthModal() {
   document.body.classList.remove("auth-modal-open");
   modal.classList.remove("open");
+  modal.hidden = true;
   modal.setAttribute("aria-hidden", "true");
   signupWizardStep = 1;
   signupPersonaChoice = "";
   signupCenterPathway = "";
   modal?.querySelector(".auth-modal-card")?.classList.remove("auth-modal-card--plans");
+  setFormMessage("#authMessage", "");
 }
 
 function defaultPathwayForPersona(persona) {
@@ -59911,17 +59936,12 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           lastName,
           name: [firstName, lastName].filter(Boolean).join(" "),
         });
-        await syncAccountProfileToBackend(result.email, {
-          firstName,
-          lastName,
-          businessName: "",
-          accountType: "",
-          role: "",
-          phone,
-        }, { signup: true, lastLogin: true });
-        await syncSubscriptionFromBackend(result.email);
-        await syncChildDataFromBackend();
-        loadUserAiUsage(result.email).catch(() => {});
+        // Advance the wizard immediately so Create Account never freezes behind
+        // slow profile/welcome sync and blocks every other button on the page.
+        signupWizardStep = 2;
+        setFormMessage("#authMessage", "");
+        renderSignupWizardStep();
+        submitButton.disabled = false;
         trackEvent("account_signup_complete", {
           email: result.email,
           plan: selectedAtSignup,
@@ -59931,9 +59951,18 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           lastName,
           signupFlow: "wizard-step-1",
         });
-        signupWizardStep = 2;
-        setFormMessage("#authMessage", "");
-        renderSignupWizardStep();
+        runAuthSyncWithTimeout("signup profile sync", () => syncAccountProfileToBackend(result.email, {
+          firstName,
+          lastName,
+          businessName: "",
+          accountType: "",
+          role: "",
+          phone,
+        }, { signup: true, lastLogin: true })).then(() => Promise.all([
+          runAuthSyncWithTimeout("signup membership sync", () => syncSubscriptionFromBackend(result.email)),
+          runAuthSyncWithTimeout("signup child sync", () => syncChildDataFromBackend()),
+          loadUserAiUsage(result.email).catch(() => {}),
+        ])).catch(() => {});
         return;
       }
       if (signupWizardStep === 2) {
@@ -59962,32 +59991,34 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
       syncSubscriptionFromBackend(result.email, { forceRefresh: true }).catch(() => {});
       return;
     }
-    await syncAccountProfileToBackend(result.email, {
+    const loginNavGeneration = viewNavigationGeneration;
+    // Close auth UI first so login never leaves a "Working..." overlay trapping clicks.
+    setFormMessage("#authMessage", "");
+    closeAuthModal();
+    markAppBootReady();
+    trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
+    if (loginNavGeneration === viewNavigationGeneration) {
+      const returnView = pendingAuthReturnView
+        && canOpenViewForCurrentAccess(pendingAuthReturnView)
+        ? pendingAuthReturnView
+        : "calendar";
+      pendingAuthReturnView = "";
+      setView(returnView, { fromAuthLanding: true });
+    } else {
+      pendingAuthReturnView = "";
+    }
+    runAuthSyncWithTimeout("login profile sync", () => syncAccountProfileToBackend(result.email, {
       firstName: currentAccount()?.firstName || "",
       lastName: currentAccount()?.lastName || "",
       businessName: currentAccount()?.businessName || currentAccount()?.programSettings?.programName || "",
       accountType: currentAccount()?.accountType || "",
       role: currentAccount()?.role || "",
       phone: currentAccount()?.phone || "",
-    }, { lastLogin: true });
-    const loginNavGeneration = viewNavigationGeneration;
-    await syncSubscriptionFromBackend(result.email, { forceRefresh: true });
-    await syncChildDataFromBackend();
-    loadUserAiUsage(result.email).catch(() => {});
-    markAppBootReady();
-    trackEvent("account_login_complete", { email: result.email, plan: currentPlan });
-    closeAuthModal();
-    // If the user already clicked a sidebar section during login sync, do not yank them to Calendar.
-    if (loginNavGeneration !== viewNavigationGeneration) {
-      pendingAuthReturnView = "";
-      return;
-    }
-    const returnView = pendingAuthReturnView
-      && canOpenViewForCurrentAccess(pendingAuthReturnView)
-      ? pendingAuthReturnView
-      : "calendar";
-    pendingAuthReturnView = "";
-    setView(returnView, { fromAuthLanding: true });
+    }, { lastLogin: true })).then(() => Promise.all([
+      runAuthSyncWithTimeout("login membership sync", () => syncSubscriptionFromBackend(result.email, { forceRefresh: true })),
+      runAuthSyncWithTimeout("login child sync", () => syncChildDataFromBackend()),
+      loadUserAiUsage(result.email).catch(() => {}),
+    ])).catch(() => {});
   } catch (error) {
     setFormMessage("#authMessage", friendlyAuthError(error));
   } finally {
