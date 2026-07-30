@@ -20,6 +20,12 @@ const FOUNDER_NAME = process.env.ADMIN_NAME || "Leah";
 const SEO_TITLE = "Little Learner Hub by Leah | Lesson Plans and Childcare Tools";
 const SEO_DESCRIPTION = "Little Learner Hub gives childcare providers ready-to-use lesson plans, activities, planning tools, documentation helpers, forms, daily reports, and classroom support for infants, toddlers, and preschoolers.";
 
+const OFFICIAL_SOCIAL_PROFILES = [
+  { label: "TikTok", url: "https://www.tiktok.com/@leahrpoole" },
+  { label: "Facebook", url: "https://www.facebook.com/profile.php?id=61590609343290" },
+  { label: "Instagram", url: "https://www.instagram.com/littlelearnershubbyleah" },
+];
+
 function siteUrl() {
   return String(process.env.SITE_URL || DEFAULT_SITE_URL).replace(/\/$/, "");
 }
@@ -43,15 +49,34 @@ function ogImageUrl() {
 }
 
 function socialProfileUrls() {
-  const keys = [
-    ["LLH_SOCIAL_TIKTOK_URL", "tiktok"],
-    ["LLH_SOCIAL_FACEBOOK_URL", "facebook"],
-    ["LLH_SOCIAL_INSTAGRAM_URL", "instagram"],
-    ["LLH_SOCIAL_YOUTUBE_URL", "youtube"],
-  ];
-  return keys
-    .map(([envKey]) => String(process.env[envKey] || "").trim())
+  const envMap = {
+    LLH_SOCIAL_TIKTOK_URL: "https://www.tiktok.com/@leahrpoole",
+    LLH_SOCIAL_FACEBOOK_URL: "https://www.facebook.com/profile.php?id=61590609343290",
+    LLH_SOCIAL_INSTAGRAM_URL: "https://www.instagram.com/littlelearnershubbyleah",
+  };
+  const fromEnv = Object.entries(envMap)
+    .map(([envKey, fallback]) => String(process.env[envKey] || fallback).trim())
     .filter((url) => /^https?:\/\//i.test(url));
+  if (fromEnv.length) return fromEnv;
+  return OFFICIAL_SOCIAL_PROFILES.map((profile) => profile.url);
+}
+
+function renderSocialLinksHtml({ heading = "" } = {}) {
+  const items = OFFICIAL_SOCIAL_PROFILES.map((profile) => (
+    `<a href="${escapeHtml(profile.url)}" rel="noopener noreferrer" target="_blank">${escapeHtml(profile.label)}</a>`
+  )).join(" · ");
+  if (!items) return "";
+  const headingHtml = heading ? `<p class="social-heading">${escapeHtml(heading)}</p>` : "";
+  return `<nav class="social-links" aria-label="Official social profiles">${headingHtml}<p>${items}</p></nav>`;
+}
+
+function renderPublicFooterHtml() {
+  return `
+      <footer>
+        <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
+        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a></p>
+        ${renderSocialLinksHtml()}
+      </footer>`;
 }
 
 function verificationMetaTags() {
@@ -265,6 +290,10 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       .status-testing { background: #fff4df; color: #8a5b00; }
       .status-later { background: #eef2f7; color: #4d5a6d; }
       footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #dbe3f2; font-size: 0.92rem; color: #5b6478; }
+      .social-links { margin-top: 12px; }
+      .social-links a { color: #5b4f9a; text-decoration: none; }
+      .social-links a:hover { text-decoration: underline; }
+      .social-heading { margin: 0 0 4px; font-weight: 600; color: #1f2a44; }
       ul { padding-left: 1.2rem; }
     </style>
   </head>
@@ -276,10 +305,7 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
       </header>
       ${bodyHtml}
       <p><a class="cta" href="/">Open Little Learner Hub</a></p>
-      <footer>
-        <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
-        <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a></p>
-      </footer>
+      ${renderPublicFooterHtml()}
     </div>
   </body>
 </html>`;
@@ -288,27 +314,59 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
 function renderAboutPage() {
   return renderPublicPage({
     title: `About | ${BUSINESS_NAME}`,
-    description: "Learn who Little Learner Hub by Leah is for, what the platform provides today, and why it was created by a childcare provider for real classrooms.",
+    description: "Meet Leah, the childcare provider behind Little Learner Hub by Leah — what the platform offers today and what she is building next for teachers, home daycares, and centers.",
     canonicalPath: "/about",
     bodyHtml: `
       <h1>About ${escapeHtml(BUSINESS_NAME)}</h1>
-      <p><strong>${escapeHtml(BUSINESS_NAME)}</strong> is an online platform for childcare teachers, home daycare providers, directors, centers, preschool teachers, toddler teachers, infant teachers, nannies, and early childhood educators.</p>
-      <h2>Who it is for</h2>
-      <p>The platform is built for educators who need practical planning, documentation, and classroom support without spending hours searching, formatting, and rewriting ideas from scattered sources.</p>
-      <h2>What it provides today</h2>
+      <p class="muted">An online platform built by a childcare provider for childcare providers.</p>
+
+      <h2>Meet Leah</h2>
+      <p>My name is Leah. I have worked in childcare for about six years, directly in classrooms with young children. I am also a mom of three young children.</p>
+      <p>I created Little Learner Hub because I know how exhausting it is to constantly search for lesson plans, activities, forms, documentation tools, and parent communication ideas. Providers are busy enough caring for children — they should not have to spend hours hunting for practical resources.</p>
+      <p>I wanted to build one organized place that saves providers time and gives them resources they can actually use in real classrooms. I actively listen to provider requests and continue adding content and tools based on what teachers actually need.</p>
+
+      <h2>What Little Learner Hub Does Now</h2>
+      <p>These are features members can use today:</p>
       <ul>
-        <li>Growing Infant, Toddler, and Preschool lesson-plan library</li>
-        <li>Organized activity library</li>
-        <li>Weekly calendar planning</li>
-        <li>Printable and downloadable classroom resources</li>
-        <li>Documentation helpers, forms, and provider support</li>
+        <li>Infant, Toddler, and Preschool lesson plans</li>
+        <li>Activity library with practical classroom ideas</li>
+        <li>Printable weekly plans</li>
+        <li>Books, songs, materials, and daily activity ideas inside published plans</li>
+        <li>Favorites and saved customized lesson-plan copies</li>
+        <li>Calendar and weekly planning tools</li>
+        <li>Documentation helpers for observations, lesson plans, daily reports, parent communication support, newsletters, handbooks, and contracts</li>
+        <li>Observations with plan-based limits</li>
+        <li>Forms and document creation tools</li>
+        <li>Child profiles with plan-based limits</li>
+        <li>Provider support and in-app messaging, including lesson-plan requests</li>
+        <li>Free access with starter lesson plans and Pro access for the full library and expanded limits</li>
       </ul>
-      <h2>Who founded it</h2>
-      <p>${escapeHtml(BUSINESS_NAME)} was founded by ${escapeHtml(FOUNDER_NAME)}, a childcare provider who understands the real workload of planning, documentation, family communication, and program paperwork.</p>
-      <h2>Why it was created</h2>
-      <p>The goal is to give providers one affordable online place to find curriculum today and manage more of their program over time — without pretending the platform is a physical childcare location or in-person service.</p>
-      <h2>Future plans</h2>
-      <p class="muted">Roadmap items are labeled on the <a href="/features">Features page</a> as <strong>Available Now</strong>, <strong>Currently Being Built or Tested</strong>, or <strong>Future Plans</strong>. They are not advertised as fully available until launched.</p>
+      <p>See the <a href="/features">Features page</a> for a fuller breakdown of what is live today.</p>
+
+      <h2>What I&rsquo;m Building Next</h2>
+      <p class="muted"><strong>Future plans and works in progress — not all available yet.</strong></p>
+      <p>Little Learner Hub is growing into a larger all-in-one childcare platform. Here is what I am working toward:</p>
+      <ul>
+        <li>Expanded daily logs</li>
+        <li>Attendance and check-in</li>
+        <li>Meals, naps, diapers, and toileting</li>
+        <li>Family Hub for parents</li>
+        <li>Family messaging</li>
+        <li>Electronic forms and signatures</li>
+        <li>Enrollment and waitlists</li>
+        <li>Tuition and billing tools</li>
+        <li>Staff and classroom management</li>
+        <li>Child portfolios and developmental goals</li>
+        <li>Licensing and staff document storage</li>
+        <li>Printable classroom resources</li>
+        <li>More school-age content</li>
+        <li>AI Guide tools for lesson plans, forms, observations, messages, daily reports, and documentation</li>
+        <li>Read-only &ldquo;Ask About My Program&rdquo; tools</li>
+        <li>Mobile and offline support</li>
+      </ul>
+      <p class="muted">Some items are in active development or limited testing. They are labeled clearly on the <a href="/features">Features page</a> and are not presented as fully live until launched.</p>
+
+      ${renderSocialLinksHtml({ heading: "Connect with Little Learner Hub" })}
     `,
   });
 }
@@ -430,6 +488,7 @@ function renderContactPage() {
       <p>Need help with your account, billing, lesson plans, documentation tools, or a technical issue?</p>
       <p><strong>Email:</strong> <a href="mailto:${escapeHtml(SUPPORT_EMAIL)}">${escapeHtml(SUPPORT_EMAIL)}</a></p>
       <p>Members can also use in-app messaging and the Contact form after signing in at <a href="/?view=contact">littlelearnershubbyleah.com</a>.</p>
+      ${renderSocialLinksHtml({ heading: "Follow Little Learner Hub" })}
       <p class="muted">Little Learner Hub is an online platform. Support is provided remotely; there is no public in-person office or customer walk-in location.</p>
     `,
   });
@@ -486,6 +545,8 @@ module.exports = {
   logoUrl,
   ogImageUrl,
   socialProfileUrls,
+  OFFICIAL_SOCIAL_PROFILES,
+  renderSocialLinksHtml,
   supportEmailAddress,
   buildStructuredDataGraph,
   renderRobotsTxt,

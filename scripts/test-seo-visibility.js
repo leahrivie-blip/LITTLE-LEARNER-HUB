@@ -86,13 +86,17 @@ async function main() {
   assert(!indexHtml.includes('"@type": "Product"'), "homepage still uses Product schema");
   assert(indexHtml.includes('"@type": "Organization"'), "homepage missing Organization schema");
   assert(indexHtml.includes('"@type": "WebApplication"'), "homepage missing WebApplication schema");
-  assert(!indexHtml.includes("LocalBusiness"), "homepage must not include LocalBusiness");
+  assert(indexHtml.includes('"sameAs"'), "homepage Organization schema missing sameAs");
+  assert(indexHtml.includes("https://www.tiktok.com/@leahrpoole"), "homepage schema missing TikTok");
+  assert(!indexHtml.includes("youtube.com"), "homepage must not include YouTube");
 
   const graph = seo.buildStructuredDataGraph({ foundingSoldOut: true });
   assert(graph["@graph"].some((node) => node["@type"] === "Organization"), "seo graph missing Organization");
   assert(!graph["@graph"].some((node) => node["@type"] === "LocalBusiness"), "seo graph must not include LocalBusiness");
   const org = graph["@graph"].find((node) => node["@type"] === "Organization");
-  assert(!org.sameAs || org.sameAs.length === 0, "sameAs must be omitted when social env vars are unset");
+  assert(org.sameAs && org.sameAs.length === 3, "sameAs must include TikTok, Facebook, and Instagram");
+  assert(org.sameAs.includes("https://www.tiktok.com/@leahrpoole"), "missing TikTok sameAs");
+  assert(org.sameAs.includes("https://www.instagram.com/littlelearnershubbyleah"), "missing Instagram sameAs");
 
   const child = startServer();
   try {
@@ -125,7 +129,6 @@ async function main() {
     assert(features.body.includes("Available Now"), "features page missing Available Now");
     assert(features.body.includes("Currently Being Built or Tested"), "features page missing in-progress section");
     assert(features.body.includes("Future Plans"), "features page missing Future Plans");
-    assert(!features.body.includes("sameAs"), "features page must not include placeholder social schema");
 
     const pricing = await request("GET", "/pricing");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly price");
@@ -134,6 +137,15 @@ async function main() {
 
     const contact = await request("GET", "/contact");
     assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");
+    assert(contact.body.includes("https://www.tiktok.com/@leahrpoole"), "contact page missing TikTok");
+    assert(contact.body.includes("https://www.instagram.com/littlelearnershubbyleah"), "contact page missing Instagram");
+    assert(!contact.body.includes("youtube.com"), "contact page must not include YouTube");
+
+    const about = await request("GET", "/about");
+    assert(about.body.includes("Meet Leah"), "about page missing Meet Leah section");
+    assert(about.body.includes("What Little Learner Hub Does Now"), "about page missing current features section");
+    assert(about.body.includes("What I&rsquo;m Building Next"), "about page missing future plans section");
+    assert(about.body.includes("https://www.facebook.com/profile.php?id=61590609343290"), "about page missing Facebook link");
 
     const home = await request("GET", "/");
     assert(home.body.includes('rel="canonical"'), "homepage missing injected canonical");
