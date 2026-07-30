@@ -20282,7 +20282,9 @@ function restoreViewScroll(viewName, explicitY) {
 }
 
 function rememberPlatformView(viewName) {
-  if (!viewName || viewName === "home" && isLoggedIn()) return;
+  // Never treat Admin as the provider "last section" — Admin is an owner tool,
+  // not the default signed-in workspace after a refresh or fresh link open.
+  if (!viewName || viewName === "admin" || (viewName === "home" && isLoggedIn())) return;
   try {
     sessionStorage.setItem(PLATFORM_LAST_VIEW_KEY, viewName);
   } catch { /* ignore */ }
@@ -20301,6 +20303,7 @@ function defaultLoggedInLandingView() {
   if (
     remembered
     && remembered !== "home"
+    && remembered !== "admin"
     && remembered !== "payment-success"
     && remembered !== "payment-failed"
     && document.querySelector(`#view-${remembered}`)
@@ -62479,6 +62482,8 @@ function resetPasswordLinkRequestedFromLocation() {
 
 // Guests get the marketing homepage. Logged-in users never paint the retired Dashboard.
 // Admin-only unlock (no provider login) restores Admin immediately to avoid Home flash / "kicked out" feel.
+// Signed-in providers do NOT auto-open Admin — they land on Calendar / last workspace section.
+// Open Admin only via Admin nav, /admin, or ?view=admin.
 if (!currentUser) {
   if (resetPasswordLinkRequestedFromLocation()) {
     setView("reset-password", { fromBoot: true, replaceHistory: true });
@@ -62497,7 +62502,6 @@ if (!currentUser) {
       return adRouteMap[window.location.pathname] || adRouteMap[window.location.hash] || "";
     })();
     if (fromLocation && fromLocation !== "home") return fromLocation;
-    if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") return "admin";
     return defaultLoggedInLandingView();
   })();
   if (earlyLanding !== "lesson-editor") {
@@ -62579,7 +62583,9 @@ async function initializeAppView(options = {}) {
       setView(initialView, viewOptions);
       return;
     }
-    if (isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
+    // Admin-only unlock (no provider login): stay in Admin after refresh.
+    // Providers with an unlocked admin session still land on Calendar / workspace.
+    if (!currentUser && isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
       setView("admin", { fromBoot: true, replaceHistory: true });
       loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
       return;
