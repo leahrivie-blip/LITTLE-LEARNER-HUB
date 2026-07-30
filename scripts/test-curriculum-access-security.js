@@ -318,7 +318,13 @@ async function main() {
     const freeUserDetail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.proId)}`, null, {
       headers: authHeader("free@security.test"),
     });
-    assert(freeUserDetail.status === 403, `free user detail expected 403, got ${freeUserDetail.status}`);
+    // Free members may browse locked previews (title/theme/overview) but must never receive full content.
+    assert([200, 403].includes(freeUserDetail.status), `free user detail unexpected status ${freeUserDetail.status}`);
+    if (freeUserDetail.status === 200) {
+      assert(freeUserDetail.json.lessonPlan?.locked === true, "free user pro detail must remain locked");
+      assert(!freeUserDetail.json.lessonPlan?.dailyPlans, "free user pro detail must not include dailyPlans");
+      assert(!freeUserDetail.json.lessonPlan?.objectives, "free user pro detail must not include objectives");
+    }
     assertNoProtectedStrings(freeUserDetail.json, "free-user pro detail");
 
     console.log("3) Authorized personas can retrieve full Pro lesson content");
@@ -386,7 +392,11 @@ async function main() {
     const spoofed = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(ids.proId)}`, null, {
       headers: { Authorization: "Bearer test:free@security.test", "X-LLH-Plan": "Pro" },
     });
-    assert(spoofed.status === 403, `spoofed plan header must not unlock detail (${spoofed.status})`);
+    assert([200, 403].includes(spoofed.status), `spoofed plan header unexpected status ${spoofed.status}`);
+    if (spoofed.status === 200) {
+      assert(spoofed.json.lessonPlan?.locked === true, "spoofed Free user must still receive locked preview only");
+      assert(!spoofed.json.lessonPlan?.dailyPlans, "spoofed Free user must not receive dailyPlans");
+    }
     assertNoProtectedStrings(spoofed.json, "spoofed plan response");
 
     console.log("\nAll curriculum access security checks passed.");

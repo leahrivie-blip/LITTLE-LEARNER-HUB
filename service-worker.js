@@ -1,12 +1,12 @@
-const CACHE_NAME = "llh-shell-v116-signed-in-audit";
-const SHELL_VERSION = "20260729-signed-in-audit";
+const CACHE_NAME = "llh-shell-v117-trial-free-starter";
+const SHELL_VERSION = "20260729-trial-free-starter";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260729-signed-in-audit",
+  "/styles.css?v=20260729-trial-free-starter",
   "/styles/llh-admin-workspace.css?v=20260729-signed-in-audit",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260729-signed-in-audit",
@@ -27,9 +27,10 @@ const APP_SHELL = [
   "/scripts/llh-lesson-docx.js?v=20260714-lesson-docx",
   "/scripts/lesson-plan-weekly-export.js?v=20260717-more-menu",
   "/scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu",
-  "/scripts/free-curriculum-sample.js?v=20260720-promo-existing",
+  "/scripts/free-curriculum-sample.js?v=20260729-trial-free-starter",
+  "/scripts/trial-curriculum-exports.js?v=20260729-trial-free-starter",
   "/scripts/free-plan-grandfathering.js?v=20260720-promo-existing",
-  "/app.js?v=20260729-signed-in-audit",
+  "/app.js?v=20260729-trial-free-starter",
   "/admin-workspace.js?v=20260729-signed-in-audit",
   "/comms-center.js?v=20260729-signed-in-audit",
   "/site.webmanifest",

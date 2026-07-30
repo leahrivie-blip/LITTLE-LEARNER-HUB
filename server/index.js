@@ -9,6 +9,7 @@ const accountAccess = require("../scripts/account-access.js");
 const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
+const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
@@ -1786,7 +1787,7 @@ function authorizedCurriculumDailyPlansDto(dailyPlans) {
 function publicCurriculumLessonPlanPreviewDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (freeCurriculumSample.isCuratedFreeLessonPlan(entry)) return null;
+  if (isStoreCuratedFreeLessonPlan(entry, peekStore())) return null;
   // Public Pro teaser: overview metadata only. Do not ship objectives, materials,
   // vocabulary, books, songs, or activity names — those unlock with paid access.
   let activityCount = 0;
@@ -1847,7 +1848,7 @@ function curriculumLessonPlanUnlockedFreeDto(plan) {
 function publicCurriculumLessonPlanFreeDto(plan) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry || !isCurriculumLessonPublic(entry.status)) return null;
-  if (!freeCurriculumSample.isCuratedFreeLessonPlan(entry)) return null;
+  if (!isStoreCuratedFreeLessonPlan(entry, peekStore())) return null;
   return curriculumLessonPlanUnlockedFreeDto(plan);
 }
 
@@ -1859,10 +1860,35 @@ function freePlanAccessContextFromUser(user, siteContent = null) {
   };
 }
 
+function defaultFreeStarterLibrary() {
+  return {
+    lessonPlanIds: [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS],
+    updatedAt: "",
+    updatedBy: "",
+  };
+}
+
+function freeStarterOverrideIds(storeOrContent = null) {
+  const root = storeOrContent?.freeStarterLibrary?.lessonPlanIds;
+  const nested = storeOrContent?.siteContent?.freeStarterLibrary?.lessonPlanIds;
+  const ids = freeCurriculumSample.sanitizeIdList(root || nested || []);
+  if (ids.length === freeCurriculumSample.REQUIRED_COUNT) return ids;
+  return null;
+}
+
+function isStoreCuratedFreeLessonPlan(plan, storeOrContent = null) {
+  return freeCurriculumSample.isCuratedFreeLessonPlan(
+    plan,
+    new Date(),
+    freeStarterOverrideIds(storeOrContent) || undefined,
+  );
+}
+
 function userMayUnlockFreeCurriculumPlan(plan, accessContext = {}) {
   const entry = normalizedCurriculumLessonPlan(plan);
   if (!entry) return false;
-  if (freeCurriculumSample.isCuratedFreeLessonPlan(entry)) return true;
+  const storeOrContent = accessContext?.store || accessContext?.siteContent || null;
+  if (isStoreCuratedFreeLessonPlan(entry, storeOrContent)) return true;
   if (accessContext?.legacyFree && freePlanGrandfathering.isLegacyStoreFreePlan(entry)) return true;
   return false;
 }
@@ -1912,7 +1938,7 @@ function publicCurriculumActivityPreviewDto(activity, parentPlan) {
   const entry = normalizedCurriculumActivity(activity);
   if (!entry || entry.status !== "published") return null;
   if (!parentPlan || !isCurriculumLessonPublic(parentPlan.status)) return null;
-  if (freeCurriculumSample.isCuratedFreeLessonPlan(parentPlan)) return null;
+  if (isStoreCuratedFreeLessonPlan(parentPlan, peekStore())) return null;
   // Overview teaser only — no description/materials/steps/teacher language/etc.
   return {
     id: entry.id,
@@ -1965,7 +1991,7 @@ function curriculumActivityUnlockedFreeDto(activity, parentPlan) {
 }
 
 function publicCurriculumActivityFreeDto(activity, parentPlan) {
-  if (!parentPlan || !freeCurriculumSample.isCuratedFreeLessonPlan(parentPlan)) return null;
+  if (!parentPlan || !isStoreCuratedFreeLessonPlan(parentPlan, peekStore())) return null;
   return curriculumActivityUnlockedFreeDto(activity, parentPlan);
 }
 
@@ -7281,6 +7307,48 @@ async function handleCheckout(request, response) {
   }
   const promo = checkoutPromoForCode(body.promoCode, store);
   const trial7day = body.trial7day === true;
+  // One introductory 7-day trial per account / Stripe customer (flag ambiguous duplicates for Admin).
+  if (trial7day) {
+    const alreadyTrialedAccount = membershipAccess.membershipHasTrialHistory(existingUser)
+      || Boolean(existingUser.introductoryTrialConsumed);
+    if (alreadyTrialedAccount) {
+      jsonResponse(response, 409, {
+        error: "This account has already used its introductory Pro trial. Upgrade to Founding or Pro for continued access.",
+        code: "trial_already_used",
+        trialAlreadyUsed: true,
+      });
+      return;
+    }
+    const customerId = String(existingUser.stripeCustomerId || "").trim();
+    if (customerId) {
+      const siblingTrial = Object.values(store.users || {}).find((other) => (
+        normalizeEmail(other.email) !== email
+        && String(other.stripeCustomerId || "").trim() === customerId
+        && (membershipAccess.membershipHasTrialHistory(other) || other.introductoryTrialConsumed)
+      ));
+      if (siblingTrial) {
+        // Do not silently merge accounts — flag for Admin and block automatic re-trial.
+        const flags = Array.isArray(store.adminReviewFlags) ? store.adminReviewFlags : [];
+        flags.push({
+          id: `trial-dup-${Date.now().toString(36)}`,
+          type: "possible_repeated_trial",
+          createdAt: new Date().toISOString(),
+          accountRef: trialCurriculumExports.shortAccountRef(existingUser),
+          stripeCustomerRef: `cus_…${customerId.slice(-6)}`,
+          note: "Introductory trial requested for an account sharing a Stripe customer that already has trial history.",
+        });
+        store.adminReviewFlags = flags.slice(-200);
+        writeStore(store);
+        jsonResponse(response, 409, {
+          error: "This billing customer already used an introductory Pro trial on another account. Contact support if this is a separate childcare organization.",
+          code: "trial_customer_already_used",
+          trialAlreadyUsed: true,
+          adminReviewFlagged: true,
+        });
+        return;
+      }
+    }
+  }
   if (normalizePromoCode(body.promoCode) && !promo.valid) {
     jsonResponse(response, 400, {
       error: promo.expired
@@ -12005,6 +12073,12 @@ async function handlePublicSiteContent(request, response, url) {
       upgradeMessaging: publicUpgradeMessaging,
       playBasedCurriculum: true,
       freePlanAccess,
+      freeStarterLibrary: {
+        lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,
+        count: freeCurriculumSample.REQUIRED_COUNT,
+        distribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
+      },
+      membershipCopy: publicMembershipCopyPayload(store),
       curriculumLibrary,
     },
   });
@@ -12030,14 +12104,19 @@ async function handleCurriculumLessonPlanDetail(request, response, url, planId) 
     jsonResponse(response, 200, { lessonPlan: authorizedCurriculumLessonPlanDto(rawPlan) });
     return;
   }
-  const accessContext = freePlanAccessContextFromUser(access.user, siteContent);
+  const accessContext = {
+    ...freePlanAccessContextFromUser(access.user, siteContent),
+    store,
+  };
   if (userMayUnlockFreeCurriculumPlan(plan, accessContext)) {
     jsonResponse(response, 200, { lessonPlan: curriculumLessonPlanUnlockedFreeDto(rawPlan) });
     return;
   }
-  if (freePlanGrandfathering.isLegacyStoreFreePlan(plan) || freeCurriculumSample.isCuratedFreeLessonPlan(plan)) {
-    // Should be unlocked above; keep preview fallback for safety.
-    jsonResponse(response, 200, { lessonPlan: publicCurriculumLessonPlanPreviewDto(rawPlan) });
+  // Free / anonymous members may browse titles, covers, age, theme, and a short
+  // overview of the full library. Complete contents stay locked (preview DTO).
+  const preview = publicCurriculumLessonPlanPreviewDto(rawPlan);
+  if (preview) {
+    jsonResponse(response, 200, { lessonPlan: preview });
     return;
   }
   jsonResponse(response, 403, { error: "Pro access is required for this lesson plan." });
@@ -14093,6 +14172,367 @@ function handleHealth(request, response) {
 
 function handleFoundingStatus(request, response) {
   jsonResponse(response, 200, { founding: foundingStatusPayload(peekStore()) });
+}
+
+function trialExportRateBuckets() {
+  if (!globalThis.__llhTrialExportRateBuckets) globalThis.__llhTrialExportRateBuckets = new Map();
+  return globalThis.__llhTrialExportRateBuckets;
+}
+
+function publicMembershipCopyPayload(store = peekStore()) {
+  const founding = foundingStatusPayload(store);
+  return {
+    freeCore: trialCurriculumExports.COPY.freeCore,
+    freeBrowse: trialCurriculumExports.COPY.freeBrowse,
+    trialCore: trialCurriculumExports.COPY.core,
+    foundingCard: trialCurriculumExports.COPY.foundingCard,
+    proCard: trialCurriculumExports.COPY.proCard,
+    foundingWhileOpen: founding.remaining > 0 ? trialCurriculumExports.COPY.foundingWhileOpen : "",
+    proMonthly: trialCurriculumExports.COPY.proMonthly,
+    trialExhausted: trialCurriculumExports.COPY.exhausted,
+    trialBeforeExport: trialCurriculumExports.COPY.beforeExport,
+    unlimitedLabel: trialCurriculumExports.COPY.unlimitedLabel,
+    freeStarterCount: freeCurriculumSample.REQUIRED_COUNT,
+    freeStarterDistribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
+  };
+}
+
+function resolveFreeStarterLibrary(store = peekStore()) {
+  const override = freeStarterOverrideIds(store);
+  const ids = override || [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS];
+  const curriculum = readSiteCurriculum(store);
+  const plans = ids.map((id) => {
+    const plan = curriculum.lessonPlans.find((item) => item.id === id);
+    return plan
+      ? {
+        id: plan.id,
+        title: plan.title,
+        age: plan.age,
+        theme: plan.theme || "",
+        status: plan.status,
+        published: String(plan.status || "").toLowerCase() === "published",
+      }
+      : { id, title: "", age: "", theme: "", status: "missing", published: false, missing: true };
+  });
+  const validation = freeCurriculumSample.validateStarterSelection(
+    plans.map((p) => ({ id: p.id, age: p.age, status: p.published ? "published" : p.status, title: p.title })),
+    { requirePublished: true },
+  );
+  return {
+    lessonPlanIds: ids,
+    plans,
+    validation,
+    source: override ? "store" : "default",
+    updatedAt: store.freeStarterLibrary?.updatedAt || "",
+    updatedBy: store.freeStarterLibrary?.updatedBy || "",
+  };
+}
+
+async function resolveMemberUserFromRequest(request, url) {
+  const access = await resolveCurriculumAccessUser(request, url);
+  if (!access?.email && !access?.user?.email) {
+    return { ok: false, status: 401, error: "Sign in is required." };
+  }
+  const email = normalizeEmail(access.email || access.user?.email || "");
+  const store = readStore();
+  const user = store.users?.[email] || { email };
+  return { ok: true, email, user, store, access };
+}
+
+async function handleTrialCurriculumExportStatus(request, response, url) {
+  const resolved = await resolveMemberUserFromRequest(request, url);
+  if (!resolved.ok) {
+    jsonResponse(response, resolved.status, { error: resolved.error });
+    return;
+  }
+  const { user, store } = resolved;
+  const inTrial = membershipAccess.membershipUserInTrial(user);
+  const state = trialCurriculumExports.normalizeState(user.trialCurriculumExports);
+  const founding = foundingStatusPayload(store);
+  const payload = trialCurriculumExports.statusPayload(user, state, {
+    foundingSpotsRemaining: founding.remaining,
+  });
+  payload.inTrial = inTrial;
+  payload.hasProAccess = membershipAccess.membershipHasProAccess(user);
+  payload.isFounding = membershipAccess.membershipFoundingActive(user);
+  payload.unlimited = membershipAccess.membershipHasProAccess(user) && !inTrial;
+  payload.membershipCopy = publicMembershipCopyPayload(store);
+  jsonResponse(response, 200, payload);
+}
+
+async function handleTrialCurriculumExportAuthorize(request, response, url) {
+  const resolved = await resolveMemberUserFromRequest(request, url);
+  if (!resolved.ok) {
+    jsonResponse(response, resolved.status, { error: resolved.error });
+    return;
+  }
+  const { email, user, store, access } = resolved;
+  // Founding / paid Pro: unlimited — never consume.
+  if (membershipAccess.membershipHasProAccess(user) && !membershipAccess.membershipUserInTrial(user)) {
+    jsonResponse(response, 200, {
+      ok: true,
+      allowed: true,
+      unlimited: true,
+      remaining: null,
+      used: 0,
+      watermark: "",
+      message: trialCurriculumExports.COPY.unlimitedLabel,
+    });
+    return;
+  }
+  // Admin unlock with full access also unlimited.
+  if (access?.source === "admin" || access?.authorized && !membershipAccess.membershipUserInTrial(user) && membershipAccess.membershipHasProAccess(user)) {
+    jsonResponse(response, 200, {
+      ok: true,
+      allowed: true,
+      unlimited: true,
+      remaining: null,
+      used: 0,
+      watermark: "",
+    });
+    return;
+  }
+  if (!membershipAccess.membershipUserInTrial(user)) {
+    jsonResponse(response, 403, {
+      ok: false,
+      allowed: false,
+      error: "Trial curriculum exports are only available during an active Pro trial.",
+      message: trialCurriculumExports.COPY.exhausted,
+    });
+    return;
+  }
+
+  let body = {};
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid JSON body." });
+    return;
+  }
+
+  const resourceType = String(body.resourceType || "").trim();
+  const resourceId = String(body.resourceId || "").trim();
+  const action = String(body.action || "export").trim();
+  const isProviderOwned = body.isProviderOwned === true;
+  const isFreeCurriculum = body.isFreeCurriculum === true
+    || (resourceType === "lesson-plan" && isStoreCuratedFreeLessonPlan({ id: resourceId }, store));
+
+  if (isProviderOwned || isFreeCurriculum) {
+    jsonResponse(response, 200, {
+      ok: true,
+      allowed: true,
+      counted: false,
+      remaining: trialCurriculumExports.normalizeState(user.trialCurriculumExports).remaining,
+      used: trialCurriculumExports.normalizeState(user.trialCurriculumExports).used,
+      watermark: "",
+      message: "Provider-owned and Free starter curriculum exports do not use trial allowance.",
+    });
+    return;
+  }
+
+  const buckets = trialExportRateBuckets();
+  const rateKey = `${email}|${user.stripeCustomerId || ""}`;
+  const rate = trialCurriculumExports.rateLimitOk(buckets.get(rateKey) || [], Date.now());
+  if (!rate.ok) {
+    jsonResponse(response, 429, {
+      ok: false,
+      error: "Too many curriculum export attempts. Please wait a moment and try again.",
+      retryAfterMs: rate.retryAfterMs,
+    });
+    return;
+  }
+  buckets.set(rateKey, rate.hits);
+
+  const result = trialCurriculumExports.authorizeExport(user.trialCurriculumExports, {
+    idempotencyKey: body.idempotencyKey,
+    resourceType,
+    resourceId,
+    action,
+    stripeCustomerId: user.stripeCustomerId || "",
+  });
+  if (!result.ok) {
+    jsonResponse(response, result.status || 400, { error: result.error });
+    return;
+  }
+  upsertUser(email, {
+    trialCurriculumExports: result.state,
+    stripeCustomerId: user.stripeCustomerId || result.state.stripeCustomerId || "",
+  });
+  jsonResponse(response, 200, {
+    ok: true,
+    allowed: result.allowed,
+    reused: result.reused,
+    counted: result.allowed && !result.reused,
+    remaining: result.remaining,
+    used: result.used,
+    watermark: result.allowed ? trialCurriculumExports.watermarkText(user) : "",
+    accountRef: trialCurriculumExports.shortAccountRef(user),
+    message: result.message,
+    beforeMessage: trialCurriculumExports.COPY.beforeExport,
+    copy: trialCurriculumExports.COPY,
+  });
+}
+
+async function handleTrialCurriculumExportRelease(request, response, url) {
+  const resolved = await resolveMemberUserFromRequest(request, url);
+  if (!resolved.ok) {
+    jsonResponse(response, resolved.status, { error: resolved.error });
+    return;
+  }
+  const { email, user } = resolved;
+  let body = {};
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid JSON body." });
+    return;
+  }
+  const result = trialCurriculumExports.releaseExport(user.trialCurriculumExports, {
+    idempotencyKey: body.idempotencyKey,
+  });
+  if (!result.ok) {
+    jsonResponse(response, result.status || 400, { error: result.error });
+    return;
+  }
+  if (result.released) {
+    upsertUser(email, { trialCurriculumExports: result.state });
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    released: result.released,
+    remaining: result.remaining,
+    used: result.used,
+  });
+}
+
+function handleAdminTrialUsage(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  const store = readStore();
+  const emailFilter = normalizeEmail(url.searchParams.get("email") || "");
+  const users = Object.values(store.users || {})
+    .filter((user) => {
+      if (!emailFilter) {
+        return membershipAccess.membershipUserInTrial(user)
+          || membershipAccess.membershipHasTrialHistory(user)
+          || Boolean(user.trialCurriculumExports);
+      }
+      return normalizeEmail(user.email) === emailFilter;
+    })
+    .map((user) => {
+      const state = trialCurriculumExports.normalizeState(user.trialCurriculumExports);
+      const stripeCustomerId = user.stripeCustomerId || state.stripeCustomerId || "";
+      const sameCustomer = stripeCustomerId
+        ? Object.values(store.users || {}).filter((other) => (
+          other.email !== user.email
+          && String(other.stripeCustomerId || "").trim() === stripeCustomerId
+          && membershipAccess.membershipHasTrialHistory(other)
+        )).length
+        : 0;
+      return {
+        accountRef: trialCurriculumExports.shortAccountRef(user),
+        emailHash: crypto.createHash("sha256").update(normalizeEmail(user.email)).digest("hex").slice(0, 12),
+        trialStart: user.trialStart || null,
+        trialEnd: user.trialEnd || null,
+        inTrial: membershipAccess.membershipUserInTrial(user),
+        used: state.used,
+        remaining: state.remaining,
+        lastExportAt: state.lastExportAt || null,
+        stripeCustomerAssociated: Boolean(stripeCustomerId),
+        stripeCustomerRef: stripeCustomerId ? `cus_…${String(stripeCustomerId).slice(-6)}` : null,
+        possibleRepeatedTrial: sameCustomer > 0 || (
+          membershipAccess.membershipHasTrialHistory(user)
+          && String(user.trialStatus || "").toLowerCase().includes("ended")
+          && membershipAccess.membershipUserInTrial(user)
+        ),
+      };
+    })
+    .slice(0, 200);
+  jsonResponse(response, 200, {
+    ok: true,
+    allowance: trialCurriculumExports.TRIAL_EXPORT_ALLOWANCE,
+    users,
+    note: "Read-only trial usage. No private childcare information is included.",
+  });
+}
+
+function handleAdminFreeStarterLibraryGet(request, response, url) {
+  const adminToken = url.searchParams.get("adminToken") || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    freeStarterLibrary: resolveFreeStarterLibrary(readStore()),
+    requiredCount: freeCurriculumSample.REQUIRED_COUNT,
+    requiredDistribution: freeCurriculumSample.REQUIRED_DISTRIBUTION,
+    defaults: [...freeCurriculumSample.DEFAULT_FREE_STARTER_LESSON_IDS],
+  });
+}
+
+async function handleAdminFreeStarterLibrarySave(request, response) {
+  let body = {};
+  try {
+    body = await readJson(request);
+  } catch {
+    jsonResponse(response, 400, { error: "Invalid JSON body." });
+    return;
+  }
+  const adminToken = String(body.adminToken || "").trim();
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, adminAuthFailurePayload());
+    return;
+  }
+  const store = readStore();
+  const curriculum = readSiteCurriculum(store);
+  const ids = freeCurriculumSample.sanitizeIdList(body.lessonPlanIds || []);
+  const plans = ids.map((id) => curriculum.lessonPlans.find((item) => item.id === id)).filter(Boolean);
+  if (plans.length !== ids.length) {
+    jsonResponse(response, 400, {
+      ok: false,
+      error: "One or more lesson plan IDs were not found in the curriculum library.",
+      missingIds: ids.filter((id) => !curriculum.lessonPlans.some((p) => p.id === id)),
+    });
+    return;
+  }
+  const validation = freeCurriculumSample.validateStarterSelection(plans, { requirePublished: true });
+  if (!validation.ok) {
+    jsonResponse(response, 400, {
+      ok: false,
+      error: "Free Starter Library must be exactly 10 published plans (3 Infant, 3 Toddler, 4 Preschool).",
+      errors: validation.errors,
+      ageCounts: validation.ageCounts,
+    });
+    return;
+  }
+  if (body.confirm !== true) {
+    jsonResponse(response, 200, {
+      ok: true,
+      preview: true,
+      freeStarterLibrary: {
+        lessonPlanIds: validation.ids,
+        ageCounts: validation.ageCounts,
+        plans: plans.map((p) => ({ id: p.id, title: p.title, age: p.age, status: p.status })),
+      },
+      message: "Preview only — set confirm:true to save.",
+    });
+    return;
+  }
+  store.freeStarterLibrary = {
+    lessonPlanIds: validation.ids,
+    updatedAt: new Date().toISOString(),
+    updatedBy: String(body.adminEmail || "admin").slice(0, 120),
+  };
+  writeStore(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    saved: true,
+    freeStarterLibrary: resolveFreeStarterLibrary(store),
+  });
 }
 
 /**
@@ -17543,6 +17983,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/recover-sparse-store") return await handleAdminRecoverSparseStore(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/recover-firebase-profiles") return await handleAdminRecoverFirebaseProfiles(request, response);
     if (request.method === "GET" && url.pathname === "/api/founding-status") return handleFoundingStatus(request, response);
+    if (request.method === "GET" && url.pathname === "/api/trial-curriculum-exports") return await handleTrialCurriculumExportStatus(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/trial-curriculum-exports/authorize") return await handleTrialCurriculumExportAuthorize(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/trial-curriculum-exports/release") return await handleTrialCurriculumExportRelease(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/trial-usage") return handleAdminTrialUsage(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/free-starter-library") return handleAdminFreeStarterLibraryGet(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/free-starter-library") return await handleAdminFreeStarterLibrarySave(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/founding-breakdown") return handleAdminFoundingBreakdown(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/stripe-readiness") return handleStripeReadiness(request, response);
     if (request.method === "GET" && url.pathname === "/api/billing-readiness") return handleBillingReadiness(request, response);
