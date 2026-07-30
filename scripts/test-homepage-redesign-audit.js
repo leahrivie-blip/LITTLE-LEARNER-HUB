@@ -174,7 +174,7 @@ async function runAudit(playwright, baseUrl, seeded) {
 
   const sectionIds = [
     "homeHero", "homeLessonPlans", "homeActivities", "homeFeatures", "homeComingSoon",
-    "homeAudience", "homeFounder",
+    "homeAudience", "homeFounder", "homeReviews",
     "homePricing", "homeFinalCta",
   ];
   for (const id of sectionIds) {
@@ -183,13 +183,26 @@ async function runAudit(playwright, baseUrl, seeded) {
     results.sections.push(id);
   }
 
-  // Unverified review UI / fake aggregate ratings must stay off the public homepage.
-  assert((await page.locator("#homeReviews, .llh-nav-rating, .lp-review-card").count()) === 0, "unverified review UI still present");
-  const homeText = await page.locator("body").innerText();
-  assert(!/Rated 5 stars/i.test(homeText), "homepage still claims unverified 5-star rating");
+  // Wait for managed site-content apply — it must NOT wipe the curated multi-review grid.
+  await page.waitForFunction(() => {
+    try {
+      return typeof renderManagedHomeContent === "function"
+        && document.querySelectorAll("#homeReviews .lp-review-card").length >= 6;
+    } catch { return false; }
+  }, null, { timeout: 15000 }).catch(() => null);
+  const reviewsText = await page.locator("#homeReviews").innerText();
+  assert(/I actually love it/.test(reviewsText), "Tiffany review text missing");
+  assert(/Tiffany/.test(reviewsText), "Tiffany name missing");
+  for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
+    assert(new RegExp(name).test(reviewsText), `${name} review missing after site-content apply`);
+  }
+  const reviewCardCount = await page.locator("#homeReviews .lp-review-card").count();
+  assert(reviewCardCount >= 6, `expected >=6 review cards, got ${reviewCardCount}`);
+  assert((await page.locator(".llh-nav-rating").count()) > 0, "nav star rating missing");
+  assert(/Rated 5 stars/i.test(reviewsText), "star-rating copy missing");
   assert(!/123 Main/i.test(await page.content()), "homepage still contains fake address placeholder");
-  results.tiffany = false;
-  results.multiReviews = 0;
+  results.tiffany = true;
+  results.multiReviews = reviewCardCount;
 
   // Pricing must show $9.99 founding, not conflict with outdated $19.99 as the offer.
   const pricingText = await page.locator("#homePricing").innerText();
@@ -198,9 +211,9 @@ async function runAudit(playwright, baseUrl, seeded) {
   const metaDescription = await page.locator('meta[name="description"]').getAttribute("content");
   const ogDescription = await page.locator('meta[property="og:description"]').getAttribute("content");
   const structuredData = await page.locator('script[type="application/ld+json"]').textContent();
-  assert(/\$9\.99\/month locked while continuously active/i.test(metaDescription || ""), "Meta description missing continuous membership language");
-  assert(/\$9\.99\/month locked while continuously active/i.test(ogDescription || ""), "OG description missing continuous membership language");
-  assert(/\$9\.99\/month locked while continuously active/i.test(structuredData || ""), "Structured data missing continuous membership language");
+  assert(/ready-to-use lesson plans/i.test(metaDescription || ""), "Meta description missing curriculum SEO copy");
+  assert(/ready-to-use lesson plans/i.test(ogDescription || ""), "OG description missing curriculum SEO copy");
+  assert(/WebApplication/i.test(structuredData || "") && /Organization/i.test(structuredData || ""), "Structured data missing Organization/WebApplication");
   results.foundingPrice = true;
 
   // Desktop login / signup
