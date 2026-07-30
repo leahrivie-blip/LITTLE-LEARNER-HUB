@@ -50,23 +50,14 @@ test("founding, free, and final CTAs exist", () => {
   assert.match(html, /data-checkout-plan="founding"/);
 });
 
-test("Tiffany review remains on homepage", () => {
-  assert.match(html, /I actually love it\. I would definitely use it for our lesson planning/);
-  assert.match(html, /Tiffany/);
-  assert.match(html, /What Childcare Providers Are Saying/);
-  assert.match(html, /Rated 5 stars by teachers/);
+test("homepage does not ship unverified review or fake address placeholders", () => {
+  assert.doesNotMatch(html, /Rated 5 stars by teachers/);
+  assert.doesNotMatch(html, /llh-nav-rating|homeReviews|lp-review-card/);
+  assert.doesNotMatch(html, /123 Main/);
+  assert.doesNotMatch(html, /\(555\)\s*123-4567|555-123-4567/);
+  assert.doesNotMatch(html, /What Childcare Providers Are Saying/);
   assert.match(html, /Built with providers, not for a textbook/);
   assert.match(html, /data-action="request-lesson-plan"/);
-  assert.match(html, /I requested a theme and it showed up in the library/);
-  assert.match(html, /Works for my mixed ages without rewriting everything/);
-  assert.match(html, /made by someone who(?:'|\&rsquo;|&apos;)?s been in the room/);
-  assert.match(html, /llh-nav-rating/);
-  for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
-    assert.match(html, new RegExp(`<strong>${name}</strong>`));
-  }
-  // CMS apply must append unique reviews — never wipe the curated cards.
-  assert.match(appJs, /cmsReviewsAppended/);
-  assert.doesNotMatch(appJs, /\.lp-review-card:not\(\.llh-review-featured\)/);
 });
 
 test("public nav and mobile menu markers exist", () => {
