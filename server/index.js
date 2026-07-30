@@ -85,6 +85,7 @@ const DEFAULT_ADMIN_EMAIL_ALIASES = [
   "leahivie@icloud.com",
   "leahrivie@icloud.com",
   "leahrivie@gmail.com",
+  "little.learners.hub.customer@gmail.com",
 ];
 const ADMIN_EMAILS = [...new Set([
   ADMIN_EMAIL,

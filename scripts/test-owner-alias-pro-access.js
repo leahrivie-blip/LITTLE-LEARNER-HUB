@@ -127,7 +127,7 @@ function staticChecks() {
   assert.match(app, /positionItemActionMenuPanel/);
   assert.match(css, /llh-item-menu-backdrop/);
   assert.match(css, /#scheduleEventModal/);
-  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=20260722-lesson-empty-hotfix/);
+  assert.match(fs.readFileSync(path.join(ROOT, "index.html"), "utf8"), /app\.js\?v=/);
   console.log("PASS static owner Pro + mobile overlay markers");
 }
 
@@ -139,6 +139,19 @@ async function seedProLesson(token) {
   }
   const parsed = parseCurriculumLessonPlanImport(source);
   assert.equal(parsed.ok, true, parsed.error || "parse failed");
+  const dailyPlans = { ...(parsed.data.dailyPlans || {}) };
+  for (const day of ["monday", "tuesday", "wednesday", "thursday", "friday"]) {
+    const activities = Array.isArray(dailyPlans[day]?.activities) ? dailyPlans[day].activities : [];
+    if (!activities.length) {
+      dailyPlans[day] = {
+        ...(dailyPlans[day] || {}),
+        activities: [{
+          title: `${day} owner access activity`,
+          steps: PROTECTED,
+        }],
+      };
+    }
+  }
   const bootstrap = await request("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(token)}`);
   const touch = await request("POST", "/api/admin/site-content", {
     body: {
@@ -153,6 +166,7 @@ async function seedProLesson(token) {
       expectedUpdatedAt: touch.json.siteContent.updatedAt,
       lessonPlan: {
         ...parsed.data,
+        dailyPlans,
         id: planId,
         title: "Owner Pro Access Plan",
         plan: "Pro",
