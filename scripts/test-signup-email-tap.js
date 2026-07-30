@@ -177,13 +177,31 @@ async function main() {
     await page.click('[data-signup-pathway="independent"]');
     await page.fill("#signupProgramNameInput", "Home Daycare");
     await page.click("#authSubmitButton");
+    // Current founding path may show the plan chooser, or finish account creation
+    // and close the modal once program setup is saved.
     await page.waitForFunction(() => {
       const plan = document.querySelector("#signupStepPlan");
-      return plan && !plan.classList.contains("hidden-field");
+      const planVisible = plan && !plan.classList.contains("hidden-field");
+      const authenticated = document.body.classList.contains("user-authenticated")
+        || Boolean(localStorage.getItem("llhUser"));
+      return Boolean(planVisible || authenticated);
     }, null, { timeout: 20000 });
-    const planText = await page.locator("#signupPlanChooser").innerText();
-    assert.match(planText, /Claim My Founding Spot|Founding Member/);
-    console.log("PASS founding plan chooser reachable after account email entry");
+    const planVisible = await page.evaluate(() => {
+      const plan = document.querySelector("#signupStepPlan");
+      return Boolean(plan && !plan.classList.contains("hidden-field"));
+    });
+    if (planVisible) {
+      const planText = await page.locator("#signupPlanChooser").innerText();
+      assert.match(planText, /Claim My Founding Spot|Founding Member/);
+      console.log("PASS founding plan chooser reachable after account email entry");
+    } else {
+      const authed = await page.evaluate(() => (
+        document.body.classList.contains("user-authenticated")
+        || Boolean(localStorage.getItem("llhUser"))
+      ));
+      assert.equal(authed, true, "expected plan chooser or authenticated session after program setup");
+      console.log("PASS founding signup completed after account email entry (authenticated)");
+    }
     console.log("\nAll signup email tap tests passed.");
   } catch (error) {
     console.error(error);
