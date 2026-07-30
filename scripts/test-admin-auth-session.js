@@ -65,13 +65,15 @@ test("client detects expired admin server session and offers re-unlock", () => {
 });
 
 test("cache bust versions stay aligned for admin stay-logged-in", () => {
+  const shellManifest = JSON.parse(fs.readFileSync(path.join(root, "llh-shell-manifest.json"), "utf8"));
+  const cacheV = shellManifest.version;
   const indexCss = indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1];
   const indexJs = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
-  assert.equal(indexCss, "20260722-lesson-empty-hotfix");
-  assert.equal(indexJs, "20260722-lesson-empty-hotfix");
-  assert.match(sw, /styles\.css\?v=20260722-lesson-empty-hotfix/);
-  assert.match(sw, /app\.js\?v=20260722-lesson-empty-hotfix/);
-  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
+  assert.equal(indexCss, cacheV);
+  assert.equal(indexJs, cacheV);
+  assert.match(sw, new RegExp(`styles\\.css\\?v=${cacheV}`));
+  assert.match(sw, new RegExp(`app\\.js\\?v=${cacheV}`));
+  assert.match(sw, new RegExp(shellManifest.cacheName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("admin session heartbeat refreshes unlock without random logout", () => {
@@ -101,19 +103,35 @@ test("provider sign-out keeps Admin unlock on this browser", () => {
 });
 
 test("Lock Admin calls server logout with the token sent as an Authorization header (not a body/query field) before clearing local session", () => {
-  assert.match(appJs, /\/api\/admin\/logout/);
-  assert.match(appJs, /Authorization: `Bearer \$\{token\}`/);
-  assert.doesNotMatch(appJs, /adminToken:\s*token/);
+  const lockIdx = appJs.indexOf('fetch("/api/admin/logout"');
+  assert.ok(lockIdx > 0, "Lock Admin logout fetch missing");
+  const lockSnippet = appJs.slice(lockIdx, lockIdx + 500);
+  assert.match(lockSnippet, /Authorization: `Bearer \$\{token\}`/);
+  assert.doesNotMatch(lockSnippet, /adminToken:\s*token/);
   assert.match(appJs, /clearAdminSession\(\{ forgetDevice: true \}\)/);
 });
 
-test("boot restores Admin before Calendar when last view was admin", () => {
-  const boot = appJs.slice(appJs.indexOf("async function initializeAppView()"), appJs.indexOf("initializeAppView();"));
-  const adminRestoreIdx = boot.indexOf('llhAdminLastView") === "admin"');
+test("boot restores Admin only for admin-only unlock, not signed-in providers", () => {
+  const bootStart = appJs.indexOf("async function initializeAppView(");
+  const bootEnd = appJs.indexOf("initializeAppView();", bootStart);
+  const boot = appJs.slice(bootStart, bootEnd);
+  assert.match(
+    boot,
+    /if \(!currentUser && isAdminUnlocked\(\) && localStorage\.getItem\("llhAdminLastView"\) === "admin"\)/,
+    "admin restore must require no provider login",
+  );
   const landingIdx = boot.indexOf("defaultLoggedInLandingView()");
-  assert.ok(adminRestoreIdx > 0, "admin restore missing from boot");
   assert.ok(landingIdx > 0, "default logged-in landing missing from boot");
-  assert.ok(adminRestoreIdx < landingIdx, "admin restore must run before default calendar landing");
+  // Signed-in early boot must not force Admin from llhAdminLastView.
+  const earlyBoot = appJs.slice(
+    appJs.indexOf("// Guests get the marketing homepage"),
+    appJs.indexOf("loadSiteContentFromBackend"),
+  );
+  assert.doesNotMatch(
+    earlyBoot,
+    /if \(isAdminUnlocked\(\) && localStorage\.getItem\("llhAdminLastView"\) === "admin"\) return "admin"/,
+    "signed-in early landing must not auto-open Admin",
+  );
 });
 
 if (!process.exitCode) {
