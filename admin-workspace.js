@@ -652,7 +652,7 @@
       const slice = items.slice(page * pageSize, (page + 1) * pageSize);
       target.innerHTML = `
         <div class="section-heading">
-          <div><p class="eyebrow">Users</p><h3>Account list</h3><p class="muted-copy">Compact list with search, filters, and pagination. Expand one user at a time for full details.</p></div>
+          <div><p class="eyebrow">Users</p><h3>Account list</h3><p class="muted-copy">Current access is the plan they can use now. Account means login enabled/disabled — not a paid subscription. Billing shows subscription history (Free signups say “No paid subscription”).</p></div>
         </div>
         <div class="aup-search-wrap">
           <input class="aup-search-input" id="adminUsersSearch" type="search" placeholder="Search name or email…" value="${escapeHtml(query)}" autocomplete="off" />
@@ -672,7 +672,7 @@
               <tr>
                 <th>Name / email</th>
                 <th>Current access</th>
-                <th>Account status</th>
+                <th>Account</th>
                 <th>Joined</th>
                 <th>Last active</th>
                 <th>Billing</th>
@@ -687,14 +687,21 @@
                   : "—";
                 const billingFlag = ["payment_failed", "past_due", "needs_billing_review"].includes(auditKey(account))
                   || adminBillingStatusKey(account) === "needs_billing_review";
+                const accountLabel = typeof adminAccountEnabledLabel === "function"
+                  ? adminAccountEnabledLabel(account)
+                  : (String(account.accountStatus || "").toLowerCase() === "disabled" ? "Disabled" : "Enabled");
+                const billingStatus = typeof adminMembershipStatusLabel === "function"
+                  ? adminMembershipStatusLabel(account)
+                  : "—";
+                const billingCell = billingFlag ? `⚠ Review · ${billingStatus}` : billingStatus;
                 return `
                   <tr>
                     <td><strong>${escapeHtml(displayUserName(account))}</strong><br><span class="muted-copy">${escapeHtml(email)}</span></td>
                     <td>${escapeHtml(adminCurrentAccessLabel(account))}</td>
-                    <td>${escapeHtml(String(account.accountStatus || "Active"))}</td>
+                    <td>${escapeHtml(accountLabel)}</td>
                     <td>${escapeHtml(joined)}</td>
                     <td>${escapeHtml(adminUserLastActiveLabel(account))}</td>
-                    <td>${billingFlag ? "⚠ Review" : "—"}</td>
+                    <td>${escapeHtml(billingCell)}</td>
                     <td><button type="button" class="ghost-button" data-aup-view="${escapeHtml(email)}">View</button></td>
                   </tr>
                 `;

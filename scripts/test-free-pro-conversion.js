@@ -103,12 +103,12 @@ test("homepage and FAQ marketing match Free starter library", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-trial-free-finish2");
-  assert.match(sw, /llh-shell-v119-trial-free-finish2/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-trial-free-finish2/);
-  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-trial-free-finish2/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-trial-free-finish2/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-admin-user-labels");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-admin-user-labels");
+  assert.match(sw, /llh-shell-v120-admin-user-labels/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-admin-user-labels/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-admin-user-labels/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-admin-user-labels/);
 });
 
 function requestJson(method, urlPath, body) {

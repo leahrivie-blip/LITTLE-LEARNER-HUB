@@ -42418,6 +42418,13 @@ function adminUserLastActiveLabel(account) {
   return d.toLocaleDateString();
 }
 
+/** Account login gate only — never means paid subscription "Active". */
+function adminAccountEnabledLabel(account) {
+  const raw = String(account?.accountStatus || "Active").trim().toLowerCase();
+  if (raw === "disabled" || account?.disabled === true) return "Disabled";
+  return "Enabled";
+}
+
 function adminUserCard(account) {
   const planLabel = adminCurrentAccessLabel(account);
   const statusLabel = adminMembershipStatusLabel(account);
@@ -42770,7 +42777,7 @@ function openAdminUserProfile(email, startTab) {
           <div><span>Daycare / Business</span><strong>${escapeHtml(account.businessName || account.daycareName || account.programName || "—")}</strong></div>
           <div><span>Account Type</span><strong>${escapeHtml(account.accountTypeLabel || accountTypeDisplayLabel(account))}</strong></div>
           <div><span>User Role</span><strong>${escapeHtml(account.roleLabel || roleDisplayLabel(account))}</strong></div>
-          <div><span>Account Status</span><strong>${escapeHtml(account.accountStatus || "Active")}</strong></div>
+          <div><span>Account (login)</span><strong>${escapeHtml(adminAccountEnabledLabel(account))}</strong></div>
           <div><span>Current Access</span><strong>${escapeHtml(adminCurrentAccessLabel(account))}</strong></div>
           <div><span>Billing Status</span><strong>${escapeHtml(statusLabel)}</strong></div>
           <div><span>Previous Plan</span><strong>${escapeHtml(adminPreviousPlanLabel(account))}</strong></div>
