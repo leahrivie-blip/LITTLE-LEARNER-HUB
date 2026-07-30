@@ -61,8 +61,8 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-nav-reviews" />
-  <link rel="stylesheet" href="styles.css?v=20260730-nav-reviews" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-signup-verify" />
+  <link rel="stylesheet" href="styles.css?v=20260730-signup-verify" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260729-signed-in-audit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-cover-refresh" />
@@ -75,7 +75,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260730-nav-reviews";
+      var SHELL_VERSION = "20260730-signup-verify";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -478,7 +478,7 @@
             </a>
             <div class="llh-public-nav-actions" aria-label="Account actions">
               <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
-              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Sign Up</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free">Sign Up</button>
             </div>
             <button class="llh-public-menu-toggle" id="llhPublicMenuToggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="llhPublicMobileMenu">
               <span></span><span></span><span></span>
@@ -497,7 +497,7 @@
             </nav>
             <div class="llh-public-mobile-actions">
               <button class="llh-btn llh-btn-ghost" type="button" data-action="open-login">Log In</button>
-              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free" data-signup-intent="founding">Sign Up</button>
+              <button class="llh-btn llh-btn-primary" type="button" data-action="start-free">Sign Up</button>
             </div>
           </div>
           <button class="llh-public-menu-backdrop" id="llhPublicMenuBackdrop" type="button" aria-label="Close menu" hidden></button>
@@ -2195,7 +2195,7 @@
     <script src="scripts/free-curriculum-sample.js?v=20260730-cover-refresh" defer></script>
     <script src="scripts/trial-curriculum-exports.js?v=20260730-cover-refresh" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-cover-refresh" defer></script>
-    <script src="app.js?v=20260730-nav-reviews" defer></script>
+    <script src="app.js?v=20260730-signup-verify" defer></script>
     <script src="admin-workspace.js?v=20260730-cover-refresh" defer></script>
     <script src="comms-center.js?v=20260729-signed-in-audit" defer></script>
   </body>
