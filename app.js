@@ -5967,7 +5967,10 @@ let aiGuideState = {
   ageGroup: "",
   length: "standard",
   tone: "",
+  state: "",
+  sourceRecordIds: [],
   draft: null,
+  insights: [],
   busy: false,
   message: "",
 };
@@ -5997,19 +6000,47 @@ function renderAiGuideReviewBanner() {
   return `<p class="ai-guide-banner" role="note">AI-generated draft. Review for accuracy before saving, sharing, signing, or using.</p>`;
 }
 
+function aiGuideLocalObservations() {
+  try {
+    return (childStore("Observations") || []).slice(0, 40).map((item) => ({
+      id: item.id || "",
+      type: "observation",
+      title: item.title || item.area || "Observation",
+      summary: item.notes || item.text || item.observation || "",
+      date: item.date || item.createdAt || "",
+      childId: item.childId || "",
+      childName: item.childName || "",
+    })).filter((item) => item.summary);
+  } catch (_error) {
+    return [];
+  }
+}
+
 function renderAiGuideHome() {
   const categories = aiGuideState.config?.categories || [];
+  const askOn = aiGuideState.config?.askEnabled !== false;
   return `
     <section class="ai-guide-home">
       <p class="muted-copy">Choose what you need help creating. AI drafts never send or publish by themselves.</p>
+      <div class="account-actions-row" style="margin:12px 0;">
+        <button class="ghost-button" type="button" data-ai-guide-insights>Documentation insights</button>
+        ${askOn ? `<button class="ghost-button" type="button" data-ai-guide-category="ask-program">Ask About My Program</button>` : ""}
+      </div>
+      ${(aiGuideState.insights || []).length ? `
+        <div class="ai-guide-insights" id="aiGuideInsightsPanel">
+          <strong>Insights (suggestions only)</strong>
+          <ul>${aiGuideState.insights.map((item) => `<li><strong>${escapeHtml(item.title)}</strong> — ${escapeHtml(item.detail || "")}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
       <div class="ai-guide-category-grid">
         ${categories.map((category) => {
           const ready = Array.isArray(category.featureIds) && category.featureIds.length > 0;
+          const askBlocked = category.askMode && !askOn;
           return `
-            <button class="ai-guide-category-card" type="button" data-ai-guide-category="${escapeHtml(category.id)}" ${ready ? "" : "disabled"}>
+            <button class="ai-guide-category-card" type="button" data-ai-guide-category="${escapeHtml(category.id)}" ${ready && !askBlocked ? "" : "disabled"}>
               <strong>${escapeHtml(category.label)}</strong>
               <span>${escapeHtml(category.blurb)}</span>
-              ${ready ? "" : `<em>Phase ${escapeHtml(String(category.phase || 2))}</em>`}
+              <em>Phase ${escapeHtml(String(category.phase || 1))}</em>
             </button>
           `;
         }).join("")}
@@ -6019,13 +6050,19 @@ function renderAiGuideHome() {
 }
 
 function renderAiGuideCompose() {
-  const features = (aiGuideState.config?.features || []).filter((feature) => {
-    const category = (aiGuideState.config?.categories || []).find((item) => item.id === aiGuideState.categoryId);
-    return category ? category.featureIds.includes(feature.id) : false;
-  });
+  const category = (aiGuideState.config?.categories || []).find((item) => item.id === aiGuideState.categoryId);
+  const askMode = Boolean(category?.askMode);
+  const features = askMode
+    ? [{ id: "askProgram", title: "Ask About My Program", needsSourceRecords: true }]
+    : (aiGuideState.config?.features || []).filter((feature) => category ? category.featureIds.includes(feature.id) : false);
   const feature = features.find((item) => item.id === aiGuideState.featureId) || features[0];
   if (feature && !aiGuideState.featureId) aiGuideState.featureId = feature.id;
+  const featureMeta = (aiGuideState.config?.features || []).find((item) => item.id === aiGuideState.featureId) || feature || {};
   const children = childRecords().children || [];
+  const observations = aiGuideLocalObservations();
+  const templates = (aiGuideState.config?.templates || []).filter((item) => !askMode && item.featureId === (aiGuideState.featureId || feature?.id));
+  const fixtures = (aiGuideState.config?.demoFixtures || []).filter((item) => item.featureId === (aiGuideState.featureId || feature?.id));
+  const states = aiGuideState.config?.states || [];
   const placeholders = {
     observation: "Example: Maya stacked blocks and they fell. She tried again three times and then made a tower with five blocks.",
     parentMessage: "Example: Noah had a hard drop-off but was okay after blocks.",
@@ -6033,22 +6070,64 @@ function renderAiGuideCompose() {
     lesson: "Example: Toddler room, families theme, mostly play-based, outdoor morning, avoid worksheets.",
     activity: "Example: Preschool, family photos, blocks area, 15 minutes, low mess.",
     form: "Example: Emergency contacts and authorized pickup form for enrollment.",
+    daily: "Example: Outdoor 9:30–10:15. Painted. Ate most of lunch. Nap 12:30–2. Happy at pickup.",
+    behaviorNote: "Example: During blocks, Jordan grabbed a peer’s block. Teacher named the feeling and offered a turn timer.",
+    developmentSummary: "Optional focus: persistence during block play this week.",
+    policyHandbook: "Example: Late pickup policy for families, plain language, include who to call.",
+    enrollmentMessage: "Example: Thanks for touring yesterday — share next steps for applying.",
+    staffMessage: "Example: Reminder for Friday fire drill at 10:00 and who covers the toddler room.",
+    adminWriting: "Example: Short reminder to update allergy lists before Monday.",
+    askProgram: "Example: Which children still need a photo release based on the records I selected?",
   };
+  const needsState = Boolean(featureMeta.needsState || aiGuideState.featureId === "policyHandbook");
+  const needsSources = Boolean(featureMeta.needsSourceRecords || askMode || aiGuideState.featureId === "developmentSummary");
   return `
     <section class="ai-guide-compose">
       <button class="ghost-button" type="button" data-ai-guide-back-home>← All categories</button>
-      <h3>What would you like help creating?</h3>
-      <form id="aiGuideComposeForm" class="panel-form">
+      <h3>${askMode ? "Ask About My Program" : "What would you like help creating?"}</h3>
+      ${askMode ? `<p class="form-note">Read-only answers from records you select. AI cannot change enrollment, send messages, or file reports.</p>` : ""}
+      <form id="aiGuideComposeForm" class="panel-form" data-ai-guide-ask="${askMode ? "true" : "false"}">
+        ${askMode ? `<input type="hidden" name="featureId" value="askProgram" />` : `
         <label>Helper
           <select name="featureId" required>
             ${features.map((item) => `
               <option value="${escapeHtml(item.id)}" ${item.id === aiGuideState.featureId ? "selected" : ""}>${escapeHtml(item.title)}</option>
             `).join("")}
           </select>
-        </label>
-        <label>Your notes
+        </label>`}
+        ${templates.length ? `
+          <label>Saved template
+            <select name="templateId" data-ai-guide-template>
+              <option value="">Start fresh</option>
+              ${templates.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.title)}</option>`).join("")}
+            </select>
+          </label>
+        ` : ""}
+        ${fixtures.length ? `
+          <div class="ai-guide-fixture-row">
+            <span class="form-note">Try a sample:</span>
+            ${fixtures.map((item) => `
+              <button class="ghost-button" type="button" data-ai-guide-fixture="${escapeHtml(item.id)}">${escapeHtml(item.label)}</button>
+            `).join("")}
+          </div>
+        ` : ""}
+        <label>${askMode ? "Your question" : "Your notes"}
           <textarea name="notes" rows="5" maxlength="4000" required placeholder="${escapeHtml(placeholders[aiGuideState.featureId] || "Type a short description…")}">${escapeHtml(aiGuideState.notes || "")}</textarea>
         </label>
+        ${needsSources ? `
+          <fieldset class="ai-guide-source-fieldset">
+            <legend>Source records ${askMode || aiGuideState.featureId === "developmentSummary" ? "(recommended)" : "(optional)"}</legend>
+            <p class="form-note">Only selected records are used. Nothing is changed.</p>
+            <div class="ai-guide-source-list">
+              ${observations.length ? observations.map((item) => `
+                <label class="settings-check-label">
+                  <input type="checkbox" name="sourceRecordIds" value="${escapeHtml(item.id)}" ${aiGuideState.sourceRecordIds.includes(item.id) ? "checked" : ""} />
+                  ${escapeHtml(item.title)}${item.date ? ` · ${escapeHtml(String(item.date).slice(0, 10))}` : ""}
+                </label>
+              `).join("") : `<p class="form-note">No local observations found yet. Paste facts in your notes, or add observations first.</p>`}
+            </div>
+          </fieldset>
+        ` : ""}
         <div class="form-grid-two">
           <label>Child name (optional)
             <input name="childName" maxlength="80" list="aiGuideChildList" value="${escapeHtml(aiGuideState.childName || "")}" />
@@ -6077,9 +6156,20 @@ function renderAiGuideCompose() {
               `).join("")}
             </select>
           </label>
+          ${needsState ? `
+            <label>US state (for policy draft)
+              <select name="state">
+                <option value="">Select state</option>
+                ${states.map((st) => `<option value="${escapeHtml(st)}" ${aiGuideState.state === st ? "selected" : ""}>${escapeHtml(st)}</option>`).join("")}
+              </select>
+            </label>
+          ` : ""}
         </div>
-        <button class="primary-button" type="submit" ${aiGuideState.busy ? "disabled" : ""}>${aiGuideState.busy ? "Creating…" : "Generate Draft"}</button>
-        <p class="form-note">Nothing is sent, published, signed, or filed automatically.</p>
+        <div class="account-actions-row">
+          <button class="primary-button" type="submit" ${aiGuideState.busy ? "disabled" : ""}>${aiGuideState.busy ? "Working…" : (askMode ? "Ask (read-only)" : "Generate Draft")}</button>
+          ${askMode ? "" : `<button class="ghost-button" type="button" data-ai-guide-save-template>Save as template</button>`}
+        </div>
+        <p class="form-note">${askMode ? "Answers are read-only. Nothing is sent or changed." : "Nothing is sent, published, signed, or filed automatically."}</p>
         <span class="form-message" id="aiGuideComposeMessage">${escapeHtml(aiGuideState.message || "")}</span>
       </form>
     </section>
@@ -6115,6 +6205,13 @@ function renderAiGuideDraftPanel() {
           <ul>${draft.missingInfoPrompts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
         </div>
       ` : ""}
+      ${(draft.citations || []).length ? `
+        <div class="ai-guide-citations">
+          <strong>Sources used</strong>
+          <ul>${draft.citations.map((item) => `<li>${escapeHtml(item.type || "record")}: ${escapeHtml(item.title || item.id || "")}${item.date ? ` · ${escapeHtml(String(item.date).slice(0, 10))}` : ""}</li>`).join("")}</ul>
+        </div>
+      ` : ""}
+      ${draft.askMode ? `<p class="form-note">Read-only answer — AI Guide did not change any records.</p>` : ""}
       <label class="settings-check-label">
         <input type="checkbox" id="aiGuideReviewAck" ${draft.reviewAcknowledgedAt ? "checked" : ""} />
         I reviewed this AI-generated draft for accuracy before using it.
@@ -6122,7 +6219,7 @@ function renderAiGuideDraftPanel() {
       <div class="account-actions-row">
         <button class="primary-button" type="button" data-ai-guide-save-draft>Save as Draft</button>
         <button class="ghost-button" type="button" data-ai-guide-copy>Copy text</button>
-        <button class="ghost-button" type="button" data-ai-guide-use-helpers>Use in Documentation Helpers</button>
+        ${draft.askMode ? "" : `<button class="ghost-button" type="button" data-ai-guide-use-helpers>Use in Documentation Helpers</button>`}
         <button class="ghost-button" type="button" data-ai-guide-clear-draft>Clear</button>
       </div>
       <div class="ai-guide-feedback" aria-label="Draft feedback">
@@ -6160,9 +6257,9 @@ function renderAiGuidePage() {
       <button class="ghost-button back-button" data-view="calendar" type="button">← Back to Calendar</button>
       <div class="child-page-header">
         <div>
-          <p class="eyebrow">Testing only</p>
+          <p class="eyebrow">Testing only · Phases 1–3</p>
           <h2>AI Guide</h2>
-          <p>Turn short notes into childcare drafts you review before using. Nothing sends or publishes on its own.</p>
+          <p>Turn short notes into childcare drafts you review before using. Ask mode is read-only. Nothing sends or publishes on its own.</p>
         </div>
       </div>
       <div id="aiGuideBody">
@@ -6201,8 +6298,22 @@ function aiGuideFeatureToDocType(featureId) {
     lesson: "lesson-plan",
     activity: "activity-idea",
     form: "observation",
+    daily: "daily-log",
+    behaviorNote: "behavior-note",
+    developmentSummary: "observation",
+    enrollmentMessage: "parent-message",
+    staffMessage: "parent-message",
+    adminWriting: "parent-message",
+    policyHandbook: "observation",
   };
   return map[featureId] || "observation";
+}
+
+function collectAiGuideSourceRecordsFromForm(form) {
+  const ids = Array.from(form.querySelectorAll('input[name="sourceRecordIds"]:checked')).map((el) => el.value);
+  aiGuideState.sourceRecordIds = ids;
+  const all = aiGuideLocalObservations();
+  return all.filter((item) => ids.includes(item.id));
 }
 
 function currentAiGuideDraftText() {
@@ -6230,43 +6341,121 @@ async function generateAiGuideDraftFromForm(form) {
     return;
   }
   const data = new FormData(form);
+  const askMode = form.dataset.aiGuideAsk === "true" || String(data.get("featureId") || "") === "askProgram";
   aiGuideState.featureId = String(data.get("featureId") || "").trim();
   aiGuideState.notes = String(data.get("notes") || "").trim();
   aiGuideState.childName = String(data.get("childName") || "").trim();
   aiGuideState.ageGroup = String(data.get("ageGroup") || "").trim();
   aiGuideState.length = String(data.get("length") || "standard").trim() || "standard";
   aiGuideState.tone = String(data.get("tone") || "").trim();
+  aiGuideState.state = String(data.get("state") || "").trim().toUpperCase();
+  const sourceRecords = collectAiGuideSourceRecordsFromForm(form);
   if (!aiGuideState.notes) {
-    setAiGuideComposeMessage("Add a short description or notes first.");
+    setAiGuideComposeMessage(askMode ? "Add a question first." : "Add a short description or notes first.");
     return;
   }
   aiGuideState.busy = true;
-  setAiGuideComposeMessage("Creating draft…");
+  setAiGuideComposeMessage(askMode ? "Looking up a read-only answer…" : "Creating draft…");
   renderAiGuidePage();
   try {
-    const response = await fetch("/api/ai-guide/generate", {
+    const response = await fetch(askMode ? "/api/ai-guide/ask" : "/api/ai-guide/generate", {
       method: "POST",
       headers,
       body: JSON.stringify({
         featureId: aiGuideState.featureId,
         notes: aiGuideState.notes,
+        question: aiGuideState.notes,
         childName: aiGuideState.childName,
         ageGroup: aiGuideState.ageGroup,
         length: aiGuideState.length,
         tone: aiGuideState.tone,
+        state: aiGuideState.state,
+        sourceRecords,
       }),
     });
     const payload = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(payload?.error || "Could not create draft.");
+    if (!response.ok) throw new Error(payload?.error || (askMode ? "Could not answer." : "Could not create draft."));
     aiGuideState.draft = payload.draft || null;
     aiGuideState.screen = "draft";
     aiGuideState.message = payload.draft?.localFallback
-      ? "Local starter draft ready — review before using."
-      : "Draft ready — review before saving or sharing.";
+      ? "Local starter ready — review before using."
+      : (askMode ? "Read-only answer ready — review sources before using." : "Draft ready — review before saving or sharing.");
   } catch (error) {
     aiGuideState.message = error.message || "Could not create draft.";
   } finally {
     aiGuideState.busy = false;
+    renderAiGuidePage();
+  }
+}
+
+async function saveAiGuideTemplateFromForm() {
+  const form = document.querySelector("#aiGuideComposeForm");
+  if (!form || aiGuideState.busy) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    setAiGuideComposeMessage("Please sign in to save a template.");
+    return;
+  }
+  const data = new FormData(form);
+  const featureId = String(data.get("featureId") || aiGuideState.featureId || "").trim();
+  const notes = String(data.get("notes") || "").trim();
+  if (!notes) {
+    setAiGuideComposeMessage("Add notes before saving a template.");
+    return;
+  }
+  try {
+    const response = await fetch("/api/ai-guide/templates", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        featureId,
+        title: `${featureId} template`,
+        notes,
+        length: String(data.get("length") || "standard"),
+        tone: String(data.get("tone") || ""),
+        ageGroup: String(data.get("ageGroup") || ""),
+        state: String(data.get("state") || ""),
+      }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not save template.");
+    await loadAiGuideConfig();
+    setAiGuideComposeMessage("Template saved for this helper.");
+    renderAiGuidePage();
+  } catch (error) {
+    setAiGuideComposeMessage(error.message || "Could not save template.");
+  }
+}
+
+async function loadAiGuideInsights() {
+  if (!isAiGuideEnabled()) return;
+  const headers = await staffAuthHeaders();
+  if (!headers) return;
+  const children = (childRecords().children || []).slice(0, 20).map((child) => ({ id: child.id, name: child.name }));
+  const observations = aiGuideLocalObservations().map((item) => ({
+    childId: item.childId,
+    childName: item.childName,
+    id: item.id,
+  }));
+  const forms = [];
+  try {
+    (childStore("Documents") || []).slice(0, 40).forEach((doc) => {
+      forms.push({ childId: doc.childId || "", childName: doc.childName || "", id: doc.id || "", title: doc.title || "" });
+    });
+  } catch (_error) { /* ignore */ }
+  try {
+    const response = await fetch("/api/ai-guide/insights", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ children, observations, forms }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error || "Could not load insights.");
+    aiGuideState.insights = Array.isArray(payload.insights) ? payload.insights : [];
+    aiGuideState.screen = "home";
+    renderAiGuidePage();
+  } catch (error) {
+    aiGuideState.message = error.message || "Could not load insights.";
     renderAiGuidePage();
   }
 }
@@ -47866,7 +48055,7 @@ function renderAdminAiGuideControls() {
     </div>
     ${adminAiGuideState.error ? `<p class="form-error">${escapeHtml(adminAiGuideState.error)}</p>` : ""}
     ${adminAiGuideState.success ? `<p class="form-success">${escapeHtml(adminAiGuideState.success)}</p>` : ""}
-    <p class="form-note">Generations: ${escapeHtml(String(totals.generations ?? "—"))} · Drafts: ${escapeHtml(String(totals.drafts ?? "—"))} · Feedback: ${escapeHtml(String(totals.feedback ?? "—"))}</p>
+    <p class="form-note">Generations: ${escapeHtml(String(totals.generations ?? "—"))} · Drafts: ${escapeHtml(String(totals.drafts ?? "—"))} · Feedback: ${escapeHtml(String(totals.feedback ?? "—"))} · Templates: ${escapeHtml(String(totals.templates ?? "—"))} · Ask queries: ${escapeHtml(String(totals.askQueries ?? "—"))}</p>
     <p class="form-note">Status: <strong>${killed ? "Blocked by admin" : "Available on testing"}</strong></p>
     <div class="account-actions-row">
       <button class="primary-button" type="button" data-ai-guide-kill="on" ${adminAiGuideState.saving || killed ? "disabled" : ""}>Turn kill switch ON</button>
@@ -54360,10 +54549,37 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     if (!isAiGuideEnabled()) return;
     aiGuideState.categoryId = aiGuideCategory.dataset.aiGuideCategory || "";
-    aiGuideState.featureId = "";
+    aiGuideState.featureId = aiGuideState.categoryId === "ask-program" ? "askProgram" : "";
     aiGuideState.draft = null;
+    aiGuideState.sourceRecordIds = [];
     aiGuideState.screen = "compose";
     aiGuideState.message = "";
+    renderAiGuidePage();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-insights]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    loadAiGuideInsights();
+    return;
+  }
+
+  if (event.target.closest("[data-ai-guide-save-template]")) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    saveAiGuideTemplateFromForm();
+    return;
+  }
+
+  const aiGuideFixture = event.target.closest("[data-ai-guide-fixture]");
+  if (aiGuideFixture) {
+    event.preventDefault();
+    if (!isAiGuideEnabled()) return;
+    const fixture = (aiGuideState.config?.demoFixtures || []).find((item) => item.id === aiGuideFixture.dataset.aiGuideFixture);
+    if (!fixture) return;
+    aiGuideState.featureId = fixture.featureId || aiGuideState.featureId;
+    aiGuideState.notes = fixture.notes || "";
     renderAiGuidePage();
     return;
   }
@@ -62717,22 +62933,33 @@ document.addEventListener("change", (event) => {
     acknowledgeAiGuideReview(Boolean(event.target.checked));
     return;
   }
+  if (event.target.matches("[data-ai-guide-template]")) {
+    const templateId = String(event.target.value || "").trim();
+    const template = (aiGuideState.config?.templates || []).find((item) => item.id === templateId);
+    if (!template) return;
+    aiGuideState.featureId = template.featureId || aiGuideState.featureId;
+    aiGuideState.notes = template.notes || "";
+    aiGuideState.length = template.length || "standard";
+    aiGuideState.tone = template.tone || "";
+    aiGuideState.ageGroup = template.ageGroup || "";
+    aiGuideState.state = template.state || "";
+    renderAiGuidePage();
+    return;
+  }
   if (event.target.matches("#aiGuideComposeForm [name='featureId']")) {
     aiGuideState.featureId = String(event.target.value || "").trim();
-    const notes = document.querySelector("#aiGuideComposeForm textarea[name='notes']");
-    if (notes && !notes.value.trim()) {
-      // Refresh placeholders by re-render while preserving other fields.
-      const form = document.querySelector("#aiGuideComposeForm");
-      if (form) {
-        const data = new FormData(form);
-        aiGuideState.notes = String(data.get("notes") || "");
-        aiGuideState.childName = String(data.get("childName") || "");
-        aiGuideState.ageGroup = String(data.get("ageGroup") || "");
-        aiGuideState.length = String(data.get("length") || "standard");
-        aiGuideState.tone = String(data.get("tone") || "");
-      }
-      renderAiGuidePage();
+    const form = document.querySelector("#aiGuideComposeForm");
+    if (form) {
+      const data = new FormData(form);
+      aiGuideState.notes = String(data.get("notes") || "");
+      aiGuideState.childName = String(data.get("childName") || "");
+      aiGuideState.ageGroup = String(data.get("ageGroup") || "");
+      aiGuideState.length = String(data.get("length") || "standard");
+      aiGuideState.tone = String(data.get("tone") || "");
+      aiGuideState.state = String(data.get("state") || "");
+      aiGuideState.sourceRecordIds = Array.from(form.querySelectorAll('input[name="sourceRecordIds"]:checked')).map((el) => el.value);
     }
+    renderAiGuidePage();
   }
 });
 

@@ -22400,3 +22400,48 @@ body.printing-resource .trial-curriculum-watermark-print {
   }
 }
 
+
+.ai-guide-insights {
+  margin: 12px 0 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(90, 143, 123, 0.24);
+  background: rgba(90, 143, 123, 0.08);
+}
+
+.ai-guide-insights ul,
+.ai-guide-citations ul {
+  margin: 8px 0 0;
+  padding-left: 1.1rem;
+}
+
+.ai-guide-citations {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.ai-guide-source-fieldset {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line, rgba(36, 48, 71, 0.14));
+  border-radius: 12px;
+}
+
+.ai-guide-source-list {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+  max-height: 180px;
+  overflow: auto;
+}
+
+.ai-guide-fixture-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin: 8px 0 12px;
+}

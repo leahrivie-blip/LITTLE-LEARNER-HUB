@@ -799,6 +799,8 @@ function defaultStore() {
     aiGuideDrafts: [],
     aiGuideFeedback: [],
     aiGuideUsage: [],
+    aiGuideTemplates: [],
+    aiGuideAskLog: [],
     aiGuideSettings: aiGuide.defaultAiGuideSettings(),
     supportTickets: [],
     bugReports: [],
@@ -19981,8 +19983,16 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/ai-generate") return await handleAiGenerate(request, response);
     if (request.method === "GET" && url.pathname === "/api/ai-guide/config") return await aiGuideHandlers.handleConfig(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-guide/generate") return await aiGuideHandlers.handleGenerate(request, response);
+    if (request.method === "POST" && url.pathname === "/api/ai-guide/ask") return await aiGuideHandlers.handleAsk(request, response);
+    if (request.method === "POST" && url.pathname === "/api/ai-guide/insights") return await aiGuideHandlers.handleInsights(request, response);
     if (request.method === "POST" && url.pathname === "/api/ai-guide/revise") return await aiGuideHandlers.handleRevise(request, response);
     if (request.method === "GET" && url.pathname === "/api/ai-guide/drafts") return await aiGuideHandlers.handleListDrafts(request, response);
+    if (request.method === "GET" && url.pathname === "/api/ai-guide/templates") return await aiGuideHandlers.handleListTemplates(request, response);
+    if (request.method === "POST" && url.pathname === "/api/ai-guide/templates") return await aiGuideHandlers.handleSaveTemplate(request, response);
+    if (request.method === "DELETE" && url.pathname.startsWith("/api/ai-guide/templates/")) {
+      const templateId = decodeURIComponent(url.pathname.slice("/api/ai-guide/templates/".length));
+      return await aiGuideHandlers.handleDeleteTemplate(request, response, templateId);
+    }
     if (request.method === "PATCH" && url.pathname.startsWith("/api/ai-guide/drafts/") && url.pathname.endsWith("/feedback")) {
       const draftId = decodeURIComponent(url.pathname.slice("/api/ai-guide/drafts/".length, -"/feedback".length));
       return await aiGuideHandlers.handleFeedback(request, response, draftId);

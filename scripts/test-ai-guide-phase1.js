@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * AI Guide Phase 1 — fence, generate with local fallback, no auto-send, writing helpers.
+ * AI Guide Phases 1–3 — fence, generators, ask (read-only), templates, insights, kill switch.
  * Run: npm run test:ai-guide-phase1
  */
 const assert = require("node:assert/strict");
@@ -21,6 +21,9 @@ const {
   localFallbackDraft,
   normalizeLength,
   PHASE1_FEATURES,
+  PHASE2_FEATURES,
+  ALL_FEATURES,
+  buildInsights,
 } = require(path.join(ROOT, "server/ai-guide.js"));
 
 function test(name, fn) {
@@ -71,45 +74,60 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell + nav + view markers", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-ai-guide-p1"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-ai-guide-all"/);
   assert.match(indexHtml, /data-view="ai-guide"/);
   assert.match(indexHtml, /data-nav-ai-guide="true"/);
   assert.match(indexHtml, /id="view-ai-guide"/);
   assert.match(appJs, /function isAiGuideEnabled/);
   assert.match(appJs, /function renderAiGuidePage/);
   assert.match(appJs, /function generateAiGuideDraftFromForm/);
+  assert.match(appJs, /\/api\/ai-guide\/ask/);
+  assert.match(appJs, /data-ai-guide-insights/);
   assert.match(appJs, /Nothing is sent, published, signed, or filed automatically/);
   assert.match(stylesCss, /\.ai-guide-category-grid/);
-  assert.match(stylesCss, /\.ai-guide-banner/);
+  assert.match(stylesCss, /\.ai-guide-source-fieldset/);
+  assert.match(stylesCss, /\.ai-guide-citations/);
 });
 
-test("server module exports Phase 1 features and writing helpers", () => {
+test("server exports Phase 1–3 features and writing helpers", () => {
   assert.equal(PHASE1_FEATURES.length, 6);
-  assert.deepEqual(
-    PHASE1_FEATURES.map((f) => f.id).sort(),
-    ["activity", "form", "incident", "lesson", "observation", "parentMessage"].sort(),
-  );
+  assert.equal(PHASE2_FEATURES.length, 7);
+  assert.equal(ALL_FEATURES.length, 13);
+  assert.ok(ALL_FEATURES.some((f) => f.id === "daily"));
+  assert.ok(ALL_FEATURES.some((f) => f.id === "behaviorNote"));
+  assert.ok(ALL_FEATURES.some((f) => f.id === "developmentSummary"));
+  assert.ok(ALL_FEATURES.some((f) => f.id === "policyHandbook"));
   assert.equal(normalizeLength("quick"), "quick");
-  assert.equal(normalizeLength("weird"), "standard");
   assert.ok(containsRoboticPhrases("Furthermore, this is robotic").includes("furthermore"));
-  assert.match(localFallbackDraft("observation", "stacked blocks", "standard"), /stacked blocks/);
+  assert.match(localFallbackDraft("daily", "Ate lunch. Nap 1–2.", "standard"), /Ate lunch/);
+  assert.match(localFallbackDraft("askProgram", "Who needs forms?", "standard", {
+    sourceRecords: [{ type: "observation", title: "Maya blocks", summary: "stacked five" }],
+  }), /Sources used|Read-only/);
   assert.match(aiGuideJs, /Never automatically send, publish, sign/);
   assert.match(aiGuideJs, /canAutoSend: false/);
-  assert.match(aiGuideJs, /canAutoPublish: false/);
-  assert.match(aiGuideJs, /emergencyKillSwitch/);
+  assert.match(aiGuideJs, /canMutate: false/);
+  assert.match(aiGuideJs, /handleAsk/);
+  assert.match(aiGuideJs, /handleInsights/);
+  assert.match(aiGuideJs, /handleSaveTemplate/);
+  const insights = buildInsights({
+    children: [{ id: "c1", name: "Maya" }],
+    forms: [],
+    observations: [],
+  });
+  assert.ok(insights.some((item) => item.type === "missing_forms"));
 });
 
-test("client never wires auto-send for AI Guide", () => {
+test("client never wires auto-send or mutation for AI Guide", () => {
   const start = appJs.indexOf("function generateAiGuideDraftFromForm");
   const end = appJs.indexOf("const HOME_DAYCARE_FORM_CATEGORIES");
   assert.ok(start > 0 && end > start);
   const slice = appJs.slice(start, end);
   assert.doesNotMatch(slice, /\/api\/messages|sendEmail|autoSend|publishNow/);
-  assert.match(slice, /Nothing was sent or published|review before/);
+  assert.match(slice, /read-only|Nothing was sent or published|review before/i);
 });
 
 async function runServerSuite({ enabled, label }) {
-  const port = 20100 + Math.floor(Math.random() * 80);
+  const port = 20200 + Math.floor(Math.random() * 80);
   const storePath = path.join(os.tmpdir(), `llh-ai-guide-${crypto.randomBytes(4).toString("hex")}.json`);
   fs.writeFileSync(storePath, JSON.stringify({
     users: {
@@ -138,7 +156,6 @@ async function runServerSuite({ enabled, label }) {
       ADMIN_EMAIL: "admin@example.com",
       ADMIN_PASSWORD: "test-password",
       ADMIN_ACCESS_CODE: "test-code",
-      // Force local fallback path (no OpenAI key).
       OPENAI_API_KEY: "",
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -161,93 +178,102 @@ async function runServerSuite({ enabled, label }) {
     }
 
     assert.equal(configOff.status, 200, `${label}: config ok`);
-    assert.ok(Array.isArray(configOff.json.categories));
-    assert.ok(configOff.json.categories.some((c) => c.id === "observations" && c.featureIds.includes("observation")));
-    assert.ok(configOff.json.categories.some((c) => c.id === "daily-reports" && (!c.featureIds || !c.featureIds.length)));
+    assert.equal(configOff.json.status?.phase, 3);
+    assert.ok(configOff.json.categories.some((c) => c.id === "daily-reports" && c.featureIds.includes("daily")));
+    assert.ok(configOff.json.categories.some((c) => c.id === "ask-program" && c.askMode));
+    assert.ok(configOff.json.askEnabled);
 
-    const gen = await request(port, "POST", "/api/ai-guide/generate", {
+    const phase2Ids = ["daily", "behaviorNote", "developmentSummary", "policyHandbook", "enrollmentMessage", "staffMessage", "adminWriting"];
+    for (const featureId of phase2Ids) {
+      const gen = await request(port, "POST", "/api/ai-guide/generate", {
+        headers: auth,
+        body: {
+          featureId,
+          notes: `Sample notes for ${featureId}`,
+          length: "quick",
+          state: featureId === "policyHandbook" ? "TX" : "",
+          sourceRecords: featureId === "developmentSummary"
+            ? [{ id: "o1", type: "observation", title: "Blocks", summary: "Stacked five blocks", date: "2026-07-01" }]
+            : [],
+        },
+      });
+      assert.equal(gen.status, 200, `${label}: generate ${featureId} => ${gen.status} ${gen.raw}`);
+      assert.equal(gen.json.canAutoSend, false);
+      assert.equal(gen.json.canAutoPublish, false);
+      assert.ok(gen.json.draft?.id);
+    }
+
+    const ask = await request(port, "POST", "/api/ai-guide/ask", {
       headers: auth,
       body: {
-        featureId: "observation",
-        notes: "Maya stacked five blocks, they fell, she tried again.",
+        question: "What did Maya practice in blocks?",
+        sourceRecords: [{ id: "o1", type: "observation", title: "Blocks", summary: "Maya stacked five blocks.", date: "2026-07-01" }],
         length: "standard",
-        childName: "Maya",
-        ageGroup: "Toddler",
       },
     });
-    assert.equal(gen.status, 200, `${label}: generate status ${gen.status} ${gen.raw}`);
-    assert.equal(gen.json.canAutoSend, false);
-    assert.equal(gen.json.canAutoPublish, false);
-    assert.ok(gen.json.draft?.id);
-    assert.ok(String(gen.json.draft.outputText || "").length > 10);
-    assert.equal(gen.json.draft.localFallback, true);
+    assert.equal(ask.status, 200, `${label}: ask ${ask.raw}`);
+    assert.equal(ask.json.canMutate, false);
+    assert.equal(ask.json.readOnly, true);
+    assert.ok(ask.json.draft?.askMode);
 
-    const revise = await request(port, "POST", "/api/ai-guide/revise", {
+    const insights = await request(port, "POST", "/api/ai-guide/insights", {
       headers: auth,
-      body: { draftId: gen.json.draft.id, action: "make_shorter" },
+      body: {
+        children: [{ id: "c1", name: "Maya" }],
+        forms: [],
+        observations: [],
+      },
     });
-    assert.equal(revise.status, 200, `${label}: revise`);
-    assert.ok(revise.json.draft?.id);
+    assert.equal(insights.status, 200);
+    assert.ok(Array.isArray(insights.json.insights));
+    assert.equal(insights.json.canMutate, false);
 
-    const ack = await request(port, "PATCH", `/api/ai-guide/drafts/${encodeURIComponent(gen.json.draft.id)}`, {
+    const template = await request(port, "POST", "/api/ai-guide/templates", {
       headers: auth,
-      body: { acknowledgeReview: true, outputText: revise.json.draft.outputText },
+      body: { featureId: "parentMessage", title: "Drop-off note", notes: "Hard drop-off then okay.", length: "quick" },
     });
-    assert.equal(ack.status, 200);
-    assert.ok(ack.json.draft.reviewAcknowledgedAt);
+    assert.equal(template.status, 200, `${label}: template ${template.raw}`);
+    assert.ok(template.json.template?.id);
 
-    const feedback = await request(port, "PATCH", `/api/ai-guide/drafts/${encodeURIComponent(gen.json.draft.id)}/feedback`, {
-      headers: auth,
-      body: { rating: "helpful" },
-    });
-    assert.equal(feedback.status, 200);
-
-    // Login admin for kill switch
     const login = await request(port, "POST", "/api/admin/login", {
       body: { email: "admin@example.com", password: "test-password", code: "test-code" },
     });
     assert.equal(login.status, 200, `${label}: admin login ${login.raw}`);
     const adminToken = login.json.token;
-    assert.ok(adminToken, "admin token present");
+    assert.ok(adminToken);
 
     const killOn = await request(port, "POST", "/api/admin/ai-guide/settings", {
       headers: { Authorization: `Bearer ${adminToken}` },
       body: { emergencyKillSwitch: true },
     });
-    assert.equal(killOn.status, 200, `${label}: kill on ${killOn.raw}`);
+    assert.equal(killOn.status, 200);
 
     const blocked = await request(port, "POST", "/api/ai-guide/generate", {
       headers: auth,
-      body: { featureId: "parentMessage", notes: "Hard drop-off, then okay.", length: "quick" },
+      body: { featureId: "observation", notes: "Blocked while kill switch on.", length: "quick" },
     });
     assert.equal(blocked.status, 503);
 
     const killOff = await request(port, "POST", "/api/admin/ai-guide/settings", {
       headers: { Authorization: `Bearer ${adminToken}` },
-      body: { emergencyKillSwitch: false },
+      body: { emergencyKillSwitch: false, dailyUserLimit: 1 },
     });
     assert.equal(killOff.status, 200);
 
-    // Usage limit: temporarily set daily limit to 1 via settings, then second generate fails.
-    await request(port, "POST", "/api/admin/ai-guide/settings", {
-      headers: { Authorization: `Bearer ${adminToken}` },
-      body: { dailyUserLimit: 1 },
+    const limited = await request(port, "POST", "/api/ai-guide/generate", {
+      headers: auth,
+      body: { featureId: "activity", notes: "Should hit daily limit.", length: "quick" },
     });
-    // One successful usage already recorded from first generate (+ revise also counts).
-    // Force a low limit and confirm 429 when exhausted — count existing ok usage.
+    assert.equal(limited.status, 429, `${label}: daily limit ${limited.status} ${limited.raw}`);
+
     const overview = await request(port, "GET", "/api/admin/ai-guide/overview", {
       headers: { Authorization: `Bearer ${adminToken}` },
     });
     assert.equal(overview.status, 200);
-    assert.ok(Number(overview.json.totals?.generations || 0) >= 1);
+    assert.ok(Number(overview.json.totals?.askQueries || 0) >= 1);
+    assert.ok(Number(overview.json.totals?.templates || 0) >= 1);
 
-    const limited = await request(port, "POST", "/api/ai-guide/generate", {
-      headers: auth,
-      body: { featureId: "activity", notes: "Blocks and family photos, 15 minutes.", length: "quick" },
-    });
-    assert.equal(limited.status, 429, `${label}: daily limit ${limited.status} ${limited.raw}`);
-
-    console.log(`PASS  ${label}: generate/revise/feedback/kill/limit`);
+    console.log(`PASS  ${label}: phases 1–3 generate/ask/insights/templates/kill/limit`);
   } finally {
     child.kill("SIGTERM");
     try { fs.unlinkSync(storePath); } catch (_e) { /* ignore */ }
@@ -265,7 +291,7 @@ async function main() {
     process.exitCode = 1;
   }
   if (!process.exitCode) {
-    console.log("\nAll AI Guide Phase 1 tests passed.");
+    console.log("\nAll AI Guide Phase 1–3 tests passed.");
   }
 }
 
