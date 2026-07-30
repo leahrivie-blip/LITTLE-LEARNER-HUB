@@ -22,7 +22,7 @@
 
   const COPY = Object.freeze({
     core:
-      "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. Upgrade to Founding or Pro for unlimited curriculum access, printing and downloads.",
+      "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first. Upgrade to Founding or Pro for unlimited curriculum access, printing and downloads.",
     foundingWhileOpen:
       "Founding Members receive unlimited curriculum access for $9.99/month locked while membership remains continuously active.",
     proMonthly:

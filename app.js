@@ -50669,6 +50669,8 @@ function completeCheckout() {
       trialStatus: "In Trial",
       trialStart: new Date().toISOString(),
       trialEnd: new Date(Date.now() + trialDays * 86400000).toISOString(),
+      introductoryTrialConsumed: true,
+      hasPaymentMethod: true,
     } : {}),
   });
   if (pending.promoCode && trialDays > 0) {
@@ -50700,6 +50702,12 @@ async function completeCheckoutFromStripeSession(session) {
     ensureAccount(currentUser);
     loadAccountState(currentUser);
   }
+  const trialDays = Number(
+    session.trial?.trialDays
+    || session.promo?.trialDays
+    || pending?.trialDays
+    || 0,
+  ) || 0;
   localStorage.setItem("llhPendingCheckout", JSON.stringify({
     type,
     amount: checkoutAmount(type),
@@ -50707,14 +50715,21 @@ async function completeCheckoutFromStripeSession(session) {
     startedAt: new Date().toISOString(),
     foundingEligible: type === "founding",
     promoCode: pending?.promoCode || "",
-    trialDays: session.promo?.trialDays || pending?.trialDays || 0,
-    promoLabel: session.promo?.label || pending?.promoLabel || "",
+    trialDays,
+    promoLabel: session.trial?.label || session.promo?.label || pending?.promoLabel || "",
   }));
   completeCheckout();
   updateCurrentAccountBilling({
     stripeCustomerId: session.customerId || currentAccount()?.stripeCustomerId,
     stripeSubscriptionId: session.subscriptionId || currentAccount()?.stripeSubscriptionId,
     paymentMethod: "Managed in Stripe",
+    // Card-required intro trials must stay under trial export protection (3 watermarked exports).
+    ...(trialDays > 0 ? {
+      trialStatus: "In Trial",
+      stripeSubscriptionStatus: "trialing",
+      introductoryTrialConsumed: true,
+      hasPaymentMethod: true,
+    } : {}),
   });
   await syncSubscriptionFromBackend(currentUser || session.email, {
     renderFounding: true,

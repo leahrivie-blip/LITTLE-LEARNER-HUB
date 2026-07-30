@@ -4570,6 +4570,9 @@ function applyCheckoutMembershipUpgrade(email, {
     checkoutTrialUpdates.trialEnd = new Date(Date.now() + promoTrialDays * 86400000).toISOString();
     // Card-required intro trial is consumed as soon as Checkout completes — even before the first paid invoice.
     checkoutTrialUpdates.introductoryTrialConsumed = true;
+    // Seed server-authoritative trial export allowance (3 watermarked premium exports).
+    const prior = readStore().users?.[cleanEmail]?.trialCurriculumExports;
+    checkoutTrialUpdates.trialCurriculumExports = trialCurriculumExports.normalizeState(prior);
   }
   logMembershipTransition("payment_received", cleanEmail, {
     plan: planConfig[planKey]?.plan || planKey,

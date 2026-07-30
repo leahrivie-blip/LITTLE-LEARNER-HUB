@@ -103,10 +103,16 @@ async function main() {
   assert.match(serverJs, /metadata\[promoTrialDays\]"\]\s*=\s*"7"/);
   assert.match(serverJs, /metadata\[trial7day\]"\]\s*=\s*"true"/);
   assert.match(appJs, /trial7day:\s*true/);
+  assert.match(appJs, /session\.trial\?\.trialDays/);
+  assert.match(appJs, /introductoryTrialConsumed:\s*true/);
+  assert.match(appJs, /confirmTrialCurriculumExport/);
   assert.match(appJs, /charged Pro Monthly|charges Pro Monthly|Charged \$19\.99\/month after 7 days/i);
+  assert.match(serverJs, /trialCurriculumExports\.normalizeState/);
   assert.match(indexHtml, /credit card is required to start the trial/i);
   assert.match(indexHtml, /right after the trial ends/i);
-  console.log("PASS  static wiring: card-required trial + post-trial charge copy");
+  const trialExportsMod = require("./trial-curriculum-exports.js");
+  assert.match(trialExportsMod.COPY.core, /credit card is required/i);
+  console.log("PASS  static wiring: card-required trial + protection + post-trial charge copy");
 
   const child = startServer();
   try {
@@ -166,6 +172,100 @@ async function main() {
       "webhook must sync membership when Stripe charges after trial",
     );
     console.log("PASS  invoice.paid webhook present so post-trial charge updates membership");
+
+    // Simulate Stripe Checkout completion for a card-required 7-day trial (same fields
+    // applyCheckoutMembershipUpgrade writes), then verify trial export protection applies.
+    const membershipAccess = require("./membership-access.js");
+    const trialExports = require("./trial-curriculum-exports.js");
+    const trialEnd = new Date(Date.now() + 7 * 86400000).toISOString();
+    const activeStore = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+    activeStore.users["card.trial.active@test.local"] = {
+      email: "card.trial.active@test.local",
+      plan: "Pro",
+      subscriptionCadence: "monthly",
+      subscriptionStatus: "Pro Monthly Subscription trialing",
+      stripeSubscriptionStatus: "trialing",
+      monthlyPrice: "$19.99/month",
+      trialStatus: "In Trial",
+      trialStart: new Date().toISOString(),
+      trialEnd,
+      accessEndsAt: trialEnd,
+      currentPeriodEnd: trialEnd,
+      introductoryTrialConsumed: true,
+      hasPaymentMethod: true,
+      paymentMethod: "Managed in Stripe",
+      stripeCustomerId: "cus_sim_card_trial",
+      stripeSubscriptionId: "sub_sim_card_trial",
+      trialCurriculumExports: trialExports.emptyState(),
+    };
+    fs.writeFileSync(STORE_PATH, JSON.stringify(activeStore, null, 2));
+
+    const cardTrialUser = activeStore.users["card.trial.active@test.local"];
+    assert.equal(membershipAccess.membershipUserInTrial(cardTrialUser), true);
+    assert.equal(membershipAccess.membershipHasProAccess(cardTrialUser), true);
+    assert.equal(membershipAccess.membershipPlanDisplay(cardTrialUser), "Trial");
+
+    const headers = {
+      Authorization: "Bearer test:card.trial.active@test.local",
+      "x-llh-user-email": "card.trial.active@test.local",
+    };
+
+    function requestAuthed(method, urlPath, body) {
+      return new Promise((resolve, reject) => {
+        const payload = body ? JSON.stringify(body) : null;
+        const req = http.request({
+          hostname: "127.0.0.1",
+          port: PORT,
+          path: urlPath,
+          method,
+          headers: {
+            ...headers,
+            ...(payload ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) } : {}),
+          },
+        }, (res) => {
+          const chunks = [];
+          res.on("data", (c) => chunks.push(c));
+          res.on("end", () => {
+            const text = Buffer.concat(chunks).toString("utf8");
+            let json = null;
+            try { json = text ? JSON.parse(text) : null; } catch { json = null; }
+            resolve({ status: res.statusCode, json, text });
+          });
+        });
+        req.on("error", reject);
+        if (payload) req.write(payload);
+        req.end();
+      });
+    }
+
+    const statusRes = await requestAuthed("GET", "/api/trial-curriculum-exports");
+    assert.equal(statusRes.status, 200, statusRes.text);
+    assert.equal(statusRes.json.inTrial, true);
+    assert.equal(statusRes.json.unlimited, false);
+    assert.equal(statusRes.json.remaining, 3);
+
+    const e1 = await requestAuthed("POST", "/api/trial-curriculum-exports/authorize", {
+      idempotencyKey: "card-exp-1",
+      resourceType: "lesson-plan",
+      resourceId: "cur-lp-pro-1",
+      action: "print",
+    });
+    assert.equal(e1.status, 200, JSON.stringify(e1.json));
+    assert.equal(e1.json.allowed, true);
+    assert.equal(e1.json.used, 1);
+    assert.match(String(e1.json.watermark || ""), /Trial Preview/i);
+    await requestAuthed("POST", "/api/trial-curriculum-exports/authorize", {
+      idempotencyKey: "card-exp-2", resourceId: "cur-lp-pro-2", action: "print",
+    });
+    await requestAuthed("POST", "/api/trial-curriculum-exports/authorize", {
+      idempotencyKey: "card-exp-3", resourceId: "cur-lp-pro-3", action: "print",
+    });
+    const e4 = await requestAuthed("POST", "/api/trial-curriculum-exports/authorize", {
+      idempotencyKey: "card-exp-4", resourceId: "cur-lp-pro-4", action: "print",
+    });
+    assert.equal(e4.json.allowed, false);
+    assert.match(String(e4.json.message || ""), /all 3 premium curriculum prints/i);
+    console.log("PASS  card-required 7-day trial gets 3-export watermark protection");
   } finally {
     await stopServer(child);
   }
