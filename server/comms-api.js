@@ -176,6 +176,7 @@ function createCommsApi(deps) {
   const {
     readStore,
     writeStore,
+    writeStoreAsync,
     ensureMessagingStore,
     jsonResponse,
     readJson,
@@ -198,6 +199,19 @@ function createCommsApi(deps) {
     extractAdminToken,
     extractAdminTokenFromBody,
   } = deps;
+
+  async function persistStoreOrFail(store, response, successStatus, successBody, failMessage = "Could not save. Please try again.") {
+    try {
+      await writeStoreAsync(store);
+      jsonResponse(response, successStatus, successBody);
+    } catch (error) {
+      jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
+        ok: false,
+        error: failMessage,
+        code: error?.code || "store_write_failed",
+      });
+    }
+  }
 
   const adminEmailAllowlist = new Set(
     [ADMIN_EMAIL, ...(Array.isArray(ADMIN_EMAILS) ? ADMIN_EMAILS : [])]
@@ -499,8 +513,7 @@ function createCommsApi(deps) {
     if (existingIndex >= 0) store.universalDrafts[existingIndex] = draft;
     else store.universalDrafts.unshift(draft);
     store.universalDrafts = clampArray(store.universalDrafts, MAX_UNIVERSAL_DRAFTS);
-    writeStore(store);
-    jsonResponse(response, 200, { ok: true, draft: publicDraft(draft) });
+    await persistStoreOrFail(store, response, 200, { ok: true, draft: publicDraft(draft) });
   }
 
   async function handleDraftsDelete(request, response) {
@@ -529,8 +542,11 @@ function createCommsApi(deps) {
       if (scope !== "admin" && normalizeEmail(d.ownerEmail) !== ownerEmail) return true;
       return false;
     });
-    if (store.universalDrafts.length !== before) writeStore(store);
-    jsonResponse(response, 200, { ok: true, deleted: before - store.universalDrafts.length });
+    if (store.universalDrafts.length !== before) {
+      await persistStoreOrFail(store, response, 200, { ok: true, deleted: before - store.universalDrafts.length });
+      return;
+    }
+    jsonResponse(response, 200, { ok: true, deleted: 0 });
   }
 
   // ─── Message center ────────────────────────────────────────────────────────
@@ -649,8 +665,7 @@ function createCommsApi(deps) {
       });
       store.archivedConversations = clampArray(store.archivedConversations, MAX_ARCHIVED);
     }
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await persistStoreOrFail(store, response, 200, {
       ok: true,
       archived: shouldArchive,
       email,
@@ -690,8 +705,7 @@ function createCommsApi(deps) {
     if (existingIndex >= 0) store.messageTemplates[existingIndex] = row;
     else store.messageTemplates.unshift(row);
     store.messageTemplates = clampArray(store.messageTemplates, 500);
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await persistStoreOrFail(store, response, 200, {
       ok: true,
       template: row,
       templates: commsLib.mergeTemplates(store.messageTemplates),
@@ -721,8 +735,7 @@ function createCommsApi(deps) {
       return;
     }
     store.messageTemplates.splice(customIndex, 1);
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await persistStoreOrFail(store, response, 200, {
       ok: true,
       templates: commsLib.mergeTemplates(store.messageTemplates),
     });
@@ -768,8 +781,7 @@ function createCommsApi(deps) {
         detail: tags.length ? tags.join(", ") : "(cleared)",
       });
     }
-    writeStore(store);
-    jsonResponse(response, 200, { ok: true, email, tags });
+    await persistStoreOrFail(store, response, 200, { ok: true, email, tags });
   }
 
   // ─── Timeline (admin) ──────────────────────────────────────────────────────
@@ -1082,8 +1094,7 @@ function createCommsApi(deps) {
       });
       store.adminInboxArchive = clampArray(store.adminInboxArchive, MAX_ARCHIVED);
     }
-    writeStore(store);
-    jsonResponse(response, 200, { ok: true, archived: true, id });
+    await persistStoreOrFail(store, response, 200, { ok: true, archived: true, id });
   }
 
   // ─── Automations (admin) ───────────────────────────────────────────────────
@@ -1136,8 +1147,7 @@ function createCommsApi(deps) {
 
     store.automations = clampArray(store.automations, 200);
     store.automationRuns = clampArray(store.automationRuns, MAX_AUTOMATION_RUNS);
-    writeStore(store);
-    jsonResponse(response, 200, {
+    await persistStoreOrFail(store, response, 200, {
       ok: true,
       automations: commsLib.mergeAutomations(store.automations),
     });

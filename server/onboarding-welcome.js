@@ -581,12 +581,12 @@ function createOnboardingWelcome(deps) {
     return { count: results.length, results };
   }
 
-  function saveConfig(sequenceInput) {
+  function saveConfig(sequenceInput, { deferPersist = false } = {}) {
     const store = readStore();
     const root = ensureOnboardingWelcome(store);
     root.sequences[SEQUENCE_ID] = normalizeSequencePayload(sequenceInput);
     root.updatedAt = new Date().toISOString();
-    writeStore(store);
+    if (!deferPersist) writeStore(store);
     return getConfig(store);
   }
 

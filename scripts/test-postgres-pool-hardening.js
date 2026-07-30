@@ -269,7 +269,7 @@ async function main() {
       alertsBefore,
       "successful retry must not emit postgres_disconnect safety alerts",
     );
-    assert.match(child.__output(), /transient Postgres error on Postgres store upsert — retry/);
+    assert.match(child.__output(), /\[store-persistence\] write_retry|transient Postgres error on Postgres store upsert — retry/);
     console.log("PASS  dropped connection during write recovers via single retry without alert");
 
     // Confirm data survives a reload from mock Postgres.
@@ -314,7 +314,7 @@ async function main() {
     await new Promise((r) => setTimeout(r, 400));
     const alertsAfterFail = countSafetyAlerts(child.__output());
     assert.equal(alertsAfterFail, alertsBeforeFail + 1, "exactly one safety alert after exhausted retries");
-    assert.match(child.__output(), /Postgres writeAsync failed|postgres_write_failed/);
+    assert.match(child.__output(), /\[store-persistence\] failed_write|Postgres writeAsync failed|store_write_failed/);
 
     const down = await requestJson("GET", "/api/launch-readiness");
     assert.equal(down.json?.required?.database?.ready, false, "databaseReady should be false after exhausted failures");
