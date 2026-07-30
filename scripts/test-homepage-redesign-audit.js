@@ -220,9 +220,14 @@ async function runAudit(playwright, baseUrl, seeded) {
   results.loginButtons.push("footer");
   await page.click("#closeModal");
 
-  // Nav scroll
+  // Nav scroll (smooth scroll + sticky-nav offset needs more than one frame)
   await page.locator('.llh-public-nav-links [data-home-nav="coming-soon"]').click();
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => {
+    const el = document.getElementById("homeComingSoon");
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.top < window.innerHeight && rect.bottom > 0 && rect.top > 40;
+  }, null, { timeout: 5000 });
   const comingVisible = await page.locator("#homeComingSoon").evaluate((el) => {
     const rect = el.getBoundingClientRect();
     return rect.top < window.innerHeight && rect.bottom > 0;
