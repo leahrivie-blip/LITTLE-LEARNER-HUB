@@ -61,6 +61,12 @@ test("Tiffany review remains on homepage", () => {
   assert.match(html, /Works for my mixed ages without rewriting everything/);
   assert.match(html, /made by someone who(?:'|\&rsquo;|&apos;)?s been in the room/);
   assert.match(html, /llh-nav-rating/);
+  for (const name of ["Maria", "Ashley", "Jenna", "Denise", "Carla"]) {
+    assert.match(html, new RegExp(`<strong>${name}</strong>`));
+  }
+  // CMS apply must append unique reviews — never wipe the curated cards.
+  assert.match(appJs, /cmsReviewsAppended/);
+  assert.doesNotMatch(appJs, /\.lp-review-card:not\(\.llh-review-featured\)/);
 });
 
 test("public nav and mobile menu markers exist", () => {
