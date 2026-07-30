@@ -22090,3 +22090,49 @@ body.printing-resource .trial-curriculum-watermark-print {
     grid-template-columns: 1fr;
   }
 }
+
+.hdh-pack-details {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.hdh-pack-details summary {
+  cursor: pointer;
+  font-weight: 800;
+  color: var(--ink, #243047);
+}
+
+.hdh-forms-pack-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.hdh-forms-pack-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line, rgba(36, 48, 71, 0.12));
+}
+
+.hdh-forms-pack-item:last-child {
+  border-bottom: 0;
+}
+
+.hdh-forms-pack-item strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+.hdh-forms-pack-item .muted-copy {
+  margin: 0;
+}
+
+.hdh-forms-pack-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}

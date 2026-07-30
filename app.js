@@ -838,6 +838,7 @@ function isResourceVisibleToCurrentUser(resource) {
   if (resource.archived === true && !hasAdminFullAccess()) return false;
   if (resource.visible === false && !hasAdminFullAccess()) return false;
   if (resource.category === "Printables" && isPrintablesUpgradeModeActive()) return false;
+  if (resource.homeDaycareHubOnly && !isHomeDaycareHubTestingEnabled() && !hasAdminFullAccess()) return false;
   return true;
 }
 
@@ -5946,6 +5947,299 @@ const HOME_DAYCARE_FORM_CATEGORIES = Object.freeze([
   "Other",
 ]);
 
+/** Curated home-daycare forms pack (testing Hub Step B). Links existing library IDs + pack-only templates. */
+const HOME_DAYCARE_FORMS_PACK = Object.freeze([
+  {
+    id: "hdh-pack-enrollment",
+    title: "Enrollment Packet",
+    category: "Enrollment",
+    resourceId: "form-enrollment-forms-enrollment-packet",
+    description: "Start-of-care checklist and family signatures.",
+  },
+  {
+    id: "hdh-pack-emergency",
+    title: "Emergency Contact Form",
+    category: "Emergency contacts",
+    resourceId: "form-enrollment-forms-emergency-contact-form",
+    description: "Emergency contacts and authorized pick-up details.",
+  },
+  {
+    id: "hdh-pack-allergy",
+    title: "Allergy Form",
+    category: "Allergy / medical",
+    resourceId: "form-medical-forms-allergy-form",
+    description: "Allergies, reactions, and emergency medical notes.",
+  },
+  {
+    id: "hdh-pack-sunscreen",
+    title: "Sunscreen Authorization",
+    category: "Sunscreen authorization",
+    resourceId: "form-medical-forms-sunscreen-authorization",
+    description: "Parent permission to apply sunscreen.",
+  },
+  {
+    id: "hdh-pack-photo",
+    title: "Photo Release Form",
+    category: "Photo release",
+    resourceId: "form-enrollment-forms-photo-release-form",
+    description: "Permission for photos and classroom documentation.",
+  },
+  {
+    id: "hdh-pack-incident",
+    title: "Incident Report",
+    category: "Incident report",
+    resourceId: "form-daily-forms-incident-report",
+    description: "Document incidents, injuries, and parent notification.",
+  },
+  {
+    id: "hdh-pack-field-trip",
+    title: "Field Trip Permission",
+    category: "Field trip",
+    resourceId: "form-enrollment-forms-field-trip-permission",
+    description: "Permission for off-site trips and outings.",
+  },
+  {
+    id: "hdh-pack-handbook",
+    title: "Handbook Acknowledgment",
+    category: "Handbook acknowledgment",
+    resourceId: "hdh-form-handbook-acknowledgment",
+    description: "Parent receipt and acknowledgment of your handbook.",
+  },
+  {
+    id: "hdh-pack-safe-sleep",
+    title: "Infant Safe Sleep Authorization",
+    category: "Infant safe sleep",
+    resourceId: "hdh-form-infant-safe-sleep",
+    description: "Safe sleep practices acknowledgment for infants.",
+  },
+  {
+    id: "hdh-pack-diaper-cream",
+    title: "Diaper Cream Authorization",
+    category: "Diaper cream authorization",
+    resourceId: "hdh-form-diaper-cream-authorization",
+    description: "Permission to apply family-provided diaper cream.",
+  },
+]);
+
+function homeDaycareFormsPackDisclaimer() {
+  return "These form templates are not state-specific. Always check your state licensing requirements before using paperwork with families.";
+}
+
+function homeDaycarePackFormContent(kind) {
+  const disclaimer = `IMPORTANT
+${homeDaycareFormsPackDisclaimer()}
+Customize this form to match your program policies, handbook, and licensing rules.`;
+  if (kind === "handbook") {
+    return `Handbook Acknowledgment
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Parent/Guardian Name: ____________________________________
+Date: ____________________________________________________
+
+${disclaimer}
+
+I acknowledge that I have received a copy of the Parent Handbook (or have been given access to review it), and I agree to follow the program policies described in it.
+
+Handbook version / date received: _________________________
+
+${formCheckboxes([
+  "I received a printed handbook",
+  "I received a digital handbook / link",
+  "I understand tuition, hours, illness, and pickup policies",
+  "I understand emergency and safety policies",
+  "I will ask the provider if I have questions",
+])}
+
+Parent/family notes:
+________________________________________________________________________
+________________________________________________________________________
+
+${formSignatureBlock()}`;
+  }
+  if (kind === "safe-sleep") {
+    return `Infant Safe Sleep Authorization
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Date of Birth: ___________________________________________
+Parent/Guardian Name: ____________________________________
+Date: ____________________________________________________
+
+${disclaimer}
+
+Safe Sleep Practices
+This program follows safe sleep practices for infants. Unless a physician provides a written exception, infants are placed to sleep on their back in a safety-approved crib or pack-and-play with a firm, flat sleep surface and no soft bedding, pillows, stuffed toys, or loose blankets.
+
+${formCheckboxes([
+  "I understand back-to-sleep placement is used unless a written physician exception is on file",
+  "I will provide only approved sleep clothing / wearable blanket if needed",
+  "I will not request soft bedding, pillows, stuffed toys, or positioners in the sleep space",
+  "I will notify the provider of any sleep-related medical needs in writing",
+])}
+
+Physician exception on file? [ ] Yes  [ ] No
+Details / medical notes:
+________________________________________________________________________
+________________________________________________________________________
+
+${formSignatureBlock()}`;
+  }
+  return `Diaper Cream Authorization
+
+Program Name: ____________________________________________
+Child Name: ______________________________________________
+Parent/Guardian Name: ____________________________________
+Date: ____________________________________________________
+
+${disclaimer}
+
+I authorize the childcare provider to apply the diaper cream / topical ointment listed below when needed during diaper changes, according to the product label and my instructions.
+
+Product name: ____________________________________________
+Provided by family? [ ] Yes  [ ] No
+When to apply: ___________________________________________
+Special instructions:
+________________________________________________________________________
+________________________________________________________________________
+
+Known skin sensitivities / do not use:
+________________________________________________________________________
+
+Authorization end date (optional): ________________________
+
+${formSignatureBlock()}`;
+}
+
+function buildHomeDaycareFormsPackResources() {
+  const shared = {
+    category: "Forms Library",
+    age: "All Ages",
+    plan: "Free",
+    month: "All Year",
+    format: "PDF + Editable",
+    tags: ["Home Daycare Hub", "PDF", "Editable", "In-App"],
+    homeDaycareHubOnly: true,
+    visible: true,
+    archived: false,
+  };
+  return [
+    {
+      ...shared,
+      id: "hdh-form-handbook-acknowledgment",
+      title: "Handbook Acknowledgment",
+      formCategory: "Handbook acknowledgment",
+      description: "Parent receipt and acknowledgment of your program handbook.",
+      customContent: homeDaycarePackFormContent("handbook"),
+    },
+    {
+      ...shared,
+      id: "hdh-form-infant-safe-sleep",
+      title: "Infant Safe Sleep Authorization",
+      formCategory: "Infant safe sleep",
+      description: "Safe sleep practices acknowledgment for infants in home daycare.",
+      customContent: homeDaycarePackFormContent("safe-sleep"),
+    },
+    {
+      ...shared,
+      id: "hdh-form-diaper-cream-authorization",
+      title: "Diaper Cream Authorization",
+      formCategory: "Diaper cream authorization",
+      description: "Permission to apply family-provided diaper cream during care.",
+      customContent: homeDaycarePackFormContent("diaper-cream"),
+    },
+  ];
+}
+
+function renderHomeDaycareFormsPackList(options = {}) {
+  const { childId = "", showAddToFile = false } = options;
+  return `
+    <div class="hdh-forms-pack-list" role="list">
+      ${HOME_DAYCARE_FORMS_PACK.map((form) => `
+        <article class="hdh-forms-pack-item" role="listitem">
+          <div>
+            <strong>${escapeHtml(form.title)}</strong>
+            <p class="muted-copy">${escapeHtml(form.category)} — ${escapeHtml(form.description)}</p>
+          </div>
+          <div class="hdh-forms-pack-actions">
+            <button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(form.resourceId)}">Open form</button>
+            ${showAddToFile && childId ? `<button class="primary-button" type="button" data-hdh-add-pack-form="${escapeHtml(form.id)}" data-child-id="${escapeHtml(childId)}">Add to file</button>` : ""}
+          </div>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function homeDaycarePackDocumentStatusLabel(status = "needed") {
+  const statusLabels = {
+    needed: "Needed",
+    requested: "Requested from family",
+    received: "Received",
+    signed: "Signed / complete",
+  };
+  return statusLabels[status] || status;
+}
+
+function childAlreadyHasHomeDaycarePackForm(existingForChild, packForm) {
+  return existingForChild.some((item) => (
+    String(item.packFormId || "") === packForm.id
+    || String(item.resourceId || "") === packForm.resourceId
+    || String(item.title || "").trim().toLowerCase() === String(packForm.title || "").trim().toLowerCase()
+  ));
+}
+
+function addHomeDaycarePackFormToChild(childId, packForm, status = "needed") {
+  if (!childId || !packForm) return false;
+  const existing = childStore("Documents").filter((item) => item.childId === childId);
+  if (childAlreadyHasHomeDaycarePackForm(existing, packForm)) return false;
+  appendChildRecord("Documents", {
+    childId,
+    title: packForm.title,
+    category: packForm.category,
+    packFormId: packForm.id,
+    resourceId: packForm.resourceId,
+    status,
+    statusLabel: homeDaycarePackDocumentStatusLabel(status),
+    notes: "",
+    date: new Date().toISOString().slice(0, 10),
+    updatedAt: new Date().toISOString(),
+  });
+  return true;
+}
+
+function addAllHomeDaycarePackFormsToChild(childId) {
+  if (!childId) return 0;
+  const allDocs = childStore("Documents");
+  const existingForChild = allDocs.filter((item) => item.childId === childId);
+  const next = [...allDocs];
+  let added = 0;
+  const now = new Date().toISOString();
+  const today = now.slice(0, 10);
+  HOME_DAYCARE_FORMS_PACK.forEach((form) => {
+    if (childAlreadyHasHomeDaycarePackForm(existingForChild, form)) return;
+    const record = {
+      id: `Documents-${Date.now().toString(36)}-${added}-${Math.random().toString(36).slice(2, 7)}`,
+      createdAt: now,
+      childId,
+      title: form.title,
+      category: form.category,
+      packFormId: form.id,
+      resourceId: form.resourceId,
+      status: "needed",
+      statusLabel: homeDaycarePackDocumentStatusLabel("needed"),
+      notes: "",
+      date: today,
+      updatedAt: now,
+    };
+    next.push(record);
+    existingForChild.push(record);
+    added += 1;
+  });
+  if (added) saveChildStore("Documents", next);
+  return added;
+}
+
 function useCurriculumLibrarySources() {
   return true;
 }
@@ -10275,6 +10569,7 @@ function loadResources() {
   return applyObservationEdits([
     ...starterWithoutOldGenerated,
     ...supportingLibrary,
+    ...buildHomeDaycareFormsPackResources(),
     ...loadCurriculumManagedLessonPlans(),
     ...loadCurriculumManagedActivities(),
     ...loadAdminManagedForms(),
@@ -16570,6 +16865,16 @@ ________________________________________________________________________
 ________________________________________________________________________
 ________________________________________________________________________`;
 
+  if (label.includes("handbook acknowledgment") || label.includes("handbook acknowledgement") || label.includes("handbook receipt")) {
+    return homeDaycarePackFormContent("handbook");
+  }
+  if (label.includes("infant safe sleep") || (label.includes("safe sleep") && label.includes("authorization"))) {
+    return homeDaycarePackFormContent("safe-sleep");
+  }
+  if (label.includes("diaper cream")) {
+    return homeDaycarePackFormContent("diaper-cream");
+  }
+
   if (label.includes("enrollment packet")) {
     return `${header}
 
@@ -17186,6 +17491,8 @@ function lessonAgeData(data, age) {
 }
 
 function formPrintableText(resource) {
+  const custom = String(resource?.customContent || "").trim();
+  if (custom) return custom;
   return formResourceContent(resource);
 }
 
@@ -30006,6 +30313,7 @@ function renderHomeDaycareHubPage() {
     return;
   }
   const children = childRecords().children || [];
+  const firstChild = children[0] || null;
   section.innerHTML = `
     <section class="simple-child-page hdh-hub-page">
       <div class="child-page-header">
@@ -30015,22 +30323,36 @@ function renderHomeDaycareHubPage() {
           <p>Forms, family access, and staff tools for your home daycare — built here on testing first, then brought to live when ready.</p>
         </div>
       </div>
-      <p class="hdh-disclaimer" role="note">Form templates are not state-specific. Always check your state licensing requirements before using paperwork with families.</p>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-hub-sections">
+        <section class="section-block">
+          <p class="eyebrow">Step B</p>
+          <h3>Home daycare forms pack</h3>
+          <p class="muted-copy">Ten common forms for home daycare paperwork. Open a template to print or edit, then track status on each child’s Forms &amp; Records tab.</p>
+          ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild) })}
+          ${firstChild ? `
+            <div class="account-actions-row" style="margin-top:14px;">
+              <button class="primary-button" type="button" data-hdh-add-pack-all="${escapeHtml(firstChild.id)}">Add all needed to ${escapeHtml(firstChild.name)}’s file</button>
+              <button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(firstChild.id)}" data-open-child-tab="forms-records">Open ${escapeHtml(firstChild.name)}’s forms</button>
+            </div>
+          ` : `
+            <div class="account-actions-row" style="margin-top:14px;">
+              <button class="primary-button" type="button" data-view="children">Add a child to track forms</button>
+            </div>
+          `}
+        </section>
         <section class="section-block">
           <p class="eyebrow">Step A</p>
           <h3>Child Forms &amp; Records</h3>
           <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
           <div class="account-actions-row">
             <button class="primary-button" type="button" data-view="children">Open Child Profiles</button>
-            ${children[0] ? `<button class="ghost-button" type="button" data-view-child-profile="${escapeHtml(children[0].id)}" data-open-child-tab="forms-records">Open ${escapeHtml(children[0].name)}’s forms</button>` : ""}
           </div>
         </section>
         <section class="section-block hdh-coming-section">
           <p class="eyebrow">Coming next</p>
-          <h3>Forms pack, Family Hub, Staff</h3>
+          <h3>AI forms, Family Hub, Staff</h3>
           <ul class="hdh-coming-list">
-            <li>Common home-daycare forms pack (enrollment, emergency, allergy, sunscreen, photo, incident, trip, handbook, infant safe sleep, diaper cream)</li>
             <li>AI-assisted form drafts with review before send</li>
             <li>Family Hub login + text/phone magic link — one household login for all kids</li>
             <li>Staff invite links with preset + custom visibility checkboxes</li>
@@ -32756,7 +33078,7 @@ function renderChildFormsRecordsTab(child, records) {
           <p class="muted-copy">Track enrollment paperwork, authorizations, and signed forms for this child. Search and filter to find anything in their file quickly.</p>
         </div>
       </div>
-      <p class="hdh-disclaimer" role="note">These form templates are not state-specific. Always check your state licensing requirements before using paperwork with families.</p>
+      <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <div class="hdh-forms-filters" aria-label="Search and filter forms">
         <label>Search
           <input type="search" data-hdh-forms-search value="${escapeHtml(childFormsRecordsQuery || "")}" placeholder="Search title, notes, status…" />
@@ -32779,8 +33101,14 @@ function renderChildFormsRecordsTab(child, records) {
       </div>
       <div class="account-actions-row" style="margin-bottom:16px;">
         <button class="primary-button" type="button" data-view="home-daycare-hub">Home Daycare Hub</button>
+        <button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>
         <button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>
       </div>
+      <details class="hdh-pack-details section-block">
+        <summary>Home daycare forms pack</summary>
+        <p class="muted-copy">Open a template, or add it to this child’s file as Needed.</p>
+        ${renderHomeDaycareFormsPackList({ childId: child.id, showAddToFile: true })}
+      </details>
       <form id="childDocumentStubForm" class="panel-form" data-child-document-form="${escapeHtml(child.id)}">
         <p class="eyebrow">Add to child file</p>
         <div class="form-grid-two">
@@ -32815,15 +33143,18 @@ function renderChildFormsRecordsTab(child, records) {
                 <strong>${escapeHtml(item.title || "Document")}</strong>
                 <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
-              <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              <div class="hdh-forms-pack-actions">
+                ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
+                <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              </div>
             </article>
           `).join("")
           : renderProfileEmptyState({
             title: documents.length ? "No forms match these filters" : "No forms in this child’s file yet",
             body: documents.length
               ? "Try clearing search or choosing All statuses / All categories."
-              : "Add a placeholder above, or open Home Daycare Hub for the forms pack roadmap.",
-            actionsHtml: `<button class="ghost-button" type="button" data-view="home-daycare-hub">Open Home Daycare Hub</button>`,
+              : "Add forms from the pack above, or save a custom placeholder.",
+            actionsHtml: `<button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>`,
           })}
       </div>
     </section>
@@ -52421,6 +52752,52 @@ document.addEventListener("click", async (event) => {
     const url = new URL(window.location.href);
     url.searchParams.delete("staffInvite");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    return;
+  }
+
+  const openHdhForm = event.target.closest("[data-hdh-open-form]");
+  if (openHdhForm) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const resourceId = openHdhForm.dataset.hdhOpenForm;
+    if (!resourceId) return;
+    openResourceViewer(resourceId, { returnTo: document.querySelector(".active-view")?.id.replace("view-", "") || "home-daycare-hub" });
+    return;
+  }
+
+  const addHdhPackForm = event.target.closest("[data-hdh-add-pack-form]");
+  if (addHdhPackForm) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const packId = addHdhPackForm.dataset.hdhAddPackForm;
+    const childId = addHdhPackForm.dataset.childId || selectedChildId;
+    const packForm = HOME_DAYCARE_FORMS_PACK.find((item) => item.id === packId);
+    if (!childId || !packForm) return;
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    const added = addHomeDaycarePackFormToChild(childId, packForm, "needed");
+    showActionFeedback(added ? `${packForm.title} added to child file.` : `${packForm.title} is already on this child’s file.`);
+    if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage();
+    else renderChildManagement();
+    return;
+  }
+
+  const addHdhPackAll = event.target.closest("[data-hdh-add-pack-all]");
+  if (addHdhPackAll) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const childId = addHdhPackAll.dataset.hdhAddPackAll || selectedChildId;
+    if (!childId) return;
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childProfileTab = "forms-records";
+    childManagementMode = "profile";
+    const added = addAllHomeDaycarePackFormsToChild(childId);
+    showActionFeedback(added ? `Added ${added} form${added === 1 ? "" : "s"} to the child file.` : "All pack forms are already on this child’s file.");
+    if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage();
+    else renderChildManagement();
     return;
   }
 
