@@ -497,6 +497,8 @@ let hdhAiDraftState = {
 let familyHubHouseholdCache = { households: [], loadedAt: 0 };
 let familyHubInviteResult = null;
 let hdhStaffInviteResult = null;
+let hdhTesterInviteResult = null;
+let hdhTesterInviteCache = { invites: [], loadedAt: 0 };
 let hdhStaffTrainingsCache = { trainings: [], trainingTypes: [], loadedAt: 0 };
 let hdhPacketsCache = { packets: [], loadedAt: 0 };
 let childToolsTab = "attendance";
@@ -5427,6 +5429,7 @@ async function runSignedInBootVerification() {
   }
   await withBootVerificationTimeout("Founding status", () => syncFoundingStatus({ render: false })).catch(() => {});
   await withBootVerificationTimeout("Staff invite", () => maybeHandleStaffInviteFromUrl()).catch(() => {});
+  await withBootVerificationTimeout("Tester invite", () => maybeHandleHdhTesterInviteFromUrl()).catch(() => {});
   await withBootVerificationTimeout("Family Hub invite", () => maybeHandleFamilyHubInviteFromUrl()).catch(() => {});
   loadUserAiUsage(currentUser).catch(() => {});
 }
@@ -13188,7 +13191,9 @@ function renderNotificationBell() {
   if (supportBtn) {
     supportBtn.hidden = !isLoggedIn();
     if (isLoggedIn()) {
-      supportBtn.textContent = isLinkedProgramStaffAccount() ? "Message Leah" : "Message Support";
+      supportBtn.textContent = (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount())
+        ? "Message Leah"
+        : "Message Support";
     }
   }
   const count = notificationBellState.unreadCount;
@@ -15085,12 +15090,16 @@ function isLinkedProgramStaffAccount(account = currentAccount()) {
   return Boolean(linkedOwner && email && linkedOwner !== email);
 }
 
+function isIndependentHdhTesterAccount(account = currentAccount()) {
+  return Boolean(account?.hdhIndependentTester) || Boolean(account?.testingInviteAcceptedAt);
+}
+
 function canSeeAdminNav() {
   // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
   // The floating preview badge still provides Return to Admin.
   if (isAdminPreviewSimulating()) return false;
-  // Invited staff / full-access testers never see Admin unlock — Leah-only.
-  if (isLinkedProgramStaffAccount()) return false;
+  // Invited staff / independent testers never see Admin unlock — Leah-only.
+  if (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount()) return false;
   // Keep Admin reachable when unlocked, awaiting re-auth, signed in as owner,
   // or on a browser that has unlocked Admin before (so the unlock form is one tap away).
   return isAdminUnlocked()
@@ -15128,7 +15137,11 @@ function setView(view, options = {}) {
     return setView("calendar", { ...options, remappedFromHome: true });
   }
   // Invited testers / staff never open Admin (even via deep link).
-  if (resolvedRequested === "admin" && isLinkedProgramStaffAccount() && !options.allowAdminForLinkedStaff) {
+  if (
+    resolvedRequested === "admin"
+    && (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount())
+    && !options.allowAdminForLinkedStaff
+  ) {
     return setView("messages", { ...options, skipAccessRedirect: true });
   }
   // Home Daycare Hub is testing-site only (HOME_DAYCARE_HUB_TESTING).
@@ -32200,10 +32213,6 @@ async function refreshHdhPackets() {
 async function createHdhStaffInviteRequest({ email, role, visibilityPreset, hdhVisibility }) {
   const headers = await staffAuthHeaders();
   if (!headers || !canUseLaunchBackend()) throw new Error("Staff invites need the testing server backend.");
-  // Push your child profiles to the shared program so the invitee can see them after accept.
-  try {
-    await saveChildDataToBackend({ force: true });
-  } catch (_error) { /* invite still works if sync fails */ }
   const settings = getProgramSettings();
   const response = await fetch("/api/staff/invites", {
     method: "POST",
@@ -32223,38 +32232,169 @@ async function createHdhStaffInviteRequest({ email, role, visibilityPreset, hdhV
   return result;
 }
 
+async function refreshHdhTesterInvites() {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) {
+    hdhTesterInviteCache = { ...hdhTesterInviteCache, loadedAt: Date.now() };
+    return hdhTesterInviteCache;
+  }
+  const response = await fetch("/api/home-daycare-hub/tester-invites", {
+    headers,
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not load tester invites.");
+  hdhTesterInviteCache = {
+    invites: Array.isArray(data.invites) ? data.invites : [],
+    loadedAt: Date.now(),
+  };
+  return hdhTesterInviteCache;
+}
+
+async function createHdhIndependentTesterInviteRequest({ email, childName }) {
+  const headers = await staffAuthHeaders();
+  if (!headers || !canUseLaunchBackend()) throw new Error("Tester invites need the testing server backend.");
+  const response = await fetch("/api/home-daycare-hub/tester-invites", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      email,
+      childName: childName || "Demo Child",
+      appOrigin: window.location.origin,
+    }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok && response.status !== 409) throw new Error(result?.error || "Could not send tester invite.");
+  await refreshHdhTesterInvites().catch(() => {});
+  return result;
+}
+
+async function acceptHdhTesterInviteToken(token) {
+  const cleanToken = String(token || "").trim();
+  if (!cleanToken) throw new Error("Missing invite token.");
+  const headers = await staffAuthHeaders();
+  if (!headers) {
+    openAuthModal("signup");
+    throw new Error("Log in or create an account with the invited email to accept.");
+  }
+  const response = await fetch("/api/home-daycare-hub/tester-invites/accept", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ token: cleanToken }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not accept tester invite.");
+  if (data.account && currentUser) {
+    updateAccount(currentUser, {
+      role: data.account.role || "owner",
+      accountType: data.account.accountType || "home_daycare",
+      linkedProgramOwnerEmail: "",
+      programAccessViaOwner: false,
+      hdhIndependentTester: true,
+      hdhTesterInvitedByEmail: data.account.hdhTesterInvitedByEmail || "",
+      testingInviteAcceptedAt: data.account.testingInviteAcceptedAt || new Date().toISOString(),
+      plan: data.account.plan || "Pro",
+      subscriptionStatus: data.account.subscriptionStatus || "Pro Subscription Active",
+      programId: data.account.programId || "",
+      hdhVisibility: null,
+      visibilityPreset: "",
+    });
+    currentPlan = "Pro";
+    try { localStorage.setItem("llhPlan", "Pro"); } catch (_error) { /* ignore */ }
+    ensureAccountAccessMigrated(currentUser);
+    updateAuthButtons();
+    updatePlanLabel();
+    updateAdminNavVisibility();
+    syncPlatformNavVisibility();
+    syncHdhTesterSwitcherChrome();
+    try {
+      await syncChildDataFromBackend({ render: true });
+    } catch (_error) { /* non-blocking */ }
+    if (!(childRecords().children || []).length) {
+      ensureTesterDemoChild();
+    }
+    renderNotificationBell();
+  }
+  return data;
+}
+
+async function maybeHandleHdhTesterInviteFromUrl() {
+  if (!isHomeDaycareHubTestingEnabled()) return false;
+  const params = new URLSearchParams(window.location.search);
+  const token = String(params.get("testerInvite") || "").trim();
+  if (!token) return false;
+  const peek = await fetch(`/api/home-daycare-hub/tester-invites/peek?token=${encodeURIComponent(token)}`)
+    .then((r) => r.json())
+    .catch(() => ({}));
+  const invite = peek?.invite;
+  const panel = document.createElement("div");
+  panel.className = "section-block";
+  panel.id = "hdhTesterInviteAcceptPanel";
+  panel.style.cssText = "max-width:640px;margin:24px auto;padding:20px;";
+  const mount = () => {
+    const home = document.querySelector("#view-home") || document.querySelector("main") || document.body;
+    document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+    home.prepend(panel);
+  };
+  if (!peek?.ok && !invite) {
+    panel.innerHTML = `<h3>Tester invite</h3><p>${escapeHtml(peek?.error || "This invite link is not valid.")}</p>`;
+    mount();
+    return true;
+  }
+  panel.innerHTML = `
+    <p class="eyebrow">Tester invite</p>
+    <h3>Get your own Teacher testing account</h3>
+    <p>You’ll get your <strong>own</strong> Teacher tools and your <strong>own</strong> starter child (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) — not shared with Leah’s kids or other testers.</p>
+    <p class="muted-copy">Sign in with <strong>${escapeHtml(invite.email)}</strong> to accept. No Admin. Questions → <strong>Messages → Message Leah</strong>.</p>
+    <div class="account-actions-row">
+      <button class="primary-button" type="button" data-accept-tester-invite="${escapeHtml(token)}">Accept invite</button>
+      <button class="ghost-button" type="button" data-dismiss-tester-invite>Not now</button>
+    </div>
+    <p class="form-message" id="hdhTesterInviteAcceptMessage" aria-live="polite"></p>
+  `;
+  mount();
+  return true;
+}
+
 function renderHomeDaycareStaffInvitePanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
   if (isLinkedProgramStaffAccount()) return "";
-  const invites = staffInviteRemoteCache.invites || centerProgramData().staffInvites || [];
+  if (isIndependentHdhTesterAccount()) return "";
+  const staffInvites = staffInviteRemoteCache.invites || centerProgramData().staffInvites || [];
   const members = staffInviteRemoteCache.members || [];
-  const pendingAndActive = [
+  const pendingStaff = [
     ...members.map((m) => ({ ...m, status: "active", acceptUrl: "" })),
-    ...invites.filter((i) => i.status === "pending"),
+    ...staffInvites.filter((i) => i.status === "pending"),
   ];
-  const invite = hdhStaffInviteResult;
+  const testerInvites = hdhTesterInviteCache.invites || [];
+  const invite = hdhTesterInviteResult;
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
       <p class="eyebrow">Step E</p>
-      <h3>Invite people who see everything</h3>
-      <p class="muted-copy">Add a real tester with one email. They get Teacher tools on your shared testing program: child profiles, Hub, forms, lessons, calendar, and daily logs. They do <strong>not</strong> get Admin. They can <strong>Message Leah</strong> in Messages anytime.</p>
+      <h3>Invite a tester (own account + own kid)</h3>
+      <p class="muted-copy">Each tester gets their <strong>own</strong> Teacher account and their <strong>own</strong> starter child — not your kids, not a shared program. They can use Hub, forms, lessons, calendar, and daily logs. <strong>No Admin.</strong> They Message Leah in Messages.</p>
       <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
-        <label>Tester email
-          <input name="email" type="email" required placeholder="friend@example.com" autocomplete="email" />
-        </label>
-        <button class="primary-button" type="submit">Invite full-access tester</button>
-        <p class="form-note">Sends a <strong>Lead Teacher</strong> invite with <strong>full</strong> visibility (all testing areas). Not Admin. Billing stays on your owner account.</p>
+        <div class="form-grid-two">
+          <label>Tester email
+            <input name="email" type="email" required placeholder="friend@example.com" autocomplete="email" />
+          </label>
+          <label>Starter child name
+            <input name="childName" maxlength="60" placeholder="Demo Child" />
+          </label>
+        </div>
+        <button class="primary-button" type="submit">Invite tester</button>
+        <p class="form-note">Creates an independent testing account for them. Their data stays private to their login.</p>
         <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result hdh-staff-invite-result" role="status">
-          <strong>Full-access invite ready for ${escapeHtml(invite.email || "tester")}</strong>
+          <strong>Tester invite ready for ${escapeHtml(invite.email || "tester")}</strong>
           <p class="muted-copy">They must use this exact email. Share the accept link:</p>
           <p><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
           <ol class="hdh-tester-path">
             <li>They open the link on the testing site.</li>
             <li>Sign Up or log in with <strong>${escapeHtml(invite.email || "that email")}</strong>.</li>
-            <li>Tap <strong>Accept invite</strong> — then open Child Profiles / Home Daycare Hub.</li>
+            <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools.</li>
             <li>To reach you: <strong>Messages → Message Leah</strong> (not Admin).</li>
           </ol>
           <div class="account-actions-row">
@@ -32262,9 +32402,26 @@ function renderHomeDaycareStaffInvitePanel() {
           </div>
         </div>
       ` : ""}
+      <div class="hdh-family-household-list">
+        <h4>Independent tester invites</h4>
+        ${testerInvites.length
+          ? testerInvites.map((item) => `
+            <article class="hdh-forms-pack-item">
+              <div>
+                <strong>${escapeHtml(item.email || "Tester")}</strong>
+                <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}</p>
+              </div>
+              <div class="hdh-forms-pack-actions">
+                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
+                ${item.status === "pending" ? `<button class="ghost-button" type="button" data-hdh-tester-invite-revoke="${escapeHtml(item.id)}">Revoke</button>` : ""}
+              </div>
+            </article>
+          `).join("")
+          : `<p class="muted-copy">No independent tester invites yet.</p>`}
+      </div>
       <details class="hdh-tester-details" id="hdhStaffCustomInviteDetails">
-        <summary>Custom staff invite (Helper / Lead / limited visibility)</summary>
-        <p class="muted-copy">Use this when you want a helper who should <em>not</em> see Hub, lessons, or forms.</p>
+        <summary>Optional: staff on YOUR shared program (helpers)</summary>
+        <p class="muted-copy">Only use this if someone should work inside <em>your</em> program data. Most testers should use the independent invite above instead.</p>
         <form id="hdhStaffInviteForm" class="panel-form">
           <div class="form-grid-two">
             <label>Email<input name="email" type="email" required placeholder="helper@example.com" /></label>
@@ -32278,26 +32435,26 @@ function renderHomeDaycareStaffInvitePanel() {
           </div>
           ${renderHdhStaffVisibilityFields("hdh")}
           <button class="primary-button" type="submit">Send staff invite</button>
-          <p class="form-note">Uses the same invite link flow. Visibility applies on Home Daycare Hub testing. Never grants Admin.</p>
+          <p class="form-note">Shared-program staff invite. Never grants Admin.</p>
           <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
         </form>
+        <div class="hdh-family-household-list">
+          <h4>Pending / active shared-program staff</h4>
+          ${pendingStaff.length
+            ? pendingStaff.map((item) => `
+              <article class="hdh-forms-pack-item">
+                <div>
+                  <strong>${escapeHtml(item.email || "Staff")}</strong>
+                  <p class="muted-copy">${escapeHtml(item.role || "staff")} · ${escapeHtml(item.status || "pending")}${item.visibilityPreset ? ` · ${escapeHtml(item.visibilityPreset)}` : ""}</p>
+                </div>
+                <div class="hdh-forms-pack-actions">
+                  ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
+                </div>
+              </article>
+            `).join("")
+            : `<p class="muted-copy">No shared-program staff invites yet.</p>`}
+        </div>
       </details>
-      <div class="hdh-family-household-list">
-        <h4>Pending / active staff</h4>
-        ${pendingAndActive.length
-          ? pendingAndActive.map((item) => `
-            <article class="hdh-forms-pack-item">
-              <div>
-                <strong>${escapeHtml(item.email || "Staff")}</strong>
-                <p class="muted-copy">${escapeHtml(item.role || "staff")} · ${escapeHtml(item.status || "pending")}${item.visibilityPreset ? ` · ${escapeHtml(item.visibilityPreset)}` : ""}</p>
-              </div>
-              <div class="hdh-forms-pack-actions">
-                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
-              </div>
-            </article>
-          `).join("")
-          : `<p class="muted-copy">No staff invites yet.</p>`}
-      </div>
     </section>
   `;
 }
@@ -32421,27 +32578,35 @@ function renderHomeDaycarePacketsPanel() {
 
 function renderHomeDaycareTesterGuidePanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
-  if (isLinkedProgramStaffAccount()) {
+  if (isIndependentHdhTesterAccount()) {
     const children = childRecords().children || [];
-    const ownerEmail = String(currentAccount()?.linkedProgramOwnerEmail || "").trim();
+    const kidName = children[0]?.name || "your starter child";
     return `
       <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
-        <p class="eyebrow">Testing invite</p>
-        <h3>You’re on the shared testing program</h3>
-        <p class="muted-copy">You can use Teacher tools and the same child profiles as <strong>${escapeHtml(ownerEmail || "the program owner")}</strong>. You do <strong>not</strong> have Admin. Questions or bugs? Message Leah directly in the site.</p>
+        <p class="eyebrow">Your testing account</p>
+        <h3>This is your own Teacher space</h3>
+        <p class="muted-copy">You have your own kids and tools — not shared with other testers. Starter child: <strong>${escapeHtml(kidName)}</strong>. No Admin. Questions or bugs? Message Leah in the site.</p>
         <div class="account-actions-row hdh-tester-jumps">
           <button class="primary-button" type="button" data-view="messages">Message Leah</button>
           <button class="ghost-button" type="button" data-view="children">Child Profiles (${children.length})</button>
           <button class="ghost-button" type="button" data-view="home-daycare-hub">Stay on Hub</button>
           <button class="ghost-button" type="button" data-view="calendar">Calendar</button>
         </div>
-        <details class="hdh-tester-details">
-          <summary>What you can and cannot see</summary>
-          <ul class="hdh-coming-list">
-            <li><strong>Yes:</strong> Child profiles, Hub, forms pack, lessons, calendar, daily logs, Messages to Leah</li>
-            <li><strong>No:</strong> Admin workspace, billing, or owner unlock screens</li>
-          </ul>
-        </details>
+      </section>
+    `;
+  }
+  if (isLinkedProgramStaffAccount()) {
+    const children = childRecords().children || [];
+    const ownerEmail = String(currentAccount()?.linkedProgramOwnerEmail || "").trim();
+    return `
+      <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
+        <p class="eyebrow">Shared-program staff</p>
+        <h3>You’re on a shared program</h3>
+        <p class="muted-copy">You’re linked to <strong>${escapeHtml(ownerEmail || "the program owner")}</strong>’s program data. You do <strong>not</strong> have Admin. Message Leah anytime.</p>
+        <div class="account-actions-row hdh-tester-jumps">
+          <button class="primary-button" type="button" data-view="messages">Message Leah</button>
+          <button class="ghost-button" type="button" data-view="children">Child Profiles (${children.length})</button>
+        </div>
       </section>
     `;
   }
@@ -32451,7 +32616,7 @@ function renderHomeDaycareTesterGuidePanel() {
     <section class="section-block hdh-tester-guide" id="hdhTesterGuidePanel">
       <p class="eyebrow">Start here</p>
       <h3>Where to add testers</h3>
-      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. Invited people never get Admin. They message you in <strong>Messages → Message Leah</strong>.</p>
+      <p class="muted-copy">You add people <strong>on this Home Daycare Hub page</strong> — not in Admin. Each Teacher tester gets their <strong>own account + own kid</strong>. They message you in <strong>Messages → Message Leah</strong>.</p>
       <div class="hdh-tester-roles" role="list">
         <article class="hdh-tester-role" role="listitem">
           <strong>1. Test it yourself</strong>
@@ -32462,12 +32627,12 @@ function renderHomeDaycareTesterGuidePanel() {
           <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Add someone who sees Teacher/Staff everything</strong>
-          <p>Scroll to <em>Invite people who see everything</em> → enter their email → copy the accept link. They get your shared child profiles + Hub tools. <strong>Not Admin.</strong> They can Message Leah in the site.</p>
+          <strong>3. Add a Teacher tester (own stuff + own kid)</strong>
+          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child. <strong>Not your kids. Not Admin.</strong></p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>4. Add a limited helper (optional)</strong>
-          <p>Same section → open <em>Custom staff invite</em> → Helper preset hides Hub/forms/lessons.</p>
+          <strong>4. Add a helper on your shared program (optional)</strong>
+          <p>Same section → open the optional shared-program staff invite. Only if they should use <em>your</em> program data.</p>
         </article>
       </div>
       ${renderHdhRoleSwitcher(getHdhTesterPersona().role || "teacher")}
@@ -32486,7 +32651,7 @@ function renderHomeDaycareTesterGuidePanel() {
         <button class="ghost-button" type="button" data-hdh-jump="hdhFormsPackPanel">Forms pack</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI drafts</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhFamilyHubPanel">Family Hub</button>
-        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Invite full-access tester</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Invite tester (own kid)</button>
         <button class="ghost-button" type="button" data-view="messages">Message Leah</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhTrainingsPanel">CPR / trainings</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhPacketsPanel">Packets</button>
@@ -32573,6 +32738,7 @@ function renderHomeDaycareHubPage(options = {}) {
     Promise.all([
       refreshFamilyHubHouseholds().catch(() => {}),
       refreshStaffInvitesFromBackend().catch(() => {}),
+      refreshHdhTesterInvites().catch(() => {}),
       refreshHdhStaffTrainings().catch(() => {}),
       refreshHdhPackets().catch(() => {}),
     ]).then(() => {
@@ -55098,6 +55264,73 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const acceptTesterInviteBtn = event.target.closest("[data-accept-tester-invite]");
+  if (acceptTesterInviteBtn) {
+    event.preventDefault();
+    const token = acceptTesterInviteBtn.dataset.acceptTesterInvite;
+    const message = document.querySelector("#hdhTesterInviteAcceptMessage");
+    acceptTesterInviteBtn.disabled = true;
+    acceptHdhTesterInviteToken(token)
+      .then((result) => {
+        const kid = result.demoChild?.name || "your starter child";
+        if (message) message.textContent = result.message || `Welcome! Your own Teacher account is ready with ${kid}.`;
+        showActionFeedback(`Tester invite accepted — your own kid (${kid}). Message Leah anytime.`);
+        const url = new URL(window.location.href);
+        url.searchParams.delete("testerInvite");
+        window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+        document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+        setView("children");
+      })
+      .catch((error) => {
+        if (message) message.textContent = error.message || "Could not accept invite.";
+        else window.alert(error.message || "Could not accept invite.");
+      })
+      .finally(() => {
+        acceptTesterInviteBtn.disabled = false;
+      });
+    return;
+  }
+
+  const dismissTesterInviteBtn = event.target.closest("[data-dismiss-tester-invite]");
+  if (dismissTesterInviteBtn) {
+    event.preventDefault();
+    document.querySelector("#hdhTesterInviteAcceptPanel")?.remove();
+    const url = new URL(window.location.href);
+    url.searchParams.delete("testerInvite");
+    window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    return;
+  }
+
+  const revokeTesterInviteBtn = event.target.closest("[data-hdh-tester-invite-revoke]");
+  if (revokeTesterInviteBtn) {
+    event.preventDefault();
+    const inviteId = revokeTesterInviteBtn.dataset.hdhTesterInviteRevoke;
+    (async () => {
+      try {
+        const headers = await staffAuthHeaders();
+        if (!headers) return;
+        const response = await fetch(`/api/home-daycare-hub/tester-invites/${encodeURIComponent(inviteId)}`, {
+          method: "DELETE",
+          headers,
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Could not revoke tester invite.");
+        await refreshHdhTesterInvites();
+        if (hdhTesterInviteResult?.email) {
+          const still = (hdhTesterInviteCache.invites || []).some((item) => (
+            item.email === hdhTesterInviteResult.email && item.status === "pending"
+          ));
+          if (!still) hdhTesterInviteResult = null;
+        }
+        renderHomeDaycareHubPage({ refreshHouseholds: false });
+        showActionFeedback("Tester invite revoked.");
+      } catch (error) {
+        showActionFeedback(error.message || "Could not revoke tester invite.");
+      }
+    })();
+    return;
+  }
+
   const aiGuideCategory = event.target.closest("[data-ai-guide-category], [data-ai-guide-open-ask]");
   if (aiGuideCategory) {
     event.preventDefault();
@@ -61719,6 +61952,7 @@ document.addEventListener("submit", async (event) => {
     const message = document.querySelector("#hdhFullAccessInviteMessage");
     const data = collectFormData(form);
     const email = String(data.email || "").trim().toLowerCase();
+    const childName = String(data.childName || "Demo Child").trim() || "Demo Child";
     const submitBtn = form.querySelector("[type='submit']");
     if (!email) return;
     if (submitBtn) {
@@ -61726,31 +61960,25 @@ document.addEventListener("submit", async (event) => {
       submitBtn.textContent = "Sending…";
     }
     try {
-      const result = await createHdhStaffInviteRequest({
+      const result = await createHdhIndependentTesterInviteRequest({ email, childName });
+      hdhTesterInviteResult = {
         email,
-        role: "teacher",
-        visibilityPreset: "full",
-        hdhVisibility: hdhStaffVisibilityFromPreset("full"),
-      });
-      hdhStaffInviteResult = {
-        email,
-        role: "teacher",
-        visibilityPreset: "full",
-        acceptUrl: result.acceptUrl || "",
+        childName: result.invite?.childName || childName,
+        acceptUrl: result.acceptUrl || result.invite?.acceptUrl || "",
       };
       if (message) {
         message.textContent = result.email?.sent
           ? "Invite emailed. They can also use the copyable accept link below."
-          : "Invite ready — copy the accept link and send it (email delivery may be off on testing).";
+          : (result.error || "Invite ready — copy the accept link and send it (email delivery may be off on testing).");
       }
-      showActionFeedback("Full-access tester invite ready. They will not see Admin — they Message Leah in Messages.");
+      showActionFeedback("Tester invite ready — their own account + own kid. No Admin. They Message Leah in Messages.");
       renderHomeDaycareHubPage({ refreshHouseholds: false });
     } catch (error) {
       if (message) message.textContent = error.message || "Could not send invite.";
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Invite full-access tester";
+        submitBtn.textContent = "Invite tester";
       }
     }
     return;

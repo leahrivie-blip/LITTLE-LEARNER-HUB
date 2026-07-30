@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260730-hdh-full-tester-invite";
+const SHELL = "20260730-hdh-own-tester-kid";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";
@@ -124,9 +124,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v140-hdh-full-tester-invite/);
+  assert.match(sw, /llh-shell-v141-hdh-own-tester-kid/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v140-hdh-full-tester-invite");
+  assert.equal(manifest.cacheName, "llh-shell-v141-hdh-own-tester-kid");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);
@@ -223,7 +223,8 @@ async function main() {
         hasTraining: Boolean(document.querySelector("#hdhTrainingForm")),
         hasPacket: Boolean(document.querySelector("#hdhPacketForm")),
         disclaimer: document.querySelector(".hdh-disclaimer")?.textContent || "",
-        guideMentionsNoAdmin: /not Admin|never get Admin|do not have Admin/i.test(document.querySelector("#hdhTesterGuidePanel")?.innerText || ""),
+        guideMentionsNoAdmin: /not Admin|never get Admin|do not have Admin|No Admin/i.test(document.querySelector("#hdhTesterGuidePanel")?.innerText || ""),
+        guideMentionsOwnKid: /own account \+ own kid|own starter child|own kid/i.test(document.querySelector("#hdhTesterGuidePanel")?.innerText || ""),
         guideMentionsMessageLeah: /Message Leah/i.test(document.querySelector("#hdhTesterGuidePanel")?.innerText || ""),
       };
     });
@@ -232,9 +233,10 @@ async function main() {
     assert.equal(hubSnapshot.hasAi, true);
     assert.equal(hubSnapshot.hasFamily, true);
     assert.equal(hubSnapshot.hasStaff, true);
-    assert.equal(hubSnapshot.hasFullAccessInvite, true, "full-access tester invite form should be on hub");
+    assert.equal(hubSnapshot.hasFullAccessInvite, true, "independent tester invite form should be on hub");
     assert.equal(hubSnapshot.hasVisibility, true);
     assert.equal(hubSnapshot.guideMentionsNoAdmin, true, "guide should say testers do not get Admin");
+    assert.equal(hubSnapshot.guideMentionsOwnKid, true, "guide should say each tester gets own kid");
     assert.equal(hubSnapshot.guideMentionsMessageLeah, true, "guide should point testers to Message Leah");
     assert.equal(hubSnapshot.hasTraining, true);
     assert.equal(hubSnapshot.hasPacket, true);
@@ -372,40 +374,55 @@ async function main() {
     await parentPage.close();
     console.log("PASS  parent Family Hub magic-link view");
 
-    // Step E: full-access tester invite (teacher + full visibility, no Admin)
+    // Step E: independent tester invite (own account + own kid, no Admin, no shared kids)
     const FULL_TESTER = "hdh.walkthrough.full@example.com";
     await page.fill("#hdhFullAccessInviteForm input[name='email']", FULL_TESTER);
+    await page.fill("#hdhFullAccessInviteForm input[name='childName']", "Milo Tester");
     await page.click("#hdhFullAccessInviteForm button[type='submit']");
     await page.waitForSelector(".hdh-staff-invite-result", { timeout: 20000 });
-    const fullInviteApi = await request(onPort, "GET", "/api/staff/invites", {
+    const fullInviteApi = await request(onPort, "GET", "/api/home-daycare-hub/tester-invites", {
       email: OWNER,
       extraHeaders: { Origin: `http://127.0.0.1:${onPort}` },
     });
     assert.equal(fullInviteApi.status, 200, fullInviteApi.text);
     const fullInvite = (fullInviteApi.json.invites || []).find((i) => i.email === FULL_TESTER);
-    assert.ok(fullInvite, "full-access invite stored");
-    assert.equal(fullInvite.role, "teacher");
-    assert.equal(fullInvite.visibilityPreset, "full");
-    assert.equal(fullInvite.hdhVisibility?.forms_records, true);
-    assert.equal(fullInvite.hdhVisibility?.lessons, true);
-    assert.match(String(fullInvite.acceptUrl || ""), /staffInvite=/);
-    console.log("PASS  full-access tester invite (teacher + full, acceptUrl)");
+    assert.ok(fullInvite, "independent tester invite stored");
+    assert.equal(fullInvite.childName, "Milo Tester");
+    assert.match(String(fullInvite.acceptUrl || ""), /testerInvite=/);
+    const token = new URL(fullInvite.acceptUrl).searchParams.get("testerInvite");
+    assert.ok(token, "tester invite token present");
+    const acceptRes = await request(onPort, "POST", "/api/home-daycare-hub/tester-invites/accept", {
+      email: FULL_TESTER,
+      body: { token },
+    });
+    assert.equal(acceptRes.status, 200, acceptRes.text);
+    assert.equal(acceptRes.json.account?.hdhIndependentTester, true);
+    assert.equal(acceptRes.json.account?.linkedProgramOwnerEmail || "", "");
+    assert.equal(acceptRes.json.demoChild?.name, "Milo Tester");
+    const testerKids = await request(onPort, "GET", "/api/child-data", { email: FULL_TESTER });
+    assert.equal(testerKids.status, 200, testerKids.text);
+    const testerProfiles = testerKids.json?.data?.Profiles || [];
+    assert.ok(testerProfiles.some((c) => c.name === "Milo Tester"), "tester has own starter child");
+    assert.ok(!testerProfiles.some((c) => c.id === CHILD_ID), "tester does not receive owner children");
+    console.log("PASS  independent tester invite (own account + own kid)");
 
-    // Custom helper preset still available (forms_records off)
+    // Custom helper preset still available (forms_records off) under optional shared-program section
     await page.evaluate(() => {
       const details = document.querySelector("#hdhStaffCustomInviteDetails");
       if (details) details.open = true;
     });
+    await page.waitForSelector("#hdhStaffInviteForm", { timeout: 10000 });
     await page.selectOption("#hdhStaffInviteForm select[name='visibilityPreset']", "helper");
     await page.fill("#hdhStaffInviteForm input[name='email']", HELPER);
     await page.click("#hdhStaffInviteForm button[type='submit']");
-    await page.waitForFunction((helperEmail) => {
-      const msg = document.querySelector("#hdhStaffInviteMessage")?.textContent || "";
-      return /invite|sent|ready|link/i.test(msg) || document.body.innerText.includes(helperEmail);
-    }, HELPER, { timeout: 20000 });
-    const staffInviteApi = await request(onPort, "GET", "/api/staff/invites", { email: OWNER });
-    assert.equal(staffInviteApi.status, 200, staffInviteApi.text);
-    const helperInvite = (staffInviteApi.json.invites || []).find((i) => i.email === HELPER);
+    let helperInvite = null;
+    for (let i = 0; i < 40; i += 1) {
+      const staffInviteApi = await request(onPort, "GET", "/api/staff/invites", { email: OWNER });
+      assert.equal(staffInviteApi.status, 200, staffInviteApi.text);
+      helperInvite = (staffInviteApi.json.invites || []).find((item) => item.email === HELPER) || null;
+      if (helperInvite) break;
+      await page.waitForTimeout(250);
+    }
     assert.ok(helperInvite, "helper invite stored");
     assert.equal(helperInvite.visibilityPreset, "helper");
     assert.equal(helperInvite.hdhVisibility?.forms_records, false);

@@ -79,17 +79,23 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell finish markers + E/F/G UI", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-full-tester-invite"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260730-hdh-own-tester-kid"/);
   assert.match(appJs, /function renderHomeDaycareStaffInvitePanel/);
   assert.match(appJs, /function renderHomeDaycareTrainingsPanel/);
   assert.match(appJs, /function renderHomeDaycarePacketsPanel/);
   assert.match(appJs, /function renderHomeDaycareTesterGuidePanel/);
   assert.match(appJs, /Where to add testers/);
-  assert.match(appJs, /Invite full-access tester/);
+  assert.match(appJs, /Invite tester/);
   assert.match(appJs, /hdhFullAccessInviteForm/);
-  assert.match(appJs, /function createHdhStaffInviteRequest/);
+  assert.match(appJs, /function createHdhIndependentTesterInviteRequest/);
+  assert.match(appJs, /function acceptHdhTesterInviteToken/);
   assert.match(appJs, /function isLinkedProgramStaffAccount/);
+  assert.match(appJs, /function isIndependentHdhTesterAccount/);
+  assert.match(appJs, /own account \+ own kid|own starter child|own Teacher/);
   assert.match(appJs, /Message Leah/);
+  assert.match(serverJs, /\/api\/home-daycare-hub\/tester-invites/);
+  assert.match(serverJs, /handleHdhTesterInviteAccept/);
+  assert.match(serverJs, /hdhIndependentTester/);
   assert.match(appJs, /function renderHdhRoleSwitcher/);
   assert.match(appJs, /function switchHdhTesterRole/);
   assert.match(appJs, /function syncHdhTesterSwitcherChrome/);
