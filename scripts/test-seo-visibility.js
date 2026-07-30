@@ -97,6 +97,12 @@ async function main() {
   assert(org.sameAs && org.sameAs.length === 3, "sameAs must include TikTok, Facebook, and Instagram");
   assert(org.sameAs.includes("https://www.tiktok.com/@leahrpoole"), "missing TikTok sameAs");
   assert(org.sameAs.includes("https://www.instagram.com/littlelearnershubbyleah"), "missing Instagram sameAs");
+  assert(org.name === seo.BUSINESS_NAME, "Organization schema name must use official business name");
+  assert(!/Little learners hub/i.test(JSON.stringify(graph)), "structured data must not use Facebook page display name");
+
+  const forbiddenFacebookLabel = /Little learners hub/i;
+  assert(!forbiddenFacebookLabel.test(indexHtml), "homepage HTML must not display Facebook page name");
+  assert(indexHtml.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
 
   const child = startServer();
   try {
@@ -146,11 +152,19 @@ async function main() {
     assert(about.body.includes("What Little Learner Hub Does Now"), "about page missing current features section");
     assert(about.body.includes("What I&rsquo;m Building Next"), "about page missing future plans section");
     assert(about.body.includes("https://www.facebook.com/profile.php?id=61590609343290"), "about page missing Facebook link");
+    assert(about.body.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "about Facebook link missing official business aria-label");
 
     const home = await request("GET", "/");
     assert(home.body.includes('rel="canonical"'), "homepage missing injected canonical");
     assert(home.body.includes('name="google-site-verification"'), "homepage missing google verification injection");
     assert(home.body.includes('name="msvalidate.01"'), "homepage missing bing verification injection");
+    assert(home.body.includes(`aria-label="${seo.BUSINESS_NAME} on Facebook"`), "homepage Facebook link missing official business aria-label");
+    assert(!forbiddenFacebookLabel.test(home.body), "homepage must not display Facebook page name");
+
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact"]) {
+      const page = await request("GET", route);
+      assert(!forbiddenFacebookLabel.test(page.body), `${route} must not display Facebook page name`);
+    }
 
     console.log("PASS: seo visibility checks");
   } finally {
