@@ -14053,7 +14053,9 @@ function setView(view, options = {}) {
   updateSidebarDashboard();
   setMobileNavOpen(false);
   refreshContextualViewBackButtons();
-  if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
+  if (options.skipScrollReset) {
+    // Caller will position the window (e.g. homepage section nav).
+  } else if (options.fromPopState || Number.isFinite(options.restoreScrollY)) {
     restoreViewScroll(resolvedView, options.restoreScrollY);
   } else if (activeView === resolvedView && Number.isFinite(viewScrollPositions[resolvedView])) {
     restoreViewScroll(resolvedView);
@@ -24226,15 +24228,47 @@ function bindHomePublicChrome() {
   setHomePublicMenuOpen(false);
 }
 
+function homeStickyNavOffsetPx() {
+  const nav = document.querySelector("body.home-view .llh-public-nav");
+  if (!nav) return 72;
+  const height = nav.getBoundingClientRect().height;
+  return Math.max(56, Math.ceil(height || 72));
+}
+
 function scrollToHomeSection(sectionKeyOrId) {
   const sectionId = HOME_NAV_SECTION_IDS[sectionKeyOrId] || sectionKeyOrId;
   const target = document.getElementById(sectionId);
   if (!target) return false;
-  setView("home", { allowDashboard: true });
+  const alreadyOnHome = Boolean(document.querySelector("#view-home.active-view"));
+  // Avoid setView's default scroll-to-top — it races section scrolling and makes
+  // Home / Lesson Plans / Reviews nav links feel like they do nothing.
+  if (!alreadyOnHome) {
+    setView("home", { allowDashboard: true, skipScrollReset: true });
+  } else {
+    document.body.classList.add("home-view");
+  }
   setHomePublicMenuOpen(false);
+  const runScroll = () => {
+    const el = document.getElementById(sectionId);
+    if (!el) return;
+    const offset = homeStickyNavOffsetPx() + 10;
+    const top = Math.max(0, window.scrollY + el.getBoundingClientRect().top - offset);
+    window.scrollTo({ top, behavior: "smooth" });
+    try {
+      if (sectionId === "homeHero") {
+        history.replaceState(null, "", window.location.pathname + window.location.search);
+      } else {
+        history.replaceState(null, "", `#${sectionId}`);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
   requestAnimationFrame(() => {
-    target.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(runScroll);
   });
+  // Second pass after layout/menu close settles (mobile menu + sticky nav height).
+  window.setTimeout(runScroll, alreadyOnHome ? 120 : 260);
   return true;
 }
 

@@ -17,8 +17,9 @@
 }
 
 body.home-view {
-  --llh-home-nav-offset: 0px;
+  --llh-home-nav-offset: 72px;
   font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  scroll-padding-top: calc(var(--llh-home-nav-offset) + 10px);
 }
 
 body.home-view .landing-home {
@@ -172,6 +173,51 @@ body.home-view .llh-public-nav {
   align-items: center;
   gap: 8px;
   flex-shrink: 0;
+}
+
+/* Compact star rating always visible in the sticky bar (desktop + mobile). */
+.llh-nav-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 4px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: var(--llh-home-ink, #243047);
+  background: rgba(201, 133, 42, 0.1);
+  border: 1px solid rgba(201, 133, 42, 0.22);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.llh-nav-rating:hover,
+.llh-nav-rating:focus-visible {
+  background: rgba(201, 133, 42, 0.16);
+  color: var(--llh-home-ink, #243047);
+}
+
+.llh-nav-rating-stars {
+  color: #c9852a;
+  letter-spacing: 0.02em;
+  font-size: 0.72rem;
+}
+
+.llh-nav-rating-text {
+  color: var(--llh-home-muted, #5c6578);
+}
+
+/* Keep section titles clear of the sticky public nav when hash/nav scrolling. */
+body.home-view .landing-home .llh-hero,
+body.home-view .landing-home .llh-section,
+body.home-view .landing-home .lp-founder-section,
+body.home-view .landing-home .lp-reviews-section,
+body.home-view .landing-home .lp-pricing-section,
+body.home-view .landing-home .lp-final-cta {
+  scroll-margin-top: calc(var(--llh-home-nav-offset) + 10px);
 }
 
 /* Always keep Log In / Sign Up in the sticky top bar — guests should never
@@ -1070,12 +1116,21 @@ body.llh-public-menu-open {
   }
 
   .llh-public-nav {
-    gap: 10px;
+    gap: 8px;
+  }
+
+  .llh-nav-rating {
+    margin-left: auto;
+    padding: 5px 8px;
+  }
+
+  .llh-nav-rating-text {
+    display: none;
   }
 
   .llh-public-nav-actions {
     display: flex;
-    margin-left: auto;
+    margin-left: 0;
     gap: 6px;
   }
 
