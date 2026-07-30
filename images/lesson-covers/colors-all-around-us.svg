@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF5E8"/>
+      <stop offset="100%" stop-color="#F0F4FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  
+      <circle cx="180" cy="160" r="48" fill="#FF6B6B"/>
+      <circle cx="300" cy="120" r="40" fill="#FFB347"/>
+      <circle cx="420" cy="150" r="46" fill="#FFE66D"/>
+      <circle cx="540" cy="120" r="38" fill="#7DCE82"/>
+      <circle cx="650" cy="170" r="42" fill="#6C8CFF"/>
+      <ellipse cx="400" cy="360" rx="200" ry="30" fill="#F0E0D0" opacity="0.7"/>
+      <rect x="250" y="260" width="22" height="90" rx="6" fill="#FF6B6B" transform="rotate(-8 261 305)"/>
+      <rect x="320" y="250" width="22" height="100" rx="6" fill="#6C8CFF" transform="rotate(6 331 300)"/>
+      <rect x="390" y="255" width="22" height="95" rx="6" fill="#FFE66D"/>
+      <rect x="460" y="250" width="22" height="100" rx="6" fill="#7DCE82" transform="rotate(-5 471 300)"/>
+      <circle cx="560" cy="290" r="28" fill="#FF8FAB"/>
+    
+</svg>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#FFF5F5"/>
+      <stop offset="100%" stop-color="#E8F4FF"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  
+      <ellipse cx="400" cy="420" rx="320" ry="40" fill="#E8F0E0" opacity="0.9"/>
+      <polygon points="400,70 470,250 330,250" fill="#3D8B6E"/>
+      <polygon points="400,120 455,260 345,260" fill="#4FA883"/>
+      <polygon points="400,170 440,270 360,270" fill="#62C49A"/>
+      <rect x="385" y="270" width="30" height="50" rx="4" fill="#8B5A3C"/>
+      <circle cx="370" cy="160" r="10" fill="#E85D5D"/>
+      <circle cx="430" cy="190" r="9" fill="#F2C14E"/>
+      <circle cx="390" cy="220" r="8" fill="#6C8CFF"/>
+      <circle cx="420" cy="150" r="8" fill="#FF8FAB"/>
+      <rect x="160" y="280" width="70" height="50" rx="8" fill="#E85D5D"/>
+      <rect x="175" y="265" width="40" height="18" rx="4" fill="#F2C14E"/>
+      <rect x="560" y="290" width="70" height="50" rx="8" fill="#6C8CFF"/>
+      <rect x="575" y="275" width="40" height="18" rx="4" fill="#FF8FAB"/>
+      <path d="M120 120 q40 -50 80 0 q-40 20 -80 0" fill="#FFF8F0" stroke="#D0D8E8" stroke-width="3"/>
+      <path d="M620 100 q45 -55 90 0 q-45 22 -90 0" fill="#FFF8F0" stroke="#D0D8E8" stroke-width="3"/>
+      <circle cx="400" cy="85" r="12" fill="#F2C14E"/>
+      <path d="M400 70 l4 12 l12 1 l-9 8 l3 12 l-10 -7 l-10 7 l3 -12 l-9 -8 l12 -1 z" fill="#F2C14E"/>
+    
+</svg>

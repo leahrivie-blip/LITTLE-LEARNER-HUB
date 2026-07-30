@@ -20,23 +20,70 @@
   const catalogApi = (typeof globalThis !== "undefined" && globalThis.LlhLessonPlanCoverCatalog)
     || (typeof require === "function" ? require("./lesson-plan-cover-catalog.js") : null);
 
+  // Exact-title unique storybook covers (SVG) — keep different themes from sharing art.
+  const TITLE_COVER_OVERRIDES = {
+    "christmas celebration": "christmas-celebration",
+    "hibernation and winter sleep": "hibernation-winter-sleep",
+    "rainforest adventure": "rainforest-adventure",
+    "we belong together": "we-belong-together",
+    "caring hearts": "caring-hearts",
+    "my home & my family": "my-home-my-family",
+    "my home and my family": "my-home-my-family",
+    "the people who love me": "people-who-love-me",
+    "colors all around us": "colors-all-around-us",
+    "my senses": "my-senses",
+    "my five senses": "my-five-senses",
+    "friendship & feelings": "friendship-feelings",
+    "friendship and feelings": "friendship-feelings",
+    "farm friends": "farm-friends",
+    "weather wonders": "weather-wonders",
+    "under the sea": "under-the-sea",
+    "growing gardens": "growing-gardens",
+    "black & white discovery": "black-white-discovery",
+    "black and white discovery": "black-white-discovery",
+    "sensory discovery": "sensory-discovery",
+    "baby's first conversations": "babys-first-conversations",
+    "babys first conversations": "babys-first-conversations",
+    "smiles & expressions": "smiles-expressions",
+    "smiles and expressions": "smiles-expressions",
+  };
+
   // Most-specific phrases first (multi-word before single-word).
   const THEME_COVER_RULES = [
     { match: ["around the world", "world travel", "global"], cover: "around-the-world" },
-    // Family Connections unit + belonging themes before generic "faces" infant rule.
-    { match: ["family connections", "people who love", "my home and my family", "caring hearts", "we belong together", "classroom family", "belonging"], cover: "family" },
+    // Unique Family Connections weeks before the generic family fallback.
+    { match: ["we belong together"], cover: "we-belong-together" },
+    { match: ["caring hearts"], cover: "caring-hearts" },
+    { match: ["my home and my family", "my home & my family"], cover: "my-home-my-family" },
+    { match: ["people who love"], cover: "people-who-love-me" },
+    { match: ["christmas celebration", "christmas"], cover: "christmas-celebration" },
+    { match: ["hibernation", "winter sleep"], cover: "hibernation-winter-sleep" },
+    { match: ["rainforest"], cover: "rainforest-adventure" },
+    { match: ["under the sea"], cover: "under-the-sea" },
+    { match: ["growing gardens"], cover: "growing-gardens" },
+    { match: ["weather wonders"], cover: "weather-wonders" },
+    { match: ["farm friends"], cover: "farm-friends" },
+    { match: ["friendship and feelings", "friendship & feelings"], cover: "friendship-feelings" },
+    { match: ["colors all around"], cover: "colors-all-around-us" },
+    { match: ["my five senses"], cover: "my-five-senses" },
+    { match: ["my senses"], cover: "my-senses" },
+    { match: ["black and white discovery", "black & white discovery"], cover: "black-white-discovery" },
+    { match: ["sensory discovery"], cover: "sensory-discovery" },
+    { match: ["baby s first conversations", "babys first conversations", "first conversations"], cover: "babys-first-conversations" },
+    { match: ["smiles and expressions", "smiles & expressions"], cover: "smiles-expressions" },
+    { match: ["family connections", "classroom family", "belonging"], cover: "family" },
     { match: ["reaching", "grasping", "reach and grasp"], cover: "reaching-grasping" },
     { match: ["tummy time", "tummy-time"], cover: "tummy-time" },
     { match: ["peek a boo", "peek-a-boo", "peekaboo"], cover: "peek-a-boo" },
     { match: ["nursery rhyme", "nursery rhymes", "lullaby", "lullabies"], cover: "nursery-rhymes" },
-    { match: ["five senses", "5 senses", "my five senses", "senses"], cover: "five-senses" },
+    { match: ["five senses", "5 senses", "senses"], cover: "five-senses" },
     { match: ["music and movement", "music & movement", "music movement"], cover: "music-movement" },
     { match: ["community helper", "community helpers"], cover: "community-helpers" },
     { match: ["kindergarten readiness", "school readiness"], cover: "kindergarten-readiness" },
     { match: ["healthy habit", "healthy habits", "wellness"], cover: "healthy-habits" },
     { match: ["fairy tale", "fairy tales", "fairytale"], cover: "fairy-tales" },
     { match: ["water play", "water wonders", "splash"], cover: "water-play" },
-    { match: ["animal sound", "baby conversation", "soft sounds", "faces"], cover: "baby-sounds" },
+    { match: ["animal sound", "soft sounds", "faces"], cover: "baby-sounds" },
     { match: ["mirror me", "mirror play", "mirrors"], cover: "mirror-me" },
     { match: ["color", "colours", "rainbow", "crayon", "paint"], cover: "colors" },
     { match: ["farm", "barn", "rooster", "cow"], cover: "farm" },
@@ -53,7 +100,7 @@
     { match: ["garden", "plant", "seed", "flower", "gardening"], cover: "garden" },
     { match: ["insect", "bug", "butterfly", "bugs"], cover: "insects" },
     { match: ["animal", "zoo", "pet", "habitat"], cover: "animals" },
-    { match: ["family", "belonging", "all about me", "about me"], cover: "family" },
+    { match: ["family", "all about me", "about me"], cover: "family" },
     { match: ["feeling", "emotion", "feelings", "emotions"], cover: "feelings" },
     { match: ["body", "my body"], cover: "my-body" },
     { match: ["construction", "building", "block", "engineer", "inventor"], cover: "building" },
@@ -70,7 +117,7 @@
     { match: ["pet", "pets", "vet", "veterinarian"], cover: "animals" },
     { match: ["camping", "camp"], cover: "nature" },
     { match: ["stem", "science", "scientist", "archaeology"], cover: "kindergarten-readiness" },
-    { match: ["holiday", "easter", "july", "new year", "christmas", "halloween"], cover: "seasons" },
+    { match: ["holiday", "easter", "july", "new year", "halloween"], cover: "seasons" },
   ];
 
   // Theme-rule SVG slugs → preferred illustrated JPG slugs when available.
@@ -96,7 +143,8 @@
     feelings: "feelings-emotions",
     garden: "gardening-plants",
     animals: "zoo-adventure",
-    family: "all-about-me",
+    // Keep family weeks on unique SVG storybook covers (see TITLE_COVER_OVERRIDES).
+    // "All About Me" still uses its illustrated JPG via exact catalog title match.
     nature: "camping-adventure",
     "water-play": "water-play-wonders",
     "baby-sounds": "animal-sounds",
@@ -127,6 +175,25 @@
     { id: "garden", label: "Garden (SVG)", category: "Nature", path: `${COVER_BASE}/garden.svg` },
     { id: "insects", label: "Insects & Bugs (SVG)", category: "Animals", path: `${COVER_BASE}/insects.svg` },
     { id: "family", label: "Family & Belonging", category: "Health and Self", path: `${COVER_BASE}/family.svg` },
+    { id: "we-belong-together", label: "We Belong Together", category: "Health and Self", path: `${COVER_BASE}/we-belong-together.svg` },
+    { id: "caring-hearts", label: "Caring Hearts", category: "Health and Self", path: `${COVER_BASE}/caring-hearts.svg` },
+    { id: "my-home-my-family", label: "My Home & My Family", category: "Health and Self", path: `${COVER_BASE}/my-home-my-family.svg` },
+    { id: "people-who-love-me", label: "The People Who Love Me", category: "Health and Self", path: `${COVER_BASE}/people-who-love-me.svg` },
+    { id: "christmas-celebration", label: "Christmas Celebration", category: "Seasonal", path: `${COVER_BASE}/christmas-celebration.svg` },
+    { id: "hibernation-winter-sleep", label: "Hibernation & Winter Sleep", category: "Nature", path: `${COVER_BASE}/hibernation-winter-sleep.svg` },
+    { id: "rainforest-adventure", label: "Rainforest Adventure", category: "Nature", path: `${COVER_BASE}/rainforest-adventure.svg` },
+    { id: "under-the-sea", label: "Under the Sea", category: "Nature", path: `${COVER_BASE}/under-the-sea.svg` },
+    { id: "growing-gardens", label: "Growing Gardens", category: "Nature", path: `${COVER_BASE}/growing-gardens.svg` },
+    { id: "weather-wonders", label: "Weather Wonders", category: "Nature", path: `${COVER_BASE}/weather-wonders.svg` },
+    { id: "farm-friends", label: "Farm Friends", category: "Animals", path: `${COVER_BASE}/farm-friends.svg` },
+    { id: "friendship-feelings", label: "Friendship & Feelings", category: "Health and Self", path: `${COVER_BASE}/friendship-feelings.svg` },
+    { id: "colors-all-around-us", label: "Colors All Around Us", category: "Infant Development", path: `${COVER_BASE}/colors-all-around-us.svg` },
+    { id: "my-senses", label: "My Senses", category: "Infant Development", path: `${COVER_BASE}/my-senses.svg` },
+    { id: "my-five-senses", label: "My Five Senses", category: "Health and Self", path: `${COVER_BASE}/my-five-senses.svg` },
+    { id: "black-white-discovery", label: "Black & White Discovery", category: "Infant Development", path: `${COVER_BASE}/black-white-discovery.svg` },
+    { id: "sensory-discovery", label: "Sensory Discovery", category: "Infant Development", path: `${COVER_BASE}/sensory-discovery.svg` },
+    { id: "babys-first-conversations", label: "Baby's First Conversations", category: "Infant Development", path: `${COVER_BASE}/babys-first-conversations.svg` },
+    { id: "smiles-expressions", label: "Smiles & Expressions", category: "Infant Development", path: `${COVER_BASE}/smiles-expressions.svg` },
     { id: "feelings", label: "Feelings & Emotions (SVG)", category: "Health and Self", path: `${COVER_BASE}/feelings.svg` },
     { id: "my-body", label: "My Body", category: "Health and Self", path: `${COVER_BASE}/my-body.svg` },
     { id: "community-helpers-svg", label: "Community Helpers (SVG)", category: "Community", path: `${COVER_BASE}/community-helpers.svg` },
@@ -185,9 +252,13 @@
   }
 
   function getPlanCatalogCover(title) {
+    const key = String(title || "").trim().toLowerCase();
+    const overrideSlug = TITLE_COVER_OVERRIDES[key];
+    if (overrideSlug) return `${COVER_BASE}/${overrideSlug}.svg`;
     const entry = catalogApi?.getPlanCoverByTitle?.(title);
     if (!entry) return "";
-    return `${COVER_BASE}/${entry.slug}.jpg`;
+    const ext = entry.format === "svg" ? "svg" : "jpg";
+    return `${COVER_BASE}/${entry.slug}.${ext}`;
   }
 
   function getMappedThemeCover(title, theme) {
@@ -203,6 +274,10 @@
         return paddedHaystack.includes(` ${normalizedPhrase} `)
           || paddedHaystack.includes(` ${normalizedPhrase}s `);
       })) {
+        // Prefer unique SVG when the rule slug is not an illustrated JPG alias.
+        if (!THEME_PHOTO_ALIASES[rule.cover] && !PHOTO_SLUGS.has(rule.cover)) {
+          return `${COVER_BASE}/${rule.cover}.svg`;
+        }
         return coverPath(rule.cover);
       }
     }
@@ -317,6 +392,7 @@
     EXISTING_COVER_LIBRARY,
     SVG_COVER_LIBRARY,
     PHOTO_COVER_LIBRARY,
+    TITLE_COVER_OVERRIDES,
     THEME_COVER_RULES,
     THEME_PHOTO_ALIASES,
     normalizeTheme,

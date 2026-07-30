@@ -103,12 +103,12 @@ test("homepage and FAQ marketing match Free starter library", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-admin-messaging-inbox");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-admin-messaging-inbox");
-  assert.match(sw, /llh-shell-v121-admin-messaging-inbox/);
-  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-admin-messaging-inbox/);
-  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-admin-messaging-inbox/);
-  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-admin-messaging-inbox/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-cover-refresh");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-cover-refresh");
+  assert.match(sw, /llh-shell-v122-cover-refresh/);
+  assert.match(sw, /free-curriculum-sample\.js\?v=20260730-cover-refresh/);
+  assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-cover-refresh/);
+  assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-cover-refresh/);
 });
 
 function requestJson(method, urlPath, body) {

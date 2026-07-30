@@ -223,7 +223,9 @@
     "complete:truncated-weeks": "node scripts/complete-truncated-weekday-imports.js",
     "test:weekday-activities-audit": "node scripts/test-weekday-activities-audit.js",
     "repair:incomplete-curriculum": "node scripts/repair-incomplete-curriculum-plans.js",
-    "test:admin-messaging-inbox": "NODE_ENV=test node scripts/test-admin-messaging-inbox.js"
+    "test:admin-messaging-inbox": "NODE_ENV=test node scripts/test-admin-messaging-inbox.js",
+    "generate:theme-unique-covers": "node scripts/generate-theme-unique-covers.js",
+    "live:assign-unique-covers": "node scripts/live-assign-unique-covers.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

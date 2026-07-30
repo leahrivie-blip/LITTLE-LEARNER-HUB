@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#F3E8FF"/>
+      <stop offset="100%" stop-color="#FFF5F0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  
+      <ellipse cx="400" cy="400" rx="300" ry="40" fill="#E8D8F0" opacity="0.8"/>
+      <circle cx="400" cy="200" r="42" fill="#FFD4B8"/>
+      <ellipse cx="400" cy="290" rx="48" ry="60" fill="#B388FF"/>
+      <circle cx="260" cy="230" r="34" fill="#E8B898"/>
+      <ellipse cx="260" cy="310" rx="38" ry="50" fill="#FF8FAB"/>
+      <circle cx="540" cy="230" r="34" fill="#D4A574"/>
+      <ellipse cx="540" cy="310" rx="38" ry="50" fill="#6C8CFF"/>
+      <path d="M310 260 Q400 320 490 260" fill="none" stroke="#E85D5D" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="180" cy="120" r="14" fill="#F2C14E"/>
+      <circle cx="620" cy="110" r="12" fill="#7DCE82"/>
+      <path d="M400 90 C388 78 368 84 368 100 C368 84 348 78 336 90 C348 66 376 66 400 86 C424 66 452 66 464 90 C452 78 432 84 432 100 C432 84 412 78 400 90 Z" fill="#E85D5D"/>
+    
+</svg>

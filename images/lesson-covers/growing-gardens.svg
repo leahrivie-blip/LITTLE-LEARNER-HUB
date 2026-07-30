@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="450" viewBox="0 0 800 450" role="img">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#E8FFE8"/>
+      <stop offset="100%" stop-color="#FFF8E0"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  
+      <ellipse cx="400" cy="400" rx="340" ry="45" fill="#C4A484"/>
+      <rect x="200" y="250" width="14" height="120" rx="4" fill="#3D8B6E"/>
+      <circle cx="207" cy="230" r="28" fill="#E85D5D"/>
+      <circle cx="190" cy="245" r="20" fill="#FF8FAB"/>
+      <circle cx="224" cy="245" r="20" fill="#FF8FAB"/>
+      <rect x="360" y="240" width="16" height="130" rx="4" fill="#3D8B6E"/>
+      <ellipse cx="368" cy="220" rx="40" ry="28" fill="#7DCE82"/>
+      <ellipse cx="340" cy="235" rx="28" ry="20" fill="#4FA883"/>
+      <ellipse cx="396" cy="235" rx="28" ry="20" fill="#4FA883"/>
+      <rect x="520" y="260" width="14" height="110" rx="4" fill="#3D8B6E"/>
+      <circle cx="527" cy="240" r="26" fill="#F2C14E"/>
+      <circle cx="510" cy="255" r="18" fill="#FFE66D"/>
+      <circle cx="544" cy="255" r="18" fill="#FFE66D"/>
+      <circle cx="150" cy="120" r="40" fill="#F2C14E" opacity="0.85"/>
+      <rect x="620" y="300" width="50" height="40" rx="6" fill="#8B5A3C"/>
+      <circle cx="645" cy="290" r="18" fill="#7DCE82"/>
+    
+</svg>

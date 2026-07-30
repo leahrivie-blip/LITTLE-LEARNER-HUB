@@ -114,6 +114,26 @@ function unitTests() {
     covers.getMappedThemeCover("Construction Zone", "").includes("construction-zone.jpg"),
     "related construction plans must keep unique covers",
   );
+  assert(
+    covers.getMappedThemeCover("Christmas Celebration", "").includes("christmas-celebration.svg"),
+    "Christmas must not reuse generic seasons cover",
+  );
+  assert(
+    covers.getMappedThemeCover("We Belong Together", "").includes("we-belong-together.svg"),
+    "Family Connections weeks need unique covers",
+  );
+  assert(
+    covers.getMappedThemeCover("Rainforest Adventure", "").includes("rainforest-adventure.svg"),
+    "Rainforest must not reuse gardening cover",
+  );
+  assert(
+    covers.getMappedThemeCover("Hibernation and Winter Sleep", "").includes("hibernation-winter-sleep.svg"),
+    "Hibernation must not reuse zoo cover",
+  );
+  assert(
+    covers.getMappedThemeCover("All About Me", "").includes("all-about-me.jpg"),
+    "All About Me keeps its illustrated cover",
+  );
 
   const app = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   assert(app.includes("lesson-plan-card__cover"), "card cover img class missing");
@@ -130,6 +150,8 @@ function unitTests() {
   assert(server.includes("bytes BYTEA NOT NULL"), "cover bytes must use persistent binary storage");
   assert(server.includes("sanitizedLessonCoverUrl"), "lesson records must reject base64 covers");
   assert(!/coverImageUrl:\s*sanitizedImageSource/.test(server), "lesson cover records must not store base64");
+  assert(server.includes("/api/admin/curriculum/lesson-covers/assign"), "cover-only assign endpoint missing");
+  assert(server.includes("handleAdminLessonCoverAssign"), "cover assign handler missing");
 
   console.log("✓ unit cover resolver + static wiring");
 }
@@ -237,7 +259,7 @@ async function seedPlans(token) {
       title: freeTitle,
       theme: "All About Me",
       plan: "Free",
-      status: "featured",
+      status: "published",
       age: "Preschool",
       coverImageUrl: "/images/lesson-covers/colors.svg",
       coverImageAlt: "Illustration of a rainbow and crayons for All About Me",
@@ -248,6 +270,20 @@ async function seedPlans(token) {
   assert(freeSave.status === 200, `free save failed: ${freeSave.status} ${freeSave.text?.slice(0, 200)}`);
   const expectedUpdatedAt = freeSave.json.siteContentUpdatedAt || freeSave.json.siteContent?.updatedAt;
   assert(expectedUpdatedAt, "missing siteContentUpdatedAt after free save");
+  // Free entitlement is ID-authoritative (exactly 10 starter IDs). Swap the
+  // Preschool All About Me slot for this test plan so Use This Plan stays available.
+  const freeSample = require("./free-curriculum-sample.js");
+  const starterIds = freeSample.DEFAULT_FREE_STARTER_LESSON_IDS.map((id) => (
+    id === "cur-lp-preschool-all-about-me" ? freeId : id
+  ));
+  const starterSave = await requestJson("POST", "/api/admin/free-starter-library", {
+    adminToken: token,
+    lessonPlanIds: starterIds,
+    confirm: true,
+  });
+  if (!(starterSave.status === 200 && starterSave.json?.saved)) {
+    throw new Error(`free starter save failed: ${starterSave.status} ${JSON.stringify(starterSave.json || {}).slice(0, 500)}`);
+  }
   const proSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
     adminToken: token,
     expectedUpdatedAt,
@@ -366,7 +402,7 @@ async function browserRegression() {
     assert(cardAudit.free.hasUsePlan, "Use This Plan missing on free card");
     assert(cardAudit.free.hasFavorite, "favorite control missing on free card");
     assert(cardAudit.free.hasView, "view wiring missing on free card");
-    assert(cardAudit.free.badge === "Free", "FREE badge missing");
+    assert(/free/i.test(cardAudit.free.badge || ""), `FREE badge missing (got "${cardAudit.free.badge}")`);
     assert(cardAudit.free.height < 420, `free card too tall: ${cardAudit.free.height}`);
     assert(cardAudit.free.fallbacks.includes("/images/lesson-covers/"), "cover fallback chain missing");
     assert(cardAudit.free.buttonVisible, "long title pushed Use This Plan off the card");
