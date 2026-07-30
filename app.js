@@ -5576,7 +5576,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5592,7 +5592,7 @@ const adminGroups = [
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
   { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "free-starter-library", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
-  { id: "messages", icon: "💬", label: "Messages", tabs: ["messages-home", "admin-inbox", "messages-conversations", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-home" },
+  { id: "messages", icon: "💬", label: "Messages", tabs: ["messages-home", "messages-conversations", "messages-automations", "admin-inbox", "messages-sent", "messages-drafts", "messages-archived", "messages-compose", "messages-email", "message-templates", "welcome-messages", "automations"], defaultTab: "messages-conversations" },
   { id: "website", icon: "🌐", label: "Website", tabs: ["website-home", "hero", "trust", "journey", "reviews-cta", "founding", "pricing", "free-plan", "promo-codes", "faqs", "announcement", "in-app-announcements", "upgrade-msg", "changelog", "images"], defaultTab: "website-home" },
   { id: "ai", icon: "🤖", label: "AI Tools", tabs: ["ai-home", "ai-tools", "ai-health", "usage", "settings"], defaultTab: "ai-home" },
   { id: "system-health", icon: "💚", label: "System Health", tabs: ["system-health"], defaultTab: "system-health" },
@@ -5623,6 +5623,7 @@ const adminGroupForTab = {
   "admin-inbox": "messages",
   "messages-compose": "messages",
   "messages-conversations": "messages",
+  "messages-automations": "messages",
   "messages-sent": "messages",
   "messages-drafts": "messages",
   "messages-archived": "messages",
@@ -5689,7 +5690,8 @@ const adminTabLabels = {
   "messages-home": "Messages Home",
   "admin-inbox": "Inbox",
   "messages-compose": "New Message",
-  "messages-conversations": "All Conversations",
+  "messages-conversations": "New Messages",
+  "messages-automations": "Welcome Sent",
   "messages-sent": "Sent",
   "messages-drafts": "Drafts",
   "messages-archived": "Archived",
@@ -12254,32 +12256,42 @@ let adminMessagesState = {
 };
 
 const adminMessagesWorkspaceTabs = [
-  { id: "admin-inbox", label: "Inbox" },
-  { id: "messages-conversations", label: "All Conversations" },
+  { id: "messages-conversations", label: "New Messages", primary: true },
+  { id: "messages-automations", label: "Welcome Sent" },
+  { id: "admin-inbox", label: "Support Inbox" },
   { id: "messages-sent", label: "Sent" },
   { id: "messages-drafts", label: "Drafts" },
   { id: "messages-archived", label: "Archived" },
-  { id: "messages-compose", label: "New Message", primary: true },
-  { id: "messages-email", label: "Email User", primary: true },
+  { id: "messages-compose", label: "Compose" },
+  { id: "messages-email", label: "Email User" },
   { id: "message-templates", label: "Templates" },
-  { id: "welcome-messages", label: "Welcome Messages" },
+  { id: "welcome-messages", label: "Welcome Setup" },
   { id: "automations", label: "Automations" },
 ];
 
+if (!Object.prototype.hasOwnProperty.call(adminMessagesState, "inboxBucket")) {
+  adminMessagesState.inboxBucket = "new";
+}
+if (!Object.prototype.hasOwnProperty.call(adminMessagesState, "messagingSummary")) {
+  adminMessagesState.messagingSummary = { newMessages: 0, unreadConversations: 0, welcomeOnly: 0, emailOnMemberMessage: true };
+}
+
 function adminMessagesWorkspaceUnreadCount() {
+  const summaryUnread = Number(adminMessagesState.messagingSummary?.unreadConversations || 0);
+  if (summaryUnread > 0) return summaryUnread;
   return (adminMessagesState.conversations || []).reduce((sum, row) => sum + Number(row.unreadFromUser || 0), 0);
 }
 
 function adminMessagesWorkspaceNavHtml(activeTabId) {
   const unread = adminMessagesWorkspaceUnreadCount();
-  const inboxUnread = unread;
+  const welcomeCount = Number(adminMessagesState.messagingSummary?.welcomeOnly || 0);
   return `
     <nav class="admin-messages-workspace-nav" aria-label="Communications workspace">
       ${adminMessagesWorkspaceTabs.map((tab) => `
         <button type="button" class="admin-messages-workspace-btn${tab.id === activeTabId ? " active" : ""}${tab.primary ? " is-primary" : ""}" data-admin-messages-workspace-tab="${escapeHtml(tab.id)}">
           ${escapeHtml(tab.label)}
-          ${tab.id === "messages-conversations" && unread ? `<span class="admin-messages-workspace-badge">${unread > 99 ? "99+" : unread}</span>` : ""}
-          ${tab.id === "admin-inbox" && inboxUnread ? `<span class="admin-messages-workspace-badge">${inboxUnread > 99 ? "99+" : inboxUnread}</span>` : ""}
+          ${tab.id === "messages-conversations" && unread ? `<span class="admin-messages-workspace-badge" title="Unread member messages">${unread > 99 ? "99+" : unread}</span>` : ""}
+          ${tab.id === "messages-automations" && welcomeCount ? `<span class="admin-messages-workspace-badge is-muted" title="Welcome-only threads">${welcomeCount > 99 ? "99+" : welcomeCount}</span>` : ""}
         </button>
       `).join("")}
     </nav>
@@ -12347,13 +12359,28 @@ function adminConversationMessagesSignature(messages) {
 
 function adminConversationItemHtml(c) {
   const name = c.userName || adminMessagingUserByEmail(c.userEmail)?.name || c.userEmail;
-  const meta = [c.businessName, c.plan].filter(Boolean).join(" · ");
+  const unread = Number(c.unreadFromUser || 0);
+  const isActive = c.userEmail === adminMessagesState.activeConversationEmail;
+  const timeLabel = messagingRelativeTime(c.lastMessageAt);
+  const bucketLabel = c.isWelcomeOnly
+    ? "Welcome"
+    : unread > 0
+      ? "Unread"
+      : c.hasUserReply
+        ? "Read"
+        : "Sent";
   return `
-    <button type="button" class="admin-conversation-item${c.userEmail === adminMessagesState.activeConversationEmail ? " active" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
-      <strong>${escapeHtml(name)}</strong>
-      <span class="admin-conversation-email">${escapeHtml(c.userEmail)}${meta ? ` · ${escapeHtml(meta)}` : ""}</span>
+    <button type="button" class="admin-conversation-item${isActive ? " active" : ""}${unread > 0 ? " is-unread" : ""}${c.isWelcomeOnly ? " is-welcome" : ""}" data-admin-conversation="${escapeHtml(c.userEmail)}">
+      <span class="admin-conversation-item-top">
+        <strong class="admin-conversation-name">${escapeHtml(name)}</strong>
+        ${unread > 0 ? `<span class="admin-conversation-unread" aria-label="${unread} unread">${unread > 99 ? "99+" : unread}</span>` : ""}
+      </span>
+      <span class="admin-conversation-plan">${escapeHtml(c.plan || "Free")}${c.businessName ? ` · ${escapeHtml(c.businessName)}` : ""}</span>
       <span class="admin-conversation-preview">${escapeHtml(c.lastMessagePreview || "")}</span>
-      ${c.unreadFromUser ? `<span class="admin-conversation-unread">${c.unreadFromUser}</span>` : ""}
+      <span class="admin-conversation-meta-row">
+        <span class="admin-conversation-time">${escapeHtml(timeLabel)}</span>
+        <span class="admin-conversation-bucket-tag">${escapeHtml(bucketLabel)}</span>
+      </span>
     </button>
   `;
 }
@@ -12373,8 +12400,9 @@ async function refreshAdminConversationThreadLive(userEmail) {
   if (!clean || adminMessagesState.activeConversationEmail !== clean) return;
   const token = adminSession()?.token || "";
   if (!token) return;
+  // markRead=0 — live poll must never clear unread badges in the background.
   const res = await fetch(
-    `/api/admin/messages/conversation?userEmail=${encodeURIComponent(clean)}`,
+    `/api/admin/messages/conversation?userEmail=${encodeURIComponent(clean)}&markRead=0`,
     { cache: "no-store", headers: { Authorization: `Bearer ${token}` } },
   );
   const data = await res.json().catch(() => ({}));
@@ -12408,7 +12436,8 @@ async function refreshAdminConversationsLive() {
   try {
     const token = adminSession()?.token || "";
     if (!token) return;
-    const res = await fetch(`/api/admin/conversations`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const bucket = adminMessagesState.inboxBucket || "new";
+    const res = await fetch(`/api/admin/conversations?bucket=${encodeURIComponent(bucket)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!assertAdminApiResponse(res, data, { render: false })) {
       adminMessagesState.authError = "Admin session expired. Unlock Admin again to refresh conversations.";
@@ -12416,6 +12445,7 @@ async function refreshAdminConversationsLive() {
     }
     if (!res.ok) return;
     adminMessagesState.authError = "";
+    if (data.summary) adminMessagesState.messagingSummary = data.summary;
     const next = Array.isArray(data.conversations) ? data.conversations : [];
     const prevSig = adminConversationsListSignature(adminMessagesState.conversations);
     const nextSig = adminConversationsListSignature(next);
@@ -12648,7 +12678,7 @@ async function adminMessagesSend(payload) {
 
 function renderAdminMessagesCenter(tab) {
   const composeTabs = new Set(["messages-compose", "messages-email"]);
-  adminMessagesState.tab = tab === "messages-conversations"
+  adminMessagesState.tab = tab === "messages-conversations" || tab === "messages-automations"
     ? "conversations"
     : composeTabs.has(tab)
       ? "compose"
@@ -12664,7 +12694,13 @@ function renderAdminMessagesCenter(tab) {
     adminMessagesState.deliverVia = "email";
     renderAdminMessagesCompose(container, { mode: "email" });
   } else if (tab === "messages-conversations") {
+    if (!["new", "unread", "all"].includes(adminMessagesState.inboxBucket)) {
+      adminMessagesState.inboxBucket = "new";
+    }
     renderAdminMessagesConversations(container);
+  } else if (tab === "messages-automations") {
+    adminMessagesState.inboxBucket = "welcome";
+    renderAdminMessagesConversations(container, { mode: "welcome" });
   } else if (tab === "messages-sent") {
     stopAdminConversationsLiveRefresh();
     renderAdminMessagesSent(container);
@@ -12763,11 +12799,17 @@ function renderAdminMessagesCompose(container, options = {}) {
   syncAdminMessageSelectedChips();
 }
 
-async function renderAdminMessagesConversations(container) {
+async function renderAdminMessagesConversations(container, options = {}) {
+  const mode = options.mode === "welcome" ? "welcome" : "inbox";
+  if (mode === "welcome") adminMessagesState.inboxBucket = "welcome";
+  else if (!adminMessagesState.inboxBucket || adminMessagesState.inboxBucket === "welcome") {
+    adminMessagesState.inboxBucket = "new";
+  }
   container.innerHTML = `<p class="messages-loading">Loading conversations…</p>`;
   const token = adminSession()?.token || "";
+  const bucket = adminMessagesState.inboxBucket || "new";
   try {
-    const res = await fetch(`/api/admin/conversations`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
+    const res = await fetch(`/api/admin/conversations?bucket=${encodeURIComponent(bucket)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!assertAdminApiResponse(res, data, { render: false })) {
       adminMessagesState.authError = "Admin session expired. Unlock Admin again to load conversations.";
@@ -12783,13 +12825,14 @@ async function renderAdminMessagesConversations(container) {
     }
     adminMessagesState.authError = "";
     adminMessagesState.conversations = Array.isArray(data.conversations) ? data.conversations : [];
+    if (data.summary) adminMessagesState.messagingSummary = data.summary;
   } catch (error) {
     console.warn("Could not load admin conversations", error);
     container.innerHTML = `<p class="messages-empty">Could not load conversations. Check your connection and try again.</p>`;
     stopAdminConversationsLiveRefresh();
     return;
   }
-  renderAdminConversationsBody(container);
+  renderAdminConversationsBody(container, { mode });
   startAdminConversationsLiveRefresh();
   if (adminMessagesState.activeConversationEmail) {
     await openAdminConversation(adminMessagesState.activeConversationEmail);
@@ -12957,29 +13000,57 @@ async function renderAdminMessagesArchived(container) {
   `;
 }
 
-function renderAdminConversationsBody(container) {
+function renderAdminConversationsBody(container, options = {}) {
+  const mode = options.mode === "welcome" || adminMessagesState.inboxBucket === "welcome" ? "welcome" : "inbox";
   const conversations = filteredAdminConversations();
   const total = adminMessagesState.conversations.length;
+  const summary = adminMessagesState.messagingSummary || {};
+  const unreadCount = Number(summary.unreadConversations || adminMessagesWorkspaceUnreadCount() || 0);
+  const newCount = Number(summary.newMessages || 0);
+  const emailOn = summary.emailOnMemberMessage !== false;
+  const emptyCopy = mode === "welcome"
+    ? "No automatic welcome messages waiting without a member reply."
+    : unreadCount
+      ? "No conversations match that search."
+      : "No new member messages yet. Welcome automations stay in Welcome Sent until someone replies.";
   const listHtml = conversations.length
     ? conversations.map(adminConversationItemHtml).join("")
-    : `<p class="messages-empty">${total ? "No conversations match that name." : "No private conversations yet."}</p>`;
+    : `<div class="admin-messages-empty-state"><p class="messages-empty">${total ? "No conversations match that name." : emptyCopy}</p></div>`;
+  const navTab = mode === "welcome" ? "messages-automations" : "messages-conversations";
   container.innerHTML = `
-    ${adminMessagesWorkspaceNavHtml("messages-conversations")}
-    <div class="section-heading">
+    ${adminMessagesWorkspaceNavHtml(navTab)}
+    <div class="admin-new-messages-hero" aria-live="polite">
       <div>
-        <p class="eyebrow">Member Messaging</p>
-        <h3>All conversations</h3>
-        <p class="muted-copy">Full private-message history with each member. Search by name, email, or subject. Open a thread to reply.</p>
+        <p class="eyebrow">${mode === "welcome" ? "Sent Automations" : "Inbox"}</p>
+        <h3>${mode === "welcome" ? "Welcome Sent" : "New Messages"}</h3>
+        <p class="muted-copy">${mode === "welcome"
+          ? "Automatic welcome messages only. They do not count as New Messages until the member replies. Full history stays together after they write back."
+          : "Member replies and new inbound messages. Unread threads stay highlighted at the top until you open or mark them read."}</p>
+      </div>
+      <div class="admin-new-messages-count${unreadCount ? " has-unread" : ""}">
+        <strong>${mode === "welcome" ? Number(summary.welcomeOnly || total || 0) : unreadCount}</strong>
+        <span>${mode === "welcome" ? "welcome-only threads" : "new unread"}</span>
       </div>
     </div>
+    ${mode === "inbox" ? `
+    <div class="admin-inbox-filter-row" role="tablist" aria-label="Message filters">
+      <button type="button" class="admin-inbox-filter${adminMessagesState.inboxBucket === "new" ? " active" : ""}" data-admin-inbox-bucket="new">New / replies (${newCount})</button>
+      <button type="button" class="admin-inbox-filter${adminMessagesState.inboxBucket === "unread" ? " active" : ""}" data-admin-inbox-bucket="unread">Unread (${unreadCount})</button>
+      <button type="button" class="admin-inbox-filter${adminMessagesState.inboxBucket === "all" ? " active" : ""}" data-admin-inbox-bucket="all">All member threads</button>
+    </div>
+    <label class="admin-message-email-toggle">
+      <input type="checkbox" id="adminMessageEmailAlertsToggle" ${emailOn ? "checked" : ""} />
+      Email me when a member sends a new message
+    </label>
+    ` : ""}
     <div class="admin-conversations-toolbar">
-      <label class="admin-conversations-search-label" for="adminConversationsSearch">Search conversations</label>
-      <input type="search" id="adminConversationsSearch" class="admin-conversations-search" placeholder="Search by name, email, or subject…" value="${escapeHtml(adminMessagesState.conversationSearch || "")}" />
+      <label class="admin-conversations-search-label" for="adminConversationsSearch">Search</label>
+      <input type="search" id="adminConversationsSearch" class="admin-conversations-search" placeholder="Search by name, email, or message…" value="${escapeHtml(adminMessagesState.conversationSearch || "")}" />
     </div>
     <div class="admin-conversations-layout">
-      <div class="admin-conversations-list">${listHtml}</div>
+      <div class="admin-conversations-list" aria-label="${mode === "welcome" ? "Welcome sent list" : "New messages list"}">${listHtml}</div>
       <div class="admin-conversation-thread" id="adminConversationThread">
-        <p class="messages-empty">Select a conversation to view the full history and reply.</p>
+        <p class="messages-empty">Select a conversation to view the full history and reply. The list stays open beside the thread.</p>
       </div>
     </div>
   `;
@@ -13061,12 +13132,15 @@ function renderAdminConversationThread() {
   if (!threadEl) return;
   const messages = adminMessagesState.activeConversationMessages;
   const user = adminMessagesState.activeConversationUser;
-  const displayName = user?.name || adminMessagesState.activeConversationEmail;
+  const email = adminMessagesState.activeConversationEmail;
+  const displayName = user?.name || email;
+  const row = (adminMessagesState.conversations || []).find((c) => c.userEmail === email);
+  const unread = Number(row?.unreadFromUser || 0);
   const bubbles = messages.length
     ? messages.map((m) => `
-      <div class="message-bubble ${m.senderType === "admin" ? "message-bubble-mine" : "message-bubble-admin"}">
+      <div class="message-bubble ${m.senderType === "admin" ? "message-bubble-mine" : "message-bubble-admin"}${m.isAutomation ? " is-automation" : ""}">
         <div class="message-bubble-meta">
-          <strong>${escapeHtml(m.senderType === "admin" ? "You" : displayName)}</strong>
+          <strong>${escapeHtml(m.senderType === "admin" ? (m.isAutomation ? "Welcome automation" : "You") : displayName)}</strong>
           <span>${escapeHtml(messagingRelativeTime(m.createdAt))}</span>
           ${m.senderType === "admin" ? adminMessageDeliveryStatusHtml(m) : ""}
         </div>
@@ -13077,6 +13151,10 @@ function renderAdminConversationThread() {
     : `<p class="messages-empty">No messages yet.</p>`;
   threadEl.innerHTML = `
     ${adminConversationProfileHtml(user)}
+    <div class="admin-conversation-actions">
+      <button type="button" class="ghost-button" data-admin-mark-read="${escapeHtml(email)}" ${unread ? "" : "disabled"}>Mark as read</button>
+      <button type="button" class="ghost-button" data-admin-mark-unread="${escapeHtml(email)}">Mark as unread</button>
+    </div>
     <div class="messages-thread" id="adminMessagesThread">${bubbles}</div>
     <form class="messages-reply-form" id="adminConversationReplyForm">
       <textarea id="adminConversationReplyInput" rows="2" placeholder="Reply to ${escapeHtml(displayName)}…"></textarea>
@@ -13087,7 +13165,57 @@ function renderAdminConversationThread() {
   if (thread) thread.scrollTop = thread.scrollHeight;
 }
 
-document.addEventListener("change", (event) => {
+async function adminMarkConversationReadState(userEmail, read) {
+  const clean = String(userEmail || "").trim().toLowerCase();
+  if (!clean) return;
+  const token = adminSession()?.token || "";
+  if (!token) return;
+  const path = read ? "/api/admin/messages/mark-read" : "/api/admin/messages/mark-unread";
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ userEmail: clean }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Could not update read state.");
+  adminMessagesState.conversations = (adminMessagesState.conversations || []).map((c) => (
+    c.userEmail === clean
+      ? { ...c, unreadFromUser: read ? 0 : Math.max(1, Number(c.unreadFromUser || 0) || 1) }
+      : c
+  ));
+  if (adminMessagesState.messagingSummary) {
+    const unreadConversations = (adminMessagesState.conversations || []).filter((c) => Number(c.unreadFromUser || 0) > 0).length;
+    adminMessagesState.messagingSummary = {
+      ...adminMessagesState.messagingSummary,
+      unreadConversations,
+    };
+  }
+  updateAdminConversationsListDom();
+  if (typeof refreshAdminNavBadge === "function") refreshAdminNavBadge().catch(() => {});
+  if (adminMessagesState.activeConversationEmail === clean) renderAdminConversationThread();
+}
+
+document.addEventListener("change", async (event) => {
+  if (event.target.matches("#adminMessageEmailAlertsToggle")) {
+    const enabled = Boolean(event.target.checked);
+    const token = adminSession()?.token || "";
+    try {
+      const res = await fetch("/api/admin/messaging-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ emailOnMemberMessage: enabled }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Could not save setting.");
+      if (adminMessagesState.messagingSummary) {
+        adminMessagesState.messagingSummary.emailOnMemberMessage = enabled;
+      }
+    } catch (error) {
+      console.warn(error);
+      event.target.checked = !enabled;
+    }
+    return;
+  }
   if (!event.target.matches("#adminMessagesAudience")) return;
   const form = event.target.closest("form");
   if (form) {
@@ -13160,6 +13288,34 @@ document.addEventListener("submit", async (event) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const bucketBtn = event.target.closest("[data-admin-inbox-bucket]");
+  if (bucketBtn) {
+    event.preventDefault();
+    adminMessagesState.inboxBucket = bucketBtn.getAttribute("data-admin-inbox-bucket") || "new";
+    const container = document.querySelector("#adminMessagesApp");
+    if (container) await renderAdminMessagesConversations(container);
+    return;
+  }
+  const markReadBtn = event.target.closest("[data-admin-mark-read]");
+  if (markReadBtn) {
+    event.preventDefault();
+    try {
+      await adminMarkConversationReadState(markReadBtn.getAttribute("data-admin-mark-read"), true);
+    } catch (error) {
+      console.warn(error);
+    }
+    return;
+  }
+  const markUnreadBtn = event.target.closest("[data-admin-mark-unread]");
+  if (markUnreadBtn) {
+    event.preventDefault();
+    try {
+      await adminMarkConversationReadState(markUnreadBtn.getAttribute("data-admin-mark-unread"), false);
+    } catch (error) {
+      console.warn(error);
+    }
+    return;
+  }
   const workspaceTab = event.target.closest("[data-admin-messages-workspace-tab]");
   if (workspaceTab) {
     event.preventDefault();
@@ -41927,6 +42083,7 @@ function applyAdminSectionVisibility() {
   } else if (
     tab === "messages-compose"
     || tab === "messages-conversations"
+    || tab === "messages-automations"
     || tab === "messages-sent"
     || tab === "messages-drafts"
     || tab === "messages-archived"

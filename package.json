@@ -222,7 +222,8 @@
     "test:e2e:blocker": "node e2e/scripts/free-port.js && playwright test e2e/tests/admin-publish.spec.js",
     "complete:truncated-weeks": "node scripts/complete-truncated-weekday-imports.js",
     "test:weekday-activities-audit": "node scripts/test-weekday-activities-audit.js",
-    "repair:incomplete-curriculum": "node scripts/repair-incomplete-curriculum-plans.js"
+    "repair:incomplete-curriculum": "node scripts/repair-incomplete-curriculum-plans.js",
+    "test:admin-messaging-inbox": "NODE_ENV=test node scripts/test-admin-messaging-inbox.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

@@ -25,6 +25,7 @@ const tempPasswordAuth = require("./temp-password-auth.js");
 const emailAuth = require("./email-auth.js");
 const { createAdminSessionStore } = require("./admin-session-store.js");
 const adminNotifications = require("./admin-notifications.js");
+const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
 const {
   RENDER_SERVICE_HOST,
@@ -780,6 +781,7 @@ function ensureMessagingStore(store) {
     : {};
   store.pushDeliveryLog = Array.isArray(store.pushDeliveryLog) ? store.pushDeliveryLog : [];
   store.pushConfig = store.pushConfig && typeof store.pushConfig === "object" ? store.pushConfig : {};
+  adminMessagingInbox.ensureAdminMessagingSettings(store);
   return store;
 }
 
@@ -15977,11 +15979,19 @@ function publicMessage(message, options = {}) {
   };
   if (adminView) {
     payload.deliverVia = message.deliverVia || "in_app";
-    payload.channel = payload.deliverVia === "email"
-      ? "email"
-      : payload.deliverVia === "both"
-        ? "in_app_email"
-        : "in_app";
+    const isWelcome = adminMessagingInbox.isWelcomeAutomationMessage(message);
+    if (isWelcome) {
+      payload.channel = "onboarding_welcome";
+      payload.onboardingSequenceId = String(message.onboardingSequenceId || "free-welcome");
+      payload.isAutomation = true;
+    } else {
+      payload.channel = payload.deliverVia === "email"
+        ? "email"
+        : payload.deliverVia === "both"
+          ? "in_app_email"
+          : "in_app";
+      payload.isAutomation = false;
+    }
     if (message.emailSummary && typeof message.emailSummary === "object") {
       payload.emailSummary = {
         attempted: Number(message.emailSummary.attempted) || 0,
@@ -16670,14 +16680,16 @@ function handleAdminConversationsList(request, response, url) {
     return;
   }
   const store = ensureMessagingStore(readStore());
+  const bucketFilter = String(url.searchParams.get("bucket") || "all").trim().toLowerCase();
   const byUser = new Map();
   store.messages
     .filter((m) => m.audience === "private" && m.conversationEmail)
     .forEach((m) => {
-      const existing = byUser.get(m.conversationEmail);
+      const key = normalizeEmail(m.conversationEmail);
+      const existing = byUser.get(key);
       if (!existing || m.createdAt > existing.lastMessageAt) {
-        byUser.set(m.conversationEmail, {
-          userEmail: m.conversationEmail,
+        byUser.set(key, {
+          userEmail: key,
           lastMessageAt: m.createdAt,
           lastMessagePreview: messagePreviewText(m.body, 100),
           lastMessageSender: m.senderType,
@@ -16698,19 +16710,62 @@ function handleAdminConversationsList(request, response, url) {
       seenUnreadKeys.add(dedupe);
       unreadFromUser.set(key, (unreadFromUser.get(key) || 0) + 1);
     });
-  const conversations = [...byUser.values()]
+  let conversations = [...byUser.values()]
     .map((c) => {
       const profile = publicConversationUserProfile(store, c.userEmail);
+      const classification = adminMessagingInbox.classifyConversation(store, c.userEmail);
+      const unread = unreadFromUser.get(normalizeEmail(c.userEmail)) || 0;
       return {
         ...c,
         userName: profile.name || c.userEmail,
         businessName: profile.businessName || "",
         plan: profile.plan || "Free",
-        unreadFromUser: unreadFromUser.get(normalizeEmail(c.userEmail)) || 0,
+        unreadFromUser: unread,
+        hasUserReply: classification.hasUserReply,
+        isWelcomeOnly: classification.isWelcomeOnly,
+        isAdminOutreachOnly: classification.isAdminOutreachOnly,
+        bucket: classification.bucket,
+        // New Messages = member has written (or has unread inbound). Welcome automations stay out.
+        inNewMessages: classification.hasUserReply || unread > 0,
       };
-    })
-    .sort((a, b) => (a.lastMessageAt < b.lastMessageAt ? 1 : -1));
-  jsonResponse(response, 200, { conversations });
+    });
+
+  if (bucketFilter === "new" || bucketFilter === "inbox") {
+    conversations = conversations.filter((c) => c.inNewMessages);
+  } else if (bucketFilter === "welcome" || bucketFilter === "automations") {
+    conversations = conversations.filter((c) => c.isWelcomeOnly);
+  } else if (bucketFilter === "unread") {
+    conversations = conversations.filter((c) => Number(c.unreadFromUser || 0) > 0);
+  }
+
+  conversations.sort((a, b) => {
+    const aUnread = Number(a.unreadFromUser || 0) > 0 ? 1 : 0;
+    const bUnread = Number(b.unreadFromUser || 0) > 0 ? 1 : 0;
+    if (aUnread !== bUnread) return bUnread - aUnread;
+    return a.lastMessageAt < b.lastMessageAt ? 1 : -1;
+  });
+
+  const settings = adminMessagingInbox.ensureAdminMessagingSettings(store);
+  const allClassified = [...byUser.keys()].map((email) => {
+    const unread = unreadFromUser.get(email) || 0;
+    const cls = adminMessagingInbox.classifyConversation(store, email);
+    return {
+      email,
+      unread,
+      inNewMessages: cls.hasUserReply || unread > 0,
+      isWelcomeOnly: cls.isWelcomeOnly,
+    };
+  });
+
+  jsonResponse(response, 200, {
+    conversations,
+    summary: {
+      newMessages: allClassified.filter((c) => c.inNewMessages).length,
+      unreadConversations: allClassified.filter((c) => c.unread > 0).length,
+      welcomeOnly: allClassified.filter((c) => c.isWelcomeOnly).length,
+      emailOnMemberMessage: settings.emailOnMemberMessage !== false,
+    },
+  });
 }
 
 function publicConversationUserProfile(store, email) {
@@ -16752,29 +16807,88 @@ function handleAdminConversationMessages(request, response, url) {
     jsonResponse(response, 400, { error: "userEmail is required." });
     return;
   }
+  const markReadParam = String(url.searchParams.get("markRead") || "1").trim().toLowerCase();
+  const shouldMarkRead = !(markReadParam === "0" || markReadParam === "false" || markReadParam === "no");
   const store = ensureMessagingStore(readStore());
-  // Opening a thread marks Leah's unread badges for that member as read so the
-  // Conversations list updates immediately (and stays correct after live refresh).
-  if (ADMIN_EMAILS.length) {
-    const now = new Date().toISOString();
-    let marked = 0;
-    store.notifications.forEach((n) => {
-      if (!isAdminConversationUnreadNotification(n)) return;
-      if (normalizeEmail(n.conversationEmail) !== userEmail) return;
-      n.read = true;
-      n.readAt = now;
-      marked += 1;
+  // Opening a thread marks unread badges read — but live poll must pass markRead=0
+  // so background refresh never clears badges accidentally.
+  let marked = 0;
+  if (shouldMarkRead && ADMIN_EMAILS.length) {
+    marked = adminMessagingInbox.setConversationNotificationsRead(store, {
+      userEmail,
+      adminEmails: ADMIN_EMAILS,
+      read: true,
+      isAdminConversationUnreadNotification,
     });
     if (marked) writeStore(store);
   }
   const messages = store.messages
-    .filter((m) => m.audience === "private" && m.conversationEmail === userEmail)
+    .filter((m) => m.audience === "private" && normalizeEmail(m.conversationEmail) === userEmail)
     .sort((a, b) => (a.createdAt < b.createdAt ? -1 : 1))
     .map((m) => publicMessage(m, { admin: true }));
+  const classification = adminMessagingInbox.classifyConversation(store, userEmail);
   jsonResponse(response, 200, {
     userEmail,
     messages,
     user: publicConversationUserProfile(store, userEmail),
+    markedRead: shouldMarkRead ? marked : 0,
+    ...classification,
+  });
+}
+
+async function handleAdminConversationMarkReadState(request, response, read) {
+  const body = await readJson(request);
+  const adminToken = extractAdminTokenFromBody(request, body) || extractAdminToken(request) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const userEmail = normalizeEmail(body.userEmail || body.conversationEmail || "");
+  if (!userEmail) {
+    jsonResponse(response, 400, { error: "userEmail is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const changed = adminMessagingInbox.setConversationNotificationsRead(store, {
+    userEmail,
+    adminEmails: ADMIN_EMAILS,
+    read: Boolean(read),
+    isAdminConversationUnreadNotification,
+    createUnreadIfMissing: !read,
+  });
+  if (changed) writeStore(store);
+  jsonResponse(response, 200, { ok: true, changed, read: Boolean(read), userEmail });
+}
+
+function handleAdminMessagingSettingsGet(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const settings = adminMessagingInbox.ensureAdminMessagingSettings(store);
+  jsonResponse(response, 200, {
+    emailOnMemberMessage: settings.emailOnMemberMessage !== false,
+  });
+}
+
+async function handleAdminMessagingSettingsSave(request, response) {
+  const body = await readJson(request);
+  const adminToken = extractAdminTokenFromBody(request, body) || extractAdminToken(request) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = ensureMessagingStore(readStore());
+  const settings = adminMessagingInbox.ensureAdminMessagingSettings(store);
+  if (typeof body.emailOnMemberMessage === "boolean") {
+    settings.emailOnMemberMessage = body.emailOnMemberMessage;
+  }
+  writeStore(store);
+  jsonResponse(response, 200, {
+    ok: true,
+    emailOnMemberMessage: settings.emailOnMemberMessage !== false,
   });
 }
 
@@ -16852,29 +16966,64 @@ async function handleMemberMessageReply(request, response) {
     });
   } catch {}
 
-  // Single admin alert (deduped) — previously notifyAdminsInApp + fanOut both fired.
+  // In-app (+ push) admin alert for real member messages only — never for welcome outbound.
   if (ADMIN_EMAIL) {
     const priorAdminMessages = store.messages.filter(
       (m) => m.audience === "private"
-        && m.conversationEmail === identity.email
+        && normalizeEmail(m.conversationEmail) === normalizeEmail(identity.email)
         && m.senderType === "admin"
         && m.id !== message.id,
     );
+    const profile = publicConversationUserProfile(store, identity.email);
+    const deepLinkPath = `/?view=admin&adminPanel=messages-conversations&adminFocusConversation=${encodeURIComponent(identity.email)}`;
+    const deepLinkAbsolute = `${String(SITE_URL || "").replace(/\/$/, "")}${deepLinkPath}`;
+    const safePreview = messagePreviewText(messageBody, 160);
     await emitAdminAlertSafe(store, {
       category: "messaging",
       type: priorAdminMessages.length ? "admin_message_reply" : "admin_new_message",
       title: priorAdminMessages.length
         ? `Reply from ${message.senderName}`
         : `New message from ${message.senderName}`,
-      preview: messagePreviewText(messageBody),
+      preview: safePreview,
       email: identity.email,
       name: message.senderName,
       conversationEmail: identity.email,
       messageId: message.id,
       refId: message.id,
       sendEmail: false,
-      deepLink: `/?view=admin&adminPanel=inbox&adminFocusConversation=${encodeURIComponent(identity.email)}`,
+      deepLink: deepLinkPath,
     });
+
+    // Optional email alert — safe preview only, once per messageId, never for welcome automations.
+    const settings = adminMessagingInbox.ensureAdminMessagingSettings(store);
+    if (
+      settings.emailOnMemberMessage !== false
+      && !adminMessagingInbox.alreadyEmailedMemberMessage(store, message.id)
+    ) {
+      try {
+        await notifyAdmin({
+          kind: "Member Message",
+          topic: `${message.senderName} (${profile.plan || "Free"})`,
+          name: message.senderName,
+          email: identity.email,
+          createdAt: now,
+          message: [
+            "Safe preview (full message is in your admin inbox):",
+            safePreview,
+            "",
+            `Open conversation: ${deepLinkAbsolute}`,
+          ].join("\n"),
+          fields: [
+            ["Plan", profile.plan || "Free"],
+            ["Time", now],
+            ["Open conversation", deepLinkAbsolute],
+          ],
+        });
+        adminMessagingInbox.recordMemberMessageEmail(store, message.id);
+      } catch (error) {
+        console.warn("[messaging] admin member-message email failed:", error?.message || error);
+      }
+    }
   }
   writeStore(store);
 
@@ -18145,6 +18294,18 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/admin/messages/archived") return handleAdminMessagesArchivedList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/conversations") return handleAdminConversationsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/messages/conversation") return handleAdminConversationMessages(request, response, url);
+    if (request.method === "POST" && url.pathname === "/api/admin/messages/mark-read") {
+      return await handleAdminConversationMarkReadState(request, response, true);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/messages/mark-unread") {
+      return await handleAdminConversationMarkReadState(request, response, false);
+    }
+    if (request.method === "GET" && url.pathname === "/api/admin/messaging-settings") {
+      return handleAdminMessagingSettingsGet(request, response, url);
+    }
+    if (request.method === "POST" && url.pathname === "/api/admin/messaging-settings") {
+      return await handleAdminMessagingSettingsSave(request, response);
+    }
     if (request.method === "GET" && url.pathname === "/api/admin/push/subscriptions") return handleAdminPushSubscriptionsList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/push/log") return handleAdminPushDeliveryLog(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/push/test") return await handleAdminPushTest(request, response);

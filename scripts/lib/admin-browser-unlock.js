@@ -47,8 +47,15 @@ async function unlockAdminInBrowser(page, base, {
   await page.waitForSelector("#adminProtectedContent:not([hidden])", { timeout: 20000 });
 
   if (openMessages) {
-    await page.locator('[data-admin-group="messages"]').click();
-    await page.waitForSelector(".admin-messages-workspace-nav, #adminWorkspaceLandingApp", { timeout: 20000 });
+    await page.evaluate(() => {
+      if (typeof window.setAdminSectionTab === "function") {
+        window.setAdminSectionTab("messages-conversations");
+      }
+    });
+    await page.waitForSelector("#adminMessagesApp .admin-messages-workspace-nav", {
+      state: "visible",
+      timeout: 20000,
+    });
   }
 }
 

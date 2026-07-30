@@ -64,7 +64,7 @@ async function main() {
     assert.match(appJs, /messages-drafts/);
     assert.match(appJs, /messages-archived/);
     assert.match(appJs, /messages-email/);
-    assert.match(appJs, /defaultTab: "messages-home"/);
+    assert.match(appJs, /defaultTab: "messages-conversations"/);
     assert.match(appJs, /adminMessageDeliveryStatusHtml/);
   });
 
@@ -213,11 +213,12 @@ async function main() {
 
       await test("browser — workspace nav visible with core tabs", async () => {
         const labels = await page.$$eval(".admin-messages-workspace-btn", (els) => els.map((el) => el.textContent.trim()));
-        assert.ok(labels.some((l) => /All Conversations/.test(l)));
-        assert.ok(labels.some((l) => /Sent/.test(l)));
+        assert.ok(labels.some((l) => /New Messages/.test(l)));
+        assert.ok(labels.some((l) => /Welcome Sent/.test(l)));
+        assert.ok(labels.some((l) => /^Sent/.test(l) || /\bSent\b/.test(l)));
         assert.ok(labels.some((l) => /Drafts/.test(l)));
         assert.ok(labels.some((l) => /Archived/.test(l)));
-        assert.ok(labels.some((l) => /New Message/.test(l)));
+        assert.ok(labels.some((l) => /Compose/.test(l)));
         assert.ok(labels.some((l) => /Email User/.test(l)));
         await page.screenshot({ path: path.join(ARTIFACT_DIR, "admin-messaging-workspace-nav.png"), fullPage: false });
       });

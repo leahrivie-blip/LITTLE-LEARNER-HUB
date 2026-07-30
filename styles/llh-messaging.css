@@ -728,9 +728,9 @@
 .admin-conversation-item {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px 12px;
   border-radius: var(--llh-radius-sm, 8px);
   border: 1px solid transparent;
   background: transparent;
@@ -747,7 +747,30 @@
   background: var(--llh-primary-soft, #ede8f7);
 }
 
-.admin-conversation-item strong {
+.admin-conversation-item.is-unread {
+  background: #fff4e8;
+  border-color: #f0c48a;
+}
+
+.admin-conversation-item.is-unread strong,
+.admin-conversation-item.is-unread .admin-conversation-preview {
+  font-weight: 700;
+  color: #2b2438;
+}
+
+.admin-conversation-item.is-welcome {
+  background: #f3f6fb;
+}
+
+.admin-conversation-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-conversation-item strong,
+.admin-conversation-name {
   font-size: 13.5px;
 }
 
@@ -759,21 +782,128 @@
   text-overflow: ellipsis;
 }
 
+.admin-conversation-plan {
+  font-size: 11px !important;
+  font-weight: 600;
+  color: #5a4d7a !important;
+}
+
+.admin-conversation-meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.admin-conversation-bucket-tag {
+  font-size: 10px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-weight: 700 !important;
+}
+
 .admin-conversation-unread {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  min-width: 18px;
-  height: 18px;
+  position: static;
+  min-width: 20px;
+  height: 20px;
   border-radius: 999px;
-  background: var(--llh-danger, #c56b6b);
+  background: #d9480f;
   color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 4px;
+  padding: 0 6px;
+  flex: 0 0 auto;
+}
+
+.admin-new-messages-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f7f3ff 0%, #fff8f0 100%);
+  border: 1px solid #e8dfd2;
+}
+
+.admin-new-messages-count {
+  min-width: 96px;
+  text-align: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid #e4e1ea;
+}
+
+.admin-new-messages-count.has-unread {
+  background: #fff1e6;
+  border-color: #f0c48a;
+}
+
+.admin-new-messages-count strong {
+  display: block;
+  font-size: 28px;
+  line-height: 1.1;
+}
+
+.admin-new-messages-count span {
+  font-size: 11px;
+  color: var(--llh-muted, #6b6b7b);
+  font-weight: 600;
+}
+
+.admin-inbox-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.admin-inbox-filter {
+  border: 1px solid var(--llh-line, #e4e1ea);
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.admin-inbox-filter.active {
+  background: #2f6fed;
+  border-color: #2f6fed;
+  color: #fff;
+}
+
+.admin-message-email-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-conversation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-messages-empty-state {
+  padding: 18px 8px;
+}
+
+.admin-messages-workspace-badge.is-muted {
+  background: #8b8b9a;
+}
+
+.message-bubble.is-automation {
+  border-left: 3px solid #7b6bb5;
 }
 
 .admin-conversation-thread {
