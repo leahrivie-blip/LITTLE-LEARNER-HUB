@@ -207,9 +207,9 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
-  await step("founding pricing button", async () => {
-    await page.locator('#homePricing [data-checkout-plan="founding"]').scrollIntoViewIfNeeded();
-    await page.click('#homePricing [data-checkout-plan="founding"]');
+  await step("pro pricing button", async () => {
+    await page.locator('#homePricing [data-checkout-plan="monthly"]').scrollIntoViewIfNeeded();
+    await page.click('#homePricing [data-checkout-plan="monthly"]');
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
@@ -269,14 +269,14 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     }
   });
 
-  await step("founding member button", async () => {
+  await step("pro member button", async () => {
     await page.evaluate(() => setView("home"));
     await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
-    await page.waitForSelector('#homePricing [data-checkout-plan="founding"]', { timeout: 10000 });
-    const foundingBtn = page.locator('#homePricing [data-checkout-plan="founding"]');
-    const foundingPlan = await foundingBtn.getAttribute("data-checkout-plan");
-    assert(foundingPlan === "founding" || foundingPlan === "monthly", `${label}: founding CTA has checkout plan`);
-    await foundingBtn.click();
+    await page.waitForSelector('#homePricing [data-checkout-plan="monthly"]', { timeout: 10000 });
+    const proBtn = page.locator('#homePricing [data-checkout-plan="monthly"]');
+    const proPlan = await proBtn.getAttribute("data-checkout-plan");
+    assert(proPlan === "monthly", `${label}: Pro CTA has monthly checkout plan`);
+    await proBtn.click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
