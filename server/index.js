@@ -29,6 +29,29 @@ const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const seo = require("./seo.js");
+
+function configureSeoCurriculumSnapshotProvider() {
+  seo.configureCurriculumSnapshotProvider(() => {
+    const store = typeof peekStore === "function" ? peekStore() : null;
+    const siteContent = store?.siteContent || {};
+    const library = publicCurriculumLibraryDto(siteContent, {
+      legacyFree: false,
+      mode: "curated",
+      siteContent,
+      store,
+    });
+    const freeLibrary = typeof resolveFreeStarterLibrary === "function"
+      ? resolveFreeStarterLibrary(store)
+      : { lessonPlanIds: [] };
+    return {
+      lessonPlans: library.lessonPlans || [],
+      activities: library.activities || [],
+      series: library.series || [],
+      freeLessonPlanIds: freeLibrary.lessonPlanIds || [],
+      updatedAt: library.updatedAt || siteContent?.curriculum?.updatedAt || "",
+    };
+  });
+}
 const adminNotifications = require("./admin-notifications.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
@@ -20685,6 +20708,8 @@ const server = http.createServer(async (request, response) => {
     jsonResponse(response, 500, { error: error.message || "Server error." });
   }
 });
+
+configureSeoCurriculumSnapshotProvider();
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Little Learner Hub launch server listening on 0.0.0.0:${PORT} (storage initializing…)`);

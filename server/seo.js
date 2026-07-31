@@ -1,9 +1,37 @@
 /**
  * SEO helpers: robots.txt, sitemap.xml, crawlable public pages, structured data.
  * Online platform only — no LocalBusiness / fake physical address.
+ * Curriculum hub pages are rendered from live library data via seo-curriculum.js.
  */
 const fs = require("node:fs");
 const path = require("node:path");
+const seoCurriculum = require("./seo-curriculum.js");
+
+/** Optional provider: () => ({ lessonPlans, activities, series, freeLessonPlanIds, updatedAt }) */
+let curriculumSnapshotProvider = null;
+
+function configureCurriculumSnapshotProvider(provider) {
+  curriculumSnapshotProvider = typeof provider === "function" ? provider : null;
+}
+
+function loadCurriculumSnapshot() {
+  if (!curriculumSnapshotProvider) {
+    return { lessonPlans: [], activities: [], series: [], freeLessonPlanIds: [], updatedAt: "" };
+  }
+  try {
+    const snapshot = curriculumSnapshotProvider() || {};
+    return {
+      lessonPlans: Array.isArray(snapshot.lessonPlans) ? snapshot.lessonPlans : [],
+      activities: Array.isArray(snapshot.activities) ? snapshot.activities : [],
+      series: Array.isArray(snapshot.series) ? snapshot.series : [],
+      freeLessonPlanIds: Array.isArray(snapshot.freeLessonPlanIds) ? snapshot.freeLessonPlanIds : [],
+      updatedAt: snapshot.updatedAt || "",
+    };
+  } catch (error) {
+    console.error("[seo-curriculum] snapshot provider failed:", error.message);
+    return { lessonPlans: [], activities: [], series: [], freeLessonPlanIds: [], updatedAt: "" };
+  }
+}
 
 const BUSINESS_NAME = "Little Learner Hub by Leah";
 const SHORT_NAME = "Little Learner Hub";
@@ -75,10 +103,14 @@ function renderSocialLinksHtml({ heading = "" } = {}) {
 }
 
 function renderPublicFooterHtml() {
+  const hubLinks = seoCurriculum.hubPages()
+    .map((page) => `<a href="${escapeHtml(page.path)}">${escapeHtml(page.navLabel)}</a>`)
+    .join(" · ");
   return `
       <footer>
         <p>© ${new Date().getFullYear()} ${escapeHtml(BUSINESS_NAME)}. All rights reserved.</p>
         <p><a href="/about">About</a> · <a href="/features">Features</a> · <a href="/faq">FAQ</a> · <a href="/pricing">Pricing</a> · <a href="/contact">Contact</a></p>
+        <p class="footer-hub">${hubLinks}</p>
         ${renderSocialLinksHtml()}
       </footer>`;
 }
@@ -207,6 +239,7 @@ function publicPageRoutes() {
     { path: "/faq", changefreq: "monthly", priority: "0.8" },
     { path: "/pricing", changefreq: "weekly", priority: "0.8" },
     { path: "/contact", changefreq: "monthly", priority: "0.7" },
+    ...seoCurriculum.hubPageRoutes(),
   ];
 }
 
@@ -254,10 +287,11 @@ function escapeXml(value) {
     .replace(/'/g, "&apos;");
 }
 
-function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSchema = null }) {
+function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSchema = null, skipDefaultCta = false }) {
   const url = absoluteUrl(canonicalPath);
   const graph = buildStructuredDataGraph();
-  if (extraSchema) graph["@graph"].push(extraSchema);
+  const extras = Array.isArray(extraSchema) ? extraSchema : (extraSchema ? [extraSchema] : []);
+  extras.filter(Boolean).forEach((node) => graph["@graph"].push(node));
   const verification = verificationMetaTags();
   return `<!doctype html>
 <html lang="en">
@@ -281,24 +315,39 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
     ${verification ? `${verification}\n    ` : ""}<script type="application/ld+json">${JSON.stringify(graph)}</script>
     <style>
       :root { color-scheme: light; font-family: "Segoe UI", system-ui, sans-serif; line-height: 1.55; color: #1f2a44; }
-      body { margin: 0; background: #f8faff; }
-      .wrap { max-width: 860px; margin: 0 auto; padding: 32px 20px 56px; }
+      body { margin: 0; background: linear-gradient(180deg, #eef6fb 0%, #f8faff 42%, #fff 100%); }
+      .wrap { max-width: 920px; margin: 0 auto; padding: 28px 18px 56px; }
       header { margin-bottom: 24px; }
-      .brand { font-weight: 700; color: #5b4f9a; text-decoration: none; }
-      h1 { font-size: 2rem; margin: 0.4rem 0 0.8rem; }
+      .brand { font-weight: 700; color: #2f6f8f; text-decoration: none; }
+      h1 { font-size: clamp(1.7rem, 4vw, 2.15rem); margin: 0.4rem 0 0.8rem; line-height: 1.2; }
       h2 { margin-top: 2rem; font-size: 1.25rem; }
+      h3 { margin: 0.35rem 0 0.45rem; font-size: 1.05rem; }
       p, li { font-size: 1.02rem; }
-      .cta { display: inline-block; margin-top: 20px; padding: 12px 18px; border-radius: 10px; background: #6f5bd3; color: #fff; text-decoration: none; font-weight: 600; }
+      .cta { display: inline-block; margin: 12px 10px 0 0; padding: 12px 18px; border-radius: 10px; background: #2f6f8f; color: #fff; text-decoration: none; font-weight: 600; }
+      .cta-secondary { background: #fff; color: #2f6f8f; border: 1px solid #9fc3d4; }
       .muted { color: #5b6478; }
-      .pill { display: inline-block; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.2rem 0.55rem; border-radius: 999px; background: #ece8ff; color: #5b4f9a; margin-left: 0.35rem; }
+      .pill { display: inline-block; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; padding: 0.2rem 0.55rem; border-radius: 999px; background: #e7f2f7; color: #2f6f8f; margin-left: 0.35rem; }
       .status-testing { background: #fff4df; color: #8a5b00; }
       .status-later { background: #eef2f7; color: #4d5a6d; }
       footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid #dbe3f2; font-size: 0.92rem; color: #5b6478; }
+      .footer-hub { line-height: 1.8; }
       .social-links { margin-top: 12px; }
-      .social-links a { color: #5b4f9a; text-decoration: none; }
+      .social-links a { color: #2f6f8f; text-decoration: none; }
       .social-links a:hover { text-decoration: underline; }
       .social-heading { margin: 0 0 4px; font-weight: 600; color: #1f2a44; }
       ul { padding-left: 1.2rem; }
+      .seo-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin: 16px 0 8px; }
+      .seo-card { background: rgba(255,255,255,0.92); border: 1px solid #d7e5ee; border-radius: 12px; padding: 14px 14px 12px; }
+      .seo-card a { color: #215f7c; }
+      .seo-card-meta { margin: 0; font-size: 0.88rem; color: #5b6478; }
+      .seo-badge { display: inline-block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; color: #215f7c; background: #e7f2f7; padding: 0.15rem 0.45rem; border-radius: 999px; }
+      .seo-theme { margin: 0.25rem 0 0.5rem; font-size: 0.95rem; }
+      .seo-related { margin-top: 2rem; }
+      .seo-stat-list { display: grid; gap: 0.35rem; }
+      @media (max-width: 600px) {
+        .wrap { padding: 22px 14px 48px; }
+        .cta { width: 100%; text-align: center; margin-right: 0; }
+      }
     </style>
   </head>
   <body>
@@ -308,11 +357,28 @@ function renderPublicPage({ title, description, canonicalPath, bodyHtml, extraSc
         <p class="muted">Online childcare lesson-planning and program-support platform</p>
       </header>
       ${bodyHtml}
-      <p><a class="cta" href="/">Open Little Learner Hub</a></p>
+      ${skipDefaultCta ? "" : `<p><a class="cta" href="/">Open Little Learner Hub</a></p>`}
       ${renderPublicFooterHtml()}
     </div>
   </body>
 </html>`;
+}
+
+function renderCurriculumHubPage(page) {
+  const snapshot = loadCurriculumSnapshot();
+  const rendered = seoCurriculum.renderHubPageBody(page, snapshot, { escapeHtml });
+  const schemas = [
+    seoCurriculum.faqSchemaForPage({ ...page, faq: rendered.faqItems }, absoluteUrl),
+    seoCurriculum.itemListSchemaForPage(page, rendered.listItems || [], absoluteUrl),
+  ].filter(Boolean);
+  return renderPublicPage({
+    title: page.title,
+    description: page.description,
+    canonicalPath: page.path,
+    bodyHtml: rendered.bodyHtml,
+    extraSchema: schemas,
+    skipDefaultCta: true,
+  });
 }
 
 function renderAboutPage() {
@@ -332,7 +398,7 @@ function renderAboutPage() {
       <h2>What Little Learner Hub Does Now</h2>
       <p>These are features signed-in members can use today:</p>
       <ul>
-        <li>Infant, Toddler, and Preschool lesson plans (10 starter plans on Free; full library on Pro)</li>
+        <li>Infant, Toddler, and Preschool lesson plans (10 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
         <li>Activity library with practical classroom ideas (samples on Free; full library on Pro)</li>
         <li>Printable weekly plans for starter and Pro library content</li>
         <li>Books, songs, materials, and daily activity ideas inside published plans</li>
@@ -530,9 +596,12 @@ function handleSeoRoute(request, response, pathname) {
     "/pricing": renderPricingPage,
     "/contact": renderContactPage,
   };
-  const render = pages[pathname];
+  const hubPage = seoCurriculum.getHubPage(pathname);
+  const render = hubPage ? () => renderCurriculumHubPage(hubPage) : pages[pathname];
   if (!render) return false;
-  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=300" });
+  // Hub pages stay fresher so newly published plans appear without long caches.
+  const maxAge = hubPage ? 120 : 300;
+  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": `public, max-age=${maxAge}` });
   if (request.method === "HEAD") response.end();
   else response.end(render());
   return true;
@@ -555,4 +624,7 @@ module.exports = {
   renderSitemapXml,
   injectHomeHtmlHead,
   handleSeoRoute,
+  configureCurriculumSnapshotProvider,
+  publicPageRoutes,
+  seoCurriculum,
 };

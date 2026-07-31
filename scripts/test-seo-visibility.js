@@ -59,15 +59,25 @@ function startServer() {
 }
 
 async function waitForBoot(child) {
-  for (let i = 0; i < 80; i += 1) {
+  for (let i = 0; i < 120; i += 1) {
     if (child.exitCode !== null) throw new Error("Server exited early");
     try {
       const res = await request("GET", "/api/health");
-      if (res.status === 200) return;
+      if (res.status === 200) {
+        // Curriculum seeds finish inside initializeStorage before health unlocks,
+        // but wait briefly for inventory to be readable for hub pages.
+        const inventory = await request("GET", "/api/public/home-inventory");
+        if (inventory.status === 200) {
+          try {
+            const data = JSON.parse(inventory.body);
+            if (Number(data.lessonPlanCount || 0) > 0) return;
+          } catch { /* retry */ }
+        }
+      }
     } catch { /* retry */ }
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 150));
   }
-  throw new Error("Server did not boot");
+  throw new Error("Server did not boot with curriculum inventory");
 }
 
 async function stopServer(child) {
@@ -127,18 +137,42 @@ async function main() {
 
     const sitemap = await request("GET", "/sitemap.xml");
     assert(sitemap.status === 200, `sitemap.xml status ${sitemap.status}`);
-    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact"]) {
+    const hubPaths = seo.seoCurriculum.hubPages().map((page) => page.path);
+    for (const route of ["/", "/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
       assert(sitemap.body.includes(`<loc>http://127.0.0.1:${PORT}${route === "/" ? "/" : route}</loc>`) || sitemap.body.includes(route), `sitemap missing ${route}`);
     }
 
-    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact"]) {
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
       const page = await request("GET", route);
       assert(page.status === 200, `${route} status ${page.status}`);
       assert(page.body.includes(seo.BUSINESS_NAME), `${route} missing business name`);
       assert(page.body.includes('rel="canonical"'), `${route} missing canonical`);
       assert(page.body.includes("application/ld+json"), `${route} missing JSON-LD`);
       assert(!page.body.includes("LocalBusiness"), `${route} must not include LocalBusiness`);
+      assert(page.body.includes('name="viewport"'), `${route} missing mobile viewport`);
     }
+
+    const inventory = JSON.parse((await request("GET", "/api/public/home-inventory")).body);
+    assert(Number(inventory.lessonPlanCount) > 0, "expected seeded lesson plans for hub pages");
+
+    const infant = await request("GET", "/infant-lesson-plans");
+    assert(infant.body.includes("<h1>"), "infant hub missing H1");
+    assert(infant.body.includes("Infant"), "infant hub missing Infant labeling");
+    assert(infant.body.includes("seo-card") || infant.body.includes("lesson plan"), "infant hub missing live lesson cards");
+    assert(infant.body.includes("FAQPage") || infant.body.includes('"@type":"FAQPage"') || infant.body.includes('"@type": "FAQPage"'), "infant hub missing FAQ schema");
+    assert(infant.body.includes("ItemList") || infant.body.includes('"@type":"ItemList"') || infant.body.includes('"@type": "ItemList"'), "infant hub missing ItemList schema");
+    assert(infant.body.includes("/toddler-lesson-plans"), "infant hub missing related toddler link");
+    assert(infant.body.includes("Create free account") || infant.body.includes("signup=1"), "infant hub missing free CTA");
+
+    const sensory = await request("GET", "/sensory-activities");
+    assert(sensory.body.includes("Sensory"), "sensory hub missing Sensory labeling");
+    assert(sensory.body.includes("seo-card") || /activity/i.test(sensory.body), "sensory hub missing activity cards");
+
+    const curriculum = await request("GET", "/daycare-curriculum");
+    assert(curriculum.body.includes("Infant"), "curriculum hub missing Infant section");
+    assert(curriculum.body.includes("Toddler"), "curriculum hub missing Toddler section");
+    assert(curriculum.body.includes("Preschool"), "curriculum hub missing Preschool section");
+    assert(curriculum.body.includes("/infant-lesson-plans"), "curriculum hub missing infant internal link");
 
     const faq = await request("GET", "/faq");
     assert(faq.body.includes("FAQPage") || faq.body.includes('"@type":"FAQPage"') || faq.body.includes('"@type": "FAQPage"'), "faq page missing FAQPage schema");
@@ -178,7 +212,7 @@ async function main() {
     assert(!/AggregateRating|reviewCount/i.test(home.body), "served homepage must not include review schema");
     assert(!/LocalBusiness/i.test(home.body), "homepage must not include LocalBusiness schema");
 
-    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact"]) {
+    for (const route of ["/about", "/features", "/faq", "/pricing", "/contact", ...hubPaths]) {
       const page = await request("GET", route);
       assert(!forbiddenFacebookLabel.test(page.body), `${route} must not display Facebook page name`);
       assert(!/123 Main|LocalBusiness|AggregateRating/i.test(page.body), `${route} must not include fake address or review/local business schema`);
