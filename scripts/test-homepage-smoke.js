@@ -347,17 +347,26 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       assert(await card.locator(".lesson-plan-card-hint").count(), `${label}: locked preview hint missing`);
       await card.click({ force: true });
       await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
-      // Free owners see Founding checkout while spots remain; otherwise Pro trial CTA.
+      // Free owners see Pro Monthly checkout (Founding closed for acquisition); guests may see trial.
+      const proMonthlyBtn = page.locator("#featurePreviewModal [data-checkout-plan='monthly']");
       const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
-      if (await foundingBtn.count()) {
+      if (await proMonthlyBtn.count()) {
+        page.once("dialog", async (dialog) => { await dialog.dismiss(); });
+        await page.evaluate(() => {
+          const sticky = document.querySelector("#featurePreviewModal .fp-sticky-upgrade:not([hidden]) [data-checkout-plan='monthly']");
+          const target = sticky || document.querySelector("#featurePreviewModal [data-checkout-plan='monthly']");
+          target?.click?.();
+        });
+        await page.waitForTimeout(800);
+      } else if (await foundingBtn.count()) {
         await page.evaluate(() => {
           document.querySelector("#featurePreviewModal [data-checkout-plan='founding']")?.click?.();
         });
         await page.waitForTimeout(800);
       } else {
         // Body CTA can be visually hidden on mobile when the sticky upgrade bar is active.
-        assert(await trialBtn.count(), `${label}: trial CTA missing in locked preview`);
+        assert(await trialBtn.count(), `${label}: Pro/trial CTA missing in locked preview`);
         const clicked = await page.evaluate(() => {
           const sticky = document.querySelector("#featurePreviewModal .fp-sticky-upgrade:not([hidden]) [data-start-pro-trial]");
           const body = document.querySelector("#featurePreviewModal .fp-pro-upgrade-actions [data-start-pro-trial]");
