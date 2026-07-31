@@ -63478,6 +63478,21 @@ async function initializeAppView(options = {}) {
     }
     if (!currentUser) {
       setView("home", { fromBoot: true, allowDashboard: true, replaceHistory: true });
+      const bootParams = new URLSearchParams(window.location.search || "");
+      const lessonDeepLink = String(bootParams.get("lesson") || "").trim();
+      const wantsSignup = bootParams.get("signup") === "1" || bootParams.get("signup") === "true";
+      if (lessonDeepLink) {
+        window.setTimeout(() => {
+          Promise.resolve(loadSiteContentFromBackend?.()).catch(() => {}).finally(() => {
+            openHomePublicPreview(lessonDeepLink, "homeLessonPlans");
+          });
+        }, 250);
+      } else if (wantsSignup) {
+        window.setTimeout(() => {
+          setPreferredSignupPlan("free");
+          openAuthModal("signup");
+        }, 200);
+      }
     }
   } catch (error) {
     if (runId !== appBootRunId) return;
