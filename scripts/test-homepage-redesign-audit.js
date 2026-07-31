@@ -229,9 +229,9 @@ async function runAudit(playwright, baseUrl, seeded) {
   results.signupButtons.push("desktop-public-nav-start-free");
   await page.click("#closeModal");
 
-  await page.locator('#homePricing [data-checkout-plan="founding"]').click();
+  await page.locator('#homePricing [data-checkout-plan="monthly"]').click();
   await page.waitForSelector("#authModal.open");
-  results.signupButtons.push("pricing-founding");
+  results.signupButtons.push("pricing-pro-monthly");
   await page.click("#closeModal");
 
   // Footer login/signup

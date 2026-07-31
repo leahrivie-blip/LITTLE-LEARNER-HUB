@@ -24,30 +24,33 @@ const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const homeCss = fs.readFileSync(path.join(root, "styles/llh-homepage.css"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 
-test("hero prioritizes Preview Free Lesson Plans, founding pricing, and Log In text link", () => {
+test("hero prioritizes Preview Free Lesson Plans, Pro pricing, and Log In text link", () => {
   const actionsIdx = html.indexOf('class="lp-hero-actions"');
   assert.ok(actionsIdx > -1, "hero actions missing");
   const actionsHtml = html.slice(actionsIdx, actionsIdx + 700);
   assert.match(actionsHtml, /data-home-nav="lessons"/);
   assert.match(actionsHtml, /Preview Free Lesson Plans/);
-  assert.match(actionsHtml, /data-checkout-plan="founding"/);
-  assert.match(actionsHtml, /Lock In \$9\.99 Pricing/);
+  assert.match(actionsHtml, /data-checkout-plan="monthly"/);
+  assert.match(actionsHtml, /Upgrade to Pro/);
   assert.match(actionsHtml, /data-action="open-login"/);
   assert.match(actionsHtml, /llh-hero-login-link/);
   assert.doesNotMatch(actionsHtml, />Sign Up</);
   assert.doesNotMatch(actionsHtml, /Browse Lesson Plans/);
+  assert.doesNotMatch(actionsHtml, /data-checkout-plan="founding"/);
   assert.match(html, /Curriculum today\. Growing into the complete childcare platform providers need\./);
   assert.match(html, /id="homeHeroInventory"/);
-  assert.match(html, /\$9\.99\/month/);
+  assert.match(html, /\$19\.99/);
   assert.match(html, /Affordable Childcare Curriculum/);
 });
 
-test("founding, free, and final CTAs exist", () => {
-  assert.match(html, /Lock In \$9\.99 Pricing/);
+test("Pro, free, and final CTAs exist; Founding announce hidden", () => {
+  assert.match(html, /Upgrade to Pro|Choose Pro Monthly/);
   assert.match(html, /Create Free Account/);
   assert.match(html, /llh-final-cta|lp-final-cta/);
   assert.match(html, /lp-mobile-sticky-cta/);
-  assert.match(html, /data-checkout-plan="founding"/);
+  assert.match(html, /data-checkout-plan="monthly"/);
+  assert.match(html, /id="llhFoundingAnnounceBanner"[^>]*\bhidden\b/);
+  assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
 });
 
 test("Tiffany review remains on homepage without star ratings", () => {

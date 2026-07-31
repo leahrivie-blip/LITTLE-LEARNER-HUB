@@ -402,8 +402,8 @@
             </button>
             <div id="sidebarFreeUpgradeCard" class="sidebar-free-upgrade" hidden>
               <p class="sidebar-free-upgrade-badge">Free Plan</p>
-              <p class="sidebar-free-upgrade-copy" data-founding-spots-copy>Checking Founding Member availability… Regular price will be $19.99/month.</p>
-              <button class="primary-button sidebar-free-upgrade-btn" type="button" data-checkout-plan="founding">⭐ Lock In Founding Member Pricing</button>
+              <p class="sidebar-free-upgrade-copy" data-founding-spots-copy>Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while continuously active.</p>
+              <button class="primary-button sidebar-free-upgrade-btn" type="button" data-checkout-plan="monthly">Upgrade to Pro</button>
             </div>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.3 8 8 9 4.7-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-5"/></svg></span>
@@ -462,7 +462,7 @@
             <button class="ghost-button message-support-btn" id="messageSupportBtn" type="button" data-view="messages" hidden>Message Support</button>
             <span id="freePlanBadge" class="free-plan-badge" hidden>Free Plan</span>
             <button class="ghost-button" id="signinButton">Log in</button>
-            <button class="primary-button" id="signupButton" type="button">Get Started — $9.99/month</button>
+            <button class="primary-button" id="signupButton" type="button">Get Started — $19.99/month</button>
           </div>
         </header>
 
@@ -476,11 +476,11 @@
         <div id="freePlanReminderBar" class="free-plan-reminder" hidden role="region" aria-label="Free plan reminder">
           <div class="free-plan-reminder-inner">
             <div class="free-plan-reminder-copy">
-              <strong>⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active</strong>
-              <p data-founding-spots-copy>Checking Founding Member availability… Regular price will be $19.99/month.</p>
+              <strong>Free Starter Library</strong>
+              <p data-founding-spots-copy>Pro unlocks the full library for $19.99/month. Existing Founding Members keep $9.99/month locked while continuously active.</p>
             </div>
             <div class="free-plan-reminder-actions">
-              <button class="primary-button" type="button" id="freePlanReminderPrimary" data-checkout-plan="founding">⭐ Lock In Founding Member Pricing</button>
+              <button class="primary-button" type="button" id="freePlanReminderPrimary" data-checkout-plan="monthly">Upgrade to Pro</button>
               <button class="ghost-button" type="button" data-view="plans">Compare Plans</button>
               <button class="ghost-button free-plan-reminder-dismiss" type="button" data-dismiss-free-plan-reminder aria-label="Dismiss Free plan reminder">Maybe later</button>
             </div>
@@ -499,12 +499,12 @@
 
         <section id="view-home" class="view active-view landing-home">
 
-          <div class="llh-announce-banner" id="llhFoundingAnnounceBanner" role="region" aria-label="Founding Member announcement">
+          <div class="llh-announce-banner" id="llhFoundingAnnounceBanner" role="region" aria-label="Founding Member announcement" hidden>
             <div class="llh-announce-banner-inner">
               <div class="llh-announce-copy">
-                <p data-founding-spots-copy>Checking Founding Member availability… Lock in $9.99/month while your membership remains continuously active — then Founding closes and new Pro is $19.99/month.</p>
+                <p data-founding-spots-copy>Founding Member pricing is closed for new signups. Pro is $19.99/month.</p>
               </div>
-              <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="founding">Lock In $9.99 Pricing</button>
+              <button class="llh-btn llh-btn-accent" type="button" data-checkout-plan="monthly">Upgrade to Pro</button>
               <button class="llh-announce-dismiss" id="llhFoundingAnnounceDismiss" type="button" aria-label="Dismiss announcement">✕</button>
             </div>
           </div>
@@ -571,13 +571,13 @@
               <p class="lp-hero-badge">Curriculum today. Growing into the complete childcare platform providers need.</p>
               <h2 class="lp-hero-headline">Affordable Childcare Curriculum &amp; Planning Tools</h2>
               <p class="lp-hero-sub">Access a growing library of play-based lesson plans, activities, calendar planning tools, and classroom resources created by a childcare provider.</p>
-              <p class="llh-hero-support">Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.</p>
+              <p class="llh-hero-support">Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.</p>
               <div id="homeHeroInventory" class="llh-hero-inventory" data-state="loading" aria-live="polite" aria-busy="true">
                 <p class="llh-hero-inventory-loading">Loading live curriculum inventory…</p>
               </div>
               <div class="lp-hero-actions">
                 <button class="lp-btn-primary llh-btn llh-btn-primary" data-home-nav="lessons" type="button">Preview Free Lesson Plans</button>
-                <button class="lp-btn-secondary llh-btn llh-btn-secondary" data-checkout-plan="founding" type="button">Lock In $9.99 Pricing</button>
+                <button class="lp-btn-secondary llh-btn llh-btn-secondary" data-checkout-plan="monthly" type="button">Upgrade to Pro — $19.99/month</button>
                 <button class="llh-btn llh-btn-text llh-hero-login-link" data-action="open-login" type="button">Log In</button>
               </div>
               <p class="lp-hero-cta-note">Curriculum and planning tools are available now. The complete childcare management platform is coming soon.</p>
@@ -831,7 +831,7 @@
           <section class="lp-pricing-section llh-pricing-section" id="homePricing" aria-label="Founding Member pricing">
             <div class="lp-section-header">
               <h2 class="lp-section-title">Simple, Honest Pricing</h2>
-              <p class="lp-section-sub" data-founding-spots-copy>Checking Founding Member availability… Start free or lock in $9.99/month while your membership remains continuously active before Founding closes.</p>
+              <p class="lp-section-sub" data-founding-spots-copy>Start free, or upgrade to Pro at $19.99/month.</p>
             </div>
             <div id="homeFoundingMeter" class="llh-pricing-founding-meter" aria-live="polite"></div>
             <div class="lp-pricing-grid llh-pricing-grid">
@@ -850,14 +850,14 @@
                 <button class="lp-btn-outline llh-btn llh-btn-secondary" data-plan="Free" data-action="start-free" type="button">Create Free Account</button>
                 <p class="lp-price-note">No credit card required. Free starter plans are complete—other premium plans stay locked until you upgrade.</p>
               </div>
-              <div class="lp-pricing-card lp-pro-card llh-founding-card">
-                <div class="lp-pro-highlight-badge" data-founding-spots-copy>Checking Founding Member availability…</div>
+              <div class="lp-pricing-card lp-pro-card llh-founding-card llh-founding-card--sold-out">
+                <div class="lp-pro-highlight-badge" data-founding-spots-copy>Full Access</div>
                 <div class="lp-price-header">
-                  <h3>Founding Member</h3>
-                  <div class="lp-price-amount"><strong>$9.99</strong><span>/month locked while continuously active</span></div>
+                  <h3>Pro Monthly</h3>
+                  <div class="lp-price-amount"><strong>$19.99</strong><span>/month</span></div>
                 </div>
                 <ul class="lp-price-features">
-                  <li>✓ Founding includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $9.99/month locked while membership remains continuously active.</li>
+                  <li>✓ Complete lesson-plan and activity libraries, with new content added weekly and unlimited curriculum printing and downloads.</li>
                   <li>✓ Unlimited curriculum printing and downloads</li>
                   <li>✓ Full Activity Center by age, theme, and learning domain</li>
                   <li>✓ Customize, save, and reuse your own lesson plans</li>
@@ -866,8 +866,8 @@
                   <li>✓ Future Pro features included as they launch</li>
                   <li>✓ Built by a childcare provider · Cancel anytime</li>
                 </ul>
-                <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="founding" type="button">Lock In $9.99 Pricing</button>
-                <p class="lp-price-note" data-founding-price-note>Checking Founding Member availability… $9.99/month locked while your membership remains continuously active. Prefer regular Pro? <button class="link-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly</button></p>
+                <button class="lp-btn-primary llh-btn llh-btn-accent" data-checkout-plan="monthly" type="button">Choose Pro Monthly</button>
+                <p class="lp-price-note" data-founding-price-note>Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.</p>
               </div>
             </div>
           </section>
@@ -1339,9 +1339,9 @@
 
         <section id="view-plans" class="view">
           <div class="page-title">
-            <p class="eyebrow">⭐ Founding Member</p>
-            <h2>Lock In Founding Member Pricing</h2>
-            <p data-founding-spots-copy>Checking Founding Member availability… $9.99/month locked while your membership remains continuously active. Regular price will be $19.99/month.</p>
+            <p class="eyebrow">Membership</p>
+            <h2>Choose your Little Learner Hub plan</h2>
+            <p data-founding-spots-copy>Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while membership remains continuously active.</p>
           </div>
           <div id="pricingApp"></div>
         </section>
@@ -1385,9 +1385,9 @@
 
         <section id="view-upgrade" class="view">
           <div class="page-title">
-            <p class="eyebrow">⭐ Founding Member</p>
-            <h2>Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active</h2>
-            <p data-founding-spots-copy>Checking Founding Member availability… Regular price will be $19.99/month.</p>
+            <p class="eyebrow">Upgrade to Pro</p>
+            <h2>Upgrade to Pro – $19.99/month</h2>
+            <p data-founding-spots-copy>Pro unlocks the full library. Existing Founding Members keep $9.99/month locked while membership remains continuously active.</p>
           </div>
           <div id="upgradeApp"></div>
         </section>
@@ -2169,7 +2169,7 @@
         <h2 id="proModalTitle">This is a Pro Feature</h2>
         <div class="pro-modal-body" id="proModalBody"></div>
         <div class="pro-modal-actions">
-          <button class="primary-button" id="proModalUpgrade" type="button">⭐ Lock In Founding Member Pricing</button>
+          <button class="primary-button" id="proModalUpgrade" type="button">Upgrade to Pro Monthly — $19.99/month</button>
           <button class="ghost-button" id="proModalDismiss" type="button">Maybe Later</button>
         </div>
       </div>

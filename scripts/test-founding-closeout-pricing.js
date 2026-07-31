@@ -278,10 +278,14 @@ async function main() {
         }).catch(() => {});
         await page.waitForTimeout(800);
         const bodyOpen = await page.locator("body").innerText();
-        assert.match(bodyOpen, /Only 2 Founding Member spots remaining|2 spots/i);
-        assert.match(bodyOpen, /\$9\.99/);
+        // Acquisition is closed for Founding even if inventory remains — UI sells Pro.
+        const foundingCtasOpen = await page.locator('[data-checkout-plan="founding"]:visible').count();
+        const proCtasOpen = await page.locator('[data-checkout-plan="monthly"]:visible').count();
+        assert.equal(foundingCtasOpen, 0, `expected no founding acquisition CTAs, found ${foundingCtasOpen}`);
+        assert.ok(proCtasOpen >= 1, "expected Pro monthly CTA while founding closed for acquisition");
+        assert.match(bodyOpen, /\$19\.99|Pro Monthly|Upgrade to Pro|closed for new signups/i);
         await page.screenshot({ path: path.join(OUT_DIR, "spots-remain-homepage.png"), fullPage: true });
-        record("browser: spots remain shows $9.99 founding offer", true);
+        record("browser: acquisition closed — Pro CTAs even if inventory remains", true, `foundingCtas=${foundingCtasOpen} proCtas=${proCtasOpen}`);
 
         // Sold out UI
         seedRemainingSpots(0);

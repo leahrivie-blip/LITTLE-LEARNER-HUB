@@ -13194,6 +13194,36 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
   const signups = events.filter((event) => event.name === "account_signup_complete");
   const paidEvents = events.filter((event) => event.name === "checkout_success");
   const billingEvents = store.billingEvents || [];
+  const actorId = (event) => event.user || event.visitorId || event.sessionId || event.ipHash || "";
+  const isProCheckoutStart = (event) => {
+    if (event.name !== "checkout_start") return false;
+    const type = String(event.detail?.type || "").toLowerCase();
+    return type === "monthly" || type === "annual" || Boolean(event.detail?.trial7day);
+  };
+  const isProCheckoutSuccess = (event) => {
+    if (event.name !== "checkout_success") return false;
+    const plan = String(event.detail?.plan || "").toLowerCase();
+    return !plan || plan.includes("pro") || plan === "monthly" || plan === "annual";
+  };
+  const proUpgradeIntentEvents = events.filter((event) => event.name === "pro_upgrade_intent");
+  const proCheckoutStartEvents = events.filter(isProCheckoutStart);
+  const proCheckoutSuccessEvents = events.filter(isProCheckoutSuccess);
+  const proCheckoutAbandonedEvents = events.filter((event) => event.name === "pro_checkout_abandoned");
+  const proUpgradeDismissEvents = events.filter((event) => event.name === "pro_upgrade_dismissed");
+  const proTriedActors = new Set();
+  const proSuccessActors = new Set();
+  for (const event of [...proUpgradeIntentEvents, ...proCheckoutStartEvents, ...proCheckoutAbandonedEvents]) {
+    const id = actorId(event);
+    if (id) proTriedActors.add(id);
+  }
+  for (const event of proCheckoutSuccessEvents) {
+    const id = actorId(event);
+    if (id) proSuccessActors.add(id);
+  }
+  let proTriedNoBuy = 0;
+  proTriedActors.forEach((id) => {
+    if (!proSuccessActors.has(id)) proTriedNoBuy += 1;
+  });
   const uniqueVisitors = new Set(trafficEvents.map((event) => event.visitorId || event.user || event.sessionId || event.ipHash).filter(Boolean));
   const visitorDays = {};
   trafficEvents.forEach((event) => {
@@ -13442,6 +13472,12 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
           1,
         ),
       ),
+      proUpgradeIntents: proUpgradeIntentEvents.length,
+      proCheckoutsStarted: proCheckoutStartEvents.length,
+      proCheckoutsCompleted: proCheckoutSuccessEvents.length,
+      proCheckoutsAbandoned: proCheckoutAbandonedEvents.length,
+      proUpgradeDismissals: proUpgradeDismissEvents.length,
+      proTriedNoBuy,
       totalRevenue: Number(revenueItems.reduce((total, event) => total + moneyNumber(event.amount || event.detail?.monthlyPrice || event.detail?.amount), 0).toFixed(2)),
       revenueThisMonth,
       monthlyRecurringRevenue,
@@ -13508,6 +13544,9 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
         "provider_tool_pdf",
         "checkout_start",
         "checkout_success",
+        "pro_upgrade_intent",
+        "pro_checkout_abandoned",
+        "pro_upgrade_dismissed",
         "lesson_plan_added_to_calendar",
         "schedule_assign_lesson",
         "curriculum_planner_assign",

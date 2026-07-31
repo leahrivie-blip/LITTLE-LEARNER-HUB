@@ -163,22 +163,22 @@ async function main() {
     assert(afterCreate.topIsAuth, "signup modal must be the topmost interactive layer");
     await mobile.close();
 
-    console.log("2) Desktop guest: Founding CTA opens signup with preferred founding plan");
+    console.log("2) Desktop guest: Pro CTA opens signup with preferred monthly plan");
     const desktop = await browser.newPage({ viewport: { width: 1280, height: 800 } });
     await desktop.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
     await openFreeLesson(desktop, freeLessonId);
-    await desktop.locator("#resourceViewerModal [data-checkout-plan='founding']").click();
+    await desktop.locator("#resourceViewerModal [data-checkout-plan='monthly']").click();
     await desktop.waitForSelector("#authModal.open", { timeout: 8000 });
-    const afterFounding = await desktop.evaluate(() => ({
+    const afterPro = await desktop.evaluate(() => ({
       authOpen: document.querySelector("#authModal")?.classList.contains("open"),
       preferred: sessionStorage.getItem("llhSignupPreferredPlan"),
       viewerOpen: document.querySelector("#resourceViewerModal")?.classList.contains("open"),
       topIsAuth: Boolean(document.elementFromPoint(window.innerWidth / 2, 200)?.closest("#authModal")),
     }));
-    assert(afterFounding.authOpen, "Founding CTA did not open signup");
-    assert(afterFounding.preferred === "founding", `preferred plan should be founding, got ${afterFounding.preferred}`);
-    assert(!afterFounding.viewerOpen, "lesson viewer should close for founding CTA");
-    assert(afterFounding.topIsAuth, "founding signup must be topmost");
+    assert(afterPro.authOpen, "Pro CTA did not open signup");
+    assert(afterPro.preferred === "monthly", `preferred plan should be monthly, got ${afterPro.preferred}`);
+    assert(!afterPro.viewerOpen, "lesson viewer should close for Pro CTA");
+    assert(afterPro.topIsAuth, "Pro signup must be topmost");
     await desktop.click("#closeModal");
     await desktop.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
 
@@ -193,17 +193,17 @@ async function main() {
     assert(await desktop.locator("#authModal.open").count(), "homepage→lesson→signup path failed");
     await desktop.click("#closeModal");
 
-    console.log("4) Homepage founding + start-free CTAs still open signup");
+    console.log("4) Homepage Pro + start-free CTAs still open signup");
     await desktop.evaluate(() => setView("home"));
-    await desktop.locator('#homePricing [data-checkout-plan="founding"]').scrollIntoViewIfNeeded();
-    await desktop.locator('#homePricing [data-checkout-plan="founding"]').click();
+    await desktop.locator('#homePricing [data-checkout-plan="monthly"]').scrollIntoViewIfNeeded();
+    await desktop.locator('#homePricing [data-checkout-plan="monthly"]').click();
     await desktop.waitForSelector("#authModal.open", { timeout: 8000 });
     await desktop.click("#closeModal");
     await desktop.locator(".lp-hero-actions [data-action='start-free']").click();
     await desktop.waitForSelector("#authModal.open", { timeout: 8000 });
     await desktop.click("#closeModal");
 
-    console.log("5) Free logged-in user: founding from homepage opens checkout/upgrade path");
+    console.log("5) Free logged-in user: Pro from homepage opens checkout/upgrade path");
     await desktop.evaluate(() => {
       localStorage.setItem("llhUser", "free-cta@test.local");
       localStorage.setItem("llhPlan", "Free");

@@ -207,9 +207,9 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
   });
 
-  await step("founding pricing button", async () => {
-    await page.locator('#homePricing [data-checkout-plan="founding"]').scrollIntoViewIfNeeded();
-    await page.click('#homePricing [data-checkout-plan="founding"]');
+  await step("pro pricing button", async () => {
+    await page.locator('#homePricing [data-checkout-plan="monthly"]').scrollIntoViewIfNeeded();
+    await page.click('#homePricing [data-checkout-plan="monthly"]');
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
@@ -269,14 +269,14 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
     }
   });
 
-  await step("founding member button", async () => {
+  await step("pro member button", async () => {
     await page.evaluate(() => setView("home"));
     await page.waitForSelector("#view-home.active-view", { timeout: 5000 });
-    await page.waitForSelector('#homePricing [data-checkout-plan="founding"]', { timeout: 10000 });
-    const foundingBtn = page.locator('#homePricing [data-checkout-plan="founding"]');
-    const foundingPlan = await foundingBtn.getAttribute("data-checkout-plan");
-    assert(foundingPlan === "founding" || foundingPlan === "monthly", `${label}: founding CTA has checkout plan`);
-    await foundingBtn.click();
+    await page.waitForSelector('#homePricing [data-checkout-plan="monthly"]', { timeout: 10000 });
+    const proBtn = page.locator('#homePricing [data-checkout-plan="monthly"]');
+    const proPlan = await proBtn.getAttribute("data-checkout-plan");
+    assert(proPlan === "monthly", `${label}: Pro CTA has monthly checkout plan`);
+    await proBtn.click();
     await page.waitForSelector("#authModal.open", { timeout: 5000 });
     await page.click("#closeModal");
     await page.waitForSelector("#authModal.open", { state: "hidden", timeout: 5000 });
@@ -347,17 +347,21 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       assert(await card.locator(".lesson-plan-card-hint").count(), `${label}: locked preview hint missing`);
       await card.click({ force: true });
       await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
-      // Free owners see Founding checkout while spots remain; otherwise Pro trial CTA.
+      // Free owners see Pro Monthly checkout (Founding closed for acquisition); guests may see trial.
+      const proMonthlyBtn = page.locator("#featurePreviewModal [data-checkout-plan='monthly']");
       const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
-      if (await foundingBtn.count()) {
+      if (await proMonthlyBtn.count()) {
+        // Pro Monthly upgrade CTA is present for Free owners — enough for smoke.
+        assert(await proMonthlyBtn.count(), `${label}: Pro Monthly CTA missing in locked preview`);
+      } else if (await foundingBtn.count()) {
         await page.evaluate(() => {
           document.querySelector("#featurePreviewModal [data-checkout-plan='founding']")?.click?.();
         });
         await page.waitForTimeout(800);
       } else {
         // Body CTA can be visually hidden on mobile when the sticky upgrade bar is active.
-        assert(await trialBtn.count(), `${label}: trial CTA missing in locked preview`);
+        assert(await trialBtn.count(), `${label}: Pro/trial CTA missing in locked preview`);
         const clicked = await page.evaluate(() => {
           const sticky = document.querySelector("#featurePreviewModal .fp-sticky-upgrade:not([hidden]) [data-start-pro-trial]");
           const body = document.querySelector("#featurePreviewModal .fp-pro-upgrade-actions [data-start-pro-trial]");
@@ -370,6 +374,14 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
         await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
         await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
       }
+      // Close locked preview so it does not intercept later admin unlock clicks.
+      await page.evaluate(() => {
+        document.querySelector("#closeFeaturePreviewModal")?.click?.();
+        document.querySelector("#featurePreviewModal")?.classList.remove("open");
+        document.querySelector("#featurePreviewModal")?.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("auth-modal-open");
+      });
+      await page.waitForSelector("#featurePreviewModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
     });
   }
 

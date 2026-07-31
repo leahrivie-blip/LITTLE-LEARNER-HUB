@@ -3299,7 +3299,7 @@ function renderSignupWizardStep() {
 
   if (signupWizardStep === 1) {
     const preferFoundingSignup = preferredSignupPlanFromStorage() === "founding"
-      && (!foundingStatusLoaded() || foundingSpotsStillAvailable());
+      && foundingOpenForAcquisition();
     title.textContent = preferFoundingSignup
       ? "Continue with Founding Membership"
       : "Create Your Free Little Learner Hub Account";
@@ -3504,7 +3504,7 @@ function renderSignupPlanChooser() {
   const target = document.querySelector("#signupPlanChooser");
   if (!target) return;
   const remaining = foundingSpotsRemaining();
-  const soldOut = foundingStatusLoaded() && remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   const spotsRemainingLabel = foundingStatusLoaded() ? remaining : "…";
   const preferredPlan = preferredSignupPlanFromStorage();
   const preferFounding = preferredPlan === "founding" && !soldOut;
@@ -3773,13 +3773,13 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   document.body.classList.add("auth-modal-open");
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
-  const offerFounding = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
-  const offerPro = canSeePaidUpgradeOffer() && !foundingSpotsStillAvailable();
+  const offerFounding = canSeePaidUpgradeOffer() && foundingOpenForAcquisition();
+  const offerPro = canSeePaidUpgradeOffer() && !foundingOpenForAcquisition();
   const unlockLines = lockedContentUnlockLines();
   const upgradePopupBody = offerFounding
     ? `Lock in $9.99/month while your membership remains continuously active. ${freeUpgradeSupportingText()}`
     : (offerPro
-      ? "Upgrade to Pro for unlimited access to every feature, lesson plan, and future update."
+      ? "You're on Free with 10 starter plans. Pro unlocks the full library, unlimited printing, and every planning tool — $19.99/month."
       : ((!isDraft && um.upgradePopupBody) ? um.upgradePopupBody : proTrialUpgradeMessage));
   const proTrialBtnText = offerFounding || offerPro
     ? freeUpgradePrimaryButtonLabel({ short: true })
@@ -3836,15 +3836,23 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       upgradeBtn.dataset.startProTrial = "1";
     }
   }
+  modal.dataset.proUpgradePromptOpen = "1";
+  trackUpgradePrompt("pro_feature_modal", { type: String(type || "feature"), offer: offerFounding ? "founding" : (offerPro ? "monthly" : "trial") });
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
 }
 
-function closeProFeatureModal() {
+function closeProFeatureModal(options = {}) {
   const modal = document.querySelector("#proModal");
   if (!modal) return;
+  const wasOpen = modal.classList.contains("open");
+  const dismissed = wasOpen && !options.completed && modal.dataset.proUpgradePromptOpen === "1";
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
+  delete modal.dataset.proUpgradePromptOpen;
+  if (dismissed) {
+    trackProUpgradeDismissed("pro_modal", { type: options.source || "dismiss" });
+  }
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
     document.body.classList.remove("auth-modal-open");
   }
@@ -4113,7 +4121,7 @@ function subscriptionAccessBannerHtml(options = {}) {
   if (!status.banner) return "";
   const variant = options.variant || "dashboard";
   if (status.banner === "trial") {
-    const foundingLine = foundingSpotsStillAvailable() ? ` ${MEMBERSHIP_COPY.foundingWhileOpen}` : "";
+    const foundingLine = foundingOpenForAcquisition() ? ` ${MEMBERSHIP_COPY.foundingWhileOpen}` : "";
     return `
       <section class="llh-access-banner llh-access-banner--trial" data-access-banner="trial" data-banner-variant="${escapeHtml(variant)}" role="status">
         <div class="llh-access-banner-copy">
@@ -4289,25 +4297,30 @@ function foundingMeterHtml() {
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-  const soldOut = remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   return `
-    <div class="spots-meter ${soldOut ? "sold-out" : ""}" aria-label="${soldOut ? "Founding spots filled" : `${claimed} founding spots filled and ${remaining} remaining`}">
+    <div class="spots-meter ${soldOut ? "sold-out" : ""}" aria-label="${soldOut ? "Founding pricing closed for new signups" : `${claimed} founding spots filled and ${remaining} remaining`}">
       <strong>${soldOut ? "$19.99" : remaining}</strong>
       <span>${soldOut ? "regular Pro monthly" : "spots left"}</span>
       <div class="spots-progress" aria-hidden="true"><span style="width: ${foundingProgressPercent()}%"></span></div>
-      <small>${soldOut ? `${limit} of ${limit} filled` : `${claimed} of ${limit} filled`}</small>
-      <em>${foundingUrgencyText()}</em>
+      <small>${soldOut ? "Closed for new signups" : `${claimed} of ${limit} filled`}</small>
+      <em>${soldOut ? "Founding pricing is closed for new signups. Pro is $19.99/month." : foundingUrgencyText()}</em>
     </div>
   `;
 }
 
 function syncPublicFoundingOfferUi() {
   if (!foundingStatusLoaded()) return;
-  const soldOut = !foundingSpotsStillAvailable();
+  // Acquisition surfaces treat Founding as closed even if inventory remains.
+  const soldOut = !foundingOpenForAcquisition();
   const remaining = foundingSpotsRemaining();
-  const spotsMsg = foundingSpotsLeftMessage(remaining);
+  const spotsMsg = soldOut && FOUNDING_CLOSED_FOR_ACQUISITION
+    ? "Founding Member pricing is closed for new signups."
+    : foundingSpotsLeftMessage(remaining);
   const spotsWithRegular = soldOut
-    ? spotsMsg
+    ? (FOUNDING_CLOSED_FOR_ACQUISITION
+      ? "Founding Member pricing is closed for new signups. Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while continuously active."
+      : spotsMsg)
     : `${spotsMsg} Regular price will be $19.99/month.`;
 
   // Keep every Founding count surface on the same server-provided message.
@@ -12167,7 +12180,7 @@ function setAuthMode(mode) {
   const foundingContinueNote = document.querySelector("#authFoundingContinueNote");
   const preferFoundingSignup = mode === "signup"
     && preferredSignupPlanFromStorage() === "founding"
-    && (!foundingStatusLoaded() || foundingSpotsStillAvailable());
+    && foundingOpenForAcquisition();
   if (foundingContinueNote) {
     foundingContinueNote.hidden = !preferFoundingSignup;
     foundingContinueNote.textContent = "Create your account to continue with Founding Membership.";
@@ -12621,9 +12634,9 @@ function updateAuthButtons() {
   } else {
     signIn.textContent = "Log in";
     delete signIn.dataset.view;
-    signUp.textContent = (foundingStatusLoaded() && !foundingSpotsStillAvailable())
-      ? "Get Started — $19.99/month"
-      : "Get Started — $9.99/month";
+    signUp.textContent = foundingOpenForAcquisition()
+      ? "Get Started — $9.99/month"
+      : "Get Started — $19.99/month";
     delete signUp.dataset.view;
   }
   updateAdminNavVisibility();
@@ -15529,6 +15542,45 @@ function trackUpgradePromptClick(promptId, extra = {}) {
   }
 }
 
+/** Someone showed intent to get Pro (CTA click, locked preview upgrade, etc.). */
+function trackProUpgradeIntent(source, extra = {}) {
+  try {
+    trackEvent("pro_upgrade_intent", {
+      source: source || "unknown",
+      plan: extra.plan || primaryPaidOffer(),
+      accessPlan: effectiveAccessPlan(),
+      ...extra,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Started Pro checkout but left without completing payment. */
+function trackProCheckoutAbandoned(reason, extra = {}) {
+  try {
+    trackEvent("pro_checkout_abandoned", {
+      reason: reason || "unknown",
+      accessPlan: effectiveAccessPlan(),
+      ...extra,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
+function trackProUpgradeDismissed(source, extra = {}) {
+  try {
+    trackEvent("pro_upgrade_dismissed", {
+      source: source || "unknown",
+      accessPlan: effectiveAccessPlan(),
+      ...extra,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 function showLessonCustomizationUpgrade(resourceId = "") {
   trackUpgradePrompt("lesson_customization", { resourceId });
   const modal = document.querySelector("#proModal");
@@ -15540,13 +15592,13 @@ function showLessonCustomizationUpgrade(resourceId = "") {
     showProFeatureModal(lessonCustomizationUpgradeBody, "feature");
     return;
   }
-  const offerFounding = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
+  const offerFounding = canSeePaidUpgradeOffer() && foundingOpenForAcquisition();
   if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Pro Customization";
   if (title) title.textContent = lessonCustomizationUpgradeHeadline;
   body.innerHTML = `
     <p>${escapeHtml(lessonCustomizationUpgradeBody).replace(/\n/g, "<br>")}</p>
     <ul class="pro-modal-benefit-list">${lockedContentUnlockLines().map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
-    ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · ${escapeHtml(foundingSpotsLeftMessage())}</p>` : ""}
+    ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · ${escapeHtml(foundingSpotsLeftMessage())}</p>` : `<p class="muted-copy">You're on Free with 10 starter plans. Pro unlocks customization and the full library for $19.99/month.</p>`}
   `;
   if (upgradeBtn) {
     upgradeBtn.textContent = freeUpgradePrimaryButtonLabel({ short: true });
@@ -15554,6 +15606,7 @@ function showLessonCustomizationUpgrade(resourceId = "") {
     upgradeBtn.dataset.upgradeMode = offerFounding ? "founding" : "monthly";
     upgradeBtn.dataset.upgradePromptId = "lesson_customization";
   }
+  modal.dataset.proUpgradePromptOpen = "1";
   document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -22733,7 +22786,7 @@ function lessonWorkspaceActionBarsHtml(resource) {
         <p>Create an account to use, edit, plan, print, and download lesson plans.</p>
         <div class="llh-public-preview-cta-actions">
           <button class="primary-button" type="button" data-action="start-free">Create Free Account</button>
-          <button class="ghost-button" type="button" data-checkout-plan="founding" data-signup-intent="founding">Lock In $9.99 Founding Pricing</button>
+          <button class="ghost-button" type="button" data-checkout-plan="monthly" data-signup-intent="monthly">Upgrade to Pro — $19.99/month</button>
           <button class="ghost-button" type="button" data-lesson-workspace-back>Back to Lesson Plans</button>
         </div>
       </div>
@@ -24104,8 +24157,8 @@ function openLockedResourcePreview(resource, triggerEl = null) {
     ? "Pro Lesson Plan Preview"
     : (isLockedActivity ? "Pro Activity Preview" : "Pro Resource Preview");
   featurePreviewTitle.textContent = resource.title;
-  const showFoundingOffer = canSeePaidUpgradeOffer() && foundingSpotsStillAvailable();
-  const showProMonthlyOffer = canSeePaidUpgradeOffer() && !foundingSpotsStillAvailable();
+  const showFoundingOffer = canSeePaidUpgradeOffer() && foundingOpenForAcquisition();
+  const showProMonthlyOffer = canSeePaidUpgradeOffer() && !foundingOpenForAcquisition();
   const showProTrialOffer = !canSeePaidUpgradeOffer() && !isProUser();
   // Never mix Founding ($9.99 locked) with Pro trial (converts to $19.99/month).
   const lockedUpgradeCta = showFoundingOffer
@@ -24122,7 +24175,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   const lockedUpgradeNote = showFoundingOffer
     ? `${foundingSpotsLeftMessage()} $9.99/month locked while your membership remains continuously active. This is Founding Membership — not a Pro trial.`
     : (showProMonthlyOffer
-      ? "Pro Monthly is $19.99/month. Existing Founding Members keep their locked price while continuously active."
+      ? "You're on Free with 10 starter plans. Pro unlocks this plan and the full library for $19.99/month."
       : (showProTrialOffer
         ? "7-day Pro trial. Card required at signup. You are charged Pro Monthly ($19.99/month) right after the trial ends unless you cancel — not Founding Member pricing."
         : ""));
@@ -25878,10 +25931,10 @@ function homeActivityPreviewCardHtml(resource) {
 
 function publicActivityPreviewCtaHtml() {
   if (isLoggedIn() || hasAdminFullAccess()) return "";
-  const foundingOpen = !foundingStatusLoaded() || foundingSpotsStillAvailable();
+  const foundingOpen = foundingOpenForAcquisition();
   const paidCta = foundingOpen
     ? `<button class="ghost-button" type="button" data-checkout-plan="founding">Lock In Founding Member — $9.99/month</button>`
-    : `<button class="ghost-button" type="button" data-checkout-plan="monthly">Choose Pro Monthly — $19.99/month</button>`;
+    : `<button class="ghost-button" type="button" data-checkout-plan="monthly">Upgrade to Pro — $19.99/month</button>`;
   return `
     <section class="llh-public-preview-cta">
       <p>Create an account to save activities and use them in your weekly planning.</p>
@@ -42514,6 +42567,48 @@ function mapCountsToPoints(counts = {}) {
     .map(([label, value]) => ({ label, value }));
 }
 
+/** Count people who try Pro checkout vs who leave without buying. */
+function summarizeProUpgradeFunnel(events = []) {
+  const actorId = (event) => event.user || event.visitorId || event.sessionId || "";
+  const isProCheckoutStart = (event) => {
+    if (event.name !== "checkout_start") return false;
+    const type = String(event.detail?.type || "").toLowerCase();
+    return type === "monthly" || type === "annual" || Boolean(event.detail?.trial7day);
+  };
+  const isProCheckoutSuccess = (event) => {
+    if (event.name !== "checkout_success") return false;
+    const plan = String(event.detail?.plan || "").toLowerCase();
+    return !plan || plan.includes("pro") || plan === "monthly" || plan === "annual";
+  };
+  const intentEvents = events.filter((event) => event.name === "pro_upgrade_intent");
+  const startEvents = events.filter(isProCheckoutStart);
+  const successEvents = events.filter(isProCheckoutSuccess);
+  const abandonEvents = events.filter((event) => event.name === "pro_checkout_abandoned");
+  const dismissEvents = events.filter((event) => event.name === "pro_upgrade_dismissed");
+  const tried = new Set();
+  const succeeded = new Set();
+  for (const event of [...intentEvents, ...startEvents, ...abandonEvents]) {
+    const id = actorId(event);
+    if (id) tried.add(id);
+  }
+  for (const event of successEvents) {
+    const id = actorId(event);
+    if (id) succeeded.add(id);
+  }
+  let triedNoBuy = 0;
+  tried.forEach((id) => {
+    if (!succeeded.has(id)) triedNoBuy += 1;
+  });
+  return {
+    proUpgradeIntents: intentEvents.length,
+    proCheckoutsStarted: startEvents.length,
+    proCheckoutsCompleted: successEvents.length,
+    proCheckoutsAbandoned: abandonEvents.length,
+    proUpgradeDismissals: dismissEvents.length,
+    proTriedNoBuy: triedNoBuy,
+  };
+}
+
 function localAnalyticsSummary() {
   const events = analyticsEvents();
   const accountRows = allAccountsList();
@@ -42533,8 +42628,9 @@ function localAnalyticsSummary() {
   });
   const returningVisitors = Object.values(visitorDays).filter((days) => days.size > 1).length;
   const revenueEvents = paidEvents;
-  const featureEvents = events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success", "schedule_assign_lesson", "lesson_plan_added_to_calendar", "observation_created", "parent_message_generated"].includes(event.name));
+  const featureEvents = events.filter((event) => ["button_click", "ai_generation_success", "resource_view", "resource_print", "generated_pdf", "generated_print", "provider_tool_pdf", "checkout_start", "checkout_success", "pro_upgrade_intent", "pro_checkout_abandoned", "pro_upgrade_dismissed", "schedule_assign_lesson", "lesson_plan_added_to_calendar", "observation_created", "parent_message_generated"].includes(event.name));
   const activeMonth = accountRows.filter((account) => adminIsWithinDays(account.lastSeenAt || account.lastLoginAt, 30)).length;
+  const proFunnel = summarizeProUpgradeFunnel(events);
   return {
     mode: "Local browser history",
     updatedAt: new Date().toISOString(),
@@ -42561,6 +42657,7 @@ function localAnalyticsSummary() {
       signupToPaidRate: percentage(paidUsers.length, Math.max(accountRows.length, 1)),
       visitorToPaidRate: percentage(paidUsers.length, Math.max(visitorIds.size, 1)),
       totalRevenue: revenueEvents.reduce((total, event) => total + moneyValue(event.detail?.monthlyPrice || event.detail?.amount), 0),
+      ...proFunnel,
     },
     periods: {
       dailyVisitors: groupCounts(sessionVisits, (event) => dateKey(event.createdAt)),
@@ -42813,6 +42910,11 @@ function renderAdminAnalytics() {
       ${adminMetric("viewer to paid", totals.visitorToPaidRate || "0%")}
       ${adminMetric("tracked revenue", `$${Number(totals.totalRevenue || 0).toFixed(2)}`)}
       ${adminMetric("returning viewers", totals.returningVisitors || 0)}
+      ${adminMetric("pro upgrade intents", totals.proUpgradeIntents || 0, "Clicked Upgrade to Pro / start checkout")}
+      ${adminMetric("pro checkouts started", totals.proCheckoutsStarted || 0, "Reached Stripe / test checkout")}
+      ${adminMetric("pro checkouts completed", totals.proCheckoutsCompleted || 0, "Paid successfully")}
+      ${adminMetric("pro checkouts abandoned", totals.proCheckoutsAbandoned || 0, "Left Stripe or declined confirm")}
+      ${adminMetric("tried Pro, didn't buy", totals.proTriedNoBuy || 0, "Unique people who tried Pro without completing")}
     </div>
     <div class="analytics-grid">
       <article class="analytics-card">
@@ -51878,13 +51980,13 @@ function foundingStatusCard() {
   }
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
-  const soldOut = remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   return `
     <section class="founding-banner founding-banner--compact ${soldOut ? "founding-sold-out" : ""}">
       <div>
         <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding spots are filled" : `$9.99/month locked while continuously active · ${foundingSpotsLeftMessage(remaining)}`}</h3>
-        <p>${soldOut ? "Pro is $19.99/month or $199/year." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
+        <h3>${soldOut ? "Founding pricing is closed for new signups" : `$9.99/month locked while continuously active · ${foundingSpotsLeftMessage(remaining)}`}</h3>
+        <p>${soldOut ? "Pro is $19.99/month or $199/year. Existing Founding Members keep $9.99/month locked while continuously active." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
       </div>
       ${foundingMeterHtml()}
     </section>
@@ -51907,6 +52009,22 @@ function canSeePaidUpgradeOffer(account = currentAccount()) {
 function foundingSpotsStillAvailable() {
   if (!foundingStatusLoaded()) return true;
   return foundingSpotsRemaining() > 0;
+}
+
+/**
+ * Founding Member pricing is closed for new acquisition.
+ * Existing Founding Members keep $9.99 while continuously active.
+ * Public CTAs and Free→paid upgrade paths sell Pro only.
+ */
+const FOUNDING_CLOSED_FOR_ACQUISITION = true;
+
+function foundingOpenForAcquisition() {
+  return !FOUNDING_CLOSED_FOR_ACQUISITION && foundingSpotsStillAvailable();
+}
+
+/** Primary paid plan offered to guests and Free users. */
+function primaryPaidOffer() {
+  return foundingOpenForAcquisition() ? "founding" : "monthly";
 }
 
 function isFoundingUpgradeBannerDismissed() {
@@ -52068,7 +52186,7 @@ function lockedContentUnlockLines(options = {}) {
 
 function freeUpgradePrimaryButtonLabel(options = {}) {
   const short = Boolean(options.short);
-  if (foundingSpotsStillAvailable()) {
+  if (foundingOpenForAcquisition()) {
     return short
       ? "⭐ Lock In Founding Member Pricing"
       : "⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
@@ -52077,7 +52195,7 @@ function freeUpgradePrimaryButtonLabel(options = {}) {
 }
 
 function freeUpgradeSupportingText() {
-  if (foundingSpotsStillAvailable()) {
+  if (foundingOpenForAcquisition()) {
     return `${MEMBERSHIP_COPY.foundingCard} ${foundingSpotsLeftMessage()}`;
   }
   return MEMBERSHIP_COPY.proCard;
@@ -52085,7 +52203,7 @@ function freeUpgradeSupportingText() {
 
 function planComparisonTableHtml() {
   const stats = contentGrowthStats();
-  const foundingOpen = foundingSpotsStillAvailable();
+  const foundingOpen = foundingOpenForAcquisition();
   const paidLabel = foundingOpen ? "Founding" : "Pro";
   const freePlans = 10;
   const proPlans = Math.max(stats.proPlans, Math.max(0, stats.totalPlans - freePlans));
@@ -52156,7 +52274,7 @@ function freeWelcomeCardHtml() {
         <ul class="free-welcome-card-benefits">
           <li>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)}</li>
           <li>Print and download your Free starter plans (no trial watermark or export limit)</li>
-          <li>${escapeHtml(MEMBERSHIP_COPY.unlimitedLabel)} with Founding or Pro</li>
+          <li>${escapeHtml(MEMBERSHIP_COPY.unlimitedLabel)} with Pro</li>
         </ul>
       </div>
       <div class="free-welcome-card-actions">
@@ -52172,7 +52290,7 @@ function freeWelcomeCardHtml() {
 function freeDashboardUpgradeCardHtml() {
   if (!canSeePaidUpgradeOffer()) return "";
   if (!isFreeWelcomeCardDismissed() && !hasLegacyFreeLessonAccess()) return "";
-  const foundingOpen = foundingSpotsStillAvailable();
+  const foundingOpen = foundingOpenForAcquisition();
   const unlockLines = lockedContentUnlockLines();
   return `
     <section class="free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer">
@@ -52293,9 +52411,9 @@ function hideFreePlanSoftNudge() {
   nudge.hidden = true;
 }
 
-/** Preferred paid checkout for eligible Free owners: founding while spots remain, else Pro monthly. */
+/** Preferred paid checkout for eligible Free owners / acquisition CTAs. */
 function preferredPaidCheckoutPlan() {
-  return foundingSpotsStillAvailable() ? "founding" : "monthly";
+  return primaryPaidOffer();
 }
 
 function preferredPaidCheckoutButtonLabel() {
@@ -52314,7 +52432,7 @@ function freeLibraryConversionBannerHtml(options = {}) {
   if (!force) return "";
   if (!canSeePaidUpgradeOffer()) return "";
   if (!force && isFoundingUpgradeBannerDismissed()) return "";
-  const foundingOpen = foundingSpotsStillAvailable();
+  const foundingOpen = foundingOpenForAcquisition();
   const primaryCheckout = preferredPaidCheckoutPlan();
   const primaryLabel = freeUpgradePrimaryButtonLabel();
   const headline = freeLibraryDashboardHeadline;
@@ -52357,7 +52475,7 @@ function foundingUpgradeBannerHtml(options = {}) {
   } = options;
   if (!canSeePaidUpgradeOffer()) return "";
   if (!force && isFoundingUpgradeBannerDismissed()) return "";
-  const soldOut = !foundingSpotsStillAvailable();
+  const soldOut = !foundingOpenForAcquisition();
   const remaining = foundingSpotsRemaining();
   const checkoutPlan = preferredPaidCheckoutPlan();
   const ctaLabel = freeUpgradePrimaryButtonLabel();
@@ -52430,11 +52548,11 @@ function homeFoundingMeterHtml() {
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-  const soldOut = remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   if (soldOut) {
     return `
       <div class="llh-founding-meter llh-founding-meter--sold-out" role="status">
-        <p><strong>Founding Member spots are filled.</strong> Regular Pro pricing is $19.99/month.</p>
+        <p><strong>Founding Member pricing is closed for new signups.</strong> Regular Pro pricing is $19.99/month.</p>
       </div>
     `;
   }
@@ -52460,10 +52578,10 @@ function renderHomeFoundingOffer() {
   const remaining = foundingSpotsRemaining();
   const claimed = foundingSpotsClaimed();
   const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-  const soldOut = foundingStatusLoaded() && remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   const f = (effectiveSiteContent().founding || {});
   if (f._draft) return;
-  const heading = soldOut ? (f.soldOutHeading || "Founding Member spots are filled") : (f.heading || "Founding Member Pricing");
+  const heading = soldOut ? (f.soldOutHeading || "Founding Member pricing is closed for new signups") : (f.heading || "Founding Member Pricing");
   const pricePrefix = f.pricePrefix || "Get Pro for";
   const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "while continuously active");
   const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Lock In $9.99 Pricing");
@@ -52471,7 +52589,7 @@ function renderHomeFoundingOffer() {
     ? `<p class="founding-remaining" role="status">Checking Founding Member availability…</p>`
     : foundingStatusLoadFailed()
       ? `<p class="founding-remaining founding-remaining--error" role="alert">Founding Member availability could not be loaded. Please try again. <button class="link-button" type="button" data-retry-founding-status>Try again</button></p>`
-      : `<p class="founding-remaining">${soldOut ? "Founding pricing is closed" : escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
+      : `<p class="founding-remaining">${soldOut ? "Founding pricing is closed for new signups" : escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
   legacyTarget.innerHTML = `
     <div class="founding-hero-card ${soldOut ? "founding-sold-out" : ""}" data-pricing-card="${soldOut ? "pro-monthly" : "founding"}">
       <h2>${escapeHtml(heading)}</h2>
@@ -52573,7 +52691,7 @@ function foundingPlanFeatureList() {
       : "Unlimited curriculum collections",
     "Weekly new content",
     "Price never increases while continuously active",
-    foundingSpotsStillAvailable() ? foundingSpotsLeftMessage() : "Founding pricing closed",
+    foundingOpenForAcquisition() ? foundingSpotsLeftMessage() : "Founding pricing closed",
   ];
 }
 
@@ -52581,7 +52699,7 @@ function renderPricingPage() {
   const target = document.querySelector("#pricingApp");
   if (!target) return;
   const remaining = foundingSpotsRemaining();
-  const soldOut = remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   if (!soldOut) {
     billingPlans.Founding.features = foundingPlanFeatureList();
   }
@@ -52645,7 +52763,7 @@ function renderUpgradePage() {
   const target = document.querySelector("#upgradeApp");
   if (!target) return;
   const remaining = foundingSpotsRemaining();
-  const soldOut = remaining <= 0;
+  const soldOut = !foundingOpenForAcquisition();
   if (!soldOut) {
     billingPlans.Founding.features = foundingPlanFeatureList();
   }
@@ -53423,6 +53541,7 @@ function isEligibleForFoundingCheckout(account = currentAccount()) {
 
 function shouldConfirmBeforeRegularPro(type, account = currentAccount()) {
   if (type !== "monthly") return false;
+  if (!foundingOpenForAcquisition()) return false;
   if (foundingSpotsRemaining() <= 0) return false;
   return isEligibleForFoundingCheckout(account);
 }
@@ -53521,7 +53640,15 @@ async function startCheckout(type, trackingContext = "checkout") {
   const membershipConfirm = checkoutType === "founding"
     ? `\n\n${MEMBERSHIP_COPY.foundingCard}`
     : `\n\n${MEMBERSHIP_COPY.proCard}\n\nIf you start with a trial instead: ${MEMBERSHIP_COPY.trialCore}`;
-  if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?${membershipConfirm}${promoConfirm}`)) return;
+  if (!window.confirm(`Continue to secure Stripe checkout for ${priceConfirmLabel}?${membershipConfirm}${promoConfirm}`)) {
+    if (checkoutType === "monthly" || checkoutType === "annual") {
+      trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, context: trackingContext });
+    }
+    return;
+  }
+  if (checkoutType === "monthly" || checkoutType === "annual") {
+    trackProUpgradeIntent("checkout_confirmed", { plan: checkoutType, context: trackingContext });
+  }
   const checkoutButton = document.querySelector(`[data-checkout-plan="${type}"]`);
   if (checkoutButton) {
     checkoutButton.disabled = true;
@@ -53617,7 +53744,11 @@ async function startProTrial() {
   await syncFoundingStatus({ render: false });
   const checkoutType = "monthly";
   const amount = checkoutAmount(checkoutType);
-  if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) return;
+  if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) {
+    trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, trial7day: true });
+    return;
+  }
+  trackProUpgradeIntent("pro_trial_confirmed", { plan: "monthly", trial7day: true });
   const pending = {
     type: checkoutType,
     amount,
@@ -53849,6 +53980,14 @@ function failCheckout() {
   // it always means checkout was abandoned before any payment was attempted. Mislabeling
   // it "Payment Failed" wrongly implied a card was charged and declined.
   const pending = readSavedJson("llhPendingCheckout", null);
+  const pendingType = String(pending?.type || "monthly");
+  if (pendingType === "monthly" || pendingType === "annual" || pending?.trialDays) {
+    trackProCheckoutAbandoned("stripe_cancel", {
+      type: pendingType,
+      amount: pending?.amount || "",
+      trialDays: pending?.trialDays || 0,
+    });
+  }
   addBillingHistory("Checkout Canceled", "Checkout was canceled before payment — no charge was made and no plan change occurred.", pending?.amount || "");
   localStorage.removeItem("llhPendingCheckout");
   setView("payment-failed");
@@ -54645,8 +54784,22 @@ document.addEventListener("click", async (event) => {
       checkoutButton.closest("#resourceViewerModal .llh-public-preview-cta, #resourceViewerModal [data-lesson-action-bars], #resourceViewerModal .llh-public-preview-cta-actions"),
     );
     dismissOverlaysForAuthOrUpgrade();
+    const intentSource = checkoutButton.closest("#featurePreviewModal")
+      ? "locked_preview"
+      : checkoutButton.closest("#homePricing, #homeFinalCta, .lp-hero-actions")
+        ? "homepage"
+        : checkoutButton.closest("#pricingApp")
+          ? "pricing_page"
+          : checkoutButton.closest("#upgradeApp")
+            ? "upgrade_page"
+            : checkoutButton.closest("#freePlanReminderBar, #sidebarFreeUpgradeCard")
+              ? "free_upgrade_chrome"
+              : "generic_cta";
+    if (planType === "monthly" || planType === "annual") {
+      trackProUpgradeIntent(intentSource, { plan: planType, guest: !currentUser });
+    }
     if (!currentUser) {
-      setPreferredSignupPlan(planType === "founding" ? "founding" : planType);
+      setPreferredSignupPlan(planType === "founding" && foundingOpenForAcquisition() ? "founding" : (planType === "founding" ? "monthly" : planType));
       openAuthModal("signup");
       return;
     }
@@ -54665,8 +54818,8 @@ document.addEventListener("click", async (event) => {
         ? "upgrade_page"
         : checkoutButton.closest("#homeFoundingOffer")
           ? "homepage_hero"
-          : "generic_cta";
-    startCheckoutWithFoundingGuard(planType, checkoutContext);
+          : intentSource;
+    startCheckoutWithFoundingGuard(planType === "founding" && !foundingOpenForAcquisition() ? "monthly" : planType, checkoutContext);
     return;
   }
 
@@ -59742,7 +59895,7 @@ async function completeSignupProgramStep({ allowSkip = false } = {}) {
   const preferredPlan = preferredSignupPlanFromStorage();
   // Preserve Founding selection: after account + program, continue to Founding checkout
   // instead of the Free/Pro chooser (which could drop the selected plan).
-  if (preferredPlan === "founding" && foundingSpotsStillAvailable()) {
+  if (preferredPlan === "founding" && foundingOpenForAcquisition()) {
     updateAccount(currentUser, { selectedPlanAtSignup: "Founding", preferredCheckoutPlan: "founding" });
     await finishSignupWithPlan("founding");
     return;
@@ -59828,7 +59981,6 @@ document.querySelector("#signupSkipButton")?.addEventListener("click", async () 
   }
 });
 
-document.querySelector("#closeProModal")?.addEventListener("click", closeProFeatureModal);
 
 // -------------------------------------------------------
 // Feature Preview Modal
@@ -60289,7 +60441,10 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   const mode = upgradeBtn?.dataset.upgradeMode || "trial";
   const promptId = upgradeBtn?.dataset.upgradePromptId || "pro_modal";
   trackUpgradePromptClick(promptId, { mode });
-  closeProFeatureModal();
+  if (mode === "monthly" || mode === "trial") {
+    trackProUpgradeIntent("pro_feature_modal", { mode, plan: mode === "trial" ? "monthly" : mode });
+  }
+  closeProFeatureModal({ completed: true });
   if (mode === "founding") {
     startCheckoutWithFoundingGuard("founding", "pro_feature_modal");
     return;
@@ -60301,7 +60456,8 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
   startProTrial();
 });
 
-document.querySelector("#proModalDismiss")?.addEventListener("click", closeProFeatureModal);
+document.querySelector("#proModalDismiss")?.addEventListener("click", () => closeProFeatureModal({ source: "maybe_later" }));
+document.querySelector("#closeProModal")?.addEventListener("click", () => closeProFeatureModal({ source: "close" }));
 
 document.querySelector("#authForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -61413,6 +61569,7 @@ document.addEventListener("click", async (event) => {
   const foundingUpgradeDismiss = event.target.closest("[data-dismiss-founding-upgrade]");
   if (foundingUpgradeDismiss) {
     event.preventDefault();
+    trackProUpgradeDismissed("founding_upgrade_banner");
     dismissFoundingUpgradeBanner();
     refreshFreePlanUpgradeChrome();
     return;
@@ -61421,6 +61578,7 @@ document.addEventListener("click", async (event) => {
   const freePlanReminderDismiss = event.target.closest("[data-dismiss-free-plan-reminder]");
   if (freePlanReminderDismiss) {
     event.preventDefault();
+    trackProUpgradeDismissed("free_plan_reminder");
     dismissFreePlanReminderBar();
     return;
   }
@@ -61428,6 +61586,7 @@ document.addEventListener("click", async (event) => {
   const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome]");
   if (freeWelcomeDismiss) {
     event.preventDefault();
+    trackProUpgradeDismissed("free_welcome_card");
     dismissFreeWelcomeCard();
     return;
   }
@@ -64027,3 +64186,14 @@ if (isLoggedIn()) {
   refreshNotificationBell();
   startNotificationBellPolling();
 }
+
+// Test / diagnostics hooks (also used by Playwright conversion checks).
+window.FOUNDING_CLOSED_FOR_ACQUISITION = FOUNDING_CLOSED_FOR_ACQUISITION;
+window.foundingOpenForAcquisition = foundingOpenForAcquisition;
+window.primaryPaidOffer = primaryPaidOffer;
+window.preferredPaidCheckoutPlan = preferredPaidCheckoutPlan;
+window.foundingStatusLoaded = foundingStatusLoaded;
+window.syncFoundingStatus = syncFoundingStatus;
+window.failCheckout = failCheckout;
+window.trackProUpgradeIntent = trackProUpgradeIntent;
+window.trackProCheckoutAbandoned = trackProCheckoutAbandoned;

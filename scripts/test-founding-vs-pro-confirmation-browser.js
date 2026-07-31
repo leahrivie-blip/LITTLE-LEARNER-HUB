@@ -142,7 +142,7 @@ async function openSignupPlanStep(page) {
 
 async function main() {
   // ============================================================
-  // Scenario A: fresh eligible signup, Founding open — full modal round trip
+  // Scenario A: Founding closed for acquisition — Pro-only, no Founding-vs-Pro modal
   // ============================================================
   {
     const port = 20500 + Math.floor(Math.random() * 200);
@@ -153,23 +153,23 @@ async function main() {
       await waitForBoot(port, child);
       browser = await chromium.launch({ headless: true });
 
-      await test("homepage shows the required Founding copy + live remaining count while spots are open (desktop)", async () => {
+      await test("homepage sells Pro; Founding acquisition CTAs are gone even if inventory remains", async () => {
         const page = await newPage(browser, { width: 1280, height: 900 });
         await loadHome(page, port);
         await page.waitForSelector("#homePricing .llh-founding-card, #homeFoundingMeter", { timeout: 10000 });
-        await page.waitForFunction(() => {
-          const meter = document.querySelector("#homeFoundingMeter");
-          return meter && /spots remaining|Founding Member spots remaining|Founding Member spots left/i.test(meter.innerText || "");
-        }, null, { timeout: 15000 });
+        await page.waitForFunction(() => typeof foundingOpenForAcquisition === "function" && foundingOpenForAcquisition() === false, null, { timeout: 15000 });
+        const foundingVisible = await page.locator('[data-checkout-plan="founding"]:visible').count();
+        const proVisible = await page.locator('[data-checkout-plan="monthly"]:visible').count();
+        assert.equal(foundingVisible, 0);
+        assert.ok(proVisible >= 1);
         const pricingText = await page.locator("#homePricing").innerText();
-        assert.match(pricingText, /\$9\.99/);
-        assert.match(pricingText, /spots remaining|Founding Member spots remaining|Founding Member spots left/i);
-        assert.doesNotMatch(pricingText, /no meaningful/i, "the removed 'no meaningful reason' wording must not appear anywhere");
-        await page.screenshot({ path: path.join(SHOT_DIR, "01-homepage-founding-open-desktop.png"), fullPage: true });
+        assert.match(pricingText, /\$19\.99|Pro Monthly|closed for new signups/i);
+        assert.doesNotMatch(pricingText, /no meaningful/i);
+        await page.screenshot({ path: path.join(SHOT_DIR, "01-homepage-pro-acquisition-desktop.png"), fullPage: true });
         await page.close();
       });
 
-      await test("signup plan chooser: Founding is featured/primary, Pro is secondary with the new required copy, no 'no meaningful' wording", async () => {
+      await test("signup plan chooser features Pro Monthly; no Founding card", async () => {
         const page = await newPage(browser, { width: 1280, height: 900 });
         await loadHome(page, port);
         await signUpAndSeed(page, "eligible-signup@example.com", "TestPass123!");
@@ -177,153 +177,43 @@ async function main() {
         const wrapper = page.locator("#signupPlanChooser");
         await wrapper.waitFor({ state: "attached", timeout: 10000 });
         const html = await wrapper.innerHTML();
-        assert.match(html, /signup-plan-card--founding[^"]*signup-plan-card--featured[^"]*signup-plan-card--recommended/);
-        assert.match(html, /Includes Pro access\. \$9\.99\/month locked while continuously active\./);
-        assert.match(html, /Regular monthly price after Founding availability ends\./);
+        assert.doesNotMatch(html, /signup-plan-card--founding/);
+        assert.match(html, /data-pricing-card="pro-monthly"/);
         assert.doesNotMatch(html, /no meaningful/i);
         await page.screenshot({ path: path.join(SHOT_DIR, "02-signup-plan-chooser-desktop.png"), fullPage: true });
         await page.close();
       });
 
-      await test("choosing Regular Pro while eligible + Founding open shows the required 3-button confirmation (desktop)", async () => {
+      await test("choosing Pro does not show Founding-vs-Pro confirmation when acquisition is closed", async () => {
         const page = await newPage(browser, { width: 1280, height: 900 });
         await loadHome(page, port);
         await signUpAndSeed(page, "eligible-confirm@example.com", "TestPass123!");
         await openSignupPlanStep(page);
         await clickChoicePlanButton(page, "monthly");
-        await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-        const modalText = await page.locator("#foundingVsProConfirmModal").innerText();
-        assert.match(modalText, /Founding pricing is still available for \$9\.99\/month\./);
-        assert.match(modalText, /Are you sure you want Regular Pro for \$19\.99\/month\?/);
-        assert.match(modalText, /Choose Founding.*9\.99/);
-        assert.match(modalText, /Continue with Regular Pro.*19\.99/);
-        assert.match(modalText, /Go Back/);
-        await page.screenshot({ path: path.join(SHOT_DIR, "03-founding-vs-pro-confirmation-modal-desktop.png") });
-        await page.close();
-      });
-
-      await test("'Choose Founding' from the confirmation proceeds with a Founding checkout, not Pro", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        await loadHome(page, port);
-        await signUpAndSeed(page, "chooses-founding@example.com", "TestPass123!");
-        await openSignupPlanStep(page);
-        await clickChoicePlanButton(page, "monthly");
-        await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-        await page.click('[data-founding-vs-pro-choice="founding"]');
         await page.waitForSelector(".checkout-test-panel", { timeout: 10000 });
-        const panelText = await page.locator(".checkout-test-panel").innerText();
-        assert.match(panelText, /\$9\.99\/month checkout ready/i, "the Founding ($9.99) checkout, not Pro ($19.99), must be what started");
-        await page.close();
-      });
-
-      await test("'Continue with Regular Pro' from the confirmation proceeds with the Pro Monthly checkout", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        await loadHome(page, port);
-        await signUpAndSeed(page, "chooses-pro@example.com", "TestPass123!");
-        await openSignupPlanStep(page);
-        await clickChoicePlanButton(page, "monthly");
-        await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-        await page.click('[data-founding-vs-pro-choice="pro_monthly"]');
-        await page.waitForSelector(".checkout-test-panel", { timeout: 10000 });
+        const modalCount = await page.locator("#foundingVsProConfirmModal").count();
+        assert.equal(modalCount, 0, "Founding-vs-Pro confirmation must not appear when Founding is closed for acquisition");
         const panelText = await page.locator(".checkout-test-panel").innerText();
         assert.match(panelText, /\$19\.99\/month checkout ready/i);
+        await page.screenshot({ path: path.join(SHOT_DIR, "03-pro-checkout-no-confirm-desktop.png") });
         await page.close();
       });
 
-      await test("'Go Back' closes the confirmation with no checkout started", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        await loadHome(page, port);
-        await signUpAndSeed(page, "goes-back@example.com", "TestPass123!");
-        await openSignupPlanStep(page);
-        await clickChoicePlanButton(page, "monthly");
-        await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-        await page.click('[data-founding-vs-pro-choice="go_back"]');
-        await page.waitForTimeout(300);
-        const modalGone = await page.locator("#foundingVsProConfirmModal").count();
-        const panelCount = await page.locator(".checkout-test-panel").count();
-        assert.equal(modalGone, 0, "modal must close on Go Back");
-        assert.equal(panelCount, 0, "no checkout should have started after Go Back");
-        await page.close();
-      });
-
-      await test("pricing page shows Founding primary + Pro secondary (with required copy) side by side", async () => {
+      await test("pricing + upgrade pages feature Pro Monthly as primary", async () => {
         const page = await newPage(browser, { width: 1280, height: 900 });
         await loadHome(page, port);
         await signUpAndSeed(page, "pricing-page-view@example.com", "TestPass123!");
         await page.evaluate(() => setView("plans"));
         await page.waitForSelector("#pricingApp .price-card", { timeout: 10000 });
-        const html = await page.locator("#pricingApp").innerHTML();
-        assert.match(html, /data-pricing-card="founding"/);
+        let html = await page.locator("#pricingApp").innerHTML();
         assert.match(html, /data-pricing-card="pro-monthly"/);
-        assert.match(html, /Includes Pro access\. \$9\.99\/month locked while continuously active\./);
-        assert.match(html, /Regular monthly price after Founding availability ends\./);
-        await page.screenshot({ path: path.join(SHOT_DIR, "04-pricing-page-desktop.png"), fullPage: true });
-        await page.close();
-      });
-
-      await test("account upgrade page shows Founding primary + Pro secondary, and clicking Pro shows the confirmation", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        await loadHome(page, port);
-        await signUpAndSeed(page, "upgrade-page-view@example.com", "TestPass123!", { plan: "Free" });
+        assert.doesNotMatch(html, /data-pricing-card="founding"/);
         await page.evaluate(() => setView("upgrade"));
         await page.waitForSelector("#upgradeApp .price-card", { timeout: 10000 });
-        const html = await page.locator("#upgradeApp").innerHTML();
-        assert.match(html, /data-pricing-card="founding"/);
+        html = await page.locator("#upgradeApp").innerHTML();
         assert.match(html, /data-pricing-card="pro-monthly"/);
-        await page.screenshot({ path: path.join(SHOT_DIR, "05-upgrade-page-desktop.png"), fullPage: true });
-        // Click the secondary Pro Monthly card's checkout button.
-        await page.evaluate(() => {
-          const secondary = document.querySelector('#upgradeApp .price-card--secondary [data-checkout-plan="monthly"]');
-          secondary?.click();
-        });
-        await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-        await page.screenshot({ path: path.join(SHOT_DIR, "06-upgrade-page-confirmation-modal.png") });
-        await page.close();
-      });
-
-      await test("former Founding member (ineligible) does NOT see the confirmation when choosing Pro", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        await loadHome(page, port);
-        await signUpAndSeed(page, "former-founder@example.com", "TestPass123!", {
-          plan: "Free",
-          foundingMemberHistorical: true,
-          foundingMemberActive: false,
-          foundingMemberNumber: 5,
-        });
-        await page.evaluate(() => setView("plans"));
-        await page.waitForSelector("#pricingApp .price-card", { timeout: 10000 });
-        await page.evaluate(() => {
-          const secondary = document.querySelector('#pricingApp .price-card--secondary [data-checkout-plan="monthly"]')
-            || document.querySelector('#pricingApp [data-checkout-plan="monthly"]');
-          secondary?.click();
-        });
-        await page.waitForSelector(".checkout-test-panel", { timeout: 10000 });
-        const modalCount = await page.locator("#foundingVsProConfirmModal").count();
-        assert.equal(modalCount, 0, "a genuinely ineligible former Founding member must never see the confirmation");
-        const panelText = await page.locator(".checkout-test-panel").innerText();
-        assert.match(panelText, /\$19\.99\/month checkout ready/i, "checkout should proceed directly to Pro Monthly");
-        await page.close();
-      });
-
-      await test("current Pro member does not crash when interacting with pricing page (documented, non-blocking behavior)", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        const pageErrors = [];
-        page.on("pageerror", (e) => pageErrors.push(String(e?.message || e)));
-        await loadHome(page, port);
-        await signUpAndSeed(page, "current-pro-member@example.com", "TestPass123!", {
-          plan: "Pro",
-          subscriptionStatus: "Pro Monthly Subscription Active",
-          stripeSubscriptionStatus: "active",
-          subscriptionCadence: "monthly",
-        });
-        await page.evaluate(() => setView("plans"));
-        await page.waitForSelector("#pricingApp .price-card", { timeout: 10000 });
-        await page.evaluate(() => {
-          const btn = document.querySelector('#pricingApp [data-checkout-plan="monthly"]');
-          btn?.click();
-        });
-        await page.waitForTimeout(500);
-        assert.equal(pageErrors.length, 0, `no uncaught page errors, got: ${pageErrors.join("; ")}`);
+        assert.doesNotMatch(html, /data-pricing-card="founding"/);
+        await page.screenshot({ path: path.join(SHOT_DIR, "04-pricing-upgrade-pro-desktop.png"), fullPage: true });
         await page.close();
       });
     } finally {
@@ -380,93 +270,16 @@ async function main() {
   }
 
   // ============================================================
-  // Scenario C: stale client-side counter is refreshed before deciding
+  // Scenario C: guard still re-syncs founding status before monthly checkout
   // ============================================================
   {
-    const port = 20900 + Math.floor(Math.random() * 200);
-    const storePath = path.join(os.tmpdir(), `llh-pricing-v2-stale-${crypto.randomBytes(4).toString("hex")}.json`);
-    const child = startServer(port, storePath, { FOUNDING_MEMBER_LIMIT: "50", PUBLIC_FOUNDING_CLAIMED_BASE: "0" });
-    let browser;
-    try {
-      await waitForBoot(port, child);
-      browser = await chromium.launch({ headless: true });
-
-      await test("stale counter: a client cache claiming 'sold out' is refreshed before the confirmation decision (server says spots remain)", async () => {
-        const page = await newPage(browser, { width: 1280, height: 900 });
-        await loadHome(page, port);
-        await signUpAndSeed(page, "stale-cache-open@example.com", "TestPass123!");
-        // Force the in-memory cache to look sold-out, simulating a stale page load —
-        // the guard must re-sync from the server (which truthfully has spots open)
-        // before deciding whether to show the confirmation.
-        await page.evaluate(() => {
-          foundingStatusCache = { ...foundingStatusCache, remaining: 0, soldOut: true, claimed: 50, limit: 50 };
-        });
-        await clickChoicePlanButton(page, "monthly");
-        await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-        console.log("      stale-cache scenario: confirmation correctly appeared after re-sync corrected the count");
-        await page.close();
-      });
-
-      await test("stale counter: a client cache claiming spots remain is refreshed before deciding (server says sold out)", async () => {
-        // Second, independent server instance would be needed to prove the opposite
-        // direction cleanly; instead, directly verify syncFoundingStatus is awaited
-        // before the decision by checking the guard always calls it for type=monthly.
-        const serverJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
-        const guardSrc = serverJs.slice(serverJs.indexOf("async function startCheckoutWithFoundingGuard"), serverJs.indexOf("async function startCheckout(type, trackingContext = \"checkout\")"));
-        assert.match(guardSrc, /await syncFoundingStatus\(\{ render: false \}\)/, "the guard must always re-sync from the server before deciding, never trust a cached count alone");
-      });
-    } finally {
-      if (browser) await browser.close();
-      await stopServer(child);
-      try { fs.unlinkSync(storePath); } catch { /* ignore */ }
-    }
-  }
-
-  // ============================================================
-  // Scenario D: responsive — phone, tablet, desktop
-  // ============================================================
-  {
-    const port = 21100 + Math.floor(Math.random() * 200);
-    const storePath = path.join(os.tmpdir(), `llh-pricing-v2-responsive-${crypto.randomBytes(4).toString("hex")}.json`);
-    const child = startServer(port, storePath, { FOUNDING_MEMBER_LIMIT: "50", PUBLIC_FOUNDING_CLAIMED_BASE: "0" });
-    let browser;
-    try {
-      await waitForBoot(port, child);
-      browser = await chromium.launch({ headless: true });
-
-      const viewports = [
-        { name: "phone", width: 390, height: 844 },
-        { name: "tablet", width: 834, height: 1194 },
-        { name: "desktop", width: 1440, height: 900 },
-      ];
-      for (const viewport of viewports) {
-        // eslint-disable-next-line no-await-in-loop
-        await test(`confirmation modal is usable on ${viewport.name} (${viewport.width}x${viewport.height})`, async () => {
-          const page = await newPage(browser, viewport);
-          await loadHome(page, port);
-          await signUpAndSeed(page, `responsive-${viewport.name}@example.com`, "TestPass123!");
-          await openSignupPlanStep(page);
-          await clickChoicePlanButton(page, "monthly");
-          await page.waitForSelector("#foundingVsProConfirmModal", { timeout: 10000 });
-          const box = await page.locator(".founding-vs-pro-confirm-card").boundingBox();
-          assert.ok(box, `${viewport.name}: confirmation card must have a bounding box (be laid out)`);
-          assert.ok(box.width <= viewport.width, `${viewport.name}: confirmation card (${box.width}px) must fit within the viewport (${viewport.width}px)`);
-          const buttons = page.locator("[data-founding-vs-pro-choice]");
-          assert.equal(await buttons.count(), 3, `${viewport.name}: all 3 buttons must be present`);
-          for (let i = 0; i < 3; i += 1) {
-            // eslint-disable-next-line no-await-in-loop
-            const btnBox = await buttons.nth(i).boundingBox();
-            assert.ok(btnBox, `${viewport.name}: button ${i} must be visible/laid out`);
-          }
-          await page.screenshot({ path: path.join(SHOT_DIR, `09-confirmation-modal-${viewport.name}.png`) });
-          await page.close();
-        });
-      }
-    } finally {
-      if (browser) await browser.close();
-      await stopServer(child);
-      try { fs.unlinkSync(storePath); } catch { /* ignore */ }
-    }
+    await test("checkout guard still awaits syncFoundingStatus before monthly decisions", async () => {
+      const serverJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+      assert.match(serverJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
+      const guardSrc = serverJs.slice(serverJs.indexOf("async function startCheckoutWithFoundingGuard"), serverJs.indexOf("async function startCheckout(type, trackingContext = \"checkout\")"));
+      assert.match(guardSrc, /await syncFoundingStatus\(\{ render: false \}\)/, "the guard must always re-sync from the server before deciding, never trust a cached count alone");
+      assert.match(guardSrc, /foundingOpenForAcquisition|shouldConfirmBeforeRegularPro/);
+    });
   }
 
   if (!process.exitCode) {

@@ -178,7 +178,8 @@ async function main() {
   assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
   assert.match(indexHtml, /New lesson plans, activities, and resources are added regularly/);
   assert.doesNotMatch(indexHtml, /Continue adding new lesson plans/);
-  assert.match(indexHtml, /New plans added weekly—members can request future themes/);
+  assert.match(indexHtml, /New plans and activities are added weekly/);
+  assert.match(indexHtml, /Request a Lesson Plan/);
   assert.match(indexHtml, /Home Daycare tools/);
   assert.match(indexHtml, /Family Hub and forms/);
   assert.match(indexHtml, /Daily operations/);
@@ -186,6 +187,7 @@ async function main() {
   assert.match(indexHtml, /llh-founder-brand-fallback/);
   assert.match(indexHtml, /Create your account to continue with Founding Membership/);
   assert.match(appJs, /function foundingSpotsLeftMessageFromCount/);
+  assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
   assert.match(appJs, /Create your account to continue with Founding Membership/);
   assert.match(appJs, /This is Founding Membership — not a Pro trial/);
   assert.match(viewerJs, /not a Pro trial/);
@@ -253,40 +255,40 @@ async function main() {
           roadmap: document.querySelector("#homeComingSoon")?.innerText || "",
           founderFallback: Boolean(document.querySelector(".llh-founder-brand-fallback")),
           lessonNote: document.querySelector(".llh-lesson-request-note")?.innerText || "",
-          foundingCtas: Array.from(document.querySelectorAll("#view-home [data-checkout-plan='founding']")).length,
+          foundingCtas: Array.from(document.querySelectorAll("#view-home [data-checkout-plan='founding']")).filter((el) => el.offsetParent !== null).length,
+          proCtas: Array.from(document.querySelectorAll("#view-home [data-checkout-plan='monthly']")).filter((el) => el.offsetParent !== null).length,
           announceVisible: !document.querySelector("#llhFoundingAnnounceBanner")?.hidden,
+          openForAcquisition: typeof foundingOpenForAcquisition === "function" ? foundingOpenForAcquisition() : null,
           scrollWidth: document.documentElement.scrollWidth,
           clientWidth: document.documentElement.clientWidth,
         };
       });
       assert.equal(guest.remaining, 2);
-      assert.match(guest.announce, /Only 2 Founding Member spots remaining/i);
-      assert.match(guest.pricing, /Only 2 Founding Member spots remaining/i);
+      assert.equal(guest.openForAcquisition, false);
+      assert.equal(guest.announceVisible, false);
+      assert.equal(guest.foundingCtas, 0, `unexpected founding CTA count ${guest.foundingCtas}`);
+      assert.ok(guest.proCtas >= 1, `expected Pro CTAs, got ${guest.proCtas}`);
+      assert.match(guest.pricing, /\$19\.99|Pro Monthly|closed for new signups/i);
       assert.doesNotMatch(guest.hero, /Only \d+ Founding Member spots? remaining/i);
       assert.doesNotMatch(guest.finalCta, /Only \d+ Founding Member spots? remaining/i);
       assert.match(guest.roadmap, /Home Daycare tools/i);
       assert.match(guest.roadmap, /Family Hub and forms/i);
       assert.match(guest.roadmap, /Daily operations/i);
-      assert.match(guest.lessonNote, /New plans added weekly/i);
-      assert.equal(guest.announceVisible, true);
-      assert.ok(guest.foundingCtas >= 1 && guest.foundingCtas <= 3, `unexpected founding CTA count ${guest.foundingCtas}`);
       assert.ok(guest.scrollWidth <= guest.clientWidth + 1, `${viewport.name} horizontal scroll`);
       assert.equal(consoleErrors.filter((e) => !/favicon|net::ERR/i.test(e)).length, 0, consoleErrors.join("\n"));
       results.push(await shot(page, `guest-${viewport.name}`));
 
-      // Founding signup path preserves plan
-      await page.click('#homeHero [data-checkout-plan="founding"]');
+      // Pro signup path preserves preferred monthly plan
+      await page.click('#homeHero [data-checkout-plan="monthly"]');
       await page.waitForSelector("#authModal.open");
       const signupUi = await page.evaluate(() => ({
-        note: document.querySelector("#authFoundingContinueNote")?.innerText || "",
         noteHidden: document.querySelector("#authFoundingContinueNote")?.hidden,
         preferred: sessionStorage.getItem("llhSignupPreferredPlan") || "",
         title: document.querySelector("#authTitle")?.innerText || "",
       }));
-      assert.equal(signupUi.preferred, "founding");
-      assert.equal(signupUi.noteHidden, false);
-      assert.match(signupUi.note, /Create your account to continue with Founding Membership/i);
-      assert.match(signupUi.title, /Founding Membership/i);
+      assert.equal(signupUi.preferred, "monthly");
+      assert.equal(signupUi.noteHidden, true);
+      assert.match(signupUi.title, /Create Your Free|Little Learner Hub/i);
       await page.click("#closeModal");
       await page.close();
       console.log(`PASS guest ${viewport.name}`);
@@ -310,15 +312,16 @@ async function main() {
         spotsMsg: foundingSpotsLeftMessage(),
       }));
       assert.equal(chrome.remaining, 2);
-      assert.match(chrome.reminder, /Only 2 Founding Member spots remaining/i);
-      assert.match(chrome.sidebar, /Only 2 Founding Member spots remaining/i);
-      assert.equal(chrome.spotsMsg, "Only 2 Founding Member spots remaining.");
+      assert.match(chrome.reminder, /\$19\.99|Pro|Free Starter Library/i);
+      assert.match(chrome.sidebar, /\$19\.99|Pro|Free/i);
+      assert.doesNotMatch(chrome.reminder, /Lock In Founding|\$9\.99\/month locked/i);
+      assert.doesNotMatch(chrome.sidebar, /Lock In Founding Member Pricing/i);
       results.push(await shot(page, "signed-in-free-chrome"));
       await page.close();
-      console.log("PASS signed-in Free founding consistency");
+      console.log("PASS signed-in Free Pro upgrade chrome");
     }
 
-    // Locked activity preview: Founding CTA must not mention Pro trial conversion
+    // Locked activity preview: Pro CTA (Founding closed for acquisition)
     {
       const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       await openAs(page, { email: "cleanup-free-2@example.com", plan: "Free" });
@@ -335,13 +338,12 @@ async function main() {
         if (typeof openLockedResourcePreview === "function") openLockedResourcePreview(fake);
         return document.querySelector("#featurePreviewModal")?.innerText || "";
       });
-      assert.match(previewHtml, /Founding|\$9\.99/i);
+      assert.match(previewHtml, /Upgrade to Pro|\$19\.99|Pro Monthly/i);
+      assert.doesNotMatch(previewHtml, /Lock In Founding Member/i);
       assert.doesNotMatch(previewHtml, /Converts to Pro Monthly after trial/i);
-      assert.doesNotMatch(previewHtml, /7-Day Free Trial · Card required · Cancel anytime · Converts/i);
-      assert.match(previewHtml, /not a Pro trial|Founding Member/i);
-      results.push(await shot(page, "locked-activity-founding"));
+      results.push(await shot(page, "locked-activity-pro"));
       await page.close();
-      console.log("PASS locked activity Founding vs trial separation");
+      console.log("PASS locked activity Pro upgrade offer");
     }
 
     // Login still works
