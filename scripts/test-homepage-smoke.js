@@ -374,6 +374,14 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
         await page.waitForSelector("#view-upgrade.active-view", { timeout: 10000 });
         await page.waitForSelector("#upgradeApp .pricing-grid, #upgradeApp .checkout-test-panel", { timeout: 10000 });
       }
+      // Close locked preview so it does not intercept later admin unlock clicks.
+      await page.evaluate(() => {
+        document.querySelector("#closeFeaturePreviewModal")?.click?.();
+        document.querySelector("#featurePreviewModal")?.classList.remove("open");
+        document.querySelector("#featurePreviewModal")?.setAttribute("aria-hidden", "true");
+        document.body.classList.remove("auth-modal-open");
+      });
+      await page.waitForSelector("#featurePreviewModal.open", { state: "hidden", timeout: 5000 }).catch(() => {});
     });
   }
 
