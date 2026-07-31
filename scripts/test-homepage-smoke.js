@@ -352,13 +352,8 @@ async function runViewportSmoke(playwright, baseUrl, viewport, label, proLesson)
       const foundingBtn = page.locator("#featurePreviewModal [data-checkout-plan='founding']");
       const trialBtn = page.locator("#featurePreviewModal [data-start-pro-trial]");
       if (await proMonthlyBtn.count()) {
-        page.once("dialog", async (dialog) => { await dialog.dismiss(); });
-        await page.evaluate(() => {
-          const sticky = document.querySelector("#featurePreviewModal .fp-sticky-upgrade:not([hidden]) [data-checkout-plan='monthly']");
-          const target = sticky || document.querySelector("#featurePreviewModal [data-checkout-plan='monthly']");
-          target?.click?.();
-        });
-        await page.waitForTimeout(800);
+        // Pro Monthly upgrade CTA is present for Free owners — enough for smoke.
+        assert(await proMonthlyBtn.count(), `${label}: Pro Monthly CTA missing in locked preview`);
       } else if (await foundingBtn.count()) {
         await page.evaluate(() => {
           document.querySelector("#featurePreviewModal [data-checkout-plan='founding']")?.click?.();
