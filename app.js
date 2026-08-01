@@ -15034,8 +15034,95 @@ async function markAdminNotificationsRead(ids = [], all = false) {
   renderAdminNotificationCenter();
 }
 
+let adminFeedbackFocusId = "";
+let pendingAdminLocationDeepLink = null;
+
+function feedbackNotificationTargetId(notification) {
+  if (!notification) return "";
+  const refId = String(notification.refId || "").trim();
+  if (refId.startsWith("feedback-")) return refId;
+  const deepLink = String(notification.deepLink || "").trim();
+  if (!deepLink) return "";
+  try {
+    const url = new URL(deepLink, window.location.origin);
+    if (url.searchParams.get("adminPanel") === "feedback") {
+      return String(url.searchParams.get("adminFocusRef") || refId || "").trim();
+    }
+  } catch {
+    /* ignore */
+  }
+  return "";
+}
+
+function openAdminFeedbackItem(feedbackId = "", { ensureLoad = true } = {}) {
+  const id = String(feedbackId || "").trim();
+  adminFeedbackFocusId = id;
+  setView("admin");
+  setAdminSectionTab("feedback");
+  const paint = () => {
+    renderAdminFeedbackCenter();
+    if (!id) return;
+    const card = [...document.querySelectorAll("[data-feedback-id]")].find(
+      (el) => String(el.getAttribute("data-feedback-id") || "") === id,
+    );
+    if (!card) return;
+    card.classList.add("is-highlighted");
+    card.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => card.classList.remove("is-highlighted"), 4000);
+  };
+  if (ensureLoad && (!adminAnalyticsCache || !adminAnalyticsCacheFresh())) {
+    loadAdminAnalyticsFromBackend({ renderLoading: false }).then(paint).catch(paint);
+    return;
+  }
+  requestAnimationFrame(paint);
+}
+
+function applyAdminLocationDeepLink() {
+  const params = new URLSearchParams(window.location.search || "");
+  if (params.get("view") !== "admin") return false;
+  const panel = String(params.get("adminPanel") || "").trim();
+  const focusRef = String(params.get("adminFocusRef") || "").trim();
+  if (!panel && !focusRef) return false;
+  if (!isAdminUnlocked()) {
+    pendingAdminLocationDeepLink = { panel, focusRef };
+    return true;
+  }
+  if (panel === "feedback" || focusRef.startsWith("feedback-")) {
+    openAdminFeedbackItem(focusRef);
+    pendingAdminLocationDeepLink = null;
+    return true;
+  }
+  if (panel && adminValidSectionTabs.has(panel)) {
+    setView("admin");
+    setAdminSectionTab(panel);
+    pendingAdminLocationDeepLink = null;
+    return true;
+  }
+  return false;
+}
+
+function consumePendingAdminLocationDeepLink() {
+  const pending = pendingAdminLocationDeepLink;
+  if (!pending || !isAdminUnlocked()) return false;
+  pendingAdminLocationDeepLink = null;
+  if (pending.panel === "feedback" || String(pending.focusRef || "").startsWith("feedback-")) {
+    openAdminFeedbackItem(pending.focusRef || "");
+    return true;
+  }
+  if (pending.panel && adminValidSectionTabs.has(pending.panel)) {
+    setAdminSectionTab(pending.panel);
+    return true;
+  }
+  return false;
+}
+
 function openAdminNotificationTarget(notification) {
   if (!notification) return;
+  const feedbackId = feedbackNotificationTargetId(notification);
+  if (feedbackId) {
+    openAdminFeedbackItem(feedbackId);
+    return;
+  }
   const email = String(notification.conversationEmail || "").trim();
   const category = String(notification.category || "");
   if (category === "messaging" && email && typeof openAdminConversation === "function") {
@@ -15043,22 +15130,37 @@ function openAdminNotificationTarget(notification) {
     openAdminConversation(email).catch(() => {});
     return;
   }
+  if (notification.deepLink) {
+    try {
+      const url = new URL(notification.deepLink, window.location.origin);
+      if (url.searchParams.get("view") === "admin") {
+        const panel = String(url.searchParams.get("adminPanel") || "").trim();
+        const focusRef = String(url.searchParams.get("adminFocusRef") || "").trim();
+        if (panel === "feedback" || focusRef.startsWith("feedback-")) {
+          openAdminFeedbackItem(focusRef);
+          return;
+        }
+        setView("admin");
+        if (panel && adminValidSectionTabs.has(panel)) setAdminSectionTab(panel);
+        const focusEmail = url.searchParams.get("adminFocusEmail") || url.searchParams.get("adminFocusConversation");
+        if (focusEmail && typeof openAdminConversation === "function" && category === "messaging") {
+          openAdminConversation(focusEmail).catch(() => {});
+        }
+        if (panel === "support" || (!panel && category === "support")) {
+          setAdminSectionTab("support");
+          document.querySelector(".admin-ticket-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+        return;
+      }
+    } catch {
+      /* fall through */
+    }
+  }
   if (category === "support") {
     setView("admin");
+    setAdminSectionTab("support");
     document.querySelector(".admin-ticket-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     return;
-  }
-  if (notification.deepLink) {
-    const url = new URL(notification.deepLink, window.location.origin);
-    if (url.searchParams.get("view") === "admin") {
-      setView("admin");
-      const focusEmail = url.searchParams.get("adminFocusEmail") || url.searchParams.get("adminFocusConversation");
-      if (focusEmail && typeof openAdminConversation === "function" && category === "messaging") {
-        openAdminConversation(focusEmail).catch(() => {});
-      }
-      document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      return;
-    }
   }
   setView("admin");
   document.querySelector("#adminNotificationsPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -39700,38 +39802,116 @@ async function submitFeedbackForm(event) {
   }
 }
 
+function formatAdminFeedbackSentiment(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  return raw.replace(/[-_]/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function syncAdminFeedbackTypeFilterOptions(items = []) {
+  const select = document.querySelector("#feedbackTypeFilter");
+  if (!select) return;
+  const selected = String(select.value || "");
+  const types = [...new Set(items.map((item) => String(item.type || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  select.innerHTML = [`<option value="">All Types</option>`]
+    .concat(types.map((type) => `<option value="${escapeHtml(type)}">${escapeHtml(type)}</option>`))
+    .join("");
+  if (selected && types.includes(selected)) select.value = selected;
+}
+
 function renderAdminFeedbackCenter() {
   const target = document.querySelector("#adminFeedbackApp");
   if (!target || !isAdminUnlocked()) return;
-  const filter = document.querySelector("#feedbackStatusFilter")?.value || "All Statuses";
+  const statusFilter = document.querySelector("#feedbackStatusFilter")?.value || "All Statuses";
+  const typeFilter = String(document.querySelector("#feedbackTypeFilter")?.value || "").trim();
+  const search = String(document.querySelector("#feedbackSearchInput")?.value || "").trim().toLowerCase();
   const items = (adminAnalyticsCache?.feedback || []).slice();
+  syncAdminFeedbackTypeFilterOptions(items);
+
+  if (!adminAnalyticsCache && adminAnalyticsLoading) {
+    target.innerHTML = `<div class="empty-state">Loading private feedback…</div>`;
+    return;
+  }
+
   const filtered = items.filter((item) => {
-    if (filter === "All Statuses") return true;
-    if (filter === "Resolved") return ["Resolved", "Completed"].includes(item.status);
-    return item.status === filter;
+    if (statusFilter === "Resolved") {
+      if (!["Resolved", "Completed"].includes(item.status)) return false;
+    } else if (statusFilter !== "All Statuses" && item.status !== statusFilter) {
+      return false;
+    }
+    if (typeFilter && String(item.type || "") !== typeFilter) return false;
+    if (search) {
+      const haystack = [
+        item.subject,
+        item.message,
+        item.email,
+        item.name,
+        item.type,
+        item.page,
+        item.sourceUrl,
+        item.lessonId,
+        item.activityId,
+        item.sentiment,
+        item.stars,
+      ].map((value) => String(value || "").toLowerCase()).join(" ");
+      if (!haystack.includes(search)) return false;
+    }
+    return true;
   });
+
   const counts = {
+    total: items.length,
     new: items.filter((i) => i.status === "New").length,
     progress: items.filter((i) => i.status === "In Progress" || i.status === "Reviewed" || i.status === "Planned").length,
     resolved: items.filter((i) => ["Resolved", "Completed"].includes(i.status)).length,
     archived: items.filter((i) => i.status === "Archived").length,
   };
+  const typeCounts = items.reduce((acc, item) => {
+    const key = String(item.type || "Feedback");
+    acc[key] = (acc[key] || 0) + 1;
+    return acc;
+  }, {});
+  const topTypes = Object.entries(typeCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, 4);
+  const rated = items.filter((item) => {
+    const stars = Number(item.stars);
+    return Number.isFinite(stars) && stars >= 1 && stars <= 5;
+  });
+  const avgStars = rated.length
+    ? (rated.reduce((sum, item) => sum + Number(item.stars), 0) / rated.length)
+    : null;
+
   target.innerHTML = `
-    <div class="aup-insight-grid">
+    <div class="aup-insight-grid admin-feedback-stats">
+      <div class="aup-insight-card"><strong>${counts.total}</strong><span>Total</span></div>
       <div class="aup-insight-card"><strong>${counts.new}</strong><span>New</span></div>
       <div class="aup-insight-card aup-insight--trial"><strong>${counts.progress}</strong><span>In Progress</span></div>
       <div class="aup-insight-card aup-insight--pro"><strong>${counts.resolved}</strong><span>Resolved</span></div>
       <div class="aup-insight-card"><strong>${counts.archived}</strong><span>Archived</span></div>
+      ${avgStars != null ? `<div class="aup-insight-card"><strong>${avgStars.toFixed(1)}</strong><span>Avg stars (${rated.length})</span></div>` : ""}
     </div>
+    ${topTypes.length ? `
+      <div class="admin-feedback-type-stats" aria-label="Feedback by type">
+        ${topTypes.map(([type, count]) => `<span class="admin-feedback-type-chip"><strong>${escapeHtml(String(count))}</strong> ${escapeHtml(type)}</span>`).join("")}
+      </div>
+    ` : ""}
     <div class="ticket-list admin-feedback-list">
-      ${filtered.length ? filtered.map((item) => `
-        <article class="ticket-card" data-feedback-id="${escapeHtml(item.id)}">
+      ${filtered.length ? filtered.map((item) => {
+        const stars = Number(item.stars);
+        const hasStars = Number.isFinite(stars) && stars >= 1 && stars <= 5;
+        const starLabel = hasStars ? `${"★".repeat(stars)}${"☆".repeat(5 - stars)} (${stars}/5)` : "";
+        const sentimentLabel = formatAdminFeedbackSentiment(item.sentiment);
+        const focused = adminFeedbackFocusId && item.id === adminFeedbackFocusId;
+        return `
+        <article class="ticket-card${focused ? " is-highlighted" : ""}" data-feedback-id="${escapeHtml(item.id)}" id="admin-feedback-${escapeHtml(item.id)}">
           <div class="ticket-card-header">
             <div>
-              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}</p>
+              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}${sentimentLabel ? ` · ${escapeHtml(sentimentLabel)}` : ""}${hasStars ? ` · ${escapeHtml(String(stars))}/5 stars` : ""}</p>
               <h3>${escapeHtml(item.subject || item.type || "Feedback")}</h3>
               <p>${escapeHtml(item.name || "Provider")} · ${escapeHtml(item.email || "No email")}</p>
-              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}</small>
+              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}${item.activityId ? ` · activity:${escapeHtml(item.activityId)}` : ""}${item.lessonId ? ` · lesson:${escapeHtml(item.lessonId)}` : ""}</small>
+              ${hasStars ? `<p class="admin-feedback-stars" aria-label="${escapeHtml(String(stars))} of 5 stars">${escapeHtml(starLabel)}</p>` : ""}
             </div>
           </div>
           <p>${escapeHtml(item.message || "")}</p>
@@ -39743,7 +39923,8 @@ function renderAdminFeedbackCenter() {
             <button class="ghost-button" type="button" data-feedback-note="${escapeHtml(item.id)}">Add Note</button>
           </div>
         </article>
-      `).join("") : `<div class="empty-state">No feedback in this status yet.</div>`}
+      `;
+      }).join("") : `<div class="empty-state">${items.length ? "No feedback matches these filters." : "No private feedback yet."}</div>`}
     </div>
   `;
 }
@@ -44860,6 +45041,7 @@ function setAdminSectionTab(tabId) {
 
 const adminAnalyticsTabs = new Set([
   "admin-home", "users", "billing-home", "user-health", "dashboard", "analytics", "system-health", "stripe-backfill",
+  "feedback",
 ]);
 
 function adminTabNeedsAnalytics(tab) {
@@ -45072,6 +45254,13 @@ function applyAdminSectionVisibility() {
   } else if (tab === "feedback") {
     const el = document.querySelector(".admin-feedback-panel");
     if (el) el.hidden = false;
+    if (!adminAnalyticsCache && isAdminUnlocked() && canUseLaunchBackend()) {
+      void loadAdminAnalyticsFromBackend({ renderLoading: false }).then(() => {
+        if (adminActiveSectionTab === "feedback") renderAdminFeedbackCenter();
+      }).catch(() => {
+        if (adminActiveSectionTab === "feedback") renderAdminFeedbackCenter();
+      });
+    }
     renderAdminFeedbackCenter();
   } else if (tab === "feature-requests") {
     const el = document.querySelector(".admin-feature-requests-panel");
@@ -59770,7 +59959,10 @@ document.addEventListener("change", (event) => {
   if (event.target.matches("#ticketStatusFilter")) {
     renderAdminTickets();
   }
-  if (event.target.matches("#feedbackStatusFilter")) {
+  if (event.target.matches("#feedbackStatusFilter") || event.target.matches("#feedbackTypeFilter")) {
+    renderAdminFeedbackCenter();
+  }
+  if (event.target.matches("#feedbackSearchInput")) {
     renderAdminFeedbackCenter();
   }
   if (event.target.matches("[data-ticket-status]")) {
@@ -60652,7 +60844,11 @@ document.addEventListener("submit", async (event) => {
         renderAdminAnalytics();
         if (adminActiveSectionTab === "users") renderAdminUsersDashboard();
       }
-    }).catch(() => {});
+      if (adminActiveSectionTab === "feedback") renderAdminFeedbackCenter();
+      consumePendingAdminLocationDeepLink();
+    }).catch(() => {
+      consumePendingAdminLocationDeepLink();
+    });
     return;
   } catch (error) {
     if (message) {
@@ -63622,6 +63818,9 @@ async function initializeAppView(options = {}) {
         if (conversationParam) viewOptions.conversation = conversationParam;
       }
       setView(initialView, viewOptions);
+      if (initialView === "admin") {
+        window.setTimeout(() => applyAdminLocationDeepLink(), 0);
+      }
       return;
     }
     // Admin-only unlock (no provider login): stay in Admin after refresh.
@@ -63629,6 +63828,7 @@ async function initializeAppView(options = {}) {
     if (!currentUser && isAdminUnlocked() && localStorage.getItem("llhAdminLastView") === "admin") {
       setView("admin", { fromBoot: true, replaceHistory: true });
       loadAdminAnalyticsFromBackend({ force: true }).catch(() => {});
+      window.setTimeout(() => applyAdminLocationDeepLink(), 0);
       return;
     }
     if (currentUser && !suppressBootLanding) {
