@@ -93,13 +93,11 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   assert(indexHtml.includes(seo.SEO_TITLE), "homepage title missing proposed SEO title");
   assert(indexHtml.includes(seo.SEO_DESCRIPTION), "homepage description missing proposed copy");
-  assert(indexHtml.includes('"@type": "Product"'), "homepage missing Product schema for Founding Membership");
-  assert(indexHtml.includes("Little Learner Hub Founding Membership"), "homepage Product missing Founding Membership name");
-  assert(
-    indexHtml.includes('"image"') && indexHtml.includes("/images/icons/icon-512.png"),
-    "homepage Product schema must include a valid image URL"
-  );
-  assert(!/shippingDetails|hasMerchantReturnPolicy/i.test(indexHtml), "digital subscription Product must omit physical shipping/return schema");
+  assert(!indexHtml.includes("Little Learner Hub Founding Membership"), "homepage must not advertise Founding Membership Product schema");
+  assert(!indexHtml.includes("#founding-membership"), "homepage must not include founding-membership schema id");
+  assert(!/Founding Member/i.test(indexHtml), "homepage HTML must not mention Founding Member");
+  assert(indexHtml.includes("All-in-One Childcare Platform") || indexHtml.includes(seo.SEO_TITLE), "homepage title should use platform SEO title");
+  assert(indexHtml.includes("featureList") || indexHtml.includes('"featureList"'), "homepage WebApplication should include featureList");
   assert(indexHtml.includes('"@type": "Organization"'), "homepage missing Organization schema");
   assert(indexHtml.includes('"@type": "WebApplication"'), "homepage missing WebApplication schema");
   assert(indexHtml.includes('"sameAs"'), "homepage Organization schema missing sameAs");
@@ -175,6 +173,7 @@ async function main() {
     assert(curriculum.body.includes("/infant-lesson-plans"), "curriculum hub missing infant internal link");
 
     const faq = await request("GET", "/faq");
+    assert(!/Founding Member/i.test(faq.body), "faq must not mention Founding Member");
     assert(faq.body.includes("FAQPage") || faq.body.includes('"@type":"FAQPage"') || faq.body.includes('"@type": "FAQPage"'), "faq page missing FAQPage schema");
 
     const features = await request("GET", "/features");
@@ -185,7 +184,8 @@ async function main() {
     const pricing = await request("GET", "/pricing");
     assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly price");
     assert(pricing.body.includes("$199/year"), "pricing page missing Pro Annual price");
-    assert(pricing.body.includes("sold out for new signups"), "pricing page must state founding sold out for new signups");
+    assert(!/Founding Member/i.test(pricing.body), "pricing page must not mention Founding Member");
+    assert(pricing.body.includes("$19.99/month"), "pricing page missing Pro Monthly after founding removal");
 
     const contact = await request("GET", "/contact");
     assert(contact.body.includes(seo.supportEmailAddress()), "contact page missing support email");

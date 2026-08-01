@@ -144,12 +144,13 @@ async function main() {
   record("postgres durable claim uses advisory lock + FOR UPDATE", serverJs.includes("pg_advisory_xact_lock") && serverJs.includes("FOR UPDATE") && serverJs.includes("mutateFoundingInventoryInPostgres"));
   record("postgres upsert unions foundingMembers (anti-clobber)", /jsonb_array_elements_text\(COALESCE\(llh_store\.data->'foundingMembers'/.test(serverJs));
   record("checkout uses atomic reserve", /await reserveFoundingSpotAtomic\(/.test(serverJs));
-  record("sold-out wording avoids claiming a fixed 50 total", !/All 50 lifetime spots/.test(serverJs) && !/All \$\{limit\} lifetime spots/.test(serverJs) && /All available Founding Member spots have been claimed/.test(serverJs));
-  record("client sold-out wording avoids fixed 50 total", !/All \$\{limit\} lifetime spots/.test(appJs) && /All available Founding Member spots have been claimed/.test(appJs));
+  record("sold-out wording avoids claiming a fixed 50 total", !/All 50 lifetime spots/.test(serverJs) && !/All \$\{limit\} lifetime spots/.test(serverJs) && /FOUNDING_ACQUISITION_CLOSED/.test(serverJs));
+  record("client sold-out wording avoids fixed 50 total", !/All \$\{limit\} lifetime spots/.test(appJs) && /FOUNDING_CLOSED_FOR_ACQUISITION/.test(appJs));
   record("client has spots-left helper", appJs.includes("function foundingSpotsLeftMessage"));
   record("client syncs homepage when sold out", appJs.includes("function syncPublicFoundingOfferUi"));
   record("homepage uses live founding spots copy hooks", /data-founding-spots-copy/.test(indexHtml) && !/Only 2 Founding Member spots remaining/.test(indexHtml));
-  record("FAQ explains founding closeout", /What is Founding Member pricing/.test(indexHtml));
+  record("FAQ no longer advertises Founding pricing", !/What is Founding Member pricing/.test(indexHtml) && !/Founding Member/.test(indexHtml));
+  record("server acquisition permanently closed", /FOUNDING_ACQUISITION_CLOSED\s*=\s*true/.test(serverJs));
   record("no silent founding→monthly fallback in startCheckout", !/foundingSpotsRemaining\(\) <= 0 \? "monthly"/.test(appJs));
 
   let child = startServer();
@@ -157,14 +158,15 @@ async function main() {
     seedRemainingSpots(2);
     await waitForBoot(child);
 
-    // Scenario 1: spots remain → $9.99 founding checkout
+    // Scenario 1: inventory may remain, but public acquisition is permanently closed
     {
       const status = await requestJson("GET", "/api/founding-status");
       assert.equal(status.status, 200);
-      assert.equal(status.json.founding.remaining, 2);
-      assert.equal(status.json.founding.soldOut, false);
-      assert.match(status.json.founding.spotsLeftMessage || "", /Only 2 Founding Member spots remaining/);
-      record("API shows 2 spots remaining", true, status.json.founding.spotsLeftMessage);
+      assert.equal(status.json.founding.remaining, 0);
+      assert.equal(status.json.founding.soldOut, true);
+      assert.match(status.json.founding.spotsLeftMessage || "", /Pro is \$19\.99\/month/);
+      assert.doesNotMatch(status.json.founding.spotsLeftMessage || "", /Founding Member/);
+      record("API reports founding acquisition closed", true, status.json.founding.spotsLeftMessage);
 
       const checkout = await requestJson("POST", "/api/create-checkout-session", {
         email: "new-founder-a@test.local",
@@ -172,16 +174,14 @@ async function main() {
         successUrl: `http://127.0.0.1:${PORT}/?ok=1`,
         cancelUrl: `http://127.0.0.1:${PORT}/?cancel=1`,
       });
-      assert.equal(checkout.status, 200, JSON.stringify(checkout.json));
-      assert.equal(checkout.json.plan, "founding");
-      assert.match(String(checkout.json.url || ""), /plan=founding/);
-      assert.match(String(checkout.json.url || ""), /price_sim_founding_monthly/);
+      assert.equal(checkout.status, 409, JSON.stringify(checkout.json));
+      assert.equal(checkout.json.soldOut, true);
       const after = readStore();
-      assert.ok(after.foundingMembers.includes("new-founder-a@test.local"));
-      record("eligible customer can purchase founding $9.99", true, `remaining after=${after.foundingMembers.length}`);
+      assert.ok(!after.foundingMembers.includes("new-founder-a@test.local"));
+      record("founding checkout blocked while acquisition closed", true);
     }
 
-    // Concurrent last-spot race: fill to 1 remaining, then fire two founding checkouts
+    // Concurrent founding checkouts both rejected once acquisition is closed
     {
       seedRemainingSpots(1);
       child.kill("SIGTERM");
@@ -190,7 +190,8 @@ async function main() {
       await waitForBoot(child);
 
       const before = await requestJson("GET", "/api/founding-status");
-      assert.equal(before.json.founding.remaining, 1);
+      assert.equal(before.json.founding.remaining, 0);
+      assert.equal(before.json.founding.soldOut, true);
 
       const [a, b] = await Promise.all([
         requestJson("POST", "/api/create-checkout-session", {
@@ -206,20 +207,15 @@ async function main() {
           cancelUrl: `http://127.0.0.1:${PORT}/?cancel=1`,
         }),
       ]);
-      const statuses = [a.status, b.status].sort();
-      assert.deepEqual(statuses, [200, 409], `expected one 200 and one 409, got ${a.status}/${b.status}`);
-      const winner = a.status === 200 ? a : b;
-      const loser = a.status === 409 ? a : b;
-      assert.equal(winner.json.plan, "founding");
-      assert.equal(loser.json.soldOut, true);
-      assert.match(String(loser.json.error || ""), /sold out|All available Founding Member spots/i);
+      assert.equal(a.status, 409, JSON.stringify(a.json));
+      assert.equal(b.status, 409, JSON.stringify(b.json));
       const store = readStore();
       const raceEmails = store.foundingMembers.filter((e) => String(e).startsWith("race-"));
-      assert.equal(raceEmails.length, 1, `exactly one race claim, got ${raceEmails.join(",")}`);
-      record("atomic last-spot claim allows only one winner", true, `winner=${raceEmails[0]}`);
+      assert.equal(raceEmails.length, 0, `no race claims expected, got ${raceEmails.join(",")}`);
+      record("acquisition closed rejects concurrent founding checkouts", true);
     }
 
-    // Scenario 2: spots zero → founding blocked, Pro $19.99 only
+    // Scenario 2: Pro $19.99 remains available
     {
       seedRemainingSpots(0);
       child.kill("SIGTERM");
@@ -240,7 +236,7 @@ async function main() {
       });
       assert.equal(foundingCheckout.status, 409);
       assert.equal(foundingCheckout.json.soldOut, true);
-      assert.match(String(foundingCheckout.json.error || ""), /sold out|19\.99/i);
+      assert.match(String(foundingCheckout.json.error || ""), /19\.99|Pro Monthly|Pro Annual/i);
       const storeAfterFail = readStore();
       assert.ok(!storeAfterFail.foundingMembers.includes("too-late@test.local"));
       record("sold-out founding checkout rejected (no $9.99 access)", true);
@@ -283,7 +279,8 @@ async function main() {
         const proCtasOpen = await page.locator('[data-checkout-plan="monthly"]:visible').count();
         assert.equal(foundingCtasOpen, 0, `expected no founding acquisition CTAs, found ${foundingCtasOpen}`);
         assert.ok(proCtasOpen >= 1, "expected Pro monthly CTA while founding closed for acquisition");
-        assert.match(bodyOpen, /\$19\.99|Pro Monthly|Upgrade to Pro|closed for new signups/i);
+        assert.match(bodyOpen, /\$19\.99|Pro Monthly|Upgrade to Pro/i);
+        assert.doesNotMatch(bodyOpen, /Founding Member spots|spots remaining/i);
         await page.screenshot({ path: path.join(OUT_DIR, "spots-remain-homepage.png"), fullPage: true });
         record("browser: acquisition closed — Pro CTAs even if inventory remains", true, `foundingCtas=${foundingCtasOpen} proCtas=${proCtasOpen}`);
 
@@ -302,7 +299,8 @@ async function main() {
         }).catch(() => {});
         await page.waitForTimeout(800);
         const bodySold = await page.locator("body").innerText();
-        assert.match(bodySold, /\$19\.99|Pro Monthly|Founding Member spots are filled/i);
+        assert.match(bodySold, /\$19\.99|Pro Monthly/i);
+        assert.doesNotMatch(bodySold, /Founding Member/i);
         // Founding checkout buttons should be remapped or gone from primary pricing card
         // Visible public founding CTAs must be remapped (hidden announce banner ignored).
         const foundingCtas = await page.locator('[data-checkout-plan="founding"]:visible').count();

@@ -45,8 +45,8 @@ function supportEmailAddress() {
 const SUPPORT_EMAIL = supportEmailAddress();
 const FOUNDER_NAME = process.env.ADMIN_NAME || "Leah";
 
-const SEO_TITLE = "Little Learner Hub by Leah | Lesson Plans and Childcare Tools";
-const SEO_DESCRIPTION = "Little Learner Hub gives childcare providers ready-to-use lesson plans, activities, planning tools, documentation helpers, forms, daily reports, and classroom support for infants, toddlers, and preschoolers.";
+const SEO_TITLE = "Little Learner Hub by Leah | All-in-One Childcare Platform";
+const SEO_DESCRIPTION = "Little Learner Hub is an all-in-one childcare platform with hundreds of ready-to-use lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles — built by a childcare provider and continuously improved with real provider feedback.";
 
 const OFFICIAL_SOCIAL_PROFILES = [
   { label: "TikTok", url: "https://www.tiktok.com/@leahrpoole" },
@@ -194,40 +194,36 @@ function buildStructuredDataGraph(options = {}) {
         name: "Pro Monthly",
         price: proMonthly,
         priceCurrency: "USD",
-        description: "Full lesson-plan and activity libraries, unlimited curriculum printing and downloads, and expanded documentation limits.",
+        description: "Full lesson-plan and activity libraries, curriculum calendar and planner, AI documentation helpers, child profiles, and expanded limits.",
+        url: `${url}/?view=pricing`,
+      },
+      {
+        "@type": "Offer",
+        name: "Pro Annual",
+        price: "199",
+        priceCurrency: "USD",
+        description: "Same Pro platform access as Pro Monthly, billed annually.",
         url: `${url}/?view=pricing`,
       },
     ],
     featureList: [
-      "Lesson plan library for Infant, Toddler, and Preschool",
-      "Activity library",
-      "Weekly calendar planning",
-      "Printable and downloadable classroom resources",
-      "Documentation helpers",
-      "Forms library",
-      "Provider support and lesson-plan requests",
+      "Hundreds of ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes",
+      "Thousands of classroom activities with play-based learning ideas and printable resources",
+      "Curriculum Calendar and Lesson Planner for organizing weekly plans",
+      "AI Documentation Helpers for observations, parent messages, daily reports, incident reports, and more",
+      "Child Profiles for documentation and developmental observations",
+      "In-app lesson plan, activity, and feature requests",
+      "Built by a childcare provider and continuously improved with provider feedback",
     ],
     provider: { "@id": `${url}/#organization` },
   };
 
-  const graph = [organization, website, webApplication];
-
-  if (!foundingSoldOut) {
-    graph.push({
-      "@type": "Offer",
-      "@id": `${url}/#founding-offer`,
-      name: "Founding Member Monthly",
-      price: "9.99",
-      priceCurrency: "USD",
-      description: "Founding Member pricing locked while membership remains continuously active.",
-      url: `${url}/?view=pricing`,
-      offeredBy: { "@id": `${url}/#organization` },
-    });
-  }
+  // Founding Member acquisition is closed — never advertise a Founding offer in structured data.
+  void foundingSoldOut;
 
   return {
     "@context": "https://schema.org",
-    "@graph": graph,
+    "@graph": [organization, website, webApplication],
   };
 }
 
@@ -384,36 +380,35 @@ function renderCurriculumHubPage(page) {
 function renderAboutPage() {
   return renderPublicPage({
     title: `About | ${BUSINESS_NAME}`,
-    description: "Meet Leah, the childcare provider behind Little Learner Hub by Leah — what the platform offers today and what she is building next for teachers, home daycares, and centers.",
+    description: "Meet Leah, the childcare provider behind Little Learner Hub — an all-in-one childcare platform for planning, organizing, documenting, and saving time.",
     canonicalPath: "/about",
     bodyHtml: `
       <h1>About ${escapeHtml(BUSINESS_NAME)}</h1>
-      <p class="muted">An online platform built by a childcare provider for childcare providers.</p>
+      <p class="muted">An all-in-one childcare platform built by a childcare provider for childcare providers.</p>
 
       <h2>Meet Leah</h2>
       <p>My name is Leah. I have worked in childcare for about six years, directly in classrooms with young children. I am also a mom of three young children.</p>
-      <p>I created Little Learner Hub because I know how exhausting it is to constantly search for lesson plans, activities, forms, documentation tools, and parent communication ideas. Providers are busy enough caring for children — they should not have to spend hours hunting for practical resources.</p>
-      <p>I wanted to build one organized place that saves providers time and gives them resources they can actually use in real classrooms. I actively listen to provider requests and continue adding content and tools based on what teachers actually need.</p>
+      <p>I created Little Learner Hub because I know how exhausting it is to plan lessons, gather activities, write documentation, and keep everything organized while caring for children. Providers deserve one place that helps them plan, organize, document, and save time.</p>
+      <p>I listen to provider requests and continuously add lesson plans, activities, and platform improvements based on real classroom feedback.</p>
 
       <h2>What Little Learner Hub Does Now</h2>
       <p>These are features signed-in members can use today:</p>
       <ul>
-        <li>Infant, Toddler, and Preschool lesson plans (10 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
-        <li>Activity library with practical classroom ideas (samples on Free; full library on Pro)</li>
-        <li>Printable weekly plans for starter and Pro library content</li>
-        <li>Books, songs, materials, and daily activity ideas inside published plans</li>
-        <li>Calendar and weekly planning (about 30 days ahead on Free; unlimited on Pro)</li>
-        <li>Documentation helpers for observations, lesson plans, daily reports, parent communication support, newsletters, handbooks, and contracts (with monthly limits on Free)</li>
-        <li>Observations and child profiles (with plan-based limits on Free)</li>
-        <li>Forms library with starter forms on Free and expanded forms on Pro</li>
-        <li>Provider support and in-app messaging, including lesson-plan requests</li>
-        <li>Pro unlocks saved favorites, customized lesson-plan copies, the full curriculum library, and expanded limits</li>
+        <li>Hundreds of ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro) — browse the live <a href="/daycare-curriculum">daycare curriculum hub</a></li>
+        <li>Thousands of classroom activities with play-based learning ideas and printable resources</li>
+        <li>Curriculum Calendar and Lesson Planner for organizing weekly plans</li>
+        <li>AI Documentation Helpers that generate observations, parent messages, daily reports, incident reports, and more in seconds</li>
+        <li>Child Profiles to organize documentation and developmental observations</li>
+        <li>Lesson plan, activity, and feature requests directly inside Little Learner Hub</li>
+        <li>Print and download tools for classroom-ready starter and Pro library plans</li>
+        <li>Pro unlocks the full libraries, saved favorites, customized lesson-plan copies, and expanded limits</li>
       </ul>
+      <p>If you can&rsquo;t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback.</p>
       <p>See the <a href="/features">Features page</a> for a fuller breakdown of what is live today.</p>
 
       <h2>What I&rsquo;m Building Next</h2>
       <p class="muted"><strong>Future plans and works in progress — not all available yet.</strong></p>
-      <p>Little Learner Hub is growing into a larger all-in-one childcare platform. Here is what I am working toward:</p>
+      <p>Little Learner Hub continues to grow with more daycare operations tools. Here is what I am working toward:</p>
       <ul>
         <li>Expanded daily logs</li>
         <li>Attendance and check-in</li>
@@ -426,10 +421,8 @@ function renderAboutPage() {
         <li>Staff and classroom management</li>
         <li>Child portfolios and developmental goals</li>
         <li>Licensing and staff document storage</li>
-        <li>Printable classroom resources</li>
         <li>More school-age content</li>
-        <li>AI Guide tools for lesson plans, forms, observations, messages, daily reports, and documentation</li>
-        <li>Read-only &ldquo;Ask About My Program&rdquo; tools</li>
+        <li>Expanded AI Guide tools</li>
         <li>Mobile and offline support</li>
       </ul>
       <p class="muted">Some items are in active development or limited testing. They are labeled clearly on the <a href="/features">Features page</a> and are not presented as fully live until launched.</p>
@@ -442,30 +435,30 @@ function renderAboutPage() {
 function renderFeaturesPage() {
   return renderPublicPage({
     title: `Features | ${BUSINESS_NAME}`,
-    description: "See what is available now on Little Learner Hub by Leah, what is currently being built or tested, and what is planned for the future — with no misleading claims.",
+    description: "Explore Little Learner Hub — hundreds of lesson plans, thousands of activities, curriculum planning, AI documentation helpers, child profiles, and in-app requests. Built by a childcare provider.",
     canonicalPath: "/features",
     bodyHtml: `
       <h1>Platform Features</h1>
-      <p>Little Learner Hub is an <strong>online</strong> childcare platform. This page separates live features from testing and future roadmap work.</p>
+      <p>Little Learner Hub is an <strong>all-in-one online childcare platform</strong> that helps providers plan, organize, document, and save time. This page separates live features from testing and future roadmap work.</p>
       <h2>Available Now <span class="pill">Live</span></h2>
       <ul>
-        <li>Lesson Plan Library for Infant, Toddler, and Preschool (10 starter plans on Free; full library on Pro)</li>
-        <li>Activity Library organized by age, category, and theme (samples on Free; full library on Pro)</li>
-        <li>Weekly calendar planning for lessons, activities, and notes (about 30 days on Free; unlimited on Pro)</li>
+        <li>Hundreds of ready-to-use lesson plans for infants, toddlers, preschoolers, mixed-age groups, holidays, and seasonal themes (10 starter plans on Free; full library on Pro)</li>
+        <li>Thousands of classroom activities with play-based learning ideas and printable resources</li>
+        <li>Curriculum Calendar and Lesson Planner for organizing weekly plans</li>
+        <li>AI Documentation Helpers that generate observations, parent messages, daily reports, incident reports, and more in seconds</li>
+        <li>Child Profiles to organize documentation and developmental observations</li>
+        <li>Lesson Plan and Feature Requests — request lesson plans, activities, or platform improvements directly inside Little Learner Hub</li>
         <li>Print and download tools for classroom-ready starter and Pro library plans</li>
-        <li>Documentation Helpers for observations, lesson plans, daily reports, newsletters, handbooks, and contracts (with monthly limits on Free)</li>
-        <li>Forms library and document-creation tools with plan-based limits</li>
-        <li>Child profiles and observations with plan-based limits on Free</li>
-        <li>Provider messaging and lesson-plan requests for signed-in members</li>
         <li>Free plan with 10 complete starter lesson plans (no credit card required)</li>
         <li>Pro membership for full library access, saved favorites, customized lesson-plan copies, and expanded limits</li>
       </ul>
+      <p>If you can&rsquo;t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback.</p>
       <h2>Currently Being Built or Tested <span class="pill status-testing">In progress</span></h2>
       <ul>
         <li>Expanded Home Daycare Hub workflows (testing-site only today)</li>
         <li>Family Hub and digital forms workflows</li>
-        <li>AI Guide tools for lesson plans, forms, observations, and documentation</li>
-        <li>Selected enrollment and family-communication tools</li>
+        <li>Expanded AI Guide tools beyond Documentation Helpers</li>
+        <li>Selected family-communication tools</li>
       </ul>
       <p class="muted">These items are in active development or limited testing. They are not advertised as fully available for every account until launched.</p>
       <h2>Future Plans <span class="pill status-later">Planned</span></h2>
@@ -473,6 +466,7 @@ function renderFeaturesPage() {
         <li>Attendance, meals, naps, and daily logs</li>
         <li>Child portfolios and progress goals</li>
         <li>Expanded parent messaging and signatures</li>
+        <li>Enrollment and waitlist tools</li>
         <li>Classroom Assistant and center staff tools</li>
         <li>More automated weekly planning workflows</li>
       </ul>
@@ -482,17 +476,16 @@ function renderFeaturesPage() {
 
 function renderFaqPage() {
   const faqItems = [
-    ["What is Little Learner Hub?", "Little Learner Hub by Leah is an online platform that helps childcare providers plan and document with play-based lesson plans, activities, calendar tools, forms, documentation helpers, and provider-requested curriculum."],
-    ["What ages are included?", "Infants, Toddlers, and Preschoolers. Content is organized by age group and should still be adapted to each child’s development."],
+    ["What is Little Learner Hub?", "Little Learner Hub by Leah is an all-in-one childcare platform that helps providers plan, organize, document, and save time with hundreds of lesson plans, thousands of classroom activities, curriculum planning tools, AI documentation helpers, and child profiles — built by a childcare provider and continuously improved with provider feedback."],
+    ["What ages are included?", "Infants, Toddlers, and Preschoolers. Content is organized by age group and should still be adapted to each child’s development. Mixed-age, holiday, and seasonal themes are included."],
     ["Are lesson plans printable?", "Yes. Members can customize plans and print or save PDF copies for classroom use."],
-    ["Are infant, toddler, and preschool plans available?", "Yes. The library includes published plans across all three age groups."],
+    ["Are infant, toddler, and preschool plans available?", "Yes. The library includes published plans across all three age groups, plus mixed-age, holiday, and seasonal themes."],
     ["Is there a free option?", "Yes. The Free plan includes 10 complete starter lesson plans across Infant, Toddler, and Preschool with no credit card required."],
-    ["What comes with Pro?", "Pro unlocks the complete lesson-plan and activity libraries, unlimited curriculum printing and downloads, new content added regularly, saved customized copies, and higher documentation limits."],
-    ["Can childcare centers use it?", "Yes. Centers, home daycares, preschool classrooms, and family childcare programs can use the platform for curriculum and planning today, with additional center-management tools planned for later."],
-    ["Can providers request lesson plans?", "Yes. Members can message through the website with age group, topic, interests, and learning goals to request new plans."],
+    ["What comes with Pro?", "Pro unlocks the complete lesson-plan and activity libraries, unlimited curriculum printing and downloads, curriculum calendar planning, AI documentation helpers with higher limits, child profiles, saved customized copies, and new content added regularly. Pro Monthly is $19.99/month; Pro Annual is $199/year."],
+    ["Can childcare centers use it?", "Yes. Centers, home daycares, preschool classrooms, and family childcare programs can use the platform for curriculum, planning, and documentation today, with additional center-management tools planned for later."],
+    ["Can providers request lesson plans, activities, or features?", "Yes. If you can’t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback."],
     ["Is it an app?", "Little Learner Hub is a web application that works in modern browsers on phones, tablets, and computers. It can be installed to your home screen like an app, but it is not a separate native App Store download today."],
     ["What features are coming later?", "Future plans include attendance, meals, naps, daily logs, expanded family communication, enrollment workflows, and center staff tools. See the Features page for the Available Now, Currently Being Built or Tested, and Future Plans sections."],
-    ["What is Founding Member pricing?", "Founding Member pricing was $9.99/month locked while membership remains continuously active. Founding spots are sold out for new signups. Existing Founding Members remain grandfathered. New members choose Pro Monthly at $19.99/month or Pro Annual at $199/year."],
   ];
   const faqHtml = faqItems.map(([q, a]) => `<article><h2>${escapeHtml(q)}</h2><p>${escapeHtml(a)}</p></article>`).join("\n");
   const faqSchema = {
@@ -516,31 +509,32 @@ function renderFaqPage() {
 function renderPricingPage() {
   return renderPublicPage({
     title: `Pricing | ${BUSINESS_NAME}`,
-    description: "Free starter lesson plans plus Pro Monthly ($19.99/month) and Pro Annual ($199/year) for Little Learner Hub by Leah. Founding Member pricing is grandfathered for existing members only.",
+    description: "Simple pricing for Little Learner Hub: Free starter lesson plans, Pro Monthly at $19.99/month, or Pro Annual at $199/year for the full all-in-one childcare platform.",
     canonicalPath: "/pricing",
     bodyHtml: `
       <h1>Pricing</h1>
-      <p class="muted">Current public offers for new members. Existing Founding Member accounts keep their grandfathered billing rate while membership remains continuously active.</p>
+      <p class="muted">Simple, honest pricing for childcare providers. Start free, then upgrade when you are ready for the full platform.</p>
       <h2>Free Plan — $0</h2>
       <ul>
         <li>10 complete starter lesson plans across Infant, Toddler, and Preschool</li>
         <li>Browse the library and preview additional themes</li>
         <li>About 30 days of calendar planning and up to 5 child profiles</li>
-        <li>10 observations, 6 starter forms, and 10 document creations per month</li>
+        <li>AI Documentation Helper starter limits</li>
         <li>No credit card required</li>
       </ul>
       <h2>Pro Monthly — $19.99/month</h2>
       <ul>
-        <li>Complete lesson-plan and activity libraries</li>
+        <li>Hundreds of lesson plans and thousands of classroom activities</li>
+        <li>Curriculum Calendar and Lesson Planner</li>
+        <li>AI Documentation Helpers with expanded limits</li>
+        <li>Child Profiles and developmental observations</li>
         <li>Unlimited curriculum printing and downloads</li>
-        <li>New content added regularly</li>
         <li>Customizable and saved lesson-plan copies</li>
-        <li>Expanded documentation limits, including 250 document creations per month</li>
+        <li>In-app lesson plan, activity, and feature requests</li>
+        <li>New content added regularly based on provider feedback</li>
       </ul>
       <h2>Pro Annual — $199/year</h2>
-      <p>Same Pro library and printing access as Pro Monthly, billed annually.</p>
-      <h2>Founding Member — $9.99/month (existing members only)</h2>
-      <p>Founding Member pricing is <strong>sold out for new signups</strong>. Members who joined while Founding spots were available keep <strong>$9.99/month</strong> locked while membership remains continuously active. New members choose Pro Monthly or Pro Annual instead.</p>
+      <p>Same Pro platform access as Pro Monthly, billed annually.</p>
       <p class="muted">This page describes membership pricing only. Little Learner Hub is an online platform and does not operate as a physical childcare location.</p>
     `,
   });

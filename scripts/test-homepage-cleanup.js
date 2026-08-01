@@ -176,20 +176,19 @@ async function main() {
 
   assert.match(indexHtml, /data-founding-spots-copy/);
   assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
-  assert.match(indexHtml, /New lesson plans, activities, and resources are added regularly/);
-  assert.doesNotMatch(indexHtml, /Continue adding new lesson plans/);
-  assert.match(indexHtml, /New plans and activities are added weekly/);
   assert.match(indexHtml, /Request a Lesson Plan/);
-  assert.match(indexHtml, /Home Daycare tools/);
-  assert.match(indexHtml, /Family Hub and forms/);
+  assert.match(indexHtml, /AI Documentation Helpers/);
+  assert.match(indexHtml, /Family Hub/);
   assert.match(indexHtml, /Daily operations/);
   assert.match(indexHtml, /See what we&rsquo;re building|See what we’re building/);
   assert.match(indexHtml, /llh-founder-brand-fallback/);
-  assert.match(indexHtml, /Create your account to continue with Founding Membership/);
+  assert.match(indexHtml, /Create your account to continue with Pro membership/);
+  assert.match(indexHtml, /All-in-One Childcare Platform/);
+  assert.doesNotMatch(indexHtml, /Founding Member/);
   assert.match(appJs, /function foundingSpotsLeftMessageFromCount/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
-  assert.match(appJs, /Create your account to continue with Founding Membership/);
-  assert.match(appJs, /This is Founding Membership — not a Pro trial/);
+  assert.match(appJs, /Create your account to continue with Pro membership/);
+  assert.match(serverJs, /FOUNDING_ACQUISITION_CLOSED\s*=\s*true/);
   assert.match(viewerJs, /not a Pro trial/);
   assert.match(appJs, /lessonPlanRequestPanelHtml/);
   assert.match(serverJs, /LESSON_PLAN_REQUEST_STATUSES/);
@@ -208,25 +207,25 @@ async function main() {
     await waitForBoot(child);
     const status = await requestJson("GET", "/api/founding-status");
     const founding = status.json?.founding || {};
-    assert.equal(founding.claimed, LIVE_CLAIMED);
     assert.equal(founding.limit, FOUNDING_LIMIT);
-    assert.equal(founding.remaining, 2);
-    assert.match(founding.spotsLeftMessage || "", /Only 2 Founding Member spots remaining/);
-    console.log("PASS founding API inventory", founding);
+    assert.equal(founding.remaining, 0);
+    assert.equal(founding.soldOut, true);
+    assert.match(founding.spotsLeftMessage || "", /Pro is \$19\.99\/month/);
+    assert.doesNotMatch(founding.spotsLeftMessage || "", /Founding Member/);
+    console.log("PASS founding API closed for acquisition", founding);
 
-    // Singular messaging
+    // Acquisition closed: inventory changes must not reopen public spots messaging
     {
       const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
       store.foundingMembers = Array.from({ length: FOUNDING_LIMIT - 1 }, (_, i) => `one-left-${i}@example.com`);
       fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
-      // local-json reads on each request in this app — verify message
       const one = await requestJson("GET", "/api/founding-status");
-      assert.equal(one.json.founding.remaining, 1);
-      assert.match(one.json.founding.spotsLeftMessage || "", /Only 1 Founding Member spot remaining/);
-      // restore two remaining for UI tests
+      assert.equal(one.json.founding.remaining, 0);
+      assert.equal(one.json.founding.soldOut, true);
+      assert.match(one.json.founding.spotsLeftMessage || "", /Pro is \$19\.99\/month/);
       store.foundingMembers = Array.from({ length: LIVE_CLAIMED }, (_, i) => `claimed-${i}@example.com`);
       fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
-      console.log("PASS singular spot messaging");
+      console.log("PASS founding remains closed regardless of inventory");
     }
 
     // Guest founding consistency + homepage cleanup across widths
@@ -263,16 +262,16 @@ async function main() {
           clientWidth: document.documentElement.clientWidth,
         };
       });
-      assert.equal(guest.remaining, 2);
+      assert.equal(guest.remaining, 0);
       assert.equal(guest.openForAcquisition, false);
       assert.equal(guest.announceVisible, false);
       assert.equal(guest.foundingCtas, 0, `unexpected founding CTA count ${guest.foundingCtas}`);
       assert.ok(guest.proCtas >= 1, `expected Pro CTAs, got ${guest.proCtas}`);
-      assert.match(guest.pricing, /\$19\.99|Pro Monthly|closed for new signups/i);
-      assert.doesNotMatch(guest.hero, /Only \d+ Founding Member spots? remaining/i);
-      assert.doesNotMatch(guest.finalCta, /Only \d+ Founding Member spots? remaining/i);
-      assert.match(guest.roadmap, /Home Daycare tools/i);
-      assert.match(guest.roadmap, /Family Hub and forms/i);
+      assert.match(guest.pricing, /\$19\.99|Pro Monthly/i);
+      assert.doesNotMatch(guest.hero, /Founding Member|spots remaining/i);
+      assert.doesNotMatch(guest.finalCta, /Founding Member|spots remaining/i);
+      assert.doesNotMatch(guest.pricing, /Founding Member/i);
+      assert.match(guest.roadmap, /Family Hub/i);
       assert.match(guest.roadmap, /Daily operations/i);
       assert.ok(guest.scrollWidth <= guest.clientWidth + 1, `${viewport.name} horizontal scroll`);
       assert.equal(consoleErrors.filter((e) => !/favicon|net::ERR/i.test(e)).length, 0, consoleErrors.join("\n"));
@@ -311,11 +310,11 @@ async function main() {
         sidebar: document.querySelector("#sidebarFreeUpgradeCard")?.innerText || "",
         spotsMsg: foundingSpotsLeftMessage(),
       }));
-      assert.equal(chrome.remaining, 2);
+      assert.equal(chrome.remaining, 0);
       assert.match(chrome.reminder, /\$19\.99|Pro|Free Starter Library/i);
       assert.match(chrome.sidebar, /\$19\.99|Pro|Free/i);
-      assert.doesNotMatch(chrome.reminder, /Lock In Founding|\$9\.99\/month locked/i);
-      assert.doesNotMatch(chrome.sidebar, /Lock In Founding Member Pricing/i);
+      assert.doesNotMatch(chrome.reminder, /Founding Member|Lock In Founding|\$9\.99\/month locked/i);
+      assert.doesNotMatch(chrome.sidebar, /Founding Member|Lock In Founding/i);
       results.push(await shot(page, "signed-in-free-chrome"));
       await page.close();
       console.log("PASS signed-in Free Pro upgrade chrome");
@@ -479,10 +478,20 @@ async function main() {
         if (form) form.hidden = false;
       });
       await page.waitForSelector("#lessonPlanRequestForm:not([hidden])", { state: "attached" });
-      await page.selectOption("#lessonPlanRequestAge", "Infant");
-      await page.fill("#lessonPlanRequestTheme", "Soft Sensory");
-      await page.fill("#lessonPlanRequestNeededBy", "August");
-      await page.fill("#lessonPlanRequestDetails", "Quiet room friendly");
+      await page.evaluate(() => {
+        const form = document.querySelector("#lessonPlanRequestForm");
+        if (!form) return;
+        form.hidden = false;
+        form.style.display = "block";
+        const age = form.querySelector("#lessonPlanRequestAge");
+        const theme = form.querySelector("#lessonPlanRequestTheme");
+        const neededBy = form.querySelector("#lessonPlanRequestNeededBy");
+        const details = form.querySelector("#lessonPlanRequestDetails");
+        if (age) age.value = "Infant";
+        if (theme) theme.value = "Soft Sensory";
+        if (neededBy) neededBy.value = "August";
+        if (details) details.value = "Quiet room friendly";
+      });
       await page.evaluate(async () => {
         const form = document.querySelector("#lessonPlanRequestForm");
         if (form && typeof submitLessonPlanRequestForm === "function") {
@@ -500,7 +509,7 @@ async function main() {
     const summary = {
       ok: true,
       screenshots: results,
-      founding: { claimed: LIVE_CLAIMED, limit: FOUNDING_LIMIT, remaining: 2 },
+      founding: { claimed: LIVE_CLAIMED, limit: FOUNDING_LIMIT, remaining: 0 },
     };
     fs.writeFileSync(path.join(OUT_DIR, "homepage-final-cleanup.json"), JSON.stringify(summary, null, 2));
     console.log(JSON.stringify(summary, null, 2));

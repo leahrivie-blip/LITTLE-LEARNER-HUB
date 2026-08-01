@@ -2128,12 +2128,12 @@ const freePlanBaseFeatures = [
 ];
 const MEMBERSHIP_COPY = Object.freeze({
   freeCore: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.",
-  freeBrowse: "Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+  freeBrowse: "Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
   trialCore: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required to start. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first.",
-  foundingWhileOpen: "Founding Members receive unlimited curriculum access for $9.99/month locked while membership remains continuously active.",
-  foundingCard: "Founding includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $9.99/month locked while membership remains continuously active.",
+  foundingWhileOpen: "",
+  foundingCard: "Pro includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $19.99/month.",
   proMonthly: "Pro includes unlimited curriculum access, printing and downloads for $19.99/month.",
-  proCard: "Pro includes the complete lesson-plan and activity libraries, new content added weekly, and unlimited curriculum printing and downloads for $19.99/month.",
+  proCard: "Pro includes the complete lesson-plan and activity libraries, new content added weekly, AI documentation helpers, child profiles, and unlimited curriculum printing and downloads for $19.99/month.",
   trialExhausted: "You’ve used all 3 premium curriculum prints or downloads included with your trial. You can continue browsing during your trial or upgrade for unlimited access.",
   trialBeforeExport: "This will use 1 of your 3 trial curriculum exports.",
   unlimitedLabel: "Unlimited curriculum printing and downloads",
@@ -2141,7 +2141,7 @@ const MEMBERSHIP_COPY = Object.freeze({
   freeStarterProgress: "10 complete plans included with your Free account.",
   unlockLibrary: "Unlock the Complete Library",
   lockedFreePlan: "This plan is not included in the 10-plan Free Starter Library. Upgrade to unlock the complete plan.",
-  freePolicyNotice: "Your Free account includes 10 complete Starter Lesson Plans across Infant, Toddler and Preschool. Your saved information remains available, but additional premium plans require Founding or Pro access.",
+  freePolicyNotice: "Your Free account includes 10 complete Starter Lesson Plans across Infant, Toddler and Preschool. Your saved information remains available, but additional premium plans require Pro access.",
   watermarkTryAgain: "We couldn’t finish this premium curriculum export safely. Please try again.",
 });
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
@@ -2647,7 +2647,7 @@ const HOMEPAGE_PUBLIC_FREE_PLAN_FEATURES = Object.freeze([
   "Upgrade anytime for unlimited curriculum printing and downloads",
 ]);
 
-const HOMEPAGE_FOUNDING_PRICE_NOTE = "$9.99/month locked while your Founding Membership remains continuously active.";
+const HOMEPAGE_FOUNDING_PRICE_NOTE = "Pro is $19.99/month.";
 const LLH_FOUNDING_ANNOUNCE_DISMISS_KEY = "llhFoundingAnnounceDismissed";
 
 const HOME_LESSON_PREVIEW_HINTS = [
@@ -3301,12 +3301,12 @@ function renderSignupWizardStep() {
     const preferFoundingSignup = preferredSignupPlanFromStorage() === "founding"
       && foundingOpenForAcquisition();
     title.textContent = preferFoundingSignup
-      ? "Continue with Founding Membership"
+      ? "Continue with Pro"
       : "Create Your Free Little Learner Hub Account";
     const foundingContinueNote = document.querySelector("#authFoundingContinueNote");
     if (foundingContinueNote) {
       foundingContinueNote.hidden = !preferFoundingSignup;
-      foundingContinueNote.textContent = "Create your account to continue with Founding Membership.";
+      foundingContinueNote.textContent = "Create your account to continue with Pro membership.";
     }
     submitButton.textContent = "Continue";
     submitButton.hidden = false;
@@ -3376,7 +3376,7 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   foundingTitle: "Founding Member",
   foundingSubtitle: "Best value for childcare providers — $9.99/month locked while your membership remains continuously active",
   foundingIncludesNote: "Includes Pro access. $9.99/month locked while your membership remains continuously active.",
-  foundingCta: "Claim My Founding Spot",
+  foundingCta: "Choose Pro Monthly",
   proBadge: "Full Access",
   proTitle: "Pro Membership",
   proSubtitle: "Everything you need for weekly planning and documentation",
@@ -3393,12 +3393,12 @@ const DEFAULT_SIGNUP_PLAN_COPY = Object.freeze({
   ]),
   freeCta: "Create Free Account",
   freeConfirmTitle: "You’re choosing the Free Plan.",
-  freeConfirmBody: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.\n\nBrowse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+  freeConfirmBody: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required.\n\nBrowse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
   freeConfirmContinue: "Continue with Free",
   freeConfirmUpgrade: "Upgrade Instead",
-  preferredFoundingNote: "You’re locking in Founding Member pricing — here’s everything included:",
-  foundingUrgency: "Founding Member pricing ends forever once all spots are claimed",
-  soldOutNote: "Founding spots are filled. Pro is available at the regular rate.",
+  preferredFoundingNote: "You’re upgrading to Pro — here’s everything included:",
+  foundingUrgency: "Pro unlocks the full all-in-one childcare platform",
+  soldOutNote: "Pro is available at $19.99/month.",
 });
 
 const SIGNUP_PLAN_VARIANT_OVERRIDES = Object.freeze({
@@ -3412,7 +3412,7 @@ const SIGNUP_PLAN_VARIANT_OVERRIDES = Object.freeze({
   "urgency-first": {
     headline: "Founding pricing won’t last — lock it in while spots remain.",
     foundingBadge: "Best Value",
-    foundingCta: "Lock In Founding Member Pricing",
+    foundingCta: "Upgrade to Pro",
   },
 });
 
@@ -3520,7 +3520,7 @@ function renderSignupPlanChooser() {
       <p class="signup-plan-includes-note">${escapeHtml(copy.foundingIncludesNote)}</p>
       <p class="signup-plan-lock">Everything we build and release in the future stays included at your locked-in founding price. Never pay more.</p>
       ${signupPlanListHtml(copy.paidBenefits)}
-      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? escapeHtml(foundingSpotsLeftMessage(remaining)) : "Checking Founding Member availability…"}</p>
+      <p class="signup-plan-spots" data-founding-spots-remaining="${foundingStatusLoaded() ? remaining : ""}">${foundingStatusLoaded() ? escapeHtml(foundingSpotsLeftMessage(remaining)) : "Checking membership pricing…"}</p>
       <button class="primary-button" type="button" data-signup-choose-plan="founding">${escapeHtml(copy.foundingCta)}</button>
     </article>
   ` : "";
@@ -3791,9 +3791,9 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   `;
   if (type === "limit") {
     const limitHeadline = offerFounding
-      ? "⭐ Lock In Founding Member Pricing"
+      ? "⭐ Upgrade to Pro"
       : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "Ready to save hours every week?");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member Offer" : "Unlock more with Pro";
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : "Unlock more with Pro";
     if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
@@ -3804,7 +3804,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     `;
   } else {
     const popupHeadline = offerFounding
-      ? "⭐ Lock In Founding Member Pricing"
+      ? "⭐ Upgrade to Pro"
       : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "Save hours with Pro");
     if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Pro Feature";
     if (title) title.textContent = popupHeadline;
@@ -3818,7 +3818,7 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   }
   if (upgradeBtn) {
     if (offerFounding) {
-      upgradeBtn.textContent = "Lock In Founding Member — $9.99/month";
+      upgradeBtn.textContent = "Upgrade to Pro — $19.99/month";
       upgradeBtn.dataset.checkoutPlan = "founding";
       upgradeBtn.dataset.upgradeMode = "founding";
       upgradeBtn.removeAttribute("data-start-pro-trial");
@@ -4056,13 +4056,13 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
     return {
       key: "active_founding",
       adminKey: "founding",
-      label: "Active Founding Member",
+      label: "Active Member",
       emoji: "🟢",
       tone: "success",
       hasProAccess: true,
       banner: null,
       cta: null,
-      detail: "Your Founding Member subscription is active.",
+      detail: "Your subscription is active.",
       planLabel: "Founding Member",
     };
   }
@@ -4236,10 +4236,10 @@ function applyFoundingStatus(status = {}) {
 function foundingSpotsLeftMessageFromCount(remaining) {
   const count = Number(remaining);
   if (!Number.isFinite(count) || count <= 0) {
-    return "Founding Member pricing is sold out. Pro is $19.99/month.";
+    return "Pro is $19.99/month.";
   }
-  if (count === 1) return "Only 1 Founding Member spot remaining.";
-  return `Only ${count} Founding Member spots remaining.`;
+  if (count === 1) return "Pro is $19.99/month.";
+  return "Pro is $19.99/month.";
 }
 
 function foundingStatusLoaded() {
@@ -4271,7 +4271,7 @@ function foundingProgressPercent() {
 
 function foundingSpotsLeftMessage(remaining = foundingSpotsRemaining()) {
   if (remaining == null) {
-    return foundingStatusCache.spotsLeftMessage || "Checking Founding Member availability…";
+    return foundingStatusCache.spotsLeftMessage || "Checking membership pricing…";
   }
   if (foundingStatusLoaded() && foundingStatusCache.spotsLeftMessage && remaining === foundingSpotsRemaining()) {
     return foundingStatusCache.spotsLeftMessage;
@@ -4280,33 +4280,12 @@ function foundingSpotsLeftMessage(remaining = foundingSpotsRemaining()) {
 }
 
 function foundingUrgencyText() {
-  const remaining = foundingSpotsRemaining();
-  if (remaining == null) return "";
-  if (remaining <= 0) return "Founding spots are filled. Regular Pro pricing is now active.";
-  if (remaining <= 2) return `${foundingSpotsLeftMessage(remaining)} Lock in $9.99/month while your membership remains continuously active before the offer closes.`;
-  if (remaining <= 3) return "Almost gone. Regular Pro pricing starts after these last spots.";
-  if (remaining <= 10) return "Moving fast. These founding price-lock spots are almost filled.";
-  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-  return `Founding spots are filling now. The price changes to regular Pro when all ${limit} are claimed.`;
+  return "Pro is $19.99/month for the full all-in-one childcare platform.";
 }
 
 function foundingMeterHtml() {
-  if (!foundingStatusLoaded()) {
-    return `<div class="spots-meter spots-meter--loading" role="status"><small>Checking Founding Member availability…</small></div>`;
-  }
-  const remaining = foundingSpotsRemaining();
-  const claimed = foundingSpotsClaimed();
-  const limit = Number(foundingStatusCache.limit || foundingMemberLimit);
-  const soldOut = !foundingOpenForAcquisition();
-  return `
-    <div class="spots-meter ${soldOut ? "sold-out" : ""}" aria-label="${soldOut ? "Founding pricing closed for new signups" : `${claimed} founding spots filled and ${remaining} remaining`}">
-      <strong>${soldOut ? "$19.99" : remaining}</strong>
-      <span>${soldOut ? "regular Pro monthly" : "spots left"}</span>
-      <div class="spots-progress" aria-hidden="true"><span style="width: ${foundingProgressPercent()}%"></span></div>
-      <small>${soldOut ? "Closed for new signups" : `${claimed} of ${limit} filled`}</small>
-      <em>${soldOut ? "Founding pricing is closed for new signups. Pro is $19.99/month." : foundingUrgencyText()}</em>
-    </div>
-  `;
+  // Acquisition meter retired — Founding offer is closed; avoid advertising spots.
+  return "";
 }
 
 function syncPublicFoundingOfferUi() {
@@ -4314,22 +4293,18 @@ function syncPublicFoundingOfferUi() {
   // Acquisition surfaces treat Founding as closed even if inventory remains.
   const soldOut = !foundingOpenForAcquisition();
   const remaining = foundingSpotsRemaining();
-  const spotsMsg = soldOut && FOUNDING_CLOSED_FOR_ACQUISITION
-    ? "Founding Member pricing is closed for new signups."
+  const spotsMsg = soldOut
+    ? "Pro is $19.99/month."
     : foundingSpotsLeftMessage(remaining);
   const spotsWithRegular = soldOut
-    ? (FOUNDING_CLOSED_FOR_ACQUISITION
-      ? "Founding Member pricing is closed for new signups. Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while continuously active."
-      : spotsMsg)
+    ? "Pro is $19.99/month (or $199/year) for the full all-in-one childcare platform."
     : `${spotsMsg} Regular price will be $19.99/month.`;
 
   // Keep every Founding count surface on the same server-provided message.
   document.querySelectorAll("[data-founding-spots-copy]").forEach((node) => {
     if (!node || node.closest(".llh-founding-card .lp-price-note")) return;
     if (node.matches("#homePricing .lp-section-sub")) {
-      node.textContent = soldOut
-        ? "Start free, or upgrade to Pro at $19.99/month."
-        : `${spotsMsg} Start free or lock in Founding Member pricing while spots remain.`;
+      node.textContent = "Start free, or upgrade to Pro at $19.99/month.";
       return;
     }
     if (node.matches(".lp-pro-highlight-badge")) {
@@ -4376,7 +4351,7 @@ function syncPublicFoundingOfferUi() {
         cta.textContent = "Choose Pro Monthly";
       }
       if (note) {
-        note.innerHTML = "Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.";
+        note.innerHTML = "Pro Monthly is $19.99/month. Pro Annual is $199/year. Cancel anytime.";
       }
       foundingCard.classList.add("llh-founding-card--sold-out");
     } else {
@@ -4413,8 +4388,8 @@ function syncPublicFoundingOfferUi() {
   const heroSupport = document.querySelector(".llh-hero-support");
   if (heroSupport) {
     heroSupport.textContent = soldOut
-      ? "Pro is $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active."
-      : "Founding Members lock in $9.99/month while membership remains continuously active and receive new curriculum and platform features as they launch.";
+      ? "Start free, or upgrade to Pro for $19.99/month (or $199/year)."
+      : "Start free, or upgrade to Pro for $19.99/month (or $199/year).";
   }
 
   const finalCtaBody = document.querySelector("#homeFinalCta .lp-cta-body");
@@ -11390,16 +11365,16 @@ function captureDefaultSiteContent() {
       upgradeLimitHeadline: "Ready to save hours every week?",
       upgradePopupBody: "Your 7-day Pro trial includes full browsing of the Pro curriculum library and up to 3 premium curriculum prints or downloads. A credit card is required. You will not be charged during the trial — after 7 days you are charged Pro Monthly ($19.99/month) unless you cancel first.",
       proTrialButtonText: "Start Your 7-Day Free Trial",
-      freeLimitMessage: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Founding or Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
+      freeLimitMessage: "Free includes 10 complete starter lesson plans across Infant, Toddler and Preschool—no credit card required. Browse the complete library and preview additional themes. Upgrade to Pro to unlock every lesson plan, new plans added weekly, and unlimited curriculum printing and downloads.",
       trialUpgradeSummary: "7-Day Pro Trial · Browse the full Pro library · Up to 3 premium curriculum prints or downloads · Card required · Charged $19.99/month after 7 days · Cancel anytime.",
       _draft: false,
     },
     founding: {
-      heading: "Founding Member Pricing",
-      soldOutHeading: "Founding Member spots are filled",
+      heading: "Pro Pricing",
+      soldOutHeading: "Pro membership",
       pricePrefix: "Get Pro for",
-      priceLifeLabel: "locked while continuously active",
-      ctaButtonText: "Claim Founding Member Pricing",
+      priceLifeLabel: "per month",
+      ctaButtonText: "Choose Pro Monthly",
       soldOutCtaText: "Choose Pro Monthly",
       _draft: false,
     },
@@ -12202,11 +12177,11 @@ function setAuthMode(mode) {
     && foundingOpenForAcquisition();
   if (foundingContinueNote) {
     foundingContinueNote.hidden = !preferFoundingSignup;
-    foundingContinueNote.textContent = "Create your account to continue with Founding Membership.";
+    foundingContinueNote.textContent = "Create your account to continue with Pro membership.";
   }
   if (mode === "signup") {
     title.textContent = preferFoundingSignup
-      ? "Continue with Founding Membership"
+      ? "Continue with Pro"
       : "Create Your Free Little Learner Hub Account";
     submitButton.textContent = "Continue";
     forgotButton.style.display = "none";
@@ -16534,7 +16509,7 @@ function libraryAccessBadgeHtml() {
   }
   const label = billingPlanLabel();
   if (String(label).toLowerCase().includes("founding") || currentAccount()?.foundingMemberActive) {
-    return `<span class="library-access-badge">✓ Founding Member — Full Access</span>`;
+    return `<span class="library-access-badge">✓ Pro Access</span>`;
   }
   return `<span class="library-access-badge is-pro">✓ Pro — Full Access</span>`;
 }
@@ -24441,7 +24416,7 @@ function openLockedResourcePreview(resource, triggerEl = null) {
   // Never mix Founding ($9.99 locked) with Pro trial (converts to $19.99/month).
   const lockedUpgradeCta = showFoundingOffer
     ? paidUpgradeCtaButtonHtml({
-      label: "Lock In Founding Member — $9.99/month",
+      label: "Upgrade to Pro — $19.99/month",
       short: true,
     })
     : (showProMonthlyOffer
@@ -25059,7 +25034,7 @@ function libraryCompactUpgradeStripHtml() {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     return `
       <section class="library-upgrade-strip library-upgrade-strip--guest" role="region" aria-label="Create your free account">
-        <p>Create a free account to save free sample plans and explore Founding Member pricing while spots remain.</p>
+        <p>Create a free account to save free sample plans and explore the all-in-one childcare platform.</p>
         <div class="library-upgrade-strip-actions">
           <button class="primary-button" type="button" data-action="start-free">Get Started</button>
           <button class="ghost-button" type="button" data-action="open-login">Log In</button>
@@ -26213,7 +26188,7 @@ function publicActivityPreviewCtaHtml() {
   if (isLoggedIn() || hasAdminFullAccess()) return "";
   const foundingOpen = foundingOpenForAcquisition();
   const paidCta = foundingOpen
-    ? `<button class="ghost-button" type="button" data-checkout-plan="founding">Lock In Founding Member — $9.99/month</button>`
+    ? `<button class="ghost-button" type="button" data-checkout-plan="founding">Upgrade to Pro — $19.99/month</button>`
     : `<button class="ghost-button" type="button" data-checkout-plan="monthly">Upgrade to Pro — $19.99/month</button>`;
   return `
     <section class="llh-public-preview-cta">
@@ -46414,7 +46389,7 @@ function openAdminUserProfile(email, startTab) {
   const accessEndDate = account.accessEndsAt || account.currentPeriodEnd || account.trialEnd || "";
   const nextRenewal = account.nextRenewalDate || (account.cancelAtPeriodEnd ? "" : account.currentPeriodEnd || "");
   const foundingEligibility = account.foundingEligibilityLabel
-    || (isFoundingActive ? "Active Founding Member" : isFoundingHistorical ? "Historical Founding Member (no auto $9.99)" : "Not a Founding Member");
+    || (isFoundingActive ? "Active Member" : isFoundingHistorical ? "Historical Founding Member (no auto $9.99)" : "Not a Founding Member");
   const auditLog = account.membershipAuditRecent || [];
 
   const joined     = account.createdAt    ? new Date(account.createdAt).toLocaleDateString()    : "—";
@@ -52432,7 +52407,7 @@ function foundingStatusCard() {
       <section class="founding-banner founding-banner--compact founding-banner--loading" aria-busy="true">
         <div>
           <p class="eyebrow">Founding Member Availability</p>
-          <h3>Checking Founding Member availability…</h3>
+          <h3>Checking membership pricing…</h3>
         </div>
       </section>
     `;
@@ -52444,8 +52419,8 @@ function foundingStatusCard() {
     <section class="founding-banner founding-banner--compact ${soldOut ? "founding-sold-out" : ""}">
       <div>
         <p class="eyebrow">${soldOut ? "Regular Pro Pricing" : "Founding Member Special"}</p>
-        <h3>${soldOut ? "Founding pricing is closed for new signups" : `$9.99/month locked while continuously active · ${foundingSpotsLeftMessage(remaining)}`}</h3>
-        <p>${soldOut ? "Pro is $19.99/month or $199/year. Existing Founding Members keep $9.99/month locked while continuously active." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
+        <h3>${soldOut ? "Pro membership" : `$9.99/month locked while continuously active · ${foundingSpotsLeftMessage(remaining)}`}</h3>
+        <p>${soldOut ? "Pro is $19.99/month or $199/year." : `${claimed} of ${foundingStatusCache.limit || foundingMemberLimit} claimed.`}</p>
       </div>
       ${foundingMeterHtml()}
     </section>
@@ -52647,8 +52622,8 @@ function freeUpgradePrimaryButtonLabel(options = {}) {
   const short = Boolean(options.short);
   if (foundingOpenForAcquisition()) {
     return short
-      ? "⭐ Lock In Founding Member Pricing"
-      : "⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
+      ? "⭐ Upgrade to Pro"
+      : "⭐ Upgrade to Pro – $19.99/month";
   }
   return short ? "Upgrade to Pro" : "Upgrade to Pro – $19.99/month";
 }
@@ -52940,7 +52915,7 @@ function foundingUpgradeBannerHtml(options = {}) {
   const ctaLabel = freeUpgradePrimaryButtonLabel();
   const title = soldOut
     ? "⭐ Upgrade to Pro – $19.99/month"
-    : "⭐ Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
+    : "⭐ Upgrade to Pro – $19.99/month";
   const body = soldOut
     ? lockedContentUnlockLines().slice(0, 4).join(" ")
     : lockedContentUnlockLines().slice(0, 4).join(" ");
@@ -53000,7 +52975,7 @@ function homeFoundingMeterHtml() {
   if (!foundingStatusLoaded()) {
     return `
       <div class="llh-founding-meter llh-founding-meter--loading" role="status" aria-busy="true">
-        <p>Checking Founding Member availability…</p>
+        <p>Checking membership pricing…</p>
       </div>
     `;
   }
@@ -53011,7 +52986,7 @@ function homeFoundingMeterHtml() {
   if (soldOut) {
     return `
       <div class="llh-founding-meter llh-founding-meter--sold-out" role="status">
-        <p><strong>Founding Member pricing is closed for new signups.</strong> Regular Pro pricing is $19.99/month.</p>
+        <p><strong>Pro is $19.99/month.</strong> Regular Pro pricing is $19.99/month.</p>
       </div>
     `;
   }
@@ -53045,7 +53020,7 @@ function renderHomeFoundingOffer() {
   const priceLifeLabel = soldOut ? "regular price" : (f.priceLifeLabel || "while continuously active");
   const ctaButtonText = soldOut ? (f.soldOutCtaText || "Choose Pro Monthly") : (f.ctaButtonText || "Lock In $9.99 Pricing");
   const meterBlock = !foundingStatusLoaded()
-    ? `<p class="founding-remaining" role="status">Checking Founding Member availability…</p>`
+    ? `<p class="founding-remaining" role="status">Checking membership pricing…</p>`
     : foundingStatusLoadFailed()
       ? `<p class="founding-remaining founding-remaining--error" role="alert">Founding Member availability could not be loaded. Please try again. <button class="link-button" type="button" data-retry-founding-status>Try again</button></p>`
       : `<p class="founding-remaining">${soldOut ? "Founding pricing is closed for new signups" : escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
@@ -53150,7 +53125,7 @@ function foundingPlanFeatureList() {
       : "Unlimited curriculum collections",
     "Weekly new content",
     "Price never increases while continuously active",
-    foundingOpenForAcquisition() ? foundingSpotsLeftMessage() : "Founding pricing closed",
+    foundingOpenForAcquisition() ? foundingSpotsLeftMessage() : "Pro pricing",
   ];
 }
 
@@ -53171,11 +53146,11 @@ function renderPricingPage() {
     if (heading) {
       heading.textContent = soldOut
         ? "Choose your Little Learner Hub plan"
-        : "Lock In Founding Member Pricing";
+        : "Upgrade to Pro";
     }
     if (support) {
       support.textContent = soldOut
-        ? `${MEMBERSHIP_COPY.proCard} Existing Founding Members keep $9.99/month locked while membership remains continuously active.`
+        ? `${MEMBERSHIP_COPY.proCard}`
         : `${MEMBERSHIP_COPY.foundingCard} ${foundingSpotsLeftMessage(remaining)} ${MEMBERSHIP_COPY.freeCore}`;
     }
   }
@@ -53235,11 +53210,11 @@ function renderUpgradePage() {
     if (heading) {
       heading.textContent = soldOut
         ? "Upgrade to Pro – $19.99/month"
-        : "Lock In Founding Member Pricing – $9.99/month locked while your membership remains continuously active";
+        : "Upgrade to Pro – $19.99/month";
     }
     if (support) {
       support.textContent = soldOut
-        ? `${MEMBERSHIP_COPY.proCard} Existing Founding Members keep $9.99/month locked while membership remains continuously active.`
+        ? `${MEMBERSHIP_COPY.proCard}`
         : `${MEMBERSHIP_COPY.foundingCard} ${foundingSpotsLeftMessage(remaining)}`;
     }
   }
@@ -54081,7 +54056,7 @@ async function startCheckout(type, trackingContext = "checkout") {
   });
   if (type === "founding") await syncFoundingStatus({ render: true });
   if (type === "founding" && foundingSpotsRemaining() <= 0) {
-    setFormMessage("#upgradeApp", "Founding Member pricing is sold out. All available Founding Member spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
+    setFormMessage("#upgradeApp", "Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) below.", false);
     setView("upgrade");
     return;
   }
@@ -54089,12 +54064,12 @@ async function startCheckout(type, trackingContext = "checkout") {
   const amount = checkoutAmount(checkoutType);
   const promoCode = normalizedCheckoutPromoCode();
   const priceConfirmLabel = checkoutType === "founding"
-    ? "Founding Member at $9.99/month locked while your membership remains continuously active"
+    ? "Pro membership"
     : checkoutType === "annual"
       ? "Pro Annual at $199/year"
       : "Pro Monthly at $19.99/month";
   const promoConfirm = promoCode
-    ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " Founding spots still available will be reserved for your $9.99/month locked while continuously active rate." : " Founding is sold out — you will continue at regular Pro pricing."}`
+    ? `\n\nPromo ${promoCode}: first month is $0 (card required). After the free month, billing continues automatically unless you cancel before renewal.${checkoutType === "founding" || foundingSpotsRemaining() > 0 ? " You will continue at Pro pricing after the free month." : " You will continue at Pro pricing after the free month."}`
     : "";
   const membershipConfirm = checkoutType === "founding"
     ? `\n\n${MEMBERSHIP_COPY.foundingCard}`

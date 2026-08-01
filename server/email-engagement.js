@@ -594,11 +594,11 @@ function buildFreeReengagementContent(user, { siteUrl, htmlEscape, unsubscribeUr
   const safeUnsubscribe = htmlEscape(unsubscribeUrl || `${base}/`);
   const safePostalAddress = htmlEscape(postalAddress || "");
   const foundingPsText = foundingOpen
-    ? "P.S. Founding Member spots are still available. Lock in $9.99/month while your membership remains continuously active before pricing increases and receive unlimited access to all current and future features."
-    : "P.S. Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.";
+    ? "P.S. Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles."
+    : "P.S. Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.";
   const foundingPsHtml = foundingOpen
-    ? `<p><strong>P.S.</strong> Founding Member spots are still available. Lock in $9.99/month while your membership remains continuously active before pricing increases and receive unlimited access to all current and future features.</p>`
-    : `<p><strong>P.S.</strong> Founding Member spots are filled. New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.</p>`;
+    ? `<p><strong>P.S.</strong> Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.</p>`
+    : `<p><strong>P.S.</strong> Upgrade to Pro for $19.99/month to unlock the full all-in-one childcare platform — lesson plans, activities, curriculum planning, AI documentation helpers, and child profiles.</p>`;
   const text = [
     "Hi!",
     "",
