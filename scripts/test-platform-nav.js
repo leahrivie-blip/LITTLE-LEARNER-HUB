@@ -221,7 +221,7 @@ test("navigation guards prevent post-login/boot yank and sidebar history polluti
   assert.match(appJs, /fromBoot:\s*true/);
   assert.match(appJs, /suppressBootLanding = true/);
   assert.match(appJs, /skipHistory:\s*true/);
-  assert.match(appJs, /loginNavGeneration !== viewNavigationGeneration/);
+  assert.match(appJs, /loginNavGeneration === viewNavigationGeneration/);
   assert.match(appJs, /dismissResourceViewerForNavigation\(\)/);
   assert.match(appJs, /pushPlatformNavHistory/);
   assert.match(appJs, /restoreViewScroll/);

@@ -104,7 +104,7 @@ function startServer() {
 
 async function waitForBoot(child) {
   for (let i = 0; i < 120; i += 1) {
-    if (child.__output().includes("running on")) return;
+    if (child.__output().includes("listening on")) return;
     if (child.exitCode !== null) throw new Error(`Server exited: ${child.__output()}`);
     await new Promise((r) => setTimeout(r, 100));
   }
