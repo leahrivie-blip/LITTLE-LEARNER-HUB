@@ -188,10 +188,22 @@ async function main() {
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-    await page.evaluate(() => setView("lessons"));
-    await page.fill("#lessonPlanSearch", title);
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 }).catch(() => {});
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-booted")
+        && document.body.classList.contains("app-boot-ready")
+        && !document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 30000 },
+    );
+    await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 20000 });
+    await page.waitForFunction(() => typeof resources !== "undefined" && Array.isArray(resources) && resources.some((item) => item.category === "Lesson Plans"), null, { timeout: 30000 });
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", title);
     await page.waitForTimeout(350);
-    await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: title }).first().click();
+    const card = page.locator("#view-lessons .lesson-plan-card, #view-lessons .resource-card").filter({ hasText: title }).first();
+    await card.waitFor({ timeout: 15000 });
+    await card.click();
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
 
     const labels = await page.evaluate(() => ({

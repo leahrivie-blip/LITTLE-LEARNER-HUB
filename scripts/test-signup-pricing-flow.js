@@ -162,9 +162,10 @@ test("founding banners stay compact", () => {
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-own-tester-kid");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-own-tester-kid");
-  assert.match(sw, /llh-shell-v141-hdh-own-tester-kid/);
+  const shell = require("./llh-shell-manifest.js");
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], shell.version);
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], shell.version);
+  assert.match(sw, new RegExp(shell.cacheName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 test("signup center continue sticky actions and pathways exist", () => {

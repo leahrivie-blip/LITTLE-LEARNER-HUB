@@ -88,6 +88,8 @@ function assertStaticContract() {
   assert.match(appJs, /appBootGate/);
   assert.match(appJs, /runSignedInBootVerification/);
   assert.match(appJs, /markAppBootFailed/);
+  assert.match(appJs, /pendingBootNavigation/);
+  assert.match(appJs, /fromPendingBootNavigation/);
   assert.doesNotMatch(appJs, /App boot timed out — continuing with local UI/);
   assert.match(css, /\.app-boot-gate/);
 }
@@ -203,6 +205,61 @@ async function runBrowserChecks() {
     await page.locator('.sidebar [data-view="activities"]').click();
     await page.waitForSelector("#view-activities.active-view", { timeout: 10000 });
     await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/signed-in-nav-boot-recovery.png", fullPage: true });
+    await page.close();
+  }
+
+  console.log("4) Lessons click during verification is replayed after boot ready");
+  {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    let releaseSync;
+    const syncGate = new Promise((resolve) => { releaseSync = resolve; });
+    await page.route("**/api/subscription-status**", async (route) => {
+      await syncGate;
+      await route.continue();
+    });
+    await seedPersona(page);
+    await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 10000 },
+    );
+    // User taps Lessons while the membership gate is still up.
+    await page.evaluate(() => {
+      if (typeof setView === "function") setView("lessons", { lessonLibraryMode: "browse" });
+    });
+    const mid = await page.evaluate(() => ({
+      verifying: document.body.classList.contains("app-boot-verifying"),
+      bootState: typeof appBootState !== "undefined" ? appBootState : null,
+      interactive: typeof isAppBootInteractive === "function" ? isAppBootInteractive() : null,
+      pending: typeof pendingBootNavigation !== "undefined" && pendingBootNavigation
+        ? pendingBootNavigation.view
+        : null,
+    }));
+    assert.equal(mid.verifying, true);
+    assert.equal(mid.bootState, "pending");
+    assert.equal(mid.interactive, false);
+    assert.equal(mid.pending, "lessons", "Lessons click must be queued while verifying");
+    releaseSync();
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-boot-ready")
+        && document.querySelector("#view-lessons.active-view #lessonPlanSearch"),
+      null,
+      { timeout: 20000 },
+    );
+    const after = await page.evaluate(() => ({
+      active: document.querySelector(".active-view")?.id || "",
+      search: Boolean(document.querySelector("#view-lessons.active-view #lessonPlanSearch")),
+      verifying: document.body.classList.contains("app-boot-verifying"),
+      pending: typeof pendingBootNavigation !== "undefined" ? pendingBootNavigation : null,
+      cards: document.querySelectorAll("#view-lessons .lesson-plan-card, #view-lessons .resource-card").length,
+    }));
+    assert.equal(after.active, "view-lessons");
+    assert.equal(after.search, true);
+    assert.equal(after.verifying, false);
+    assert.equal(after.pending, null);
+    assert.ok(after.cards >= 1, "Lessons library should render cards after pending replay");
+    await page.screenshot({ path: "/opt/cursor/artifacts/screenshots/signed-in-nav-boot-pending-lessons.png", fullPage: true });
     await page.close();
   }
 

@@ -79,6 +79,8 @@ ACTIVITY NAME:
 Scarf Rainbow Dance
 CATEGORY:
 Music & Movement
+DESCRIPTION:
+Children wave scarves to music and freeze when the song pauses.
 MATERIALS:
 Colored scarves, music speaker
 SETUP:
@@ -87,6 +89,8 @@ DIRECTIONS:
 1. Hand each child a scarf.
 2. Play music and invite color waves.
 3. Freeze when the music stops.
+TEACHER_ROLE:
+Model scarf waves, narrate colors, and celebrate safe freezing.
 LEARNING GOAL:
 Move safely with music
 Name colors during play
@@ -95,6 +99,8 @@ ACTIVITY NAME:
 Plate Rainbow Glue
 CATEGORY:
 Fine Motor
+DESCRIPTION:
+Children glue tissue squares onto a plate in rainbow order.
 MATERIALS:
 Paper plates, glue sticks, tissue squares
 SETUP:
@@ -103,6 +109,8 @@ DIRECTIONS:
 1. Model squeezing glue on the plate edge.
 2. Children place tissue colors in rainbow order.
 3. Let dry on a drying rack.
+TEACHER_ROLE:
+Coach glue pressure and help children name each color in order.
 LEARNING GOAL:
 Strengthen hand muscles
 Explore color order
@@ -112,6 +120,8 @@ ACTIVITY NAME:
 Color Card Hunt
 CATEGORY:
 Open-Ended Exploration
+DESCRIPTION:
+Children search the room for items that match rainbow color cards.
 MATERIALS:
 Rainbow picture cards, basket
 SETUP:
@@ -120,6 +130,8 @@ DIRECTIONS:
 1. Show one color card at a time.
 2. Children search for matching items.
 3. Place finds in the basket together.
+TEACHER_ROLE:
+Offer clues, model matching language, and keep the hunt cooperative.
 LEARNING GOAL:
 Practice color matching
 Build cooperative search skills
@@ -129,6 +141,8 @@ ACTIVITY NAME:
 Rainbow Sensory Bin
 CATEGORY:
 Sensory Play
+DESCRIPTION:
+Children scoop and pour colored rice while naming rainbow colors.
 MATERIALS:
 Rice, scoops, rainbow items
 SETUP:
@@ -137,6 +151,8 @@ DIRECTIONS:
 1. Invite children to scoop and pour.
 2. Name colors as they appear.
 3. Model gentle sharing of scoops.
+TEACHER_ROLE:
+Narrate colors and coach gentle sharing of scoops.
 LEARNING GOAL:
 Explore texture and color
 Practice sharing tools
@@ -146,6 +162,8 @@ ACTIVITY NAME:
 Helper Color March
 CATEGORY:
 Gross Motor
+DESCRIPTION:
+Children march along colored dots and freeze on each color cue.
 MATERIALS:
 Floor dots, music
 SETUP:
@@ -154,6 +172,8 @@ DIRECTIONS:
 1. March from dot to dot.
 2. Call out each color name.
 3. Stop and clap at the end.
+TEACHER_ROLE:
+Lead the march tempo and prompt color names at each stop.
 LEARNING GOAL:
 Coordinate steps with cues
 Build color vocabulary
@@ -163,6 +183,8 @@ ACTIVITY NAME:
 Rainbow Share Circle
 CATEGORY:
 Circle Time
+DESCRIPTION:
+Children sing a rainbow song and take turns naming a favorite color.
 MATERIALS:
 Color cards, song chart
 SETUP:
@@ -171,6 +193,8 @@ DIRECTIONS:
 1. Sing the rainbow song together.
 2. Each child picks a card and names the color.
 3. Thank the friend beside them.
+TEACHER_ROLE:
+Support turn-taking and model gratitude language.
 LEARNING GOAL:
 Participate in group time
 Practice gratitude language

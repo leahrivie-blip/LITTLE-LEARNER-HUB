@@ -69,12 +69,19 @@ test("profile signup welcome email does not block API response", () => {
   assert.ok(idx > 0);
   const slice = serverJs.slice(idx, serverJs.indexOf("async function handleAdminIssueTempPassword", idx));
   assert.match(slice, /jsonResponse\(response, 200/);
-  assert.match(slice, /onboardingWelcome\.maybeDeliverOnSignup\(email\)\.catch/);
+  assert.match(slice, /onboardingWelcome\.maybeDeliverOnSignup\(email\)/);
   const respondAt = slice.indexOf("jsonResponse(response, 200");
-  const welcomeAwaitAt = slice.indexOf("await onboardingWelcome.maybeDeliverOnSignup");
+  const welcomeAt = slice.indexOf("maybeDeliverOnSignup");
   assert.ok(respondAt > 0);
-  assert.equal(welcomeAwaitAt, -1, "welcome delivery must not be awaited before profile response");
-  assert.ok(slice.indexOf("maybeDeliverOnSignup") > respondAt, "welcome should run after response");
+  assert.ok(welcomeAt > respondAt, "welcome should run after response");
+  // Welcome may use await inside a post-response void async IIFE; it must not sit
+  // between upsert and the 200 response.
+  const beforeResponse = slice.slice(0, respondAt);
+  assert.equal(
+    beforeResponse.includes("await onboardingWelcome.maybeDeliverOnSignup"),
+    false,
+    "welcome delivery must not be awaited before profile response",
+  );
 });
 
 test("homepage exposes working Log In / Sign Up actions", () => {
