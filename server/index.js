@@ -17201,6 +17201,7 @@ function publicFeedback(item) {
     status: item.status,
     page: item.page || item.sourceUrl || "",
     sourceUrl: item.sourceUrl || item.page || "",
+    activityId: item.activityId || "",
     lessonId: item.lessonId || "",
     sentiment: item.sentiment || "",
     stars: normalizeFeedbackStars(item.stars),
@@ -17833,7 +17834,8 @@ function handleFeatureRequestsList(request, response, url) {
 const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
   "Bug", "Bug Report", "Problem", "Missing Feature", "Question", "Feature Request",
-  "New Feature", "Support", "Lesson Plan Feedback", "Lesson Plan Request", "Activity Request",
+  "New Feature", "Support", "Lesson Plan Feedback", "Lesson Plan Request",
+  "Activity Request", "Activity Feedback",
 ]);
 const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
@@ -17847,6 +17849,7 @@ async function handleFeedbackCreate(request, response) {
   }
   const rawType = String(body.type || "General Feedback");
   const stars = normalizeFeedbackStars(body.stars);
+  const activityId = String(body.activityId || "").trim().slice(0, 160);
   const lessonId = String(body.lessonId || "").trim().slice(0, 160);
   const sentiment = String(body.sentiment || "").trim().slice(0, 40);
   const store = readStore();
@@ -17866,6 +17869,7 @@ async function handleFeedbackCreate(request, response) {
     role: String(body.role || "").slice(0, 80),
     subject: String(body.subject || body.type || "Feedback").slice(0, 200),
     page: String(body.page || body.sourceUrl || "").slice(0, 500),
+    activityId,
     lessonId,
     sentiment,
     stars,
@@ -17914,8 +17918,9 @@ async function handleFeedbackCreate(request, response) {
       ["Feedback Type", item.type],
       ["Subject", item.subject],
       ["Stars", item.stars ? `${item.stars} / 5` : "—"],
-      ["Lesson ID", item.lessonId || "—"],
       ["Sentiment", item.sentiment || "—"],
+      ["Activity ID", item.activityId || "—"],
+      ["Lesson ID", item.lessonId || "—"],
       ["Account Type", item.accountType || "—"],
       ["Role", item.role || "—"],
       ["Page", item.page || item.sourceUrl || "—"],

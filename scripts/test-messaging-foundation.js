@@ -234,6 +234,42 @@ async function main() {
       assert.ok(items.some((item) => item.stars === 4 && item.lessonId === "lesson-colors"));
     });
 
+    await test("Activity feedback thumbs persist for admin review", async () => {
+      const feedback = await request(BASE, "POST", "/api/feedback", {
+        body: {
+          type: "Activity Feedback",
+          name: "Free Parent",
+          email: FREE_USER,
+          subject: "Activity feedback: Texture Scoop (Helpful)",
+          message: "Activity: Texture Scoop\nActivity ID: act-texture\nFeedback: Helpful\nMarked as helpful.",
+          activityId: "act-texture",
+          lessonId: "lesson-colors",
+          sentiment: "helpful",
+          page: "activity:act-texture",
+        },
+      });
+      assert.equal(feedback.status, 200, JSON.stringify(feedback.json));
+      assert.equal(feedback.json.feedback.type, "Activity Feedback");
+      assert.equal(feedback.json.feedback.activityId, "act-texture");
+      assert.equal(feedback.json.feedback.sentiment, "helpful");
+
+      const ticket = await request(BASE, "POST", "/api/support-ticket", {
+        body: {
+          kind: "Activity Feedback",
+          topic: "Needs Improvement",
+          name: "Free Parent",
+          email: FREE_USER,
+          message: "Activity: Texture Scoop\nFeedback: Needs Improvement\nToo many setup steps.",
+        },
+      });
+      assert.equal(ticket.status, 200, JSON.stringify(ticket.json));
+      assert.equal(ticket.json.ticket.kind, "Activity Feedback");
+
+      const list = await request(BASE, "GET", `/api/feedback?adminToken=${encodeURIComponent(adminToken)}`);
+      assert.equal(list.status, 200, JSON.stringify(list.json));
+      assert.ok((list.json.feedback || []).some((item) => item.type === "Activity Feedback" && item.activityId === "act-texture"));
+    });
+
     if (process.exitCode) {
       console.error("\nBoot log for debugging:\n" + getLog());
     }

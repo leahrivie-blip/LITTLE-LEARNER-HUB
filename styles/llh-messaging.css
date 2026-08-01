@@ -1011,8 +1011,9 @@
   margin: 0 0 6px;
 }
 
-/* ---------- Lesson plan feedback shortcut ---------- */
-.lesson-workspace-feedback {
+/* ---------- Lesson plan / activity feedback shortcut ---------- */
+.lesson-workspace-feedback,
+.activity-viewer-feedback {
   margin: 18px 0 8px;
   padding: 14px 16px;
   border-top: 1px solid var(--llh-line, #e4e1ea);
@@ -1026,6 +1027,11 @@
 
 .lesson-workspace-feedback-hint {
   margin: 0 0 14px;
+  font-size: 0.86rem;
+}
+
+.activity-viewer-feedback-hint {
+  margin: -4px 0 12px;
   font-size: 0.86rem;
 }
 
@@ -1078,6 +1084,13 @@
   color: #c9852a;
   letter-spacing: 0.06em;
   font-weight: 700;
+}
+
+@media print {
+  .activity-viewer-feedback,
+  .lesson-workspace-feedback {
+    display: none !important;
+  }
 }
 
 @media (max-width: 640px) {
