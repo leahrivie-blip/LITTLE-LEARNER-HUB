@@ -53,8 +53,23 @@ function requestJson(method, urlPath, body) {
   });
 }
 
+const USER_EMAIL = "lesson-action-bar@example.com";
+
 function startServer() {
-  fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, siteContent: {}, adminSessions: {} }, null, 2));
+  // Pro membership so a freshly seeded plan unlocks (curated Free only opens the
+  // fixed Starter Library set, not ad-hoc Free seeds).
+  fs.writeFileSync(STORE_PATH, JSON.stringify({
+    users: {
+      [USER_EMAIL]: {
+        email: USER_EMAIL,
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+      },
+    },
+    siteContent: {},
+    adminSessions: {},
+  }, null, 2));
   return spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
     env: {
@@ -112,7 +127,7 @@ async function seedFreeLesson(token) {
       ...parsed.data,
       id: planId,
       title,
-      plan: "Free",
+      plan: "Pro",
       status: "published",
       age: "Preschool",
       theme: "Action Bar",
@@ -158,22 +173,31 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 412, height: 915 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
-    await page.evaluate(() => {
-      localStorage.setItem("llhUser", "lesson-action-bar@example.com");
+    await page.evaluate((email) => {
+      localStorage.setItem("llhUser", email);
       localStorage.setItem("llhAccounts", JSON.stringify({
-        "lesson-action-bar@example.com": {
-          email: "lesson-action-bar@example.com",
-          plan: "Free",
-          subscriptionStatus: "Free Plan",
+        [email]: {
+          email,
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Active",
         },
       }));
-      localStorage.setItem("llhPlan", "Free");
-    });
+      localStorage.setItem("llhPlan", "Pro");
+    }, USER_EMAIL);
     await Promise.all([
       page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }),
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
-    await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    await page.waitForFunction(
+      () => typeof setView === "function"
+        && typeof isProUser === "function"
+        && isProUser()
+        && document.body.classList.contains("app-booted")
+        && document.body.classList.contains("app-boot-ready")
+        && !document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 30000 },
+    );
     // Logged-in boot finishes on Calendar; wait before opening Lessons.
     await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
@@ -182,6 +206,7 @@ async function main() {
     await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
     await page.fill("#view-lessons.active-view #lessonPlanSearch", lesson.title);
     await page.waitForTimeout(400);
+    await page.waitForSelector(`#view-lessons .lesson-plan-card:has-text("${lesson.title}")`, { timeout: 15000 });
     await page.locator("#view-lessons .lesson-plan-card").filter({ hasText: lesson.title }).first().click();
     await page.waitForSelector("#resourceViewerModal.lesson-workspace-mode.open", { timeout: 10000 });
 

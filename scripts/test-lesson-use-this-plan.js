@@ -57,7 +57,19 @@ function requestJson(method, urlPath, body) {
 }
 
 function startServer() {
-  fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, siteContent: {}, adminSessions: {} }, null, 2));
+  // Pro membership so seeded plans unlock (curated Free only opens Starter Library IDs).
+  fs.writeFileSync(STORE_PATH, JSON.stringify({
+    users: {
+      [USER_EMAIL]: {
+        email: USER_EMAIL,
+        plan: "Pro",
+        subscriptionStatus: "Pro Monthly Subscription Active",
+        stripeSubscriptionStatus: "active",
+      },
+    },
+    siteContent: {},
+    adminSessions: {},
+  }, null, 2));
   return spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
     env: {
@@ -123,7 +135,7 @@ async function seedFreeLesson(token, { title, suffix = "" } = {}) {
       ...parsed.data,
       id: planId,
       title: title || `Use Plan Calendar ${planId}`,
-      plan: "Free",
+      plan: "Pro",
       status: "published",
       age: "Preschool",
     },
@@ -133,6 +145,14 @@ async function seedFreeLesson(token, { title, suffix = "" } = {}) {
 }
 
 async function openLessonWorkspace(page, title) {
+  await page.waitForFunction(
+    () => typeof setView === "function"
+      && document.body.classList.contains("app-booted")
+      && document.body.classList.contains("app-boot-ready")
+      && !document.body.classList.contains("app-boot-verifying"),
+    null,
+    { timeout: 30000 },
+  );
   await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
   await page.waitForSelector("#view-lessons.active-view", { timeout: 10000 });
   await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
@@ -182,9 +202,13 @@ async function main() {
     await page.evaluate((email) => {
       localStorage.setItem("llhUser", email);
       localStorage.setItem("llhAccounts", JSON.stringify({
-        [email]: { email, plan: "Free", subscriptionStatus: "Free Plan" },
+        [email]: {
+          email,
+          plan: "Pro",
+          subscriptionStatus: "Pro Monthly Subscription Active",
+        },
       }));
-      localStorage.setItem("llhPlan", "Free");
+      localStorage.setItem("llhPlan", "Pro");
       localStorage.removeItem(`llhCurriculumAssignments:${email}`);
       localStorage.removeItem("llhWeeklyPlanner");
     }, USER_EMAIL);
@@ -192,7 +216,16 @@ async function main() {
       page.waitForResponse((r) => r.url().includes("/api/site-content") && r.status() === 200, { timeout: 30000 }),
       page.reload({ waitUntil: "domcontentloaded" }),
     ]);
-    await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    await page.waitForFunction(
+      () => typeof setView === "function"
+        && typeof isProUser === "function"
+        && isProUser()
+        && document.body.classList.contains("app-booted")
+        && document.body.classList.contains("app-boot-ready")
+        && !document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 30000 },
+    );
     await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
 
     console.log("1) Use This Plan → Add to Calendar opens pick-week form");

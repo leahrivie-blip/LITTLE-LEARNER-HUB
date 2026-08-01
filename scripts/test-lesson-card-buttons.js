@@ -207,6 +207,14 @@ async function main() {
     await page.waitForFunction(() => typeof setView === "function" && typeof isProUser === "function" && isProUser(), null, { timeout: 30000 });
     // Logged-in boot finishes on Calendar; wait for that before opening Lessons.
     await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
+    // Wait for membership boot verification so setView("lessons") is not blocked.
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-booted")
+        && document.body.classList.contains("app-boot-ready")
+        && !document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 30000 },
+    );
 
     await page.evaluate(() => setView("lessons", { lessonLibraryMode: "browse" }));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });

@@ -6970,9 +6970,11 @@ async function handleAccountProfileSync(request, response) {
     deferPersist: true,
   });
   // Persist profile first so signup/login UI is never blocked by welcome email or admin alerts.
+  // Must write the in-memory store from upsertUser — local-json readStore() reloads disk and
+  // would drop the deferred profile fields (accountType, centerAssociation, businessName).
   const isNewSignup = body.signup === true && !existing.signupAt;
   try {
-    await writeStoreAsync(readStore());
+    await writeStoreAsync(writableStore());
   } catch (error) {
     jsonResponse(response, error?.code === "store_not_persisted" || error?.code === "store_write_failed" ? 503 : 500, {
       ok: false,

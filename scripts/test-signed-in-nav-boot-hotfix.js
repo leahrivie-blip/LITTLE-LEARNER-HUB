@@ -172,7 +172,9 @@ async function runBrowserChecks() {
   {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
     await page.route("**/api/subscription-status**", async (route) => {
-      await new Promise((r) => setTimeout(r, 15000));
+      // Boot verification timeout is APP_BOOT_VERIFY_TIMEOUT_MS (18s); delay past it
+      // so the recoverable gate appears instead of a late successful sync.
+      await new Promise((r) => setTimeout(r, 22000));
       await route.continue();
     });
     await seedPersona(page);
@@ -180,7 +182,7 @@ async function runBrowserChecks() {
     page.on("console", (msg) => consoleLogs.push(msg.text()));
     const start = Date.now();
     await page.goto(`${baseUrl}/index.html`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await page.waitForSelector("#appBootGate:not([hidden]) #appBootGateRetry", { timeout: 20000 });
+    await page.waitForSelector("#appBootGate:not([hidden]) #appBootGateRetry", { timeout: 30000 });
     timings.slowSyncErrorMs = Date.now() - start;
     const blocked = await page.evaluate(() => ({
       gateVisible: !document.querySelector("#appBootGate")?.hidden,
