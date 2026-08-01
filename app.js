@@ -22928,8 +22928,22 @@ function lessonWorkspaceFeedbackHtml(resource) {
   if (!isLoggedIn() && !hasAdminFullAccess()) return "";
   const id = escapeHtml(resource.id || "");
   const title = escapeHtml(resource.title || "Lesson plan");
+  const starButtons = [1, 2, 3, 4, 5].map((n) => `
+        <button
+          type="button"
+          class="lesson-workspace-star-btn"
+          data-lesson-star="${n}"
+          data-lesson-id="${id}"
+          data-lesson-title="${title}"
+          aria-label="Rate ${n} out of 5 stars"
+        >★</button>`).join("");
   return `
     <section class="lesson-workspace-feedback" data-lesson-feedback-root aria-label="Lesson plan feedback" data-lesson-id="${id}" data-lesson-title="${title}">
+      <p class="lesson-workspace-feedback-label">Rate this lesson plan</p>
+      <div class="lesson-workspace-star-rating" role="group" aria-label="Private star rating">
+        ${starButtons}
+      </div>
+      <p class="lesson-workspace-feedback-hint muted-copy">Private to Leah — not shown as a public review.</p>
       <p class="lesson-workspace-feedback-label">Was this lesson plan helpful?</p>
       <div class="lesson-workspace-feedback-actions">
         <button type="button" class="ghost-button" data-lesson-feedback="helpful" data-lesson-id="${id}" data-lesson-title="${title}">👍 Helpful</button>
@@ -22941,7 +22955,18 @@ function lessonWorkspaceFeedbackHtml(resource) {
   `;
 }
 
-async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, detail = "" }) {
+function markLessonWorkspaceStarsSelected(root, stars) {
+  if (!root) return;
+  const value = Number(stars);
+  root.querySelectorAll("[data-lesson-star]").forEach((btn) => {
+    const n = Number(btn.dataset.lessonStar);
+    const selected = Number.isFinite(value) && n <= value;
+    btn.classList.toggle("is-selected", selected);
+    btn.setAttribute("aria-pressed", selected && n === value ? "true" : "false");
+  });
+}
+
+async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, detail = "", stars = null } = {}) {
   const account = currentAccount() || {};
   const name = displayUserName(account) || [account.firstName, account.lastName].filter(Boolean).join(" ") || "Provider";
   const email = currentUser || account.email || "";
@@ -22951,14 +22976,26 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
     helpful: "Helpful",
     "needs-improvement": "Needs Improvement",
     suggest: "Suggest Improvement",
+    rating: "Star Rating",
   };
-  const sentimentLabel = labels[sentiment] || "Feedback";
+  const starsValue = Number(stars);
+  const hasStars = Number.isFinite(starsValue) && starsValue >= 1 && starsValue <= 5;
+  const roundedStars = hasStars ? Math.round(starsValue) : null;
+  const resolvedSentiment = sentiment || (hasStars ? "rating" : "");
+  const sentimentLabel = hasStars && resolvedSentiment === "rating"
+    ? `${roundedStars} star${roundedStars === 1 ? "" : "s"}`
+    : (labels[resolvedSentiment] || "Feedback");
   const subject = `Lesson plan feedback: ${lessonTitle || lessonId || "Untitled"} (${sentimentLabel})`;
   const message = [
     `Lesson plan: ${lessonTitle || "Untitled"}`,
     lessonId ? `Lesson ID: ${lessonId}` : "",
+    hasStars ? `Stars: ${roundedStars} / 5` : "",
     `Feedback: ${sentimentLabel}`,
-    detail ? `\n${detail}` : (sentiment === "helpful" ? "\nMarked as helpful." : ""),
+    detail
+      ? `\n${detail}`
+      : (resolvedSentiment === "helpful"
+        ? "\nMarked as helpful."
+        : (hasStars ? "\nPrivate star rating submitted from the lesson plan." : "")),
   ].filter(Boolean).join("\n");
 
   const payload = {
@@ -22969,9 +23006,12 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
     message,
     sourceUrl: window.location.href,
     page: `lesson:${lessonId || ""}`,
+    lessonId: lessonId || "",
+    sentiment: resolvedSentiment,
     accountType: account.accountType || getAccountType(account),
     role: account.role || getUserRole(account),
   };
+  if (hasStars) payload.stars = roundedStars;
 
   try {
     if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
@@ -22984,7 +23024,7 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
     if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
 
     // Needs Improvement / Suggest also land in the support ticket inbox.
-    if (sentiment === "needs-improvement" || sentiment === "suggest") {
+    if (resolvedSentiment === "needs-improvement" || resolvedSentiment === "suggest") {
       await fetch("/api/support-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -23000,8 +23040,13 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
       }).catch(() => null);
     }
 
-    trackEvent("lesson_plan_feedback", { sentiment, lessonId, lessonTitle });
-    return { ok: true };
+    trackEvent("lesson_plan_feedback", {
+      sentiment: resolvedSentiment,
+      lessonId,
+      lessonTitle,
+      stars: hasStars ? roundedStars : undefined,
+    });
+    return { ok: true, stars: roundedStars, feedback: data?.feedback || null };
   } catch (error) {
     return { ok: false, error: error.message || "Could not send feedback." };
   }
@@ -39818,14 +39863,21 @@ function renderAdminFeedbackCenter() {
       <div class="aup-insight-card"><strong>${counts.archived}</strong><span>Archived</span></div>
     </div>
     <div class="ticket-list admin-feedback-list">
-      ${filtered.length ? filtered.map((item) => `
+      ${filtered.length ? filtered.map((item) => {
+        const stars = Number(item.stars);
+        const hasStars = Number.isFinite(stars) && stars >= 1 && stars <= 5;
+        const starLabel = hasStars
+          ? `${"★".repeat(stars)}${"☆".repeat(5 - stars)} (${stars}/5)`
+          : "";
+        return `
         <article class="ticket-card" data-feedback-id="${escapeHtml(item.id)}">
           <div class="ticket-card-header">
             <div>
-              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}</p>
+              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}${hasStars ? ` · ${escapeHtml(String(stars))}/5 stars` : ""}</p>
               <h3>${escapeHtml(item.subject || item.type || "Feedback")}</h3>
               <p>${escapeHtml(item.name || "Provider")} · ${escapeHtml(item.email || "No email")}</p>
-              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}</small>
+              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}${item.lessonId ? ` · lesson:${escapeHtml(item.lessonId)}` : ""}</small>
+              ${hasStars ? `<p class="admin-feedback-stars" aria-label="${escapeHtml(String(stars))} of 5 stars">${escapeHtml(starLabel)}</p>` : ""}
             </div>
           </div>
           <p>${escapeHtml(item.message || "")}</p>
@@ -39837,7 +39889,8 @@ function renderAdminFeedbackCenter() {
             <button class="ghost-button" type="button" data-feedback-note="${escapeHtml(item.id)}">Add Note</button>
           </div>
         </article>
-      `).join("") : `<div class="empty-state">No feedback in this status yet.</div>`}
+      `;
+      }).join("") : `<div class="empty-state">No feedback in this status yet.</div>`}
     </div>
   `;
 }
@@ -57361,6 +57414,36 @@ document.addEventListener("click", async (event) => {
   if (lessonUseThisPlan) {
     event.preventDefault();
     openLessonWorkspaceUseThisPlan();
+    return;
+  }
+
+  const lessonStarBtn = event.target.closest("[data-lesson-star]");
+  if (lessonStarBtn) {
+    event.preventDefault();
+    const stars = Number(lessonStarBtn.dataset.lessonStar);
+    const lessonId = lessonStarBtn.dataset.lessonId || "";
+    const lessonTitle = lessonStarBtn.dataset.lessonTitle || activeResourceViewerResource?.title || "";
+    const root = lessonStarBtn.closest("[data-lesson-feedback-root]");
+    const statusEl = root?.querySelector("[data-lesson-feedback-status]");
+    if (!Number.isFinite(stars) || stars < 1 || stars > 5) return;
+    markLessonWorkspaceStarsSelected(root, stars);
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.textContent = "Sending…";
+    }
+    const result = await submitLessonPlanFeedback({
+      sentiment: "rating",
+      lessonId,
+      lessonTitle,
+      stars,
+    });
+    if (statusEl) {
+      statusEl.textContent = result.ok
+        ? (stars <= 2
+          ? "Thanks — your private rating was saved. Tap Needs Improvement if you want to tell Leah more."
+          : "Thanks — your private rating was sent to Leah.")
+        : (result.error || "Could not send rating.");
+    }
     return;
   }
 

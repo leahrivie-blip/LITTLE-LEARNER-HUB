@@ -17183,6 +17183,13 @@ function publicFeatureRequestPublicBoard(item) {
   };
 }
 
+function normalizeFeedbackStars(value) {
+  const stars = Number(value);
+  if (!Number.isFinite(stars)) return null;
+  const rounded = Math.round(stars);
+  return rounded >= 1 && rounded <= 5 ? rounded : null;
+}
+
 function publicFeedback(item) {
   return {
     id: item.id,
@@ -17194,6 +17201,12 @@ function publicFeedback(item) {
     status: item.status,
     page: item.page || item.sourceUrl || "",
     sourceUrl: item.sourceUrl || item.page || "",
+<<<<<<< HEAD
+=======
+    lessonId: item.lessonId || "",
+    sentiment: item.sentiment || "",
+    stars: normalizeFeedbackStars(item.stars),
+>>>>>>> origin/cursor/lesson-plan-private-ratings-4d11
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -17836,6 +17849,9 @@ async function handleFeedbackCreate(request, response) {
     return;
   }
   const rawType = String(body.type || "General Feedback");
+  const stars = normalizeFeedbackStars(body.stars);
+  const lessonId = String(body.lessonId || "").trim().slice(0, 160);
+  const sentiment = String(body.sentiment || "").trim().slice(0, 40);
   const store = readStore();
   store.feedbackItems = store.feedbackItems || [];
   const item = {
@@ -17853,6 +17869,9 @@ async function handleFeedbackCreate(request, response) {
     role: String(body.role || "").slice(0, 80),
     subject: String(body.subject || body.type || "Feedback").slice(0, 200),
     page: String(body.page || body.sourceUrl || "").slice(0, 500),
+    lessonId,
+    sentiment,
+    stars,
   };
   store.feedbackItems.unshift(item);
   store.feedbackItems = store.feedbackItems.slice(0, 1000);
@@ -17871,7 +17890,7 @@ async function handleFeedbackCreate(request, response) {
         : "admin_new_support";
     notifyAdminsInApp(store, {
       type: adminType,
-      title: `New ${item.type}`,
+      title: item.stars ? `New ${item.type} (${item.stars}/5)` : `New ${item.type}`,
       preview: item.subject || item.message.slice(0, 120),
       refId: item.id,
     }).catch(() => {});
@@ -17897,6 +17916,9 @@ async function handleFeedbackCreate(request, response) {
     fields: [
       ["Feedback Type", item.type],
       ["Subject", item.subject],
+      ["Stars", item.stars ? `${item.stars} / 5` : "—"],
+      ["Lesson ID", item.lessonId || "—"],
+      ["Sentiment", item.sentiment || "—"],
       ["Account Type", item.accountType || "—"],
       ["Role", item.role || "—"],
       ["Page", item.page || item.sourceUrl || "—"],
