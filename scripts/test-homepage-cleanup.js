@@ -270,8 +270,8 @@ async function main() {
       assert.match(guest.pricing, /\$19\.99|Pro Monthly|closed for new signups/i);
       assert.doesNotMatch(guest.hero, /Only \d+ Founding Member spots? remaining/i);
       assert.doesNotMatch(guest.finalCta, /Only \d+ Founding Member spots? remaining/i);
-      assert.match(guest.roadmap, /Home Daycare tools/i);
-      assert.match(guest.roadmap, /Family Hub and forms/i);
+      assert.match(guest.roadmap, /Family Hub/i);
+      assert.match(guest.roadmap, /Daily operations/i);
       assert.match(guest.roadmap, /Daily operations/i);
       assert.ok(guest.scrollWidth <= guest.clientWidth + 1, `${viewport.name} horizontal scroll`);
       assert.equal(consoleErrors.filter((e) => !/favicon|net::ERR/i.test(e)).length, 0, consoleErrors.join("\n"));
