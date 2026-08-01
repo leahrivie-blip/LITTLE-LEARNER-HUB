@@ -113,17 +113,17 @@ function testStaticMarkers() {
   assert.match(appJs, /function openAdminFeedbackItem/);
   assert.match(appJs, /function feedbackNotificationTargetId/);
   assert.match(appJs, /function applyAdminLocationDeepLink/);
-  assert.match(appJs, /adminPanel=feedback/);
+  assert.match(appJs, /get\("adminPanel"\)\s*===\s*"feedback"/);
   assert.match(appJs, /admin-feedback-stars/);
   assert.match(appJs, /adminFeedbackFocusId/);
-  assert.match(appJs, /"feedback"/); // analytics tab include
+  assert.match(appJs, /adminAnalyticsTabs[\s\S]*?"feedback"/);
   assert.match(appJs, /syncAdminFeedbackTypeFilterOptions/);
   assert.match(css, /\.admin-feedback-toolbar/);
   assert.match(css, /\.ticket-card\.is-highlighted/);
   assert.match(serverJs, /adminPanel=feedback/);
-  assert.match(serverJs, /adminFocusRef/);
+  assert.match(serverJs, /adminFocusRef=/);
   assert.match(adminNotif, /adminPanel/);
-  assert.match(commsApi, /deepLink/);
+  assert.match(commsApi, /deepLink:\s*deepLink/);
   console.log("PASS  static admin feedback dashboard markers");
 }
 
