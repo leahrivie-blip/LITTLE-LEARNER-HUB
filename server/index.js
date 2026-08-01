@@ -17201,12 +17201,9 @@ function publicFeedback(item) {
     status: item.status,
     page: item.page || item.sourceUrl || "",
     sourceUrl: item.sourceUrl || item.page || "",
-<<<<<<< HEAD
-=======
     lessonId: item.lessonId || "",
     sentiment: item.sentiment || "",
     stars: normalizeFeedbackStars(item.stars),
->>>>>>> origin/cursor/lesson-plan-private-ratings-4d11
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
