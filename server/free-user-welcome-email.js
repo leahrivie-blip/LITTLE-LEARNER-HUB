@@ -50,13 +50,11 @@ const EMAIL_TEXT = [
   "⭐ Unlimited Calendar Planning",
   "⭐ Documentation Helpers, Child Profiles & Future Features",
   "",
-  "Special Reminder",
+  "Ready for the full platform?",
   "",
-  "🔥 Founding Member spots are still available!",
+  "Upgrade to Pro for $19.99/month (or $199/year) to unlock hundreds of lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles.",
   "",
-  "Lock in $9.99/month while your membership remains continuously active and keep that price as Little Learner Hub continues to grow.",
-  "",
-  "Regular Pro pricing is higher, but Founding Members keep their rate forever.",
+  "If you can't find the lesson plan, activity, or feature you need, you can request it directly inside Little Learner Hub.",
   "",
   "If you're tired of seeing the same free lesson plans and want access to everything Little Learner Hub has to offer, now is the best time to upgrade.",
   "",
@@ -160,47 +158,23 @@ function htmlEscape(value) {
     .replace(/'/g, "&#39;");
 }
 
-function foundingReminderBlock(foundingOpen) {
-  if (foundingOpen) {
-    return [
-      "Special Reminder",
-      "",
-      "🔥 Only a few Founding Member spots left!",
-      "",
-      "Lock in $9.99/month while your membership remains continuously active before Founding closes. After the final spots are claimed, new Pro is $19.99/month.",
-      "",
-      "Existing Founding Members keep $9.99/month locked while your membership remains continuously active.",
-    ].join("\n");
-  }
+function foundingReminderBlock(_foundingOpen) {
   return [
-    "Special Reminder",
+    "Ready for the full platform?",
     "",
-    "Founding Member spots are filled.",
+    "Upgrade to Pro for $19.99/month (or $199/year) to unlock hundreds of lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles.",
     "",
-    "New Pro subscriptions are $19.99/month. Existing Founding Members keep $9.99/month locked while your membership remains continuously active.",
+    "If you can’t find the lesson plan, activity, or feature you need, you can request it directly inside Little Learner Hub.",
   ].join("\n");
 }
 
-function emailBodyText(foundingOpen = true) {
-  const foundingBlock = foundingReminderBlock(foundingOpen);
-  return EMAIL_TEXT
-    .replace(
-      [
-        "Special Reminder",
-        "",
-        "🔥 Founding Member spots are still available!",
-        "",
-        "Lock in $9.99/month while your membership remains continuously active and keep that price as Little Learner Hub continues to grow.",
-        "",
-        "Regular Pro pricing is higher, but Founding Members keep their rate forever.",
-      ].join("\n"),
-      foundingBlock,
-    );
+function emailBodyText(_foundingOpen = false) {
+  return EMAIL_TEXT;
 }
 
 function buildEmailContent(options = {}) {
   const escape = typeof options.htmlEscape === "function" ? options.htmlEscape : htmlEscape;
-  const foundingOpen = options.foundingOpen !== false;
+  const foundingOpen = false;
   const text = emailBodyText(foundingOpen);
   const paragraphs = text.split("\n\n").map((block) => {
     const lines = block.split("\n").map((line) => escape(line)).join("<br>");
@@ -400,7 +374,7 @@ function buildFreeUserRecipientDryRun(store, options = {}) {
     return plan === "Free" && !membershipAccess.membershipHasProAccess(user, nowMs);
   }).length;
 
-  const foundingOpen = options.foundingOpen !== false;
+  const foundingOpen = false;
   const content = buildEmailContent({
     htmlEscape: options.htmlEscape || htmlEscape,
     foundingOpen,

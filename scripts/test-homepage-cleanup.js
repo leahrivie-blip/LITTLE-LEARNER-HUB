@@ -176,20 +176,19 @@ async function main() {
 
   assert.match(indexHtml, /data-founding-spots-copy/);
   assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
-  assert.match(indexHtml, /New lesson plans, activities, and resources are added regularly/);
-  assert.doesNotMatch(indexHtml, /Continue adding new lesson plans/);
-  assert.match(indexHtml, /New plans and activities are added weekly/);
   assert.match(indexHtml, /Request a Lesson Plan/);
-  assert.match(indexHtml, /Home Daycare tools/);
-  assert.match(indexHtml, /Family Hub and forms/);
+  assert.match(indexHtml, /AI Documentation Helpers/);
+  assert.match(indexHtml, /Family Hub/);
   assert.match(indexHtml, /Daily operations/);
   assert.match(indexHtml, /See what we&rsquo;re building|See what we’re building/);
   assert.match(indexHtml, /llh-founder-brand-fallback/);
-  assert.match(indexHtml, /Create your account to continue with Founding Membership/);
+  assert.match(indexHtml, /Create your account to continue with Pro membership/);
+  assert.match(indexHtml, /All-in-One Childcare Platform/);
+  assert.doesNotMatch(indexHtml, /Founding Member/);
   assert.match(appJs, /function foundingSpotsLeftMessageFromCount/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
-  assert.match(appJs, /Create your account to continue with Founding Membership/);
-  assert.match(appJs, /This is Founding Membership — not a Pro trial/);
+  assert.match(appJs, /Create your account to continue with Pro membership/);
+  assert.match(serverJs, /FOUNDING_ACQUISITION_CLOSED\s*=\s*true/);
   assert.match(viewerJs, /not a Pro trial/);
   assert.match(appJs, /lessonPlanRequestPanelHtml/);
   assert.match(serverJs, /LESSON_PLAN_REQUEST_STATUSES/);
@@ -208,25 +207,25 @@ async function main() {
     await waitForBoot(child);
     const status = await requestJson("GET", "/api/founding-status");
     const founding = status.json?.founding || {};
-    assert.equal(founding.claimed, LIVE_CLAIMED);
     assert.equal(founding.limit, FOUNDING_LIMIT);
-    assert.equal(founding.remaining, 2);
-    assert.match(founding.spotsLeftMessage || "", /Only 2 Founding Member spots remaining/);
-    console.log("PASS founding API inventory", founding);
+    assert.equal(founding.remaining, 0);
+    assert.equal(founding.soldOut, true);
+    assert.match(founding.spotsLeftMessage || "", /Pro is \$19\.99\/month/);
+    assert.doesNotMatch(founding.spotsLeftMessage || "", /Founding Member/);
+    console.log("PASS founding API closed for acquisition", founding);
 
-    // Singular messaging
+    // Acquisition closed: inventory changes must not reopen public spots messaging
     {
       const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
       store.foundingMembers = Array.from({ length: FOUNDING_LIMIT - 1 }, (_, i) => `one-left-${i}@example.com`);
       fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
-      // local-json reads on each request in this app — verify message
       const one = await requestJson("GET", "/api/founding-status");
-      assert.equal(one.json.founding.remaining, 1);
-      assert.match(one.json.founding.spotsLeftMessage || "", /Only 1 Founding Member spot remaining/);
-      // restore two remaining for UI tests
+      assert.equal(one.json.founding.remaining, 0);
+      assert.equal(one.json.founding.soldOut, true);
+      assert.match(one.json.founding.spotsLeftMessage || "", /Pro is \$19\.99\/month/);
       store.foundingMembers = Array.from({ length: LIVE_CLAIMED }, (_, i) => `claimed-${i}@example.com`);
       fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
-      console.log("PASS singular spot messaging");
+      console.log("PASS founding remains closed regardless of inventory");
     }
 
     // Guest founding consistency + homepage cleanup across widths

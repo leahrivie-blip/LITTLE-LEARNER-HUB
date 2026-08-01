@@ -21,20 +21,14 @@ const CONTENT_REVISION = "20260801-welcome-v2";
 const TEMPLATE_VARIABLES = Object.freeze([
   { key: "FirstName", description: "User's first name (falls back to there)" },
   { key: "PlanName", description: "Current plan label (e.g. Free)" },
-  { key: "FoundingSection", description: "Highlighted founding offer (empty when sold out)" },
+  { key: "FoundingSection", description: "Legacy template slot (always empty — Founding acquisition closed)" },
   { key: "SiteUrl", description: "Site home URL" },
   { key: "LessonsUrl", description: "Lesson library URL" },
   { key: "UpgradeUrl", description: "Plans / upgrade URL" },
   { key: "MessagesUrl", description: "In-app messages URL" },
 ]);
 
-const DEFAULT_FOUNDING_SECTION_TEXT = [
-  "🔥 Only a few Founding Member spots left!",
-  "",
-  "Lock in $9.99/month while your membership remains continuously active before Founding closes. After the final spots are claimed, new Pro is $19.99/month.",
-  "",
-  "Existing Founding Members keep $9.99/month locked while your membership remains continuously active.",
-].join("\n");
+const DEFAULT_FOUNDING_SECTION_TEXT = "";
 
 const FREE_WELCOME_BODY = [
   "Thank you so much for joining Little Learner Hub!",
@@ -144,13 +138,9 @@ function defaultFreeWelcomeSequence() {
     },
     foundingSection: {
       enabled: false,
-      inAppText: DEFAULT_FOUNDING_SECTION_TEXT,
-      emailHtml: `<div style="background:#fff8e8;border:1px solid #e8c96a;border-radius:10px;padding:16px 18px;margin:20px 0;">
-  <p style="margin:0 0 8px;font-weight:700;color:#7a4f00;">🔥 Only a few Founding Member spots left!</p>
-  <p style="margin:0 0 8px;color:#3d2f1f;">Lock in <strong>$9.99/month locked while your membership remains continuously active</strong> before Founding closes. After the final spots are claimed, new Pro is <strong>$19.99/month</strong>.</p>
-  <p style="margin:0;color:#3d2f1f;">Existing Founding Members keep $9.99/month locked while your membership remains continuously active.</p>
-</div>`,
-      emailText: DEFAULT_FOUNDING_SECTION_TEXT,
+      inAppText: "",
+      emailHtml: "",
+      emailText: "",
     },
     scheduledSteps: [
       { id: "day-3", delayDays: 3, enabled: false, label: "Day 3 check-in", inApp: { enabled: false, title: "", body: "" }, email: { enabled: false, subject: "", body: "" } },
@@ -459,9 +449,8 @@ function isEligibleForProWelcome(user, store, nowMs = Date.now()) {
 
 function buildTemplateContext(user, store, deps, sequenceId = SEQUENCE_ID) {
   const siteUrl = siteBase(deps.SITE_URL);
-  const foundingOpen = typeof deps.foundingSpotsRemaining === "function"
-    ? deps.foundingSpotsRemaining(store) > 0
-    : false;
+  // Founding acquisition is closed — never inject Founding offer copy into welcome messages.
+  const foundingOpen = false;
   const root = ensureOnboardingWelcome(store);
   const sequence = root.sequences[sequenceId] || root.sequences[SEQUENCE_ID];
   const baseContext = {

@@ -4385,7 +4385,11 @@ function foundingClaimedCount(store) {
   return Math.min(PUBLIC_FOUNDING_CLAIMED_BASE + (store.foundingMembers || []).length, FOUNDING_LIMIT);
 }
 
+/** Public acquisition for Founding is closed. Inventory helpers still track historical claims. */
+const FOUNDING_ACQUISITION_CLOSED = true;
+
 function foundingSpotsRemaining(store) {
+  if (FOUNDING_ACQUISITION_CLOSED) return 0;
   return Math.max(FOUNDING_LIMIT - foundingClaimedCount(store), 0);
 }
 
@@ -4394,20 +4398,16 @@ function foundingStatusPayload(store = readStore()) {
   purgeExpiredFoundingReservations(store);
   const claimed = foundingClaimedCount(store);
   const remaining = foundingSpotsRemaining(store);
-  const spotsLeftMessage = remaining <= 0
-    ? "Founding Member pricing is sold out. Pro is $19.99/month."
-    : (remaining === 1
-      ? "Only 1 Founding Member spot remaining."
-      : `Only ${remaining} Founding Member spots remaining.`);
   return {
     limit: FOUNDING_LIMIT,
     claimed,
     remaining,
-    soldOut: remaining <= 0,
+    soldOut: true,
     foundingPrice: "$9.99/month",
     regularMonthlyPrice: "$19.99/month",
     regularAnnualPrice: "$199/year",
-    spotsLeftMessage,
+    spotsLeftMessage: "Pro is $19.99/month.",
+    acquisitionClosed: true,
   };
 }
 
@@ -4419,7 +4419,7 @@ function foundingMemberNumberForEmail(store, email) {
 }
 
 function foundingSoldOutMessage(store = peekStore()) {
-  return "Founding Member pricing is sold out. All available Founding Member spots have been claimed. Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year) instead.";
+  return "Choose Pro Monthly ($19.99/month) or Pro Annual ($199/year).";
 }
 
 /** Process-local mutex so two checkouts cannot claim the final Founding spot concurrently. */
