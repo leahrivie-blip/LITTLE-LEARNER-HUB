@@ -5293,6 +5293,8 @@ const APP_BOOT_VERIFY_TIMEOUT_MS = 18000;
 let appBootState = "ready";
 let appBootError = "";
 let appBootRunId = 0;
+/** Last user-driven setView requested while membership verification was locking navigation. */
+let pendingBootNavigation = null;
 
 function requiresVerifiedAppBoot() {
   return Boolean(currentUser) && canUseLaunchBackend();
@@ -5359,6 +5361,22 @@ function markAppBootReady() {
     if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
   } catch {
     /* ignore */
+  }
+  // Replay the last Lessons/Calendar/etc. click that arrived during verification.
+  // Without this, setView() silently no-ops while verifying and users stay stuck
+  // on Calendar after boot completes (looks like "Lessons won't load").
+  const pending = pendingBootNavigation;
+  pendingBootNavigation = null;
+  if (pending?.view) {
+    try {
+      setView(pending.view, {
+        ...(pending.options || {}),
+        allowDuringBootVerification: true,
+        fromPendingBootNavigation: true,
+      });
+    } catch (error) {
+      console.warn("Pending boot navigation failed", error);
+    }
   }
 }
 
@@ -15230,6 +15248,10 @@ function setView(view, options = {}) {
     && !options.allowDuringBootVerification
     && guardNavigationDuringBootVerification()
   ) {
+    // Keep the user's intent (e.g. Lessons) and cancel deferred Calendar landing.
+    pendingBootNavigation = { view, options: { ...options } };
+    suppressBootLanding = true;
+    viewNavigationGeneration += 1;
     return;
   }
   const requestedView = view;
@@ -54567,6 +54589,7 @@ async function signOut() {
   document.documentElement.classList.remove("llh-boot-authenticated");
   appBootState = "ready";
   appBootError = "";
+  pendingBootNavigation = null;
   document.body.classList.remove("app-boot-ready");
   document.body.classList.remove("app-boot-verifying");
   setAppBootGateMode("hidden");

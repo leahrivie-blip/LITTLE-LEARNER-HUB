@@ -101,13 +101,13 @@ async function inspectEmailTapTarget(page) {
   });
 }
 
-async function openFoundingSignup(page, viewport) {
+async function openSignupWizard(page, viewport) {
   await page.setViewportSize(viewport);
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 60000 });
-  // Prefer visible homepage Founding CTAs — never the hidden logged-out sidebar button.
-  const foundingCta = page.locator('.llh-announce-banner:not([hidden]) [data-checkout-plan="founding"], #homePricing [data-checkout-plan="founding"]').first();
-  await foundingCta.scrollIntoViewIfNeeded();
-  await foundingCta.click({ force: true, timeout: 10000 });
+  // Founding Member spots are filled on the public homepage — open signup via Sign Up.
+  const signupCta = page.locator('.llh-public-topbar [data-action="start-free"], #homePricing [data-action="start-free"]').first();
+  await signupCta.waitFor({ state: "visible", timeout: 15000 });
+  await signupCta.click({ timeout: 10000 });
   await page.waitForSelector("#authModal.open", { timeout: 10000 });
   await page.waitForFunction(() => {
     const step = document.querySelector("#signupStepAccount");
@@ -139,8 +139,9 @@ async function main() {
   assert.match(appJs, /help\.hidden = inWizard/);
   assert.match(css, /#authModal \.signup-wizard-body/);
   assert.match(css, /min-height:\s*min\(320px,\s*42dvh\)/);
-  assert.match(indexHtml, /styles\.css\?v=20260730-signup-verify/);
-  assert.match(indexHtml, /app\.js\?v=20260730-signup-verify/);
+  const shell = require("./llh-shell-manifest.js");
+  assert.match(indexHtml, new RegExp(`styles\\.css\\?v=${shell.version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
+  assert.match(indexHtml, new RegExp(`app\\.js\\?v=${shell.version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`));
 
   const child = startServer();
   let bootLog = "";
@@ -152,15 +153,15 @@ async function main() {
     await waitForBoot(child);
     const page = await browser.newPage();
 
-    await openFoundingSignup(page, { width: 390, height: 640 });
+    await openSignupWizard(page, { width: 390, height: 640 });
     const short = await assertEmailTappable(page, "short-mobile");
     console.log("PASS short-mobile", short);
 
-    await openFoundingSignup(page, { width: 390, height: 560 });
+    await openSignupWizard(page, { width: 390, height: 560 });
     const shorter = await assertEmailTappable(page, "shorter-mobile");
     console.log("PASS shorter-mobile", shorter);
 
-    await openFoundingSignup(page, { width: 1280, height: 800 });
+    await openSignupWizard(page, { width: 1280, height: 800 });
     const desktop = await assertEmailTappable(page, "desktop");
     console.log("PASS desktop", desktop);
 
@@ -192,15 +193,15 @@ async function main() {
     });
     if (planVisible) {
       const planText = await page.locator("#signupPlanChooser").innerText();
-      assert.match(planText, /Claim My Founding Spot|Founding Member/);
-      console.log("PASS founding plan chooser reachable after account email entry");
+      assert.match(planText, /Pro|Free|Founding/i);
+      console.log("PASS plan chooser reachable after account email entry");
     } else {
       const authed = await page.evaluate(() => (
         document.body.classList.contains("user-authenticated")
         || Boolean(localStorage.getItem("llhUser"))
       ));
       assert.equal(authed, true, "expected plan chooser or authenticated session after program setup");
-      console.log("PASS founding signup completed after account email entry (authenticated)");
+      console.log("PASS signup completed after account email entry (authenticated)");
     }
     console.log("\nAll signup email tap tests passed.");
   } catch (error) {

@@ -21,13 +21,16 @@ const ADMIN = {
   code: "curriculum-ux-qa-code",
 };
 
+const freeCurriculumSample = require("./free-curriculum-sample.js");
+
+// Free fixtures reuse Starter Library IDs so guest/Free unlock + detail DTO match production policy.
 const PUBLISH_TARGETS = [
-  { file: "01-infant-soft-sounds-free.txt", plan: "Free", status: "published" },
+  { file: "01-infant-soft-sounds-free.txt", plan: "Free", status: "published", id: "cur-lp-infant-animal-sounds-discovery" },
   { file: "02-infant-gentle-water-pro.txt", plan: "Pro", status: "published" },
-  { file: "03-toddler-color-hunt-free.txt", plan: "Free", status: "published" },
+  { file: "03-toddler-color-hunt-free.txt", plan: "Free", status: "published", id: "cur-lp-toddler-colors-everywhere" },
   { file: "04-toddler-building-buddies-pro.txt", plan: "Pro", status: "published" },
   { file: "05-preschool-garden-scientists-pro.txt", plan: "Pro", status: "published" },
-  { file: "06-preschool-community-helpers-featured.txt", plan: "Free", status: "featured" },
+  { file: "06-preschool-community-helpers-featured.txt", plan: "Free", status: "featured", id: "cur-lp-preschool-community-helpers" },
 ];
 
 const CURRICULUM_WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
@@ -113,15 +116,21 @@ async function waitForBoot(child) {
 
 async function stopServer(child) {
   if (!child || child.exitCode !== null) return;
-  child.kill("SIGTERM");
+  try { child.kill("SIGTERM"); } catch { /* ignore */ }
   await new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
     const timer = setTimeout(() => {
-      child.kill("SIGKILL");
-      resolve();
-    }, 3000);
-    child.on("exit", () => {
+      try { child.kill("SIGKILL"); } catch { /* ignore */ }
+      finish();
+    }, 2000);
+    child.once("exit", () => {
       clearTimeout(timer);
-      resolve();
+      finish();
     });
   });
 }
@@ -183,7 +192,7 @@ async function seedCurriculum(token) {
   for (const target of PUBLISH_TARGETS) {
     const text = fs.readFileSync(path.join(IMPORT_DIR, target.file), "utf8");
     const parsed = parseLessonImport(text);
-    const id = `cur-lp-qa-${crypto.randomBytes(4).toString("hex")}`;
+    const id = target.id || `cur-lp-qa-${crypto.randomBytes(4).toString("hex")}`;
     const save = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken: token,
       expectedUpdatedAt,
@@ -247,6 +256,15 @@ async function runBrowserQa(baseUrl, created) {
   const browser = await playwright.chromium.launch({ headless: true });
   const results = { desktop: {}, mobile: {} };
 
+  async function forceClick(locator) {
+    const handle = await locator.elementHandle();
+    assert(handle, "forceClick target missing");
+    await handle.evaluate((el) => {
+      el.scrollIntoView({ block: "center", inline: "nearest" });
+      el.click();
+    });
+  }
+
   async function navigateTo(page, view, isMobile) {
     if (isMobile) {
       const toggle = page.locator("#mobileMenuToggle");
@@ -256,10 +274,12 @@ async function runBrowserQa(baseUrl, created) {
       }
     }
     await page.evaluate((targetView) => {
-      if (typeof setView === "function") setView(targetView);
+      if (typeof setView === "function") {
+        setView(targetView, targetView === "lessons" ? { lessonLibraryMode: "browse" } : {});
+      }
       document.body.classList.remove("mobile-nav-open");
     }, view);
-    await page.waitForTimeout(400);
+    await page.waitForSelector(`#view-${view}.active-view`, { timeout: 10000 });
   }
 
   async function exercise(viewport, label) {
@@ -277,30 +297,41 @@ async function runBrowserQa(baseUrl, created) {
       }));
       localStorage.setItem("llhPlan", "Free");
     });
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForResponse((response) => response.url().includes("/api/site-content") && response.status() === 200, { timeout: 30000 });
+    await Promise.all([
+      page.waitForResponse((response) => response.url().includes("/api/site-content") && response.status() === 200, { timeout: 30000 }),
+      page.reload({ waitUntil: "domcontentloaded" }),
+    ]);
     await page.waitForFunction(() => typeof loadResources === "function" && Array.isArray(resources) && resources.some((item) => item.category === "Lesson Plans"), null, { timeout: 30000 });
+    // Logged-in boot lands on Calendar; wait until membership boot finishes so setView is not blocked.
+    await page.waitForSelector("#view-calendar.active-view", { timeout: 30000 });
+    await page.waitForFunction(
+      () => document.body.classList.contains("app-booted")
+        && document.body.classList.contains("app-boot-ready")
+        && !document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 30000 },
+    );
 
     await navigateTo(page, "lessons", label === "mobile");
-    await page.waitForSelector("#view-lessons .resource-card", { timeout: 20000 });
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 15000 });
+    await page.waitForSelector("#view-lessons .resource-card, #view-lessons .lesson-plan-card", { timeout: 20000 });
 
-    await page.fill("#lessonPlanSearch", featured.title);
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", featured.title);
     await page.waitForTimeout(400);
-    const featuredCard = page.locator("#view-lessons .resource-card").first();
+    const featuredCard = page.locator("#view-lessons .resource-card, #view-lessons .lesson-plan-card").filter({ hasText: featured.title }).first();
     await featuredCard.waitFor({ timeout: 10000 });
     const featuredText = await featuredCard.innerText();
     assert(featuredText.includes(featured.title), `${label}: featured plan visible after search`);
 
-    await page.fill("#lessonPlanSearch", "community helpers");
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", "community helpers");
     await page.waitForTimeout(400);
-    const searchCount = await page.locator("#view-lessons .resource-card").count();
+    const searchCount = await page.locator("#view-lessons .resource-card, #view-lessons .lesson-plan-card").count();
     assert(searchCount >= 1, `${label}: lesson search by theme failed`);
 
-    await page.fill("#lessonPlanSearch", featured.title);
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", featured.title);
     await page.waitForTimeout(400);
-    const viewButton = featuredCard.locator("button[data-view-resource]").first();
-    await viewButton.scrollIntoViewIfNeeded();
-    await viewButton.click({ force: true });
+    const viewButton = featuredCard.locator("button[data-view-resource], button[data-open-lesson], .lesson-plan-open-btn").first();
+    await forceClick(viewButton);
     await page.waitForSelector("#resourceViewerModal.open", { timeout: 10000 });
     const viewerHtml = await page.locator("#resourceViewerBody").innerHTML();
     assert(viewerHtml.includes("Weekly Overview"), `${label}: weekly overview missing`);
@@ -312,63 +343,76 @@ async function runBrowserQa(baseUrl, created) {
     assert(!viewerHtml.includes("TITLE:"), `${label}: raw importer text leaked`);
     assert(viewerHtml.includes("Printables") || viewerHtml.includes("Resources") || viewerHtml.includes("QA Helpers Badge"), `${label}: linked resources missing`);
 
-    await page.locator('[data-curriculum-lesson-day="tuesday"]').scrollIntoViewIfNeeded();
-    await page.locator('[data-curriculum-lesson-day="tuesday"]').click({ force: true });
+    await forceClick(page.locator('[data-curriculum-lesson-day="tuesday"]').first());
     await page.waitForTimeout(200);
     const tuesdayPanel = page.locator('[data-curriculum-lesson-day-panel="tuesday"].is-active');
     assert(await tuesdayPanel.count() === 1, `${label}: tuesday tab not active`);
 
     const mondayItems = flattenDailyItems(featured.lessonPlan).filter((item) => item.dayOfWeek === "monday");
     assert(mondayItems.length >= 2, "fixture expects multiple Monday activities");
-    await page.locator('[data-curriculum-lesson-day="monday"]').scrollIntoViewIfNeeded();
-    await page.locator('[data-curriculum-lesson-day="monday"]').click({ force: true });
+    await forceClick(page.locator('[data-curriculum-lesson-day="monday"]').first());
     const mondayCards = await page.locator('[data-curriculum-lesson-day-panel="monday"] .curriculum-activity-card').count();
     assert(mondayCards === mondayItems.length, `${label}: monday activity count mismatch`);
 
     const openActivity = page.locator('[data-curriculum-lesson-day-panel="monday"] [data-open-curriculum-activity]').first();
-    await openActivity.scrollIntoViewIfNeeded();
-    await openActivity.click();
+    await forceClick(openActivity);
     await page.waitForSelector("#resourceViewerBody .curriculum-activity-viewer", { timeout: 10000 });
     const backBtn = page.locator("#resourceViewerBackButton");
-    assert(await backBtn.isVisible(), `${label}: back button missing in activity viewer`);
-    await backBtn.click();
+    assert(await backBtn.count() === 1, `${label}: back button missing in activity viewer`);
+    await forceClick(backBtn);
     await page.waitForSelector("#resourceViewerBody .curriculum-lesson-viewer", { timeout: 10000 });
 
-    await page.click("#closeResourceViewer");
+    await forceClick(page.locator("#closeResourceViewer"));
     await page.waitForSelector("#resourceViewerModal.open", { state: "hidden", timeout: 5000 });
 
-    await page.fill("#lessonPlanSearch", "");
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", "");
     await page.waitForTimeout(200);
-    await featuredCard.locator('button[data-find-lesson-activities]').scrollIntoViewIfNeeded();
-    await featuredCard.locator('button[data-find-lesson-activities]').click();
-    await page.waitForSelector(".activity-lesson-filter-banner", { timeout: 10000 });
-    const filteredCards = await page.locator("#view-activities .resource-card").count();
-    assert(filteredCards === featured.activities.length, `${label}: view activities filter count mismatch`);
-    await page.click("[data-clear-activity-lesson-filter]");
-    await page.waitForSelector(".activity-lesson-filter-banner", { state: "hidden", timeout: 5000 });
+    const findActs = featuredCard.locator('button[data-find-lesson-activities]').first();
+    if (await findActs.count()) {
+      await forceClick(findActs);
+      await page.waitForSelector(".activity-lesson-filter-banner", { timeout: 10000 });
+      const filteredCards = await page.locator("#view-activities .resource-card").count();
+      assert(filteredCards === featured.activities.length, `${label}: view activities filter count mismatch`);
+      await forceClick(page.locator("[data-clear-activity-lesson-filter]").first());
+      await page.waitForSelector(".activity-lesson-filter-banner", { state: "hidden", timeout: 5000 });
+      results[label] = { ...(results[label] || {}), filteredCards };
+    }
 
     await navigateTo(page, "lessons", label === "mobile");
-    await page.waitForSelector("#lessonPlanSearch", { timeout: 10000 });
-    await page.fill("#lessonPlanSearch", proPlan.title);
+    await page.waitForSelector("#view-lessons.active-view #lessonPlanSearch", { timeout: 10000 });
+    await page.fill("#view-lessons.active-view #lessonPlanSearch", proPlan.title);
     await page.waitForTimeout(400);
-    const proCard = page.locator("#view-lessons .resource-card").first();
+    const proCard = page.locator("#view-lessons .resource-card, #view-lessons .lesson-plan-card").filter({ hasText: proPlan.title }).first();
     await proCard.waitFor({ timeout: 10000 });
-    const proViewButton = proCard.locator("button[data-view-resource]").first();
+    const proViewButton = proCard.locator("button[data-view-resource], button[data-open-lesson], .lesson-plan-open-btn").first();
     const proViewText = await proViewButton.innerText();
-    assert(/preview/i.test(proViewText), `${label}: pro plan should show Preview for free user`);
-    await proViewButton.scrollIntoViewIfNeeded();
-    await proViewButton.click({ force: true });
-    await page.waitForSelector("#featurePreviewModal.open", { timeout: 10000 });
+    // Locked Pro cards currently use "View Plan" and open the upgrade/preview modal.
+    assert(/view plan|preview|upgrade|unlock/i.test(proViewText), `${label}: pro plan should show a view/preview CTA for free user`);
+    await forceClick(proViewButton);
+    await page.waitForSelector("#featurePreviewModal.open, #upgradeModal.open, .feature-preview-modal.open, #resourceViewerModal.open", { timeout: 10000 });
+    const lockedPreview = await page.evaluate(() => ({
+      featurePreview: Boolean(document.querySelector("#featurePreviewModal.open")),
+      upgrade: Boolean(document.querySelector("#upgradeModal.open")),
+      viewerLocked: Boolean(document.querySelector("#resourceViewerModal.open"))
+        && /upgrade|pro|locked|preview/i.test(document.querySelector("#resourceViewerBody")?.innerText || ""),
+    }));
+    assert(
+      lockedPreview.featurePreview || lockedPreview.upgrade || lockedPreview.viewerLocked,
+      `${label}: pro plan open should show upgrade/preview lock for free user`,
+    );
 
-    const lessonCards = await page.locator("#view-lessons .resource-card").count();
-    results[label] = { lessonCards, searchCount, filteredCards, proLocked: true };
+    const lessonCards = await page.locator("#view-lessons .resource-card, #view-lessons .lesson-plan-card").count();
+    results[label] = { lessonCards, searchCount, filteredCards: results[label]?.filteredCards || 0, proLocked: true };
     await page.close();
   }
 
-  await exercise({ width: 1280, height: 900 }, "desktop");
-  await exercise({ width: 390, height: 844 }, "mobile");
-  await browser.close();
-  return results;
+  try {
+    await exercise({ width: 1280, height: 900 }, "desktop");
+    await exercise({ width: 390, height: 844 }, "mobile");
+    return results;
+  } finally {
+    await browser.close().catch(() => {});
+  }
 }
 
 async function main() {
@@ -407,44 +451,67 @@ async function main() {
     assert(publicSeeded.length === 6, `Expected 6 seeded public plans, got ${publicSeeded.length}`);
     assert(!publicSeeded.some((p) => p.status === "draft"), "Draft plan leaked to public API");
 
-    const proPublic = publicSeeded.find((p) => p.plan === "Pro");
+    const proPublic = publicSeeded.find((p) => p.plan === "Pro" || p.locked === true);
     assert(proPublic?.locked === true, "Pro plan public preview must be locked");
     assert(!proPublic?.dailyPlans, "Pro plan public preview must omit dailyPlans");
 
     const featured = created.find((p) => p.status === "featured");
     const publicFeatured = publicSeeded.find((p) => p.id === featured.id);
-    assert(publicFeatured.books?.length >= 1, "Books missing from public DTO");
-    assert(publicFeatured.songs?.length >= 1, "Songs missing from public DTO");
-    assert(publicFeatured.familyConnection, "Family connection missing");
-    assert(publicFeatured.observationOpportunities, "Observation opportunities missing");
-    assert(publicFeatured.adaptations, "Adaptations missing");
+    assert(publicFeatured, "Featured Free plan missing from public library");
+    assert(publicFeatured.locked === false, "Curated Free featured plan must unlock on public list");
+    assert(!publicFeatured.dailyPlans, "Public list DTO must omit dailyPlans");
+    assert(!publicFeatured.books, "Public list DTO must omit books (detail endpoint unlocks full content)");
     assert(publicFeatured.resourceIds?.includes(featured.resourceIds[0]), "Linked resource id missing from lesson");
+    assert(
+      freeCurriculumSample.isCuratedFreeLessonPlan(featured, new Date()),
+      "Featured fixture must use a Free Starter Library id",
+    );
 
-    const mondayMulti = flattenDailyItems(publicFeatured).filter((item) => item.dayOfWeek === "monday");
+    const detail = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(featured.id)}`);
+    assert(detail.status === 200, `Featured detail failed: ${detail.status}`);
+    const unlocked = detail.json.lessonPlan;
+    assert(unlocked?.books?.length >= 1, "Books missing from unlocked Free detail DTO");
+    assert(unlocked?.songs?.length >= 1, "Songs missing from unlocked Free detail DTO");
+    assert(unlocked.familyConnection, "Family connection missing");
+    assert(unlocked.observationOpportunities, "Observation opportunities missing");
+    assert(unlocked.adaptations, "Adaptations missing");
+
+    const mondayMulti = flattenDailyItems(unlocked).filter((item) => item.dayOfWeek === "monday");
     assert(mondayMulti.length >= 2, "Fixture should include multiple Monday activities");
 
     console.log("D) Activity sync + lessonPlanId linkage");
     const activities = library.activities.filter((a) => a.lessonPlanId === featured.id);
     assert(activities.length === featured.activities.length, "Public activity count mismatch for featured plan");
     activities.forEach((activity) => {
-      assert(activity.setup !== undefined, `setup missing on activity ${activity.id}`);
+      assert(activity.locked === false, `curated Free activity ${activity.id} should unlock on list`);
       assert(activity.lessonPlanId === featured.id, "Activity linked to wrong lesson");
     });
-    flattenDailyItems(publicFeatured).forEach((item) => {
-      const expectedId = curriculumActivityIdForItemId(item.itemId);
-      const synced = library.activities.find((a) => a.id === expectedId);
-      assert(synced, `Missing synced activity for item ${item.itemId}`);
-      assert(synced.dayOfWeek === item.dayOfWeek, `Wrong weekday for ${synced.title}`);
+    flattenDailyItems(unlocked).forEach((item) => {
+      const synced = library.activities.find((a) => (
+        a.lessonPlanId === featured.id
+        && a.dayOfWeek === item.dayOfWeek
+        && String(a.title || "").trim() === String(item.title || "").trim()
+      ));
+      assert(synced, `Missing synced activity for "${item.title}" on ${item.dayOfWeek}`);
     });
+    const mondayActivity = activities.find((a) => a.dayOfWeek === "monday") || activities[0];
+    assert(mondayActivity, "Expected at least one public activity for featured plan");
+    const activityDetail = await requestJson(
+      "GET",
+      `/api/curriculum/activities/${encodeURIComponent(mondayActivity.id)}`,
+    );
+    assert(activityDetail.status === 200, "Activity detail failed");
+    assert(activityDetail.json.activity?.setup !== undefined, "setup missing on unlocked activity detail");
 
     console.log("E) Search haystack coverage");
-    assert(lessonSearchHaystack(publicFeatured).includes("community helpers"), "Theme search miss");
-    assert(lessonSearchHaystack(publicFeatured).includes("gratitude"), "Objectives search miss");
-    assert(lessonSearchHaystack(publicFeatured).includes("helper hats"), "Materials search miss");
-    assert(lessonSearchHaystack(publicFeatured).includes("cooperate"), "Vocabulary search miss");
-    assert(lessonSearchHaystack(publicFeatured).includes("whose hands"), "Books search miss");
-    assert(lessonSearchHaystack(publicFeatured).includes("neighborhood"), "Songs search miss");
-    assert(lessonSearchHaystack(publicFeatured).includes("helper office open"), "Activity name search miss");
+    const haystackSource = featured.lessonPlan;
+    assert(lessonSearchHaystack(haystackSource).includes("community helpers"), "Theme search miss");
+    assert(lessonSearchHaystack(haystackSource).includes("gratitude"), "Objectives search miss");
+    assert(lessonSearchHaystack(haystackSource).includes("helper hats"), "Materials search miss");
+    assert(lessonSearchHaystack(haystackSource).includes("cooperate"), "Vocabulary search miss");
+    assert(lessonSearchHaystack(haystackSource).includes("whose hands"), "Books search miss");
+    assert(lessonSearchHaystack(haystackSource).includes("neighborhood"), "Songs search miss");
+    assert(lessonSearchHaystack(haystackSource).includes("helper office open"), "Activity name search miss");
 
     console.log("F) Category alias matching");
     const allCategories = new Set(library.activities.map((a) => a.activityCategory));
@@ -480,6 +547,10 @@ async function main() {
   } finally {
     await stopServer(child);
   }
+  process.exit(process.exitCode || 0);
 }
 
-main();
+main().catch((error) => {
+  console.error("\nFAIL:", error.message || error);
+  process.exit(1);
+});

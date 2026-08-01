@@ -64,7 +64,20 @@ async function waitForHealth() {
 }
 
 function readStoreFile() {
-  return JSON.parse(fs.readFileSync(STORE, "utf8"));
+  // Local-json may be mid-write during async welcome delivery — retry briefly.
+  let lastError = null;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    try {
+      return JSON.parse(fs.readFileSync(STORE, "utf8"));
+    } catch (error) {
+      lastError = error;
+      const start = Date.now();
+      while (Date.now() - start < 40) {
+        /* spin briefly before re-read */
+      }
+    }
+  }
+  throw lastError;
 }
 
 async function adminLogin() {
