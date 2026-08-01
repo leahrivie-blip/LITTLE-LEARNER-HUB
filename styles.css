@@ -3061,6 +3061,67 @@ body.lessons-view .mobile-brand {
   margin-bottom: 12px;
 }
 
+.admin-feedback-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  align-items: end;
+  margin: 0 0 16px;
+}
+
+.admin-feedback-toolbar .ticket-filter-label {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 180px);
+}
+
+.admin-feedback-search-label {
+  flex: 1 1 220px;
+  min-width: min(100%, 220px);
+}
+
+.admin-feedback-toolbar input[type="search"],
+.admin-feedback-toolbar select {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid var(--line, #ddd7e8);
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+}
+
+.admin-feedback-type-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.admin-feedback-type-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(90, 77, 138, 0.08);
+  color: var(--ink, #2a2a35);
+  font-size: 0.86rem;
+}
+
+.admin-feedback-stars {
+  margin: 6px 0 0;
+  color: #c9852a;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.admin-feedback-list .ticket-card.is-highlighted {
+  border-color: rgba(90, 77, 138, 0.45);
+  box-shadow: 0 0 0 3px rgba(123, 107, 181, 0.18);
+  background: linear-gradient(180deg, #fff, #f7f4ff);
+}
+
 @media (max-width: 720px) {
   .aup-card-meta,
   .aup-card-usage,

@@ -27,8 +27,18 @@ function clampText(value, max = 240) {
   return `${text.slice(0, max - 1)}…`;
 }
 
-function adminDeepLink({ category = "", type = "", email = "", conversationEmail = "", refId = "" } = {}) {
-  const params = new URLSearchParams({ view: "admin", adminPanel: "notifications" });
+function adminDeepLink({
+  category = "",
+  type = "",
+  email = "",
+  conversationEmail = "",
+  refId = "",
+  adminPanel = "notifications",
+} = {}) {
+  const params = new URLSearchParams({
+    view: "admin",
+    adminPanel: String(adminPanel || "notifications").trim() || "notifications",
+  });
   if (category) params.set("adminNotifCategory", category);
   if (type) params.set("adminNotifType", type);
   if (email) params.set("adminFocusEmail", normalizeEmail(email));

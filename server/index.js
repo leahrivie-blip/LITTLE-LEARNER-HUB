@@ -17889,11 +17889,15 @@ async function handleFeedbackCreate(request, response) {
       : item.type === "Feature Request" || item.type === "New Feature" || item.type === "Missing Feature"
         ? "admin_new_feature"
         : "admin_new_support";
+    const feedbackDeepLink = `/?view=admin&adminPanel=feedback&adminFocusRef=${encodeURIComponent(item.id)}`;
     notifyAdminsInApp(store, {
       type: adminType,
       title: item.stars ? `New ${item.type} (${item.stars}/5)` : `New ${item.type}`,
       preview: item.subject || item.message.slice(0, 120),
       refId: item.id,
+      category: "support",
+      deepLink: feedbackDeepLink,
+      url: feedbackDeepLink,
     }).catch(() => {});
   } catch {}
   try {

@@ -434,7 +434,17 @@ function createCommsApi(deps) {
       .slice(0, 200);
   }
 
-  async function notifyAdminsInApp(store, { type, title, preview, refId, conversationEmail, messageId }) {
+  async function notifyAdminsInApp(store, {
+    type,
+    title,
+    preview,
+    refId,
+    conversationEmail,
+    messageId,
+    category = "",
+    deepLink = "",
+    url = "",
+  } = {}) {
     const recipients = [...adminEmailAllowlist];
     if (!recipients.length) return { targeted: 0 };
     const messagingStore = ensureMessagingStore(ensureCommsStore(store));
@@ -447,6 +457,9 @@ function createCommsApi(deps) {
       messageId: messageId || refId || "",
       conversationEmail: normalizeEmail(conversationEmail || "") || "",
       senderName: ADMIN_NAME || "Little Learner Hub",
+      category: category || "",
+      deepLink: deepLink || "",
+      url: url || deepLink || "",
     });
   }
 
