@@ -17187,10 +17187,16 @@ function publicFeedback(item) {
   return {
     id: item.id,
     type: item.type,
+    subject: item.subject || item.type || "Feedback",
     message: item.message,
     email: item.email,
     name: item.name,
     status: item.status,
+    page: item.page || item.sourceUrl || "",
+    sourceUrl: item.sourceUrl || item.page || "",
+    activityId: item.activityId || "",
+    lessonId: item.lessonId || "",
+    sentiment: item.sentiment || "",
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -17820,7 +17826,7 @@ function handleFeatureRequestsList(request, response, url) {
 const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
   "Bug", "Problem", "Missing Feature", "Question", "Feature Request", "Support",
-  "Lesson Plan Feedback",
+  "Lesson Plan Feedback", "Activity Feedback",
 ]);
 const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
@@ -17833,6 +17839,9 @@ async function handleFeedbackCreate(request, response) {
     return;
   }
   const rawType = String(body.type || "General Feedback");
+  const activityId = String(body.activityId || "").trim().slice(0, 160);
+  const lessonId = String(body.lessonId || "").trim().slice(0, 160);
+  const sentiment = String(body.sentiment || "").trim().slice(0, 40);
   const store = readStore();
   store.feedbackItems = store.feedbackItems || [];
   const item = {
@@ -17850,6 +17859,9 @@ async function handleFeedbackCreate(request, response) {
     role: String(body.role || "").slice(0, 80),
     subject: String(body.subject || body.type || "Feedback").slice(0, 200),
     page: String(body.page || body.sourceUrl || "").slice(0, 500),
+    activityId,
+    lessonId,
+    sentiment,
   };
   store.feedbackItems.unshift(item);
   store.feedbackItems = store.feedbackItems.slice(0, 1000);
@@ -17894,6 +17906,9 @@ async function handleFeedbackCreate(request, response) {
     fields: [
       ["Feedback Type", item.type],
       ["Subject", item.subject],
+      ["Sentiment", item.sentiment || "—"],
+      ["Activity ID", item.activityId || "—"],
+      ["Lesson ID", item.lessonId || "—"],
       ["Account Type", item.accountType || "—"],
       ["Role", item.role || "—"],
       ["Page", item.page || item.sourceUrl || "—"],

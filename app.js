@@ -7560,11 +7560,12 @@ function structuredCurriculumActivityHtml(resource) {
   const activity = resource?._curriculumActivity || effectiveCurriculumLibrary().activities.find((item) => item.id === resource.id) || null;
   const api = curriculumViewerRenderApi();
   if (!api || !activity) return "";
-  return api.renderCurriculumActivityHtml(activity, {
+  const body = api.renderCurriculumActivityHtml(activity, {
     parentTitle: resource._curriculumParentTitle || activity.parentTitle || "",
     parentAge: resource.age || activity.parentAge || "",
     lessonPlanId: resource.lessonPlanId || resource._curriculumLessonPlanId || activity.lessonPlanId || "",
   });
+  return `${body}${activityViewerFeedbackHtml(resource)}`;
 }
 
 function resourceSearchHaystack(resource) {
@@ -22939,6 +22940,114 @@ function lessonWorkspaceFeedbackHtml(resource) {
       <p class="lesson-workspace-feedback-status muted-copy" data-lesson-feedback-status hidden></p>
     </section>
   `;
+}
+
+function activityViewerFeedbackHtml(resource) {
+  if (!isLoggedIn() && !hasAdminFullAccess()) return "";
+  if (!resource || resource.category !== "Activity Center") return "";
+  const id = escapeHtml(resource.id || "");
+  const title = escapeHtml(resource.title || "Activity");
+  const parentLessonId = escapeHtml(
+    resource.lessonPlanId || resource._curriculumLessonPlanId || resource._curriculumActivity?.lessonPlanId || "",
+  );
+  const parentTitle = escapeHtml(resource._curriculumParentTitle || "");
+  return `
+    <section
+      class="lesson-workspace-feedback activity-viewer-feedback"
+      data-activity-feedback-root
+      aria-label="Activity feedback"
+      data-activity-id="${id}"
+      data-activity-title="${title}"
+      data-lesson-id="${parentLessonId}"
+      data-parent-title="${parentTitle}"
+    >
+      <p class="lesson-workspace-feedback-label">Was this activity helpful?</p>
+      <p class="activity-viewer-feedback-hint muted-copy">Private to Leah — not shown as a public review.</p>
+      <div class="lesson-workspace-feedback-actions">
+        <button type="button" class="ghost-button" data-activity-feedback="helpful" data-activity-id="${id}" data-activity-title="${title}" data-lesson-id="${parentLessonId}" data-parent-title="${parentTitle}">👍 Helpful</button>
+        <button type="button" class="ghost-button" data-activity-feedback="needs-improvement" data-activity-id="${id}" data-activity-title="${title}" data-lesson-id="${parentLessonId}" data-parent-title="${parentTitle}">👎 Needs Improvement</button>
+        <button type="button" class="ghost-button" data-activity-feedback="suggest" data-activity-id="${id}" data-activity-title="${title}" data-lesson-id="${parentLessonId}" data-parent-title="${parentTitle}">💡 Suggest Improvement</button>
+      </div>
+      <p class="lesson-workspace-feedback-status muted-copy" data-activity-feedback-status hidden></p>
+    </section>
+  `;
+}
+
+async function submitActivityFeedback({
+  sentiment,
+  activityId,
+  activityTitle,
+  lessonId = "",
+  parentTitle = "",
+  detail = "",
+} = {}) {
+  const account = currentAccount() || {};
+  const name = displayUserName(account) || [account.firstName, account.lastName].filter(Boolean).join(" ") || "Provider";
+  const email = currentUser || account.email || "";
+  if (!email) return { ok: false, error: "Please log in to send feedback." };
+
+  const labels = {
+    helpful: "Helpful",
+    "needs-improvement": "Needs Improvement",
+    suggest: "Suggest Improvement",
+  };
+  const sentimentLabel = labels[sentiment] || "Feedback";
+  const subject = `Activity feedback: ${activityTitle || activityId || "Untitled"} (${sentimentLabel})`;
+  const message = [
+    `Activity: ${activityTitle || "Untitled"}`,
+    activityId ? `Activity ID: ${activityId}` : "",
+    parentTitle ? `Parent lesson: ${parentTitle}` : "",
+    lessonId ? `Lesson ID: ${lessonId}` : "",
+    `Feedback: ${sentimentLabel}`,
+    detail ? `\n${detail}` : (sentiment === "helpful" ? "\nMarked as helpful." : ""),
+  ].filter(Boolean).join("\n");
+
+  const payload = {
+    type: "Activity Feedback",
+    name,
+    email,
+    subject,
+    message,
+    sourceUrl: window.location.href,
+    page: `activity:${activityId || ""}`,
+    activityId: activityId || "",
+    lessonId: lessonId || "",
+    sentiment: sentiment || "",
+    accountType: account.accountType || getAccountType(account),
+    role: account.role || getUserRole(account),
+  };
+
+  try {
+    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
+
+    if (sentiment === "needs-improvement" || sentiment === "suggest") {
+      await fetch("/api/support-ticket", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          kind: "Activity Feedback",
+          topic: sentimentLabel,
+          name,
+          email,
+          createdBy: email,
+          message,
+          sourceUrl: window.location.href,
+        }),
+      }).catch(() => null);
+    }
+
+    trackEvent("activity_feedback", { sentiment, activityId, activityTitle, lessonId });
+    return { ok: true, feedback: data?.feedback || null };
+  } catch (error) {
+    return { ok: false, error: error.message || "Could not send feedback." };
+  }
 }
 
 async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, detail = "" }) {
@@ -39652,13 +39761,13 @@ async function submitFeedbackForm(event) {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
     trackEvent("feedback_submitted", { type, subject });
-    // Lesson-plan improvement feedback also lands in the support ticket inbox.
-    if (type === "Lesson Plan Feedback") {
+    // Lesson-plan / activity improvement feedback also lands in the support ticket inbox.
+    if (type === "Lesson Plan Feedback" || type === "Activity Feedback") {
       await fetch("/api/support-ticket", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          kind: "Lesson Plan Feedback",
+          kind: type,
           name,
           email,
           topic: subject,
@@ -39724,14 +39833,18 @@ function renderAdminFeedbackCenter() {
       <div class="aup-insight-card"><strong>${counts.archived}</strong><span>Archived</span></div>
     </div>
     <div class="ticket-list admin-feedback-list">
-      ${filtered.length ? filtered.map((item) => `
+      ${filtered.length ? filtered.map((item) => {
+        const sentimentLabel = item.sentiment
+          ? String(item.sentiment).replace(/-/g, " ").replace(/\b\w/g, (ch) => ch.toUpperCase())
+          : "";
+        return `
         <article class="ticket-card" data-feedback-id="${escapeHtml(item.id)}">
           <div class="ticket-card-header">
             <div>
-              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}</p>
+              <p class="eyebrow">${escapeHtml(item.type || "Feedback")} · ${escapeHtml(item.status || "New")}${sentimentLabel ? ` · ${escapeHtml(sentimentLabel)}` : ""}</p>
               <h3>${escapeHtml(item.subject || item.type || "Feedback")}</h3>
               <p>${escapeHtml(item.name || "Provider")} · ${escapeHtml(item.email || "No email")}</p>
-              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}</small>
+              <small>${escapeHtml(item.createdAt ? new Date(item.createdAt).toLocaleString() : "")}${item.page || item.sourceUrl ? ` · ${escapeHtml(item.page || item.sourceUrl)}` : ""}${item.activityId ? ` · activity:${escapeHtml(item.activityId)}` : ""}${item.lessonId ? ` · lesson:${escapeHtml(item.lessonId)}` : ""}</small>
             </div>
           </div>
           <p>${escapeHtml(item.message || "")}</p>
@@ -39743,7 +39856,8 @@ function renderAdminFeedbackCenter() {
             <button class="ghost-button" type="button" data-feedback-note="${escapeHtml(item.id)}">Add Note</button>
           </div>
         </article>
-      `).join("") : `<div class="empty-state">No feedback in this status yet.</div>`}
+      `;
+      }).join("") : `<div class="empty-state">No feedback in this status yet.</div>`}
     </div>
   `;
 }
@@ -57267,6 +57381,54 @@ document.addEventListener("click", async (event) => {
   if (lessonUseThisPlan) {
     event.preventDefault();
     openLessonWorkspaceUseThisPlan();
+    return;
+  }
+
+  const activityFeedbackBtn = event.target.closest("[data-activity-feedback]");
+  if (activityFeedbackBtn) {
+    event.preventDefault();
+    const sentiment = activityFeedbackBtn.dataset.activityFeedback;
+    const activityId = activityFeedbackBtn.dataset.activityId || "";
+    const activityTitle = activityFeedbackBtn.dataset.activityTitle || activeResourceViewerResource?.title || "";
+    const lessonId = activityFeedbackBtn.dataset.lessonId || "";
+    const parentTitle = activityFeedbackBtn.dataset.parentTitle || "";
+    const statusEl = activityFeedbackBtn.closest("[data-activity-feedback-root]")?.querySelector("[data-activity-feedback-status]");
+    if (sentiment === "suggest" || sentiment === "needs-improvement") {
+      openFeedbackModal("Activity Feedback");
+      const subjectInput = document.querySelector("#feedbackSubjectInput");
+      const messageInput = document.querySelector("#feedbackMessageInput");
+      const label = sentiment === "suggest" ? "Suggest Improvement" : "Needs Improvement";
+      if (subjectInput) subjectInput.value = `Activity feedback: ${activityTitle} (${label})`;
+      if (messageInput) {
+        messageInput.value = [
+          `Activity: ${activityTitle}`,
+          activityId ? `Activity ID: ${activityId}` : "",
+          parentTitle ? `Parent lesson: ${parentTitle}` : "",
+          lessonId ? `Lesson ID: ${lessonId}` : "",
+          `Feedback: ${label}`,
+          "",
+          "",
+        ].filter((line, index, arr) => Boolean(line) || index >= arr.length - 2).join("\n");
+        messageInput.focus();
+      }
+      return;
+    }
+    if (statusEl) {
+      statusEl.hidden = false;
+      statusEl.textContent = "Sending…";
+    }
+    const result = await submitActivityFeedback({
+      sentiment,
+      activityId,
+      activityTitle,
+      lessonId,
+      parentTitle,
+    });
+    if (statusEl) {
+      statusEl.textContent = result.ok
+        ? "Thanks — your private feedback was sent to Leah."
+        : (result.error || "Could not send feedback.");
+    }
     return;
   }
 
