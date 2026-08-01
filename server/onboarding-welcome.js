@@ -1,13 +1,22 @@
 /**
- * Configurable onboarding welcome system for new Free accounts.
- * Delivers in-app system messages + branded welcome email once per account.
+ * Configurable onboarding welcome system for Free, Trial, and Pro members.
+ * Delivers in-app system messages + branded welcome email once per sequence.
+ *
+ * Auto-delivery for Trial/Pro sequences only applies to accounts that start
+ * trial/paid membership after AUTO_DELIVER_ELIGIBLE_AFTER (existing Pros/trials
+ * — including the most recent Pro joiners — are never backfilled).
  */
 
-const crypto = require("crypto");
 const membershipAccess = require("../scripts/membership-access.js");
 
 const SEQUENCE_ID = "free-welcome";
+const TRIAL_SEQUENCE_ID = "trial-welcome";
+const TRIAL_CHECKIN_SEQUENCE_ID = "trial-checkin";
+const PRO_SEQUENCE_ID = "pro-welcome";
 const BACKFILL_CONFIRM_PHRASE = "SEND_FREE_WELCOME_BACKFILL";
+/** Only memberships started on/after this UTC time auto-receive Trial/Pro welcomes. */
+const AUTO_DELIVER_ELIGIBLE_AFTER = "2026-08-01T02:30:00.000Z";
+const CONTENT_REVISION = "20260801-welcome-v2";
 
 const TEMPLATE_VARIABLES = Object.freeze([
   { key: "FirstName", description: "User's first name (falls back to there)" },
@@ -27,41 +36,106 @@ const DEFAULT_FOUNDING_SECTION_TEXT = [
   "Existing Founding Members keep $9.99/month locked while your membership remains continuously active.",
 ].join("\n");
 
-const DEFAULT_IN_APP_BODY = [
-  "Welcome to Little Learner Hub, and thank you so much for joining!",
+const FREE_WELCOME_BODY = [
+  "Thank you so much for joining Little Learner Hub!",
   "",
-  "I'm so excited you're here. Little Learner Hub is built by a childcare provider with one goal—to create an all-in-one platform that makes your day easier.",
+  "I’m so happy you’re here. As a childcare provider myself, I created this platform to save educators time, reduce stress, and make lesson planning easier.",
   "",
   "As a Free Member, you can start exploring free lesson plans, activities, and resources right away.",
   "",
-  "If you'd like access to everything, you can upgrade to Pro at any time to unlock the full curriculum library and all premium features as they're released.",
+  "One thing that makes Little Learner Hub different is that it’s constantly growing. I build new features, lesson plans, and tools based on what childcare providers actually need.",
   "",
-  "{{FoundingSection}}",
+  "Have an idea that would make your day easier? Looking for a specific theme, age group, activity, or feature?",
   "",
-  "Have questions, feedback, or ideas? You can message me directly inside Little Learner Hub anytime. I personally read every message and love hearing suggestions from childcare providers.",
+  "Send me a message anytime through Little Learner Hub.",
   "",
-  "Thank you for being here, and welcome to the community!",
+  "I personally read every message, and many of the updates you see are inspired by suggestions from providers just like you. I’m building this platform for you, so your feedback truly matters.",
   "",
-  "— Leah",
+  "Whenever you’re ready, you can upgrade to Pro to unlock the complete curriculum library, premium tools, and every new feature as it’s released.",
+  "",
+  "Thank you again for being here. I can’t wait to keep building Little Learner Hub with you! 💜",
 ].join("\n");
 
-const DEFAULT_EMAIL_BODY = DEFAULT_IN_APP_BODY;
+const TRIAL_WELCOME_BODY = [
+  "Thanks for starting your Pro trial!",
+  "",
+  "Over the next 7 days, you’ll get to explore the Pro experience and see how Little Learner Hub can save you time every week.",
+  "",
+  "During your trial you can:",
+  "",
+  "• Browse and explore the complete curriculum library.",
+  "• Open and preview every Pro lesson plan.",
+  "• Save lesson plans to your calendar.",
+  "• Try Pro tools and features.",
+  "• Download or print up to 3 premium lesson plans during your trial.",
+  "",
+  "The download limit only applies during the trial. Once you become a Pro member, you’ll have unlimited access to your curriculum library and premium resources.",
+  "",
+  "I’m building Little Learner Hub for childcare providers, so your feedback means everything to me.",
+  "",
+  "Need a lesson plan for a specific theme or age group? Wish a feature worked differently? Have an idea that would make your day easier?",
+  "",
+  "Send me a message anytime inside Little Learner Hub. I personally read every message, and many updates come directly from suggestions from providers like you.",
+  "",
+  "Thank you for giving Little Learner Hub a try. I hope it becomes a tool you love using every day! 💜",
+].join("\n");
+
+const TRIAL_CHECKIN_BODY = [
+  "You’ve been exploring Little Learner Hub for a few days now, and I’d love to hear what you think!",
+  "",
+  "What’s one thing that would make Little Learner Hub even more helpful for your classroom?",
+  "",
+  "Whether it’s:",
+  "• A lesson plan you’d like to see",
+  "• A feature that would save you time",
+  "• Something that’s confusing",
+  "• Or an idea you’ve always wished existed",
+  "",
+  "Send me a message anytime inside Little Learner Hub.",
+  "",
+  "I personally read every message, and many of the updates on Little Learner Hub have come directly from childcare providers like you. I’m building this platform for you, and your feedback truly helps shape what’s added next.",
+  "",
+  "Don’t forget—you can continue exploring the curriculum library and Pro features throughout your trial, and you can download or print up to 3 premium lesson plans during your trial.",
+  "",
+  "Thanks again for being here. I can’t wait to hear your ideas and keep making Little Learner Hub even better! 💜",
+].join("\n");
+
+const PRO_WELCOME_BODY = [
+  "Thank you so much for becoming a Pro Member!",
+  "",
+  "Your support means more than you know. Every subscription helps me continue building Little Learner Hub into the platform childcare providers deserve.",
+  "",
+  "You now have unlimited access to the full curriculum library, premium lesson plans, activities, planning tools, and every new Pro feature as it’s released.",
+  "",
+  "But here’s something even more important…",
+  "",
+  "I’m not building Little Learner Hub for childcare providers—I’m building it with childcare providers.",
+  "",
+  "If there’s a feature you’d love to have, a lesson plan you’re looking for, or something that would make your day easier, send me a message anytime inside Little Learner Hub.",
+  "",
+  "I personally read every message, and many of the updates and ideas added to Little Learner Hub come directly from members like you.",
+  "",
+  "Thank you for believing in my vision and for being part of this community. I’m so excited to keep growing Little Learner Hub with you and can’t wait to show you what’s coming next.",
+  "",
+  "Welcome to Pro! 💜",
+].join("\n");
 
 function defaultFreeWelcomeSequence() {
   return {
     id: SEQUENCE_ID,
     label: "Free Member Welcome",
     audience: "free",
+    contentRevision: CONTENT_REVISION,
     enabled: true,
     inApp: {
       enabled: true,
-      title: "Welcome to Little Learner Hub! 🎉",
-      body: DEFAULT_IN_APP_BODY,
+      title: "Welcome to Little Learner Hub! 💜",
+      body: FREE_WELCOME_BODY,
     },
     email: {
       enabled: true,
-      subject: "Welcome to Little Learner Hub! 🎉",
-      body: DEFAULT_EMAIL_BODY,
+      subject: "Welcome to Little Learner Hub! 💜",
+      body: FREE_WELCOME_BODY,
       primaryCtaLabel: "Explore Free Resources",
       primaryCtaUrl: "{{LessonsUrl}}",
       secondaryCtaLabel: "Upgrade to Pro",
@@ -69,7 +143,7 @@ function defaultFreeWelcomeSequence() {
       footerNote: "Questions? Reply to this email or message Leah inside Little Learner Hub anytime.",
     },
     foundingSection: {
-      enabled: true,
+      enabled: false,
       inAppText: DEFAULT_FOUNDING_SECTION_TEXT,
       emailHtml: `<div style="background:#fff8e8;border:1px solid #e8c96a;border-radius:10px;padding:16px 18px;margin:20px 0;">
   <p style="margin:0 0 8px;font-weight:700;color:#7a4f00;">🔥 Only a few Founding Member spots left!</p>
@@ -87,11 +161,104 @@ function defaultFreeWelcomeSequence() {
   };
 }
 
+function defaultTrialWelcomeSequence() {
+  return {
+    id: TRIAL_SEQUENCE_ID,
+    label: "Pro Trial Welcome",
+    audience: "trial",
+    contentRevision: CONTENT_REVISION,
+    enabled: true,
+    inApp: {
+      enabled: true,
+      title: "Welcome to Your Pro Trial! 🎉",
+      body: TRIAL_WELCOME_BODY,
+    },
+    email: {
+      enabled: true,
+      subject: "Welcome to Your Pro Trial! 🎉",
+      body: TRIAL_WELCOME_BODY,
+      primaryCtaLabel: "Explore Curriculum",
+      primaryCtaUrl: "{{LessonsUrl}}",
+      secondaryCtaLabel: "Send Leah a Message",
+      secondaryCtaUrl: "{{MessagesUrl}}",
+      footerNote: "Questions? Message Leah inside Little Learner Hub anytime.",
+    },
+    foundingSection: { enabled: false, inAppText: "", emailHtml: "", emailText: "" },
+    scheduledSteps: [],
+    updatedAt: "",
+  };
+}
+
+function defaultTrialCheckinSequence() {
+  return {
+    id: TRIAL_CHECKIN_SEQUENCE_ID,
+    label: "Trial Check-in (Day 3)",
+    audience: "trial",
+    contentRevision: CONTENT_REVISION,
+    enabled: true,
+    delayDays: 3,
+    inApp: {
+      enabled: true,
+      title: "How’s Your Trial Going? 💜",
+      body: TRIAL_CHECKIN_BODY,
+    },
+    email: {
+      enabled: true,
+      subject: "How’s Your Trial Going? 💜",
+      body: TRIAL_CHECKIN_BODY,
+      primaryCtaLabel: "Send Feedback",
+      primaryCtaUrl: "{{MessagesUrl}}",
+      secondaryCtaLabel: "Continue Exploring",
+      secondaryCtaUrl: "{{LessonsUrl}}",
+      footerNote: "I personally read every message — thank you for helping shape Little Learner Hub.",
+    },
+    foundingSection: { enabled: false, inAppText: "", emailHtml: "", emailText: "" },
+    scheduledSteps: [],
+    updatedAt: "",
+  };
+}
+
+function defaultProWelcomeSequence() {
+  return {
+    id: PRO_SEQUENCE_ID,
+    label: "Pro Member Welcome",
+    audience: "pro",
+    contentRevision: CONTENT_REVISION,
+    enabled: true,
+    inApp: {
+      enabled: true,
+      title: "Thank You for Becoming a Pro Member! 💜",
+      body: PRO_WELCOME_BODY,
+    },
+    email: {
+      enabled: true,
+      subject: "Thank You for Becoming a Pro Member! 💜",
+      body: PRO_WELCOME_BODY,
+      primaryCtaLabel: "Explore Your Curriculum",
+      primaryCtaUrl: "{{LessonsUrl}}",
+      secondaryCtaLabel: "Send Leah a Message",
+      secondaryCtaUrl: "{{MessagesUrl}}",
+      footerNote: "Questions? Message Leah inside Little Learner Hub anytime.",
+    },
+    foundingSection: { enabled: false, inAppText: "", emailHtml: "", emailText: "" },
+    scheduledSteps: [],
+    updatedAt: "",
+  };
+}
+
+function allDefaultSequences() {
+  return {
+    [SEQUENCE_ID]: defaultFreeWelcomeSequence(),
+    [TRIAL_SEQUENCE_ID]: defaultTrialWelcomeSequence(),
+    [TRIAL_CHECKIN_SEQUENCE_ID]: defaultTrialCheckinSequence(),
+    [PRO_SEQUENCE_ID]: defaultProWelcomeSequence(),
+  };
+}
+
 function defaultOnboardingWelcomeStore() {
   return {
-    sequences: {
-      [SEQUENCE_ID]: defaultFreeWelcomeSequence(),
-    },
+    sequences: allDefaultSequences(),
+    autoDeliverEligibleAfter: AUTO_DELIVER_ELIGIBLE_AFTER,
     backfill: {
       lastRunAt: "",
       lastRunCount: 0,
@@ -132,24 +299,39 @@ function welcomeFlags(user) {
     : {};
   return {
     freeWelcomeSentAt: flags.freeWelcomeSentAt || "",
+    trialWelcomeSentAt: flags.trialWelcomeSentAt || "",
+    trialCheckinSentAt: flags.trialCheckinSentAt || "",
+    proWelcomeSentAt: flags.proWelcomeSentAt || "",
     inAppMessageId: flags.inAppMessageId || "",
     emailSentAt: flags.emailSentAt || "",
   };
 }
 
-function ensureOnboardingWelcome(store) {
-  if (!store.onboardingWelcome || typeof store.onboardingWelcome !== "object") {
-    store.onboardingWelcome = defaultOnboardingWelcomeStore();
+function mergeSequenceWithDefaults(defaults, current = {}) {
+  const stale = !current || current.contentRevision !== defaults.contentRevision;
+  if (stale) {
+    return {
+      ...defaults,
+      enabled: current.enabled !== false,
+      contentRevision: defaults.contentRevision,
+      inApp: {
+        ...defaults.inApp,
+        enabled: current.inApp?.enabled !== false,
+      },
+      email: {
+        ...defaults.email,
+        enabled: current.email?.enabled !== false,
+      },
+      foundingSection: { ...defaults.foundingSection },
+      scheduledSteps: Array.isArray(defaults.scheduledSteps) ? defaults.scheduledSteps.map((step) => ({ ...step, inApp: { ...step.inApp }, email: { ...step.email } })) : [],
+      delayDays: defaults.delayDays,
+      updatedAt: current.updatedAt || "",
+    };
   }
-  const root = store.onboardingWelcome;
-  root.sequences = root.sequences && typeof root.sequences === "object" ? root.sequences : {};
-  const defaults = defaultFreeWelcomeSequence();
-  const current = root.sequences[SEQUENCE_ID] && typeof root.sequences[SEQUENCE_ID] === "object"
-    ? root.sequences[SEQUENCE_ID]
-    : {};
-  root.sequences[SEQUENCE_ID] = {
+  return {
     ...defaults,
     ...current,
+    contentRevision: defaults.contentRevision,
     inApp: { ...defaults.inApp, ...(current.inApp || {}) },
     email: { ...defaults.email, ...(current.email || {}) },
     foundingSection: { ...defaults.foundingSection, ...(current.foundingSection || {}) },
@@ -162,11 +344,53 @@ function ensureOnboardingWelcome(store) {
       }))
       : defaults.scheduledSteps,
   };
+}
+
+function ensureOnboardingWelcome(store) {
+  if (!store.onboardingWelcome || typeof store.onboardingWelcome !== "object") {
+    store.onboardingWelcome = defaultOnboardingWelcomeStore();
+  }
+  const root = store.onboardingWelcome;
+  root.sequences = root.sequences && typeof root.sequences === "object" ? root.sequences : {};
+  if (!root.autoDeliverEligibleAfter) {
+    root.autoDeliverEligibleAfter = AUTO_DELIVER_ELIGIBLE_AFTER;
+  }
+  const defaultsById = allDefaultSequences();
+  Object.keys(defaultsById).forEach((id) => {
+    root.sequences[id] = mergeSequenceWithDefaults(defaultsById[id], root.sequences[id]);
+  });
   root.backfill = {
     ...defaultOnboardingWelcomeStore().backfill,
     ...(root.backfill || {}),
   };
   return root;
+}
+
+function autoDeliverCutoffMs(store) {
+  const raw = store?.onboardingWelcome?.autoDeliverEligibleAfter || AUTO_DELIVER_ELIGIBLE_AFTER;
+  const ms = new Date(raw).getTime();
+  return Number.isFinite(ms) ? ms : new Date(AUTO_DELIVER_ELIGIBLE_AFTER).getTime();
+}
+
+function membershipStartedAtMs(user) {
+  const candidates = [
+    user?.subscriptionStartedAt,
+    user?.trialStart,
+    user?.promoRedeemedAt,
+    user?.signupAt,
+    user?.createdAt,
+  ];
+  for (const value of candidates) {
+    const ms = new Date(value || 0).getTime();
+    if (Number.isFinite(ms) && ms > 0) return ms;
+  }
+  return 0;
+}
+
+function isAfterAutoDeliverCutoff(user, store) {
+  const started = membershipStartedAtMs(user);
+  if (!started) return false;
+  return started >= autoDeliverCutoffMs(store);
 }
 
 function isEligibleForFreeWelcome(user, nowMs = Date.now()) {
@@ -191,12 +415,55 @@ function isEligibleForFreeWelcome(user, nowMs = Date.now()) {
   return true;
 }
 
-function buildTemplateContext(user, store, deps) {
+function isEligibleForTrialWelcome(user, store, nowMs = Date.now()) {
+  if (!user) return false;
+  const email = String(user.email || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return false;
+  if (welcomeFlags(user).trialWelcomeSentAt) return false;
+  if (!membershipAccess.membershipUserInTrial(user, nowMs)) return false;
+  if (!isAfterAutoDeliverCutoff(user, store)) return false;
+  const status = String(user.accountStatus || "Active").trim().toLowerCase();
+  if (status === "disabled" || status === "deleted" || status === "archived") return false;
+  return true;
+}
+
+function isEligibleForTrialCheckin(user, store, nowMs = Date.now()) {
+  if (!user) return false;
+  const email = String(user.email || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return false;
+  if (welcomeFlags(user).trialCheckinSentAt) return false;
+  if (!membershipAccess.membershipUserInTrial(user, nowMs)) return false;
+  if (!isAfterAutoDeliverCutoff(user, store)) return false;
+  const trialStartMs = new Date(user.trialStart || 0).getTime();
+  if (!Number.isFinite(trialStartMs) || trialStartMs <= 0) return false;
+  const delayDays = Number(store?.onboardingWelcome?.sequences?.[TRIAL_CHECKIN_SEQUENCE_ID]?.delayDays || 3);
+  const dueAt = trialStartMs + Math.max(1, delayDays) * 86400000;
+  if (nowMs < dueAt) return false;
+  const status = String(user.accountStatus || "Active").trim().toLowerCase();
+  if (status === "disabled" || status === "deleted" || status === "archived") return false;
+  return true;
+}
+
+function isEligibleForProWelcome(user, store, nowMs = Date.now()) {
+  if (!user) return false;
+  const email = String(user.email || "").trim().toLowerCase();
+  if (!email || !email.includes("@")) return false;
+  if (welcomeFlags(user).proWelcomeSentAt) return false;
+  if (membershipAccess.membershipUserInTrial(user, nowMs)) return false;
+  if (!membershipAccess.membershipHasProAccess(user, nowMs)) return false;
+  if (!isAfterAutoDeliverCutoff(user, store)) return false;
+  const status = String(user.accountStatus || "Active").trim().toLowerCase();
+  if (status === "disabled" || status === "deleted" || status === "archived") return false;
+  return true;
+}
+
+function buildTemplateContext(user, store, deps, sequenceId = SEQUENCE_ID) {
   const siteUrl = siteBase(deps.SITE_URL);
   const foundingOpen = typeof deps.foundingSpotsRemaining === "function"
     ? deps.foundingSpotsRemaining(store) > 0
     : false;
-  const sequence = ensureOnboardingWelcome(store).sequences[SEQUENCE_ID];
+  const root = ensureOnboardingWelcome(store);
+  const sequence = root.sequences[sequenceId] || root.sequences[SEQUENCE_ID];
   const baseContext = {
     FirstName: userDisplayName(user),
     PlanName: membershipAccess.membershipPlanDisplay(user) || "Free",
@@ -223,7 +490,6 @@ function applyTemplateVariables(text, context) {
     const pattern = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "gi");
     output = output.replace(pattern, String(value ?? ""));
   });
-  // Remove blank lines left when optional sections are empty.
   output = output.replace(/\n{3,}/g, "\n\n").trim();
   return output;
 }
@@ -259,14 +525,14 @@ function buildWelcomeEmailHtml({ subject, bodyText, context, sequence, siteUrl, 
   const resolvedBody = applyTemplateVariables(bodyWithFounding, context);
   const primaryUrl = applyTemplateVariables(sequence.email?.primaryCtaUrl || "{{LessonsUrl}}", context);
   const secondaryUrl = applyTemplateVariables(sequence.email?.secondaryCtaUrl || "{{UpgradeUrl}}", context);
-  const primaryLabel = escape(sequence.email?.primaryCtaLabel || "Explore Free Resources");
-  const secondaryLabel = escape(sequence.email?.secondaryCtaLabel || "Upgrade to Pro");
+  const primaryLabel = escape(sequence.email?.primaryCtaLabel || "Open Little Learner Hub");
+  const secondaryLabel = escape(sequence.email?.secondaryCtaLabel || "Send a Message");
   const footerNote = escape(applyTemplateVariables(sequence.email?.footerNote || "", context));
   const safeSubject = escape(subject || "Welcome to Little Learner Hub");
 
   const foundingHtml = founding.html && !String(bodyText || "").includes("{{FoundingSection}}")
     ? founding.html
-    : (founding.html && String(bodyText || "").includes("{{FoundingSection}}") ? "" : founding.html);
+    : "";
 
   const bodyHtml = paragraphsToHtml(resolvedBody, escape) + (foundingHtml ? foundingHtml : "");
 
@@ -289,20 +555,20 @@ function buildWelcomeEmailHtml({ subject, bodyText, context, sequence, siteUrl, 
   `.trim();
 }
 
-function buildWelcomePreview(user, store, deps, channel = "email") {
-  const context = buildTemplateContext(user, store, deps);
+function buildWelcomePreview(user, store, deps, channel = "email", sequenceId = SEQUENCE_ID) {
+  const context = buildTemplateContext(user, store, deps, sequenceId);
   const sequence = context.sequence;
   if (channel === "in_app") {
     const title = applyTemplateVariables(sequence.inApp?.title || "", context);
     const body = applyTemplateVariables(sequence.inApp?.body || "", context);
-    return { channel, title, body, text: body, html: "", context, foundingOpen: context.foundingOpen };
+    return { channel, title, body, text: body, html: "", context, foundingOpen: context.foundingOpen, sequenceId };
   }
   const subject = applyTemplateVariables(sequence.email?.subject || "", context);
   const bodyTemplate = sequence.email?.body || "";
   const textBody = applyTemplateVariables(
     bodyTemplate.includes("{{FoundingSection}}")
       ? bodyTemplate.replace(/\{\{\s*FoundingSection\s*\}\}/gi, buildFoundingEmailSection(sequence, context.foundingOpen).text)
-      : `${bodyTemplate}${context.foundingOpen ? `\n\n${buildFoundingEmailSection(sequence, context.foundingOpen).text}` : ""}`,
+      : `${bodyTemplate}${context.foundingOpen && sequence.foundingSection?.enabled !== false ? `\n\n${buildFoundingEmailSection(sequence, context.foundingOpen).text}` : ""}`,
     context,
   );
   const html = buildWelcomeEmailHtml({
@@ -313,7 +579,7 @@ function buildWelcomePreview(user, store, deps, channel = "email") {
     siteUrl: deps.SITE_URL,
     escape: deps.htmlEscape || htmlEscape,
   });
-  return { channel, subject, title: subject, body: textBody, text: textBody, html, context, foundingOpen: context.foundingOpen };
+  return { channel, subject, title: subject, body: textBody, text: textBody, html, context, foundingOpen: context.foundingOpen, sequenceId };
 }
 
 function normalizeSequencePayload(input = {}) {
@@ -342,6 +608,7 @@ function normalizeSequencePayload(input = {}) {
     id: SEQUENCE_ID,
     label: clampText(input.label, 120) || defaults.label,
     audience: "free",
+    contentRevision: CONTENT_REVISION,
     enabled: input.enabled !== false,
     inApp: {
       enabled: input.inApp?.enabled !== false,
@@ -359,7 +626,7 @@ function normalizeSequencePayload(input = {}) {
       footerNote: clampText(input.email?.footerNote, 500) || defaults.email.footerNote,
     },
     foundingSection: {
-      enabled: input.foundingSection?.enabled !== false,
+      enabled: input.foundingSection?.enabled === true,
       inAppText: clampText(input.foundingSection?.inAppText, 4000) || defaults.foundingSection.inAppText,
       emailHtml: clampText(input.foundingSection?.emailHtml, 8000) || defaults.foundingSection.emailHtml,
       emailText: clampText(input.foundingSection?.emailText, 4000) || defaults.foundingSection.emailText,
@@ -369,10 +636,18 @@ function normalizeSequencePayload(input = {}) {
   };
 }
 
+function stampFieldForSequence(sequenceId) {
+  if (sequenceId === TRIAL_SEQUENCE_ID) return "trialWelcomeSentAt";
+  if (sequenceId === TRIAL_CHECKIN_SEQUENCE_ID) return "trialCheckinSentAt";
+  if (sequenceId === PRO_SEQUENCE_ID) return "proWelcomeSentAt";
+  return "freeWelcomeSentAt";
+}
+
 function createOnboardingWelcome(deps) {
   const {
     readStore,
     writeStore,
+    writableStore,
     upsertUser,
     sendEmail,
     fanOutNotificationsAndPush,
@@ -393,13 +668,15 @@ function createOnboardingWelcome(deps) {
     const root = ensureOnboardingWelcome(store);
     return {
       sequence: root.sequences[SEQUENCE_ID],
+      sequences: root.sequences,
+      autoDeliverEligibleAfter: root.autoDeliverEligibleAfter || AUTO_DELIVER_ELIGIBLE_AFTER,
       variables: TEMPLATE_VARIABLES,
       backfill: root.backfill,
       updatedAt: root.updatedAt || root.sequences[SEQUENCE_ID]?.updatedAt || "",
     };
   }
 
-  async function deliverInAppWelcome(store, email, user, preview) {
+  async function deliverInAppWelcome(store, email, user, preview, sequenceId) {
     const now = new Date().toISOString();
     const message = {
       id: messagingRandomId("msg"),
@@ -419,7 +696,7 @@ function createOnboardingWelcome(deps) {
       status: "sent",
       deliverVia: "in_app",
       channel: "onboarding_welcome",
-      onboardingSequenceId: SEQUENCE_ID,
+      onboardingSequenceId: sequenceId,
       pushSummary: null,
     };
     store.messages.unshift(message);
@@ -434,11 +711,11 @@ function createOnboardingWelcome(deps) {
     await fanOutNotificationsAndPush(store, {
       type: "message",
       recipients: [email],
-      title: "Welcome to Little Learner Hub",
+      title: preview.title || "Welcome to Little Learner Hub",
       preview: messagePreviewText(preview.body),
       messageId: message.id,
       conversationEmail: email,
-      refId: `onboarding:${SEQUENCE_ID}:${email}`,
+      refId: `onboarding:${sequenceId}:${email}`,
       senderName: ADMIN_NAME || "Leah",
       deepLink: "/?view=messages",
     });
@@ -466,37 +743,49 @@ function createOnboardingWelcome(deps) {
     return emailResult;
   }
 
-  async function deliverFreeWelcome(email, options = {}) {
+  async function deliverSequenceWelcome(email, sequenceId, options = {}) {
     const clean = String(email || "").trim().toLowerCase();
     if (!clean) return { ok: false, reason: "missing_email" };
 
-    const store = ensureMessagingStore(readStore());
+    // Use the live mutable store so in-app messages + stamps persist together on local-json.
+    const store = ensureMessagingStore(writableStoreCompatible());
     const user = store.users?.[clean] || { email: clean };
-    if (!isEligibleForFreeWelcome(user) && !options.force) {
-      return { ok: false, reason: "not_eligible", email: clean };
+    const stampKey = stampFieldForSequence(sequenceId);
+    const flags = welcomeFlags(user);
+
+    const eligibility = {
+      [SEQUENCE_ID]: () => isEligibleForFreeWelcome(user),
+      [TRIAL_SEQUENCE_ID]: () => isEligibleForTrialWelcome(user, store),
+      [TRIAL_CHECKIN_SEQUENCE_ID]: () => isEligibleForTrialCheckin(user, store),
+      [PRO_SEQUENCE_ID]: () => isEligibleForProWelcome(user, store),
+    };
+    if (!options.force && typeof eligibility[sequenceId] === "function" && !eligibility[sequenceId]()) {
+      return { ok: false, reason: "not_eligible", email: clean, sequenceId };
     }
-    if (welcomeFlags(user).freeWelcomeSentAt && !options.force) {
-      return { ok: false, reason: "already_sent", email: clean };
+    if (flags[stampKey] && !options.force) {
+      return { ok: false, reason: "already_sent", email: clean, sequenceId };
     }
 
     const config = getConfig(store);
-    if (!config.sequence.enabled && !options.force) {
-      return { ok: false, reason: "sequence_disabled", email: clean };
+    const sequence = config.sequences[sequenceId];
+    if (!sequence?.enabled && !options.force) {
+      return { ok: false, reason: "sequence_disabled", email: clean, sequenceId };
     }
 
-    const previewInApp = buildWelcomePreview(user, store, { SITE_URL, foundingSpotsRemaining, htmlEscape }, "in_app");
-    const previewEmail = buildWelcomePreview(user, store, { SITE_URL, foundingSpotsRemaining, htmlEscape }, "email");
+    const previewInApp = buildWelcomePreview(user, store, { SITE_URL, foundingSpotsRemaining, htmlEscape }, "in_app", sequenceId);
+    const previewEmail = buildWelcomePreview(user, store, { SITE_URL, foundingSpotsRemaining, htmlEscape }, "email", sequenceId);
 
     const result = {
       ok: true,
       email: clean,
+      sequenceId,
       inApp: { attempted: false, sent: false, skipped: false, reason: "" },
       emailDelivery: { attempted: false, sent: false, skipped: false, reason: "" },
     };
 
-    if (config.sequence.inApp?.enabled !== false || options.forceInApp) {
+    if (sequence.inApp?.enabled !== false || options.forceInApp) {
       result.inApp.attempted = true;
-      const inApp = await deliverInAppWelcome(store, clean, user, previewInApp);
+      const inApp = await deliverInAppWelcome(store, clean, user, previewInApp, sequenceId);
       result.inApp.sent = Boolean(inApp.sent);
       result.inApp.messageId = inApp.messageId || "";
       result.inApp.reason = inApp.sent ? "sent" : "failed";
@@ -505,7 +794,7 @@ function createOnboardingWelcome(deps) {
       result.inApp.reason = "disabled";
     }
 
-    if (config.sequence.email?.enabled !== false || options.forceEmail) {
+    if (sequence.email?.enabled !== false || options.forceEmail) {
       result.emailDelivery.attempted = true;
       const emailResult = await deliverEmailWelcome(clean, user, previewEmail);
       result.emailDelivery.sent = Boolean(emailResult.sent);
@@ -520,15 +809,33 @@ function createOnboardingWelcome(deps) {
       result.emailDelivery.reason = "disabled";
     }
 
-    const stamp = {
-      freeWelcomeSentAt: new Date().toISOString(),
-      inAppMessageId: result.inApp.messageId || welcomeFlags(user).inAppMessageId || "",
-      emailSentAt: result.emailDelivery.sent ? new Date().toISOString() : (welcomeFlags(user).emailSentAt || ""),
-      reason: options.reason || "signup",
+    const nextFlags = {
+      ...flags,
+      [stampKey]: new Date().toISOString(),
+      inAppMessageId: result.inApp.messageId || flags.inAppMessageId || "",
+      emailSentAt: result.emailDelivery.sent ? new Date().toISOString() : (flags.emailSentAt || ""),
+      reason: options.reason || sequenceId,
     };
-    upsertUser(clean, { onboardingWelcome: stamp });
-
+    // Stamp on the same store object that holds the welcome message, then persist once.
+    store.users = store.users || {};
+    store.users[clean] = {
+      ...(store.users[clean] || { email: clean }),
+      email: clean,
+      onboardingWelcome: nextFlags,
+      updatedAt: new Date().toISOString(),
+    };
+    writeStore(store);
     return result;
+  }
+
+  function writableStoreCompatible() {
+    // Prefer the host app's mutable store helper when provided; fall back to readStore.
+    if (typeof writableStore === "function") return writableStore();
+    return ensureMessagingStore(readStore());
+  }
+
+  async function deliverFreeWelcome(email, options = {}) {
+    return deliverSequenceWelcome(email, SEQUENCE_ID, options);
   }
 
   async function maybeDeliverOnSignup(email) {
@@ -540,20 +847,55 @@ function createOnboardingWelcome(deps) {
     return deliverFreeWelcome(email, { reason: "signup" });
   }
 
+  async function maybeDeliverOnTrialStart(email) {
+    const store = readStore();
+    const user = store.users?.[String(email || "").trim().toLowerCase()] || { email };
+    if (!isEligibleForTrialWelcome(user, store)) {
+      return { ok: false, reason: "not_eligible" };
+    }
+    return deliverSequenceWelcome(email, TRIAL_SEQUENCE_ID, { reason: "trial_start" });
+  }
+
+  async function maybeDeliverOnProPurchase(email) {
+    const store = readStore();
+    const user = store.users?.[String(email || "").trim().toLowerCase()] || { email };
+    if (!isEligibleForProWelcome(user, store)) {
+      return { ok: false, reason: "not_eligible" };
+    }
+    return deliverSequenceWelcome(email, PRO_SEQUENCE_ID, { reason: "pro_purchase" });
+  }
+
+  async function processTrialCheckIns({ limit = 25 } = {}) {
+    const store = readStore();
+    ensureOnboardingWelcome(store);
+    const recipients = Object.values(store.users || {})
+      .filter((user) => isEligibleForTrialCheckin(user, store))
+      .slice(0, Math.max(1, Math.min(limit, 100)));
+    const results = [];
+    for (const user of recipients) {
+      // eslint-disable-next-line no-await-in-loop
+      const result = await deliverSequenceWelcome(user.email, TRIAL_CHECKIN_SEQUENCE_ID, {
+        reason: "trial_checkin",
+      });
+      results.push({ email: user.email, result });
+    }
+    return { count: results.length, results };
+  }
+
   function listRecentFreeSignupsWithoutWelcome(store, limit = 5) {
     const users = Object.values(store.users || {});
     return users
-      .filter((user) => isEligibleForFreeWelcome(user) && (user.signupAt || user.createdAt))
+      .filter((user) => isEligibleForFreeWelcome(user) && (user.signupAt || user.createdAt || user.updatedAt))
       .sort((a, b) => {
-        const left = new Date(b.signupAt || b.createdAt || 0).getTime();
-        const right = new Date(a.signupAt || a.createdAt || 0).getTime();
+        const left = new Date(b.signupAt || b.createdAt || b.updatedAt || 0).getTime();
+        const right = new Date(a.signupAt || a.createdAt || a.updatedAt || 0).getTime();
         return left - right;
       })
       .slice(0, Math.max(1, Math.min(limit, 25)))
       .map((user) => ({
         email: String(user.email || "").trim().toLowerCase(),
         firstName: user.firstName || "",
-        signupAt: user.signupAt || user.createdAt || "",
+        signupAt: user.signupAt || user.createdAt || user.updatedAt || "",
       }));
   }
 
@@ -590,13 +932,32 @@ function createOnboardingWelcome(deps) {
     return getConfig(store);
   }
 
+  function startTrialCheckinScheduler() {
+    const tick = () => {
+      processTrialCheckIns({ limit: 40 }).catch((error) => {
+        console.warn("[onboarding-welcome] trial check-in sweep failed:", error.message || error);
+      });
+    };
+    // First run after boot settles; then hourly. Only eligible NEW trials are considered.
+    setTimeout(tick, 90 * 1000);
+    return setInterval(tick, 60 * 60 * 1000);
+  }
+
   return {
     SEQUENCE_ID,
+    TRIAL_SEQUENCE_ID,
+    TRIAL_CHECKIN_SEQUENCE_ID,
+    PRO_SEQUENCE_ID,
     BACKFILL_CONFIRM_PHRASE,
+    AUTO_DELIVER_ELIGIBLE_AFTER,
+    CONTENT_REVISION,
     TEMPLATE_VARIABLES,
     defaultOnboardingWelcomeStore,
     ensureOnboardingWelcome,
     isEligibleForFreeWelcome,
+    isEligibleForTrialWelcome,
+    isEligibleForTrialCheckin,
+    isEligibleForProWelcome,
     welcomeFlags,
     buildTemplateContext,
     applyTemplateVariables,
@@ -604,21 +965,37 @@ function createOnboardingWelcome(deps) {
     normalizeSequencePayload,
     getConfig,
     deliverFreeWelcome,
+    deliverSequenceWelcome,
     maybeDeliverOnSignup,
+    maybeDeliverOnTrialStart,
+    maybeDeliverOnProPurchase,
+    processTrialCheckIns,
     listRecentFreeSignupsWithoutWelcome,
     backfillRecentFreeMembers,
     saveConfig,
+    startTrialCheckinScheduler,
   };
 }
 
 module.exports = {
   SEQUENCE_ID,
+  TRIAL_SEQUENCE_ID,
+  TRIAL_CHECKIN_SEQUENCE_ID,
+  PRO_SEQUENCE_ID,
   BACKFILL_CONFIRM_PHRASE,
+  AUTO_DELIVER_ELIGIBLE_AFTER,
+  CONTENT_REVISION,
   TEMPLATE_VARIABLES,
   defaultOnboardingWelcomeStore,
   defaultFreeWelcomeSequence,
+  defaultTrialWelcomeSequence,
+  defaultTrialCheckinSequence,
+  defaultProWelcomeSequence,
   ensureOnboardingWelcome,
   isEligibleForFreeWelcome,
+  isEligibleForTrialWelcome,
+  isEligibleForTrialCheckin,
+  isEligibleForProWelcome,
   welcomeFlags,
   buildTemplateContext,
   applyTemplateVariables,

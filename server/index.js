@@ -4978,46 +4978,64 @@ function applyCheckoutMembershipUpgrade(email, {
       source,
     },
   });
-  try {
-    const storeForAlert = readStore();
-    const planLabel = user.plan || planConfig[planKey]?.plan || planKey;
-    const isTrial = promoTrialDays > 0 || String(user.stripeSubscriptionStatus || "").toLowerCase() === "trialing";
-    let type = "admin_new_subscription";
-    let title = `New ${planLabel} subscription`;
-    if (planKey === "founding") {
-      type = "admin_new_founding";
-      title = "New Founding Member signup";
-    } else if (planKey === "annual") {
-      type = "admin_new_annual";
-      title = "New Pro Annual signup";
-    } else if (isTrial) {
-      type = "admin_new_trial";
-      title = "New trial started";
-    } else if (planKey === "monthly") {
-      type = "admin_new_pro";
-      title = "New Pro Monthly signup";
+  // Welcome messages for NEW Trial/Pro members only (cutoff excludes existing Pros).
+  // Never backfills older accounts. Failures must not block checkout membership assignment.
+  // Run welcome then admin alert serially so a stale alert snapshot cannot wipe welcome stamps.
+  const planLabel = user.plan || planConfig[planKey]?.plan || planKey;
+  const isTrial = promoTrialDays > 0 || String(user.stripeSubscriptionStatus || "").toLowerCase() === "trialing";
+  const checkoutAlertRef = subscriptionId || sessionId || `checkout:${cleanEmail}:${Date.now()}`;
+  const shouldDeliverTrialWelcome = promoTrialDays > 0;
+  const shouldDeliverProWelcome = !shouldDeliverTrialWelcome
+    && (planKey === "monthly" || planKey === "annual" || planKey === "founding");
+  void (async () => {
+    try {
+      if (typeof onboardingWelcome?.maybeDeliverOnTrialStart === "function" && shouldDeliverTrialWelcome) {
+        await onboardingWelcome.maybeDeliverOnTrialStart(cleanEmail);
+      } else if (typeof onboardingWelcome?.maybeDeliverOnProPurchase === "function" && shouldDeliverProWelcome) {
+        await onboardingWelcome.maybeDeliverOnProPurchase(cleanEmail);
+      }
+    } catch (error) {
+      console.warn("[onboarding-welcome] membership welcome hook skipped:", error.message || error);
     }
-    emitAdminAlertSafe(storeForAlert, {
-      category: "billing",
-      type,
-      title,
-      preview: `${cleanEmail} · ${planLabel}${isTrial ? " (trial)" : ""}`,
-      email: cleanEmail,
-      refId: subscriptionId || sessionId || `checkout:${cleanEmail}:${Date.now()}`,
-      sendEmail: true,
-      emailKind: "Billing",
-      emailFields: [
-        ["Plan", planLabel],
-        ["Source", source],
-        ["Subscription", subscriptionId || ""],
-      ],
-    }).catch(() => {});
-    if (!options.deferPersist) {
-      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
+    try {
+      const storeForAlert = writableStore();
+      let type = "admin_new_subscription";
+      let title = `New ${planLabel} subscription`;
+      if (planKey === "founding") {
+        type = "admin_new_founding";
+        title = "New Founding Member signup";
+      } else if (planKey === "annual") {
+        type = "admin_new_annual";
+        title = "New Pro Annual signup";
+      } else if (isTrial) {
+        type = "admin_new_trial";
+        title = "New trial started";
+      } else if (planKey === "monthly") {
+        type = "admin_new_pro";
+        title = "New Pro Monthly signup";
+      }
+      await emitAdminAlertSafe(storeForAlert, {
+        category: "billing",
+        type,
+        title,
+        preview: `${cleanEmail} · ${planLabel}${isTrial ? " (trial)" : ""}`,
+        email: cleanEmail,
+        refId: checkoutAlertRef,
+        sendEmail: true,
+        emailKind: "Billing",
+        emailFields: [
+          ["Plan", planLabel],
+          ["Source", source],
+          ["Subscription", subscriptionId || ""],
+        ],
+      });
+      if (!options.deferPersist) {
+        writeStore(storeForAlert, { immediate: true });
+      }
+    } catch (alertError) {
+      console.warn("[admin-notifications] checkout alert failed:", alertError?.message || alertError);
     }
-  } catch (alertError) {
-    console.warn("[admin-notifications] checkout alert failed:", alertError?.message || alertError);
-  }
+  })();
   logMembershipTransition("permissions_updated", cleanEmail, {
     plan: user.plan,
     membershipStatus: membershipStatusDisplay(user),
@@ -7002,29 +7020,38 @@ async function handleAccountProfileSync(request, response) {
   });
 
   // Side effects after the response — never delay Create Account / Log In UI.
+  // Serialize welcome delivery before the admin-alert write so a stale alert store
+  // snapshot cannot wipe freeWelcomeSentAt / the in-app welcome message.
   if (isNewSignup) {
-    onboardingWelcome.maybeDeliverOnSignup(email).catch((err) => {
-      console.warn("[onboarding-welcome] free welcome failed:", err.message);
-    });
-    const storeForAlert = readStore();
-    emitAdminAlertSafe(storeForAlert, {
-      category: "signup",
-      type: "admin_new_signup",
-      title: "New account created",
-      preview: `${user.name || email} signed up (${user.accountType || "provider"} · ${user.plan || "Free"})`,
-      email,
-      name: user.name || "",
-      refId: `signup:${email}`,
-      sendEmail: true,
-      emailKind: "Signup",
-      emailFields: [
-        ["Account type", user.accountType || ""],
-        ["Role", user.role || ""],
-        ["Plan", user.plan || "Free"],
-      ],
-    }).then(() => {
-      try { writeStore(storeForAlert, { immediate: true }); } catch { /* ignore */ }
-    }).catch(() => {});
+    void (async () => {
+      try {
+        await onboardingWelcome.maybeDeliverOnSignup(email);
+      } catch (err) {
+        console.warn("[onboarding-welcome] free welcome failed:", err.message);
+      }
+      try {
+        const storeForAlert = writableStore();
+        await emitAdminAlertSafe(storeForAlert, {
+          category: "signup",
+          type: "admin_new_signup",
+          title: "New account created",
+          preview: `${user.name || email} signed up (${user.accountType || "provider"} · ${user.plan || "Free"})`,
+          email,
+          name: user.name || "",
+          refId: `signup:${email}`,
+          sendEmail: true,
+          emailKind: "Signup",
+          emailFields: [
+            ["Account type", user.accountType || ""],
+            ["Role", user.role || ""],
+            ["Plan", user.plan || "Free"],
+          ],
+        });
+        writeStore(storeForAlert, { immediate: true });
+      } catch {
+        /* ignore admin alert failures */
+      }
+    })();
   }
 }
 
@@ -18419,6 +18446,7 @@ function messagePreviewText(body, maxLength = 160) {
 const onboardingWelcome = createOnboardingWelcome({
   readStore,
   writeStore,
+  writableStore,
   upsertUser,
   sendEmail,
   fanOutNotificationsAndPush,
@@ -20853,6 +20881,14 @@ initializeStorage()
       }
     } catch (err) {
       console.warn("[email-engagement] scheduler/bootstrap failed:", err.message);
+    }
+    try {
+      // Trial day-3 check-in for NEW trials only (autoDeliverEligibleAfter cutoff).
+      // Does not backfill older trials or the most recent existing Pro members.
+      onboardingWelcome.startTrialCheckinScheduler();
+      console.log("[onboarding-welcome] trial check-in scheduler started (new trials only)");
+    } catch (welcomeErr) {
+      console.warn("[onboarding-welcome] trial check-in scheduler failed:", welcomeErr.message);
     }
   })
   .catch((error) => {

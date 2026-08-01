@@ -88,12 +88,19 @@ async function main() {
 
   await test("module exports createOnboardingWelcome", () => {
     assert.match(moduleJs, /createOnboardingWelcome/);
-    assert.match(moduleJs, /Welcome to Little Learner Hub! 🎉/);
+    assert.match(moduleJs, /Welcome to Little Learner Hub! 💜/);
+    assert.match(moduleJs, /Welcome to Your Pro Trial!/);
+    assert.match(moduleJs, /Thank You for Becoming a Pro Member!/);
+    assert.match(moduleJs, /How’s Your Trial Going\?|How.s Your Trial Going\?/);
     assert.match(moduleJs, /BACKFILL_CONFIRM_PHRASE/);
+    assert.match(moduleJs, /AUTO_DELIVER_ELIGIBLE_AFTER/);
   });
 
   await test("server wires signup + admin APIs", () => {
     assert.match(serverJs, /onboardingWelcome\.maybeDeliverOnSignup/);
+    assert.match(serverJs, /maybeDeliverOnTrialStart/);
+    assert.match(serverJs, /maybeDeliverOnProPurchase/);
+    assert.match(serverJs, /startTrialCheckinScheduler/);
     assert.match(serverJs, /\/api\/admin\/onboarding-welcome/);
     assert.match(serverJs, /handleAdminOnboardingWelcomeBackfill/);
   });
@@ -131,7 +138,10 @@ async function main() {
     await test("GET admin onboarding welcome config", async () => {
       const res = await request("GET", `/api/admin/onboarding-welcome?adminToken=${adminToken}`);
       assert.equal(res.status, 200);
-      assert.equal(res.json.sequence?.inApp?.title, "Welcome to Little Learner Hub! 🎉");
+      assert.equal(res.json.sequence?.inApp?.title, "Welcome to Little Learner Hub! 💜");
+      assert.match(res.json.sequence?.inApp?.body || "", /As a Free Member/);
+      assert.equal(res.json.sequences?.["trial-welcome"]?.inApp?.title, "Welcome to Your Pro Trial! 🎉");
+      assert.equal(res.json.sequences?.["pro-welcome"]?.inApp?.title, "Thank You for Becoming a Pro Member! 💜");
       assert.ok(Array.isArray(res.json.variables));
     });
 
@@ -177,14 +187,20 @@ async function main() {
       });
       assert.equal(signup.status, 200);
 
-      const store = readStoreFile();
-      const user = store.users[freeEmail];
+      let store = null;
+      let user = null;
+      for (let i = 0; i < 20; i += 1) {
+        store = readStoreFile();
+        user = store.users[freeEmail];
+        if (user?.onboardingWelcome?.freeWelcomeSentAt) break;
+        await new Promise((r) => setTimeout(r, 100));
+      }
       assert.ok(user?.onboardingWelcome?.freeWelcomeSentAt, "welcome stamp missing");
       const welcomeMessage = (store.messages || []).find(
         (m) => m.toEmail === freeEmail && m.channel === "onboarding_welcome",
       );
       assert.ok(welcomeMessage, "in-app welcome message missing");
-      assert.match(welcomeMessage.body, /Welcome to Little Learner Hub/);
+      assert.match(welcomeMessage.body, /As a Free Member|Thank you so much for joining/);
 
       const duplicate = await request("POST", "/api/account/profile", {
         body: { email: freeEmail, firstName: "Sam", signup: true },
@@ -226,21 +242,20 @@ async function main() {
     });
 
     await test("backfill dry-run then send to recent free signups", async () => {
-      let store = readStoreFile();
+      // Seed Free accounts through the live API (no signup:true) so auto-welcome does not fire.
       const seeded = [];
       for (let i = 0; i < 5; i += 1) {
         const email = `backfill-free-${Date.now()}-${i}@example.com`;
         seeded.push(email);
-        store.users[email] = {
-          email,
-          firstName: `User${i}`,
-          plan: "Free",
-          subscriptionStatus: "Free Plan",
-          signupAt: new Date(Date.now() - i * 1000).toISOString(),
-          createdAt: new Date(Date.now() - i * 1000).toISOString(),
-        };
+        const created = await request("POST", "/api/account/profile", {
+          body: {
+            email,
+            firstName: `User${i}`,
+            lastName: "Provider",
+          },
+        });
+        assert.equal(created.status, 200, JSON.stringify(created.json));
       }
-      fs.writeFileSync(STORE, JSON.stringify(store));
 
       const dryRun = await request("POST", "/api/admin/onboarding-welcome/backfill", {
         headers: { Authorization: `Bearer ${adminToken}` },
@@ -249,7 +264,7 @@ async function main() {
       assert.equal(dryRun.status, 200);
       assert.equal(dryRun.json.dryRun, true);
       assert.ok(dryRun.json.confirmPhrase);
-      assert.equal(dryRun.json.count, 5);
+      assert.ok(dryRun.json.count >= 5, `expected at least 5 pending, got ${dryRun.json.count}`);
 
       const send = await request("POST", "/api/admin/onboarding-welcome/backfill", {
         headers: { Authorization: `Bearer ${adminToken}` },
@@ -261,10 +276,10 @@ async function main() {
       assert.equal(send.status, 200);
       assert.equal(send.json.count, 5);
 
-      store = readStoreFile();
-      seeded.forEach((email) => {
-        assert.ok(store.users[email]?.onboardingWelcome?.freeWelcomeSentAt, `missing stamp for ${email}`);
-      });
+      await new Promise((r) => setTimeout(r, 200));
+      const store = readStoreFile();
+      const stamped = seeded.filter((email) => store.users[email]?.onboardingWelcome?.freeWelcomeSentAt);
+      assert.equal(stamped.length, 5, `expected all seeded accounts stamped, got ${stamped.length}`);
     });
 
     await test("founding section hidden when sold out in preview", async () => {
