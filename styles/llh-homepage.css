@@ -215,6 +215,7 @@ body.home-view .landing-home .llh-hero,
 body.home-view .landing-home .llh-section,
 body.home-view .landing-home .lp-founder-section,
 body.home-view .landing-home .lp-reviews-section,
+body.home-view .landing-home .lp-shape-feedback-section,
 body.home-view .landing-home .lp-pricing-section,
 body.home-view .landing-home .lp-final-cta {
   scroll-margin-top: calc(var(--llh-home-nav-offset) + 10px);
@@ -370,6 +371,7 @@ body.llh-public-menu-open {
 .landing-home .lp-hero,
 .landing-home .lp-founder-section,
 .landing-home .lp-reviews-section,
+.landing-home .lp-shape-feedback-section,
 .landing-home .lp-pricing-section,
 .landing-home .lp-final-cta {
   max-width: 1180px;
@@ -893,6 +895,83 @@ body.llh-public-menu-open {
   text-align: center;
   margin: 16px 0 0;
 }
+
+/* Private “Help Shape” feedback — between reviews and pricing */
+.llh-shape-feedback-form {
+  display: grid;
+  gap: 14px;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 4px 0 0;
+}
+
+.llh-shape-feedback-label {
+  display: grid;
+  gap: 6px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--llh-home-ink);
+}
+
+.llh-shape-feedback-optional {
+  font-weight: 500;
+  color: var(--llh-home-muted);
+  font-size: 0.86rem;
+}
+
+.llh-shape-feedback-form select,
+.llh-shape-feedback-form textarea,
+.llh-shape-feedback-form input[type="email"] {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(42, 42, 53, 0.14);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--llh-home-ink);
+  font: inherit;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.llh-shape-feedback-form select:focus,
+.llh-shape-feedback-form textarea:focus,
+.llh-shape-feedback-form input[type="email"]:focus {
+  outline: none;
+  border-color: rgba(90, 77, 138, 0.45);
+  box-shadow: 0 0 0 3px rgba(123, 107, 181, 0.16);
+}
+
+.llh-shape-feedback-form textarea {
+  resize: vertical;
+  min-height: 110px;
+}
+
+.llh-shape-feedback-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.llh-shape-feedback-status {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 0.92rem;
+}
+
+.llh-shape-feedback-status.is-success {
+  color: #2f6b4f;
+  font-weight: 600;
+}
+
+.llh-shape-feedback-status.is-error {
+  color: #9b3b3b;
+  font-weight: 600;
+}
+
 
 .llh-pricing-grid {
   display: grid;

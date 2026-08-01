@@ -25709,6 +25709,8 @@ function bindHomePublicChrome() {
       try { localStorage.setItem(LLH_FOUNDING_ANNOUNCE_DISMISS_KEY, "1"); } catch { /* ignore */ }
     });
   }
+  bindHomeShapeFeedbackForm();
+  prefillHomeShapeFeedbackEmail();
   setHomePublicMenuOpen(false);
 }
 
@@ -39563,6 +39565,98 @@ function clearFeedbackDraft(type = "General Feedback") {
     sessionStorage.removeItem(feedbackDraftStorageKey(type));
   } catch {
     /* ignore */
+  }
+}
+
+const HOME_SHAPE_FEEDBACK_TYPES = new Set([
+  "New Feature",
+  "Lesson Plan Request",
+  "Activity Request",
+  "Bug Report",
+  "General Feedback",
+]);
+
+function setHomeShapeFeedbackStatus(message = "", { ok = false, error = false } = {}) {
+  const status = document.querySelector("#homeShapeFeedbackStatus");
+  if (!status) return;
+  status.textContent = message;
+  status.classList.toggle("is-success", Boolean(ok && message));
+  status.classList.toggle("is-error", Boolean(error && message));
+}
+
+function prefillHomeShapeFeedbackEmail() {
+  const emailInput = document.querySelector("#homeShapeFeedbackEmail");
+  if (!emailInput || emailInput.value.trim()) return;
+  const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
+  const email = currentUser || account.email || "";
+  if (email) emailInput.value = email;
+}
+
+function bindHomeShapeFeedbackForm() {
+  const form = document.querySelector("#homeShapeFeedbackForm");
+  if (!form || form.dataset.bound === "1") return;
+  form.dataset.bound = "1";
+  form.addEventListener("submit", submitHomeShapeFeedbackForm);
+  prefillHomeShapeFeedbackEmail();
+}
+
+async function submitHomeShapeFeedbackForm(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const type = String(document.querySelector("#homeShapeFeedbackType")?.value || "").trim();
+  const message = String(document.querySelector("#homeShapeFeedbackMessage")?.value || "").trim();
+  const email = String(document.querySelector("#homeShapeFeedbackEmail")?.value || "").trim()
+    || currentUser
+    || "";
+  const submitBtn = document.querySelector("#homeShapeFeedbackSubmit");
+  if (!HOME_SHAPE_FEEDBACK_TYPES.has(type)) {
+    setHomeShapeFeedbackStatus("Please choose a category.", { error: true });
+    document.querySelector("#homeShapeFeedbackType")?.focus();
+    return;
+  }
+  if (!message) {
+    setHomeShapeFeedbackStatus("Tell us a little about your idea or request.", { error: true });
+    document.querySelector("#homeShapeFeedbackMessage")?.focus();
+    return;
+  }
+  const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
+  const name = (typeof displayUserName === "function" ? displayUserName(account) : "")
+    || [account.firstName, account.lastName].filter(Boolean).join(" ")
+    || "Provider";
+  const payload = {
+    type,
+    name,
+    email,
+    subject: type,
+    message,
+    sourceUrl: window.location.href,
+    page: "#homeShapeFeedback",
+    accountType: account.accountType || (typeof getAccountType === "function" ? getAccountType(account) : ""),
+    role: account.role || (typeof getUserRole === "function" ? getUserRole(account) : ""),
+  };
+  setHomeShapeFeedbackStatus("Sending…");
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not send feedback.");
+    trackEvent("feedback_submitted", { type, subject: type, source: "homepage_shape" });
+    setHomeShapeFeedbackStatus("Thank you — Leah got your note. It stays private with the team.", { ok: true });
+    form.reset();
+    prefillHomeShapeFeedbackEmail();
+    if (typeof isAdminUnlocked === "function" && isAdminUnlocked()) {
+      adminAnalyticsCache = null;
+      loadAdminAnalyticsFromBackend();
+    }
+  } catch (error) {
+    setHomeShapeFeedbackStatus(error?.message || "Could not send feedback. Please try again.", { error: true });
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
 }
 
@@ -61662,6 +61756,7 @@ document.querySelectorAll(".support-form").forEach((form) => {
   });
 });
 document.querySelector("#feedbackForm")?.addEventListener("submit", submitFeedbackForm);
+bindHomeShapeFeedbackForm();
 
 document.querySelector("#leadCaptureForm")?.addEventListener("submit", (event) => {
   event.preventDefault();

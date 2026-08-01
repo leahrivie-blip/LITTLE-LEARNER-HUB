@@ -17187,10 +17187,13 @@ function publicFeedback(item) {
   return {
     id: item.id,
     type: item.type,
+    subject: item.subject || item.type || "Feedback",
     message: item.message,
     email: item.email,
     name: item.name,
     status: item.status,
+    page: item.page || item.sourceUrl || "",
+    sourceUrl: item.sourceUrl || item.page || "",
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -17819,8 +17822,8 @@ function handleFeatureRequestsList(request, response, url) {
 
 const FEEDBACK_TYPES = new Set([
   "General Feedback", "Suggestion", "Idea", "Compliment", "Improvement Request",
-  "Bug", "Problem", "Missing Feature", "Question", "Feature Request", "Support",
-  "Lesson Plan Feedback",
+  "Bug", "Bug Report", "Problem", "Missing Feature", "Question", "Feature Request",
+  "New Feature", "Support", "Lesson Plan Feedback", "Lesson Plan Request", "Activity Request",
 ]);
 const FEEDBACK_STATUSES = new Set(["New", "In Progress", "Reviewed", "Planned", "Resolved", "Completed", "Archived"]);
 
@@ -17861,9 +17864,9 @@ async function handleFeedbackCreate(request, response) {
       title: item.subject || item.type,
       detail: item.message.slice(0, 400),
     });
-    const adminType = item.type === "Bug" || item.type === "Problem"
+    const adminType = item.type === "Bug" || item.type === "Bug Report" || item.type === "Problem"
       ? "admin_new_bug"
-      : item.type === "Feature Request" || item.type === "Missing Feature"
+      : item.type === "Feature Request" || item.type === "New Feature" || item.type === "Missing Feature"
         ? "admin_new_feature"
         : "admin_new_support";
     notifyAdminsInApp(store, {

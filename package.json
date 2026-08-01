@@ -124,6 +124,7 @@
     "test:spa-fallback": "NODE_ENV=test node scripts/test-spa-fallback.js",
     "test:stale-auth-reconcile": "NODE_ENV=test node scripts/test-stale-auth-reconcile.js",
     "test:homepage-signup-cta": "node scripts/test-homepage-signup-cta.js",
+    "test:homepage-shape-feedback": "node scripts/test-homepage-shape-feedback.js",
     "test:provider-trust-faq": "node scripts/test-provider-trust-faq.js",
     "test:signup-buttons-audit": "node scripts/test-signup-buttons-audit.js",
     "test:signup-center-continue": "node scripts/test-signup-center-continue.js",

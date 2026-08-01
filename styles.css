@@ -11875,6 +11875,7 @@ body.force-password-required #forcePasswordModal * {
 .lp-pricing-section,
 .lp-why-section,
 .lp-reviews-section,
+.lp-shape-feedback-section,
 .lp-founder-section,
 .lp-final-cta {
   margin-top: 28px;
@@ -13756,6 +13757,7 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
   .lp-pricing-section,
   .lp-why-section,
   .lp-reviews-section,
+  .lp-shape-feedback-section,
   .lp-founder-section,
   .lp-final-cta {
     padding: 40px 28px;
@@ -13872,6 +13874,7 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
   .lp-pricing-section,
   .lp-why-section,
   .lp-reviews-section,
+  .lp-shape-feedback-section,
   .lp-founder-section,
   .lp-final-cta {
     padding: 30px 18px;
@@ -14043,6 +14046,7 @@ body.user-authenticated .lp-final-cta [data-action="start-free"] {
   .lp-pricing-section,
   .lp-why-section,
   .lp-reviews-section,
+  .lp-shape-feedback-section,
   .lp-founder-section,
   .lp-final-cta {
     padding: 26px 16px;

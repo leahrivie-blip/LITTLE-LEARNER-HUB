@@ -120,8 +120,8 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260730-hdh-own-tester-kid" />
-  <link rel="stylesheet" href="styles.css?v=20260730-hdh-own-tester-kid" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260731-shape-feedback" />
+  <link rel="stylesheet" href="styles.css?v=20260731-shape-feedback" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260730-hdh-own-tester-kid" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260730-hdh-own-tester-kid" />
@@ -825,6 +825,36 @@
               </article>
             </div>
             <p class="llh-reviews-more muted-copy">Member ratings &amp; reviews are coming soon for paid plans — we&rsquo;d love to hear how it&rsquo;s working in your classroom.</p>
+          </section>
+
+          <!-- PRIVATE PRODUCT FEEDBACK (admin-only; not a public review) -->
+          <section class="lp-shape-feedback-section llh-shape-feedback" id="homeShapeFeedback" aria-label="Help shape Little Learner Hub">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Help Shape Little Learner Hub</h2>
+              <p class="lp-section-sub">Share an idea, request a theme, or flag something rough. Your note goes privately to Leah — it never shows as a public review.</p>
+            </div>
+            <form class="llh-shape-feedback-form" id="homeShapeFeedbackForm" novalidate>
+              <label class="llh-shape-feedback-label">What is this about?
+                <select id="homeShapeFeedbackType" name="type" required>
+                  <option value="">Choose a category</option>
+                  <option value="New Feature">New Feature</option>
+                  <option value="Lesson Plan Request">Lesson Plan Request</option>
+                  <option value="Activity Request">Activity Request</option>
+                  <option value="Bug Report">Bug Report</option>
+                  <option value="General Feedback">General Feedback</option>
+                </select>
+              </label>
+              <label class="llh-shape-feedback-label">Your idea or request
+                <textarea id="homeShapeFeedbackMessage" name="message" rows="4" required maxlength="5000" placeholder="What would help your classroom day go smoother?"></textarea>
+              </label>
+              <label class="llh-shape-feedback-label">Email <span class="llh-shape-feedback-optional">(optional — so we can follow up)</span>
+                <input type="email" id="homeShapeFeedbackEmail" name="email" autocomplete="email" maxlength="200" placeholder="Optional — for a reply" />
+              </label>
+              <div class="llh-shape-feedback-actions">
+                <button class="primary-button" type="submit" id="homeShapeFeedbackSubmit">Share with Leah</button>
+              </div>
+              <p class="form-message llh-shape-feedback-status" id="homeShapeFeedbackStatus" aria-live="polite"></p>
+            </form>
           </section>
 
           <!-- PRICING -->
@@ -2287,7 +2317,7 @@
     <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260730-hdh-own-tester-kid" defer></script>
+    <script src="app.js?v=20260731-shape-feedback" defer></script>
     <script src="admin-workspace.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="comms-center.js?v=20260730-hdh-own-tester-kid" defer></script>
   </body>

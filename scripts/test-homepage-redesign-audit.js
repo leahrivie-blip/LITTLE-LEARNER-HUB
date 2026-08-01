@@ -174,7 +174,7 @@ async function runAudit(playwright, baseUrl, seeded) {
 
   const sectionIds = [
     "homeHero", "homeLessonPlans", "homeActivities", "homeFeatures", "homeComingSoon",
-    "homeAudience", "homeFounder", "homeReviews",
+    "homeAudience", "homeFounder", "homeReviews", "homeShapeFeedback",
     "homePricing", "homeFinalCta",
   ];
   for (const id of sectionIds) {
