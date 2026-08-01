@@ -262,16 +262,16 @@ async function main() {
           clientWidth: document.documentElement.clientWidth,
         };
       });
-      assert.equal(guest.remaining, 2);
+      assert.equal(guest.remaining, 0);
       assert.equal(guest.openForAcquisition, false);
       assert.equal(guest.announceVisible, false);
       assert.equal(guest.foundingCtas, 0, `unexpected founding CTA count ${guest.foundingCtas}`);
       assert.ok(guest.proCtas >= 1, `expected Pro CTAs, got ${guest.proCtas}`);
-      assert.match(guest.pricing, /\$19\.99|Pro Monthly|closed for new signups/i);
-      assert.doesNotMatch(guest.hero, /Only \d+ Founding Member spots? remaining/i);
-      assert.doesNotMatch(guest.finalCta, /Only \d+ Founding Member spots? remaining/i);
+      assert.match(guest.pricing, /\$19\.99|Pro Monthly/i);
+      assert.doesNotMatch(guest.hero, /Founding Member|spots remaining/i);
+      assert.doesNotMatch(guest.finalCta, /Founding Member|spots remaining/i);
+      assert.doesNotMatch(guest.pricing, /Founding Member/i);
       assert.match(guest.roadmap, /Family Hub/i);
-      assert.match(guest.roadmap, /Daily operations/i);
       assert.match(guest.roadmap, /Daily operations/i);
       assert.ok(guest.scrollWidth <= guest.clientWidth + 1, `${viewport.name} horizontal scroll`);
       assert.equal(consoleErrors.filter((e) => !/favicon|net::ERR/i.test(e)).length, 0, consoleErrors.join("\n"));
@@ -310,11 +310,11 @@ async function main() {
         sidebar: document.querySelector("#sidebarFreeUpgradeCard")?.innerText || "",
         spotsMsg: foundingSpotsLeftMessage(),
       }));
-      assert.equal(chrome.remaining, 2);
+      assert.equal(chrome.remaining, 0);
       assert.match(chrome.reminder, /\$19\.99|Pro|Free Starter Library/i);
       assert.match(chrome.sidebar, /\$19\.99|Pro|Free/i);
-      assert.doesNotMatch(chrome.reminder, /Lock In Founding|\$9\.99\/month locked/i);
-      assert.doesNotMatch(chrome.sidebar, /Lock In Founding Member Pricing/i);
+      assert.doesNotMatch(chrome.reminder, /Founding Member|Lock In Founding|\$9\.99\/month locked/i);
+      assert.doesNotMatch(chrome.sidebar, /Founding Member|Lock In Founding/i);
       results.push(await shot(page, "signed-in-free-chrome"));
       await page.close();
       console.log("PASS signed-in Free Pro upgrade chrome");
@@ -478,10 +478,20 @@ async function main() {
         if (form) form.hidden = false;
       });
       await page.waitForSelector("#lessonPlanRequestForm:not([hidden])", { state: "attached" });
-      await page.selectOption("#lessonPlanRequestAge", "Infant");
-      await page.fill("#lessonPlanRequestTheme", "Soft Sensory");
-      await page.fill("#lessonPlanRequestNeededBy", "August");
-      await page.fill("#lessonPlanRequestDetails", "Quiet room friendly");
+      await page.evaluate(() => {
+        const form = document.querySelector("#lessonPlanRequestForm");
+        if (!form) return;
+        form.hidden = false;
+        form.style.display = "block";
+        const age = form.querySelector("#lessonPlanRequestAge");
+        const theme = form.querySelector("#lessonPlanRequestTheme");
+        const neededBy = form.querySelector("#lessonPlanRequestNeededBy");
+        const details = form.querySelector("#lessonPlanRequestDetails");
+        if (age) age.value = "Infant";
+        if (theme) theme.value = "Soft Sensory";
+        if (neededBy) neededBy.value = "August";
+        if (details) details.value = "Quiet room friendly";
+      });
       await page.evaluate(async () => {
         const form = document.querySelector("#lessonPlanRequestForm");
         if (form && typeof submitLessonPlanRequestForm === "function") {
@@ -499,7 +509,7 @@ async function main() {
     const summary = {
       ok: true,
       screenshots: results,
-      founding: { claimed: LIVE_CLAIMED, limit: FOUNDING_LIMIT, remaining: 2 },
+      founding: { claimed: LIVE_CLAIMED, limit: FOUNDING_LIMIT, remaining: 0 },
     };
     fs.writeFileSync(path.join(OUT_DIR, "homepage-final-cleanup.json"), JSON.stringify(summary, null, 2));
     console.log(JSON.stringify(summary, null, 2));

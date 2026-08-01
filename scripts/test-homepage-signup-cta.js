@@ -37,10 +37,11 @@ test("hero prioritizes Preview Free Lesson Plans, Pro pricing, and Log In text l
   assert.doesNotMatch(actionsHtml, />Sign Up</);
   assert.doesNotMatch(actionsHtml, /Browse Lesson Plans/);
   assert.doesNotMatch(actionsHtml, /data-checkout-plan="founding"/);
-  assert.match(html, /Curriculum today\. Growing into the complete childcare platform providers need\./);
+  assert.match(html, /All-in-one childcare platform/);
   assert.match(html, /id="homeHeroInventory"/);
   assert.match(html, /\$19\.99/);
-  assert.match(html, /Affordable Childcare Curriculum/);
+  assert.match(html, /Plan, Organize, Document/);
+  assert.doesNotMatch(html, /Founding Member/);
 });
 
 test("Pro, free, and final CTAs exist; Founding announce hidden", () => {

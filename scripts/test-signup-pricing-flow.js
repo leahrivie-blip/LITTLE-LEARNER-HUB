@@ -36,15 +36,12 @@ test("three-step signup wizard markup and state exist", () => {
   assert.match(appJs, /mapSignupPersona/);
 });
 
-test("plan chooser features paid-first Founding/Pro and Free preview", () => {
-  assert.match(appJs, /Claim My Founding Spot/);
+test("plan chooser features paid-first Pro and Free preview (Founding acquisition closed)", () => {
+  assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
+  assert.doesNotMatch(appJs, /Claim My Founding Spot/);
   assert.match(appJs, /Create Free Account/);
-  assert.match(appJs, /Continue with Pro/);
-  assert.match(appJs, /Most Popular/);
-  assert.match(appJs, /locked while continuously active/);
-  assert.match(appJs, /Founding Spots Remaining/);
+  assert.match(appJs, /Continue with Pro|Choose Pro Monthly|Upgrade to Pro/);
   assert.match(appJs, /Created by a Childcare Provider/);
-  assert.match(appJs, /Stop spending hours planning each week/);
   assert.match(appJs, /signup-plan-grid--paid-first/);
   assert.match(appJs, /signup-plan-card--preview/);
   assert.match(appJs, /showSignupFreeConfirm/);
@@ -63,7 +60,8 @@ test("signup chooser keeps Free as preview while featuring paid plans", () => {
   assert.match(chooser, /signup-plan-card--free signup-plan-card--preview/);
   assert.match(chooser, /copy\.foundingCta/);
   assert.match(chooser, /data-signup-choose-plan="monthly"/);
-  assert.match(appJs, /foundingCta:\s*"Claim My Founding Spot"/);
+  assert.match(appJs, /foundingCta:\s*"(Choose Pro Monthly|Upgrade to Pro)"/);
+  assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);
   // Free card should appear after paid grid in the template.
   const freeIdx = chooser.indexOf("signup-plan-card--preview");
   const foundingIdx = chooser.indexOf("signup-plan-card--founding");

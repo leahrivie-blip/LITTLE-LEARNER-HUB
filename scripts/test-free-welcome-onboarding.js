@@ -182,7 +182,9 @@ async function main() {
       });
       assert.equal(res.status, 200);
       assert.match(res.json.previews.inApp.body, /Hi Jordan/);
-      assert.match(res.json.previews.inApp.body, /Founding offer for Jordan/);
+      // Founding acquisition is closed — FoundingSection stays empty even if template enables it.
+      assert.doesNotMatch(res.json.previews.inApp.body, /Founding offer for Jordan/);
+      assert.doesNotMatch(res.json.previews.inApp.body, /Founding Member/);
       assert.match(res.json.previews.email.subject, /Welcome Jordan/);
     });
 
