@@ -1,12 +1,12 @@
-const CACHE_NAME = "llh-shell-v141-hdh-own-tester-kid";
-const SHELL_VERSION = "20260730-hdh-own-tester-kid";
+const CACHE_NAME = "llh-shell-v142-feedback-dash";
+const SHELL_VERSION = "20260801-feedback-dash";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260730-hdh-own-tester-kid",
+  "/styles.css?v=20260801-feedback-dash",
   "/styles/llh-admin-workspace.css?v=20260730-hdh-own-tester-kid",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260730-hdh-own-tester-kid",
@@ -30,7 +30,7 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
   "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
   "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/app.js?v=20260730-hdh-own-tester-kid",
+  "/app.js?v=20260801-feedback-dash",
   "/admin-workspace.js?v=20260730-hdh-own-tester-kid",
   "/comms-center.js?v=20260730-hdh-own-tester-kid",
   "/site.webmanifest",

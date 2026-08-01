@@ -163,9 +163,11 @@ test("admin notification helpers dedupe and categorize", () => {
 });
 
 test("cache bust versions aligned for admin-notif-pwa", () => {
-  assert.match(indexHtml, /app\.js\?v=20260722-lesson-empty-hotfix/);
-  assert.match(sw, /llh-shell-v109-lesson-empty-hotfix/);
-  assert.match(sw, /app\.js\?v=20260722-lesson-empty-hotfix/);
+  const appV = indexHtml.match(/app\.js\?v=([^"]+)/)?.[1];
+  assert.ok(appV, "index.html app.js cache version missing");
+  const escaped = appV.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  assert.match(sw, new RegExp(`app\\.js\\?v=${escaped}`));
+  assert.match(sw, /llh-shell-v\d+/);
 });
 
 async function integration() {
