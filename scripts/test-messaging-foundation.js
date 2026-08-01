@@ -193,6 +193,47 @@ async function main() {
       assert.equal(ticket.json.ticket.kind, "Lesson Plan Feedback");
     });
 
+    await test("Private lesson plan star ratings persist for admin review", async () => {
+      const rated = await request(BASE, "POST", "/api/feedback", {
+        body: {
+          type: "Lesson Plan Feedback",
+          name: "Free Parent",
+          email: FREE_USER,
+          subject: "Lesson plan feedback: Colors Everywhere (4 stars)",
+          message: "Lesson plan: Colors Everywhere\nLesson ID: lesson-colors\nStars: 4 / 5\nFeedback: 4 stars",
+          lessonId: "lesson-colors",
+          sentiment: "rating",
+          stars: 4,
+          page: "lesson:lesson-colors",
+        },
+      });
+      assert.equal(rated.status, 200, JSON.stringify(rated.json));
+      assert.equal(rated.json.feedback.type, "Lesson Plan Feedback");
+      assert.equal(rated.json.feedback.stars, 4);
+      assert.equal(rated.json.feedback.lessonId, "lesson-colors");
+      assert.equal(rated.json.feedback.sentiment, "rating");
+
+      const invalid = await request(BASE, "POST", "/api/feedback", {
+        body: {
+          type: "Lesson Plan Feedback",
+          name: "Free Parent",
+          email: FREE_USER,
+          subject: "bad stars",
+          message: "ignore invalid stars",
+          stars: 9,
+          lessonId: "lesson-colors",
+          sentiment: "rating",
+        },
+      });
+      assert.equal(invalid.status, 200, JSON.stringify(invalid.json));
+      assert.equal(invalid.json.feedback.stars, null);
+
+      const list = await request(BASE, "GET", `/api/feedback?adminToken=${encodeURIComponent(adminToken)}`);
+      assert.equal(list.status, 200, JSON.stringify(list.json));
+      const items = list.json.feedback || [];
+      assert.ok(items.some((item) => item.stars === 4 && item.lessonId === "lesson-colors"));
+    });
+
     if (process.exitCode) {
       console.error("\nBoot log for debugging:\n" + getLog());
     }

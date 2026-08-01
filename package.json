@@ -156,6 +156,7 @@
     "test:lesson-editor-separation": "node scripts/test-lesson-plan-editor-separation.js",
     "test:lesson-viewer-action-bar": "node scripts/test-lesson-viewer-action-bar.js",
     "test:lesson-mobile-popups-audit": "node scripts/test-lesson-mobile-popups-audit.js",
+    "test:lesson-plan-private-ratings": "node scripts/test-lesson-plan-private-ratings.js",
     "test:lesson-fullscreen-mobile": "node scripts/test-lesson-fullscreen-mobile.js",
     "test:lesson-editor-save-ux": "node scripts/test-lesson-editor-save-ux.js",
     "test:lesson-mobile-header": "node scripts/test-lesson-mobile-header.js",

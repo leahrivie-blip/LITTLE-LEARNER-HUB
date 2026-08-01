@@ -1024,6 +1024,45 @@
   font-weight: 600;
 }
 
+.lesson-workspace-feedback-hint {
+  margin: 0 0 14px;
+  font-size: 0.86rem;
+}
+
+.lesson-workspace-star-rating {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 8px;
+}
+
+.lesson-workspace-star-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(42, 42, 53, 0.28);
+  font-size: 1.55rem;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+}
+
+.lesson-workspace-star-btn.is-selected,
+.lesson-workspace-star-btn:focus-visible,
+.lesson-workspace-star-rating:hover .lesson-workspace-star-btn:hover,
+.lesson-workspace-star-rating:hover .lesson-workspace-star-btn:has(~ .lesson-workspace-star-btn:hover) {
+  color: #c9852a;
+  background: rgba(201, 133, 42, 0.08);
+}
+
+.lesson-workspace-star-btn:hover,
+.lesson-workspace-star-btn:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+}
+
 .lesson-workspace-feedback-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1032,6 +1071,13 @@
 
 .lesson-workspace-feedback-status {
   margin: 10px 0 0;
+}
+
+.admin-feedback-stars {
+  margin: 6px 0 0;
+  color: #c9852a;
+  letter-spacing: 0.06em;
+  font-weight: 700;
 }
 
 @media (max-width: 640px) {
