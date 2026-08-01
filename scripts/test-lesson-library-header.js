@@ -96,10 +96,11 @@ async function main() {
   }
 
   const child = startServer();
+  let browser;
   try {
     await waitForBoot(child);
     const { chromium } = playwright;
-    const browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 412, height: 915 } });
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
@@ -118,6 +119,14 @@ async function main() {
     });
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => typeof setView === "function", null, { timeout: 30000 });
+    // Wait for membership boot verification so setView is not blocked.
+    await page.waitForFunction(
+      () => typeof setView === "function"
+        && document.body.classList.contains("app-booted")
+        && !document.body.classList.contains("app-boot-verifying"),
+      null,
+      { timeout: 30000 },
+    );
 
     await page.evaluate(() => setView("lessons"));
     await page.waitForSelector("#view-lessons.active-view", { timeout: 8000 });
@@ -134,6 +143,10 @@ async function main() {
       const lessonsTop = document.querySelector("#view-lessons")?.getBoundingClientRect()?.top || 0;
       const searchTop = document.querySelector("#lessonPlanSearch")?.getBoundingClientRect()?.top || 0;
       const gridTop = document.querySelector("#view-lessons .resource-grid")?.getBoundingClientRect()?.top || 0;
+      const requestPanel = document.querySelector("#lessonPlanRequestPanel");
+      const requestPanelVisible = Boolean(
+        requestPanel && !requestPanel.hidden && window.getComputedStyle(requestPanel).display !== "none",
+      );
       const overflow = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
       return {
         lessonsViewClass: document.body.classList.contains("lessons-view"),
@@ -142,9 +155,10 @@ async function main() {
         hasCompactHeader: Boolean(document.querySelector(".lesson-library-header .lesson-library-title")),
         hasBack: Boolean(document.querySelector(".lesson-library-back")),
         hasAgeFilters: Boolean(document.querySelector(".lesson-library-age-filters")),
-        noticeVisibleByDefault: Boolean(document.querySelector("#lessonLibraryInfoPanel")),
-        searchNearTop: searchTop - lessonsTop < 220,
-        resultsNearTop: gridTop - lessonsTop < 360,
+        noticeVisibleByDefault: Boolean(document.querySelector("#lessonLibraryInfoBanner")),
+        // Request panel sits above search on browse; allow room for it.
+        searchNearTop: searchTop - lessonsTop < (requestPanelVisible ? 620 : 220),
+        resultsNearTop: gridTop - lessonsTop < (requestPanelVisible ? 860 : 360),
         overflow,
         globalSearchPlaceholder: document.querySelector("#searchInput")?.placeholder || "",
       };
@@ -163,7 +177,7 @@ async function main() {
 
     // Info toggle reveals access copy without a permanent large card.
     await page.click("[data-lesson-library-info-toggle]");
-    await page.waitForSelector("#lessonLibraryInfoPanel", { timeout: 3000 });
+    await page.waitForSelector("#lessonLibraryInfoBanner", { timeout: 3000 });
 
     // Leaving lessons restores topbar chrome (logged-in home remaps to Calendar).
     await page.evaluate(() => setView("calendar"));
@@ -209,12 +223,14 @@ async function main() {
     assert(guestState.signupWidth > 0, "guest signup button should be clickable size");
     assert(guestState.hasGuestStrip, "guest library Get Started strip missing");
 
-    await browser.close();
     console.log("Lesson library header cleanup checks passed.");
   } catch (error) {
     console.error("FAIL:", error.message);
     process.exitCode = 1;
   } finally {
+    if (browser) {
+      try { await browser.close(); } catch { /* ignore */ }
+    }
     await stopServer(child);
     fs.rmSync(STORE_PATH, { force: true });
   }
