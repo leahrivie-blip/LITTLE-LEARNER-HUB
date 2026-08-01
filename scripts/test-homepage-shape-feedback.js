@@ -171,7 +171,7 @@ async function testApiAndAdmin() {
 
     const analytics = await requestJson("GET", `/api/admin/analytics?adminToken=${encodeURIComponent(token)}`);
     assert.equal(analytics.status, 200, JSON.stringify(analytics.json));
-    const feedback = analytics.json?.feedback || [];
+    const feedback = analytics.json?.analytics?.feedback || analytics.json?.feedback || [];
     assert.ok(feedback.length >= CATEGORIES.length, "admin analytics should include shape feedback");
     for (const type of CATEGORIES) {
       assert.ok(feedback.some((item) => item.type === type), `analytics missing ${type}`);
