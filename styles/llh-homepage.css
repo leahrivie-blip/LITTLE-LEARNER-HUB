@@ -454,6 +454,58 @@ body.llh-public-menu-open {
   font-size: 0.98rem;
 }
 
+.llh-hero-social-proof {
+  margin: 2px 0 4px;
+  width: 100%;
+  color: var(--llh-home-ink, #2a2a35);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.llh-hero-trust-line {
+  margin: 4px 0 0;
+  color: var(--llh-home-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+.landing-home .llh-hero--tiktok .lp-hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin: 4px 0 12px;
+}
+
+.landing-home .llh-hero--tiktok .llh-hero-primary-cta {
+  width: 100%;
+  max-width: 360px;
+  min-height: 48px;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.landing-home .llh-hero--tiktok .llh-hero-secondary-cta {
+  align-self: flex-start;
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+  border: 0;
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.landing-home .llh-hero--tiktok .llh-hero-secondary-cta:hover,
+.landing-home .llh-hero--tiktok .llh-hero-secondary-cta:focus-visible {
+  color: var(--llh-primary, #7b6bb5);
+}
+
 .llh-hero-inventory {
   margin: 0 0 18px;
   padding: 14px 16px;
@@ -1336,6 +1388,60 @@ body.llh-public-menu-open {
   .landing-home .lp-hero-actions .llh-hero-login-link {
     flex: 1 1 100%;
     text-align: center;
+  }
+
+  /* TikTok conversion hero: keep Start Free above the fold; no duplicate Preview. */
+  .landing-home .llh-hero--tiktok {
+    margin-top: 10px;
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-headline {
+    font-size: clamp(1.7rem, 7.2vw, 2.15rem);
+    margin-bottom: 10px;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-sub {
+    font-size: 0.98rem;
+    margin-bottom: 14px;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-primary-cta,
+  .landing-home .llh-hero--tiktok .lp-hero-actions .llh-btn,
+  .landing-home .llh-hero--tiktok .lp-hero-actions .lp-btn-primary {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-secondary-cta {
+    flex: 0 0 auto;
+    width: auto;
+    align-self: center;
+    text-align: center;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-social-proof {
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-trust-line {
+    text-align: center;
+    font-size: 0.86rem;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-visual,
+  .landing-home .llh-hero--tiktok .llh-hero-visual {
+    display: none;
   }
 
   .llh-feature-grid {

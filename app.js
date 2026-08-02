@@ -4385,12 +4385,8 @@ function syncPublicFoundingOfferUi() {
     }
   });
 
-  const heroSupport = document.querySelector(".llh-hero-support");
-  if (heroSupport) {
-    heroSupport.textContent = soldOut
-      ? "Start free, or upgrade to Pro for $19.99/month (or $199/year)."
-      : "Start free, or upgrade to Pro for $19.99/month (or $199/year).";
-  }
+  // Hero no longer shows pricing/Founding copy (TikTok conversion layout).
+  // Pricing stays in the dedicated homepage pricing section only.
 
   const finalCtaBody = document.querySelector("#homeFinalCta .lp-cta-body");
   if (finalCtaBody) {
