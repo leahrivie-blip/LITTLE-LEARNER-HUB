@@ -1,17 +1,17 @@
-const CACHE_NAME = "llh-shell-v145-seo-platform";
-const SHELL_VERSION = "20260801-seo-platform";
+const CACHE_NAME = "llh-shell-v151-request-idea-final";
+const SHELL_VERSION = "20260802-request-idea-final";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260801-seo-platform",
+  "/styles.css?v=20260802-request-idea-final",
   "/styles/llh-admin-workspace.css?v=20260730-hdh-own-tester-kid",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260801-seo-platform",
+  "/styles/llh-homepage.css?v=20260802-request-idea-final",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260801-seo-platform",
+  "/styles/llh-messaging.css?v=20260802-request-idea-final",
   "/styles/llh-comms.css?v=20260730-hdh-own-tester-kid",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid",
@@ -30,9 +30,9 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
   "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
   "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/app.js?v=20260801-seo-platform",
+  "/app.js?v=20260802-request-idea-final",
   "/admin-workspace.js?v=20260730-hdh-own-tester-kid",
-  "/comms-center.js?v=20260730-hdh-own-tester-kid",
+  "/comms-center.js?v=20260802-request-idea-final",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
   "/images/icons/icon-512.svg",

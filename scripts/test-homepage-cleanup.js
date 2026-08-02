@@ -248,7 +248,7 @@ async function main() {
           remaining: foundingSpotsRemaining(),
           spotsMsg,
           announce: document.querySelector("#llhFoundingAnnounceBanner")?.innerText || "",
-          hero: document.querySelector(".llh-hero-support")?.innerText || "",
+          hero: document.querySelector(".llh-hero-social-proof")?.innerText || document.querySelector(".llh-hero-support")?.innerText || "",
           pricing: document.querySelector("#homePricing")?.innerText || "",
           finalCta: document.querySelector("#homeFinalCta")?.innerText || "",
           roadmap: document.querySelector("#homeComingSoon")?.innerText || "",
@@ -268,7 +268,7 @@ async function main() {
       assert.equal(guest.foundingCtas, 0, `unexpected founding CTA count ${guest.foundingCtas}`);
       assert.ok(guest.proCtas >= 1, `expected Pro CTAs, got ${guest.proCtas}`);
       assert.match(guest.pricing, /\$19\.99|Pro Monthly/i);
-      assert.doesNotMatch(guest.hero, /Founding Member|spots remaining/i);
+      assert.doesNotMatch(guest.hero, /Founding Member|spots remaining|\$19\.99/i);
       assert.doesNotMatch(guest.finalCta, /Founding Member|spots remaining/i);
       assert.doesNotMatch(guest.pricing, /Founding Member/i);
       assert.match(guest.roadmap, /Family Hub/i);

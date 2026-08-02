@@ -24,31 +24,38 @@ const css = fs.readFileSync(path.join(root, "styles.css"), "utf8");
 const homeCss = fs.readFileSync(path.join(root, "styles/llh-homepage.css"), "utf8");
 const appJs = fs.readFileSync(path.join(root, "app.js"), "utf8");
 
-test("hero prioritizes Preview Free Lesson Plans, Pro pricing, and Log In text link", () => {
+test("hero prioritizes Start Free for TikTok conversion (no pricing in hero)", () => {
   const actionsIdx = html.indexOf('class="lp-hero-actions"');
   assert.ok(actionsIdx > -1, "hero actions missing");
-  const actionsHtml = html.slice(actionsIdx, actionsIdx + 700);
-  assert.match(actionsHtml, /data-home-nav="lessons"/);
+  const actionsHtml = html.slice(actionsIdx, actionsIdx + 900);
+  assert.match(actionsHtml, /data-action="start-free"/);
+  assert.match(actionsHtml, />Start Free</);
+  assert.match(actionsHtml, /data-view="lessons"/);
+  assert.match(actionsHtml, /data-guest-browse="lessons"/);
   assert.match(actionsHtml, /Preview Free Lesson Plans/);
-  assert.match(actionsHtml, /data-checkout-plan="monthly"/);
-  assert.match(actionsHtml, /Upgrade to Pro/);
-  assert.match(actionsHtml, /data-action="open-login"/);
-  assert.match(actionsHtml, /llh-hero-login-link/);
-  assert.doesNotMatch(actionsHtml, />Sign Up</);
-  assert.doesNotMatch(actionsHtml, /Browse Lesson Plans/);
-  assert.doesNotMatch(actionsHtml, /data-checkout-plan="founding"/);
-  assert.match(html, /All-in-one childcare platform/);
-  assert.match(html, /id="homeHeroInventory"/);
-  assert.match(html, /\$19\.99/);
-  assert.match(html, /Plan, Organize, Document/);
+  assert.match(actionsHtml, /Hundreds of childcare providers have already joined/);
+  assert.doesNotMatch(actionsHtml, /data-checkout-plan="monthly"/);
+  assert.doesNotMatch(actionsHtml, /\$19\.99/);
+  assert.doesNotMatch(actionsHtml, /Founding/);
+  assert.doesNotMatch(actionsHtml, /llh-hero-login-link/);
+  assert.match(html, /Stop Spending Hours Creating Lesson Plans/);
+  assert.match(html, /llh-hero-trust-line/);
+  assert.match(html, /127 lesson plans/);
+  assert.doesNotMatch(html, /id="homeHeroInventory"/);
   assert.doesNotMatch(html, /Founding Member/);
 });
 
-test("Pro, free, and final CTAs exist; Founding announce hidden", () => {
+test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Founding announce hidden", () => {
   assert.match(html, /Upgrade to Pro|Choose Pro Monthly/);
   assert.match(html, /Create Free Account/);
   assert.match(html, /llh-final-cta|lp-final-cta/);
   assert.match(html, /lp-mobile-sticky-cta/);
+  const stickyIdx = html.indexOf('class="lp-mobile-sticky-cta"');
+  assert.ok(stickyIdx > -1);
+  const stickyHtml = html.slice(stickyIdx, stickyIdx + 250);
+  assert.match(stickyHtml, /data-action="start-free"/);
+  assert.match(stickyHtml, />Start Free</);
+  assert.doesNotMatch(stickyHtml, /Preview Free Lesson Plans/);
   assert.match(html, /data-checkout-plan="monthly"/);
   assert.match(html, /id="llhFoundingAnnounceBanner"[^>]*\bhidden\b/);
   assert.match(appJs, /FOUNDING_CLOSED_FOR_ACQUISITION\s*=\s*true/);

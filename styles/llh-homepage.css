@@ -454,6 +454,71 @@ body.llh-public-menu-open {
   font-size: 0.98rem;
 }
 
+.llh-hero-social-proof {
+  margin: 2px 0 4px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-inline: 12px;
+  color: var(--llh-home-ink, #2a2a35);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.llh-hero-trust-line {
+  margin: 4px 0 0;
+  color: var(--llh-home-muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+}
+
+.llh-hero-trust-stats,
+.llh-hero-trust-sep,
+.llh-hero-trust-ages {
+  display: inline;
+}
+
+.landing-home .llh-hero--tiktok .lp-hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin: 4px 0 10px;
+}
+
+.landing-home .llh-hero--tiktok .llh-hero-primary-cta {
+  width: 100%;
+  max-width: 360px;
+  min-height: 48px;
+  justify-content: center;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.landing-home .llh-hero--tiktok .llh-hero-secondary-cta {
+  align-self: flex-start;
+  padding: 0;
+  min-height: auto;
+  background: transparent;
+  border: 0;
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.landing-home .llh-hero--tiktok .llh-hero-secondary-cta:hover,
+.landing-home .llh-hero--tiktok .llh-hero-secondary-cta:focus-visible {
+  color: var(--llh-primary, #7b6bb5);
+}
+
 .llh-hero-inventory {
   margin: 0 0 18px;
   padding: 14px 16px;
@@ -896,6 +961,41 @@ body.llh-public-menu-open {
   margin: 16px 0 0;
 }
 
+/* Request an Idea — after lesson preview, before pricing path */
+.llh-request-idea-section {
+  text-align: center;
+}
+
+.llh-request-idea-benefit {
+  margin: 10px auto 0;
+  max-width: 36rem;
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.llh-request-idea-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.llh-request-idea-actions .llh-btn,
+.llh-request-idea-actions .lp-btn-primary {
+  min-width: min(280px, 100%);
+}
+
+#ideaRequestMessage.is-success {
+  color: #2f6b4f;
+  font-weight: 600;
+}
+
+#ideaRequestMessage.is-error {
+  color: #9b3b3b;
+  font-weight: 600;
+}
+
 /* Private “Help Shape” feedback — between reviews and pricing */
 .llh-shape-feedback-form {
   display: grid;
@@ -1136,14 +1236,19 @@ body.llh-public-menu-open {
   bottom: 0;
   z-index: 30;
   display: none;
-  padding: 12px 14px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(255, 253, 251, 0.94);
+  padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 253, 251, 0.96);
   border-top: 1px solid var(--llh-home-line);
   backdrop-filter: blur(8px);
 }
 
 .landing-home .lp-mobile-sticky-cta .lp-btn-primary {
   width: 100%;
+  min-height: 38px;
+  padding: 5px 14px;
+  font-size: 0.94rem;
+  border-radius: 11px;
+  box-shadow: 0 2px 10px rgba(123, 95, 232, 0.22);
 }
 
 /* Responsive — tablet + phone */
@@ -1338,6 +1443,89 @@ body.llh-public-menu-open {
     text-align: center;
   }
 
+  /* TikTok conversion hero: tighter stack so Start Free stays above the fold. */
+  .landing-home .llh-hero--tiktok {
+    margin-top: 6px;
+    margin-bottom: 14px;
+    padding-top: 14px;
+    padding-bottom: 12px;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-headline {
+    font-size: clamp(1.55rem, 6.8vw, 2rem);
+    line-height: 1.12;
+    margin-bottom: 8px;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-sub {
+    font-size: 0.94rem;
+    line-height: 1.45;
+    margin-bottom: 10px;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    margin: 0 0 6px;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-primary-cta,
+  .landing-home .llh-hero--tiktok .lp-hero-actions .llh-btn,
+  .landing-home .llh-hero--tiktok .lp-hero-actions .lp-btn-primary {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    min-height: 46px;
+    margin: 0;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-secondary-cta {
+    flex: 0 0 auto;
+    width: auto;
+    align-self: center;
+    text-align: center;
+    margin: 0;
+    padding: 2px 0;
+    line-height: 1.3;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-social-proof {
+    text-align: center;
+    font-size: 0.86rem;
+    line-height: 1.35;
+    margin: 0;
+    padding-inline: 18px;
+    max-width: 100%;
+    white-space: normal;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-trust-line {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    text-align: center;
+    font-size: 0.82rem;
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-trust-stats,
+  .landing-home .llh-hero--tiktok .llh-hero-trust-ages {
+    display: block;
+  }
+
+  .landing-home .llh-hero--tiktok .llh-hero-trust-sep {
+    display: none;
+  }
+
+  .landing-home .llh-hero--tiktok .lp-hero-visual,
+  .landing-home .llh-hero--tiktok .llh-hero-visual {
+    display: none;
+  }
+
   .llh-feature-grid {
     grid-template-columns: 1fr;
   }
@@ -1346,8 +1534,41 @@ body.llh-public-menu-open {
     display: block;
   }
 
-  .landing-home {
-    padding-bottom: 96px;
+  /*
+   * Full-page sticky clearance (higher specificity than base padding shorthand).
+   * Every card/button/footer item must be able to scroll completely above the bar.
+   */
+  body.home-view {
+    --llh-mobile-sticky-clearance: calc(48px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 24px);
+  }
+
+  html:has(body.home-view) {
+    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance, 48px) + 24px);
+  }
+
+  body.home-view .landing-home,
+  body.home-view #view-home.landing-home {
+    padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 56px);
+  }
+
+  body.home-view .landing-home .llh-section,
+  body.home-view .landing-home .lp-founder-section,
+  body.home-view .landing-home .lp-reviews-section,
+  body.home-view .landing-home .lp-shape-feedback-section,
+  body.home-view .landing-home .lp-pricing-section,
+  body.home-view .landing-home .lp-final-cta,
+  body.home-view .landing-home .llh-home-footer,
+  body.home-view .landing-home .llh-preview-card,
+  body.home-view .landing-home .llh-preview-grid,
+  body.home-view .landing-home .llh-pricing-grid,
+  body.home-view .landing-home .llh-section-actions {
+    scroll-margin-bottom: calc(var(--llh-mobile-sticky-clearance) + 12px);
+  }
+
+  body.home-view .landing-home .llh-home-footer {
+    padding-bottom: 12px;
+    margin-bottom: 0;
   }
 
   .llh-hero-mock-card {

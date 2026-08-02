@@ -107,11 +107,11 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260801-seo-platform" />
-  <link rel="stylesheet" href="styles.css?v=20260801-seo-platform" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260802-request-idea-final" />
+  <link rel="stylesheet" href="styles.css?v=20260802-request-idea-final" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260730-hdh-own-tester-kid" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260801-seo-platform" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
@@ -553,21 +553,16 @@
           <button class="llh-public-menu-backdrop" id="llhPublicMenuBackdrop" type="button" aria-label="Close menu" hidden></button>
 
           <!-- HERO SECTION -->
-          <section class="lp-hero llh-hero" id="homeHero" aria-label="Get started with Little Learner Hub">
+          <section class="lp-hero llh-hero llh-hero--tiktok" id="homeHero" aria-label="Get started with Little Learner Hub">
             <div class="lp-hero-content">
-              <p class="lp-hero-badge">All-in-one childcare platform · Built by a provider</p>
-              <h2 class="lp-hero-headline">Plan, Organize, Document &amp; Save Time</h2>
-              <p class="lp-hero-sub">Hundreds of ready-to-use lesson plans, thousands of classroom activities, curriculum planning, AI documentation helpers, and child profiles — continuously improved with real provider feedback.</p>
-              <p class="llh-hero-support">Start free, or upgrade to Pro for $19.99/month (or $199/year).</p>
-              <div id="homeHeroInventory" class="llh-hero-inventory" data-state="loading" aria-live="polite" aria-busy="true">
-                <p class="llh-hero-inventory-loading">Loading live curriculum inventory…</p>
-              </div>
+              <h2 class="lp-hero-headline">Stop Spending Hours Creating Lesson Plans</h2>
+              <p class="lp-hero-sub">Get ready-to-use infant, toddler, and preschool lesson plans, activities, planning tools, observation support, and parent-message help—all built by a childcare provider.</p>
               <div class="lp-hero-actions">
-                <button class="lp-btn-primary llh-btn llh-btn-primary" data-home-nav="lessons" type="button">Preview Free Lesson Plans</button>
-                <button class="lp-btn-secondary llh-btn llh-btn-secondary" data-checkout-plan="monthly" type="button">Upgrade to Pro — $19.99/month</button>
-                <button class="llh-btn llh-btn-text llh-hero-login-link" data-action="open-login" type="button">Log In</button>
+                <button class="lp-btn-primary llh-btn llh-btn-primary llh-hero-primary-cta" data-action="start-free" type="button">Start Free</button>
+                <p class="llh-hero-social-proof">Hundreds of childcare providers have already joined</p>
+                <button class="llh-btn llh-btn-text llh-hero-secondary-cta" data-view="lessons" data-guest-browse="lessons" type="button">Preview Free Lesson Plans</button>
               </div>
-              <p class="lp-hero-cta-note">If you can&rsquo;t find the lesson plan, activity, or feature you need, request it inside Little Learner Hub. New content is added regularly.</p>
+              <p class="llh-hero-trust-line" aria-label="Curriculum inventory"><span class="llh-hero-trust-stats">127 lesson plans • 2,110 activities</span><span class="llh-hero-trust-sep" aria-hidden="true"> • </span><span class="llh-hero-trust-ages">Infant • Toddler • Preschool</span></p>
             </div>
             <div class="lp-hero-visual llh-hero-visual" aria-label="Lesson planning preview" aria-hidden="true">
               <div class="llh-hero-mock">
@@ -617,6 +612,18 @@
                 <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
               </div>
             </aside>
+          </section>
+
+          <!-- REQUEST AN IDEA — early members help shape the roadmap -->
+          <section class="llh-section llh-request-idea-section" id="homeRequestIdea" aria-label="Help shape what gets built next">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Help Shape What Gets Built Next</h2>
+              <p class="lp-section-sub">Need a lesson plan, activity, or feature that is missing? Send a request. Ideas from real childcare providers are reviewed, and the best ones may be added to Little Learner Hub.</p>
+              <p class="llh-request-idea-benefit">Your requests help guide what we build and improve next.</p>
+            </div>
+            <div class="llh-request-idea-actions">
+              <button class="lp-btn-primary llh-btn llh-btn-primary" type="button" data-action="open-idea-request" id="homeRequestIdeaButton">Request an Idea</button>
+            </div>
           </section>
 
           <!-- ACTIVITY PREVIEW -->
@@ -936,8 +943,8 @@
             <p class="llh-footer-copy">© <span id="llhFooterYear">2026</span> Little Learner Hub by Leah. All Rights Reserved.</p>
           </footer>
 
-          <div class="lp-mobile-sticky-cta" aria-label="Preview free lesson plans">
-            <button class="lp-btn-primary" data-home-nav="lessons" type="button">Preview Free Lesson Plans</button>
+          <div class="lp-mobile-sticky-cta" aria-label="Start free">
+            <button class="lp-btn-primary" data-action="start-free" type="button">Start Free</button>
           </div>
 
         </section>
@@ -2318,6 +2325,50 @@
       </div>
     </div>
 
+    <div class="modal" id="ideaRequestModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="ideaRequestModalTitle">
+      <div class="modal-card llh-idea-request-modal-card">
+        <button class="close-button" id="closeIdeaRequestModal" type="button" aria-label="Close request form">&times;</button>
+        <p class="eyebrow">Provider ideas</p>
+        <h2 id="ideaRequestModalTitle">Request an Idea</h2>
+        <p class="muted-copy">Tell us what would help your classroom. Ideas are reviewed, and the best ones may be added — we can&rsquo;t promise every request will be built.</p>
+        <form class="panel-form" id="ideaRequestForm" novalidate>
+          <label>Name
+            <input type="text" id="ideaRequestName" name="name" required autocomplete="name" maxlength="120" />
+          </label>
+          <label>Email
+            <input type="email" id="ideaRequestEmail" name="email" required autocomplete="email" maxlength="200" />
+          </label>
+          <label>Request type
+            <select id="ideaRequestType" name="requestType" required>
+              <option value="">Choose a type</option>
+              <option value="Lesson Plan">Lesson Plan</option>
+              <option value="Activity">Activity</option>
+              <option value="Feature">Feature</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label>Age group
+            <select id="ideaRequestAgeGroup" name="ageGroup" required>
+              <option value="">Choose an age group</option>
+              <option value="Infant">Infant</option>
+              <option value="Toddler">Toddler</option>
+              <option value="Preschool">Preschool</option>
+              <option value="School Age">School Age</option>
+              <option value="Not Applicable">Not Applicable</option>
+            </select>
+          </label>
+          <label>Request details
+            <textarea id="ideaRequestDetails" name="details" rows="5" required maxlength="5000" placeholder="Describe the lesson plan, activity, or feature you need."></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit" id="ideaRequestSubmit">Submit</button>
+            <button class="ghost-button" type="button" id="cancelIdeaRequestModal">Cancel</button>
+          </div>
+          <p class="form-message" id="ideaRequestMessage" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid" defer></script>
@@ -2337,8 +2388,8 @@
     <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260801-seo-platform" defer></script>
+    <script src="app.js?v=20260802-request-idea-final" defer></script>
     <script src="admin-workspace.js?v=20260730-hdh-own-tester-kid" defer></script>
-    <script src="comms-center.js?v=20260730-hdh-own-tester-kid" defer></script>
+    <script src="comms-center.js?v=20260802-request-idea-final" defer></script>
   </body>
 </html>
