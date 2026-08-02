@@ -22684,3 +22684,62 @@ body.hdh-persona-parent .main {
   align-items: center;
   margin: 8px 0 12px;
 }
+
+/* Non-blocking Meta / advertising analytics notice (consent style A). */
+.llh-meta-cookie-notice {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 12000;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(36, 48, 71, 0.14);
+  background: rgba(255, 252, 248, 0.97);
+  box-shadow: 0 10px 30px rgba(36, 48, 71, 0.12);
+  color: #243047;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.llh-meta-cookie-notice p {
+  margin: 0;
+  flex: 1 1 220px;
+}
+
+.llh-meta-cookie-link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: #1f5f8b;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.llh-meta-cookie-dismiss {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #2f6f9f;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .llh-meta-cookie-notice {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+}

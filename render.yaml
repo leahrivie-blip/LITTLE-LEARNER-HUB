@@ -69,6 +69,19 @@ services:
       # Keep false until Leah explicitly approves automated email campaigns.
       - key: EMAIL_AUTOMATIONS_ENABLED
         value: "false"
+      # Meta Pixel + Conversions API (never put the access token in frontend code).
+      - key: META_PIXEL_ID
+        sync: false
+      - key: META_CAPI_ACCESS_TOKEN
+        sync: false
+      - key: META_TRACKING_ENABLED
+        sync: false
+      - key: META_PIXEL_ENABLED
+        sync: false
+      - key: META_CAPI_ENABLED
+        sync: false
+      - key: META_CAPI_TEST_EVENT_CODE
+        sync: false
       - key: STORE_BACKUP_RETENTION
         value: "14"
       # Push notifications work with no setup — VAPID keys auto-generate and

@@ -3722,10 +3722,106 @@ function sendAnalyticsEvent(event) {
   }).catch(() => {});
 }
 
+function metaTrackingClientConfig() {
+  try {
+    const meta = window.LLH_CONFIG && window.LLH_CONFIG.meta;
+    if (!meta || !meta.enabled || !meta.pixelId) return null;
+    return meta;
+  } catch {
+    return null;
+  }
+}
+
+function readMetaCookie(name) {
+  try {
+    const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return match ? decodeURIComponent(match[1]) : "";
+  } catch {
+    return "";
+  }
+}
+
+function metaBrowserIds() {
+  return {
+    fbp: readMetaCookie("_fbp"),
+    fbc: readMetaCookie("_fbc"),
+  };
+}
+
+function makeMetaEventId(prefix = "evt") {
+  return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(16).slice(2, 10)}`;
+}
+
+/**
+ * Browser Pixel track with eventID for CAPI dedupe. Never throws / never blocks UX.
+ */
+function trackMetaPixel(eventName, params = {}, eventId = "") {
+  try {
+    if (!metaTrackingClientConfig()) return "";
+    if (typeof window.fbq !== "function") return eventId || "";
+    const id = String(eventId || makeMetaEventId(eventName)).slice(0, 200);
+    const payload = params && typeof params === "object" ? { ...params } : {};
+    window.fbq("track", eventName, payload, { eventID: id });
+    return id;
+  } catch {
+    return eventId || "";
+  }
+}
+
+function metaViewContentAlreadyTracked(resourceId) {
+  const key = String(resourceId || "").trim();
+  if (!key) return true;
+  try {
+    const raw = sessionStorage.getItem("llhMetaViewContentIds") || "[]";
+    const list = JSON.parse(raw);
+    return Array.isArray(list) && list.includes(key);
+  } catch {
+    return false;
+  }
+}
+
+function markMetaViewContentTracked(resourceId) {
+  const key = String(resourceId || "").trim();
+  if (!key) return;
+  try {
+    const raw = sessionStorage.getItem("llhMetaViewContentIds") || "[]";
+    const list = Array.isArray(JSON.parse(raw)) ? JSON.parse(raw) : [];
+    if (!list.includes(key)) {
+      list.push(key);
+      sessionStorage.setItem("llhMetaViewContentIds", JSON.stringify(list.slice(-200)));
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
+function ensureMetaCookieNotice() {
+  try {
+    if (document.getElementById("llhMetaCookieNotice")) return;
+    if (localStorage.getItem("llhMetaCookieNoticeDismissed") === "1") return;
+    const notice = document.createElement("aside");
+    notice.id = "llhMetaCookieNotice";
+    notice.className = "llh-meta-cookie-notice";
+    notice.setAttribute("role", "region");
+    notice.setAttribute("aria-label", "Cookie and advertising analytics notice");
+    notice.innerHTML = `
+      <p>We use cookies and advertising analytics (including the Meta Pixel) to understand signups, trials, and subscriptions and to measure ads. See our <button type="button" class="llh-meta-cookie-link" data-view="legal">Privacy Policy</button>.</p>
+      <button type="button" class="llh-meta-cookie-dismiss" data-llh-meta-cookie-dismiss>Got it</button>
+    `;
+    document.body.appendChild(notice);
+    notice.querySelector("[data-llh-meta-cookie-dismiss]")?.addEventListener("click", () => {
+      try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
+      notice.remove();
+    });
+  } catch {
+    /* notice must never break the app */
+  }
+}
+
 function trackEvent(name, detail = {}) {
   const attribution = currentAttribution();
   const event = {
-    id: `event-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: detail.metaEventId || detail.eventId || `event-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name,
     detail,
     visitorId: visitorId(),
@@ -3743,6 +3839,7 @@ function trackEvent(name, detail = {}) {
   };
   saveAnalyticsEvents([event, ...analyticsEvents()]);
   sendAnalyticsEvent(event);
+  return event;
 }
 
 function leads() {
@@ -11936,6 +12033,7 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail || !canUseLaunchBackend()) return null;
   try {
+    const metaIds = metaBrowserIds();
     const response = await fetch("/api/account/profile", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -11951,6 +12049,11 @@ async function syncAccountProfileToBackend(email, profile = {}, options = {}) {
         centerInviteCode: profile.centerInviteCode || "",
         signup: Boolean(options.signup),
         lastLogin: Boolean(options.lastLogin),
+        metaEventId: options.metaEventId || "",
+        eventId: options.metaEventId || "",
+        fbp: metaIds.fbp,
+        fbc: metaIds.fbc,
+        eventSourceUrl: window.location.href,
       }),
     });
     const data = await response.json().catch(() => ({}));
@@ -24673,6 +24776,17 @@ async function openResourceViewer(resourceId, options = {}) {
   trackEvent("resource_view", viewDetail);
   if (/lesson/i.test(String(resource.category || "")) || resource._curriculumManaged && resource.category === "Lesson Plans") {
     trackEvent("lesson_plan_view", viewDetail);
+  }
+  // ViewContent once per resource per browser session (refresh-safe).
+  if (!metaViewContentAlreadyTracked(resourceId)) {
+    const viewEventId = makeMetaEventId(`view_${resourceId}`);
+    trackMetaPixel("ViewContent", {
+      content_ids: [String(resourceId)],
+      content_type: "product",
+      content_name: String(resource.title || resourceId).slice(0, 200),
+      content_category: String(resource.category || "resource").slice(0, 120),
+    }, viewEventId);
+    markMetaViewContentTracked(resourceId);
   }
 }
 
@@ -54271,11 +54385,14 @@ async function startCheckout(type, trackingContext = "checkout") {
     promoLabel: promoValidation?.label || "",
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
+  // Internal analytics only — Meta InitiateCheckout fires after Stripe session create succeeds.
   trackEvent("checkout_start", { type: checkoutType, amount, promoCode: promoCode ? "entered" : "" });
   addBillingHistory("Checkout Started", `${checkoutType === "annual" ? "Annual" : checkoutType === "founding" ? "Founding Member" : "Monthly"} Stripe checkout started${promoCode ? " with promo applied" : ""}`, amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
     try {
+      const metaIds = metaBrowserIds();
+      const initiateEventId = makeMetaEventId("checkout");
       const response = await fetch(stripeCheckoutConfig.checkoutEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54286,12 +54403,26 @@ async function startCheckout(type, trackingContext = "checkout") {
           successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
           priceKey: checkoutType === "founding" ? billingPlans.Founding.stripePriceKey : checkoutType === "annual" ? billingPlans.ProAnnual.stripePriceKey : billingPlans.ProMonthly.stripePriceKey,
+          metaEventId: initiateEventId,
+          eventId: initiateEventId,
+          fbp: metaIds.fbp,
+          fbc: metaIds.fbc,
+          eventSourceUrl: window.location.href,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Stripe checkout could not start.");
       if (promoCode && !data?.promo) throw new Error("The promo code was not accepted. Please apply the code again before checkout.");
       if (data?.url) {
+        const eventId = data.metaEventId || data.id || initiateEventId;
+        const numericAmount = Number(String(amount).replace(/[^0-9.]/g, "")) || 0;
+        trackMetaPixel("InitiateCheckout", {
+          currency: "USD",
+          value: numericAmount,
+          content_name: checkoutType,
+          content_category: "paid_checkout",
+          num_items: 1,
+        }, eventId);
         window.location.href = data.url;
         return;
       }
@@ -54353,6 +54484,8 @@ async function startProTrial() {
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
     try {
+      const metaIds = metaBrowserIds();
+      const initiateEventId = makeMetaEventId("trial_checkout");
       const response = await fetch(stripeCheckoutConfig.checkoutEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -54362,11 +54495,24 @@ async function startProTrial() {
           trial7day: true,
           successUrl: `${window.location.origin}${window.location.pathname}?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
           cancelUrl: `${window.location.origin}${window.location.pathname}?checkout=cancel`,
+          metaEventId: initiateEventId,
+          eventId: initiateEventId,
+          fbp: metaIds.fbp,
+          fbc: metaIds.fbc,
+          eventSourceUrl: window.location.href,
         }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Stripe checkout could not start.");
       if (data?.url) {
+        const eventId = data.metaEventId || data.id || initiateEventId;
+        trackMetaPixel("InitiateCheckout", {
+          currency: "USD",
+          value: 0,
+          content_name: checkoutType,
+          content_category: "trial_checkout",
+          num_items: 1,
+        }, eventId);
         window.location.href = data.url;
         return;
       }
@@ -54517,6 +54663,16 @@ async function completeCheckoutFromStripeSession(session) {
       hasPaymentMethod: true,
     } : {}),
   });
+  // Browser StartTrial mirror (server webhook is authoritative). Never Purchase here —
+  // Purchase is first paid invoice only, from Stripe invoice.paid on the server.
+  if (trialDays > 0) {
+    const startTrialEventId = `start_trial_${session.id || session.sessionId || "local"}`;
+    trackMetaPixel("StartTrial", {
+      currency: "USD",
+      value: 0,
+      content_name: type,
+    }, startTrialEventId);
+  }
   await syncSubscriptionFromBackend(currentUser || session.email, {
     renderFounding: true,
     renderAccount: true,
@@ -61187,6 +61343,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         setFormMessage("#authMessage", "");
         renderSignupWizardStep();
         submitButton.disabled = false;
+        const registrationEventId = makeMetaEventId("reg");
         trackEvent("account_signup_complete", {
           email: result.email,
           plan: selectedAtSignup,
@@ -61195,7 +61352,15 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           firstName,
           lastName,
           signupFlow: "wizard-step-1",
+          metaEventId: registrationEventId,
         });
+        // Browser mirror; server CAPI is authoritative and dedupes via event_id.
+        trackMetaPixel("CompleteRegistration", {
+          content_name: "account_signup",
+          status: true,
+          currency: "USD",
+          value: 0,
+        }, registrationEventId);
         runAuthSyncWithTimeout("signup profile sync", () => syncAccountProfileToBackend(result.email, {
           firstName,
           lastName,
@@ -61203,7 +61368,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           accountType: "",
           role: "",
           phone,
-        }, { signup: true, lastLogin: true })).then(() => Promise.all([
+        }, { signup: true, lastLogin: true, metaEventId: registrationEventId })).then(() => Promise.all([
           runAuthSyncWithTimeout("signup membership sync", () => syncSubscriptionFromBackend(result.email)),
           runAuthSyncWithTimeout("signup child sync", () => syncChildDataFromBackend()),
           loadUserAiUsage(result.email).catch(() => {}),
@@ -64881,8 +65046,16 @@ if (isLoggedIn()) {
   startNotificationBellPolling();
 }
 
+try {
+  ensureMetaCookieNotice();
+} catch {
+  /* ignore */
+}
+
 // Test / diagnostics hooks (also used by Playwright conversion checks).
 window.FOUNDING_CLOSED_FOR_ACQUISITION = FOUNDING_CLOSED_FOR_ACQUISITION;
+window.trackMetaPixel = trackMetaPixel;
+window.metaTrackingClientConfig = metaTrackingClientConfig;
 window.foundingOpenForAcquisition = foundingOpenForAcquisition;
 window.primaryPaidOffer = primaryPaidOffer;
 window.preferredPaidCheckoutPlan = preferredPaidCheckoutPlan;

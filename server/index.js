@@ -29,6 +29,7 @@ const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const seo = require("./seo.js");
+const metaCapi = require("./meta-capi.js");
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -174,6 +175,21 @@ const MAX_PUSH_DEVICES_PER_USER = Number(process.env.MAX_PUSH_DEVICES_PER_USER |
 const HOME_DAYCARE_HUB_TESTING = ["1", "true", "yes", "on"].includes(
   String(process.env.HOME_DAYCARE_HUB_TESTING || "").trim().toLowerCase(),
 );
+
+/** Meta Pixel / CAPI — secrets never exposed via client-config. */
+
+function fireMetaCapiSafe(eventName, details = {}) {
+  // Never await in request-critical paths unless the caller chooses to.
+  try {
+    return metaCapi.trackMetaEvent(eventName, details).catch((error) => {
+      console.warn("[meta-capi] async failure:", error?.message || error);
+      return { ok: false, reason: error?.message || "meta_async_failure" };
+    });
+  } catch (error) {
+    console.warn("[meta-capi] sync failure:", error?.message || error);
+    return Promise.resolve({ ok: false, reason: error?.message || "meta_sync_failure" });
+  }
+}
 
 function isHomeDaycareHubTestingEnabled() {
   return HOME_DAYCARE_HUB_TESTING;
@@ -6991,6 +7007,8 @@ async function handleAccountProfileSync(request, response) {
   // Must write the in-memory store from upsertUser — local-json readStore() reloads disk and
   // would drop the deferred profile fields (accountType, centerAssociation, businessName).
   const isNewSignup = body.signup === true && !existing.signupAt;
+  const metaEventId = String(body.metaEventId || body.eventId || "").trim().slice(0, 200)
+    || (isNewSignup ? `reg_${email}_${String(updates.signupAt || Date.now()).replace(/\W/g, "")}` : "");
   try {
     await writeStoreAsync(writableStore());
   } catch (error) {
@@ -7003,6 +7021,7 @@ async function handleAccountProfileSync(request, response) {
   }
   jsonResponse(response, 200, {
     ok: true,
+    metaEventId: isNewSignup ? metaEventId : undefined,
     user: {
       email: user.email,
       firstName: user.firstName || "",
@@ -7018,6 +7037,29 @@ async function handleAccountProfileSync(request, response) {
       ...tempPasswordAuth.publicAuthFlags(user),
     },
   });
+
+  // Authoritative CompleteRegistration via CAPI (Pixel may mirror with the same event_id).
+  if (isNewSignup && metaEventId) {
+    const hints = metaCapi.requestClientHints(request);
+    fireMetaCapiSafe("CompleteRegistration", {
+      eventId: metaEventId,
+      email,
+      firstName: user.firstName || firstName || "",
+      lastName: user.lastName || lastName || "",
+      phone: user.phone || phone || "",
+      fbp: String(body.fbp || "").slice(0, 200),
+      fbc: String(body.fbc || "").slice(0, 500),
+      clientIpAddress: hints.clientIpAddress,
+      clientUserAgent: hints.clientUserAgent,
+      eventSourceUrl: String(body.eventSourceUrl || body.sourceUrl || "").slice(0, 2000),
+      customData: {
+        content_name: "account_signup",
+        status: true,
+        currency: "USD",
+        value: 0,
+      },
+    });
+  }
 
   // Side effects after the response — never delay Create Account / Log In UI.
   // Serialize welcome delivery before the admin-alert write so a stale alert store
@@ -7950,11 +7992,15 @@ async function handleCheckout(request, response) {
       });
       return;
     }
+    const initiateEventId = String(body.metaEventId || body.eventId || session.id || "").trim().slice(0, 200);
+    const checkoutValue = metaCapi.planValueUsd(planKey);
+    const trialDaysForMeta = trial7day ? 7 : (promo.valid ? Number(promo.trialDays || 0) : 0);
     jsonResponse(response, 200, {
       url: session.url,
       id: session.id,
       plan: planKey,
       planRemapped,
+      metaEventId: initiateEventId,
       promo: promo.valid ? {
         applied: true,
         trialDays: promo.trialDays,
@@ -7968,6 +8014,29 @@ async function handleCheckout(request, response) {
       founding: foundingStatusPayload(readStore()),
       paymentMethodRequired: true,
     });
+    // InitiateCheckout only after Stripe Checkout Session is successfully created.
+    if (initiateEventId) {
+      const hints = metaCapi.requestClientHints(request);
+      fireMetaCapiSafe("InitiateCheckout", {
+        eventId: initiateEventId,
+        email,
+        firstName: existingUser.firstName || "",
+        lastName: existingUser.lastName || "",
+        phone: existingUser.phone || "",
+        fbp: String(body.fbp || "").slice(0, 200),
+        fbc: String(body.fbc || "").slice(0, 500),
+        clientIpAddress: hints.clientIpAddress,
+        clientUserAgent: hints.clientUserAgent,
+        eventSourceUrl: String(body.eventSourceUrl || body.successUrl || "").slice(0, 2000),
+        customData: {
+          currency: "USD",
+          value: trialDaysForMeta > 0 ? 0 : checkoutValue,
+          content_name: planKey,
+          content_category: trialDaysForMeta > 0 ? "trial_checkout" : "paid_checkout",
+          num_items: 1,
+        },
+      });
+    }
   } catch (error) {
     jsonResponse(response, 500, { error: error.message || "Could not create Stripe Checkout Session." });
   }
@@ -8840,6 +8909,7 @@ async function handleStripeWebhook(request, response) {
       const promoTrialDays = Number(session.metadata?.promoTrialDays || userEntry?.[1]?.pendingTrialDays || 0);
       const promoLabel = session.metadata?.promoLabel || userEntry?.[1]?.pendingPromoLabel || "";
       if (email) {
+        const priorUser = readStore().users?.[email] || {};
         applyCheckoutMembershipUpgrade(email, {
           planKey,
           customerId: session.customer,
@@ -8866,6 +8936,35 @@ async function handleStripeWebhook(request, response) {
             console.warn(`[membership] webhook checkout subscription sync failed email=${email}:`, syncError.message);
           }
         }
+        // StartTrial when checkout completes with a trial — never Purchase on $0 trial.
+        const trialDays = Number(promoTrialDays || 0);
+        if (metaCapi.shouldFireMetaStartTrial({
+          trialDays,
+          alreadySent: Boolean(priorUser.metaStartTrialEventId),
+        })) {
+          const startTrialEventId = `start_trial_${session.id || event.id || email}`;
+          fireMetaCapiSafe("StartTrial", {
+            eventId: startTrialEventId,
+            email,
+            firstName: priorUser.firstName || "",
+            lastName: priorUser.lastName || "",
+            phone: priorUser.phone || "",
+            eventSourceUrl: String(session.success_url || SITE_URL || "").slice(0, 2000),
+            customData: {
+              currency: "USD",
+              value: 0,
+              content_name: planKey,
+              predicted_ltv: metaCapi.planValueUsd(planKey),
+            },
+            actionSource: "website",
+          });
+          upsertUser(email, {
+            metaStartTrialEventId: startTrialEventId,
+            metaStartTrialAt: new Date().toISOString(),
+          }, WEBHOOK_DEFER);
+        }
+        // Immediate paid checkout (no trial): Purchase is owned exclusively by invoice.paid
+        // when amount_paid > 0 and firstPaidInvoiceAt was empty — never from this webhook.
       } else {
         console.warn("[membership] webhook checkout.session.completed missing email", session.id);
       }
@@ -9012,6 +9111,11 @@ async function handleStripeWebhook(request, response) {
           if (liveSub?.id) {
             const synced = upsertStripeSubscription(email, invoice.customer, liveSub, { eventCreated, eventId: event.id || "", deferPersist: true });
             const amountPaid = Number(invoice.amount_paid || 0);
+            const alreadyHadFirstPaid = Boolean(
+              existingUser.firstPaidInvoiceAt
+              || existingUser.firstPaidAt
+              || existingUser.metaPurchaseEventId,
+            );
             const paidUpdates = {
               lastFailedPaymentAt: "",
               nextPaymentRetryAt: "",
@@ -9024,6 +9128,31 @@ async function handleStripeWebhook(request, response) {
               paidUpdates.firstPaidInvoiceAt = store.users?.[email]?.firstPaidInvoiceAt || paidAt;
               paidUpdates.foundingSpotReleasable = false;
               markFoundingReservationConverted(email, WEBHOOK_DEFER);
+              // Purchase ONLY for the first successful paid invoice — never renewals
+              // (including Founding renewals) and never $0 trial invoices.
+              if (metaCapi.shouldFireMetaPurchase({ amountPaid, alreadyHadFirstPaid })) {
+                const purchaseEventId = String(invoice.id || `purchase_${email}_${paidAt}`).slice(0, 200);
+                const currency = String(invoice.currency || "usd").toUpperCase() || "USD";
+                const value = Number((amountPaid / 100).toFixed(2));
+                fireMetaCapiSafe("Purchase", {
+                  eventId: purchaseEventId,
+                  email,
+                  firstName: existingUser.firstName || "",
+                  lastName: existingUser.lastName || "",
+                  phone: existingUser.phone || "",
+                  eventSourceUrl: String(SITE_URL || "").slice(0, 2000),
+                  customData: {
+                    currency,
+                    value,
+                    content_name: synced.plan || existingUser.plan || "Pro",
+                    order_id: purchaseEventId,
+                  },
+                  actionSource: "website",
+                });
+                paidUpdates.metaPurchaseEventId = purchaseEventId;
+                paidUpdates.metaPurchaseAt = paidAt;
+                paidUpdates.metaPurchaseValue = value;
+              }
             }
             upsertUser(email, paidUpdates, WEBHOOK_DEFER);
             logMembershipTransition("payment_received", email, {
@@ -16994,6 +17123,27 @@ function handleAdminFoundingBreakdown(request, response, url) {
   });
 }
 
+function buildMetaPixelBootstrapScript(metaConfig = {}) {
+  // Inject Pixel from META_PIXEL_ID (via publicClientMetaConfig). Never hardcode the ID.
+  if (!metaConfig?.enabled || !metaConfig?.pixelId) return "";
+  // pixelId is JSON-stringified into the script so it cannot break out of the string literal.
+  return `
+(function () {
+  try {
+    var pixelId = ${JSON.stringify(String(metaConfig.pixelId))};
+    if (!pixelId || window.__llhMetaPixelLoaded) return;
+    window.__llhMetaPixelLoaded = true;
+    !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+    n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;
+    n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
+    t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
+    'https://connect.facebook.net/en_US/fbevents.js');
+    fbq('init', pixelId);
+    fbq('track', 'PageView');
+  } catch (err) { /* Meta must never break the app */ }
+})();`;
+}
+
 function handleClientConfig(request, response) {
   const firebase = {
     apiKey: FIREBASE_API_KEY,
@@ -17004,6 +17154,7 @@ function handleClientConfig(request, response) {
     messagingSenderId: FIREBASE_MESSAGING_SENDER_ID,
     measurementId: FIREBASE_MEASUREMENT_ID,
   };
+  const meta = metaCapi.publicClientMetaConfig();
   const config = {
     adminEmail: ADMIN_EMAIL,
     firebase,
@@ -17014,12 +17165,13 @@ function handleClientConfig(request, response) {
     },
     homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
     aiGuideEnabled: isAiGuideEnabled(),
+    meta,
   };
   response.writeHead(200, {
     "Content-Type": "text/javascript; charset=utf-8",
     "Cache-Control": "no-store",
   });
-  response.end(`window.LLH_CONFIG = ${JSON.stringify(config)};`);
+  response.end(`window.LLH_CONFIG = ${JSON.stringify(config)};${buildMetaPixelBootstrapScript(meta)}`);
 }
 
 function clientRuntimeConfig() {
