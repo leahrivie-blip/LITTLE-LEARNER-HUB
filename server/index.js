@@ -17187,6 +17187,8 @@ function publicFeatureRequest(item) {
     title: item.title,
     description: item.description,
     category: item.category,
+    ageGroup: item.ageGroup || "",
+    source: item.source || "",
     email: item.email,
     name: item.name,
     status: item.status,
@@ -17689,6 +17691,8 @@ async function handleFeatureRequestCreate(request, response) {
     jsonResponse(response, 400, { error: "Title and description are required." });
     return;
   }
+  const ageGroup = String(body.ageGroup || "").trim().slice(0, 40);
+  const source = String(body.source || "").trim().slice(0, 80);
   const store = readStore();
   store.featureRequests = store.featureRequests || [];
   const item = {
@@ -17696,6 +17700,8 @@ async function handleFeatureRequestCreate(request, response) {
     title,
     description,
     category: String(body.category || "General").slice(0, 80),
+    ageGroup,
+    source,
     email,
     name: String(body.name || "Provider").slice(0, 120),
     status: "New",
@@ -17741,7 +17747,11 @@ async function handleFeatureRequestCreate(request, response) {
     message: item.description,
     createdAt: item.createdAt,
     sourceUrl: item.sourceUrl,
-    fields: [["Category", item.category]],
+    fields: [
+      ["Category", item.category],
+      ["Age Group", item.ageGroup || "—"],
+      ["Source", item.source || "—"],
+    ],
   }).catch((err) => console.warn("[email] Feature request admin notification failed:", err.message));
   notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feature request", topic: item.title }).catch((err) => console.warn("[email] Feature request ack failed:", err.message));
   jsonResponse(response, 200, { featureRequest: publicFeatureRequest(item), supportEmail: SUPPORT_EMAIL_TO });

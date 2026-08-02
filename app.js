@@ -25960,6 +25960,7 @@ function bindHomePublicChrome() {
   }
   bindHomeShapeFeedbackForm();
   prefillHomeShapeFeedbackEmail();
+  bindIdeaRequestForm();
   setHomePublicMenuOpen(false);
 }
 
@@ -39904,6 +39905,143 @@ async function submitHomeShapeFeedbackForm(event) {
     }
   } catch (error) {
     setHomeShapeFeedbackStatus(error?.message || "Could not send feedback. Please try again.", { error: true });
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+const IDEA_REQUEST_TYPES = new Set(["Lesson Plan", "Activity", "Feature", "Other"]);
+const IDEA_REQUEST_AGE_GROUPS = new Set(["Infant", "Toddler", "Preschool", "School Age", "Not Applicable"]);
+
+function setIdeaRequestMessage(text, { ok = false, error = false } = {}) {
+  const el = document.querySelector("#ideaRequestMessage");
+  if (!el) return;
+  el.textContent = text || "";
+  el.classList.toggle("is-success", Boolean(ok));
+  el.classList.toggle("is-error", Boolean(error));
+}
+
+function prefillIdeaRequestForm() {
+  const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
+  const name = (typeof displayUserName === "function" ? displayUserName(account) : "")
+    || [account.firstName, account.lastName].filter(Boolean).join(" ")
+    || "";
+  const email = currentUser || account.email || "";
+  const nameInput = document.querySelector("#ideaRequestName");
+  const emailInput = document.querySelector("#ideaRequestEmail");
+  if (nameInput && !nameInput.value) nameInput.value = name;
+  if (emailInput && !emailInput.value) emailInput.value = email;
+}
+
+function openIdeaRequestModal() {
+  const modal = document.querySelector("#ideaRequestModal");
+  if (!modal) return;
+  setIdeaRequestMessage("");
+  prefillIdeaRequestForm();
+  document.body.classList.add("auth-modal-open");
+  modal.classList.add("open");
+  modal.setAttribute("aria-hidden", "false");
+  const focusTarget = document.querySelector("#ideaRequestName")
+    || document.querySelector("#ideaRequestType")
+    || document.querySelector("#ideaRequestDetails");
+  focusTarget?.focus?.();
+}
+
+function closeIdeaRequestModal() {
+  const modal = document.querySelector("#ideaRequestModal");
+  if (!modal) return;
+  modal.classList.remove("open");
+  modal.setAttribute("aria-hidden", "true");
+  if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
+    document.body.classList.remove("auth-modal-open");
+  }
+}
+
+function bindIdeaRequestForm() {
+  const form = document.querySelector("#ideaRequestForm");
+  if (!form || form.dataset.bound === "1") return;
+  form.dataset.bound = "1";
+  form.addEventListener("submit", submitIdeaRequestForm);
+}
+
+async function submitIdeaRequestForm(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const name = String(document.querySelector("#ideaRequestName")?.value || "").trim();
+  const email = String(document.querySelector("#ideaRequestEmail")?.value || "").trim();
+  const requestType = String(document.querySelector("#ideaRequestType")?.value || "").trim();
+  const ageGroup = String(document.querySelector("#ideaRequestAgeGroup")?.value || "").trim();
+  const details = String(document.querySelector("#ideaRequestDetails")?.value || "").trim();
+  const submitBtn = document.querySelector("#ideaRequestSubmit");
+
+  if (!name) {
+    setIdeaRequestMessage("Please enter your name.", { error: true });
+    document.querySelector("#ideaRequestName")?.focus();
+    return;
+  }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    setIdeaRequestMessage("Please enter a valid email.", { error: true });
+    document.querySelector("#ideaRequestEmail")?.focus();
+    return;
+  }
+  if (!IDEA_REQUEST_TYPES.has(requestType)) {
+    setIdeaRequestMessage("Please choose a request type.", { error: true });
+    document.querySelector("#ideaRequestType")?.focus();
+    return;
+  }
+  if (!IDEA_REQUEST_AGE_GROUPS.has(ageGroup)) {
+    setIdeaRequestMessage("Please choose an age group.", { error: true });
+    document.querySelector("#ideaRequestAgeGroup")?.focus();
+    return;
+  }
+  if (!details) {
+    setIdeaRequestMessage("Please share a few details about your request.", { error: true });
+    document.querySelector("#ideaRequestDetails")?.focus();
+    return;
+  }
+
+  const title = `${requestType} request: ${details}`.slice(0, 120);
+  const description = [
+    details,
+    "",
+    `Request type: ${requestType}`,
+    `Age group: ${ageGroup}`,
+  ].join("\n");
+
+  setIdeaRequestMessage("Sending…");
+  if (submitBtn) submitBtn.disabled = true;
+  try {
+    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    const response = await fetch("/api/feature-request", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        description,
+        category: requestType,
+        ageGroup,
+        name,
+        email,
+        source: "homepage_idea_request",
+        sourceUrl: window.location.href,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not send your request.");
+    trackEvent("idea_request_submitted", { requestType, ageGroup, source: "homepage_idea_request" });
+    setIdeaRequestMessage("Thank you! Your request has been sent for review.", { ok: true });
+    form.reset();
+    prefillIdeaRequestForm();
+    if (typeof isAdminUnlocked === "function" && isAdminUnlocked()) {
+      try {
+        if (typeof window.renderAdminFeatureRequests === "function") {
+          const host = document.querySelector("#adminFeatureRequestsApp");
+          if (host) window.renderAdminFeatureRequests(host);
+        }
+      } catch { /* ignore */ }
+    }
+  } catch (error) {
+    setIdeaRequestMessage(error?.message || "Could not send your request. Please try again.", { error: true });
   } finally {
     if (submitBtn) submitBtn.disabled = false;
   }
@@ -54690,6 +54828,20 @@ document.addEventListener("click", async (event) => {
     openFeedbackModal(openFeedbackButton.dataset.openFeedback || "General Feedback");
     return;
   }
+  const openIdeaRequestButton = event.target.closest("[data-action='open-idea-request']");
+  if (openIdeaRequestButton) {
+    event.preventDefault();
+    openIdeaRequestModal();
+    return;
+  }
+  if (
+    event.target.closest("#closeIdeaRequestModal")
+    || event.target.closest("#cancelIdeaRequestModal")
+  ) {
+    event.preventDefault();
+    closeIdeaRequestModal();
+    return;
+  }
   const settingsSignOutButton = event.target.closest("[data-settings-sign-out]");
   if (settingsSignOutButton) {
     event.preventDefault();
@@ -62179,6 +62331,7 @@ document.querySelectorAll(".support-form").forEach((form) => {
 });
 document.querySelector("#feedbackForm")?.addEventListener("submit", submitFeedbackForm);
 bindHomeShapeFeedbackForm();
+bindIdeaRequestForm();
 
 document.querySelector("#leadCaptureForm")?.addEventListener("submit", (event) => {
   event.preventDefault();

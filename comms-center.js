@@ -2442,9 +2442,9 @@
           <article class="ticket-card" data-feature-id="${escapeHtml(item.id)}">
             <div class="ticket-card-header">
               <div>
-                <p class="eyebrow">${escapeHtml(item.category || "General")} · ${escapeHtml(String(item.votes || 0))} votes</p>
+                <p class="eyebrow">${escapeHtml(item.category || "General")}${item.ageGroup ? ` · ${escapeHtml(item.ageGroup)}` : ""} · ${escapeHtml(String(item.votes || 0))} votes</p>
                 <h3>${escapeHtml(item.title || "")}</h3>
-                <p>${escapeHtml(item.name || "")} · ${escapeHtml(item.email || "")}</p>
+                <p>${escapeHtml(item.name || "")} · ${escapeHtml(item.email || "")}${item.source ? ` · ${escapeHtml(item.source)}` : ""}</p>
                 <small>${escapeHtml(messagingRelativeTime(item.createdAt))}</small>
               </div>
               <label>Status

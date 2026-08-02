@@ -961,6 +961,41 @@ body.llh-public-menu-open {
   margin: 16px 0 0;
 }
 
+/* Request an Idea — after lesson preview, before pricing path */
+.llh-request-idea-section {
+  text-align: center;
+}
+
+.llh-request-idea-benefit {
+  margin: 10px auto 0;
+  max-width: 36rem;
+  color: var(--llh-primary-deep, #5a4d8a);
+  font-size: 0.98rem;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.llh-request-idea-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 18px;
+}
+
+.llh-request-idea-actions .llh-btn,
+.llh-request-idea-actions .lp-btn-primary {
+  min-width: min(280px, 100%);
+}
+
+#ideaRequestMessage.is-success {
+  color: #2f6b4f;
+  font-weight: 600;
+}
+
+#ideaRequestMessage.is-error {
+  color: #9b3b3b;
+  font-weight: 600;
+}
+
 /* Private “Help Shape” feedback — between reviews and pricing */
 .llh-shape-feedback-form {
   display: grid;

@@ -107,11 +107,11 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260802-tiktok-hero-v4" />
-  <link rel="stylesheet" href="styles.css?v=20260802-tiktok-hero-v4" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260802-request-idea" />
+  <link rel="stylesheet" href="styles.css?v=20260802-request-idea" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260730-hdh-own-tester-kid" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
-  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-tiktok-hero-v4" />
+  <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
   <script>
     // Detect stale shell/CSS mismatch (service-worker cache serving HTML as CSS) and
@@ -612,6 +612,18 @@
                 <button class="llh-btn llh-btn-secondary" type="button" data-view="lessons" data-guest-browse="lessons">Browse All Lesson Plans</button>
               </div>
             </aside>
+          </section>
+
+          <!-- REQUEST AN IDEA — early members help shape the roadmap -->
+          <section class="llh-section llh-request-idea-section" id="homeRequestIdea" aria-label="Help shape what gets built next">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Help Shape What Gets Built Next</h2>
+              <p class="lp-section-sub">Need a lesson plan, activity, or feature that is missing? Send a request. Ideas from real childcare providers are reviewed, and the best ones may be added to Little Learner Hub.</p>
+              <p class="llh-request-idea-benefit">One benefit of joining early: your classroom needs help guide what we prioritize next.</p>
+            </div>
+            <div class="llh-request-idea-actions">
+              <button class="lp-btn-primary llh-btn llh-btn-primary" type="button" data-action="open-idea-request" id="homeRequestIdeaButton">Request an Idea</button>
+            </div>
           </section>
 
           <!-- ACTIVITY PREVIEW -->
@@ -2313,6 +2325,50 @@
       </div>
     </div>
 
+    <div class="modal" id="ideaRequestModal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="ideaRequestModalTitle">
+      <div class="modal-card llh-idea-request-modal-card">
+        <button class="close-button" id="closeIdeaRequestModal" type="button" aria-label="Close request form">&times;</button>
+        <p class="eyebrow">Provider ideas</p>
+        <h2 id="ideaRequestModalTitle">Request an Idea</h2>
+        <p class="muted-copy">Tell us what would help your classroom. Ideas are reviewed, and the best ones may be added — we can&rsquo;t promise every request will be built.</p>
+        <form class="panel-form" id="ideaRequestForm" novalidate>
+          <label>Name
+            <input type="text" id="ideaRequestName" name="name" required autocomplete="name" maxlength="120" />
+          </label>
+          <label>Email
+            <input type="email" id="ideaRequestEmail" name="email" required autocomplete="email" maxlength="200" />
+          </label>
+          <label>Request type
+            <select id="ideaRequestType" name="requestType" required>
+              <option value="">Choose a type</option>
+              <option value="Lesson Plan">Lesson Plan</option>
+              <option value="Activity">Activity</option>
+              <option value="Feature">Feature</option>
+              <option value="Other">Other</option>
+            </select>
+          </label>
+          <label>Age group
+            <select id="ideaRequestAgeGroup" name="ageGroup" required>
+              <option value="">Choose an age group</option>
+              <option value="Infant">Infant</option>
+              <option value="Toddler">Toddler</option>
+              <option value="Preschool">Preschool</option>
+              <option value="School Age">School Age</option>
+              <option value="Not Applicable">Not Applicable</option>
+            </select>
+          </label>
+          <label>Request details
+            <textarea id="ideaRequestDetails" name="details" rows="5" required maxlength="5000" placeholder="Describe the lesson plan, activity, or feature you need."></textarea>
+          </label>
+          <div class="form-actions">
+            <button class="primary-button" type="submit" id="ideaRequestSubmit">Submit</button>
+            <button class="ghost-button" type="button" id="cancelIdeaRequestModal">Cancel</button>
+          </div>
+          <p class="form-message" id="ideaRequestMessage" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260712-v3-render-fix" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid" defer></script>
@@ -2332,8 +2388,8 @@
     <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260802-tiktok-hero-v4" defer></script>
+    <script src="app.js?v=20260802-request-idea" defer></script>
     <script src="admin-workspace.js?v=20260730-hdh-own-tester-kid" defer></script>
-    <script src="comms-center.js?v=20260730-hdh-own-tester-kid" defer></script>
+    <script src="comms-center.js?v=20260802-request-idea" defer></script>
   </body>
 </html>
