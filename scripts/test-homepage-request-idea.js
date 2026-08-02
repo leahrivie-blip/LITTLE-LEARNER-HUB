@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
  * Homepage "Request an Idea" section + modal → /api/feature-request (admin Feature Requests).
+ * Covers guest empty prefill, signed-in prefill, validation, and persistence.
  */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -82,6 +83,14 @@ async function stopServer(child) {
   });
 }
 
+async function openIdeaModal(page) {
+  await page.evaluate(() => {
+    document.querySelector("#homeRequestIdea")?.scrollIntoView({ block: "center" });
+  });
+  await page.click("#homeRequestIdeaButton");
+  await page.waitForSelector("#ideaRequestModal.open", { timeout: 8000 });
+}
+
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
@@ -94,12 +103,14 @@ async function main() {
   assert.ok(activitiesIdx > ideaIdx, "idea section should sit before activities");
   assert.ok(pricingIdx > ideaIdx, "idea section should sit before pricing");
   assert.match(html, /Help Shape What Gets Built Next/);
+  assert.match(html, /Your requests help guide what we build and improve next/);
+  assert.doesNotMatch(html, /classroom needs help guide/);
   assert.match(html, /Request an Idea/);
   assert.match(html, /id="ideaRequestModal"/);
   assert.match(html, /value="Lesson Plan"/);
   assert.match(html, /value="School Age"/);
-  assert.match(html, /joining early/i);
   assert.match(appJs, /openIdeaRequestModal/);
+  assert.match(appJs, /ideaRequestSavedContact/);
   assert.match(appJs, /homepage_idea_request/);
   assert.match(appJs, /\/api\/feature-request/);
 
@@ -109,57 +120,135 @@ async function main() {
   try {
     await waitForBoot(child);
 
-    for (const viewport of [
-      { name: "desktop", width: 1280, height: 900 },
-      { name: "mobile", width: 390, height: 844 },
-    ]) {
-      const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
+    // Guest flow + validation + empty prefill
+    {
+      const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
       await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
       await page.waitForSelector("#homeRequestIdea", { timeout: 15000 });
-
       await page.evaluate(() => {
         document.querySelector("#homeRequestIdea")?.scrollIntoView({ block: "center" });
       });
-      await page.waitForTimeout(200);
-      const sectionShot = path.join(OUT_DIR, `request-idea-section-${viewport.name}.png`);
-      await page.screenshot({ path: sectionShot, fullPage: false });
+      await page.screenshot({ path: path.join(OUT_DIR, "request-idea-section-desktop.png"), fullPage: false });
 
-      await page.click("#homeRequestIdeaButton");
-      await page.waitForSelector("#ideaRequestModal.open", { timeout: 8000 });
+      await openIdeaModal(page);
+      const guestFields = await page.evaluate(() => ({
+        name: document.querySelector("#ideaRequestName")?.value || "",
+        email: document.querySelector("#ideaRequestEmail")?.value || "",
+        namePlaceholder: document.querySelector("#ideaRequestName")?.getAttribute("placeholder") || "",
+        emailPlaceholder: document.querySelector("#ideaRequestEmail")?.getAttribute("placeholder") || "",
+      }));
+      assert.equal(guestFields.name, "", "guest name must be empty");
+      assert.equal(guestFields.email, "", "guest email must be empty");
+      assert.equal(guestFields.namePlaceholder, "");
+      assert.equal(guestFields.emailPlaceholder, "");
+      assert.doesNotMatch(guestFields.name, /provider|test/i);
 
-      const modalShot = path.join(OUT_DIR, `request-idea-modal-${viewport.name}.png`);
-      await page.screenshot({ path: modalShot, fullPage: false });
+      await page.screenshot({ path: path.join(OUT_DIR, "request-idea-modal-desktop.png"), fullPage: false });
 
-      await page.fill("#ideaRequestName", "Test Provider");
-      await page.fill("#ideaRequestEmail", `idea-${viewport.name}@example.com`);
-      await page.selectOption("#ideaRequestType", "Lesson Plan");
-      await page.selectOption("#ideaRequestAgeGroup", "Toddler");
-      await page.fill("#ideaRequestDetails", "Please add a toddler weather week with outdoor sensory play.");
+      // Validation: empty submit should error and keep typed values
+      await page.fill("#ideaRequestName", "Guest Name Keep");
+      await page.fill("#ideaRequestEmail", "not-an-email");
+      await page.fill("#ideaRequestDetails", "Keep this text after validation");
+      await page.click("#ideaRequestSubmit");
+      await page.waitForFunction(() => {
+        const msg = document.querySelector("#ideaRequestMessage")?.textContent || "";
+        return /valid email|choose a request type|please/i.test(msg);
+      }, null, { timeout: 5000 });
+      const afterInvalid = await page.evaluate(() => ({
+        name: document.querySelector("#ideaRequestName")?.value || "",
+        email: document.querySelector("#ideaRequestEmail")?.value || "",
+        details: document.querySelector("#ideaRequestDetails")?.value || "",
+        message: document.querySelector("#ideaRequestMessage")?.textContent || "",
+        error: document.querySelector("#ideaRequestMessage")?.classList.contains("is-error"),
+      }));
+      assert.equal(afterInvalid.name, "Guest Name Keep");
+      assert.equal(afterInvalid.email, "not-an-email");
+      assert.equal(afterInvalid.details, "Keep this text after validation");
+      assert.equal(afterInvalid.error, true);
+
+      // Successful guest submit
+      await page.fill("#ideaRequestEmail", "guest-idea@example.com");
+      await page.selectOption("#ideaRequestType", "Feature");
+      await page.selectOption("#ideaRequestAgeGroup", "Preschool");
+      await page.fill("#ideaRequestDetails", "Add a printable attendance tracker for preschool rooms.");
       await page.click("#ideaRequestSubmit");
       await page.waitForFunction(() => {
         const msg = document.querySelector("#ideaRequestMessage")?.textContent || "";
         return /Thank you! Your request has been sent for review/i.test(msg);
       }, null, { timeout: 10000 });
-
-      const thanksShot = path.join(OUT_DIR, `request-idea-thanks-${viewport.name}.png`);
-      await page.screenshot({ path: thanksShot, fullPage: false });
-
-      report.checks.push({
-        viewport: viewport.name,
-        sectionShot,
-        modalShot,
-        thanksShot,
-      });
+      await page.screenshot({ path: path.join(OUT_DIR, "request-idea-thanks-desktop.png"), fullPage: false });
+      await page.click("#closeIdeaRequestModal");
+      report.checks.push({ flow: "guest", ok: true });
       await page.close();
-      console.log(`PASS ${viewport.name}`);
+      console.log("PASS guest");
     }
 
-    // Confirm persistence in store / list API shape via direct POST + file.
+    // Signed-in flow with prefilled contact (modal works even when marketing home is hidden)
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      await page.addInitScript(() => {
+        const email = "signed-in-idea@example.com";
+        localStorage.setItem("llhUser", email);
+        localStorage.setItem("llhAccounts", JSON.stringify({
+          [email]: {
+            email,
+            firstName: "Jordan",
+            lastName: "Lee",
+            plan: "Free",
+            accountType: "home_daycare",
+            role: "owner",
+          },
+        }));
+        localStorage.setItem("llhPlan", "Free");
+      });
+      await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
+      await page.waitForFunction(() => typeof openIdeaRequestModal === "function" && Boolean(document.querySelector("#ideaRequestForm")), null, { timeout: 20000 });
+      // Capture mobile marketing section while still available as guest snapshot already covers UI;
+      // for signed-in, open the shared modal directly.
+      await page.evaluate(() => openIdeaRequestModal());
+      await page.waitForSelector("#ideaRequestModal.open", { timeout: 8000 });
+      const signedFields = await page.evaluate(() => ({
+        name: document.querySelector("#ideaRequestName")?.value || "",
+        email: document.querySelector("#ideaRequestEmail")?.value || "",
+        currentUser: typeof currentUser === "string" ? currentUser : "",
+      }));
+      assert.match(signedFields.name, /Jordan\s+Lee/);
+      assert.equal(signedFields.email, "signed-in-idea@example.com");
+      assert.equal(signedFields.currentUser, "signed-in-idea@example.com");
+      await page.screenshot({ path: path.join(OUT_DIR, "request-idea-modal-mobile.png"), fullPage: false });
+
+      await page.selectOption("#ideaRequestType", "Activity");
+      await page.selectOption("#ideaRequestAgeGroup", "Infant");
+      await page.fill("#ideaRequestDetails", "Need more infant music circle ideas with caregiver prompts.");
+      await page.click("#ideaRequestSubmit");
+      await page.waitForFunction(() => {
+        const msg = document.querySelector("#ideaRequestMessage")?.textContent || "";
+        return /Thank you! Your request has been sent for review/i.test(msg);
+      }, null, { timeout: 10000 });
+      await page.screenshot({ path: path.join(OUT_DIR, "request-idea-thanks-mobile.png"), fullPage: false });
+      report.checks.push({ flow: "signed-in", ok: true, prefill: signedFields });
+      await page.close();
+      console.log("PASS signed-in");
+    }
+
+    // Mobile section screenshot (guest) for approval artifacts
+    {
+      const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+      await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
+      await page.waitForSelector("#homeRequestIdea", { timeout: 15000 });
+      await page.evaluate(() => {
+        document.querySelector("#homeRequestIdea")?.scrollIntoView({ block: "center" });
+      });
+      await page.screenshot({ path: path.join(OUT_DIR, "request-idea-section-mobile.png"), fullPage: false });
+      await page.close();
+    }
+
+    // Confirm persistence + field integrity
     const apiRes = await request("POST", "/api/feature-request", {
-      title: "Activity request: music circles",
-      description: "Need more infant music circle ideas.\n\nRequest type: Activity\nAge group: Infant",
-      category: "Activity",
-      ageGroup: "Infant",
+      title: "Lesson Plan request: weather week",
+      description: "Please add a toddler weather week.\n\nRequest type: Lesson Plan\nAge group: Toddler",
+      category: "Lesson Plan",
+      ageGroup: "Toddler",
       name: "API Tester",
       email: "api-idea@example.com",
       source: "homepage_idea_request",
@@ -167,24 +256,49 @@ async function main() {
     });
     assert.equal(apiRes.status, 200, apiRes.body);
     const apiJson = JSON.parse(apiRes.body);
-    assert.equal(apiJson.featureRequest?.category, "Activity");
-    assert.equal(apiJson.featureRequest?.ageGroup, "Infant");
+    assert.equal(apiJson.featureRequest?.category, "Lesson Plan");
+    assert.equal(apiJson.featureRequest?.ageGroup, "Toddler");
     assert.equal(apiJson.featureRequest?.source, "homepage_idea_request");
+    assert.equal(apiJson.featureRequest?.name, "API Tester");
+    assert.equal(apiJson.featureRequest?.email, "api-idea@example.com");
 
     const store = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
     assert.ok(Array.isArray(store.featureRequests));
-    assert.ok(store.featureRequests.length >= 3, `expected >=3 saved requests, got ${store.featureRequests.length}`);
     const homepageOnes = store.featureRequests.filter((r) => r.source === "homepage_idea_request");
-    assert.ok(homepageOnes.length >= 3, "homepage idea requests should be stored in featureRequests");
-    assert.ok(homepageOnes.some((r) => /weather week/i.test(r.description || "")));
+    assert.ok(homepageOnes.length >= 3, `expected >=3 homepage requests, got ${homepageOnes.length}`);
+    const guestItem = homepageOnes.find((r) => r.email === "guest-idea@example.com");
+    const signedItem = homepageOnes.find((r) => r.email === "signed-in-idea@example.com");
+    assert.ok(guestItem, "guest submission missing from store");
+    assert.ok(signedItem, "signed-in submission missing from store");
+    assert.equal(guestItem.category, "Feature");
+    assert.equal(guestItem.ageGroup, "Preschool");
+    assert.match(guestItem.description || "", /attendance tracker/i);
+    assert.equal(signedItem.category, "Activity");
+    assert.equal(signedItem.ageGroup, "Infant");
+    assert.match(signedItem.name || "", /Jordan/i);
+    assert.match(signedItem.description || "", /music circle/i);
+
+    // Empty/invalid API rejection
+    const bad = await request("POST", "/api/feature-request", {
+      title: "",
+      description: "",
+      email: "bad@example.com",
+    });
+    assert.equal(bad.status, 400);
 
     report.storage = {
-      path: STORE_PATH,
       key: "featureRequests",
       adminPanel: "Admin → Advanced → Feature Requests",
-      api: "POST /api/feature-request → store.featureRequests (local-json or Postgres llh_store JSONB)",
+      api: "POST /api/feature-request → store.featureRequests",
       count: store.featureRequests.length,
-      sampleIds: store.featureRequests.slice(0, 3).map((r) => r.id),
+      homepageCount: homepageOnes.length,
+      sample: homepageOnes.slice(0, 3).map((r) => ({
+        id: r.id,
+        category: r.category,
+        ageGroup: r.ageGroup,
+        email: r.email,
+        source: r.source,
+      })),
     };
 
     fs.writeFileSync(path.join(OUT_DIR, "request-idea-report.json"), JSON.stringify(report, null, 2));

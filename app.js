@@ -39921,29 +39921,43 @@ function setIdeaRequestMessage(text, { ok = false, error = false } = {}) {
   el.classList.toggle("is-error", Boolean(error));
 }
 
-function prefillIdeaRequestForm() {
+function ideaRequestSavedContact() {
   const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
   const email = String(currentUser || account.email || "").trim();
-  const signedIn = Boolean(email);
-  const rawName = signedIn
-    ? (
-      (typeof displayUserName === "function" ? displayUserName(account) : "")
-      || [account.firstName, account.lastName].filter(Boolean).join(" ")
-      || ""
-    )
-    : "";
-  const name = rawName && !/^provider$/i.test(rawName) ? rawName : (signedIn ? rawName : "");
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { name: "", email: "" };
+  }
+  const fromParts = [account.firstName, account.lastName].filter(Boolean).join(" ").trim();
+  const candidates = [
+    fromParts,
+    String(account.name || "").trim(),
+    String(account.displayName || "").trim(),
+    String(account.fullName || "").trim(),
+  ].filter(Boolean);
+  // Only use a real saved name — never invent "Provider" or email-local fallbacks.
+  const name = candidates.find((value) => (
+    value
+    && !/^provider$/i.test(value)
+    && !/^undefined(\s+undefined)?$/i.test(value)
+  )) || "";
+  return { name, email };
+}
+
+function prefillIdeaRequestForm({ force = false } = {}) {
+  const { name, email } = ideaRequestSavedContact();
   const nameInput = document.querySelector("#ideaRequestName");
   const emailInput = document.querySelector("#ideaRequestEmail");
-  if (nameInput && !nameInput.value && name) nameInput.value = name;
-  if (emailInput && !emailInput.value && email) emailInput.value = email;
+  if (!nameInput || !emailInput) return;
+  if (force || !nameInput.value) nameInput.value = name;
+  if (force || !emailInput.value) emailInput.value = email;
 }
 
 function openIdeaRequestModal() {
   const modal = document.querySelector("#ideaRequestModal");
   if (!modal) return;
   setIdeaRequestMessage("");
-  prefillIdeaRequestForm();
+  // Always start from saved contact state so guests never see leftover/fake names.
+  prefillIdeaRequestForm({ force: true });
   document.body.classList.add("auth-modal-open");
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
@@ -40037,7 +40051,7 @@ async function submitIdeaRequestForm(event) {
     trackEvent("idea_request_submitted", { requestType, ageGroup, source: "homepage_idea_request" });
     setIdeaRequestMessage("Thank you! Your request has been sent for review.", { ok: true });
     form.reset();
-    prefillIdeaRequestForm();
+    prefillIdeaRequestForm({ force: true });
     if (typeof isAdminUnlocked === "function" && isAdminUnlocked()) {
       try {
         if (typeof window.renderAdminFeatureRequests === "function") {
