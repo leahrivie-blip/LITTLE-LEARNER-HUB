@@ -473,12 +473,9 @@ body.llh-public-menu-open {
 }
 
 .llh-hero-trust-stats,
+.llh-hero-trust-sep,
 .llh-hero-trust-ages {
   display: inline;
-}
-
-.llh-hero-trust-ages::before {
-  content: " • ";
 }
 
 .landing-home .llh-hero--tiktok .lp-hero-actions {
@@ -1475,8 +1472,8 @@ body.llh-public-menu-open {
     display: block;
   }
 
-  .landing-home .llh-hero--tiktok .llh-hero-trust-ages::before {
-    content: none;
+  .landing-home .llh-hero--tiktok .llh-hero-trust-sep {
+    display: none;
   }
 
   .landing-home .llh-hero--tiktok .lp-hero-visual,
@@ -1494,13 +1491,17 @@ body.llh-public-menu-open {
 
   /* Clear the shorter sticky Start Free bar so content/taps are not covered. */
   .landing-home {
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
   }
 
-  .landing-home .llh-home-footer,
+  .landing-home .llh-section,
   .landing-home .lp-final-cta,
-  .landing-home .llh-section:last-of-type {
-    scroll-margin-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+  .landing-home .llh-home-footer {
+    scroll-margin-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .landing-home .llh-lesson-preview-section {
+    padding-bottom: 8px;
   }
 
   .llh-hero-mock-card {
