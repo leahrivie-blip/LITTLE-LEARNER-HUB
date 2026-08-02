@@ -110,9 +110,65 @@ function makeActivities(count = 120) {
   }));
 }
 
-async function seedSession(page, persona, { lastView = "calendar", cacheActivities = 120 } = {}) {
+/**
+ * Seed a client-only persona. When blockServerPersistence is true (default for
+ * production hosts), profile sync is stubbed and analytics events are rewritten
+ * to guest so ephemeral @test.local / QA emails never hit the durable store.
+ */
+async function seedSession(page, persona, {
+  lastView = "calendar",
+  cacheActivities = 120,
+  blockServerPersistence = null,
+} = {}) {
   const plans = makePlans(24);
   const activities = makeActivities(cacheActivities);
+  const prodHint = String(process.env.LLH_PROD_URL || process.env.SITE_URL || "");
+  const shouldBlock = blockServerPersistence == null
+    ? /littlelearnershubbyleah\.com|onrender\.com/i.test(prodHint)
+    : Boolean(blockServerPersistence);
+
+  if (shouldBlock) {
+    await page.route("**/api/account/profile", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      let email = "";
+      try {
+        email = String(JSON.parse(route.request().postData() || "{}").email || "");
+      } catch {
+        email = "";
+      }
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          ok: true,
+          skipped: true,
+          reason: "test_account_not_persisted",
+          user: { email, plan: persona?.plan || "Free", accountStatus: "Active" },
+        }),
+      });
+    });
+    await page.route("**/api/analytics/event", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      let payload = {};
+      try {
+        payload = JSON.parse(route.request().postData() || "{}");
+      } catch {
+        payload = {};
+      }
+      const user = String(payload.user || payload.email || "");
+      if (user && user !== "guest" && /@(?:test\.local|example\.|e2e\.test)|(^|[._+-])(test|qa|matrix|e2e|smoke)/i.test(user)) {
+        payload = { ...payload, user: "guest", email: undefined };
+      }
+      return route.continue({
+        postData: JSON.stringify(payload),
+        headers: {
+          ...route.request().headers(),
+          "content-type": "application/json",
+        },
+      });
+    });
+  }
+
   await page.addInitScript(({ acct, rememberedView, cachedPlans, cachedActivities }) => {
     localStorage.clear();
     sessionStorage.clear();

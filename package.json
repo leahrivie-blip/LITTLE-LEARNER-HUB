@@ -14,9 +14,13 @@
     "start": "node --max-old-space-size=300 server/index.js",
     "serve": "python3 -m http.server 4173",
     "server": "node --max-old-space-size=300 server/index.js",
+<<<<<<< HEAD
     "check": "node --check server/index.js && node --check server/seo.js && node --check server/curriculum-media.js && node --check server/curriculum-resource-migration.js && node --check server/meta-capi.js && node --check app.js && node --check server/launch-check.js && node --check server/billing-check.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
     "test:marketing-analytics": "NODE_ENV=test node scripts/test-marketing-analytics.js",
+=======
+    "check": "node --check server/index.js && node --check server/seo.js && node --check server/curriculum-media.js && node --check server/curriculum-resource-migration.js && node --check server/test-account-guard.js && node --check app.js && node --check server/launch-check.js && node --check server/billing-check.js",
+>>>>>>> aa9caec (Block ephemeral test accounts from persisting in Postgres)
     "stripe:check": "node server/stripe-check.js",
     "launch:check": "node server/launch-check.js",
     "billing:check": "node server/billing-check.js",
@@ -228,6 +232,7 @@
     "dry-run:free-user-welcome-email": "node scripts/free-user-welcome-dry-run.js",
     "test:sparse-store-recovery": "NODE_ENV=test node scripts/test-sparse-store-recovery.js",
     "test:store-safety": "NODE_ENV=test node scripts/test-store-safety-guards.js",
+    "test:test-account-guard": "NODE_ENV=test node scripts/test-test-account-guard.js",
     "test:postgres-pool-hardening": "NODE_ENV=test node scripts/test-postgres-pool-hardening.js",
     "test:store-write-race": "NODE_ENV=test node scripts/test-store-write-race.js",
     "test:store-write-debounce": "NODE_ENV=test node scripts/test-store-write-debounce.js",
