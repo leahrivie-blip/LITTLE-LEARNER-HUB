@@ -1201,19 +1201,19 @@ body.llh-public-menu-open {
   bottom: 0;
   z-index: 30;
   display: none;
-  padding: 5px 12px calc(5px + env(safe-area-inset-bottom, 0px));
-  background: rgba(255, 253, 251, 0.94);
+  padding: 4px 12px calc(4px + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 253, 251, 0.96);
   border-top: 1px solid var(--llh-home-line);
   backdrop-filter: blur(8px);
 }
 
 .landing-home .lp-mobile-sticky-cta .lp-btn-primary {
   width: 100%;
-  min-height: 40px;
-  padding: 6px 16px;
-  font-size: 0.95rem;
-  border-radius: 12px;
-  box-shadow: 0 3px 12px rgba(123, 95, 232, 0.26);
+  min-height: 38px;
+  padding: 5px 14px;
+  font-size: 0.94rem;
+  border-radius: 11px;
+  box-shadow: 0 2px 10px rgba(123, 95, 232, 0.22);
 }
 
 /* Responsive — tablet + phone */
@@ -1504,17 +1504,17 @@ body.llh-public-menu-open {
    * Every card/button/footer item must be able to scroll completely above the bar.
    */
   body.home-view {
-    --llh-mobile-sticky-clearance: calc(52px + env(safe-area-inset-bottom, 0px));
-    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 16px);
+    --llh-mobile-sticky-clearance: calc(48px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 24px);
   }
 
   html:has(body.home-view) {
-    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance, 52px) + 16px);
+    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance, 48px) + 24px);
   }
 
   body.home-view .landing-home,
   body.home-view #view-home.landing-home {
-    padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 40px);
+    padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 56px);
   }
 
   body.home-view .landing-home .llh-section,

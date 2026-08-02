@@ -202,7 +202,7 @@ async function main() {
           const btn = document.querySelector("#homeLessonPreviewGrid [data-home-open-preview]");
           if (!sticky || !btn) return { ok: false, reason: "missing sticky or view button" };
 
-          const margin = 12;
+          const margin = 20;
           const stickyTop = () => sticky.getBoundingClientRect().top;
           // Scroll so button bottom sits just above sticky top.
           btn.scrollIntoView({ block: "end", inline: "nearest" });
@@ -281,7 +281,7 @@ async function main() {
         assert.equal(clearance.covered, false, `View Lesson Plan covered by sticky on ${viewport.name}`);
         assert.equal(clearance.clickable, true, `View Lesson Plan not clickable on ${viewport.name}`);
         assert.equal(clearance.footerClear, true, `footer not clear of sticky on ${viewport.name}`);
-        assert.ok(clearance.gap >= 8, `expected >=8px gap above sticky, got ${clearance.gap}`);
+        assert.ok(clearance.gap >= 16, `expected >=16px gap above sticky, got ${clearance.gap}`);
       }
 
       // Start Free opens signup
@@ -314,18 +314,29 @@ async function main() {
         await page.evaluate(async () => {
           const sticky = document.querySelector(".lp-mobile-sticky-cta");
           const btn = document.querySelector("#homeLessonPreviewGrid [data-home-open-preview]");
-          const margin = 14;
+          const margin = 24;
           btn.scrollIntoView({ block: "end" });
           await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
-          for (let i = 0; i < 40; i += 1) {
+          for (let i = 0; i < 50; i += 1) {
             const btnRect = btn.getBoundingClientRect();
             const targetBottom = sticky.getBoundingClientRect().top - margin;
             const delta = btnRect.bottom - targetBottom;
-            if (Math.abs(delta) <= 2 && btnRect.top >= 8) break;
+            if (Math.abs(delta) <= 1 && btnRect.top >= 8) break;
             window.scrollBy(0, delta);
             await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
           }
+          // Ensure the full card button remains clear before capture.
+          const check = (() => {
+            const b = btn.getBoundingClientRect();
+            const s = sticky.getBoundingClientRect();
+            return b.bottom <= s.top - 16;
+          })();
+          if (!check) {
+            window.scrollBy(0, 30);
+            await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          }
         });
+        await page.waitForTimeout(120);
       }
       const shotPath = path.join(OUT_DIR, `tiktok-hero-${viewport.name}.png`);
       await page.screenshot({ path: shotPath, fullPage: false });
