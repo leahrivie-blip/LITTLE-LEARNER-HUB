@@ -39923,14 +39923,20 @@ function setIdeaRequestMessage(text, { ok = false, error = false } = {}) {
 
 function prefillIdeaRequestForm() {
   const account = typeof currentAccount === "function" ? (currentAccount() || {}) : {};
-  const name = (typeof displayUserName === "function" ? displayUserName(account) : "")
-    || [account.firstName, account.lastName].filter(Boolean).join(" ")
-    || "";
-  const email = currentUser || account.email || "";
+  const email = String(currentUser || account.email || "").trim();
+  const signedIn = Boolean(email);
+  const rawName = signedIn
+    ? (
+      (typeof displayUserName === "function" ? displayUserName(account) : "")
+      || [account.firstName, account.lastName].filter(Boolean).join(" ")
+      || ""
+    )
+    : "";
+  const name = rawName && !/^provider$/i.test(rawName) ? rawName : (signedIn ? rawName : "");
   const nameInput = document.querySelector("#ideaRequestName");
   const emailInput = document.querySelector("#ideaRequestEmail");
-  if (nameInput && !nameInput.value) nameInput.value = name;
-  if (emailInput && !emailInput.value) emailInput.value = email;
+  if (nameInput && !nameInput.value && name) nameInput.value = name;
+  if (emailInput && !emailInput.value && email) emailInput.value = email;
 }
 
 function openIdeaRequestModal() {
