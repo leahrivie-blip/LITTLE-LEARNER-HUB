@@ -1,17 +1,17 @@
-const CACHE_NAME = "llh-shell-v146-tiktok-hero";
-const SHELL_VERSION = "20260802-tiktok-hero";
+const CACHE_NAME = "llh-shell-v147-tiktok-hero-v2";
+const SHELL_VERSION = "20260802-tiktok-hero-v2";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260802-tiktok-hero",
+  "/styles.css?v=20260802-tiktok-hero-v2",
   "/styles/llh-admin-workspace.css?v=20260730-hdh-own-tester-kid",
   "/styles/llh-design-tokens.css?v=20260713-ds",
-  "/styles/llh-homepage.css?v=20260802-tiktok-hero",
+  "/styles/llh-homepage.css?v=20260802-tiktok-hero-v2",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
-  "/styles/llh-messaging.css?v=20260802-tiktok-hero",
+  "/styles/llh-messaging.css?v=20260802-tiktok-hero-v2",
   "/styles/llh-comms.css?v=20260730-hdh-own-tester-kid",
   "/scripts/curriculum-safe-values.js?v=20260712-v3-render-fix",
   "/scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid",
@@ -30,7 +30,7 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
   "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
   "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/app.js?v=20260802-tiktok-hero",
+  "/app.js?v=20260802-tiktok-hero-v2",
   "/admin-workspace.js?v=20260730-hdh-own-tester-kid",
   "/comms-center.js?v=20260730-hdh-own-tester-kid",
   "/site.webmanifest",

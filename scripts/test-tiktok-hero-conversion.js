@@ -72,6 +72,8 @@ async function main() {
   assert.match(indexHtml, /Stop Spending Hours Creating Lesson Plans/);
   assert.match(indexHtml, /Start Free/);
   assert.match(indexHtml, /See why hundreds of childcare providers have already joined/);
+  assert.match(indexHtml, /all built by a childcare provider/);
+  assert.doesNotMatch(indexHtml, /all in one affordable platform built by a childcare provider/);
   assert.doesNotMatch(indexHtml, /llh-hero-support/);
 
   const child = startServer();
@@ -80,10 +82,15 @@ async function main() {
   try {
     await waitForBoot(child);
 
-    for (const viewport of [
+    const viewports = [
       { name: "desktop", width: 1280, height: 800 },
-      { name: "mobile", width: 390, height: 844 },
-    ]) {
+      { name: "iphone-14", width: 390, height: 844 },
+      { name: "iphone-pro-max", width: 430, height: 932 },
+      { name: "android-360", width: 360, height: 740 },
+    ];
+
+    for (const viewport of viewports) {
+      const isMobile = viewport.name !== "desktop";
       const page = await browser.newPage({ viewport: { width: viewport.width, height: viewport.height } });
       const consoleErrors = [];
       page.on("console", (msg) => {
@@ -99,9 +106,13 @@ async function main() {
         const startFree = [...document.querySelectorAll("#homeHero [data-action='start-free']")];
         const preview = [...document.querySelectorAll("#homeHero [data-view='lessons'], #homeHero [data-home-nav='lessons']")];
         const sticky = document.querySelector(".lp-mobile-sticky-cta");
-        // position:fixed elements often have null offsetParent — use computed display.
-        const stickyVisible = Boolean(sticky && getComputedStyle(sticky).display !== "none" && getComputedStyle(sticky).visibility !== "hidden");
+        const stickyVisible = Boolean(
+          sticky
+          && getComputedStyle(sticky).display !== "none"
+          && getComputedStyle(sticky).visibility !== "hidden"
+        );
         const stickyText = sticky?.innerText?.trim() || "";
+        const stickyRect = stickyVisible ? sticky.getBoundingClientRect() : null;
         const pricingInHero = /\$19\.99|Founding/i.test(section?.innerText || "");
         const overflowX = document.documentElement.scrollWidth > document.documentElement.clientWidth + 1;
         const startBtn = document.querySelector("#homeHero .llh-hero-primary-cta");
@@ -113,6 +124,48 @@ async function main() {
           const style = getComputedStyle(btn);
           return style.display !== "none" && style.visibility !== "hidden" && btn.offsetParent !== null;
         }).length;
+
+        const trustEl = document.querySelector(".llh-hero-trust-line");
+        const trustStyles = trustEl ? getComputedStyle(trustEl) : null;
+        const trustStacked = Boolean(trustStyles && trustStyles.flexDirection === "column");
+        const lookInside = document.querySelector("#homeLessonPlans .lp-section-title");
+        const lookInsideRect = lookInside?.getBoundingClientRect();
+        const lookInsideVisible = Boolean(
+          lookInsideRect
+          && lookInsideRect.top < window.innerHeight - (stickyRect?.height || 0) - 8
+        );
+
+        // Ensure sticky does not cover hero trust line or Look Inside title at top of page.
+        let stickyCoversHeroTrust = false;
+        if (stickyRect && trustEl) {
+          const trustRect = trustEl.getBoundingClientRect();
+          stickyCoversHeroTrust = trustRect.bottom > stickyRect.top + 1;
+        }
+
+        // Scroll to bottom and ensure footer/final content is not covered.
+        const previousScroll = window.scrollY;
+        window.scrollTo(0, document.documentElement.scrollHeight);
+        const footer = document.querySelector(".llh-home-footer, .llh-footer-copy, footer");
+        const footerRect = footer?.getBoundingClientRect();
+        const stickyAfterScroll = stickyVisible ? sticky.getBoundingClientRect() : null;
+        const stickyCoversFooter = Boolean(
+          stickyAfterScroll
+          && footerRect
+          && footerRect.bottom > stickyAfterScroll.top + 2
+          && footerRect.top < window.innerHeight
+        );
+        window.scrollTo(0, previousScroll);
+
+        const order = [
+          document.querySelector("#homeHero .lp-hero-headline"),
+          document.querySelector("#homeHero .lp-hero-sub"),
+          document.querySelector("#homeHero .llh-hero-primary-cta"),
+          document.querySelector("#homeHero .llh-hero-social-proof"),
+          document.querySelector("#homeHero .llh-hero-secondary-cta"),
+          document.querySelector("#homeHero .llh-hero-trust-line"),
+        ].map((el) => el?.getBoundingClientRect().top ?? Infinity);
+        const orderOk = order.every((top, i) => i === 0 || top >= order[i - 1] - 1);
+
         return {
           headline,
           sub,
@@ -120,34 +173,46 @@ async function main() {
           previewInHero: preview.length,
           stickyVisible,
           stickyText,
+          stickyHeight: stickyRect ? Math.round(stickyRect.height) : 0,
           pricingInHero,
           overflowX,
           startAboveFold,
           previewCountVisible,
           social: document.querySelector(".llh-hero-social-proof")?.innerText?.trim() || "",
-          trust: document.querySelector(".llh-hero-trust-line")?.innerText?.trim() || "",
+          trust: document.querySelector(".llh-hero-trust-line")?.innerText?.replace(/\s+/g, " ").trim() || "",
+          trustStacked,
+          lookInsideVisible,
+          stickyCoversHeroTrust,
+          stickyCoversFooter,
+          orderOk,
           navLogin: Boolean(document.querySelector(".llh-public-nav [data-action='open-login']")),
           navSignup: Boolean(document.querySelector(".llh-public-nav [data-action='start-free']")),
         };
       });
 
       assert.match(hero.headline, /Stop Spending Hours Creating Lesson Plans/);
-      assert.match(hero.sub, /infant, toddler, and preschool/i);
+      assert.match(hero.sub, /all built by a childcare provider/i);
+      assert.doesNotMatch(hero.sub, /affordable platform/i);
       assert.equal(hero.startFreeCount, 1);
       assert.equal(hero.previewInHero, 1);
       assert.equal(hero.pricingInHero, false);
       assert.equal(hero.overflowX, false);
+      assert.equal(hero.orderOk, true, "hero content order should be headline → sub → Start Free → social → Preview → trust");
       assert.match(hero.social, /hundreds of childcare providers/i);
       assert.match(hero.trust, /127 lesson plans/i);
+      assert.match(hero.trust, /Infant/i);
       assert.equal(hero.navLogin, true);
       assert.equal(hero.navSignup, true);
-      if (viewport.name === "mobile") {
+      if (isMobile) {
         assert.equal(hero.stickyVisible, true);
         assert.match(hero.stickyText, /Start Free/);
         assert.doesNotMatch(hero.stickyText, /Preview Free Lesson Plans/);
-        // Hero Preview + sticky Start Free — only one Preview visible
-        assert.equal(hero.previewCountVisible, 1, `expected 1 Preview button on mobile, got ${hero.previewCountVisible}`);
-        assert.equal(hero.startAboveFold, true, "Start Free should be above the fold on mobile");
+        assert.equal(hero.previewCountVisible, 1, `expected 1 Preview button on ${viewport.name}, got ${hero.previewCountVisible}`);
+        assert.equal(hero.startAboveFold, true, `Start Free should be above the fold on ${viewport.name}`);
+        assert.equal(hero.trustStacked, true, `trust line should stack on ${viewport.name}`);
+        assert.equal(hero.stickyCoversHeroTrust, false, `sticky should not cover hero trust on ${viewport.name}`);
+        assert.equal(hero.stickyCoversFooter, false, `sticky should not cover footer on ${viewport.name}`);
+        assert.ok(hero.stickyHeight > 0 && hero.stickyHeight <= 72, `sticky height ${hero.stickyHeight}px should be compact on ${viewport.name}`);
       }
 
       // Start Free opens signup
@@ -175,7 +240,6 @@ async function main() {
       await page.click("#closeModal");
 
       const shotPath = path.join(OUT_DIR, `tiktok-hero-${viewport.name}.png`);
-      // Return to home for screenshot
       await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
       await page.waitForSelector("#homeHero .lp-hero-headline");
       await page.screenshot({ path: shotPath, fullPage: false });
@@ -186,6 +250,8 @@ async function main() {
       console.log(`PASS ${viewport.name}`);
     }
 
+    // Keep legacy filenames for PR review convenience
+    fs.copyFileSync(path.join(OUT_DIR, "tiktok-hero-iphone-14.png"), path.join(OUT_DIR, "tiktok-hero-mobile.png"));
     fs.writeFileSync(path.join(OUT_DIR, "tiktok-hero-report.json"), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report, null, 2));
     console.log("tiktok-hero-conversion: PASS");
