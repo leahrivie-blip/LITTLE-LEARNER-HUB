@@ -3820,6 +3820,7 @@ function ensureMetaCookieNotice() {
 
 function trackEvent(name, detail = {}) {
   const attribution = currentAttribution();
+  const metaIds = metaBrowserIds();
   const event = {
     id: detail.metaEventId || detail.eventId || `event-${Date.now()}-${Math.random().toString(16).slice(2)}`,
     name,
@@ -3835,6 +3836,8 @@ function trackEvent(name, detail = {}) {
     user: currentUser || "",
     plan: currentPlan,
     attribution,
+    fbp: metaIds.fbp || "",
+    fbc: metaIds.fbc || "",
     createdAt: new Date().toISOString(),
   };
   saveAnalyticsEvents([event, ...analyticsEvents()]);
@@ -64454,7 +64457,13 @@ async function initializeAppView(options = {}) {
     if (!currentAttribution()?.firstSeenAt) {
       saveAttribution({ route: window.location.pathname || window.location.hash || "home", view: initialView, source: trafficSource() });
     }
-    trackEvent("website_visit", { view: initialView, source: trafficSource() });
+    // Reuse the head Pixel PageView eventID so browser + CAPI PageView dedupe.
+    const pageViewEventId = window.__llhMetaPageViewEventId || makeMetaEventId("pv");
+    trackEvent("website_visit", {
+      view: initialView,
+      source: trafficSource(),
+      metaEventId: pageViewEventId,
+    });
     if (lessonEditId) {
       const route = window.location.pathname || window.location.hash;
       saveAttribution({ route, view: "lesson-editor" });

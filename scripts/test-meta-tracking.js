@@ -179,8 +179,15 @@ async function integrationClientConfigAndSignup() {
     assert.ok(cfg.text.includes(PIXEL_ID), "Pixel ID from META_PIXEL_ID must be injected");
     assert.ok(cfg.text.includes("fbq('init'"), "Pixel bootstrap must load from env-driven config");
     assert.ok(cfg.text.includes("PageView"));
+    assert.ok(cfg.text.includes("eventID") || cfg.text.includes("__llhMetaPageViewEventId"), "PageView must include eventID for CAPI dedupe");
     assert.ok(!cfg.text.includes(FAKE_TOKEN), "CAPI token must never appear in browser config");
     assert.ok(!cfg.text.includes("META_CAPI_ACCESS_TOKEN"));
+
+    const pixelJs = await request(port, "GET", "/api/meta-pixel.js");
+    assert.equal(pixelJs.status, 200);
+    assert.ok(pixelJs.text.includes(PIXEL_ID), "dedicated /api/meta-pixel.js must inject env Pixel ID");
+    assert.ok(pixelJs.text.includes("PageView"));
+    assert.ok(!pixelJs.text.includes(FAKE_TOKEN));
 
     // Hardcode guard: source files must not contain a literal pixel assignment fallback.
     const clientConfigFn = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
@@ -221,6 +228,8 @@ async function integrationClientConfigAndSignup() {
     const cfg2 = await request(port2, "GET", "/api/client-config.js");
     assert.ok(!cfg2.text.includes("fbevents.js"), "kill switch must disable Pixel injection");
     assert.ok(!cfg2.text.includes(`"pixelId":"${PIXEL_ID}"`));
+    const pixelJs2 = await request(port2, "GET", "/api/meta-pixel.js");
+    assert.ok(!pixelJs2.text.includes("fbevents.js"), "kill switch must disable /api/meta-pixel.js");
     console.log("PASS master kill switch disables browser Pixel");
   } finally {
     child2.kill("SIGTERM");

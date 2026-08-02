@@ -11197,6 +11197,8 @@ function sanitizeAnalyticsEvent(input, request) {
     attribution: typeof raw.attribution === "object" && raw.attribution ? raw.attribution : {},
     userAgent: String(request.headers["user-agent"] || "").slice(0, 300),
     ipHash: crypto.createHash("sha256").update(String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "")).digest("hex").slice(0, 20),
+    fbp: String(raw.fbp || raw.detail?.fbp || "").slice(0, 200),
+    fbc: String(raw.fbc || raw.detail?.fbc || "").slice(0, 500),
     createdAt,
   };
 }
@@ -13205,6 +13207,23 @@ async function handleAnalyticsEvent(request, response) {
   const userStorePatch = analyticsStore.requiresUserStorePatch(event.name);
   const billingStorePatch = analyticsStore.requiresBillingStorePatch(event.name);
   const highVolume = analyticsStore.isHighVolumeAnalyticsEvent(event.name);
+
+  // Mirror PageView to CAPI (deduped with browser via event.id). Safe/no-op if CAPI off.
+  // website_visit = one per session boot; pairs with the head Pixel PageView eventID.
+  if (event.name === "website_visit") {
+    const hints = metaCapi.requestClientHints(request);
+    fireMetaCapiSafe("PageView", {
+      eventId: event.id,
+      email: event.user && event.user !== "guest" ? event.user : "",
+      fbp: event.fbp || "",
+      fbc: event.fbc || "",
+      clientIpAddress: hints.clientIpAddress,
+      clientUserAgent: hints.clientUserAgent || event.userAgent || "",
+      eventSourceUrl: event.url || SITE_URL || "",
+      eventTime: Math.floor(new Date(event.createdAt).getTime() / 1000) || undefined,
+      actionSource: "website",
+    });
+  }
 
   let analyticsTablePersisted = false;
   if (usePostgresStore() && postgresPool && databaseReady) {
@@ -17127,6 +17146,7 @@ function buildMetaPixelBootstrapScript(metaConfig = {}) {
   // Inject Pixel from META_PIXEL_ID (via publicClientMetaConfig). Never hardcode the ID.
   if (!metaConfig?.enabled || !metaConfig?.pixelId) return "";
   // pixelId is JSON-stringified into the script so it cannot break out of the string literal.
+  // PageView uses a stable eventID so browser + CAPI can dedupe the same hit.
   return `
 (function () {
   try {
@@ -17138,10 +17158,21 @@ function buildMetaPixelBootstrapScript(metaConfig = {}) {
     n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;
     t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script',
     'https://connect.facebook.net/en_US/fbevents.js');
+    var pageViewEventId = 'pv_' + Date.now().toString(36) + '_' + Math.random().toString(16).slice(2, 10);
+    window.__llhMetaPageViewEventId = pageViewEventId;
     fbq('init', pixelId);
-    fbq('track', 'PageView');
+    fbq('track', 'PageView', {}, { eventID: pageViewEventId });
   } catch (err) { /* Meta must never break the app */ }
 })();`;
+}
+
+function handleMetaPixelScript(request, response) {
+  const meta = metaCapi.publicClientMetaConfig();
+  response.writeHead(200, {
+    "Content-Type": "text/javascript; charset=utf-8",
+    "Cache-Control": "no-store",
+  });
+  response.end(buildMetaPixelBootstrapScript(meta) || "/* Meta Pixel disabled */");
 }
 
 function handleClientConfig(request, response) {
@@ -20959,6 +20990,7 @@ const server = http.createServer(async (request, response) => {
       return headResponse(response, 200, "application/json; charset=utf-8");
     }
     if (request.method === "GET" && url.pathname === "/api/client-config.js") return handleClientConfig(request, response);
+    if (request.method === "GET" && url.pathname === "/api/meta-pixel.js") return handleMetaPixelScript(request, response);
     if (request.method === "HEAD" && url.pathname === "/api/health") {
       return headResponse(response, storageBootReady ? 200 : 503, "application/json; charset=utf-8");
     }
