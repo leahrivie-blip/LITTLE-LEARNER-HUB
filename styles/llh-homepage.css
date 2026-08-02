@@ -457,10 +457,17 @@ body.llh-public-menu-open {
 .llh-hero-social-proof {
   margin: 2px 0 4px;
   width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding-inline: 12px;
   color: var(--llh-home-ink, #2a2a35);
   font-size: 0.95rem;
   font-weight: 600;
   line-height: 1.4;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .llh-hero-trust-line {
@@ -1194,7 +1201,7 @@ body.llh-public-menu-open {
   bottom: 0;
   z-index: 30;
   display: none;
-  padding: 8px 14px calc(8px + env(safe-area-inset-bottom, 0px));
+  padding: 5px 12px calc(5px + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 253, 251, 0.94);
   border-top: 1px solid var(--llh-home-line);
   backdrop-filter: blur(8px);
@@ -1202,11 +1209,11 @@ body.llh-public-menu-open {
 
 .landing-home .lp-mobile-sticky-cta .lp-btn-primary {
   width: 100%;
-  min-height: 42px;
-  padding: 8px 18px;
-  font-size: 0.98rem;
+  min-height: 40px;
+  padding: 6px 16px;
+  font-size: 0.95rem;
   border-radius: 12px;
-  box-shadow: 0 4px 14px rgba(123, 95, 232, 0.28);
+  box-shadow: 0 3px 12px rgba(123, 95, 232, 0.26);
 }
 
 /* Responsive — tablet + phone */
@@ -1452,8 +1459,11 @@ body.llh-public-menu-open {
   .landing-home .llh-hero--tiktok .llh-hero-social-proof {
     text-align: center;
     font-size: 0.86rem;
-    line-height: 1.3;
+    line-height: 1.35;
     margin: 0;
+    padding-inline: 18px;
+    max-width: 100%;
+    white-space: normal;
   }
 
   .landing-home .llh-hero--tiktok .llh-hero-trust-line {
@@ -1489,19 +1499,41 @@ body.llh-public-menu-open {
     display: block;
   }
 
-  /* Clear the shorter sticky Start Free bar so content/taps are not covered. */
-  .landing-home {
-    padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  /*
+   * Full-page sticky clearance (higher specificity than base padding shorthand).
+   * Every card/button/footer item must be able to scroll completely above the bar.
+   */
+  body.home-view {
+    --llh-mobile-sticky-clearance: calc(52px + env(safe-area-inset-bottom, 0px));
+    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 16px);
   }
 
-  .landing-home .llh-section,
-  .landing-home .lp-final-cta,
-  .landing-home .llh-home-footer {
-    scroll-margin-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  html:has(body.home-view) {
+    scroll-padding-bottom: calc(var(--llh-mobile-sticky-clearance, 52px) + 16px);
   }
 
-  .landing-home .llh-lesson-preview-section {
-    padding-bottom: 8px;
+  body.home-view .landing-home,
+  body.home-view #view-home.landing-home {
+    padding-bottom: calc(var(--llh-mobile-sticky-clearance) + 40px);
+  }
+
+  body.home-view .landing-home .llh-section,
+  body.home-view .landing-home .lp-founder-section,
+  body.home-view .landing-home .lp-reviews-section,
+  body.home-view .landing-home .lp-shape-feedback-section,
+  body.home-view .landing-home .lp-pricing-section,
+  body.home-view .landing-home .lp-final-cta,
+  body.home-view .landing-home .llh-home-footer,
+  body.home-view .landing-home .llh-preview-card,
+  body.home-view .landing-home .llh-preview-grid,
+  body.home-view .landing-home .llh-pricing-grid,
+  body.home-view .landing-home .llh-section-actions {
+    scroll-margin-bottom: calc(var(--llh-mobile-sticky-clearance) + 12px);
+  }
+
+  body.home-view .landing-home .llh-home-footer {
+    padding-bottom: 12px;
+    margin-bottom: 0;
   }
 
   .llh-hero-mock-card {

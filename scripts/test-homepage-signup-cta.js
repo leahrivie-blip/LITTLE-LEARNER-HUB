@@ -33,7 +33,7 @@ test("hero prioritizes Start Free for TikTok conversion (no pricing in hero)", (
   assert.match(actionsHtml, /data-view="lessons"/);
   assert.match(actionsHtml, /data-guest-browse="lessons"/);
   assert.match(actionsHtml, /Preview Free Lesson Plans/);
-  assert.match(actionsHtml, /See why hundreds of childcare providers have already joined/);
+  assert.match(actionsHtml, /Hundreds of childcare providers have already joined/);
   assert.doesNotMatch(actionsHtml, /data-checkout-plan="monthly"/);
   assert.doesNotMatch(actionsHtml, /\$19\.99/);
   assert.doesNotMatch(actionsHtml, /Founding/);
