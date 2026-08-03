@@ -77,6 +77,7 @@
     "test:curriculum-library-cold-start": "node scripts/test-curriculum-library-cold-start.js",
     "test:lesson-library-empty-curriculum-hotfix": "node scripts/test-lesson-library-empty-curriculum-hotfix.js",
     "test:admin-curriculum-load-regression": "node scripts/test-admin-curriculum-load-regression.js",
+    "test:admin-curriculum-load-e2e": "node scripts/test-admin-curriculum-load-e2e.js",
     "test:curriculum-activities-wipe-protection": "node scripts/test-curriculum-activities-wipe-protection.js",
     "test:login-logout-session-audit": "node scripts/test-login-logout-session-audit.js",
     "curriculum:restore-dry-run": "node scripts/curriculum-restore-dry-run.js",
