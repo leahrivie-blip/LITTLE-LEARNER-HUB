@@ -31,6 +31,8 @@ const curriculumResourceMigration = require("./curriculum-resource-migration.js"
 const seo = require("./seo.js");
 const metaCapi = require("./meta-capi.js");
 const testAccountGuard = require("./test-account-guard.js");
+const { createProductionMonitoring } = require("./production-monitoring.js");
+const productionMonitoring = createProductionMonitoring();
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -9400,6 +9402,9 @@ async function handleStripeWebhook(request, response) {
   } catch (error) {
     // Return 500 so Stripe retries failed webhook processing.
     console.error(`[membership] webhook_processing_failed type=${event?.type}:`, error.message || error);
+    try {
+      productionMonitoring.recordStripeWebhookFailure(event?.type || "unknown", error.message || "Webhook processing failed.");
+    } catch { /* monitoring must never break webhooks */ }
     jsonResponse(response, 500, { error: error.message || "Webhook processing failed." });
   }
 }
@@ -10300,6 +10305,69 @@ function handleAdminStoreHealth(request, response, url) {
     return;
   }
   jsonResponse(response, 200, { ok: true, health: storeHealthSnapshot() });
+}
+
+async function getPostgresDatabaseSizeMb() {
+  if (!usePostgresStore() || !postgresPool || !databaseReady) return null;
+  try {
+    const result = await postgresPool.query("SELECT pg_database_size(current_database())::bigint AS bytes");
+    const bytes = Number(result.rows?.[0]?.bytes);
+    if (!Number.isFinite(bytes) || bytes < 0) return null;
+    return bytes / (1024 * 1024);
+  } catch (error) {
+    console.warn("[production-monitoring] db size query failed:", error.message || error);
+    return null;
+  }
+}
+
+async function buildProductionMonitoringSnapshot() {
+  return productionMonitoring.buildSnapshot({
+    getStore: () => peekStore(),
+    getMetaConfig: () => metaCapi.readConfig(),
+    isDatabaseReady: () => databaseReady,
+    getDatabaseProvider: () => DATABASE_PROVIDER,
+    getDatabaseSizeMb: getPostgresDatabaseSizeMb,
+    getHealthHints: () => ({
+      websiteOk: true,
+      stripeWebhookSecretConfigured: isConfiguredValue(STRIPE_WEBHOOK_SECRET),
+    }),
+  });
+}
+
+async function runProductionMonitoringTick() {
+  const snapshot = await buildProductionMonitoringSnapshot();
+  const due = productionMonitoring.alertsDue(snapshot);
+  if (!due.length) return snapshot;
+  const emailStatus = supportEmailConfigStatus();
+  if (!emailStatus.ready) {
+    console.warn("[production-monitoring] alerts due but email is not configured:", due.map((c) => c.id).join(", "));
+    return snapshot;
+  }
+  const { subject, text } = productionMonitoring.formatAlertEmail(snapshot, due, SITE_URL);
+  try {
+    await sendEmail({
+      to: SUPPORT_EMAIL_TO || ADMIN_EMAIL,
+      subject,
+      text,
+      idempotencyKey: `llh-monitor-${due.map((c) => c.id).sort().join("-")}-${new Date().toISOString().slice(0, 13)}`,
+      tags: [{ name: "category", value: "production_monitoring" }],
+    });
+    productionMonitoring.markAlertsSent(due);
+    console.warn("[production-monitoring] alert email sent:", due.map((c) => c.id).join(", "));
+  } catch (error) {
+    console.warn("[production-monitoring] alert email failed:", error.message || error);
+  }
+  return snapshot;
+}
+
+async function handleAdminProductionMonitoring(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const snapshot = await buildProductionMonitoringSnapshot();
+  jsonResponse(response, 200, { ok: true, monitoring: snapshot });
 }
 
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
@@ -21439,6 +21507,12 @@ function respondStorageBooting(response) {
 const server = http.createServer(async (request, response) => {
   const url = new URL(request.url, SITE_URL);
   const comms = getCommsApi();
+  // Read-only request status sampling for 5xx spike alerts (does not alter handlers).
+  const originalWriteHead = response.writeHead;
+  response.writeHead = function productionMonitoringWriteHead(statusCode, ...rest) {
+    try { productionMonitoring.recordHttpStatus(statusCode, url.pathname); } catch { /* ignore */ }
+    return originalWriteHead.call(this, statusCode, ...rest);
+  };
   try {
     if (!storageBootReady) {
       const bootPath = url.pathname || "/";
@@ -21772,6 +21846,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/generate-lesson-plan") return await handleAdminGenerateLessonPlan(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/production-monitoring") return await handleAdminProductionMonitoring(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return await handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return await handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);
@@ -21864,6 +21939,12 @@ initializeStorage()
       } catch (error) {
         console.error("[store-recovery] boot recovery failed:", error.message || error);
       }
+    }
+    try {
+      productionMonitoring.start(() => runProductionMonitoringTick());
+      console.log("[production-monitoring] periodic checks started");
+    } catch (error) {
+      console.warn("[production-monitoring] could not start:", error.message || error);
     }
     try {
       startStoreBackupScheduler();
