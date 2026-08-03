@@ -738,58 +738,101 @@
   /**
    * Curriculum intelligence for a single lesson upgrade — prefer reuse.
    */
+  function themeRelated(a, b) {
+    const score = jaccard(a, b);
+    if (score >= 0.22) return true;
+    const A = new Set(normalizeKey(a).split(" ").filter((t) => t.length > 2));
+    const B = new Set(normalizeKey(b).split(" ").filter((t) => t.length > 2));
+    let overlap = 0;
+    A.forEach((t) => { if (B.has(t)) overlap += 1; });
+    if (overlap >= 1) return true;
+    // Soft relatedness for common preschool clusters (farm/barn/animal, etc.)
+    const clusters = [
+      ["farm", "barn", "barnyard", "animal", "animals", "vet", "veterinarian", "pet"],
+      ["garden", "gardening", "plant", "seed", "flower", "harvest"],
+      ["weather", "rain", "cloud", "wind", "season"],
+      ["transport", "transportation", "vehicle", "truck", "bus", "train"],
+      ["color", "colors", "colour", "colours"],
+    ];
+    return clusters.some((cluster) => {
+      const hitA = cluster.some((w) => A.has(w) || normalizeKey(a).includes(w));
+      const hitB = cluster.some((w) => B.has(w) || normalizeKey(b).includes(w));
+      return hitA && hitB;
+    });
+  }
+
   function intelligenceForLesson(plan, curriculum = {}, directorState = null, assistantState = null) {
     const intel = buildCurriculumIntelligence(curriculum, directorState, assistantState);
     const theme = text(plan?.theme || plan?.title);
+    const planId = text(plan?.id);
     const reusable = loadReusable();
     const connections = reusable?.findLessonConnections
       ? reusable.findLessonConnections(plan, curriculum, plan?.enrichmentDraft || null)
       : [];
 
     const reuse = [];
+    const seen = new Set();
+    const pushHint = (hint) => {
+      const key = `${hint.kind}:${hint.id || hint.title || hint.message}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      reuse.push(hint);
+    };
+
     intel.vocabulary
-      .filter((v) => jaccard(v.theme || v.title, theme) >= 0.3 && !(v.linkedPlanIds || []).includes(plan?.id))
-      .slice(0, 6)
-      .forEach((v) => reuse.push({
+      .filter((v) => themeRelated(v.theme || v.title, theme) || themeRelated(v.body, theme))
+      .slice(0, 8)
+      .forEach((v) => pushHint({
         kind: "vocabulary",
         message: `We already have vocabulary “${v.title}”. Link/reuse instead of recreating.`,
         id: v.id,
         source: v.source,
       }));
     intel.printables
-      .filter((p) => jaccard(p.title, theme) >= 0.25)
-      .slice(0, 6)
-      .forEach((p) => reuse.push({
+      .filter((p) => themeRelated(p.title, theme))
+      .slice(0, 8)
+      .forEach((p) => pushHint({
         kind: "printable",
         message: `We already have printable “${p.title}”.`,
         id: p.id,
         source: p.kind,
       }));
     intel.songs
-      .filter((s) => jaccard(s.title, theme) >= 0.2)
+      .filter((s) => themeRelated(s.title, theme))
       .slice(0, 4)
-      .forEach((s) => reuse.push({
+      .forEach((s) => pushHint({
         kind: "song",
         message: `Song already exists: “${s.title}”.`,
         title: s.title,
       }));
     intel.books
-      .filter((b) => jaccard(b.title, theme) >= 0.2)
+      .filter((b) => themeRelated(b.title, theme))
       .slice(0, 4)
-      .forEach((b) => reuse.push({
+      .forEach((b) => pushHint({
         kind: "book",
         message: `Book already exists: “${b.title}”.`,
         title: b.title,
       }));
     intel.masterResources
-      .filter((m) => jaccard(m.theme || m.title, theme) >= 0.3)
-      .slice(0, 6)
-      .forEach((m) => reuse.push({
+      .filter((m) => m.linkedPlanIds.includes(planId) || themeRelated(m.theme || m.title, theme))
+      .slice(0, 8)
+      .forEach((m) => pushHint({
         kind: "master_resource",
-        message: `Master resource “${m.title}” can link into this lesson.`,
+        message: m.linkedPlanIds.includes(planId)
+          ? `Master resource “${m.title}” is already linked — reuse it instead of creating another.`
+          : `Master resource “${m.title}” can link into this lesson.`,
         id: m.id,
         linkedBy: m.linkedPlanIds.length,
       }));
+
+    // Surface connection scanner hits as reuse hints too.
+    asArray(connections).slice(0, 8).forEach((c) => pushHint({
+      kind: c.kind || "connection",
+      message: c.message,
+      title: c.title,
+      id: c.resourceId || c.activityId || "",
+      source: "lesson_connection",
+    }));
 
     return {
       planId: plan?.id || "",

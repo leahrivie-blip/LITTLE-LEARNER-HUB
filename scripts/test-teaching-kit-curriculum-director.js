@@ -194,7 +194,7 @@ function sampleCurriculum() {
         books: [],
         songs: [{ title: "Rain, Rain, Go Away" }],
         familyConnection: "Talk about weather at home.",
-        resourceIds: ["res-weather-1"],
+        resourceIds: [],
         enrichmentDraft: { week: { printableIdeas: ["cloud matcher"] }, activities: {} },
       },
     ],
