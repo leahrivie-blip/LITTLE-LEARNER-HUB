@@ -21,18 +21,72 @@ const HUBS = Object.freeze([
 ]);
 
 const FUNNEL_SOURCES = Object.freeze(["TikTok", "Facebook", "Google", "Direct", "Organic", "Other"]);
+/**
+ * role:
+ * - required: core conversion path used for drop-off recommendations
+ * - supporting: useful funnel detail; can still contribute to Why They Left
+ * - optional: informational unless product config requires it (email verify)
+ * - snapshot: current-state metric, never an exit edge
+ */
 const FUNNEL_STAGE_DEFS = Object.freeze([
-  { id: "visitors", label: "Visitors" },
-  { id: "landingPageViews", label: "Landing page views" },
-  { id: "ctaClicks", label: "CTA clicks" },
-  { id: "signupStarts", label: "Signup started" },
-  { id: "signupCompletions", label: "Signup completed" },
-  { id: "emailVerified", label: "Email verified" },
-  { id: "trialStarts", label: "Trial started" },
-  { id: "trialEnded", label: "Trial ended" },
-  { id: "paidConversions", label: "Converted to paid" },
-  { id: "activeSubscribers", label: "Active subscribers" },
+  { id: "visitors", label: "Visitors", role: "required" },
+  { id: "landingPageViews", label: "Landing page views", role: "supporting" },
+  { id: "ctaClicks", label: "CTA clicks", role: "supporting" },
+  { id: "signupStarts", label: "Signup started", role: "required" },
+  { id: "signupCompletions", label: "Signup completed", role: "required" },
+  { id: "emailVerified", label: "Email verified", role: "optional" },
+  { id: "trialStarts", label: "Trial started", role: "required" },
+  { id: "trialEnded", label: "Trial ended", role: "optional" },
+  { id: "paidConversions", label: "Converted to paid", role: "required" },
+  { id: "activeSubscribers", label: "Active subscribers", role: "snapshot" },
 ]);
+
+/** Advisor focuses on these required edges (skips optional/supporting noise). */
+const ADVISOR_FUNNEL_EDGES = Object.freeze([
+  { from: "visitors", to: "signupStarts", label: "Visitor → Signup started" },
+  { from: "signupStarts", to: "signupCompletions", label: "Signup started → Signup completed" },
+  { from: "signupCompletions", to: "trialStarts", label: "Signup completed → Trial started" },
+  { from: "trialStarts", to: "paidConversions", label: "Trial started → Paid" },
+]);
+
+function isEmailVerificationRequired(store = {}, env = process.env) {
+  const flag = String(
+    env.EMAIL_VERIFICATION_REQUIRED
+    || env.REQUIRE_EMAIL_VERIFICATION
+    || store?.siteContent?.auth?.emailVerificationRequired
+    || store?.settings?.emailVerificationRequired
+    || "",
+  ).trim().toLowerCase();
+  if (["true", "1", "yes", "required", "on"].includes(flag)) return true;
+  if (["false", "0", "no", "optional", "off"].includes(flag)) return false;
+  // Product default: email verification is optional for onboarding.
+  return false;
+}
+
+function resolveFunnelStageRole(def, emailVerificationRequired = false) {
+  if (!def) return "supporting";
+  if (def.id === "emailVerified") return emailVerificationRequired ? "required" : "optional";
+  return def.role || "supporting";
+}
+
+function isActionableFunnelStage(def, emailVerificationRequired = false) {
+  const role = resolveFunnelStageRole(def, emailVerificationRequired);
+  return role === "required" || role === "supporting";
+}
+
+function isOptionalFunnelStage(def, emailVerificationRequired = false) {
+  return resolveFunnelStageRole(def, emailVerificationRequired) === "optional";
+}
+
+function nextActionableStageDef(fromIndex, emailVerificationRequired = false) {
+  for (let i = fromIndex + 1; i < FUNNEL_STAGE_DEFS.length; i += 1) {
+    const def = FUNNEL_STAGE_DEFS[i];
+    if (resolveFunnelStageRole(def, emailVerificationRequired) === "snapshot") continue;
+    if (isOptionalFunnelStage(def, emailVerificationRequired)) continue;
+    return def;
+  }
+  return null;
+}
 
 const RANGES = Object.freeze(["today", "7d", "30d", "all"]);
 
@@ -677,30 +731,70 @@ function pct(part, whole) {
   return Number(((part / whole) * 100).toFixed(1));
 }
 
-function buildStageTransitions(stages) {
+function buildTransitionRow(fromStage, toStage, { informational = false } = {}) {
+  const fromCount = Number(fromStage?.count || 0);
+  const toCount = Number(toStage?.count || 0);
+  const converted = Math.min(toCount, fromCount);
+  const dropped = Math.max(fromCount - toCount, 0);
+  return {
+    from: fromStage.id,
+    to: toStage.id,
+    fromLabel: fromStage.label,
+    toLabel: toStage.label,
+    fromCount,
+    toCount,
+    conversionRate: pct(converted, fromCount),
+    conversionRateLabel: rate(converted, fromCount),
+    dropOffCount: informational ? 0 : dropped,
+    dropOffRate: informational ? 0 : pct(dropped, fromCount),
+    dropOffRateLabel: informational ? "n/a" : rate(dropped, fromCount),
+    rawDropOffCount: dropped,
+    rawDropOffRate: pct(dropped, fromCount),
+    rawDropOffRateLabel: rate(dropped, fromCount),
+    informational,
+    countsTowardRecommendations: !informational,
+  };
+}
+
+function buildStageTransitions(stages, { emailVerificationRequired = false } = {}) {
+  const byId = Object.fromEntries((stages || []).map((s) => [s.id, s]));
   const transitions = [];
-  for (let i = 1; i < stages.length; i += 1) {
-    const from = stages[i - 1];
-    const to = stages[i];
-    const fromCount = Number(from.count || 0);
-    const toCount = Number(to.count || 0);
-    const converted = Math.min(toCount, fromCount);
-    const dropped = Math.max(fromCount - toCount, 0);
-    transitions.push({
-      from: from.id,
-      to: to.id,
-      fromLabel: from.label,
-      toLabel: to.label,
-      fromCount,
-      toCount,
-      conversionRate: pct(converted, fromCount),
-      conversionRateLabel: rate(converted, fromCount),
-      dropOffCount: dropped,
-      dropOffRate: pct(dropped, fromCount),
-      dropOffRateLabel: rate(dropped, fromCount),
-    });
+  for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
+    const fromDef = FUNNEL_STAGE_DEFS[i];
+    const toDef = FUNNEL_STAGE_DEFS[i + 1];
+    const from = byId[fromDef.id];
+    const to = byId[toDef.id];
+    if (!from || !to) continue;
+    const fromRole = resolveFunnelStageRole(fromDef, emailVerificationRequired);
+    const toRole = resolveFunnelStageRole(toDef, emailVerificationRequired);
+    const informational = fromRole === "optional" || toRole === "optional" || toRole === "snapshot";
+    transitions.push(buildTransitionRow(from, to, { informational }));
   }
   return transitions;
+}
+
+function buildAdvisorFunnelTransitions(stages) {
+  const byId = Object.fromEntries((stages || []).map((s) => [s.id, s]));
+  return ADVISOR_FUNNEL_EDGES.map((edge) => {
+    const from = byId[edge.from] || { id: edge.from, label: edge.from, count: 0 };
+    const to = byId[edge.to] || { id: edge.to, label: edge.to, count: 0 };
+    return {
+      ...buildTransitionRow(
+        { ...from, label: from.label || edge.from },
+        { ...to, label: to.label || edge.to },
+        { informational: false },
+      ),
+      advisorLabel: edge.label,
+    };
+  });
+}
+
+function pickWorstActionableDropOff(transitions = []) {
+  return transitions
+    .filter((t) => t && t.countsTowardRecommendations !== false && !t.informational)
+    .filter((t) => t.to !== "activeSubscribers")
+    .slice()
+    .sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0] || null;
 }
 
 function emptyStageSets() {
@@ -913,6 +1007,7 @@ function buildFunnelExitInsights({
   actorActivity,
   actorLinks,
   exitStageFilter = "",
+  emailVerificationRequired = false,
 } = {}) {
   const exitStages = [];
   const allLeaverKeys = new Set();
@@ -921,9 +1016,13 @@ function buildFunnelExitInsights({
 
   for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
     const current = FUNNEL_STAGE_DEFS[i];
-    const next = FUNNEL_STAGE_DEFS[i + 1];
-    // Active subscribers is a snapshot — skip as an exit edge for "why they left".
-    if (next.id === "activeSubscribers") continue;
+    // Skip optional stages as exit origins (e.g. Email verified when optional).
+    if (isOptionalFunnelStage(current, emailVerificationRequired)) continue;
+    if (resolveFunnelStageRole(current, emailVerificationRequired) === "snapshot") continue;
+
+    // Jump to next actionable stage so optional gates (email verify / trial ended) are not exits.
+    const next = nextActionableStageDef(i, emailVerificationRequired);
+    if (!next) continue;
 
     const reachedCount = overall[current.id]?.size || 0;
     const seenLeaver = new Set();
@@ -992,11 +1091,13 @@ function buildFunnelExitInsights({
       sources: countMapEntries(sourceMap),
       topLastPages: countMapEntries(lastPageMap).slice(0, 8),
       sampleSize: enriched.length,
+      informational: false,
       _people: enriched,
     });
   }
 
   const mostCommonExit = exitStages
+    .filter((row) => !row.informational)
     .slice()
     .sort((a, b) => b.exitCount - a.exitCount || b.exitRate - a.exitRate)[0] || null;
 
@@ -1071,6 +1172,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
   const sourceFilter = FUNNEL_SOURCES.includes(source) ? source : "";
   const stageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === stage) ? stage : "";
   const exitStageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === exitStage) ? exitStage : "";
+  const emailVerificationRequired = isEmailVerificationRequired(store);
   const scoped = filterEvents(events, range.startMs);
   const { users } = testAccountGuard.filterUsersForCustomerAnalytics(Object.values(store.users || {}));
   const usersByEmail = new Map(users.map((u) => [normalizeEmail(u.email), u]));
@@ -1240,9 +1342,20 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     }
   }
 
-  for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
+  for (let i = 0; i < FUNNEL_STAGE_DEFS.length; i += 1) {
     const current = FUNNEL_STAGE_DEFS[i];
-    const next = FUNNEL_STAGE_DEFS[i + 1];
+    const currentRole = resolveFunnelStageRole(current, emailVerificationRequired);
+    // Optional stages are informational metrics — do not mark people as dropped for skipping them.
+    if (currentRole === "optional" || currentRole === "snapshot") {
+      for (const [, person] of people[current.id].entries()) {
+        person.exitedAfter = "";
+        person.exitedBefore = "";
+        person.exitLabel = currentRole === "optional" ? "Informational stage" : "Current snapshot";
+      }
+      continue;
+    }
+    const next = nextActionableStageDef(i, emailVerificationRequired);
+    if (!next) continue;
     for (const [, person] of people[current.id].entries()) {
       if (!person.email) {
         const linked = actorLinks.visitorToEmail.get(String(person.key || "").trim().toLowerCase());
@@ -1266,24 +1379,35 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
   const maxCount = Math.max(1, ...FUNNEL_STAGE_DEFS.map((def) => overall[def.id].size));
   const stages = FUNNEL_STAGE_DEFS.map((def, index) => {
     const count = overall[def.id].size;
-    const prevCount = index === 0 ? count : overall[FUNNEL_STAGE_DEFS[index - 1].id].size;
+    const role = resolveFunnelStageRole(def, emailVerificationRequired);
+    const prevDef = index === 0 ? null : FUNNEL_STAGE_DEFS[index - 1];
+    const prevCount = index === 0 ? count : overall[prevDef.id].size;
     const converted = index === 0 ? count : Math.min(count, prevCount);
     const dropped = index === 0 ? 0 : Math.max(prevCount - count, 0);
+    const informationalEdge = index > 0 && (
+      isOptionalFunnelStage(def, emailVerificationRequired)
+      || isOptionalFunnelStage(prevDef, emailVerificationRequired)
+    );
     return {
       id: def.id,
       label: def.label,
       count,
+      role,
+      informational: role === "optional",
       shareOfTop: pct(count, maxCount),
       conversionFromPrev: index === 0 ? 100 : pct(converted, prevCount),
       conversionFromPrevLabel: index === 0 ? "100%" : rate(converted, prevCount),
-      dropOffFromPrev: index === 0 ? 0 : pct(dropped, prevCount),
-      dropOffFromPrevLabel: index === 0 ? "0%" : rate(dropped, prevCount),
-      dropOffCount: dropped,
-      snapshot: def.id === "activeSubscribers",
+      dropOffFromPrev: informationalEdge ? 0 : (index === 0 ? 0 : pct(dropped, prevCount)),
+      dropOffFromPrevLabel: informationalEdge ? "n/a (optional)" : (index === 0 ? "0%" : rate(dropped, prevCount)),
+      dropOffCount: informationalEdge ? 0 : dropped,
+      rawDropOffCount: dropped,
+      snapshot: role === "snapshot",
     };
   });
-  const transitions = buildStageTransitions(stages);
-  const worstDrop = transitions.slice().sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0] || null;
+  const transitions = buildStageTransitions(stages, { emailVerificationRequired });
+  const advisorTransitions = buildAdvisorFunnelTransitions(stages);
+  const worstDrop = pickWorstActionableDropOff(advisorTransitions)
+    || pickWorstActionableDropOff(transitions);
 
   const bySource = FUNNEL_SOURCES.map((src) => {
     const sourceStages = FUNNEL_STAGE_DEFS.map((def) => ({
@@ -1296,7 +1420,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
       source: src,
       stages: sourceStages,
       counts: Object.fromEntries(sourceStages.map((s) => [s.id, s.count])),
-      transitions: buildStageTransitions(sourceStages),
+      transitions: buildStageTransitions(sourceStages, { emailVerificationRequired }),
       visitors: sourceStages[0].count,
       paidConversions,
       overallConversionRate: rate(paidConversions, sourceStages[0].count),
@@ -1363,6 +1487,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     actorActivity,
     actorLinks,
     exitStageFilter,
+    emailVerificationRequired,
   });
 
   return {
@@ -1370,9 +1495,11 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     sourceFilter: sourceFilter || "all",
     stageFilter: stageFilter || "",
     exitStageFilter: exitStageFilter || "",
+    emailVerificationRequired,
     sources: ["all", ...FUNNEL_SOURCES],
     stages,
     transitions,
+    advisorTransitions,
     worstDropOff: worstDrop,
     ctaBreakdown: {
       startFree: ctaKindCounts.start_free || 0,
@@ -1404,7 +1531,9 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     },
     stagePeople,
     overallConversionRate: rate(paidCount, stages[0]?.count || 0),
-    note: "Active subscribers is a current snapshot. CTA clicks reuse historical button_click/signup_click plus new cta_click events. Click a stage or an exit row to inspect who reached it and where they left.",
+    note: emailVerificationRequired
+      ? "Active subscribers is a current snapshot. Email verification is required in this environment, so verify→next-step drop-off counts toward recommendations."
+      : "Active subscribers is a current snapshot. Email verified and Trial ended are informational (optional) — skipping them is not counted as drop-off. Recommendations focus on Visitor→Signup→Trial→Paid.",
   };
 }
 
@@ -1464,21 +1593,52 @@ function buildAdvisor(store, events, range, extras = {}) {
   if (topRequest) {
     summaryLines.push(`Top request: “${topRequest.title}” (${topRequest.votes} votes, ${topRequest.statusLabel})`);
   }
-  if (funnel.worstDropOff && funnel.worstDropOff.dropOffCount > 0) {
+  const advisorEdges = Array.isArray(funnel.advisorTransitions) && funnel.advisorTransitions.length
+    ? funnel.advisorTransitions
+    : buildAdvisorFunnelTransitions(funnel.stages || []);
+  const actionableWorst = pickWorstActionableDropOff(advisorEdges) || (
+    funnel.worstDropOff && !funnel.worstDropOff.informational ? funnel.worstDropOff : null
+  );
+  if (actionableWorst && actionableWorst.dropOffCount > 0) {
     summaryLines.push(
-      `Biggest funnel drop-off: ${funnel.worstDropOff.fromLabel} → ${funnel.worstDropOff.toLabel} (${funnel.worstDropOff.dropOffRateLabel})`,
+      `Biggest funnel drop-off: ${actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`} (${actionableWorst.dropOffRateLabel})`,
     );
+  }
+  if (!funnel.emailVerificationRequired) {
+    summaryLines.push("Email verification is optional — verify rates are informational only");
   }
 
   const recommendations = [];
   const addRec = (priority, title, detail, hub) => {
     recommendations.push({ priority, title, detail, hub });
   };
-  if (funnel.worstDropOff && funnel.worstDropOff.dropOffRate >= 50 && funnel.worstDropOff.fromCount >= 5) {
+  // Never recommend fixing optional gates (Email verified / Trial ended).
+  if (
+    actionableWorst
+    && actionableWorst.dropOffRate >= 50
+    && actionableWorst.fromCount >= 5
+    && !/email verified/i.test(`${actionableWorst.fromLabel} ${actionableWorst.toLabel}`)
+    && actionableWorst.from !== "emailVerified"
+    && actionableWorst.to !== "emailVerified"
+    && actionableWorst.from !== "trialEnded"
+    && actionableWorst.to !== "trialEnded"
+  ) {
     addRec(
       "high",
-      `Fix drop-off after ${funnel.worstDropOff.fromLabel}`,
-      `${funnel.worstDropOff.dropOffRateLabel} leave before ${funnel.worstDropOff.toLabel}.`,
+      `Fix drop-off: ${actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`}`,
+      `${actionableWorst.dropOffRateLabel} leave before ${actionableWorst.toLabel}. Focus on required steps (Visitor→Signup→Trial→Paid).`,
+      "marketing-funnel",
+    );
+  }
+  // Surface the next-largest required-edge leak when the top one was filtered or weak.
+  const secondary = advisorEdges
+    .filter((t) => t !== actionableWorst && t.dropOffRate >= 40 && t.fromCount >= 5)
+    .sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0];
+  if (secondary && recommendations.length < 2) {
+    addRec(
+      "medium",
+      `Improve ${secondary.advisorLabel}`,
+      `${secondary.dropOffRateLabel} drop-off (${secondary.dropOffCount} people) on a required conversion step.`,
       "marketing-funnel",
     );
   }
@@ -1608,6 +1768,8 @@ function buildInsights(store, {
 module.exports = {
   HUBS,
   RANGES,
+  FUNNEL_STAGE_DEFS,
+  ADVISOR_FUNNEL_EDGES,
   parseRange,
   buildInsights,
   buildFeatureUsage,
@@ -1615,4 +1777,7 @@ module.exports = {
   buildUserJourney,
   buildFeatureRequestsCenter,
   buildAdvisor,
+  isEmailVerificationRequired,
+  resolveFunnelStageRole,
+  pickWorstActionableDropOff,
 };

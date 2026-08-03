@@ -392,6 +392,16 @@ body:has(#view-admin.active-view) .llh-public-nav {
   background: #eef7f1;
 }
 
+#view-admin .admin-insights-funnel-bar.is-informational {
+  border-style: dashed;
+  background: #f7f8fa;
+}
+
+#view-admin .admin-insights-funnel-flow-row.is-informational {
+  border-style: dashed;
+  background: #f7f8fa;
+}
+
 #view-admin .admin-insights-funnel-bar-meta {
   display: grid;
   gap: 2px;

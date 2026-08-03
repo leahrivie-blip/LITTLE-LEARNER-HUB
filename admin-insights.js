@@ -304,17 +304,20 @@
     const chart = stages.map((stage, index) => {
       const width = Math.max(8, Number(stage.shareOfTop || 0));
       const isSelected = selected === stage.id;
+      const informational = Boolean(stage.informational);
       return `
-        <button type="button" class="admin-insights-funnel-bar${isSelected ? " is-selected" : ""}" data-funnel-stage="${esc(stage.id)}" aria-pressed="${isSelected}">
+        <button type="button" class="admin-insights-funnel-bar${isSelected ? " is-selected" : ""}${informational ? " is-informational" : ""}" data-funnel-stage="${esc(stage.id)}" aria-pressed="${isSelected}">
           <div class="admin-insights-funnel-bar-meta">
-            <strong>${esc(stage.label)}</strong>
-            <span>${esc(stage.count)}${stage.snapshot ? " · current" : ""}</span>
+            <strong>${esc(stage.label)}${informational ? " <span class=\"muted-copy\">(optional)</span>" : ""}</strong>
+            <span>${esc(stage.count)}${stage.snapshot ? " · current" : ""}${informational ? " · informational" : ""}</span>
           </div>
           <div class="admin-insights-funnel-bar-track" aria-hidden="true">
             <span style="width:${width}%"></span>
           </div>
           <div class="admin-insights-funnel-bar-rates">
-            ${index === 0 ? `<span>Top of funnel</span>` : `
+            ${index === 0 ? `<span>Top of funnel</span>` : informational ? `
+              <span class="muted-copy">Optional step — not counted as drop-off</span>
+            ` : `
               <span class="admin-insights-funnel-conv">${esc(stage.conversionFromPrevLabel)} convert</span>
               <span class="admin-insights-funnel-drop">${esc(stage.dropOffFromPrevLabel)} drop-off (${esc(stage.dropOffCount)})</span>
             `}
@@ -371,7 +374,10 @@
 
     const sourceHeaders = ["Source", "Visitors", "Signups", "Trials", "Paid", "Visit→Paid", "Biggest drop"];
     const sourceRows = (data.bySource || []).map((row) => {
-      const worst = (row.transitions || []).slice().sort((a, b) => b.dropOffRate - a.dropOffRate)[0];
+      const worst = (row.transitions || [])
+        .filter((t) => !t.informational && t.countsTowardRecommendations !== false)
+        .slice()
+        .sort((a, b) => b.dropOffRate - a.dropOffRate)[0];
       return [
         row.source,
         row.counts?.visitors ?? 0,
@@ -392,9 +398,12 @@
         ${selected || selectedExit ? `<button type="button" class="ghost-button" data-funnel-clear-stage>Clear selection</button>` : ""}
       </div>
       ${data.note ? pendingNote(data.note) : ""}
-      ${data.worstDropOff ? `
+      ${data.emailVerificationRequired === false ? `
+        <p class="muted-copy">Email verification is optional. “Email verified” is informational and does not count as funnel drop-off.</p>
+      ` : ""}
+      ${data.worstDropOff && !data.worstDropOff.informational ? `
         <div class="admin-insights-pending">
-          Biggest leak: <strong>${esc(data.worstDropOff.fromLabel)} → ${esc(data.worstDropOff.toLabel)}</strong>
+          Biggest leak: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
           — ${esc(data.worstDropOff.dropOffRateLabel)} drop-off
           (${esc(data.worstDropOff.dropOffCount)} people).
         </div>
@@ -418,10 +427,14 @@
         <h4>Step-to-step conversion & drop-off</h4>
         <div class="admin-insights-funnel-flow">
           ${(transitions || []).map((t) => `
-            <div class="admin-insights-funnel-flow-row">
-              <span>${esc(t.fromLabel)} → ${esc(t.toLabel)}</span>
+            <div class="admin-insights-funnel-flow-row${t.informational ? " is-informational" : ""}">
+              <span>${esc(t.fromLabel)} → ${esc(t.toLabel)}${t.informational ? " <em class=\"muted-copy\">(optional / informational)</em>" : ""}</span>
               <strong class="admin-insights-funnel-conv">${esc(t.conversionRateLabel)} convert</strong>
-              <strong class="admin-insights-funnel-drop">${esc(t.dropOffRateLabel)} drop-off (${esc(t.dropOffCount)})</strong>
+              <strong class="${t.informational ? "muted-copy" : "admin-insights-funnel-drop"}">${
+                t.informational
+                  ? `raw ${esc(t.rawDropOffRateLabel || "0%")} (not a drop-off)`
+                  : `${esc(t.dropOffRateLabel)} drop-off (${esc(t.dropOffCount)})`
+              }</strong>
             </div>
           `).join("") || `<p class="muted-copy">Not enough stages to compare yet.</p>`}
         </div>
