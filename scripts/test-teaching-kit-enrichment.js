@@ -106,7 +106,41 @@ function main() {
   assert.equal(mondayItem.setupImageUrl, "https://x.test/a.jpg");
   assert.ok(merged.plan.teachingKit?.completionPercent >= 0);
 
-  console.log(`OK teaching-kit-enrichment (${pct0}% baseline → ${pctRich}% rich)`);
+  const upgrade = enrichment.buildUpgradeSummary(plan, [], null);
+  assert.equal(upgrade.completenessLabel, "Legacy");
+  assert.equal(upgrade.incompleteActivities, 6);
+  assert.equal(upgrade.missingSetupPhotos, 6);
+  assert.equal(upgrade.missingExamplePhotos, 6);
+  assert.equal(upgrade.missingTeacherTips, 6);
+  assert.equal(upgrade.missingBooks, false);
+  assert.equal(upgrade.missingSongs, false);
+  assert.equal(upgrade.missingPrintables, false);
+  assert.equal(upgrade.missingFamilyConnection, false);
+  assert.equal(upgrade.isPublished, true);
+  assert.equal(upgrade.needsReview, true);
+  assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "missing_photos"));
+  assert.ok(enrichment.matchesUpgradeGapFilter(upgrade, "needs_review"));
+  assert.equal(enrichment.matchesUpgradeGapFilter(upgrade, "missing_books"), false);
+
+  const richSummary = enrichment.buildUpgradeSummary(plan, [], {
+    updatedAt: "2026-08-03T12:00:00.000Z",
+    lastEditedBy: "owner@example.com",
+    activities: Object.fromEntries(acts.map((a) => [a.id, {
+      setupImageUrl: "https://x.test/s.jpg",
+      exampleImageUrl: "https://x.test/e.jpg",
+      teacherTips: ["Ready"],
+      observationPrompts: ["Watch sorting"],
+      settingTags: ["indoor"],
+      substitutions: [{ need: "hay", use: "paper" }],
+    }])),
+  });
+  assert.ok(richSummary.completionPercent >= 90);
+  assert.equal(richSummary.incompleteActivities, 0);
+  assert.equal(richSummary.missingSetupPhotos, 0);
+  assert.equal(richSummary.lastEditedBy, "owner@example.com");
+  assert.equal(richSummary.hasEnrichmentDraft, true);
+
+  console.log(`OK teaching-kit-enrichment (${pct0}% baseline → ${pctRich}% rich; upgrade summary ready)`);
 }
 
 main();

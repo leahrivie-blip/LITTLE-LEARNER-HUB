@@ -191,7 +191,9 @@
       attachmentIds: normalizedIdList(value.attachmentIds, 100, 160),
       exampleImageIds: normalizedIdList(value.exampleImageIds, 100, 160),
       updatedAt: clampShortText(value.updatedAt, 80),
+      lastEditedBy: clampShortText(value.lastEditedBy, 180),
     };
+    if (!out.lastEditedBy) delete out.lastEditedBy;
     if (completionPercent != null) out.completionPercent = completionPercent;
     return out;
   }

@@ -15,7 +15,7 @@
     mode: "activities", // activities | week | preview
     activityIndex: 0,
     dayFilter: "all",
-    draft: { activities: {}, week: {}, updatedAt: "", previewReady: false },
+    draft: { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false },
     autosaveTimer: null,
     dirty: false,
     jumpQuery: "",
@@ -23,6 +23,7 @@
     lightboxUrl: "",
     publishOpen: false,
     statusText: "",
+    summaryOpen: true,
   };
 
   function esc(value) {
@@ -90,6 +91,8 @@
     const activities = getActivities(plan);
     state.draft.completionPercent = recomputePercent(plan, activities);
     state.draft.updatedAt = new Date().toISOString();
+    const admin = typeof adminSession === "function" ? adminSession() : null;
+    state.draft.lastEditedBy = String(admin?.email || admin?.name || state.draft.lastEditedBy || "admin").trim();
     try {
       const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
         ? curriculumExpectedUpdatedAt()
@@ -167,9 +170,10 @@
     state.publishOpen = false;
     state.draft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
       ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
-      : { activities: {}, week: {}, updatedAt: "", previewReady: false };
+      : { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
     if (!state.draft.activities) state.draft.activities = {};
     if (!state.draft.week) state.draft.week = {};
+    state.summaryOpen = true;
     const activities = getActivities(plan);
     state.activityIndex = api().firstIncompleteActivityIndex(activities, state.draft.activities);
     document.body.classList.add("tk-enrich-open");
@@ -232,6 +236,75 @@
     `;
   }
 
+  function formatEditedDate(value) {
+    if (!value) return "—";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString([], { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  }
+
+  function yn(missing) {
+    return missing ? "Missing" : "Ready";
+  }
+
+  function renderUpgradeSummary(plan, activities) {
+    const summary = api().buildUpgradeSummary(plan, activities, state.draft);
+    const rows = [
+      ["incomplete", "Incomplete activities", String(summary.incompleteActivities), summary.incompleteActivities > 0],
+      ["setup", "Missing setup photos", String(summary.missingSetupPhotos), summary.missingSetupPhotos > 0],
+      ["example", "Missing finished example photos", String(summary.missingExamplePhotos), summary.missingExamplePhotos > 0],
+      ["tips", "Missing teacher tips", String(summary.missingTeacherTips), summary.missingTeacherTips > 0],
+      ["observations", "Missing observation prompts", String(summary.missingObservationPrompts), summary.missingObservationPrompts > 0],
+      ["family", "Missing family connections", yn(summary.missingFamilyConnection), summary.missingFamilyConnection],
+      ["printables", "Missing printables", yn(summary.missingPrintables), summary.missingPrintables],
+      ["books", "Missing books", yn(summary.missingBooks), summary.missingBooks],
+      ["songs", "Missing songs", yn(summary.missingSongs), summary.missingSongs],
+      ["vocabulary", "Missing vocabulary", yn(summary.missingVocabulary), summary.missingVocabulary],
+      ["objectives", "Missing learning objectives", yn(summary.missingLearningObjectives), summary.missingLearningObjectives],
+      ["materials", "Missing materials", yn(summary.missingMaterials), summary.missingMaterials],
+    ];
+    return `
+      <aside class="tk-enrich-summary ${state.summaryOpen ? "is-open" : "is-collapsed"}" data-upgrade-summary>
+        <div class="tk-enrich-summary-head">
+          <div>
+            <p class="eyebrow">Upgrade Summary</p>
+            <strong>${esc(summary.completenessLabel)} · ${summary.completionPercent}%</strong>
+          </div>
+          <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
+        </div>
+        ${state.summaryOpen ? `
+          <div class="tk-enrich-summary-stepper" aria-hidden="true">
+            <span class="${summary.completionPercent < 50 ? "is-active" : "is-done"}">Legacy</span>
+            <span class="${summary.completionPercent >= 50 && summary.completionPercent < 90 ? "is-active" : summary.completionPercent >= 90 ? "is-done" : ""}">Enriched</span>
+            <span class="${summary.completionPercent >= 90 ? "is-active" : ""}">Complete</span>
+          </div>
+          <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.completionPercent}%"></i></div>
+          <dl class="tk-enrich-summary-list">
+            ${rows.map(([jump, label, value, warn]) => `
+              <div class="tk-enrich-summary-row ${warn ? "is-missing" : "is-ready"}">
+                <dt><button type="button" data-summary-jump="${jump}">${esc(label)}</button></dt>
+                <dd>${esc(value)}</dd>
+              </div>
+            `).join("")}
+            <div class="tk-enrich-summary-row">
+              <dt>Last edited</dt>
+              <dd>${esc(formatEditedDate(summary.lastEditedDate))}</dd>
+            </div>
+            <div class="tk-enrich-summary-row">
+              <dt>Last edited by</dt>
+              <dd>${esc(summary.lastEditedBy || "—")}</dd>
+            </div>
+            <div class="tk-enrich-summary-row">
+              <dt>Draft or Published</dt>
+              <dd>${esc(summary.draftOrPublished)}</dd>
+            </div>
+          </dl>
+          <p class="muted-copy tk-enrich-summary-note">Guidance only — never blocks saving a draft.</p>
+        ` : ""}
+      </aside>
+    `;
+  }
+
   function renderChrome(plan, activities, percent, label) {
     const isPublished = ["published", "featured"].includes(String(plan.status || "").toLowerCase());
     const n = activities.length;
@@ -253,6 +326,7 @@
             </div>
           </div>
           <div class="tk-enrich-chrome-actions">
+            <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="ghost-button" data-enrich-save-draft>Save draft</button>
             <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
           </div>
@@ -562,7 +636,10 @@
     el.innerHTML = `
       <div class="tk-enrich-shell">
         ${renderChrome(plan, activities, percent, label)}
-        <div class="tk-enrich-body">${body}</div>
+        <div class="tk-enrich-main">
+          ${renderUpgradeSummary(plan, activities)}
+          <div class="tk-enrich-body">${body}</div>
+        </div>
         ${renderPublishModal(plan, activities)}
         ${renderLightbox()}
       </div>
@@ -582,6 +659,42 @@
       if (!state.open) return;
       if (event.target.closest("[data-enrich-exit]")) {
         close();
+        return;
+      }
+      if (event.target.closest("[data-summary-toggle]")) {
+        state.summaryOpen = !state.summaryOpen;
+        render();
+        return;
+      }
+      const summaryJump = event.target.closest("[data-summary-jump]");
+      if (summaryJump) {
+        const jump = summaryJump.getAttribute("data-summary-jump");
+        const plan = getPlan();
+        const activities = getActivities(plan);
+        const weekJumps = new Set(["family", "printables", "books", "songs", "vocabulary", "objectives", "materials"]);
+        if (weekJumps.has(jump)) {
+          state.mode = "week";
+        } else {
+          state.mode = "activities";
+          const draftActs = state.draft.activities || {};
+          let target = -1;
+          if (jump === "setup") {
+            target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).setupImageUrl);
+          } else if (jump === "example") {
+            target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).exampleImageUrl);
+          } else if (jump === "tips") {
+            target = activities.findIndex((a) => !api().activityEnrichmentView(a, draftActs[draftKey(a)]).teacherTips.length);
+          } else if (jump === "observations") {
+            target = activities.findIndex((a) => {
+              const view = api().activityEnrichmentView(a, draftActs[draftKey(a)]);
+              return !view.observationPrompts.length && !String(a.observationOpportunities || "").trim();
+            });
+          } else {
+            target = api().firstIncompleteActivityIndex(activities, draftActs);
+          }
+          if (target >= 0) state.activityIndex = target;
+        }
+        render();
         return;
       }
       if (event.target.closest("[data-enrich-save-draft]")) {

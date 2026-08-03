@@ -1,6 +1,6 @@
 # Teaching Kit Enrichment Editor — Final UI Specification
 
-**Status:** Owner-approved · refinements locked · implementation in progress on this branch  
+**Status:** Owner-approved · refinements locked · Upgrade Summary safeguard locked · implementation approved  
 **Scope:** Admin-only · one lesson at a time · real curriculum store (`siteContent.curriculum`)  
 **Non-goals:** Bulk rewrite, auto-publish, replacing existing Basics / Week story / Daily tabs, special admin-only preview chrome  
 
@@ -18,10 +18,11 @@ An admin should be able to:
 4. See the **exact provider Teaching Kit** update live  
 5. Save drafts freely; publish only with an explicit confirmation summary  
 6. Track **overall completion %** (0–100) plus Legacy → Enriched → Complete  
+7. See an **Upgrade Summary** so priority gaps are obvious without hunting  
 
 Existing member-facing lessons keep working the entire time.
 
-**Speed priority:** 100+ lessons to upgrade — every control must earn its place.
+**Speed priority:** 100+ lessons to upgrade — every control must earn its place. Identify highest-priority lessons from the library **without opening each one**.
 
 ---
 
@@ -34,10 +35,30 @@ From Admin → Content → Curriculum lesson list:
 | **Enrich Teaching Kit** (primary on card) | Opens Enrichment Editor focused mode |
 | **Edit lesson** (secondary) | Existing full editor (Basics / Week / Daily) |
 | Badge | `Legacy` / `Enriched` / `Complete` **plus** completion **%** (e.g. `45%`) |
-| Sort | By completion % (lowest first / highest first), updated date, title |
-| Filter | Completion band: `0–24%` · `25–49%` · `50–79%` · `80–99%` · `100%` · label (`Legacy` / `Enriched` / `Complete`) |
+| Card peek | Compact Upgrade Summary peek: % · incomplete activities · top missing gaps |
+| Sort | By completion % (lowest / highest), last edited, title |
+| Filter | See **Library priority filters** below |
 
 Enrichment Editor is a **focused workspace** on the same lesson ID — not a second curriculum.
+
+### Library priority filters (required)
+
+| Filter | Behavior |
+| --- | --- |
+| **Completion %** | Bands: `0–24%` · `25–49%` · `50–79%` · `80–99%` · `100%` · label (`Legacy` / `Enriched` / `Complete`) |
+| **Missing photos** | Any activity missing setup **or** finished example photo |
+| **Missing printables** | No linked printable / resource |
+| **Missing books** | No books |
+| **Missing songs** | No songs |
+| **Missing teacher tips** | Any activity missing teacher tips |
+| **Draft** | Pending enrichment draft **or** lesson status is draft |
+| **Published** | Lesson status published / featured |
+| **Needs review** | Published/featured **and** (pending enrichment draft **or** completion &lt; 90%) |
+| **Last edited** | Recency filter (today / last 7 days / older) and sort newest/oldest |
+| **Age group** | Existing age filter |
+| **Theme** | Existing theme filter |
+
+Keep the toolbar clean: one primary **Priority gap** control plus completion / sort / age / theme / status.
 
 ---
 
@@ -69,6 +90,41 @@ Enrichment Editor is a **focused workspace** on the same lesson ID — not a sec
 Always show clearly near Save:
 
 > **Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.**
+
+---
+
+## 3A. Upgrade Summary panel (required safeguard)
+
+Every lesson shows an **Upgrade Summary** — always available in the Enrichment Editor (sticky side panel or expandable chrome panel). Same metrics power the library card peek and filters.
+
+### Always show
+
+| Field | Notes |
+| --- | --- |
+| **Overall completion %** | Same quality-checklist % as the progress bar |
+| **Legacy → Enriched → Complete** | Derived from % thresholds (or explicit overlay after publish) |
+| **Incomplete activities** | Count of Not Started + In Progress |
+| **Missing setup photos** | Count of activities without setup photo |
+| **Missing finished example photos** | Count of activities without example photo |
+| **Missing teacher tips** | Count of activities without ≥1 tip |
+| **Missing observation prompts** | Count of activities without observation prompts (draft/plan) |
+| **Missing family connections** | Yes/No (or 1/0) — week/plan family idea empty |
+| **Missing printables** | Yes/No — no linked printable/resource |
+| **Missing books** | Yes/No — no books |
+| **Missing songs** | Yes/No — no songs |
+| **Missing vocabulary** | Yes/No — no vocabulary words |
+| **Missing learning objectives** | Yes/No at week level **and/or** count of activities missing an objective |
+| **Missing materials** | Yes/No at week level **and/or** count of activities missing materials |
+| **Last edited date** | Draft `updatedAt` if draft present, else plan `updatedAt` |
+| **Last edited by** | Admin email/name recorded on enrichment draft save / publish |
+| **Draft or Published status** | Lesson status **plus** “Enrichment draft pending” when draft exists |
+
+### Rules
+
+- Summary is **guidance / triage only** — never blocks draft save.  
+- Counts respect the **current draft overlay** so the panel matches what you’re editing.  
+- Rows with missing items are visually emphasized; clicking a row jumps to the relevant activity/week section when possible.  
+- Library filters use the same summary calculator so list triage and in-editor summary never disagree.
 
 ---
 
@@ -263,9 +319,9 @@ Results grouped; Enter/click navigates to mode + item. No site-wide curriculum s
 
 Only keep controls that save time across 100+ lessons:
 
-**Keep:** queue statuses, photo D&D suite, chips, tip/substitution cards, activity N of M + prev/next, jump search, % bar, draft/publish split, provider-identical preview, AI approve tray.
+**Keep:** queue statuses, photo D&D suite, chips, tip/substitution cards, activity N of M + prev/next, jump search, % bar, Upgrade Summary, draft/publish split, provider-identical preview, AI approve tray, library priority filters.
 
-**Avoid:** duplicate fields already in classic editor, dense textarea walls, extra settings panels, decorative toggles, multi-step wizards beyond Publish confirm.
+**Avoid:** duplicate fields already in classic editor, dense textarea walls, decorative toggles, multi-step wizards beyond Publish confirm.
 
 ---
 
@@ -293,7 +349,11 @@ Publish… → confirmation summary (changes · published? · linked activities 
 
 ### Library
 
-Sort/filter by % to find “almost done” vs “needs most work.”
+Use Upgrade Summary filters (% · missing photos/printables/books/songs/tips · draft · published · needs review · last edited · age · theme) to find highest-priority lessons without opening each one.
+
+### Upgrade Summary
+
+Open Enrich → glance at Upgrade Summary panel (always available) → jump from a missing row into the work.
 
 ---
 
@@ -303,8 +363,10 @@ Sort/filter by % to find “almost done” vs “needs most work.”
 - One lesson ID per save; additive/field patch; no bulk replace.  
 - Never overwrite existing curriculum text without explicit action.  
 - Persist activity `setupImageUrl` / `exampleImageUrl` (or media asset ids) — mapper already reads these.  
+- Persist enrichment draft `lastEditedBy` / `updatedAt` so Upgrade Summary can show who last edited.  
 - Incomplete enrichment ⇒ members keep current mapped TK behavior.  
-- Draft vs published separation must be real (draft stamp or unpublished enrichment channel) so the banner is truthful.
+- Draft vs published separation must be real (draft stamp or unpublished enrichment channel) so the banner is truthful.  
+- Upgrade Summary never blocks draft save.
 
 ---
 
@@ -321,6 +383,8 @@ Sort/filter by % to find “almost done” vs “needs most work.”
 9. Jump search finds activities/books/songs/printables/vocabulary/sections in the current lesson.  
 10. UI stays minimal — no low-value controls.  
 11. Overall % + bar in editor; library can sort/filter by completion %.  
+12. Upgrade Summary always shows % · status · incomplete counts · missing photos/tips/observations/family/printables/books/songs/vocabulary/objectives/materials · last edited date/by · draft or published.  
+13. Library can filter by completion %, missing photos/printables/books/songs/tips, draft, published, needs review, last edited, age, theme.  
 
 ---
 
@@ -333,9 +397,10 @@ Sort/filter by % to find “almost done” vs “needs most work.”
 5. Week mode cards + guidance checklist  
 6. Publish confirmation screen  
 7. Library badge / sort / filter by %  
+8. **Upgrade Summary panel + shared summary calculator + library priority filters**  
 
 ---
 
 ## 17. Owner approval
 
-Refinements 1–11 are locked in this document. **Implementation is approved** to proceed in the slices above.
+Refinements 1–11 and the **Upgrade Summary / library priority-filter safeguard** are locked in this document. **Implementation is approved** to proceed in the slices above.

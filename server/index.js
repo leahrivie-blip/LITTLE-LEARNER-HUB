@@ -1790,6 +1790,7 @@ function normalizedCurriculumLessonPlan(value) {
     if (draft && typeof draft === "object" && !Array.isArray(draft)) {
       normalized.enrichmentDraft = {
         updatedAt: normalizedShortText(draft.updatedAt, 80) || "",
+        lastEditedBy: normalizedShortText(draft.lastEditedBy, 180) || "",
         activities: draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
           ? draft.activities
           : {},

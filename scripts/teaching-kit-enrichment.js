@@ -49,6 +49,7 @@
           dayOfWeek: day,
           title: text(item.title),
           activityCategory: text(item.activityCategory),
+          objective: text(item.objective),
           setupImageUrl: text(item.setupImageUrl),
           exampleImageUrl: text(item.exampleImageUrl || item.examplePhotoUrl),
           teacherTips: asArray(item.teacherTips).map(text).filter(Boolean),
@@ -287,9 +288,164 @@
       schemaVersion: 1,
       completeness: percent >= 90 ? "complete" : percent >= 50 ? "enriched" : "legacy_mapped",
       completionPercent: percent,
-      updatedAt: new Date().toISOString(),
+      updatedAt: text(draft.updatedAt) || new Date().toISOString(),
+      lastEditedBy: text(draft.lastEditedBy) || text(nextPlan.teachingKit?.lastEditedBy) || "",
     };
+    if (!nextPlan.teachingKit.lastEditedBy) delete nextPlan.teachingKit.lastEditedBy;
     return { plan: nextPlan, activities: nextActivities };
+  }
+
+  function activityKey(activity) {
+    return text(activity?.id) || text(activity?.itemId);
+  }
+
+  function hasObservationPrompts(activity, draftActivity) {
+    const view = activityEnrichmentView(activity, draftActivity);
+    if (view.observationPrompts.length) return true;
+    return Boolean(text(activity?.observationOpportunities));
+  }
+
+  function hasActivityObjective(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
+    return Boolean(text(d.objective) || text(activity?.objective) || asArray(activity?.learningGoals).some((g) => text(g)));
+  }
+
+  function hasActivityMaterials(activity, draftActivity) {
+    const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
+    return Boolean(text(d.materials) || text(activity?.materials));
+  }
+
+  /**
+   * Upgrade Summary — shared by Enrichment Editor panel and library triage filters.
+   * Guidance only; never blocks draft save.
+   */
+  function buildUpgradeSummary(plan, activities, enrichmentDraft) {
+    const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : null;
+    const draftActs = draft?.activities && typeof draft.activities === "object" ? draft.activities : {};
+    const week = draft?.week && typeof draft.week === "object" ? draft.week : {};
+    const list = flattenLessonActivities(plan, activities);
+    const percent = computeCompletionPercent(plan, list, draft);
+    const label = completenessLabelFromPercent(percent, null);
+
+    let incompleteActivities = 0;
+    let missingSetupPhotos = 0;
+    let missingExamplePhotos = 0;
+    let missingTeacherTips = 0;
+    let missingObservationPrompts = 0;
+    let missingActivityObjectives = 0;
+    let missingActivityMaterials = 0;
+
+    list.forEach((act) => {
+      const key = activityKey(act);
+      const patch = draftActs[key];
+      const status = activityStatus(act, patch);
+      if (status !== ACTIVITY_STATUS.complete) incompleteActivities += 1;
+      const view = activityEnrichmentView(act, patch);
+      if (!view.setupImageUrl) missingSetupPhotos += 1;
+      if (!view.exampleImageUrl) missingExamplePhotos += 1;
+      if (!view.teacherTips.length) missingTeacherTips += 1;
+      if (!hasObservationPrompts(act, patch)) missingObservationPrompts += 1;
+      if (!hasActivityObjective(act, patch)) missingActivityObjectives += 1;
+      if (!hasActivityMaterials(act, patch)) missingActivityMaterials += 1;
+    });
+
+    const missingFamilyConnection = !(text(plan?.familyConnection) || text(week.familyConnection));
+    const missingPrintables = !(asArray(plan?.resourceIds).length || asArray(week.printableIds).length);
+    const missingBooks = !asArray(plan?.books).length;
+    const missingSongs = !asArray(plan?.songs).length;
+    const missingVocabulary = !text(plan?.vocabularyWords).split(/[,;\n]+/).map(text).filter(Boolean).length;
+    const missingWeekObjectives = !text(plan?.objectives);
+    const missingWeekMaterials = !text(plan?.weeklyMaterials);
+
+    const lessonStatus = text(plan?.status).toLowerCase() || "draft";
+    const isPublished = ["published", "featured"].includes(lessonStatus);
+    const hasEnrichmentDraft = Boolean(
+      draft
+      && (
+        Object.keys(draftActs).length
+        || text(week.familyConnection)
+        || asArray(week.milestones).length
+        || asArray(week.printableIds).length
+        || draft.previewReady === true
+        || text(draft.updatedAt)
+        || text(draft.lastEditedBy)
+      ),
+    );
+    const draftOrPublished = hasEnrichmentDraft
+      ? (isPublished ? "Published · enrichment draft pending" : `${lessonStatus || "draft"} · enrichment draft pending`)
+      : (isPublished ? "Published" : (lessonStatus === "featured" ? "Published" : (lessonStatus || "Draft")));
+
+    const lastEditedDate = text(draft?.updatedAt) || text(plan?.updatedAt) || "";
+    const lastEditedBy = text(draft?.lastEditedBy)
+      || text(plan?.teachingKit?.lastEditedBy)
+      || text(plan?.lastEditedBy)
+      || "";
+
+    const needsReview = isPublished && (hasEnrichmentDraft || percent < 90);
+
+    return {
+      completionPercent: percent,
+      completenessLabel: label,
+      activityCount: list.length,
+      incompleteActivities,
+      missingSetupPhotos,
+      missingExamplePhotos,
+      missingTeacherTips,
+      missingObservationPrompts,
+      missingFamilyConnection,
+      missingPrintables,
+      missingBooks,
+      missingSongs,
+      missingVocabulary,
+      missingLearningObjectives: missingWeekObjectives || missingActivityObjectives > 0,
+      missingWeekObjectives,
+      missingActivityObjectives,
+      missingMaterials: missingWeekMaterials || missingActivityMaterials > 0,
+      missingWeekMaterials,
+      missingActivityMaterials,
+      lastEditedDate,
+      lastEditedBy,
+      lessonStatus,
+      isPublished,
+      hasEnrichmentDraft,
+      draftOrPublished,
+      needsReview,
+      missingPhotos: missingSetupPhotos > 0 || missingExamplePhotos > 0,
+    };
+  }
+
+  function matchesUpgradeGapFilter(summary, gapFilter) {
+    const gap = text(gapFilter).toLowerCase();
+    if (!gap) return true;
+    if (!summary) return false;
+    if (gap === "missing_photos") return summary.missingPhotos;
+    if (gap === "missing_printables") return summary.missingPrintables;
+    if (gap === "missing_books") return summary.missingBooks;
+    if (gap === "missing_songs") return summary.missingSongs;
+    if (gap === "missing_tips" || gap === "missing_teacher_tips") return summary.missingTeacherTips > 0;
+    if (gap === "draft") return summary.hasEnrichmentDraft || summary.lessonStatus === "draft";
+    if (gap === "published") return summary.isPublished;
+    if (gap === "needs_review") return summary.needsReview;
+    if (gap === "edited_today") {
+      if (!summary.lastEditedDate) return false;
+      const d = new Date(summary.lastEditedDate);
+      if (Number.isNaN(d.getTime())) return false;
+      const now = new Date();
+      return d.toDateString() === now.toDateString();
+    }
+    if (gap === "edited_7d") {
+      if (!summary.lastEditedDate) return false;
+      const d = new Date(summary.lastEditedDate);
+      if (Number.isNaN(d.getTime())) return false;
+      return (Date.now() - d.getTime()) <= 7 * 24 * 60 * 60 * 1000;
+    }
+    if (gap === "edited_older") {
+      if (!summary.lastEditedDate) return true;
+      const d = new Date(summary.lastEditedDate);
+      if (Number.isNaN(d.getTime())) return true;
+      return (Date.now() - d.getTime()) > 7 * 24 * 60 * 60 * 1000;
+    }
+    return true;
   }
 
   function summarizePublishChanges(plan, activities, enrichmentDraft) {
@@ -335,6 +491,8 @@
     buildJumpIndex,
     searchJumpIndex,
     mergeDraftIntoPlan,
+    buildUpgradeSummary,
+    matchesUpgradeGapFilter,
     summarizePublishChanges,
     clampPercent,
   };
