@@ -274,6 +274,23 @@ function buildFamilyHubToday({
   const activities = onDay(data.ActivityLogs, "activity");
   const photos = onDay(data.Photos, "photo");
   const reports = onDay(data.Reports, "report");
+  const observations = onDay(data.Observations, "observation");
+  const attendance = (Array.isArray(data.Attendance) ? data.Attendance : [])
+    .filter((item) => (
+      ids.includes(String(item.childId || ""))
+      && item.shareWithFamily === true
+      && item.archived !== true
+      && String(item.date || "").slice(0, 10) === day
+    ))
+    .map((item) => ({
+      id: String(item.id || ""),
+      childId: String(item.childId || ""),
+      status: String(item.status || "Present").trim() || "Present",
+      dropoff: String(item.dropoff || "").trim(),
+      pickup: String(item.pickup || "").trim(),
+      summary: String(item.summary || "").trim(),
+      date: day,
+    }));
   const notes = onDay(data.Communications, "note").filter((item) => {
     const cat = String(item.category || "").toLowerCase();
     return !cat.includes("mood");
@@ -320,17 +337,20 @@ function buildFamilyHubToday({
       ? `Here’s how ${firstName}’s day is going.`
       : "Your household updates will show here.",
     mood,
+    attendance,
     meals,
     naps,
     diapers,
     activities,
+    observations,
     teacherNotes: notes,
     photos,
     reports,
     messages: recentMessages,
     upcomingEvents: upcoming,
-    empty: !mood && !meals.length && !naps.length && !diapers.length && !activities.length
-      && !notes.length && !photos.length && !reports.length && !recentMessages.length && !upcoming.length,
+    empty: !mood && !attendance.length && !meals.length && !naps.length && !diapers.length && !activities.length
+      && !observations.length && !notes.length && !photos.length && !reports.length
+      && !recentMessages.length && !upcoming.length,
   };
 }
 
@@ -375,7 +395,53 @@ function publicFamilyMessage(msg = {}) {
     createdAt: String(msg.createdAt || "").trim(),
     readByParent: Boolean(msg.readByParent),
     readByProvider: Boolean(msg.readByProvider),
+    childId: String(msg.childId || "").trim(),
+    source: String(msg.source || "").trim(),
   };
+}
+
+/** Bridge shared child Communications into the Family Hub message thread. */
+function sharedCommunicationsAsMessages(childData = null, childIds = [], householdId = "") {
+  const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
+  const allowed = new Set(["parent message", "teacher note", "message", "note to family"]);
+  return (Array.isArray(childData?.Communications) ? childData.Communications : [])
+    .filter((item) => (
+      item
+      && item.archived !== true
+      && item.shareWithFamily === true
+      && idSet.has(String(item.childId || ""))
+    ))
+    .map((item) => {
+      const type = String(item.type || item.category || "").trim().toLowerCase();
+      const body = String(item.message || item.summary || item.notes || item.body || "").trim();
+      if (!body) return null;
+      if (type.includes("mood") || type.includes("incident")) return null;
+      if (type && !allowed.has(type) && !type.includes("message") && !type.includes("note")) return null;
+      return {
+        id: `comm-${String(item.id || "")}`,
+        householdId: String(householdId || ""),
+        from: "provider",
+        authorName: String(item.authorName || item.teacherName || "Teacher").trim() || "Teacher",
+        body,
+        createdAt: String(item.createdAt || item.updatedAt || item.date || "").trim(),
+        readByParent: Boolean(item.readByParent),
+        readByProvider: true,
+        childId: String(item.childId || ""),
+        source: "communications",
+      };
+    })
+    .filter(Boolean);
+}
+
+function mergeFamilyHubMessages(threadMessages = [], bridgedMessages = []) {
+  const byId = new Map();
+  [...(Array.isArray(threadMessages) ? threadMessages : []), ...(Array.isArray(bridgedMessages) ? bridgedMessages : [])]
+    .forEach((msg) => {
+      if (!msg || !msg.id) return;
+      if (!byId.has(msg.id)) byId.set(msg.id, msg);
+    });
+  return [...byId.values()]
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
 }
 
 function publicFamilyNotification(item = {}) {
@@ -939,6 +1005,8 @@ module.exports = {
   liveDocumentsForChildren,
   publicFamilyDocument,
   documentNeedsParentAction,
+  sharedCommunicationsAsMessages,
+  mergeFamilyHubMessages,
   normalizeGuardianEmails,
   buildFamilyHubDemoSeed,
   publicSharedItem,

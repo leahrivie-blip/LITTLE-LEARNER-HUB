@@ -88,7 +88,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-security-correctness"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-cross-feature"/);
   assert.match(indexHtml, /llhPendingUrlSecrets/);
   assert.match(indexHtml, /referrer" content="strict-origin-when-cross-origin"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);

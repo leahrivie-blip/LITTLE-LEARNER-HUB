@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260803-p1-security-correctness";
+const SHELL = "20260803-p1-cross-feature";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";

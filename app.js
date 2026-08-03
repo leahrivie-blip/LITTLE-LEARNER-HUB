@@ -16623,7 +16623,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       dropoff: time,
       title: `Attendance | ${today}`,
       summary: `Present at ${time}`,
-      shareWithFamily: false,
+      shareWithFamily: true,
     });
     return;
   }
@@ -16638,6 +16638,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
               status: item.status === "Absent" ? "Present" : (item.status || "Present"),
               pickup: time,
               summary: item.dropoff ? `Present ${item.dropoff}–${time}` : `Checked out at ${time}`,
+              shareWithFamily: item.shareWithFamily !== false,
             }
           : item
       )));
@@ -16650,7 +16651,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
       pickup: time,
       title: `Attendance | ${today}`,
       summary: `Checked out at ${time}`,
-      shareWithFamily: false,
+      shareWithFamily: true,
     });
     return;
   }
@@ -16726,7 +16727,7 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
         text: "Observation noted from Daily Logs",
         title: `Observation | ${today}`,
         summary: "Observation noted",
-        shareWithFamily: false,
+        shareWithFamily: true,
       });
       return;
     }
@@ -33364,6 +33365,20 @@ function renderFamilyHubTodayPanel(data) {
       ${hero}
       ${section("Mood", "mood", moodHtml, "No mood shared yet", "When your teacher shares a mood note, it will show here.")}
       ${section(
+        "Attendance",
+        "today",
+        listHtml(today.attendance, (item) => {
+          const parts = [];
+          if (item.dropoff) parts.push(`Arrived ${familyHubFormatTime(item.dropoff)}`);
+          if (item.pickup) parts.push(`Picked up ${familyHubFormatTime(item.pickup)}`);
+          if (!parts.length && item.summary) parts.push(item.summary);
+          if (!parts.length) parts.push(item.status || "Present");
+          return `<li><strong>${escapeHtml(item.status || "Present")}</strong><span>${escapeHtml(parts.join(" · "))}</span></li>`;
+        }),
+        "No attendance shared yet",
+        "Check-in and pick-up times appear when your teacher shares them.",
+      )}
+      ${section(
         "Meals",
         "meals",
         listHtml(today.meals, (item) => `<li><strong>${escapeHtml(item.label || "Meal")}</strong><span>${escapeHtml(item.detail || "")}</span></li>`),
@@ -33390,6 +33405,13 @@ function renderFamilyHubTodayPanel(data) {
         listHtml(today.activities, (item) => `<li><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
         "No activities shared yet",
         "Play and learning moments will land here.",
+      )}
+      ${section(
+        "Observations",
+        "activities",
+        listHtml(today.observations, (item) => `<li><strong>${escapeHtml(item.title || item.area || "Observation")}</strong><span>${escapeHtml(item.summary || item.text || "")}</span></li>`),
+        "No observations shared yet",
+        "Learning moments your teacher shares will show here.",
       )}
       ${section(
         "Teacher notes",
@@ -40515,12 +40537,46 @@ function goalItem(item, child = {}) {
 
 function appendChildRecord(key, record) {
   const items = childStore(key);
-  saveChildStore(key, [...items, { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record }]);
+  const saved = { id: `${key}-${Date.now()}`, createdAt: new Date().toISOString(), ...record };
+  saveChildStore(key, [...items, saved]);
   if (activePortfolioChildId) {
     renderChildPortfolioPage(activePortfolioChildId);
   } else {
     renderChildManagement();
   }
+  // Bridge shared parent-facing notes into the Family Hub message thread.
+  if (
+    key === "Communications"
+    && saved.shareWithFamily === true
+    && isHomeDaycareHubTestingEnabled()
+    && typeof maybeBridgeCommunicationToFamilyHub === "function"
+  ) {
+    maybeBridgeCommunicationToFamilyHub(saved).catch(() => {});
+  }
+  return saved;
+}
+
+async function maybeBridgeCommunicationToFamilyHub(record = {}) {
+  const type = String(record.type || record.category || "").toLowerCase();
+  if (type.includes("mood") || type.includes("incident")) return null;
+  const body = String(record.message || record.summary || record.notes || "").trim();
+  if (!body || body.length < 3) return null;
+  if (type && !/message|note|family/.test(type)) return null;
+  if (!currentUser || !canUseLaunchBackend()) return null;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return null;
+  const response = await fetch("/api/family-hub/provider-messages", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      childId: record.childId || "",
+      body,
+      authorName: "Teacher",
+    }),
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return response.json().catch(() => null);
 }
 
 let afterActionPromptTimeout = null;
@@ -61198,6 +61254,7 @@ document.addEventListener("click", async (event) => {
       text: resource.observationText || resource.description,
       nextSteps: resource.nextSteps || "Continue observing and offer a similar activity with one small added challenge.",
       sourceResourceId: resource.id,
+      shareWithFamily: true,
     }, child));
     setView("children");
   }

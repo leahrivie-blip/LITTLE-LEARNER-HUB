@@ -1,12 +1,12 @@
-const CACHE_NAME = "llh-shell-v168-p1-security-correctness";
-const SHELL_VERSION = "20260803-p1-security-correctness";
+const CACHE_NAME = "llh-shell-v169-p1-cross-feature";
+const SHELL_VERSION = "20260803-p1-cross-feature";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260803-p1-security-correctness",
+  "/styles.css?v=20260803-p1-cross-feature",
   "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260802-request-idea-final",
@@ -34,7 +34,7 @@ const APP_SHELL = [
   "/scripts/teaching-kit.js?v=20260803-teaching-kit-qa",
   "/scripts/teaching-kit-print.js?v=20260803-teaching-kit-qa",
   "/scripts/teaching-kit-viewer.js?v=20260803-teaching-kit-qa",
-  "/app.js?v=20260803-p1-security-correctness",
+  "/app.js?v=20260803-p1-cross-feature",
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260803-nuo-onboarding-r4",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",
