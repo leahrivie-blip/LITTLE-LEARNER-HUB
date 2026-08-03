@@ -312,7 +312,7 @@ async function main() {
       assert(result.publishDisabled, `${vp.name}: publish disabled`);
       assert(result.features.photoUpload === false, `${vp.name}: photoUpload false`);
       assert(result.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
-      assert(result.features.livePreview === false, `${vp.name}: livePreview false`);
+      assert(result.features.publish === false, `${vp.name}: publish false`);
       assert(result.features.activityStudio === true, `${vp.name}: activityStudio true`);
       assert(result.overflowX === false, `${vp.name}: no horizontal overflow`);
 

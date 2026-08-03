@@ -2,8 +2,9 @@
  * Teaching Kit Enrichment Editor — admin focused workspace.
  * Slice 1: framework, navigation, progress, draft workflow.
  * Slice 2: Activity Studio foundation (placeholders + tips/subs/settings/obs/vocab).
+ * Slice 3: Live Preview (real Teaching Kit viewer) + draft-to-provider parity.
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
- * Photo upload / AI / publish / Live Preview stay off until later slices.
+ * Photo upload / AI / publish stay off until later slices.
  */
 (function (root) {
   "use strict";
@@ -15,10 +16,10 @@
   /** Capability gates — later slices flip these on behind review. */
   const SLICE = Object.freeze({
     activityStudio: true, // Slice 2
+    livePreview: true, // Slice 3
     photoUpload: false,
     aiSuggest: false,
     publish: false,
-    livePreview: false,
   });
   // Back-compat alias used by earlier Slice 1 checks.
   const SLICE1 = SLICE;
@@ -38,6 +39,9 @@
     publishOpen: false,
     statusText: "",
     summaryOpen: true,
+    previewViewport: "desktop", // desktop | tablet | mobile
+    previewDay: "monday",
+    previewUnbind: null,
   };
 
   function isEditorFlagEnabled() {
@@ -91,6 +95,17 @@
     state.statusText = "Unsaved changes…";
     scheduleAutosave();
     renderChromeOnly();
+    schedulePreviewRefresh();
+  }
+
+  function schedulePreviewRefresh() {
+    if (!SLICE.livePreview) return;
+    clearTimeout(state._previewTimer);
+    state._previewTimer = setTimeout(() => {
+      const plan = getPlan();
+      if (!plan) return;
+      paintLivePreview(plan, getActivities(plan));
+    }, 160);
   }
 
   function scheduleAutosave() {
@@ -202,14 +217,23 @@
     if (!state.draft.activities) state.draft.activities = {};
     if (!state.draft.week) state.draft.week = {};
     state.summaryOpen = true;
+    state.previewViewport = "desktop";
+    state.previewDay = "monday";
     const activities = getActivities(plan);
     state.activityIndex = api().firstIncompleteActivityIndex(activities, state.draft.activities);
+    const first = activities[state.activityIndex];
+    if (first?.dayOfWeek) state.previewDay = String(first.dayOfWeek);
     document.body.classList.add("tk-enrich-open");
     render();
   }
 
   function close() {
     clearTimeout(state.autosaveTimer);
+    clearTimeout(state._previewTimer);
+    if (typeof state.previewUnbind === "function") {
+      try { state.previewUnbind(); } catch (_error) { /* ignore */ }
+    }
+    state.previewUnbind = null;
     if (state.dirty) void saveDraft({ silent: true });
     state.open = false;
     document.body.classList.remove("tk-enrich-open");
@@ -397,12 +421,12 @@
           </div>
         ` : ""}
         <div class="tk-enrich-slice-banner" role="status">
-          Slice 2 Activity Studio: photo placeholders, tips, substitutions, group/setting chips, observation prompts, and activity vocabulary. Photo upload, AI, Live Preview, and Publish stay off until later reviewed slices.
+          Slice 3 Live Preview: same Teaching Kit renderer providers use, driven by your current draft. Photo upload, AI, and Publish stay off until later reviewed slices.
         </div>
         <nav class="tk-enrich-modes" role="tablist">
           <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
           <button type="button" class="${state.mode === "week" ? "is-active" : ""}" data-enrich-mode="week">Week</button>
-          <button type="button" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview" ${SLICE1.livePreview ? "" : "title=\"Live Preview arrives in a later slice\""}>Live Preview</button>
+          <button type="button" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview">Live Preview</button>
         </nav>
       </header>
     `;
@@ -592,20 +616,36 @@
   }
 
   function renderPreviewMode() {
-    if (!SLICE1.livePreview) {
+    if (!SLICE.livePreview) {
       return `
         <div class="tk-enrich-preview-full">
           <div class="empty-state">
             <strong>Live Preview comes in a later slice.</strong>
-            <p class="muted-copy">Slice 1 focuses on the editor framework, navigation, progress, and draft save. The provider-identical Teaching Kit preview will be wired after this slice is approved.</p>
           </div>
         </div>
       `;
     }
     return `
       <div class="tk-enrich-preview-full">
-        <p class="tk-enrich-preview-banner">Previewing draft · subscribers still see the last published version until you Publish.</p>
-        <div data-enrich-live-preview class="tk-enrich-live is-wide"></div>
+        <div class="tk-enrich-draft-preview-label" role="status">
+          <strong>Draft Preview</strong>
+          <span>Same Teaching Kit UI providers see — driven by your current draft. The published lesson is unchanged until you Publish.</span>
+        </div>
+        <div class="tk-enrich-preview-toolbar">
+          <div class="tk-enrich-preview-viewports" role="group" aria-label="Preview viewport">
+            ${[["desktop", "Desktop"], ["tablet", "Tablet"], ["mobile", "Mobile"]].map(([id, label]) => `
+              <button type="button" class="${state.previewViewport === id ? "is-on" : ""}" data-preview-viewport="${id}">${label}</button>
+            `).join("")}
+          </div>
+          <div class="tk-enrich-preview-days" role="group" aria-label="Preview day">
+            ${WEEKDAYS.map((day) => `
+              <button type="button" class="${state.previewDay === day ? "is-on" : ""}" data-preview-day="${day}">${DAY_LABEL[day]}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="tk-enrich-preview-frame is-${esc(state.previewViewport)}">
+          <div data-enrich-live-preview class="tk-enrich-live is-wide"></div>
+        </div>
       </div>
     `;
   }
@@ -644,41 +684,103 @@
 
   function paintLivePreview(plan, activities) {
     const nodes = document.querySelectorAll("[data-enrich-live-preview]");
-    if (!nodes.length) return;
+    if (!nodes.length || !SLICE.livePreview) return;
     const viewer = root.LLHTeachingKitViewer;
     const kitApi = root.LLHTeachingKit;
-    if (!viewer || !kitApi) {
+    const enrich = api();
+    if (!viewer || !kitApi || !enrich) {
       nodes.forEach((node) => {
         node.innerHTML = `<p class="muted-copy">Teaching Kit viewer unavailable.</p>`;
       });
       return;
     }
-    const merged = api().mergeDraftIntoPlan(plan, activities, state.draft);
-    const storeActs = typeof curriculumActivitiesForLesson === "function"
-      ? curriculumActivitiesForLesson(plan.id)
-      : [];
-    const mappedActs = merged.activities.length ? merged.activities : storeActs;
-    const resources = typeof effectiveCurriculum === "function"
-      ? (effectiveCurriculum().resources || []).filter((r) => (merged.plan.resourceIds || []).includes(r.id))
-      : [];
-    const teachingKit = kitApi.mapLessonPlanToTeachingKit(merged.plan, mappedActs, resources, { day: "monday" });
+    if (typeof state.previewUnbind === "function") {
+      try { state.previewUnbind(); } catch (_error) { /* ignore */ }
+      state.previewUnbind = null;
+    }
+    let model;
+    try {
+      const resources = typeof effectiveCurriculum === "function"
+        ? (effectiveCurriculum().resources || []).filter((r) => (plan.resourceIds || []).includes(r.id))
+        : [];
+      model = enrich.buildTeachingKitPreviewModel(
+        plan,
+        activities,
+        resources,
+        state.draft,
+        { day: state.previewDay || "monday", includeEmptySections: false },
+        kitApi.mapLessonPlanToTeachingKit.bind(kitApi),
+      );
+    } catch (error) {
+      nodes.forEach((node) => {
+        node.innerHTML = `<p class="muted-copy">Draft Preview could not render. Legacy lesson is unchanged. ${esc(error.message || error)}</p>`;
+      });
+      return;
+    }
+    const teachingKit = {
+      ...model.draftKit,
+      locked: false,
+      ok: model.draftKit?.ok !== false,
+    };
+    // Fail closed: empty/malformed draft kits never throw into the shell.
+    if (!teachingKit.companion) {
+      nodes.forEach((node) => {
+        node.innerHTML = `<p class="muted-copy">Draft Preview has no companion surface yet. The published Teaching Kit is unchanged.</p>`;
+      });
+      return;
+    }
+    function openFirstEnrichedActivity(node, kit) {
+      // Tips/substitutions live on the activity surface — open one so Draft Preview shows real enrichment.
+      if (state.mode !== "preview") return;
+      const acts = kit?.companion?.activities || [];
+      const tipAct = acts.find((activity) =>
+        (activity.teacherPrompts || []).some((prompt) => String(prompt?.text || "").trim())
+        || (activity.supplySubstitutions || []).length
+      );
+      if (!tipAct?.id) return;
+      const todayTab = node.querySelector('[data-tk-goto="today"]');
+      if (todayTab) todayTab.click();
+      const openBtn = node.querySelector(`[data-tk-open-activity="${tipAct.id}"]`);
+      if (openBtn) openBtn.click();
+    }
+
     nodes.forEach((node) => {
       node.innerHTML = "";
-      viewer.enhanceLessonWorkspace({
+      node.setAttribute("data-draft-preview", "1");
+      const result = viewer.enhanceLessonWorkspace({
         body: node,
-        teachingKit: { ...teachingKit, locked: false, ok: true },
+        teachingKit,
         featureFlags: { teachingKitViewer: true, teachingKitPrintCenter: true, teachingKitAttachments: false },
         chrome: {
-          title: merged.plan.title,
-          age: merged.plan.age,
-          planLabel: merged.plan.plan,
-          backLabel: "Preview",
+          title: model.merged.plan.title || plan.title,
+          age: model.merged.plan.age || plan.age,
+          planLabel: model.merged.plan.plan || plan.plan,
+          backLabel: "Draft Preview",
           saveButtonHtml: "",
-          actionBarsHtml: "",
+          actionBarsHtml: `<div class="tk-enrich-draft-preview-chip" aria-hidden="true">Draft Preview</div>`,
           feedbackHtml: "",
           copyrightHtml: "",
         },
       });
+      if (result && typeof result.then === "function") {
+        result.then((resolved) => {
+          if (resolved?.unbind) state.previewUnbind = resolved.unbind;
+          if (resolved && resolved.enhanced === false) {
+            node.innerHTML = `<p class="muted-copy">Draft Preview unavailable (${esc(resolved.reason || "unknown")}). Published lesson unchanged.</p>`;
+            return;
+          }
+          openFirstEnrichedActivity(node, teachingKit);
+        }).catch((error) => {
+          node.innerHTML = `<p class="muted-copy">Draft Preview failed safely. ${esc(error.message || error)}</p>`;
+        });
+      } else {
+        if (result?.unbind) state.previewUnbind = result.unbind;
+        if (result && result.enhanced === false) {
+          node.innerHTML = `<p class="muted-copy">Draft Preview unavailable (${esc(result.reason || "unknown")}). Published lesson unchanged.</p>`;
+          return;
+        }
+        openFirstEnrichedActivity(node, teachingKit);
+      }
     });
   }
 
@@ -737,7 +839,7 @@
       </div>
     `;
     if (state.jumpOpen) renderJumpResults(plan, activities);
-    if (SLICE1.livePreview) {
+    if (SLICE.livePreview) {
       requestAnimationFrame(() => paintLivePreview(plan, activities));
     }
   }
@@ -828,6 +930,22 @@
       const modeBtn = event.target.closest("[data-enrich-mode]");
       if (modeBtn) {
         state.mode = modeBtn.getAttribute("data-enrich-mode");
+        if (state.mode === "preview") {
+          const act = getActivities(getPlan())[state.activityIndex];
+          if (act?.dayOfWeek) state.previewDay = String(act.dayOfWeek);
+        }
+        render();
+        return;
+      }
+      const previewViewport = event.target.closest("[data-preview-viewport]");
+      if (previewViewport) {
+        state.previewViewport = previewViewport.getAttribute("data-preview-viewport") || "desktop";
+        render();
+        return;
+      }
+      const previewDay = event.target.closest("[data-preview-day]");
+      if (previewDay) {
+        state.previewDay = previewDay.getAttribute("data-preview-day") || "monday";
         render();
         return;
       }

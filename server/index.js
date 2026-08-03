@@ -15415,7 +15415,22 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   });
 
   const respondUnlocked = () => {
-    const mapped = teachingKit.mapLessonPlanToTeachingKit(plan, activities, resources, mapperOptions);
+    // Never feed admin enrichmentDraft into the provider Teaching Kit mapper.
+    // Incomplete drafts must not change the published member experience.
+    let enrichmentApi = null;
+    try {
+      enrichmentApi = require("../scripts/teaching-kit-enrichment.js");
+    } catch (_error) {
+      enrichmentApi = null;
+    }
+    const planForMap = enrichmentApi?.planForProviderMapping
+      ? enrichmentApi.planForProviderMapping(plan)
+      : (() => {
+        const next = { ...plan };
+        delete next.enrichmentDraft;
+        return next;
+      })();
+    const mapped = teachingKit.mapLessonPlanToTeachingKit(planForMap, activities, resources, mapperOptions);
     jsonResponse(response, 200, {
       teachingKit: {
         ...mapped,

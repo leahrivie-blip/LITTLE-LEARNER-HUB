@@ -399,16 +399,20 @@ Do not merge or deploy until each completed slice is approved.
 Editor framework · navigation · progress tracking · draft workflow.  
 See [ENRICHMENT_EDITOR_SLICE1.md](./ENRICHMENT_EDITOR_SLICE1.md).
 
-### Slice 2 — Activity Studio foundation (current)
+### Slice 2 — Activity Studio foundation (approved)
 
 Photo placeholders · teacher tips · supply substitutions · indoor/outdoor · small/large group · observation prompts · activity vocabulary.  
-**No** photo uploads, AI, Live Preview, publishing, or print.  
 See [ENRICHMENT_EDITOR_SLICE2.md](./ENRICHMENT_EDITOR_SLICE2.md).
 
-### Later slices (not started until Slice 2 approved)
+### Slice 3 — Live Preview + draft-to-provider parity (current)
 
-3. Photo upload suite (drag/drop, replace, remove, full-size preview)  
-4. Provider-identical Live Preview from draft  
+Real Teaching Kit viewer · Draft Preview label · desktop/tablet/mobile frames · published provider kit ignores drafts.  
+**No** photo uploads, AI, publishing, or print.  
+See [ENRICHMENT_EDITOR_SLICE3.md](./ENRICHMENT_EDITOR_SLICE3.md).
+
+### Later slices (not started until Slice 3 approved)
+
+4. Photo upload suite (drag/drop, replace, remove, full-size preview)  
 5. AI tip suggestions (explicit approve)  
 6. Publish confirmation + merge-to-live  
 

@@ -242,10 +242,20 @@
     )).slice(0, 20);
   }
 
+  /**
+   * Strip admin-only draft channel before provider/mapper use.
+   * Incomplete enrichment must never change the published Teaching Kit.
+   */
+  function planForProviderMapping(plan) {
+    const next = { ...(plan || {}) };
+    delete next.enrichmentDraft;
+    return next;
+  }
+
   function mergeDraftIntoPlan(plan, activities, enrichmentDraft) {
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : null;
     if (!draft) {
-      return { plan: plan || {}, activities: asArray(activities) };
+      return { plan: planForProviderMapping(plan), activities: asArray(activities) };
     }
     const draftActs = draft.activities && typeof draft.activities === "object" ? draft.activities : {};
     const baseActivities = flattenLessonActivities(plan, activities);
@@ -306,7 +316,36 @@
       lastEditedBy: text(draft.lastEditedBy) || text(nextPlan.teachingKit?.lastEditedBy) || "",
     };
     if (!nextPlan.teachingKit.lastEditedBy) delete nextPlan.teachingKit.lastEditedBy;
+    delete nextPlan.enrichmentDraft;
     return { plan: nextPlan, activities: nextActivities };
+  }
+
+  /**
+   * Admin Draft Preview vs published provider kit (same mapper).
+   * mapFn defaults to LLHTeachingKit.mapLessonPlanToTeachingKit when available.
+   */
+  function buildTeachingKitPreviewModel(plan, activities, resources, enrichmentDraft, options, mapFn) {
+    const mapper = typeof mapFn === "function"
+      ? mapFn
+      : (typeof globalThis !== "undefined"
+        && globalThis.LLHTeachingKit
+        && typeof globalThis.LLHTeachingKit.mapLessonPlanToTeachingKit === "function"
+        ? globalThis.LLHTeachingKit.mapLessonPlanToTeachingKit.bind(globalThis.LLHTeachingKit)
+        : null);
+    if (!mapper) {
+      throw new Error("mapLessonPlanToTeachingKit is required for preview parity");
+    }
+    const opts = options && typeof options === "object" ? options : { day: "monday" };
+    const publishedPlan = planForProviderMapping(plan);
+    const publishedKit = mapper(publishedPlan, asArray(activities), asArray(resources), opts);
+    const merged = mergeDraftIntoPlan(publishedPlan, activities, enrichmentDraft);
+    const draftKit = mapper(merged.plan, merged.activities, asArray(resources), opts);
+    return {
+      publishedKit,
+      draftKit,
+      merged,
+      publishedPlan,
+    };
   }
 
   function activityKey(activity) {
@@ -505,6 +544,8 @@
     buildJumpIndex,
     searchJumpIndex,
     mergeDraftIntoPlan,
+    planForProviderMapping,
+    buildTeachingKitPreviewModel,
     buildUpgradeSummary,
     matchesUpgradeGapFilter,
     summarizePublishChanges,

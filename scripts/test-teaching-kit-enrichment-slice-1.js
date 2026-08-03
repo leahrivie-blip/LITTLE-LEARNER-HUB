@@ -279,7 +279,6 @@ async function testViewports(page, baseUrl) {
     assert(metrics.features.photoUpload === false, `${vp.name}: photoUpload false`);
     assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
     assert(metrics.features.publish === false, `${vp.name}: publish false`);
-    assert(metrics.features.livePreview === false, `${vp.name}: livePreview false`);
     assert(metrics.overflowX === false, `${vp.name}: no horizontal overflow (${metrics.shellWidth}px)`);
     void baseUrl;
   }

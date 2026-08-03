@@ -24566,3 +24566,84 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   margin-top: 0.35rem;
   opacity: 0.8;
 }
+
+/* Enrichment Editor Slice 3 — Draft Preview */
+.tk-enrich-draft-preview-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  align-items: baseline;
+  padding: 0.65rem 0.85rem;
+  margin: 0 0 0.75rem;
+  background: #fff7e8;
+  border: 1px solid rgba(176, 120, 24, 0.35);
+  border-radius: 0.55rem;
+}
+.tk-enrich-draft-preview-label strong {
+  color: #8a4b12;
+}
+.tk-enrich-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+.tk-enrich-preview-viewports,
+.tk-enrich-preview-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tk-enrich-preview-viewports button,
+.tk-enrich-preview-days button {
+  border: 1px solid rgba(36, 49, 42, 0.18);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.tk-enrich-preview-viewports button.is-on,
+.tk-enrich-preview-days button.is-on {
+  background: #1f6b4a;
+  border-color: #1f6b4a;
+  color: #fff;
+}
+.tk-enrich-preview-frame {
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.85rem;
+  padding: 0.45rem;
+  transition: max-width 0.2s ease, min-height 0.2s ease;
+}
+.tk-enrich-preview-frame.is-desktop {
+  max-width: 1100px;
+}
+.tk-enrich-preview-frame.is-tablet {
+  max-width: 780px;
+}
+.tk-enrich-preview-frame.is-mobile {
+  max-width: 420px;
+}
+.tk-enrich-preview-frame .tk-enrich-live {
+  max-height: calc(100vh - 16rem);
+  overflow: auto;
+  min-height: 22rem;
+}
+.tk-enrich-draft-preview-chip {
+  display: inline-block;
+  margin: 0.35rem 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: #8a4b12;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.tk-enrich-live[data-draft-preview="1"] {
+  outline: 1px dashed rgba(176, 120, 24, 0.35);
+  outline-offset: 2px;
+}
