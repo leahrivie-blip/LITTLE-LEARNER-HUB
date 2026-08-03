@@ -1,6 +1,6 @@
 # Teaching Kit Enrichment Editor — Slice 7
 
-**Status:** Ready for final owner review (do not merge / deploy / enable flag without approval)  
+**Status:** Approved as final implementation slice. Follow-up: [ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md](./ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md) (do not merge / deploy / enable flag without approval)  
 **Flag:** `featureFlags.teachingKitEnrichmentEditor` (**default `false`**)  
 **Depends on:** Slices 1–6 (approved)  
 **Scope:** Integration polish + full QA — **no major new features**

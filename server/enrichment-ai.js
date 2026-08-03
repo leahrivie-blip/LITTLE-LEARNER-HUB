@@ -5,8 +5,20 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const path = require("node:path");
 
 const ENRICHMENT_AI_TIMEOUT_MS = 25000;
+
+let enrichmentHelpers = null;
+function loadEnrichmentHelpers() {
+  if (enrichmentHelpers) return enrichmentHelpers;
+  try {
+    enrichmentHelpers = require(path.join(__dirname, "..", "scripts", "teaching-kit-enrichment.js"));
+  } catch (_error) {
+    enrichmentHelpers = null;
+  }
+  return enrichmentHelpers;
+}
 
 /** Allowed suggestion targets — keep in sync with editor approval tray. */
 const SUGGESTION_CATEGORIES = Object.freeze({
@@ -285,90 +297,14 @@ function buildFixtureSuggestions(ctx) {
 
 /**
  * Apply accepted suggestions to a draft copy (pure). Never removes existing content.
- * Returns { draft, inserted, fields }.
+ * Canonical implementation lives in scripts/teaching-kit-enrichment.js.
  */
-function applySuggestionsToDraft(draftInput, suggestions, { activityKey = "" } = {}) {
-  const draft = draftInput && typeof draftInput === "object"
-    ? JSON.parse(JSON.stringify(draftInput))
-    : { activities: {}, week: {} };
-  if (!draft.activities || typeof draft.activities !== "object") draft.activities = {};
-  if (!draft.week || typeof draft.week !== "object") draft.week = {};
-
-  const inserted = [];
-  const fields = new Set();
-
-  asArray(suggestions).forEach((sug) => {
-    if (!sug || sug.decision === "discarded") return;
-    if (sug.decision !== "accepted" && sug.selected !== true) return;
-    const category = text(sug.category, 60);
-    const meta = SUGGESTION_CATEGORIES[category];
-    if (!meta) return;
-
-    if (meta.scope === "week") {
-      if (meta.field === "familyConnection") {
-        const next = text(sug.proposedValue || sug.proposedText, 600);
-        if (!next) return;
-        const prev = text(draft.week.familyConnection, 2000);
-        draft.week.familyConnection = prev ? `${prev}\n\n${next}` : next;
-        inserted.push(sug.id);
-        fields.add(meta.field);
-        return;
-      }
-      if (meta.field === "milestones") {
-        const label = text(sug.proposedValue || sug.proposedText, 80);
-        if (!label) return;
-        const list = asArray(draft.week.milestones).map((m) => text(m, 80)).filter(Boolean);
-        if (!list.includes(label)) list.push(label);
-        draft.week.milestones = list.slice(0, 16);
-        inserted.push(sug.id);
-        fields.add(meta.field);
-      }
-      return;
-    }
-
-    const key = text(activityKey, 160);
-    if (!key) return;
-    if (!draft.activities[key] || typeof draft.activities[key] !== "object") {
-      draft.activities[key] = {};
-    }
-    const act = draft.activities[key];
-
-    if (meta.field === "substitutions") {
-      const need = text(sug.proposedValue?.need || sug.need, 120);
-      const use = text(sug.proposedValue?.use || sug.use, 120);
-      if (!need || !use) return;
-      const list = asArray(act.substitutions).filter((s) => s && typeof s === "object");
-      const exists = list.some((s) => text(s.need, 120) === need && text(s.use, 120) === use);
-      if (!exists) list.push({ need, use });
-      act.substitutions = list.slice(0, 12);
-      inserted.push(sug.id);
-      fields.add(meta.field);
-      return;
-    }
-
-    if (meta.field === "settingTags") {
-      const tag = text(sug.proposedValue || sug.proposedText, 40).toLowerCase().replace(/\s+/g, "_");
-      if (!ALLOWED_SETTING_TAGS.has(tag)) return;
-      const list = asArray(act.settingTags).map((t) => text(t, 40)).filter(Boolean);
-      if (!list.includes(tag)) list.push(tag);
-      act.settingTags = list.slice(0, 8);
-      inserted.push(sug.id);
-      fields.add(meta.field);
-      return;
-    }
-
-    const value = text(sug.proposedValue || sug.proposedText, 280);
-    if (!value) return;
-    const listKey = meta.field;
-    const max = listKey === "vocabulary" ? 24 : 8;
-    const list = asArray(act[listKey]).map((t) => text(t, 280)).filter(Boolean);
-    if (!list.includes(value)) list.push(value);
-    act[listKey] = list.slice(0, max);
-    inserted.push(sug.id);
-    fields.add(listKey);
-  });
-
-  return { draft, inserted, fields: [...fields] };
+function applySuggestionsToDraft(draftInput, suggestions, options) {
+  const helpers = loadEnrichmentHelpers();
+  if (!helpers?.applySuggestionsToDraft) {
+    return { draft: draftInput || { activities: {}, week: {} }, inserted: [], fields: [] };
+  }
+  return helpers.applySuggestionsToDraft(draftInput, suggestions, options);
 }
 
 module.exports = {

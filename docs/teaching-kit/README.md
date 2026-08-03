@@ -13,8 +13,9 @@
 - **Enrichment Editor Slice 4** approved
 - **Enrichment Editor Slice 5** approved
 - **Enrichment Editor Slice 6** approved
-- **Enrichment Editor Slice 7** ready for final owner review — see [ENRICHMENT_EDITOR_SLICE7.md](./ENRICHMENT_EDITOR_SLICE7.md)
-- **No merge, deploy, or flag enablement** until owner production sign-off
+- **Enrichment Editor Slice 7** approved as final implementation slice
+- **Preservation remediation** ready for owner review — see [ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md](./ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md)
+- **No merge, deploy, flag enablement, or closing superseded PRs** until owner sign-off
 
 ## Start here
 
@@ -29,12 +30,13 @@
 | **Enrichment Editor Slice 5** | [ENRICHMENT_EDITOR_SLICE5.md](./ENRICHMENT_EDITOR_SLICE5.md) |
 | **Enrichment Editor Slice 6** | [ENRICHMENT_EDITOR_SLICE6.md](./ENRICHMENT_EDITOR_SLICE6.md) |
 | **Enrichment Editor Slice 7** | [ENRICHMENT_EDITOR_SLICE7.md](./ENRICHMENT_EDITOR_SLICE7.md) |
+| **Enrichment preservation remediation** | [ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md](./ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md) |
 | **Phase 1 QA readiness report** | [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md) |
 | Clickable companion mockup | [mockups/gold-standard.html](./mockups/gold-standard.html) |
 | Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
 | Print Center (Slice 1E/1F) | `scripts/teaching-kit-print.js` |
 | Viewer UI (Slice 1D/1F) | `scripts/teaching-kit-viewer.js` |
-| Tests | `npm run test:teaching-kit-enrichment-qa` (slices 1–7 + curated regressions) · `test:teaching-kit-enrichment-slice-7` |
+| Tests | `npm run test:teaching-kit-enrichment-preserve` · `test:teaching-kit-enrichment-qa` (slices 1–7 + preserve + curated regressions) |
 
 ### Slice 1F exit criteria
 

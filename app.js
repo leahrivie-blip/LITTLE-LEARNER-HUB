@@ -10343,12 +10343,14 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
   let failed = 0;
   for (const plan of plans) {
     try {
+      // Status-only bulk actions: send the full stored plan with only status changed.
+      // Never run through a stripper that could drop enrichmentDraft / history / media.
       const response = await fetch(curriculumLessonPlanConfig.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-          lessonPlan: normalizeCurriculumLessonPlanForRender({ ...plan, status }),
+          lessonPlan: { ...plan, status },
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -10625,7 +10627,11 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
       items: resolvedItems,
     };
   });
-  return {
+  // Prefer the live store plan for enrichment-bearing fields so classic Save cannot
+  // drop drafts/history/media even if the form normalize path omitted them.
+  const storedPlan = id ? curriculumLessonPlanById(id) : null;
+  const enrichmentSource = storedPlan || existing || {};
+  const collected = {
     ...(existing || {}),
     id,
     title: normalizedShortText(formData.get("title")) || "Untitled Lesson Plan",
@@ -10644,8 +10650,8 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     books: collectCurriculumBooksFromEditor(weeklyBooksEditor),
     songs: collectCurriculumSongsFromEditor(weeklySongsEditor),
     dailyPlans,
-    resourceIds: existing?.resourceIds || [],
-    activityIds: existing?.activityIds || [],
+    resourceIds: existing?.resourceIds || enrichmentSource.resourceIds || [],
+    activityIds: existing?.activityIds || enrichmentSource.activityIds || [],
     coverImageUrl: (() => {
       const rawCoverUrl = formData.get("coverImageUrl");
       if (rawCoverUrl === null) return sanitizedImageSource(existing?.coverImageUrl || "");
@@ -10669,6 +10675,16 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     createdAt: existing?.createdAt || "",
     updatedAt: existing?.updatedAt || "",
   };
+  if (Object.prototype.hasOwnProperty.call(enrichmentSource, "enrichmentDraft")) {
+    collected.enrichmentDraft = enrichmentSource.enrichmentDraft;
+  }
+  if (Array.isArray(enrichmentSource.enrichmentPublishHistory)) {
+    collected.enrichmentPublishHistory = enrichmentSource.enrichmentPublishHistory;
+  }
+  if (enrichmentSource.teachingKit && typeof enrichmentSource.teachingKit === "object") {
+    collected.teachingKit = enrichmentSource.teachingKit;
+  }
+  return collected;
 }
 
 async function saveAdminCurriculumLessonPlanForm(form) {

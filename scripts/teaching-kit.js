@@ -204,6 +204,24 @@
     };
     if (!out.lastEditedBy) delete out.lastEditedBy;
     if (completionPercent != null) out.completionPercent = completionPercent;
+    // Enrichment publish metadata + week fields (must persist — do not write-then-strip).
+    const lastAt = clampShortText(value.lastEnrichmentPublishedAt, 80);
+    const lastBy = clampShortText(value.lastEnrichmentPublishedBy, 180);
+    const lastFp = clampShortText(value.lastEnrichmentPublishFingerprint, 80);
+    const lastVer = clampShortText(value.lastEnrichmentVersionId, 80);
+    if (lastAt) out.lastEnrichmentPublishedAt = lastAt;
+    if (lastBy) out.lastEnrichmentPublishedBy = lastBy;
+    if (lastFp) out.lastEnrichmentPublishFingerprint = lastFp;
+    if (lastVer) out.lastEnrichmentVersionId = lastVer;
+    if (Array.isArray(value.milestones)) {
+      out.milestones = value.milestones
+        .map((item) => clampShortText(item, 80))
+        .filter(Boolean)
+        .slice(0, 16);
+    }
+    if (Array.isArray(value.printableIds)) {
+      out.printableIds = normalizedIdList(value.printableIds, 100, 160);
+    }
     return out;
   }
 

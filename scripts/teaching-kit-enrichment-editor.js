@@ -1,12 +1,5 @@
 /**
  * Teaching Kit Enrichment Editor — admin focused workspace.
- * Slice 1: framework, navigation, progress, draft workflow.
- * Slice 2: Activity Studio foundation (placeholders + tips/subs/settings/obs/vocab).
- * Slice 3: Live Preview (real Teaching Kit viewer) + draft-to-provider parity.
- * Slice 4: Activity Studio photo upload (private draft media).
- * Slice 5: Controlled enrichment publish (atomic, versioned).
- * Slice 6: AI-assisted enrichment suggestions (approval tray only).
- * Slice 7: Integration polish + QA (no major new features).
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
  * Print Center remains the existing Teaching Kit print path (not a new Enrichment feature).
  */
@@ -18,17 +11,9 @@
   const DAY_LABEL = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
   const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
   const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
-
-  /** Capability gates — later slices flip these on behind review. */
-  const SLICE = Object.freeze({
-    activityStudio: true, // Slice 2
-    livePreview: true, // Slice 3
-    photoUpload: true, // Slice 4
-    aiSuggest: true, // Slice 6
-    publish: true, // Slice 5
-  });
-  // Back-compat alias used by earlier Slice 1 checks.
-  const SLICE1 = SLICE;
+  /** Draft media blob cache: admin media URL → object URL (Authorization header fetch). */
+  const draftMediaBlobCache = new Map();
+  const draftMediaBlobInflight = new Map();
 
   const state = {
     open: false,
@@ -118,7 +103,6 @@
   }
 
   function schedulePreviewRefresh() {
-    if (!SLICE.livePreview) return;
     clearTimeout(state._previewTimer);
     state._previewTimer = setTimeout(() => {
       const plan = getPlan();
@@ -156,11 +140,6 @@
   }
 
   async function requestAiSuggestions({ scope = "activity", simulate = "" } = {}) {
-    if (!SLICE.aiSuggest) {
-      state.statusText = "AI suggestions are not enabled in this build.";
-      renderChromeOnly();
-      return;
-    }
     const plan = getPlan();
     if (!plan) return;
     const token = adminToken();
@@ -304,8 +283,9 @@
 
   async function insertSelectedAiSuggestions() {
     const plan = getPlan();
-    if (!plan) return;
-    let suggestions = state.aiTray.suggestions.map((sug) => {
+    const enrich = api();
+    if (!plan || !enrich?.applySuggestionsToDraft) return;
+    const suggestions = state.aiTray.suggestions.map((sug) => {
       const next = applyAiSuggestionEdits({ ...sug });
       if (next.decision === "discarded") return { ...next, selected: false };
       if (next.selected || next.decision === "accepted") {
@@ -320,71 +300,12 @@
       return;
     }
 
-    // Pure client apply — never auto-save, never publish, never overwrite existing items.
-    const draft = JSON.parse(JSON.stringify(state.draft));
-    if (!draft.activities) draft.activities = {};
-    if (!draft.week) draft.week = {};
+    // Canonical pure apply (shared with server) — never auto-save / publish.
     const activityKey = state.aiTray.activityKey || currentAiActivityKey(plan);
-    const fields = new Set();
-    let insertedCount = 0;
-
-    toInsert.forEach((sug) => {
-      const field = String(sug.field || "");
-      if (field === "familyConnection") {
-        const next = String(sug.proposedValue || sug.proposedText || "").trim();
-        if (!next) return;
-        const prev = String(draft.week.familyConnection || "").trim();
-        draft.week.familyConnection = prev ? `${prev}\n\n${next}` : next;
-        fields.add(field);
-        insertedCount += 1;
-        return;
-      }
-      if (field === "milestones") {
-        const label = String(sug.proposedValue || sug.proposedText || "").trim();
-        if (!label) return;
-        const list = Array.isArray(draft.week.milestones) ? draft.week.milestones.slice() : [];
-        if (!list.includes(label)) list.push(label);
-        draft.week.milestones = list.slice(0, 16);
-        fields.add(field);
-        insertedCount += 1;
-        return;
-      }
-      if (!activityKey) return;
-      if (!draft.activities[activityKey]) draft.activities[activityKey] = {};
-      const act = draft.activities[activityKey];
-      if (field === "substitutions") {
-        const need = String(sug.proposedValue?.need || "").trim();
-        const use = String(sug.proposedValue?.use || "").trim();
-        if (!need || !use) return;
-        const list = Array.isArray(act.substitutions) ? act.substitutions.slice() : [];
-        if (!list.some((s) => s && s.need === need && s.use === use)) list.push({ need, use });
-        act.substitutions = list.slice(0, 12);
-        fields.add(field);
-        insertedCount += 1;
-        return;
-      }
-      if (field === "settingTags") {
-        const tag = String(sug.proposedValue || sug.proposedText || "").trim().toLowerCase().replace(/\s+/g, "_");
-        if (!tag) return;
-        const list = Array.isArray(act.settingTags) ? act.settingTags.slice() : [];
-        if (!list.includes(tag)) list.push(tag);
-        act.settingTags = list.slice(0, 8);
-        fields.add(field);
-        insertedCount += 1;
-        return;
-      }
-      const value = String(sug.proposedValue || sug.proposedText || "").trim();
-      if (!value) return;
-      const max = field === "vocabulary" ? 24 : 8;
-      const list = Array.isArray(act[field]) ? act[field].slice() : [];
-      if (!list.includes(value)) list.push(value);
-      act[field] = list.slice(0, max);
-      fields.add(field);
-      insertedCount += 1;
-    });
-
-    state.draft = draft;
-    await logAiInsert([...fields], insertedCount);
+    const applied = enrich.applySuggestionsToDraft(state.draft, toInsert, { activityKey });
+    state.draft = applied.draft;
+    const insertedCount = (applied.inserted || []).length;
+    await logAiInsert(applied.fields || [], insertedCount);
     resetAiTray();
     markDirty({ autosave: false });
     state.statusText = insertedCount
@@ -482,11 +403,6 @@
   }
 
   async function publishEnrichment() {
-    if (!SLICE.publish) {
-      state.statusText = "Publishing is not enabled in this slice.";
-      renderChromeOnly();
-      return;
-    }
     const plan = getPlan();
     if (!plan) return;
     const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
@@ -593,6 +509,7 @@
     }
     state.open = false;
     document.body.classList.remove("tk-enrich-open");
+    revokeDraftMediaBlobs();
     const el = host();
     if (el) el.innerHTML = "";
     if (typeof renderAdminCurriculumLessonPlanManager === "function") {
@@ -609,49 +526,79 @@
     return typeof adminSession === "function" ? (adminSession()?.token || "") : "";
   }
 
-  function withAdminMediaToken(url) {
-    const base = String(url || "").trim();
-    const token = adminToken();
-    if (!base || !token) return base;
-    if (!base.includes("/api/admin/media/enrichment-photos/")) return base;
-    const join = base.includes("?") ? "&" : "?";
-    return `${base}${join}adminToken=${encodeURIComponent(token)}`;
+  function isAdminEnrichmentMediaUrl(url) {
+    return String(url || "").includes("/api/admin/media/enrichment-photos/");
   }
 
-  function authorizeDraftKitPhotos(kit) {
-    if (!kit || typeof kit !== "object") return kit;
+  function mediaCacheKey(url) {
+    return String(url || "").trim().split("#")[0];
+  }
+
+  function resolveDraftMediaDisplayUrl(url) {
+    const key = mediaCacheKey(url);
+    if (!key) return "";
+    if (!isAdminEnrichmentMediaUrl(key)) return key;
+    return draftMediaBlobCache.get(key) || "";
+  }
+
+  async function fetchDraftMediaBlobUrl(url) {
+    const key = mediaCacheKey(url);
+    if (!key) return "";
+    if (!isAdminEnrichmentMediaUrl(key)) return key;
+    if (draftMediaBlobCache.has(key)) return draftMediaBlobCache.get(key);
+    if (draftMediaBlobInflight.has(key)) return draftMediaBlobInflight.get(key);
     const token = adminToken();
-    if (!token) return kit;
-    const rewrite = (value) => {
-      const text = String(value || "").trim();
-      if (!text || !text.includes("/api/admin/media/enrichment-photos/")) return text;
-      return withAdminMediaToken(text);
-    };
-    const next = { ...kit, companion: kit.companion ? { ...kit.companion } : kit.companion };
-    if (next.companion?.activities) {
-      next.companion.activities = next.companion.activities.map((act) => ({
-        ...act,
-        setupPhotoUrl: rewrite(act.setupPhotoUrl),
-        examplePhotoUrl: rewrite(act.examplePhotoUrl),
-      }));
-    }
-    if (next.companion?.days) {
-      const days = { ...next.companion.days };
-      Object.keys(days).forEach((day) => {
-        const dayModel = days[day] ? { ...days[day] } : null;
-        if (!dayModel) return;
-        if (Array.isArray(dayModel.activities)) {
-          dayModel.activities = dayModel.activities.map((act) => ({
-            ...act,
-            setupPhotoUrl: rewrite(act.setupPhotoUrl),
-            examplePhotoUrl: rewrite(act.examplePhotoUrl),
-          }));
-        }
-        days[day] = dayModel;
+    if (!token || typeof fetch !== "function") return "";
+    const promise = fetch(key, {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: "same-origin",
+    }).then(async (res) => {
+      if (!res.ok) throw new Error(`Draft media HTTP ${res.status}`);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      draftMediaBlobCache.set(key, objectUrl);
+      return objectUrl;
+    }).catch((error) => {
+      console.warn("[tk-enrich] draft media fetch failed", error.message || error);
+      return "";
+    }).finally(() => {
+      draftMediaBlobInflight.delete(key);
+    });
+    draftMediaBlobInflight.set(key, promise);
+    return promise;
+  }
+
+  function hydrateDraftMediaImages(rootEl) {
+    const root = rootEl || host();
+    if (!root) return;
+    root.querySelectorAll("img[data-admin-media-src]").forEach((img) => {
+      const src = img.getAttribute("data-admin-media-src") || "";
+      if (!src) return;
+      void fetchDraftMediaBlobUrl(src).then((objectUrl) => {
+        if (!objectUrl || !img.isConnected) return;
+        img.src = objectUrl;
+        img.hidden = false;
       });
-      next.companion.days = days;
-    }
-    return next;
+    });
+    root.querySelectorAll("img[src*='/api/admin/media/enrichment-photos/']").forEach((img) => {
+      const src = img.getAttribute("src") || "";
+      if (!isAdminEnrichmentMediaUrl(src)) return;
+      img.setAttribute("data-admin-media-src", src.split("?")[0]);
+      img.removeAttribute("src");
+      void fetchDraftMediaBlobUrl(src.split("?")[0]).then((objectUrl) => {
+        if (!objectUrl || !img.isConnected) return;
+        img.src = objectUrl;
+        img.hidden = false;
+      });
+    });
+  }
+
+  function revokeDraftMediaBlobs() {
+    draftMediaBlobCache.forEach((objectUrl) => {
+      try { URL.revokeObjectURL(objectUrl); } catch (_error) { /* ignore */ }
+    });
+    draftMediaBlobCache.clear();
+    draftMediaBlobInflight.clear();
   }
 
   function readFileAsDataUrl(file) {
@@ -684,7 +631,6 @@
   }
 
   async function applyPhoto(key, field, file) {
-    if (!SLICE.photoUpload) return;
     const check = validatePhotoFile(file);
     if (!check.ok) {
       state.statusText = check.error;
@@ -760,28 +706,17 @@
   function photoZoneHtml(label, field, view, key) {
     const url = field === "exampleImageUrl" ? view.exampleImageUrl : view.setupImageUrl;
     const thumb = field === "exampleImageUrl" ? view.exampleImageThumbUrl : view.setupImageThumbUrl;
-    const displayUrl = withAdminMediaToken(thumb || url);
-    const fullUrl = withAdminMediaToken(url);
+    const displayUrl = thumb || url;
+    const fullUrl = url;
     const has = Boolean(url);
-    if (!SLICE.photoUpload) {
-      return `
-        <div class="tk-enrich-photo is-readonly" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}">
-          <div class="tk-enrich-photo-label">${esc(label)}</div>
-          <div class="tk-enrich-photo-drop ${has ? "has-photo" : ""}" aria-label="${esc(label)}">
-            ${has
-              ? `<img src="${esc(displayUrl)}" alt="${esc(label)}" data-photo-full="${esc(fullUrl)}" onerror="this.classList.add('is-broken');this.alt='Photo unavailable';" />`
-              : `<span class="tk-enrich-photo-empty">${esc(label)} placeholder<br><small>Upload arrives in a later slice</small></span>`}
-          </div>
-          ${has ? `<div class="tk-enrich-photo-actions"><button type="button" class="ghost-button" data-photo-preview>Full size</button></div>` : ""}
-        </div>
-      `;
-    }
+    const cachedDisplay = resolveDraftMediaDisplayUrl(displayUrl);
+    const cachedFull = resolveDraftMediaDisplayUrl(fullUrl);
     return `
       <div class="tk-enrich-photo" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}" data-photo-full="${esc(fullUrl)}">
         <div class="tk-enrich-photo-label">${esc(label)}</div>
         <div class="tk-enrich-photo-drop ${has ? "has-photo" : ""}" tabindex="0" role="button" aria-label="${esc(label)}">
           ${has
-            ? `<img src="${esc(displayUrl)}" alt="${esc(label)}" data-photo-full="${esc(fullUrl)}" onerror="this.classList.add('is-broken');this.alt='Photo unavailable';" />`
+            ? `<img src="${esc(cachedDisplay || "")}" alt="${esc(label)}" data-admin-media-src="${esc(displayUrl)}" data-photo-full="${esc(fullUrl)}" ${cachedDisplay ? "" : "hidden"} onerror="this.classList.add('is-broken');this.alt='Photo unavailable';" />`
             : `<span class="tk-enrich-photo-empty">Drop photo or click to upload<br><small>JPEG, PNG, WebP, GIF · max 5 MB</small></span>`}
           <input type="file" accept="${PHOTO_ACCEPT}" hidden />
         </div>
@@ -888,9 +823,7 @@
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
-            ${SLICE1.publish
-              ? `<button type="button" class="primary-button" data-enrich-publish>Publish…</button>`
-              : `<button type="button" class="ghost-button" disabled title="Publishing arrives in a later slice">Publish…</button>`}
+            <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
           </div>
         </div>
         <div class="tk-enrich-chrome-sub">
@@ -947,7 +880,7 @@
               <h3 data-enrich-title>${esc(current.title)}</h3>
               <p class="muted-copy">${esc(DAY_LABEL[current.dayOfWeek] || current.dayOfWeek)} · ${esc(current.activityCategory || "Activity")}</p>
             </div>
-            ${SLICE.aiSuggest ? `<button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>` : ""}
+            <button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>
           </div>
           <div class="tk-enrich-photo-grid">
             ${photoZoneHtml("Setup photo (before)", "setupImageUrl", view, key)}
@@ -1034,7 +967,7 @@
     }
 
     return `
-      <div class="tk-enrich-activity-layout ${SLICE.livePreview ? "" : "is-slice1"}">
+      <div class="tk-enrich-activity-layout">
         <aside class="tk-enrich-queue">
           <div class="tk-enrich-day-chips">
             <button type="button" class="${state.dayFilter === "all" ? "is-on" : ""}" data-day-filter="all">All</button>
@@ -1062,7 +995,7 @@
           </ul>
         </aside>
         <div class="tk-enrich-stage-wrap">${stage}</div>
-        ${SLICE1.livePreview ? `<aside class="tk-enrich-live" data-enrich-live-preview></aside>` : ""}
+        <aside class="tk-enrich-live" data-enrich-live-preview></aside>
       </div>
     `;
   }
@@ -1073,12 +1006,10 @@
     const bank = ["Sorting", "Fine motor", "Language", "Social-emotional", "Gross motor", "Creativity", "Self-help"];
     return `
       <div class="tk-enrich-week-layout">
-        ${SLICE.aiSuggest ? `
-          <div class="tk-enrich-week-ai-bar">
-            <p class="muted-copy">AI can suggest family ideas and milestone language. Nothing inserts until you approve.</p>
-            <button type="button" class="ghost-button" data-ai-suggest="week">Suggest with AI</button>
-          </div>
-        ` : ""}
+        <div class="tk-enrich-week-ai-bar">
+          <p class="muted-copy">AI can suggest family ideas and milestone language. Nothing inserts until you approve.</p>
+          <button type="button" class="ghost-button" data-ai-suggest="week">Suggest with AI</button>
+        </div>
         <section class="tk-enrich-card-block">
           <h4>Family connection</h4>
           <p class="muted-copy">Current text is kept unless you replace it here.</p>
@@ -1115,15 +1046,6 @@
   }
 
   function renderPreviewMode() {
-    if (!SLICE.livePreview) {
-      return `
-        <div class="tk-enrich-preview-full">
-          <div class="empty-state">
-            <strong>Live Preview comes in a later slice.</strong>
-          </div>
-        </div>
-      `;
-    }
     return `
       <div class="tk-enrich-preview-full">
         <div class="tk-enrich-draft-preview-label" role="status">
@@ -1150,7 +1072,7 @@
   }
 
   function renderAiTray() {
-    if (!SLICE.aiSuggest || !state.aiTray.open) return "";
+    if (!state.aiTray.open) return "";
     const tray = state.aiTray;
     const selectedCount = (tray.suggestions || []).filter((s) => s.selected && s.decision !== "discarded").length;
     let body = "";
@@ -1265,7 +1187,7 @@
 
   function paintLivePreview(plan, activities) {
     const nodes = document.querySelectorAll("[data-enrich-live-preview]");
-    if (!nodes.length || !SLICE.livePreview) return;
+    if (!nodes.length) return;
     const viewer = root.LLHTeachingKitViewer;
     const kitApi = root.LLHTeachingKit;
     const enrich = api();
@@ -1298,11 +1220,11 @@
       });
       return;
     }
-    const teachingKit = authorizeDraftKitPhotos({
+    const teachingKit = {
       ...model.draftKit,
       locked: false,
       ok: model.draftKit?.ok !== false,
-    });
+    };
     // Fail closed: empty/malformed draft kits never throw into the shell.
     if (!teachingKit.companion) {
       nodes.forEach((node) => {
@@ -1343,12 +1265,17 @@
           if (resolved?.unbind) state.previewUnbind = resolved.unbind;
           if (resolved && resolved.enhanced === false) {
             node.innerHTML = `<p class="muted-copy">Draft Preview unavailable (${esc(resolved.reason || "unknown")}). Published lesson unchanged.</p>`;
+          } else {
+            hydrateDraftMediaImages(node);
           }
         }).catch((error) => {
           node.innerHTML = `<p class="muted-copy">Draft Preview failed safely. ${esc(error.message || error)}</p>`;
         });
       } else if (result?.unbind) {
         state.previewUnbind = result.unbind;
+        hydrateDraftMediaImages(node);
+      } else {
+        hydrateDraftMediaImages(node);
       }
     });
   }
@@ -1433,9 +1360,10 @@
       </div>
     `;
     if (state.jumpOpen) renderJumpResults(plan, activities);
-    if (SLICE.livePreview) {
-      requestAnimationFrame(() => paintLivePreview(plan, activities));
-    }
+    requestAnimationFrame(() => {
+      paintLivePreview(plan, activities);
+      hydrateDraftMediaImages(el);
+    });
     if (state.aiTray.open || state.publishOpen || state.lightboxUrl) {
       requestAnimationFrame(() => focusActiveDialog());
     }
@@ -1501,11 +1429,6 @@
         return;
       }
       if (event.target.closest("[data-enrich-publish]")) {
-        if (!SLICE1.publish) {
-          state.statusText = "Publishing is disabled until a later reviewed slice.";
-          renderChromeOnly();
-          return;
-        }
         state.publishOpen = true;
         render();
         return;
@@ -1675,7 +1598,6 @@
         return;
       }
       if (event.target.closest("[data-ai-suggest]")) {
-        if (!SLICE.aiSuggest) return;
         const scopeBtn = event.target.closest("[data-ai-suggest]");
         const scope = scopeBtn.getAttribute("data-ai-suggest") === "week" ? "week" : "activity";
         await requestAiSuggestions({ scope });
@@ -1760,7 +1682,6 @@
         const field = photoBox.getAttribute("data-photo-field");
         const input = photoBox.querySelector('input[type="file"]');
         if (event.target.closest("[data-photo-remove]")) {
-          if (!SLICE.photoUpload) return;
           await removePhoto(key, field);
           return;
         }
@@ -1770,11 +1691,24 @@
             state.draft.activities[key],
           );
           const full = field === "exampleImageUrl" ? view.exampleImageUrl : view.setupImageUrl;
-          state.lightboxUrl = withAdminMediaToken(full || photoBox.getAttribute("data-photo-full") || "");
-          render();
+          const rawFull = full || photoBox.getAttribute("data-photo-full") || "";
+          const cached = resolveDraftMediaDisplayUrl(rawFull);
+          if (cached) {
+            state.lightboxUrl = cached;
+            render();
+            return;
+          }
+          void fetchDraftMediaBlobUrl(rawFull).then((objectUrl) => {
+            if (!objectUrl) {
+              state.statusText = "Photo preview unavailable.";
+              renderChromeOnly();
+              return;
+            }
+            state.lightboxUrl = objectUrl;
+            render();
+          });
           return;
         }
-        if (!SLICE.photoUpload) return;
         if (event.target.closest("[data-photo-replace]") || event.target.closest(".tk-enrich-photo-drop")) {
           input?.click();
           return;
@@ -1803,7 +1737,6 @@
         return;
       }
       if (event.target.matches(".tk-enrich-photo input[type='file']")) {
-        if (!SLICE1.photoUpload) return;
         const box = event.target.closest(".tk-enrich-photo");
         const file = event.target.files && event.target.files[0];
         await applyPhoto(box.getAttribute("data-photo-key"), box.getAttribute("data-photo-field"), file);
@@ -1953,7 +1886,6 @@
         return;
       }
       if ((event.key === "Enter" || event.key === " ") && event.target?.closest?.(".tk-enrich-photo-drop")) {
-        if (!SLICE.photoUpload) return;
         event.preventDefault();
         const drop = event.target.closest(".tk-enrich-photo-drop");
         drop.querySelector('input[type="file"]')?.click();
@@ -1977,7 +1909,7 @@
       }
     });
     document.addEventListener("dragover", (event) => {
-      if (!state.open || !SLICE.photoUpload) return;
+      if (!state.open) return;
       const drop = event.target.closest(".tk-enrich-photo-drop");
       if (drop) {
         event.preventDefault();
@@ -1989,7 +1921,7 @@
       if (drop) drop.classList.remove("is-dragover");
     });
     document.addEventListener("drop", async (event) => {
-      if (!state.open || !SLICE.photoUpload) return;
+      if (!state.open) return;
       const drop = event.target.closest(".tk-enrich-photo-drop");
       if (!drop) return;
       event.preventDefault();
@@ -2007,7 +1939,16 @@
     close,
     isOpen: () => state.open,
     isEnabled: isEditorFlagEnabled,
-    sliceFeatures: () => ({ ...SLICE, polish: true, slice: 7 }),
+    sliceFeatures: () => ({
+      activityStudio: true,
+      livePreview: true,
+      photoUpload: true,
+      aiSuggest: true,
+      publish: true,
+      polish: true,
+      preserveRemediation: true,
+      slice: 7,
+    }),
     render,
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

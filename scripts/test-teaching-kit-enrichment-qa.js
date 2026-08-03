@@ -24,6 +24,7 @@ const SUITES = [
   { name: "enrichment-slice-5", cmd: ["npm", "run", "test:teaching-kit-enrichment-slice-5"], group: "enrichment" },
   { name: "enrichment-slice-6", cmd: ["npm", "run", "test:teaching-kit-enrichment-slice-6"], group: "enrichment" },
   { name: "enrichment-slice-7", cmd: ["npm", "run", "test:teaching-kit-enrichment-slice-7"], group: "enrichment" },
+  { name: "enrichment-preserve", cmd: ["npm", "run", "test:teaching-kit-enrichment-preserve"], group: "enrichment" },
   { name: "teaching-kit-phase1-qa", cmd: ["npm", "run", "test:teaching-kit-phase1-qa"], group: "teaching-kit" },
   { name: "teaching-kit-slice-1a", cmd: ["npm", "run", "test:teaching-kit-slice-1a"], group: "teaching-kit" },
   { name: "teaching-kit-slice-1f", cmd: ["npm", "run", "test:teaching-kit-slice-1f"], group: "print" },

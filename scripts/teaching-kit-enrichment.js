@@ -318,6 +318,16 @@
     nextPlan.dailyPlans = daily;
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
     if (text(week.familyConnection)) nextPlan.familyConnection = text(week.familyConnection);
+    const milestones = asArray(week.milestones).map(text).filter(Boolean).slice(0, 16);
+    const printableIds = asArray(week.printableIds).map(text).filter(Boolean).slice(0, 100);
+    if (printableIds.length) {
+      const existingIds = asArray(nextPlan.resourceIds).map(text).filter(Boolean);
+      const mergedIds = [...existingIds];
+      printableIds.forEach((id) => {
+        if (!mergedIds.includes(id)) mergedIds.push(id);
+      });
+      nextPlan.resourceIds = mergedIds.slice(0, 200);
+    }
     const percent = computeCompletionPercent(nextPlan, nextActivities, null);
     nextPlan.teachingKit = {
       ...(nextPlan.teachingKit || {}),
@@ -327,6 +337,14 @@
       updatedAt: text(draft.updatedAt) || new Date().toISOString(),
       lastEditedBy: text(draft.lastEditedBy) || text(nextPlan.teachingKit?.lastEditedBy) || "",
     };
+    if (milestones.length) {
+      nextPlan.teachingKit.milestones = milestones;
+    } else if (Array.isArray(nextPlan.teachingKit.milestones)) {
+      // keep prior published milestones when draft omits them
+    }
+    if (printableIds.length) {
+      nextPlan.teachingKit.printableIds = printableIds;
+    }
     if (!nextPlan.teachingKit.lastEditedBy) delete nextPlan.teachingKit.lastEditedBy;
     delete nextPlan.enrichmentDraft;
     return { plan: nextPlan, activities: nextActivities };
@@ -543,6 +561,108 @@
     };
   }
 
+  const AI_SETTING_TAGS = new Set(["small_group", "large_group", "indoor", "outdoor"]);
+  const AI_CATEGORY_TO_FIELD = Object.freeze({
+    teacher_tips: "teacherTips",
+    observation_prompts: "observationPrompts",
+    vocabulary: "vocabulary",
+    substitutions: "substitutions",
+    indoor_outdoor: "teacherTips",
+    group_ideas: "teacherTips",
+    setting_tags: "settingTags",
+    family_connection: "familyConnection",
+    milestones: "milestones",
+  });
+  const AI_WEEK_FIELDS = new Set(["familyConnection", "milestones"]);
+
+  /**
+   * Canonical AI suggestion applicator (browser + server).
+   * Never removes existing draft content. Pure — caller decides whether to save.
+   */
+  function applySuggestionsToDraft(draftInput, suggestions, { activityKey = "" } = {}) {
+    const draft = draftInput && typeof draftInput === "object"
+      ? JSON.parse(JSON.stringify(draftInput))
+      : { activities: {}, week: {} };
+    if (!draft.activities || typeof draft.activities !== "object") draft.activities = {};
+    if (!draft.week || typeof draft.week !== "object") draft.week = {};
+
+    const inserted = [];
+    const fields = new Set();
+
+    asArray(suggestions).forEach((sug) => {
+      if (!sug || sug.decision === "discarded") return;
+      if (sug.decision !== "accepted" && sug.selected !== true) return;
+      const field = text(sug.field)
+        || text(AI_CATEGORY_TO_FIELD[text(sug.category)])
+        || "";
+      if (!field) return;
+
+      if (AI_WEEK_FIELDS.has(field) || text(sug.scope) === "week") {
+        if (field === "familyConnection") {
+          const next = text(sug.proposedValue || sug.proposedText);
+          if (!next) return;
+          const prev = text(draft.week.familyConnection);
+          draft.week.familyConnection = prev ? `${prev}\n\n${next}` : next;
+          inserted.push(sug.id);
+          fields.add(field);
+          return;
+        }
+        if (field === "milestones") {
+          const label = text(sug.proposedValue || sug.proposedText);
+          if (!label) return;
+          const list = asArray(draft.week.milestones).map(text).filter(Boolean);
+          if (!list.includes(label)) list.push(label);
+          draft.week.milestones = list.slice(0, 16);
+          inserted.push(sug.id);
+          fields.add(field);
+        }
+        return;
+      }
+
+      const key = text(activityKey);
+      if (!key) return;
+      if (!draft.activities[key] || typeof draft.activities[key] !== "object") {
+        draft.activities[key] = {};
+      }
+      const act = draft.activities[key];
+
+      if (field === "substitutions") {
+        const need = text(sug.proposedValue?.need || sug.need);
+        const use = text(sug.proposedValue?.use || sug.use);
+        if (!need || !use) return;
+        const list = asArray(act.substitutions).filter((s) => s && typeof s === "object");
+        const exists = list.some((s) => text(s.need) === need && text(s.use) === use);
+        if (!exists) list.push({ need, use });
+        act.substitutions = list.slice(0, 12);
+        inserted.push(sug.id);
+        fields.add(field);
+        return;
+      }
+
+      if (field === "settingTags") {
+        const tag = text(sug.proposedValue || sug.proposedText).toLowerCase().replace(/\s+/g, "_");
+        if (!AI_SETTING_TAGS.has(tag)) return;
+        const list = asArray(act.settingTags).map(text).filter(Boolean);
+        if (!list.includes(tag)) list.push(tag);
+        act.settingTags = list.slice(0, 8);
+        inserted.push(sug.id);
+        fields.add(field);
+        return;
+      }
+
+      const value = text(sug.proposedValue || sug.proposedText);
+      if (!value) return;
+      const max = field === "vocabulary" ? 24 : 8;
+      const list = asArray(act[field]).map(text).filter(Boolean);
+      if (!list.includes(value)) list.push(value);
+      act[field] = list.slice(0, max);
+      inserted.push(sug.id);
+      fields.add(field);
+    });
+
+    return { draft, inserted, fields: [...fields] };
+  }
+
   return {
     WEEKDAYS,
     ACTIVITY_STATUS,
@@ -561,6 +681,7 @@
     buildUpgradeSummary,
     matchesUpgradeGapFilter,
     summarizePublishChanges,
+    applySuggestionsToDraft,
     clampPercent,
   };
 });

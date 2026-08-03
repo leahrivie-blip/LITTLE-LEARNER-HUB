@@ -2809,10 +2809,124 @@ function flattenCurriculumDailyItems(dailyPlans) {
   return items;
 }
 
+function enrichmentListEmpty(value) {
+  return !Array.isArray(value) || value.length === 0;
+}
+
+function enrichmentTextEmpty(value) {
+  return !String(value || "").trim();
+}
+
+/**
+ * Merge enrichment-bearing fields from an existing daily item into an incoming
+ * item when the incoming payload omitted them (classic editor / bulk status).
+ * Never invents enrichment — only restores previously stored values.
+ */
+function mergeEnrichmentFieldsOntoDailyItem(existingItem, incomingItem) {
+  const incoming = incomingItem && typeof incomingItem === "object" ? { ...incomingItem } : {};
+  const existing = existingItem && typeof existingItem === "object" ? existingItem : null;
+  if (!existing) return incoming;
+  if (enrichmentTextEmpty(incoming.setupImageUrl) && !enrichmentTextEmpty(existing.setupImageUrl)) {
+    incoming.setupImageUrl = existing.setupImageUrl;
+  }
+  if (enrichmentTextEmpty(incoming.exampleImageUrl) && !enrichmentTextEmpty(existing.exampleImageUrl)) {
+    incoming.exampleImageUrl = existing.exampleImageUrl;
+  }
+  if (enrichmentTextEmpty(incoming.setupMediaAssetId) && enrichmentMedia.isEnrichmentMediaAssetId(existing.setupMediaAssetId)) {
+    incoming.setupMediaAssetId = existing.setupMediaAssetId;
+  }
+  if (enrichmentTextEmpty(incoming.exampleMediaAssetId) && enrichmentMedia.isEnrichmentMediaAssetId(existing.exampleMediaAssetId)) {
+    incoming.exampleMediaAssetId = existing.exampleMediaAssetId;
+  }
+  if (enrichmentListEmpty(incoming.teacherTips) && !enrichmentListEmpty(existing.teacherTips)) {
+    incoming.teacherTips = existing.teacherTips;
+  }
+  if (enrichmentListEmpty(incoming.substitutions) && !enrichmentListEmpty(existing.substitutions)) {
+    incoming.substitutions = existing.substitutions;
+  }
+  if (enrichmentListEmpty(incoming.settingTags) && !enrichmentListEmpty(existing.settingTags)) {
+    incoming.settingTags = existing.settingTags;
+  }
+  return incoming;
+}
+
+function mergeDailyPlansEnrichmentFromExisting(existingDailyPlans, incomingDailyPlans) {
+  const existingDays = existingDailyPlans && typeof existingDailyPlans === "object" ? existingDailyPlans : {};
+  const incomingDays = incomingDailyPlans && typeof incomingDailyPlans === "object" ? incomingDailyPlans : {};
+  const next = { ...incomingDays };
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const incomingDay = next[day] && typeof next[day] === "object" ? { ...next[day] } : {};
+    const existingItems = Array.isArray(existingDays[day]?.items) ? existingDays[day].items : [];
+    const byItemId = new Map(existingItems.filter((item) => item?.itemId).map((item) => [item.itemId, item]));
+    const byTitle = new Map(
+      existingItems
+        .filter((item) => String(item?.title || "").trim())
+        .map((item) => [String(item.title).trim().toLowerCase(), item]),
+    );
+    const incomingItems = Array.isArray(incomingDay.items) ? incomingDay.items : [];
+    incomingDay.items = incomingItems.map((item) => {
+      const match = (item?.itemId && byItemId.get(item.itemId))
+        || byTitle.get(String(item?.title || "").trim().toLowerCase())
+        || null;
+      return mergeEnrichmentFieldsOntoDailyItem(match, item);
+    });
+    next[day] = incomingDay;
+  });
+  return next;
+}
+
+/**
+ * Classic full lesson save / bulk status must never silently drop Teaching Kit
+ * enrichment. Merge-from-existing when the incoming payload omits enrichment keys
+ * or leaves activity enrichment fields empty.
+ */
+function mergeEnrichmentPreservingLessonPlan(existingPlan, incomingPlan) {
+  if (!incomingPlan || typeof incomingPlan !== "object") return incomingPlan;
+  if (!existingPlan || typeof existingPlan !== "object") return incomingPlan;
+  const next = { ...incomingPlan };
+
+  if (!Object.prototype.hasOwnProperty.call(next, "enrichmentDraft")
+    && Object.prototype.hasOwnProperty.call(existingPlan, "enrichmentDraft")) {
+    next.enrichmentDraft = existingPlan.enrichmentDraft;
+  }
+  if (!Object.prototype.hasOwnProperty.call(next, "enrichmentPublishHistory")
+    && Array.isArray(existingPlan.enrichmentPublishHistory)) {
+    next.enrichmentPublishHistory = existingPlan.enrichmentPublishHistory;
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(next, "teachingKit") && existingPlan.teachingKit) {
+    next.teachingKit = existingPlan.teachingKit;
+  } else if (next.teachingKit && typeof next.teachingKit === "object" && existingPlan.teachingKit) {
+    const existingTk = existingPlan.teachingKit;
+    const incomingTk = next.teachingKit;
+    next.teachingKit = {
+      ...existingTk,
+      ...incomingTk,
+      lastEnrichmentPublishedAt: incomingTk.lastEnrichmentPublishedAt || existingTk.lastEnrichmentPublishedAt,
+      lastEnrichmentPublishedBy: incomingTk.lastEnrichmentPublishedBy || existingTk.lastEnrichmentPublishedBy,
+      lastEnrichmentPublishFingerprint: incomingTk.lastEnrichmentPublishFingerprint || existingTk.lastEnrichmentPublishFingerprint,
+      lastEnrichmentVersionId: incomingTk.lastEnrichmentVersionId || existingTk.lastEnrichmentVersionId,
+      milestones: Array.isArray(incomingTk.milestones) && incomingTk.milestones.length
+        ? incomingTk.milestones
+        : (existingTk.milestones || incomingTk.milestones),
+      printableIds: Array.isArray(incomingTk.printableIds) && incomingTk.printableIds.length
+        ? incomingTk.printableIds
+        : (existingTk.printableIds || incomingTk.printableIds),
+    };
+  }
+
+  if (next.dailyPlans || existingPlan.dailyPlans) {
+    next.dailyPlans = mergeDailyPlansEnrichmentFromExisting(existingPlan.dailyPlans, next.dailyPlans || {});
+  }
+  return next;
+}
+
 function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
   const now = new Date().toISOString();
   const store = normalizedCurriculumStore(curriculum);
-  const plan = normalizedCurriculumLessonPlan(lessonPlanInput);
+  const existingPlan = (store.lessonPlans || []).find((item) => item.id === String(lessonPlanInput?.id || "").trim()) || null;
+  const preservedInput = mergeEnrichmentPreservingLessonPlan(existingPlan, lessonPlanInput);
+  const plan = normalizedCurriculumLessonPlan(preservedInput);
   if (!plan) return null;
 
   const activityStatus = curriculumActivityStatusFromLessonPlan(plan.status);
@@ -2840,6 +2954,15 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       // imports so weekly digests do not treat every startup seed as "new this week".
       publishedAt = plan.publishedAt || "";
     }
+    const tips = Array.isArray(item.teacherTips) && item.teacherTips.length
+      ? item.teacherTips
+      : (existing?.teacherTips || []);
+    const substitutions = Array.isArray(item.substitutions) && item.substitutions.length
+      ? item.substitutions
+      : (existing?.substitutions || []);
+    const settingTags = Array.isArray(item.settingTags) && item.settingTags.length
+      ? item.settingTags
+      : (existing?.settingTags || []);
     syncedForPlan.push(normalizedCurriculumActivity({
       id: existing?.id || curriculumActivityIdFromItemId(item.itemId, plan.id),
       lessonPlanId: plan.id,
@@ -2865,9 +2988,11 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       ageModifications: item.ageModifications,
       setupImageUrl: item.setupImageUrl || existing?.setupImageUrl || "",
       exampleImageUrl: item.exampleImageUrl || existing?.exampleImageUrl || "",
-      teacherTips: Array.isArray(item.teacherTips) ? item.teacherTips : (existing?.teacherTips || []),
-      substitutions: Array.isArray(item.substitutions) ? item.substitutions : (existing?.substitutions || []),
-      settingTags: Array.isArray(item.settingTags) ? item.settingTags : (existing?.settingTags || []),
+      setupMediaAssetId: item.setupMediaAssetId || existing?.setupMediaAssetId || "",
+      exampleMediaAssetId: item.exampleMediaAssetId || existing?.exampleMediaAssetId || "",
+      teacherTips: tips,
+      substitutions,
+      settingTags,
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -2889,11 +3014,15 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
   const activityIds = normalizedSynced
     .filter((activity) => activity.status !== "archived")
     .map((activity) => activity.id);
-  const updatedPlan = normalizedCurriculumLessonPlan({
-    ...plan,
-    activityIds,
-    updatedAt: now,
-  });
+  // Re-merge after normalize so enrichmentDraft / history / teachingKit cannot
+  // disappear when the incoming payload omitted those keys.
+  const updatedPlan = normalizedCurriculumLessonPlan(
+    mergeEnrichmentPreservingLessonPlan(existingPlan, {
+      ...plan,
+      activityIds,
+      updatedAt: now,
+    }),
+  );
   if (!updatedPlan) return null;
 
   const otherPlans = store.lessonPlans.filter((item) => item.id !== plan.id);
@@ -17156,9 +17285,15 @@ async function handlePublishEnrichment(request, response, ctx) {
     ? existingPlan.enrichmentPublishHistory[0]
     : null;
 
+  const weekDraft = incomingDraft?.week && typeof incomingDraft.week === "object" ? incomingDraft.week : {};
+  const hasWeekEnrichment = Boolean(
+    String(weekDraft.familyConnection || "").trim()
+    || (Array.isArray(weekDraft.milestones) && weekDraft.milestones.length)
+    || (Array.isArray(weekDraft.printableIds) && weekDraft.printableIds.length),
+  );
+  const hasActivityEnrichment = Boolean(Object.keys(incomingDraft?.activities || {}).length);
   // Idempotent duplicate publish: no draft left / same fingerprint → no new version.
-  const draftEmpty = !incomingDraft
-    || (!Object.keys(incomingDraft.activities || {}).length && !Object.keys(incomingDraft.week || {}).length);
+  const draftEmpty = !incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment);
   if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint)) {
     jsonResponse(response, 200, {
       ok: true,
@@ -17171,7 +17306,7 @@ async function handlePublishEnrichment(request, response, ctx) {
     });
     return;
   }
-  if (!incomingDraft || !Object.keys(incomingDraft.activities || {}).length) {
+  if (!incomingDraft || (!hasActivityEnrichment && !hasWeekEnrichment)) {
     jsonResponse(response, 400, {
       error: "No enrichment draft to publish for this lesson.",
       code: "enrichment_draft_empty",
