@@ -57,7 +57,7 @@ async function main() {
   const insights = fs.readFileSync(path.join(ROOT, "server/admin-insights.js"), "utf8");
 
   assert.match(indexHtml, /id="newUserOnboardingModal"/);
-  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260803-nuo-onboarding-r3/);
+  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260803-nuo-onboarding-r4/);
   assert.match(appJs, /beginNewUserOnboardingAfterFreeSignup/);
   assert.match(appJs, /featured-this-week|resolveFeaturedThisWeekLessons/);
   assert.match(appJs, /onboardingRecommendations/);
