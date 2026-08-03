@@ -395,18 +395,25 @@ async function main() {
       await page.setViewportSize({ width: shot.width, height: shot.height });
       await page.click(`[data-preview-viewport="${shot.viewport}"]`);
       await page.waitForSelector(`.tk-enrich-preview-frame.is-${shot.viewport}`, { timeout: 5000 });
-      // Re-open enriched activity after viewport repaint if needed
       await page.waitForFunction(() => {
         const text = document.querySelector("[data-enrich-live-preview]")?.innerText || "";
-        return /discovery basket at child height|child height before circle/i.test(text);
-      }, null, { timeout: 8000 }).catch(async () => {
-        const openBtn = page.locator('[data-enrich-live-preview] [data-tk-open-activity="cur-act-e14264deb203e7dc"]');
-        if (await openBtn.count()) await openBtn.first().click();
+        return /discovery basket at child height|child height before circle/i.test(text)
+          && /Farm Animal Discovery Basket/i.test(text);
+      }, null, { timeout: 10000 });
+      // Expand scrollport so tips/substitutions are visible in review screenshots
+      await page.evaluate(() => {
+        const root = document.querySelector("[data-enrich-live-preview]");
+        if (!root) return;
+        root.style.maxHeight = "none";
+        root.style.overflow = "visible";
+        const tip = Array.from(root.querySelectorAll(".tk-prompt"))
+          .find((el) => /discovery basket at child height/i.test(el.textContent || ""));
+        if (tip) tip.scrollIntoView({ block: "center", inline: "nearest" });
       });
       await new Promise((resolve) => setTimeout(resolve, 250));
-      const host = page.locator("#adminTeachingKitEnrichmentHost");
+      const frame = page.locator(".tk-enrich-preview-full");
       const out = path.join(ARTIFACT_DIR, shot.file);
-      await host.screenshot({ path: out });
+      await frame.screenshot({ path: out });
       assert(fs.existsSync(out) && fs.statSync(out).size > 1000, `${shot.viewport} screenshot written`);
     }
 

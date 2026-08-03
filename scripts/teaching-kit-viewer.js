@@ -686,18 +686,25 @@
   }
 
   function defaultState(kit, options) {
+    const opts = options && typeof options === "object" ? options : {};
     const today = kit?.companion?.today?.day || "monday";
     const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
     const presetId = "week_binder";
+    const initialActivityId = text(opts.initialActivityId);
+    const initialSurface = text(opts.initialSurface);
+    const knownSurface = SURFACES.some((item) => item.id === initialSurface) || initialSurface === "activity";
+    const surface = initialActivityId
+      ? "activity"
+      : (knownSurface ? initialSurface : "start");
     return {
-      surface: "start",
-      day: today,
-      activityId: "",
+      surface,
+      day: text(opts.initialDay) || today,
+      activityId: initialActivityId,
       openEverything: false,
       showSubstitute: false,
       returnSurface: "today",
       removedActivityIds: {},
-      printCenterEnabled: Boolean(options && options.printCenterEnabled),
+      printCenterEnabled: Boolean(opts.printCenterEnabled),
       printPreset: presetId,
       printParts: printApi?.defaultPartsForPreset
         ? printApi.defaultPartsForPreset(presetId)
@@ -962,6 +969,9 @@
 
     const state = defaultState(kitPayload, {
       printCenterEnabled: flags.teachingKitPrintCenter === true || opts.printCenterEnabled === true,
+      initialActivityId: opts.initialActivityId,
+      initialSurface: opts.initialSurface,
+      initialDay: opts.initialDay,
     });
     const chrome = opts.chrome || {};
     renderInto(body, kitPayload, state, chrome);

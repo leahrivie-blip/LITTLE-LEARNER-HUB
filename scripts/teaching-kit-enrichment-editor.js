@@ -729,20 +729,12 @@
       });
       return;
     }
-    function openFirstEnrichedActivity(node, kit) {
-      // Tips/substitutions live on the activity surface — open one so Draft Preview shows real enrichment.
-      if (state.mode !== "preview") return;
-      const acts = kit?.companion?.activities || [];
-      const tipAct = acts.find((activity) =>
+    const previewActs = teachingKit?.companion?.activities || [];
+    const firstEnriched = state.mode === "preview"
+      ? previewActs.find((activity) =>
         (activity.teacherPrompts || []).some((prompt) => String(prompt?.text || "").trim())
-        || (activity.supplySubstitutions || []).length
-      );
-      if (!tipAct?.id) return;
-      const todayTab = node.querySelector('[data-tk-goto="today"]');
-      if (todayTab) todayTab.click();
-      const openBtn = node.querySelector(`[data-tk-open-activity="${tipAct.id}"]`);
-      if (openBtn) openBtn.click();
-    }
+        || (activity.supplySubstitutions || []).length)
+      : null;
 
     nodes.forEach((node) => {
       node.innerHTML = "";
@@ -751,6 +743,9 @@
         body: node,
         teachingKit,
         featureFlags: { teachingKitViewer: true, teachingKitPrintCenter: true, teachingKitAttachments: false },
+        // Open first tip/sub activity so Draft Preview shows real enrichment immediately
+        initialActivityId: firstEnriched?.id || "",
+        initialDay: state.previewDay || "monday",
         chrome: {
           title: model.merged.plan.title || plan.title,
           age: model.merged.plan.age || plan.age,
@@ -767,19 +762,12 @@
           if (resolved?.unbind) state.previewUnbind = resolved.unbind;
           if (resolved && resolved.enhanced === false) {
             node.innerHTML = `<p class="muted-copy">Draft Preview unavailable (${esc(resolved.reason || "unknown")}). Published lesson unchanged.</p>`;
-            return;
           }
-          openFirstEnrichedActivity(node, teachingKit);
         }).catch((error) => {
           node.innerHTML = `<p class="muted-copy">Draft Preview failed safely. ${esc(error.message || error)}</p>`;
         });
-      } else {
-        if (result?.unbind) state.previewUnbind = result.unbind;
-        if (result && result.enhanced === false) {
-          node.innerHTML = `<p class="muted-copy">Draft Preview unavailable (${esc(result.reason || "unknown")}). Published lesson unchanged.</p>`;
-          return;
-        }
-        openFirstEnrichedActivity(node, teachingKit);
+      } else if (result?.unbind) {
+        state.previewUnbind = result.unbind;
       }
     });
   }
