@@ -5725,7 +5725,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5738,6 +5738,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "admin-home", icon: "🏠", label: "Admin Home", tabs: ["admin-home", "admin-notifications"], defaultTab: "admin-home" },
+  { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
   { id: "content", icon: "📚", label: "Content", tabs: ["content-home", "curriculum-lesson-plans", "curriculum-activities", "curriculum-resources", "free-starter-library", "forms", "printables", "menus", "observations", "resource-categories", "reviews", "founder", "taxonomy-audit"], defaultTab: "content-home" },
@@ -5750,6 +5751,7 @@ const adminGroups = [
 const adminGroupForTab = {
   "admin-home": "admin-home",
   "admin-notifications": "admin-home",
+  "marketing-analytics": "marketing",
   "billing-home": "billing",
   "trial-usage": "billing",
   "content-home": "content",
@@ -5830,6 +5832,7 @@ const adminTabLabels = {
   "taxonomy-audit": "Taxonomy Audit",
   "dashboard": "Full Dashboard",
   "analytics": "Analytics",
+  "marketing-analytics": "Marketing Analytics",
   "support": "Support",
   "feedback": "Feedback",
   "feature-requests": "Feature Requests",
@@ -43501,6 +43504,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       adminAnalyticsLastError = "";
       adminSessionInvalidOnServer = false;
       renderAdminAnalytics();
+      renderAdminMarketingAnalytics();
       renderAdminOwnerOverview();
       renderAdminUsersDashboard();
       renderAdminFeedbackCenter();
@@ -43517,6 +43521,7 @@ async function loadAdminAnalyticsFromBackend(options = {}) {
       });
       renderAdminOwnerOverview();
       renderAdminAnalytics();
+      renderAdminMarketingAnalytics();
       return null;
     } finally {
       clearTimeout(timeoutId);
@@ -43676,6 +43681,238 @@ function renderAdminAnalytics() {
     <p class="muted-copy">Server analytics are stored historically in the launch store and are only visible with Admin access. If the backend is unavailable, this dashboard shows local browser history until the server responds.</p>
   `;
   if (!adminAnalyticsCache && !adminAnalyticsLoading && !adminAnalyticsLastError && adminTabNeedsAnalytics(adminActiveSectionTab)) {
+    loadAdminAnalyticsFromBackend({ renderLoading: false });
+  }
+}
+
+let adminMarketingRefreshTimer = null;
+let adminMarketingAutoRefresh = true;
+
+function adminMarketingMoney(value) {
+  const amount = Number(value || 0);
+  if (!Number.isFinite(amount)) return "$0.00";
+  return `$${amount.toFixed(2)}`;
+}
+
+function adminMarketingRelativeTime(value) {
+  if (!value) return "Never";
+  const ts = new Date(value).getTime();
+  if (!Number.isFinite(ts)) return "—";
+  const deltaSec = Math.round((Date.now() - ts) / 1000);
+  if (deltaSec < 10) return "just now";
+  if (deltaSec < 60) return `${deltaSec}s ago`;
+  if (deltaSec < 3600) return `${Math.round(deltaSec / 60)}m ago`;
+  if (deltaSec < 86400) return `${Math.round(deltaSec / 3600)}h ago`;
+  return new Date(ts).toLocaleString();
+}
+
+function adminMarketingHealthBadge(health) {
+  const key = String(health || "unknown");
+  const labels = {
+    healthy: "Healthy",
+    pixel_only: "Pixel only",
+    disabled: "Disabled",
+    not_configured: "Not configured",
+    unknown: "Unknown",
+  };
+  return `<span class="admin-marketing-health" data-health="${escapeHtml(key)}">${escapeHtml(labels[key] || key)}</span>`;
+}
+
+function adminMarketingLastEventRow(label, row = {}) {
+  const status = !row?.at
+    ? "No events yet"
+    : (row.skipped ? `Skipped · ${row.reason || "disabled"}` : (row.ok === false ? `Failed · ${row.reason || "error"}` : "Received"));
+  return `
+    <div class="analytics-row stacked">
+      <span><strong>${escapeHtml(label)}</strong> · ${escapeHtml(adminMarketingRelativeTime(row.at))}</span>
+      <small>${escapeHtml(status)}${row.source && row.source !== "capi_delivery_log" ? ` · via ${escapeHtml(row.source)}` : ""}</small>
+    </div>
+  `;
+}
+
+function adminMarketingPeriodChart(title, counts = {}, emptyText = "No data yet.") {
+  const points = mapCountsToPoints(counts).slice(-14);
+  return `
+    <article class="analytics-card">
+      <h4>${escapeHtml(title)}</h4>
+      ${lineChartHtml(points, emptyText)}
+    </article>
+  `;
+}
+
+function ensureAdminMarketingAutoRefresh() {
+  if (adminMarketingRefreshTimer) {
+    clearInterval(adminMarketingRefreshTimer);
+    adminMarketingRefreshTimer = null;
+  }
+  if (!adminMarketingAutoRefresh) return;
+  if (adminActiveSectionTab !== "marketing-analytics") return;
+  if (!isAdminUnlocked() || !canUseLaunchBackend()) return;
+  adminMarketingRefreshTimer = setInterval(() => {
+    if (adminActiveSectionTab !== "marketing-analytics" || !adminMarketingAutoRefresh) return;
+    if (document.hidden) return;
+    void loadAdminAnalyticsFromBackend({ force: true, renderLoading: false }).catch(() => {});
+  }, 30000);
+}
+
+function renderAdminMarketingAnalytics() {
+  const target = document.querySelector("#adminMarketingAnalyticsApp");
+  if (!target || !isAdminUnlocked()) return;
+  if (adminActiveSectionTab !== "marketing-analytics") {
+    if (adminMarketingRefreshTimer) {
+      clearInterval(adminMarketingRefreshTimer);
+      adminMarketingRefreshTimer = null;
+    }
+    return;
+  }
+
+  const marketing = adminAnalyticsCache?.marketing || null;
+  const totals = adminAnalyticsCache?.totals || {};
+  const realtime = marketing?.realtime || {};
+  const funnel = marketing?.funnel || {};
+  const periods = marketing?.periods || {};
+  const sources = marketing?.sources || {};
+  const meta = marketing?.meta || {};
+  const lastEvents = meta.lastEvents || {};
+  const activityFeed = Array.isArray(marketing?.activityFeed) ? marketing.activityFeed : [];
+  const deliveries = Array.isArray(meta.recentDeliveries) ? meta.recentDeliveries : [];
+  const updatedLabel = adminAnalyticsFetchedAt
+    ? adminMarketingRelativeTime(new Date(adminAnalyticsFetchedAt).toISOString())
+    : "not loaded";
+
+  target.innerHTML = `
+    <div class="admin-marketing-header">
+      <div>
+        <p class="eyebrow">Marketing Analytics</p>
+        <h3>Live performance for ads, signups, and revenue</h3>
+        <p class="muted-copy">Your main marketing dashboard — website traffic, conversions, Meta Pixel/CAPI health, and a live activity feed. Updated ${escapeHtml(updatedLabel)}${adminMarketingAutoRefresh ? " · auto-refresh 30s" : ""}.</p>
+      </div>
+      <div class="account-actions-row">
+        <button class="ghost-button" type="button" id="adminMarketingAutoRefreshToggle" aria-pressed="${adminMarketingAutoRefresh}">${adminMarketingAutoRefresh ? "Auto-refresh On" : "Auto-refresh Off"}</button>
+        <button class="primary-button" type="button" data-refresh-analytics ${adminAnalyticsLoading ? "disabled" : ""}>${adminAnalyticsLoading ? "Refreshing…" : "Refresh Now"}</button>
+      </div>
+    </div>
+
+    ${!adminAnalyticsCache && adminAnalyticsLoading ? `
+      <div class="admin-analytics-state is-loading" role="status">
+        <p><strong>Loading live marketing data…</strong></p>
+      </div>
+    ` : ""}
+    ${!adminAnalyticsLoading && adminAnalyticsLastError ? `
+      <div class="admin-analytics-state is-error" role="alert">
+        <p><strong>Could not load marketing analytics.</strong></p>
+        <p class="muted-copy">${escapeHtml(adminAnalyticsLastError)}</p>
+        <button type="button" class="primary-button" data-refresh-analytics>Retry</button>
+      </div>
+    ` : ""}
+
+    <div class="analytics-summary-grid admin-marketing-kpi-grid">
+      ${adminMetric("Live visitors", realtime.liveVisitors ?? "—", "Last 15 minutes")}
+      ${adminMetric("Users online", realtime.usersOnlineNow ?? totals.usersOnlineNow ?? "—", "Signed-in · 15 min")}
+      ${adminMetric("Visits today", realtime.sessionVisitsToday ?? "—", "website_visit")}
+      ${adminMetric("Free signups", funnel.freeSignups ?? totals.signups ?? "—", "Signup completions")}
+      ${adminMetric("Trial starts", funnel.trialStarts ?? "—", "Lifetime tracked")}
+      ${adminMetric("Paid subs", funnel.paidSubscriptions ?? totals.paidUsers ?? "—", "Current paid access")}
+      ${adminMetric("Revenue MTD", adminMarketingMoney(funnel.revenueThisMonth ?? totals.revenueThisMonth), "Month to date")}
+      ${adminMetric("MRR", adminMarketingMoney(funnel.monthlyRecurringRevenue ?? totals.monthlyRecurringRevenue), "Recurring")}
+    </div>
+
+    <div class="analytics-summary-grid admin-marketing-rate-grid">
+      ${adminMetric("Visitor → Signup", funnel.visitorToSignupRate ?? totals.visitorToSignupRate ?? "—")}
+      ${adminMetric("Signup → Paid", funnel.signupToPaidRate ?? totals.signupToPaidRate ?? "—")}
+      ${adminMetric("Trial → Paid", funnel.trialConversionRate ?? totals.trialConversionRate ?? "—")}
+      ${adminMetric("Visitor → Paid", funnel.visitorToPaidRate ?? totals.visitorToPaidRate ?? "—")}
+      ${adminMetric("Signups today", realtime.signupsToday ?? totals.newSignupsToday ?? "—")}
+      ${adminMetric("Trials today", realtime.trialsToday ?? "—")}
+      ${adminMetric("Paid today", realtime.paidToday ?? "—")}
+      ${adminMetric("Revenue today", adminMarketingMoney(realtime.revenueToday))}
+    </div>
+
+    <div class="admin-marketing-meta-grid">
+      <article class="analytics-card admin-marketing-meta-card">
+        <div class="admin-marketing-meta-title">
+          <h4>Meta Pixel &amp; Conversions API</h4>
+          ${adminMarketingHealthBadge(meta.health || (adminAnalyticsCache ? "unknown" : "not_configured"))}
+        </div>
+        <div class="analytics-row"><span>Pixel ID</span><strong>${escapeHtml(meta.pixelId || "Not set")}</strong></div>
+        <div class="analytics-row"><span>Browser Pixel</span><strong>${meta.pixelEnabled ? "Enabled" : "Off"}</strong></div>
+        <div class="analytics-row"><span>Conversions API</span><strong>${meta.capiEnabled ? "Enabled" : (meta.capiConfigured ? "Configured but off" : "Not configured")}</strong></div>
+        <div class="analytics-row"><span>Test event code</span><strong>${meta.testEventCodeConfigured ? "Set" : "Not set"}</strong></div>
+        <div class="analytics-row"><span>Deliveries logged</span><strong>${escapeHtml(String((meta.deliveryCounts?.ok || 0) + (meta.deliveryCounts?.failed || 0) + (meta.deliveryCounts?.skipped || 0)))}</strong></div>
+        <div class="analytics-row"><span>OK / Failed / Skipped</span><strong>${escapeHtml(`${meta.deliveryCounts?.ok || 0} / ${meta.deliveryCounts?.failed || 0} / ${meta.deliveryCounts?.skipped || 0}`)}</strong></div>
+        <h5 style="margin-top:12px;">Last key events</h5>
+        ${adminMarketingLastEventRow("PageView", lastEvents.PageView)}
+        ${adminMarketingLastEventRow("CompleteRegistration", lastEvents.CompleteRegistration)}
+        ${adminMarketingLastEventRow("StartTrial", lastEvents.StartTrial)}
+        ${adminMarketingLastEventRow("Purchase", lastEvents.Purchase)}
+      </article>
+      <article class="analytics-card">
+        <h4>Traffic sources</h4>
+        ${countListHtml(sources, "Sources appear after website visits with attribution.")}
+      </article>
+      <article class="analytics-card">
+        <h4>Recent Meta CAPI deliveries</h4>
+        ${deliveries.length ? deliveries.slice(0, 12).map((row) => `
+          <div class="analytics-row stacked">
+            <span><strong>${escapeHtml(row.eventName || "Event")}</strong> · ${escapeHtml(adminMarketingRelativeTime(row.createdAt))}</span>
+            <small>${row.skipped ? `Skipped · ${escapeHtml(row.reason || "")}` : (row.ok ? "Sent" : `Failed · ${escapeHtml(row.reason || String(row.status || ""))}`)}${row.email ? ` · ${escapeHtml(row.email)}` : ""}</small>
+          </div>
+        `).join("") : `<div class="empty-state">CAPI deliveries will appear here after events fire. PageView stays in memory; conversions are persisted.</div>`}
+      </article>
+    </div>
+
+    <div class="section-heading" style="margin-top:18px;">
+      <div>
+        <p class="eyebrow">Trends</p>
+        <h3>Daily, weekly, and monthly performance</h3>
+      </div>
+    </div>
+    <div class="analytics-grid admin-marketing-charts">
+      ${adminMarketingPeriodChart("Daily visitors", periods.dailyVisitors, "No daily visitor history yet.")}
+      ${adminMarketingPeriodChart("Weekly visitors", periods.weeklyVisitors, "No weekly visitor history yet.")}
+      ${adminMarketingPeriodChart("Monthly visitors", periods.monthlyVisitors, "No monthly visitor history yet.")}
+      ${adminMarketingPeriodChart("Daily signups", periods.dailySignups, "No daily signup history yet.")}
+      ${adminMarketingPeriodChart("Weekly signups", periods.weeklySignups, "No weekly signup history yet.")}
+      ${adminMarketingPeriodChart("Monthly revenue", periods.monthlyRevenue, "Revenue appears after paid checkouts.")}
+      ${adminMarketingPeriodChart("Daily trial starts", periods.dailyTrials, "Trial starts appear after Stripe trial checkouts.")}
+      ${adminMarketingPeriodChart("Daily paid conversions", periods.dailyPaid, "Paid conversions appear after checkout success.")}
+      ${adminMarketingPeriodChart("Daily revenue", periods.dailyRevenue, "No daily revenue yet.")}
+    </div>
+
+    <article class="analytics-card admin-marketing-activity" style="margin-top:16px;">
+      <h4>Live activity feed</h4>
+      <p class="muted-copy">Website visits, signups, checkouts, and Meta CAPI sends — newest first.</p>
+      ${activityFeed.length ? `
+        <div class="admin-marketing-feed">
+          ${activityFeed.slice(0, 30).map((item) => `
+            <div class="admin-marketing-feed-item" data-ok="${item.ok === false ? "false" : "true"}">
+              <div>
+                <strong>${escapeHtml(item.label || item.name || "Event")}</strong>
+                <span>${escapeHtml(item.actor || "visitor")}</span>
+              </div>
+              <div>
+                <small>${escapeHtml(item.detail || item.kind || "")}</small>
+                <em>${escapeHtml(adminMarketingRelativeTime(item.at))}</em>
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      ` : `<div class="empty-state">Activity will appear as visitors and conversions come in.</div>`}
+    </article>
+    <p class="muted-copy" style="margin-top:12px;">Numbers come from your Little Learner Hub analytics store and membership records — not Meta Ads Manager alone. Use this page to measure funnel health; use Meta for ad-level spend and click quality.</p>
+  `;
+
+  const autoBtn = target.querySelector("#adminMarketingAutoRefreshToggle");
+  if (autoBtn) {
+    autoBtn.addEventListener("click", () => {
+      adminMarketingAutoRefresh = !adminMarketingAutoRefresh;
+      ensureAdminMarketingAutoRefresh();
+      renderAdminMarketingAnalytics();
+    });
+  }
+  ensureAdminMarketingAutoRefresh();
+
+  if (!adminAnalyticsCache && !adminAnalyticsLoading && !adminAnalyticsLastError) {
     loadAdminAnalyticsFromBackend({ renderLoading: false });
   }
 }
@@ -45556,7 +45793,7 @@ function setAdminSectionTab(tabId) {
 }
 
 const adminAnalyticsTabs = new Set([
-  "admin-home", "users", "billing-home", "user-health", "dashboard", "analytics", "system-health", "stripe-backfill",
+  "admin-home", "users", "billing-home", "user-health", "dashboard", "analytics", "marketing-analytics", "system-health", "stripe-backfill",
   "feedback",
 ]);
 
@@ -45606,6 +45843,7 @@ function renderAdminSectionNav() {
   const unread = Number(adminNotificationState.unreadCount || 0);
   const sidebarItems = [
     { id: "admin-home", icon: "🏠", label: "Admin Home" },
+    { id: "marketing", icon: "📈", label: "Marketing" },
     { id: "users", icon: "👥", label: "Users" },
     { id: "billing", icon: "💳", label: "Billing" },
     { id: "content", icon: "📚", label: "Content" },
@@ -45653,6 +45891,7 @@ function applyAdminSectionVisibility() {
     ".admin-layout",
     ".admin-owner-panel",
     ".admin-analytics-panel",
+    ".admin-marketing-analytics-panel",
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-feedback-panel",
@@ -45764,6 +46003,10 @@ function applyAdminSectionVisibility() {
       const el = document.querySelector(sel);
       if (el) el.hidden = false;
     });
+  } else if (tab === "marketing-analytics") {
+    const el = document.querySelector(".admin-marketing-analytics-panel");
+    if (el) el.hidden = false;
+    renderAdminMarketingAnalytics();
   } else if (tab === "support") {
     const el = document.querySelector(".admin-ticket-panel");
     if (el) el.hidden = false;
@@ -48885,6 +49128,9 @@ function renderAdminDashboard(options = {}) {
   if (adminTabNeedsAnalytics(tab) || tab === "dashboard" || tab === "analytics") {
     renderAdminOwnerOverview();
     renderAdminAnalytics();
+  }
+  if (tab === "marketing-analytics") {
+    renderAdminMarketingAnalytics();
   }
   if (tab === "admin-home" || tab === "admin-notifications") {
     renderAdminNotificationCenter();

@@ -135,7 +135,7 @@
         <div>
           <p class="eyebrow">Admin Home</p>
           <h3>Your calm owner workspace</h3>
-          <p class="muted-copy">Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount?.email || "owner")}. Detailed charts and developer tools live under Advanced.</p>
+          <p class="muted-copy">Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount?.email || "owner")}. Marketing performance lives under Marketing; developer tools live under Advanced.</p>
         </div>
         <div class="account-actions-row">
           <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>
@@ -153,6 +153,7 @@
             <li>${escapeHtml(String(totals.activeUsersToday ?? "—"))} active today</li>
             <li>${escapeHtml(String(totals.newSignupsToday ?? "—"))} new signups today</li>
           </ul>
+          <button type="button" class="primary-button" data-admin-landing-tab="marketing-analytics">Open Marketing Analytics</button>
         </article>
         <article class="admin-home-card">
           <p class="eyebrow">Needs Attention</p>
@@ -509,6 +510,7 @@
         <div><p class="eyebrow">Advanced</p><h3>Power tools and diagnostics</h3><p class="muted-copy">Imports, analytics, prompts, backfills, and testing controls.</p></div>
       </div>
       <div class="admin-card-grid">
+        ${landingCard("Marketing Analytics", "Live visitors, sources, signups, trials, paid, Meta health.", "marketing-analytics", "Marketing")}
         ${landingCard("Full Dashboard", "Legacy owner command center with all charts.", "dashboard", "Analytics")}
         ${landingCard("Analytics", "Ad, signup, checkout, and lead tracking.", "analytics", "Analytics")}
         ${landingCard("Support & Feedback", "Tickets, feedback, bugs, and features.", "support", "Support")}

@@ -5358,6 +5358,120 @@ body.lessons-view .mobile-brand {
   white-space: nowrap;
 }
 
+.admin-marketing-analytics-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.admin-marketing-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.admin-marketing-header h3 {
+  margin: 0.15rem 0 0.35rem;
+}
+
+.admin-marketing-meta-grid,
+.admin-marketing-charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.admin-marketing-meta-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.admin-marketing-meta-title h4 {
+  margin: 0;
+}
+
+.admin-marketing-health {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  background: #eef5fb;
+  color: #2f6f9f;
+}
+
+.admin-marketing-health[data-health="healthy"] {
+  background: #e7f6ec;
+  color: #1f7a45;
+}
+
+.admin-marketing-health[data-health="pixel_only"] {
+  background: #fff6e8;
+  color: #9a6700;
+}
+
+.admin-marketing-health[data-health="disabled"],
+.admin-marketing-health[data-health="not_configured"] {
+  background: #f4f4f4;
+  color: #666;
+}
+
+.admin-marketing-feed {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.admin-marketing-feed-item {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.admin-marketing-feed-item[data-ok="false"] {
+  border-color: #f0c2c2;
+  background: #fff7f7;
+}
+
+.admin-marketing-feed-item strong {
+  display: block;
+}
+
+.admin-marketing-feed-item span,
+.admin-marketing-feed-item small,
+.admin-marketing-feed-item em {
+  color: var(--muted, #667085);
+  font-style: normal;
+}
+
+.admin-marketing-feed-item > div:last-child {
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .admin-marketing-feed-item {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-marketing-feed-item > div:last-child {
+    text-align: left;
+  }
+}
+
 .analytics-user-card {
   margin-top: 12px;
 }

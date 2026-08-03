@@ -178,15 +178,117 @@ const HOME_DAYCARE_HUB_TESTING = ["1", "true", "yes", "on"].includes(
 
 /** Meta Pixel / CAPI — secrets never exposed via client-config. */
 
+const MAX_META_TRACKING_EVENTS = Math.max(
+  50,
+  Math.min(1000, Number(process.env.MAX_META_TRACKING_EVENTS) || 250),
+);
+const META_DELIVERY_PERSIST_EVENTS = new Set([
+  "CompleteRegistration",
+  "InitiateCheckout",
+  "StartTrial",
+  "Purchase",
+]);
+/** In-memory ring buffer for Meta CAPI delivery results (includes high-volume PageView). */
+let metaTrackingMemoryLog = [];
+let metaTrackingPersistTimer = null;
+let metaTrackingPersistQueued = [];
+
+function pruneMetaTrackingList(list) {
+  const rows = Array.isArray(list) ? list : [];
+  return rows.length > MAX_META_TRACKING_EVENTS
+    ? rows.slice(-MAX_META_TRACKING_EVENTS)
+    : rows;
+}
+
+function scheduleMetaTrackingPersist() {
+  if (metaTrackingPersistTimer) return;
+  metaTrackingPersistTimer = setTimeout(() => {
+    metaTrackingPersistTimer = null;
+    const queued = metaTrackingPersistQueued.splice(0, metaTrackingPersistQueued.length);
+    if (!queued.length) return;
+    try {
+      const store = peekStore();
+      if (!store || typeof store !== "object") return;
+      const existing = Array.isArray(store.metaTrackingEvents) ? store.metaTrackingEvents : [];
+      const byId = new Map(existing.map((row) => [row.id, row]));
+      for (const row of queued) byId.set(row.id, row);
+      store.metaTrackingEvents = pruneMetaTrackingList(
+        Array.from(byId.values()).sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)),
+      );
+      void writeStoreAsync(store).catch((error) => {
+        console.warn("[meta-capi] delivery log persist failed:", error?.message || error);
+      });
+    } catch (error) {
+      console.warn("[meta-capi] delivery log persist error:", error?.message || error);
+    }
+  }, 4000);
+}
+
+function rememberMetaDelivery(entry) {
+  if (!entry || !entry.eventName) return;
+  metaTrackingMemoryLog.push(entry);
+  metaTrackingMemoryLog = pruneMetaTrackingList(metaTrackingMemoryLog);
+  // Persist conversions only — PageView volume must not rewrite the full store constantly.
+  if (META_DELIVERY_PERSIST_EVENTS.has(entry.eventName)) {
+    metaTrackingPersistQueued.push(entry);
+    scheduleMetaTrackingPersist();
+  }
+}
+
+function mergedMetaTrackingEvents(store) {
+  const fromStore = Array.isArray(store?.metaTrackingEvents) ? store.metaTrackingEvents : [];
+  const byId = new Map();
+  for (const row of fromStore) {
+    if (row?.id) byId.set(row.id, row);
+  }
+  for (const row of metaTrackingMemoryLog) {
+    if (row?.id) byId.set(row.id, row);
+  }
+  return Array.from(byId.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
 function fireMetaCapiSafe(eventName, details = {}) {
   // Never await in request-critical paths unless the caller chooses to.
   try {
-    return metaCapi.trackMetaEvent(eventName, details).catch((error) => {
+    const startedAt = new Date().toISOString();
+    const promise = metaCapi.trackMetaEvent(eventName, details).catch((error) => {
       console.warn("[meta-capi] async failure:", error?.message || error);
       return { ok: false, reason: error?.message || "meta_async_failure" };
     });
+    Promise.resolve(promise).then((result) => {
+      const custom = details?.customData && typeof details.customData === "object" ? details.customData : {};
+      rememberMetaDelivery({
+        id: `meta_${String(eventName || "event")}_${String(details?.eventId || startedAt)}`,
+        eventName: String(eventName || ""),
+        eventId: String(details?.eventId || "").slice(0, 200),
+        ok: Boolean(result?.ok),
+        skipped: Boolean(result?.skipped),
+        reason: String(result?.reason || result?.body?.error?.message || "").slice(0, 240),
+        status: result?.status ?? null,
+        email: details?.email ? String(details.email).trim().toLowerCase().slice(0, 120) : "",
+        value: custom.value != null ? Number(custom.value) : null,
+        currency: custom.currency ? String(custom.currency).slice(0, 8) : "",
+        createdAt: startedAt,
+        completedAt: new Date().toISOString(),
+      });
+    }).catch(() => {});
+    return promise;
   } catch (error) {
     console.warn("[meta-capi] sync failure:", error?.message || error);
+    rememberMetaDelivery({
+      id: `meta_${String(eventName || "event")}_sync_${Date.now()}`,
+      eventName: String(eventName || ""),
+      eventId: String(details?.eventId || ""),
+      ok: false,
+      skipped: false,
+      reason: error?.message || "meta_sync_failure",
+      status: null,
+      email: details?.email ? String(details.email).trim().toLowerCase().slice(0, 120) : "",
+      value: null,
+      currency: "",
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    });
     return Promise.resolve({ ok: false, reason: error?.message || "meta_sync_failure" });
   }
 }
@@ -853,6 +955,7 @@ function defaultStore() {
     knowledgeBase: [],
     uploadedResources: [],
     analyticsEvents: [],
+    metaTrackingEvents: [],
     billingEvents: [],
     membershipAudit: [],
     roleReconciliationAudit: [],
@@ -11158,6 +11261,260 @@ function rate(part, whole) {
   return whole ? `${Math.round((part / whole) * 100)}%` : "0%";
 }
 
+function lastMetaEventSnapshot(deliveries, eventName, fallbackAt = "", fallbackDetail = "") {
+  const match = (deliveries || []).find((row) => row.eventName === eventName);
+  if (match) {
+    return {
+      eventName,
+      at: match.createdAt || match.completedAt || "",
+      ok: match.ok !== false,
+      skipped: Boolean(match.skipped),
+      reason: match.reason || "",
+      eventId: match.eventId || "",
+      email: match.email || "",
+      source: "capi_delivery_log",
+    };
+  }
+  if (fallbackAt) {
+    return {
+      eventName,
+      at: fallbackAt,
+      ok: true,
+      skipped: false,
+      reason: "",
+      eventId: "",
+      email: "",
+      source: fallbackDetail || "inferred",
+    };
+  }
+  return {
+    eventName,
+    at: "",
+    ok: null,
+    skipped: false,
+    reason: "none_yet",
+    eventId: "",
+    email: "",
+    source: "none",
+  };
+}
+
+function buildMarketingAnalytics(store, events, {
+  totals = {},
+  periods = {},
+  counts = {},
+} = {}) {
+  const now = Date.now();
+  const realtimeWindowMs = 15 * 60 * 1000;
+  const users = Object.values(store.users || {});
+  const sessionVisits = events.filter((event) => event.name === "website_visit");
+  const pageViews = events.filter((event) => event.name === "page_view");
+  const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
+  const signups = events.filter((event) => event.name === "account_signup_complete");
+  const checkoutStarts = events.filter((event) => event.name === "checkout_start");
+  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const actorKey = (event) => event.visitorId || event.user || event.sessionId || event.ipHash || "";
+
+  const liveTraffic = trafficEvents.filter((event) => {
+    const ts = new Date(event.createdAt || 0).getTime();
+    return Number.isFinite(ts) && (now - ts) <= realtimeWindowMs;
+  });
+  const liveVisitorIds = new Set(liveTraffic.map(actorKey).filter(Boolean));
+  const liveSessionVisits = sessionVisits.filter((event) => {
+    const ts = new Date(event.createdAt || 0).getTime();
+    return Number.isFinite(ts) && (now - ts) <= realtimeWindowMs;
+  }).length;
+
+  const trialStartRows = users
+    .map((user) => {
+      const at = user.metaStartTrialAt || user.trialStart || user.trialStartedAt || "";
+      if (!at) return null;
+      return {
+        email: user.email || "",
+        at,
+        eventId: user.metaStartTrialEventId || "",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  const purchaseRows = users
+    .map((user) => {
+      const at = user.metaPurchaseAt || user.firstPaidInvoiceAt || "";
+      if (!at) return null;
+      return {
+        email: user.email || "",
+        at,
+        eventId: user.metaPurchaseEventId || "",
+        value: user.metaPurchaseValue != null ? Number(user.metaPurchaseValue) : null,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  const dailySignups = countBy(signups, (event) => analyticsDateKey(event.createdAt));
+  const weeklySignups = countBy(signups, (event) => analyticsWeekKey(event.createdAt));
+  const monthlySignups = countBy(signups, (event) => analyticsMonthKey(event.createdAt));
+  const dailyTrials = countBy(trialStartRows, (row) => analyticsDateKey(row.at));
+  const weeklyTrials = countBy(trialStartRows, (row) => analyticsWeekKey(row.at));
+  const monthlyTrials = countBy(trialStartRows, (row) => analyticsMonthKey(row.at));
+  const dailyPaid = countBy(paidEvents, (event) => analyticsDateKey(event.createdAt));
+  const weeklyPaid = countBy(paidEvents, (event) => analyticsWeekKey(event.createdAt));
+  const monthlyPaid = countBy(paidEvents, (event) => analyticsMonthKey(event.createdAt));
+
+  const todayKey = analyticsDateKey(new Date().toISOString());
+  const weekKeyNow = analyticsWeekKey(new Date().toISOString());
+  const monthKeyNow = analyticsMonthKey(new Date().toISOString());
+
+  const deliveries = mergedMetaTrackingEvents(store);
+  const metaCfg = metaCapi.readConfig();
+  const lastPageViewFallback = sessionVisits[0]?.createdAt || pageViews[0]?.createdAt || "";
+  const lastRegistrationFallback = signups[0]?.createdAt || "";
+  const lastTrialFallback = trialStartRows[0]?.at || "";
+  const lastPurchaseFallback = purchaseRows[0]?.at || "";
+
+  const metaLastEvents = {
+    PageView: lastMetaEventSnapshot(deliveries, "PageView", lastPageViewFallback, "analytics_website_visit"),
+    CompleteRegistration: lastMetaEventSnapshot(deliveries, "CompleteRegistration", lastRegistrationFallback, "analytics_signup"),
+    StartTrial: lastMetaEventSnapshot(deliveries, "StartTrial", lastTrialFallback, "user_trial_stamp"),
+    Purchase: lastMetaEventSnapshot(deliveries, "Purchase", lastPurchaseFallback, "user_purchase_stamp"),
+  };
+
+  const deliveryCounts = deliveries.reduce((acc, row) => {
+    const key = row.eventName || "unknown";
+    acc.byEvent[key] = (acc.byEvent[key] || 0) + 1;
+    if (row.skipped) acc.skipped += 1;
+    else if (row.ok) acc.ok += 1;
+    else acc.failed += 1;
+    return acc;
+  }, { ok: 0, failed: 0, skipped: 0, byEvent: {} });
+
+  const marketingEventNames = new Set([
+    "website_visit",
+    "page_view",
+    "account_signup_complete",
+    "checkout_start",
+    "checkout_success",
+    "pro_upgrade_intent",
+    "pro_checkout_abandoned",
+    "ad_route_visit",
+  ]);
+  const activityFromAnalytics = events
+    .filter((event) => marketingEventNames.has(event.name))
+    .slice(0, 40)
+    .map((event) => ({
+      kind: "analytics",
+      name: event.name,
+      label: event.name,
+      at: event.createdAt || "",
+      actor: event.user && event.user !== "guest" ? event.user : (event.source || event.attribution?.source || "visitor"),
+      detail: event.detail?.plan || event.detail?.view || event.detail?.type || event.path || "",
+      ok: true,
+    }));
+  const activityFromMeta = deliveries.slice(0, 40).map((row) => ({
+    kind: "meta_capi",
+    name: row.eventName,
+    label: `Meta ${row.eventName}`,
+    at: row.createdAt || row.completedAt || "",
+    actor: row.email || "server",
+    detail: row.skipped ? `skipped: ${row.reason || "disabled"}` : (row.ok ? (row.value != null ? `$${row.value}` : "sent") : `failed: ${row.reason || row.status || "error"}`),
+    ok: row.ok !== false,
+  }));
+  const activityFeed = [...activityFromAnalytics, ...activityFromMeta]
+    .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
+    .slice(0, 50);
+
+  return {
+    updatedAt: new Date().toISOString(),
+    realtime: {
+      windowMinutes: 15,
+      liveVisitors: liveVisitorIds.size,
+      liveSessionVisits,
+      livePageViews: liveTraffic.filter((event) => event.name === "page_view").length,
+      usersOnlineNow: totals.usersOnlineNow || 0,
+      activeUsersToday: totals.activeUsersToday || 0,
+      sessionVisitsToday: Number(periods.dailyVisitors?.[todayKey] || 0),
+      pageViewsToday: Number(periods.dailyPageViews?.[todayKey] || 0),
+      signupsToday: Number(dailySignups[todayKey] || totals.newSignupsToday || 0),
+      trialsToday: Number(dailyTrials[todayKey] || 0),
+      paidToday: Number(dailyPaid[todayKey] || 0),
+      revenueToday: Number(periods.dailyRevenue?.[todayKey] || 0),
+    },
+    funnel: {
+      uniqueVisitors: totals.uniqueVisitors || 0,
+      sessionVisits: totals.sessionVisits || totals.visitors || 0,
+      freeSignups: signups.length,
+      registeredUsers: totals.totalRegisteredUsers || users.length,
+      freeUsers: totals.freeUsers || 0,
+      trialStarts: trialStartRows.length,
+      activeTrials: totals.trialUsers || 0,
+      checkoutStarts: checkoutStarts.length,
+      paidSubscriptions: totals.paidUsers || 0,
+      activeSubscriptions: totals.activeSubscriptions || 0,
+      visitorToSignupRate: totals.visitorToSignupRate || "0%",
+      signupToPaidRate: totals.signupToPaidRate || "0%",
+      visitorToPaidRate: totals.visitorToPaidRate || "0%",
+      trialConversionRate: totals.trialConversionRate || "0%",
+      totalRevenue: totals.totalRevenue || 0,
+      revenueThisMonth: totals.revenueThisMonth || 0,
+      monthlyRecurringRevenue: totals.monthlyRecurringRevenue || 0,
+      signupsThisWeek: Number(weeklySignups[weekKeyNow] || 0),
+      signupsThisMonth: Number(monthlySignups[monthKeyNow] || totals.newUsersMonth || 0),
+      trialsThisWeek: Number(weeklyTrials[weekKeyNow] || 0),
+      trialsThisMonth: Number(monthlyTrials[monthKeyNow] || 0),
+      paidThisWeek: Number(weeklyPaid[weekKeyNow] || 0),
+      paidThisMonth: Number(monthlyPaid[monthKeyNow] || 0),
+    },
+    sources: counts.sources || {},
+    periods: {
+      dailyVisitors: periods.dailyVisitors || {},
+      weeklyVisitors: periods.weeklyVisitors || {},
+      monthlyVisitors: periods.monthlyVisitors || {},
+      dailySignups,
+      weeklySignups,
+      monthlySignups,
+      dailyTrials,
+      weeklyTrials,
+      monthlyTrials,
+      dailyPaid,
+      weeklyPaid,
+      monthlyPaid,
+      dailyRevenue: periods.dailyRevenue || {},
+      weeklyRevenue: periods.weeklyRevenue || {},
+      monthlyRevenue: periods.monthlyRevenue || {},
+    },
+    meta: {
+      pixelId: metaCfg.pixelId || "",
+      pixelConfigured: Boolean(metaCfg.pixelId),
+      pixelEnabled: Boolean(metaCfg.pixelEnabled),
+      capiConfigured: Boolean(metaCfg.accessToken),
+      capiEnabled: Boolean(metaCfg.capiEnabled),
+      trackingEnabled: Boolean(metaCfg.masterEnabled),
+      testEventCodeConfigured: Boolean(metaCfg.testEventCode),
+      // Never expose the access token.
+      health: (!metaCfg.pixelId)
+        ? "not_configured"
+        : (!metaCfg.pixelEnabled && !metaCfg.capiEnabled)
+          ? "disabled"
+          : (metaCfg.capiEnabled ? "healthy" : "pixel_only"),
+      lastEvents: metaLastEvents,
+      deliveryCounts,
+      recentDeliveries: deliveries.slice(0, 25).map((row) => ({
+        eventName: row.eventName,
+        eventId: row.eventId,
+        ok: row.ok,
+        skipped: row.skipped,
+        reason: row.reason,
+        status: row.status,
+        email: row.email,
+        value: row.value,
+        createdAt: row.createdAt,
+      })),
+    },
+    activityFeed,
+  };
+}
+
 function detectEventSource(event) {
   const explicit = String(event.source || event.detail?.source || event.attribution?.source || "").trim();
   if (explicit) return explicit;
@@ -13601,7 +13958,7 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
       };
     })
     .sort((a, b) => new Date(b.lastSeenAt || b.signupAt || 0) - new Date(a.lastSeenAt || a.signupAt || 0));
-  return {
+  const summary = {
     mode: "Server historical analytics",
     updatedAt: new Date().toISOString(),
     totals: {
@@ -13741,6 +14098,12 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
     recentEvents: events.slice(0, 25),
     rawEventCount: chronological.length,
   };
+  summary.marketing = buildMarketingAnalytics(store, events, {
+    totals: summary.totals,
+    periods: summary.periods,
+    counts: summary.counts,
+  });
+  return summary;
 }
 
 async function handleAdminAnalytics(request, response, url) {
