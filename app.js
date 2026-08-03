@@ -1788,6 +1788,9 @@ const curriculumBackupConfig = {
 const curriculumLessonPlanConfig = {
   endpoint: "/api/admin/curriculum/lesson-plans",
 };
+if (typeof window !== "undefined") {
+  window.curriculumLessonPlanConfig = curriculumLessonPlanConfig;
+}
 const curriculumResourceConfig = {
   listEndpoint: "/api/admin/curriculum/resources",
   fileEndpoint: "/api/admin/curriculum/resources/file",
@@ -5690,7 +5693,15 @@ let adminImpersonationState = null; // { email, account, planPreview, startedAt 
 let adminUserDetailCache = {};
 let adminPromoCodesState = { loading: false, items: [], envPromo: null, redemptions: [], audit: null, error: "", success: "" };
 let adminCommsAnnouncementsState = { loading: false, items: [], error: "", success: "" };
-let adminCurriculumListFilters = { query: "", status: "", plan: "", age: "", theme: "" };
+let adminCurriculumListFilters = {
+  query: "",
+  status: "",
+  plan: "",
+  age: "",
+  theme: "",
+  completionBand: "",
+  sort: "updated",
+};
 let adminCurriculumSelectedIds = new Set();
 let adminCurriculumActivitySelectedIds = new Set();
 let adminManagedSelectedIds = {
@@ -10084,12 +10095,38 @@ function renderAdminCurriculumLessonPlanForm(plan) {
   `;
 }
 
+function adminCurriculumLessonEnrichmentMeta(plan) {
+  const enrich = typeof LLHTeachingKitEnrichment !== "undefined" ? LLHTeachingKitEnrichment : null;
+  if (!enrich || !plan) return { percent: 0, label: "Legacy" };
+  const acts = typeof curriculumActivitiesForLesson === "function"
+    ? curriculumActivitiesForLesson(plan.id)
+    : [];
+  const percent = enrich.computeCompletionPercent(plan, acts, plan.enrichmentDraft || null);
+  return {
+    percent,
+    label: enrich.completenessLabelFromPercent(percent, null),
+  };
+}
+
+function adminCurriculumCompletionBandMatch(percent, band) {
+  const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  if (!band) return true;
+  if (band === "0-24") return p <= 24;
+  if (band === "25-49") return p >= 25 && p <= 49;
+  if (band === "50-79") return p >= 50 && p <= 79;
+  if (band === "80-99") return p >= 80 && p <= 99;
+  if (band === "100") return p === 100;
+  return true;
+}
+
 function curriculumLessonPlanAdminCardHtml(plan) {
   const linkedCount = curriculumActivitiesForLesson(plan.id).filter((item) => item.status !== "archived").length;
   const selected = adminCurriculumSelectedIds.has(plan.id);
   const cover = sanitizedImageSource(plan.coverImageUrl || "")
     || (typeof lessonPlanCoversApi === "function" ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url : "")
     || "";
+  const enrichment = adminCurriculumLessonEnrichmentMeta(plan);
+  const hasDraft = Boolean(plan.enrichmentDraft && typeof plan.enrichmentDraft === "object");
   return `
     <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
       <div class="admin-mobile-card-body">
@@ -10103,14 +10140,18 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
+            <span class="tag tk-enrich-lib-badge" title="Teaching Kit completion">${escapeHtml(enrichment.label)} · ${enrichment.percent}%</span>
+            ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
+          <div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
           <small>Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
         </div>
       </div>
       <div class="form-actions">
+        <button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Enrich Teaching Kit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
       </div>
@@ -10121,14 +10162,35 @@ function curriculumLessonPlanAdminCardHtml(plan) {
 function filteredAdminCurriculumLessonPlans() {
   const filters = adminCurriculumListFilters || {};
   const q = String(filters.query || "").trim().toLowerCase();
-  return curriculumLessonPlansForAdmin().filter((plan) => {
+  const metaCache = new Map();
+  const metaFor = (plan) => {
+    if (!metaCache.has(plan.id)) metaCache.set(plan.id, adminCurriculumLessonEnrichmentMeta(plan));
+    return metaCache.get(plan.id);
+  };
+  const filtered = curriculumLessonPlansForAdmin().filter((plan) => {
     if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
     if (filters.age && String(plan.age || "") !== filters.age) return false;
     if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
+    if (filters.completionBand) {
+      const meta = metaFor(plan);
+      const band = String(filters.completionBand);
+      if (band === "legacy" || band === "enriched" || band === "complete") {
+        if (meta.label.toLowerCase() !== band) return false;
+      } else if (!adminCurriculumCompletionBandMatch(meta.percent, band)) {
+        return false;
+      }
+    }
     if (!q) return true;
     const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""}`.toLowerCase();
     return hay.includes(q);
+  });
+  const sort = String(filters.sort || "updated");
+  return filtered.slice().sort((a, b) => {
+    if (sort === "completion-asc") return metaFor(a).percent - metaFor(b).percent;
+    if (sort === "completion-desc") return metaFor(b).percent - metaFor(a).percent;
+    if (sort === "title") return String(a.title || "").localeCompare(String(b.title || ""));
+    return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
   });
 }
 
@@ -10231,6 +10293,27 @@ function renderAdminCurriculumLessonPlanManager() {
         <select id="adminCurriculumFilterTheme">
           <option value="">All</option>
           ${themes.map((theme) => `<option value="${escapeHtml(theme)}" ${adminCurriculumListFilters.theme === theme ? "selected" : ""}>${escapeHtml(theme)}</option>`).join("")}
+        </select>
+      </label>
+      <label><span>TK completion</span>
+        <select id="adminCurriculumFilterCompletion">
+          <option value="" ${!adminCurriculumListFilters.completionBand ? "selected" : ""}>All</option>
+          <option value="0-24" ${adminCurriculumListFilters.completionBand === "0-24" ? "selected" : ""}>0–24%</option>
+          <option value="25-49" ${adminCurriculumListFilters.completionBand === "25-49" ? "selected" : ""}>25–49%</option>
+          <option value="50-79" ${adminCurriculumListFilters.completionBand === "50-79" ? "selected" : ""}>50–79%</option>
+          <option value="80-99" ${adminCurriculumListFilters.completionBand === "80-99" ? "selected" : ""}>80–99%</option>
+          <option value="100" ${adminCurriculumListFilters.completionBand === "100" ? "selected" : ""}>100%</option>
+          <option value="legacy" ${adminCurriculumListFilters.completionBand === "legacy" ? "selected" : ""}>Legacy</option>
+          <option value="enriched" ${adminCurriculumListFilters.completionBand === "enriched" ? "selected" : ""}>Enriched</option>
+          <option value="complete" ${adminCurriculumListFilters.completionBand === "complete" ? "selected" : ""}>Complete</option>
+        </select>
+      </label>
+      <label><span>Sort</span>
+        <select id="adminCurriculumFilterSort">
+          <option value="updated" ${adminCurriculumListFilters.sort === "updated" ? "selected" : ""}>Updated</option>
+          <option value="completion-asc" ${adminCurriculumListFilters.sort === "completion-asc" ? "selected" : ""}>Completion % ↑</option>
+          <option value="completion-desc" ${adminCurriculumListFilters.sort === "completion-desc" ? "selected" : ""}>Completion % ↓</option>
+          <option value="title" ${adminCurriculumListFilters.sort === "title" ? "selected" : ""}>Title</option>
         </select>
       </label>
     </div>
@@ -65403,6 +65486,8 @@ document.addEventListener("change", (event) => {
     "adminCurriculumFilterPlan",
     "adminCurriculumFilterAge",
     "adminCurriculumFilterTheme",
+    "adminCurriculumFilterCompletion",
+    "adminCurriculumFilterSort",
   ].includes(event.target.id)) return;
   adminCurriculumListFilters = {
     ...adminCurriculumListFilters,
@@ -65410,6 +65495,8 @@ document.addEventListener("change", (event) => {
     plan: document.querySelector("#adminCurriculumFilterPlan")?.value || "",
     age: document.querySelector("#adminCurriculumFilterAge")?.value || "",
     theme: document.querySelector("#adminCurriculumFilterTheme")?.value || "",
+    completionBand: document.querySelector("#adminCurriculumFilterCompletion")?.value || "",
+    sort: document.querySelector("#adminCurriculumFilterSort")?.value || "updated",
   };
   renderAdminCurriculumLessonPlanManager();
 });

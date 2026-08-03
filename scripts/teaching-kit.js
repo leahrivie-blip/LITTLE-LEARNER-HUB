@@ -180,7 +180,11 @@
         ? value.sectionOverrides
         : {};
 
-    return {
+    const completionRaw = Number(value.completionPercent);
+    const completionPercent = Number.isFinite(completionRaw)
+      ? Math.max(0, Math.min(100, Math.round(completionRaw)))
+      : undefined;
+    const out = {
       schemaVersion,
       completeness,
       sectionOverrides,
@@ -188,6 +192,8 @@
       exampleImageIds: normalizedIdList(value.exampleImageIds, 100, 160),
       updatedAt: clampShortText(value.updatedAt, 80),
     };
+    if (completionPercent != null) out.completionPercent = completionPercent;
+    return out;
   }
 
   /**

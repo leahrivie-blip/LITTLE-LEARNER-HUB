@@ -1704,6 +1704,22 @@ function normalizedCurriculumDailyPlanItem(value) {
     adaptations: normalizedMultilineText(entry.adaptations, 4000),
     safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
     ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
+    // Teaching Kit enrichment (additive — empty keeps legacy behavior).
+    // Allow HTTPS media URLs or image data URLs (same pattern as resource files).
+    setupImageUrl: sanitizedResourceUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
+    exampleImageUrl: sanitizedResourceUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
+    substitutions: normalizedList(entry.substitutions, 12, (item) => {
+      if (!item || typeof item !== "object") return null;
+      const need = normalizedShortText(item.need || item.from, 120);
+      const use = normalizedShortText(item.use || item.to, 120);
+      if (!need || !use) return null;
+      return { need, use };
+    }).filter(Boolean),
+    settingTags: normalizedList(entry.settingTags, 8, (item) => {
+      const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
+      return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
+    }).filter(Boolean),
   };
 }
 
@@ -1767,6 +1783,27 @@ function normalizedCurriculumLessonPlan(value) {
     publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
   if (teachingKitOverlay) normalized.teachingKit = teachingKitOverlay;
+  // Admin-only draft channel for Teaching Kit Enrichment Editor.
+  // Public mapper / member views ignore this until Publish merges it.
+  if (Object.prototype.hasOwnProperty.call(entry, "enrichmentDraft")) {
+    const draft = entry.enrichmentDraft;
+    if (draft && typeof draft === "object" && !Array.isArray(draft)) {
+      normalized.enrichmentDraft = {
+        updatedAt: normalizedShortText(draft.updatedAt, 80) || "",
+        activities: draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
+          ? draft.activities
+          : {},
+        week: draft.week && typeof draft.week === "object" && !Array.isArray(draft.week)
+          ? draft.week
+          : {},
+        completionPercent: Math.max(0, Math.min(100, Math.round(Number(draft.completionPercent) || 0))),
+        previewReady: draft.previewReady === true,
+      };
+    } else if (draft == null) {
+      // explicit clear on publish
+      normalized.enrichmentDraft = null;
+    }
+  }
   return normalized;
 }
 
@@ -1813,6 +1850,20 @@ function normalizedCurriculumActivity(value) {
     adaptations: normalizedMultilineText(entry.adaptations, 4000),
     safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
     ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
+    setupImageUrl: sanitizedResourceUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
+    exampleImageUrl: sanitizedResourceUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
+    substitutions: normalizedList(entry.substitutions, 12, (item) => {
+      if (!item || typeof item !== "object") return null;
+      const need = normalizedShortText(item.need || item.from, 120);
+      const use = normalizedShortText(item.use || item.to, 120);
+      if (!need || !use) return null;
+      return { need, use };
+    }).filter(Boolean),
+    settingTags: normalizedList(entry.settingTags, 8, (item) => {
+      const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
+      return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
+    }).filter(Boolean),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
@@ -2783,6 +2834,11 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       adaptations: item.adaptations,
       safetyNotes: item.safetyNotes,
       ageModifications: item.ageModifications,
+      setupImageUrl: item.setupImageUrl || existing?.setupImageUrl || "",
+      exampleImageUrl: item.exampleImageUrl || existing?.exampleImageUrl || "",
+      teacherTips: Array.isArray(item.teacherTips) ? item.teacherTips : (existing?.teacherTips || []),
+      substitutions: Array.isArray(item.substitutions) ? item.substitutions : (existing?.substitutions || []),
+      settingTags: Array.isArray(item.settingTags) ? item.settingTags : (existing?.settingTags || []),
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -16607,6 +16663,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       return;
     }
 
+    const saveMode = normalizedShortText(body.saveMode, 40) || "full";
     const incomingId = normalizedShortText(incomingPlan.id, 160);
     const id = incomingId || generateCurriculumLessonPlanId();
     const now = new Date().toISOString();
@@ -16629,6 +16686,117 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
     }
     const existingCurriculum = siteContent.curriculum || defaultCurriculumStore();
     const existingPlan = (existingCurriculum.lessonPlans || []).find((item) => item.id === id);
+
+    // Teaching Kit Enrichment Editor — draft-only save (published member view unchanged).
+    if (saveMode === "enrichment_draft") {
+      if (!existingPlan) {
+        jsonResponse(response, 404, { error: "Lesson plan not found for enrichment draft." });
+        return;
+      }
+      const draftInput = incomingPlan.enrichmentDraft && typeof incomingPlan.enrichmentDraft === "object"
+        ? incomingPlan.enrichmentDraft
+        : {};
+      const draftPlan = normalizedCurriculumLessonPlan({
+        ...existingPlan,
+        enrichmentDraft: {
+          ...draftInput,
+          updatedAt: now,
+        },
+        updatedAt: existingPlan.updatedAt,
+      });
+      const nextCurriculum = normalizedCurriculumStore({
+        ...existingCurriculum,
+        lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (
+          item.id === id ? { ...draftPlan, updatedAt: existingPlan.updatedAt } : item
+        )),
+        updatedAt: now,
+      });
+      const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+      if (writeResult.wipeBlocked) {
+        jsonResponse(response, 409, {
+          error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+          code: "curriculum_wipe_blocked",
+        });
+        return;
+      }
+      await writeStoreAsync(store);
+      const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
+      jsonResponse(response, 200, {
+        ok: true,
+        saveMode: "enrichment_draft",
+        lessonPlan: saved,
+        curriculum: store.siteContent.curriculum,
+        siteContentUpdatedAt: store.siteContent.updatedAt,
+        publishedUnchanged: true,
+      });
+      return;
+    }
+
+    // Publish enrichment draft → merge into live plan/activities, clear draft.
+    if (saveMode === "publish_enrichment") {
+      if (!existingPlan) {
+        jsonResponse(response, 404, { error: "Lesson plan not found for enrichment publish." });
+        return;
+      }
+      let enrichmentApi = null;
+      try {
+        enrichmentApi = require("../scripts/teaching-kit-enrichment.js");
+      } catch (_error) {
+        enrichmentApi = null;
+      }
+      const draft = existingPlan.enrichmentDraft || incomingPlan.enrichmentDraft || null;
+      const existingActivities = (existingCurriculum.activities || []).filter((a) => a.lessonPlanId === id);
+      const merged = enrichmentApi?.mergeDraftIntoPlan
+        ? enrichmentApi.mergeDraftIntoPlan(existingPlan, existingActivities, draft)
+        : { plan: existingPlan, activities: existingActivities };
+      const planInput = withAutoAssignedLessonCover({
+        ...merged.plan,
+        id,
+        enrichmentDraft: null,
+        createdAt: existingPlan.createdAt,
+        updatedAt: now,
+        publishedAt: existingPlan.publishedAt,
+        status: existingPlan.status,
+      });
+      delete planInput.enrichmentDraft;
+      const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
+      if (!syncedCurriculum) {
+        jsonResponse(response, 400, { error: "Lesson plan could not be normalized for enrichment publish." });
+        return;
+      }
+      // Ensure draft cleared on stored plan
+      syncedCurriculum.lessonPlans = syncedCurriculum.lessonPlans.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item };
+        delete next.enrichmentDraft;
+        return next;
+      });
+      const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
+      if (integrityError) {
+        jsonResponse(response, 400, integrityError);
+        return;
+      }
+      const writeResult = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
+      if (writeResult.wipeBlocked) {
+        jsonResponse(response, 409, {
+          error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
+          code: "curriculum_wipe_blocked",
+        });
+        return;
+      }
+      await writeStoreAsync(store);
+      const savedPlan = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
+      const savedActivities = (store.siteContent.curriculum.activities || []).filter((a) => a.lessonPlanId === id);
+      jsonResponse(response, 200, {
+        ok: true,
+        saveMode: "publish_enrichment",
+        lessonPlan: savedPlan,
+        activities: savedActivities,
+        curriculum: store.siteContent.curriculum,
+        siteContentUpdatedAt: store.siteContent.updatedAt,
+      });
+      return;
+    }
     const nextStatus = normalizedShortText(incomingPlan.status, 20);
     const wasPublic = isCurriculumLessonPublic(existingPlan?.status || "");
     const willBePublic = isCurriculumLessonPublic(nextStatus);

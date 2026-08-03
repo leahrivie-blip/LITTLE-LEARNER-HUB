@@ -428,6 +428,20 @@
                 <div class="tk-prompt"><strong>${escapeHtml(prompt.label || "Prompt")}</strong>${escapeHtml(prompt.text || "")}</div>
               `).join("") || `<p class="tk-muted">None listed</p>`}
             </article>
+            ${(activity.settingTags || []).length ? `
+              <article class="tk-card">
+                <h4>Group / setting</h4>
+                <p class="tk-muted">${escapeHtml((activity.settingTags || []).map((tag) => String(tag || "").replace(/_/g, " ")).join(" · "))}</p>
+              </article>
+            ` : ""}
+            ${(activity.supplySubstitutions || []).length ? `
+              <article class="tk-card">
+                <h4>Supply substitutions</h4>
+                <ul class="tk-list">${(activity.supplySubstitutions || []).map((sub) => `
+                  <li>No <strong>${escapeHtml(sub.need)}</strong> → use <strong>${escapeHtml(sub.use)}</strong></li>
+                `).join("")}</ul>
+              </article>
+            ` : ""}
             <article class="tk-card tk-card-warn">
               <h4>Observation ideas</h4>
               <ul class="tk-list">${(activity.observationIdeas || []).map((idea) => `<li>${escapeHtml(idea)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul>

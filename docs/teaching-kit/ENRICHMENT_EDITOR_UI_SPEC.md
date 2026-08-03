@@ -1,6 +1,6 @@
 # Teaching Kit Enrichment Editor — Final UI Specification
 
-**Status:** Owner-approved for implementation (refinements locked)  
+**Status:** Owner-approved · refinements locked · implementation in progress on this branch  
 **Scope:** Admin-only · one lesson at a time · real curriculum store (`siteContent.curriculum`)  
 **Non-goals:** Bulk rewrite, auto-publish, replacing existing Basics / Week story / Daily tabs, special admin-only preview chrome  
 
