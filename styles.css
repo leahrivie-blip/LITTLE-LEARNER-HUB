@@ -22414,6 +22414,7 @@ body.family-hub-parent-mode .main {
 /* Pure parent / parent-preview shell: hide provider marketing + billing chrome */
 body.family-hub-parent-mode #signupButton,
 body.family-hub-parent-mode #loginButton,
+body.family-hub-parent-mode #signinButton,
 body.family-hub-parent-mode .topbar-auth,
 body.family-hub-parent-mode [data-checkout-plan],
 body.family-hub-parent-mode .sidebar-free-upgrade,
@@ -22423,6 +22424,11 @@ body.family-hub-parent-mode a[data-home-nav="pricing"],
 body.family-hub-parent-mode .site-search,
 body.family-hub-parent-mode #globalSearch,
 body.family-hub-parent-mode .search-bar,
+body.family-hub-parent-mode .topbar-search,
+body.family-hub-parent-mode .search-wrap,
+body.family-hub-parent-mode #searchInput,
+body.family-hub-parent-mode .account-actions,
+body.family-hub-parent-mode input[placeholder*="Search lesson"],
 body.family-hub-parent-mode [data-nav-hdh-testing="true"],
 body.family-hub-parent-mode .topbar-actions,
 body.family-hub-parent-mode #openSidebar,
@@ -22431,7 +22437,13 @@ body.family-hub-parent-mode [data-view="admin"],
 body.family-hub-parent-mode [data-view="pricing"],
 body.family-hub-parent-mode [data-view="home-daycare-hub"],
 body.family-hub-parent-mode .founding-banner,
-body.family-hub-parent-mode .promo-banner {
+body.family-hub-parent-mode .promo-banner,
+body.family-hub-parent-mode .llh-public-footer,
+body.family-hub-parent-mode .llh-app-footer,
+body.family-hub-parent-mode .llh-footer-links,
+body.family-hub-parent-mode .cookie-banner,
+body.family-hub-parent-mode #cookieBanner,
+body.family-hub-parent-mode [class*="cookie"] {
   display: none !important;
 }
 

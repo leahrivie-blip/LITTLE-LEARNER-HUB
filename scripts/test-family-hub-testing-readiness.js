@@ -88,7 +88,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-beta"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-beta2"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
   assert.match(appJs, /function renderFamilyHubTodayPanel/);
   assert.match(appJs, /family-hub-parent-mode/);

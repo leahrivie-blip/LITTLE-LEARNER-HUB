@@ -33543,21 +33543,28 @@ async function maybeHandleFamilyHubInviteFromUrl() {
   if (!token) return false;
   const peek = await fetch(`/api/family-hub/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
   const panel = document.createElement("div");
-  panel.className = "section-block";
+  panel.className = "section-block fh-invite-accept-panel";
   panel.id = "familyHubAcceptPanel";
-  panel.style.cssText = "max-width:640px;margin:24px auto;padding:20px;";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Family Hub invite");
+  // Body-level overlay so home re-renders cannot wipe the accept panel.
+  panel.style.cssText = "position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;background:rgba(26,43,74,0.45);";
+  const card = document.createElement("div");
+  card.className = "fh-signin";
+  card.style.cssText = "width:min(100%,560px);max-height:90vh;overflow:auto;";
   const mount = () => {
-    const home = document.querySelector("#view-home") || document.querySelector("main") || document.body;
     document.querySelector("#familyHubAcceptPanel")?.remove();
-    home.prepend(panel);
+    panel.appendChild(card);
+    document.body.appendChild(panel);
+    document.body.classList.add("family-hub-invite-open");
   };
   if (!peek?.ok && !peek?.invite) {
-    panel.innerHTML = `<h3>Family Hub</h3><p>${escapeHtml(peek?.error || "This Family Hub link is not valid.")}</p>`;
+    card.innerHTML = `<h3>Family Hub</h3><p>${escapeHtml(peek?.error || "This Family Hub link is not valid.")}</p><button class="ghost-button" type="button" data-dismiss-family-hub-invite>Close</button>`;
     mount();
     return true;
   }
   const invite = peek.invite || {};
-  panel.innerHTML = `
+  card.innerHTML = `
     <p class="eyebrow">Family Hub invite</p>
     <h3>Open ${escapeHtml(invite.programName || "Family Hub")}</h3>
     <p>Household: <strong>${escapeHtml(invite.label || "Your family")}</strong></p>
@@ -58203,6 +58210,7 @@ document.addEventListener("click", async (event) => {
         url.searchParams.delete("familyHub");
         window.history.replaceState({}, "", url.pathname + url.search + url.hash);
         document.querySelector("#familyHubAcceptPanel")?.remove();
+        document.body.classList.remove("family-hub-invite-open");
         familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
         setView("family-hub");
         // Guarantee dashboard paint even if showView race leaves Loading…
@@ -58232,6 +58240,7 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-dismiss-family-hub-invite]")) {
     event.preventDefault();
     document.querySelector("#familyHubAcceptPanel")?.remove();
+    document.body.classList.remove("family-hub-invite-open");
     const url = new URL(window.location.href);
     url.searchParams.delete("familyHub");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
