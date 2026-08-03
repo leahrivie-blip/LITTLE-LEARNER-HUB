@@ -360,11 +360,32 @@
       const checked = snapshot?.checkedAt
         ? `Last checked ${new Date(snapshot.checkedAt).toLocaleString()}.`
         : "Tap Refresh to run live checks.";
+      const monitoring = snapshot?.monitoring || null;
+      const monitorChecks = Array.isArray(monitoring?.checks) ? monitoring.checks : [];
+      const monitorCards = monitorChecks.length
+        ? monitorChecks.map((check) => healthStatusCard(check.label || check.id, check.ok ? "working" : "attention", check.detail || "")).join("")
+        : `<article class="admin-health-card" data-status="not-verified"><p class="eyebrow">Production monitoring</p><h4>Not verified</h4><p class="muted-copy">Monitoring snapshot unavailable. Tap Refresh.</p></article>`;
+      const overall = monitoring?.overall || "unknown";
+      const alertNote = monitoring?.alerts
+        ? (monitoring.alerts.enabled
+          ? `Alert emails enabled (cooldown ${monitoring.alerts.cooldownMinutes || 60}m) to the support/admin inbox when critical.`
+          : "Alert emails disabled (MONITOR_ALERTS_ENABLED).")
+        : "Alert email status unknown.";
       target.innerHTML = `
         <div class="section-heading">
           <div><p class="eyebrow">System Health</p><h3>Verified service status</h3><p class="muted-copy">${escapeHtml(checked)} Status is based on live checks — not UI availability alone.</p></div>
           <button type="button" class="ghost-button" data-admin-health-refresh ${adminSystemHealthLoading ? "disabled" : ""}>${adminSystemHealthLoading ? "Checking…" : "Refresh"}</button>
         </div>
+        <section class="admin-command-center-card" aria-label="Production monitoring" style="margin-bottom:16px;">
+          <div class="section-heading" style="margin-bottom:12px;">
+            <div>
+              <p class="eyebrow">Production monitoring</p>
+              <h3>Live alerts · ${escapeHtml(String(overall))}</h3>
+              <p class="muted-copy">Read-only checks for health, database, Stripe webhooks, Meta tracking, 5xx spikes, memory, and DB storage. ${escapeHtml(alertNote)}</p>
+            </div>
+          </div>
+          <div class="admin-health-grid">${monitorCards}</div>
+        </section>
         <div class="admin-health-grid">
           ${card("website", "Website / app shell")}
           ${card("database", "Database")}
@@ -494,7 +515,38 @@
         : `${emailEvents} recent email event(s) in analytics snapshot.`,
     );
 
-    adminSystemHealthCache = { cards, checkedAt: new Date().toISOString() };
+    let monitoring = null;
+    try {
+      const monitorRes = await adminFetchWithTimeout("/api/admin/production-monitoring");
+      const monitorJson = await monitorRes.json().catch(() => ({}));
+      if (monitorRes.ok && monitorJson?.monitoring) {
+        monitoring = monitorJson.monitoring;
+      } else {
+        monitoring = {
+          overall: "attention",
+          checks: [{
+            id: "monitoring_api",
+            label: "Production monitoring API",
+            ok: false,
+            detail: monitorRes.status === 401
+              ? "Admin session required for monitoring."
+              : `Monitoring endpoint returned HTTP ${monitorRes.status}.`,
+          }],
+        };
+      }
+    } catch {
+      monitoring = {
+        overall: "attention",
+        checks: [{
+          id: "monitoring_api",
+          label: "Production monitoring API",
+          ok: false,
+          detail: "Could not reach /api/admin/production-monitoring.",
+        }],
+      };
+    }
+
+    adminSystemHealthCache = { cards, monitoring, checkedAt: new Date().toISOString() };
     adminSystemHealthLoading = false;
     renderAdminSystemHealth(target);
   }
