@@ -73,6 +73,9 @@ function unit() {
       { name: "search_no_results", sessionId: "s2", createdAt: iso(300), detail: { query: "halloween toddler", results: 0 } },
       { name: "account_signup_complete", createdAt: iso(200), user: "teacher@provider.com", visitorId: "v1", attribution: { source: "Facebook" } },
       { name: "checkout_success", createdAt: iso(100), user: "teacher@provider.com", detail: { plan: "monthly" } },
+      // Bounce visitor: lands from TikTok desktop, views pricing, never CTAs → funnel exit.
+      { name: "website_visit", sessionId: "s3", visitorId: "v-bounce", createdAt: iso(900), path: "/?utm_source=tiktok", url: "https://littlelearnershubbyleah.com/?utm_source=tiktok", userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", attribution: { source: "TikTok", landingPage: "/?utm_source=tiktok" } },
+      { name: "page_view", sessionId: "s3", visitorId: "v-bounce", createdAt: iso(600), path: "/pricing", detail: { view: "pricing" }, userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)", attribution: { source: "TikTok", landingPage: "/?utm_source=tiktok" } },
     ],
     marketingAdSpend: { Facebook: 100, total: 100 },
     emailEngagement: { events: [{ type: "sent", templateId: "welcome", createdAt: iso(50) }], campaigns: {} },
@@ -110,9 +113,32 @@ function unit() {
   assert.equal(funnel.data.costs.costPerSignup, 100);
   assert.ok(funnel.data.stagePeople.visitors?.length >= 1);
 
+  const exitInsights = funnel.data.exitInsights;
+  assert.ok(exitInsights, "exitInsights present");
+  assert.ok(Array.isArray(exitInsights.exitStages));
+  assert.ok(exitInsights.exitStages.some((s) => s.from === "landingPageViews" && s.exitCount >= 1));
+  assert.ok(exitInsights.mostCommonExit);
+  assert.ok(typeof exitInsights.mostCommonExit.exitCount === "number");
+  assert.ok(Array.isArray(exitInsights.topAbandonmentLandingPages));
+  assert.ok(exitInsights.topAbandonmentLandingPages.length >= 1);
+
+  const exitDrill = insights.buildInsights(store, {
+    hub: "marketing-funnel",
+    range: "30d",
+    exitStage: "landingPageViews",
+  });
+  assert.equal(exitDrill.data.exitStageFilter, "landingPageViews");
+  const exitPeople = exitDrill.data.exitInsights?.exitPeople?.landingPageViews || [];
+  assert.ok(exitPeople.length >= 1, "exit drill-down people");
+  assert.ok(exitPeople.some((p) => (p.lastPage || "").includes("pricing") || p.visitorKey === "v-bounce" || !p.email));
+  assert.ok(exitPeople.some((p) => p.device === "Desktop" || p.source === "TikTok"));
+  assert.ok(exitPeople.every((p) => typeof p.minutesBeforeExitLabel === "string"));
+
   const fbOnly = insights.buildInsights(store, { hub: "marketing-funnel", range: "30d", source: "Facebook" });
   assert.equal(fbOnly.data.sourceFilter, "Facebook");
   assert.ok((fbOnly.data.stages.find((s) => s.id === "visitors")?.count || 0) >= 1);
+  const fbLandExit = (fbOnly.data.exitInsights?.exitStages || []).find((s) => s.from === "landingPageViews");
+  assert.ok(!(fbLandExit?.sources || []).some((s) => s.key === "TikTok"), "Facebook filter excludes TikTok exits");
 
   console.log("PASS admin-insights unit hubs");
 }
@@ -228,7 +254,10 @@ async function wiring() {
   assert.match(adminInsightsUi, /AI Business Advisor/);
   assert.match(adminInsightsUi, /marketing-funnel/);
   assert.match(adminInsightsUi, /admin-insights-funnel-bar/);
+  assert.match(adminInsightsUi, /Why They Left/);
+  assert.match(adminInsightsUi, /data-funnel-exit-stage/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /\/api\/admin\/insights/);
+  assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /exitStage/);
   console.log("PASS admin-insights wiring");
 }
 

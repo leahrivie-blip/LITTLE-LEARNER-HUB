@@ -5,7 +5,7 @@
 (function adminInsightsModule() {
   const HUB_META = {
     advisor: { title: "AI Business Advisor", blurb: "Morning operating summary and recommended actions." },
-    "marketing-funnel": { title: "Marketing Funnel", blurb: "Vertical conversion chart from visit → paid, with drop-off, source filters, and stage drill-down." },
+    "marketing-funnel": { title: "Marketing Funnel", blurb: "Vertical conversion chart from visit → paid, with drop-off, Why They Left exits, source filters, and stage drill-down." },
     "feature-usage": { title: "Feature Usage", blurb: "Pages, sessions, features, downloads, and content demand." },
     "user-journey": { title: "User Journey", blurb: "Open a user profile → Journey tab for the full support timeline." },
     "feature-requests": { title: "Feature Request Center", blurb: "Votes, status, estimates, and release notifications." },
@@ -26,6 +26,7 @@
     status: "",
     source: "all",
     selectedStage: "",
+    selectedExitStage: "",
     cache: null,
     loading: false,
   };
@@ -59,6 +60,8 @@
       if (source && source !== "all") qs.set("source", source);
       const stage = params.stage || insightsState.selectedStage || "";
       if (stage) qs.set("stage", stage);
+      const exitStage = params.exitStage || insightsState.selectedExitStage || "";
+      if (exitStage) qs.set("exitStage", exitStage);
     }
     const headers = {};
     const t = token();
@@ -289,7 +292,10 @@
     const cta = data.ctaBreakdown || {};
     const timing = data.timing || {};
     const costs = data.costs || {};
+    const exits = data.exitInsights || {};
+    const exitStages = exits.exitStages || [];
     const selected = insightsState.selectedStage || "";
+    const selectedExit = insightsState.selectedExitStage || "";
     const source = insightsState.source || data.sourceFilter || "all";
     const sourceOptions = (data.sources || ["all", "TikTok", "Facebook", "Google", "Direct", "Organic", "Other"])
       .map((s) => `<option value="${esc(s)}"${s === source ? " selected" : ""}>${esc(s === "all" ? "All sources" : s)}</option>`)
@@ -329,6 +335,40 @@
       p.exitLabel || "—",
     ]);
 
+    const exitPeople = selectedExit ? (exits.exitPeople?.[selectedExit] || []) : [];
+    const selectedExitRow = exitStages.find((s) => s.from === selectedExit);
+    const exitPeopleRows = exitPeople.map((p) => [
+      p.name || "—",
+      p.email || p.visitorKey || "—",
+      p.source || "—",
+      p.device || "—",
+      p.lastPage || "—",
+      p.minutesBeforeExitLabel || "—",
+      p.landingPage || "—",
+      p.exitLabel || "—",
+    ]);
+
+    const exitRows = exitStages.map((row) => {
+      const isSelected = selectedExit === row.from;
+      const topPage = row.topLastPages?.[0]?.key || "—";
+      const topDevice = row.devices?.[0] ? `${row.devices[0].key} (${row.devices[0].count})` : "—";
+      const topSource = row.sources?.[0] ? `${row.sources[0].key} (${row.sources[0].count})` : "—";
+      return `
+        <button type="button" class="admin-insights-exit-row${isSelected ? " is-selected" : ""}" data-funnel-exit-stage="${esc(row.from)}" aria-pressed="${isSelected}">
+          <div class="admin-insights-exit-row-main">
+            <strong>${esc(row.fromLabel)} → ${esc(row.toLabel)}</strong>
+            <span class="admin-insights-funnel-drop">${esc(row.exitCount)} exits · ${esc(row.exitRateLabel)}</span>
+          </div>
+          <div class="admin-insights-exit-row-meta">
+            <span>Last page: ${esc(topPage)}</span>
+            <span>Time: ${esc(row.avgMinutesBeforeExitLabel || "—")}</span>
+            <span>Device: ${esc(topDevice)}</span>
+            <span>Source: ${esc(topSource)}</span>
+          </div>
+        </button>
+      `;
+    }).join("");
+
     const sourceHeaders = ["Source", "Visitors", "Signups", "Trials", "Paid", "Visit→Paid", "Biggest drop"];
     const sourceRows = (data.bySource || []).map((row) => {
       const worst = (row.transitions || []).slice().sort((a, b) => b.dropOffRate - a.dropOffRate)[0];
@@ -349,7 +389,7 @@
           <select id="insightsFunnelSource">${sourceOptions}</select>
         </label>
         <button type="button" class="ghost-button" data-funnel-apply-source>Apply source</button>
-        ${selected ? `<button type="button" class="ghost-button" data-funnel-clear-stage>Clear stage</button>` : ""}
+        ${selected || selectedExit ? `<button type="button" class="ghost-button" data-funnel-clear-stage>Clear selection</button>` : ""}
       </div>
       ${data.note ? pendingNote(data.note) : ""}
       ${data.worstDropOff ? `
@@ -385,6 +425,44 @@
             </div>
           `).join("") || `<p class="muted-copy">Not enough stages to compare yet.</p>`}
         </div>
+      </section>
+      <section class="admin-insights-exit-insights" aria-label="Why they left">
+        <h4>Why They Left</h4>
+        <p class="muted-copy">Where people exit the funnel, with last page, time spent, device, and source. Click an exit stage to view affected users. Uses the same Today / 7d / 30d / All Time and source filters.</p>
+        ${exits.mostCommonExit ? `
+          <div class="admin-insights-pending">
+            Most common exit: <strong>${esc(exits.mostCommonExit.fromLabel)} → ${esc(exits.mostCommonExit.toLabel)}</strong>
+            — ${esc(exits.mostCommonExit.exitCount)} exits (${esc(exits.mostCommonExit.exitRateLabel)})
+            ${exits.mostCommonExit.topLastPage ? ` · last page ${esc(exits.mostCommonExit.topLastPage)}` : ""}
+            ${exits.mostCommonExit.avgMinutesBeforeExitLabel ? ` · avg ${esc(exits.mostCommonExit.avgMinutesBeforeExitLabel)}` : ""}.
+          </div>
+        ` : `<p class="muted-copy">No funnel exits in this range yet.</p>`}
+        <div class="admin-insights-exit-rows">
+          ${exitRows || `<p class="muted-copy">No exit stages to show.</p>`}
+        </div>
+        ${selectedExit && selectedExitRow ? `
+          <section class="admin-insights-funnel-drilldown">
+            <h4>Exited after ${esc(selectedExitRow.fromLabel)} · before ${esc(selectedExitRow.toLabel)}</h4>
+            ${table(
+              ["Name", "Email / visitor", "Source", "Device", "Last page", "Time before exit", "Landing", "Exit"],
+              exitPeopleRows,
+            )}
+          </section>
+        ` : ""}
+        <section>
+          <h4>Top landing pages with highest abandonment</h4>
+          ${table(
+            ["Page", "Visitors", "Abandoned", "Abandon rate", "Exit touches"],
+            (exits.topAbandonmentLandingPages || []).map((r) => [
+              r.page,
+              r.visitors,
+              r.abandoned,
+              r.abandonRateLabel,
+              r.exitTouches,
+            ]),
+          )}
+        </section>
+        ${exits.note ? `<p class="muted-copy">${esc(exits.note)}</p>` : ""}
       </section>
       ${selected ? `
         <section class="admin-insights-funnel-drilldown">
@@ -538,6 +616,7 @@
     container.querySelector("[data-funnel-apply-source]")?.addEventListener("click", () => {
       insightsState.source = container.querySelector("#insightsFunnelSource")?.value || "all";
       insightsState.selectedStage = "";
+      insightsState.selectedExitStage = "";
       renderAdminInsights(container, "marketing-funnel");
     });
     container.querySelector("#insightsFunnelSource")?.addEventListener("change", (event) => {
@@ -545,12 +624,22 @@
     });
     container.querySelector("[data-funnel-clear-stage]")?.addEventListener("click", () => {
       insightsState.selectedStage = "";
+      insightsState.selectedExitStage = "";
       renderAdminInsights(container, "marketing-funnel");
     });
     container.querySelectorAll("[data-funnel-stage]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const stage = btn.getAttribute("data-funnel-stage") || "";
         insightsState.selectedStage = insightsState.selectedStage === stage ? "" : stage;
+        insightsState.selectedExitStage = "";
+        renderAdminInsights(container, "marketing-funnel");
+      });
+    });
+    container.querySelectorAll("[data-funnel-exit-stage]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const stage = btn.getAttribute("data-funnel-exit-stage") || "";
+        insightsState.selectedExitStage = insightsState.selectedExitStage === stage ? "" : stage;
+        insightsState.selectedStage = "";
         renderAdminInsights(container, "marketing-funnel");
       });
     });

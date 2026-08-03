@@ -108,8 +108,8 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260802-request-idea-final" />
-  <link rel="stylesheet" href="styles.css?v=20260803-marketing-funnel" />
-  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-marketing-funnel" />
+  <link rel="stylesheet" href="styles.css?v=20260803-funnel-exit" />
+  <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-funnel-exit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
@@ -123,7 +123,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260803-marketing-funnel";
+      var SHELL_VERSION = "20260803-funnel-exit";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -2396,9 +2396,9 @@
     <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260803-marketing-funnel" defer></script>
-    <script src="admin-workspace.js?v=20260803-marketing-funnel" defer></script>
-    <script src="admin-insights.js?v=20260803-marketing-funnel" defer></script>
+    <script src="app.js?v=20260803-funnel-exit" defer></script>
+    <script src="admin-workspace.js?v=20260803-funnel-exit" defer></script>
+    <script src="admin-insights.js?v=20260803-funnel-exit" defer></script>
     <script src="comms-center.js?v=20260802-request-idea-final" defer></script>
   </body>
 </html>

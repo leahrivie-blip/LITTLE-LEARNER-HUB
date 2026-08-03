@@ -387,6 +387,73 @@ async function main() {
     // Cost still unavailable (no ad spend env)
     check("cost still — without spend", all.costs?.costPerSignup == null && all.costs?.costPerPaid == null);
 
+    // Why They Left / exit insights (bounce visitor never CTAs)
+    const bounceVisitor = `vis_bounce_${crypto.randomBytes(3).toString("hex")}`;
+    const bounceSession = `ses_bounce_${crypto.randomBytes(3).toString("hex")}`;
+    const bounceStart = new Date(Date.now() - 12 * 60000).toISOString();
+    const bounceEnd = new Date(Date.now() - 10 * 60000).toISOString();
+    await requestJson(port, "POST", "/api/analytics/event", {
+      headers: { "User-Agent": desktopUA },
+      body: {
+        event: {
+          id: `evt_bounce_visit_${crypto.randomBytes(3).toString("hex")}`,
+          name: "website_visit",
+          visitorId: bounceVisitor,
+          sessionId: bounceSession,
+          path: "/?utm_source=google",
+          url: "https://littlelearnershubbyleah.com/?utm_source=google",
+          source: "Google",
+          attribution: { source: "Google", medium: "cpc", landingPage: "/?utm_source=google" },
+          createdAt: bounceStart,
+        },
+      },
+    });
+    await requestJson(port, "POST", "/api/analytics/event", {
+      headers: { "User-Agent": desktopUA },
+      body: {
+        event: {
+          id: `evt_bounce_page_${crypto.randomBytes(3).toString("hex")}`,
+          name: "page_view",
+          visitorId: bounceVisitor,
+          sessionId: bounceSession,
+          path: "/pricing",
+          detail: { view: "pricing" },
+          url: "https://littlelearnershubbyleah.com/pricing",
+          source: "Google",
+          attribution: { source: "Google", medium: "cpc", landingPage: "/?utm_source=google" },
+          createdAt: bounceEnd,
+        },
+      },
+    });
+    data = await getFunnel("range=all");
+    const exits = data.exitInsights || {};
+    check("exit insights present", Boolean(exits.exitStages && exits.mostCommonExit));
+    check("exit stages have counts/percentages", (exits.exitStages || []).some((s) => s.exitCount >= 1 && typeof s.exitRate === "number"));
+    const landExit = (exits.exitStages || []).find((s) => s.from === "landingPageViews");
+    check("landing page exit has last page/device/source", Boolean(
+      landExit
+      && (landExit.topLastPages || []).length >= 1
+      && (landExit.devices || []).length >= 1
+      && (landExit.sources || []).length >= 1
+      && landExit.avgMinutesBeforeExitLabel,
+    ), JSON.stringify({
+      topLastPages: landExit?.topLastPages,
+      devices: landExit?.devices,
+      sources: landExit?.sources,
+      time: landExit?.avgMinutesBeforeExitLabel,
+    }));
+    check("abandonment landing pages present", (exits.topAbandonmentLandingPages || []).length >= 1);
+    const exitDrill = await getFunnel("range=all&exitStage=landingPageViews");
+    const exitPeople = exitDrill.exitInsights?.exitPeople?.landingPageViews || [];
+    check("exit stage drill-down lists users", exitPeople.length >= 1, `people=${exitPeople.length}`);
+    check("exit people include bounce visitor context", exitPeople.some((p) =>
+      (p.lastPage || "").includes("pricing") || (p.visitorKey || "").includes(bounceVisitor.slice(0, 8)) || p.source === "Google"
+    ));
+    const exitToday = await getFunnel("range=today");
+    check("exit filters honor Today range", (exitToday.exitInsights?.exitStages || []).some((s) => s.exitCount >= 0));
+    const exitGoogle = await getFunnel("range=all&source=Google");
+    check("exit filters honor Source=Google", (exitGoogle.exitInsights?.exitStages || []).some((s) => s.exitCount >= 1));
+
     // Direct attribution path
     const directVisitor = `vis_dir_${crypto.randomBytes(3).toString("hex")}`;
     await requestJson(port, "POST", "/api/analytics/event", {

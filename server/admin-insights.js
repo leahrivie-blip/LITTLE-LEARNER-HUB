@@ -780,9 +780,220 @@ function formatHoursLabel(hours) {
   return `${(hours / 24).toFixed(1)}d`;
 }
 
-function buildMarketingFunnel(store, events, range, { source = "", stage = "" } = {}) {
+function formatMinutesLabel(minutes) {
+  if (!Number.isFinite(minutes) || minutes < 0) return "—";
+  if (minutes < 1) return "<1m";
+  if (minutes < 60) return `${Math.round(minutes)}m`;
+  const hours = minutes / 60;
+  if (hours < 48) return `${hours.toFixed(1)}h`;
+  return `${(hours / 24).toFixed(1)}d`;
+}
+
+function avgMinutes(list) {
+  if (!list.length) return null;
+  return Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2));
+}
+
+/** Index scoped analytics by actor for last-page + time-on-site before funnel exit. */
+function buildActorActivityIndex(scopedEvents = []) {
+  const byActor = new Map();
+  const touch = (key, event) => {
+    if (!key) return;
+    const t = eventTime(event);
+    const page = pageLabel(event);
+    const existing = byActor.get(key);
+    if (!existing) {
+      byActor.set(key, { firstMs: t, lastMs: t, lastPage: page || "/", eventCount: 1 });
+      return;
+    }
+    if (t && (!existing.firstMs || t < existing.firstMs)) existing.firstMs = t;
+    if (t && t >= existing.lastMs) {
+      existing.lastMs = t;
+      if (page) existing.lastPage = page;
+    }
+    existing.eventCount += 1;
+  };
+  for (const event of scopedEvents) {
+    const email = normalizeEmail(event.user || event.detail?.email || "");
+    const key = actorKey(event);
+    if (key) touch(key, event);
+    if (email) touch(email, event);
+  }
+  return byActor;
+}
+
+function resolveActorActivity(index, person = {}) {
+  const fromKey = person.key ? index.get(person.key) : null;
+  const fromEmail = person.email ? index.get(person.email) : null;
+  const activity = fromKey || fromEmail || null;
+  if (!activity) {
+    return { lastPage: person.landingPage || "/", minutesBeforeExit: null };
+  }
+  const minutes = activity.firstMs && activity.lastMs && activity.lastMs >= activity.firstMs
+    ? (activity.lastMs - activity.firstMs) / 60000
+    : null;
+  return {
+    lastPage: activity.lastPage || person.landingPage || "/",
+    minutesBeforeExit: minutes == null ? null : Number(minutes.toFixed(2)),
+  };
+}
+
+function countMapEntries(map) {
+  return [...map.entries()]
+    .map(([key, count]) => ({ key, count }))
+    .sort((a, b) => b.count - a.count || String(a.key).localeCompare(String(b.key)));
+}
+
+function buildFunnelExitInsights({
+  people,
+  overall,
+  transitions,
+  landingStats,
+  actorActivity,
+  exitStageFilter = "",
+} = {}) {
+  const exitStages = [];
+  const allLeaverKeys = new Set();
+  const abandonByLanding = new Map();
+
+  for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
+    const current = FUNNEL_STAGE_DEFS[i];
+    const next = FUNNEL_STAGE_DEFS[i + 1];
+    // Active subscribers is a snapshot — skip as an exit edge for "why they left".
+    if (next.id === "activeSubscribers") continue;
+
+    const reachedCount = overall[current.id]?.size || 0;
+    const leavers = [...(people[current.id]?.values() || [])].filter((person) => person.exitedBefore === next.id);
+    const deviceMap = new Map();
+    const sourceMap = new Map();
+    const lastPageMap = new Map();
+    const minutesList = [];
+    const enriched = [];
+
+    for (const person of leavers) {
+      const activity = resolveActorActivity(actorActivity, person);
+      const device = person.device || "Unknown";
+      const src = person.source || "Other";
+      const lastPage = activity.lastPage || person.landingPage || "/";
+      const landingPage = person.landingPage || "/";
+      deviceMap.set(device, (deviceMap.get(device) || 0) + 1);
+      sourceMap.set(src, (sourceMap.get(src) || 0) + 1);
+      lastPageMap.set(lastPage, (lastPageMap.get(lastPage) || 0) + 1);
+      if (activity.minutesBeforeExit != null) minutesList.push(activity.minutesBeforeExit);
+      allLeaverKeys.add(person.key || person.email);
+      abandonByLanding.set(landingPage, (abandonByLanding.get(landingPage) || 0) + 1);
+      enriched.push({
+        email: person.email || "",
+        name: person.name || "",
+        visitorKey: person.email ? "" : person.key,
+        source: src,
+        device,
+        landingPage,
+        lastPage,
+        minutesBeforeExit: activity.minutesBeforeExit,
+        minutesBeforeExitLabel: formatMinutesLabel(activity.minutesBeforeExit),
+        reachedAt: person.reachedAt || "",
+        exitLabel: person.exitLabel || `Left before ${next.label}`,
+        exitedAfter: current.id,
+        exitedBefore: next.id,
+      });
+    }
+
+    const exitCount = leavers.length;
+    exitStages.push({
+      from: current.id,
+      to: next.id,
+      fromLabel: current.label,
+      toLabel: next.label,
+      reachedCount,
+      exitCount,
+      exitRate: pct(exitCount, reachedCount),
+      exitRateLabel: rate(exitCount, reachedCount),
+      avgMinutesBeforeExit: avgMinutes(minutesList),
+      avgMinutesBeforeExitLabel: formatMinutesLabel(avgMinutes(minutesList)),
+      devices: countMapEntries(deviceMap),
+      sources: countMapEntries(sourceMap),
+      topLastPages: countMapEntries(lastPageMap).slice(0, 8),
+      sampleSize: enriched.length,
+      _people: enriched,
+    });
+  }
+
+  const mostCommonExit = exitStages
+    .slice()
+    .sort((a, b) => b.exitCount - a.exitCount || b.exitRate - a.exitRate)[0] || null;
+
+  const topAbandonmentLandingPages = [...landingStats.entries()]
+    .map(([page, stats]) => {
+      const visitors = stats.visitors.size;
+      const signups = stats.signups.size;
+      const abandoned = Math.max(visitors - signups, 0);
+      const exitTouches = abandonByLanding.get(page) || 0;
+      return {
+        page,
+        visitors,
+        signups,
+        abandoned,
+        abandonRate: pct(abandoned, visitors),
+        abandonRateLabel: rate(abandoned, visitors),
+        exitTouches,
+      };
+    })
+    .filter((row) => row.visitors > 0 && (row.abandoned > 0 || row.exitTouches > 0))
+    .sort((a, b) => b.abandonRate - a.abandonRate || b.abandoned - a.abandoned || b.visitors - a.visitors)
+    .slice(0, 12);
+
+  const exitPeople = {};
+  if (exitStageFilter) {
+    const row = exitStages.find((s) => s.from === exitStageFilter);
+    if (row) {
+      exitPeople[exitStageFilter] = row._people
+        .slice()
+        .sort((a, b) => String(b.reachedAt).localeCompare(String(a.reachedAt)))
+        .slice(0, 100);
+    }
+  }
+
+  const publicExitStages = exitStages.map(({ _people, ...rest }) => rest);
+
+  // Align transition drop-off with exit rows for UI convenience.
+  const transitionExits = (transitions || []).map((t) => {
+    const match = publicExitStages.find((s) => s.from === t.from && s.to === t.to);
+    return {
+      ...t,
+      exitCount: match?.exitCount ?? t.dropOffCount,
+      exitRate: match?.exitRate ?? t.dropOffRate,
+      exitRateLabel: match?.exitRateLabel ?? t.dropOffRateLabel,
+    };
+  });
+
+  return {
+    mostCommonExit: mostCommonExit
+      ? {
+        from: mostCommonExit.from,
+        to: mostCommonExit.to,
+        fromLabel: mostCommonExit.fromLabel,
+        toLabel: mostCommonExit.toLabel,
+        exitCount: mostCommonExit.exitCount,
+        exitRate: mostCommonExit.exitRate,
+        exitRateLabel: mostCommonExit.exitRateLabel,
+        avgMinutesBeforeExitLabel: mostCommonExit.avgMinutesBeforeExitLabel,
+        topLastPage: mostCommonExit.topLastPages[0]?.key || "",
+      }
+      : null,
+    exitStages: publicExitStages,
+    topAbandonmentLandingPages,
+    exitPeople,
+    totalExits: allLeaverKeys.size,
+    transitionExits,
+    note: "Why They Left uses unique actors who reached a stage but not the next. Last page and time spent come from their analytics events in this range.",
+  };
+}
+
+function buildMarketingFunnel(store, events, range, { source = "", stage = "", exitStage = "" } = {}) {
   const sourceFilter = FUNNEL_SOURCES.includes(source) ? source : "";
   const stageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === stage) ? stage : "";
+  const exitStageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === exitStage) ? exitStage : "";
   const scoped = filterEvents(events, range.startMs);
   const { users } = testAccountGuard.filterUsersForCustomerAnalytics(Object.values(store.users || {}));
   const usersByEmail = new Map(users.map((u) => [normalizeEmail(u.email), u]));
@@ -952,6 +1163,8 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "" } 
     }
   }
 
+  const actorActivity = buildActorActivityIndex(scoped.filter((event) => !isTestActor(event)));
+
   const maxCount = Math.max(1, ...FUNNEL_STAGE_DEFS.map((def) => overall[def.id].size));
   const stages = FUNNEL_STAGE_DEFS.map((def, index) => {
     const count = overall[def.id].size;
@@ -1022,23 +1235,40 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "" } 
     stagePeople[def.id] = [...people[def.id].values()]
       .sort((a, b) => String(b.reachedAt).localeCompare(String(a.reachedAt)))
       .slice(0, 100)
-      .map((person) => ({
-        email: person.email || "",
-        name: person.name || "",
-        visitorKey: person.email ? "" : person.key,
-        source: person.source,
-        device: person.device,
-        landingPage: person.landingPage,
-        reachedAt: person.reachedAt,
-        exitLabel: person.exitLabel || "",
-        exitedBefore: person.exitedBefore || "",
-      }));
+      .map((person) => {
+        const activity = resolveActorActivity(actorActivity, person);
+        return {
+          email: person.email || "",
+          name: person.name || "",
+          visitorKey: person.email ? "" : person.key,
+          source: person.source,
+          device: person.device,
+          landingPage: person.landingPage,
+          lastPage: activity.lastPage || person.landingPage || "/",
+          minutesBeforeExit: activity.minutesBeforeExit,
+          minutesBeforeExitLabel: formatMinutesLabel(activity.minutesBeforeExit),
+          reachedAt: person.reachedAt,
+          exitLabel: person.exitLabel || "",
+          exitedBefore: person.exitedBefore || "",
+          exitedAfter: person.exitedAfter || "",
+        };
+      });
   }
+
+  const exitInsights = buildFunnelExitInsights({
+    people,
+    overall,
+    transitions,
+    landingStats,
+    actorActivity,
+    exitStageFilter,
+  });
 
   return {
     range: range.key,
     sourceFilter: sourceFilter || "all",
     stageFilter: stageFilter || "",
+    exitStageFilter: exitStageFilter || "",
     sources: ["all", ...FUNNEL_SOURCES],
     stages,
     transitions,
@@ -1053,6 +1283,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "" } 
       .filter((row) => row.count > 0)
       .sort((a, b) => b.count - a.count),
     topLandingPages,
+    exitInsights,
     timing: {
       avgHoursVisitToSignup: avgHours(visitToSignupHours),
       avgHoursVisitToSignupLabel: formatHoursLabel(avgHours(visitToSignupHours)),
@@ -1072,7 +1303,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "" } 
     },
     stagePeople,
     overallConversionRate: rate(paidCount, stages[0]?.count || 0),
-    note: "Active subscribers is a current snapshot. CTA clicks reuse historical button_click/signup_click plus new cta_click events. Click a stage to inspect who reached it and where they exited.",
+    note: "Active subscribers is a current snapshot. CTA clicks reuse historical button_click/signup_click plus new cta_click events. Click a stage or an exit row to inspect who reached it and where they left.",
   };
 }
 
@@ -1219,6 +1450,7 @@ function buildInsights(store, {
   status = "",
   source = "",
   stage = "",
+  exitStage = "",
   events = null,
   marketing = null,
   monitoringSnapshot = null,
@@ -1241,7 +1473,7 @@ function buildInsights(store, {
     case "marketing-funnel":
       return {
         ...base,
-        data: buildMarketingFunnel(store, analyticsEvents, rangeInfo, { source, stage }),
+        data: buildMarketingFunnel(store, analyticsEvents, rangeInfo, { source, stage, exitStage }),
       };
     case "feature-usage":
       return { ...base, data: buildFeatureUsage(store, analyticsEvents, rangeInfo) };
