@@ -19,6 +19,7 @@
 - **AI Teacher Assistant** ready for review — see [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md) (Reusable Library + Make This Better + Teacher Chat; flags remain **false**)
 - **AI Curriculum Director** ready for review — see [AI_CURRICULUM_DIRECTOR.md](./AI_CURRICULUM_DIRECTOR.md) (library-wide intelligence + masters; `teachingKitCurriculumDirector` default **false**)
 - **AI Curriculum Quality Review** ready for review — see [AI_CURRICULUM_QUALITY_REVIEW.md](./AI_CURRICULUM_QUALITY_REVIEW.md) (specialist readiness + library health; `teachingKitQualityReview` default **false**)
+- **Curriculum Production** ready for review — see [CURRICULUM_PRODUCTION.md](./CURRICULUM_PRODUCTION.md) (upgrade highest-traffic lessons draft-only; flags remain **false**)
 - **No merge, deploy, or flag enablement** until owner sign-off
 
 ## Start here
@@ -39,6 +40,7 @@
 | **AI Teacher Assistant** | [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md) |
 | **AI Curriculum Director** | [AI_CURRICULUM_DIRECTOR.md](./AI_CURRICULUM_DIRECTOR.md) |
 | **AI Curriculum Quality Review** | [AI_CURRICULUM_QUALITY_REVIEW.md](./AI_CURRICULUM_QUALITY_REVIEW.md) |
+| **Curriculum Production** | [CURRICULUM_PRODUCTION.md](./CURRICULUM_PRODUCTION.md) |
 | **Phase 1 QA readiness report** | [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md) |
 | Clickable companion mockup | [mockups/gold-standard.html](./mockups/gold-standard.html) |
 | Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
