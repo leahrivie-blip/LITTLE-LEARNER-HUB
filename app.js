@@ -33726,14 +33726,14 @@ async function maybeHandleFamilyHubInviteFromUrl() {
   }
   const invite = peek.invite || {};
   card.innerHTML = `
-    <p class="eyebrow">Family Hub invite</p>
-    <h3>Open ${escapeHtml(invite.programName || "Family Hub")}</h3>
-    <p>Household: <strong>${escapeHtml(invite.label || "Your family")}</strong></p>
-    <p class="muted-copy">Children: ${escapeHtml((invite.children || []).map((c) => c.name).join(", ") || "Linked by your provider")}</p>
-    <p class="muted-copy">One household login covers all linked children. No separate login per child.</p>
-    <div class="account-actions-row">
+    <p class="fh-kicker">Family Hub invite</p>
+    <h2>Welcome to ${escapeHtml(invite.programName || "Family Hub")}</h2>
+    <p><strong>${escapeHtml(invite.label || "Your family")}</strong></p>
+    <p class="muted-copy">${escapeHtml((invite.children || []).map((c) => c.name).join(", ") || "Children linked by your provider")}</p>
+    <p class="muted-copy">One login covers every child in your household.</p>
+    <div class="fh-account-actions">
       <button class="primary-button" type="button" data-redeem-family-hub="${escapeHtml(token)}">Open Family Hub</button>
-      <button class="ghost-button" type="button" data-dismiss-family-hub-invite>Not now</button>
+      <button class="ghost-button fh-btn-secondary" type="button" data-dismiss-family-hub-invite>Not now</button>
     </div>
     <p class="form-message" id="familyHubAcceptMessage" aria-live="polite"></p>
   `;
@@ -58389,7 +58389,7 @@ document.addEventListener("click", async (event) => {
             }
           });
         }
-        showActionFeedback("Welcome to Family Hub.");
+        // Stay quiet — the Today dashboard itself is the confirmation.
       })
       .catch((error) => {
         if (message) message.textContent = error.message || "Could not open Family Hub.";

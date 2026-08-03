@@ -23065,6 +23065,36 @@ body.family-hub-parent-mode .simple-child-page {
   gap: 8px;
 }
 
+body.family-hub-parent-mode .after-action-prompt,
+body.family-hub-parent-mode #afterActionPrompt {
+  display: none !important;
+}
+
+body.family-hub-invite-open .topbar,
+body.family-hub-invite-open footer,
+body.family-hub-invite-open .llh-public-footer {
+  display: none !important;
+}
+
+.fh-invite-accept-panel .fh-signin {
+  gap: 10px;
+}
+
+.fh-invite-accept-panel .fh-signin h2 {
+  margin: 0;
+  font-family: var(--llh-font-display, Fraunces, Georgia, serif);
+  font-size: clamp(1.35rem, 3.5vw, 1.7rem);
+}
+
+.fh-invite-accept-panel .fh-account-actions {
+  margin-top: 4px;
+}
+
+.fh-invite-accept-panel .fh-account-actions .primary-button,
+.fh-invite-accept-panel .fh-account-actions .ghost-button {
+  flex: 1 1 140px;
+}
+
 body.family-hub-parent-mode .primary-button {
   background: var(--fh-accent-deep, #2f5f7d);
   border-color: var(--fh-accent-deep, #2f5f7d);
@@ -23159,6 +23189,21 @@ body.family-hub-parent-mode .fh-btn-secondary {
   .fh-photo-grid,
   .fh-photo-grid--page {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fh-messages {
+    padding-bottom: 8px;
+  }
+
+  .fh-message-compose {
+    position: sticky;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    z-index: 30;
+    box-shadow: 0 -8px 24px rgba(36, 52, 71, 0.06);
+  }
+
+  .fh-message-thread {
+    max-height: min(42vh, 360px);
   }
 }
 

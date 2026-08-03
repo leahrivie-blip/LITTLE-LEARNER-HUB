@@ -78,8 +78,8 @@ test("shell markers: hub nav, view, client-config, shell version", () => {
   assert.match(indexHtml, /id="view-home-daycare-hub"/);
   assert.match(indexHtml, /Home Daycare Hub/);
   assert.match(indexHtml, /\/api\/client-config\.js/);
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish2"/);
-  assert.match(indexHtml, /app\.js\?v=20260803-family-hub-polish2/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish3"/);
+  assert.match(indexHtml, /app\.js\?v=20260803-family-hub-polish3/);
 });
 
 test("server exposes HOME_DAYCARE_HUB_TESTING fence", () => {
