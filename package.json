@@ -129,6 +129,7 @@
     "test:admin-panel-loading": "node scripts/test-admin-panel-loading-audit.js",
     "test:production-performance": "node scripts/test-production-performance-audit.js",
     "test:production-manual-regression": "node scripts/test-production-manual-regression.js",
+    "test:production-acceptance": "node scripts/test-production-acceptance.js",
     "test:production-core-flows": "node scripts/test-production-core-flows.js",
     "test:production-post-merge-smoke": "node scripts/test-production-post-merge-smoke.js",
     "test:production-deep-links": "node scripts/test-production-deep-links-mobile.js",
