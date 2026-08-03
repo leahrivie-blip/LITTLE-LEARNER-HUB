@@ -33,6 +33,7 @@ const metaCapi = require("./meta-capi.js");
 const testAccountGuard = require("./test-account-guard.js");
 const { createProductionMonitoring } = require("./production-monitoring.js");
 const productionMonitoring = createProductionMonitoring();
+const adminInsights = require("./admin-insights.js");
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -10370,6 +10371,70 @@ async function handleAdminProductionMonitoring(request, response, url) {
   jsonResponse(response, 200, { ok: true, monitoring: snapshot });
 }
 
+async function handleAdminInsights(request, response, url) {
+  const adminToken = extractAdminToken(request, url) || "";
+  if (!validAdminToken(adminToken)) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const hub = String(url.searchParams.get("hub") || "advisor").trim();
+  const range = String(url.searchParams.get("range") || "7d").trim();
+  const email = normalizeEmail(url.searchParams.get("email") || "");
+  const sort = String(url.searchParams.get("sort") || "votes").trim();
+  const category = String(url.searchParams.get("category") || "").trim();
+  const status = String(url.searchParams.get("status") || "").trim();
+  const store = peekStore();
+  let marketing = null;
+  let monitoringSnapshot = null;
+  try {
+    if (hub === "advisor" || hub === "error-center" || hub === "release-center") {
+      monitoringSnapshot = await buildProductionMonitoringSnapshot();
+    }
+    if (hub === "advisor") {
+      const summary = analyticsSummary(store);
+      marketing = summary?.marketing || null;
+    }
+  } catch (error) {
+    console.warn("[admin-insights] enrichment failed:", error.message || error);
+  }
+  const insights = adminInsights.buildInsights(store, {
+    hub,
+    range,
+    email,
+    sort,
+    category,
+    status,
+    events: store.analyticsEvents || [],
+    marketing,
+    monitoringSnapshot,
+    getBuildInfo: () => ({
+      version: process.env.RENDER_GIT_COMMIT || process.env.BUILD_VERSION || "",
+      commitSha: process.env.RENDER_GIT_COMMIT || "",
+      shellVersion: "20260803-admin-dashboard-2",
+      deployedAt: process.env.RENDER_GIT_COMMIT ? new Date().toISOString() : "",
+    }),
+    getSeoStatus: () => {
+      try {
+        const robots = typeof seo.renderRobotsTxt === "function" ? seo.renderRobotsTxt() : "";
+        const sitemap = typeof seo.renderSitemapXml === "function" ? seo.renderSitemapXml() : "";
+        const urlCount = (String(sitemap).match(/<url>/g) || []).length;
+        return {
+          robotsOk: /Sitemap:/i.test(robots),
+          sitemapOk: urlCount > 0,
+          urlCount,
+          missingTitles: [],
+          missingDescriptions: [],
+          brokenLinks: [],
+          topLandingPages: [],
+        };
+      } catch {
+        return null;
+      }
+    },
+  });
+  jsonResponse(response, 200, { ok: true, insights });
+}
+
 const LIVE_CONNECT_CONFIRM_PHRASE = "CONNECT_ASHLEY_LADIISHA";
 
 function isAshleyLadiishaPair(ownerEmail, memberEmail) {
@@ -18870,6 +18935,12 @@ async function handleFeatureRequestUpdate(request, response) {
     status: FEATURE_REQUEST_STATUSES.has(nextStatus) ? nextStatus : items[index].status,
     updatedAt: new Date().toISOString(),
   };
+  if (Object.prototype.hasOwnProperty.call(body, "estimatedRelease")) {
+    items[index].estimatedRelease = String(body.estimatedRelease || "").trim().slice(0, 40);
+  }
+  if (Object.prototype.hasOwnProperty.call(body, "notifyOnComplete")) {
+    items[index].notifyOnComplete = body.notifyOnComplete !== false && body.notifyOnComplete !== "false";
+  }
   if (body.adminNote) {
     items[index].adminNotes = items[index].adminNotes || [];
     items[index].adminNotes.push({
@@ -18891,13 +18962,22 @@ async function handleFeatureRequestUpdate(request, response) {
   }
   store.featureRequests = items;
   const reporterEmail = normalizeEmail(items[index].email || "");
+  const voters = Array.isArray(items[index].voterEmails) ? items[index].voterEmails.map(normalizeEmail).filter(Boolean) : [];
+  const notifyRecipients = [...new Set([reporterEmail, ...voters].filter(Boolean))];
+  const becameReleased = items[index].status !== previousStatus
+    && (items[index].status === "Completed" || items[index].status === "Released");
+  const shouldNotify = items[index].status !== previousStatus
+    && (items[index].notifyOnComplete !== false)
+    && (becameReleased || items[index].status !== previousStatus);
   try {
-    if (reporterEmail && items[index].status !== previousStatus) {
+    if (notifyRecipients.length && shouldNotify) {
       await fanOutNotificationsAndPush(store, {
         type: "feature_status",
-        recipients: [reporterEmail],
-        title: "Feature request update",
-        preview: `Status: ${items[index].status}`,
+        recipients: becameReleased ? notifyRecipients : [reporterEmail].filter(Boolean),
+        title: becameReleased ? "Feature request released" : "Feature request update",
+        preview: becameReleased
+          ? `"${String(items[index].title || "Your request").slice(0, 80)}" is now available.`
+          : `Status: ${items[index].status}`,
         refId: id,
       });
     } else if (!(await persistStoreOr503(store, response, "Could not save feature request update."))) {
@@ -21847,6 +21927,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/stripe-backfill") return await handleAdminStripeBackfill(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-health") return handleAdminStoreHealth(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/production-monitoring") return await handleAdminProductionMonitoring(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/admin/insights") return await handleAdminInsights(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/program-migration-plan") return await handleAdminProgramMigrationPlan(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/admin/program-migration-rollback") return await handleAdminProgramMigrationRollback(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/store-export") return handleAdminStoreExport(request, response, url);

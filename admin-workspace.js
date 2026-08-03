@@ -135,7 +135,7 @@
         <div>
           <p class="eyebrow">Admin Home</p>
           <h3>Your calm owner workspace</h3>
-          <p class="muted-copy">Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount?.email || "owner")}. Marketing performance lives under Marketing; developer tools live under Advanced.</p>
+          <p class="muted-copy">Signed in as ${escapeHtml(adminSession()?.email || adminOwnerAccount?.email || "owner")}. Start each morning in the AI Business Advisor under Insights.</p>
         </div>
         <div class="account-actions-row">
           <button class="ghost-button" type="button" id="adminRefreshAnalyticsButton" ${adminAnalyticsLoading ? "disabled" : ""}>
@@ -144,16 +144,16 @@
         </div>
       </div>
       <div class="admin-home-grid">
-        <article class="admin-home-card">
-          <p class="eyebrow">Start Here</p>
-          <h4>Today at a glance</h4>
-          <p class="muted-copy">Check alerts, messages, and billing before diving into content.</p>
+        <article class="admin-home-card admin-insights-hero-card">
+          <p class="eyebrow">AI Business Advisor</p>
+          <h4>Morning operating summary</h4>
+          <p class="muted-copy">Visitors, signups, trials, paid conversions, content demand, and clear next actions — built from live analytics.</p>
           <ul class="muted-copy">
             <li>${escapeHtml(String(totals.totalRegisteredUsers ?? adminOwnerAccountRows().length))} registered users</li>
             <li>${escapeHtml(String(totals.activeUsersToday ?? "—"))} active today</li>
             <li>${escapeHtml(String(totals.newSignupsToday ?? "—"))} new signups today</li>
           </ul>
-          <button type="button" class="primary-button" data-admin-landing-tab="marketing-analytics">Open Marketing Analytics</button>
+          <button type="button" class="primary-button" data-admin-landing-tab="advisor">Open AI Business Advisor</button>
         </article>
         <article class="admin-home-card">
           <p class="eyebrow">Needs Attention</p>
