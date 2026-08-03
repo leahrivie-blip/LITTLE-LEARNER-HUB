@@ -431,15 +431,19 @@ async function main() {
         enrichmentDraft: payload.enrichmentDraft,
         resourceIds: [],
       };
-      window.curriculumLessonPlanById = (id) => (id === plan.id ? plan : null);
+      window.__enrichPlan = plan;
+      window.__siteStamp = payload.expectedUpdatedAt;
+      window.curriculumLessonPlanById = (id) => (id === plan.id ? window.__enrichPlan : null);
       window.curriculumActivitiesForLesson = (id) => (id === plan.id ? payload.activities : []);
       window.effectiveSiteContent = () => ({ featureFlags: { teachingKitEnrichmentEditor: true } });
       window.effectiveCurriculum = () => ({ resources: [] });
       window.adminSession = () => ({ token: payload.adminToken, email: payload.adminEmail });
-      window.curriculumExpectedUpdatedAt = () => payload.expectedUpdatedAt;
+      window.curriculumExpectedUpdatedAt = () => window.__siteStamp || "";
       window.applyCurriculumState = (curriculum, opts) => {
         window.__lastCurriculum = curriculum;
-        window.__lastSiteStamp = opts?.siteContentUpdatedAt || "";
+        if (opts?.siteContentUpdatedAt) window.__siteStamp = opts.siteContentUpdatedAt;
+        const live = (curriculum?.lessonPlans || []).find((p) => p.id === plan.id);
+        if (live) window.__enrichPlan = live;
       };
       window.LLHTeachingKitEnrichmentEditor.open(plan.id);
     }, {
@@ -651,22 +655,18 @@ async function main() {
       updatedAt: new Date().toISOString(),
       lastEditedBy: ADMIN.email,
     };
-    // Refresh editor plan from live curriculum
     await page.evaluate(async (payload) => {
       const plan = payload.plan;
-      window.curriculumLessonPlanById = (id) => (id === plan.id ? plan : null);
-      window.curriculumExpectedUpdatedAt = () => payload.expectedUpdatedAt;
-      let publishCalls = 0;
-      const originalFetch = window.fetch.bind(window);
-      window.fetch = async (url, opts) => {
-        if (String(url).includes("/api/admin/curriculum/lesson-plans") && opts?.method === "POST") {
-          publishCalls += 1;
-        }
-        return originalFetch(url, opts);
+      window.__enrichPlan = plan;
+      window.__siteStamp = payload.expectedUpdatedAt;
+      window.curriculumLessonPlanById = (id) => (id === plan.id ? window.__enrichPlan : null);
+      window.curriculumExpectedUpdatedAt = () => window.__siteStamp || "";
+      window.applyCurriculumState = (curriculum, opts) => {
+        if (opts?.siteContentUpdatedAt) window.__siteStamp = opts.siteContentUpdatedAt;
+        const live = (curriculum?.lessonPlans || []).find((p) => p.id === plan.id);
+        if (live) window.__enrichPlan = live;
       };
-      window.__publishCalls = () => publishCalls;
       window.LLHTeachingKitEnrichmentEditor.open(plan.id);
-      // Seed draft in editor state via activity tip edit simulation: set draft directly through open's plan
     }, {
       plan: { ...farmFail, enrichmentDraft: secondDraft },
       expectedUpdatedAt: afterFail.json.siteContent.updatedAt,
@@ -675,10 +675,15 @@ async function main() {
     await page.click("[data-enrich-publish]");
     await page.waitForSelector("[data-publish-modal]");
     await page.click("[data-publish-confirm]");
-    await page.waitForFunction(() => {
-      const status = document.querySelector(".tk-enrich-status");
-      return status && /published|already published/i.test(status.textContent || "");
-    }, { timeout: 20000 });
+    try {
+      await page.waitForFunction(() => {
+        const status = document.querySelector(".tk-enrich-status");
+        return status && /published|already published/i.test(status.textContent || "");
+      }, { timeout: 20000 });
+    } catch (error) {
+      const statusText = await page.locator(".tk-enrich-status").innerText().catch(() => "");
+      throw new Error(`UI publish did not complete. Status: ${statusText || "(empty)"} (${error.message})`);
+    }
     await page.screenshot({
       path: path.join(ARTIFACT_DIR, "tk-enrich-slice5-publish-success-farm-animals.png"),
       fullPage: true,
