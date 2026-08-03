@@ -23,6 +23,8 @@
     "teachingKitViewer",
     "teachingKitPrintCenter",
     "teachingKitAttachments",
+    // Enrichment Editor (admin upgrade workspace). Default false until owner enables per slice.
+    "teachingKitEnrichmentEditor",
   ]);
 
   const COMPLETENESS_VALUES = Object.freeze([
@@ -119,6 +121,7 @@
       teachingKitViewer: false,
       teachingKitPrintCenter: false,
       teachingKitAttachments: false,
+      teachingKitEnrichmentEditor: false,
     };
   }
 
@@ -128,7 +131,13 @@
       teachingKitViewer: input.teachingKitViewer === true,
       teachingKitPrintCenter: input.teachingKitPrintCenter === true,
       teachingKitAttachments: input.teachingKitAttachments === true,
+      teachingKitEnrichmentEditor: input.teachingKitEnrichmentEditor === true,
     };
+  }
+
+  /** Admin Enrichment Editor framework (Slice 1+). Never auto-enabled. */
+  function isTeachingKitEnrichmentEditorEnabled(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitEnrichmentEditor");
   }
 
   function isTeachingKitFlagEnabled(flags, key) {
@@ -180,14 +189,22 @@
         ? value.sectionOverrides
         : {};
 
-    return {
+    const completionRaw = Number(value.completionPercent);
+    const completionPercent = Number.isFinite(completionRaw)
+      ? Math.max(0, Math.min(100, Math.round(completionRaw)))
+      : undefined;
+    const out = {
       schemaVersion,
       completeness,
       sectionOverrides,
       attachmentIds: normalizedIdList(value.attachmentIds, 100, 160),
       exampleImageIds: normalizedIdList(value.exampleImageIds, 100, 160),
       updatedAt: clampShortText(value.updatedAt, 80),
+      lastEditedBy: clampShortText(value.lastEditedBy, 180),
     };
+    if (!out.lastEditedBy) delete out.lastEditedBy;
+    if (completionPercent != null) out.completionPercent = completionPercent;
+    return out;
   }
 
   /**
@@ -258,6 +275,7 @@
     defaultTeachingKitFeatureFlags,
     normalizedTeachingKitFeatureFlags,
     isTeachingKitFlagEnabled,
+    isTeachingKitEnrichmentEditorEnabled,
     isTeachingKitApiEnabled,
     normalizedTeachingKitOverlay,
     resolveTeachingKitRenderMode,

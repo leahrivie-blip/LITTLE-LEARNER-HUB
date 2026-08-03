@@ -402,13 +402,13 @@
         <div class="tk-photo-pair">
           <div class="tk-photo">
             ${activity.examplePhotoUrl
-              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" />`
+              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" data-tk-photo-fallback="Example photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
               : `<div class="tk-photo-placeholder">Example photo</div>`}
             <div class="tk-photo-caption">Example photo</div>
           </div>
           <div class="tk-photo tk-photo-setup">
             ${activity.setupPhotoUrl
-              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" />`
+              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" data-tk-photo-fallback="Setup photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
               : `<div class="tk-photo-placeholder">Setup photo</div>`}
             <div class="tk-photo-caption">Setup photo</div>
           </div>
@@ -428,6 +428,20 @@
                 <div class="tk-prompt"><strong>${escapeHtml(prompt.label || "Prompt")}</strong>${escapeHtml(prompt.text || "")}</div>
               `).join("") || `<p class="tk-muted">None listed</p>`}
             </article>
+            ${(activity.settingTags || []).length ? `
+              <article class="tk-card">
+                <h4>Group / setting</h4>
+                <p class="tk-muted">${escapeHtml((activity.settingTags || []).map((tag) => String(tag || "").replace(/_/g, " ")).join(" · "))}</p>
+              </article>
+            ` : ""}
+            ${(activity.supplySubstitutions || []).length ? `
+              <article class="tk-card">
+                <h4>Supply substitutions</h4>
+                <ul class="tk-list">${(activity.supplySubstitutions || []).map((sub) => `
+                  <li>No <strong>${escapeHtml(sub.need)}</strong> → use <strong>${escapeHtml(sub.use)}</strong></li>
+                `).join("")}</ul>
+              </article>
+            ` : ""}
             <article class="tk-card tk-card-warn">
               <h4>Observation ideas</h4>
               <ul class="tk-list">${(activity.observationIdeas || []).map((idea) => `<li>${escapeHtml(idea)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul>
@@ -672,18 +686,25 @@
   }
 
   function defaultState(kit, options) {
+    const opts = options && typeof options === "object" ? options : {};
     const today = kit?.companion?.today?.day || "monday";
     const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
     const presetId = "week_binder";
+    const initialActivityId = text(opts.initialActivityId);
+    const initialSurface = text(opts.initialSurface);
+    const knownSurface = SURFACES.some((item) => item.id === initialSurface) || initialSurface === "activity";
+    const surface = initialActivityId
+      ? "activity"
+      : (knownSurface ? initialSurface : "start");
     return {
-      surface: "start",
-      day: today,
-      activityId: "",
+      surface,
+      day: text(opts.initialDay) || today,
+      activityId: initialActivityId,
       openEverything: false,
       showSubstitute: false,
       returnSurface: "today",
       removedActivityIds: {},
-      printCenterEnabled: Boolean(options && options.printCenterEnabled),
+      printCenterEnabled: Boolean(opts.printCenterEnabled),
       printPreset: presetId,
       printParts: printApi?.defaultPartsForPreset
         ? printApi.defaultPartsForPreset(presetId)
@@ -948,6 +969,9 @@
 
     const state = defaultState(kitPayload, {
       printCenterEnabled: flags.teachingKitPrintCenter === true || opts.printCenterEnabled === true,
+      initialActivityId: opts.initialActivityId,
+      initialSurface: opts.initialSurface,
+      initialDay: opts.initialDay,
     });
     const chrome = opts.chrome || {};
     renderInto(body, kitPayload, state, chrome);

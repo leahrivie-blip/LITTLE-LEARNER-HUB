@@ -151,6 +151,10 @@
   }
 
   function teacherPromptsFrom(source) {
+    const tips = asArray(source.teacherTips).map(text).filter(Boolean);
+    if (tips.length) {
+      return tips.slice(0, 8).map((tip) => ({ label: "Tip", text: tip }));
+    }
     const language = text(source.teacherLanguage);
     if (language) {
       const labeled = [];
@@ -168,6 +172,24 @@
     const role = text(source.teacherRole);
     if (role) return [{ label: "Prompt", text: role }];
     return [];
+  }
+
+  function supplySubstitutionsFrom(source) {
+    return asArray(source.substitutions).map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const need = text(item.need || item.from);
+      const use = text(item.use || item.to);
+      if (!need || !use) return null;
+      return { need, use };
+    }).filter(Boolean).slice(0, 12);
+  }
+
+  function settingTagsFrom(source) {
+    const allowed = new Set(["small_group", "large_group", "indoor", "outdoor"]);
+    return asArray(source.settingTags)
+      .map((tag) => text(tag).toLowerCase().replace(/\s+/g, "_"))
+      .filter((tag) => allowed.has(tag))
+      .slice(0, 8);
   }
 
   function cleanupTipsFrom(source) {
@@ -339,6 +361,8 @@
       estimatedMinutes: minutes,
       hasExamplePhoto: Boolean(text(source.exampleImageUrl || source.examplePhotoUrl)),
       hasSetupPhoto: Boolean(text(source.setupImageUrl || source.setupPhotoUrl)),
+      settingTags: settingTagsFrom(source),
+      supplySubstitutions: supplySubstitutionsFrom(source),
       substituteCandidates: [],
     };
   }

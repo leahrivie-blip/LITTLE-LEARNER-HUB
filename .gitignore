@@ -18,3 +18,6 @@ server/.staff-invite-test-store-*.json
 server/*.admin-sessions.json
 server/data/*.admin-sessions.json
 
+
+.tmp-*
+.tmp-tk-*
