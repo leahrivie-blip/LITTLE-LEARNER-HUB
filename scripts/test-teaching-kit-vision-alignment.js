@@ -117,32 +117,34 @@ function startServer() {
 }
 
 async function adminLogin() {
-  const res = await requestJson("POST", "/api/admin/session", {
+  const res = await requestJson("POST", "/api/admin/login", {
     email: ADMIN.email,
     password: ADMIN.password,
-    accessCode: ADMIN.code,
+    code: ADMIN.code,
   });
-  assert(res.status === 200 && res.json?.token, "admin login");
-  return res.json.token;
+  assert(res.status === 200 && (res.json?.token || res.json?.adminToken), `admin login: ${res.status}`);
+  return res.json.token || res.json.adminToken;
 }
 
 async function setFlags(adminToken, flags) {
   const boot = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);
   assert(boot.status === 200, "load site content");
-  const siteContent = {
-    ...(boot.json.siteContent || {}),
-    featureFlags: {
-      ...(boot.json.siteContent?.featureFlags || {}),
-      ...flags,
-    },
-  };
+  const existing = boot.json.siteContent || {};
   const save = await requestJson("POST", "/api/admin/site-content", {
     adminToken,
-    expectedUpdatedAt: boot.json.siteContentUpdatedAt,
-    siteContent,
+    expectedUpdatedAt: existing.updatedAt || boot.json.siteContentUpdatedAt,
+    siteContent: {
+      ...existing,
+      updatedAt: existing.updatedAt,
+      featureFlags: {
+        ...(existing.featureFlags || {}),
+        ...flags,
+      },
+    },
   }, { Authorization: `Bearer ${adminToken}` });
   assert(save.status === 200, `save flags: ${save.status}`);
-  return save.json.siteContentUpdatedAt;
+  const after = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);
+  return after.json.siteContent?.updatedAt || after.json.siteContentUpdatedAt || "";
 }
 
 function testUnitFlagsDefaultOff() {
