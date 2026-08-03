@@ -14,8 +14,9 @@
 - **Enrichment Editor Slice 5** approved
 - **Enrichment Editor Slice 6** approved
 - **Enrichment Editor Slice 7** approved as final implementation slice
-- **Preservation remediation** ready for owner review — see [ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md](./ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md)
-- **No merge, deploy, flag enablement, or closing superseded PRs** until owner sign-off
+- **Preservation remediation** approved
+- **Complete Teaching Kit binder authoring** ready for review — see [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md) (`teachingKitAuthoring` default **false**; Enrichment Editor remains off)
+- **No merge, deploy, or flag enablement** until owner sign-off
 
 ## Start here
 
@@ -31,6 +32,7 @@
 | **Enrichment Editor Slice 6** | [ENRICHMENT_EDITOR_SLICE6.md](./ENRICHMENT_EDITOR_SLICE6.md) |
 | **Enrichment Editor Slice 7** | [ENRICHMENT_EDITOR_SLICE7.md](./ENRICHMENT_EDITOR_SLICE7.md) |
 | **Enrichment preservation remediation** | [ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md](./ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md) |
+| **Complete Teaching Kit authoring** | [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md) |
 | **Phase 1 QA readiness report** | [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md) |
 | Clickable companion mockup | [mockups/gold-standard.html](./mockups/gold-standard.html) |
 | Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |

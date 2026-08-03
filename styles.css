@@ -24763,3 +24763,24 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
     grid-template-columns: 1fr;
   }
 }
+
+/* Complete Teaching Kit binder authoring */
+.tk-authoring-binder-panel{margin:1.25rem 0 1.75rem;padding:1.1rem 1.2rem;border:1px solid rgba(36,49,42,.12);border-radius:.75rem;background:linear-gradient(165deg,#f7faf7 0%,#eef5f0 55%,#f8f4ee 100%)}
+.tk-authoring-binder-panel h4{margin:0 0 .35rem;font-family:"Fraunces",Georgia,serif;font-size:1.35rem;color:#24312a}
+.tk-authoring-checklist{margin:1rem 0}
+.tk-authoring-checklist-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap}
+.tk-authoring-checklist-score{display:flex;align-items:center;gap:.5rem}
+.tk-authoring-checklist-score strong{font-size:1.4rem}
+.tk-authoring-bar{height:.55rem;border-radius:999px;background:rgba(36,49,42,.08);overflow:hidden;margin:.65rem 0 1rem}
+.tk-authoring-bar i{display:block;height:100%;background:linear-gradient(90deg,#3d7a5a,#6aa37a)}
+.tk-authoring-check-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.45rem .75rem}
+.tk-authoring-check-list li{display:flex;justify-content:space-between;gap:.5rem;padding:.45rem .6rem;border-radius:.45rem;background:rgba(255,255,255,.65);border:1px solid rgba(36,49,42,.08);font-size:.92rem}
+.tk-authoring-check-list li.is-ready strong{color:#2f6b45}
+.tk-authoring-check-list li.is-missing strong{color:#9a4d2e}
+.tk-authoring-toolkit{margin-top:1rem}
+.tk-authoring-activity-binder{margin-top:1rem;border-color:rgba(61,122,90,.25);background:rgba(255,255,255,.7)}
+.tk-authoring-tag-grid{display:flex;flex-wrap:wrap;gap:.55rem .9rem}
+.tk-authoring-ai-row{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;margin-top:.75rem}
+.tk-authoring-ai-tray{margin-top:.75rem;padding:.75rem;border:1px dashed rgba(61,122,90,.35);border-radius:.55rem;background:#fff}
+.tk-authoring-ai-list{margin:.5rem 0;padding-left:0;list-style:none;display:grid;gap:.4rem}
+@media (max-width:720px){.tk-authoring-checklist-head{flex-direction:column}.tk-authoring-check-list{grid-template-columns:1fr}}

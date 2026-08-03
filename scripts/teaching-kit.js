@@ -25,6 +25,9 @@
     "teachingKitAttachments",
     // Enrichment Editor (admin upgrade workspace). Default false until owner enables per slice.
     "teachingKitEnrichmentEditor",
+    // Complete Teaching Kit binder authoring in the classic lesson editor. Default false.
+    // Independent of teachingKitEnrichmentEditor — never auto-enabled.
+    "teachingKitAuthoring",
   ]);
 
   const COMPLETENESS_VALUES = Object.freeze([
@@ -67,6 +70,7 @@
     Object.freeze({ id: "vocab_cards", label: "Vocabulary Cards", printDefault: false }),
     Object.freeze({ id: "family_letter", label: "Family Letter", printDefault: false }),
     Object.freeze({ id: "observation_forms", label: "Observation Forms", printDefault: false }),
+    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit", printDefault: true }),
   ]);
 
   /** Map existing activityCategory strings → kit section ids (extensible). */
@@ -122,6 +126,7 @@
       teachingKitPrintCenter: false,
       teachingKitAttachments: false,
       teachingKitEnrichmentEditor: false,
+      teachingKitAuthoring: false,
     };
   }
 
@@ -132,12 +137,26 @@
       teachingKitPrintCenter: input.teachingKitPrintCenter === true,
       teachingKitAttachments: input.teachingKitAttachments === true,
       teachingKitEnrichmentEditor: input.teachingKitEnrichmentEditor === true,
+      teachingKitAuthoring: input.teachingKitAuthoring === true,
     };
   }
 
   /** Admin Enrichment Editor framework (Slice 1+). Never auto-enabled. */
   function isTeachingKitEnrichmentEditorEnabled(flags) {
     return isTeachingKitFlagEnabled(flags, "teachingKitEnrichmentEditor");
+  }
+
+  /** Classic-editor binder authoring (Complete Teaching Kit System). Never auto-enabled. */
+  function isTeachingKitAuthoringEnabled(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitAuthoring");
+  }
+
+  /**
+   * AI suggestion APIs may run for Enrichment Editor OR Binder Authoring.
+   * Enrichment Editor flag must still stay off unless explicitly enabled.
+   */
+  function isTeachingKitAiAssistEnabled(flags) {
+    return isTeachingKitEnrichmentEditorEnabled(flags) || isTeachingKitAuthoringEnabled(flags);
   }
 
   function isTeachingKitFlagEnabled(flags, key) {
@@ -222,6 +241,19 @@
     if (Array.isArray(value.printableIds)) {
       out.printableIds = normalizedIdList(value.printableIds, 100, 160);
     }
+    if (value.teacherToolkit && typeof value.teacherToolkit === "object" && !Array.isArray(value.teacherToolkit)) {
+      const toolkit = value.teacherToolkit;
+      out.teacherToolkit = {
+        prepChecklist: Array.isArray(toolkit.prepChecklist)
+          ? toolkit.prepChecklist.map((item) => clampShortText(item, 280)).filter(Boolean).slice(0, 24)
+          : [],
+        observationFocus: Array.isArray(toolkit.observationFocus)
+          ? toolkit.observationFocus.map((item) => clampShortText(item, 280)).filter(Boolean).slice(0, 24)
+          : [],
+        notes: clampShortText(toolkit.notes, 4000),
+        teacherPreparation: clampShortText(toolkit.teacherPreparation, 4000),
+      };
+    }
     return out;
   }
 
@@ -294,6 +326,8 @@
     normalizedTeachingKitFeatureFlags,
     isTeachingKitFlagEnabled,
     isTeachingKitEnrichmentEditorEnabled,
+    isTeachingKitAuthoringEnabled,
+    isTeachingKitAiAssistEnabled,
     isTeachingKitApiEnabled,
     normalizedTeachingKitOverlay,
     resolveTeachingKitRenderMode,

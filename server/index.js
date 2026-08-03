@@ -1732,6 +1732,10 @@ function normalizedCurriculumDailyPlanItem(value) {
       const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
       return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
     }).filter(Boolean),
+    // Complete Teaching Kit binder authoring (additive).
+    indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives, 4000),
+    outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives, 4000),
+    cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
   };
 }
 
@@ -1893,6 +1897,9 @@ function normalizedCurriculumActivity(value) {
       const tag = normalizedShortText(item, 40).toLowerCase().replace(/\s+/g, "_");
       return ["small_group", "large_group", "indoor", "outdoor"].includes(tag) ? tag : "";
     }).filter(Boolean),
+    indoorAlternatives: normalizedMultilineText(entry.indoorAlternatives, 4000),
+    outdoorAlternatives: normalizedMultilineText(entry.outdoorAlternatives, 4000),
+    cleanupTips: normalizedMultilineText(entry.cleanupTips, 4000),
     status: CURRICULUM_ITEM_STATUSES.has(status) ? status : "draft",
     createdAt: normalizedShortText(entry.createdAt, 80),
     updatedAt: normalizedShortText(entry.updatedAt, 80),
@@ -2847,6 +2854,15 @@ function mergeEnrichmentFieldsOntoDailyItem(existingItem, incomingItem) {
   if (enrichmentListEmpty(incoming.settingTags) && !enrichmentListEmpty(existing.settingTags)) {
     incoming.settingTags = existing.settingTags;
   }
+  if (enrichmentTextEmpty(incoming.indoorAlternatives) && !enrichmentTextEmpty(existing.indoorAlternatives)) {
+    incoming.indoorAlternatives = existing.indoorAlternatives;
+  }
+  if (enrichmentTextEmpty(incoming.outdoorAlternatives) && !enrichmentTextEmpty(existing.outdoorAlternatives)) {
+    incoming.outdoorAlternatives = existing.outdoorAlternatives;
+  }
+  if (enrichmentTextEmpty(incoming.cleanupTips) && !enrichmentTextEmpty(existing.cleanupTips)) {
+    incoming.cleanupTips = existing.cleanupTips;
+  }
   return incoming;
 }
 
@@ -2993,6 +3009,9 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
       teacherTips: tips,
       substitutions,
       settingTags,
+      indoorAlternatives: item.indoorAlternatives || existing?.indoorAlternatives || "",
+      outdoorAlternatives: item.outdoorAlternatives || existing?.outdoorAlternatives || "",
+      cleanupTips: item.cleanupTips || existing?.cleanupTips || "",
       status: activityStatus,
       createdAt: existing?.createdAt || now,
       updatedAt: now,
@@ -16845,9 +16864,10 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     ? store.siteContent
     : defaultSiteContentStore();
   const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
-  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+  // AI assist for Enrichment Editor OR Binder Authoring — Enrichment Editor flag stays independent.
+  if (!teachingKit.isTeachingKitAiAssistEnabled(enrichFlags)) {
     jsonResponse(response, 404, {
-      error: "Teaching Kit Enrichment Editor is disabled.",
+      error: "Teaching Kit AI assist is disabled.",
       code: "enrichment_editor_disabled",
     });
     return;
@@ -17126,9 +17146,9 @@ async function handleAdminEnrichmentAiInsertLog(request, response) {
   }
   const store = readStore();
   const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
-  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(flags)) {
+  if (!teachingKit.isTeachingKitAiAssistEnabled(flags)) {
     jsonResponse(response, 404, {
-      error: "Teaching Kit Enrichment Editor is disabled.",
+      error: "Teaching Kit AI assist is disabled.",
       code: "enrichment_editor_disabled",
     });
     return;

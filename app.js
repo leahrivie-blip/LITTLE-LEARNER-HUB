@@ -6233,6 +6233,8 @@ function emptySiteContent() {
       teachingKitAttachments: false,
       // Enrichment Editor: defaults false until owner enables a reviewed slice.
       teachingKitEnrichmentEditor: false,
+      // Complete Teaching Kit binder authoring in classic editor. Default false.
+      teachingKitAuthoring: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -9228,6 +9230,10 @@ function curriculumDailyItemRowHtml(day, item = {}) {
       <label>Adaptations<textarea rows="2" data-curriculum-adaptations>${escapeHtml(item.adaptations || "")}</textarea></label>
       <label>Safety notes<textarea rows="2" data-curriculum-safety-notes>${escapeHtml(item.safetyNotes || "")}</textarea></label>
       <label>Age modifications<textarea rows="2" data-curriculum-age-modifications>${escapeHtml(item.ageModifications || "")}</textarea></label>
+      ${typeof isTeachingKitAuthoringEnabled === "function" && isTeachingKitAuthoringEnabled()
+        && typeof LLHTeachingKitAuthoring !== "undefined"
+        ? LLHTeachingKitAuthoring.activityBinderFieldsHtml(item)
+        : ""}
     </div>
   `;
 }
@@ -10026,11 +10032,16 @@ function adminCurriculumLessonJumpNavHtml() {
     const label = day.charAt(0).toUpperCase() + day.slice(1);
     return `<a class="lesson-editor-jump-link" href="#admin-lesson-day-${day}" data-admin-lesson-jump="${day}">${escapeHtml(label)}</a>`;
   }).join("");
+  const binderLinks = typeof isTeachingKitAuthoringEnabled === "function" && isTeachingKitAuthoringEnabled()
+    && typeof LLHTeachingKitAuthoring !== "undefined"
+    ? LLHTeachingKitAuthoring.binderJumpLinkHtml()
+    : "";
   return `
     <nav class="lesson-editor-jump admin-lesson-jump" aria-label="Jump to lesson plan sections">
       <a class="lesson-editor-jump-link" href="#admin-lesson-basics" data-admin-lesson-jump="basics">Basics</a>
       <a class="lesson-editor-jump-link" href="#admin-lesson-cover" data-admin-lesson-jump="cover">Cover</a>
       <a class="lesson-editor-jump-link" href="#admin-lesson-weekly" data-admin-lesson-jump="weekly">Weekly</a>
+      ${binderLinks}
       ${dayLinks}
       <a class="lesson-editor-jump-link" href="#admin-lesson-resources" data-admin-lesson-jump="resources">Resources</a>
     </nav>
@@ -10138,6 +10149,13 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
         <label>Adaptations<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
       </details>
+      ${typeof isTeachingKitAuthoringEnabled === "function" && isTeachingKitAuthoringEnabled()
+        && typeof LLHTeachingKitAuthoring !== "undefined"
+        ? LLHTeachingKitAuthoring.binderPanelHtml(
+          record,
+          typeof curriculumActivitiesForLesson === "function" ? curriculumActivitiesForLesson(record.id) : [],
+        )
+        : ""}
       <div class="curriculum-daily-editor">
         <div class="curriculum-daily-toolbar">
           <div>
@@ -10167,6 +10185,118 @@ function isTeachingKitEnrichmentEditorEnabled() {
     return LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled(flags) === true;
   }
   return flags.teachingKitEnrichmentEditor === true;
+}
+
+function isTeachingKitAuthoringEnabled() {
+  const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  if (typeof LLHTeachingKit !== "undefined" && typeof LLHTeachingKit.isTeachingKitAuthoringEnabled === "function") {
+    return LLHTeachingKit.isTeachingKitAuthoringEnabled(flags) === true;
+  }
+  if (typeof LLHTeachingKitAuthoring !== "undefined" && typeof LLHTeachingKitAuthoring.isAuthoringEnabled === "function") {
+    return LLHTeachingKitAuthoring.isAuthoringEnabled(flags) === true;
+  }
+  return flags.teachingKitAuthoring === true;
+}
+
+async function requestTeachingKitAuthoringAiSuggestions(button) {
+  if (!isTeachingKitAuthoringEnabled()) {
+    showActionFeedback("Teaching Kit authoring is disabled (feature flag off).");
+    return;
+  }
+  const row = button.closest("[data-curriculum-activity-row]");
+  const tray = row?.querySelector("[data-tk-authoring-ai-tray]");
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  const planId = normalizedShortText(form?.querySelector('[name="id"]')?.value || adminCurriculumLessonEditorId || "");
+  const activityKey = normalizedShortText(row?.querySelector("[data-curriculum-item-id]")?.value || "");
+  const token = adminSession()?.token || "";
+  if (!tray || !planId || !activityKey || !token) {
+    showActionFeedback("Open a saved lesson activity to request AI binder suggestions.");
+    return;
+  }
+  tray.hidden = false;
+  tray.innerHTML = `<p class="muted-copy">Generating binder suggestions… Existing lesson fields stay unchanged.</p>`;
+  try {
+    const response = await fetch("/api/admin/curriculum/enrichment-ai-suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        planId,
+        activityKey,
+        scope: "activity",
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
+    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+    if (!suggestions.length) {
+      tray.innerHTML = `<p class="muted-copy">No suggestions returned. Existing content was kept.</p>
+        <button type="button" class="ghost-button" data-tk-authoring-ai-dismiss>Dismiss</button>`;
+      return;
+    }
+    tray.dataset.aiSuggestions = JSON.stringify(suggestions);
+    tray.innerHTML = `
+      <p><strong>${suggestions.length} suggestion(s)</strong> — review before inserting. Nothing overwrites until you confirm.</p>
+      <ul class="tk-authoring-ai-list">
+        ${suggestions.slice(0, 8).map((sug) => `
+          <li>
+            <label class="admin-inline-toggle">
+              <input type="checkbox" data-tk-authoring-ai-pick checked />
+              <span><strong>${escapeHtml(sug.fieldLabel || sug.field || sug.category || "Suggestion")}</strong>
+              — ${escapeHtml(typeof sug.proposedText === "string" ? sug.proposedText : JSON.stringify(sug.proposedValue || ""))}</span>
+            </label>
+          </li>
+        `).join("")}
+      </ul>
+      <div class="account-actions-row">
+        <button type="button" class="primary-button" data-tk-authoring-ai-insert>Insert selected into binder fields</button>
+        <button type="button" class="ghost-button" data-tk-authoring-ai-dismiss>Discard</button>
+      </div>
+    `;
+  } catch (error) {
+    tray.innerHTML = `<p class="form-message">AI assist failed: ${escapeHtml(error.message || error)}. Existing lesson data was not changed.</p>
+      <button type="button" class="ghost-button" data-tk-authoring-ai-dismiss>Dismiss</button>`;
+  }
+}
+
+function insertTeachingKitAuthoringAiSuggestions(button) {
+  const tray = button.closest("[data-tk-authoring-ai-tray]");
+  const row = button.closest("[data-curriculum-activity-row]");
+  if (!tray || !row || typeof LLHTeachingKitAuthoring === "undefined") return;
+  let suggestions = [];
+  try {
+    suggestions = JSON.parse(tray.dataset.aiSuggestions || "[]");
+  } catch {
+    suggestions = [];
+  }
+  const picks = [...tray.querySelectorAll("[data-tk-authoring-ai-pick]")];
+  const selected = suggestions.filter((_, index) => picks[index]?.checked);
+  if (!selected.length) {
+    showActionFeedback("Select at least one suggestion to insert.");
+    return;
+  }
+  const current = LLHTeachingKitAuthoring.collectActivityBinderFields(row);
+  current.observationOpportunities = row.querySelector("[data-curriculum-observation-opportunities]")?.value || "";
+  current.vocabulary = row.querySelector("[data-curriculum-vocabulary]")?.value || "";
+  const applied = LLHTeachingKitAuthoring.applyAiSuggestionsToActivityFields(current, selected);
+  const tipsEl = row.querySelector("[data-curriculum-teacher-tips]");
+  const subsEl = row.querySelector("[data-curriculum-substitutions]");
+  const obsEl = row.querySelector("[data-curriculum-observation-opportunities]");
+  const vocabEl = row.querySelector("[data-curriculum-vocabulary]");
+  if (tipsEl) tipsEl.value = (applied.item.teacherTips || []).join("\n");
+  if (subsEl) {
+    subsEl.value = (applied.item.substitutions || [])
+      .map((sub) => `${sub.need} → ${sub.use}`)
+      .join("\n");
+  }
+  if (obsEl && applied.item.observationOpportunities) obsEl.value = applied.item.observationOpportunities;
+  if (vocabEl && applied.item.vocabulary) vocabEl.value = applied.item.vocabulary;
+  (applied.item.settingTags || []).forEach((tag) => {
+    const input = row.querySelector(`input[data-curriculum-setting-tag][value="${tag}"]`);
+    if (input) input.checked = true;
+  });
+  tray.hidden = true;
+  tray.innerHTML = "";
+  showActionFeedback(`Inserted ${applied.inserted || selected.length} AI suggestion(s) into binder fields only — save the lesson to persist.`);
 }
 
 function adminCurriculumLessonEnrichmentMeta(plan) {
@@ -10577,6 +10707,11 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
         .map((goal) => goal.trim())
         .filter(Boolean);
       const domainsRoot = row.querySelector("[data-curriculum-activity-domains]");
+      const binderFields = typeof isTeachingKitAuthoringEnabled === "function"
+        && isTeachingKitAuthoringEnabled()
+        && typeof LLHTeachingKitAuthoring !== "undefined"
+        ? LLHTeachingKitAuthoring.collectActivityBinderFields(row)
+        : {};
       items.push({
         ...preservedItem,
         itemId,
@@ -10597,6 +10732,7 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
         adaptations: normalizedMultilineText(row.querySelector("[data-curriculum-adaptations]")?.value),
         safetyNotes: normalizedMultilineText(row.querySelector("[data-curriculum-safety-notes]")?.value),
         ageModifications: normalizedMultilineText(row.querySelector("[data-curriculum-age-modifications]")?.value),
+        ...binderFields,
       });
     });
     // If a weekday panel was removed from the DOM, preserve existing day content instead of wiping it.
@@ -10683,6 +10819,29 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
   }
   if (enrichmentSource.teachingKit && typeof enrichmentSource.teachingKit === "object") {
     collected.teachingKit = enrichmentSource.teachingKit;
+  }
+  if (typeof isTeachingKitAuthoringEnabled === "function"
+    && isTeachingKitAuthoringEnabled()
+    && typeof LLHTeachingKitAuthoring !== "undefined") {
+    const toolkit = LLHTeachingKitAuthoring.collectTeacherToolkitFromForm(form);
+    if (toolkit) {
+      collected.teachingKit = {
+        ...(collected.teachingKit && typeof collected.teachingKit === "object" ? collected.teachingKit : { schemaVersion: 1 }),
+        schemaVersion: 1,
+        teacherToolkit: toolkit,
+        updatedAt: new Date().toISOString(),
+      };
+      const completeness = LLHTeachingKitAuthoring.buildBinderCompleteness(
+        collected,
+        typeof curriculumActivitiesForLesson === "function" ? curriculumActivitiesForLesson(id) : [],
+      );
+      collected.teachingKit.completionPercent = completeness.percent;
+      collected.teachingKit.completeness = completeness.percent >= 90
+        ? "complete"
+        : completeness.percent >= 50
+          ? "enriched"
+          : "legacy_mapped";
+    }
   }
   return collected;
 }
@@ -11940,6 +12099,8 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitAttachments === true,
       teachingKitEnrichmentEditor: overrides.featureFlags?.teachingKitEnrichmentEditor === true
         || base.featureFlags?.teachingKitEnrichmentEditor === true,
+      teachingKitAuthoring: overrides.featureFlags?.teachingKitAuthoring === true
+        || base.featureFlags?.teachingKitAuthoring === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
@@ -63481,6 +63642,28 @@ document.addEventListener("click", async (event) => {
     adminCurriculumLessonImportTextCache = "";
     resetCurriculumLessonImportPreviewState();
     renderAdminCurriculumLessonPlanManager();
+    return;
+  }
+  const tkAuthoringAiBtn = event.target.closest("[data-tk-authoring-ai-activity]");
+  if (tkAuthoringAiBtn) {
+    event.preventDefault();
+    await requestTeachingKitAuthoringAiSuggestions(tkAuthoringAiBtn);
+    return;
+  }
+  const tkAuthoringAiInsert = event.target.closest("[data-tk-authoring-ai-insert]");
+  if (tkAuthoringAiInsert) {
+    event.preventDefault();
+    insertTeachingKitAuthoringAiSuggestions(tkAuthoringAiInsert);
+    return;
+  }
+  const tkAuthoringAiDismiss = event.target.closest("[data-tk-authoring-ai-dismiss]");
+  if (tkAuthoringAiDismiss) {
+    event.preventDefault();
+    const tray = tkAuthoringAiDismiss.closest("[data-tk-authoring-ai-tray]");
+    if (tray) {
+      tray.hidden = true;
+      tray.innerHTML = "";
+    }
     return;
   }
   const curriculumAddRowButton = event.target.closest("[data-curriculum-add-row]");

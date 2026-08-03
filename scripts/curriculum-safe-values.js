@@ -105,6 +105,9 @@ function normalizeCurriculumDailyItemForRender(item = {}) {
     settingTags: Array.isArray(entry.settingTags)
       ? entry.settingTags.map((tag) => curriculumAsString(tag)).filter(Boolean)
       : [],
+    indoorAlternatives: curriculumAsString(entry.indoorAlternatives),
+    outdoorAlternatives: curriculumAsString(entry.outdoorAlternatives),
+    cleanupTips: curriculumAsString(entry.cleanupTips),
   };
 }
 
