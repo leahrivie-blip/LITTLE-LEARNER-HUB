@@ -23071,18 +23071,50 @@ body.hdh-persona-parent .main {
 }
 
 .free-starter-explore {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   margin: 14px 0 18px;
-  padding: 16px 18px;
+  padding: 18px 20px;
   border-radius: var(--radius, 14px);
   border: 1px solid rgba(91, 155, 213, 0.28);
   background: linear-gradient(135deg, #f7fbff, rgba(219, 234, 247, 0.35), rgba(255, 248, 240, 0.45));
 }
 
+.free-starter-explore-badge {
+  display: inline-block;
+  margin: 0 0 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #2f5f86;
+  background: rgba(91, 155, 213, 0.18);
+}
+
+.free-starter-explore-copy h3 {
+  margin: 0;
+  font-size: 1.25rem;
+}
+
+.free-starter-explore-copy p {
+  margin: 8px 0 0;
+  color: var(--muted, #5b6b82);
+}
+
 .free-starter-explore-actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.nuo-modal {
+  z-index: 12050;
+}
+
+body.nuo-open .llh-meta-cookie-notice {
+  display: none !important;
 }
 
 .nuo-dashboard-checklist {
