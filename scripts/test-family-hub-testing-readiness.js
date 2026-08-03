@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /**
- * Family Hub testing-readiness suite (testing fence only).
- * Covers: durable storage gate, invite lifecycle, guardians, shared feed, production fence.
+ * Family Hub testing-readiness + parent beta MVP suite (testing fence only).
+ * Covers: durable storage gate, invite lifecycle, guardians, Today feed,
+ * messages, calendar, settings, logout, production fence.
  * Run: npm run test:family-hub-testing-readiness
  */
 const assert = require("node:assert/strict");
@@ -86,22 +87,29 @@ async function waitForHealth(port, child, attempts = 50) {
   throw new Error(`Server on ${port} did not become healthy`);
 }
 
-test("shell markers for Family Hub readiness UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-ready"/);
+test("shell markers for Family Hub parent beta UX", () => {
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-beta"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
+  assert.match(appJs, /function renderFamilyHubTodayPanel/);
   assert.match(appJs, /family-hub-parent-mode/);
-  assert.match(appJs, /Family Hub testing preview/);
   assert.match(appJs, /data-family-hub-seed-demo/);
-  assert.match(appJs, /Coming Soon/);
+  assert.match(appJs, /ensureFamilyHubParentAppReady/);
+  assert.match(appJs, /signOutFamilyHubParent/);
   assert.match(appJs, /AbortController/);
+  assert.match(appJs, /allowParentLeaveFamilyHub/);
+  assert.doesNotMatch(appJs, /Family Hub testing preview/);
   assert.match(stylesCss, /\.family-hub-parent-mode/);
-  assert.match(stylesCss, /\.fh-preview-banner/);
+  assert.match(stylesCss, /\.fh-today-hero/);
   assert.match(serverJs, /persistFamilyHubStore/);
   assert.match(serverJs, /\/api\/family-hub\/seed-demo/);
   assert.match(serverJs, /\/api\/family-hub\/storage/);
+  assert.match(serverJs, /\/api\/family-hub\/today/);
+  assert.match(serverJs, /\/api\/family-hub\/messages/);
+  assert.match(serverJs, /\/api\/family-hub\/calendar/);
+  assert.match(serverJs, /\/api\/family-hub\/logout/);
 });
 
-test("family-hub-lib storage + shared feed helpers", () => {
+test("family-hub-lib storage + today + calendar helpers", () => {
   const ephemeral = familyHubLib.familyHubStorageStatus({
     databaseProvider: "postgres",
     databaseReady: false,
@@ -125,10 +133,42 @@ test("family-hub-lib storage + shared feed helpers", () => {
     Reports: [{ id: "r1", childId: "c1", title: "Daily", summary: "Nap", shareWithFamily: true }],
     Photos: [{ id: "p1", childId: "c1", caption: "Art", shareWithFamily: true }],
     Observations: [{ id: "o1", childId: "c2", summary: "Other", shareWithFamily: true }],
+    Meals: [{ id: "m1", childId: "c1", lunch: "Ate all", shareWithFamily: true }],
   }, ["c1"]);
   assert.equal(feed.reports.length, 1);
   assert.equal(feed.photos.length, 1);
   assert.equal(feed.observations.length, 0);
+  assert.equal(feed.meals.length, 1);
+
+  const day = familyHubLib.todayIso();
+  const today = familyHubLib.buildFamilyHubToday({
+    childData: {
+      Meals: [{ id: "m1", childId: "c1", date: day, lunch: "Pasta", shareWithFamily: true }],
+      Communications: [{ id: "mood1", childId: "c1", date: day, type: "Mood Note", mood: "Happy", shareWithFamily: true }],
+      Naps: [],
+      Diapers: [],
+      ActivityLogs: [],
+      Photos: [],
+      Reports: [],
+    },
+    children: [{ id: "c1", name: "Ava" }],
+    childId: "c1",
+    date: day,
+    messages: [{ id: "msg1", from: "provider", body: "Hi", authorName: "Leah", readByParent: false, createdAt: new Date().toISOString() }],
+    events: [{ id: "e1", title: "Picnic", startDate: day }],
+  });
+  assert.equal(today.mood.value, "Happy");
+  assert.ok(today.meals.length >= 1);
+  assert.equal(today.messages.length, 1);
+  assert.equal(today.upcomingEvents.length, 1);
+
+  const calendar = familyHubLib.buildFamilyHubCalendar({
+    items: [
+      { id: "e1", type: "family_event", title: "Picnic", startDate: day, endDate: day },
+      { id: "e2", type: "lesson_plan", title: "Hidden", startDate: day, endDate: day },
+    ],
+  }, { fromDate: day, days: 7 });
+  assert.equal(calendar.length, 1);
 
   const guardians = familyHubLib.normalizeGuardianEmails("a@example.com", ["b@example.com", "a@example.com"]);
   assert.deepEqual(guardians, ["a@example.com", "b@example.com"]);
@@ -178,6 +218,8 @@ async function main() {
     assert.equal(seeded.json.demo?.parentEmail, "familyhub.demo.parent@llh.test");
     assert.equal(seeded.json.demo?.guardianEmail, "familyhub.demo.guardian@llh.test");
     assert.equal(seeded.json.demo?.children?.length, 2);
+    assert.ok(seeded.json.demo?.messageCount >= 1);
+    assert.ok(seeded.json.demo?.eventCount >= 1);
 
     const token = String(seeded.json.demo.magicUrl).split("familyHub=")[1];
     const peek = await request(onPort, "GET", `/api/family-hub/invites/peek?token=${encodeURIComponent(token)}`);
@@ -186,14 +228,46 @@ async function main() {
 
     const redeemed = await request(onPort, "POST", "/api/family-hub/invites/redeem", { body: { token } });
     assert.equal(redeemed.status, 200, redeemed.text);
-    const me = await request(onPort, "GET", "/api/family-hub/me", { familyToken: redeemed.json.sessionToken });
+    const sessionToken = redeemed.json.sessionToken;
+    const me = await request(onPort, "GET", "/api/family-hub/me", { familyToken: sessionToken });
     assert.equal(me.status, 200, me.text);
     assert.equal(me.json.children.length, 2);
     assert.ok(me.json.shared?.reports?.length >= 1, "shared reports should appear");
     assert.ok(me.json.shared?.photos?.length >= 1, "shared photos should appear");
-    assert.ok(me.json.shared?.observations?.length >= 1, "shared observations should appear");
-    assert.ok(Array.isArray(me.json.comingSoon) && me.json.comingSoon.length >= 1);
-    assert.equal(me.json.preview, true);
+    assert.ok(me.json.today?.mood, "today mood should appear");
+    assert.ok(me.json.today?.meals?.length >= 1, "today meals should appear");
+    assert.ok(me.json.today?.naps?.length >= 1, "today naps should appear");
+    assert.ok(me.json.messages?.length >= 1, "messages should appear");
+    assert.ok(me.json.calendar?.length >= 1, "calendar events should appear");
+    assert.ok(me.json.documents?.length >= 1, "documents should appear");
+    assert.ok(me.json.settings, "settings should appear");
+    assert.ok(!me.json.comingSoon, "beta required features must not be Coming Soon");
+
+    const today = await request(onPort, "GET", "/api/family-hub/today", { familyToken: sessionToken });
+    assert.equal(today.status, 200, today.text);
+    assert.ok(today.json.today?.greeting);
+
+    const messagePost = await request(onPort, "POST", "/api/family-hub/messages", {
+      familyToken: sessionToken,
+      body: { body: "Thanks for the update today!" },
+    });
+    assert.equal(messagePost.status, 200, messagePost.text);
+    assert.ok(messagePost.json.messages.some((msg) => msg.from === "parent"));
+
+    const settingsPatch = await request(onPort, "PATCH", "/api/family-hub/settings", {
+      familyToken: sessionToken,
+      body: { preferredName: "Sam", notifyPhotos: false },
+    });
+    assert.equal(settingsPatch.status, 200, settingsPatch.text);
+    assert.equal(settingsPatch.json.settings.preferredName, "Sam");
+    assert.equal(settingsPatch.json.settings.notifyPhotos, false);
+
+    const notifRead = await request(onPort, "POST", "/api/family-hub/notifications/read", {
+      familyToken: sessionToken,
+      body: { all: true, messages: true },
+    });
+    assert.equal(notifRead.status, 200, notifRead.text);
+    assert.equal(notifRead.json.unread, 0);
 
     // Second guardian login
     const guardianLogin = await request(onPort, "POST", "/api/family-hub/login", {
@@ -206,6 +280,12 @@ async function main() {
       body: { email: seeded.json.demo.parentEmail, code: seeded.json.demo.loginCode },
     });
     assert.equal(parentLogin.status, 200, parentLogin.text);
+
+    // Logout clears session
+    const logout = await request(onPort, "POST", "/api/family-hub/logout", { familyToken: parentLogin.json.sessionToken });
+    assert.equal(logout.status, 200, logout.text);
+    const afterLogout = await request(onPort, "GET", "/api/family-hub/me", { familyToken: parentLogin.json.sessionToken });
+    assert.equal(afterLogout.status, 401);
 
     // Invalid invite
     const badPeek = await request(onPort, "GET", "/api/family-hub/invites/peek?token=not-a-real-token");
@@ -269,13 +349,11 @@ async function main() {
       store.familyMagicLinks[expToken].expiresAt = expHousehold.expiresAt;
     }
     fs.writeFileSync(onStore, JSON.stringify(store, null, 2));
-    // Clear in-memory cache by restarting would be heavy; hit peek which re-reads local-json from disk via mtime.
-    // Force mtime change already done by write. Local peekStore caches by mtime — should reload.
     await new Promise((r) => setTimeout(r, 50));
     const expiredPeek = await request(onPort, "GET", `/api/family-hub/invites/peek?token=${encodeURIComponent(expToken)}`);
     assert.equal(expiredPeek.status, 410, expiredPeek.text);
 
-    console.log("PASS  Family Hub readiness runtime: fence, seed, guardians, shared feed, revoke, expire, duplicate");
+    console.log("PASS  Family Hub beta runtime: fence, seed, today, messages, settings, logout, guardians, revoke, expire");
   } catch (error) {
     console.error("FAIL  Family Hub readiness runtime");
     console.error(error);

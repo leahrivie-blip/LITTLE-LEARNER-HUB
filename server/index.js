@@ -12925,7 +12925,88 @@ function ensureFamilyHubCollections(store) {
   store.familyHouseholds = store.familyHouseholds && typeof store.familyHouseholds === "object" ? store.familyHouseholds : {};
   store.familyMagicLinks = store.familyMagicLinks && typeof store.familyMagicLinks === "object" ? store.familyMagicLinks : {};
   store.familySessions = store.familySessions && typeof store.familySessions === "object" ? store.familySessions : {};
+  store.familyHubMessages = Array.isArray(store.familyHubMessages) ? store.familyHubMessages : [];
+  store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
   return store;
+}
+
+function familyHubMessagesForHousehold(store, householdId) {
+  const id = String(householdId || "");
+  return (store.familyHubMessages || [])
+    .filter((msg) => msg && String(msg.householdId) === id)
+    .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
+}
+
+function familyHubNotificationsForHousehold(store, householdId) {
+  const id = String(householdId || "");
+  return (store.familyHubNotifications || [])
+    .filter((item) => item && String(item.householdId) === id)
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+}
+
+function touchFamilySession(store, token, session) {
+  if (!token || !session) return session;
+  const now = new Date();
+  session.lastAccessAt = now.toISOString();
+  session.expiresAt = new Date(now.getTime() + FAMILY_HUB_SESSION_TTL_MS).toISOString();
+  store.familySessions[token] = session;
+  return session;
+}
+
+function readOwnerScheduleForFamilyHub(store, ownerEmail) {
+  const email = normalizeEmail(ownerEmail);
+  if (!email) return null;
+  const user = store.users?.[email] || {};
+  try {
+    const context = programOwnership.resolveProgramContext(store, {
+      email,
+      uid: user.firebaseUid || user.uid || "",
+    });
+    if (!context?.ok) return null;
+    return programOwnership.readProgramSchedule(store, context, scheduleLib);
+  } catch (_error) {
+    return null;
+  }
+}
+
+function buildFamilyHubParentPayload(store, household, { childId = "", date = "" } = {}) {
+  const children = Array.isArray(household.children) ? household.children : [];
+  const childIds = Array.isArray(household.childIds) ? household.childIds : children.map((child) => child.id);
+  const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
+  const documents = familyHubLib.liveDocumentsForChildren(ownerChildData, childIds, household.documents || []);
+  const shared = familyHubLib.buildSharedFamilyFeed(ownerChildData, childIds);
+  const messages = familyHubMessagesForHousehold(store, household.id);
+  const notifications = familyHubNotificationsForHousehold(store, household.id);
+  const scheduleDoc = readOwnerScheduleForFamilyHub(store, household.ownerEmail);
+  const events = familyHubLib.buildFamilyHubCalendar(scheduleDoc, { fromDate: familyHubLib.todayIso(), days: 60 });
+  const today = familyHubLib.buildFamilyHubToday({
+    childData: ownerChildData,
+    children,
+    childId: childId || children[0]?.id || "",
+    date: date || familyHubLib.todayIso(),
+    messages,
+    events,
+  });
+  const settings = familyHubLib.defaultHouseholdSettings(household.settings || {});
+  const guardians = familyHubLib.normalizeGuardianEmails(household.email || "", household.guardianEmails || []);
+  return {
+    household: {
+      ...publicFamilyHousehold(household),
+      settings,
+      guardians,
+    },
+    children,
+    documents,
+    shared,
+    today,
+    messages: messages.map(familyHubLib.publicFamilyMessage),
+    notifications: notifications.map(familyHubLib.publicFamilyNotification),
+    unreadNotifications: notifications.filter((item) => !item.read).length,
+    calendar: events,
+    settings,
+    guardians,
+    storage: getFamilyHubStorageStatus(),
+  };
 }
 
 function publicFamilyHousehold(household = {}) {
@@ -13394,36 +13475,264 @@ function handleFamilyHubLogin(request, response) {
   });
 }
 
-function handleFamilyHubMe(request, response) {
+function handleFamilyHubMe(request, response, url) {
   if (!requireHomeDaycareHubTesting(response)) return;
   const resolved = resolveFamilySession(request);
   if (!resolved) {
     jsonResponse(response, 401, { error: "Family Hub session missing or expired. Open your magic link or sign in with your login code." });
     return;
   }
-  const { household, store } = resolved;
-  const children = Array.isArray(household.children) ? household.children : [];
-  const childIds = Array.isArray(household.childIds) ? household.childIds : children.map((child) => child.id);
-  const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
-  const documents = familyHubLib.liveDocumentsForChildren(ownerChildData, childIds, household.documents || []);
-  const shared = familyHubLib.buildSharedFamilyFeed(ownerChildData, childIds);
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  household.lastAccessAt = new Date().toISOString();
+  store.familyHouseholds[household.id] = household;
+  // Best-effort session slide; do not fail /me if durability briefly flaps.
+  try { writeStore(store); } catch (_error) { /* ignore */ }
+
+  const childId = String(url?.searchParams?.get("childId") || "").trim();
+  const date = String(url?.searchParams?.get("date") || "").trim();
+  const payload = buildFamilyHubParentPayload(store, household, { childId, date });
   jsonResponse(response, 200, {
     ok: true,
     testingOnly: true,
     preview: true,
-    household: publicFamilyHousehold(household),
-    children,
-    documents,
-    shared,
-    comingSoon: [
-      { id: "messaging", label: "Messaging", detail: "Parent ↔ provider messaging is not available in this testing preview." },
-      { id: "calendar", label: "Calendar", detail: "Events, closures, and reminders will appear here later." },
-      { id: "attendance", label: "Attendance", detail: "Check-in and check-out history is not shared in this preview." },
-      { id: "esign", label: "Form signing", detail: "E-sign, uploads, and returning forms come in a later step." },
-    ],
-    storage: getFamilyHubStorageStatus(),
-    note: "Testing preview: one household login covers all linked children. Shared updates appear when your provider marks items Share With Family.",
+    ...payload,
+    note: "Family Hub beta: one household login covers all linked children. Shared updates appear when your provider marks items Share With Family.",
   });
+}
+
+function handleFamilyHubToday(request, response, url) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const payload = buildFamilyHubParentPayload(store, household, {
+    childId: String(url.searchParams.get("childId") || "").trim(),
+    date: String(url.searchParams.get("date") || "").trim(),
+  });
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    today: payload.today,
+    children: payload.children,
+    calendar: payload.calendar,
+  });
+}
+
+function handleFamilyHubMessagesGet(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const messages = familyHubMessagesForHousehold(store, household.id).map(familyHubLib.publicFamilyMessage);
+  jsonResponse(response, 200, { ok: true, testingOnly: true, messages });
+}
+
+async function handleFamilyHubMessagesPost(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  let body;
+  try { body = await readJson(request); } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid message payload." });
+    return;
+  }
+  const text = String(body?.body || body?.message || "").trim();
+  if (!text) {
+    jsonResponse(response, 400, { error: "Write a message before sending." });
+    return;
+  }
+  if (text.length > 2000) {
+    jsonResponse(response, 400, { error: "Messages must be 2000 characters or fewer." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const settings = familyHubLib.defaultHouseholdSettings(household.settings || {});
+  const authorName = settings.preferredName || "Parent";
+  const now = new Date().toISOString();
+  const message = {
+    id: `fh-msg-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+    householdId: household.id,
+    from: "parent",
+    authorName,
+    body: text,
+    createdAt: now,
+    readByParent: true,
+    readByProvider: false,
+  };
+  store.familyHubMessages.push(message);
+  store.familyHubNotifications.push({
+    id: `fh-ntf-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+    householdId: household.id,
+    type: "message",
+    title: "Message sent",
+    body: "Your message was sent to your provider.",
+    createdAt: now,
+    read: true,
+    href: "messages",
+  });
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not save message to durable storage.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    message: familyHubLib.publicFamilyMessage(message),
+    messages: familyHubMessagesForHousehold(store, household.id).map(familyHubLib.publicFamilyMessage),
+  });
+}
+
+function handleFamilyHubNotificationsGet(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const notifications = familyHubNotificationsForHousehold(store, household.id).map(familyHubLib.publicFamilyNotification);
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    notifications,
+    unread: notifications.filter((item) => !item.read).length,
+  });
+}
+
+async function handleFamilyHubNotificationsRead(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  let body = {};
+  try { body = await readJson(request); } catch (_error) { body = {}; }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const ids = Array.isArray(body?.ids) ? body.ids.map((id) => String(id)) : null;
+  const markAll = Boolean(body?.all) || !ids;
+  store.familyHubNotifications = (store.familyHubNotifications || []).map((item) => {
+    if (String(item.householdId) !== String(household.id)) return item;
+    if (markAll || (ids && ids.includes(String(item.id)))) {
+      return { ...item, read: true };
+    }
+    return item;
+  });
+  // Mark provider messages as read by parent when clearing notifications or explicitly.
+  if (markAll || body?.messages === true) {
+    store.familyHubMessages = (store.familyHubMessages || []).map((msg) => (
+      String(msg.householdId) === String(household.id) && msg.from === "provider"
+        ? { ...msg, readByParent: true }
+        : msg
+    ));
+  }
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not update notifications.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  const notifications = familyHubNotificationsForHousehold(store, household.id).map(familyHubLib.publicFamilyNotification);
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    notifications,
+    unread: notifications.filter((item) => !item.read).length,
+  });
+}
+
+function handleFamilyHubCalendarGet(request, response, url) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const fromDate = String(url.searchParams.get("from") || familyHubLib.todayIso()).slice(0, 10);
+  const scheduleDoc = readOwnerScheduleForFamilyHub(store, household.ownerEmail);
+  const events = familyHubLib.buildFamilyHubCalendar(scheduleDoc, { fromDate, days: 60 });
+  jsonResponse(response, 200, { ok: true, testingOnly: true, events, calendar: events });
+}
+
+async function handleFamilyHubSettingsPatch(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  let body;
+  try { body = await readJson(request); } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid settings payload." });
+    return;
+  }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const current = familyHubLib.defaultHouseholdSettings(household.settings || {});
+  const next = familyHubLib.defaultHouseholdSettings({
+    preferredName: body?.preferredName != null ? body.preferredName : current.preferredName,
+    notifyMessages: body?.notifyMessages != null ? Boolean(body.notifyMessages) : current.notifyMessages,
+    notifyPhotos: body?.notifyPhotos != null ? Boolean(body.notifyPhotos) : current.notifyPhotos,
+    notifyDailyReports: body?.notifyDailyReports != null ? Boolean(body.notifyDailyReports) : current.notifyDailyReports,
+    notifyEvents: body?.notifyEvents != null ? Boolean(body.notifyEvents) : current.notifyEvents,
+  });
+  household.settings = next;
+  store.familyHouseholds[household.id] = household;
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not save settings.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, testingOnly: true, settings: next });
+}
+
+async function handleFamilyHubLogout(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 200, { ok: true, cleared: false, testingOnly: true });
+    return;
+  }
+  const { store, token } = resolved;
+  delete store.familySessions[token];
+  try {
+    await persistFamilyHubStore(store);
+  } catch (_error) {
+    try { writeStore(store); } catch (__error) { /* ignore */ }
+  }
+  jsonResponse(response, 200, { ok: true, cleared: true, testingOnly: true });
 }
 
 async function handleFamilyHubHouseholdRevoke(request, response, householdId) {
@@ -13538,7 +13847,28 @@ async function handleFamilyHubSeedDemo(request, response) {
   });
   if (context?.ok) {
     programOwnership.writeProgramChildData(store, context, seed.childData);
+    if (Array.isArray(seed.scheduleItems) && seed.scheduleItems.length) {
+      const currentSchedule = programOwnership.readProgramSchedule(store, context, scheduleLib);
+      let doc = currentSchedule;
+      seed.scheduleItems.forEach((item) => {
+        const result = scheduleLib.upsertScheduleItem(doc, item);
+        doc = result.doc;
+      });
+      programOwnership.writeProgramSchedule(store, context, doc, scheduleLib);
+    }
   }
+
+  // Replace prior demo messages/notifications for this owner’s demo households.
+  const demoHouseholdIds = new Set(
+    Object.values(store.familyHouseholds || {})
+      .filter((item) => normalizeEmail(item.ownerEmail) === ownerEmail && item.demoSeed)
+      .map((item) => item.id),
+  );
+  demoHouseholdIds.add(seed.household.id);
+  store.familyHubMessages = (store.familyHubMessages || []).filter((msg) => !demoHouseholdIds.has(msg.householdId));
+  store.familyHubNotifications = (store.familyHubNotifications || []).filter((item) => !demoHouseholdIds.has(item.householdId));
+  (seed.messages || []).forEach((msg) => store.familyHubMessages.push(msg));
+  (seed.notifications || []).forEach((item) => store.familyHubNotifications.push(item));
 
   try {
     await persistFamilyHubStore(store);
@@ -13564,8 +13894,11 @@ async function handleFamilyHubSeedDemo(request, response) {
       magicUrl: seed.magicUrl,
       children: seed.children,
       household: publicFamilyHousehold(seed.household),
+      messageCount: (seed.messages || []).length,
+      notificationCount: (seed.notifications || []).length,
+      eventCount: (seed.scheduleItems || []).length,
     },
-    message: "Seeded Family Hub demo household with two guardians, two children, shared reports/photos/observations, and sample invitations.",
+    message: "Seeded Family Hub demo household with Today feed data, guardians, messages, calendar events, forms, and shared updates.",
   });
 }
 
@@ -22649,7 +22982,15 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/family-hub/invites/peek") return handleFamilyHubInvitePeek(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/family-hub/invites/redeem") return handleFamilyHubInviteRedeem(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/login") return handleFamilyHubLogin(request, response);
-    if (request.method === "GET" && url.pathname === "/api/family-hub/me") return handleFamilyHubMe(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/me") return handleFamilyHubMe(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/today") return handleFamilyHubToday(request, response, url);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/messages") return handleFamilyHubMessagesGet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/messages") return await handleFamilyHubMessagesPost(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/notifications") return handleFamilyHubNotificationsGet(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/notifications/read") return await handleFamilyHubNotificationsRead(request, response);
+    if (request.method === "GET" && url.pathname === "/api/family-hub/calendar") return handleFamilyHubCalendarGet(request, response, url);
+    if (request.method === "PATCH" && url.pathname === "/api/family-hub/settings") return await handleFamilyHubSettingsPatch(request, response);
+    if (request.method === "POST" && url.pathname === "/api/family-hub/logout") return await handleFamilyHubLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/storage") return handleFamilyHubStorageStatus(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/seed-demo") return await handleFamilyHubSeedDemo(request, response);
     if (request.method === "DELETE" && url.pathname.startsWith("/api/family-hub/households/")) {

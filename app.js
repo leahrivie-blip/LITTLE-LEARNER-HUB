@@ -500,6 +500,12 @@ let hdhAiDraftState = {
 };
 let familyHubHouseholdCache = { households: [], loadedAt: 0 };
 let familyHubInviteResult = null;
+let familyHubParentState = {
+  panel: "today",
+  childId: "",
+  data: null,
+  loadId: "",
+};
 let hdhStaffInviteResult = null;
 let hdhTesterInviteResult = null;
 let hdhTesterInviteCache = { invites: [], loadedAt: 0 };
@@ -15569,6 +15575,15 @@ function setView(view, options = {}) {
   }
   if (resolvedRequested === "family-hub" && !isHomeDaycareHubTestingEnabled()) {
     return setView(isLoggedIn() ? "calendar" : "home", { ...options, skipAccessRedirect: true });
+  }
+  // Pure parent sessions stay inside Family Hub (no provider/admin surfaces).
+  if (
+    getFamilyHubSessionToken()
+    && !isLoggedIn()
+    && !["family-hub", "login", "signup"].includes(resolvedRequested)
+    && !options.allowParentLeaveFamilyHub
+  ) {
+    return setView("family-hub", { ...options, skipAccessRedirect: true });
   }
   // AI Guide is testing-site only (AI_GUIDE_ENABLED).
   if (resolvedRequested === "ai-guide" && !isAiGuideEnabled()) {
@@ -32916,48 +32931,349 @@ function renderFamilyHubProviderPanel() {
   `;
 }
 
-function renderFamilyHubComingSoonCard(item) {
+function familyHubChildInitials(name = "") {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "FH";
+  return ((parts[0][0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "FH";
+}
+
+function familyHubEmptyState({ title, body, actionHtml = "" } = {}) {
   return `
-    <article class="fh-coming-card">
-      <div>
-        <strong>${escapeHtml(item.label || "Coming soon")}</strong>
-        <p class="muted-copy">${escapeHtml(item.detail || "Not available in this testing preview.")}</p>
-      </div>
-      <span class="tag">Coming Soon</span>
-    </article>
+    <div class="fh-empty-state" role="status">
+      <strong>${escapeHtml(title || "Nothing here yet")}</strong>
+      <p>${escapeHtml(body || "Check back later.")}</p>
+      ${actionHtml}
+    </div>
   `;
 }
 
-function renderFamilyHubSharedList(title, items, emptyLabel) {
-  if (!items?.length) {
-    return `
-      <section class="section-block fh-preview-section">
-        <div class="account-actions-row" style="margin-bottom:8px;">
-          <h3 style="margin:0;">${escapeHtml(title)}</h3>
-          <span class="tag">Coming Soon</span>
+function familyHubPhotoTile(item = {}, childName = "Child") {
+  const caption = item.caption || item.title || "Photo";
+  const url = String(item.url || "").trim();
+  return `
+    <figure class="fh-photo-tile">
+      ${url
+        ? `<img src="${escapeHtml(url)}" alt="${escapeHtml(caption)}" loading="lazy" />`
+        : `<div class="fh-photo-placeholder" aria-hidden="true"><span>${escapeHtml(familyHubChildInitials(childName))}</span></div>`}
+      <figcaption>
+        <strong>${escapeHtml(caption)}</strong>
+        <span>${escapeHtml(childName)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span>
+      </figcaption>
+    </figure>
+  `;
+}
+
+function renderFamilyHubTodayPanel(data) {
+  const today = data?.today && typeof data.today === "object" ? data.today : {};
+  const child = today.child || null;
+  const name = child?.name || "your child";
+  const first = String(name).split(/\s+/)[0] || name;
+  const photoUrl = String(child?.photoUrl || "").trim();
+  const section = (title, body, emptyTitle, emptyBody) => `
+    <section class="fh-today-section">
+      <h3>${escapeHtml(title)}</h3>
+      ${body || familyHubEmptyState({ title: emptyTitle, body: emptyBody })}
+    </section>
+  `;
+  const moodHtml = today.mood
+    ? `<div class="fh-mood-pill"><span>Today’s mood</span><strong>${escapeHtml(today.mood.value)}</strong>${today.mood.summary ? `<p>${escapeHtml(today.mood.summary)}</p>` : ""}</div>`
+    : familyHubEmptyState({ title: "No mood shared yet", body: "When teachers share a mood note, it will show here." });
+  const listHtml = (items, mapFn) => (items?.length ? `<ul class="fh-today-list">${items.map(mapFn).join("")}</ul>` : "");
+  return `
+    <div class="fh-today">
+      <header class="fh-today-hero">
+        <div class="fh-child-avatar" aria-hidden="true">
+          ${photoUrl
+            ? `<img src="${escapeHtml(photoUrl)}" alt="" />`
+            : `<span>${escapeHtml(familyHubChildInitials(name))}</span>`}
         </div>
-        <p class="muted-copy">${escapeHtml(emptyLabel)}</p>
-      </section>
-    `;
+        <div class="fh-today-hero-copy">
+          <p class="fh-greeting">${escapeHtml(today.greeting || "Hello")}</p>
+          <h2>${escapeHtml(first)}’s day</h2>
+          <p>${escapeHtml(today.greetingLine || `Here’s what we know about ${first} today.`)}</p>
+        </div>
+      </header>
+      ${section("Mood", moodHtml, "", "")}
+      ${section(
+        "Meals",
+        listHtml(today.meals, (item) => `<li><strong>${escapeHtml(item.label || "Meal")}</strong><span>${escapeHtml(item.detail || "")}</span></li>`),
+        "No meals shared yet",
+        "Breakfast, lunch, and snacks appear when your provider shares them.",
+      )}
+      ${section(
+        "Naps",
+        listHtml(today.naps, (item) => `<li><strong>${escapeHtml(item.title || "Nap")}</strong><span>${escapeHtml(item.detail || item.summary || "")}</span></li>`),
+        "No naps shared yet",
+        "Rest times show up here once logged and shared.",
+      )}
+      ${section(
+        "Diapers / Potty",
+        listHtml(today.diapers, (item) => `<li><strong>${escapeHtml(item.title || item.category || "Update")}</strong><span>${escapeHtml(item.detail || item.summary || "")}${item.time ? ` · ${escapeHtml(item.time)}` : ""}</span></li>`),
+        "No diaper or potty updates yet",
+        "Care updates appear when your provider shares them.",
+      )}
+      ${section(
+        "Activities",
+        listHtml(today.activities, (item) => `<li><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
+        "No activities shared yet",
+        "Play and learning moments will land here.",
+      )}
+      ${section(
+        "Teacher notes",
+        listHtml(today.teacherNotes, (item) => `<li><strong>${escapeHtml(item.title || "Note")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
+        "No teacher notes yet",
+        "Personal notes from your provider will show here.",
+      )}
+      ${section(
+        "New photos",
+        today.photos?.length
+          ? `<div class="fh-photo-grid">${today.photos.map((item) => familyHubPhotoTile(item, first)).join("")}</div>`
+          : "",
+        "No new photos today",
+        "Shared photos from today will appear in this spot.",
+      )}
+      ${section(
+        "Messages",
+        listHtml(today.messages, (item) => `<li><strong>${escapeHtml(item.authorName || "Teacher")}</strong><span>${escapeHtml(item.body || "")}</span></li>`),
+        "No new messages",
+        "Unread teacher messages will preview here.",
+      )}
+      ${section(
+        "Upcoming events",
+        listHtml(today.upcomingEvents, (item) => `<li><strong>${escapeHtml(item.title || "Event")}</strong><span>${escapeHtml(item.startDate || "")}${item.startTime ? ` · ${escapeHtml(item.startTime)}` : ""}${item.summary ? ` — ${escapeHtml(item.summary)}` : ""}</span></li>`),
+        "No upcoming events",
+        "Closures, picture day, and family events will show here.",
+      )}
+    </div>
+  `;
+}
+
+function renderFamilyHubReportsPanel(data) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
+  const reports = Array.isArray(data?.shared?.reports) ? data.shared.reports : [];
+  if (!reports.length) {
+    return familyHubEmptyState({
+      title: "No daily reports yet",
+      body: "When your provider shares a daily report, it will show up here for every linked child.",
+    });
   }
   return `
-    <section class="section-block fh-preview-section">
-      <h3>${escapeHtml(title)}</h3>
-      <div class="resource-list compact">
-        ${items.map((item) => {
-          const childName = item.childName || "Child";
-          return `
-            <article class="resource-row">
-              <div>
-                <strong>${escapeHtml(item.title || title)}</strong>
-                <p class="muted-copy">${escapeHtml(childName)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.summary ? ` · ${escapeHtml(item.summary)}` : ""}</p>
-              </div>
-              <span class="tag">Shared</span>
-            </article>
-          `;
-        }).join("")}
+    <div class="fh-panel-stack">
+      ${reports.map((item) => `
+        <article class="fh-card">
+          <div class="fh-card-head">
+            <strong>${escapeHtml(item.title || "Daily report")}</strong>
+            <span>${escapeHtml(childName(item.childId))}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span>
+          </div>
+          <p>${escapeHtml(item.summary || "No summary provided.")}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFamilyHubPhotosPanel(data) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
+  const photos = Array.isArray(data?.shared?.photos) ? data.shared.photos : [];
+  if (!photos.length) {
+    return familyHubEmptyState({
+      title: "No photos shared yet",
+      body: "Photos your provider marks Share With Family will collect here.",
+    });
+  }
+  return `<div class="fh-photo-grid fh-photo-grid--page">${photos.map((item) => familyHubPhotoTile(item, childName(item.childId))).join("")}</div>`;
+}
+
+function renderFamilyHubMessagesPanel(data) {
+  const messages = Array.isArray(data?.messages) ? data.messages : [];
+  return `
+    <div class="fh-messages">
+      <div class="fh-message-thread" id="familyHubMessageThread">
+        ${messages.length
+          ? messages.map((msg) => `
+              <article class="fh-message ${msg.from === "parent" ? "is-parent" : "is-provider"}">
+                <header>
+                  <strong>${escapeHtml(msg.authorName || (msg.from === "parent" ? "You" : "Teacher"))}</strong>
+                  <time>${escapeHtml(String(msg.createdAt || "").replace("T", " ").slice(0, 16))}</time>
+                </header>
+                <p>${escapeHtml(msg.body || "")}</p>
+              </article>
+            `).join("")
+          : familyHubEmptyState({
+            title: "Start the conversation",
+            body: "Send a note to your provider. Replies will show in this thread.",
+          })}
       </div>
-    </section>
+      <form id="familyHubMessageForm" class="fh-message-compose">
+        <label class="sr-only" for="familyHubMessageInput">Message</label>
+        <textarea id="familyHubMessageInput" name="body" maxlength="2000" rows="3" required placeholder="Write a message to your provider…"></textarea>
+        <button class="primary-button" type="submit">Send message</button>
+        <span class="form-message" id="familyHubMessageStatus" aria-live="polite"></span>
+      </form>
+    </div>
+  `;
+}
+
+function renderFamilyHubCalendarPanel(data) {
+  const events = Array.isArray(data?.calendar) ? data.calendar : [];
+  if (!events.length) {
+    return familyHubEmptyState({
+      title: "No upcoming events",
+      body: "Closures, family events, and reminders from your provider will appear on this calendar list.",
+    });
+  }
+  return `
+    <div class="fh-panel-stack">
+      ${events.map((item) => `
+        <article class="fh-card">
+          <div class="fh-card-head">
+            <strong>${escapeHtml(item.title || "Event")}</strong>
+            <span class="tag">${escapeHtml(String(item.type || "event").replace(/_/g, " "))}</span>
+          </div>
+          <p class="muted-copy">${escapeHtml(item.startDate || "")}${item.endDate && item.endDate !== item.startDate ? ` – ${escapeHtml(item.endDate)}` : ""}${item.startTime ? ` · ${escapeHtml(item.startTime)}` : ""}</p>
+          ${item.summary ? `<p>${escapeHtml(item.summary)}</p>` : ""}
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFamilyHubFormsPanel(data) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const childName = (id) => children.find((c) => c.id === id)?.name || "Child";
+  const documents = Array.isArray(data?.documents) ? data.documents : [];
+  if (!documents.length) {
+    return familyHubEmptyState({
+      title: "No forms on file yet",
+      body: "Enrollment packets, medical forms, and handbook copies will show here for viewing.",
+    });
+  }
+  return `
+    <div class="fh-panel-stack">
+      ${documents.map((doc) => `
+        <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
+          <div class="fh-card-head">
+            <strong>${escapeHtml(doc.title || "Form")}</strong>
+            <span class="tag">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
+          </div>
+          <p class="muted-copy">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}</p>
+          <p>${escapeHtml(doc.notes || "View-only status from your provider. E-sign and uploads are not part of this beta.")}</p>
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderFamilyHubMorePanel(data) {
+  const settings = data?.settings || data?.household?.settings || {};
+  const guardians = Array.isArray(data?.guardians) ? data.guardians : (data?.household?.guardianEmails || []);
+  const notifications = Array.isArray(data?.notifications) ? data.notifications : [];
+  return `
+    <div class="fh-panel-stack">
+      <section class="fh-card">
+        <h3>Notifications</h3>
+        ${notifications.length
+          ? `<ul class="fh-today-list">${notifications.slice(0, 12).map((item) => `
+              <li class="${item.read ? "" : "is-unread"}">
+                <strong>${escapeHtml(item.title || "Update")}</strong>
+                <span>${escapeHtml(item.body || "")}</span>
+              </li>
+            `).join("")}</ul>
+            <button class="ghost-button" type="button" data-family-hub-mark-notifications>Mark all read</button>`
+          : familyHubEmptyState({ title: "You’re all caught up", body: "New photos, reports, and messages will notify you here." })}
+      </section>
+      <section class="fh-card">
+        <h3>Guardians on this household</h3>
+        <ul class="fh-today-list">
+          ${(guardians.length ? guardians : ["No guardian emails on file"]).map((email) => `
+            <li><strong>${escapeHtml(email)}</strong><span>Can sign in with the household login code</span></li>
+          `).join("")}
+        </ul>
+      </section>
+      <section class="fh-card">
+        <h3>Parent settings</h3>
+        <form id="familyHubSettingsForm" class="panel-form">
+          <label>Preferred name
+            <input name="preferredName" maxlength="80" value="${escapeHtml(settings.preferredName || "")}" placeholder="How should we greet you?" />
+          </label>
+          <label class="settings-check-label"><input type="checkbox" name="notifyMessages" ${settings.notifyMessages !== false ? "checked" : ""} /> Message alerts</label>
+          <label class="settings-check-label"><input type="checkbox" name="notifyPhotos" ${settings.notifyPhotos !== false ? "checked" : ""} /> Photo alerts</label>
+          <label class="settings-check-label"><input type="checkbox" name="notifyDailyReports" ${settings.notifyDailyReports !== false ? "checked" : ""} /> Daily report alerts</label>
+          <label class="settings-check-label"><input type="checkbox" name="notifyEvents" ${settings.notifyEvents !== false ? "checked" : ""} /> Event alerts</label>
+          <button class="primary-button" type="submit">Save settings</button>
+          <span class="form-message" id="familyHubSettingsMessage" aria-live="polite"></span>
+        </form>
+      </section>
+      <section class="fh-card">
+        <h3>Account</h3>
+        <p class="muted-copy">${escapeHtml(data?.household?.programName || "Your program")} · ${escapeHtml(data?.household?.label || "Household")}</p>
+        ${isLoggedIn() ? `<button class="primary-button" type="button" data-hdh-role-switch="teacher">Exit parent preview</button>` : ""}
+        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+      </section>
+    </div>
+  `;
+}
+
+function renderFamilyHubParentShell(data, options = {}) {
+  const children = Array.isArray(data?.children) ? data.children : [];
+  const panel = options.panel || familyHubParentState.panel || "today";
+  const childId = options.childId || familyHubParentState.childId || data?.today?.childId || children[0]?.id || "";
+  const unread = Number(data?.unreadNotifications || 0);
+  const panels = {
+    today: renderFamilyHubTodayPanel(data),
+    reports: renderFamilyHubReportsPanel(data),
+    photos: renderFamilyHubPhotosPanel(data),
+    messages: renderFamilyHubMessagesPanel(data),
+    calendar: renderFamilyHubCalendarPanel(data),
+    forms: renderFamilyHubFormsPanel(data),
+    more: renderFamilyHubMorePanel(data),
+  };
+  const nav = [
+    ["today", "Today"],
+    ["reports", "Reports"],
+    ["photos", "Photos"],
+    ["messages", "Messages"],
+    ["calendar", "Calendar"],
+    ["forms", "Forms"],
+    ["more", "More"],
+  ];
+  return `
+    <div class="fh-parent-app" data-fh-panel="${escapeHtml(panel)}">
+      <header class="fh-app-header">
+        <div>
+          <p class="eyebrow">Family Hub</p>
+          <h2>${escapeHtml(data?.household?.programName || "Your program")}</h2>
+          <p class="muted-copy">${escapeHtml(data?.household?.label || "Your household")}</p>
+        </div>
+        <div class="fh-app-header-actions">
+          <button class="ghost-button fh-notif-button" type="button" data-fh-panel="more" aria-label="Notifications">
+            Alerts${unread ? `<span class="fh-badge">${unread > 9 ? "9+" : unread}</span>` : ""}
+          </button>
+          <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+        </div>
+      </header>
+      ${children.length > 1 ? `
+        <div class="fh-child-switcher" role="tablist" aria-label="Children">
+          ${children.map((child) => `
+            <button type="button" class="fh-child-chip${child.id === childId ? " is-active" : ""}" data-fh-child="${escapeHtml(child.id)}">
+              ${escapeHtml(child.name || "Child")}
+            </button>
+          `).join("")}
+        </div>
+      ` : ""}
+      <nav class="fh-parent-nav" aria-label="Family Hub">
+        ${nav.map(([id, label]) => `
+          <button type="button" class="fh-parent-nav-link${panel === id ? " is-active" : ""}" data-fh-panel="${id}">
+            ${escapeHtml(label)}
+          </button>
+        `).join("")}
+      </nav>
+      <div class="fh-panel-body" id="familyHubPanelBody">
+        ${panels[panel] || panels.today}
+      </div>
+    </div>
   `;
 }
 
@@ -32977,36 +33293,20 @@ function renderFamilyHubPage() {
   const token = getFamilyHubSessionToken();
   const providerPreview = isLoggedIn();
   section.innerHTML = `
-    <section class="simple-child-page hdh-family-hub-parent">
-      <div class="fh-preview-banner" role="status">
-        <strong>Family Hub testing preview</strong>
-        <span>Internal testing only — not a finished parent product. Unavailable features show as Coming Soon.</span>
-      </div>
-      <div class="child-page-header">
-        <div>
-          <p class="eyebrow">Family Hub · Testing</p>
-          <h2>Your household</h2>
-          <p>One login for all of your children. Review shared updates and form status here.</p>
-        </div>
-      </div>
-      ${providerPreview ? renderHdhRoleSwitcher("parent") : ""}
-      <nav class="fh-parent-nav" aria-label="Family Hub">
-        <button type="button" class="fh-parent-nav-link is-active" data-fh-scroll="fhHome">Home</button>
-        <button type="button" class="fh-parent-nav-link" data-fh-scroll="fhChildren">Children</button>
-        <button type="button" class="fh-parent-nav-link" data-fh-scroll="fhUpdates">Updates</button>
-        <button type="button" class="fh-parent-nav-link" data-fh-scroll="fhForms">Forms</button>
-      </nav>
+    <section class="simple-child-page hdh-family-hub-parent fh-parent-shell">
+      ${providerPreview ? `<div class="fh-preview-banner" role="status"><strong>Provider preview</strong><span>You’re viewing Family Hub as a parent tester. Parents never see this banner.</span></div>${renderHdhRoleSwitcher("parent")}` : ""}
       <div id="familyHubParentApp">
         ${token
-          ? `<p class="muted-copy" id="familyHubLoadingState">Loading your household…</p>`
+          ? `<div class="fh-loading" id="familyHubLoadingState"><p>Loading today’s updates…</p></div>`
           : `
-            <section class="section-block">
-              <h3>Sign in to Family Hub</h3>
-              <p class="muted-copy">Use the magic link from your provider, or enter your household email and 6-digit code.</p>
+            <section class="fh-signin">
+              <p class="eyebrow">Family Hub</p>
+              <h2>Welcome back</h2>
+              <p class="muted-copy">Use the magic link from your provider, or sign in with your household email and 6-digit code.</p>
               <form id="familyHubLoginForm" class="panel-form">
                 <div class="form-grid-two">
-                  <label>Email<input name="email" type="email" required placeholder="parent@example.com" /></label>
-                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" /></label>
+                  <label>Email<input name="email" type="email" required placeholder="parent@example.com" autocomplete="username" /></label>
+                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" autocomplete="one-time-code" /></label>
                 </div>
                 <button class="primary-button" type="submit">Sign in</button>
                 <span class="form-message" id="familyHubLoginMessage" aria-live="polite"></span>
@@ -33020,41 +33320,65 @@ function renderFamilyHubPage() {
   if (token) {
     const loadId = `fh-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     section.dataset.familyHubLoadId = loadId;
-    loadFamilyHubParentDashboard({ loadId }).catch((error) => {
-      if (section.dataset.familyHubLoadId !== loadId) return;
-      const app = document.querySelector("#familyHubParentApp");
-      if (app) {
-        app.innerHTML = `
-          <section class="section-block">
-            <h3>Couldn’t open your household</h3>
-            <p class="muted-copy">${escapeHtml(error.message || "Something went wrong while loading Family Hub.")}</p>
-            <div class="account-actions-row">
-              <button class="primary-button" type="button" data-family-hub-retry>Try again</button>
-              <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
-            </div>
-          </section>`;
-      }
-    });
+    familyHubParentState.loadId = loadId;
+    ensureFamilyHubParentAppReady(loadId)
+      .then(() => loadFamilyHubParentDashboard({ loadId }))
+      .catch((error) => {
+        if (section.dataset.familyHubLoadId !== loadId) return;
+        const app = document.querySelector("#familyHubParentApp");
+        if (app) {
+          app.innerHTML = `
+            <section class="fh-signin">
+              <h2>Couldn’t open your household</h2>
+              <p class="muted-copy">${escapeHtml(error.message || "Something went wrong while loading Family Hub.")}</p>
+              <div class="account-actions-row">
+                <button class="primary-button" type="button" data-family-hub-retry>Try again</button>
+                <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+              </div>
+            </section>`;
+        }
+        syncFamilyHubParentChrome();
+      });
   }
 }
 
-async function loadFamilyHubParentDashboard(options = {}) {
-  const loadId = options.loadId || "";
-  const section = document.querySelector("#view-family-hub");
+async function ensureFamilyHubParentAppReady(loadId, attempts = 40) {
+  for (let i = 0; i < attempts; i += 1) {
+    const section = document.querySelector("#view-family-hub");
+    const app = document.querySelector("#familyHubParentApp");
+    // Prefer an active Family Hub view, but accept the mount node as soon as it exists.
+    if (app && (section?.classList.contains("active-view") || section)) return app;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
   const app = document.querySelector("#familyHubParentApp");
-  if (!app) return;
+  if (app) return app;
+  throw new Error("Family Hub screen didn’t finish opening. Tap Try again.");
+}
+
+async function loadFamilyHubParentDashboard(options = {}) {
+  const loadId = options.loadId || familyHubParentState.loadId || "";
+  const section = document.querySelector("#view-family-hub");
+  let app = document.querySelector("#familyHubParentApp");
+  if (!app) {
+    app = await ensureFamilyHubParentAppReady(loadId);
+  }
+  if (!app) {
+    throw new Error("Family Hub screen is not ready yet. Tap Try again.");
+  }
   const headers = familyHubAuthHeaders();
   if (!headers) {
     clearFamilyHubSession();
     throw new Error("Your Family Hub session is missing. Open your magic link or sign in with your login code.");
   }
 
+  const childId = options.childId || familyHubParentState.childId || "";
+  const query = childId ? `?childId=${encodeURIComponent(childId)}` : "";
   const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
   const timer = controller ? setTimeout(() => controller.abort(), 12000) : null;
   let response;
   let data = {};
   try {
-    response = await fetch("/api/family-hub/me", {
+    response = await fetch(`/api/family-hub/me${query}`, {
       headers,
       cache: "no-store",
       signal: controller?.signal,
@@ -33069,7 +33393,10 @@ async function loadFamilyHubParentDashboard(options = {}) {
     if (timer) clearTimeout(timer);
   }
 
-  if (loadId && section && section.dataset.familyHubLoadId !== loadId) return;
+  const stillLoading = Boolean(app.querySelector("#familyHubLoadingState, .fh-loading"));
+  const loadIdMatches = !loadId || !section || section.dataset.familyHubLoadId === loadId;
+  // Never abandon a paint while the UI is still on the loading placeholder.
+  if (!loadIdMatches && !stillLoading) return;
 
   if (!response.ok) {
     clearFamilyHubSession();
@@ -33086,69 +33413,73 @@ async function loadFamilyHubParentDashboard(options = {}) {
   }
 
   const children = Array.isArray(data.children) ? data.children : [];
-  const documents = Array.isArray(data.documents) ? data.documents : [];
-  const shared = data.shared && typeof data.shared === "object" ? data.shared : {};
-  const reports = Array.isArray(shared.reports) ? shared.reports : [];
-  const photos = Array.isArray(shared.photos) ? shared.photos : [];
-  const observations = Array.isArray(shared.observations) ? shared.observations : [];
-  const comingSoon = Array.isArray(data.comingSoon) ? data.comingSoon : [
-    { id: "messaging", label: "Messaging", detail: "Parent messaging is not available in this testing preview." },
-    { id: "calendar", label: "Calendar", detail: "Calendar is not available in this testing preview." },
-    { id: "attendance", label: "Attendance", detail: "Attendance is not available in this testing preview." },
-    { id: "esign", label: "Form signing", detail: "E-sign and form returns are not available yet." },
-  ];
-  const childName = (childId) => children.find((c) => c.id === childId)?.name || "Child";
-  const withChildNames = (items) => items.map((item) => ({ ...item, childName: childName(item.childId) }));
-
-  app.innerHTML = `
-    <section class="section-block" id="fhHome">
-      <div class="account-actions-row" style="margin-bottom:12px;">
-        <strong>${escapeHtml(data.household?.label || "Your household")}</strong>
-        ${isLoggedIn() ? `<button class="primary-button" type="button" data-hdh-role-switch="teacher">Exit parent preview</button>` : ""}
-        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
-      </div>
-      <p class="muted-copy">${escapeHtml(data.note || "Testing preview for your household.")}</p>
-      ${!children.length ? `<p class="form-message" role="status">No children are linked to this household yet. Ask your provider to update the invite.</p>` : ""}
-    </section>
-    <section class="section-block" id="fhChildren">
-      <h3>Children</h3>
-      <ul class="hdh-coming-list">
-        ${children.length ? children.map((child) => `<li>${escapeHtml(child.name || "Child")}</li>`).join("") : "<li>No children linked yet.</li>"}
-      </ul>
-    </section>
-    <div id="fhUpdates">
-      ${renderFamilyHubSharedList("Daily reports", withChildNames(reports), "Daily Reports — Coming Soon. Shared reports will show here when your provider marks them Share With Family.")}
-      ${renderFamilyHubSharedList("Photos", withChildNames(photos), "Photos — Coming Soon. Shared photos will show here when your provider shares them.")}
-      ${renderFamilyHubSharedList("Observations", withChildNames(observations), "Observations — Coming Soon. Shared observations will show here when available.")}
-    </div>
-    <section class="section-block" id="fhForms">
-      <h3>Forms &amp; records status</h3>
-      <div class="resource-list compact">
-        ${documents.length
-          ? documents.map((doc) => `
-              <article class="resource-row">
-                <div>
-                  <strong>${escapeHtml(doc.title || "Form")}</strong>
-                  <p class="muted-copy">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")} · ${escapeHtml(doc.statusLabel || doc.status || "Needed")}</p>
-                </div>
-                <span class="tag">Review only</span>
-              </article>
-            `).join("")
-          : renderProfileEmptyState({
-            title: "No forms shared yet",
-            body: "When your provider tracks paperwork for your children, status will show here.",
-          })}
-      </div>
-      <p class="form-note">Signing, uploads, and returning forms are not available in this testing preview.</p>
-    </section>
-    <section class="section-block">
-      <h3>More coming soon</h3>
-      <div class="fh-coming-grid">
-        ${comingSoon.map(renderFamilyHubComingSoonCard).join("")}
-      </div>
-    </section>
-  `;
+  const activeChildId = data.today?.childId || childId || children[0]?.id || "";
+  familyHubParentState = {
+    ...familyHubParentState,
+    data,
+    childId: activeChildId,
+    panel: options.panel || familyHubParentState.panel || "today",
+    loadId: loadIdMatches ? loadId : (section?.dataset.familyHubLoadId || loadId),
+  };
+  // Re-query mount in case the view re-rendered during fetch.
+  app = document.querySelector("#familyHubParentApp") || app;
+  app.innerHTML = renderFamilyHubParentShell(data, {
+    panel: familyHubParentState.panel,
+    childId: activeChildId,
+  });
   syncFamilyHubParentChrome();
+}
+
+function paintFamilyHubParentPanel(panel) {
+  const next = String(panel || "today");
+  familyHubParentState.panel = next;
+  const data = familyHubParentState.data;
+  const app = document.querySelector("#familyHubParentApp");
+  if (!app || !data) {
+    renderFamilyHubPage();
+    return;
+  }
+  app.innerHTML = renderFamilyHubParentShell(data, {
+    panel: next,
+    childId: familyHubParentState.childId,
+  });
+  syncFamilyHubParentChrome();
+}
+
+async function switchFamilyHubChild(childId) {
+  const id = String(childId || "").trim();
+  if (!id || id === familyHubParentState.childId) return;
+  familyHubParentState.childId = id;
+  familyHubParentState.panel = "today";
+  const section = document.querySelector("#view-family-hub");
+  const loadId = `fh-child-${Date.now()}`;
+  if (section) section.dataset.familyHubLoadId = loadId;
+  familyHubParentState.loadId = loadId;
+  const app = document.querySelector("#familyHubParentApp");
+  if (app) app.innerHTML = `<div class="fh-loading"><p>Updating today’s view…</p></div>`;
+  await loadFamilyHubParentDashboard({ loadId, childId: id, panel: "today" });
+}
+
+async function signOutFamilyHubParent() {
+  const headers = familyHubAuthHeaders();
+  if (headers) {
+    try {
+      await fetch("/api/family-hub/logout", { method: "POST", headers, cache: "no-store" });
+    } catch (_error) { /* ignore */ }
+  }
+  clearFamilyHubSession();
+  familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
+  if (isLoggedIn()) {
+    setHdhTesterPersona({ role: "teacher" });
+    syncPlatformNavVisibility();
+    setView(staffMaySeeHdhView("home-daycare-hub") ? "home-daycare-hub" : "calendar");
+    syncHdhTesterSwitcherChrome();
+    showActionFeedback("Exited Parent view.");
+    return;
+  }
+  renderFamilyHubPage();
+  syncFamilyHubParentChrome();
+  showActionFeedback("Signed out of Family Hub.");
 }
 
 async function createFamilyHubHouseholdInvite(form) {
@@ -57867,13 +58198,29 @@ document.addEventListener("click", async (event) => {
     const message = document.querySelector("#familyHubAcceptMessage");
     redeemFamily.disabled = true;
     redeemFamilyHubInviteToken(token)
-      .then(() => {
+      .then(async () => {
         const url = new URL(window.location.href);
         url.searchParams.delete("familyHub");
         window.history.replaceState({}, "", url.pathname + url.search + url.hash);
         document.querySelector("#familyHubAcceptPanel")?.remove();
+        familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
         setView("family-hub");
-        showActionFeedback("Family Hub opened for your household.");
+        // Guarantee dashboard paint even if showView race leaves Loading…
+        await ensureFamilyHubParentAppReady("").catch(() => null);
+        if (document.querySelector("#familyHubLoadingState") || !document.querySelector(".fh-parent-app")) {
+          await loadFamilyHubParentDashboard({ panel: "today" }).catch((error) => {
+            const app = document.querySelector("#familyHubParentApp");
+            if (app) {
+              app.innerHTML = `
+                <section class="fh-signin">
+                  <h2>Couldn’t open your household</h2>
+                  <p class="muted-copy">${escapeHtml(error.message || "Try again.")}</p>
+                  <button class="primary-button" type="button" data-family-hub-retry>Try again</button>
+                </section>`;
+            }
+          });
+        }
+        showActionFeedback("Welcome to Family Hub.");
       })
       .catch((error) => {
         if (message) message.textContent = error.message || "Could not open Family Hub.";
@@ -57893,16 +58240,51 @@ document.addEventListener("click", async (event) => {
 
   if (event.target.closest("[data-family-hub-sign-out]")) {
     event.preventDefault();
-    clearFamilyHubSession();
-    renderFamilyHubPage();
-    syncFamilyHubParentChrome();
-    showActionFeedback("Signed out of Parent view.");
+    signOutFamilyHubParent();
     return;
   }
 
   if (event.target.closest("[data-family-hub-retry]")) {
     event.preventDefault();
     renderFamilyHubPage();
+    return;
+  }
+
+  const fhPanel = event.target.closest("[data-fh-panel]");
+  if (fhPanel && document.querySelector("#view-family-hub")) {
+    event.preventDefault();
+    paintFamilyHubParentPanel(fhPanel.getAttribute("data-fh-panel"));
+    return;
+  }
+
+  const fhChild = event.target.closest("[data-fh-child]");
+  if (fhChild) {
+    event.preventDefault();
+    switchFamilyHubChild(fhChild.getAttribute("data-fh-child")).catch((error) => {
+      showActionFeedback(error.message || "Could not switch child.");
+    });
+    return;
+  }
+
+  if (event.target.closest("[data-family-hub-mark-notifications]")) {
+    event.preventDefault();
+    (async () => {
+      const headers = familyHubAuthHeaders();
+      if (!headers) return;
+      const response = await fetch("/api/family-hub/notifications/read", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ all: true, messages: true }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not update notifications.");
+      if (familyHubParentState.data) {
+        familyHubParentState.data.notifications = result.notifications || [];
+        familyHubParentState.data.unreadNotifications = result.unread || 0;
+      }
+      paintFamilyHubParentPanel("more");
+      showActionFeedback("Notifications marked read.");
+    })().catch((error) => showActionFeedback(error.message || "Could not update notifications."));
     return;
   }
 
@@ -64403,6 +64785,7 @@ document.addEventListener("submit", async (event) => {
       }
       if (!result.sessionToken) throw new Error("Family Hub session was not created.");
       setFamilyHubSessionToken(result.sessionToken);
+      familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
       renderFamilyHubPage();
       showActionFeedback("Signed in to Family Hub.");
     } catch (error) {
@@ -64411,6 +64794,78 @@ document.addEventListener("submit", async (event) => {
       } else if (message) {
         message.textContent = error.message || "Could not sign in.";
       }
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#familyHubMessageForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const status = document.querySelector("#familyHubMessageStatus");
+    const submitBtn = form.querySelector("[type='submit']");
+    const data = collectFormData(form);
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = familyHubAuthHeaders();
+      if (!headers) throw new Error("Sign in again to send a message.");
+      const response = await fetch("/api/family-hub/messages", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ body: data.body }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not send message.");
+      if (familyHubParentState.data) {
+        familyHubParentState.data.messages = Array.isArray(result.messages) ? result.messages : familyHubParentState.data.messages;
+      }
+      paintFamilyHubParentPanel("messages");
+      showActionFeedback("Message sent.");
+    } catch (error) {
+      if (status) status.textContent = error.message || "Could not send message.";
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+    return;
+  }
+
+  if (event.target.matches("#familyHubSettingsForm")) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const form = event.target;
+    const status = document.querySelector("#familyHubSettingsMessage");
+    const submitBtn = form.querySelector("[type='submit']");
+    if (submitBtn) submitBtn.disabled = true;
+    try {
+      const headers = familyHubAuthHeaders();
+      if (!headers) throw new Error("Sign in again to save settings.");
+      const preferredName = String(form.querySelector("[name='preferredName']")?.value || "").trim();
+      const payload = {
+        preferredName,
+        notifyMessages: Boolean(form.querySelector("[name='notifyMessages']")?.checked),
+        notifyPhotos: Boolean(form.querySelector("[name='notifyPhotos']")?.checked),
+        notifyDailyReports: Boolean(form.querySelector("[name='notifyDailyReports']")?.checked),
+        notifyEvents: Boolean(form.querySelector("[name='notifyEvents']")?.checked),
+      };
+      const response = await fetch("/api/family-hub/settings", {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify(payload),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result?.error || "Could not save settings.");
+      if (familyHubParentState.data) {
+        familyHubParentState.data.settings = result.settings || payload;
+        if (familyHubParentState.data.household) {
+          familyHubParentState.data.household.settings = result.settings || payload;
+        }
+      }
+      if (status) status.textContent = "Saved.";
+      showActionFeedback("Settings saved.");
+    } catch (error) {
+      if (status) status.textContent = error.message || "Could not save settings.";
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }

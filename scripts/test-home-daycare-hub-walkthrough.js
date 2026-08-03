@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260803-family-hub-ready";
+const SHELL = "20260803-family-hub-beta";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";
@@ -125,9 +125,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v160-family-hub-ready/);
+  assert.match(sw, /llh-shell-v161-family-hub-beta/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v160-family-hub-ready");
+  assert.equal(manifest.cacheName, "llh-shell-v161-family-hub-beta");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);
@@ -271,19 +271,24 @@ async function main() {
 
     await visibleRole("parent").click();
     await page.waitForFunction(() => {
-      return document.querySelector("#view-family-hub.active-view")
-        && (document.querySelector("#familyHubParentApp")?.innerText || "").length > 20;
-    }, { timeout: 20000 });
+      const hub = document.querySelector("#view-family-hub.active-view");
+      const app = document.querySelector("#familyHubParentApp");
+      if (!hub || !app) return false;
+      if (app.querySelector("#familyHubLoadingState, .fh-loading")) return false;
+      return Boolean(app.querySelector(".fh-parent-app") || /sign in|couldn.?t open/i.test(app.innerText || ""));
+    }, { timeout: 30000 });
     const parentMode = await page.evaluate(() => ({
       active: Boolean(document.querySelector("#view-family-hub.active-view")),
       persona: document.body.dataset.hdhTesterPersona || "",
       hasBack: Boolean(document.querySelector("[data-hdh-role-switch='teacher']:not([disabled])")),
       text: document.querySelector("#familyHubParentApp")?.innerText || "",
+      parentMode: document.body.classList.contains("family-hub-parent-mode"),
     }));
     assert.equal(parentMode.active, true, "Parent view should open from role switcher");
     assert.equal(parentMode.persona, "parent");
     assert.equal(parentMode.hasBack, true, "Parent view should offer Back to Teacher");
-    assert.match(parentMode.text, /household|Children|Forms/i);
+    assert.equal(parentMode.parentMode, true, "Parent chrome mode should hide provider UI");
+    assert.match(parentMode.text, /Today|Reports|Photos|Messages|Calendar|Forms|Family Hub|day/i);
     await visibleRole("teacher").click();
     await page.waitForSelector("#view-home-daycare-hub.active-view #hdhRoleSwitcher", { timeout: 15000 });
     console.log("PASS  teacher ↔ staff ↔ parent role switcher");
