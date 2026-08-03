@@ -48,11 +48,16 @@ There is **no per-account Teaching Kit flag**. Admin tools require an admin sess
 ## Tests
 
 ```bash
-# Full Teaching Kit matrix + release suites
+# Full Teaching Kit matrix + release suites (Postgres required for RC media suites)
+export TEST_DATABASE_URL='postgresql://…'   # local or CI test DB
 npm run test:teaching-kit-integrated-release
 
 # Teaching Kit suites only (skip long platform RC)
 TK_RELEASE_INCLUDE_PLATFORM=0 npm run test:teaching-kit-integrated-release
+
+# Platform release gates alone
+npm run test:release
+npm run test:release-candidate-regression
 
 # After production deploy (flags still off)
 SITE_URL=https://littlelearnershubbyleah.com TK_SMOKE_MODE=baseline npm run test:teaching-kit-production-smoke

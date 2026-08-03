@@ -228,6 +228,8 @@ function startServer(dbUrl) {
       ADMIN_EMAIL: ADMIN.email,
       ADMIN_PASSWORD: ADMIN.password,
       ADMIN_ACCESS_CODE: ADMIN.code,
+      // Fixture personas use @media.test; Postgres writes prune *.test unless allowed.
+      ALLOW_TEST_ACCOUNT_EMAILS: "true",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
