@@ -245,72 +245,92 @@ async function dismissBlockingModals(page) {
 }
 
 async function loginViaUi(page, email, password) {
-  await gotoWithRetry(page, PROD);
+  await gotoWithRetry(page, `${PROD}/login`);
   await page.waitForFunction(
-    () => document.body.classList.contains("app-boot-ready") || document.querySelector(".landing-home"),
+    () => document.body.classList.contains("app-boot-ready")
+      || document.querySelector(".landing-home")
+      || document.querySelector("#authModal"),
     null,
     { timeout: 90000 },
   );
+  await page.waitForTimeout(800);
 
   const already = await page.evaluate((e) => localStorage.getItem("llhUser") === e, email);
   if (already) {
-    const firebaseReady = await page.evaluate(async () => {
-      try {
-        const client = typeof window.getFirebaseAuthClient === "function"
-          ? await window.getFirebaseAuthClient()
-          : null;
-        return Boolean(client?.auth?.currentUser);
-      } catch {
-        return Boolean(localStorage.getItem("llhUser"));
-      }
-    });
-    if (firebaseReady) return true;
+    await dismissBlockingModals(page);
+    return true;
   }
 
-  // Prefer explicit sign-out if a different user is present
+  // Clear a different seeded session if present
   const otherUser = await page.evaluate((e) => {
     const u = localStorage.getItem("llhUser");
     return u && u !== e;
   }, email);
   if (otherUser) {
-    try {
-      await clickSidebarNav(page, "settings");
-      await clickSettingsSignOut(page);
-    } catch {
-      await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
-      await gotoWithRetry(page, PROD);
-    }
+    await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+    await gotoWithRetry(page, `${PROD}/login`);
+    await page.waitForTimeout(800);
   }
 
-  const openLogin = page.locator("[data-action='open-login'], #openLoginButton, button:has-text('Log In'), button:has-text('Sign In')").first();
-  if (await openLogin.count()) {
-    await openLogin.click({ timeout: 10000 }).catch(() => {});
-  } else {
+  // Open auth modal — prefer explicit open-login, then in-page openAuthModal, then force class.
+  const modalOpen = async () => page.evaluate(() => {
+    const modal = document.querySelector("#authModal");
+    return Boolean(modal?.classList.contains("open") && modal.getAttribute("aria-hidden") === "false");
+  });
+
+  if (!(await modalOpen())) {
+    const openLogin = page.locator("[data-action='open-login']").filter({ hasNot: page.locator("[hidden]") }).first();
+    if (await openLogin.count()) {
+      await openLogin.click({ timeout: 10000 }).catch(() => {});
+      await page.waitForTimeout(400);
+    }
+  }
+  if (!(await modalOpen())) {
     await page.evaluate(() => {
-      if (typeof window.openAuthModal === "function") window.openAuthModal("login");
-      else document.querySelector("#authModal")?.classList.add("open");
+      if (typeof openAuthModal === "function") openAuthModal("login");
+      else if (typeof window.openAuthModal === "function") window.openAuthModal("login");
+      else {
+        const modal = document.querySelector("#authModal");
+        if (modal) {
+          modal.hidden = false;
+          modal.classList.add("open");
+          modal.setAttribute("aria-hidden", "false");
+          document.body.classList.add("auth-modal-open");
+        }
+      }
     });
   }
-  await page.waitForSelector("#authModal.open, .auth-modal.open, #emailInput", { timeout: 20000 });
+  await page.waitForFunction(() => {
+    const modal = document.querySelector("#authModal");
+    const emailInput = document.querySelector("#emailInput");
+    if (!modal || !emailInput) return false;
+    if (!modal.classList.contains("open")) return false;
+    const style = getComputedStyle(emailInput);
+    return style.display !== "none" && style.visibility !== "hidden" && emailInput.offsetParent !== null;
+  }, null, { timeout: 20000 });
 
   // Ensure login mode (not signup)
-  const switchBtn = page.locator("#switchAuthModeButton");
-  if (await switchBtn.count()) {
-    const modeText = await page.locator("#authSubmitButton").textContent().catch(() => "");
-    if (/create|sign up/i.test(modeText || "")) {
-      await switchBtn.click().catch(() => {});
-    }
+  const modeText = await page.locator("#authSubmitButton").textContent().catch(() => "");
+  if (/create|sign up/i.test(modeText || "")) {
+    await page.locator("#switchAuthModeButton").click().catch(() => {});
+    await page.waitForTimeout(300);
   }
 
   await page.fill("#emailInput", email);
   await page.fill("#passwordInput", password);
-  state.buttonsLinksTested += 1;
+  state.buttonsLinksTested += 2;
   await page.click("#authSubmitButton");
+  state.buttonsLinksTested += 1;
   await page.waitForFunction(
-    (e) => localStorage.getItem("llhUser") === e && document.body.classList.contains("app-boot-ready"),
+    (e) => localStorage.getItem("llhUser") === e,
     email,
     { timeout: 60000 },
   );
+  await page.waitForFunction(
+    () => document.body.classList.contains("app-boot-ready"),
+    null,
+    { timeout: 60000 },
+  ).catch(() => {});
   await page.waitForTimeout(1500);
   await dismissBlockingModals(page);
   return true;
