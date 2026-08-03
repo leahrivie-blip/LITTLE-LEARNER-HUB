@@ -19,6 +19,7 @@
     "test:marketing-analytics": "NODE_ENV=test node scripts/test-marketing-analytics.js",
     "test:production-monitoring": "NODE_ENV=test node scripts/test-production-monitoring.js",
     "test:admin-insights": "NODE_ENV=test node scripts/test-admin-insights.js",
+    "test:marketing-funnel-flow": "NODE_ENV=test node scripts/verify-marketing-funnel-flow.js",
     "stripe:check": "node server/stripe-check.js",
     "launch:check": "node server/launch-check.js",
     "billing:check": "node server/billing-check.js",

@@ -278,6 +278,13 @@ body:has(#view-admin.active-view) .llh-public-nav {
   justify-content: flex-end;
 }
 
+#view-admin .admin-insights-hub-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 14px;
+}
+
 #view-admin .admin-insights-range.is-active,
 #view-admin .admin-insights-toolbar .ghost-button.is-active {
   border-color: #2f6f4e;
@@ -355,8 +362,109 @@ body:has(#view-admin.active-view) .llh-public-nav {
   background: linear-gradient(160deg, #ffffff 0%, #f3faf5 100%);
 }
 
+#view-admin .admin-insights-funnel-vertical {
+  margin: 16px 0 20px;
+}
+
+#view-admin .admin-insights-funnel-bars {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+#view-admin .admin-insights-funnel-bar {
+  display: grid;
+  grid-template-columns: minmax(160px, 220px) 1fr minmax(180px, 240px);
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #d7e3da;
+  border-radius: 12px;
+  background: #fbfdfc;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+#view-admin .admin-insights-funnel-bar:hover,
+#view-admin .admin-insights-funnel-bar.is-selected {
+  border-color: #2f6f4e;
+  background: #eef7f1;
+}
+
+#view-admin .admin-insights-funnel-bar-meta {
+  display: grid;
+  gap: 2px;
+}
+
+#view-admin .admin-insights-funnel-bar-meta strong {
+  font-size: 0.95rem;
+}
+
+#view-admin .admin-insights-funnel-bar-track {
+  height: 18px;
+  border-radius: 999px;
+  background: #e6eee8;
+  overflow: hidden;
+}
+
+#view-admin .admin-insights-funnel-bar-track span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #3f8f63 0%, #2f6f4e 100%);
+}
+
+#view-admin .admin-insights-funnel-bar-rates {
+  display: grid;
+  gap: 2px;
+  font-size: 0.86rem;
+}
+
+#view-admin .admin-insights-funnel-conv {
+  margin: 0;
+  color: #1f4d35;
+  font-size: 0.9rem;
+}
+
+#view-admin .admin-insights-funnel-drop {
+  margin: 0;
+  color: #8a4b12;
+  font-size: 0.88rem;
+}
+
+#view-admin .admin-insights-funnel-flow {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 18px;
+}
+
+#view-admin .admin-insights-funnel-flow-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.4fr) 1fr 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border: 1px solid #d7e3da;
+  border-radius: 12px;
+  background: #fbfdfc;
+}
+
+#view-admin .admin-insights-funnel-drilldown {
+  margin: 8px 0 18px;
+  padding: 12px;
+  border: 1px solid #d7e3da;
+  border-radius: 14px;
+  background: #fff;
+}
+
 @media (max-width: 980px) {
   #view-admin .admin-insights-split {
+    grid-template-columns: 1fr;
+  }
+
+  #view-admin .admin-insights-funnel-bar,
+  #view-admin .admin-insights-funnel-flow-row {
     grid-template-columns: 1fr;
   }
 }

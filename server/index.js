@@ -10383,6 +10383,8 @@ async function handleAdminInsights(request, response, url) {
   const sort = String(url.searchParams.get("sort") || "votes").trim();
   const category = String(url.searchParams.get("category") || "").trim();
   const status = String(url.searchParams.get("status") || "").trim();
+  const source = String(url.searchParams.get("source") || "").trim();
+  const stage = String(url.searchParams.get("stage") || "").trim();
   const store = peekStore();
   let marketing = null;
   let monitoringSnapshot = null;
@@ -10404,6 +10406,8 @@ async function handleAdminInsights(request, response, url) {
     sort,
     category,
     status,
+    source,
+    stage,
     events: store.analyticsEvents || [],
     marketing,
     monitoringSnapshot,

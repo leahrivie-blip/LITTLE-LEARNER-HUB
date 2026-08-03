@@ -3,8 +3,11 @@
  * No pricing/membership/Stripe/auth changes. Safe to call from admin APIs only.
  */
 
+const testAccountGuard = require("./test-account-guard.js");
+
 const HUBS = Object.freeze([
   "advisor",
+  "marketing-funnel",
   "feature-usage",
   "user-journey",
   "feature-requests",
@@ -15,6 +18,20 @@ const HUBS = Object.freeze([
   "churn-dashboard",
   "content-health",
   "release-center",
+]);
+
+const FUNNEL_SOURCES = Object.freeze(["TikTok", "Facebook", "Google", "Direct", "Organic", "Other"]);
+const FUNNEL_STAGE_DEFS = Object.freeze([
+  { id: "visitors", label: "Visitors" },
+  { id: "landingPageViews", label: "Landing page views" },
+  { id: "ctaClicks", label: "CTA clicks" },
+  { id: "signupStarts", label: "Signup started" },
+  { id: "signupCompletions", label: "Signup completed" },
+  { id: "emailVerified", label: "Email verified" },
+  { id: "trialStarts", label: "Trial started" },
+  { id: "trialEnded", label: "Trial ended" },
+  { id: "paidConversions", label: "Converted to paid" },
+  { id: "activeSubscribers", label: "Active subscribers" },
 ]);
 
 const RANGES = Object.freeze(["today", "7d", "30d", "all"]);
@@ -578,8 +595,490 @@ function buildReleaseCenter(deps = {}) {
   };
 }
 
+function parseUrlParams(raw = "") {
+  try {
+    return new URL(String(raw || ""), "https://littlelearnershubbyleah.com").searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+function funnelChannelFromRaw(value, { url = "", referrer = "", medium = "" } = {}) {
+  const raw = String(value || "").trim();
+  const mediumText = String(medium || "").trim().toLowerCase();
+  const blob = `${raw} ${url} ${referrer} ${mediumText}`.toLowerCase();
+  if (/facebook|instagram|fbclid|\bmeta\b/.test(blob) || /^fb$/i.test(raw)) return "Facebook";
+  if (/tiktok|ttclid/.test(blob)) return "TikTok";
+  if (/gclid|google|adwords|youtube|googlesyndication/.test(blob)) return "Google";
+  if (/^direct$/i.test(raw) || (!raw && !referrer)) return "Direct";
+  if (
+    mediumText === "email"
+    || mediumText === "newsletter"
+    || /^referral$/i.test(raw)
+    || /^email$/i.test(raw)
+    || /^organic$/i.test(raw)
+    || /\bemail\b|newsletter|bing|yahoo|duckduckgo|organic/.test(blob)
+    || referrer
+  ) {
+    return "Organic";
+  }
+  if (!raw) return "Direct";
+  return "Other";
+}
+
+function eventFunnelSource(event = {}, user = null) {
+  const attr = (event.attribution && typeof event.attribution === "object" ? event.attribution : null)
+    || (user?.attribution && typeof user.attribution === "object" ? user.attribution : {})
+    || {};
+  const params = parseUrlParams(event.url || attr.landingPage || "");
+  const medium = attr.medium || params.get("utm_medium") || event.detail?.medium || "";
+  const referrer = attr.referrer || event.referrer || "";
+  const sourceRaw = attr.source || event.source || event.detail?.source || params.get("utm_source") || "";
+  return funnelChannelFromRaw(sourceRaw, { url: event.url || "", referrer, medium });
+}
+
+function actorKey(event = {}) {
+  return String(event.visitorId || event.user || event.sessionId || event.ipHash || "").trim().toLowerCase();
+}
+
+function isCtaClickEvent(event) {
+  if (!event) return false;
+  if (event.name === "cta_click") return true;
+  if (event.name === "signup_click") return true;
+  if (event.name !== "button_click") return false;
+  const label = String(event.detail?.label || event.detail?.action || "").toLowerCase();
+  return /start free|start trial|create free account|^sign up$|sign up$|try pro|start 7/.test(label);
+}
+
+function ctaKind(event) {
+  if (event?.name === "cta_click") {
+    const cta = String(event.detail?.cta || "").toLowerCase();
+    if (cta.includes("trial")) return "start_trial";
+    return "start_free";
+  }
+  const label = String(event?.detail?.label || event?.detail?.action || event?.name || "").toLowerCase();
+  if (/trial|try pro|start 7/.test(label)) return "start_trial";
+  return "start_free";
+}
+
+function isSignupStartEvent(event) {
+  if (!event) return false;
+  return [
+    "signup_start",
+    "signup_click",
+    "signup_plan_selected",
+    "free_plan_selected",
+    "signup_persona_selected",
+  ].includes(event.name);
+}
+
+function pct(part, whole) {
+  if (!whole) return 0;
+  return Number(((part / whole) * 100).toFixed(1));
+}
+
+function buildStageTransitions(stages) {
+  const transitions = [];
+  for (let i = 1; i < stages.length; i += 1) {
+    const from = stages[i - 1];
+    const to = stages[i];
+    const fromCount = Number(from.count || 0);
+    const toCount = Number(to.count || 0);
+    const converted = Math.min(toCount, fromCount);
+    const dropped = Math.max(fromCount - toCount, 0);
+    transitions.push({
+      from: from.id,
+      to: to.id,
+      fromLabel: from.label,
+      toLabel: to.label,
+      fromCount,
+      toCount,
+      conversionRate: pct(converted, fromCount),
+      conversionRateLabel: rate(converted, fromCount),
+      dropOffCount: dropped,
+      dropOffRate: pct(dropped, fromCount),
+      dropOffRateLabel: rate(dropped, fromCount),
+    });
+  }
+  return transitions;
+}
+
+function emptyStageSets() {
+  return Object.fromEntries(FUNNEL_STAGE_DEFS.map((s) => [s.id, new Set()]));
+}
+
+function emptyStagePeople() {
+  return Object.fromEntries(FUNNEL_STAGE_DEFS.map((s) => [s.id, new Map()]));
+}
+
+function detectFunnelDevice(ua = "") {
+  const value = String(ua || "");
+  if (/iPad|Tablet/i.test(value)) return "Tablet";
+  if (/Mobi|Android|iPhone/i.test(value)) return "Mobile";
+  if (!value) return "Unknown";
+  return "Desktop";
+}
+
+function landingPathFromEvent(event = {}, user = null) {
+  const attr = event.attribution || user?.attribution || {};
+  const raw = attr.landingPage || event.path || event.detail?.view || event.url || "/";
+  try {
+    const url = new URL(String(raw), "https://littlelearnershubbyleah.com");
+    return `${url.pathname}${url.search}`.slice(0, 180) || "/";
+  } catch {
+    return String(raw || "/").slice(0, 180);
+  }
+}
+
+function isActiveSubscriber(user = {}) {
+  const plan = String(user.plan || user.planDisplayName || "").toLowerCase();
+  const status = String(user.subscriptionStatus || user.stripeSubscriptionStatus || user.accountStatus || "").toLowerCase();
+  if (user.foundingMemberActive) return true;
+  if (status.includes("cancel") && !status.includes("active")) return false;
+  if (status.includes("ended") || status.includes("incomplete_expired")) return false;
+  if (status.includes("active") || status.includes("trialing") || status.includes("past_due")) {
+    return /pro|founding|paid|annual|monthly/.test(plan) || Boolean(user.metaPurchaseAt || user.firstPaidInvoiceAt);
+  }
+  return Boolean(user.metaPurchaseAt || user.firstPaidInvoiceAt) && /pro|founding/.test(plan);
+}
+
+function readFunnelAdSpend(store) {
+  const fromStore = store?.marketingAdSpend && typeof store.marketingAdSpend === "object"
+    ? store.marketingAdSpend
+    : {};
+  const num = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+  const bySource = {
+    Facebook: num(fromStore.Facebook ?? fromStore.facebook ?? process.env.MARKETING_AD_SPEND_FACEBOOK),
+    TikTok: num(fromStore.TikTok ?? fromStore.tiktok ?? process.env.MARKETING_AD_SPEND_TIKTOK),
+    Google: num(fromStore.Google ?? fromStore.google ?? process.env.MARKETING_AD_SPEND_GOOGLE),
+    Direct: num(fromStore.Direct ?? fromStore.direct),
+    Organic: num(fromStore.Organic ?? fromStore.organic ?? fromStore.Referral ?? fromStore.referral),
+    Other: num(fromStore.Other ?? fromStore.Unknown ?? fromStore.unknown),
+  };
+  const totalFromParts = Object.values(bySource).reduce((sum, value) => sum + value, 0);
+  const total = num(fromStore.total ?? process.env.MARKETING_AD_SPEND_TOTAL) || totalFromParts;
+  return { total, bySource, configured: total > 0 || totalFromParts > 0 };
+}
+
+function costLabel(spend, conversions) {
+  if (!(spend > 0) || !(conversions > 0)) return null;
+  return Number((spend / conversions).toFixed(2));
+}
+
+function avgHours(list) {
+  if (!list.length) return null;
+  return Number((list.reduce((a, b) => a + b, 0) / list.length).toFixed(2));
+}
+
+function formatHoursLabel(hours) {
+  if (!Number.isFinite(hours) || hours < 0) return "—";
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  if (hours < 48) return `${hours.toFixed(1)}h`;
+  return `${(hours / 24).toFixed(1)}d`;
+}
+
+function buildMarketingFunnel(store, events, range, { source = "", stage = "" } = {}) {
+  const sourceFilter = FUNNEL_SOURCES.includes(source) ? source : "";
+  const stageFilter = FUNNEL_STAGE_DEFS.some((s) => s.id === stage) ? stage : "";
+  const scoped = filterEvents(events, range.startMs);
+  const { users } = testAccountGuard.filterUsersForCustomerAnalytics(Object.values(store.users || {}));
+  const usersByEmail = new Map(users.map((u) => [normalizeEmail(u.email), u]));
+  const isTestActor = (event) => testAccountGuard.shouldExcludeFromCustomerAnalytics(
+    event?.user || event?.detail?.email || event?.email || "",
+  );
+
+  const overall = emptyStageSets();
+  const bySourceSets = Object.fromEntries(FUNNEL_SOURCES.map((src) => [src, emptyStageSets()]));
+  const people = emptyStagePeople();
+  const ctaKindCounts = { start_free: 0, start_trial: 0 };
+  const deviceCounts = { Mobile: 0, Desktop: 0, Tablet: 0, Unknown: 0 };
+  const landingStats = new Map();
+  const visitToSignupHours = [];
+  const signupToPaidHours = [];
+  const firstVisitByActor = new Map();
+
+  const ensureLanding = (page) => {
+    if (!landingStats.has(page)) landingStats.set(page, { visitors: new Set(), signups: new Set(), paid: new Set() });
+    return landingStats.get(page);
+  };
+
+  const mark = (stageId, key, meta = {}) => {
+    if (!key || !overall[stageId]) return;
+    const src = FUNNEL_SOURCES.includes(meta.source) ? meta.source : "Other";
+    if (sourceFilter && src !== sourceFilter) return;
+    overall[stageId].add(key);
+    bySourceSets[src][stageId].add(key);
+    const existing = people[stageId].get(key) || {};
+    people[stageId].set(key, {
+      key,
+      email: meta.email || existing.email || (/@/.test(key) ? key : ""),
+      name: meta.name || existing.name || "",
+      source: src,
+      device: meta.device || existing.device || "Unknown",
+      landingPage: meta.landingPage || existing.landingPage || "/",
+      reachedAt: meta.reachedAt || existing.reachedAt || "",
+      label: meta.label || existing.label || "",
+    });
+  };
+
+  for (const event of scoped) {
+    if (isTestActor(event)) continue;
+    const email = normalizeEmail(event.user || event.detail?.email || "");
+    const user = usersByEmail.get(email) || null;
+    const eventSource = eventFunnelSource(event, user);
+    const key = actorKey(event) || email;
+    const device = detectFunnelDevice(event.userAgent || user?.userAgent || "");
+    const landingPage = landingPathFromEvent(event, user);
+    const meta = {
+      source: eventSource,
+      device,
+      landingPage,
+      reachedAt: event.createdAt || "",
+      email,
+      name: user ? `${user.firstName || ""} ${user.lastName || ""}`.trim() : "",
+    };
+
+    if (event.name === "website_visit" || event.name === "page_view") {
+      deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+      if (key) ensureLanding(landingPage).visitors.add(key);
+      if (key && !firstVisitByActor.has(key)) firstVisitByActor.set(key, eventTime(event));
+    }
+    if (event.name === "website_visit") {
+      mark("visitors", key || `visit_${eventTime(event)}`, meta);
+      mark("landingPageViews", key || `land_${eventTime(event)}`, { ...meta, label: landingPage });
+    } else if (event.name === "page_view") {
+      mark("landingPageViews", key || `land_${eventTime(event)}`, { ...meta, label: landingPage });
+    }
+    if (isCtaClickEvent(event)) {
+      const kind = ctaKind(event);
+      ctaKindCounts[kind] = (ctaKindCounts[kind] || 0) + 1;
+      mark("ctaClicks", key || `cta_${eventTime(event)}`, { ...meta, label: kind });
+    }
+    if (isSignupStartEvent(event) || (event.name === "cta_click" && ctaKind(event) === "start_free")) {
+      mark("signupStarts", key || email || `start_${eventTime(event)}`, meta);
+    }
+    if (event.name === "account_signup_complete") {
+      const signupKey = email || key;
+      mark("signupCompletions", signupKey, meta);
+      ensureLanding(landingPage).signups.add(signupKey);
+      const first = firstVisitByActor.get(key) || firstVisitByActor.get(email);
+      const signupMs = eventTime(event);
+      if (first && signupMs >= first) visitToSignupHours.push((signupMs - first) / 3600000);
+    }
+    if (event.name === "checkout_success") {
+      const paidKey = email || key;
+      mark("paidConversions", paidKey, meta);
+      ensureLanding(landingPage).paid.add(paidKey);
+    }
+    if (event.name === "email_verified" || event.name === "email_verification_complete") {
+      mark("emailVerified", email || key, meta);
+    }
+  }
+
+  for (const user of users) {
+    const email = normalizeEmail(user.email);
+    if (!email) continue;
+    const eventSource = eventFunnelSource({ attribution: user.attribution }, user);
+    const device = detectFunnelDevice(user.userAgent || user.lastUserAgent || "");
+    const landingPage = landingPathFromEvent({ attribution: user.attribution }, user);
+    const baseMeta = {
+      source: eventSource,
+      device,
+      landingPage,
+      email,
+      name: `${user.firstName || ""} ${user.lastName || ""}`.trim(),
+    };
+
+    const signupAt = user.signupAt || user.createdAt || "";
+    const signupMs = signupAt ? new Date(signupAt).getTime() : 0;
+    if (signupMs && (!range.startMs || signupMs >= range.startMs)) {
+      mark("signupCompletions", email, { ...baseMeta, reachedAt: signupAt });
+      ensureLanding(landingPage).signups.add(email);
+      const firstSeen = user.attribution?.firstSeenAt || user.attribution?.firstVisitAt || "";
+      const firstMs = firstSeen ? new Date(firstSeen).getTime() : 0;
+      if (firstMs && signupMs >= firstMs) visitToSignupHours.push((signupMs - firstMs) / 3600000);
+    }
+
+    const verifiedAt = user.emailVerifiedAt || "";
+    const verifiedMs = verifiedAt ? new Date(verifiedAt).getTime() : 0;
+    if (user.emailVerified === true || user.emailVerified === "true") {
+      if (!range.startMs || (verifiedMs && verifiedMs >= range.startMs) || (signupMs && signupMs >= range.startMs)) {
+        mark("emailVerified", email, { ...baseMeta, reachedAt: verifiedAt || signupAt });
+      }
+    }
+
+    const trialAt = user.metaStartTrialAt || user.trialStart || user.trialStartedAt || "";
+    const trialMs = trialAt ? new Date(trialAt).getTime() : 0;
+    if (trialMs && (!range.startMs || trialMs >= range.startMs)) {
+      mark("trialStarts", email, { ...baseMeta, reachedAt: trialAt });
+    }
+
+    const trialEndAt = user.trialEnd || user.trialEndedAt || "";
+    const trialEndMs = trialEndAt ? new Date(trialEndAt).getTime() : 0;
+    if (trialMs && trialEndMs && trialEndMs <= Date.now() && (!range.startMs || trialEndMs >= range.startMs)) {
+      mark("trialEnded", email, { ...baseMeta, reachedAt: trialEndAt });
+    }
+
+    const paidAt = user.metaPurchaseAt || user.firstPaidInvoiceAt || "";
+    const paidMs = paidAt ? new Date(paidAt).getTime() : 0;
+    if (paidMs && (!range.startMs || paidMs >= range.startMs)) {
+      mark("paidConversions", email, { ...baseMeta, reachedAt: paidAt });
+      ensureLanding(landingPage).paid.add(email);
+      if (signupMs && paidMs >= signupMs) signupToPaidHours.push((paidMs - signupMs) / 3600000);
+    }
+
+    if (isActiveSubscriber(user)) {
+      mark("activeSubscribers", email, { ...baseMeta, reachedAt: paidAt || trialAt || signupAt });
+    }
+  }
+
+  for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
+    const current = FUNNEL_STAGE_DEFS[i];
+    const next = FUNNEL_STAGE_DEFS[i + 1];
+    for (const [, person] of people[current.id].entries()) {
+      const reachedNext = overall[next.id].has(person.key) || (person.email && overall[next.id].has(person.email));
+      if (!reachedNext) {
+        person.exitedAfter = current.id;
+        person.exitedBefore = next.id;
+        person.exitLabel = `Left before ${next.label}`;
+      } else {
+        person.exitedAfter = "";
+        person.exitedBefore = "";
+        person.exitLabel = `Reached ${next.label}`;
+      }
+    }
+  }
+
+  const maxCount = Math.max(1, ...FUNNEL_STAGE_DEFS.map((def) => overall[def.id].size));
+  const stages = FUNNEL_STAGE_DEFS.map((def, index) => {
+    const count = overall[def.id].size;
+    const prevCount = index === 0 ? count : overall[FUNNEL_STAGE_DEFS[index - 1].id].size;
+    const converted = index === 0 ? count : Math.min(count, prevCount);
+    const dropped = index === 0 ? 0 : Math.max(prevCount - count, 0);
+    return {
+      id: def.id,
+      label: def.label,
+      count,
+      shareOfTop: pct(count, maxCount),
+      conversionFromPrev: index === 0 ? 100 : pct(converted, prevCount),
+      conversionFromPrevLabel: index === 0 ? "100%" : rate(converted, prevCount),
+      dropOffFromPrev: index === 0 ? 0 : pct(dropped, prevCount),
+      dropOffFromPrevLabel: index === 0 ? "0%" : rate(dropped, prevCount),
+      dropOffCount: dropped,
+      snapshot: def.id === "activeSubscribers",
+    };
+  });
+  const transitions = buildStageTransitions(stages);
+  const worstDrop = transitions.slice().sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0] || null;
+
+  const bySource = FUNNEL_SOURCES.map((src) => {
+    const sourceStages = FUNNEL_STAGE_DEFS.map((def) => ({
+      id: def.id,
+      label: def.label,
+      count: bySourceSets[src][def.id].size,
+    }));
+    const paidConversions = sourceStages.find((s) => s.id === "paidConversions")?.count || 0;
+    return {
+      source: src,
+      stages: sourceStages,
+      counts: Object.fromEntries(sourceStages.map((s) => [s.id, s.count])),
+      transitions: buildStageTransitions(sourceStages),
+      visitors: sourceStages[0].count,
+      paidConversions,
+      overallConversionRate: rate(paidConversions, sourceStages[0].count),
+    };
+  }).filter((row) => FUNNEL_STAGE_DEFS.some((def) => row.counts[def.id] > 0));
+
+  const topLandingPages = [...landingStats.entries()]
+    .map(([page, stats]) => {
+      const visitors = stats.visitors.size;
+      const signups = stats.signups.size;
+      const paid = stats.paid.size;
+      return {
+        page,
+        visitors,
+        signups,
+        paid,
+        signupRate: rate(signups, visitors),
+        paidRate: rate(paid, visitors),
+        conversionRate: pct(signups, visitors),
+      };
+    })
+    .filter((row) => row.visitors > 0)
+    .sort((a, b) => b.conversionRate - a.conversionRate || b.signups - a.signups || b.visitors - a.visitors)
+    .slice(0, 12);
+
+  const spend = readFunnelAdSpend(store);
+  const signupCount = overall.signupCompletions.size;
+  const paidCount = overall.paidConversions.size;
+  const spendForFilter = sourceFilter ? (spend.bySource[sourceFilter] || 0) : spend.total;
+
+  const stagePeople = {};
+  for (const def of FUNNEL_STAGE_DEFS) {
+    if (stageFilter && def.id !== stageFilter) continue;
+    stagePeople[def.id] = [...people[def.id].values()]
+      .sort((a, b) => String(b.reachedAt).localeCompare(String(a.reachedAt)))
+      .slice(0, 100)
+      .map((person) => ({
+        email: person.email || "",
+        name: person.name || "",
+        visitorKey: person.email ? "" : person.key,
+        source: person.source,
+        device: person.device,
+        landingPage: person.landingPage,
+        reachedAt: person.reachedAt,
+        exitLabel: person.exitLabel || "",
+        exitedBefore: person.exitedBefore || "",
+      }));
+  }
+
+  return {
+    range: range.key,
+    sourceFilter: sourceFilter || "all",
+    stageFilter: stageFilter || "",
+    sources: ["all", ...FUNNEL_SOURCES],
+    stages,
+    transitions,
+    worstDropOff: worstDrop,
+    ctaBreakdown: {
+      startFree: ctaKindCounts.start_free || 0,
+      startTrial: ctaKindCounts.start_trial || 0,
+    },
+    bySource,
+    deviceBreakdown: Object.entries(deviceCounts)
+      .map(([key, count]) => ({ key, count }))
+      .filter((row) => row.count > 0)
+      .sort((a, b) => b.count - a.count),
+    topLandingPages,
+    timing: {
+      avgHoursVisitToSignup: avgHours(visitToSignupHours),
+      avgHoursVisitToSignupLabel: formatHoursLabel(avgHours(visitToSignupHours)),
+      avgHoursSignupToPaid: avgHours(signupToPaidHours),
+      avgHoursSignupToPaidLabel: formatHoursLabel(avgHours(signupToPaidHours)),
+      visitToSignupSamples: visitToSignupHours.length,
+      signupToPaidSamples: signupToPaidHours.length,
+    },
+    costs: {
+      configured: spend.configured,
+      adSpend: spendForFilter || null,
+      costPerSignup: costLabel(spendForFilter, signupCount),
+      costPerPaid: costLabel(spendForFilter, paidCount),
+      note: spend.configured
+        ? "Costs use configured ad spend (MARKETING_AD_SPEND_* or store.marketingAdSpend)."
+        : "Ad spend not configured — set MARKETING_AD_SPEND_* env vars to unlock cost metrics.",
+    },
+    stagePeople,
+    overallConversionRate: rate(paidCount, stages[0]?.count || 0),
+    note: "Active subscribers is a current snapshot. CTA clicks reuse historical button_click/signup_click plus new cta_click events. Click a stage to inspect who reached it and where they exited.",
+  };
+}
+
 function buildAdvisor(store, events, range, extras = {}) {
   const usage = buildFeatureUsage(store, events, range);
+  const funnel = buildMarketingFunnel(store, events, range);
   const marketing = extras.marketing || {};
   const featureReqs = buildFeatureRequestsCenter(store, { sort: "votes" });
   const churn = buildChurnDashboard(store, events, range);
@@ -633,11 +1132,24 @@ function buildAdvisor(store, events, range, extras = {}) {
   if (topRequest) {
     summaryLines.push(`Top request: “${topRequest.title}” (${topRequest.votes} votes, ${topRequest.statusLabel})`);
   }
+  if (funnel.worstDropOff && funnel.worstDropOff.dropOffCount > 0) {
+    summaryLines.push(
+      `Biggest funnel drop-off: ${funnel.worstDropOff.fromLabel} → ${funnel.worstDropOff.toLabel} (${funnel.worstDropOff.dropOffRateLabel})`,
+    );
+  }
 
   const recommendations = [];
   const addRec = (priority, title, detail, hub) => {
     recommendations.push({ priority, title, detail, hub });
   };
+  if (funnel.worstDropOff && funnel.worstDropOff.dropOffRate >= 50 && funnel.worstDropOff.fromCount >= 5) {
+    addRec(
+      "high",
+      `Fix drop-off after ${funnel.worstDropOff.fromLabel}`,
+      `${funnel.worstDropOff.dropOffRateLabel} leave before ${funnel.worstDropOff.toLabel}.`,
+      "marketing-funnel",
+    );
+  }
   if (topNoResult) {
     addRec("high", `Build content for “${topNoResult.key}”`, `${topNoResult.count} no-result searches in this range.`, "search-analytics");
   }
@@ -705,6 +1217,8 @@ function buildInsights(store, {
   sort = "votes",
   category = "",
   status = "",
+  source = "",
+  stage = "",
   events = null,
   marketing = null,
   monitoringSnapshot = null,
@@ -724,6 +1238,11 @@ function buildInsights(store, {
   };
 
   switch (hubKey) {
+    case "marketing-funnel":
+      return {
+        ...base,
+        data: buildMarketingFunnel(store, analyticsEvents, rangeInfo, { source, stage }),
+      };
     case "feature-usage":
       return { ...base, data: buildFeatureUsage(store, analyticsEvents, rangeInfo) };
     case "user-journey":
@@ -759,6 +1278,7 @@ module.exports = {
   parseRange,
   buildInsights,
   buildFeatureUsage,
+  buildMarketingFunnel,
   buildUserJourney,
   buildFeatureRequestsCenter,
   buildAdvisor,
