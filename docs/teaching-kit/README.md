@@ -1,37 +1,46 @@
-# Teaching Kit — UI Mockups (Phase 1 Architecture)
+# Teaching Kit — Product Design & Architecture
 
-**Status:** Architecture approved · Slice 1A implemented (flags + schema passthrough only)  
-**Open the clickable prototype:** [mockups/interactive.html](./mockups/interactive.html)  
-**Architecture:** [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md)  
-**Canonical config module:** [`../../scripts/teaching-kit.js`](../../scripts/teaching-kit.js)  
-**Slice 1A tests:** `npm run test:teaching-kit-slice-1a`
+**Status**
 
-Viewer, Print Center, attachments, and flag enablement are **not** shipped in Slice 1A.
+- Slice 1A implementation **approved** (flags + schema passthrough) — **not merged / not deployed**
+- Gold-standard product UX ready for **owner review** before Slice 1B
+- All Teaching Kit feature flags remain **disabled**
 
-## Screens in the prototype
+## Start here (product validation)
 
-1. **Desktop lesson kit viewer** — binder tabs, header actions, empty sections hidden  
-2. **Mobile lesson kit viewer** — compact header + More menu  
-3. **Build My Kit (Print Center)** — section checkboxes, presets, generate one PDF  
-4. **Future attachments strip** — flashcards / posters / labels readiness (visual only)
+| Deliverable | Path |
+| --- | --- |
+| **Gold-standard product specification** | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
+| **Clickable end-to-end UX mockup** | [mockups/gold-standard.html](./mockups/gold-standard.html) |
+| Architecture (technical) | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
+| Earlier architecture wireframes | [mockups/interactive.html](./mockups/interactive.html) |
 
-## Screenshots
+### Example kit in the gold-standard mockup
+
+**Bugs & Butterflies** · Toddler · Pro · 1 week  
+
+Journey screens: Desktop binder · Mobile · Activity detail · Build My Kit · Print preview · Flow map
+
+### Screenshots (gold standard)
 
 | Screen | File |
 | --- | --- |
-| Desktop kit viewer | [mockups/screenshots/desktop-kit-viewer.png](./mockups/screenshots/desktop-kit-viewer.png) |
-| Mobile kit viewer | [mockups/screenshots/mobile-kit-viewer.png](./mockups/screenshots/mobile-kit-viewer.png) |
-| Build My Kit | [mockups/screenshots/build-my-kit.png](./mockups/screenshots/build-my-kit.png) |
-| Build My Kit modal | [mockups/screenshots/build-my-kit-modal.png](./mockups/screenshots/build-my-kit-modal.png) |
-| Future attachments | [mockups/screenshots/future-attachments.png](./mockups/screenshots/future-attachments.png) |
+| Desktop overview | [mockups/screenshots/gold-desktop-overview.png](./mockups/screenshots/gold-desktop-overview.png) |
+| Desktop weekly plan | [mockups/screenshots/gold-desktop-weekly.png](./mockups/screenshots/gold-desktop-weekly.png) |
+| Mobile | [mockups/screenshots/gold-mobile.png](./mockups/screenshots/gold-mobile.png) |
+| Activity detail | [mockups/screenshots/gold-activity-detail.png](./mockups/screenshots/gold-activity-detail.png) |
+| Build My Kit | [mockups/screenshots/gold-build-my-kit.png](./mockups/screenshots/gold-build-my-kit.png) |
+| Print preview | [mockups/screenshots/gold-print-preview.png](./mockups/screenshots/gold-print-preview.png) |
 
-## Design notes
+## Design principles (locked for review)
 
-- Uses Little Learner Hub design tokens (`styles/llh-design-tokens.css`)
-- Preserves existing product language (Free/Pro badge, Assign, Favorite)
-- **Build My Kit** is the differentiator: providers select only what they need
-- Legacy print is shown as secondary until Print Center replaces it
+- Digital teacher binder, not a thin lesson card  
+- **Build My Kit**: print only what you need as one PDF  
+- Empty sections hidden for providers  
+- Preserve Assign / Favorite / calendar  
+- Entitlements never bypassed (Trial watermark path before PDF)  
+- No implementation / data-model build until UX approved  
 
-## Out of scope for these mockups
+## Out of scope until authorized
 
-Admin editor redesign, quality dashboard, bulk migration, Stripe/billing, Family Hub.
+Slice 1B+, merge of PR #436, deploy, flag enablement, admin editor redesign, Family Hub.
