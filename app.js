@@ -48630,7 +48630,7 @@ async function renderAdminFreeStarterLibrarySection() {
   target.hidden = false;
   target.innerHTML = `<p class="messages-loading">Loading Free Starter Library…</p>`;
   try {
-    const token = localStorage.getItem("llhAdminToken") || "";
+    const token = adminSession()?.token || localStorage.getItem("llhAdminToken") || "";
     const res = await fetch(`/api/admin/free-starter-library?adminToken=${encodeURIComponent(token)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load Free Starter Library.");
@@ -48715,7 +48715,7 @@ async function renderAdminTrialUsageSection() {
   target.hidden = false;
   target.innerHTML = `<p class="messages-loading">Loading trial usage…</p>`;
   try {
-    const token = localStorage.getItem("llhAdminToken") || "";
+    const token = adminSession()?.token || localStorage.getItem("llhAdminToken") || "";
     const res = await fetch(`/api/admin/trial-usage?adminToken=${encodeURIComponent(token)}`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not load trial usage.");
