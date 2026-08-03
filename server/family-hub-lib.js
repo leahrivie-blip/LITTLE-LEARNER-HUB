@@ -216,14 +216,49 @@ function buildFamilyHubToday({
     time: String(item.time || "").trim(),
   })));
 
-  const naps = onDay(data.Naps, "nap").map((item) => ({
-    ...item,
-    detail: [item.time, item.summary].filter(Boolean).join(" · ") || "Nap logged",
-  }));
-  const diapers = onDay(data.Diapers, "diaper").map((item) => ({
-    ...item,
-    detail: item.summary || item.category || "Logged",
-  }));
+  const naps = (Array.isArray(data.Naps) ? data.Naps : [])
+    .filter((item) => (
+      ids.includes(String(item.childId || ""))
+      && item.shareWithFamily === true
+      && item.archived !== true
+      && String(item.date || "").slice(0, 10) === day
+    ))
+    .map((item) => {
+      const start = String(item.napStart || "").trim();
+      const end = String(item.napEnd || "").trim();
+      const range = start && end ? `${start}–${end}` : (start || end || "");
+      return {
+        id: String(item.id || ""),
+        childId: String(item.childId || ""),
+        title: "Nap",
+        summary: String(item.summary || "").trim(),
+        detail: [range, item.summary].filter(Boolean).join(" · ") || "Nap logged",
+        time: range || start,
+        date: day,
+        napStart: start,
+        napEnd: end,
+      };
+    });
+  const diapers = (Array.isArray(data.Diapers) ? data.Diapers : [])
+    .filter((item) => (
+      ids.includes(String(item.childId || ""))
+      && item.shareWithFamily === true
+      && item.archived !== true
+      && String(item.date || "").slice(0, 10) === day
+    ))
+    .map((item) => {
+      const kind = String(item.type || item.summary || "Update").trim() || "Update";
+      return {
+        id: String(item.id || ""),
+        childId: String(item.childId || ""),
+        title: kind,
+        category: kind,
+        summary: String(item.summary || kind).trim(),
+        detail: String(item.summary || kind).trim(),
+        time: String(item.time || "").trim(),
+        date: day,
+      };
+    });
   const activities = onDay(data.ActivityLogs, "activity");
   const photos = onDay(data.Photos, "photo");
   const reports = onDay(data.Reports, "report");
@@ -246,14 +281,20 @@ function buildFamilyHubToday({
   const childName = String(focusChild?.name || "there").trim() || "there";
   const firstName = childName.split(/\s+/)[0] || childName;
 
-  const unreadMessages = (Array.isArray(messages) ? messages : [])
-    .filter((msg) => msg && msg.from === "provider" && msg.readByParent !== true)
-    .slice(0, 5)
+  // Preview latest thread notes on Today (not only unread), so the section stays useful after opening Messages.
+  const recentMessages = (Array.isArray(messages) ? messages : [])
+    .filter((msg) => msg && String(msg.body || "").trim())
+    .slice()
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 3)
     .map((msg) => ({
       id: String(msg.id || ""),
       body: String(msg.body || "").trim(),
-      authorName: String(msg.authorName || "Teacher").trim() || "Teacher",
+      authorName: String(msg.authorName || (msg.from === "parent" ? "You" : "Teacher")).trim()
+        || (msg.from === "parent" ? "You" : "Teacher"),
       createdAt: String(msg.createdAt || "").trim(),
+      unread: msg.from === "provider" && msg.readByParent !== true,
+      from: String(msg.from || ""),
     }));
 
   const upcoming = (Array.isArray(events) ? events : []).slice(0, 5);
@@ -264,8 +305,8 @@ function buildFamilyHubToday({
     child: focusChild ? { id: String(focusChild.id), name: childName, photoUrl } : null,
     greeting: `${greetingWord}`,
     greetingLine: focusChild
-      ? `${greetingWord} — here’s how ${firstName}’s day is going.`
-      : `${greetingWord}. Your household updates will show here.`,
+      ? `Here’s how ${firstName}’s day is going.`
+      : "Your household updates will show here.",
     mood,
     meals,
     naps,
@@ -274,10 +315,10 @@ function buildFamilyHubToday({
     teacherNotes: notes,
     photos,
     reports,
-    messages: unreadMessages,
+    messages: recentMessages,
     upcomingEvents: upcoming,
     empty: !mood && !meals.length && !naps.length && !diapers.length && !activities.length
-      && !notes.length && !photos.length && !reports.length && !unreadMessages.length && !upcoming.length,
+      && !notes.length && !photos.length && !reports.length && !recentMessages.length && !upcoming.length,
   };
 }
 
@@ -349,6 +390,79 @@ function defaultHouseholdSettings(settings = {}) {
   };
 }
 
+/** Lightweight illustrated demo photos (SVG data URIs) — no external image host required. */
+function familyHubDemoPhotoUri({
+  sky = "#cfe8f7",
+  ground = "#b7d8a8",
+  accent = "#f0c27a",
+  motif = "play",
+} = {}) {
+  const motifs = {
+    play: `
+      <circle cx="210" cy="52" r="22" fill="${accent}"/>
+      <rect x="48" y="118" width="18" height="52" rx="6" fill="#6b8f71"/>
+      <ellipse cx="57" cy="118" rx="28" ry="16" fill="#7fad84"/>
+      <circle cx="120" cy="148" r="14" fill="#e8a07a"/>
+      <rect x="112" y="160" width="16" height="34" rx="6" fill="#5b9bd5"/>
+      <circle cx="168" cy="152" r="12" fill="#c9a227"/>
+      <rect x="161" y="162" width="14" height="30" rx="6" fill="#7b6bb5"/>
+    `,
+    art: `
+      <rect x="70" y="110" width="100" height="70" rx="12" fill="#fff8ef" stroke="#d8c4a8"/>
+      <circle cx="95" cy="138" r="10" fill="#e8a07a"/>
+      <circle cx="118" cy="145" r="10" fill="#5b9bd5"/>
+      <circle cx="140" cy="136" r="10" fill="#7b6bb5"/>
+      <rect x="88" y="158" width="54" height="8" rx="4" fill="#c9a227"/>
+      <path d="M190 90c18 8 28 28 22 46" fill="none" stroke="#5a4d8a" stroke-width="4" stroke-linecap="round"/>
+    `,
+    garden: `
+      <circle cx="200" cy="48" r="20" fill="${accent}"/>
+      <rect x="40" y="150" width="160" height="36" rx="10" fill="#8fbc8f"/>
+      <circle cx="70" cy="140" r="16" fill="#6aa84f"/>
+      <circle cx="110" cy="132" r="18" fill="#7fad84"/>
+      <circle cx="150" cy="142" r="14" fill="#5b9bd5"/>
+      <rect x="104" y="150" width="10" height="28" fill="#6b8f71"/>
+    `,
+    letters: `
+      <rect x="56" y="100" width="130" height="86" rx="14" fill="#fffdf8" stroke="#d8c4a8"/>
+      <text x="78" y="155" font-family="Georgia, serif" font-size="42" fill="#5a4d8a">M</text>
+      <text x="128" y="155" font-family="Georgia, serif" font-size="42" fill="#5b9bd5">S</text>
+      <circle cx="200" cy="70" r="16" fill="${accent}"/>
+    `,
+  };
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640" viewBox="0 0 240 240" role="img">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="${sky}"/>
+      <stop offset="100%" stop-color="#eef6fb"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" fill="url(#sky)"/>
+  <ellipse cx="120" cy="210" rx="140" ry="54" fill="${ground}"/>
+  ${motifs[motif] || motifs.play}
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function familyHubDemoPortraitUri({ initials = "A", from = "#5b9bd5", to = "#3a7abf" } = {}) {
+  const safe = String(initials || "A").slice(0, 2).toUpperCase();
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="240" viewBox="0 0 240 240">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="${from}"/>
+      <stop offset="100%" stop-color="${to}"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="56" fill="url(#g)"/>
+  <circle cx="120" cy="96" r="42" fill="rgba(255,255,255,0.28)"/>
+  <ellipse cx="120" cy="190" rx="70" ry="48" fill="rgba(255,255,255,0.22)"/>
+  <text x="120" y="110" text-anchor="middle" font-family="Georgia, serif" font-size="48" fill="#fff">${safe}</text>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
 function buildFamilyHubDemoSeed({
   now = new Date(),
   origin = "https://little-learner-hub-testing.onrender.com",
@@ -364,14 +478,20 @@ function buildFamilyHubDemoSeed({
   const ownerEmail = "familyhub.demo.provider@llh.test";
   const parentEmail = "familyhub.demo.parent@llh.test";
   const guardianEmail = "familyhub.demo.guardian@llh.test";
-  const childA = { id: "fh-demo-child-ava", name: "Ava Demo" };
-  const childB = { id: "fh-demo-child-milo", name: "Milo Demo" };
+  const childA = { id: "fh-demo-child-ava", name: "Ava Rivera" };
+  const childB = { id: "fh-demo-child-milo", name: "Milo Rivera" };
   const loginCode = typeof createLoginCode === "function" ? createLoginCode() : "246801";
   const magicToken = typeof randomBytes === "function"
     ? randomBytes(24).toString("hex")
     : `demo${Date.now().toString(16)}`;
   const householdId = `family-demo-${now.getTime().toString(36)}`;
   const magicUrl = `${String(origin || "").replace(/\/$/, "")}/?familyHub=${encodeURIComponent(magicToken)}`;
+  const photoChalk = familyHubDemoPhotoUri({ sky: "#cfe8f7", ground: "#b7d8a8", accent: "#f0c27a", motif: "play" });
+  const photoLetters = familyHubDemoPhotoUri({ sky: "#e8f1fb", ground: "#d7c4a8", accent: "#e8a07a", motif: "letters" });
+  const photoGarden = familyHubDemoPhotoUri({ sky: "#d9eef8", ground: "#8fbc8f", accent: "#f2d06b", motif: "garden" });
+  const photoArt = familyHubDemoPhotoUri({ sky: "#eef4fb", ground: "#c9b89a", accent: "#7ba8c9", motif: "art" });
+  const portraitAva = familyHubDemoPortraitUri({ initials: "AR", from: "#5b9bd5", to: "#3a7abf" });
+  const portraitMilo = familyHubDemoPortraitUri({ initials: "MR", from: "#7ba8c9", to: "#5a8f7b" });
 
   const childData = {
     Profiles: [
@@ -379,29 +499,29 @@ function buildFamilyHubDemoSeed({
         id: childA.id,
         name: childA.name,
         ageGroup: "Toddler",
-        parentInfo: "Sam Parent & Jordan Guardian",
-        photoUrl: "",
+        parentInfo: "Sam & Jordan Rivera",
+        photoUrl: portraitAva,
       },
       {
         id: childB.id,
         name: childB.name,
         ageGroup: "Preschool",
-        parentInfo: "Sam Parent & Jordan Guardian",
-        photoUrl: "",
+        parentInfo: "Sam & Jordan Rivera",
+        photoUrl: portraitMilo,
       },
     ],
     Documents: [
-      { id: "fh-doc-enroll", childId: childA.id, title: "Enrollment Packet", category: "Enrollment", status: "needed", statusLabel: "Action needed", notes: "Please review and return the signature page.", updatedAt: invitedAt },
-      { id: "fh-doc-emergency", childId: childA.id, title: "Emergency Contacts", category: "Emergency", status: "on_file", statusLabel: "On file", notes: "Current contacts are on file.", updatedAt: invitedAt },
-      { id: "fh-doc-medical", childId: childB.id, title: "Medical Form", category: "Medical", status: "needed", statusLabel: "Action needed", notes: "Annual medical form is due this month.", updatedAt: invitedAt },
-      { id: "fh-doc-handbook", childId: childB.id, title: "Parent Handbook", category: "Policy", status: "on_file", statusLabel: "Viewable", notes: "Read-only copy for your household.", updatedAt: invitedAt },
+      { id: "fh-doc-enroll", childId: childA.id, title: "Enrollment packet", category: "Enrollment", status: "needed", statusLabel: "Action needed", notes: "Please review and return the signature page this week.", updatedAt: invitedAt },
+      { id: "fh-doc-emergency", childId: childA.id, title: "Emergency contacts", category: "Emergency", status: "on_file", statusLabel: "On file", notes: "Sam and Jordan Rivera are listed as primary contacts.", updatedAt: invitedAt },
+      { id: "fh-doc-medical", childId: childB.id, title: "Annual medical form", category: "Medical", status: "needed", statusLabel: "Action needed", notes: "Due by the end of the month — drop off a signed copy anytime.", updatedAt: invitedAt },
+      { id: "fh-doc-handbook", childId: childB.id, title: "Parent handbook", category: "Policy", status: "on_file", statusLabel: "On file", notes: "Your household copy is available to view anytime.", updatedAt: invitedAt },
     ],
     Reports: [
       {
         id: "fh-report-1",
         childId: childA.id,
         date: day,
-        title: "Daily Report",
+        title: "Today’s daily report",
         summary: "Happy morning outdoors, ate most of lunch, nap 12:30–2:00. Practiced sharing during block play.",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -410,7 +530,7 @@ function buildFamilyHubDemoSeed({
         id: "fh-report-2",
         childId: childB.id,
         date: day,
-        title: "Daily Report",
+        title: "Today’s daily report",
         summary: "Built with blocks, practiced letters, cheerful at pickup. Asked to bring a favorite book tomorrow.",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -423,7 +543,7 @@ function buildFamilyHubDemoSeed({
         caption: "Sidewalk chalk masterpieces",
         date: day,
         shareWithFamily: true,
-        url: "",
+        url: photoChalk,
         createdAt: invitedAt,
       },
       {
@@ -432,7 +552,7 @@ function buildFamilyHubDemoSeed({
         caption: "Letter practice at the table",
         date: day,
         shareWithFamily: true,
-        url: "",
+        url: photoLetters,
         createdAt: invitedAt,
       },
       {
@@ -441,8 +561,17 @@ function buildFamilyHubDemoSeed({
         caption: "Garden water play",
         date: day,
         shareWithFamily: true,
-        url: "",
-        createdAt: invitedAt,
+        url: photoGarden,
+        createdAt: new Date(now.getTime() - 1000 * 60 * 90).toISOString(),
+      },
+      {
+        id: "fh-photo-4",
+        childId: childB.id,
+        caption: "Afternoon art table",
+        date: day,
+        shareWithFamily: true,
+        url: photoArt,
+        createdAt: new Date(now.getTime() - 1000 * 60 * 50).toISOString(),
       },
     ],
     Observations: [
@@ -463,7 +592,7 @@ function buildFamilyHubDemoSeed({
         date: day,
         type: "Mood Note",
         mood: "Happy",
-        title: `Mood | ${day}`,
+        title: "Mood",
         summary: "Happy and curious this morning",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -474,7 +603,7 @@ function buildFamilyHubDemoSeed({
         childId: childA.id,
         date: day,
         type: "Teacher Note",
-        title: "Teacher note",
+        title: "From Ms. Leah",
         summary: "Ava tried a new fruit at snack and loved it. Extra clothes are in her cubby.",
         message: "Ava tried a new fruit at snack and loved it. Extra clothes are in her cubby.",
         shareWithFamily: true,
@@ -487,7 +616,7 @@ function buildFamilyHubDemoSeed({
         date: day,
         type: "Mood Note",
         mood: "Focused",
-        title: `Mood | ${day}`,
+        title: "Mood",
         summary: "Calm and focused during circle",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -512,7 +641,7 @@ function buildFamilyHubDemoSeed({
         breakfast: "Oatmeal with berries",
         lunch: "Ate most — pasta & veggies",
         snack: "Apple slices",
-        title: `Meals | ${day}`,
+        title: "Meals",
         summary: "Breakfast, lunch, and snack logged",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -523,7 +652,7 @@ function buildFamilyHubDemoSeed({
         date: day,
         lunch: "Ate all — rice bowl",
         snack: "Yogurt",
-        title: `Meals | ${day}`,
+        title: "Meals",
         summary: "Lunch and snack logged",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -537,7 +666,7 @@ function buildFamilyHubDemoSeed({
         napStart: "12:30",
         napEnd: "14:00",
         summary: "Rested well",
-        title: `Nap | ${day}`,
+        title: "Nap",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -548,7 +677,7 @@ function buildFamilyHubDemoSeed({
         napStart: "13:00",
         napEnd: "13:45",
         summary: "Quiet rest",
-        title: `Nap | ${day}`,
+        title: "Nap",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -560,8 +689,8 @@ function buildFamilyHubDemoSeed({
         date: day,
         time: "10:15",
         type: "Wet",
-        title: `Wet | ${day} at 10:15`,
-        summary: "Wet",
+        title: "Wet",
+        summary: "Changed",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -571,8 +700,8 @@ function buildFamilyHubDemoSeed({
         date: day,
         time: "13:10",
         type: "BM",
-        title: `BM | ${day} at 13:10`,
-        summary: "BM",
+        title: "BM",
+        summary: "Changed",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -582,8 +711,8 @@ function buildFamilyHubDemoSeed({
         date: day,
         time: "11:00",
         type: "Potty",
-        title: `Potty | ${day} at 11:00`,
-        summary: "Successful potty",
+        title: "Potty",
+        summary: "Successful",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -626,23 +755,23 @@ function buildFamilyHubDemoSeed({
     {
       id: "fh-evt-picnic",
       type: "family_event",
-      title: "Family picnic Friday",
+      title: "Family picnic",
       startDate: nextWeek,
       endDate: nextWeek,
       allDay: false,
       startTime: "16:00",
       endTime: "17:30",
-      notes: "Bring a blanket. All-family welcome after pickup.",
+      notes: "Bring a blanket. All families welcome after pickup.",
       shareWithFamily: true,
     },
     {
       id: "fh-evt-closure",
       type: "closure",
-      title: "Closed — provider training day",
+      title: "Closed for provider training",
       startDate: addDaysIso(day, 14),
       endDate: addDaysIso(day, 14),
       allDay: true,
-      notes: "No care this day. Make-up day TBA.",
+      notes: "No care this day. We’ll share a make-up date soon.",
       shareWithFamily: true,
     },
     {
@@ -654,7 +783,7 @@ function buildFamilyHubDemoSeed({
       allDay: false,
       startTime: "09:30",
       endTime: "10:30",
-      notes: "Dress in solid colors if you can.",
+      notes: "Solid colors photograph best if you have them.",
       shareWithFamily: true,
       visibleToFamilies: true,
     },
@@ -666,9 +795,9 @@ function buildFamilyHubDemoSeed({
       householdId,
       from: "provider",
       authorName: "Ms. Leah",
-      body: "Welcome to Family Hub! You’ll see Ava and Milo’s day here — meals, naps, photos, and notes.",
-      createdAt: invitedAt,
-      readByParent: false,
+      body: "Hi Sam — welcome to Family Hub. You’ll see Ava and Milo’s day here: meals, naps, photos, and notes.",
+      createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 5).toISOString(),
+      readByParent: true,
       readByProvider: true,
     },
     {
@@ -676,9 +805,19 @@ function buildFamilyHubDemoSeed({
       householdId,
       from: "provider",
       authorName: "Ms. Leah",
-      body: "Reminder: sunscreen and a light sweater for tomorrow’s outdoor morning.",
+      body: "Quick reminder: sunscreen and a light sweater for tomorrow’s outdoor morning.",
       createdAt: new Date(now.getTime() - 1000 * 60 * 35).toISOString(),
       readByParent: false,
+      readByProvider: true,
+    },
+    {
+      id: `fh-msg-${now.getTime().toString(36)}-3`,
+      householdId,
+      from: "parent",
+      authorName: "Sam",
+      body: "Thanks! We’ll pack both. Can Milo bring his blue water bottle?",
+      createdAt: new Date(now.getTime() - 1000 * 60 * 20).toISOString(),
+      readByParent: true,
       readByProvider: true,
     },
   ];
@@ -689,7 +828,7 @@ function buildFamilyHubDemoSeed({
       householdId,
       type: "photo",
       title: "New photos",
-      body: "3 new photos from today were shared with your household.",
+      body: "4 new photos from today were shared with your household.",
       createdAt: invitedAt,
       read: false,
       href: "photos",
@@ -709,7 +848,7 @@ function buildFamilyHubDemoSeed({
       householdId,
       type: "event",
       title: "Upcoming: Picture day",
-      body: "Picture day is tomorrow at 9:30.",
+      body: "Picture day is tomorrow at 9:30 AM.",
       createdAt: invitedAt,
       read: false,
       href: "calendar",
@@ -719,10 +858,14 @@ function buildFamilyHubDemoSeed({
   const household = {
     id: householdId,
     ownerEmail,
-    label: "Demo Family (internal testing)",
+    label: "Rivera Family",
     email: parentEmail,
     phone: "",
     guardianEmails: [parentEmail, guardianEmail],
+    guardianLabels: {
+      [parentEmail]: "Sam Rivera",
+      [guardianEmail]: "Jordan Rivera",
+    },
     childIds: [childA.id, childB.id],
     children: [childA, childB],
     documents: childData.Documents.map((doc) => ({
@@ -740,7 +883,7 @@ function buildFamilyHubDemoSeed({
     expiresAt,
     loginCodeHash: typeof hashLoginCode === "function" ? hashLoginCode(loginCode) : "",
     loginCode,
-    programName: "Sunshine Testing Home Daycare",
+    programName: "Sunshine Home Daycare",
     emailSent: false,
     smsSimulated: false,
     magicToken,
@@ -779,6 +922,8 @@ module.exports = {
   buildSharedFamilyFeed,
   buildFamilyHubToday,
   buildFamilyHubCalendar,
+  familyHubDemoPhotoUri,
+  familyHubDemoPortraitUri,
   liveDocumentsForChildren,
   normalizeGuardianEmails,
   buildFamilyHubDemoSeed,

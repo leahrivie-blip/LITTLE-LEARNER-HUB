@@ -88,7 +88,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-beta2"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
   assert.match(appJs, /function renderFamilyHubTodayPanel/);
   assert.match(appJs, /family-hub-parent-mode/);
@@ -172,6 +172,25 @@ test("family-hub-lib storage + today + calendar helpers", () => {
 
   const guardians = familyHubLib.normalizeGuardianEmails("a@example.com", ["b@example.com", "a@example.com"]);
   assert.deepEqual(guardians, ["a@example.com", "b@example.com"]);
+
+  const seed = familyHubLib.buildFamilyHubDemoSeed({ now: new Date("2026-08-03T15:00:00Z") });
+  assert.equal(seed.household.programName, "Sunshine Home Daycare");
+  assert.equal(seed.household.label, "Rivera Family");
+  assert.ok(seed.children.every((child) => /Rivera$/i.test(child.name || "")));
+  assert.ok(seed.childData.Photos.every((photo) => String(photo.url || "").startsWith("data:image/svg+xml")));
+  assert.ok(seed.childData.Profiles.every((profile) => String(profile.photoUrl || "").startsWith("data:image/svg+xml")));
+  const napToday = familyHubLib.buildFamilyHubToday({
+    childData: seed.childData,
+    children: seed.children,
+    childId: seed.children[0].id,
+    date: familyHubLib.todayIso(new Date("2026-08-03T15:00:00Z")),
+    messages: seed.messages,
+    events: seed.scheduleItems,
+    now: new Date("2026-08-03T15:00:00Z"),
+  });
+  assert.ok(String(napToday.naps[0]?.detail || "").includes("12:30"));
+  assert.ok(napToday.messages.length >= 1);
+  assert.ok(napToday.photos.length >= 1);
 });
 
 async function main() {
@@ -220,6 +239,9 @@ async function main() {
     assert.equal(seeded.json.demo?.children?.length, 2);
     assert.ok(seeded.json.demo?.messageCount >= 1);
     assert.ok(seeded.json.demo?.eventCount >= 1);
+    assert.ok((seeded.json.demo?.children || []).some((child) => /Rivera/i.test(child.name || "")));
+    assert.equal(seeded.json.demo?.household?.programName, "Ready Daycare");
+    assert.ok((seeded.json.demo?.messageCount || 0) >= 2);
 
     const token = String(seeded.json.demo.magicUrl).split("familyHub=")[1];
     const peek = await request(onPort, "GET", `/api/family-hub/invites/peek?token=${encodeURIComponent(token)}`);

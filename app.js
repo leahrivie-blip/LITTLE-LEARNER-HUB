@@ -32937,9 +32937,91 @@ function familyHubChildInitials(name = "") {
   return ((parts[0][0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "FH";
 }
 
-function familyHubEmptyState({ title, body, actionHtml = "" } = {}) {
+function familyHubFormatDate(value = "", { weekday = true } = {}) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const iso = raw.slice(0, 10);
+  const date = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleDateString(undefined, weekday
+    ? { weekday: "short", month: "short", day: "numeric" }
+    : { month: "short", day: "numeric" });
+}
+
+function familyHubFormatTime(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (/^\d{1,2}:\d{2}/.test(raw) && !raw.includes("T")) {
+    const [hPart, mPart] = raw.split(":");
+    const hours = Number(hPart);
+    const minutes = Number(String(mPart || "0").slice(0, 2));
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return raw;
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function familyHubFormatTimeRange(start = "", end = "") {
+  const a = familyHubFormatTime(start);
+  const b = familyHubFormatTime(end);
+  if (a && b) return `${a} – ${b}`;
+  return a || b || "";
+}
+
+function familyHubFormatDateTime(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return familyHubFormatDate(raw);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  if (sameDay) return `Today · ${time}`;
+  return `${familyHubFormatDate(date.toISOString())} · ${time}`;
+}
+
+function familyHubFormatNapDetail(item = {}) {
+  if (item.napStart || item.napEnd) {
+    const range = familyHubFormatTimeRange(item.napStart, item.napEnd);
+    return [range, item.summary].filter(Boolean).join(" · ");
+  }
+  const detail = String(item.detail || item.summary || "").trim();
+  const rangeMatch = detail.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
+  if (rangeMatch) {
+    const pretty = familyHubFormatTimeRange(rangeMatch[1], rangeMatch[2]);
+    return detail.replace(rangeMatch[0], pretty);
+  }
+  if (/^\d{1,2}:\d{2}/.test(detail)) {
+    const bits = detail.split(" · ");
+    bits[0] = familyHubFormatTime(bits[0]) || bits[0];
+    return bits.join(" · ");
+  }
+  return detail;
+}
+
+function familyHubSectionIcon(kind = "") {
+  const icons = {
+    mood: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="10" r="1.2" fill="currentColor"/><circle cx="15" cy="10" r="1.2" fill="currentColor"/><path d="M8.5 14.5c1.2 1.4 2.6 2 3.5 2s2.3-.6 3.5-2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    meals: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4v7c0 2 1.5 3 3 3v6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 4v7M11 4v16M16 8c2.5 0 3.5 2 3.5 4.5S18.5 17 16 17v3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    naps: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14.5A6.5 6.5 0 0 1 14.8 5.2 7.5 7.5 0 1 0 4 14.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    care: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    activities: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 16l4-8 3 5 2-3 5 6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="8.5" cy="7" r="1.4" fill="currentColor"/></svg>`,
+    notes: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h8l4 4v12H7V4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M15 4v4h4M9 12h6M9 16h5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    photos: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="11" r="1.6" fill="currentColor"/><path d="M3.5 16l4.5-4 3.5 3 2.5-2 6.5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    messages: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H8l-3 3V6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    events: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.5V7M16 3.5V7M4 10h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+  };
+  return icons[kind] || icons.notes;
+}
+
+function familyHubEmptyState({ title, body, actionHtml = "", icon = "notes" } = {}) {
   return `
     <div class="fh-empty-state" role="status">
+      <div class="fh-empty-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</div>
       <strong>${escapeHtml(title || "Nothing here yet")}</strong>
       <p>${escapeHtml(body || "Check back later.")}</p>
       ${actionHtml}
@@ -32950,6 +33032,7 @@ function familyHubEmptyState({ title, body, actionHtml = "" } = {}) {
 function familyHubPhotoTile(item = {}, childName = "Child") {
   const caption = item.caption || item.title || "Photo";
   const url = String(item.url || "").trim();
+  const when = item.date ? familyHubFormatDate(item.date, { weekday: false }) : "";
   return `
     <figure class="fh-photo-tile">
       ${url
@@ -32957,10 +33040,29 @@ function familyHubPhotoTile(item = {}, childName = "Child") {
         : `<div class="fh-photo-placeholder" aria-hidden="true"><span>${escapeHtml(familyHubChildInitials(childName))}</span></div>`}
       <figcaption>
         <strong>${escapeHtml(caption)}</strong>
-        <span>${escapeHtml(childName)}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span>
+        <span>${escapeHtml(childName)}${when ? ` · ${escapeHtml(when)}` : ""}</span>
       </figcaption>
     </figure>
   `;
+}
+
+function familyHubStatusClass(status = "", label = "") {
+  const raw = `${status} ${label}`.toLowerCase();
+  if (raw.includes("needed") || raw.includes("action") || raw.includes("due")) return "is-action";
+  if (raw.includes("viewable") || raw.includes("on file") || raw.includes("complete")) return "is-ok";
+  return "is-neutral";
+}
+
+function familyHubEventTypeLabel(type = "") {
+  const map = {
+    family_event: "Family event",
+    closure: "Closure",
+    reminder: "Reminder",
+    director_event: "Program event",
+    classroom_event: "Classroom",
+  };
+  const key = String(type || "event");
+  return map[key] || key.replace(/_/g, " ");
 }
 
 function renderFamilyHubTodayPanel(data) {
@@ -32969,15 +33071,16 @@ function renderFamilyHubTodayPanel(data) {
   const name = child?.name || "your child";
   const first = String(name).split(/\s+/)[0] || name;
   const photoUrl = String(child?.photoUrl || "").trim();
-  const section = (title, body, emptyTitle, emptyBody) => `
+  const dateLabel = familyHubFormatDate(today.date || "");
+  const section = (title, icon, body, emptyTitle, emptyBody) => `
     <section class="fh-today-section">
-      <h3>${escapeHtml(title)}</h3>
-      ${body || familyHubEmptyState({ title: emptyTitle, body: emptyBody })}
+      <h3><span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</span>${escapeHtml(title)}</h3>
+      ${body || familyHubEmptyState({ title: emptyTitle, body: emptyBody, icon })}
     </section>
   `;
   const moodHtml = today.mood
     ? `<div class="fh-mood-pill"><span>Today’s mood</span><strong>${escapeHtml(today.mood.value)}</strong>${today.mood.summary ? `<p>${escapeHtml(today.mood.summary)}</p>` : ""}</div>`
-    : familyHubEmptyState({ title: "No mood shared yet", body: "When teachers share a mood note, it will show here." });
+    : "";
   const listHtml = (items, mapFn) => (items?.length ? `<ul class="fh-today-list">${items.map(mapFn).join("")}</ul>` : "");
   return `
     <div class="fh-today">
@@ -32988,60 +33091,74 @@ function renderFamilyHubTodayPanel(data) {
             : `<span>${escapeHtml(familyHubChildInitials(name))}</span>`}
         </div>
         <div class="fh-today-hero-copy">
-          <p class="fh-greeting">${escapeHtml(today.greeting || "Hello")}</p>
+          <p class="fh-greeting">${escapeHtml(today.greeting || "Hello")}${dateLabel ? ` · ${escapeHtml(dateLabel)}` : ""}</p>
           <h2>${escapeHtml(first)}’s day</h2>
-          <p>${escapeHtml(today.greetingLine || `Here’s what we know about ${first} today.`)}</p>
+          <p>${escapeHtml(today.greetingLine || `Here’s how ${first}’s day is going.`)}</p>
         </div>
       </header>
-      ${section("Mood", moodHtml, "", "")}
+      ${section("Mood", "mood", moodHtml, "No mood shared yet", "When your provider shares a mood note, it will show here.")}
       ${section(
         "Meals",
+        "meals",
         listHtml(today.meals, (item) => `<li><strong>${escapeHtml(item.label || "Meal")}</strong><span>${escapeHtml(item.detail || "")}</span></li>`),
         "No meals shared yet",
         "Breakfast, lunch, and snacks appear when your provider shares them.",
       )}
       ${section(
         "Naps",
-        listHtml(today.naps, (item) => `<li><strong>${escapeHtml(item.title || "Nap")}</strong><span>${escapeHtml(item.detail || item.summary || "")}</span></li>`),
+        "naps",
+        listHtml(today.naps, (item) => `<li><strong>Nap</strong><span>${escapeHtml(familyHubFormatNapDetail(item) || "Nap logged")}</span></li>`),
         "No naps shared yet",
         "Rest times show up here once logged and shared.",
       )}
       ${section(
-        "Diapers / Potty",
-        listHtml(today.diapers, (item) => `<li><strong>${escapeHtml(item.title || item.category || "Update")}</strong><span>${escapeHtml(item.detail || item.summary || "")}${item.time ? ` · ${escapeHtml(item.time)}` : ""}</span></li>`),
-        "No diaper or potty updates yet",
-        "Care updates appear when your provider shares them.",
+        "Diapers & potty",
+        "care",
+        listHtml(today.diapers, (item) => `<li><strong>${escapeHtml(item.title || item.category || "Update")}</strong><span>${escapeHtml(item.detail || item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
+        "No care updates yet",
+        "Diaper and potty updates appear when your provider shares them.",
       )}
       ${section(
         "Activities",
-        listHtml(today.activities, (item) => `<li><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
+        "activities",
+        listHtml(today.activities, (item) => `<li><strong>${escapeHtml(item.title || "Activity")}</strong><span>${escapeHtml(item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
         "No activities shared yet",
         "Play and learning moments will land here.",
       )}
       ${section(
         "Teacher notes",
+        "notes",
         listHtml(today.teacherNotes, (item) => `<li><strong>${escapeHtml(item.title || "Note")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
         "No teacher notes yet",
         "Personal notes from your provider will show here.",
       )}
       ${section(
-        "New photos",
+        "Photos from today",
+        "photos",
         today.photos?.length
           ? `<div class="fh-photo-grid">${today.photos.map((item) => familyHubPhotoTile(item, first)).join("")}</div>`
           : "",
-        "No new photos today",
-        "Shared photos from today will appear in this spot.",
+        "No photos yet today",
+        "Shared photos from today will appear here.",
       )}
       ${section(
         "Messages",
-        listHtml(today.messages, (item) => `<li><strong>${escapeHtml(item.authorName || "Teacher")}</strong><span>${escapeHtml(item.body || "")}</span></li>`),
-        "No new messages",
-        "Unread teacher messages will preview here.",
+        "messages",
+        listHtml(today.messages, (item) => `<li class="${item.unread ? "is-unread" : ""}"><strong>${escapeHtml(item.authorName || "Teacher")}</strong><span>${escapeHtml(item.body || "")}</span></li>`),
+        "No messages yet",
+        "Notes from your provider will preview here.",
       )}
       ${section(
-        "Upcoming events",
-        listHtml(today.upcomingEvents, (item) => `<li><strong>${escapeHtml(item.title || "Event")}</strong><span>${escapeHtml(item.startDate || "")}${item.startTime ? ` · ${escapeHtml(item.startTime)}` : ""}${item.summary ? ` — ${escapeHtml(item.summary)}` : ""}</span></li>`),
-        "No upcoming events",
+        "Coming up",
+        "events",
+        listHtml(today.upcomingEvents, (item) => {
+          const when = [
+            familyHubFormatDate(item.startDate || ""),
+            item.startTime ? familyHubFormatTime(item.startTime) : "",
+          ].filter(Boolean).join(" · ");
+          return `<li><strong>${escapeHtml(item.title || "Event")}</strong><span>${escapeHtml(when)}${item.summary ? ` — ${escapeHtml(item.summary)}` : ""}</span></li>`;
+        }),
+        "Nothing on the calendar",
         "Closures, picture day, and family events will show here.",
       )}
     </div>
@@ -33056,6 +33173,7 @@ function renderFamilyHubReportsPanel(data) {
     return familyHubEmptyState({
       title: "No daily reports yet",
       body: "When your provider shares a daily report, it will show up here for every linked child.",
+      icon: "notes",
     });
   }
   return `
@@ -33064,7 +33182,7 @@ function renderFamilyHubReportsPanel(data) {
         <article class="fh-card">
           <div class="fh-card-head">
             <strong>${escapeHtml(item.title || "Daily report")}</strong>
-            <span>${escapeHtml(childName(item.childId))}${item.date ? ` · ${escapeHtml(item.date)}` : ""}</span>
+            <span class="fh-meta">${escapeHtml(childName(item.childId))}${item.date ? ` · ${escapeHtml(familyHubFormatDate(item.date))}` : ""}</span>
           </div>
           <p>${escapeHtml(item.summary || "No summary provided.")}</p>
         </article>
@@ -33080,7 +33198,9 @@ function renderFamilyHubPhotosPanel(data) {
   if (!photos.length) {
     return familyHubEmptyState({
       title: "No photos shared yet",
-      body: "Photos your provider marks Share With Family will collect here.",
+      body: "Photos your provider shares with your family will collect here.",
+      icon: "photos",
+      actionHtml: `<button class="fh-text-btn" type="button" data-fh-panel="today">Back to Today</button>`,
     });
   }
   return `<div class="fh-photo-grid fh-photo-grid--page">${photos.map((item) => familyHubPhotoTile(item, childName(item.childId))).join("")}</div>`;
@@ -33088,15 +33208,16 @@ function renderFamilyHubPhotosPanel(data) {
 
 function renderFamilyHubMessagesPanel(data) {
   const messages = Array.isArray(data?.messages) ? data.messages : [];
+  const sorted = messages.slice().sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
   return `
     <div class="fh-messages">
       <div class="fh-message-thread" id="familyHubMessageThread">
-        ${messages.length
-          ? messages.map((msg) => `
+        ${sorted.length
+          ? sorted.map((msg) => `
               <article class="fh-message ${msg.from === "parent" ? "is-parent" : "is-provider"}">
                 <header>
                   <strong>${escapeHtml(msg.authorName || (msg.from === "parent" ? "You" : "Teacher"))}</strong>
-                  <time>${escapeHtml(String(msg.createdAt || "").replace("T", " ").slice(0, 16))}</time>
+                  <time datetime="${escapeHtml(msg.createdAt || "")}">${escapeHtml(familyHubFormatDateTime(msg.createdAt))}</time>
                 </header>
                 <p>${escapeHtml(msg.body || "")}</p>
               </article>
@@ -33104,12 +33225,15 @@ function renderFamilyHubMessagesPanel(data) {
           : familyHubEmptyState({
             title: "Start the conversation",
             body: "Send a note to your provider. Replies will show in this thread.",
+            icon: "messages",
           })}
       </div>
       <form id="familyHubMessageForm" class="fh-message-compose">
         <label class="sr-only" for="familyHubMessageInput">Message</label>
         <textarea id="familyHubMessageInput" name="body" maxlength="2000" rows="3" required placeholder="Write a message to your provider…"></textarea>
-        <button class="primary-button" type="submit">Send message</button>
+        <div class="fh-compose-actions">
+          <button class="primary-button" type="submit">Send</button>
+        </div>
         <span class="form-message" id="familyHubMessageStatus" aria-live="polite"></span>
       </form>
     </div>
@@ -33121,21 +33245,30 @@ function renderFamilyHubCalendarPanel(data) {
   if (!events.length) {
     return familyHubEmptyState({
       title: "No upcoming events",
-      body: "Closures, family events, and reminders from your provider will appear on this calendar list.",
+      body: "Closures, family events, and reminders from your provider will appear here.",
+      icon: "events",
     });
   }
   return `
     <div class="fh-panel-stack">
-      ${events.map((item) => `
+      ${events.map((item) => {
+        const when = [
+          familyHubFormatDate(item.startDate || ""),
+          item.endDate && item.endDate !== item.startDate ? `– ${familyHubFormatDate(item.endDate)}` : "",
+          item.allDay || (!item.startTime && !item.endTime)
+            ? (item.startTime ? "" : "All day")
+            : familyHubFormatTimeRange(item.startTime, item.endTime),
+        ].filter(Boolean).join(" · ").replace("· –", "–");
+        return `
         <article class="fh-card">
           <div class="fh-card-head">
             <strong>${escapeHtml(item.title || "Event")}</strong>
-            <span class="tag">${escapeHtml(String(item.type || "event").replace(/_/g, " "))}</span>
+            <span class="fh-status-tag is-neutral">${escapeHtml(familyHubEventTypeLabel(item.type))}</span>
           </div>
-          <p class="muted-copy">${escapeHtml(item.startDate || "")}${item.endDate && item.endDate !== item.startDate ? ` – ${escapeHtml(item.endDate)}` : ""}${item.startTime ? ` · ${escapeHtml(item.startTime)}` : ""}</p>
+          <p class="fh-meta">${escapeHtml(when)}</p>
           ${item.summary ? `<p>${escapeHtml(item.summary)}</p>` : ""}
-        </article>
-      `).join("")}
+        </article>`;
+      }).join("")}
     </div>
   `;
 }
@@ -33146,8 +33279,9 @@ function renderFamilyHubFormsPanel(data) {
   const documents = Array.isArray(data?.documents) ? data.documents : [];
   if (!documents.length) {
     return familyHubEmptyState({
-      title: "No forms on file yet",
-      body: "Enrollment packets, medical forms, and handbook copies will show here for viewing.",
+      title: "No forms yet",
+      body: "Enrollment packets, medical forms, and handbook copies will show here.",
+      icon: "notes",
     });
   }
   return `
@@ -33156,10 +33290,10 @@ function renderFamilyHubFormsPanel(data) {
         <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
           <div class="fh-card-head">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
-            <span class="tag">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
+            <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
-          <p class="muted-copy">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}</p>
-          <p>${escapeHtml(doc.notes || "View-only status from your provider. E-sign and uploads are not part of this beta.")}</p>
+          <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}</p>
+          <p>${escapeHtml(doc.notes || "View-only for now. Ask your provider if you need a paper copy.")}</p>
         </article>
       `).join("")}
     </div>
@@ -33168,8 +33302,19 @@ function renderFamilyHubFormsPanel(data) {
 
 function renderFamilyHubMorePanel(data) {
   const settings = data?.settings || data?.household?.settings || {};
-  const guardians = Array.isArray(data?.guardians) ? data.guardians : (data?.household?.guardianEmails || []);
+  const guardians = Array.isArray(data?.guardians) ? data.guardians : [];
   const notifications = Array.isArray(data?.notifications) ? data.notifications : [];
+  const guardianRows = guardians.length
+    ? guardians.map((item) => {
+      if (item && typeof item === "object") {
+        return {
+          name: item.name || item.email || "Guardian",
+          email: item.email || "",
+        };
+      }
+      return { name: String(item), email: String(item) };
+    })
+    : [];
   return `
     <div class="fh-panel-stack">
       <section class="fh-card">
@@ -33178,39 +33323,47 @@ function renderFamilyHubMorePanel(data) {
           ? `<ul class="fh-today-list">${notifications.slice(0, 12).map((item) => `
               <li class="${item.read ? "" : "is-unread"}">
                 <strong>${escapeHtml(item.title || "Update")}</strong>
-                <span>${escapeHtml(item.body || "")}</span>
+                <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(familyHubFormatDateTime(item.createdAt))}` : ""}</span>
               </li>
             `).join("")}</ul>
-            <button class="ghost-button" type="button" data-family-hub-mark-notifications>Mark all read</button>`
-          : familyHubEmptyState({ title: "You’re all caught up", body: "New photos, reports, and messages will notify you here." })}
+            <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-mark-notifications>Mark all read</button>`
+          : familyHubEmptyState({ title: "You’re all caught up", body: "New photos, reports, and messages will notify you here.", icon: "messages" })}
       </section>
       <section class="fh-card">
-        <h3>Guardians on this household</h3>
+        <h3>Household guardians</h3>
         <ul class="fh-today-list">
-          ${(guardians.length ? guardians : ["No guardian emails on file"]).map((email) => `
-            <li><strong>${escapeHtml(email)}</strong><span>Can sign in with the household login code</span></li>
+          ${(guardianRows.length ? guardianRows : [{ name: "No guardians on file", email: "" }]).map((item) => `
+            <li>
+              <strong>${escapeHtml(item.name)}</strong>
+              <span>${item.email && item.email !== item.name ? `${escapeHtml(item.email)} · ` : ""}Can sign in with the household login code</span>
+            </li>
           `).join("")}
         </ul>
       </section>
       <section class="fh-card">
-        <h3>Parent settings</h3>
-        <form id="familyHubSettingsForm" class="panel-form">
+        <h3>Your settings</h3>
+        <form id="familyHubSettingsForm" class="panel-form fh-settings-form">
           <label>Preferred name
             <input name="preferredName" maxlength="80" value="${escapeHtml(settings.preferredName || "")}" placeholder="How should we greet you?" />
           </label>
-          <label class="settings-check-label"><input type="checkbox" name="notifyMessages" ${settings.notifyMessages !== false ? "checked" : ""} /> Message alerts</label>
-          <label class="settings-check-label"><input type="checkbox" name="notifyPhotos" ${settings.notifyPhotos !== false ? "checked" : ""} /> Photo alerts</label>
-          <label class="settings-check-label"><input type="checkbox" name="notifyDailyReports" ${settings.notifyDailyReports !== false ? "checked" : ""} /> Daily report alerts</label>
-          <label class="settings-check-label"><input type="checkbox" name="notifyEvents" ${settings.notifyEvents !== false ? "checked" : ""} /> Event alerts</label>
+          <div class="fh-settings-checks">
+            <label class="settings-check-label"><input type="checkbox" name="notifyMessages" ${settings.notifyMessages !== false ? "checked" : ""} /> Message alerts</label>
+            <label class="settings-check-label"><input type="checkbox" name="notifyPhotos" ${settings.notifyPhotos !== false ? "checked" : ""} /> Photo alerts</label>
+            <label class="settings-check-label"><input type="checkbox" name="notifyDailyReports" ${settings.notifyDailyReports !== false ? "checked" : ""} /> Daily report alerts</label>
+            <label class="settings-check-label"><input type="checkbox" name="notifyEvents" ${settings.notifyEvents !== false ? "checked" : ""} /> Event alerts</label>
+          </div>
           <button class="primary-button" type="submit">Save settings</button>
           <span class="form-message" id="familyHubSettingsMessage" aria-live="polite"></span>
         </form>
       </section>
       <section class="fh-card">
         <h3>Account</h3>
-        <p class="muted-copy">${escapeHtml(data?.household?.programName || "Your program")} · ${escapeHtml(data?.household?.label || "Household")}</p>
-        ${isLoggedIn() ? `<button class="primary-button" type="button" data-hdh-role-switch="teacher">Exit parent preview</button>` : ""}
-        <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+        <p class="fh-meta">${escapeHtml(data?.household?.programName || "Your program")}</p>
+        <p class="muted-copy">${escapeHtml(data?.household?.label || "Your household")}</p>
+        <div class="fh-account-actions">
+          ${isLoggedIn() ? `<button class="ghost-button fh-btn-secondary" type="button" data-hdh-role-switch="teacher">Exit parent preview</button>` : ""}
+          <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-sign-out>Sign out</button>
+        </div>
       </section>
     </div>
   `;
@@ -33221,6 +33374,9 @@ function renderFamilyHubParentShell(data, options = {}) {
   const panel = options.panel || familyHubParentState.panel || "today";
   const childId = options.childId || familyHubParentState.childId || data?.today?.childId || children[0]?.id || "";
   const unread = Number(data?.unreadNotifications || 0);
+  const preferred = String(data?.settings?.preferredName || "").trim();
+  const program = data?.household?.programName || "Family Hub";
+  const household = data?.household?.label || "Your household";
   const panels = {
     today: renderFamilyHubTodayPanel(data),
     reports: renderFamilyHubReportsPanel(data),
@@ -33231,42 +33387,47 @@ function renderFamilyHubParentShell(data, options = {}) {
     more: renderFamilyHubMorePanel(data),
   };
   const nav = [
-    ["today", "Today"],
-    ["reports", "Reports"],
-    ["photos", "Photos"],
-    ["messages", "Messages"],
-    ["calendar", "Calendar"],
-    ["forms", "Forms"],
-    ["more", "More"],
+    ["today", "Today", "events"],
+    ["reports", "Reports", "notes"],
+    ["photos", "Photos", "photos"],
+    ["messages", "Messages", "messages"],
+    ["calendar", "Calendar", "events"],
+    ["forms", "Forms", "notes"],
+    ["more", "More", "care"],
   ];
   return `
     <div class="fh-parent-app" data-fh-panel="${escapeHtml(panel)}">
       <header class="fh-app-header">
-        <div>
-          <p class="eyebrow">Family Hub</p>
-          <h2>${escapeHtml(data?.household?.programName || "Your program")}</h2>
-          <p class="muted-copy">${escapeHtml(data?.household?.label || "Your household")}</p>
+        <div class="fh-app-brand">
+          <p class="fh-kicker">Family Hub</p>
+          <h1>${escapeHtml(program)}</h1>
+          <p class="fh-app-sub">${escapeHtml(household)}${preferred ? ` · Hi, ${escapeHtml(preferred)}` : ""}</p>
         </div>
         <div class="fh-app-header-actions">
-          <button class="ghost-button fh-notif-button" type="button" data-fh-panel="more" aria-label="Notifications">
-            Alerts${unread ? `<span class="fh-badge">${unread > 9 ? "9+" : unread}</span>` : ""}
+          <button class="fh-icon-btn fh-notif-button" type="button" data-fh-panel="more" aria-label="${unread ? `${unread} alerts` : "Alerts"}">
+            <span class="fh-icon-btn-glyph" aria-hidden="true">${familyHubSectionIcon("messages")}</span>
+            ${unread ? `<span class="fh-badge">${unread > 9 ? "9+" : unread}</span>` : ""}
           </button>
-          <button class="ghost-button" type="button" data-family-hub-sign-out>Sign out</button>
+          <button class="fh-text-btn" type="button" data-family-hub-sign-out>Sign out</button>
         </div>
       </header>
       ${children.length > 1 ? `
         <div class="fh-child-switcher" role="tablist" aria-label="Children">
-          ${children.map((child) => `
+          ${children.map((child) => {
+            const first = String(child.name || "Child").split(/\s+/)[0];
+            return `
             <button type="button" class="fh-child-chip${child.id === childId ? " is-active" : ""}" data-fh-child="${escapeHtml(child.id)}">
-              ${escapeHtml(child.name || "Child")}
-            </button>
-          `).join("")}
+              <span class="fh-child-chip-initial" aria-hidden="true">${escapeHtml(familyHubChildInitials(child.name))}</span>
+              ${escapeHtml(first)}
+            </button>`;
+          }).join("")}
         </div>
       ` : ""}
       <nav class="fh-parent-nav" aria-label="Family Hub">
-        ${nav.map(([id, label]) => `
+        ${nav.map(([id, label, icon]) => `
           <button type="button" class="fh-parent-nav-link${panel === id ? " is-active" : ""}" data-fh-panel="${id}">
-            ${escapeHtml(label)}
+            <span class="fh-nav-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</span>
+            <span>${escapeHtml(label)}</span>
           </button>
         `).join("")}
       </nav>
@@ -33300,13 +33461,13 @@ function renderFamilyHubPage() {
           ? `<div class="fh-loading" id="familyHubLoadingState"><p>Loading today’s updates…</p></div>`
           : `
             <section class="fh-signin">
-              <p class="eyebrow">Family Hub</p>
+              <p class="fh-kicker">Family Hub</p>
               <h2>Welcome back</h2>
-              <p class="muted-copy">Use the magic link from your provider, or sign in with your household email and 6-digit code.</p>
+              <p class="muted-copy">Open the magic link from your provider, or sign in with your household email and 6-digit code.</p>
               <form id="familyHubLoginForm" class="panel-form">
                 <div class="form-grid-two">
-                  <label>Email<input name="email" type="email" required placeholder="parent@example.com" autocomplete="username" /></label>
-                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="123456" autocomplete="one-time-code" /></label>
+                  <label>Email<input name="email" type="email" required placeholder="you@email.com" autocomplete="username" /></label>
+                  <label>Login code<input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required placeholder="6-digit code" autocomplete="one-time-code" /></label>
                 </div>
                 <button class="primary-button" type="submit">Sign in</button>
                 <span class="form-message" id="familyHubLoginMessage" aria-live="polite"></span>

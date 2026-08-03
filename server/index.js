@@ -12988,7 +12988,14 @@ function buildFamilyHubParentPayload(store, household, { childId = "", date = ""
     events,
   });
   const settings = familyHubLib.defaultHouseholdSettings(household.settings || {});
-  const guardians = familyHubLib.normalizeGuardianEmails(household.email || "", household.guardianEmails || []);
+  const guardianEmails = familyHubLib.normalizeGuardianEmails(household.email || "", household.guardianEmails || []);
+  const guardianLabels = household.guardianLabels && typeof household.guardianLabels === "object"
+    ? household.guardianLabels
+    : {};
+  const guardians = guardianEmails.map((email) => ({
+    email,
+    name: String(guardianLabels[email] || "").trim() || email.split("@")[0] || email,
+  }));
   return {
     household: {
       ...publicFamilyHousehold(household),
@@ -13014,12 +13021,16 @@ function publicFamilyHousehold(household = {}) {
     household.email || "",
     household.guardianEmails || [],
   );
+  const guardianLabels = household.guardianLabels && typeof household.guardianLabels === "object"
+    ? household.guardianLabels
+    : {};
   return {
     id: household.id || "",
     label: household.label || "Family",
     email: household.email || "",
     phone: household.phone || "",
     guardianEmails,
+    guardianLabels,
     childIds: Array.isArray(household.childIds) ? household.childIds : [],
     children: Array.isArray(household.children) ? household.children : [],
     status: household.status || "invited",
