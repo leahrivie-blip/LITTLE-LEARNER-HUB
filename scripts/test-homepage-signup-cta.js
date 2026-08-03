@@ -156,7 +156,26 @@ test("guest library browse keeps a signup path", () => {
   const browseCss = fs.readFileSync(path.join(root, "styles/llh-library-browse.css"), "utf8");
   assert.match(browseCss, /body\.activities-view:not\(\.user-authenticated\) \.topbar \.account-actions/);
   assert.match(css, /body\.lessons-view:not\(\.user-authenticated\) \.topbar \.account-actions/);
-  assert.match(appJs, /dismissOverlaysForAuthOrUpgrade\(\);\s*\n\s*setPreferredSignupPlan\("founding"\)/);
+  assert.match(appJs, /setPreferredSignupPlan\("free"\)/);
+});
+
+test("signup modal copy derives from selected plan intent", () => {
+  assert.match(appJs, /function signupIntentPresentation/);
+  assert.match(appJs, /function applySignupIntentCopyToAuthModal/);
+  assert.match(appJs, /Create your free account to start exploring Little Learner Hub/);
+  assert.match(appJs, /Create your account to continue with Pro membership/);
+  assert.match(appJs, /Create your account to start a 7-day Pro trial/);
+  assert.match(appJs, /credit card is required/i);
+  // Header / start-free must not force Founding/Pro copy.
+  assert.match(appJs, /Header Sign Up is neutral\/Free/);
+  assert.doesNotMatch(
+    appJs.slice(appJs.indexOf('document.querySelector("#signupButton")'), appJs.indexOf('document.querySelector("#closeModal")')),
+    /setPreferredSignupPlan\("founding"\)/,
+  );
+  // Free CTA path sets free intent; Pro checkout keeps monthly; trial uses trial intent.
+  assert.match(appJs, /setPreferredSignupPlan\(intent \|\| "free"\)/);
+  assert.match(appJs, /setPreferredSignupPlan\("trial"\)/);
+  assert.match(appJs, /clearPreferredSignupPlan\(\)/);
 });
 
 test("founding announcement dismissal persists in localStorage", () => {
