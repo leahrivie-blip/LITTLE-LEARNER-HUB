@@ -2,7 +2,7 @@
 
 ## Summary
 
-Phase 1 refreshes **owner/admin inbox emails only** (`SUPPORT_EMAIL_TO`) with a dedicated branded shell, Member Summary, attribution, engagement snapshot, AI Owner Insight (data-backed), and secure admin action links.
+Phase 1 refreshes **owner/admin inbox emails only** (`SUPPORT_EMAIL_TO`) with a dedicated branded shell, priority badge, Member Summary, Business Impact (membership events), Recent Activity, attribution, engagement snapshot, factual AI Owner Insight, and secure admin action links.
 
 Customer transactional emails, Stripe/billing/subscription/auth/signup/pricing/trial behavior, Resend configuration, database schema, and existing email **triggers** are unchanged.
 
@@ -34,21 +34,21 @@ Customer transactional emails, Stripe/billing/subscription/auth/signup/pricing/t
 
 ## Subject lines
 
-| Event | Subject |
-|-------|---------|
-| Free signup | `🎉 New Free Member: {name or email}` |
-| Trial | `⭐ Trial Started: {name or email}` |
-| Pro monthly/annual | `💜 New Pro Member: {name or email}` |
-| Founding | `💜 New Founding Member: {name or email}` |
-| Subscription ended | `❌ Subscription Ended: {name or email}` |
-| Payment failed | `⚠️ Payment Failed: {name or email}` |
-| Unmatched paid | `🚨 Paid Customer Not Matched to Account` |
-| Paid not restored | `🚨 Paid Access Not Restored` |
-| Support | `📩 New Support Request: {topic}` |
-| Feature | `💡 New Feature Request: {title}` |
-| Bug | `🐞 New Bug Report: {title}` |
-| Feedback | `⭐ New Feedback: {subject}` |
-| Message | `💬 New Member Message: {name}` |
+| Event | Subject | Priority |
+|-------|---------|----------|
+| Free signup | `🎉 New Free Member • {name}` | 🔵 Information |
+| Trial | `⭐ Trial Started • {name}` | 🟢 Success |
+| Pro monthly/annual | `💜 New Pro Member • {name}` | 🟢 Success |
+| Founding | `💜 New Founding Member • {name}` | 🟢 Success |
+| Subscription cancelled | `❌ Subscription Cancelled • {name}` | 🟡 Attention |
+| Payment failed | `⚠️ Payment Failed • {name}` | 🟡 Attention |
+| Unmatched paid | `🚨 Paid Customer Not Matched to Account` | 🔴 Critical |
+| Paid not restored | `🚨 Paid Access Not Restored` | 🔴 Critical |
+| Support | `📩 New Support Request • {topic}` | 🔵 Information |
+| Feature | `💡 Feature Request • {title}` | 🔵 Information |
+| Bug | `🐞 New Bug Report • {title}` | 🟡 Attention |
+| Feedback | `⭐ New Feedback • {subject}` | 🔵 Information |
+| Message | `💬 New Member Message • {name}` | 🔵 Information |
 
 ## Missing-variable behavior
 
@@ -86,7 +86,7 @@ npm run check
 npm run test:owner-notification-email
 ```
 
-Results (this branch): owner notification suite **26 passed, 0 failed**.
+Results (this branch): owner notification suite **29 passed, 0 failed**.
 
 Preview artifacts: `/opt/cursor/artifacts/owner-email-previews/` (HTML + screenshots).
 

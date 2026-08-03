@@ -59,11 +59,14 @@ function sampleUser(overrides = {}) {
   };
 }
 
-function storeWith(user) {
-  return { users: { [user.email]: user } };
+function storeWith(user, extras = {}) {
+  return {
+    users: { [user.email]: user, ...(extras.users || {}) },
+    analyticsEvents: extras.analyticsEvents || [],
+  };
 }
 
-function render(eventType, { user, extras, fields, message, topic, env, email } = {}) {
+function render(eventType, { user, extras, fields, message, topic, env, email, storeExtras } = {}) {
   const member = user || sampleUser();
   return owner.buildOwnerNotification({
     ownerEventType: eventType,
@@ -75,7 +78,7 @@ function render(eventType, { user, extras, fields, message, topic, env, email } 
     createdAt: "2026-08-03T20:42:00.000Z",
     fields: fields || [],
     extras: extras || {},
-    store: storeWith(member),
+    store: storeWith(member, storeExtras || {}),
     siteUrl: "https://littlelearnershubbyleah.com",
     env: env || { NODE_ENV: "production" },
     refId: "ref-123",
@@ -98,17 +101,21 @@ function assertPlainText(payload) {
 
 test("New Free Member email rendering", () => {
   const payload = render("admin_new_signup");
-  assert.match(payload.subject, /^🎉 New Free Member:/);
+  assert.match(payload.subject, /^🎉 New Free Member • /);
+  assert.match(payload.html, /🔵 Information/);
   assert.match(payload.html, /Member Summary/);
+  assert.match(payload.html, /Business Impact/);
+  assert.match(payload.html, /Recent Activity/);
   assert.match(payload.html, /Marketing Attribution/);
   assert.match(payload.html, /Engagement Snapshot/);
   assert.match(payload.html, /AI Owner Insight/);
   assert.match(payload.html, /TikTok/);
   assert.match(payload.html, /View User/);
-  assert.match(payload.html, /Open User Journey/);
+  assert.match(payload.html, /View User Journey/);
   assert.match(payload.html, /Open Marketing Funnel/);
   assert.match(payload.html, /Production/);
   assert.match(payload.text, /A new member created a Free account/);
+  assert.match(payload.meta.insight, /First member today from TikTok|came from TikTok|No meaningful activity/);
   assertPlainText(payload);
   assertMobileSafe(payload.html);
 });
@@ -117,15 +124,18 @@ test("Trial Started rendering", () => {
   const user = sampleUser({
     plan: "Pro",
     subscriptionStatus: "Trialing",
+    stripeSubscriptionStatus: "trialing",
     trialStart: "2026-08-03T20:42:00.000Z",
     trialEnd: "2026-08-10T20:42:00.000Z",
     featureUsage: { lesson_plan_view: 3, calendar_lesson_assigned: 1 },
   });
   const payload = render("admin_new_trial", { user });
-  assert.match(payload.subject, /^⭐ Trial Started:/);
+  assert.match(payload.subject, /^⭐ Trial Started • /);
+  assert.match(payload.html, /🟢 Success/);
   assert.match(payload.html, /7-day Pro trial/);
   assert.match(payload.html, /Trial end/);
   assert.match(payload.html, /Open Billing/);
+  assert.match(payload.html, /Business Impact/);
   assert.match(payload.meta.insight, /opened several lessons/i);
 });
 
@@ -135,16 +145,21 @@ test("Pro Monthly rendering", () => {
     subscriptionCadence: "monthly",
     monthlyPrice: "$19.99/month",
     subscriptionStatus: "Active",
+    stripeSubscriptionStatus: "active",
     currentPeriodEnd: "2026-09-03T20:42:00.000Z",
+    subscriptionStartedAt: "2026-08-03T20:42:00.000Z",
   });
   const payload = render("admin_new_pro", {
     user,
     extras: { plan: "Pro Monthly", billingFrequency: "monthly", amount: "$19.99/month" },
   });
-  assert.match(payload.subject, /^💜 New Pro Member:/);
+  assert.match(payload.subject, /^💜 New Pro Member • /);
+  assert.match(payload.html, /🟢 Success/);
   assert.match(payload.html, /Billing frequency/);
   assert.match(payload.html, /\$19\.99\/month/);
   assert.match(payload.html, /Open Billing/);
+  assert.match(payload.html, /Business Impact/);
+  assert.match(payload.html, /Monthly recurring revenue|Total members/);
   assert.doesNotMatch(payload.html, /card number|cvv|payment method id/i);
 });
 
@@ -153,12 +168,13 @@ test("Pro Annual rendering", () => {
     plan: "Pro",
     subscriptionCadence: "annual",
     monthlyPrice: "$199/year",
+    stripeSubscriptionStatus: "active",
   });
   const payload = render("admin_new_annual", {
     user,
     extras: { plan: "Pro Annual", billingFrequency: "annual", amount: "$199/year" },
   });
-  assert.match(payload.subject, /^💜 New Pro Member:/);
+  assert.match(payload.subject, /^💜 New Pro Member • /);
   assert.match(payload.html, /annual/i);
   assert.match(payload.html, /\$199\/year/);
 });
@@ -170,14 +186,15 @@ test("Founding rendering", () => {
     foundingMemberNumber: 12,
     monthlyPrice: "$9.99/month",
     priceLock: "Lifetime",
+    stripeSubscriptionStatus: "active",
   });
   const payload = render("admin_new_founding", { user });
-  assert.match(payload.subject, /^💜 New Founding Member:/);
+  assert.match(payload.subject, /^💜 New Founding Member • /);
   assert.match(payload.html, /Founding/);
   assert.match(payload.html, /\$9\.99\/month/);
 });
 
-test("Subscription Ended rendering", () => {
+test("Subscription Cancelled rendering", () => {
   const user = sampleUser({
     plan: "Free",
     previousPlan: "Pro",
@@ -189,9 +206,11 @@ test("Subscription Ended rendering", () => {
     featureUsage: { lesson_plan_view: 8 },
   });
   const payload = render("admin_subscription_canceled", { user });
-  assert.match(payload.subject, /^❌ Subscription Ended:/);
+  assert.match(payload.subject, /^❌ Subscription Cancelled • /);
+  assert.match(payload.html, /🟡 Attention/);
   assert.match(payload.html, /Previous plan/);
   assert.match(payload.html, /Membership length/);
+  assert.match(payload.html, /Business Impact/);
   assert.match(payload.meta.insight, /inactive after previously using/i);
 });
 
@@ -207,10 +226,12 @@ test("Payment Failed rendering", () => {
     user,
     extras: { invoiceId: "in_123", amount: "$19.99", retryAt: "2026-08-05T12:00:00.000Z" },
   });
-  assert.match(payload.subject, /^⚠️ Payment Failed:/);
+  assert.match(payload.subject, /^⚠️ Payment Failed • /);
+  assert.match(payload.html, /🟡 Attention/);
   assert.match(payload.html, /Invoice ID/);
   assert.match(payload.html, /Open Billing/);
   assert.match(payload.html, /Member Summary/);
+  assert.match(payload.html, /Business Impact/);
 });
 
 test("Critical billing mismatch rendering — unmatched", () => {
@@ -228,10 +249,12 @@ test("Critical billing mismatch rendering — unmatched", () => {
     store: { users: {} },
   });
   assert.match(payload.subject, /Paid Customer Not Matched/);
+  assert.match(payload.html, /🔴 Critical/);
   assert.match(payload.html, /Open Admin Reconciliation/);
   assert.match(payload.html, /Exact mismatch/);
   assert.match(payload.html, /Recommended admin action/);
   assert.match(payload.html, /#b42318/);
+  assert.doesNotMatch(payload.html, /Business Impact/);
 });
 
 test("Critical billing mismatch rendering — not restored", () => {
@@ -253,8 +276,8 @@ test("Support request rendering preserves reply-to path data", () => {
     message: "I need help with my invoice.",
     fields: [["Device/Browser", "Mobile Safari"]],
   });
-  assert.match(payload.subject, /^📩 New Support Request: Billing help/);
-  assert.match(payload.html, /Open Support Request/);
+  assert.match(payload.subject, /^📩 New Support Request • Billing help/);
+  assert.match(payload.html, /Open Support Ticket/);
   assert.match(payload.html, /Reply to Member/);
   assert.match(payload.html, /mailto:provider%40example\.com/);
   assert.match(payload.html, /I need help with my invoice/);
@@ -266,7 +289,7 @@ test("Feature request rendering", () => {
     message: "Please add more circle-time songs for infants.",
     fields: [["Category", "Curriculum"], ["Age Group", "Infant"]],
   });
-  assert.match(payload.subject, /^💡 New Feature Request:/);
+  assert.match(payload.subject, /^💡 Feature Request • /);
   assert.match(payload.html, /Open Feature Requests/);
   assert.match(payload.html, /Age group/);
 });
@@ -282,7 +305,8 @@ test("Bug report rendering hides private screenshot URL", () => {
       browserInfo: "Safari",
     },
   });
-  assert.match(payload.subject, /^🐞 New Bug Report:/);
+  assert.match(payload.subject, /^🐞 New Bug Report • /);
+  assert.match(payload.html, /🟡 Attention/);
   assert.match(payload.html, /Open Bug Report/);
   assert.match(payload.html, /Screenshot/);
   assert.doesNotMatch(payload.html, /private-storage\.example/);
@@ -300,7 +324,7 @@ test("Feedback rendering", () => {
       lessonOrActivity: "apple-orchard",
     },
   });
-  assert.match(payload.subject, /^⭐ New Feedback:/);
+  assert.match(payload.subject, /^⭐ New Feedback • /);
   assert.match(payload.html, /Star rating/);
   assert.match(payload.html, /Open Feedback/);
 });
@@ -310,7 +334,7 @@ test("Member message rendering uses preview only", () => {
     message: "Can you help me set up my week?",
     extras: { programName: "Sunshine Home Daycare", createdAt: "2026-08-03T20:42:00.000Z" },
   });
-  assert.match(payload.subject, /^💬 New Member Message:/);
+  assert.match(payload.subject, /^💬 New Member Message • /);
   assert.match(payload.html, /Open Conversation/);
   assert.match(payload.html, /Message Preview|Can you help me set up my week/);
 });
@@ -327,7 +351,64 @@ test("Missing optional values never create empty rows", () => {
   assert.doesNotMatch(payload.html, /<td[^>]*>\s*<\/td>/);
   assert.doesNotMatch(payload.html, /Traffic source<\/td>\s*<td[^>]*>\s*<\/td>/);
   assert.match(payload.html, /No activity yet/);
-  assert.match(payload.meta.insight, /Not enough activity yet/);
+  assert.match(payload.meta.insight, /No meaningful activity yet|First member today from TikTok|came from TikTok/);
+});
+
+test("Recent activity uses bounded analytics when present", () => {
+  const user = sampleUser({
+    lastLoginAt: "2026-08-02T12:00:00.000Z",
+    featureUsage: { lesson_plan_view: 2 },
+  });
+  const payload = render("admin_new_trial", {
+    user: {
+      ...user,
+      plan: "Pro",
+      stripeSubscriptionStatus: "trialing",
+      trialEnd: "2026-08-10T20:42:00.000Z",
+    },
+    storeExtras: {
+      analyticsEvents: [
+        {
+          user: user.email,
+          name: "lesson_plan_view",
+          createdAt: "2026-08-02T15:00:00.000Z",
+          detail: { title: "Farm Animals" },
+        },
+        {
+          user: user.email,
+          name: "calendar_lesson_assigned",
+          createdAt: "2026-08-02T16:00:00.000Z",
+          detail: { title: "Farm Animals" },
+        },
+      ],
+    },
+  });
+  assert.match(payload.html, /Recent Activity/);
+  assert.match(payload.html, /Farm Animals/);
+  assert.match(payload.html, /Last login/);
+});
+
+test("Priority levels map correctly", () => {
+  assert.equal(owner.resolvePriority("admin_new_signup").key, "information");
+  assert.equal(owner.resolvePriority("admin_new_trial").key, "success");
+  assert.equal(owner.resolvePriority("admin_new_pro").key, "success");
+  assert.equal(owner.resolvePriority("admin_payment_failed").key, "attention");
+  assert.equal(owner.resolvePriority("admin_paid_access_not_restored").key, "critical");
+});
+
+test("AI insights stay factual without conversion predictions", () => {
+  const engagedFree = sampleUser({
+    featureUsage: { lesson_plan_view: 5 },
+    plan: "Free",
+  });
+  const insight = owner.buildOwnerInsight({
+    eventType: "admin_new_signup",
+    user: engagedFree,
+    attribution: { source: "" },
+    engagement: { lessonPlansOpened: 5, calendarAssignments: 0, totalActions: 5 },
+  });
+  assert.match(insight, /viewed several premium lesson plans but has not started a trial/i);
+  assert.doesNotMatch(insight, /likely to convert|recommend|should/i);
 });
 
 test("Long names and messages are clamped safely", () => {

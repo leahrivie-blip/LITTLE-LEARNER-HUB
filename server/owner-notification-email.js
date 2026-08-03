@@ -8,10 +8,29 @@
 "use strict";
 
 const accountAccess = require("../scripts/account-access.js");
+const membershipAccess = require("../scripts/membership-access.js");
 
 const BRAND = "Little Learner Hub";
-const INSIGHT_FALLBACK = "Not enough activity yet for a useful insight.";
+const INSIGHT_FALLBACK = "No meaningful activity yet.";
 const ENGAGEMENT_EMPTY = "No activity yet.";
+const RECENT_ACTIVITY_EMPTY = "No activity yet.";
+const ANALYTICS_SCAN_LIMIT = 800;
+
+const PRIORITY = Object.freeze({
+  information: { key: "information", label: "Information", emoji: "🔵", color: "#175cd3", bg: "#eff8ff", border: "#b2ddff" },
+  success: { key: "success", label: "Success", emoji: "🟢", color: "#067647", bg: "#ecfdf3", border: "#abefc6" },
+  attention: { key: "attention", label: "Attention", emoji: "🟡", color: "#b54708", bg: "#fffaeb", border: "#fedf89" },
+  critical: { key: "critical", label: "Critical", emoji: "🔴", color: "#b42318", bg: "#fef3f2", border: "#fecdca" },
+});
+
+const MEMBERSHIP_EVENT_TYPES = new Set([
+  "admin_new_signup", "new_free_member",
+  "admin_new_trial", "trial_started",
+  "admin_new_pro", "admin_new_annual", "new_pro_member",
+  "admin_new_founding", "new_founding_member",
+  "admin_subscription_canceled", "subscription_ended",
+  "admin_payment_failed", "payment_failed",
+]);
 
 const SOURCE_LABELS = Object.freeze({
   tiktok: "TikTok",
@@ -259,6 +278,223 @@ function adminLink(siteUrl, panel, params = {}) {
   return absoluteAdminUrl(siteUrl, `/?${search.toString()}`);
 }
 
+function parseMoney(value) {
+  const n = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  return Number.isFinite(n) ? n : 0;
+}
+
+function isSameUtcDay(iso, now = new Date()) {
+  if (!hasValue(iso)) return false;
+  const date = new Date(iso);
+  if (!Number.isFinite(date.getTime())) return false;
+  return date.getUTCFullYear() === now.getUTCFullYear()
+    && date.getUTCMonth() === now.getUTCMonth()
+    && date.getUTCDate() === now.getUTCDate();
+}
+
+function withinDays(iso, days, nowMs = Date.now()) {
+  if (!hasValue(iso)) return false;
+  const ms = new Date(iso).getTime();
+  if (!Number.isFinite(ms)) return false;
+  return (nowMs - ms) <= days * 24 * 60 * 60 * 1000 && ms <= nowMs;
+}
+
+function contentLabelFromEvent(event) {
+  const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
+  return String(
+    detail.title
+    || detail.resourceId
+    || detail.lessonId
+    || detail.activityId
+    || detail.name
+    || event?.name
+    || "",
+  ).trim().slice(0, 120);
+}
+
+function isLessonEvent(event) {
+  const name = String(event?.name || "");
+  if (["lesson_plan_view", "curriculum_lesson_view"].includes(name)) return true;
+  if (name !== "resource_view") return false;
+  return String(event?.detail?.category || "").toLowerCase().includes("lesson");
+}
+
+function isActivityEvent(event) {
+  const name = String(event?.name || "");
+  if (["activity_view", "curriculum_activity_view"].includes(name)) return true;
+  if (name !== "resource_view") return false;
+  return String(event?.detail?.category || "").toLowerCase().includes("activit");
+}
+
+function isCalendarEvent(event) {
+  return CALENDAR_KEYS.includes(String(event?.name || ""));
+}
+
+function isAiEvent(event) {
+  return AI_KEYS.includes(String(event?.name || ""));
+}
+
+/**
+ * Lightweight snapshot from store.users only (no analytics event scan).
+ * Mirrors existing admin analytics member/MRR rollups using the same fields.
+ */
+function buildBusinessImpactSnapshot(store = {}, { excludeEmail = "" } = {}) {
+  const users = Object.values(store?.users || {}).filter((user) => user && normalizeEmail(user.email));
+  if (!users.length) return { rows: [], present: false };
+
+  const cleanExclude = normalizeEmail(excludeEmail);
+  let activeTrials = 0;
+  let activeSubscribers = 0;
+  let mrr = 0;
+  let signupsToday = 0;
+  let proSignupsLast3Days = 0;
+  const now = new Date();
+  const nowMs = now.getTime();
+
+  for (const user of users) {
+    const email = normalizeEmail(user.email);
+    const access = membershipAccess.membershipCurrentAccessKey(user, nowMs);
+    if (access === "trial") activeTrials += 1;
+    if (access === "pro" || access === "founding") {
+      activeSubscribers += 1;
+      const price = parseMoney(user.monthlyPrice || user.displayPrice || "");
+      if (price > 0) {
+        mrr += String(user.subscriptionCadence || "").toLowerCase().includes("year")
+          ? Number((price / 12).toFixed(2))
+          : price;
+      } else if (access === "founding") {
+        mrr += 9.99;
+      } else {
+        mrr += 19.99;
+      }
+    }
+    if (isSameUtcDay(user.signupAt || user.createdAt, now)) signupsToday += 1;
+    const paidAt = user.subscriptionStartedAt || user.firstPaidInvoiceAt || user.metaPurchaseAt || "";
+    if (
+      email !== cleanExclude
+      && withinDays(paidAt, 3, nowMs)
+      && (access === "pro" || access === "founding" || ["Pro", "Founding"].includes(String(user.plan || "")))
+    ) {
+      proSignupsLast3Days += 1;
+    }
+  }
+
+  const totalMembers = users.length;
+  const conversionRate = totalMembers > 0 && activeSubscribers > 0
+    ? `${((activeSubscribers / totalMembers) * 100).toFixed(1)}%`
+    : "";
+  const rows = [
+    ["Total members", String(totalMembers)],
+    ["Active trials", String(activeTrials)],
+    ["Active subscribers", String(activeSubscribers)],
+    ["Monthly recurring revenue", mrr > 0 ? `$${Number(mrr).toFixed(2)}` : ""],
+    ["Conversion rate", conversionRate],
+  ].filter(([, value]) => hasValue(value));
+
+  return {
+    rows,
+    present: rows.length > 0,
+    totalMembers,
+    activeTrials,
+    activeSubscribers,
+    mrr: Number(mrr.toFixed(2)),
+    conversionRate,
+    signupsToday,
+    proSignupsLast3Days,
+  };
+}
+
+/**
+ * Recent activity for one member. Uses user timestamps + a bounded reverse
+ * scan of analyticsEvents (max ANALYTICS_SCAN_LIMIT) — never full history.
+ */
+function buildRecentActivity(user = {}, store = null) {
+  const lastLogin = user.lastLoginAt || "";
+  let lastLesson = "";
+  let lastActivityViewed = "";
+  let lastCalendar = "";
+  let lastAi = "";
+
+  const email = normalizeEmail(user.email);
+  const events = Array.isArray(store?.analyticsEvents) ? store.analyticsEvents : [];
+  if (email && events.length) {
+    const start = Math.max(0, events.length - ANALYTICS_SCAN_LIMIT);
+    for (let i = events.length - 1; i >= start; i -= 1) {
+      const event = events[i];
+      if (!event || normalizeEmail(event.user) !== email) continue;
+      const when = formatOwnerDate(event.createdAt) || event.createdAt || "";
+      const label = contentLabelFromEvent(event);
+      const stamp = label && when ? `${label} · ${when}` : (when || label);
+      if (!lastLesson && isLessonEvent(event)) lastLesson = stamp;
+      else if (!lastActivityViewed && isActivityEvent(event)) lastActivityViewed = stamp;
+      else if (!lastCalendar && isCalendarEvent(event)) lastCalendar = stamp;
+      else if (!lastAi && isAiEvent(event)) lastAi = stamp;
+      if (lastLesson && lastActivityViewed && lastCalendar && lastAi) break;
+    }
+  }
+
+  // FeatureUsage fallbacks when event titles are unavailable.
+  const usage = user.featureUsage && typeof user.featureUsage === "object" ? user.featureUsage : {};
+  if (!lastLesson && usageSum(usage, ["lesson_plan_view", "curriculum_lesson_view"]) > 0) {
+    lastLesson = "Lesson plan opened (recent count on file)";
+  }
+  if (!lastActivityViewed && usageSum(usage, ["activity_view", "curriculum_activity_view"]) > 0) {
+    lastActivityViewed = "Activity viewed (recent count on file)";
+  }
+  if (!lastCalendar && usageSum(usage, CALENDAR_KEYS) > 0) {
+    lastCalendar = "Calendar assignment recorded";
+  }
+  if (!lastAi && usageSum(usage, AI_KEYS) > 0) {
+    lastAi = "AI feature used (recent count on file)";
+  }
+
+  const rows = [
+    ["Last login", formatOwnerDate(lastLogin) || lastLogin],
+    ["Last lesson opened", lastLesson],
+    ["Last activity viewed", lastActivityViewed],
+    ["Last calendar assignment", lastCalendar],
+    ["Last AI feature used", lastAi],
+  ].filter(([, value]) => hasValue(value));
+
+  const empty = rows.length === 0
+    || (!lastLogin && !lastLesson && !lastActivityViewed && !lastCalendar && !lastAi);
+
+  return {
+    rows: empty ? [] : rows,
+    empty: empty && !hasValue(user.lastSeenAt),
+    lastLogin,
+    lastLesson,
+    lastActivityViewed,
+    lastCalendar,
+    lastAi,
+  };
+}
+
+function resolvePriority(eventType) {
+  switch (eventType) {
+    case "admin_paid_access_not_restored":
+    case "critical_billing_mismatch":
+      return PRIORITY.critical;
+    case "admin_payment_failed":
+    case "payment_failed":
+    case "admin_subscription_canceled":
+    case "subscription_ended":
+    case "bug_report":
+    case "Bug Report":
+      return PRIORITY.attention;
+    case "admin_new_trial":
+    case "trial_started":
+    case "admin_new_pro":
+    case "admin_new_annual":
+    case "new_pro_member":
+    case "admin_new_founding":
+    case "new_founding_member":
+      return PRIORITY.success;
+    default:
+      return PRIORITY.information;
+  }
+}
+
 function buildEngagementSnapshot(user = {}) {
   const usage = user.featureUsage && typeof user.featureUsage === "object" ? user.featureUsage : {};
   const lessonPlansOpened = usageSum(usage, ["lesson_plan_view", "curriculum_lesson_view", "resource_view"]);
@@ -376,18 +612,30 @@ function buildMemberSummary({ eventType, user = {}, email = "", extras = {}, eng
   return { rows, name, email: email || user.email || "", membership, status };
 }
 
-function buildOwnerInsight({ eventType, user = {}, attribution = {}, engagement = {}, extras = {} }) {
+function buildOwnerInsight({
+  eventType,
+  user = {},
+  attribution = {},
+  engagement = {},
+  extras = {},
+  businessImpact = null,
+}) {
   const source = attribution.source || "";
   const lessons = Number(engagement.lessonPlansOpened || 0);
   const calendar = Number(engagement.calendarAssignments || 0);
   const total = Number(engagement.totalActions || 0);
   const plan = String(user.plan || extras.membership || "").toLowerCase();
   const isPro = plan.includes("pro") || plan.includes("founding") || Boolean(user.foundingMemberActive);
+  const isFree = !isPro && !/trial/i.test(String(user.subscriptionStatus || ""));
   const lastSeenMs = user.lastSeenAt ? new Date(user.lastSeenAt).getTime() : 0;
   const signupMs = user.signupAt || user.createdAt ? new Date(user.signupAt || user.createdAt).getTime() : 0;
+  const hoursSinceSignup = signupMs && Number.isFinite(signupMs)
+    ? (Date.now() - signupMs) / (60 * 60 * 1000)
+    : null;
   const inactiveDays = lastSeenMs && Number.isFinite(lastSeenMs)
     ? (Date.now() - lastSeenMs) / (24 * 60 * 60 * 1000)
     : null;
+  const impact = businessImpact || {};
 
   if (eventType === "support_request" || eventType === "Support Request") {
     if (isPro) return "This request came from a current Pro member.";
@@ -402,28 +650,49 @@ function buildOwnerInsight({ eventType, user = {}, attribution = {}, engagement 
     return "This member became inactive after previously using the platform.";
   }
 
-  if (source === "TikTok" && lessons === 0 && total === 0) {
-    return "This member came from TikTok and has not opened a lesson plan yet.";
+  if (
+    (eventType === "admin_new_signup" || eventType === "new_free_member")
+    && Number(impact.signupsToday || 0) <= 1
+    && source === "TikTok"
+  ) {
+    return "First member today from TikTok.";
   }
 
   if (
-    (eventType === "admin_new_trial" || eventType === "trial_started" || /trial/i.test(String(user.subscriptionStatus || "")))
+    (eventType === "admin_new_pro" || eventType === "admin_new_annual" || eventType === "new_pro_member"
+      || eventType === "admin_new_founding" || eventType === "new_founding_member")
+    && Number(impact.proSignupsLast3Days || 0) === 0
+  ) {
+    return "First Pro signup in 3 days.";
+  }
+
+  if (
+    (eventType === "admin_new_signup" || eventType === "new_free_member" || isFree)
+    && lessons >= 3
+    && !membershipAccess.membershipUserInTrial(user)
+    && !isPro
+  ) {
+    return "Member has viewed several premium lesson plans but has not started a trial.";
+  }
+
+  if (hoursSinceSignup != null && hoursSinceSignup <= 24 && total >= 8) {
+    return "Highly engaged member during first 24 hours.";
+  }
+
+  if (
+    (eventType === "admin_new_trial" || eventType === "trial_started")
     && lessons >= 2
     && calendar >= 1
   ) {
     return "This trial member has opened several lessons and assigned one to the calendar.";
   }
 
-  if (total >= 20 && (isPro || eventType === "admin_new_trial" || eventType === "trial_started")) {
-    return "This member appears highly engaged and may be likely to convert.";
+  if (source === "TikTok" && lessons === 0 && total === 0) {
+    return "This member came from TikTok and has not opened a lesson plan yet.";
   }
 
   if (source && lessons === 0 && total === 0 && (eventType === "admin_new_signup" || eventType === "new_free_member")) {
     return `This member came from ${source} and has not opened a lesson plan yet.`;
-  }
-
-  if (signupMs && Date.now() - signupMs < 60 * 60 * 1000 && total === 0) {
-    return INSIGHT_FALLBACK;
   }
 
   if (total === 0 && lessons === 0) return INSIGHT_FALLBACK;
@@ -489,7 +758,7 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
       return {
         primary: { label: "View User", url: userUrl },
         secondary: [
-          { label: "Open User Journey", url: journeyUrl },
+          { label: "View User Journey", url: journeyUrl },
           { label: "Open Marketing Funnel", url: funnelUrl },
         ],
       };
@@ -530,6 +799,7 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
         primary: { label: "Open Billing", url: billingUrl },
         secondary: [
           { label: "View User", url: userUrl },
+          { label: "View User Journey", url: journeyUrl },
         ],
       };
     case "admin_paid_access_not_restored":
@@ -539,21 +809,21 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
           label: "Open Admin Reconciliation",
           url: adminLink(siteUrl, "billing-home", { adminFocusEmail: email, adminFocusRef: refId }),
         },
-        secondary: [
-          { label: "View User", url: userUrl },
-          { label: "Open Admin Dashboard", url: dashboardUrl },
-        ],
+        secondary: email
+          ? [{ label: "View User", url: userUrl }, { label: "Open Billing", url: billingUrl }]
+          : [{ label: "Open Billing", url: billingUrl }],
       };
     case "support_request":
     case "Support Request":
       return {
         primary: {
-          label: "Open Support Request",
+          label: "Open Support Ticket",
           url: adminLink(siteUrl, "support", { adminFocusRef: refId, adminFocusEmail: email }),
         },
-        secondary: email
-          ? [{ label: "Reply to Member", url: `mailto:${encodeURIComponent(email)}` }]
-          : [],
+        secondary: [
+          ...(email ? [{ label: "Reply to Member", url: `mailto:${encodeURIComponent(email)}` }] : []),
+          ...(email ? [{ label: "View User", url: userUrl }] : []),
+        ],
       };
     case "feature_request":
     case "Feature Request":
@@ -562,7 +832,7 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
           label: "Open Feature Requests",
           url: adminLink(siteUrl, "feature-requests", { adminFocusRef: refId }),
         },
-        secondary: [{ label: "View User", url: userUrl }],
+        secondary: email ? [{ label: "View User", url: userUrl }] : [],
       };
     case "bug_report":
     case "Bug Report":
@@ -571,7 +841,7 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
           label: "Open Bug Report",
           url: adminLink(siteUrl, "bug-reports", { adminFocusRef: refId }),
         },
-        secondary: [{ label: "View User", url: userUrl }],
+        secondary: email ? [{ label: "View User", url: userUrl }] : [],
       };
     case "feedback":
     case "Feedback":
@@ -580,16 +850,15 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
           label: "Open Feedback",
           url: adminLink(siteUrl, "feedback", { adminFocusRef: refId }),
         },
-        secondary: [{ label: "View User", url: userUrl }],
+        secondary: email ? [{ label: "View User", url: userUrl }] : [],
       };
     case "member_message":
     case "Member Message":
       return {
         primary: { label: "Open Conversation", url: conversationUrl },
-        secondary: [
-          { label: "View User", url: userUrl },
-          { label: "Open Admin Dashboard", url: dashboardUrl },
-        ],
+        secondary: email
+          ? [{ label: "View User", url: userUrl }, { label: "View User Journey", url: journeyUrl }]
+          : [],
       };
     default:
       return {
@@ -600,12 +869,12 @@ function buildActionLinks(eventType, { siteUrl, email, refId, deepLink }) {
 }
 
 function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extras = {} }) {
-  const who = name || email || "a member";
+  const who = name || email || "Member";
   switch (eventType) {
     case "admin_new_signup":
     case "new_free_member":
       return {
-        subject: `🎉 New Free Member: ${who}`,
+        subject: `🎉 New Free Member • ${who}`,
         title: "New Free Member",
         summary: "A new member created a Free account.",
         critical: false,
@@ -613,7 +882,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "admin_new_trial":
     case "trial_started":
       return {
-        subject: `⭐ Trial Started: ${who}`,
+        subject: `⭐ Trial Started • ${who}`,
         title: "Trial Started",
         summary: "A Free member started a 7-day Pro trial.",
         critical: false,
@@ -622,7 +891,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "admin_new_annual":
     case "new_pro_member":
       return {
-        subject: `💜 New Pro Member: ${who}`,
+        subject: `💜 New Pro Member • ${who}`,
         title: "New Pro Member",
         summary: "A member successfully subscribed to Pro.",
         critical: false,
@@ -630,7 +899,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "admin_new_founding":
     case "new_founding_member":
       return {
-        subject: `💜 New Founding Member: ${who}`,
+        subject: `💜 New Founding Member • ${who}`,
         title: "New Founding Member",
         summary: "A founding membership was activated for an existing founding account path.",
         critical: false,
@@ -638,15 +907,15 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "admin_subscription_canceled":
     case "subscription_ended":
       return {
-        subject: `❌ Subscription Ended: ${who}`,
-        title: "Subscription Ended",
+        subject: `❌ Subscription Cancelled • ${who}`,
+        title: "Subscription Cancelled",
         summary: "A member’s paid access ended.",
         critical: false,
       };
     case "admin_payment_failed":
     case "payment_failed":
       return {
-        subject: `⚠️ Payment Failed: ${who}`,
+        subject: `⚠️ Payment Failed • ${who}`,
         title: "Payment Failed",
         summary: "A payment could not be processed.",
         critical: false,
@@ -670,7 +939,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "support_request":
     case "Support Request":
       return {
-        subject: `📩 New Support Request: ${topic || "General Questions"}`,
+        subject: `📩 New Support Request • ${topic || "General Questions"}`,
         title: "New Support Request",
         summary: "A member submitted a support or contact request.",
         critical: false,
@@ -678,7 +947,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "feature_request":
     case "Feature Request":
       return {
-        subject: `💡 New Feature Request: ${topic || "Untitled"}`,
+        subject: `💡 Feature Request • ${topic || "Untitled"}`,
         title: "New Feature Request",
         summary: "A member submitted a feature request.",
         critical: false,
@@ -686,7 +955,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "bug_report":
     case "Bug Report":
       return {
-        subject: `🐞 New Bug Report: ${topic || "Untitled"}`,
+        subject: `🐞 New Bug Report • ${topic || "Untitled"}`,
         title: "New Bug Report",
         summary: "A member reported a bug.",
         critical: false,
@@ -694,7 +963,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "feedback":
     case "Feedback":
       return {
-        subject: `⭐ New Feedback: ${topic || "Feedback"}`,
+        subject: `⭐ New Feedback • ${topic || "Feedback"}`,
         title: "New Feedback",
         summary: "A member submitted feedback or a review.",
         critical: false,
@@ -702,7 +971,7 @@ function eventCopy(eventType, { name, email, topic, user = {}, fields = [], extr
     case "member_message":
     case "Member Message":
       return {
-        subject: `💬 New Member Message: ${name || email || "Member"}`,
+        subject: `💬 New Member Message • ${name || email || "Member"}`,
         title: "New Member Message",
         summary: "A member sent a message in the admin inbox.",
         critical: false,
@@ -911,7 +1180,10 @@ function renderOwnerShell({
   summary,
   environment,
   timestamp,
+  priority,
   memberSummaryHtml,
+  businessImpactHtml,
+  recentActivityHtml,
   attributionHtml,
   engagementHtml,
   insightHtml,
@@ -922,6 +1194,7 @@ function renderOwnerShell({
   critical = false,
 }) {
   const envColor = environment === "Production" ? "#b42318" : "#8a7048";
+  const priorityMeta = priority || PRIORITY.information;
   const primary = primaryAction && primaryAction.url
     ? `<a href="${escapeHtml(primaryAction.url)}" style="display:inline-block;background:${critical ? "#b42318" : "#2f6f5e"};color:#ffffff;text-decoration:none;padding:12px 18px;border-radius:8px;font-size:15px;font-weight:700;">${escapeHtml(primaryAction.label || "Open")}</a>`
     : "";
@@ -938,13 +1211,20 @@ function renderOwnerShell({
   <title>${escapeHtml(title)}</title>
 </head>
 <body style="margin:0;padding:0;background:#eef2f0;">
-  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(summary)}</div>
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(priorityMeta.emoji)} ${escapeHtml(priorityMeta.label)} · ${escapeHtml(summary)}</div>
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f0;padding:20px 12px;">
     <tr>
       <td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #d9e2dc;">
           <tr>
-            <td style="background:linear-gradient(135deg,#1f4f43 0%,#2f6f5e 55%,#3d8b74 100%);padding:22px 22px 18px;color:#ffffff;">
+            <td style="padding:12px 22px 0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+              <span style="display:inline-block;padding:5px 10px;border-radius:999px;background:${priorityMeta.bg};border:1px solid ${priorityMeta.border};color:${priorityMeta.color};font-size:12px;font-weight:700;line-height:1.3;">
+                ${escapeHtml(priorityMeta.emoji)} ${escapeHtml(priorityMeta.label)}
+              </span>
+            </td>
+          </tr>
+          <tr>
+            <td style="background:linear-gradient(135deg,#1f4f43 0%,#2f6f5e 55%,#3d8b74 100%);padding:18px 22px;color:#ffffff;">
               <p style="margin:0 0 6px;font-size:12px;letter-spacing:0.12em;text-transform:uppercase;opacity:0.9;">${escapeHtml(BRAND)}</p>
               <h1 style="margin:0 0 8px;font-size:24px;line-height:1.25;font-family:Georgia,'Times New Roman',serif;font-weight:700;">${escapeHtml(title)}</h1>
               <p style="margin:0;font-size:14px;line-height:1.5;opacity:0.95;">${escapeHtml(summary)}</p>
@@ -961,6 +1241,8 @@ function renderOwnerShell({
           <tr>
             <td style="padding:20px 22px 8px;font-family:Arial,Helvetica,sans-serif;color:#15202b;">
               ${memberSummaryHtml || ""}
+              ${businessImpactHtml || ""}
+              ${recentActivityHtml || ""}
               ${attributionHtml || ""}
               ${engagementHtml || ""}
               ${insightHtml || ""}
@@ -991,7 +1273,10 @@ function buildPlainText({
   summary,
   environment,
   timestamp,
+  priority,
   memberRows,
+  businessImpactRows,
+  recentActivityRows,
   attributionRows,
   engagementRows,
   insight,
@@ -1000,8 +1285,10 @@ function buildPlainText({
   primaryAction,
   secondaryActions,
 }) {
+  const priorityMeta = priority || PRIORITY.information;
   const lines = [
     BRAND,
+    `${priorityMeta.emoji} ${priorityMeta.label}`,
     title,
     summary,
     "",
@@ -1010,6 +1297,14 @@ function buildPlainText({
   ];
   if (memberRows?.length) {
     lines.push("", "Member Summary", rowsToText(memberRows));
+  }
+  if (businessImpactRows?.length) {
+    lines.push("", "Business Impact", rowsToText(businessImpactRows));
+  }
+  if (recentActivityRows?.length) {
+    lines.push("", "Recent Activity", rowsToText(recentActivityRows));
+  } else if (recentActivityRows) {
+    lines.push("", "Recent Activity", RECENT_ACTIVITY_EMPTY);
   }
   if (attributionRows?.length) {
     lines.push("", "Marketing Attribution", rowsToText(attributionRows));
@@ -1100,7 +1395,19 @@ function buildOwnerNotification(opts = {}) {
     extras.membershipState = user.plan || "Free";
   }
 
+  let businessImpact = { rows: [], present: false };
+  try {
+    if (opts.store && MEMBERSHIP_EVENT_TYPES.has(eventType)) {
+      businessImpact = buildBusinessImpactSnapshot(opts.store, { excludeEmail: email });
+    }
+  } catch {
+    businessImpact = { rows: [], present: false };
+  }
+
   const engagement = buildEngagementSnapshot(user);
+  const recentActivity = (user.email || email)
+    ? buildRecentActivity({ ...user, email: user.email || email }, opts.store)
+    : { rows: [], empty: true };
   const attribution = buildAttribution(user, extras);
   const member = buildMemberSummary({
     eventType,
@@ -1119,8 +1426,8 @@ function buildOwnerNotification(opts = {}) {
     fields: opts.fields,
     extras,
   });
-  // Fix default branch reference bug by computing title safely
   if (!copy.title) copy.title = topic || "Owner Alert";
+  const priority = resolvePriority(eventType);
 
   const insight = [
     "admin_new_signup", "new_free_member",
@@ -1134,7 +1441,14 @@ function buildOwnerNotification(opts = {}) {
     "feedback", "Feedback",
     "member_message", "Member Message",
   ].includes(eventType)
-    ? buildOwnerInsight({ eventType, user, attribution, engagement, extras })
+    ? buildOwnerInsight({
+      eventType,
+      user,
+      attribution,
+      engagement,
+      extras,
+      businessImpact,
+    })
     : "";
 
   const showInsight = Boolean(insight);
@@ -1144,6 +1458,9 @@ function buildOwnerNotification(opts = {}) {
   ].includes(eventType);
   const showMember = member.rows.length > 0
     && (!isCriticalBilling || Boolean(email && user.email));
+  const showBusinessImpact = MEMBERSHIP_EVENT_TYPES.has(eventType) && businessImpact.present;
+  // Include signup events — usually empty → "No activity yet."
+  const showRecentActivityIncludingSignup = !isCriticalBilling && Boolean(user.email || email);
   const showAttribution = attribution.present && !isCriticalBilling;
   const showEngagement = !isCriticalBilling;
 
@@ -1172,6 +1489,17 @@ function buildOwnerNotification(opts = {}) {
 
   const memberSummaryHtml = showMember
     ? sectionHtml("Member Summary", rowsToHtml(member.rows), { highlight: true })
+    : "";
+  const businessImpactHtml = showBusinessImpact
+    ? sectionHtml("Business Impact", rowsToHtml(businessImpact.rows))
+    : "";
+  const recentActivityHtml = showRecentActivityIncludingSignup
+    ? sectionHtml(
+      "Recent Activity",
+      recentActivity.empty || !recentActivity.rows.length
+        ? `<p style="margin:0;font-size:13px;color:#5b6472;">${escapeHtml(RECENT_ACTIVITY_EMPTY)}</p>`
+        : rowsToHtml(recentActivity.rows),
+    )
     : "";
   const attributionHtml = showAttribution
     ? sectionHtml("Marketing Attribution", rowsToHtml(attribution.rows))
@@ -1203,7 +1531,10 @@ function buildOwnerNotification(opts = {}) {
     summary: copy.summary,
     environment,
     timestamp,
+    priority,
     memberSummaryHtml,
+    businessImpactHtml,
+    recentActivityHtml,
     attributionHtml,
     engagementHtml,
     insightHtml,
@@ -1219,7 +1550,12 @@ function buildOwnerNotification(opts = {}) {
     summary: copy.summary,
     environment,
     timestamp,
+    priority,
     memberRows: showMember ? member.rows : [],
+    businessImpactRows: showBusinessImpact ? businessImpact.rows : [],
+    recentActivityRows: showRecentActivityIncludingSignup
+      ? (recentActivity.empty || !recentActivity.rows.length ? [] : recentActivity.rows)
+      : null,
     attributionRows: showAttribution ? attribution.rows : [],
     engagementRows: showEngagement ? (engagement.empty ? [] : engagement.rows) : null,
     insight: showInsight ? insight : "",
@@ -1237,12 +1573,15 @@ function buildOwnerNotification(opts = {}) {
       eventType,
       environment,
       critical: copy.critical,
+      priority,
       primaryAction: actions.primary,
       secondaryActions: actions.secondary,
       insight,
       memberRows: member.rows,
       attributionRows: attribution.rows,
       engagementEmpty: engagement.empty,
+      businessImpactRows: businessImpact.rows,
+      recentActivityEmpty: recentActivity.empty,
     },
   };
 }
@@ -1251,6 +1590,8 @@ module.exports = {
   BRAND,
   INSIGHT_FALLBACK,
   ENGAGEMENT_EMPTY,
+  RECENT_ACTIVITY_EMPTY,
+  PRIORITY,
   escapeHtml,
   normalizeEmail,
   hasValue,
@@ -1259,10 +1600,13 @@ module.exports = {
   normalizeSourceLabel,
   detectDevice,
   buildEngagementSnapshot,
+  buildBusinessImpactSnapshot,
+  buildRecentActivity,
   buildAttribution,
   buildMemberSummary,
   buildOwnerInsight,
   buildActionLinks,
+  resolvePriority,
   resolveEventType,
   buildOwnerNotification,
   renderOwnerShell,
