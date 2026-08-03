@@ -1,6 +1,6 @@
 # Complete Teaching Kits — Phase 1 Architecture (No Migration)
 
-**Status:** Architecture approved · **Slice 1A–1C done** · UI still flagged off · **stop for 1C review**  
+**Status:** Architecture approved · **Slice 1A–1D done** · flags still off · **stop for 1D review**  
 **Branch:** `cursor/teaching-kit-architecture-9ad1`  
 **Date:** 2026-08-03  
 **Base:** `origin/main` @ `f36c0c272367c6000fd310dac62b9a0938903ca4`  
@@ -413,8 +413,8 @@ Ordered, stop-for-review slices:
 | --- | --- | --- |
 | **1A** ✅ done | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; public `/api/site-content` omits `featureFlags`; no bulk rewrite; legacy tests green; no viewer/PDF |
 | **1B** ✅ done | `mapLessonPlanToTeachingKit` + companion read-model + fixture tests | Maps Bugs & Butterflies + enriched/empty fixtures; empty sections omitted; flags still false; **no UI/API/PDF** |
-| **1C** ✅ done (review) | `GET /api/curriculum/lesson-plans/:id/teaching-kit` behind viewer/print flags | Flag off → 404; auth parity with detail; Pro/Trial/free-starter unlock; locked preview has no companion body; public site-content unchanged |
-| **1D** | Binder UI (read-only) behind `teachingKitViewer` | Desktop/mobile; back/favorite/assign intact |
+| **1C** ✅ done | `GET /api/curriculum/lesson-plans/:id/teaching-kit` behind viewer/print flags | Flag off → 404; auth parity with detail; Pro/Trial/free-starter unlock; locked preview has no companion body; public site-content unchanged |
+| **1D** ✅ done (review) | Companion binder UI behind `teachingKitViewer` | Start/Setup/Today/Open Everything/Activity+Substitute/Build/Binder preview; back/favorite/assign intact; fail closed to legacy workspace; flags stay false |
 | **1E** | Build My Kit UI + client PDF/print path | Selected sections only; legacy print still works |
 | **1F** | Trial/Pro enforcement on kit print | No bypass of trial exports |
 | **1G** | AttachmentType enum + admin attach hook (optional) | Future types documented + one test resource |
@@ -477,6 +477,8 @@ Add (when coding):
 | Slice 1B tests | `scripts/test-teaching-kit-slice-1b.js` (`npm run test:teaching-kit-slice-1b`) |
 | Slice 1C API | `GET /api/curriculum/lesson-plans/:id/teaching-kit` in `server/index.js` |
 | Slice 1C tests | `scripts/test-teaching-kit-slice-1c.js` (`npm run test:teaching-kit-slice-1c`) |
+| Slice 1D viewer UI | `scripts/teaching-kit-viewer.js` + `app.js` enhance hook + `styles.css` |
+| Slice 1D tests | `scripts/test-teaching-kit-slice-1d.js` (`npm run test:teaching-kit-slice-1d`) |
 | Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
 
 **Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Kit payloads are **not** added to site-content.
@@ -488,7 +490,15 @@ Add (when coding):
 - Auth parity with lesson-plan detail: Pro/Trial/admin → full kit; curated Free starter → full kit; otherwise locked preview (no companion/section bodies)
 - Optional query: `day`, `readyMaterials` (comma-separated)
 
-**Slice 1C does not include:** binder UI, Print Center/PDF, attachments UX, migrations, production flag enablement, deployment.
+**Slice 1D UI rules**
+
+- Loads only when Teaching Kit API returns `featureFlags.teachingKitViewer === true`
+- Fail closed to existing Week/Plan/Activities/Materials workspace on 404 / error / locked
+- Surfaces: Start Week · Monday Setup · Today (+ Open Everything) · Activity detail + Substitute · Build My Kit (selection) · Binder preview
+- Preserves back, favorite/save, and Use This Plan / assign chrome
+- Print PDF generation remains deferred to Slice 1E
+
+**Slice 1D does not include:** Print Center/PDF generation, attachments UX, migrations, production flag enablement, deployment.
 
 ---
 

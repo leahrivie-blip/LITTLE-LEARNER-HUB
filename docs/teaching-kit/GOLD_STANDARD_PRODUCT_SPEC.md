@@ -1,7 +1,7 @@
 # Gold Standard Teaching Kit — Final Product Design (v4 polish)
 
-**Status:** Product design **approved** · Slice 1A–1C implemented · UI still flagged off · **1C review**  
-**PR:** #436 (draft) · Slice 1A–1C done · Slice 1D not started  
+**Status:** Product design **approved** · Slice 1A–1D implemented · flags still off · **1D review**  
+**PR:** #436 (draft) · Slice 1A–1D done · Slice 1E not started  
 **Example week:** *Bugs & Butterflies* · Toddler · Pro  
 **Date:** 2026-08-03  
 
@@ -189,11 +189,11 @@ Visual mockup shows cover + tab strip + sample interior page.
 
 ---
 
-## 11. Implementation note (Slice 1C)
+## 11. Implementation note (Slice 1D)
 
-Design approved. Slices 1A–1C ship flags, mapper, and flagged API  
-`GET /api/curriculum/lesson-plans/:id/teaching-kit` (viewer or print-center flag).  
-**Still deferred:** binder / Today UI (1D), PDF/print, production flag enablement, merge/deploy.
+Design approved. Slices 1A–1D ship flags, mapper, flagged API, and flagged companion UI  
+(Start / Monday Setup / Today / Open Everything / Activity + Substitute / Build / Binder preview).  
+**Still deferred:** Print Center PDF (1E), production flag enablement, merge/deploy.
 
 Non-goals that remain:
 
@@ -210,6 +210,6 @@ Non-goals that remain:
 - [x] Substitute This Activity is clear and materials-aware  
 - [x] Printables show where used in the week  
 - [x] Binder preview feels like a professional curriculum binder (tabs/cover/brand)  
-- [x] **Approve → begin implementation** (Slice 1A–1C done — stop for review before 1D)
+- [x] **Approve → begin implementation** (Slice 1A–1D done — stop for review before 1E)
 
-**Stop after Slice 1C for review before starting Slice 1D.**
+**Stop after Slice 1D for review before starting Slice 1E.**
