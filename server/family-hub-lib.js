@@ -247,7 +247,15 @@ function buildFamilyHubToday({
       && String(item.date || "").slice(0, 10) === day
     ))
     .map((item) => {
-      const kind = String(item.type || item.summary || "Update").trim() || "Update";
+      const raw = String(item.type || item.summary || "Update").trim() || "Update";
+      const kindMap = {
+        bm: "Bowel movement",
+        wet: "Wet diaper",
+        dry: "Dry",
+        potty: "Potty",
+        diaper: "Diaper change",
+      };
+      const kind = kindMap[raw.toLowerCase()] || (raw.toLowerCase() === "bm" ? "Bowel movement" : raw);
       return {
         id: String(item.id || ""),
         childId: String(item.childId || ""),
@@ -521,8 +529,8 @@ function buildFamilyHubDemoSeed({
         id: "fh-report-1",
         childId: childA.id,
         date: day,
-        title: "Today’s daily report",
-        summary: "Happy morning outdoors, ate most of lunch, nap 12:30–2:00. Practiced sharing during block play.",
+        title: "Daily report",
+        summary: "Ava had a bright morning outdoors and invited a friend to chalk with her. She ate most of her pasta and veggies at lunch, then rested well from 12:30–2:00. This afternoon she practiced sharing during block play — lovely day!",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -530,8 +538,8 @@ function buildFamilyHubDemoSeed({
         id: "fh-report-2",
         childId: childB.id,
         date: day,
-        title: "Today’s daily report",
-        summary: "Built with blocks, practiced letters, cheerful at pickup. Asked to bring a favorite book tomorrow.",
+        title: "Daily report",
+        summary: "Milo stayed focused during letter practice and built a tall tower with blocks. He finished his rice bowl and yogurt snack, then rested quietly after lunch. Cheerful at pickup and asked if he can bring a favorite book tomorrow.",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -540,7 +548,7 @@ function buildFamilyHubDemoSeed({
       {
         id: "fh-photo-1",
         childId: childA.id,
-        caption: "Sidewalk chalk masterpieces",
+        caption: "Ava’s chalk suns and flowers with friends",
         date: day,
         shareWithFamily: true,
         url: photoChalk,
@@ -549,7 +557,7 @@ function buildFamilyHubDemoSeed({
       {
         id: "fh-photo-2",
         childId: childB.id,
-        caption: "Letter practice at the table",
+        caption: "Milo practicing M and S",
         date: day,
         shareWithFamily: true,
         url: photoLetters,
@@ -558,7 +566,7 @@ function buildFamilyHubDemoSeed({
       {
         id: "fh-photo-3",
         childId: childA.id,
-        caption: "Garden water play",
+        caption: "Cooling off in the water garden",
         date: day,
         shareWithFamily: true,
         url: photoGarden,
@@ -567,7 +575,7 @@ function buildFamilyHubDemoSeed({
       {
         id: "fh-photo-4",
         childId: childB.id,
-        caption: "Afternoon art table",
+        caption: "Color mixing at the art table",
         date: day,
         shareWithFamily: true,
         url: photoArt,
@@ -689,7 +697,7 @@ function buildFamilyHubDemoSeed({
         date: day,
         time: "10:15",
         type: "Wet",
-        title: "Wet",
+        title: "Wet diaper",
         summary: "Changed",
         shareWithFamily: true,
         createdAt: invitedAt,
@@ -700,8 +708,8 @@ function buildFamilyHubDemoSeed({
         date: day,
         time: "13:10",
         type: "BM",
-        title: "BM",
-        summary: "Changed",
+        title: "Bowel movement",
+        summary: "Changed and cleaned up",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -712,7 +720,7 @@ function buildFamilyHubDemoSeed({
         time: "11:00",
         type: "Potty",
         title: "Potty",
-        summary: "Successful",
+        summary: "Successful trip",
         shareWithFamily: true,
         createdAt: invitedAt,
       },
@@ -795,7 +803,7 @@ function buildFamilyHubDemoSeed({
       householdId,
       from: "provider",
       authorName: "Ms. Leah",
-      body: "Hi Sam — welcome to Family Hub. You’ll see Ava and Milo’s day here: meals, naps, photos, and notes.",
+      body: "Hi Sam — welcome! You’ll see Ava and Milo’s day here: meals, naps, photos, and notes. Message me anytime.",
       createdAt: new Date(now.getTime() - 1000 * 60 * 60 * 5).toISOString(),
       readByParent: true,
       readByProvider: true,
@@ -805,7 +813,7 @@ function buildFamilyHubDemoSeed({
       householdId,
       from: "provider",
       authorName: "Ms. Leah",
-      body: "Quick reminder: sunscreen and a light sweater for tomorrow’s outdoor morning.",
+      body: "Quick reminder for tomorrow: sunscreen and a light sweater for our outdoor morning.",
       createdAt: new Date(now.getTime() - 1000 * 60 * 35).toISOString(),
       readByParent: false,
       readByProvider: true,
@@ -815,7 +823,7 @@ function buildFamilyHubDemoSeed({
       householdId,
       from: "parent",
       authorName: "Sam",
-      body: "Thanks! We’ll pack both. Can Milo bring his blue water bottle?",
+      body: "Thanks, Leah! We’ll pack both. Okay if Milo brings his blue water bottle?",
       createdAt: new Date(now.getTime() - 1000 * 60 * 20).toISOString(),
       readByParent: true,
       readByProvider: true,

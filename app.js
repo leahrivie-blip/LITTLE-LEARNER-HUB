@@ -32981,7 +32981,62 @@ function familyHubFormatDateTime(value = "") {
   const sameDay = date.toDateString() === now.toDateString();
   const time = date.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   if (sameDay) return `Today · ${time}`;
-  return `${familyHubFormatDate(date.toISOString())} · ${time}`;
+  const localIso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${familyHubFormatDate(localIso)} · ${time}`;
+}
+
+function familyHubDayHeadline(firstName = "your child") {
+  const first = String(firstName || "your child").trim() || "your child";
+  return `Day for ${first}`;
+}
+
+function familyHubParentToast(message = "") {
+  const text = String(message || "").trim();
+  if (!text) return;
+  const app = document.querySelector(".fh-parent-app") || document.querySelector("#familyHubParentApp");
+  if (!app) return;
+  let toast = app.querySelector("#familyHubToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "familyHubToast";
+    toast.className = "fh-toast";
+    toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    app.appendChild(toast);
+  }
+  toast.textContent = text;
+  toast.classList.add("is-visible");
+  clearTimeout(familyHubParentToast._timer);
+  familyHubParentToast._timer = setTimeout(() => toast.classList.remove("is-visible"), 2600);
+}
+
+function familyHubBindComposeKeyboard() {
+  const input = document.querySelector("#familyHubMessageInput");
+  const app = document.querySelector(".fh-parent-app");
+  if (!input || !app || input.dataset.fhKeyboardBound === "1") return;
+  input.dataset.fhKeyboardBound = "1";
+  const sync = () => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const overlap = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+    app.style.setProperty("--fh-keyboard-inset", `${overlap}px`);
+    app.classList.toggle("fh-composing", document.activeElement === input && overlap > 40);
+  };
+  input.addEventListener("focus", () => {
+    app.classList.add("fh-composing");
+    setTimeout(() => {
+      input.scrollIntoView({ block: "center", behavior: "smooth" });
+      sync();
+    }, 120);
+  });
+  input.addEventListener("blur", () => {
+    app.classList.remove("fh-composing");
+    app.style.setProperty("--fh-keyboard-inset", "0px");
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", sync);
+    window.visualViewport.addEventListener("scroll", sync);
+  }
 }
 
 function familyHubFormatNapDetail(item = {}) {
@@ -33018,6 +33073,7 @@ function familyHubSectionIcon(kind = "") {
     reports: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6V4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     forms: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
     more: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="17.5" cy="12" r="1.5" fill="currentColor"/></svg>`,
+    alerts: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6v3.2L4.4 15h15.2L16 12.2V9a6 6 0 0 0-6-6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 18a2 2 0 0 0 4 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
   };
   return icons[kind] || icons.notes;
 }
@@ -33066,7 +33122,7 @@ function familyHubEventTypeLabel(type = "") {
     classroom_event: "Classroom",
   };
   const key = String(type || "event");
-  return map[key] || key.replace(/_/g, " ");
+  return map[key] || "Event";
 }
 
 function renderFamilyHubTodayPanel(data) {
@@ -33086,8 +33142,7 @@ function renderFamilyHubTodayPanel(data) {
     ? `<div class="fh-mood-pill"><span>Today’s mood</span><strong>${escapeHtml(today.mood.value)}</strong>${today.mood.summary ? `<p>${escapeHtml(today.mood.summary)}</p>` : ""}</div>`
     : "";
   const listHtml = (items, mapFn) => (items?.length ? `<ul class="fh-today-list">${items.map(mapFn).join("")}</ul>` : "");
-  return `
-    <div class="fh-today">
+  const hero = `
       <header class="fh-today-hero">
         <div class="fh-child-avatar" aria-hidden="true">
           ${photoUrl
@@ -33096,31 +33151,50 @@ function renderFamilyHubTodayPanel(data) {
         </div>
         <div class="fh-today-hero-copy">
           <p class="fh-greeting">${escapeHtml(today.greeting || "Hello")}${dateLabel ? ` · ${escapeHtml(dateLabel)}` : ""}</p>
-          <h2>${escapeHtml(first)}’s day</h2>
+          <h2>${escapeHtml(familyHubDayHeadline(first))}</h2>
           <p>${escapeHtml(today.greetingLine || `Here’s how ${first}’s day is going.`)}</p>
         </div>
-      </header>
-      ${section("Mood", "mood", moodHtml, "No mood shared yet", "When your provider shares a mood note, it will show here.")}
+      </header>`;
+  if (today.empty) {
+    return `
+      <div class="fh-today">
+        ${hero}
+        ${familyHubEmptyState({
+          title: "Nothing shared yet today",
+          body: `Check back after drop-off. Meals, naps, photos, and notes from ${first}’s teacher will appear here.`,
+          icon: "today",
+          actionHtml: `<div class="fh-account-actions">
+            <button class="ghost-button fh-btn-secondary" type="button" data-fh-panel="messages">Message teacher</button>
+            <button class="ghost-button fh-btn-secondary" type="button" data-fh-panel="calendar">View calendar</button>
+          </div>`,
+        })}
+      </div>
+    `;
+  }
+  return `
+    <div class="fh-today">
+      ${hero}
+      ${section("Mood", "mood", moodHtml, "No mood shared yet", "When your teacher shares a mood note, it will show here.")}
       ${section(
         "Meals",
         "meals",
         listHtml(today.meals, (item) => `<li><strong>${escapeHtml(item.label || "Meal")}</strong><span>${escapeHtml(item.detail || "")}</span></li>`),
         "No meals shared yet",
-        "Breakfast, lunch, and snacks appear when your provider shares them.",
+        "Breakfast, lunch, and snacks appear when your teacher shares them.",
       )}
       ${section(
         "Naps",
         "naps",
         listHtml(today.naps, (item) => `<li><strong>Nap</strong><span>${escapeHtml(familyHubFormatNapDetail(item) || "Nap logged")}</span></li>`),
         "No naps shared yet",
-        "Rest times show up here once logged and shared.",
+        "Rest times show up here once your teacher logs them.",
       )}
       ${section(
         "Diapers & potty",
         "care",
         listHtml(today.diapers, (item) => `<li><strong>${escapeHtml(item.title || item.category || "Update")}</strong><span>${escapeHtml(item.detail || item.summary || "")}${item.time ? ` · ${escapeHtml(familyHubFormatTime(item.time))}` : ""}</span></li>`),
         "No care updates yet",
-        "Diaper and potty updates appear when your provider shares them.",
+        "Diaper and potty updates appear when your teacher shares them.",
       )}
       ${section(
         "Activities",
@@ -33134,7 +33208,7 @@ function renderFamilyHubTodayPanel(data) {
         "notes",
         listHtml(today.teacherNotes, (item) => `<li><strong>${escapeHtml(item.title || "Note")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
         "No teacher notes yet",
-        "Personal notes from your provider will show here.",
+        "Personal notes from your teacher will show here.",
       )}
       ${section(
         "Photos from today",
@@ -33143,14 +33217,14 @@ function renderFamilyHubTodayPanel(data) {
           ? `<div class="fh-photo-grid">${today.photos.map((item) => familyHubPhotoTile(item, first)).join("")}</div>`
           : "",
         "No photos yet today",
-        "Shared photos from today will appear here.",
+        "Photos your teacher shares today will appear here.",
       )}
       ${section(
         "Messages",
         "messages",
         listHtml(today.messages, (item) => `<li class="${item.unread ? "is-unread" : ""}"><strong>${escapeHtml(item.authorName || "Teacher")}</strong><span>${escapeHtml(item.body || "")}</span></li>`),
         "No messages yet",
-        "Notes from your provider will preview here.",
+        "Notes from your teacher will preview here.",
       )}
       ${section(
         "Coming up",
@@ -33176,8 +33250,8 @@ function renderFamilyHubReportsPanel(data) {
   if (!reports.length) {
     return familyHubEmptyState({
       title: "No daily reports yet",
-      body: "When your provider shares a daily report, it will show up here for every linked child.",
-      icon: "notes",
+      body: "When your teacher shares a daily report, it will show up here for every linked child.",
+      icon: "reports",
     });
   }
   return `
@@ -33202,7 +33276,7 @@ function renderFamilyHubPhotosPanel(data) {
   if (!photos.length) {
     return familyHubEmptyState({
       title: "No photos shared yet",
-      body: "Photos your provider shares with your family will collect here.",
+      body: "Photos your teacher shares with your family will collect here.",
       icon: "photos",
       actionHtml: `<button class="fh-text-btn" type="button" data-fh-panel="today">Back to Today</button>`,
     });
@@ -33228,13 +33302,13 @@ function renderFamilyHubMessagesPanel(data) {
             `).join("")
           : familyHubEmptyState({
             title: "Start the conversation",
-            body: "Send a note to your provider. Replies will show in this thread.",
+            body: "Send a note to your teacher. Replies will show in this thread.",
             icon: "messages",
           })}
       </div>
       <form id="familyHubMessageForm" class="fh-message-compose">
         <label class="sr-only" for="familyHubMessageInput">Message</label>
-        <textarea id="familyHubMessageInput" name="body" maxlength="2000" rows="3" required placeholder="Write a message to your provider…"></textarea>
+        <textarea id="familyHubMessageInput" name="body" maxlength="2000" rows="3" required placeholder="Write a message to your teacher…"></textarea>
         <div class="fh-compose-actions">
           <button class="primary-button" type="submit">Send</button>
         </div>
@@ -33249,7 +33323,7 @@ function renderFamilyHubCalendarPanel(data) {
   if (!events.length) {
     return familyHubEmptyState({
       title: "No upcoming events",
-      body: "Closures, family events, and reminders from your provider will appear here.",
+      body: "Closures, family events, and reminders from your teacher will appear here.",
       icon: "events",
     });
   }
@@ -33284,8 +33358,8 @@ function renderFamilyHubFormsPanel(data) {
   if (!documents.length) {
     return familyHubEmptyState({
       title: "No forms yet",
-      body: "Enrollment packets, medical forms, and handbook copies will show here.",
-      icon: "notes",
+      body: "Enrollment packets, medical forms, and handbook copies will show here when your program shares them.",
+      icon: "forms",
     });
   }
   return `
@@ -33297,7 +33371,7 @@ function renderFamilyHubFormsPanel(data) {
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
           <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}</p>
-          <p>${escapeHtml(doc.notes || "View-only for now. Ask your provider if you need a paper copy.")}</p>
+          <p>${escapeHtml(doc.notes || "You can view this here. Ask your teacher if you need a printed copy.")}</p>
         </article>
       `).join("")}
     </div>
@@ -33311,35 +33385,59 @@ function renderFamilyHubMorePanel(data) {
   const guardianRows = guardians.length
     ? guardians.map((item) => {
       if (item && typeof item === "object") {
-        return {
-          name: item.name || item.email || "Guardian",
-          email: item.email || "",
-        };
+        const email = String(item.email || "");
+        const looksTest = /llh\.test$|@example\.|demo\./i.test(email);
+        const rawName = String(item.name || "").trim();
+        const name = (!rawName || rawName === email || looksTest)
+          ? (rawName && rawName !== email ? rawName : "Family member")
+          : rawName;
+        return { name: name || "Family member" };
       }
-      return { name: String(item), email: String(item) };
+      return { name: "Family member" };
     })
     : [];
   return `
     <div class="fh-panel-stack">
       <section class="fh-card">
+        <h3>Quick links</h3>
+        <div class="fh-more-links">
+          <button type="button" class="fh-more-link" data-fh-panel="reports">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("reports")}</span>
+            <span><strong>Daily reports</strong><span class="fh-meta">Read today’s summaries</span></span>
+          </button>
+          <button type="button" class="fh-more-link" data-fh-panel="forms">
+            <span class="fh-section-icon" aria-hidden="true">${familyHubSectionIcon("forms")}</span>
+            <span><strong>Forms</strong><span class="fh-meta">Enrollment, medical, handbook</span></span>
+          </button>
+        </div>
+      </section>
+      <section class="fh-card">
         <h3>Notifications</h3>
         ${notifications.length
-          ? `<ul class="fh-today-list">${notifications.slice(0, 12).map((item) => `
+          ? `<ul class="fh-today-list">${notifications.slice(0, 12).map((item) => {
+              const href = String(item.href || "").trim();
+              const openable = ["today", "reports", "photos", "messages", "calendar", "forms", "more"].includes(href);
+              return `
               <li class="${item.read ? "" : "is-unread"}">
-                <strong>${escapeHtml(item.title || "Update")}</strong>
-                <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(familyHubFormatDateTime(item.createdAt))}` : ""}</span>
-              </li>
-            `).join("")}</ul>
+                ${openable
+                  ? `<button type="button" class="fh-notif-link" data-fh-panel="${escapeHtml(href)}">
+                      <strong>${escapeHtml(item.title || "Update")}</strong>
+                      <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(familyHubFormatDateTime(item.createdAt))}` : ""}</span>
+                    </button>`
+                  : `<strong>${escapeHtml(item.title || "Update")}</strong>
+                     <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(familyHubFormatDateTime(item.createdAt))}` : ""}</span>`}
+              </li>`;
+            }).join("")}</ul>
             <button class="ghost-button fh-btn-secondary" type="button" data-family-hub-mark-notifications>Mark all read</button>`
-          : familyHubEmptyState({ title: "You’re all caught up", body: "New photos, reports, and messages will notify you here.", icon: "messages" })}
+          : familyHubEmptyState({ title: "You’re all caught up", body: "New photos, reports, and messages will show up here.", icon: "alerts" })}
       </section>
       <section class="fh-card">
         <h3>Household guardians</h3>
         <ul class="fh-today-list">
-          ${(guardianRows.length ? guardianRows : [{ name: "No guardians on file", email: "" }]).map((item) => `
+          ${(guardianRows.length ? guardianRows : [{ name: "No guardians on file yet" }]).map((item) => `
             <li>
               <strong>${escapeHtml(item.name)}</strong>
-              <span>${item.email && item.email !== item.name ? `${escapeHtml(item.email)} · ` : ""}Can sign in with the household login code</span>
+              <span>Can open Family Hub with your household login code</span>
             </li>
           `).join("")}
         </ul>
@@ -33350,12 +33448,14 @@ function renderFamilyHubMorePanel(data) {
           <label>Preferred name
             <input name="preferredName" maxlength="80" value="${escapeHtml(settings.preferredName || "")}" placeholder="How should we greet you?" />
           </label>
-          <div class="fh-settings-checks">
+          <fieldset class="fh-settings-checks">
+            <legend class="sr-only">Alert preferences</legend>
+            <p class="fh-meta">We’ll highlight new updates in Family Hub when these are on.</p>
             <label class="settings-check-label"><input type="checkbox" name="notifyMessages" ${settings.notifyMessages !== false ? "checked" : ""} /> Message alerts</label>
             <label class="settings-check-label"><input type="checkbox" name="notifyPhotos" ${settings.notifyPhotos !== false ? "checked" : ""} /> Photo alerts</label>
             <label class="settings-check-label"><input type="checkbox" name="notifyDailyReports" ${settings.notifyDailyReports !== false ? "checked" : ""} /> Daily report alerts</label>
             <label class="settings-check-label"><input type="checkbox" name="notifyEvents" ${settings.notifyEvents !== false ? "checked" : ""} /> Event alerts</label>
-          </div>
+          </fieldset>
           <button class="primary-button" type="submit">Save settings</button>
           <span class="form-message" id="familyHubSettingsMessage" aria-live="polite"></span>
         </form>
@@ -33381,6 +33481,27 @@ function renderFamilyHubParentShell(data, options = {}) {
   const preferred = String(data?.settings?.preferredName || "").trim();
   const program = data?.household?.programName || "Family Hub";
   const household = data?.household?.label || "Your household";
+  if (!children.length) {
+    return `
+      <div class="fh-parent-app" data-fh-panel="today">
+        <header class="fh-app-header">
+          <div class="fh-app-brand">
+            <p class="fh-kicker">Family Hub</p>
+            <h1>${escapeHtml(program)}</h1>
+            <p class="fh-app-sub">${escapeHtml(household)}</p>
+          </div>
+          <div class="fh-app-header-actions">
+            <button class="fh-text-btn" type="button" data-family-hub-sign-out>Sign out</button>
+          </div>
+        </header>
+        ${familyHubEmptyState({
+          title: "No children linked yet",
+          body: "Ask your program to link your child to this household, then sign in again.",
+          icon: "today",
+        })}
+      </div>
+    `;
+  }
   const panels = {
     today: renderFamilyHubTodayPanel(data),
     reports: renderFamilyHubReportsPanel(data),
@@ -33392,11 +33513,9 @@ function renderFamilyHubParentShell(data, options = {}) {
   };
   const nav = [
     ["today", "Today", "today"],
-    ["reports", "Reports", "reports"],
     ["photos", "Photos", "photos"],
     ["messages", "Messages", "messages"],
     ["calendar", "Calendar", "events"],
-    ["forms", "Forms", "forms"],
     ["more", "More", "more"],
   ];
   return `
@@ -33409,18 +33528,18 @@ function renderFamilyHubParentShell(data, options = {}) {
         </div>
         <div class="fh-app-header-actions">
           <button class="fh-icon-btn fh-notif-button" type="button" data-fh-panel="more" aria-label="${unread ? `${unread} alerts` : "Alerts"}">
-            <span class="fh-icon-btn-glyph" aria-hidden="true">${familyHubSectionIcon("messages")}</span>
+            <span class="fh-icon-btn-glyph" aria-hidden="true">${familyHubSectionIcon("alerts")}</span>
             ${unread ? `<span class="fh-badge">${unread > 9 ? "9+" : unread}</span>` : ""}
           </button>
-          <button class="fh-text-btn" type="button" data-family-hub-sign-out>Sign out</button>
         </div>
       </header>
       ${children.length > 1 ? `
         <div class="fh-child-switcher" role="tablist" aria-label="Children">
           ${children.map((child) => {
             const first = String(child.name || "Child").split(/\s+/)[0];
+            const selected = child.id === childId;
             return `
-            <button type="button" class="fh-child-chip${child.id === childId ? " is-active" : ""}" data-fh-child="${escapeHtml(child.id)}">
+            <button type="button" role="tab" aria-selected="${selected ? "true" : "false"}" class="fh-child-chip${selected ? " is-active" : ""}" data-fh-child="${escapeHtml(child.id)}">
               <span class="fh-child-chip-initial" aria-hidden="true">${escapeHtml(familyHubChildInitials(child.name))}</span>
               ${escapeHtml(first)}
             </button>`;
@@ -33429,7 +33548,7 @@ function renderFamilyHubParentShell(data, options = {}) {
       ` : ""}
       <nav class="fh-parent-nav" aria-label="Family Hub">
         ${nav.map(([id, label, icon]) => `
-          <button type="button" class="fh-parent-nav-link${panel === id ? " is-active" : ""}" data-fh-panel="${id}">
+          <button type="button" class="fh-parent-nav-link${panel === id ? " is-active" : ""}" data-fh-panel="${id}" ${panel === id ? 'aria-current="page"' : ""}>
             <span class="fh-nav-icon" aria-hidden="true">${familyHubSectionIcon(icon)}</span>
             <span>${escapeHtml(label)}</span>
           </button>
@@ -33457,17 +33576,29 @@ function renderFamilyHubPage() {
   }
   const token = getFamilyHubSessionToken();
   const providerPreview = isLoggedIn();
+  const invitePending = Boolean(new URLSearchParams(window.location.search).get("familyHub"));
   section.innerHTML = `
     <section class="simple-child-page hdh-family-hub-parent fh-parent-shell">
       ${providerPreview ? `<div class="fh-preview-banner" role="status"><strong>Provider preview</strong><span>You’re viewing Family Hub as a parent tester. Parents never see this banner.</span></div>${renderHdhRoleSwitcher("parent")}` : ""}
       <div id="familyHubParentApp">
         ${token
-          ? `<div class="fh-loading" id="familyHubLoadingState"><p>Loading today’s updates…</p></div>`
-          : `
+          ? `<div class="fh-loading fh-loading-skeleton" id="familyHubLoadingState" aria-live="polite">
+              <div class="fh-skel-line fh-skel-line--brand"></div>
+              <div class="fh-skel-hero"></div>
+              <div class="fh-skel-card"></div>
+              <div class="fh-skel-card"></div>
+              <p class="sr-only">Loading today’s updates…</p>
+            </div>`
+          : invitePending
+            ? `<section class="fh-signin fh-signin--quiet" aria-hidden="true">
+                <p class="fh-kicker">Family Hub</p>
+                <h2>Opening your invite…</h2>
+              </section>`
+            : `
             <section class="fh-signin">
               <p class="fh-kicker">Family Hub</p>
-              <h2>Welcome back</h2>
-              <p class="muted-copy">Open the magic link from your provider, or sign in with your household email and 6-digit code.</p>
+              <h2>Sign in to your household</h2>
+              <p class="muted-copy">Use the link your teacher sent, or enter your household email and 6-digit code.</p>
               <form id="familyHubLoginForm" class="panel-form">
                 <div class="form-grid-two">
                   <label>Email<input name="email" type="email" required placeholder="you@email.com" autocomplete="username" /></label>
@@ -33593,6 +33724,11 @@ async function loadFamilyHubParentDashboard(options = {}) {
     childId: activeChildId,
   });
   syncFamilyHubParentChrome();
+  familyHubBindComposeKeyboard();
+  if (familyHubParentState.panel === "messages") {
+    const thread = document.querySelector("#familyHubMessageThread");
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }
 }
 
 function paintFamilyHubParentPanel(panel) {
@@ -33604,11 +33740,41 @@ function paintFamilyHubParentPanel(panel) {
     renderFamilyHubPage();
     return;
   }
-  app.innerHTML = renderFamilyHubParentShell(data, {
-    panel: next,
-    childId: familyHubParentState.childId,
+  const shell = app.querySelector(".fh-parent-app");
+  const body = app.querySelector("#familyHubPanelBody");
+  if (!shell || !body) {
+    app.innerHTML = renderFamilyHubParentShell(data, {
+      panel: next,
+      childId: familyHubParentState.childId,
+    });
+    syncFamilyHubParentChrome();
+    familyHubBindComposeKeyboard();
+    return;
+  }
+  const panelHtml = {
+    today: renderFamilyHubTodayPanel,
+    reports: renderFamilyHubReportsPanel,
+    photos: renderFamilyHubPhotosPanel,
+    messages: renderFamilyHubMessagesPanel,
+    calendar: renderFamilyHubCalendarPanel,
+    forms: renderFamilyHubFormsPanel,
+    more: renderFamilyHubMorePanel,
+  };
+  const render = panelHtml[next] || panelHtml.today;
+  body.innerHTML = render(data);
+  shell.dataset.fhPanel = next;
+  app.querySelectorAll(".fh-parent-nav-link[data-fh-panel]").forEach((btn) => {
+    const active = btn.getAttribute("data-fh-panel") === next;
+    btn.classList.toggle("is-active", active);
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
   });
   syncFamilyHubParentChrome();
+  familyHubBindComposeKeyboard();
+  if (next === "messages") {
+    const thread = document.querySelector("#familyHubMessageThread");
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }
 }
 
 async function switchFamilyHubChild(childId) {
@@ -33644,7 +33810,7 @@ async function signOutFamilyHubParent() {
   }
   renderFamilyHubPage();
   syncFamilyHubParentChrome();
-  showActionFeedback("Signed out of Family Hub.");
+  familyHubParentToast("Signed out of Family Hub.");
 }
 
 async function createFamilyHubHouseholdInvite(form) {
@@ -33711,9 +33877,10 @@ async function maybeHandleFamilyHubInviteFromUrl() {
   panel.className = "section-block fh-invite-accept-panel";
   panel.id = "familyHubAcceptPanel";
   panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-modal", "true");
   panel.setAttribute("aria-label", "Family Hub invite");
   // Body-level overlay so home re-renders cannot wipe the accept panel.
-  panel.style.cssText = "position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;background:rgba(26,43,74,0.45);";
+  panel.style.cssText = "position:fixed;inset:0;z-index:12000;display:grid;place-items:center;padding:24px;padding-top:max(24px, env(safe-area-inset-top));padding-bottom:max(24px, env(safe-area-inset-bottom));background:rgba(26,43,74,0.55);";
   const card = document.createElement("div");
   card.className = "fh-signin";
   card.style.cssText = "width:min(100%,560px);max-height:90vh;overflow:auto;";
@@ -33722,6 +33889,9 @@ async function maybeHandleFamilyHubInviteFromUrl() {
     panel.appendChild(card);
     document.body.appendChild(panel);
     document.body.classList.add("family-hub-invite-open");
+    queueMicrotask(() => {
+      card.querySelector("[data-redeem-family-hub], .primary-button, .ghost-button")?.focus?.();
+    });
   };
   if (!peek?.ok && !peek?.invite) {
     card.innerHTML = `<h3>Family Hub</h3><p>${escapeHtml(peek?.error || "This Family Hub link is not valid.")}</p><button class="ghost-button" type="button" data-dismiss-family-hub-invite>Close</button>`;
@@ -58409,6 +58579,7 @@ document.addEventListener("click", async (event) => {
     const url = new URL(window.location.href);
     url.searchParams.delete("familyHub");
     window.history.replaceState({}, "", url.pathname + url.search + url.hash);
+    if (!getFamilyHubSessionToken()) renderFamilyHubPage();
     return;
   }
 
@@ -64961,7 +65132,7 @@ document.addEventListener("submit", async (event) => {
       setFamilyHubSessionToken(result.sessionToken);
       familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
       renderFamilyHubPage();
-      showActionFeedback("Signed in to Family Hub.");
+      familyHubParentToast("Signed in");
     } catch (error) {
       if (error?.name === "AbortError") {
         if (message) message.textContent = "Sign-in timed out. Check your connection and try again.";
@@ -64995,8 +65166,11 @@ document.addEventListener("submit", async (event) => {
       if (familyHubParentState.data) {
         familyHubParentState.data.messages = Array.isArray(result.messages) ? result.messages : familyHubParentState.data.messages;
       }
+      form.reset();
       paintFamilyHubParentPanel("messages");
-      showActionFeedback("Message sent.");
+      if (status) status.textContent = "Message sent.";
+      familyHubParentToast("Message sent");
+      document.querySelector("#familyHubMessageInput")?.focus();
     } catch (error) {
       if (status) status.textContent = error.message || "Could not send message.";
     } finally {
@@ -65037,6 +65211,7 @@ document.addEventListener("submit", async (event) => {
         }
       }
       if (status) status.textContent = "Saved.";
+      familyHubParentToast("Settings saved");
       showActionFeedback("Settings saved.");
     } catch (error) {
       if (status) status.textContent = error.message || "Could not save settings.";
