@@ -1,12 +1,12 @@
-const CACHE_NAME = "llh-shell-v158-nuo-onboarding-r4";
-const SHELL_VERSION = "20260803-nuo-onboarding-r4";
+const CACHE_NAME = "llh-shell-v159-teaching-kit-qa";
+const SHELL_VERSION = "20260803-teaching-kit-qa";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260803-nuo-onboarding-r4",
+  "/styles.css?v=20260803-teaching-kit-qa",
   "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260802-request-idea-final",
@@ -30,7 +30,11 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
   "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
   "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/app.js?v=20260803-nuo-onboarding-r4",
+  "/scripts/teaching-kit-mapper.js?v=20260803-teaching-kit-qa",
+  "/scripts/teaching-kit.js?v=20260803-teaching-kit-qa",
+  "/scripts/teaching-kit-print.js?v=20260803-teaching-kit-qa",
+  "/scripts/teaching-kit-viewer.js?v=20260803-teaching-kit-qa",
+  "/app.js?v=20260803-teaching-kit-qa",
   "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4",
   "/admin-workspace.js?v=20260803-nuo-onboarding-r4",
   "/admin-insights.js?v=20260803-nuo-onboarding-r4",
