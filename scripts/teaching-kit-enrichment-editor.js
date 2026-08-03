@@ -6,8 +6,9 @@
  * Slice 4: Activity Studio photo upload (private draft media).
  * Slice 5: Controlled enrichment publish (atomic, versioned).
  * Slice 6: AI-assisted enrichment suggestions (approval tray only).
+ * Slice 7: Integration polish + QA (no major new features).
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
- * Print stays off until a later reviewed slice.
+ * Print Center remains the existing Teaching Kit print path (not a new Enrichment feature).
  */
 (function (root) {
   "use strict";
@@ -238,7 +239,7 @@
         return;
       }
       state.aiTray.phase = "error";
-      state.aiTray.errorText = (error && error.message) || "AI suggestion failed. Existing content was not changed.";
+      state.aiTray.errorText = networkErrorMessage(error, "AI suggestion failed. Existing content was not changed.");
       state.statusText = "AI suggestion failed — draft unchanged.";
       render();
     }
@@ -474,7 +475,7 @@
     } catch (error) {
       // Failed draft save must not erase previously saved photos — keep lastSavedDraft refs
       // and do not flush pending cleanup (old assets may still be referenced server-side).
-      state.statusText = `Draft save failed: ${error.message || error}`;
+      state.statusText = networkErrorMessage(error, `Draft save failed: ${error.message || error}`);
       renderChromeOnly();
       return false;
     }
@@ -563,8 +564,12 @@
     state.activityIndex = api().firstIncompleteActivityIndex(activities, state.draft.activities);
     const first = activities[state.activityIndex];
     if (first?.dayOfWeek) state.previewDay = String(first.dayOfWeek);
+    state._focusReturn = document.activeElement;
     document.body.classList.add("tk-enrich-open");
     render();
+    requestAnimationFrame(() => {
+      document.querySelector("[data-enrich-exit]")?.focus?.();
+    });
   }
 
   function close() {
@@ -574,7 +579,18 @@
       try { state.previewUnbind(); } catch (_error) { /* ignore */ }
     }
     state.previewUnbind = null;
-    if (state.dirty) void saveDraft({ silent: true });
+    resetAiTray();
+    state.publishOpen = false;
+    state.lightboxUrl = "";
+    state.jumpOpen = false;
+    if (state.dirty) {
+      if (!isEditorFlagEnabled()) {
+        state.statusText = "Enrichment Editor disabled — unsaved draft kept locally only.";
+      } else {
+        state.statusText = "Saving draft before exit…";
+        void saveDraft({ silent: true });
+      }
+    }
     state.open = false;
     document.body.classList.remove("tk-enrich-open");
     const el = host();
@@ -899,13 +915,10 @@
             Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.
           </div>
         ` : ""}
-        <div class="tk-enrich-slice-banner" role="status">
-          Slice 6 AI: suggestions open an approval tray — nothing inserts or saves until you choose. Print stays off until a later reviewed slice.
-        </div>
-        <nav class="tk-enrich-modes" role="tablist">
-          <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
-          <button type="button" class="${state.mode === "week" ? "is-active" : ""}" data-enrich-mode="week">Week</button>
-          <button type="button" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview">Live Preview</button>
+        <nav class="tk-enrich-modes" role="tablist" aria-label="Enrichment modes">
+          <button type="button" role="tab" aria-selected="${state.mode === "activities" ? "true" : "false"}" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
+          <button type="button" role="tab" aria-selected="${state.mode === "week" ? "true" : "false"}" class="${state.mode === "week" ? "is-active" : ""}" data-enrich-mode="week">Week</button>
+          <button type="button" role="tab" aria-selected="${state.mode === "preview" ? "true" : "false"}" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview">Live Preview</button>
         </nav>
       </header>
     `;
@@ -952,9 +965,6 @@
           <section class="tk-enrich-card-block">
             <div class="tk-enrich-card-head">
               <h4>Teacher tips</h4>
-              ${SLICE.aiSuggest
-                ? `<button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>`
-                : `<span class="muted-copy">AI suggest later</span>`}
             </div>
             <div class="tk-enrich-tip-list">
               ${view.teacherTips.map((tip, i) => `
@@ -975,7 +985,7 @@
               ${view.substitutions.map((sub, i) => `
                 <div class="tk-enrich-tip-card">
                   <span>No <strong>${esc(sub.need)}</strong> → use <strong>${esc(sub.use)}</strong></span>
-                  <button type="button" data-sub-remove="${i}">×</button>
+                  <button type="button" data-sub-remove="${i}" aria-label="Remove substitution">×</button>
                 </div>
               `).join("") || `<p class="muted-copy">Add classroom-friendly swaps.</p>`}
             </div>
@@ -1016,7 +1026,6 @@
             </form>
           </section>
           <div class="tk-enrich-stage-nav">
-            <button type="button" class="ghost-button" data-enrich-prev>← Previous</button>
             <button type="button" class="ghost-button" data-enrich-skip>Skip for now</button>
             <button type="button" class="primary-button" data-enrich-save-next>Save &amp; next →</button>
           </div>
@@ -1208,9 +1217,9 @@
       `;
     }
     return `
-      <div class="tk-enrich-modal tk-enrich-ai-modal" data-ai-tray>
-        <div class="tk-enrich-modal-card tk-enrich-ai-card-shell">
-          <h3>AI enrichment suggestions</h3>
+      <div class="tk-enrich-modal tk-enrich-ai-modal" data-ai-tray role="dialog" aria-modal="true" aria-labelledby="tk-enrich-ai-title">
+        <div class="tk-enrich-modal-card tk-enrich-ai-card-shell" tabindex="-1">
+          <h3 id="tk-enrich-ai-title">AI enrichment suggestions</h3>
           <p class="muted-copy">Lesson: <strong>${esc((getPlan() || {}).title || "Current lesson")}</strong> · Scope: ${esc(tray.scope)}${tray.activityKey ? ` · Activity draft only` : ""}</p>
           ${body}
         </div>
@@ -1223,9 +1232,9 @@
     const summary = api().summarizePublishChanges(plan, activities, state.draft);
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
     return `
-      <div class="tk-enrich-modal" data-publish-modal>
-        <div class="tk-enrich-modal-card">
-          <h3>Publish enrichment for this lesson?</h3>
+      <div class="tk-enrich-modal" data-publish-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-publish-title">
+        <div class="tk-enrich-modal-card" tabindex="-1">
+          <h3 id="tk-enrich-publish-title">Publish enrichment for this lesson?</h3>
           <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. The current published version is kept for rollback.</p>
           <ul class="tk-enrich-publish-summary">
             <li><strong>What will change:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
@@ -1247,8 +1256,8 @@
   function renderLightbox() {
     if (!state.lightboxUrl) return "";
     return `
-      <div class="tk-enrich-lightbox" data-lightbox>
-        <button type="button" class="ghost-button" data-lightbox-close>Close</button>
+      <div class="tk-enrich-lightbox" data-lightbox role="dialog" aria-modal="true" aria-label="Photo preview">
+        <button type="button" class="ghost-button" data-lightbox-close autofocus>Close</button>
         <img src="${esc(state.lightboxUrl)}" alt="Full size preview" onerror="this.alt='Photo unavailable';this.classList.add('is-broken');" />
       </div>
     `;
@@ -1357,16 +1366,40 @@
   }
 
   function renderChromeOnly() {
-    const percentEl = document.querySelector(".tk-enrich-percent-row strong");
-    const statusEl = document.querySelector(".tk-enrich-status");
+    const chrome = document.querySelector(".tk-enrich-chrome");
+    const percentEl = chrome?.querySelector(".tk-enrich-percent-row strong");
+    const statusEl = chrome?.querySelector(".tk-enrich-status") || document.querySelector(".tk-enrich-status");
     if (statusEl) statusEl.textContent = state.statusText || "";
     const plan = getPlan();
     if (!plan || !percentEl) return;
     const activities = getActivities(plan);
     const percent = recomputePercent(plan, activities);
+    const label = api().completenessLabelFromPercent(percent, null);
     percentEl.textContent = `Overall ${percent}%`;
-    const bar = document.querySelector(".tk-enrich-bar i");
+    const bar = chrome.querySelector(".tk-enrich-bar i");
     if (bar) bar.style.width = `${percent}%`;
+    const tag = chrome.querySelector(".tk-enrich-percent-row .tag");
+    if (tag) tag.textContent = label;
+    const summaryPct = document.querySelector("[data-upgrade-summary] .tk-enrich-bar i");
+    if (summaryPct) summaryPct.style.width = `${percent}%`;
+  }
+
+  function focusActiveDialog() {
+    const dialog = document.querySelector("[data-ai-tray] .tk-enrich-modal-card, [data-publish-modal] .tk-enrich-modal-card, [data-lightbox]");
+    if (!dialog) return;
+    const focusable = dialog.querySelector("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])");
+    (focusable || dialog).focus?.();
+  }
+
+  function networkErrorMessage(error, fallback) {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      return "You appear to be offline. Changes stay on this screen — retry when the connection returns.";
+    }
+    const msg = String(error?.message || error || "");
+    if (/failed to fetch|networkerror|load failed/i.test(msg)) {
+      return "Network error. Existing content was kept — retry when online.";
+    }
+    return fallback || msg || "Something went wrong.";
   }
 
   function render() {
@@ -1402,6 +1435,9 @@
     if (state.jumpOpen) renderJumpResults(plan, activities);
     if (SLICE.livePreview) {
       requestAnimationFrame(() => paintLivePreview(plan, activities));
+    }
+    if (state.aiTray.open || state.publishOpen || state.lightboxUrl) {
+      requestAnimationFrame(() => focusActiveDialog());
     }
   }
 
@@ -1870,6 +1906,76 @@
       }
     });
 
+
+    document.addEventListener("keydown", (event) => {
+      if (!state.open) return;
+      // Mid-session flag-off closes the editor safely.
+      if (!isEditorFlagEnabled()) {
+        if (typeof showActionFeedback === "function") {
+          showActionFeedback("Enrichment Editor was disabled. Closing without publishing.");
+        }
+        close();
+        return;
+      }
+      if (event.key === "Escape") {
+        if (state.aiTray.open) {
+          event.preventDefault();
+          cancelAiSuggestions();
+          return;
+        }
+        if (state.publishOpen) {
+          event.preventDefault();
+          state.publishOpen = false;
+          render();
+          return;
+        }
+        if (state.lightboxUrl) {
+          event.preventDefault();
+          state.lightboxUrl = "";
+          render();
+          return;
+        }
+        if (state.jumpOpen) {
+          event.preventDefault();
+          state.jumpOpen = false;
+          render();
+          return;
+        }
+        return;
+      }
+      if (event.key === "/" && !event.metaKey && !event.ctrlKey && !event.altKey) {
+        const tag = String(event.target?.tagName || "").toLowerCase();
+        if (tag === "input" || tag === "textarea" || event.target?.isContentEditable) return;
+        event.preventDefault();
+        state.jumpOpen = true;
+        render();
+        requestAnimationFrame(() => document.querySelector("[data-enrich-jump-input]")?.focus?.());
+        return;
+      }
+      if ((event.key === "Enter" || event.key === " ") && event.target?.closest?.(".tk-enrich-photo-drop")) {
+        if (!SLICE.photoUpload) return;
+        event.preventDefault();
+        const drop = event.target.closest(".tk-enrich-photo-drop");
+        drop.querySelector('input[type="file"]')?.click();
+      }
+      // Simple focus trap inside open dialogs
+      if (event.key === "Tab") {
+        const dialog = document.querySelector("[data-ai-tray], [data-publish-modal], [data-lightbox]");
+        if (!dialog) return;
+        const nodes = [...dialog.querySelectorAll("button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])")]
+          .filter((el) => !el.disabled && el.offsetParent !== null);
+        if (nodes.length < 2) return;
+        const first = nodes[0];
+        const last = nodes[nodes.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
     document.addEventListener("dragover", (event) => {
       if (!state.open || !SLICE.photoUpload) return;
       const drop = event.target.closest(".tk-enrich-photo-drop");
@@ -1901,7 +2007,7 @@
     close,
     isOpen: () => state.open,
     isEnabled: isEditorFlagEnabled,
-    sliceFeatures: () => ({ ...SLICE }),
+    sliceFeatures: () => ({ ...SLICE, polish: true, slice: 7 }),
     render,
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

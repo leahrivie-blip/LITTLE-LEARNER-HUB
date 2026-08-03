@@ -10198,10 +10198,20 @@ function adminCurriculumCompletionBandMatch(percent, band) {
   if (!band) return true;
   if (band === "0-24") return p <= 24;
   if (band === "25-49") return p >= 25 && p <= 49;
-  if (band === "50-79") return p >= 50 && p <= 79;
-  if (band === "80-99") return p >= 80 && p <= 99;
+  // Align % bands with Legacy (<50) / Enriched (50–89) / Complete (≥90) labels.
+  if (band === "50-89" || band === "50-79") return p >= 50 && p <= 89;
+  if (band === "90-99" || band === "80-99") return p >= 90 && p <= 99;
   if (band === "100") return p === 100;
   return true;
+}
+
+function clearTeachingKitEnrichmentListFilters() {
+  if (!adminCurriculumListFilters || typeof adminCurriculumListFilters !== "object") return;
+  adminCurriculumListFilters.completionBand = "";
+  adminCurriculumListFilters.gap = "";
+  if (String(adminCurriculumListFilters.sort || "").startsWith("completion")) {
+    adminCurriculumListFilters.sort = "updated";
+  }
 }
 
 function curriculumLessonPlanAdminCardHtml(plan) {
@@ -10292,18 +10302,26 @@ function filteredAdminCurriculumLessonPlans() {
     const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""}`.toLowerCase();
     return hay.includes(q);
   });
-  const sort = String(filters.sort || "updated");
+  const enrichEditorOn = isTeachingKitEnrichmentEditorEnabled();
+  if (!enrichEditorOn) {
+    // Flag-off: never apply TK completion/gap sorts that would rewrite the library order.
+    clearTeachingKitEnrichmentListFilters();
+  }
+  const sort = String((adminCurriculumListFilters || filters).sort || "updated");
   return filtered.slice().sort((a, b) => {
-    if (sort === "completion-asc") return metaFor(a).percent - metaFor(b).percent;
-    if (sort === "completion-desc") return metaFor(b).percent - metaFor(a).percent;
+    if (enrichEditorOn && sort === "completion-asc") return metaFor(a).percent - metaFor(b).percent;
+    if (enrichEditorOn && sort === "completion-desc") return metaFor(b).percent - metaFor(a).percent;
     if (sort === "title") return String(a.title || "").localeCompare(String(b.title || ""));
-    if (sort === "edited-asc") {
+    if (enrichEditorOn && sort === "edited-asc") {
       return String(metaFor(a).summary?.lastEditedDate || a.updatedAt || "")
         .localeCompare(String(metaFor(b).summary?.lastEditedDate || b.updatedAt || ""));
     }
-    if (sort === "edited-desc" || sort === "updated") {
+    if (enrichEditorOn && (sort === "edited-desc" || sort === "updated")) {
       return String(metaFor(b).summary?.lastEditedDate || b.updatedAt || "")
         .localeCompare(String(metaFor(a).summary?.lastEditedDate || a.updatedAt || ""));
+    }
+    if (sort === "updated" || sort === "edited-desc") {
+      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
     }
     return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
   });
@@ -10425,8 +10443,8 @@ function renderAdminCurriculumLessonPlanManager() {
           <option value="" ${!adminCurriculumListFilters.completionBand ? "selected" : ""}>All</option>
           <option value="0-24" ${adminCurriculumListFilters.completionBand === "0-24" ? "selected" : ""}>0–24%</option>
           <option value="25-49" ${adminCurriculumListFilters.completionBand === "25-49" ? "selected" : ""}>25–49%</option>
-          <option value="50-79" ${adminCurriculumListFilters.completionBand === "50-79" ? "selected" : ""}>50–79%</option>
-          <option value="80-99" ${adminCurriculumListFilters.completionBand === "80-99" ? "selected" : ""}>80–99%</option>
+          <option value="50-89" ${adminCurriculumListFilters.completionBand === "50-89" || adminCurriculumListFilters.completionBand === "50-79" ? "selected" : ""}>50–89% (Enriched)</option>
+          <option value="90-99" ${adminCurriculumListFilters.completionBand === "90-99" || adminCurriculumListFilters.completionBand === "80-99" ? "selected" : ""}>90–99%</option>
           <option value="100" ${adminCurriculumListFilters.completionBand === "100" ? "selected" : ""}>100%</option>
           <option value="legacy" ${adminCurriculumListFilters.completionBand === "legacy" ? "selected" : ""}>Legacy</option>
           <option value="enriched" ${adminCurriculumListFilters.completionBand === "enriched" ? "selected" : ""}>Enriched</option>

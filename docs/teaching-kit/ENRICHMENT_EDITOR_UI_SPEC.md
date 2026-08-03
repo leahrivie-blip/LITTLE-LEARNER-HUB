@@ -419,14 +419,15 @@ See [ENRICHMENT_EDITOR_SLICE4.md](./ENRICHMENT_EDITOR_SLICE4.md).
 Explicit admin publish · confirmation summary · atomic merge · prior-version snapshot · draft photos become provider-visible only after success.  
 See [ENRICHMENT_EDITOR_SLICE5.md](./ENRICHMENT_EDITOR_SLICE5.md).
 
-### Slice 6 — AI suggestions (current)
+### Slice 6 — AI suggestions (approved)
 
 Approval tray only · Accept / Edit / Discard · no auto-save · no overwrite · no publish · no images.  
 See [ENRICHMENT_EDITOR_SLICE6.md](./ENRICHMENT_EDITOR_SLICE6.md).
 
-### Later slices (not started until Slice 6 approved)
+### Slice 7 — Integration polish + QA (current)
 
-7. Print integration hooks (as needed)  
+End-to-end workflow · a11y · responsive polish · regression suite · production readiness. **No major new features.**  
+See [ENRICHMENT_EDITOR_SLICE7.md](./ENRICHMENT_EDITOR_SLICE7.md).
 
 ---
 

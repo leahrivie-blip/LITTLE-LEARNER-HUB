@@ -1,6 +1,6 @@
 # Teaching Kit Enrichment Editor — Slice 6
 
-**Status:** Ready for owner review (do not merge / deploy / enable flag without approval)  
+**Status:** Owner-approved (Slice 7 QA in progress; flag remains off)  
 **Flag:** `featureFlags.teachingKitEnrichmentEditor` (**default `false`**)  
 **Depends on:** Slice 1–5 (approved)  
 **Scope:** AI-assisted enrichment suggestions with mandatory approval tray  
@@ -99,4 +99,4 @@ Slice 6 asserts:
 
 ## Approval gate
 
-Stop here for owner review. Do **not** merge, deploy, enable flags, or begin Slice 7 until approved.
+Owner approved Slice 6. Slice 7 (integration polish + QA) proceeds next. Do **not** merge, deploy, or enable flags without separate approval.
