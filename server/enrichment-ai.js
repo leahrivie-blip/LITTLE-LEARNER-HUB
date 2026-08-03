@@ -326,7 +326,7 @@ function normalizeSuggestionItem(raw, index, ctx) {
   const meta = SUGGESTION_CATEGORIES[category];
   if (!meta) return null;
   // Week-scoped requests only return week fields. Activity requests may also include
-  // additive week ideas for the same lesson draft.
+  // additive week ideas for the same lesson draft. Lesson scope accepts both.
   if (ctx.scope === "week" && meta.scope !== "week") return null;
 
   let proposedValue = null;
@@ -378,6 +378,7 @@ function normalizeSuggestionItem(raw, index, ctx) {
     field: meta.field,
     fieldLabel: meta.fieldLabel,
     scope: meta.scope,
+    activityKey: text(raw?.activityKey || ctx.activityKey, 160),
     proposedText,
     proposedValue,
     currentValue: currentValueForField(meta.field, ctx.activityDraft, ctx.weekDraft, ctx.plan),
@@ -459,8 +460,121 @@ function buildEnrichmentAiUserPrompt({ plan, activity, scope, existing }) {
   return lines.join("\n");
 }
 
+/**
+ * Full-lesson AI Lesson Teacher fixture pack.
+ * Generates week + first activities' gap-fill suggestions for review.
+ * Never invents photo URLs or copyrighted lyrics/book text.
+ */
+function buildLessonTeacherFixtureSuggestions(ctx) {
+  const plan = ctx.plan || {};
+  const lesson = text(plan.title, 80) || "this lesson";
+  const theme = text(plan.theme, 80) || lesson;
+  const age = text(plan.age, 40) || "Preschool";
+  const activities = asArray(ctx.activities);
+  const weekRaw = [
+    {
+      category: "weekly_overview",
+      text: `This week ${age.toLowerCase()} children explore ${theme} through hands-on play, songs, books, and simple classroom invitations. Everything they need is organized for Monday setup through Friday share.`,
+    },
+    {
+      category: "learning_objectives",
+      text: `Name and describe key ideas in ${theme}\nUse new vocabulary during play\nPractice turn-taking in small groups\nNotice details during read-alouds`,
+    },
+    {
+      category: "materials_list",
+      text: "Picture cards · books · song sheet · trays · crayons · recyclable craft materials · observation clipboard · family letter",
+    },
+    {
+      category: "teacher_preparation",
+      text: `Preview ${theme} books, print vocabulary cards, stage trays before arrival, and skim the family message.`,
+    },
+    { category: "toolkit_prep", text: "Print vocabulary cards (ink-friendly)" },
+    { category: "toolkit_prep", text: "Set observation clipboard near the main station" },
+    { category: "toolkit_observation", text: `Listen for ${theme.toLowerCase()} vocabulary during free play` },
+    {
+      category: "family_connection",
+      text: `At home, invite children to share one favorite part of ${lesson} and ask one wonder question together.`,
+    },
+    { category: "milestones", text: "Language" },
+    { category: "milestones", text: "Social-emotional" },
+    {
+      category: "books",
+      title: `${theme} Read-Aloud Favorite`,
+      author: "Classroom Collection",
+      questions: "Before: What do you notice on the cover? During: What is happening now? After: What would you try in our classroom?",
+    },
+    {
+      category: "songs",
+      title: `${theme} Hello Song`,
+      lyrics: "Hello friends, let's explore today — look, listen, try, and share.",
+      motions: "Wave, march in place, freeze on the last word. Original LLH classroom song — no copyrighted lyrics.",
+    },
+    { category: "printable_ideas", text: "Vocabulary cards (simple outlines, ink-friendly)" },
+    { category: "printable_ideas", text: "Teacher instruction sheet for Monday setup" },
+    { category: "printable_ideas", text: "Observation sheet with 3 prompts" },
+    { category: "printable_ideas", text: "Parent letter with home talk ideas" },
+    { category: "vocab_cards", text: `${theme} — A word children can say, show, and use in play` },
+  ];
+
+  const activityRaw = [];
+  activities.slice(0, 3).forEach((activity, actIndex) => {
+    const title = text(activity.title, 80) || `Activity ${actIndex + 1}`;
+    const key = text(activity.id || activity.itemId, 160);
+    const tagged = (item) => ({ ...item, activityKey: key });
+    activityRaw.push(
+      tagged({ category: "teacher_tips", text: `Set ${title} materials at child height before children arrive.` }),
+      tagged({ category: "observation_prompts", text: `Does the child name or gesture toward a key idea during ${title}?` }),
+      tagged({ category: "vocabulary", text: "explore" }),
+      tagged({ category: "setup", text: `Place ${title} materials on a labeled low tray before circle.` }),
+      tagged({ category: "steps", text: "1) Invite children to look. 2) Model one action. 3) Let children try. 4) Clean up together." }),
+      tagged({ category: "adaptations", text: "Offer a simpler choice or hand-over-hand support for emerging skills." }),
+      tagged({ category: "extensions", text: "Invite families to find one related object at home and describe it." }),
+      tagged({ category: "indoor_alternatives", text: "Use a tabletop tray when outdoor space is unavailable." }),
+      tagged({ category: "outdoor_alternatives", text: "Move the same materials to a shaded sidewalk or grass edge." }),
+      tagged({ category: "setting_tags", tag: "small_group" }),
+      tagged({
+        category: "image_brief_setup",
+        text: `Simple classroom tray setup for ${title}: ordinary materials, natural light, teacher-manual style — no glossy stock look.`,
+      }),
+      tagged({
+        category: "image_brief_example",
+        text: `Finished achievable craft/play example for ${title}: educational illustration or paper mockup style, real-mess friendly.`,
+      }),
+    );
+  });
+
+  const ctxWeek = { ...ctx, scope: "week", activityKey: "" };
+  const weekSuggestions = weekRaw
+    .map((item, index) => normalizeSuggestionItem(item, index, ctxWeek))
+    .filter(Boolean);
+  const activitySuggestions = [];
+  activities.slice(0, 3).forEach((activity) => {
+    const key = text(activity.id || activity.itemId, 160);
+    const actDraft = ctx.draftActivities && typeof ctx.draftActivities === "object"
+      ? (ctx.draftActivities[key] || {})
+      : {};
+    const actCtx = {
+      ...ctx,
+      scope: "lesson",
+      activity,
+      activityKey: key,
+      activityDraft: actDraft,
+    };
+    activityRaw
+      .filter((item) => text(item.activityKey) === key)
+      .forEach((item, index) => {
+        const normalized = normalizeSuggestionItem(item, weekSuggestions.length + activitySuggestions.length + index, actCtx);
+        if (normalized) activitySuggestions.push(normalized);
+      });
+  });
+  return [...weekSuggestions, ...activitySuggestions].slice(0, 40);
+}
+
 /** Deterministic suggestions for local/dev/tests (no OpenAI required). */
 function buildFixtureSuggestions(ctx) {
+  if (ctx.scope === "lesson") {
+    return buildLessonTeacherFixtureSuggestions(ctx);
+  }
   const title = text(ctx.activity?.title, 80) || "this activity";
   const lesson = text(ctx.plan?.title, 80) || "this lesson";
   const theme = text(ctx.plan?.theme, 80) || lesson;
@@ -541,6 +655,7 @@ module.exports = {
   buildEnrichmentAiSystemPrompt,
   buildEnrichmentAiUserPrompt,
   buildFixtureSuggestions,
+  buildLessonTeacherFixtureSuggestions,
   applySuggestionsToDraft,
   currentValueForField,
   normalizeSuggestionItem,

@@ -16875,7 +16875,8 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
 
   const planId = normalizedShortText(body.planId, 160);
   const activityKey = normalizedShortText(body.activityKey, 160);
-  const scope = normalizedShortText(body.scope, 20) === "week" ? "week" : "activity";
+  const scopeRaw = normalizedShortText(body.scope, 20).toLowerCase();
+  const scope = scopeRaw === "week" || scopeRaw === "lesson" ? scopeRaw : "activity";
   const simulate = normalizedShortText(body.simulate, 40).toLowerCase();
   const requestId = enrichmentAi.createEnrichmentAiRequestId();
 
@@ -16915,14 +16916,30 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     ? (draft.activities[activityKey] || {})
     : {};
   const weekDraft = draft.week && typeof draft.week === "object" ? draft.week : {};
+  let lessonTeacherApi = null;
+  try {
+    lessonTeacherApi = require("../scripts/teaching-kit-ai-lesson-teacher.js");
+  } catch (_error) {
+    lessonTeacherApi = null;
+  }
+  const analysis = lessonTeacherApi?.analyzeLessonCompleteness
+    ? lessonTeacherApi.analyzeLessonCompleteness(plan, flat, draft)
+    : null;
   const ctx = {
     plan,
-    activity,
+    activity: activity || flat[0] || null,
+    activities: flat,
     scope,
+    activityKey,
     activityDraft,
     weekDraft,
-    existing: scope === "week"
-      ? { week: weekDraft, familyConnection: plan.familyConnection || "" }
+    draftActivities: draft.activities && typeof draft.activities === "object" ? draft.activities : {},
+    existing: scope === "week" || scope === "lesson"
+      ? {
+        week: weekDraft,
+        familyConnection: plan.familyConnection || "",
+        analysisGaps: analysis?.gapSectionIds || [],
+      }
       : {
         teacherTips: activityDraft.teacherTips || activity?.teacherTips || [],
         observationPrompts: activityDraft.observationPrompts || [],
@@ -17028,9 +17045,10 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
   let suggestions = [];
   let source = "fixture";
   try {
-    if (forceFixture || simulate === "fixture" || simulate === "ok") {
+    // Lesson Teacher uses the structured lesson pack (gap-filtered). Activity/week may use OpenAI.
+    if (scope === "lesson" || forceFixture || simulate === "fixture" || simulate === "ok") {
       suggestions = enrichmentAi.buildFixtureSuggestions(ctx);
-      source = "fixture";
+      source = scope === "lesson" ? "lesson_teacher_fixture" : "fixture";
     } else {
       const systemPrompt = enrichmentAi.buildEnrichmentAiSystemPrompt();
       const userPrompt = enrichmentAi.buildEnrichmentAiUserPrompt({
@@ -17070,6 +17088,9 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
       }
       suggestions = parsed.suggestions;
       source = "openai";
+    }
+    if (scope === "lesson" && analysis && lessonTeacherApi?.filterSuggestionsForGaps) {
+      suggestions = lessonTeacherApi.filterSuggestionsForGaps(suggestions, analysis);
     }
   } catch (error) {
     const isTimeout = error?.code === "enrichment_ai_timeout"
@@ -17131,10 +17152,12 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     scope,
     source,
     suggestions,
+    analysis: scope === "lesson" ? analysis : undefined,
     // Explicit guarantees for clients/tests
     autoSaved: false,
     autoPublished: false,
     curriculumUnchanged: true,
+    publishedContentPreserved: true,
   });
 }
 

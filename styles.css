@@ -24935,6 +24935,83 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   }
 }
 
+/* AI Lesson Teacher analysis + review */
+.tk-lesson-teacher-panel {
+  margin: 0 0 1rem;
+  padding: 0.95rem 1.05rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(160deg, #f4f8f5 0%, #eef4f0 55%, #f7f3ec 100%);
+}
+.tk-lesson-teacher-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.tk-lesson-teacher-head .eyebrow {
+  margin: 0 0 0.2rem;
+}
+.tk-lesson-teacher-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.2rem;
+  color: #24312a;
+}
+.tk-lesson-teacher-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.tk-lesson-teacher-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.92rem;
+}
+.tk-lesson-teacher-counts .is-complete strong { color: #2f6b45; }
+.tk-lesson-teacher-counts .is-needs strong { color: #8a6a22; }
+.tk-lesson-teacher-counts .is-missing strong { color: #8a3b32; }
+.tk-lesson-teacher-sections {
+  list-style: none;
+  margin: 0.65rem 0 0.35rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.4rem 0.55rem;
+}
+.tk-lesson-teacher-sections li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.9rem;
+}
+.tk-lesson-teacher-sections li strong {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.tk-lesson-teacher-sections li.status-complete strong { color: #2f6b45; }
+.tk-lesson-teacher-sections li.status-needs_improvement strong { color: #8a6a22; }
+.tk-lesson-teacher-sections li.status-missing strong { color: #8a3b32; }
+.tk-lesson-teacher-sections li small {
+  color: #5b6b62;
+}
+.tk-enrich-ai-modal.is-lesson-teacher .tk-enrich-ai-card-shell {
+  max-width: min(960px, 97vw);
+}
+.tk-enrich-ai-bulk-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0), #fff 28%);
+  padding-top: 0.75rem;
+}
+
 /* Complete Teaching Kit binder authoring */
 .tk-authoring-binder-panel{margin:1.25rem 0 1.75rem;padding:1.1rem 1.2rem;border:1px solid rgba(36,49,42,.12);border-radius:.75rem;background:linear-gradient(165deg,#f7faf7 0%,#eef5f0 55%,#f8f4ee 100%)}
 .tk-authoring-binder-panel h4{margin:0 0 .35rem;font-family:"Fraunces",Georgia,serif;font-size:1.35rem;color:#24312a}
