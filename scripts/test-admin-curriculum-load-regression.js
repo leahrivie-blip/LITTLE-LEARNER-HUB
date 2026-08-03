@@ -121,7 +121,6 @@ function assertStaticGuards() {
   assert.match(appJs, /!isAdminUnlocked\(\)\) \{[\s\S]*refreshPublicCurriculumLibrary/);
   assert.match(appJs, /adminCurriculumLoadMismatch/);
   assert.match(appJs, /data-retry-admin-curriculum/);
-  assert.match(appJs, /renderAdminTeachingKitQualitySection/);
   console.log("PASS  static admin curriculum load guards");
 }
 

@@ -10013,46 +10013,13 @@ function adminCurriculumLessonJumpNavHtml() {
     return `<a class="lesson-editor-jump-link" href="#admin-lesson-day-${day}" data-admin-lesson-jump="${day}">${escapeHtml(label)}</a>`;
   }).join("");
   return `
-    <nav class="lesson-editor-jump admin-lesson-jump" aria-label="Jump to Teaching Kit sections">
-      <a class="lesson-editor-jump-link" href="#admin-lesson-overview" data-admin-lesson-jump="overview">Overview</a>
-      <a class="lesson-editor-jump-link" href="#admin-lesson-weekly" data-admin-lesson-jump="weekly">Weekly plan</a>
+    <nav class="lesson-editor-jump admin-lesson-jump" aria-label="Jump to lesson plan sections">
+      <a class="lesson-editor-jump-link" href="#admin-lesson-basics" data-admin-lesson-jump="basics">Basics</a>
+      <a class="lesson-editor-jump-link" href="#admin-lesson-cover" data-admin-lesson-jump="cover">Cover</a>
+      <a class="lesson-editor-jump-link" href="#admin-lesson-weekly" data-admin-lesson-jump="weekly">Weekly</a>
       ${dayLinks}
-      <a class="lesson-editor-jump-link" href="#admin-lesson-cover" data-admin-lesson-jump="cover">Example images</a>
-      <a class="lesson-editor-jump-link" href="#admin-lesson-printables" data-admin-lesson-jump="printables">Printables</a>
-      <a class="lesson-editor-jump-link" href="#admin-lesson-quality" data-admin-lesson-jump="quality">Quality review</a>
+      <a class="lesson-editor-jump-link" href="#admin-lesson-resources" data-admin-lesson-jump="resources">Resources</a>
     </nav>
-  `;
-}
-
-function teachingKitQualityFromPlan(plan) {
-  const overlay = plan?.teachingKit?.sectionOverrides?.quality_review;
-  if (!overlay || typeof overlay !== "object") {
-    return { status: "", notes: "" };
-  }
-  return {
-    status: String(overlay.status || ""),
-    notes: String(overlay.notes || ""),
-  };
-}
-
-function renderAdminTeachingKitQualitySection(record) {
-  const quality = teachingKitQualityFromPlan(record);
-  const completeness = record?.teachingKit?.completeness || "legacy_mapped";
-  return `
-    <details class="admin-fieldset teaching-kit-section" id="admin-lesson-quality">
-      <summary><strong>Quality review</strong> <span class="muted-copy">Teaching Kit status and reviewer notes</span></summary>
-      <p class="muted-copy">Optional overlay — existing lesson fields stay intact when this section is empty.</p>
-      <p class="muted-copy">Teaching Kit completeness: <code>${escapeHtml(completeness)}</code></p>
-      <label>Review status
-        <select name="teachingKitQualityStatus">
-          <option value="" ${!quality.status ? "selected" : ""}>Not reviewed</option>
-          <option value="needs_review" ${quality.status === "needs_review" ? "selected" : ""}>Needs review</option>
-          <option value="in_progress" ${quality.status === "in_progress" ? "selected" : ""}>In progress</option>
-          <option value="approved" ${quality.status === "approved" ? "selected" : ""}>Approved</option>
-        </select>
-      </label>
-      <label>Reviewer notes<textarea name="teachingKitQualityNotes" rows="3">${escapeHtml(quality.notes)}</textarea></label>
-    </details>
   `;
 }
 
@@ -10099,14 +10066,11 @@ function renderAdminCurriculumLessonPlanForm(plan) {
       </div>
       <button class="ghost-button back-button" type="button" data-curriculum-lesson-back>← Back to Lesson Plan List</button>
       <h4>Editing: ${escapeHtml(record.title || "New Lesson Plan")}</h4>
-      <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Complete Teaching Kit editor — legacy fields remain the source of truth; optional overlays save separately.</p>
+      <p class="muted-copy">${curriculumLessonPlanStatusLabel(record.status || "draft")} · Premium weekly, daily, and activity fields edit here.</p>
       ${adminCurriculumLessonJumpNavHtml()}
       <div class="access-notice curriculum-activity-sync-notice" role="status">
-        <strong>Teaching Kit:</strong> Overview, weekly plan, linked activities, printables, songs, books, adaptations, family connections, and observation prompts map to existing lesson fields. Linked activities sync to the Activity Library on save.
+        Changes to lesson-plan activities will update linked Activity Library entries when saved.
       </div>
-      <div id="admin-lesson-overview">
-      <details class="admin-fieldset teaching-kit-section" open>
-        <summary><strong>Overview</strong> <span class="muted-copy">Title, age, theme, domains, weekly overview</span></summary>
       <div id="admin-lesson-basics">
       <div class="form-grid-two">
         <label>Title<input name="title" value="${escapeHtml(record.title || "")}" required /></label>
@@ -10125,6 +10089,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         </label>
       </div>
       </div>
+      <div id="admin-lesson-cover">${renderAdminCurriculumLessonCoverSection(record)}</div>
       <label>Status
         <select name="status">
           ${CURRICULUM_LESSON_STATUSES.map((status) => `<option value="${status}"${record.status === status ? " selected" : ""}>${curriculumLessonPlanStatusLabel(status)}</option>`).join("")}
@@ -10141,32 +10106,29 @@ function renderAdminCurriculumLessonPlanForm(plan) {
           `).join("")}
         </div>
       </fieldset>
-      <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
-      </details>
-      </div>
-      <div id="admin-lesson-cover">${renderAdminCurriculumLessonCoverSection(record)}</div>
-      <details class="admin-fieldset curriculum-weekly-editor teaching-kit-section" id="admin-lesson-weekly" open>
-        <summary><strong>Weekly plan</strong> <span class="muted-copy">Objectives, materials, books, songs, family &amp; observation prompts</span></summary>
+      <details class="admin-fieldset curriculum-weekly-editor" id="admin-lesson-weekly" open>
+        <summary><strong>Weekly section</strong></summary>
+        <label>Weekly overview<textarea name="weeklyOverview" rows="3">${escapeHtml(record.weeklyOverview || "")}</textarea></label>
         <label>Weekly objectives<textarea name="objectives" rows="3">${escapeHtml(record.objectives || "")}</textarea></label>
         <label>Weekly materials<textarea name="weeklyMaterials" rows="3">${escapeHtml(record.weeklyMaterials || "")}</textarea></label>
         <label>Weekly vocabulary<textarea name="vocabularyWords" rows="2">${escapeHtml(record.vocabularyWords || "")}</textarea></label>
         <div class="curriculum-day-list-block">
-          <h5>Books</h5>
+          <h5>Weekly books</h5>
           ${curriculumBooksEditorHtml(record.books || [], { scope: "weekly", addLabel: "+ Add book" })}
         </div>
         <div class="curriculum-day-list-block">
-          <h5>Songs</h5>
+          <h5>Weekly songs</h5>
           ${curriculumSongsEditorHtml(record.songs || [], { scope: "weekly", addLabel: "+ Add song" })}
         </div>
-        <label>Family connections<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
-        <label>Developmental observation / documentation prompts<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
-        <label>Mixed-age adaptations, extra support &amp; added challenge<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
+        <label>Family connection<textarea name="familyConnection" rows="2">${escapeHtml(record.familyConnection || "")}</textarea></label>
+        <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
+        <label>Adaptations<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
       </details>
-      <div class="curriculum-daily-editor" id="admin-lesson-daily">
+      <div class="curriculum-daily-editor">
         <div class="curriculum-daily-toolbar">
           <div>
-            <h4>Reusable linked activities (Monday–Friday)</h4>
-            <p class="muted-copy">Daily sections include setup/cleanup, teacher toolkit language, and per-activity adaptations. Activities sync to the Activity Library on save.</p>
+            <h4>Monday–Friday daily sections</h4>
+            <p class="muted-copy">Collapse days you are not editing. Jump links above scroll instantly.</p>
           </div>
           <div class="account-actions-row">
             <button class="ghost-button" type="button" data-admin-days-collapse="all">Collapse all days</button>
@@ -10175,8 +10137,7 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         </div>
         ${dayEditors}
       </div>
-      <div id="admin-lesson-printables">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
-      ${renderAdminTeachingKitQualitySection(record)}
+      <div id="admin-lesson-resources">${renderCurriculumLessonLinkedResourcesSection(record)}</div>
       <div class="form-actions admin-lesson-form-actions">
         <button class="ghost-button" type="button" data-curriculum-lesson-back>Cancel</button>
         <button class="primary-button" type="submit" ${adminCurriculumLessonSaving ? "disabled" : ""}>${adminCurriculumLessonSaving ? "Saving…" : "Save lesson plan"}</button>
@@ -10530,38 +10491,6 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
       const rawPosition = formData.get("coverImagePosition");
       if (rawPosition === null) return existing?.coverImagePosition || "center";
       return normalizedShortText(rawPosition) || "center";
-    })(),
-    teachingKit: (() => {
-      const qualityStatus = normalizedShortText(formData.get("teachingKitQualityStatus"));
-      const qualityNotes = normalizedMultilineText(formData.get("teachingKitQualityNotes"));
-      const priorTeachingKit = existing?.teachingKit && typeof existing.teachingKit === "object"
-        ? existing.teachingKit
-        : null;
-      if (!qualityStatus && !qualityNotes) {
-        if (!priorTeachingKit?.sectionOverrides?.quality_review) return priorTeachingKit || undefined;
-        const nextOverrides = { ...(priorTeachingKit.sectionOverrides || {}) };
-        delete nextOverrides.quality_review;
-        const hasOtherOverlay = Object.keys(nextOverrides).length > 0
-          || (Array.isArray(priorTeachingKit.attachmentIds) && priorTeachingKit.attachmentIds.length)
-          || (Array.isArray(priorTeachingKit.exampleImageIds) && priorTeachingKit.exampleImageIds.length);
-        return hasOtherOverlay
-          ? { ...priorTeachingKit, sectionOverrides: nextOverrides, updatedAt: new Date().toISOString() }
-          : undefined;
-      }
-      return {
-        schemaVersion: 1,
-        completeness: priorTeachingKit?.completeness || "legacy_mapped",
-        sectionOverrides: {
-          ...(priorTeachingKit?.sectionOverrides || {}),
-          quality_review: {
-            status: qualityStatus,
-            notes: qualityNotes,
-          },
-        },
-        attachmentIds: priorTeachingKit?.attachmentIds || [],
-        exampleImageIds: priorTeachingKit?.exampleImageIds || [],
-        updatedAt: new Date().toISOString(),
-      };
     })(),
     createdAt: existing?.createdAt || "",
     updatedAt: existing?.updatedAt || "",
@@ -11103,8 +11032,8 @@ function renderCurriculumLessonLinkedResourcesSection(plan) {
   const available = curriculumResourcesForAdmin().filter((item) => !linked.some((linkedItem) => linkedItem.id === item.id));
   return `
     <fieldset class="admin-fieldset curriculum-linked-resources">
-      <legend>Printables &amp; linked resources</legend>
-      <p class="muted-copy">Printables and classroom files link to this lesson plan only (not individual activities).</p>
+      <legend>Linked resources</legend>
+      <p class="muted-copy">Resources link to this lesson plan only (not individual activities).</p>
       <div class="curriculum-linked-resource-list">
         ${linked.length
           ? linked.map((resource) => {
