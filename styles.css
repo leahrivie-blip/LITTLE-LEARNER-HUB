@@ -23667,3 +23667,207 @@ body.nuo-open .llh-meta-cookie-notice {
     border-radius: 999px;
   }
 }
+
+/* ===== Teaching Kit Print Center (Slice 1E) ===== */
+.tk-radio-row,
+.tk-check-inline {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 6px 0;
+  font-size: 0.92rem;
+  color: var(--tk-ink, #1f2a24);
+}
+.tk-radio-row input,
+.tk-check-inline input {
+  margin-top: 3px;
+}
+.teaching-kit-print-article,
+.tk-print-root {
+  color: #1f2a24;
+  background: #fff;
+}
+.tk-print-page {
+  position: relative;
+  break-after: page;
+  page-break-after: always;
+  padding: 12px 8px 28px;
+  min-height: 9.5in;
+  box-sizing: border-box;
+}
+.tk-print-page:last-child {
+  break-after: auto;
+  page-break-after: auto;
+}
+.tk-print-running {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #2f6b4f;
+  margin-bottom: 10px;
+}
+.tk-print-page-title {
+  margin: 0 0 6px;
+  font-size: 1.35rem;
+  color: #1f4d38;
+}
+.tk-print-rule {
+  border: 0;
+  border-top: 2px solid #2f6b4f;
+  margin: 8px 0 14px;
+}
+.tk-print-footer {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #5c6b62;
+}
+.tk-print-muted { color: #5c6b62; }
+.tk-print-list { margin: 6px 0 12px; padding-left: 18px; }
+.tk-print-list li { margin: 4px 0; }
+.tk-print-block { margin: 0 0 10px; }
+.tk-print-message {
+  border: 1px dashed #c9d7ce;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0 14px;
+  line-height: 1.45;
+}
+.tk-print-callout {
+  background: #fff6e8;
+  border: 1px solid #f0dfc4;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0 12px;
+}
+.tk-print-pre { white-space: pre-wrap; line-height: 1.45; }
+.tk-print-cover {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  background: linear-gradient(160deg, #1f4d38, #2f6b4f 60%, #3d7f5e);
+  color: #fff;
+  border-radius: 8px;
+  padding: 28px 24px;
+}
+.tk-print-cover .tk-print-footer { color: rgba(255,255,255,0.85); }
+.tk-print-brand {
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.78rem;
+  font-weight: 800;
+  opacity: 0.92;
+}
+.tk-print-cover h1 {
+  margin: 18px 0 10px;
+  font-size: 2.2rem;
+  line-height: 1.1;
+}
+.tk-print-subtitle,
+.tk-print-theme,
+.tk-print-preset,
+.tk-print-cover-note { opacity: 0.95; }
+.tk-print-tab-list {
+  margin: 18px 0;
+  padding-left: 18px;
+  font-weight: 700;
+}
+.tk-print-divider {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: 12px;
+  background: #f3faf6;
+  border-left: 14px solid #2f6b4f;
+}
+.tk-print-divider[data-tk-print-tab="Setup"] { border-left-color: #c9783a; }
+.tk-print-divider[data-tk-print-tab="Activities"] { border-left-color: #3d6e8c; }
+.tk-print-divider[data-tk-print-tab="Families"] { border-left-color: #8a4b12; }
+.tk-print-divider[data-tk-print-tab="Observe"] { border-left-color: #5c6b62; }
+.tk-print-divider-tab {
+  display: inline-block;
+  background: #2f6b4f;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+.tk-print-photo-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 10px 0 14px;
+}
+.tk-print-photo {
+  border: 1px solid #d9e2db;
+  border-radius: 10px;
+  overflow: hidden;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+.tk-print-photo img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  display: block;
+}
+.tk-print-photo-ph {
+  height: 120px;
+  display: grid;
+  place-items: center;
+  background: #e8f2ec;
+  color: #1f4d38;
+}
+.tk-print-watermark {
+  position: fixed;
+  inset: 35% 8%;
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: rgba(31, 42, 36, 0.12);
+  transform: rotate(-18deg);
+  pointer-events: none;
+  z-index: 5;
+}
+.tk-print-root.is-ink-saver .tk-print-cover,
+.tk-print-root.is-ink-saver .tk-print-divider {
+  background: #fff !important;
+  color: #111 !important;
+  border: 1px solid #333;
+}
+.tk-print-root.is-ink-saver .tk-print-cover h1,
+.tk-print-root.is-ink-saver .tk-print-running,
+.tk-print-root.is-ink-saver .tk-print-page-title { color: #111 !important; }
+
+@media print {
+  body.printing-teaching-kit .lesson-workspace-topchrome,
+  body.printing-teaching-kit .lesson-workspace-action-bars,
+  body.printing-teaching-kit .lesson-workspace-more-menu,
+  body.printing-teaching-kit .lesson-workspace-action-sheet,
+  body.printing-teaching-kit .tk-ops-nav {
+    display: none !important;
+  }
+  body.printing-teaching-kit #resourceViewerModal .modal-card {
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+  body.printing-teaching-kit .tk-print-page {
+    min-height: auto;
+  }
+  @page {
+    size: letter;
+    margin: 0.55in;
+  }
+}

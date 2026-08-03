@@ -1806,6 +1806,8 @@ const curriculumAccessConfig = {
 const curriculumAuthorizedContentCache = new Map();
 const teachingKitContentCache = new Map();
 let teachingKitWorkspaceUnbind = null;
+let activeTeachingKitPayload = null;
+let activeTeachingKitFlags = null;
 const billingPlans = {
   Free: {
     name: "Free",
@@ -23705,6 +23707,9 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
     teachingKitWorkspaceUnbind = null;
   }
 
+  activeTeachingKitPayload = result.teachingKit;
+  activeTeachingKitFlags = result.featureFlags || null;
+
   const enhanced = await api.enhanceLessonWorkspace({
     body,
     teachingKit: result.teachingKit,
@@ -23715,12 +23720,97 @@ async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
         navigator.clipboard.writeText(message).catch(() => {});
       }
     },
+    onPrint: (selection) => {
+      void printTeachingKitBinder(viewerResource, result.teachingKit, selection, result.featureFlags);
+    },
   });
   if (enhanced.enhanced) {
     body.classList.add("teaching-kit-mode");
     updateResourceViewerBackButton();
   }
   return enhanced;
+}
+
+/**
+ * Slice 1E — Print Center binder output.
+ * Gated by teachingKitPrintCenter. Uses existing trial export authorize path
+ * before assembling client print HTML (no entitlement bypass).
+ */
+async function printTeachingKitBinder(viewerResource, kit, selection = {}, featureFlags = null) {
+  const flags = featureFlags || activeTeachingKitFlags || {};
+  if (flags.teachingKitPrintCenter !== true) {
+    if (typeof showToast === "function") {
+      showToast("Teaching Kit Print Center is not enabled.");
+    }
+    return { ok: false, reason: "print_flag_off" };
+  }
+  const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+  if (!printApi || typeof printApi.buildBinderPrintHtml !== "function") {
+    if (typeof showToast === "function") showToast("Teaching Kit print module is not loaded.");
+    return { ok: false, reason: "print_module_missing" };
+  }
+  const kitPayload = kit || activeTeachingKitPayload;
+  if (!kitPayload?.companion) {
+    return { ok: false, reason: "missing_kit" };
+  }
+
+  const gate = await confirmTrialCurriculumExport(viewerResource, "print");
+  if (!gate.allowed) return { ok: false, reason: "trial_blocked" };
+  const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource) || "";
+  if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) {
+    return { ok: false, reason: "watermark_required" };
+  }
+
+  const built = printApi.buildBinderPrintHtml(kitPayload, {
+    ...selection,
+    watermark,
+  });
+  if (!built.ok) return { ok: false, reason: built.reason || "build_failed" };
+
+  if (gate.counted && watermark && !String(built.html).includes(watermark)) {
+    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
+    else window.alert(MEMBERSHIP_COPY.watermarkTryAgain);
+    return { ok: false, reason: "watermark_missing" };
+  }
+
+  const body = document.querySelector("#resourceViewerBody");
+  if (!body) return { ok: false, reason: "missing_body" };
+  body.innerHTML = `<article class="printable-resource-page teaching-kit-print-article">${built.html}</article>`;
+  if (watermark) applyTrialCurriculumWatermark(body, watermark);
+
+  if (typeof recordResourceOutputRequest === "function") {
+    recordResourceOutputRequest({
+      mode: "print",
+      printVariant: "teaching-kit-binder",
+      resourceId: viewerResource?.id || kitPayload.lessonPlanId || "",
+      title: kitPayload.title || viewerResource?.title || "Teaching Kit",
+      category: "Lesson Plans",
+      trialExportCounted: Boolean(gate.counted),
+    });
+  }
+  if (typeof trackEvent === "function") {
+    trackEvent("teaching_kit_print", {
+      title: kitPayload.title || viewerResource?.title || "Teaching Kit",
+      preset: selection.preset || "week_binder",
+      pageCount: built.pageCount || 0,
+      trialExportCounted: Boolean(gate.counted),
+    });
+  }
+
+  document.body.classList.add("printing-resource", "printing-teaching-kit");
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    document.body.classList.remove("printing-resource", "printing-teaching-kit");
+    window.removeEventListener("afterprint", cleanup);
+    // Rebuild interactive Teaching Kit UI after print document is dismissed.
+    void enhanceLessonWorkspaceWithTeachingKit(viewerResource).catch(() => {});
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+  setTimeout(cleanup, 1800);
+  return { ok: true, reason: "printed", pageCount: built.pageCount || 0 };
 }
 
 function applyLessonWorkspaceChrome(viewerResource) {

@@ -1,6 +1,6 @@
 # Complete Teaching Kits — Phase 1 Architecture (No Migration)
 
-**Status:** Architecture approved · **Slice 1A–1D done** · flags still off · **stop for 1D review**  
+**Status:** Architecture approved · **Slice 1A–1E done** · flags still off · **stop for 1E review**  
 **Branch:** `cursor/teaching-kit-architecture-9ad1`  
 **Date:** 2026-08-03  
 **Base:** `origin/main` @ `f36c0c272367c6000fd310dac62b9a0938903ca4`  
@@ -414,9 +414,9 @@ Ordered, stop-for-review slices:
 | **1A** ✅ done | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; public `/api/site-content` omits `featureFlags`; no bulk rewrite; legacy tests green; no viewer/PDF |
 | **1B** ✅ done | `mapLessonPlanToTeachingKit` + companion read-model + fixture tests | Maps Bugs & Butterflies + enriched/empty fixtures; empty sections omitted; flags still false; **no UI/API/PDF** |
 | **1C** ✅ done | `GET /api/curriculum/lesson-plans/:id/teaching-kit` behind viewer/print flags | Flag off → 404; auth parity with detail; Pro/Trial/free-starter unlock; locked preview has no companion body; public site-content unchanged |
-| **1D** ✅ done (review) | Companion binder UI behind `teachingKitViewer` | Start/Setup/Today/Open Everything/Activity+Substitute/Build/Binder preview; back/favorite/assign intact; fail closed to legacy workspace; flags stay false |
-| **1E** | Build My Kit UI + client PDF/print path | Selected sections only; legacy print still works |
-| **1F** | Trial/Pro enforcement on kit print | No bypass of trial exports |
+| **1D** ✅ done | Companion binder UI behind `teachingKitViewer` | Start/Setup/Today/Open Everything/Activity+Substitute/Build/Binder preview; back/favorite/assign intact; fail closed to legacy workspace; flags stay false |
+| **1E** ✅ done (review) | Build My Kit Print Center + client binder print path behind `teachingKitPrintCenter` | Presets + section toggles; professional cover/tabs/footers; selected activities only; trial authorize before print; legacy print still works; flags stay false |
+| **1F** | Trial/Pro enforcement hardening on kit print | Extra bypass/regression coverage beyond 1E gate |
 | **1G** | AttachmentType enum + admin attach hook (optional) | Future types documented + one test resource |
 | **1H** | QA checklist + controlled flag enable | Owner approval before wider release |
 
@@ -479,6 +479,8 @@ Add (when coding):
 | Slice 1C tests | `scripts/test-teaching-kit-slice-1c.js` (`npm run test:teaching-kit-slice-1c`) |
 | Slice 1D viewer UI | `scripts/teaching-kit-viewer.js` + `app.js` enhance hook + `styles.css` |
 | Slice 1D tests | `scripts/test-teaching-kit-slice-1d.js` (`npm run test:teaching-kit-slice-1d`) |
+| Slice 1E Print Center | `scripts/teaching-kit-print.js` + Build/Print UI + `printTeachingKitBinder` in `app.js` |
+| Slice 1E tests | `scripts/test-teaching-kit-slice-1e.js` (`npm run test:teaching-kit-slice-1e`) |
 | Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
 
 **Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Kit payloads are **not** added to site-content.
@@ -498,7 +500,16 @@ Add (when coding):
 - Preserves back, favorite/save, and Use This Plan / assign chrome
 - Print PDF generation remains deferred to Slice 1E
 
-**Slice 1D does not include:** Print Center/PDF generation, attachments UX, migrations, production flag enablement, deployment.
+**Slice 1E Print Center rules**
+
+- Gated by `teachingKitPrintCenter === true` (viewer UI may still load with viewer flag alone)
+- Presets: Today pack · Monday Setup pack · Week binder · Family pack
+- Section toggles + activity add/remove before print
+- Output: professional binder HTML (cover, tab dividers, running brand/footer, US Letter) via `window.print()`
+- **Must** call existing `confirmTrialCurriculumExport` before print; watermark embedded when counted
+- Legacy lesson print/download paths remain available
+
+**Slice 1E does not include:** production flag enablement, merge/deploy, attachments UX, migrations.
 
 ---
 

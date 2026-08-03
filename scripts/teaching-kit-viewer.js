@@ -118,7 +118,7 @@
     `;
   }
 
-  function setupSurfaceHtml(kit) {
+  function setupSurfaceHtml(kit, state) {
     const setup = kit.companion?.mondayMorningSetup || {};
     const missing = setup.missingMaterials || [];
     const breakdown = setup.prepBreakdown || {};
@@ -162,7 +162,9 @@
             <article class="tk-card tk-card-warn">
               <h4>Print checklist</h4>
               ${checklistHtml(setup.printChecklist || [], "print")}
-              <p class="tk-muted tk-note">Full Print Center arrives in a later slice — use legacy print from More for now.</p>
+              <p class="tk-muted tk-note">${state && state.printCenterEnabled
+                ? "Open <strong>Build / Print</strong> to assemble the Teaching Kit binder."
+                : "Print Center is flagged off — use legacy print from More, or enable teachingKitPrintCenter locally to preview."}</p>
             </article>
             <article class="tk-card">
               <h4>After setup</h4>
@@ -404,10 +406,47 @@
     const removed = state.removedActivityIds || {};
     const activities = build.activities || [];
     const includedCount = activities.filter((item) => !removed[item.id]).length;
+    const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+    const presets = printApi?.PRESETS || [];
+    const partLabels = printApi?.PART_LABELS || {};
+    const parts = state.printParts || {};
+    const printEnabled = Boolean(state.printCenterEnabled);
     return `
       <section class="tk-surface" data-tk-panel="build">
         <div class="tk-grid-2">
           <div class="tk-stack">
+            <h3 class="tk-section-title">Build My Kit · Print Center</h3>
+            <article class="tk-card">
+              <h4>Print pack</h4>
+              <div class="tk-stack">
+                ${presets.map((preset) => `
+                  <label class="tk-radio-row">
+                    <input type="radio" name="tk-print-preset" value="${escapeHtml(preset.id)}" ${state.printPreset === preset.id ? "checked" : ""} data-tk-print-preset="${escapeHtml(preset.id)}" />
+                    <span>${escapeHtml(preset.label)}</span>
+                  </label>
+                `).join("") || `<p class="tk-muted">Print module not loaded.</p>`}
+              </div>
+            </article>
+            <article class="tk-card">
+              <h4>Sections</h4>
+              ${Object.keys(partLabels).map((key) => `
+                <label class="tk-check-inline">
+                  <input type="checkbox" data-tk-print-part="${escapeHtml(key)}" ${parts[key] ? "checked" : ""} />
+                  <span>${escapeHtml(partLabels[key])}</span>
+                </label>
+              `).join("")}
+            </article>
+            <article class="tk-card">
+              <h4>Options</h4>
+              <label class="tk-check-inline">
+                <input type="checkbox" data-tk-print-option="includeImages" ${state.includeImages !== false ? "checked" : ""} />
+                <span>Include example / setup photo placeholders</span>
+              </label>
+              <label class="tk-check-inline">
+                <input type="checkbox" data-tk-print-option="inkSaver" ${state.inkSaver ? "checked" : ""} />
+                <span>Ink-saver (simplified styling)</span>
+              </label>
+            </article>
             <h3 class="tk-section-title">Activities in this kit</h3>
             ${activities.map((item) => {
               const off = Boolean(removed[item.id]);
@@ -427,14 +466,22 @@
           </div>
           <div class="tk-stack">
             <article class="tk-card">
-              <h4>Binder always includes</h4>
-              <ul class="tk-list">${(build.alwaysIncluded || []).map((line) => `<li>${escapeHtml(line)}</li>`).join("")}</ul>
+              <h4>Binder always branded</h4>
+              <ul class="tk-list">
+                <li>Cover page with LLH mark</li>
+                <li>Color tab section dividers</li>
+                <li>Running header + page footer</li>
+                <li>US Letter classroom layout</li>
+              </ul>
             </article>
             <article class="tk-card tk-card-soft">
-              <h4>Ready to assemble</h4>
-              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> selected · professional week binder</p>
-              <button type="button" class="tk-btn tk-btn-primary" data-tk-goto="binder">Preview binder</button>
-              <p class="tk-muted tk-note">PDF generation ships in a later Print Center slice. Preview the binder layout now.</p>
+              <h4>Ready to print</h4>
+              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")}</p>
+              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"}>Print Teaching Kit binder</button>
+              <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
+              <p class="tk-muted tk-note">${printEnabled
+                ? "Opens a professional binder print layout. Trial exports use the existing watermarked allowance path."
+                : "Enable <strong>teachingKitPrintCenter</strong> locally to print. Selection still works for preview."}</p>
             </article>
           </div>
         </div>
@@ -489,6 +536,9 @@
         </div>
         <div class="tk-stack tk-binder-actions">
           <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Edit My Kit</button>
+          ${state.printCenterEnabled
+            ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print / Save PDF</button>`
+            : ""}
           <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Back to Today</button>
         </div>
       </section>
@@ -498,7 +548,7 @@
   function surfaceHtml(kit, state) {
     switch (state.surface) {
       case "setup":
-        return setupSurfaceHtml(kit);
+        return setupSurfaceHtml(kit, state);
       case "today":
         return todaySurfaceHtml(kit, state);
       case "activity":
@@ -556,8 +606,10 @@
     `;
   }
 
-  function defaultState(kit) {
+  function defaultState(kit, options) {
     const today = kit?.companion?.today?.day || "monday";
+    const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+    const presetId = "week_binder";
     return {
       surface: "start",
       day: today,
@@ -566,6 +618,23 @@
       showSubstitute: false,
       returnSurface: "today",
       removedActivityIds: {},
+      printCenterEnabled: Boolean(options && options.printCenterEnabled),
+      printPreset: presetId,
+      printParts: printApi?.defaultPartsForPreset
+        ? printApi.defaultPartsForPreset(presetId)
+        : {
+          cover: true,
+          setup: true,
+          daily: true,
+          activities: true,
+          songsBooks: true,
+          vocabulary: true,
+          family: true,
+          observations: true,
+          printables: true,
+        },
+      includeImages: true,
+      inkSaver: false,
     };
   }
 
@@ -586,10 +655,56 @@
       if (!body) return;
       renderInto(body, kit, state, chrome);
       const nextRoot = body.querySelector("[data-teaching-kit-workspace]");
-      if (nextRoot) bindWorkspace(nextRoot, { kit, state, chrome, onCopy: ctx.onCopy });
+      if (nextRoot) bindWorkspace(nextRoot, { kit, state, chrome, onCopy: ctx.onCopy, onPrint: ctx.onPrint });
     }
 
     function onClick(event) {
+      const preset = event.target.closest("[data-tk-print-preset]");
+      if (preset) {
+        const id = preset.getAttribute("data-tk-print-preset") || preset.value;
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        state.printPreset = id || state.printPreset;
+        if (printApi?.defaultPartsForPreset) {
+          state.printParts = printApi.defaultPartsForPreset(state.printPreset);
+        }
+        rerender();
+        return;
+      }
+
+      const part = event.target.closest("[data-tk-print-part]");
+      if (part && part.matches("input")) {
+        const key = part.getAttribute("data-tk-print-part");
+        if (key) {
+          state.printParts = { ...(state.printParts || {}), [key]: Boolean(part.checked) };
+        }
+        return;
+      }
+
+      const option = event.target.closest("[data-tk-print-option]");
+      if (option && option.matches("input")) {
+        const key = option.getAttribute("data-tk-print-option");
+        if (key === "includeImages") state.includeImages = Boolean(option.checked);
+        if (key === "inkSaver") state.inkSaver = Boolean(option.checked);
+        return;
+      }
+
+      const printBtn = event.target.closest("[data-tk-print-binder]");
+      if (printBtn) {
+        event.preventDefault();
+        if (!state.printCenterEnabled) return;
+        if (typeof ctx.onPrint === "function") {
+          ctx.onPrint({
+            preset: state.printPreset,
+            parts: state.printParts,
+            removedActivityIds: state.removedActivityIds,
+            day: state.day,
+            includeImages: state.includeImages !== false,
+            inkSaver: Boolean(state.inkSaver),
+          });
+        }
+        return;
+      }
+
       const goto = event.target.closest("[data-tk-goto]");
       if (goto) {
         event.preventDefault();
@@ -688,7 +803,9 @@
     }
     if (!kitPayload.companion) return { enhanced: false, reason: "missing_companion" };
 
-    const state = defaultState(kitPayload);
+    const state = defaultState(kitPayload, {
+      printCenterEnabled: flags.teachingKitPrintCenter === true || opts.printCenterEnabled === true,
+    });
     const chrome = opts.chrome || {};
     renderInto(body, kitPayload, state, chrome);
     const root = body.querySelector("[data-teaching-kit-workspace]");
@@ -698,9 +815,10 @@
       state,
       chrome,
       onCopy: opts.onCopy,
+      onPrint: opts.onPrint,
     });
     body.dataset.teachingKitEnhanced = "1";
-    return { enhanced: true, reason: "ok" };
+    return { enhanced: true, reason: "ok", state };
   }
 
   return {
