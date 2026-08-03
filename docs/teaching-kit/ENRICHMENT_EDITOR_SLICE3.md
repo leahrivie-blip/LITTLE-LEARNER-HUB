@@ -1,6 +1,6 @@
 # Teaching Kit Enrichment Editor — Slice 3
 
-**Status:** Ready for owner review (do not merge / deploy / enable flag without approval)  
+**Status:** Approved  
 **Flag:** `featureFlags.teachingKitEnrichmentEditor` (**default `false`**)  
 **Depends on:** Slice 1 + Slice 2 (approved)  
 **Scope:** Live Preview + draft-to-provider parity  

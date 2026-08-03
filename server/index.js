@@ -29,6 +29,7 @@ const analyticsStore = require("./analytics-store.js");
 const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
+const enrichmentMedia = require("./enrichment-media.js");
 const seo = require("./seo.js");
 const metaCapi = require("./meta-capi.js");
 const testAccountGuard = require("./test-account-guard.js");
@@ -16718,7 +16719,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         return;
       }
       const draftInput = incomingPlan.enrichmentDraft && typeof incomingPlan.enrichmentDraft === "object"
-        ? incomingPlan.enrichmentDraft
+        ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(incomingPlan.enrichmentDraft)
         : {};
       const draftPlan = normalizedCurriculumLessonPlan({
         ...existingPlan,
@@ -17192,6 +17193,262 @@ async function handleAdminLessonCoverUpload(request, response) {
       error: "The cover could not be saved to persistent media storage. The lesson plan was not changed.",
     });
   }
+}
+
+async function persistEnrichmentPhotoVariants({
+  assetId,
+  lessonPlanId,
+  activityKey,
+  field,
+  fileName,
+  variants,
+}) {
+  const meta = {
+    lessonPlanId,
+    activityKey,
+    field,
+    fileName: fileName || "photo",
+    visibility: "draft_private",
+    createdAt: new Date().toISOString(),
+  };
+  if (usePostgresStore() && postgresPool && databaseReady) {
+    for (const variant of ["full", "thumb"]) {
+      const row = variants[variant];
+      const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
+      await curriculumMedia.insertMediaAsset(postgresPool, {
+        id: rowId,
+        kind: enrichmentMedia.ENRICHMENT_MEDIA_KIND,
+        mimeType: row.mimeType,
+        fileName: `${fileName || "photo"}${variant === "thumb" ? "-thumb" : ""}`,
+        buffer: row.buffer,
+      });
+    }
+    return { persistent: true, storage: "postgres" };
+  }
+  const dir = enrichmentMedia.localMediaDirFromStorePath(storePath);
+  for (const variant of ["full", "thumb"]) {
+    const row = variants[variant];
+    enrichmentMedia.writeLocalEnrichmentAsset(dir, assetId, variant, {
+      mimeType: row.mimeType,
+      buffer: row.buffer,
+      meta,
+    });
+  }
+  return { persistent: true, storage: "local-sidecar" };
+}
+
+async function readEnrichmentPhotoVariant(assetId, variant) {
+  const v = variant === "thumb" ? "thumb" : "full";
+  if (usePostgresStore() && postgresPool && databaseReady) {
+    const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, v);
+    const asset = await curriculumMedia.readMediaAsset(
+      postgresPool,
+      rowId,
+      enrichmentMedia.ENRICHMENT_MEDIA_KIND,
+    );
+    if (!asset?.buffer?.length) return null;
+    return {
+      id: assetId,
+      variant: v,
+      mimeType: asset.mimeType,
+      fileName: asset.fileName,
+      buffer: asset.buffer,
+      byteLen: asset.byteLen,
+      visibility: "draft_private",
+    };
+  }
+  return enrichmentMedia.readLocalEnrichmentAsset(
+    enrichmentMedia.localMediaDirFromStorePath(storePath),
+    assetId,
+    v,
+  );
+}
+
+async function deleteEnrichmentPhotoAsset(assetId) {
+  if (usePostgresStore() && postgresPool && databaseReady) {
+    for (const variant of ["full", "thumb"]) {
+      const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
+      try {
+        await postgresPool.query(
+          `DELETE FROM llh_media_assets WHERE id = $1 AND kind = $2`,
+          [rowId, enrichmentMedia.ENRICHMENT_MEDIA_KIND],
+        );
+      } catch (error) {
+        console.error("[enrichment-photo-delete] postgres delete failed", error.message);
+      }
+    }
+    return;
+  }
+  enrichmentMedia.deleteLocalEnrichmentAsset(
+    enrichmentMedia.localMediaDirFromStorePath(storePath),
+    assetId,
+  );
+}
+
+async function handleAdminEnrichmentPhotoUpload(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required to upload enrichment photos." });
+    return;
+  }
+  const store = readStore();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+  const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
+  const activityKey = normalizedShortText(body.activityKey, 160);
+  const field = normalizedShortText(body.field, 40);
+  if (!lessonPlanId || !activityKey || !["setupImageUrl", "exampleImageUrl"].includes(field)) {
+    jsonResponse(response, 400, {
+      error: "lessonPlanId, activityKey, and field (setupImageUrl|exampleImageUrl) are required.",
+      code: "invalid_enrichment_photo_target",
+    });
+    return;
+  }
+  const curriculum = readSiteCurriculum(store);
+  const plan = (curriculum.lessonPlans || []).find((item) => item.id === lessonPlanId);
+  if (!plan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found." });
+    return;
+  }
+  const parsed = enrichmentMedia.parseEnrichmentUploadDataUrl(body.fileData);
+  if (!parsed.ok) {
+    jsonResponse(response, 400, {
+      error: parsed.error,
+      code: parsed.code,
+    });
+    return;
+  }
+  const fileName = sanitizeCurriculumUploadFileName(body.fileName || "activity-photo");
+  let variants;
+  try {
+    variants = await enrichmentMedia.buildEnrichmentVariants(parsed.buffer);
+  } catch (error) {
+    console.error("[enrichment-photo-upload] optimize failed", error.message);
+    jsonResponse(response, 400, {
+      error: "Could not process image. Try a different JPEG, PNG, or WebP.",
+      code: "image_process_failed",
+    });
+    return;
+  }
+  const assetId = enrichmentMedia.enrichmentMediaAssetId();
+  try {
+    const stored = await persistEnrichmentPhotoVariants({
+      assetId,
+      lessonPlanId,
+      activityKey,
+      field,
+      fileName,
+      variants,
+    });
+    const mediaUrl = enrichmentMedia.enrichmentMediaUrl(assetId, "full");
+    const thumbUrl = enrichmentMedia.enrichmentMediaUrl(assetId, "thumb");
+    jsonResponse(response, 200, {
+      ok: true,
+      mediaAssetId: assetId,
+      mediaUrl,
+      thumbUrl,
+      field,
+      lessonPlanId,
+      activityKey,
+      mimeType: variants.full.mimeType,
+      thumbMimeType: variants.thumb.mimeType,
+      fileName,
+      byteLen: variants.full.buffer.length,
+      thumbByteLen: variants.thumb.buffer.length,
+      originalByteLen: parsed.buffer.length,
+      optimized: variants.full.optimized && variants.thumb.optimized,
+      sharpAvailable: enrichmentMedia.sharpAvailable(),
+      persistent: stored.persistent,
+      storage: stored.storage,
+      visibility: "draft_private",
+      sha256: enrichmentMedia.sha256Buffer(variants.full.buffer),
+    });
+  } catch (error) {
+    console.error("[enrichment-photo-upload] store failed", error.message);
+    jsonResponse(response, 503, {
+      error: "Enrichment photo could not be saved to media storage.",
+      code: "media_storage_unavailable",
+    });
+  }
+}
+
+async function handleAdminEnrichmentPhotoMedia(request, response, assetId, url) {
+  const id = normalizedShortText(assetId, 120);
+  if (!enrichmentMedia.isEnrichmentMediaAssetId(id)) {
+    textResponse(response, 404, "Photo not found.");
+    return;
+  }
+  const adminToken = extractAdminToken(request, url)
+    || normalizedShortText(url.searchParams.get("adminToken"), 500);
+  if (!validAdminToken(adminToken)) {
+    // Draft photos are never public — fail closed.
+    textResponse(response, 404, "Photo not found.");
+    return;
+  }
+  const store = readStore();
+  const enrichFlags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    textResponse(response, 404, "Photo not found.");
+    return;
+  }
+  const variant = String(url.searchParams.get("variant") || "full").toLowerCase() === "thumb"
+    ? "thumb"
+    : "full";
+  try {
+    const asset = await readEnrichmentPhotoVariant(id, variant);
+    if (!asset?.buffer?.length) {
+      textResponse(response, 404, "Photo not found.");
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": asset.mimeType || "application/octet-stream",
+      "Content-Length": asset.buffer.length,
+      "Cache-Control": "private, no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-LLH-Enrichment-Visibility": "draft_private",
+    });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    response.end(asset.buffer);
+  } catch (error) {
+    console.error("[enrichment-photo-media] read failed", error.message);
+    textResponse(response, 503, "Photo temporarily unavailable.");
+  }
+}
+
+async function handleAdminEnrichmentPhotoDelete(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required to delete enrichment photos." });
+    return;
+  }
+  const store = readStore();
+  const enrichFlags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+  const mediaAssetId = normalizedShortText(body.mediaAssetId, 120);
+  if (!enrichmentMedia.isEnrichmentMediaAssetId(mediaAssetId)) {
+    jsonResponse(response, 400, { error: "Valid mediaAssetId is required.", code: "invalid_media_asset" });
+    return;
+  }
+  await deleteEnrichmentPhotoAsset(mediaAssetId);
+  jsonResponse(response, 200, { ok: true, mediaAssetId, deleted: true });
 }
 
 async function handleLessonCoverMedia(request, response, assetId) {
@@ -22275,6 +22532,10 @@ const server = http.createServer(async (request, response) => {
       const adminMedia = url.searchParams.get("admin") === "1" && validAdminToken(extractAdminToken(request, url));
       return await handleCurriculumResourceMedia(request, response, assetId, { admin: adminMedia, requestUrl: url });
     }
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/admin/media/enrichment-photos/")) {
+      const assetId = decodeURIComponent(url.pathname.slice("/api/admin/media/enrichment-photos/".length));
+      return await handleAdminEnrichmentPhotoMedia(request, response, assetId, url);
+    }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
       const remainder = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
       if (remainder.endsWith("/teaching-kit")) {
@@ -22474,6 +22735,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-plans") return await handleAdminCurriculumLessonPlanSave(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/upload") return await handleAdminLessonCoverUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/upload") return await handleAdminEnrichmentPhotoUpload(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);

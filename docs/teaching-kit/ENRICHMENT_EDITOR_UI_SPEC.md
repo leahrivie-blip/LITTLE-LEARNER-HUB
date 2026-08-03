@@ -404,15 +404,19 @@ See [ENRICHMENT_EDITOR_SLICE1.md](./ENRICHMENT_EDITOR_SLICE1.md).
 Photo placeholders · teacher tips · supply substitutions · indoor/outdoor · small/large group · observation prompts · activity vocabulary.  
 See [ENRICHMENT_EDITOR_SLICE2.md](./ENRICHMENT_EDITOR_SLICE2.md).
 
-### Slice 3 — Live Preview + draft-to-provider parity (current)
+### Slice 3 — Live Preview + draft-to-provider parity (approved)
 
 Real Teaching Kit viewer · Draft Preview label · desktop/tablet/mobile frames · published provider kit ignores drafts.  
-**No** photo uploads, AI, publishing, or print.  
 See [ENRICHMENT_EDITOR_SLICE3.md](./ENRICHMENT_EDITOR_SLICE3.md).
 
-### Later slices (not started until Slice 3 approved)
+### Slice 4 — Photo upload suite (current)
 
-4. Photo upload suite (drag/drop, replace, remove, full-size preview)  
+Private draft setup/example photos · drag/drop · replace/remove · full-size · optimize/thumbnails · no curriculum blobs.  
+**No** AI, publishing, or print.  
+See [ENRICHMENT_EDITOR_SLICE4.md](./ENRICHMENT_EDITOR_SLICE4.md).
+
+### Later slices (not started until Slice 4 approved)
+
 5. AI tip suggestions (explicit approve)  
 6. Publish confirmation + merge-to-live  
 

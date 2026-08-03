@@ -3,8 +3,9 @@
  * Slice 1: framework, navigation, progress, draft workflow.
  * Slice 2: Activity Studio foundation (placeholders + tips/subs/settings/obs/vocab).
  * Slice 3: Live Preview (real Teaching Kit viewer) + draft-to-provider parity.
+ * Slice 4: Activity Studio photo upload (private draft media).
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
- * Photo upload / AI / publish stay off until later slices.
+ * AI / publish stay off until later slices.
  */
 (function (root) {
   "use strict";
@@ -12,12 +13,14 @@
   const api = () => root.LLHTeachingKitEnrichment;
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const DAY_LABEL = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
+  const PHOTO_MAX_BYTES = 5 * 1024 * 1024;
+  const PHOTO_ACCEPT = "image/jpeg,image/png,image/webp,image/gif";
 
   /** Capability gates — later slices flip these on behind review. */
   const SLICE = Object.freeze({
     activityStudio: true, // Slice 2
     livePreview: true, // Slice 3
-    photoUpload: false,
+    photoUpload: true, // Slice 4
     aiSuggest: false,
     publish: false,
   });
@@ -249,6 +252,55 @@
     return activities.filter((a) => String(a.dayOfWeek) === state.dayFilter);
   }
 
+  function adminToken() {
+    return typeof adminSession === "function" ? (adminSession()?.token || "") : "";
+  }
+
+  function withAdminMediaToken(url) {
+    const base = String(url || "").trim();
+    const token = adminToken();
+    if (!base || !token) return base;
+    if (!base.includes("/api/admin/media/enrichment-photos/")) return base;
+    const join = base.includes("?") ? "&" : "?";
+    return `${base}${join}adminToken=${encodeURIComponent(token)}`;
+  }
+
+  function authorizeDraftKitPhotos(kit) {
+    if (!kit || typeof kit !== "object") return kit;
+    const token = adminToken();
+    if (!token) return kit;
+    const rewrite = (value) => {
+      const text = String(value || "").trim();
+      if (!text || !text.includes("/api/admin/media/enrichment-photos/")) return text;
+      return withAdminMediaToken(text);
+    };
+    const next = { ...kit, companion: kit.companion ? { ...kit.companion } : kit.companion };
+    if (next.companion?.activities) {
+      next.companion.activities = next.companion.activities.map((act) => ({
+        ...act,
+        setupPhotoUrl: rewrite(act.setupPhotoUrl),
+        examplePhotoUrl: rewrite(act.examplePhotoUrl),
+      }));
+    }
+    if (next.companion?.days) {
+      const days = { ...next.companion.days };
+      Object.keys(days).forEach((day) => {
+        const dayModel = days[day] ? { ...days[day] } : null;
+        if (!dayModel) return;
+        if (Array.isArray(dayModel.activities)) {
+          dayModel.activities = dayModel.activities.map((act) => ({
+            ...act,
+            setupPhotoUrl: rewrite(act.setupPhotoUrl),
+            examplePhotoUrl: rewrite(act.examplePhotoUrl),
+          }));
+        }
+        days[day] = dayModel;
+      });
+      next.companion.days = days;
+    }
+    return next;
+  }
+
   function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -258,15 +310,122 @@
     });
   }
 
+  function validatePhotoFile(file) {
+    if (!file) return { ok: false, error: "Choose a photo to upload." };
+    const type = String(file.type || "").toLowerCase();
+    if (!/^image\/(jpeg|png|webp|gif)$/i.test(type)) {
+      return { ok: false, error: "Use a JPEG, PNG, WebP, or GIF image." };
+    }
+    if (Number(file.size || 0) > PHOTO_MAX_BYTES) {
+      return { ok: false, error: "Image must be 5 MB or smaller." };
+    }
+    return { ok: true };
+  }
+
+  function mediaAssetField(field) {
+    return field === "exampleImageUrl" ? "exampleMediaAssetId" : "setupMediaAssetId";
+  }
+
+  function mediaThumbField(field) {
+    return field === "exampleImageUrl" ? "exampleImageThumbUrl" : "setupImageThumbUrl";
+  }
+
+  async function deleteMediaAsset(mediaAssetId) {
+    const id = String(mediaAssetId || "").trim();
+    if (!id) return;
+    const token = adminToken();
+    if (!token) return;
+    try {
+      await fetch("/api/admin/curriculum/enrichment-photos/delete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ adminToken: token, mediaAssetId: id }),
+      });
+    } catch (_error) {
+      // Best-effort cleanup; draft clear still proceeds.
+    }
+  }
+
   async function applyPhoto(key, field, file) {
-    if (!file || !/^image\//i.test(file.type || "")) return;
-    const dataUrl = await readFileAsDataUrl(file);
-    ensureDraftActivity(key)[field] = dataUrl;
+    if (!SLICE.photoUpload) return;
+    const check = validatePhotoFile(file);
+    if (!check.ok) {
+      state.statusText = check.error;
+      renderChromeOnly();
+      return;
+    }
+    const token = adminToken();
+    if (!token) {
+      state.statusText = "Admin session required to upload photos.";
+      renderChromeOnly();
+      return;
+    }
+    const plan = getPlan();
+    if (!plan?.id) return;
+    state.statusText = "Uploading photo…";
+    renderChromeOnly();
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const res = await fetch("/api/admin/curriculum/enrichment-photos/upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          adminToken: token,
+          lessonPlanId: plan.id,
+          activityKey: key,
+          field,
+          fileName: file.name || "activity-photo",
+          fileData: dataUrl,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        state.statusText = json.error || "Photo upload failed.";
+        renderChromeOnly();
+        return;
+      }
+      const draftAct = ensureDraftActivity(key);
+      const prevAsset = draftAct[mediaAssetField(field)];
+      draftAct[field] = json.mediaUrl || "";
+      draftAct[mediaThumbField(field)] = json.thumbUrl || json.mediaUrl || "";
+      draftAct[mediaAssetField(field)] = json.mediaAssetId || "";
+      if (prevAsset && prevAsset !== draftAct[mediaAssetField(field)]) {
+        deleteMediaAsset(prevAsset);
+      }
+      state.statusText = json.optimized
+        ? "Photo uploaded (optimized + thumbnail)."
+        : "Photo uploaded.";
+      markDirty();
+      render();
+    } catch (error) {
+      state.statusText = `Photo upload failed: ${error.message || error}`;
+      renderChromeOnly();
+    }
+  }
+
+  async function removePhoto(key, field) {
+    const draftAct = ensureDraftActivity(key);
+    const assetId = draftAct[mediaAssetField(field)];
+    draftAct[field] = "";
+    draftAct[mediaThumbField(field)] = "";
+    draftAct[mediaAssetField(field)] = "";
+    if (assetId) await deleteMediaAsset(assetId);
+    state.statusText = "Photo removed from draft.";
     markDirty();
     render();
   }
 
-  function photoZoneHtml(label, field, url, key) {
+  function photoZoneHtml(label, field, view, key) {
+    const url = field === "exampleImageUrl" ? view.exampleImageUrl : view.setupImageUrl;
+    const thumb = field === "exampleImageUrl" ? view.exampleImageThumbUrl : view.setupImageThumbUrl;
+    const displayUrl = withAdminMediaToken(thumb || url);
+    const fullUrl = withAdminMediaToken(url);
     const has = Boolean(url);
     if (!SLICE.photoUpload) {
       return `
@@ -274,7 +433,7 @@
           <div class="tk-enrich-photo-label">${esc(label)}</div>
           <div class="tk-enrich-photo-drop ${has ? "has-photo" : ""}" aria-label="${esc(label)}">
             ${has
-              ? `<img src="${esc(url)}" alt="${esc(label)}" />`
+              ? `<img src="${esc(displayUrl)}" alt="${esc(label)}" data-photo-full="${esc(fullUrl)}" onerror="this.classList.add('is-broken');this.alt='Photo unavailable';" />`
               : `<span class="tk-enrich-photo-empty">${esc(label)} placeholder<br><small>Upload arrives in a later slice</small></span>`}
           </div>
           ${has ? `<div class="tk-enrich-photo-actions"><button type="button" class="ghost-button" data-photo-preview>Full size</button></div>` : ""}
@@ -282,13 +441,13 @@
       `;
     }
     return `
-      <div class="tk-enrich-photo" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}">
+      <div class="tk-enrich-photo" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}" data-photo-full="${esc(fullUrl)}">
         <div class="tk-enrich-photo-label">${esc(label)}</div>
         <div class="tk-enrich-photo-drop ${has ? "has-photo" : ""}" tabindex="0" role="button" aria-label="${esc(label)}">
           ${has
-            ? `<img src="${esc(url)}" alt="${esc(label)}" />`
-            : `<span class="tk-enrich-photo-empty">Drop photo or click to upload</span>`}
-          <input type="file" accept="image/*" hidden />
+            ? `<img src="${esc(displayUrl)}" alt="${esc(label)}" data-photo-full="${esc(fullUrl)}" onerror="this.classList.add('is-broken');this.alt='Photo unavailable';" />`
+            : `<span class="tk-enrich-photo-empty">Drop photo or click to upload<br><small>JPEG, PNG, WebP, GIF · max 5 MB</small></span>`}
+          <input type="file" accept="${PHOTO_ACCEPT}" hidden />
         </div>
         <div class="tk-enrich-photo-actions">
           ${has ? `
@@ -421,7 +580,7 @@
           </div>
         ` : ""}
         <div class="tk-enrich-slice-banner" role="status">
-          Slice 3 Live Preview: same Teaching Kit renderer providers use, driven by your current draft. Photo upload, AI, and Publish stay off until later reviewed slices.
+          Slice 4 photos: private draft uploads with optimized thumbnails. AI and Publish stay off until later reviewed slices.
         </div>
         <nav class="tk-enrich-modes" role="tablist">
           <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
@@ -453,8 +612,8 @@
           <h3 data-enrich-title>${esc(current.title)}</h3>
           <p class="muted-copy">${esc(DAY_LABEL[current.dayOfWeek] || current.dayOfWeek)} · ${esc(current.activityCategory || "Activity")}</p>
           <div class="tk-enrich-photo-grid">
-            ${photoZoneHtml("Setup photo (before)", "setupImageUrl", view.setupImageUrl, key)}
-            ${photoZoneHtml("Finished example (after)", "exampleImageUrl", view.exampleImageUrl, key)}
+            ${photoZoneHtml("Setup photo (before)", "setupImageUrl", view, key)}
+            ${photoZoneHtml("Finished example (after)", "exampleImageUrl", view, key)}
           </div>
           <section class="tk-enrich-card-block">
             <h4>Group &amp; setting</h4>
@@ -677,7 +836,7 @@
     return `
       <div class="tk-enrich-lightbox" data-lightbox>
         <button type="button" class="ghost-button" data-lightbox-close>Close</button>
-        <img src="${esc(state.lightboxUrl)}" alt="Full size preview" />
+        <img src="${esc(state.lightboxUrl)}" alt="Full size preview" onerror="this.alt='Photo unavailable';this.classList.add('is-broken');" />
       </div>
     `;
   }
@@ -717,11 +876,11 @@
       });
       return;
     }
-    const teachingKit = {
+    const teachingKit = authorizeDraftKitPhotos({
       ...model.draftKit,
       locked: false,
       ok: model.draftKit?.ok !== false,
-    };
+    });
     // Fail closed: empty/malformed draft kits never throw into the shell.
     if (!teachingKit.companion) {
       nodes.forEach((node) => {
@@ -1103,21 +1262,21 @@
         const field = photoBox.getAttribute("data-photo-field");
         const input = photoBox.querySelector('input[type="file"]');
         if (event.target.closest("[data-photo-remove]")) {
-          ensureDraftActivity(key)[field] = "";
-          markDirty();
-          render();
+          if (!SLICE.photoUpload) return;
+          await removePhoto(key, field);
           return;
         }
         if (event.target.closest("[data-photo-preview]")) {
-          state.lightboxUrl = ensureDraftActivity(key)[field]
-            || api().activityEnrichmentView(
-              getActivities(getPlan()).find((a) => draftKey(a) === key),
-              state.draft.activities[key],
-            )[field];
+          const view = api().activityEnrichmentView(
+            getActivities(getPlan()).find((a) => draftKey(a) === key),
+            state.draft.activities[key],
+          );
+          const full = field === "exampleImageUrl" ? view.exampleImageUrl : view.setupImageUrl;
+          state.lightboxUrl = withAdminMediaToken(full || photoBox.getAttribute("data-photo-full") || "");
           render();
           return;
         }
-        if (!SLICE1.photoUpload) return;
+        if (!SLICE.photoUpload) return;
         if (event.target.closest("[data-photo-replace]") || event.target.closest(".tk-enrich-photo-drop")) {
           input?.click();
           return;
@@ -1231,16 +1390,23 @@
     });
 
     document.addEventListener("dragover", (event) => {
-      if (!state.open || !SLICE1.photoUpload) return;
-      if (event.target.closest(".tk-enrich-photo-drop")) {
+      if (!state.open || !SLICE.photoUpload) return;
+      const drop = event.target.closest(".tk-enrich-photo-drop");
+      if (drop) {
         event.preventDefault();
+        drop.classList.add("is-dragover");
       }
     });
+    document.addEventListener("dragleave", (event) => {
+      const drop = event.target.closest(".tk-enrich-photo-drop");
+      if (drop) drop.classList.remove("is-dragover");
+    });
     document.addEventListener("drop", async (event) => {
-      if (!state.open || !SLICE1.photoUpload) return;
+      if (!state.open || !SLICE.photoUpload) return;
       const drop = event.target.closest(".tk-enrich-photo-drop");
       if (!drop) return;
       event.preventDefault();
+      drop.classList.remove("is-dragover");
       const box = drop.closest(".tk-enrich-photo");
       const file = event.dataTransfer?.files?.[0];
       await applyPhoto(box.getAttribute("data-photo-key"), box.getAttribute("data-photo-field"), file);

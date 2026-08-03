@@ -329,7 +329,6 @@ async function main() {
     assert(opened.open === true, "editor opened");
     assert(opened.features.livePreview === true, "livePreview enabled in Slice 3");
     assert(opened.features.publish === false, "publish still off");
-    assert(opened.features.photoUpload === false, "photo upload still off");
     assert(opened.features.aiSuggest === false, "ai still off");
 
     await page.click('[data-enrich-mode="preview"]');

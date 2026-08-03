@@ -24524,6 +24524,22 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
 .tk-enrich-photo.is-readonly .tk-enrich-photo-drop {
   cursor: default;
 }
+.tk-enrich-photo-drop.is-dragover {
+  border-color: #1f6b4a;
+  background: rgba(31, 107, 74, 0.08);
+}
+.tk-enrich-photo-drop img.is-broken,
+.tk-enrich-lightbox img.is-broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  width: 100%;
+  object-fit: none;
+  background: rgba(36, 49, 42, 0.06);
+  color: rgba(36, 49, 42, 0.65);
+  font-size: 0.9rem;
+}
 .tk-enrich-activity-layout.is-slice1 {
   grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
 }

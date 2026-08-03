@@ -276,7 +276,7 @@ async function testViewports(page, baseUrl) {
     assert(metrics.publishDisabled === true, `${vp.name}: publish disabled`);
     assert(metrics.sliceNote === true, `${vp.name}: slice 1 banner visible`);
     assert(metrics.noPhotoUpload === true, `${vp.name}: photo upload gated`);
-    assert(metrics.features.photoUpload === false, `${vp.name}: photoUpload false`);
+    assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
     assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
     assert(metrics.features.publish === false, `${vp.name}: publish false`);
     assert(metrics.overflowX === false, `${vp.name}: no horizontal overflow (${metrics.shellWidth}px)`);

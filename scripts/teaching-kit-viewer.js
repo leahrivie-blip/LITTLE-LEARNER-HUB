@@ -402,13 +402,13 @@
         <div class="tk-photo-pair">
           <div class="tk-photo">
             ${activity.examplePhotoUrl
-              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" />`
+              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" data-tk-photo-fallback="Example photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
               : `<div class="tk-photo-placeholder">Example photo</div>`}
             <div class="tk-photo-caption">Example photo</div>
           </div>
           <div class="tk-photo tk-photo-setup">
             ${activity.setupPhotoUrl
-              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" />`
+              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" data-tk-photo-fallback="Setup photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
               : `<div class="tk-photo-placeholder">Setup photo</div>`}
             <div class="tk-photo-caption">Setup photo</div>
           </div>
