@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const metaCapi = require("../server/meta-capi.js");
 
 const ROOT = path.join(__dirname, "..");
-const PIXEL_ID = "1706469198007088";
+const PIXEL_ID = "1400795025275614";
 const FAKE_TOKEN = "EAAG_TEST_TOKEN_DO_NOT_SHIP";
 
 function request(port, method, urlPath, body) {
@@ -189,10 +189,11 @@ async function integrationClientConfigAndSignup() {
     assert.ok(pixelJs.text.includes("PageView"));
     assert.ok(!pixelJs.text.includes(FAKE_TOKEN));
 
-    // Hardcode guard: source files must not contain a literal pixel assignment fallback.
+    // Hardcode guard: source must not embed a literal Pixel ID fallback (env-only).
     const clientConfigFn = fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8");
-    assert.ok(!/fbq\(\s*['"]init['"]\s*,\s*['"]1706469198007088['"]/.test(clientConfigFn));
-    assert.ok(!/META_PIXEL_ID\s*\|\|\s*['"]1706469198007088['"]/.test(clientConfigFn));
+    assert.ok(!/fbq\(\s*['"]init['"]\s*,\s*['"]\d{10,}['"]/.test(clientConfigFn));
+    assert.ok(!/META_PIXEL_ID\s*\|\|\s*['"]\d{10,}['"]/.test(clientConfigFn));
+    assert.ok(!clientConfigFn.includes("1706469198007088"), "old wrong-account Pixel ID must be gone");
 
     const email = `meta-free-${Date.now()}@test.local`;
     const eventId = `reg_test_${Date.now()}`;
