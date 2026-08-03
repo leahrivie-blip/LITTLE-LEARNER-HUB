@@ -267,7 +267,8 @@
     "live:assign-unique-covers": "node scripts/live-assign-unique-covers.js",
     "test:ai-guide-button-audit": "node scripts/test-ai-guide-button-audit.js",
     "test:auth-modal-button-audit": "node scripts/test-auth-modal-button-audit.js",
-    "test:teaching-kit-phase1-qa": "NODE_ENV=test node scripts/test-teaching-kit-phase1-qa.js"
+    "test:teaching-kit-phase1-qa": "NODE_ENV=test node scripts/test-teaching-kit-phase1-qa.js",
+    "test:teaching-kit-production-smoke": "NODE_ENV=test node scripts/test-teaching-kit-production-smoke.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
