@@ -446,6 +446,12 @@ async function main() {
       document.body.innerHTML = "";
       document.body.appendChild(host);
       window.LLHTeachingKitEnrichmentEditor.open(payload.plan.id);
+      // Wait for optional auto Complete-Kit tray to finish, then Close so Assistant is visible.
+      for (let i = 0; i < 60; i += 1) {
+        await new Promise((r) => setTimeout(r, 100));
+        if (document.querySelector("[data-ai-accept-all]") && !document.querySelector("[data-ai-loading]")) break;
+      }
+      document.querySelector("[data-ai-cancel]")?.click();
       await new Promise((r) => setTimeout(r, 200));
 
       const panel = document.querySelector("[data-ai-teacher-assistant]");
@@ -453,13 +459,13 @@ async function main() {
       document.querySelector('[data-assistant-tab="library"]')?.click();
       await new Promise((r) => setTimeout(r, 80));
       document.querySelector("[data-assistant-refresh-connections]")?.click();
-      await new Promise((r) => setTimeout(r, 400));
-      const connections = document.querySelectorAll(".tk-assistant-list li").length;
+      await new Promise((r) => setTimeout(r, 500));
+      const connections = document.querySelectorAll("[data-ai-teacher-assistant] .tk-assistant-list li").length;
 
       document.querySelector('[data-assistant-tab="quality"]')?.click();
       await new Promise((r) => setTimeout(r, 80));
       document.querySelector("[data-assistant-quality-run]")?.click();
-      await new Promise((r) => setTimeout(r, 400));
+      await new Promise((r) => setTimeout(r, 500));
       const scoreText = document.querySelector(".tk-assistant-quality-score")?.textContent || "";
 
       document.querySelector('[data-assistant-tab="improve"]')?.click();
@@ -470,6 +476,7 @@ async function main() {
         improveCount,
         connections,
         scoreText,
+        trayClosed: !document.querySelector("[data-ai-tray].is-open") && !document.querySelector("#tk-enrich-ai-title"),
         features: window.LLHTeachingKitEnrichmentEditor.sliceFeatures?.() || {},
       };
     }, { plan, adminToken });
