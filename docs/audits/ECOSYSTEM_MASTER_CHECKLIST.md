@@ -1,9 +1,10 @@
 # Little Learner Hub — Ecosystem Master Checklist
 
 **Environment:** Testing site only (`little-learner-hub-testing.onrender.com`)  
-**Shell at audit:** `20260803-p1-cross-feature`  
+**Shell at audit:** `20260803-ecosystem-pass`  
 **Date:** 2026-08-03  
-**Rule:** Do not merge. Do not deploy production.
+**Rule:** Do not merge. Do not deploy production.  
+**Final report:** `docs/audits/ECOSYSTEM_FINAL_READINESS_REPORT.md`
 
 Status key:
 
@@ -26,19 +27,19 @@ Status key:
 | Lesson Plans | ✅ | Calendar, Teaching Kit, Free/Pro locks | Pro-gated generation on server |
 | Activity Center | ✅ | Curriculum library, lesson linking | Production |
 | Child Profiles | ✅ | Daily Logs, Attendance, Observations, Reports, Forms docs, AI pickers | Source of truth: `Profiles` |
-| Daily Logs | ✅ | Attendance, meals, naps, diapers, photos, reports, AI suggestions | Marketing still says “In Development” |
+| Daily Logs | ✅ | Attendance, meals, naps, diapers, photos, reports, AI suggestions | Marketing pill now Available |
 | Attendance | 🟡 | Inside Daily Logs + child tab | No standalone nav; check-in can share to Family Hub |
 | Observations | ✅ | Child Profiles, AI helpers, Calendar reminders | Share-with-family optional |
-| Parent Messages | 🟡 | Communications + Family Hub thread (testing) | Two systems: care notes vs FH chat; bridge partial |
+| Parent Messages | 🟡 | Communications + Family Hub thread (testing) | Two systems: care notes vs FH chat; bridge live |
 | Incident Reports | 🟡 | AI helper + Daily Logs (Pro form) | Not a standalone product nav |
-| Behavior Support | 🟡 | Topic library + AI tips | “Behavior plans” cards Coming Soon |
-| Staff Management | 🟡 | Invites, roles, shared program | Classroom assignment not enforced |
-| Classrooms | 🟡 | Schedule rooms + calendar | Center-gated; children not rostered into rooms |
+| Behavior Support | 🟡 | Topic library + AI Behavior Note / Parent Message | Dedicated plan builder postponed |
+| Staff Management | 🟡 | Invites, roles, shared program | Classroom filter enforced for linked staff |
+| Classrooms | ✅ | Schedule rooms + calendar + child roster | Children assign via `classroomId` |
 | Family Hub | 🧪✅ | Households, Today, Photos, Messages, Calendar, Forms acknowledge | Testing-only; durable Postgres on testing |
-| Forms Center | 🟡 | Forms Library + child Documents + HDH pack | Not first-class send/e-sign product yet |
+| Forms Center | 🟡 | Library + Documents + HDH pack + in-app share/ack | Not email/SMS or legal e-sign yet |
 | Notifications | ✅ | In-app bell + Family Hub notifications | Push optional |
 | Billing | ✅ | Stripe checkout/portal/webhooks | Owner-only; testing often NOT READY |
-| AI Tools | 🟡 | Documentation Helpers real; quality uneven | Lesson AI Pro-gated; some tools refuse/hallucinate |
+| AI Tools | ✅ | Documentation Helpers grounded on testing | Lesson AI unlocked when HDH testing fence on |
 | Reports | 🟡 | Local snapshot aggregates | Pro-gated; not admin reporting suite |
 | Admin | ✅ | Full operator console | Leah-only; blocked for linked staff |
 
@@ -59,8 +60,8 @@ Creating a child writes `Profiles` (`saveChildStore("Profiles")`).
 | Forms & Records (Documents) | Yes (picker) | 🟡 | Must assign/add form to file |
 | Calendar (birthdays / enrollment) | Yes if dates set | 🟡 | Enrollment convert may omit date |
 | Lesson Plans | No roster link | 🔴 | Lessons assigned by classroom/week, not child |
-| Classrooms | No | 🔴 | `child.classroom` is free-text ≠ `schedule.classroomId` |
-| Family Hub | No | 🔴 | Must invite/select child into household |
+| Classrooms | Yes (`classroomId`) | ✅ | Roster on Classrooms page |
+| Family Hub | Partial auto-link | 🟡 | Auto-link when 1 household or parent email matches; else invite |
 | Parent Messages (FH thread) | No | 🟡 | Needs household + share/bridge |
 | Parent Messages (care notes) | Yes | ✅ | Local Communications |
 
@@ -85,10 +86,10 @@ Creating a child writes `Profiles` (`saveChildStore("Profiles")`).
 | Invite staff | ✅ | `/api/staff/invites` |
 | Roles (owner/director/teacher/assistant) | ✅ | Coarse capability matrix |
 | Permissions (billing/staff/forms) | 🟡 | Role matrix works; HDH presets testing-only |
-| Assigned classrooms | 🔴 | Stored on invite, **never enforced** in UI filters |
-| Assigned children | 🔴 | No model |
+| Assigned classrooms | 🟡 | Stored on invite; UI filters children for linked staff |
+| Assigned children | 🔴 | No model beyond classroom filter |
 | Shared schedules | ✅ | Via program schedule when linked + Firebase |
-| Observations / Daily Logs | 🟡 | See all program children (no room filter) |
+| Observations / Daily Logs | 🟡 | Filtered when staff has `classroomIds` |
 | Messaging | 🟡 | Support Messages ≠ Family Hub |
 | AI tools by permission | 🟡 | Usage/plan gated; not role-scoped beyond view hides |
 | Admin blocked for staff | ✅ | Linked staff / independent testers |

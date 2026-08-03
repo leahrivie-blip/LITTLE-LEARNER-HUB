@@ -21,8 +21,8 @@ Severity:
 
 | # | From | Should connect to | Gap | Severity |
 |---|---|---|---|---|
-| C1 | Create child in Profiles | Classrooms roster | Child has free-text `classroom`; schedule rooms use `classroomId`. Classrooms page never lists children. | P1 |
-| C2 | Create child | Family Hub household | New child does **not** join existing household. Provider must re-invite / recreate with child selected. | P1 |
+| C1 | Create child in Profiles | Classrooms roster | **Fixed (ecosystem pass):** `classroomId` select + Classrooms roster counts. | ✅ |
+| C2 | Create child | Family Hub household | **Fixed (partial):** auto-link via PATCH children when 1 household or parent email matches. | 🟡 |
 | C3 | Create child | Lesson plan assignment | Lessons assign to classroom/week, never auto-scope to enrolled children. | P2 |
 | C4 | Create child | Calendar events beyond birthday | No auto “first day”, classroom events, or form due dates on calendar. | P2 |
 | C5 | Rename/archive child | Family Hub `household.children` snapshot | Snapshot can show stale name; archived child may still be linked until revoke. | P2 |
@@ -50,8 +50,8 @@ Severity:
 
 | # | From | Should connect to | Gap | Severity |
 |---|---|---|---|---|
-| F1 | AI form draft | Send to parent | Explicit stub: “Sending to families is not available yet.” | P1 |
-| F2 | Assign form to child | Parent Forms inbox + due date | Assign = add Documents row; no due date, reminder, or auto-notify. | P1 |
+| F1 | AI form draft | Send to parent | **Fixed (in-app):** Share with Family Hub + provider-notifications; still no email/SMS. | 🟡 |
+| F2 | Assign form to child | Parent Forms inbox + due date | Assign + share/notify works; due dates/reminders still light. | 🟡 |
 | F3 | Parent acknowledge | Admin reporting / provider dashboard badge | Signed status on Documents; no admin form-completion report; weak provider “needs attention” surface. | P2 |
 | F4 | Forms Library | Program templates | Cannot save customized form as reusable program template. | P2 |
 | F5 | Edit form | Structured fields | Printable/fill-in text, not field schema editor. | P2 |
@@ -66,7 +66,7 @@ Severity:
 
 | # | From | Should connect to | Gap | Severity |
 |---|---|---|---|---|
-| S1 | Staff `classroomIds` | Child list / Daily Logs / Observations | **Never filtered** — all staff see all children. | P1 |
+| S1 | Staff `classroomIds` | Child list / Daily Logs / Observations | **Fixed (UI):** linked staff with `classroomIds` filtered in `getActiveChildren`. | ✅ |
 | S2 | Assigned children | Any surface | No assigned-children model. | P1 |
 | S3 | HDH helper/lead presets | Production staff | Only enforced when `HOME_DAYCARE_HUB_TESTING`; production uses coarse role matrix. | P1 |
 | S4 | Teacher/assistant role | Forms capability | `roleAllowsCapability("forms")` false even if HDH lead preset enables forms_records. | P2 |
@@ -81,10 +81,10 @@ Severity:
 
 | # | From | Should connect to | Gap | Severity |
 |---|---|---|---|---|
-| A1 | Documentation Helpers input | Model output | Live testing: daily invented wrong child/date; observation ignored provided name; incident asked for details; parentMessage refused. | P1 |
-| A2 | Lesson AI | Free/testing owners | 403 Pro gate — testers on Free cannot exercise lesson AI without Pro/owner override. | P2 |
-| A3 | Behavior Note AI | Behavior plans | Notes exist; “Behavior plans” product Coming Soon. | P2 |
-| A4 | AI form | Assign/send/sign pipeline | Draft → save to file works; send/sign chain incomplete. | P1 |
+| A1 | Documentation Helpers input | Model output | **Fixed (prompts):** grounded child/date/classroom/notes client+server; never-refuse guidance. Re-verify live model behavior after deploy. | 🟡 |
+| A2 | Lesson AI | Free/testing owners | **Fixed on testing fence:** Pro gate skipped when `HOME_DAYCARE_HUB_TESTING`. | ✅ |
+| A3 | Behavior Note AI | Behavior plans | Notes + Support library live; dedicated plans product postponed. | 🟡 |
+| A4 | AI form | Assign/send/sign pipeline | Draft → save → share/notify → parent acknowledge live; legal e-sign still out. | 🟡 |
 | A5 | AI Guide | Documentation Helpers | Parallel surfaces; testers may not know which is canonical. | P3 |
 | A6 | Offline `generate*` templates | Doc Helpers failure | Doc Helpers show error (good); HDH forms fall back to local templates (can feel “fake AI”). | P3 |
 | A7 | Provider Tools / futureTools | OpenAI | Local non-AI generators — should be labeled clearly, not as AI. | P2 |
@@ -129,13 +129,13 @@ Severity:
 
 | # | Issue | Severity |
 |---|---|---|
-| U1 | Homepage still labels Daily operations “In Development” while product is live | P2 |
-| U2 | Director Center is Coming Soon shell | P2 |
-| U3 | Family Hub Settings Coming Soon in Settings | P2 |
-| U4 | Behavior Support planned cards Coming Soon | P2 |
+| U1 | Homepage Daily operations “In Development” | ✅ Fixed → Available |
+| U2 | Director Center Coming Soon shell | ✅ Routes to live Staff/Classrooms/Children/Calendar |
+| U3 | Family Hub Settings Coming Soon badge | ✅ Removed; helpful copy |
+| U4 | Behavior Support Coming Soon cards | ✅ Replaced with live AI actions + library |
 | U5 | Nested interactive controls on lesson/activity cards (a11y) | P2 |
-| U6 | Photo quick action placeholder | P2 |
-| U7 | Forms experience split across Library / HDH / Documents / Settings | P1 |
+| U6 | Photo quick action placeholder | ✅ Opens Photos tab |
+| U7 | Forms experience split across Library / HDH / Documents / Settings | 🟡 Improved share path; still multi-surface |
 
 ---
 
