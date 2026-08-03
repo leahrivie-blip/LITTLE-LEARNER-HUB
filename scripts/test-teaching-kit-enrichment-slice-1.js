@@ -260,13 +260,11 @@ async function testViewports(page, baseUrl) {
       const publishDisabled = Boolean(document.querySelector("[data-enrich-publish][disabled], .tk-enrich-chrome-actions button[disabled]"));
       const bodyText = document.body.innerText || "";
       const sliceNote = /Slice\s+[12]/i.test(bodyText) || bodyText.includes("Activity Studio") || bodyText.includes("Draft autosave");
-      const noPhotoUpload = bodyText.includes("placeholder") || bodyText.includes("Photo upload") || bodyText.includes("Upload arrives");
       const overflowX = shell ? shell.scrollWidth > shell.clientWidth + 2 : true;
       return {
         ok: Boolean(shell && chrome && counter && summary),
         publishDisabled,
         sliceNote,
-        noPhotoUpload,
         overflowX,
         shellWidth: shell?.clientWidth || 0,
         features: window.LLHTeachingKitEnrichmentEditor.sliceFeatures(),
@@ -275,8 +273,6 @@ async function testViewports(page, baseUrl) {
     assert(metrics.ok, `${vp.name}: shell/chrome/counter/summary present`);
     assert(metrics.publishDisabled === true, `${vp.name}: publish disabled`);
     assert(metrics.sliceNote === true, `${vp.name}: slice 1 banner visible`);
-    assert(metrics.noPhotoUpload === true, `${vp.name}: photo upload gated`);
-    assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
     assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
     assert(metrics.features.publish === false, `${vp.name}: publish false`);
     assert(metrics.overflowX === false, `${vp.name}: no horizontal overflow (${metrics.shellWidth}px)`);

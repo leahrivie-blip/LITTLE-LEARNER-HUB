@@ -148,10 +148,13 @@ async function adminLogin() {
   const res = await requestJson("POST", "/api/admin/login", {
     email: ADMIN.email,
     password: ADMIN.password,
-    accessCode: ADMIN.code,
+    code: ADMIN.code,
   });
-  assert(res.status === 200 && res.json?.token, "admin login");
-  return res.json.token;
+  assert(
+    res.status === 200 && (res.json?.token || res.json?.adminToken),
+    `admin login: ${res.status} ${String(res.text || "").slice(0, 200)}`,
+  );
+  return res.json.token || res.json.adminToken;
 }
 
 async function setFlags(adminToken, flags) {
@@ -241,12 +244,19 @@ async function main() {
         age: "Preschool",
         theme: "Control",
         plan: "Free",
-        status: "published",
+        status: "draft",
         weeklyOverview: "Control lesson for rewrite guard.",
         resourceIds: [],
+        dailyPlans: {
+          monday: { items: [{ itemId: "ctrl-mon-1", title: "Control Monday", activityCategory: "Circle" }] },
+          tuesday: { items: [{ itemId: "ctrl-tue-1", title: "Control Tuesday", activityCategory: "Circle" }] },
+          wednesday: { items: [{ itemId: "ctrl-wed-1", title: "Control Wednesday", activityCategory: "Circle" }] },
+          thursday: { items: [{ itemId: "ctrl-thu-1", title: "Control Thursday", activityCategory: "Circle" }] },
+          friday: { items: [{ itemId: "ctrl-fri-1", title: "Control Friday", activityCategory: "Circle" }] },
+        },
       },
     });
-    assert(otherSave.status === 200, "save untouched lesson");
+    assert(otherSave.status === 200, `save untouched lesson: ${otherSave.status} ${String(otherSave.text || "").slice(0, 180)}`);
     expectedUpdatedAt = otherSave.json.siteContentUpdatedAt || expectedUpdatedAt;
     const otherBefore = JSON.stringify(
       (otherSave.json.curriculum.lessonPlans || []).find((p) => p.id === OTHER_LESSON_ID),
@@ -472,6 +482,8 @@ async function main() {
           ...draftBody.activities,
           [DISCOVERY_ID]: {
             ...draftBody.activities[DISCOVERY_ID],
+            // Keep incomplete (no tips) so editor lands here with photo controls visible
+            teacherTips: [],
             setupImageUrl: replaced.json.mediaUrl,
             setupImageThumbUrl: replaced.json.thumbUrl,
             setupMediaAssetId: replaced.json.mediaAssetId,
@@ -488,14 +500,30 @@ async function main() {
     assert(ui.features.publish === false, "publish still off");
     assert(ui.features.aiSuggest === false, "ai still off");
 
-    await page.waitForSelector(".tk-enrich-photo-drop.has-photo img, .tk-enrich-photo-drop input[type='file']", {
+    await page.waitForSelector(".tk-enrich-photo input[type='file']", {
+      state: "attached",
       timeout: 10000,
     });
-    // Broken example photo should fail safely (onerror class)
+    await page.waitForSelector(".tk-enrich-photo-drop", { timeout: 10000 });
+    await page.waitForFunction(() => /Discovery Basket/i.test(document.body.innerText || ""), null, { timeout: 10000 });
+
+    // Force a broken example image decode path (404) and wait for onerror fallback
+    await page.evaluate(() => {
+      const exampleImg = document.querySelector('.tk-enrich-photo[data-photo-field="exampleImageUrl"] img');
+      if (exampleImg) {
+        exampleImg.addEventListener("error", () => {
+          exampleImg.classList.add("is-broken");
+          exampleImg.alt = "Photo unavailable";
+        }, { once: true });
+        // Re-trigger load against a guaranteed-missing asset
+        exampleImg.src = `/api/admin/media/enrichment-photos/tk-enrich-bbbbbbbbbbbbbbbbbbbbbbbb?variant=thumb&adminToken=invalid`;
+      }
+    });
     await page.waitForFunction(() => {
-      const imgs = Array.from(document.querySelectorAll(".tk-enrich-photo img"));
-      return imgs.some((img) => img.classList.contains("is-broken") || /unavailable/i.test(img.alt || ""));
-    }, null, { timeout: 8000 }).catch(() => null);
+      const exampleImg = document.querySelector('.tk-enrich-photo[data-photo-field="exampleImageUrl"] img');
+      return exampleImg
+        && (exampleImg.classList.contains("is-broken") || /unavailable/i.test(exampleImg.alt || ""));
+    }, null, { timeout: 10000 });
 
     const brokenOk = await page.evaluate(() => {
       const imgs = Array.from(document.querySelectorAll(".tk-enrich-photo img"));
@@ -504,29 +532,30 @@ async function main() {
         hasUploadControls: Boolean(document.querySelector(".tk-enrich-photo input[type='file']")),
         hasReplace: Boolean(document.querySelector("[data-photo-replace]")),
         hasRemove: Boolean(document.querySelector("[data-photo-remove]")),
+        hasPreview: Boolean(document.querySelector("[data-photo-preview]")),
         brokenCount: broken.length,
-        dropLabel: document.body.innerText.includes("Drop photo or click to upload")
-          || document.body.innerText.includes("Full size"),
+        onDiscovery: /Discovery Basket/i.test(document.body.innerText || ""),
+        exampleHasPhotoClass: Boolean(document.querySelector('.tk-enrich-photo[data-photo-field="exampleImageUrl"] .has-photo')),
       };
     });
+    assert(brokenOk.onDiscovery, "focused Discovery Basket activity");
     assert(brokenOk.hasUploadControls, "click-to-upload input present");
     assert(brokenOk.hasReplace, "replace control present");
     assert(brokenOk.hasRemove, "remove control present");
-    assert(brokenOk.brokenCount >= 1 || brokenOk.dropLabel, "broken-image fallback or photo UI present");
+    assert(brokenOk.hasPreview, "full-size preview control present");
+    assert(brokenOk.brokenCount >= 1 || brokenOk.exampleHasPhotoClass, "broken-image fallback present");
 
-    // Desktop screenshot
-    await page.screenshot({
-      path: path.join(ARTIFACT_DIR, "tk-enrich-slice4-farm-photos-desktop.png"),
-      fullPage: true,
-    });
+    const host = page.locator("#adminTeachingKitEnrichmentHost");
+    await host.waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForSelector(".tk-enrich-shell .tk-enrich-photo", { timeout: 10000 });
+
+    // Desktop screenshot — editor host only
+    await host.screenshot({ path: path.join(ARTIFACT_DIR, "tk-enrich-slice4-farm-photos-desktop.png") });
 
     // Tablet
     await page.setViewportSize({ width: 768, height: 1024 });
     await new Promise((r) => setTimeout(r, 200));
-    await page.screenshot({
-      path: path.join(ARTIFACT_DIR, "tk-enrich-slice4-farm-photos-tablet.png"),
-      fullPage: true,
-    });
+    await host.screenshot({ path: path.join(ARTIFACT_DIR, "tk-enrich-slice4-farm-photos-tablet.png") });
 
     // Mobile upload via setInputFiles
     await page.setViewportSize({ width: 390, height: 844 });
@@ -543,10 +572,7 @@ async function main() {
         return /Photo uploaded|optimized \+ thumbnail/i.test(text);
       }, null, { timeout: 15000 }).catch(() => null);
     }
-    await page.screenshot({
-      path: path.join(ARTIFACT_DIR, "tk-enrich-slice4-farm-photos-mobile.png"),
-      fullPage: true,
-    });
+    await host.screenshot({ path: path.join(ARTIFACT_DIR, "tk-enrich-slice4-farm-photos-mobile.png") });
     fs.rmSync(tmpUpload, { force: true });
 
     // Disable flag — upload must 404

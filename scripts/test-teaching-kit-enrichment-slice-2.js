@@ -285,7 +285,12 @@ async function main() {
           settingsVisible: text.includes("Small group") && text.includes("Indoor"),
           obsVisible: text.includes("Observation prompts"),
           vocabVisible: text.includes("Vocabulary for this activity") && (text.includes("cow") || text.includes("barn")),
-          placeholdersVisible: text.includes("Setup photo") && text.includes("placeholder"),
+          photoZonesVisible: text.includes("Setup photo") && (
+            text.includes("placeholder")
+            || text.includes("Drop photo")
+            || text.includes("Finished example")
+            || Boolean(document.querySelector(".tk-enrich-photo input[type='file']"))
+          ),
           publishDisabled: Boolean(document.querySelector(".tk-enrich-chrome-actions button[disabled]")),
           noAi: !text.includes("data-ai-tips") && text.includes("AI suggest later"),
           studioPresent: Boolean(stage),
@@ -308,9 +313,8 @@ async function main() {
       assert(result.settingsVisible, `${vp.name}: group/setting chips visible`);
       assert(result.obsVisible, `${vp.name}: observation prompts section visible`);
       assert(result.vocabVisible, `${vp.name}: vocabulary visible`);
-      assert(result.placeholdersVisible, `${vp.name}: photo placeholders visible`);
+      assert(result.photoZonesVisible, `${vp.name}: photo zones visible`);
       assert(result.publishDisabled, `${vp.name}: publish disabled`);
-      assert(result.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
       assert(result.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
       assert(result.features.publish === false, `${vp.name}: publish false`);
       assert(result.features.activityStudio === true, `${vp.name}: activityStudio true`);
