@@ -10359,22 +10359,32 @@ function curriculumLessonPlanAdminCardHtml(plan) {
   const enrichment = enrichEnabled ? adminCurriculumLessonEnrichmentMeta(plan) : null;
   const summary = enrichment?.summary || null;
   const hasDraft = Boolean(summary?.hasEnrichmentDraft);
-  const gapBits = [];
-  if (summary) {
+  const workspace = typeof LLHTeachingKitUpgradeWorkspace !== "undefined"
+    ? LLHTeachingKitUpgradeWorkspace
+    : null;
+  const gapBits = workspace?.gapChipsFromSummary
+    ? workspace.gapChipsFromSummary({
+      ...summary,
+      missingTeacherToolkit: summary?.missingTeacherToolkit,
+      aiReady: summary?.aiReady,
+    })
+    : [];
+  if (!workspace && summary) {
     if (summary.incompleteActivities) gapBits.push(`${summary.incompleteActivities} incomplete`);
     if (summary.missingSongs) gapBits.push("songs");
     if (summary.missingBooks) gapBits.push("books");
     if (summary.missingPrintables) gapBits.push("printables");
     if (summary.missingExamples || summary.missingPhotos) gapBits.push("examples");
+    if (summary.missingTeacherToolkit) gapBits.push("toolkit");
     if (summary.missingObservations || summary.missingObservationPrompts > 0) gapBits.push("observations");
     if (summary.missingFamilyConnection) gapBits.push("family");
-    if (summary.missingTeacherTips > 0) gapBits.push("tips");
   }
   const editedLabel = summary?.lastEditedDate
     ? adminLessonUpdatedLabel(summary.lastEditedDate)
     : adminLessonUpdatedLabel(plan.updatedAt);
   const editedBy = summary?.lastEditedBy ? ` by ${summary.lastEditedBy}` : "";
   const stage = enrichment?.stage || summary?.dashboardStage || enrichment?.label || "Legacy";
+  const aiReady = summary?.aiReady !== false;
   return `
     <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
       <div class="admin-mobile-card-body">
@@ -10388,16 +10398,17 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
-            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Teaching Kit dashboard stage">${escapeHtml(stage)} · ${enrichment.percent}%</span>` : ""}
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Upgrade status">${escapeHtml(stage)} · ${enrichment.percent}%</span>` : ""}
+            ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
             ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
             ${summary?.needsReview ? `<span class="tag">Needs review</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
           ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>` : ""}
-          ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 6).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
+          ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
-          <small>${enrichEnabled ? `Last edited: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}` : `Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}`}</small>
+          <small>${enrichEnabled ? `Last updated: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}` : `Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}`}</small>
         </div>
       </div>
       <div class="form-actions">
@@ -10460,6 +10471,8 @@ function filteredAdminCurriculumLessonPlans() {
     if (enrichEditorOn && sort === "completion-asc") return metaFor(a).percent - metaFor(b).percent;
     if (enrichEditorOn && sort === "completion-desc") return metaFor(b).percent - metaFor(a).percent;
     if (sort === "title") return String(a.title || "").localeCompare(String(b.title || ""));
+    if (sort === "theme") return String(a.theme || "").localeCompare(String(b.theme || "")) || String(a.title || "").localeCompare(String(b.title || ""));
+    if (sort === "age") return String(a.age || "").localeCompare(String(b.age || "")) || String(a.title || "").localeCompare(String(b.title || ""));
     if (enrichEditorOn && sort === "edited-asc") {
       return String(metaFor(a).summary?.lastEditedDate || a.updatedAt || "")
         .localeCompare(String(metaFor(b).summary?.lastEditedDate || b.updatedAt || ""));
@@ -10546,15 +10559,30 @@ function renderAdminCurriculumLessonPlanManager() {
   const banner = adminCurriculumLessonSaveBanner?.text
     ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
     : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
+  const upgradeWorkspaceOn = isTeachingKitEnrichmentEditorEnabled();
+  const workspaceCopy = (typeof LLHTeachingKitUpgradeWorkspace !== "undefined"
+    && LLHTeachingKitUpgradeWorkspace.workspaceCopy)
+    ? LLHTeachingKitUpgradeWorkspace.workspaceCopy()
+    : null;
   target.innerHTML = `
     <div class="access-notice" role="status" style="margin-bottom:1rem;">
       <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
     </div>
+    ${upgradeWorkspaceOn && workspaceCopy ? `
+    <div class="access-notice tk-upgrade-workspace-banner" role="status" style="margin-bottom:1rem;">
+      <p class="eyebrow">${escapeHtml(workspaceCopy.eyebrow)}</p>
+      <strong>${escapeHtml(workspaceCopy.title)}</strong>
+      <p class="muted-copy">${escapeHtml(workspaceCopy.blurb)}</p>
+      <p class="muted-copy">${escapeHtml(workspaceCopy.oneAtATime)}</p>
+    </div>
+    ` : ""}
     <div class="section-heading">
       <div>
-        <p class="eyebrow">Content Manager</p>
-        <h3>Curriculum lesson plans</h3>
-        <p class="muted-copy">File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities.</p>
+        <p class="eyebrow">${upgradeWorkspaceOn ? "Upgrade Workspace" : "Content Manager"}</p>
+        <h3>${upgradeWorkspaceOn ? "Lesson upgrade dashboard" : "Curriculum lesson plans"}</h3>
+        <p class="muted-copy">${upgradeWorkspaceOn
+          ? "Upgrade status, completion %, gaps, and AI Ready for every lesson. Review one lesson at a time — nothing publishes automatically."
+          : "File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities."}</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
@@ -10607,10 +10635,13 @@ function renderAdminCurriculumLessonPlanManager() {
       <label><span>Priority gap</span>
         <select id="adminCurriculumFilterGap">
           <option value="" ${!adminCurriculumListFilters.gap ? "selected" : ""}>All</option>
+          <option value="most_incomplete" ${adminCurriculumListFilters.gap === "most_incomplete" || adminCurriculumListFilters.gap === "incomplete" ? "selected" : ""}>Most incomplete</option>
+          <option value="ai_ready" ${adminCurriculumListFilters.gap === "ai_ready" ? "selected" : ""}>AI Ready</option>
           <option value="missing_songs" ${adminCurriculumListFilters.gap === "missing_songs" ? "selected" : ""}>Missing songs</option>
           <option value="missing_books" ${adminCurriculumListFilters.gap === "missing_books" ? "selected" : ""}>Missing books</option>
           <option value="missing_printables" ${adminCurriculumListFilters.gap === "missing_printables" ? "selected" : ""}>Missing printables</option>
-          <option value="missing_examples" ${adminCurriculumListFilters.gap === "missing_examples" || adminCurriculumListFilters.gap === "missing_photos" ? "selected" : ""}>Missing examples</option>
+          <option value="missing_examples" ${adminCurriculumListFilters.gap === "missing_examples" || adminCurriculumListFilters.gap === "missing_photos" ? "selected" : ""}>Missing example images</option>
+          <option value="missing_toolkit" ${adminCurriculumListFilters.gap === "missing_toolkit" ? "selected" : ""}>Missing teacher toolkit</option>
           <option value="missing_observations" ${adminCurriculumListFilters.gap === "missing_observations" ? "selected" : ""}>Missing observations</option>
           <option value="missing_family" ${adminCurriculumListFilters.gap === "missing_family" ? "selected" : ""}>Missing family connection</option>
           <option value="missing_tips" ${adminCurriculumListFilters.gap === "missing_tips" ? "selected" : ""}>Missing teacher tips</option>
@@ -10625,13 +10656,15 @@ function renderAdminCurriculumLessonPlanManager() {
       ` : ""}
       <label><span>Sort</span>
         <select id="adminCurriculumFilterSort">
-          <option value="updated" ${adminCurriculumListFilters.sort === "updated" ? "selected" : ""}>${isTeachingKitEnrichmentEditorEnabled() ? "Last edited ↓" : "Updated"}</option>
+          <option value="updated" ${adminCurriculumListFilters.sort === "updated" ? "selected" : ""}>${isTeachingKitEnrichmentEditorEnabled() ? "Last updated ↓" : "Updated"}</option>
           ${isTeachingKitEnrichmentEditorEnabled() ? `
-          <option value="edited-asc" ${adminCurriculumListFilters.sort === "edited-asc" ? "selected" : ""}>Last edited ↑</option>
-          <option value="completion-asc" ${adminCurriculumListFilters.sort === "completion-asc" ? "selected" : ""}>Completion % ↑</option>
-          <option value="completion-desc" ${adminCurriculumListFilters.sort === "completion-desc" ? "selected" : ""}>Completion % ↓</option>
+          <option value="completion-asc" ${adminCurriculumListFilters.sort === "completion-asc" ? "selected" : ""}>Most incomplete (completion % ↑)</option>
+          <option value="completion-desc" ${adminCurriculumListFilters.sort === "completion-desc" ? "selected" : ""}>Most complete (completion % ↓)</option>
+          <option value="edited-asc" ${adminCurriculumListFilters.sort === "edited-asc" ? "selected" : ""}>Last updated ↑</option>
           ` : ""}
           <option value="title" ${adminCurriculumListFilters.sort === "title" ? "selected" : ""}>Title</option>
+          <option value="theme" ${adminCurriculumListFilters.sort === "theme" ? "selected" : ""}>Theme</option>
+          <option value="age" ${adminCurriculumListFilters.sort === "age" ? "selected" : ""}>Age group</option>
         </select>
       </label>
     </div>

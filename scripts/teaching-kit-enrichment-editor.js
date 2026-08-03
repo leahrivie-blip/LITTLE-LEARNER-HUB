@@ -754,10 +754,13 @@
       ["printables", "Missing printables", yn(summary.missingPrintables), summary.missingPrintables],
       ["books", "Missing books", yn(summary.missingBooks), summary.missingBooks],
       ["songs", "Missing songs", yn(summary.missingSongs), summary.missingSongs],
+      ["toolkit", "Missing teacher toolkit", yn(summary.missingTeacherToolkit), summary.missingTeacherToolkit],
       ["vocabulary", "Missing vocabulary", yn(summary.missingVocabulary), summary.missingVocabulary],
       ["objectives", "Missing learning objectives", yn(summary.missingLearningObjectives), summary.missingLearningObjectives],
       ["materials", "Missing materials", yn(summary.missingMaterials), summary.missingMaterials],
+      ["ai", "AI Ready", summary.aiReady ? "Ready" : "Not ready", !summary.aiReady],
     ];
+    const canRollback = Array.isArray(plan.enrichmentPublishHistory) && plan.enrichmentPublishHistory.length > 0;
     return `
       <aside class="tk-enrich-summary ${state.summaryOpen ? "is-open" : "is-collapsed"}" data-upgrade-summary>
         <div class="tk-enrich-summary-head">
@@ -769,9 +772,9 @@
         </div>
         ${state.summaryOpen ? `
           <div class="tk-enrich-summary-stepper" aria-hidden="true">
-            <span class="${summary.completionPercent < 50 ? "is-active" : "is-done"}">Legacy</span>
-            <span class="${summary.completionPercent >= 50 && summary.completionPercent < 90 ? "is-active" : summary.completionPercent >= 90 ? "is-done" : ""}">Enriched</span>
-            <span class="${summary.completionPercent >= 90 ? "is-active" : ""}">Complete</span>
+            <span class="${summary.dashboardStage === "Legacy" ? "is-active" : "is-done"}">Legacy</span>
+            <span class="${summary.dashboardStage === "In Progress" || summary.dashboardStage === "Needs Review" ? "is-active" : (summary.completionPercent >= 50 ? "is-done" : "")}">In Progress</span>
+            <span class="${summary.dashboardStage === "Ready" || summary.dashboardStage === "Complete" ? "is-active" : ""}">Ready</span>
           </div>
           <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.completionPercent}%"></i></div>
           <dl class="tk-enrich-summary-list">
@@ -782,7 +785,7 @@
               </div>
             `).join("")}
             <div class="tk-enrich-summary-row">
-              <dt>Last edited</dt>
+              <dt>Last updated</dt>
               <dd>${esc(formatEditedDate(summary.lastEditedDate))}</dd>
             </div>
             <div class="tk-enrich-summary-row">
@@ -794,7 +797,11 @@
               <dd>${esc(summary.draftOrPublished)}</dd>
             </div>
           </dl>
-          <p class="muted-copy tk-enrich-summary-note">Guidance only — never blocks saving a draft.</p>
+          ${canRollback ? `
+            <button type="button" class="ghost-button" data-enrich-rollback>Rollback last publish</button>
+            <p class="muted-copy">Restores the previous published enrichment. You stay in control — review after rollback.</p>
+          ` : ""}
+          <p class="muted-copy tk-enrich-summary-note">Guidance only — never blocks saving a draft. Nothing publishes automatically.</p>
         ` : ""}
       </aside>
     `;
@@ -824,8 +831,10 @@
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
             <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
             <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
+            <button type="button" class="ghost-button" data-enrich-next-lesson>Next lesson →</button>
           </div>
         </div>
+        <p class="muted-copy tk-enrich-workflow-note">Workflow: Upgrade with AI → Review → Edit → Publish → Next lesson. Original published content is preserved for rollback.</p>
         <div class="tk-enrich-chrome-sub">
           <div class="tk-enrich-counter">
             <strong>Activity ${n ? idx + 1 : 0} of ${n}</strong>
@@ -958,6 +967,14 @@
               <button class="ghost-button" type="submit">Add</button>
             </form>
           </section>
+          <section class="tk-enrich-card-block">
+            <h4>Example image briefs (style guide)</h4>
+            <p class="muted-copy">AI drafts classroom-style briefs only — never glossy stock. Upload photos that match, or use the brief when creating images. Briefs do not publish as photos.</p>
+            <label class="muted-copy">Setup example brief</label>
+            <textarea data-image-brief-setup rows="2" placeholder="Simple tray setup, ordinary materials, natural light…">${esc(view.imageBriefSetup || "")}</textarea>
+            <label class="muted-copy">Finished example brief</label>
+            <textarea data-image-brief-example rows="2" placeholder="Achievable craft / play result, teacher-manual style…">${esc(view.imageBriefExample || "")}</textarea>
+          </section>
           <div class="tk-enrich-stage-nav">
             <button type="button" class="ghost-button" data-enrich-skip>Skip for now</button>
             <button type="button" class="primary-button" data-enrich-save-next>Save &amp; next →</button>
@@ -1003,18 +1020,56 @@
   function renderWeekMode(plan) {
     const week = state.draft.week || {};
     const milestones = Array.isArray(week.milestones) ? week.milestones : [];
+    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object" ? week.teacherToolkit : {};
     const bank = ["Sorting", "Fine motor", "Language", "Social-emotional", "Gross motor", "Creativity", "Self-help"];
+    const draftBooks = Array.isArray(week.books) ? week.books : [];
+    const draftSongs = Array.isArray(week.songs) ? week.songs : [];
+    const printableIdeas = Array.isArray(week.printableIdeas) ? week.printableIdeas : [];
+    const vocabCards = Array.isArray(week.vocabCards) ? week.vocabCards : [];
     return `
       <div class="tk-enrich-week-layout">
         <div class="tk-enrich-week-ai-bar">
-          <p class="muted-copy">AI can suggest family ideas and milestone language. Nothing inserts until you approve.</p>
-          <button type="button" class="ghost-button" data-ai-suggest="week">Suggest with AI</button>
+          <p class="muted-copy">AI analyzes this lesson and drafts missing week pieces (overview, objectives, books, songs, toolkit, family, printables). Nothing inserts until you approve.</p>
+          <button type="button" class="primary-button" data-ai-suggest="week">Upgrade week with AI</button>
         </div>
+        <section class="tk-enrich-card-block">
+          <h4>Weekly overview</h4>
+          ${plan.weeklyOverview ? `<div class="tk-enrich-current-text">${esc(plan.weeklyOverview)}</div>` : ""}
+          <textarea data-week-overview rows="3" placeholder="Draft weekly overview…">${esc(week.weeklyOverview || "")}</textarea>
+        </section>
+        <section class="tk-enrich-card-block">
+          <h4>Learning objectives</h4>
+          ${plan.objectives ? `<div class="tk-enrich-current-text">${esc(plan.objectives)}</div>` : ""}
+          <textarea data-week-objectives rows="3" placeholder="Draft objectives…">${esc(week.objectives || "")}</textarea>
+        </section>
+        <section class="tk-enrich-card-block">
+          <h4>Materials list</h4>
+          ${plan.weeklyMaterials ? `<div class="tk-enrich-current-text">${esc(plan.weeklyMaterials)}</div>` : ""}
+          <textarea data-week-materials rows="3" placeholder="Draft materials list…">${esc(week.weeklyMaterials || "")}</textarea>
+        </section>
+        <section class="tk-enrich-card-block">
+          <h4>Teacher preparation / Toolkit</h4>
+          <textarea data-week-teacher-prep rows="2" placeholder="Teacher preparation…">${esc(week.teacherPreparation || toolkit.teacherPreparation || "")}</textarea>
+          <label class="muted-copy">Prep checklist (one per line)</label>
+          <textarea data-week-toolkit-prep rows="3" placeholder="Print cards…">${esc((toolkit.prepChecklist || []).join("\n"))}</textarea>
+          <label class="muted-copy">Observation focus (one per line)</label>
+          <textarea data-week-toolkit-focus rows="3" placeholder="Listen for vocabulary…">${esc((toolkit.observationFocus || []).join("\n"))}</textarea>
+        </section>
         <section class="tk-enrich-card-block">
           <h4>Family connection</h4>
           <p class="muted-copy">Current text is kept unless you replace it here.</p>
           ${plan.familyConnection ? `<div class="tk-enrich-current-text">${esc(plan.familyConnection)}</div>` : ""}
           <textarea data-week-family rows="3" placeholder="Optional draft family idea…">${esc(week.familyConnection || "")}</textarea>
+        </section>
+        <section class="tk-enrich-card-block">
+          <h4>Draft books / songs / printables</h4>
+          <p class="muted-copy">AI inserts appear here for review. Publishing merges by title — never deletes existing lists.</p>
+          <ul class="tk-enrich-checklist">
+            ${draftBooks.map((book) => `<li><strong>Book:</strong> ${esc(book.title || "")}${book.author ? ` — ${esc(book.author)}` : ""}${book.questions ? ` · ${esc(book.questions)}` : ""}</li>`).join("") || "<li class=\"muted-copy\">No draft books yet</li>"}
+            ${draftSongs.map((song) => `<li><strong>Song:</strong> ${esc(song.title || "")}</li>`).join("")}
+            ${printableIdeas.map((idea) => `<li><strong>Printable idea:</strong> ${esc(idea)}</li>`).join("")}
+            ${vocabCards.map((card) => `<li><strong>Vocab card:</strong> ${esc(card)}</li>`).join("")}
+          </ul>
         </section>
         <section class="tk-enrich-card-block">
           <h4>Milestones</h4>
@@ -1026,15 +1081,15 @@
         </section>
         <section class="tk-enrich-card-block">
           <h4>Completeness checklist (guidance only)</h4>
-          <p class="muted-copy">Never blocks saving a draft. Use it to aim for Complete.</p>
+          <p class="muted-copy">Never blocks saving a draft. Aim for Ready / Complete before publish.</p>
           <ul class="tk-enrich-checklist">
             <li>Cover & week story</li>
-            <li>Photos on highlight activities</li>
+            <li>Setup + finished example images (classroom style)</li>
             <li>Books & songs</li>
             <li>Family idea</li>
-            <li>Teacher tips</li>
-            <li>Printable linked</li>
-            <li>Supply substitutions / group options</li>
+            <li>Teacher toolkit</li>
+            <li>Printable ideas / linked printables</li>
+            <li>Observations · adaptations · indoor/outdoor options</li>
           </ul>
           <label class="tk-enrich-check-row">
             <input type="checkbox" data-preview-ready ${week.previewReady || state.draft.previewReady ? "checked" : ""} />
@@ -1433,6 +1488,72 @@
         render();
         return;
       }
+      if (event.target.closest("[data-enrich-next-lesson]")) {
+        const current = getPlan();
+        const workspace = root.LLHTeachingKitUpgradeWorkspace;
+        const allPlans = typeof curriculumLessonPlansForAdmin === "function"
+          ? curriculumLessonPlansForAdmin()
+          : [];
+        const metaFor = (plan) => {
+          const enrich = api();
+          const acts = typeof curriculumActivitiesForLesson === "function"
+            ? curriculumActivitiesForLesson(plan.id)
+            : [];
+          const summary = enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null);
+          return { percent: summary.completionPercent, summary };
+        };
+        const next = workspace?.nextLessonInQueue
+          ? workspace.nextLessonInQueue(allPlans, current?.id, metaFor)
+          : allPlans.find((plan) => plan.id !== current?.id) || null;
+        if (!next) {
+          state.statusText = "No next lesson in the upgrade queue.";
+          renderChromeOnly();
+          return;
+        }
+        if (state.dirty) {
+          const saved = await saveDraft({ silent: true });
+          if (!saved) {
+            state.statusText = "Save the current draft before moving to the next lesson.";
+            renderChromeOnly();
+            return;
+          }
+        }
+        open(next.id);
+        state.statusText = `Opened next lesson: ${next.title || next.id}`;
+        return;
+      }
+      if (event.target.closest("[data-enrich-rollback]")) {
+        const plan = getPlan();
+        if (!plan?.id) return;
+        if (!window.confirm("Roll back to the previous published enrichment for this lesson? Your current draft will be cleared.")) {
+          return;
+        }
+        try {
+          const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
+          const response = await fetch("/api/admin/curriculum/enrichment-rollback", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              planId: plan.id,
+              publishedBy: state.draft.lastEditedBy || "",
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+          if (data.curriculum && typeof applyCurriculumState === "function") {
+            applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
+          }
+          open(plan.id);
+          state.statusText = `Rolled back to prior publish${data.restoredFromVersionId ? ` (${data.restoredFromVersionId})` : ""}.`;
+          if (typeof showActionFeedback === "function") {
+            showActionFeedback("Previous enrichment restored. Review the lesson before publishing again.");
+          }
+        } catch (error) {
+          state.statusText = `Rollback failed: ${error.message || error}`;
+          render();
+        }
+        return;
+      }
       if (event.target.closest("[data-publish-cancel]")) {
         state.publishOpen = false;
         render();
@@ -1764,15 +1885,67 @@
         renderJumpResults(plan, getActivities(plan));
         return;
       }
+      if (event.target.matches("[data-image-brief-setup]") || event.target.matches("[data-image-brief-example]")) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        if (!act) return;
+        const key = draftKey(act);
+        const draftAct = ensureDraftActivity(key);
+        if (event.target.matches("[data-image-brief-setup]")) {
+          draftAct.imageBriefSetup = event.target.value || "";
+        } else {
+          draftAct.imageBriefExample = event.target.value || "";
+        }
+        markDirty();
+        return;
+      }
       if (event.target.matches("[data-week-family]")) {
         state.draft.week.familyConnection = event.target.value || "";
         markDirty();
-        clearTimeout(state._previewTimer);
-        state._previewTimer = setTimeout(() => {
-          const plan = getPlan();
-          paintLivePreview(plan, getActivities(plan));
-        }, 250);
+      } else if (event.target.matches("[data-week-overview]")) {
+        state.draft.week.weeklyOverview = event.target.value || "";
+        markDirty();
+      } else if (event.target.matches("[data-week-objectives]")) {
+        state.draft.week.objectives = event.target.value || "";
+        markDirty();
+      } else if (event.target.matches("[data-week-materials]")) {
+        state.draft.week.weeklyMaterials = event.target.value || "";
+        markDirty();
+      } else if (event.target.matches("[data-week-teacher-prep]")) {
+        state.draft.week.teacherPreparation = event.target.value || "";
+        if (!state.draft.week.teacherToolkit || typeof state.draft.week.teacherToolkit !== "object") {
+          state.draft.week.teacherToolkit = { prepChecklist: [], observationFocus: [], notes: "", teacherPreparation: "" };
+        }
+        state.draft.week.teacherToolkit.teacherPreparation = event.target.value || "";
+        markDirty();
+      } else if (event.target.matches("[data-week-toolkit-prep]")) {
+        if (!state.draft.week.teacherToolkit || typeof state.draft.week.teacherToolkit !== "object") {
+          state.draft.week.teacherToolkit = { prepChecklist: [], observationFocus: [], notes: "", teacherPreparation: "" };
+        }
+        state.draft.week.teacherToolkit.prepChecklist = String(event.target.value || "")
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 24);
+        markDirty();
+      } else if (event.target.matches("[data-week-toolkit-focus]")) {
+        if (!state.draft.week.teacherToolkit || typeof state.draft.week.teacherToolkit !== "object") {
+          state.draft.week.teacherToolkit = { prepChecklist: [], observationFocus: [], notes: "", teacherPreparation: "" };
+        }
+        state.draft.week.teacherToolkit.observationFocus = String(event.target.value || "")
+          .split(/\n+/)
+          .map((line) => line.trim())
+          .filter(Boolean)
+          .slice(0, 24);
+        markDirty();
+      } else {
+        return;
       }
+      clearTimeout(state._previewTimer);
+      state._previewTimer = setTimeout(() => {
+        const plan = getPlan();
+        paintLivePreview(plan, getActivities(plan));
+      }, 250);
     });
 
     document.addEventListener("submit", (event) => {

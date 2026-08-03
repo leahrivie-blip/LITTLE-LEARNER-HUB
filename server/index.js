@@ -17233,9 +17233,126 @@ function applyMergedEnrichmentToActivities(existingActivities, mergedActivities,
       settingTags: Array.isArray(match.settingTags) ? match.settingTags : act.settingTags,
       observationOpportunities: match.observationOpportunities || act.observationOpportunities || "",
       vocabulary: match.vocabulary || act.vocabulary || "",
+      indoorAlternatives: match.indoorAlternatives || act.indoorAlternatives || "",
+      outdoorAlternatives: match.outdoorAlternatives || act.outdoorAlternatives || "",
+      adaptations: match.adaptations || act.adaptations || "",
+      extensions: match.extensions || act.extensions || "",
+      setup: match.setup || act.setup || "",
+      steps: match.steps || act.steps || "",
       updatedAt: new Date().toISOString(),
     });
   }).filter(Boolean);
+}
+
+/**
+ * Reversible publish: restore prior enrichment snapshot as the published lesson.
+ * Does not auto-run; admin must call explicitly. Keeps history (adds a rollback entry).
+ */
+async function handleEnrichmentRollback(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = await readStore();
+  const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(flags)) {
+    jsonResponse(response, 404, { error: "Enrichment Editor is disabled.", code: "enrichment_editor_disabled" });
+    return;
+  }
+  const planId = normalizedShortText(body.planId || body.lessonPlanId || body.lessonPlan?.id, 160);
+  if (!planId) {
+    jsonResponse(response, 400, { error: "planId is required.", code: "missing_plan_id" });
+    return;
+  }
+  const curriculum = store.siteContent?.curriculum || {};
+  const existingPlan = (curriculum.lessonPlans || []).find((item) => item.id === planId);
+  if (!existingPlan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+    return;
+  }
+  const history = Array.isArray(existingPlan.enrichmentPublishHistory)
+    ? existingPlan.enrichmentPublishHistory
+    : [];
+  const versionId = normalizedShortText(body.versionId, 80);
+  const entry = versionId
+    ? history.find((item) => item.versionId === versionId)
+    : history[0];
+  if (!entry?.snapshot) {
+    jsonResponse(response, 400, {
+      error: "No enrichment publish history is available to roll back.",
+      code: "enrichment_rollback_unavailable",
+    });
+    return;
+  }
+  const snap = entry.snapshot;
+  const now = new Date().toISOString();
+  const restoredPlan = normalizedCurriculumLessonPlan({
+    ...existingPlan,
+    dailyPlans: snap.dailyPlans || existingPlan.dailyPlans,
+    familyConnection: snap.familyConnection != null ? snap.familyConnection : existingPlan.familyConnection,
+    teachingKit: snap.teachingKit != null ? snap.teachingKit : existingPlan.teachingKit,
+    enrichmentDraft: null,
+    enrichmentPublishHistory: [
+      {
+        versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+        publishedAt: now,
+        publishedBy: normalizedShortText(body.publishedBy || "admin", 180) || "admin",
+        fingerprint: `rollback:${entry.versionId}`,
+        lessonPlanId: planId,
+        snapshot: snapshotEnrichmentPublishedState(existingPlan, curriculum.activities || []),
+        rollbackOf: entry.versionId,
+      },
+      ...history,
+    ].slice(0, 12),
+    updatedAt: now,
+  });
+  const snapActs = Array.isArray(snap.activities) ? snap.activities : [];
+  const byId = new Map(snapActs.map((act) => [act.id, act]));
+  const byItem = new Map(snapActs.filter((act) => act.itemId).map((act) => [act.itemId, act]));
+  const nextActivities = (curriculum.activities || []).map((act) => {
+    if (act.lessonPlanId !== planId) return act;
+    const match = byId.get(act.id) || byItem.get(act.itemId);
+    if (!match) return act;
+    return normalizedCurriculumActivity({
+      ...act,
+      setupImageUrl: match.setupImageUrl || "",
+      exampleImageUrl: match.exampleImageUrl || "",
+      setupMediaAssetId: match.setupMediaAssetId || "",
+      exampleMediaAssetId: match.exampleMediaAssetId || "",
+      teacherTips: Array.isArray(match.teacherTips) ? match.teacherTips : [],
+      substitutions: Array.isArray(match.substitutions) ? match.substitutions : [],
+      settingTags: Array.isArray(match.settingTags) ? match.settingTags : [],
+      observationOpportunities: match.observationOpportunities || "",
+      vocabulary: match.vocabulary || "",
+      updatedAt: now,
+    });
+  });
+  const nextCurriculum = normalizedCurriculumStore({
+    ...curriculum,
+    lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
+    activities: nextActivities,
+    updatedAt: now,
+  });
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    jsonResponse(response, 409, {
+      error: "Rollback refused to protect curriculum integrity.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
+  await writeStoreAsync(store);
+  const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
+  jsonResponse(response, 200, {
+    ok: true,
+    rolledBack: true,
+    autoPublished: false,
+    restoredFromVersionId: entry.versionId,
+    lessonPlan: saved,
+    curriculum: store.siteContent.curriculum,
+    siteContentUpdatedAt: store.siteContent.updatedAt,
+  });
 }
 
 async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId) {
@@ -17306,10 +17423,25 @@ async function handlePublishEnrichment(request, response, ctx) {
     : null;
 
   const weekDraft = incomingDraft?.week && typeof incomingDraft.week === "object" ? incomingDraft.week : {};
+  const weekToolkit = weekDraft.teacherToolkit && typeof weekDraft.teacherToolkit === "object"
+    ? weekDraft.teacherToolkit
+    : {};
   const hasWeekEnrichment = Boolean(
     String(weekDraft.familyConnection || "").trim()
+    || String(weekDraft.weeklyOverview || "").trim()
+    || String(weekDraft.objectives || "").trim()
+    || String(weekDraft.weeklyMaterials || "").trim()
+    || String(weekDraft.teacherPreparation || "").trim()
+    || String(weekToolkit.teacherPreparation || "").trim()
+    || String(weekToolkit.notes || "").trim()
     || (Array.isArray(weekDraft.milestones) && weekDraft.milestones.length)
-    || (Array.isArray(weekDraft.printableIds) && weekDraft.printableIds.length),
+    || (Array.isArray(weekDraft.printableIds) && weekDraft.printableIds.length)
+    || (Array.isArray(weekDraft.printableIdeas) && weekDraft.printableIdeas.length)
+    || (Array.isArray(weekDraft.vocabCards) && weekDraft.vocabCards.length)
+    || (Array.isArray(weekDraft.books) && weekDraft.books.length)
+    || (Array.isArray(weekDraft.songs) && weekDraft.songs.length)
+    || (Array.isArray(weekToolkit.prepChecklist) && weekToolkit.prepChecklist.length)
+    || (Array.isArray(weekToolkit.observationFocus) && weekToolkit.observationFocus.length),
   );
   const hasActivityEnrichment = Boolean(Object.keys(incomingDraft?.activities || {}).length);
   // Idempotent duplicate publish: no draft left / same fingerprint → no new version.
@@ -23753,6 +23885,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/upload") return await handleAdminEnrichmentPhotoUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-suggest") return await handleAdminEnrichmentAiSuggest(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-rollback") return await handleEnrichmentRollback(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);

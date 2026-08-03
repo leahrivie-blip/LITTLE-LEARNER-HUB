@@ -69,6 +69,12 @@
     return text(value).split(/[,;\n]+/).map(text).filter(Boolean);
   }
 
+  function pickDraftOrPublishedText(draftValue, publishedValue) {
+    const draft = text(draftValue);
+    if (draft) return draft;
+    return text(publishedValue);
+  }
+
   function activityEnrichmentView(activity, draftActivity) {
     const d = draftActivity && typeof draftActivity === "object" ? draftActivity : {};
     const tips = asArray(d.teacherTips).length
@@ -100,6 +106,14 @@
       settingTags,
       observationPrompts,
       vocabulary,
+      indoorAlternatives: pickDraftOrPublishedText(d.indoorAlternatives, activity?.indoorAlternatives),
+      outdoorAlternatives: pickDraftOrPublishedText(d.outdoorAlternatives, activity?.outdoorAlternatives),
+      adaptations: pickDraftOrPublishedText(d.adaptations, activity?.adaptations),
+      extensions: pickDraftOrPublishedText(d.extensions, activity?.extensions),
+      setup: pickDraftOrPublishedText(d.setup, activity?.setup),
+      steps: pickDraftOrPublishedText(d.steps, activity?.steps),
+      imageBriefSetup: text(d.imageBriefSetup),
+      imageBriefExample: text(d.imageBriefExample),
     };
   }
 
@@ -303,6 +317,12 @@
         settingTags: view.settingTags,
         observationOpportunities: view.observationPrompts.join("\n") || act.observationOpportunities,
         vocabulary: view.vocabulary.join(", ") || act.vocabulary,
+        indoorAlternatives: view.indoorAlternatives || act.indoorAlternatives,
+        outdoorAlternatives: view.outdoorAlternatives || act.outdoorAlternatives,
+        adaptations: view.adaptations || act.adaptations,
+        extensions: view.extensions || act.extensions,
+        setup: view.setup || act.setup,
+        steps: view.steps || act.steps,
       };
     });
     const byItemDay = new Map();
@@ -332,6 +352,12 @@
             settingTags: match.settingTags,
             observationOpportunities: match.observationOpportunities,
             vocabulary: match.vocabulary,
+            indoorAlternatives: match.indoorAlternatives,
+            outdoorAlternatives: match.outdoorAlternatives,
+            adaptations: match.adaptations,
+            extensions: match.extensions,
+            setup: match.setup,
+            steps: match.steps,
           };
         }),
       };
@@ -340,8 +366,72 @@
     nextPlan.dailyPlans = daily;
     const week = draft.week && typeof draft.week === "object" ? draft.week : {};
     if (text(week.familyConnection)) nextPlan.familyConnection = text(week.familyConnection);
+    if (text(week.weeklyOverview)) nextPlan.weeklyOverview = text(week.weeklyOverview);
+    if (text(week.objectives)) nextPlan.objectives = text(week.objectives);
+    if (text(week.weeklyMaterials)) nextPlan.weeklyMaterials = text(week.weeklyMaterials);
+
+    const draftBooks = asArray(week.books)
+      .map((book) => {
+        if (!book || typeof book !== "object") {
+          const title = text(book);
+          return title ? { title } : null;
+        }
+        const title = text(book.title);
+        if (!title) return null;
+        return {
+          title,
+          author: text(book.author),
+          questions: text(book.questions || book.discussionQuestions),
+        };
+      })
+      .filter(Boolean);
+    if (draftBooks.length) {
+      const existing = asArray(nextPlan.books).map((book) => (
+        typeof book === "object" ? book : { title: text(book) }
+      ));
+      const seen = new Set(existing.map((book) => text(book.title).toLowerCase()).filter(Boolean));
+      draftBooks.forEach((book) => {
+        const key = text(book.title).toLowerCase();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        existing.push(book);
+      });
+      nextPlan.books = existing.slice(0, 40);
+    }
+
+    const draftSongs = asArray(week.songs)
+      .map((song) => {
+        if (!song || typeof song !== "object") {
+          const title = text(song);
+          return title ? { title } : null;
+        }
+        const title = text(song.title);
+        if (!title) return null;
+        return {
+          title,
+          lyrics: text(song.lyrics),
+          motions: text(song.motions),
+        };
+      })
+      .filter(Boolean);
+    if (draftSongs.length) {
+      const existing = asArray(nextPlan.songs).map((song) => (
+        typeof song === "object" ? song : { title: text(song) }
+      ));
+      const seen = new Set(existing.map((song) => text(song.title).toLowerCase()).filter(Boolean));
+      draftSongs.forEach((song) => {
+        const key = text(song.title).toLowerCase();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        existing.push(song);
+      });
+      nextPlan.songs = existing.slice(0, 40);
+    }
+
     const milestones = asArray(week.milestones).map(text).filter(Boolean).slice(0, 16);
     const printableIds = asArray(week.printableIds).map(text).filter(Boolean).slice(0, 100);
+    const printableIdeas = asArray(week.printableIdeas).map(text).filter(Boolean).slice(0, 24);
+    const vocabCards = asArray(week.vocabCards).map(text).filter(Boolean).slice(0, 40);
     if (printableIds.length) {
       const existingIds = asArray(nextPlan.resourceIds).map(text).filter(Boolean);
       const mergedIds = [...existingIds];
@@ -351,6 +441,21 @@
       nextPlan.resourceIds = mergedIds.slice(0, 200);
     }
     const percent = computeCompletionPercent(nextPlan, nextActivities, null);
+    const priorToolkit = nextPlan.teachingKit?.teacherToolkit && typeof nextPlan.teachingKit.teacherToolkit === "object"
+      ? nextPlan.teachingKit.teacherToolkit
+      : {};
+    const draftToolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+      ? week.teacherToolkit
+      : {};
+    const toolkitPrep = asArray(draftToolkit.prepChecklist).length
+      ? asArray(draftToolkit.prepChecklist).map(text).filter(Boolean)
+      : asArray(priorToolkit.prepChecklist).map(text).filter(Boolean);
+    const toolkitFocus = asArray(draftToolkit.observationFocus).length
+      ? asArray(draftToolkit.observationFocus).map(text).filter(Boolean)
+      : asArray(priorToolkit.observationFocus).map(text).filter(Boolean);
+    const teacherPreparation = text(week.teacherPreparation)
+      || text(draftToolkit.teacherPreparation)
+      || text(priorToolkit.teacherPreparation);
     nextPlan.teachingKit = {
       ...(nextPlan.teachingKit || {}),
       schemaVersion: 1,
@@ -358,7 +463,15 @@
       completionPercent: percent,
       updatedAt: text(draft.updatedAt) || new Date().toISOString(),
       lastEditedBy: text(draft.lastEditedBy) || text(nextPlan.teachingKit?.lastEditedBy) || "",
+      teacherToolkit: {
+        prepChecklist: toolkitPrep.slice(0, 24),
+        observationFocus: toolkitFocus.slice(0, 24),
+        notes: text(draftToolkit.notes) || text(priorToolkit.notes),
+        teacherPreparation,
+      },
     };
+    if (printableIdeas.length) nextPlan.teachingKit.printableIdeas = printableIdeas;
+    if (vocabCards.length) nextPlan.teachingKit.vocabCards = vocabCards;
     if (milestones.length) {
       nextPlan.teachingKit.milestones = milestones;
     } else if (Array.isArray(nextPlan.teachingKit.milestones)) {
@@ -455,9 +568,33 @@
     });
 
     const missingFamilyConnection = !(text(plan?.familyConnection) || text(week.familyConnection));
-    const missingPrintables = !(asArray(plan?.resourceIds).length || asArray(week.printableIds).length);
-    const missingBooks = !asArray(plan?.books).length;
-    const missingSongs = !asArray(plan?.songs).length;
+    const missingPrintables = !(
+      asArray(plan?.resourceIds).length
+      || asArray(week.printableIds).length
+      || asArray(week.printableIdeas).length
+    );
+    const missingBooks = !(asArray(plan?.books).length || asArray(week.books).length);
+    const missingSongs = !(asArray(plan?.songs).length || asArray(week.songs).length);
+    const publishedToolkit = plan?.teachingKit?.teacherToolkit && typeof plan.teachingKit.teacherToolkit === "object"
+      ? plan.teachingKit.teacherToolkit
+      : {};
+    const draftToolkit = week.teacherToolkit && typeof week.teacherToolkit === "object"
+      ? week.teacherToolkit
+      : {};
+    const missingTeacherToolkit = !(
+      asArray(draftToolkit.prepChecklist).length
+      || asArray(publishedToolkit.prepChecklist).length
+      || asArray(draftToolkit.observationFocus).length
+      || asArray(publishedToolkit.observationFocus).length
+      || text(draftToolkit.notes)
+      || text(publishedToolkit.notes)
+      || text(week.teacherPreparation)
+      || text(draftToolkit.teacherPreparation)
+      || text(publishedToolkit.teacherPreparation)
+    );
+    const aiReady = Boolean(text(plan?.title)) && (
+      list.length > 0 || Boolean(text(plan?.weeklyOverview) || text(week.weeklyOverview))
+    );
     const missingVocabulary = !text(plan?.vocabularyWords).split(/[,;\n]+/).map(text).filter(Boolean).length;
     const missingWeekObjectives = !text(plan?.objectives);
     const missingWeekMaterials = !text(plan?.weeklyMaterials);
@@ -518,6 +655,8 @@
       missingPhotos: missingExamples,
       missingExamples,
       missingObservations: missingObservationPrompts > 0,
+      missingTeacherToolkit,
+      aiReady,
     };
     baseSummary.dashboardStage = dashboardStageFromSummary(baseSummary);
     baseSummary.dashboardStageSlug = dashboardStageSlug(baseSummary.dashboardStage);
@@ -540,6 +679,22 @@
     }
     if (gap === "missing_family" || gap === "missing_family_connection") {
       return summary.missingFamilyConnection;
+    }
+    if (gap === "missing_toolkit" || gap === "missing_teacher_toolkit") {
+      return summary.missingTeacherToolkit;
+    }
+    if (gap === "ai_ready") return summary.aiReady === true;
+    if (gap === "not_ai_ready") return summary.aiReady === false;
+    if (gap === "most_incomplete" || gap === "incomplete") {
+      return Number(summary.completionPercent || 0) < 90
+        || Number(summary.incompleteActivities || 0) > 0
+        || summary.missingSongs
+        || summary.missingBooks
+        || summary.missingPrintables
+        || summary.missingExamples
+        || summary.missingTeacherToolkit
+        || summary.missingFamilyConnection
+        || summary.missingObservations;
     }
     if (gap === "draft") return summary.hasEnrichmentDraft || summary.lessonStatus === "draft";
     if (gap === "published") return summary.isPublished;
@@ -607,13 +762,76 @@
     observation_prompts: "observationPrompts",
     vocabulary: "vocabulary",
     substitutions: "substitutions",
-    indoor_outdoor: "teacherTips",
+    indoor_outdoor: "indoorAlternatives",
+    indoor_alternatives: "indoorAlternatives",
+    outdoor_alternatives: "outdoorAlternatives",
     group_ideas: "teacherTips",
     setting_tags: "settingTags",
+    adaptations: "adaptations",
+    extensions: "extensions",
+    setup: "setup",
+    steps: "steps",
+    image_brief_setup: "imageBriefSetup",
+    image_brief_example: "imageBriefExample",
     family_connection: "familyConnection",
     milestones: "milestones",
+    weekly_overview: "weeklyOverview",
+    learning_objectives: "objectives",
+    materials_list: "weeklyMaterials",
+    teacher_preparation: "teacherPreparation",
+    toolkit_prep: "toolkitPrep",
+    toolkit_observation: "toolkitObservation",
+    books: "books",
+    songs: "songs",
+    printable_ideas: "printableIdeas",
+    vocab_cards: "vocabCards",
   });
-  const AI_WEEK_FIELDS = new Set(["familyConnection", "milestones"]);
+  const AI_WEEK_FIELDS = new Set([
+    "familyConnection",
+    "milestones",
+    "weeklyOverview",
+    "objectives",
+    "weeklyMaterials",
+    "teacherPreparation",
+    "toolkitPrep",
+    "toolkitObservation",
+    "books",
+    "songs",
+    "printableIdeas",
+    "vocabCards",
+  ]);
+  const AI_ACTIVITY_TEXT_FIELDS = new Set([
+    "indoorAlternatives",
+    "outdoorAlternatives",
+    "adaptations",
+    "extensions",
+    "setup",
+    "steps",
+    "imageBriefSetup",
+    "imageBriefExample",
+  ]);
+  const AI_ACTIVITY_LIST_FIELDS = new Set(["teacherTips", "observationPrompts", "vocabulary"]);
+
+  function appendDraftText(prev, next) {
+    const a = text(prev);
+    const b = text(next);
+    if (!b) return a;
+    if (!a) return b;
+    if (a.includes(b)) return a;
+    return `${a}\n\n${b}`;
+  }
+
+  function ensureWeekToolkit(draft) {
+    if (!draft.week.teacherToolkit || typeof draft.week.teacherToolkit !== "object") {
+      draft.week.teacherToolkit = {
+        prepChecklist: [],
+        observationFocus: [],
+        notes: "",
+        teacherPreparation: "",
+      };
+    }
+    return draft.week.teacherToolkit;
+  }
 
   /**
    * Canonical AI suggestion applicator (browser + server).
@@ -638,23 +856,79 @@
       if (!field) return;
 
       if (AI_WEEK_FIELDS.has(field) || text(sug.scope) === "week") {
-        if (field === "familyConnection") {
+        if (field === "familyConnection" || field === "weeklyOverview"
+          || field === "objectives" || field === "weeklyMaterials"
+          || field === "teacherPreparation") {
           const next = text(sug.proposedValue || sug.proposedText);
           if (!next) return;
-          const prev = text(draft.week.familyConnection);
-          draft.week.familyConnection = prev ? `${prev}\n\n${next}` : next;
+          draft.week[field] = appendDraftText(draft.week[field], next);
+          if (field === "teacherPreparation") {
+            const toolkit = ensureWeekToolkit(draft);
+            toolkit.teacherPreparation = appendDraftText(toolkit.teacherPreparation, next);
+          }
           inserted.push(sug.id);
           fields.add(field);
           return;
         }
-        if (field === "milestones") {
+        if (field === "milestones" || field === "printableIdeas" || field === "vocabCards") {
           const label = text(sug.proposedValue || sug.proposedText);
           if (!label) return;
-          const list = asArray(draft.week.milestones).map(text).filter(Boolean);
+          const list = asArray(draft.week[field]).map(text).filter(Boolean);
           if (!list.includes(label)) list.push(label);
-          draft.week.milestones = list.slice(0, 16);
+          draft.week[field] = list.slice(0, field === "milestones" ? 16 : 40);
           inserted.push(sug.id);
           fields.add(field);
+          return;
+        }
+        if (field === "toolkitPrep" || field === "toolkitObservation") {
+          const label = text(sug.proposedValue || sug.proposedText);
+          if (!label) return;
+          const toolkit = ensureWeekToolkit(draft);
+          const key = field === "toolkitPrep" ? "prepChecklist" : "observationFocus";
+          const list = asArray(toolkit[key]).map(text).filter(Boolean);
+          if (!list.includes(label)) list.push(label);
+          toolkit[key] = list.slice(0, 24);
+          inserted.push(sug.id);
+          fields.add(field);
+          return;
+        }
+        if (field === "books") {
+          const value = sug.proposedValue && typeof sug.proposedValue === "object"
+            ? sug.proposedValue
+            : { title: text(sug.proposedText) };
+          const title = text(value.title);
+          if (!title) return;
+          const list = asArray(draft.week.books).filter((item) => item && text(item.title));
+          if (!list.some((item) => text(item.title).toLowerCase() === title.toLowerCase())) {
+            list.push({
+              title,
+              author: text(value.author),
+              questions: text(value.questions),
+            });
+          }
+          draft.week.books = list.slice(0, 24);
+          inserted.push(sug.id);
+          fields.add(field);
+          return;
+        }
+        if (field === "songs") {
+          const value = sug.proposedValue && typeof sug.proposedValue === "object"
+            ? sug.proposedValue
+            : { title: text(sug.proposedText) };
+          const title = text(value.title);
+          if (!title) return;
+          const list = asArray(draft.week.songs).filter((item) => item && text(item.title));
+          if (!list.some((item) => text(item.title).toLowerCase() === title.toLowerCase())) {
+            list.push({
+              title,
+              lyrics: text(value.lyrics),
+              motions: text(value.motions),
+            });
+          }
+          draft.week.songs = list.slice(0, 24);
+          inserted.push(sug.id);
+          fields.add(field);
+          return;
         }
         return;
       }
@@ -690,6 +964,16 @@
         return;
       }
 
+      if (AI_ACTIVITY_TEXT_FIELDS.has(field)) {
+        const value = text(sug.proposedValue || sug.proposedText);
+        if (!value) return;
+        act[field] = appendDraftText(act[field], value);
+        inserted.push(sug.id);
+        fields.add(field);
+        return;
+      }
+
+      if (!AI_ACTIVITY_LIST_FIELDS.has(field) && field !== "teacherTips") return;
       const value = text(sug.proposedValue || sug.proposedText);
       if (!value) return;
       const max = field === "vocabulary" ? 24 : 8;
