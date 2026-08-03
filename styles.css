@@ -23592,45 +23592,13 @@ body.nuo-open .llh-meta-cookie-notice {
   font-size: 0.78rem;
   font-weight: 700;
 }
-.tk-binder-stage {
-  background: #ebe4d8;
-  background-image: linear-gradient(90deg, #c9b79a 0 18px, transparent 18px);
-  padding: 18px;
-  border-radius: 16px;
-}
-.tk-binder-spread {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 16px;
-}
-.tk-binder-cover {
-  background: linear-gradient(160deg, #1f4d38, #2f6b4f 55%, #3d7f5e);
-  color: #fff;
-  border-radius: 6px 16px 16px 6px;
-  padding: 18px 16px;
-  border-left: 10px solid var(--tk-accent);
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
+/* Legacy print-mock binder stage/spread/cover removed — digital binder uses
+   .tk-binder-digital / .tk-binder-hero (vision alignment). */
 .tk-binder-mark {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.9;
-}
-.tk-binder-cover h3 { margin: 14px 0 8px; font-size: 1.4rem; line-height: 1.15; }
-.tk-binder-cover p { margin: 0; opacity: 0.92; }
-.tk-tab-rail { display: grid; gap: 6px; margin-top: 16px; }
-.tk-tab-rail span {
-  display: block;
-  background: rgba(255,255,255,0.14);
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 0.75rem;
-  font-weight: 800;
 }
 .tk-binder-pages { display: grid; gap: 10px; }
 .tk-binder-page {
@@ -23901,7 +23869,6 @@ body.nuo-open .llh-meta-cookie-notice {
   .tk-grid-2,
   .tk-grid-3,
   .tk-photo-pair,
-  .tk-binder-spread,
   .tk-binder-hero,
   .tk-week-grid { grid-template-columns: 1fr; }
   .tk-ops-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }

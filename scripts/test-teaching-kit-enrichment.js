@@ -15,6 +15,7 @@ function samplePlan() {
     plan: "Pro",
     coverImageUrl: "https://example.com/cover.jpg",
     weeklyOverview: "A week of farm fun.",
+    objectives: "Explore farm animals through play and songs.",
     books: [{ title: "Big Red Barn" }],
     songs: [{ title: "Old MacDonald" }],
     familyConnection: "Ask about favorite animals.",
