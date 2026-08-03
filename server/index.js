@@ -16690,6 +16690,14 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
 
     // Teaching Kit Enrichment Editor — draft-only save (published member view unchanged).
     if (saveMode === "enrichment_draft") {
+      const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
+      if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+        jsonResponse(response, 404, {
+          error: "Teaching Kit Enrichment Editor is disabled.",
+          code: "enrichment_editor_disabled",
+        });
+        return;
+      }
       if (!existingPlan) {
         jsonResponse(response, 404, { error: "Lesson plan not found for enrichment draft." });
         return;
@@ -16733,68 +16741,12 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       return;
     }
 
-    // Publish enrichment draft → merge into live plan/activities, clear draft.
+    // Enrichment publish is intentionally unavailable in Slice 1 (draft-only).
+    // Later slice will re-enable merge-to-live under owner review.
     if (saveMode === "publish_enrichment") {
-      if (!existingPlan) {
-        jsonResponse(response, 404, { error: "Lesson plan not found for enrichment publish." });
-        return;
-      }
-      let enrichmentApi = null;
-      try {
-        enrichmentApi = require("../scripts/teaching-kit-enrichment.js");
-      } catch (_error) {
-        enrichmentApi = null;
-      }
-      const draft = existingPlan.enrichmentDraft || incomingPlan.enrichmentDraft || null;
-      const existingActivities = (existingCurriculum.activities || []).filter((a) => a.lessonPlanId === id);
-      const merged = enrichmentApi?.mergeDraftIntoPlan
-        ? enrichmentApi.mergeDraftIntoPlan(existingPlan, existingActivities, draft)
-        : { plan: existingPlan, activities: existingActivities };
-      const planInput = withAutoAssignedLessonCover({
-        ...merged.plan,
-        id,
-        enrichmentDraft: null,
-        createdAt: existingPlan.createdAt,
-        updatedAt: now,
-        publishedAt: existingPlan.publishedAt,
-        status: existingPlan.status,
-      });
-      delete planInput.enrichmentDraft;
-      const syncedCurriculum = syncCurriculumActivitiesForLessonPlan(existingCurriculum, planInput);
-      if (!syncedCurriculum) {
-        jsonResponse(response, 400, { error: "Lesson plan could not be normalized for enrichment publish." });
-        return;
-      }
-      // Ensure draft cleared on stored plan
-      syncedCurriculum.lessonPlans = syncedCurriculum.lessonPlans.map((item) => {
-        if (item.id !== id) return item;
-        const next = { ...item };
-        delete next.enrichmentDraft;
-        return next;
-      });
-      const integrityError = assertCurriculumIntegrityOrError(syncedCurriculum);
-      if (integrityError) {
-        jsonResponse(response, 400, integrityError);
-        return;
-      }
-      const writeResult = writeSiteCurriculum(store, syncedCurriculum, { updatedAt: now });
-      if (writeResult.wipeBlocked) {
-        jsonResponse(response, 409, {
-          error: "This save was refused because it would have shrunk the live curriculum unexpectedly. Refresh and try again.",
-          code: "curriculum_wipe_blocked",
-        });
-        return;
-      }
-      await writeStoreAsync(store);
-      const savedPlan = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
-      const savedActivities = (store.siteContent.curriculum.activities || []).filter((a) => a.lessonPlanId === id);
-      jsonResponse(response, 200, {
-        ok: true,
-        saveMode: "publish_enrichment",
-        lessonPlan: savedPlan,
-        activities: savedActivities,
-        curriculum: store.siteContent.curriculum,
-        siteContentUpdatedAt: store.siteContent.updatedAt,
+      jsonResponse(response, 403, {
+        error: "Enrichment publish is not enabled in Slice 1. Draft save only.",
+        code: "enrichment_publish_disabled",
       });
       return;
     }

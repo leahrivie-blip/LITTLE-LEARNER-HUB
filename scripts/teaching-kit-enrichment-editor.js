@@ -1,6 +1,9 @@
 /**
  * Teaching Kit Enrichment Editor — admin focused workspace.
- * Depends on window.LLHTeachingKitEnrichment + LLHTeachingKitViewer.
+ * Slice 1: framework, navigation, progress tracking, draft workflow.
+ * Behind featureFlags.teachingKitEnrichmentEditor (default false).
+ * Photos / AI / publish are intentionally disabled until later slices.
+ * Depends on window.LLHTeachingKitEnrichment (+ optional LLHTeachingKitViewer later).
  */
 (function (root) {
   "use strict";
@@ -8,6 +11,14 @@
   const api = () => root.LLHTeachingKitEnrichment;
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const DAY_LABEL = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
+
+  /** Slice 1 capability gates — later slices flip these on behind review. */
+  const SLICE1 = Object.freeze({
+    photoUpload: false,
+    aiSuggest: false,
+    publish: false,
+    livePreview: false,
+  });
 
   const state = {
     open: false,
@@ -25,6 +36,14 @@
     statusText: "",
     summaryOpen: true,
   };
+
+  function isEditorFlagEnabled() {
+    const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+    if (root.LLHTeachingKit?.isTeachingKitEnrichmentEditorEnabled) {
+      return root.LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled(flags) === true;
+    }
+    return flags.teachingKitEnrichmentEditor === true;
+  }
 
   function esc(value) {
     return String(value ?? "")
@@ -158,6 +177,12 @@
   }
 
   function open(planId) {
+    if (!isEditorFlagEnabled()) {
+      if (typeof showActionFeedback === "function") {
+        showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+      }
+      return;
+    }
     const plan = typeof curriculumLessonPlanById === "function" ? curriculumLessonPlanById(planId) : null;
     if (!plan) return;
     state.open = true;
@@ -216,6 +241,20 @@
 
   function photoZoneHtml(label, field, url, key) {
     const has = Boolean(url);
+    if (!SLICE1.photoUpload) {
+      return `
+        <div class="tk-enrich-photo is-readonly" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}">
+          <div class="tk-enrich-photo-label">${esc(label)}</div>
+          <div class="tk-enrich-photo-drop ${has ? "has-photo" : ""}" aria-label="${esc(label)}">
+            ${has
+              ? `<img src="${esc(url)}" alt="${esc(label)}" />`
+              : `<span class="tk-enrich-photo-empty">No photo yet</span>`}
+          </div>
+          <p class="muted-copy tk-enrich-slice-note">Photo upload arrives in a later slice.</p>
+          ${has ? `<div class="tk-enrich-photo-actions"><button type="button" class="ghost-button" data-photo-preview>Full size</button></div>` : ""}
+        </div>
+      `;
+    }
     return `
       <div class="tk-enrich-photo" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}">
         <div class="tk-enrich-photo-label">${esc(label)}</div>
@@ -327,8 +366,10 @@
           </div>
           <div class="tk-enrich-chrome-actions">
             <button type="button" class="ghost-button" data-summary-toggle>Upgrade Summary</button>
-            <button type="button" class="ghost-button" data-enrich-save-draft>Save draft</button>
-            <button type="button" class="primary-button" data-enrich-publish>Publish…</button>
+            <button type="button" class="primary-button" data-enrich-save-draft>Save draft</button>
+            ${SLICE1.publish
+              ? `<button type="button" class="primary-button" data-enrich-publish>Publish…</button>`
+              : `<button type="button" class="ghost-button" disabled title="Publishing arrives in a later slice">Publish…</button>`}
           </div>
         </div>
         <div class="tk-enrich-chrome-sub">
@@ -353,10 +394,13 @@
             Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.
           </div>
         ` : ""}
+        <div class="tk-enrich-slice-banner" role="status">
+          Slice 1 framework: navigation, progress, and draft save. Photo upload, AI suggestions, Live Preview, and Publish stay off until later reviewed slices.
+        </div>
         <nav class="tk-enrich-modes" role="tablist">
           <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
           <button type="button" class="${state.mode === "week" ? "is-active" : ""}" data-enrich-mode="week">Week</button>
-          <button type="button" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview">Live Preview</button>
+          <button type="button" class="${state.mode === "preview" ? "is-active" : ""}" data-enrich-mode="preview" ${SLICE1.livePreview ? "" : "title=\"Live Preview arrives in a later slice\""}>Live Preview</button>
         </nav>
       </header>
     `;
@@ -394,7 +438,9 @@
           <section class="tk-enrich-card-block">
             <div class="tk-enrich-card-head">
               <h4>Teacher tips</h4>
-              <button type="button" class="ghost-button" data-ai-tips>Suggest</button>
+              ${SLICE1.aiSuggest
+                ? `<button type="button" class="ghost-button" data-ai-tips>Suggest</button>`
+                : `<span class="muted-copy">AI suggest later</span>`}
             </div>
             <div class="tk-enrich-tip-list">
               ${view.teacherTips.map((tip, i) => `
@@ -435,7 +481,7 @@
     }
 
     return `
-      <div class="tk-enrich-activity-layout">
+      <div class="tk-enrich-activity-layout ${SLICE1.livePreview ? "" : "is-slice1"}">
         <aside class="tk-enrich-queue">
           <div class="tk-enrich-day-chips">
             <button type="button" class="${state.dayFilter === "all" ? "is-on" : ""}" data-day-filter="all">All</button>
@@ -463,7 +509,7 @@
           </ul>
         </aside>
         <div class="tk-enrich-stage-wrap">${stage}</div>
-        <aside class="tk-enrich-live" data-enrich-live-preview></aside>
+        ${SLICE1.livePreview ? `<aside class="tk-enrich-live" data-enrich-live-preview></aside>` : ""}
       </div>
     `;
   }
@@ -510,6 +556,16 @@
   }
 
   function renderPreviewMode() {
+    if (!SLICE1.livePreview) {
+      return `
+        <div class="tk-enrich-preview-full">
+          <div class="empty-state">
+            <strong>Live Preview comes in a later slice.</strong>
+            <p class="muted-copy">Slice 1 focuses on the editor framework, navigation, progress, and draft save. The provider-identical Teaching Kit preview will be wired after this slice is approved.</p>
+          </div>
+        </div>
+      `;
+    }
     return `
       <div class="tk-enrich-preview-full">
         <p class="tk-enrich-preview-banner">Previewing draft · subscribers still see the last published version until you Publish.</p>
@@ -645,7 +701,9 @@
       </div>
     `;
     if (state.jumpOpen) renderJumpResults(plan, activities);
-    requestAnimationFrame(() => paintLivePreview(plan, activities));
+    if (SLICE1.livePreview) {
+      requestAnimationFrame(() => paintLivePreview(plan, activities));
+    }
   }
 
   function bind() {
@@ -653,6 +711,12 @@
       const openBtn = event.target.closest("[data-curriculum-lesson-enrich]");
       if (openBtn) {
         event.preventDefault();
+        if (!isEditorFlagEnabled()) {
+          if (typeof showActionFeedback === "function") {
+            showActionFeedback("Enrichment Editor is disabled (feature flag off).");
+          }
+          return;
+        }
         open(openBtn.getAttribute("data-curriculum-lesson-enrich"));
         return;
       }
@@ -702,6 +766,11 @@
         return;
       }
       if (event.target.closest("[data-enrich-publish]")) {
+        if (!SLICE1.publish) {
+          state.statusText = "Publishing is disabled until a later reviewed slice.";
+          renderChromeOnly();
+          return;
+        }
         state.publishOpen = true;
         render();
         return;
@@ -829,6 +898,7 @@
         return;
       }
       if (event.target.closest("[data-ai-tips]")) {
+        if (!SLICE1.aiSuggest) return;
         const plan = getPlan();
         const act = getActivities(plan)[state.activityIndex];
         const suggestions = [
@@ -879,6 +949,7 @@
           render();
           return;
         }
+        if (!SLICE1.photoUpload) return;
         if (event.target.closest("[data-photo-replace]") || event.target.closest(".tk-enrich-photo-drop")) {
           input?.click();
           return;
@@ -895,6 +966,7 @@
     document.addEventListener("change", async (event) => {
       if (!state.open) return;
       if (event.target.matches(".tk-enrich-photo input[type='file']")) {
+        if (!SLICE1.photoUpload) return;
         const box = event.target.closest(".tk-enrich-photo");
         const file = event.target.files && event.target.files[0];
         await applyPhoto(box.getAttribute("data-photo-key"), box.getAttribute("data-photo-field"), file);
@@ -959,13 +1031,13 @@
     });
 
     document.addEventListener("dragover", (event) => {
-      if (!state.open) return;
+      if (!state.open || !SLICE1.photoUpload) return;
       if (event.target.closest(".tk-enrich-photo-drop")) {
         event.preventDefault();
       }
     });
     document.addEventListener("drop", async (event) => {
-      if (!state.open) return;
+      if (!state.open || !SLICE1.photoUpload) return;
       const drop = event.target.closest(".tk-enrich-photo-drop");
       if (!drop) return;
       event.preventDefault();
@@ -981,6 +1053,8 @@
     open,
     close,
     isOpen: () => state.open,
+    isEnabled: isEditorFlagEnabled,
+    sliceFeatures: () => ({ ...SLICE1 }),
     render,
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

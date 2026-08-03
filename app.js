@@ -6168,6 +6168,8 @@ function emptySiteContent() {
       teachingKitViewer: false,
       teachingKitPrintCenter: false,
       teachingKitAttachments: false,
+      // Enrichment Editor: defaults false until owner enables a reviewed slice.
+      teachingKitEnrichmentEditor: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -10096,6 +10098,14 @@ function renderAdminCurriculumLessonPlanForm(plan) {
   `;
 }
 
+function isTeachingKitEnrichmentEditorEnabled() {
+  const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  if (typeof LLHTeachingKit !== "undefined" && typeof LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled === "function") {
+    return LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled(flags) === true;
+  }
+  return flags.teachingKitEnrichmentEditor === true;
+}
+
 function adminCurriculumLessonEnrichmentMeta(plan) {
   const enrich = typeof LLHTeachingKitEnrichment !== "undefined" ? LLHTeachingKitEnrichment : null;
   if (!enrich || !plan) {
@@ -10137,8 +10147,9 @@ function curriculumLessonPlanAdminCardHtml(plan) {
   const cover = sanitizedImageSource(plan.coverImageUrl || "")
     || (typeof lessonPlanCoversApi === "function" ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url : "")
     || "";
-  const enrichment = adminCurriculumLessonEnrichmentMeta(plan);
-  const summary = enrichment.summary;
+  const enrichEnabled = isTeachingKitEnrichmentEditorEnabled();
+  const enrichment = enrichEnabled ? adminCurriculumLessonEnrichmentMeta(plan) : null;
+  const summary = enrichment?.summary || null;
   const hasDraft = Boolean(summary?.hasEnrichmentDraft);
   const gapBits = [];
   if (summary) {
@@ -10167,20 +10178,20 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
-            <span class="tag tk-enrich-lib-badge" title="Teaching Kit completion">${escapeHtml(enrichment.label)} · ${enrichment.percent}%</span>
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Teaching Kit completion">${escapeHtml(enrichment.label)} · ${enrichment.percent}%</span>` : ""}
             ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
             ${summary?.needsReview ? `<span class="tag">Needs review</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
-          <div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>
-          ${gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 4).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`}
+          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>` : ""}
+          ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 4).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
-          <small>Last edited: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}</small>
+          <small>${enrichEnabled ? `Last edited: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}` : `Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}`}</small>
         </div>
       </div>
       <div class="form-actions">
-        <button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Enrich Teaching Kit</button>
+        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Enrich Teaching Kit</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
       </div>
@@ -10203,7 +10214,7 @@ function filteredAdminCurriculumLessonPlans() {
     if (filters.age && String(plan.age || "") !== filters.age) return false;
     if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
     const meta = metaFor(plan);
-    if (filters.completionBand) {
+    if (isTeachingKitEnrichmentEditorEnabled() && filters.completionBand) {
       const band = String(filters.completionBand);
       if (band === "legacy" || band === "enriched" || band === "complete") {
         if (meta.label.toLowerCase() !== band) return false;
@@ -10211,7 +10222,7 @@ function filteredAdminCurriculumLessonPlans() {
         return false;
       }
     }
-    if (filters.gap && enrich?.matchesUpgradeGapFilter) {
+    if (isTeachingKitEnrichmentEditorEnabled() && filters.gap && enrich?.matchesUpgradeGapFilter) {
       if (!enrich.matchesUpgradeGapFilter(meta.summary, filters.gap)) return false;
     }
     if (!q) return true;
@@ -10336,6 +10347,7 @@ function renderAdminCurriculumLessonPlanManager() {
           ${themes.map((theme) => `<option value="${escapeHtml(theme)}" ${adminCurriculumListFilters.theme === theme ? "selected" : ""}>${escapeHtml(theme)}</option>`).join("")}
         </select>
       </label>
+      ${isTeachingKitEnrichmentEditorEnabled() ? `
       <label><span>TK completion</span>
         <select id="adminCurriculumFilterCompletion">
           <option value="" ${!adminCurriculumListFilters.completionBand ? "selected" : ""}>All</option>
@@ -10365,12 +10377,15 @@ function renderAdminCurriculumLessonPlanManager() {
           <option value="edited_older" ${adminCurriculumListFilters.gap === "edited_older" ? "selected" : ""}>Edited older than 7 days</option>
         </select>
       </label>
+      ` : ""}
       <label><span>Sort</span>
         <select id="adminCurriculumFilterSort">
-          <option value="updated" ${adminCurriculumListFilters.sort === "updated" ? "selected" : ""}>Last edited ↓</option>
+          <option value="updated" ${adminCurriculumListFilters.sort === "updated" ? "selected" : ""}>${isTeachingKitEnrichmentEditorEnabled() ? "Last edited ↓" : "Updated"}</option>
+          ${isTeachingKitEnrichmentEditorEnabled() ? `
           <option value="edited-asc" ${adminCurriculumListFilters.sort === "edited-asc" ? "selected" : ""}>Last edited ↑</option>
           <option value="completion-asc" ${adminCurriculumListFilters.sort === "completion-asc" ? "selected" : ""}>Completion % ↑</option>
           <option value="completion-desc" ${adminCurriculumListFilters.sort === "completion-desc" ? "selected" : ""}>Completion % ↓</option>
+          ` : ""}
           <option value="title" ${adminCurriculumListFilters.sort === "title" ? "selected" : ""}>Title</option>
         </select>
       </label>
@@ -11815,6 +11830,8 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitPrintCenter === true,
       teachingKitAttachments: overrides.featureFlags?.teachingKitAttachments === true
         || base.featureFlags?.teachingKitAttachments === true,
+      teachingKitEnrichmentEditor: overrides.featureFlags?.teachingKitEnrichmentEditor === true
+        || base.featureFlags?.teachingKitEnrichmentEditor === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"

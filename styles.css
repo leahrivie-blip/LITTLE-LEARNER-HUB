@@ -24507,3 +24507,28 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
     position: static;
   }
 }
+
+/* Enrichment Editor Slice 1 notes */
+.tk-enrich-slice-banner {
+  margin: 0.55rem 0 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(31, 107, 74, 0.08);
+  border: 1px solid rgba(31, 107, 74, 0.18);
+  border-radius: 0.5rem;
+  font-size: 0.86rem;
+}
+.tk-enrich-slice-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+}
+.tk-enrich-photo.is-readonly .tk-enrich-photo-drop {
+  cursor: default;
+}
+.tk-enrich-activity-layout.is-slice1 {
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
+}
+@media (max-width: 760px) {
+  .tk-enrich-activity-layout.is-slice1 {
+    grid-template-columns: 1fr;
+  }
+}

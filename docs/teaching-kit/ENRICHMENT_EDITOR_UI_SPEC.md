@@ -390,17 +390,27 @@ Open Enrich → glance at Upgrade Summary panel (always available) → jump from
 
 ## 16. Implementation slices (approved order)
 
-1. Schema additives + completion % helper (activities photos, teachingKit completeness/%)  
-2. Enrichment Editor shell (chrome, %, counter, prev/next, jump search, draft banner)  
-3. Activity Focus (queue statuses, photo suite, chips/cards, resume-first-incomplete)  
-4. Provider-identical live preview from draft  
-5. Week mode cards + guidance checklist  
-6. Publish confirmation screen  
-7. Library badge / sort / filter by %  
-8. **Upgrade Summary panel + shared summary calculator + library priority filters**  
+Build in small reviewable slices. **Stop after each slice for owner review.**  
+All new functionality stays behind `teachingKitEnrichmentEditor` (default `false`) until approved.  
+Do not merge or deploy until each completed slice is approved.
+
+### Slice 1 — Framework (current)
+
+Editor framework · navigation · progress tracking · draft workflow.  
+**No** photo uploads, AI generation, Live Preview, or Teaching Kit publishing.  
+See [ENRICHMENT_EDITOR_SLICE1.md](./ENRICHMENT_EDITOR_SLICE1.md).
+
+### Later slices (not started until Slice 1 approved)
+
+2. Photo upload suite (drag/drop, replace, remove, full-size preview)  
+3. Provider-identical Live Preview from draft  
+4. AI tip suggestions (explicit approve)  
+5. Publish confirmation + merge-to-live  
+6. Remaining polish from Upgrade Summary / library filters as needed  
 
 ---
 
 ## 17. Owner approval
 
-Refinements 1–11 and the **Upgrade Summary / library priority-filter safeguard** are locked in this document. **Implementation is approved** to proceed in the slices above.
+Refinements 1–11 and the **Upgrade Summary / library priority-filter safeguard** are locked in this document.  
+**Implementation is approved to proceed slice-by-slice.** Slice 1 is the first reviewable delivery.
