@@ -69,15 +69,30 @@ function main() {
   assert.equal(firstIncomplete, 1, "skips first complete activity");
 
   const pct0 = enrichment.computeCompletionPercent(plan, [], null);
-  assert.ok(pct0 >= 40 && pct0 < 90, `baseline percent with week basics (${pct0})`);
+  // Week story / books / family / printables score without activity enrichment.
+  // Activity photo/tip/depth weights keep a published-but-unenriched plan below Enriched.
+  assert.ok(pct0 >= 30 && pct0 < 50, `baseline percent with week basics (${pct0})`);
 
   const pctRich = enrichment.computeCompletionPercent(plan, [], {
+    week: {
+      teacherPreparation: "Stage trays before arrival.",
+      teacherToolkit: {
+        prepChecklist: ["Set bins", "Print vocab cards"],
+        observationFocus: ["Uses animal words", "Takes turns"],
+      },
+    },
     activities: Object.fromEntries(acts.map((a) => [a.id, {
       setupImageUrl: "https://x.test/s.jpg",
       exampleImageUrl: "https://x.test/e.jpg",
       teacherTips: ["Ready"],
-      settingTags: ["indoor"],
+      settingTags: ["indoor", "small_group"],
       substitutions: [{ need: "hay", use: "shredded paper" }],
+      observationPrompts: ["Listens for animal sounds"],
+      setup: "Place bins at child height.",
+      steps: "Invite children to sort and name animals.",
+      adaptations: "Offer larger pieces for beginners.",
+      indoorAlternatives: "Table sort if weather blocks outdoor time.",
+      outdoorAlternatives: "Take the sort mats outdoors.",
     }])),
   });
   assert.ok(pctRich >= 90, `rich enrichment near complete (${pctRich})`);
