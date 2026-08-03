@@ -11,6 +11,7 @@ const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
 const teachingKit = require("./teaching-kit.js");
+const { withCustomerReleaseApproval } = require("./test-helpers/tk-customer-flags.js");
 const reusable = require("./teaching-kit-reusable-library.js");
 const assistant = require("./teaching-kit-ai-teacher-assistant.js");
 
@@ -136,7 +137,7 @@ async function setFlags(adminToken, flags) {
       updatedAt: existing.updatedAt,
       featureFlags: {
         ...(existing.featureFlags || {}),
-        ...flags,
+        ...withCustomerReleaseApproval(flags),
       },
     },
   }, { Authorization: `Bearer ${adminToken}` });

@@ -6231,6 +6231,8 @@ function emptySiteContent() {
       teachingKitViewer: false,
       teachingKitPrintCenter: false,
       teachingKitAttachments: false,
+      // Second gate for customer Viewer/Print/Attachments. Default false.
+      teachingKitProductionReleaseApproved: false,
       // Enrichment Editor: defaults false until owner enables a reviewed slice.
       teachingKitEnrichmentEditor: false,
       // Complete Teaching Kit binder authoring in classic editor. Default false.
@@ -10572,6 +10574,7 @@ function renderAdminCurriculumLessonPlanManager() {
     <div class="access-notice" role="status" style="margin-bottom:1rem;">
       <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
     </div>
+    ${teachingKitCustomerFlagWarningBannerHtml()}
     ${upgradeWorkspaceOn && workspaceCopy ? `
     <div class="access-notice tk-upgrade-workspace-banner" role="status" style="margin-bottom:1rem;">
       <p class="eyebrow">${escapeHtml(workspaceCopy.eyebrow)}</p>
@@ -12167,6 +12170,8 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitPrintCenter === true,
       teachingKitAttachments: overrides.featureFlags?.teachingKitAttachments === true
         || base.featureFlags?.teachingKitAttachments === true,
+      teachingKitProductionReleaseApproved: overrides.featureFlags?.teachingKitProductionReleaseApproved === true
+        || base.featureFlags?.teachingKitProductionReleaseApproved === true,
       teachingKitEnrichmentEditor: overrides.featureFlags?.teachingKitEnrichmentEditor === true
         || base.featureFlags?.teachingKitEnrichmentEditor === true,
       teachingKitAuthoring: overrides.featureFlags?.teachingKitAuthoring === true
@@ -45974,6 +45979,69 @@ function playBasedCurriculumFlagHtml() {
   `;
 }
 
+function isTeachingKitProductionAdminHost(hostname = "") {
+  const host = String(hostname || (typeof location !== "undefined" ? location.hostname : "") || "")
+    .trim()
+    .toLowerCase();
+  return host === "littlelearnershubbyleah.com"
+    || host === "www.littlelearnershubbyleah.com"
+    || host === "little-learner-hub.onrender.com";
+}
+
+/**
+ * Production admin warning when any customer-facing Teaching Kit flag is on.
+ * Does not change Enrichment Editor / Authoring / Director / Quality Review.
+ */
+function teachingKitCustomerFlagWarningBannerHtml() {
+  if (!isTeachingKitProductionAdminHost()) return "";
+  const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  const tk = typeof LLHTeachingKit !== "undefined" ? LLHTeachingKit : null;
+  const enabled = tk?.enabledTeachingKitCustomerFacingFlags
+    ? tk.enabledTeachingKitCustomerFacingFlags(flags)
+    : ["teachingKitViewer", "teachingKitPrintCenter", "teachingKitAttachments"]
+      .filter((key) => flags?.[key] === true);
+  if (!enabled.length) return "";
+  const approved = tk?.isTeachingKitProductionReleaseApproved
+    ? tk.isTeachingKitProductionReleaseApproved(flags)
+    : flags.teachingKitProductionReleaseApproved === true;
+  const labels = enabled.map((key) => key.replace(/^teachingKit/, "")).join(", ");
+  if (approved) {
+    return `
+      <div class="access-notice tk-customer-flag-warning" role="alert" data-tk-customer-flag-warning="approved">
+        <strong>Teaching Kit customer release is ON in production.</strong>
+        <p class="muted-copy">Customer-facing flags enabled: ${escapeHtml(labels)}. Production-release approval is also enabled — providers can see Teaching Kit surfaces.</p>
+        <p class="muted-copy">Turn Viewer / Print / Attachments and <code>teachingKitProductionReleaseApproved</code> off to withdraw customer access.</p>
+      </div>
+    `;
+  }
+  return `
+    <div class="access-notice tk-customer-flag-warning" role="alert" data-tk-customer-flag-warning="stale">
+      <strong>Customer Teaching Kit flag(s) are enabled without production-release approval.</strong>
+      <p class="muted-copy">Store flags on: ${escapeHtml(labels)}. Customers stay blocked until <code>teachingKitProductionReleaseApproved</code> is also true — turn these flags off unless intentional.</p>
+    </div>
+  `;
+}
+
+function renderTeachingKitCustomerFlagWarningBanner() {
+  const main = document.querySelector("#adminWorkspaceMain");
+  if (!main || !isAdminUnlocked()) return;
+  let host = document.querySelector("#adminTeachingKitSafetyBanner");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "adminTeachingKitSafetyBanner";
+    host.className = "tk-customer-flag-warning-host";
+    main.prepend(host);
+  }
+  const html = teachingKitCustomerFlagWarningBannerHtml();
+  if (!html) {
+    host.innerHTML = "";
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  host.innerHTML = html;
+}
+
 async function savePlayBasedCurriculumFeatureFlag() {
   // Play-based curriculum is permanent; keep the flag enabled if called.
   const nextContent = nextSiteContentDraft();
@@ -50340,6 +50408,7 @@ function renderAdminDashboard(options = {}) {
   const tab = adminActiveSectionTab;
   const group = adminActiveGroup || "admin-home";
   renderAdminSectionNav();
+  renderTeachingKitCustomerFlagWarningBanner();
 
   if (tab === "resources" || group === "advanced") {
     renderAdminLegacyUploadsPanel();

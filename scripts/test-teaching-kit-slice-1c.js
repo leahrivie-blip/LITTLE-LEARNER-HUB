@@ -9,6 +9,7 @@ const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
 const teachingKit = require("./teaching-kit.js");
+const { withCustomerReleaseApproval } = require("./test-helpers/tk-customer-flags.js");
 const freeCurriculumSample = require("./free-curriculum-sample.js");
 
 const ROOT = path.join(__dirname, "..");
@@ -232,7 +233,8 @@ async function setTeachingKitFlags(adminToken, flags) {
         teachingKitViewer: false,
         teachingKitPrintCenter: false,
         teachingKitAttachments: false,
-        ...flags,
+        teachingKitProductionReleaseApproved: false,
+        ...withCustomerReleaseApproval(flags),
       },
     },
   });
@@ -242,8 +244,10 @@ async function setTeachingKitFlags(adminToken, flags) {
 
 function testUnitHelpers() {
   assert(teachingKit.isTeachingKitApiEnabled({}) === false, "api disabled by default");
-  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true }) === true, "viewer enables api");
-  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitPrintCenter: true }) === true, "print enables api");
+  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true }) === false, "viewer alone does not enable api");
+  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true, teachingKitProductionReleaseApproved: true }) === true, "viewer + approval enables api");
+  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitPrintCenter: true }) === false, "print alone does not enable api");
+  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitPrintCenter: true, teachingKitProductionReleaseApproved: true }) === true, "print + approval enables api");
   assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: "true" }) === false, "string does not enable api");
 }
 

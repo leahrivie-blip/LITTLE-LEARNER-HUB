@@ -22,6 +22,7 @@ const FAIL_FAST = String(process.env.TK_RELEASE_FAIL_FAST || "1") !== "0";
 
 const TK_SUITES = [
   { name: "check", cmd: ["npm", "run", "check"], group: "syntax", critical: true },
+  { name: "production-release-gate", cmd: ["npm", "run", "test:teaching-kit-production-release-gate"], group: "safety", critical: true },
   { name: "slice-1a", cmd: ["npm", "run", "test:teaching-kit-slice-1a"], group: "phase1", critical: true },
   { name: "slice-1b", cmd: ["npm", "run", "test:teaching-kit-slice-1b"], group: "phase1", critical: true },
   { name: "slice-1c", cmd: ["npm", "run", "test:teaching-kit-slice-1c"], group: "phase1", critical: true },
@@ -70,6 +71,7 @@ function runStaticGuards() {
     "teachingKitViewer",
     "teachingKitPrintCenter",
     "teachingKitAttachments",
+    "teachingKitProductionReleaseApproved",
     "teachingKitEnrichmentEditor",
     "teachingKitAuthoring",
     "teachingKitCurriculumDirector",
@@ -78,6 +80,17 @@ function runStaticGuards() {
   required.forEach((key) => {
     assert(flags[key] === false, `${key} default false`);
   });
+  assert(
+    teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true }) === false,
+    "viewer alone does not enable customer Teaching Kit API",
+  );
+  assert(
+    teachingKit.isTeachingKitApiEnabled({
+      teachingKitViewer: true,
+      teachingKitProductionReleaseApproved: true,
+    }) === true,
+    "viewer + production-release approval enables customer Teaching Kit API",
+  );
 
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   [

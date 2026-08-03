@@ -12,6 +12,7 @@ const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
 const teachingKit = require("./teaching-kit.js");
+const { withCustomerReleaseApproval } = require("./test-helpers/tk-customer-flags.js");
 const teachingKitPrint = require("./teaching-kit-print.js");
 const teachingKitViewer = require("./teaching-kit-viewer.js");
 const freeCurriculumSample = require("./free-curriculum-sample.js");
@@ -245,7 +246,7 @@ async function setFlags(adminToken, flags) {
         teachingKitViewer: false,
         teachingKitPrintCenter: false,
         teachingKitAttachments: false,
-        ...flags,
+        ...withCustomerReleaseApproval(flags),
       },
     },
   });
@@ -382,7 +383,8 @@ async function main() {
 
   // --- Static / unit gates (flag defaults + print gate + empty/large) ---
   assert(teachingKit.isTeachingKitApiEnabled({}) === false, "API disabled by default");
-  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true }) === true, "viewer enables API");
+  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true }) === false, "viewer alone does not enable API");
+  assert(teachingKit.isTeachingKitApiEnabled({ teachingKitViewer: true, teachingKitProductionReleaseApproved: true }) === true, "viewer + approval enables API");
   const emptyFixture = require("./fixtures/teaching-kit/empty-plan.json");
   const emptyKit = teachingKit.mapLessonPlanToTeachingKit(
     emptyFixture.lessonPlan,

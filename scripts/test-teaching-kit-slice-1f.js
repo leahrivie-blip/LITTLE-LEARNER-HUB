@@ -9,6 +9,7 @@ const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
 const teachingKit = require("./teaching-kit.js");
+const { withCustomerReleaseApproval } = require("./test-helpers/tk-customer-flags.js");
 const teachingKitPrint = require("./teaching-kit-print.js");
 const teachingKitViewer = require("./teaching-kit-viewer.js");
 
@@ -175,7 +176,7 @@ async function setFlags(adminToken, flags) {
         teachingKitViewer: false,
         teachingKitPrintCenter: false,
         teachingKitAttachments: false,
-        ...flags,
+        ...withCustomerReleaseApproval(flags),
       },
     },
   });
