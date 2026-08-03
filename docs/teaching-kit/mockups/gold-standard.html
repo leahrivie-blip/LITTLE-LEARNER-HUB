@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Teaching Kit — Product Design Mockups (v3 · Classroom Companion)</title>
+  <title>Teaching Kit — Product Design Mockups (v4 · Subscribe-for Companion)</title>
   <style>
     :root {
       --ink: #1f2a24;
@@ -16,7 +16,8 @@
       --accent: #c9783a;
       --soft: #e8f2ec;
       --warn: #fff6e8;
-      --danger-soft: #fdeeee;
+      --danger: #fdeeee;
+      --danger-ink: #8a2a2a;
       --shadow: 0 10px 30px rgba(31, 42, 36, 0.08);
       --radius: 18px;
       --font: "Segoe UI", "Avenir Next", "Helvetica Neue", sans-serif;
@@ -32,7 +33,7 @@
     }
     .page { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
     .intro h1 { margin: 0 0 8px; font-size: 1.85rem; letter-spacing: -0.02em; }
-    .intro p { margin: 0 0 10px; color: var(--muted); max-width: 780px; line-height: 1.55; }
+    .intro p { margin: 0 0 10px; color: var(--muted); max-width: 820px; line-height: 1.55; }
     .intro .note {
       display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 999px;
       background: #fff3e0; color: #8a4b12; font-size: 0.85rem; font-weight: 700;
@@ -67,8 +68,10 @@
     .btn-primary { background: var(--brand); color: white; }
     .btn-secondary { background: var(--soft); color: var(--brand-deep); }
     .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--ink); }
-    .btn-danger { background: var(--danger-soft); color: #8a2a2a; }
+    .btn-accent { background: #f3e0cf; color: #7a3e12; }
+    .btn-danger { background: var(--danger); color: var(--danger-ink); }
     .btn-sm { padding: 7px 11px; font-size: 0.8rem; }
+    .btn-lg { padding: 12px 18px; font-size: 0.95rem; }
     .kit-banner {
       display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px;
       padding: 18px; background: linear-gradient(135deg, #eef7f1, #fff8f0);
@@ -81,6 +84,9 @@
       background: white; border: 1px solid var(--line); border-radius: 999px;
       padding: 6px 10px; font-size: 0.8rem; font-weight: 700;
     }
+    .chip.warn { background: var(--warn); border-color: #f0dfc4; color: #8a4b12; }
+    .chip.danger { background: var(--danger); border-color: #f0c4c4; color: var(--danger-ink); }
+    .chip.ok { background: var(--soft); border-color: #cfe3d7; color: var(--brand-deep); }
     .ops-nav {
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;
       padding: 12px 14px; border-bottom: 1px solid var(--line); background: #fcfdfc;
@@ -96,7 +102,6 @@
     .panel { padding: 18px; }
     .grid-2 { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 16px; }
     .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
     .stack { display: grid; gap: 12px; }
     .card {
       border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 14px;
@@ -104,13 +109,25 @@
     .card.white { background: white; }
     .card h4 { margin: 0 0 6px; font-size: 1rem; }
     .card p, .muted { color: var(--muted); line-height: 1.45; margin: 0; }
-    .card ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
+    .card ul, .card ol { margin: 8px 0 0; padding-left: 18px; color: var(--muted); }
     .card li { margin: 4px 0; }
+    .banner-missing {
+      display: flex; justify-content: space-between; gap: 12px; align-items: center;
+      background: var(--danger); border: 1px solid #f0c4c4; border-radius: 16px; padding: 12px 14px;
+    }
+    .banner-missing strong { color: var(--danger-ink); }
+    .banner-time {
+      display: flex; justify-content: space-between; gap: 12px; align-items: center;
+      background: var(--soft); border: 1px solid #cfe3d7; border-radius: 16px; padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .banner-time .big { font-size: 1.35rem; font-weight: 800; color: var(--brand-deep); }
     .check-row {
       display: flex; gap: 10px; align-items: flex-start; padding: 10px 0;
       border-bottom: 1px solid #e7eee9;
     }
     .check-row:last-child { border-bottom: 0; }
+    .check-row.missing { background: #fff5f5; margin: 0 -8px; padding: 10px 8px; border-radius: 10px; }
     .checkbox {
       width: 20px; height: 20px; border-radius: 6px; border: 2px solid #9bb5a6;
       background: white; flex: 0 0 auto; margin-top: 1px;
@@ -123,6 +140,13 @@
       background: white; font-weight: 800; font-size: 0.85rem;
     }
     .day.active { background: var(--brand); color: white; border-color: var(--brand); }
+    .sticky-today {
+      position: sticky; top: 0; z-index: 2;
+      display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap;
+      background: rgba(251,253,251,0.96); border: 1px solid var(--line); border-radius: 16px;
+      padding: 12px 14px; margin-bottom: 14px; backdrop-filter: blur(6px);
+    }
+    .sticky-today h3 { margin: 0; font-size: 1.05rem; }
     .timeline { display: grid; gap: 8px; }
     .slot {
       display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: center;
@@ -136,18 +160,18 @@
       background:
         linear-gradient(135deg, rgba(47,107,79,0.18), rgba(201,120,58,0.18)),
         repeating-linear-gradient(45deg, #e8f2ec, #e8f2ec 12px, #f7faf7 12px, #f7faf7 24px);
-      min-height: 180px; display: grid; place-items: end stretch;
+      min-height: 160px; display: grid; place-items: end stretch;
+    }
+    .photo.setup {
+      background:
+        linear-gradient(135deg, rgba(201,120,58,0.22), rgba(47,107,79,0.12)),
+        repeating-linear-gradient(-45deg, #fff6e8, #fff6e8 12px, #f7faf7 12px, #f7faf7 24px);
     }
     .photo .caption {
       background: rgba(31,42,36,0.72); color: white; padding: 10px 12px; font-size: 0.82rem; font-weight: 700;
     }
+    .photo-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .detail-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 16px; }
-    .kv { display: grid; gap: 8px; }
-    .kv .row {
-      display: grid; grid-template-columns: 110px 1fr; gap: 10px; padding: 8px 0;
-      border-bottom: 1px solid #e7eee9; font-size: 0.92rem;
-    }
-    .kv .row strong { color: var(--brand-deep); }
     .prompt {
       background: #fffaf2; border: 1px solid #f0dfc4; border-radius: 14px; padding: 12px; margin-top: 8px;
     }
@@ -167,66 +191,118 @@
     .toggle.on { background: var(--brand); }
     .toggle::after {
       content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
-      border-radius: 50%; background: white; transition: 0.15s;
+      border-radius: 50%; background: white;
     }
     .toggle.on::after { left: 21px; }
-    .binder {
-      background: #f3eee6;
-      background-image:
-        linear-gradient(90deg, #d9cbb6 0 18px, transparent 18px),
-        repeating-linear-gradient(0deg, transparent, transparent 27px, rgba(120,90,50,0.08) 28px);
-      padding: 22px;
+    .tray {
+      border: 2px solid var(--brand); border-radius: 20px; background: #f3faf6; padding: 14px;
     }
+    .tray-head {
+      display: flex; justify-content: space-between; gap: 10px; align-items: center; margin-bottom: 12px;
+    }
+    .tray-head h4 { margin: 0; }
+    .tray-item {
+      display: grid; grid-template-columns: 56px 1fr auto; gap: 10px; align-items: center;
+      background: white; border: 1px solid var(--line); border-radius: 14px; padding: 10px; margin-bottom: 8px;
+    }
+    .thumb {
+      width: 56px; height: 44px; border-radius: 10px; border: 1px solid var(--line);
+      background: linear-gradient(135deg, #d9ebe1, #f3e0cf);
+    }
+    .used-map {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+    }
+    .used-pill {
+      background: #eef7f1; border: 1px solid #cfe3d7; color: var(--brand-deep);
+      border-radius: 999px; padding: 4px 9px; font-size: 0.75rem; font-weight: 800;
+    }
+    .sub-card {
+      border: 1px solid #f0dfc4; background: #fffaf2; border-radius: 14px; padding: 12px;
+    }
+    .binder-stage {
+      background: #ebe4d8;
+      background-image:
+        radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35), transparent 40%),
+        linear-gradient(90deg, #c9b79a 0 22px, transparent 22px);
+      padding: 24px;
+    }
+    .binder-spread {
+      display: grid; grid-template-columns: 280px 1fr; gap: 18px; align-items: stretch;
+      max-width: 920px; margin: 0 auto;
+    }
+    .binder-cover {
+      background: linear-gradient(160deg, #1f4d38, #2f6b4f 55%, #3d7f5e);
+      color: white; border-radius: 6px 18px 18px 6px; padding: 22px 18px;
+      box-shadow: 0 12px 28px rgba(40,30,10,0.22); min-height: 360px;
+      display: flex; flex-direction: column; justify-content: space-between;
+      border-left: 10px solid #c9783a;
+    }
+    .binder-cover .mark { font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.9; }
+    .binder-cover h3 { margin: 18px 0 8px; font-size: 1.55rem; line-height: 1.15; }
+    .binder-cover p { margin: 0; opacity: 0.9; font-size: 0.92rem; line-height: 1.4; }
+    .tab-rail { display: grid; gap: 6px; margin-top: 18px; }
+    .tab-rail span {
+      display: block; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px; padding: 7px 10px; font-size: 0.78rem; font-weight: 800;
+    }
+    .binder-pages { display: grid; gap: 12px; }
     .binder-page {
       background: white; border: 1px solid #d8ccb8; border-radius: 4px;
-      box-shadow: 0 8px 24px rgba(80,60,30,0.12); padding: 22px 24px; max-width: 720px; margin: 0 auto;
+      box-shadow: 0 8px 24px rgba(80,60,30,0.12); padding: 16px 18px; position: relative;
     }
-    .binder-page h3 { margin: 0 0 4px; font-size: 1.4rem; }
-    .binder-page .subtitle { color: var(--muted); margin: 0 0 16px; }
-    .binder-rule { border: 0; border-top: 2px solid #2f6b4f; margin: 14px 0; }
-    .binder-section { margin: 14px 0; }
-    .binder-section h4 {
-      margin: 0 0 8px; font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--brand-deep);
+    .binder-page::before {
+      content: attr(data-tab);
+      position: absolute; right: -1px; top: 18px;
+      background: var(--tab, #2f6b4f); color: white; font-size: 0.68rem; font-weight: 800;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      padding: 8px 6px; border-radius: 8px 0 0 8px; writing-mode: vertical-rl; transform: rotate(180deg);
     }
-    .binder-section p, .binder-section li { font-size: 0.9rem; line-height: 1.45; color: #333; }
-    .print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .footnote {
-      margin-top: 10px; color: var(--muted); font-size: 0.88rem; line-height: 1.45;
+    .binder-page h4 { margin: 0 0 4px; }
+    .binder-page .subtitle { color: var(--muted); margin: 0 0 10px; font-size: 0.85rem; }
+    .binder-rule { border: 0; border-top: 2px solid #2f6b4f; margin: 10px 0; }
+    .binder-foot {
+      display: flex; justify-content: space-between; margin-top: 12px;
+      font-size: 0.72rem; color: var(--muted); font-weight: 700;
     }
+    .footnote { margin-top: 10px; color: var(--muted); font-size: 0.88rem; line-height: 1.45; }
     @media (max-width: 900px) {
-      .kit-banner, .grid-2, .detail-grid, .print-grid { grid-template-columns: 1fr; }
-      .ops-nav, .grid-3, .grid-4, .day-strip { grid-template-columns: 1fr 1fr; }
+      .kit-banner, .grid-2, .detail-grid, .photo-pair, .binder-spread { grid-template-columns: 1fr; }
+      .ops-nav, .grid-3, .day-strip { grid-template-columns: 1fr 1fr; }
       .slot { grid-template-columns: 64px 1fr; }
       .slot .kind { grid-column: 2; }
+      .binder-page::before { writing-mode: horizontal-tb; transform: none; top: 8px; right: 8px; padding: 4px 8px; border-radius: 999px; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <header class="intro">
-      <h1>Complete Teaching Kits — Product Design (v3)</h1>
+      <h1>Complete Teaching Kits — Product Design (v4 polish)</h1>
       <p>
-        Review mockups only. The Teaching Kit is the provider’s classroom companion for the week —
-        Monday setup, all-day classroom dashboard, deep activity guidance, and a printable curriculum binder.
-        No product implementation starts until this design is approved.
+        Final polish before implementation. The Teaching Kit is the subscribe-for classroom companion:
+        Monday setup with prep time + missing items, an all-day Today board with
+        <strong>Open Everything I Need Today</strong>, full activity depth with substitute options,
+        printables mapped to the week, and a professionally tabbed curriculum binder.
       </p>
-      <div class="note">Status: awaiting final product design approval · flags stay off · draft PR only</div>
+      <div class="note">Status: final design polish · awaiting your go to begin implementation · flags stay off</div>
     </header>
 
     <nav class="toc">
       <a href="#start-week">1. Start the Week</a>
-      <a href="#monday-setup">2. Monday Morning Setup</a>
+      <a href="#monday-setup">2. Monday Setup</a>
       <a href="#today">3. Today’s Classroom</a>
-      <a href="#activity">4. Activity Depth</a>
-      <a href="#build">5. Build My Kit</a>
-      <a href="#print">6. Printable Binder</a>
+      <a href="#open-everything">4. Open Everything</a>
+      <a href="#activity">5. Activity + Substitute</a>
+      <a href="#printable">6. Printable “Used in week”</a>
+      <a href="#build">7. Build My Kit</a>
+      <a href="#print">8. Binder (tabs + cover)</a>
     </nav>
 
-    <!-- 1. START THE WEEK -->
+    <!-- 1 -->
     <section class="screen" id="start-week">
       <div class="screen-label">
         <h2>1. Start the Week</h2>
-        <span>Choose kit → open Monday Setup or Today</span>
+        <span>Entry into the companion</span>
       </div>
       <div class="frame" data-mock="start-week">
         <div class="app-chrome">
@@ -239,44 +315,28 @@
         <div class="kit-banner">
           <div>
             <h3>Bugs &amp; Butterflies</h3>
-            <p>Your classroom companion for the week — setup, teach, observe, and send home.</p>
+            <p>Your subscribe-for classroom companion — setup, teach all day, substitute when needed, print a real binder.</p>
             <div class="meta-chips">
               <span class="chip">Toddler</span>
               <span class="chip">1 week</span>
               <span class="chip">Pro</span>
-              <span class="chip">Printable binder</span>
+              <span class="chip warn">~18 min Monday prep</span>
             </div>
           </div>
           <div class="stack">
             <button class="btn btn-primary">Open Monday Morning Setup</button>
             <button class="btn btn-secondary">Open Today’s Classroom</button>
-            <button class="btn btn-ghost">Build &amp; Print My Kit</button>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="grid-3">
-            <article class="card white">
-              <h4>Before children arrive</h4>
-              <p>Materials, prep tasks, supplies, and what to print.</p>
-            </article>
-            <article class="card white">
-              <h4>During the day</h4>
-              <p>Schedule, activities, books, songs, transitions, notes.</p>
-            </article>
-            <article class="card white">
-              <h4>In your hands</h4>
-              <p>A binder-ready kit you can customize before printing.</p>
-            </article>
+            <button class="btn btn-ghost">Build &amp; Print Binder</button>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- 2. MONDAY MORNING SETUP -->
+    <!-- 2 Monday Setup -->
     <section class="screen" id="monday-setup">
       <div class="screen-label">
         <h2>2. Monday Morning Setup</h2>
-        <span>Everything needed before children arrive</span>
+        <span>Prep-time estimate · missing items highlighted</span>
       </div>
       <div class="frame" data-mock="monday-setup">
         <div class="app-chrome">
@@ -293,22 +353,40 @@
           <div class="tab">Build / Print</div>
         </div>
         <div class="panel">
+          <div class="banner-time">
+            <div>
+              <div class="muted" style="font-weight:700; font-size:0.8rem;">Estimated prep time</div>
+              <div class="big">About 18 minutes</div>
+              <p class="muted" style="margin-top:4px;">Gather 8 min · set stations 7 min · print 3 min</p>
+            </div>
+            <div class="meta-chips">
+              <span class="chip ok">3 ready</span>
+              <span class="chip danger">2 missing</span>
+            </div>
+          </div>
+          <div class="banner-missing" style="margin-bottom:14px;">
+            <div>
+              <strong>Needs attention before the week begins</strong>
+              <p class="muted" style="margin-top:4px; color:#8a2a2a;">Magnifying glasses · Bug sensory bin items</p>
+            </div>
+            <button class="btn btn-danger btn-sm">Jump to missing</button>
+          </div>
           <div class="grid-2">
             <div class="stack">
               <article class="card white">
                 <h4>Materials to gather</h4>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Magnifying glasses</strong><p class="muted">4–6 for outdoor hunt</p></div></div>
+                <div class="check-row missing"><div class="checkbox"></div><div><strong>Magnifying glasses</strong><p class="muted">4–6 for outdoor hunt · <span style="color:var(--danger-ink);font-weight:700;">Missing</span></p></div></div>
                 <div class="check-row"><div class="checkbox on"></div><div><strong>Paint + paper</strong><p class="muted">Washable paint, large paper</p></div></div>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Butterfly life-cycle cards</strong><p class="muted">Print from Resources if needed</p></div></div>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Bug sensory bin items</strong><p class="muted">Rice/beans, scoops, plastic bugs</p></div></div>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Book: The Very Hungry Caterpillar</strong><p class="muted">Or any caterpillar/butterfly title</p></div></div>
+                <div class="check-row"><div class="checkbox on"></div><div><strong>Butterfly life-cycle cards</strong><p class="muted">Printable · used Tue circle</p></div></div>
+                <div class="check-row missing"><div class="checkbox"></div><div><strong>Bug sensory bin items</strong><p class="muted">Rice/beans, scoops, plastic bugs · <span style="color:var(--danger-ink);font-weight:700;">Missing</span></p></div></div>
+                <div class="check-row"><div class="checkbox on"></div><div><strong>Book: The Very Hungry Caterpillar</strong><p class="muted">Or any caterpillar title</p></div></div>
               </article>
               <article class="card white">
-                <h4>Prep tasks (10–15 minutes)</h4>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Set up sensory bin</strong><p class="muted">Fill tray; place scoops nearby</p></div></div>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Prep paint station</strong><p class="muted">Smocks, paper, wipe cloths</p></div></div>
-                <div class="check-row"><div class="checkbox on"></div><div><strong>Queue morning song</strong><p class="muted">Butterfly Flutter lyrics ready</p></div></div>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Place observation sticky notes</strong><p class="muted">Near art table + outdoor door</p></div></div>
+                <h4>Prep tasks</h4>
+                <div class="check-row"><div class="checkbox"></div><div><strong>Set up sensory bin</strong><p class="muted">~5 min · fill tray; scoops nearby</p></div></div>
+                <div class="check-row"><div class="checkbox"></div><div><strong>Prep paint station</strong><p class="muted">~4 min · smocks, paper, wipes</p></div></div>
+                <div class="check-row"><div class="checkbox on"></div><div><strong>Queue morning song</strong><p class="muted">~1 min · Butterfly Flutter ready</p></div></div>
+                <div class="check-row"><div class="checkbox"></div><div><strong>Place observation sticky notes</strong><p class="muted">~2 min · art table + outdoor door</p></div></div>
               </article>
             </div>
             <div class="stack">
@@ -317,31 +395,24 @@
                 <div class="check-row"><div class="checkbox"></div><div><strong>Today’s Classroom page</strong></div></div>
                 <div class="check-row"><div class="checkbox"></div><div><strong>Activity cards (3)</strong></div></div>
                 <div class="check-row"><div class="checkbox on"></div><div><strong>Parent connection message</strong></div></div>
-                <div class="check-row"><div class="checkbox"></div><div><strong>Observation prompts</strong></div></div>
+                <div class="check-row"><div class="checkbox"></div><div><strong>Life-cycle cards printable</strong><p class="muted">Used: Tue · after read-aloud</p></div></div>
                 <button class="btn btn-primary" style="width:100%; margin-top:12px;">Open Print Center</button>
               </article>
               <article class="card white">
-                <h4>Supplies status</h4>
-                <p><strong>Ready:</strong> paint, paper, book</p>
-                <p style="margin-top:6px;"><strong>Need to gather:</strong> magnifying glasses, sensory bin</p>
-                <p style="margin-top:6px;"><strong>Optional:</strong> real leaf samples for sorting</p>
-              </article>
-              <article class="card white">
                 <h4>After setup</h4>
-                <p>Open <strong>Today’s Classroom</strong> and leave it up all day.</p>
+                <p>Open <strong>Today’s Classroom</strong> and leave it up all day. Use <strong>Open Everything I Need Today</strong> when you want the full packet without leaving the board.</p>
               </article>
             </div>
           </div>
         </div>
       </div>
-      <p class="footnote">Goal: replace the sticky notes and mental checklist providers use before drop-off.</p>
     </section>
 
-    <!-- 3. TODAY'S CLASSROOM -->
+    <!-- 3 Today -->
     <section class="screen" id="today">
       <div class="screen-label">
         <h2>3. Today’s Classroom</h2>
-        <span>All-day dashboard — schedule, teach, notes</span>
+        <span>Leave open all day — one board, no constant switching</span>
       </div>
       <div class="frame" data-mock="todays-classroom">
         <div class="app-chrome">
@@ -349,7 +420,6 @@
           <div class="chrome-actions">
             <button class="btn btn-ghost btn-sm">← Mon</button>
             <button class="btn btn-secondary btn-sm">Wed →</button>
-            <button class="btn btn-primary btn-sm">Quick note</button>
           </div>
         </div>
         <div class="ops-nav">
@@ -359,6 +429,13 @@
           <div class="tab">Build / Print</div>
         </div>
         <div class="panel">
+          <div class="sticky-today">
+            <div>
+              <h3>Tuesday · leave this open</h3>
+              <p class="muted">Schedule, teachables, notes, and parent message — all on this board</p>
+            </div>
+            <button class="btn btn-primary btn-lg">Open Everything I Need Today</button>
+          </div>
           <div class="day-strip">
             <div class="day">Mon</div>
             <div class="day active">Tue</div>
@@ -370,7 +447,7 @@
             <div class="stack">
               <h3 class="section-title">Today’s schedule</h3>
               <div class="timeline">
-                <div class="slot"><div class="time">8:30</div><div class="what">Arrival + Butterfly Flutter song</div><div class="kind">Transition</div></div>
+                <div class="slot"><div class="time">8:30</div><div class="what">Arrival + Butterfly Flutter</div><div class="kind">Song</div></div>
                 <div class="slot"><div class="time">9:00</div><div class="what">Bug Sensory Bin</div><div class="kind">Activity</div></div>
                 <div class="slot"><div class="time">9:45</div><div class="what">Read-aloud + questions</div><div class="kind">Book</div></div>
                 <div class="slot"><div class="time">10:15</div><div class="what">Outdoor Bug Hunt</div><div class="kind">Activity</div></div>
@@ -378,15 +455,19 @@
                 <div class="slot"><div class="time">11:40</div><div class="what">Cleanup song → lunch</div><div class="kind">Transition</div></div>
               </div>
               <article class="card white">
-                <h4>Materials for today</h4>
+                <h4>Materials · transitions</h4>
                 <p>Magnifying glasses · sensory bin · paint · paper · smocks · book</p>
+                <ul>
+                  <li><strong>Arrival:</strong> “Flutter like a butterfly to your cubby.”</li>
+                  <li><strong>Cleanup:</strong> “Crawl like a caterpillar to put toys away.”</li>
+                </ul>
               </article>
               <article class="card white">
-                <h4>Transitions</h4>
+                <h4>Observation ideas (today’s activities)</h4>
                 <ul>
-                  <li><strong>Arrival:</strong> “Can you flutter like a butterfly to your cubby?”</li>
-                  <li><strong>Cleanup:</strong> “Crawl like a caterpillar to put toys away.”</li>
-                  <li><strong>Outdoor:</strong> Line up as “bugs in a row.”</li>
+                  <li><strong>Sensory bin:</strong> scooping with both hands?</li>
+                  <li><strong>Bug hunt:</strong> uses magnifying glass independently?</li>
+                  <li><strong>Paint prints:</strong> describes colors / symmetry?</li>
                 </ul>
               </article>
             </div>
@@ -396,90 +477,152 @@
                 <p><strong>The Very Hungry Caterpillar</strong></p>
                 <div class="prompt">
                   <strong>Read-aloud questions</strong>
-                  What did the caterpillar eat first? · How did the caterpillar change? · Can you show me a butterfly with your arms?
+                  What did the caterpillar eat first? · How did it change? · Show me butterfly arms.
                 </div>
               </article>
               <article class="card white">
                 <h4>Songs today</h4>
-                <p><strong>Butterfly Flutter</strong> <span class="muted">(original / public-domain style)</span></p>
+                <p><strong>Butterfly Flutter</strong></p>
                 <p style="margin-top:8px;"><em>Flutter, flutter, little wings / Up so high, then down we swing…</em></p>
                 <p class="muted" style="margin-top:6px;"><strong>Motions:</strong> arms out → flap → crouch → stretch tall</p>
               </article>
               <article class="card white">
                 <h4>Vocabulary</h4>
                 <ul>
-                  <li><strong>Antennae</strong> — feelers that help a bug smell and feel. Ask: “Where are your antennae?”</li>
-                  <li><strong>Cocoon</strong> — a soft covering a caterpillar makes. Ask: “Can we curl up small like a cocoon?”</li>
+                  <li><strong>Antennae</strong> — feelers that help a bug smell and feel. “Where are your antennae?”</li>
+                  <li><strong>Cocoon</strong> — a soft covering a caterpillar makes. “Can we curl up small?”</li>
                 </ul>
               </article>
               <article class="card white">
                 <h4>Quick notes</h4>
-                <div class="message-box">Mia loved the sensory bin — tried scooping with both hands. · Group needed extra transition time after outdoor.</div>
-                <button class="btn btn-secondary btn-sm" style="margin-top:10px;">Add note</button>
+                <div class="message-box">Mia loved the sensory bin. · Extra transition time after outdoor.</div>
               </article>
               <article class="card" style="background: var(--soft);">
-                <h4>Parent connection (ready to send)</h4>
-                <div class="message-box">
-                  Today we explored bugs and butterflies! Ask your child to show you a butterfly flutter and tell you one thing a caterpillar might eat.
-                </div>
+                <h4>Parent connection</h4>
+                <div class="message-box">Today we explored bugs and butterflies! Ask your child to show a butterfly flutter and name one thing a caterpillar might eat.</div>
                 <button class="btn btn-primary btn-sm" style="margin-top:10px;">Copy message</button>
               </article>
             </div>
           </div>
         </div>
       </div>
+      <p class="footnote">Providers stay on this board; depth opens as a tray overlay so the day context never disappears.</p>
     </section>
 
-    <!-- 4. ACTIVITY DEPTH -->
+    <!-- 4 Open Everything -->
+    <section class="screen" id="open-everything">
+      <div class="screen-label">
+        <h2>4. Open Everything I Need Today</h2>
+        <span>One tap → today’s cards, books, songs, printables, parent message</span>
+      </div>
+      <div class="frame" data-mock="open-everything">
+        <div class="app-chrome">
+          <div class="brand-mark">Today tray · Tuesday packet</div>
+          <div class="chrome-actions">
+            <button class="btn btn-ghost btn-sm">Close tray (back to Today)</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="tray">
+            <div class="tray-head">
+              <h4>Everything for Tuesday</h4>
+              <span class="chip ok">6 items · stay on Today when closed</span>
+            </div>
+            <div class="tray-item">
+              <div class="thumb"></div>
+              <div><strong>Bug Sensory Bin</strong><p class="muted">Activity card · example + setup photos</p></div>
+              <button class="btn btn-secondary btn-sm">Open</button>
+            </div>
+            <div class="tray-item">
+              <div class="thumb"></div>
+              <div><strong>Outdoor Bug Hunt</strong><p class="muted">Activity card · substitute available</p></div>
+              <button class="btn btn-secondary btn-sm">Open</button>
+            </div>
+            <div class="tray-item">
+              <div class="thumb"></div>
+              <div><strong>Butterfly Paint Prints</strong><p class="muted">Activity card</p></div>
+              <button class="btn btn-secondary btn-sm">Open</button>
+            </div>
+            <div class="tray-item">
+              <div class="thumb"></div>
+              <div><strong>The Very Hungry Caterpillar</strong><p class="muted">Book · read-aloud questions</p></div>
+              <button class="btn btn-secondary btn-sm">Open</button>
+            </div>
+            <div class="tray-item">
+              <div class="thumb"></div>
+              <div><strong>Butterfly Flutter</strong><p class="muted">Song · lyrics + motions</p></div>
+              <button class="btn btn-secondary btn-sm">Open</button>
+            </div>
+            <div class="tray-item">
+              <div class="thumb"></div>
+              <div>
+                <strong>Life-cycle cards</strong>
+                <p class="muted">Printable</p>
+                <div class="used-map"><span class="used-pill">Tue · after read-aloud</span><span class="used-pill">Wed · circle review</span></div>
+              </div>
+              <button class="btn btn-secondary btn-sm">Open</button>
+            </div>
+            <article class="card white" style="margin-top:8px;">
+              <h4>Parent message (ready to send)</h4>
+              <div class="message-box">Today we explored bugs and butterflies! Ask your child to show a butterfly flutter…</div>
+              <button class="btn btn-primary btn-sm" style="margin-top:10px;">Copy message</button>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5 Activity + Substitute -->
     <section class="screen" id="activity">
       <div class="screen-label">
-        <h2>4. Activity detail (full teaching depth)</h2>
-        <span>Photo · setup · materials · objectives · prompts · cleanup · observations</span>
+        <h2>5. Activity depth + Substitute This Activity</h2>
+        <span>Example photo · setup photo · full teach fields · materials-aware swap</span>
       </div>
       <div class="frame" data-mock="activity-detail">
         <div class="app-chrome">
           <div class="brand-mark">Activity · Outdoor Bug Hunt</div>
           <div class="chrome-actions">
             <button class="btn btn-ghost btn-sm">Back to Today</button>
-            <button class="btn btn-secondary btn-sm">Add to My Kit</button>
+            <button class="btn btn-accent btn-sm">Substitute This Activity</button>
           </div>
         </div>
         <div class="panel">
           <div class="detail-grid">
             <div class="stack">
-              <div class="photo">
-                <div class="caption">Example setup: toddlers with magnifying glasses at garden edge (replace with real kit photo)</div>
+              <div class="photo-pair">
+                <div class="photo">
+                  <div class="caption">Example photo — children using magnifying glasses outdoors</div>
+                </div>
+                <div class="photo setup">
+                  <div class="caption">Setup photo — tray ready before children arrive</div>
+                </div>
               </div>
               <article class="card white">
                 <h4>Setup instructions</h4>
-                <ol style="margin:8px 0 0; padding-left:18px; color:var(--muted); line-height:1.5;">
-                  <li>Choose a safe outdoor edge (garden, planter, mulch path).</li>
-                  <li>Hand each child a magnifying glass before going out.</li>
-                  <li>Mark a “look with eyes first” boundary with cones or chalk.</li>
-                  <li>Keep a small tray ready for found-leaf sorting afterward.</li>
+                <ol>
+                  <li>Choose a safe outdoor edge.</li>
+                  <li>Hand out magnifying glasses at the door.</li>
+                  <li>Mark a look-with-eyes-first boundary.</li>
+                  <li>Keep a leaf-sorting tray ready for return.</li>
                 </ol>
               </article>
               <article class="card white">
                 <h4>Cleanup tips</h4>
                 <ul>
-                  <li>Collect magnifying glasses in a basket at the door.</li>
+                  <li>Collect glasses in a basket at the door.</li>
                   <li>Wipe lenses once before storing.</li>
-                  <li>Shake outdoor shoes; quick hand wash before next activity.</li>
+                  <li>Quick hand wash before next activity.</li>
                 </ul>
               </article>
             </div>
             <div class="stack">
               <article class="card white">
                 <h4>Materials</h4>
-                <p>Magnifying glasses · optional bug ID cards · clipboard for notes · water bottle</p>
+                <p>Magnifying glasses · optional bug ID cards · clipboard · water</p>
               </article>
               <article class="card white">
-                <h4>Learning objectives</h4>
-                <ul>
-                  <li>Notice living things outdoors with care</li>
-                  <li>Use simple science tools (magnifying glass)</li>
-                  <li>Practice descriptive words (tiny, shiny, crawling)</li>
-                </ul>
+                <h4>Learning objective</h4>
+                <p>Children notice living things outdoors with care and practice descriptive words using a simple science tool.</p>
               </article>
               <article class="card white">
                 <h4>Teacher prompts</h4>
@@ -488,12 +631,33 @@
                 <div class="prompt"><strong>Care</strong> “How can we look without touching?”</div>
               </article>
               <article class="card" style="background: var(--warn); border-color:#f0dfc4;">
-                <h4>Observation prompts (tied to this activity)</h4>
+                <h4>Observation ideas</h4>
                 <ul>
-                  <li>Did the child use the magnifying glass independently?</li>
-                  <li>Which describing words did they try?</li>
-                  <li>Did they show gentle looking / waiting?</li>
+                  <li>Uses magnifying glass independently?</li>
+                  <li>Which describing words appear?</li>
+                  <li>Shows gentle looking / waiting?</li>
                 </ul>
+              </article>
+              <article class="sub-card">
+                <h4 style="margin:0 0 8px;">Substitute This Activity</h4>
+                <p class="muted">Suggested because magnifying glasses are still marked missing — uses paint + paper you already have.</p>
+                <div class="kit-item" style="margin-top:10px;">
+                  <div class="thumb"></div>
+                  <div>
+                    <strong>Indoor Bug Sort (paint dots)</strong>
+                    <p class="muted">Same goal: noticing + describing · materials ready</p>
+                  </div>
+                  <button class="btn btn-primary btn-sm">Use today</button>
+                </div>
+                <div class="kit-item" style="margin-top:8px;">
+                  <div class="thumb"></div>
+                  <div>
+                    <strong>Window Bug Watch</strong>
+                    <p class="muted">No outdoor tools · uses book + vocab cards</p>
+                  </div>
+                  <button class="btn btn-secondary btn-sm">Use today</button>
+                </div>
+                <button class="btn btn-ghost btn-sm" style="margin-top:10px;">Keep Outdoor Bug Hunt</button>
               </article>
             </div>
           </div>
@@ -501,17 +665,64 @@
       </div>
     </section>
 
-    <!-- 5. BUILD MY KIT -->
+    <!-- 6 Printable used in week -->
+    <section class="screen" id="printable">
+      <div class="screen-label">
+        <h2>6. Printable — where it’s used in the week</h2>
+        <span>No guessing when to pull the sheet</span>
+      </div>
+      <div class="frame" data-mock="printable-used-in-week">
+        <div class="app-chrome">
+          <div class="brand-mark">Printable · Butterfly life-cycle cards</div>
+          <div class="chrome-actions">
+            <button class="btn btn-ghost btn-sm">Back</button>
+            <button class="btn btn-primary btn-sm">Print / Add to binder</button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="grid-2">
+            <div class="photo" style="min-height:220px;">
+              <div class="caption">Printable preview — 4 sequence cards (egg → butterfly)</div>
+            </div>
+            <div class="stack">
+              <article class="card white">
+                <h4>Used in this week’s plan</h4>
+                <div class="used-map">
+                  <span class="used-pill">Tue · after read-aloud · circle</span>
+                  <span class="used-pill">Wed · morning review</span>
+                  <span class="used-pill">Fri · family take-home option</span>
+                </div>
+                <p class="muted" style="margin-top:12px;">Linked to: <strong>The Very Hungry Caterpillar</strong> · Vocabulary: cocoon</p>
+              </article>
+              <article class="card white">
+                <h4>How to use</h4>
+                <ul>
+                  <li>After the book, invite children to put cards in order.</li>
+                  <li>On Wednesday, use as a 2-minute circle warm-up.</li>
+                  <li>Optional Friday: send one card home with parent message.</li>
+                </ul>
+              </article>
+              <article class="card" style="background: var(--soft);">
+                <h4>In Monday Setup print checklist</h4>
+                <p>Listed under Print · estimated +1 minute if not already done.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7 Build -->
     <section class="screen" id="build">
       <div class="screen-label">
-        <h2>5. Build My Kit</h2>
-        <span>Add / remove activities before printing the binder</span>
+        <h2>7. Build My Kit</h2>
+        <span>Add / remove activities before assembling the binder</span>
       </div>
       <div class="frame" data-mock="build-my-kit">
         <div class="app-chrome">
           <div class="brand-mark">Build My Kit · Bugs &amp; Butterflies</div>
           <div class="chrome-actions">
-            <button class="btn btn-ghost btn-sm">Reset to defaults</button>
+            <button class="btn btn-ghost btn-sm">Reset</button>
             <button class="btn btn-primary btn-sm">Preview binder</button>
           </div>
         </div>
@@ -527,13 +738,13 @@
               <h3 class="section-title">Activities in this kit</h3>
               <div class="kit-item">
                 <div class="toggle on"></div>
-                <div><strong>Bug Sensory Bin</strong><p class="muted">Indoor · sensory · Mon/Tue</p></div>
+                <div><strong>Bug Sensory Bin</strong><p class="muted">Indoor · Mon/Tue</p></div>
                 <button class="btn btn-ghost btn-sm">Edit</button>
               </div>
               <div class="kit-item">
                 <div class="toggle on"></div>
-                <div><strong>Outdoor Bug Hunt</strong><p class="muted">Outdoor · science · Tue/Thu</p></div>
-                <button class="btn btn-ghost btn-sm">Edit</button>
+                <div><strong>Outdoor Bug Hunt</strong><p class="muted">Tue/Thu · substitute available</p></div>
+                <button class="btn btn-accent btn-sm">Substitute</button>
               </div>
               <div class="kit-item">
                 <div class="toggle on"></div>
@@ -542,31 +753,24 @@
               </div>
               <div class="kit-item off">
                 <div class="toggle"></div>
-                <div><strong>Caterpillar Counting Walk</strong><p class="muted">Removed from this week’s print</p></div>
+                <div><strong>Caterpillar Counting Walk</strong><p class="muted">Removed from this week’s binder</p></div>
                 <button class="btn btn-secondary btn-sm">Add back</button>
               </div>
-              <article class="card white">
-                <h4>Add another activity</h4>
-                <p>Pull from this kit’s activity list or your saved favorites.</p>
-                <button class="btn btn-secondary btn-sm" style="margin-top:10px;">Browse activities to add</button>
-              </article>
             </div>
             <div class="stack">
               <article class="card white">
-                <h4>Always included</h4>
+                <h4>Binder always includes</h4>
                 <ul>
+                  <li>Cover + tab dividers</li>
                   <li>Monday Morning Setup</li>
                   <li>Daily Classroom pages</li>
-                  <li>Books + read-aloud questions</li>
-                  <li>Songs + motions</li>
-                  <li>Vocabulary</li>
-                  <li>Parent connection messages</li>
-                  <li>Observation prompts</li>
+                  <li>Printables with “Used in week”</li>
+                  <li>Parent messages · observations</li>
                 </ul>
               </article>
               <article class="card" style="background: var(--soft);">
-                <h4>This week’s binder will include</h4>
-                <p><strong>3 activities</strong> selected · 5 daily pages · parent messages · observations</p>
+                <h4>Ready to assemble</h4>
+                <p><strong>3 activities</strong> · professional week binder</p>
                 <button class="btn btn-primary" style="width:100%; margin-top:12px;">Print Teaching Kit binder</button>
               </article>
             </div>
@@ -575,59 +779,65 @@
       </div>
     </section>
 
-    <!-- 6. PRINTABLE BINDER -->
+    <!-- 8 Binder -->
     <section class="screen" id="print">
       <div class="screen-label">
-        <h2>6. Printable Teaching Kit (curriculum binder)</h2>
-        <span>Professional binder feel — not a lesson-plan dump</span>
+        <h2>8. Printable Teaching Kit — curriculum binder</h2>
+        <span>Cover · tabs · consistent branding — not exported web pages</span>
       </div>
       <div class="frame" data-mock="print-binder">
         <div class="app-chrome">
-          <div class="brand-mark">Print preview · Teaching Kit Binder</div>
+          <div class="brand-mark">Binder preview · professionally designed</div>
           <div class="chrome-actions">
             <button class="btn btn-ghost btn-sm">Edit My Kit</button>
             <button class="btn btn-primary btn-sm">Print / Save PDF</button>
           </div>
         </div>
-        <div class="binder">
-          <div class="binder-page">
-            <h3>Bugs &amp; Butterflies</h3>
-            <p class="subtitle">Complete Teaching Kit · Toddler · Week of March 10</p>
-            <div class="meta-chips">
-              <span class="chip">Classroom Companion</span>
-              <span class="chip">5 daily pages</span>
-              <span class="chip">3 activities</span>
-            </div>
-            <hr class="binder-rule" />
-            <div class="print-grid">
-              <div class="binder-section">
-                <h4>Binder contents</h4>
-                <ol style="margin:0; padding-left:18px;">
-                  <li>Cover &amp; week overview</li>
-                  <li>Monday Morning Setup</li>
-                  <li>Daily Classroom pages (Mon–Fri)</li>
-                  <li>Activity cards with photo cues</li>
-                  <li>Books, songs, vocabulary</li>
-                  <li>Parent connection messages</li>
-                  <li>Observation prompts</li>
-                </ol>
+        <div class="binder-stage">
+          <div class="binder-spread">
+            <div class="binder-cover">
+              <div>
+                <div class="mark">Little Learner Hub</div>
+                <h3>Bugs &amp; Butterflies</h3>
+                <p>Complete Teaching Kit<br />Toddler · Week of March 10</p>
+                <div class="tab-rail">
+                  <span>1 Setup</span>
+                  <span>2 Daily</span>
+                  <span>3 Activities</span>
+                  <span>4 Songs &amp; Books</span>
+                  <span>5 Families</span>
+                  <span>6 Observe</span>
+                </div>
               </div>
-              <div class="binder-section">
-                <h4>How to use</h4>
-                <p>Keep Monday Setup on the fridge or prep shelf. Leave each Daily Classroom page open during the day. Slip activity cards into a sheet protector for outdoor use.</p>
-              </div>
+              <p style="font-size:0.78rem; opacity:0.85;">Classroom companion binder</p>
             </div>
-            <hr class="binder-rule" />
-            <div class="binder-section">
-              <h4>Sample — Tuesday Classroom page</h4>
-              <p><strong>Schedule:</strong> Arrival song → Sensory bin → Read-aloud → Bug hunt → Paint prints → Cleanup</p>
-              <p style="margin-top:8px;"><strong>Parent message:</strong> Today we explored bugs and butterflies! Ask your child to show a butterfly flutter…</p>
-              <p style="margin-top:8px;"><strong>Observe:</strong> magnifying-glass use · describing words · gentle looking</p>
+            <div class="binder-pages">
+              <div class="binder-page" data-tab="Setup" style="--tab:#c9783a;">
+                <h4>Tab 1 — Monday Morning Setup</h4>
+                <p class="subtitle">Prep ~18 min · missing items listed at top</p>
+                <hr class="binder-rule" />
+                <p style="margin:0; font-size:0.9rem; color:#333; line-height:1.45;">Materials checklist · timed prep tasks · print queue with “Used in week” notes.</p>
+                <div class="binder-foot"><span>Bugs &amp; Butterflies · Teaching Kit</span><span>2</span></div>
+              </div>
+              <div class="binder-page" data-tab="Daily" style="--tab:#2f6b4f;">
+                <h4>Tab 2 — Tuesday Classroom</h4>
+                <p class="subtitle">Leave this page open during the day</p>
+                <hr class="binder-rule" />
+                <p style="margin:0; font-size:0.9rem; color:#333; line-height:1.45;">Schedule · materials · transitions · book questions · song motions · parent message · observation ideas.</p>
+                <div class="binder-foot"><span>Bugs &amp; Butterflies · Teaching Kit</span><span>5</span></div>
+              </div>
+              <div class="binder-page" data-tab="Activities" style="--tab:#3d6e8c;">
+                <h4>Tab 3 — Activity card</h4>
+                <p class="subtitle">Example photo · setup photo · prompts · cleanup</p>
+                <hr class="binder-rule" />
+                <p style="margin:0; font-size:0.9rem; color:#333; line-height:1.45;">Consistent card layout across the binder. Substitute note prints only if provider chose a swap.</p>
+                <div class="binder-foot"><span>Bugs &amp; Butterflies · Teaching Kit</span><span>9</span></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <p class="footnote">Printed output should feel like a professional curriculum binder a provider keeps in a sleeve all week — not a stack of generic lesson plans.</p>
+      <p class="footnote">Printed output = cover + color tab dividers + running brand/footer — a binder providers are proud to keep in a sleeve all week.</p>
     </section>
   </div>
 </body>

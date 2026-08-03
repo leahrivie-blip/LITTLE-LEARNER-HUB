@@ -1,7 +1,7 @@
-# Gold Standard Teaching Kit — Final Product Design (Review)
+# Gold Standard Teaching Kit — Final Product Design (v4 polish)
 
-**Status:** Product design for review — **not approved · not implementation**  
-**PR:** #436 (draft) · Slice 1A approved · Slice 1B **not started**  
+**Status:** Final polish for review — **implementation not started**  
+**PR:** #436 (draft) · Slice 1A approved · Slice 1B **awaits explicit go**  
 **Example week:** *Bugs & Butterflies* · Toddler · Pro  
 **Date:** 2026-08-03  
 
@@ -9,195 +9,172 @@
 
 ---
 
-## 1. Vision
+## 1. Vision (subscribe-for feature)
 
-The Teaching Kit should **replace everything a provider carries around during the week** — not merely organize lesson-plan content.
+The Teaching Kit **replaces everything a provider carries during the week**. It is the product people subscribe for:
 
-It is the binder that lives on the counter / in the bag:
+- Monday morning setup with **prep-time estimate** and **missing-items highlight**
+- An all-day **Today’s Classroom** board they can leave open without screen-hopping
+- **Open Everything I Need Today** — one tap for today’s cards, books, songs, printables, parent message
+- Activity cards with **example photo + setup photo**, prompts, objectives, cleanup, observations
+- **Substitute This Activity** when materials don’t match what’s on hand
+- Printables that show **exactly where they appear in the week**
+- A printed pack that looks like a **professional curriculum binder** (cover, tabs, branding)
 
-- Monday morning setup sheet  
-- All-day Today board  
-- Activity cards with real examples  
-- Songs with lyrics + motions  
-- Books with read-aloud questions  
-- Vocabulary with definitions + talk prompts  
-- Ready-to-send family message  
-- Observation prompts tied to today’s activities  
-- A printed pack that looks like a **professional curriculum binder**, not a raw lesson dump  
-
-**Lesson plan** = curriculum source in the library.  
-**Teaching Kit** = the thing you prepare with, teach from, and print.
+**Lesson plan** = library source. **Teaching Kit** = prepare · teach · print · carry.
 
 ---
 
-## 2. What this kit replaces (provider bag)
+## 2. Information architecture
 
-| Usually carried / hunted | Teaching Kit surface |
+| Surface | Job |
 | --- | --- |
-| Sticky notes for morning prep | **Monday Morning Setup** |
-| Day schedule on the fridge | **Today’s Classroom** |
-| Printed activity pages from random sites | **Activity cards** (with photo + cleanup) |
-| Song lyrics on phone / memory | **Songs** (lyrics + motions) |
-| Book sticky-notes | **Books** (read-aloud questions) |
-| Word list on whiteboard | **Vocabulary** (definitions + discussion) |
-| Half-written parent message | **Parent connection** (ready-to-send) |
-| Observation clipboard | Prompts **tied to activities** on Today + print |
-| Stack of mismatched PDFs | **Build My Kit** → one binder PDF |
+| **Start the Week** | Choose kit · jump into Setup / Today / Build |
+| **Monday Morning Setup** | Prep before children arrive |
+| **Today’s Classroom** | Leave open all day (primary runtime surface) |
+| **Today tray** (“Open Everything…”) | Stacked day’s materials in one place |
+| **Activity card** | Full teachable depth + Substitute |
+| **Printable detail** | File + **Used in week** map |
+| **Build My Kit** | Add/remove activities · assemble binder |
+| **Printable binder** | Cover · tab dividers · consistent brand |
 
 ---
 
-## 3. Binder information architecture
+## 3. Monday Morning Setup
 
-| Nav | Job |
-| --- | --- |
-| **Monday Morning Setup** | Everything before children arrive |
-| **Today’s Classroom** | Stays open all day |
-| **This Week** | Switch day → loads Today |
-| **Activity Cards** | Full teachable cards |
-| **Songs** | Lyrics + motions |
-| **Books** | Read-aloud questions |
-| **Vocabulary** | Definitions + discussion |
-| **Parents** | Ready-to-send family message |
-| **Build My Kit** | Choose sections **and activities**, then print binder |
-
----
-
-## 4. Monday Morning Setup
-
-**Purpose:** One page to clear before the door opens.
+**Purpose:** Clear the counter before the door opens.
 
 Must show:
 
-1. **Arrive-by checklist** (time-ordered prep tasks)  
-2. **Supplies to gather** (from closet / buy / ask families)  
-3. **Materials by area** (circle / table / outdoor)  
-4. **Print checklist** (what to run before kids)  
-5. **Environment setup** (where trays go — with example photo thumbs)  
-6. **Safety / allergy glance** for the week  
-7. Primary CTA: **Open Today’s Classroom**  
-8. Secondary: Assign week · Favorite · Build My Kit  
+1. **Estimated prep time** for the whole setup (e.g. “About 18 minutes”)  
+2. **Missing before the week begins** — red/amber callout of unchecked critical items  
+3. Materials to gather (checkable)  
+4. Prep tasks (time-ordered, with per-task minutes)  
+5. Print checklist  
+6. Supplies status: Ready / Need to gather / Optional  
+7. CTA: **Open Today’s Classroom**  
+8. Secondary: Build My Kit · Assign week  
 
-This is distinct from a content “Overview.” It is **operations before arrival**.
+Missing-items rules (product):
+
+- Critical materials still unchecked → show in **Needs attention** banner  
+- Optional items never block “ready”  
+- Banner clears as checks complete  
 
 ---
 
-## 5. Today’s Classroom (all-day dashboard)
+## 4. Today’s Classroom (leave-open-all-day)
 
-**Purpose:** The screen that stays open from arrival to pickup.
+**Purpose:** One board from arrival to pickup — no constant switching.
 
-Must show on one scrollable board:
+### Design rules
+- Everything for the day is on **one scrollable surface** (or sticky day-rail + content)
+- Primary action: **Open Everything I Need Today**
+- Day switcher stays on-board (Mon–Fri chips)
+- Schedule rows open depth **inline / tray**, not a dead-end away from Today
+- Quick notes + parent message + observations stay visible without leaving Today
+- Mobile: same board; bottom nav Prep / Today / Build only
 
+### Must show
 | Block | Contents |
 | --- | --- |
-| Day header | Week title · day · focus one-liner |
-| Schedule | Arrive → Circle → Activity → Transition → Outdoor → Closing (times / estimates) |
-| Activities today | Cards with thumb + Open |
-| Book today | Title + one read-aloud question peek |
-| Song today | Title + motion peek · open lyrics |
-| Materials today | Short list only |
-| Transitions | Exact phrases / cues |
-| Quick notes | Scratch pad (UX pattern; persistence later) |
-| Observation | Prompts **linked to today’s activities** |
-| Parent peek | One sentence to say at pickup + link to full message |
+| Sticky header | Day · kit title · **Open Everything I Need Today** |
+| Schedule | Full day with type tags |
+| Activities today | Thumb + open + substitute peek |
+| Books / songs / vocab | Full usable peeks (questions, lyrics/motions, definitions) |
+| Materials · transitions | Short lists |
+| Observations | Tied to **today’s** activities |
+| Parent connection | Ready-to-send + copy |
+| Quick notes | Scratch pad |
 
-Mobile: same board, large taps, bottom nav Prep / Today / Week / More.
+### Open Everything I Need Today
+One control that opens a **Today tray / packet** containing:
+
+1. Today’s activity cards (stacked)  
+2. Today’s book(s) with read-aloud questions  
+3. Today’s song(s) with lyrics + motions  
+4. Today’s printables (each with **Used in week** label)  
+5. Parent message (copy-ready)  
+6. Observation prompts for today’s activities  
+
+Provider can dismiss tray and return to the same Today board (state preserved).
 
 ---
 
-## 6. Activity card standard (every activity)
+## 5. Activity card standard (every activity)
 
-Every activity in a gold-standard kit includes:
+Required fields:
 
-1. **Example photo** (setup or finished — realistic, reproducible)  
-2. **Learning objectives**  
-3. **Materials** (+ substitutions when helpful)  
-4. **Setup instructions**  
-5. **Step-by-step**  
-6. **Teacher prompts** (language / questions)  
+1. **Example photo** (finished / in-use with children — realistic)  
+2. **Setup photo** (table/tray before children arrive)  
+3. **Materials** (+ common substitutions)  
+4. **Learning objective** (clear, child-observable)  
+5. **Teacher prompts**  
+6. **Setup instructions** + steps  
 7. **Cleanup tips**  
-8. **Observation prompts** (activity-specific)  
-9. **Adaptations** (simplified / stretch)  
-10. **Estimated setup / activity / cleanup time**  
+8. **Observation ideas** (tied to this activity)  
+9. Estimated setup / run / cleanup time  
+10. **Substitute This Activity** control  
 
-Entry: from Today schedule or Activity Cards list.  
-Always: **Back to Today**.
+### Substitute This Activity
+Suggests 1–3 alternatives that:
+
+- Fit the same age band / learning goal when possible  
+- Prefer **materials already listed as Ready** on Monday Setup / Today materials  
+- Show why it fits (“Uses paint + paper you already have”)  
+- One tap: **Use substitute for today** (updates Today + print selection for that slot)  
+- Always offer **Keep original**
+
+---
+
+## 6. Printables — “where used in the week”
+
+Every printable shows:
+
+- Thumbnail / title  
+- **Used in week** map: day + moment (e.g. “Tue · after Bug Hunt · circle”)  
+- Linked activity / song / book if any  
+- Print / include-in-binder toggle  
+
+Providers should never guess *when* to pull a sheet.
 
 ---
 
 ## 7. Songs, books, vocabulary, parents
 
-### Songs
-- Title  
-- When to use (circle / transition / outdoor)  
-- **Full lyrics** when original LLH or verified public domain  
-- **Motions / actions** line by line when possible  
-- Copyrighted modern songs: title + motions + suggestion only — no illegal lyric paste  
-- Print lyric sheet option when allowed  
+Unchanged depth bar from v3:
 
-### Books
-- Title · author  
-- Short why-this-book  
-- **Read-aloud questions:** before / during / after  
-- Vocabulary tie-ins  
-- Extension idea  
-- Disclaimer: full book not provided by LLH  
-
-### Vocabulary
-- Word  
-- **Simple child-friendly definition**  
-- **Discussion idea** (question or prompt)  
-- Link to printable cards  
-
-### Parent connection
-- **Ready-to-send family message** (copy button UX)  
-- Short pickup talking points  
-- Optional home extension  
-- Print as family letter page in binder  
+- Songs: lyrics (when rights-safe) + motions  
+- Books: read-aloud questions  
+- Vocabulary: simple definitions + discussion ideas  
+- Parent connection: ready-to-send family message  
 
 ---
 
-## 8. Observation prompts (tied to activities)
+## 8. Build My Kit
 
-Rules:
-
-- Today board shows prompts for **today’s activities only**  
-- Each activity card has its own observation bullets  
-- Printed observation page lists activity name beside each prompt  
-- Never generic “observe learning” without a target  
-
-Example: *Leaf & Bug Sort* → “Does the child sort by color or size with support? Uses ‘gentle’?”
+- Add / remove activities before print  
+- Section toggles for binder parts  
+- Presets: Today pack · Monday Setup pack · **Week binder** · Family pack  
+- Removing an activity removes its observations + linked printables from that pack  
 
 ---
 
-## 9. Build My Kit (print with activity control)
+## 9. Printable Teaching Kit = professional curriculum binder
 
-### Presets (operations-first)
-1. **Today’s classroom pack** (default)  
-2. **Monday Morning Setup pack**  
-3. **Week binder** (professional full kit)  
-4. **Family pack**  
+Not “export web pages.” Output must feel purchased:
 
-### Section toggles
-Cover · Setup page · Today sheet · Materials · Songs · Books · Vocabulary · Parent message · Observation forms · Example photos · Teacher notes  
+| Binder element | Requirement |
+| --- | --- |
+| **Cover page** | Kit title, age, week theme, LLH mark, optional provider/program line |
+| **Spine / tab labels** | Setup · Daily · Activities · Songs & Books · Families · Observe |
+| **Section divider tabs** | Color-coded tab edge on divider pages |
+| **Running brand** | Header or footer: mark + kit name + page # |
+| **Consistent activity cards** | Same photo/objective/materials/prompts/cleanup grid |
+| **US Letter** | Ink-conscious option |
+| **Not** | App screenshots, random lesson dumps, mismatched fonts |
 
-### Activity picker (required)
-- Checklist of week activities (grouped by day)  
-- Provider can **add or remove activities** before generating PDF  
-- Removing an activity drops its steps + its observation prompts from the pack  
-- “Today’s activities only” quick filter  
-
-### Output quality bar — “professional curriculum binder”
-Printed packet should feel like a purchased teacher binder:
-
-- Cover page with kit title, age, week theme, LLH brand  
-- Clear section dividers / running headers  
-- Consistent activity card layout  
-- Page numbers · “Bugs & Butterflies · Teaching Kit” footer  
-- US Letter · ink-conscious option  
-- Not a screenshot of the web app  
-- Not an unstructured lesson-plan paste  
-
-Entitlements: existing Free / Trial / Pro / Founding rules; Trial watermark path before assembly.
+Visual mockup shows cover + tab strip + sample interior page.
 
 ---
 
@@ -205,37 +182,29 @@ Entitlements: existing Free / Trial / Pro / Founding rules; Trial watermark path
 
 | Surface | Desktop | Mobile |
 | --- | --- | --- |
-| Monday Morning Setup | Two-column checklist + print queue | Stacked checklist |
-| Today’s Classroom | Schedule + side materials/obs | Single column, sticky observe |
-| Activity card | Panel / wide card with photo | Full-screen card |
-| Build My Kit | Modal with activity picker | Full-screen picker |
+| Monday Setup | Prep time + missing banner + checklists | Stacked; missing banner sticky |
+| Today | One board + sticky Open Everything | Same; tray = full-screen sheet |
+| Activity | Dual photos + Substitute panel | Full-screen card |
+| Binder preview | Cover + tabs + sample pages | Swipe sample pages |
 
 ---
 
-## 11. Example week
+## 11. Non-goals (until go)
 
-Still **Bugs & Butterflies** · Toddler · complete gold-standard content in the mockup for Monday focus, with Tue–Fri visible in This Week / activity picker.
-
----
-
-## 12. Non-goals
-
-- No runtime implementation  
-- No Slice 1B / merge / deploy / flag enablement  
-- No live sync of quick notes yet (show the pattern)  
-- No claiming copyrighted modern song lyrics  
+- No Slice 1B / merge / deploy / flag enablement until you say begin  
+- No live inventory sync (missing items = checklist state)  
+- No illegal copyrighted lyric paste  
 
 ---
 
-## 13. Owner approval checklist
+## 12. Owner approval checklist (v4)
 
-- [ ] Monday Morning Setup is what you’d want before kids arrive  
-- [ ] Today’s Classroom is what you’d leave open all day  
-- [ ] Activity card fields are complete enough to teach without Google  
-- [ ] Songs / books / vocab / parent message depth feels right  
-- [ ] Observation prompts feel tied to activities  
-- [ ] Build My Kit activity add/remove is clear  
-- [ ] Printed binder vision matches “professional curriculum binder”  
-- [ ] Approve final product design → then authorize implementation planning / Slice 1B  
+- [ ] Prep-time estimate + missing-items highlight feel right on Monday Setup  
+- [ ] Today board is leave-open-all-day (Open Everything is the right power move)  
+- [ ] Activity cards have example **and** setup photos + full teach fields  
+- [ ] Substitute This Activity is clear and materials-aware  
+- [ ] Printables show where used in the week  
+- [ ] Binder preview feels like a professional curriculum binder (tabs/cover/brand)  
+- [ ] **Approve → begin implementation** (Slice 1B planning / build)
 
-**Stop until approved.**
+**Awaiting your go to begin implementation.**
