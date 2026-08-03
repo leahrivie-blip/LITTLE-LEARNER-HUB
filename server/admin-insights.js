@@ -1547,17 +1547,25 @@ function buildAdvisor(store, events, range, extras = {}) {
   const errors = buildErrorCenter(store, events, range, extras.monitoringSnapshot);
   const search = buildSearchAnalytics(store, events, range);
   const scoped = filterEvents(events, range.startMs);
+  // Match Admin Analytics: exclude ephemeral QA/test actors from conversion KPIs.
+  const isTestActor = (event) => testAccountGuard.shouldExcludeFromCustomerAnalytics(
+    event?.user || event?.detail?.email || event?.email || "",
+  );
+  const customerScoped = scoped.filter((e) => !isTestActor(e));
+  const { users: customerUsers } = testAccountGuard.filterUsersForCustomerAnalytics(
+    Object.values(store.users || {}),
+  );
 
-  const visitors = scoped.filter((e) => e.name === "website_visit").length
+  const visitors = customerScoped.filter((e) => e.name === "website_visit").length
     || Number(marketing?.realtime?.sessionVisitsToday || 0);
-  const signups = scoped.filter((e) => e.name === "account_signup_complete").length;
-  const trials = Object.values(store.users || {}).filter((u) => {
+  const signups = customerScoped.filter((e) => e.name === "account_signup_complete").length;
+  const trials = customerUsers.filter((u) => {
     const at = u.metaStartTrialAt || u.trialStart || "";
     if (!at) return false;
     return !range.startMs || new Date(at).getTime() >= range.startMs;
   }).length;
-  const paid = scoped.filter((e) => e.name === "checkout_success").length
-    || Object.values(store.users || {}).filter((u) => {
+  const paid = customerScoped.filter((e) => e.name === "checkout_success").length
+    || customerUsers.filter((u) => {
       const at = u.metaPurchaseAt || u.firstPaidInvoiceAt || "";
       return at && (!range.startMs || new Date(at).getTime() >= range.startMs);
     }).length;
@@ -1613,7 +1621,7 @@ function buildAdvisor(store, events, range, extras = {}) {
     recommendations.push({ priority, title, detail, hub, category });
   };
 
-  const scopedEvents = scoped;
+  const scopedEvents = customerScoped;
   const signupCompletions = scopedEvents.filter((e) => e.name === "account_signup_complete").length;
   const firstLessons = scopedEvents.filter((e) => e.name === "first_lesson_opened" || e.name === "lesson_plan_view").length;
   const freeSelected = scopedEvents.filter((e) => e.name === "free_selected" || e.name === "free_plan_selected").length;

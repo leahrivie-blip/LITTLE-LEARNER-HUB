@@ -16,6 +16,7 @@
     "server": "node --max-old-space-size=300 server/index.js",
     "check": "node --check server/index.js && node --check server/seo.js && node --check server/curriculum-media.js && node --check server/curriculum-resource-migration.js && node --check server/meta-capi.js && node --check server/test-account-guard.js && node --check server/production-monitoring.js && node --check server/admin-insights.js && node --check server/owner-notification-email.js && node --check server/admin-notifications.js && node --check server/signup-transactional.js && node --check server/onboarding-welcome.js && node --check scripts/teaching-kit.js && node --check scripts/teaching-kit-mapper.js && node --check scripts/teaching-kit-viewer.js && node --check scripts/teaching-kit-print.js && node --check app.js && node --check admin-insights.js && node --check server/launch-check.js && node --check server/billing-check.js",
     "test:signup-transactional-emails": "NODE_ENV=test node scripts/test-signup-transactional-emails.js",
+    "test:pr439-production-equivalent": "NODE_ENV=test node scripts/verify-pr439-production-equivalent.js",
     "test:teaching-kit-slice-1a": "NODE_ENV=test node scripts/test-teaching-kit-slice-1a.js",
     "test:teaching-kit-slice-1b": "NODE_ENV=test node scripts/test-teaching-kit-slice-1b.js",
     "test:teaching-kit-slice-1c": "NODE_ENV=test node scripts/test-teaching-kit-slice-1c.js",
