@@ -822,10 +822,25 @@ function buildActorActivityIndex(scopedEvents = []) {
   return byActor;
 }
 
-function resolveActorActivity(index, person = {}) {
-  const fromKey = person.key ? index.get(person.key) : null;
-  const fromEmail = person.email ? index.get(person.email) : null;
-  const activity = fromKey || fromEmail || null;
+function resolveActorActivity(index, person = {}, identityKeys = []) {
+  const keys = identityKeys.length
+    ? identityKeys
+    : [person.key, person.email].filter(Boolean);
+  let activity = null;
+  for (const key of keys) {
+    const hit = index.get(String(key || "").trim().toLowerCase()) || index.get(key);
+    if (!hit) continue;
+    if (!activity) {
+      activity = { ...hit };
+      continue;
+    }
+    if (hit.firstMs && (!activity.firstMs || hit.firstMs < activity.firstMs)) activity.firstMs = hit.firstMs;
+    if (hit.lastMs && hit.lastMs >= (activity.lastMs || 0)) {
+      activity.lastMs = hit.lastMs;
+      activity.lastPage = hit.lastPage || activity.lastPage;
+    }
+    activity.eventCount = (activity.eventCount || 0) + (hit.eventCount || 0);
+  }
   if (!activity) {
     return { lastPage: person.landingPage || "/", minutesBeforeExit: null };
   }
@@ -836,6 +851,52 @@ function resolveActorActivity(index, person = {}) {
     lastPage: activity.lastPage || person.landingPage || "/",
     minutesBeforeExit: minutes == null ? null : Number(minutes.toFixed(2)),
   };
+}
+
+/** Link visitorId/sessionId ↔ email so funnel exits don't false-positive after signup. */
+function buildActorLinkIndex(scopedEvents = []) {
+  const visitorToEmail = new Map();
+  const emailToVisitors = new Map();
+  const link = (visitor, email) => {
+    const v = String(visitor || "").trim().toLowerCase();
+    const e = normalizeEmail(email);
+    if (!v || !e) return;
+    visitorToEmail.set(v, e);
+    if (!emailToVisitors.has(e)) emailToVisitors.set(e, new Set());
+    emailToVisitors.get(e).add(v);
+  };
+  for (const event of scopedEvents) {
+    const email = normalizeEmail(event.user || event.detail?.email || event.email || "");
+    const visitor = event.visitorId || "";
+    const session = event.sessionId || "";
+    if (email && visitor) link(visitor, email);
+    if (email && session) link(session, email);
+  }
+  return { visitorToEmail, emailToVisitors };
+}
+
+function actorIdentityKeys(person = {}, links = { visitorToEmail: new Map(), emailToVisitors: new Map() }) {
+  const keys = new Set();
+  const add = (value) => {
+    const text = String(value || "").trim().toLowerCase();
+    if (text) keys.add(text);
+  };
+  add(person.key);
+  add(person.email);
+  add(person.visitorKey);
+  const seed = [...keys];
+  for (const key of seed) {
+    if (links.visitorToEmail.has(key)) add(links.visitorToEmail.get(key));
+    if (links.emailToVisitors.has(key)) {
+      for (const visitor of links.emailToVisitors.get(key)) add(visitor);
+    }
+  }
+  return [...keys];
+}
+
+function stageHasActor(stageSet, person, links) {
+  if (!stageSet) return false;
+  return actorIdentityKeys(person, links).some((key) => stageSet.has(key));
 }
 
 function countMapEntries(map) {
@@ -850,11 +911,13 @@ function buildFunnelExitInsights({
   transitions,
   landingStats,
   actorActivity,
+  actorLinks,
   exitStageFilter = "",
 } = {}) {
   const exitStages = [];
   const allLeaverKeys = new Set();
   const abandonByLanding = new Map();
+  const links = actorLinks || { visitorToEmail: new Map(), emailToVisitors: new Map() };
 
   for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
     const current = FUNNEL_STAGE_DEFS[i];
@@ -863,7 +926,16 @@ function buildFunnelExitInsights({
     if (next.id === "activeSubscribers") continue;
 
     const reachedCount = overall[current.id]?.size || 0;
-    const leavers = [...(people[current.id]?.values() || [])].filter((person) => person.exitedBefore === next.id);
+    const seenLeaver = new Set();
+    const leavers = [];
+    for (const person of (people[current.id]?.values() || [])) {
+      if (person.exitedBefore !== next.id) continue;
+      const identity = actorIdentityKeys(person, links);
+      const dedupeKey = identity.find((k) => k.includes("@")) || identity[0] || person.key;
+      if (seenLeaver.has(dedupeKey)) continue;
+      seenLeaver.add(dedupeKey);
+      leavers.push(person);
+    }
     const deviceMap = new Map();
     const sourceMap = new Map();
     const lastPageMap = new Map();
@@ -871,7 +943,9 @@ function buildFunnelExitInsights({
     const enriched = [];
 
     for (const person of leavers) {
-      const activity = resolveActorActivity(actorActivity, person);
+      const identity = actorIdentityKeys(person, links);
+      const linkedEmail = identity.find((k) => k.includes("@")) || person.email || "";
+      const activity = resolveActorActivity(actorActivity, person, identity);
       const device = person.device || "Unknown";
       const src = person.source || "Other";
       const lastPage = activity.lastPage || person.landingPage || "/";
@@ -880,12 +954,12 @@ function buildFunnelExitInsights({
       sourceMap.set(src, (sourceMap.get(src) || 0) + 1);
       lastPageMap.set(lastPage, (lastPageMap.get(lastPage) || 0) + 1);
       if (activity.minutesBeforeExit != null) minutesList.push(activity.minutesBeforeExit);
-      allLeaverKeys.add(person.key || person.email);
+      allLeaverKeys.add(linkedEmail || person.key || person.email);
       abandonByLanding.set(landingPage, (abandonByLanding.get(landingPage) || 0) + 1);
       enriched.push({
-        email: person.email || "",
+        email: linkedEmail || person.email || "",
         name: person.name || "",
-        visitorKey: person.email ? "" : person.key,
+        visitorKey: (linkedEmail || person.email) ? "" : person.key,
         source: src,
         device,
         landingPage,
@@ -899,6 +973,8 @@ function buildFunnelExitInsights({
       });
     }
 
+    // Identity-aware leaver count (visitorId ↔ email linked) should match funnel drop-off.
+    const dropOffCount = Math.max(reachedCount - (overall[next.id]?.size || 0), 0);
     const exitCount = leavers.length;
     exitStages.push({
       from: current.id,
@@ -907,6 +983,7 @@ function buildFunnelExitInsights({
       toLabel: next.label,
       reachedCount,
       exitCount,
+      funnelDropOffCount: dropOffCount,
       exitRate: pct(exitCount, reachedCount),
       exitRateLabel: rate(exitCount, reachedCount),
       avgMinutesBeforeExit: avgMinutes(minutesList),
@@ -1146,11 +1223,32 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     }
   }
 
+  const nonTestEvents = scoped.filter((event) => !isTestActor(event));
+  const actorLinks = buildActorLinkIndex(nonTestEvents);
+  // Also link known user emails to any visitor keys seen on their events.
+  for (const user of users) {
+    const email = normalizeEmail(user.email);
+    if (!email) continue;
+    for (const event of nonTestEvents) {
+      const eventEmail = normalizeEmail(event.user || event.detail?.email || "");
+      if (eventEmail !== email) continue;
+      if (event.visitorId) {
+        actorLinks.visitorToEmail.set(String(event.visitorId).trim().toLowerCase(), email);
+        if (!actorLinks.emailToVisitors.has(email)) actorLinks.emailToVisitors.set(email, new Set());
+        actorLinks.emailToVisitors.get(email).add(String(event.visitorId).trim().toLowerCase());
+      }
+    }
+  }
+
   for (let i = 0; i < FUNNEL_STAGE_DEFS.length - 1; i += 1) {
     const current = FUNNEL_STAGE_DEFS[i];
     const next = FUNNEL_STAGE_DEFS[i + 1];
     for (const [, person] of people[current.id].entries()) {
-      const reachedNext = overall[next.id].has(person.key) || (person.email && overall[next.id].has(person.email));
+      if (!person.email) {
+        const linked = actorLinks.visitorToEmail.get(String(person.key || "").trim().toLowerCase());
+        if (linked) person.email = linked;
+      }
+      const reachedNext = stageHasActor(overall[next.id], person, actorLinks);
       if (!reachedNext) {
         person.exitedAfter = current.id;
         person.exitedBefore = next.id;
@@ -1163,7 +1261,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     }
   }
 
-  const actorActivity = buildActorActivityIndex(scoped.filter((event) => !isTestActor(event)));
+  const actorActivity = buildActorActivityIndex(nonTestEvents);
 
   const maxCount = Math.max(1, ...FUNNEL_STAGE_DEFS.map((def) => overall[def.id].size));
   const stages = FUNNEL_STAGE_DEFS.map((def, index) => {
@@ -1236,11 +1334,13 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
       .sort((a, b) => String(b.reachedAt).localeCompare(String(a.reachedAt)))
       .slice(0, 100)
       .map((person) => {
-        const activity = resolveActorActivity(actorActivity, person);
+        const identity = actorIdentityKeys(person, actorLinks);
+        const activity = resolveActorActivity(actorActivity, person, identity);
+        const linkedEmail = identity.find((k) => k.includes("@")) || person.email || "";
         return {
-          email: person.email || "",
+          email: linkedEmail || person.email || "",
           name: person.name || "",
-          visitorKey: person.email ? "" : person.key,
+          visitorKey: (linkedEmail || person.email) ? "" : person.key,
           source: person.source,
           device: person.device,
           landingPage: person.landingPage,
@@ -1261,6 +1361,7 @@ function buildMarketingFunnel(store, events, range, { source = "", stage = "", e
     transitions,
     landingStats,
     actorActivity,
+    actorLinks,
     exitStageFilter,
   });
 
