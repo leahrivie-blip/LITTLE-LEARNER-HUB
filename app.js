@@ -62438,23 +62438,8 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
         renderSignupWizardStep();
         submitButton.disabled = false;
         const registrationEventId = makeMetaEventId("reg");
-        trackEvent("account_signup_complete", {
-          email: result.email,
-          plan: selectedAtSignup,
-          preferredPlan: preferredPlan || "free",
-          source: trafficSource(),
-          firstName,
-          lastName,
-          signupFlow: "wizard-step-1",
-          metaEventId: registrationEventId,
-        });
-        // Browser mirror; server CAPI is authoritative and dedupes via event_id.
-        trackMetaPixel("CompleteRegistration", {
-          content_name: "account_signup",
-          status: true,
-          currency: "USD",
-          value: 0,
-        }, registrationEventId);
+        // Profile sync first — analytics/welcome/admin alerts must not race ahead of
+        // a successful account create. Fire analytics only after sync succeeds.
         runAuthSyncWithTimeout("signup profile sync", () => syncAccountProfileToBackend(result.email, {
           firstName,
           lastName,
@@ -62462,11 +62447,32 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
           accountType: "",
           role: "",
           phone,
-        }, { signup: true, lastLogin: true, metaEventId: registrationEventId })).then(() => Promise.all([
-          runAuthSyncWithTimeout("signup membership sync", () => syncSubscriptionFromBackend(result.email)),
-          runAuthSyncWithTimeout("signup child sync", () => syncChildDataFromBackend()),
-          loadUserAiUsage(result.email).catch(() => {}),
-        ])).catch(() => {});
+        }, { signup: true, lastLogin: true, metaEventId: registrationEventId })).then((syncedUser) => {
+          if (syncedUser) {
+            trackEvent("account_signup_complete", {
+              email: result.email,
+              plan: selectedAtSignup,
+              preferredPlan: preferredPlan || "free",
+              source: trafficSource(),
+              firstName,
+              lastName,
+              signupFlow: "wizard-step-1",
+              metaEventId: registrationEventId,
+            });
+            // Browser mirror; server CAPI is authoritative and dedupes via event_id.
+            trackMetaPixel("CompleteRegistration", {
+              content_name: "account_signup",
+              status: true,
+              currency: "USD",
+              value: 0,
+            }, registrationEventId);
+          }
+          return Promise.all([
+            runAuthSyncWithTimeout("signup membership sync", () => syncSubscriptionFromBackend(result.email)),
+            runAuthSyncWithTimeout("signup child sync", () => syncChildDataFromBackend()),
+            loadUserAiUsage(result.email).catch(() => {}),
+          ]);
+        }).catch(() => {});
         return;
       }
       if (signupWizardStep === 2) {

@@ -20,7 +20,7 @@
 
   let insightsState = {
     hub: "advisor",
-    range: "7d",
+    range: "today",
     sort: "votes",
     category: "",
     status: "",
@@ -29,6 +29,7 @@
     selectedExitStage: "",
     cache: null,
     loading: false,
+    loadSeq: 0,
   };
 
   function esc(value) {
@@ -63,7 +64,9 @@
       const exitStage = params.exitStage || insightsState.selectedExitStage || "";
       if (exitStage) qs.set("exitStage", exitStage);
     }
-    const headers = {};
+    // Bust caches so AI Business Advisor / hubs always reflect the latest activity on open.
+    qs.set("_", String(Date.now()));
+    const headers = { "Cache-Control": "no-store" };
     const t = token();
     if (t) headers.Authorization = `Bearer ${t}`;
     const res = await fetch(`/api/admin/insights?${qs}`, { cache: "no-store", headers });
@@ -661,7 +664,8 @@
   function bindCommon(container) {
     container.querySelectorAll("[data-insights-range]").forEach((btn) => {
       btn.addEventListener("click", () => {
-        insightsState.range = btn.getAttribute("data-insights-range") || "7d";
+        insightsState.range = btn.getAttribute("data-insights-range") || "today";
+        if (insightsState.hub === "advisor") insightsState._advisorRangeChosen = true;
         renderAdminInsights(container, insightsState.hub);
       });
     });
@@ -737,8 +741,16 @@
 
   async function renderAdminInsights(target, hub = "advisor") {
     if (!target) return;
+    const openingAdvisorFresh = hub === "advisor" && insightsState.hub !== "advisor";
     insightsState.hub = hub;
+    // Opening Advisor from another screen always lands on live "Today" and refetches.
+    // Refresh / range clicks keep the chosen range but still bypass cache.
+    if (hub === "advisor" && (openingAdvisorFresh || !insightsState._advisorRangeChosen)) {
+      insightsState.range = "today";
+    }
+    insightsState.cache = null;
     insightsState.loading = true;
+    const loadSeq = (insightsState.loadSeq += 1);
     const meta = HUB_META[hub] || { title: hub, blurb: "" };
     const showRange = !["feature-requests", "email-analytics", "seo-dashboard", "release-center", "user-journey"].includes(hub);
     target.innerHTML = `
@@ -761,15 +773,20 @@
 
     try {
       const insights = await fetchInsights({ hub });
+      // Ignore stale responses if the owner switched hubs/ranges while loading.
+      if (loadSeq !== insightsState.loadSeq || insightsState.hub !== hub) return;
       insightsState.cache = insights;
       insightsState.loading = false;
       const body = renderHubBody(hub, insights.data || {});
+      const updatedLabel = insights.updatedAt
+        ? ` Updated ${esc(new Date(insights.updatedAt).toLocaleString())}.`
+        : "";
       target.innerHTML = `
         <div class="section-heading">
           <div>
             <p class="eyebrow">Admin 2.0 · Insights</p>
             <h3>${esc(meta.title)}</h3>
-            <p class="muted-copy">${esc(meta.blurb)} Updated ${esc(insights.updatedAt || "")}.</p>
+            <p class="muted-copy">${esc(meta.blurb)}${updatedLabel}</p>
           </div>
           <div class="admin-insights-toolbar">
             ${showRange ? rangeToolbar(insightsState.range) : ""}
@@ -784,6 +801,7 @@
       if (hub === "feature-requests") bindFeatureRequestEditors(target);
       if (hub === "marketing-funnel") bindFunnelControls(target);
     } catch (error) {
+      if (loadSeq !== insightsState.loadSeq || insightsState.hub !== hub) return;
       insightsState.loading = false;
       target.innerHTML = `
         <div class="section-heading">

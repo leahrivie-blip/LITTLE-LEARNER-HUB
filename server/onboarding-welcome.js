@@ -711,8 +711,11 @@ function createOnboardingWelcome(deps) {
     return { sent: true, messageId: message.id };
   }
 
-  async function deliverEmailWelcome(email, user, preview) {
-    let emailResult = { sent: false, configured: false, provider: "not configured" };
+  async function deliverEmailWelcome(email, user, preview, {
+    eventType = "free_welcome",
+    idempotencyKey = "",
+  } = {}) {
+    let emailResult = { sent: false, configured: false, provider: "not configured", messageId: "" };
     try {
       emailResult = await sendEmail({
         to: email,
@@ -720,6 +723,8 @@ function createOnboardingWelcome(deps) {
         subject: preview.subject,
         text: preview.text,
         html: preview.html,
+        eventType,
+        idempotencyKey,
       });
     } catch (err) {
       emailResult = {
@@ -727,6 +732,7 @@ function createOnboardingWelcome(deps) {
         configured: true,
         provider: "error",
         error: err?.message || String(err),
+        messageId: "",
       };
     }
     return emailResult;
@@ -741,6 +747,7 @@ function createOnboardingWelcome(deps) {
     const user = store.users?.[clean] || { email: clean };
     const stampKey = stampFieldForSequence(sequenceId);
     const flags = welcomeFlags(user);
+    const isFreeWelcome = sequenceId === SEQUENCE_ID;
 
     const eligibility = {
       [SEQUENCE_ID]: () => isEligibleForFreeWelcome(user),
@@ -772,12 +779,26 @@ function createOnboardingWelcome(deps) {
       emailDelivery: { attempted: false, sent: false, skipped: false, reason: "" },
     };
 
+    const alreadyHasInApp = Boolean(flags.inAppMessageId)
+      || (Array.isArray(store.messages) && store.messages.some(
+        (m) => m
+          && String(m.toEmail || "").toLowerCase() === clean
+          && m.channel === "onboarding_welcome"
+          && String(m.onboardingSequenceId || SEQUENCE_ID) === sequenceId,
+      ));
+
     if (sequence.inApp?.enabled !== false || options.forceInApp) {
-      result.inApp.attempted = true;
-      const inApp = await deliverInAppWelcome(store, clean, user, previewInApp, sequenceId);
-      result.inApp.sent = Boolean(inApp.sent);
-      result.inApp.messageId = inApp.messageId || "";
-      result.inApp.reason = inApp.sent ? "sent" : "failed";
+      if (alreadyHasInApp && !options.force) {
+        result.inApp.skipped = true;
+        result.inApp.reason = "already_sent";
+        result.inApp.messageId = flags.inAppMessageId || "";
+      } else {
+        result.inApp.attempted = true;
+        const inApp = await deliverInAppWelcome(store, clean, user, previewInApp, sequenceId);
+        result.inApp.sent = Boolean(inApp.sent);
+        result.inApp.messageId = inApp.messageId || "";
+        result.inApp.reason = inApp.sent ? "sent" : "failed";
+      }
     } else {
       result.inApp.skipped = true;
       result.inApp.reason = "disabled";
@@ -785,9 +806,22 @@ function createOnboardingWelcome(deps) {
 
     if (sequence.email?.enabled !== false || options.forceEmail) {
       result.emailDelivery.attempted = true;
-      const emailResult = await deliverEmailWelcome(clean, user, previewEmail);
+      const emailEventType = isFreeWelcome
+        ? "free_welcome"
+        : sequenceId === TRIAL_SEQUENCE_ID
+          ? "trial_welcome"
+          : sequenceId === PRO_SEQUENCE_ID
+            ? "pro_welcome"
+            : sequenceId === TRIAL_CHECKIN_SEQUENCE_ID
+              ? "trial_checkin"
+              : `onboarding_${sequenceId}`;
+      const emailResult = await deliverEmailWelcome(clean, user, previewEmail, {
+        eventType: emailEventType,
+        idempotencyKey: `${emailEventType}:${clean}`,
+      });
       result.emailDelivery.sent = Boolean(emailResult.sent);
       result.emailDelivery.configured = Boolean(emailResult.configured);
+      result.emailDelivery.messageId = emailResult.messageId || "";
       result.emailDelivery.reason = emailResult.sent
         ? "sent"
         : (emailResult.configured ? "send_failed" : "unconfigured");
@@ -798,20 +832,51 @@ function createOnboardingWelcome(deps) {
       result.emailDelivery.reason = "disabled";
     }
 
+    const nowIso = new Date().toISOString();
     const nextFlags = {
       ...flags,
-      [stampKey]: new Date().toISOString(),
       inAppMessageId: result.inApp.messageId || flags.inAppMessageId || "",
-      emailSentAt: result.emailDelivery.sent ? new Date().toISOString() : (flags.emailSentAt || ""),
       reason: options.reason || sequenceId,
     };
+
+    // Free welcome: if Resend is configured and the send fails, do NOT stamp so a later
+    // retry can deliver exactly one email. If email is unconfigured/disabled, stamp after
+    // in-app delivery so local/dev does not loop forever.
+    if (isFreeWelcome) {
+      const emailSendFailed = result.emailDelivery.attempted
+        && !result.emailDelivery.sent
+        && result.emailDelivery.reason === "send_failed";
+      if (result.emailDelivery.sent) {
+        nextFlags[stampKey] = nowIso;
+        nextFlags.emailSentAt = nowIso;
+        nextFlags.emailMessageId = result.emailDelivery.messageId || "";
+        nextFlags.lastError = "";
+      } else if (emailSendFailed) {
+        nextFlags.lastAttemptAt = nowIso;
+        nextFlags.lastError = result.emailDelivery.error || "send_failed";
+      } else if (result.inApp.sent || result.inApp.reason === "already_sent" || alreadyHasInApp) {
+        nextFlags[stampKey] = nowIso;
+        nextFlags.lastError = result.emailDelivery.reason || "";
+      } else {
+        nextFlags.lastAttemptAt = nowIso;
+        nextFlags.lastError = result.emailDelivery.error
+          || result.emailDelivery.reason
+          || result.inApp.reason
+          || "send_failed";
+      }
+    } else {
+      nextFlags[stampKey] = nowIso;
+      nextFlags.emailSentAt = result.emailDelivery.sent ? nowIso : (flags.emailSentAt || "");
+      if (result.emailDelivery.messageId) nextFlags.emailMessageId = result.emailDelivery.messageId;
+    }
+
     // Stamp on the same store object that holds the welcome message, then persist once.
     store.users = store.users || {};
     store.users[clean] = {
       ...(store.users[clean] || { email: clean }),
       email: clean,
       onboardingWelcome: nextFlags,
-      updatedAt: new Date().toISOString(),
+      updatedAt: nowIso,
     };
     writeStore(store);
     return result;
