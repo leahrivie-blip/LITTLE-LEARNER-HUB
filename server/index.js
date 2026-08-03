@@ -10,6 +10,7 @@ const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
+const teachingKit = require("../scripts/teaching-kit.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
@@ -1029,15 +1030,19 @@ function defaultAiSettings() {
 
 function defaultFeatureFlags() {
   // Phase 2H: play-based curriculum is the permanent lesson/activity system.
+  // Teaching Kit flags default false (Slice 1A) — never auto-enabled.
   return {
     playBasedCurriculum: true,
+    ...teachingKit.defaultTeachingKitFeatureFlags(),
   };
 }
 
 function normalizedFeatureFlags(value) {
   // Phase 2H: play-based curriculum is permanently active.
+  // Teaching Kit flags: explicit true only; otherwise false (server-normalized).
   return {
     playBasedCurriculum: true,
+    ...teachingKit.normalizedTeachingKitFeatureFlags(value),
   };
 }
 
@@ -1722,7 +1727,12 @@ function normalizedCurriculumLessonPlan(value) {
   if (!id) return null;
   const status = normalizedShortText(entry.status, 20);
   const plan = normalizedShortText(entry.plan, 20);
-  return {
+  // Optional Teaching Kit overlay (Slice 1A). Absent or malformed → omit field
+  // so legacy plans are not rewritten and the legacy viewer remains correct.
+  const teachingKitOverlay = Object.prototype.hasOwnProperty.call(entry, "teachingKit")
+    ? teachingKit.normalizedTeachingKitOverlay(entry.teachingKit)
+    : null;
+  const normalized = {
     id,
     title: normalizedShortText(entry.title, 180) || "Untitled Lesson Plan",
     age: normalizedShortText(entry.age, 40) || "Preschool",
@@ -1755,6 +1765,8 @@ function normalizedCurriculumLessonPlan(value) {
     // Set when status first becomes published/featured; used by weekly "What's New" digests.
     publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
+  if (teachingKitOverlay) normalized.teachingKit = teachingKitOverlay;
+  return normalized;
 }
 
 function normalizedCurriculumActivity(value) {
@@ -15004,6 +15016,9 @@ async function handlePublicSiteContent(request, response, url) {
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
       playBasedCurriculum: true,
+      // Teaching Kit flags stay server/admin-normalized only in Slice 1A.
+      // Do not expose featureFlags on the public site-content payload until a
+      // later viewer slice needs them (preserves existing public API shape).
       freePlanAccess,
       freeStarterLibrary: {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,
@@ -15052,6 +15067,128 @@ async function handleCurriculumLessonPlanDetail(request, response, url, planId) 
     return;
   }
   jsonResponse(response, 403, { error: "Pro access is required for this lesson plan." });
+}
+
+function teachingKitPreviewDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry) return null;
+  return {
+    schemaVersion: 1,
+    ok: true,
+    locked: true,
+    lessonPlanId: entry.id,
+    title: entry.title,
+    age: entry.age,
+    theme: entry.theme,
+    plan: entry.plan,
+    status: entry.status,
+    coverImageUrl: entry.coverImageUrl,
+    coverImageAlt: entry.coverImageAlt,
+    completeness: entry.teachingKit?.completeness || "legacy_mapped",
+    sections: [],
+    companion: null,
+    quality: null,
+    access: "preview",
+  };
+}
+
+function parseTeachingKitReadyMaterials(url) {
+  const raw = String(url.searchParams.get("readyMaterials") || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((part) => normalizedShortText(part, 120))
+    .filter(Boolean)
+    .slice(0, 40);
+}
+
+/**
+ * Slice 1C — GET /api/curriculum/lesson-plans/:id/teaching-kit
+ * Behind teachingKitViewer or teachingKitPrintCenter. Auth parity with detail.
+ */
+async function handleCurriculumLessonPlanTeachingKit(request, response, url, planId) {
+  const cleanId = normalizedShortText(planId, 160);
+  if (!cleanId) {
+    jsonResponse(response, 400, { error: "Lesson plan id is required." });
+    return;
+  }
+
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const flags = normalizedFeatureFlags(siteContent.featureFlags);
+  if (!teachingKit.isTeachingKitApiEnabled(flags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit is not available.",
+      code: "teaching_kit_disabled",
+    });
+    return;
+  }
+
+  const curriculum = readSiteCurriculum(store);
+  const rawPlan = curriculum.lessonPlans.find((item) => item.id === cleanId);
+  const plan = normalizedCurriculumLessonPlan(rawPlan);
+  if (!plan || !isCurriculumLessonPublic(plan.status)) {
+    jsonResponse(response, 404, { error: "Lesson plan not found." });
+    return;
+  }
+
+  const dayParam = normalizedShortText(url.searchParams.get("day"), 20).toLowerCase();
+  const mapperOptions = {
+    day: CURRICULUM_WEEKDAYS.has(dayParam) ? dayParam : "monday",
+    readyMaterials: parseTeachingKitReadyMaterials(url),
+    includeEmptySections: false,
+  };
+
+  const access = await resolveCurriculumAccessUser(request, url);
+  const activities = curriculum.activities.filter((item) => item.lessonPlanId === cleanId);
+  const resources = curriculum.resources.filter((item) => {
+    if ((plan.resourceIds || []).includes(item.id)) return true;
+    return Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(cleanId);
+  });
+
+  const respondUnlocked = () => {
+    const mapped = teachingKit.mapLessonPlanToTeachingKit(plan, activities, resources, mapperOptions);
+    jsonResponse(response, 200, {
+      teachingKit: {
+        ...mapped,
+        locked: false,
+        access: access.authorized ? "pro" : "free_unlocked",
+      },
+      featureFlags: {
+        teachingKitViewer: flags.teachingKitViewer === true,
+        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
+        teachingKitAttachments: flags.teachingKitAttachments === true,
+      },
+    });
+  };
+
+  if (access.authorized) {
+    respondUnlocked();
+    return;
+  }
+
+  const accessContext = {
+    ...freePlanAccessContextFromUser(access.user, siteContent),
+    store,
+  };
+  if (userMayUnlockFreeCurriculumPlan(plan, accessContext)) {
+    respondUnlocked();
+    return;
+  }
+
+  const preview = teachingKitPreviewDto(rawPlan);
+  if (preview) {
+    jsonResponse(response, 200, {
+      teachingKit: preview,
+      featureFlags: {
+        teachingKitViewer: flags.teachingKitViewer === true,
+        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
+        teachingKitAttachments: flags.teachingKitAttachments === true,
+      },
+    });
+    return;
+  }
+  jsonResponse(response, 403, { error: "Pro access is required for this Teaching Kit." });
 }
 
 async function handleCurriculumActivityDetail(request, response, url, activityId) {
@@ -21725,8 +21862,12 @@ const server = http.createServer(async (request, response) => {
       return await handleCurriculumResourceMedia(request, response, assetId, { admin: adminMedia, requestUrl: url });
     }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
-      const planId = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
-      return await handleCurriculumLessonPlanDetail(request, response, url, planId);
+      const remainder = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
+      if (remainder.endsWith("/teaching-kit")) {
+        const planId = remainder.slice(0, -"/teaching-kit".length).replace(/\/$/, "");
+        return await handleCurriculumLessonPlanTeachingKit(request, response, url, planId);
+      }
+      return await handleCurriculumLessonPlanDetail(request, response, url, remainder);
     }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/activities/")) {
       const activityId = decodeURIComponent(url.pathname.slice("/api/curriculum/activities/".length));

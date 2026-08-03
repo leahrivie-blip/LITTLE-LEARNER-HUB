@@ -1801,8 +1801,13 @@ const curriculumResourceConfig = {
 const curriculumAccessConfig = {
   lessonPlanEndpoint: "/api/curriculum/lesson-plans",
   activityEndpoint: "/api/curriculum/activities",
+  teachingKitEndpointSuffix: "teaching-kit",
 };
 const curriculumAuthorizedContentCache = new Map();
+const teachingKitContentCache = new Map();
+let teachingKitWorkspaceUnbind = null;
+let activeTeachingKitPayload = null;
+let activeTeachingKitFlags = null;
 const billingPlans = {
   Free: {
     name: "Free",
@@ -6147,6 +6152,10 @@ function emptySiteContent() {
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
+      // Teaching Kit (Slice 1A): defaults false; server is source of truth when loaded.
+      teachingKitViewer: false,
+      teachingKitPrintCenter: false,
+      teachingKitAttachments: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -11659,6 +11668,12 @@ function effectiveSiteContent() {
     freePlanAccess: { ...(base.freePlanAccess || {}), ...(overrides.freePlanAccess || {}) },
     featureFlags: {
       playBasedCurriculum: true,
+      teachingKitViewer: overrides.featureFlags?.teachingKitViewer === true
+        || base.featureFlags?.teachingKitViewer === true,
+      teachingKitPrintCenter: overrides.featureFlags?.teachingKitPrintCenter === true
+        || base.featureFlags?.teachingKitPrintCenter === true,
+      teachingKitAttachments: overrides.featureFlags?.teachingKitAttachments === true
+        || base.featureFlags?.teachingKitAttachments === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
@@ -23586,6 +23601,312 @@ function lessonWorkspaceChromeHtml(resource) {
   `;
 }
 
+async function fetchTeachingKitForPlan(planId, query = {}) {
+  const targetId = String(planId || "").trim();
+  if (!targetId || !canUseLaunchBackend()) {
+    return { ok: false, reason: !targetId ? "missing-id" : "backend-unavailable", teachingKit: null, featureFlags: null };
+  }
+  const params = new URLSearchParams();
+  if (query.day) params.set("day", String(query.day));
+  if (Array.isArray(query.readyMaterials) && query.readyMaterials.length) {
+    params.set("readyMaterials", query.readyMaterials.join(","));
+  }
+  const cacheKey = `kit:${targetId}:${params.toString()}`;
+  if (teachingKitContentCache.has(cacheKey)) {
+    return { ok: true, reason: "cache", ...teachingKitContentCache.get(cacheKey) };
+  }
+  const authHeaders = typeof firebaseAuthHeaders === "function" ? await firebaseAuthHeaders().catch(() => null) : null;
+  const headers = {
+    ...(await siteContentRequestHeaders()),
+    ...(authHeaders && typeof authHeaders === "object" ? authHeaders : {}),
+  };
+  const qs = params.toString();
+  const response = await fetch(
+    `${curriculumAccessConfig.lessonPlanEndpoint}/${encodeURIComponent(targetId)}/${curriculumAccessConfig.teachingKitEndpointSuffix}${qs ? `?${qs}` : ""}`,
+    { headers, cache: "no-store" },
+  );
+  if (response.status === 404) {
+    const data = await response.json().catch(() => ({}));
+    return {
+      ok: false,
+      reason: data?.code === "teaching_kit_disabled" ? "flag_off" : "not_found",
+      teachingKit: null,
+      featureFlags: null,
+      status: 404,
+      code: data?.code || "",
+    };
+  }
+  if (!response.ok) {
+    return { ok: false, reason: response.status === 403 ? "forbidden" : "fetch-failed", teachingKit: null, featureFlags: null, status: response.status };
+  }
+  const data = await response.json().catch(() => ({}));
+  const payload = {
+    teachingKit: data?.teachingKit || null,
+    featureFlags: data?.featureFlags || null,
+  };
+  if (!payload.teachingKit) {
+    return { ok: false, reason: "empty", teachingKit: null, featureFlags: payload.featureFlags, status: response.status };
+  }
+  teachingKitContentCache.set(cacheKey, payload);
+  return { ok: true, reason: "ok", ...payload, status: response.status };
+}
+
+function lessonWorkspaceTeachingKitChrome(viewerResource) {
+  const plan = normalizeCurriculumLessonPlanForRender(viewerResource._curriculumLessonPlan);
+  return {
+    title: viewerResource.title,
+    age: viewerResource.age || plan.age || "Preschool",
+    planLabel: authoritativeLessonPlanAccessLabel(viewerResource),
+    theme: String(viewerResource.theme || plan.theme || "").trim(),
+    backLabel: lessonWorkspaceBackButtonLabel(),
+    saveButtonHtml: lessonWorkspaceSaveButtonHtml(viewerResource.id),
+    actionBarsHtml: lessonWorkspaceActionBarsHtml(viewerResource),
+    feedbackHtml: lessonWorkspaceFeedbackHtml(viewerResource),
+    copyrightHtml: typeof globalThis !== "undefined" && globalThis.LlhCopyright?.noticeBlockHtml
+      ? globalThis.LlhCopyright.noticeBlockHtml("llh-copyright-block lesson-workspace-copyright")
+      : `<footer class="llh-copyright-block lesson-workspace-copyright" aria-label="Copyright"><p class="llh-copyright-notice">${escapeHtml(llhCopyrightText())}</p></footer>`,
+    actionSheetHtml: "", // keep assign sheet from initial legacy chrome if present; re-injected below when enhancing
+  };
+}
+
+async function enhanceLessonWorkspaceWithTeachingKit(viewerResource) {
+  const api = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitViewer : null;
+  if (!api || typeof api.enhanceLessonWorkspace !== "function") {
+    return { enhanced: false, reason: "viewer_module_missing" };
+  }
+  const planId = String(
+    viewerResource?._curriculumLessonPlan?.id
+    || viewerResource?._curriculumLessonPlanId
+    || viewerResource?.id
+    || "",
+  ).trim();
+  if (!planId) return { enhanced: false, reason: "missing_plan_id" };
+
+  const body = document.querySelector("#resourceViewerBody");
+  if (!body) return { enhanced: false, reason: "missing_body" };
+
+  // Preserve the assign action sheet markup from the legacy chrome render.
+  const existingSheet = body.querySelector(".lesson-workspace-action-sheet");
+  const chrome = lessonWorkspaceTeachingKitChrome(viewerResource);
+  chrome.actionSheetHtml = existingSheet ? existingSheet.outerHTML : "";
+
+  // Non-destructive loading hint (delayed) so flag-off 404s do not flash a skeleton.
+  let loadingHint = null;
+  const loadingTimer = setTimeout(() => {
+    if (body.querySelector("[data-tk-loading-hint]")) return;
+    loadingHint = document.createElement("div");
+    loadingHint.setAttribute("data-tk-loading-hint", "1");
+    loadingHint.className = "tk-loading-banner tk-loading-hint";
+    loadingHint.setAttribute("role", "status");
+    loadingHint.innerHTML = `
+      <div class="tk-loading-spinner" aria-hidden="true"></div>
+      <div>
+        <strong>Opening Teaching Kit</strong>
+        <p class="tk-muted">Preparing ${escapeHtml(chrome.title || "your lesson")}…</p>
+      </div>
+    `;
+    const workspace = body.querySelector("[data-lesson-workspace]") || body;
+    workspace.insertBefore(loadingHint, workspace.firstChild);
+  }, 140);
+  const clearLoadingHint = () => {
+    clearTimeout(loadingTimer);
+    body.querySelectorAll("[data-tk-loading-hint]").forEach((node) => node.remove());
+    body.classList.remove("teaching-kit-loading");
+  };
+
+  let result;
+  try {
+    result = await fetchTeachingKitForPlan(planId, { day: "monday" });
+  } catch (error) {
+    console.warn("[teaching-kit] fetch failed", error);
+    clearLoadingHint();
+    return { enhanced: false, reason: "fetch_error" };
+  }
+  if (!result.ok || result.featureFlags?.teachingKitViewer !== true || result.teachingKit?.locked) {
+    clearLoadingHint();
+    if (!result.ok) return { enhanced: false, reason: result.reason || "unavailable" };
+    if (result.featureFlags?.teachingKitViewer !== true) {
+      return { enhanced: false, reason: "viewer_flag_off" };
+    }
+    return { enhanced: false, reason: "locked" };
+  }
+
+  if (typeof teachingKitWorkspaceUnbind === "function") {
+    try { teachingKitWorkspaceUnbind(); } catch { /* ignore */ }
+    teachingKitWorkspaceUnbind = null;
+  }
+
+  activeTeachingKitPayload = result.teachingKit;
+  activeTeachingKitFlags = result.featureFlags || null;
+  clearLoadingHint();
+
+  const enhanced = await api.enhanceLessonWorkspace({
+    body,
+    teachingKit: result.teachingKit,
+    featureFlags: result.featureFlags,
+    chrome,
+    onCopy: (message) => {
+      if (navigator.clipboard?.writeText) {
+        navigator.clipboard.writeText(message).catch(() => {});
+      }
+    },
+    onPrint: (selection) => {
+      void printTeachingKitBinder(viewerResource, result.teachingKit, selection, result.featureFlags);
+    },
+  });
+  if (enhanced.enhanced) {
+    body.classList.add("teaching-kit-mode");
+    if (typeof enhanced.unbind === "function") {
+      teachingKitWorkspaceUnbind = enhanced.unbind;
+    }
+    updateResourceViewerBackButton();
+  }
+  return enhanced;
+}
+
+function prefetchTeachingKitPrintImages(rootEl, timeoutMs = 2500) {
+  if (!rootEl || typeof rootEl.querySelectorAll !== "function") return Promise.resolve();
+  const images = Array.from(rootEl.querySelectorAll("img[src]"));
+  if (!images.length) return Promise.resolve();
+  return Promise.all(images.map((img) => {
+    if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        resolve();
+      };
+      img.addEventListener("load", finish, { once: true });
+      img.addEventListener("error", finish, { once: true });
+      setTimeout(finish, timeoutMs);
+    });
+  })).then(() => undefined);
+}
+
+/**
+ * Slice 1E/1F — Print Center binder output.
+ * Gated by teachingKitPrintCenter. Uses existing trial export authorize path
+ * before assembling client print HTML (no entitlement bypass).
+ * Order is intentional and covered by Slice 1F regression tests:
+ * flag → authorize → watermark → build → inject → print.
+ */
+async function printTeachingKitBinder(viewerResource, kit, selection = {}, featureFlags = null) {
+  const flags = featureFlags || activeTeachingKitFlags || {};
+  const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+  if (!printApi || typeof printApi.buildBinderPrintHtml !== "function") {
+    if (typeof showToast === "function") showToast("Teaching Kit print module is not loaded.");
+    return { ok: false, reason: "print_module_missing" };
+  }
+  const kitPayload = kit || activeTeachingKitPayload;
+
+  // Flag + payload checks MUST run before trial authorize so a disabled
+  // Print Center never consumes a trial curriculum export.
+  const preAuth = typeof printApi.evaluatePrintAuthorization === "function"
+    ? printApi.evaluatePrintAuthorization({
+      printCenterEnabled: flags.teachingKitPrintCenter === true,
+      kit: kitPayload,
+      gate: { allowed: true, counted: false, watermark: "" },
+    })
+    : {
+      ok: flags.teachingKitPrintCenter === true && Boolean(kitPayload?.companion) && !kitPayload?.locked,
+      reason: flags.teachingKitPrintCenter !== true
+        ? "print_flag_off"
+        : (!kitPayload?.companion || kitPayload?.locked ? "unavailable" : "ok"),
+    };
+  if (!preAuth.ok) {
+    if (preAuth.reason === "print_flag_off" && typeof showToast === "function") {
+      showToast("Teaching Kit Print Center is not enabled.");
+    }
+    return { ok: false, reason: preAuth.reason || "unavailable" };
+  }
+
+  // Authorize BEFORE any binder HTML assembly (entitlement non-bypass).
+  const gate = await confirmTrialCurriculumExport(viewerResource, "print");
+  const auth = typeof printApi.evaluatePrintAuthorization === "function"
+    ? printApi.evaluatePrintAuthorization({
+      printCenterEnabled: flags.teachingKitPrintCenter === true,
+      kit: kitPayload,
+      gate,
+    })
+    : {
+      ok: Boolean(gate?.allowed),
+      reason: gate?.allowed ? "ok" : "trial_blocked",
+    };
+  if (!auth.ok) {
+    return { ok: false, reason: auth.reason || "trial_blocked" };
+  }
+
+  const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource) || "";
+  if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) {
+    return { ok: false, reason: "watermark_required" };
+  }
+
+  const built = printApi.buildBinderPrintHtml(kitPayload, {
+    ...selection,
+    watermark,
+    paperSize: selection.paperSize || "letter",
+  });
+  if (!built.ok) return { ok: false, reason: built.reason || "build_failed" };
+
+  if (gate.counted && watermark && !String(built.html).includes(watermark)) {
+    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
+    else window.alert(MEMBERSHIP_COPY.watermarkTryAgain);
+    return { ok: false, reason: "watermark_missing" };
+  }
+
+  const body = document.querySelector("#resourceViewerBody");
+  if (!body) return { ok: false, reason: "missing_body" };
+  body.innerHTML = `<article class="printable-resource-page teaching-kit-print-article">${built.html}</article>`;
+  if (watermark) applyTrialCurriculumWatermark(body, watermark);
+
+  // Wait briefly for images so print preview is not blank/cut mid-load.
+  await prefetchTeachingKitPrintImages(body);
+
+  if (typeof recordResourceOutputRequest === "function") {
+    recordResourceOutputRequest({
+      mode: "print",
+      printVariant: "teaching-kit-binder",
+      resourceId: viewerResource?.id || kitPayload.lessonPlanId || "",
+      title: kitPayload.title || viewerResource?.title || "Teaching Kit",
+      category: "Lesson Plans",
+      trialExportCounted: Boolean(gate.counted),
+      paperSize: built.paperSize || selection.paperSize || "letter",
+    });
+  }
+  if (typeof trackEvent === "function") {
+    trackEvent("teaching_kit_print", {
+      title: kitPayload.title || viewerResource?.title || "Teaching Kit",
+      preset: selection.preset || "week_binder",
+      pageCount: built.pageCount || 0,
+      paperSize: built.paperSize || selection.paperSize || "letter",
+      trialExportCounted: Boolean(gate.counted),
+    });
+  }
+
+  document.body.classList.add("printing-resource", "printing-teaching-kit");
+  document.body.dataset.tkPaper = built.paperSize || selection.paperSize || "letter";
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    document.body.classList.remove("printing-resource", "printing-teaching-kit");
+    delete document.body.dataset.tkPaper;
+    window.removeEventListener("afterprint", cleanup);
+    // Rebuild interactive Teaching Kit UI after print document is dismissed.
+    void enhanceLessonWorkspaceWithTeachingKit(viewerResource).catch(() => {});
+  };
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+  setTimeout(cleanup, 1800);
+  return {
+    ok: true,
+    reason: "printed",
+    pageCount: built.pageCount || 0,
+    paperSize: built.paperSize || selection.paperSize || "letter",
+  };
+}
+
 function applyLessonWorkspaceChrome(viewerResource) {
   if (!isLessonWorkspaceResource(viewerResource)) {
     restoreDefaultResourceViewerChrome();
@@ -23610,8 +23931,12 @@ function applyLessonWorkspaceChrome(viewerResource) {
   if (pdfButton) pdfButton.hidden = true;
   const printButton = document.querySelector("#printResourceButton");
   if (printButton) printButton.hidden = true;
+  body.classList.remove("teaching-kit-mode");
+  delete body.dataset.teachingKitEnhanced;
   body.innerHTML = `<article class="printable-resource-page curriculum-lesson-viewer lesson-workspace-article">${lessonWorkspaceChromeHtml(viewerResource)}</article>`;
   updateResourceViewerBackButton();
+  // Slice 1D enhance is awaited by openResourceViewer after this paint so
+  // assign-sheet opens against the final DOM. Fail closed keeps legacy chrome.
 }
 
 function resourceViewerBack() {
@@ -24843,6 +25168,12 @@ async function openResourceViewer(resourceId, options = {}) {
   }
   if (isLessonWorkspaceResource(viewerResource)) {
     applyLessonWorkspaceChrome(viewerResource);
+    // Wait for optional Teaching Kit enhance so assign-sheet open targets the final DOM.
+    try {
+      await enhanceLessonWorkspaceWithTeachingKit(viewerResource);
+    } catch (error) {
+      console.warn("[teaching-kit] enhance failed", error);
+    }
     const assignWeek = options.weekStartDate
       || calendarLessonAssignContext?.weekStartDate
       || "";

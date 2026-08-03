@@ -1,0 +1,38 @@
+{
+  "lessonPlan": {
+    "id": "cur-lp-tk-empty",
+    "title": "Empty Draft Plan",
+    "age": "Preschool",
+    "theme": "",
+    "plan": "Free",
+    "status": "draft",
+    "learningDomains": [],
+    "weeklyOverview": "",
+    "objectives": "",
+    "books": [],
+    "songs": [],
+    "weeklyMaterials": "",
+    "vocabularyWords": "",
+    "observationOpportunities": "",
+    "adaptations": "",
+    "familyConnection": "",
+    "dailyPlans": {
+      "monday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] },
+      "tuesday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] },
+      "wednesday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] },
+      "thursday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] },
+      "friday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] }
+    },
+    "activityIds": [],
+    "resourceIds": [],
+    "coverImageUrl": "",
+    "coverImageAlt": "",
+    "coverImageSource": "",
+    "coverImagePosition": "center",
+    "createdAt": "",
+    "updatedAt": "",
+    "publishedAt": ""
+  },
+  "activities": [],
+  "resources": []
+}
