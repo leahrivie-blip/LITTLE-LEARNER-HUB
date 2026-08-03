@@ -266,7 +266,11 @@ function main() {
   console.log("Go/No-Go:", report.goNoGo.recommendation);
   console.log("Report:", REPORT_PATH);
 
-  if (!report.summary.allCriticalPassed) process.exitCode = 1;
+  if (!report.summary.allCriticalPassed) {
+    process.exitCode = 1;
+    // Ensure non-zero exit even when stdout is piped (e.g. `| tee`).
+    process.exit(1);
+  }
 }
 
 main();

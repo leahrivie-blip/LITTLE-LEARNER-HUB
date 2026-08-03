@@ -2911,24 +2911,33 @@ function mergeEnrichmentPreservingLessonPlan(existingPlan, incomingPlan) {
   }
 
   if (!Object.prototype.hasOwnProperty.call(next, "teachingKit") && existingPlan.teachingKit) {
+    // Classic save omitted the key — preserve published Teaching Kit metadata.
     next.teachingKit = existingPlan.teachingKit;
-  } else if (next.teachingKit && typeof next.teachingKit === "object" && existingPlan.teachingKit) {
-    const existingTk = existingPlan.teachingKit;
-    const incomingTk = next.teachingKit;
-    next.teachingKit = {
-      ...existingTk,
-      ...incomingTk,
-      lastEnrichmentPublishedAt: incomingTk.lastEnrichmentPublishedAt || existingTk.lastEnrichmentPublishedAt,
-      lastEnrichmentPublishedBy: incomingTk.lastEnrichmentPublishedBy || existingTk.lastEnrichmentPublishedBy,
-      lastEnrichmentPublishFingerprint: incomingTk.lastEnrichmentPublishFingerprint || existingTk.lastEnrichmentPublishFingerprint,
-      lastEnrichmentVersionId: incomingTk.lastEnrichmentVersionId || existingTk.lastEnrichmentVersionId,
-      milestones: Array.isArray(incomingTk.milestones) && incomingTk.milestones.length
-        ? incomingTk.milestones
-        : (existingTk.milestones || incomingTk.milestones),
-      printableIds: Array.isArray(incomingTk.printableIds) && incomingTk.printableIds.length
-        ? incomingTk.printableIds
-        : (existingTk.printableIds || incomingTk.printableIds),
-    };
+  } else if (Object.prototype.hasOwnProperty.call(next, "teachingKit")) {
+    if (next.teachingKit && typeof next.teachingKit === "object" && !Array.isArray(next.teachingKit)) {
+      if (existingPlan.teachingKit && typeof existingPlan.teachingKit === "object") {
+        const existingTk = existingPlan.teachingKit;
+        const incomingTk = next.teachingKit;
+        next.teachingKit = {
+          ...existingTk,
+          ...incomingTk,
+          lastEnrichmentPublishedAt: incomingTk.lastEnrichmentPublishedAt || existingTk.lastEnrichmentPublishedAt,
+          lastEnrichmentPublishedBy: incomingTk.lastEnrichmentPublishedBy || existingTk.lastEnrichmentPublishedBy,
+          lastEnrichmentPublishFingerprint: incomingTk.lastEnrichmentPublishFingerprint || existingTk.lastEnrichmentPublishFingerprint,
+          lastEnrichmentVersionId: incomingTk.lastEnrichmentVersionId || existingTk.lastEnrichmentVersionId,
+          milestones: Array.isArray(incomingTk.milestones) && incomingTk.milestones.length
+            ? incomingTk.milestones
+            : (existingTk.milestones || incomingTk.milestones),
+          printableIds: Array.isArray(incomingTk.printableIds) && incomingTk.printableIds.length
+            ? incomingTk.printableIds
+            : (existingTk.printableIds || incomingTk.printableIds),
+        };
+      }
+    } else {
+      // Explicit malformed / null teachingKit → omit (Phase 1 fail-safe). Do not
+      // resurrect the previous overlay on the post-normalize re-merge.
+      delete next.teachingKit;
+    }
   }
 
   if (next.dailyPlans || existingPlan.dailyPlans) {
@@ -3034,14 +3043,20 @@ function syncCurriculumActivitiesForLessonPlan(curriculum, lessonPlanInput) {
     .filter((activity) => activity.status !== "archived")
     .map((activity) => activity.id);
   // Re-merge after normalize so enrichmentDraft / history / teachingKit cannot
-  // disappear when the incoming payload omitted those keys.
-  const updatedPlan = normalizedCurriculumLessonPlan(
-    mergeEnrichmentPreservingLessonPlan(existingPlan, {
-      ...plan,
-      activityIds,
-      updatedAt: now,
-    }),
-  );
+  // disappear when the incoming payload omitted those keys. If the caller
+  // explicitly sent teachingKit (including malformed), honor normalize/omit —
+  // do not resurrect the prior overlay.
+  const remerged = mergeEnrichmentPreservingLessonPlan(existingPlan, {
+    ...plan,
+    activityIds,
+    updatedAt: now,
+  });
+  if (Object.prototype.hasOwnProperty.call(lessonPlanInput || {}, "teachingKit")) {
+    const overlay = teachingKit.normalizedTeachingKitOverlay(lessonPlanInput.teachingKit);
+    // Malformed/null explicit teachingKit must stay omitted after re-merge.
+    if (!overlay) delete remerged.teachingKit;
+  }
+  const updatedPlan = normalizedCurriculumLessonPlan(remerged);
   if (!updatedPlan) return null;
 
   const otherPlans = store.lessonPlans.filter((item) => item.id !== plan.id);
