@@ -290,6 +290,16 @@ async function main() {
     });
 
     // Seed a non-Farm lesson to prove any-lesson upgrade.
+    const gardenItem = (day, suffix, title) => ({
+      itemId: `act-garden-${suffix}`,
+      title,
+      activityCategory: "Fine Motor",
+      materials: "Seeds and cups",
+      objective: "Sort by size",
+      dayOfWeek: day,
+      setup: "",
+      steps: "",
+    });
     const otherPlan = {
       id: "cur-lp-upgrade-ws-garden",
       title: "Garden Helpers",
@@ -306,17 +316,11 @@ async function main() {
       vocabularyWords: "seed, sprout",
       coverImageUrl: "",
       dailyPlans: {
-        monday: {
-          items: [{
-            itemId: "act-garden-seed",
-            title: "Seed Sorting",
-            activityCategory: "Fine Motor",
-            materials: "Seeds and cups",
-            objective: "Sort by size",
-            setup: "",
-            steps: "",
-          }],
-        },
+        monday: { items: [gardenItem("monday", "seed", "Seed Sorting")] },
+        tuesday: { items: [gardenItem("tuesday", "water", "Watering Practice")] },
+        wednesday: { items: [gardenItem("wednesday", "dig", "Gentle Digging")] },
+        thursday: { items: [gardenItem("thursday", "smell", "Herb Smell Tray")] },
+        friday: { items: [gardenItem("friday", "share", "Garden Share Circle")] },
       },
     };
     let res = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
