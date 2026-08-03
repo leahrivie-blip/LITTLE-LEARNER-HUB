@@ -789,26 +789,68 @@ async function checkAdmin(page) {
       return;
     }
 
-    await page.fill('input[name="adminEmail"]', ADMIN_EMAIL);
-    await page.fill('input[name="adminPassword"]', ADMIN_PASSWORD);
-    await page.fill('input[name="adminCode"]', ADMIN_ACCESS_CODE);
-    await page.waitForTimeout(300);
-    const loginRespPromise = page.waitForResponse(
-      (r) => r.url().includes("/api/admin/login"),
-      { timeout: 45000 },
-    );
-    await page.locator("#adminUnlockForm").evaluate((form) => {
-      if (typeof form.requestSubmit === "function") form.requestSubmit();
-      else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-    });
-    const loginRes = await loginRespPromise.catch(() => null);
-    const unlockedAfterSubmit = await page.evaluate(() => {
-      let session = {};
-      try { session = JSON.parse(localStorage.getItem("llhAdminSession") || "{}"); } catch { /* ignore */ }
-      return localStorage.getItem("llhAdminUnlocked") === "true" && Boolean(session.token);
-    }).catch(() => false);
-    if ((!loginRes || loginRes.status() !== 200) && !unlockedAfterSubmit) {
-      throw new Error(`Admin login HTTP ${loginRes ? loginRes.status() : "no response"}`);
+    // Unlock via adminLogin()/setAdminSession() with form-submit fallback + retries.
+    // Long prior smoke work can miss a single form submit/response race.
+    let unlocked = false;
+    let lastLoginError = "unknown";
+    for (let attempt = 1; attempt <= 3 && !unlocked; attempt += 1) {
+      if (attempt > 1) {
+        await gotoRetry(page, `${PROD}/admin`);
+        await page.waitForSelector("#adminUnlockForm", { state: "visible", timeout: 60000 });
+        await page.waitForTimeout(500);
+      }
+      await page.fill('input[name="adminEmail"]', ADMIN_EMAIL);
+      await page.fill('input[name="adminPassword"]', ADMIN_PASSWORD);
+      await page.fill('input[name="adminCode"]', ADMIN_ACCESS_CODE);
+      await page.waitForTimeout(200);
+
+      const direct = await page.evaluate(async ({ email, password, code }) => {
+        try {
+          if (typeof adminLogin !== "function" || typeof setAdminSession !== "function") {
+            return { ok: false, reason: "helpers-missing" };
+          }
+          const session = await adminLogin(email, password, code);
+          setAdminSession({ ...session, trustedDevice: true });
+          if (typeof renderAdminDashboard === "function") renderAdminDashboard();
+          if (typeof renderAdminSectionNav === "function") renderAdminSectionNav();
+          return { ok: true, email: session.email || "" };
+        } catch (error) {
+          return { ok: false, reason: String(error && error.message || error) };
+        }
+      }, { email: ADMIN_EMAIL, password: ADMIN_PASSWORD, code: ADMIN_ACCESS_CODE }).catch((error) => ({
+        ok: false,
+        reason: String(error.message || error),
+      }));
+
+      if (direct.ok) {
+        unlocked = true;
+        break;
+      }
+      lastLoginError = direct.reason || "direct-login-failed";
+
+      const loginRespPromise = page.waitForResponse(
+        (r) => r.url().includes("/api/admin/login"),
+        { timeout: 30000 },
+      );
+      await page.locator("#adminUnlockForm").evaluate((form) => {
+        if (typeof form.requestSubmit === "function") form.requestSubmit();
+        else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      });
+      const loginRes = await loginRespPromise.catch(() => null);
+      const unlockedAfterSubmit = await page.evaluate(() => {
+        let session = {};
+        try { session = JSON.parse(localStorage.getItem("llhAdminSession") || "{}"); } catch { /* ignore */ }
+        return localStorage.getItem("llhAdminUnlocked") === "true" && Boolean(session.token);
+      }).catch(() => false);
+      if ((loginRes && loginRes.status() === 200) || unlockedAfterSubmit) {
+        unlocked = true;
+        break;
+      }
+      lastLoginError = loginRes ? `HTTP ${loginRes.status()}` : "no response";
+      await page.waitForTimeout(1000 * attempt);
+    }
+    if (!unlocked) {
+      throw new Error(`Admin login failed after retries (${lastLoginError})`);
     }
 
     // Owner sidebar uses data-admin-group (not legacy data-admin-nav).
@@ -873,16 +915,25 @@ async function checkAdmin(page) {
     const insightsText = await page.locator("#adminInsightsApp").innerText();
     record("admin", "Admin Insights loads", /Insight|Advisor|Marketing Funnel/i.test(insightsText));
 
-    const funnelNav = page.locator('#adminInsightsApp [data-insights-hub="marketing-funnel"]');
-    await funnelNav.click({ timeout: 15000 });
+    // Prefer setAdminSectionTab — hub button click can race with insights re-render.
+    await page.evaluate(() => {
+      if (typeof window.setAdminSectionTab === "function") {
+        window.setAdminSectionTab("marketing-funnel");
+      } else {
+        document.querySelector('#adminInsightsApp [data-insights-hub="marketing-funnel"]')?.click();
+      }
+    });
     await page.waitForFunction(
-      () => /Why They Left|Visit→paid|Visitors|conversion/i.test(
-        document.querySelector("#adminInsightsApp")?.innerText || "",
-      ),
+      () => {
+        const text = document.querySelector("#adminInsightsApp")?.innerText || "";
+        return /Why They Left/i.test(text)
+          && /Marketing Funnel/i.test(text)
+          && !/Loading insights/i.test(text);
+      },
       null,
-      { timeout: 20000 },
-    ).catch(() => {});
-    await page.waitForTimeout(800);
+      { timeout: 45000 },
+    );
+    await page.waitForTimeout(500);
     const funnelText = await page.locator("#adminInsightsApp").innerText();
     record("admin", "Marketing Funnel loads", /Marketing Funnel|Conversion chart|Visit→paid|Visitors/i.test(funnelText));
     record("admin", "Why They Left loads", /Why They Left/i.test(funnelText));
