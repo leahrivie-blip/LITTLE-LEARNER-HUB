@@ -409,16 +409,21 @@ See [ENRICHMENT_EDITOR_SLICE2.md](./ENRICHMENT_EDITOR_SLICE2.md).
 Real Teaching Kit viewer · Draft Preview label · desktop/tablet/mobile frames · published provider kit ignores drafts.  
 See [ENRICHMENT_EDITOR_SLICE3.md](./ENRICHMENT_EDITOR_SLICE3.md).
 
-### Slice 4 — Photo upload suite (current)
+### Slice 4 — Photo upload suite (approved)
 
 Private draft setup/example photos · drag/drop · replace/remove · full-size · optimize/thumbnails · no curriculum blobs.  
-**No** AI, publishing, or print.  
 See [ENRICHMENT_EDITOR_SLICE4.md](./ENRICHMENT_EDITOR_SLICE4.md).
 
-### Later slices (not started until Slice 4 approved)
+### Slice 5 — Controlled publish (current)
 
-5. AI tip suggestions (explicit approve)  
-6. Publish confirmation + merge-to-live  
+Explicit admin publish · confirmation summary · atomic merge · prior-version snapshot · draft photos become provider-visible only after success.  
+**No** AI or print.  
+See [ENRICHMENT_EDITOR_SLICE5.md](./ENRICHMENT_EDITOR_SLICE5.md).
+
+### Later slices (not started until Slice 5 approved)
+
+6. AI tip suggestions (explicit approve)  
+7. Print integration hooks (as needed)  
 
 ---
 

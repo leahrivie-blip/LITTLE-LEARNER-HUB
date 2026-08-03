@@ -32,6 +32,14 @@ function enrichmentMediaUrl(assetId, variant = "full") {
   return `/api/admin/media/enrichment-photos/${encodeURIComponent(id)}?variant=${v}`;
 }
 
+/** Provider-visible URL after successful publish (never the admin draft path). */
+function publicEnrichmentMediaUrl(assetId, variant = "full") {
+  const id = String(assetId || "").trim();
+  if (!id) return "";
+  const v = variant === "thumb" ? "thumb" : "full";
+  return `/api/media/enrichment-photos/${encodeURIComponent(id)}?variant=${v}`;
+}
+
 function isEnrichmentMediaAssetId(value) {
   return /^tk-enrich-[a-f0-9]{16,64}$/i.test(String(value || "").trim());
 }
@@ -47,9 +55,43 @@ function isEnrichmentMediaUrl(value) {
   if (!text) return false;
   try {
     const u = text.startsWith("/") ? new URL(text, "http://local.invalid") : new URL(text);
+    return /^\/api\/(admin\/)?media\/enrichment-photos\/tk-enrich-[a-f0-9]+$/i.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isPublicEnrichmentMediaUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  try {
+    const u = text.startsWith("/") ? new URL(text, "http://local.invalid") : new URL(text);
+    return /^\/api\/media\/enrichment-photos\/tk-enrich-[a-f0-9]+$/i.test(u.pathname);
+  } catch {
+    return false;
+  }
+}
+
+function isAdminEnrichmentMediaUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  try {
+    const u = text.startsWith("/") ? new URL(text, "http://local.invalid") : new URL(text);
     return /^\/api\/admin\/media\/enrichment-photos\/tk-enrich-[a-f0-9]+$/i.test(u.pathname);
   } catch {
     return false;
+  }
+}
+
+function assetIdFromEnrichmentMediaUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  try {
+    const u = text.startsWith("/") ? new URL(text, "http://local.invalid") : new URL(text);
+    const id = decodeURIComponent(u.pathname.split("/").pop() || "");
+    return isEnrichmentMediaAssetId(id) ? id : "";
+  } catch {
+    return "";
   }
 }
 
@@ -58,11 +100,38 @@ function sanitizedEnrichmentPhotoRef(value) {
   const text = String(value || "").trim();
   if (!text) return "";
   if (text.startsWith("data:")) return "";
-  if (isEnrichmentMediaUrl(text)) {
+  if (isAdminEnrichmentMediaUrl(text)) {
     const u = new URL(text, "http://local.invalid");
     const variant = u.searchParams.get("variant") === "thumb" ? "thumb" : "full";
     const id = decodeURIComponent(u.pathname.split("/").pop() || "");
     return enrichmentMediaUrl(id, variant).slice(0, 400);
+  }
+  if (isPublicEnrichmentMediaUrl(text)) {
+    const u = new URL(text, "http://local.invalid");
+    const variant = u.searchParams.get("variant") === "thumb" ? "thumb" : "full";
+    const id = decodeURIComponent(u.pathname.split("/").pop() || "");
+    return publicEnrichmentMediaUrl(id, variant).slice(0, 400);
+  }
+  try {
+    const parsed = new URL(text);
+    if (parsed.protocol !== "https:") return "";
+    return text.slice(0, 4000);
+  } catch {
+    return "";
+  }
+}
+
+/** Published activity/plan image fields — public enrichment media or https only (never admin draft URLs). */
+function sanitizedPublishedEnrichmentImageUrl(value) {
+  const text = String(value || "").trim();
+  if (!text) return "";
+  if (text.startsWith("data:")) return "";
+  if (isAdminEnrichmentMediaUrl(text)) return ""; // never publish private draft URLs
+  if (isPublicEnrichmentMediaUrl(text)) {
+    const id = assetIdFromEnrichmentMediaUrl(text);
+    const u = new URL(text, "http://local.invalid");
+    const variant = u.searchParams.get("variant") === "thumb" ? "thumb" : "full";
+    return publicEnrichmentMediaUrl(id, variant).slice(0, 400);
   }
   try {
     const parsed = new URL(text);
@@ -181,15 +250,29 @@ function localMediaDirFromStorePath(storePath) {
 function writeLocalEnrichmentAsset(dir, assetId, variant, { mimeType, buffer, meta }) {
   fs.mkdirSync(dir, { recursive: true });
   const base = path.join(dir, `${assetId}.${variant}`);
-  fs.writeFileSync(`${base}.bin`, buffer);
-  fs.writeFileSync(`${base}.json`, JSON.stringify({
+  const payload = {
     id: assetId,
     variant,
     kind: ENRICHMENT_MEDIA_KIND,
     mimeType,
     byteLen: buffer.length,
     ...meta,
-  }, null, 2));
+  };
+  const tmpBin = `${base}.bin.tmp-${process.pid}`;
+  const tmpJson = `${base}.json.tmp-${process.pid}`;
+  fs.writeFileSync(tmpBin, buffer);
+  fs.writeFileSync(tmpJson, JSON.stringify(payload, null, 2));
+  fs.renameSync(tmpBin, `${base}.bin`);
+  fs.renameSync(tmpJson, `${base}.json`);
+}
+
+function updateLocalEnrichmentAssetMeta(dir, assetId, patch) {
+  for (const variant of ["full", "thumb"]) {
+    const metaPath = path.join(dir, `${assetId}.${variant}.json`);
+    if (!fs.existsSync(metaPath)) continue;
+    const meta = JSON.parse(fs.readFileSync(metaPath, "utf8"));
+    fs.writeFileSync(metaPath, JSON.stringify({ ...meta, ...patch }, null, 2));
+  }
 }
 
 function readLocalEnrichmentAsset(dir, assetId, variant) {
@@ -269,6 +352,127 @@ function withAdminToken(mediaUrl, adminToken) {
   return `${base}${join}adminToken=${encodeURIComponent(token)}`;
 }
 
+function collectAssetIdsFromValue(value, into = new Set()) {
+  if (value == null) return into;
+  if (typeof value === "string") {
+    if (isEnrichmentMediaAssetId(value)) into.add(value);
+    const fromUrl = assetIdFromEnrichmentMediaUrl(value);
+    if (fromUrl) into.add(fromUrl);
+    const re = /tk-enrich-[a-f0-9]{16,64}/gi;
+    let match = re.exec(value);
+    while (match) {
+      into.add(match[0]);
+      match = re.exec(value);
+    }
+    return into;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectAssetIdsFromValue(item, into));
+    return into;
+  }
+  if (typeof value === "object") {
+    Object.values(value).forEach((item) => collectAssetIdsFromValue(item, into));
+  }
+  return into;
+}
+
+function collectDraftMediaAssetIds(draft) {
+  return collectAssetIdsFromValue(draft && draft.activities ? draft.activities : {});
+}
+
+/**
+ * Scan curriculum for enrichment media references (drafts, published fields, history).
+ * Returns Map<assetId, Array<{ lessonPlanId, source }>>
+ */
+function collectCurriculumEnrichmentMediaRefs(curriculum) {
+  const refs = new Map();
+  const add = (assetId, lessonPlanId, source) => {
+    const id = String(assetId || "").trim();
+    if (!isEnrichmentMediaAssetId(id)) return;
+    if (!refs.has(id)) refs.set(id, []);
+    refs.get(id).push({ lessonPlanId: lessonPlanId || "", source: source || "" });
+  };
+  const plans = Array.isArray(curriculum?.lessonPlans) ? curriculum.lessonPlans : [];
+  const activities = Array.isArray(curriculum?.activities) ? curriculum.activities : [];
+  plans.forEach((plan) => {
+    const planId = plan?.id || "";
+    collectAssetIdsFromValue(plan?.enrichmentDraft).forEach((id) => add(id, planId, "enrichmentDraft"));
+    collectAssetIdsFromValue(plan?.dailyPlans).forEach((id) => add(id, planId, "dailyPlans"));
+    collectAssetIdsFromValue(plan?.enrichmentPublishHistory).forEach((id) => add(id, planId, "enrichmentPublishHistory"));
+    collectAssetIdsFromValue(plan?.setupImageUrl).forEach((id) => add(id, planId, "plan.setupImageUrl"));
+    collectAssetIdsFromValue(plan?.exampleImageUrl).forEach((id) => add(id, planId, "plan.exampleImageUrl"));
+  });
+  activities.forEach((act) => {
+    const planId = act?.lessonPlanId || "";
+    collectAssetIdsFromValue(act?.setupImageUrl).forEach((id) => add(id, planId, "activity.setupImageUrl"));
+    collectAssetIdsFromValue(act?.exampleImageUrl).forEach((id) => add(id, planId, "activity.exampleImageUrl"));
+    collectAssetIdsFromValue(act?.setupMediaAssetId).forEach((id) => add(id, planId, "activity.setupMediaAssetId"));
+    collectAssetIdsFromValue(act?.exampleMediaAssetId).forEach((id) => add(id, planId, "activity.exampleMediaAssetId"));
+  });
+  return refs;
+}
+
+function diffRemovedMediaAssetIds(prevDraft, nextDraft) {
+  const before = collectDraftMediaAssetIds(prevDraft);
+  const after = collectDraftMediaAssetIds(nextDraft);
+  const removed = [];
+  before.forEach((id) => {
+    if (!after.has(id)) removed.push(id);
+  });
+  return removed;
+}
+
+function cleanupLogPathFromStorePath(storePath) {
+  return String(storePath || "").replace(/(\.json)?$/i, ".enrichment-media-cleanup.log");
+}
+
+function logEnrichmentMediaCleanup(storePath, entry) {
+  const record = {
+    event: "enrichment_media_cleanup",
+    assetId: String(entry.assetId || ""),
+    lessonPlanId: String(entry.lessonPlanId || ""),
+    reason: String(entry.reason || ""),
+    result: String(entry.result || ""),
+    timestamp: String(entry.timestamp || new Date().toISOString()),
+  };
+  const line = JSON.stringify(record);
+  console.log(`[enrichment-media-cleanup] ${line}`);
+  try {
+    const logPath = cleanupLogPathFromStorePath(storePath);
+    fs.appendFileSync(logPath, `${line}\n`, "utf8");
+  } catch (error) {
+    console.error("[enrichment-media-cleanup] log write failed", error.message);
+  }
+  return record;
+}
+
+function promoteDraftPhotoUrlsToPublic(draftActivity) {
+  const act = draftActivity && typeof draftActivity === "object" ? { ...draftActivity } : {};
+  const setupId = isEnrichmentMediaAssetId(act.setupMediaAssetId)
+    ? act.setupMediaAssetId
+    : assetIdFromEnrichmentMediaUrl(act.setupImageUrl);
+  const exampleId = isEnrichmentMediaAssetId(act.exampleMediaAssetId)
+    ? act.exampleMediaAssetId
+    : assetIdFromEnrichmentMediaUrl(act.exampleImageUrl);
+  if (setupId) {
+    act.setupMediaAssetId = setupId;
+    act.setupImageUrl = publicEnrichmentMediaUrl(setupId, "full");
+    act.setupImageThumbUrl = publicEnrichmentMediaUrl(setupId, "thumb");
+  } else {
+    act.setupImageUrl = sanitizedPublishedEnrichmentImageUrl(act.setupImageUrl);
+    act.setupImageThumbUrl = sanitizedPublishedEnrichmentImageUrl(act.setupImageThumbUrl);
+  }
+  if (exampleId) {
+    act.exampleMediaAssetId = exampleId;
+    act.exampleImageUrl = publicEnrichmentMediaUrl(exampleId, "full");
+    act.exampleImageThumbUrl = publicEnrichmentMediaUrl(exampleId, "thumb");
+  } else {
+    act.exampleImageUrl = sanitizedPublishedEnrichmentImageUrl(act.exampleImageUrl);
+    act.exampleImageThumbUrl = sanitizedPublishedEnrichmentImageUrl(act.exampleImageThumbUrl);
+  }
+  return act;
+}
+
 module.exports = {
   ENRICHMENT_MEDIA_KIND,
   MAX_ENRICHMENT_UPLOAD_BYTES,
@@ -278,20 +482,33 @@ module.exports = {
   THUMB_MAX_EDGE,
   enrichmentMediaAssetId,
   enrichmentMediaUrl,
+  publicEnrichmentMediaUrl,
   enrichmentVariantAssetId,
   isEnrichmentMediaAssetId,
   isEnrichmentMediaUrl,
+  isPublicEnrichmentMediaUrl,
+  isAdminEnrichmentMediaUrl,
+  assetIdFromEnrichmentMediaUrl,
   sanitizedEnrichmentPhotoRef,
+  sanitizedPublishedEnrichmentImageUrl,
   validateEnrichmentUploadBuffer,
   parseEnrichmentUploadDataUrl,
   optimizeEnrichmentImage,
   buildEnrichmentVariants,
   localMediaDirFromStorePath,
   writeLocalEnrichmentAsset,
+  updateLocalEnrichmentAssetMeta,
   readLocalEnrichmentAsset,
   deleteLocalEnrichmentAsset,
   sha256Buffer,
   sanitizeEnrichmentDraftPhotos,
   withAdminToken,
+  collectAssetIdsFromValue,
+  collectDraftMediaAssetIds,
+  collectCurriculumEnrichmentMediaRefs,
+  diffRemovedMediaAssetIds,
+  cleanupLogPathFromStorePath,
+  logEnrichmentMediaCleanup,
+  promoteDraftPhotoUrlsToPublic,
   sharpAvailable: () => Boolean(sharpLib),
 };

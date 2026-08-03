@@ -1,6 +1,6 @@
 # Teaching Kit Enrichment Editor — Slice 4
 
-**Status:** Ready for owner review (do not merge / deploy / enable flag without approval)  
+**Status:** Owner-approved (Slice 5 in progress; flag remains off)  
 **Flag:** `featureFlags.teachingKitEnrichmentEditor` (**default `false`**)  
 **Depends on:** Slice 1–3 (approved)  
 **Scope:** Activity Studio photo upload + private draft media handling  
@@ -123,4 +123,4 @@ Slice 4 asserts:
 
 ## Approval gate
 
-Stop here for owner review. Do **not** merge, deploy, enable flags, or begin Slice 5 until approved.
+Owner approved Slice 4. Media lifecycle hardening + Slice 5 proceed next. Do **not** merge, deploy, or enable flags without separate approval.

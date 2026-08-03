@@ -280,14 +280,8 @@ async function main() {
     assert(!providerHay.includes("discovery basket at child height"), "provider kit has no draft tip");
     assert(!providerHay.includes("shallow tray"), "provider kit has no draft substitution");
 
-    // Publish still disabled in Slice 3
-    const publishBlocked = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
-      adminToken,
-      expectedUpdatedAt,
-      saveMode: "publish_enrichment",
-      lessonPlan: { id: planPayload.id },
-    });
-    assert(publishBlocked.status === 403, "publish still disabled");
+    // Slice 5 owns publish — this suite only asserts draft privacy until an explicit publish.
+    // Calling publish_enrichment here would merge the draft; skip intentional publish.
 
     fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
     const { chromium } = require("playwright");
@@ -328,8 +322,8 @@ async function main() {
     });
     assert(opened.open === true, "editor opened");
     assert(opened.features.livePreview === true, "livePreview enabled in Slice 3");
-    assert(opened.features.publish === false, "publish still off");
     assert(opened.features.aiSuggest === false, "ai still off");
+    assert(opened.features.publish === true, "publish available (Slice 5)");
 
     await page.click('[data-enrich-mode="preview"]');
     await page.waitForSelector("[data-enrich-live-preview][data-draft-preview='1'], .tk-enrich-draft-preview-label", {

@@ -1231,6 +1231,14 @@ function sanitizedResourceUrl(value, maxLength = 8_000_000) {
   }
 }
 
+/** Activity/setup photos: public enrichment media paths or https/data — never private admin draft URLs. */
+function sanitizedActivityImageUrl(value, maxLength = 8_000_000) {
+  const published = enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(value);
+  if (published) return published.slice(0, maxLength);
+  if (enrichmentMedia.isAdminEnrichmentMediaUrl(value)) return "";
+  return sanitizedResourceUrl(value, maxLength);
+}
+
 const validLessonPlanResourceCategories = new Set([
   "Coloring Pages",
   "Tracing Activities",
@@ -1706,9 +1714,11 @@ function normalizedCurriculumDailyPlanItem(value) {
     safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
     ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
     // Teaching Kit enrichment (additive — empty keeps legacy behavior).
-    // Allow HTTPS media URLs or image data URLs (same pattern as resource files).
-    setupImageUrl: sanitizedResourceUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
-    exampleImageUrl: sanitizedResourceUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    // Public enrichment media paths or HTTPS/data — never private admin draft URLs.
+    setupImageUrl: sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
+    exampleImageUrl: sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
+    exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
     teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
     substitutions: normalizedList(entry.substitutions, 12, (item) => {
       if (!item || typeof item !== "object") return null;
@@ -1806,6 +1816,20 @@ function normalizedCurriculumLessonPlan(value) {
       normalized.enrichmentDraft = null;
     }
   }
+  if (Array.isArray(entry.enrichmentPublishHistory)) {
+    normalized.enrichmentPublishHistory = entry.enrichmentPublishHistory
+      .filter((item) => item && typeof item === "object")
+      .slice(0, 12)
+      .map((item) => ({
+        versionId: normalizedShortText(item.versionId, 80),
+        publishedAt: normalizedShortText(item.publishedAt, 80),
+        publishedBy: normalizedShortText(item.publishedBy, 180),
+        fingerprint: normalizedShortText(item.fingerprint, 80),
+        lessonPlanId: normalizedShortText(item.lessonPlanId, 160),
+        snapshot: item.snapshot && typeof item.snapshot === "object" ? item.snapshot : null,
+      }))
+      .filter((item) => item.versionId);
+  }
   return normalized;
 }
 
@@ -1852,8 +1876,10 @@ function normalizedCurriculumActivity(value) {
     adaptations: normalizedMultilineText(entry.adaptations, 4000),
     safetyNotes: normalizedMultilineText(entry.safetyNotes, 4000),
     ageModifications: normalizedMultilineText(entry.ageModifications, 4000),
-    setupImageUrl: sanitizedResourceUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
-    exampleImageUrl: sanitizedResourceUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    setupImageUrl: sanitizedActivityImageUrl(entry.setupImageUrl || entry.setupPhotoUrl || ""),
+    exampleImageUrl: sanitizedActivityImageUrl(entry.exampleImageUrl || entry.examplePhotoUrl || ""),
+    setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.setupMediaAssetId) ? String(entry.setupMediaAssetId) : "",
+    exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(entry.exampleMediaAssetId) ? String(entry.exampleMediaAssetId) : "",
     teacherTips: normalizedList(entry.teacherTips, 8, (item) => normalizedShortText(item, 280)).filter(Boolean),
     substitutions: normalizedList(entry.substitutions, 12, (item) => {
       if (!item || typeof item !== "object") return null;
@@ -16662,6 +16688,282 @@ async function handleAdminCurriculumSeriesSave(request, response) {
   }
 }
 
+function loadEnrichmentHelpers() {
+  try {
+    return require("../scripts/teaching-kit-enrichment.js");
+  } catch (_error) {
+    return null;
+  }
+}
+
+function cloneJson(value) {
+  return JSON.parse(JSON.stringify(value == null ? null : value));
+}
+
+function enrichmentPublishFingerprint(draft) {
+  const safe = enrichmentMedia.sanitizeEnrichmentDraftPhotos(draft || {});
+  return enrichmentMedia.sha256Buffer(Buffer.from(JSON.stringify({
+    activities: safe.activities || {},
+    week: safe.week || {},
+  })));
+}
+
+function snapshotEnrichmentPublishedState(plan, activities) {
+  const planId = normalizedShortText(plan?.id, 160);
+  const linked = (activities || []).filter((item) => item.lessonPlanId === planId);
+  return {
+    dailyPlans: cloneJson(plan?.dailyPlans || {}),
+    familyConnection: plan?.familyConnection || "",
+    teachingKit: cloneJson(plan?.teachingKit || null),
+    activities: linked.map((act) => ({
+      id: act.id,
+      itemId: act.itemId || "",
+      setupImageUrl: act.setupImageUrl || "",
+      exampleImageUrl: act.exampleImageUrl || "",
+      setupMediaAssetId: act.setupMediaAssetId || "",
+      exampleMediaAssetId: act.exampleMediaAssetId || "",
+      teacherTips: Array.isArray(act.teacherTips) ? act.teacherTips : [],
+      substitutions: Array.isArray(act.substitutions) ? act.substitutions : [],
+      settingTags: Array.isArray(act.settingTags) ? act.settingTags : [],
+      observationOpportunities: act.observationOpportunities || "",
+      vocabulary: act.vocabulary || "",
+    })),
+  };
+}
+
+function applyMergedEnrichmentToActivities(existingActivities, mergedActivities, planId) {
+  const byId = new Map();
+  const byItem = new Map();
+  mergedActivities.forEach((act) => {
+    if (act?.id) byId.set(act.id, act);
+    if (act?.itemId) byItem.set(act.itemId, act);
+  });
+  return (existingActivities || []).map((act) => {
+    if (act.lessonPlanId !== planId) return act;
+    const match = byId.get(act.id) || byItem.get(act.itemId);
+    if (!match) return act;
+    return normalizedCurriculumActivity({
+      ...act,
+      setupImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.setupImageUrl || act.setupImageUrl || ""),
+      exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(match.exampleImageUrl || act.exampleImageUrl || ""),
+      setupMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.setupMediaAssetId) ? match.setupMediaAssetId : (act.setupMediaAssetId || ""),
+      exampleMediaAssetId: enrichmentMedia.isEnrichmentMediaAssetId(match.exampleMediaAssetId) ? match.exampleMediaAssetId : (act.exampleMediaAssetId || ""),
+      teacherTips: Array.isArray(match.teacherTips) ? match.teacherTips : act.teacherTips,
+      substitutions: Array.isArray(match.substitutions) ? match.substitutions : act.substitutions,
+      settingTags: Array.isArray(match.settingTags) ? match.settingTags : act.settingTags,
+      observationOpportunities: match.observationOpportunities || act.observationOpportunities || "",
+      vocabulary: match.vocabulary || act.vocabulary || "",
+      updatedAt: new Date().toISOString(),
+    });
+  }).filter(Boolean);
+}
+
+async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId) {
+  const dir = enrichmentMedia.localMediaDirFromStorePath(storePath);
+  for (const assetId of assetIds) {
+    if (!enrichmentMedia.isEnrichmentMediaAssetId(assetId)) continue;
+    setEnrichmentMediaRegistryEntry(store, assetId, {
+      visibility: "published",
+      lessonPlanId,
+      publishedAt: new Date().toISOString(),
+    });
+    try {
+      enrichmentMedia.updateLocalEnrichmentAssetMeta(dir, assetId, {
+        visibility: "published",
+        publishedAt: new Date().toISOString(),
+      });
+    } catch (_error) {
+      // Postgres path relies on registry only.
+    }
+  }
+}
+
+async function handlePublishEnrichment(request, response, ctx) {
+  const {
+    store,
+    siteContent,
+    existingCurriculum,
+    existingPlan,
+    incomingPlan,
+    id,
+    now,
+    body,
+  } = ctx;
+  const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+  if (!existingPlan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found for enrichment publish." });
+    return;
+  }
+  // Only the currently edited lesson id may be published.
+  if (normalizedShortText(incomingPlan.id, 160) && normalizedShortText(incomingPlan.id, 160) !== id) {
+    jsonResponse(response, 400, {
+      error: "Publish payload lesson id mismatch.",
+      code: "publish_lesson_mismatch",
+    });
+    return;
+  }
+  const enrichmentApi = loadEnrichmentHelpers();
+  if (!enrichmentApi?.mergeDraftIntoPlan) {
+    jsonResponse(response, 500, { error: "Enrichment helpers unavailable.", code: "enrichment_helpers_missing" });
+    return;
+  }
+
+  const incomingDraft = incomingPlan.enrichmentDraft && typeof incomingPlan.enrichmentDraft === "object"
+    ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(incomingPlan.enrichmentDraft)
+    : (existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
+      ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(existingPlan.enrichmentDraft)
+      : null);
+  const fingerprint = enrichmentPublishFingerprint(incomingDraft || {});
+  const lastVersion = Array.isArray(existingPlan.enrichmentPublishHistory)
+    ? existingPlan.enrichmentPublishHistory[0]
+    : null;
+
+  // Idempotent duplicate publish: no draft left / same fingerprint → no new version.
+  const draftEmpty = !incomingDraft
+    || (!Object.keys(incomingDraft.activities || {}).length && !Object.keys(incomingDraft.week || {}).length);
+  if (draftEmpty || (lastVersion && lastVersion.fingerprint === fingerprint)) {
+    jsonResponse(response, 200, {
+      ok: true,
+      saveMode: "publish_enrichment",
+      duplicate: true,
+      versionId: lastVersion?.versionId || "",
+      lessonPlan: existingPlan,
+      curriculum: store.siteContent.curriculum,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+    });
+    return;
+  }
+  if (!incomingDraft || !Object.keys(incomingDraft.activities || {}).length) {
+    jsonResponse(response, 400, {
+      error: "No enrichment draft to publish for this lesson.",
+      code: "enrichment_draft_empty",
+    });
+    return;
+  }
+
+  const linkedActivities = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
+  // Promote photo URLs in a draft copy so merge writes public URLs (never admin draft URLs).
+  const promotedDraft = {
+    ...incomingDraft,
+    activities: Object.fromEntries(
+      Object.entries(incomingDraft.activities || {}).map(([key, act]) => [
+        key,
+        enrichmentMedia.promoteDraftPhotoUrlsToPublic(act),
+      ]),
+    ),
+  };
+  const merged = enrichmentApi.mergeDraftIntoPlan(existingPlan, linkedActivities, promotedDraft);
+  const assetIds = [...enrichmentMedia.collectDraftMediaAssetIds(promotedDraft)];
+
+  // Sanitize merged plan image fields — strip any leftover admin URLs.
+  const mergedPlan = {
+    ...merged.plan,
+    dailyPlans: merged.plan.dailyPlans || {},
+  };
+  ["monday", "tuesday", "wednesday", "thursday", "friday"].forEach((day) => {
+    const dayPlan = mergedPlan.dailyPlans[day];
+    if (!dayPlan?.items) return;
+    dayPlan.items = dayPlan.items.map((item) => ({
+      ...item,
+      setupImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(item.setupImageUrl || ""),
+      exampleImageUrl: enrichmentMedia.sanitizedPublishedEnrichmentImageUrl(item.exampleImageUrl || ""),
+    }));
+  });
+
+  const priorSnapshot = snapshotEnrichmentPublishedState(existingPlan, existingCurriculum.activities || []);
+  const versionId = `epub-${crypto.randomBytes(12).toString("hex")}`;
+  const publishedBy = normalizedShortText(
+    body.publishedBy || incomingDraft.lastEditedBy || "",
+    180,
+  ) || "admin";
+  const history = [
+    {
+      versionId,
+      publishedAt: now,
+      publishedBy,
+      fingerprint,
+      lessonPlanId: id,
+      snapshot: priorSnapshot,
+    },
+    ...(Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory : []),
+  ].slice(0, 12);
+
+  const nextActivities = applyMergedEnrichmentToActivities(
+    existingCurriculum.activities || [],
+    merged.activities,
+    id,
+  );
+  const nextPlan = normalizedCurriculumLessonPlan({
+    ...existingPlan,
+    ...mergedPlan,
+    enrichmentDraft: null,
+    enrichmentPublishHistory: history,
+    teachingKit: {
+      ...(mergedPlan.teachingKit || existingPlan.teachingKit || {}),
+      lastEnrichmentPublishedAt: now,
+      lastEnrichmentPublishedBy: publishedBy,
+      lastEnrichmentPublishFingerprint: fingerprint,
+      lastEnrichmentVersionId: versionId,
+    },
+    updatedAt: now,
+  });
+
+  const nextCurriculum = normalizedCurriculumStore({
+    ...existingCurriculum,
+    lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (item.id === id ? nextPlan : item)),
+    activities: nextActivities,
+    updatedAt: now,
+  });
+
+  // Atomic apply: promote visibility + write curriculum in one store commit path.
+  await promoteEnrichmentAssetsToPublished(store, assetIds, id);
+  const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+  if (writeResult.wipeBlocked) {
+    // Roll back registry promotions for this attempt (assets stay draft_private).
+    assetIds.forEach((assetId) => {
+      setEnrichmentMediaRegistryEntry(store, assetId, { visibility: "draft_private" });
+      try {
+        enrichmentMedia.updateLocalEnrichmentAssetMeta(
+          enrichmentMedia.localMediaDirFromStorePath(storePath),
+          assetId,
+          { visibility: "draft_private" },
+        );
+      } catch (_error) {
+        // ignore
+      }
+    });
+    jsonResponse(response, 409, {
+      error: "Publish refused to protect curriculum integrity. No changes were applied.",
+      code: "curriculum_wipe_blocked",
+    });
+    return;
+  }
+  await writeStoreAsync(store);
+  const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
+  const summary = enrichmentApi.summarizePublishChanges
+    ? enrichmentApi.summarizePublishChanges(existingPlan, linkedActivities, incomingDraft)
+    : null;
+  jsonResponse(response, 200, {
+    ok: true,
+    saveMode: "publish_enrichment",
+    duplicate: false,
+    versionId,
+    fingerprint,
+    publishSummary: summary,
+    lessonPlan: saved,
+    curriculum: store.siteContent.curriculum,
+    siteContentUpdatedAt: store.siteContent.updatedAt,
+    priorVersionAvailable: true,
+  });
+}
+
 async function handleAdminCurriculumLessonPlanSave(request, response) {
   const startedAt = Date.now();
   let step = "received";
@@ -16718,6 +17020,9 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         jsonResponse(response, 404, { error: "Lesson plan not found for enrichment draft." });
         return;
       }
+      const previousDraft = existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
+        ? existingPlan.enrichmentDraft
+        : null;
       const draftInput = incomingPlan.enrichmentDraft && typeof incomingPlan.enrichmentDraft === "object"
         ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(incomingPlan.enrichmentDraft)
         : {};
@@ -16745,6 +17050,17 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         return;
       }
       await writeStoreAsync(store);
+      // After successful draft save, cleanup assets removed from this draft if unreferenced.
+      const removedIds = enrichmentMedia.diffRemovedMediaAssetIds(previousDraft, draftPlan.enrichmentDraft);
+      const cleanupLogs = [];
+      for (const removedId of removedIds) {
+        cleanupLogs.push(await cleanupEnrichmentMediaAsset(store, {
+          mediaAssetId: removedId,
+          lessonPlanId: id,
+          reason: "draft_save_unreferenced",
+        }));
+      }
+      if (removedIds.length) await writeStoreAsync(store);
       const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
       jsonResponse(response, 200, {
         ok: true,
@@ -16753,18 +17069,23 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         curriculum: store.siteContent.curriculum,
         siteContentUpdatedAt: store.siteContent.updatedAt,
         publishedUnchanged: true,
+        mediaCleanup: cleanupLogs,
       });
       return;
     }
 
-    // Enrichment publish is intentionally unavailable in Slice 1 (draft-only).
-    // Later slice will re-enable merge-to-live under owner review.
+    // Slice 5 — controlled enrichment publish (atomic, single lesson, versioned).
     if (saveMode === "publish_enrichment") {
-      jsonResponse(response, 403, {
-        error: "Enrichment publish is not enabled in Slice 1. Draft save only.",
-        code: "enrichment_publish_disabled",
+      return await handlePublishEnrichment(request, response, {
+        store,
+        siteContent,
+        existingCurriculum,
+        existingPlan,
+        incomingPlan,
+        id,
+        now,
+        body,
       });
-      return;
     }
     const nextStatus = normalizedShortText(incomingPlan.status, 20);
     const wasPublic = isCurriculumLessonPublic(existingPlan?.status || "");
@@ -17195,6 +17516,33 @@ async function handleAdminLessonCoverUpload(request, response) {
   }
 }
 
+function readEnrichmentMediaRegistry(store) {
+  if (!store.enrichmentMediaRegistry || typeof store.enrichmentMediaRegistry !== "object") {
+    store.enrichmentMediaRegistry = {};
+  }
+  return store.enrichmentMediaRegistry;
+}
+
+function setEnrichmentMediaRegistryEntry(store, assetId, patch) {
+  const registry = readEnrichmentMediaRegistry(store);
+  const prev = registry[assetId] && typeof registry[assetId] === "object" ? registry[assetId] : {};
+  registry[assetId] = {
+    ...prev,
+    ...patch,
+    id: assetId,
+    updatedAt: new Date().toISOString(),
+  };
+  return registry[assetId];
+}
+
+function getEnrichmentMediaVisibility(store, assetId, localAsset) {
+  const registry = readEnrichmentMediaRegistry(store);
+  const fromRegistry = registry[assetId]?.visibility;
+  if (fromRegistry) return String(fromRegistry);
+  if (localAsset?.visibility) return String(localAsset.visibility);
+  return "draft_private";
+}
+
 async function persistEnrichmentPhotoVariants({
   assetId,
   lessonPlanId,
@@ -17202,6 +17550,7 @@ async function persistEnrichmentPhotoVariants({
   field,
   fileName,
   variants,
+  store,
 }) {
   const meta = {
     lessonPlanId,
@@ -17211,30 +17560,60 @@ async function persistEnrichmentPhotoVariants({
     visibility: "draft_private",
     createdAt: new Date().toISOString(),
   };
-  if (usePostgresStore() && postgresPool && databaseReady) {
+  const writtenVariants = [];
+  try {
+    if (usePostgresStore() && postgresPool && databaseReady) {
+      for (const variant of ["full", "thumb"]) {
+        const row = variants[variant];
+        const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
+        await curriculumMedia.insertMediaAsset(postgresPool, {
+          id: rowId,
+          kind: enrichmentMedia.ENRICHMENT_MEDIA_KIND,
+          mimeType: row.mimeType,
+          fileName: `${fileName || "photo"}${variant === "thumb" ? "-thumb" : ""}`,
+          buffer: row.buffer,
+        });
+        writtenVariants.push(variant);
+      }
+      if (store) {
+        setEnrichmentMediaRegistryEntry(store, assetId, {
+          ...meta,
+          storage: "postgres",
+        });
+        await writeStoreAsync(store);
+      }
+      return { persistent: true, storage: "postgres" };
+    }
+    const dir = enrichmentMedia.localMediaDirFromStorePath(storePath);
     for (const variant of ["full", "thumb"]) {
       const row = variants[variant];
-      const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
-      await curriculumMedia.insertMediaAsset(postgresPool, {
-        id: rowId,
-        kind: enrichmentMedia.ENRICHMENT_MEDIA_KIND,
+      enrichmentMedia.writeLocalEnrichmentAsset(dir, assetId, variant, {
         mimeType: row.mimeType,
-        fileName: `${fileName || "photo"}${variant === "thumb" ? "-thumb" : ""}`,
         buffer: row.buffer,
+        meta,
       });
+      writtenVariants.push(variant);
     }
-    return { persistent: true, storage: "postgres" };
+    if (store) {
+      setEnrichmentMediaRegistryEntry(store, assetId, {
+        ...meta,
+        storage: "local-sidecar",
+      });
+      await writeStoreAsync(store);
+    }
+    return { persistent: true, storage: "local-sidecar" };
+  } catch (error) {
+    // Failed uploads must not leave partial full/thumb records.
+    try {
+      await deleteEnrichmentPhotoAsset(assetId, { force: true });
+    } catch (_cleanupError) {
+      // ignore secondary cleanup errors
+    }
+    if (store?.enrichmentMediaRegistry) {
+      delete store.enrichmentMediaRegistry[assetId];
+    }
+    throw error;
   }
-  const dir = enrichmentMedia.localMediaDirFromStorePath(storePath);
-  for (const variant of ["full", "thumb"]) {
-    const row = variants[variant];
-    enrichmentMedia.writeLocalEnrichmentAsset(dir, assetId, variant, {
-      mimeType: row.mimeType,
-      buffer: row.buffer,
-      meta,
-    });
-  }
-  return { persistent: true, storage: "local-sidecar" };
 }
 
 async function readEnrichmentPhotoVariant(assetId, variant) {
@@ -17264,7 +17643,7 @@ async function readEnrichmentPhotoVariant(assetId, variant) {
   );
 }
 
-async function deleteEnrichmentPhotoAsset(assetId) {
+async function deleteEnrichmentPhotoAsset(assetId, { force = false } = {}) {
   if (usePostgresStore() && postgresPool && databaseReady) {
     for (const variant of ["full", "thumb"]) {
       const rowId = enrichmentMedia.enrichmentVariantAssetId(assetId, variant);
@@ -17275,6 +17654,7 @@ async function deleteEnrichmentPhotoAsset(assetId) {
         );
       } catch (error) {
         console.error("[enrichment-photo-delete] postgres delete failed", error.message);
+        if (!force) throw error;
       }
     }
     return;
@@ -17283,6 +17663,69 @@ async function deleteEnrichmentPhotoAsset(assetId) {
     enrichmentMedia.localMediaDirFromStorePath(storePath),
     assetId,
   );
+}
+
+/**
+ * Ref-safe cleanup: never deletes assets still referenced, or published/shared assets.
+ * Logs assetId, lessonPlanId, reason, timestamp.
+ */
+async function cleanupEnrichmentMediaAsset(store, {
+  mediaAssetId,
+  lessonPlanId = "",
+  reason = "cleanup",
+} = {}) {
+  const assetId = normalizedShortText(mediaAssetId, 120);
+  const timestamp = new Date().toISOString();
+  if (!enrichmentMedia.isEnrichmentMediaAssetId(assetId)) {
+    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
+      assetId,
+      lessonPlanId,
+      reason,
+      result: "rejected_invalid_id",
+      timestamp,
+    });
+  }
+  const visibility = getEnrichmentMediaVisibility(store, assetId);
+  if (visibility === "published" || visibility === "shared") {
+    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
+      assetId,
+      lessonPlanId,
+      reason,
+      result: "skipped_published_or_shared",
+      timestamp,
+    });
+  }
+  const curriculum = readSiteCurriculum(store);
+  const refs = enrichmentMedia.collectCurriculumEnrichmentMediaRefs(curriculum);
+  const liveHits = refs.get(assetId) || [];
+  if (liveHits.length) {
+    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
+      assetId,
+      lessonPlanId,
+      reason,
+      result: `skipped_still_referenced:${liveHits.map((h) => h.source).slice(0, 4).join(",")}`,
+      timestamp,
+    });
+  }
+  try {
+    await deleteEnrichmentPhotoAsset(assetId);
+    if (store.enrichmentMediaRegistry) delete store.enrichmentMediaRegistry[assetId];
+    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
+      assetId,
+      lessonPlanId,
+      reason,
+      result: "deleted",
+      timestamp,
+    });
+  } catch (error) {
+    return enrichmentMedia.logEnrichmentMediaCleanup(storePath, {
+      assetId,
+      lessonPlanId,
+      reason,
+      result: `error:${error.message || "delete_failed"}`,
+      timestamp,
+    });
+  }
 }
 
 async function handleAdminEnrichmentPhotoUpload(request, response) {
@@ -17348,6 +17791,7 @@ async function handleAdminEnrichmentPhotoUpload(request, response) {
       field,
       fileName,
       variants,
+      store,
     });
     const mediaUrl = enrichmentMedia.enrichmentMediaUrl(assetId, "full");
     const thumbUrl = enrichmentMedia.enrichmentMediaUrl(assetId, "thumb");
@@ -17409,12 +17853,13 @@ async function handleAdminEnrichmentPhotoMedia(request, response, assetId, url) 
       textResponse(response, 404, "Photo not found.");
       return;
     }
+    const visibility = getEnrichmentMediaVisibility(store, id, asset);
     response.writeHead(200, {
       "Content-Type": asset.mimeType || "application/octet-stream",
       "Content-Length": asset.buffer.length,
       "Cache-Control": "private, no-store",
       "X-Content-Type-Options": "nosniff",
-      "X-LLH-Enrichment-Visibility": "draft_private",
+      "X-LLH-Enrichment-Visibility": visibility,
     });
     if (request.method === "HEAD") {
       response.end();
@@ -17423,6 +17868,47 @@ async function handleAdminEnrichmentPhotoMedia(request, response, assetId, url) 
     response.end(asset.buffer);
   } catch (error) {
     console.error("[enrichment-photo-media] read failed", error.message);
+    textResponse(response, 503, "Photo temporarily unavailable.");
+  }
+}
+
+/** Provider-facing enrichment photos — only after successful publish (visibility=published). */
+async function handlePublicEnrichmentPhotoMedia(request, response, assetId, url) {
+  const id = normalizedShortText(assetId, 120);
+  if (!enrichmentMedia.isEnrichmentMediaAssetId(id)) {
+    textResponse(response, 404, "Photo not found.");
+    return;
+  }
+  const store = readStore();
+  const visibility = getEnrichmentMediaVisibility(store, id);
+  if (visibility !== "published" && visibility !== "shared") {
+    // Draft rollback / unpublished assets stay private.
+    textResponse(response, 404, "Photo not found.");
+    return;
+  }
+  const variant = String(url.searchParams.get("variant") || "full").toLowerCase() === "thumb"
+    ? "thumb"
+    : "full";
+  try {
+    const asset = await readEnrichmentPhotoVariant(id, variant);
+    if (!asset?.buffer?.length) {
+      textResponse(response, 404, "Photo not found.");
+      return;
+    }
+    response.writeHead(200, {
+      "Content-Type": asset.mimeType || "application/octet-stream",
+      "Content-Length": asset.buffer.length,
+      "Cache-Control": "public, max-age=86400",
+      "X-Content-Type-Options": "nosniff",
+      "X-LLH-Enrichment-Visibility": visibility,
+    });
+    if (request.method === "HEAD") {
+      response.end();
+      return;
+    }
+    response.end(asset.buffer);
+  } catch (error) {
+    console.error("[enrichment-photo-public] read failed", error.message);
     textResponse(response, 503, "Photo temporarily unavailable.");
   }
 }
@@ -17443,12 +17929,51 @@ async function handleAdminEnrichmentPhotoDelete(request, response) {
     return;
   }
   const mediaAssetId = normalizedShortText(body.mediaAssetId, 120);
+  const lessonPlanId = normalizedShortText(body.lessonPlanId, 160);
+  const reason = normalizedShortText(body.reason, 80) || "admin_delete";
   if (!enrichmentMedia.isEnrichmentMediaAssetId(mediaAssetId)) {
     jsonResponse(response, 400, { error: "Valid mediaAssetId is required.", code: "invalid_media_asset" });
     return;
   }
-  await deleteEnrichmentPhotoAsset(mediaAssetId);
-  jsonResponse(response, 200, { ok: true, mediaAssetId, deleted: true });
+  const log = await cleanupEnrichmentMediaAsset(store, {
+    mediaAssetId,
+    lessonPlanId,
+    reason,
+  });
+  if (log.result === "deleted") {
+    await writeStoreAsync(store);
+    jsonResponse(response, 200, { ok: true, mediaAssetId, deleted: true, cleanup: log });
+    return;
+  }
+  if (String(log.result || "").startsWith("skipped_still_referenced")) {
+    jsonResponse(response, 409, {
+      ok: false,
+      mediaAssetId,
+      deleted: false,
+      code: "asset_still_referenced",
+      error: "Photo asset is still referenced and was not deleted.",
+      cleanup: log,
+    });
+    return;
+  }
+  if (log.result === "skipped_published_or_shared") {
+    jsonResponse(response, 409, {
+      ok: false,
+      mediaAssetId,
+      deleted: false,
+      code: "asset_published_or_shared",
+      error: "Published or shared photo assets cannot be deleted by draft cleanup.",
+      cleanup: log,
+    });
+    return;
+  }
+  jsonResponse(response, 400, {
+    ok: false,
+    mediaAssetId,
+    deleted: false,
+    code: "cleanup_rejected",
+    cleanup: log,
+  });
 }
 
 async function handleLessonCoverMedia(request, response, assetId) {
@@ -22535,6 +23060,10 @@ const server = http.createServer(async (request, response) => {
     if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/admin/media/enrichment-photos/")) {
       const assetId = decodeURIComponent(url.pathname.slice("/api/admin/media/enrichment-photos/".length));
       return await handleAdminEnrichmentPhotoMedia(request, response, assetId, url);
+    }
+    if ((request.method === "GET" || request.method === "HEAD") && url.pathname.startsWith("/api/media/enrichment-photos/")) {
+      const assetId = decodeURIComponent(url.pathname.slice("/api/media/enrichment-photos/".length));
+      return await handlePublicEnrichmentPhotoMedia(request, response, assetId, url);
     }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
       const remainder = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));

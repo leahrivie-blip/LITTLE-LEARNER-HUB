@@ -207,7 +207,10 @@ async function main() {
       saveMode: "publish_enrichment",
       lessonPlan: { id: planPayload.id },
     });
-    assert(publishBlocked.status === 403 && publishBlocked.json?.code === "enrichment_publish_disabled", "publish still disabled");
+    assert(
+      publishBlocked.status === 404 && publishBlocked.json?.code === "enrichment_editor_disabled",
+      "publish blocked while enrichment editor flag is off",
+    );
 
     expectedUpdatedAt = await setFlags(adminToken, { teachingKitEnrichmentEditor: true });
 
@@ -291,7 +294,7 @@ async function main() {
             || text.includes("Finished example")
             || Boolean(document.querySelector(".tk-enrich-photo input[type='file']"))
           ),
-          publishDisabled: Boolean(document.querySelector(".tk-enrich-chrome-actions button[disabled]")),
+          publishEnabled: Boolean(document.querySelector("[data-enrich-publish]:not([disabled])")),
           noAi: !text.includes("data-ai-tips") && text.includes("AI suggest later"),
           studioPresent: Boolean(stage),
           features: window.LLHTeachingKitEnrichmentEditor.sliceFeatures(),
@@ -314,9 +317,9 @@ async function main() {
       assert(result.obsVisible, `${vp.name}: observation prompts section visible`);
       assert(result.vocabVisible, `${vp.name}: vocabulary visible`);
       assert(result.photoZonesVisible, `${vp.name}: photo zones visible`);
-      assert(result.publishDisabled, `${vp.name}: publish disabled`);
+      assert(result.publishEnabled, `${vp.name}: publish control available`);
       assert(result.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
-      assert(result.features.publish === false, `${vp.name}: publish false`);
+      assert(result.features.publish === true, `${vp.name}: publish feature on`);
       assert(result.features.activityStudio === true, `${vp.name}: activityStudio true`);
       assert(result.overflowX === false, `${vp.name}: no horizontal overflow`);
 

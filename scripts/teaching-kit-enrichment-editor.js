@@ -4,8 +4,9 @@
  * Slice 2: Activity Studio foundation (placeholders + tips/subs/settings/obs/vocab).
  * Slice 3: Live Preview (real Teaching Kit viewer) + draft-to-provider parity.
  * Slice 4: Activity Studio photo upload (private draft media).
+ * Slice 5: Controlled enrichment publish (atomic, versioned).
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
- * AI / publish stay off until later slices.
+ * AI / print stay off until later slices.
  */
 (function (root) {
   "use strict";
@@ -22,7 +23,7 @@
     livePreview: true, // Slice 3
     photoUpload: true, // Slice 4
     aiSuggest: false,
-    publish: false,
+    publish: true, // Slice 5
   });
   // Back-compat alias used by earlier Slice 1 checks.
   const SLICE1 = SLICE;
@@ -45,6 +46,8 @@
     previewViewport: "desktop", // desktop | tablet | mobile
     previewDay: "monday",
     previewUnbind: null,
+    pendingCleanupAssetIds: [], // deferred until draft save succeeds
+    lastSavedDraft: null,
   };
 
   function isEditorFlagEnabled() {
@@ -118,21 +121,55 @@
     }, 1200);
   }
 
+  function queueMediaCleanup(mediaAssetId) {
+    const id = String(mediaAssetId || "").trim();
+    if (!id) return;
+    if (!state.pendingCleanupAssetIds.includes(id)) {
+      state.pendingCleanupAssetIds.push(id);
+    }
+  }
+
+  async function flushPendingMediaCleanup(planId) {
+    const token = adminToken();
+    const ids = [...state.pendingCleanupAssetIds];
+    state.pendingCleanupAssetIds = [];
+    for (const mediaAssetId of ids) {
+      try {
+        await fetch("/api/admin/curriculum/enrichment-photos/delete", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            adminToken: token,
+            mediaAssetId,
+            lessonPlanId: planId || state.planId,
+            reason: "draft_replace_or_remove",
+          }),
+        });
+      } catch (_error) {
+        // Server draft-save cleanup is the safety net; keep going.
+      }
+    }
+  }
+
   async function saveDraft({ silent = false } = {}) {
     const plan = getPlan();
-    if (!plan) return;
+    if (!plan) return false;
     const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
     const endpoint = root.curriculumLessonPlanConfig?.endpoint || "/api/admin/curriculum/lesson-plans";
     if (!token) {
       state.statusText = "Admin unlock required to save draft.";
       renderChromeOnly();
-      return;
+      return false;
     }
     const activities = getActivities(plan);
     state.draft.completionPercent = recomputePercent(plan, activities);
     state.draft.updatedAt = new Date().toISOString();
     const admin = typeof adminSession === "function" ? adminSession() : null;
     state.draft.lastEditedBy = String(admin?.email || admin?.name || state.draft.lastEditedBy || "admin").trim();
+    const draftSnapshot = JSON.parse(JSON.stringify(state.draft));
     try {
       const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
         ? curriculumExpectedUpdatedAt()
@@ -155,22 +192,39 @@
         applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
       }
       state.dirty = false;
+      state.lastSavedDraft = draftSnapshot;
+      // Only after successful draft save may unused replaced/removed assets be cleaned up.
+      await flushPendingMediaCleanup(plan.id);
       state.statusText = silent
         ? `Draft autosaved ${new Date().toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`
         : "Draft saved. Published lesson unchanged until you Publish.";
       render();
+      return true;
     } catch (error) {
+      // Failed draft save must not erase previously saved photos — keep lastSavedDraft refs
+      // and do not flush pending cleanup (old assets may still be referenced server-side).
       state.statusText = `Draft save failed: ${error.message || error}`;
       renderChromeOnly();
+      return false;
     }
   }
 
   async function publishEnrichment() {
+    if (!SLICE.publish) {
+      state.statusText = "Publishing is not enabled in this slice.";
+      renderChromeOnly();
+      return;
+    }
     const plan = getPlan();
     if (!plan) return;
     const token = typeof adminSession === "function" ? (adminSession()?.token || "") : "";
     const endpoint = root.curriculumLessonPlanConfig?.endpoint || "/api/admin/curriculum/lesson-plans";
-    await saveDraft({ silent: true });
+    const saved = await saveDraft({ silent: true });
+    if (!saved && state.dirty) {
+      state.statusText = "Publish canceled — draft save failed. Previous published lesson unchanged.";
+      renderChromeOnly();
+      return;
+    }
     const expectedUpdatedAt = typeof curriculumExpectedUpdatedAt === "function"
       ? curriculumExpectedUpdatedAt()
       : "";
@@ -180,6 +234,7 @@
       body: JSON.stringify({
         saveMode: "publish_enrichment",
         expectedUpdatedAt,
+        publishedBy: state.draft.lastEditedBy || "",
         lessonPlan: { id: plan.id, enrichmentDraft: state.draft },
       }),
     });
@@ -188,12 +243,18 @@
     if (data.curriculum && typeof applyCurriculumState === "function") {
       applyCurriculumState(data.curriculum, { siteContentUpdatedAt: data.siteContentUpdatedAt });
     }
-    state.draft = { activities: {}, week: {}, updatedAt: "", previewReady: false };
+    state.draft = { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
+    state.lastSavedDraft = null;
+    state.pendingCleanupAssetIds = [];
     state.publishOpen = false;
-    state.statusText = "Published enrichment to providers.";
+    state.statusText = data.duplicate
+      ? "Already published — no duplicate version created."
+      : `Published enrichment to providers${data.versionId ? ` (${data.versionId})` : ""}.`;
     render();
     if (typeof showActionFeedback === "function") {
-      showActionFeedback("Teaching Kit enrichment published for this lesson.");
+      showActionFeedback(data.duplicate
+        ? "Enrichment already published for this lesson."
+        : "Teaching Kit enrichment published for this lesson.");
     }
   }
 
@@ -214,6 +275,10 @@
     state.jumpQuery = "";
     state.lightboxUrl = "";
     state.publishOpen = false;
+    state.pendingCleanupAssetIds = [];
+    state.lastSavedDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+      ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
+      : null;
     state.draft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
       ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
       : { activities: {}, week: {}, updatedAt: "", lastEditedBy: "", previewReady: false };
@@ -330,25 +395,6 @@
     return field === "exampleImageUrl" ? "exampleImageThumbUrl" : "setupImageThumbUrl";
   }
 
-  async function deleteMediaAsset(mediaAssetId) {
-    const id = String(mediaAssetId || "").trim();
-    if (!id) return;
-    const token = adminToken();
-    if (!token) return;
-    try {
-      await fetch("/api/admin/curriculum/enrichment-photos/delete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ adminToken: token, mediaAssetId: id }),
-      });
-    } catch (_error) {
-      // Best-effort cleanup; draft clear still proceeds.
-    }
-  }
-
   async function applyPhoto(key, field, file) {
     if (!SLICE.photoUpload) return;
     const check = validatePhotoFile(file);
@@ -395,8 +441,9 @@
       draftAct[field] = json.mediaUrl || "";
       draftAct[mediaThumbField(field)] = json.thumbUrl || json.mediaUrl || "";
       draftAct[mediaAssetField(field)] = json.mediaAssetId || "";
+      // Defer cleanup until draft save succeeds so a failed save keeps the previous photo.
       if (prevAsset && prevAsset !== draftAct[mediaAssetField(field)]) {
-        deleteMediaAsset(prevAsset);
+        queueMediaCleanup(prevAsset);
       }
       state.statusText = json.optimized
         ? "Photo uploaded (optimized + thumbnail)."
@@ -412,10 +459,11 @@
   async function removePhoto(key, field) {
     const draftAct = ensureDraftActivity(key);
     const assetId = draftAct[mediaAssetField(field)];
+    // Immediately clear draft references; cleanup bytes only after successful draft save.
     draftAct[field] = "";
     draftAct[mediaThumbField(field)] = "";
     draftAct[mediaAssetField(field)] = "";
-    if (assetId) await deleteMediaAsset(assetId);
+    if (assetId) queueMediaCleanup(assetId);
     state.statusText = "Photo removed from draft.";
     markDirty();
     render();
@@ -580,7 +628,7 @@
           </div>
         ` : ""}
         <div class="tk-enrich-slice-banner" role="status">
-          Slice 4 photos: private draft uploads with optimized thumbnails. AI and Publish stay off until later reviewed slices.
+          Slice 5 publish: explicit confirmation publishes this lesson’s enrichment draft only. AI and print stay off until later reviewed slices.
         </div>
         <nav class="tk-enrich-modes" role="tablist">
           <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
@@ -812,15 +860,19 @@
   function renderPublishModal(plan, activities) {
     if (!state.publishOpen) return "";
     const summary = api().summarizePublishChanges(plan, activities, state.draft);
+    const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
     return `
       <div class="tk-enrich-modal" data-publish-modal>
         <div class="tk-enrich-modal-card">
-          <h3>Publish enrichment?</h3>
+          <h3>Publish enrichment for this lesson?</h3>
+          <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. The current published version is kept for rollback.</p>
           <ul class="tk-enrich-publish-summary">
-            <li><strong>What changed:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
-            <li><strong>Updates a published lesson?</strong> ${summary.isPublished ? "Yes — providers will see enrichment after publish" : "No — lesson is not published"}</li>
+            <li><strong>What will change:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
             <li><strong>Linked activities affected:</strong> ${summary.linkedActivitiesAffected}</li>
+            <li><strong>Updates a published lesson?</strong> ${summary.isPublished ? "Yes — providers see enrichment only after this publish succeeds" : "No — lesson is not published/featured yet"}</li>
             <li><strong>Teaching Kit completeness:</strong> ${esc(summary.labelBefore)} ${summary.completionBefore}% → ${esc(summary.labelAfter)} ${summary.completionAfter}%</li>
+            <li><strong>Prior published version:</strong> ${historyCount ? `${historyCount} snapshot(s) already saved` : "Will be preserved on first publish"}</li>
+            <li><strong>Draft photos:</strong> Become provider-visible only after a successful publish (private draft URLs are never exposed)</li>
           </ul>
           <div class="form-actions">
             <button type="button" class="ghost-button" data-publish-cancel>Cancel</button>

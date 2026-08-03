@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Enrichment Editor Slice 1 — framework, navigation, progress, draft workflow.
- * Flag defaults false. Photos / AI / publish stay disabled.
+ * Flag defaults false. AI stays disabled. Publish is gated by the enrichment editor flag.
  * Run: npm run test:teaching-kit-enrichment-slice-1
  */
 const fs = require("fs");
@@ -257,13 +257,13 @@ async function testViewports(page, baseUrl) {
       const chrome = document.querySelector(".tk-enrich-chrome");
       const counter = document.querySelector(".tk-enrich-counter");
       const summary = document.querySelector("[data-upgrade-summary]");
-      const publishDisabled = Boolean(document.querySelector("[data-enrich-publish][disabled], .tk-enrich-chrome-actions button[disabled]"));
+      const publishEnabled = Boolean(document.querySelector("[data-enrich-publish]:not([disabled])"));
       const bodyText = document.body.innerText || "";
-      const sliceNote = /Slice\s+[12]/i.test(bodyText) || bodyText.includes("Activity Studio") || bodyText.includes("Draft autosave");
+      const sliceNote = /Slice\s+\d+/i.test(bodyText) || bodyText.includes("Activity Studio") || bodyText.includes("Draft autosave");
       const overflowX = shell ? shell.scrollWidth > shell.clientWidth + 2 : true;
       return {
         ok: Boolean(shell && chrome && counter && summary),
-        publishDisabled,
+        publishEnabled,
         sliceNote,
         overflowX,
         shellWidth: shell?.clientWidth || 0,
@@ -271,10 +271,10 @@ async function testViewports(page, baseUrl) {
       };
     });
     assert(metrics.ok, `${vp.name}: shell/chrome/counter/summary present`);
-    assert(metrics.publishDisabled === true, `${vp.name}: publish disabled`);
-    assert(metrics.sliceNote === true, `${vp.name}: slice 1 banner visible`);
+    assert(metrics.publishEnabled === true, `${vp.name}: publish control available`);
+    assert(metrics.sliceNote === true, `${vp.name}: slice banner visible`);
     assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
-    assert(metrics.features.publish === false, `${vp.name}: publish false`);
+    assert(metrics.features.publish === true, `${vp.name}: publish feature on`);
     assert(metrics.overflowX === false, `${vp.name}: no horizontal overflow (${metrics.shellWidth}px)`);
     void baseUrl;
   }
@@ -335,7 +335,7 @@ async function main() {
       "flag off blocks enrichment_draft",
     );
 
-    // Publish always blocked in Slice 1
+    // Publish blocked while enrichment editor flag is off
     const publishBlocked = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
       adminToken,
       expectedUpdatedAt,
@@ -343,8 +343,8 @@ async function main() {
       lessonPlan: { id: planId, enrichmentDraft: { activities: {} } },
     });
     assert(
-      publishBlocked.status === 403 && publishBlocked.json?.code === "enrichment_publish_disabled",
-      "publish_enrichment disabled in Slice 1",
+      publishBlocked.status === 404 && publishBlocked.json?.code === "enrichment_editor_disabled",
+      "publish_enrichment blocked when editor flag is off",
     );
 
     await setFlags(adminToken, { teachingKitEnrichmentEditor: true });

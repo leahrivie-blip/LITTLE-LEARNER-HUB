@@ -420,7 +420,7 @@ async function main() {
     assert(!providerHay.includes("enrichment-photos"), "provider kit has no draft photo URLs");
     assert(!providerHay.includes(uploadSetup.json.mediaAssetId), "provider kit has no draft asset id");
 
-    // Replace photo
+    // Replace photo (upload new asset)
     const replacePng = await makePngDataUrl(500, 400, { r: 10, g: 90, b: 160 });
     const replaced = await uploadPhoto(adminToken, {
       lessonPlanId: planPayload.id,
@@ -432,12 +432,46 @@ async function main() {
     assert(replaced.status === 200, "replace upload ok");
     assert(replaced.json.mediaAssetId !== uploadSetup.json.mediaAssetId, "replace creates new asset");
 
-    // Remove old asset
-    const del = await requestJson("POST", "/api/admin/curriculum/enrichment-photos/delete", {
+    // Old asset still referenced by saved draft → must not delete
+    const delBlocked = await requestJson("POST", "/api/admin/curriculum/enrichment-photos/delete", {
       adminToken,
       mediaAssetId: uploadSetup.json.mediaAssetId,
+      lessonPlanId: planPayload.id,
+      reason: "test_replace_still_referenced",
     }, { Authorization: `Bearer ${adminToken}` });
-    assert(del.status === 200 && del.json?.deleted, "remove photo asset");
+    assert(delBlocked.status === 409 && delBlocked.json?.code === "asset_still_referenced", "still-referenced asset not deleted");
+
+    // Save draft pointing at replaced asset only — server cleans unreferenced old asset
+    const replaceDraftSave = await requestJson("POST", "/api/admin/curriculum/lesson-plans", {
+      adminToken,
+      expectedUpdatedAt,
+      saveMode: "enrichment_draft",
+      lessonPlan: {
+        id: planPayload.id,
+        enrichmentDraft: {
+          ...draftBody,
+          activities: {
+            ...draftBody.activities,
+            [DISCOVERY_ID]: {
+              ...draftBody.activities[DISCOVERY_ID],
+              setupImageUrl: replaced.json.mediaUrl,
+              setupImageThumbUrl: replaced.json.thumbUrl,
+              setupMediaAssetId: replaced.json.mediaAssetId,
+              exampleImageUrl: uploadExample.json.mediaUrl,
+              exampleImageThumbUrl: uploadExample.json.thumbUrl,
+              exampleMediaAssetId: uploadExample.json.mediaAssetId,
+            },
+          },
+        },
+      },
+    });
+    assert(replaceDraftSave.status === 200, "draft save after replace");
+    expectedUpdatedAt = replaceDraftSave.json.siteContentUpdatedAt || expectedUpdatedAt;
+    const cleanupLogs = replaceDraftSave.json.mediaCleanup || [];
+    assert(
+      cleanupLogs.some((log) => log.assetId === uploadSetup.json.mediaAssetId && log.result === "deleted"),
+      "replace draft save cleans old unused asset",
+    );
     const gone = await requestBinary(
       "GET",
       `${uploadSetup.json.mediaUrl}&adminToken=${encodeURIComponent(adminToken)}`,
@@ -497,7 +531,6 @@ async function main() {
     });
     assert(ui.open === true, "editor opened");
     assert(ui.features.photoUpload === true, "photoUpload enabled in Slice 4");
-    assert(ui.features.publish === false, "publish still off");
     assert(ui.features.aiSuggest === false, "ai still off");
 
     await page.waitForSelector(".tk-enrich-photo input[type='file']", {
