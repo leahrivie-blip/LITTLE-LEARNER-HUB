@@ -105,11 +105,14 @@
     let tipsMissing = 0;
     let obsMissing = 0;
     let imagesMissing = 0;
+    let imagesBriefOnly = 0;
+    let draftReadyActs = 0;
     let completeActs = 0;
     list.forEach((act) => {
       const key = text(act.id) || text(act.itemId);
+      const patch = draftActs[key] || {};
       const view = enrich?.activityEnrichmentView
-        ? enrich.activityEnrichmentView(act, draftActs[key])
+        ? enrich.activityEnrichmentView(act, patch)
         : {
           teacherTips: asArray(act.teacherTips),
           observationPrompts: [],
@@ -118,9 +121,21 @@
         };
       if (!view.teacherTips.length) tipsMissing += 1;
       if (!view.observationPrompts.length && !text(act.observationOpportunities)) obsMissing += 1;
-      if (!view.setupImageUrl || !view.exampleImageUrl) imagesMissing += 1;
-      const status = enrich?.activityStatus ? enrich.activityStatus(act, draftActs[key]) : "not_started";
-      if (status === "complete") completeActs += 1;
+      const hasSetupVisual = Boolean(view.setupImageUrl || text(patch.imageBriefSetup));
+      const hasExampleVisual = Boolean(view.exampleImageUrl || text(patch.imageBriefExample));
+      if (!hasSetupVisual || !hasExampleVisual) imagesMissing += 1;
+      else if (!view.setupImageUrl || !view.exampleImageUrl) imagesBriefOnly += 1;
+      const hasDraftPack = Boolean(
+        view.teacherTips.length
+        && (view.observationPrompts.length || text(act.observationOpportunities))
+        && text(patch.setup || act.setup)
+        && text(patch.steps || act.steps)
+        && hasSetupVisual
+        && hasExampleVisual,
+      );
+      if (hasDraftPack) draftReadyActs += 1;
+      const status = enrich?.activityStatus ? enrich.activityStatus(act, patch) : "not_started";
+      if (status === "complete" || hasDraftPack) completeActs += 1;
     });
 
     const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
@@ -176,8 +191,13 @@
       {
         id: "activities",
         label: "Activities",
-        status: statusFromPresence(list.length > 0, list.length > 0 && completeActs >= Math.ceil(list.length * 0.6)),
-        detail: list.length ? `${completeActs}/${list.length} activities complete` : "No activities linked",
+        status: statusFromPresence(
+          list.length > 0 && draftReadyActs > 0,
+          list.length > 0 && draftReadyActs >= list.length,
+        ),
+        detail: list.length
+          ? `${draftReadyActs}/${list.length} activities have a full draft pack (${completeActs} complete/enriched)`
+          : "No activities linked",
       },
       {
         id: "teacher_tips",
@@ -224,8 +244,17 @@
       {
         id: "images",
         label: "Images",
-        status: statusFromPresence(list.length > 0 && imagesMissing < list.length * 2, list.length > 0 && imagesMissing === 0),
-        detail: list.length ? `${imagesMissing} photo gap(s) across setup/example` : "No activities",
+        status: statusFromPresence(
+          list.length > 0 && imagesMissing < list.length,
+          list.length > 0 && imagesMissing === 0,
+        ),
+        detail: list.length
+          ? (imagesMissing
+            ? `${imagesMissing} activit${imagesMissing === 1 ? "y" : "ies"} missing setup/example visuals`
+            : (imagesBriefOnly
+              ? `All activities have image briefs (${imagesBriefOnly} brief-only; upload photos when ready)`
+              : "All activities have setup + example visuals"))
+          : "No activities",
       },
       {
         id: "teacher_toolkit",
@@ -252,13 +281,29 @@
       .filter((section) => section.status !== "complete")
       .map((section) => section.id);
 
+    // Never call a lesson "Complete" when large Teaching Kit areas still lack drafts.
+    const majorGaps = gapSectionIds.filter((id) => [
+      "overview", "objectives", "activities", "songs", "books", "family", "printables", "teacher_toolkit",
+    ].includes(id));
+    let completionPercent = summary.completionPercent || 0;
+    let dashboardStage = summary.dashboardStage || "Legacy";
+    if (majorGaps.length >= 3 && completionPercent >= 90) {
+      completionPercent = Math.min(completionPercent, 75);
+      dashboardStage = "Needs Review";
+    } else if (list.length && draftReadyActs < list.length && completionPercent >= 90) {
+      completionPercent = Math.min(completionPercent, 85);
+      if (dashboardStage === "Complete") dashboardStage = "Ready";
+    }
+
     return {
       sections,
       counts,
       gapSectionIds,
-      completionPercent: summary.completionPercent || 0,
-      dashboardStage: summary.dashboardStage || "Legacy",
+      completionPercent,
+      dashboardStage,
       activityCount: list.length,
+      draftReadyActivities: draftReadyActs,
+      imagesBriefOnly,
       analyzedAt: new Date().toISOString(),
     };
   }
@@ -268,47 +313,88 @@
     return section && section.status !== "complete";
   }
 
+  const CATEGORY_TO_SECTION = Object.freeze({
+    weekly_overview: "overview",
+    learning_objectives: "objectives",
+    materials_list: "materials",
+    vocabulary: "vocabulary",
+    vocab_cards: "vocabulary",
+    teacher_tips: "teacher_tips",
+    observation_prompts: "observation_prompts",
+    songs: "songs",
+    books: "books",
+    family_connection: "family",
+    printable_ideas: "printables",
+    teacher_preparation: "teacher_toolkit",
+    toolkit_prep: "teacher_toolkit",
+    toolkit_observation: "teacher_toolkit",
+    image_brief_setup: "images",
+    image_brief_example: "images",
+    setup: "activities",
+    steps: "activities",
+    adaptations: "activities",
+    extensions: "activities",
+    indoor_alternatives: "activities",
+    outdoor_alternatives: "activities",
+    indoor_outdoor: "activities",
+    group_ideas: "teacher_tips",
+    setting_tags: "activities",
+    substitutions: "activities",
+    milestones: "objectives",
+  });
+
+  function sectionIdForSuggestion(sug) {
+    return CATEGORY_TO_SECTION[text(sug?.category)] || "";
+  }
+
   /**
    * Keep only suggestions that fill gaps / weak areas. Never used to wipe strong content —
    * applySuggestionsToDraft is already additive; this filters the suggestion set.
+   * For complete-kit generation, keep activity-scoped rows for activities that are not draft-ready.
    */
   function filterSuggestionsForGaps(suggestions, analysis) {
     const gap = new Set(asArray(analysis?.gapSectionIds));
-    const categoryToSection = {
-      weekly_overview: "overview",
-      learning_objectives: "objectives",
-      materials_list: "materials",
-      vocabulary: "vocabulary",
-      vocab_cards: "vocabulary",
-      teacher_tips: "teacher_tips",
-      observation_prompts: "observation_prompts",
-      songs: "songs",
-      books: "books",
-      family_connection: "family",
-      printable_ideas: "printables",
-      teacher_preparation: "teacher_toolkit",
-      toolkit_prep: "teacher_toolkit",
-      toolkit_observation: "teacher_toolkit",
-      image_brief_setup: "images",
-      image_brief_example: "images",
-      setup: "activities",
-      steps: "activities",
-      adaptations: "activities",
-      extensions: "activities",
-      indoor_alternatives: "activities",
-      outdoor_alternatives: "activities",
-      indoor_outdoor: "activities",
-      group_ideas: "teacher_tips",
-      setting_tags: "activities",
-      substitutions: "activities",
-      milestones: "objectives",
-    };
+    const draftReadyRatio = analysis?.activityCount
+      ? (analysis.draftReadyActivities || 0) / analysis.activityCount
+      : 0;
+    const forceActivityFill = draftReadyRatio < 1;
     return asArray(suggestions).filter((sug) => {
-      const sectionId = categoryToSection[text(sug.category)] || "";
+      const sectionId = sectionIdForSuggestion(sug);
       if (!sectionId) return true;
+      if (text(sug.activityKey) && forceActivityFill) {
+        // Still skip sections that are already complete when the category is week-only-ish
+        if (["overview", "objectives", "materials", "family", "printables", "songs", "books"].includes(sectionId)
+          && !gap.has(sectionId) && !sectionNeedsWork(analysis, sectionId)) {
+          return false;
+        }
+        return true;
+      }
       if (sectionId === "books" && gap.has("book_questions")) return true;
       return gap.has(sectionId) || sectionNeedsWork(analysis, sectionId);
     });
+  }
+
+  function groupSuggestionsForReview(suggestions) {
+    const week = [];
+    const byActivity = new Map();
+    asArray(suggestions).forEach((sug, index) => {
+      const row = { ...sug, index };
+      const key = text(sug.activityKey);
+      if (!key || text(sug.scope) === "week") {
+        week.push(row);
+        return;
+      }
+      if (!byActivity.has(key)) byActivity.set(key, []);
+      byActivity.get(key).push(row);
+    });
+    return {
+      week,
+      activities: [...byActivity.entries()].map(([activityKey, rows]) => ({
+        activityKey,
+        rows,
+        sectionIds: [...new Set(rows.map(sectionIdForSuggestion).filter(Boolean))],
+      })),
+    };
   }
 
   function buildSideBySideRows(suggestions) {
@@ -379,10 +465,13 @@
   return {
     SECTION_DEFS,
     STATUS,
+    CATEGORY_TO_SECTION,
     analyzeLessonCompleteness,
     filterSuggestionsForGaps,
     buildSideBySideRows,
     applyLessonTeacherDecisions,
     sectionNeedsWork,
+    sectionIdForSuggestion,
+    groupSuggestionsForReview,
   };
 });

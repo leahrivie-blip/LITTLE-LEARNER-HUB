@@ -104,7 +104,7 @@ function startServer() {
       PORT: String(PORT),
       HOST: "127.0.0.1",
       DATABASE_PROVIDER: "local-json",
-      LOCAL_JSON_STORE_PATH: STORE_PATH,
+      LLH_STORE_PATH: STORE_PATH,
       ADMIN_EMAIL: ADMIN.email,
       ADMIN_PASSWORD: ADMIN.password,
       ADMIN_ACCESS_CODE: ADMIN.code,
@@ -146,8 +146,9 @@ async function setFlags(adminToken, flags) {
 }
 
 function gardenPlan() {
-  const item = (day, suffix, title) => ({
-    itemId: `act-ai-garden-${suffix}`,
+  const suffix = `${process.pid}-${Date.now().toString(36)}`;
+  const item = (day, name, title) => ({
+    itemId: `act-ai-garden-${name}-${suffix}`,
     title,
     activityCategory: "Fine Motor",
     materials: "Cups and seeds",
@@ -157,7 +158,7 @@ function gardenPlan() {
     steps: "",
   });
   return {
-    id: "cur-lp-ai-teacher-garden",
+    id: `cur-lp-ai-teacher-garden-${suffix}`,
     title: "Garden Helpers AI Teacher",
     age: "Toddler",
     theme: "Gardening",
@@ -171,6 +172,7 @@ function gardenPlan() {
     songs: [],
     vocabularyWords: "seed",
     coverImageUrl: "",
+    enrichmentDraft: null,
     dailyPlans: {
       monday: { items: [item("monday", "seed", "Seed Sorting")] },
       tuesday: { items: [item("tuesday", "water", "Watering Practice")] },
@@ -209,8 +211,10 @@ function testAnalyzeAndFilter() {
     weekDraft: {},
     draftActivities: {},
   };
-  const pack = enrichmentAi.buildLessonTeacherFixtureSuggestions(ctx);
+  const packed = enrichmentAi.getLessonTeacherFixturePack(ctx);
+  const pack = packed.suggestions || [];
   assert(pack.length >= 8, "lesson teacher fixture pack");
+  assert(packed.batch && typeof packed.batch.hasMore === "boolean", "batch metadata");
   assert(pack.some((s) => s.category === "songs"), "songs suggestion");
   assert(pack.some((s) => s.category === "books"), "books suggestion");
   assert(pack.some((s) => s.category === "image_brief_setup"), "image briefs");
@@ -335,7 +339,12 @@ async function main() {
         },
       });
       window.adminSession = () => ({ token: payload.adminToken });
-      window.curriculumLessonPlanById = (id) => (id === payload.plan.id ? payload.plan : null);
+      // Start from an empty enrichment draft so Prepare AI Draft has real gaps to fill.
+      const emptyPlan = {
+        ...payload.plan,
+        enrichmentDraft: { activities: {}, week: {} },
+      };
+      window.curriculumLessonPlanById = (id) => (id === emptyPlan.id ? emptyPlan : null);
       window.curriculumActivitiesForLesson = () => [];
       window.showActionFeedback = () => {};
 
@@ -345,7 +354,7 @@ async function main() {
       document.body.appendChild(host);
 
       // Open without racing a second request — open() auto-prepares when gaps exist.
-      window.LLHTeachingKitEnrichmentEditor.open(payload.plan.id);
+      window.LLHTeachingKitEnrichmentEditor.open(emptyPlan.id);
       for (let i = 0; i < 40; i += 1) {
         await new Promise((r) => setTimeout(r, 100));
         const trayReady = document.querySelector("[data-ai-tray] [data-ai-review-list], [data-ai-tray] [data-ai-error], [data-ai-tray] [data-ai-loading]");
@@ -377,7 +386,7 @@ async function main() {
         sideBySide: compareHeads.includes("Current Lesson") && compareHeads.includes("AI Draft"),
         acceptAll: Boolean(document.querySelector("[data-ai-accept-all]")),
         rejectAll: Boolean(document.querySelector("[data-ai-reject-all]")),
-        reviewTitle: (document.querySelector("#tk-enrich-ai-title")?.textContent || "").includes("Side-by-side"),
+        reviewTitle: /Side-by-side|Complete kit/i.test(document.querySelector("#tk-enrich-ai-title")?.textContent || ""),
         cardCount: document.querySelectorAll("[data-ai-card]").length,
       };
     }, {
@@ -416,7 +425,11 @@ async function main() {
     });
     assert(acceptResult.hasWeekDraft, "accept writes draft");
     assert(acceptResult.trayClosed, "tray closes after accept");
-    assert(acceptResult.after >= acceptResult.before, "completion updates after accept");
+    assert(typeof acceptResult.after === "number", "completion percent available after accept");
+    assert(
+      acceptResult.after > acceptResult.before,
+      `completion rises after accept (before=${acceptResult.before}, after=${acceptResult.after})`,
+    );
 
     await page.screenshot({
       path: path.join(ARTIFACT_DIR, "tk-ai-lesson-teacher-after-accept-desktop.png"),

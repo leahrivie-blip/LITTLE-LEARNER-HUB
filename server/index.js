@@ -16848,8 +16848,8 @@ function loadEnrichmentHelpers() {
 /** In-flight enrichment AI keys → requestId (duplicate short-circuit). */
 const enrichmentAiRecentRequests = new Map();
 
-function enrichmentAiDedupeKey(planId, activityKey, scope) {
-  return `${planId}::${scope}::${activityKey || ""}`;
+function enrichmentAiDedupeKey(planId, activityKey, scope, batchKey = "") {
+  return `${planId}::${scope}::${activityKey || ""}::${batchKey || "0"}`;
 }
 
 async function handleAdminEnrichmentAiSuggest(request, response) {
@@ -16878,6 +16878,12 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
   const scopeRaw = normalizedShortText(body.scope, 20).toLowerCase();
   const scope = scopeRaw === "week" || scopeRaw === "lesson" ? scopeRaw : "activity";
   const simulate = normalizedShortText(body.simulate, 40).toLowerCase();
+  const activityOffset = Math.max(0, Number(body.activityOffset) || 0);
+  const activityLimitRaw = Number(body.activityLimit);
+  const activityLimit = Number.isFinite(activityLimitRaw) && activityLimitRaw > 0
+    ? Math.min(Math.floor(activityLimitRaw), 20)
+    : (enrichmentAi.LESSON_TEACHER_ACTIVITY_BATCH_SIZE || 5);
+  const includeWeek = body.includeWeek !== false && activityOffset === 0;
   const requestId = enrichmentAi.createEnrichmentAiRequestId();
 
   if (!planId) {
@@ -16934,6 +16940,9 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     activityDraft,
     weekDraft,
     draftActivities: draft.activities && typeof draft.activities === "object" ? draft.activities : {},
+    activityOffset,
+    activityLimit,
+    includeWeek,
     existing: scope === "week" || scope === "lesson"
       ? {
         week: weekDraft,
@@ -16949,7 +16958,8 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
       },
   };
 
-  const dedupeKey = enrichmentAiDedupeKey(planId, activityKey, scope);
+  const batchKey = scope === "lesson" ? `off-${activityOffset}-lim-${activityLimit}` : "";
+  const dedupeKey = enrichmentAiDedupeKey(planId, activityKey, scope, batchKey);
   const recent = enrichmentAiRecentRequests.get(dedupeKey);
   if (recent && (Date.now() - recent.at) < 2500 && !simulate) {
     enrichmentAi.logEnrichmentAiEvent({
@@ -16967,8 +16977,14 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
       duplicate: true,
       requestId: recent.requestId,
       suggestions: recent.suggestions || [],
+      batch: recent.batch || undefined,
+      analysis: scope === "lesson" ? analysis : undefined,
       source: recent.source || "cache",
       message: "A matching suggestion request was already in progress. Reusing the prior result.",
+      autoSaved: false,
+      autoPublished: false,
+      curriculumUnchanged: true,
+      publishedContentPreserved: true,
     });
     return;
   }
@@ -17044,11 +17060,19 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
 
   let suggestions = [];
   let source = "fixture";
+  let batch = null;
   try {
-    // Lesson Teacher uses the structured lesson pack (gap-filtered). Activity/week may use OpenAI.
-    if (scope === "lesson" || forceFixture || simulate === "fixture" || simulate === "ok") {
+    // Lesson Teacher uses the structured lesson pack (gap-filtered, batched). Activity/week may use OpenAI.
+    if (scope === "lesson") {
+      const packed = enrichmentAi.getLessonTeacherFixturePack
+        ? enrichmentAi.getLessonTeacherFixturePack(ctx)
+        : enrichmentAi.buildLessonTeacherFixtureSuggestions(ctx);
+      suggestions = Array.isArray(packed) ? packed : (packed?.suggestions || []);
+      batch = Array.isArray(packed) ? null : (packed?.batch || null);
+      source = "lesson_teacher_fixture";
+    } else if (forceFixture || simulate === "fixture" || simulate === "ok") {
       suggestions = enrichmentAi.buildFixtureSuggestions(ctx);
-      source = scope === "lesson" ? "lesson_teacher_fixture" : "fixture";
+      source = "fixture";
     } else {
       const systemPrompt = enrichmentAi.buildEnrichmentAiSystemPrompt();
       const userPrompt = enrichmentAi.buildEnrichmentAiUserPrompt({
@@ -17122,6 +17146,7 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     at: Date.now(),
     suggestions,
     source,
+    batch,
   });
   // Prune old dedupe entries
   if (enrichmentAiRecentRequests.size > 100) {
@@ -17142,6 +17167,8 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     fields: [...new Set(suggestions.map((s) => s.field))],
     durationMs: Date.now() - started,
     code: source,
+    batchOffset: batch?.activityOffset,
+    batchHasMore: batch?.hasMore,
   });
 
   jsonResponse(response, 200, {
@@ -17152,6 +17179,7 @@ async function handleAdminEnrichmentAiSuggest(request, response) {
     scope,
     source,
     suggestions,
+    batch: scope === "lesson" ? batch : undefined,
     analysis: scope === "lesson" ? analysis : undefined,
     // Explicit guarantees for clients/tests
     autoSaved: false,

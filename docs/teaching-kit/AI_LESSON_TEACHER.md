@@ -93,13 +93,14 @@ Flags stay default `false` outside the suite.
 ## Known limitations
 
 - Without OpenAI, lesson scope uses the structured fixture pack (deterministic, reviewable).
-- Activity pack currently covers the first 3 activities per lesson request (admin can re-run / use activity-scoped Suggest with AI).
+- Complete-kit generation batches every activity (see `COMPLETE_KIT_GENERATION.md`).
 - Image briefs are text only — no automatic image generation or upload.
 - Songs/books are suggestions only; copyrighted lyrics and book text are never reproduced.
 - Completion score does not judge pedagogy quality.
+- **Regenerate only this section** is planned as a follow-up (not in the complete-kit PR).
 
 ---
 
-## Production readiness (this phase)
+## Production readiness
 
-**7.5/10** — analysis + draft + review wired for one-lesson upgrades; still flag-gated, fixture-backed when OpenAI is unset, and not production-enabled.
+See latest score in `COMPLETE_KIT_GENERATION.md` (complete-kit phase).

@@ -107,7 +107,7 @@ function startServer() {
       PORT: String(PORT),
       HOST: "127.0.0.1",
       DATABASE_PROVIDER: "local-json",
-      LOCAL_JSON_STORE_PATH: STORE_PATH,
+      LLH_STORE_PATH: STORE_PATH,
       ADMIN_EMAIL: ADMIN.email,
       ADMIN_PASSWORD: ADMIN.password,
       ADMIN_ACCESS_CODE: ADMIN.code,

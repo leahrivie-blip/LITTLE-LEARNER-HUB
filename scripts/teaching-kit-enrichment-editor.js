@@ -46,6 +46,8 @@
       scope: "activity",
       suggestions: [],
       abortController: null,
+      batchProgress: null, // { processed, total, batchCount, elapsedMs, hasMore }
+      generationTiming: null,
     },
   };
 
@@ -149,6 +151,8 @@
       scope: "activity",
       suggestions: [],
       abortController: null,
+      batchProgress: null,
+      generationTiming: null,
     };
   }
 
@@ -157,7 +161,54 @@
     return act ? draftKey(act) : "";
   }
 
-  async function requestAiSuggestions({ scope = "activity", simulate = "" } = {}) {
+  function mapAiSuggestionRows(items) {
+    return (Array.isArray(items) ? items : []).map((item) => ({
+      ...item,
+      decision: "pending",
+      selected: true,
+      editing: false,
+      editText: item.proposedText || "",
+    }));
+  }
+
+  async function fetchAiSuggestBatch({
+    plan,
+    token,
+    scope,
+    activityKey,
+    simulate,
+    activityOffset = 0,
+    activityLimit = 5,
+    includeWeek = true,
+    signal,
+  }) {
+    const body = {
+      adminToken: token,
+      planId: plan.id,
+      activityKey,
+      scope,
+      activityOffset,
+      activityLimit,
+      includeWeek,
+    };
+    if (simulate) body.simulate = simulate;
+    const response = await fetch("/api/admin/curriculum/enrichment-ai-suggest", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+      signal,
+    });
+    const data = await response.json().catch(() => ({}));
+    return { response, data };
+  }
+
+  /**
+   * Complete Teaching Kit generation: batches every activity behind one review session.
+   */
+  async function requestCompleteLessonDraft({ simulate = "" } = {}) {
     const plan = getPlan();
     if (!plan) return;
     const token = adminToken();
@@ -170,7 +221,145 @@
       try { state.aiTray.abortController.abort(); } catch (_error) { /* ignore */ }
     }
     const controller = typeof AbortController === "function" ? new AbortController() : null;
-    const activityKey = (scope === "week" || scope === "lesson") ? "" : currentAiActivityKey(plan);
+    const started = Date.now();
+    state.aiTray.open = true;
+    state.aiTray.phase = "loading";
+    state.aiTray.errorText = "";
+    state.aiTray.suggestions = [];
+    state.aiTray.scope = "lesson";
+    state.aiTray.activityKey = "";
+    state.aiTray.requestId = "";
+    state.aiTray.abortController = controller;
+    state.aiTray.batchProgress = { processed: 0, total: getActivities(plan).length, batchCount: 0, elapsedMs: 0, hasMore: true };
+    state.aiTray.generationTiming = null;
+    state.statusText = "AI Lesson Teacher is preparing a complete Teaching Kit draft…";
+    render();
+
+    const allSuggestions = [];
+    const batchTimings = [];
+    let offset = 0;
+    let hasMore = true;
+    let batchCount = 0;
+    let lastAnalysis = null;
+    let activityTotal = getActivities(plan).length;
+
+    try {
+      while (hasMore) {
+        if (state.aiTray.abortController !== controller) return;
+        if (controller?.signal?.aborted) return;
+        batchCount += 1;
+        const batchStarted = Date.now();
+        const { response, data } = await fetchAiSuggestBatch({
+          plan,
+          token,
+          scope: "lesson",
+          activityKey: "",
+          simulate,
+          activityOffset: offset,
+          activityLimit: 5,
+          includeWeek: offset === 0,
+          signal: controller ? controller.signal : undefined,
+        });
+        if (state.aiTray.abortController !== controller) return;
+        if (controller?.signal?.aborted) return;
+        if (!response.ok) {
+          const code = String(data.code || "");
+          state.aiTray.phase = code === "enrichment_ai_timeout" ? "timeout" : "error";
+          state.aiTray.errorText = data.error || `AI request failed (HTTP ${response.status}). Existing content was not changed.`;
+          state.aiTray.requestId = data.requestId || "";
+          state.statusText = state.aiTray.phase === "timeout"
+            ? "AI timed out — draft unchanged."
+            : "AI suggestion failed — draft unchanged.";
+          render();
+          return;
+        }
+        if (data.analysis) lastAnalysis = data.analysis;
+        const batchRows = mapAiSuggestionRows(data.suggestions);
+        allSuggestions.push(...batchRows);
+        const batch = data.batch || {};
+        activityTotal = Number(batch.activityTotal) || activityTotal;
+        const processed = Math.min(activityTotal, Number(batch.nextOffset) || (offset + (batch.processedCount || 0)));
+        hasMore = batch.hasMore === true;
+        offset = Number(batch.nextOffset) || processed;
+        const batchMs = Date.now() - batchStarted;
+        batchTimings.push({
+          batch: batchCount,
+          offset: batch.activityOffset || 0,
+          processedCount: batch.processedCount || 0,
+          suggestionCount: batchRows.length,
+          ms: batchMs,
+        });
+        state.aiTray.suggestions = allSuggestions.slice();
+        state.aiTray.requestId = data.requestId || state.aiTray.requestId;
+        state.aiTray.batchProgress = {
+          processed,
+          total: activityTotal,
+          batchCount,
+          elapsedMs: Date.now() - started,
+          hasMore,
+        };
+        state.statusText = hasMore
+          ? `Preparing complete kit… activities ${processed} of ${activityTotal} (batch ${batchCount}). Review can begin — more rows still loading.`
+          : `Complete Teaching Kit draft ready: ${allSuggestions.length} improvement(s) across ${activityTotal} activities.`;
+        // Progressive review: show accumulated rows while later batches load.
+        state.aiTray.phase = hasMore ? "loading" : "ready";
+        render();
+      }
+      // Prefer editor-local analysis (server draft may differ from in-progress editor draft).
+      refreshLessonAnalysis();
+      if (!state.lessonAnalysis && lastAnalysis) state.lessonAnalysis = lastAnalysis;
+      const elapsedMs = Date.now() - started;
+      state.aiTray.generationTiming = {
+        elapsedMs,
+        batchCount,
+        suggestionCount: allSuggestions.length,
+        activityTotal,
+        batches: batchTimings,
+      };
+      state.aiTray.phase = "ready";
+      state.aiTray.batchProgress = {
+        processed: activityTotal,
+        total: activityTotal,
+        batchCount,
+        elapsedMs,
+        hasMore: false,
+      };
+      state.statusText = `Complete Teaching Kit draft ready (${allSuggestions.length} rows, ${batchCount} batch${batchCount === 1 ? "" : "es"}, ${(elapsedMs / 1000).toFixed(1)}s). Nothing publishes until you approve.`;
+      render();
+    } catch (error) {
+      if (state.aiTray.abortController !== controller) return;
+      if (error && error.name === "AbortError") {
+        state.aiTray.phase = "idle";
+        state.aiTray.open = false;
+        state.statusText = "AI suggestion canceled. Draft unchanged.";
+        render();
+        return;
+      }
+      state.aiTray.phase = "error";
+      state.aiTray.errorText = networkErrorMessage(error, "AI suggestion failed. Existing content was not changed.");
+      state.statusText = "AI suggestion failed — draft unchanged.";
+      render();
+    }
+  }
+
+  async function requestAiSuggestions({ scope = "activity", simulate = "" } = {}) {
+    if (scope === "lesson") {
+      await requestCompleteLessonDraft({ simulate });
+      return;
+    }
+    const plan = getPlan();
+    if (!plan) return;
+    const token = adminToken();
+    if (!token) {
+      state.statusText = "Admin unlock required for AI Lesson Teacher.";
+      renderChromeOnly();
+      return;
+    }
+    if (state.aiTray.abortController) {
+      try { state.aiTray.abortController.abort(); } catch (_error) { /* ignore */ }
+    }
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const activityKey = scope === "week" ? "" : currentAiActivityKey(plan);
     state.aiTray.open = true;
     state.aiTray.phase = "loading";
     state.aiTray.errorText = "";
@@ -179,31 +368,22 @@
     state.aiTray.activityKey = activityKey;
     state.aiTray.requestId = "";
     state.aiTray.abortController = controller;
-    state.statusText = scope === "lesson"
-      ? "AI Lesson Teacher is analyzing gaps and preparing a draft…"
-      : "Requesting AI suggestions…";
+    state.aiTray.batchProgress = null;
+    state.statusText = "Requesting AI suggestions…";
     render();
 
-    const body = {
-      adminToken: token,
-      planId: plan.id,
-      activityKey,
-      scope,
-    };
-    if (simulate) body.simulate = simulate;
-
     try {
-      const response = await fetch("/api/admin/curriculum/enrichment-ai-suggest", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+      const { response, data } = await fetchAiSuggestBatch({
+        plan,
+        token,
+        scope,
+        activityKey,
+        simulate,
+        activityOffset: 0,
+        activityLimit: 5,
+        includeWeek: true,
         signal: controller ? controller.signal : undefined,
       });
-      const data = await response.json().catch(() => ({}));
-      // Ignore stale responses after a newer Prepare AI Draft / Suggest call started.
       if (state.aiTray.abortController !== controller) return;
       if (controller && controller.signal.aborted) return;
       if (!response.ok) {
@@ -217,26 +397,17 @@
         render();
         return;
       }
-      if (data.analysis) state.lessonAnalysis = data.analysis;
-      else refreshLessonAnalysis();
-      const suggestions = Array.isArray(data.suggestions) ? data.suggestions.map((item) => ({
-        ...item,
-        decision: "pending",
-        selected: true,
-        editing: false,
-        editText: item.proposedText || "",
-      })) : [];
+      refreshLessonAnalysis();
+      if (!state.lessonAnalysis && data.analysis) state.lessonAnalysis = data.analysis;
+      const suggestions = mapAiSuggestionRows(data.suggestions);
       state.aiTray.phase = "ready";
       state.aiTray.suggestions = suggestions;
       state.aiTray.requestId = data.requestId || "";
       state.statusText = data.duplicate
         ? "Reused recent AI draft — review Current vs AI Draft before accepting."
-        : scope === "lesson"
-          ? `AI Lesson Teacher prepared ${suggestions.length} draft improvement(s). Nothing publishes until you approve.`
-          : `AI returned ${suggestions.length} suggestion(s). Nothing saved until you insert.`;
+        : `AI returned ${suggestions.length} suggestion(s). Nothing saved until you insert.`;
       render();
     } catch (error) {
-      // Abort from a superseded request must not close a newer review tray.
       if (state.aiTray.abortController !== controller) return;
       if (error && error.name === "AbortError") {
         state.aiTray.phase = "idle";
@@ -309,20 +480,32 @@
     };
   }
 
-  async function insertSelectedAiSuggestions({ acceptAll = false } = {}) {
+  async function insertSelectedAiSuggestions({
+    acceptAll = false,
+    sectionId = "",
+    activityKeyFilter = "",
+    closeTray = true,
+  } = {}) {
     const plan = getPlan();
     const enrich = api();
     const teacher = lessonTeacher();
     if (!plan || !enrich?.applySuggestionsToDraft) return;
+    const sectionMatch = String(sectionId || "").trim();
+    const activityMatch = String(activityKeyFilter || "").trim();
     const suggestions = state.aiTray.suggestions.map((sug) => {
       const next = applyAiSuggestionEdits({ ...sug });
       if (next.decision === "discarded") return { ...next, selected: false };
-      if (acceptAll && next.decision !== "discarded") {
-        return { ...next, decision: "accepted", selected: true };
+      let include = false;
+      if (acceptAll) include = true;
+      else if (sectionMatch) {
+        include = (teacher?.sectionIdForSuggestion?.(next) || "") === sectionMatch
+          || (sectionMatch === "week" && (!next.activityKey || next.scope === "week"));
+      } else if (activityMatch) {
+        include = String(next.activityKey || "") === activityMatch;
+      } else if (next.selected || next.decision === "accepted") {
+        include = true;
       }
-      if (next.selected || next.decision === "accepted") {
-        return { ...next, decision: "accepted", selected: true };
-      }
+      if (include) return { ...next, decision: "accepted", selected: true };
       return { ...next, selected: false };
     });
     const toInsert = suggestions.filter((s) => s.selected && s.decision === "accepted");
@@ -340,13 +523,30 @@
     state.draft = applied.draft;
     const insertedCount = (applied.inserted || []).length;
     await logAiInsert(applied.fields || [], insertedCount);
-    resetAiTray();
+    const insertedIds = new Set(toInsert.map((s) => s.id));
+    const remaining = state.aiTray.suggestions
+      .map((sug) => applyAiSuggestionEdits({ ...sug }))
+      .filter((sug) => !insertedIds.has(sug.id) && sug.decision !== "discarded");
     refreshLessonAnalysis();
     markDirty({ autosave: false });
     const pct = state.lessonAnalysis?.completionPercent;
-    state.statusText = insertedCount
-      ? `Accepted ${insertedCount} AI improvement(s) into draft only — not published.${pct != null ? ` Completion now ${pct}%.` : ""}`
-      : "No suggestions accepted.";
+    const label = sectionMatch
+      ? `section “${sectionMatch}”`
+      : (activityMatch ? `activity ${activityMatch}` : "selected");
+    if (closeTray || !remaining.length || acceptAll) {
+      resetAiTray();
+      state.statusText = insertedCount
+        ? `Accepted ${insertedCount} AI improvement(s) (${label}) into draft only — not published.${pct != null ? ` Completion now ${pct}%.` : ""}`
+        : "No suggestions accepted.";
+    } else {
+      state.aiTray.suggestions = remaining.map((sug) => ({
+        ...sug,
+        selected: sug.decision !== "discarded",
+        decision: sug.decision === "accepted" ? "pending" : sug.decision,
+      }));
+      state.aiTray.phase = "ready";
+      state.statusText = `Accepted ${insertedCount} (${label}) into draft. ${remaining.length} suggestion(s) still in review — not published.`;
+    }
     render();
   }
 
@@ -1214,18 +1414,126 @@
     `;
   }
 
+  function renderAiSuggestionCard(sug, index) {
+    const discarded = sug.decision === "discarded";
+    const scopeHint = sug.activityKey
+      ? `Activity · ${sug.activityKey}`
+      : (sug.scope === "week" || state.aiTray.scope === "lesson" ? "Week" : "Activity");
+    return `
+      <article class="tk-enrich-ai-card ${discarded ? "is-discarded" : ""} ${sug.selected ? "is-selected" : ""}" data-ai-card="${index}">
+        <label class="tk-enrich-ai-select">
+          <input type="checkbox" data-ai-select="${index}" ${sug.selected && !discarded ? "checked" : ""} ${discarded ? "disabled" : ""} />
+          <span>Select</span>
+        </label>
+        <div class="tk-enrich-ai-meta">
+          <strong>${esc(sug.fieldLabel || sug.field)}</strong>
+          <span class="muted-copy">${esc(sug.category || "")}</span>
+          <span class="tag">${esc(scopeHint)}</span>
+        </div>
+        <div class="tk-enrich-ai-compare">
+          <div>
+            <h5>Current Lesson</h5>
+            <p>${esc(sug.currentValue || "(empty)")}</p>
+          </div>
+          <div>
+            <h5>AI Draft</h5>
+            ${sug.editing
+              ? `<textarea data-ai-edit-text="${index}" rows="3">${esc(sug.editText || sug.proposedText || "")}</textarea>`
+              : `<p>${esc(sug.proposedText || "")}</p>`}
+          </div>
+        </div>
+        <div class="tk-enrich-ai-card-actions">
+          <button type="button" class="ghost-button" data-ai-accept="${index}" ${discarded ? "disabled" : ""}>Accept</button>
+          <button type="button" class="ghost-button" data-ai-edit="${index}" ${discarded ? "disabled" : ""}>${sug.editing ? "Done editing" : "Edit before accept"}</button>
+          <button type="button" class="ghost-button" data-ai-discard="${index}">Reject</button>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderAiReviewList(tray) {
+    const teacher = lessonTeacher();
+    const grouped = teacher?.groupSuggestionsForReview
+      ? teacher.groupSuggestionsForReview(tray.suggestions)
+      : { week: tray.suggestions || [], activities: [] };
+    const useGroups = tray.scope === "lesson" && (grouped.week.length || grouped.activities.length);
+    if (!useGroups) {
+      const cards = (tray.suggestions || []).map((sug, index) => renderAiSuggestionCard(sug, index)).join("")
+        || `<p class="muted-copy">No draft improvements for the current gaps. Existing content was preserved.</p>`;
+      return `<div class="tk-enrich-ai-list" data-ai-review-list>${cards}</div>`;
+    }
+
+    const indexById = new Map((tray.suggestions || []).map((sug, index) => [sug.id, index]));
+    const weekCards = grouped.week.map((sug) => renderAiSuggestionCard(sug, indexById.get(sug.id) ?? sug.index)).join("");
+    const activityBlocks = grouped.activities.map((group) => {
+      const title = (() => {
+        const plan = getPlan();
+        const act = getActivities(plan).find((a) => draftKey(a) === group.activityKey);
+        return act?.title || group.activityKey;
+      })();
+      const cards = group.rows.map((sug) => renderAiSuggestionCard(sug, indexById.get(sug.id) ?? sug.index)).join("");
+      return `
+        <section class="tk-enrich-ai-group" data-ai-activity-group="${esc(group.activityKey)}">
+          <div class="tk-enrich-ai-group-head">
+            <strong>${esc(title)}</strong>
+            <button type="button" class="ghost-button" data-ai-accept-activity="${esc(group.activityKey)}">Accept activity</button>
+          </div>
+          <div class="tk-enrich-ai-list">${cards}</div>
+        </section>
+      `;
+    }).join("");
+
+    const sectionButtons = [
+      ["overview", "Overview"],
+      ["objectives", "Objectives"],
+      ["vocabulary", "Vocabulary"],
+      ["materials", "Materials"],
+      ["songs", "Songs"],
+      ["books", "Books"],
+      ["family", "Family"],
+      ["printables", "Printables"],
+      ["teacher_toolkit", "Toolkit"],
+      ["teacher_tips", "Tips"],
+      ["images", "Image briefs"],
+    ].map(([id, label]) => (
+      `<button type="button" class="ghost-button" data-ai-accept-section="${id}">Accept ${esc(label)}</button>`
+    )).join("");
+
+    return `
+      <div class="tk-enrich-ai-section-bar" data-ai-section-bar>
+        <p class="muted-copy">Accept by section (draft only):</p>
+        <div class="tk-enrich-ai-section-actions">${sectionButtons}</div>
+      </div>
+      ${weekCards ? `
+        <section class="tk-enrich-ai-group" data-ai-week-group>
+          <div class="tk-enrich-ai-group-head">
+            <strong>Week &amp; Teaching Kit binder</strong>
+            <button type="button" class="ghost-button" data-ai-accept-section="week">Accept week section</button>
+          </div>
+          <div class="tk-enrich-ai-list">${weekCards}</div>
+        </section>
+      ` : ""}
+      <div class="tk-enrich-ai-list" data-ai-review-list>${activityBlocks || `<p class="muted-copy">No activity drafts in this batch yet.</p>`}</div>
+    `;
+  }
+
   function renderAiTray() {
     if (!state.aiTray.open) return "";
     const tray = state.aiTray;
     const isLesson = tray.scope === "lesson";
     const selectedCount = (tray.suggestions || []).filter((s) => s.selected && s.decision !== "discarded").length;
     const pendingCount = (tray.suggestions || []).filter((s) => s.decision !== "discarded").length;
+    const progress = tray.batchProgress;
+    const progressLine = progress
+      ? `<p class="tk-enrich-ai-progress" data-ai-batch-progress>Activities ${progress.processed}/${progress.total} · ${progress.batchCount} batch${progress.batchCount === 1 ? "" : "es"} · ${(progress.elapsedMs / 1000).toFixed(1)}s${progress.hasMore ? " · loading more…" : ""}</p>`
+      : "";
     let body = "";
-    if (tray.phase === "loading") {
+    if (tray.phase === "loading" && !(isLesson && (tray.suggestions || []).length)) {
       body = `
         <div class="tk-enrich-ai-status" data-ai-loading>
-          <p><strong>${isLesson ? "AI Lesson Teacher is preparing your draft…" : "Generating suggestions…"}</strong></p>
-          <p class="muted-copy">Existing published content stays unchanged. Generating only missing or weak sections. You can cancel anytime.</p>
+          <p><strong>${isLesson ? "AI Lesson Teacher is preparing your complete Teaching Kit…" : "Generating suggestions…"}</strong></p>
+          <p class="muted-copy">Existing published content stays unchanged. Large lessons process in safe batches behind one review session. You can cancel anytime.</p>
+          ${progressLine}
           <button type="button" class="ghost-button" data-ai-cancel>Cancel</button>
         </div>
       `;
@@ -1241,45 +1549,12 @@
         </div>
       `;
     } else {
-      const cards = (tray.suggestions || []).map((sug, index) => {
-        const discarded = sug.decision === "discarded";
-        const scopeHint = sug.activityKey
-          ? `Activity · ${sug.activityKey}`
-          : (sug.scope === "week" || isLesson ? "Week" : "Activity");
-        return `
-          <article class="tk-enrich-ai-card ${discarded ? "is-discarded" : ""} ${sug.selected ? "is-selected" : ""}" data-ai-card="${index}">
-            <label class="tk-enrich-ai-select">
-              <input type="checkbox" data-ai-select="${index}" ${sug.selected && !discarded ? "checked" : ""} ${discarded ? "disabled" : ""} />
-              <span>Select</span>
-            </label>
-            <div class="tk-enrich-ai-meta">
-              <strong>${esc(sug.fieldLabel || sug.field)}</strong>
-              <span class="muted-copy">${esc(sug.category || "")}</span>
-              <span class="tag">${esc(scopeHint)}</span>
-            </div>
-            <div class="tk-enrich-ai-compare">
-              <div>
-                <h5>Current Lesson</h5>
-                <p>${esc(sug.currentValue || "(empty)")}</p>
-              </div>
-              <div>
-                <h5>AI Draft</h5>
-                ${sug.editing
-                  ? `<textarea data-ai-edit-text="${index}" rows="3">${esc(sug.editText || sug.proposedText || "")}</textarea>`
-                  : `<p>${esc(sug.proposedText || "")}</p>`}
-              </div>
-            </div>
-            <div class="tk-enrich-ai-card-actions">
-              <button type="button" class="ghost-button" data-ai-accept="${index}" ${discarded ? "disabled" : ""}>Accept</button>
-              <button type="button" class="ghost-button" data-ai-edit="${index}" ${discarded ? "disabled" : ""}>${sug.editing ? "Done editing" : "Edit before accept"}</button>
-              <button type="button" class="ghost-button" data-ai-discard="${index}">Reject</button>
-            </div>
-          </article>
-        `;
-      }).join("") || `<p class="muted-copy">No draft improvements for the current gaps. Existing content was preserved.</p>`;
+      const stillLoading = tray.phase === "loading" && isLesson;
       body = `
-        <p class="muted-copy">Side-by-side review: accept, reject, or edit each row. Accepting writes to the <strong>draft only</strong> — never auto-saves and never publishes. Legacy content is never deleted.</p>
-        <div class="tk-enrich-ai-list" data-ai-review-list>${cards}</div>
+        ${progressLine}
+        ${stillLoading ? `<p class="muted-copy" data-ai-loading>Still preparing remaining activities — you can already review rows below.</p>` : ""}
+        <p class="muted-copy">Side-by-side review: accept one row, a section, an activity, or all. Accepting writes to the <strong>draft only</strong> — never auto-saves and never publishes. Legacy content is never deleted.</p>
+        ${renderAiReviewList(tray)}
         <div class="form-actions tk-enrich-ai-bulk-actions">
           <button type="button" class="ghost-button" data-ai-reject-all>Reject all</button>
           <button type="button" class="ghost-button" data-ai-accept-all ${pendingCount ? "" : "disabled"}>Accept all into draft</button>
@@ -1292,11 +1567,15 @@
     const analysisLine = analysis
       ? ` · Gaps: ${analysis.gapSectionIds?.length || 0} · Complete ${analysis.counts?.complete || 0} / Needs ${analysis.counts?.needs_improvement || 0} / Missing ${analysis.counts?.missing || 0}`
       : "";
+    const timing = tray.generationTiming;
+    const timingLine = timing
+      ? ` · Generated in ${(timing.elapsedMs / 1000).toFixed(1)}s (${timing.batchCount} batch${timing.batchCount === 1 ? "" : "es"})`
+      : "";
     return `
       <div class="tk-enrich-modal tk-enrich-ai-modal ${isLesson ? "is-lesson-teacher" : ""}" data-ai-tray role="dialog" aria-modal="true" aria-labelledby="tk-enrich-ai-title">
         <div class="tk-enrich-modal-card tk-enrich-ai-card-shell" tabindex="-1">
-          <h3 id="tk-enrich-ai-title">${isLesson ? "AI Lesson Teacher — Side-by-side review" : "AI enrichment suggestions"}</h3>
-          <p class="muted-copy">Lesson: <strong>${esc((getPlan() || {}).title || "Current lesson")}</strong> · Scope: ${esc(tray.scope)}${tray.activityKey ? ` · Activity draft only` : ""}${esc(analysisLine)}</p>
+          <h3 id="tk-enrich-ai-title">${isLesson ? "AI Lesson Teacher — Complete kit review" : "AI enrichment suggestions"}</h3>
+          <p class="muted-copy">Lesson: <strong>${esc((getPlan() || {}).title || "Current lesson")}</strong> · Scope: ${esc(tray.scope)}${tray.activityKey ? ` · Activity draft only` : ""}${esc(analysisLine)}${esc(timingLine)}</p>
           ${body}
         </div>
       </div>
@@ -1849,11 +2128,27 @@
         return;
       }
       if (event.target.closest("[data-ai-accept-all]")) {
-        await insertSelectedAiSuggestions({ acceptAll: true });
+        await insertSelectedAiSuggestions({ acceptAll: true, closeTray: true });
+        return;
+      }
+      const acceptSection = event.target.closest("[data-ai-accept-section]");
+      if (acceptSection) {
+        await insertSelectedAiSuggestions({
+          sectionId: acceptSection.getAttribute("data-ai-accept-section") || "",
+          closeTray: false,
+        });
+        return;
+      }
+      const acceptActivity = event.target.closest("[data-ai-accept-activity]");
+      if (acceptActivity) {
+        await insertSelectedAiSuggestions({
+          activityKeyFilter: acceptActivity.getAttribute("data-ai-accept-activity") || "",
+          closeTray: false,
+        });
         return;
       }
       if (event.target.closest("[data-ai-insert-selected]")) {
-        await insertSelectedAiSuggestions();
+        await insertSelectedAiSuggestions({ closeTray: false });
         return;
       }
       const aiAccept = event.target.closest("[data-ai-accept]");
@@ -2229,12 +2524,14 @@
     refreshLessonAnalysis,
     requestAiSuggestions,
     insertSelectedAiSuggestions,
+    getGenerationTiming: () => state.aiTray.generationTiming,
     sliceFeatures: () => ({
       activityStudio: true,
       livePreview: true,
       photoUpload: true,
       aiSuggest: true,
       aiLessonTeacher: true,
+      completeKitGeneration: true,
       publish: true,
       polish: true,
       preserveRemediation: true,

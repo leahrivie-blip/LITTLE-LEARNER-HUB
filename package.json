@@ -20,6 +20,7 @@
     "test:teaching-kit-vision-alignment": "NODE_ENV=test node scripts/test-teaching-kit-vision-alignment.js",
     "test:teaching-kit-upgrade-workspace": "NODE_ENV=test node scripts/test-teaching-kit-upgrade-workspace.js",
     "test:teaching-kit-ai-lesson-teacher": "NODE_ENV=test node scripts/test-teaching-kit-ai-lesson-teacher.js",
+    "test:teaching-kit-complete-kit-generation": "NODE_ENV=test node scripts/test-teaching-kit-complete-kit-generation.js",
     "test:signup-transactional-emails": "NODE_ENV=test node scripts/test-signup-transactional-emails.js",
     "test:pr439-production-equivalent": "NODE_ENV=test node scripts/verify-pr439-production-equivalent.js",
     "test:teaching-kit-slice-1a": "NODE_ENV=test node scripts/test-teaching-kit-slice-1a.js",

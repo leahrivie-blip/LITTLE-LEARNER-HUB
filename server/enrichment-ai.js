@@ -460,43 +460,45 @@ function buildEnrichmentAiUserPrompt({ plan, activity, scope, existing }) {
   return lines.join("\n");
 }
 
-/**
- * Full-lesson AI Lesson Teacher fixture pack.
- * Generates week + first activities' gap-fill suggestions for review.
- * Never invents photo URLs or copyrighted lyrics/book text.
- */
-function buildLessonTeacherFixtureSuggestions(ctx) {
-  const plan = ctx.plan || {};
+/** Default activities per lesson-teacher batch (safe payload size; client loops until done). */
+const LESSON_TEACHER_ACTIVITY_BATCH_SIZE = 5;
+
+function buildLessonTeacherWeekRaw(plan) {
   const lesson = text(plan.title, 80) || "this lesson";
   const theme = text(plan.theme, 80) || lesson;
   const age = text(plan.age, 40) || "Preschool";
-  const activities = asArray(ctx.activities);
-  const weekRaw = [
+  return [
     {
       category: "weekly_overview",
       text: `This week ${age.toLowerCase()} children explore ${theme} through hands-on play, songs, books, and simple classroom invitations. Everything they need is organized for Monday setup through Friday share.`,
     },
     {
       category: "learning_objectives",
-      text: `Name and describe key ideas in ${theme}\nUse new vocabulary during play\nPractice turn-taking in small groups\nNotice details during read-alouds`,
+      text: `Name and describe key ideas in ${theme}\nUse new vocabulary during play\nPractice turn-taking in small groups\nNotice details during read-alouds\nCare for materials and clean up together`,
     },
     {
       category: "materials_list",
-      text: "Picture cards · books · song sheet · trays · crayons · recyclable craft materials · observation clipboard · family letter",
+      text: "Picture cards · books · song sheet · trays · crayons · recyclable craft materials · observation clipboard · family letter · rinse tub · towels",
     },
     {
       category: "teacher_preparation",
-      text: `Preview ${theme} books, print vocabulary cards, stage trays before arrival, and skim the family message.`,
+      text: `Preview ${theme} books, print vocabulary cards, stage trays before arrival, post the daily flow, and skim the family message.`,
     },
     { category: "toolkit_prep", text: "Print vocabulary cards (ink-friendly)" },
     { category: "toolkit_prep", text: "Set observation clipboard near the main station" },
+    { category: "toolkit_prep", text: "Stage Monday–Friday trays the night before" },
     { category: "toolkit_observation", text: `Listen for ${theme.toLowerCase()} vocabulary during free play` },
+    { category: "toolkit_observation", text: "Note turn-taking and material care during clean-up" },
     {
       category: "family_connection",
-      text: `At home, invite children to share one favorite part of ${lesson} and ask one wonder question together.`,
+      text: `At home, invite children to share one favorite part of ${lesson}, find one related object, and ask one wonder question together.`,
     },
     { category: "milestones", text: "Language" },
     { category: "milestones", text: "Social-emotional" },
+    { category: "milestones", text: "Fine motor" },
+    { category: "milestones", text: "Gross motor" },
+    { category: "milestones", text: "Cognition" },
+    { category: "milestones", text: "Creativity" },
     {
       category: "books",
       title: `${theme} Read-Aloud Favorite`,
@@ -504,51 +506,102 @@ function buildLessonTeacherFixtureSuggestions(ctx) {
       questions: "Before: What do you notice on the cover? During: What is happening now? After: What would you try in our classroom?",
     },
     {
+      category: "books",
+      title: `${theme} Picture Walk`,
+      author: "Classroom Collection",
+      questions: "Before: What might we learn? During: How does the character feel? After: How can we care for our classroom helpers?",
+    },
+    {
       category: "songs",
       title: `${theme} Hello Song`,
       lyrics: "Hello friends, let's explore today — look, listen, try, and share.",
       motions: "Wave, march in place, freeze on the last word. Original LLH classroom song — no copyrighted lyrics.",
     },
+    {
+      category: "songs",
+      title: "Clean-Up Helper Song",
+      lyrics: "Toys go home, hands are kind — tidy together, one at a time.",
+      motions: "Point to shelf, clap softly, sit ready. Public-domain style classroom chant — no copyrighted lyrics.",
+    },
     { category: "printable_ideas", text: "Vocabulary cards (simple outlines, ink-friendly)" },
     { category: "printable_ideas", text: "Teacher instruction sheet for Monday setup" },
     { category: "printable_ideas", text: "Observation sheet with 3 prompts" },
+    { category: "printable_ideas", text: "Matching cards for small-group review" },
+    { category: "printable_ideas", text: "Craft template (simple outline)" },
     { category: "printable_ideas", text: "Parent letter with home talk ideas" },
     { category: "vocab_cards", text: `${theme} — A word children can say, show, and use in play` },
+    { category: "vocab_cards", text: "gentle — Soft hands and careful voices" },
+    { category: "vocab_cards", text: "observe — Look closely and notice details" },
   ];
+}
 
-  const activityRaw = [];
-  activities.slice(0, 3).forEach((activity, actIndex) => {
-    const title = text(activity.title, 80) || `Activity ${actIndex + 1}`;
-    const key = text(activity.id || activity.itemId, 160);
-    const tagged = (item) => ({ ...item, activityKey: key });
-    activityRaw.push(
-      tagged({ category: "teacher_tips", text: `Set ${title} materials at child height before children arrive.` }),
-      tagged({ category: "observation_prompts", text: `Does the child name or gesture toward a key idea during ${title}?` }),
-      tagged({ category: "vocabulary", text: "explore" }),
-      tagged({ category: "setup", text: `Place ${title} materials on a labeled low tray before circle.` }),
-      tagged({ category: "steps", text: "1) Invite children to look. 2) Model one action. 3) Let children try. 4) Clean up together." }),
-      tagged({ category: "adaptations", text: "Offer a simpler choice or hand-over-hand support for emerging skills." }),
-      tagged({ category: "extensions", text: "Invite families to find one related object at home and describe it." }),
-      tagged({ category: "indoor_alternatives", text: "Use a tabletop tray when outdoor space is unavailable." }),
-      tagged({ category: "outdoor_alternatives", text: "Move the same materials to a shaded sidewalk or grass edge." }),
-      tagged({ category: "setting_tags", tag: "small_group" }),
-      tagged({
-        category: "image_brief_setup",
-        text: `Simple classroom tray setup for ${title}: ordinary materials, natural light, teacher-manual style — no glossy stock look.`,
-      }),
-      tagged({
-        category: "image_brief_example",
-        text: `Finished achievable craft/play example for ${title}: educational illustration or paper mockup style, real-mess friendly.`,
-      }),
-    );
-  });
+function buildLessonTeacherActivityRaw(activity, actIndex) {
+  const title = text(activity.title, 80) || `Activity ${actIndex + 1}`;
+  const key = text(activity.id || activity.itemId, 160);
+  const day = text(activity.dayOfWeek, 20) || "this day";
+  const tagged = (item) => ({ ...item, activityKey: key });
+  return [
+    tagged({ category: "teacher_tips", text: `Set ${title} materials at child height before children arrive (${day}).` }),
+    tagged({ category: "teacher_tips", text: `Cleanup tip: sort ${title} pieces into labeled bowls before transition.` }),
+    tagged({ category: "observation_prompts", text: `Does the child name or gesture toward a key idea during ${title}?` }),
+    tagged({ category: "observation_prompts", text: `How does the child use new vocabulary while trying ${title}?` }),
+    tagged({ category: "vocabulary", text: "explore" }),
+    tagged({ category: "vocabulary", text: "gentle" }),
+    tagged({ category: "setup", text: `Place ${title} materials on a labeled low tray before circle. Keep extras nearby for rotations.` }),
+    tagged({ category: "steps", text: "1) Invite children to look. 2) Model one action. 3) Let children try. 4) Ask one wonder question. 5) Clean up together." }),
+    tagged({ category: "adaptations", text: "Offer a simpler choice, larger pieces, or hand-over-hand support for emerging skills." }),
+    tagged({ category: "extensions", text: "Invite families to find one related object at home and describe it at drop-off." }),
+    tagged({ category: "indoor_alternatives", text: "Use a tabletop tray and quiet voices when outdoor space is unavailable." }),
+    tagged({ category: "outdoor_alternatives", text: "Move the same materials to a shaded sidewalk or grass edge with a rinse tub nearby." }),
+    tagged({ category: "group_ideas", text: `Small group: two or three children take turns leading one step of ${title}.` }),
+    tagged({ category: "group_ideas", text: `Large group: chorus response — children echo the key word from ${title} together.` }),
+    tagged({ category: "setting_tags", tag: "small_group" }),
+    tagged({ category: "setting_tags", tag: "large_group" }),
+    tagged({ category: "setting_tags", tag: "indoor" }),
+    tagged({ category: "setting_tags", tag: "outdoor" }),
+    tagged({ category: "substitutions", need: "specialty prop", use: "a classroom picture card or recycled box" }),
+    tagged({
+      category: "image_brief_setup",
+      text: `Simple classroom tray setup for ${title}: ordinary materials, natural light, teacher-manual style — no glossy stock look. ${IMAGE_STYLE_RULES}`,
+    }),
+    tagged({
+      category: "image_brief_example",
+      text: `Finished achievable craft/play example for ${title}: educational illustration or paper mockup style, real-mess friendly. ${IMAGE_STYLE_RULES}`,
+    }),
+  ];
+}
 
-  const ctxWeek = { ...ctx, scope: "week", activityKey: "" };
-  const weekSuggestions = weekRaw
-    .map((item, index) => normalizeSuggestionItem(item, index, ctxWeek))
-    .filter(Boolean);
+/**
+ * Full-lesson AI Lesson Teacher fixture pack (batched).
+ * Generates week (first batch) + every activity's gap-fill suggestions for review.
+ * Never invents photo URLs or copyrighted lyrics/book text.
+ * Returns { suggestions, batch } for continuous multi-request review sessions.
+ */
+function buildLessonTeacherFixtureSuggestions(ctx) {
+  const plan = ctx.plan || {};
+  const activities = asArray(ctx.activities);
+  const offset = Math.max(0, Number(ctx.activityOffset) || 0);
+  const requestedLimit = Number(ctx.activityLimit);
+  const limit = Math.max(1, Math.min(
+    Number.isFinite(requestedLimit) && requestedLimit > 0
+      ? requestedLimit
+      : LESSON_TEACHER_ACTIVITY_BATCH_SIZE,
+    20,
+  ));
+  const includeWeek = ctx.includeWeek !== false && offset === 0;
+  const slice = activities.slice(offset, offset + limit);
+
+  const weekSuggestions = [];
+  if (includeWeek) {
+    const ctxWeek = { ...ctx, scope: "week", activityKey: "" };
+    buildLessonTeacherWeekRaw(plan).forEach((item, index) => {
+      const normalized = normalizeSuggestionItem(item, index, ctxWeek);
+      if (normalized) weekSuggestions.push(normalized);
+    });
+  }
+
   const activitySuggestions = [];
-  activities.slice(0, 3).forEach((activity) => {
+  slice.forEach((activity, sliceIndex) => {
     const key = text(activity.id || activity.itemId, 160);
     const actDraft = ctx.draftActivities && typeof ctx.draftActivities === "object"
       ? (ctx.draftActivities[key] || {})
@@ -560,20 +613,41 @@ function buildLessonTeacherFixtureSuggestions(ctx) {
       activityKey: key,
       activityDraft: actDraft,
     };
-    activityRaw
-      .filter((item) => text(item.activityKey) === key)
-      .forEach((item, index) => {
-        const normalized = normalizeSuggestionItem(item, weekSuggestions.length + activitySuggestions.length + index, actCtx);
-        if (normalized) activitySuggestions.push(normalized);
-      });
+    const globalIndex = offset + sliceIndex;
+    buildLessonTeacherActivityRaw(activity, globalIndex).forEach((item) => {
+      const normalized = normalizeSuggestionItem(
+        item,
+        weekSuggestions.length + activitySuggestions.length,
+        actCtx,
+      );
+      if (normalized) activitySuggestions.push(normalized);
+    });
   });
-  return [...weekSuggestions, ...activitySuggestions].slice(0, 40);
+
+  const nextOffset = offset + slice.length;
+  return {
+    suggestions: [...weekSuggestions, ...activitySuggestions],
+    batch: {
+      activityOffset: offset,
+      activityLimit: limit,
+      activityTotal: activities.length,
+      processedCount: slice.length,
+      nextOffset,
+      hasMore: nextOffset < activities.length,
+      includeWeek,
+      weekSuggestionCount: weekSuggestions.length,
+      activitySuggestionCount: activitySuggestions.length,
+    },
+  };
 }
 
 /** Deterministic suggestions for local/dev/tests (no OpenAI required). */
 function buildFixtureSuggestions(ctx) {
   if (ctx.scope === "lesson") {
-    return buildLessonTeacherFixtureSuggestions(ctx);
+    const packed = buildLessonTeacherFixtureSuggestions(ctx);
+    // Back-compat: callers that expect an array still work via .length / map when they
+    // already handle the object form on the server. Prefer getLessonTeacherFixturePack.
+    return packed.suggestions;
   }
   const title = text(ctx.activity?.title, 80) || "this activity";
   const lesson = text(ctx.plan?.title, 80) || "this lesson";
@@ -645,8 +719,13 @@ function imageStyleGuideSnippet() {
   return IMAGE_STYLE_RULES;
 }
 
+function getLessonTeacherFixturePack(ctx) {
+  return buildLessonTeacherFixtureSuggestions(ctx);
+}
+
 module.exports = {
   ENRICHMENT_AI_TIMEOUT_MS,
+  LESSON_TEACHER_ACTIVITY_BATCH_SIZE,
   SUGGESTION_CATEGORIES,
   IMAGE_STYLE_RULES,
   createEnrichmentAiRequestId,
@@ -656,6 +735,7 @@ module.exports = {
   buildEnrichmentAiUserPrompt,
   buildFixtureSuggestions,
   buildLessonTeacherFixtureSuggestions,
+  getLessonTeacherFixturePack,
   applySuggestionsToDraft,
   currentValueForField,
   normalizeSuggestionItem,

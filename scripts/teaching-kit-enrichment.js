@@ -154,7 +154,9 @@
   }
 
   /**
-   * Weighted completion % from quality checklist (guidance; never blocks draft save).
+   * Weighted completion % for the entire Teaching Kit (published + enrichment draft).
+   * Counts AI drafts (including image briefs) so the dashboard reflects full-kit progress.
+   * Guidance only — never blocks draft save. Completeness, not pedagogy quality.
    */
   function computeCompletionPercent(plan, activities, enrichmentDraft) {
     const draft = enrichmentDraft && typeof enrichmentDraft === "object" ? enrichmentDraft : {};
@@ -165,38 +167,63 @@
     let photoScore = 0;
     let tipScore = 0;
     let optionScore = 0;
+    let depthScore = 0;
     if (list.length) {
       let photoUnits = 0;
       let tipUnits = 0;
       let optionUnits = 0;
+      let depthUnits = 0;
       list.forEach((act) => {
         const key = text(act.id) || text(act.itemId);
-        const view = activityEnrichmentView(act, draftActs[key]);
-        photoUnits += (view.setupImageUrl ? 0.5 : 0) + (view.exampleImageUrl ? 0.5 : 0);
+        const patch = draftActs[key] || {};
+        const view = activityEnrichmentView(act, patch);
+        const setupVisual = view.setupImageUrl || text(patch.imageBriefSetup);
+        const exampleVisual = view.exampleImageUrl || text(patch.imageBriefExample);
+        photoUnits += (setupVisual ? 0.5 : 0) + (exampleVisual ? 0.5 : 0);
         tipUnits += view.teacherTips.length ? 1 : 0;
-        optionUnits += (view.substitutions.length || view.settingTags.length) ? 1 : 0;
+        optionUnits += (view.substitutions.length || view.settingTags.length
+          || text(patch.indoorAlternatives) || text(patch.outdoorAlternatives)) ? 1 : 0;
+        depthUnits += (
+          (view.observationPrompts.length ? 0.25 : 0)
+          + (text(patch.setup || act.setup) ? 0.25 : 0)
+          + (text(patch.steps || act.steps) ? 0.25 : 0)
+          + (text(patch.adaptations) || text(patch.extensions) ? 0.25 : 0)
+        );
       });
       photoScore = photoUnits / list.length;
       tipScore = tipUnits / list.length;
       optionScore = optionUnits / list.length;
+      depthScore = depthUnits / list.length;
     }
 
     const hasCover = Boolean(text(plan?.coverImageUrl));
-    const hasOverview = Boolean(text(plan?.weeklyOverview));
-    const weekStory = ((hasCover ? 0.5 : 0) + (hasOverview ? 0.5 : 0));
-    const booksSongs = Math.min(1, (asArray(plan?.books).length ? 0.5 : 0) + (asArray(plan?.songs).length ? 0.5 : 0));
-    const familyObs = Math.min(1, (text(plan?.familyConnection) || text(week.familyConnection) ? 0.5 : 0)
-      + (text(plan?.observationOpportunities) ? 0.5 : 0));
-    const printables = asArray(plan?.resourceIds).length || asArray(week.printableIds).length ? 1 : 0;
+    const hasOverview = Boolean(text(week.weeklyOverview) || text(plan?.weeklyOverview));
+    const hasObjectives = Boolean(text(week.objectives) || text(plan?.objectives));
+    const weekStory = Math.min(1, (hasCover ? 0.25 : 0) + (hasOverview ? 0.5 : 0) + (hasObjectives ? 0.25 : 0));
+    const books = asArray(week.books).length ? asArray(week.books) : asArray(plan?.books);
+    const songs = asArray(week.songs).length ? asArray(week.songs) : asArray(plan?.songs);
+    const booksSongs = Math.min(1, (books.length ? 0.5 : 0) + (songs.length ? 0.5 : 0));
+    const toolkit = week.teacherToolkit && typeof week.teacherToolkit === "object" ? week.teacherToolkit : {};
+    const familyObs = Math.min(1, (
+      (text(plan?.familyConnection) || text(week.familyConnection) ? 0.4 : 0)
+      + (text(plan?.observationOpportunities) || asArray(toolkit.observationFocus).length ? 0.3 : 0)
+      + (asArray(toolkit.prepChecklist).length || text(week.teacherPreparation) ? 0.3 : 0)
+    ));
+    const printables = (
+      asArray(plan?.resourceIds).length
+      || asArray(week.printableIds).length
+      || asArray(week.printableIdeas).length
+    ) ? 1 : 0;
 
     const percent = (
-      weekStory * 15
+      weekStory * 12
       + booksSongs * 10
       + familyObs * 10
-      + photoScore * 30
-      + tipScore * 15
-      + printables * 10
+      + photoScore * 24
+      + tipScore * 12
+      + printables * 8
       + optionScore * 10
+      + depthScore * 14
     );
     return clampPercent(percent);
   }

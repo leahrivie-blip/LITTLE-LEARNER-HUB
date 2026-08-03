@@ -25011,6 +25011,40 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   background: linear-gradient(180deg, rgba(255,255,255,0), #fff 28%);
   padding-top: 0.75rem;
 }
+.tk-enrich-ai-progress {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.92rem;
+  color: #3d5347;
+}
+.tk-enrich-ai-section-bar {
+  margin: 0.5rem 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(36, 49, 42, 0.1);
+  border-radius: 0.55rem;
+  background: rgba(244, 248, 245, 0.9);
+}
+.tk-enrich-ai-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+.tk-enrich-ai-group {
+  margin: 0.85rem 0 1rem;
+}
+.tk-enrich-ai-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+.tk-enrich-ai-group-head strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.05rem;
+  color: #24312a;
+}
 
 /* Complete Teaching Kit binder authoring */
 .tk-authoring-binder-panel{margin:1.25rem 0 1.75rem;padding:1.1rem 1.2rem;border:1px solid rgba(36,49,42,.12);border-radius:.75rem;background:linear-gradient(165deg,#f7faf7 0%,#eef5f0 55%,#f8f4ee 100%)}
