@@ -141,17 +141,29 @@ function main() {
   const richSummary = enrichment.buildUpgradeSummary(plan, [], {
     updatedAt: "2026-08-03T12:00:00.000Z",
     lastEditedBy: "owner@example.com",
+    week: {
+      teacherPreparation: "Stage trays before arrival.",
+      teacherToolkit: {
+        prepChecklist: ["Set bins", "Print vocab cards"],
+        observationFocus: ["Uses animal words"],
+      },
+    },
     activities: Object.fromEntries(acts.map((a) => [a.id, {
       setupImageUrl: "https://x.test/s.jpg",
       exampleImageUrl: "https://x.test/e.jpg",
       teacherTips: ["Ready"],
       observationPrompts: ["Watch sorting"],
-      settingTags: ["indoor"],
+      settingTags: ["indoor", "small_group"],
       substitutions: [{ need: "hay", use: "paper" }],
       vocabulary: ["barn", "cow"],
+      setup: "Place bins at child height.",
+      steps: "Invite children to sort and name animals.",
+      adaptations: "Offer larger pieces for beginners.",
+      indoorAlternatives: "Table sort if needed.",
+      outdoorAlternatives: "Take mats outdoors.",
     }])),
   });
-  assert.ok(richSummary.completionPercent >= 90);
+  assert.ok(richSummary.completionPercent >= 90, `rich summary percent (${richSummary.completionPercent})`);
   assert.equal(richSummary.incompleteActivities, 0);
   assert.equal(richSummary.missingSetupPhotos, 0);
   assert.equal(richSummary.lastEditedBy, "owner@example.com");
