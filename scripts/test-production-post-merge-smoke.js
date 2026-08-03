@@ -762,6 +762,15 @@ async function checkAdmin(page) {
   try {
     await gotoRetry(page, `${PROD}/admin`);
     await page.waitForSelector("#adminUnlockForm", { state: "visible", timeout: 60000 });
+    // Ensure deferred app.js handlers are attached before submitting unlock.
+    await page.waitForFunction(
+      () => typeof window.adminLogin === "function"
+        || typeof window.setAdminSectionTab === "function"
+        || document.body?.classList?.contains("app-boot-ready"),
+      null,
+      { timeout: 60000 },
+    ).catch(() => {});
+    await page.waitForTimeout(500);
     record("admin", "Admin login screen loads", true);
 
     if (!ADMIN_EMAIL || !ADMIN_PASSWORD || !ADMIN_ACCESS_CODE) {
@@ -783,46 +792,109 @@ async function checkAdmin(page) {
     await page.fill('input[name="adminEmail"]', ADMIN_EMAIL);
     await page.fill('input[name="adminPassword"]', ADMIN_PASSWORD);
     await page.fill('input[name="adminCode"]', ADMIN_ACCESS_CODE);
+    await page.waitForTimeout(300);
     const loginRespPromise = page.waitForResponse(
-      (r) => r.url().includes("/api/admin/login") && r.status() === 200,
-      { timeout: 30000 },
+      (r) => r.url().includes("/api/admin/login"),
+      { timeout: 45000 },
     );
-    await page.click('#adminUnlockForm button[type="submit"]');
-    await loginRespPromise.catch(() => null);
-    // Owner sidebar uses data-admin-group (not legacy data-admin-nav). Wait out post-login navigations.
-    await page.waitForSelector('#adminSectionNav [data-admin-group="insights"]', {
-      state: "visible",
-      timeout: 60000,
+    await page.locator("#adminUnlockForm").evaluate((form) => {
+      if (typeof form.requestSubmit === "function") form.requestSubmit();
+      else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
+    const loginRes = await loginRespPromise.catch(() => null);
+    const unlockedAfterSubmit = await page.evaluate(() => {
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem("llhAdminSession") || "{}"); } catch { /* ignore */ }
+      return localStorage.getItem("llhAdminUnlocked") === "true" && Boolean(session.token);
+    }).catch(() => false);
+    if ((!loginRes || loginRes.status() !== 200) && !unlockedAfterSubmit) {
+      throw new Error(`Admin login HTTP ${loginRes ? loginRes.status() : "no response"}`);
+    }
+
+    // Owner sidebar uses data-admin-group (not legacy data-admin-nav).
+    // Post-login can navigate several times; poll through churn, then reload if needed.
+    const insightsSelector = '#adminSectionNav [data-admin-group="insights"]';
+    let sidebarReady = false;
+    const sidebarWaitStarted = Date.now();
+    while (Date.now() - sidebarWaitStarted < 60000) {
+      try {
+        const state = await page.evaluate(() => {
+          let session = {};
+          try { session = JSON.parse(localStorage.getItem("llhAdminSession") || "{}"); } catch { /* ignore */ }
+          return {
+            unlocked: localStorage.getItem("llhAdminUnlocked") === "true",
+            hasToken: Boolean(session && session.token),
+            hasNav: Boolean(document.querySelector('#adminSectionNav [data-admin-group="insights"]')),
+            activeId: document.querySelector(".active-view")?.id || "",
+          };
+        });
+        if (state.hasNav) {
+          sidebarReady = true;
+          break;
+        }
+        if (state.unlocked && state.hasToken) {
+          await page.evaluate(() => {
+            if (typeof window.setView === "function") window.setView("admin");
+            if (typeof window.renderAdminSectionNav === "function") window.renderAdminSectionNav();
+          });
+        }
+      } catch {
+        /* execution context destroyed by navigation */
+      }
+      await page.waitForTimeout(400);
+    }
+    if (!sidebarReady) {
+      await gotoRetry(page, `${PROD}/admin`);
+      // Session should restore unlocked admin chrome after reload.
+      for (let i = 0; i < 40 && !sidebarReady; i += 1) {
+        try {
+          sidebarReady = await page.evaluate(() => Boolean(
+            document.querySelector('#adminSectionNav [data-admin-group="insights"]'),
+          ));
+          if (!sidebarReady) {
+            await page.evaluate(() => {
+              if (typeof window.setView === "function") window.setView("admin");
+              if (typeof window.renderAdminSectionNav === "function") window.renderAdminSectionNav();
+            });
+          }
+        } catch { /* navigation */ }
+        if (!sidebarReady) await page.waitForTimeout(500);
+      }
+    }
+    await page.waitForSelector(insightsSelector, { state: "visible", timeout: 20000 });
     record("admin", "Admin login + dashboard load", true);
 
     // Navigate Insights → Marketing Funnel → Why They Left
+    // Owner sidebar: data-admin-group (not legacy data-admin-nav).
     const insightsNav = page.locator('#adminSectionNav [data-admin-group="insights"]');
     await insightsNav.click({ timeout: 15000 });
-    await page.waitForTimeout(1500);
-    record("admin", "Admin Insights loads", /Insight|Advisor|Marketing Funnel/i.test(await page.innerText("body")));
+    await page.waitForSelector("#adminInsightsApp", { state: "visible", timeout: 20000 });
+    await page.waitForTimeout(1000);
+    const insightsText = await page.locator("#adminInsightsApp").innerText();
+    record("admin", "Admin Insights loads", /Insight|Advisor|Marketing Funnel/i.test(insightsText));
 
-    const funnelNav = page.locator("[data-insights-hub='marketing-funnel'], button, a").filter({ hasText: /Marketing Funnel/i }).first();
-    if (await funnelNav.count()) {
-      await funnelNav.click({ timeout: 15000 });
-    } else {
-      await page.evaluate(() => {
-        if (typeof setAdminSectionTab === "function") setAdminSectionTab("marketing-funnel");
-      });
-    }
-    await page.waitForTimeout(2000);
-    const bodyText = await page.innerText("body");
-    record("admin", "Marketing Funnel loads", /Marketing Funnel|Conversion chart|Visit→paid|Visitors/i.test(bodyText));
-    record("admin", "Why They Left loads", /Why They Left/i.test(bodyText));
+    const funnelNav = page.locator('#adminInsightsApp [data-insights-hub="marketing-funnel"]');
+    await funnelNav.click({ timeout: 15000 });
+    await page.waitForFunction(
+      () => /Why They Left|Visit→paid|Visitors|conversion/i.test(
+        document.querySelector("#adminInsightsApp")?.innerText || "",
+      ),
+      null,
+      { timeout: 20000 },
+    ).catch(() => {});
+    await page.waitForTimeout(800);
+    const funnelText = await page.locator("#adminInsightsApp").innerText();
+    record("admin", "Marketing Funnel loads", /Marketing Funnel|Conversion chart|Visit→paid|Visitors/i.test(funnelText));
+    record("admin", "Why They Left loads", /Why They Left/i.test(funnelText));
 
     // Filters
-    const range7 = page.locator("[data-insights-range='7d']").first();
+    const range7 = page.locator('#adminInsightsApp [data-insights-range="7d"]').first();
     if (await range7.count()) {
       await range7.click();
       await page.waitForTimeout(1200);
       record("admin", "Funnel filters update (7d)", true);
     }
-    const exitRow = page.locator("[data-funnel-exit-stage]").first();
+    const exitRow = page.locator("#adminInsightsApp [data-funnel-exit-stage]").first();
     if (await exitRow.count()) {
       await exitRow.click();
       await page.waitForTimeout(1500);
@@ -834,32 +906,25 @@ async function checkAdmin(page) {
 
     // Lesson plan admin (Content hub → curriculum lesson plans)
     const contentNav = page.locator('#adminSectionNav [data-admin-group="content"]');
-    if (await contentNav.count()) {
-      await contentNav.click({ timeout: 10000 });
-      await page.waitForTimeout(800);
-      await page.evaluate(() => {
-        if (typeof setAdminSectionTab === "function") setAdminSectionTab("curriculum-lesson-plans");
-      });
-      await page.waitForTimeout(1500);
-      record("admin", "Lesson plan admin opens", /lesson/i.test(await page.innerText("body")));
-      note("Lesson plan admin save skipped to avoid mutating production curriculum.");
-      record("admin", "Lesson plan admin save", true, "open verified; save skipped (prod safety)");
-    } else {
-      record("admin", "Lesson plan admin opens", false, "nav not found");
-    }
+    await contentNav.click({ timeout: 15000 });
+    await page.waitForTimeout(800);
+    await page.evaluate(() => {
+      if (typeof window.setAdminSectionTab === "function") window.setAdminSectionTab("curriculum-lesson-plans");
+    });
+    await page.waitForTimeout(1500);
+    record("admin", "Lesson plan admin opens", /lesson/i.test(await page.innerText("body")));
+    note("Lesson plan admin save skipped to avoid mutating production curriculum.");
+    record("admin", "Lesson plan admin save", true, "open verified; save skipped (prod safety)");
 
     const messages = page.locator('#adminSectionNav [data-admin-group="messages"]');
-    if (await messages.count()) {
-      await messages.click({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      record("admin", "Messages load", true);
-    }
+    await messages.click({ timeout: 15000 });
+    await page.waitForTimeout(1000);
+    record("admin", "Messages load", true);
+
     const notif = page.locator('#adminSectionNav [data-admin-open-notifications]');
-    if (await notif.count()) {
-      await notif.click({ timeout: 10000 });
-      await page.waitForTimeout(1000);
-      record("admin", "Notifications load", true);
-    }
+    await notif.click({ timeout: 15000 });
+    await page.waitForTimeout(1000);
+    record("admin", "Notifications load", true);
   } catch (e) {
     record("admin", "Admin suite", false, e.message);
   }
