@@ -60,6 +60,7 @@ function configureSeoCurriculumSnapshotProvider() {
 }
 const adminNotifications = require("./admin-notifications.js");
 const ownerNotificationEmail = require("./owner-notification-email.js");
+const signupTransactional = require("./signup-transactional.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
 const {
@@ -4094,10 +4095,65 @@ function mergeStorePreserveEmailCampaigns(incomingStore) {
   };
 }
 
-function writeStore(store, { immediate = true, debounced = false } = {}) {
-  const nextStore = mergeStorePreserveEmailCampaigns(
-    mergeStorePreserveAdminSessions(mergeStorePreferNewerSiteContent(store)),
+function mergeStorePreserveSignupTransactionalStamps(store) {
+  if (!store?.users || !storeCache?.users) return store;
+  for (const [email, incoming] of Object.entries(store.users)) {
+    if (!incoming || typeof incoming !== "object") continue;
+    const live = storeCache.users[email] || storeCache.users[normalizeEmail(email)];
+    if (!live) continue;
+    preserveSignupTransactionalFields(incoming, live, incoming);
+  }
+  return store;
+}
+
+// Welcome/admin alert paths often hold a writableStore() reference across awaits.
+// Concurrent analytics writeStoreAsync() replaces storeCache; a later writeStore(stale)
+// must not wipe newer analyticsEvents (or the reverse for a stale analytics clone).
+function mergeStorePreserveAnalyticsEvents(incomingStore) {
+  if (!incomingStore || typeof incomingStore !== "object") return incomingStore;
+  const cached = Array.isArray(storeCache?.analyticsEvents) ? storeCache.analyticsEvents : [];
+  const incoming = Array.isArray(incomingStore.analyticsEvents) ? incomingStore.analyticsEvents : [];
+  if (!cached.length && !incoming.length) return incomingStore;
+  if (!cached.length) return incomingStore;
+  if (!incoming.length) {
+    return { ...incomingStore, analyticsEvents: cached.slice() };
+  }
+  const byId = new Map();
+  incoming.forEach((evt) => {
+    if (evt?.id) byId.set(evt.id, evt);
+  });
+  let added = 0;
+  cached.forEach((evt) => {
+    if (evt?.id && !byId.has(evt.id)) {
+      byId.set(evt.id, evt);
+      added += 1;
+    }
+  });
+  if (!added && incoming.length >= cached.length) return incomingStore;
+  const merged = Array.from(byId.values()).sort(
+    (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0),
   );
+  // Soft cap here (MAX_ANALYTICS_EVENTS is declared later); pruneAnalyticsEventsInStore enforces the real cap.
+  const cap = 5000;
+  return {
+    ...incomingStore,
+    analyticsEvents: merged.length > cap ? merged.slice(-cap) : merged,
+  };
+}
+
+function applyStoreWriteMerges(store, { preferIncomingSiteContent = false } = {}) {
+  let next = mergeStorePreserveSignupTransactionalStamps(store);
+  next = mergeStorePreserveAnalyticsEvents(next);
+  if (!preferIncomingSiteContent) {
+    next = mergeStorePreferNewerSiteContent(next);
+  }
+  next = mergeStorePreserveAdminSessions(next);
+  next = mergeStorePreserveEmailCampaigns(next);
+  return next;
+}
+
+function writeStore(store, { immediate = true, debounced = false } = {}) {
+  const nextStore = applyStoreWriteMerges(store);
   storeCache = nextStore;
   // Only upsert to Postgres after the authentic DB store is loaded. While on local
   // fallback, never push a sparse in-memory store over production membership data.
@@ -4140,8 +4196,8 @@ function stampLocalStoreCacheMtime(store) {
 async function writeStoreAsync(store) {
   // Intentional full-state writes (curriculum / site-content) may carry a newer stamp.
   // Do not merge-prefer siteContent from cache — the caller already built the next siteContent.
-  // Always preserve adminSessions so a concurrent login is not erased mid-save.
-  storeCache = mergeStorePreserveEmailCampaigns(mergeStorePreserveAdminSessions(store));
+  // Still preserve adminSessions, signup email stamps, and analyticsEvents against races.
+  storeCache = applyStoreWriteMerges(store, { preferIncomingSiteContent: true });
   if (usePostgresStore() && !databaseReady) {
     logStorePersistence("database_unavailable", {
       action: "writeStoreAsync_rejected",
@@ -4182,6 +4238,7 @@ async function writeStoreAsync(store) {
     }
   }
   writeLocalJsonStore(storeCache);
+  stampLocalStoreCacheMtime(storeCache);
 }
 
 function storePersistenceFailureStatus(error) {
@@ -7150,7 +7207,8 @@ async function handleAccountProfileSync(request, response) {
   if (Object.prototype.hasOwnProperty.call(body, "centerInviteCode")) {
     updates.centerInviteCode = centerInviteCode || "";
   }
-  if (body.signup === true && !existing.signupAt) {
+  const isSignupRequest = body.signup === true;
+  if (isSignupRequest && !existing.signupAt) {
     updates.signupAt = new Date().toISOString();
     updates.createdAt = existing.createdAt || updates.signupAt;
     updates.plan = existing.plan || "Free";
@@ -7160,6 +7218,12 @@ async function handleAccountProfileSync(request, response) {
       || freePlanGrandfathering.modeForNewSignup({
         siteContent: normalizedSiteContent(readStore().siteContent || defaultSiteContentStore()),
       });
+  } else if (isSignupRequest && existing.signupAt) {
+    // Profile sync remains authoritative even if analytics already stamped signupAt.
+    updates.signupAt = existing.signupAt;
+    updates.createdAt = existing.createdAt || existing.signupAt;
+    updates.plan = existing.plan || "Free";
+    updates.subscriptionStatus = existing.subscriptionStatus || "Free Plan";
   } else if (body.freeLessonAccessMode) {
     const modeFromBody = freePlanGrandfathering.normalizeAccessMode(body.freeLessonAccessMode);
     if (modeFromBody) updates.freeLessonAccessMode = modeFromBody;
@@ -7175,9 +7239,12 @@ async function handleAccountProfileSync(request, response) {
   // Persist profile first so signup/login UI is never blocked by welcome email or admin alerts.
   // Must write the in-memory store from upsertUser — local-json readStore() reloads disk and
   // would drop the deferred profile fields (accountType, centerAssociation, businessName).
-  const isNewSignup = body.signup === true && !existing.signupAt;
+  // Transactional signup emails are gated on the signup request + success stamps, NOT signupAt.
   const metaEventId = String(body.metaEventId || body.eventId || "").trim().slice(0, 200)
-    || (isNewSignup ? `reg_${email}_${String(updates.signupAt || Date.now()).replace(/\W/g, "")}` : "");
+    || (isSignupRequest ? `reg_${email}_${String(updates.signupAt || existing.signupAt || Date.now()).replace(/\W/g, "")}` : "");
+  const shouldFireMetaRegistration = isSignupRequest
+    && Boolean(metaEventId)
+    && !existing.metaCompleteRegistrationEventId;
   try {
     await writeStoreAsync(writableStore());
   } catch (error) {
@@ -7190,7 +7257,7 @@ async function handleAccountProfileSync(request, response) {
   }
   jsonResponse(response, 200, {
     ok: true,
-    metaEventId: isNewSignup ? metaEventId : undefined,
+    metaEventId: isSignupRequest ? metaEventId : undefined,
     user: {
       email: user.email,
       firstName: user.firstName || "",
@@ -7208,7 +7275,7 @@ async function handleAccountProfileSync(request, response) {
   });
 
   // Authoritative CompleteRegistration via CAPI (Pixel may mirror with the same event_id).
-  if (isNewSignup && metaEventId) {
+  if (shouldFireMetaRegistration) {
     const hints = metaCapi.requestClientHints(request);
     fireMetaCapiSafe("CompleteRegistration", {
       eventId: metaEventId,
@@ -7228,46 +7295,123 @@ async function handleAccountProfileSync(request, response) {
         value: 0,
       },
     });
+    try {
+      const metaStore = writableStore();
+      if (metaStore.users?.[email]) {
+        metaStore.users[email].metaCompleteRegistrationEventId = metaEventId;
+        metaStore.users[email].metaCompleteRegistrationAt = new Date().toISOString();
+        writeStore(metaStore, { immediate: true });
+      }
+    } catch {
+      /* non-blocking */
+    }
   }
 
   // Side effects after the response — never delay Create Account / Log In UI.
-  // Serialize welcome delivery before the admin-alert write so a stale alert store
-  // snapshot cannot wipe freeWelcomeSentAt / the in-app welcome message.
-  if (isNewSignup) {
-    void (async () => {
-      try {
-        await onboardingWelcome.maybeDeliverOnSignup(email);
-      } catch (err) {
-        console.warn("[onboarding-welcome] free welcome failed:", err.message);
+  // Welcome + admin alert are idempotent and must not depend on whether signupAt
+  // was already written by a racing analytics event.
+  if (isSignupRequest) {
+    void deliverSignupTransactionalSideEffects(email);
+  }
+}
+
+/**
+ * Exactly-once (per successful stamp) free welcome + admin signup alert.
+ * Safe to call on signup retries; never throws to the HTTP handler.
+ */
+async function deliverSignupTransactionalSideEffects(email) {
+  const clean = normalizeEmail(email);
+  if (!clean) return;
+  try {
+    await onboardingWelcome.maybeDeliverOnSignup(clean);
+  } catch (err) {
+    console.warn("[onboarding-welcome] free welcome failed:", err.message);
+  }
+  try {
+    const claimStore = writableStore();
+    const claim = signupTransactional.claimAdminSignupAlert(claimStore, clean);
+    if (!claim.claimed) {
+      // Heal a missing sent stamp when we already notified (racing store write).
+      if (claim.reason === "already_sent" || claim.reason === "already_notified") {
+        const healStore = writableStore();
+        if (healStore.users?.[clean] && !healStore.users[clean].adminSignupAlertSentAt) {
+          signupTransactional.markAdminSignupAlertSent(healStore, clean, {
+            messageId: healStore.users[clean].adminSignupAlertMessageId || "recovered",
+          });
+          writeStore(healStore, { immediate: true });
+        }
       }
-      try {
-        const storeForAlert = writableStore();
-        await emitAdminAlertSafe(storeForAlert, {
-          category: "signup",
-          type: "admin_new_signup",
-          title: "New account created",
-          preview: `${user.name || email} signed up (${user.accountType || "provider"} · ${user.plan || "Free"})`,
-          email,
-          name: user.name || "",
-          refId: `signup:${email}`,
-          sendEmail: true,
-          emailKind: "Signup",
-          emailFields: [
-            ["Account type", user.accountType ? accountAccess.accountTypeLabel(user.accountType) : ""],
-            ["Role", user.role ? accountAccess.roleLabel(user.role) : ""],
-            ["Plan", user.plan || "Free"],
-          ],
-          emailExtras: {
-            accountType: user.accountType ? accountAccess.accountTypeLabel(user.accountType) : "",
-            role: user.role ? accountAccess.roleLabel(user.role) : "",
-            signupAt: user.signupAt || user.createdAt || "",
-          },
-        });
-        writeStore(storeForAlert, { immediate: true });
-      } catch {
-        /* ignore admin alert failures */
-      }
-    })();
+      return;
+    }
+    writeStore(claimStore, { immediate: true });
+
+    const liveUser = writableStore().users?.[clean] || { email: clean };
+    const alertStore = writableStore();
+    await emitAdminAlertSafe(alertStore, {
+      category: "signup",
+      type: "admin_new_signup",
+      title: "New account created",
+      preview: `${liveUser.name || clean} signed up (${liveUser.accountType || "provider"} · ${liveUser.plan || "Free"})`,
+      email: clean,
+      name: liveUser.name || "",
+      refId: `signup:${clean}`,
+      sendEmail: false,
+      emailKind: "Signup",
+      emailFields: [
+        ["Account type", liveUser.accountType ? accountAccess.accountTypeLabel(liveUser.accountType) : ""],
+        ["Role", liveUser.role ? accountAccess.roleLabel(liveUser.role) : ""],
+        ["Plan", liveUser.plan || "Free"],
+      ],
+      emailExtras: {
+        accountType: liveUser.accountType ? accountAccess.accountTypeLabel(liveUser.accountType) : "",
+        role: liveUser.role ? accountAccess.roleLabel(liveUser.role) : "",
+        signupAt: liveUser.signupAt || liveUser.createdAt || "",
+      },
+    });
+    writeStore(alertStore, { immediate: true });
+
+    const emailResult = await notifyAdmin({
+      ownerEventType: "admin_new_signup",
+      kind: "Signup",
+      topic: "New account created",
+      title: "New account created",
+      email: clean,
+      name: liveUser.name || "",
+      message: `${liveUser.name || clean} signed up (${liveUser.accountType || "provider"} · ${liveUser.plan || "Free"})`,
+      preview: `${liveUser.name || clean} signed up (${liveUser.accountType || "provider"} · ${liveUser.plan || "Free"})`,
+      createdAt: new Date().toISOString(),
+      refId: `signup:${clean}`,
+      idempotencyKey: `admin_new_signup:${clean}`,
+      fields: [
+        ["Account type", liveUser.accountType ? accountAccess.accountTypeLabel(liveUser.accountType) : ""],
+        ["Role", liveUser.role ? accountAccess.roleLabel(liveUser.role) : ""],
+        ["Plan", liveUser.plan || "Free"],
+      ],
+      extras: {
+        accountType: liveUser.accountType ? accountAccess.accountTypeLabel(liveUser.accountType) : "",
+        role: liveUser.role ? accountAccess.roleLabel(liveUser.role) : "",
+        signupAt: liveUser.signupAt || liveUser.createdAt || "",
+      },
+    });
+
+    const stampStore = writableStore();
+    if (emailResult?.sent) {
+      signupTransactional.markAdminSignupAlertSent(stampStore, clean, {
+        messageId: emailResult.messageId || "",
+      });
+    } else {
+      signupTransactional.clearAdminSignupAlertClaim(stampStore, clean);
+    }
+    writeStore(stampStore, { immediate: true });
+  } catch (err) {
+    console.warn("[admin-notifications] signup alert failed:", err?.message || err);
+    try {
+      const clearStore = writableStore();
+      signupTransactional.clearAdminSignupAlertClaim(clearStore, clean);
+      writeStore(clearStore, { immediate: true });
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -10436,6 +10580,26 @@ async function handleAdminProductionMonitoring(request, response, url) {
   jsonResponse(response, 200, { ok: true, monitoring: snapshot });
 }
 
+async function loadInsightsAnalyticsEvents(store) {
+  let mergedEvents = Array.isArray(store?.analyticsEvents) ? store.analyticsEvents.slice() : [];
+  if (usePostgresStore() && postgresPool && databaseReady) {
+    try {
+      const tableEvents = await analyticsStore.fetchRecentAnalyticsEvents(
+        postgresPool,
+        postgresQueryWithTransientRetry,
+      );
+      const byId = new Map(mergedEvents.map((evt) => [evt.id, evt]));
+      tableEvents.forEach((evt) => {
+        if (evt?.id) byId.set(evt.id, evt);
+      });
+      mergedEvents = Array.from(byId.values());
+    } catch (error) {
+      console.warn("[admin-insights] analytics table fetch failed:", error.message || error);
+    }
+  }
+  return mergedEvents;
+}
+
 async function handleAdminInsights(request, response, url) {
   const adminToken = extractAdminToken(request, url) || "";
   if (!validAdminToken(adminToken)) {
@@ -10443,7 +10607,8 @@ async function handleAdminInsights(request, response, url) {
     return;
   }
   const hub = String(url.searchParams.get("hub") || "advisor").trim();
-  const range = String(url.searchParams.get("range") || "7d").trim();
+  // Default to today so AI Business Advisor / insights open on live activity.
+  const range = String(url.searchParams.get("range") || "today").trim();
   const email = normalizeEmail(url.searchParams.get("email") || "");
   const sort = String(url.searchParams.get("sort") || "votes").trim();
   const category = String(url.searchParams.get("category") || "").trim();
@@ -10452,6 +10617,7 @@ async function handleAdminInsights(request, response, url) {
   const stage = String(url.searchParams.get("stage") || "").trim();
   const exitStage = String(url.searchParams.get("exitStage") || "").trim();
   const store = peekStore();
+  const analyticsEvents = await loadInsightsAnalyticsEvents(store);
   let marketing = null;
   let monitoringSnapshot = null;
   try {
@@ -10459,7 +10625,9 @@ async function handleAdminInsights(request, response, url) {
       monitoringSnapshot = await buildProductionMonitoringSnapshot();
     }
     if (hub === "advisor") {
-      const summary = analyticsSummary(store);
+      // Use the same Postgres-merged event set as Admin Analytics so Advisor "Today"
+      // reflects live visits/signups instead of the in-memory high-volume skip buffer.
+      const summary = analyticsSummary(store, { events: analyticsEvents });
       marketing = summary?.marketing || null;
     }
   } catch (error) {
@@ -10475,7 +10643,7 @@ async function handleAdminInsights(request, response, url) {
     source,
     stage,
     exitStage,
-    events: store.analyticsEvents || [],
+    events: analyticsEvents,
     marketing,
     monitoringSnapshot,
     getBuildInfo: () => ({
@@ -12172,6 +12340,36 @@ function sanitizeAnalyticsEvent(input, request) {
   };
 }
 
+function preserveSignupTransactionalFields(target = {}, ...sources) {
+  const keys = [
+    "signupAt",
+    "adminSignupAlertSentAt",
+    "adminSignupAlertMessageId",
+    "adminSignupAlertClaimedAt",
+    "onboardingWelcome",
+    "metaCompleteRegistrationEventId",
+    "metaCompleteRegistrationAt",
+  ];
+  for (const key of keys) {
+    let best = target[key];
+    for (const source of sources) {
+      const value = source?.[key];
+      if (value === undefined || value === null || value === "") continue;
+      if (key === "onboardingWelcome" && best && typeof best === "object" && typeof value === "object") {
+        best = { ...best, ...value };
+        // Prefer non-empty sent stamps from either side.
+        for (const stampKey of ["freeWelcomeSentAt", "emailSentAt", "emailMessageId", "inAppMessageId"]) {
+          if (!best[stampKey] && value[stampKey]) best[stampKey] = value[stampKey];
+        }
+      } else if (!best) {
+        best = value;
+      }
+    }
+    if (best !== undefined) target[key] = best;
+  }
+  return target;
+}
+
 function updateAnalyticsUser(store, event) {
   if (!event.user || event.user === "guest") return;
   const eventEmail = normalizeEmail(event.user);
@@ -12181,27 +12379,32 @@ function updateAnalyticsUser(store, event) {
     return;
   }
   store.users = store.users || {};
-  const existing = store.users[event.user] || { email: event.user };
-  const featureUsage = existing.featureUsage || {};
+  // Merge live cache user so a racing analytics write cannot wipe signup email stamps
+  // that profile side-effects just persisted.
+  const cachedUser = storeCache?.users?.[eventEmail] || storeCache?.users?.[event.user] || null;
+  const existing = store.users[event.user] || store.users[eventEmail] || { email: event.user };
+  const base = preserveSignupTransactionalFields({ ...existing }, cachedUser, existing);
+  const featureUsage = { ...(base.featureUsage || {}) };
   featureUsage[event.name] = (featureUsage[event.name] || 0) + 1;
   const updates = {
-    ...existing,
+    ...base,
     email: event.user,
-    plan: event.plan || existing.plan || "Free",
+    plan: event.plan || base.plan || "Free",
     lastSeenAt: event.createdAt,
     featureUsage,
     updatedAt: new Date().toISOString(),
   };
-  if (event.name === "account_signup_complete" && !updates.signupAt) {
-    updates.signupAt = event.createdAt;
-    updates.createdAt = existing.createdAt || event.createdAt;
+  // Do not set signupAt from analytics — profile sync owns signup stamps and
+  // transactional emails. Analytics may still enrich name/attribution fields.
+  if (event.name === "account_signup_complete" && !base.createdAt) {
+    updates.createdAt = event.createdAt;
   }
   if (event.name === "account_signup_complete") {
     const detailFirst = normalizedShortText(event.detail?.firstName, 80);
     const detailLast  = normalizedShortText(event.detail?.lastName, 80);
-    if (detailFirst && !existing.firstName) updates.firstName = detailFirst;
-    if (detailLast  && !existing.lastName)  updates.lastName  = detailLast;
-    if ((detailFirst || detailLast) && !existing.name) {
+    if (detailFirst && !base.firstName) updates.firstName = detailFirst;
+    if (detailLast  && !base.lastName)  updates.lastName  = detailLast;
+    if ((detailFirst || detailLast) && !base.name) {
       updates.name = [detailFirst, detailLast].filter(Boolean).join(" ");
     }
     const businessName = normalizedShortText(event.detail?.businessName || event.detail?.daycareName || event.detail?.programName, 160);
@@ -12218,7 +12421,7 @@ function updateAnalyticsUser(store, event) {
     }
     if (event.detail?.phone) updates.phone = normalizedShortText(event.detail.phone, 40);
     // Persist first-touch attribution on the user for later trial/paid marketing rows.
-    if (!existing.attribution?.firstVisitAt && !existing.attribution?.firstSeenAt) {
+    if (!base.attribution?.firstVisitAt && !base.attribution?.firstSeenAt) {
       const snap = extractEventAttribution(event);
       updates.attribution = {
         source: snap.source,
@@ -12244,7 +12447,9 @@ function updateAnalyticsUser(store, event) {
     updates.monthlyPrice = "$0/month";
     updates.priceLock = "";
   }
+  preserveSignupTransactionalFields(updates, cachedUser, base);
   store.users[event.user] = updates;
+  if (eventEmail && eventEmail !== event.user) store.users[eventEmail] = updates;
 }
 
 function recordBillingEvent(store, event) {
@@ -14248,6 +14453,12 @@ async function handleAnalyticsEvent(request, response) {
     }
     if (event.user && event.user !== "guest") {
       updateAnalyticsUser(store, event);
+      // Re-merge transactional stamps from the live cache immediately before persist so a
+      // slow analytics write cannot erase admin/welcome stamps applied mid-request.
+      const liveEmail = normalizeEmail(event.user);
+      if (liveEmail && store.users?.[liveEmail] && storeCache?.users?.[liveEmail]) {
+        preserveSignupTransactionalFields(store.users[liveEmail], storeCache.users[liveEmail]);
+      }
     }
     if (billingStorePatch) recordBillingEvent(store, event);
     try {
@@ -15324,15 +15535,54 @@ async function postJson(url, headers, payload) {
 // All outbound email passes through sendEmail() so that switching the provider
 // or from/to addresses only requires env var changes — no code changes needed.
 //
-// opts: { to, replyTo, subject, text, html }
-// Returns { sent, configured, provider }
+// opts: { to, replyTo, subject, text, html, eventType?, idempotencyKey? }
+// Returns { sent, configured, provider, messageId? }
+function logEmailDelivery({
+  eventType = "email",
+  to = [],
+  messageId = "",
+  timestamp = "",
+  success = false,
+  error = "",
+  provider = "",
+} = {}) {
+  const recipients = (Array.isArray(to) ? to : [to]).map((value) => String(value || "").trim()).filter(Boolean);
+  console.log(JSON.stringify({
+    tag: "email-send",
+    eventType: String(eventType || "email").slice(0, 120),
+    to: recipients,
+    messageId: String(messageId || "").slice(0, 200),
+    timestamp: timestamp || new Date().toISOString(),
+    success: Boolean(success),
+    error: String(error || "").slice(0, 300),
+    provider: String(provider || "").slice(0, 40),
+  }));
+}
+
 async function sendEmail(opts = {}) {
+  const eventType = String(opts.eventType || opts.kind || "email").slice(0, 120);
+  const timestamp = new Date().toISOString();
   const status = supportEmailConfigStatus();
-  if (!status.ready) return { sent: false, configured: false, provider: status.provider };
+  const toAddr = opts.to || SUPPORT_EMAIL_TO;
+  const toList = (Array.isArray(toAddr) ? toAddr : [toAddr])
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  if (!status.ready) {
+    const result = { sent: false, configured: false, provider: status.provider, messageId: "" };
+    logEmailDelivery({
+      eventType,
+      to: toList,
+      messageId: "",
+      timestamp,
+      success: false,
+      error: "not_configured",
+      provider: status.provider || "",
+    });
+    return result;
+  }
 
   const provider = detectedEmailProvider();
-  const toAddr = opts.to || SUPPORT_EMAIL_TO;
-  const toList = Array.isArray(toAddr) ? toAddr : [toAddr];
   const replyTo = String(opts.replyTo || "");
   const subject = String(opts.subject || "").slice(0, 500);
   const text = String(opts.text || "");
@@ -15340,77 +15590,99 @@ async function sendEmail(opts = {}) {
   const listUnsubscribeUrl = String(opts.listUnsubscribeUrl || "");
   const idempotencyKey = String(opts.idempotencyKey || "").slice(0, 256);
 
-  if (provider === "resend") {
-    const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
-    if (replyTo) payload.reply_to = replyTo;
-    if (Array.isArray(opts.tags) && opts.tags.length) payload.tags = opts.tags;
-    if (listUnsubscribeUrl) {
-      payload.headers = {
-        "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  try {
+    let result = { sent: false, configured: false, provider: provider || "not configured", messageId: "" };
+    if (provider === "resend") {
+      const payload = { from: SUPPORT_EMAIL_FROM, to: toList, subject, text, html };
+      if (replyTo) payload.reply_to = replyTo;
+      if (Array.isArray(opts.tags) && opts.tags.length) payload.tags = opts.tags;
+      if (listUnsubscribeUrl) {
+        payload.headers = {
+          "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        };
+      }
+      const headers = { Authorization: "Bearer " + RESEND_API_KEY };
+      if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
+      const providerResponse = await postJson(
+        `${String(RESEND_API_BASE_URL || "https://api.resend.com").replace(/\/$/, "")}/emails`,
+        headers,
+        payload,
+      );
+      result = {
+        sent: true,
+        configured: true,
+        provider,
+        messageId: providerResponse?.id || "",
+      };
+    } else if (provider === "sendgrid") {
+      const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
+      const payload = {
+        personalizations: [{ to: [{ email: toList[0] }], subject }],
+        from,
+        content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
+      };
+      if (replyTo) payload.reply_to = { email: replyTo };
+      if (listUnsubscribeUrl) {
+        payload.headers = {
+          "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
+          "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+        };
+      }
+      const providerResponse = await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
+      result = {
+        sent: true,
+        configured: true,
+        provider,
+        messageId: providerResponse?.headers?.["x-message-id"] || providerResponse?.id || "",
+      };
+    } else if (provider === "postmark") {
+      const payload = {
+        From: SUPPORT_EMAIL_FROM,
+        To: toList[0],
+        Subject: subject,
+        TextBody: text,
+        HtmlBody: html,
+        MessageStream: "outbound",
+      };
+      if (replyTo) payload.ReplyTo = replyTo;
+      if (listUnsubscribeUrl) {
+        payload.Headers = [
+          { Name: "List-Unsubscribe", Value: `<${listUnsubscribeUrl}>` },
+          { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
+        ];
+      }
+      const providerResponse = await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
+      result = {
+        sent: true,
+        configured: true,
+        provider,
+        messageId: providerResponse?.MessageID || providerResponse?.MessageId || "",
       };
     }
-    const headers = { Authorization: "Bearer " + RESEND_API_KEY };
-    if (idempotencyKey) headers["Idempotency-Key"] = idempotencyKey;
-    const providerResponse = await postJson(
-      `${String(RESEND_API_BASE_URL || "https://api.resend.com").replace(/\/$/, "")}/emails`,
-      headers,
-      payload,
-    );
-    return {
-      sent: true,
-      configured: true,
-      provider,
-      messageId: providerResponse?.id || "",
-    };
+
+    logEmailDelivery({
+      eventType,
+      to: toList,
+      messageId: result.messageId || "",
+      timestamp,
+      success: Boolean(result.sent),
+      error: result.sent ? "" : (result.configured ? "send_failed" : "not_configured"),
+      provider: result.provider || provider || "",
+    });
+    return result;
+  } catch (error) {
+    logEmailDelivery({
+      eventType,
+      to: toList,
+      messageId: "",
+      timestamp,
+      success: false,
+      error: error?.message || String(error),
+      provider: provider || "",
+    });
+    throw error;
   }
-  if (provider === "sendgrid") {
-    const from = parseEmailAddress(SUPPORT_EMAIL_FROM);
-    const payload = {
-      personalizations: [{ to: [{ email: toList[0] }], subject }],
-      from,
-      content: [{ type: "text/plain", value: text }, { type: "text/html", value: html }],
-    };
-    if (replyTo) payload.reply_to = { email: replyTo };
-    if (listUnsubscribeUrl) {
-      payload.headers = {
-        "List-Unsubscribe": `<${listUnsubscribeUrl}>`,
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-      };
-    }
-    const providerResponse = await postJson("https://api.sendgrid.com/v3/mail/send", { Authorization: "Bearer " + SENDGRID_API_KEY }, payload);
-    return {
-      sent: true,
-      configured: true,
-      provider,
-      messageId: providerResponse?.headers?.["x-message-id"] || providerResponse?.id || "",
-    };
-  }
-  if (provider === "postmark") {
-    const payload = {
-      From: SUPPORT_EMAIL_FROM,
-      To: toList[0],
-      Subject: subject,
-      TextBody: text,
-      HtmlBody: html,
-      MessageStream: "outbound",
-    };
-    if (replyTo) payload.ReplyTo = replyTo;
-    if (listUnsubscribeUrl) {
-      payload.Headers = [
-        { Name: "List-Unsubscribe", Value: `<${listUnsubscribeUrl}>` },
-        { Name: "List-Unsubscribe-Post", Value: "List-Unsubscribe=One-Click" },
-      ];
-    }
-    const providerResponse = await postJson("https://api.postmarkapp.com/email", { "X-Postmark-Server-Token": POSTMARK_SERVER_TOKEN }, payload);
-    return {
-      sent: true,
-      configured: true,
-      provider,
-      messageId: providerResponse?.MessageID || providerResponse?.MessageId || "",
-    };
-  }
-  return { sent: false, configured: false, provider: provider || "not configured" };
 }
 
 // Email engagement (onboarding drip + weekly What's New) reuses sendEmail().
@@ -15673,6 +15945,8 @@ async function notifyUserAck({ toEmail, toName, submissionType, topic }) {
 // fall back to a minimal owner shell rather than failing the triggering event.
 async function notifyAdmin(opts = {}) {
   const kind = String(opts.kind || "Submission");
+  const eventType = String(opts.ownerEventType || opts.alertType || `admin_${kind}`).slice(0, 120);
+  const idempotencyKey = String(opts.idempotencyKey || (opts.refId ? `admin:${opts.refId}` : "")).slice(0, 256);
   try {
     let store = null;
     try { store = readStore(); } catch { /* ignore enrichment store failures */ }
@@ -15688,6 +15962,8 @@ async function notifyAdmin(opts = {}) {
       subject: rendered.subject,
       text: rendered.text,
       html: rendered.html,
+      eventType,
+      idempotencyKey,
     });
   } catch (err) {
     console.warn(`[email] Admin notification for ${kind} failed:`, err.message);
@@ -15709,6 +15985,8 @@ async function notifyAdmin(opts = {}) {
         subject,
         text,
         html: `<p>${htmlEscape(text).replace(/\n/g, "<br>")}</p>`,
+        eventType,
+        idempotencyKey,
       });
     } catch (fallbackErr) {
       return {
