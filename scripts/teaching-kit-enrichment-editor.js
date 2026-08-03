@@ -763,7 +763,7 @@
         <div class="tk-enrich-summary-head">
           <div>
             <p class="eyebrow">Upgrade Summary</p>
-            <strong>${esc(summary.completenessLabel)} · ${summary.completionPercent}%</strong>
+            <strong>${esc(summary.dashboardStage || summary.completenessLabel)} · ${summary.completionPercent}%</strong>
           </div>
           <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
         </div>

@@ -37,6 +37,37 @@
   ]);
 
   /**
+   * Provider digital binder tabs (vision alignment).
+   * Hide empty tabs for normal users; do not duplicate this list in the viewer.
+   */
+  const PROVIDER_BINDER_TABS = Object.freeze([
+    Object.freeze({ id: "overview", label: "Overview", sectionId: "overview" }),
+    Object.freeze({ id: "weekly_plan", label: "Weekly Plan", sectionId: "weekly_plan" }),
+    Object.freeze({ id: "activities", label: "Activities", sectionId: "daily_activities" }),
+    Object.freeze({ id: "printables", label: "Printables", sectionId: "printables" }),
+    Object.freeze({ id: "songs", label: "Songs", sectionId: "songs" }),
+    Object.freeze({ id: "books", label: "Books", sectionId: "books" }),
+    Object.freeze({ id: "examples", label: "Example Images", sectionId: "examples" }),
+    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit", sectionId: "teacher_toolkit" }),
+  ]);
+
+  const PROVIDER_BINDER_TAB_IDS = Object.freeze(
+    PROVIDER_BINDER_TABS.map((tab) => tab.id),
+  );
+
+  /**
+   * Curriculum dashboard triage stages (vision alignment).
+   * Distinct from quality bands Legacy / Enriched / Complete.
+   */
+  const DASHBOARD_STAGES = Object.freeze([
+    "Legacy",
+    "In Progress",
+    "Needs Review",
+    "Ready",
+    "Complete",
+  ]);
+
+  /**
    * Canonical Print Center / binder section registry.
    * Consumers must import from here — do not duplicate lists in app.js or server routes.
    */
@@ -319,6 +350,9 @@
   return {
     FEATURE_FLAG_KEYS,
     COMPLETENESS_VALUES,
+    PROVIDER_BINDER_TABS,
+    PROVIDER_BINDER_TAB_IDS,
+    DASHBOARD_STAGES,
     SECTIONS,
     ACTIVITY_CATEGORY_TO_SECTION,
     ATTACHMENT_TYPES,

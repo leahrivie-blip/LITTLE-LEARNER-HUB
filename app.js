@@ -10305,6 +10305,7 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
     return {
       percent: 0,
       label: "Legacy",
+      stage: "Legacy",
       summary: null,
     };
   }
@@ -10320,7 +10321,11 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
   const label = summary
     ? summary.completenessLabel
     : enrich.completenessLabelFromPercent(percent, null);
-  return { percent, label, summary };
+  const stage = summary?.dashboardStage
+    || (typeof enrich.dashboardStageFromSummary === "function"
+      ? enrich.dashboardStageFromSummary(summary || { completionPercent: percent })
+      : label);
+  return { percent, label, stage, summary };
 }
 
 function adminCurriculumCompletionBandMatch(percent, band) {
@@ -10357,17 +10362,19 @@ function curriculumLessonPlanAdminCardHtml(plan) {
   const gapBits = [];
   if (summary) {
     if (summary.incompleteActivities) gapBits.push(`${summary.incompleteActivities} incomplete`);
-    if (summary.missingPhotos) gapBits.push("photos");
-    if (summary.missingTeacherTips > 0) gapBits.push("tips");
-    if (summary.missingPrintables) gapBits.push("printables");
-    if (summary.missingBooks) gapBits.push("books");
     if (summary.missingSongs) gapBits.push("songs");
-    if (summary.needsReview) gapBits.push("needs review");
+    if (summary.missingBooks) gapBits.push("books");
+    if (summary.missingPrintables) gapBits.push("printables");
+    if (summary.missingExamples || summary.missingPhotos) gapBits.push("examples");
+    if (summary.missingObservations || summary.missingObservationPrompts > 0) gapBits.push("observations");
+    if (summary.missingFamilyConnection) gapBits.push("family");
+    if (summary.missingTeacherTips > 0) gapBits.push("tips");
   }
   const editedLabel = summary?.lastEditedDate
     ? adminLessonUpdatedLabel(summary.lastEditedDate)
     : adminLessonUpdatedLabel(plan.updatedAt);
   const editedBy = summary?.lastEditedBy ? ` by ${summary.lastEditedBy}` : "";
+  const stage = enrichment?.stage || summary?.dashboardStage || enrichment?.label || "Legacy";
   return `
     <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
       <div class="admin-mobile-card-body">
@@ -10381,20 +10388,20 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
-            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Teaching Kit completion">${escapeHtml(enrichment.label)} · ${enrichment.percent}%</span>` : ""}
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Teaching Kit dashboard stage">${escapeHtml(stage)} · ${enrichment.percent}%</span>` : ""}
             ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
             ${summary?.needsReview ? `<span class="tag">Needs review</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
           ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>` : ""}
-          ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 4).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
+          ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 6).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
           <small>${enrichEnabled ? `Last edited: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}` : `Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}`}</small>
         </div>
       </div>
       <div class="form-actions">
-        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Enrich Teaching Kit</button>` : ""}
+        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Upgrade Lesson</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
       </div>
@@ -10419,8 +10426,19 @@ function filteredAdminCurriculumLessonPlans() {
     const meta = metaFor(plan);
     if (isTeachingKitEnrichmentEditorEnabled() && filters.completionBand) {
       const band = String(filters.completionBand);
-      if (band === "legacy" || band === "enriched" || band === "complete") {
-        if (meta.label.toLowerCase() !== band) return false;
+      const stageSlug = String(meta.stage || meta.summary?.dashboardStage || "")
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+      if (
+        band === "legacy"
+        || band === "in_progress"
+        || band === "needs_review"
+        || band === "ready"
+        || band === "complete"
+      ) {
+        if (stageSlug !== band) return false;
+      } else if (band === "enriched") {
+        if (String(meta.label || "").toLowerCase() !== "enriched") return false;
       } else if (!adminCurriculumCompletionBandMatch(meta.percent, band)) {
         return false;
       }
@@ -10570,26 +10588,31 @@ function renderAdminCurriculumLessonPlanManager() {
         </select>
       </label>
       ${isTeachingKitEnrichmentEditorEnabled() ? `
-      <label><span>TK completion</span>
+      <label><span>TK dashboard stage</span>
         <select id="adminCurriculumFilterCompletion">
           <option value="" ${!adminCurriculumListFilters.completionBand ? "selected" : ""}>All</option>
+          <option value="legacy" ${adminCurriculumListFilters.completionBand === "legacy" ? "selected" : ""}>Legacy</option>
+          <option value="in_progress" ${adminCurriculumListFilters.completionBand === "in_progress" ? "selected" : ""}>In Progress</option>
+          <option value="needs_review" ${adminCurriculumListFilters.completionBand === "needs_review" ? "selected" : ""}>Needs Review</option>
+          <option value="ready" ${adminCurriculumListFilters.completionBand === "ready" ? "selected" : ""}>Ready</option>
+          <option value="complete" ${adminCurriculumListFilters.completionBand === "complete" ? "selected" : ""}>Complete</option>
           <option value="0-24" ${adminCurriculumListFilters.completionBand === "0-24" ? "selected" : ""}>0–24%</option>
           <option value="25-49" ${adminCurriculumListFilters.completionBand === "25-49" ? "selected" : ""}>25–49%</option>
-          <option value="50-89" ${adminCurriculumListFilters.completionBand === "50-89" || adminCurriculumListFilters.completionBand === "50-79" ? "selected" : ""}>50–89% (Enriched)</option>
+          <option value="50-89" ${adminCurriculumListFilters.completionBand === "50-89" || adminCurriculumListFilters.completionBand === "50-79" ? "selected" : ""}>50–89% (Enriched band)</option>
           <option value="90-99" ${adminCurriculumListFilters.completionBand === "90-99" || adminCurriculumListFilters.completionBand === "80-99" ? "selected" : ""}>90–99%</option>
           <option value="100" ${adminCurriculumListFilters.completionBand === "100" ? "selected" : ""}>100%</option>
-          <option value="legacy" ${adminCurriculumListFilters.completionBand === "legacy" ? "selected" : ""}>Legacy</option>
-          <option value="enriched" ${adminCurriculumListFilters.completionBand === "enriched" ? "selected" : ""}>Enriched</option>
-          <option value="complete" ${adminCurriculumListFilters.completionBand === "complete" ? "selected" : ""}>Complete</option>
+          <option value="enriched" ${adminCurriculumListFilters.completionBand === "enriched" ? "selected" : ""}>Enriched (band)</option>
         </select>
       </label>
       <label><span>Priority gap</span>
         <select id="adminCurriculumFilterGap">
           <option value="" ${!adminCurriculumListFilters.gap ? "selected" : ""}>All</option>
-          <option value="missing_photos" ${adminCurriculumListFilters.gap === "missing_photos" ? "selected" : ""}>Missing photos</option>
-          <option value="missing_printables" ${adminCurriculumListFilters.gap === "missing_printables" ? "selected" : ""}>Missing printables</option>
-          <option value="missing_books" ${adminCurriculumListFilters.gap === "missing_books" ? "selected" : ""}>Missing books</option>
           <option value="missing_songs" ${adminCurriculumListFilters.gap === "missing_songs" ? "selected" : ""}>Missing songs</option>
+          <option value="missing_books" ${adminCurriculumListFilters.gap === "missing_books" ? "selected" : ""}>Missing books</option>
+          <option value="missing_printables" ${adminCurriculumListFilters.gap === "missing_printables" ? "selected" : ""}>Missing printables</option>
+          <option value="missing_examples" ${adminCurriculumListFilters.gap === "missing_examples" || adminCurriculumListFilters.gap === "missing_photos" ? "selected" : ""}>Missing examples</option>
+          <option value="missing_observations" ${adminCurriculumListFilters.gap === "missing_observations" ? "selected" : ""}>Missing observations</option>
+          <option value="missing_family" ${adminCurriculumListFilters.gap === "missing_family" ? "selected" : ""}>Missing family connection</option>
           <option value="missing_tips" ${adminCurriculumListFilters.gap === "missing_tips" ? "selected" : ""}>Missing teacher tips</option>
           <option value="draft" ${adminCurriculumListFilters.gap === "draft" ? "selected" : ""}>Draft</option>
           <option value="published" ${adminCurriculumListFilters.gap === "published" ? "selected" : ""}>Published</option>

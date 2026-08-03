@@ -20,7 +20,19 @@
     { id: "start", label: "Start Week" },
     { id: "setup", label: "Monday Setup" },
     { id: "today", label: "Today" },
+    { id: "binder", label: "Binder" },
     { id: "build", label: "Build / Print" },
+  ]);
+
+  const BINDER_SECTION_ORDER = Object.freeze([
+    "overview",
+    "weekly_plan",
+    "activities",
+    "printables",
+    "songs",
+    "books",
+    "examples",
+    "teacher_toolkit",
   ]);
 
   const WEEKDAYS = Object.freeze(["monday", "tuesday", "wednesday", "thursday", "friday"]);
@@ -60,6 +72,58 @@
       .filter(Boolean)
       .map((item) => `<span class="tk-chip">${escapeHtml(item)}</span>`)
       .join("");
+  }
+
+  function lazyImgHtml(src, alt, className) {
+    const url = text(src);
+    if (!url) return "";
+    const cls = className ? ` class="${escapeHtml(className)}"` : "";
+    return `<img${cls} src="${escapeHtml(url)}" alt="${escapeHtml(alt || "")}" loading="lazy" decoding="async" data-tk-lazy="1" />`;
+  }
+
+  function sectionById(kit, sectionId) {
+    return (kit?.sections || []).find((section) => section.id === sectionId) || null;
+  }
+
+  function visibleBinderTabs(kit) {
+    const provider = kit?.companion?.providerBinder || kit?.companion?.binder || {};
+    const fromProvider = Array.isArray(provider.providerTabs)
+      ? provider.providerTabs
+      : (Array.isArray(provider.tabs) ? provider.tabs : []);
+    if (fromProvider.length) {
+      return fromProvider.filter((tab) => tab.visible !== false);
+    }
+    // Fallback: derive from kit.sections using vision order.
+    return BINDER_SECTION_ORDER.map((id) => {
+      const map = {
+        overview: "overview",
+        weekly_plan: "weekly_plan",
+        activities: "daily_activities",
+        printables: "printables",
+        songs: "songs",
+        books: "books",
+        examples: "examples",
+        teacher_toolkit: "teacher_toolkit",
+      };
+      const section = sectionById(kit, map[id] || id);
+      if (!section || !section.visible) return null;
+      return {
+        id,
+        label: ({
+          overview: "Overview",
+          weekly_plan: "Weekly Plan",
+          activities: "Activities",
+          printables: "Printables",
+          songs: "Songs",
+          books: "Books",
+          examples: "Example Images",
+          teacher_toolkit: "Teacher Toolkit",
+        })[id] || section.label,
+        sectionId: section.id,
+        visible: true,
+        itemCount: section.itemCount || 0,
+      };
+    }).filter(Boolean);
   }
 
   function checklistHtml(items, prefix) {
@@ -159,6 +223,7 @@
           <div class="tk-stack">
             <button type="button" class="tk-btn tk-btn-primary" data-tk-goto="setup">Open Monday Morning Setup</button>
             <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="today">Open Today’s Classroom</button>
+            <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Open Digital Binder</button>
             <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print My Kit</button>
           </div>
         </div>
@@ -402,32 +467,45 @@
         <div class="tk-photo-pair">
           <div class="tk-photo">
             ${activity.examplePhotoUrl
-              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" data-tk-photo-fallback="Example photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
+              ? `<img class="tk-photo-img" src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example photo for ${escapeHtml(activity.title)}" loading="lazy" decoding="async" data-tk-lazy="1" data-tk-photo-fallback="Example photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
               : `<div class="tk-photo-placeholder">Example photo</div>`}
             <div class="tk-photo-caption">Example photo</div>
           </div>
           <div class="tk-photo tk-photo-setup">
             ${activity.setupPhotoUrl
-              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" data-tk-photo-fallback="Setup photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
+              ? `<img class="tk-photo-img" src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup photo for ${escapeHtml(activity.title)}" loading="lazy" decoding="async" data-tk-lazy="1" data-tk-photo-fallback="Setup photo unavailable" onerror="this.onerror=null;this.removeAttribute('src');this.className='tk-photo-placeholder';this.alt='';this.textContent=this.getAttribute('data-tk-photo-fallback')||'Photo unavailable';" />`
               : `<div class="tk-photo-placeholder">Setup photo</div>`}
             <div class="tk-photo-caption">Setup photo</div>
           </div>
         </div>
         <div class="tk-grid-2">
           <div class="tk-stack">
-            <article class="tk-card"><h4>Setup instructions</h4><p class="tk-muted tk-pre">${escapeHtml(activity.setup || "No setup notes yet.")}</p></article>
-            <article class="tk-card"><h4>Steps</h4><p class="tk-muted tk-pre">${escapeHtml(activity.steps || "No steps listed yet.")}</p></article>
-            <article class="tk-card"><h4>Cleanup tips</h4><ul class="tk-list">${(activity.cleanupTips || []).map((tip) => `<li>${escapeHtml(tip)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul></article>
-          </div>
-          <div class="tk-stack">
             <article class="tk-card"><h4>Materials</h4><p class="tk-muted">${escapeHtml((activity.materials || []).join(" · ") || activity.materialsText || "None listed")}</p></article>
-            <article class="tk-card"><h4>Learning objective</h4><p class="tk-muted">${escapeHtml(activity.learningObjective || "None listed")}</p></article>
+            <article class="tk-card"><h4>Setup</h4><p class="tk-muted tk-pre">${escapeHtml(activity.setup || "No setup notes yet.")}</p></article>
+            <article class="tk-card"><h4>Step-by-step directions</h4><p class="tk-muted tk-pre">${escapeHtml(activity.steps || "No steps listed yet.")}</p></article>
             <article class="tk-card">
               <h4>Teacher prompts</h4>
               ${(activity.teacherPrompts || []).map((prompt) => `
                 <div class="tk-prompt"><strong>${escapeHtml(prompt.label || "Prompt")}</strong>${escapeHtml(prompt.text || "")}</div>
               `).join("") || `<p class="tk-muted">None listed</p>`}
             </article>
+            ${(activity.vocabulary || []).length ? `
+              <article class="tk-card">
+                <h4>Vocabulary</h4>
+                <p class="tk-muted">${escapeHtml((activity.vocabulary || []).map((word) => word.word || word).join(" · "))}</p>
+              </article>
+            ` : ""}
+            <article class="tk-card"><h4>Cleanup tips</h4><ul class="tk-list">${(activity.cleanupTips || []).map((tip) => `<li>${escapeHtml(tip)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul></article>
+          </div>
+          <div class="tk-stack">
+            <article class="tk-card"><h4>Learning objective</h4><p class="tk-muted">${escapeHtml(activity.learningObjective || "None listed")}</p></article>
+            <article class="tk-card tk-card-warn">
+              <h4>Observation prompts</h4>
+              <ul class="tk-list">${(activity.observationIdeas || []).map((idea) => `<li>${escapeHtml(idea)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul>
+            </article>
+            ${activity.adaptations ? `<article class="tk-card"><h4>Adaptations</h4><p class="tk-muted tk-pre">${escapeHtml(activity.adaptations)}</p></article>` : ""}
+            ${activity.safetyNotes ? `<article class="tk-card"><h4>Safety notes</h4><p class="tk-muted tk-pre">${escapeHtml(activity.safetyNotes)}</p></article>` : ""}
+            ${activity.extensions ? `<article class="tk-card"><h4>Family extension</h4><p class="tk-muted tk-pre">${escapeHtml(activity.extensions)}</p></article>` : ""}
             ${(activity.settingTags || []).length ? `
               <article class="tk-card">
                 <h4>Group / setting</h4>
@@ -442,10 +520,6 @@
                 `).join("")}</ul>
               </article>
             ` : ""}
-            <article class="tk-card tk-card-warn">
-              <h4>Observation ideas</h4>
-              <ul class="tk-list">${(activity.observationIdeas || []).map((idea) => `<li>${escapeHtml(idea)}</li>`).join("") || "<li class=\"tk-muted\">None listed</li>"}</ul>
-            </article>
             ${showSub ? `
               <article class="tk-card tk-card-sub">
                 <h4>Substitute This Activity</h4>
@@ -568,53 +642,264 @@
     `;
   }
 
+  function binderSectionBodyHtml(kit, tabId, state) {
+    const map = {
+      overview: "overview",
+      weekly_plan: "weekly_plan",
+      activities: "daily_activities",
+      printables: "printables",
+      songs: "songs",
+      books: "books",
+      examples: "examples",
+      teacher_toolkit: "teacher_toolkit",
+    };
+    const section = sectionById(kit, map[tabId] || tabId);
+    const content = section?.content || {};
+    const removed = state.removedActivityIds || {};
+
+    if (tabId === "overview") {
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Overview</h3>
+          <p class="tk-lead">${escapeHtml(content.weeklyOverview || "Your complete week is organized in this binder — open each tab as you teach.")}</p>
+          <div class="tk-chips">
+            ${chipsHtml([content.age || kit.age, content.theme || kit.theme, kit.plan])}
+          </div>
+          ${(sectionById(kit, "objectives")?.content?.objectives || []).length ? `
+            <article class="tk-binder-block">
+              <h4>Learning objectives</h4>
+              <ul class="tk-list">${(sectionById(kit, "objectives").content.objectives || []).map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </article>
+          ` : ""}
+          ${(sectionById(kit, "materials")?.content?.materials || []).length ? `
+            <article class="tk-binder-block">
+              <h4>Week materials</h4>
+              <p class="tk-muted">${escapeHtml((sectionById(kit, "materials").content.materials || []).join(" · "))}</p>
+            </article>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    if (tabId === "weekly_plan") {
+      const days = content.days || [];
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Weekly Plan</h3>
+          <p class="tk-muted">Monday through Friday at a glance.</p>
+          <div class="tk-week-grid">
+            ${days.map((day) => `
+              <article class="tk-binder-block">
+                <h4>${escapeHtml(day.dayLabel || day.day)}</h4>
+                <p class="tk-muted">${escapeHtml(day.focus || "Theme focus coming soon")}</p>
+                <p class="tk-muted"><strong>${escapeHtml(String(day.activityCount || 0))}</strong> activities</p>
+                <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-day="${escapeHtml(day.day)}">Open Today view</button>
+              </article>
+            `).join("") || `<p class="tk-muted">No weekly plan content yet.</p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "activities") {
+      const activities = (content.activities || kit.companion?.activities || [])
+        .filter((item) => !removed[item.id]);
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Activities</h3>
+          <p class="tk-muted">Reusable teaching resources — open any card for full directions.</p>
+          <div class="tk-stack">
+            ${activities.map((activity) => `
+              <article class="tk-binder-activity">
+                <div class="tk-binder-activity-media">
+                  ${activity.examplePhotoUrl
+                    ? lazyImgHtml(activity.examplePhotoUrl, `Example for ${activity.title}`)
+                    : `<div class="tk-photo-placeholder tk-photo-placeholder-sm">Example</div>`}
+                </div>
+                <div>
+                  <h4>${escapeHtml(activity.title)}</h4>
+                  <p class="tk-muted">${escapeHtml(activity.activityCategory || "")}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_SHORT[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
+                  <p class="tk-muted">${escapeHtml(activity.learningObjective || activity.description || "Open for materials, setup, steps, and prompts.")}</p>
+                  <button type="button" class="tk-btn tk-btn-secondary tk-btn-sm" data-tk-open-activity="${escapeHtml(activity.id)}" data-tk-from-binder="1">Open activity</button>
+                </div>
+              </article>
+            `).join("") || `<p class="tk-muted">No activities in this kit yet.</p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "printables") {
+      const printables = content.printables || kit.companion?.printables || [];
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Printables</h3>
+          <p class="tk-muted">Ink-friendly resources for the week. PDFs generate only when you print.</p>
+          <div class="tk-stack">
+            ${printables.map((printable) => `
+              <article class="tk-binder-block">
+                <h4>${escapeHtml(printable.title || "Printable")}</h4>
+                <p class="tk-muted">${escapeHtml(printable.kind || printable.type || "Classroom printable")}</p>
+                ${(printable.usedInWeek || []).length
+                  ? `<div class="tk-used-map">${printable.usedInWeek.map((slot) => `<span class="tk-used-pill">${escapeHtml(`${slot.dayLabel || slot.day} · ${slot.moment || ""}`)}</span>`).join("")}</div>`
+                  : ""}
+              </article>
+            `).join("") || `<p class="tk-muted">No printables linked yet.</p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "songs") {
+      const songs = content.songs || kit.companion?.songs || [];
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Songs</h3>
+          <div class="tk-stack">
+            ${songs.map((song) => `
+              <article class="tk-binder-block">
+                <h4>${escapeHtml(song.title || "Song")}</h4>
+                ${song.lyrics ? `<p class="tk-muted tk-pre tk-lyrics">${escapeHtml(song.lyrics)}</p>` : ""}
+                ${song.motions ? `<p class="tk-muted"><strong>Motions:</strong> ${escapeHtml(song.motions)}</p>` : ""}
+              </article>
+            `).join("") || `<p class="tk-muted">No songs listed yet.</p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "books") {
+      const books = content.books || kit.companion?.books || [];
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Books</h3>
+          <div class="tk-stack">
+            ${books.map((book) => `
+              <article class="tk-binder-block">
+                <h4>${escapeHtml(book.title || "Book")}</h4>
+                ${book.author ? `<p class="tk-muted">by ${escapeHtml(book.author)}</p>` : ""}
+                ${(book.questions || book.readAloudQuestions || []).length
+                  ? `<ul class="tk-list">${(book.questions || book.readAloudQuestions).map((q) => `<li>${escapeHtml(q)}</li>`).join("")}</ul>`
+                  : ""}
+              </article>
+            `).join("") || `<p class="tk-muted">No books listed yet.</p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "examples") {
+      const withPhotos = content.activitiesWithPhotos
+        || (kit.companion?.activities || []).filter((card) => card.hasExamplePhoto || card.hasSetupPhoto);
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Example Images</h3>
+          <p class="tk-muted">Classroom-achievable setup and finished examples. Images load as you scroll.</p>
+          <div class="tk-example-gallery">
+            ${withPhotos.map((activity) => `
+              <figure class="tk-example-card">
+                ${activity.examplePhotoUrl || activity.setupPhotoUrl
+                  ? lazyImgHtml(
+                    activity.examplePhotoUrl || activity.setupPhotoUrl,
+                    `Visual example for ${activity.title}`,
+                  )
+                  : `<div class="tk-photo-placeholder">No image</div>`}
+                <figcaption>
+                  <strong>${escapeHtml(activity.title)}</strong>
+                  <span class="tk-muted">${activity.hasSetupPhoto && activity.hasExamplePhoto ? "Setup + finished" : (activity.hasSetupPhoto ? "Setup" : "Finished example")}</span>
+                </figcaption>
+              </figure>
+            `).join("") || `<p class="tk-muted">No example images yet.</p>`}
+          </div>
+        </div>
+      `;
+    }
+
+    if (tabId === "teacher_toolkit") {
+      const toolkit = content;
+      return `
+        <div class="tk-binder-section-body">
+          <h3 class="tk-section-title">Teacher Toolkit</h3>
+          <p class="tk-muted">Preparation, observation focus, and week notes — keep this tab handy.</p>
+          ${toolkit.teacherPreparation ? `
+            <article class="tk-binder-block">
+              <h4>Teacher preparation</h4>
+              <p class="tk-muted tk-pre">${escapeHtml(toolkit.teacherPreparation)}</p>
+            </article>
+          ` : ""}
+          ${(toolkit.prepChecklist || []).length ? `
+            <article class="tk-binder-block">
+              <h4>Prep checklist</h4>
+              <ul class="tk-list">${toolkit.prepChecklist.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </article>
+          ` : ""}
+          ${(toolkit.observationFocus || []).length ? `
+            <article class="tk-binder-block">
+              <h4>Observation focus</h4>
+              <ul class="tk-list">${toolkit.observationFocus.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </article>
+          ` : ""}
+          ${(toolkit.observationPrompts || []).length ? `
+            <article class="tk-binder-block">
+              <h4>Observation prompts</h4>
+              <ul class="tk-list">${toolkit.observationPrompts.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+            </article>
+          ` : ""}
+          ${toolkit.familyConnection ? `
+            <article class="tk-binder-block">
+              <h4>Family connection</h4>
+              <p class="tk-muted tk-pre">${escapeHtml(toolkit.familyConnection)}</p>
+            </article>
+          ` : ""}
+          ${toolkit.notes ? `
+            <article class="tk-binder-block">
+              <h4>Teacher notes</h4>
+              <p class="tk-muted tk-pre">${escapeHtml(toolkit.notes)}</p>
+            </article>
+          ` : ""}
+        </div>
+      `;
+    }
+
+    return `<div class="tk-binder-section-body"><p class="tk-muted">Section unavailable.</p></div>`;
+  }
+
   function binderSurfaceHtml(kit, state) {
-    const binder = kit.companion?.binder || {};
+    const binder = kit.companion?.providerBinder || kit.companion?.binder || {};
     const cover = binder.cover || {};
+    const tabs = visibleBinderTabs(kit);
+    const activeTab = tabs.some((tab) => tab.id === state.binderTab)
+      ? state.binderTab
+      : (tabs[0]?.id || "overview");
     const removed = state.removedActivityIds || {};
     const activityCount = (kit.companion?.activities || []).filter((item) => !removed[item.id]).length;
     return `
-      <section class="tk-surface" data-tk-panel="binder">
-        <div class="tk-binder-stage">
-          <div class="tk-binder-spread">
-            <div class="tk-binder-cover">
-              <div>
-                <div class="tk-binder-mark">${escapeHtml(cover.brand || "Little Learner Hub")}</div>
-                <h3>${escapeHtml(cover.title || kit.title || "Teaching Kit")}</h3>
-                <p>${escapeHtml(cover.subtitle || "")}</p>
-                <div class="tk-tab-rail">
-                  ${(binder.tabs || []).map((tab, index) => `<span>${escapeHtml(String(index + 1))} ${escapeHtml(tab.label)}</span>`).join("")}
-                </div>
-              </div>
-              <p class="tk-binder-foot-note">Classroom companion binder · ${escapeHtml(String(activityCount))} activities</p>
-            </div>
-            <div class="tk-binder-pages">
-              <article class="tk-binder-page" data-tab="Setup">
-                <h4>Tab 1 — Monday Morning Setup</h4>
-                <p class="tk-muted">Prep ~${escapeHtml(String(kit.companion?.mondayMorningSetup?.estimatedPrepMinutes || 0))} min · missing items listed at top</p>
-                <hr class="tk-binder-rule" />
-                <p>Materials checklist · timed prep tasks · print queue with Used in week notes.</p>
-                <div class="tk-binder-footer"><span>${escapeHtml(binder.footerLabel || "Teaching Kit")}</span><span>2</span></div>
-              </article>
-              <article class="tk-binder-page" data-tab="Daily">
-                <h4>Tab 2 — Daily Classroom</h4>
-                <p class="tk-muted">Leave this page open during the day</p>
-                <hr class="tk-binder-rule" />
-                <p>Schedule · materials · transitions · book questions · song motions · parent message · observation ideas.</p>
-                <div class="tk-binder-footer"><span>${escapeHtml(binder.footerLabel || "Teaching Kit")}</span><span>5</span></div>
-              </article>
-              <article class="tk-binder-page" data-tab="Activities">
-                <h4>Tab 3 — Activity cards</h4>
-                <p class="tk-muted">Example photo · setup photo · prompts · cleanup</p>
-                <hr class="tk-binder-rule" />
-                <p>Consistent card layout across the binder. Selected activities: ${escapeHtml(String(activityCount))}.</p>
-                <div class="tk-binder-footer"><span>${escapeHtml(binder.footerLabel || "Teaching Kit")}</span><span>9</span></div>
-              </article>
+      <section class="tk-surface tk-binder-digital" data-tk-panel="binder">
+        <header class="tk-binder-hero">
+          ${cover.imageUrl || kit.coverImageUrl
+            ? `<div class="tk-binder-cover-media">${lazyImgHtml(cover.imageUrl || kit.coverImageUrl, cover.imageAlt || kit.coverImageAlt || kit.title || "Lesson cover")}</div>`
+            : `<div class="tk-binder-cover-media tk-binder-cover-fallback" aria-hidden="true"></div>`}
+          <div class="tk-binder-hero-copy">
+            <div class="tk-binder-mark">${escapeHtml(cover.brand || "Little Learner Hub")}</div>
+            <h3 class="tk-banner-title">${escapeHtml(cover.title || kit.title || "Teaching Kit")}</h3>
+            <p class="tk-lead">${escapeHtml(cover.subtitle || "Everything you need for this week is already here.")}</p>
+            <div class="tk-chips">
+              ${chipsHtml([kit.age, kit.plan, kit.theme, `${activityCount} activities`, "Print-friendly"])}
             </div>
           </div>
+        </header>
+        <nav class="tk-binder-section-nav" role="tablist" aria-label="Teaching Kit binder sections">
+          ${tabs.map((tab) => `
+            <button type="button" role="tab" class="tk-binder-section-tab${tab.id === activeTab ? " is-active" : ""}" data-tk-binder-tab="${escapeHtml(tab.id)}" aria-selected="${tab.id === activeTab ? "true" : "false"}">${escapeHtml(tab.label)}</button>
+          `).join("") || `<span class="tk-muted">No binder sections with content yet.</span>`}
+        </nav>
+        <div class="tk-binder-section-panel" data-tk-binder-panel="${escapeHtml(activeTab)}">
+          ${tabs.length ? binderSectionBodyHtml(kit, activeTab, state) : `
+            <p class="tk-muted">This lesson does not have binder content yet. Use Start Week or Today while the plan is filled in.</p>
+          `}
         </div>
         <div class="tk-stack tk-binder-actions">
-          <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Edit My Kit</button>
+          <button type="button" class="tk-btn tk-btn-ghost" data-tk-goto="build">Build &amp; Print</button>
           ${state.printCenterEnabled
             ? `<button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder>Print / Save PDF</button>`
             : ""}
@@ -643,7 +928,7 @@
   }
 
   function workspaceHtml(kit, state, chrome) {
-    const navSurface = ["activity", "binder"].includes(state.surface)
+    const navSurface = state.surface === "activity"
       ? (state.returnSurface || "today")
       : state.surface;
     const age = chrome.age || kit.age || "";
@@ -696,10 +981,15 @@
     const surface = initialActivityId
       ? "activity"
       : (knownSurface ? initialSurface : "start");
+    const binderTabs = visibleBinderTabs(kit);
+    const initialBinderTab = text(opts.initialBinderTab);
     return {
       surface,
       day: text(opts.initialDay) || today,
       activityId: initialActivityId,
+      binderTab: binderTabs.some((tab) => tab.id === initialBinderTab)
+        ? initialBinderTab
+        : (binderTabs[0]?.id || "overview"),
       openEverything: false,
       showSubstitute: false,
       returnSurface: "today",
@@ -732,7 +1022,7 @@
   }
 
   function syncOpsNav(root, state) {
-    const navSurface = ["activity", "binder"].includes(state.surface)
+    const navSurface = state.surface === "activity"
       ? (state.returnSurface || "today")
       : state.surface;
     root.querySelectorAll(".tk-ops-tab[data-tk-goto]").forEach((tab) => {
@@ -841,6 +1131,17 @@
         return;
       }
 
+      const binderTab = event.target.closest("[data-tk-binder-tab]");
+      if (binderTab) {
+        event.preventDefault();
+        state.surface = "binder";
+        state.binderTab = binderTab.getAttribute("data-tk-binder-tab") || state.binderTab;
+        state.openEverything = false;
+        state.showSubstitute = false;
+        rerender();
+        return;
+      }
+
       const goto = event.target.closest("[data-tk-goto]");
       if (goto) {
         event.preventDefault();
@@ -848,6 +1149,9 @@
         state.openEverything = false;
         state.showSubstitute = false;
         if (state.surface !== "activity") state.activityId = "";
+        if (state.surface === "binder" && !state.binderTab) {
+          state.binderTab = visibleBinderTabs(kit)[0]?.id || "overview";
+        }
         rerender();
         return;
       }
@@ -874,7 +1178,9 @@
       const openActivity = event.target.closest("[data-tk-open-activity]");
       if (openActivity) {
         event.preventDefault();
-        state.returnSurface = openActivity.getAttribute("data-tk-from-build") ? "build" : "today";
+        if (openActivity.getAttribute("data-tk-from-build")) state.returnSurface = "build";
+        else if (openActivity.getAttribute("data-tk-from-binder")) state.returnSurface = "binder";
+        else state.returnSurface = "today";
         state.activityId = openActivity.getAttribute("data-tk-open-activity") || "";
         state.surface = "activity";
         state.showSubstitute = Boolean(openActivity.getAttribute("data-tk-from-build"));
@@ -920,14 +1226,19 @@
     }
 
     function onKeydown(event) {
-      const tab = event.target.closest(".tk-ops-tab[data-tk-goto], .tk-day[data-tk-day]");
+      const tab = event.target.closest(".tk-ops-tab[data-tk-goto], .tk-day[data-tk-day], .tk-binder-section-tab[data-tk-binder-tab]");
       if (!tab || !root.contains(tab)) return;
       if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") {
         return;
       }
-      const group = tab.classList.contains("tk-day")
-        ? Array.from(root.querySelectorAll(".tk-day[data-tk-day]"))
-        : Array.from(root.querySelectorAll(".tk-ops-tab[data-tk-goto]"));
+      let group;
+      if (tab.classList.contains("tk-day")) {
+        group = Array.from(root.querySelectorAll(".tk-day[data-tk-day]"));
+      } else if (tab.classList.contains("tk-binder-section-tab")) {
+        group = Array.from(root.querySelectorAll(".tk-binder-section-tab[data-tk-binder-tab]"));
+      } else {
+        group = Array.from(root.querySelectorAll(".tk-ops-tab[data-tk-goto]"));
+      }
       if (!group.length) return;
       const index = group.indexOf(tab);
       if (index < 0) return;
@@ -991,14 +1302,17 @@
 
   return {
     SURFACES,
+    BINDER_SECTION_ORDER,
     WEEKDAYS,
     escapeHtml,
     isSparseKit,
+    visibleBinderTabs,
     loadingWorkspaceHtml,
     renderLoadingWorkspace,
     defaultState,
     workspaceHtml,
     surfaceHtml,
+    binderSurfaceHtml,
     renderInto,
     bindWorkspace,
     enhanceLessonWorkspace,

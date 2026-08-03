@@ -23327,7 +23327,7 @@ body.nuo-open .llh-meta-cookie-notice {
 }
 .tk-ops-nav {
   display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 .tk-ops-tab {
@@ -23671,6 +23671,164 @@ body.nuo-open .llh-meta-cookie-notice {
 .tk-binder-foot-note { font-size: 0.78rem; opacity: 0.85; }
 .tk-binder-actions { margin-top: 12px; grid-template-columns: repeat(2, max-content); justify-content: start; }
 
+/* Vision-aligned digital binder (provider) */
+.tk-binder-digital { gap: 16px; }
+.tk-binder-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--tk-line);
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef7f1 0%, #fff8f0 55%, #ffffff 100%);
+  min-height: 220px;
+}
+.tk-binder-cover-media {
+  min-height: 220px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(47, 107, 79, 0.18), transparent 45%),
+    linear-gradient(160deg, #d7e8de, #f4efe6);
+}
+.tk-binder-cover-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  min-height: 220px;
+}
+.tk-binder-cover-fallback { min-height: 220px; }
+.tk-binder-hero-copy {
+  padding: 22px 20px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+.tk-lead {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: var(--tk-ink);
+  max-width: 36ch;
+}
+.tk-binder-section-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 52px;
+  z-index: 4;
+  padding: 8px 2px;
+  background: rgba(251, 253, 251, 0.96);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--tk-line);
+  scrollbar-width: thin;
+}
+.tk-binder-section-tab {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--tk-line);
+  background: #fff;
+  color: var(--tk-ink);
+  font-weight: 800;
+  font-size: 0.86rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tk-binder-section-tab.is-active {
+  background: var(--tk-brand);
+  border-color: var(--tk-brand);
+  color: #fff;
+}
+.tk-binder-section-panel {
+  display: grid;
+  gap: 14px;
+}
+.tk-binder-section-body {
+  display: grid;
+  gap: 14px;
+}
+.tk-binder-block {
+  border: 1px solid var(--tk-line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 16px;
+}
+.tk-binder-block h4 { margin: 0 0 8px; }
+.tk-week-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.tk-binder-activity {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 14px;
+  align-items: start;
+  border: 1px solid var(--tk-line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px;
+}
+.tk-binder-activity-media {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--tk-soft);
+}
+.tk-binder-activity-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.tk-photo-placeholder-sm {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  color: var(--tk-muted);
+}
+.tk-example-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.tk-example-card {
+  margin: 0;
+  border: 1px solid var(--tk-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+.tk-example-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--tk-soft);
+}
+.tk-example-card figcaption {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+}
+.tk-example-card figcaption .tk-muted { font-size: 0.8rem; }
+
+@media print {
+  .tk-binder-section-nav,
+  .tk-binder-actions,
+  .tk-ops-nav { display: none !important; }
+  .tk-binder-hero { break-inside: avoid; }
+  .tk-binder-block,
+  .tk-binder-activity { break-inside: avoid; }
+}
+
 /* Slice 1F — loading, empty kit, panel motion */
 .tk-empty-banner {
   border: 1px solid #f0dfc4;
@@ -23743,9 +23901,11 @@ body.nuo-open .llh-meta-cookie-notice {
   .tk-grid-2,
   .tk-grid-3,
   .tk-photo-pair,
-  .tk-binder-spread { grid-template-columns: 1fr; }
-  .tk-ops-nav,
-  .tk-day-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk-binder-spread,
+  .tk-binder-hero,
+  .tk-week-grid { grid-template-columns: 1fr; }
+  .tk-ops-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tk-day-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .tk-slot { grid-template-columns: 64px 1fr; }
   .tk-kind { grid-column: 2; }
   .tk-binder-page::before {
@@ -23756,11 +23916,22 @@ body.nuo-open .llh-meta-cookie-notice {
     padding: 4px 8px;
     border-radius: 999px;
   }
-  .tk-ops-tab { font-size: 0.78rem; padding-left: 8px; padding-right: 8px; }
+  .tk-ops-tab {
+    font-size: 0.78rem;
+    padding-left: 8px;
+    padding-right: 8px;
+    min-height: 44px;
+  }
   .tk-sticky-today { position: sticky; top: 52px; }
+  .tk-binder-section-nav { top: 96px; }
   .tk-tray-item { grid-template-columns: 44px 1fr; }
   .tk-tray-item > .tk-btn,
   .tk-tray-item > .tk-chip { grid-column: 2; justify-self: start; }
+  .teaching-kit-workspace,
+  .tk-binder-digital,
+  .tk-binder-section-panel { overflow-x: hidden; max-width: 100%; }
+  .tk-binder-activity { grid-template-columns: 72px 1fr; }
+  .tk-binder-activity-media { width: 72px; height: 72px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

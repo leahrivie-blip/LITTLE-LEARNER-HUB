@@ -200,6 +200,28 @@
     return "Legacy";
   }
 
+  /**
+   * Curriculum dashboard triage stages (vision alignment).
+   * Legacy → In Progress → Needs Review → Ready → Complete
+   */
+  function dashboardStageFromSummary(summary) {
+    if (!summary || typeof summary !== "object") return "Legacy";
+    const percent = clampPercent(summary.completionPercent);
+    const hasDraft = Boolean(summary.hasEnrichmentDraft);
+    const isPublished = Boolean(summary.isPublished);
+    const needsReview = Boolean(summary.needsReview);
+
+    if (percent >= 90 && isPublished && !hasDraft) return "Complete";
+    if (percent >= 90 && !hasDraft) return "Ready";
+    if (needsReview || (hasDraft && percent >= 25)) return "Needs Review";
+    if (percent > 0 || hasDraft) return "In Progress";
+    return "Legacy";
+  }
+
+  function dashboardStageSlug(stage) {
+    return text(stage).toLowerCase().replace(/\s+/g, "_");
+  }
+
   function buildJumpIndex(plan, activities, enrichmentDraft) {
     const list = flattenLessonActivities(plan, activities);
     const hits = [];
@@ -465,8 +487,8 @@
       || "";
 
     const needsReview = isPublished && (hasEnrichmentDraft || percent < 90);
-
-    return {
+    const missingExamples = missingSetupPhotos > 0 || missingExamplePhotos > 0;
+    const baseSummary = {
       completionPercent: percent,
       completenessLabel: label,
       activityCount: list.length,
@@ -493,22 +515,40 @@
       hasEnrichmentDraft,
       draftOrPublished,
       needsReview,
-      missingPhotos: missingSetupPhotos > 0 || missingExamplePhotos > 0,
+      missingPhotos: missingExamples,
+      missingExamples,
+      missingObservations: missingObservationPrompts > 0,
     };
+    baseSummary.dashboardStage = dashboardStageFromSummary(baseSummary);
+    baseSummary.dashboardStageSlug = dashboardStageSlug(baseSummary.dashboardStage);
+    return baseSummary;
   }
 
   function matchesUpgradeGapFilter(summary, gapFilter) {
     const gap = text(gapFilter).toLowerCase();
     if (!gap) return true;
     if (!summary) return false;
-    if (gap === "missing_photos") return summary.missingPhotos;
+    if (gap === "missing_photos" || gap === "missing_examples") {
+      return summary.missingPhotos || summary.missingExamples;
+    }
     if (gap === "missing_printables") return summary.missingPrintables;
     if (gap === "missing_books") return summary.missingBooks;
     if (gap === "missing_songs") return summary.missingSongs;
     if (gap === "missing_tips" || gap === "missing_teacher_tips") return summary.missingTeacherTips > 0;
+    if (gap === "missing_observations" || gap === "missing_observation") {
+      return summary.missingObservations || summary.missingObservationPrompts > 0;
+    }
+    if (gap === "missing_family" || gap === "missing_family_connection") {
+      return summary.missingFamilyConnection;
+    }
     if (gap === "draft") return summary.hasEnrichmentDraft || summary.lessonStatus === "draft";
     if (gap === "published") return summary.isPublished;
     if (gap === "needs_review") return summary.needsReview;
+    if (gap === "stage_legacy") return summary.dashboardStage === "Legacy";
+    if (gap === "stage_in_progress" || gap === "in_progress") return summary.dashboardStage === "In Progress";
+    if (gap === "stage_needs_review") return summary.dashboardStage === "Needs Review";
+    if (gap === "stage_ready") return summary.dashboardStage === "Ready";
+    if (gap === "stage_complete") return summary.dashboardStage === "Complete";
     if (gap === "edited_today") {
       if (!summary.lastEditedDate) return false;
       const d = new Date(summary.lastEditedDate);
@@ -673,6 +713,8 @@
     firstIncompleteActivityIndex,
     computeCompletionPercent,
     completenessLabelFromPercent,
+    dashboardStageFromSummary,
+    dashboardStageSlug,
     buildJumpIndex,
     searchJumpIndex,
     mergeDraftIntoPlan,
