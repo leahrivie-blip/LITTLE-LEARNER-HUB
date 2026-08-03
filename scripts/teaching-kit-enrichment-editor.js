@@ -1,9 +1,9 @@
 /**
  * Teaching Kit Enrichment Editor — admin focused workspace.
- * Slice 1: framework, navigation, progress tracking, draft workflow.
+ * Slice 1: framework, navigation, progress, draft workflow.
+ * Slice 2: Activity Studio foundation (placeholders + tips/subs/settings/obs/vocab).
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
- * Photos / AI / publish are intentionally disabled until later slices.
- * Depends on window.LLHTeachingKitEnrichment (+ optional LLHTeachingKitViewer later).
+ * Photo upload / AI / publish / Live Preview stay off until later slices.
  */
 (function (root) {
   "use strict";
@@ -12,13 +12,16 @@
   const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
   const DAY_LABEL = { monday: "Mon", tuesday: "Tue", wednesday: "Wed", thursday: "Thu", friday: "Fri" };
 
-  /** Slice 1 capability gates — later slices flip these on behind review. */
-  const SLICE1 = Object.freeze({
+  /** Capability gates — later slices flip these on behind review. */
+  const SLICE = Object.freeze({
+    activityStudio: true, // Slice 2
     photoUpload: false,
     aiSuggest: false,
     publish: false,
     livePreview: false,
   });
+  // Back-compat alias used by earlier Slice 1 checks.
+  const SLICE1 = SLICE;
 
   const state = {
     open: false,
@@ -241,16 +244,15 @@
 
   function photoZoneHtml(label, field, url, key) {
     const has = Boolean(url);
-    if (!SLICE1.photoUpload) {
+    if (!SLICE.photoUpload) {
       return `
         <div class="tk-enrich-photo is-readonly" data-photo-field="${esc(field)}" data-photo-key="${esc(key)}">
           <div class="tk-enrich-photo-label">${esc(label)}</div>
           <div class="tk-enrich-photo-drop ${has ? "has-photo" : ""}" aria-label="${esc(label)}">
             ${has
               ? `<img src="${esc(url)}" alt="${esc(label)}" />`
-              : `<span class="tk-enrich-photo-empty">No photo yet</span>`}
+              : `<span class="tk-enrich-photo-empty">${esc(label)} placeholder<br><small>Upload arrives in a later slice</small></span>`}
           </div>
-          <p class="muted-copy tk-enrich-slice-note">Photo upload arrives in a later slice.</p>
           ${has ? `<div class="tk-enrich-photo-actions"><button type="button" class="ghost-button" data-photo-preview>Full size</button></div>` : ""}
         </div>
       `;
@@ -395,7 +397,7 @@
           </div>
         ` : ""}
         <div class="tk-enrich-slice-banner" role="status">
-          Slice 1 framework: navigation, progress, and draft save. Photo upload, AI suggestions, Live Preview, and Publish stay off until later reviewed slices.
+          Slice 2 Activity Studio: photo placeholders, tips, substitutions, group/setting chips, observation prompts, and activity vocabulary. Photo upload, AI, Live Preview, and Publish stay off until later reviewed slices.
         </div>
         <nav class="tk-enrich-modes" role="tablist">
           <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
@@ -423,22 +425,26 @@
       const view = enrich.activityEnrichmentView(current, state.draft.activities[key]);
       const tags = new Set(view.settingTags);
       stage = `
-        <article class="tk-enrich-stage" data-activity-key="${esc(key)}">
-          <h3 contenteditable="true" data-enrich-title>${esc(current.title)}</h3>
+        <article class="tk-enrich-stage" data-activity-key="${esc(key)}" data-activity-studio>
+          <h3 data-enrich-title>${esc(current.title)}</h3>
           <p class="muted-copy">${esc(DAY_LABEL[current.dayOfWeek] || current.dayOfWeek)} · ${esc(current.activityCategory || "Activity")}</p>
           <div class="tk-enrich-photo-grid">
             ${photoZoneHtml("Setup photo (before)", "setupImageUrl", view.setupImageUrl, key)}
             ${photoZoneHtml("Finished example (after)", "exampleImageUrl", view.exampleImageUrl, key)}
           </div>
-          <div class="tk-enrich-chips" data-setting-tags>
-            ${[["small_group", "Small group"], ["large_group", "Large group"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]].map(([id, label]) => `
-              <button type="button" class="tk-enrich-chip ${tags.has(id) ? "is-on" : ""}" data-setting-tag="${id}">${label}</button>
-            `).join("")}
-          </div>
+          <section class="tk-enrich-card-block">
+            <h4>Group &amp; setting</h4>
+            <p class="muted-copy">Small-group / large-group ideas and indoor / outdoor options.</p>
+            <div class="tk-enrich-chips" data-setting-tags>
+              ${[["small_group", "Small group"], ["large_group", "Large group"], ["indoor", "Indoor"], ["outdoor", "Outdoor"]].map(([id, label]) => `
+                <button type="button" class="tk-enrich-chip ${tags.has(id) ? "is-on" : ""}" data-setting-tag="${id}">${label}</button>
+              `).join("")}
+            </div>
+          </section>
           <section class="tk-enrich-card-block">
             <div class="tk-enrich-card-head">
               <h4>Teacher tips</h4>
-              ${SLICE1.aiSuggest
+              ${SLICE.aiSuggest
                 ? `<button type="button" class="ghost-button" data-ai-tips>Suggest</button>`
                 : `<span class="muted-copy">AI suggest later</span>`}
             </div>
@@ -448,7 +454,7 @@
                   <span>${esc(tip)}</span>
                   <button type="button" data-tip-remove="${i}" aria-label="Remove tip">×</button>
                 </div>
-              `).join("") || `<p class="muted-copy">Tap Suggest or add a short tip.</p>`}
+              `).join("") || `<p class="muted-copy">Add a short classroom tip.</p>`}
             </div>
             <form class="tk-enrich-inline-add" data-tip-add>
               <input type="text" maxlength="280" placeholder="Add a tip (one line)" />
@@ -471,6 +477,36 @@
               <button class="ghost-button" type="submit">Add</button>
             </form>
           </section>
+          <section class="tk-enrich-card-block">
+            <h4>Observation prompts</h4>
+            <div class="tk-enrich-tip-list">
+              ${view.observationPrompts.map((prompt, i) => `
+                <div class="tk-enrich-tip-card">
+                  <span>${esc(prompt)}</span>
+                  <button type="button" data-obs-remove="${i}" aria-label="Remove prompt">×</button>
+                </div>
+              `).join("") || `<p class="muted-copy">Add what to watch for during this activity.</p>`}
+            </div>
+            <form class="tk-enrich-inline-add" data-obs-add>
+              <input type="text" maxlength="280" placeholder="Add an observation prompt" />
+              <button class="ghost-button" type="submit">Add</button>
+            </form>
+          </section>
+          <section class="tk-enrich-card-block">
+            <h4>Vocabulary for this activity</h4>
+            <div class="tk-enrich-vocab-list">
+              ${view.vocabulary.map((word, i) => `
+                <span class="tk-enrich-vocab-chip">
+                  ${esc(word)}
+                  <button type="button" data-vocab-remove="${i}" aria-label="Remove ${esc(word)}">×</button>
+                </span>
+              `).join("") || `<p class="muted-copy">Add words children will hear and use.</p>`}
+            </div>
+            <form class="tk-enrich-inline-add" data-vocab-add>
+              <input type="text" maxlength="80" placeholder="Add a vocabulary word" />
+              <button class="ghost-button" type="submit">Add</button>
+            </form>
+          </section>
           <div class="tk-enrich-stage-nav">
             <button type="button" class="ghost-button" data-enrich-prev>← Previous</button>
             <button type="button" class="ghost-button" data-enrich-skip>Skip for now</button>
@@ -481,7 +517,7 @@
     }
 
     return `
-      <div class="tk-enrich-activity-layout ${SLICE1.livePreview ? "" : "is-slice1"}">
+      <div class="tk-enrich-activity-layout ${SLICE.livePreview ? "" : "is-slice1"}">
         <aside class="tk-enrich-queue">
           <div class="tk-enrich-day-chips">
             <button type="button" class="${state.dayFilter === "all" ? "is-on" : ""}" data-day-filter="all">All</button>
@@ -897,8 +933,34 @@
         render();
         return;
       }
+      const obsRemove = event.target.closest("[data-obs-remove]");
+      if (obsRemove) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        const key = draftKey(act);
+        const draftAct = ensureDraftActivity(key);
+        const view = api().activityEnrichmentView(act, draftAct);
+        view.observationPrompts.splice(Number(obsRemove.getAttribute("data-obs-remove")), 1);
+        draftAct.observationPrompts = view.observationPrompts;
+        markDirty();
+        render();
+        return;
+      }
+      const vocabRemove = event.target.closest("[data-vocab-remove]");
+      if (vocabRemove) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        const key = draftKey(act);
+        const draftAct = ensureDraftActivity(key);
+        const view = api().activityEnrichmentView(act, draftAct);
+        view.vocabulary.splice(Number(vocabRemove.getAttribute("data-vocab-remove")), 1);
+        draftAct.vocabulary = view.vocabulary;
+        markDirty();
+        render();
+        return;
+      }
       if (event.target.closest("[data-ai-tips]")) {
-        if (!SLICE1.aiSuggest) return;
+        if (!SLICE.aiSuggest) return;
         const plan = getPlan();
         const act = getActivities(plan)[state.activityIndex];
         const suggestions = [
@@ -1027,6 +1089,38 @@
         draftAct.substitutions = [...view.substitutions, { need, use }].slice(0, 12);
         markDirty();
         render();
+        return;
+      }
+      if (event.target.matches("[data-obs-add]")) {
+        event.preventDefault();
+        const value = String(event.target.querySelector("input")?.value || "").trim();
+        if (!value) return;
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        const key = draftKey(act);
+        const draftAct = ensureDraftActivity(key);
+        const view = api().activityEnrichmentView(act, draftAct);
+        draftAct.observationPrompts = [...view.observationPrompts, value].slice(0, 8);
+        markDirty();
+        render();
+        return;
+      }
+      if (event.target.matches("[data-vocab-add]")) {
+        event.preventDefault();
+        const value = String(event.target.querySelector("input")?.value || "").trim();
+        if (!value) return;
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        const key = draftKey(act);
+        const draftAct = ensureDraftActivity(key);
+        const view = api().activityEnrichmentView(act, draftAct);
+        if (!view.vocabulary.map((w) => w.toLowerCase()).includes(value.toLowerCase())) {
+          draftAct.vocabulary = [...view.vocabulary, value].slice(0, 16);
+        } else {
+          draftAct.vocabulary = view.vocabulary;
+        }
+        markDirty();
+        render();
       }
     });
 
@@ -1054,7 +1148,7 @@
     close,
     isOpen: () => state.open,
     isEnabled: isEditorFlagEnabled,
-    sliceFeatures: () => ({ ...SLICE1 }),
+    sliceFeatures: () => ({ ...SLICE }),
     render,
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

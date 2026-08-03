@@ -132,6 +132,7 @@ function main() {
       observationPrompts: ["Watch sorting"],
       settingTags: ["indoor"],
       substitutions: [{ need: "hay", use: "paper" }],
+      vocabulary: ["barn", "cow"],
     }])),
   });
   assert.ok(richSummary.completionPercent >= 90);
@@ -139,6 +140,20 @@ function main() {
   assert.equal(richSummary.missingSetupPhotos, 0);
   assert.equal(richSummary.lastEditedBy, "owner@example.com");
   assert.equal(richSummary.hasEnrichmentDraft, true);
+
+  const studioView = enrichment.activityEnrichmentView(acts[0], {
+    teacherTips: ["Tip"],
+    observationPrompts: ["Watch turns"],
+    vocabulary: ["cow", "barn"],
+    settingTags: ["small_group", "indoor"],
+    substitutions: [{ need: "basket", use: "tray" }],
+  });
+  assert.deepEqual(studioView.vocabulary, ["cow", "barn"]);
+  assert.equal(studioView.observationPrompts.length, 1);
+  assert.equal(enrichment.activityStatus(acts[0], {
+    teacherTips: ["Tip"],
+    vocabulary: ["cow"],
+  }), "in_progress");
 
   console.log(`OK teaching-kit-enrichment (${pct0}% baseline → ${pctRich}% rich; upgrade summary ready)`);
 }

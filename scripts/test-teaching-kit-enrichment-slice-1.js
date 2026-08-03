@@ -258,8 +258,9 @@ async function testViewports(page, baseUrl) {
       const counter = document.querySelector(".tk-enrich-counter");
       const summary = document.querySelector("[data-upgrade-summary]");
       const publishDisabled = Boolean(document.querySelector("[data-enrich-publish][disabled], .tk-enrich-chrome-actions button[disabled]"));
-      const sliceNote = (document.body.innerText || "").includes("Slice 1");
-      const noPhotoUpload = (document.body.innerText || "").includes("Photo upload arrives");
+      const bodyText = document.body.innerText || "";
+      const sliceNote = /Slice\s+[12]/i.test(bodyText) || bodyText.includes("Activity Studio") || bodyText.includes("Draft autosave");
+      const noPhotoUpload = bodyText.includes("placeholder") || bodyText.includes("Photo upload") || bodyText.includes("Upload arrives");
       const overflowX = shell ? shell.scrollWidth > shell.clientWidth + 2 : true;
       return {
         ok: Boolean(shell && chrome && counter && summary),

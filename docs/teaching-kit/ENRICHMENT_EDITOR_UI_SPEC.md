@@ -394,19 +394,23 @@ Build in small reviewable slices. **Stop after each slice for owner review.**
 All new functionality stays behind `teachingKitEnrichmentEditor` (default `false`) until approved.  
 Do not merge or deploy until each completed slice is approved.
 
-### Slice 1 — Framework (current)
+### Slice 1 — Framework (approved)
 
 Editor framework · navigation · progress tracking · draft workflow.  
-**No** photo uploads, AI generation, Live Preview, or Teaching Kit publishing.  
 See [ENRICHMENT_EDITOR_SLICE1.md](./ENRICHMENT_EDITOR_SLICE1.md).
 
-### Later slices (not started until Slice 1 approved)
+### Slice 2 — Activity Studio foundation (current)
 
-2. Photo upload suite (drag/drop, replace, remove, full-size preview)  
-3. Provider-identical Live Preview from draft  
-4. AI tip suggestions (explicit approve)  
-5. Publish confirmation + merge-to-live  
-6. Remaining polish from Upgrade Summary / library filters as needed  
+Photo placeholders · teacher tips · supply substitutions · indoor/outdoor · small/large group · observation prompts · activity vocabulary.  
+**No** photo uploads, AI, Live Preview, publishing, or print.  
+See [ENRICHMENT_EDITOR_SLICE2.md](./ENRICHMENT_EDITOR_SLICE2.md).
+
+### Later slices (not started until Slice 2 approved)
+
+3. Photo upload suite (drag/drop, replace, remove, full-size preview)  
+4. Provider-identical Live Preview from draft  
+5. AI tip suggestions (explicit approve)  
+6. Publish confirmation + merge-to-live  
 
 ---
 

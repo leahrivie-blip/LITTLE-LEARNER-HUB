@@ -56,11 +56,17 @@
           substitutions: asArray(item.substitutions),
           settingTags: asArray(item.settingTags).map(text).filter(Boolean),
           observationOpportunities: text(item.observationOpportunities),
+          vocabulary: text(item.vocabulary),
           materials: text(item.materials),
         });
       });
     });
     return out;
+  }
+
+  function vocabularyListFrom(value) {
+    if (asArray(value).length) return asArray(value).map(text).filter(Boolean);
+    return text(value).split(/[,;\n]+/).map(text).filter(Boolean);
   }
 
   function activityEnrichmentView(activity, draftActivity) {
@@ -74,17 +80,22 @@
     const settingTags = asArray(d.settingTags).length
       ? asArray(d.settingTags).map(text).filter(Boolean)
       : asArray(activity?.settingTags).map(text).filter(Boolean);
+    const observationPrompts = asArray(d.observationPrompts).length
+      ? asArray(d.observationPrompts).map(text).filter(Boolean)
+      : (text(activity?.observationOpportunities)
+        ? text(activity.observationOpportunities).split(/\n+/).map(text).filter(Boolean)
+        : []);
+    const vocabulary = Object.prototype.hasOwnProperty.call(d, "vocabulary")
+      ? vocabularyListFrom(d.vocabulary)
+      : vocabularyListFrom(activity?.vocabulary);
     return {
       setupImageUrl: text(d.setupImageUrl) || text(activity?.setupImageUrl || activity?.setupPhotoUrl),
       exampleImageUrl: text(d.exampleImageUrl) || text(activity?.exampleImageUrl || activity?.examplePhotoUrl),
       teacherTips: tips,
       substitutions,
       settingTags,
-      observationPrompts: asArray(d.observationPrompts).length
-        ? asArray(d.observationPrompts).map(text).filter(Boolean)
-        : (text(activity?.observationOpportunities)
-          ? text(activity.observationOpportunities).split(/\n+/).map(text).filter(Boolean)
-          : []),
+      observationPrompts,
+      vocabulary,
     };
   }
 
@@ -95,7 +106,8 @@
     const hasTip = view.teacherTips.length > 0;
     const hasExtra = view.substitutions.length > 0
       || view.settingTags.length > 0
-      || view.observationPrompts.length > 0;
+      || view.observationPrompts.length > 0
+      || view.vocabulary.length > 0;
     if (hasSetup && hasExample && hasTip) return ACTIVITY_STATUS.complete;
     if (hasSetup || hasExample || hasTip || hasExtra) return ACTIVITY_STATUS.in_progress;
     return ACTIVITY_STATUS.not_started;
@@ -250,6 +262,7 @@
         substitutions: view.substitutions,
         settingTags: view.settingTags,
         observationOpportunities: view.observationPrompts.join("\n") || act.observationOpportunities,
+        vocabulary: view.vocabulary.join(", ") || act.vocabulary,
       };
     });
     const byItemDay = new Map();
@@ -274,6 +287,7 @@
             substitutions: match.substitutions,
             settingTags: match.settingTags,
             observationOpportunities: match.observationOpportunities,
+            vocabulary: match.vocabulary,
           };
         }),
       };
