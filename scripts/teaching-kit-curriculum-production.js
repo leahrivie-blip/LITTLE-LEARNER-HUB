@@ -81,11 +81,17 @@
     };
   }
 
-  function stageFromScores({ completionPercent, qualityReport, hasDraft }) {
+  function stageFromScores({ completionPercent, qualityReport, hasDraft, kitCoverage }) {
     const pct = Number(completionPercent) || 0;
     const blocking = Boolean(qualityReport?.blocksPublish);
+    const draftOwned = kitCoverage?.draftOwned || {};
+    const draftKitComplete = Object.keys(draftOwned).length
+      ? Object.values(draftOwned).every(Boolean)
+      : false;
     if (!hasDraft && pct < 50) return STAGES.LEGACY;
-    if (pct >= 90 && !blocking) return STAGES.COMPLETE;
+    // Production Complete = every kit section drafted + quality not blocking.
+    // Still unpublished — dashboard UI may continue to show Needs Review until Publish.
+    if (hasDraft && draftKitComplete && pct >= 90 && !blocking) return STAGES.COMPLETE;
     if (pct >= 75 || (hasDraft && qualityReport)) return STAGES.NEEDS_REVIEW;
     if (hasDraft || pct > 0) return STAGES.IN_PROGRESS;
     return STAGES.LEGACY;
@@ -409,12 +415,14 @@
     const afterCompletion = enrichment.computeCompletionPercent(plan, activities, draft);
     const afterAnalysis = lessonTeacher.analyzeLessonCompleteness(plan, activities, draft);
     const qualityReport = quality.buildQualityReport(plan, activities, draft);
+    const kitCoverage = kitSectionCoverage(plan, draft);
     stages.push(STAGES.NEEDS_REVIEW);
 
     const finalStage = stageFromScores({
       completionPercent: afterCompletion,
       qualityReport,
       hasDraft: true,
+      kitCoverage,
     });
     if (finalStage === STAGES.COMPLETE) stages.push(STAGES.COMPLETE);
 
@@ -444,6 +452,8 @@
         qualityScore: qualityReport.overallScore,
         qualityLabel: qualityReport.overallLabel,
         blocksPublish: qualityReport.blocksPublish,
+        dashboardStage: afterAnalysis.dashboardStage || STAGES.NEEDS_REVIEW,
+        kitCoverage,
       },
       enrichmentDraft: dryRun ? null : draft,
       legacySnapshot,
