@@ -58,6 +58,7 @@ function configureSeoCurriculumSnapshotProvider() {
   });
 }
 const adminNotifications = require("./admin-notifications.js");
+const ownerNotificationEmail = require("./owner-notification-email.js");
 const adminMessagingInbox = require("./admin-messaging-inbox.js");
 const programOwnership = require("./program-ownership.js");
 const {
@@ -5147,6 +5148,7 @@ function applyCheckoutMembershipUpgrade(email, {
         title,
         preview: `${cleanEmail} · ${planLabel}${isTrial ? " (trial)" : ""}`,
         email: cleanEmail,
+        name: storeForAlert.users?.[cleanEmail]?.name || "",
         refId: checkoutAlertRef,
         sendEmail: true,
         emailKind: "Billing",
@@ -5154,7 +5156,18 @@ function applyCheckoutMembershipUpgrade(email, {
           ["Plan", planLabel],
           ["Source", source],
           ["Subscription", subscriptionId || ""],
+          ["Amount", storeForAlert.users?.[cleanEmail]?.monthlyPrice || ""],
+          ["Billing frequency", storeForAlert.users?.[cleanEmail]?.subscriptionCadence || ""],
         ],
+        emailExtras: {
+          plan: planLabel,
+          amount: storeForAlert.users?.[cleanEmail]?.monthlyPrice || "",
+          billingFrequency: storeForAlert.users?.[cleanEmail]?.subscriptionCadence || (planKey === "annual" ? "annual" : planKey === "monthly" ? "monthly" : ""),
+          trialStart: storeForAlert.users?.[cleanEmail]?.trialStart || storeForAlert.users?.[cleanEmail]?.trialStartedAt || "",
+          trialEnd: storeForAlert.users?.[cleanEmail]?.trialEnd || "",
+          subscriptionStatus: storeForAlert.users?.[cleanEmail]?.subscriptionStatus || "",
+          nextRenewal: storeForAlert.users?.[cleanEmail]?.currentPeriodEnd || "",
+        },
       });
       if (!options.deferPersist) {
         writeStore(storeForAlert, { immediate: true });
@@ -7228,10 +7241,15 @@ async function handleAccountProfileSync(request, response) {
           sendEmail: true,
           emailKind: "Signup",
           emailFields: [
-            ["Account type", user.accountType || ""],
-            ["Role", user.role || ""],
+            ["Account type", user.accountType ? accountAccess.accountTypeLabel(user.accountType) : ""],
+            ["Role", user.role ? accountAccess.roleLabel(user.role) : ""],
             ["Plan", user.plan || "Free"],
           ],
+          emailExtras: {
+            accountType: user.accountType ? accountAccess.accountTypeLabel(user.accountType) : "",
+            role: user.role ? accountAccess.roleLabel(user.role) : "",
+            signupAt: user.signupAt || user.createdAt || "",
+          },
         });
         writeStore(storeForAlert, { immediate: true });
       } catch {
@@ -9194,9 +9212,15 @@ async function handleStripeWebhook(request, response) {
             title: "Subscription canceled / ended",
             preview: `${email} · ${saved.subscriptionStatus || "ended"}`,
             email,
+            name: saved.name || user.name || "",
             refId: subscription.id || `cancel:${email}`,
             sendEmail: true,
             emailKind: "Billing",
+            emailExtras: {
+              previousPlan: saved.previousPlan || user.previousPlan || user.plan || "",
+              subscriptionStatus: saved.subscriptionStatus || "ended",
+              endDate: saved.accessEndsAt || saved.currentPeriodEnd || "",
+            },
           });
         } else if (updates.cancelAtPeriodEnd && !user.cancelAtPeriodEnd) {
           await emitAdminAlertSafe(readStore(), {
@@ -9234,6 +9258,16 @@ async function handleStripeWebhook(request, response) {
           refId: invoice.id || `unmatched_invoice:${invoice.customer || ""}`,
           sendEmail: true,
           emailKind: "Billing",
+          emailExtras: {
+            mismatchKind: "unmatched",
+            invoiceId: invoice.id || "",
+            subscriptionId: invoice.subscription || "",
+            customerEmail: normalizeEmail(invoice.customer_email || ""),
+            matchStatus: "No matching local account",
+            membershipState: "Unknown (no local account)",
+            mismatch: `Stripe customer ${invoice.customer || "unknown"} paid invoice ${invoice.id || "unknown"} but no local user matched.`,
+            recommendedAction: "Open Admin Reconciliation, locate the Stripe customer/invoice, and link or create the correct local account before restoring access.",
+          },
         });
       } else if (invoice.subscription) {
         const [email, existingUser] = userEntry;
@@ -9385,10 +9419,20 @@ async function handleStripeWebhook(request, response) {
           title: "Payment failed",
           preview: `${email} — Pro access locked until payment recovers`,
           email,
+          name: existing.name || "",
           refId: invoice.id || `payfail:${email}`,
           sendEmail: true,
           emailKind: "Billing",
           emailFields: [["Invoice", invoice.id || ""]],
+          emailExtras: {
+            invoiceId: invoice.id || "",
+            amount: invoice.amount_due != null
+              ? `$${(Number(invoice.amount_due) / 100).toFixed(2)}`
+              : (existing.monthlyPrice || ""),
+            plan: wasFounding ? "Founding Member" : (existing.previousPlan || existing.plan || "Pro"),
+            accessStatus: updated.subscriptionStatus || "Billing Review Required — Access Locked",
+            retryAt: updated.nextPaymentRetryAt || "",
+          },
         });
       } else {
         console.warn(`[membership] webhook ${event.type} unmatched customer=${invoice.customer || ""} email=${invoice.customer_email || ""} invoice=${invoice.id || ""}`);
@@ -9914,6 +9958,15 @@ async function emitPaidButFreeCriticalAlert(comparison) {
     refId: `paid_not_restored:${comparison.stripe?.subscriptionId || comparison.email}`,
     sendEmail: true,
     emailKind: "Billing",
+    emailExtras: {
+      invoiceId: comparison.latestInvoice?.id || comparison.stripe?.latestInvoiceId || "",
+      subscriptionId: comparison.stripe?.subscriptionId || "",
+      customerEmail: comparison.email || "",
+      matchStatus: "Matched local account",
+      membershipState: comparison.local?.plan || "Free",
+      mismatch: `Stripe status "${comparison.stripe?.status || "unknown"}" vs local Free/not-restored access.`,
+      recommendedAction: "Open Admin Reconciliation, confirm the paid Stripe subscription/invoice, then restore local membership only after verification.",
+    },
   });
   try { writeStore(alertStore, { immediate: true }); } catch { /* ignore */ }
 }
@@ -15477,78 +15530,77 @@ async function notifyUserAck({ toEmail, toName, submissionType, topic }) {
   }
 }
 
-// ─── Admin notification email ─────────────────────────────────────────────────
-// Sent to the admin inbox when a new submission arrives.
-// opts: { kind, topic, name, email, message, createdAt, sourceUrl, fields }
-// `fields` is an optional array of [label, value] pairs for type-specific data.
+// ─── Admin / owner notification email ────────────────────────────────────────
+// Sent to SUPPORT_EMAIL_TO only. Uses the dedicated owner-notification shell
+// (not the customer transactionalEmailShell). Best-effort: enrichment failures
+// fall back to a minimal owner shell rather than failing the triggering event.
 async function notifyAdmin(opts = {}) {
   const kind = String(opts.kind || "Submission");
-  const topicOrTitle = String(opts.topic || opts.title || "");
-  const subject = `[Little Learner Hub] New ${kind}: ${topicOrTitle}`;
-  const baseFields = [
-    ["Type", kind],
-    topicOrTitle ? ["Topic", topicOrTitle] : null,
-    ["Name", opts.name || ""],
-    ["Email", opts.email || ""],
-    ["Created", opts.createdAt || ""],
-  ].filter(Boolean);
-  const extraFields = Array.isArray(opts.fields) ? opts.fields : [];
-  const sourceField = opts.sourceUrl ? [["Page", opts.sourceUrl]] : [];
-  const allFields = [...baseFields, ...extraFields, ...sourceField];
-  const text = [
-    `New Little Learner Hub ${kind}`,
-    "",
-    ...allFields.map(([label, value]) => `${label}: ${value}`),
-    "",
-    "Message:",
-    opts.message || "",
-  ].join("\n");
-  const html = `
-    <h2>New Little Learner Hub ${htmlEscape(kind)}</h2>
-    ${allFields.map(([label, value]) => `<p><strong>${htmlEscape(String(label))}:</strong> ${htmlEscape(String(value || ""))}</p>`).join("")}
-    <hr>
-    <p>${htmlEscape(String(opts.message || "")).replace(/\n/g, "<br>")}</p>
-  `;
   try {
-    return await sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: opts.email || "", subject, text, html });
+    let store = null;
+    try { store = readStore(); } catch { /* ignore enrichment store failures */ }
+    const rendered = ownerNotificationEmail.buildOwnerNotification({
+      ...opts,
+      store,
+      siteUrl: appBaseUrl(),
+      env: process.env,
+    });
+    return await sendEmail({
+      to: SUPPORT_EMAIL_TO,
+      replyTo: opts.replyTo !== undefined ? opts.replyTo : (opts.email || ""),
+      subject: rendered.subject,
+      text: rendered.text,
+      html: rendered.html,
+    });
   } catch (err) {
     console.warn(`[email] Admin notification for ${kind} failed:`, err.message);
-    return { sent: false, configured: supportEmailConfigStatus().ready, error: err.message };
+    // Last-resort plain fallback so optional enrichment never blocks delivery.
+    try {
+      const topicOrTitle = String(opts.topic || opts.title || "");
+      const subject = `[Little Learner Hub] New ${kind}: ${topicOrTitle}`;
+      const text = [
+        `New Little Learner Hub ${kind}`,
+        topicOrTitle ? `Topic: ${topicOrTitle}` : "",
+        opts.name ? `Name: ${opts.name}` : "",
+        opts.email ? `Email: ${opts.email}` : "",
+        "",
+        opts.message || "",
+      ].filter(Boolean).join("\n");
+      return await sendEmail({
+        to: SUPPORT_EMAIL_TO,
+        replyTo: opts.replyTo !== undefined ? opts.replyTo : (opts.email || ""),
+        subject,
+        text,
+        html: `<p>${htmlEscape(text).replace(/\n/g, "<br>")}</p>`,
+      });
+    } catch (fallbackErr) {
+      return {
+        sent: false,
+        configured: supportEmailConfigStatus().ready,
+        error: fallbackErr.message || err.message,
+      };
+    }
   }
 }
 
-function supportTicketEmailPayload(ticket) {
-  const subject = `[Little Learner Hub] ${ticket.kind}: ${ticket.topic}`;
-  const text = [
-    "New Little Learner Hub support ticket",
-    "",
-    `Type: ${ticket.kind}`,
-    `Topic: ${ticket.topic}`,
-    `Name: ${ticket.name}`,
-    `Email: ${ticket.email}`,
-    `Created: ${ticket.createdAt}`,
-    ticket.sourceUrl ? `Page: ${ticket.sourceUrl}` : "",
-    "",
-    "Message:",
-    ticket.message,
-  ].filter(Boolean).join("\n");
-  const html = `
-    <h2>New Little Learner Hub support ticket</h2>
-    <p><strong>Type:</strong> ${htmlEscape(ticket.kind)}</p>
-    <p><strong>Topic:</strong> ${htmlEscape(ticket.topic)}</p>
-    <p><strong>Name:</strong> ${htmlEscape(ticket.name)}</p>
-    <p><strong>Email:</strong> ${htmlEscape(ticket.email)}</p>
-    <p><strong>Created:</strong> ${htmlEscape(ticket.createdAt)}</p>
-    ${ticket.sourceUrl ? `<p><strong>Page:</strong> ${htmlEscape(ticket.sourceUrl)}</p>` : ""}
-    <hr>
-    <p>${htmlEscape(ticket.message).replace(/\n/g, "<br>")}</p>
-  `;
-  return { subject, text, html };
-}
-
 async function notifySupportTicket(ticket) {
-  const email = supportTicketEmailPayload(ticket);
-  return sendEmail({ to: SUPPORT_EMAIL_TO, replyTo: ticket.email, subject: email.subject, text: email.text, html: email.html });
+  return notifyAdmin({
+    ownerEventType: "support_request",
+    kind: "Support Request",
+    topic: ticket.topic || ticket.kind || "General Questions",
+    name: ticket.name || "",
+    email: ticket.email || "",
+    message: ticket.message || "",
+    createdAt: ticket.createdAt || new Date().toISOString(),
+    sourceUrl: ticket.sourceUrl || "",
+    replyTo: ticket.email || "",
+    refId: ticket.id || "",
+    submission: ticket,
+    fields: [
+      ["Kind", ticket.kind || "Support Request"],
+      ["Device/Browser", ticket.userAgent || ""],
+    ],
+  });
 }
 
 function adminAlertDeps() {
@@ -18457,14 +18509,25 @@ async function handleBugReportCreate(request, response) {
   }
   // Admin notification (best-effort)
   notifyAdmin({
+    ownerEventType: "bug_report",
     kind: "Bug Report",
     title: report.title,
+    topic: report.title,
     name: report.name,
     email: report.email,
     message: report.description,
     createdAt: report.createdAt,
     sourceUrl: report.sourceUrl,
+    refId: report.id,
+    submission: report,
     fields: [["Category", report.category]],
+    extras: {
+      category: report.category,
+      deviceInfo: report.deviceInfo || "",
+      browserInfo: report.browserInfo || "",
+      screenshotUrl: report.screenshotUrl || "",
+      page: report.sourceUrl || "",
+    },
   }).catch((err) => console.warn("[email] Bug report admin notification failed:", err.message));
   // User auto-ack (best-effort)
   notifyUserAck({ toEmail: report.email, toName: report.name, submissionType: "bug report", topic: report.title }).catch((err) => console.warn("[email] Bug report ack failed:", err.message));
@@ -18876,18 +18939,26 @@ async function handleFeatureRequestCreate(request, response) {
     return;
   }
   notifyAdmin({
+    ownerEventType: "feature_request",
     kind: "Feature Request",
     title: item.title,
+    topic: item.title,
     name: item.name,
     email: item.email,
     message: item.description,
     createdAt: item.createdAt,
     sourceUrl: item.sourceUrl,
+    refId: item.id,
+    submission: item,
     fields: [
       ["Category", item.category],
-      ["Age Group", item.ageGroup || "—"],
-      ["Source", item.source || "—"],
+      ["Age Group", item.ageGroup || ""],
+      ["Source", item.source || ""],
     ],
+    extras: {
+      category: item.category,
+      ageGroup: item.ageGroup || "",
+    },
   }).catch((err) => console.warn("[email] Feature request admin notification failed:", err.message));
   notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feature request", topic: item.title }).catch((err) => console.warn("[email] Feature request ack failed:", err.message));
   jsonResponse(response, 200, { featureRequest: publicFeatureRequest(item), supportEmail: SUPPORT_EMAIL_TO });
@@ -19101,24 +19172,37 @@ async function handleFeedbackCreate(request, response) {
     return;
   }
   notifyAdmin({
+    ownerEventType: "feedback",
     kind: "Feedback",
     title: item.subject || item.type,
+    topic: item.subject || item.type,
     name: item.name,
     email: item.email,
     message: item.message,
     createdAt: item.createdAt,
     sourceUrl: item.page || item.sourceUrl,
+    refId: item.id,
+    submission: item,
     fields: [
       ["Feedback Type", item.type],
       ["Subject", item.subject],
-      ["Stars", item.stars ? `${item.stars} / 5` : "—"],
-      ["Sentiment", item.sentiment || "—"],
-      ["Activity ID", item.activityId || "—"],
-      ["Lesson ID", item.lessonId || "—"],
-      ["Account Type", item.accountType || "—"],
-      ["Role", item.role || "—"],
-      ["Page", item.page || item.sourceUrl || "—"],
+      ["Stars", item.stars ? `${item.stars} / 5` : ""],
+      ["Sentiment", item.sentiment || ""],
+      ["Activity ID", item.activityId || ""],
+      ["Lesson ID", item.lessonId || ""],
+      ["Account Type", item.accountType || ""],
+      ["Role", item.role || ""],
+      ["Page", item.page || item.sourceUrl || ""],
     ],
+    extras: {
+      stars: item.stars ? `${item.stars} / 5` : "",
+      sentiment: item.sentiment || "",
+      feedbackType: item.type || "",
+      lessonOrActivity: item.lessonId || item.activityId || "",
+      page: item.page || item.sourceUrl || "",
+      accountType: item.accountType || "",
+      role: item.role || "",
+    },
   }).catch((err) => console.warn("[email] Feedback admin notification failed:", err.message));
   notifyUserAck({ toEmail: item.email, toName: item.name, submissionType: "feedback", topic: item.type }).catch((err) => console.warn("[email] Feedback ack failed:", err.message));
   jsonResponse(response, 200, { feedback: publicFeedback(item), supportEmail: SUPPORT_EMAIL_TO });
@@ -20387,7 +20471,6 @@ async function handleMemberMessageReply(request, response) {
     );
     const profile = publicConversationUserProfile(store, identity.email);
     const deepLinkPath = `/?view=admin&adminPanel=messages-conversations&adminFocusConversation=${encodeURIComponent(identity.email)}`;
-    const deepLinkAbsolute = `${String(SITE_URL || "").replace(/\/$/, "")}${deepLinkPath}`;
     const safePreview = messagePreviewText(messageBody, 160);
     await emitAdminAlertSafe(store, {
       category: "messaging",
@@ -20413,22 +20496,24 @@ async function handleMemberMessageReply(request, response) {
     ) {
       try {
         await notifyAdmin({
+          ownerEventType: "member_message",
           kind: "Member Message",
           topic: `${message.senderName} (${profile.plan || "Free"})`,
           name: message.senderName,
           email: identity.email,
           createdAt: now,
-          message: [
-            "Safe preview (full message is in your admin inbox):",
-            safePreview,
-            "",
-            `Open conversation: ${deepLinkAbsolute}`,
-          ].join("\n"),
+          message: safePreview,
+          refId: message.id,
+          deepLink: deepLinkPath,
           fields: [
             ["Plan", profile.plan || "Free"],
             ["Time", now],
-            ["Open conversation", deepLinkAbsolute],
           ],
+          extras: {
+            programName: profile.businessName || profile.daycareName || profile.programName || "",
+            createdAt: now,
+            membership: profile.plan || "Free",
+          },
         });
         adminMessagingInbox.recordMemberMessageEmail(store, message.id);
       } catch (error) {

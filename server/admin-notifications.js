@@ -136,11 +136,18 @@ async function emitAdminAlert(store, deps, opts = {}) {
       await deps.notifyAdminEmail({
         kind: opts.emailKind || category,
         topic: title,
+        title,
         email: relatedEmail,
         name: opts.name || "",
         message: preview,
+        preview,
         createdAt: new Date().toISOString(),
         fields: opts.emailFields || [],
+        ownerEventType: type,
+        alertType: type,
+        refId,
+        deepLink,
+        extras: opts.emailExtras || {},
       });
     } catch (error) {
       console.warn("[admin-notifications] email failed:", error?.message || error);
