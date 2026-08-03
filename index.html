@@ -108,11 +108,38 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260803-family-hub-beta-final" />
+  <link rel="stylesheet" href="styles.css?v=20260803-p1-security-correctness" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
   <link rel="stylesheet" href="styles/llh-comms.css?v=20260730-hdh-own-tester-kid" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <!-- Capture invite/reset tokens into sessionStorage and strip them from the URL
+       BEFORE Meta Pixel / analytics can record landing pages or referrers. -->
+  <script>
+    (function scrubSensitiveUrlParamsEarly() {
+      try {
+        var KEYS = ["familyHub", "resetToken", "testerInvite", "staffInvite"];
+        var url = new URL(window.location.href);
+        var captured = {};
+        var dirty = false;
+        KEYS.forEach(function (key) {
+          if (!url.searchParams.has(key)) return;
+          captured[key] = String(url.searchParams.get(key) || "");
+          url.searchParams.delete(key);
+          dirty = true;
+        });
+        if (!dirty) return;
+        try {
+          var existing = {};
+          try { existing = JSON.parse(sessionStorage.getItem("llhPendingUrlSecrets") || "{}") || {}; } catch (_e) { existing = {}; }
+          sessionStorage.setItem("llhPendingUrlSecrets", JSON.stringify(Object.assign({}, existing, captured)));
+        } catch (_storage) { /* ignore */ }
+        var next = url.pathname + (url.search || "") + (url.hash || "");
+        window.history.replaceState(window.history.state || {}, "", next);
+      } catch (_error) { /* never block boot */ }
+    })();
+  </script>
   <!-- Meta Pixel: loaded from META_PIXEL_ID via server (never hardcoded). -->
   <script src="/api/meta-pixel.js"></script>
   <script>
@@ -123,7 +150,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260803-family-hub-beta-final";
+      var SHELL_VERSION = "20260803-p1-security-correctness";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -993,7 +1020,6 @@
           <button class="ghost-button back-button" data-contextual-back="calendar" data-fallback-view="calendar" type="button" hidden>← Back</button>
           <div id="platformInstallCardHost" class="platform-install-card-host" aria-live="polite"></div>
           <div class="page-title llh-schedule-page-title">
-            <p class="eyebrow">Planning home</p>
             <h2>Calendar</h2>
           </div>
           <div id="mainCalendarApp" class="llh-main-calendar"></div>
@@ -2445,7 +2471,7 @@
     <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260803-family-hub-beta-final" defer></script>
+    <script src="app.js?v=20260803-p1-security-correctness" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>

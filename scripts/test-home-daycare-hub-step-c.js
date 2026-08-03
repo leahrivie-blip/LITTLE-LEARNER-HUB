@@ -52,8 +52,8 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell version bumped for step C", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-beta-final"/);
-  assert.match(indexHtml, /app\.js\?v=20260803-family-hub-beta-final/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-security-correctness"/);
+  assert.match(indexHtml, /app\.js\?v=20260803-p1-security-correctness/);
 });
 
 test("AI draft panel helpers and review-before-send markers", () => {
@@ -110,7 +110,7 @@ async function main() {
   try {
     const health = await waitForHealth(port, child);
     assert.equal(health.homeDaycareHubTesting, true);
-    const appSource = await requestText(port, "/app.js?v=20260803-family-hub-beta-final");
+    const appSource = await requestText(port, "/app.js?v=20260803-p1-security-correctness");
     assert.equal(appSource.status, 200);
     assert.match(appSource.text, /function runHomeDaycareAiFormDraft/);
     assert.match(appSource.text, /data-hdh-ai-send-later/);

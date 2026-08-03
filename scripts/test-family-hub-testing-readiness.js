@@ -88,19 +88,29 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-beta-final"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-security-correctness"/);
+  assert.match(indexHtml, /llhPendingUrlSecrets/);
+  assert.match(indexHtml, /referrer" content="strict-origin-when-cross-origin"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
   assert.match(appJs, /function renderFamilyHubTodayPanel/);
   assert.match(appJs, /family-hub-parent-mode/);
   assert.match(appJs, /data-family-hub-seed-demo/);
   assert.match(appJs, /ensureFamilyHubParentAppReady/);
   assert.match(appJs, /signOutFamilyHubParent/);
+  assert.match(appJs, /acknowledgeFamilyHubDocument/);
+  assert.match(appJs, /redactSensitiveUrl/);
+  assert.match(appJs, /adminAccessOverridesMemberPlan/);
+  assert.match(appJs, /membershipDisplayStatus/);
+  assert.match(appJs, /hdhTesterPersonaStorageKey/);
   assert.match(appJs, /AbortController/);
   assert.match(appJs, /allowParentLeaveFamilyHub/);
   assert.doesNotMatch(appJs, /Family Hub testing preview/);
   assert.match(stylesCss, /\.family-hub-parent-mode/);
   assert.match(stylesCss, /\.fh-today-hero/);
   assert.match(serverJs, /persistFamilyHubStore/);
+  assert.match(serverJs, /redactSensitiveAnalyticsUrl/);
+  assert.match(serverJs, /handleFamilyHubDocumentAcknowledge/);
+  assert.match(serverJs, /Referrer-Policy/);
   assert.match(serverJs, /\/api\/family-hub\/seed-demo/);
   assert.match(serverJs, /\/api\/family-hub\/storage/);
   assert.match(serverJs, /\/api\/family-hub\/today/);
@@ -248,6 +258,30 @@ async function main() {
     assert.equal(peek.status, 200);
     assert.equal(peek.json.invite.children.length, 2);
 
+    // Header-based peek (preferred — keeps tokens out of access-log query strings).
+    const peekHeader = await new Promise((resolve, reject) => {
+      const req = http.request({
+        hostname: "127.0.0.1",
+        port: onPort,
+        path: "/api/family-hub/invites/peek",
+        method: "GET",
+        headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
+      }, (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          let json = null;
+          try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+          resolve({ status: res.statusCode, json, text });
+        });
+      });
+      req.on("error", reject);
+      req.end();
+    });
+    assert.equal(peekHeader.status, 200, peekHeader.text);
+    assert.equal(peekHeader.json.invite.children.length, 2);
+
     const redeemed = await request(onPort, "POST", "/api/family-hub/invites/redeem", { body: { token } });
     assert.equal(redeemed.status, 200, redeemed.text);
     const sessionToken = redeemed.json.sessionToken;
@@ -264,6 +298,22 @@ async function main() {
     assert.ok(me.json.documents?.length >= 1, "documents should appear");
     assert.ok(me.json.settings, "settings should appear");
     assert.ok(!me.json.comingSoon, "beta required features must not be Coming Soon");
+
+    const neededDoc = (me.json.documents || []).find((doc) => doc.canAcknowledge || /needed|action needed/i.test(doc.statusLabel || doc.status || ""));
+    assert.ok(neededDoc, "demo should include a form that needs parent action");
+    const signed = await request(onPort, "POST", `/api/family-hub/documents/${encodeURIComponent(neededDoc.id)}/acknowledge`, {
+      familyToken: sessionToken,
+      body: { signerName: "Sam Rivera" },
+    });
+    assert.equal(signed.status, 200, signed.text);
+    assert.equal(signed.json.document.status, "signed");
+    assert.match(String(signed.json.document.statusLabel || ""), /signed/i);
+    const meAfterSign = await request(onPort, "GET", "/api/family-hub/me", { familyToken: sessionToken });
+    assert.equal(meAfterSign.status, 200, meAfterSign.text);
+    const signedDoc = (meAfterSign.json.documents || []).find((doc) => doc.id === neededDoc.id);
+    assert.ok(signedDoc, "signed form remains on household");
+    assert.equal(signedDoc.status, "signed");
+    assert.ok(signedDoc.signedAt);
 
     const today = await request(onPort, "GET", "/api/family-hub/today", { familyToken: sessionToken });
     assert.equal(today.status, 200, today.text);

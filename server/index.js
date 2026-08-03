@@ -4418,21 +4418,28 @@ async function patchEmailCampaignState(campaignId, patch = {}) {
   return store.emailEngagement.campaigns[campaignId];
 }
 
+function securityResponseHeaders(extra = {}) {
+  return {
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    ...extra,
+  };
+}
+
 function jsonResponse(response, statusCode, payload) {
-  response.writeHead(statusCode, {
+  response.writeHead(statusCode, securityResponseHeaders({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-  });
+  }));
   response.end(JSON.stringify(payload));
 }
 
 function textResponse(response, statusCode, text, type = "text/plain; charset=utf-8") {
-  response.writeHead(statusCode, { "Content-Type": type });
+  response.writeHead(statusCode, securityResponseHeaders({ "Content-Type": type }));
   response.end(text);
 }
 
 function headResponse(response, statusCode, type = "text/plain; charset=utf-8") {
-  response.writeHead(statusCode, { "Content-Type": type });
+  response.writeHead(statusCode, securityResponseHeaders({ "Content-Type": type }));
   response.end();
 }
 
@@ -5712,7 +5719,8 @@ function getToolSystemPrompt(tool) {
     "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not invented.",
     "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusions across responses.",
     "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' or 'in today's fast-paced world.'",
-    "Do not use repetitive or generic phrasing such as 'This supports future learning,' 'Making meaningful connections,' or 'Growing cognitive skills' unless it is truly specific and necessary.",
+    "Do not use repetitive or generic phrasing such as 'This supports future learning,' 'Making meaningful connections,' 'Growing cognitive skills,' 'Explore through play,' or 'Connect learning across the week' unless it is truly specific and necessary.",
+    "For Infants: every activity must be developmentally appropriate (bonding, tummy time, tracking, grasping, songs, safe sensory). Never suggest scissors, glue, worksheets, tracing, small parts, or independent crafts.",
     "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation style, and activity framing to that framework.",
     "If a state or state standards are mentioned, reference relevant domain indicators and align developmental language accordingly.",
     "",
@@ -11727,11 +11735,12 @@ function detectDeviceFromUserAgent(userAgent) {
 
 function extractEventAttribution(event = {}) {
   const attr = event.attribution && typeof event.attribution === "object" ? event.attribution : {};
-  const params = parseUrlSearchParams(event.url || attr.landingPage || "");
+  const safeUrl = redactSensitiveAnalyticsUrl(event.url || attr.landingPage || "");
+  const params = parseUrlSearchParams(safeUrl);
   const campaign = String(attr.campaign || params.get("utm_campaign") || event.detail?.campaign || "").slice(0, 160);
   const medium = String(attr.medium || params.get("utm_medium") || event.detail?.medium || "").slice(0, 80);
-  const referrer = String(attr.referrer || event.referrer || "").slice(0, 500);
-  const landingPage = String(
+  const referrer = redactSensitiveAnalyticsUrl(String(attr.referrer || event.referrer || "")).slice(0, 500);
+  const landingPage = redactSensitiveAnalyticsUrl(String(
     attr.landingPage
     || attr.route
     || event.path
@@ -11743,9 +11752,9 @@ function extractEventAttribution(event = {}) {
         return event.path || "/";
       }
     })(),
-  ).slice(0, 240) || "/";
+  )).slice(0, 240) || "/";
   const sourceRaw = attr.source || event.source || event.detail?.source || params.get("utm_source") || "";
-  const source = normalizeMarketingChannel(sourceRaw, { url: event.url || "", referrer, medium });
+  const source = normalizeMarketingChannel(sourceRaw, { url: safeUrl || "", referrer, medium });
   const firstVisitAt = String(attr.firstSeenAt || attr.firstVisitAt || "").slice(0, 40);
   return {
     source,
@@ -12316,11 +12325,65 @@ function topFeaturePairs(events) {
     .slice(0, 3);
 }
 
+const ANALYTICS_SENSITIVE_URL_PARAM_KEYS = new Set([
+  "familyhub",
+  "resettoken",
+  "testerinvite",
+  "staffinvite",
+  "magictoken",
+  "invitetoken",
+  "access_token",
+  "accesstoken",
+]);
+
+function isAnalyticsSensitiveParamKey(key = "") {
+  const clean = String(key || "").trim().toLowerCase();
+  if (!clean) return false;
+  if (ANALYTICS_SENSITIVE_URL_PARAM_KEYS.has(clean)) return true;
+  return /(?:^|[_-])(token|magic|invite|session)(?:$|[_-])/.test(clean)
+    && !/^(utm_|fbclid|ttclid|gclid|view|email|panel)/.test(clean);
+}
+
+function redactSensitiveAnalyticsUrl(value = "") {
+  const raw = String(value || "");
+  if (!raw) return "";
+  try {
+    const absolute = /^[a-z][a-z0-9+.-]*:/i.test(raw);
+    const url = absolute ? new URL(raw) : new URL(raw, "https://llh.local");
+    for (const key of [...url.searchParams.keys()]) {
+      if (!isAnalyticsSensitiveParamKey(key)) continue;
+      const original = String(url.searchParams.get(key) || "");
+      const digest = original
+        ? crypto.createHash("sha256").update(original).digest("hex").slice(0, 12)
+        : "x";
+      url.searchParams.set(key, `[redacted]:${digest}`);
+    }
+    if (absolute) return url.toString().slice(0, 500);
+    return `${url.pathname}${url.search}${url.hash}`.slice(0, 500) || "/";
+  } catch {
+    return raw
+      .replace(/([?&](?:familyHub|resetToken|testerInvite|staffInvite|magicToken|inviteToken)=)[^&#]*/gi, "$1[redacted]")
+      .slice(0, 500);
+  }
+}
+
+function sanitizeAnalyticsAttribution(attribution = {}) {
+  const next = attribution && typeof attribution === "object" ? { ...attribution } : {};
+  if (next.landingPage) next.landingPage = redactSensitiveAnalyticsUrl(next.landingPage).slice(0, 240);
+  if (next.route) next.route = redactSensitiveAnalyticsUrl(next.route).slice(0, 240);
+  if (next.referrer) next.referrer = redactSensitiveAnalyticsUrl(next.referrer).slice(0, 500);
+  if (next.url) next.url = redactSensitiveAnalyticsUrl(next.url).slice(0, 500);
+  return next;
+}
+
 function sanitizeAnalyticsEvent(input, request) {
   const raw = input?.event || input || {};
   const createdAt = raw.createdAt && !Number.isNaN(new Date(raw.createdAt).getTime())
     ? new Date(raw.createdAt).toISOString()
     : new Date().toISOString();
+  const attribution = sanitizeAnalyticsAttribution(
+    typeof raw.attribution === "object" && raw.attribution ? raw.attribution : {},
+  );
   return {
     id: String(raw.id || `evt_${Date.now()}_${crypto.randomBytes(5).toString("hex")}`).slice(0, 120),
     name: String(raw.name || "event").slice(0, 80),
@@ -12329,13 +12392,13 @@ function sanitizeAnalyticsEvent(input, request) {
     sessionId: String(raw.sessionId || "").slice(0, 120),
     user: normalizeEmail(raw.user || raw.email || raw.detail?.email || ""),
     plan: String(raw.plan || raw.detail?.plan || "").slice(0, 40),
-    path: String(raw.path || "").slice(0, 240),
+    path: redactSensitiveAnalyticsUrl(String(raw.path || "")).slice(0, 240),
     hash: String(raw.hash || "").slice(0, 120),
-    url: String(raw.url || "").slice(0, 500),
+    url: redactSensitiveAnalyticsUrl(String(raw.url || "")).slice(0, 500),
     pageTitle: String(raw.pageTitle || "").slice(0, 160),
-    referrer: String(raw.referrer || request.headers.referer || "").slice(0, 500),
+    referrer: redactSensitiveAnalyticsUrl(String(raw.referrer || request.headers.referer || "")).slice(0, 500),
     source: String(raw.source || "").slice(0, 120),
-    attribution: typeof raw.attribution === "object" && raw.attribution ? raw.attribution : {},
+    attribution,
     userAgent: String(request.headers["user-agent"] || "").slice(0, 300),
     ipHash: crypto.createHash("sha256").update(String(request.headers["x-forwarded-for"] || request.socket.remoteAddress || "")).digest("hex").slice(0, 20),
     fbp: String(raw.fbp || raw.detail?.fbp || "").slice(0, 200),
@@ -13332,9 +13395,19 @@ async function handleFamilyHubHouseholdCreate(request, response) {
   });
 }
 
+function inviteTokenFromRequest(request, url) {
+  const headerToken = String(
+    request.headers["x-llh-invite-token"]
+    || request.headers["x-llh-family-invite-token"]
+    || "",
+  ).trim();
+  if (headerToken) return headerToken;
+  return String(url?.searchParams?.get("token") || "").trim();
+}
+
 function handleFamilyHubInvitePeek(request, response, url) {
   if (!requireHomeDaycareHubTesting(response)) return;
-  const token = String(url.searchParams.get("token") || "").trim();
+  const token = inviteTokenFromRequest(request, url);
   if (!token) {
     jsonResponse(response, 400, { error: "Missing Family Hub invite token." });
     return;
@@ -13690,6 +13763,133 @@ function handleFamilyHubCalendarGet(request, response, url) {
   const scheduleDoc = readOwnerScheduleForFamilyHub(store, household.ownerEmail);
   const events = familyHubLib.buildFamilyHubCalendar(scheduleDoc, { fromDate, days: 60 });
   jsonResponse(response, 200, { ok: true, testingOnly: true, events, calendar: events });
+}
+
+async function handleFamilyHubDocumentAcknowledge(request, response, documentId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  const resolved = resolveFamilySession(request);
+  if (!resolved) {
+    jsonResponse(response, 401, { error: "Family Hub session missing or expired." });
+    return;
+  }
+  const id = String(documentId || "").trim();
+  if (!id) {
+    jsonResponse(response, 400, { error: "Missing form id." });
+    return;
+  }
+  let body = {};
+  try { body = await readJson(request); } catch (_error) { body = {}; }
+  const { household, store, token, session } = resolved;
+  touchFamilySession(store, token, session);
+  const childIds = new Set(
+    (Array.isArray(household.children) ? household.children : [])
+      .map((child) => String(child?.id || ""))
+      .filter(Boolean),
+  );
+  const signerName = String(
+    body?.signerName
+    || household.settings?.preferredName
+    || household.label
+    || household.email
+    || "Parent",
+  ).trim().slice(0, 120);
+  const now = new Date().toISOString();
+  let updatedDoc = null;
+
+  const ownerEmail = normalizeEmail(household.ownerEmail);
+  const ownerUser = store.users?.[ownerEmail] || { email: ownerEmail };
+  const identity = { email: ownerEmail, uid: ownerUser.firebaseUid || ownerUser.uid || "" };
+  let context = null;
+  try {
+    context = programOwnership.resolveProgramContext(store, identity);
+  } catch (_error) {
+    context = null;
+  }
+  if (context?.ok) {
+    const saved = programOwnership.readProgramChildData(store, context);
+    const childData = saved?.data && typeof saved.data === "object" ? { ...saved.data } : {};
+    const docs = Array.isArray(childData.Documents) ? [...childData.Documents] : [];
+    const index = docs.findIndex((doc) => String(doc?.id || "") === id && childIds.has(String(doc?.childId || "")));
+    if (index >= 0) {
+      docs[index] = {
+        ...docs[index],
+        status: "signed",
+        statusLabel: "Signed",
+        signedAt: now,
+        signedBy: signerName,
+        updatedAt: now,
+        notes: String(docs[index].notes || "").trim()
+          || "Parent acknowledged this form in Family Hub.",
+      };
+      childData.Documents = docs;
+      programOwnership.writeProgramChildData(store, context, childData);
+      updatedDoc = docs[index];
+    }
+  }
+
+  const householdDocs = Array.isArray(household.documents) ? [...household.documents] : [];
+  const householdIndex = householdDocs.findIndex((doc) => String(doc?.id || "") === id);
+  if (householdIndex >= 0) {
+    householdDocs[householdIndex] = {
+      ...householdDocs[householdIndex],
+      status: "signed",
+      statusLabel: "Signed",
+      signedAt: now,
+      signedBy: signerName,
+      updatedAt: now,
+    };
+    household.documents = householdDocs;
+    if (!updatedDoc) updatedDoc = householdDocs[householdIndex];
+  } else if (updatedDoc) {
+    householdDocs.push({
+      id: updatedDoc.id,
+      childId: updatedDoc.childId,
+      title: updatedDoc.title,
+      category: updatedDoc.category,
+      status: "signed",
+      statusLabel: "Signed",
+      signedAt: now,
+      signedBy: signerName,
+      updatedAt: now,
+      notes: updatedDoc.notes || "",
+    });
+    household.documents = householdDocs;
+  }
+
+  if (!updatedDoc) {
+    jsonResponse(response, 404, { error: "That form was not found for your household." });
+    return;
+  }
+
+  store.familyHouseholds[household.id] = household;
+  store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
+  store.familyHubNotifications.unshift({
+    id: `fh-notif-form-${Date.now().toString(36)}`,
+    householdId: household.id,
+    title: "Form signed",
+    body: `${signerName} signed “${updatedDoc.title || "Form"}”.`,
+    href: "forms",
+    read: false,
+    createdAt: now,
+    audience: "provider",
+  });
+
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not save signed form.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    document: familyHubLib.publicFamilyDocument(updatedDoc),
+  });
 }
 
 async function handleFamilyHubSettingsPatch(request, response) {
@@ -14102,7 +14302,7 @@ async function handleHdhTesterInviteCreate(request, response) {
 
 async function handleHdhTesterInvitePeek(request, response, url) {
   if (!requireHomeDaycareHubTesting(response)) return;
-  const token = String(url.searchParams.get("token") || "").trim();
+  const token = inviteTokenFromRequest(request, url);
   if (!token) {
     jsonResponse(response, 400, { error: "Missing invite token." });
     return;
@@ -14863,7 +15063,7 @@ async function handleStaffInviteRevoke(request, response, inviteId) {
 }
 
 async function handleStaffInvitePeek(request, response, url) {
-  const token = String(url.searchParams.get("token") || "").trim();
+  const token = inviteTokenFromRequest(request, url);
   if (!token) {
     jsonResponse(response, 400, { error: "Missing invite token." });
     return;
@@ -19302,7 +19502,7 @@ function shouldServeSpaShell(routePath = "") {
 
 function serveSpaIndex(request, response) {
   const indexPath = path.join(publicDir, "index.html");
-  response.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+  response.writeHead(200, securityResponseHeaders({ "Content-Type": "text/html; charset=utf-8" }));
   if (request.method === "HEAD") {
     response.end();
     return;
@@ -19345,7 +19545,7 @@ function serveStatic(request, response, url) {
     ".jpg": "image/jpeg",
     ".jpeg": "image/jpeg",
   }[ext] || "application/octet-stream";
-  response.writeHead(200, { "Content-Type": contentType });
+  response.writeHead(200, securityResponseHeaders({ "Content-Type": contentType }));
   if (request.method === "HEAD") {
     response.end();
     return;
@@ -22663,9 +22863,46 @@ async function handleReleaseNoteUpdate(request, response) {
   await respondAfterPersist(store, response, 200, { releaseNote: publicReleaseNote(items[index]) }, "Could not save release note.");
 }
 
+function ensureDefaultReleaseNotes(store) {
+  store.releaseNotes = Array.isArray(store.releaseNotes) ? store.releaseNotes : [];
+  const hasPublished = store.releaseNotes.some((note) => note && note.status === "published");
+  if (hasPublished) return false;
+  const now = new Date().toISOString();
+  store.releaseNotes.unshift({
+    id: "release-family-hub-beta-seed",
+    version: "Family Hub beta",
+    releaseDate: now.slice(0, 10),
+    featuresAdded: [
+      "Family Hub parent app with Today, Photos, Messages, Calendar, Forms, and More",
+      "Parent form signing so providers see acknowledgements in real time",
+      "Magic-link invite flow with tokens stripped from analytics and referrers",
+    ],
+    bugsFixed: [
+      "Lesson plan close (X) no longer gets stuck on history navigation",
+      "Membership badge and feature access stay on one authoritative state",
+      "Tester roles stay scoped to the signed-in account on shared browsers",
+    ],
+    improvements: [
+      "Daily lesson materials no longer repeat the full weekly list every day",
+      "AI Tools shows Checking… instead of a false Needs attention state",
+      "Calendar and Settings labels cleaned up for clearer navigation",
+    ],
+    lessonPlanAdditions: [],
+    activityAdditions: [],
+    status: "published",
+    createdAt: now,
+    updatedAt: now,
+  });
+  return true;
+}
+
 function handleReleaseNotesList(request, response, url) {
   const adminToken = extractAdminToken(request, url) || "";
   const store = readStore();
+  const seeded = ensureDefaultReleaseNotes(store);
+  if (seeded) {
+    try { writeStore(store); } catch (_error) { /* best-effort seed */ }
+  }
   const all = store.releaseNotes || [];
   if (validAdminToken(adminToken)) {
     jsonResponse(response, 200, { releaseNotes: all.slice(0, 200).map(publicReleaseNote) });
@@ -23001,6 +23238,12 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/family-hub/notifications/read") return await handleFamilyHubNotificationsRead(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/calendar") return handleFamilyHubCalendarGet(request, response, url);
     if (request.method === "PATCH" && url.pathname === "/api/family-hub/settings") return await handleFamilyHubSettingsPatch(request, response);
+    if (request.method === "POST" && url.pathname.startsWith("/api/family-hub/documents/") && url.pathname.endsWith("/acknowledge")) {
+      const documentId = decodeURIComponent(
+        url.pathname.slice("/api/family-hub/documents/".length, -"/acknowledge".length),
+      );
+      return await handleFamilyHubDocumentAcknowledge(request, response, documentId);
+    }
     if (request.method === "POST" && url.pathname === "/api/family-hub/logout") return await handleFamilyHubLogout(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/storage") return handleFamilyHubStorageStatus(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/seed-demo") return await handleFamilyHubSeedDemo(request, response);

@@ -3713,8 +3713,101 @@ function trafficSource() {
   return referrer ? "Referral" : "Direct";
 }
 
+/** Query keys that must never appear in analytics, marketing history, or referrers. */
+const LLH_SENSITIVE_URL_PARAM_KEYS = Object.freeze([
+  "familyHub",
+  "resetToken",
+  "testerInvite",
+  "staffInvite",
+]);
+
+function isSensitiveUrlParamKey(key = "") {
+  const clean = String(key || "").trim().toLowerCase();
+  if (!clean) return false;
+  if (LLH_SENSITIVE_URL_PARAM_KEYS.some((item) => item.toLowerCase() === clean)) return true;
+  return /(?:^|[_-])(token|magic|invite|access[_-]?token|session)(?:$|[_-])/i.test(clean)
+    && !/^(utm_|fbclid|ttclid|gclid|view|email|panel)/i.test(clean);
+}
+
+function redactSensitiveUrl(value = "", options = {}) {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const replacement = options.hash ? "[hashed]" : "[redacted]";
+  const scrubParams = (params) => {
+    let changed = false;
+    [...params.keys()].forEach((key) => {
+      if (!isSensitiveUrlParamKey(key)) return;
+      const original = String(params.get(key) || "");
+      if (options.hash && original) {
+        // Short non-reversible fingerprint if uniqueness is needed later.
+        let digest = "x";
+        try {
+          let h = 2166136261;
+          for (let i = 0; i < original.length; i += 1) {
+            h ^= original.charCodeAt(i);
+            h = Math.imul(h, 16777619);
+          }
+          digest = (h >>> 0).toString(16).slice(0, 12);
+        } catch { digest = "x"; }
+        params.set(key, `${replacement}:${digest}`);
+      } else {
+        params.set(key, replacement);
+      }
+      changed = true;
+    });
+    return changed;
+  };
+  try {
+    const absolute = /^[a-z][a-z0-9+.-]*:/i.test(raw);
+    const url = absolute ? new URL(raw) : new URL(raw, "https://llh.local");
+    scrubParams(url.searchParams);
+    if (absolute) return url.toString();
+    return `${url.pathname}${url.search}${url.hash}` || "/";
+  } catch {
+    return raw.replace(
+      /([?&](?:familyHub|resetToken|testerInvite|staffInvite|magicToken|inviteToken)=)[^&#]*/gi,
+      `$1${replacement}`,
+    );
+  }
+}
+
+function readPendingUrlSecret(key) {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem("llhPendingUrlSecrets") || "{}") || {};
+    const value = String(parsed[key] || "").trim();
+    return value;
+  } catch {
+    return "";
+  }
+}
+
+function consumePendingUrlSecret(key) {
+  const value = readPendingUrlSecret(key);
+  if (!value) return "";
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem("llhPendingUrlSecrets") || "{}") || {};
+    delete parsed[key];
+    sessionStorage.setItem("llhPendingUrlSecrets", JSON.stringify(parsed));
+  } catch { /* ignore */ }
+  return value;
+}
+
+function sanitizeAttributionRecord(attribution = {}) {
+  const next = attribution && typeof attribution === "object" ? { ...attribution } : {};
+  if (next.landingPage) next.landingPage = redactSensitiveUrl(next.landingPage);
+  if (next.route) next.route = redactSensitiveUrl(next.route);
+  if (next.referrer) next.referrer = redactSensitiveUrl(next.referrer);
+  if (next.url) next.url = redactSensitiveUrl(next.url);
+  return next;
+}
+
 function currentAttribution() {
-  return readSavedJson("llhAttribution", {});
+  const saved = readSavedJson("llhAttribution", {});
+  const clean = sanitizeAttributionRecord(saved);
+  if (JSON.stringify(clean) !== JSON.stringify(saved || {})) {
+    try { localStorage.setItem("llhAttribution", JSON.stringify(clean)); } catch { /* ignore */ }
+  }
+  return clean;
 }
 
 function saveAttribution(detail = {}) {
@@ -3722,10 +3815,12 @@ function saveAttribution(detail = {}) {
   // Additive fields only; event names and tracking calls stay the same.
   const existing = currentAttribution();
   const params = new URLSearchParams(window.location.search);
-  const landingPage = `${window.location.pathname || ""}${window.location.search || ""}`
-    || detail.route
-    || window.location.hash
-    || "/";
+  const landingPage = redactSensitiveUrl(
+    `${window.location.pathname || ""}${window.location.search || ""}`
+      || detail.route
+      || window.location.hash
+      || "/",
+  );
   if (existing.firstSeenAt) {
     const patched = { ...existing };
     let changed = false;
@@ -3739,14 +3834,15 @@ function saveAttribution(detail = {}) {
     fill("medium", params.get("utm_medium") || detail.medium || "");
     fill("content", params.get("utm_content") || "");
     fill("term", params.get("utm_term") || "");
-    fill("referrer", document.referrer || "");
+    fill("referrer", redactSensitiveUrl(document.referrer || ""));
     fill("landingPage", landingPage);
-    if (changed) {
-      try { localStorage.setItem("llhAttribution", JSON.stringify(patched)); } catch { /* ignore */ }
+    const sanitized = sanitizeAttributionRecord(patched);
+    if (changed || JSON.stringify(sanitized) !== JSON.stringify(existing)) {
+      try { localStorage.setItem("llhAttribution", JSON.stringify(sanitized)); } catch { /* ignore */ }
     }
-    return patched;
+    return sanitized;
   }
-  const attribution = {
+  const attribution = sanitizeAttributionRecord({
     route: detail.route || window.location.pathname || window.location.hash || "home",
     view: detail.view || "home",
     source: detail.source || trafficSource(),
@@ -3754,10 +3850,10 @@ function saveAttribution(detail = {}) {
     medium: params.get("utm_medium") || detail.medium || "",
     content: params.get("utm_content") || "",
     term: params.get("utm_term") || "",
-    referrer: document.referrer || "",
+    referrer: redactSensitiveUrl(document.referrer || ""),
     landingPage,
     firstSeenAt: new Date().toISOString(),
-  };
+  });
   try { localStorage.setItem("llhAttribution", JSON.stringify(attribution)); } catch { /* ignore */ }
   return attribution;
 }
@@ -3886,11 +3982,11 @@ function trackEvent(name, detail = {}) {
     detail,
     visitorId: visitorId(),
     sessionId: analyticsSessionId(),
-    path: window.location.pathname,
+    path: redactSensitiveUrl(window.location.pathname || "/"),
     hash: window.location.hash,
-    url: window.location.href,
+    url: redactSensitiveUrl(window.location.href),
     pageTitle: document.title,
-    referrer: document.referrer || "",
+    referrer: redactSensitiveUrl(document.referrer || ""),
     source: detail.source || attribution.source || trafficSource(),
     user: currentUser || "",
     plan: currentPlan,
@@ -4285,7 +4381,9 @@ function accountProductStatus(account = currentAccount(), nowMs = Date.now()) {
 }
 
 function accountStatusBadgeHtml(account = currentAccount(), options = {}) {
-  const status = accountProductStatus(account);
+  const status = typeof membershipDisplayStatus === "function"
+    ? membershipDisplayStatus(account)
+    : accountProductStatus(account);
   const compact = options.compact === true;
   return `<span class="llh-account-status-badge llh-account-status-badge--${escapeHtml(status.tone)}" title="${escapeHtml(status.detail)}">${status.emoji} ${escapeHtml(status.label)}${compact ? "" : ""}</span>`;
 }
@@ -4823,10 +4921,13 @@ async function syncSubscriptionFromBackend(email, options = {}) {
       || (cleanEmail === currentUser ? currentAccount() : null)
       || readSavedJson("llhAccounts", {})?.[cleanEmail]
       || null;
+    // Server is authoritative when it explicitly denies Pro access.
+    const serverDeniesPro = data?.subscription?.hasProAccess === false;
     if (
       updates.plan === "Free"
       && localAccount
       && accountHasRemainingPaidAccess(localAccount)
+      && !serverDeniesPro
       && !data?.recoveredFromStripe
       && !options.allowDemote
       && !String(data?.subscription?.subscriptionStatus || "").toLowerCase().includes("payment failed")
@@ -12823,7 +12924,7 @@ async function changePassword(currentPassword, newPassword) {
 async function confirmPasswordResetFromLink(newPassword) {
   if (String(newPassword || "").length < 8) throw new Error("Please use a password with at least 8 characters.");
   const params = new URLSearchParams(window.location.search);
-  const resetToken = params.get("resetToken");
+  const resetToken = params.get("resetToken") || consumePendingUrlSecret("resetToken");
   if (resetToken) {
     const response = await fetch("/api/auth/password-reset/complete", {
       method: "POST",
@@ -16066,9 +16167,51 @@ function canAssignMoreFreeCalendarPlans(weekStartDate = "") {
 }
 
 function isProUser() {
-  if (hasAdminFullAccess()) return true;
+  if (adminAccessOverridesMemberPlan()) return true;
   if (currentAccount()?.programAccessViaOwner) return true;
+  if (isSignedInPlatformOwner()) return true;
   return accessRank[effectiveAccessPlan()] >= accessRank.Pro;
+}
+
+/**
+ * Single membership display used by badges/summaries so Free billing and Pro
+ * access never appear as two conflicting states at once.
+ */
+function membershipDisplayStatus(account = currentAccount()) {
+  const product = accountProductStatus(account);
+  if (!currentUser) return product;
+  if (product.hasProAccess) return product;
+  if (account?.programAccessViaOwner) {
+    return {
+      ...product,
+      key: "program_access",
+      adminKey: product.adminKey || "active",
+      label: "Program Access",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: "You have Pro features through your program owner.",
+      planLabel: "Program Access",
+    };
+  }
+  if (isSignedInPlatformOwner() || adminAccessOverridesMemberPlan()) {
+    return {
+      ...product,
+      key: "owner_access",
+      adminKey: product.adminKey || "active",
+      label: "Owner Access",
+      emoji: "🟢",
+      tone: "success",
+      hasProAccess: true,
+      banner: null,
+      cta: null,
+      detail: "Platform owner access is active. Billing membership may still show Free for testing.",
+      planLabel: "Owner Access",
+    };
+  }
+  return product;
 }
 
 // Single source-of-truth for "is a real user session active?"
@@ -19745,6 +19888,9 @@ function lessonObjectives(resource, theme, area) {
     ],
   };
   const base = resource.learningObjectives || lessonAgeData(ageObjectives, age);
+  if (age === "Infant") {
+    return base.slice(0, 3);
+  }
   return [
     ...base,
     `Connect ${theme.toLowerCase()} learning to music, movement, creative arts, and family engagement across the week.`,
@@ -20971,8 +21117,18 @@ function shouldUseLessonNavHistoryBack() {
 }
 
 function requestResourceViewerClose() {
+  // History-back is preferred for lesson nav, but never leave the X looking dead:
+  // if popstate does not close the viewer promptly, force-close as a fallback.
   if (shouldUseLessonNavHistoryBack()) {
+    const wasOpen = Boolean(document.querySelector("#resourceViewerModal.open"));
     window.history.back();
+    if (wasOpen) {
+      window.setTimeout(() => {
+        if (document.querySelector("#resourceViewerModal.open")) {
+          closeResourceViewer();
+        }
+      }, 120);
+    }
     return;
   }
   closeResourceViewer();
@@ -21937,11 +22093,12 @@ function lessonPlanWeeklyScheduleDays(plan) {
     const items = Array.isArray(dayPlan.items) ? dayPlan.items : [];
     const dayDomains = curriculumAsStringArray(dayPlan.learningDomains);
     const domains = dayDomains.length ? dayDomains : weeklyDomains;
+    const isWeeklyMaterialsPlaceholder = (value) => /see weekly materials list/i.test(String(value || "").trim());
     const dayMaterials = String(dayPlan.materials || "").replace(/\s+/g, " ").trim();
     const activityMaterials = items
       .map((item) => String(item?.materials || "").replace(/\s+/g, " ").trim())
-      .filter(Boolean);
-    const materialsNeeded = dayMaterials
+      .filter((value) => value && !isWeeklyMaterialsPlaceholder(value));
+    const materialsNeeded = (!isWeeklyMaterialsPlaceholder(dayMaterials) && dayMaterials)
       || [...new Set(activityMaterials)].slice(0, 6).join("; ");
     const teacherNotes = firstSentenceLessonText(
       dayPlan.observations || dayPlan.adaptations || dayPlan.familyConnection || dayPlan.outdoorPlay || "",
@@ -29900,7 +30057,6 @@ function renderCalendarMonthView(app) {
       ${curriculumPlannerRetirementBannerHtml()}
       <div class="llh-calendar-toolbar">
         <div>
-          <p class="eyebrow">Planning home</p>
           <h3 class="llh-calendar-month">${escapeHtml(mainCalendarMonthLabel(cursor))}</h3>
           <p class="muted-copy llh-calendar-toolbar-hint">Tap any day to open it. Add notes and events on any day — lesson plans still run Monday–Friday.</p>
         </div>
@@ -32313,8 +32469,8 @@ function renderSettingsHubPage() {
   section.innerHTML = `
     <section class="settings-hub-page">
       <div class="page-title">
-        <p class="eyebrow">Settings</p>
-        <h2>Configuration &amp; account</h2>
+        <p class="eyebrow">Account</p>
+        <h2>Settings</h2>
         <p>Manage your account, membership, program, and support here. Daily work stays in Calendar, Lesson Plans, Activities, Documentation Helpers, and Child Profiles.</p>
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
@@ -32441,17 +32597,34 @@ function saveTesterFamilyHubInvite(invite = {}) {
   } catch (_error) { /* ignore */ }
 }
 
+function hdhTesterPersonaStorageKey(email = currentUser) {
+  const clean = String(email || "").trim().toLowerCase();
+  return clean ? `${HDH_TESTER_PERSONA_KEY}:${clean}` : "";
+}
+
 function getHdhTesterPersona() {
   try {
-    const raw = localStorage.getItem(HDH_TESTER_PERSONA_KEY);
+    const scopedKey = hdhTesterPersonaStorageKey();
+    let raw = scopedKey ? localStorage.getItem(scopedKey) : "";
+    let fromLegacy = false;
+    if (!raw) {
+      raw = localStorage.getItem(HDH_TESTER_PERSONA_KEY);
+      fromLegacy = Boolean(raw);
+    }
     const parsed = raw ? JSON.parse(raw) : null;
     if (!parsed || typeof parsed !== "object") {
+      return { role: "teacher", teacherEmail: String(currentUser || "").trim(), focusChildId: "" };
+    }
+    const teacherEmail = String(parsed.teacherEmail || currentUser || "").trim();
+    const currentEmail = String(currentUser || "").trim().toLowerCase();
+    // Never inherit another account's role/nav from a leftover global persona.
+    if (fromLegacy && currentEmail && teacherEmail && teacherEmail.toLowerCase() !== currentEmail) {
       return { role: "teacher", teacherEmail: String(currentUser || "").trim(), focusChildId: "" };
     }
     const role = HDH_TESTER_ROLES.includes(parsed.role) ? parsed.role : "teacher";
     return {
       role,
-      teacherEmail: String(parsed.teacherEmail || currentUser || "").trim(),
+      teacherEmail: teacherEmail || String(currentUser || "").trim(),
       focusChildId: String(parsed.focusChildId || "").trim(),
     };
   } catch (_error) {
@@ -32471,12 +32644,27 @@ function setHdhTesterPersona(updates = {}) {
     next.teacherEmail = String(currentUser || next.teacherEmail || "").trim();
   }
   try {
-    localStorage.setItem(HDH_TESTER_PERSONA_KEY, JSON.stringify(next));
+    const scopedKey = hdhTesterPersonaStorageKey(next.teacherEmail || currentUser);
+    if (scopedKey) localStorage.setItem(scopedKey, JSON.stringify(next));
+    // Stop writing the legacy global key so one browser user cannot affect another.
+    localStorage.removeItem(HDH_TESTER_PERSONA_KEY);
   } catch (_error) { /* ignore */ }
   document.body.dataset.hdhTesterPersona = next.role;
   document.body.classList.toggle("hdh-persona-parent", next.role === "parent");
   document.body.classList.toggle("hdh-persona-staff", next.role === "staff-helper" || next.role === "staff-lead");
   return next;
+}
+
+function clearHdhTesterPersonaForSignOut(email = currentUser) {
+  try {
+    const scopedKey = hdhTesterPersonaStorageKey(email);
+    if (scopedKey) localStorage.removeItem(scopedKey);
+    localStorage.removeItem(HDH_TESTER_PERSONA_KEY);
+  } catch (_error) { /* ignore */ }
+  try {
+    delete document.body.dataset.hdhTesterPersona;
+  } catch (_error) { /* ignore */ }
+  document.body.classList.remove("hdh-persona-parent", "hdh-persona-staff", "family-hub-parent-mode");
 }
 
 function rememberHdhTesterTeacherEmail() {
@@ -33364,16 +33552,27 @@ function renderFamilyHubFormsPanel(data) {
   }
   return `
     <div class="fh-panel-stack">
-      ${documents.map((doc) => `
+      ${documents.map((doc) => {
+        const canSign = Boolean(doc.canAcknowledge) || /needed|pending|to[_ -]?sign|action needed/i.test(String(doc.statusLabel || doc.status || ""));
+        const signedMeta = doc.signedAt
+          ? `Signed ${familyHubFormatDateTime(doc.signedAt)}${doc.signedBy ? ` by ${doc.signedBy}` : ""}`
+          : "";
+        return `
         <article class="fh-card" id="fh-doc-${escapeHtml(doc.id || doc.title || "doc")}">
           <div class="fh-card-head">
             <strong>${escapeHtml(doc.title || "Form")}</strong>
             <span class="fh-status-tag ${familyHubStatusClass(doc.status, doc.statusLabel)}">${escapeHtml(doc.statusLabel || doc.status || "Needed")}</span>
           </div>
           <p class="fh-meta">${escapeHtml(childName(doc.childId))} · ${escapeHtml(doc.category || "Other")}</p>
-          <p>${escapeHtml(doc.notes || "You can view this here. Ask your teacher if you need a printed copy.")}</p>
-        </article>
-      `).join("")}
+          <p>${escapeHtml(doc.notes || "Review this form and sign when ready. Your provider will see the update.")}</p>
+          ${signedMeta ? `<p class="fh-meta">${escapeHtml(signedMeta)}</p>` : ""}
+          ${canSign && doc.id
+            ? `<div class="fh-account-actions">
+                <button class="primary-button" type="button" data-family-hub-sign-form="${escapeHtml(doc.id)}">Sign / acknowledge</button>
+              </div>`
+            : ""}
+        </article>`;
+      }).join("")}
     </div>
   `;
 }
@@ -33813,6 +34012,44 @@ async function signOutFamilyHubParent() {
   familyHubParentToast("Signed out of Family Hub.");
 }
 
+async function acknowledgeFamilyHubDocument(documentId) {
+  const headers = familyHubAuthHeaders();
+  if (!headers) throw new Error("Sign in to Family Hub to sign forms.");
+  const preferredName = String(
+    familyHubParentState?.data?.settings?.preferredName
+    || familyHubParentState?.data?.household?.label
+    || "",
+  ).trim();
+  const response = await fetch(`/api/family-hub/documents/${encodeURIComponent(documentId)}/acknowledge`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ signerName: preferredName }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Could not sign this form.");
+  // Mirror signed status into the provider's local Documents store when available.
+  try {
+    if (isLoggedIn() && data?.document?.id && typeof saveChildStore === "function") {
+      const docs = childStore("Documents") || [];
+      const next = docs.map((doc) => (
+        String(doc.id || "") === String(data.document.id)
+          ? {
+            ...doc,
+            status: data.document.status || "signed",
+            statusLabel: data.document.statusLabel || "Signed",
+            signedAt: data.document.signedAt || new Date().toISOString(),
+            signedBy: data.document.signedBy || preferredName,
+            updatedAt: data.document.updatedAt || new Date().toISOString(),
+          }
+          : doc
+      ));
+      if (next.some((doc, index) => doc !== docs[index])) saveChildStore("Documents", next);
+    }
+  } catch (_error) { /* non-blocking */ }
+  return data;
+}
+
 async function createFamilyHubHouseholdInvite(form) {
   const data = collectFormData(form);
   const selected = Array.from(form.querySelectorAll('input[name="childIds"]:checked')).map((input) => input.value);
@@ -33870,9 +34107,17 @@ async function redeemFamilyHubInviteToken(token) {
 async function maybeHandleFamilyHubInviteFromUrl() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const params = new URLSearchParams(window.location.search);
-  const token = String(params.get("familyHub") || "").trim();
+  // Prefer session-captured token (stripped from URL before analytics/pixel fire).
+  const token = String(params.get("familyHub") || consumePendingUrlSecret("familyHub") || "").trim();
   if (!token) return false;
-  const peek = await fetch(`/api/family-hub/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
+  // Prefer header transport so the invite token never lands in server access logs via query string.
+  const peek = await fetch("/api/family-hub/invites/peek", {
+    headers: {
+      Accept: "application/json",
+      "X-LLH-Invite-Token": token,
+    },
+    cache: "no-store",
+  }).then((r) => r.json()).catch(() => ({}));
   const panel = document.createElement("div");
   panel.className = "section-block fh-invite-accept-panel";
   panel.id = "familyHubAcceptPanel";
@@ -34147,11 +34392,12 @@ async function acceptHdhTesterInviteToken(token) {
 async function maybeHandleHdhTesterInviteFromUrl() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
   const params = new URLSearchParams(window.location.search);
-  const token = String(params.get("testerInvite") || "").trim();
+  const token = String(params.get("testerInvite") || consumePendingUrlSecret("testerInvite") || "").trim();
   if (!token) return false;
-  const peek = await fetch(`/api/home-daycare-hub/tester-invites/peek?token=${encodeURIComponent(token)}`)
-    .then((r) => r.json())
-    .catch(() => ({}));
+  const peek = await fetch("/api/home-daycare-hub/tester-invites/peek", {
+    headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
+    cache: "no-store",
+  }).then((r) => r.json()).catch(() => ({}));
   const invite = peek?.invite;
   const panel = document.createElement("div");
   panel.className = "section-block";
@@ -34941,9 +35187,12 @@ async function acceptStaffInviteToken(token) {
 
 async function maybeHandleStaffInviteFromUrl() {
   const params = new URLSearchParams(window.location.search);
-  const token = String(params.get("staffInvite") || "").trim();
+  const token = String(params.get("staffInvite") || consumePendingUrlSecret("staffInvite") || "").trim();
   if (!token) return false;
-  const peek = await fetch(`/api/staff/invites/peek?token=${encodeURIComponent(token)}`).then((r) => r.json()).catch(() => ({}));
+  const peek = await fetch("/api/staff/invites/peek", {
+    headers: { Accept: "application/json", "X-LLH-Invite-Token": token },
+    cache: "no-store",
+  }).then((r) => r.json()).catch(() => ({}));
   const invite = peek?.invite;
   const panel = document.createElement("div");
   panel.className = "section-block";
@@ -42363,7 +42612,16 @@ function adminPreviewMode() {
 }
 
 function hasAdminFullAccess() {
-  return isAdminUnlocked() && adminPreviewMode() === "Admin";
+  // Admin unlock on a shared browser must not elevate a different Free member's
+  // plan/features. Full admin access applies when browsing as admin (no member
+  // session) or when the signed-in user is the platform owner.
+  if (!(isAdminUnlocked() && adminPreviewMode() === "Admin")) return false;
+  if (!currentUser) return true;
+  return isSignedInPlatformOwner();
+}
+
+function adminAccessOverridesMemberPlan() {
+  return hasAdminFullAccess();
 }
 
 function effectiveAccessPlan() {
@@ -42371,7 +42629,7 @@ function effectiveAccessPlan() {
   if (preview === "Free") return "Free";
   if (preview === "Trial" || preview === "Pro") return "Pro";
   if (preview === "Founding" || preview === "Director" || preview === "Teacher") return "Founding";
-  if (hasAdminFullAccess()) return "Founding";
+  if (adminAccessOverridesMemberPlan()) return "Founding";
   // Platform owner aliases (e.g. leahivie@icloud.com) always get full Pro/Founding
   // app access so every lesson plan is viewable — even when the membership row is
   // still marked Free for billing/upgrade testing. Admin Free preview above still
@@ -42379,6 +42637,9 @@ function effectiveAccessPlan() {
   if (isSignedInPlatformOwner()) return "Founding";
   if (currentUser) {
     const account = currentAccount();
+    if (account?.programAccessViaOwner) {
+      return normalizeBillingPlan(account?.plan || "Pro", account) === "Free" ? "Pro" : normalizeBillingPlan(account?.plan || "Pro", account);
+    }
     const resolved = accountHasPaidBilling(account) ? normalizeBillingPlan(account?.plan || currentPlan, account) : "Free";
     console.debug(`[access] effectiveAccessPlan email=${currentUser} plan=${account?.plan || "none"} status="${account?.subscriptionStatus || "none"}" resolved=${resolved}`);
     return resolved;
@@ -47490,7 +47751,16 @@ function applyAdminSectionVisibility() {
       else if (tab === "admin-notifications") ws.renderAdminNotificationsInbox(landingApp);
       else if (tab === "content-home") ws.renderAdminContentHome(landingApp);
       else if (tab === "website-home") ws.renderAdminWebsiteHome(landingApp);
-      else if (tab === "ai-home") ws.renderAdminAiHome(landingApp);
+      else if (tab === "ai-home") {
+        ws.renderAdminAiHome(landingApp);
+        if (!adminAiSettingsState?.aiSettings && !adminAiSettingsState?.loading) {
+          adminAiSettingsState.loading = true;
+          ws.renderAdminAiHome(landingApp);
+          loadAdminAiSettings().finally(() => {
+            if (getAdminSectionTab() === "ai-home") ws.renderAdminAiHome(landingApp);
+          });
+        }
+      }
       else if (tab === "billing-home") ws.renderAdminBillingHome(landingApp);
       else if (tab === "system-health") ws.renderAdminSystemHealth(landingApp);
       else if (tab === "advanced-home") ws.renderAdminAdvancedHome(landingApp);
@@ -51335,18 +51605,19 @@ async function loadAdminAiSettings() {
   const token = adminSession()?.token || "";
   if (!token || !canUseLaunchBackend()) return;
   adminAiSettingsState.loading = true;
-  renderAdminAiSettingsTab();
+  if (getAdminSectionTab() === "settings") renderAdminAiSettingsTab();
   try {
     const res = await fetch(`${adminAiSettingsConfig.getEndpoint}?t=${Date.now()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data?.error || "Failed to load AI settings.");
-    adminAiSettingsState.aiSettings = data.aiSettings || null;
+    adminAiSettingsState.aiSettings = data.aiSettings || { enabled: false };
     adminAiSettingsState.error = "";
   } catch (error) {
     adminAiSettingsState.error = error.message || "Could not load AI settings.";
+    if (!adminAiSettingsState.aiSettings) adminAiSettingsState.aiSettings = { enabled: false };
   }
   adminAiSettingsState.loading = false;
-  renderAdminAiSettingsTab();
+  if (getAdminSectionTab() === "settings") renderAdminAiSettingsTab();
 }
 
 async function saveAdminAiSettings() {
@@ -53294,10 +53565,10 @@ function generateLessonPlan(data) {
       activityCategory: categories[index % categories.length],
       title: `${theme} ${title}`,
       description: "",
-      materials: "See weekly materials list",
+      materials: "",
       setup: `Prepare a calm, age-appropriate space for ${rawAge.toLowerCase()} learners.`,
       steps,
-      learningGoals: [profile.lessonObjectives[index % profile.lessonObjectives.length] || `Explore ${theme} through play.`],
+      learningGoals: [profile.lessonObjectives[index % profile.lessonObjectives.length] || `Practice one ${theme.toLowerCase()} skill through guided play today.`],
     });
   });
   return formatCurriculumLessonPlanImportText({
@@ -55722,7 +55993,7 @@ function renderResetPasswordPage() {
   const message = document.querySelector("#resetPasswordMessage");
   if (!message) return;
   const params = new URLSearchParams(window.location.search);
-  const resetToken = params.get("resetToken");
+  const resetToken = params.get("resetToken") || readPendingUrlSecret("resetToken");
   if (resetToken) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
   } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
@@ -56106,9 +56377,13 @@ function updatePlanLabel() {
     updateSidebarDashboard();
     return;
   }
-  const productStatus = accountProductStatus(currentAccount());
-  const planLabel = isAdminUnlocked() ? previewAwarePlanLabel() : productStatus.label;
-  const priceLabel = isAdminUnlocked() ? previewAwarePriceLabel() : billingPriceLabel();
+  const productStatus = membershipDisplayStatus(currentAccount());
+  const planLabel = isAdminPreviewSimulating()
+    ? previewAwarePlanLabel()
+    : (isAdminUnlocked() && !currentUser ? previewAwarePlanLabel() : productStatus.label);
+  const priceLabel = isAdminPreviewSimulating()
+    ? previewAwarePriceLabel()
+    : (productStatus.hasProAccess ? billingPriceLabel() : "$0/month");
   currentPlanLabel.textContent = isAdminPreviewSimulating()
     ? `${planLabel} (preview)`
     : `${productStatus.emoji} ${planLabel}`;
@@ -56121,8 +56396,8 @@ function updatePlanLabel() {
     } else if (productStatus.banner === "access_lost") {
       summary.textContent = `${productStatus.label}: you are on the Free Plan. Reactivate anytime — nothing was deleted.`;
     } else {
-      summary.textContent = isProUser()
-        ? `${productStatus.label}: ${billingPriceLabel()} with full library access and ${aiUsageRemaining()} document creations left this month.`
+      summary.textContent = productStatus.hasProAccess
+        ? `${productStatus.label}: ${priceLabel} with full library access and ${aiUsageRemaining()} document creations left this month.`
         : freePlanAccessSummaryText().replace("and 10 document creations.", `and ${aiUsageRemaining()} document creations left this month.`);
     }
   }
@@ -56809,6 +57084,7 @@ async function signOut() {
   // meant for this account. In-app data is unaffected either way.
   await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
+  const signingOutEmail = String(currentUser || "").trim();
   if (firebaseAuthEnabled) {
     try {
       const client = await getFirebaseAuthClient();
@@ -56819,8 +57095,15 @@ async function signOut() {
   }
   clearMemberSessionToken();
   closeForcePasswordModal();
+  // Role / Family Hub / tester invite state is session-specific — never leave it
+  // for the next person who uses this browser.
+  clearHdhTesterPersonaForSignOut(signingOutEmail);
+  clearFamilyHubSession();
+  try { localStorage.removeItem(FAMILY_HUB_TESTER_INVITE_KEY); } catch { /* ignore */ }
+  familyHubParentState = { panel: "today", childId: "", data: null, loadId: "" };
   // Keep Admin unlock on this browser. Provider sign-out should not force a full
   // Admin re-login — use Lock Admin when you want to clear owner access.
+  // Admin unlock must NOT elevate a later Free member login (see adminAccessOverridesMemberPlan).
   currentUser = "";
   currentPlan = "Free";
   favorites = [];
@@ -56845,6 +57128,7 @@ async function signOut() {
   document.body.classList.remove("app-boot-ready");
   document.body.classList.remove("app-boot-verifying");
   setAppBootGateMode("hidden");
+  syncFamilyHubParentChrome();
   updateAuthButtons();
   updatePlanLabel();
   updateAdminNavVisibility();
@@ -58586,6 +58870,27 @@ document.addEventListener("click", async (event) => {
   if (event.target.closest("[data-family-hub-sign-out]")) {
     event.preventDefault();
     signOutFamilyHubParent();
+    return;
+  }
+
+  const signFormBtn = event.target.closest("[data-family-hub-sign-form]");
+  if (signFormBtn) {
+    event.preventDefault();
+    const documentId = String(signFormBtn.dataset.familyHubSignForm || "").trim();
+    if (!documentId) return;
+    signFormBtn.disabled = true;
+    acknowledgeFamilyHubDocument(documentId)
+      .then(async () => {
+        familyHubParentToast("Form signed. Your provider can see the update.");
+        await loadFamilyHubParentDashboard({
+          panel: "forms",
+          childId: familyHubParentState.childId || "",
+        }).catch(() => null);
+      })
+      .catch((error) => {
+        signFormBtn.disabled = false;
+        familyHubParentToast(error.message || "Could not sign this form.");
+      });
     return;
   }
 
@@ -66627,7 +66932,7 @@ syncCurriculumPlannerNavVisibility();
 // a guest clicking their email link must land on the reset screen, not the homepage/Dashboard.
 function resetPasswordLinkRequestedFromLocation() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get("resetToken")) return true;
+  if (params.get("resetToken") || readPendingUrlSecret("resetToken")) return true;
   if (params.get("view") === "reset-password") return true;
   if (params.get("mode") === "resetPassword") return true;
   return false;

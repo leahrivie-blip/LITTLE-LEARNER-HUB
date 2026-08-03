@@ -132,33 +132,37 @@ function buildSharedFamilyFeed(childData = null, childIds = []) {
   };
 }
 
-function liveDocumentsForChildren(childData = null, childIds = [], fallbackDocuments = []) {
-  const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
-  const live = (Array.isArray(childData?.Documents) ? childData.Documents : [])
-    .filter((doc) => idSet.has(String(doc?.childId || "")) && doc?.archived !== true)
-    .map((doc) => ({
-      id: String(doc.id || ""),
-      childId: String(doc.childId || ""),
-      title: String(doc.title || "Form").trim() || "Form",
-      category: String(doc.category || "Other").trim() || "Other",
-      status: String(doc.status || "needed").trim() || "needed",
-      statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
-      notes: String(doc.notes || doc.summary || "").trim(),
-      updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
-      viewOnly: true,
-    }));
-  if (live.length) return live;
-  return (Array.isArray(fallbackDocuments) ? fallbackDocuments : []).map((doc) => ({
+function documentNeedsParentAction(status = "") {
+  const key = String(status || "").trim().toLowerCase();
+  return !key || key === "needed" || key === "action needed" || key === "pending" || key === "to_sign" || key === "to-sign";
+}
+
+function publicFamilyDocument(doc = {}) {
+  const status = String(doc.status || "needed").trim() || "needed";
+  const signed = Boolean(doc.signedAt) || /signed|completed|on_file|on file/i.test(status);
+  return {
     id: String(doc.id || ""),
     childId: String(doc.childId || ""),
     title: String(doc.title || "Form").trim() || "Form",
     category: String(doc.category || "Other").trim() || "Other",
-    status: String(doc.status || "needed").trim() || "needed",
+    status,
     statusLabel: String(doc.statusLabel || doc.status || "Needed").trim() || "Needed",
-    notes: String(doc.notes || "").trim(),
-    updatedAt: String(doc.updatedAt || "").trim(),
-    viewOnly: true,
-  }));
+    notes: String(doc.notes || doc.summary || "").trim(),
+    updatedAt: String(doc.updatedAt || doc.createdAt || "").trim(),
+    signedAt: String(doc.signedAt || "").trim(),
+    signedBy: String(doc.signedBy || "").trim(),
+    canAcknowledge: documentNeedsParentAction(status) && !signed,
+    viewOnly: !(documentNeedsParentAction(status) && !signed),
+  };
+}
+
+function liveDocumentsForChildren(childData = null, childIds = [], fallbackDocuments = []) {
+  const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
+  const live = (Array.isArray(childData?.Documents) ? childData.Documents : [])
+    .filter((doc) => idSet.has(String(doc?.childId || "")) && doc?.archived !== true)
+    .map((doc) => publicFamilyDocument(doc));
+  if (live.length) return live;
+  return (Array.isArray(fallbackDocuments) ? fallbackDocuments : []).map((doc) => publicFamilyDocument(doc));
 }
 
 function normalizeGuardianEmails(primaryEmail = "", guardianEmails = []) {
@@ -933,6 +937,8 @@ module.exports = {
   familyHubDemoPhotoUri,
   familyHubDemoPortraitUri,
   liveDocumentsForChildren,
+  publicFamilyDocument,
+  documentNeedsParentAction,
   normalizeGuardianEmails,
   buildFamilyHubDemoSeed,
   publicSharedItem,

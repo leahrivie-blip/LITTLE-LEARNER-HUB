@@ -267,11 +267,20 @@
 
   function renderAdminAiHome(target) {
     if (!target) return;
+    const loading = Boolean(adminAiSettingsState?.loading);
+    const settingsKnown = adminAiSettingsState?.aiSettings != null;
     const aiReady = Boolean(adminAiSettingsState?.aiSettings?.enabled);
-    const statusLabel = aiReady ? "Ready" : "Needs attention";
+    const statusLabel = loading || !settingsKnown
+      ? "Checking…"
+      : (aiReady ? "Ready" : "Needs attention");
+    const statusDetail = loading || !settingsKnown
+      ? "Loading AI readiness…"
+      : (aiReady
+        ? "Prompt management lives under Advanced."
+        : "AI is disabled or unavailable — open Safety and Limits to review settings.");
     target.innerHTML = `
       <div class="section-heading">
-        <div><p class="eyebrow">AI Tools</p><h3>Calm AI workspace</h3><p class="muted-copy">Status: <strong>${statusLabel}</strong>. Prompt management lives under Advanced.</p></div>
+        <div><p class="eyebrow">AI Tools</p><h3>Calm AI workspace</h3><p class="muted-copy">Status: <strong>${statusLabel}</strong>. ${statusDetail}</p></div>
       </div>
       <div class="admin-card-grid">
         ${landingCard("Generate Content", "Open AI content tools.", "ai-tools", "Create")}

@@ -239,9 +239,13 @@
         || formatBook(weeklyBooks[0])
         || "";
 
+      const isWeeklyMaterialsPlaceholder = (value) => /see weekly materials list/i.test(String(value || "").trim());
       const dayMaterials = cleanText(dayPlan.materials);
-      const activityMaterials = activities.map((item) => item.materials).filter(Boolean);
-      const materialsNeeded = dayMaterials || joinUnique(activityMaterials, "; ");
+      const activityMaterials = activities
+        .map((item) => item.materials)
+        .filter((value) => value && !isWeeklyMaterialsPlaceholder(value));
+      const materialsNeeded = (!isWeeklyMaterialsPlaceholder(dayMaterials) && dayMaterials)
+        || joinUnique(activityMaterials, "; ");
 
       const dayDomains = asStringArray(dayPlan.learningDomains);
       const teacherNotesDetail = buildTeacherNotesDetail(dayPlan, activitySlots, normalized.adaptations);
