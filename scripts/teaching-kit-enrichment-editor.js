@@ -203,6 +203,8 @@
         signal: controller ? controller.signal : undefined,
       });
       const data = await response.json().catch(() => ({}));
+      // Ignore stale responses after a newer Prepare AI Draft / Suggest call started.
+      if (state.aiTray.abortController !== controller) return;
       if (controller && controller.signal.aborted) return;
       if (!response.ok) {
         const code = String(data.code || "");
@@ -234,6 +236,8 @@
           : `AI returned ${suggestions.length} suggestion(s). Nothing saved until you insert.`;
       render();
     } catch (error) {
+      // Abort from a superseded request must not close a newer review tray.
+      if (state.aiTray.abortController !== controller) return;
       if (error && error.name === "AbortError") {
         state.aiTray.phase = "idle";
         state.aiTray.open = false;

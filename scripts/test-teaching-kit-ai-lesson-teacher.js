@@ -216,7 +216,9 @@ function testAnalyzeAndFilter() {
   assert(pack.some((s) => s.category === "image_brief_setup"), "image briefs");
   assert(pack.every((s) => !/http:\/\/|https:\/\//i.test(String(s.proposedText || ""))), "no image URLs");
   const song = pack.find((s) => s.category === "songs");
-  assert(!/disney|frozen|let it go|copyright/i.test(String(song?.proposedText || "")), "no copyrighted song markers");
+  const songText = String(song?.proposedText || "");
+  assert(!/disney|frozen|let it go/i.test(songText), "no copyrighted song markers");
+  assert(/no copyrighted lyrics/i.test(songText) || /original llh/i.test(songText), "song notes original / no copyrighted lyrics");
 
   const filtered = lessonTeacher.filterSuggestionsForGaps(pack, analysis);
   assert(filtered.length > 0, "filtered suggestions for gaps");
@@ -342,15 +344,25 @@ async function main() {
       document.body.innerHTML = "";
       document.body.appendChild(host);
 
+      // Open without racing a second request — open() auto-prepares when gaps exist.
       window.LLHTeachingKitEnrichmentEditor.open(payload.plan.id);
-      await new Promise((r) => setTimeout(r, 80));
-
-      // Avoid racing auto-prepare; open review from a controlled call.
-      await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
-        scope: "lesson",
-        simulate: "fixture",
-      });
-      await new Promise((r) => setTimeout(r, 200));
+      for (let i = 0; i < 40; i += 1) {
+        await new Promise((r) => setTimeout(r, 100));
+        const trayReady = document.querySelector("[data-ai-tray] [data-ai-review-list], [data-ai-tray] [data-ai-error], [data-ai-tray] [data-ai-loading]");
+        const phaseReady = document.querySelector("[data-ai-review-list]");
+        if (phaseReady) break;
+        if (trayReady && document.querySelector("[data-ai-error]")) break;
+      }
+      if (!document.querySelector("[data-ai-review-list]")) {
+        await window.LLHTeachingKitEnrichmentEditor.requestAiSuggestions({
+          scope: "lesson",
+          simulate: "fixture",
+        });
+        for (let i = 0; i < 30; i += 1) {
+          await new Promise((r) => setTimeout(r, 100));
+          if (document.querySelector("[data-ai-review-list]")) break;
+        }
+      }
 
       const analysisPanel = document.querySelector("[data-lesson-analysis]");
       const tray = document.querySelector("[data-ai-tray]");
@@ -360,6 +372,8 @@ async function main() {
         analysisText: analysisPanel?.textContent || "",
         prepareCta: Boolean(document.querySelector('[data-ai-suggest="lesson"]')),
         trayOpen: Boolean(tray),
+        trayHtml: tray ? tray.textContent.slice(0, 240) : "",
+        statusText: document.querySelector(".tk-enrich-status")?.textContent || "",
         sideBySide: compareHeads.includes("Current Lesson") && compareHeads.includes("AI Draft"),
         acceptAll: Boolean(document.querySelector("[data-ai-accept-all]")),
         rejectAll: Boolean(document.querySelector("[data-ai-reject-all]")),
