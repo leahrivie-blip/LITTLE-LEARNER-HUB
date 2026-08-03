@@ -15016,8 +15016,9 @@ async function handlePublicSiteContent(request, response, url) {
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
       playBasedCurriculum: true,
-      // Teaching Kit flags (Slice 1A): server-normalized, default false. No UI yet.
-      featureFlags: normalizedFeatureFlags(content.featureFlags),
+      // Teaching Kit flags stay server/admin-normalized only in Slice 1A.
+      // Do not expose featureFlags on the public site-content payload until a
+      // later viewer slice needs them (preserves existing public API shape).
       freePlanAccess,
       freeStarterLibrary: {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,

@@ -411,7 +411,7 @@ Ordered, stop-for-review slices:
 
 | Slice | Work | Exit criteria |
 | --- | --- | --- |
-| **1A** ✅ authorized | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; no bulk rewrite; legacy tests green; no viewer/PDF |
+| **1A** ✅ authorized | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; public `/api/site-content` omits `featureFlags`; no bulk rewrite; legacy tests green; no viewer/PDF |
 | **1B** | `mapLessonPlanToTeachingKit` + unit tests on fixtures | Maps local sample plans; empty sections correct |
 | **1C** | `GET …/teaching-kit` behind flag | Auth parity with detail endpoint |
 | **1D** | Binder UI (read-only) behind `teachingKitViewer` | Desktop/mobile; back/favorite/assign intact |
@@ -472,7 +472,9 @@ Add (when coding):
 | Screenshots | `docs/teaching-kit/mockups/screenshots/*.png` |
 | Canonical Teaching Kit module (Slice 1A) | `scripts/teaching-kit.js` |
 | Slice 1A tests | `scripts/test-teaching-kit-slice-1a.js` (`npm run test:teaching-kit-slice-1a`) |
-| Flag + schema wiring | `server/index.js`, `app.js` defaults |
+| Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
+
+**Public `/api/site-content`:** continues to **omit** `featureFlags` in Slice 1A (flags normalized in admin/store only). Expose publicly only when a later viewer slice needs them.
 
 **Slice 1A does not include:** viewer UI, Print Center/PDF, attachments UX, migrations, production flag enablement, deployment.
 

@@ -276,19 +276,21 @@ async function main() {
     await waitForHealth(child);
     adminToken = await adminLogin();
 
-    // Public flags default false
+    // Public site-content must omit featureFlags (unchanged public payload for Slice 1A).
     const publicBefore = await requestJson("GET", "/api/site-content");
     assert(publicBefore.status === 200, "site-content ok");
-    const flags = publicBefore.json?.siteContent?.featureFlags || {};
-    assert(flags.teachingKitViewer === false, "public teachingKitViewer default false");
-    assert(flags.teachingKitPrintCenter === false, "public teachingKitPrintCenter default false");
-    assert(flags.teachingKitAttachments === false, "public teachingKitAttachments default false");
-    assert(flags.playBasedCurriculum === true, "playBasedCurriculum still true");
+    assert(!("featureFlags" in (publicBefore.json?.siteContent || {})),
+      "public site-content must omit featureFlags in Slice 1A");
+    assert(publicBefore.json?.siteContent?.playBasedCurriculum === true, "playBasedCurriculum still true");
 
     seedAccessUsers();
 
     const bootstrap = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);
     assert(bootstrap.status === 200 && bootstrap.json?.siteContent, "admin site-content GET");
+    const adminFlags = bootstrap.json.siteContent.featureFlags || {};
+    assert(adminFlags.teachingKitViewer === false, "admin teachingKitViewer default false");
+    assert(adminFlags.teachingKitPrintCenter === false, "admin teachingKitPrintCenter default false");
+    assert(adminFlags.teachingKitAttachments === false, "admin teachingKitAttachments default false");
     let expectedUpdatedAt = bootstrap.json.siteContent.updatedAt || "";
 
     // Seed two plans without teachingKit via admin save
@@ -422,13 +424,20 @@ async function main() {
       },
     });
     assert(saveFlags.status === 200, `flag save failed: ${saveFlags.status} ${saveFlags.text}`);
-    const publicAfter = await requestJson("GET", "/api/site-content");
-    const f2 = publicAfter.json?.siteContent?.featureFlags || {};
-    assert(f2.teachingKitViewer === false, "string flag normalized false on public API");
-    assert(f2.teachingKitPrintCenter === false, "numeric flag normalized false");
-    assert(f2.teachingKitAttachments === true, "explicit true preserved");
+    const normalizedFlags = saveFlags.json?.siteContent?.featureFlags
+      || (await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`))
+        .json?.siteContent?.featureFlags
+      || {};
+    assert(normalizedFlags.teachingKitViewer === false, "string flag normalized false server-side");
+    assert(normalizedFlags.teachingKitPrintCenter === false, "numeric flag normalized false server-side");
+    assert(normalizedFlags.teachingKitAttachments === true, "explicit true preserved server-side");
 
-    // Reset flags to false (Slice 1A must not leave production-like enablement)
+    // Public payload still omits featureFlags after admin flag writes.
+    const publicAfter = await requestJson("GET", "/api/site-content");
+    assert(!("featureFlags" in (publicAfter.json?.siteContent || {})),
+      "public site-content still omits featureFlags after admin flag save");
+
+    // Reset flags to false (Slice 1A must not leave enablement in temp store)
     const resetGet = await requestJson("GET", `/api/admin/site-content?adminToken=${encodeURIComponent(adminToken)}`);
     await requestJson("POST", "/api/admin/site-content", {
       adminToken,
