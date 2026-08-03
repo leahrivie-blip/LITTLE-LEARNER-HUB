@@ -3088,11 +3088,69 @@ function preferredSignupPlanFromStorage() {
 
 function setPreferredSignupPlan(plan = "") {
   try {
-    const value = String(plan || "").trim();
-    if (value) sessionStorage.setItem("llhSignupPreferredPlan", value);
+    const value = String(plan || "").trim().toLowerCase();
+    // Normalize aliases used by CTAs / legacy storage.
+    const normalized = value === "pro" || value === "pro-monthly"
+      ? "monthly"
+      : value === "pro-annual" || value === "yearly"
+        ? "annual"
+        : value === "start-free" || value === "free-plan"
+          ? "free"
+          : value;
+    if (normalized) sessionStorage.setItem("llhSignupPreferredPlan", normalized);
     else sessionStorage.removeItem("llhSignupPreferredPlan");
   } catch {
     /* ignore */
+  }
+}
+
+function clearPreferredSignupPlan() {
+  setPreferredSignupPlan("");
+}
+
+/**
+ * Signup modal title + supporting note from the CTA's selected plan intent.
+ * Free / Pro / Trial / neutral must never reuse the wrong plan message.
+ */
+function signupIntentPresentation(intent = preferredSignupPlanFromStorage()) {
+  const plan = String(intent || "").trim().toLowerCase();
+  if (plan === "monthly" || plan === "annual" || plan === "founding") {
+    return {
+      intent: plan,
+      title: "Continue with Pro",
+      note: "Create your account to continue with Pro membership.",
+      showNote: true,
+    };
+  }
+  if (plan === "trial") {
+    return {
+      intent: "trial",
+      title: "Start your 7-day Pro trial",
+      note: "Create your account to start a 7-day Pro trial. A credit card is required — you won’t be charged during the trial, then Pro Monthly ($19.99/month) begins unless you cancel.",
+      showNote: true,
+    };
+  }
+  // free, empty/neutral, or unknown → Free wording (header Sign Up is neutral/Free).
+  return {
+    intent: plan === "free" ? "free" : "neutral",
+    title: "Create Your Free Little Learner Hub Account",
+    note: "Create your free account to start exploring Little Learner Hub.",
+    showNote: true,
+  };
+}
+
+function applySignupIntentCopyToAuthModal() {
+  const title = document.querySelector("#authTitle");
+  const note = document.querySelector("#authFoundingContinueNote");
+  const presentation = signupIntentPresentation();
+  if (title && currentAuthMode === "signup" && signupWizardStep === 1) {
+    title.textContent = presentation.title;
+  }
+  if (note) {
+    const show = currentAuthMode === "signup" && signupWizardStep === 1 && presentation.showNote;
+    note.hidden = !show;
+    note.textContent = presentation.note;
+    note.dataset.signupIntent = presentation.intent;
   }
 }
 
@@ -3144,6 +3202,13 @@ function closeAuthModal() {
   signupPersonaChoice = "";
   signupCenterPathway = "";
   modal?.querySelector(".auth-modal-card")?.classList.remove("auth-modal-card--plans");
+  // Do not retain a prior CTA's plan message for the next open.
+  clearPreferredSignupPlan();
+  const intentNote = document.querySelector("#authFoundingContinueNote");
+  if (intentNote) {
+    intentNote.hidden = true;
+    intentNote.removeAttribute("data-signup-intent");
+  }
   setFormMessage("#authMessage", "");
 }
 
@@ -3313,16 +3378,7 @@ function renderSignupWizardStep() {
   }
 
   if (signupWizardStep === 1) {
-    const preferFoundingSignup = preferredSignupPlanFromStorage() === "founding"
-      && foundingOpenForAcquisition();
-    title.textContent = preferFoundingSignup
-      ? "Continue with Pro"
-      : "Create Your Free Little Learner Hub Account";
-    const foundingContinueNote = document.querySelector("#authFoundingContinueNote");
-    if (foundingContinueNote) {
-      foundingContinueNote.hidden = !preferFoundingSignup;
-      foundingContinueNote.textContent = "Create your account to continue with Pro membership.";
-    }
+    applySignupIntentCopyToAuthModal();
     submitButton.textContent = "Continue";
     submitButton.hidden = false;
     skipButton?.classList.add("hidden-field");
@@ -12904,29 +12960,23 @@ function setAuthMode(mode) {
   passwordField.autocomplete = mode === "signup" ? "new-password" : "current-password";
   passwordField.closest("label")?.classList.toggle("hidden-field", mode === "forgot");
   submitButton.hidden = false;
-  const foundingContinueNote = document.querySelector("#authFoundingContinueNote");
-  const preferFoundingSignup = mode === "signup"
-    && preferredSignupPlanFromStorage() === "founding"
-    && foundingOpenForAcquisition();
-  if (foundingContinueNote) {
-    foundingContinueNote.hidden = !preferFoundingSignup;
-    foundingContinueNote.textContent = "Create your account to continue with Pro membership.";
-  }
   if (mode === "signup") {
-    title.textContent = preferFoundingSignup
-      ? "Continue with Pro"
-      : "Create Your Free Little Learner Hub Account";
+    applySignupIntentCopyToAuthModal();
     submitButton.textContent = "Continue";
     forgotButton.style.display = "none";
     switchButton.textContent = "Already have an account? Log in";
     renderSignupWizardStep();
   } else if (mode === "forgot") {
+    const intentNote = document.querySelector("#authFoundingContinueNote");
+    if (intentNote) intentNote.hidden = true;
     title.textContent = "Reset your password";
     submitButton.textContent = "Send Reset Email";
     forgotButton.style.display = "none";
     switchButton.textContent = "Back to login";
     renderSignupWizardStep();
   } else {
+    const intentNote = document.querySelector("#authFoundingContinueNote");
+    if (intentNote) intentNote.hidden = true;
     title.textContent = "Log in to Little Learner Hub";
     submitButton.textContent = "Log In";
     forgotButton.style.display = "inline-flex";
@@ -57020,8 +57070,9 @@ document.addEventListener("click", async (event) => {
     });
     dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
+      // Free pricing / hero / header Sign Up: always Free (or explicit data-signup-intent).
       const intent = String(startFreeButton.dataset.signupIntent || "").trim();
-      setPreferredSignupPlan(intent || "");
+      setPreferredSignupPlan(intent || "free");
       openAuthModal("signup");
       return;
     }
@@ -57039,7 +57090,7 @@ document.addEventListener("click", async (event) => {
     });
     dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
-      setPreferredSignupPlan("monthly");
+      setPreferredSignupPlan("trial");
       openAuthModal("signup");
       return;
     }
@@ -57057,7 +57108,7 @@ document.addEventListener("click", async (event) => {
     });
     dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
-      setPreferredSignupPlan("monthly");
+      setPreferredSignupPlan("trial");
       openAuthModal("signup");
       return;
     }
@@ -62242,7 +62293,8 @@ document.querySelector("#signupButton")?.addEventListener("click", () => {
     return;
   }
   dismissOverlaysForAuthOrUpgrade();
-  setPreferredSignupPlan("founding");
+  // Header Sign Up is neutral/Free — never reuse Pro/Founding membership copy.
+  setPreferredSignupPlan("free");
   openAuthModal("signup");
 });
 
@@ -62337,18 +62389,25 @@ async function completeSignupProgramStep({ allowSkip = false } = {}) {
   setFormMessage("#authMessage", "");
   await syncFoundingStatus({ render: false }).catch(() => {});
   const preferredPlan = preferredSignupPlanFromStorage();
-  // Preserve Founding selection: after account + program, continue to Founding checkout
-  // instead of the Free/Pro chooser (which could drop the selected plan).
+  // Preserve paid/trial selection: after account + program, continue to the matching
+  // checkout instead of the Free/Pro chooser (which could drop the selected plan).
   if (preferredPlan === "founding" && foundingOpenForAcquisition()) {
     updateAccount(currentUser, { selectedPlanAtSignup: "Founding", preferredCheckoutPlan: "founding" });
     await finishSignupWithPlan("founding");
     return;
   }
-  if (preferredPlan === "monthly") {
-    updateAccount(currentUser, { selectedPlanAtSignup: "Pro", preferredCheckoutPlan: "monthly" });
+  if (preferredPlan === "trial") {
+    updateAccount(currentUser, { selectedPlanAtSignup: "Pro", preferredCheckoutPlan: "trial" });
+    closeAuthModal();
+    await startProTrial();
+    return;
+  }
+  if (preferredPlan === "monthly" || preferredPlan === "annual") {
+    updateAccount(currentUser, { selectedPlanAtSignup: "Pro", preferredCheckoutPlan: preferredPlan });
     await finishSignupWithPlan("monthly");
     return;
   }
+  // Free / neutral intents still reach the plan chooser (existing onboarding path).
   signupWizardStep = 3;
   renderSignupWizardStep();
 }
