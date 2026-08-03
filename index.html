@@ -150,7 +150,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260803-p1-cross-feature";
+      var SHELL_VERSION = "20260803-ecosystem-pass";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -377,10 +377,7 @@
             </button>
             <button class="nav-link" data-view="director-center" data-nav-hidden="true" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 21V7l9-4 9 4v14"/><path d="M7 21v-8h4v8M13 21v-5h4v5"/></svg></span>
-              <span class="nav-link-label-stack">
-                <span>Director Center</span>
-                <small class="nav-coming-soon-tag">Coming Soon</small>
-              </span>
+              Director Center
             </button>
             <button class="nav-link" data-view="reports" data-nav-capability="reports" data-pro-nav data-nav-hidden="true" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20h16M7 17V9M12 17V5M17 17v-6"/></svg></span>
@@ -769,8 +766,8 @@
                 <p>Family communication and digital form workflows currently in testing.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
-                <h3>Daily operations <span class="llh-status-pill">In Development</span></h3>
-                <p>Attendance, meals, naps, and daily logs for smoother classroom routines.</p>
+                <h3>Daily operations <span class="llh-status-pill">Available</span></h3>
+                <p>Attendance, meals, naps, and daily logs are live in Child Profiles and Daily Logs.</p>
               </article>
               <article class="llh-coming-card llh-coming-category">
                 <h3>Enrollment tools <span class="llh-status-pill">Planned</span></h3>
@@ -1895,20 +1892,20 @@
               <summary class="settings-card-header">
                 <div class="settings-card-header-text">
                   <p class="eyebrow">Section 7</p>
-                  <span class="settings-coming-soon"><h3>Family Hub Settings</h3><span class="badge-coming-soon">Coming Soon</span></span>
-                  <p class="muted-copy">When Family Hub launches, shared items will support Stop Sharing and Remove From Parent View without deleting your original records.</p>
-                  <p class="form-note">These features are planned for a future Family Hub update.</p>
+                  <h3>Family Hub Settings</h3>
+                  <p class="muted-copy">Choose what kinds of shared updates families can receive. Invite households from Home Daycare Hub; parents review forms, photos, and daily updates in Family Hub.</p>
+                  <p class="form-note">On the testing site, stop-sharing and remove-from-parent-view controls are managed from each child’s shared records and Family Hub invites.</p>
                 </div>
                 <span class="settings-card-toggle" aria-hidden="true">▾</span>
               </summary>
               <div class="settings-card-body">
                 <div class="settings-checkboxes">
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Parent Portal" /> Parent Portal</label>
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Family Messaging" /> Family Messaging</label>
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Photo Sharing" /> Photo Sharing</label>
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Observation Sharing" /> Observation Sharing</label>
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Goal Sharing" /> Goal Sharing</label>
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Daily Report Sharing" /> Daily Report Sharing</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Parent Portal" /> Family Hub access</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Family Messaging" /> Family messaging</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Photo Sharing" /> Photo sharing</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Observation Sharing" /> Observation sharing</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Goal Sharing" /> Goal sharing</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Daily Report Sharing" /> Daily report sharing</label>
                 </div>
               </div>
             </details>

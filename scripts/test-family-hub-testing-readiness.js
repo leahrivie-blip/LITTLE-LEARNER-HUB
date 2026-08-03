@@ -88,7 +88,7 @@ async function waitForHealth(port, child, attempts = 50) {
 }
 
 test("shell markers for Family Hub parent beta UX", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-p1-cross-feature"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-ecosystem-pass"/);
   assert.match(indexHtml, /llhPendingUrlSecrets/);
   assert.match(indexHtml, /referrer" content="strict-origin-when-cross-origin"/);
   assert.match(appJs, /function loadFamilyHubParentDashboard/);
@@ -117,6 +117,15 @@ test("shell markers for Family Hub parent beta UX", () => {
   assert.match(serverJs, /\/api\/family-hub\/messages/);
   assert.match(serverJs, /\/api\/family-hub\/calendar/);
   assert.match(serverJs, /\/api\/family-hub\/logout/);
+  assert.match(serverJs, /\/api\/family-hub\/provider-notifications/);
+  assert.match(serverJs, /handleFamilyHubHouseholdChildrenPatch/);
+  assert.match(serverJs, /GROUNDED FACTS \(authoritative/);
+  assert.match(appJs, /function maybeLinkChildToFamilyHubHouseholds/);
+  assert.match(appJs, /function shareChildDocumentWithFamily/);
+  assert.match(appJs, /function classroomOptionsHtml/);
+  assert.match(appJs, /function staffAssignedClassroomIds/);
+  assert.doesNotMatch(appJs, /badge-coming-soon/);
+  assert.doesNotMatch(indexHtml, /Daily operations <span class="llh-status-pill">In Development<\/span>/);
 });
 
 test("family-hub-lib storage + today + calendar helpers", () => {
@@ -386,6 +395,33 @@ async function main() {
     });
     assert.equal(second.status, 200, second.text);
     assert.ok(second.json.replacedDuplicates >= 1);
+
+    // Link an additional child onto an active household + notify parent
+    const linkChild = await request(onPort, "PATCH", `/api/family-hub/households/${encodeURIComponent(second.json.household.id)}/children`, {
+      email: "owner@example.com",
+      body: {
+        children: [
+          { id: "dup-child", name: "Dup Child" },
+          { id: "dup-sibling", name: "Dup Sibling" },
+        ],
+      },
+    });
+    assert.equal(linkChild.status, 200, linkChild.text);
+    assert.equal(linkChild.json.household.children.length, 2);
+    assert.ok(linkChild.json.household.childIds.includes("dup-sibling"));
+
+    const notify = await request(onPort, "POST", "/api/family-hub/provider-notifications", {
+      email: "owner@example.com",
+      body: {
+        childId: "dup-child",
+        type: "form",
+        title: "New form to review",
+        body: "Enrollment form is ready in Family Hub Forms.",
+        href: "forms",
+      },
+    });
+    assert.equal(notify.status, 200, notify.text);
+    assert.ok(notify.json.notified >= 1);
 
     // Revoke then reject redeem/login
     const householdId = second.json.household.id;

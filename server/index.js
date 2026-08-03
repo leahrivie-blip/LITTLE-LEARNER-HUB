@@ -5682,12 +5682,25 @@ Do not return incomplete drafts, duplicated paragraphs, placeholders, contradict
   return sections.join("\n\n---\n\n");
 }
 
-function buildOpenAiUserPrompt(prompt, age) {
+function buildOpenAiUserPrompt(prompt, age, grounded = {}) {
   const isShortNote = !prompt || prompt.trim().length < AI_SHORT_NOTE_THRESHOLD;
+  const childName = String(grounded.childName || "").trim();
+  const date = String(grounded.date || "").trim();
+  const classroom = String(grounded.classroom || "").trim();
+  const programName = String(grounded.programName || "").trim();
+  const providerNotes = String(grounded.providerNotes || "").trim();
   return [
     prompt || "Create a helpful childcare document.",
-    age ? `Age group: ${age}` : "",
-    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmenta[...]" : "",
+    "GROUNDED FACTS (authoritative — never invent or replace these):",
+    childName ? `- Child name (use exactly): ${childName}` : "- Child name: not provided (use neutral wording like “your child” — do not invent a name).",
+    age ? `- Age group: ${age}` : "",
+    date ? `- Date (use exactly): ${date}` : "- Date: use today’s date only if a date is required and none was provided.",
+    classroom ? `- Classroom: ${classroom}` : "",
+    programName ? `- Program name: ${programName}` : "",
+    providerNotes ? `- Provider note (highest priority source): ${providerNotes}` : "",
+    "- Never refuse to draft a parent message, daily report, observation, incident report, behavior note, activity, lesson, or form when a note or request is provided.",
+    "- Do not ask the provider to supply details that were already included above. Draft the best usable document from what was given; mark only truly missing critical fields as “Not provided.”",
+    isShortNote ? "Note: The provider's note is brief. Stay tightly grounded in the exact details provided, use only minimal context to keep the response practical, and avoid generic developmental filler." : "",
   ].filter(Boolean).join("\n\n");
 }
 
@@ -5978,9 +5991,11 @@ Rules:
 - For Young/Older Toddlers: highlight specific new words tried, routine successes, sensory play moments, and social interactions.
 - For Preschool: name the actual activity, what the child created or discovered, a peer interaction, and a literacy or math moment if it happened.
 - For School Age: reflect on project work, a discussion the child participated in, a responsibility taken on, or a social interaction.
+- Use the exact child name and date from GROUNDED FACTS whenever provided — never invent a different child or date.
 - Use the child's name multiple times throughout — not just at the top.
 - Vary the opening sentence every time. Never start with "Today was a great day!" or any version of that phrase.
-- Write like a caring teacher who noticed the child as an individual — not a checkbox form.`,
+- Write like a caring teacher who noticed the child as an individual — not a checkbox form.
+- Never refuse to write the daily report. Draft from the note provided; mark only truly missing meal/nap details as Not provided.`,
 
     parentMessage: base + `
 
@@ -5988,6 +6003,7 @@ YOU ARE THE PROFESSIONAL PARENT COMMUNICATION ASSISTANT FOR LITTLE LEARNER HUB.
 Your purpose is to help childcare providers quickly create thoughtful, warm, professional parent messages from a short teacher note.
 Providers are busy caring for children. One or two sentences should be enough to generate a complete message.
 Never mention AI. Never say information is missing. Create the best message possible from the available information.
+Never refuse to write the parent message. Always return a complete draft from the teacher note and grounded facts.
 
 REQUIRED INPUT:
 - Selected Child
@@ -6078,6 +6094,8 @@ Rules:
 - Do not diagnose injuries, assign causes, or make medical claims beyond what was observed.
 - Preserve exact dates, times, names, locations, and notification details exactly as entered.
 - If a required detail was not provided, leave a short placeholder line asking the provider to add it — do not make it up.
+- Never refuse to write the incident report. Draft from the facts provided and use “Not provided” for missing fields.
+- Use the exact child name and date from GROUNDED FACTS whenever provided.
 - Use a calm, professional tone. Serious incidents should not sound casual.
 - End with one line reminding the provider to review against their state's licensing requirements before filing.`,
 
@@ -6103,6 +6121,8 @@ Rules:
 - Do not diagnose injuries, assign causes, or make medical claims beyond what was observed.
 - Preserve exact dates, times, names, locations, and notification details exactly as entered.
 - If a required detail was not provided, leave a short placeholder line asking the provider to add it — do not make it up.
+- Never refuse to write the incident report. Draft from the facts provided and use “Not provided” for missing fields.
+- Use the exact child name and date from GROUNDED FACTS whenever provided.
 - Use a calm, professional tone. Serious incidents should not sound casual.
 - End with one line reminding the provider to review against their state's licensing requirements before filing.`,
 
@@ -6146,6 +6166,8 @@ Rules:
 - Do not diagnose, label the child, or blame the family.
 - Include what happened before, what the child did, and how staff responded when that information is provided.
 - If key details are missing, note what the provider should add instead of inventing triggers, injuries, or outcomes.
+- Never use bracket placeholders like [Child Name] or [Date]. Use the exact grounded child name and date, or “Not provided.”
+- Never refuse to write the behavior note. Draft from the note provided.
 - Keep strategies realistic for the stated age group and a typical childcare setting.`,
 
     handbook: base + `
@@ -6522,7 +6544,20 @@ async function callOpenAiOnce(systemPrompt, userContent, email, label, { maxOutp
   }
 }
 
-async function generateOpenAiContent({ tool, prompt, age, plan, email, debug, requestId: incomingRequestId }) {
+async function generateOpenAiContent({
+  tool,
+  prompt,
+  age,
+  plan,
+  email,
+  debug,
+  requestId: incomingRequestId,
+  childName = "",
+  date = "",
+  classroom = "",
+  programName = "",
+  providerNotes = "",
+}) {
   const requestId = incomingRequestId || createAiRequestId();
   const normalizedTool = normalizeAiToolId(tool);
 
@@ -6547,7 +6582,13 @@ async function generateOpenAiContent({ tool, prompt, age, plan, email, debug, re
   }
 
   const systemPrompt = getToolSystemPromptResolved(normalizedTool);
-  const userContent = buildOpenAiUserPrompt(prompt, age);
+  const userContent = buildOpenAiUserPrompt(prompt, age, {
+    childName,
+    date,
+    classroom,
+    programName,
+    providerNotes,
+  });
 
   let lastError;
   for (let attempt = 1; attempt <= AI_MAX_RETRIES + 1; attempt++) {
@@ -9633,7 +9674,8 @@ async function handleAiGenerate(request, response) {
   const requestId = createAiRequestId();
   console.log(`[access] ai-generate requestId=${requestId} email=${email} tool=${tool} rawTool=${rawTool} storedPlan=${user?.plan || "none"} resolvedPlan=${plan} status=${user?.subscriptionStatus || "none"}`);
   const lessonTools = new Set(["lesson", "lesson-plan", "lesson_plan"]);
-  if (lessonTools.has(rawTool) || lessonTools.has(tool)) {
+  // Testing site: allow lesson AI for invited testers so the full daycare workflow can be exercised.
+  if ((lessonTools.has(rawTool) || lessonTools.has(tool)) && !HOME_DAYCARE_HUB_TESTING) {
     if (!membershipHasProAccess(user || {})) {
       jsonResponse(response, 403, {
         error: "Generate custom lesson plans in seconds. Available with Pro Membership. Start Your 7-Day Free Trial. Card required. Cancel anytime.",
@@ -13394,6 +13436,151 @@ async function handleFamilyHubHouseholdCreate(request, response) {
       : (phone
         ? "Family Hub invite created. SMS is simulated — copy the magic link to text the family."
         : "Family Hub invite created. Share the magic link or login code with the family."),
+  });
+}
+
+async function handleFamilyHubHouseholdChildrenPatch(request, response, householdId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (_error) {
+    jsonResponse(response, 401, { error: "Please log in before updating Family Hub children." });
+    return;
+  }
+  const id = String(householdId || "").trim();
+  if (!id) {
+    jsonResponse(response, 400, { error: "Household id is required." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid children update payload." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const household = store.familyHouseholds?.[id];
+  if (!household || normalizeEmail(household.ownerEmail) !== ownerEmail || household.status === "revoked") {
+    jsonResponse(response, 404, { error: "Family Hub household not found." });
+    return;
+  }
+  const childrenInput = Array.isArray(body.children) ? body.children : [];
+  const children = [];
+  const seen = new Set();
+  childrenInput.forEach((child) => {
+    const childId = String(child?.id || "").trim();
+    if (!childId || seen.has(childId)) return;
+    seen.add(childId);
+    children.push({
+      id: childId,
+      name: String(child?.name || "Child").trim() || "Child",
+    });
+  });
+  if (!children.length) {
+    jsonResponse(response, 400, { error: "Select at least one child for this household." });
+    return;
+  }
+  household.children = children;
+  household.childIds = children.map((child) => child.id);
+  household.updatedAt = new Date().toISOString();
+  store.familyHouseholds[id] = household;
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not update household children.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    household: publicFamilyHousehold(household),
+  });
+}
+
+async function handleFamilyHubProviderNotificationsPost(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (_error) {
+    jsonResponse(response, 401, { error: "Please log in as the provider to notify families." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid notification payload." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const childId = String(body?.childId || "").trim();
+  const householdId = String(body?.householdId || "").trim();
+  const title = String(body?.title || "Update from your teacher").trim() || "Update from your teacher";
+  const text = String(body?.body || body?.message || "").trim() || title;
+  const type = String(body?.type || "update").trim() || "update";
+  const href = String(body?.href || "today").trim() || "today";
+  const households = listFamilyHouseholdsForOwner(store, ownerEmail)
+    .filter((item) => item.status !== "revoked");
+  let targets = [];
+  if (householdId) {
+    const match = households.find((item) => item.id === householdId);
+    if (match) targets = [match];
+  } else if (childId) {
+    targets = households.filter((item) => (
+      (Array.isArray(item.childIds) ? item.childIds : []).map(String).includes(childId)
+      || (Array.isArray(item.children) ? item.children : []).some((child) => String(child?.id || "") === childId)
+    ));
+  } else if (households.length === 1) {
+    targets = [households[0]];
+  }
+  if (!targets.length) {
+    jsonResponse(response, 404, {
+      error: "No Family Hub household found for that child. Invite the family first, then share again.",
+    });
+    return;
+  }
+  const now = new Date().toISOString();
+  const created = [];
+  targets.forEach((household) => {
+    const notification = {
+      id: `fh-ntf-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+      householdId: household.id,
+      type,
+      title,
+      body: text.slice(0, 240),
+      createdAt: now,
+      read: false,
+      href,
+      childId,
+      source: "provider",
+    };
+    store.familyHubNotifications.push(notification);
+    created.push(familyHubLib.publicFamilyNotification(notification));
+  });
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not save Family Hub notification.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    notified: created.length,
+    notifications: created,
   });
 }
 
@@ -23317,6 +23504,15 @@ const server = http.createServer(async (request, response) => {
     if ((request.method === "GET" || request.method === "POST") && url.pathname === "/api/child-data") return await handleChildData(request, response);
     if (request.method === "GET" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdsList(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/households") return await handleFamilyHubHouseholdCreate(request, response);
+    if (request.method === "PATCH" && url.pathname.startsWith("/api/family-hub/households/") && url.pathname.endsWith("/children")) {
+      const householdId = decodeURIComponent(
+        url.pathname.slice("/api/family-hub/households/".length, -"/children".length),
+      );
+      return await handleFamilyHubHouseholdChildrenPatch(request, response, householdId);
+    }
+    if (request.method === "POST" && url.pathname === "/api/family-hub/provider-notifications") {
+      return await handleFamilyHubProviderNotificationsPost(request, response);
+    }
     if (request.method === "GET" && url.pathname === "/api/family-hub/invites/peek") return handleFamilyHubInvitePeek(request, response, url);
     if (request.method === "POST" && url.pathname === "/api/family-hub/invites/redeem") return handleFamilyHubInviteRedeem(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/login") return handleFamilyHubLogin(request, response);

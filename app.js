@@ -7338,9 +7338,9 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
           <button class="ghost-button" type="button" data-hdh-ai-regenerate>Regenerate</button>
           <button class="primary-button" type="button" data-hdh-ai-save>Save to child file</button>
           <button class="ghost-button" type="button" data-hdh-ai-print>Print</button>
-          <button class="ghost-button" type="button" data-hdh-ai-send-later title="Invite or open Family Hub for this child">Send later (Family Hub)</button>
+          <button class="ghost-button" type="button" data-hdh-ai-send-later title="Save and notify Family Hub">Share with Family Hub</button>
         </div>
-        <p class="form-note" id="hdhAiDraftHint">Review this draft carefully before saving or printing. Sending to families is not available yet.</p>
+        <p class="form-note" id="hdhAiDraftHint">Review this draft carefully, then save or share with Family Hub so parents can review and acknowledge it in-app.</p>
         <div id="hdhAiDraftOutput" class="hdh-ai-draft-output" ${hdhAiDraftState.editing ? 'contenteditable="true"' : ""}>${hasDraft ? renderMarkdown(hdhAiDraftState.lastOutput) : ""}</div>
       </div>
     </section>
@@ -7534,7 +7534,7 @@ function saveHomeDaycareAiFormDraftToChild() {
   }
   selectedChildId = childId;
   localStorage.setItem("llhSelectedChild", selectedChildId);
-  appendChildRecord("Documents", {
+  const saved = appendChildRecord("Documents", {
     childId,
     title: `${packForm.title} (AI draft)`,
     category: packForm.category,
@@ -7544,14 +7544,16 @@ function saveHomeDaycareAiFormDraftToChild() {
     statusLabel: "Draft ready — review before family use",
     notes: "AI-assisted draft. Review for accuracy and licensing before sharing with families.",
     draftText,
+    shareWithFamily: true,
     date: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString(),
   });
   childProfileTab = "forms-records";
   childManagementMode = "profile";
-  if (hintEl) hintEl.textContent = "Saved to the child’s Forms & Records file. Family send is not available yet.";
+  if (hintEl) hintEl.textContent = "Saved to the child’s Forms & Records file. Use Share with Family Hub to notify parents in-app.";
   showActionFeedback("AI form draft saved to child file.");
   trackEvent("hdh_ai_form_draft_saved", { form: packForm.id });
+  return saved;
 }
 
 function homeDaycarePackDocumentStatusLabel(status = "needed") {
@@ -7587,8 +7589,90 @@ function addHomeDaycarePackFormToChild(childId, packForm, status = "needed") {
     notes: "",
     date: new Date().toISOString().slice(0, 10),
     updatedAt: new Date().toISOString(),
+    shareWithFamily: true,
   });
   return true;
+}
+
+async function maybeLinkChildToFamilyHubHouseholds(child = {}) {
+  if (!isHomeDaycareHubTestingEnabled() || !child?.id || !canUseLaunchBackend()) return 0;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return 0;
+  const listRes = await fetch("/api/family-hub/households", { headers, cache: "no-store" });
+  const listData = await listRes.json().catch(() => ({}));
+  if (!listRes.ok) return 0;
+  const households = (listData.households || []).filter((item) => item && item.status !== "revoked");
+  if (!households.length) return 0;
+  const parentHint = String(child.parentInfo || "").trim().toLowerCase();
+  const parentEmail = parentHint.includes("@") ? parentHint : "";
+  const targets = households.filter((household) => {
+    const ids = (household.childIds || []).map(String);
+    if (ids.includes(String(child.id))) return false;
+    if (households.length === 1) return true;
+    if (!parentEmail) return false;
+    const guardians = [
+      String(household.email || "").toLowerCase(),
+      ...((household.guardianEmails || []).map((email) => String(email || "").toLowerCase())),
+    ];
+    return guardians.includes(parentEmail);
+  });
+  let linked = 0;
+  for (const household of targets) {
+    const nextChildren = [
+      ...((household.children || []).map((item) => ({ id: item.id, name: item.name }))),
+      { id: child.id, name: child.name },
+    ];
+    const response = await fetch(`/api/family-hub/households/${encodeURIComponent(household.id)}/children`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ children: nextChildren }),
+      cache: "no-store",
+    });
+    if (response.ok) linked += 1;
+  }
+  return linked;
+}
+
+async function shareChildDocumentWithFamily(documentId) {
+  const docs = childStore("Documents") || [];
+  const doc = docs.find((item) => String(item.id) === String(documentId));
+  if (!doc) throw new Error("Document not found.");
+  const child = (childStore("Profiles") || []).find((item) => String(item.id) === String(doc.childId)) || null;
+  const next = docs.map((item) => (
+    String(item.id) === String(documentId)
+      ? {
+        ...item,
+        shareWithFamily: true,
+        status: item.status === "signed" || item.status === "received" ? item.status : "needed",
+        statusLabel: item.status === "signed" || item.status === "received"
+          ? (item.statusLabel || item.status)
+          : "Action needed",
+        updatedAt: new Date().toISOString(),
+      }
+      : item
+  ));
+  saveChildStore("Documents", next);
+  if (child) await maybeLinkChildToFamilyHubHouseholds(child).catch(() => 0);
+  if (!isHomeDaycareHubTestingEnabled()) {
+    return { ok: true, localOnly: true };
+  }
+  const headers = await staffAuthHeaders();
+  if (!headers) return { ok: true, localOnly: true };
+  const response = await fetch("/api/family-hub/provider-notifications", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      childId: doc.childId,
+      type: "form",
+      title: "New form to review",
+      body: `${doc.title || "A form"} is ready in Family Hub Forms.`,
+      href: "forms",
+    }),
+    cache: "no-store",
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data?.error || "Form saved, but Family Hub could not be notified.");
+  return data;
 }
 
 function addAllHomeDaycarePackFormsToChild(childId) {
@@ -7614,6 +7698,7 @@ function addAllHomeDaycarePackFormsToChild(childId) {
       notes: "",
       date: today,
       updatedAt: now,
+      shareWithFamily: true,
     };
     next.push(record);
     existingForChild.push(record);
@@ -16760,15 +16845,13 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     return;
   }
   if (actionId === "photo") {
-    appendChildRecord("Photos", {
-      childId,
-      date: today,
-      time,
-      caption: "Photo moment",
-      title: `Photo | ${today}`,
-      summary: "Photo placeholder — add image from Photos tab",
-      shareWithFamily: true,
-    });
+    selectedChildId = childId;
+    localStorage.setItem("llhSelectedChild", selectedChildId);
+    childProfileTab = "photos";
+    childManagementMode = "profile";
+    showPage("children");
+    renderChildManagement();
+    showActionFeedback("Open Photos on this child’s profile to upload and share with Family Hub.");
     return;
   }
   if (actionId === "activity" || actionId === "daily-log") {
@@ -35125,7 +35208,11 @@ function renderStaffManagementPage(options = {}) {
               </div>
               <button class="ghost-button" type="button" data-staff-invite-remove="${escapeHtml(invite.id)}">Revoke</button>
             </article>
-          `).join("") || (members.length ? "" : `<p class="muted-copy">No staff invites yet.</p>`)}
+          `).join("") || (members.length ? "" : `
+            <div class="profile-empty-state">
+              <strong>No staff invited yet</strong>
+              <p>Invite a lead teacher or assistant below. Assign their classroom so Daily Logs and Children stay scoped to their rooms.</p>
+            </div>`)}
         </div>
       </section>
       <section class="section-block platform-manage-card">
@@ -35287,18 +35374,31 @@ function paintClassroomsManageApp() {
     <section class="section-block platform-manage-card">
       <h3>Active classrooms (${active.length})</h3>
       <div class="platform-manage-list">
-        ${active.map((room) => `
+        ${active.map((room) => {
+          const roster = (childRecords().children || []).filter((child) => (
+            !child.archived && String(child.classroomId || "") === String(room.id)
+          ));
+          const rosterLabel = roster.length
+            ? roster.map((child) => child.name).slice(0, 6).join(", ") + (roster.length > 6 ? ` +${roster.length - 6}` : "")
+            : "No children assigned yet — edit a child profile to choose this classroom.";
+          return `
           <article class="platform-manage-row">
             <div>
               <strong>${escapeHtml(room.name || "Classroom")}</strong>
               <p class="muted-copy">${escapeHtml(room.ageGroupDefault || "Age group not set")}${room.notes ? ` · ${escapeHtml(room.notes)}` : ""}</p>
+              <p class="muted-copy"><strong>${roster.length}</strong> child${roster.length === 1 ? "" : "ren"}: ${escapeHtml(rosterLabel)}</p>
             </div>
             <div class="platform-manage-row-actions">
+              <button class="ghost-button" type="button" data-view="children">Assign children</button>
               <button class="ghost-button" type="button" data-classroom-edit="${escapeHtml(room.id)}">Edit</button>
               ${rooms.length > 1 ? `<button class="ghost-button" type="button" data-classroom-archive="${escapeHtml(room.id)}">Archive</button>` : ""}
             </div>
-          </article>
-        `).join("") || `<p class="muted-copy">No active classrooms yet.</p>`}
+          </article>`;
+        }).join("") || `
+          <div class="profile-empty-state">
+            <strong>No classrooms yet</strong>
+            <p>Add your first room below, then assign children from Child Profiles. Attendance, Daily Logs, and staff views use these rooms.</p>
+          </div>`}
       </div>
     </section>
     <section class="section-block platform-manage-card">
@@ -35500,35 +35600,22 @@ function renderSupportHomePage(records = childRecords()) {
   const currentChild = selectedChild(records);
   const childSupportAreas = currentChild ? childSelectedSupportAreas(currentChild).slice(0, 3) : [];
   const searchResults = supportSearchResults(supportCenterSearch);
-  const plannedAreas = [
-    { title: "Common behavior challenges", detail: "Guidance for tantrums, biting, transitions, and other everyday challenges." },
-    { title: "Support strategies", detail: "Practical classroom strategies you can use the same day." },
-    { title: "Behavior plans", detail: "Simple plans you can adapt for individual children." },
-    { title: "Parent communication help", detail: "Professional wording for sensitive family conversations." },
-    { title: "Behavior tracking", detail: "Track patterns over time without extra paperwork." },
-    { title: "Social emotional resources", detail: "SEL tools that support calm, connection, and confidence." },
-  ];
   return `
-    <section class="support-center-page behavior-support-placeholder">
+    <section class="support-center-page">
       <div class="page-title support-center-title">
         <p class="eyebrow">Behavior &amp; Support</p>
         <h2>Support for big feelings and everyday challenges</h2>
-        <p>This section will become your calm, child-centered behavior toolkit. The structure below is the foundation for the redesign.</p>
+        <p>Browse practical guidance now, or draft a Behavior Note / Parent Message with Documentation Helpers when you need wording fast.</p>
       </div>
-      <div class="platform-placeholder-grid">
-        ${plannedAreas.map((area) => `
-          <article class="platform-placeholder-card">
-            <strong>${escapeHtml(area.title)}</strong>
-            <p>${escapeHtml(area.detail)}</p>
-            <span class="badge-coming-soon">Coming Soon</span>
-          </article>
-        `).join("")}
+      <div class="account-actions-row" style="margin-bottom:16px;">
+        <button class="primary-button" type="button" data-view="ai" data-quick-doc-type="behavior-note">Write a Behavior Note</button>
+        <button class="ghost-button" type="button" data-view="ai" data-quick-doc-type="parent-message">Draft a Parent Message</button>
       </div>
       <section class="section-block behavior-support-current-tools">
         <div class="page-title" style="margin-bottom:12px;">
-          <p class="eyebrow">Available now</p>
-          <h3 style="margin:0;">Browse current support library</h3>
-          <p class="muted-copy">Existing Behavior &amp; Support resources stay available while we rebuild this area.</p>
+          <p class="eyebrow">Support library</p>
+          <h3 style="margin:0;">Browse topics</h3>
+          <p class="muted-copy">Choose a category or search for the challenge you’re facing today.</p>
         </div>
         <label class="support-search">
           <span>Search support topics</span>
@@ -35573,33 +35660,35 @@ function renderSupportHomePage(records = childRecords()) {
 function renderDirectorCenterPage() {
   const section = document.querySelector("#view-director-center");
   if (!section) return;
-  const planned = [
-    { title: "Staff Management", detail: "Invite staff, assign roles, and manage access." },
-    { title: "Classroom Management", detail: "Organize classrooms and daily classroom workflows." },
-    { title: "Child Assignments", detail: "Assign children to classrooms and staff." },
-    { title: "Classroom Calendars", detail: "Plan by classroom with shared visibility." },
-    { title: "Enrollment", detail: "Track enrollment and onboarding paperwork." },
-    { title: "Forms", detail: "Center forms and administrative documents." },
-    { title: "Center Administration", detail: "Operate your center from one professional hub." },
-  ];
+  // Director Center is not a separate product yet — route providers to the live manage surfaces.
   section.innerHTML = `
     <section class="platform-placeholder-page director-center-page">
       <div class="page-title">
-        <p class="eyebrow">Director Center</p>
-        <h2>Coming Soon</h2>
-        <p>Director Center will bring staff, classrooms, enrollment, and center administration into one clear place.</p>
-      </div>
-      <div class="platform-placeholder-hero">
-        <span class="badge-coming-soon">Coming Soon</span>
-        <p class="muted-copy">Founding Members will receive access to future Director Center features as they are released.</p>
+        <p class="eyebrow">Center tools</p>
+        <h2>Run your program from these live pages</h2>
+        <p>Use the tools below today. A dedicated Director Center hub will come later — nothing here is a dead end.</p>
       </div>
       <div class="platform-placeholder-grid">
-        ${planned.map((item) => `
-          <article class="platform-placeholder-card">
-            <strong>${escapeHtml(item.title)}</strong>
-            <p>${escapeHtml(item.detail)}</p>
-          </article>
-        `).join("")}
+        <article class="platform-placeholder-card">
+          <strong>Staff</strong>
+          <p>Invite teachers and assistants, set roles, and manage access.</p>
+          <button class="primary-button" type="button" data-view="staff">Open Staff</button>
+        </article>
+        <article class="platform-placeholder-card">
+          <strong>Classrooms</strong>
+          <p>Create rooms and assign children from Child Profiles.</p>
+          <button class="primary-button" type="button" data-view="classrooms">Open Classrooms</button>
+        </article>
+        <article class="platform-placeholder-card">
+          <strong>Child Profiles</strong>
+          <p>Add children, assign classrooms, and manage daily care records.</p>
+          <button class="primary-button" type="button" data-view="children">Open Children</button>
+        </article>
+        <article class="platform-placeholder-card">
+          <strong>Calendar</strong>
+          <p>Plan lessons and classroom events in one place.</p>
+          <button class="primary-button" type="button" data-view="calendar">Open Calendar</button>
+        </article>
       </div>
     </section>
   `;
@@ -37207,7 +37296,44 @@ function renderProfileEmptyState({ title = "Nothing here yet", body = "", action
 }
 
 function childProfileClassroomLabel(child = {}) {
-  return cleanAgeText(child.classroom) || childAgeGroupLabel(child) || "Classroom not set";
+  const rooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms() : [];
+  const byId = rooms.find((room) => String(room.id) === String(child?.classroomId || ""));
+  return cleanAgeText(byId?.name || child.classroom) || childAgeGroupLabel(child) || "Classroom not set";
+}
+
+function classroomOptionsHtml(selectedId = "", selectedName = "") {
+  const rooms = activeScheduleClassrooms();
+  if (!rooms.length) {
+    return `
+      <label>Classroom / Room
+        <input name="classroom" value="${escapeHtml(selectedName || "")}" placeholder="Add classrooms under Classrooms, or type a room name" />
+      </label>
+      <p class="form-note"><button class="ghost-button" type="button" data-view="classrooms">Create a classroom</button> so children can be assigned to a real room roster.</p>
+    `;
+  }
+  const selected = String(selectedId || "");
+  const match = rooms.some((room) => String(room.id) === selected);
+  return `
+    <label>Classroom
+      <select name="classroomId" required>
+        <option value="">Select classroom</option>
+        ${rooms.map((room) => `
+          <option value="${escapeHtml(room.id)}" ${String(room.id) === selected ? "selected" : ""}>${escapeHtml(room.name || "Classroom")}${room.ageGroupDefault ? ` · ${escapeHtml(room.ageGroupDefault)}` : ""}</option>
+        `).join("")}
+        <option value="__other__" ${selected && !match && selectedName ? "selected" : ""}>Other / not listed</option>
+      </select>
+    </label>
+    <label class="${selected && !match && selectedName ? "" : "hidden-field"}" data-classroom-other-wrap>
+      Classroom name
+      <input name="classroom" value="${escapeHtml(!match ? (selectedName || "") : "")}" placeholder="Room name" />
+    </label>
+  `;
+}
+
+function staffAssignedClassroomIds(account = currentAccount()) {
+  return (Array.isArray(account?.classroomIds) ? account.classroomIds : [])
+    .map((id) => String(id || "").trim())
+    .filter(Boolean);
 }
 
 function renderChildManagement() {
@@ -37324,12 +37450,12 @@ function renderChildProfileFormScreen(child = null) {
           <label>Age<input id="childAgePreview" name="age" value="${escapeHtml(child ? childAgeLabel(child) : "")}" placeholder="Age will calculate automatically" /></label>
           <label>Age Group
             <select name="ageGroup" required>
-              <option value="">Select classroom</option>
+              <option value="">Select age group</option>
               ${["Infant", "Toddler", "Preschool", "Mixed Ages", "School Age"].map((age) => `<option ${normalizeAgeGroup(child?.ageGroup) === age ? "selected" : ""}>${age}</option>`).join("")}
             </select>
           </label>
-          <label>Classroom / Room<input name="classroom" value="${escapeHtml(child?.classroom || "")}" placeholder="Blue Room, Toddlers, Preschool" /></label>
-          <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent or guardian name" /></label>
+          ${classroomOptionsHtml(child?.classroomId || "", child?.classroom || "")}
+          <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent name or email for Family Hub matching" /></label>
           <label>Enrollment Date<input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
           <label>Observations Required Per Month
             <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
@@ -37624,8 +37750,9 @@ function renderChildFormsRecordsTab(child, records) {
         <label>Notes
           <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
         </label>
+        <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Share with Family Hub when the family is invited</label>
         <button class="primary-button" type="submit">Save to Child File</button>
-        <p class="form-note">Upload, e-sign, and parent send come next. This file keeps status organized while those pieces land.</p>
+        <p class="form-note">Parents review and acknowledge shared forms in Family Hub. Tap Share with family to notify them in-app on the testing site.</p>
       </form>
       <div class="resource-list compact" style="margin-top:16px;" data-hdh-forms-list>
         ${sorted.length
@@ -37633,12 +37760,13 @@ function renderChildFormsRecordsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.category || "Other")} · ${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.resourceId ? `<button class="ghost-button" type="button" data-hdh-open-form="${escapeHtml(item.resourceId)}">Open form</button>` : ""}
                 ${item.draftText ? `<button class="ghost-button" type="button" data-hdh-ai-print-saved="${escapeHtml(item.id)}">Print draft</button>` : ""}
                 ${item.packFormId ? `<button class="ghost-button" type="button" data-hdh-ai-draft="${escapeHtml(item.packFormId)}" data-child-id="${escapeHtml(child.id)}">AI draft</button>` : ""}
+                <button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>
                 <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
               </div>
             </article>
@@ -37647,7 +37775,7 @@ function renderChildFormsRecordsTab(child, records) {
             title: documents.length ? "No forms match these filters" : "No forms in this child’s file yet",
             body: documents.length
               ? "Try clearing search or choosing All statuses / All categories."
-              : "Add forms from the pack above, or save a custom placeholder.",
+              : "Add forms from the pack above, generate an AI draft, or save a custom form to this file.",
             actionsHtml: `<button class="ghost-button" type="button" data-hdh-add-pack-all="${escapeHtml(child.id)}">Add pack as needed</button>`,
           })}
       </div>
@@ -37672,7 +37800,7 @@ function renderChildDocumentsTab(child, records) {
         <button class="ghost-button" type="button" data-child-tab="overview">Back to Overview</button>
       </div>
       <form id="childDocumentStubForm" class="panel-form" data-child-document-form="${escapeHtml(child.id)}">
-        <p class="eyebrow">Add a document placeholder</p>
+        <p class="eyebrow">Add a form to this child’s file</p>
         <div class="form-grid-two">
           <label>Document title
             <input name="title" required maxlength="120" placeholder="Enrollment packet, allergy form, handbook receipt…" />
@@ -37689,8 +37817,9 @@ function renderChildDocumentsTab(child, records) {
         <label>Notes
           <textarea name="notes" rows="3" maxlength="800" placeholder="Optional note — due date, who signed, where the paper copy is stored…"></textarea>
         </label>
+        <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" checked /> Share with Family Hub when the family is invited</label>
         <button class="primary-button" type="submit">Save to Child File</button>
-        <p class="form-note">Full upload, e-signature, and parent-facing forms ship in the Documents &amp; Forms system. This tab is ready so nothing is lost in the meantime.</p>
+        <p class="form-note">Parents can review and acknowledge shared forms in Family Hub. Use Share with family on any form below to notify them in-app.</p>
       </form>
       <div class="resource-list compact" style="margin-top:16px;">
         ${sorted.length
@@ -37698,14 +37827,19 @@ function renderChildDocumentsTab(child, records) {
             <article class="resource-row">
               <div>
                 <strong>${escapeHtml(item.title || "Document")}</strong>
-                <p class="muted-copy">${escapeHtml(item.statusLabel || item.status || "Needed")}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
+                <p class="muted-copy">${escapeHtml(item.statusLabel || item.status || "Needed")}${item.shareWithFamily ? " · Shared with family" : ""}${item.date ? ` · ${escapeHtml(item.date)}` : ""}${item.notes ? ` — ${escapeHtml(String(item.notes).slice(0, 120))}` : ""}</p>
               </div>
-              <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              <div class="account-actions-row">
+                ${item.shareWithFamily && (item.status === "signed" || item.status === "received")
+                  ? ""
+                  : `<button class="primary-button" type="button" data-share-child-document="${escapeHtml(item.id)}">Share with family</button>`}
+                <button class="ghost-button" type="button" data-delete-child-document="${escapeHtml(item.id)}">Remove</button>
+              </div>
             </article>
           `).join("")
           : renderProfileEmptyState({
-            title: "No documents linked yet",
-            body: "Add a placeholder above or open the Forms Library to start enrollment paperwork.",
+            title: "No forms on this child’s file yet",
+            body: "Add a form above, browse the Forms Library, or add the Home Daycare forms pack from Home Daycare Hub.",
             actionsHtml: `<button class="ghost-button" type="button" data-view="forms">Browse Forms Library</button>`,
           })}
       </div>
@@ -38197,9 +38331,15 @@ function renderChildToolsContent(child, records) {
 
 // ─── Daily Logs Center ──────────────────────────────────────────────────────
 
-// Returns children not hidden/archived from active daily workflows
+// Returns children not hidden/archived from active daily workflows.
+// Linked staff with classroomIds only see children assigned to those rooms.
 function getActiveChildren(records) {
-  return (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
+  let list = (records.children || []).filter((c) => !c.hiddenFromActive && !c.archived);
+  const roomIds = staffAssignedClassroomIds();
+  if (roomIds.length && typeof isLinkedProgramStaffAccount === "function" && isLinkedProgramStaffAccount()) {
+    list = list.filter((c) => roomIds.includes(String(c.classroomId || "")));
+  }
+  return list;
 }
 
 // Returns hidden/archived children
@@ -53412,9 +53552,20 @@ function aiPromptFromForm(toolId, data) {
       ? `- Keep every suggestion, strategy, activity, and expectation strictly appropriate for ${ageGroup} (${ageGroupLabel(ageGroup)}).`
       : "- Keep the response developmentally appropriate for the age information provided.",
     "- Use only the details provided and do not invent missing facts, injuries, behaviors, witnesses, or outcomes.",
+    "- Never invent or replace the child name, classroom, or date. If a child name is provided above, use that exact name every time.",
+    "- Never refuse to write a parent message, daily report, observation, incident report, behavior note, activity, or form when a note is provided — draft the best document from the note.",
     "- Produce organized, ready-to-use content a childcare provider can copy right away.",
     "- Use warm, professional childcare language and include the program name in formal documents when it is provided.",
     ...intentRequirements,
+    "",
+    "GROUNDED FACTS (authoritative — do not contradict):",
+    childName ? `- Child name: ${childName}` : "- Child name: not provided (use a neutral wording like “your child” — do not invent a name).",
+    ageGroup ? `- Age group: ${ageGroup}` : "",
+    date ? `- Date: ${date}` : `- Date: use today’s date only if a date is required and none was provided.`,
+    data.classroom ? `- Classroom: ${data.classroom}` : "",
+    providerNotes || data.note || data.details || data.incident
+      ? `- Provider note: ${providerNotes || data.note || data.details || data.incident}`
+      : "",
   ].filter(Boolean).join("\n");
 }
 
@@ -53441,6 +53592,11 @@ async function generateToolOutputWithBackend(toolId, data, options = {}) {
           tool: toolId,
           age: ageValue,
           prompt: aiPromptFromForm(toolId, data),
+          childName: data.childName || data.child || "",
+          date: data.date || new Date().toISOString().slice(0, 10),
+          classroom: data.classroom || "",
+          programName: data.programName || data.program || "",
+          providerNotes: data.providerNotes || data.note || data.details || data.incident || "",
           debug: aiDebugEnabled(),
         }),
         signal: controller.signal,
@@ -58818,16 +58974,31 @@ document.addEventListener("click", async (event) => {
       selectedChildId = childId;
       localStorage.setItem("llhSelectedChild", selectedChildId);
     }
+    const saved = typeof saveHomeDaycareAiFormDraftToChild === "function"
+      ? saveHomeDaycareAiFormDraftToChild()
+      : null;
+    if (saved?.id) {
+      shareChildDocumentWithFamily(saved.id)
+        .then(() => showActionFeedback("Form shared with Family Hub. Parents can review and acknowledge it there."))
+        .catch((error) => {
+          setView("home-daycare-hub");
+          queueMicrotask(() => {
+            document.querySelector("#hdhFamilyHubPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+            const form = document.querySelector("#hdhFamilyHubInviteForm");
+            if (form && childId) {
+              form.querySelectorAll('input[name="childIds"]').forEach((input) => {
+                input.checked = input.value === childId;
+              });
+            }
+            showActionFeedback(error.message || "Invite the family to Family Hub first, then share again.");
+          });
+        });
+      return;
+    }
     setView("home-daycare-hub");
     queueMicrotask(() => {
       document.querySelector("#hdhFamilyHubPanel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-      const form = document.querySelector("#hdhFamilyHubInviteForm");
-      if (form && childId) {
-        form.querySelectorAll('input[name="childIds"]').forEach((input) => {
-          input.checked = input.value === childId;
-        });
-      }
-      showActionFeedback("Invite this household to Family Hub, then share the magic link. Forms are not auto-sent.");
+      showActionFeedback("Generate and save a draft first, or invite the family to Family Hub.");
     });
     return;
   }
@@ -59183,6 +59354,26 @@ document.addEventListener("click", async (event) => {
     showActionFeedback(added ? `Added ${added} form${added === 1 ? "" : "s"} to the child file.` : "All pack forms are already on this child’s file.");
     if (document.querySelector("#view-home-daycare-hub.active-view")) renderHomeDaycareHubPage();
     else renderChildManagement();
+    return;
+  }
+
+  const shareChildDocument = event.target.closest("[data-share-child-document]");
+  if (shareChildDocument) {
+    event.preventDefault();
+    const docId = shareChildDocument.dataset.shareChildDocument;
+    if (!docId) return;
+    shareChildDocument.disabled = true;
+    shareChildDocumentWithFamily(docId)
+      .then(() => {
+        childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
+        childManagementMode = "profile";
+        renderChildManagement();
+        showActionFeedback("Form shared with Family Hub. Parents can review and sign it there.");
+      })
+      .catch((error) => {
+        shareChildDocument.disabled = false;
+        showActionFeedback(error.message || "Could not share form with Family Hub.");
+      });
     return;
   }
 
@@ -63074,6 +63265,11 @@ document.addEventListener("change", (event) => {
     const customWrap = document.querySelector("#customMonthlyObservationGoalWrap");
     customWrap?.classList.toggle("hidden-field", event.target.value !== "custom");
   }
+  if (event.target.matches('select[name="classroomId"]')) {
+    const wrap = event.target.closest("form")?.querySelector("[data-classroom-other-wrap]")
+      || document.querySelector("[data-classroom-other-wrap]");
+    wrap?.classList.toggle("hidden-field", event.target.value !== "__other__");
+  }
   if (event.target.matches("#childObservationArea")) {
     childObservationAreaFilter = event.target.value;
     renderChildManagement();
@@ -66025,6 +66221,15 @@ document.addEventListener("submit", async (event) => {
   const photo = photoFile?.name ? await fileToDataUrl(photoFile) : "";
   const monthlyGoal = data.monthlyObservationGoal === "custom" ? data.customMonthlyObservationGoal : data.monthlyObservationGoal;
   const age = calculateAgeFromDob(data.dob) || data.age;
+  const rooms = activeScheduleClassrooms();
+  let classroomId = String(data.classroomId || "").trim();
+  let classroomName = String(data.classroom || "").trim();
+  if (classroomId === "__other__") {
+    classroomId = "";
+  } else if (classroomId) {
+    const room = rooms.find((item) => String(item.id) === classroomId);
+    if (room) classroomName = String(room.name || classroomName || "").trim();
+  }
   const child = {
     ...(existing || {}),
     id: editId || `child-${Date.now()}`,
@@ -66033,7 +66238,8 @@ document.addEventListener("submit", async (event) => {
     age,
     dob: data.dob,
     enrollmentDate: data.enrollmentDate,
-    classroom: data.classroom,
+    classroom: classroomName,
+    classroomId,
     monthlyObservationGoal: monthlyGoal || "4",
     observationsRequiredPerMonth: monthlyGoal || "4",
     parentInfo: data.parentInfo,
@@ -66058,6 +66264,11 @@ document.addEventListener("submit", async (event) => {
   form.reset();
   renderChildManagement();
   showActionFeedback(`${child.name}’s profile saved.`);
+  maybeLinkChildToFamilyHubHouseholds(child).then((linked) => {
+    if (linked > 0) {
+      showActionFeedback(`${child.name} was also linked to Family Hub for parent sharing.`);
+    }
+  }).catch(() => {});
 });
 
 document.addEventListener("submit", (event) => {
@@ -66795,7 +67006,9 @@ document.addEventListener("submit", async (event) => {
       signed: "Signed / complete",
     };
     const category = String(data.category || "Other").trim() || "Other";
-    appendChildRecord("Documents", {
+    const shareWithFamily = String(data.shareWithFamily || "") === "true"
+      || event.target.querySelector('[name="shareWithFamily"]')?.checked === true;
+    const saved = appendChildRecord("Documents", {
       childId,
       title,
       category,
@@ -66804,12 +67017,18 @@ document.addEventListener("submit", async (event) => {
       notes: String(data.notes || "").trim(),
       date: new Date().toISOString().slice(0, 10),
       updatedAt: new Date().toISOString(),
+      shareWithFamily,
     });
     childProfileTab = isHomeDaycareHubTestingEnabled() ? "forms-records" : "documents";
     childManagementMode = "profile";
     event.target.reset();
     showActionFeedback("Document saved to child file.");
     renderChildManagement();
+    if (shareWithFamily && saved?.id) {
+      shareChildDocumentWithFamily(saved.id)
+        .then(() => showActionFeedback("Form shared with Family Hub."))
+        .catch((error) => showActionFeedback(error.message || "Saved locally — Family Hub notify failed."));
+    }
     return;
   }
 
