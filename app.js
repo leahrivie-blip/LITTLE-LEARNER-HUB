@@ -5091,6 +5091,9 @@ let siteContentLoadPromise = null;
 let curriculumLibraryLoading = false;
 let curriculumLibraryLoadFailed = false;
 let curriculumLibraryLoadError = "";
+let adminCurriculumLoading = false;
+let adminCurriculumLoadFailed = false;
+let adminCurriculumLoadError = "";
 
 function readCachedCurriculumLibrary() {
   try {
@@ -5199,6 +5202,53 @@ function hydrateCurriculumLibraryFromCache() {
   return true;
 }
 
+function mergeIncomingPublicSiteContent(incoming) {
+  const next = incoming && typeof incoming === "object" ? incoming : emptySiteContent();
+  const prior = siteContentState && typeof siteContentState === "object" ? siteContentState : emptySiteContent();
+  const merged = {
+    ...next,
+    curriculumLibrary: next.curriculumLibrary || emptyCurriculumLibrary(),
+    playBasedCurriculum: next.playBasedCurriculum !== false,
+  };
+  const incomingCurriculum = next.curriculum && typeof next.curriculum === "object" ? next.curriculum : null;
+  const incomingLessonCount = Array.isArray(incomingCurriculum?.lessonPlans) ? incomingCurriculum.lessonPlans.length : 0;
+  if (incomingLessonCount > 0) {
+    merged.curriculum = incomingCurriculum;
+  } else if (prior.curriculum && typeof prior.curriculum === "object") {
+    // Public /api/site-content never includes admin curriculum — preserve loaded admin payload.
+    merged.curriculum = prior.curriculum;
+  }
+  return merged;
+}
+
+function adminCurriculumLoadMismatch() {
+  if (!isAdminUnlocked()) return null;
+  const adminPlans = curriculumLessonPlansForAdmin();
+  if (adminPlans.length > 0) return null;
+  const libraryCount = (effectiveCurriculumLibrary().lessonPlans || []).length;
+  if (!libraryCount && !adminCurriculumLoading && !adminCurriculumLoadFailed) return null;
+  return {
+    loading: adminCurriculumLoading,
+    libraryCount,
+    error: adminCurriculumLoadError || (libraryCount
+      ? "Admin curriculum data is missing while the public library is populated."
+      : "Could not load admin curriculum."),
+  };
+}
+
+async function retryAdminCurriculumLoad() {
+  adminCurriculumLoadFailed = false;
+  adminCurriculumLoadError = "";
+  try {
+    await loadAdminSiteContent();
+    renderAdminDashboard();
+    showActionFeedback("Admin curriculum reloaded.");
+  } catch (error) {
+    renderAdminDashboard();
+    showActionFeedback(error?.message || "Could not reload admin curriculum.");
+  }
+}
+
 async function refreshPublicCurriculumLibrary() {
   if (!siteContentConfig.publicEndpoint || !canUseLaunchBackend()) return effectiveSiteContent();
   if (siteContentLoadPromise) return siteContentLoadPromise;
@@ -5214,13 +5264,8 @@ async function refreshPublicCurriculumLibrary() {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data?.error || "Could not refresh curriculum library.");
       const incoming = data.siteContent || emptySiteContent();
-      // Keep a full public site-content replace so homepage/pricing stay current,
-      // while still coalescing concurrent library refreshes through one in-flight fetch.
-      siteContentState = {
-        ...incoming,
-        curriculumLibrary: incoming.curriculumLibrary || emptyCurriculumLibrary(),
-        playBasedCurriculum: incoming.playBasedCurriculum !== false,
-      };
+      // Refresh homepage/pricing from public payload without wiping admin-only curriculum.
+      siteContentState = mergeIncomingPublicSiteContent(incoming);
       writeCachedCurriculumLibrary(siteContentState.curriculumLibrary);
       syncSiteManagedResources();
       curriculumLibraryLoadFailed = false;
@@ -5266,6 +5311,8 @@ async function loadSiteContentFromBackend() {
       return effectiveSiteContent();
     } catch (error) {
       console.warn(error);
+      rerenderActiveContent();
+      return effectiveSiteContent();
     }
   }
   try {
@@ -5284,12 +5331,28 @@ async function loadSiteContentFromBackend() {
 async function loadAdminSiteContent() {
   const token = adminSession()?.token || "";
   if (!siteContentConfig.adminEndpoint || !canUseLaunchBackend() || !token) return effectiveSiteContent();
-  const params = new URLSearchParams({ t: String(Date.now()) });
-  const response = await fetch(`${siteContentConfig.adminEndpoint}?${params.toString()}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
-  siteContentState = data.siteContent || emptySiteContent();
-  return effectiveSiteContent();
+  adminCurriculumLoading = true;
+  adminCurriculumLoadFailed = false;
+  adminCurriculumLoadError = "";
+  try {
+    const params = new URLSearchParams({ t: String(Date.now()) });
+    const response = await fetchWithWakeRetry(
+      `${siteContentConfig.adminEndpoint}?${params.toString()}`,
+      { cache: "no-store", headers: { Authorization: `Bearer ${token}` } },
+    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not load admin content.");
+    siteContentState = data.siteContent || emptySiteContent();
+    adminCurriculumLoadFailed = false;
+    adminCurriculumLoadError = "";
+    return effectiveSiteContent();
+  } catch (error) {
+    adminCurriculumLoadFailed = true;
+    adminCurriculumLoadError = error?.message || "Could not load admin curriculum.";
+    throw error;
+  } finally {
+    adminCurriculumLoading = false;
+  }
 }
 
 async function saveAdminSiteContent(nextContent) {
@@ -10190,6 +10253,14 @@ function renderAdminCurriculumLessonPlanManager() {
   const themes = [...new Set(allPlans.map((plan) => plan.theme).filter(Boolean))].sort();
   const ages = [...new Set(allPlans.map((plan) => plan.age).filter(Boolean))].sort();
   const selectedCount = adminCurriculumSelectedIds.size;
+  const mismatch = adminCurriculumLoadMismatch();
+  const mismatchBanner = mismatch
+    ? `<div class="access-notice" role="alert" style="margin-bottom:1rem;">
+        <strong>${mismatch.loading ? "Loading admin curriculum…" : "Admin curriculum did not load."}</strong>
+        ${mismatch.libraryCount ? `<p class="muted-copy">Public library shows ${mismatch.libraryCount} lesson plans; the admin editor needs the full curriculum payload.</p>` : ""}
+        ${!mismatch.loading ? `<p class="muted-copy">${escapeHtml(mismatch.error)}</p><button class="primary-button" type="button" data-retry-admin-curriculum>Reload curriculum</button>` : ""}
+      </div>`
+    : "";
   const banner = adminCurriculumLessonSaveBanner?.text
     ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
     : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
@@ -10205,6 +10276,7 @@ function renderAdminCurriculumLessonPlanManager() {
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
+    ${mismatchBanner}
     ${banner}
     ${renderCurriculumLessonImportPanel()}
     <div class="admin-content-filters">
@@ -10245,7 +10317,9 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     <p class="muted-copy">${plans.length} of ${allPlans.length} lesson plans shown</p>
     <div class="admin-mobile-list" id="adminCurriculumLessonPlanList">
-      ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || `<div class="empty-state">No lesson plans match these filters.</div>`}
+      ${plans.map(curriculumLessonPlanAdminCardHtml).join("") || (mismatch
+        ? `<div class="empty-state">Admin curriculum is still loading or needs a reload. Use Reload curriculum above — lesson plans are not deleted.</div>`
+        : `<div class="empty-state">No lesson plans match these filters.</div>`)}
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
@@ -15696,7 +15770,7 @@ function setView(view, options = {}) {
   let viewRenderError = null;
   try {
   if (viewMap[resolvedView]) renderCategoryPage(resolvedView);
-  if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend()) {
+  if ((resolvedView === "lessons" || resolvedView === "activities") && canUseLaunchBackend() && !isAdminUnlocked()) {
     refreshPublicCurriculumLibrary()
       .catch(() => {})
       .then(() => {
@@ -59006,6 +59080,18 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const retryAdminCurriculumButton = event.target.closest("[data-retry-admin-curriculum]");
+  if (retryAdminCurriculumButton) {
+    event.preventDefault();
+    retryAdminCurriculumButton.disabled = true;
+    retryAdminCurriculumLoad()
+      .catch(() => {})
+      .finally(() => {
+        retryAdminCurriculumButton.disabled = false;
+      });
+    return;
+  }
+
   const retryFoundingStatusButton = event.target.closest("[data-retry-founding-status]");
   if (retryFoundingStatusButton) {
     event.preventDefault();
@@ -62589,7 +62675,7 @@ document.addEventListener("submit", async (event) => {
     const session = await adminLogin(email, password, code);
     setAdminSession({ ...session, trustedDevice: trustDevice });
     trackEvent("admin_unlocked", { email: session.email, mode: session.mode || "server", trustedDevice: trustDevice });
-    void loadAdminSiteContent().catch(() => {});
+    await loadAdminSiteContent().catch(() => {});
     void loadUploadedResourcesFromBackend({ admin: true, migrateLocal: false }).catch(() => {});
     adminAnalyticsCache = null;
     adminAnalyticsFetchedAt = 0;
