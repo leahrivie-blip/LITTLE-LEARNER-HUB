@@ -15,7 +15,7 @@ const stripeBillingReconciliation = require("./stripe-billing-reconciliation.js"
 const ROOT = path.join(__dirname, "..");
 const PORT = 19500 + Math.floor(Math.random() * 30);
 const STORE_PATH = path.join(os.tmpdir(), `llh-billing-qa-${crypto.randomBytes(4).toString("hex")}.json`);
-const FOUNDING_LIMIT = 50;
+const FOUNDING_LIMIT = 48;
 const PUBLIC_CLAIMED_BASE = 0;
 
 function assert(condition, message) {
@@ -68,6 +68,8 @@ function startServer(envOverrides = {}) {
       LLH_STORE_PATH: STORE_PATH,
       FOUNDING_MEMBER_LIMIT: String(FOUNDING_LIMIT),
       PUBLIC_FOUNDING_CLAIMED_BASE: String(PUBLIC_CLAIMED_BASE),
+      // Suite personas use @billing.test — include them in admin analytics assertions.
+      ANALYTICS_INCLUDE_TEST_ACCOUNTS: "true",
       NODE_ENV: "test",
       // Enabled by default for this suite so the reconciliation apply endpoint's other
       // safeguards (auth, confirm, preview flow, hostname) can be exercised; the
@@ -578,13 +580,17 @@ async function main() {
     console.log("3) Founding limit & sold-out API");
     let founding = await requestJson("GET", "/api/founding-status");
     const foundingPayload = founding.json.founding || founding.json;
-    assert(foundingPayload.remaining === FOUNDING_LIMIT, `Fresh store should have ${FOUNDING_LIMIT} founding spots when base is 0`);
+    // Founding acquisition is permanently closed — remaining is always 0 even on a fresh store.
+    assert(foundingPayload.limit === FOUNDING_LIMIT, `Founding limit should be ${FOUNDING_LIMIT}`);
+    assert(foundingPayload.remaining === 0, "Closed founding acquisition should report 0 remaining spots");
+    assert(foundingPayload.acquisitionClosed === true || foundingPayload.soldOut === true, "Founding should be closed/sold out");
 
     seedSoldOutFounding();
     founding = await requestJson("GET", "/api/founding-status");
     const soldOutPayload = founding.json.founding || founding.json;
-    assert(soldOutPayload.remaining === 0, "All 50 founding spots should be claimed");
+    assert(soldOutPayload.remaining === 0, "All founding spots should remain closed");
     assert(soldOutPayload.soldOut === true, "soldOut flag should be true");
+    assert(soldOutPayload.limit === FOUNDING_LIMIT, `Sold-out payload limit should stay ${FOUNDING_LIMIT}`);
 
     console.log("4) Former founding member cannot auto-restart at $9.99 checkout");
     {

@@ -30,6 +30,7 @@ const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const seo = require("./seo.js");
 const metaCapi = require("./meta-capi.js");
+const testAccountGuard = require("./test-account-guard.js");
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -3958,6 +3959,10 @@ function enqueuePostgresStoreWrite() {
       });
       return;
     }
+    const pruned = testAccountGuard.pruneEphemeralTestAccountsFromStore(storeCache);
+    if (pruned.removedUsers || pruned.removedFeatureRequests) {
+      console.log("[test-account-guard] pruned ephemeral test accounts before Postgres write", pruned);
+    }
     let nextCounts;
     try {
       nextCounts = assertSafePostgresStoreReplacement(storeCache);
@@ -5249,6 +5254,20 @@ function reconcileStaleAuthFlags(user = {}) {
 }
 
 function upsertUser(email, updates = {}, options = {}) {
+  const cleanEmail = normalizeEmail(email);
+  if (!options.allowTestAccount && testAccountGuard.shouldRejectTestAccountPersistence(cleanEmail)) {
+    const store = writableStore();
+    if (store.users?.[cleanEmail]) {
+      delete store.users[cleanEmail];
+      if (!options.deferPersist) writeStore(store);
+    }
+    return {
+      email: cleanEmail,
+      _skippedTestAccount: true,
+      plan: updates.plan || "Free",
+      ...updates,
+    };
+  }
   const store = writableStore();
   store.users = store.users || {};
   const existing = store.users[email] || { email };
@@ -7043,6 +7062,25 @@ async function handleAccountProfileSync(request, response) {
   const email = normalizeEmail(body.email);
   if (!email) {
     jsonResponse(response, 400, { error: "Email is required." });
+    return;
+  }
+  if (testAccountGuard.shouldRejectTestAccountPersistence(email)) {
+    const firstName = normalizedShortText(body.firstName, 80);
+    const lastName = normalizedShortText(body.lastName, 80);
+    const name = [firstName, lastName].filter(Boolean).join(" ");
+    jsonResponse(response, 200, {
+      ok: true,
+      skipped: true,
+      reason: "test_account_not_persisted",
+      user: {
+        email,
+        firstName: firstName || "",
+        lastName: lastName || "",
+        name: name || "",
+        plan: "Free",
+        accountStatus: "Active",
+      },
+    });
     return;
   }
   const firstName = normalizedShortText(body.firstName, 80);
@@ -11427,13 +11465,18 @@ function buildMarketingAnalytics(store, events, {
 } = {}) {
   const now = Date.now();
   const realtimeWindowMs = 15 * 60 * 1000;
-  const users = Object.values(store.users || {});
+  const { users, excludedCount: excludedTestAccounts } = testAccountGuard.filterUsersForCustomerAnalytics(
+    Object.values(store.users || {}),
+  );
+  const isAnalyticsTestActor = (event) => testAccountGuard.shouldExcludeFromCustomerAnalytics(
+    event?.user || event?.detail?.email || event?.email || "",
+  );
   const sessionVisits = events.filter((event) => event.name === "website_visit");
   const pageViews = events.filter((event) => event.name === "page_view");
   const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
-  const signups = events.filter((event) => event.name === "account_signup_complete");
-  const checkoutStarts = events.filter((event) => event.name === "checkout_start");
-  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const signups = events.filter((event) => event.name === "account_signup_complete" && !isAnalyticsTestActor(event));
+  const checkoutStarts = events.filter((event) => event.name === "checkout_start" && !isAnalyticsTestActor(event));
+  const paidEvents = events.filter((event) => event.name === "checkout_success" && !isAnalyticsTestActor(event));
   const actorKey = (event) => event.visitorId || event.user || event.sessionId || event.ipHash || "";
 
   const liveTraffic = trafficEvents.filter((event) => {
@@ -11760,6 +11803,7 @@ function buildMarketingAnalytics(store, events, {
 
   return {
     updatedAt: new Date().toISOString(),
+    excludedTestAccounts,
     realtime: {
       windowMinutes: 15,
       liveVisitors: liveVisitorIds.size,
@@ -11926,6 +11970,12 @@ function sanitizeAnalyticsEvent(input, request) {
 
 function updateAnalyticsUser(store, event) {
   if (!event.user || event.user === "guest") return;
+  const eventEmail = normalizeEmail(event.user);
+  if (testAccountGuard.shouldRejectTestAccountPersistence(eventEmail)) {
+    if (store?.users?.[eventEmail]) delete store.users[eventEmail];
+    if (store?.users?.[event.user]) delete store.users[event.user];
+    return;
+  }
   store.users = store.users || {};
   const existing = store.users[event.user] || { email: event.user };
   const featureUsage = existing.featureUsage || {};
@@ -14058,6 +14108,7 @@ function ensureFoundingMemberUserStubs(store) {
   store.foundingMembers.forEach((email, idx) => {
     const clean = normalizeEmail(email);
     if (!clean) return;
+    if (testAccountGuard.shouldRejectTestAccountPersistence(clean)) return;
     const existing = store.users[clean];
     if (!existing) {
       store.users[clean] = {
@@ -14096,14 +14147,19 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
   ensureFoundingMemberUserStubs(store);
   const events = (eventsOverride || store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const chronological = events.slice().reverse();
-  const users = Object.values(store.users || {});
+  const { users, excludedCount: excludedTestAccounts } = testAccountGuard.filterUsersForCustomerAnalytics(
+    Object.values(store.users || {}),
+  );
+  const isAnalyticsTestActor = (event) => testAccountGuard.shouldExcludeFromCustomerAnalytics(
+    event?.user || event?.detail?.email || event?.email || "",
+  );
   // Session visits = website_visit only. Page views are counted separately so one
   // homepage load is not counted as 2–3 "visitors".
   const sessionVisits = events.filter((event) => event.name === "website_visit");
   const pageViews = events.filter((event) => event.name === "page_view");
   const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
-  const signups = events.filter((event) => event.name === "account_signup_complete");
-  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const signups = events.filter((event) => event.name === "account_signup_complete" && !isAnalyticsTestActor(event));
+  const paidEvents = events.filter((event) => event.name === "checkout_success" && !isAnalyticsTestActor(event));
   const billingEvents = store.billingEvents || [];
   const actorId = (event) => event.user || event.visitorId || event.sessionId || event.ipHash || "";
   const isProCheckoutStart = (event) => {
@@ -14347,7 +14403,9 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
       pageViewCount: pageViews.length,
       // Completed signup events only — registered users are tracked separately.
       signups: signups.length,
+      // QA/demo/test emails are excluded from all customer totals below.
       totalRegisteredUsers: users.length,
+      excludedTestAccounts,
       freeUsers: currentAccessCounts.free,
       trialUsers: trialUsers.length,
       proUsers: currentAccessCounts.pro,
@@ -18612,6 +18670,22 @@ async function handleFeatureRequestCreate(request, response) {
   const description = String(body.description || "").trim().slice(0, 5000);
   if (!title || !description) {
     jsonResponse(response, 400, { error: "Title and description are required." });
+    return;
+  }
+  if (email && testAccountGuard.shouldRejectTestAccountPersistence(email)) {
+    jsonResponse(response, 200, {
+      skipped: true,
+      reason: "test_account_not_persisted",
+      featureRequest: {
+        id: "skipped-test-account",
+        title,
+        description,
+        email,
+        status: "New",
+        votes: 1,
+      },
+      supportEmail: SUPPORT_EMAIL_TO,
+    });
     return;
   }
   const ageGroup = String(body.ageGroup || "").trim().slice(0, 40);

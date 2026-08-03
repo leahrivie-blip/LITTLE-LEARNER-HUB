@@ -52,8 +52,11 @@ async function main() {
     await page.goto(PROD, { waitUntil: "networkidle", timeout: 120000 });
     const homepageOk = await page.evaluate(() => {
       const text = document.body?.innerText || "";
-      return /Affordable Childcare Curriculum/i.test(text)
-        && /Preview Free Lesson Plans|Browse All Lesson Plans/i.test(text);
+      const brandOrHero = /Little Learner Hub/i.test(text)
+        && (/Stop Spending Hours Creating Lesson Plans/i.test(text)
+          || /Affordable Childcare Curriculum/i.test(text));
+      const cta = /Start Free|Preview Free Lesson Plans|Browse All Lesson Plans|Create Free Account/i.test(text);
+      return brandOrHero && cta;
     });
     record("Homepage content renders", homepageOk);
     await page.screenshot({ path: path.join(ARTIFACT_DIR, "prod-homepage.png"), fullPage: false });

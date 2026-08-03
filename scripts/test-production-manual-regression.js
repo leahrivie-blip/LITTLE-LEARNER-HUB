@@ -267,7 +267,11 @@ async function runGuestFlows(page, device) {
 
 async function runSignedInFlows(page, device, personaKey, persona) {
   const mon = attachMonitors(page);
-  await seedSession(page, persona, { lastView: "calendar", cacheActivities: 120 });
+  await seedSession(page, persona, {
+    lastView: "calendar",
+    cacheActivities: 120,
+    blockServerPersistence: true,
+  });
   await gotoWithRetry(page, PROD);
 
   for (let attempt = 1; attempt <= 2; attempt += 1) {
