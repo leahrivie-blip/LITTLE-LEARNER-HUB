@@ -15,7 +15,7 @@ Production uses Render Managed PostgreSQL. **Take a manual snapshot before deplo
 ### 2. Application rollback
 
 - Previous stable SHA on `main`: record before merge.
-- After merge, Render auto-deploys from `main`. To roll back: revert the merge commit or redeploy a prior successful deploy from Render **Events**.
+- After merge, trigger a **manual Render deploy** (auto-deploy is off on production — see `docs/PRODUCTION_DEPLOY.md`). To roll back: redeploy a prior successful deploy from Render **Events**, or revert the merge commit and manual-deploy again.
 
 ### 3. Repair idempotency
 
