@@ -458,7 +458,7 @@ async function main() {
     await page.waitForSelector(".tk-enrich-shell", { timeout: 10000 });
     const features = await page.evaluate(() => window.LLHTeachingKitEnrichmentEditor.sliceFeatures());
     assert(features.publish === true, "publish enabled in Slice 5");
-    assert(features.aiSuggest === false, "AI still off");
+    assert(features.aiSuggest === true, "AI suggestions available (Slice 6)");
     assert(features.photoUpload === true, "photos remain available");
 
     await page.click("[data-enrich-publish]");

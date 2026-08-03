@@ -273,7 +273,7 @@ async function testViewports(page, baseUrl) {
     assert(metrics.ok, `${vp.name}: shell/chrome/counter/summary present`);
     assert(metrics.publishEnabled === true, `${vp.name}: publish control available`);
     assert(metrics.sliceNote === true, `${vp.name}: slice banner visible`);
-    assert(metrics.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
+    assert(metrics.features.aiSuggest === true, `${vp.name}: aiSuggest on (Slice 6)`);
     assert(metrics.features.publish === true, `${vp.name}: publish feature on`);
     assert(metrics.overflowX === false, `${vp.name}: no horizontal overflow (${metrics.shellWidth}px)`);
     void baseUrl;

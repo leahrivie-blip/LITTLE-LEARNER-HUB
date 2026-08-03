@@ -322,7 +322,7 @@ async function main() {
     });
     assert(opened.open === true, "editor opened");
     assert(opened.features.livePreview === true, "livePreview enabled in Slice 3");
-    assert(opened.features.aiSuggest === false, "ai still off");
+    assert(opened.features.aiSuggest === true, "aiSuggest on (Slice 6)");
     assert(opened.features.publish === true, "publish available (Slice 5)");
 
     await page.click('[data-enrich-mode="preview"]');

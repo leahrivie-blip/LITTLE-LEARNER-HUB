@@ -414,15 +414,18 @@ See [ENRICHMENT_EDITOR_SLICE3.md](./ENRICHMENT_EDITOR_SLICE3.md).
 Private draft setup/example photos · drag/drop · replace/remove · full-size · optimize/thumbnails · no curriculum blobs.  
 See [ENRICHMENT_EDITOR_SLICE4.md](./ENRICHMENT_EDITOR_SLICE4.md).
 
-### Slice 5 — Controlled publish (current)
+### Slice 5 — Controlled publish (approved)
 
 Explicit admin publish · confirmation summary · atomic merge · prior-version snapshot · draft photos become provider-visible only after success.  
-**No** AI or print.  
 See [ENRICHMENT_EDITOR_SLICE5.md](./ENRICHMENT_EDITOR_SLICE5.md).
 
-### Later slices (not started until Slice 5 approved)
+### Slice 6 — AI suggestions (current)
 
-6. AI tip suggestions (explicit approve)  
+Approval tray only · Accept / Edit / Discard · no auto-save · no overwrite · no publish · no images.  
+See [ENRICHMENT_EDITOR_SLICE6.md](./ENRICHMENT_EDITOR_SLICE6.md).
+
+### Later slices (not started until Slice 6 approved)
+
 7. Print integration hooks (as needed)  
 
 ---

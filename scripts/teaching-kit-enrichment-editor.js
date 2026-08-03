@@ -5,8 +5,9 @@
  * Slice 3: Live Preview (real Teaching Kit viewer) + draft-to-provider parity.
  * Slice 4: Activity Studio photo upload (private draft media).
  * Slice 5: Controlled enrichment publish (atomic, versioned).
+ * Slice 6: AI-assisted enrichment suggestions (approval tray only).
  * Behind featureFlags.teachingKitEnrichmentEditor (default false).
- * AI / print stay off until later slices.
+ * Print stays off until a later reviewed slice.
  */
 (function (root) {
   "use strict";
@@ -22,7 +23,7 @@
     activityStudio: true, // Slice 2
     livePreview: true, // Slice 3
     photoUpload: true, // Slice 4
-    aiSuggest: false,
+    aiSuggest: true, // Slice 6
     publish: true, // Slice 5
   });
   // Back-compat alias used by earlier Slice 1 checks.
@@ -48,6 +49,16 @@
     previewUnbind: null,
     pendingCleanupAssetIds: [], // deferred until draft save succeeds
     lastSavedDraft: null,
+    aiTray: {
+      open: false,
+      phase: "idle", // idle | loading | ready | error | timeout
+      errorText: "",
+      requestId: "",
+      activityKey: "",
+      scope: "activity",
+      suggestions: [],
+      abortController: null,
+    },
   };
 
   function isEditorFlagEnabled() {
@@ -96,10 +107,11 @@
     return api().computeCompletionPercent(plan, activities, state.draft);
   }
 
-  function markDirty() {
+  function markDirty({ autosave = true } = {}) {
     state.dirty = true;
-    state.statusText = "Unsaved changes…";
-    scheduleAutosave();
+    state.statusText = autosave ? "Unsaved changes…" : "AI suggestions in draft (not saved). Click Save draft when ready.";
+    if (autosave) scheduleAutosave();
+    else clearTimeout(state.autosaveTimer);
     renderChromeOnly();
     schedulePreviewRefresh();
   }
@@ -119,6 +131,265 @@
     state.autosaveTimer = setTimeout(() => {
       void saveDraft({ silent: true });
     }, 1200);
+  }
+
+  function resetAiTray() {
+    if (state.aiTray.abortController) {
+      try { state.aiTray.abortController.abort(); } catch (_error) { /* ignore */ }
+    }
+    state.aiTray = {
+      open: false,
+      phase: "idle",
+      errorText: "",
+      requestId: "",
+      activityKey: "",
+      scope: "activity",
+      suggestions: [],
+      abortController: null,
+    };
+  }
+
+  function currentAiActivityKey(plan) {
+    const act = getActivities(plan)[state.activityIndex];
+    return act ? draftKey(act) : "";
+  }
+
+  async function requestAiSuggestions({ scope = "activity", simulate = "" } = {}) {
+    if (!SLICE.aiSuggest) {
+      state.statusText = "AI suggestions are not enabled in this build.";
+      renderChromeOnly();
+      return;
+    }
+    const plan = getPlan();
+    if (!plan) return;
+    const token = adminToken();
+    if (!token) {
+      state.statusText = "Admin unlock required for AI suggestions.";
+      renderChromeOnly();
+      return;
+    }
+    if (state.aiTray.abortController) {
+      try { state.aiTray.abortController.abort(); } catch (_error) { /* ignore */ }
+    }
+    const controller = typeof AbortController === "function" ? new AbortController() : null;
+    const activityKey = scope === "week" ? "" : currentAiActivityKey(plan);
+    state.aiTray.open = true;
+    state.aiTray.phase = "loading";
+    state.aiTray.errorText = "";
+    state.aiTray.suggestions = [];
+    state.aiTray.scope = scope;
+    state.aiTray.activityKey = activityKey;
+    state.aiTray.requestId = "";
+    state.aiTray.abortController = controller;
+    state.statusText = "Requesting AI suggestions…";
+    render();
+
+    const body = {
+      adminToken: token,
+      planId: plan.id,
+      activityKey,
+      scope,
+    };
+    if (simulate) body.simulate = simulate;
+
+    try {
+      const response = await fetch("/api/admin/curriculum/enrichment-ai-suggest", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+        signal: controller ? controller.signal : undefined,
+      });
+      const data = await response.json().catch(() => ({}));
+      if (controller && controller.signal.aborted) return;
+      if (!response.ok) {
+        const code = String(data.code || "");
+        state.aiTray.phase = code === "enrichment_ai_timeout" ? "timeout" : "error";
+        state.aiTray.errorText = data.error || `AI request failed (HTTP ${response.status}). Existing content was not changed.`;
+        state.aiTray.requestId = data.requestId || "";
+        state.statusText = state.aiTray.phase === "timeout"
+          ? "AI timed out — draft unchanged."
+          : "AI suggestion failed — draft unchanged.";
+        render();
+        return;
+      }
+      const suggestions = Array.isArray(data.suggestions) ? data.suggestions.map((item) => ({
+        ...item,
+        decision: "pending",
+        selected: true,
+        editing: false,
+        editText: item.proposedText || "",
+      })) : [];
+      state.aiTray.phase = "ready";
+      state.aiTray.suggestions = suggestions;
+      state.aiTray.requestId = data.requestId || "";
+      state.statusText = data.duplicate
+        ? "Reused recent AI suggestions — review before inserting."
+        : `AI returned ${suggestions.length} suggestion(s). Nothing saved until you insert.`;
+      render();
+    } catch (error) {
+      if (error && error.name === "AbortError") {
+        state.aiTray.phase = "idle";
+        state.aiTray.open = false;
+        state.statusText = "AI suggestion canceled. Draft unchanged.";
+        render();
+        return;
+      }
+      state.aiTray.phase = "error";
+      state.aiTray.errorText = (error && error.message) || "AI suggestion failed. Existing content was not changed.";
+      state.statusText = "AI suggestion failed — draft unchanged.";
+      render();
+    }
+  }
+
+  function cancelAiSuggestions() {
+    if (state.aiTray.abortController) {
+      try { state.aiTray.abortController.abort(); } catch (_error) { /* ignore */ }
+    }
+    resetAiTray();
+    state.statusText = "AI suggestion canceled. Draft unchanged.";
+    render();
+  }
+
+  async function logAiInsert(fields, insertedCount) {
+    const token = adminToken();
+    if (!token) return;
+    try {
+      await fetch("/api/admin/curriculum/enrichment-ai-insert-log", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          adminToken: token,
+          planId: state.planId,
+          activityKey: state.aiTray.activityKey || "",
+          requestId: state.aiTray.requestId || "",
+          fields,
+          insertedCount,
+        }),
+      });
+    } catch (_error) {
+      /* logging best-effort */
+    }
+  }
+
+  function applyAiSuggestionEdits(sug) {
+    if (!sug.editing) return sug;
+    const textValue = String(sug.editText || "").trim();
+    if (sug.field === "substitutions") {
+      const parts = textValue.split(/→|->/).map((p) => p.trim());
+      if (parts.length >= 2) {
+        const need = parts[0].replace(/^No\s+/i, "");
+        const use = parts.slice(1).join(" ").replace(/^use\s+/i, "");
+        return {
+          ...sug,
+          proposedText: textValue,
+          proposedValue: { need, use },
+          editing: false,
+        };
+      }
+    }
+    return {
+      ...sug,
+      proposedText: textValue,
+      proposedValue: textValue,
+      editing: false,
+    };
+  }
+
+  async function insertSelectedAiSuggestions() {
+    const plan = getPlan();
+    if (!plan) return;
+    let suggestions = state.aiTray.suggestions.map((sug) => {
+      const next = applyAiSuggestionEdits({ ...sug });
+      if (next.decision === "discarded") return { ...next, selected: false };
+      if (next.selected || next.decision === "accepted") {
+        return { ...next, decision: "accepted", selected: true };
+      }
+      return { ...next, selected: false };
+    });
+    const toInsert = suggestions.filter((s) => s.selected && s.decision === "accepted");
+    if (!toInsert.length) {
+      state.statusText = "Select at least one suggestion to insert.";
+      renderChromeOnly();
+      return;
+    }
+
+    // Pure client apply — never auto-save, never publish, never overwrite existing items.
+    const draft = JSON.parse(JSON.stringify(state.draft));
+    if (!draft.activities) draft.activities = {};
+    if (!draft.week) draft.week = {};
+    const activityKey = state.aiTray.activityKey || currentAiActivityKey(plan);
+    const fields = new Set();
+    let insertedCount = 0;
+
+    toInsert.forEach((sug) => {
+      const field = String(sug.field || "");
+      if (field === "familyConnection") {
+        const next = String(sug.proposedValue || sug.proposedText || "").trim();
+        if (!next) return;
+        const prev = String(draft.week.familyConnection || "").trim();
+        draft.week.familyConnection = prev ? `${prev}\n\n${next}` : next;
+        fields.add(field);
+        insertedCount += 1;
+        return;
+      }
+      if (field === "milestones") {
+        const label = String(sug.proposedValue || sug.proposedText || "").trim();
+        if (!label) return;
+        const list = Array.isArray(draft.week.milestones) ? draft.week.milestones.slice() : [];
+        if (!list.includes(label)) list.push(label);
+        draft.week.milestones = list.slice(0, 16);
+        fields.add(field);
+        insertedCount += 1;
+        return;
+      }
+      if (!activityKey) return;
+      if (!draft.activities[activityKey]) draft.activities[activityKey] = {};
+      const act = draft.activities[activityKey];
+      if (field === "substitutions") {
+        const need = String(sug.proposedValue?.need || "").trim();
+        const use = String(sug.proposedValue?.use || "").trim();
+        if (!need || !use) return;
+        const list = Array.isArray(act.substitutions) ? act.substitutions.slice() : [];
+        if (!list.some((s) => s && s.need === need && s.use === use)) list.push({ need, use });
+        act.substitutions = list.slice(0, 12);
+        fields.add(field);
+        insertedCount += 1;
+        return;
+      }
+      if (field === "settingTags") {
+        const tag = String(sug.proposedValue || sug.proposedText || "").trim().toLowerCase().replace(/\s+/g, "_");
+        if (!tag) return;
+        const list = Array.isArray(act.settingTags) ? act.settingTags.slice() : [];
+        if (!list.includes(tag)) list.push(tag);
+        act.settingTags = list.slice(0, 8);
+        fields.add(field);
+        insertedCount += 1;
+        return;
+      }
+      const value = String(sug.proposedValue || sug.proposedText || "").trim();
+      if (!value) return;
+      const max = field === "vocabulary" ? 24 : 8;
+      const list = Array.isArray(act[field]) ? act[field].slice() : [];
+      if (!list.includes(value)) list.push(value);
+      act[field] = list.slice(0, max);
+      fields.add(field);
+      insertedCount += 1;
+    });
+
+    state.draft = draft;
+    await logAiInsert([...fields], insertedCount);
+    resetAiTray();
+    markDirty({ autosave: false });
+    state.statusText = insertedCount
+      ? `Inserted ${insertedCount} AI suggestion(s) into draft only — not saved, not published.`
+      : "No suggestions inserted.";
+    render();
   }
 
   function queueMediaCleanup(mediaAssetId) {
@@ -276,6 +547,7 @@
     state.lightboxUrl = "";
     state.publishOpen = false;
     state.pendingCleanupAssetIds = [];
+    resetAiTray();
     state.lastSavedDraft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object"
       ? JSON.parse(JSON.stringify(plan.enrichmentDraft))
       : null;
@@ -628,7 +900,7 @@
           </div>
         ` : ""}
         <div class="tk-enrich-slice-banner" role="status">
-          Slice 5 publish: explicit confirmation publishes this lesson’s enrichment draft only. AI and print stay off until later reviewed slices.
+          Slice 6 AI: suggestions open an approval tray — nothing inserts or saves until you choose. Print stays off until a later reviewed slice.
         </div>
         <nav class="tk-enrich-modes" role="tablist">
           <button type="button" class="${state.mode === "activities" ? "is-active" : ""}" data-enrich-mode="activities">Activities</button>
@@ -657,8 +929,13 @@
       const tags = new Set(view.settingTags);
       stage = `
         <article class="tk-enrich-stage" data-activity-key="${esc(key)}" data-activity-studio>
-          <h3 data-enrich-title>${esc(current.title)}</h3>
-          <p class="muted-copy">${esc(DAY_LABEL[current.dayOfWeek] || current.dayOfWeek)} · ${esc(current.activityCategory || "Activity")}</p>
+          <div class="tk-enrich-stage-head">
+            <div>
+              <h3 data-enrich-title>${esc(current.title)}</h3>
+              <p class="muted-copy">${esc(DAY_LABEL[current.dayOfWeek] || current.dayOfWeek)} · ${esc(current.activityCategory || "Activity")}</p>
+            </div>
+            ${SLICE.aiSuggest ? `<button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>` : ""}
+          </div>
           <div class="tk-enrich-photo-grid">
             ${photoZoneHtml("Setup photo (before)", "setupImageUrl", view, key)}
             ${photoZoneHtml("Finished example (after)", "exampleImageUrl", view, key)}
@@ -676,7 +953,7 @@
             <div class="tk-enrich-card-head">
               <h4>Teacher tips</h4>
               ${SLICE.aiSuggest
-                ? `<button type="button" class="ghost-button" data-ai-tips>Suggest</button>`
+                ? `<button type="button" class="ghost-button" data-ai-suggest="activity">Suggest with AI</button>`
                 : `<span class="muted-copy">AI suggest later</span>`}
             </div>
             <div class="tk-enrich-tip-list">
@@ -787,6 +1064,12 @@
     const bank = ["Sorting", "Fine motor", "Language", "Social-emotional", "Gross motor", "Creativity", "Self-help"];
     return `
       <div class="tk-enrich-week-layout">
+        ${SLICE.aiSuggest ? `
+          <div class="tk-enrich-week-ai-bar">
+            <p class="muted-copy">AI can suggest family ideas and milestone language. Nothing inserts until you approve.</p>
+            <button type="button" class="ghost-button" data-ai-suggest="week">Suggest with AI</button>
+          </div>
+        ` : ""}
         <section class="tk-enrich-card-block">
           <h4>Family connection</h4>
           <p class="muted-copy">Current text is kept unless you replace it here.</p>
@@ -852,6 +1135,84 @@
         </div>
         <div class="tk-enrich-preview-frame is-${esc(state.previewViewport)}">
           <div data-enrich-live-preview class="tk-enrich-live is-wide"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderAiTray() {
+    if (!SLICE.aiSuggest || !state.aiTray.open) return "";
+    const tray = state.aiTray;
+    const selectedCount = (tray.suggestions || []).filter((s) => s.selected && s.decision !== "discarded").length;
+    let body = "";
+    if (tray.phase === "loading") {
+      body = `
+        <div class="tk-enrich-ai-status" data-ai-loading>
+          <p><strong>Generating suggestions…</strong></p>
+          <p class="muted-copy">Existing enrichment stays unchanged. You can cancel anytime.</p>
+          <button type="button" class="ghost-button" data-ai-cancel>Cancel</button>
+        </div>
+      `;
+    } else if (tray.phase === "timeout" || tray.phase === "error") {
+      body = `
+        <div class="tk-enrich-ai-status" data-ai-error>
+          <p><strong>${tray.phase === "timeout" ? "AI timed out" : "AI suggestion failed"}</strong></p>
+          <p class="muted-copy">${esc(tray.errorText || "Existing content was not changed.")}</p>
+          <div class="form-actions">
+            <button type="button" class="ghost-button" data-ai-cancel>Close</button>
+            <button type="button" class="primary-button" data-ai-retry>Retry</button>
+          </div>
+        </div>
+      `;
+    } else {
+      const cards = (tray.suggestions || []).map((sug, index) => {
+        const discarded = sug.decision === "discarded";
+        return `
+          <article class="tk-enrich-ai-card ${discarded ? "is-discarded" : ""} ${sug.selected ? "is-selected" : ""}" data-ai-card="${index}">
+            <label class="tk-enrich-ai-select">
+              <input type="checkbox" data-ai-select="${index}" ${sug.selected && !discarded ? "checked" : ""} ${discarded ? "disabled" : ""} />
+              <span>Select</span>
+            </label>
+            <div class="tk-enrich-ai-meta">
+              <strong>${esc(sug.fieldLabel || sug.field)}</strong>
+              <span class="muted-copy">${esc(sug.category || "")}</span>
+            </div>
+            <div class="tk-enrich-ai-compare">
+              <div>
+                <h5>Current</h5>
+                <p>${esc(sug.currentValue || "(empty)")}</p>
+              </div>
+              <div>
+                <h5>Suggested addition</h5>
+                ${sug.editing
+                  ? `<textarea data-ai-edit-text="${index}" rows="3">${esc(sug.editText || sug.proposedText || "")}</textarea>`
+                  : `<p>${esc(sug.proposedText || "")}</p>`}
+              </div>
+            </div>
+            <div class="tk-enrich-ai-card-actions">
+              <button type="button" class="ghost-button" data-ai-accept="${index}" ${discarded ? "disabled" : ""}>Accept</button>
+              <button type="button" class="ghost-button" data-ai-edit="${index}" ${discarded ? "disabled" : ""}>${sug.editing ? "Done editing" : "Edit"}</button>
+              <button type="button" class="ghost-button" data-ai-discard="${index}">Discard</button>
+            </div>
+          </article>
+        `;
+      }).join("") || `<p class="muted-copy">No suggestions to review.</p>`;
+      body = `
+        <p class="muted-copy">Review each suggestion. Inserting adds to the <strong>draft only</strong> — it does not save automatically and never publishes.</p>
+        <div class="tk-enrich-ai-list">${cards}</div>
+        <div class="form-actions">
+          <button type="button" class="ghost-button" data-ai-discard-all>Discard all</button>
+          <button type="button" class="ghost-button" data-ai-cancel>Cancel</button>
+          <button type="button" class="primary-button" data-ai-insert-selected ${selectedCount ? "" : "disabled"}>Insert selected (${selectedCount})</button>
+        </div>
+      `;
+    }
+    return `
+      <div class="tk-enrich-modal tk-enrich-ai-modal" data-ai-tray>
+        <div class="tk-enrich-modal-card tk-enrich-ai-card-shell">
+          <h3>AI enrichment suggestions</h3>
+          <p class="muted-copy">Lesson: <strong>${esc((getPlan() || {}).title || "Current lesson")}</strong> · Scope: ${esc(tray.scope)}${tray.activityKey ? ` · Activity draft only` : ""}</p>
+          ${body}
         </div>
       </div>
     `;
@@ -1034,6 +1395,7 @@
           <div class="tk-enrich-body">${body}</div>
         </div>
         ${renderPublishModal(plan, activities)}
+        ${renderAiTray()}
         ${renderLightbox()}
       </div>
     `;
@@ -1276,25 +1638,73 @@
         render();
         return;
       }
-      if (event.target.closest("[data-ai-tips]")) {
+      if (event.target.closest("[data-ai-suggest]")) {
         if (!SLICE.aiSuggest) return;
-        const plan = getPlan();
-        const act = getActivities(plan)[state.activityIndex];
-        const suggestions = [
-          `Prep ${act?.title || "this activity"} before children arrive.`,
-          "Offer two choices so every child can join at their level.",
-          "Narrate what you see — keep language warm and short.",
-        ];
-        const approved = window.confirm(
-          `Insert these tips into the draft?\n\n• ${suggestions.join("\n• ")}\n\nNothing is inserted unless you OK.`,
-        );
-        if (!approved) return;
-        const key = draftKey(act);
-        const draftAct = ensureDraftActivity(key);
-        const view = api().activityEnrichmentView(act, draftAct);
-        draftAct.teacherTips = [...view.teacherTips, ...suggestions].slice(0, 5);
-        markDirty();
+        const scopeBtn = event.target.closest("[data-ai-suggest]");
+        const scope = scopeBtn.getAttribute("data-ai-suggest") === "week" ? "week" : "activity";
+        await requestAiSuggestions({ scope });
+        return;
+      }
+      if (event.target.closest("[data-ai-cancel]")) {
+        cancelAiSuggestions();
+        return;
+      }
+      if (event.target.closest("[data-ai-retry]")) {
+        const scope = state.aiTray.scope || "activity";
+        await requestAiSuggestions({ scope });
+        return;
+      }
+      if (event.target.closest("[data-ai-discard-all]")) {
+        state.aiTray.suggestions = state.aiTray.suggestions.map((s) => ({ ...s, decision: "discarded", selected: false }));
+        state.statusText = "All AI suggestions discarded. Draft unchanged.";
+        resetAiTray();
         render();
+        return;
+      }
+      if (event.target.closest("[data-ai-insert-selected]")) {
+        await insertSelectedAiSuggestions();
+        return;
+      }
+      const aiAccept = event.target.closest("[data-ai-accept]");
+      if (aiAccept) {
+        const index = Number(aiAccept.getAttribute("data-ai-accept"));
+        const sug = state.aiTray.suggestions[index];
+        if (sug) {
+          state.aiTray.suggestions[index] = applyAiSuggestionEdits({
+            ...sug,
+            decision: "accepted",
+            selected: true,
+          });
+          render();
+        }
+        return;
+      }
+      const aiDiscard = event.target.closest("[data-ai-discard]");
+      if (aiDiscard) {
+        const index = Number(aiDiscard.getAttribute("data-ai-discard"));
+        const sug = state.aiTray.suggestions[index];
+        if (sug) {
+          state.aiTray.suggestions[index] = { ...sug, decision: "discarded", selected: false, editing: false };
+          render();
+        }
+        return;
+      }
+      const aiEdit = event.target.closest("[data-ai-edit]");
+      if (aiEdit) {
+        const index = Number(aiEdit.getAttribute("data-ai-edit"));
+        const sug = state.aiTray.suggestions[index];
+        if (sug) {
+          if (sug.editing) {
+            state.aiTray.suggestions[index] = applyAiSuggestionEdits({ ...sug, editing: true });
+          } else {
+            state.aiTray.suggestions[index] = {
+              ...sug,
+              editing: true,
+              editText: sug.editText || sug.proposedText || "",
+            };
+          }
+          render();
+        }
         return;
       }
       const milestone = event.target.closest("[data-milestone]");
@@ -1344,6 +1754,18 @@
 
     document.addEventListener("change", async (event) => {
       if (!state.open) return;
+      if (event.target.matches("[data-ai-select]")) {
+        const index = Number(event.target.getAttribute("data-ai-select"));
+        const sug = state.aiTray.suggestions[index];
+        if (!sug || sug.decision === "discarded") return;
+        state.aiTray.suggestions[index] = {
+          ...sug,
+          selected: Boolean(event.target.checked),
+          decision: event.target.checked ? (sug.decision === "discarded" ? "pending" : sug.decision) : "pending",
+        };
+        render();
+        return;
+      }
       if (event.target.matches(".tk-enrich-photo input[type='file']")) {
         if (!SLICE1.photoUpload) return;
         const box = event.target.closest(".tk-enrich-photo");
@@ -1360,6 +1782,13 @@
 
     document.addEventListener("input", (event) => {
       if (!state.open) return;
+      if (event.target.matches("[data-ai-edit-text]")) {
+        const index = Number(event.target.getAttribute("data-ai-edit-text"));
+        const sug = state.aiTray.suggestions[index];
+        if (!sug) return;
+        state.aiTray.suggestions[index] = { ...sug, editText: event.target.value || "" };
+        return;
+      }
       if (event.target.matches("[data-enrich-jump-input]")) {
         state.jumpQuery = event.target.value || "";
         const plan = getPlan();

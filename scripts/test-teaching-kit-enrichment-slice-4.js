@@ -531,7 +531,7 @@ async function main() {
     });
     assert(ui.open === true, "editor opened");
     assert(ui.features.photoUpload === true, "photoUpload enabled in Slice 4");
-    assert(ui.features.aiSuggest === false, "ai still off");
+    assert(ui.features.aiSuggest === true, "aiSuggest on (Slice 6)");
 
     await page.waitForSelector(".tk-enrich-photo input[type='file']", {
       state: "attached",

@@ -30,6 +30,7 @@ const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const enrichmentMedia = require("./enrichment-media.js");
+const enrichmentAi = require("./enrichment-ai.js");
 const seo = require("./seo.js");
 const metaCapi = require("./meta-capi.js");
 const testAccountGuard = require("./test-account-guard.js");
@@ -16696,6 +16697,336 @@ function loadEnrichmentHelpers() {
   }
 }
 
+/** In-flight enrichment AI keys → requestId (duplicate short-circuit). */
+const enrichmentAiRecentRequests = new Map();
+
+function enrichmentAiDedupeKey(planId, activityKey, scope) {
+  return `${planId}::${scope}::${activityKey || ""}`;
+}
+
+async function handleAdminEnrichmentAiSuggest(request, response) {
+  const started = Date.now();
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required for enrichment AI suggestions." });
+    return;
+  }
+  const store = readStore();
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  const enrichFlags = normalizedFeatureFlags(siteContent.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(enrichFlags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+
+  const planId = normalizedShortText(body.planId, 160);
+  const activityKey = normalizedShortText(body.activityKey, 160);
+  const scope = normalizedShortText(body.scope, 20) === "week" ? "week" : "activity";
+  const simulate = normalizedShortText(body.simulate, 40).toLowerCase();
+  const requestId = enrichmentAi.createEnrichmentAiRequestId();
+
+  if (!planId) {
+    jsonResponse(response, 400, { error: "planId is required.", code: "invalid_enrichment_ai_target" });
+    return;
+  }
+  if (scope === "activity" && !activityKey) {
+    jsonResponse(response, 400, {
+      error: "activityKey is required for activity-scoped suggestions.",
+      code: "invalid_enrichment_ai_target",
+    });
+    return;
+  }
+
+  const curriculum = readSiteCurriculum(store);
+  const plan = (curriculum.lessonPlans || []).find((item) => item.id === planId);
+  if (!plan) {
+    jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+    return;
+  }
+
+  // AI must never publish, upload images, or modify other lessons — suggest-only.
+  const enrichmentApi = loadEnrichmentHelpers();
+  const storeActs = (curriculum.activities || []).filter((item) => item.lessonPlanId === planId);
+  const flat = enrichmentApi?.flattenLessonActivities
+    ? enrichmentApi.flattenLessonActivities(plan, storeActs)
+    : [];
+  const activity = flat.find((item) => item.id === activityKey || item.itemId === activityKey) || null;
+  if (scope === "activity" && !activity) {
+    jsonResponse(response, 404, { error: "Activity not found on this lesson.", code: "activity_not_found" });
+    return;
+  }
+
+  const draft = plan.enrichmentDraft && typeof plan.enrichmentDraft === "object" ? plan.enrichmentDraft : {};
+  const activityDraft = activityKey && draft.activities && typeof draft.activities === "object"
+    ? (draft.activities[activityKey] || {})
+    : {};
+  const weekDraft = draft.week && typeof draft.week === "object" ? draft.week : {};
+  const ctx = {
+    plan,
+    activity,
+    scope,
+    activityDraft,
+    weekDraft,
+    existing: scope === "week"
+      ? { week: weekDraft, familyConnection: plan.familyConnection || "" }
+      : {
+        teacherTips: activityDraft.teacherTips || activity?.teacherTips || [],
+        observationPrompts: activityDraft.observationPrompts || [],
+        vocabulary: activityDraft.vocabulary || activity?.vocabulary || [],
+        substitutions: activityDraft.substitutions || [],
+        settingTags: activityDraft.settingTags || [],
+      },
+  };
+
+  const dedupeKey = enrichmentAiDedupeKey(planId, activityKey, scope);
+  const recent = enrichmentAiRecentRequests.get(dedupeKey);
+  if (recent && (Date.now() - recent.at) < 2500 && !simulate) {
+    enrichmentAi.logEnrichmentAiEvent({
+      event: "enrichment_ai_suggest",
+      status: "duplicate",
+      requestId,
+      planId,
+      activityKey,
+      scope,
+      code: "duplicate_request",
+      durationMs: Date.now() - started,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      duplicate: true,
+      requestId: recent.requestId,
+      suggestions: recent.suggestions || [],
+      source: recent.source || "cache",
+      message: "A matching suggestion request was already in progress. Reusing the prior result.",
+    });
+    return;
+  }
+
+  if (simulate === "timeout") {
+    enrichmentAi.logEnrichmentAiEvent({
+      event: "enrichment_ai_suggest",
+      status: "timeout",
+      requestId,
+      planId,
+      activityKey,
+      scope,
+      code: "enrichment_ai_timeout",
+      durationMs: Date.now() - started,
+    });
+    jsonResponse(response, 504, {
+      ok: false,
+      requestId,
+      code: "enrichment_ai_timeout",
+      error: "AI suggestion timed out. Existing enrichment content was not changed.",
+      suggestions: [],
+    });
+    return;
+  }
+
+  if (simulate === "malformed") {
+    const parsed = enrichmentAi.parseEnrichmentAiOutput("NOT_JSON{{{", ctx);
+    enrichmentAi.logEnrichmentAiEvent({
+      event: "enrichment_ai_suggest",
+      status: "malformed",
+      requestId,
+      planId,
+      activityKey,
+      scope,
+      code: parsed.code,
+      durationMs: Date.now() - started,
+    });
+    jsonResponse(response, 422, {
+      ok: false,
+      requestId,
+      code: parsed.code,
+      error: parsed.error,
+      suggestions: [],
+    });
+    return;
+  }
+
+  if (simulate === "error") {
+    enrichmentAi.logEnrichmentAiEvent({
+      event: "enrichment_ai_suggest",
+      status: "error",
+      requestId,
+      planId,
+      activityKey,
+      scope,
+      code: "enrichment_ai_unavailable",
+      durationMs: Date.now() - started,
+    });
+    jsonResponse(response, 503, {
+      ok: false,
+      requestId,
+      code: "enrichment_ai_unavailable",
+      error: "AI suggestions are temporarily unavailable. Existing content was not changed.",
+      suggestions: [],
+    });
+    return;
+  }
+
+  const forceFixture = body.forceFixture === true
+    || process.env.LLH_ENRICHMENT_AI_FIXTURE === "1"
+    || process.env.NODE_ENV === "test"
+    || !isConfiguredValue(OPENAI_API_KEY);
+
+  let suggestions = [];
+  let source = "fixture";
+  try {
+    if (forceFixture || simulate === "fixture" || simulate === "ok") {
+      suggestions = enrichmentAi.buildFixtureSuggestions(ctx);
+      source = "fixture";
+    } else {
+      const systemPrompt = enrichmentAi.buildEnrichmentAiSystemPrompt();
+      const userPrompt = enrichmentAi.buildEnrichmentAiUserPrompt({
+        plan,
+        activity,
+        scope,
+        existing: ctx.existing,
+      });
+      const raw = await Promise.race([
+        callOpenAiRaw(systemPrompt, userPrompt),
+        new Promise((_, reject) => {
+          const err = new Error("enrichment_ai_timeout");
+          err.code = "enrichment_ai_timeout";
+          setTimeout(() => reject(err), enrichmentAi.ENRICHMENT_AI_TIMEOUT_MS);
+        }),
+      ]);
+      const parsed = enrichmentAi.parseEnrichmentAiOutput(raw, ctx);
+      if (!parsed.ok) {
+        enrichmentAi.logEnrichmentAiEvent({
+          event: "enrichment_ai_suggest",
+          status: "malformed",
+          requestId,
+          planId,
+          activityKey,
+          scope,
+          code: parsed.code,
+          durationMs: Date.now() - started,
+        });
+        jsonResponse(response, 422, {
+          ok: false,
+          requestId,
+          code: parsed.code,
+          error: parsed.error,
+          suggestions: [],
+        });
+        return;
+      }
+      suggestions = parsed.suggestions;
+      source = "openai";
+    }
+  } catch (error) {
+    const isTimeout = error?.code === "enrichment_ai_timeout"
+      || /took too long|timeout/i.test(String(error?.message || ""));
+    enrichmentAi.logEnrichmentAiEvent({
+      event: "enrichment_ai_suggest",
+      status: isTimeout ? "timeout" : "error",
+      requestId,
+      planId,
+      activityKey,
+      scope,
+      code: isTimeout ? "enrichment_ai_timeout" : "enrichment_ai_failed",
+      durationMs: Date.now() - started,
+    });
+    jsonResponse(response, isTimeout ? 504 : 503, {
+      ok: false,
+      requestId,
+      code: isTimeout ? "enrichment_ai_timeout" : "enrichment_ai_failed",
+      error: isTimeout
+        ? "AI suggestion timed out. Existing enrichment content was not changed."
+        : "AI suggestions failed. Existing enrichment content was not changed.",
+      suggestions: [],
+    });
+    return;
+  }
+
+  enrichmentAiRecentRequests.set(dedupeKey, {
+    requestId,
+    at: Date.now(),
+    suggestions,
+    source,
+  });
+  // Prune old dedupe entries
+  if (enrichmentAiRecentRequests.size > 100) {
+    const cutoff = Date.now() - 60_000;
+    for (const [key, value] of enrichmentAiRecentRequests.entries()) {
+      if (value.at < cutoff) enrichmentAiRecentRequests.delete(key);
+    }
+  }
+
+  enrichmentAi.logEnrichmentAiEvent({
+    event: "enrichment_ai_suggest",
+    status: "ok",
+    requestId,
+    planId,
+    activityKey,
+    scope,
+    suggestionCount: suggestions.length,
+    fields: [...new Set(suggestions.map((s) => s.field))],
+    durationMs: Date.now() - started,
+    code: source,
+  });
+
+  jsonResponse(response, 200, {
+    ok: true,
+    requestId,
+    planId,
+    activityKey: activityKey || "",
+    scope,
+    source,
+    suggestions,
+    // Explicit guarantees for clients/tests
+    autoSaved: false,
+    autoPublished: false,
+    curriculumUnchanged: true,
+  });
+}
+
+async function handleAdminEnrichmentAiInsertLog(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitEnrichmentEditorEnabled(flags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit Enrichment Editor is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+  const planId = normalizedShortText(body.planId, 160);
+  const activityKey = normalizedShortText(body.activityKey, 160);
+  const requestId = normalizedShortText(body.requestId, 80);
+  const fields = Array.isArray(body.fields) ? body.fields.map((f) => normalizedShortText(f, 60)).filter(Boolean) : [];
+  const insertedCount = Math.max(0, Math.min(50, Number(body.insertedCount) || 0));
+  enrichmentAi.logEnrichmentAiEvent({
+    event: "enrichment_ai_insert",
+    status: insertedCount ? "inserted" : "noop",
+    requestId,
+    planId,
+    activityKey,
+    fields,
+    insertedCount,
+  });
+  // Log only — never writes curriculum, never publishes.
+  jsonResponse(response, 200, {
+    ok: true,
+    logged: true,
+    autoSaved: false,
+    autoPublished: false,
+  });
+}
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value == null ? null : value));
 }
@@ -23266,6 +23597,8 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/lesson-covers/assign") return await handleAdminLessonCoverAssign(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/upload") return await handleAdminEnrichmentPhotoUpload(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-photos/delete") return await handleAdminEnrichmentPhotoDelete(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-suggest") return await handleAdminEnrichmentAiSuggest(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);

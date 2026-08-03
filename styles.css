@@ -24663,3 +24663,86 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   outline: 1px dashed rgba(176, 120, 24, 0.35);
   outline-offset: 2px;
 }
+
+/* Enrichment Editor Slice 6 — AI approval tray */
+.tk-enrich-stage-head,
+.tk-enrich-week-ai-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.tk-enrich-ai-modal .tk-enrich-ai-card-shell {
+  max-width: min(720px, 96vw);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+}
+.tk-enrich-ai-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.85rem 0 1rem;
+}
+.tk-enrich-ai-card {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  border-radius: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+}
+.tk-enrich-ai-card.is-selected {
+  border-color: rgba(31, 107, 74, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(31, 107, 74, 0.15);
+}
+.tk-enrich-ai-card.is-discarded {
+  opacity: 0.55;
+}
+.tk-enrich-ai-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin: 0.35rem 0 0.55rem;
+}
+.tk-enrich-ai-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.tk-enrich-ai-compare h5 {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5b6b62;
+}
+.tk-enrich-ai-compare p,
+.tk-enrich-ai-compare textarea {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.tk-enrich-ai-compare textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(36, 49, 42, 0.18);
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+.tk-enrich-ai-card-actions,
+.tk-enrich-ai-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.55rem;
+}
+.tk-enrich-ai-status {
+  padding: 0.75rem 0;
+}
+@media (max-width: 720px) {
+  .tk-enrich-ai-compare {
+    grid-template-columns: 1fr;
+  }
+}

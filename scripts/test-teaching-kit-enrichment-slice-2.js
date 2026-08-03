@@ -318,7 +318,7 @@ async function main() {
       assert(result.vocabVisible, `${vp.name}: vocabulary visible`);
       assert(result.photoZonesVisible, `${vp.name}: photo zones visible`);
       assert(result.publishEnabled, `${vp.name}: publish control available`);
-      assert(result.features.aiSuggest === false, `${vp.name}: aiSuggest false`);
+      assert(result.features.aiSuggest === true, `${vp.name}: aiSuggest on (Slice 6)`);
       assert(result.features.publish === true, `${vp.name}: publish feature on`);
       assert(result.features.activityStudio === true, `${vp.name}: activityStudio true`);
       assert(result.overflowX === false, `${vp.name}: no horizontal overflow`);
