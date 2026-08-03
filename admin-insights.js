@@ -5,6 +5,7 @@
 (function adminInsightsModule() {
   const HUB_META = {
     advisor: { title: "AI Business Advisor", blurb: "Morning operating summary and recommended actions." },
+    "marketing-funnel": { title: "Marketing Funnel", blurb: "Vertical conversion chart from visit → paid, with drop-off, source filters, and stage drill-down." },
     "feature-usage": { title: "Feature Usage", blurb: "Pages, sessions, features, downloads, and content demand." },
     "user-journey": { title: "User Journey", blurb: "Open a user profile → Journey tab for the full support timeline." },
     "feature-requests": { title: "Feature Request Center", blurb: "Votes, status, estimates, and release notifications." },
@@ -23,6 +24,8 @@
     sort: "votes",
     category: "",
     status: "",
+    source: "all",
+    selectedStage: "",
     cache: null,
     loading: false,
   };
@@ -51,6 +54,12 @@
       if (params.category || insightsState.category) qs.set("category", params.category || insightsState.category);
       if (params.status || insightsState.status) qs.set("status", params.status || insightsState.status);
     }
+    if (hub === "marketing-funnel") {
+      const source = params.source || insightsState.source || "all";
+      if (source && source !== "all") qs.set("source", source);
+      const stage = params.stage || insightsState.selectedStage || "";
+      if (stage) qs.set("stage", stage);
+    }
     const headers = {};
     const t = token();
     if (t) headers.Authorization = `Bearer ${t}`;
@@ -66,6 +75,29 @@
         key === "today" ? "Today" : key === "7d" ? "7 days" : key === "30d" ? "30 days" : "All time"
       }</button>
     `).join("");
+  }
+
+  function hubSwitcher(active) {
+    const order = [
+      "advisor",
+      "marketing-funnel",
+      "feature-usage",
+      "feature-requests",
+      "error-center",
+      "search-analytics",
+      "email-analytics",
+      "seo-dashboard",
+      "churn-dashboard",
+      "content-health",
+      "release-center",
+    ];
+    return `
+      <div class="admin-insights-hub-switch" role="tablist" aria-label="Insights hubs">
+        ${order.map((hub) => `
+          <button type="button" class="ghost-button${active === hub ? " is-active" : ""}" data-insights-hub="${hub}">${esc((HUB_META[hub] || {}).title || hub)}</button>
+        `).join("")}
+      </div>
+    `;
   }
 
   function kpi(label, value) {
@@ -251,10 +283,138 @@
     `;
   }
 
+  function renderMarketingFunnel(data) {
+    const stages = data.stages || [];
+    const transitions = data.transitions || [];
+    const cta = data.ctaBreakdown || {};
+    const timing = data.timing || {};
+    const costs = data.costs || {};
+    const selected = insightsState.selectedStage || "";
+    const source = insightsState.source || data.sourceFilter || "all";
+    const sourceOptions = (data.sources || ["all", "TikTok", "Facebook", "Google", "Direct", "Organic", "Other"])
+      .map((s) => `<option value="${esc(s)}"${s === source ? " selected" : ""}>${esc(s === "all" ? "All sources" : s)}</option>`)
+      .join("");
+
+    const chart = stages.map((stage, index) => {
+      const width = Math.max(8, Number(stage.shareOfTop || 0));
+      const isSelected = selected === stage.id;
+      return `
+        <button type="button" class="admin-insights-funnel-bar${isSelected ? " is-selected" : ""}" data-funnel-stage="${esc(stage.id)}" aria-pressed="${isSelected}">
+          <div class="admin-insights-funnel-bar-meta">
+            <strong>${esc(stage.label)}</strong>
+            <span>${esc(stage.count)}${stage.snapshot ? " · current" : ""}</span>
+          </div>
+          <div class="admin-insights-funnel-bar-track" aria-hidden="true">
+            <span style="width:${width}%"></span>
+          </div>
+          <div class="admin-insights-funnel-bar-rates">
+            ${index === 0 ? `<span>Top of funnel</span>` : `
+              <span class="admin-insights-funnel-conv">${esc(stage.conversionFromPrevLabel)} convert</span>
+              <span class="admin-insights-funnel-drop">${esc(stage.dropOffFromPrevLabel)} drop-off (${esc(stage.dropOffCount)})</span>
+            `}
+          </div>
+        </button>
+      `;
+    }).join("");
+
+    const people = selected ? (data.stagePeople?.[selected] || []) : [];
+    const selectedLabel = stages.find((s) => s.id === selected)?.label || "";
+    const peopleRows = people.map((p) => [
+      p.name || "—",
+      p.email || p.visitorKey || "—",
+      p.source || "—",
+      p.device || "—",
+      p.landingPage || "—",
+      p.reachedAt || "—",
+      p.exitLabel || "—",
+    ]);
+
+    const sourceHeaders = ["Source", "Visitors", "Signups", "Trials", "Paid", "Visit→Paid", "Biggest drop"];
+    const sourceRows = (data.bySource || []).map((row) => {
+      const worst = (row.transitions || []).slice().sort((a, b) => b.dropOffRate - a.dropOffRate)[0];
+      return [
+        row.source,
+        row.counts?.visitors ?? 0,
+        row.counts?.signupCompletions ?? 0,
+        row.counts?.trialStarts ?? 0,
+        row.counts?.paidConversions ?? 0,
+        row.overallConversionRate || "0%",
+        worst ? `${worst.fromLabel}→${worst.toLabel} (${worst.dropOffRateLabel})` : "—",
+      ];
+    });
+
+    return `
+      <div class="admin-insights-filters">
+        <label>Traffic source
+          <select id="insightsFunnelSource">${sourceOptions}</select>
+        </label>
+        <button type="button" class="ghost-button" data-funnel-apply-source>Apply source</button>
+        ${selected ? `<button type="button" class="ghost-button" data-funnel-clear-stage>Clear stage</button>` : ""}
+      </div>
+      ${data.note ? pendingNote(data.note) : ""}
+      ${data.worstDropOff ? `
+        <div class="admin-insights-pending">
+          Biggest leak: <strong>${esc(data.worstDropOff.fromLabel)} → ${esc(data.worstDropOff.toLabel)}</strong>
+          — ${esc(data.worstDropOff.dropOffRateLabel)} drop-off
+          (${esc(data.worstDropOff.dropOffCount)} people).
+        </div>
+      ` : ""}
+      <div class="admin-home-grid admin-insights-kpi-grid">
+        ${kpi("Visit→paid", data.overallConversionRate || "0%")}
+        ${kpi("Start Free CTAs", cta.startFree ?? 0)}
+        ${kpi("Start Trial CTAs", cta.startTrial ?? 0)}
+        ${kpi("Visit→signup", timing.avgHoursVisitToSignupLabel || "—")}
+        ${kpi("Signup→paid", timing.avgHoursSignupToPaidLabel || "—")}
+        ${kpi("Cost / signup", costs.costPerSignup != null ? `$${costs.costPerSignup}` : "—")}
+        ${kpi("Cost / paid", costs.costPerPaid != null ? `$${costs.costPerPaid}` : "—")}
+      </div>
+      ${costs.note ? `<p class="muted-copy">${esc(costs.note)}</p>` : ""}
+      <section class="admin-insights-funnel-vertical" aria-label="Marketing funnel conversion chart">
+        <h4>Conversion chart</h4>
+        <p class="muted-copy">Click a stage to see who reached it and where they exited.</p>
+        <div class="admin-insights-funnel-bars">${chart || `<div class="empty-state">No funnel traffic in this range yet.</div>`}</div>
+      </section>
+      <section>
+        <h4>Step-to-step conversion & drop-off</h4>
+        <div class="admin-insights-funnel-flow">
+          ${(transitions || []).map((t) => `
+            <div class="admin-insights-funnel-flow-row">
+              <span>${esc(t.fromLabel)} → ${esc(t.toLabel)}</span>
+              <strong class="admin-insights-funnel-conv">${esc(t.conversionRateLabel)} convert</strong>
+              <strong class="admin-insights-funnel-drop">${esc(t.dropOffRateLabel)} drop-off (${esc(t.dropOffCount)})</strong>
+            </div>
+          `).join("") || `<p class="muted-copy">Not enough stages to compare yet.</p>`}
+        </div>
+      </section>
+      ${selected ? `
+        <section class="admin-insights-funnel-drilldown">
+          <h4>${esc(selectedLabel)} · people who reached this stage</h4>
+          ${table(["Name", "Email / visitor", "Source", "Device", "Landing", "Reached", "Exit"], peopleRows)}
+        </section>
+      ` : ""}
+      <div class="admin-insights-split">
+        <section>
+          <h4>Device breakdown</h4>
+          ${table(["Device", "Events"], (data.deviceBreakdown || []).map((r) => [r.key, r.count]))}
+        </section>
+        <section>
+          <h4>Top landing pages by conversion</h4>
+          ${table(["Page", "Visitors", "Signups", "Signup rate", "Paid rate"], (data.topLandingPages || []).map((r) => [r.page, r.visitors, r.signups, r.signupRate, r.paidRate]))}
+        </section>
+      </div>
+      <section>
+        <h4>Breakdown by source</h4>
+        ${table(sourceHeaders, sourceRows)}
+      </section>
+    `;
+  }
+
   function renderHubBody(hub, data) {
     switch (hub) {
       case "advisor":
         return renderAdvisor(data || {});
+      case "marketing-funnel":
+        return renderMarketingFunnel(data || {});
       case "feature-usage":
         return renderFeatureUsage(data || {});
       case "feature-requests":
@@ -374,11 +534,44 @@
     }
   }
 
+  function bindFunnelControls(container) {
+    container.querySelector("[data-funnel-apply-source]")?.addEventListener("click", () => {
+      insightsState.source = container.querySelector("#insightsFunnelSource")?.value || "all";
+      insightsState.selectedStage = "";
+      renderAdminInsights(container, "marketing-funnel");
+    });
+    container.querySelector("#insightsFunnelSource")?.addEventListener("change", (event) => {
+      insightsState.source = event.target.value || "all";
+    });
+    container.querySelector("[data-funnel-clear-stage]")?.addEventListener("click", () => {
+      insightsState.selectedStage = "";
+      renderAdminInsights(container, "marketing-funnel");
+    });
+    container.querySelectorAll("[data-funnel-stage]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const stage = btn.getAttribute("data-funnel-stage") || "";
+        insightsState.selectedStage = insightsState.selectedStage === stage ? "" : stage;
+        renderAdminInsights(container, "marketing-funnel");
+      });
+    });
+  }
+
   function bindCommon(container) {
     container.querySelectorAll("[data-insights-range]").forEach((btn) => {
       btn.addEventListener("click", () => {
         insightsState.range = btn.getAttribute("data-insights-range") || "7d";
         renderAdminInsights(container, insightsState.hub);
+      });
+    });
+    container.querySelectorAll("[data-insights-hub]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const hub = btn.getAttribute("data-insights-hub") || "advisor";
+        const tab = hub === "feature-requests" ? "feature-requests-center" : hub;
+        if (typeof window.setAdminSectionTab === "function") {
+          window.setAdminSectionTab(tab);
+        } else {
+          renderAdminInsights(container, hub);
+        }
       });
     });
     container.querySelectorAll("[data-insights-open-hub]").forEach((el) => {
@@ -389,7 +582,8 @@
           return;
         }
         if (hub && typeof window.setAdminSectionTab === "function") {
-          window.setAdminSectionTab(hub === "advisor" ? "advisor" : hub);
+          const tab = hub === "feature-requests" ? "feature-requests-center" : hub;
+          window.setAdminSectionTab(tab);
         }
       });
     });
@@ -457,6 +651,7 @@
           <button type="button" class="ghost-button" data-insights-refresh>Refresh</button>
         </div>
       </div>
+      ${hubSwitcher(hub)}
       <div class="admin-async-state" data-admin-async="loading"><p><strong>Loading insights…</strong></p></div>
     `;
     target.querySelector("[data-insights-refresh]")?.addEventListener("click", () => renderAdminInsights(target, hub));
@@ -479,11 +674,13 @@
             <button type="button" class="ghost-button" data-insights-refresh>Refresh</button>
           </div>
         </div>
+        ${hubSwitcher(hub)}
         <div class="admin-insights-body">${body}</div>
       `;
       bindCommon(target);
       target.querySelector("[data-insights-refresh]")?.addEventListener("click", () => renderAdminInsights(target, hub));
       if (hub === "feature-requests") bindFeatureRequestEditors(target);
+      if (hub === "marketing-funnel") bindFunnelControls(target);
     } catch (error) {
       insightsState.loading = false;
       target.innerHTML = `

@@ -3097,7 +3097,10 @@ function openAuthModal(mode = "login") {
   modal.setAttribute("aria-hidden", "false");
   // Close the public mobile menu so it cannot sit above / steal taps from auth.
   if (typeof setHomePublicMenuOpen === "function") setHomePublicMenuOpen(false);
-  if (mode === "signup") renderSignupWizardStep();
+  if (mode === "signup") {
+    trackEvent("signup_start", { source: "auth_modal" });
+    renderSignupWizardStep();
+  }
 }
 
 async function runAuthSyncWithTimeout(label, task, timeoutMs = 6000) {
@@ -5761,7 +5764,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","marketing-funnel","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5774,7 +5777,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "admin-home", icon: "🏠", label: "Admin Home", tabs: ["admin-home", "admin-notifications"], defaultTab: "admin-home" },
-  { id: "insights", icon: "🧭", label: "Insights", tabs: ["advisor", "feature-usage", "feature-requests-center", "error-center", "search-analytics", "email-analytics", "seo-dashboard", "churn-dashboard", "content-health", "release-center"], defaultTab: "advisor" },
+  { id: "insights", icon: "🧭", label: "Insights", tabs: ["advisor", "marketing-funnel", "feature-usage", "feature-requests-center", "error-center", "search-analytics", "email-analytics", "seo-dashboard", "churn-dashboard", "content-health", "release-center"], defaultTab: "advisor" },
   { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
@@ -5789,6 +5792,7 @@ const adminGroupForTab = {
   "admin-home": "admin-home",
   "admin-notifications": "admin-home",
   "advisor": "insights",
+  "marketing-funnel": "insights",
   "feature-usage": "insights",
   "feature-requests-center": "insights",
   "error-center": "insights",
@@ -5881,6 +5885,7 @@ const adminTabLabels = {
   "analytics": "Analytics",
   "marketing-analytics": "Marketing Analytics",
   "advisor": "AI Business Advisor",
+  "marketing-funnel": "Marketing Funnel",
   "feature-usage": "Feature Usage",
   "feature-requests-center": "Feature Request Center",
   "error-center": "Error Center",
@@ -46211,6 +46216,7 @@ function applyAdminSectionVisibility() {
     renderAdminMarketingAnalytics();
   } else if ([
     "advisor",
+    "marketing-funnel",
     "feature-usage",
     "feature-requests-center",
     "error-center",
@@ -55977,6 +55983,11 @@ document.addEventListener("click", async (event) => {
   const startFreeButton = event.target.closest("[data-action='start-free']");
   if (startFreeButton) {
     event.preventDefault();
+    trackEvent("cta_click", {
+      cta: "start_free",
+      label: (startFreeButton.textContent || "Start Free").replace(/\s+/g, " ").trim(),
+      placement: startFreeButton.closest("#homeHero") ? "hero" : (startFreeButton.closest(".llh-public-nav") ? "nav" : "page"),
+    });
     dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
       const intent = String(startFreeButton.dataset.signupIntent || "").trim();
@@ -55991,6 +56002,11 @@ document.addEventListener("click", async (event) => {
   const upgradeTrialButton = event.target.closest("[data-action='upgrade-trial']");
   if (upgradeTrialButton) {
     event.preventDefault();
+    trackEvent("cta_click", {
+      cta: "start_trial",
+      label: (upgradeTrialButton.textContent || "Start Trial").replace(/\s+/g, " ").trim(),
+      placement: "upgrade_trial",
+    });
     dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
       setPreferredSignupPlan("monthly");
@@ -56004,6 +56020,11 @@ document.addEventListener("click", async (event) => {
   const directTrialButton = event.target.closest("[data-start-pro-trial]");
   if (directTrialButton) {
     event.preventDefault();
+    trackEvent("cta_click", {
+      cta: "start_trial",
+      label: (directTrialButton.textContent || "Start Trial").replace(/\s+/g, " ").trim(),
+      placement: "start_pro_trial",
+    });
     dismissOverlaysForAuthOrUpgrade();
     if (!currentUser) {
       setPreferredSignupPlan("monthly");

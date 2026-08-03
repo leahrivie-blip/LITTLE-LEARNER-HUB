@@ -1,13 +1,13 @@
 const CACHE_NAME = "llh-shell-v153-admin-dashboard-2";
-const SHELL_VERSION = "20260803-admin-insights-nav";
+const SHELL_VERSION = "20260803-marketing-funnel";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260803-admin-insights-nav",
-  "/styles/llh-admin-workspace.css?v=20260803-admin-insights-nav",
+  "/styles.css?v=20260803-marketing-funnel",
+  "/styles/llh-admin-workspace.css?v=20260803-marketing-funnel",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260802-request-idea-final",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -30,9 +30,9 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
   "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
   "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/app.js?v=20260803-admin-insights-nav",
-  "/admin-workspace.js?v=20260803-admin-insights-nav",
-  "/admin-insights.js?v=20260803-admin-insights-nav",
+  "/app.js?v=20260803-marketing-funnel",
+  "/admin-workspace.js?v=20260803-marketing-funnel",
+  "/admin-insights.js?v=20260803-marketing-funnel",
   "/comms-center.js?v=20260802-request-idea-final",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",

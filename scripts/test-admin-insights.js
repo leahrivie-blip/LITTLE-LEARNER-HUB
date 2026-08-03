@@ -21,10 +21,16 @@ function unit() {
     users: {
       "teacher@provider.com": {
         email: "teacher@provider.com",
+        firstName: "Tess",
+        lastName: "Teacher",
         plan: "Pro",
+        subscriptionStatus: "active",
         signupAt: iso(10 * 86400000),
+        emailVerified: true,
+        emailVerifiedAt: iso(9.5 * 86400000),
         lastLoginAt: iso(3600000),
         lastSeenAt: iso(1800000),
+        trialEnd: iso(8.5 * 86400000),
         metaStartTrialAt: iso(9 * 86400000),
         metaPurchaseAt: iso(8 * 86400000),
         attribution: {
@@ -59,13 +65,16 @@ function unit() {
       },
     },
     analyticsEvents: [
-      { name: "website_visit", sessionId: "s1", visitorId: "v1", createdAt: iso(1000), path: "/", userAgent: "Mozilla/5.0 (iPhone)" },
-      { name: "page_view", sessionId: "s1", createdAt: iso(500), path: "/lessons", detail: { view: "lessons" }, user: "teacher@provider.com" },
+      { name: "website_visit", sessionId: "s1", visitorId: "v1", createdAt: iso(1000), path: "/?utm_source=facebook", userAgent: "Mozilla/5.0 (iPhone)", attribution: { source: "Facebook", landingPage: "/?utm_source=facebook" } },
+      { name: "page_view", sessionId: "s1", visitorId: "v1", createdAt: iso(500), path: "/lessons", detail: { view: "lessons" }, user: "teacher@provider.com", userAgent: "Mozilla/5.0 (iPhone)" },
+      { name: "cta_click", sessionId: "s1", visitorId: "v1", createdAt: iso(450), detail: { cta: "start_free", label: "Start Free" }, attribution: { source: "Facebook" } },
+      { name: "signup_start", sessionId: "s1", visitorId: "v1", createdAt: iso(440), detail: { source: "auth_modal" } },
       { name: "lesson_plan_view", sessionId: "s1", createdAt: iso(400), detail: { title: "Back to School", lessonId: "lp1" }, user: "teacher@provider.com" },
       { name: "search_no_results", sessionId: "s2", createdAt: iso(300), detail: { query: "halloween toddler", results: 0 } },
-      { name: "account_signup_complete", createdAt: iso(200), user: "teacher@provider.com" },
+      { name: "account_signup_complete", createdAt: iso(200), user: "teacher@provider.com", visitorId: "v1", attribution: { source: "Facebook" } },
       { name: "checkout_success", createdAt: iso(100), user: "teacher@provider.com", detail: { plan: "monthly" } },
     ],
+    marketingAdSpend: { Facebook: 100, total: 100 },
     emailEngagement: { events: [{ type: "sent", templateId: "welcome", createdAt: iso(50) }], campaigns: {} },
   };
 
@@ -86,6 +95,24 @@ function unit() {
   const fr = insights.buildInsights(store, { hub: "feature-requests", sort: "votes" });
   assert.equal(fr.data.items[0].title, "More infant activities");
   assert.equal(fr.data.items[0].statusLabel, "Planned");
+
+  const funnel = insights.buildInsights(store, { hub: "marketing-funnel", range: "30d" });
+  assert.equal(funnel.hub, "marketing-funnel");
+  assert.ok(funnel.data.stages.some((s) => s.id === "visitors" && s.count >= 1));
+  assert.ok(funnel.data.stages.some((s) => s.id === "ctaClicks" && s.count >= 1));
+  assert.ok(funnel.data.stages.some((s) => s.id === "signupCompletions" && s.count >= 1));
+  assert.ok(funnel.data.stages.some((s) => s.id === "paidConversions" && s.count >= 1));
+  assert.ok(funnel.data.stages.some((s) => s.id === "activeSubscribers" && s.count >= 1));
+  assert.ok(funnel.data.transitions.length >= 5);
+  assert.ok(funnel.data.bySource.some((r) => r.source === "Facebook"));
+  assert.ok(funnel.data.topLandingPages.length >= 1);
+  assert.ok(funnel.data.deviceBreakdown.some((r) => r.key === "Mobile"));
+  assert.equal(funnel.data.costs.costPerSignup, 100);
+  assert.ok(funnel.data.stagePeople.visitors?.length >= 1);
+
+  const fbOnly = insights.buildInsights(store, { hub: "marketing-funnel", range: "30d", source: "Facebook" });
+  assert.equal(fbOnly.data.sourceFilter, "Facebook");
+  assert.ok((fbOnly.data.stages.find((s) => s.id === "visitors")?.count || 0) >= 1);
 
   console.log("PASS admin-insights unit hubs");
 }
@@ -190,12 +217,17 @@ async function wiring() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const adminInsightsUi = fs.readFileSync(path.join(ROOT, "admin-insights.js"), "utf8");
   assert.match(appJs, /advisor/);
+  assert.match(appJs, /marketing-funnel/);
   assert.match(appJs, /feature-requests-center/);
   assert.match(appJs, /search_no_results/);
+  assert.match(appJs, /cta_click/);
+  assert.match(appJs, /signup_start/);
   assert.match(appJs, /id:\s*"insights"[\s\S]*label:\s*"Insights"/);
   assert.match(indexHtml, /admin-insights\.js/);
   assert.match(indexHtml, /adminInsightsApp/);
   assert.match(adminInsightsUi, /AI Business Advisor/);
+  assert.match(adminInsightsUi, /marketing-funnel/);
+  assert.match(adminInsightsUi, /admin-insights-funnel-bar/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /\/api\/admin\/insights/);
   console.log("PASS admin-insights wiring");
 }
