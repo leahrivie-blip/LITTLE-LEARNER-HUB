@@ -416,9 +416,9 @@ Ordered, stop-for-review slices:
 | **1C** ✅ done | `GET /api/curriculum/lesson-plans/:id/teaching-kit` behind viewer/print flags | Flag off → 404; auth parity with detail; Pro/Trial/free-starter unlock; locked preview has no companion body; public site-content unchanged |
 | **1D** ✅ done | Companion binder UI behind `teachingKitViewer` | Start/Setup/Today/Open Everything/Activity+Substitute/Build/Binder preview; back/favorite/assign intact; fail closed to legacy workspace; flags stay false |
 | **1E** ✅ done | Build My Kit Print Center + client binder print path behind `teachingKitPrintCenter` | Presets + section toggles; professional cover/tabs/footers; selected activities only; trial authorize before print; legacy print still works; flags stay false |
-| **1F** ✅ done (review) | Polish + edge cases + Trial/Pro print gate hardening | Empty/large kits safe & fast; Letter/A4; page-break/image scaling; loading + panel nav; authorize-before-build regressions; flags stay false |
+| **1F** ✅ done | Polish + edge cases + Trial/Pro print gate hardening | Empty/large kits safe & fast; Letter/A4; page-break/image scaling; loading + panel nav; authorize-before-build regressions; flags stay false |
 | **1G** | AttachmentType enum + admin attach hook (optional) | Future types documented + one test resource |
-| **1H** | QA checklist + controlled flag enable | Owner approval before wider release |
+| **1H** ✅ QA done (awaiting owner enablement) | End-to-end QA + readiness report | Desktop/tablet/mobile workflow; Free/Trial/Pro; print; a11y; edge cases; flags remain false; no merge/deploy until owner sign-off |
 
 **Explicitly deferred:** reusable activity masters, song/book libraries, quality dashboard, legacy conversion tool, bulk enrichment, Family Hub.
 
@@ -483,6 +483,8 @@ Add (when coding):
 | Slice 1E tests | `scripts/test-teaching-kit-slice-1e.js` (`npm run test:teaching-kit-slice-1e`) |
 | Slice 1F polish + gate | Empty/large UX, Letter/A4, page-break/image CSS, `evaluatePrintAuthorization`, loading hint |
 | Slice 1F tests | `scripts/test-teaching-kit-slice-1f.js` (`npm run test:teaching-kit-slice-1f`) |
+| Phase 1 QA harness | `scripts/test-teaching-kit-phase1-qa.js` (`npm run test:teaching-kit-phase1-qa`) |
+| Phase 1 readiness report | `docs/teaching-kit/PHASE1_QA_READINESS_REPORT.md` |
 | Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
 
 **Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Kit payloads are **not** added to site-content.

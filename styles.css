@@ -23520,6 +23520,21 @@ body.nuo-open .llh-meta-cookie-notice {
   padding: 12px;
 }
 .tk-kit-item.is-off { opacity: 0.55; background: #f3f5f3; }
+.tk-activity-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--tk-line);
+  border-radius: 14px;
+  padding: 12px;
+}
+.tk-btn:disabled,
+.tk-btn[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
 .tk-toggle {
   width: 42px;
   height: 24px;

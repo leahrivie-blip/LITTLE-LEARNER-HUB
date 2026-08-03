@@ -1,0 +1,29 @@
+{
+  "ok": true,
+  "assertions": 87,
+  "findings": [
+    {
+      "level": "info",
+      "area": "viewport",
+      "message": "desktop: workflow 2062ms, width 1256"
+    },
+    {
+      "level": "info",
+      "area": "viewport",
+      "message": "tablet: workflow 1733ms, width 744"
+    },
+    {
+      "level": "info",
+      "area": "viewport",
+      "message": "mobile: workflow 2242ms, width 366"
+    }
+  ],
+  "artifacts": [
+    "empty-mobile.png",
+    "print-binder-desktop.png",
+    "workflow-desktop.png",
+    "workflow-mobile.png",
+    "workflow-tablet.png"
+  ],
+  "completedAt": "2026-08-03T14:21:25.795Z"
+}

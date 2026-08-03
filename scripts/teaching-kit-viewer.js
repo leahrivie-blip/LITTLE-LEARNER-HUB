@@ -279,7 +279,7 @@
         </div>
         <div class="tk-day-strip" role="tablist" aria-label="Week days">
           ${WEEKDAYS.map((weekday) => `
-            <button type="button" class="tk-day${weekday === day ? " is-active" : ""}" data-tk-day="${weekday}">${escapeHtml(DAY_SHORT[weekday])}</button>
+            <button type="button" role="tab" class="tk-day${weekday === day ? " is-active" : ""}" data-tk-day="${weekday}" aria-selected="${weekday === day ? "true" : "false"}">${escapeHtml(DAY_SHORT[weekday])}</button>
           `).join("")}
         </div>
         ${open ? `
@@ -369,10 +369,10 @@
               <h4>Today’s activities</h4>
               <div class="tk-stack">
                 ${(today.activities || []).map((activity) => `
-                  <div class="tk-kit-item">
+                  <div class="tk-activity-row">
                     <div>
                       <strong>${escapeHtml(activity.title)}</strong>
-                      <p class="tk-muted">${escapeHtml(activity.sectionId || "activity")}</p>
+                      <p class="tk-muted">${escapeHtml(activity.activityCategory || activity.sectionId || "activity")}</p>
                     </div>
                     <button type="button" class="tk-btn tk-btn-secondary tk-btn-sm" data-tk-open-activity="${escapeHtml(activity.id)}">Open</button>
                   </div>
@@ -394,8 +394,8 @@
     return `
       <section class="tk-surface" data-tk-panel="activity">
         <div class="tk-activity-chrome">
-          <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-goto="today">Back to Today</button>
-          <button type="button" class="tk-btn tk-btn-accent tk-btn-sm" data-tk-toggle-substitute>Substitute This Activity</button>
+          <button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-goto="${escapeHtml(state.returnSurface === "build" ? "build" : "today")}">${state.returnSurface === "build" ? "Back to Build / Print" : "Back to Today"}</button>
+          <button type="button" class="tk-btn tk-btn-accent tk-btn-sm" data-tk-toggle-substitute aria-expanded="${showSub ? "true" : "false"}">Substitute This Activity</button>
         </div>
         <h3 class="tk-activity-title">${escapeHtml(activity.title)}</h3>
         <p class="tk-muted">${escapeHtml(activity.activityCategory || "")}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_SHORT[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
@@ -542,9 +542,9 @@
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
               <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
-              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"}>Print Teaching Kit binder</button>
+              <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"} aria-disabled="${printEnabled ? "false" : "true"}">${printEnabled ? "Print Teaching Kit binder" : "Print Teaching Kit binder (flagged off)"}</button>
               <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
-              <p class="tk-muted tk-note">${printEnabled
+              <p class="tk-muted tk-note" id="tk-print-help">${printEnabled
                 ? "Opens a professional binder print layout. Trial exports use the existing watermarked allowance path."
                 : "Enable <strong>teachingKitPrintCenter</strong> locally to print. Selection still works for preview."}</p>
             </article>
@@ -898,10 +898,36 @@
       }
     }
 
+    function onKeydown(event) {
+      const tab = event.target.closest(".tk-ops-tab[data-tk-goto], .tk-day[data-tk-day]");
+      if (!tab || !root.contains(tab)) return;
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft" && event.key !== "Home" && event.key !== "End") {
+        return;
+      }
+      const group = tab.classList.contains("tk-day")
+        ? Array.from(root.querySelectorAll(".tk-day[data-tk-day]"))
+        : Array.from(root.querySelectorAll(".tk-ops-tab[data-tk-goto]"));
+      if (!group.length) return;
+      const index = group.indexOf(tab);
+      if (index < 0) return;
+      event.preventDefault();
+      let next = index;
+      if (event.key === "ArrowRight") next = (index + 1) % group.length;
+      if (event.key === "ArrowLeft") next = (index - 1 + group.length) % group.length;
+      if (event.key === "Home") next = 0;
+      if (event.key === "End") next = group.length - 1;
+      group[next].focus();
+      group[next].click();
+    }
+
     root.addEventListener("click", onClick);
+    root.addEventListener("keydown", onKeydown);
     const host = root.querySelector("[data-tk-host]");
     if (host) focusPanel(host);
-    return () => root.removeEventListener("click", onClick);
+    return () => {
+      root.removeEventListener("click", onClick);
+      root.removeEventListener("keydown", onKeydown);
+    };
   }
 
   /**
