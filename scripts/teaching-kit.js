@@ -137,6 +137,12 @@
     return normalized[key] === true;
   }
 
+  /** Slice 1C: kit read API is available when viewer or print-center flag is on. */
+  function isTeachingKitApiEnabled(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitViewer")
+      || isTeachingKitFlagEnabled(flags, "teachingKitPrintCenter");
+  }
+
   function clampShortText(value, max) {
     const text = String(value == null ? "" : value).trim();
     if (!text) return "";
@@ -252,6 +258,7 @@
     defaultTeachingKitFeatureFlags,
     normalizedTeachingKitFeatureFlags,
     isTeachingKitFlagEnabled,
+    isTeachingKitApiEnabled,
     normalizedTeachingKitOverlay,
     resolveTeachingKitRenderMode,
     sectionIds,

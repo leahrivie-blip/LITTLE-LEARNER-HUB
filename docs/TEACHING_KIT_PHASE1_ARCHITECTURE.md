@@ -1,6 +1,6 @@
 # Complete Teaching Kits — Phase 1 Architecture (No Migration)
 
-**Status:** Architecture approved · **Slice 1A done** · **Slice 1B done (mapper)** · UI/API still flagged off  
+**Status:** Architecture approved · **Slice 1A–1C done** · UI still flagged off · **stop for 1C review**  
 **Branch:** `cursor/teaching-kit-architecture-9ad1`  
 **Date:** 2026-08-03  
 **Base:** `origin/main` @ `f36c0c272367c6000fd310dac62b9a0938903ca4`  
@@ -412,8 +412,8 @@ Ordered, stop-for-review slices:
 | Slice | Work | Exit criteria |
 | --- | --- | --- |
 | **1A** ✅ done | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; public `/api/site-content` omits `featureFlags`; no bulk rewrite; legacy tests green; no viewer/PDF |
-| **1B** ✅ done (review) | `mapLessonPlanToTeachingKit` + companion read-model + fixture tests | Maps Bugs & Butterflies + enriched/empty fixtures; empty sections omitted; flags still false; **no UI/API/PDF** |
-| **1C** | `GET …/teaching-kit` behind flag | Auth parity with detail endpoint |
+| **1B** ✅ done | `mapLessonPlanToTeachingKit` + companion read-model + fixture tests | Maps Bugs & Butterflies + enriched/empty fixtures; empty sections omitted; flags still false; **no UI/API/PDF** |
+| **1C** ✅ done (review) | `GET /api/curriculum/lesson-plans/:id/teaching-kit` behind viewer/print flags | Flag off → 404; auth parity with detail; Pro/Trial/free-starter unlock; locked preview has no companion body; public site-content unchanged |
 | **1D** | Binder UI (read-only) behind `teachingKitViewer` | Desktop/mobile; back/favorite/assign intact |
 | **1E** | Build My Kit UI + client PDF/print path | Selected sections only; legacy print still works |
 | **1F** | Trial/Pro enforcement on kit print | No bypass of trial exports |
@@ -475,13 +475,20 @@ Add (when coding):
 | Fixtures | `scripts/fixtures/teaching-kit/*.json` |
 | Slice 1A tests | `scripts/test-teaching-kit-slice-1a.js` (`npm run test:teaching-kit-slice-1a`) |
 | Slice 1B tests | `scripts/test-teaching-kit-slice-1b.js` (`npm run test:teaching-kit-slice-1b`) |
+| Slice 1C API | `GET /api/curriculum/lesson-plans/:id/teaching-kit` in `server/index.js` |
+| Slice 1C tests | `scripts/test-teaching-kit-slice-1c.js` (`npm run test:teaching-kit-slice-1c`) |
 | Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
 
-**Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Expose publicly only when a later viewer slice needs them.
+**Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Kit payloads are **not** added to site-content.
 
-**Slice 1B includes:** pure Teaching Kit view model (sections + companion surfaces matching approved mockups: Monday Setup, Today, Open Everything, activity depth, substitutes, printables used-in-week, binder/build metadata).
+**Slice 1C API rules**
 
-**Slice 1B does not include:** binder UI, Print Center/PDF, API route, attachments UX, migrations, production flag enablement, deployment.
+- Enabled only when `teachingKitViewer` **or** `teachingKitPrintCenter` is strictly `true`
+- Flag off → `404` `{ code: "teaching_kit_disabled" }`
+- Auth parity with lesson-plan detail: Pro/Trial/admin → full kit; curated Free starter → full kit; otherwise locked preview (no companion/section bodies)
+- Optional query: `day`, `readyMaterials` (comma-separated)
+
+**Slice 1C does not include:** binder UI, Print Center/PDF, attachments UX, migrations, production flag enablement, deployment.
 
 ---
 

@@ -15069,6 +15069,128 @@ async function handleCurriculumLessonPlanDetail(request, response, url, planId) 
   jsonResponse(response, 403, { error: "Pro access is required for this lesson plan." });
 }
 
+function teachingKitPreviewDto(plan) {
+  const entry = normalizedCurriculumLessonPlan(plan);
+  if (!entry) return null;
+  return {
+    schemaVersion: 1,
+    ok: true,
+    locked: true,
+    lessonPlanId: entry.id,
+    title: entry.title,
+    age: entry.age,
+    theme: entry.theme,
+    plan: entry.plan,
+    status: entry.status,
+    coverImageUrl: entry.coverImageUrl,
+    coverImageAlt: entry.coverImageAlt,
+    completeness: entry.teachingKit?.completeness || "legacy_mapped",
+    sections: [],
+    companion: null,
+    quality: null,
+    access: "preview",
+  };
+}
+
+function parseTeachingKitReadyMaterials(url) {
+  const raw = String(url.searchParams.get("readyMaterials") || "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((part) => normalizedShortText(part, 120))
+    .filter(Boolean)
+    .slice(0, 40);
+}
+
+/**
+ * Slice 1C — GET /api/curriculum/lesson-plans/:id/teaching-kit
+ * Behind teachingKitViewer or teachingKitPrintCenter. Auth parity with detail.
+ */
+async function handleCurriculumLessonPlanTeachingKit(request, response, url, planId) {
+  const cleanId = normalizedShortText(planId, 160);
+  if (!cleanId) {
+    jsonResponse(response, 400, { error: "Lesson plan id is required." });
+    return;
+  }
+
+  const store = readStore();
+  const siteContent = normalizedSiteContent(store.siteContent || defaultSiteContentStore());
+  const flags = normalizedFeatureFlags(siteContent.featureFlags);
+  if (!teachingKit.isTeachingKitApiEnabled(flags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit is not available.",
+      code: "teaching_kit_disabled",
+    });
+    return;
+  }
+
+  const curriculum = readSiteCurriculum(store);
+  const rawPlan = curriculum.lessonPlans.find((item) => item.id === cleanId);
+  const plan = normalizedCurriculumLessonPlan(rawPlan);
+  if (!plan || !isCurriculumLessonPublic(plan.status)) {
+    jsonResponse(response, 404, { error: "Lesson plan not found." });
+    return;
+  }
+
+  const dayParam = normalizedShortText(url.searchParams.get("day"), 20).toLowerCase();
+  const mapperOptions = {
+    day: CURRICULUM_WEEKDAYS.has(dayParam) ? dayParam : "monday",
+    readyMaterials: parseTeachingKitReadyMaterials(url),
+    includeEmptySections: false,
+  };
+
+  const access = await resolveCurriculumAccessUser(request, url);
+  const activities = curriculum.activities.filter((item) => item.lessonPlanId === cleanId);
+  const resources = curriculum.resources.filter((item) => {
+    if ((plan.resourceIds || []).includes(item.id)) return true;
+    return Array.isArray(item.lessonPlanIds) && item.lessonPlanIds.includes(cleanId);
+  });
+
+  const respondUnlocked = () => {
+    const mapped = teachingKit.mapLessonPlanToTeachingKit(plan, activities, resources, mapperOptions);
+    jsonResponse(response, 200, {
+      teachingKit: {
+        ...mapped,
+        locked: false,
+        access: access.authorized ? "pro" : "free_unlocked",
+      },
+      featureFlags: {
+        teachingKitViewer: flags.teachingKitViewer === true,
+        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
+        teachingKitAttachments: flags.teachingKitAttachments === true,
+      },
+    });
+  };
+
+  if (access.authorized) {
+    respondUnlocked();
+    return;
+  }
+
+  const accessContext = {
+    ...freePlanAccessContextFromUser(access.user, siteContent),
+    store,
+  };
+  if (userMayUnlockFreeCurriculumPlan(plan, accessContext)) {
+    respondUnlocked();
+    return;
+  }
+
+  const preview = teachingKitPreviewDto(rawPlan);
+  if (preview) {
+    jsonResponse(response, 200, {
+      teachingKit: preview,
+      featureFlags: {
+        teachingKitViewer: flags.teachingKitViewer === true,
+        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
+        teachingKitAttachments: flags.teachingKitAttachments === true,
+      },
+    });
+    return;
+  }
+  jsonResponse(response, 403, { error: "Pro access is required for this Teaching Kit." });
+}
+
 async function handleCurriculumActivityDetail(request, response, url, activityId) {
   const cleanId = normalizedShortText(activityId, 160);
   if (!cleanId) {
@@ -21740,8 +21862,12 @@ const server = http.createServer(async (request, response) => {
       return await handleCurriculumResourceMedia(request, response, assetId, { admin: adminMedia, requestUrl: url });
     }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/lesson-plans/")) {
-      const planId = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
-      return await handleCurriculumLessonPlanDetail(request, response, url, planId);
+      const remainder = decodeURIComponent(url.pathname.slice("/api/curriculum/lesson-plans/".length));
+      if (remainder.endsWith("/teaching-kit")) {
+        const planId = remainder.slice(0, -"/teaching-kit".length).replace(/\/$/, "");
+        return await handleCurriculumLessonPlanTeachingKit(request, response, url, planId);
+      }
+      return await handleCurriculumLessonPlanDetail(request, response, url, remainder);
     }
     if (request.method === "GET" && url.pathname.startsWith("/api/curriculum/activities/")) {
       const activityId = decodeURIComponent(url.pathname.slice("/api/curriculum/activities/".length));

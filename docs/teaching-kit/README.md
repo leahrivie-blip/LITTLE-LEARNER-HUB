@@ -2,11 +2,12 @@
 
 **Status**
 
-- Slice 1A **done** — flags + schema passthrough (not merged / not deployed)
-- Slice 1B **done — awaiting review** — `mapLessonPlanToTeachingKit` read-model + fixtures
-- Teaching Kit flags remain **disabled** (`false`)
+- Slice 1A **done** — flags + schema passthrough
+- Slice 1B **done** — `mapLessonPlanToTeachingKit` read-model
+- Slice 1C **done — awaiting review** — flagged `GET …/teaching-kit` API
+- Teaching Kit flags remain **disabled** (`false`) by default
 - Product design **v4 approved** as the build target
-- Slice 1C+ (API / UI / print) **not started**
+- Slice 1D (binder UI) **not started**
 
 ## Start here
 
@@ -17,26 +18,22 @@
 | Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
 | Canonical module | `scripts/teaching-kit.js` |
 | Mapper (Slice 1B) | `scripts/teaching-kit-mapper.js` |
-| Slice 1B tests | `npm run test:teaching-kit-slice-1b` |
+| API (Slice 1C) | `GET /api/curriculum/lesson-plans/:id/teaching-kit` |
+| Tests | `npm run test:teaching-kit-slice-1a` · `1b` · `1c` |
 
-### Slice 1B exit criteria
+### Slice 1C exit criteria
 
-- Maps legacy lesson plans → Teaching Kit view model (sections + companion surfaces)
-- Empty sections omitted for providers
-- Fixtures: Bugs & Butterflies, enriched mini, empty plan
-- Flags stay **false**; no UI, API route, or PDF yet
+- Flagged API returns mapped Teaching Kit view model
+- Flag off → 404 (`teaching_kit_disabled`)
+- Auth parity with lesson-plan detail (Pro/Trial/free-starter vs locked preview)
+- Public `/api/site-content` unchanged (no `featureFlags`, no kit payloads)
+- Flags reset/disabled after tests; no production enablement
 
-### Companion surfaces encoded in the mapper
+### Optional query params
 
-1. Monday Morning Setup (prep time + missing materials)
-2. Today’s Classroom (per weekday)
-3. Open Everything I Need Today
-4. Activity cards (example/setup photo fields, prompts, cleanup, observations)
-5. Substitute This Activity (materials-aware)
-6. Printables with Used in week
-7. Build My Kit activity picker metadata
-8. Binder cover + tab metadata
+- `day=monday|tuesday|…`
+- `readyMaterials=paint,paper` (comma-separated)
 
 ## Hold
 
-No Slice 1C+, merge, deploy, or flag enablement until Slice 1B review is approved.
+No Slice 1D, merge, deploy, or flag enablement until Slice 1C review is approved.
