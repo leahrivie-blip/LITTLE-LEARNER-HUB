@@ -110,8 +110,13 @@ async function main() {
 
   const kitGuest = await requestJson("GET", `/api/curriculum/lesson-plans/${encodeURIComponent(proPlan.id)}/teaching-kit`);
   if (MODE === "baseline") {
-    assert(kitGuest.status === 404 && kitGuest.json?.code === "teaching_kit_disabled",
-      "baseline: teaching kit disabled for guest");
+    // Pre-deploy production has no Teaching Kit route yet (generic not-found).
+    // Post-deploy with flags off returns teaching_kit_disabled.
+    const baselineDisabled = kitGuest.status === 404 && (
+      kitGuest.json?.code === "teaching_kit_disabled"
+      || /not found|teaching_kit_disabled/i.test(String(kitGuest.json?.error || kitGuest.json?.code || kitGuest.text || ""))
+    );
+    assert(baselineDisabled, `baseline: teaching kit unavailable/disabled (got ${kitGuest.status} ${JSON.stringify(kitGuest.json || {}).slice(0, 160)})`);
   } else {
     assert(kitGuest.status === 200, "enabled: guest kit responds");
     assert(kitGuest.json?.teachingKit?.locked === true || kitGuest.json?.teachingKit?.ok === true,
@@ -121,18 +126,30 @@ async function main() {
     }
   }
 
-  // Asset availability (no 404s on Teaching Kit shell scripts)
-  for (const asset of [
-    "/scripts/teaching-kit.js?v=20260803-teaching-kit-qa",
-    "/scripts/teaching-kit-viewer.js?v=20260803-teaching-kit-qa",
-    "/scripts/teaching-kit-print.js?v=20260803-teaching-kit-qa",
-    "/scripts/teaching-kit-mapper.js?v=20260803-teaching-kit-qa",
-    "/app.js?v=20260803-teaching-kit-qa",
-    "/styles.css?v=20260803-teaching-kit-qa",
-  ]) {
-    const res = await requestJson("GET", asset);
-    // JS/CSS may not be JSON; accept 200
-    assert(res.status === 200, `asset ${asset} → ${res.status}`);
+  // Current shell assets must remain healthy. Teaching Kit versioned assets are
+  // required only after deploy (enabled mode, or when index already ships them).
+  const home = await requestJson("GET", "/");
+  assert(home.status === 200 && /Little Learner Hub/i.test(home.text || ""), "homepage HTML serves");
+  const liveAppVer = String(home.text || "").match(/app\.js\?v=([^"]+)/)?.[1] || "";
+  assert(liveAppVer, "homepage references app.js cache bust");
+  const appAsset = await requestJson("GET", `/app.js?v=${encodeURIComponent(liveAppVer)}`);
+  assert(appAsset.status === 200, `live app.js asset ok (${liveAppVer})`);
+
+  const expectsTeachingKitAssets = MODE === "enabled" || /teaching-kit/i.test(liveAppVer) || /teaching-kit/i.test(home.text || "");
+  if (expectsTeachingKitAssets) {
+    for (const asset of [
+      "/scripts/teaching-kit.js?v=20260803-teaching-kit-qa",
+      "/scripts/teaching-kit-viewer.js?v=20260803-teaching-kit-qa",
+      "/scripts/teaching-kit-print.js?v=20260803-teaching-kit-qa",
+      "/scripts/teaching-kit-mapper.js?v=20260803-teaching-kit-qa",
+      "/app.js?v=20260803-teaching-kit-qa",
+      "/styles.css?v=20260803-teaching-kit-qa",
+    ]) {
+      const res = await requestJson("GET", asset);
+      assert(res.status === 200, `asset ${asset} → ${res.status}`);
+    }
+  } else {
+    results.push({ ok: true, message: `pre-deploy: skipped Teaching Kit assets (live ver ${liveAppVer})` });
   }
 
   if (MODE === "enabled") {
