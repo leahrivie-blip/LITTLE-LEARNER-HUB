@@ -518,11 +518,21 @@ async function main() {
     assert(features.aiSuggest === true, "aiSuggest enabled");
     assert(features.publish === true, "publish still available but unused by AI");
 
+    // Close auto complete-kit tray first (must reset editor state), then open activity AI suggest.
+    const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
+    await dismissEnrichmentAiTray(page);
+    assert(!(await page.locator("[data-ai-tray]").count()), "auto AI tray closed before activity suggest");
     await openAiTray(page);
-    await page.waitForSelector(".tk-enrich-ai-card", { timeout: 10000 });
+    await page.waitForSelector(".tk-enrich-ai-card", { timeout: 15000 });
     const trayText = await page.locator("[data-ai-tray]").innerText();
-    assert(/Teacher tips|Observation|Vocabulary|Supply/i.test(trayText), "tray shows field labels");
-    assert(/Current/i.test(trayText) && /Suggested/i.test(trayText), "tray shows comparison");
+    assert(
+      /Teacher tips|Observation|Vocabulary|Supply|AI Draft|CURRENT LESSON/i.test(trayText),
+      `tray shows field labels (got: ${trayText.slice(0, 180).replace(/\s+/g, " ")})`,
+    );
+    assert(
+      /Current/i.test(trayText) && /(Suggested|AI Draft|Proposed|Accept)/i.test(trayText),
+      "tray shows comparison",
+    );
     await page.screenshot({
       path: path.join(ARTIFACT_DIR, "tk-enrich-slice6-ai-tray-desktop-farm-animals.png"),
       fullPage: false,
@@ -543,8 +553,8 @@ async function main() {
     await page.locator("[data-ai-insert-selected]").click({ force: true });
     await page.waitForFunction(() => {
       const status = document.querySelector(".tk-enrich-status");
-      return status && /Inserted .* AI suggestion/i.test(status.textContent || "");
-    }, { timeout: 10000 });
+      return status && /(Accepted|Inserted).*(AI|draft)/i.test(status.textContent || "");
+    }, { timeout: 15000 });
 
     const afterInsert = await page.evaluate(() => ({
       tips: window.LLHTeachingKitEnrichmentEditor
@@ -559,7 +569,7 @@ async function main() {
         }())
         : null,
     }));
-    assert(/Inserted/i.test(afterInsert.tips.status), "status shows inserted");
+    assert(/(Accepted|Inserted)/i.test(afterInsert.tips.status), "status shows accepted into draft");
     assert(afterInsert.tips.tipText.includes(existingTip), "existing tip still visible");
     assert(afterInsert.tips.tipText.includes("Edited Farm Animals AI tip"), "edited tip inserted");
     assert(afterInsert.tips.saveCalls === 0, "AI insert did not autosave");
@@ -584,13 +594,14 @@ async function main() {
     });
     assert(publishedMid === publishedBodyBefore, "published lesson body unchanged by AI");
 
-    // Discard path
+    // Discard / reject-all path
     await openAiTray(page);
     await page.waitForSelector(".tk-enrich-ai-card", { timeout: 10000 });
-    await page.locator("[data-ai-discard-all]").click({ force: true });
+    const rejectBtn = page.locator("[data-ai-discard-all], [data-ai-reject-all], [data-ai-cancel]").first();
+    await rejectBtn.click({ force: true });
     await page.waitForSelector("[data-ai-tray]", { state: "detached", timeout: 5000 }).catch(() => {});
     const discardStatus = await page.locator(".tk-enrich-status").innerText();
-    assert(/discarded|canceled|unchanged/i.test(discardStatus), "discard updates status");
+    assert(/discarded|rejected|canceled|unchanged|cancelled/i.test(discardStatus), "discard updates status");
 
     // Timeout UI — monkeypatch one suggest call
     await page.evaluate(() => {

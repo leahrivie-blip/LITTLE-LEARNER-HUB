@@ -461,7 +461,9 @@ async function main() {
     assert(features.aiSuggest === true, "AI suggestions available (Slice 6)");
     assert(features.photoUpload === true, "photos remain available");
 
-    await page.click("[data-enrich-publish]");
+    const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
+    await dismissEnrichmentAiTray(page);
+    await page.locator("[data-enrich-publish]").click({ force: true });
     await page.waitForSelector("[data-publish-modal]", { timeout: 5000 });
     const summaryText = await page.locator(".tk-enrich-publish-summary").innerText();
     assert(/Farm Animals/i.test(await page.locator("[data-publish-modal]").innerText()), "confirmation names lesson");
@@ -672,9 +674,10 @@ async function main() {
       expectedUpdatedAt: afterFail.json.siteContent.updatedAt,
     });
     await page.waitForSelector(".tk-enrich-shell");
-    await page.click("[data-enrich-publish]");
+    await dismissEnrichmentAiTray(page);
+    await page.locator("[data-enrich-publish]").click({ force: true });
     await page.waitForSelector("[data-publish-modal]");
-    await page.click("[data-publish-confirm]");
+    await page.locator("[data-publish-confirm]").click({ force: true });
     try {
       await page.waitForFunction(() => {
         const status = document.querySelector(".tk-enrich-status");

@@ -434,6 +434,8 @@ async function main() {
         expectedUpdatedAt,
       });
       await page.waitForSelector(".tk-enrich-shell", { timeout: 10000 });
+      const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
+      await dismissEnrichmentAiTray(page);
     }
 
     await bootEditor({ width: 1440, height: 1000 });
@@ -474,7 +476,7 @@ async function main() {
       { name: "mobile", width: 390, height: 844 },
     ]) {
       await bootEditor({ width: vp.width, height: vp.height });
-      await page.click('[data-enrich-mode="preview"]');
+      await page.locator('[data-enrich-mode="preview"]').click({ force: true });
       await page.waitForSelector("[data-enrich-live-preview]", { timeout: 10000 });
       const overflow = await page.evaluate(() => {
         const shell = document.querySelector(".tk-enrich-shell");

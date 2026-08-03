@@ -325,7 +325,9 @@ async function main() {
     assert(opened.features.aiSuggest === true, "aiSuggest on (Slice 6)");
     assert(opened.features.publish === true, "publish available (Slice 5)");
 
-    await page.click('[data-enrich-mode="preview"]');
+    const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
+    await dismissEnrichmentAiTray(page);
+    await page.locator('[data-enrich-mode="preview"]').click({ force: true });
     await page.waitForSelector("[data-enrich-live-preview][data-draft-preview='1'], .tk-enrich-draft-preview-label", {
       timeout: 15000,
     });

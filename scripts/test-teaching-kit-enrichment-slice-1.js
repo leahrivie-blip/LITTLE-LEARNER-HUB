@@ -259,7 +259,14 @@ async function testViewports(page, baseUrl) {
       const summary = document.querySelector("[data-upgrade-summary]");
       const publishEnabled = Boolean(document.querySelector("[data-enrich-publish]:not([disabled])"));
       const bodyText = document.body.innerText || "";
-      const sliceNote = /Slice\s+\d+/i.test(bodyText) || bodyText.includes("Activity Studio") || bodyText.includes("Draft autosave");
+      // Banner/status copy evolved across slices; accept current draft-safe chrome.
+      const sliceNote = /Slice\s+\d+/i.test(bodyText)
+        || bodyText.includes("Activity Studio")
+        || bodyText.includes("Draft autosave")
+        || bodyText.includes("Draft autosave on")
+        || /saved as a draft/i.test(bodyText)
+        || /Prepare AI Draft/i.test(bodyText)
+        || /never overwritten without your approval/i.test(bodyText);
       const overflowX = shell ? shell.scrollWidth > shell.clientWidth + 2 : true;
       return {
         ok: Boolean(shell && chrome && counter && summary),

@@ -278,6 +278,7 @@ async function main() {
         window.applyCurriculumState = () => {};
         document.body.classList.add("tk-enrich-open");
         window.LLHTeachingKitEnrichmentEditor.open(plan.id);
+        document.querySelector("[data-ai-cancel]")?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
         const text = document.body.innerText || "";
         const stage = document.querySelector("[data-activity-studio]");
         return {
@@ -323,6 +324,9 @@ async function main() {
       assert(result.features.activityStudio === true, `${vp.name}: activityStudio true`);
       assert(result.overflowX === false, `${vp.name}: no horizontal overflow`);
 
+      const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
+      await dismissEnrichmentAiTray(page);
+
       const shotPath = path.join(ARTIFACT_DIR, vp.shot);
       const host = page.locator("#adminTeachingKitEnrichmentHost");
       await host.waitFor({ state: "visible", timeout: 10000 });
@@ -333,7 +337,6 @@ async function main() {
       const studioShot = path.join(ARTIFACT_DIR, vp.shot.replace("farm-", "farm-studio-"));
       const stage = page.locator("[data-activity-studio]");
       if (await stage.count()) {
-        await stage.scrollIntoViewIfNeeded();
         await stage.screenshot({ path: studioShot });
         assert(fs.existsSync(studioShot) && fs.statSync(studioShot).size > 800, `${vp.name}: studio screenshot written`);
       }
