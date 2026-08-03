@@ -5761,7 +5761,7 @@ let adminLessonResourcesDraftId = "";
 const adminLessonUnsavedWarning = "You have unsaved changes. Leave without saving?";
 const adminLessonImportMetadataFields = new Set(["title", "theme", "age", "generatorLessonNumber", "plan", "visible"]);
 const adminLessonVisibleTruthyValues = new Set(["true", "yes", "visible", "live", "on", "1"]);
-const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
+const adminValidSectionTabs = new Set(["admin-home","admin-notifications","content-home","website-home","ai-home","billing-home","system-health","advanced-home","admin-settings","taxonomy-audit","dashboard","resources","curriculum-lesson-plans","curriculum-activities","curriculum-resources","forms","printables","menus","observations","resource-categories","reviews","founder","images","analytics","marketing-analytics","advisor","feature-usage","feature-requests-center","error-center","search-analytics","email-analytics","seo-dashboard","churn-dashboard","content-health","release-center","support","feedback","emails","ai-testing","ai-tools","ai-health","prompts","settings","usage","visibility","users","stripe-backfill","pricing","free-plan","free-starter-library","trial-usage","faqs","announcement","upgrade-msg","hero","trust","journey","reviews-cta","founding","messages-home","admin-inbox","messages-compose","messages-conversations","messages-automations","messages-sent","messages-drafts","messages-archived","messages-email","message-templates","welcome-messages","user-health","automations","changelog","feature-requests","lesson-plan-requests","bug-reports","promo-codes","in-app-announcements"]);
 /** @deprecated use effectiveLessonPlanResourceCategories() — kept as alias for older call sites during transition */
 const lessonPlanResourceCategories = DEFAULT_LESSON_PLAN_RESOURCE_CATEGORIES;
 const adminActiveSectionTabRaw = localStorage.getItem("llhAdminActiveSection") || "admin-home";
@@ -5774,6 +5774,7 @@ if (adminActiveSectionTab === "activities") adminActiveSectionTab = "curriculum-
 // ─── Admin 2.0 Navigation Groups ─────────────────────────────────────────────
 const adminGroups = [
   { id: "admin-home", icon: "🏠", label: "Admin Home", tabs: ["admin-home", "admin-notifications"], defaultTab: "admin-home" },
+  { id: "insights", icon: "🧭", label: "Insights", tabs: ["advisor", "feature-usage", "feature-requests-center", "error-center", "search-analytics", "email-analytics", "seo-dashboard", "churn-dashboard", "content-health", "release-center"], defaultTab: "advisor" },
   { id: "marketing", icon: "📈", label: "Marketing", tabs: ["marketing-analytics"], defaultTab: "marketing-analytics" },
   { id: "users", icon: "👥", label: "Users", tabs: ["users", "user-health"], defaultTab: "users" },
   { id: "billing", icon: "💳", label: "Billing", tabs: ["billing-home", "trial-usage"], defaultTab: "billing-home" },
@@ -5787,6 +5788,16 @@ const adminGroups = [
 const adminGroupForTab = {
   "admin-home": "admin-home",
   "admin-notifications": "admin-home",
+  "advisor": "insights",
+  "feature-usage": "insights",
+  "feature-requests-center": "insights",
+  "error-center": "insights",
+  "search-analytics": "insights",
+  "email-analytics": "insights",
+  "seo-dashboard": "insights",
+  "churn-dashboard": "insights",
+  "content-health": "insights",
+  "release-center": "insights",
   "marketing-analytics": "marketing",
   "billing-home": "billing",
   "trial-usage": "billing",
@@ -5869,6 +5880,16 @@ const adminTabLabels = {
   "dashboard": "Full Dashboard",
   "analytics": "Analytics",
   "marketing-analytics": "Marketing Analytics",
+  "advisor": "AI Business Advisor",
+  "feature-usage": "Feature Usage",
+  "feature-requests-center": "Feature Request Center",
+  "error-center": "Error Center",
+  "search-analytics": "Search Analytics",
+  "email-analytics": "Email Analytics",
+  "seo-dashboard": "SEO Dashboard",
+  "churn-dashboard": "Churn Dashboard",
+  "content-health": "Content Health",
+  "release-center": "Release Center",
   "support": "Support",
   "feedback": "Feedback",
   "feature-requests": "Feature Requests",
@@ -46071,6 +46092,7 @@ function applyAdminSectionVisibility() {
     ".admin-owner-panel",
     ".admin-analytics-panel",
     ".admin-marketing-analytics-panel",
+    ".admin-insights-panel",
     ".launch-readiness-panel",
     ".admin-ticket-panel",
     ".admin-feedback-panel",
@@ -46186,6 +46208,24 @@ function applyAdminSectionVisibility() {
     const el = document.querySelector(".admin-marketing-analytics-panel");
     if (el) el.hidden = false;
     renderAdminMarketingAnalytics();
+  } else if ([
+    "advisor",
+    "feature-usage",
+    "feature-requests-center",
+    "error-center",
+    "search-analytics",
+    "email-analytics",
+    "seo-dashboard",
+    "churn-dashboard",
+    "content-health",
+    "release-center",
+  ].includes(tab)) {
+    const el = document.querySelector(".admin-insights-panel");
+    if (el) el.hidden = false;
+    const hub = tab === "feature-requests-center" ? "feature-requests" : tab;
+    if (typeof window.renderAdminInsights === "function") {
+      window.renderAdminInsights(document.querySelector("#adminInsightsApp"), hub);
+    }
   } else if (tab === "support") {
     const el = document.querySelector(".admin-ticket-panel");
     if (el) el.hidden = false;
@@ -47128,9 +47168,18 @@ function openAdminUserProfile(email, startTab) {
 
     <div class="aup-modal-tabs" id="aupModalTabs">
       <button class="aup-modal-tab${activeTab === "view" ? " active" : ""}"   data-aup-modal-tab="view"   type="button">Account</button>
+      <button class="aup-modal-tab${activeTab === "journey" ? " active" : ""}" data-aup-modal-tab="journey" type="button">Journey</button>
       <button class="aup-modal-tab${activeTab === "manage" ? " active" : ""}" data-aup-modal-tab="manage" type="button">Membership</button>
       <button class="aup-modal-tab${activeTab === "usage" ? " active" : ""}" data-aup-modal-tab="usage"   type="button">Usage</button>
       <button class="aup-modal-tab${activeTab === "activity" ? " active" : ""}" data-aup-modal-tab="activity" type="button">Activity</button>
+    </div>
+
+    <div class="aup-modal-panel" id="aupPanelJourney" ${activeTab !== "journey" ? "hidden" : ""}>
+      <fieldset class="admin-fieldset">
+        <legend>User Journey Timeline</legend>
+        <p class="muted-copy">First visit → source → signup → trial → paid → last activity. Primary support timeline for this member.</p>
+        <div id="aupJourneyMount"><p class="muted-copy">Loading journey…</p></div>
+      </fieldset>
     </div>
 
     <div class="aup-modal-panel" id="aupPanelView"   ${activeTab !== "view"   ? 'hidden' : ''}>
@@ -47343,7 +47392,21 @@ function openAdminUserProfile(email, startTab) {
 
   // Tab switching
   const tabBtns  = modal.querySelectorAll("[data-aup-modal-tab]");
-  const panels   = { view: modal.querySelector("#aupPanelView"), manage: modal.querySelector("#aupPanelManage"), usage: modal.querySelector("#aupPanelUsage"), activity: modal.querySelector("#aupPanelActivity") };
+  const panels   = {
+    view: modal.querySelector("#aupPanelView"),
+    journey: modal.querySelector("#aupPanelJourney"),
+    manage: modal.querySelector("#aupPanelManage"),
+    usage: modal.querySelector("#aupPanelUsage"),
+    activity: modal.querySelector("#aupPanelActivity"),
+  };
+  const loadJourney = () => {
+    const mount = modal.querySelector("#aupJourneyMount");
+    if (mount && typeof window.renderAdminUserJourney === "function") {
+      window.renderAdminUserJourney(mount, email);
+    } else if (mount) {
+      mount.innerHTML = `<p class="muted-copy">Journey insights module is loading…</p>`;
+    }
+  };
   tabBtns.forEach((btn) => {
     btn.addEventListener("click", () => {
       tabBtns.forEach((b) => b.classList.remove("active"));
@@ -47351,8 +47414,10 @@ function openAdminUserProfile(email, startTab) {
       Object.values(panels).forEach((p) => { if (p) p.hidden = true; });
       const pKey = btn.dataset.aupModalTab;
       if (panels[pKey]) panels[pKey].hidden = false;
+      if (pKey === "journey") loadJourney();
     });
   });
+  if (activeTab === "journey") loadJourney();
 
   // Action handlers
   modal.querySelector("#adminUserProfileBody").addEventListener("click", (e) => {
@@ -60704,6 +60769,35 @@ window.addEventListener("beforeunload", (event) => {
     : adminLessonUnsavedWarning;
 });
 
+let llhSearchTrackTimer = null;
+let llhLastTrackedSearch = "";
+function trackLibrarySearchAnalytics(rawQuery, resultCount) {
+  const query = String(rawQuery || "").trim().toLowerCase().slice(0, 120);
+  if (query.length < 2) return;
+  if (query === llhLastTrackedSearch) return;
+  llhLastTrackedSearch = query;
+  const results = Number(resultCount);
+  const noResults = Number.isFinite(results) && results <= 0;
+  if (typeof trackEvent === "function") {
+    trackEvent(noResults ? "search_no_results" : "search_query", {
+      query,
+      term: query,
+      results: Number.isFinite(results) ? results : null,
+      view: document.querySelector(".active-view")?.id?.replace("view-", "") || "",
+    });
+  }
+}
+function scheduleLibrarySearchAnalytics(rawQuery) {
+  clearTimeout(llhSearchTrackTimer);
+  llhSearchTrackTimer = setTimeout(() => {
+    const query = String(rawQuery || "").trim();
+    if (query.length < 2) return;
+    // Approximate visible result cards in the active library view.
+    const cards = document.querySelectorAll(".active-view .resource-card, .active-view .lesson-card, .active-view [data-resource-id]");
+    trackLibrarySearchAnalytics(query, cards.length);
+  }, 700);
+}
+
 searchInput.addEventListener("keydown", (event) => {
   if (event.key === "Enter") showSearchResults();
 });
@@ -60711,6 +60805,7 @@ searchInput.addEventListener("keydown", (event) => {
 searchInput.addEventListener("input", () => {
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
   if (viewMap[activeView]) renderCategoryPage(activeView);
+  scheduleLibrarySearchAnalytics(searchInput.value);
 });
 
 document.addEventListener("change", (event) => {
