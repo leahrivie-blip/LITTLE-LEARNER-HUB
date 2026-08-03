@@ -1788,6 +1788,9 @@ const curriculumBackupConfig = {
 const curriculumLessonPlanConfig = {
   endpoint: "/api/admin/curriculum/lesson-plans",
 };
+if (typeof window !== "undefined") {
+  window.curriculumLessonPlanConfig = curriculumLessonPlanConfig;
+}
 const curriculumResourceConfig = {
   listEndpoint: "/api/admin/curriculum/resources",
   fileEndpoint: "/api/admin/curriculum/resources/file",
@@ -5753,7 +5756,16 @@ let adminImpersonationState = null; // { email, account, planPreview, startedAt 
 let adminUserDetailCache = {};
 let adminPromoCodesState = { loading: false, items: [], envPromo: null, redemptions: [], audit: null, error: "", success: "" };
 let adminCommsAnnouncementsState = { loading: false, items: [], error: "", success: "" };
-let adminCurriculumListFilters = { query: "", status: "", plan: "", age: "", theme: "" };
+let adminCurriculumListFilters = {
+  query: "",
+  status: "",
+  plan: "",
+  age: "",
+  theme: "",
+  completionBand: "",
+  gap: "",
+  sort: "updated",
+};
 let adminCurriculumSelectedIds = new Set();
 let adminCurriculumActivitySelectedIds = new Set();
 let adminManagedSelectedIds = {
@@ -6219,6 +6231,14 @@ function emptySiteContent() {
       teachingKitViewer: false,
       teachingKitPrintCenter: false,
       teachingKitAttachments: false,
+      // Enrichment Editor: defaults false until owner enables a reviewed slice.
+      teachingKitEnrichmentEditor: false,
+      // Complete Teaching Kit binder authoring in classic editor. Default false.
+      teachingKitAuthoring: false,
+      // AI Curriculum Director (library-wide). Default false.
+      teachingKitCurriculumDirector: false,
+      // AI Curriculum Quality Review. Default false.
+      teachingKitQualityReview: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -9214,6 +9234,10 @@ function curriculumDailyItemRowHtml(day, item = {}) {
       <label>Adaptations<textarea rows="2" data-curriculum-adaptations>${escapeHtml(item.adaptations || "")}</textarea></label>
       <label>Safety notes<textarea rows="2" data-curriculum-safety-notes>${escapeHtml(item.safetyNotes || "")}</textarea></label>
       <label>Age modifications<textarea rows="2" data-curriculum-age-modifications>${escapeHtml(item.ageModifications || "")}</textarea></label>
+      ${typeof isTeachingKitAuthoringEnabled === "function" && isTeachingKitAuthoringEnabled()
+        && typeof LLHTeachingKitAuthoring !== "undefined"
+        ? LLHTeachingKitAuthoring.activityBinderFieldsHtml(item)
+        : ""}
     </div>
   `;
 }
@@ -10012,11 +10036,16 @@ function adminCurriculumLessonJumpNavHtml() {
     const label = day.charAt(0).toUpperCase() + day.slice(1);
     return `<a class="lesson-editor-jump-link" href="#admin-lesson-day-${day}" data-admin-lesson-jump="${day}">${escapeHtml(label)}</a>`;
   }).join("");
+  const binderLinks = typeof isTeachingKitAuthoringEnabled === "function" && isTeachingKitAuthoringEnabled()
+    && typeof LLHTeachingKitAuthoring !== "undefined"
+    ? LLHTeachingKitAuthoring.binderJumpLinkHtml()
+    : "";
   return `
     <nav class="lesson-editor-jump admin-lesson-jump" aria-label="Jump to lesson plan sections">
       <a class="lesson-editor-jump-link" href="#admin-lesson-basics" data-admin-lesson-jump="basics">Basics</a>
       <a class="lesson-editor-jump-link" href="#admin-lesson-cover" data-admin-lesson-jump="cover">Cover</a>
       <a class="lesson-editor-jump-link" href="#admin-lesson-weekly" data-admin-lesson-jump="weekly">Weekly</a>
+      ${binderLinks}
       ${dayLinks}
       <a class="lesson-editor-jump-link" href="#admin-lesson-resources" data-admin-lesson-jump="resources">Resources</a>
     </nav>
@@ -10124,6 +10153,13 @@ function renderAdminCurriculumLessonPlanForm(plan) {
         <label>Observation opportunities<textarea name="observationOpportunities" rows="3">${escapeHtml(record.observationOpportunities || "")}</textarea></label>
         <label>Adaptations<textarea name="adaptations" rows="3">${escapeHtml(record.adaptations || "")}</textarea></label>
       </details>
+      ${typeof isTeachingKitAuthoringEnabled === "function" && isTeachingKitAuthoringEnabled()
+        && typeof LLHTeachingKitAuthoring !== "undefined"
+        ? LLHTeachingKitAuthoring.binderPanelHtml(
+          record,
+          typeof curriculumActivitiesForLesson === "function" ? curriculumActivitiesForLesson(record.id) : [],
+        )
+        : ""}
       <div class="curriculum-daily-editor">
         <div class="curriculum-daily-toolbar">
           <div>
@@ -10147,12 +10183,212 @@ function renderAdminCurriculumLessonPlanForm(plan) {
   `;
 }
 
+function isTeachingKitEnrichmentEditorEnabled() {
+  const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  if (typeof LLHTeachingKit !== "undefined" && typeof LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled === "function") {
+    return LLHTeachingKit.isTeachingKitEnrichmentEditorEnabled(flags) === true;
+  }
+  return flags.teachingKitEnrichmentEditor === true;
+}
+
+function isTeachingKitAuthoringEnabled() {
+  const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+  if (typeof LLHTeachingKit !== "undefined" && typeof LLHTeachingKit.isTeachingKitAuthoringEnabled === "function") {
+    return LLHTeachingKit.isTeachingKitAuthoringEnabled(flags) === true;
+  }
+  if (typeof LLHTeachingKitAuthoring !== "undefined" && typeof LLHTeachingKitAuthoring.isAuthoringEnabled === "function") {
+    return LLHTeachingKitAuthoring.isAuthoringEnabled(flags) === true;
+  }
+  return flags.teachingKitAuthoring === true;
+}
+
+async function requestTeachingKitAuthoringAiSuggestions(button) {
+  if (!isTeachingKitAuthoringEnabled()) {
+    showActionFeedback("Teaching Kit authoring is disabled (feature flag off).");
+    return;
+  }
+  const row = button.closest("[data-curriculum-activity-row]");
+  const tray = row?.querySelector("[data-tk-authoring-ai-tray]");
+  const form = document.querySelector("#adminCurriculumLessonPlanForm");
+  const planId = normalizedShortText(form?.querySelector('[name="id"]')?.value || adminCurriculumLessonEditorId || "");
+  const activityKey = normalizedShortText(row?.querySelector("[data-curriculum-item-id]")?.value || "");
+  const token = adminSession()?.token || "";
+  if (!tray || !planId || !activityKey || !token) {
+    showActionFeedback("Open a saved lesson activity to request AI binder suggestions.");
+    return;
+  }
+  tray.hidden = false;
+  tray.innerHTML = `<p class="muted-copy">Generating binder suggestions… Existing lesson fields stay unchanged.</p>`;
+  try {
+    const response = await fetch("/api/admin/curriculum/enrichment-ai-suggest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        planId,
+        activityKey,
+        scope: "activity",
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || `HTTP ${response.status}`);
+    const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+    if (!suggestions.length) {
+      tray.innerHTML = `<p class="muted-copy">No suggestions returned. Existing content was kept.</p>
+        <button type="button" class="ghost-button" data-tk-authoring-ai-dismiss>Dismiss</button>`;
+      return;
+    }
+    tray.dataset.aiSuggestions = JSON.stringify(suggestions);
+    tray.innerHTML = `
+      <p><strong>${suggestions.length} suggestion(s)</strong> — review before inserting. Nothing overwrites until you confirm.</p>
+      <ul class="tk-authoring-ai-list">
+        ${suggestions.slice(0, 8).map((sug) => `
+          <li>
+            <label class="admin-inline-toggle">
+              <input type="checkbox" data-tk-authoring-ai-pick checked />
+              <span><strong>${escapeHtml(sug.fieldLabel || sug.field || sug.category || "Suggestion")}</strong>
+              — ${escapeHtml(typeof sug.proposedText === "string" ? sug.proposedText : JSON.stringify(sug.proposedValue || ""))}</span>
+            </label>
+          </li>
+        `).join("")}
+      </ul>
+      <div class="account-actions-row">
+        <button type="button" class="primary-button" data-tk-authoring-ai-insert>Insert selected into binder fields</button>
+        <button type="button" class="ghost-button" data-tk-authoring-ai-dismiss>Discard</button>
+      </div>
+    `;
+  } catch (error) {
+    tray.innerHTML = `<p class="form-message">AI assist failed: ${escapeHtml(error.message || error)}. Existing lesson data was not changed.</p>
+      <button type="button" class="ghost-button" data-tk-authoring-ai-dismiss>Dismiss</button>`;
+  }
+}
+
+function insertTeachingKitAuthoringAiSuggestions(button) {
+  const tray = button.closest("[data-tk-authoring-ai-tray]");
+  const row = button.closest("[data-curriculum-activity-row]");
+  if (!tray || !row || typeof LLHTeachingKitAuthoring === "undefined") return;
+  let suggestions = [];
+  try {
+    suggestions = JSON.parse(tray.dataset.aiSuggestions || "[]");
+  } catch {
+    suggestions = [];
+  }
+  const picks = [...tray.querySelectorAll("[data-tk-authoring-ai-pick]")];
+  const selected = suggestions.filter((_, index) => picks[index]?.checked);
+  if (!selected.length) {
+    showActionFeedback("Select at least one suggestion to insert.");
+    return;
+  }
+  const current = LLHTeachingKitAuthoring.collectActivityBinderFields(row);
+  current.observationOpportunities = row.querySelector("[data-curriculum-observation-opportunities]")?.value || "";
+  current.vocabulary = row.querySelector("[data-curriculum-vocabulary]")?.value || "";
+  const applied = LLHTeachingKitAuthoring.applyAiSuggestionsToActivityFields(current, selected);
+  const tipsEl = row.querySelector("[data-curriculum-teacher-tips]");
+  const subsEl = row.querySelector("[data-curriculum-substitutions]");
+  const obsEl = row.querySelector("[data-curriculum-observation-opportunities]");
+  const vocabEl = row.querySelector("[data-curriculum-vocabulary]");
+  if (tipsEl) tipsEl.value = (applied.item.teacherTips || []).join("\n");
+  if (subsEl) {
+    subsEl.value = (applied.item.substitutions || [])
+      .map((sub) => `${sub.need} → ${sub.use}`)
+      .join("\n");
+  }
+  if (obsEl && applied.item.observationOpportunities) obsEl.value = applied.item.observationOpportunities;
+  if (vocabEl && applied.item.vocabulary) vocabEl.value = applied.item.vocabulary;
+  (applied.item.settingTags || []).forEach((tag) => {
+    const input = row.querySelector(`input[data-curriculum-setting-tag][value="${tag}"]`);
+    if (input) input.checked = true;
+  });
+  tray.hidden = true;
+  tray.innerHTML = "";
+  showActionFeedback(`Inserted ${applied.inserted || selected.length} AI suggestion(s) into binder fields only — save the lesson to persist.`);
+}
+
+function adminCurriculumLessonEnrichmentMeta(plan) {
+  const enrich = typeof LLHTeachingKitEnrichment !== "undefined" ? LLHTeachingKitEnrichment : null;
+  if (!enrich || !plan) {
+    return {
+      percent: 0,
+      label: "Legacy",
+      stage: "Legacy",
+      summary: null,
+    };
+  }
+  const acts = typeof curriculumActivitiesForLesson === "function"
+    ? curriculumActivitiesForLesson(plan.id)
+    : [];
+  const summary = typeof enrich.buildUpgradeSummary === "function"
+    ? enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null)
+    : null;
+  const percent = summary
+    ? summary.completionPercent
+    : enrich.computeCompletionPercent(plan, acts, plan.enrichmentDraft || null);
+  const label = summary
+    ? summary.completenessLabel
+    : enrich.completenessLabelFromPercent(percent, null);
+  const stage = summary?.dashboardStage
+    || (typeof enrich.dashboardStageFromSummary === "function"
+      ? enrich.dashboardStageFromSummary(summary || { completionPercent: percent })
+      : label);
+  return { percent, label, stage, summary };
+}
+
+function adminCurriculumCompletionBandMatch(percent, band) {
+  const p = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
+  if (!band) return true;
+  if (band === "0-24") return p <= 24;
+  if (band === "25-49") return p >= 25 && p <= 49;
+  // Align % bands with Legacy (<50) / Enriched (50–89) / Complete (≥90) labels.
+  if (band === "50-89" || band === "50-79") return p >= 50 && p <= 89;
+  if (band === "90-99" || band === "80-99") return p >= 90 && p <= 99;
+  if (band === "100") return p === 100;
+  return true;
+}
+
+function clearTeachingKitEnrichmentListFilters() {
+  if (!adminCurriculumListFilters || typeof adminCurriculumListFilters !== "object") return;
+  adminCurriculumListFilters.completionBand = "";
+  adminCurriculumListFilters.gap = "";
+  if (String(adminCurriculumListFilters.sort || "").startsWith("completion")) {
+    adminCurriculumListFilters.sort = "updated";
+  }
+}
+
 function curriculumLessonPlanAdminCardHtml(plan) {
   const linkedCount = curriculumActivitiesForLesson(plan.id).filter((item) => item.status !== "archived").length;
   const selected = adminCurriculumSelectedIds.has(plan.id);
   const cover = sanitizedImageSource(plan.coverImageUrl || "")
     || (typeof lessonPlanCoversApi === "function" ? lessonPlanCoversApi()?.resolveLessonPlanCover?.(plan)?.url : "")
     || "";
+  const enrichEnabled = isTeachingKitEnrichmentEditorEnabled();
+  const enrichment = enrichEnabled ? adminCurriculumLessonEnrichmentMeta(plan) : null;
+  const summary = enrichment?.summary || null;
+  const hasDraft = Boolean(summary?.hasEnrichmentDraft);
+  const workspace = typeof LLHTeachingKitUpgradeWorkspace !== "undefined"
+    ? LLHTeachingKitUpgradeWorkspace
+    : null;
+  const gapBits = workspace?.gapChipsFromSummary
+    ? workspace.gapChipsFromSummary({
+      ...summary,
+      missingTeacherToolkit: summary?.missingTeacherToolkit,
+      aiReady: summary?.aiReady,
+    })
+    : [];
+  if (!workspace && summary) {
+    if (summary.incompleteActivities) gapBits.push(`${summary.incompleteActivities} incomplete`);
+    if (summary.missingSongs) gapBits.push("songs");
+    if (summary.missingBooks) gapBits.push("books");
+    if (summary.missingPrintables) gapBits.push("printables");
+    if (summary.missingExamples || summary.missingPhotos) gapBits.push("examples");
+    if (summary.missingTeacherToolkit) gapBits.push("toolkit");
+    if (summary.missingObservations || summary.missingObservationPrompts > 0) gapBits.push("observations");
+    if (summary.missingFamilyConnection) gapBits.push("family");
+  }
+  const editedLabel = summary?.lastEditedDate
+    ? adminLessonUpdatedLabel(summary.lastEditedDate)
+    : adminLessonUpdatedLabel(plan.updatedAt);
+  const editedBy = summary?.lastEditedBy ? ` by ${summary.lastEditedBy}` : "";
+  const stage = enrichment?.stage || summary?.dashboardStage || enrichment?.label || "Legacy";
+  const aiReady = summary?.aiReady !== false;
   return `
     <article class="admin-content-card is-${escapeHtml(plan.status || "draft")}${selected ? " is-selected" : ""}">
       <div class="admin-mobile-card-body">
@@ -10166,14 +10402,21 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Upgrade status">${escapeHtml(stage)} · ${enrichment.percent}%</span>` : ""}
+            ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
+            ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
+            ${summary?.needsReview ? `<span class="tag">Needs review</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
+          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>` : ""}
+          ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>
-          <small>Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}</small>
+          <small>${enrichEnabled ? `Last updated: ${escapeHtml(editedLabel)}${escapeHtml(editedBy)}` : `Updated: ${escapeHtml(adminLessonUpdatedLabel(plan.updatedAt))}`}</small>
         </div>
       </div>
       <div class="form-actions">
+        ${enrichEnabled ? `<button class="primary-button" type="button" data-curriculum-lesson-enrich="${escapeHtml(plan.id)}">Upgrade Lesson</button>` : ""}
         <button class="ghost-button" type="button" data-curriculum-lesson-edit="${escapeHtml(plan.id)}">Edit</button>
         <button class="ghost-button" type="button" data-curriculum-lesson-preview="${escapeHtml(plan.id)}">Preview</button>
       </div>
@@ -10184,14 +10427,68 @@ function curriculumLessonPlanAdminCardHtml(plan) {
 function filteredAdminCurriculumLessonPlans() {
   const filters = adminCurriculumListFilters || {};
   const q = String(filters.query || "").trim().toLowerCase();
-  return curriculumLessonPlansForAdmin().filter((plan) => {
+  const enrich = typeof LLHTeachingKitEnrichment !== "undefined" ? LLHTeachingKitEnrichment : null;
+  const metaCache = new Map();
+  const metaFor = (plan) => {
+    if (!metaCache.has(plan.id)) metaCache.set(plan.id, adminCurriculumLessonEnrichmentMeta(plan));
+    return metaCache.get(plan.id);
+  };
+  const filtered = curriculumLessonPlansForAdmin().filter((plan) => {
     if (filters.status && String(plan.status || "").toLowerCase() !== String(filters.status).toLowerCase()) return false;
     if (filters.plan && String(plan.plan || "") !== filters.plan) return false;
     if (filters.age && String(plan.age || "") !== filters.age) return false;
     if (filters.theme && String(plan.theme || "").toLowerCase() !== String(filters.theme).toLowerCase()) return false;
+    const meta = metaFor(plan);
+    if (isTeachingKitEnrichmentEditorEnabled() && filters.completionBand) {
+      const band = String(filters.completionBand);
+      const stageSlug = String(meta.stage || meta.summary?.dashboardStage || "")
+        .toLowerCase()
+        .replace(/\s+/g, "_");
+      if (
+        band === "legacy"
+        || band === "in_progress"
+        || band === "needs_review"
+        || band === "ready"
+        || band === "complete"
+      ) {
+        if (stageSlug !== band) return false;
+      } else if (band === "enriched") {
+        if (String(meta.label || "").toLowerCase() !== "enriched") return false;
+      } else if (!adminCurriculumCompletionBandMatch(meta.percent, band)) {
+        return false;
+      }
+    }
+    if (isTeachingKitEnrichmentEditorEnabled() && filters.gap && enrich?.matchesUpgradeGapFilter) {
+      if (!enrich.matchesUpgradeGapFilter(meta.summary, filters.gap)) return false;
+    }
     if (!q) return true;
     const hay = `${plan.title || ""} ${plan.theme || ""} ${plan.age || ""} ${plan.status || ""} ${plan.plan || ""}`.toLowerCase();
     return hay.includes(q);
+  });
+  const enrichEditorOn = isTeachingKitEnrichmentEditorEnabled();
+  if (!enrichEditorOn) {
+    // Flag-off: never apply TK completion/gap sorts that would rewrite the library order.
+    clearTeachingKitEnrichmentListFilters();
+  }
+  const sort = String((adminCurriculumListFilters || filters).sort || "updated");
+  return filtered.slice().sort((a, b) => {
+    if (enrichEditorOn && sort === "completion-asc") return metaFor(a).percent - metaFor(b).percent;
+    if (enrichEditorOn && sort === "completion-desc") return metaFor(b).percent - metaFor(a).percent;
+    if (sort === "title") return String(a.title || "").localeCompare(String(b.title || ""));
+    if (sort === "theme") return String(a.theme || "").localeCompare(String(b.theme || "")) || String(a.title || "").localeCompare(String(b.title || ""));
+    if (sort === "age") return String(a.age || "").localeCompare(String(b.age || "")) || String(a.title || "").localeCompare(String(b.title || ""));
+    if (enrichEditorOn && sort === "edited-asc") {
+      return String(metaFor(a).summary?.lastEditedDate || a.updatedAt || "")
+        .localeCompare(String(metaFor(b).summary?.lastEditedDate || b.updatedAt || ""));
+    }
+    if (enrichEditorOn && (sort === "edited-desc" || sort === "updated")) {
+      return String(metaFor(b).summary?.lastEditedDate || b.updatedAt || "")
+        .localeCompare(String(metaFor(a).summary?.lastEditedDate || a.updatedAt || ""));
+    }
+    if (sort === "updated" || sort === "edited-desc") {
+      return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    }
+    return String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
   });
 }
 
@@ -10211,12 +10508,14 @@ async function bulkUpdateAdminCurriculumLessonStatus(status) {
   let failed = 0;
   for (const plan of plans) {
     try {
+      // Status-only bulk actions: send the full stored plan with only status changed.
+      // Never run through a stripper that could drop enrichmentDraft / history / media.
       const response = await fetch(curriculumLessonPlanConfig.endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           expectedUpdatedAt: curriculumExpectedUpdatedAt(),
-          lessonPlan: normalizeCurriculumLessonPlanForRender({ ...plan, status }),
+          lessonPlan: { ...plan, status },
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -10264,15 +10563,32 @@ function renderAdminCurriculumLessonPlanManager() {
   const banner = adminCurriculumLessonSaveBanner?.text
     ? `<div class="form-message ${adminCurriculumLessonSaveBanner.isSuccess ? "success" : ""}" id="adminCurriculumLessonPlanBanner" role="status">${escapeHtml(adminCurriculumLessonSaveBanner.text)}</div>`
     : `<div class="form-message" id="adminCurriculumLessonPlanBanner" role="status"></div>`;
+  const upgradeWorkspaceOn = isTeachingKitEnrichmentEditorEnabled();
+  const workspaceCopy = (typeof LLHTeachingKitUpgradeWorkspace !== "undefined"
+    && LLHTeachingKitUpgradeWorkspace.workspaceCopy)
+    ? LLHTeachingKitUpgradeWorkspace.workspaceCopy()
+    : null;
   target.innerHTML = `
     <div class="access-notice" role="status" style="margin-bottom:1rem;">
       <strong>Play-Based Curriculum is the active lesson and activity system.</strong>
     </div>
+    ${upgradeWorkspaceOn && workspaceCopy ? `
+    <div class="access-notice tk-upgrade-workspace-banner" role="status" style="margin-bottom:1rem;">
+      <p class="eyebrow">${escapeHtml(workspaceCopy.eyebrow)}</p>
+      <strong>${escapeHtml(workspaceCopy.title)}</strong>
+      <p class="muted-copy">${escapeHtml(workspaceCopy.blurb)}</p>
+      <p class="muted-copy">${escapeHtml(workspaceCopy.oneAtATime)}</p>
+    </div>
+    ` : ""}
+    <div id="adminCurriculumDirectorHost" class="tk-director-host" hidden></div>
+    <div id="adminLibraryHealthHost" class="tk-quality-host" hidden></div>
     <div class="section-heading">
       <div>
-        <p class="eyebrow">Content Manager</p>
-        <h3>Curriculum lesson plans</h3>
-        <p class="muted-copy">File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities.</p>
+        <p class="eyebrow">${upgradeWorkspaceOn ? "Upgrade Workspace" : "Content Manager"}</p>
+        <h3>${upgradeWorkspaceOn ? "Lesson upgrade dashboard" : "Curriculum lesson plans"}</h3>
+        <p class="muted-copy">${upgradeWorkspaceOn
+          ? "Upgrade status, completion %, gaps, and AI Ready for every lesson. Review one lesson at a time — nothing publishes automatically."
+          : "File-manager style filters and bulk actions. Lesson plans remain the source of truth for linked activities."}</p>
       </div>
       <button class="ghost-button" type="button" id="adminCreateCurriculumLessonPlanButton">+ Create lesson plan</button>
     </div>
@@ -10305,6 +10621,58 @@ function renderAdminCurriculumLessonPlanManager() {
           ${themes.map((theme) => `<option value="${escapeHtml(theme)}" ${adminCurriculumListFilters.theme === theme ? "selected" : ""}>${escapeHtml(theme)}</option>`).join("")}
         </select>
       </label>
+      ${isTeachingKitEnrichmentEditorEnabled() ? `
+      <label><span>TK dashboard stage</span>
+        <select id="adminCurriculumFilterCompletion">
+          <option value="" ${!adminCurriculumListFilters.completionBand ? "selected" : ""}>All</option>
+          <option value="legacy" ${adminCurriculumListFilters.completionBand === "legacy" ? "selected" : ""}>Legacy</option>
+          <option value="in_progress" ${adminCurriculumListFilters.completionBand === "in_progress" ? "selected" : ""}>In Progress</option>
+          <option value="needs_review" ${adminCurriculumListFilters.completionBand === "needs_review" ? "selected" : ""}>Needs Review</option>
+          <option value="ready" ${adminCurriculumListFilters.completionBand === "ready" ? "selected" : ""}>Ready</option>
+          <option value="complete" ${adminCurriculumListFilters.completionBand === "complete" ? "selected" : ""}>Complete</option>
+          <option value="0-24" ${adminCurriculumListFilters.completionBand === "0-24" ? "selected" : ""}>0–24%</option>
+          <option value="25-49" ${adminCurriculumListFilters.completionBand === "25-49" ? "selected" : ""}>25–49%</option>
+          <option value="50-89" ${adminCurriculumListFilters.completionBand === "50-89" || adminCurriculumListFilters.completionBand === "50-79" ? "selected" : ""}>50–89% (Enriched band)</option>
+          <option value="90-99" ${adminCurriculumListFilters.completionBand === "90-99" || adminCurriculumListFilters.completionBand === "80-99" ? "selected" : ""}>90–99%</option>
+          <option value="100" ${adminCurriculumListFilters.completionBand === "100" ? "selected" : ""}>100%</option>
+          <option value="enriched" ${adminCurriculumListFilters.completionBand === "enriched" ? "selected" : ""}>Enriched (band)</option>
+        </select>
+      </label>
+      <label><span>Priority gap</span>
+        <select id="adminCurriculumFilterGap">
+          <option value="" ${!adminCurriculumListFilters.gap ? "selected" : ""}>All</option>
+          <option value="most_incomplete" ${adminCurriculumListFilters.gap === "most_incomplete" || adminCurriculumListFilters.gap === "incomplete" ? "selected" : ""}>Most incomplete</option>
+          <option value="ai_ready" ${adminCurriculumListFilters.gap === "ai_ready" ? "selected" : ""}>AI Ready</option>
+          <option value="missing_songs" ${adminCurriculumListFilters.gap === "missing_songs" ? "selected" : ""}>Missing songs</option>
+          <option value="missing_books" ${adminCurriculumListFilters.gap === "missing_books" ? "selected" : ""}>Missing books</option>
+          <option value="missing_printables" ${adminCurriculumListFilters.gap === "missing_printables" ? "selected" : ""}>Missing printables</option>
+          <option value="missing_examples" ${adminCurriculumListFilters.gap === "missing_examples" || adminCurriculumListFilters.gap === "missing_photos" ? "selected" : ""}>Missing example images</option>
+          <option value="missing_toolkit" ${adminCurriculumListFilters.gap === "missing_toolkit" ? "selected" : ""}>Missing teacher toolkit</option>
+          <option value="missing_observations" ${adminCurriculumListFilters.gap === "missing_observations" ? "selected" : ""}>Missing observations</option>
+          <option value="missing_family" ${adminCurriculumListFilters.gap === "missing_family" ? "selected" : ""}>Missing family connection</option>
+          <option value="missing_tips" ${adminCurriculumListFilters.gap === "missing_tips" ? "selected" : ""}>Missing teacher tips</option>
+          <option value="draft" ${adminCurriculumListFilters.gap === "draft" ? "selected" : ""}>Draft</option>
+          <option value="published" ${adminCurriculumListFilters.gap === "published" ? "selected" : ""}>Published</option>
+          <option value="needs_review" ${adminCurriculumListFilters.gap === "needs_review" ? "selected" : ""}>Needs review</option>
+          <option value="edited_today" ${adminCurriculumListFilters.gap === "edited_today" ? "selected" : ""}>Edited today</option>
+          <option value="edited_7d" ${adminCurriculumListFilters.gap === "edited_7d" ? "selected" : ""}>Edited last 7 days</option>
+          <option value="edited_older" ${adminCurriculumListFilters.gap === "edited_older" ? "selected" : ""}>Edited older than 7 days</option>
+        </select>
+      </label>
+      ` : ""}
+      <label><span>Sort</span>
+        <select id="adminCurriculumFilterSort">
+          <option value="updated" ${adminCurriculumListFilters.sort === "updated" ? "selected" : ""}>${isTeachingKitEnrichmentEditorEnabled() ? "Last updated ↓" : "Updated"}</option>
+          ${isTeachingKitEnrichmentEditorEnabled() ? `
+          <option value="completion-asc" ${adminCurriculumListFilters.sort === "completion-asc" ? "selected" : ""}>Most incomplete (completion % ↑)</option>
+          <option value="completion-desc" ${adminCurriculumListFilters.sort === "completion-desc" ? "selected" : ""}>Most complete (completion % ↓)</option>
+          <option value="edited-asc" ${adminCurriculumListFilters.sort === "edited-asc" ? "selected" : ""}>Last updated ↑</option>
+          ` : ""}
+          <option value="title" ${adminCurriculumListFilters.sort === "title" ? "selected" : ""}>Title</option>
+          <option value="theme" ${adminCurriculumListFilters.sort === "theme" ? "selected" : ""}>Theme</option>
+          <option value="age" ${adminCurriculumListFilters.sort === "age" ? "selected" : ""}>Age group</option>
+        </select>
+      </label>
     </div>
     <div class="admin-content-bulk-bar" ${selectedCount ? "" : "hidden"}>
       <strong>${selectedCount} selected</strong>
@@ -10323,6 +10691,14 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
+  if (typeof LLHTeachingKitCurriculumDirectorUI !== "undefined"
+    && typeof LLHTeachingKitCurriculumDirectorUI.mount === "function") {
+    void LLHTeachingKitCurriculumDirectorUI.mount();
+  }
+  if (typeof LLHTeachingKitQualityReviewUI !== "undefined"
+    && typeof LLHTeachingKitQualityReviewUI.mount === "function") {
+    void LLHTeachingKitQualityReviewUI.mount();
+  }
 }
 
 function countCurriculumDailyPlanItems(dailyPlans) {
@@ -10401,6 +10777,11 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
         .map((goal) => goal.trim())
         .filter(Boolean);
       const domainsRoot = row.querySelector("[data-curriculum-activity-domains]");
+      const binderFields = typeof isTeachingKitAuthoringEnabled === "function"
+        && isTeachingKitAuthoringEnabled()
+        && typeof LLHTeachingKitAuthoring !== "undefined"
+        ? LLHTeachingKitAuthoring.collectActivityBinderFields(row)
+        : {};
       items.push({
         ...preservedItem,
         itemId,
@@ -10421,6 +10802,7 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
         adaptations: normalizedMultilineText(row.querySelector("[data-curriculum-adaptations]")?.value),
         safetyNotes: normalizedMultilineText(row.querySelector("[data-curriculum-safety-notes]")?.value),
         ageModifications: normalizedMultilineText(row.querySelector("[data-curriculum-age-modifications]")?.value),
+        ...binderFields,
       });
     });
     // If a weekday panel was removed from the DOM, preserve existing day content instead of wiping it.
@@ -10451,7 +10833,11 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
       items: resolvedItems,
     };
   });
-  return {
+  // Prefer the live store plan for enrichment-bearing fields so classic Save cannot
+  // drop drafts/history/media even if the form normalize path omitted them.
+  const storedPlan = id ? curriculumLessonPlanById(id) : null;
+  const enrichmentSource = storedPlan || existing || {};
+  const collected = {
     ...(existing || {}),
     id,
     title: normalizedShortText(formData.get("title")) || "Untitled Lesson Plan",
@@ -10470,8 +10856,8 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     books: collectCurriculumBooksFromEditor(weeklyBooksEditor),
     songs: collectCurriculumSongsFromEditor(weeklySongsEditor),
     dailyPlans,
-    resourceIds: existing?.resourceIds || [],
-    activityIds: existing?.activityIds || [],
+    resourceIds: existing?.resourceIds || enrichmentSource.resourceIds || [],
+    activityIds: existing?.activityIds || enrichmentSource.activityIds || [],
     coverImageUrl: (() => {
       const rawCoverUrl = formData.get("coverImageUrl");
       if (rawCoverUrl === null) return sanitizedImageSource(existing?.coverImageUrl || "");
@@ -10495,6 +10881,39 @@ function collectCurriculumLessonPlanFromForm(form, existingOverride = null) {
     createdAt: existing?.createdAt || "",
     updatedAt: existing?.updatedAt || "",
   };
+  if (Object.prototype.hasOwnProperty.call(enrichmentSource, "enrichmentDraft")) {
+    collected.enrichmentDraft = enrichmentSource.enrichmentDraft;
+  }
+  if (Array.isArray(enrichmentSource.enrichmentPublishHistory)) {
+    collected.enrichmentPublishHistory = enrichmentSource.enrichmentPublishHistory;
+  }
+  if (enrichmentSource.teachingKit && typeof enrichmentSource.teachingKit === "object") {
+    collected.teachingKit = enrichmentSource.teachingKit;
+  }
+  if (typeof isTeachingKitAuthoringEnabled === "function"
+    && isTeachingKitAuthoringEnabled()
+    && typeof LLHTeachingKitAuthoring !== "undefined") {
+    const toolkit = LLHTeachingKitAuthoring.collectTeacherToolkitFromForm(form);
+    if (toolkit) {
+      collected.teachingKit = {
+        ...(collected.teachingKit && typeof collected.teachingKit === "object" ? collected.teachingKit : { schemaVersion: 1 }),
+        schemaVersion: 1,
+        teacherToolkit: toolkit,
+        updatedAt: new Date().toISOString(),
+      };
+      const completeness = LLHTeachingKitAuthoring.buildBinderCompleteness(
+        collected,
+        typeof curriculumActivitiesForLesson === "function" ? curriculumActivitiesForLesson(id) : [],
+      );
+      collected.teachingKit.completionPercent = completeness.percent;
+      collected.teachingKit.completeness = completeness.percent >= 90
+        ? "complete"
+        : completeness.percent >= 50
+          ? "enriched"
+          : "legacy_mapped";
+    }
+  }
+  return collected;
 }
 
 async function saveAdminCurriculumLessonPlanForm(form) {
@@ -11748,6 +12167,14 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitPrintCenter === true,
       teachingKitAttachments: overrides.featureFlags?.teachingKitAttachments === true
         || base.featureFlags?.teachingKitAttachments === true,
+      teachingKitEnrichmentEditor: overrides.featureFlags?.teachingKitEnrichmentEditor === true
+        || base.featureFlags?.teachingKitEnrichmentEditor === true,
+      teachingKitAuthoring: overrides.featureFlags?.teachingKitAuthoring === true
+        || base.featureFlags?.teachingKitAuthoring === true,
+      teachingKitCurriculumDirector: overrides.featureFlags?.teachingKitCurriculumDirector === true
+        || base.featureFlags?.teachingKitCurriculumDirector === true,
+      teachingKitQualityReview: overrides.featureFlags?.teachingKitQualityReview === true
+        || base.featureFlags?.teachingKitQualityReview === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"
@@ -63291,6 +63718,28 @@ document.addEventListener("click", async (event) => {
     renderAdminCurriculumLessonPlanManager();
     return;
   }
+  const tkAuthoringAiBtn = event.target.closest("[data-tk-authoring-ai-activity]");
+  if (tkAuthoringAiBtn) {
+    event.preventDefault();
+    await requestTeachingKitAuthoringAiSuggestions(tkAuthoringAiBtn);
+    return;
+  }
+  const tkAuthoringAiInsert = event.target.closest("[data-tk-authoring-ai-insert]");
+  if (tkAuthoringAiInsert) {
+    event.preventDefault();
+    insertTeachingKitAuthoringAiSuggestions(tkAuthoringAiInsert);
+    return;
+  }
+  const tkAuthoringAiDismiss = event.target.closest("[data-tk-authoring-ai-dismiss]");
+  if (tkAuthoringAiDismiss) {
+    event.preventDefault();
+    const tray = tkAuthoringAiDismiss.closest("[data-tk-authoring-ai-tray]");
+    if (tray) {
+      tray.hidden = true;
+      tray.innerHTML = "";
+    }
+    return;
+  }
   const curriculumAddRowButton = event.target.closest("[data-curriculum-add-row]");
   if (curriculumAddRowButton) {
     addCurriculumDailyPlanRow(curriculumAddRowButton.dataset.curriculumAddRow);
@@ -65489,6 +65938,9 @@ document.addEventListener("change", (event) => {
     "adminCurriculumFilterPlan",
     "adminCurriculumFilterAge",
     "adminCurriculumFilterTheme",
+    "adminCurriculumFilterCompletion",
+    "adminCurriculumFilterGap",
+    "adminCurriculumFilterSort",
   ].includes(event.target.id)) return;
   adminCurriculumListFilters = {
     ...adminCurriculumListFilters,
@@ -65496,6 +65948,9 @@ document.addEventListener("change", (event) => {
     plan: document.querySelector("#adminCurriculumFilterPlan")?.value || "",
     age: document.querySelector("#adminCurriculumFilterAge")?.value || "",
     theme: document.querySelector("#adminCurriculumFilterTheme")?.value || "",
+    completionBand: document.querySelector("#adminCurriculumFilterCompletion")?.value || "",
+    gap: document.querySelector("#adminCurriculumFilterGap")?.value || "",
+    sort: document.querySelector("#adminCurriculumFilterSort")?.value || "updated",
   };
   renderAdminCurriculumLessonPlanManager();
 });

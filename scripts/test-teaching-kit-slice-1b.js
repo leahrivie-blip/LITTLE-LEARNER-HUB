@@ -138,7 +138,12 @@ function testEnrichedMiniCompanionSurfaces() {
   assert(kit.companion.printables[0].usedInWeek.length > 0, "printable shows used-in-week");
   assert(kit.companion.printables[0].usedInWeek[0].dayLabel, "used-in-week has day label");
 
-  assert(kit.companion.binder.tabs.length === 6, "binder has tab dividers");
+  assert(kit.companion.binder.tabs.length >= 1, "binder has vision tab dividers");
+  assert(kit.companion.providerBinder, "providerBinder companion present");
+  assert(
+    (kit.companion.providerBinder.tabs || []).every((tab) => tab.visible !== false),
+    "provider binder tabs are content-visible only",
+  );
   assert(kit.companion.binder.cover.brand === "Little Learner Hub", "binder cover branded");
   assert(kit.companion.buildMyKit.activities.length === 2, "build my kit lists activities");
   assert(kit.companion.buildMyKit.activities.every((item) => item.includedDefault === true),

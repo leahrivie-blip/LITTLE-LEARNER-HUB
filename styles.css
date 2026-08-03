@@ -23327,7 +23327,7 @@ body.nuo-open .llh-meta-cookie-notice {
 }
 .tk-ops-nav {
   display: grid !important;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 8px;
 }
 .tk-ops-tab {
@@ -23592,45 +23592,13 @@ body.nuo-open .llh-meta-cookie-notice {
   font-size: 0.78rem;
   font-weight: 700;
 }
-.tk-binder-stage {
-  background: #ebe4d8;
-  background-image: linear-gradient(90deg, #c9b79a 0 18px, transparent 18px);
-  padding: 18px;
-  border-radius: 16px;
-}
-.tk-binder-spread {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 16px;
-}
-.tk-binder-cover {
-  background: linear-gradient(160deg, #1f4d38, #2f6b4f 55%, #3d7f5e);
-  color: #fff;
-  border-radius: 6px 16px 16px 6px;
-  padding: 18px 16px;
-  border-left: 10px solid var(--tk-accent);
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
+/* Legacy print-mock binder stage/spread/cover removed — digital binder uses
+   .tk-binder-digital / .tk-binder-hero (vision alignment). */
 .tk-binder-mark {
   font-size: 0.72rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   opacity: 0.9;
-}
-.tk-binder-cover h3 { margin: 14px 0 8px; font-size: 1.4rem; line-height: 1.15; }
-.tk-binder-cover p { margin: 0; opacity: 0.92; }
-.tk-tab-rail { display: grid; gap: 6px; margin-top: 16px; }
-.tk-tab-rail span {
-  display: block;
-  background: rgba(255,255,255,0.14);
-  border: 1px solid rgba(255,255,255,0.25);
-  border-radius: 8px;
-  padding: 7px 10px;
-  font-size: 0.75rem;
-  font-weight: 800;
 }
 .tk-binder-pages { display: grid; gap: 10px; }
 .tk-binder-page {
@@ -23670,6 +23638,164 @@ body.nuo-open .llh-meta-cookie-notice {
 }
 .tk-binder-foot-note { font-size: 0.78rem; opacity: 0.85; }
 .tk-binder-actions { margin-top: 12px; grid-template-columns: repeat(2, max-content); justify-content: start; }
+
+/* Vision-aligned digital binder (provider) */
+.tk-binder-digital { gap: 16px; }
+.tk-binder-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid var(--tk-line);
+  border-radius: 20px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #eef7f1 0%, #fff8f0 55%, #ffffff 100%);
+  min-height: 220px;
+}
+.tk-binder-cover-media {
+  min-height: 220px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(47, 107, 79, 0.18), transparent 45%),
+    linear-gradient(160deg, #d7e8de, #f4efe6);
+}
+.tk-binder-cover-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  min-height: 220px;
+}
+.tk-binder-cover-fallback { min-height: 220px; }
+.tk-binder-hero-copy {
+  padding: 22px 20px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+.tk-lead {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.45;
+  color: var(--tk-ink);
+  max-width: 36ch;
+}
+.tk-binder-section-nav {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  position: sticky;
+  top: 52px;
+  z-index: 4;
+  padding: 8px 2px;
+  background: rgba(251, 253, 251, 0.96);
+  backdrop-filter: blur(6px);
+  border-bottom: 1px solid var(--tk-line);
+  scrollbar-width: thin;
+}
+.tk-binder-section-tab {
+  flex: 0 0 auto;
+  min-height: 44px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--tk-line);
+  background: #fff;
+  color: var(--tk-ink);
+  font-weight: 800;
+  font-size: 0.86rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tk-binder-section-tab.is-active {
+  background: var(--tk-brand);
+  border-color: var(--tk-brand);
+  color: #fff;
+}
+.tk-binder-section-panel {
+  display: grid;
+  gap: 14px;
+}
+.tk-binder-section-body {
+  display: grid;
+  gap: 14px;
+}
+.tk-binder-block {
+  border: 1px solid var(--tk-line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 16px;
+}
+.tk-binder-block h4 { margin: 0 0 8px; }
+.tk-week-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.tk-binder-activity {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 14px;
+  align-items: start;
+  border: 1px solid var(--tk-line);
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px;
+}
+.tk-binder-activity-media {
+  width: 96px;
+  height: 96px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--tk-soft);
+}
+.tk-binder-activity-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.tk-photo-placeholder-sm {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 0.75rem;
+  color: var(--tk-muted);
+}
+.tk-example-gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+}
+.tk-example-card {
+  margin: 0;
+  border: 1px solid var(--tk-line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+}
+.tk-example-card img {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--tk-soft);
+}
+.tk-example-card figcaption {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+}
+.tk-example-card figcaption .tk-muted { font-size: 0.8rem; }
+
+@media print {
+  .tk-binder-section-nav,
+  .tk-binder-actions,
+  .tk-ops-nav { display: none !important; }
+  .tk-binder-hero { break-inside: avoid; }
+  .tk-binder-block,
+  .tk-binder-activity { break-inside: avoid; }
+}
 
 /* Slice 1F — loading, empty kit, panel motion */
 .tk-empty-banner {
@@ -23743,9 +23869,10 @@ body.nuo-open .llh-meta-cookie-notice {
   .tk-grid-2,
   .tk-grid-3,
   .tk-photo-pair,
-  .tk-binder-spread { grid-template-columns: 1fr; }
-  .tk-ops-nav,
-  .tk-day-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tk-binder-hero,
+  .tk-week-grid { grid-template-columns: 1fr; }
+  .tk-ops-nav { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .tk-day-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .tk-slot { grid-template-columns: 64px 1fr; }
   .tk-kind { grid-column: 2; }
   .tk-binder-page::before {
@@ -23756,11 +23883,22 @@ body.nuo-open .llh-meta-cookie-notice {
     padding: 4px 8px;
     border-radius: 999px;
   }
-  .tk-ops-tab { font-size: 0.78rem; padding-left: 8px; padding-right: 8px; }
+  .tk-ops-tab {
+    font-size: 0.78rem;
+    padding-left: 8px;
+    padding-right: 8px;
+    min-height: 44px;
+  }
   .tk-sticky-today { position: sticky; top: 52px; }
+  .tk-binder-section-nav { top: 96px; }
   .tk-tray-item { grid-template-columns: 44px 1fr; }
   .tk-tray-item > .tk-btn,
   .tk-tray-item > .tk-chip { grid-column: 2; justify-self: start; }
+  .teaching-kit-workspace,
+  .tk-binder-digital,
+  .tk-binder-section-panel { overflow-x: hidden; max-width: 100%; }
+  .tk-binder-activity { grid-template-columns: 72px 1fr; }
+  .tk-binder-activity-media { width: 72px; height: 72px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -24016,3 +24154,1280 @@ body.nuo-open .llh-meta-cookie-notice {
     margin: 0.55in;
   }
 }
+
+/* —— Teaching Kit Enrichment Editor —— */
+#adminTeachingKitEnrichmentHost {
+  display: none;
+}
+body.tk-enrich-open {
+  overflow: hidden;
+}
+body.tk-enrich-open #adminTeachingKitEnrichmentHost {
+  display: block;
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: #f7f3ec;
+  color: #24312a;
+  overflow: auto;
+}
+.tk-enrich-shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.tk-enrich-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(180deg, #fbf8f2 0%, #f3eee4 100%);
+  border-bottom: 1px solid rgba(36, 49, 42, 0.12);
+  padding: 0.75rem 1rem 0;
+}
+.tk-enrich-chrome-top,
+.tk-enrich-chrome-sub,
+.tk-enrich-chrome-actions,
+.tk-enrich-counter,
+.tk-enrich-percent-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.tk-enrich-chrome-top {
+  justify-content: space-between;
+}
+.tk-enrich-chrome-sub {
+  justify-content: space-between;
+  margin-top: 0.55rem;
+}
+.tk-enrich-progress-block {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+.tk-enrich-stepper {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(36, 49, 42, 0.45);
+  margin-bottom: 0.25rem;
+}
+.tk-enrich-stepper .is-active { color: #1f6b4a; font-weight: 700; }
+.tk-enrich-stepper .is-done { color: #24312a; }
+.tk-enrich-bar,
+.tk-enrich-lib-bar {
+  height: 0.45rem;
+  background: rgba(36, 49, 42, 0.1);
+  border-radius: 999px;
+  overflow: hidden;
+  flex: 1 1 6rem;
+  min-width: 4rem;
+}
+.tk-enrich-bar i,
+.tk-enrich-lib-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2f8f63, #1f6b4a);
+  border-radius: inherit;
+}
+.tk-enrich-lib-bar {
+  margin: 0.35rem 0 0.45rem;
+  max-width: 14rem;
+}
+.tk-enrich-published-banner {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.8rem;
+  background: #fff7e8;
+  border: 1px solid rgba(176, 120, 24, 0.35);
+  border-radius: 0.55rem;
+  font-size: 0.92rem;
+}
+.tk-enrich-modes {
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.75rem;
+}
+.tk-enrich-modes button {
+  border: 0;
+  background: transparent;
+  padding: 0.55rem 0.9rem;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  color: rgba(36, 49, 42, 0.6);
+  font: inherit;
+}
+.tk-enrich-modes button.is-active {
+  color: #1f6b4a;
+  border-bottom-color: #1f6b4a;
+  font-weight: 650;
+}
+.tk-enrich-status {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(36, 49, 42, 0.65);
+}
+.tk-enrich-body {
+  flex: 1;
+  padding: 0.85rem 1rem 1.5rem;
+}
+.tk-enrich-activity-layout {
+  display: grid;
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr) minmax(14rem, 22rem);
+  gap: 0.85rem;
+  align-items: start;
+}
+.tk-enrich-queue,
+.tk-enrich-live,
+.tk-enrich-stage,
+.tk-enrich-card-block {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(36, 49, 42, 0.1);
+  border-radius: 0.75rem;
+  padding: 0.75rem;
+}
+.tk-enrich-day-chips,
+.tk-enrich-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.55rem;
+}
+.tk-enrich-day-chips button,
+.tk-enrich-chip {
+  border: 1px solid rgba(36, 49, 42, 0.18);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.28rem 0.7rem;
+  font: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.tk-enrich-day-chips button.is-on,
+.tk-enrich-chip.is-on {
+  background: #1f6b4a;
+  border-color: #1f6b4a;
+  color: #fff;
+}
+.tk-enrich-queue-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: calc(100vh - 14rem);
+  overflow: auto;
+}
+.tk-enrich-queue-item {
+  width: 100%;
+  display: flex;
+  gap: 0.55rem;
+  align-items: flex-start;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.35rem;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font: inherit;
+}
+.tk-enrich-queue-item.is-active {
+  background: rgba(31, 107, 74, 0.1);
+}
+.tk-enrich-queue-item strong {
+  display: block;
+  font-size: 0.9rem;
+}
+.tk-enrich-queue-item small {
+  color: rgba(36, 49, 42, 0.55);
+}
+.tk-enrich-status-dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  margin-top: 0.35rem;
+  flex: 0 0 auto;
+  background: #c5b9a8;
+}
+.tk-enrich-queue-item.status-in_progress .tk-enrich-status-dot { background: #d0892c; }
+.tk-enrich-queue-item.status-complete .tk-enrich-status-dot { background: #1f6b4a; }
+.tk-enrich-photo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+.tk-enrich-photo-label {
+  font-size: 0.82rem;
+  font-weight: 650;
+  margin-bottom: 0.3rem;
+}
+.tk-enrich-photo-drop {
+  min-height: 9rem;
+  border: 1.5px dashed rgba(36, 49, 42, 0.28);
+  border-radius: 0.65rem;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+.tk-enrich-photo-drop.has-photo {
+  border-style: solid;
+}
+.tk-enrich-photo-drop img {
+  width: 100%;
+  height: 9rem;
+  object-fit: cover;
+  display: block;
+}
+.tk-enrich-photo-empty {
+  padding: 1rem;
+  text-align: center;
+  color: rgba(36, 49, 42, 0.55);
+  font-size: 0.9rem;
+}
+.tk-enrich-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+.tk-enrich-card-block {
+  margin-top: 0.75rem;
+}
+.tk-enrich-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tk-enrich-tip-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.45rem 0.55rem;
+  background: rgba(247, 243, 236, 0.9);
+  border-radius: 0.45rem;
+  margin-bottom: 0.35rem;
+}
+.tk-enrich-tip-card button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.tk-enrich-inline-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.45rem;
+}
+.tk-enrich-inline-add input {
+  flex: 1 1 8rem;
+  min-width: 0;
+}
+.tk-enrich-stage-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-top: 1rem;
+}
+.tk-enrich-live {
+  max-height: calc(100vh - 12rem);
+  overflow: auto;
+  padding: 0.35rem;
+}
+.tk-enrich-live.is-wide {
+  max-height: none;
+}
+.tk-enrich-preview-banner {
+  margin: 0 0 0.65rem;
+  padding: 0.55rem 0.75rem;
+  background: #e8f4ee;
+  border-radius: 0.5rem;
+}
+.tk-enrich-jump {
+  position: relative;
+}
+.tk-enrich-jump-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  width: min(22rem, 85vw);
+  background: #fff;
+  border: 1px solid rgba(36, 49, 42, 0.15);
+  border-radius: 0.65rem;
+  padding: 0.55rem;
+  box-shadow: 0 10px 30px rgba(36, 49, 42, 0.12);
+  z-index: 5;
+}
+.tk-enrich-jump-panel input {
+  width: 100%;
+  margin-bottom: 0.4rem;
+}
+.tk-enrich-jump-hit {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 0.4rem 0.35rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  font: inherit;
+  display: block;
+}
+.tk-enrich-jump-hit:hover {
+  background: rgba(31, 107, 74, 0.08);
+}
+.tk-enrich-jump-hit small {
+  display: block;
+  color: rgba(36, 49, 42, 0.55);
+}
+.tk-enrich-modal,
+.tk-enrich-lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 28, 24, 0.55);
+  display: grid;
+  place-items: center;
+  z-index: 13000;
+  padding: 1rem;
+}
+.tk-enrich-modal-card:focus,
+.tk-enrich-lightbox:focus,
+.tk-enrich-photo-drop:focus {
+  outline: 2px solid #1f6b4a;
+  outline-offset: 2px;
+}
+.tk-enrich-modes button:focus-visible,
+.tk-enrich-chrome button:focus-visible,
+.tk-enrich-ai-card-actions button:focus-visible {
+  outline: 2px solid #1f6b4a;
+  outline-offset: 2px;
+}
+@media (max-width: 980px) {
+  .tk-enrich-activity-layout > .tk-enrich-live {
+    display: none; /* use Live Preview tab on smaller screens — fewer scrolls */
+  }
+}
+.tk-enrich-modal-card {
+  width: min(32rem, 100%);
+  background: #fff;
+  border-radius: 0.8rem;
+  padding: 1.1rem 1.2rem;
+}
+.tk-enrich-publish-summary {
+  padding-left: 1.1rem;
+  line-height: 1.45;
+}
+.tk-enrich-lightbox img {
+  max-width: min(96vw, 56rem);
+  max-height: 86vh;
+  object-fit: contain;
+  background: #111;
+}
+.tk-enrich-lightbox .ghost-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: #fff;
+}
+.tk-enrich-checklist {
+  margin: 0.4rem 0 0.75rem;
+  padding-left: 1.1rem;
+  color: rgba(36, 49, 42, 0.75);
+}
+.tk-enrich-current-text {
+  white-space: pre-wrap;
+  background: rgba(247, 243, 236, 0.9);
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.92rem;
+}
+.tk-enrich-week-layout {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 48rem;
+}
+.tk-enrich-lib-badge {
+  background: rgba(31, 107, 74, 0.1);
+}
+@media (max-width: 1100px) {
+  .tk-enrich-activity-layout {
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+  }
+  .tk-enrich-live:not(.is-wide) {
+    display: none;
+  }
+}
+@media (max-width: 760px) {
+  .tk-enrich-activity-layout {
+    grid-template-columns: 1fr;
+  }
+  .tk-enrich-photo-grid {
+    grid-template-columns: 1fr;
+  }
+  .tk-enrich-queue-list {
+    max-height: 12rem;
+  }
+}
+
+/* —— Upgrade Summary panel —— */
+.tk-enrich-main {
+  display: grid;
+  grid-template-columns: minmax(15rem, 18.5rem) minmax(0, 1fr);
+  gap: 0.85rem;
+  align-items: start;
+  padding: 0 1rem 1.25rem;
+}
+.tk-enrich-main .tk-enrich-body {
+  padding: 0;
+}
+.tk-enrich-summary {
+  position: sticky;
+  top: 0.75rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.8rem;
+}
+.tk-enrich-summary-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+}
+.tk-enrich-summary-head .eyebrow {
+  margin: 0 0 0.15rem;
+}
+.tk-enrich-summary-stepper {
+  display: flex;
+  gap: 0.55rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: rgba(36, 49, 42, 0.45);
+  margin-bottom: 0.35rem;
+}
+.tk-enrich-summary-stepper .is-active { color: #1f6b4a; font-weight: 700; }
+.tk-enrich-summary-stepper .is-done { color: #24312a; }
+.tk-enrich-summary-list {
+  margin: 0.65rem 0 0;
+}
+.tk-enrich-summary-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.45rem;
+  padding: 0.28rem 0;
+  border-top: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.86rem;
+}
+.tk-enrich-summary-row dt,
+.tk-enrich-summary-row dd {
+  margin: 0;
+}
+.tk-enrich-summary-row dt button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: rgba(36, 49, 42, 0.25);
+}
+.tk-enrich-summary-row.is-missing {
+  color: #8a4b12;
+}
+.tk-enrich-summary-row.is-ready dd {
+  color: #1f6b4a;
+}
+.tk-enrich-summary-note {
+  margin: 0.65rem 0 0;
+  font-size: 0.8rem;
+}
+.tk-enrich-lib-gaps {
+  display: block;
+  color: rgba(36, 49, 42, 0.72);
+}
+@media (max-width: 960px) {
+  .tk-enrich-main {
+    grid-template-columns: 1fr;
+  }
+  .tk-enrich-summary {
+    position: static;
+  }
+}
+
+/* Enrichment Editor Slice 1 notes */
+.tk-enrich-slice-banner {
+  margin: 0.55rem 0 0;
+  padding: 0.5rem 0.75rem;
+  background: rgba(31, 107, 74, 0.08);
+  border: 1px solid rgba(31, 107, 74, 0.18);
+  border-radius: 0.5rem;
+  font-size: 0.86rem;
+}
+.tk-enrich-slice-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.8rem;
+}
+.tk-enrich-photo.is-readonly .tk-enrich-photo-drop {
+  cursor: default;
+}
+.tk-enrich-photo-drop.is-dragover {
+  border-color: #1f6b4a;
+  background: rgba(31, 107, 74, 0.08);
+}
+.tk-enrich-photo-drop img.is-broken,
+.tk-enrich-lightbox img.is-broken {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 8rem;
+  width: 100%;
+  object-fit: none;
+  background: rgba(36, 49, 42, 0.06);
+  color: rgba(36, 49, 42, 0.65);
+  font-size: 0.9rem;
+}
+.tk-enrich-activity-layout.is-slice1 {
+  grid-template-columns: minmax(13rem, 17rem) minmax(0, 1fr);
+}
+@media (max-width: 760px) {
+  .tk-enrich-activity-layout.is-slice1 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Enrichment Editor Slice 2 — Activity Studio */
+.tk-enrich-vocab-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.45rem;
+}
+.tk-enrich-vocab-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(31, 107, 74, 0.1);
+  font-size: 0.86rem;
+}
+.tk-enrich-vocab-chip button {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+}
+.tk-enrich-stage[data-activity-studio] h3 {
+  margin: 0 0 0.15rem;
+  font-size: 1.35rem;
+}
+.tk-enrich-photo-empty small {
+  display: block;
+  margin-top: 0.35rem;
+  opacity: 0.8;
+}
+
+/* Enrichment Editor Slice 3 — Draft Preview */
+.tk-enrich-draft-preview-label {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.85rem;
+  align-items: baseline;
+  padding: 0.65rem 0.85rem;
+  margin: 0 0 0.75rem;
+  background: #fff7e8;
+  border: 1px solid rgba(176, 120, 24, 0.35);
+  border-radius: 0.55rem;
+}
+.tk-enrich-draft-preview-label strong {
+  color: #8a4b12;
+}
+.tk-enrich-preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  margin-bottom: 0.75rem;
+}
+.tk-enrich-preview-viewports,
+.tk-enrich-preview-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.tk-enrich-preview-viewports button,
+.tk-enrich-preview-days button {
+  border: 1px solid rgba(36, 49, 42, 0.18);
+  background: #fff;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font: inherit;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.tk-enrich-preview-viewports button.is-on,
+.tk-enrich-preview-days button.is-on {
+  background: #1f6b4a;
+  border-color: #1f6b4a;
+  color: #fff;
+}
+.tk-enrich-preview-frame {
+  margin: 0 auto;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.85rem;
+  padding: 0.45rem;
+  transition: max-width 0.2s ease, min-height 0.2s ease;
+}
+.tk-enrich-preview-frame.is-desktop {
+  max-width: 1100px;
+}
+.tk-enrich-preview-frame.is-tablet {
+  max-width: 780px;
+}
+.tk-enrich-preview-frame.is-mobile {
+  max-width: 420px;
+}
+.tk-enrich-preview-frame .tk-enrich-live {
+  max-height: calc(100vh - 16rem);
+  overflow: auto;
+  min-height: 22rem;
+}
+.tk-enrich-draft-preview-chip {
+  display: inline-block;
+  margin: 0.35rem 0.5rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: #fff7e8;
+  color: #8a4b12;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+.tk-enrich-live[data-draft-preview="1"] {
+  outline: 1px dashed rgba(176, 120, 24, 0.35);
+  outline-offset: 2px;
+}
+
+/* Enrichment Editor Slice 6 — AI approval tray */
+.tk-enrich-stage-head,
+.tk-enrich-week-ai-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.65rem;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+.tk-enrich-ai-modal .tk-enrich-ai-card-shell {
+  max-width: min(720px, 96vw);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+}
+.tk-enrich-ai-list {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0.85rem 0 1rem;
+}
+.tk-enrich-ai-card {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  border-radius: 0.65rem;
+  padding: 0.75rem 0.85rem;
+  background: #fff;
+}
+.tk-enrich-ai-card.is-selected {
+  border-color: rgba(31, 107, 74, 0.45);
+  box-shadow: inset 0 0 0 1px rgba(31, 107, 74, 0.15);
+}
+.tk-enrich-ai-card.is-discarded {
+  opacity: 0.55;
+}
+.tk-enrich-ai-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.75rem;
+  align-items: baseline;
+  margin: 0.35rem 0 0.55rem;
+}
+.tk-enrich-ai-compare {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+.tk-enrich-ai-compare h5 {
+  margin: 0 0 0.25rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #5b6b62;
+}
+.tk-enrich-ai-compare p,
+.tk-enrich-ai-compare textarea {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+.tk-enrich-ai-compare textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(36, 49, 42, 0.18);
+  border-radius: 0.45rem;
+  padding: 0.45rem 0.55rem;
+  font: inherit;
+}
+.tk-enrich-ai-card-actions,
+.tk-enrich-ai-select {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  margin-top: 0.55rem;
+}
+.tk-enrich-ai-status {
+  padding: 0.75rem 0;
+}
+@media (max-width: 720px) {
+  .tk-enrich-ai-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* AI Lesson Teacher analysis + review */
+.tk-lesson-teacher-panel {
+  margin: 0 0 1rem;
+  padding: 0.95rem 1.05rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(160deg, #f4f8f5 0%, #eef4f0 55%, #f7f3ec 100%);
+}
+.tk-lesson-teacher-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.tk-lesson-teacher-head .eyebrow {
+  margin: 0 0 0.2rem;
+}
+.tk-lesson-teacher-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.2rem;
+  color: #24312a;
+}
+.tk-lesson-teacher-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+.tk-lesson-teacher-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.9rem;
+  margin: 0.75rem 0 0.35rem;
+  font-size: 0.92rem;
+}
+.tk-lesson-teacher-counts .is-complete strong { color: #2f6b45; }
+.tk-lesson-teacher-counts .is-needs strong { color: #8a6a22; }
+.tk-lesson-teacher-counts .is-missing strong { color: #8a3b32; }
+.tk-lesson-teacher-sections {
+  list-style: none;
+  margin: 0.65rem 0 0.35rem;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.4rem 0.55rem;
+}
+.tk-lesson-teacher-sections li {
+  display: grid;
+  gap: 0.1rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.9rem;
+}
+.tk-lesson-teacher-sections li strong {
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.tk-lesson-teacher-sections li.status-complete strong { color: #2f6b45; }
+.tk-lesson-teacher-sections li.status-needs_improvement strong { color: #8a6a22; }
+.tk-lesson-teacher-sections li.status-missing strong { color: #8a3b32; }
+.tk-lesson-teacher-sections li small {
+  color: #5b6b62;
+}
+.tk-enrich-ai-modal.is-lesson-teacher .tk-enrich-ai-card-shell {
+  max-width: min(960px, 97vw);
+}
+.tk-enrich-ai-bulk-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0), #fff 28%);
+  padding-top: 0.75rem;
+}
+.tk-enrich-ai-progress {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 0.92rem;
+  color: #3d5347;
+}
+.tk-enrich-ai-section-bar {
+  margin: 0.5rem 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid rgba(36, 49, 42, 0.1);
+  border-radius: 0.55rem;
+  background: rgba(244, 248, 245, 0.9);
+}
+.tk-enrich-ai-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-top: 0.4rem;
+}
+.tk-enrich-ai-group {
+  margin: 0.85rem 0 1rem;
+}
+.tk-enrich-ai-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+.tk-enrich-ai-group-head strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.05rem;
+  color: #24312a;
+}
+
+/* AI Teacher Assistant */
+.tk-assistant-panel {
+  margin: 0 0 1rem;
+  padding: 0.95rem 1.05rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #f3f7f4 0%, #eef3f0 50%, #f6f1ea 100%);
+}
+.tk-assistant-head .eyebrow { margin: 0 0 0.2rem; }
+.tk-assistant-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.15rem;
+  color: #24312a;
+}
+.tk-assistant-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.65rem;
+}
+.tk-assistant-tabs button {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  background: rgba(255, 255, 255, 0.7);
+  color: #24312a;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tk-assistant-tabs button.is-active {
+  background: #2f5640;
+  border-color: #2f5640;
+  color: #fff;
+}
+.tk-assistant-body {
+  display: grid;
+  gap: 0.55rem;
+}
+.tk-assistant-body textarea,
+.tk-assistant-body select {
+  width: 100%;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  background: #fff;
+}
+.tk-assistant-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.tk-assistant-action-grid .ghost-button,
+.tk-assistant-action-grid .primary-button {
+  font-size: 0.86rem;
+}
+.tk-assistant-chat-log {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow: auto;
+  padding: 0.35rem 0;
+}
+.tk-assistant-chat-bubble {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-assistant-chat-bubble.is-ai {
+  background: rgba(47, 86, 64, 0.08);
+}
+.tk-assistant-chat-bubble strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.82rem;
+}
+.tk-assistant-chat-bubble p { margin: 0; }
+.tk-assistant-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.tk-assistant-list li {
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.9rem;
+}
+.tk-assistant-list li.severity-high { border-color: rgba(138, 59, 50, 0.35); }
+.tk-assistant-list li.severity-medium { border-color: rgba(138, 106, 34, 0.35); }
+.tk-assistant-quality-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0.55rem 0 0.25rem;
+}
+.tk-assistant-quality-score strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.6rem;
+  color: #24312a;
+}
+.tk-assistant-image-preview {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.1);
+}
+.tk-assistant-image-preview img {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  border-radius: 0.35rem;
+}
+.tk-assistant-status { margin: 0.55rem 0 0; }
+@media (max-width: 720px) {
+  .tk-assistant-tabs { gap: 0.3rem; }
+  .tk-assistant-tabs button { font-size: 0.8rem; }
+}
+
+/* AI Curriculum Quality Review + Library Health */
+.tk-quality-host:not([hidden]) { display: block; margin: 0 0 1.1rem; }
+.tk-quality-panel {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #f6f3ee 0%, #eef4f0 55%, #f3f7f4 100%);
+}
+.tk-quality-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.tk-quality-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+  color: #24312a;
+}
+.tk-quality-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.65rem;
+}
+.tk-quality-tabs button {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: #24312a;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tk-quality-tabs button.is-active {
+  background: #2f5640;
+  border-color: #2f5640;
+  color: #fff;
+}
+.tk-quality-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+.tk-quality-kpi {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-quality-kpi strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+  color: #24312a;
+}
+.tk-quality-kpi small { display: block; margin-top: 0.2rem; }
+.tk-quality-block { margin: 0.75rem 0; }
+.tk-quality-block h5 {
+  margin: 0 0 0.35rem;
+  font-family: "Fraunces", Georgia, serif;
+  color: #24312a;
+}
+.tk-quality-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.tk-quality-list li,
+.tk-quality-issue-list li {
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.92rem;
+}
+.tk-quality-issue-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 280px;
+  overflow: auto;
+}
+.tk-quality-issue-list li.severity-blocking,
+.tk-quality-issue-list li.severity-high { border-color: rgba(138, 59, 50, 0.35); }
+.tk-quality-issue-list li.severity-medium { border-color: rgba(138, 106, 34, 0.35); }
+.tk-quality-report {
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(36, 49, 42, 0.1);
+}
+.tk-quality-report-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+}
+.tk-quality-report-score strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.7rem;
+  color: #24312a;
+}
+.tk-quality-report-score .tag.is-danger {
+  background: rgba(138, 59, 50, 0.12);
+  color: #8a3b32;
+}
+.tk-quality-report-score .tag.is-ready {
+  background: rgba(47, 107, 69, 0.12);
+  color: #2f6b45;
+}
+.tk-quality-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+.tk-quality-report-grid ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+.tk-quality-publish-gate {
+  margin: 0.85rem 0;
+  padding: 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px dashed rgba(47, 86, 64, 0.35);
+  background: rgba(244, 248, 245, 0.9);
+}
+.tk-quality-publish-gate-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+.tk-enrich-publish-card { max-width: min(720px, 96vw); }
+.tk-quality-status { margin: 0.55rem 0 0; }
+@media (max-width: 720px) {
+  .tk-quality-head { flex-direction: column; }
+}
+
+/* AI Curriculum Director */
+.tk-director-host:not([hidden]) { display: block; margin: 0 0 1.1rem; }
+.tk-director-panel {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #f2f6f3 0%, #eef4f0 48%, #f7f2ea 100%);
+}
+.tk-director-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.tk-director-head .eyebrow { margin: 0 0 0.2rem; }
+.tk-director-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+  color: #24312a;
+}
+.tk-director-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.8rem 0 0.7rem;
+}
+.tk-director-tabs button {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: #24312a;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tk-director-tabs button.is-active {
+  background: #2f5640;
+  border-color: #2f5640;
+  color: #fff;
+}
+.tk-director-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+.tk-director-kpi {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-director-kpi .eyebrow { margin: 0 0 0.15rem; }
+.tk-director-kpi strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+  color: #24312a;
+}
+.tk-director-block { margin: 0.75rem 0; }
+.tk-director-block h5 {
+  margin: 0 0 0.35rem;
+  font-family: "Fraunces", Georgia, serif;
+  color: #24312a;
+}
+.tk-director-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.tk-director-list li {
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.92rem;
+}
+.tk-director-master-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.85rem;
+}
+.tk-director-master-form .tk-director-span { grid-column: 1 / -1; }
+.tk-director-master-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.86rem;
+}
+.tk-director-master-form input,
+.tk-director-master-form select,
+.tk-director-master-form textarea,
+.tk-director-body textarea {
+  width: 100%;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.45rem;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  background: #fff;
+}
+.tk-director-planning-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.45rem 0 0.65rem;
+}
+.tk-director-answer {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.55rem;
+  background: rgba(47, 86, 64, 0.08);
+  border: 1px solid rgba(47, 86, 64, 0.18);
+}
+.tk-director-status { margin: 0.55rem 0 0; }
+@media (max-width: 720px) {
+  .tk-director-head { flex-direction: column; }
+  .tk-director-tabs button { font-size: 0.8rem; }
+}
+
+/* Complete Teaching Kit binder authoring */
+.tk-authoring-binder-panel{margin:1.25rem 0 1.75rem;padding:1.1rem 1.2rem;border:1px solid rgba(36,49,42,.12);border-radius:.75rem;background:linear-gradient(165deg,#f7faf7 0%,#eef5f0 55%,#f8f4ee 100%)}
+.tk-authoring-binder-panel h4{margin:0 0 .35rem;font-family:"Fraunces",Georgia,serif;font-size:1.35rem;color:#24312a}
+.tk-authoring-checklist{margin:1rem 0}
+.tk-authoring-checklist-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-start;flex-wrap:wrap}
+.tk-authoring-checklist-score{display:flex;align-items:center;gap:.5rem}
+.tk-authoring-checklist-score strong{font-size:1.4rem}
+.tk-authoring-bar{height:.55rem;border-radius:999px;background:rgba(36,49,42,.08);overflow:hidden;margin:.65rem 0 1rem}
+.tk-authoring-bar i{display:block;height:100%;background:linear-gradient(90deg,#3d7a5a,#6aa37a)}
+.tk-authoring-check-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.45rem .75rem}
+.tk-authoring-check-list li{display:flex;justify-content:space-between;gap:.5rem;padding:.45rem .6rem;border-radius:.45rem;background:rgba(255,255,255,.65);border:1px solid rgba(36,49,42,.08);font-size:.92rem}
+.tk-authoring-check-list li.is-ready strong{color:#2f6b45}
+.tk-authoring-check-list li.is-missing strong{color:#9a4d2e}
+.tk-authoring-toolkit{margin-top:1rem}
+.tk-authoring-activity-binder{margin-top:1rem;border-color:rgba(61,122,90,.25);background:rgba(255,255,255,.7)}
+.tk-authoring-tag-grid{display:flex;flex-wrap:wrap;gap:.55rem .9rem}
+.tk-authoring-ai-row{display:flex;flex-wrap:wrap;gap:.65rem;align-items:center;margin-top:.75rem}
+.tk-authoring-ai-tray{margin-top:.75rem;padding:.75rem;border:1px dashed rgba(61,122,90,.35);border-radius:.55rem;background:#fff}
+.tk-authoring-ai-list{margin:.5rem 0;padding-left:0;list-style:none;display:grid;gap:.4rem}
+@media (max-width:720px){.tk-authoring-checklist-head{flex-direction:column}.tk-authoring-check-list{grid-template-columns:1fr}}

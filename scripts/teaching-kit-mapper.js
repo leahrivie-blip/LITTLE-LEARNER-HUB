@@ -22,14 +22,28 @@
     friday: "Friday",
   });
 
+  /** Vision-aligned digital binder tabs (provider-facing). */
   const BINDER_TABS = Object.freeze([
-    Object.freeze({ id: "setup", label: "Setup" }),
-    Object.freeze({ id: "daily", label: "Daily" }),
+    Object.freeze({ id: "overview", label: "Overview" }),
+    Object.freeze({ id: "weekly_plan", label: "Weekly Plan" }),
     Object.freeze({ id: "activities", label: "Activities" }),
-    Object.freeze({ id: "songs_books", label: "Songs & Books" }),
-    Object.freeze({ id: "families", label: "Families" }),
-    Object.freeze({ id: "observe", label: "Observe" }),
+    Object.freeze({ id: "printables", label: "Printables" }),
+    Object.freeze({ id: "songs", label: "Songs" }),
+    Object.freeze({ id: "books", label: "Books" }),
+    Object.freeze({ id: "examples", label: "Example Images" }),
+    Object.freeze({ id: "teacher_toolkit", label: "Teacher Toolkit" }),
   ]);
+
+  const PROVIDER_BINDER_SECTION_MAP = Object.freeze({
+    overview: "overview",
+    weekly_plan: "weekly_plan",
+    activities: "daily_activities",
+    printables: "printables",
+    songs: "songs",
+    books: "books",
+    examples: "examples",
+    teacher_toolkit: "teacher_toolkit",
+  });
 
   const BUILD_PRESETS = Object.freeze([
     Object.freeze({ id: "today_pack", label: "Today’s classroom pack", default: true }),
@@ -151,6 +165,10 @@
   }
 
   function teacherPromptsFrom(source) {
+    const tips = asArray(source.teacherTips).map(text).filter(Boolean);
+    if (tips.length) {
+      return tips.slice(0, 8).map((tip) => ({ label: "Tip", text: tip }));
+    }
     const language = text(source.teacherLanguage);
     if (language) {
       const labeled = [];
@@ -168,6 +186,24 @@
     const role = text(source.teacherRole);
     if (role) return [{ label: "Prompt", text: role }];
     return [];
+  }
+
+  function supplySubstitutionsFrom(source) {
+    return asArray(source.substitutions).map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const need = text(item.need || item.from);
+      const use = text(item.use || item.to);
+      if (!need || !use) return null;
+      return { need, use };
+    }).filter(Boolean).slice(0, 12);
+  }
+
+  function settingTagsFrom(source) {
+    const allowed = new Set(["small_group", "large_group", "indoor", "outdoor"]);
+    return asArray(source.settingTags)
+      .map((tag) => text(tag).toLowerCase().replace(/\s+/g, "_"))
+      .filter((tag) => allowed.has(tag))
+      .slice(0, 8);
   }
 
   function cleanupTipsFrom(source) {
@@ -339,6 +375,8 @@
       estimatedMinutes: minutes,
       hasExamplePhoto: Boolean(text(source.exampleImageUrl || source.examplePhotoUrl)),
       hasSetupPhoto: Boolean(text(source.setupImageUrl || source.setupPhotoUrl)),
+      settingTags: settingTagsFrom(source),
+      supplySubstitutions: supplySubstitutionsFrom(source),
       substituteCandidates: [],
     };
   }
@@ -726,6 +764,17 @@
         return {
           extensions: ctx.activityCards.map((card) => card.extensions).filter(Boolean),
         };
+      case "teacher_toolkit": {
+        const toolkit = ctx.teacherToolkit || {};
+        return {
+          prepChecklist: asArray(toolkit.prepChecklist).map(text).filter(Boolean),
+          observationFocus: asArray(toolkit.observationFocus).map(text).filter(Boolean),
+          notes: text(toolkit.notes),
+          teacherPreparation: text(toolkit.teacherPreparation),
+          familyConnection: text(ctx.plan.familyConnection),
+          observationPrompts: bulletLines(ctx.plan.observationOpportunities),
+        };
+      }
       default: {
         const filtered = ctx.activityCards.filter((card) => card.sectionId === sectionId);
         return { activities: filtered };
@@ -745,6 +794,15 @@
     if (Array.isArray(content.printables)) return content.printables.length > 0;
     if (Array.isArray(content.activitiesWithPhotos)) return content.activitiesWithPhotos.length > 0;
     if (Array.isArray(content.extensions)) return content.extensions.length > 0;
+    if (Array.isArray(content.prepChecklist)) {
+      // Teacher Toolkit: any toolkit field counts as content.
+      return content.prepChecklist.length > 0
+        || (Array.isArray(content.observationFocus) && content.observationFocus.length > 0)
+        || text(content.notes)
+        || text(content.teacherPreparation)
+        || text(content.familyConnection)
+        || (Array.isArray(content.observationPrompts) && content.observationPrompts.length > 0);
+    }
     if (Array.isArray(content.days)) return content.days.some((day) => day.activityCount > 0 || day.focus);
     if (text(content.weeklyOverview)) return true;
     if (text(content.familyConnection)) return true;
@@ -752,6 +810,37 @@
     if (text(content.adaptations)) return true;
     if (text(content.notes)) return true;
     return false;
+  }
+
+  function buildProviderBinder(sections, plan, overlay) {
+    const bySectionId = new Map(asArray(sections).map((section) => [section.id, section]));
+    const tabs = BINDER_TABS.map((tab) => {
+      const sectionId = PROVIDER_BINDER_SECTION_MAP[tab.id] || tab.id;
+      const section = bySectionId.get(sectionId);
+      const visible = Boolean(section && section.visible);
+      return {
+        id: tab.id,
+        label: tab.label,
+        sectionId,
+        visible,
+        itemCount: section ? Number(section.itemCount || 0) : 0,
+      };
+    }).filter((tab) => tab.visible);
+    return {
+      cover: {
+        brand: "Little Learner Hub",
+        title: text(plan.title) || "Teaching Kit",
+        subtitle: `Everything you need this week · ${text(plan.age) || "Classroom"}`,
+        theme: text(plan.theme),
+        imageUrl: text(plan.coverImageUrl),
+        imageAlt: text(plan.coverImageAlt) || text(plan.title) || "Lesson cover",
+      },
+      tabs,
+      footerLabel: `${text(plan.title) || "Teaching Kit"} · Teaching Kit`,
+      teacherToolkit: overlay && overlay.teacherToolkit && typeof overlay.teacherToolkit === "object"
+        ? overlay.teacherToolkit
+        : null,
+    };
   }
 
   /**
@@ -800,6 +889,11 @@
     const printables = buildPrintables(safePlan, resources, activityCards);
     const weekMaterials = collectWeekMaterials(safePlan, activityCards);
 
+    const overlay =
+      safePlan.teachingKit && typeof safePlan.teachingKit === "object" && !Array.isArray(safePlan.teachingKit)
+        ? safePlan.teachingKit
+        : null;
+
     const ctx = {
       plan: safePlan,
       activityCards,
@@ -808,31 +902,40 @@
       songs,
       printables,
       weekMaterials,
+      teacherToolkit: overlay && overlay.teacherToolkit && typeof overlay.teacherToolkit === "object"
+        ? overlay.teacherToolkit
+        : null,
     };
 
     const sections = sectionsRegistry.map((section) => {
       const content = sectionContent(section.id, ctx);
       const visible = sectionHasContent(section.id, content);
+      let itemCount = 0;
+      if (Array.isArray(content.activities)) itemCount = content.activities.length;
+      else if (Array.isArray(content.books)) itemCount = content.books.length;
+      else if (Array.isArray(content.songs)) itemCount = content.songs.length;
+      else if (Array.isArray(content.words)) itemCount = content.words.length;
+      else if (Array.isArray(content.materials)) itemCount = content.materials.length;
+      else if (Array.isArray(content.printables)) itemCount = content.printables.length;
+      else if (Array.isArray(content.activitiesWithPhotos)) itemCount = content.activitiesWithPhotos.length;
+      else if (Array.isArray(content.prepChecklist) || section.id === "teacher_toolkit") {
+        itemCount = [
+          ...(content.prepChecklist || []),
+          ...(content.observationFocus || []),
+          ...(content.observationPrompts || []),
+        ].length
+          + (text(content.notes) ? 1 : 0)
+          + (text(content.teacherPreparation) ? 1 : 0)
+          + (text(content.familyConnection) ? 1 : 0);
+      } else if (visible) {
+        itemCount = 1;
+      }
       return {
         id: section.id,
         label: section.label,
         printDefault: section.printDefault === true,
         visible,
-        itemCount: Array.isArray(content.activities)
-          ? content.activities.length
-          : Array.isArray(content.books)
-            ? content.books.length
-            : Array.isArray(content.songs)
-              ? content.songs.length
-              : Array.isArray(content.words)
-                ? content.words.length
-                : Array.isArray(content.materials)
-                  ? content.materials.length
-                  : Array.isArray(content.printables)
-                    ? content.printables.length
-                    : visible
-                      ? 1
-                      : 0,
+        itemCount,
         content: visible || includeEmpty ? content : null,
       };
     }).filter((section) => includeEmpty || section.visible);
@@ -848,11 +951,7 @@
 
     const today = days[selectedDay];
     const openEverything = buildOpenEverything(today, printables);
-
-    const overlay =
-      safePlan.teachingKit && typeof safePlan.teachingKit === "object" && !Array.isArray(safePlan.teachingKit)
-        ? safePlan.teachingKit
-        : null;
+    const providerBinder = buildProviderBinder(sections, safePlan, overlay);
 
     return {
       schemaVersion: 1,
@@ -919,15 +1018,15 @@
           })),
         },
         binder: {
-          cover: {
-            brand: "Little Learner Hub",
-            title: text(safePlan.title) || "Teaching Kit",
-            subtitle: `Complete Teaching Kit · ${text(safePlan.age) || "Classroom"}`,
-            theme: text(safePlan.theme),
-          },
-          tabs: BINDER_TABS.slice(),
-          footerLabel: `${text(safePlan.title) || "Teaching Kit"} · Teaching Kit`,
+          cover: providerBinder.cover,
+          tabs: providerBinder.tabs.length
+            ? providerBinder.tabs.map((tab) => ({ id: tab.id, label: tab.label }))
+            : BINDER_TABS.slice(),
+          footerLabel: providerBinder.footerLabel,
+          providerTabs: providerBinder.tabs,
+          teacherToolkit: providerBinder.teacherToolkit,
         },
+        providerBinder,
       },
       quality: {
         activityCount: activityCards.length,
@@ -936,6 +1035,9 @@
         printableCount: printables.length,
         hasParentMessage: Boolean(text(safePlan.familyConnection)),
         hasVocabulary: vocabulary.length > 0,
+        hasTeacherToolkit: Boolean(
+          providerBinder.tabs.some((tab) => tab.id === "teacher_toolkit"),
+        ),
       },
     };
   }

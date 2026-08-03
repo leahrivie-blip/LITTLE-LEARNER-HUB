@@ -1,0 +1,1216 @@
+{
+  "lessonPlan": {
+    "id": "cur-lp-preschool-farm-animals",
+    "title": "Farm Animals",
+    "age": "Preschool",
+    "theme": "Farm Animals",
+    "plan": "Free",
+    "status": "published",
+    "learningDomains": [
+      "Language & Literacy",
+      "Science",
+      "Creative Arts",
+      "Physical Development",
+      "Social Emotional",
+      "Math"
+    ],
+    "weeklyOverview": "Preschoolers will explore farm life through animal sounds, care routines, sensory bins, books, songs, and dramatic play. Children will name farm animals, describe what they provide, and practice caring for living things.",
+    "objectives": "Name common farm animals and their sounds\nDescribe products animals provide such as milk and eggs\nPractice caring routines for animals\nUse farm vocabulary in songs and play\nSort and classify farm animals\nBuild empathy for animal care",
+    "books": [
+      {
+        "title": "Big Red Barn",
+        "author": "Margaret Wise Brown",
+        "notes": ""
+      },
+      {
+        "title": "Click, Clack, Moo",
+        "author": "Doreen Cronin",
+        "notes": ""
+      },
+      {
+        "title": "Farm Animals",
+        "author": "Roger Priddy",
+        "notes": ""
+      }
+    ],
+    "songs": [
+      {
+        "title": "Old MacDonald Had a Farm",
+        "notes": ""
+      },
+      {
+        "title": "The Farmer in the Dell",
+        "notes": ""
+      },
+      {
+        "title": "B-I-N-G-O",
+        "notes": ""
+      }
+    ],
+    "weeklyMaterials": "Plastic farm animals\nBarn playset or cardboard barn\nHay or straw sensory filler\nMud play dough\nFarm picture books\nEgg cartons (empty)\nBuckets and brushes\nFarm animal puzzles\nMarket baskets\nFarm sound cards",
+    "vocabularyWords": "farm\nbarn\ncow\npig\nchicken\nhorse\nsheep\nhay\nmilk\negg\nharvest\nfarmer",
+    "observationOpportunities": "Observe animal naming, sound imitation, caring play, sorting skills, and use of farm vocabulary.",
+    "adaptations": "Use real photos alongside toy animals. Supervise sensory bins closely. Offer single-animal focus for overwhelmed children.",
+    "familyConnection": "Visit a farmers market or watch farm animals online with family. Discuss foods that come from farms.",
+    "dailyPlans": {
+      "monday": {
+        "theme": "",
+        "objectives": "",
+        "learningDomains": [],
+        "materials": "",
+        "vocabulary": "",
+        "books": [],
+        "songs": [],
+        "circleTime": [],
+        "transitions": [],
+        "outdoorPlay": "",
+        "familyConnection": "",
+        "observations": [],
+        "adaptations": "",
+        "safetyNotes": "",
+        "items": [
+          {
+            "itemId": "item-preschool-farm-animals-monday-1",
+            "importKey": "",
+            "activityCategory": "Open-Ended Exploration",
+            "title": "Farm Animal Discovery Basket",
+            "objective": "Explore farm animals and textures in a basket.",
+            "description": "Preschoolers touch animals, hay, and eggs while naming farm creatures.",
+            "learningDomains": [],
+            "materials": "Farm animals, hay, fabric eggs, basket",
+            "setup": "Fill basket with safe farm items.",
+            "steps": "1. Reach into basket and choose item.\n2. Name animal or object.\n3. Describe how it feels.\n4. Match animal to sound card.\n5. Return items gently.",
+            "teacherRole": "Name animals and describe textures.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Farm vocabulary",
+              "Sensory exploration",
+              "Animal-sound link"
+            ],
+            "observationOpportunities": "Names animals\nImitates sounds\nHandles materials gently",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-1"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-monday-2",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Old MacDonald Sing Along",
+            "objective": "Sing and act out farm animal verses.",
+            "description": "Preschoolers choose animals for Old MacDonald verses with motions.",
+            "learningDomains": [],
+            "materials": "Farm animal props, music or voice",
+            "setup": "Sit in circle with animal props in center.",
+            "steps": "1. Sing opening verse together.\n2. Child picks animal for next verse.\n3. Everyone makes animal sound and motion.\n4. Continue until many animals sung.\n5. Bow and clap for farmers.",
+            "teacherRole": "Pause for children to choose animals.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Song participation",
+              "Animal sound production",
+              "Turn taking"
+            ],
+            "observationOpportunities": "Sings along\nMakes animal sound\nTakes turn choosing",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-2"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-monday-3",
+            "importKey": "",
+            "activityCategory": "Gross Motor",
+            "title": "Farm Animal Walk",
+            "objective": "Move like farm animals across the room.",
+            "description": "Preschoolers gallop like horses, waddle like ducks, and stomp like cows.",
+            "learningDomains": [],
+            "materials": "Open space, animal picture cards",
+            "setup": "Clear path for animal walks.",
+            "steps": "1. Pick animal card.\n2. Move like that animal across room.\n3. Freeze when music stops.\n4. Switch to new animal.\n5. Rest with farmer stretch.",
+            "teacherRole": "Demonstrate safe animal movements.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gross motor imitation",
+              "Animal characteristics",
+              "Self-regulation"
+            ],
+            "observationOpportunities": "Imitates animal movement\nFreezes on cue\nStays safe in space",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-3"
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "",
+        "objectives": "",
+        "learningDomains": [],
+        "materials": "",
+        "vocabulary": "",
+        "books": [],
+        "songs": [],
+        "circleTime": [],
+        "transitions": [],
+        "outdoorPlay": "",
+        "familyConnection": "",
+        "observations": [],
+        "adaptations": "",
+        "safetyNotes": "",
+        "items": [
+          {
+            "itemId": "item-preschool-farm-animals-tuesday-1",
+            "importKey": "",
+            "activityCategory": "Fine Motor",
+            "title": "Animal Sorting Center",
+            "objective": "Sort animals by farm habitat or product.",
+            "description": "Preschoolers sort animals into barn, pond, and field mats.",
+            "learningDomains": [],
+            "materials": "Farm animals, habitat mats",
+            "setup": "Prepare mats labeled barn, pond, field.",
+            "steps": "1. Pick animal figure.\n2. Discuss habitat.\n3. Place on correct mat.\n4. Count animals on each mat.\n5. Resort when new animals added.",
+            "teacherRole": "Discuss where each animal lives.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Classification",
+              "Habitat knowledge",
+              "Counting"
+            ],
+            "observationOpportunities": "Sorts logically\nStates habitat reason\nCounts groups",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-1"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-tuesday-2",
+            "importKey": "",
+            "activityCategory": "STEM/Discovery",
+            "title": "Muddy Pig Sensory Bin",
+            "objective": "Play with mud dough and pig figures.",
+            "description": "Preschoolers roll pigs in brown play dough mud and describe texture.",
+            "learningDomains": [],
+            "materials": "Brown play dough, pig figures, trays",
+            "setup": "Set dough and pigs in shallow bin.",
+            "steps": "1. Squish mud dough.\n2. Roll pigs through mud.\n3. Describe sticky and soft.\n4. Clean pigs with pretend brushes.\n5. Wash hands after play.",
+            "teacherRole": "Supervise dough use and hand washing.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Sensory description",
+              "Animal pretend care",
+              "Hygiene routine"
+            ],
+            "observationOpportunities": "Describes texture\nEngages in pretend cleaning\nWashes hands",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-2"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-tuesday-3",
+            "importKey": "",
+            "activityCategory": "Fine Motor",
+            "title": "Farm Animal Puzzle Table",
+            "objective": "Complete farm puzzles and name animals.",
+            "description": "Preschoolers assemble wooden farm puzzles while naming pieces.",
+            "learningDomains": [],
+            "materials": "Farm puzzles, animal name cards",
+            "setup": "Place puzzles at table.",
+            "steps": "1. Choose puzzle.\n2. Name animal as piece placed.\n3. Complete and reset.\n4. Trade puzzles with peer.\n5. Match completed puzzle to name card.",
+            "teacherRole": "Encourage naming each piece placed.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Fine motor fit",
+              "Animal naming",
+              "Persistence"
+            ],
+            "observationOpportunities": "Completes puzzle\nNames animals\nTrades cooperatively",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-3"
+          }
+        ]
+      },
+      "wednesday": {
+        "theme": "",
+        "objectives": "",
+        "learningDomains": [],
+        "materials": "",
+        "vocabulary": "",
+        "books": [],
+        "songs": [],
+        "circleTime": [],
+        "transitions": [],
+        "outdoorPlay": "",
+        "familyConnection": "",
+        "observations": [],
+        "adaptations": "",
+        "safetyNotes": "",
+        "items": [
+          {
+            "itemId": "item-preschool-farm-animals-wednesday-1",
+            "importKey": "",
+            "activityCategory": "Dramatic Play",
+            "title": "Farmer's Market Dramatic Play",
+            "objective": "Buy and sell farm goods at a market stand.",
+            "description": "Preschoolers pretend to sell eggs, milk, and vegetables at a farm stand.",
+            "learningDomains": [],
+            "materials": "Market stand, baskets, pretend produce, play money",
+            "setup": "Set up market with labeled bins.",
+            "steps": "1. Farmers stock stand.\n2. Customers buy with play money.\n3. Count items sold.\n4. Say thank you and good day.\n5. Switch roles.",
+            "teacherRole": "Model customer and farmer roles.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Economic pretend play",
+              "Counting in context",
+              "Polite exchange"
+            ],
+            "observationOpportunities": "Uses market vocabulary\nCounts items\nTakes turns in roles",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-1"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-wednesday-2",
+            "importKey": "",
+            "activityCategory": "Fine Motor",
+            "title": "Milking the Cow Fine Motor",
+            "objective": "Squeeze water from glove udder into bucket.",
+            "description": "Preschoolers practice squeezing a glove filled with water mimicking milking.",
+            "learningDomains": [],
+            "materials": "Rubber glove with pinholes, water, bucket, towel",
+            "setup": "Prepare glove udder over bucket.",
+            "steps": "1. Demonstrate gentle squeeze.\n2. Child squeezes glove fingers.\n3. Watch water drip to bucket.\n4. Discuss milk from cows.\n5. Dry area and hands.",
+            "teacherRole": "Supervise water play.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Hand strength",
+              "Farm product connection",
+              "Controlled squeezing"
+            ],
+            "observationOpportunities": "Squeezes with control\nUnderstands milk source\nFollows cleanup",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-2"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-wednesday-3",
+            "importKey": "",
+            "activityCategory": "Literacy",
+            "title": "Farm Story Read-Aloud",
+            "objective": "Read Big Red Barn and discuss animal bedtime.",
+            "description": "Preschoolers listen and sequence animal events from the story.",
+            "learningDomains": [],
+            "materials": "Big Red Barn book, animal props",
+            "setup": "Gather with props matching story.",
+            "steps": "1. Read story with animal sounds.\n2. Children hold props when animal mentioned.\n3. Retell beginning and end.\n4. Discuss day and night on farm.\n5. Place book in barn center.",
+            "teacherRole": "Pause for animal sound participation.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Listening comprehension",
+              "Sequence awareness",
+              "Story participation"
+            ],
+            "observationOpportunities": "Participates in sounds\nRetells part of story\nHandles props",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-3"
+          }
+        ]
+      },
+      "thursday": {
+        "theme": "",
+        "objectives": "",
+        "learningDomains": [],
+        "materials": "",
+        "vocabulary": "",
+        "books": [],
+        "songs": [],
+        "circleTime": [],
+        "transitions": [],
+        "outdoorPlay": "",
+        "familyConnection": "",
+        "observations": [],
+        "adaptations": "",
+        "safetyNotes": "",
+        "items": [
+          {
+            "itemId": "item-preschool-farm-animals-thursday-1",
+            "importKey": "",
+            "activityCategory": "Open-Ended Exploration",
+            "title": "Egg Carton Counting",
+            "objective": "Place correct number of eggs in carton sections.",
+            "description": "Preschoolers count plastic eggs into carton cups labeled with numerals.",
+            "learningDomains": [],
+            "materials": "Empty egg carton, plastic eggs, numeral labels",
+            "setup": "Label carton cups 1-6 or 1-10.",
+            "steps": "1. Read numeral on cup.\n2. Place matching number of eggs.\n3. Count to verify.\n4. Empty and try new numerals.\n5. Compare full cups.",
+            "teacherRole": "Model counting one egg per cup.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "One-to-one counting",
+              "Numeral matching",
+              "Farm product context"
+            ],
+            "observationOpportunities": "Counts accurately\nMatches numeral to quantity\nSelf-corrects",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-1"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-thursday-2",
+            "importKey": "",
+            "activityCategory": "Art",
+            "title": "Farm Collage Art",
+            "objective": "Create farm scene with torn paper and animal stickers.",
+            "description": "Preschoolers glue torn green and brown paper and add animal stickers.",
+            "learningDomains": [],
+            "materials": "Paper, glue, torn paper, farm stickers, crayons",
+            "setup": "Set collage materials at art table.",
+            "steps": "1. Tear and glue grass and dirt.\n2. Add sky with crayon.\n3. Place animal stickers.\n4. Tell story about farm scene.\n5. Display collages.",
+            "teacherRole": "Discuss barn, field, and sky in scene.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Scene creation",
+              "Fine motor tearing and gluing",
+              "Storytelling"
+            ],
+            "observationOpportunities": "Creates layered scene\nPlaces stickers intentionally\nTells about farm",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-2"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-thursday-3",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Brush the Horse Grooming",
+            "objective": "Practice gentle animal care brushing plush horses.",
+            "description": "Preschoolers brush plush horses and talk about caring for animals.",
+            "learningDomains": [],
+            "materials": "Plush horses, brushes, towels",
+            "setup": "Set grooming station with horses.",
+            "steps": "1. Choose horse to groom.\n2. Brush mane and body gently.\n3. Talk softly to horse.\n4. Wipe with towel.\n5. Return horse to stable.",
+            "teacherRole": "Model gentle strokes.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Gentle care",
+              "Empathy for animals",
+              "Responsible play"
+            ],
+            "observationOpportunities": "Uses gentle touch\nVerbalizes care\nCompletes grooming routine",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-3"
+          }
+        ]
+      },
+      "friday": {
+        "theme": "",
+        "objectives": "",
+        "learningDomains": [],
+        "materials": "",
+        "vocabulary": "",
+        "books": [],
+        "songs": [],
+        "circleTime": [],
+        "transitions": [],
+        "outdoorPlay": "",
+        "familyConnection": "",
+        "observations": [],
+        "adaptations": "",
+        "safetyNotes": "",
+        "items": [
+          {
+            "itemId": "item-preschool-farm-animals-friday-1",
+            "importKey": "",
+            "activityCategory": "Open-Ended Exploration",
+            "title": "Farm Sound Bingo",
+            "objective": "Mark animal pictures when matching sound is played.",
+            "description": "Preschoolers play bingo using farm animal sound recordings.",
+            "learningDomains": [],
+            "materials": "Bingo cards with animals, sound recordings",
+            "setup": "Prepare cards and sound clips.",
+            "steps": "1. Explain bingo rules.\n2. Play animal sound.\n3. Cover matching picture.\n4. Call bingo when row complete.\n5. Name animals on winning card.",
+            "teacherRole": "Play sounds and repeat.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Auditory discrimination",
+              "Animal identification",
+              "Game participation"
+            ],
+            "observationOpportunities": "Matches sound to picture\nFollows rules\nNames animals",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-1"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-friday-2",
+            "importKey": "",
+            "activityCategory": "Music & Movement",
+            "title": "Harvest Hoedown Dance",
+            "objective": "Dance to The Farmer in the Dell with partner roles.",
+            "description": "Preschoolers act out farmer, wife, and child roles while dancing in circle.",
+            "learningDomains": [],
+            "materials": "Music player, farmer hat props",
+            "setup": "Form circle with space to move.",
+            "steps": "1. Form circle holding hands.\n2. Dance to song verses.\n3. Switch roles each verse.\n4. Bow at end of dance.\n5. Rest with water break.",
+            "teacherRole": "Assign roles for verses.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Traditional song",
+              "Circle dance",
+              "Role play in song"
+            ],
+            "observationOpportunities": "Participates in circle\nFollows role cues\nCooperates in dance",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-2"
+          },
+          {
+            "itemId": "item-preschool-farm-animals-friday-3",
+            "importKey": "",
+            "activityCategory": "Circle Time",
+            "title": "Farm Animals Celebration Circle",
+            "objective": "Share favorite farm animal and sing B-I-N-G-O.",
+            "description": "Preschoolers share learning favorites and clap spelling song.",
+            "learningDomains": [],
+            "materials": "Animal props, song chart",
+            "setup": "Gather in circle with props.",
+            "steps": "1. Share favorite farm animal.\n2. Tell one fact learned.\n3. Sing B-I-N-G-O with claps.\n4. Thank pretend farmers.\n5. Preview visit or video of real farm.",
+            "teacherRole": "Facilitate sharing and song.",
+            "teacherLanguage": "",
+            "learningGoals": [
+              "Recall facts",
+              "Song participation",
+              "Group closure"
+            ],
+            "observationOpportunities": "Shares favorite animal\nStates one fact\nParticipates in spelling song",
+            "vocabulary": "",
+            "extensions": "",
+            "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+            "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+            "ageModifications": "",
+            "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-3"
+          }
+        ]
+      }
+    },
+    "activityIds": [
+      "cur-act-e14264deb203e7dc",
+      "cur-act-8deb2146a026fcc2",
+      "cur-act-8def0ce2cbc953aa",
+      "cur-act-e4fe79e92d9dcb52",
+      "cur-act-01c1e912994395f7",
+      "cur-act-07701b43fd761a1e",
+      "cur-act-2211a60c5477985a",
+      "cur-act-f764929f01edb2a8",
+      "cur-act-323344663ee9ef16",
+      "cur-act-c365a6b09e9d869d",
+      "cur-act-76b015234ffc9cac",
+      "cur-act-1953dc9a593cfc8f",
+      "cur-act-da4798d216b6e094",
+      "cur-act-625b54f22c49c7da",
+      "cur-act-27424046373b8597"
+    ],
+    "resourceIds": [],
+    "coverImageUrl": "",
+    "coverImageAlt": "",
+    "coverImageSource": "",
+    "coverImagePosition": "center",
+    "createdAt": "2026-08-03T12:09:35.311Z",
+    "updatedAt": "2026-08-03T12:09:35.347Z",
+    "publishedAt": "2026-01-01T00:00:00.000Z"
+  },
+  "activities": [
+    {
+      "id": "cur-act-27424046373b8597",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-friday-3",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-3",
+      "dayOfWeek": "friday",
+      "activityCategory": "Circle Time",
+      "title": "Farm Animals Celebration Circle",
+      "objective": "Share favorite farm animal and sing B-I-N-G-O.",
+      "description": "Preschoolers share learning favorites and clap spelling song.",
+      "learningDomains": [],
+      "materials": "Animal props, song chart",
+      "setup": "Gather in circle with props.",
+      "steps": "1. Share favorite farm animal.\n2. Tell one fact learned.\n3. Sing B-I-N-G-O with claps.\n4. Thank pretend farmers.\n5. Preview visit or video of real farm.",
+      "teacherRole": "Facilitate sharing and song.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Recall facts",
+        "Song participation",
+        "Group closure"
+      ],
+      "observationOpportunities": "Shares favorite animal\nStates one fact\nParticipates in spelling song",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-da4798d216b6e094",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-friday-1",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-1",
+      "dayOfWeek": "friday",
+      "activityCategory": "Open-Ended Exploration",
+      "title": "Farm Sound Bingo",
+      "objective": "Mark animal pictures when matching sound is played.",
+      "description": "Preschoolers play bingo using farm animal sound recordings.",
+      "learningDomains": [],
+      "materials": "Bingo cards with animals, sound recordings",
+      "setup": "Prepare cards and sound clips.",
+      "steps": "1. Explain bingo rules.\n2. Play animal sound.\n3. Cover matching picture.\n4. Call bingo when row complete.\n5. Name animals on winning card.",
+      "teacherRole": "Play sounds and repeat.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Auditory discrimination",
+        "Animal identification",
+        "Game participation"
+      ],
+      "observationOpportunities": "Matches sound to picture\nFollows rules\nNames animals",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-625b54f22c49c7da",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-friday-2",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-friday-2",
+      "dayOfWeek": "friday",
+      "activityCategory": "Music & Movement",
+      "title": "Harvest Hoedown Dance",
+      "objective": "Dance to The Farmer in the Dell with partner roles.",
+      "description": "Preschoolers act out farmer, wife, and child roles while dancing in circle.",
+      "learningDomains": [],
+      "materials": "Music player, farmer hat props",
+      "setup": "Form circle with space to move.",
+      "steps": "1. Form circle holding hands.\n2. Dance to song verses.\n3. Switch roles each verse.\n4. Bow at end of dance.\n5. Rest with water break.",
+      "teacherRole": "Assign roles for verses.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Traditional song",
+        "Circle dance",
+        "Role play in song"
+      ],
+      "observationOpportunities": "Participates in circle\nFollows role cues\nCooperates in dance",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-e14264deb203e7dc",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-monday-1",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-1",
+      "dayOfWeek": "monday",
+      "activityCategory": "Open-Ended Exploration",
+      "title": "Farm Animal Discovery Basket",
+      "objective": "Explore farm animals and textures in a basket.",
+      "description": "Preschoolers touch animals, hay, and eggs while naming farm creatures.",
+      "learningDomains": [],
+      "materials": "Farm animals, hay, fabric eggs, basket",
+      "setup": "Fill basket with safe farm items.",
+      "steps": "1. Reach into basket and choose item.\n2. Name animal or object.\n3. Describe how it feels.\n4. Match animal to sound card.\n5. Return items gently.",
+      "teacherRole": "Name animals and describe textures.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Farm vocabulary",
+        "Sensory exploration",
+        "Animal-sound link"
+      ],
+      "observationOpportunities": "Names animals\nImitates sounds\nHandles materials gently",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-8def0ce2cbc953aa",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-monday-3",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-3",
+      "dayOfWeek": "monday",
+      "activityCategory": "Gross Motor",
+      "title": "Farm Animal Walk",
+      "objective": "Move like farm animals across the room.",
+      "description": "Preschoolers gallop like horses, waddle like ducks, and stomp like cows.",
+      "learningDomains": [],
+      "materials": "Open space, animal picture cards",
+      "setup": "Clear path for animal walks.",
+      "steps": "1. Pick animal card.\n2. Move like that animal across room.\n3. Freeze when music stops.\n4. Switch to new animal.\n5. Rest with farmer stretch.",
+      "teacherRole": "Demonstrate safe animal movements.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Gross motor imitation",
+        "Animal characteristics",
+        "Self-regulation"
+      ],
+      "observationOpportunities": "Imitates animal movement\nFreezes on cue\nStays safe in space",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-8deb2146a026fcc2",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-monday-2",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-monday-2",
+      "dayOfWeek": "monday",
+      "activityCategory": "Music & Movement",
+      "title": "Old MacDonald Sing Along",
+      "objective": "Sing and act out farm animal verses.",
+      "description": "Preschoolers choose animals for Old MacDonald verses with motions.",
+      "learningDomains": [],
+      "materials": "Farm animal props, music or voice",
+      "setup": "Sit in circle with animal props in center.",
+      "steps": "1. Sing opening verse together.\n2. Child picks animal for next verse.\n3. Everyone makes animal sound and motion.\n4. Continue until many animals sung.\n5. Bow and clap for farmers.",
+      "teacherRole": "Pause for children to choose animals.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Song participation",
+        "Animal sound production",
+        "Turn taking"
+      ],
+      "observationOpportunities": "Sings along\nMakes animal sound\nTakes turn choosing",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-1953dc9a593cfc8f",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-thursday-3",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-3",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Circle Time",
+      "title": "Brush the Horse Grooming",
+      "objective": "Practice gentle animal care brushing plush horses.",
+      "description": "Preschoolers brush plush horses and talk about caring for animals.",
+      "learningDomains": [],
+      "materials": "Plush horses, brushes, towels",
+      "setup": "Set grooming station with horses.",
+      "steps": "1. Choose horse to groom.\n2. Brush mane and body gently.\n3. Talk softly to horse.\n4. Wipe with towel.\n5. Return horse to stable.",
+      "teacherRole": "Model gentle strokes.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Gentle care",
+        "Empathy for animals",
+        "Responsible play"
+      ],
+      "observationOpportunities": "Uses gentle touch\nVerbalizes care\nCompletes grooming routine",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-c365a6b09e9d869d",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-thursday-1",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-1",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Open-Ended Exploration",
+      "title": "Egg Carton Counting",
+      "objective": "Place correct number of eggs in carton sections.",
+      "description": "Preschoolers count plastic eggs into carton cups labeled with numerals.",
+      "learningDomains": [],
+      "materials": "Empty egg carton, plastic eggs, numeral labels",
+      "setup": "Label carton cups 1-6 or 1-10.",
+      "steps": "1. Read numeral on cup.\n2. Place matching number of eggs.\n3. Count to verify.\n4. Empty and try new numerals.\n5. Compare full cups.",
+      "teacherRole": "Model counting one egg per cup.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "One-to-one counting",
+        "Numeral matching",
+        "Farm product context"
+      ],
+      "observationOpportunities": "Counts accurately\nMatches numeral to quantity\nSelf-corrects",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-76b015234ffc9cac",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-thursday-2",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-thursday-2",
+      "dayOfWeek": "thursday",
+      "activityCategory": "Art",
+      "title": "Farm Collage Art",
+      "objective": "Create farm scene with torn paper and animal stickers.",
+      "description": "Preschoolers glue torn green and brown paper and add animal stickers.",
+      "learningDomains": [],
+      "materials": "Paper, glue, torn paper, farm stickers, crayons",
+      "setup": "Set collage materials at art table.",
+      "steps": "1. Tear and glue grass and dirt.\n2. Add sky with crayon.\n3. Place animal stickers.\n4. Tell story about farm scene.\n5. Display collages.",
+      "teacherRole": "Discuss barn, field, and sky in scene.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Scene creation",
+        "Fine motor tearing and gluing",
+        "Storytelling"
+      ],
+      "observationOpportunities": "Creates layered scene\nPlaces stickers intentionally\nTells about farm",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-e4fe79e92d9dcb52",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-tuesday-1",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-1",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Fine Motor",
+      "title": "Animal Sorting Center",
+      "objective": "Sort animals by farm habitat or product.",
+      "description": "Preschoolers sort animals into barn, pond, and field mats.",
+      "learningDomains": [],
+      "materials": "Farm animals, habitat mats",
+      "setup": "Prepare mats labeled barn, pond, field.",
+      "steps": "1. Pick animal figure.\n2. Discuss habitat.\n3. Place on correct mat.\n4. Count animals on each mat.\n5. Resort when new animals added.",
+      "teacherRole": "Discuss where each animal lives.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Classification",
+        "Habitat knowledge",
+        "Counting"
+      ],
+      "observationOpportunities": "Sorts logically\nStates habitat reason\nCounts groups",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-07701b43fd761a1e",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-tuesday-3",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-3",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Fine Motor",
+      "title": "Farm Animal Puzzle Table",
+      "objective": "Complete farm puzzles and name animals.",
+      "description": "Preschoolers assemble wooden farm puzzles while naming pieces.",
+      "learningDomains": [],
+      "materials": "Farm puzzles, animal name cards",
+      "setup": "Place puzzles at table.",
+      "steps": "1. Choose puzzle.\n2. Name animal as piece placed.\n3. Complete and reset.\n4. Trade puzzles with peer.\n5. Match completed puzzle to name card.",
+      "teacherRole": "Encourage naming each piece placed.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Fine motor fit",
+        "Animal naming",
+        "Persistence"
+      ],
+      "observationOpportunities": "Completes puzzle\nNames animals\nTrades cooperatively",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-01c1e912994395f7",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-tuesday-2",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-tuesday-2",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "STEM/Discovery",
+      "title": "Muddy Pig Sensory Bin",
+      "objective": "Play with mud dough and pig figures.",
+      "description": "Preschoolers roll pigs in brown play dough mud and describe texture.",
+      "learningDomains": [],
+      "materials": "Brown play dough, pig figures, trays",
+      "setup": "Set dough and pigs in shallow bin.",
+      "steps": "1. Squish mud dough.\n2. Roll pigs through mud.\n3. Describe sticky and soft.\n4. Clean pigs with pretend brushes.\n5. Wash hands after play.",
+      "teacherRole": "Supervise dough use and hand washing.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Sensory description",
+        "Animal pretend care",
+        "Hygiene routine"
+      ],
+      "observationOpportunities": "Describes texture\nEngages in pretend cleaning\nWashes hands",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-323344663ee9ef16",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-wednesday-3",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-3",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Literacy",
+      "title": "Farm Story Read-Aloud",
+      "objective": "Read Big Red Barn and discuss animal bedtime.",
+      "description": "Preschoolers listen and sequence animal events from the story.",
+      "learningDomains": [],
+      "materials": "Big Red Barn book, animal props",
+      "setup": "Gather with props matching story.",
+      "steps": "1. Read story with animal sounds.\n2. Children hold props when animal mentioned.\n3. Retell beginning and end.\n4. Discuss day and night on farm.\n5. Place book in barn center.",
+      "teacherRole": "Pause for animal sound participation.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Listening comprehension",
+        "Sequence awareness",
+        "Story participation"
+      ],
+      "observationOpportunities": "Participates in sounds\nRetells part of story\nHandles props",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-2211a60c5477985a",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-wednesday-1",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-1",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Dramatic Play",
+      "title": "Farmer's Market Dramatic Play",
+      "objective": "Buy and sell farm goods at a market stand.",
+      "description": "Preschoolers pretend to sell eggs, milk, and vegetables at a farm stand.",
+      "learningDomains": [],
+      "materials": "Market stand, baskets, pretend produce, play money",
+      "setup": "Set up market with labeled bins.",
+      "steps": "1. Farmers stock stand.\n2. Customers buy with play money.\n3. Count items sold.\n4. Say thank you and good day.\n5. Switch roles.",
+      "teacherRole": "Model customer and farmer roles.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Economic pretend play",
+        "Counting in context",
+        "Polite exchange"
+      ],
+      "observationOpportunities": "Uses market vocabulary\nCounts items\nTakes turns in roles",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "id": "cur-act-f764929f01edb2a8",
+      "lessonPlanId": "cur-lp-preschool-farm-animals",
+      "itemId": "item-preschool-farm-animals-wednesday-2",
+      "sourceKey": "cur-lp-preschool-farm-animals:item-preschool-farm-animals-wednesday-2",
+      "dayOfWeek": "wednesday",
+      "activityCategory": "Fine Motor",
+      "title": "Milking the Cow Fine Motor",
+      "objective": "Squeeze water from glove udder into bucket.",
+      "description": "Preschoolers practice squeezing a glove filled with water mimicking milking.",
+      "learningDomains": [],
+      "materials": "Rubber glove with pinholes, water, bucket, towel",
+      "setup": "Prepare glove udder over bucket.",
+      "steps": "1. Demonstrate gentle squeeze.\n2. Child squeezes glove fingers.\n3. Watch water drip to bucket.\n4. Discuss milk from cows.\n5. Dry area and hands.",
+      "teacherRole": "Supervise water play.",
+      "teacherLanguage": "",
+      "learningGoals": [
+        "Hand strength",
+        "Farm product connection",
+        "Controlled squeezing"
+      ],
+      "observationOpportunities": "Squeezes with control\nUnderstands milk source\nFollows cleanup",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "Provide visual steps, partner support, or a simplified materials set. Extend with an open-ended challenge for children ready for more.",
+      "safetyNotes": "Supervise tools and materials, review allergy-safe consumables, and keep pathways clear during active or outdoor play.",
+      "ageModifications": "",
+      "status": "published",
+      "createdAt": "2026-08-03T12:09:35.347Z",
+      "updatedAt": "2026-08-03T12:09:35.347Z",
+      "publishedAt": "2026-01-01T00:00:00.000Z"
+    }
+  ],
+  "enrichmentDraft": {
+    "updatedAt": "2026-08-03T17:41:14.236Z",
+    "lastEditedBy": "slice2-demo@littlelearnershub.local",
+    "activities": {
+      "cur-act-e14264deb203e7dc": {
+        "setupImageUrl": "",
+        "exampleImageUrl": "",
+        "teacherTips": [
+          "Set the discovery basket at child height before circle.",
+          "Name one animal aloud as each child chooses an item."
+        ],
+        "substitutions": [
+          {
+            "need": "basket",
+            "use": "shallow tray or shoe box"
+          },
+          {
+            "need": "plastic animals",
+            "use": "printed animal cards"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Does the child name or gesture toward a familiar animal?",
+          "Do they take turns choosing from the basket?"
+        ],
+        "vocabulary": [
+          "cow",
+          "barn",
+          "farmer",
+          "hoof"
+        ]
+      },
+      "cur-act-01c1e912994395f7": {
+        "setupImageUrl": "",
+        "exampleImageUrl": "",
+        "teacherTips": [
+          "Offer a dry towel station beside the muddy pig bin.",
+          "Keep the mud thick enough to scoop, not pour."
+        ],
+        "substitutions": [
+          {
+            "need": "mud",
+            "use": "brown paint + cornstarch dough"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Uses both hands to scoop?",
+          "Uses describing words like sticky or soft?"
+        ],
+        "vocabulary": [
+          "mud",
+          "pig",
+          "scoop",
+          "sticky"
+        ]
+      },
+      "cur-act-2211a60c5477985a": {
+        "setupImageUrl": "",
+        "exampleImageUrl": "",
+        "teacherTips": [
+          "Label dramatic-play shelves so children can reset the market.",
+          "Model one polite market phrase, then step back."
+        ],
+        "substitutions": [
+          {
+            "need": "play food",
+            "use": "empty clean produce containers"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Uses role language (buyer/seller)?",
+          "Shares materials with a peer?"
+        ],
+        "vocabulary": [
+          "market",
+          "farmer",
+          "buy",
+          "share"
+        ]
+      },
+      "cur-act-c365a6b09e9d869d": {
+        "setupImageUrl": "",
+        "exampleImageUrl": "",
+        "teacherTips": [
+          "Pre-count egg cartons so each child has a clear start.",
+          "Celebrate careful pointing, not speed."
+        ],
+        "substitutions": [
+          {
+            "need": "plastic eggs",
+            "use": "pom-poms or bottle lids"
+          }
+        ],
+        "settingTags": [
+          "small_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Counts with one-to-one correspondence?",
+          "Self-corrects when an egg is skipped?"
+        ],
+        "vocabulary": [
+          "egg",
+          "count",
+          "carton",
+          "more"
+        ]
+      },
+      "cur-act-da4798d216b6e094": {
+        "setupImageUrl": "",
+        "exampleImageUrl": "",
+        "teacherTips": [
+          "Preview bingo sounds once before the game.",
+          "Keep rounds short so every child hears a turn."
+        ],
+        "substitutions": [
+          {
+            "need": "bingo cards",
+            "use": "paper plates with animal stickers"
+          }
+        ],
+        "settingTags": [
+          "large_group",
+          "indoor"
+        ],
+        "observationPrompts": [
+          "Matches sound to animal picture?",
+          "Waits for peers during turns?"
+        ],
+        "vocabulary": [
+          "sound",
+          "bingo",
+          "listen",
+          "match"
+        ]
+      }
+    },
+    "week": {},
+    "previewReady": false
+  },
+  "meta": {
+    "purpose": "Enrichment Editor Slice 2 Activity Studio demo",
+    "sourceLessonId": "cur-lp-preschool-farm-animals",
+    "sourceTitle": "Farm Animals",
+    "populatedActivityIds": [
+      "cur-act-e14264deb203e7dc",
+      "cur-act-01c1e912994395f7",
+      "cur-act-2211a60c5477985a",
+      "cur-act-c365a6b09e9d869d",
+      "cur-act-da4798d216b6e094"
+    ],
+    "populatedTitles": [
+      "Farm Animal Discovery Basket",
+      "Muddy Pig Sensory Bin",
+      "Farmer's Market Dramatic Play",
+      "Egg Carton Counting",
+      "Farm Sound Bingo"
+    ]
+  }
+}

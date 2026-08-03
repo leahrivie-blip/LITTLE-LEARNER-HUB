@@ -85,6 +85,29 @@ function normalizeCurriculumDailyItemForRender(item = {}) {
     adaptations: curriculumAsString(entry.adaptations),
     safetyNotes: curriculumAsString(entry.safetyNotes),
     ageModifications: curriculumAsString(entry.ageModifications),
+    // Teaching Kit enrichment — pass through so classic Save never strips them.
+    setupImageUrl: curriculumAsString(entry.setupImageUrl || entry.setupPhotoUrl),
+    exampleImageUrl: curriculumAsString(entry.exampleImageUrl || entry.examplePhotoUrl),
+    setupMediaAssetId: curriculumAsString(entry.setupMediaAssetId),
+    exampleMediaAssetId: curriculumAsString(entry.exampleMediaAssetId),
+    teacherTips: Array.isArray(entry.teacherTips)
+      ? entry.teacherTips.map((tip) => curriculumAsString(tip)).filter(Boolean)
+      : [],
+    substitutions: Array.isArray(entry.substitutions)
+      ? entry.substitutions
+        .filter((sub) => sub && typeof sub === "object")
+        .map((sub) => ({
+          need: curriculumAsString(sub.need || sub.from),
+          use: curriculumAsString(sub.use || sub.to),
+        }))
+        .filter((sub) => sub.need && sub.use)
+      : [],
+    settingTags: Array.isArray(entry.settingTags)
+      ? entry.settingTags.map((tag) => curriculumAsString(tag)).filter(Boolean)
+      : [],
+    indoorAlternatives: curriculumAsString(entry.indoorAlternatives),
+    outdoorAlternatives: curriculumAsString(entry.outdoorAlternatives),
+    cleanupTips: curriculumAsString(entry.cleanupTips),
   };
 }
 
@@ -118,7 +141,7 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
   CURRICULUM_WEEKDAYS.forEach((day) => {
     dailyPlans[day] = normalizeCurriculumDailyDayForRender(inputDaily[day]);
   });
-  return {
+  const out = {
     id: curriculumAsString(entry.id),
     title: curriculumAsString(entry.title),
     age: curriculumAsString(entry.age) || "Preschool",
@@ -147,7 +170,19 @@ function normalizeCurriculumLessonPlanForRender(plan = {}) {
     coverImagePosition: curriculumAsString(entry.coverImagePosition) || "center",
     createdAt: curriculumAsString(entry.createdAt),
     updatedAt: curriculumAsString(entry.updatedAt),
+    publishedAt: curriculumAsString(entry.publishedAt),
   };
+  // Preserve Teaching Kit enrichment plan fields across classic editor round-trips.
+  if (Object.prototype.hasOwnProperty.call(entry, "enrichmentDraft")) {
+    out.enrichmentDraft = entry.enrichmentDraft;
+  }
+  if (Array.isArray(entry.enrichmentPublishHistory)) {
+    out.enrichmentPublishHistory = entry.enrichmentPublishHistory;
+  }
+  if (entry.teachingKit && typeof entry.teachingKit === "object") {
+    out.teachingKit = entry.teachingKit;
+  }
+  return out;
 }
 
 function curriculumAgeSelectOptions(selectedAge = "") {
