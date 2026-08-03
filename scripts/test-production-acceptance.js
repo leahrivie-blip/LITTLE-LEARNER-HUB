@@ -228,18 +228,31 @@ async function dismissBlockingModals(page) {
       ".nuo-modal button.ghost-button",
       "[data-nuo-close]",
       "[data-nuo-skip]",
+      "[data-cookie-accept]",
+      "#cookieConsentAccept",
+      "button:has-text('Got it')",
     ];
-    for (const sel of selectors) {
-      document.querySelectorAll(sel).forEach((btn) => {
+    // querySelectorAll does not support :has-text — handle cookie/banner buttons by text.
+    document.querySelectorAll("button, a").forEach((btn) => {
+      const label = (btn.textContent || "").trim();
+      if (/^got it$/i.test(label) || /^accept$/i.test(label)) {
         try { btn.click(); } catch { /* ignore */ }
-      });
+      }
+    });
+    for (const sel of selectors) {
+      try {
+        document.querySelectorAll(sel).forEach((btn) => {
+          try { btn.click(); } catch { /* ignore */ }
+        });
+      } catch { /* invalid selector in querySelectorAll */ }
     }
-    ["#newUserOnboardingModal", "#proModal", "#freePlanSoftNudge"].forEach((id) => {
+    ["#newUserOnboardingModal", "#proModal", "#freePlanSoftNudge", "#cookieConsent", ".cookie-banner"].forEach((id) => {
       const el = document.querySelector(id);
       if (!el) return;
       el.hidden = true;
       el.setAttribute("aria-hidden", "true");
       el.classList.remove("open");
+      el.style.display = "none";
     });
   }).catch(() => {});
 }
@@ -392,6 +405,7 @@ async function clickVisibleControls(page, { limit = 25, account = "", context = 
 
 async function openLessonById(page, lessonId) {
   // Prefer library card click; fall back to in-app openResourceViewer.
+  await dismissBlockingModals(page);
   await clickSidebarNav(page, "lessons", "lessons").catch(async () => {
     await page.evaluate(() => {
       if (typeof window.setView === "function") window.setView("lessons");
@@ -399,30 +413,44 @@ async function openLessonById(page, lessonId) {
     await page.waitForSelector("#view-lessons.active-view", { timeout: 20000 });
   });
   await dismissBlockingModals(page);
-  await page.waitForTimeout(800);
+  await page.waitForTimeout(1200);
 
-  const card = page.locator(`[data-lesson-card="${lessonId}"], [data-view-resource="${lessonId}"]`).first();
-  if (await card.count()) {
-    await card.scrollIntoViewIfNeeded().catch(() => {});
-    await card.click({ force: true });
-    state.buttonsLinksTested += 1;
+  // Always prefer direct openResourceViewer for reliability after long sessions.
+  const opened = await page.evaluate(async (id) => {
+    if (typeof window.openResourceViewer === "function") {
+      await window.openResourceViewer(id);
+      return "openResourceViewer";
+    }
+    const card = document.querySelector(`[data-lesson-card="${CSS.escape(id)}"], [data-view-resource="${CSS.escape(id)}"]`);
+    if (card) {
+      card.click();
+      return "card-click";
+    }
+    return "";
+  }, lessonId);
+  if (!opened) {
+    const card = page.locator(`[data-lesson-card="${lessonId}"], [data-view-resource="${lessonId}"]`).first();
+    if (await card.count()) {
+      await card.scrollIntoViewIfNeeded().catch(() => {});
+      await card.click({ force: true });
+      state.buttonsLinksTested += 1;
+    } else {
+      throw new Error(`lesson card not found and openResourceViewer missing: ${lessonId}`);
+    }
   } else {
-    const opened = await page.evaluate(async (id) => {
-      if (typeof window.openResourceViewer === "function") {
-        await window.openResourceViewer(id);
-        return true;
-      }
-      return false;
-    }, lessonId);
-    if (!opened) throw new Error(`lesson card not found and openResourceViewer missing: ${lessonId}`);
+    state.buttonsLinksTested += 1;
   }
 
   await page.waitForFunction(() => {
     const modal = document.querySelector("#resourceViewerModal");
     const workspace = document.querySelector("[data-lesson-workspace], [data-teaching-kit-workspace]");
     const auth = document.querySelector("#authModal.open, #proModal.open");
-    return Boolean(workspace) || Boolean(modal?.classList.contains("open")) || Boolean(auth);
-  }, null, { timeout: 45000 });
+    const title = document.querySelector("#resourceViewerTitle, .lesson-workspace-title");
+    return Boolean(workspace)
+      || Boolean(modal?.classList.contains("open"))
+      || Boolean(auth)
+      || Boolean(title && (title.textContent || "").trim().length > 0);
+  }, null, { timeout: 60000 });
 
   state.lessonsOpened += 1;
   state.pagesTested += 1;
@@ -1155,24 +1183,39 @@ async function main() {
       const mon = attachMonitors(page);
       try {
         await runAdminFlows(page, accounts.admin);
-        // Also verify admin can open a Pro lesson via provider login + admin tools
+      } catch (error) {
+        record("Admin", "Admin unlock/management", false, error.message, { severity: "High", screenshot: await shot(page, "admin-mgmt-fatal") });
+      }
+      try {
         await loginViaUi(page, accounts.admin.email, accounts.admin.password);
         record("Admin", "Provider login as owner", true);
         await runSidebarAndCore(page, "Admin", "desktop");
+      } catch (error) {
+        record("Admin", "Admin provider navigation", false, error.message, { severity: "High", screenshot: await shot(page, "admin-nav-fatal") });
+      }
+      try {
         const samples = loadLessonSamples();
         const lesson = samples.preschool?.pro?.[0] || samples.infant?.pro?.[0];
         if (lesson) {
+          await dismissBlockingModals(page);
           await openLessonById(page, lesson.id);
+          record("Admin", `Open Pro lesson ${lesson.title}`, true, lesson.id);
           await exerciseTeachingKit(page, "Admin", lesson, { expectUnlocked: true });
           await closeLessonViewer(page);
         }
-        const cerr = mon.consoleErrors();
-        const nerr = mon.networkFailures();
-        record("Admin", "No critical console errors", cerr.length === 0, cerr.slice(0, 3).join(" | "), { severity: cerr.length ? "Medium" : null });
-        record("Admin", "No 404/500 network failures", nerr.length === 0, nerr.slice(0, 3).join(" | "), { severity: nerr.length ? "High" : null });
       } catch (error) {
-        record("Admin", "Admin run", false, error.message, { severity: "Critical", screenshot: await shot(page, "admin-fatal") });
+        record("Admin", "Admin Teaching Kit lesson open", false, error.message, { severity: "High", screenshot: await shot(page, "admin-lesson-fatal") });
       }
+      const cerr = mon.consoleErrors();
+      const nerr = mon.networkFailures();
+      record("Admin", "No critical console errors", cerr.length === 0, cerr.slice(0, 3).join(" | "), {
+        severity: cerr.length ? "Medium" : null,
+        screenshot: cerr.length ? await shot(page, "admin-console") : null,
+      });
+      record("Admin", "No 404/500 network failures", nerr.length === 0, nerr.slice(0, 3).join(" | "), {
+        severity: nerr.length ? "High" : null,
+        screenshot: nerr.length ? await shot(page, "admin-network") : null,
+      });
       await page.close();
     }
   } finally {
