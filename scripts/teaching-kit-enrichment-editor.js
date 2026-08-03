@@ -37,6 +37,18 @@
     lastSavedDraft: null,
     lessonAnalysis: null,
     analysisOpen: true,
+    assistant: {
+      tab: "improve", // improve | chat | toolkit | library | quality | images
+      chatInput: "",
+      chatLog: [],
+      improveField: "weeklyOverview",
+      improveText: "",
+      quality: null,
+      connections: [],
+      recommendations: [],
+      lastImagePreview: "",
+      status: "",
+    },
     aiTray: {
       open: false,
       phase: "idle", // idle | loading | ready | error | timeout
@@ -48,6 +60,7 @@
       abortController: null,
       batchProgress: null, // { processed, total, batchCount, elapsedMs, hasMore }
       generationTiming: null,
+      source: "", // "" | "ai-teacher-assistant" | lesson-teacher flows
     },
   };
 
@@ -61,6 +74,86 @@
 
   function lessonTeacher() {
     return root.LLHTeachingKitAiLessonTeacher || null;
+  }
+
+  function teacherAssistant() {
+    return root.LLHTeachingKitAiTeacherAssistant || null;
+  }
+
+  function reusableLibraryApi() {
+    return root.LLHTeachingKitReusableLibrary || null;
+  }
+
+  async function callTeacherAssistant(payload) {
+    const token = adminToken();
+    if (!token) {
+      state.assistant.status = "Admin unlock required for AI Teacher Assistant.";
+      return null;
+    }
+    const body = {
+      adminToken: token,
+      planId: state.planId,
+      ...payload,
+    };
+    const response = await fetch("/api/admin/curriculum/ai-teacher-assistant", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      state.assistant.status = data.error || "AI Teacher Assistant request failed. Draft unchanged.";
+      return null;
+    }
+    return data;
+  }
+
+  async function presentAssistantSuggestions(suggestions, { note = "" } = {}) {
+    const rows = (Array.isArray(suggestions) ? suggestions : []).map((item) => ({
+      ...item,
+      decision: "pending",
+      selected: true,
+      editing: false,
+      editText: item.proposedText || "",
+      originalBefore: String(item.currentValue || item.current || ""),
+    }));
+    if (!rows.length) {
+      state.assistant.status = note || "No draft suggestions returned.";
+      render();
+      return;
+    }
+    state.aiTray.open = true;
+    state.aiTray.phase = "ready";
+    state.aiTray.scope = rows.some((r) => r.activityKey) ? "lesson" : "week";
+    state.aiTray.source = "ai-teacher-assistant";
+    state.aiTray.suggestions = rows;
+    state.aiTray.errorText = "";
+    state.assistant.status = note || `${rows.length} draft suggestion(s) ready for side-by-side review — not published.`;
+    state.statusText = state.assistant.status;
+    render();
+  }
+
+  async function learnFromAcceptedSuggestions(acceptedRows) {
+    const token = adminToken();
+    if (!token || !Array.isArray(acceptedRows) || !acceptedRows.length) return;
+    for (const sug of acceptedRows) {
+      const before = String(sug.originalBefore || sug.currentValue || "").trim();
+      const after = String(sug.editText || sug.proposedText || sug.proposedValue || "").trim();
+      if (!after || after === before || after.startsWith("REUSE:")) continue;
+      try {
+        await callTeacherAssistant({
+          action: "learn_from_me",
+          field: sug.field || "",
+          before,
+          after,
+        });
+      } catch (_error) {
+        /* Best-effort style learning — never block accept. */
+      }
+    }
   }
 
   function refreshLessonAnalysis() {
@@ -149,6 +242,7 @@
       requestId: "",
       activityKey: "",
       scope: "activity",
+      source: "",
       suggestions: [],
       abortController: null,
       batchProgress: null,
@@ -515,6 +609,8 @@
       return;
     }
 
+    const learnFromAssistant = state.aiTray.source === "ai-teacher-assistant";
+
     // Canonical pure apply — never auto-save / publish. Lesson scope applies per activityKey.
     const activityKey = state.aiTray.activityKey || currentAiActivityKey(plan);
     const applied = (state.aiTray.scope === "lesson" && teacher?.applyLessonTeacherDecisions)
@@ -523,6 +619,9 @@
     state.draft = applied.draft;
     const insertedCount = (applied.inserted || []).length;
     await logAiInsert(applied.fields || [], insertedCount);
+    if (learnFromAssistant) {
+      void learnFromAcceptedSuggestions(toInsert);
+    }
     const insertedIds = new Set(toInsert.map((s) => s.id));
     const remaining = state.aiTray.suggestions
       .map((sug) => applyAiSuggestionEdits({ ...sug }))
@@ -986,6 +1085,140 @@
 
   function yn(missing) {
     return missing ? "Missing" : "Ready";
+  }
+
+  function renderAssistantPanel(plan) {
+    const assistantApi = teacherAssistant();
+    if (!assistantApi) return "";
+    const tab = state.assistant.tab || "improve";
+    const tabs = [
+      ["improve", "Make This Better"],
+      ["chat", "Teacher Chat"],
+      ["toolkit", "Toolkit Builders"],
+      ["library", "Reusable Library"],
+      ["images", "Example Images"],
+      ["quality", "Quality Review"],
+    ];
+    const improveActions = assistantApi.IMPROVE_ACTIONS || [];
+    const builders = assistantApi.TOOLKIT_BUILDERS || [];
+    const imageKinds = assistantApi.IMAGE_KINDS || [];
+    let body = "";
+    if (tab === "improve") {
+      const fieldOptions = [
+        ["weeklyOverview", "Weekly overview"],
+        ["familyConnection", "Family connection"],
+        ["teacherPreparation", "Teacher preparation"],
+        ["teacherTips", "Teacher tips (current activity)"],
+        ["observationPrompts", "Observations (current activity)"],
+        ["custom", "Custom pasted text"],
+      ];
+      body = `
+        <p class="muted-copy">Improve one section at a time — not a full regenerate. Results stay in draft until you accept.</p>
+        <label class="muted-copy" for="tk-assistant-improve-field">Target section</label>
+        <select id="tk-assistant-improve-field" data-assistant-improve-field>
+          ${fieldOptions.map(([id, label]) => `
+            <option value="${esc(id)}" ${state.assistant.improveField === id ? "selected" : ""}>${esc(label)}</option>
+          `).join("")}
+        </select>
+        <label class="muted-copy" for="tk-assistant-improve-text">Section text</label>
+        <textarea id="tk-assistant-improve-text" data-assistant-improve-text rows="3" placeholder="Paste or edit the section you want to improve…">${esc(state.assistant.improveText || "")}</textarea>
+        <div class="tk-assistant-action-grid" data-assistant-improve-actions>
+          ${improveActions.map((action) => `
+            <button type="button" class="ghost-button" data-assistant-improve="${esc(action.id)}">${esc(action.label)}</button>
+          `).join("")}
+        </div>
+      `;
+    } else if (tab === "chat") {
+      const log = (state.assistant.chatLog || []).map((entry) => `
+        <div class="tk-assistant-chat-bubble is-${esc(entry.role)}">
+          <strong>${entry.role === "teacher" ? "You" : "AI Teacher"}</strong>
+          <p>${esc(entry.text)}</p>
+        </div>
+      `).join("");
+      body = `
+        <p class="muted-copy">Ask like a teammate: “I don’t have pom poms,” “We only have 10 minutes,” “Make this easier.” Drafts only.</p>
+        <div class="tk-assistant-chat-log" data-assistant-chat-log>${log || `<p class="muted-copy">No messages yet.</p>`}</div>
+        <textarea data-assistant-chat-input rows="2" placeholder="Give me another sensory activity…">${esc(state.assistant.chatInput || "")}</textarea>
+        <button type="button" class="primary-button" data-assistant-chat-send>Send to AI Teacher</button>
+      `;
+    } else if (tab === "toolkit") {
+      body = `
+        <p class="muted-copy">One-click builders. AI prefers your reusable library before inventing something new.</p>
+        <div class="tk-assistant-action-grid">
+          ${builders.map((builder) => `
+            <button type="button" class="ghost-button" data-assistant-toolkit="${esc(builder.id)}">${esc(builder.label)}</button>
+          `).join("")}
+          <button type="button" class="primary-button" data-assistant-printable-pack>Generate printable pack</button>
+        </div>
+      `;
+    } else if (tab === "library") {
+      const connections = state.assistant.connections || [];
+      const recs = state.assistant.recommendations || [];
+      body = `
+        <p class="muted-copy"><strong>Highest-value workflow:</strong> reuse what you already built (printables, vocab, tips) instead of creating 150 near-duplicates.</p>
+        <div class="form-actions">
+          <button type="button" class="primary-button" data-assistant-refresh-connections>Find lesson connections</button>
+          <button type="button" class="ghost-button" data-assistant-save-reusable>Save current tip as reusable</button>
+        </div>
+        <h5>Connections</h5>
+        <ul class="tk-assistant-list">
+          ${connections.map((c) => `<li>${esc(c.message || c.title || "")}</li>`).join("") || `<li class="muted-copy">No connections loaded yet.</li>`}
+        </ul>
+        <h5>Reusable recommendations</h5>
+        <ul class="tk-assistant-list">
+          ${recs.map((r) => `<li><strong>${esc(r.title)}</strong> · ${esc(r.type)} · score ${esc(String(r.matchScore || ""))}<br/><span class="muted-copy">${esc(r.recommendation || "")}</span></li>`).join("") || `<li class="muted-copy">No recommendations yet.</li>`}
+        </ul>
+      `;
+    } else if (tab === "images") {
+      body = `
+        <p class="muted-copy">Generate example image drafts (setup, finished craft, invitation, sensory bin, classroom). Approval required before publish.</p>
+        <div class="tk-assistant-action-grid">
+          ${imageKinds.map((kind) => `
+            <button type="button" class="ghost-button" data-assistant-image="${esc(kind)}">${esc(kind.replace(/_/g, " "))}</button>
+          `).join("")}
+        </div>
+        ${state.assistant.lastImagePreview ? `
+          <figure class="tk-assistant-image-preview">
+            <img src="${esc(state.assistant.lastImagePreview)}" alt="Draft example image preview" />
+            <figcaption class="muted-copy">Draft preview only — not published.</figcaption>
+          </figure>
+        ` : ""}
+      `;
+    } else if (tab === "quality") {
+      const review = state.assistant.quality;
+      body = `
+        <p class="muted-copy">Pre-publish readiness check (guidance only). You remain the final reviewer.</p>
+        <button type="button" class="primary-button" data-assistant-quality-run>Run quality review</button>
+        ${review ? `
+          <div class="tk-assistant-quality-score">
+            <strong>${esc(String(review.readinessScore))}%</strong>
+            <span class="tag">${esc(review.readinessLabel)}</span>
+          </div>
+          <ul class="tk-assistant-list">
+            ${(review.findings || []).map((f) => `
+              <li class="severity-${esc(f.severity)}"><strong>${esc(f.severity)}</strong> — ${esc(f.message)}</li>
+            `).join("") || `<li class="muted-copy">No issues found.</li>`}
+          </ul>
+        ` : ""}
+      `;
+    }
+    return `
+      <section class="tk-assistant-panel" data-ai-teacher-assistant>
+        <div class="tk-assistant-head">
+          <div>
+            <p class="eyebrow">AI Teacher Assistant</p>
+            <strong>Experienced preschool teacher tools for ${esc(plan.title || "this lesson")}</strong>
+          </div>
+        </div>
+        <nav class="tk-assistant-tabs" aria-label="AI Teacher Assistant">
+          ${tabs.map(([id, label]) => `
+            <button type="button" class="${tab === id ? "is-active" : ""}" data-assistant-tab="${id}">${esc(label)}</button>
+          `).join("")}
+        </nav>
+        <div class="tk-assistant-body">${body}</div>
+        ${state.assistant.status ? `<p class="muted-copy tk-assistant-status">${esc(state.assistant.status)}</p>` : ""}
+      </section>
+    `;
   }
 
   function renderLessonAnalysisPanel(plan, activities) {
@@ -1787,6 +2020,7 @@
           ${renderUpgradeSummary(plan, activities)}
           <div class="tk-enrich-body">
             ${renderLessonAnalysisPanel(plan, activities)}
+            ${renderAssistantPanel(plan)}
             ${body}
           </div>
         </div>
@@ -2104,6 +2338,178 @@
         render();
         return;
       }
+      const assistantTab = event.target.closest("[data-assistant-tab]");
+      if (assistantTab) {
+        state.assistant.tab = assistantTab.getAttribute("data-assistant-tab") || "improve";
+        render();
+        return;
+      }
+      const improveBtn = event.target.closest("[data-assistant-improve]");
+      if (improveBtn) {
+        const plan = getPlan();
+        const act = getActivities(plan)[state.activityIndex];
+        const key = act ? draftKey(act) : "";
+        const field = state.assistant.improveField || "weeklyOverview";
+        let currentValue = String(state.assistant.improveText || "").trim();
+        let fieldLabel = "Custom text";
+        let activityKey = "";
+        if (field === "weeklyOverview") {
+          currentValue = currentValue || state.draft.week?.weeklyOverview || plan?.weeklyOverview || "";
+          fieldLabel = "Weekly overview";
+        } else if (field === "familyConnection") {
+          currentValue = currentValue || state.draft.week?.familyConnection || plan?.familyConnection || "";
+          fieldLabel = "Family connection";
+        } else if (field === "teacherPreparation") {
+          currentValue = currentValue
+            || state.draft.week?.teacherPreparation
+            || state.draft.week?.teacherToolkit?.teacherPreparation
+            || "";
+          fieldLabel = "Teacher preparation";
+        } else if (field === "teacherTips") {
+          const tips = state.draft.activities?.[key]?.teacherTips;
+          currentValue = currentValue || (Array.isArray(tips) ? tips[0] : "") || "";
+          fieldLabel = "Teacher tips";
+          activityKey = key;
+        } else if (field === "observationPrompts") {
+          const obs = state.draft.activities?.[key]?.observationPrompts;
+          currentValue = currentValue || (Array.isArray(obs) ? obs[0] : "") || "";
+          fieldLabel = "Observations";
+          activityKey = key;
+        }
+        const data = await callTeacherAssistant({
+          action: "make_better",
+          improveAction: improveBtn.getAttribute("data-assistant-improve"),
+          currentValue,
+          field: field === "custom" ? "teacherTips" : field,
+          fieldLabel,
+          activityKey,
+        });
+        if (data) await presentAssistantSuggestions(data.suggestions, { note: "Make This Better draft ready — accept to apply." });
+        return;
+      }
+      if (event.target.closest("[data-assistant-chat-send]")) {
+        const message = state.assistant.chatInput || "";
+        if (!message.trim()) return;
+        state.assistant.chatLog = [
+          ...(state.assistant.chatLog || []),
+          { role: "teacher", text: message },
+        ];
+        const act = getActivities(getPlan())[state.activityIndex];
+        const data = await callTeacherAssistant({
+          action: "teacher_chat",
+          message,
+          activityKey: act ? draftKey(act) : "",
+          currentValue: "",
+        });
+        if (data) {
+          state.assistant.chatLog.push({ role: "ai", text: data.reply || "" });
+          state.assistant.chatInput = "";
+          await presentAssistantSuggestions(data.suggestions, { note: "Teacher chat draft ready — accept to apply." });
+        } else {
+          render();
+        }
+        return;
+      }
+      const toolkitBtn = event.target.closest("[data-assistant-toolkit]");
+      if (toolkitBtn) {
+        const act = getActivities(getPlan())[state.activityIndex];
+        const data = await callTeacherAssistant({
+          action: "toolkit_builder",
+          builderId: toolkitBtn.getAttribute("data-assistant-toolkit"),
+          activityKey: act ? draftKey(act) : "",
+        });
+        if (data) {
+          await presentAssistantSuggestions(data.suggestions, {
+            note: data.suggestions?.[0]?.reuseRecommended
+              ? "Reusable library match preferred — review before accepting."
+              : "Toolkit builder draft ready.",
+          });
+        }
+        return;
+      }
+      if (event.target.closest("[data-assistant-printable-pack]")) {
+        const data = await callTeacherAssistant({ action: "printable_pack" });
+        if (data) {
+          if (Array.isArray(data.printablePack) && data.printablePack.length) {
+            if (!state.draft.week) state.draft.week = {};
+            state.draft.week.printablePacks = [
+              ...(Array.isArray(state.draft.week.printablePacks) ? state.draft.week.printablePacks : []),
+              {
+                id: `pack-${Date.now().toString(36)}`,
+                cards: data.printablePack,
+                createdAt: new Date().toISOString(),
+              },
+            ].slice(0, 20);
+            markDirty({ autosave: false });
+          }
+          await presentAssistantSuggestions(data.suggestions, { note: "Printable pack drafted (editable) — not published." });
+        }
+        return;
+      }
+      const imageBtn = event.target.closest("[data-assistant-image]");
+      if (imageBtn) {
+        const act = getActivities(getPlan())[state.activityIndex];
+        const data = await callTeacherAssistant({
+          action: "example_image",
+          imageKind: imageBtn.getAttribute("data-assistant-image"),
+          activityKey: act ? draftKey(act) : "",
+        });
+        if (data) {
+          state.assistant.lastImagePreview = data.exampleImage?.previewDataUrl || "";
+          await presentAssistantSuggestions(data.suggestions, {
+            note: "Example image draft created — approval required before publish.",
+          });
+        }
+        return;
+      }
+      if (event.target.closest("[data-assistant-quality-run]")) {
+        const data = await callTeacherAssistant({ action: "quality_review" });
+        if (data) {
+          state.assistant.quality = data.review || null;
+          state.assistant.connections = data.connections || [];
+          state.assistant.status = data.review
+            ? `Readiness ${data.review.readinessScore}% · ${data.review.readinessLabel}`
+            : "Quality review finished.";
+          render();
+        }
+        return;
+      }
+      if (event.target.closest("[data-assistant-refresh-connections]")) {
+        const data = await callTeacherAssistant({ action: "connections" });
+        if (data) {
+          state.assistant.connections = data.connections || [];
+          state.assistant.recommendations = data.recommendations || [];
+          state.assistant.status = `${(data.connections || []).length} connection(s), ${(data.recommendations || []).length} reusable recommendation(s).`;
+          render();
+        }
+        return;
+      }
+      if (event.target.closest("[data-assistant-save-reusable]")) {
+        const act = getActivities(getPlan())[state.activityIndex];
+        const key = act ? draftKey(act) : "";
+        const tip = (state.draft.activities?.[key]?.teacherTips || [])[0]
+          || state.draft.week?.familyConnection
+          || state.assistant.improveText
+          || "";
+        const data = await callTeacherAssistant({
+          action: "save_reusable",
+          item: {
+            type: "teacher_tip",
+            title: act?.title ? `${act.title} tip` : "Teacher tip",
+            body: tip || "Reusable classroom tip",
+            theme: getPlan()?.theme || "",
+            age: getPlan()?.age || "",
+            sourcePlanId: state.planId,
+          },
+        });
+        if (data?.duplicate) {
+          state.assistant.status = data.message || "Similar reusable item already exists.";
+        } else if (data?.saved) {
+          state.assistant.status = `Saved reusable “${data.saved.title}”. Old lessons unchanged.`;
+        }
+        render();
+        return;
+      }
       if (event.target.closest("[data-ai-suggest]")) {
         const scopeBtn = event.target.closest("[data-ai-suggest]");
         const raw = String(scopeBtn.getAttribute("data-ai-suggest") || "activity");
@@ -2270,6 +2676,10 @@
         await applyPhoto(box.getAttribute("data-photo-key"), box.getAttribute("data-photo-field"), file);
         return;
       }
+      if (event.target.matches("[data-assistant-improve-field]")) {
+        state.assistant.improveField = String(event.target.value || "weeklyOverview");
+        return;
+      }
       if (event.target.matches("[data-preview-ready]")) {
         state.draft.week.previewReady = event.target.checked;
         state.draft.previewReady = event.target.checked;
@@ -2279,6 +2689,14 @@
 
     document.addEventListener("input", (event) => {
       if (!state.open) return;
+      if (event.target.matches("[data-assistant-improve-text]")) {
+        state.assistant.improveText = String(event.target.value || "");
+        return;
+      }
+      if (event.target.matches("[data-assistant-chat-input]")) {
+        state.assistant.chatInput = String(event.target.value || "");
+        return;
+      }
       if (event.target.matches("[data-ai-edit-text]")) {
         const index = Number(event.target.getAttribute("data-ai-edit-text"));
         const sug = state.aiTray.suggestions[index];
@@ -2532,6 +2950,8 @@
       aiSuggest: true,
       aiLessonTeacher: true,
       completeKitGeneration: true,
+      aiTeacherAssistant: true,
+      reusableLibrary: true,
       publish: true,
       polish: true,
       preserveRemediation: true,

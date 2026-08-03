@@ -25046,6 +25046,132 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   color: #24312a;
 }
 
+/* AI Teacher Assistant */
+.tk-assistant-panel {
+  margin: 0 0 1rem;
+  padding: 0.95rem 1.05rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #f3f7f4 0%, #eef3f0 50%, #f6f1ea 100%);
+}
+.tk-assistant-head .eyebrow { margin: 0 0 0.2rem; }
+.tk-assistant-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.15rem;
+  color: #24312a;
+}
+.tk-assistant-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.65rem;
+}
+.tk-assistant-tabs button {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  background: rgba(255, 255, 255, 0.7);
+  color: #24312a;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tk-assistant-tabs button.is-active {
+  background: #2f5640;
+  border-color: #2f5640;
+  color: #fff;
+}
+.tk-assistant-body {
+  display: grid;
+  gap: 0.55rem;
+}
+.tk-assistant-body textarea,
+.tk-assistant-body select {
+  width: 100%;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.45rem;
+  padding: 0.55rem 0.65rem;
+  font: inherit;
+  background: #fff;
+}
+.tk-assistant-action-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.tk-assistant-action-grid .ghost-button,
+.tk-assistant-action-grid .primary-button {
+  font-size: 0.86rem;
+}
+.tk-assistant-chat-log {
+  display: grid;
+  gap: 0.45rem;
+  max-height: 220px;
+  overflow: auto;
+  padding: 0.35rem 0;
+}
+.tk-assistant-chat-bubble {
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-assistant-chat-bubble.is-ai {
+  background: rgba(47, 86, 64, 0.08);
+}
+.tk-assistant-chat-bubble strong {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-size: 0.82rem;
+}
+.tk-assistant-chat-bubble p { margin: 0; }
+.tk-assistant-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.tk-assistant-list li {
+  padding: 0.45rem 0.55rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.9rem;
+}
+.tk-assistant-list li.severity-high { border-color: rgba(138, 59, 50, 0.35); }
+.tk-assistant-list li.severity-medium { border-color: rgba(138, 106, 34, 0.35); }
+.tk-assistant-quality-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  margin: 0.55rem 0 0.25rem;
+}
+.tk-assistant-quality-score strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.6rem;
+  color: #24312a;
+}
+.tk-assistant-image-preview {
+  margin: 0.55rem 0 0;
+  padding: 0.55rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.1);
+}
+.tk-assistant-image-preview img {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  border-radius: 0.35rem;
+}
+.tk-assistant-status { margin: 0.55rem 0 0; }
+@media (max-width: 720px) {
+  .tk-assistant-tabs { gap: 0.3rem; }
+  .tk-assistant-tabs button { font-size: 0.8rem; }
+}
+
 /* Complete Teaching Kit binder authoring */
 .tk-authoring-binder-panel{margin:1.25rem 0 1.75rem;padding:1.1rem 1.2rem;border:1px solid rgba(36,49,42,.12);border-radius:.75rem;background:linear-gradient(165deg,#f7faf7 0%,#eef5f0 55%,#f8f4ee 100%)}
 .tk-authoring-binder-panel h4{margin:0 0 .35rem;font-family:"Fraunces",Georgia,serif;font-size:1.35rem;color:#24312a}

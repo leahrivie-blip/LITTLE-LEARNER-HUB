@@ -16,6 +16,7 @@
 - **Enrichment Editor Slice 7** approved as final implementation slice
 - **Preservation remediation** approved
 - **Complete Teaching Kit binder authoring** ready for review — see [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md) (`teachingKitAuthoring` default **false**; Enrichment Editor remains off)
+- **AI Teacher Assistant** ready for review — see [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md) (Reusable Library + Make This Better + Teacher Chat; flags remain **false**)
 - **No merge, deploy, or flag enablement** until owner sign-off
 
 ## Start here
@@ -33,6 +34,7 @@
 | **Enrichment Editor Slice 7** | [ENRICHMENT_EDITOR_SLICE7.md](./ENRICHMENT_EDITOR_SLICE7.md) |
 | **Enrichment preservation remediation** | [ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md](./ENRICHMENT_EDITOR_PRESERVE_REMEDIATION.md) |
 | **Complete Teaching Kit authoring** | [COMPLETE_TEACHING_KIT_AUTHORING.md](./COMPLETE_TEACHING_KIT_AUTHORING.md) |
+| **AI Teacher Assistant** | [AI_TEACHER_ASSISTANT.md](./AI_TEACHER_ASSISTANT.md) |
 | **Phase 1 QA readiness report** | [PHASE1_QA_READINESS_REPORT.md](./PHASE1_QA_READINESS_REPORT.md) |
 | Clickable companion mockup | [mockups/gold-standard.html](./mockups/gold-standard.html) |
 | Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |

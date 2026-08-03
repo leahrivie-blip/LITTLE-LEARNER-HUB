@@ -3197,8 +3197,32 @@ function normalizedSiteContent(value) {
     freePlanAccess: normalizedFreePlanAccess(input.freePlanAccess),
     featureFlags: normalizedFeatureFlags(input.featureFlags),
     curriculum: normalizedCurriculumStore(input.curriculum),
+    // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
+    teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
+}
+
+function normalizedTeachingKitAssistant(value) {
+  try {
+    const assistant = require("../scripts/teaching-kit-ai-teacher-assistant.js");
+    return assistant.normalizeAssistantState(value);
+  } catch (_error) {
+    return {
+      reusableLibrary: { items: [], updatedAt: "" },
+      stylePreferences: {
+        formatting: "",
+        wording: "",
+        lessonStyle: "",
+        activityStyle: "",
+        observationStyle: "",
+        teacherVoice: "",
+        acceptedEditSamples: [],
+        updatedAt: "",
+      },
+      updatedAt: "",
+    };
+  }
 }
 
 // Keeps existing top-level siteContent keys when the incoming payload omits them
@@ -17227,6 +17251,303 @@ async function handleAdminEnrichmentAiInsertLog(request, response) {
   });
 }
 
+/**
+ * AI Teacher Assistant actions (draft-only suggestions + reusable library).
+ * Never publishes. Reusable library / style prefs persist in siteContent.teachingKitAssistant.
+ */
+async function handleAdminAiTeacherAssistant(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitAiAssistEnabled(flags)) {
+    jsonResponse(response, 404, {
+      error: "Teaching Kit AI assist is disabled.",
+      code: "enrichment_editor_disabled",
+    });
+    return;
+  }
+
+  let assistantApi = null;
+  let reusableApi = null;
+  try { assistantApi = require("../scripts/teaching-kit-ai-teacher-assistant.js"); } catch (_e) { assistantApi = null; }
+  try { reusableApi = require("../scripts/teaching-kit-reusable-library.js"); } catch (_e) { reusableApi = null; }
+  if (!assistantApi) {
+    jsonResponse(response, 500, { error: "AI Teacher Assistant unavailable.", code: "assistant_unavailable" });
+    return;
+  }
+
+  const action = normalizedShortText(body.action, 40).toLowerCase();
+  const planId = normalizedShortText(body.planId, 160);
+  const curriculum = readSiteCurriculum(store);
+  const plan = planId
+    ? (curriculum.lessonPlans || []).find((item) => item.id === planId)
+    : null;
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  let assistantState = assistantApi.normalizeAssistantState(siteContent.teachingKitAssistant);
+  const stylePreferences = assistantState.stylePreferences;
+  const enrichmentApi = loadEnrichmentHelpers();
+  const storeActs = plan
+    ? (curriculum.activities || []).filter((item) => item.lessonPlanId === plan.id)
+    : [];
+  const flat = plan && enrichmentApi?.flattenLessonActivities
+    ? enrichmentApi.flattenLessonActivities(plan, storeActs)
+    : [];
+  const draft = plan?.enrichmentDraft && typeof plan.enrichmentDraft === "object"
+    ? plan.enrichmentDraft
+    : {};
+  const activityKey = normalizedShortText(body.activityKey, 160);
+  const activity = flat.find((item) => item.id === activityKey || item.itemId === activityKey) || flat[0] || null;
+  const ctxBase = {
+    theme: plan?.theme || plan?.title || "",
+    age: plan?.age || "",
+    lessonTitle: plan?.title || "",
+    activityTitle: activity?.title || "",
+    activityKey: activity ? (activity.id || activity.itemId || "") : "",
+    stylePreferences,
+    currentValue: normalizedMultilineText(body.currentValue, 4000),
+    fallback: normalizedMultilineText(body.fallback, 4000),
+    field: normalizedShortText(body.field, 80),
+    fieldLabel: normalizedShortText(body.fieldLabel, 120),
+    scope: activityKey ? "activity" : "week",
+  };
+
+  const persistAssistant = async (nextState) => {
+    const now = new Date().toISOString();
+    const next = assistantApi.normalizeAssistantState({
+      ...nextState,
+      updatedAt: now,
+    });
+    store.siteContent = {
+      ...siteContent,
+      teachingKitAssistant: next,
+      updatedAt: now,
+    };
+    await writeStoreAsync(store);
+    return next;
+  };
+
+  if (action === "connections" || action === "recommend_reusable") {
+    const connections = reusableApi?.findLessonConnections
+      ? reusableApi.findLessonConnections(plan || {}, curriculum, draft)
+      : [];
+    const recommendations = reusableApi?.recommendReusable
+      ? reusableApi.recommendReusable(assistantState.reusableLibrary, {
+        type: normalizedShortText(body.type, 40),
+        query: normalizedShortText(body.query || plan?.theme || plan?.title, 160),
+        theme: plan?.theme || "",
+        age: plan?.age || "",
+        limit: 10,
+      })
+      : [];
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      connections,
+      recommendations,
+      autoSaved: false,
+      autoPublished: false,
+      curriculumUnchanged: true,
+    });
+    return;
+  }
+
+  if (action === "save_reusable") {
+    if (!reusableApi?.saveReusableItem) {
+      jsonResponse(response, 500, { error: "Reusable library unavailable." });
+      return;
+    }
+    const result = reusableApi.saveReusableItem(assistantState.reusableLibrary, body.item || {});
+    if (result.duplicate) {
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        duplicate: result.duplicate,
+        message: "A similar reusable item already exists — link it instead of duplicating.",
+        autoSaved: false,
+        autoPublished: false,
+      });
+      return;
+    }
+    assistantState = await persistAssistant({
+      ...assistantState,
+      reusableLibrary: result.library,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      saved: result.saved,
+      reusableLibrary: assistantState.reusableLibrary,
+      autoPublished: false,
+      publishedLessonsUnchanged: true,
+    });
+    return;
+  }
+
+  if (action === "learn_from_me") {
+    const nextStyle = assistantApi.learnFromAcceptedEdit(stylePreferences, {
+      field: body.field,
+      before: body.before,
+      after: body.after,
+    });
+    assistantState = await persistAssistant({
+      ...assistantState,
+      stylePreferences: nextStyle,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      stylePreferences: assistantState.stylePreferences,
+      message: "Style preferences updated from your accepted edit. Old lessons were not changed.",
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "quality_review") {
+    if (!plan) {
+      jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+      return;
+    }
+    const review = assistantApi.runQualityReview(plan, flat, draft);
+    const connections = reusableApi?.findLessonConnections
+      ? reusableApi.findLessonConnections(plan, curriculum, draft)
+      : [];
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      review,
+      connections,
+      autoSaved: false,
+      autoPublished: false,
+      blocksPublish: false,
+    });
+    return;
+  }
+
+  if (action === "make_better") {
+    const suggestion = assistantApi.transformText(
+      body.currentValue || body.text,
+      normalizedShortText(body.improveAction || body.transform, 40),
+      ctxBase,
+    );
+    suggestion.id = `better-${Date.now().toString(36)}`;
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      suggestions: [suggestion],
+      autoSaved: false,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "teacher_chat") {
+    const chat = assistantApi.buildTeacherChatReply(body.message || body.text, ctxBase);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      reply: chat.reply,
+      suggestions: chat.suggestion ? [chat.suggestion] : [],
+      autoSaved: false,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "toolkit_builder") {
+    const suggestion = assistantApi.buildToolkitItem(
+      normalizedShortText(body.builderId || body.builder, 40),
+      ctxBase,
+    );
+    // Prefer reusable library matches before brand-new toolkit copy.
+    if (reusableApi?.recommendReusable) {
+      const type = suggestion.category === "vocab_cards" ? "vocabulary"
+        : (suggestion.category === "family_connection" ? "family_connection"
+          : (suggestion.category === "teacher_tips" ? "teacher_tip"
+            : (suggestion.category === "observation_prompts" ? "observation" : "toolkit")));
+      const hits = reusableApi.recommendReusable(assistantState.reusableLibrary, {
+        type,
+        query: `${plan?.theme || ""} ${suggestion.proposedText}`,
+        theme: plan?.theme || "",
+        limit: 3,
+      });
+      if (hits[0] && hits[0].matchScore >= 0.35) {
+        suggestion.reuseRecommended = true;
+        suggestion.reusableItemId = hits[0].id;
+        suggestion.proposedText = `REUSE: ${hits[0].title}\n${hits[0].body}`;
+        suggestion.currentValue = suggestion.currentValue || "(empty)";
+      }
+    }
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      suggestions: [suggestion],
+      autoSaved: false,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "printable_pack") {
+    const pack = assistantApi.buildPrintablePack(ctxBase);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      printablePack: pack.cards,
+      suggestions: [pack.suggestion],
+      autoSaved: false,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "example_image") {
+    const image = assistantApi.buildExampleImageDraft(
+      normalizedShortText(body.imageKind || body.kind, 40),
+      ctxBase,
+    );
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      exampleImage: {
+        kind: image.kind,
+        brief: image.brief,
+        previewDataUrl: image.previewDataUrl,
+        approvalRequired: true,
+        published: false,
+      },
+      suggestions: [image.suggestion],
+      autoSaved: false,
+      autoPublished: false,
+      message: "Draft example image created. Approve before publish — never auto-publishes.",
+    });
+    return;
+  }
+
+  jsonResponse(response, 400, {
+    error: "Unknown AI Teacher Assistant action.",
+    code: "invalid_assistant_action",
+    allowed: [
+      "make_better",
+      "teacher_chat",
+      "toolkit_builder",
+      "printable_pack",
+      "example_image",
+      "quality_review",
+      "save_reusable",
+      "recommend_reusable",
+      "connections",
+      "learn_from_me",
+    ],
+  });
+}
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value == null ? null : value));
 }
@@ -23938,6 +24259,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-suggest") return await handleAdminEnrichmentAiSuggest(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-rollback") return await handleEnrichmentRollback(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/ai-teacher-assistant") return await handleAdminAiTeacherAssistant(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);
