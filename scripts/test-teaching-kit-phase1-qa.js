@@ -302,7 +302,7 @@ async function runProviderWorkflow(page, kitPayload, viewportName) {
   await page.click("[data-tk-print-paper='a4']");
   await page.click("[data-tk-goto='binder']");
   await page.waitForSelector("[data-tk-panel='binder']");
-  assert(await page.locator(".tk-binder-cover").count() === 1, `${viewportName}: binder preview`);
+  assert(await page.locator(".tk-binder-hero").count() === 1, `${viewportName}: binder preview`);
 
   // Overflow / layout health
   const layout = await page.evaluate(() => {

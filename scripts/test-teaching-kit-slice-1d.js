@@ -377,7 +377,9 @@ async function main() {
     assert(await page.locator("text=Activities in this kit").count() >= 1, "build my kit surface");
     await page.click("[data-tk-goto='binder']");
     await page.waitForSelector("[data-tk-panel='binder']");
-    assert(await page.locator(".tk-binder-cover").count() === 1, "binder preview cover");
+    // Vision-aligned digital binder uses hero cover (not the older .tk-binder-cover card).
+    assert(await page.locator(".tk-binder-hero").count() === 1, "binder preview cover");
+    assert(await page.locator(".tk-binder-cover-media").count() === 1, "binder cover media");
 
     // Fail closed when viewer flag false
     const disabled = await page.evaluate(async (payload) => {
