@@ -7895,10 +7895,11 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
 .profile-empty-state {
   display: grid;
   gap: 8px;
-  padding: 18px 16px;
+  padding: 20px 18px;
   background: linear-gradient(180deg, #f7fafc, #ffffff);
   border: 1px dashed rgba(91, 155, 213, 0.28);
   border-radius: var(--radius);
+  animation: llhEmptyFade 0.45s ease;
 }
 
 .profile-empty-state strong {
@@ -7911,6 +7912,11 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   color: var(--muted);
   font-size: 13.5px;
   line-height: 1.5;
+}
+
+@keyframes llhEmptyFade {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .profile-empty-actions {
@@ -14981,14 +14987,14 @@ body.user-authenticated:not(.user-pro) .nav-link[data-pro-nav] {
   gap: 12px;
   flex-wrap: wrap;
   padding: 14px 20px;
-  background: var(--white);
-  border: 1px solid rgba(112, 85, 209, 0.3);
+  background: linear-gradient(180deg, #ffffff, #f7fafc);
+  border: 1px solid rgba(91, 155, 213, 0.35);
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(26, 43, 74, 0.14);
+  box-shadow: 0 10px 34px rgba(26, 43, 74, 0.14);
   max-width: 580px;
   width: calc(100% - 48px);
   pointer-events: none;
-  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
 }
 
 .after-action-prompt.visible {

@@ -348,13 +348,13 @@
   function renderWelcome() {
     return `
       <div class="nuo-screen nuo-welcome">
-        <p class="nuo-emoji" aria-hidden="true">🎉</p>
-        <h2 id="newUserOnboardingTitle">Welcome to Little Learner Hub!</h2>
-        <p class="nuo-lead">Your account is ready.</p>
-        <p>We're excited you're here! Little Learner Hub was built by a childcare provider to help you spend less time planning and more time teaching.</p>
-        <p class="muted-copy">Let's get you started in under a minute.</p>
+        <p class="eyebrow">Little Learner Hub</p>
+        <h2 id="newUserOnboardingTitle">Welcome — your classroom tools are ready</h2>
+        <p class="nuo-lead">Built by a childcare provider for busy teachers and home daycares.</p>
+        <p>We’ll help you find lesson plans, document children’s days, and keep families in the loop — without the paperwork pile.</p>
+        <p class="muted-copy">This takes about a minute. You can change anything later in Settings.</p>
         <div class="nuo-actions">
-          <button type="button" class="primary-button" data-nuo-action="continue">Continue</button>
+          <button type="button" class="primary-button" data-nuo-action="continue">Let’s get started</button>
         </div>
       </div>
     `;

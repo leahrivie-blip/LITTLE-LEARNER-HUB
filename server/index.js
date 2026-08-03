@@ -5718,28 +5718,30 @@ function buildDebugPromptSnapshot(systemPrompt, userPrompt) {
 
 function getToolSystemPrompt(tool) {
   const base = [
-    "You are an expert early childhood educator and curriculum specialist writing content for real childcare providers.",
-    "Use warm, professional childcare language that providers can copy and use right away.",
-    "Write like a seasoned, creative educator — not a template or a robot. Every output should feel specific, genuine, and freshly written.",
-    "Keep outputs organized, clearly labeled, and easy to read.",
-    "Use the child's name, age, goals, observations, program name, and provider notes whenever they are provided.",
-    "Include the program/daycare name in all formal documents when it is supplied.",
+    "You are an experienced early childhood educator and documentation coach writing for real childcare providers.",
+    "Sound like a trusted lead teacher: warm, clear, practical, and calm — never corporate, never robotic, never like generic AI.",
+    "Write ready-to-use language a provider can copy into a parent note, observation file, or licensing folder with little editing.",
+    "Keep outputs organized, clearly labeled, and easy to scan on a phone.",
+    "Use the child's exact name, age, classroom, date, goals, observations, program name, and provider notes whenever they are provided.",
+    "Include the program/daycare name in formal documents when it is supplied.",
     "Use only the details provided. Never invent injuries, triggers, witness names, diagnoses, timelines, or developmental concerns that were not entered.",
     "Provider and teacher notes are the highest-priority source. Understand exactly what happened before writing.",
     "Only include developmental areas, skills, and recommendations that are clearly supported by the note and context provided.",
     "Avoid generic developmental template language that could apply to any child. Make each response specific to this child and this exact situation.",
-    "Recommendations must be directly tied to what was observed, not generic filler.",
-    "If the provider's note is brief or minimal, produce a helpful result using appropriate general childcare context — note 'Based on the note provided...' and keep details realistic but not invented.",
-    "VARIETY: Generate fresh, specific content every single time. Vary your sentence openings, vocabulary, structure, transitions, and examples. Never reuse the same phrases, openers, or conclusions across responses.",
+    "Recommendations must be directly tied to what was observed, realistic for a busy classroom, and kind to families.",
+    "If the provider's note is brief, still produce a helpful draft grounded in that note — mark truly missing critical fields as “Not provided,” never invent them.",
+    "Never refuse to draft a parent message, daily report, observation, incident report, behavior note, activity, lesson, or form when a note or request is provided.",
+    "VARIETY: Generate fresh, specific content every single time. Vary sentence openings, vocabulary, structure, and examples.",
     "Avoid empty filler phrases like 'had a great day,' 'very engaged,' 'wonderful experience,' 'it is a pleasure to share,' 'I hope this message finds you well,' or 'in today's fast-paced world.'",
     "Do not use repetitive or generic phrasing such as 'This supports future learning,' 'Making meaningful connections,' 'Growing cognitive skills,' 'Explore through play,' or 'Connect learning across the week' unless it is truly specific and necessary.",
+    "Never use bracket placeholders like [Child Name], [Date], or [Classroom].",
     "For Infants: every activity must be developmentally appropriate (bonding, tummy time, tracking, grasping, songs, safe sensory). Never suggest scissors, glue, worksheets, tracing, small parts, or independent crafts.",
     "If a curriculum framework is mentioned (Creative Curriculum, HighScope, Frog Street, Montessori, Reggio Emilia, Mother Goose Time, or a custom curriculum), align your language, documentation style, and activity framing to that framework.",
     "If a state or state standards are mentioned, reference relevant domain indicators and align developmental language accordingly.",
     "",
     "FINAL QUALITY REVIEW — complete before returning any response:",
     "- Correct spelling, grammar, punctuation, and natural sentence structure.",
-    "- Professional writing with a warm, friendly, age-appropriate tone.",
+    "- Warm, professional, age-appropriate tone a real teacher would send to families.",
     "- No repetitive wording, awkward AI phrasing, incomplete sentences, placeholders, template language, duplicated paragraphs, or contradictions.",
     "- Consistent formatting and polished readability.",
     "- If any issue is found, revise and return the corrected final version (never return a first draft).",
@@ -6082,7 +6084,7 @@ Required sections (use only details the provider entered — do not invent):
 2. Child's Name and Age
 3. Location or Setting
 4. Objective Description of What Happened (past tense, observed facts only)
-5. What Occurred Immediately Before (if provided; otherwise write "Not provided — provider should add if known")
+5. What Occurred Immediately Before (if provided; otherwise write "Not provided")
 6. Witnesses or Others Present (if provided)
 7. Immediate Response and First Aid or Support Given
 8. Follow-Up Actions and Next Steps
@@ -6093,7 +6095,7 @@ Rules:
 - Separate observed facts from staff actions. Use objective language. Do not assign fault or blame.
 - Do not diagnose injuries, assign causes, or make medical claims beyond what was observed.
 - Preserve exact dates, times, names, locations, and notification details exactly as entered.
-- If a required detail was not provided, leave a short placeholder line asking the provider to add it — do not make it up.
+- If a required detail was not provided, write “Not provided” — do not invent it and do not leave unfinished placeholder prompts.
 - Never refuse to write the incident report. Draft from the facts provided and use “Not provided” for missing fields.
 - Use the exact child name and date from GROUNDED FACTS whenever provided.
 - Use a calm, professional tone. Serious incidents should not sound casual.
@@ -6109,7 +6111,7 @@ Required sections (use only details the provider entered — do not invent):
 2. Child's Name and Age
 3. Location or Setting
 4. Objective Description of What Happened (past tense, observed facts only)
-5. What Occurred Immediately Before (if provided; otherwise write "Not provided — provider should add if known")
+5. What Occurred Immediately Before (if provided; otherwise write "Not provided")
 6. Witnesses or Others Present (if provided)
 7. Immediate Response and First Aid or Support Given
 8. Follow-Up Actions and Next Steps
@@ -6120,7 +6122,7 @@ Rules:
 - Separate observed facts from staff actions. Use objective language. Do not assign fault or blame.
 - Do not diagnose injuries, assign causes, or make medical claims beyond what was observed.
 - Preserve exact dates, times, names, locations, and notification details exactly as entered.
-- If a required detail was not provided, leave a short placeholder line asking the provider to add it — do not make it up.
+- If a required detail was not provided, write “Not provided” — do not invent it and do not leave unfinished placeholder prompts.
 - Never refuse to write the incident report. Draft from the facts provided and use “Not provided” for missing fields.
 - Use the exact child name and date from GROUNDED FACTS whenever provided.
 - Use a calm, professional tone. Serious incidents should not sound casual.
@@ -6636,7 +6638,7 @@ async function generateOpenAiContent({
 
 async function callOpenAiRaw(systemPrompt, userPrompt) {
   if (!OPENAI_API_KEY) {
-    throw new Error("Document creation is not available. OPENAI_API_KEY is not configured.");
+    throw new Error("Documentation Helpers are temporarily unavailable. Please try again shortly or Message Support.");
   }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
@@ -6866,7 +6868,7 @@ async function handleAdminAiGenerateContent(request, response) {
     return;
   }
   if (!OPENAI_API_KEY) {
-    jsonResponse(response, 503, { error: "AI generation is unavailable. OPENAI_API_KEY is not configured." });
+    jsonResponse(response, 503, { error: "Documentation Helpers are temporarily unavailable. Please try again shortly." });
     return;
   }
   const systemPrompt = adminAiContentSystemPrompt(contentType);
@@ -6894,7 +6896,7 @@ async function handleAdminGenerateLessonPlan(request, response) {
     return;
   }
   if (!OPENAI_API_KEY) {
-    jsonResponse(response, 503, { error: "AI generation is unavailable. OPENAI_API_KEY is not configured." });
+    jsonResponse(response, 503, { error: "Documentation Helpers are temporarily unavailable. Please try again shortly." });
     return;
   }
   const age = normalizedShortText(body.age, 80) || "Preschool";

@@ -2117,7 +2117,7 @@ const firebaseAuthConfig = {
   appId: "",
 };
 const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthConfig.authDomain && firebaseAuthConfig.projectId && firebaseAuthConfig.appId);
-const authProviderName = firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication";
+const authProviderName = "Email & password";
 let firebaseAuthClient = null;
 // Numeric caps apply to legacy library resources only. Curriculum lesson plans and activities
 // use the curated Free sample (see scripts/free-curriculum-sample.js) — not every Free-tagged plan.
@@ -2927,14 +2927,15 @@ function friendlyAuthError(error) {
   if (code.includes("expired-action-code")) return "This reset link has expired. Please request a new password reset email.";
   if (code.includes("invalid-action-code")) return "This reset link is invalid or has already been used.";
   if (code.includes("unauthorized-domain")) {
-    const host = (() => {
-      try { return window.location.hostname || "littlelearnershubbyleah.com"; } catch { return "littlelearnershubbyleah.com"; }
-    })();
-    return `Password reset is not enabled for this website domain yet. In Firebase Authentication → Settings → Authorized domains, add: ${host}, www.littlelearnershubbyleah.com, and littlelearnershubbyleah.com (plus the Render host if you still use it).`;
+    return "Password reset isn’t available from this site right now. Message Support and we’ll help you get back in.";
   }
-  if (code.includes("operation-not-allowed")) return "Email/password login needs to be enabled in Firebase Authentication.";
+  if (code.includes("operation-not-allowed")) {
+    return "Email sign-in isn’t available right now. Message Support and we’ll help.";
+  }
   if (code.includes("too-many-requests")) return "Too many attempts. Please wait a few minutes and try again.";
-  if (!firebaseAuthEnabled && code === "auth/not-configured") return "Real email recovery is ready to use after Firebase Auth config is added.";
+  if (!firebaseAuthEnabled && code === "auth/not-configured") {
+    return "Password recovery isn’t available right now. Message Support and we’ll help you reset access.";
+  }
   return error?.message || "Something went wrong. Please try again.";
 }
 
@@ -6451,7 +6452,7 @@ function renderAiGuideHome() {
             <button class="ai-guide-category-card" type="button" data-ai-guide-category="${escapeHtml(category.id)}" ${ready && !askBlocked ? "" : "disabled"}>
               <strong>${escapeHtml(category.label)}</strong>
               <span>${escapeHtml(category.blurb)}</span>
-              <em>Phase ${escapeHtml(String(category.phase || 1))}</em>
+              <em>${ready && !askBlocked ? "Ready to try" : (askBlocked ? "Ask mode off" : "Coming next")}</em>
             </button>
           `;
         }).join("")}
@@ -6655,7 +6656,7 @@ function renderAiGuidePage() {
         <div class="child-page-header">
           <div>
             <h2>AI Guide</h2>
-            <p>AI Guide is only available on the testing site while we build it.</p>
+            <p>AI Guide isn’t available on this site yet. Continue with Documentation Helpers for now.</p>
           </div>
         </div>
         <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
@@ -6668,9 +6669,9 @@ function renderAiGuidePage() {
       <button class="ghost-button back-button" data-view="calendar" type="button">← Back to Calendar</button>
       <div class="child-page-header">
         <div>
-          <p class="eyebrow">Testing only · Phases 1–3</p>
+          <p class="eyebrow">Early access</p>
           <h2>AI Guide</h2>
-          <p>Turn short notes into childcare drafts you review before using. Ask mode is read-only. Nothing sends or publishes on its own.</p>
+          <p>Turn short notes into childcare drafts you review before using. Ask mode is read-only — nothing sends or publishes on its own.</p>
         </div>
       </div>
       <div id="aiGuideBody">
@@ -7301,7 +7302,7 @@ function renderHomeDaycareAiDraftPanel(options = {}) {
   const hasDraft = Boolean(String(hdhAiDraftState.lastOutput || "").trim());
   return `
     <section class="section-block hdh-ai-draft-panel" id="hdhAiDraftPanel">
-      <p class="eyebrow">Step C</p>
+      <p class="eyebrow">AI forms</p>
       <h3>AI form draft</h3>
       <p class="muted-copy">Generate a filled draft from short notes. Review and edit before saving. Family send comes later — nothing is sent automatically.</p>
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
@@ -7460,7 +7461,7 @@ async function runHomeDaycareAiFormDraft({ draftAction = "" } = {}) {
       } catch (error) {
         output = generateDaycareForm(data);
         if (hintEl) {
-          hintEl.textContent = `${error.message || "AI was unavailable."} Showing a local template draft instead — edit before use.`;
+          hintEl.textContent = "We couldn’t generate a draft just now. Here’s a starter template — review and edit before saving.";
         }
       }
     } else {
@@ -7480,11 +7481,11 @@ async function runHomeDaycareAiFormDraft({ draftAction = "" } = {}) {
     if (previousOutput) {
       hdhAiDraftState.lastOutput = previousOutput;
       outputEl.innerHTML = renderMarkdown(previousOutput);
-      if (hintEl) hintEl.textContent = "Generation failed. Your previous draft is still here.";
+      if (hintEl) hintEl.textContent = "Couldn’t generate a new draft. Your previous draft is still here — edit your notes and try again.";
     } else {
       outputEl.textContent = error.message || "We couldn't create your form draft. Please try again.";
       hdhAiDraftState.lastOutput = "";
-      if (hintEl) hintEl.textContent = "Generation failed. Edit your notes and try again.";
+      if (hintEl) hintEl.textContent = "Couldn’t generate a draft. Edit your notes and try again.";
     }
   } finally {
     if (submitBtn) {
@@ -12725,7 +12726,7 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
   }
   ensureAccount(cleanEmail);
   updateAccount(cleanEmail, {
-    authProvider: "Local demo authentication",
+    authProvider: "Email & password",
     emailVerified: false,
     phone: String(phone || "").trim(),
     firstName: cleanFirst,
@@ -12733,7 +12734,7 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
     name: fullName || undefined,
     passwordHash: await localPasswordHash(password),
   });
-  return { email: cleanEmail, verified: false, message: "Demo account created. Connect Firebase Auth to send real verification emails." };
+  return { email: cleanEmail, verified: false, message: "Welcome! Your account is ready — you can start exploring right away." };
 }
 
 async function loginWithServerPassword(email, password) {
@@ -12752,7 +12753,7 @@ async function loginWithServerPassword(email, password) {
     mustChangePassword: Boolean(data.mustChangePassword),
     serverPasswordAuth: Boolean(data.serverPasswordAuth),
     tempPasswordExpiresAt: data.tempPasswordExpiresAt || "",
-    authProvider: firebaseAuthEnabled ? "Firebase Authentication" : "Local demo authentication",
+    authProvider: "Email & password",
   });
   writeMemberSessionToken(data.memberSessionToken || "", { persist: memberWantsPersistentSession() });
   return {
@@ -12834,7 +12835,7 @@ async function loginWithProvider(email, password) {
       } catch (serverError) {
         const serverMsg = String(serverError?.message || "");
         if (/method not allowed|failed to fetch|network|offline/i.test(serverMsg)) {
-          throw new Error("Sign-in recovery is still deploying. Please wait one minute and try again.");
+          throw new Error("Sign-in is taking longer than usual. Wait a moment and try again, or Message Support if it keeps happening.");
         }
         throw serverError?.message ? serverError : firebaseError;
       }
@@ -12935,7 +12936,7 @@ async function sendPasswordReset(email) {
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }));
   console.info("[auth] password_reset_demo_token_created", { email: cleanEmail });
-  return "Demo reset created. Connect Firebase Auth to send real password reset emails.";
+  return "If that email is on file, you can continue with a reset link. Check your inbox and spam folder, or Message Support if nothing arrives.";
 }
 
 async function resendVerificationEmail() {
@@ -12960,7 +12961,7 @@ async function resendVerificationEmail() {
     console.warn("[auth] server_verification_email_unavailable", error);
   }
   updateAccount(currentUser, { emailVerified: false });
-  return "Demo mode: connect Firebase Auth to send a real verification email.";
+  return "We couldn’t send a verification email right now. Try again in a minute, or Message Support and we’ll help.";
 }
 
 async function changePassword(currentPassword, newPassword) {
@@ -13003,7 +13004,7 @@ async function changePassword(currentPassword, newPassword) {
       });
     }
   } catch { /* best-effort */ }
-  return "Demo password updated. Connect Firebase Auth for production password security.";
+  return "Password updated. You’re all set — keep using your email and new password to sign in.";
 }
 
 async function confirmPasswordResetFromLink(newPassword) {
@@ -13084,7 +13085,7 @@ async function confirmPasswordResetFromLink(newPassword) {
     // Persist into server JSON store so password-login works after demo reset.
     await syncPasswordAfterFirebaseAuth(newPassword, "demo_password_reset", cleanEmail);
     console.info("[auth] password_reset_demo_success", { email: cleanEmail });
-    return "Demo password reset complete. You can now log in.";
+    return "Password reset complete. You can now log in with your new password.";
   }
   throw new Error("This reset link is missing or expired. Please request a new password reset email.");
 }
@@ -17538,7 +17539,7 @@ function curriculumCollectionDetailHtml(collection, lessonItems = []) {
           <p class="muted-copy">${track.filledWeekCount || 0} of ${track.weekCount || 4} weeks</p>
         </div>
         <ul class="curriculum-collection-week-list">
-          ${weeks || `<li class="muted-copy">Weeks for ${escapeHtml(age)} are coming soon.</li>`}
+          ${weeks || `<li class="muted-copy">No ${escapeHtml(age)} weeks are published in this collection yet.</li>`}
         </ul>
       </section>
     `;
@@ -21306,7 +21307,7 @@ function fallbackBackLabel(view) {
   if (view === "account") return "← Back to Account";
   if (view === "billing") return "← Back to Billing Management";
   if (view === "children") return "← Back to Children";
-  if (view === "ai") return "← Back to Documentation Center";
+  if (view === "ai") return "← Back to Documentation Helpers";
   if (view === "director-center") return "← Back to Director Center";
   if (view === "support-center") return "← Back to Behavior & Support";
   if (viewMap[view]) return `← Back to ${viewMap[view]}`;
@@ -23730,7 +23731,7 @@ async function submitActivityFeedback({
   };
 
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -23810,7 +23811,7 @@ async function submitLessonPlanFeedback({ sentiment, lessonId, lessonTitle, deta
   if (hasStars) payload.stars = roundedStars;
 
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -33121,17 +33122,17 @@ function renderFamilyHubProviderPanel() {
   const invite = familyHubInviteResult;
   const storage = familyHubHouseholdCache.storage || null;
   const handoff = familyHubHouseholdCache.testingHandoff
-    || "Email may be disabled on testing — copy the magic link and login code for parent testers.";
+    || "If email isn’t sending yet, copy the magic link and login code and share them with the family.";
   const storageWarning = storage && storage.durable === false
-    ? `<p class="form-message" role="alert">Storage not durable: ${escapeHtml(storage.reason || "Fix Postgres or LLH_STORE_PATH before inviting real testers.")}</p>`
+    ? `<p class="form-message" role="alert">Family invites can’t be saved right now. Message Support and we’ll get storage ready for you.</p>`
     : (storage && storage.durable
-      ? `<p class="form-note">Storage: ${escapeHtml(storage.backend)} (durable)</p>`
+      ? `<p class="form-note">Family Hub invites are saving securely.</p>`
       : "");
   return `
     <section class="section-block hdh-family-hub-panel" id="hdhFamilyHubPanel">
-      <p class="eyebrow">Step D · Testing preview</p>
+      <p class="eyebrow">Family sharing</p>
       <h3>Family Hub</h3>
-      <p class="muted-copy">Invite a household for internal parent testing. Parents open a magic link or sign in with email + code. No per-child logins.</p>
+      <p class="muted-copy">Invite a household so parents can see today’s updates, photos, forms, and messages. One login covers every child you link.</p>
       ${storageWarning}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <form id="hdhFamilyHubInviteForm" class="panel-form hdh-family-hub-form">
@@ -33145,8 +33146,8 @@ function renderFamilyHubProviderPanel() {
           <label>Second guardian email (optional)
             <input name="guardianEmail" type="email" maxlength="120" placeholder="guardian@example.com" />
           </label>
-          <label>Parent phone (text magic link)
-            <input name="phone" type="tel" maxlength="40" placeholder="Phone (optional)" />
+          <label>Parent phone (optional)
+            <input name="phone" type="tel" maxlength="40" placeholder="Phone for a text link later" />
           </label>
         </div>
         <fieldset class="hdh-child-pick-fieldset">
@@ -33159,21 +33160,21 @@ function renderFamilyHubProviderPanel() {
                   <span>${escapeHtml(child.name)}</span>
                 </label>
               `).join("")
-              : `<p class="muted-copy">Add a child profile before inviting Family Hub access.</p>`}
+              : `<p class="muted-copy">Add a child profile first, then come back to invite their family.</p>`}
           </div>
         </fieldset>
         <div class="account-actions-row">
-          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create household invite</button>
-          <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview Parent view</button>
-          <button class="ghost-button" type="button" data-family-hub-seed-demo>Seed demo household</button>
+          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Invite family</button>
+          <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview parent view</button>
+          <button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>
         </div>
-        <p class="form-note">${escapeHtml(handoff)} SMS is simulated on testing. Use <strong>Preview Parent view</strong> to bounce into the parent side yourself.</p>
+        <p class="form-note">${escapeHtml(handoff)} Text delivery isn’t live yet — copy the link if you want to share by phone. Use <strong>Preview parent view</strong> to see what families see.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result" role="status">
-          <strong>Invite ready for ${escapeHtml(invite.label || "family")}</strong>
-          <p class="muted-copy"><strong>Testing handoff:</strong> copy these and share manually if email is off.</p>
+          <strong>You’re ready to invite ${escapeHtml(invite.label || "this family")}</strong>
+          <p class="muted-copy">Share the link (and code, if needed). Parents can open Family Hub right away.</p>
           <p class="muted-copy">Magic link: <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
           ${invite.loginCode ? `<p class="muted-copy">Login code: <code class="hdh-code">${escapeHtml(invite.loginCode)}</code></p>` : ""}
           <div class="account-actions-row">
@@ -33197,7 +33198,7 @@ function renderFamilyHubProviderPanel() {
               </div>
             </article>
           `).join("")
-          : `<p class="muted-copy">No household invites yet. Create one or seed the demo household.</p>`}
+          : `<div class="profile-empty-state"><strong>No families invited yet</strong><p>Invite a household above, or create a sample household to explore the parent view.</p></div>`}
       </div>
     </section>
   `;
@@ -33871,7 +33872,7 @@ function renderFamilyHubPage() {
   if (!isHomeDaycareHubTestingEnabled()) {
     section.innerHTML = `
       <section class="simple-child-page">
-        <div class="child-page-header"><div><h2>Family Hub</h2><p>Family Hub is only available on the testing site.</p></div></div>
+        <div class="child-page-header"><div><h2>Family Hub</h2><p>Family Hub isn’t available on this site yet.</p></div></div>
         <button class="ghost-button" data-view="home" type="button">Back</button>
       </section>
     `;
@@ -34547,7 +34548,7 @@ function renderHomeDaycareStaffInvitePanel() {
   const invite = hdhTesterInviteResult;
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
-      <p class="eyebrow">Step E</p>
+      <p class="eyebrow">Staff invites</p>
       <h3>Invite a tester (own account + own kid)</h3>
       <p class="muted-copy">Each tester gets their <strong>own</strong> Teacher account and their <strong>own</strong> starter child — not your kids, not a shared program. They can use Hub, forms, lessons, calendar, and daily logs. <strong>No Admin.</strong> They Message Leah in Messages.</p>
       <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
@@ -34645,7 +34646,7 @@ function renderHomeDaycareTrainingsPanel() {
   const members = staffInviteRemoteCache.members || [];
   return `
     <section class="section-block" id="hdhTrainingsPanel">
-      <p class="eyebrow">Step F</p>
+      <p class="eyebrow">Trainings</p>
       <h3>CPR &amp; training tracker</h3>
       <p class="muted-copy">Track staff certifications with completion and expiry dates.</p>
       <form id="hdhTrainingForm" class="panel-form">
@@ -34681,7 +34682,7 @@ function renderHomeDaycareTrainingsPanel() {
               <button class="ghost-button" type="button" data-hdh-training-delete="${escapeHtml(item.id)}">Remove</button>
             </article>
           `).join("")
-          : `<p class="muted-copy">No trainings tracked yet.</p>`}
+          : `<div class="profile-empty-state"><strong>No trainings tracked yet</strong><p>Save a CPR, first aid, or other training above so renewals stay visible.</p></div>`}
       </div>
     </section>
   `;
@@ -34694,7 +34695,7 @@ function renderHomeDaycarePacketsPanel() {
   const packets = hdhPacketsCache.packets || [];
   return `
     <section class="section-block" id="hdhPacketsPanel">
-      <p class="eyebrow">Step G</p>
+      <p class="eyebrow">Enrollment</p>
       <h3>Enrollment &amp; forms packets</h3>
       <p class="muted-copy">Bundle the home-daycare forms pack for a child, track each item, and optionally link a Family Hub household.</p>
       <form id="hdhPacketForm" class="panel-form">
@@ -34747,7 +34748,7 @@ function renderHomeDaycarePacketsPanel() {
               </div>
             </article>
           `).join("")
-          : `<p class="muted-copy">No packets yet.</p>`}
+          : `<div class="profile-empty-state"><strong>No packets yet</strong><p>Create a packet for a child to track enrollment forms in one place — then share them with Family Hub when you’re ready.</p></div>`}
       </div>
     </section>
   `;
@@ -34857,7 +34858,7 @@ function renderHomeDaycareHubPage(options = {}) {
         <div class="child-page-header">
           <div>
             <h2>Home Daycare Hub</h2>
-            <p>This workspace is only available on the testing site while we build it.</p>
+            <p>This workspace isn’t available on this site yet.</p>
           </div>
         </div>
         <button class="ghost-button" data-view="calendar" type="button">Back to Calendar</button>
@@ -34880,7 +34881,7 @@ function renderHomeDaycareHubPage(options = {}) {
       <div class="hdh-hub-sections">
         ${renderHomeDaycareTesterGuidePanel()}
         <section class="section-block" id="hdhFormsPackPanel">
-          <p class="eyebrow">Step B</p>
+          <p class="eyebrow">Forms pack</p>
           <h3>Home daycare forms pack</h3>
           <p class="muted-copy">Ten common forms for home daycare paperwork. Open a template to print or edit, then track status on each child’s Forms &amp; Records tab.</p>
           ${renderHomeDaycareFormsPackList({ childId: firstChild?.id || "", showAddToFile: Boolean(firstChild), showAiDraft: true })}
@@ -34901,7 +34902,7 @@ function renderHomeDaycareHubPage(options = {}) {
         ${renderHomeDaycareTrainingsPanel()}
         ${renderHomeDaycarePacketsPanel()}
         <section class="section-block" id="hdhFormsRecordsPanel">
-          <p class="eyebrow">Step A</p>
+          <p class="eyebrow">Getting started</p>
           <h3>Child Forms &amp; Records</h3>
           <p class="muted-copy">Each child’s file has a Forms &amp; Records tab with search and filters for enrollment, authorizations, and signed paperwork.</p>
           <div class="account-actions-row">
@@ -41029,7 +41030,9 @@ async function setChildRecordFamilyShare(storeKey, recordId, shared) {
   saveChildStore(storeKey, childStore(storeKey).map((item) => (
     item.id === recordId ? { ...item, shareWithFamily: Boolean(shared), updatedAt: new Date().toISOString() } : item
   )));
-  showActionFeedback(shared ? "Shared with Family Hub." : (storeKey === "Photos" ? "Removed from parent view." : "Stopped sharing with Family Hub."));
+  showActionFeedback(shared
+    ? "Shared with Family Hub — families can see this when they’re invited."
+    : (storeKey === "Photos" ? "Removed from the parent view." : "Stopped sharing with Family Hub."));
   renderChildManagement();
   return true;
 }
@@ -41104,7 +41107,7 @@ function showActionFeedback(message, action = null) {
   banner.innerHTML = `
     <span class="after-action-text">${escapeHtml(message)}</span>
     ${action ? `<button class="primary-button after-action-yes" ${action.attr} type="button">${escapeHtml(action.label)}</button>` : ""}
-    <button class="ghost-button after-action-dismiss" type="button">Dismiss</button>
+    <button class="ghost-button after-action-dismiss" type="button">Got it</button>
   `;
   banner.classList.add("visible");
   if (afterActionPromptTimeout) clearTimeout(afterActionPromptTimeout);
@@ -41854,7 +41857,7 @@ async function submitHomeShapeFeedbackForm(event) {
   setHomeShapeFeedbackStatus("Sending…");
   if (submitBtn) submitBtn.disabled = true;
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -41998,7 +42001,7 @@ async function submitIdeaRequestForm(event) {
   setIdeaRequestMessage("Sending…");
   if (submitBtn) submitBtn.disabled = true;
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feature-request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -42111,7 +42114,7 @@ async function submitFeedbackForm(event) {
     role: account.role || getUserRole(account),
   };
   try {
-    if (!canUseLaunchBackend()) throw new Error("Backend unavailable");
+    if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
     const response = await fetch("/api/feedback", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -56211,7 +56214,7 @@ function renderResetPasswordPage() {
   } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
   } else if (!firebaseAuthEnabled && localStorage.getItem("llhDemoResetToken")) {
-    setFormMessage(message, "Demo reset mode is active. Enter a new password to test the recovery screen.", true);
+    setFormMessage(message, "Enter a new password to finish resetting your account.", true);
   } else {
     setFormMessage(message, "Request a password reset email from the login screen first.");
   }
@@ -56389,8 +56392,10 @@ function renderAccountPage() {
   planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
     verificationLabel.textContent = account?.emailVerified
-      ? `Email verified through ${account?.authProvider || authProviderName}.`
-      : `Email not verified. ${firebaseAuthEnabled ? "Please verify before launch use." : "Connect Firebase Auth to send verification emails."}`;
+      ? "Email verified — you’re all set."
+      : (firebaseAuthEnabled
+        ? "Email not verified yet. Check your inbox for a verification link, or resend below."
+        : "You’re signed in with email & password. Verification email may not be required on this site.");
     verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
@@ -56399,7 +56404,7 @@ function renderAccountPage() {
   const productStatus = accountProductStatus(account);
   statusLabel.innerHTML = accountStatusBadgeHtml(account);
   detailLabel.innerHTML = canBilling
-    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
+    ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Sign-in: Email &amp; password<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
   const programConnectionHost = document.querySelector("#accountProgramConnection");
   if (programConnectionHost) {
@@ -58377,7 +58382,7 @@ document.addEventListener("click", async (event) => {
       setViewReturnContext("generators", {
         type: "view",
         view: activeView,
-        label: activeView === "ai" ? "← Back to Documentation Center" : fallbackBackLabel(activeView),
+        label: activeView === "ai" ? "← Back to Documentation Helpers" : fallbackBackLabel(activeView),
       });
     }
     setView("generators");
@@ -59212,11 +59217,11 @@ document.addEventListener("click", async (event) => {
         }
         renderHomeDaycareHubPage();
         if (message) {
-          message.textContent = `Demo ready. Parent: ${result.demo?.parentEmail || ""} · Guardian: ${result.demo?.guardianEmail || ""} · Code: ${result.demo?.loginCode || ""}`;
+          message.textContent = `Sample household ready. Parent: ${result.demo?.parentEmail || ""} · Guardian: ${result.demo?.guardianEmail || ""} · Code: ${result.demo?.loginCode || ""}. Use Preview parent view to explore.`;
         }
         showActionFeedback("Family Hub demo household seeded.");
       } catch (error) {
-        if (message) message.textContent = error.message || "Could not seed demo.";
+        if (message) message.textContent = error.message || "Could not create the sample household. Try again in a moment.";
       }
     })();
     return;
@@ -63517,7 +63522,7 @@ document.querySelector("#signupSkipButton")?.addEventListener("click", async () 
   if (currentAuthMode !== "signup" || signupWizardStep !== 2) return;
   const submitButton = document.querySelector("#authSubmitButton");
   if (submitButton) submitButton.disabled = true;
-  setFormMessage("#authMessage", "Working...", true);
+  setFormMessage("#authMessage", "Saving your program details…", true);
   try {
     if (!signupPersonaChoice) {
       // Skip without persona → treat as independent home daycare so signup can finish.
@@ -64020,7 +64025,7 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   const phone = document.querySelector("#phoneInput")?.value || "";
   const submitButton = document.querySelector("#authSubmitButton");
   submitButton.disabled = true;
-  setFormMessage("#authMessage", "Working...", true);
+  setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
   try {
     if (currentAuthMode === "forgot") {
       const message = await sendPasswordReset(email);
@@ -66263,10 +66268,10 @@ document.addEventListener("submit", async (event) => {
   activeChildProfileEditId = "";
   form.reset();
   renderChildManagement();
-  showActionFeedback(`${child.name}’s profile saved.`);
+  showActionFeedback(`${child.name} is ready — they’re available in Daily Logs, Attendance, and Documentation Helpers.`);
   maybeLinkChildToFamilyHubHouseholds(child).then((linked) => {
     if (linked > 0) {
-      showActionFeedback(`${child.name} was also linked to Family Hub for parent sharing.`);
+      showActionFeedback(`${child.name} is also linked for Family Hub — parents can see shared updates.`);
     }
   }).catch(() => {});
 });

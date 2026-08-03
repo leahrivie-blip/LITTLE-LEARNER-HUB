@@ -150,7 +150,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260803-ecosystem-pass";
+      var SHELL_VERSION = "20260803-beta-polish";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -354,7 +354,7 @@
             </button>
             <button class="nav-link" data-view="messages" id="messagesNavLink">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"/></svg></span>
-              My Messages
+              Message Support
               <span class="nav-unread-badge" id="messagesNavBadge" hidden>0</span>
             </button>
             <button class="nav-link" data-view="whats-new" id="whatsNewNavLink">
@@ -892,7 +892,7 @@
                 </div>
               </article>
             </div>
-            <p class="llh-reviews-more muted-copy">Member ratings &amp; reviews are coming soon for paid plans — we&rsquo;d love to hear how it&rsquo;s working in your classroom.</p>
+            <p class="llh-reviews-more muted-copy">We&rsquo;d love to hear how Little Learner Hub is working in your classroom — share a quick note in feedback anytime.</p>
           </section>
 
           <!-- PRIVATE PRODUCT FEEDBACK (admin-only; not a public review) -->
@@ -1070,8 +1070,9 @@
         <section id="view-ai" class="view">
           <button class="ghost-button back-button" data-contextual-back="ai" data-fallback-view="calendar" data-always-visible="true" type="button">← Back to Calendar</button>
           <div class="page-title doc-helpers-page-title">
-            <h2>Documentation Center</h2>
-            <p>Turn quick classroom notes into professional childcare documentation in seconds.</p>
+            <p class="eyebrow">Documentation Helpers</p>
+            <h2>Write classroom notes like a pro</h2>
+            <p>Turn a quick note into polished observations, parent messages, daily reports, and more — then review before you save or share.</p>
           </div>
 
           <section class="doc-helpers-child-step" aria-label="Select a child">
@@ -1574,9 +1575,9 @@
         </section>
 
         <section id="view-generators" class="view">
-          <button class="ghost-button back-button" data-contextual-back="generators" data-fallback-view="ai" data-always-visible="true" type="button">← Back to Documentation Center</button>
+          <button class="ghost-button back-button" data-contextual-back="generators" data-fallback-view="ai" data-always-visible="true" type="button">← Back to Documentation Helpers</button>
           <div class="page-title">
-            <p class="eyebrow">Documentation Center</p>
+            <p class="eyebrow">Documentation Helpers</p>
             <h2>More documentation tools</h2>
             <p>Choose a helper, fill in the details, and create ready-to-edit childcare documents. Review and edit before you save.</p>
           </div>
@@ -1622,9 +1623,9 @@
               <p class="eyebrow">Profile</p>
               <h3 id="accountEmailLabel">Guest</h3>
               <p id="accountPlanLabel">Free account</p>
-              <p id="accountVerificationLabel" class="account-security-note">Email verification is available after Firebase Auth is connected.</p>
+              <p id="accountVerificationLabel" class="account-security-note">Log in to manage email verification and account security.</p>
               <div class="account-actions-row">
-                <button class="ghost-button" id="demoAccountButton" type="button">Use Demo Account</button>
+                <button class="ghost-button" id="demoAccountButton" type="button" hidden>Use Demo Account</button>
                 <button class="primary-button" id="accountUpgradeButton" type="button">Upgrade to Pro</button>
                 <button class="ghost-button" id="resendVerificationButton" type="button">Resend Verification Email</button>
                 <button class="ghost-button" id="signOutButton" type="button">Sign Out</button>
@@ -1894,13 +1895,13 @@
                   <p class="eyebrow">Section 7</p>
                   <h3>Family Hub Settings</h3>
                   <p class="muted-copy">Choose what kinds of shared updates families can receive. Invite households from Home Daycare Hub; parents review forms, photos, and daily updates in Family Hub.</p>
-                  <p class="form-note">On the testing site, stop-sharing and remove-from-parent-view controls are managed from each child’s shared records and Family Hub invites.</p>
+                  <p class="form-note">Invite families from Home Daycare Hub. Shared photos, reports, and forms appear in Family Hub when you choose Share with family.</p>
                 </div>
                 <span class="settings-card-toggle" aria-hidden="true">▾</span>
               </summary>
               <div class="settings-card-body">
                 <div class="settings-checkboxes">
-                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Parent Portal" /> Family Hub access</label>
+                  <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Family Hub" /> Family Hub access</label>
                   <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Family Messaging" /> Family messaging</label>
                   <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Photo Sharing" /> Photo sharing</label>
                   <label class="settings-check-label"><input type="checkbox" name="familyHubSettings" value="Observation Sharing" /> Observation sharing</label>
@@ -1972,7 +1973,7 @@
             <article class="faq-item"><h3>Can I request a lesson plan, activity, or feature?</h3><p>Yes. If you can&rsquo;t find the lesson plan, activity, or feature you need, you can request it directly from inside Little Learner Hub. New content and improvements are added regularly based on provider feedback.</p></article>
             <article class="faq-item"><h3>Do I need to enter payment information for the Free Plan?</h3><p>No. The Free Plan is available without a paid subscription and without a credit card.</p></article>
             <article class="faq-item"><h3>What ages are supported?</h3><p>Infants, Toddlers, and Preschoolers — content is organized by age group.</p></article>
-            <article class="faq-item"><h3>What Documentation Helpers are included?</h3><p>Observation Helper, Lesson Plan Helper, Daily Report Helper, Parent Newsletter Helper, Parent Handbook Helper, and Contract Helper.</p></article>
+            <article class="faq-item"><h3>What Documentation Helpers are included?</h3><p>Observation, Parent Message, Daily Report, Incident Report, Behavior Note, Lesson Plan, and Activity helpers — plus more tools as your plan grows.</p></article>
             <article class="faq-item"><h3>How do I contact support?</h3><p>Visit the Contact Us page or submit a support request through the Help Center. Members can also message directly through the website for lesson plan requests and account help.</p></article>
           </section>
         </section>
@@ -2391,7 +2392,7 @@
           <label>Message
             <textarea id="feedbackMessageInput" name="message" rows="5" required maxlength="5000" placeholder="Tell us what happened or what you need."></textarea>
           </label>
-          <p class="muted-copy">Screenshot upload coming soon.</p>
+          <p class="muted-copy">Optional: paste a screenshot or recording link below so we can see what you saw.</p>
           <div class="form-actions">
             <button class="primary-button" type="submit">Send Feedback</button>
             <button class="ghost-button" type="button" id="cancelFeedbackModal">Cancel</button>
