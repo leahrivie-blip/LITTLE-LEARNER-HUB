@@ -674,9 +674,11 @@ async function main() {
       expectedUpdatedAt: afterFail.json.siteContent.updatedAt,
     });
     await page.waitForSelector(".tk-enrich-shell");
+    // Re-open can auto-launch complete-kit tray again — dismiss before Publish.
+    await dismissEnrichmentAiTray(page);
     await dismissEnrichmentAiTray(page);
     await page.locator("[data-enrich-publish]").click({ force: true });
-    await page.waitForSelector("[data-publish-modal]");
+    await page.waitForSelector("[data-publish-modal]", { timeout: 15000 });
     await page.locator("[data-publish-confirm]").click({ force: true });
     try {
       await page.waitForFunction(() => {

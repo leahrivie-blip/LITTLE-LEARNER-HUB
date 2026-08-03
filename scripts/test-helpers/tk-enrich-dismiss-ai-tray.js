@@ -5,7 +5,11 @@
  * Important: close via the Cancel control (or Escape) so editor state.aiTray.open
  * resets. Removing the tray node alone leaves the editor thinking the tray is open.
  */
-async function dismissEnrichmentAiTray(page, { timeoutMs = 10000 } = {}) {
+async function dismissEnrichmentAiTray(page, { timeoutMs = 12000 } = {}) {
+  // Auto complete-kit generation can take a moment before Cancel exists.
+  await page.waitForSelector("[data-ai-tray] [data-ai-cancel], [data-ai-tray]", {
+    timeout: Math.min(4000, timeoutMs),
+  }).catch(() => {});
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const status = await page.evaluate(() => {
@@ -19,14 +23,17 @@ async function dismissEnrichmentAiTray(page, { timeoutMs = 10000 } = {}) {
       }
       return { open: Boolean(document.querySelector("[data-ai-tray]")) };
     }).catch(() => ({ open: true }));
-    if (!status.open) return true;
+    if (!status.open) {
+      await new Promise((resolve) => setTimeout(resolve, 80));
+      if (!(await page.locator("[data-ai-tray]").count())) return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+  }
+  // Force Escape twice if Cancel never detached the tray.
+  for (let i = 0; i < 2; i += 1) {
+    await page.keyboard.press("Escape").catch(() => {});
     await new Promise((resolve) => setTimeout(resolve, 120));
   }
-  // Force state reset if Cancel never detached the tray.
-  await page.evaluate(() => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-  }).catch(() => {});
-  await new Promise((resolve) => setTimeout(resolve, 150));
   return !(await page.locator("[data-ai-tray]").count());
 }
 
