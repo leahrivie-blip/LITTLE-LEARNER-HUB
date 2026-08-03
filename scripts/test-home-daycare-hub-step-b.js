@@ -66,8 +66,8 @@ const REQUIRED_PACK_TITLES = [
 ];
 
 test("shell version bumped for step B", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish"/);
-  assert.match(indexHtml, /app\.js\?v=20260803-family-hub-polish/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish2"/);
+  assert.match(indexHtml, /app\.js\?v=20260803-family-hub-polish2/);
 });
 
 test("forms pack definition includes all 10 titles and resource ids", () => {
@@ -145,7 +145,7 @@ async function main() {
 
     // Validate pack helpers exist on the loaded app by evaluating after temporarily exposing via Function lookup in app scope is not possible;
     // instead confirm pack-only resources are in the page script payload and openable IDs resolve through static markers already asserted.
-    const appSource = await requestText(port, "/app.js?v=20260803-family-hub-polish");
+    const appSource = await requestText(port, "/app.js?v=20260803-family-hub-polish2");
     assert.equal(appSource.status, 200);
     for (const title of REQUIRED_PACK_TITLES) {
       assert.ok(appSource.text.includes(title), `served app.js missing ${title}`);

@@ -66494,6 +66494,13 @@ function initialViewFromLocation() {
   // straight to the right conversation/tab instead of the default landing.
   if (params.get("view") === "messages" && (isLoggedIn() || hasAdminFullAccess())) return "messages";
   if (params.get("view") === "admin" && (canSeeAdminNav() || isAdminUnlocked() || hasAdminFullAccess())) return "admin";
+  // Parent magic links must land in Family Hub even when the visitor is not a provider account.
+  if (params.get("familyHub") && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    return "family-hub";
+  }
+  if (params.get("view") === "family-hub" && typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    return "family-hub";
+  }
   const pathView = adRouteMap[window.location.pathname];
   const hashView = adRouteMap[window.location.hash];
   return pathView || hashView || "home";
@@ -66521,8 +66528,13 @@ async function initializeAppView(options = {}) {
       await runSignedInBootVerification();
       if (runId !== appBootRunId) return;
       markAppBootReady();
-    } else if (!document.body.classList.contains("app-boot-ready")) {
-      markAppBootReady();
+    } else {
+      // Parents open Family Hub via magic link without a provider login — still show the accept panel.
+      await withBootVerificationTimeout("Family Hub invite", () => maybeHandleFamilyHubInviteFromUrl()).catch(() => {});
+      if (runId !== appBootRunId) return;
+      if (!document.body.classList.contains("app-boot-ready")) {
+        markAppBootReady();
+      }
     }
     if (suppressBootLanding || bootNavGeneration !== viewNavigationGeneration) {
       return;

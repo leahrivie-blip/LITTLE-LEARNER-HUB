@@ -80,7 +80,7 @@ async function waitForHealth(port, child, attempts = 40) {
 }
 
 test("shell finish markers + E/F/G UI", () => {
-  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260803-family-hub-polish2"/);
   assert.match(appJs, /function renderHomeDaycareStaffInvitePanel/);
   assert.match(appJs, /function renderHomeDaycareTrainingsPanel/);
   assert.match(appJs, /function renderHomeDaycarePacketsPanel/);
