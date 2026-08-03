@@ -12,6 +12,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
+const { withCustomerReleaseApproval } = require("./test-helpers/tk-customer-flags.js");
 const sharp = require("sharp");
 const CurriculumSafeValues = require("./curriculum-safe-values.js");
 const enrichmentHelpers = require("./teaching-kit-enrichment.js");
@@ -130,7 +131,7 @@ async function setFlags(adminToken, flags) {
       updatedAt: existing.updatedAt,
       featureFlags: {
         ...(existing.featureFlags || {}),
-        ...flags,
+        ...withCustomerReleaseApproval(flags),
       },
     },
   }, { Authorization: `Bearer ${adminToken}` });

@@ -15714,17 +15714,14 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
         return next;
       })();
     const mapped = teachingKit.mapLessonPlanToTeachingKit(planForMap, activities, resources, mapperOptions);
+    // Echo dual-gated customer flags only — never raw stale store bits.
     jsonResponse(response, 200, {
       teachingKit: {
         ...mapped,
         locked: false,
         access: access.authorized ? "pro" : "free_unlocked",
       },
-      featureFlags: {
-        teachingKitViewer: flags.teachingKitViewer === true,
-        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
-        teachingKitAttachments: flags.teachingKitAttachments === true,
-      },
+      featureFlags: teachingKit.effectiveTeachingKitCustomerFeatureFlags(flags),
     });
   };
 
@@ -15746,11 +15743,7 @@ async function handleCurriculumLessonPlanTeachingKit(request, response, url, pla
   if (preview) {
     jsonResponse(response, 200, {
       teachingKit: preview,
-      featureFlags: {
-        teachingKitViewer: flags.teachingKitViewer === true,
-        teachingKitPrintCenter: flags.teachingKitPrintCenter === true,
-        teachingKitAttachments: flags.teachingKitAttachments === true,
-      },
+      featureFlags: teachingKit.effectiveTeachingKitCustomerFeatureFlags(flags),
     });
     return;
   }

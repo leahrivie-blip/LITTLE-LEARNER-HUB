@@ -222,6 +222,7 @@ function testUnitHelpers() {
   assert(defaults.teachingKitViewer === false, "viewer flag defaults false");
   assert(defaults.teachingKitPrintCenter === false, "print flag defaults false");
   assert(defaults.teachingKitAttachments === false, "attachments flag defaults false");
+  assert(defaults.teachingKitProductionReleaseApproved === false, "production release approval defaults false");
 
   const normalizedEmpty = teachingKit.normalizedTeachingKitFeatureFlags(undefined);
   assert(normalizedEmpty.teachingKitViewer === false, "undefined flags → false");
@@ -253,12 +254,19 @@ function testUnitHelpers() {
   );
   assert(legacyMode.mode === "legacy" && legacyMode.reason === "flag_off", "flag off → legacy");
 
+  const staleViewerMode = teachingKit.resolveTeachingKitRenderMode(
+    { teachingKit: ok },
+    { teachingKitViewer: true, teachingKitProductionReleaseApproved: false },
+  );
+  assert(staleViewerMode.mode === "legacy" && staleViewerMode.reason === "production_release_not_approved",
+    "viewer without production-release approval → legacy");
+
   const malformedMode = teachingKit.resolveTeachingKitRenderMode(
     { teachingKit: "nope" },
-    { teachingKitViewer: true },
+    { teachingKitViewer: true, teachingKitProductionReleaseApproved: true },
   );
   assert(malformedMode.mode === "legacy" && malformedMode.reason === "missing_or_malformed",
-    "malformed → legacy even if flag on");
+    "malformed → legacy even if dual-gate on");
 
   const ids = teachingKit.sectionIds();
   assert(ids.includes("overview") && ids.includes("vocab_cards"), "canonical sections present");

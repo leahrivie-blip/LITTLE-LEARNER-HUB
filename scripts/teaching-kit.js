@@ -23,6 +23,10 @@
     "teachingKitViewer",
     "teachingKitPrintCenter",
     "teachingKitAttachments",
+    // Explicit second gate for customer-facing Teaching Kit surfaces.
+    // Viewer / Print / Attachments must never become customer-visible from a
+    // stale store flag alone — this approval must also be true.
+    "teachingKitProductionReleaseApproved",
     // Enrichment Editor (admin upgrade workspace). Default false until owner enables per slice.
     "teachingKitEnrichmentEditor",
     // Complete Teaching Kit binder authoring in the classic lesson editor. Default false.
@@ -32,6 +36,13 @@
     "teachingKitCurriculumDirector",
     // AI Curriculum Quality Review (pre-publish specialist review). Default false — never auto-enabled.
     "teachingKitQualityReview",
+  ]);
+
+  /** Customer-facing surfaces that require the production-release dual-gate. */
+  const CUSTOMER_FACING_FLAG_KEYS = Object.freeze([
+    "teachingKitViewer",
+    "teachingKitPrintCenter",
+    "teachingKitAttachments",
   ]);
 
   const COMPLETENESS_VALUES = Object.freeze([
@@ -160,6 +171,7 @@
       teachingKitViewer: false,
       teachingKitPrintCenter: false,
       teachingKitAttachments: false,
+      teachingKitProductionReleaseApproved: false,
       teachingKitEnrichmentEditor: false,
       teachingKitAuthoring: false,
       teachingKitCurriculumDirector: false,
@@ -173,6 +185,7 @@
       teachingKitViewer: input.teachingKitViewer === true,
       teachingKitPrintCenter: input.teachingKitPrintCenter === true,
       teachingKitAttachments: input.teachingKitAttachments === true,
+      teachingKitProductionReleaseApproved: input.teachingKitProductionReleaseApproved === true,
       teachingKitEnrichmentEditor: input.teachingKitEnrichmentEditor === true,
       teachingKitAuthoring: input.teachingKitAuthoring === true,
       teachingKitCurriculumDirector: input.teachingKitCurriculumDirector === true,
@@ -214,10 +227,50 @@
     return normalized[key] === true;
   }
 
-  /** Slice 1C: kit read API is available when viewer or print-center flag is on. */
+  /** Explicit production-release approval (second gate for customer surfaces). */
+  function isTeachingKitProductionReleaseApproved(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitProductionReleaseApproved");
+  }
+
+  function isTeachingKitCustomerFacingFlagKey(key) {
+    return CUSTOMER_FACING_FLAG_KEYS.includes(key);
+  }
+
+  /**
+   * Customer Teaching Kit surface gate.
+   * Requires BOTH the surface flag and teachingKitProductionReleaseApproved.
+   * Admin-only tools (Enrichment Editor, Authoring, Director, Quality Review)
+   * do not use this helper.
+   */
+  function isTeachingKitCustomerSurfaceEnabled(flags, key) {
+    if (!isTeachingKitCustomerFacingFlagKey(key)) return false;
+    return isTeachingKitFlagEnabled(flags, key) && isTeachingKitProductionReleaseApproved(flags);
+  }
+
+  /** Effective customer-facing flags after dual-gate (safe to echo to clients). */
+  function effectiveTeachingKitCustomerFeatureFlags(flags) {
+    return {
+      teachingKitViewer: isTeachingKitCustomerSurfaceEnabled(flags, "teachingKitViewer"),
+      teachingKitPrintCenter: isTeachingKitCustomerSurfaceEnabled(flags, "teachingKitPrintCenter"),
+      teachingKitAttachments: isTeachingKitCustomerSurfaceEnabled(flags, "teachingKitAttachments"),
+      teachingKitProductionReleaseApproved: isTeachingKitProductionReleaseApproved(flags),
+    };
+  }
+
+  /** Raw customer-facing flags that are on in the store (ignores release approval). */
+  function enabledTeachingKitCustomerFacingFlags(flags) {
+    const normalized = normalizedTeachingKitFeatureFlags(flags);
+    return CUSTOMER_FACING_FLAG_KEYS.filter((key) => normalized[key] === true);
+  }
+
+  /**
+   * Slice 1C: kit read API is available only when a customer surface flag is on
+   * AND production-release approval is on. Stale Viewer/Print store bits alone
+   * never unlock the customer Teaching Kit API.
+   */
   function isTeachingKitApiEnabled(flags) {
-    return isTeachingKitFlagEnabled(flags, "teachingKitViewer")
-      || isTeachingKitFlagEnabled(flags, "teachingKitPrintCenter");
+    return isTeachingKitCustomerSurfaceEnabled(flags, "teachingKitViewer")
+      || isTeachingKitCustomerSurfaceEnabled(flags, "teachingKitPrintCenter");
   }
 
   function clampShortText(value, max) {
@@ -311,8 +364,13 @@
    * Slice 1A: always prefer legacy when flag off or overlay missing/malformed.
    */
   function resolveTeachingKitRenderMode(plan, featureFlags) {
-    if (!isTeachingKitFlagEnabled(featureFlags, "teachingKitViewer")) {
-      return { mode: "legacy", teachingKit: null, reason: "flag_off" };
+    if (!isTeachingKitCustomerSurfaceEnabled(featureFlags, "teachingKitViewer")) {
+      const hasViewerFlag = isTeachingKitFlagEnabled(featureFlags, "teachingKitViewer");
+      const hasApproval = isTeachingKitProductionReleaseApproved(featureFlags);
+      let reason = "flag_off";
+      if (hasViewerFlag && !hasApproval) reason = "production_release_not_approved";
+      else if (!hasViewerFlag) reason = "flag_off";
+      return { mode: "legacy", teachingKit: null, reason };
     }
     const overlay = normalizedTeachingKitOverlay(plan && plan.teachingKit);
     if (!overlay) {
@@ -367,6 +425,7 @@
 
   return {
     FEATURE_FLAG_KEYS,
+    CUSTOMER_FACING_FLAG_KEYS,
     COMPLETENESS_VALUES,
     PROVIDER_BINDER_TABS,
     PROVIDER_BINDER_TAB_IDS,
@@ -377,6 +436,11 @@
     defaultTeachingKitFeatureFlags,
     normalizedTeachingKitFeatureFlags,
     isTeachingKitFlagEnabled,
+    isTeachingKitProductionReleaseApproved,
+    isTeachingKitCustomerFacingFlagKey,
+    isTeachingKitCustomerSurfaceEnabled,
+    effectiveTeachingKitCustomerFeatureFlags,
+    enabledTeachingKitCustomerFacingFlags,
     isTeachingKitEnrichmentEditorEnabled,
     isTeachingKitAuthoringEnabled,
     isTeachingKitCurriculumDirectorEnabled,

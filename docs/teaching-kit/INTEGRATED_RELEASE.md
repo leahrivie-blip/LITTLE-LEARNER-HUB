@@ -25,10 +25,15 @@ Close superseded intermediate draft PRs after merge — do not merge them separa
 | `teachingKitViewer` | `false` | keep **false** | keep **false** |
 | `teachingKitPrintCenter` | `false` | keep **false** | keep **false** |
 | `teachingKitAttachments` | `false` | keep **false** | keep **false** |
+| `teachingKitProductionReleaseApproved` | `false` | keep **false** | required **true** with Viewer/Print for customer release |
 | `teachingKitEnrichmentEditor` | `false` | may set **true** | N/A (admin-only UI) |
 | `teachingKitAuthoring` | `false` | may set **true** | N/A |
 | `teachingKitCurriculumDirector` | `false` | may set **true** | N/A |
 | `teachingKitQualityReview` | `false` | may set **true** | N/A |
+
+**Customer dual-gate:** Viewer / Print / Attachments never become customer-visible from a stale store flag alone. Both the surface flag **and** `teachingKitProductionReleaseApproved` must be `true`. Admin tools do not use this gate.
+
+Production admin shows a warning banner whenever any customer-facing Teaching Kit flag is enabled.
 
 There is **no per-account Teaching Kit flag**. Admin tools require an admin session **and** their flags. Member-facing Viewer/Print must stay off so customers never see Teaching Kits.
 
@@ -68,7 +73,7 @@ LLH_PROD_URL=https://littlelearnershubbyleah.com npm run test:production-post-me
 
 ## Rollback
 
-1. Set all `teachingKit*` flags back to `false` in Admin → Site Content → feature flags  
+1. Set all customer `teachingKit*` flags **and** `teachingKitProductionReleaseApproved` back to `false` in Admin → Site Content → feature flags  
 2. If needed, redeploy previous production deploy from Render Events  
 3. Enrichment drafts remain admin-only and are not on public lesson DTOs  
 

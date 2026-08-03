@@ -26,6 +26,7 @@
     "test:teaching-kit-quality-review": "NODE_ENV=test node scripts/test-teaching-kit-quality-review.js",
     "test:teaching-kit-curriculum-production": "NODE_ENV=test node scripts/test-teaching-kit-curriculum-production.js",
     "test:teaching-kit-integrated-release": "NODE_ENV=test node scripts/test-teaching-kit-integrated-release.js",
+    "test:teaching-kit-production-release-gate": "NODE_ENV=test node scripts/test-teaching-kit-production-release-gate.js",
     "test:signup-transactional-emails": "NODE_ENV=test node scripts/test-signup-transactional-emails.js",
     "test:pr439-production-equivalent": "NODE_ENV=test node scripts/verify-pr439-production-equivalent.js",
     "test:teaching-kit-slice-1a": "NODE_ENV=test node scripts/test-teaching-kit-slice-1a.js",

@@ -7,6 +7,7 @@ const fs = require("fs");
 const path = require("path");
 const http = require("http");
 const { spawn } = require("child_process");
+const { withCustomerReleaseApproval } = require("./test-helpers/tk-customer-flags.js");
 const sharp = require("sharp");
 const enrichmentMedia = require("../server/enrichment-media.js");
 
@@ -150,7 +151,7 @@ async function setFlags(adminToken, flags) {
         teachingKitPrintCenter: true,
         teachingKitAttachments: false,
         teachingKitEnrichmentEditor: false,
-        ...flags,
+        ...withCustomerReleaseApproval(flags),
       },
     },
   });
