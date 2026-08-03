@@ -30,6 +30,8 @@
     "teachingKitAuthoring",
     // AI Curriculum Director (library-wide intelligence). Default false — never auto-enabled.
     "teachingKitCurriculumDirector",
+    // AI Curriculum Quality Review (pre-publish specialist review). Default false — never auto-enabled.
+    "teachingKitQualityReview",
   ]);
 
   const COMPLETENESS_VALUES = Object.freeze([
@@ -161,6 +163,7 @@
       teachingKitEnrichmentEditor: false,
       teachingKitAuthoring: false,
       teachingKitCurriculumDirector: false,
+      teachingKitQualityReview: false,
     };
   }
 
@@ -173,6 +176,7 @@
       teachingKitEnrichmentEditor: input.teachingKitEnrichmentEditor === true,
       teachingKitAuthoring: input.teachingKitAuthoring === true,
       teachingKitCurriculumDirector: input.teachingKitCurriculumDirector === true,
+      teachingKitQualityReview: input.teachingKitQualityReview === true,
     };
   }
 
@@ -189,6 +193,11 @@
   /** Library-wide AI Curriculum Director. Never auto-enabled. */
   function isTeachingKitCurriculumDirectorEnabled(flags) {
     return isTeachingKitFlagEnabled(flags, "teachingKitCurriculumDirector");
+  }
+
+  /** Pre-publish AI Curriculum Quality Review. Never auto-enabled. */
+  function isTeachingKitQualityReviewEnabled(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitQualityReview");
   }
 
   /**
@@ -371,6 +380,7 @@
     isTeachingKitEnrichmentEditorEnabled,
     isTeachingKitAuthoringEnabled,
     isTeachingKitCurriculumDirectorEnabled,
+    isTeachingKitQualityReviewEnabled,
     isTeachingKitAiAssistEnabled,
     isTeachingKitApiEnabled,
     normalizedTeachingKitOverlay,

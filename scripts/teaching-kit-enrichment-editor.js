@@ -49,6 +49,8 @@
       lastImagePreview: "",
       status: "",
     },
+    qualityReport: null, // specialist readiness report (teachingKitQualityReview)
+    qualityBusy: false,
     aiTray: {
       open: false,
       phase: "idle", // idle | loading | ready | error | timeout
@@ -82,6 +84,44 @@
 
   function reusableLibraryApi() {
     return root.LLHTeachingKitReusableLibrary || null;
+  }
+
+  function qualityReviewApi() {
+    return root.LLHTeachingKitQualityReview || null;
+  }
+
+  function isQualityReviewFlagEnabled() {
+    const flags = (typeof effectiveSiteContent === "function" ? effectiveSiteContent() : null)?.featureFlags || {};
+    if (root.LLHTeachingKit?.isTeachingKitQualityReviewEnabled) {
+      return root.LLHTeachingKit.isTeachingKitQualityReviewEnabled(flags) === true;
+    }
+    return flags.teachingKitQualityReview === true;
+  }
+
+  function ignoredQualityCodes() {
+    return Array.isArray(state.draft?.week?.qualityReviewIgnored)
+      ? state.draft.week.qualityReviewIgnored
+      : [];
+  }
+
+  async function runSpecialistQualityReview({ force = false } = {}) {
+    if (!isQualityReviewFlagEnabled()) return null;
+    const plan = getPlan();
+    const apiQr = qualityReviewApi();
+    if (!plan || !apiQr?.buildQualityReport) return null;
+    // Prefer local specialist report (uses live draft). Server used for improve/decide.
+    const activities = getActivities(plan);
+    const report = apiQr.buildQualityReport(plan, activities, state.draft, {
+      ignoredCodes: ignoredQualityCodes(),
+    });
+    state.qualityReport = report;
+    state.assistant.quality = {
+      readinessScore: report.overallScore,
+      readinessLabel: report.overallLabel,
+      findings: report.findings,
+      blocksPublish: report.blocksPublish,
+    };
+    return report;
   }
 
   async function callTeacherAssistant(payload) {
@@ -1185,8 +1225,14 @@
         ` : ""}
       `;
     } else if (tab === "quality") {
+      const specialistOn = isQualityReviewFlagEnabled();
+      const report = state.qualityReport;
       const review = state.assistant.quality;
-      body = `
+      body = specialistOn ? `
+        <p class="muted-copy">Specialist Quality Review — report only. Improve / Ignore / Edit manually. Blocking issues must be resolved before publish.</p>
+        <button type="button" class="primary-button" data-quality-run-publish ${state.qualityBusy ? "disabled" : ""}>${state.qualityBusy ? "Reviewing…" : "Run specialist Quality Review"}</button>
+        ${renderQualityReportBlock(report)}
+      ` : `
         <p class="muted-copy">Pre-publish readiness check (guidance only). You remain the final reviewer.</p>
         <button type="button" class="primary-button" data-assistant-quality-run>Run quality review</button>
         ${review ? `
@@ -1815,13 +1861,59 @@
     `;
   }
 
+  function renderQualityReportBlock(report) {
+    if (!report) {
+      return `<p class="muted-copy">Run Quality Review before publishing. AI generates a report — it never auto-edits or auto-publishes.</p>`;
+    }
+    const findings = (report.findings || []).filter((f) => f.status !== "ignored");
+    return `
+      <section class="tk-quality-report" data-quality-report>
+        <div class="tk-quality-report-score">
+          <strong>${esc(String(report.overallScore))}%</strong>
+          <span class="tag">${esc(report.overallLabel)}</span>
+          ${report.blocksPublish ? `<span class="tag is-danger">Blocking issues</span>` : `<span class="tag is-ready">No blockers</span>`}
+        </div>
+        <div class="tk-quality-report-grid">
+          <div>
+            <h5>Strengths</h5>
+            <ul>${(report.strengths || []).map((s) => `<li>${esc(s)}</li>`).join("") || `<li class="muted-copy">None called out yet.</li>`}</ul>
+          </div>
+          <div>
+            <h5>Missing</h5>
+            <ul>${(report.missing || []).slice(0, 8).map((s) => `<li>${esc(s)}</li>`).join("") || `<li class="muted-copy">None.</li>`}</ul>
+          </div>
+        </div>
+        <h5>Issues</h5>
+        <ul class="tk-quality-issue-list">
+          ${findings.slice(0, 20).map((f) => `
+            <li class="severity-${esc(f.severity)}" data-quality-finding="${esc(f.id)}">
+              <strong>${esc(f.severity)}</strong> · ${esc(f.sectionLabel || f.section)} — ${esc(f.message)}
+              ${f.suggestion ? `<p class="muted-copy">${esc(f.suggestion)}</p>` : ""}
+              <div class="form-actions">
+                <button type="button" class="primary-button" data-quality-improve="${esc(f.id)}">Improve with AI</button>
+                <button type="button" class="ghost-button" data-quality-ignore="${esc(f.id)}" data-quality-code="${esc(f.code)}">Ignore</button>
+                <button type="button" class="ghost-button" data-quality-edit-manual="${esc(f.section)}">Edit manually</button>
+              </div>
+            </li>
+          `).join("") || `<li class="muted-copy">No open issues.</li>`}
+        </ul>
+        ${(report.blockingIssues || []).length ? `
+          <p class="muted-copy"><strong>Blocking before publish:</strong> ${(report.blockingIssues || []).map((b) => esc(b.message)).join(" · ")}</p>
+        ` : ""}
+      </section>
+    `;
+  }
+
   function renderPublishModal(plan, activities) {
     if (!state.publishOpen) return "";
     const summary = api().summarizePublishChanges(plan, activities, state.draft);
     const historyCount = Array.isArray(plan.enrichmentPublishHistory) ? plan.enrichmentPublishHistory.length : 0;
+    const qualityOn = isQualityReviewFlagEnabled();
+    const report = state.qualityReport;
+    const blocked = qualityOn && report?.blocksPublish;
     return `
       <div class="tk-enrich-modal" data-publish-modal role="dialog" aria-modal="true" aria-labelledby="tk-enrich-publish-title">
-        <div class="tk-enrich-modal-card" tabindex="-1">
+        <div class="tk-enrich-modal-card tk-enrich-publish-card" tabindex="-1">
           <h3 id="tk-enrich-publish-title">Publish enrichment for this lesson?</h3>
           <p class="muted-copy">Only <strong>${esc(plan.title || "this lesson")}</strong> will change. Unrelated lessons stay untouched. The current published version is kept for rollback.</p>
           <ul class="tk-enrich-publish-summary">
@@ -1832,9 +1924,19 @@
             <li><strong>Prior published version:</strong> ${historyCount ? `${historyCount} snapshot(s) already saved` : "Will be preserved on first publish"}</li>
             <li><strong>Draft photos:</strong> Become provider-visible only after a successful publish (private draft URLs are never exposed)</li>
           </ul>
+          ${qualityOn ? `
+            <div class="tk-quality-publish-gate">
+              <div class="tk-quality-publish-gate-head">
+                <strong>AI Curriculum Quality Review</strong>
+                <button type="button" class="ghost-button" data-quality-run-publish ${state.qualityBusy ? "disabled" : ""}>${state.qualityBusy ? "Reviewing…" : "Run / refresh review"}</button>
+              </div>
+              <p class="muted-copy">Specialist-style report before publish. Improve, ignore, or edit manually — nothing auto-publishes.</p>
+              ${renderQualityReportBlock(report)}
+            </div>
+          ` : ""}
           <div class="form-actions">
             <button type="button" class="ghost-button" data-publish-cancel>Cancel</button>
-            <button type="button" class="primary-button" data-publish-confirm>Publish updates to providers</button>
+            <button type="button" class="primary-button" data-publish-confirm ${blocked ? "disabled" : ""}>${blocked ? "Resolve blocking issues to publish" : "Publish updates to providers"}</button>
           </div>
         </div>
       </div>
@@ -2101,6 +2203,109 @@
       if (event.target.closest("[data-enrich-publish]")) {
         state.publishOpen = true;
         render();
+        if (isQualityReviewFlagEnabled()) {
+          state.qualityBusy = true;
+          render();
+          try {
+            await runSpecialistQualityReview({ force: true });
+          } finally {
+            state.qualityBusy = false;
+            render();
+          }
+        }
+        return;
+      }
+      if (event.target.closest("[data-quality-run-publish]")) {
+        state.qualityBusy = true;
+        render();
+        try {
+          await runSpecialistQualityReview({ force: true });
+          state.statusText = state.qualityReport
+            ? `Quality Review ${state.qualityReport.overallScore}% · ${state.qualityReport.overallLabel}`
+            : "Quality Review finished.";
+        } finally {
+          state.qualityBusy = false;
+          render();
+        }
+        return;
+      }
+      const ignoreBtn = event.target.closest("[data-quality-ignore]");
+      if (ignoreBtn) {
+        const code = ignoreBtn.getAttribute("data-quality-code") || "";
+        const id = ignoreBtn.getAttribute("data-quality-ignore") || "";
+        if (!state.draft.week) state.draft.week = {};
+        const ignored = new Set(ignoredQualityCodes());
+        if (code) ignored.add(code);
+        state.draft.week.qualityReviewIgnored = [...ignored].slice(0, 80);
+        markDirty({ autosave: false });
+        const apiQr = qualityReviewApi();
+        if (apiQr?.applyIssueDecision && state.qualityReport) {
+          state.qualityReport = apiQr.applyIssueDecision(state.qualityReport, {
+            findingId: id,
+            code,
+            decision: "ignore",
+          });
+        } else {
+          await runSpecialistQualityReview({ force: true });
+        }
+        state.statusText = `Ignored issue${code ? ` (${code})` : ""}. Draft updated — not published.`;
+        render();
+        return;
+      }
+      const qualityImproveBtn = event.target.closest("[data-quality-improve]");
+      if (qualityImproveBtn) {
+        const findingId = qualityImproveBtn.getAttribute("data-quality-improve") || "";
+        const finding = (state.qualityReport?.findings || []).find((f) => f.id === findingId);
+        if (!finding) return;
+        const token = adminToken();
+        if (!token) {
+          state.statusText = "Admin unlock required for Improve with AI.";
+          render();
+          return;
+        }
+        state.qualityBusy = true;
+        render();
+        try {
+          const response = await fetch("/api/admin/curriculum/quality-review", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              adminToken: token,
+              action: "improve_issue",
+              planId: state.planId,
+              finding,
+              enrichmentDraft: state.draft,
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            state.statusText = data.error || "Improve with AI failed.";
+          } else {
+            await presentAssistantSuggestions(data.suggestions || [], {
+              note: "Quality improvement draft ready — accept to apply. Not published.",
+            });
+            return;
+          }
+        } finally {
+          state.qualityBusy = false;
+          render();
+        }
+        return;
+      }
+      const editManual = event.target.closest("[data-quality-edit-manual]");
+      if (editManual) {
+        state.publishOpen = false;
+        const section = editManual.getAttribute("data-quality-edit-manual") || "";
+        if (section === "family" || section === "objectives" || section === "teacher_prep" || section === "toolkit" || section === "vocabulary") {
+          state.mode = "week";
+        } else {
+          state.mode = "activities";
+        }
+        state.statusText = `Edit manually: open the ${section.replace(/_/g, " ")} section, then re-run Quality Review before publish.`;
+        render();
         return;
       }
       if (event.target.closest("[data-enrich-next-lesson]")) {
@@ -2175,6 +2380,14 @@
         return;
       }
       if (event.target.closest("[data-publish-confirm]")) {
+        if (isQualityReviewFlagEnabled()) {
+          const report = state.qualityReport || await runSpecialistQualityReview({ force: true });
+          if (report?.blocksPublish) {
+            state.statusText = "Publish blocked by Quality Review. Improve, ignore, or edit blocking issues first.";
+            render();
+            return;
+          }
+        }
         try {
           await publishEnrichment();
         } catch (error) {
@@ -2952,11 +3165,15 @@
       completeKitGeneration: true,
       aiTeacherAssistant: true,
       reusableLibrary: true,
+      aiQualityReview: true,
+      libraryHealthDashboard: true,
       publish: true,
       polish: true,
       preserveRemediation: true,
       slice: 7,
     }),
+    getQualityReport: () => state.qualityReport,
+    runSpecialistQualityReview,
     render,
   };
 })(typeof globalThis !== "undefined" ? globalThis : window);

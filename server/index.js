@@ -17940,6 +17940,168 @@ async function handleAdminCurriculumDirector(request, response) {
   });
 }
 
+/**
+ * AI Curriculum Quality Review — specialist readiness reports + library health.
+ * Gated by teachingKitQualityReview (default false). Never auto-publishes or auto-edits.
+ */
+async function handleAdminCurriculumQualityReview(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitQualityReviewEnabled(flags)) {
+    jsonResponse(response, 404, {
+      error: "AI Curriculum Quality Review is disabled.",
+      code: "quality_review_disabled",
+    });
+    return;
+  }
+
+  let qualityApi = null;
+  try { qualityApi = require("../scripts/teaching-kit-quality-review.js"); } catch (_e) { qualityApi = null; }
+  if (!qualityApi) {
+    jsonResponse(response, 500, { error: "Quality Review unavailable.", code: "quality_review_unavailable" });
+    return;
+  }
+
+  const action = normalizedShortText(body.action, 40).toLowerCase() || "library_health";
+  const curriculum = readSiteCurriculum(store);
+  const enrichmentApi = loadEnrichmentHelpers();
+  const usageByPlanId = buildCurriculumUsageByPlanId(store);
+  const analyticsAvailable = Object.keys(usageByPlanId).some((id) => (usageByPlanId[id]?.views || 0) > 0);
+  const searchGaps = [];
+  try {
+    const insights = adminInsights.buildInsights(store, {
+      hub: "search-analytics",
+      range: "30d",
+      events: store.analyticsEvents || [],
+    });
+    const noResults = insights?.data?.searchNoResults || [];
+    (Array.isArray(noResults) ? noResults : []).forEach((row) => {
+      searchGaps.push({
+        query: row.key || row.query || row.name || String(row),
+        count: row.count || row.value || 0,
+      });
+    });
+  } catch (_e) { /* optional */ }
+
+  if (action === "library_health") {
+    const libraryHealth = qualityApi.buildLibraryHealthDashboard(curriculum, usageByPlanId, {
+      analyticsAvailable,
+      searchGaps,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      libraryHealth,
+      autoPublished: false,
+      autoChanged: false,
+    });
+    return;
+  }
+
+  if (action === "review_lesson" || action === "quality_report") {
+    const planId = normalizedShortText(body.planId, 160);
+    const plan = (curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!plan) {
+      jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+      return;
+    }
+    const storeActs = (curriculum.activities || []).filter((item) => item.lessonPlanId === plan.id);
+    const flat = enrichmentApi?.flattenLessonActivities
+      ? enrichmentApi.flattenLessonActivities(plan, storeActs)
+      : storeActs;
+    const draft = body.enrichmentDraft && typeof body.enrichmentDraft === "object"
+      ? body.enrichmentDraft
+      : (plan.enrichmentDraft || {});
+    const ignored = Array.isArray(body.ignoredCodes)
+      ? body.ignoredCodes
+      : (Array.isArray(draft?.week?.qualityReviewIgnored) ? draft.week.qualityReviewIgnored : []);
+    const report = qualityApi.buildQualityReport(plan, flat, draft, { ignoredCodes: ignored });
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      report,
+      autoPublished: false,
+      autoChanged: false,
+    });
+    return;
+  }
+
+  if (action === "decide_issue") {
+    const planId = normalizedShortText(body.planId, 160);
+    const plan = (curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!plan) {
+      jsonResponse(response, 404, { error: "Lesson plan not found." });
+      return;
+    }
+    const storeActs = (curriculum.activities || []).filter((item) => item.lessonPlanId === plan.id);
+    const flat = enrichmentApi?.flattenLessonActivities
+      ? enrichmentApi.flattenLessonActivities(plan, storeActs)
+      : storeActs;
+    const draft = body.enrichmentDraft && typeof body.enrichmentDraft === "object"
+      ? body.enrichmentDraft
+      : (plan.enrichmentDraft || {});
+    const base = qualityApi.buildQualityReport(plan, flat, draft, {
+      ignoredCodes: Array.isArray(body.ignoredCodes) ? body.ignoredCodes : [],
+    });
+    const decision = normalizedShortText(body.decision, 20).toLowerCase(); // ignore | pending | improved
+    const report = qualityApi.applyIssueDecision(base, {
+      findingId: body.findingId,
+      code: body.code,
+      decision,
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      report,
+      ignoredCodes: report.ignoredCodes || [],
+      // Client should persist ignored codes into draft.week.qualityReviewIgnored on save.
+      draftPatchHint: {
+        week: { qualityReviewIgnored: report.ignoredCodes || [] },
+      },
+      autoPublished: false,
+      autoChanged: false,
+    });
+    return;
+  }
+
+  if (action === "improve_issue") {
+    const planId = normalizedShortText(body.planId, 160);
+    const plan = (curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!plan) {
+      jsonResponse(response, 404, { error: "Lesson plan not found." });
+      return;
+    }
+    const finding = body.finding && typeof body.finding === "object" ? body.finding : {
+      code: body.code,
+      section: body.section,
+      sectionLabel: body.sectionLabel,
+      suggestion: body.suggestion,
+      message: body.message,
+    };
+    const suggestion = qualityApi.buildImprovementSuggestion(finding, plan, body.enrichmentDraft || plan.enrichmentDraft);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      suggestions: [suggestion],
+      autoSaved: false,
+      autoPublished: false,
+      message: "Draft improvement ready for side-by-side review — not applied automatically.",
+    });
+    return;
+  }
+
+  jsonResponse(response, 400, {
+    error: "Unknown Quality Review action.",
+    code: "invalid_quality_action",
+    allowed: ["library_health", "review_lesson", "quality_report", "decide_issue", "improve_issue"],
+  });
+}
+
 function cloneJson(value) {
   return JSON.parse(JSON.stringify(value == null ? null : value));
 }
@@ -18181,6 +18343,39 @@ async function handlePublishEnrichment(request, response, ctx) {
     : (existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
       ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(existingPlan.enrichmentDraft)
       : null);
+
+  // Optional Quality Review gate (flag default false). Report-only system can block
+  // publish when unresolved blocking issues remain. Never auto-edits content.
+  if (teachingKit.isTeachingKitQualityReviewEnabled(enrichFlags)) {
+    try {
+      const qualityApi = require("../scripts/teaching-kit-quality-review.js");
+      const storeActs = (existingCurriculum.activities || []).filter((item) => item.lessonPlanId === id);
+      const flat = enrichmentApi.flattenLessonActivities
+        ? enrichmentApi.flattenLessonActivities(existingPlan, storeActs)
+        : storeActs;
+      const ignored = Array.isArray(incomingDraft?.week?.qualityReviewIgnored)
+        ? incomingDraft.week.qualityReviewIgnored
+        : [];
+      const report = qualityApi.buildQualityReport(existingPlan, flat, incomingDraft, { ignoredCodes: ignored });
+      if (report.blocksPublish) {
+        jsonResponse(response, 409, {
+          error: "Quality Review found blocking issues. Resolve or ignore them before publish.",
+          code: "quality_review_blocked",
+          qualityReport: report,
+          autoPublished: false,
+        });
+        return;
+      }
+    } catch (error) {
+      jsonResponse(response, 500, {
+        error: "Quality Review failed before publish.",
+        code: "quality_review_error",
+        detail: error.message || String(error),
+      });
+      return;
+    }
+  }
+
   const fingerprint = enrichmentPublishFingerprint(incomingDraft || {});
   const lastVersion = Array.isArray(existingPlan.enrichmentPublishHistory)
     ? existingPlan.enrichmentPublishHistory[0]
@@ -24653,6 +24848,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/ai-teacher-assistant") return await handleAdminAiTeacherAssistant(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/director") return await handleAdminCurriculumDirector(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/quality-review") return await handleAdminCurriculumQualityReview(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);

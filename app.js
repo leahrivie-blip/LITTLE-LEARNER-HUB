@@ -6237,6 +6237,8 @@ function emptySiteContent() {
       teachingKitAuthoring: false,
       // AI Curriculum Director (library-wide). Default false.
       teachingKitCurriculumDirector: false,
+      // AI Curriculum Quality Review. Default false.
+      teachingKitQualityReview: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -10579,6 +10581,7 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ` : ""}
     <div id="adminCurriculumDirectorHost" class="tk-director-host" hidden></div>
+    <div id="adminLibraryHealthHost" class="tk-quality-host" hidden></div>
     <div class="section-heading">
       <div>
         <p class="eyebrow">${upgradeWorkspaceOn ? "Upgrade Workspace" : "Content Manager"}</p>
@@ -10691,6 +10694,10 @@ function renderAdminCurriculumLessonPlanManager() {
   if (typeof LLHTeachingKitCurriculumDirectorUI !== "undefined"
     && typeof LLHTeachingKitCurriculumDirectorUI.mount === "function") {
     void LLHTeachingKitCurriculumDirectorUI.mount();
+  }
+  if (typeof LLHTeachingKitQualityReviewUI !== "undefined"
+    && typeof LLHTeachingKitQualityReviewUI.mount === "function") {
+    void LLHTeachingKitQualityReviewUI.mount();
   }
 }
 
@@ -12166,6 +12173,8 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitAuthoring === true,
       teachingKitCurriculumDirector: overrides.featureFlags?.teachingKitCurriculumDirector === true
         || base.featureFlags?.teachingKitCurriculumDirector === true,
+      teachingKitQualityReview: overrides.featureFlags?.teachingKitQualityReview === true
+        || base.featureFlags?.teachingKitQualityReview === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"

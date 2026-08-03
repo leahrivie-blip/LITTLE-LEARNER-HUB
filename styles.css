@@ -25172,6 +25172,156 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   .tk-assistant-tabs button { font-size: 0.8rem; }
 }
 
+/* AI Curriculum Quality Review + Library Health */
+.tk-quality-host:not([hidden]) { display: block; margin: 0 0 1.1rem; }
+.tk-quality-panel {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #f6f3ee 0%, #eef4f0 55%, #f3f7f4 100%);
+}
+.tk-quality-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.tk-quality-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+  color: #24312a;
+}
+.tk-quality-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.75rem 0 0.65rem;
+}
+.tk-quality-tabs button {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: #24312a;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tk-quality-tabs button.is-active {
+  background: #2f5640;
+  border-color: #2f5640;
+  color: #fff;
+}
+.tk-quality-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.65rem;
+}
+.tk-quality-kpi {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-quality-kpi strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+  color: #24312a;
+}
+.tk-quality-kpi small { display: block; margin-top: 0.2rem; }
+.tk-quality-block { margin: 0.75rem 0; }
+.tk-quality-block h5 {
+  margin: 0 0 0.35rem;
+  font-family: "Fraunces", Georgia, serif;
+  color: #24312a;
+}
+.tk-quality-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.tk-quality-list li,
+.tk-quality-issue-list li {
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.92rem;
+}
+.tk-quality-issue-list {
+  list-style: none;
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.45rem;
+  max-height: 280px;
+  overflow: auto;
+}
+.tk-quality-issue-list li.severity-blocking,
+.tk-quality-issue-list li.severity-high { border-color: rgba(138, 59, 50, 0.35); }
+.tk-quality-issue-list li.severity-medium { border-color: rgba(138, 106, 34, 0.35); }
+.tk-quality-report {
+  margin-top: 0.55rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(36, 49, 42, 0.1);
+}
+.tk-quality-report-score {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: baseline;
+  margin-bottom: 0.45rem;
+}
+.tk-quality-report-score strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.7rem;
+  color: #24312a;
+}
+.tk-quality-report-score .tag.is-danger {
+  background: rgba(138, 59, 50, 0.12);
+  color: #8a3b32;
+}
+.tk-quality-report-score .tag.is-ready {
+  background: rgba(47, 107, 69, 0.12);
+  color: #2f6b45;
+}
+.tk-quality-report-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.55rem;
+}
+.tk-quality-report-grid ul {
+  margin: 0.25rem 0 0;
+  padding-left: 1.1rem;
+}
+.tk-quality-publish-gate {
+  margin: 0.85rem 0;
+  padding: 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px dashed rgba(47, 86, 64, 0.35);
+  background: rgba(244, 248, 245, 0.9);
+}
+.tk-quality-publish-gate-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: center;
+}
+.tk-enrich-publish-card { max-width: min(720px, 96vw); }
+.tk-quality-status { margin: 0.55rem 0 0; }
+@media (max-width: 720px) {
+  .tk-quality-head { flex-direction: column; }
+}
+
 /* AI Curriculum Director */
 .tk-director-host:not([hidden]) { display: block; margin: 0 0 1.1rem; }
 .tk-director-panel {
