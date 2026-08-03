@@ -1,8 +1,8 @@
 # Teaching Kit Enrichment Editor — Final UI Specification
 
-**Status:** Approved direction · awaiting implementation kickoff  
+**Status:** Owner-approved for implementation (refinements locked)  
 **Scope:** Admin-only · one lesson at a time · real curriculum store (`siteContent.curriculum`)  
-**Non-goals:** Bulk rewrite, auto-publish, replacing existing Basics / Week story / Daily tabs  
+**Non-goals:** Bulk rewrite, auto-publish, replacing existing Basics / Week story / Daily tabs, special admin-only preview chrome  
 
 ---
 
@@ -13,16 +13,19 @@ Upgrading a lesson should feel like **finishing a classroom kit**, not filling a
 An admin should be able to:
 
 1. Open one existing lesson  
-2. Enrich **one activity at a time**  
-3. See the Teaching Kit update **live**  
-4. Leave unfinished and return later  
-5. Advance **Legacy → Enriched → Complete** when ready  
+2. Land on the **first incomplete activity** every time they return  
+3. Enrich **one activity at a time** with photos, chips, and short cards  
+4. See the **exact provider Teaching Kit** update live  
+5. Save drafts freely; publish only with an explicit confirmation summary  
+6. Track **overall completion %** (0–100) plus Legacy → Enriched → Complete  
 
 Existing member-facing lessons keep working the entire time.
 
+**Speed priority:** 100+ lessons to upgrade — every control must earn its place.
+
 ---
 
-## 2. Entry points
+## 2. Entry points & library filters
 
 From Admin → Content → Curriculum lesson list:
 
@@ -30,43 +33,54 @@ From Admin → Content → Curriculum lesson list:
 | --- | --- |
 | **Enrich Teaching Kit** (primary on card) | Opens Enrichment Editor focused mode |
 | **Edit lesson** (secondary) | Existing full editor (Basics / Week / Daily) |
-| Completeness badge on card | `Legacy` / `Enriched` / `Complete` |
+| Badge | `Legacy` / `Enriched` / `Complete` **plus** completion **%** (e.g. `45%`) |
+| Sort | By completion % (lowest first / highest first), updated date, title |
+| Filter | Completion band: `0–24%` · `25–49%` · `50–79%` · `80–99%` · `100%` · label (`Legacy` / `Enriched` / `Complete`) |
 
-Enrichment Editor is a **focused workspace** layered on the same lesson ID — not a second curriculum.
+Enrichment Editor is a **focused workspace** on the same lesson ID — not a second curriculum.
 
 ---
 
 ## 3. Global chrome (always visible)
 
 ```
-┌──────────────────────────────────────────────────────────────────────────┐
-│ ← Farm Animals · Preschool     Legacy ○──●──○ Complete     45% ████░░   │
-│ Draft autosaved 2m ago · Not published automatically                     │
-│                              [Exit]              [Mark Enriched]         │
-└──────────────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│ ← Farm Animals · Preschool                                                 │
+│ Legacy ○──●──○ Complete     Overall 45% ████████░░░░  Draft autosaved 2m │
+│ Activity 3 of 15   [← Previous]  [Next →]     [🔍 Jump to…]               │
+│ Published lesson: changes stay in draft until you Publish                  │
+│                         [Exit]     [Save draft]     [Publish…]             │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Rules
 
-- **Progress stepper** always shows Legacy → Enriched → Complete with % fill.  
-- **Draft autosave** writes admin draft state only (local + optional server draft stamp).  
-- **Never auto-publish.** Status (`draft` / `published` / `featured`) changes only via existing lesson controls outside this flow, or an explicit “Keep published & save enrichment” confirmation if the lesson is already public.  
-- **Mark Enriched / Mark Complete** enabled only when checklist rules pass; never forced.  
-- **Exit** always safe: unfinished work remains draft enrichment; lesson stays usable as-is.
+- **Dual progress:**  
+  - Label stepper: Legacy → Enriched → Complete (derived from % thresholds)  
+  - **Overall completion % + progress bar** from the quality checklist (0%, 45%, 80%, 100%, etc.)  
+- **Activity counter:** `Activity N of M` with **Previous** / **Next** (whole-lesson activity order, Mon→Fri).  
+- **Jump search (🔍):** global search within the **current lesson only** — activities, books, songs, printables, vocabulary, week sections. Selecting a hit jumps to that item/mode.  
+- **Draft autosave** silent + recoverable. Checklist **never blocks** draft save.  
+- **Never auto-publish.**  
+- **Exit** always safe.
+
+### Published-lesson banner (when status is published/featured)
+
+Always show clearly near Save:
+
+> **Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.**
 
 ---
 
 ## 4. Information architecture (three modes)
 
-Top segmented control inside the Enrichment Editor:
-
 | Mode | Purpose | Feeling |
 | --- | --- | --- |
 | **Activities** (default) | One-activity studio | Fast, photo-first |
 | **Week** | Family, printables, vocabulary, milestones | Card pickers |
-| **Preview** | Full Teaching Kit walkthrough | Confidence check |
+| **Preview** | **Identical** provider Teaching Kit | Confidence check |
 
-No long single-page form. Modes switch panels; activity mode never dumps the whole week into one scroll.
+No long single-page form.
 
 ---
 
@@ -78,43 +92,64 @@ No long single-page form. Modes switch panels; activity mode never dumps the who
 
 | Zone | Contents |
 | --- | --- |
-| **Left rail** | Day chips (Mon–Fri) → activity queue for that day only. Active card highlighted. Checkmark when activity meets “ready” bar. Counter: “2 of 4 Monday” |
+| **Left rail** | Day chips (Mon–Fri) → activity queue for that day. Each row shows status: **Not Started** / **In Progress** / **Complete** (icon + color). |
 | **Center stage** | **Only the active activity** |
-| **Right rail** | Live Teaching Kit phone preview (Today / activity depth) |
+| **Right rail** | Live provider Teaching Kit (same renderer as members) |
 
-### Activity stage — components (minimize typing)
+### Resume rule (required)
 
-1. **Inline title** (click to edit; optional)  
-2. **Photo pair (required for premium feel)**  
-   - Setup photo — drag/drop or tap upload, instant preview, replace/remove  
-   - Finished example — same; helper: “Original photo or artwork only”  
-3. **Group & setting chips** (multi-select, not textareas)  
-   - Small group · Large group · Indoor · Outdoor  
-4. **Teacher tips**  
-   - Start as **tappable tip cards** / chips  
-   - “+ Add tip” opens a **single-line** inline input (Enter to commit)  
-   - Max ~5 short tips; no giant textarea by default  
-5. **Supply substitutions**  
-   - Reusable cards: `No X → use Y`  
-   - Pick from common classroom library + “+ custom” one-liner  
-6. **Observation prompts**  
-   - Checklist toggles from age-appropriate bank + “+ custom”  
-7. **✨ Suggest** (AI)  
-   - Opens **Approval tray** (see §8) — never inserts silently  
+**Every time** the Enrichment Editor opens (or returns from Exit):
 
-### Bottom sticky actions
+1. Load draft if present  
+2. Focus **Activities** mode  
+3. Select the **first incomplete activity** in Mon→Fri order  
+   - Incomplete = status is Not Started or In Progress  
+4. If all activities Complete, land on first activity and suggest Week mode if week checklist incomplete  
+
+### Activity queue status
+
+| Status | Meaning (per activity) |
+| --- | --- |
+| **Not Started** | No enrichment fields/photos set beyond legacy text |
+| **In Progress** | Some enrichment (e.g. one photo or tips) but not activity-complete |
+| **Complete** | Setup photo **and** finished example **and** ≥1 teacher tip (minimum bar; substitutions/chips optional bonus) |
+
+Statuses visible at a glance — no need to open each card.
+
+### Activity counter + navigation
+
+- Top chrome: **Activity 3 of 15**  
+- **Previous** / **Next** move across the full lesson queue (not only current day)  
+- Left rail day filter still helps scan; counter stays global  
+
+### Photo areas (every photo zone)
+
+Each photo control **must** support:
+
+1. Drag and drop  
+2. Click to upload  
+3. Replace photo  
+4. Remove photo  
+5. Full-size preview (lightbox / modal)  
+
+Zones: **Setup photo**, **Finished example**. Instant thumbnail after select; helper on finished: “Original photo or artwork only.”
+
+### Activity stage — other components (minimize typing)
+
+- Inline title (optional)  
+- Chips: Small group · Large group · Indoor · Outdoor  
+- Teacher tips as cards + one-line add  
+- Supply substitutions as reusable cards  
+- Observation prompt toggles  
+- ✨ Suggest → **Approval tray only**  
+
+### Bottom sticky
 
 | Button | Behavior |
 | --- | --- |
-| ← Prev activity | Save draft of current card → previous |
-| Skip for now | Leave incomplete; advance queue |
-| **Save & next →** | Draft-save current activity enrichment → next incomplete activity |
-
-### One-activity rule
-
-- Opening Enrichment Editor lands on the **first incomplete activity**.  
-- Completing photos + tips marks that activity’s rail checkmark.  
-- Scrolling never reveals other activities’ full editors — only the left queue.
+| ← Previous | Draft-save current → previous activity |
+| Skip for now | Leave status as-is; go Next |
+| **Save & next →** | Draft-save → next activity (prefer next incomplete) |
 
 ---
 
@@ -122,221 +157,185 @@ No long single-page form. Modes switch panels; activity mode never dumps the who
 
 <img alt="Week coaching and completeness" src="/opt/cursor/artifacts/assets/tk-enrich-spec-week-complete.png" />
 
-Card-based week work (not a wall of textareas):
-
-| Card | Interaction |
-| --- | --- |
-| **Family connection** | Pick 1 of 3 suggested cards **or** edit selected card inline; AI suggest → approve |
-| **Printables** | Drag/drop PDF/image → instant chip; or link existing curriculum resource; tag “Used Mon / Art” |
-| **Vocabulary** | Word chips + add chip |
-| **Milestones** | Multi-select age chips (Sorting, Fine motor, Language, etc.) |
-| **Week supply substitutions** | Same card pattern as activities |
-| **Completeness checklist** | Left or top; each row jumps to the work that unlocks it |
-
-Existing Week story fields (`weeklyOverview`, books, songs, etc.) remain editable in the classic editor. Enrichment Week mode **prefers selectors/chips**; if the classic field already has rich text, show it as a **collapsed “Current text” card** with “Edit in Week story” link — never silent overwrite.
+Card/chip UI for family, printables, vocabulary, milestones, week substitutions.  
+Checklist is **guidance only** — rows jump to work; never blocks draft save.  
+Never silent-overwrite existing week prose.
 
 ---
 
-## 7. Mode C — Live Preview
+## 7. Mode C — Live Preview (provider-identical)
 
-- Updates from **in-memory draft** as the admin edits (debounce ~200–300ms).  
-- Surfaces: Start Week · Monday Setup · Today · Build/Print · Binder peek.  
-- Banner: **“Live preview · member library updates only after you save enrichment.”**  
-- No need to hit Save just to see layout; Save still required to persist.
+**Hard requirement:** Preview uses the **same Teaching Kit viewer** as providers (`LLHTeachingKitViewer` / same surfaces, styles, interactions).
+
+- Not an admin wireframe or simplified mock.  
+- Fed by **in-memory draft** of this lesson (debounce ~200–300ms).  
+- Surfaces: Start Week · Monday Setup · Today · Build/Print · Binder peek — same as app.  
+- Banner only difference allowed:  
+  **“Previewing draft · subscribers still see the last published version until you Publish.”**  
+  (Visual chrome of the kit itself must match subscribers.)
 
 ---
 
 ## 8. AI approval tray (mandatory)
 
-Every AI action opens a right/bottom tray:
-
-```
-┌ Suggested teacher tips ───────────── ✕ ┐
-│ ○ Tip 1…                    [Preview] │
-│ ○ Tip 2…                    [Preview] │
-│ □ Select all                          │
-│ [Discard]           [Insert selected] │
-└───────────────────────────────────────┘
-```
-
-Rules:
-
 - Nothing inserts without **Insert selected** / **Approve**.  
-- Insert only into the **enrichment draft**, never over existing prose unless the admin chose a card that replaces a selected tip.  
-- “Replace existing tips?” confirmation if target already has content.
+- Confirm before replacing existing tips/text.  
+- Inserts go to **draft** only.
 
 ---
 
-## 9. Autosave vs publish (critical)
+## 9. Draft autosave vs Publish confirmation
 
-| Layer | What happens |
+### Draft
+
+| Action | Result |
 | --- | --- |
-| **Draft autosave** | Enrichment draft for this lesson ID (photos staged, chips, tips). Frequent, silent, recoverable. |
-| **Save enrichment** | Persists additive fields / `teachingKit` overlay for **this lesson only** via existing one-plan save path. |
-| **Publish** | Unchanged product rules — not triggered by Enrichment Editor. Published lessons can receive enrichment saves with an explicit confirm: “Update published lesson enrichment for providers?” |
+| Autosave / Save draft | Persists enrichment draft for this lesson ID. **Published member view unchanged.** |
+| Checklist incomplete | Still allowed. % updates; label may stay Legacy. |
 
-Incomplete enrichment ⇒ `teachingKit.completeness = legacy_mapped` (or omit overlay) ⇒ current TK mapping still works.
+Banner when lesson is already published/featured:
 
----
+> Your changes are being saved as a draft. The published lesson will remain unchanged until you choose Publish.
 
-## 10. Completeness rules (visual indicator)
+### Publish… (always confirmation screen)
 
-### Legacy (default)
+Opening **Publish…** shows a confirmation summary **before** any publish write:
 
-No enrichment overlay / checklist &lt; Enriched threshold. Member TK still maps existing fields.
+1. **What changed** (short diff-style list: e.g. “5 activity photos added · family card updated · completeness 45% → 80%”)  
+2. **Updates a published lesson?** Yes/No (current status)  
+3. **Linked activities affected?** Count of activities whose enrichment/photos/tips will update in the Activity Library sync  
+4. **Teaching Kit completeness change?** e.g. `Legacy → Enriched` and `45% → 80%`  
 
-### Enriched — enable **Mark Enriched** when all true
+Buttons: **Cancel** · **Publish updates to providers**
 
-- Cover present  
-- Weekly overview present (from existing data OK)  
-- ≥1 book and ≥1 song (existing OK)  
-- Family connection card chosen or existing text present  
-- Observation prompts present  
-- ≥50% of activities have setup **or** example photo  
-- Week materials non-empty  
-
-### Complete — enable **Mark Complete** when all true
-
-- All Enriched checks  
-- Every weekday has ≥1 activity  
-- ≥1 activity/day (or ≥5/week) has **both** setup + finished photos  
-- ≥1 printable linked with use-day tag  
-- Teacher tips on each “highlight” activity (≥1/day)  
-- ≥3 activities have substitution **or** indoor/outdoor **or** small/large option  
-- ≥3 milestone chips selected (or existing objectives/domains judged sufficient)  
-- Admin checked “Preview looks ready”  
-
-Marking Complete only sets `teachingKit.completeness = "complete"`. It does not invent content.
+No publish without this screen.
 
 ---
 
-## 11. Exact admin journey: one lesson Legacy → Complete
+## 10. Completion % model (library + chrome)
 
-### Step 0 — Open
+### Overall percentage
 
-Admin clicks **Enrich Teaching Kit** on `Farm Animals`.  
-Chrome shows **Legacy**, 0–20%. Lands in **Activities**, Monday, first incomplete activity.
+Computed from a weighted quality checklist (guidance). Example weights (implementation may tune, UI shows single %):
 
-### Step 1 — Activity loop (repeat)
-
-For each activity:
-
-1. Drop **setup photo** → instant preview in center + live phone preview.  
-2. Drop **finished example** → same.  
-3. Tap chips: Small group, Indoor.  
-4. Tap 2 tip cards; optionally ✨ Suggest → Approve 1 tip.  
-5. Add one substitution card.  
-6. Toggle 2 observation prompts.  
-7. **Save & next**.  
-
-Autosave keeps drafts if they Exit mid-day.
-
-### Step 2 — Week mode
-
-- Pick family card (or approve AI suggestion).  
-- Drag one printable; tag “Monday · Art”.  
-- Confirm vocabulary chips; add 1 word.  
-- Select milestone chips.  
-
-Progress moves toward **Enriched**.
-
-### Step 3 — Mark Enriched
-
-When checklist greens enough, **Mark Enriched** enables.  
-Admin confirms → `completeness: "enriched"` saved for this lesson only.
-
-### Step 4 — Finish remaining activity photos/tips
-
-Return to Activities; clear remaining queue checks.
-
-### Step 5 — Preview pass
-
-Walk Start → Setup → Today → Build. Check “Preview looks ready.”
-
-### Step 6 — Mark Complete
-
-**Mark Complete** enables → confirm → `completeness: "complete"`.  
-Lesson card badge updates. Member TK shows richer companion; legacy fields unchanged unless admin explicitly edited them.
-
-### Step 7 — Stop anytime
-
-Exit at any step. Lesson remains in library; members still see current mapped TK/legacy. Resume later at first incomplete activity.
-
----
-
-## 12. Interaction inventory (preferred over typing)
-
-| Pattern | Used for |
+| Bucket | Weight |
 | --- | --- |
-| Drag-and-drop | Photos, printables |
-| Instant preview | Photos, live TK phone |
-| Chips / toggles | Group size, indoor/outdoor, milestones, observations |
-| Reusable cards | Tips, substitutions, family ideas |
-| Inline one-line edit | Custom tip / custom substitution / vocabulary word |
-| Queue + focus | One activity at a time |
-| Approval tray | All AI inserts |
-| Checklist jumps | Completeness navigation |
+| Cover + week story basics | 15% |
+| Books + songs | 10% |
+| Family + observations | 10% |
+| Activity photos (setup/example coverage) | 30% |
+| Teacher tips coverage | 15% |
+| Printables linked | 10% |
+| Substitutions / group-setting options | 10% |
 
-Large textareas are **escape hatches**, not the default path.
+Display: **0% · 45% · 80% · 100%** (integer). Progress bar always visible in editor + library cards.
 
----
+### Label mapping (derived, not a second manual system)
 
-## 13. Data & safety constraints (spec-level)
-
-- Source of truth: existing lesson + activities in `siteContent.curriculum`.  
-- Saves: one lesson ID only; field/additive patching; no bulk replace.  
-- Never overwrite existing curriculum text without explicit admin action.  
-- Photo fields must persist (additive activity media fields) — design assumes implementation will extend normalization safely.  
-- Attachments flag may remain off; printables can still **link** existing resources.  
-- Empty enrichment ⇒ current production behavior unchanged.
-
----
-
-## 14. Empty / error / joy states
-
-| State | UI |
+| Label | Typical % gate (guidance) |
 | --- | --- |
-| No photo yet | Friendly dashed dropzone + example silhouette |
-| Upload fail | Inline error on zone; keep prior photo |
-| All Monday done | Confetti-light check + “Tuesday ready when you are” |
-| AI unavailable | Hide Suggest or disable with note; manual chips still work |
-| Concurrent edit conflict | “Lesson changed elsewhere — reload draft” (existing concurrency stamp) |
+| Legacy | &lt; 50% (or no enrichment overlay) |
+| Enriched | ≥ 50% and &lt; 90% |
+| Complete | ≥ 90% **and** Complete checklist items met (or admin Mark Complete) |
+
+**Mark Enriched / Mark Complete** remain optional accelerators; checklist never blocks draft save.
 
 ---
 
-## 15. Out of scope for v1
+## 11. Global jump search (current lesson)
 
-- Redesigning member Teaching Kit tab labels to mockup Overview/Songs/Books tabs  
-- Bulk “enrich all lessons”  
-- Auto-mark Complete  
-- Silent AI writes  
-- Pinterest import / non-original image scrapers  
+Trigger: **🔍 Jump to…** (or `/` keyboard).
 
----
+Searchable within open lesson:
 
-## 16. Acceptance criteria for this UI (when built)
+- Activities (title, day, category)  
+- Books  
+- Songs  
+- Printables / linked resources  
+- Vocabulary words  
+- Week sections (Family, Milestones, Materials, …)  
 
-1. Admin can enrich one activity without scrolling past other activities’ editors.  
-2. Photos show instant preview before save.  
-3. Live Preview updates without requiring Save.  
-4. Draft autosave recovers after refresh; publish status unchanged.  
-5. AI insert requires Approve.  
-6. Progress shows Legacy → Enriched → Complete accurately.  
-7. Unfinished lessons remain member-safe.  
-8. Save touches only the open lesson plan.
+Results grouped; Enter/click navigates to mode + item. No site-wide curriculum search here (speed + focus).
 
 ---
 
-## 17. Review checkpoint
+## 12. Control budget (keep UI clean)
 
-**Stop here for owner review before implementation.**
+Only keep controls that save time across 100+ lessons:
 
-Approve / adjust:
+**Keep:** queue statuses, photo D&D suite, chips, tip/substitution cards, activity N of M + prev/next, jump search, % bar, draft/publish split, provider-identical preview, AI approve tray.
 
-- Activity-focus loop + sticky Save & next  
-- Week mode as cards/chips  
-- Completeness thresholds  
-- Autosave-draft vs explicit enrichment save vs no auto-publish  
-- AI approval tray  
+**Avoid:** duplicate fields already in classic editor, dense textarea walls, extra settings panels, decorative toggles, multi-step wizards beyond Publish confirm.
 
-After approval, implementation can proceed in thin slices (schema additives → Activity mode → Week mode → Preview → completeness actions).
+---
+
+## 13. Exact admin journey (updated)
+
+### Open / return
+
+Enrich Teaching Kit → restore draft → **first incomplete activity** → show `Activity N of M` + queue statuses.
+
+### Activity loop
+
+Photos (full suite) → chips → tips → optional AI approve → Save & next / Previous / Next.
+
+### Week
+
+Cards/chips; checklist guidance only.
+
+### Draft anytime
+
+Save draft / autosave; published lesson unchanged; banner explains this.
+
+### Publish
+
+Publish… → confirmation summary (changes · published? · linked activities · completeness %) → confirm.
+
+### Library
+
+Sort/filter by % to find “almost done” vs “needs most work.”
+
+---
+
+## 14. Data & safety constraints
+
+- Source of truth: `siteContent.curriculum` (same 127 plans).  
+- One lesson ID per save; additive/field patch; no bulk replace.  
+- Never overwrite existing curriculum text without explicit action.  
+- Persist activity `setupImageUrl` / `exampleImageUrl` (or media asset ids) — mapper already reads these.  
+- Incomplete enrichment ⇒ members keep current mapped TK behavior.  
+- Draft vs published separation must be real (draft stamp or unpublished enrichment channel) so the banner is truthful.
+
+---
+
+## 15. Acceptance criteria
+
+1. Reopening a lesson always focuses the first incomplete activity.  
+2. Every activity shows Not Started / In Progress / Complete in the queue.  
+3. Every photo zone supports drag/drop, click upload, replace, remove, full-size preview.  
+4. Live Preview is the real provider Teaching Kit viewer (same UI).  
+5. Published lessons show the draft-vs-publish explanation before/while saving drafts.  
+6. Publish always uses a confirmation summary (changes, published update, linked activities, completeness).  
+7. Checklist never blocks draft save.  
+8. `Activity N of M` + Previous/Next work across the lesson.  
+9. Jump search finds activities/books/songs/printables/vocabulary/sections in the current lesson.  
+10. UI stays minimal — no low-value controls.  
+11. Overall % + bar in editor; library can sort/filter by completion %.  
+
+---
+
+## 16. Implementation slices (approved order)
+
+1. Schema additives + completion % helper (activities photos, teachingKit completeness/%)  
+2. Enrichment Editor shell (chrome, %, counter, prev/next, jump search, draft banner)  
+3. Activity Focus (queue statuses, photo suite, chips/cards, resume-first-incomplete)  
+4. Provider-identical live preview from draft  
+5. Week mode cards + guidance checklist  
+6. Publish confirmation screen  
+7. Library badge / sort / filter by %  
+
+---
+
+## 17. Owner approval
+
+Refinements 1–11 are locked in this document. **Implementation is approved** to proceed in the slices above.
