@@ -1,3 +1,7 @@
+// Declared early so boot-time references (trackEvent, upgrade chrome) do not throw
+// ReferenceError before scripts/new-user-onboarding.js assigns the API on window.
+var NewUserOnboarding;
+
 const categories = [
   { view: "observations", title: "Observation Hub", detail: "Professional wording, skills, standards, and next steps.", icon: "OB" },
   { view: "lessons", title: "Lesson Plan Library", detail: "Search infant, toddler, and preschool lesson plans.", icon: "LP" },
