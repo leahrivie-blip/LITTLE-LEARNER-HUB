@@ -107,7 +107,7 @@
     }
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
-  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260802-request-idea-final" />
+  <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
   <link rel="stylesheet" href="styles.css?v=20260803-funnel-exit" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-funnel-exit" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
@@ -557,14 +557,17 @@
           <!-- HERO SECTION -->
           <section class="lp-hero llh-hero llh-hero--tiktok" id="homeHero" aria-label="Get started with Little Learner Hub">
             <div class="lp-hero-content">
-              <h2 class="lp-hero-headline">Stop Spending Hours Creating Lesson Plans</h2>
-              <p class="lp-hero-sub">Get ready-to-use infant, toddler, and preschool lesson plans, activities, planning tools, observation support, and parent-message help—all built by a childcare provider.</p>
+              <h2 class="lp-hero-headline">Spend Less Time Planning. More Time Teaching.</h2>
+              <p class="lp-hero-sub">Everything you need to plan your week in one place. Ready-to-use lesson plans, engaging activities, planning tools, observation support, and classroom resources—all built by a childcare provider who understands your day.</p>
               <div class="lp-hero-actions">
                 <button class="lp-btn-primary llh-btn llh-btn-primary llh-hero-primary-cta" data-action="start-free" type="button">Start Free</button>
-                <p class="llh-hero-social-proof">Hundreds of childcare providers have already joined</p>
+                <p class="llh-hero-social-proof">Hundreds of childcare providers already use Little Learner Hub to save hours every week.</p>
                 <button class="llh-btn llh-btn-text llh-hero-secondary-cta" data-view="lessons" data-guest-browse="lessons" type="button">Preview Free Lesson Plans</button>
               </div>
-              <p class="llh-hero-trust-line" aria-label="Curriculum inventory"><span class="llh-hero-trust-stats">127 lesson plans • 2,110 activities</span><span class="llh-hero-trust-sep" aria-hidden="true"> • </span><span class="llh-hero-trust-ages">Infant • Toddler • Preschool</span></p>
+              <div class="llh-hero-curriculum-preview" aria-label="Explore the curriculum">
+                <p class="llh-hero-curriculum-title">Explore the Curriculum</p>
+                <p class="llh-hero-curriculum-copy">Browse ready-to-use lesson plans, engaging activities, and classroom resources for infants, toddlers, and preschoolers. New content is added regularly.</p>
+              </div>
             </div>
             <div class="lp-hero-visual llh-hero-visual" aria-label="Lesson planning preview" aria-hidden="true">
               <div class="llh-hero-mock">
@@ -591,11 +594,46 @@
             </div>
           </section>
 
-          <!-- TAKE A LOOK INSIDE -->
+          <!-- EVERYTHING YOU NEED FOR THE WEEK -->
+          <section class="llh-section llh-week-needs-section" id="homeWeekNeeds" aria-label="Everything you need for the week">
+            <div class="lp-section-header">
+              <h2 class="lp-section-title">Everything You Need for the Week</h2>
+              <p class="lp-section-sub">Plan, prepare, and document without jumping between apps and tabs.</p>
+            </div>
+            <div class="llh-feature-grid llh-week-needs-grid">
+              <article class="llh-feature-card">
+                <span aria-hidden="true">📚</span>
+                <h3>Lesson Plans</h3>
+                <p>Ready-to-use weekly plans for infants, toddlers, and preschoolers.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">🎨</span>
+                <h3>Activities</h3>
+                <p>Engaging classroom ideas organized for real childcare days.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">📅</span>
+                <h3>Calendar &amp; Planning</h3>
+                <p>Put lessons, activities, and notes into your week in one place.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">📝</span>
+                <h3>Observation Helpers</h3>
+                <p>Turn quick notes into clear, professional documentation.</p>
+              </article>
+              <article class="llh-feature-card">
+                <span aria-hidden="true">💬</span>
+                <h3>Parent Messages</h3>
+                <p>Draft warm, practical family updates without starting from scratch.</p>
+              </article>
+            </div>
+          </section>
+
+          <!-- LESSON PREVIEW -->
           <section class="llh-section llh-lesson-preview-section" id="homeLessonPlans" aria-label="Preview lesson plans">
             <div class="lp-section-header">
-              <h2 class="lp-section-title">Take a Look Inside</h2>
-              <p class="lp-section-sub">Preview real lesson plans created for home daycares, childcare centers, and preschool classrooms.</p>
+              <h2 class="lp-section-title">See What&rsquo;s Included in Every Lesson</h2>
+              <p class="lp-section-sub">Explore real lesson plans designed for childcare providers, home daycares, and preschool classrooms.</p>
             </div>
             <div class="llh-preview-grid" id="homeLessonPreviewGrid">
               <div class="llh-preview-empty muted-copy">Loading free lesson plan previews…</div>

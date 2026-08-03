@@ -53,7 +53,8 @@ async function main() {
     const homepageOk = await page.evaluate(() => {
       const text = document.body?.innerText || "";
       const brandOrHero = /Little Learner Hub/i.test(text)
-        && (/Stop Spending Hours Creating Lesson Plans/i.test(text)
+        && (/Spend Less Time Planning\. More Time Teaching/i.test(text)
+          || /Stop Spending Hours Creating Lesson Plans/i.test(text)
           || /Affordable Childcare Curriculum/i.test(text));
       const cta = /Start Free|Preview Free Lesson Plans|Browse All Lesson Plans|Create Free Account/i.test(text);
       return brandOrHero && cta;

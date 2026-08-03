@@ -69,11 +69,14 @@ async function stopServer(child) {
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-  assert.match(indexHtml, /Stop Spending Hours Creating Lesson Plans/);
+  assert.match(indexHtml, /Spend Less Time Planning\. More Time Teaching\./);
   assert.match(indexHtml, /Start Free/);
-  assert.match(indexHtml, /Hundreds of childcare providers have already joined/);
+  assert.match(indexHtml, /Hundreds of childcare providers already use Little Learner Hub to save hours every week/);
   assert.doesNotMatch(indexHtml, /See why hundreds of childcare providers/);
-  assert.match(indexHtml, /all built by a childcare provider/);
+  assert.match(indexHtml, /all built by a childcare provider who understands your day/);
+  assert.match(indexHtml, /Explore the Curriculum/);
+  assert.doesNotMatch(indexHtml, /127 lesson plans/);
+  assert.doesNotMatch(indexHtml, /2,110 activities/);
   assert.doesNotMatch(indexHtml, /llh-hero-support/);
 
   const child = startServer();
@@ -98,6 +101,11 @@ async function main() {
       });
       await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "networkidle" });
       await page.waitForSelector("#homeHero .lp-hero-headline", { timeout: 15000 });
+      // Cookie notice sits above the sticky CTA and would falsely fail clearance checks.
+      await page.evaluate(() => {
+        try { localStorage.setItem("llhMetaCookieNoticeDismissed", "1"); } catch { /* ignore */ }
+        document.getElementById("llhMetaCookieNotice")?.remove();
+      });
       if (isMobile) {
         await page.waitForSelector("#homeLessonPreviewGrid [data-home-open-preview]", { timeout: 20000 });
       }
@@ -145,7 +153,7 @@ async function main() {
           document.querySelector("#homeHero .llh-hero-primary-cta"),
           document.querySelector("#homeHero .llh-hero-social-proof"),
           document.querySelector("#homeHero .llh-hero-secondary-cta"),
-          document.querySelector("#homeHero .llh-hero-trust-line"),
+          document.querySelector("#homeHero .llh-hero-curriculum-preview"),
         ].map((el) => el?.getBoundingClientRect().top ?? Infinity);
         const orderOk = order.every((top, i) => i === 0 || top >= order[i - 1] - 1);
 
@@ -164,7 +172,7 @@ async function main() {
           social: socialEl?.innerText?.trim() || "",
           socialOverflows,
           socialPadInline: socialStyles ? Number.parseFloat(socialStyles.paddingLeft) : 0,
-          trust: document.querySelector(".llh-hero-trust-line")?.innerText?.replace(/\s+/g, " ").trim() || "",
+          curriculum: document.querySelector(".llh-hero-curriculum-preview")?.innerText?.replace(/\s+/g, " ").trim() || "",
           orderOk,
           navLogin: Boolean(document.querySelector(".llh-public-nav [data-action='open-login']")),
           navSignup: Boolean(document.querySelector(".llh-public-nav [data-action='start-free']")),
@@ -172,17 +180,19 @@ async function main() {
         };
       });
 
-      assert.match(hero.headline, /Stop Spending Hours Creating Lesson Plans/);
-      assert.match(hero.sub, /all built by a childcare provider/i);
+      assert.match(hero.headline, /Spend Less Time Planning\. More Time Teaching\./);
+      assert.match(hero.sub, /all built by a childcare provider who understands your day/i);
       assert.equal(hero.startFreeCount, 1);
       assert.equal(hero.previewInHero, 1);
       assert.equal(hero.pricingInHero, false);
       assert.equal(hero.overflowX, false);
       assert.equal(hero.orderOk, true);
-      assert.equal(hero.social, "Hundreds of childcare providers have already joined");
+      assert.equal(hero.social, "Hundreds of childcare providers already use Little Learner Hub to save hours every week.");
       assert.equal(hero.socialOverflows, false, `social proof should not overflow on ${viewport.name}`);
       assert.ok(hero.socialPadInline >= 10, "social proof needs horizontal padding");
-      assert.match(hero.trust, /127 lesson plans/i);
+      assert.match(hero.curriculum, /Explore the Curriculum/i);
+      assert.doesNotMatch(hero.curriculum, /\d+\s+lesson plans/i);
+      assert.doesNotMatch(hero.curriculum, /\d[\d,]*\s+activities/i);
       assert.equal(hero.navLogin, true);
       assert.equal(hero.navSignup, true);
 
