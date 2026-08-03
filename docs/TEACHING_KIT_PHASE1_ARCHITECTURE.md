@@ -415,8 +415,8 @@ Ordered, stop-for-review slices:
 | **1B** ✅ done | `mapLessonPlanToTeachingKit` + companion read-model + fixture tests | Maps Bugs & Butterflies + enriched/empty fixtures; empty sections omitted; flags still false; **no UI/API/PDF** |
 | **1C** ✅ done | `GET /api/curriculum/lesson-plans/:id/teaching-kit` behind viewer/print flags | Flag off → 404; auth parity with detail; Pro/Trial/free-starter unlock; locked preview has no companion body; public site-content unchanged |
 | **1D** ✅ done | Companion binder UI behind `teachingKitViewer` | Start/Setup/Today/Open Everything/Activity+Substitute/Build/Binder preview; back/favorite/assign intact; fail closed to legacy workspace; flags stay false |
-| **1E** ✅ done (review) | Build My Kit Print Center + client binder print path behind `teachingKitPrintCenter` | Presets + section toggles; professional cover/tabs/footers; selected activities only; trial authorize before print; legacy print still works; flags stay false |
-| **1F** | Trial/Pro enforcement hardening on kit print | Extra bypass/regression coverage beyond 1E gate |
+| **1E** ✅ done | Build My Kit Print Center + client binder print path behind `teachingKitPrintCenter` | Presets + section toggles; professional cover/tabs/footers; selected activities only; trial authorize before print; legacy print still works; flags stay false |
+| **1F** ✅ done (review) | Polish + edge cases + Trial/Pro print gate hardening | Empty/large kits safe & fast; Letter/A4; page-break/image scaling; loading + panel nav; authorize-before-build regressions; flags stay false |
 | **1G** | AttachmentType enum + admin attach hook (optional) | Future types documented + one test resource |
 | **1H** | QA checklist + controlled flag enable | Owner approval before wider release |
 
@@ -481,6 +481,8 @@ Add (when coding):
 | Slice 1D tests | `scripts/test-teaching-kit-slice-1d.js` (`npm run test:teaching-kit-slice-1d`) |
 | Slice 1E Print Center | `scripts/teaching-kit-print.js` + Build/Print UI + `printTeachingKitBinder` in `app.js` |
 | Slice 1E tests | `scripts/test-teaching-kit-slice-1e.js` (`npm run test:teaching-kit-slice-1e`) |
+| Slice 1F polish + gate | Empty/large UX, Letter/A4, page-break/image CSS, `evaluatePrintAuthorization`, loading hint |
+| Slice 1F tests | `scripts/test-teaching-kit-slice-1f.js` (`npm run test:teaching-kit-slice-1f`) |
 | Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
 
 **Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Kit payloads are **not** added to site-content.
@@ -510,6 +512,17 @@ Add (when coding):
 - Legacy lesson print/download paths remain available
 
 **Slice 1E does not include:** production flag enablement, merge/deploy, attachments UX, migrations.
+
+**Slice 1F polish + entitlement rules**
+
+- Empty kits show a calm banner and safe empty copy; print still builds (cover / empty notice)
+- Large kits: panel-only nav rerender; map/print build stay under test budgets
+- Print: `tk-print-keep` + flex footers + CSS page counters; images `object-fit: contain` with max-height
+- Paper: US Letter (default) and A4 via injected `@page` size tag
+- Gate order: flag/payload checks → `confirmTrialCurriculumExport` → watermark → `buildBinderPrintHtml` → print
+- Flag-off never calls trial authorize (no export consumption)
+
+**Slice 1F does not include:** production flag enablement, merge/deploy, attachments UX, migrations.
 
 ---
 

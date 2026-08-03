@@ -20,6 +20,7 @@
     "test:teaching-kit-slice-1c": "NODE_ENV=test node scripts/test-teaching-kit-slice-1c.js",
     "test:teaching-kit-slice-1d": "NODE_ENV=test node scripts/test-teaching-kit-slice-1d.js",
     "test:teaching-kit-slice-1e": "NODE_ENV=test node scripts/test-teaching-kit-slice-1e.js",
+    "test:teaching-kit-slice-1f": "NODE_ENV=test node scripts/test-teaching-kit-slice-1f.js",
     "test:owner-notification-email": "NODE_ENV=test node scripts/test-owner-notification-email.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
     "test:marketing-analytics": "NODE_ENV=test node scripts/test-marketing-analytics.js",

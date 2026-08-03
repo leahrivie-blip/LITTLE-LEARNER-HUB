@@ -1,7 +1,8 @@
 /**
- * Teaching Kit Slice 1E — Print Center / professional binder print HTML.
+ * Teaching Kit Slice 1E/1F — Print Center / professional binder print HTML.
  * Client print-preview assembly (window.print). Does not bypass trial exports;
  * callers must authorize via existing confirmTrialCurriculumExport first.
+ * Slice 1F: Letter/A4, page-break polish, image scaling, print authorization gate helper.
  */
 (function (root, factory) {
   const api = factory();
@@ -22,6 +23,11 @@
     thursday: "Thursday",
     friday: "Friday",
   });
+
+  const PAPER_SIZES = Object.freeze([
+    Object.freeze({ id: "letter", label: "US Letter", cssSize: "letter" }),
+    Object.freeze({ id: "a4", label: "A4", cssSize: "A4" }),
+  ]);
 
   const PRESETS = Object.freeze([
     Object.freeze({
@@ -62,6 +68,47 @@
     observations: "Observation prompts",
     printables: "Printables (Used in week)",
   });
+
+  /**
+   * Pure gate used by printTeachingKitBinder — keeps trial/Pro enforcement testable.
+   * Callers must still run confirmTrialCurriculumExport before building HTML.
+   */
+  function evaluatePrintAuthorization(input) {
+    const opts = input || {};
+    if (opts.printCenterEnabled !== true) {
+      return { ok: false, reason: "print_flag_off" };
+    }
+    const kit = opts.kit;
+    if (!kit || kit.ok === false || kit.locked || !kit.companion) {
+      return { ok: false, reason: kit?.locked ? "locked" : "unavailable" };
+    }
+    const gate = opts.gate;
+    if (!gate || gate.allowed !== true) {
+      if (gate?.cancelled) return { ok: false, reason: "trial_cancelled" };
+      if (gate?.exhausted) return { ok: false, reason: "trial_exhausted" };
+      return { ok: false, reason: "trial_blocked" };
+    }
+    if (gate.counted && !text(gate.watermark)) {
+      return { ok: false, reason: "watermark_required" };
+    }
+    return { ok: true, reason: "ok" };
+  }
+
+  function normalizePaperSize(value) {
+    const id = text(value).toLowerCase();
+    return PAPER_SIZES.some((item) => item.id === id) ? id : "letter";
+  }
+
+  function pageSizeCss(paperSize) {
+    const match = PAPER_SIZES.find((item) => item.id === normalizePaperSize(paperSize));
+    return match ? match.cssSize : "letter";
+  }
+
+  /** Inline @page rule so Letter vs A4 works across browsers (class selectors cannot scope @page). */
+  function pageSizeStyleTag(paperSize) {
+    const size = pageSizeCss(paperSize);
+    return `<style data-tk-print-page-size>@page{size:${size};margin:0.55in;}</style>`;
+  }
 
   function text(value) {
     return String(value == null ? "" : value).trim();
@@ -130,6 +177,7 @@
       activities,
       includeImages: opts.includeImages !== false,
       inkSaver: opts.inkSaver === true,
+      paperSize: normalizePaperSize(opts.paperSize),
       watermark: text(opts.watermark),
       footerLabel: text(kit?.companion?.binder?.footerLabel) || `${text(kit?.title) || "Teaching Kit"} · Teaching Kit`,
     };
@@ -147,7 +195,7 @@
         <div class="tk-print-body">${bodyHtml}</div>
         <footer class="tk-print-footer">
           <span>${escapeHtml(footerLabel)}</span>
-          <span class="tk-print-page-number"></span>
+          <span class="tk-print-page-number" aria-hidden="true"></span>
         </footer>
       </section>
     `;
@@ -196,14 +244,20 @@
     const body = `
       <p><strong>Estimated prep time:</strong> about ${escapeHtml(String(setup.estimatedPrepMinutes || 0))} minutes</p>
       ${(setup.missingMaterials || []).length
-        ? `<div class="tk-print-callout"><strong>Needs attention:</strong> ${escapeHtml(setup.missingMaterials.join(" · "))}</div>`
+        ? `<div class="tk-print-callout tk-print-keep"><strong>Needs attention:</strong> ${escapeHtml(setup.missingMaterials.join(" · "))}</div>`
         : ""}
-      <h3>Materials to gather</h3>
-      ${listHtml((setup.materials || []).map((item) => item.label))}
-      <h3>Prep tasks</h3>
-      ${listHtml((setup.prepTasks || []).map((item) => `${item.label}${item.minutes ? ` (~${item.minutes} min)` : ""}${item.detail ? ` — ${item.detail}` : ""}`))}
-      <h3>Print checklist</h3>
-      ${listHtml((setup.printChecklist || []).map((item) => `${item.label}${(item.usedInWeek || []).length ? ` (${item.usedInWeek.join("; ")})` : ""}`))}
+      <div class="tk-print-keep">
+        <h3>Materials to gather</h3>
+        ${listHtml((setup.materials || []).map((item) => item.label))}
+      </div>
+      <div class="tk-print-keep">
+        <h3>Prep tasks</h3>
+        ${listHtml((setup.prepTasks || []).map((item) => `${item.label}${item.minutes ? ` (~${item.minutes} min)` : ""}${item.detail ? ` — ${item.detail}` : ""}`))}
+      </div>
+      <div class="tk-print-keep">
+        <h3>Print checklist</h3>
+        ${listHtml((setup.printChecklist || []).map((item) => `${item.label}${(item.usedInWeek || []).length ? ` (${item.usedInWeek.join("; ")})` : ""}`))}
+      </div>
     `;
     return dividerHtml("Setup", "Monday Morning Setup", selection)
       + page("Setup", "Monday Morning Setup", body, selection.footerLabel);
@@ -225,7 +279,7 @@
         ${listHtml(model.transitions || [])}
         <h3>Books</h3>
         ${(model.books || []).map((book) => `
-          <div class="tk-print-block">
+          <div class="tk-print-block tk-print-keep">
             <strong>${escapeHtml(book.title)}</strong>
             ${(book.readAloudQuestions || []).length
               ? `<p><em>Read-aloud questions:</em> ${escapeHtml(book.readAloudQuestions.join(" · "))}</p>`
@@ -234,16 +288,20 @@
         `).join("") || `<p class="tk-print-muted">None listed</p>`}
         <h3>Songs</h3>
         ${(model.songs || []).map((song) => `
-          <div class="tk-print-block">
+          <div class="tk-print-block tk-print-keep">
             <strong>${escapeHtml(song.title)}</strong>
             ${song.lyrics ? `<p><em>${escapeHtml(song.lyrics)}</em></p>` : ""}
             ${song.motions ? `<p>Motions: ${escapeHtml(song.motions)}</p>` : ""}
           </div>
         `).join("") || `<p class="tk-print-muted">None listed</p>`}
-        <h3>Parent connection</h3>
-        <div class="tk-print-message">${escapeHtml(model.parentMessage || "")}</div>
-        <h3>Observation ideas</h3>
-        ${listHtml(model.observations || [])}
+        <div class="tk-print-keep">
+          <h3>Parent connection</h3>
+          <div class="tk-print-message">${escapeHtml(model.parentMessage || "")}</div>
+        </div>
+        <div class="tk-print-keep">
+          <h3>Observation ideas</h3>
+          ${listHtml(model.observations || [])}
+        </div>
       `;
       html += page("Daily", `${DAY_LABELS[day] || day} Classroom`, body, selection.footerLabel);
     });
@@ -256,32 +314,46 @@
     let html = dividerHtml("Activities", "Activity Cards", selection);
     activities.forEach((activity) => {
       const photos = selection.includeImages
-        ? `<div class="tk-print-photo-row">
+        ? `<div class="tk-print-photo-row tk-print-keep">
             <div class="tk-print-photo">${activity.examplePhotoUrl
-              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example" />`
+              ? `<img src="${escapeHtml(activity.examplePhotoUrl)}" alt="Example" loading="eager" decoding="async" />`
               : `<div class="tk-print-photo-ph">Example photo</div>`}<span>Example</span></div>
             <div class="tk-print-photo">${activity.setupPhotoUrl
-              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup" />`
+              ? `<img src="${escapeHtml(activity.setupPhotoUrl)}" alt="Setup" loading="eager" decoding="async" />`
               : `<div class="tk-print-photo-ph">Setup photo</div>`}<span>Setup</span></div>
           </div>`
         : "";
       const body = `
         <p class="tk-print-muted">${escapeHtml(activity.activityCategory || "")}${activity.dayOfWeek ? ` · ${escapeHtml(DAY_LABELS[activity.dayOfWeek] || activity.dayOfWeek)}` : ""}</p>
         ${photos}
-        <h3>Learning objective</h3>
-        <p>${escapeHtml(activity.learningObjective || "None listed")}</p>
-        <h3>Materials</h3>
-        <p>${escapeHtml((activity.materials || []).join(" · ") || activity.materialsText || "None listed")}</p>
-        <h3>Setup</h3>
-        <p class="tk-print-pre">${escapeHtml(activity.setup || "None listed")}</p>
-        <h3>Steps</h3>
-        <p class="tk-print-pre">${escapeHtml(activity.steps || "None listed")}</p>
-        <h3>Teacher prompts</h3>
-        ${listHtml((activity.teacherPrompts || []).map((prompt) => `${prompt.label || "Prompt"}: ${prompt.text || ""}`))}
-        <h3>Cleanup tips</h3>
-        ${listHtml(activity.cleanupTips || [])}
-        <h3>Observation ideas</h3>
-        ${listHtml(activity.observationIdeas || [])}
+        <div class="tk-print-keep">
+          <h3>Learning objective</h3>
+          <p>${escapeHtml(activity.learningObjective || "None listed")}</p>
+        </div>
+        <div class="tk-print-keep">
+          <h3>Materials</h3>
+          <p>${escapeHtml((activity.materials || []).join(" · ") || activity.materialsText || "None listed")}</p>
+        </div>
+        <div class="tk-print-keep">
+          <h3>Setup</h3>
+          <p class="tk-print-pre">${escapeHtml(activity.setup || "None listed")}</p>
+        </div>
+        <div class="tk-print-keep">
+          <h3>Steps</h3>
+          <p class="tk-print-pre">${escapeHtml(activity.steps || "None listed")}</p>
+        </div>
+        <div class="tk-print-keep">
+          <h3>Teacher prompts</h3>
+          ${listHtml((activity.teacherPrompts || []).map((prompt) => `${prompt.label || "Prompt"}: ${prompt.text || ""}`))}
+        </div>
+        <div class="tk-print-keep">
+          <h3>Cleanup tips</h3>
+          ${listHtml(activity.cleanupTips || [])}
+        </div>
+        <div class="tk-print-keep">
+          <h3>Observation ideas</h3>
+          ${listHtml(activity.observationIdeas || [])}
+        </div>
       `;
       html += page("Activities", activity.title || "Activity", body, selection.footerLabel);
     });
@@ -372,11 +444,12 @@
 
   function buildBinderPrintHtml(kit, options) {
     if (!kit || kit.ok === false || kit.locked || !kit.companion) {
-      return { ok: false, reason: "unavailable", html: "" };
+      return { ok: false, reason: "unavailable", html: "", pageCount: 0 };
     }
     const selection = normalizeSelection(kit, options);
     const parts = selection.parts;
     const chunks = [];
+    chunks.push(pageSizeStyleTag(selection.paperSize));
     if (selection.watermark) {
       chunks.push(`<div class="tk-print-watermark" aria-hidden="true">${escapeHtml(selection.watermark)}</div>`);
     }
@@ -390,8 +463,18 @@
     if (parts.observations) chunks.push(observationsHtml(kit, selection));
     if (parts.printables) chunks.push(printablesHtml(kit, selection));
 
+    // Empty kits still produce a cover + calm empty notice when cover is selected.
+    if (chunks.filter((chunk) => String(chunk).includes("tk-print-page")).length === 0) {
+      chunks.push(page(
+        "Cover",
+        kit.title || "Teaching Kit",
+        `<p class="tk-print-muted">This Teaching Kit does not have printable section content yet. Add activities and materials in the lesson plan, then rebuild the binder.</p>`,
+        selection.footerLabel,
+      ));
+    }
+
     const html = `
-      <div class="tk-print-root${selection.inkSaver ? " is-ink-saver" : ""}" data-teaching-kit-print-root>
+      <div class="tk-print-root${selection.inkSaver ? " is-ink-saver" : ""}" data-teaching-kit-print-root data-tk-paper="${escapeHtml(selection.paperSize)}">
         ${chunks.join("\n")}
       </div>
     `;
@@ -400,6 +483,7 @@
       reason: "ok",
       html,
       selection,
+      paperSize: selection.paperSize,
       pageCount: (html.match(/tk-print-page/g) || []).length,
     };
   }
@@ -407,10 +491,15 @@
   return {
     PRESETS,
     PART_LABELS,
+    PAPER_SIZES,
     WEEKDAYS,
     escapeHtml,
     defaultPartsForPreset,
     normalizeSelection,
+    normalizePaperSize,
+    pageSizeCss,
+    pageSizeStyleTag,
+    evaluatePrintAuthorization,
     buildBinderPrintHtml,
   };
 });

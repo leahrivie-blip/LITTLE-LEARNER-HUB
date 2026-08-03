@@ -1,7 +1,7 @@
 # Gold Standard Teaching Kit — Final Product Design (v4 polish)
 
 **Status:** Product design **approved** · Slice 1A–1E implemented · flags still off · **1E review**  
-**PR:** #436 (draft) · Slice 1A–1E done · Slice 1F not started  
+**PR:** #436 (draft) · Slice 1A–1F done · Slice 1G not started  
 **Example week:** *Bugs & Butterflies* · Toddler · Pro  
 **Date:** 2026-08-03  
 
@@ -191,9 +191,9 @@ Visual mockup shows cover + tab strip + sample interior page.
 
 ## 11. Implementation note (Slice 1E)
 
-Design approved. Slices 1A–1E ship flags, mapper, API, companion UI, and Print Center binder print  
-(presets, section toggles, professional cover/tabs/branding, trial-gated `window.print()` path).  
-**Still deferred:** deeper trial bypass regression suite (1F), production flag enablement, merge/deploy.
+Design approved. Slices 1A–1F ship flags, mapper, API, companion UI, Print Center binder print,  
+and polish/edge-case hardening (empty/large kits, Letter/A4, page breaks, image scaling, trial/Pro gate).  
+**Still deferred:** attachments (1G), production flag enablement, merge/deploy.
 
 Non-goals that remain:
 
@@ -210,6 +210,6 @@ Non-goals that remain:
 - [x] Substitute This Activity is clear and materials-aware  
 - [x] Printables show where used in the week  
 - [x] Binder preview feels like a professional curriculum binder (tabs/cover/brand)  
-- [x] **Approve → begin implementation** (Slice 1A–1E done — stop for review before 1F)
+- [x] **Approve → begin implementation** (Slice 1A–1F done — stop for review before 1G)
 
-**Stop after Slice 1E for review before starting Slice 1F.**
+**Stop after Slice 1F for review before starting Slice 1G.**

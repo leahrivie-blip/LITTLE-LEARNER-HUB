@@ -1,8 +1,9 @@
 /**
- * Teaching Kit Slice 1D — flagged companion UI (read-only binder surfaces).
+ * Teaching Kit Slice 1D/1F — flagged companion UI (read-only binder surfaces).
  * Renders Start Week / Monday Setup / Today / Open Everything / Activity /
  * Build My Kit / Binder preview from the Slice 1C API payload.
  * Fail closed: callers keep legacy workspace when API/flag is unavailable.
+ * Slice 1F: loading polish, empty-kit safety, smoother panel nav, Letter/A4 option.
  */
 (function (root, factory) {
   const api = factory();
@@ -62,7 +63,11 @@
   }
 
   function checklistHtml(items, prefix) {
-    return (items || [])
+    const rows = items || [];
+    if (!rows.length) {
+      return `<p class="tk-muted tk-empty-line">Nothing listed yet for this section.</p>`;
+    }
+    return rows
       .map((item, index) => {
         const id = item.id || `${prefix}-${index}`;
         const missing = item.missing || item.criticalMissing;
@@ -85,20 +90,68 @@
       .join("");
   }
 
+  function isSparseKit(kit) {
+    const quality = kit?.quality || {};
+    const activityCount = Number(quality.activityCount || kit?.companion?.activities?.length || 0);
+    const sections = Array.isArray(kit?.sections) ? kit.sections.length : 0;
+    const prep = Number(kit?.companion?.mondayMorningSetup?.estimatedPrepMinutes || 0);
+    return activityCount === 0 && sections === 0 && prep === 0;
+  }
+
+  function emptyKitBannerHtml(kit) {
+    if (!isSparseKit(kit)) return "";
+    return `
+      <div class="tk-empty-banner" data-tk-empty-kit role="status">
+        <strong>This lesson plan is still empty</strong>
+        <p class="tk-muted">No activities or materials yet — the Teaching Kit stays available so nothing breaks. Add content in the lesson plan, or use the classic workspace tabs if you prefer.</p>
+      </div>
+    `;
+  }
+
+  function loadingWorkspaceHtml(chrome) {
+    const title = (chrome && chrome.title) || "Teaching Kit";
+    return `
+      <div class="lesson-workspace teaching-kit-workspace is-loading" data-teaching-kit-loading aria-busy="true">
+        <div class="tk-loading-banner">
+          <div class="tk-loading-spinner" aria-hidden="true"></div>
+          <div>
+            <strong>Opening Teaching Kit</strong>
+            <p class="tk-muted">Preparing ${escapeHtml(title)}…</p>
+          </div>
+        </div>
+        <div class="tk-loading-skeleton" aria-hidden="true">
+          <div class="tk-skel tk-skel-wide"></div>
+          <div class="tk-skel"></div>
+          <div class="tk-skel tk-skel-mid"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderLoadingWorkspace(body, chrome) {
+    if (!body) return;
+    body.innerHTML = `<article class="printable-resource-page curriculum-lesson-viewer lesson-workspace-article teaching-kit-article">${loadingWorkspaceHtml(chrome || {})}</article>`;
+    body.classList.add("teaching-kit-loading");
+  }
+
   function startSurfaceHtml(kit) {
     const setup = kit.companion?.mondayMorningSetup || {};
     const prep = setup.estimatedPrepMinutes || 0;
+    const sparse = isSparseKit(kit);
     return `
       <section class="tk-surface" data-tk-panel="start">
+        ${emptyKitBannerHtml(kit)}
         <div class="tk-banner">
           <div>
             <h3 class="tk-banner-title">${escapeHtml(kit.title || "Teaching Kit")}</h3>
-            <p class="tk-muted">Your classroom companion for the week — setup, teach, observe, and send home.</p>
+            <p class="tk-muted">${sparse
+              ? "Companion surfaces are ready — content will appear here as you fill in the lesson plan."
+              : "Your classroom companion for the week — setup, teach, observe, and send home."}</p>
             <div class="tk-chips">
               ${chipsHtml([
                 kit.age,
                 kit.plan,
-                prep ? `~${prep} min Monday prep` : "",
+                prep ? `~${prep} min Monday prep` : (sparse ? "Draft / empty" : ""),
                 "Printable binder",
               ])}
             </div>
@@ -440,14 +493,26 @@
               <h4>Options</h4>
               <label class="tk-check-inline">
                 <input type="checkbox" data-tk-print-option="includeImages" ${state.includeImages !== false ? "checked" : ""} />
-                <span>Include example / setup photo placeholders</span>
+                <span>Include example / setup photos</span>
               </label>
               <label class="tk-check-inline">
                 <input type="checkbox" data-tk-print-option="inkSaver" ${state.inkSaver ? "checked" : ""} />
                 <span>Ink-saver (simplified styling)</span>
               </label>
+              <div class="tk-paper-row" role="group" aria-label="Paper size">
+                ${(printApi?.PAPER_SIZES || [
+                  { id: "letter", label: "US Letter" },
+                  { id: "a4", label: "A4" },
+                ]).map((paper) => `
+                  <label class="tk-radio-row">
+                    <input type="radio" name="tk-print-paper" value="${escapeHtml(paper.id)}" ${state.paperSize === paper.id ? "checked" : ""} data-tk-print-paper="${escapeHtml(paper.id)}" />
+                    <span>${escapeHtml(paper.label)}</span>
+                  </label>
+                `).join("")}
+              </div>
             </article>
             <h3 class="tk-section-title">Activities in this kit</h3>
+            ${emptyKitBannerHtml(kit)}
             ${activities.map((item) => {
               const off = Boolean(removed[item.id]);
               return `
@@ -462,7 +527,7 @@
                     : `<button type="button" class="tk-btn tk-btn-ghost tk-btn-sm" data-tk-open-activity="${escapeHtml(item.id)}" data-tk-from-build="1">Open</button>`}
                 </div>
               `;
-            }).join("") || `<p class="tk-muted">No activities in this kit.</p>`}
+            }).join("") || `<p class="tk-muted">No activities in this kit yet — you can still print a cover and notes.</p>`}
           </div>
           <div class="tk-stack">
             <article class="tk-card">
@@ -470,13 +535,13 @@
               <ul class="tk-list">
                 <li>Cover page with LLH mark</li>
                 <li>Color tab section dividers</li>
-                <li>Running header + page footer</li>
-                <li>US Letter classroom layout</li>
+                <li>Running header + numbered footer</li>
+                <li>US Letter or A4 classroom layout</li>
               </ul>
             </article>
             <article class="tk-card tk-card-soft">
               <h4>Ready to print</h4>
-              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")}</p>
+              <p class="tk-muted"><strong>${escapeHtml(String(includedCount))} activities</strong> · ${escapeHtml(state.printPreset || "week_binder")} · ${escapeHtml(state.paperSize === "a4" ? "A4" : "US Letter")}</p>
               <button type="button" class="tk-btn tk-btn-primary" data-tk-print-binder ${printEnabled ? "" : "disabled"}>Print Teaching Kit binder</button>
               <button type="button" class="tk-btn tk-btn-secondary" data-tk-goto="binder">Preview binder</button>
               <p class="tk-muted tk-note">${printEnabled
@@ -635,12 +700,26 @@
         },
       includeImages: true,
       inkSaver: false,
+      paperSize: "letter",
     };
   }
 
   function renderInto(host, kit, state, chrome) {
     if (!host) return;
     host.innerHTML = `<article class="printable-resource-page curriculum-lesson-viewer lesson-workspace-article teaching-kit-article">${workspaceHtml(kit, state, chrome)}</article>`;
+    host.classList.remove("teaching-kit-loading");
+  }
+
+  function syncOpsNav(root, state) {
+    const navSurface = ["activity", "binder"].includes(state.surface)
+      ? (state.returnSurface || "today")
+      : state.surface;
+    root.querySelectorAll(".tk-ops-tab[data-tk-goto]").forEach((tab) => {
+      const id = tab.getAttribute("data-tk-goto");
+      const active = id === navSurface;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
   }
 
   function bindWorkspace(root, ctx) {
@@ -649,7 +728,32 @@
     const chrome = ctx.chrome || {};
     const kit = ctx.kit;
 
+    function focusPanel(host) {
+      if (!host) return;
+      host.classList.remove("tk-panel-enter");
+      // Force reflow so the enter animation replays on each surface change.
+      void host.offsetWidth;
+      host.classList.add("tk-panel-enter");
+      const heading = host.querySelector(".tk-banner-title, .tk-section-title, h3, h4");
+      if (heading && typeof heading.focus === "function") {
+        heading.setAttribute("tabindex", "-1");
+        try { heading.focus({ preventScroll: true }); } catch { heading.focus(); }
+      }
+      const top = root.querySelector(".lesson-workspace-topchrome") || root;
+      if (typeof top.scrollIntoView === "function") {
+        top.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    }
+
     function rerender() {
+      const host = root.querySelector("[data-tk-host]");
+      if (host) {
+        // Panel-only swap keeps chrome/listeners intact for snappy navigation.
+        host.innerHTML = surfaceHtml(kit, state);
+        syncOpsNav(root, state);
+        focusPanel(host);
+        return;
+      }
       const article = root.closest("article") || root;
       const body = article.parentElement;
       if (!body) return;
@@ -668,6 +772,16 @@
           state.printParts = printApi.defaultPartsForPreset(state.printPreset);
         }
         rerender();
+        return;
+      }
+
+      const paper = event.target.closest("[data-tk-print-paper]");
+      if (paper) {
+        const id = paper.getAttribute("data-tk-print-paper") || paper.value;
+        const printApi = typeof globalThis !== "undefined" ? globalThis.LLHTeachingKitPrint : null;
+        state.paperSize = printApi?.normalizePaperSize
+          ? printApi.normalizePaperSize(id)
+          : (id === "a4" ? "a4" : "letter");
         return;
       }
 
@@ -700,6 +814,7 @@
             day: state.day,
             includeImages: state.includeImages !== false,
             inkSaver: Boolean(state.inkSaver),
+            paperSize: state.paperSize || "letter",
           });
         }
         return;
@@ -784,12 +899,14 @@
     }
 
     root.addEventListener("click", onClick);
+    const host = root.querySelector("[data-tk-host]");
+    if (host) focusPanel(host);
     return () => root.removeEventListener("click", onClick);
   }
 
   /**
    * Browser entry: replace lesson workspace body when Teaching Kit viewer flag is on.
-   * @returns {Promise<{ enhanced: boolean, reason: string }>}
+   * @returns {Promise<{ enhanced: boolean, reason: string, unbind?: Function }>}
    */
   async function enhanceLessonWorkspace(options) {
     const opts = options || {};
@@ -810,7 +927,7 @@
     renderInto(body, kitPayload, state, chrome);
     const root = body.querySelector("[data-teaching-kit-workspace]");
     if (!root) return { enhanced: false, reason: "render_failed" };
-    bindWorkspace(root, {
+    const unbind = bindWorkspace(root, {
       kit: kitPayload,
       state,
       chrome,
@@ -818,13 +935,17 @@
       onPrint: opts.onPrint,
     });
     body.dataset.teachingKitEnhanced = "1";
-    return { enhanced: true, reason: "ok", state };
+    body.classList.remove("teaching-kit-loading");
+    return { enhanced: true, reason: "ok", state, unbind, sparse: isSparseKit(kitPayload) };
   }
 
   return {
     SURFACES,
     WEEKDAYS,
     escapeHtml,
+    isSparseKit,
+    loadingWorkspaceHtml,
+    renderLoadingWorkspace,
     defaultState,
     workspaceHtml,
     surfaceHtml,
