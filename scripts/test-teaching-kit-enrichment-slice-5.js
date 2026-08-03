@@ -9,6 +9,7 @@ const http = require("http");
 const { spawn } = require("child_process");
 const sharp = require("sharp");
 const enrichmentMedia = require("../server/enrichment-media.js");
+const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
 
 const ROOT = path.join(__dirname, "..");
 const PORT = 5600 + Math.floor(Math.random() * 200);
@@ -461,7 +462,6 @@ async function main() {
     assert(features.aiSuggest === true, "AI suggestions available (Slice 6)");
     assert(features.photoUpload === true, "photos remain available");
 
-    const { dismissEnrichmentAiTray } = require("./test-helpers/tk-enrich-dismiss-ai-tray.js");
     await dismissEnrichmentAiTray(page);
     await page.locator("[data-enrich-publish]").click({ force: true });
     await page.waitForSelector("[data-publish-modal]", { timeout: 5000 });
