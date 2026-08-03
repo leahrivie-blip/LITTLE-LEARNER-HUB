@@ -1,0 +1,178 @@
+{
+  "lessonPlan": {
+    "id": "cur-lp-tk-enriched-mini",
+    "title": "Rainy Day Sensory",
+    "age": "Toddler",
+    "theme": "Rain",
+    "plan": "Pro",
+    "status": "published",
+    "learningDomains": ["Approaches to Learning"],
+    "weeklyOverview": "A short rainy-day exploration week for toddlers.",
+    "objectives": "Explore water play safely.\nPractice describing words.",
+    "books": [
+      { "title": "Rain", "author": "Sample Author", "notes": "Before: What do you wear in the rain?\nDuring: What sound does rain make?\nAfter: Can you show me dripping fingers?" }
+    ],
+    "songs": [
+      { "title": "Pitter Patter Raindrops", "notes": "Lyrics: Pitter patter raindrops, falling all around.\nMotions: tap fingers → wiggle arms → crouch small" }
+    ],
+    "weeklyMaterials": "Sensory bin\nWater\nCups\nTowels\nRain picture cards",
+    "vocabularyWords": "Rain — water that falls from clouds. Ask: What do we wear in the rain?\nPuddle — a small pool of water. Ask: Can we stomp gently?",
+    "observationOpportunities": "Watch for describing words and careful pouring.",
+    "adaptations": "Offer smaller cups for beginners.",
+    "familyConnection": "Today we explored rain and water play! Ask your child to show a pitter-patter finger rain and tell you one thing we wear outside when it rains.",
+    "dailyPlans": {
+      "monday": {
+        "theme": "Rain explorers",
+        "objectives": "Pour and scoop with care",
+        "learningDomains": [],
+        "materials": "Sensory bin\nCups\nTowels",
+        "vocabulary": "Rain\nPuddle",
+        "books": [{ "title": "Rain", "author": "Sample Author", "notes": "What sound does rain make?" }],
+        "songs": [{ "title": "Pitter Patter Raindrops", "notes": "tap fingers" }],
+        "circleTime": ["Welcome rain song"],
+        "transitions": ["Tip-toe like quiet rain to wash hands"],
+        "outdoorPlay": "",
+        "familyConnection": "Ask about rain gear at pickup.",
+        "observations": ["Uses two hands to pour?"],
+        "adaptations": "",
+        "safetyNotes": "Wipe spills immediately.",
+        "items": [
+          {
+            "itemId": "item-rain-bin",
+            "activityCategory": "Sensory Play",
+            "title": "Rain Sensory Bin",
+            "objective": "Explore pouring and scooping.",
+            "description": "Water play tray with cups.",
+            "materials": "Sensory bin\nWater\nCups\nTowels",
+            "setup": "Fill bin with shallow water. Place cups and towels nearby.",
+            "steps": "1. Invite children to the tray.\n2. Model slow pouring.\n3. Narrate splash and drip words.",
+            "teacherLanguage": "Look: What happens when you pour slowly?\nWonder: Where did the water go?\nCare: How can we keep towels ready?",
+            "observationOpportunities": "Pours with control?\nUses rain words?",
+            "extensions": "Add rain picture cards.",
+            "adaptations": "Use less water for hesitant children.",
+            "safetyNotes": "Keep water shallow. Wipe floor."
+          }
+        ]
+      },
+      "tuesday": {
+        "theme": "",
+        "objectives": "",
+        "learningDomains": [],
+        "materials": "Crayons\nPaper",
+        "vocabulary": "",
+        "books": [],
+        "songs": [],
+        "circleTime": [],
+        "transitions": [],
+        "outdoorPlay": "",
+        "familyConnection": "",
+        "observations": [],
+        "adaptations": "",
+        "safetyNotes": "",
+        "items": [
+          {
+            "itemId": "item-rain-art",
+            "activityCategory": "Art",
+            "title": "Raindrop Dot Painting",
+            "objective": "Make raindrop marks on paper.",
+            "description": "Dot paint rain.",
+            "materials": "Paper\nPaint\nCotton swabs",
+            "setup": "Set paper and paint dots on tray.",
+            "steps": "1. Show a raindrop shape.\n2. Invite dabbing.\n3. Count drops together.",
+            "teacherLanguage": "Look: Are your drops big or tiny?",
+            "observationOpportunities": "Tries dabbing marks?",
+            "extensions": "",
+            "adaptations": "",
+            "safetyNotes": "Use washable paint."
+          }
+        ]
+      },
+      "wednesday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] },
+      "thursday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] },
+      "friday": { "theme": "", "objectives": "", "learningDomains": [], "materials": "", "vocabulary": "", "books": [], "songs": [], "circleTime": [], "transitions": [], "outdoorPlay": "", "familyConnection": "", "observations": [], "adaptations": "", "safetyNotes": "", "items": [] }
+    },
+    "activityIds": ["cur-act-rain-bin", "cur-act-rain-art"],
+    "resourceIds": ["cur-res-rain-cards"],
+    "coverImageUrl": "https://example.com/rain-cover.jpg",
+    "coverImageAlt": "Rain theme cover",
+    "coverImageSource": "uploaded",
+    "coverImagePosition": "center",
+    "teachingKit": {
+      "schemaVersion": 1,
+      "completeness": "enriched",
+      "attachmentIds": ["cur-res-rain-cards"],
+      "exampleImageIds": ["media-rain-example"],
+      "updatedAt": "2026-08-03T00:00:00.000Z"
+    },
+    "createdAt": "2026-08-01T00:00:00.000Z",
+    "updatedAt": "2026-08-03T00:00:00.000Z",
+    "publishedAt": "2026-08-01T00:00:00.000Z"
+  },
+  "activities": [
+    {
+      "id": "cur-act-rain-bin",
+      "lessonPlanId": "cur-lp-tk-enriched-mini",
+      "itemId": "item-rain-bin",
+      "sourceKey": "cur-lp-tk-enriched-mini:item-rain-bin",
+      "dayOfWeek": "monday",
+      "activityCategory": "Sensory Play",
+      "title": "Rain Sensory Bin",
+      "objective": "Explore pouring and scooping.",
+      "description": "Water play tray with cups.",
+      "learningDomains": [],
+      "materials": "Sensory bin\nWater\nCups\nTowels",
+      "setup": "Fill bin with shallow water. Place cups and towels nearby.",
+      "steps": "1. Invite children to the tray.\n2. Model slow pouring.\n3. Narrate splash and drip words.",
+      "teacherRole": "Stay nearby and narrate.",
+      "teacherLanguage": "Look: What happens when you pour slowly?\nWonder: Where did the water go?\nCare: How can we keep towels ready?",
+      "learningGoals": ["Pouring control"],
+      "observationOpportunities": "Pours with control?\nUses rain words?",
+      "vocabulary": "Rain\nPuddle",
+      "extensions": "Add rain picture cards.",
+      "adaptations": "Use less water for hesitant children.",
+      "safetyNotes": "Keep water shallow. Wipe floor.",
+      "ageModifications": "",
+      "status": "published",
+      "exampleImageUrl": "https://example.com/rain-bin-example.jpg",
+      "setupImageUrl": "https://example.com/rain-bin-setup.jpg"
+    },
+    {
+      "id": "cur-act-rain-art",
+      "lessonPlanId": "cur-lp-tk-enriched-mini",
+      "itemId": "item-rain-art",
+      "sourceKey": "cur-lp-tk-enriched-mini:item-rain-art",
+      "dayOfWeek": "tuesday",
+      "activityCategory": "Art",
+      "title": "Raindrop Dot Painting",
+      "objective": "Make raindrop marks on paper.",
+      "description": "Dot paint rain.",
+      "learningDomains": [],
+      "materials": "Paper\nPaint\nCotton swabs",
+      "setup": "Set paper and paint dots on tray.",
+      "steps": "1. Show a raindrop shape.\n2. Invite dabbing.\n3. Count drops together.",
+      "teacherRole": "",
+      "teacherLanguage": "Look: Are your drops big or tiny?",
+      "learningGoals": [],
+      "observationOpportunities": "Tries dabbing marks?",
+      "vocabulary": "",
+      "extensions": "",
+      "adaptations": "",
+      "safetyNotes": "Use washable paint.",
+      "ageModifications": "",
+      "status": "published",
+      "exampleImageUrl": "",
+      "setupImageUrl": ""
+    }
+  ],
+  "resources": [
+    {
+      "id": "cur-res-rain-cards",
+      "title": "Rain picture cards",
+      "resourceCategory": "Printables",
+      "lessonPlanIds": ["cur-lp-tk-enriched-mini"],
+      "status": "published",
+      "fileName": "rain-cards.pdf",
+      "mimeType": "application/pdf"
+    }
+  ]
+}

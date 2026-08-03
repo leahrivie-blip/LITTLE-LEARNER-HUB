@@ -2,20 +2,21 @@
  * Little Learner Hub — Teaching Kit canonical config + safe schema helpers.
  *
  * Slice 1A: flags default false, optional teachingKit passthrough, section IDs.
+ * Slice 1B: mapLessonPlanToTeachingKit (pure read-model; no UI/API/PDF yet).
  * No viewer, PDF, attachments UI, or migration lives here.
  *
  * Shared by server (require) and browser (LLHTeachingKit global) so section
  * maps cannot silently drift. If a second copy is ever required, add parity tests.
  */
 (function (root, factory) {
-  const api = factory();
+  const api = factory(root);
   if (typeof module === "object" && module.exports) {
     module.exports = api;
   }
   if (root) {
     root.LLHTeachingKit = api;
   }
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (root) {
   "use strict";
 
   const FEATURE_FLAG_KEYS = Object.freeze([
@@ -72,16 +73,20 @@
     "Invitation to Play": "invitations",
     "Open-Ended Exploration": "invitations",
     Sensory: "sensory",
+    "Sensory Play": "sensory",
     "Fine Motor": "fine_motor",
     "Gross Motor": "gross_motor",
     Art: "process_art",
     "Process Art": "process_art",
     STEM: "stem",
+    "STEM/Discovery": "stem",
     Science: "stem",
+    Literacy: "daily_activities",
     "Early Literacy": "daily_activities",
     "Early Math": "daily_activities",
     "Dramatic Play": "dramatic_play",
     "Music and Movement": "circle_time",
+    "Music & Movement": "circle_time",
     "Outdoor Play": "outdoor",
     "Small Group": "small_group",
     "Social-Emotional": "daily_activities",
@@ -203,6 +208,41 @@
     return ACTIVITY_CATEGORY_TO_SECTION[key] || "daily_activities";
   }
 
+  function loadMapper() {
+    if (root && root.LLHTeachingKitMapper && typeof root.LLHTeachingKitMapper.mapLessonPlanToTeachingKit === "function") {
+      return root.LLHTeachingKitMapper;
+    }
+    if (typeof module === "object" && typeof require === "function") {
+      try {
+        return require("./teaching-kit-mapper.js");
+      } catch (_error) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Slice 1B read-model. Pure mapping — does not rewrite lesson storage.
+   * UI / API / PDF assembly ship in later flagged slices.
+   */
+  function mapLessonPlanToTeachingKit(plan, activities, resources, options) {
+    const mapper = loadMapper();
+    if (!mapper || typeof mapper.mapLessonPlanToTeachingKit !== "function") {
+      return {
+        schemaVersion: 1,
+        ok: false,
+        reason: "mapper_unavailable",
+        sections: [],
+        companion: null,
+      };
+    }
+    return mapper.mapLessonPlanToTeachingKit(plan, activities, resources, options, {
+      SECTIONS,
+      mapActivityCategoryToSection,
+    });
+  }
+
   return {
     FEATURE_FLAG_KEYS,
     COMPLETENESS_VALUES,
@@ -216,5 +256,6 @@
     resolveTeachingKitRenderMode,
     sectionIds,
     mapActivityCategoryToSection,
+    mapLessonPlanToTeachingKit,
   };
 });

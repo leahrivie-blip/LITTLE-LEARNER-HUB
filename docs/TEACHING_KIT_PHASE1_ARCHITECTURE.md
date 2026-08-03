@@ -1,10 +1,10 @@
 # Complete Teaching Kits — Phase 1 Architecture (No Migration)
 
-**Status:** Architecture approved · **Slice 1A authorized** (flags + schema passthrough only)  
+**Status:** Architecture approved · **Slice 1A done** · **Slice 1B done (mapper)** · UI/API still flagged off  
 **Branch:** `cursor/teaching-kit-architecture-9ad1`  
 **Date:** 2026-08-03  
 **Base:** `origin/main` @ `f36c0c272367c6000fd310dac62b9a0938903ca4`  
-**Related:** Phase 0 read-only audit (chat); existing curriculum in `siteContent.curriculum`
+**Related:** Phase 0 read-only audit (chat); existing curriculum in `siteContent.curriculum`; product design v4 approved
 
 ---
 
@@ -411,8 +411,8 @@ Ordered, stop-for-review slices:
 
 | Slice | Work | Exit criteria |
 | --- | --- | --- |
-| **1A** ✅ authorized | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; public `/api/site-content` omits `featureFlags`; no bulk rewrite; legacy tests green; no viewer/PDF |
-| **1B** | `mapLessonPlanToTeachingKit` + unit tests on fixtures | Maps local sample plans; empty sections correct |
+| **1A** ✅ done | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; public `/api/site-content` omits `featureFlags`; no bulk rewrite; legacy tests green; no viewer/PDF |
+| **1B** ✅ done (review) | `mapLessonPlanToTeachingKit` + companion read-model + fixture tests | Maps Bugs & Butterflies + enriched/empty fixtures; empty sections omitted; flags still false; **no UI/API/PDF** |
 | **1C** | `GET …/teaching-kit` behind flag | Auth parity with detail endpoint |
 | **1D** | Binder UI (read-only) behind `teachingKitViewer` | Desktop/mobile; back/favorite/assign intact |
 | **1E** | Build My Kit UI + client PDF/print path | Selected sections only; legacy print still works |
@@ -471,12 +471,17 @@ Add (when coding):
 | Interactive UI mockups (desktop/mobile/Build My Kit) | `docs/teaching-kit/mockups/interactive.html` |
 | Screenshots | `docs/teaching-kit/mockups/screenshots/*.png` |
 | Canonical Teaching Kit module (Slice 1A) | `scripts/teaching-kit.js` |
+| Mapper (Slice 1B) | `scripts/teaching-kit-mapper.js` → `mapLessonPlanToTeachingKit` |
+| Fixtures | `scripts/fixtures/teaching-kit/*.json` |
 | Slice 1A tests | `scripts/test-teaching-kit-slice-1a.js` (`npm run test:teaching-kit-slice-1a`) |
+| Slice 1B tests | `scripts/test-teaching-kit-slice-1b.js` (`npm run test:teaching-kit-slice-1b`) |
 | Flag + schema wiring | `server/index.js` (internal normalization + plan passthrough), `app.js` defaults |
 
-**Public `/api/site-content`:** continues to **omit** `featureFlags` in Slice 1A (flags normalized in admin/store only). Expose publicly only when a later viewer slice needs them.
+**Public `/api/site-content`:** continues to **omit** `featureFlags` (flags normalized in admin/store only). Expose publicly only when a later viewer slice needs them.
 
-**Slice 1A does not include:** viewer UI, Print Center/PDF, attachments UX, migrations, production flag enablement, deployment.
+**Slice 1B includes:** pure Teaching Kit view model (sections + companion surfaces matching approved mockups: Monday Setup, Today, Open Everything, activity depth, substitutes, printables used-in-week, binder/build metadata).
+
+**Slice 1B does not include:** binder UI, Print Center/PDF, API route, attachments UX, migrations, production flag enablement, deployment.
 
 ---
 

@@ -189,22 +189,26 @@ Visual mockup shows cover + tab strip + sample interior page.
 
 ---
 
-## 11. Non-goals (until go)
+## 11. Implementation note (Slice 1B)
 
-- No Slice 1B / merge / deploy / flag enablement until you say begin  
-- No live inventory sync (missing items = checklist state)  
+Design approved. Slice 1B ships the pure `mapLessonPlanToTeachingKit` read-model that encodes these surfaces.  
+**Still deferred to later flagged slices:** binder UI, Open Everything tray UI, API route, PDF/print, flag enablement, merge/deploy.
+
+Non-goals that remain:
+
+- No live inventory sync (missing items = checklist state / readyMaterials option)  
 - No illegal copyrighted lyric paste  
 
 ---
 
 ## 12. Owner approval checklist (v4)
 
-- [ ] Prep-time estimate + missing-items highlight feel right on Monday Setup  
-- [ ] Today board is leave-open-all-day (Open Everything is the right power move)  
-- [ ] Activity cards have example **and** setup photos + full teach fields  
-- [ ] Substitute This Activity is clear and materials-aware  
-- [ ] Printables show where used in the week  
-- [ ] Binder preview feels like a professional curriculum binder (tabs/cover/brand)  
-- [ ] **Approve → begin implementation** (Slice 1B planning / build)
+- [x] Prep-time estimate + missing-items highlight feel right on Monday Setup  
+- [x] Today board is leave-open-all-day (Open Everything is the right power move)  
+- [x] Activity cards have example **and** setup photos + full teach fields  
+- [x] Substitute This Activity is clear and materials-aware  
+- [x] Printables show where used in the week  
+- [x] Binder preview feels like a professional curriculum binder (tabs/cover/brand)  
+- [x] **Approve → begin implementation** (Slice 1B mapper done — stop for review before 1C)
 
-**Awaiting your go to begin implementation.**
+**Stop after Slice 1B for review before continuing.**

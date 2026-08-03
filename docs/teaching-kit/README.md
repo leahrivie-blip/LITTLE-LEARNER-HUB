@@ -2,48 +2,41 @@
 
 **Status**
 
-- Slice 1A implementation **approved** — **not merged / not deployed**
-- Teaching Kit flags remain **disabled**
-- **UX redesign v4 (final polish) in review** — subscribe-for classroom companion
-- Slice 1B **awaits your explicit go** to begin implementation
+- Slice 1A **done** — flags + schema passthrough (not merged / not deployed)
+- Slice 1B **done — awaiting review** — `mapLessonPlanToTeachingKit` read-model + fixtures
+- Teaching Kit flags remain **disabled** (`false`)
+- Product design **v4 approved** as the build target
+- Slice 1C+ (API / UI / print) **not started**
 
-## Start here (product validation)
+## Start here
 
 | Deliverable | Path |
 | --- | --- |
-| **Product specification (v4)** | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
-| **Clickable companion mockup** | [mockups/gold-standard.html](./mockups/gold-standard.html) |
-| Technical architecture (Slice 1A) | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
+| Product specification (v4) | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
+| Clickable companion mockup | [mockups/gold-standard.html](./mockups/gold-standard.html) |
+| Technical architecture | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
+| Canonical module | `scripts/teaching-kit.js` |
+| Mapper (Slice 1B) | `scripts/teaching-kit-mapper.js` |
+| Slice 1B tests | `npm run test:teaching-kit-slice-1b` |
 
-### Example week
+### Slice 1B exit criteria
 
-**Bugs & Butterflies** · Toddler · Pro  
+- Maps legacy lesson plans → Teaching Kit view model (sections + companion surfaces)
+- Empty sections omitted for providers
+- Fixtures: Bugs & Butterflies, enriched mini, empty plan
+- Flags stay **false**; no UI, API route, or PDF yet
 
-### Companion surfaces (v4)
+### Companion surfaces encoded in the mapper
 
-1. **Start the Week**  
-2. **Monday Morning Setup** — prep-time estimate · missing-items highlight  
-3. **Today’s Classroom** — leave open all day  
-4. **Open Everything I Need Today** — day’s packet in one tray  
-5. **Activity depth** — example + setup photos · Substitute This Activity  
-6. **Printables** — show where used in the week  
-7. **Build My Kit** — add/remove activities  
-8. **Printable binder** — cover · tabs · consistent branding  
-
-### Screenshots
-
-| Screen | File |
-| --- | --- |
-| Start the Week | [mockups/screenshots/gold-desktop-overview.png](./mockups/screenshots/gold-desktop-overview.png) |
-| Monday Morning Setup | [mockups/screenshots/gold-monday-setup.png](./mockups/screenshots/gold-monday-setup.png) |
-| Today’s Classroom | [mockups/screenshots/gold-desktop-weekly.png](./mockups/screenshots/gold-desktop-weekly.png) |
-| Open Everything | [mockups/screenshots/gold-open-everything.png](./mockups/screenshots/gold-open-everything.png) |
-| Activity + Substitute | [mockups/screenshots/gold-activity-detail.png](./mockups/screenshots/gold-activity-detail.png) |
-| Printable used-in-week | [mockups/screenshots/gold-printable-used.png](./mockups/screenshots/gold-printable-used.png) |
-| Build My Kit | [mockups/screenshots/gold-build-my-kit.png](./mockups/screenshots/gold-build-my-kit.png) |
-| Binder preview | [mockups/screenshots/gold-print-preview.png](./mockups/screenshots/gold-print-preview.png) |
-| Mobile Today | [mockups/screenshots/gold-mobile.png](./mockups/screenshots/gold-mobile.png) |
+1. Monday Morning Setup (prep time + missing materials)
+2. Today’s Classroom (per weekday)
+3. Open Everything I Need Today
+4. Activity cards (example/setup photo fields, prompts, cleanup, observations)
+5. Substitute This Activity (materials-aware)
+6. Printables with Used in week
+7. Build My Kit activity picker metadata
+8. Binder cover + tab metadata
 
 ## Hold
 
-No Slice 1B, merge, deploy, or flag enablement until you approve and say begin implementation.
+No Slice 1C+, merge, deploy, or flag enablement until Slice 1B review is approved.
