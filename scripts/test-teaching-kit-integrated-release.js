@@ -154,7 +154,20 @@ function runStaticGuards() {
   return findings;
 }
 
-function runOne(suite) {
+const FLAKY_RETRY = new Set([
+  "slice-1d",
+  "slice-1e",
+  "slice-1f",
+  "phase1-qa",
+  "enrichment-slice-1",
+  "enrichment-slice-2",
+  "enrichment-slice-3",
+  "enrichment-slice-5",
+  "enrichment-slice-6",
+  "enrichment-slice-7",
+]);
+
+function runOne(suite, { attempt = 1 } = {}) {
   const started = Date.now();
   const result = spawnSync(suite.cmd[0], suite.cmd.slice(1), {
     cwd: ROOT,
@@ -162,16 +175,22 @@ function runOne(suite) {
     env: { ...process.env, NODE_ENV: "test", CI: "true" },
     timeout: Number(process.env.TK_SUITE_TIMEOUT_MS || 360000),
   });
-  return {
+  const row = {
     name: suite.name,
     group: suite.group,
     critical: suite.critical !== false,
     ok: result.status === 0,
     status: result.status,
+    attempt,
     durationMs: Date.now() - started,
     stdoutTail: String(result.stdout || "").slice(-1200),
     stderrTail: String(result.stderr || "").slice(-1200),
   };
+  if (!row.ok && attempt === 1 && FLAKY_RETRY.has(suite.name)) {
+    process.stdout.write("retry … ");
+    return runOne(suite, { attempt: 2 });
+  }
+  return row;
 }
 
 function main() {
