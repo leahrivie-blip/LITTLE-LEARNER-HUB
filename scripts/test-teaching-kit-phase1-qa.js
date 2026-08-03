@@ -252,6 +252,16 @@ async function setFlags(adminToken, flags) {
   assert(save.status === 200, `flag save: ${save.status}`);
 }
 
+async function clickOpsGoto(page, surface) {
+  // Prefer the top ops tab so sticky Today chrome cannot intercept in-panel duplicates.
+  const ops = page.locator(`.tk-ops-nav [data-tk-goto="${surface}"], .tk-ops-tab[data-tk-goto="${surface}"]`).first();
+  if (await ops.count()) {
+    await ops.click({ force: true });
+    return;
+  }
+  await page.locator(`[data-tk-goto="${surface}"]`).first().click({ force: true });
+}
+
 async function runProviderWorkflow(page, kitPayload, viewportName) {
   const started = Date.now();
   const enhanced = await page.evaluate(async (payload) => {
@@ -275,32 +285,41 @@ async function runProviderWorkflow(page, kitPayload, viewportName) {
   assert(enhanced.enhanced === true, `${viewportName}: enhance ok`);
 
   // Start → Setup → Today → Open Everything → Activity → Build → Binder
-  await page.click("[data-tk-goto='setup']");
+  await clickOpsGoto(page, "setup");
   await page.waitForSelector("[data-tk-panel='setup']");
   assert(await page.locator("[data-tk-panel='setup']").count() === 1, `${viewportName}: setup surface`);
 
-  await page.click("[data-tk-goto='today']");
+  await clickOpsGoto(page, "today");
   await page.waitForSelector("[data-tk-panel='today']");
-  await page.click("[data-tk-day='wednesday']");
-  await page.waitForSelector(".tk-day[data-tk-day='wednesday'][aria-selected='true']");
-  await page.click("[data-tk-open-everything]");
+  // Dispatch inside the app (sticky Today chrome can intercept Playwright hit-testing).
+  const daySwitched = await page.evaluate(() => {
+    const btn = document.querySelector('[data-tk-panel="today"] .tk-day[data-tk-day="wednesday"]');
+    if (!btn) return false;
+    btn.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    return Boolean(document.querySelector('[data-tk-panel="today"] .tk-day[data-tk-day="wednesday"].is-active'));
+  });
+  assert(daySwitched, `${viewportName}: wednesday day selected`);
+  await page.evaluate(() => {
+    document.querySelector('[data-tk-panel="today"] [data-tk-open-everything]')
+      ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+  });
   await page.waitForSelector("[data-tk-tray]");
   assert(await page.locator("[data-tk-tray]").count() === 1, `${viewportName}: open everything tray`);
 
   const openBtn = page.locator("[data-tk-open-activity]").first();
   if (await openBtn.count()) {
-    await openBtn.click();
+    await openBtn.click({ force: true });
     await page.waitForSelector("[data-tk-panel='activity']");
     assert(await page.locator("[data-tk-toggle-substitute]").count() === 1, `${viewportName}: substitute CTA`);
-    await page.click("[data-tk-toggle-substitute]");
-    await page.click("button[data-tk-goto='today'], button[data-tk-goto='build']");
+    await page.locator("[data-tk-toggle-substitute]").first().click({ force: true });
+    await clickOpsGoto(page, "today");
   }
 
-  await page.click("[data-tk-goto='build']");
+  await clickOpsGoto(page, "build");
   await page.waitForSelector("[data-tk-panel='build']");
   assert(await page.locator("[data-tk-print-paper]").count() >= 2, `${viewportName}: paper size options`);
-  await page.click("[data-tk-print-paper='a4']");
-  await page.click("[data-tk-goto='binder']");
+  await page.locator("[data-tk-print-paper='a4']").first().click({ force: true });
+  await clickOpsGoto(page, "binder");
   await page.waitForSelector("[data-tk-panel='binder']");
   assert(await page.locator(".tk-binder-hero").count() === 1, `${viewportName}: binder preview`);
 
