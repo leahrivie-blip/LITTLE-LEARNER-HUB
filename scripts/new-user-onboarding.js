@@ -377,9 +377,9 @@
       return "";
     }
     return `
-      <section class="free-starter-explore free-welcome-card" data-free-starter-explore role="region" aria-label="Welcome to Little Learner Hub">
+      <section class="free-starter-explore" data-free-starter-explore role="region" aria-label="Welcome to Little Learner Hub">
         <div class="free-starter-explore-copy">
-          <p class="free-welcome-card-badge">Welcome!</p>
+          <p class="free-starter-explore-badge">Welcome!</p>
           <h3>Let's get you started</h3>
           <p>Explore the product first — no pressure to upgrade.</p>
         </div>

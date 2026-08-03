@@ -165,8 +165,7 @@ async function main() {
 
   assert.match(appJs, /function refreshFreePlanUpgradeChrome/);
   assert.match(appJs, /function maybeShowFreePlanSoftNudge/);
-  assert.match(appJs, /Ready for the full lesson plan library\?|Lock In Founding Member Pricing/);
-  assert.match(appJs, /This is included in Pro|freeWelcomeCardHtml/);
+  assert.match(appJs, /Upgrade to Pro|This is included in Pro/);
   assert.match(appJs, /freeWelcomeCardHtml/);
   assert.match(appJs, /freeCalendarPlanningDays\s*=\s*30/);
   assert.match(appJs, /freeFavoriteLimit\s*=\s*20/);
