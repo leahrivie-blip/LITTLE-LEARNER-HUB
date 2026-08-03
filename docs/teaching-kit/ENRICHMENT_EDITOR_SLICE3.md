@@ -15,7 +15,7 @@
 | **Draft-driven** | Preview merges the current admin draft in memory — no publish required |
 | **Draft Preview label** | Explicit banner + chip so admins never confuse preview with published |
 | **Viewports** | Desktop / Tablet / Mobile preview frames + Mon–Fri day chips |
-| **Activity surface** | Draft Preview auto-opens the first activity with tips/substitutions so enrichment is visible immediately |
+| **Activity surface** | Draft Preview opens via viewer `initialActivityId` on the first activity with tips/substitutions |
 | **Provider safety** | Provider Teaching Kit API strips `enrichmentDraft` before mapping |
 | **Fail-safe** | Empty/malformed draft kits never break the editor shell or legacy lesson |
 | **Draft save** | Still single-lesson `enrichment_draft` only |
