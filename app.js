@@ -6130,6 +6130,16 @@ function emptySiteContent() {
     founding: {},
     signupConversion: {},
     freePlanAccess: {},
+    onboardingRecommendations: {
+      source: "manual",
+      featuredLessonTitles: ["Farm Animals", "All About Me", "Colors Everywhere"],
+      featuredLessonIds: [
+        "cur-lp-preschool-farm-animals",
+        "cur-lp-preschool-all-about-me",
+        "cur-lp-toddler-colors-everywhere",
+      ],
+      aiContext: null,
+    },
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
@@ -11623,6 +11633,20 @@ function effectiveSiteContent() {
       ...(overrides.pricing || {}),
       freePlanFeatures: Array.isArray(overrides.pricing?.freePlanFeatures) && overrides.pricing.freePlanFeatures.length ? overrides.pricing.freePlanFeatures : (base.pricing?.freePlanFeatures || []),
       proPlanFeatures: Array.isArray(overrides.pricing?.proPlanFeatures) && overrides.pricing.proPlanFeatures.length ? overrides.pricing.proPlanFeatures : (base.pricing?.proPlanFeatures || []),
+    },
+    onboardingRecommendations: {
+      ...(base.onboardingRecommendations || {}),
+      ...(overrides.onboardingRecommendations || {}),
+      featuredLessonTitles: Array.isArray(overrides.onboardingRecommendations?.featuredLessonTitles)
+        && overrides.onboardingRecommendations.featuredLessonTitles.length
+        ? overrides.onboardingRecommendations.featuredLessonTitles
+        : (base.onboardingRecommendations?.featuredLessonTitles || ["Farm Animals", "All About Me", "Colors Everywhere"]),
+      featuredLessonIds: Array.isArray(overrides.onboardingRecommendations?.featuredLessonIds)
+        && overrides.onboardingRecommendations.featuredLessonIds.length
+        ? overrides.onboardingRecommendations.featuredLessonIds
+        : (base.onboardingRecommendations?.featuredLessonIds || []),
+      source: overrides.onboardingRecommendations?.source || base.onboardingRecommendations?.source || "manual",
+      aiContext: overrides.onboardingRecommendations?.aiContext ?? base.onboardingRecommendations?.aiContext ?? null,
     },
     faqs: Array.isArray(overrides.faqs) && overrides.faqs.length ? overrides.faqs : (base.faqs || []),
     announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
@@ -17313,50 +17337,71 @@ function collectLessonViewAllItems(items, key) {
   return items;
 }
 
+function resolveFeaturedThisWeekLessons(items) {
+  const list = Array.isArray(items) ? items : [];
+  const rec = typeof getOnboardingContentRecommendations === "function"
+    ? getOnboardingContentRecommendations({ reason: "featured_this_week" })
+    : (typeof NewUserOnboarding?.getContentRecommendations === "function"
+      ? NewUserOnboarding.getContentRecommendations({ reason: "featured_this_week" })
+      : null);
+  const ids = (rec?.ids || []).map(String);
+  const titles = (rec?.titles || ["Farm Animals", "All About Me", "Colors Everywhere"]).map(String);
+  const picked = [];
+  const used = new Set();
+  ids.forEach((id) => {
+    const match = list.find((item) => String(item.id) === id);
+    if (match && !used.has(match.id)) {
+      picked.push(match);
+      used.add(match.id);
+    }
+  });
+  titles.forEach((title) => {
+    if (picked.length >= 3) return;
+    const needle = title.trim().toLowerCase();
+    const match = list.find((item) => String(item.title || "").trim().toLowerCase() === needle)
+      || list.find((item) => String(item.title || "").toLowerCase().includes(needle));
+    if (match && !used.has(match.id)) {
+      picked.push(match);
+      used.add(match.id);
+    }
+  });
+  // Fallback: keep prior single-featured behavior if configured titles are missing in the library.
+  if (!picked.length) {
+    const featured = list.find((item) => item.featured) || list[0];
+    if (featured) picked.push(featured);
+  }
+  return { lessons: picked.slice(0, 3), source: rec?.source || "manual" };
+}
+
 function featuredLessonBannerHtml(items) {
-  const featured = items.find((item) => item.featured) || items[0];
-  if (!featured) return "";
-  const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 120);
-  const coverClass = libraryCoverToneClass(`${featured.title}-featured`);
-  const resolvedCover = resolveLessonPlanCoverForResource(featured);
-  const coverUrl = sanitizedImageSource(resolvedCover.url || "")
-    || lessonPlanCoversApi()?.DEFAULT_COVER
-    || "/images/lesson-covers/default.svg";
-  const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${featured.title}`;
-  const coverPosition = String(resolvedCover.position || "center").trim() || "center";
-  const coverFallbacks = lessonPlanCoverFallbackUrls(featured);
-  const planBadge = libraryPlanBadge(featured);
-  const ageLabel = String(featured.age || "").trim();
-  const locked = !canAccess(featured);
-  return `
-    <section class="library-featured-banner has-cover-image netflix-featured-banner" aria-label="Featured lesson plan">
-      <div class="library-featured-banner-media ${coverClass}">
-        <img
-          class="library-featured-banner-image"
-          src="${escapeHtml(coverUrl)}"
-          alt="${escapeHtml(coverAlt)}"
-          width="960"
-          height="540"
-          loading="eager"
-          decoding="async"
-          data-cover-fallbacks="${escapeHtml(JSON.stringify(coverFallbacks))}"
-          style="object-position:${escapeHtml(coverPosition)}"
-          onerror="handleLessonCoverImageError(this)"
-        />
-        <div class="library-featured-banner-scrim" aria-hidden="true"></div>
-        <span class="browse-card-badge library-featured-banner-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
-        <div class="library-featured-banner-overlay">
-          <p class="library-featured-banner-eyebrow">Featured This Week</p>
+  const { lessons, source } = resolveFeaturedThisWeekLessons(items);
+  if (!lessons.length) return "";
+  // Extension point: source may become "ai" / "analytics" later without redesigning this UI.
+  const cards = lessons.map((featured) => {
+    const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 100);
+    const planBadge = libraryPlanBadge(featured);
+    const ageLabel = String(featured.age || "").trim();
+    return `
+      <article class="featured-week-card" data-featured-source="${escapeHtml(source)}">
+        <p class="featured-week-card-meta">
+          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
           ${ageLabel ? `<span class="browse-card-age">${escapeHtml(ageLabel)}</span>` : ""}
-          <h3 class="browse-card-title-overlay">${escapeHtml(featured.title)}</h3>
-        </div>
+        </p>
+        <h4>${escapeHtml(featured.title)}</h4>
+        <p>${escapeHtml(blurb)}</p>
+        <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
+      </article>
+    `;
+  }).join("");
+  return `
+    <section class="featured-this-week" aria-label="Featured This Week" data-recommendation-source="${escapeHtml(source)}">
+      <div class="featured-this-week-head">
+        <p class="eyebrow">Featured This Week</p>
+        <h3>Great places to start</h3>
+        <p class="muted-copy">Hand-picked lesson plans providers love — configurable from Admin later.</p>
       </div>
-      <div class="library-featured-banner-copy">
-        <p class="library-featured-banner-blurb">${escapeHtml(blurb)}</p>
-        <div class="library-featured-banner-actions">
-          <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
-          ${!locked ? `<button type="button" class="ghost-button" data-lesson-card-use-plan="${escapeHtml(featured.id)}">Add to Calendar</button>` : ""}
-        </div>
+      <div class="featured-this-week-grid">
+        ${cards}
       </div>
     </section>
   `;
@@ -25337,10 +25382,12 @@ function renderCategoryPage(view) {
       `;
     } else if (useBrowseRows) {
       const rows = buildLessonBrowseRows(items);
+      // Defer in-library upgrade strips for brand-new Free explorers until a value moment.
+      const deferUpgrade = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
       browseBody = `
         <div class="resource-grid lesson-library-grid library-browse-shell">
           ${freeStarterLibraryBannerHtml()}
-          ${lessonUpgradeBanner}
+          ${deferUpgrade ? "" : lessonUpgradeBanner}
           ${activeFilter === "All" ? featuredLessonBannerHtml(items) : ""}
           ${rows.length
             ? rows.map((row) => browseRowHtml({ ...row, cardHtml: row.cardHtml || lessonPlanCard })).join("")
@@ -25348,9 +25395,13 @@ function renderCategoryPage(view) {
         </div>
       `;
     }
+    const onboardingSurface = (!isSavedLessonMode && !isCollectionMode && typeof renderLessonLibraryOnboardingHtml === "function")
+      ? renderLessonLibraryOnboardingHtml()
+      : "";
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
       ${calendarLessonAssignBannerHtml()}
+      ${onboardingSurface}
       ${!isSavedLessonMode && !isCollectionMode ? lessonPlanRequestPanelHtml() : ""}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
@@ -48509,6 +48560,66 @@ function renderAdminFreePlanAccessSection() {
   `;
 }
 
+function adminFeaturedThisWeekEditorHtml() {
+  const cfg = effectiveSiteContent()?.onboardingRecommendations || {};
+  const titles = Array.isArray(cfg.featuredLessonTitles) ? cfg.featuredLessonTitles : ["Farm Animals", "All About Me", "Colors Everywhere"];
+  const ids = Array.isArray(cfg.featuredLessonIds) ? cfg.featuredLessonIds : [];
+  return `
+    <section class="panel-form" style="margin-top:28px;" aria-label="Featured This Week">
+      <div class="section-heading">
+        <div><p class="eyebrow">Onboarding</p><h3>Featured This Week</h3></div>
+      </div>
+      <p class="muted-copy">Shown at the top of Lesson Plans for new users. Titles are matched first; optional IDs win when present. Source stays <code>manual</code> until AI/analytics providers are wired.</p>
+      <form id="adminFeaturedThisWeekForm">
+        <label>Featured titles (one per line)
+          <textarea name="featuredTitles" rows="4">${escapeHtml(titles.join("\n"))}</textarea>
+        </label>
+        <label>Optional lesson plan IDs (one per line)
+          <textarea name="featuredIds" rows="4">${escapeHtml(ids.join("\n"))}</textarea>
+        </label>
+        <label>Recommendation source
+          <select name="source">
+            <option value="manual" ${cfg.source !== "analytics" && cfg.source !== "ai" ? "selected" : ""}>manual</option>
+            <option value="analytics" ${cfg.source === "analytics" ? "selected" : ""} disabled>analytics (coming soon)</option>
+            <option value="ai" ${cfg.source === "ai" ? "selected" : ""} disabled>ai (coming soon)</option>
+          </select>
+        </label>
+        <div class="se-action-buttons">
+          <button class="primary-button" type="submit">Save Featured This Week</button>
+        </div>
+        <span class="form-message" id="adminFeaturedThisWeekMessage"></span>
+      </form>
+    </section>
+  `;
+}
+
+function bindAdminFeaturedThisWeekEditor(root) {
+  const form = root?.querySelector("#adminFeaturedThisWeekForm");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const msg = root.querySelector("#adminFeaturedThisWeekMessage");
+    const data = new FormData(form);
+    const titles = String(data.get("featuredTitles") || "").split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    const ids = String(data.get("featuredIds") || "").split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    if (msg) msg.textContent = "Saving…";
+    try {
+      const next = cloneJson(effectiveSiteContent(), emptySiteContent());
+      next.onboardingRecommendations = {
+        ...(next.onboardingRecommendations || {}),
+        source: "manual",
+        featuredLessonTitles: titles.length ? titles : ["Farm Animals", "All About Me", "Colors Everywhere"],
+        featuredLessonIds: ids,
+        aiContext: next.onboardingRecommendations?.aiContext || null,
+      };
+      await saveAdminSiteContent(next);
+      if (msg) msg.textContent = "Featured This Week saved.";
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Could not save.";
+    }
+  });
+}
+
 async function renderAdminFreeStarterLibrarySection() {
   const target = document.querySelector("#adminFreeStarterLibraryApp");
   if (!target || !isAdminUnlocked()) return;
@@ -48550,8 +48661,10 @@ async function renderAdminFreeStarterLibrarySection() {
         </div>
         <span class="form-message" id="adminFreeStarterLibraryMessage"></span>
       </form>
+      ${adminFeaturedThisWeekEditorHtml()}
     `;
     const form = target.querySelector("#adminFreeStarterLibraryForm");
+    bindAdminFeaturedThisWeekEditor(target);
     form?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const mode = event.submitter?.value || "preview";
@@ -53303,15 +53416,16 @@ function dismissFreeWelcomeCard() {
 }
 
 /**
- * Dashboard / calendar surface: experience-first starter cards (not immediate paywall).
- * Persistent upgrade nudges live in the top reminder bar — do not stack library banners here.
+ * Dashboard / calendar surface: no immediate paywall.
+ * New-user starter cards + trial welcome live on Lesson Plans (strongest first wow).
  */
 function freeSurfaceUpgradeHtml(variant = "default") {
   void variant;
-  const trialChecklist = typeof renderTrialDashboardChecklistHtml === "function"
-    ? renderTrialDashboardChecklistHtml()
-    : "";
-  return trialChecklist || freeWelcomeCardHtml() || freeDashboardUpgradeCardHtml();
+  // Keep calendar/dashboard quiet for brand-new Free explorers.
+  if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) {
+    return "";
+  }
+  return freeDashboardUpgradeCardHtml();
 }
 
 function contentGrowthStats() {

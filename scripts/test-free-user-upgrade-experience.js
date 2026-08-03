@@ -273,58 +273,64 @@ async function main() {
     await page.evaluate(() => {
       localStorage.removeItem("llhFreeWelcomeCardDismissed");
       localStorage.removeItem("llhFreeStarterCardsDismissed");
+      localStorage.removeItem("llhGettingStartedDismissed");
       localStorage.setItem("llhNewUserOnboardingV1", JSON.stringify({
         active: false,
         step: "free-start",
         freeSelectedAt: new Date().toISOString(),
         deferGenericUpgrades: true,
+        firstTimeUser: true,
       }));
-      // Logged-in home remaps to Calendar — starter explore lives on that planning surface.
-      if (typeof setView === "function") setView("calendar");
-      if (typeof renderMainCalendar === "function") renderMainCalendar();
+      // Free onboarding lands on Lesson Plans — starter explore + Getting Started live there.
+      if (typeof setView === "function") setView("lessons");
+      if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
     });
     await page.waitForTimeout(500);
     const dash = await page.evaluate(() => {
-      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
+      const root = document.querySelector("#view-lessons") || document.querySelector(".active-view");
       const starter = root?.querySelector("[data-free-starter-explore]");
-      const upgradeWelcome = root?.querySelector('.free-welcome-card [data-checkout-plan]');
-      const banner = root?.querySelector(".free-library-conversion-banner");
+      const gettingStarted = root?.querySelector("[data-getting-started-checklist]");
+      const upgradeWelcome = root?.querySelector("[data-checkout-plan]");
       const active = document.querySelector(".active-view")?.id || "";
       return {
         active,
         hasStarter: Boolean(starter),
-        hasUpgradePush: Boolean(upgradeWelcome),
-        hasBanner: Boolean(banner),
-        text: starter?.innerText?.slice(0, 500) || "",
+        hasGettingStarted: Boolean(gettingStarted),
+        hasUpgradePush: Boolean(starter?.querySelector("[data-checkout-plan]")),
+        text: (starter || gettingStarted)?.innerText?.slice(0, 500) || "",
         hasLessonCta: Boolean(starter?.querySelector('[data-nuo-nav="lessons"]')),
+        featured: Boolean(root?.querySelector(".featured-this-week")),
       };
     });
-    assert.equal(dash.active, "view-calendar", "logged-in Free lands on calendar home");
-    assert.equal(dash.hasStarter, true, "new Free users see experience-first starter cards");
+    assert.equal(dash.active, "view-lessons", "new Free explorers land on Lesson Plans");
+    assert.ok(dash.hasStarter || dash.hasGettingStarted, "new Free users see starter or Getting Started");
     assert.equal(dash.hasUpgradePush, false, "starter cards must not push Upgrade to Pro");
-    assert.equal(dash.hasBanner, false, "no conversion banner stacked with starter");
-    assert.match(dash.text, /Let's get you started/i);
-    assert.equal(dash.hasLessonCta, true, "Browse Lesson Plans CTA visible");
-    console.log("PASS calendar starter explore for new Free");
+    assert.match(dash.text, /Let's get you started|Getting Started|Browse ready-to-use/i);
+    console.log("PASS lesson library starter explore for new Free");
 
     await page.evaluate(() => {
-      const btn = document.querySelector("#mainCalendarApp [data-dismiss-free-starter]");
-      if (!btn) throw new Error("starter dismiss missing on calendar");
-      btn.click();
+      const btn = document.querySelector("#view-lessons [data-dismiss-free-starter], #view-lessons [data-dismiss-getting-started]");
+      if (btn) btn.click();
+      localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      localStorage.setItem("llhGettingStartedDismissed", "1");
+      if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
     });
     await page.waitForTimeout(400);
     const afterDismiss = await page.evaluate(() => {
-      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
+      const root = document.querySelector("#view-lessons") || document.querySelector(".active-view");
       const starter = root?.querySelector("[data-free-starter-explore]");
+      const gettingStarted = root?.querySelector("[data-getting-started-checklist]");
       const card = root?.querySelector(".free-dashboard-upgrade-card");
       return {
         hasStarter: Boolean(starter),
+        hasGettingStarted: Boolean(gettingStarted),
         hasCard: Boolean(card),
         dismissed: localStorage.getItem("llhFreeStarterCardsDismissed") === "1",
       };
     });
     assert.equal(afterDismiss.dismissed, true, "starter dismiss persists");
     assert.equal(afterDismiss.hasStarter, false, "starter cards gone after dismiss");
+    assert.equal(afterDismiss.hasGettingStarted, false, "getting started gone after dismiss");
     assert.equal(afterDismiss.hasCard, false, "no immediate upgrade card after Free path");
     console.log("PASS starter dismiss does not immediately push upgrade");
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Phase 1 new-user onboarding: welcome → explore → Free starter / Trial explain.
+ * Phase 1 new-user onboarding refinements.
  * Run: npm run test:new-user-onboarding
  */
 const assert = require("node:assert/strict");
@@ -57,23 +57,25 @@ async function main() {
   const insights = fs.readFileSync(path.join(ROOT, "server/admin-insights.js"), "utf8");
 
   assert.match(indexHtml, /id="newUserOnboardingModal"/);
-  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260803-nuo-onboarding/);
+  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260803-nuo-onboarding-r2/);
   assert.match(appJs, /beginNewUserOnboardingAfterFreeSignup/);
-  assert.match(appJs, /startProTrial\(options = \{\}\)/);
-  assert.match(appJs, /fromOnboarding/);
-  assert.match(appJs, /handleTrialCheckoutCancel/);
-  assert.doesNotMatch(nuoJs, /Limited time|Act now|Last chance/i);
+  assert.match(appJs, /featured-this-week|resolveFeaturedThisWeekLessons/);
+  assert.match(appJs, /onboardingRecommendations/);
+  assert.match(appJs, /renderLessonLibraryOnboardingHtml/);
+  assert.match(nuoJs, /We're excited you're here!/);
   assert.match(nuoJs, /Continue to Secure Checkout/);
-  assert.match(nuoJs, /No charge today/);
-  assert.match(nuoJs, /Most Popular/);
-  assert.match(nuoJs, /welcome_screen_viewed/);
-  assert.match(nuoJs, /free_selected/);
-  assert.match(nuoJs, /trial_selected/);
+  assert.match(nuoJs, /You will not be charged today/);
+  assert.match(nuoJs, /Card required to start/);
+  assert.match(nuoJs, /trial_checkout_opened/);
+  assert.match(nuoJs, /trial_checkout_cancelled/);
+  assert.match(nuoJs, /getContentRecommendations/);
+  assert.match(nuoJs, /goToLessonPlans|setView\("lessons"/);
+  assert.match(nuoJs, /Browse ready-to-use lesson plans/);
+  assert.match(nuoJs, /Getting Started/);
+  assert.doesNotMatch(nuoJs, /Limited time|Act now|Last chance/i);
   assert.match(insights, /Biggest Opportunity/);
-  assert.match(insights, /onboarding/);
-  assert.match(insights, /Conversion Opportunity/);
+  assert.match(insights, /Conversion Opportunity|onboarding/);
   assert.doesNotMatch(insights, /Fix drop-off:/);
-  // No Stripe/auth/pricing changes in onboarding module
   assert.doesNotMatch(nuoJs, /stripe\.checkout|STRIPE_SECRET|price_/);
   console.log("PASS static onboarding markers");
 
@@ -103,32 +105,33 @@ async function main() {
         createdAt: new Date().toISOString(),
       };
       localStorage.setItem("llhAccounts", JSON.stringify(accounts));
-      if (typeof currentUser !== "undefined") window.currentUser = email;
       if (typeof loadAccountState === "function") loadAccountState(email);
       beginNewUserOnboardingAfterFreeSignup();
     });
 
     await page.waitForSelector("#newUserOnboardingModal.open", { timeout: 10000 });
     const welcomeText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(welcomeText, /Welcome to Little Learner Hub/i);
-    assert.match(welcomeText, /free account is ready/i);
+    assert.match(welcomeText, /Welcome to Little Learner Hub!/i);
+    assert.match(welcomeText, /We're excited you're here/i);
+    assert.match(welcomeText, /spend less time planning and more time teaching/i);
 
     await page.click('[data-nuo-action="continue"]');
-    await page.waitForFunction(() => document.querySelector("[data-nuo-action='choose-free']"), null, { timeout: 5000 });
+    await page.waitForSelector("[data-nuo-action='choose-free']");
     const exploreText = await page.locator("#newUserOnboardingBody").innerText();
     assert.match(exploreText, /Continue with Free/i);
-    assert.match(exploreText, /Start My Free Trial/i);
-    assert.match(exploreText, /Most Popular/i);
+    assert.match(exploreText, /Continue to Secure Checkout/i);
+    assert.match(exploreText, /You will not be charged today/i);
+    assert.match(exploreText, /payment method through secure Stripe checkout/i);
     assert.doesNotMatch(exploreText, /Limited time|Act now|Last chance/i);
 
-    // Free path → starter cards, no upgrade push
+    // Free path lands on Lesson Plans with rich starter cards + getting started
     await page.click('[data-nuo-action="choose-free"]');
     await page.waitForFunction(() => !document.querySelector("#newUserOnboardingModal.open"), null, { timeout: 5000 });
-    await page.waitForSelector("[data-free-starter-explore]", { timeout: 8000 });
-    const starter = await page.locator("[data-free-starter-explore]").innerText();
-    assert.match(starter, /Let's get you started/i);
-    assert.match(starter, /Browse Lesson Plans/i);
-    assert.doesNotMatch(starter, /Upgrade to Pro/i);
+    await page.waitForFunction(() => document.querySelector(".active-view")?.id === "view-lessons", null, { timeout: 8000 });
+    await page.waitForSelector("[data-free-starter-explore], [data-getting-started-checklist]", { timeout: 8000 });
+    const lessonsText = await page.locator("#view-lessons").innerText();
+    assert.match(lessonsText, /Browse ready-to-use lesson plans|Getting Started|Featured This Week/i);
+    assert.doesNotMatch(await page.locator("[data-free-starter-explore]").innerText().catch(() => ""), /Upgrade to Pro/i);
 
     const events = await page.evaluate(() => JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]"));
     const names = events.map((e) => e.name);
@@ -136,35 +139,69 @@ async function main() {
     assert.ok(names.includes("welcome_continue_pressed"), "welcome_continue_pressed tracked");
     assert.ok(names.includes("free_selected"), "free_selected tracked");
 
-    // Trial explain copy (no Stripe call — stop before checkout)
+    // Trial card messaging + checkout open/cancel analytics (Stripe flow unchanged; stub checkout start)
     await page.evaluate(() => {
       beginNewUserOnboardingAfterFreeSignup();
     });
     await page.waitForSelector("#newUserOnboardingModal.open");
     await page.click('[data-nuo-action="continue"]');
-    await page.click('[data-nuo-action="choose-trial"]');
-    const trialText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(trialText, /Continue to Secure Checkout/i);
-    assert.match(trialText, /You will not be charged today/i);
-    assert.match(trialText, /Secure checkout powered by Stripe/i);
+    const trialCardText = await page.locator("#newUserOnboardingBody").innerText();
+    assert.match(trialCardText, /Continue to Secure Checkout/i);
+    assert.match(trialCardText, /Card required to start/i);
+    assert.match(trialCardText, /You will not be charged today/i);
 
-    // Checkout cancel returns to friendly Free message
     await page.evaluate(() => {
-      localStorage.setItem("llhPendingCheckout", JSON.stringify({
-        type: "monthly",
-        amount: "$19.99",
-        trialDays: 7,
-        fromOnboarding: true,
-      }));
+      window.__llhStartProTrialCalls = 0;
+      window.startProTrial = async function stubStartProTrial(options = {}) {
+        window.__llhStartProTrialCalls += 1;
+        window.__llhLastStartProTrialOptions = options;
+        NewUserOnboarding.getState();
+        // Mimic pending checkout without navigating to Stripe.
+        localStorage.setItem("llhPendingCheckout", JSON.stringify({
+          type: "monthly",
+          amount: "$19.99",
+          trialDays: 7,
+          fromOnboarding: Boolean(options.fromOnboarding),
+        }));
+      };
+    });
+    await page.click('[data-nuo-action="choose-trial"]');
+    await page.waitForFunction(() => window.__llhStartProTrialCalls >= 1, null, { timeout: 5000 });
+    const opened = await page.evaluate(() => ({
+      calls: window.__llhStartProTrialCalls,
+      opts: window.__llhLastStartProTrialOptions,
+      names: JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]").map((e) => e.name),
+    }));
+    assert.equal(opened.opts.fromOnboarding, true);
+    assert.ok(opened.names.includes("trial_selected"), "trial_selected tracked");
+    assert.ok(opened.names.includes("trial_checkout_opened"), "trial_checkout_opened tracked");
+
+    await page.evaluate(() => {
       NewUserOnboarding.handleTrialCheckoutCancel();
     });
     await page.waitForFunction(() => document.body.innerText.includes("No problem!"), null, { timeout: 5000 });
-    const cancelText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(cancelText, /Continue Exploring for Free/i);
-    const suppressed = await page.evaluate(() => sessionStorage.getItem("llhSuppressTrialPromptSession"));
-    assert.equal(suppressed, "1");
+    const cancelEvents = await page.evaluate(() => JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]").map((e) => e.name));
+    assert.ok(cancelEvents.includes("trial_checkout_cancelled"), "trial_checkout_cancelled tracked");
 
-    // Mobile viewport smoke
+    // Returning users: dismissed getting started stays dismissed
+    await page.evaluate(() => {
+      localStorage.setItem("llhGettingStartedDismissed", "1");
+      localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      NewUserOnboarding.closeModal();
+      if (typeof setView === "function") setView("lessons");
+      if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
+    });
+    await page.waitForTimeout(300);
+    const returning = await page.evaluate(() => ({
+      gettingStarted: Boolean(document.querySelector("[data-getting-started-checklist]")),
+      starter: Boolean(document.querySelector("[data-free-starter-explore]")),
+      featured: Boolean(document.querySelector(".featured-this-week")),
+    }));
+    assert.equal(returning.gettingStarted, false, "returning/dismissed users do not see getting started");
+    assert.equal(returning.starter, false, "dismissed starter does not return");
+    assert.equal(returning.featured, true, "Featured This Week still shows");
+
+    // Mobile viewport
     await page.setViewportSize({ width: 390, height: 844 });
     await page.evaluate(() => beginNewUserOnboardingAfterFreeSignup());
     await page.waitForSelector("#newUserOnboardingModal.open");

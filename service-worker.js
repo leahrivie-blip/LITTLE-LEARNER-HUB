@@ -1,13 +1,13 @@
-const CACHE_NAME = "llh-shell-v156-nuo-onboarding";
-const SHELL_VERSION = "20260803-nuo-onboarding";
+const CACHE_NAME = "llh-shell-v157-nuo-onboarding-r2";
+const SHELL_VERSION = "20260803-nuo-onboarding-r2";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
   "/",
   "/index.html",
   "/offline.html",
-  "/styles.css?v=20260803-nuo-onboarding",
-  "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding",
+  "/styles.css?v=20260803-nuo-onboarding-r2",
+  "/styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r2",
   "/styles/llh-design-tokens.css?v=20260713-ds",
   "/styles/llh-homepage.css?v=20260802-request-idea-final",
   "/styles/llh-library-browse.css?v=20260717-netflix-cover-cards",
@@ -30,10 +30,10 @@ const APP_SHELL = [
   "/scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid",
   "/scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid",
   "/scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid",
-  "/app.js?v=20260803-nuo-onboarding",
-  "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding",
-  "/admin-workspace.js?v=20260803-nuo-onboarding",
-  "/admin-insights.js?v=20260803-nuo-onboarding",
+  "/app.js?v=20260803-nuo-onboarding-r2",
+  "/scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r2",
+  "/admin-workspace.js?v=20260803-nuo-onboarding-r2",
+  "/admin-insights.js?v=20260803-nuo-onboarding-r2",
   "/comms-center.js?v=20260802-request-idea-final",
   "/site.webmanifest",
   "/images/icons/icon-192.svg",
