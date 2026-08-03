@@ -33,16 +33,20 @@ test("hero prioritizes Start Free for TikTok conversion (no pricing in hero)", (
   assert.match(actionsHtml, /data-view="lessons"/);
   assert.match(actionsHtml, /data-guest-browse="lessons"/);
   assert.match(actionsHtml, /Preview Free Lesson Plans/);
-  assert.match(actionsHtml, /Hundreds of childcare providers have already joined/);
+  assert.match(actionsHtml, /Hundreds of childcare providers already use Little Learner Hub to save hours every week/);
   assert.doesNotMatch(actionsHtml, /data-checkout-plan="monthly"/);
   assert.doesNotMatch(actionsHtml, /\$19\.99/);
   assert.doesNotMatch(actionsHtml, /Founding/);
   assert.doesNotMatch(actionsHtml, /llh-hero-login-link/);
-  assert.match(html, /Stop Spending Hours Creating Lesson Plans/);
-  assert.match(html, /llh-hero-trust-line/);
-  assert.match(html, /127 lesson plans/);
+  assert.match(html, /Spend Less Time Planning\. More Time Teaching\./);
+  assert.match(html, /llh-hero-curriculum-preview/);
+  assert.match(html, /Explore the Curriculum/);
+  assert.doesNotMatch(html, /127 lesson plans/);
+  assert.doesNotMatch(html, /2,110 activities/);
   assert.doesNotMatch(html, /id="homeHeroInventory"/);
   assert.doesNotMatch(html, /Founding Member/);
+  assert.match(html, /Everything You Need for the Week/);
+  assert.match(html, /See What(?:'|\&rsquo;|&apos;)?s Included in Every Lesson/);
 });
 
 test("Pro, free, and final CTAs exist; sticky CTA is Start Free; Founding announce hidden", () => {
