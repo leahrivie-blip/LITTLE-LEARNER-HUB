@@ -16,6 +16,7 @@
     "server": "node --max-old-space-size=300 server/index.js",
     "check": "node --check server/index.js && node --check server/seo.js && node --check server/curriculum-media.js && node --check server/curriculum-resource-migration.js && node --check server/meta-capi.js && node --check app.js && node --check server/launch-check.js && node --check server/billing-check.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",
+    "test:marketing-analytics": "NODE_ENV=test node scripts/test-marketing-analytics.js",
     "stripe:check": "node server/stripe-check.js",
     "launch:check": "node server/launch-check.js",
     "billing:check": "node server/billing-check.js",

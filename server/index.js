@@ -178,15 +178,117 @@ const HOME_DAYCARE_HUB_TESTING = ["1", "true", "yes", "on"].includes(
 
 /** Meta Pixel / CAPI — secrets never exposed via client-config. */
 
+const MAX_META_TRACKING_EVENTS = Math.max(
+  50,
+  Math.min(1000, Number(process.env.MAX_META_TRACKING_EVENTS) || 250),
+);
+const META_DELIVERY_PERSIST_EVENTS = new Set([
+  "CompleteRegistration",
+  "InitiateCheckout",
+  "StartTrial",
+  "Purchase",
+]);
+/** In-memory ring buffer for Meta CAPI delivery results (includes high-volume PageView). */
+let metaTrackingMemoryLog = [];
+let metaTrackingPersistTimer = null;
+let metaTrackingPersistQueued = [];
+
+function pruneMetaTrackingList(list) {
+  const rows = Array.isArray(list) ? list : [];
+  return rows.length > MAX_META_TRACKING_EVENTS
+    ? rows.slice(-MAX_META_TRACKING_EVENTS)
+    : rows;
+}
+
+function scheduleMetaTrackingPersist() {
+  if (metaTrackingPersistTimer) return;
+  metaTrackingPersistTimer = setTimeout(() => {
+    metaTrackingPersistTimer = null;
+    const queued = metaTrackingPersistQueued.splice(0, metaTrackingPersistQueued.length);
+    if (!queued.length) return;
+    try {
+      const store = peekStore();
+      if (!store || typeof store !== "object") return;
+      const existing = Array.isArray(store.metaTrackingEvents) ? store.metaTrackingEvents : [];
+      const byId = new Map(existing.map((row) => [row.id, row]));
+      for (const row of queued) byId.set(row.id, row);
+      store.metaTrackingEvents = pruneMetaTrackingList(
+        Array.from(byId.values()).sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)),
+      );
+      void writeStoreAsync(store).catch((error) => {
+        console.warn("[meta-capi] delivery log persist failed:", error?.message || error);
+      });
+    } catch (error) {
+      console.warn("[meta-capi] delivery log persist error:", error?.message || error);
+    }
+  }, 4000);
+}
+
+function rememberMetaDelivery(entry) {
+  if (!entry || !entry.eventName) return;
+  metaTrackingMemoryLog.push(entry);
+  metaTrackingMemoryLog = pruneMetaTrackingList(metaTrackingMemoryLog);
+  // Persist conversions only — PageView volume must not rewrite the full store constantly.
+  if (META_DELIVERY_PERSIST_EVENTS.has(entry.eventName)) {
+    metaTrackingPersistQueued.push(entry);
+    scheduleMetaTrackingPersist();
+  }
+}
+
+function mergedMetaTrackingEvents(store) {
+  const fromStore = Array.isArray(store?.metaTrackingEvents) ? store.metaTrackingEvents : [];
+  const byId = new Map();
+  for (const row of fromStore) {
+    if (row?.id) byId.set(row.id, row);
+  }
+  for (const row of metaTrackingMemoryLog) {
+    if (row?.id) byId.set(row.id, row);
+  }
+  return Array.from(byId.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+}
+
 function fireMetaCapiSafe(eventName, details = {}) {
   // Never await in request-critical paths unless the caller chooses to.
   try {
-    return metaCapi.trackMetaEvent(eventName, details).catch((error) => {
+    const startedAt = new Date().toISOString();
+    const promise = metaCapi.trackMetaEvent(eventName, details).catch((error) => {
       console.warn("[meta-capi] async failure:", error?.message || error);
       return { ok: false, reason: error?.message || "meta_async_failure" };
     });
+    Promise.resolve(promise).then((result) => {
+      const custom = details?.customData && typeof details.customData === "object" ? details.customData : {};
+      rememberMetaDelivery({
+        id: `meta_${String(eventName || "event")}_${String(details?.eventId || startedAt)}`,
+        eventName: String(eventName || ""),
+        eventId: String(details?.eventId || "").slice(0, 200),
+        ok: Boolean(result?.ok),
+        skipped: Boolean(result?.skipped),
+        reason: String(result?.reason || result?.body?.error?.message || "").slice(0, 240),
+        status: result?.status ?? null,
+        email: details?.email ? String(details.email).trim().toLowerCase().slice(0, 120) : "",
+        value: custom.value != null ? Number(custom.value) : null,
+        currency: custom.currency ? String(custom.currency).slice(0, 8) : "",
+        createdAt: startedAt,
+        completedAt: new Date().toISOString(),
+      });
+    }).catch(() => {});
+    return promise;
   } catch (error) {
     console.warn("[meta-capi] sync failure:", error?.message || error);
+    rememberMetaDelivery({
+      id: `meta_${String(eventName || "event")}_sync_${Date.now()}`,
+      eventName: String(eventName || ""),
+      eventId: String(details?.eventId || ""),
+      ok: false,
+      skipped: false,
+      reason: error?.message || "meta_sync_failure",
+      status: null,
+      email: details?.email ? String(details.email).trim().toLowerCase().slice(0, 120) : "",
+      value: null,
+      currency: "",
+      createdAt: new Date().toISOString(),
+      completedAt: new Date().toISOString(),
+    });
     return Promise.resolve({ ok: false, reason: error?.message || "meta_sync_failure" });
   }
 }
@@ -853,6 +955,7 @@ function defaultStore() {
     knowledgeBase: [],
     uploadedResources: [],
     analyticsEvents: [],
+    metaTrackingEvents: [],
     billingEvents: [],
     membershipAudit: [],
     roleReconciliationAudit: [],
@@ -11158,6 +11261,624 @@ function rate(part, whole) {
   return whole ? `${Math.round((part / whole) * 100)}%` : "0%";
 }
 
+function parseUrlSearchParams(urlValue) {
+  try {
+    const raw = String(urlValue || "").trim();
+    if (!raw) return new URLSearchParams();
+    if (raw.startsWith("?")) return new URLSearchParams(raw);
+    const url = new URL(raw, "https://littlelearnershubbyleah.com");
+    return url.searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+function normalizeMarketingChannel(value, {
+  url = "",
+  referrer = "",
+  medium = "",
+} = {}) {
+  const raw = String(value || "").trim();
+  const mediumText = String(medium || "").trim().toLowerCase();
+  const blob = `${raw} ${url} ${referrer} ${mediumText}`.toLowerCase();
+  if (mediumText === "email" || mediumText === "newsletter" || /\bemail\b|newsletter|mailchimp|resend/.test(blob)) {
+    return "Email";
+  }
+  if (/facebook|instagram|fbclid|\bmeta\b/.test(blob) || /^fb$/i.test(raw)) return "Facebook";
+  if (/tiktok|ttclid/.test(blob)) return "TikTok";
+  if (/gclid|google|adwords|youtube|googlesyndication/.test(blob)) return "Google";
+  if (/^direct$/i.test(raw) || raw.toLowerCase() === "direct") return "Direct";
+  if (/^referral$/i.test(raw) || raw.toLowerCase() === "referral") return "Referral";
+  if (/^email$/i.test(raw)) return "Email";
+  if (/^search$/i.test(raw) || /bing|yahoo|duckduckgo/.test(blob)) return "Referral";
+  if (!raw && !referrer) return "Direct";
+  if (referrer) return "Referral";
+  if (!raw) return "Unknown";
+  // Preserve unknown paid/partner labels as Unknown rather than inventing channels.
+  if (/campaign/i.test(raw)) return "Unknown";
+  return "Unknown";
+}
+
+function isOrganicMarketingChannel(channel) {
+  return ["Direct", "Referral", "Email"].includes(String(channel || ""));
+}
+
+function detectDeviceFromUserAgent(userAgent) {
+  const ua = String(userAgent || "").toLowerCase();
+  if (!ua) return "Unknown";
+  if (/ipad|tablet|kindle|silk|(android(?!.*mobile))/.test(ua)) return "Tablet";
+  if (/mobi|iphone|ipod|android.*mobile|windows phone|blackberry/.test(ua)) return "Mobile";
+  return "Desktop";
+}
+
+function extractEventAttribution(event = {}) {
+  const attr = event.attribution && typeof event.attribution === "object" ? event.attribution : {};
+  const params = parseUrlSearchParams(event.url || attr.landingPage || "");
+  const campaign = String(attr.campaign || params.get("utm_campaign") || event.detail?.campaign || "").slice(0, 160);
+  const medium = String(attr.medium || params.get("utm_medium") || event.detail?.medium || "").slice(0, 80);
+  const referrer = String(attr.referrer || event.referrer || "").slice(0, 500);
+  const landingPage = String(
+    attr.landingPage
+    || attr.route
+    || event.path
+    || (() => {
+      try {
+        return new URL(String(event.url || ""), "https://littlelearnershubbyleah.com").pathname
+          + new URL(String(event.url || ""), "https://littlelearnershubbyleah.com").search;
+      } catch {
+        return event.path || "/";
+      }
+    })(),
+  ).slice(0, 240) || "/";
+  const sourceRaw = attr.source || event.source || event.detail?.source || params.get("utm_source") || "";
+  const source = normalizeMarketingChannel(sourceRaw, { url: event.url || "", referrer, medium });
+  const firstVisitAt = String(attr.firstSeenAt || attr.firstVisitAt || "").slice(0, 40);
+  return {
+    source,
+    campaign: campaign || "—",
+    medium: medium || "—",
+    referrer: referrer || "—",
+    landingPage,
+    firstVisitAt,
+  };
+}
+
+function readMarketingAdSpend(store) {
+  const fromStore = store?.marketingAdSpend && typeof store.marketingAdSpend === "object"
+    ? store.marketingAdSpend
+    : {};
+  const num = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+  const bySource = {
+    Facebook: num(fromStore.Facebook ?? fromStore.facebook ?? process.env.MARKETING_AD_SPEND_FACEBOOK),
+    TikTok: num(fromStore.TikTok ?? fromStore.tiktok ?? process.env.MARKETING_AD_SPEND_TIKTOK),
+    Google: num(fromStore.Google ?? fromStore.google ?? process.env.MARKETING_AD_SPEND_GOOGLE),
+    Direct: num(fromStore.Direct ?? fromStore.direct),
+    Referral: num(fromStore.Referral ?? fromStore.referral),
+    Email: num(fromStore.Email ?? fromStore.email),
+    Unknown: num(fromStore.Unknown ?? fromStore.unknown),
+  };
+  const totalFromParts = Object.values(bySource).reduce((sum, value) => sum + value, 0);
+  const total = num(fromStore.total ?? process.env.MARKETING_AD_SPEND_TOTAL) || totalFromParts;
+  return {
+    total,
+    bySource,
+    configured: total > 0 || totalFromParts > 0,
+  };
+}
+
+function formatCostMetric(spend, conversions) {
+  if (!(spend > 0)) return null;
+  if (!(conversions > 0)) return null;
+  return Number((spend / conversions).toFixed(2));
+}
+
+function formatDurationHours(hours) {
+  if (!Number.isFinite(hours) || hours < 0) return null;
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  if (hours < 48) return `${hours.toFixed(1)}h`;
+  return `${(hours / 24).toFixed(1)}d`;
+}
+
+function lastMetaEventSnapshot(deliveries, eventName, fallbackAt = "", fallbackDetail = "") {
+  const match = (deliveries || []).find((row) => row.eventName === eventName);
+  if (match) {
+    return {
+      eventName,
+      at: match.createdAt || match.completedAt || "",
+      ok: match.ok !== false,
+      skipped: Boolean(match.skipped),
+      reason: match.reason || "",
+      eventId: match.eventId || "",
+      email: match.email || "",
+      source: "capi_delivery_log",
+    };
+  }
+  if (fallbackAt) {
+    return {
+      eventName,
+      at: fallbackAt,
+      ok: true,
+      skipped: false,
+      reason: "",
+      eventId: "",
+      email: "",
+      source: fallbackDetail || "inferred",
+    };
+  }
+  return {
+    eventName,
+    at: "",
+    ok: null,
+    skipped: false,
+    reason: "none_yet",
+    eventId: "",
+    email: "",
+    source: "none",
+  };
+}
+
+function buildMarketingAnalytics(store, events, {
+  totals = {},
+  periods = {},
+  counts = {},
+} = {}) {
+  const now = Date.now();
+  const realtimeWindowMs = 15 * 60 * 1000;
+  const users = Object.values(store.users || {});
+  const sessionVisits = events.filter((event) => event.name === "website_visit");
+  const pageViews = events.filter((event) => event.name === "page_view");
+  const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
+  const signups = events.filter((event) => event.name === "account_signup_complete");
+  const checkoutStarts = events.filter((event) => event.name === "checkout_start");
+  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const actorKey = (event) => event.visitorId || event.user || event.sessionId || event.ipHash || "";
+
+  const liveTraffic = trafficEvents.filter((event) => {
+    const ts = new Date(event.createdAt || 0).getTime();
+    return Number.isFinite(ts) && (now - ts) <= realtimeWindowMs;
+  });
+  const liveVisitorIds = new Set(liveTraffic.map(actorKey).filter(Boolean));
+  const liveSessionVisits = sessionVisits.filter((event) => {
+    const ts = new Date(event.createdAt || 0).getTime();
+    return Number.isFinite(ts) && (now - ts) <= realtimeWindowMs;
+  }).length;
+
+  const trialStartRows = users
+    .map((user) => {
+      const at = user.metaStartTrialAt || user.trialStart || user.trialStartedAt || "";
+      if (!at) return null;
+      return {
+        email: user.email || "",
+        at,
+        eventId: user.metaStartTrialEventId || "",
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  const purchaseRows = users
+    .map((user) => {
+      const at = user.metaPurchaseAt || user.firstPaidInvoiceAt || "";
+      if (!at) return null;
+      return {
+        email: user.email || "",
+        at,
+        eventId: user.metaPurchaseEventId || "",
+        value: user.metaPurchaseValue != null ? Number(user.metaPurchaseValue) : null,
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.at) - new Date(a.at));
+
+  const dailySignups = countBy(signups, (event) => analyticsDateKey(event.createdAt));
+  const weeklySignups = countBy(signups, (event) => analyticsWeekKey(event.createdAt));
+  const monthlySignups = countBy(signups, (event) => analyticsMonthKey(event.createdAt));
+  const dailyTrials = countBy(trialStartRows, (row) => analyticsDateKey(row.at));
+  const weeklyTrials = countBy(trialStartRows, (row) => analyticsWeekKey(row.at));
+  const monthlyTrials = countBy(trialStartRows, (row) => analyticsMonthKey(row.at));
+  const dailyPaid = countBy(paidEvents, (event) => analyticsDateKey(event.createdAt));
+  const weeklyPaid = countBy(paidEvents, (event) => analyticsWeekKey(event.createdAt));
+  const monthlyPaid = countBy(paidEvents, (event) => analyticsMonthKey(event.createdAt));
+
+  const todayKey = analyticsDateKey(new Date().toISOString());
+  const weekKeyNow = analyticsWeekKey(new Date().toISOString());
+  const monthKeyNow = analyticsMonthKey(new Date().toISOString());
+
+  const deliveries = mergedMetaTrackingEvents(store);
+  const metaCfg = metaCapi.readConfig();
+  const lastPageViewFallback = sessionVisits[0]?.createdAt || pageViews[0]?.createdAt || "";
+  const lastRegistrationFallback = signups[0]?.createdAt || "";
+  const lastTrialFallback = trialStartRows[0]?.at || "";
+  const lastPurchaseFallback = purchaseRows[0]?.at || "";
+
+  const metaLastEvents = {
+    PageView: lastMetaEventSnapshot(deliveries, "PageView", lastPageViewFallback, "analytics_website_visit"),
+    CompleteRegistration: lastMetaEventSnapshot(deliveries, "CompleteRegistration", lastRegistrationFallback, "analytics_signup"),
+    StartTrial: lastMetaEventSnapshot(deliveries, "StartTrial", lastTrialFallback, "user_trial_stamp"),
+    Purchase: lastMetaEventSnapshot(deliveries, "Purchase", lastPurchaseFallback, "user_purchase_stamp"),
+  };
+
+  const deliveryCounts = deliveries.reduce((acc, row) => {
+    const key = row.eventName || "unknown";
+    acc.byEvent[key] = (acc.byEvent[key] || 0) + 1;
+    if (row.skipped) acc.skipped += 1;
+    else if (row.ok) acc.ok += 1;
+    else acc.failed += 1;
+    return acc;
+  }, { ok: 0, failed: 0, skipped: 0, byEvent: {} });
+
+  const marketingEventNames = new Set([
+    "website_visit",
+    "page_view",
+    "account_signup_complete",
+    "checkout_start",
+    "checkout_success",
+    "pro_upgrade_intent",
+    "pro_checkout_abandoned",
+    "ad_route_visit",
+  ]);
+  const activityFromAnalytics = events
+    .filter((event) => marketingEventNames.has(event.name))
+    .slice(0, 40)
+    .map((event) => ({
+      kind: "analytics",
+      name: event.name,
+      label: event.name,
+      at: event.createdAt || "",
+      actor: event.user && event.user !== "guest" ? event.user : (event.source || event.attribution?.source || "visitor"),
+      detail: event.detail?.plan || event.detail?.view || event.detail?.type || event.path || "",
+      ok: true,
+    }));
+  const activityFromMeta = deliveries.slice(0, 40).map((row) => ({
+    kind: "meta_capi",
+    name: row.eventName,
+    label: `Meta ${row.eventName}`,
+    at: row.createdAt || row.completedAt || "",
+    actor: row.email || "server",
+    detail: row.skipped ? `skipped: ${row.reason || "disabled"}` : (row.ok ? (row.value != null ? `$${row.value}` : "sent") : `failed: ${row.reason || row.status || "error"}`),
+    ok: row.ok !== false,
+  }));
+  const activityFeed = [...activityFromAnalytics, ...activityFromMeta]
+    .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
+    .slice(0, 50);
+
+  // Attribution resolution: prefer conversion event → user.attribution → earliest visitor traffic.
+  const eventsChronological = events.slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  const firstTrafficByVisitor = new Map();
+  const firstTrafficByUser = new Map();
+  for (const event of eventsChronological) {
+    if (event.name !== "website_visit" && event.name !== "page_view" && event.name !== "ad_route_visit") continue;
+    const visitor = event.visitorId || "";
+    if (visitor && !firstTrafficByVisitor.has(visitor)) firstTrafficByVisitor.set(visitor, event);
+    const email = event.user && event.user !== "guest" ? event.user : "";
+    if (email && !firstTrafficByUser.has(email)) firstTrafficByUser.set(email, event);
+  }
+
+  const resolveAttributionForActor = ({ email = "", visitorId = "", event = null, user = null } = {}) => {
+    const fromEvent = event ? extractEventAttribution(event) : null;
+    const userAttr = user?.attribution && typeof user.attribution === "object" ? user.attribution : null;
+    const firstTraffic = (visitorId && firstTrafficByVisitor.get(visitorId))
+      || (email && firstTrafficByUser.get(email))
+      || null;
+    const fromFirst = firstTraffic ? extractEventAttribution(firstTraffic) : null;
+    const fromUser = userAttr ? extractEventAttribution({
+      attribution: userAttr,
+      source: userAttr.source,
+      referrer: userAttr.referrer,
+      path: userAttr.landingPage,
+      url: userAttr.landingPage,
+    }) : null;
+    const pick = fromEvent?.source && fromEvent.source !== "Unknown" ? fromEvent
+      : (fromUser?.source && fromUser.source !== "Unknown" ? fromUser : (fromFirst || fromEvent || fromUser || {
+        source: "Unknown",
+        campaign: "—",
+        medium: "—",
+        referrer: "—",
+        landingPage: "/",
+        firstVisitAt: "",
+      }));
+    const firstVisitAt = pick.firstVisitAt
+      || fromUser?.firstVisitAt
+      || fromFirst?.firstVisitAt
+      || firstTraffic?.createdAt
+      || userAttr?.firstSeenAt
+      || "";
+    return {
+      source: pick.source || "Unknown",
+      campaign: pick.campaign && pick.campaign !== "—" ? pick.campaign : (fromUser?.campaign && fromUser.campaign !== "—" ? fromUser.campaign : (fromFirst?.campaign || "—")),
+      medium: pick.medium && pick.medium !== "—" ? pick.medium : (fromUser?.medium && fromUser.medium !== "—" ? fromUser.medium : (fromFirst?.medium || "—")),
+      referrer: pick.referrer && pick.referrer !== "—" ? pick.referrer : (fromUser?.referrer && fromUser.referrer !== "—" ? fromUser.referrer : (fromFirst?.referrer || "—")),
+      landingPage: pick.landingPage || fromUser?.landingPage || fromFirst?.landingPage || "/",
+      firstVisitAt,
+    };
+  };
+
+  const usersByEmail = new Map(users.map((user) => [normalizeEmail(user.email), user]));
+  const attributionRows = [];
+  for (const event of signups) {
+    const email = normalizeEmail(event.user || event.detail?.email || "");
+    const user = usersByEmail.get(email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: event.visitorId || "",
+      event,
+      user,
+    });
+    attributionRows.push({
+      id: event.id || `signup_${email}_${event.createdAt}`,
+      type: "signup",
+      typeLabel: "Free signup",
+      email,
+      at: event.createdAt || "",
+      ...attr,
+    });
+  }
+  for (const row of trialStartRows) {
+    const email = normalizeEmail(row.email);
+    const user = usersByEmail.get(email) || null;
+    const signupEvent = signups.find((event) => normalizeEmail(event.user) === email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: signupEvent?.visitorId || "",
+      event: signupEvent,
+      user,
+    });
+    attributionRows.push({
+      id: `trial_${email}_${row.at}`,
+      type: "trial",
+      typeLabel: "Trial start",
+      email,
+      at: row.at || "",
+      ...attr,
+    });
+  }
+  for (const event of paidEvents) {
+    const email = normalizeEmail(event.user || event.detail?.email || "");
+    const user = usersByEmail.get(email) || null;
+    const signupEvent = signups.find((item) => normalizeEmail(item.user) === email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: event.visitorId || signupEvent?.visitorId || "",
+      event: event.source || event.attribution ? event : signupEvent,
+      user,
+    });
+    attributionRows.push({
+      id: event.id || `paid_${email}_${event.createdAt}`,
+      type: "paid",
+      typeLabel: "Paid subscription",
+      email,
+      at: event.createdAt || "",
+      ...attr,
+    });
+  }
+  // Also include Meta-stamped purchases that may not have a checkout_success analytics event.
+  for (const row of purchaseRows) {
+    const email = normalizeEmail(row.email);
+    if (attributionRows.some((item) => item.type === "paid" && item.email === email)) continue;
+    const user = usersByEmail.get(email) || null;
+    const signupEvent = signups.find((item) => normalizeEmail(item.user) === email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: signupEvent?.visitorId || "",
+      event: signupEvent,
+      user,
+    });
+    attributionRows.push({
+      id: `paid_meta_${email}_${row.at}`,
+      type: "paid",
+      typeLabel: "Paid subscription",
+      email,
+      at: row.at || "",
+      ...attr,
+    });
+  }
+  attributionRows.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+
+  const spend = readMarketingAdSpend(store);
+  const channelKeys = ["Facebook", "TikTok", "Google", "Direct", "Referral", "Email", "Unknown"];
+  const visitorsBySource = {};
+  const signupsBySource = {};
+  const trialsBySource = {};
+  const paidBySource = {};
+  channelKeys.forEach((key) => {
+    visitorsBySource[key] = 0;
+    signupsBySource[key] = 0;
+    trialsBySource[key] = 0;
+    paidBySource[key] = 0;
+  });
+  for (const event of sessionVisits.length ? sessionVisits : trafficEvents) {
+    const channel = extractEventAttribution(event).source;
+    visitorsBySource[channel] = (visitorsBySource[channel] || 0) + 1;
+  }
+  for (const row of attributionRows) {
+    if (row.type === "signup") signupsBySource[row.source] = (signupsBySource[row.source] || 0) + 1;
+    if (row.type === "trial") trialsBySource[row.source] = (trialsBySource[row.source] || 0) + 1;
+    if (row.type === "paid") paidBySource[row.source] = (paidBySource[row.source] || 0) + 1;
+  }
+  const conversionBySource = channelKeys.map((source) => {
+    const visitors = visitorsBySource[source] || 0;
+    const signupCount = signupsBySource[source] || 0;
+    const trialCount = trialsBySource[source] || 0;
+    const paidCount = paidBySource[source] || 0;
+    return {
+      source,
+      visitors,
+      signups: signupCount,
+      trials: trialCount,
+      paid: paidCount,
+      signupRate: rate(signupCount, Math.max(visitors, 1)),
+      paidRate: rate(paidCount, Math.max(visitors, 1)),
+      organic: isOrganicMarketingChannel(source),
+    };
+  }).filter((row) => row.visitors || row.signups || row.trials || row.paid);
+
+  const landingCounts = countBy(
+    trafficEvents.length ? trafficEvents : sessionVisits,
+    (event) => extractEventAttribution(event).landingPage || event.path || "/",
+  );
+  const topLandingPages = Object.entries(landingCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([page, count]) => ({ page, count }));
+
+  const deviceCounts = { Mobile: 0, Desktop: 0, Tablet: 0, Unknown: 0 };
+  for (const event of trafficEvents) {
+    const device = detectDeviceFromUserAgent(event.userAgent);
+    deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+  }
+
+  const signupDurationsHours = [];
+  for (const event of signups) {
+    const email = normalizeEmail(event.user || "");
+    const visitorId = event.visitorId || "";
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId,
+      event,
+      user: usersByEmail.get(email) || null,
+    });
+    const firstAt = new Date(attr.firstVisitAt || 0).getTime();
+    const signupAt = new Date(event.createdAt || 0).getTime();
+    if (Number.isFinite(firstAt) && Number.isFinite(signupAt) && signupAt >= firstAt) {
+      signupDurationsHours.push((signupAt - firstAt) / (60 * 60 * 1000));
+    }
+  }
+  const avgHoursBeforeSignup = signupDurationsHours.length
+    ? Number((signupDurationsHours.reduce((sum, value) => sum + value, 0) / signupDurationsHours.length).toFixed(2))
+    : null;
+
+  const uniqueVisitorCount = Number(totals.uniqueVisitors || 0);
+  const returningVisitorCount = Number(totals.returningVisitors || 0);
+  const newVisitorCount = Math.max(uniqueVisitorCount - returningVisitorCount, 0);
+
+  const totalSignups = signups.length;
+  const totalTrials = trialStartRows.length;
+  const totalPaid = attributionRows.filter((row) => row.type === "paid").length;
+
+  return {
+    updatedAt: new Date().toISOString(),
+    realtime: {
+      windowMinutes: 15,
+      liveVisitors: liveVisitorIds.size,
+      liveSessionVisits,
+      livePageViews: liveTraffic.filter((event) => event.name === "page_view").length,
+      usersOnlineNow: totals.usersOnlineNow || 0,
+      activeUsersToday: totals.activeUsersToday || 0,
+      sessionVisitsToday: Number(periods.dailyVisitors?.[todayKey] || 0),
+      pageViewsToday: Number(periods.dailyPageViews?.[todayKey] || 0),
+      signupsToday: Number(dailySignups[todayKey] || totals.newSignupsToday || 0),
+      trialsToday: Number(dailyTrials[todayKey] || 0),
+      paidToday: Number(dailyPaid[todayKey] || 0),
+      revenueToday: Number(periods.dailyRevenue?.[todayKey] || 0),
+    },
+    funnel: {
+      uniqueVisitors: totals.uniqueVisitors || 0,
+      sessionVisits: totals.sessionVisits || totals.visitors || 0,
+      freeSignups: signups.length,
+      registeredUsers: totals.totalRegisteredUsers || users.length,
+      freeUsers: totals.freeUsers || 0,
+      trialStarts: trialStartRows.length,
+      activeTrials: totals.trialUsers || 0,
+      checkoutStarts: checkoutStarts.length,
+      paidSubscriptions: totals.paidUsers || 0,
+      activeSubscriptions: totals.activeSubscriptions || 0,
+      visitorToSignupRate: totals.visitorToSignupRate || "0%",
+      signupToPaidRate: totals.signupToPaidRate || "0%",
+      visitorToPaidRate: totals.visitorToPaidRate || "0%",
+      trialConversionRate: totals.trialConversionRate || "0%",
+      totalRevenue: totals.totalRevenue || 0,
+      revenueThisMonth: totals.revenueThisMonth || 0,
+      monthlyRecurringRevenue: totals.monthlyRecurringRevenue || 0,
+      signupsThisWeek: Number(weeklySignups[weekKeyNow] || 0),
+      signupsThisMonth: Number(monthlySignups[monthKeyNow] || totals.newUsersMonth || 0),
+      trialsThisWeek: Number(weeklyTrials[weekKeyNow] || 0),
+      trialsThisMonth: Number(monthlyTrials[monthKeyNow] || 0),
+      paidThisWeek: Number(weeklyPaid[weekKeyNow] || 0),
+      paidThisMonth: Number(monthlyPaid[monthKeyNow] || 0),
+    },
+    sources: counts.sources || {},
+    periods: {
+      dailyVisitors: periods.dailyVisitors || {},
+      weeklyVisitors: periods.weeklyVisitors || {},
+      monthlyVisitors: periods.monthlyVisitors || {},
+      dailySignups,
+      weeklySignups,
+      monthlySignups,
+      dailyTrials,
+      weeklyTrials,
+      monthlyTrials,
+      dailyPaid,
+      weeklyPaid,
+      monthlyPaid,
+      dailyRevenue: periods.dailyRevenue || {},
+      weeklyRevenue: periods.weeklyRevenue || {},
+      monthlyRevenue: periods.monthlyRevenue || {},
+    },
+    meta: {
+      pixelId: metaCfg.pixelId || "",
+      pixelConfigured: Boolean(metaCfg.pixelId),
+      pixelEnabled: Boolean(metaCfg.pixelEnabled),
+      capiConfigured: Boolean(metaCfg.accessToken),
+      capiEnabled: Boolean(metaCfg.capiEnabled),
+      trackingEnabled: Boolean(metaCfg.masterEnabled),
+      testEventCodeConfigured: Boolean(metaCfg.testEventCode),
+      // Never expose the access token.
+      health: (!metaCfg.pixelId)
+        ? "not_configured"
+        : (!metaCfg.pixelEnabled && !metaCfg.capiEnabled)
+          ? "disabled"
+          : (metaCfg.capiEnabled ? "healthy" : "pixel_only"),
+      lastEvents: metaLastEvents,
+      deliveryCounts,
+      recentDeliveries: deliveries.slice(0, 25).map((row) => ({
+        eventName: row.eventName,
+        eventId: row.eventId,
+        ok: row.ok,
+        skipped: row.skipped,
+        reason: row.reason,
+        status: row.status,
+        email: row.email,
+        value: row.value,
+        createdAt: row.createdAt,
+      })),
+    },
+    activityFeed,
+    attribution: {
+      rows: attributionRows.slice(0, 250),
+      totalRows: attributionRows.length,
+      filters: [
+        { id: "all", label: "All sources" },
+        { id: "facebook", label: "Facebook only" },
+        { id: "tiktok", label: "TikTok only" },
+        { id: "google", label: "Google only" },
+        { id: "organic", label: "Organic only" },
+      ],
+    },
+    performance: {
+      spendConfigured: spend.configured,
+      spendTotal: spend.total,
+      costPerSignup: formatCostMetric(spend.total, totalSignups),
+      costPerTrial: formatCostMetric(spend.total, totalTrials),
+      costPerPaid: formatCostMetric(spend.total, totalPaid),
+      costNote: spend.configured
+        ? "Costs use configured ad spend (MARKETING_AD_SPEND_* env or store.marketingAdSpend)."
+        : "Set MARKETING_AD_SPEND_TOTAL (or Facebook/TikTok/Google spend env vars) to calculate cost metrics.",
+      conversionBySource,
+      topLandingPages,
+      returningVisitors: returningVisitorCount,
+      newVisitors: newVisitorCount,
+      uniqueVisitors: uniqueVisitorCount,
+      devices: deviceCounts,
+      avgHoursBeforeSignup,
+      avgTimeBeforeSignupLabel: formatDurationHours(avgHoursBeforeSignup),
+      signupDurationSampleSize: signupDurationsHours.length,
+    },
+  };
+}
+
 function detectEventSource(event) {
   const explicit = String(event.source || event.detail?.source || event.attribution?.source || "").trim();
   if (explicit) return explicit;
@@ -11242,6 +11963,19 @@ function updateAnalyticsUser(store, event) {
       updates.role = accountAccess.normalizeUserRole(event.detail.role);
     }
     if (event.detail?.phone) updates.phone = normalizedShortText(event.detail.phone, 40);
+    // Persist first-touch attribution on the user for later trial/paid marketing rows.
+    if (!existing.attribution?.firstVisitAt && !existing.attribution?.firstSeenAt) {
+      const snap = extractEventAttribution(event);
+      updates.attribution = {
+        source: snap.source,
+        campaign: snap.campaign === "—" ? "" : snap.campaign,
+        medium: snap.medium === "—" ? "" : snap.medium,
+        referrer: snap.referrer === "—" ? "" : snap.referrer,
+        landingPage: snap.landingPage,
+        firstSeenAt: snap.firstVisitAt || event.createdAt,
+        capturedAt: event.createdAt,
+      };
+    }
   }
   if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
   if (event.name === "checkout_success") {
@@ -13601,7 +14335,7 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
       };
     })
     .sort((a, b) => new Date(b.lastSeenAt || b.signupAt || 0) - new Date(a.lastSeenAt || a.signupAt || 0));
-  return {
+  const summary = {
     mode: "Server historical analytics",
     updatedAt: new Date().toISOString(),
     totals: {
@@ -13741,6 +14475,12 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
     recentEvents: events.slice(0, 25),
     rawEventCount: chronological.length,
   };
+  summary.marketing = buildMarketingAnalytics(store, events, {
+    totals: summary.totals,
+    periods: summary.periods,
+    counts: summary.counts,
+  });
+  return summary;
 }
 
 async function handleAdminAnalytics(request, response, url) {
