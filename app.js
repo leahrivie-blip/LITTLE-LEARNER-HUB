@@ -54519,18 +54519,35 @@ function renderProgramSettingsPage() {
     });
   });
 
-  // Show logo preview if saved
-  const logoPreviewWrap = document.querySelector("#programLogoPreviewWrap");
-  const logoPreview = document.querySelector("#programLogoPreview");
-  if (logoPreviewWrap && logoPreview && settings.logoDataUrl) {
-    logoPreview.src = settings.logoDataUrl;
-    logoPreviewWrap.style.display = "block";
-  } else if (logoPreviewWrap) {
-    logoPreviewWrap.style.display = "none";
-  }
+  // Show logo preview only when a real logo URL exists (never leave an empty <img>).
+  syncProgramLogoPreview(settings.logoDataUrl || "");
 
   // Show signature preview if data present
   updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
+}
+
+/** Render program logo preview only when a data URL exists — avoids empty-src image errors. */
+function syncProgramLogoPreview(logoDataUrl) {
+  const wrap = document.querySelector("#programLogoPreviewWrap");
+  if (!wrap) return;
+  let img = document.querySelector("#programLogoPreview");
+  const src = String(logoDataUrl || "").trim();
+  if (src) {
+    if (!img) {
+      img = document.createElement("img");
+      img.id = "programLogoPreview";
+      img.alt = "Program logo preview";
+      img.className = "program-logo-preview";
+      wrap.appendChild(img);
+    }
+    img.src = src;
+    wrap.hidden = false;
+    wrap.style.display = "block";
+    return;
+  }
+  if (img) img.remove();
+  wrap.hidden = true;
+  wrap.style.display = "none";
 }
 
 function toggleCustomCurriculumField(curriculumValue) {
@@ -64445,13 +64462,7 @@ document.querySelector("#programSettingsForm")?.addEventListener("submit", (even
     // Update live signature preview
     updateSignaturePreview(settings.signatureName || "", settings.signatureTitle || "");
 
-    // Show logo preview if available
-    const logoPreviewWrap = document.querySelector("#programLogoPreviewWrap");
-    const logoPreview = document.querySelector("#programLogoPreview");
-    if (logoPreviewWrap && logoPreview && settings.logoDataUrl) {
-      logoPreview.src = settings.logoDataUrl;
-      logoPreviewWrap.style.display = "block";
-    }
+    syncProgramLogoPreview(settings.logoDataUrl || "");
 
     trackEvent("program_settings_saved", { plan: currentPlan, hasLogo: Boolean(settings.logoDataUrl), hasProgramName: Boolean(settings.programName) });
   }

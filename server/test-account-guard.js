@@ -106,6 +106,27 @@ function pruneEphemeralTestAccountsFromStore(store, env = process.env) {
   return result;
 }
 
+/**
+ * Exclude QA / demo / test emails from customer-facing analytics totals.
+ * Independent of Postgres persistence rules so leftover stubs never inflate KPIs.
+ * Set ANALYTICS_INCLUDE_TEST_ACCOUNTS=true only for local fixture suites.
+ */
+function shouldExcludeFromCustomerAnalytics(email, env = process.env) {
+  if (String(env.ANALYTICS_INCLUDE_TEST_ACCOUNTS || "").toLowerCase() === "true") return false;
+  return isEphemeralTestAccountEmail(email, env);
+}
+
+function filterUsersForCustomerAnalytics(users, env = process.env) {
+  const list = Array.isArray(users) ? users : [];
+  const kept = [];
+  const excluded = [];
+  for (const user of list) {
+    if (shouldExcludeFromCustomerAnalytics(user?.email || user, env)) excluded.push(user);
+    else kept.push(user);
+  }
+  return { users: kept, excluded, excludedCount: excluded.length };
+}
+
 module.exports = {
   TEST_EMAIL_DOMAINS,
   normalizeEmail,
@@ -113,4 +134,6 @@ module.exports = {
   shouldPersistEphemeralTestAccounts,
   shouldRejectTestAccountPersistence,
   pruneEphemeralTestAccountsFromStore,
+  shouldExcludeFromCustomerAnalytics,
+  filterUsersForCustomerAnalytics,
 };

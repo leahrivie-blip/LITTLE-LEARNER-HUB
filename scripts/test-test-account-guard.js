@@ -84,9 +84,30 @@ function unitTests() {
   assert.equal(guard.isEphemeralTestAccountEmail("matrix-free@test.local"), true);
   assert.equal(guard.isEphemeralTestAccountEmail("qa.provider@example.com"), true);
   assert.equal(guard.isEphemeralTestAccountEmail("smoke-user@llh-qa.example"), true);
+  assert.equal(guard.isEphemeralTestAccountEmail("demo.user@gmail.com"), true);
+  assert.equal(guard.isEphemeralTestAccountEmail("verify-no-side-effect@example.com"), true);
+  assert.equal(guard.isEphemeralTestAccountEmail("audit-no-pay@example.com"), true);
   assert.equal(guard.isEphemeralTestAccountEmail("typoole04@gmail.com"), false);
   assert.equal(guard.isEphemeralTestAccountEmail("leahivie@icloud.com"), false);
   assert.equal(guard.isEphemeralTestAccountEmail("testimony@gmail.com"), false);
+
+  assert.equal(guard.shouldExcludeFromCustomerAnalytics("audit-no-pay@example.com"), true);
+  assert.equal(guard.shouldExcludeFromCustomerAnalytics("demo.user@gmail.com"), true);
+  assert.equal(guard.shouldExcludeFromCustomerAnalytics("typoole04@gmail.com"), false);
+  assert.equal(
+    guard.shouldExcludeFromCustomerAnalytics("audit-no-pay@example.com", {
+      ANALYTICS_INCLUDE_TEST_ACCOUNTS: "true",
+    }),
+    false,
+  );
+  const filtered = guard.filterUsersForCustomerAnalytics([
+    { email: "real@provider.com" },
+    { email: "qa.probe@example.com" },
+  ]);
+  assert.equal(filtered.users.length, 1);
+  assert.equal(filtered.excludedCount, 1);
+  assert.equal(filtered.users[0].email, "real@provider.com");
+  console.log("PASS analytics exclusion helpers");
 
   assert.equal(guard.shouldRejectTestAccountPersistence("matrix-free@test.local", {
     DATABASE_PROVIDER: "postgres",

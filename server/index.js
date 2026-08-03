@@ -29,11 +29,8 @@ const storeWriteMetricsLib = require("./store-write-metrics.js");
 const curriculumMedia = require("./curriculum-media.js");
 const curriculumResourceMigration = require("./curriculum-resource-migration.js");
 const seo = require("./seo.js");
-<<<<<<< HEAD
 const metaCapi = require("./meta-capi.js");
-=======
 const testAccountGuard = require("./test-account-guard.js");
->>>>>>> aa9caec (Block ephemeral test accounts from persisting in Postgres)
 
 function configureSeoCurriculumSnapshotProvider() {
   seo.configureCurriculumSnapshotProvider(() => {
@@ -11468,13 +11465,18 @@ function buildMarketingAnalytics(store, events, {
 } = {}) {
   const now = Date.now();
   const realtimeWindowMs = 15 * 60 * 1000;
-  const users = Object.values(store.users || {});
+  const { users, excludedCount: excludedTestAccounts } = testAccountGuard.filterUsersForCustomerAnalytics(
+    Object.values(store.users || {}),
+  );
+  const isAnalyticsTestActor = (event) => testAccountGuard.shouldExcludeFromCustomerAnalytics(
+    event?.user || event?.detail?.email || event?.email || "",
+  );
   const sessionVisits = events.filter((event) => event.name === "website_visit");
   const pageViews = events.filter((event) => event.name === "page_view");
   const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
-  const signups = events.filter((event) => event.name === "account_signup_complete");
-  const checkoutStarts = events.filter((event) => event.name === "checkout_start");
-  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const signups = events.filter((event) => event.name === "account_signup_complete" && !isAnalyticsTestActor(event));
+  const checkoutStarts = events.filter((event) => event.name === "checkout_start" && !isAnalyticsTestActor(event));
+  const paidEvents = events.filter((event) => event.name === "checkout_success" && !isAnalyticsTestActor(event));
   const actorKey = (event) => event.visitorId || event.user || event.sessionId || event.ipHash || "";
 
   const liveTraffic = trafficEvents.filter((event) => {
@@ -11801,6 +11803,7 @@ function buildMarketingAnalytics(store, events, {
 
   return {
     updatedAt: new Date().toISOString(),
+    excludedTestAccounts,
     realtime: {
       windowMinutes: 15,
       liveVisitors: liveVisitorIds.size,
@@ -14144,14 +14147,19 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
   ensureFoundingMemberUserStubs(store);
   const events = (eventsOverride || store.analyticsEvents || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   const chronological = events.slice().reverse();
-  const users = Object.values(store.users || {});
+  const { users, excludedCount: excludedTestAccounts } = testAccountGuard.filterUsersForCustomerAnalytics(
+    Object.values(store.users || {}),
+  );
+  const isAnalyticsTestActor = (event) => testAccountGuard.shouldExcludeFromCustomerAnalytics(
+    event?.user || event?.detail?.email || event?.email || "",
+  );
   // Session visits = website_visit only. Page views are counted separately so one
   // homepage load is not counted as 2–3 "visitors".
   const sessionVisits = events.filter((event) => event.name === "website_visit");
   const pageViews = events.filter((event) => event.name === "page_view");
   const trafficEvents = events.filter((event) => event.name === "website_visit" || event.name === "page_view");
-  const signups = events.filter((event) => event.name === "account_signup_complete");
-  const paidEvents = events.filter((event) => event.name === "checkout_success");
+  const signups = events.filter((event) => event.name === "account_signup_complete" && !isAnalyticsTestActor(event));
+  const paidEvents = events.filter((event) => event.name === "checkout_success" && !isAnalyticsTestActor(event));
   const billingEvents = store.billingEvents || [];
   const actorId = (event) => event.user || event.visitorId || event.sessionId || event.ipHash || "";
   const isProCheckoutStart = (event) => {
@@ -14395,7 +14403,9 @@ function analyticsSummary(store, { events: eventsOverride } = {}) {
       pageViewCount: pageViews.length,
       // Completed signup events only — registered users are tracked separately.
       signups: signups.length,
+      // QA/demo/test emails are excluded from all customer totals below.
       totalRegisteredUsers: users.length,
+      excludedTestAccounts,
       freeUsers: currentAccessCounts.free,
       trialUsers: trialUsers.length,
       proUsers: currentAccessCounts.pro,

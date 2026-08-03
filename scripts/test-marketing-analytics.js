@@ -293,6 +293,8 @@ async function main() {
       ADMIN_EMAIL: "owner@example.com",
       ADMIN_PASSWORD: "test-admin-pass",
       ADMIN_ACCESS_CODE: "12345",
+      // Fixture users use @example.com; include them only for this suite's KPI assertions.
+      ANALYTICS_INCLUDE_TEST_ACCOUNTS: "true",
       META_PIXEL_ID: "1400795025275614",
       META_CAPI_ACCESS_TOKEN: "",
       META_TRACKING_ENABLED: "true",
