@@ -33014,6 +33014,10 @@ function familyHubSectionIcon(kind = "") {
     photos: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="6" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="11" r="1.6" fill="currentColor"/><path d="M3.5 16l4.5-4 3.5 3 2.5-2 6.5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
     messages: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6h14v10H8l-3 3V6Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
     events: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 3.5V7M16 3.5V7M4 10h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    today: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5V12l3 2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    reports: `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h9l3 3v13H6V4Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h6M9 15h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    forms: `<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    more: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6.5" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="12" r="1.5" fill="currentColor"/><circle cx="17.5" cy="12" r="1.5" fill="currentColor"/></svg>`,
   };
   return icons[kind] || icons.notes;
 }
@@ -33387,13 +33391,13 @@ function renderFamilyHubParentShell(data, options = {}) {
     more: renderFamilyHubMorePanel(data),
   };
   const nav = [
-    ["today", "Today", "events"],
-    ["reports", "Reports", "notes"],
+    ["today", "Today", "today"],
+    ["reports", "Reports", "reports"],
     ["photos", "Photos", "photos"],
     ["messages", "Messages", "messages"],
     ["calendar", "Calendar", "events"],
-    ["forms", "Forms", "notes"],
-    ["more", "More", "care"],
+    ["forms", "Forms", "forms"],
+    ["more", "More", "more"],
   ];
   return `
     <div class="fh-parent-app" data-fh-panel="${escapeHtml(panel)}">
