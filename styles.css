@@ -5424,6 +5424,31 @@ body.lessons-view .mobile-brand {
   color: #666;
 }
 
+.admin-marketing-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.admin-marketing-filter-btn.is-active {
+  border-color: #5b9bd5;
+  background: #eef5fb;
+  color: #2f6f9f;
+  font-weight: 700;
+}
+
+.admin-marketing-attr-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-marketing-attr-table th,
+.admin-marketing-attr-table td {
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+
 .admin-marketing-feed {
   display: grid;
   gap: 8px;

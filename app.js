@@ -3675,6 +3675,8 @@ function analyticsSessionId() {
 
 function trafficSource() {
   const params = new URLSearchParams(window.location.search);
+  const medium = String(params.get("utm_medium") || "").toLowerCase();
+  if (medium === "email" || medium === "newsletter") return "Email";
   const utm = params.get("utm_source") || params.get("source");
   if (utm) return utm;
   if (params.get("fbclid")) return "Facebook";
@@ -3693,13 +3695,47 @@ function currentAttribution() {
 }
 
 function saveAttribution(detail = {}) {
+  // First-touch attribution only — never overwrite an existing first visit.
+  // Additive fields only; event names and tracking calls stay the same.
+  const existing = currentAttribution();
+  const params = new URLSearchParams(window.location.search);
+  const landingPage = `${window.location.pathname || ""}${window.location.search || ""}`
+    || detail.route
+    || window.location.hash
+    || "/";
+  if (existing.firstSeenAt) {
+    const patched = { ...existing };
+    let changed = false;
+    const fill = (key, value) => {
+      if (!patched[key] && value) {
+        patched[key] = value;
+        changed = true;
+      }
+    };
+    fill("campaign", params.get("utm_campaign") || detail.campaign || "");
+    fill("medium", params.get("utm_medium") || detail.medium || "");
+    fill("content", params.get("utm_content") || "");
+    fill("term", params.get("utm_term") || "");
+    fill("referrer", document.referrer || "");
+    fill("landingPage", landingPage);
+    if (changed) {
+      try { localStorage.setItem("llhAttribution", JSON.stringify(patched)); } catch { /* ignore */ }
+    }
+    return patched;
+  }
   const attribution = {
     route: detail.route || window.location.pathname || window.location.hash || "home",
     view: detail.view || "home",
     source: detail.source || trafficSource(),
+    campaign: params.get("utm_campaign") || detail.campaign || "",
+    medium: params.get("utm_medium") || detail.medium || "",
+    content: params.get("utm_content") || "",
+    term: params.get("utm_term") || "",
+    referrer: document.referrer || "",
+    landingPage,
     firstSeenAt: new Date().toISOString(),
   };
-  localStorage.setItem("llhAttribution", JSON.stringify(attribution));
+  try { localStorage.setItem("llhAttribution", JSON.stringify(attribution)); } catch { /* ignore */ }
   return attribution;
 }
 
@@ -43687,6 +43723,7 @@ function renderAdminAnalytics() {
 
 let adminMarketingRefreshTimer = null;
 let adminMarketingAutoRefresh = true;
+let adminMarketingAttributionFilter = "all";
 
 function adminMarketingMoney(value) {
   const amount = Number(value || 0);
@@ -43740,6 +43777,62 @@ function adminMarketingPeriodChart(title, counts = {}, emptyText = "No data yet.
   `;
 }
 
+function adminMarketingCostLabel(value, spendConfigured) {
+  if (!spendConfigured) return "—";
+  if (value == null) return "—";
+  return adminMarketingMoney(value);
+}
+
+function adminMarketingFilterRows(rows = [], filter = "all") {
+  const list = Array.isArray(rows) ? rows : [];
+  const key = String(filter || "all").toLowerCase();
+  if (key === "facebook") return list.filter((row) => row.source === "Facebook");
+  if (key === "tiktok") return list.filter((row) => row.source === "TikTok");
+  if (key === "google") return list.filter((row) => row.source === "Google");
+  if (key === "organic") return list.filter((row) => ["Direct", "Referral", "Email"].includes(row.source));
+  return list;
+}
+
+function adminMarketingAttributionTable(rows = []) {
+  if (!rows.length) {
+    return `<div class="empty-state">No attributed signups, trials, or paid subscriptions yet. New conversions will show source, campaign, medium, referrer, landing page, and first visit date.</div>`;
+  }
+  return `
+    <div class="admin-table-wrap admin-marketing-attr-table-wrap">
+      <table class="admin-table admin-marketing-attr-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Email</th>
+            <th>Source</th>
+            <th>Campaign</th>
+            <th>Medium</th>
+            <th>Referrer</th>
+            <th>Landing page</th>
+            <th>First visit</th>
+            <th>Converted</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.slice(0, 100).map((row) => `
+            <tr>
+              <td><strong>${escapeHtml(row.typeLabel || row.type || "—")}</strong></td>
+              <td>${escapeHtml(row.email || "—")}</td>
+              <td>${escapeHtml(row.source || "Unknown")}</td>
+              <td>${escapeHtml(row.campaign || "—")}</td>
+              <td>${escapeHtml(row.medium || "—")}</td>
+              <td title="${escapeHtml(row.referrer || "")}">${escapeHtml(String(row.referrer || "—").slice(0, 48))}</td>
+              <td title="${escapeHtml(row.landingPage || "")}">${escapeHtml(String(row.landingPage || "—").slice(0, 40))}</td>
+              <td>${escapeHtml(row.firstVisitAt ? new Date(row.firstVisitAt).toLocaleDateString() : "—")}</td>
+              <td>${escapeHtml(row.at ? new Date(row.at).toLocaleString() : "—")}</td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
 function ensureAdminMarketingAutoRefresh() {
   if (adminMarketingRefreshTimer) {
     clearInterval(adminMarketingRefreshTimer);
@@ -43776,6 +43869,22 @@ function renderAdminMarketingAnalytics() {
   const lastEvents = meta.lastEvents || {};
   const activityFeed = Array.isArray(marketing?.activityFeed) ? marketing.activityFeed : [];
   const deliveries = Array.isArray(meta.recentDeliveries) ? meta.recentDeliveries : [];
+  const attribution = marketing?.attribution || {};
+  const performance = marketing?.performance || {};
+  const attributionFilters = Array.isArray(attribution.filters) ? attribution.filters : [
+    { id: "all", label: "All sources" },
+    { id: "facebook", label: "Facebook only" },
+    { id: "tiktok", label: "TikTok only" },
+    { id: "google", label: "Google only" },
+    { id: "organic", label: "Organic only" },
+  ];
+  if (!attributionFilters.some((item) => item.id === adminMarketingAttributionFilter)) {
+    adminMarketingAttributionFilter = "all";
+  }
+  const filteredAttributionRows = adminMarketingFilterRows(attribution.rows || [], adminMarketingAttributionFilter);
+  const conversionBySource = Array.isArray(performance.conversionBySource) ? performance.conversionBySource : [];
+  const topLandingPages = Array.isArray(performance.topLandingPages) ? performance.topLandingPages : [];
+  const devices = performance.devices || {};
   const updatedLabel = adminAnalyticsFetchedAt
     ? adminMarketingRelativeTime(new Date(adminAnalyticsFetchedAt).toISOString())
     : "not loaded";
@@ -43863,6 +43972,70 @@ function renderAdminMarketingAnalytics() {
 
     <div class="section-heading" style="margin-top:18px;">
       <div>
+        <p class="eyebrow">Performance cards</p>
+        <h3>Cost, conversion quality, and visitor mix</h3>
+        <p class="muted-copy">${escapeHtml(performance.costNote || "Read-only marketing performance from your analytics store.")}</p>
+      </div>
+    </div>
+    <div class="analytics-summary-grid admin-marketing-performance-grid">
+      ${adminMetric("Cost / signup", adminMarketingCostLabel(performance.costPerSignup, performance.spendConfigured), performance.spendConfigured ? "Total spend ÷ signups" : "Spend not configured")}
+      ${adminMetric("Cost / trial", adminMarketingCostLabel(performance.costPerTrial, performance.spendConfigured), performance.spendConfigured ? "Total spend ÷ trials" : "Spend not configured")}
+      ${adminMetric("Cost / paid", adminMarketingCostLabel(performance.costPerPaid, performance.spendConfigured), performance.spendConfigured ? "Total spend ÷ paid" : "Spend not configured")}
+      ${adminMetric("New visitors", performance.newVisitors ?? "—", "Seen on only one day")}
+      ${adminMetric("Returning visitors", performance.returningVisitors ?? "—", "Seen on 2+ days")}
+      ${adminMetric("Avg time to signup", performance.avgTimeBeforeSignupLabel || "—", performance.signupDurationSampleSize ? `${performance.signupDurationSampleSize} signups sampled` : "Needs first-visit attribution")}
+      ${adminMetric("Mobile", devices.Mobile ?? 0, "Traffic events")}
+      ${adminMetric("Desktop", devices.Desktop ?? 0, "Traffic events")}
+    </div>
+    <div class="admin-marketing-meta-grid">
+      <article class="analytics-card">
+        <h4>Conversion rate by traffic source</h4>
+        ${conversionBySource.length ? conversionBySource.map((row) => `
+          <div class="analytics-row stacked">
+            <span><strong>${escapeHtml(row.source)}</strong> · ${escapeHtml(String(row.visitors))} visits</span>
+            <small>Signup ${escapeHtml(row.signupRate)} (${escapeHtml(String(row.signups))}) · Paid ${escapeHtml(row.paidRate)} (${escapeHtml(String(row.paid))}) · Trials ${escapeHtml(String(row.trials))}</small>
+          </div>
+        `).join("") : `<div class="empty-state">Source conversion rates appear after visits and signups.</div>`}
+      </article>
+      <article class="analytics-card">
+        <h4>Top landing pages</h4>
+        ${topLandingPages.length ? topLandingPages.map((row) => `
+          <div class="analytics-row"><span>${escapeHtml(row.page)}</span><strong>${escapeHtml(String(row.count))}</strong></div>
+        `).join("") : `<div class="empty-state">Landing pages appear after website visits.</div>`}
+      </article>
+      <article class="analytics-card">
+        <h4>Device breakdown</h4>
+        ${countListHtml({
+          Mobile: devices.Mobile || 0,
+          Desktop: devices.Desktop || 0,
+          Tablet: devices.Tablet || 0,
+          Unknown: devices.Unknown || 0,
+        }, "Device data appears after visits with user agents.")}
+        <p class="muted-copy" style="margin-top:10px;">Returning ${escapeHtml(String(performance.returningVisitors ?? 0))} · New ${escapeHtml(String(performance.newVisitors ?? 0))} · Unique ${escapeHtml(String(performance.uniqueVisitors ?? 0))}</p>
+      </article>
+    </div>
+
+    <div class="section-heading" style="margin-top:18px;">
+      <div>
+        <p class="eyebrow">Attribution</p>
+        <h3>Signup, trial, and paid source details</h3>
+        <p class="muted-copy">First-touch source, campaign, medium, referrer, landing page, and first visit date for each conversion. Read-only.</p>
+      </div>
+    </div>
+    <div class="admin-marketing-filter-row" role="toolbar" aria-label="Attribution source filters">
+      ${attributionFilters.map((item) => `
+        <button type="button" class="ghost-button admin-marketing-filter-btn${adminMarketingAttributionFilter === item.id ? " is-active" : ""}" data-marketing-attr-filter="${escapeHtml(item.id)}" aria-pressed="${adminMarketingAttributionFilter === item.id}">
+          ${escapeHtml(item.label)}
+        </button>
+      `).join("")}
+      <span class="muted-copy">${escapeHtml(String(filteredAttributionRows.length))} row${filteredAttributionRows.length === 1 ? "" : "s"}</span>
+    </div>
+    <article class="analytics-card">
+      ${adminMarketingAttributionTable(filteredAttributionRows)}
+    </article>
+
+    <div class="section-heading" style="margin-top:18px;">
+      <div>
         <p class="eyebrow">Trends</p>
         <h3>Daily, weekly, and monthly performance</h3>
       </div>
@@ -43910,6 +44083,12 @@ function renderAdminMarketingAnalytics() {
       renderAdminMarketingAnalytics();
     });
   }
+  target.querySelectorAll("[data-marketing-attr-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      adminMarketingAttributionFilter = btn.getAttribute("data-marketing-attr-filter") || "all";
+      renderAdminMarketingAnalytics();
+    });
+  });
   ensureAdminMarketingAutoRefresh();
 
   if (!adminAnalyticsCache && !adminAnalyticsLoading && !adminAnalyticsLastError) {

@@ -81,6 +81,14 @@ async function main() {
   assert.match(serverJs, /StartTrial: lastMetaEventSnapshot/);
   assert.match(serverJs, /Purchase: lastMetaEventSnapshot/);
   assert.doesNotMatch(serverJs, /accessToken:\s*metaCfg\.accessToken/);
+  assert.match(serverJs, /function extractEventAttribution/);
+  assert.match(serverJs, /function normalizeMarketingChannel/);
+  assert.match(serverJs, /attribution:\s*\{/);
+  assert.match(serverJs, /performance:\s*\{/);
+  assert.match(serverJs, /costPerSignup/);
+  assert.match(serverJs, /conversionBySource/);
+  assert.match(serverJs, /avgHoursBeforeSignup/);
+  assert.match(serverJs, /detectDeviceFromUserAgent/);
   console.log("PASS server marketing + Meta health helpers");
 
   assert.match(appJs, /id: "marketing"/);
@@ -89,6 +97,12 @@ async function main() {
   assert.match(appJs, /Live activity feed/);
   assert.match(appJs, /Meta Pixel &amp; Conversions API/);
   assert.match(appJs, /ensureAdminMarketingAutoRefresh/);
+  assert.match(appJs, /adminMarketingAttributionTable/);
+  assert.match(appJs, /data-marketing-attr-filter/);
+  assert.match(appJs, /Facebook only/);
+  assert.match(appJs, /Organic only/);
+  assert.match(appJs, /Cost \/ signup/);
+  assert.match(appJs, /utm_campaign/);
   assert.match(indexHtml, /admin-marketing-analytics-panel/);
   assert.match(indexHtml, /adminMarketingAnalyticsApp/);
   assert.match(adminWs, /data-admin-landing-tab="marketing-analytics"/);
@@ -96,6 +110,7 @@ async function main() {
 
   const storePath = path.join(os.tmpdir(), `llh-marketing-${crypto.randomBytes(4).toString("hex")}.json`);
   const port = 19700 + Math.floor(Math.random() * 200);
+  const firstVisit = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
   const now = new Date().toISOString();
   fs.writeFileSync(storePath, JSON.stringify({
     users: {
@@ -109,6 +124,14 @@ async function main() {
         signupAt: now,
         createdAt: now,
         lastSeenAt: now,
+        attribution: {
+          source: "Facebook",
+          campaign: "spring-ads",
+          medium: "paid_social",
+          referrer: "https://facebook.com/",
+          landingPage: "/?utm_source=facebook&utm_campaign=spring-ads",
+          firstSeenAt: firstVisit,
+        },
       },
       "trial@example.com": {
         email: "trial@example.com",
@@ -124,6 +147,14 @@ async function main() {
         signupAt: now,
         createdAt: now,
         lastSeenAt: now,
+        attribution: {
+          source: "TikTok",
+          campaign: "tt-launch",
+          medium: "paid_social",
+          referrer: "https://www.tiktok.com/",
+          landingPage: "/pricing?utm_source=tiktok&utm_campaign=tt-launch",
+          firstSeenAt: firstVisit,
+        },
       },
       "paid@example.com": {
         email: "paid@example.com",
@@ -141,6 +172,14 @@ async function main() {
         signupAt: now,
         createdAt: now,
         lastSeenAt: now,
+        attribution: {
+          source: "Google",
+          campaign: "brand-search",
+          medium: "cpc",
+          referrer: "https://google.com/",
+          landingPage: "/?gclid=abc123&utm_source=google&utm_campaign=brand-search",
+          firstSeenAt: firstVisit,
+        },
       },
     },
     analyticsEvents: [
@@ -149,9 +188,32 @@ async function main() {
         name: "website_visit",
         visitorId: "v1",
         sessionId: "s1",
-        createdAt: now,
+        createdAt: firstVisit,
         source: "facebook",
-        attribution: { source: "facebook" },
+        url: "https://littlelearnershubbyleah.com/?utm_source=facebook&utm_medium=paid_social&utm_campaign=spring-ads",
+        path: "/",
+        referrer: "https://facebook.com/",
+        userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)",
+        attribution: {
+          source: "facebook",
+          campaign: "spring-ads",
+          medium: "paid_social",
+          referrer: "https://facebook.com/",
+          landingPage: "/?utm_source=facebook&utm_medium=paid_social&utm_campaign=spring-ads",
+          firstSeenAt: firstVisit,
+        },
+      },
+      {
+        id: "visit_2",
+        name: "website_visit",
+        visitorId: "v2",
+        sessionId: "s2",
+        createdAt: firstVisit,
+        source: "Direct",
+        path: "/lessons",
+        url: "https://littlelearnershubbyleah.com/lessons",
+        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        attribution: { source: "Direct", landingPage: "/lessons", firstSeenAt: firstVisit },
       },
       {
         id: "signup_1",
@@ -159,6 +221,31 @@ async function main() {
         user: "free@example.com",
         visitorId: "v1",
         createdAt: now,
+        source: "facebook",
+        url: "https://littlelearnershubbyleah.com/?utm_source=facebook&utm_campaign=spring-ads",
+        attribution: {
+          source: "facebook",
+          campaign: "spring-ads",
+          medium: "paid_social",
+          referrer: "https://facebook.com/",
+          landingPage: "/?utm_source=facebook&utm_campaign=spring-ads",
+          firstSeenAt: firstVisit,
+        },
+      },
+      {
+        id: "signup_trial",
+        name: "account_signup_complete",
+        user: "trial@example.com",
+        visitorId: "v-tt",
+        createdAt: now,
+        source: "tiktok",
+        attribution: {
+          source: "tiktok",
+          campaign: "tt-launch",
+          medium: "paid_social",
+          landingPage: "/pricing?utm_source=tiktok&utm_campaign=tt-launch",
+          firstSeenAt: firstVisit,
+        },
       },
       {
         id: "checkout_1",
@@ -167,6 +254,14 @@ async function main() {
         createdAt: now,
         detail: { plan: "monthly", monthlyPrice: 19.99 },
         amount: 19.99,
+        source: "google",
+        attribution: {
+          source: "google",
+          campaign: "brand-search",
+          medium: "cpc",
+          landingPage: "/?gclid=abc123&utm_source=google&utm_campaign=brand-search",
+          firstSeenAt: firstVisit,
+        },
       },
     ],
     metaTrackingEvents: [
@@ -180,6 +275,7 @@ async function main() {
         createdAt: now,
       },
     ],
+    marketingAdSpend: { total: 300, Facebook: 150, TikTok: 100, Google: 50 },
     billingEvents: [],
     foundingMembers: [],
     feedbackItems: [],
@@ -244,6 +340,28 @@ async function main() {
     assert.ok(Number(marketing.funnel.freeSignups) >= 1);
     assert.ok(Number(marketing.funnel.trialStarts) >= 1);
     assert.ok(Object.keys(marketing.sources || {}).length >= 1 || Number(marketing.funnel.sessionVisits) >= 1);
+
+    assert.ok(marketing.attribution, "attribution dashboard missing");
+    assert.ok(Array.isArray(marketing.attribution.rows), "attribution rows missing");
+    assert.ok(marketing.attribution.rows.length >= 3, "expected signup/trial/paid attribution rows");
+    const facebookRow = marketing.attribution.rows.find((row) => row.source === "Facebook");
+    assert.ok(facebookRow, "Facebook attribution row missing");
+    assert.equal(facebookRow.campaign, "spring-ads");
+    assert.equal(facebookRow.medium, "paid_social");
+    assert.ok(facebookRow.landingPage.includes("utm_source=facebook") || facebookRow.landingPage.includes("spring-ads"));
+    assert.ok(facebookRow.firstVisitAt, "first visit date missing");
+    assert.ok(marketing.attribution.rows.some((row) => row.source === "TikTok"));
+    assert.ok(marketing.attribution.rows.some((row) => row.source === "Google"));
+    assert.ok((marketing.attribution.filters || []).some((item) => item.id === "organic"));
+
+    assert.ok(marketing.performance, "performance cards missing");
+    assert.equal(marketing.performance.spendConfigured, true);
+    assert.equal(marketing.performance.costPerSignup, 150);
+    assert.ok(Array.isArray(marketing.performance.conversionBySource));
+    assert.ok(Array.isArray(marketing.performance.topLandingPages));
+    assert.ok((marketing.performance.devices?.Mobile || 0) >= 1);
+    assert.ok((marketing.performance.devices?.Desktop || 0) >= 1);
+    assert.ok(marketing.performance.avgTimeBeforeSignupLabel, "avg time before signup missing");
     console.log("PASS /api/admin/analytics marketing slice");
   } finally {
     child.kill("SIGTERM");

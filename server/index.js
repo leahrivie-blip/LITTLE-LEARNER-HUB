@@ -11261,6 +11261,127 @@ function rate(part, whole) {
   return whole ? `${Math.round((part / whole) * 100)}%` : "0%";
 }
 
+function parseUrlSearchParams(urlValue) {
+  try {
+    const raw = String(urlValue || "").trim();
+    if (!raw) return new URLSearchParams();
+    if (raw.startsWith("?")) return new URLSearchParams(raw);
+    const url = new URL(raw, "https://littlelearnershubbyleah.com");
+    return url.searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+function normalizeMarketingChannel(value, {
+  url = "",
+  referrer = "",
+  medium = "",
+} = {}) {
+  const raw = String(value || "").trim();
+  const mediumText = String(medium || "").trim().toLowerCase();
+  const blob = `${raw} ${url} ${referrer} ${mediumText}`.toLowerCase();
+  if (mediumText === "email" || mediumText === "newsletter" || /\bemail\b|newsletter|mailchimp|resend/.test(blob)) {
+    return "Email";
+  }
+  if (/facebook|instagram|fbclid|\bmeta\b/.test(blob) || /^fb$/i.test(raw)) return "Facebook";
+  if (/tiktok|ttclid/.test(blob)) return "TikTok";
+  if (/gclid|google|adwords|youtube|googlesyndication/.test(blob)) return "Google";
+  if (/^direct$/i.test(raw) || raw.toLowerCase() === "direct") return "Direct";
+  if (/^referral$/i.test(raw) || raw.toLowerCase() === "referral") return "Referral";
+  if (/^email$/i.test(raw)) return "Email";
+  if (/^search$/i.test(raw) || /bing|yahoo|duckduckgo/.test(blob)) return "Referral";
+  if (!raw && !referrer) return "Direct";
+  if (referrer) return "Referral";
+  if (!raw) return "Unknown";
+  // Preserve unknown paid/partner labels as Unknown rather than inventing channels.
+  if (/campaign/i.test(raw)) return "Unknown";
+  return "Unknown";
+}
+
+function isOrganicMarketingChannel(channel) {
+  return ["Direct", "Referral", "Email"].includes(String(channel || ""));
+}
+
+function detectDeviceFromUserAgent(userAgent) {
+  const ua = String(userAgent || "").toLowerCase();
+  if (!ua) return "Unknown";
+  if (/ipad|tablet|kindle|silk|(android(?!.*mobile))/.test(ua)) return "Tablet";
+  if (/mobi|iphone|ipod|android.*mobile|windows phone|blackberry/.test(ua)) return "Mobile";
+  return "Desktop";
+}
+
+function extractEventAttribution(event = {}) {
+  const attr = event.attribution && typeof event.attribution === "object" ? event.attribution : {};
+  const params = parseUrlSearchParams(event.url || attr.landingPage || "");
+  const campaign = String(attr.campaign || params.get("utm_campaign") || event.detail?.campaign || "").slice(0, 160);
+  const medium = String(attr.medium || params.get("utm_medium") || event.detail?.medium || "").slice(0, 80);
+  const referrer = String(attr.referrer || event.referrer || "").slice(0, 500);
+  const landingPage = String(
+    attr.landingPage
+    || attr.route
+    || event.path
+    || (() => {
+      try {
+        return new URL(String(event.url || ""), "https://littlelearnershubbyleah.com").pathname
+          + new URL(String(event.url || ""), "https://littlelearnershubbyleah.com").search;
+      } catch {
+        return event.path || "/";
+      }
+    })(),
+  ).slice(0, 240) || "/";
+  const sourceRaw = attr.source || event.source || event.detail?.source || params.get("utm_source") || "";
+  const source = normalizeMarketingChannel(sourceRaw, { url: event.url || "", referrer, medium });
+  const firstVisitAt = String(attr.firstSeenAt || attr.firstVisitAt || "").slice(0, 40);
+  return {
+    source,
+    campaign: campaign || "—",
+    medium: medium || "—",
+    referrer: referrer || "—",
+    landingPage,
+    firstVisitAt,
+  };
+}
+
+function readMarketingAdSpend(store) {
+  const fromStore = store?.marketingAdSpend && typeof store.marketingAdSpend === "object"
+    ? store.marketingAdSpend
+    : {};
+  const num = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
+  const bySource = {
+    Facebook: num(fromStore.Facebook ?? fromStore.facebook ?? process.env.MARKETING_AD_SPEND_FACEBOOK),
+    TikTok: num(fromStore.TikTok ?? fromStore.tiktok ?? process.env.MARKETING_AD_SPEND_TIKTOK),
+    Google: num(fromStore.Google ?? fromStore.google ?? process.env.MARKETING_AD_SPEND_GOOGLE),
+    Direct: num(fromStore.Direct ?? fromStore.direct),
+    Referral: num(fromStore.Referral ?? fromStore.referral),
+    Email: num(fromStore.Email ?? fromStore.email),
+    Unknown: num(fromStore.Unknown ?? fromStore.unknown),
+  };
+  const totalFromParts = Object.values(bySource).reduce((sum, value) => sum + value, 0);
+  const total = num(fromStore.total ?? process.env.MARKETING_AD_SPEND_TOTAL) || totalFromParts;
+  return {
+    total,
+    bySource,
+    configured: total > 0 || totalFromParts > 0,
+  };
+}
+
+function formatCostMetric(spend, conversions) {
+  if (!(spend > 0)) return null;
+  if (!(conversions > 0)) return null;
+  return Number((spend / conversions).toFixed(2));
+}
+
+function formatDurationHours(hours) {
+  if (!Number.isFinite(hours) || hours < 0) return null;
+  if (hours < 1) return `${Math.max(1, Math.round(hours * 60))}m`;
+  if (hours < 48) return `${hours.toFixed(1)}h`;
+  return `${(hours / 24).toFixed(1)}d`;
+}
+
 function lastMetaEventSnapshot(deliveries, eventName, fallbackAt = "", fallbackDetail = "") {
   const match = (deliveries || []).find((row) => row.eventName === eventName);
   if (match) {
@@ -11424,6 +11545,219 @@ function buildMarketingAnalytics(store, events, {
     .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
     .slice(0, 50);
 
+  // Attribution resolution: prefer conversion event → user.attribution → earliest visitor traffic.
+  const eventsChronological = events.slice().sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+  const firstTrafficByVisitor = new Map();
+  const firstTrafficByUser = new Map();
+  for (const event of eventsChronological) {
+    if (event.name !== "website_visit" && event.name !== "page_view" && event.name !== "ad_route_visit") continue;
+    const visitor = event.visitorId || "";
+    if (visitor && !firstTrafficByVisitor.has(visitor)) firstTrafficByVisitor.set(visitor, event);
+    const email = event.user && event.user !== "guest" ? event.user : "";
+    if (email && !firstTrafficByUser.has(email)) firstTrafficByUser.set(email, event);
+  }
+
+  const resolveAttributionForActor = ({ email = "", visitorId = "", event = null, user = null } = {}) => {
+    const fromEvent = event ? extractEventAttribution(event) : null;
+    const userAttr = user?.attribution && typeof user.attribution === "object" ? user.attribution : null;
+    const firstTraffic = (visitorId && firstTrafficByVisitor.get(visitorId))
+      || (email && firstTrafficByUser.get(email))
+      || null;
+    const fromFirst = firstTraffic ? extractEventAttribution(firstTraffic) : null;
+    const fromUser = userAttr ? extractEventAttribution({
+      attribution: userAttr,
+      source: userAttr.source,
+      referrer: userAttr.referrer,
+      path: userAttr.landingPage,
+      url: userAttr.landingPage,
+    }) : null;
+    const pick = fromEvent?.source && fromEvent.source !== "Unknown" ? fromEvent
+      : (fromUser?.source && fromUser.source !== "Unknown" ? fromUser : (fromFirst || fromEvent || fromUser || {
+        source: "Unknown",
+        campaign: "—",
+        medium: "—",
+        referrer: "—",
+        landingPage: "/",
+        firstVisitAt: "",
+      }));
+    const firstVisitAt = pick.firstVisitAt
+      || fromUser?.firstVisitAt
+      || fromFirst?.firstVisitAt
+      || firstTraffic?.createdAt
+      || userAttr?.firstSeenAt
+      || "";
+    return {
+      source: pick.source || "Unknown",
+      campaign: pick.campaign && pick.campaign !== "—" ? pick.campaign : (fromUser?.campaign && fromUser.campaign !== "—" ? fromUser.campaign : (fromFirst?.campaign || "—")),
+      medium: pick.medium && pick.medium !== "—" ? pick.medium : (fromUser?.medium && fromUser.medium !== "—" ? fromUser.medium : (fromFirst?.medium || "—")),
+      referrer: pick.referrer && pick.referrer !== "—" ? pick.referrer : (fromUser?.referrer && fromUser.referrer !== "—" ? fromUser.referrer : (fromFirst?.referrer || "—")),
+      landingPage: pick.landingPage || fromUser?.landingPage || fromFirst?.landingPage || "/",
+      firstVisitAt,
+    };
+  };
+
+  const usersByEmail = new Map(users.map((user) => [normalizeEmail(user.email), user]));
+  const attributionRows = [];
+  for (const event of signups) {
+    const email = normalizeEmail(event.user || event.detail?.email || "");
+    const user = usersByEmail.get(email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: event.visitorId || "",
+      event,
+      user,
+    });
+    attributionRows.push({
+      id: event.id || `signup_${email}_${event.createdAt}`,
+      type: "signup",
+      typeLabel: "Free signup",
+      email,
+      at: event.createdAt || "",
+      ...attr,
+    });
+  }
+  for (const row of trialStartRows) {
+    const email = normalizeEmail(row.email);
+    const user = usersByEmail.get(email) || null;
+    const signupEvent = signups.find((event) => normalizeEmail(event.user) === email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: signupEvent?.visitorId || "",
+      event: signupEvent,
+      user,
+    });
+    attributionRows.push({
+      id: `trial_${email}_${row.at}`,
+      type: "trial",
+      typeLabel: "Trial start",
+      email,
+      at: row.at || "",
+      ...attr,
+    });
+  }
+  for (const event of paidEvents) {
+    const email = normalizeEmail(event.user || event.detail?.email || "");
+    const user = usersByEmail.get(email) || null;
+    const signupEvent = signups.find((item) => normalizeEmail(item.user) === email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: event.visitorId || signupEvent?.visitorId || "",
+      event: event.source || event.attribution ? event : signupEvent,
+      user,
+    });
+    attributionRows.push({
+      id: event.id || `paid_${email}_${event.createdAt}`,
+      type: "paid",
+      typeLabel: "Paid subscription",
+      email,
+      at: event.createdAt || "",
+      ...attr,
+    });
+  }
+  // Also include Meta-stamped purchases that may not have a checkout_success analytics event.
+  for (const row of purchaseRows) {
+    const email = normalizeEmail(row.email);
+    if (attributionRows.some((item) => item.type === "paid" && item.email === email)) continue;
+    const user = usersByEmail.get(email) || null;
+    const signupEvent = signups.find((item) => normalizeEmail(item.user) === email) || null;
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId: signupEvent?.visitorId || "",
+      event: signupEvent,
+      user,
+    });
+    attributionRows.push({
+      id: `paid_meta_${email}_${row.at}`,
+      type: "paid",
+      typeLabel: "Paid subscription",
+      email,
+      at: row.at || "",
+      ...attr,
+    });
+  }
+  attributionRows.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+
+  const spend = readMarketingAdSpend(store);
+  const channelKeys = ["Facebook", "TikTok", "Google", "Direct", "Referral", "Email", "Unknown"];
+  const visitorsBySource = {};
+  const signupsBySource = {};
+  const trialsBySource = {};
+  const paidBySource = {};
+  channelKeys.forEach((key) => {
+    visitorsBySource[key] = 0;
+    signupsBySource[key] = 0;
+    trialsBySource[key] = 0;
+    paidBySource[key] = 0;
+  });
+  for (const event of sessionVisits.length ? sessionVisits : trafficEvents) {
+    const channel = extractEventAttribution(event).source;
+    visitorsBySource[channel] = (visitorsBySource[channel] || 0) + 1;
+  }
+  for (const row of attributionRows) {
+    if (row.type === "signup") signupsBySource[row.source] = (signupsBySource[row.source] || 0) + 1;
+    if (row.type === "trial") trialsBySource[row.source] = (trialsBySource[row.source] || 0) + 1;
+    if (row.type === "paid") paidBySource[row.source] = (paidBySource[row.source] || 0) + 1;
+  }
+  const conversionBySource = channelKeys.map((source) => {
+    const visitors = visitorsBySource[source] || 0;
+    const signupCount = signupsBySource[source] || 0;
+    const trialCount = trialsBySource[source] || 0;
+    const paidCount = paidBySource[source] || 0;
+    return {
+      source,
+      visitors,
+      signups: signupCount,
+      trials: trialCount,
+      paid: paidCount,
+      signupRate: rate(signupCount, Math.max(visitors, 1)),
+      paidRate: rate(paidCount, Math.max(visitors, 1)),
+      organic: isOrganicMarketingChannel(source),
+    };
+  }).filter((row) => row.visitors || row.signups || row.trials || row.paid);
+
+  const landingCounts = countBy(
+    trafficEvents.length ? trafficEvents : sessionVisits,
+    (event) => extractEventAttribution(event).landingPage || event.path || "/",
+  );
+  const topLandingPages = Object.entries(landingCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10)
+    .map(([page, count]) => ({ page, count }));
+
+  const deviceCounts = { Mobile: 0, Desktop: 0, Tablet: 0, Unknown: 0 };
+  for (const event of trafficEvents) {
+    const device = detectDeviceFromUserAgent(event.userAgent);
+    deviceCounts[device] = (deviceCounts[device] || 0) + 1;
+  }
+
+  const signupDurationsHours = [];
+  for (const event of signups) {
+    const email = normalizeEmail(event.user || "");
+    const visitorId = event.visitorId || "";
+    const attr = resolveAttributionForActor({
+      email,
+      visitorId,
+      event,
+      user: usersByEmail.get(email) || null,
+    });
+    const firstAt = new Date(attr.firstVisitAt || 0).getTime();
+    const signupAt = new Date(event.createdAt || 0).getTime();
+    if (Number.isFinite(firstAt) && Number.isFinite(signupAt) && signupAt >= firstAt) {
+      signupDurationsHours.push((signupAt - firstAt) / (60 * 60 * 1000));
+    }
+  }
+  const avgHoursBeforeSignup = signupDurationsHours.length
+    ? Number((signupDurationsHours.reduce((sum, value) => sum + value, 0) / signupDurationsHours.length).toFixed(2))
+    : null;
+
+  const uniqueVisitorCount = Number(totals.uniqueVisitors || 0);
+  const returningVisitorCount = Number(totals.returningVisitors || 0);
+  const newVisitorCount = Math.max(uniqueVisitorCount - returningVisitorCount, 0);
+
+  const totalSignups = signups.length;
+  const totalTrials = trialStartRows.length;
+  const totalPaid = attributionRows.filter((row) => row.type === "paid").length;
+
   return {
     updatedAt: new Date().toISOString(),
     realtime: {
@@ -11512,6 +11846,36 @@ function buildMarketingAnalytics(store, events, {
       })),
     },
     activityFeed,
+    attribution: {
+      rows: attributionRows.slice(0, 250),
+      totalRows: attributionRows.length,
+      filters: [
+        { id: "all", label: "All sources" },
+        { id: "facebook", label: "Facebook only" },
+        { id: "tiktok", label: "TikTok only" },
+        { id: "google", label: "Google only" },
+        { id: "organic", label: "Organic only" },
+      ],
+    },
+    performance: {
+      spendConfigured: spend.configured,
+      spendTotal: spend.total,
+      costPerSignup: formatCostMetric(spend.total, totalSignups),
+      costPerTrial: formatCostMetric(spend.total, totalTrials),
+      costPerPaid: formatCostMetric(spend.total, totalPaid),
+      costNote: spend.configured
+        ? "Costs use configured ad spend (MARKETING_AD_SPEND_* env or store.marketingAdSpend)."
+        : "Set MARKETING_AD_SPEND_TOTAL (or Facebook/TikTok/Google spend env vars) to calculate cost metrics.",
+      conversionBySource,
+      topLandingPages,
+      returningVisitors: returningVisitorCount,
+      newVisitors: newVisitorCount,
+      uniqueVisitors: uniqueVisitorCount,
+      devices: deviceCounts,
+      avgHoursBeforeSignup,
+      avgTimeBeforeSignupLabel: formatDurationHours(avgHoursBeforeSignup),
+      signupDurationSampleSize: signupDurationsHours.length,
+    },
   };
 }
 
@@ -11599,6 +11963,19 @@ function updateAnalyticsUser(store, event) {
       updates.role = accountAccess.normalizeUserRole(event.detail.role);
     }
     if (event.detail?.phone) updates.phone = normalizedShortText(event.detail.phone, 40);
+    // Persist first-touch attribution on the user for later trial/paid marketing rows.
+    if (!existing.attribution?.firstVisitAt && !existing.attribution?.firstSeenAt) {
+      const snap = extractEventAttribution(event);
+      updates.attribution = {
+        source: snap.source,
+        campaign: snap.campaign === "—" ? "" : snap.campaign,
+        medium: snap.medium === "—" ? "" : snap.medium,
+        referrer: snap.referrer === "—" ? "" : snap.referrer,
+        landingPage: snap.landingPage,
+        firstSeenAt: snap.firstVisitAt || event.createdAt,
+        capturedAt: event.createdAt,
+      };
+    }
   }
   if (event.name === "account_login_complete") updates.lastLoginAt = event.createdAt;
   if (event.name === "checkout_success") {
