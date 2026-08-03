@@ -118,6 +118,7 @@
     "test:home-daycare-hub-step-b": "node scripts/test-home-daycare-hub-step-b.js",
     "test:home-daycare-hub-step-c": "node scripts/test-home-daycare-hub-step-c.js",
     "test:home-daycare-hub-step-d": "node scripts/test-home-daycare-hub-step-d.js",
+    "test:family-hub-testing-readiness": "node scripts/test-family-hub-testing-readiness.js",
     "test:home-daycare-hub-finish": "node scripts/test-home-daycare-hub-finish.js",
     "test:home-daycare-hub-walkthrough": "node scripts/test-home-daycare-hub-walkthrough.js",
     "test:home-daycare-hub": "npm run test:home-daycare-hub-step-a && npm run test:home-daycare-hub-step-b && npm run test:home-daycare-hub-step-c && npm run test:home-daycare-hub-step-d && npm run test:home-daycare-hub-finish && npm run test:home-daycare-hub-walkthrough",

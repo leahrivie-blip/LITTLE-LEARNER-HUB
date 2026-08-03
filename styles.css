@@ -22401,12 +22401,108 @@ body.hdh-tester-switching {
   padding-top: 0;
 }
 
-body.hdh-persona-parent .sidebar {
+body.hdh-persona-parent .sidebar,
+body.family-hub-parent-mode .sidebar {
   display: none;
 }
 
-body.hdh-persona-parent .main {
+body.hdh-persona-parent .main,
+body.family-hub-parent-mode .main {
   margin-left: 0;
+}
+
+/* Pure parent / parent-preview shell: hide provider marketing + billing chrome */
+body.family-hub-parent-mode #signupButton,
+body.family-hub-parent-mode #loginButton,
+body.family-hub-parent-mode .topbar-auth,
+body.family-hub-parent-mode [data-checkout-plan],
+body.family-hub-parent-mode .sidebar-free-upgrade,
+body.family-hub-parent-mode .llh-pricing-section,
+body.family-hub-parent-mode #homePricing,
+body.family-hub-parent-mode a[data-home-nav="pricing"],
+body.family-hub-parent-mode .site-search,
+body.family-hub-parent-mode #globalSearch,
+body.family-hub-parent-mode .search-bar,
+body.family-hub-parent-mode [data-nav-hdh-testing="true"] {
+  display: none !important;
+}
+
+body.family-hub-parent-mode:not(.hdh-tester-switching) #hdhTesterSwitcherChrome {
+  display: none !important;
+}
+
+.fh-preview-banner {
+  display: grid;
+  gap: 4px;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(61, 83, 74, 0.16);
+  background: rgba(91, 155, 213, 0.12);
+  border-radius: 12px;
+}
+
+.fh-preview-banner strong {
+  font-size: 0.95rem;
+}
+
+.fh-preview-banner span {
+  color: var(--muted, #5b6578);
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.fh-parent-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.fh-parent-nav-link {
+  border: 1px solid rgba(61, 83, 74, 0.16);
+  background: #fff;
+  color: #24312c;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.fh-parent-nav-link.is-active {
+  background: #24312c;
+  color: #fff;
+  border-color: #24312c;
+}
+
+.fh-coming-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.fh-coming-card,
+.fh-preview-section .resource-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.fh-coming-card {
+  padding: 12px 14px;
+  border: 1px solid rgba(61, 83, 74, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.fh-coming-card p {
+  margin: 4px 0 0;
+}
+
+@media (max-width: 719px) {
+  .fh-parent-nav-link {
+    flex: 1 1 calc(50% - 8px);
+    text-align: center;
+  }
 }
 
 @media (max-width: 719px) {

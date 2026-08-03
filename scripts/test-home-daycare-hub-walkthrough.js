@@ -15,7 +15,7 @@ const { spawn } = require("node:child_process");
 const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
-const SHELL = "20260730-hdh-own-tester-kid";
+const SHELL = "20260803-family-hub-ready";
 const OWNER = "hdh.walkthrough.owner@example.com";
 const PARENT = "hdh.walkthrough.parent@example.com";
 const HELPER = "hdh.walkthrough.helper@example.com";
@@ -55,6 +55,7 @@ function spawnServer({ port, storePath, hubTesting }) {
       LLH_STORE_PATH: storePath,
       DATABASE_PROVIDER: "local-json",
       HOME_DAYCARE_HUB_TESTING: hubTesting ? "true" : "false",
+      LLH_ALLOW_EPHEMERAL_FAMILY_HUB: "true",
       NODE_ENV: "test",
       ALLOW_EMAIL_SCHEDULE_AUTH: "true",
     },
@@ -124,9 +125,9 @@ async function main() {
   assert.match(indexHtml, new RegExp(`SHELL_VERSION = "${SHELL}"`));
   assert.match(indexHtml, new RegExp(`app\\.js\\?v=${SHELL}`));
   assert.match(sw, new RegExp(SHELL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  assert.match(sw, /llh-shell-v141-hdh-own-tester-kid/);
+  assert.match(sw, /llh-shell-v160-family-hub-ready/);
   assert.equal(manifest.version, SHELL);
-  assert.equal(manifest.cacheName, "llh-shell-v141-hdh-own-tester-kid");
+  assert.equal(manifest.cacheName, "llh-shell-v160-family-hub-ready");
   console.log("PASS  shell / SW / manifest cache-bust aligned");
 
   const offPort = 20110 + Math.floor(Math.random() * 40);
