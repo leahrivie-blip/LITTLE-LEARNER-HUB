@@ -1601,7 +1601,7 @@ function buildAdvisor(store, events, range, extras = {}) {
   );
   if (actionableWorst && actionableWorst.dropOffCount > 0) {
     summaryLines.push(
-      `Biggest funnel drop-off: ${actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`} (${actionableWorst.dropOffRateLabel})`,
+      `Biggest Opportunity: ${actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`} (${actionableWorst.dropOffRateLabel})`,
     );
   }
   if (!funnel.emailVerificationRequired) {
@@ -1609,10 +1609,48 @@ function buildAdvisor(store, events, range, extras = {}) {
   }
 
   const recommendations = [];
-  const addRec = (priority, title, detail, hub) => {
-    recommendations.push({ priority, title, detail, hub });
+  const addRec = (priority, title, detail, hub, category = "conversion") => {
+    recommendations.push({ priority, title, detail, hub, category });
   };
-  // Never recommend fixing optional gates (Email verified / Trial ended).
+
+  const scopedEvents = scoped;
+  const signupCompletions = scopedEvents.filter((e) => e.name === "account_signup_complete").length;
+  const firstLessons = scopedEvents.filter((e) => e.name === "first_lesson_opened" || e.name === "lesson_plan_view").length;
+  const freeSelected = scopedEvents.filter((e) => e.name === "free_selected" || e.name === "free_plan_selected").length;
+  const trialSelected = scopedEvents.filter((e) => e.name === "trial_selected").length;
+  const welcomeViews = scopedEvents.filter((e) => e.name === "welcome_screen_viewed").length;
+
+  // Onboarding opportunity: accounts created but little product use.
+  if (signupCompletions >= 5 && firstLessons < Math.max(1, Math.round(signupCompletions * 0.4))) {
+    addRec(
+      "high",
+      "Many new users create an account but never open a lesson plan",
+      "Guide users to a lesson plan immediately after signup (Welcome → starter cards).",
+      "feature-usage",
+      "onboarding",
+    );
+  }
+  // Conversion opportunity: Free explorers who never choose trial.
+  if (freeSelected >= 5 && trialSelected < Math.max(1, Math.round(freeSelected * 0.25))) {
+    addRec(
+      "medium",
+      "Many Free users explore the platform but never start a trial",
+      "Improve the trial presentation after users experience the platform — not immediately at signup.",
+      "marketing-funnel",
+      "conversion",
+    );
+  }
+  if (welcomeViews >= 5 && trialSelected + freeSelected < welcomeViews * 0.5) {
+    addRec(
+      "medium",
+      "Welcome screen continues are not converting into an explore choice",
+      "Consider clarifying the Free vs Trial chooser copy (A/B versions B–D).",
+      "marketing-funnel",
+      "onboarding",
+    );
+  }
+
+  // Never recommend fixing optional gates (Email verified / Trial ended) as broken leaks.
   if (
     actionableWorst
     && actionableWorst.dropOffRate >= 50
@@ -1623,33 +1661,44 @@ function buildAdvisor(store, events, range, extras = {}) {
     && actionableWorst.from !== "trialEnded"
     && actionableWorst.to !== "trialEnded"
   ) {
+    const edgeLabel = actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`;
+    const isTrialEdge = /trial/i.test(edgeLabel);
     addRec(
       "high",
-      `Fix drop-off: ${actionableWorst.advisorLabel || `${actionableWorst.fromLabel} → ${actionableWorst.toLabel}`}`,
-      `${actionableWorst.dropOffRateLabel} leave before ${actionableWorst.toLabel}. Focus on required steps (Visitor→Signup→Trial→Paid).`,
+      isTrialEdge
+        ? `Conversion Opportunity: ${edgeLabel}`
+        : `Biggest Opportunity: ${edgeLabel}`,
+      `${actionableWorst.dropOffRateLabel} leave before ${actionableWorst.toLabel}. Focus on required steps (Visitor→Signup→Trial→Paid) — optional steps are informational only.`,
       "marketing-funnel",
+      "conversion",
     );
   }
-  // Surface the next-largest required-edge leak when the top one was filtered or weak.
   const secondary = advisorEdges
     .filter((t) => t !== actionableWorst && t.dropOffRate >= 40 && t.fromCount >= 5)
     .sort((a, b) => b.dropOffRate - a.dropOffRate || b.dropOffCount - a.dropOffCount)[0];
-  if (secondary && recommendations.length < 2) {
+  if (secondary && recommendations.length < 3) {
     addRec(
       "medium",
-      `Improve ${secondary.advisorLabel}`,
-      `${secondary.dropOffRateLabel} drop-off (${secondary.dropOffCount} people) on a required conversion step.`,
+      `Conversion Opportunity: ${secondary.advisorLabel}`,
+      `${secondary.dropOffRateLabel} on a required conversion step (${secondary.dropOffCount} people).`,
       "marketing-funnel",
+      "conversion",
     );
   }
   if (topNoResult) {
-    addRec("high", `Build content for “${topNoResult.key}”`, `${topNoResult.count} no-result searches in this range.`, "search-analytics");
+    addRec("high", `Content Opportunity: build “${topNoResult.key}”`, `${topNoResult.count} no-result searches in this range.`, "search-analytics", "content");
   }
   if (topLesson) {
-    addRec("high", `Promote “${topLesson.key}”`, "Highest viewed lesson — feature it on TikTok/Facebook and homepage.", "feature-usage");
+    addRec(
+      "high",
+      `Content Opportunity: improve “${topLesson.key}”`,
+      "Highest viewed lesson — many users open this before upgrading. Feature it and polish the trial presentation around it.",
+      "feature-usage",
+      "content",
+    );
   }
   if (topRequest && ["New", "Under Review", "Planned"].includes(topRequest.status)) {
-    addRec("medium", `Advance feature request “${topRequest.title}”`, `${topRequest.votes} votes — update status or estimate a release.`, "feature-requests");
+    addRec("medium", `Retention Opportunity: advance “${topRequest.title}”`, `${topRequest.votes} votes — update status or estimate a release.`, "feature-requests", "retention");
   }
   const trialEnding = Object.values(store.users || {}).filter((u) => {
     if (!u.trialEnd) return false;
@@ -1658,7 +1707,7 @@ function buildAdvisor(store, events, range, extras = {}) {
     return days >= 0 && days <= 2;
   });
   if (trialEnding.length) {
-    addRec("high", `Email ${trialEnding.length} trial user${trialEnding.length === 1 ? "" : "s"} ending within 48 hours`, "Convert while intent is highest.", "advisor");
+    addRec("high", `Conversion Opportunity: email ${trialEnding.length} trial user${trialEnding.length === 1 ? "" : "s"} ending within 48 hours`, "Convert while intent is highest.", "advisor", "conversion");
   }
   const inactivePro = Object.values(store.users || {}).filter((u) => {
     const plan = String(u.plan || "").toLowerCase();
@@ -1667,19 +1716,19 @@ function buildAdvisor(store, events, range, extras = {}) {
     return !last || (Date.now() - last) > 14 * 86400000;
   });
   if (inactivePro.length) {
-    addRec("medium", `Reach out to ${Math.min(inactivePro.length, 25)} inactive Pro/Founding members`, "No activity in 14+ days — win-back message.", "churn-dashboard");
+    addRec("medium", `Retention Opportunity: reach ${Math.min(inactivePro.length, 25)} inactive Pro/Founding members`, "No activity in 14+ days — win-back message.", "churn-dashboard", "retention");
   }
   if (errors.serverMonitor && errors.serverMonitor.ok === false) {
-    addRec("high", "Investigate 5xx error spike", errors.serverMonitor.detail || "Error rate check is failing.", "error-center");
+    addRec("high", "Investigate 5xx error spike", errors.serverMonitor.detail || "Error rate check is failing.", "error-center", "retention");
   }
   if (content.updateRecommendations[0]) {
-    addRec("medium", `Update “${content.updateRecommendations[0].title}”`, content.updateRecommendations[0].reason, "content-health");
+    addRec("medium", `Content Opportunity: update “${content.updateRecommendations[0].title}”`, content.updateRecommendations[0].reason, "content-health", "content");
   }
   if (bestSource && String(bestSource.source).toLowerCase().includes("tiktok") === false && (bestSource.signups || 0) > 0) {
-    addRec("low", `Double down on ${bestSource.source}`, "Best converting source in marketing attribution for this snapshot.", "advisor");
+    addRec("low", `Conversion Opportunity: double down on ${bestSource.source}`, "Best converting source in marketing attribution for this snapshot.", "advisor", "conversion");
   }
   if (!recommendations.length) {
-    addRec("low", "Keep collecting usage signals", "Not enough conversion pressure today — review Feature Usage and Content Health.", "feature-usage");
+    addRec("low", "Keep collecting usage signals", "Not enough conversion pressure today — review Feature Usage and Content Health.", "feature-usage", "onboarding");
   }
 
   return {

@@ -98,15 +98,17 @@ test("homepage and FAQ marketing match Free starter library", () => {
   assert.match(indexHtml, /up to 3 premium curriculum prints or downloads/i);
   assert.match(indexHtml, /Are the lesson plans editable\?/);
   assert.match(appJs, /Welcome to Little Learner Hub/);
-  assert.match(appJs, /Ready to save hours every week\?/);
+  assert.match(appJs, /This is included in Pro/);
   assert.match(appJs, /MEMBERSHIP_COPY/);
   assert.match(appJs, /confirmTrialCurriculumExport/);
+  assert.match(indexHtml, /new-user-onboarding\.js/);
 });
 
 test("cache bust versions aligned", () => {
-  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260730-hdh-own-tester-kid");
-  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260730-hdh-own-tester-kid");
-  assert.match(sw, /llh-shell-v141-hdh-own-tester-kid/);
+  assert.equal(indexHtml.match(/styles\.css\?v=([^"]+)/)?.[1], "20260803-nuo-onboarding");
+  assert.equal(indexHtml.match(/app\.js\?v=([^"]+)/)?.[1], "20260803-nuo-onboarding");
+  assert.match(sw, /llh-shell-v156-nuo-onboarding/);
+  assert.match(sw, /new-user-onboarding\.js\?v=20260803-nuo-onboarding/);
   assert.match(sw, /free-curriculum-sample\.js\?v=20260730-hdh-own-tester-kid/);
   assert.match(sw, /trial-curriculum-exports\.js\?v=20260730-hdh-own-tester-kid/);
   assert.match(sw, /free-plan-grandfathering\.js\?v=20260730-hdh-own-tester-kid/);

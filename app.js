@@ -3630,7 +3630,12 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
-    setView("calendar", { fromAuthLanding: true });
+    // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
+    if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
+      beginNewUserOnboardingAfterFreeSignup();
+    } else {
+      setView("calendar", { fromAuthLanding: true });
+    }
     return;
   }
   if (planChoice === "founding") {
@@ -3881,6 +3886,13 @@ function trackEvent(name, detail = {}) {
   };
   saveAnalyticsEvents([event, ...analyticsEvents()]);
   sendAnalyticsEvent(event);
+  try {
+    if (typeof NewUserOnboarding?.observeAnalyticsEvent === "function") {
+      NewUserOnboarding.observeAnalyticsEvent(name, detail || {});
+    }
+  } catch {
+    /* ignore milestone observer errors */
+  }
   return event;
 }
 
@@ -3909,6 +3921,11 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     setView("plans");
     return;
   }
+  try {
+    if (typeof markUpgradeValueMoment === "function") markUpgradeValueMoment(type === "limit" ? "premium_limit" : "locked_feature");
+  } catch {
+    /* ignore */
+  }
   document.body.classList.add("auth-modal-open");
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
@@ -3931,12 +3948,12 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   if (type === "limit") {
     const limitHeadline = offerFounding
       ? "⭐ Upgrade to Pro"
-      : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "Ready to save hours every week?");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : "Unlock more with Pro";
+      : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "This is included in Pro");
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : "Included in Pro";
     if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p class="muted-copy">What you’re missing:</p>
+      <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
       ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
@@ -3944,12 +3961,12 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   } else {
     const popupHeadline = offerFounding
       ? "⭐ Upgrade to Pro"
-      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "Save hours with Pro");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Pro Feature";
+      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is included in Pro");
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Included in Pro";
     if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p class="muted-copy">What you’ll unlock:</p>
+      <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
       ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
@@ -3965,6 +3982,11 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       upgradeBtn.textContent = "Upgrade to Pro Monthly — $19.99/month";
       upgradeBtn.dataset.checkoutPlan = "monthly";
       upgradeBtn.dataset.upgradeMode = "monthly";
+      upgradeBtn.removeAttribute("data-start-pro-trial");
+    } else if (typeof isTrialPromptSuppressedThisSession === "function" && isTrialPromptSuppressedThisSession()) {
+      upgradeBtn.textContent = "Continue Exploring for Free";
+      upgradeBtn.dataset.checkoutPlan = "";
+      upgradeBtn.dataset.upgradeMode = "dismiss";
       upgradeBtn.removeAttribute("data-start-pro-trial");
     } else {
       upgradeBtn.textContent = proTrialBtnText.includes("Trial")
@@ -53281,12 +53303,15 @@ function dismissFreeWelcomeCard() {
 }
 
 /**
- * Dashboard / calendar surface: one welcome/upgrade card only.
+ * Dashboard / calendar surface: experience-first starter cards (not immediate paywall).
  * Persistent upgrade nudges live in the top reminder bar — do not stack library banners here.
  */
 function freeSurfaceUpgradeHtml(variant = "default") {
   void variant;
-  return freeWelcomeCardHtml() || freeDashboardUpgradeCardHtml();
+  const trialChecklist = typeof renderTrialDashboardChecklistHtml === "function"
+    ? renderTrialDashboardChecklistHtml()
+    : "";
+  return trialChecklist || freeWelcomeCardHtml() || freeDashboardUpgradeCardHtml();
 }
 
 function contentGrowthStats() {
@@ -53455,43 +53480,32 @@ function planComparisonTableHtml() {
 }
 
 /**
- * First-visit welcome card for new (curated) Free users — value-first, not a lockout wall.
+ * First-visit surface for Free users — experience-first starter cards (no immediate Upgrade CTA).
+ * Legacy name kept for existing tests/call sites.
  */
 function freeWelcomeCardHtml() {
-  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return "";
-  if (hasLegacyFreeLessonAccess()) return "";
-  if (!canSeePaidUpgradeOffer()) return "";
-  if (isFreeWelcomeCardDismissed()) return "";
-  const primaryCheckout = preferredPaidCheckoutPlan();
-  const primaryLabel = freeUpgradePrimaryButtonLabel();
-  return `
-    <section class="free-welcome-card" role="region" aria-label="Welcome to Little Learner Hub">
-      <div class="free-welcome-card-copy">
-        <p class="free-welcome-card-badge">Free Plan</p>
-        <h3>Welcome to Little Learner Hub</h3>
-        <p>${escapeHtml(MEMBERSHIP_COPY.freeCore)}</p>
-        <p>${escapeHtml(freePolicyNoticeText())}</p>
-        <p>${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>
-        <p class="muted-copy">${escapeHtml(freeUpgradeSupportingText())}</p>
-        <ul class="free-welcome-card-benefits">
-          <li>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)}</li>
-          <li>Print and download your Free starter plans (no trial watermark or export limit)</li>
-          <li>${escapeHtml(MEMBERSHIP_COPY.unlimitedLabel)} with Pro</li>
-        </ul>
-      </div>
-      <div class="free-welcome-card-actions">
-        <button class="primary-button" type="button" data-checkout-plan="${primaryCheckout}">${escapeHtml(primaryLabel)}</button>
-        <button class="ghost-button" type="button" data-view="plans">Compare Plans</button>
-        <button class="ghost-button" type="button" data-dismiss-free-welcome>Explore Free for now</button>
-      </div>
-    </section>
-  `;
+  if (typeof renderFreeStarterExploreHtml === "function") {
+    return renderFreeStarterExploreHtml();
+  }
+  return "";
 }
 
-/** Persistent dashboard upgrade card after welcome dismiss — not a second floating banner. */
+/**
+ * Deferred dashboard upgrade card — only after a meaningful value moment (not right after signup).
+ */
 function freeDashboardUpgradeCardHtml() {
   if (!canSeePaidUpgradeOffer()) return "";
-  if (!isFreeWelcomeCardDismissed() && !hasLegacyFreeLessonAccess()) return "";
+  if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) return "";
+  if (typeof hasReachedMeaningfulUpgradeValueMoment === "function" && !hasReachedMeaningfulUpgradeValueMoment()) {
+    // Existing Free owners who already dismissed the old welcome may still see this later;
+    // brand-new Free path stays quiet until they use the product.
+    const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
+    if (onboarding?.deferGenericUpgrades || onboarding?.freeSelectedAt) return "";
+  }
+  if (!isFreeWelcomeCardDismissed() && !hasLegacyFreeLessonAccess()) {
+    // Starter cards still own the surface when present.
+    if (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()) return "";
+  }
   const foundingOpen = foundingOpenForAcquisition();
   const unlockLines = lockedContentUnlockLines();
   return `
@@ -53586,10 +53600,15 @@ function refreshFreePlanUpgradeChrome() {
     // Hide during account verification so boot gate + reminder never stack.
     const bootBusy = document.body.classList.contains("app-boot-verifying")
       || (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive());
-    // Prefer the dashboard welcome/upgrade card over the top reminder on first login.
-    const welcomeActive = !isFreeWelcomeCardDismissed();
+    // Prefer onboarding/starter cards over the top reminder; defer reminder until value moments.
+    const starterActive = Boolean(
+      (typeof NewUserOnboarding?.isNewUserOnboardingActive === "function" && NewUserOnboarding.isNewUserOnboardingActive())
+      || (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()),
+    );
+    const deferReminder = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
     reminder.hidden = bootBusy
-      || welcomeActive
+      || starterActive
+      || deferReminder
       || isFreePlanReminderDismissed()
       || isFoundingUpgradeBannerDismissed();
     const copyEl = reminder.querySelector(".free-plan-reminder-copy");
@@ -54163,6 +54182,35 @@ function renderBillingHistoryPage() {
 function renderPaymentSuccessPage() {
   const target = document.querySelector("#paymentSuccessApp");
   if (!target) return;
+  const account = currentAccount() || {};
+  const inTrial = accountIsInTrial(account)
+    || String(account.stripeSubscriptionStatus || "").toLowerCase() === "trialing"
+    || Number(account.trialDays || 0) > 0;
+  const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
+  const fromOnboardingTrial = Boolean(
+    inTrial
+    && onboarding
+    && (onboarding.fromOnboardingCheckout || onboarding.trialSelectedAt || onboarding.step === "trial-success"),
+  );
+  if (fromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutSuccess === "function") {
+    if (onboarding.step !== "trial-success") {
+      NewUserOnboarding.handleTrialCheckoutSuccess();
+    } else if (typeof NewUserOnboarding.openModal === "function") {
+      NewUserOnboarding.openModal();
+    }
+    target.innerHTML = `
+      <section class="section-block success-panel">
+        <p class="eyebrow">7-Day Pro Trial</p>
+        <h3>Your 7-Day Pro Trial is Active!</h3>
+        <p class="muted-copy">Use the welcome checklist to explore your new features.</p>
+        <div class="account-actions-row">
+          <button class="primary-button" data-view="lessons" type="button">Open Lesson Plans</button>
+          <button class="ghost-button" data-view="calendar" type="button">Open Calendar</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
   target.innerHTML = `
     <section class="section-block success-panel">
       <p class="eyebrow">Active Subscription</p>
@@ -54974,17 +55022,26 @@ async function startCheckout(type, trackingContext = "checkout") {
   }
 }
 
-async function startProTrial() {
+async function startProTrial(options = {}) {
   if (!requireBillingAccount()) return;
+  if (
+    !options.force
+    && typeof isTrialPromptSuppressedThisSession === "function"
+    && isTrialPromptSuppressedThisSession()
+  ) {
+    return;
+  }
   closeProFeatureModal();
   await syncFoundingStatus({ render: false });
   const checkoutType = "monthly";
   const amount = checkoutAmount(checkoutType);
-  if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) {
-    trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, trial7day: true });
-    return;
+  if (!options.skipConfirm) {
+    if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) {
+      trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, trial7day: true });
+      return;
+    }
   }
-  trackProUpgradeIntent("pro_trial_confirmed", { plan: "monthly", trial7day: true });
+  trackProUpgradeIntent("pro_trial_confirmed", { plan: "monthly", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
   const pending = {
     type: checkoutType,
     amount,
@@ -54994,9 +55051,10 @@ async function startProTrial() {
     promoCode: "",
     trialDays: 7,
     promoLabel: "7-Day Pro Trial",
+    fromOnboarding: Boolean(options.fromOnboarding),
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
-  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true });
+  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
   addBillingHistory("Checkout Started", "Monthly Pro trial checkout started (7-day trial)", amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
@@ -55062,6 +55120,7 @@ function completeCheckout() {
     setView("payment-failed");
     return;
   }
+  const completedFromOnboardingTrial = Boolean(pending.fromOnboarding && Number(pending.trialDays || 0) > 0);
   if (pending.type === "founding" && foundingSpotsRemaining() <= 0) {
     setView("payment-failed");
     addBillingHistory("Checkout Blocked", "Founding Membership was sold out before checkout could complete.", "");
@@ -55126,7 +55185,7 @@ function completeCheckout() {
     markCheckoutPromoRedeemed(pending.promoCode, { trialDays, label: pending.promoLabel });
   }
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
-  trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });
+  trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution(), trial7day: trialDays > 0, fromOnboarding: completedFromOnboardingTrial });
   localStorage.removeItem("llhPendingCheckout");
   checkoutPromoCode = "";
   localStorage.removeItem("llhCheckoutPromoCode");
@@ -55134,6 +55193,9 @@ function completeCheckout() {
   updateAuthButtons();
   updatePlanLabel();
   setView("payment-success");
+  if (completedFromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutSuccess === "function") {
+    NewUserOnboarding.handleTrialCheckoutSuccess();
+  }
 }
 
 async function completeCheckoutFromStripeSession(session) {
@@ -55166,6 +55228,7 @@ async function completeCheckoutFromStripeSession(session) {
     promoCode: pending?.promoCode || "",
     trialDays,
     promoLabel: session.trial?.label || session.promo?.label || pending?.promoLabel || "",
+    fromOnboarding: Boolean(pending?.fromOnboarding),
   }));
   completeCheckout();
   updateCurrentAccountBilling({
@@ -55247,10 +55310,16 @@ function failCheckout() {
       type: pendingType,
       amount: pending?.amount || "",
       trialDays: pending?.trialDays || 0,
+      fromOnboarding: Boolean(pending?.fromOnboarding),
     });
   }
   addBillingHistory("Checkout Canceled", "Checkout was canceled before payment — no charge was made and no plan change occurred.", pending?.amount || "");
+  const fromOnboardingTrial = Boolean(pending?.fromOnboarding && Number(pending?.trialDays || 0) > 0);
   localStorage.removeItem("llhPendingCheckout");
+  if (fromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutCancel === "function") {
+    NewUserOnboarding.handleTrialCheckoutCancel();
+    return;
+  }
   setView("payment-failed");
 }
 
@@ -55418,6 +55487,17 @@ function toggleFavorite(id) {
   }
   favorites = already ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
   saveFavorites();
+  if (!already) {
+    try {
+      if (typeof NewUserOnboarding?.noteMilestone === "function") {
+        NewUserOnboarding.noteMilestone("firstFavoriteAt", "first_favorite", { resourceId: id });
+      } else {
+        trackEvent("first_favorite", { resourceId: id });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   refreshLessonWorkspaceSaveButton();
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "home";
   if (activeView === "home") renderHome();
@@ -61847,6 +61927,9 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
     trackProUpgradeIntent("pro_feature_modal", { mode, plan: mode === "trial" ? "monthly" : mode });
   }
   closeProFeatureModal({ completed: true });
+  if (mode === "dismiss") {
+    return;
+  }
   if (mode === "founding") {
     startCheckoutWithFoundingGuard("founding", "pro_feature_modal");
     return;
@@ -62998,11 +63081,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome]");
+  const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome], [data-dismiss-free-starter]");
   if (freeWelcomeDismiss) {
     event.preventDefault();
     trackProUpgradeDismissed("free_welcome_card");
     dismissFreeWelcomeCard();
+    try {
+      localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      document.querySelectorAll("[data-free-starter-explore]").forEach((node) => node.remove());
+    } catch {
+      /* ignore */
+    }
     return;
   }
 

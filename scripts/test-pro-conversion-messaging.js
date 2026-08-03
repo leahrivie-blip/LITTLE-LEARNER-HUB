@@ -57,12 +57,13 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
 
   assertIncludes(appJs, "Save hours every week with unlimited lesson plans", "value prop");
-  assertIncludes(appJs, "Ready to save hours every week?", "free library headline");
+  assertIncludes(appJs, "This is included in Pro", "value-first upgrade headline");
   assertIncludes(appJs, "Ready for the full lesson plan library", "dashboard headline");
   assertIncludes(appJs, "Generate custom lesson plans in seconds and save hours of planning every week.", "AI gate message");
   assertIncludes(appJs, "function canGenerateAiLessonPlans()", "AI gate helper");
   assertIncludes(appJs, "function freeLibraryConversionBannerHtml", "dashboard banner helper");
   assertIncludes(appJs, "function freeWelcomeCardHtml", "new Free welcome card helper");
+  assertIncludes(indexHtml, "newUserOnboardingModal", "new user onboarding modal");
   assertIncludes(appJs, "function refreshFreePlanUpgradeChrome", "persistent free chrome helper");
   assertIncludes(appJs, "function renderLessonPlanLibraryCountsHtml", "library counts helper");
   assertIncludes(appJs, "function freeUpgradePrimaryButtonLabel", "unified CTA helper");
