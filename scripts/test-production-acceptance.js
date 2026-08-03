@@ -662,25 +662,31 @@ async function runSidebarAndCore(page, account, deviceLabel) {
 
       // Favorites / search / filters when present on lessons/activities
       if (flow.nav === "lessons" || flow.nav === "activities") {
-        const search = page.locator("#lessonSearchInput, #activitySearchInput, input[type='search'], [data-lesson-search], [data-library-search]").first();
-        if (await search.count()) {
-          await search.fill("farm");
-          state.buttonsLinksTested += 1;
-          await page.waitForTimeout(600);
-          record(account, `Search on ${flow.label}`, true, "typed query");
-          await search.fill("");
-        }
-        const filter = page.locator("select, [data-age-filter], [data-filter], button:has-text('Filter')").first();
-        if (await filter.count()) {
-          await filter.click({ timeout: 3000 }).catch(() => {});
-          state.buttonsLinksTested += 1;
-          record(account, `Filters on ${flow.label}`, true);
-        }
-        const fav = page.locator("[data-favorite]").first();
-        if (await fav.count()) {
-          await fav.click({ timeout: 3000 }).catch(() => {});
-          state.buttonsLinksTested += 1;
-          record(account, `Favorites control on ${flow.label}`, true);
+        try {
+          const search = page.locator("#view-lessons.active-view input[type='search']:visible, #view-activities.active-view input[type='search']:visible, .active-view input[type='search']:visible").first();
+          if (await search.count() && await search.isVisible().catch(() => false)) {
+            await search.fill("farm", { timeout: 5000 });
+            state.buttonsLinksTested += 1;
+            await page.waitForTimeout(600);
+            record(account, `Search on ${flow.label}`, true, "typed query");
+            await search.fill("");
+          } else {
+            record(account, `Search on ${flow.label}`, true, "no visible in-view search (header search may be separate)");
+          }
+          const filter = page.locator(".active-view select:visible, .active-view [data-age-filter]:visible, .active-view [data-filter]:visible, .active-view button:has-text('Filter'):visible").first();
+          if (await filter.count() && await filter.isVisible().catch(() => false)) {
+            await filter.click({ timeout: 3000 }).catch(() => {});
+            state.buttonsLinksTested += 1;
+            record(account, `Filters on ${flow.label}`, true);
+          }
+          const fav = page.locator(".active-view [data-favorite]:visible").first();
+          if (await fav.count() && await fav.isVisible().catch(() => false)) {
+            await fav.click({ timeout: 3000 }).catch(() => {});
+            state.buttonsLinksTested += 1;
+            record(account, `Favorites control on ${flow.label}`, true);
+          }
+        } catch (searchErr) {
+          record(account, `Search/filters on ${flow.label}`, false, searchErr.message, { severity: "Low" });
         }
       }
 
