@@ -25172,6 +25172,128 @@ body.tk-enrich-open #adminTeachingKitEnrichmentHost {
   .tk-assistant-tabs button { font-size: 0.8rem; }
 }
 
+/* AI Curriculum Director */
+.tk-director-host:not([hidden]) { display: block; margin: 0 0 1.1rem; }
+.tk-director-panel {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(36, 49, 42, 0.12);
+  border-radius: 0.75rem;
+  background: linear-gradient(155deg, #f2f6f3 0%, #eef4f0 48%, #f7f2ea 100%);
+}
+.tk-director-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+.tk-director-head .eyebrow { margin: 0 0 0.2rem; }
+.tk-director-head strong {
+  display: block;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+  color: #24312a;
+}
+.tk-director-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.8rem 0 0.7rem;
+}
+.tk-director-tabs button {
+  border: 1px solid rgba(36, 49, 42, 0.14);
+  background: rgba(255, 255, 255, 0.72);
+  color: #24312a;
+  border-radius: 0.45rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}
+.tk-director-tabs button.is-active {
+  background: #2f5640;
+  border-color: #2f5640;
+  color: #fff;
+}
+.tk-director-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+}
+.tk-director-kpi {
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+}
+.tk-director-kpi .eyebrow { margin: 0 0 0.15rem; }
+.tk-director-kpi strong {
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.35rem;
+  color: #24312a;
+}
+.tk-director-block { margin: 0.75rem 0; }
+.tk-director-block h5 {
+  margin: 0 0 0.35rem;
+  font-family: "Fraunces", Georgia, serif;
+  color: #24312a;
+}
+.tk-director-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+.tk-director-list li {
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.45rem;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(36, 49, 42, 0.08);
+  font-size: 0.92rem;
+}
+.tk-director-master-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.55rem;
+  margin: 0.65rem 0 0.85rem;
+}
+.tk-director-master-form .tk-director-span { grid-column: 1 / -1; }
+.tk-director-master-form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.86rem;
+}
+.tk-director-master-form input,
+.tk-director-master-form select,
+.tk-director-master-form textarea,
+.tk-director-body textarea {
+  width: 100%;
+  border: 1px solid rgba(36, 49, 42, 0.16);
+  border-radius: 0.45rem;
+  padding: 0.5rem 0.6rem;
+  font: inherit;
+  background: #fff;
+}
+.tk-director-planning-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.45rem 0 0.65rem;
+}
+.tk-director-answer {
+  margin-top: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.55rem;
+  background: rgba(47, 86, 64, 0.08);
+  border: 1px solid rgba(47, 86, 64, 0.18);
+}
+.tk-director-status { margin: 0.55rem 0 0; }
+@media (max-width: 720px) {
+  .tk-director-head { flex-direction: column; }
+  .tk-director-tabs button { font-size: 0.8rem; }
+}
+
 /* Complete Teaching Kit binder authoring */
 .tk-authoring-binder-panel{margin:1.25rem 0 1.75rem;padding:1.1rem 1.2rem;border:1px solid rgba(36,49,42,.12);border-radius:.75rem;background:linear-gradient(165deg,#f7faf7 0%,#eef5f0 55%,#f8f4ee 100%)}
 .tk-authoring-binder-panel h4{margin:0 0 .35rem;font-family:"Fraunces",Georgia,serif;font-size:1.35rem;color:#24312a}

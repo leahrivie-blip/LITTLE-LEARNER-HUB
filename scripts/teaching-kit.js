@@ -28,6 +28,8 @@
     // Complete Teaching Kit binder authoring in the classic lesson editor. Default false.
     // Independent of teachingKitEnrichmentEditor — never auto-enabled.
     "teachingKitAuthoring",
+    // AI Curriculum Director (library-wide intelligence). Default false — never auto-enabled.
+    "teachingKitCurriculumDirector",
   ]);
 
   const COMPLETENESS_VALUES = Object.freeze([
@@ -158,6 +160,7 @@
       teachingKitAttachments: false,
       teachingKitEnrichmentEditor: false,
       teachingKitAuthoring: false,
+      teachingKitCurriculumDirector: false,
     };
   }
 
@@ -169,6 +172,7 @@
       teachingKitAttachments: input.teachingKitAttachments === true,
       teachingKitEnrichmentEditor: input.teachingKitEnrichmentEditor === true,
       teachingKitAuthoring: input.teachingKitAuthoring === true,
+      teachingKitCurriculumDirector: input.teachingKitCurriculumDirector === true,
     };
   }
 
@@ -180,6 +184,11 @@
   /** Classic-editor binder authoring (Complete Teaching Kit System). Never auto-enabled. */
   function isTeachingKitAuthoringEnabled(flags) {
     return isTeachingKitFlagEnabled(flags, "teachingKitAuthoring");
+  }
+
+  /** Library-wide AI Curriculum Director. Never auto-enabled. */
+  function isTeachingKitCurriculumDirectorEnabled(flags) {
+    return isTeachingKitFlagEnabled(flags, "teachingKitCurriculumDirector");
   }
 
   /**
@@ -361,6 +370,7 @@
     isTeachingKitFlagEnabled,
     isTeachingKitEnrichmentEditorEnabled,
     isTeachingKitAuthoringEnabled,
+    isTeachingKitCurriculumDirectorEnabled,
     isTeachingKitAiAssistEnabled,
     isTeachingKitApiEnabled,
     normalizedTeachingKitOverlay,

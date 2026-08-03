@@ -6235,6 +6235,8 @@ function emptySiteContent() {
       teachingKitEnrichmentEditor: false,
       // Complete Teaching Kit binder authoring in classic editor. Default false.
       teachingKitAuthoring: false,
+      // AI Curriculum Director (library-wide). Default false.
+      teachingKitCurriculumDirector: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -10576,6 +10578,7 @@ function renderAdminCurriculumLessonPlanManager() {
       <p class="muted-copy">${escapeHtml(workspaceCopy.oneAtATime)}</p>
     </div>
     ` : ""}
+    <div id="adminCurriculumDirectorHost" class="tk-director-host" hidden></div>
     <div class="section-heading">
       <div>
         <p class="eyebrow">${upgradeWorkspaceOn ? "Upgrade Workspace" : "Content Manager"}</p>
@@ -10685,6 +10688,10 @@ function renderAdminCurriculumLessonPlanManager() {
     </div>
     ${editingPlan ? renderAdminCurriculumLessonPlanForm(editingPlan) : ""}
   `;
+  if (typeof LLHTeachingKitCurriculumDirectorUI !== "undefined"
+    && typeof LLHTeachingKitCurriculumDirectorUI.mount === "function") {
+    void LLHTeachingKitCurriculumDirectorUI.mount();
+  }
 }
 
 function countCurriculumDailyPlanItems(dailyPlans) {
@@ -12157,6 +12164,8 @@ function effectiveSiteContent() {
         || base.featureFlags?.teachingKitEnrichmentEditor === true,
       teachingKitAuthoring: overrides.featureFlags?.teachingKitAuthoring === true
         || base.featureFlags?.teachingKitAuthoring === true,
+      teachingKitCurriculumDirector: overrides.featureFlags?.teachingKitCurriculumDirector === true
+        || base.featureFlags?.teachingKitCurriculumDirector === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"

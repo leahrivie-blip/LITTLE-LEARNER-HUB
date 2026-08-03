@@ -3199,6 +3199,8 @@ function normalizedSiteContent(value) {
     curriculum: normalizedCurriculumStore(input.curriculum),
     // AI Teacher Assistant library + style prefs (admin Enrichment Editor only).
     teachingKitAssistant: normalizedTeachingKitAssistant(input.teachingKitAssistant),
+    // AI Curriculum Director master resources + planning notes (flag-gated).
+    teachingKitCurriculumDirector: normalizedTeachingKitCurriculumDirector(input.teachingKitCurriculumDirector),
     updatedAt: normalizedShortText(input.updatedAt, 80),
   };
 }
@@ -3223,6 +3225,72 @@ function normalizedTeachingKitAssistant(value) {
       updatedAt: "",
     };
   }
+}
+
+function normalizedTeachingKitCurriculumDirector(value) {
+  try {
+    const director = require("../scripts/teaching-kit-curriculum-director.js");
+    return director.normalizeDirectorState(value);
+  } catch (_error) {
+    return { masterResources: [], planningNotes: [], updatedAt: "" };
+  }
+}
+
+function buildCurriculumUsageByPlanId(store, events = null) {
+  const analyticsEvents = Array.isArray(events)
+    ? events
+    : (Array.isArray(store?.analyticsEvents) ? store.analyticsEvents : []);
+  const usage = {};
+  const bump = (planId, key, amount = 1) => {
+    const id = normalizedShortText(planId, 160);
+    if (!id) return;
+    if (!usage[id]) usage[id] = { views: 0, downloads: 0, assigns: 0, proUpgrades: 0, subscribeDrivers: 0 };
+    usage[id][key] = (usage[id][key] || 0) + amount;
+  };
+  analyticsEvents.forEach((event) => {
+    const name = String(event?.name || "");
+    const detail = event?.detail && typeof event.detail === "object" ? event.detail : {};
+    const planId = detail.lessonId || detail.lessonPlanId || detail.planId || "";
+    if (name === "lesson_plan_view" || name === "curriculum_lesson_view" || name === "resource_view") {
+      bump(planId || detail.resourceId, "views");
+    }
+    if (/download|printable/i.test(name) || name === "resource_pdf_download" || name === "lesson_docx_download") {
+      bump(planId || detail.resourceId, "downloads");
+    }
+    if (name === "lesson_assign" || name === "curriculum_assign" || name === "schedule_lesson") {
+      bump(planId, "assigns");
+    }
+    if (name === "checkout_started" || name === "upgrade_click" || name === "pro_upgrade_click") {
+      bump(planId || detail.fromLessonId, "proUpgrades");
+    }
+    if (name === "subscribe_click" || name === "trial_start_from_lesson") {
+      bump(planId || detail.fromLessonId, "subscribeDrivers");
+    }
+  });
+  return usage;
+}
+
+function mergeEnrichmentDraftPatch(existingDraft, patch) {
+  const draft = existingDraft && typeof existingDraft === "object"
+    ? JSON.parse(JSON.stringify(existingDraft))
+    : { activities: {}, week: {} };
+  if (!draft.week || typeof draft.week !== "object") draft.week = {};
+  if (!draft.activities || typeof draft.activities !== "object") draft.activities = {};
+  const weekPatch = patch?.week && typeof patch.week === "object" ? patch.week : {};
+  Object.keys(weekPatch).forEach((key) => {
+    if (key === "linkedMasterResources" && weekPatch.linkedMasterResources && typeof weekPatch.linkedMasterResources === "object") {
+      draft.week.linkedMasterResources = {
+        ...(draft.week.linkedMasterResources && typeof draft.week.linkedMasterResources === "object"
+          ? draft.week.linkedMasterResources
+          : {}),
+        ...weekPatch.linkedMasterResources,
+      };
+    } else {
+      draft.week[key] = weekPatch[key];
+    }
+  });
+  draft.updatedAt = new Date().toISOString();
+  return draft;
 }
 
 // Keeps existing top-level siteContent keys when the incoming payload omits them
@@ -17345,11 +17413,37 @@ async function handleAdminAiTeacherAssistant(request, response) {
         limit: 10,
       })
       : [];
+    // Curriculum Director intelligence (library-wide reuse hints) when flag is on.
+    let curriculumIntelligence = null;
+    if (teachingKit.isTeachingKitCurriculumDirectorEnabled(flags) && plan) {
+      try {
+        const directorApi = require("../scripts/teaching-kit-curriculum-director.js");
+        const directorState = normalizedTeachingKitCurriculumDirector(siteContent.teachingKitCurriculumDirector);
+        curriculumIntelligence = directorApi.intelligenceForLesson(
+          plan,
+          curriculum,
+          directorState,
+          assistantState,
+        );
+      } catch (_e) {
+        curriculumIntelligence = null;
+      }
+    }
     jsonResponse(response, 200, {
       ok: true,
       action,
-      connections,
+      connections: [
+        ...connections,
+        ...((curriculumIntelligence?.reuseHints || []).map((hint) => ({
+          kind: hint.kind,
+          message: hint.message,
+          title: hint.title || hint.id || "",
+          score: 0.6,
+          source: "curriculum_director",
+        }))),
+      ],
       recommendations,
+      curriculumIntelligence,
       autoSaved: false,
       autoPublished: false,
       curriculumUnchanged: true,
@@ -17544,6 +17638,304 @@ async function handleAdminAiTeacherAssistant(request, response) {
       "recommend_reusable",
       "connections",
       "learn_from_me",
+    ],
+  });
+}
+
+/**
+ * AI Curriculum Director — library-wide intelligence, masters, planning, business insights.
+ * Gated by teachingKitCurriculumDirector (default false). Never auto-publishes.
+ */
+async function handleAdminCurriculumDirector(request, response) {
+  const body = await readJson(request);
+  if (!validAdminToken(extractAdminTokenFromBody(request, body))) {
+    jsonResponse(response, 401, { error: "Admin access is required." });
+    return;
+  }
+  const store = readStore();
+  const flags = normalizedFeatureFlags(store.siteContent?.featureFlags);
+  if (!teachingKit.isTeachingKitCurriculumDirectorEnabled(flags)) {
+    jsonResponse(response, 404, {
+      error: "AI Curriculum Director is disabled.",
+      code: "curriculum_director_disabled",
+    });
+    return;
+  }
+
+  let directorApi = null;
+  try { directorApi = require("../scripts/teaching-kit-curriculum-director.js"); } catch (_e) { directorApi = null; }
+  if (!directorApi) {
+    jsonResponse(response, 500, { error: "Curriculum Director unavailable.", code: "director_unavailable" });
+    return;
+  }
+
+  const action = normalizedShortText(body.action, 40).toLowerCase() || "snapshot";
+  const curriculum = readSiteCurriculum(store);
+  const siteContent = store.siteContent && typeof store.siteContent === "object"
+    ? store.siteContent
+    : defaultSiteContentStore();
+  let directorState = directorApi.normalizeDirectorState(siteContent.teachingKitCurriculumDirector);
+  const assistantState = normalizedTeachingKitAssistant(siteContent.teachingKitAssistant);
+  const usageByPlanId = buildCurriculumUsageByPlanId(store);
+  const asArraySafe = (value) => (Array.isArray(value) ? value : []);
+  const searchGaps = [];
+  try {
+    const insights = adminInsights.buildInsights(store, {
+      hub: "search-analytics",
+      range: "30d",
+      events: store.analyticsEvents || [],
+    });
+    const noResults = insights?.data?.searchNoResults || insights?.data?.noResults || [];
+    asArraySafe(noResults).forEach((row) => {
+      searchGaps.push({
+        query: row.key || row.query || row.name || String(row),
+        count: row.count || row.value || 0,
+      });
+    });
+  } catch (_e) {
+    /* optional */
+  }
+
+  const persistDirector = async (nextState) => {
+    const now = new Date().toISOString();
+    const next = directorApi.normalizeDirectorState({ ...nextState, updatedAt: now });
+    const latest = readStore();
+    latest.siteContent = {
+      ...(latest.siteContent || siteContent),
+      teachingKitCurriculumDirector: next,
+      updatedAt: now,
+    };
+    await writeStoreAsync(latest);
+    Object.assign(store, latest);
+    return next;
+  };
+
+  const applyDraftPatches = async (draftPatches) => {
+    if (!Array.isArray(draftPatches) || !draftPatches.length) return 0;
+    let applied = 0;
+    const latest = readStore();
+    const cur = readSiteCurriculum(latest);
+    const nextPlans = (cur.lessonPlans || []).map((plan) => {
+      const patch = draftPatches.find((p) => p.planId === plan.id);
+      if (!patch) return plan;
+      applied += 1;
+      return {
+        ...plan,
+        enrichmentDraft: mergeEnrichmentDraftPatch(plan.enrichmentDraft, patch.enrichmentDraftPatch),
+      };
+    });
+    const writeResult = writeSiteCurriculum(latest, {
+      ...cur,
+      lessonPlans: nextPlans,
+    }, { updatedAt: new Date().toISOString() });
+    if (writeResult.wipeBlocked) return 0;
+    await writeStoreAsync(latest);
+    Object.assign(store, latest);
+    return applied;
+  };
+
+  if (action === "snapshot" || action === "coverage" || action === "recommendations") {
+    const intelligence = directorApi.buildCurriculumIntelligence(curriculum, directorState, assistantState);
+    const coverage = directorApi.buildCoverageDashboard(curriculum, usageByPlanId);
+    const recommendations = directorApi.buildRecommendations(
+      curriculum,
+      directorState,
+      assistantState,
+      usageByPlanId,
+    );
+    const resourceHealth = directorApi.buildResourceHealth(directorState, curriculum);
+    const businessInsights = directorApi.buildBusinessInsights(usageByPlanId, searchGaps, curriculum);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      intelligence,
+      coverage,
+      recommendations,
+      resourceHealth,
+      businessInsights,
+      directorState,
+      autoPublished: false,
+      flagsDefaultSafe: true,
+    });
+    return;
+  }
+
+  if (action === "intelligence_for_lesson") {
+    const planId = normalizedShortText(body.planId, 160);
+    const plan = (curriculum.lessonPlans || []).find((p) => p.id === planId);
+    if (!plan) {
+      jsonResponse(response, 404, { error: "Lesson plan not found.", code: "lesson_not_found" });
+      return;
+    }
+    const intel = directorApi.intelligenceForLesson(plan, curriculum, directorState, assistantState);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      ...intel,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "planning") {
+    const planning = directorApi.answerPlanningQuestion(
+      body.question || body.text,
+      curriculum,
+      directorState,
+      assistantState,
+      usageByPlanId,
+    );
+    directorState = await persistDirector({
+      ...directorState,
+      planningNotes: [planning, ...asArraySafe(directorState.planningNotes)].slice(0, 40),
+    });
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      planning,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "business_insights") {
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      businessInsights: directorApi.buildBusinessInsights(usageByPlanId, searchGaps, curriculum),
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "save_master") {
+    const result = directorApi.saveMasterResource(directorState, body.item || {});
+    if (result.duplicate) {
+      jsonResponse(response, 200, {
+        ok: true,
+        action,
+        duplicate: result.duplicate,
+        message: "A similar master resource already exists — link it instead of duplicating.",
+        autoPublished: false,
+      });
+      return;
+    }
+    directorState = await persistDirector(result.director);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      saved: result.saved,
+      directorState,
+      publishedLessonsUnchanged: true,
+      autoPublished: false,
+    });
+    return;
+  }
+
+  if (action === "link_master") {
+    const result = directorApi.linkMasterToLessons(
+      directorState,
+      normalizedShortText(body.masterId, 80),
+      Array.isArray(body.planIds) ? body.planIds : [],
+    );
+    if (!result.master) {
+      jsonResponse(response, 404, { error: "Master resource not found." });
+      return;
+    }
+    directorState = await persistDirector(result.director);
+    const applied = await applyDraftPatches(result.draftPatches);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      master: result.master,
+      linkedPlanIds: result.linkedPlanIds,
+      draftReferencesUpdated: applied,
+      autoPublished: false,
+      message: `Linked master into ${result.linkedPlanIds.length} lesson(s); ${applied} draft reference(s) updated. Not published.`,
+    });
+    return;
+  }
+
+  if (action === "auto_link_master") {
+    const masterId = normalizedShortText(body.masterId, 80);
+    const master = directorState.masterResources.find((m) => m.id === masterId);
+    if (!master) {
+      jsonResponse(response, 404, { error: "Master resource not found." });
+      return;
+    }
+    const themeKey = String(master.theme || master.title || "").toLowerCase();
+    const relatedIds = (curriculum.lessonPlans || [])
+      .filter((plan) => {
+        const hay = `${plan.theme || ""} ${plan.title || ""}`.toLowerCase();
+        if (!themeKey) return false;
+        return themeKey.split(/\s+/).filter((t) => t.length > 3).some((token) => hay.includes(token))
+          || hay.includes(themeKey.slice(0, 12));
+      })
+      .map((p) => p.id)
+      .slice(0, 40);
+    const result = directorApi.linkMasterToLessons(directorState, masterId, relatedIds);
+    directorState = await persistDirector(result.director);
+    const applied = await applyDraftPatches(result.draftPatches);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      master: result.master,
+      linkedPlanIds: result.linkedPlanIds,
+      draftReferencesUpdated: applied,
+      autoPublished: false,
+      message: `Auto-linked “${master.title}” to ${result.linkedPlanIds.length} related lesson draft(s). Published content unchanged.`,
+    });
+    return;
+  }
+
+  if (action === "propagate_master") {
+    const result = directorApi.propagateMasterUpdate(
+      directorState,
+      normalizedShortText(body.masterId, 80),
+    );
+    if (!result.master) {
+      jsonResponse(response, 404, { error: "Master resource not found." });
+      return;
+    }
+    directorState = await persistDirector(result.director);
+    const applied = await applyDraftPatches(result.draftPatches);
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      master: result.master,
+      draftReferencesUpdated: applied,
+      autoPublished: false,
+      message: result.message,
+      publishedLessonsUnchanged: true,
+    });
+    return;
+  }
+
+  if (action === "resource_health") {
+    jsonResponse(response, 200, {
+      ok: true,
+      action,
+      resourceHealth: directorApi.buildResourceHealth(directorState, curriculum),
+      autoPublished: false,
+    });
+    return;
+  }
+
+  jsonResponse(response, 400, {
+    error: "Unknown Curriculum Director action.",
+    code: "invalid_director_action",
+    allowed: [
+      "snapshot",
+      "coverage",
+      "recommendations",
+      "intelligence_for_lesson",
+      "planning",
+      "business_insights",
+      "save_master",
+      "link_master",
+      "auto_link_master",
+      "propagate_master",
+      "resource_health",
     ],
   });
 }
@@ -24260,6 +24652,7 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-rollback") return await handleEnrichmentRollback(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/enrichment-ai-insert-log") return await handleAdminEnrichmentAiInsertLog(request, response);
     if (request.method === "POST" && url.pathname === "/api/admin/curriculum/ai-teacher-assistant") return await handleAdminAiTeacherAssistant(request, response);
+    if (request.method === "POST" && url.pathname === "/api/admin/curriculum/director") return await handleAdminCurriculumDirector(request, response);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources") return handleAdminCurriculumResourcesList(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/admin/curriculum/resources/file") return await handleAdminCurriculumResourceFile(request, response, url);
     if (request.method === "GET" && url.pathname === "/api/curriculum/resources/file") return await handlePublicCurriculumResourceFile(request, response, url);
