@@ -165,19 +165,19 @@ async function main() {
 
   assert.match(appJs, /function refreshFreePlanUpgradeChrome/);
   assert.match(appJs, /function maybeShowFreePlanSoftNudge/);
-  assert.match(appJs, /Ready for the full lesson plan library\?|Lock In Founding Member Pricing/);
-  assert.match(appJs, /Ready to save hours every week\?/);
+  assert.match(appJs, /Upgrade to Pro|This is included in Pro/);
   assert.match(appJs, /freeWelcomeCardHtml/);
   assert.match(appJs, /freeCalendarPlanningDays\s*=\s*30/);
   assert.match(appJs, /freeFavoriteLimit\s*=\s*20/);
   assert.match(appJs, /freeChildProfileLimit\s*=\s*5/);
   assert.match(css, /\.free-plan-reminder/);
   assert.match(css, /\.free-plan-badge/);
-  assert.match(css, /\.free-welcome-card/);
+  assert.match(css, /\.free-starter-explore|\.free-welcome-card/);
   assert.match(css, /body\.user-pro \.free-plan-badge/);
   assert.match(indexHtml, /id="freePlanReminderBar"/);
   assert.match(indexHtml, /id="freePlanBadge"/);
   assert.match(indexHtml, /id="sidebarFreeUpgradeCard"/);
+  assert.match(indexHtml, /id="newUserOnboardingModal"/);
   console.log("PASS static free-upgrade markers");
 
   const child = startServer();
@@ -203,17 +203,20 @@ async function main() {
     assert.equal(state.reminderOverlapsTopbar, false, "reminder must not overlap topbar");
     console.log("PASS free owner chrome desktop", state);
 
-    // After welcome is dismissed, the persistent reminder may show (one surface at a time).
+    // After starter/welcome dismissed and a value moment, the persistent reminder may show.
     await page.evaluate(() => {
       localStorage.setItem("llhFreeWelcomeCardDismissed", "1");
+      localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      localStorage.setItem("llhUpgradeValueMoments", JSON.stringify({ count: 1, kinds: ["locked_feature"] }));
+      localStorage.setItem("llhNewUserOnboardingV1", JSON.stringify({ deferGenericUpgrades: false, step: "done", active: false }));
       sessionStorage.removeItem("llhFreePlanReminderDismissed");
       if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
     });
     await page.waitForTimeout(150);
     state = await chromeState(page);
-    assert.equal(state.reminderHidden, false, "reminder shows after welcome dismiss");
+    assert.equal(state.reminderHidden, false, "reminder shows after value moment");
     assert.equal(state.badgeHidden, false);
-    console.log("PASS free owner reminder after welcome dismiss", state);
+    console.log("PASS free owner reminder after value moment", state);
 
     await page.setViewportSize({ width: 390, height: 720 });
     await page.waitForTimeout(200);
@@ -269,72 +272,67 @@ async function main() {
     });
     await page.evaluate(() => {
       localStorage.removeItem("llhFreeWelcomeCardDismissed");
-      // Logged-in home remaps to Calendar — welcome card lives on that planning surface.
-      if (typeof setView === "function") setView("calendar");
-      if (typeof renderMainCalendar === "function") renderMainCalendar();
+      localStorage.removeItem("llhFreeStarterCardsDismissed");
+      localStorage.removeItem("llhGettingStartedDismissed");
+      localStorage.setItem("llhNewUserOnboardingV1", JSON.stringify({
+        active: false,
+        step: "free-start",
+        freeSelectedAt: new Date().toISOString(),
+        deferGenericUpgrades: true,
+        firstTimeUser: true,
+      }));
+      // Free onboarding lands on Lesson Plans — starter explore + Getting Started live there.
+      if (typeof setView === "function") setView("lessons");
+      if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
     });
     await page.waitForTimeout(500);
     const dash = await page.evaluate(() => {
-      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
-      const welcome = root?.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]');
-      const banner = root?.querySelector(".free-library-conversion-banner");
+      const root = document.querySelector("#view-lessons") || document.querySelector(".active-view");
+      const starter = root?.querySelector("[data-free-starter-explore]");
+      const gettingStarted = root?.querySelector("[data-getting-started-checklist]");
+      const upgradeWelcome = root?.querySelector("[data-checkout-plan]");
       const active = document.querySelector(".active-view")?.id || "";
-      const btn = root?.querySelector("[data-dismiss-free-welcome]");
-      const r = btn?.getBoundingClientRect();
       return {
         active,
-        hasWelcome: Boolean(welcome),
-        hasBanner: Boolean(banner),
-        text: (welcome || banner)?.innerText?.slice(0, 500) || "",
-        hasPrimary: Boolean((welcome || banner)?.querySelector("[data-checkout-plan]")),
-        benefits: Array.from((welcome || banner)?.querySelectorAll("li") || []).map((li) => li.textContent.trim()),
-        btnVisible: Boolean(btn && r && r.width > 0 && r.height > 0),
+        hasStarter: Boolean(starter),
+        hasGettingStarted: Boolean(gettingStarted),
+        hasUpgradePush: Boolean(starter?.querySelector("[data-checkout-plan]")),
+        text: (starter || gettingStarted)?.innerText?.slice(0, 500) || "",
+        hasLessonCta: Boolean(starter?.querySelector('[data-nuo-nav="lessons"]')),
+        featured: Boolean(root?.querySelector(".featured-this-week")),
       };
     });
-    assert.equal(dash.active, "view-calendar", "logged-in Free lands on calendar home");
-    assert.equal(dash.hasWelcome, true, "new Free users see welcome card on calendar");
-    assert.equal(dash.hasBanner, false, "welcome card replaces conversion banner until dismissed");
-    assert.match(dash.text, /Welcome to Little Learner Hub/i);
-    assert.equal(dash.hasPrimary, true);
-    assert.equal(dash.btnVisible, true, "welcome dismiss button is visible on calendar");
-    assert.ok(dash.benefits.some((line) => /free lesson plans|additional lesson plans|New curriculum|curriculum collections|Activities, planners/i.test(line)));
-    console.log("PASS calendar welcome card for new Free");
+    assert.equal(dash.active, "view-lessons", "new Free explorers land on Lesson Plans");
+    assert.ok(dash.hasStarter || dash.hasGettingStarted, "new Free users see starter or Getting Started");
+    assert.equal(dash.hasUpgradePush, false, "starter cards must not push Upgrade to Pro");
+    assert.match(dash.text, /Let's get you started|Getting Started|Browse ready-to-use/i);
+    console.log("PASS lesson library starter explore for new Free");
 
     await page.evaluate(() => {
-      const btn = document.querySelector("#mainCalendarApp [data-dismiss-free-welcome]");
-      if (!btn) throw new Error("welcome dismiss missing on calendar");
-      btn.click();
+      const btn = document.querySelector("#view-lessons [data-dismiss-free-starter], #view-lessons [data-dismiss-getting-started]");
+      if (btn) btn.click();
+      localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      localStorage.setItem("llhGettingStartedDismissed", "1");
+      if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
     });
     await page.waitForTimeout(400);
     const afterDismiss = await page.evaluate(() => {
-      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
-      const welcome = root?.querySelector('.free-welcome-card[aria-label="Welcome to Little Learner Hub"]');
-      const banner = root?.querySelector(".free-library-conversion-banner");
-      return {
-        hasWelcome: Boolean(welcome),
-        hasBanner: Boolean(banner),
-        dismissed: localStorage.getItem("llhFreeWelcomeCardDismissed") === "1",
-        text: banner?.innerText?.slice(0, 400) || "",
-      };
-    });
-    assert.equal(afterDismiss.dismissed, true, "welcome dismiss persists");
-    assert.equal(afterDismiss.hasWelcome, false, "new welcome card is gone after dismiss");
-    // After welcome dismiss: one dashboard upgrade card (not a second stacked conversion banner).
-    const afterCard = await page.evaluate(() => {
-      const root = document.querySelector("#mainCalendarApp") || document.querySelector(".active-view");
+      const root = document.querySelector("#view-lessons") || document.querySelector(".active-view");
+      const starter = root?.querySelector("[data-free-starter-explore]");
+      const gettingStarted = root?.querySelector("[data-getting-started-checklist]");
       const card = root?.querySelector(".free-dashboard-upgrade-card");
-      const banner = root?.querySelector(".free-library-conversion-banner");
       return {
+        hasStarter: Boolean(starter),
+        hasGettingStarted: Boolean(gettingStarted),
         hasCard: Boolean(card),
-        hasBanner: Boolean(banner),
-        text: card?.innerText?.slice(0, 400) || "",
-        cta: card?.querySelector("[data-checkout-plan]")?.textContent?.trim() || "",
+        dismissed: localStorage.getItem("llhFreeStarterCardsDismissed") === "1",
       };
     });
-    assert.equal(afterCard.hasBanner, false, "no stacked conversion banner after welcome dismiss");
-    assert.equal(afterCard.hasCard, true, "dashboard upgrade card remains after welcome dismiss");
-    assert.match(afterCard.text + afterCard.cta, /Lock In Founding|Upgrade to Pro|Founding Member|lesson plans/i);
-    console.log("PASS welcome dismiss keeps one dashboard upgrade card");
+    assert.equal(afterDismiss.dismissed, true, "starter dismiss persists");
+    assert.equal(afterDismiss.hasStarter, false, "starter cards gone after dismiss");
+    assert.equal(afterDismiss.hasGettingStarted, false, "getting started gone after dismiss");
+    assert.equal(afterDismiss.hasCard, false, "no immediate upgrade card after Free path");
+    console.log("PASS starter dismiss does not immediately push upgrade");
 
     console.log("\nAll free user upgrade experience tests passed.");
   } catch (error) {

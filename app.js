@@ -1,3 +1,7 @@
+// Declared early so boot-time references (trackEvent, upgrade chrome) do not throw
+// ReferenceError before scripts/new-user-onboarding.js assigns the API on window.
+var NewUserOnboarding;
+
 const categories = [
   { view: "observations", title: "Observation Hub", detail: "Professional wording, skills, standards, and next steps.", icon: "OB" },
   { view: "lessons", title: "Lesson Plan Library", detail: "Search infant, toddler, and preschool lesson plans.", icon: "LP" },
@@ -3630,7 +3634,12 @@ async function finishSignupWithPlan(planChoice) {
     updateAuthButtons();
     updatePlanLabel();
     refreshPublicCurriculumLibrary().catch(() => {});
-    setView("calendar", { fromAuthLanding: true });
+    // Phase 1: onboarding welcome (experience-first) instead of Calendar upgrade card.
+    if (typeof beginNewUserOnboardingAfterFreeSignup === "function") {
+      beginNewUserOnboardingAfterFreeSignup();
+    } else {
+      setView("calendar", { fromAuthLanding: true });
+    }
     return;
   }
   if (planChoice === "founding") {
@@ -3881,6 +3890,13 @@ function trackEvent(name, detail = {}) {
   };
   saveAnalyticsEvents([event, ...analyticsEvents()]);
   sendAnalyticsEvent(event);
+  try {
+    if (typeof NewUserOnboarding?.observeAnalyticsEvent === "function") {
+      NewUserOnboarding.observeAnalyticsEvent(name, detail || {});
+    }
+  } catch {
+    /* ignore milestone observer errors */
+  }
   return event;
 }
 
@@ -3909,6 +3925,11 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
     setView("plans");
     return;
   }
+  try {
+    if (typeof markUpgradeValueMoment === "function") markUpgradeValueMoment(type === "limit" ? "premium_limit" : "locked_feature");
+  } catch {
+    /* ignore */
+  }
   document.body.classList.add("auth-modal-open");
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
@@ -3931,12 +3952,12 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   if (type === "limit") {
     const limitHeadline = offerFounding
       ? "⭐ Upgrade to Pro"
-      : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "Ready to save hours every week?");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : "Unlock more with Pro";
+      : ((!isDraft && um.upgradeLimitHeadline) ? um.upgradeLimitHeadline : "This is included in Pro");
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Pro Offer" : "Included in Pro";
     if (title) title.textContent = limitHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p class="muted-copy">What you’re missing:</p>
+      <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
       ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
@@ -3944,12 +3965,12 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   } else {
     const popupHeadline = offerFounding
       ? "⭐ Upgrade to Pro"
-      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "Save hours with Pro");
-    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Pro Feature";
+      : ((!isDraft && um.upgradePopupHeadline) ? um.upgradePopupHeadline : "This is included in Pro");
+    if (eyebrow) eyebrow.textContent = offerFounding ? "Founding Member" : "Included in Pro";
     if (title) title.textContent = popupHeadline;
     body.innerHTML = `
       <p>${escapeHtml(message)}</p>
-      <p class="muted-copy">What you’ll unlock:</p>
+      <p class="muted-copy">What Pro unlocks:</p>
       ${benefitListHtml}
       <p>${escapeHtml(upgradePopupBody)}</p>
       ${offerFounding ? `<p class="founding-upgrade-compare"><strong>$9.99/month locked while your membership remains continuously active</strong> · Regular price will be $19.99/month</p>` : ""}
@@ -3965,6 +3986,11 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
       upgradeBtn.textContent = "Upgrade to Pro Monthly — $19.99/month";
       upgradeBtn.dataset.checkoutPlan = "monthly";
       upgradeBtn.dataset.upgradeMode = "monthly";
+      upgradeBtn.removeAttribute("data-start-pro-trial");
+    } else if (typeof isTrialPromptSuppressedThisSession === "function" && isTrialPromptSuppressedThisSession()) {
+      upgradeBtn.textContent = "Continue Exploring for Free";
+      upgradeBtn.dataset.checkoutPlan = "";
+      upgradeBtn.dataset.upgradeMode = "dismiss";
       upgradeBtn.removeAttribute("data-start-pro-trial");
     } else {
       upgradeBtn.textContent = proTrialBtnText.includes("Trial")
@@ -6108,6 +6134,16 @@ function emptySiteContent() {
     founding: {},
     signupConversion: {},
     freePlanAccess: {},
+    onboardingRecommendations: {
+      source: "manual",
+      featuredLessonTitles: ["Farm Animals", "All About Me", "Colors Everywhere"],
+      featuredLessonIds: [
+        "cur-lp-preschool-farm-animals",
+        "cur-lp-preschool-all-about-me",
+        "cur-lp-toddler-colors-everywhere",
+      ],
+      aiContext: null,
+    },
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
@@ -11601,6 +11637,20 @@ function effectiveSiteContent() {
       ...(overrides.pricing || {}),
       freePlanFeatures: Array.isArray(overrides.pricing?.freePlanFeatures) && overrides.pricing.freePlanFeatures.length ? overrides.pricing.freePlanFeatures : (base.pricing?.freePlanFeatures || []),
       proPlanFeatures: Array.isArray(overrides.pricing?.proPlanFeatures) && overrides.pricing.proPlanFeatures.length ? overrides.pricing.proPlanFeatures : (base.pricing?.proPlanFeatures || []),
+    },
+    onboardingRecommendations: {
+      ...(base.onboardingRecommendations || {}),
+      ...(overrides.onboardingRecommendations || {}),
+      featuredLessonTitles: Array.isArray(overrides.onboardingRecommendations?.featuredLessonTitles)
+        && overrides.onboardingRecommendations.featuredLessonTitles.length
+        ? overrides.onboardingRecommendations.featuredLessonTitles
+        : (base.onboardingRecommendations?.featuredLessonTitles || ["Farm Animals", "All About Me", "Colors Everywhere"]),
+      featuredLessonIds: Array.isArray(overrides.onboardingRecommendations?.featuredLessonIds)
+        && overrides.onboardingRecommendations.featuredLessonIds.length
+        ? overrides.onboardingRecommendations.featuredLessonIds
+        : (base.onboardingRecommendations?.featuredLessonIds || []),
+      source: overrides.onboardingRecommendations?.source || base.onboardingRecommendations?.source || "manual",
+      aiContext: overrides.onboardingRecommendations?.aiContext ?? base.onboardingRecommendations?.aiContext ?? null,
     },
     faqs: Array.isArray(overrides.faqs) && overrides.faqs.length ? overrides.faqs : (base.faqs || []),
     announcement: { ...(base.announcement || {}), ...(overrides.announcement || {}) },
@@ -17291,50 +17341,71 @@ function collectLessonViewAllItems(items, key) {
   return items;
 }
 
+function resolveFeaturedThisWeekLessons(items) {
+  const list = Array.isArray(items) ? items : [];
+  const rec = typeof getOnboardingContentRecommendations === "function"
+    ? getOnboardingContentRecommendations({ reason: "featured_this_week" })
+    : (typeof NewUserOnboarding?.getContentRecommendations === "function"
+      ? NewUserOnboarding.getContentRecommendations({ reason: "featured_this_week" })
+      : null);
+  const ids = (rec?.ids || []).map(String);
+  const titles = (rec?.titles || ["Farm Animals", "All About Me", "Colors Everywhere"]).map(String);
+  const picked = [];
+  const used = new Set();
+  ids.forEach((id) => {
+    const match = list.find((item) => String(item.id) === id);
+    if (match && !used.has(match.id)) {
+      picked.push(match);
+      used.add(match.id);
+    }
+  });
+  titles.forEach((title) => {
+    if (picked.length >= 3) return;
+    const needle = title.trim().toLowerCase();
+    const match = list.find((item) => String(item.title || "").trim().toLowerCase() === needle)
+      || list.find((item) => String(item.title || "").toLowerCase().includes(needle));
+    if (match && !used.has(match.id)) {
+      picked.push(match);
+      used.add(match.id);
+    }
+  });
+  // Fallback: keep prior single-featured behavior if configured titles are missing in the library.
+  if (!picked.length) {
+    const featured = list.find((item) => item.featured) || list[0];
+    if (featured) picked.push(featured);
+  }
+  return { lessons: picked.slice(0, 3), source: rec?.source || "manual" };
+}
+
 function featuredLessonBannerHtml(items) {
-  const featured = items.find((item) => item.featured) || items[0];
-  if (!featured) return "";
-  const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 120);
-  const coverClass = libraryCoverToneClass(`${featured.title}-featured`);
-  const resolvedCover = resolveLessonPlanCoverForResource(featured);
-  const coverUrl = sanitizedImageSource(resolvedCover.url || "")
-    || lessonPlanCoversApi()?.DEFAULT_COVER
-    || "/images/lesson-covers/default.svg";
-  const coverAlt = String(resolvedCover.alt || "").trim() || `Cover illustration for ${featured.title}`;
-  const coverPosition = String(resolvedCover.position || "center").trim() || "center";
-  const coverFallbacks = lessonPlanCoverFallbackUrls(featured);
-  const planBadge = libraryPlanBadge(featured);
-  const ageLabel = String(featured.age || "").trim();
-  const locked = !canAccess(featured);
-  return `
-    <section class="library-featured-banner has-cover-image netflix-featured-banner" aria-label="Featured lesson plan">
-      <div class="library-featured-banner-media ${coverClass}">
-        <img
-          class="library-featured-banner-image"
-          src="${escapeHtml(coverUrl)}"
-          alt="${escapeHtml(coverAlt)}"
-          width="960"
-          height="540"
-          loading="eager"
-          decoding="async"
-          data-cover-fallbacks="${escapeHtml(JSON.stringify(coverFallbacks))}"
-          style="object-position:${escapeHtml(coverPosition)}"
-          onerror="handleLessonCoverImageError(this)"
-        />
-        <div class="library-featured-banner-scrim" aria-hidden="true"></div>
-        <span class="browse-card-badge library-featured-banner-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
-        <div class="library-featured-banner-overlay">
-          <p class="library-featured-banner-eyebrow">Featured This Week</p>
+  const { lessons, source } = resolveFeaturedThisWeekLessons(items);
+  if (!lessons.length) return "";
+  // Extension point: source may become "ai" / "analytics" later without redesigning this UI.
+  const cards = lessons.map((featured) => {
+    const blurb = truncateLessonOverview(featured.weeklyOverview || featured.description || featured.theme || "A full week of ready-to-use play-based activities.", 100);
+    const planBadge = libraryPlanBadge(featured);
+    const ageLabel = String(featured.age || "").trim();
+    return `
+      <article class="featured-week-card" data-featured-source="${escapeHtml(source)}">
+        <p class="featured-week-card-meta">
+          <span class="browse-card-badge ${planBadge === "Pro" ? "is-pro" : "is-free"}">${planBadge}</span>
           ${ageLabel ? `<span class="browse-card-age">${escapeHtml(ageLabel)}</span>` : ""}
-          <h3 class="browse-card-title-overlay">${escapeHtml(featured.title)}</h3>
-        </div>
+        </p>
+        <h4>${escapeHtml(featured.title)}</h4>
+        <p>${escapeHtml(blurb)}</p>
+        <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
+      </article>
+    `;
+  }).join("");
+  return `
+    <section class="featured-this-week" aria-label="Featured This Week" data-recommendation-source="${escapeHtml(source)}">
+      <div class="featured-this-week-head">
+        <p class="eyebrow">Featured This Week</p>
+        <h3>Great places to start</h3>
+        <p class="muted-copy">Hand-picked lesson plans providers love — configurable from Admin later.</p>
       </div>
-      <div class="library-featured-banner-copy">
-        <p class="library-featured-banner-blurb">${escapeHtml(blurb)}</p>
-        <div class="library-featured-banner-actions">
-          <button type="button" class="primary-button" data-view-resource="${escapeHtml(featured.id)}">View Lesson Plan</button>
-          ${!locked ? `<button type="button" class="ghost-button" data-lesson-card-use-plan="${escapeHtml(featured.id)}">Add to Calendar</button>` : ""}
-        </div>
+      <div class="featured-this-week-grid">
+        ${cards}
       </div>
     </section>
   `;
@@ -25315,10 +25386,12 @@ function renderCategoryPage(view) {
       `;
     } else if (useBrowseRows) {
       const rows = buildLessonBrowseRows(items);
+      // Defer in-library upgrade strips for brand-new Free explorers until a value moment.
+      const deferUpgrade = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
       browseBody = `
         <div class="resource-grid lesson-library-grid library-browse-shell">
           ${freeStarterLibraryBannerHtml()}
-          ${lessonUpgradeBanner}
+          ${deferUpgrade ? "" : lessonUpgradeBanner}
           ${activeFilter === "All" ? featuredLessonBannerHtml(items) : ""}
           ${rows.length
             ? rows.map((row) => browseRowHtml({ ...row, cardHtml: row.cardHtml || lessonPlanCard })).join("")
@@ -25326,9 +25399,13 @@ function renderCategoryPage(view) {
         </div>
       `;
     }
+    const onboardingSurface = (!isSavedLessonMode && !isCollectionMode && typeof renderLessonLibraryOnboardingHtml === "function")
+      ? renderLessonLibraryOnboardingHtml()
+      : "";
     section.innerHTML = `
       ${renderLessonPlanLibraryHeader()}
       ${calendarLessonAssignBannerHtml()}
+      ${onboardingSurface}
       ${!isSavedLessonMode && !isCollectionMode ? lessonPlanRequestPanelHtml() : ""}
       <div class="lesson-plan-search-bar">
         <label class="lesson-plan-search-label visually-hidden" for="lessonPlanSearch">Search lesson plans</label>
@@ -48487,6 +48564,66 @@ function renderAdminFreePlanAccessSection() {
   `;
 }
 
+function adminFeaturedThisWeekEditorHtml() {
+  const cfg = effectiveSiteContent()?.onboardingRecommendations || {};
+  const titles = Array.isArray(cfg.featuredLessonTitles) ? cfg.featuredLessonTitles : ["Farm Animals", "All About Me", "Colors Everywhere"];
+  const ids = Array.isArray(cfg.featuredLessonIds) ? cfg.featuredLessonIds : [];
+  return `
+    <section class="panel-form" style="margin-top:28px;" aria-label="Featured This Week">
+      <div class="section-heading">
+        <div><p class="eyebrow">Onboarding</p><h3>Featured This Week</h3></div>
+      </div>
+      <p class="muted-copy">Shown at the top of Lesson Plans for new users. Titles are matched first; optional IDs win when present. Source stays <code>manual</code> until AI/analytics providers are wired.</p>
+      <form id="adminFeaturedThisWeekForm">
+        <label>Featured titles (one per line)
+          <textarea name="featuredTitles" rows="4">${escapeHtml(titles.join("\n"))}</textarea>
+        </label>
+        <label>Optional lesson plan IDs (one per line)
+          <textarea name="featuredIds" rows="4">${escapeHtml(ids.join("\n"))}</textarea>
+        </label>
+        <label>Recommendation source
+          <select name="source">
+            <option value="manual" ${cfg.source !== "analytics" && cfg.source !== "ai" ? "selected" : ""}>manual</option>
+            <option value="analytics" ${cfg.source === "analytics" ? "selected" : ""} disabled>analytics (coming soon)</option>
+            <option value="ai" ${cfg.source === "ai" ? "selected" : ""} disabled>ai (coming soon)</option>
+          </select>
+        </label>
+        <div class="se-action-buttons">
+          <button class="primary-button" type="submit">Save Featured This Week</button>
+        </div>
+        <span class="form-message" id="adminFeaturedThisWeekMessage"></span>
+      </form>
+    </section>
+  `;
+}
+
+function bindAdminFeaturedThisWeekEditor(root) {
+  const form = root?.querySelector("#adminFeaturedThisWeekForm");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const msg = root.querySelector("#adminFeaturedThisWeekMessage");
+    const data = new FormData(form);
+    const titles = String(data.get("featuredTitles") || "").split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    const ids = String(data.get("featuredIds") || "").split(/\n+/).map((s) => s.trim()).filter(Boolean);
+    if (msg) msg.textContent = "Saving…";
+    try {
+      const next = cloneJson(effectiveSiteContent(), emptySiteContent());
+      next.onboardingRecommendations = {
+        ...(next.onboardingRecommendations || {}),
+        source: "manual",
+        featuredLessonTitles: titles.length ? titles : ["Farm Animals", "All About Me", "Colors Everywhere"],
+        featuredLessonIds: ids,
+        aiContext: next.onboardingRecommendations?.aiContext || null,
+      };
+      await saveAdminSiteContent(next);
+      if (msg) msg.textContent = "Featured This Week saved.";
+    } catch (error) {
+      if (msg) msg.textContent = error.message || "Could not save.";
+    }
+  });
+}
+
 async function renderAdminFreeStarterLibrarySection() {
   const target = document.querySelector("#adminFreeStarterLibraryApp");
   if (!target || !isAdminUnlocked()) return;
@@ -48528,8 +48665,10 @@ async function renderAdminFreeStarterLibrarySection() {
         </div>
         <span class="form-message" id="adminFreeStarterLibraryMessage"></span>
       </form>
+      ${adminFeaturedThisWeekEditorHtml()}
     `;
     const form = target.querySelector("#adminFreeStarterLibraryForm");
+    bindAdminFeaturedThisWeekEditor(target);
     form?.addEventListener("submit", async (event) => {
       event.preventDefault();
       const mode = event.submitter?.value || "preview";
@@ -53281,12 +53420,16 @@ function dismissFreeWelcomeCard() {
 }
 
 /**
- * Dashboard / calendar surface: one welcome/upgrade card only.
- * Persistent upgrade nudges live in the top reminder bar — do not stack library banners here.
+ * Dashboard / calendar surface: no immediate paywall.
+ * New-user starter cards + trial welcome live on Lesson Plans (strongest first wow).
  */
 function freeSurfaceUpgradeHtml(variant = "default") {
   void variant;
-  return freeWelcomeCardHtml() || freeDashboardUpgradeCardHtml();
+  // Keep calendar/dashboard quiet for brand-new Free explorers.
+  if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) {
+    return "";
+  }
+  return freeDashboardUpgradeCardHtml();
 }
 
 function contentGrowthStats() {
@@ -53455,43 +53598,32 @@ function planComparisonTableHtml() {
 }
 
 /**
- * First-visit welcome card for new (curated) Free users — value-first, not a lockout wall.
+ * First-visit surface for Free users — experience-first starter cards (no immediate Upgrade CTA).
+ * Legacy name kept for existing tests/call sites.
  */
 function freeWelcomeCardHtml() {
-  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return "";
-  if (hasLegacyFreeLessonAccess()) return "";
-  if (!canSeePaidUpgradeOffer()) return "";
-  if (isFreeWelcomeCardDismissed()) return "";
-  const primaryCheckout = preferredPaidCheckoutPlan();
-  const primaryLabel = freeUpgradePrimaryButtonLabel();
-  return `
-    <section class="free-welcome-card" role="region" aria-label="Welcome to Little Learner Hub">
-      <div class="free-welcome-card-copy">
-        <p class="free-welcome-card-badge">Free Plan</p>
-        <h3>Welcome to Little Learner Hub</h3>
-        <p>${escapeHtml(MEMBERSHIP_COPY.freeCore)}</p>
-        <p>${escapeHtml(freePolicyNoticeText())}</p>
-        <p>${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>
-        <p class="muted-copy">${escapeHtml(freeUpgradeSupportingText())}</p>
-        <ul class="free-welcome-card-benefits">
-          <li>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)}</li>
-          <li>Print and download your Free starter plans (no trial watermark or export limit)</li>
-          <li>${escapeHtml(MEMBERSHIP_COPY.unlimitedLabel)} with Pro</li>
-        </ul>
-      </div>
-      <div class="free-welcome-card-actions">
-        <button class="primary-button" type="button" data-checkout-plan="${primaryCheckout}">${escapeHtml(primaryLabel)}</button>
-        <button class="ghost-button" type="button" data-view="plans">Compare Plans</button>
-        <button class="ghost-button" type="button" data-dismiss-free-welcome>Explore Free for now</button>
-      </div>
-    </section>
-  `;
+  if (typeof renderFreeStarterExploreHtml === "function") {
+    return renderFreeStarterExploreHtml();
+  }
+  return "";
 }
 
-/** Persistent dashboard upgrade card after welcome dismiss — not a second floating banner. */
+/**
+ * Deferred dashboard upgrade card — only after a meaningful value moment (not right after signup).
+ */
 function freeDashboardUpgradeCardHtml() {
   if (!canSeePaidUpgradeOffer()) return "";
-  if (!isFreeWelcomeCardDismissed() && !hasLegacyFreeLessonAccess()) return "";
+  if (typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts()) return "";
+  if (typeof hasReachedMeaningfulUpgradeValueMoment === "function" && !hasReachedMeaningfulUpgradeValueMoment()) {
+    // Existing Free owners who already dismissed the old welcome may still see this later;
+    // brand-new Free path stays quiet until they use the product.
+    const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
+    if (onboarding?.deferGenericUpgrades || onboarding?.freeSelectedAt) return "";
+  }
+  if (!isFreeWelcomeCardDismissed() && !hasLegacyFreeLessonAccess()) {
+    // Starter cards still own the surface when present.
+    if (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()) return "";
+  }
   const foundingOpen = foundingOpenForAcquisition();
   const unlockLines = lockedContentUnlockLines();
   return `
@@ -53586,10 +53718,15 @@ function refreshFreePlanUpgradeChrome() {
     // Hide during account verification so boot gate + reminder never stack.
     const bootBusy = document.body.classList.contains("app-boot-verifying")
       || (typeof requiresVerifiedAppBoot === "function" && requiresVerifiedAppBoot() && !isAppBootInteractive());
-    // Prefer the dashboard welcome/upgrade card over the top reminder on first login.
-    const welcomeActive = !isFreeWelcomeCardDismissed();
+    // Prefer onboarding/starter cards over the top reminder; defer reminder until value moments.
+    const starterActive = Boolean(
+      (typeof NewUserOnboarding?.isNewUserOnboardingActive === "function" && NewUserOnboarding.isNewUserOnboardingActive())
+      || (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()),
+    );
+    const deferReminder = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
     reminder.hidden = bootBusy
-      || welcomeActive
+      || starterActive
+      || deferReminder
       || isFreePlanReminderDismissed()
       || isFoundingUpgradeBannerDismissed();
     const copyEl = reminder.querySelector(".free-plan-reminder-copy");
@@ -54163,6 +54300,35 @@ function renderBillingHistoryPage() {
 function renderPaymentSuccessPage() {
   const target = document.querySelector("#paymentSuccessApp");
   if (!target) return;
+  const account = currentAccount() || {};
+  const inTrial = accountIsInTrial(account)
+    || String(account.stripeSubscriptionStatus || "").toLowerCase() === "trialing"
+    || Number(account.trialDays || 0) > 0;
+  const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
+  const fromOnboardingTrial = Boolean(
+    inTrial
+    && onboarding
+    && (onboarding.fromOnboardingCheckout || onboarding.trialSelectedAt || onboarding.step === "trial-success"),
+  );
+  if (fromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutSuccess === "function") {
+    if (onboarding.step !== "trial-success") {
+      NewUserOnboarding.handleTrialCheckoutSuccess();
+    } else if (typeof NewUserOnboarding.openModal === "function") {
+      NewUserOnboarding.openModal();
+    }
+    target.innerHTML = `
+      <section class="section-block success-panel">
+        <p class="eyebrow">7-Day Pro Trial</p>
+        <h3>Your 7-Day Pro Trial is Active!</h3>
+        <p class="muted-copy">Use the welcome checklist to explore your new features.</p>
+        <div class="account-actions-row">
+          <button class="primary-button" data-view="lessons" type="button">Open Lesson Plans</button>
+          <button class="ghost-button" data-view="calendar" type="button">Open Calendar</button>
+        </div>
+      </section>
+    `;
+    return;
+  }
   target.innerHTML = `
     <section class="section-block success-panel">
       <p class="eyebrow">Active Subscription</p>
@@ -54974,17 +55140,26 @@ async function startCheckout(type, trackingContext = "checkout") {
   }
 }
 
-async function startProTrial() {
+async function startProTrial(options = {}) {
   if (!requireBillingAccount()) return;
+  if (
+    !options.force
+    && typeof isTrialPromptSuppressedThisSession === "function"
+    && isTrialPromptSuppressedThisSession()
+  ) {
+    return;
+  }
   closeProFeatureModal();
   await syncFoundingStatus({ render: false });
   const checkoutType = "monthly";
   const amount = checkoutAmount(checkoutType);
-  if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) {
-    trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, trial7day: true });
-    return;
+  if (!options.skipConfirm) {
+    if (!window.confirm(`${MEMBERSHIP_COPY.trialCore}\n\n${MEMBERSHIP_COPY.proMonthly}\n\nYou will enter your card on the next screen. Stripe starts your 7-day trial at $0, then charges Pro Monthly automatically when the trial ends unless you cancel first.`)) {
+      trackProCheckoutAbandoned("confirm_declined", { type: checkoutType, amount, trial7day: true });
+      return;
+    }
   }
-  trackProUpgradeIntent("pro_trial_confirmed", { plan: "monthly", trial7day: true });
+  trackProUpgradeIntent("pro_trial_confirmed", { plan: "monthly", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
   const pending = {
     type: checkoutType,
     amount,
@@ -54994,9 +55169,10 @@ async function startProTrial() {
     promoCode: "",
     trialDays: 7,
     promoLabel: "7-Day Pro Trial",
+    fromOnboarding: Boolean(options.fromOnboarding),
   };
   localStorage.setItem("llhPendingCheckout", JSON.stringify(pending));
-  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true });
+  trackEvent("checkout_start", { type: checkoutType, amount, promoCode: "", trial7day: true, fromOnboarding: Boolean(options.fromOnboarding) });
   addBillingHistory("Checkout Started", "Monthly Pro trial checkout started (7-day trial)", amount);
 
   if (stripeCheckoutConfig.checkoutEndpoint && canUseStripeBackend()) {
@@ -55062,6 +55238,7 @@ function completeCheckout() {
     setView("payment-failed");
     return;
   }
+  const completedFromOnboardingTrial = Boolean(pending.fromOnboarding && Number(pending.trialDays || 0) > 0);
   if (pending.type === "founding" && foundingSpotsRemaining() <= 0) {
     setView("payment-failed");
     addBillingHistory("Checkout Blocked", "Founding Membership was sold out before checkout could complete.", "");
@@ -55126,7 +55303,7 @@ function completeCheckout() {
     markCheckoutPromoRedeemed(pending.promoCode, { trialDays, label: pending.promoLabel });
   }
   addBillingHistory("Payment Succeeded", `${billingPlanLabel(plan)} subscription activated${pending.promoCode ? " with promo trial" : ""}`, monthlyPrice);
-  trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution() });
+  trackEvent("checkout_success", { plan, monthlyPrice, attribution: currentAttribution(), trial7day: trialDays > 0, fromOnboarding: completedFromOnboardingTrial });
   localStorage.removeItem("llhPendingCheckout");
   checkoutPromoCode = "";
   localStorage.removeItem("llhCheckoutPromoCode");
@@ -55134,6 +55311,9 @@ function completeCheckout() {
   updateAuthButtons();
   updatePlanLabel();
   setView("payment-success");
+  if (completedFromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutSuccess === "function") {
+    NewUserOnboarding.handleTrialCheckoutSuccess();
+  }
 }
 
 async function completeCheckoutFromStripeSession(session) {
@@ -55166,6 +55346,7 @@ async function completeCheckoutFromStripeSession(session) {
     promoCode: pending?.promoCode || "",
     trialDays,
     promoLabel: session.trial?.label || session.promo?.label || pending?.promoLabel || "",
+    fromOnboarding: Boolean(pending?.fromOnboarding),
   }));
   completeCheckout();
   updateCurrentAccountBilling({
@@ -55247,10 +55428,16 @@ function failCheckout() {
       type: pendingType,
       amount: pending?.amount || "",
       trialDays: pending?.trialDays || 0,
+      fromOnboarding: Boolean(pending?.fromOnboarding),
     });
   }
   addBillingHistory("Checkout Canceled", "Checkout was canceled before payment — no charge was made and no plan change occurred.", pending?.amount || "");
+  const fromOnboardingTrial = Boolean(pending?.fromOnboarding && Number(pending?.trialDays || 0) > 0);
   localStorage.removeItem("llhPendingCheckout");
+  if (fromOnboardingTrial && typeof NewUserOnboarding?.handleTrialCheckoutCancel === "function") {
+    NewUserOnboarding.handleTrialCheckoutCancel();
+    return;
+  }
   setView("payment-failed");
 }
 
@@ -55418,6 +55605,17 @@ function toggleFavorite(id) {
   }
   favorites = already ? favorites.filter((favorite) => favorite !== id) : [...favorites, id];
   saveFavorites();
+  if (!already) {
+    try {
+      if (typeof NewUserOnboarding?.noteMilestone === "function") {
+        NewUserOnboarding.noteMilestone("firstFavoriteAt", "first_favorite", { resourceId: id });
+      } else {
+        trackEvent("first_favorite", { resourceId: id });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
   refreshLessonWorkspaceSaveButton();
   const activeView = document.querySelector(".active-view")?.id.replace("view-", "") || "home";
   if (activeView === "home") renderHome();
@@ -61847,6 +62045,9 @@ document.querySelector("#proModalUpgrade")?.addEventListener("click", () => {
     trackProUpgradeIntent("pro_feature_modal", { mode, plan: mode === "trial" ? "monthly" : mode });
   }
   closeProFeatureModal({ completed: true });
+  if (mode === "dismiss") {
+    return;
+  }
   if (mode === "founding") {
     startCheckoutWithFoundingGuard("founding", "pro_feature_modal");
     return;
@@ -62998,11 +63199,17 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
-  const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome]");
+  const freeWelcomeDismiss = event.target.closest("[data-dismiss-free-welcome], [data-dismiss-free-starter]");
   if (freeWelcomeDismiss) {
     event.preventDefault();
     trackProUpgradeDismissed("free_welcome_card");
     dismissFreeWelcomeCard();
+    try {
+      localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      document.querySelectorAll("[data-free-starter-explore]").forEach((node) => node.remove());
+    } catch {
+      /* ignore */
+    }
     return;
   }
 

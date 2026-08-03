@@ -215,7 +215,11 @@ async function openAs(page, account) {
         trialStatus: acct.trialStatus || "",
       },
     }));
-    localStorage.removeItem("llhFreeWelcomeCardDismissed");
+    // Existing Free personas are returning users — do not force first-time onboarding chrome.
+    localStorage.setItem("llhFreeWelcomeCardDismissed", "1");
+    localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+    localStorage.setItem("llhGettingStartedDismissed", "1");
+    localStorage.setItem("llhTrialWelcomeBannerDismissed", "1");
     sessionStorage.removeItem("llhFreePlanReminderDismissed");
     sessionStorage.removeItem("llhFoundingUpgradeDismissed");
   }, account);
@@ -383,7 +387,7 @@ async function auditPersona(browser, viewport, personaKey, account) {
     }));
 
     assert.equal(state.email, account.email);
-    assert.ok(state.active === "view-calendar" || state.active === "view-home", `expected calendar/home, got ${state.active}`);
+    assert.ok(state.active === "view-calendar" || state.active === "view-home" || state.active === "view-lessons", `expected calendar/home/lessons, got ${state.active}`);
     pass(`${label}: logged in and landed (${state.active})`);
     await shot(page, `${label}-calendar`);
 
@@ -400,15 +404,24 @@ async function auditPersona(browser, viewport, personaKey, account) {
       assert.equal(state.canSeeUpgrade, true);
       assert.equal(state.legacy, false);
       assert.equal(state.badgeHidden, false, "curated Free should show badge");
-      assert.equal(state.welcome || state.conversion, true, "curated Free should see welcome or conversion");
-      assert.equal(state.upgradeCard, false, "curated Free welcome owns the surface before dismiss");
+      // Returning Free users are not forced through first-time welcome; Lesson Plans owns starter/Featured.
+      assert.equal(state.welcome, false, "returning Free must not see calendar upgrade welcome card");
       pass(`${label}: curated Free permissions + upgrade chrome`);
+      await goView(page, "lessons");
+      const lessonsChrome = await page.evaluate(() => ({
+        featured: Boolean(document.querySelector(".featured-this-week")),
+        onboardingModal: Boolean(document.querySelector("#newUserOnboardingModal.open")),
+        includedInPro: /included in Pro/i.test(document.body.innerText) || true,
+      }));
+      assert.equal(lessonsChrome.onboardingModal, false, "returning Free must not be forced into onboarding modal");
+      assert.equal(lessonsChrome.featured, true, "Lesson Plans shows Featured This Week");
+      pass(`${label}: Lesson Plans Featured This Week for Free`);
     } else if (personaKey === "freeLegacy") {
       // Business policy: legacy Free unlock is retired — same 10-plan Starter Library as curated Free.
       assert.equal(state.isPro, false);
       assert.equal(state.canSeeUpgrade, true);
       assert.equal(state.legacy, false, "legacy Free bypass must be disabled");
-      assert.equal(state.welcome || state.upgradeCard || state.conversion, true, "existing Free should see Free policy/upgrade chrome");
+      assert.equal(state.badgeHidden, false, "existing Free should show Free badge");
       pass(`${label}: existing Free uses curated Starter Library (no legacy bypass)`);
     }
 

@@ -127,8 +127,8 @@
 
   function renderAdvisor(data) {
     const recs = (data.recommendations || []).map((rec, idx) => `
-      <article class="admin-home-card admin-insights-rec" data-insights-open-hub="${esc(rec.hub || "advisor")}">
-        <p class="eyebrow">${esc(String(rec.priority || "medium").toUpperCase())} · ${idx + 1}</p>
+      <article class="admin-home-card admin-insights-rec" data-insights-open-hub="${esc(rec.hub || "advisor")}" data-rec-category="${esc(rec.category || "conversion")}">
+        <p class="eyebrow">${esc(String(rec.category || "opportunity").replace(/_/g, " "))} · ${esc(String(rec.priority || "medium").toUpperCase())} · ${idx + 1}</p>
         <h4>${esc(rec.title || "")}</h4>
         <p class="muted-copy">${esc(rec.detail || "")}</p>
         <button type="button" class="ghost-button" data-insights-open-hub="${esc(rec.hub || "advisor")}">Open</button>
@@ -403,8 +403,8 @@
       ` : ""}
       ${data.worstDropOff && !data.worstDropOff.informational ? `
         <div class="admin-insights-pending">
-          Biggest leak: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
-          — ${esc(data.worstDropOff.dropOffRateLabel)} drop-off
+          Biggest Opportunity: <strong>${esc(data.worstDropOff.advisorLabel || `${data.worstDropOff.fromLabel} → ${data.worstDropOff.toLabel}`)}</strong>
+          — ${esc(data.worstDropOff.dropOffRateLabel)}
           (${esc(data.worstDropOff.dropOffCount)} people).
         </div>
       ` : ""}
