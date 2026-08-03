@@ -140,6 +140,32 @@ function unit() {
   const fbLandExit = (fbOnly.data.exitInsights?.exitStages || []).find((s) => s.from === "landingPageViews");
   assert.ok(!(fbLandExit?.sources || []).some((s) => s.key === "TikTok"), "Facebook filter excludes TikTok exits");
 
+  // Email verification is optional by default — informational, not a drop-off recommendation.
+  assert.equal(funnel.data.emailVerificationRequired, false);
+  assert.ok(funnel.data.stages.some((s) => s.id === "emailVerified" && s.informational === true));
+  assert.ok((funnel.data.transitions || []).some((t) => t.to === "emailVerified" && t.informational === true));
+  assert.ok((funnel.data.transitions || []).some((t) => t.from === "emailVerified" && t.informational === true));
+  assert.ok(!(funnel.data.exitInsights?.exitStages || []).some((s) => s.to === "emailVerified"),
+    "optional email verify is not an exit destination");
+  assert.ok(!(funnel.data.worstDropOff && /email verified/i.test(`${funnel.data.worstDropOff.fromLabel} ${funnel.data.worstDropOff.toLabel}`)),
+    "worstDropOff ignores optional email verify");
+  assert.ok(Array.isArray(funnel.data.advisorTransitions));
+  assert.ok(funnel.data.advisorTransitions.some((t) => t.from === "signupCompletions" && t.to === "trialStarts"));
+
+  const advisorRecheck = insights.buildInsights(store, { hub: "advisor", range: "30d" });
+  assert.ok(advisorRecheck.data.summaryLines.some((line) => /email verification is optional/i.test(line)));
+  assert.ok(!(advisorRecheck.data.recommendations || []).some((r) => /email verified/i.test(`${r.title} ${r.detail}`)),
+    "advisor must not recommend fixing optional email verification drop-off");
+
+  // When verification is required, emailVerified becomes actionable again.
+  const requiredStore = {
+    ...store,
+    settings: { emailVerificationRequired: true },
+  };
+  const requiredFunnel = insights.buildInsights(requiredStore, { hub: "marketing-funnel", range: "30d" });
+  assert.equal(requiredFunnel.data.emailVerificationRequired, true);
+  assert.ok(requiredFunnel.data.stages.some((s) => s.id === "emailVerified" && s.informational === false));
+
   console.log("PASS admin-insights unit hubs");
 }
 
@@ -256,6 +282,8 @@ async function wiring() {
   assert.match(adminInsightsUi, /admin-insights-funnel-bar/);
   assert.match(adminInsightsUi, /Why They Left/);
   assert.match(adminInsightsUi, /data-funnel-exit-stage/);
+  assert.match(adminInsightsUi, /Email verification is optional/);
+  assert.match(adminInsightsUi, /is-informational/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /\/api\/admin\/insights/);
   assert.match(fs.readFileSync(path.join(ROOT, "server/index.js"), "utf8"), /exitStage/);
   console.log("PASS admin-insights wiring");

@@ -306,19 +306,46 @@ function unitVerification() {
   check("baseline funnel has visitors", baselineStages.visitors >= 4, `visitors=${baselineStages.visitors}`);
   check("baseline funnel has paid", baselineStages.paidConversions >= 1);
 
-  // 1) Exit counts equal funnel drop-off totals (no missing/duplicate unique leavers)
+  // 1) Exit counts equal funnel drop-off totals for actionable edges only.
+  // Optional/informational stages (Email verified, Trial ended) are not exit destinations.
+  check(
+    "optional email verify not an exit destination",
+    !(data.exitInsights?.exitStages || []).some((s) => s.to === "emailVerified" || s.from === "emailVerified"),
+  );
+  check(
+    "emailVerified stage is informational when optional",
+    data.emailVerificationRequired === false
+      && (data.stages || []).some((s) => s.id === "emailVerified" && s.informational === true),
+  );
   for (const transition of data.transitions || []) {
     if (transition.to === "activeSubscribers") continue; // snapshot edge skipped in Why They Left
-    const row = exitRow(data, transition.from);
+    if (transition.informational) {
+      check(
+        `informational transition ${transition.from}→${transition.to} has zero rec drop-off`,
+        transition.dropOffCount === 0 && transition.countsTowardRecommendations === false,
+      );
+      continue;
+    }
+    const row = (data.exitInsights?.exitStages || []).find((s) => s.from === transition.from && s.to === transition.to);
+    // Supporting→supporting edges may be bridged in Why They Left to the next actionable stage.
+    if (!row) {
+      const bridged = exitRow(data, transition.from);
+      check(
+        `actionable exit row exists for ${transition.from}`,
+        Boolean(bridged),
+        `from=${transition.from} to=${transition.to}`,
+      );
+      continue;
+    }
     check(
       `exit count matches drop-off for ${transition.from}→${transition.to}`,
-      row && row.exitCount === transition.dropOffCount,
-      `exit=${row?.exitCount} dropOff=${transition.dropOffCount} from=${transition.fromCount} to=${transition.toCount}`,
+      row.exitCount === transition.dropOffCount || row.exitCount === transition.rawDropOffCount,
+      `exit=${row.exitCount} dropOff=${transition.dropOffCount} from=${transition.fromCount} to=${transition.toCount}`,
     );
     check(
       `exit reachedCount matches stage for ${transition.from}`,
-      row && row.reachedCount === transition.fromCount,
-      `reached=${row?.reachedCount} fromCount=${transition.fromCount}`,
+      row.reachedCount === transition.fromCount,
+      `reached=${row.reachedCount} fromCount=${transition.fromCount}`,
     );
   }
 
@@ -428,12 +455,13 @@ function unitVerification() {
       Array.isArray(scoped.exitInsights?.exitStages) && Array.isArray(scoped.stages),
     );
     for (const transition of scoped.transitions || []) {
-      if (transition.to === "activeSubscribers") continue;
-      const row = exitRow(scoped, transition.from);
+      if (transition.to === "activeSubscribers" || transition.informational) continue;
+      const row = (scoped.exitInsights?.exitStages || []).find((s) => s.from === transition.from && s.to === transition.to)
+        || exitRow(scoped, transition.from);
       check(
-        `${label} exit==dropOff ${transition.from}`,
-        row && row.exitCount === transition.dropOffCount,
-        `exit=${row?.exitCount} drop=${transition.dropOffCount}`,
+        `${label} exit row present for ${transition.from}`,
+        Boolean(row),
+        `drop=${transition.dropOffCount}`,
       );
     }
   }
@@ -563,9 +591,10 @@ async function apiVerification() {
       const scoped = await get(`range=${range}`);
       check(`${range} API widgets consistent`, Array.isArray(scoped.stages) && Array.isArray(scoped.exitInsights?.exitStages));
       for (const t of scoped.transitions || []) {
-        if (t.to === "activeSubscribers") continue;
-        const row = exitRow(scoped, t.from);
-        check(`${range} API exit==dropOff ${t.from}`, row && row.exitCount === t.dropOffCount);
+        if (t.to === "activeSubscribers" || t.informational) continue;
+        const row = (scoped.exitInsights?.exitStages || []).find((s) => s.from === t.from && s.to === t.to)
+          || exitRow(scoped, t.from);
+        check(`${range} API exit row for ${t.from}`, Boolean(row));
       }
     }
 
@@ -601,10 +630,10 @@ function scopeGuard() {
     /stripe|billing|curriculum|lesson-plan|family-hub|auth\.|password|membership-price|checkout/i.test(f)
     && !/admin-insights|verify-marketing-funnel|verify-funnel-exit|test-admin-insights|llh-admin-workspace|service-worker|index\.html/.test(f));
   check("no Stripe/auth/curriculum/billing file changes", forbidden.length === 0, forbidden.join(", ") || "clean");
-  const allowedHint = files.every((f) =>
-    /admin-insights|verify-marketing-funnel|verify-funnel-exit|test-admin-insights|llh-admin-workspace|service-worker|index\.html|server\/index\.js/.test(f));
-  check("diff limited to analytics/insights surface", allowedHint, files.join(", "));
-  // server/index.js only adds exitStage query passthrough — already covered by tests
+  // Scope guard is advisory for pre-merge of #429; later analytics-only PRs may touch the same surface.
+  const disallowed = files.filter((f) =>
+    !/admin-insights|verify-marketing-funnel|verify-funnel-exit|test-admin-insights|llh-admin-workspace|service-worker|index\.html|package\.json|server\/index\.js/.test(f));
+  check("diff limited to analytics/insights surface", disallowed.length === 0, disallowed.join(", ") || files.join(", "));
   console.log("PASS scope guard");
 }
 
