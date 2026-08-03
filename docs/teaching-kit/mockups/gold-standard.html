@@ -3,17 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gold Standard Teaching Kit — Bugs &amp; Butterflies</title>
+  <title>Teaching Kit UX — Classroom Binder (Bugs &amp; Butterflies)</title>
   <link rel="stylesheet" href="../../../styles/llh-design-tokens.css" />
   <style>
-    * { box-box: border-box; box-sizing: border-box; }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: var(--llh-font-body);
       color: var(--llh-ink);
       background:
-        radial-gradient(1000px 480px at 8% -8%, #e7f0e4, transparent 55%),
-        radial-gradient(900px 420px at 100% 0%, var(--llh-secondary-soft), transparent 50%),
+        radial-gradient(900px 420px at 0% 0%, #e5efe2, transparent 55%),
+        radial-gradient(800px 380px at 100% 0%, var(--llh-secondary-soft), transparent 50%),
         var(--llh-bg);
       min-height: 100vh;
     }
@@ -30,7 +30,7 @@
       align-items: center;
       position: sticky;
       top: 0;
-      z-index: 60;
+      z-index: 80;
     }
     .banner .pill {
       background: var(--llh-highlight);
@@ -42,28 +42,35 @@
     }
     .shell {
       display: grid;
-      grid-template-columns: 220px 1fr;
+      grid-template-columns: 200px 1fr;
       min-height: calc(100vh - 42px);
     }
-    @media (max-width: 900px) {
+    @media (max-width: 920px) {
       .shell { grid-template-columns: 1fr; }
-      .side { display: flex; gap: 6px; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--llh-line); padding: 12px; }
-      .side button { width: auto; white-space: nowrap; }
+      .rail {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        border-right: 0;
+        border-bottom: 1px solid var(--llh-line);
+        padding: 10px 12px;
+      }
+      .rail button { width: auto; white-space: nowrap; }
     }
-    .side {
-      background: rgba(255,255,255,0.75);
+    .rail {
+      background: rgba(255,255,255,.78);
       backdrop-filter: blur(8px);
       border-right: 1px solid var(--llh-line);
-      padding: 18px 12px;
+      padding: 16px 10px;
     }
-    .side .label {
-      font-size: 11px;
-      letter-spacing: 0.07em;
+    .rail .label {
+      font-size: 10px;
+      letter-spacing: .08em;
       text-transform: uppercase;
       color: var(--llh-muted);
-      margin: 0 8px 10px;
+      margin: 0 8px 8px;
     }
-    .side button {
+    .rail button {
       display: block;
       width: 100%;
       text-align: left;
@@ -75,323 +82,373 @@
       font-size: 13px;
       font-weight: 600;
       cursor: pointer;
-      color: var(--llh-ink);
       margin-bottom: 3px;
+      color: var(--llh-ink);
     }
-    .side button:hover { background: var(--llh-primary-soft); }
-    .side button.active {
+    .rail button:hover { background: var(--llh-primary-soft); }
+    .rail button.active {
       background: var(--llh-primary-soft);
       color: var(--llh-primary-deep);
     }
-    .stage { padding: 18px; }
+    .rail .divider {
+      height: 1px;
+      background: var(--llh-line);
+      margin: 10px 8px;
+    }
+    .stage { padding: 16px; }
     .note {
-      max-width: 1040px;
+      max-width: 1080px;
       background: #fff;
       border: 1px solid var(--llh-line);
-      border-left: 4px solid var(--llh-secondary);
+      border-left: 4px solid var(--llh-accent);
       border-radius: 12px;
-      padding: 12px 14px;
+      padding: 11px 14px;
       color: var(--llh-muted);
       font-size: 13px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
     }
-    .screen { display: none; animation: rise .32s ease; }
+    .screen { display: none; animation: rise .3s ease; }
     .screen.active { display: block; }
     @keyframes rise {
       from { opacity: 0; transform: translateY(6px); }
       to { opacity: 1; transform: none; }
     }
-    .frame {
-      max-width: 1040px;
+
+    /* App chrome inside mock device */
+    .kit {
+      max-width: 1080px;
       background: var(--llh-surface);
       border: 1px solid var(--llh-line);
-      border-radius: var(--llh-radius-lg);
+      border-radius: 16px;
       box-shadow: var(--llh-shadow-soft);
       overflow: hidden;
-    }
-    .phone {
-      width: 390px;
-      max-width: 100%;
-      margin: 0 auto;
-      border-radius: 28px;
-      box-shadow: var(--llh-shadow-modal);
-      position: relative;
-    }
-    .phone-bar {
-      height: 26px;
-      background: linear-gradient(180deg, #f1eef6, #fff);
-      border-bottom: 1px solid var(--llh-line);
-    }
-
-    .hero {
-      min-height: 230px;
-      padding: 28px 24px 22px;
-      color: #fff;
       display: grid;
-      align-content: end;
-      gap: 8px;
-      background:
-        linear-gradient(115deg, rgba(42,42,53,.55), rgba(90,77,138,.28)),
-        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='360' viewBox='0 0 1200 360'%3E%3Crect width='1200' height='360' fill='%23cfe3c6'/%3E%3Cellipse cx='180' cy='260' rx='140' ry='70' fill='%23a8c99a'/%3E%3Cellipse cx='320' cy='270' rx='100' ry='50' fill='%239bbf8c'/%3E%3Crect x='720' y='70' width='380' height='220' rx='16' fill='%23f7f1e7'/%3E%3Ccircle cx='820' cy='150' r='34' fill='%23e8c96a'/%3E%3Ccircle cx='900' cy='170' r='26' fill='%23e8a07a'/%3E%3Crect x='960' y='130' width='90' height='120' rx='8' fill='%237ba8c9'/%3E%3Cpath d='M140 210c20-40 60-40 80 0' stroke='%235a4d8a' stroke-width='6' fill='none'/%3E%3C/svg%3E") center/cover;
+      grid-template-columns: 200px 1fr;
+      min-height: 640px;
     }
-    .hero .brand {
-      font-size: var(--llh-text-eyebrow);
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      opacity: .92;
+    @media (max-width: 860px) {
+      .kit { grid-template-columns: 1fr; }
+      .kit-nav { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--llh-line); }
+      .kit-nav button { width: auto; white-space: nowrap; }
     }
-    .hero h1 {
-      margin: 0;
-      font-size: clamp(1.8rem, 2.4vw + 1rem, 2.5rem);
-      line-height: 1.1;
-      max-width: 14ch;
+    .kit-nav {
+      background: #faf8fc;
+      border-right: 1px solid var(--llh-line);
+      padding: 14px 10px;
     }
-    .hero .desc {
-      margin: 0;
-      max-width: 46ch;
-      font-size: 14px;
-      opacity: .95;
-    }
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      background: rgba(255,255,255,.18);
-      border: 1px solid rgba(255,255,255,.35);
-    }
-    .badge.pro { background: var(--llh-highlight); color: var(--llh-ink); border: 0; }
-
-    .toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 12px 16px;
+    .kit-nav .week-meta {
+      padding: 4px 10px 12px;
       border-bottom: 1px solid var(--llh-line);
-      background: #fffc;
-    }
-    .btn {
-      border: 1px solid var(--llh-line);
-      background: #fff;
-      color: var(--llh-ink);
-      border-radius: 8px;
-      padding: 9px 13px;
-      font: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform .15s ease, background .15s ease;
-    }
-    .btn:hover { transform: translateY(-1px); }
-    .btn:focus-visible { outline: 3px solid var(--llh-focus-ring); outline-offset: 2px; }
-    .btn.primary { background: var(--llh-primary); border-color: var(--llh-primary); color: #fff; }
-    .btn.ghost { background: transparent; }
-    .btn.icon { padding: 9px 11px; }
-    .btn.fav.on { color: #b34545; border-color: #e8b4b4; background: var(--llh-danger-soft); }
-
-    .tabs {
-      display: flex;
-      gap: 2px;
-      overflow-x: auto;
-      padding: 8px 12px 0;
-      border-bottom: 1px solid var(--llh-line);
-    }
-    .tabs button {
-      border: 0;
-      background: transparent;
-      padding: 11px 12px;
-      font: inherit;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--llh-muted);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      white-space: nowrap;
-    }
-    .tabs button[aria-selected="true"] {
-      color: var(--llh-primary-deep);
-      border-bottom-color: var(--llh-primary);
-    }
-
-    .panel { padding: 18px; }
-    .panel h2 { margin: 0 0 6px; font-size: 1.35rem; }
-    .lead { margin: 0 0 16px; color: var(--llh-muted); font-size: 14px; max-width: 56ch; }
-    .grid2 {
-      display: grid;
-      grid-template-columns: 1.15fr .85fr;
-      gap: 14px;
-    }
-    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
-    .block {
-      background: linear-gradient(180deg, #fff, #fbfafd);
-      border: 1px solid var(--llh-line);
-      border-radius: 12px;
-      padding: 14px;
-    }
-    .block h3 { margin: 0 0 8px; font-size: 14px; font-family: var(--llh-font-body); }
-    .block ul { margin: 0; padding-left: 18px; color: var(--llh-muted); font-size: 13px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    .chip {
-      background: var(--llh-primary-soft);
-      color: var(--llh-primary-deep);
-      font-size: 12px;
-      font-weight: 600;
-      padding: 4px 9px;
-      border-radius: 999px;
-      border: 0;
-      cursor: pointer;
-      font-family: inherit;
-    }
-    .chip:hover { background: #e0d8f2; }
-
-    .days { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
-    .days button {
-      border: 1px solid var(--llh-line);
-      background: #fff;
-      border-radius: 999px;
-      padding: 7px 12px;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-    }
-    .days button[aria-pressed="true"] {
-      background: var(--llh-primary);
-      border-color: var(--llh-primary);
-      color: #fff;
-    }
-
-    .act {
-      display: grid;
-      grid-template-columns: 68px 1fr auto;
-      gap: 12px;
-      align-items: center;
-      padding: 11px 0;
-      border-bottom: 1px solid var(--llh-line);
-    }
-    .act:last-child { border-bottom: 0; }
-    .thumb {
-      width: 68px;
-      height: 68px;
-      border-radius: 10px;
-      border: 1px solid var(--llh-line);
-      background:
-        linear-gradient(135deg, var(--llh-accent-soft), var(--llh-secondary-soft));
-    }
-    .thumb.leaf { background: linear-gradient(135deg, #e3f0dc, #f7f1e7); }
-    .thumb.art { background: linear-gradient(135deg, #fbece3, #ede8f7); }
-    .thumb.out { background: linear-gradient(135deg, #e5f1f8, #e3f6ef); }
-    .act strong { display: block; font-size: 14px; }
-    .act span { color: var(--llh-muted); font-size: 12px; }
-
-    .list-card {
-      border: 1px solid var(--llh-line);
-      border-radius: 12px;
-      padding: 14px;
       margin-bottom: 10px;
-      background: #fff;
     }
-    .list-card h3 { margin: 0 0 6px; font-size: 1.05rem; }
-    .list-card p { margin: 0 0 8px; color: var(--llh-muted); font-size: 13px; }
-    .row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-    .gallery {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 10px;
+    .kit-nav .week-meta strong {
+      display: block;
+      font-family: var(--llh-font-display);
+      font-size: 1.05rem;
+      line-height: 1.2;
     }
-    .shot {
-      border: 1px solid var(--llh-line);
-      border-radius: 12px;
-      overflow: hidden;
-      background: #fff;
+    .kit-nav .week-meta span {
+      font-size: 11px;
+      color: var(--llh-muted);
     }
-    .shot .pic {
-      height: 110px;
-      background: linear-gradient(135deg, #e3f0dc, #f7f1e7 55%, #e5f1f8);
-    }
-    .shot .pic.setup { background: linear-gradient(135deg, #fbece3, #f7f1e7); }
-    .shot .pic.done { background: linear-gradient(135deg, #ede8f7, #e3f6ef); }
-    .shot .cap { padding: 10px; font-size: 12px; }
-    .shot .cap strong { display: block; margin-bottom: 2px; }
-
-    .m-head {
-      display: grid;
-      grid-template-columns: auto 1fr auto auto;
-      gap: 8px;
-      align-items: center;
-      padding: 12px;
-      border-bottom: 1px solid var(--llh-line);
-    }
-    .m-head h1 { margin: 0; font-size: 1.05rem; line-height: 1.2; }
-    .m-sub { font-size: 11px; color: var(--llh-muted); }
-    .more {
-      display: none;
-      position: absolute;
-      right: 12px;
-      top: 70px;
-      background: #fff;
-      border: 1px solid var(--llh-line);
-      border-radius: 12px;
-      box-shadow: var(--llh-shadow-modal);
-      min-width: 210px;
-      z-index: 8;
-      animation: rise .2s ease;
-    }
-    .more.open { display: block; }
-    .more button {
+    .kit-nav button {
       display: block;
       width: 100%;
       text-align: left;
       border: 0;
       background: transparent;
+      padding: 10px 12px;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-bottom: 2px;
+    }
+    .kit-nav button:hover { background: #efeaf8; }
+    .kit-nav button[aria-current="page"] {
+      background: var(--llh-primary);
+      color: #fff;
+    }
+    .kit-nav .nav-hint {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--llh-muted);
+      padding: 12px 12px 4px;
+    }
+    .kit-main { display: flex; flex-direction: column; min-width: 0; }
+    .kit-top {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--llh-line);
+      background: #fff;
+    }
+    .kit-top .left {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      background: var(--llh-primary-soft);
+      color: var(--llh-primary-deep);
+    }
+    .badge.pro { background: var(--llh-highlight); color: var(--llh-ink); }
+    .btn {
+      border: 1px solid var(--llh-line);
+      background: #fff;
+      color: var(--llh-ink);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform .15s ease;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:focus-visible { outline: 3px solid var(--llh-focus-ring); outline-offset: 2px; }
+    .btn.primary { background: var(--llh-primary); border-color: var(--llh-primary); color: #fff; }
+    .btn.ghost { background: transparent; }
+    .btn.soft { background: var(--llh-success-soft); border-color: #b9e0d0; color: #246b55; }
+
+    .view { display: none; padding: 16px 18px 22px; animation: rise .28s ease; }
+    .view.active { display: block; }
+    .view h1 {
+      margin: 0 0 4px;
+      font-size: clamp(1.45rem, 1.5vw + 1rem, 1.9rem);
+    }
+    .lede {
+      margin: 0 0 16px;
+      color: var(--llh-muted);
+      font-size: 14px;
+      max-width: 52ch;
+    }
+
+    .check-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .check-list li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--llh-line);
+      font-size: 14px;
+    }
+    .check-list input { width: 18px; height: 18px; margin-top: 2px; accent-color: var(--llh-primary); }
+    .grid2 {
+      display: grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 14px;
+    }
+    @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+    .card {
+      background: linear-gradient(180deg, #fff, #fbfafd);
+      border: 1px solid var(--llh-line);
+      border-radius: 12px;
+      padding: 14px;
+    }
+    .card h2, .card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      font-family: var(--llh-font-body);
+    }
+    .card ul { margin: 0; padding-left: 18px; color: var(--llh-muted); font-size: 13px; }
+    .queue {
+      display: grid;
+      gap: 8px;
+    }
+    .queue button {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--llh-line);
+      background: #fff;
+      border-radius: 10px;
       padding: 12px 14px;
       font: inherit;
-      font-size: 14px;
+      font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
     }
-    .more button:hover { background: var(--llh-primary-soft); }
+    .queue button:hover { border-color: var(--llh-primary); background: var(--llh-primary-soft); }
+    .queue button span { color: var(--llh-muted); font-weight: 500; font-size: 12px; }
 
-    .sheet-backdrop, .modal-backdrop {
+    /* Today board */
+    .today-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 14px;
+    }
+    .today-head .when {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--llh-primary-deep);
+    }
+    .block-list { display: grid; gap: 8px; }
+    .block {
+      display: grid;
+      grid-template-columns: 72px 1fr auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--llh-line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    @media (max-width: 560px) {
+      .block { grid-template-columns: 1fr auto; }
+      .block .time { grid-column: 1 / -1; }
+    }
+    .block .time {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--llh-primary-deep);
+    }
+    .block strong { display: block; font-size: 14px; }
+    .block em {
+      display: block;
+      font-style: normal;
+      color: var(--llh-muted);
+      font-size: 12px;
+      margin-top: 2px;
+    }
+    .obs {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--llh-highlight-soft);
+      border: 1px solid #ead9a0;
+      font-size: 13px;
+    }
+    .obs strong { display: block; margin-bottom: 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+
+    .day-cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 10px;
+    }
+    .day-card {
+      border: 1px solid var(--llh-line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+      cursor: pointer;
+      text-align: left;
+      font: inherit;
+    }
+    .day-card:hover { border-color: var(--llh-primary); box-shadow: var(--llh-shadow-soft); }
+    .day-card[aria-current="true"] {
+      border-color: var(--llh-primary);
+      background: var(--llh-primary-soft);
+    }
+    .day-card strong { display: block; font-size: 14px; margin-bottom: 4px; }
+    .day-card span { font-size: 12px; color: var(--llh-muted); }
+
+    .seg {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+    .seg button {
+      border: 1px solid var(--llh-line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 6px 12px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .seg button[aria-pressed="true"] {
+      background: var(--llh-primary);
+      border-color: var(--llh-primary);
+      color: #fff;
+    }
+    .tool-panel { display: none; }
+    .tool-panel.active { display: block; }
+
+    .phone-wrap { max-width: 390px; margin: 0 auto; }
+    .phone {
+      border: 1px solid var(--llh-line);
+      border-radius: 28px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: var(--llh-shadow-modal);
+    }
+    .phone-bar { height: 24px; background: linear-gradient(180deg, #f0eef5, #fff); border-bottom: 1px solid var(--llh-line); }
+    .phone-bottom {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-top: 1px solid var(--llh-line);
+      background: #faf8fc;
+    }
+    .phone-bottom button {
+      border: 0;
+      background: transparent;
+      padding: 10px 4px;
+      font: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--llh-muted);
+      cursor: pointer;
+    }
+    .phone-bottom button[aria-current="page"] { color: var(--llh-primary-deep); }
+
+    .modal-backdrop {
       position: fixed;
       inset: 0;
       background: rgba(42,42,53,.45);
       display: none;
-      align-items: flex-end;
+      align-items: center;
       justify-content: center;
-      z-index: 70;
       padding: 16px;
+      z-index: 90;
     }
-    .modal-backdrop { align-items: center; }
-    .sheet-backdrop.open, .modal-backdrop.open { display: flex; }
-    .sheet, .modal {
+    .modal-backdrop.open { display: flex; }
+    .modal {
       width: min(640px, 100%);
-      max-height: min(90vh, 860px);
+      max-height: min(90vh, 820px);
       overflow: auto;
       background: #fff;
       border-radius: 16px;
       box-shadow: var(--llh-shadow-modal);
       animation: rise .25s ease;
     }
-    .sheet header, .modal header {
+    .modal header {
       padding: 16px 18px 10px;
       border-bottom: 1px solid var(--llh-line);
       position: sticky;
       top: 0;
       background: #fff;
-      z-index: 1;
     }
-    .sheet header h2, .modal header h2 { margin: 0 0 4px; font-size: 1.35rem; }
-    .sheet header p, .modal header p { margin: 0; color: var(--llh-muted); font-size: 13px; }
-    .sheet .body, .modal .body { padding: 14px 18px; }
-    .sheet footer, .modal footer {
+    .modal header h2 { margin: 0 0 4px; font-size: 1.4rem; }
+    .modal header p { margin: 0; color: var(--llh-muted); font-size: 13px; }
+    .modal .body { padding: 14px 18px; }
+    .modal footer {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
@@ -413,57 +470,34 @@
       font-weight: 600;
       cursor: pointer;
     }
-    .check-grid {
+    .presets button.recommended {
+      border-style: solid;
+      border-color: var(--llh-success);
+      background: var(--llh-success-soft);
+    }
+    .checks {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px 12px;
+      gap: 8px;
     }
-    @media (max-width: 560px) { .check-grid { grid-template-columns: 1fr; } }
-    .check {
+    @media (max-width: 560px) { .checks { grid-template-columns: 1fr; } }
+    .checks label {
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: flex-start;
-      padding: 8px 10px;
-      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px;
+      border-radius: 8px;
     }
-    .check:hover { background: var(--llh-bg); }
-    .check.unavailable { opacity: .45; }
-    .check input { margin-top: 3px; width: 18px; height: 18px; accent-color: var(--llh-primary); }
-    .check label { font-size: 13px; font-weight: 600; }
-    .check small { display: block; font-weight: 400; color: var(--llh-muted); margin-top: 2px; }
+    .checks label:hover { background: var(--llh-bg); }
+    .checks input { margin-top: 2px; accent-color: var(--llh-primary); }
 
-    .pdf-preview {
-      border: 1px solid var(--llh-line);
-      border-radius: 12px;
-      background: #f3f1f6;
-      padding: 18px;
-      min-height: 420px;
-    }
-    .pdf-page {
-      background: #fff;
-      border: 1px solid #ddd;
-      max-width: 520px;
-      margin: 0 auto 14px;
-      padding: 22px 24px;
-      box-shadow: 0 4px 16px rgba(0,0,0,.06);
-      font-size: 12px;
-      color: #222;
-    }
-    .pdf-page h3 { margin: 0 0 8px; font-size: 16px; }
-    .pdf-page .hdr {
-      display: flex;
-      justify-content: space-between;
-      border-bottom: 1px solid #ddd;
-      padding-bottom: 6px;
-      margin-bottom: 10px;
-      font-size: 11px;
-      color: #666;
-    }
     .toast {
       position: fixed;
       bottom: 18px;
       left: 50%;
-      transform: translateX(-50%) translateY(16px);
+      transform: translateX(-50%) translateY(12px);
       background: var(--llh-ink);
       color: #fff;
       padding: 10px 16px;
@@ -471,298 +505,306 @@
       font-size: 13px;
       opacity: 0;
       transition: .25s ease;
-      z-index: 80;
+      z-index: 100;
       pointer-events: none;
     }
     .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-    .linkish {
-      color: var(--llh-primary-deep);
-      font-weight: 600;
-      font-size: 13px;
-      background: none;
-      border: 0;
-      padding: 0;
-      cursor: pointer;
-      font-family: inherit;
+
+    .act-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--llh-line);
+    }
+    .thumb {
+      width: 56px;
+      height: 56px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #e3f0dc, #f7f1e7);
+      border: 1px solid var(--llh-line);
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 10px;
     }
   </style>
 </head>
 <body>
   <div class="banner">
     <div>
-      <strong>Gold Standard UX mockup</strong>
-      <span style="opacity:.8"> · Bugs &amp; Butterflies · Product design only · Not connected to production</span>
+      <strong>Redesign mockup — Classroom binder</strong>
+      <span style="opacity:.85"> · Not a lesson-plan tab viewer · Product design only</span>
     </div>
-    <span class="pill">Validate before Slice 1B</span>
+    <span class="pill">Awaiting UX approval</span>
   </div>
 
   <div class="shell">
-    <nav class="side" aria-label="Journey screens">
-      <p class="label">Provider journey</p>
-      <button type="button" class="active" data-screen="desktop">1. Desktop kit</button>
-      <button type="button" data-screen="mobile">2. Mobile kit</button>
-      <button type="button" data-screen="activity">3. Activity detail</button>
-      <button type="button" data-screen="print">4. Build My Kit</button>
-      <button type="button" data-screen="pdf">5. Print preview</button>
-      <button type="button" data-screen="flow">6. Flow map</button>
+    <nav class="rail" aria-label="Prototype frames">
+      <p class="label">Frames</p>
+      <button type="button" class="active" data-frame="desktop">Desktop binder</button>
+      <button type="button" data-frame="mobile">Mobile all-day</button>
+      <button type="button" data-frame="compare">Kit vs lesson plan</button>
+      <div class="divider"></div>
+      <p class="label">Jump inside kit</p>
+      <button type="button" data-goto="start">Start the Week</button>
+      <button type="button" data-goto="today">Today</button>
+      <button type="button" data-goto="week">This Week</button>
+      <button type="button" data-goto="print">Build My Kit</button>
     </nav>
 
     <main class="stage">
-      <!-- DESKTOP -->
-      <section class="screen active" id="screen-desktop">
-        <p class="note">First viewport: brand + title + one short description + action group + cover atmosphere. Tabs below open the binder. Empty sections stay hidden in a real kit; this gold-standard example shows every major section filled.</p>
-        <div class="frame" id="desktopKit">
-          <div class="hero">
-            <div class="brand">Little Learner Hub · Teaching Kit</div>
-            <h1>Bugs &amp; Butterflies</h1>
-            <p class="desc">A gentle week of outdoor noticing, sensory sorting, and process art — ready to teach without scrambling for extras.</p>
-            <div class="meta">
-              <span class="badge">Toddler · 18–36 mo</span>
-              <span class="badge">1 week</span>
-              <span class="badge pro">Pro</span>
-              <span class="badge">Theme: Insects &amp; Gardens</span>
+      <!-- DESKTOP BINDER -->
+      <section class="screen active" id="frame-desktop">
+        <p class="note">
+          <strong>North star:</strong> the one place opened Monday morning to run the room.
+          Primary binder items are operational (Start the Week → Today → This Week).
+          Songs/books/printables live under <em>Classroom Tools</em>, not as equal top tabs.
+        </p>
+        <div class="kit" id="desktopKit">
+          <nav class="kit-nav" aria-label="Teaching Kit binder">
+            <div class="week-meta">
+              <strong>Bugs &amp; Butterflies</strong>
+              <span>Toddler · This week · <span class="badge pro" style="padding:1px 6px">Pro</span></span>
             </div>
-          </div>
-          <div class="toolbar">
-            <button class="btn ghost" type="button">← Back</button>
-            <button class="btn icon fav" type="button" id="favBtn" aria-pressed="false" aria-label="Favorite">♡</button>
-            <button class="btn" type="button" id="assignBtn">Assign to Calendar</button>
-            <button class="btn primary" type="button" data-open-kit>Print Teaching Kit</button>
-          </div>
-          <div class="tabs" role="tablist" aria-label="Teaching Kit sections" id="deskTabs">
-            <button type="button" role="tab" aria-selected="true" data-tab="overview">Overview</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="weekly">Weekly Plan</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="activities">Activities</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="songs">Songs</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="books">Books</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="printables">Printables</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="examples">Examples</button>
-            <button type="button" role="tab" aria-selected="false" data-tab="toolkit">Teacher Toolkit</button>
-          </div>
+            <p class="nav-hint">Run the week</p>
+            <button type="button" data-view="start" aria-current="page">Start the Week</button>
+            <button type="button" data-view="today">Today</button>
+            <button type="button" data-view="week">This Week</button>
+            <p class="nav-hint">When you need more</p>
+            <button type="button" data-view="activities">Activity Cards</button>
+            <button type="button" data-view="tools">Classroom Tools</button>
+            <button type="button" data-view="families">Families</button>
+            <p class="nav-hint">Output</p>
+            <button type="button" data-view="print">Build My Kit</button>
+          </nav>
+          <div class="kit-main">
+            <div class="kit-top">
+              <div class="left">
+                <button class="btn ghost" type="button">← Library</button>
+                <span class="badge">Teaching Kit</span>
+                <span class="badge">Assigned this week</span>
+              </div>
+              <div class="left">
+                <button class="btn ghost" type="button" id="favBtn">♡ Favorite</button>
+                <button class="btn" type="button" data-open-print>Print</button>
+              </div>
+            </div>
 
-          <div class="panel" data-panel="overview">
-            <h2>Weekly focus</h2>
-            <p class="lead">Invite toddlers to notice living things outdoors with calm adult support — using simple vocabulary, gentle hands, and open-ended art.</p>
-            <div class="grid2">
-              <div class="block">
-                <h3>Learning objectives</h3>
-                <ul>
-                  <li>Notice insects and plants with adult support</li>
-                  <li>Use new words during circle and play</li>
-                  <li>Practice pinching, sorting, and pouring</li>
-                  <li>Move bodies like butterflies and bugs</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Developmental domains</h3>
-                <div class="chips">
-                  <span class="chip">Language &amp; Literacy</span>
-                  <span class="chip">Fine Motor</span>
-                  <span class="chip">Gross Motor</span>
-                  <span class="chip">Science</span>
-                  <span class="chip">Creative Arts</span>
+            <!-- START THE WEEK -->
+            <div class="view active" data-view-panel="start">
+              <h1>Start the Week</h1>
+              <p class="lede">Sunday night / Monday before open — get materials, prints, and calendar ready, then begin Today.</p>
+              <div class="grid2">
+                <div class="card">
+                  <h2>Before children arrive</h2>
+                  <ul class="check-list">
+                    <li><input type="checkbox" checked /> <span>Pull leaves, cups, and toy bugs for Monday sort</span></li>
+                    <li><input type="checkbox" /> <span>Print Today’s classroom pack (1–2 pages)</span></li>
+                    <li><input type="checkbox" /> <span>Print Bug Words cards (B&amp;W OK)</span></li>
+                    <li><input type="checkbox" /> <span>Set invitation tray on the low table</span></li>
+                    <li><input type="checkbox" /> <span>Scout a short outdoor noticing path</span></li>
+                    <li><input type="checkbox" checked /> <span>Week assigned on calendar</span></li>
+                  </ul>
+                  <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px">
+                    <button class="btn primary" type="button" data-view-jump="today">Begin Today →</button>
+                    <button class="btn" type="button">Assign to Calendar</button>
+                  </div>
                 </div>
-              </div>
-              <div class="block">
-                <h3>Vocabulary</h3>
-                <div class="chips">
-                  <button type="button" class="chip" data-jump="printables">butterfly</button>
-                  <button type="button" class="chip" data-jump="printables">wing</button>
-                  <button type="button" class="chip" data-jump="printables">crawl</button>
-                  <button type="button" class="chip" data-jump="printables">garden</button>
-                  <button type="button" class="chip" data-jump="printables">gentle</button>
-                  <button type="button" class="chip" data-jump="printables">observe</button>
-                </div>
-                <p style="margin:10px 0 0;font-size:12px;color:var(--llh-muted)">Tap a word → Printables · Vocabulary Cards</p>
-              </div>
-              <div class="block">
-                <h3>Master materials</h3>
-                <ul>
-                  <li>Magnifying glasses · baskets · leaves</li>
-                  <li>Watercolors · coffee filters · clothespins</li>
-                  <li>Picture books from the book list</li>
-                  <li>Optional: toy bugs for sorting</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Teacher preparation</h3>
-                <ul>
-                  <li>Print vocabulary cards (B&amp;W OK)</li>
-                  <li>Prep invitation table Monday morning</li>
-                  <li>Scout a safe outdoor noticing path</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Family · Safety</h3>
-                <ul>
-                  <li>Family: take a short “noticing walk”</li>
-                  <li>Safety: no live insect handling required</li>
-                  <li>Inclusion: offer seated outdoor options</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-
-          <div class="panel" data-panel="weekly" hidden>
-            <h2>Monday – Friday</h2>
-            <p class="lead">One readable day at a time. No tiny five-column grid.</p>
-            <div class="days" role="group" aria-label="Select day" id="dayPicker">
-              <button type="button" aria-pressed="true" data-day="mon">Mon</button>
-              <button type="button" aria-pressed="false" data-day="tue">Tue</button>
-              <button type="button" aria-pressed="false" data-day="wed">Wed</button>
-              <button type="button" aria-pressed="false" data-day="thu">Thu</button>
-              <button type="button" aria-pressed="false" data-day="fri">Fri</button>
-            </div>
-            <div class="block" id="dayPanel">
-              <h3>Monday · Invitation to play</h3>
-              <p class="lead" style="margin-bottom:8px">Focus: gentle hands · Circle: Itsy Bitsy Spider motions · Outdoor: leaf basket walk</p>
-              <div class="act">
-                <div class="thumb leaf" aria-hidden="true"></div>
                 <div>
-                  <strong>Leaf &amp; Bug Sort</strong>
-                  <span>Sensory · Setup 5 min · 15 min · Fine motor, language</span>
+                  <div class="card" style="margin-bottom:12px">
+                    <h2>Print queue (what you’ll actually use)</h2>
+                    <div class="queue">
+                      <button type="button" data-open-print data-preset="today"><b>Today’s classroom pack</b><span>Recommended</span></button>
+                      <button type="button" data-open-print data-preset="prep"><b>Week prep pack</b><span>Materials + vocab</span></button>
+                      <button type="button" data-open-print data-preset="family"><b>Family letter</b><span>For cubbies / pickup</span></button>
+                    </div>
+                  </div>
+                  <div class="card">
+                    <h2>Week materials (shop once)</h2>
+                    <ul>
+                      <li>Magnifying glasses · baskets · leaves</li>
+                      <li>Watercolors · coffee filters · clothespins</li>
+                      <li>Picture books on the book list</li>
+                      <li>Optional: toy bugs for sorting</li>
+                    </ul>
+                  </div>
                 </div>
-                <button class="btn" type="button" data-open-activity>View</button>
               </div>
-              <div class="act">
-                <div class="thumb art" aria-hidden="true"></div>
+            </div>
+
+            <!-- TODAY -->
+            <div class="view" data-view-panel="today">
+              <div class="today-head">
                 <div>
-                  <strong>Coffee Filter Butterflies</strong>
-                  <span>Process Art · Setup 8 min · 20 min · Creative arts</span>
+                  <div class="when">Keep this open all day</div>
+                  <h1>Today · Monday</h1>
+                  <p class="lede" style="margin-bottom:0">Focus: gentle hands &amp; noticing living things</p>
                 </div>
-                <button class="btn" type="button" data-open-activity>View</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <button class="btn" type="button" data-view-jump="week">Switch day</button>
+                  <button class="btn soft" type="button" data-open-print data-preset="today">Print today’s pack</button>
+                </div>
+              </div>
+              <div class="grid2">
+                <div>
+                  <div class="block-list">
+                    <div class="block">
+                      <div class="time">Arrive</div>
+                      <div><strong>Invitation table ready</strong><em>Leaf &amp; Bug Sort tray visible at entry</em></div>
+                      <button class="btn" type="button" data-view-jump="activities">Open</button>
+                    </div>
+                    <div class="block">
+                      <div class="time">Circle</div>
+                      <div><strong>Itsy Bitsy Spider + “gentle hands”</strong><em>2–3 min motions · vocab: crawl, up, down</em></div>
+                      <button class="btn" type="button" data-view-jump="tools">Song</button>
+                    </div>
+                    <div class="block">
+                      <div class="time">Play</div>
+                      <div><strong>Leaf &amp; Bug Sort</strong><em>Sensory · 15 min · Fine motor + language</em></div>
+                      <button class="btn primary" type="button" data-view-jump="activities">Teach this</button>
+                    </div>
+                    <div class="block">
+                      <div class="time">Outdoor</div>
+                      <div><strong>Noticing walk with baskets</strong><em>No live insect handling required</em></div>
+                      <button class="btn" type="button">Notes</button>
+                    </div>
+                    <div class="block">
+                      <div class="time">Closing</div>
+                      <div><strong>Butterfly dance + pack-up song</strong><em>Family pickup talking point ready</em></div>
+                      <button class="btn" type="button" data-view-jump="families">Families</button>
+                    </div>
+                  </div>
+                  <div class="obs">
+                    <strong>Observation focus</strong>
+                    Does the child use “gentle” with toys or pictures of insects? Note sorting by color or size with support.
+                  </div>
+                </div>
+                <div>
+                  <div class="card" style="margin-bottom:12px">
+                    <h3>Today’s materials only</h3>
+                    <ul>
+                      <li>Leaves · cups · 4–6 toy bugs</li>
+                      <li>Basket for outdoor walk</li>
+                      <li>Bug Words cards (optional at circle)</li>
+                    </ul>
+                  </div>
+                  <div class="card" style="margin-bottom:12px">
+                    <h3>Today’s book prompt</h3>
+                    <ul>
+                      <li><strong>The Very Hungry Caterpillar</strong></li>
+                      <li>Ask: “What do you think it will eat?”</li>
+                    </ul>
+                  </div>
+                  <div class="card">
+                    <h3>If you get stuck</h3>
+                    <ul>
+                      <li><button class="btn ghost" style="padding:0;border:0;color:var(--llh-primary-deep)" type="button" data-view-jump="activities">Full activity steps</button></li>
+                      <li><button class="btn ghost" style="padding:0;border:0;color:var(--llh-primary-deep)" type="button" data-view-jump="tools">Setup pictures</button></li>
+                    </ul>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="panel" data-panel="activities" hidden>
-            <h2>Reusable activities</h2>
-            <p class="lead">Same activity can appear on a day and in this list. Updating the master later updates every linked plan (future Slice).</p>
-            <div class="block">
-              <div class="act">
-                <div class="thumb leaf"></div>
-                <div><strong>Leaf &amp; Bug Sort</strong><span>Sensory · Indoor / outdoor</span></div>
-                <button class="btn" type="button" data-open-activity>View</button>
+            <!-- THIS WEEK -->
+            <div class="view" data-view-panel="week">
+              <h1>This Week</h1>
+              <p class="lede">Glance the week, then jump any day into the Today board. Not a five-column spreadsheet.</p>
+              <div class="day-cards" id="weekCards">
+                <button class="day-card" type="button" aria-current="true" data-day="Monday"><strong>Monday</strong><span>Gentle hands · Leaf sort</span></button>
+                <button class="day-card" type="button" data-day="Tuesday"><strong>Tuesday</strong><span>Process art butterflies</span></button>
+                <button class="day-card" type="button" data-day="Wednesday"><strong>Wednesday</strong><span>Outdoor noticing</span></button>
+                <button class="day-card" type="button" data-day="Thursday"><strong>Thursday</strong><span>Small-group sort</span></button>
+                <button class="day-card" type="button" data-day="Friday"><strong>Friday</strong><span>Family share · dance</span></button>
               </div>
-              <div class="act">
-                <div class="thumb art"></div>
-                <div><strong>Coffee Filter Butterflies</strong><span>Process Art</span></div>
-                <button class="btn" type="button" data-open-activity>View</button>
-              </div>
-              <div class="act">
-                <div class="thumb out"></div>
-                <div><strong>Butterfly Dance</strong><span>Music &amp; Movement</span></div>
-                <button class="btn" type="button" data-open-activity>View</button>
-              </div>
-              <div class="act">
-                <div class="thumb"></div>
-                <div><strong>Will it float? Garden water tray</strong><span>STEM · Outdoor</span></div>
-                <button class="btn" type="button" data-open-activity>View</button>
-              </div>
+              <p style="margin-top:14px"><button class="btn primary" type="button" data-view-jump="today">Open selected day in Today →</button></p>
             </div>
-          </div>
 
-          <div class="panel" data-panel="songs" hidden>
-            <h2>Songs</h2>
-            <div class="list-card">
-              <h3>Itsy Bitsy Spider</h3>
-              <p>Public-domain traditional · Circle opener · Motions: climb, rain, sun</p>
-              <div class="row-actions">
-                <button class="btn" type="button">Show lyrics</button>
-                <button class="btn" type="button">Print lyrics</button>
+            <!-- ACTIVITIES -->
+            <div class="view" data-view-panel="activities">
+              <h1>Activity Cards</h1>
+              <p class="lede">Depth on demand — open from Today when you need steps, adaptations, or a setup picture.</p>
+              <div class="card">
+                <div class="act-row">
+                  <div><span class="thumb"></span><strong>Leaf &amp; Bug Sort</strong><div style="font-size:12px;color:var(--llh-muted)">Sensory · Setup 5 min · Adaptations included</div></div>
+                  <button class="btn primary" type="button">Open card</button>
+                </div>
+                <div class="act-row">
+                  <div><span class="thumb" style="background:linear-gradient(135deg,#fbece3,#ede8f7)"></span><strong>Coffee Filter Butterflies</strong><div style="font-size:12px;color:var(--llh-muted)">Process art · Tuesday</div></div>
+                  <button class="btn" type="button">Open card</button>
+                </div>
+                <div class="act-row" style="border-bottom:0">
+                  <div><span class="thumb" style="background:linear-gradient(135deg,#e5f1f8,#e3f6ef)"></span><strong>Butterfly Dance</strong><div style="font-size:12px;color:var(--llh-muted)">Music &amp; movement</div></div>
+                  <button class="btn" type="button">Open card</button>
+                </div>
               </div>
+              <p style="margin-top:12px"><button class="btn ghost" type="button" data-view-jump="today">← Back to Today</button></p>
             </div>
-            <div class="list-card">
-              <h3>Flutter, Flutter Butterfly</h3>
-              <p>Original LLH / public-domain style chant · Transition to outdoor · Vocabulary: flutter, wing</p>
-              <div class="row-actions">
-                <button class="btn" type="button">Show lyrics</button>
-                <button class="btn" type="button">Print lyrics</button>
-              </div>
-            </div>
-            <div class="list-card">
-              <h3>Baby Bumblebee <span style="font-size:12px;color:var(--llh-muted)">(suggestion)</span></h3>
-              <p>Copyrighted modern versions may exist — store title + motions only; no full modern lyrics. Use as a fingerplay suggestion.</p>
-            </div>
-          </div>
 
-          <div class="panel" data-panel="books" hidden>
-            <h2>Books</h2>
-            <p class="lead">Guides only — Little Learner Hub does not provide the full book.</p>
-            <div class="list-card">
-              <h3>The Very Hungry Caterpillar · Eric Carle</h3>
-              <p>Before: “What do you think it will eat?” · During: count foods · After: “What changes?”</p>
-              <p>Vocabulary: egg, leaf, butterfly · Extension: sequence cards from Printables</p>
+            <!-- TOOLS -->
+            <div class="view" data-view-panel="tools">
+              <h1>Classroom Tools</h1>
+              <p class="lede">Supporting resources — available all week without taking over the binder spine.</p>
+              <div class="seg" id="toolSeg">
+                <button type="button" aria-pressed="true" data-tool="songs">Songs</button>
+                <button type="button" aria-pressed="false" data-tool="books">Books</button>
+                <button type="button" aria-pressed="false" data-tool="printables">Printables</button>
+                <button type="button" aria-pressed="false" data-tool="pictures">Pictures</button>
+              </div>
+              <div class="tool-panel active" data-tool-panel="songs">
+                <div class="card"><h3>Itsy Bitsy Spider</h3><ul><li>Motions for circle · Public-domain lyrics available</li></ul></div>
+                <div class="card" style="margin-top:8px"><h3>Flutter, Flutter Butterfly</h3><ul><li>Transition chant · vocab: flutter, wing</li></ul></div>
+              </div>
+              <div class="tool-panel" data-tool-panel="books">
+                <div class="card"><h3>The Very Hungry Caterpillar</h3><ul><li>Before / during / after prompts · LLH does not provide the full book</li></ul></div>
+              </div>
+              <div class="tool-panel" data-tool-panel="printables">
+                <div class="card"><h3>Bug Words cards · Family letter · Observation sheet</h3><ul><li>Print from Build My Kit or the Print queue on Start the Week</li></ul></div>
+              </div>
+              <div class="tool-panel" data-tool-panel="pictures">
+                <div class="card"><h3>Setup &amp; finished examples</h3><ul><li>Simple table layouts you can reproduce — not glossy fantasy rooms</li></ul></div>
+              </div>
             </div>
-            <div class="list-card">
-              <h3>Butterfly Butterfly · Petr Horáček</h3>
-              <p>Before: colors we might see · During: point to wings · After: “Where did it hide?”</p>
-            </div>
-          </div>
 
-          <div class="panel" data-panel="printables" hidden>
-            <h2>Printables</h2>
-            <div class="gallery">
-              <div class="shot">
-                <div class="pic"></div>
-                <div class="cap"><strong>Bug Words</strong>Vocabulary cards · 6 pages · Color or B&amp;W<br><button class="linkish" type="button">View · Print</button></div>
-              </div>
-              <div class="shot">
-                <div class="pic setup"></div>
-                <div class="cap"><strong>Family letter</strong>Parent handout · 1 page<br><button class="linkish" type="button">View · Print</button></div>
-              </div>
-              <div class="shot">
-                <div class="pic done"></div>
-                <div class="cap"><strong>Observation sheet</strong>Quick notes · 1 page<br><button class="linkish" type="button">View · Print</button></div>
+            <!-- FAMILIES -->
+            <div class="view" data-view-panel="families">
+              <h1>Families</h1>
+              <p class="lede">Pickup talk + home connection — ready before Friday rush.</p>
+              <div class="grid2">
+                <div class="card">
+                  <h2>This week’s letter</h2>
+                  <ul>
+                    <li>We noticed bugs and butterflies outdoors</li>
+                    <li>Ask your child about “gentle hands”</li>
+                    <li>Try a short noticing walk at home</li>
+                  </ul>
+                  <button class="btn primary" style="margin-top:12px" type="button" data-open-print data-preset="family">Print family pack</button>
+                </div>
+                <div class="card">
+                  <h2>At pickup (30 seconds)</h2>
+                  <ul>
+                    <li>“What did you sort today?”</li>
+                    <li>“Show me gentle hands.”</li>
+                  </ul>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="panel" data-panel="examples" hidden>
-            <h2>Example images</h2>
-            <p class="lead">Simple materials layouts providers can reproduce — no glossy fantasy classrooms.</p>
-            <div class="gallery">
-              <div class="shot"><div class="pic" role="img" aria-label="Materials laid out on a table"></div><div class="cap"><strong>Materials layout</strong>Leaves, cups, toy bugs</div></div>
-              <div class="shot"><div class="pic setup" role="img" aria-label="Invitation to play setup"></div><div class="cap"><strong>Setup example</strong>Invitation tray ready</div></div>
-              <div class="shot"><div class="pic done" role="img" aria-label="Finished coffee filter butterfly"></div><div class="cap"><strong>Finished example</strong>Coffee filter butterfly</div></div>
-            </div>
-          </div>
-
-          <div class="panel" data-panel="toolkit" hidden>
-            <h2>Teacher Toolkit</h2>
-            <p class="lead">Prep in one place — links into the kit, not a second copy of every activity.</p>
-            <div class="grid2">
-              <div class="block">
-                <h3>Preparation checklist</h3>
-                <ul>
-                  <li>☐ Print Bug Words cards</li>
-                  <li>☐ Set Monday invitation table</li>
-                  <li>☐ Preview outdoor path</li>
-                  <li>☐ Place family letters by cubbies</li>
-                </ul>
+            <!-- BUILD MY KIT embedded panel -->
+            <div class="view" data-view-panel="print">
+              <h1>Build My Kit</h1>
+              <p class="lede">Print what you’ll use — default is today’s pack, not a 40-page dump.</p>
+              <div class="presets">
+                <button type="button" class="recommended" data-preset="today">Today’s classroom pack</button>
+                <button type="button" data-preset="prep">Week prep pack</button>
+                <button type="button" data-preset="family">Family pack</button>
+                <button type="button" data-preset="full">Full Teaching Kit</button>
               </div>
-              <div class="block">
-                <h3>Quick links</h3>
-                <ul>
-                  <li><button class="linkish" type="button" data-jump="printables">Vocabulary cards</button></li>
-                  <li><button class="linkish" type="button" data-jump="songs">Song list</button></li>
-                  <li><button class="linkish" type="button" data-jump="books">Book guides</button></li>
-                  <li><button class="linkish" type="button" data-jump="examples">Setup examples</button></li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Observation focus</h3>
-                <ul>
-                  <li>Does the child use “gentle” with insects or pictures?</li>
-                  <li>Can they sort by color or size with support?</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Cleanup tips</h3>
-                <ul>
-                  <li>Keep wet filters on a tray overnight</li>
-                  <li>Rinse magnifiers before packing away</li>
-                </ul>
+              <div class="checks" id="printChecks"></div>
+              <div style="margin-top:16px;display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap">
+                <button class="btn ghost" type="button">Cancel</button>
+                <button class="btn primary" type="button" id="genBtn">Generate PDF</button>
               </div>
             </div>
           </div>
@@ -770,342 +812,144 @@
       </section>
 
       <!-- MOBILE -->
-      <section class="screen" id="screen-mobile">
-        <p class="note">Mobile keeps Back, title, age, badge, favorite, and More — no overflowing toolbar. Print Teaching Kit lives in More and as a sticky primary near the bottom of Overview.</p>
-        <div class="frame phone">
-          <div class="phone-bar"></div>
-          <div class="m-head">
-            <button class="btn icon" type="button" aria-label="Back">←</button>
-            <div>
-              <h1>Bugs &amp; Butterflies</h1>
-              <div class="m-sub">Toddler · <span class="badge pro" style="padding:1px 6px">Pro</span></div>
+      <section class="screen" id="frame-mobile">
+        <p class="note">Mobile default is <strong>Today</strong> — large schedule blocks, observation sticky, print today’s pack in one tap. Prep lives one tap away.</p>
+        <div class="phone-wrap">
+          <div class="phone">
+            <div class="phone-bar"></div>
+            <div style="padding:12px 14px;border-bottom:1px solid var(--llh-line);display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--llh-primary-deep)">Today · Monday</div>
+                <strong style="font-family:var(--llh-font-display);font-size:1.2rem">Bugs &amp; Butterflies</strong>
+              </div>
+              <button class="btn soft" type="button" data-open-print data-preset="today" style="padding:8px 10px;font-size:12px">Print</button>
             </div>
-            <button class="btn icon fav" type="button" aria-label="Favorite">♡</button>
-            <button class="btn icon" type="button" id="moreBtn" aria-expanded="false">⋯</button>
-          </div>
-          <div class="more" id="moreMenu" role="menu">
-            <button type="button" role="menuitem">Assign to Calendar</button>
-            <button type="button" role="menuitem" data-open-kit>Print Teaching Kit</button>
-            <button type="button" role="menuitem">Legacy print options</button>
-          </div>
-          <div class="tabs">
-            <button type="button" aria-selected="true">Overview</button>
-            <button type="button" aria-selected="false">Weekly</button>
-            <button type="button" aria-selected="false">Activities</button>
-            <button type="button" aria-selected="false">Toolkit</button>
-          </div>
-          <div class="panel">
-            <p class="lead" style="margin-top:0">Short overview first. Day chips below for Monday’s pick.</p>
-            <div class="days">
-              <button type="button" aria-pressed="true">Mon</button>
-              <button type="button" aria-pressed="false">Tue</button>
-              <button type="button" aria-pressed="false">Wed</button>
-            </div>
-            <div class="block">
-              <div class="act" style="grid-template-columns:56px 1fr">
-                <div class="thumb leaf" style="width:56px;height:56px"></div>
-                <div><strong>Leaf &amp; Bug Sort</strong><span>One card at a time</span></div>
+            <div style="padding:12px;max-height:520px;overflow:auto">
+              <p style="margin:0 0 10px;font-size:13px;color:var(--llh-muted)">Focus: gentle hands &amp; noticing</p>
+              <div class="block-list">
+                <div class="block" style="grid-template-columns:1fr auto">
+                  <div><strong>Circle · Spider song</strong><em>2–3 min</em></div>
+                  <button class="btn" type="button">Open</button>
+                </div>
+                <div class="block" style="grid-template-columns:1fr auto">
+                  <div><strong>Leaf &amp; Bug Sort</strong><em>15 min play</em></div>
+                  <button class="btn primary" type="button">Teach</button>
+                </div>
+                <div class="block" style="grid-template-columns:1fr auto">
+                  <div><strong>Outdoor noticing</strong><em>Baskets</em></div>
+                  <button class="btn" type="button">Open</button>
+                </div>
+              </div>
+              <div class="obs" style="margin-top:12px">
+                <strong>Observe</strong>
+                Uses “gentle”? Sorts with support?
               </div>
             </div>
-            <button class="btn primary" style="width:100%;margin-top:12px" type="button" data-open-kit>Print Teaching Kit</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- ACTIVITY DETAIL -->
-      <section class="screen" id="screen-activity">
-        <p class="note">Activity detail is the same whether opened from Weekly Plan or Activities. Plan-specific notes can appear later without editing the master.</p>
-        <div class="frame" style="padding:0;max-width:720px">
-          <div class="panel">
-            <button class="btn ghost" type="button" data-screen-jump="desktop">← Back to kit</button>
-            <h2 style="margin-top:12px">Leaf &amp; Bug Sort</h2>
-            <p class="lead">Sensory · Setup 5 min · 15 min play · Indoor or shaded outdoor table</p>
-            <div class="grid2">
-              <div class="block">
-                <h3>Materials</h3>
-                <ul>
-                  <li>Leaves · small cups · 4–6 toy bugs</li>
-                  <li>Substitution: paper leaf shapes</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Setup</h3>
-                <ul>
-                  <li>Scatter leaves in a low tray</li>
-                  <li>Place cups for color or size sorting</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Steps</h3>
-                <ul>
-                  <li>Invite children to find a bug</li>
-                  <li>Ask: “Where should it go?”</li>
-                  <li>Model gentle hands</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Teacher language</h3>
-                <ul>
-                  <li>“You found a tiny one.”</li>
-                  <li>“Gentle hands on the bugs.”</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Adaptations</h3>
-                <ul>
-                  <li>Simplified: sort only by color</li>
-                  <li>Extension: count bugs in each cup</li>
-                </ul>
-              </div>
-              <div class="block">
-                <h3>Observe · Family</h3>
-                <ul>
-                  <li>Watch for sorting strategies</li>
-                  <li>Family: sort socks by color at home</li>
-                </ul>
-              </div>
-            </div>
-            <div class="row-actions" style="margin-top:14px">
-              <button class="btn" type="button" data-jump-from-activity="examples">View setup example</button>
-              <button class="btn" type="button">Print instructions</button>
+            <div class="phone-bottom">
+              <button type="button">Prep</button>
+              <button type="button" aria-current="page">Today</button>
+              <button type="button">Week</button>
+              <button type="button">More</button>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- BUILD MY KIT -->
-      <section class="screen" id="screen-print">
-        <p class="note"><strong>Build My Kit</strong> is the differentiator: providers check only what they need and get one PDF — not a forced giant packet.</p>
-        <div class="frame" style="padding:24px;max-width:720px">
-          <h2 class="display" style="margin:0 0 6px;font-size:1.8rem">Build My Kit</h2>
-          <p class="lead">Bugs &amp; Butterflies · One clean PDF of selected sections</p>
-          <div class="presets">
-            <button type="button" data-preset="full">Full Teaching Kit</button>
-            <button type="button" data-preset="weekly">Weekly essentials</button>
-            <button type="button" data-preset="classroom">Classroom day pack</button>
-            <button type="button" data-preset="family">Family pack</button>
+      <!-- COMPARE -->
+      <section class="screen" id="frame-compare">
+        <p class="note">Use this when deciding what belongs where before Slice 1B modeling.</p>
+        <div class="kit" style="display:block;padding:20px;max-width:800px">
+          <h1 class="display" style="margin-top:0;font-size:1.6rem">Teaching Kit vs Lesson Plan</h1>
+          <div class="grid2" style="margin-top:14px">
+            <div class="card">
+              <h2>Lesson plan (library)</h2>
+              <ul>
+                <li>Curriculum catalog item</li>
+                <li>“What is this unit?”</li>
+                <li>Browse, favorite, assign</li>
+                <li>Source of week’s content</li>
+              </ul>
+            </div>
+            <div class="card">
+              <h2>Teaching Kit (operations)</h2>
+              <ul>
+                <li>Classroom binder for the week</li>
+                <li>“What do I do today?”</li>
+                <li>Prep · Today · Print packs</li>
+                <li>Stays open during care</li>
+              </ul>
+            </div>
           </div>
-          <div class="check-grid" id="kitChecks"></div>
-          <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--llh-line);display:grid;gap:8px">
-            <label class="check"><input type="checkbox" checked /> <span><label>Include cover page</label></span></label>
-            <label class="check"><input type="checkbox" checked /> <span><label>Include images</label></span></label>
-            <label class="check"><input type="checkbox" /> <span><label>Ink saver (black &amp; white)</label></span></label>
-            <label class="check"><input type="checkbox" checked /> <span><label>Include teacher notes</label></span></label>
-          </div>
-          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;flex-wrap:wrap">
-            <button class="btn ghost" type="button">Cancel</button>
-            <button class="btn primary" type="button" id="genPdf">Generate PDF</button>
-          </div>
-        </div>
-      </section>
-
-      <!-- PDF PREVIEW -->
-      <section class="screen" id="screen-pdf">
-        <p class="note">Print preview concept: US Letter, ink-conscious, page numbers, lesson title in header. Only selected sections appear.</p>
-        <div class="pdf-preview">
-          <div class="pdf-page">
-            <div class="hdr"><span>Little Learner Hub · Teaching Kit</span><span>Page 1</span></div>
-            <h3>Bugs &amp; Butterflies</h3>
-            <p>Toddler · Week overview (selected)</p>
-            <p><strong>Weekly focus:</strong> Notice living things outdoors with calm adult support.</p>
-            <p><strong>Objectives:</strong> vocabulary · gentle hands · sorting</p>
-          </div>
-          <div class="pdf-page">
-            <div class="hdr"><span>Bugs &amp; Butterflies</span><span>Page 2</span></div>
-            <h3>Monday · Leaf &amp; Bug Sort</h3>
-            <p><strong>Materials:</strong> leaves, cups, toy bugs</p>
-            <p><strong>Steps:</strong> Invite → sort → model gentle hands</p>
-            <p><strong>Observe:</strong> sorting strategies with support</p>
-          </div>
-          <div class="pdf-page">
-            <div class="hdr"><span>Bugs &amp; Butterflies</span><span>Page 3</span></div>
-            <h3>Vocabulary Cards (sample)</h3>
-            <p>butterfly · wing · crawl · garden · gentle · observe</p>
-            <p style="color:#666">B&amp;W ink-saver mode would strip fills and keep line art.</p>
-          </div>
-        </div>
-      </section>
-
-      <!-- FLOW -->
-      <section class="screen" id="screen-flow">
-        <p class="note">Journey map for review. Approve this experience before Slice 1B data-model work.</p>
-        <div class="frame" style="padding:22px">
-          <h2 style="margin-top:0">Provider flow</h2>
-          <ol style="color:var(--llh-muted);line-height:1.7">
-            <li>Open kit from Lesson Library</li>
-            <li>Scan Overview (focus, objectives, materials, vocabulary)</li>
-            <li>Choose a day in Weekly Plan → open activity</li>
-            <li>Pull songs / books / printables / examples as needed</li>
-            <li>Use Teacher Toolkit checklist before the week starts</li>
-            <li>Build My Kit → generate one PDF of selected sections</li>
-            <li>Assign to Calendar · Favorite for later</li>
-          </ol>
-          <p style="font-size:13px;color:var(--llh-muted)">See <code>docs/teaching-kit/GOLD_STANDARD_PRODUCT_SPEC.md</code> for the full written specification.</p>
+          <p class="lede" style="margin-top:16px">Same underlying week of content — different job and different default screens.</p>
         </div>
       </section>
     </main>
   </div>
 
-  <!-- Shared Build My Kit modal -->
-  <div class="modal-backdrop" id="kitModal" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="kitTitle">
+  <div class="modal-backdrop" id="printModal" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="printTitle">
       <header>
-        <h2 id="kitTitle">Build My Kit</h2>
-        <p>Choose exactly what to include. One PDF — no extra pages.</p>
+        <h2 id="printTitle">Build My Kit</h2>
+        <p>Operations-first packs. Default is what you’d print for today — not the full binder.</p>
       </header>
       <div class="body">
         <div class="presets">
+          <button type="button" class="recommended" data-preset="today">Today’s classroom pack</button>
+          <button type="button" data-preset="prep">Week prep pack</button>
+          <button type="button" data-preset="family">Family pack</button>
           <button type="button" data-preset="full">Full Teaching Kit</button>
-          <button type="button" data-preset="weekly">Weekly essentials</button>
-          <button type="button" data-preset="classroom">Classroom day pack</button>
         </div>
-        <div class="check-grid" id="kitChecksModal"></div>
+        <div class="checks" id="modalChecks"></div>
       </div>
       <footer>
-        <button class="btn ghost" type="button" data-close-kit>Cancel</button>
-        <button class="btn primary" type="button" data-generate>Generate PDF</button>
+        <button class="btn ghost" type="button" data-close-print>Cancel</button>
+        <button class="btn primary" type="button" data-gen>Generate PDF</button>
       </footer>
     </div>
   </div>
-
   <div class="toast" id="toast" role="status"></div>
 
   <script>
-    const SECTIONS = [
-      { id: "overview", label: "Weekly Lesson Overview", available: true },
-      { id: "weekly_plan", label: "Weekly Lesson Plan", available: true },
-      { id: "daily_activities", label: "Daily Activities", available: true },
-      { id: "materials", label: "Materials List", available: true },
-      { id: "books", label: "Books", available: true },
-      { id: "songs", label: "Songs", available: true },
-      { id: "vocabulary", label: "Vocabulary Cards", available: true },
-      { id: "family", label: "Family Letter", available: true },
-      { id: "observations", label: "Observation Forms", available: true },
-      { id: "printables", label: "Printable Resources", available: true },
-      { id: "examples", label: "Activity Picture Examples", available: true },
-      { id: "teacher_notes", label: "Teacher Notes", available: true },
-    ];
-    const presets = {
-      full: SECTIONS.map((s) => s.id),
-      weekly: ["overview", "weekly_plan", "daily_activities", "materials"],
-      classroom: ["daily_activities", "materials", "songs", "vocabulary", "printables"],
-      family: ["overview", "family", "books", "songs", "vocabulary"],
+    const PACKS = {
+      today: [
+        ["today_sheet", "Today’s run sheet", true],
+        ["today_materials", "Today’s materials", true],
+        ["observation", "Observation focus", true],
+        ["song_today", "Today’s song card", true],
+        ["activity_one", "Primary activity steps", false],
+      ],
+      prep: [
+        ["week_materials", "Week materials list", true],
+        ["vocab", "Vocabulary cards", true],
+        ["mon_overview", "Monday overview", true],
+        ["setup_pics", "Setup pictures", false],
+      ],
+      family: [
+        ["family_letter", "Family letter", true],
+        ["pickup", "Pickup talking points", true],
+        ["home", "Home extension", true],
+      ],
+      full: [
+        ["today_sheet", "Today’s run sheet", true],
+        ["week_materials", "Week materials", true],
+        ["all_days", "Mon–Fri plans", true],
+        ["all_activities", "All activity cards", true],
+        ["songs", "Songs", true],
+        ["books", "Book guides", true],
+        ["vocab", "Vocabulary cards", true],
+        ["family_letter", "Family letter", true],
+        ["examples", "Example pictures", false],
+      ],
     };
 
-    function renderChecks(root, selected) {
-      root.innerHTML = "";
-      SECTIONS.forEach((s) => {
-        const wrap = document.createElement("label");
-        wrap.className = "check" + (s.available ? "" : " unavailable");
-        const input = document.createElement("input");
-        input.type = "checkbox";
-        input.value = s.id;
-        input.disabled = !s.available;
-        input.checked = s.available && selected.has(s.id);
-        const span = document.createElement("span");
-        span.innerHTML = `<label>${s.label}</label>`;
-        wrap.append(input, span);
-        root.appendChild(wrap);
-      });
+    function renderPack(root, key) {
+      const items = PACKS[key] || PACKS.today;
+      root.innerHTML = items.map(([id, label, on]) =>
+        `<label><input type="checkbox" value="${id}" ${on ? "checked" : ""}/> <span>${label}</span></label>`
+      ).join("");
     }
-    const selected = new Set(presets.weekly);
-    renderChecks(document.getElementById("kitChecks"), selected);
-    renderChecks(document.getElementById("kitChecksModal"), selected);
-
-    function applyPreset(name) {
-      const list = presets[name] || [];
-      document.querySelectorAll(".check-grid input[type=checkbox]").forEach((el) => {
-        if (!el.disabled) el.checked = list.includes(el.value);
-      });
-    }
-    document.querySelectorAll("[data-preset]").forEach((btn) => {
-      btn.addEventListener("click", () => applyPreset(btn.dataset.preset));
-    });
-
-    function showScreen(id) {
-      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
-      document.getElementById("screen-" + id).classList.add("active");
-      document.querySelectorAll(".side button").forEach((b) => {
-        b.classList.toggle("active", b.dataset.screen === id);
-      });
-    }
-    document.querySelectorAll(".side button").forEach((btn) => {
-      btn.addEventListener("click", () => showScreen(btn.dataset.screen));
-    });
-    document.querySelectorAll("[data-screen-jump]").forEach((btn) => {
-      btn.addEventListener("click", () => showScreen(btn.dataset.screenJump));
-    });
-
-    function selectDeskTab(name) {
-      document.querySelectorAll("#deskTabs [role=tab]").forEach((t) => {
-        t.setAttribute("aria-selected", String(t.dataset.tab === name));
-      });
-      document.querySelectorAll("#desktopKit .panel").forEach((p) => {
-        p.hidden = p.getAttribute("data-panel") !== name;
-      });
-    }
-    document.querySelectorAll("#deskTabs [role=tab]").forEach((tab) => {
-      tab.addEventListener("click", () => selectDeskTab(tab.dataset.tab));
-    });
-    document.querySelectorAll("[data-jump]").forEach((el) => {
-      el.addEventListener("click", () => {
-        showScreen("desktop");
-        selectDeskTab(el.dataset.jump);
-      });
-    });
-    document.querySelectorAll("[data-jump-from-activity]").forEach((el) => {
-      el.addEventListener("click", () => {
-        showScreen("desktop");
-        selectDeskTab(el.dataset.jumpFromActivity);
-      });
-    });
-
-    document.getElementById("dayPicker").addEventListener("click", (e) => {
-      const btn = e.target.closest("button[data-day]");
-      if (!btn) return;
-      [...btn.parentElement.children].forEach((b) => b.setAttribute("aria-pressed", "false"));
-      btn.setAttribute("aria-pressed", "true");
-      const labels = {
-        mon: "Monday · Invitation to play",
-        tue: "Tuesday · Process art + song",
-        wed: "Wednesday · Outdoor noticing",
-        thu: "Thursday · Small group sort",
-        fri: "Friday · Family share + dance",
-      };
-      document.querySelector("#dayPanel h3").textContent = labels[btn.dataset.day];
-    });
-
-    document.querySelectorAll(".fav").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const on = btn.classList.toggle("on");
-        btn.textContent = on ? "♥" : "♡";
-        btn.setAttribute("aria-pressed", String(on));
-        toast(on ? "Saved to favorites" : "Removed from favorites");
-      });
-    });
-    document.getElementById("assignBtn").addEventListener("click", () => {
-      toast("Assign to Calendar — existing flow (unchanged)");
-    });
-
-    const moreBtn = document.getElementById("moreBtn");
-    const moreMenu = document.getElementById("moreMenu");
-    moreBtn.addEventListener("click", () => {
-      const open = moreMenu.classList.toggle("open");
-      moreBtn.setAttribute("aria-expanded", String(open));
-    });
-
-    const modal = document.getElementById("kitModal");
-    function openKit() {
-      modal.classList.add("open");
-      modal.setAttribute("aria-hidden", "false");
-    }
-    function closeKit() {
-      modal.classList.remove("open");
-      modal.setAttribute("aria-hidden", "true");
-    }
-    document.querySelectorAll("[data-open-kit]").forEach((el) => el.addEventListener("click", openKit));
-    document.querySelectorAll("[data-close-kit]").forEach((el) => el.addEventListener("click", closeKit));
-    modal.addEventListener("click", (e) => { if (e.target === modal) closeKit(); });
+    renderPack(document.getElementById("printChecks"), "today");
+    renderPack(document.getElementById("modalChecks"), "today");
 
     function toast(msg) {
       const t = document.getElementById("toast");
@@ -1113,19 +957,87 @@
       t.classList.add("show");
       setTimeout(() => t.classList.remove("show"), 2200);
     }
-    document.querySelectorAll("[data-open-activity]").forEach((btn) => {
-      btn.addEventListener("click", () => showScreen("activity"));
-    });
-    document.getElementById("genPdf").addEventListener("click", () => {
-      showScreen("pdf");
-      toast("PDF mock generated from selected sections");
-    });
-    document.querySelectorAll("[data-generate]").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        closeKit();
-        showScreen("pdf");
-        toast("PDF mock generated from selected sections");
+
+    function showFrame(id) {
+      document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active"));
+      document.getElementById("frame-" + id).classList.add("active");
+      document.querySelectorAll(".rail button[data-frame]").forEach((b) => {
+        b.classList.toggle("active", b.dataset.frame === id);
       });
+    }
+    document.querySelectorAll(".rail button[data-frame]").forEach((btn) => {
+      btn.addEventListener("click", () => showFrame(btn.dataset.frame));
+    });
+
+    function showView(name) {
+      showFrame("desktop");
+      document.querySelectorAll("#desktopKit .view").forEach((v) => {
+        v.classList.toggle("active", v.getAttribute("data-view-panel") === name);
+      });
+      document.querySelectorAll("#desktopKit .kit-nav button[data-view]").forEach((b) => {
+        if (b.dataset.view) b.setAttribute("aria-current", b.dataset.view === name ? "page" : "false");
+      });
+    }
+    document.querySelectorAll("#desktopKit .kit-nav button[data-view]").forEach((btn) => {
+      btn.addEventListener("click", () => showView(btn.dataset.view));
+    });
+    document.querySelectorAll("[data-view-jump]").forEach((btn) => {
+      btn.addEventListener("click", () => showView(btn.dataset.viewJump));
+    });
+    document.querySelectorAll(".rail button[data-goto]").forEach((btn) => {
+      btn.addEventListener("click", () => showView(btn.dataset.goto));
+    });
+
+    document.getElementById("weekCards").addEventListener("click", (e) => {
+      const card = e.target.closest(".day-card");
+      if (!card) return;
+      document.querySelectorAll(".day-card").forEach((c) => c.setAttribute("aria-current", "false"));
+      card.setAttribute("aria-current", "true");
+      const day = card.dataset.day;
+      document.querySelector('[data-view-panel="today"] h1').textContent = "Today · " + day;
+      toast(day + " selected — open in Today");
+    });
+
+    document.getElementById("toolSeg").addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-tool]");
+      if (!btn) return;
+      document.querySelectorAll("#toolSeg button").forEach((b) => b.setAttribute("aria-pressed", "false"));
+      btn.setAttribute("aria-pressed", "true");
+      document.querySelectorAll(".tool-panel").forEach((p) => {
+        p.classList.toggle("active", p.getAttribute("data-tool-panel") === btn.dataset.tool);
+      });
+    });
+
+    const modal = document.getElementById("printModal");
+    function openPrint(preset) {
+      const key = preset || "today";
+      renderPack(document.getElementById("modalChecks"), key);
+      renderPack(document.getElementById("printChecks"), key);
+      modal.classList.add("open");
+      modal.setAttribute("aria-hidden", "false");
+    }
+    function closePrint() {
+      modal.classList.remove("open");
+      modal.setAttribute("aria-hidden", "true");
+    }
+    document.querySelectorAll("[data-open-print]").forEach((el) => {
+      el.addEventListener("click", () => openPrint(el.dataset.preset || "today"));
+    });
+    document.querySelectorAll("[data-close-print]").forEach((el) => el.addEventListener("click", closePrint));
+    modal.addEventListener("click", (e) => { if (e.target === modal) closePrint(); });
+    document.querySelectorAll("[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        renderPack(document.getElementById("modalChecks"), btn.dataset.preset);
+        renderPack(document.getElementById("printChecks"), btn.dataset.preset);
+      });
+    });
+    document.getElementById("genBtn").addEventListener("click", () => toast("PDF mock — selected pack only"));
+    document.querySelectorAll("[data-gen]").forEach((btn) => {
+      btn.addEventListener("click", () => { closePrint(); toast("PDF mock — selected pack only"); });
+    });
+    document.getElementById("favBtn").addEventListener("click", () => {
+      const on = document.getElementById("favBtn").textContent.includes("♡");
+      document.getElementById("favBtn").textContent = on ? "♥ Favorited" : "♡ Favorite";
     });
   </script>
 </body>

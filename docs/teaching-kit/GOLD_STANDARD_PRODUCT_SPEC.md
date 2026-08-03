@@ -1,346 +1,282 @@
-# Gold Standard Teaching Kit — Product Specification & UX Validation
+# Gold Standard Teaching Kit — Product Specification (Operations Redesign)
 
-**Status:** Product design for review — **not implementation**  
+**Status:** Product design for review — **not approved · not implementation**  
 **PR:** #436 (draft) · Slice 1A approved · Slice 1B **not started**  
-**Example lesson:** *Bugs & Butterflies* · Toddler · Pro · 1 week  
-**Date:** 2026-08-03  
+**Example week:** *Bugs & Butterflies* · Toddler · Pro  
+**Date:** 2026-08-03 (revised: classroom-operations framing)  
 
-**Purpose:** Validate the complete childcare-provider experience for one finished Teaching Kit *before* building the underlying data model for Slice 1B+.
+**Companion mockup:** [`mockups/gold-standard.html`](./mockups/gold-standard.html)
 
-**Companion mockup:** [`mockups/gold-standard.html`](./mockups/gold-standard.html) (clickable, desktop + mobile + print)
+---
+
+## 0. Why this redesign
+
+The first draft still felt like a **lesson plan viewer with nicer tabs**.
+
+Providers do not wake up Monday asking “which curriculum section should I browse?”  
+They ask:
+
+- What do I need ready before kids arrive?  
+- What am I doing **today**?  
+- What fits in the next 15 minutes?  
+- What do I hand families?  
+- What do I actually bother printing?
+
+**New north star:** The Teaching Kit is the one place a provider opens Monday morning to **run their classroom for the week**.
 
 ---
 
 ## 1. Product promise
 
-When a provider opens a complete Teaching Kit, they should feel they have opened a **digital teacher binder** for the week — not a thin lesson card that sends them to Pinterest.
+Little Learner Hub Teaching Kit = a **digital classroom binder for this week**.
 
-They can:
+It turns one weekly curriculum plan into an operational guide:
 
-1. Understand the week in under a minute (Overview).
-2. Teach day by day with clear activities (Weekly Plan).
-3. Dive into any activity with setup, steps, adaptations, and examples.
-4. Use songs, books, vocabulary, and printables without leaving the kit.
-5. Open **Build My Kit** and print **only** what they need as one clean PDF.
-
-Empty sections never appear for regular users. Incomplete kits simply hide what is missing.
-
----
-
-## 2. Example kit (gold standard content)
-
-| Field | Value |
+| Provider need | Kit answer |
 | --- | --- |
-| Title | Bugs & Butterflies |
-| Age | Toddler (18–36 months) |
-| Duration | 1 week |
-| Access | Pro |
-| Theme | Insects & Gardens |
-| Brand signal | “Little Learner Hub · Teaching Kit” in hero |
+| Save the most time | **Start the Week** prep checklist + print queue |
+| Keep open all day | **Today** (living day board) |
+| Print for real | Short day sheet, materials, vocab cards, family letter — via **Build My Kit** |
+| Dig deeper only when stuck | Activity cards / resources drawer |
+| Still find the curriculum story | Week glance + linked lesson plan metadata |
 
-### Completeness bar this example must pass
-
-- Clear weekly focus + objectives + vocabulary + master materials  
-- Monday–Friday plan with readable day view  
-- ≥2 songs, ≥2 books with discussion prompts  
-- Detailed activity instructions + adaptations + observation + family  
-- ≥1 printable set (vocabulary cards) + family letter  
-- ≥1 setup / finished example image set  
-- Teacher Toolkit checklist that **links** rather than duplicates  
+The **lesson plan** remains the curriculum source in the library.  
+The **Teaching Kit** is how you *teach from it*.
 
 ---
 
-## 3. End-to-end user journey
+## 2. Teaching Kit vs lesson plan
+
+| | Lesson plan (library) | Teaching Kit (operations) |
+| --- | --- | --- |
+| Primary job | Catalog & curriculum content | Run this week’s classroom |
+| Provider mindset | “What is this unit about?” | “What do I do before/during/after care today?” |
+| Default screen | Browse card / overview | **Today** (or Start the Week if not prepped) |
+| Organization | Content types (songs, books…) | Time & tasks (prep → today → week → tools) |
+| Printing | Full plan dumps (legacy) | Selective **Build My Kit** packs |
+| Open all day? | Rarely | **Yes — Today** |
+
+Curriculum fields (objectives, Mon–Fri items, songs, books) still power the kit.  
+The **UI hierarchy** changes so operations come first.
+
+---
+
+## 3. What saves the most time
+
+Ranked for home daycare / small classroom providers:
+
+1. **Know today in 10 seconds** — circle, activities, outdoor, observation focus  
+2. **Materials already listed for the week + today** — shop/prep once  
+3. **Print queue** — one tap packs (Today sheet, Vocab cards, Family letter)  
+4. **Activity “how” only when needed** — not forced before circle time  
+5. **Family piece ready Friday morning** — not hunted at pickup  
+
+Design consequence: put **Start the Week** and **Today** above content browsing.
+
+---
+
+## 4. What they actually print
+
+Research-of-practice assumption (validate with owner):
+
+| Often printed | Sometimes | Rarely as a full packet |
+| --- | --- | --- |
+| Today’s run sheet (1–2 pages) | One activity instructions | Entire binder every week |
+| Weekly materials list | Observation quick form | Every example photo |
+| Vocabulary cards | Song lyric sheet (when allowed) | Full multi-day dump by default |
+| Family letter | Book discussion guide | — |
+
+**Build My Kit presets (operations-first):**
+
+1. **Today’s classroom pack** (default) — today sheet + materials for today + observation focus  
+2. **Week prep pack** — materials week list + Mon overview + vocab cards  
+3. **Family pack** — family letter + home extension  
+4. **Full Teaching Kit** — everything available (explicit, not default)
+
+---
+
+## 5. What stays open all day
+
+**Today** is the all-day surface:
+
+- Big “Today is Monday” context  
+- Time-ordered blocks: Arrive / Circle / Invitation / Outdoor / Small group / Closing  
+- One-tap open of the active activity  
+- Sticky observation prompt  
+- Mini materials for today only  
+- “Jump to Tomorrow” at end of day  
+
+Phone in apron pocket / tablet on counter: **Today**, not Overview.
+
+---
+
+## 6. Information architecture (redesigned)
+
+Binder navigation (desktop left rail or top pills; mobile bottom or scroll pills):
+
+| Nav item | Job | When used |
+| --- | --- | --- |
+| **Start the Week** | Prep checklist, shopping/materials, print queue, assign week to calendar | Sunday night / Monday before open |
+| **Today** | Run the room right now | All day (default once week started) |
+| **This Week** | Mon–Fri at a glance; pick another day into Today | Planning / mid-week shifts |
+| **Activity Cards** | Deep instructions, adaptations, examples | Prep or when stuck mid-activity |
+| **Classroom Tools** | Songs · Books · Printables · Pictures (grouped tools) | As needed during week |
+| **Families** | Letters, home connections, pickup talking points | End of day / Friday |
+| **Build My Kit** | Print / PDF center | Prep or as needed |
+
+Secondary (chrome, not primary binder tabs):
+
+- Back to library  
+- Favorite  
+- Linked lesson plan title / Pro badge / age (metadata, not the organizing principle)  
+- Assign to Calendar (also in Start the Week)
+
+---
+
+## 7. End-to-end journey (operations)
 
 ```mermaid
 flowchart TD
-  LIB[Lesson Library card] --> OPEN[Open Teaching Kit]
-  OPEN --> HERO[Cover + title + actions]
-  HERO --> TABS[Section tabs]
-  TABS --> OV[Overview]
-  TABS --> WP[Weekly Plan]
-  TABS --> ACT[Activities]
-  TABS --> SONG[Songs]
-  TABS --> BOOK[Books]
-  TABS --> PRINT[Printables]
-  TABS --> EX[Examples]
-  TABS --> TOOL[Teacher Toolkit]
-  ACT --> DETAIL[Activity detail sheet]
-  HERO --> BMK[Build My Kit]
-  BMK --> PDF[One PDF of selected sections]
-  HERO --> CAL[Assign to Calendar]
-  HERO --> FAV[Favorite]
-  MOB[Mobile More menu] --> BMK
-  MOB --> CAL
+  LIB[Lesson Library] --> OPEN[Open Teaching Kit]
+  OPEN --> PREP{Week prepped?}
+  PREP -->|No| START[Start the Week]
+  PREP -->|Yes| TODAY[Today board]
+  START --> PRINTQ[Print queue / Build My Kit]
+  START --> CAL[Assign to Calendar]
+  START --> TODAY
+  TODAY --> ACT[Open activity card]
+  TODAY --> TOOLS[Classroom Tools]
+  TODAY --> FAM[Families]
+  TODAY --> WEEK[This Week - switch day]
+  WEEK --> TODAY
+  PRINTQ --> PDF[Selected PDF pack]
 ```
 
-### Journey steps (provider story)
+### Monday-morning story
 
-1. **Discover** — Finds *Bugs & Butterflies* in Lesson Library (cover, age, Pro badge).  
-2. **Open** — Enters Teaching Kit. First view: cover atmosphere, title, age, duration, Pro, short description, primary actions.  
-3. **Orient** — Overview: weekly focus, objectives, vocabulary chips, materials, family summary.  
-4. **Plan the week** — Weekly Plan: Mon–Fri chips; one day readable; activity cards with View.  
-5. **Prepare an activity** — Opens activity: setup, steps, teacher language, adaptations, example photo.  
-6. **Gather extras** — Songs (motions), Books (questions), Printables (vocab cards), Examples gallery.  
-7. **Toolkit check** — Teacher Toolkit: prep checklist + links into kit sections.  
-8. **Print** — Build My Kit → choose sections → Generate PDF.  
-9. **Assign** — Assign to Calendar (existing flow; unchanged).  
-10. **Return** — Back to library; favorite persists.
+1. Opens Teaching Kit for the assigned week (*Bugs & Butterflies*).  
+2. Lands on **Start the Week** first visit → checks materials, prints Today pack + vocab cards, assigns calendar if needed.  
+3. Taps **Begin Today** → **Today** board stays open.  
+4. Runs circle from Today; opens activity card only for the invitation setup.  
+5. Uses observation prompt on Today during play.  
+6. Friday: **Families** → send/print letter.  
+7. Next week: new kit or same flow.
 
 ---
 
-## 4. Information architecture
+## 8. Screen specifications
 
-### Desktop binder tabs (left-to-right)
+### 8.1 Start the Week
 
-| Tab | Job |
-| --- | --- |
-| Overview | Week at a glance |
-| Weekly Plan | Day selector + daily content |
-| Activities | All reusable activity cards for the kit |
-| Songs | Song list + motions / lyrics when allowed |
-| Books | Book guides + discussion questions |
-| Printables | Attached printable resources |
-| Examples | Setup / finished photos |
-| Teacher Toolkit | Prep checklist + deep links |
+**Purpose:** Collapse Sunday-night stress into one checklist.
 
-Hidden when empty: Examples, Printables, etc. (admin preview may show empties later — not in this gold-standard demo).
+Contains:
 
-### Mobile
+- Week title + age + theme (compact, not a marketing hero)  
+- “Before children arrive” checklist (editable later; static in mockup)  
+- Master materials (week) with “needed by Monday / Wednesday” hints  
+- Print queue shortcuts: Today pack · Vocab cards · Family letter  
+- Assign this week to Calendar  
+- Setup picture strip (2–3 thumbs)  
+- Primary CTA: **Begin Today**
 
-- Compact header: Back · Title · Age · Badge · Favorite · More  
-- Horizontally scrollable tabs (same sections)  
-- More menu: Assign · Print Teaching Kit · Legacy print (secondary)  
-- One activity card emphasis; day selector as chips  
+### 8.2 Today (all-day board)
 
----
+**Purpose:** The screen that stays open.
 
-## 5. Screen-by-screen specification
+Contains:
 
-### 5.1 Desktop header
+- Today’s date label + day name  
+- Day focus one-liner  
+- Ordered schedule blocks (not curriculum taxonomy)  
+- Each block: title, time estimate, “Open” if activity-linked  
+- Today’s materials (short)  
+- Observation focus (always visible)  
+- Song for today (title + motions — lyrics on demand)  
+- Book for today (title + one prompt)  
+- Footer: Switch day · Build My Kit · Families  
 
-**Contains**
+### 8.3 This Week
 
-- Full-bleed cover atmosphere (materials / garden theme — no children required)  
-- Brand line: Little Learner Hub · Teaching Kit  
-- Title (hero)  
-- Meta: age · duration · Free/Pro · theme  
-- Short description (1–2 sentences)  
-- Actions: Back · Favorite · Assign to Calendar · **Print Teaching Kit** (primary)  
-- Secondary: More print (legacy) only until Print Center fully replaces it  
+**Purpose:** Glance + day switcher — not five dense columns.
 
-**Does not contain**
+- Mon–Fri cards with focus + 2 activity titles  
+- Tap day → loads **Today** for that day  
 
-- Stats strips, schedule snippets, promo chips on the cover  
-- More than one primary CTA  
+### 8.4 Activity Cards
 
-### 5.2 Overview
+**Purpose:** Depth on demand.
 
-**Blocks (structured lists, not walls of text)**
+- Same fields as before (setup, steps, adaptations, examples)  
+- Entry from Today blocks or list  
+- “Back to Today” always available  
 
-1. Weekly focus  
-2. Learning objectives (bullets)  
-3. Developmental domains (chips)  
-4. Vocabulary (chips → link to Vocabulary Cards printable)  
-5. Master materials  
-6. Teacher preparation  
-7. Safety / inclusion notes  
-8. Family connection summary  
+### 8.5 Classroom Tools
 
-### 5.3 Weekly Plan
+**Purpose:** Supporting resources without making them the main IA.
 
-**Desktop**
+Sub-areas (segments or nested pills): Songs · Books · Printables · Pictures  
 
-- Week strip summary (optional one-line per day)  
-- Mon–Fri selector  
-- Selected day panel: focus, circle, book, song, activity cards, outdoor, observation, family note  
+Not top-level equal peers to “Today.”
 
-**Mobile**
+### 8.6 Families
 
-- Day chips or dropdown  
-- One day at a time  
-- No five-column tiny grid  
+**Purpose:** Pickup and home connection.
 
-**Activity card fields**
+- This week’s family letter  
+- Talk-about-at-pickup bullets  
+- Home extension ideas  
+- Print / share actions  
 
-- Title · thumbnail · type · setup time · duration · main skills · View · Print instructions (if available)  
+### 8.7 Build My Kit
 
-### 5.4 Activities
-
-List of all kit activities (deduped). Opening one shows a **sheet / panel**:
-
-- Short description  
-- Materials + substitutions  
-- Preparation / setup  
-- Step-by-step  
-- Teacher language / questions  
-- Safety / allergy  
-- Adaptations · simplified · extension  
-- Observation prompts  
-- Family extension  
-- Related examples / printables  
-
-### 5.5 Songs
-
-For each song:
-
-- Title  
-- Type / when to use  
-- Motions / actions  
-- Learning focus  
-- Lyrics **only** when original or verified public domain  
-- Copyrighted modern songs: title + activity suggestion + motions — **no full lyrics**  
-- Print Lyrics when a lyric sheet printable exists  
-
-### 5.6 Books
-
-- Title · author · short description  
-- Vocabulary  
-- Before / during / after questions  
-- Extension activity  
-- Note: Little Learner Hub does **not** provide the full book  
-
-### 5.7 Printables
-
-Cards with:
-
-- Title · type · pages · color/B&W · preview thumb  
-- View · Print · Download (respect subscription / trial rules)  
-
-Gold-standard example attachments:
-
-1. Bug Words vocabulary cards (6 cards)  
-2. Family letter — This week outdoors  
-3. Observation quick sheet (optional)  
-
-### 5.8 Vocabulary
-
-Shown in Overview as chips; printable pack under Printables; Toolkit links to both.
-
-### 5.9 Examples
-
-Gallery types:
-
-- Materials layout  
-- Setup example  
-- Work-in-progress  
-- Finished activity  
-- Classroom invitation (no children / simple table setup)  
-
-Style: flat educational / paper mockup / simple materials photo — not glossy AI children.
-
-### 5.10 Teacher Toolkit
-
-Single prep surface:
-
-- Materials checklist (linked)  
-- Preparation checklist  
-- Printable list  
-- Song list · Book list  
-- Vocabulary cards link  
-- Setup examples link  
-- Safety · cleanup · observation · family  
-
-Does **not** paste full activity text again.
-
-### 5.11 Build My Kit (Print Center)
-
-**Entry:** Print Teaching Kit button (header / mobile More).
-
-**Presets**
-
-- Full Teaching Kit  
-- Weekly essentials  
-- Classroom day pack  
-- Family pack  
-
-**Checkboxes** (unavailable if empty)
-
-Full Kit · Weekly Lesson Plan · Daily Activities · Materials · Books · Songs · Vocabulary Cards · Family Letter · Observation Forms · Printable Resources · Activity Picture Examples · Teacher Notes  
-
-**Options**
-
-- Cover page · Include images · Ink saver (B&W) · Teacher notes  
-
-**Output**
-
-- One US Letter PDF, selected sections only  
-- Lesson title + page numbers  
-- Ink-conscious (no large colored backgrounds)  
-- **Entitlement:** must use existing Free/Trial/Pro/Founding/admin rules; Trial premium exports use current server watermark + remaining count **before** client assembly  
+Operations-first presets (see §4).  
+Still one PDF, selected sections only, entitlement-safe.
 
 ---
 
-## 6. Desktop vs mobile experience matrix
+## 9. Desktop vs mobile
 
-| Moment | Desktop | Mobile |
+| | Desktop | Mobile / tablet |
 | --- | --- | --- |
-| Open kit | Full-bleed cover + toolbar | Compact header + More |
-| Navigate | Tab bar | Scroll tabs |
-| Weekly plan | Day chips + wide panel | Day chips + stacked cards |
-| Activity | Side or modal detail | Full-screen sheet |
-| Print | Modal Build My Kit | Same modal, full width |
-| Assign / Favorite | Toolbar buttons | Favorite icon + More |
+| Default | Today (or Start the Week if first open) | Today |
+| Nav | Left binder rail | Bottom or horizontal pills + More |
+| All-day use | Today full width | Today single column, large taps |
+| Prep | Start the Week two-column checklist | Stacked checklist |
+| Print | Build My Kit modal | Full-screen Build My Kit |
 
 ---
 
-## 7. Interaction & motion (intentional, minimal)
+## 10. Example week content (still Bugs & Butterflies)
 
-1. Tab / day change: short fade-rise (~250ms).  
-2. Build My Kit modal: rise + dim backdrop.  
-3. Favorite: brief scale pulse on toggle.  
+Content depth unchanged (complete week). **Presentation order** changes:
 
-No decorative animation noise.
-
----
-
-## 8. Accessibility
-
-- Keyboard tabs & checkboxes  
-- Visible focus rings (design tokens)  
-- Semantic headings  
-- Alt text on example images  
-- Tabs announce selected state  
-- Touch targets ≥ 44px on mobile  
-- Print does not rely on color alone  
+- Start the Week uses materials + printables + examples  
+- Today Monday surfaces Leaf & Bug Sort + circle song + observation  
+- Tools hold full song/book/printable libraries  
+- Families hold the letter  
 
 ---
 
-## 9. What this validates for data model (later)
+## 11. Explicit non-goals
 
-| UX need | Later model implication |
-| --- | --- |
-| Activity opens the same from Mon and Activities tab | Stable activity identity / link |
-| Print Vocab Cards from Overview chip | Printable attachment IDs |
-| Hide empty Examples tab | Section availability from content |
-| Build My Kit section list | Canonical section IDs (`scripts/teaching-kit.js`) |
-| Song without lyrics | Copyright classification field |
-| Toolkit links | Computed summary, not duplicated blobs |
-
-**This document does not define schema migrations.** It freezes the *experience* to design against.
+- No runtime implementation  
+- No Slice 1B  
+- No merge/deploy/flag enablement  
+- Not redesigning Lesson Library browse cards in this pass  
+- Not building live editable checklists yet (show the UX pattern)
 
 ---
 
-## 10. Explicit non-goals (this deliverable)
+## 12. Owner review questions
 
-- No runtime app/server implementation  
-- No Slice 1B reusable-activity engineering  
-- No merge / deploy / flag enablement  
-- No admin editor redesign  
-- No Family Hub  
+Please react to these specifically:
 
----
+1. Is **Today** the right all-day default?  
+2. Is **Start the Week** the right first-run / Sunday surface?  
+3. Do the print presets match what you would actually print?  
+4. Does burying Songs/Books under **Classroom Tools** feel right — or do you want one of them promoted?  
+5. Does this feel like a classroom binder rather than a lesson viewer?  
+6. Anything missing for home daycare vs center lead teacher?
 
-## 11. Review checklist for owner
-
-Please confirm or correct:
-
-- [ ] Header actions (Back / Favorite / Assign / Print Teaching Kit) feel right  
-- [ ] Tab set matches how you teach from a binder  
-- [ ] Weekly Plan day-selector pattern (not 5-column grid)  
-- [ ] Build My Kit presets and checkbox list  
-- [ ] Gold-standard content depth for *Bugs & Butterflies* feels complete  
-- [ ] Mobile More menu contents  
-- [ ] Anything missing before Slice 1B data work  
-
-**After review:** approve experience → then authorize Slice 1B (or request revisions).
+**Stop here until UX direction is approved.** Then we can align Slice 1B data work to *operations objects* (Today board, prep checklist, print packs) — not only content tabs.

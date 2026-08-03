@@ -2,45 +2,45 @@
 
 **Status**
 
-- Slice 1A implementation **approved** (flags + schema passthrough) — **not merged / not deployed**
-- Gold-standard product UX ready for **owner review** before Slice 1B
-- All Teaching Kit feature flags remain **disabled**
+- Slice 1A implementation **approved** — **not merged / not deployed**
+- Teaching Kit flags remain **disabled**
+- **UX redesign in review:** classroom-operations binder (not lesson-plan tabs)
+- Slice 1B **not started**
 
 ## Start here (product validation)
 
 | Deliverable | Path |
 | --- | --- |
-| **Gold-standard product specification** | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
-| **Clickable end-to-end UX mockup** | [mockups/gold-standard.html](./mockups/gold-standard.html) |
-| Architecture (technical) | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
-| Earlier architecture wireframes | [mockups/interactive.html](./mockups/interactive.html) |
+| **Product specification (operations redesign)** | [GOLD_STANDARD_PRODUCT_SPEC.md](./GOLD_STANDARD_PRODUCT_SPEC.md) |
+| **Clickable binder mockup** | [mockups/gold-standard.html](./mockups/gold-standard.html) |
+| Technical architecture (Slice 1A) | [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md) |
 
-### Example kit in the gold-standard mockup
+### Example week
 
-**Bugs & Butterflies** · Toddler · Pro · 1 week  
+**Bugs & Butterflies** · Toddler · Pro  
 
-Journey screens: Desktop binder · Mobile · Activity detail · Build My Kit · Print preview · Flow map
+### Binder navigation (redesigned)
 
-### Screenshots (gold standard)
+1. **Start the Week** — prep checklist, materials, print queue  
+2. **Today** — all-day classroom board (default once the week starts)  
+3. **This Week** — glance + switch day into Today  
+4. **Activity Cards** — depth on demand  
+5. **Classroom Tools** — songs · books · printables · pictures  
+6. **Families** — letter + pickup talk  
+7. **Build My Kit** — print packs (Today pack default, not full dump)
+
+### Screenshots
 
 | Screen | File |
 | --- | --- |
-| Desktop overview | [mockups/screenshots/gold-desktop-overview.png](./mockups/screenshots/gold-desktop-overview.png) |
-| Desktop weekly plan | [mockups/screenshots/gold-desktop-weekly.png](./mockups/screenshots/gold-desktop-weekly.png) |
-| Mobile | [mockups/screenshots/gold-mobile.png](./mockups/screenshots/gold-mobile.png) |
-| Activity detail | [mockups/screenshots/gold-activity-detail.png](./mockups/screenshots/gold-activity-detail.png) |
+| Start the Week | [mockups/screenshots/gold-desktop-overview.png](./mockups/screenshots/gold-desktop-overview.png) |
+| Today board | [mockups/screenshots/gold-desktop-weekly.png](./mockups/screenshots/gold-desktop-weekly.png) |
+| Mobile Today | [mockups/screenshots/gold-mobile.png](./mockups/screenshots/gold-mobile.png) |
 | Build My Kit | [mockups/screenshots/gold-build-my-kit.png](./mockups/screenshots/gold-build-my-kit.png) |
-| Print preview | [mockups/screenshots/gold-print-preview.png](./mockups/screenshots/gold-print-preview.png) |
+| Kit vs lesson plan | [mockups/screenshots/gold-activity-detail.png](./mockups/screenshots/gold-activity-detail.png) |
 
-## Design principles (locked for review)
+> Screenshot filenames kept for continuity; images regenerated to match the operations redesign.
 
-- Digital teacher binder, not a thin lesson card  
-- **Build My Kit**: print only what you need as one PDF  
-- Empty sections hidden for providers  
-- Preserve Assign / Favorite / calendar  
-- Entitlements never bypassed (Trial watermark path before PDF)  
-- No implementation / data-model build until UX approved  
+## Hold
 
-## Out of scope until authorized
-
-Slice 1B+, merge of PR #436, deploy, flag enablement, admin editor redesign, Family Hub.
+No Slice 1B, merge, deploy, or flag enablement until this UX direction is approved.
