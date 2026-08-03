@@ -213,6 +213,7 @@
     "audit:post-merge-planner-buttons": "node scripts/audit-post-merge-planner-buttons.js",
     "test:lesson-print-qa": "node scripts/test-lesson-print-qa.js",
     "test:lesson-use-this-plan": "node scripts/test-lesson-use-this-plan.js",
+    "test:calendar-assign-download-blockers": "node scripts/test-calendar-assign-download-blockers.js",
     "test:lesson-library-phase2": "node scripts/test-lesson-library-phase2.js",
     "test:lesson-library-mobile-qa": "node scripts/test-lesson-library-mobile-qa.js",
     "test:lesson-owner-review": "node scripts/test-lesson-owner-review.js",

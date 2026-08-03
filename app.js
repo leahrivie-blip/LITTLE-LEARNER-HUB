@@ -2405,6 +2405,7 @@ async function confirmTrialCurriculumExport(resource, action = "print") {
     };
   } catch (error) {
     console.warn("trial export authorize failed", error);
+    showToast("Could not verify download permissions. Please try again.");
     return { allowed: false, error: true, idempotencyKey };
   }
 }
@@ -21867,18 +21868,21 @@ function showLessonWorkspaceMainCalendarSuccess(assignment, options = {}) {
   const title = assignment?.lessonPlanTitle || assignment?.title || "This lesson plan";
   const room = scheduleClassroomName(scheduleDocCache || getScheduleApi()?.readCache(scheduleApiEmail()));
   const end = getScheduleApi()?.weekEndFromStart(week) || curriculumPlannerWeekEndIso(week);
+  const activityCount = countCurriculumSnapshotActivities(assignment?.snapshot || assignment);
   if (successTitle) {
     successTitle.textContent = intent === "my-week" ? "Added to Weekly Plan" : "Added to Calendar";
   }
   if (message) {
     message.textContent = week
-      ? `“${title}” is ready for ${week}–${end}${room ? ` · ${room}` : ""}.`
+      ? `“${title}” is on your calendar for ${week}–${end}${room ? ` · ${room}` : ""}${activityCount ? ` · ${activityCount} activities` : ""}.`
       : (intent === "my-week" ? "Lesson plan added to Weekly Plan." : "Lesson plan added to Calendar.");
   }
   if (successNote) {
-    successNote.textContent = intent === "my-week"
-      ? "View Weekly Plan to customize days, or jump into Calendar for the full week view."
-      : "Your week is ready — open Calendar to customize days, notes, and events, or open View Weekly Plan for that week.";
+    successNote.textContent = activityCount > 0
+      ? (intent === "my-week"
+        ? `Your week is ready with ${activityCount} activities — open View Weekly Plan to customize days, or jump into Calendar for the full week view.`
+        : `Your week is ready with ${activityCount} activities — open Calendar to customize days, notes, and events, or open View Weekly Plan for that week.`)
+      : "Lesson metadata was saved, but Monday–Friday activities did not transfer. Remove this week and try again.";
   }
   if (openCalendarBtn && openPlannerBtn) {
     openCalendarBtn.classList.toggle("primary-button", intent !== "my-week");
@@ -23544,9 +23548,43 @@ function canDownloadLessonWorkspacePlan(resource) {
   );
 }
 
-function downloadLessonPlanVariantPdf(printVariant = "week") {
+function showToast(message) {
+  const text = String(message || "").trim();
+  if (!text) return;
+  if (typeof showActionFeedback === "function") {
+    showActionFeedback(text);
+    return;
+  }
+  if (typeof window !== "undefined" && typeof window.alert === "function") {
+    window.alert(text);
+    return;
+  }
+  console.info(text);
+}
+
+let lessonPlanDownloadBusy = false;
+
+function setLessonDownloadButtonsBusy(busy, triggerButton = null) {
+  const buttons = document.querySelectorAll("[data-lesson-download-variant], [data-lesson-editor-download-week], [data-lesson-editor-download-full]");
+  buttons.forEach((button) => {
+    if (!button.dataset.downloadIdleLabel) {
+      button.dataset.downloadIdleLabel = String(button.textContent || "").trim();
+    }
+    button.disabled = Boolean(busy);
+    button.setAttribute("aria-busy", busy ? "true" : "false");
+    if (busy && (button === triggerButton || button.dataset.lessonDownloadVariant)) {
+      if (button === triggerButton || buttons.length <= 6) {
+        button.textContent = "Preparing download…";
+      }
+    } else if (!busy && button.dataset.downloadIdleLabel) {
+      button.textContent = button.dataset.downloadIdleLabel;
+    }
+  });
+}
+
+function downloadLessonPlanVariantPdf(printVariant = "week", options = {}) {
   // Legacy name kept for callers; weekly classroom downloads are PDF calendars.
-  downloadLessonPlanVariant(printVariant);
+  return downloadLessonPlanVariant(printVariant, options);
 }
 
 async function downloadTrialPremiumPdfViaServer(resource, idempotencyKey) {
@@ -23560,50 +23598,80 @@ async function downloadTrialPremiumPdfViaServer(resource, idempotencyKey) {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    if (typeof showToast === "function") showToast(data.message || MEMBERSHIP_COPY.watermarkTryAgain);
-    else window.alert(data.message || MEMBERSHIP_COPY.watermarkTryAgain);
+    showToast(data.message || MEMBERSHIP_COPY.watermarkTryAgain || "Download failed. Please try again.");
     return false;
   }
   const blob = await res.blob();
+  if (!blob || !blob.size) {
+    showToast("The download file was empty. Please try again.");
+    return false;
+  }
   downloadBlob(blob, `${slug(resource.title || "lesson")}-trial-export.pdf`);
   return true;
 }
 
 async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
-  const viewerResource = activeResourceViewerResource;
-  if (!canDownloadLessonWorkspacePlan(viewerResource)) return;
-  const gate = await confirmTrialCurriculumExport(viewerResource, "download");
-  if (!gate.allowed) return;
-  const allowed = new Set(["week", "week-detail", "planning", "materials", "full"]);
-  const normalizedVariant = (printVariant === "teacher-planner") ? "week" : printVariant;
-  const safeVariant = allowed.has(normalizedVariant) ? normalizedVariant : "week";
-  const preferDocx = options.format === "docx" && safeVariant === "full";
-  const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
-  if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return;
-
-  // Trial premium downloads use server-generated watermarked PDFs (fail-closed).
-  if (gate.counted) {
-    const ok = await downloadTrialPremiumPdfViaServer(viewerResource, gate.idempotencyKey);
-    if (!ok) return;
-    if (!savedDownloads.includes(viewerResource.id)) {
-      savedDownloads = [...savedDownloads, viewerResource.id];
-      saveDownloads();
-      updatePlanLabel();
-    }
-    trackEvent("resource_pdf_download", {
-      resourceId: viewerResource.id,
-      title: viewerResource.title,
-      category: viewerResource.category,
-      age: viewerResource.age,
-      access: viewerResource.plan,
-      printVariant: safeVariant,
-      format: "pdf",
-      trialServerGenerated: true,
-    });
-    return;
+  if (lessonPlanDownloadBusy) {
+    showToast("Download already in progress…");
+    return false;
+  }
+  let viewerResource = activeResourceViewerResource;
+  if (!canDownloadLessonWorkspacePlan(viewerResource)) {
+    showToast(
+      (!isLoggedIn() && !hasAdminFullAccess())
+        ? "Log in to download lesson plans."
+        : "This lesson plan is not available to download right now.",
+    );
+    return false;
   }
 
+  lessonPlanDownloadBusy = true;
+  setLessonDownloadButtonsBusy(true, options.triggerButton || null);
   try {
+    if (!curriculumPlanHasAssignableDayItems(viewerResource._curriculumLessonPlan)) {
+      const hydration = await withHydratedCurriculumLessonContent(viewerResource);
+      viewerResource = hydration.resource || viewerResource;
+      activeResourceViewerResource = viewerResource;
+      syncHydratedCurriculumPlanOntoResource(viewerResource, viewerResource._curriculumLessonPlan);
+    }
+
+    const gate = await confirmTrialCurriculumExport(viewerResource, "download");
+    if (!gate.allowed) {
+      if (gate.cancelled) showToast("Download cancelled.");
+      else if (gate.error) showToast("Could not verify download permissions. Please try again.");
+      else if (!gate.exhausted) showToast("Download could not start. Please try again.");
+      return false;
+    }
+    const allowed = new Set(["week", "week-detail", "planning", "materials", "full"]);
+    const normalizedVariant = (printVariant === "teacher-planner") ? "week" : printVariant;
+    const safeVariant = allowed.has(normalizedVariant) ? normalizedVariant : "week";
+    const preferDocx = options.format === "docx" && safeVariant === "full";
+    const watermark = gate.watermark || trialWatermarkForCurrentView(viewerResource);
+    if (!requireTrialWatermarkOrBlock(watermark, gate.counted)) return false;
+
+    // Trial premium downloads use server-generated watermarked PDFs (fail-closed).
+    if (gate.counted) {
+      const ok = await downloadTrialPremiumPdfViaServer(viewerResource, gate.idempotencyKey);
+      if (!ok) return false;
+      if (!savedDownloads.includes(viewerResource.id)) {
+        savedDownloads = [...savedDownloads, viewerResource.id];
+        saveDownloads();
+        updatePlanLabel();
+      }
+      trackEvent("resource_pdf_download", {
+        resourceId: viewerResource.id,
+        title: viewerResource.title,
+        category: viewerResource.category,
+        age: viewerResource.age,
+        access: viewerResource.plan,
+        printVariant: safeVariant,
+        format: "pdf",
+        trialServerGenerated: true,
+      });
+      showToast("Download started.");
+      return true;
+    }
+
     recordResourceOutputRequest({
       mode: "download",
       printVariant: safeVariant === "week" ? "teacher-planner" : safeVariant,
@@ -23636,8 +23704,8 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         trialWatermark: watermark,
       });
       if (!plannerBlob) {
-        if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
-        return;
+        showToast("Teacher Weekly Planner could not be generated. Please try again.");
+        return false;
       }
       downloadBlob(plannerBlob, `${slug(viewerResource.title)}-${variantLabel}.pdf`);
     } else if (safeVariant === "week-detail") {
@@ -23661,7 +23729,12 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
         pdfFileName: `${slug(viewerResource.title)}-${variantLabel}.pdf`,
         trialWatermark: watermark,
       };
-      downloadBlob(buildResourcePdfBlob(variantResource), resourcePdfFileName(variantResource));
+      const fullBlob = buildResourcePdfBlob(variantResource);
+      if (!fullBlob) {
+        showToast("Full Lesson Plan could not be generated. Please try again.");
+        return false;
+      }
+      downloadBlob(fullBlob, resourcePdfFileName(variantResource));
     }
     if (!savedDownloads.includes(viewerResource.id)) {
       savedDownloads = [...savedDownloads, viewerResource.id];
@@ -23677,9 +23750,19 @@ async function downloadLessonPlanVariant(printVariant = "week", options = {}) {
       printVariant: safeVariant,
       format: preferDocx ? "docx" : "pdf",
     });
+    showToast("Download started.");
+    return true;
   } catch (error) {
-    if (typeof showToast === "function") showToast(MEMBERSHIP_COPY.watermarkTryAgain);
-    throw error;
+    console.error("[llh-download] lesson plan download failed", {
+      variant: printVariant,
+      resourceId: viewerResource?.id || "",
+      message: error?.message || String(error || ""),
+    });
+    showToast(error?.message || MEMBERSHIP_COPY.watermarkTryAgain || "Download failed. Please try again.");
+    return false;
+  } finally {
+    lessonPlanDownloadBusy = false;
+    setLessonDownloadButtonsBusy(false, options.triggerButton || null);
   }
 }
 
@@ -25661,8 +25744,8 @@ async function openResourceViewer(resourceId, options = {}) {
     console.warn(error);
     hydration = { hydrated: false, reason: "error", resource };
   }
-  // Use This Plan / calendar assign should still open even if Pro content is
-  // still syncing — assigning by plan id does not need the full hydrated body.
+  // Use This Plan / calendar assign may open while Pro content is still syncing.
+  // Assignment itself re-hydrates detail content before snapshotting.
   const allowAssignDespiteHydrationGap = Boolean(
     options.openPlanThisWeek
     || (calendarLessonAssignContext?.fromCalendar && !options.skipCalendarAssignSheet),
@@ -28562,6 +28645,7 @@ async function assignScheduleLessonPlan({
   }
   const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
+  const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
   const item = await api.assignLessonPlanToWeek(firebaseAuthHeaders, scheduleApiEmail(), {
     id: existing?.id,
     weekStartDate: week,
@@ -28588,18 +28672,20 @@ async function assignScheduleLessonPlan({
   curriculumPlannerAssignResourceId = "";
   curriculumPlannerMessage = {
     text: existing
-      ? `Updated assignment to “${item.lessonPlanTitle}”. Notes were preserved.`
-      : `Assigned “${item.lessonPlanTitle}” to the week of ${item.weekStartDate}.`,
+      ? `Updated assignment to “${item.lessonPlanTitle}” (${activityCount} activities). Notes were preserved.`
+      : `Assigned “${item.lessonPlanTitle}” (${activityCount} activities) to the week of ${item.weekStartDate}.`,
     isSuccess: true,
   };
   const assignDetail = {
     weekStartDate: item.weekStartDate,
     lessonPlanId: item.lessonPlanId,
     plan: item.lessonPlanPlan,
+    activityCount,
     replaced: Boolean(existing),
   };
   trackEvent("schedule_assign_lesson", assignDetail);
   trackEvent("lesson_plan_added_to_calendar", assignDetail);
+  refreshCalendarSurfacesAfterScheduleChange(week);
   return item;
 }
 
@@ -28920,6 +29006,117 @@ function buildCurriculumLessonPlanSnapshot(plan = {}) {
   };
 }
 
+function curriculumPlanHasAssignableDayItems(plan = null) {
+  if (!plan || typeof plan !== "object") return false;
+  return CURRICULUM_WEEKDAYS.some((day) => {
+    const items = plan.dailyPlans?.[day]?.items;
+    return Array.isArray(items) && items.some((item) => String(item?.title || "").trim());
+  });
+}
+
+function countCurriculumSnapshotActivities(snapshot = {}) {
+  const dailyPlans = snapshot?.dailyPlans || snapshot?.snapshot?.dailyPlans || {};
+  return CURRICULUM_WEEKDAYS.reduce((sum, day) => {
+    const items = dailyPlans?.[day]?.items;
+    if (!Array.isArray(items)) return sum;
+    return sum + items.filter((item) => String(item?.title || "").trim()).length;
+  }, 0);
+}
+
+function syncHydratedCurriculumPlanOntoResource(resource, plan) {
+  if (!resource || !plan || typeof plan !== "object") return resource;
+  const next = {
+    ...resource,
+    weeklyOverview: plan.weeklyOverview || resource.weeklyOverview,
+    materials: plan.weeklyMaterials || resource.materials,
+    description: plan.weeklyOverview || resource.description,
+    theme: plan.theme || resource.theme,
+    _curriculumLessonPlan: plan,
+    _curriculumResourceIds: curriculumAsStringArray(plan.resourceIds),
+    customContent: buildLessonPlanTextFromCurriculum(plan),
+  };
+  const idx = Array.isArray(resources) ? resources.findIndex((item) => item.id === resource.id) : -1;
+  if (idx >= 0) resources[idx] = { ...resources[idx], ...next, id: resource.id };
+  if (activeResourceViewerResource?.id === resource.id) {
+    activeResourceViewerResource = { ...activeResourceViewerResource, ...next, id: resource.id };
+  }
+  return next;
+}
+
+function enrichCurriculumPlanDailyPlansFromActivities(plan = {}, lessonPlanId = "") {
+  const targetId = String(lessonPlanId || plan?.id || "").trim();
+  if (!targetId) return plan;
+  const library = typeof effectiveCurriculumLibrary === "function" ? effectiveCurriculumLibrary() : { activities: [] };
+  const linked = (library.activities || []).filter((activity) => {
+    if (String(activity?.lessonPlanId || "").trim() !== targetId) return false;
+    const status = String(activity?.status || "published").toLowerCase();
+    return status !== "draft" && status !== "archived";
+  });
+  if (!linked.length) return plan;
+  const dailyPlans = { ...(plan.dailyPlans || {}) };
+  let added = 0;
+  CURRICULUM_WEEKDAYS.forEach((day) => {
+    const existing = Array.isArray(dailyPlans[day]?.items) ? dailyPlans[day].items : [];
+    if (existing.some((item) => String(item?.title || "").trim())) return;
+    const dayItems = linked
+      .filter((activity) => String(activity.dayOfWeek || "").toLowerCase() === day)
+      .map((activity) => ({
+        itemId: String(activity.itemId || activity.id || "").trim(),
+        activityCategory: String(activity.activityCategory || "").trim(),
+        title: String(activity.title || "").trim(),
+        objective: String(activity.objective || "").trim(),
+        description: String(activity.description || "").trim(),
+        learningDomains: Array.isArray(activity.learningDomains) ? activity.learningDomains : [],
+        materials: String(activity.materials || "").trim(),
+        setup: String(activity.setup || "").trim(),
+        steps: String(activity.steps || activity.directions || "").trim(),
+        teacherRole: String(activity.teacherRole || "").trim(),
+        teacherLanguage: String(activity.teacherLanguage || "").trim(),
+        learningGoals: Array.isArray(activity.learningGoals) ? activity.learningGoals : [],
+        observationOpportunities: String(activity.observationOpportunities || "").trim(),
+        vocabulary: String(activity.vocabulary || "").trim(),
+        extensions: String(activity.extensions || "").trim(),
+        adaptations: String(activity.adaptations || "").trim(),
+        safetyNotes: String(activity.safetyNotes || "").trim(),
+        ageModifications: String(activity.ageModifications || "").trim(),
+      }))
+      .filter((item) => item.title);
+    if (!dayItems.length) return;
+    dailyPlans[day] = { ...(dailyPlans[day] || {}), items: dayItems };
+    added += dayItems.length;
+  });
+  if (!added) return plan;
+  return { ...plan, dailyPlans };
+}
+
+function assertAssignableCurriculumSnapshot(snapshot, resource) {
+  const activityCount = countCurriculumSnapshotActivities(snapshot);
+  if (activityCount > 0) return activityCount;
+  console.error("[llh-assign] refusing empty calendar snapshot", {
+    lessonPlanId: resource?.id || "",
+    title: resource?.title || snapshot?.title || "",
+    theme: snapshot?.theme || "",
+    hasOverview: Boolean(String(snapshot?.weeklyOverview || "").trim()),
+  });
+  throw new Error(
+    "This lesson plan could not be added because Monday–Friday activities did not transfer. Please reopen the lesson and try again.",
+  );
+}
+
+function refreshCalendarSurfacesAfterScheduleChange(weekStartDate = "") {
+  const week = weekStartDate ? curriculumPlannerWeekStartIso(weekStartDate) : "";
+  if (week) {
+    mainCalendarSelectedWeek = week;
+    weeklyPlannerFocusWeek = week;
+  }
+  if (document.querySelector("#view-calendar.active-view") && typeof renderMainCalendar === "function") {
+    renderMainCalendar();
+  }
+  if (document.querySelector("#view-planner.active-view") && typeof renderWeeklyPlanner === "function") {
+    renderWeeklyPlanner();
+  }
+}
+
 function curriculumAssignableLessonResources() {
   return resources.filter((resource) => {
     if (resource?.category !== "Lesson Plans" || !resource?._curriculumManaged) return false;
@@ -28955,21 +29152,54 @@ async function resolveCurriculumPlanForAssignment(resourceOrId, options = {}) {
   if (status === "draft" || status === "archived") {
     throw new Error("Draft and archived lesson plans cannot be assigned.");
   }
-  let plan = resource._curriculumLessonPlan || null;
-  if (!isCuratedFreeCurriculumPlan(resource) && String(resource.plan || "").trim() === "Pro") {
-    if (!isProUser() && !hasAdminFullAccess()) {
-      throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
-    }
-    const fetched = await fetchAuthorizedCurriculumLessonPlan(resource.id);
-    if (fetched?.ok && fetched.lessonPlan) plan = fetched.lessonPlan;
-    else if (fetched && !fetched.ok && fetched.lessonPlan) plan = fetched.lessonPlan;
+  if (String(resource.plan || "").trim() === "Pro" && !isProUser() && !hasAdminFullAccess() && !isCuratedFreeCurriculumPlan(resource)) {
+    throw new Error(`${proUnlockValueProp} Upgrade to Pro to assign this premium lesson plan.`);
   }
+
+  // Prefer the already-hydrated lesson viewer body when assigning from Use This Plan.
+  let plan = null;
+  if (
+    activeResourceViewerResource?.id === resource.id
+    && curriculumPlanHasAssignableDayItems(activeResourceViewerResource._curriculumLessonPlan)
+  ) {
+    plan = activeResourceViewerResource._curriculumLessonPlan;
+  } else {
+    plan = resource._curriculumLessonPlan || null;
+  }
+
+  // Browse/list payloads are intentionally slim (no dailyPlans). Always hydrate
+  // detail content before snapshotting — Free curated plans included.
+  if (!curriculumPlanHasAssignableDayItems(plan)) {
+    const fetched = await fetchAuthorizedCurriculumLessonPlan(resource.id);
+    if (fetched?.lessonPlan) {
+      plan = fetched.lessonPlan;
+      syncHydratedCurriculumPlanOntoResource(resource, plan);
+    } else if (!fetched?.ok) {
+      console.error("[llh-assign] lesson detail hydrate failed", {
+        lessonPlanId: resource.id,
+        reason: fetched?.reason || "unknown",
+        status: fetched?.status || null,
+      });
+    }
+  }
+
+  if (!curriculumPlanHasAssignableDayItems(plan)) {
+    plan = enrichCurriculumPlanDailyPlansFromActivities(plan || resource._curriculumLessonPlan || {}, resource.id);
+  }
+
   if (!plan || typeof plan !== "object") {
     throw new Error("Lesson plan content could not be loaded for assignment.");
   }
-  const hasDays = CURRICULUM_WEEKDAYS.some((day) => Array.isArray(plan.dailyPlans?.[day]?.items) && plan.dailyPlans[day].items.length);
-  if (!hasDays && !String(plan.weeklyOverview || "").trim()) {
-    throw new Error("This lesson plan does not include weekly content to assign.");
+  if (!curriculumPlanHasAssignableDayItems(plan)) {
+    console.error("[llh-assign] no Monday–Friday activities after hydrate", {
+      lessonPlanId: resource.id,
+      title: resource.title || plan.title || "",
+      activityCount: resource.activityCount || plan.activityCount || 0,
+      activityIds: Array.isArray(plan.activityIds) ? plan.activityIds.length : 0,
+    });
+    throw new Error(
+      "This lesson plan could not be added because Monday–Friday activities did not load. Please reopen the lesson and try again.",
+    );
   }
   return { resource, plan };
 }
@@ -29013,6 +29243,7 @@ async function assignCurriculumLessonPlanToWeek({
   }
   const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
+  const activityCount = assertAssignableCurriculumSnapshot(snapshot, resource);
   const now = new Date().toISOString();
   const preserved = preserveCurriculumPlannerPrivateFields(existing || {});
   let assignment = {
@@ -29038,18 +29269,20 @@ async function assignCurriculumLessonPlanToWeek({
   curriculumPlannerAssignResourceId = "";
   curriculumPlannerMessage = {
     text: existing
-      ? `Updated assignment to “${assignment.lessonPlanTitle}”. Teacher notes and observations were preserved.`
-      : `Assigned “${assignment.lessonPlanTitle}” to the week of ${assignment.weekStartDate}.`,
+      ? `Updated assignment to “${assignment.lessonPlanTitle}” (${activityCount} activities). Teacher notes and observations were preserved.`
+      : `Assigned “${assignment.lessonPlanTitle}” (${activityCount} activities) to the week of ${assignment.weekStartDate}.`,
     isSuccess: true,
   };
   const plannerAssignDetail = {
     weekStartDate: assignment.weekStartDate,
     lessonPlanId: assignment.lessonPlanId,
     plan: assignment.lessonPlanPlan,
+    activityCount,
     replaced: Boolean(existing),
   };
   trackEvent("curriculum_planner_assign", plannerAssignDetail);
   trackEvent("lesson_plan_added_to_calendar", plannerAssignDetail);
+  refreshCalendarSurfacesAfterScheduleChange(week);
   return assignment;
 }
 
@@ -30940,6 +31173,7 @@ async function submitCalendarAddItemForm(form) {
     });
     scheduleDocCache = api.readCache(scheduleApiEmail());
     closeCalendarAddItemDialog();
+    refreshCalendarSurfacesAfterScheduleChange(api.weekStartMonday(date));
   } catch (error) {
     if (errorEl) {
       errorEl.hidden = false;
@@ -30974,8 +31208,10 @@ async function deleteCalendarItem(itemId) {
     scheduleDocCache = api.readCache(scheduleApiEmail());
     closeCalendarAddItemDialog();
     showActionFeedback(isPlacement ? "Removed from calendar." : "Calendar item deleted.");
+    refreshCalendarSurfacesAfterScheduleChange(item?.weekStartDate || mainCalendarSelectedWeek || "");
   } catch (error) {
     console.warn(error);
+    showActionFeedback(error?.message || "Could not update the calendar. Please try again.");
   } finally {
     mainCalendarBusy = false;
     renderMainCalendar();
@@ -30999,9 +31235,11 @@ async function saveCalendarDayNote(iso, options = {}) {
   const date = api.isoDateOnly(iso || mainCalendarSelectedDay);
   if (!date) return;
   const input = document.querySelector("[data-calendar-day-note-input]");
-  const notes = options.clear ? "" : String(options.notes ?? input?.value ?? "").trim();
+  // Visually blank values (spaces/newlines/NBSP) must persist as cleared/empty.
+  const rawNotes = options.clear ? "" : String(options.notes ?? input?.value ?? "");
+  const notes = rawNotes.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim();
   mainCalendarBusy = true;
-  setCalendarDayNoteStatus("Saving to your account…");
+  setCalendarDayNoteStatus(notes ? "Saving to your account…" : "Clearing notes…");
   renderMainCalendar();
   try {
     await ensureScheduleLoaded({ force: scheduleSyncState === "error", retry: true });
@@ -31011,6 +31249,18 @@ async function saveCalendarDayNote(iso, options = {}) {
     if (!notes) {
       if (existing?.id && api.deleteItem) {
         await api.deleteItem(firebaseAuthHeaders, scheduleApiEmail(), existing.id, { requireCloud: true });
+      } else if (existing?.id) {
+        await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
+          id: existing.id,
+          type: "day_note",
+          title: "Day Note",
+          startDate: date,
+          endDate: date,
+          weekStartDate: api.weekStartMonday(date),
+          allDay: true,
+          notes: "",
+          classroomId,
+        }, { requireCloud: true });
       }
     } else {
       await api.upsertItem(firebaseAuthHeaders, scheduleApiEmail(), {
@@ -31026,6 +31276,18 @@ async function saveCalendarDayNote(iso, options = {}) {
       }, { requireCloud: true });
     }
     scheduleDocCache = api.readCache(scheduleApiEmail());
+    // Ensure blank clears do not leave stale whitespace-only note items in cache.
+    if (!notes && scheduleDocCache?.items) {
+      scheduleDocCache = {
+        ...scheduleDocCache,
+        items: scheduleDocCache.items.filter((item) => !(
+          item?.type === "day_note"
+          && item?.startDate === date
+          && !String(item?.notes || "").replace(/\u00a0/g, " ").trim()
+        )),
+      };
+      api.writeCache?.(scheduleApiEmail(), scheduleDocCache);
+    }
     scheduleSyncState = "ready";
     scheduleSyncError = "";
     scheduleSyncSynced = true;
@@ -31041,6 +31303,8 @@ async function saveCalendarDayNote(iso, options = {}) {
   }
   mainCalendarBusy = false;
   renderMainCalendar();
+  const clearedInput = document.querySelector("[data-calendar-day-note-input]");
+  if (clearedInput && !notes) clearedInput.value = "";
   const successMessage = notes ? "Notes saved to your account." : "Notes cleared from your account.";
   setCalendarDayNoteStatus(successMessage);
   showActionFeedback(successMessage);
@@ -59870,7 +60134,12 @@ document.addEventListener("click", async (event) => {
     if (originContext) setViewReturnContext("calendar", originContext);
     toggleLessonWorkspaceActionSheet(false);
     dismissResourceViewerForNavigation();
+    if (week) {
+      mainCalendarSelectedWeek = curriculumPlannerWeekStartIso(week);
+      mainCalendarSubView = "week";
+    }
     setView("calendar", week ? { weekStartDate: week } : {});
+    refreshCalendarSurfacesAfterScheduleChange(week);
     return;
   }
 
@@ -60362,7 +60631,10 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     toggleLessonWorkspaceMoreMenu(false);
     toggleLessonWorkspaceActionSheet(false);
-    downloadLessonPlanVariantPdf(lessonWorkspaceDownloadWeek.dataset.lessonDownloadVariant || "week");
+    void downloadLessonPlanVariant(
+      lessonWorkspaceDownloadWeek.dataset.lessonDownloadVariant || "week",
+      { triggerButton: lessonWorkspaceDownloadWeek },
+    );
     return;
   }
 
@@ -60481,7 +60753,7 @@ document.addEventListener("click", async (event) => {
   if (lessonEditorDownloadWeek) {
     event.preventDefault();
     if (!prepareLessonEditorResourceForOutput(lessonEditorDownloadWeek.dataset.lessonEditorDownloadWeek)) return;
-    downloadLessonPlanVariantPdf("week");
+    void downloadLessonPlanVariant("week", { triggerButton: lessonEditorDownloadWeek });
     return;
   }
 
@@ -60489,7 +60761,7 @@ document.addEventListener("click", async (event) => {
   if (lessonEditorDownloadFull) {
     event.preventDefault();
     if (!prepareLessonEditorResourceForOutput(lessonEditorDownloadFull.dataset.lessonEditorDownloadFull)) return;
-    downloadLessonPlanVariantPdf("full");
+    void downloadLessonPlanVariant("full", { triggerButton: lessonEditorDownloadFull });
     return;
   }
 

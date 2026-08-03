@@ -1,5 +1,5 @@
-const CACHE_NAME = "llh-shell-v162-signup-intent-copy";
-const SHELL_VERSION = "20260803-signup-intent-copy";
+const CACHE_NAME = "llh-shell-v163-assign-download-fixers";
+const SHELL_VERSION = "20260803-assign-download-fixers";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
 const APP_SHELL = [
