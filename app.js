@@ -6147,6 +6147,10 @@ function emptySiteContent() {
     images: [],
     featureFlags: {
       playBasedCurriculum: true,
+      // Teaching Kit (Slice 1A): defaults false; server is source of truth when loaded.
+      teachingKitViewer: false,
+      teachingKitPrintCenter: false,
+      teachingKitAttachments: false,
     },
     playBasedCurriculum: true,
     curriculumLibrary: emptyCurriculumLibrary(),
@@ -11659,6 +11663,12 @@ function effectiveSiteContent() {
     freePlanAccess: { ...(base.freePlanAccess || {}), ...(overrides.freePlanAccess || {}) },
     featureFlags: {
       playBasedCurriculum: true,
+      teachingKitViewer: overrides.featureFlags?.teachingKitViewer === true
+        || base.featureFlags?.teachingKitViewer === true,
+      teachingKitPrintCenter: overrides.featureFlags?.teachingKitPrintCenter === true
+        || base.featureFlags?.teachingKitPrintCenter === true,
+      teachingKitAttachments: overrides.featureFlags?.teachingKitAttachments === true
+        || base.featureFlags?.teachingKitAttachments === true,
     },
     playBasedCurriculum: true,
     curriculum: overrides.curriculum && typeof overrides.curriculum === "object"

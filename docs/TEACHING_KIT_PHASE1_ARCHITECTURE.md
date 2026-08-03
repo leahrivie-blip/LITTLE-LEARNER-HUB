@@ -1,10 +1,33 @@
 # Complete Teaching Kits — Phase 1 Architecture (No Migration)
 
-**Status:** Architecture design for review — **do not implement runtime behavior until approved**  
+**Status:** Architecture approved · **Slice 1A authorized** (flags + schema passthrough only)  
 **Branch:** `cursor/teaching-kit-architecture-9ad1`  
 **Date:** 2026-08-03  
 **Base:** `origin/main` @ `f36c0c272367c6000fd310dac62b9a0938903ca4`  
 **Related:** Phase 0 read-only audit (chat); existing curriculum in `siteContent.curriculum`
+
+---
+
+## 0. Locked requirements (owner-approved)
+
+These rules are binding for every Teaching Kit implementation slice:
+
+1. **Entitlements are non-bypassable.** Build My Kit / Print Center must never bypass existing Free, Trial, Pro, Founding, admin, or role permissions. Premium kit PDF generation must call the **existing server-enforced trial export authorization, watermark, and remaining-export counting path** (`scripts/trial-curriculum-exports.js` + server handlers) **before** any client PDF assembly begins.
+2. **One canonical section/category config.** Teaching Kit sections and activity-category mappings live in a single shared module (`scripts/teaching-kit.js`). Do not maintain independent server and client maps that can drift. If dual execution environments cannot share one runtime, add **parity tests** that compare both sides.
+3. **Flags default false and are normalized server-side.** `teachingKitViewer`, `teachingKitPrintCenter`, and `teachingKitAttachments` default to `false`. Only an explicit `true` enables a flag after normalization.
+4. **No bulk rewrite.** Adding optional Teaching Kit fields must not bulk-rewrite or mutate existing lesson plans. Absence of `teachingKit` remains valid forever.
+5. **Fail safe to legacy.** Unknown or malformed Teaching Kit data must normalize away (omit) so the legacy viewer remains the path of record.
+6. **Slice scope lock.** Slice 1A adds flags + passthrough only. Do **not** add attachments UI, the new viewer, PDF generation, migration, or production flag enablement in 1A.
+
+### Slice 1A (authorized)
+
+| In scope | Out of scope |
+| --- | --- |
+| Flag keys + server normalization (default `false`) | Viewer / binder UI |
+| Optional `teachingKit` passthrough on lesson plans | Print Center / Build My Kit PDF |
+| Canonical section config module (no consumer UI yet) | Attachments upload/admin UX |
+| Focused tests + regression suites | Migration / bulk enrichment |
+| Docs updates | Enabling flags in production |
 
 ---
 
@@ -124,19 +147,33 @@ flowchart LR
 
 ### 5.1 Feature flags
 
-Extend `siteContent.featureFlags` (today only `playBasedCurriculum: true`):
+Extend `siteContent.featureFlags` (canonical defaults in `scripts/teaching-kit.js` + `normalizedFeatureFlags` in `server/index.js`):
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
 | `teachingKitViewer` | `false` | Binder tabs / sections over legacy viewer |
 | `teachingKitPrintCenter` | `false` | Print Teaching Kit + Build My Kit |
 | `teachingKitAttachments` | `false` | Admin attach typed printables/examples (future-ready hooks) |
-| `teachingKitQualityDashboard` | `false` | Later phase — not Phase 1 UI |
+| `teachingKitQualityDashboard` | `false` | Later phase — not Slice 1A |
+
+Normalization rule: each Teaching Kit flag is `true` only when the stored value is strictly `=== true`; otherwise `false`.
 
 **Rollout:** Admin → QA allowlist → selected accounts → production (explicit approval).  
-Server must ignore new routes/behaviors when flags are off.
+Server must ignore new routes/behaviors when flags are off. **Do not enable in production in Slice 1A.**
 
-Optional account allowlist (later): `siteContent.teachingKitAllowlist.emails[]` — design hook only in Phase 1 docs.
+Optional account allowlist (later): `siteContent.teachingKitAllowlist.emails[]` — design hook only until a later slice.
+
+### 5.1.1 Build My Kit entitlement gate (mandatory)
+
+Before generating any premium Teaching Kit PDF:
+
+1. Resolve the user via existing curriculum access (`resolveCurriculumAccessUser` / membership helpers).
+2. If the export is Trial-premium-gated, run the **existing** trial export authorize → watermark → decrement/remaining path.
+3. Only after that succeeds may the client assemble the selected-section PDF.
+4. Free users remain limited to unlocked starter plans; Pro/Founding/admin follow existing unlock rules.
+5. Staff/directors continue to inherit the program owner’s curriculum entitlement.
+
+UI hiding is never sufficient authorization.
 
 ### 5.2 Compatibility marker (non-migrating)
 
@@ -374,7 +411,7 @@ Ordered, stop-for-review slices:
 
 | Slice | Work | Exit criteria |
 | --- | --- | --- |
-| **1A** | Flags + normalizer passthrough `teachingKit` | Flags default off; legacy tests green |
+| **1A** ✅ authorized | Flags + normalizer passthrough `teachingKit` + canonical `scripts/teaching-kit.js` | Flags default off; no bulk rewrite; legacy tests green; no viewer/PDF |
 | **1B** | `mapLessonPlanToTeachingKit` + unit tests on fixtures | Maps local sample plans; empty sections correct |
 | **1C** | `GET …/teaching-kit` behind flag | Auth parity with detail endpoint |
 | **1D** | Binder UI (read-only) behind `teachingKitViewer` | Desktop/mobile; back/favorite/assign intact |
@@ -432,9 +469,12 @@ Add (when coding):
 | Architecture + schema + plan + risks | `docs/TEACHING_KIT_PHASE1_ARCHITECTURE.md` |
 | Mockup index | `docs/teaching-kit/README.md` |
 | Interactive UI mockups (desktop/mobile/Build My Kit) | `docs/teaching-kit/mockups/interactive.html` |
-| Static preview pages | `docs/teaching-kit/mockups/*.html` |
+| Screenshots | `docs/teaching-kit/mockups/screenshots/*.png` |
+| Canonical Teaching Kit module (Slice 1A) | `scripts/teaching-kit.js` |
+| Slice 1A tests | `scripts/test-teaching-kit-slice-1a.js` (`npm run test:teaching-kit-slice-1a`) |
+| Flag + schema wiring | `server/index.js`, `app.js` defaults |
 
-**Not in this PR:** runtime feature flags, API routes, migrations, production content changes, deployment.
+**Slice 1A does not include:** viewer UI, Print Center/PDF, attachments UX, migrations, production flag enablement, deployment.
 
 ---
 

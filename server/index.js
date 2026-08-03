@@ -10,6 +10,7 @@ const curriculumStandards = require("../scripts/curriculum-standards.js");
 const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
+const teachingKit = require("../scripts/teaching-kit.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
@@ -1029,15 +1030,19 @@ function defaultAiSettings() {
 
 function defaultFeatureFlags() {
   // Phase 2H: play-based curriculum is the permanent lesson/activity system.
+  // Teaching Kit flags default false (Slice 1A) — never auto-enabled.
   return {
     playBasedCurriculum: true,
+    ...teachingKit.defaultTeachingKitFeatureFlags(),
   };
 }
 
 function normalizedFeatureFlags(value) {
   // Phase 2H: play-based curriculum is permanently active.
+  // Teaching Kit flags: explicit true only; otherwise false (server-normalized).
   return {
     playBasedCurriculum: true,
+    ...teachingKit.normalizedTeachingKitFeatureFlags(value),
   };
 }
 
@@ -1722,7 +1727,12 @@ function normalizedCurriculumLessonPlan(value) {
   if (!id) return null;
   const status = normalizedShortText(entry.status, 20);
   const plan = normalizedShortText(entry.plan, 20);
-  return {
+  // Optional Teaching Kit overlay (Slice 1A). Absent or malformed → omit field
+  // so legacy plans are not rewritten and the legacy viewer remains correct.
+  const teachingKitOverlay = Object.prototype.hasOwnProperty.call(entry, "teachingKit")
+    ? teachingKit.normalizedTeachingKitOverlay(entry.teachingKit)
+    : null;
+  const normalized = {
     id,
     title: normalizedShortText(entry.title, 180) || "Untitled Lesson Plan",
     age: normalizedShortText(entry.age, 40) || "Preschool",
@@ -1755,6 +1765,8 @@ function normalizedCurriculumLessonPlan(value) {
     // Set when status first becomes published/featured; used by weekly "What's New" digests.
     publishedAt: normalizedShortText(entry.publishedAt, 80),
   };
+  if (teachingKitOverlay) normalized.teachingKit = teachingKitOverlay;
+  return normalized;
 }
 
 function normalizedCurriculumActivity(value) {
@@ -15004,6 +15016,8 @@ async function handlePublicSiteContent(request, response, url) {
       announcement: publicAnnouncementContent,
       upgradeMessaging: publicUpgradeMessaging,
       playBasedCurriculum: true,
+      // Teaching Kit flags (Slice 1A): server-normalized, default false. No UI yet.
+      featureFlags: normalizedFeatureFlags(content.featureFlags),
       freePlanAccess,
       freeStarterLibrary: {
         lessonPlanIds: resolveFreeStarterLibrary(store).lessonPlanIds,

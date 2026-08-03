@@ -1,8 +1,12 @@
 # Teaching Kit — UI Mockups (Phase 1 Architecture)
 
-**Status:** Design review only — not wired into the live app  
+**Status:** Architecture approved · Slice 1A implemented (flags + schema passthrough only)  
 **Open the clickable prototype:** [mockups/interactive.html](./mockups/interactive.html)  
-**Architecture:** [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md)
+**Architecture:** [../TEACHING_KIT_PHASE1_ARCHITECTURE.md](../TEACHING_KIT_PHASE1_ARCHITECTURE.md)  
+**Canonical config module:** [`../../scripts/teaching-kit.js`](../../scripts/teaching-kit.js)  
+**Slice 1A tests:** `npm run test:teaching-kit-slice-1a`
+
+Viewer, Print Center, attachments, and flag enablement are **not** shipped in Slice 1A.
 
 ## Screens in the prototype
 
