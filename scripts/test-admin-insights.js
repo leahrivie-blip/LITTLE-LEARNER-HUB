@@ -192,6 +192,7 @@ async function wiring() {
   assert.match(appJs, /advisor/);
   assert.match(appJs, /feature-requests-center/);
   assert.match(appJs, /search_no_results/);
+  assert.match(appJs, /id:\s*"insights"[\s\S]*label:\s*"Insights"/);
   assert.match(indexHtml, /admin-insights\.js/);
   assert.match(indexHtml, /adminInsightsApp/);
   assert.match(adminInsightsUi, /AI Business Advisor/);

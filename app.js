@@ -46043,6 +46043,7 @@ function renderAdminSectionNav() {
   const unread = Number(adminNotificationState.unreadCount || 0);
   const sidebarItems = [
     { id: "admin-home", icon: "🏠", label: "Admin Home" },
+    { id: "insights", icon: "🧭", label: "Insights" },
     { id: "marketing", icon: "📈", label: "Marketing" },
     { id: "users", icon: "👥", label: "Users" },
     { id: "billing", icon: "💳", label: "Billing" },
