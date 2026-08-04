@@ -2149,11 +2149,11 @@ const MEMBERSHIP_COPY = Object.freeze({
   trialExhausted: "You’ve used all 3 premium curriculum prints or downloads included with your trial. You can continue browsing during your trial or upgrade for unlimited access.",
   trialBeforeExport: "This will use 1 of your 3 trial curriculum exports.",
   unlimitedLabel: "Unlimited curriculum printing and downloads",
-  freeStarterSection: "Your 10 Free Starter Plans",
+  freeStarterSection: "Your Included Free Plans",
   freeStarterProgress: "10 complete plans included with your Free account.",
-  unlockLibrary: "Unlock the Complete Library",
-  lockedFreePlan: "This plan is not included in the 10-plan Free Starter Library. Upgrade to unlock the complete plan.",
-  freePolicyNotice: "Your Free account includes 10 complete Starter Lesson Plans across Infant, Toddler and Preschool. Your saved information remains available, but additional premium plans require Pro access.",
+  unlockLibrary: "Want more plans later?",
+  lockedFreePlan: "This plan is not included in your Free plans. Upgrade to Pro to unlock the complete plan.",
+  freePolicyNotice: "Your Free account includes 10 complete starter lesson plans across Infant, Toddler and Preschool. Your saved information remains available; additional plans require Pro access.",
   watermarkTryAgain: "We couldn’t finish this premium curriculum export safely. Please try again.",
 });
 const freePlanAgeGroups = Object.freeze(["Infant", "Toddler", "Preschool"]);
@@ -4541,7 +4541,11 @@ function syncPublicFoundingOfferUi() {
       node.textContent = soldOut ? "Full Access" : (remaining <= 2 ? spotsMsg : "Most Popular · Best Value");
       return;
     }
-    if (node.closest("#freePlanReminderBar, #sidebarFreeUpgradeCard, #view-plans, #view-upgrade")) {
+    // Free reminder/sidebar: keep Pro-first copy from refreshFreePlanUpgradeChrome (no Founding pressure).
+    if (node.closest("#freePlanReminderBar, #sidebarFreeUpgradeCard")) {
+      return;
+    }
+    if (node.closest("#view-plans, #view-upgrade")) {
       node.textContent = spotsWithRegular;
       return;
     }
@@ -16170,7 +16174,7 @@ function setView(view, options = {}) {
     activeFilter = "All";
     if (resolvedView === "activities") {
       activityLibraryViewAllKey = "";
-      activityLibraryPlanFilter = "All";
+      activityLibraryPlanFilter = shouldDefaultFreeLibraryFilters() ? "Free" : "All";
       activityLibraryShowSavedOnly = false;
       activityLibraryShowRecentOnly = false;
       activityLibraryFiltersOpen = false;
@@ -16180,11 +16184,17 @@ function setView(view, options = {}) {
     if (resolvedView === "lessons") {
       lessonLibraryViewAllKey = "";
       if (activeView === "activities") {
-        lessonLibraryPlanFilter = "All";
+        lessonLibraryPlanFilter = shouldDefaultFreeLibraryFilters() ? "Free" : "All";
         lessonLibraryShowAssignedOnly = false;
         lessonLibraryFiltersOpen = false;
       }
     }
+  }
+  if (
+    (resolvedView === "lessons" || resolvedView === "activities")
+    && (options.fromAuthLanding || options.applyFreeLibraryDefaults || shouldDefaultFreeLibraryFilters())
+  ) {
+    applyDefaultFreeLibraryFilters({ force: Boolean(options.applyFreeLibraryDefaults || options.fromAuthLanding) });
   }
   if (resolvedView === "lessons") {
     const requestedLessonLibraryMode = options.lessonLibraryMode || "";
@@ -17250,16 +17260,16 @@ function authoritativeLessonPlanAccessLabel(resource) {
   if (!resource) return "Free";
   if (resource._curriculumManaged || resource._curriculumLessonPlan || resource._userLessonCopy) {
     if (isFreeAccessibleCurriculumPlan(resource)) {
-      return "Free Sample";
+      return "Free";
     }
     return "Pro";
   }
   const stored = String(resource.plan || resource._curriculumLessonPlan?.plan || "").trim();
   if (stored === "Pro" || stored === "Premium") return "Pro";
-  if (stored === "Free Sample") return "Free Sample";
-  if (stored === "Free") return "Free";
-  // Non-curriculum resources: label from stored plan, not from locked-state
-  // (locked Free samples must still read Free/Free Sample in the viewer).
+  // Customer-facing: treat legacy "Free Sample" storage as Free.
+  if (stored === "Free Sample" || stored === "Free") return "Free";
+  // Non-curriculum resources: label from stored plan, not from locked-state.
+  if (/^free(\s+sample)?$/i.test(stored)) return "Free";
   return stored || "Free";
 }
 
@@ -17604,6 +17614,8 @@ function buildActivityBrowseRows(items) {
   const continueBrowsing = byId(activityRecentlyViewed).slice(0, 18);
   const recentlyAdded = sortResourcesByRecency(items).slice(0, 18);
   const popular = sortResourcesPopular(items).slice(0, 18);
+  const freeActivities = items.filter((item) => String(item.plan || "Free").trim() !== "Pro").slice(0, 18);
+  const freePrimary = isLoggedIn() && !isProUser() && !hasAdminFullAccess() && freeActivities.length;
   const ageRows = ["Infant", "Toddler", "Preschool"].map((age) => ({
     key: `age-${age.toLowerCase()}`,
     title: `${age} Activities`,
@@ -17617,6 +17629,9 @@ function buildActivityBrowseRows(items) {
     viewAllLabel: "View All",
   }));
   return [
+    ...(freePrimary
+      ? [{ key: "free", title: "Your Included Free Activities", items: freeActivities, viewAllLabel: "View All" }]
+      : []),
     { key: "continue-browsing", title: "Continue Browsing", items: continueBrowsing, viewAllLabel: "View All" },
     { key: "recently-added", title: "Recently Added", items: recentlyAdded, viewAllLabel: "View All" },
     { key: "popular", title: "Popular Activities", items: popular, viewAllLabel: "View All" },
@@ -17627,6 +17642,7 @@ function buildActivityBrowseRows(items) {
 
 function collectActivityViewAllItems(items, key) {
   if (!key) return items;
+  if (key === "free") return items.filter((item) => String(item.plan || "Free").trim() !== "Pro");
   if (key === "continue-browsing") return pickUniqueResources([items.filter((item) => activityRecentlyViewed.includes(item.id))]);
   if (key === "recently-added") return sortResourcesByRecency(items);
   if (key === "popular") return sortResourcesPopular(items);
@@ -17818,6 +17834,12 @@ function buildLessonBrowseRows(items) {
   const ageFilter = lessonPlanPublicFilters.includes(activeFilter) ? activeFilter : "All";
   const rows = [];
   const collections = filterCurriculumCollectionsForBrowse(curriculumCollections());
+  const freePrimary = isLoggedIn() && !isProUser() && !hasAdminFullAccess() && freePlans.length;
+
+  // Free users: included Free plans are the primary library row.
+  if (freePrimary) {
+    rows.push({ key: "free", title: MEMBERSHIP_COPY.freeStarterSection, items: freePlans, viewAllLabel: "View All" });
+  }
 
   if (collections.length && ageFilter === "All") {
     rows.push({
@@ -17879,7 +17901,9 @@ function buildLessonBrowseRows(items) {
     }
   }
 
-  if (freePlans.length) rows.push({ key: "free", title: MEMBERSHIP_COPY.freeStarterSection, items: freePlans, viewAllLabel: "View All" });
+  if (!freePrimary && freePlans.length) {
+    rows.push({ key: "free", title: MEMBERSHIP_COPY.freeStarterSection, items: freePlans, viewAllLabel: "View All" });
+  }
   if (seasonal.length) rows.push({ key: "seasonal", title: "Seasonal & Holiday", items: seasonal, viewAllLabel: "View All" });
   if (recentlyAdded.length) rows.push({ key: "recent", title: "Recently Added", items: recentlyAdded, viewAllLabel: "View All" });
   if (popular.length) rows.push({ key: "popular", title: "Most Popular", items: popular, viewAllLabel: "View All" });
@@ -18097,7 +18121,7 @@ function resourceCard(resource) {
   const favoriteText = !isProUser() ? "Pro Save" : favorite ? "Saved" : "Save";
   const accessText = resource.category === "Lesson Plans"
     ? authoritativeLessonPlanAccessLabel(resource)
-    : (locked ? "Pro" : isProUser() ? "Included" : "Free Sample");
+    : (locked ? "Pro" : isProUser() ? "Included" : "Free");
   const lessonContext = resource._childRecommendation || null;
   const activityCount = resource._curriculumManaged && resource.category === "Lesson Plans"
     ? curriculumActivityCountForLesson(resource.id)
@@ -26189,14 +26213,12 @@ function freeStarterLibraryBannerHtml() {
     `;
   }
   if (isProUser()) return "";
+  // One short explainer — policy / browse / unlock copy lives in Settings & upgrade chrome.
   return `
-    <section class="free-starter-library-banner" aria-label="Free starter plans" data-free-starter-banner="true">
+    <section class="free-starter-library-banner" aria-label="Your included Free plans" data-free-starter-banner="true">
       <h3>${escapeHtml(MEMBERSHIP_COPY.freeStarterSection)}</h3>
-      <p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)}</p>
-      <p>${escapeHtml(freePolicyNoticeText())}</p>
-      <p>${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>
+      <p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)} Browse titles across the library anytime; upgrade later if you want every plan unlocked.</p>
     </section>
-    <h3 class="free-starter-unlock-heading">${escapeHtml(MEMBERSHIP_COPY.unlockLibrary)}</h3>
   `;
 }
 
@@ -26248,7 +26270,7 @@ function libraryCompactUpgradeStripHtml() {
   if (!isLoggedIn() && !hasAdminFullAccess()) {
     return `
       <section class="library-upgrade-strip library-upgrade-strip--guest" role="region" aria-label="Create your free account">
-        <p>Create a free account to save free sample plans and explore the all-in-one childcare platform.</p>
+        <p>Create a free account to save Free lesson plans and explore the all-in-one childcare platform.</p>
         <div class="library-upgrade-strip-actions">
           <button class="primary-button" type="button" data-action="start-free">Get Started</button>
           <button class="ghost-button" type="button" data-action="open-login">Log In</button>
@@ -26257,6 +26279,51 @@ function libraryCompactUpgradeStripHtml() {
     `;
   }
   return "";
+}
+
+/** New Free users default Access filter to Free until they change it. */
+function freeLibraryFilterTouched() {
+  try {
+    return localStorage.getItem("llhFreeLibraryFilterTouched") === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markFreeLibraryFilterTouched() {
+  try {
+    localStorage.setItem("llhFreeLibraryFilterTouched", "1");
+  } catch {
+    /* ignore */
+  }
+}
+
+function shouldDefaultFreeLibraryFilters() {
+  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return false;
+  if (freeLibraryFilterTouched()) return false;
+  const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
+  return Boolean(
+    onboarding?.firstTimeUser
+    || onboarding?.freeSelectedAt
+    || onboarding?.freeChosenAtSignup
+    || onboarding?.deferGenericUpgrades,
+  );
+}
+
+function applyDefaultFreeLibraryFilters(options = {}) {
+  if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return false;
+  if (freeLibraryFilterTouched()) return false;
+  if (!options.force && !shouldDefaultFreeLibraryFilters()) return false;
+  let changed = false;
+  if (lessonLibraryPlanFilter === "All") {
+    lessonLibraryPlanFilter = "Free";
+    changed = true;
+  }
+  if (activityLibraryPlanFilter === "All") {
+    activityLibraryPlanFilter = "Free";
+    changed = true;
+  }
+  return changed;
 }
 
 function clearActivityLibraryAdvancedFilters() {
@@ -26334,14 +26401,23 @@ function renderCategoryPage(view) {
           </section>
         `
         : "";
+      const freeFilterPrimary = !isSavedLessonMode
+        && !lessonLibraryViewAllKey
+        && lessonLibraryPlanFilter === "Free"
+        && !isProUser();
       browseBody = `
         ${lessonLibraryViewAllKey ? `
           <div class="browse-view-all-bar">
             <h3>${escapeHtml(viewAllTitle)}</h3>
             <button type="button" class="ghost-button" data-clear-lesson-view-all>← Back to browse</button>
           </div>
-        ` : ""}
+        ` : (freeFilterPrimary ? `
+          <div class="browse-view-all-bar" data-free-plans-primary="true">
+            <h3>${escapeHtml(MEMBERSHIP_COPY.freeStarterSection)}</h3>
+          </div>
+        ` : "")}
         <div class="resource-grid lesson-library-grid library-browse-shell is-filtered-grid">
+          ${freeFilterPrimary ? freeStarterLibraryBannerHtml() : ""}
           ${lessonUpgradeBanner}
           ${collectionResults}
           ${isCollectionsViewAll
@@ -26418,13 +26494,20 @@ function renderCategoryPage(view) {
       const viewAllTitle = activityLibraryViewAllKey
         ? (buildActivityBrowseRows(activityItems).find((row) => row.key === activityLibraryViewAllKey)?.title || "All matching activities")
         : "";
+      const freeActivityPrimary = !activityLibraryViewAllKey
+        && activityLibraryPlanFilter === "Free"
+        && !isProUser();
       activityBody = `
         ${activityLibraryViewAllKey ? `
           <div class="browse-view-all-bar">
             <h3>${escapeHtml(viewAllTitle)}</h3>
             <button type="button" class="ghost-button" data-clear-activity-view-all>← Back to browse</button>
           </div>
-        ` : ""}
+        ` : (freeActivityPrimary ? `
+          <div class="browse-view-all-bar" data-free-activities-primary="true">
+            <h3>Your Included Free Activities</h3>
+          </div>
+        ` : "")}
         <div class="resource-grid library-browse-shell is-filtered-grid">
           ${activityUpgradeBanner}
           ${viewAllItems.length ? viewAllItems.map(activityBrowseCard).join("") : emptyStateHtml}
@@ -26549,9 +26632,9 @@ function renderLessonPlanLibraryNotice() {
   } else if (accountIsInTrial()) {
     accessCopy = MEMBERSHIP_COPY.trialCore;
   } else if (stats.freeTotal) {
-    accessCopy = `${MEMBERSHIP_COPY.freeCore} ${ageBreakdown ? `(${ageBreakdown} in your starter set.) ` : ""}${MEMBERSHIP_COPY.freeBrowse}`;
+    accessCopy = `${MEMBERSHIP_COPY.freeCore}${ageBreakdown ? ` (${ageBreakdown} in your included set.)` : ""}`;
   } else {
-    accessCopy = `${MEMBERSHIP_COPY.freeCore} Unlock ${Math.max(stats.proTotal, growth.totalPlans)}+ lesson plans with Founding or Pro.`;
+    accessCopy = `${MEMBERSHIP_COPY.freeCore} Upgrade to Pro anytime to unlock ${Math.max(stats.proTotal, growth.totalPlans)}+ lesson plans.`;
   }
   return `
     <section id="lessonLibraryInfoBanner" class="access-notice lesson-library-notice lesson-library-notice-compact" role="status" aria-live="polite">
@@ -32941,15 +33024,19 @@ function renderSettingsHubPage() {
         },
         { view: "account", title: "Profile & Security", detail: "Name, email, phone, password, and recovery" },
         { view: "account", title: "Notifications", detail: "Choose how Little Learner Hub reminds you", hash: "notifications" },
-        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
-        { view: "messages", title: "Push Notifications", detail: "Turn on/off push notifications for new messages and updates" },
         ...(canBilling
-          ? [
-              { view: "billing", title: "Billing & Subscription", detail: "Manage Subscription, payment method, invoices, and cancellation" },
-              { view: isProUser() ? "billing" : "plans", title: isProUser() ? "Current Plan" : "Upgrade", detail: isProUser() ? "Review your paid plan and Founding Member status" : "Upgrade from Free to Founding Member or Pro" },
-              { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
-              { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
-            ]
+          ? (isProUser()
+            ? [
+                { view: "billing", title: "Billing & Subscription", detail: "Manage subscription, payment method, invoices, and cancellation" },
+                { view: "billing", title: "Current Plan", detail: "Review your paid plan and billing status" },
+                { view: "subscription", title: "Subscription Status", detail: "Active, trial, or canceling status" },
+                { view: "billing-history", title: "Billing History", detail: "Invoices and payment events" },
+              ]
+            : [
+                // Free: one membership path — avoid duplicate Billing + Upgrade + Subscription cards.
+                { view: "billing", title: "Membership & Billing", detail: "See what’s included with Free and upgrade to Pro anytime" },
+                { view: "plans", title: "Compare Plans", detail: "Free vs Pro — pick what fits your program" },
+              ])
           : [
               { view: "", title: "Billing managed by owner", detail: "Ask your program owner for plan or payment changes", disabled: true },
             ]),
@@ -32965,14 +33052,15 @@ function renderSettingsHubPage() {
       ],
     },
     {
-      title: "Need Help?",
-      detail: "Report bugs, request features, or contact Leah",
+      title: "Help & Support",
+      detail: "Message Leah, send feedback, or browse common questions",
       cards: [
-        { view: "messages", title: "Message Support", detail: "Start a conversation with Leah in Messages" },
+        { view: "messages", title: "Messages", detail: "Read messages from Little Learner Hub and reply to Leah" },
         { view: "", title: "Send Feedback", detail: "Bugs, suggestions, and questions", action: "feedback", feedbackType: "General Feedback" },
         { view: "", title: "Report a Bug", detail: "Something broken or confusing", action: "feedback", feedbackType: "Bug" },
         { view: "", title: "Request a Feature", detail: "Tell us what would help your classroom", action: "feedback", feedbackType: "Feature Request" },
         { view: "contact", title: "Contact Support", detail: "Open the full support page" },
+        { view: "faq", title: "FAQ", detail: "Common questions and product updates" },
       ],
     },
     {
@@ -32982,17 +33070,15 @@ function renderSettingsHubPage() {
         { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
       ],
     },
-    {
-      title: "Staff & Permissions",
-      detail: canStaff ? "Invite staff and control access" : "Owners and directors manage staff",
-      cards: canStaff
-        ? [
+    ...(canStaff
+      ? [{
+          title: "Staff & Permissions",
+          detail: "Invite staff and control access",
+          cards: [
             { view: "staff", title: "Staff Accounts & Roles", detail: "Invite assistants, teachers, and co-teachers" },
-          ]
-        : [
-            { view: "", title: "Staff tools unavailable", detail: "Your role does not include staff management", disabled: true },
           ],
-    },
+        }]
+      : []),
     {
       title: "Forms Settings",
       detail: "Enrollment and paperwork defaults",
@@ -33005,16 +33091,6 @@ function renderSettingsHubPage() {
       detail: "Calendar and lesson plan defaults",
       cards: [
         { view: "curriculum-settings", title: "Calendar & Lesson Plan Defaults", detail: "Week start day and planning preferences" },
-      ],
-    },
-    {
-      title: "Support",
-      detail: "Help without leaving Settings",
-      cards: [
-        { view: "messages", title: "Help & Support", detail: "Message Leah directly from Messages" },
-        { view: "contact", title: "Help Center & Contact Support", detail: "Ask a question or send a feature request" },
-        { view: "faq", title: "Release Notes & FAQ", detail: "Common questions and product updates" },
-        { view: "resources", title: "Provider Resources", detail: "Behavior, licensing, and classroom help" },
       ],
     },
     {
@@ -33040,7 +33116,10 @@ function renderSettingsHubPage() {
         <p class="settings-hub-identity muted-copy">${escapeHtml(accountTypeLabel)} · ${escapeHtml(roleLabel)} · ${escapeHtml(planLabel)} · ${accountStatusBadgeHtml(currentAccount())}</p>
       </div>
       ${canBilling ? subscriptionAccessBannerHtml({ variant: "settings" }) : ""}
-      ${canBilling && !isProUser() && !accountProductStatus(currentAccount()).banner ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true }) : ""}
+      ${canBilling && !isProUser() && !accountProductStatus(currentAccount()).banner
+        && !(typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts())
+        ? foundingUpgradeBannerHtml({ variant: "settings", dismissible: true })
+        : ""}
       ${platformInstallCardMarkup("settings-prompt")}
       <div class="settings-hub-groups">
         ${groups.map((group) => `
@@ -54770,12 +54849,11 @@ function freeDashboardUpgradeCardHtml() {
     // Starter cards still own the surface when present.
     if (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()) return "";
   }
-  const foundingOpen = foundingOpenForAcquisition();
   const unlockLines = lockedContentUnlockLines();
   return `
     <section class="free-dashboard-upgrade-card" role="region" aria-label="Upgrade offer">
       <div class="free-dashboard-upgrade-card-copy">
-        <p class="free-dashboard-upgrade-card-badge">${foundingOpen ? "⭐ Founding Member" : "Pro"}</p>
+        <p class="free-dashboard-upgrade-card-badge">Pro</p>
         <h3>${escapeHtml(freeUpgradePrimaryButtonLabel({ short: true }))}</h3>
         <p>${escapeHtml(unlockLines.slice(0, 3).join(" "))}</p>
         <p class="muted-copy">${escapeHtml(freeUpgradeSupportingText())}</p>
@@ -54820,8 +54898,10 @@ function refreshFreePlanUpgradeChrome() {
   const sidebarCard = document.querySelector("#sidebarFreeUpgradeCard");
   const reminder = document.querySelector("#freePlanReminderBar");
   const softNudge = document.querySelector("#freePlanSoftNudge");
+  const deferUpgradeChrome = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
   if (badge) badge.hidden = !show;
-  if (sidebarCard) sidebarCard.hidden = !show;
+  // During first-time Free onboarding, keep sidebar upgrade quiet so Free feels welcoming.
+  if (sidebarCard) sidebarCard.hidden = !show || deferUpgradeChrome;
   // Soft nudge retired — one top reminder bar is enough.
   if (softNudge) {
     softNudge.hidden = true;
@@ -54857,7 +54937,8 @@ function refreshFreePlanUpgradeChrome() {
   }
   const sidebarCopy = sidebarCard?.querySelector(".sidebar-free-upgrade-copy");
   if (sidebarCopy) {
-    sidebarCopy.textContent = freePolicyNoticeText();
+    // Pro-first Free chrome — avoid Founding spot pressure in the sidebar.
+    sidebarCopy.textContent = `${MEMBERSHIP_COPY.freeStarterProgress} Upgrade to Pro anytime for the complete library.`;
   }
   if (reminder) {
     // Keep badge/sidebar always; reminder bar is dismissible for the session.
@@ -54869,15 +54950,14 @@ function refreshFreePlanUpgradeChrome() {
       (typeof NewUserOnboarding?.isNewUserOnboardingActive === "function" && NewUserOnboarding.isNewUserOnboardingActive())
       || (typeof renderFreeStarterExploreHtml === "function" && renderFreeStarterExploreHtml()),
     );
-    const deferReminder = typeof shouldDeferGenericUpgradePrompts === "function" && shouldDeferGenericUpgradePrompts();
     reminder.hidden = bootBusy
       || starterActive
-      || deferReminder
+      || deferUpgradeChrome
       || isFreePlanReminderDismissed()
       || isFoundingUpgradeBannerDismissed();
     const copyEl = reminder.querySelector(".free-plan-reminder-copy");
     if (copyEl) {
-      copyEl.innerHTML = `<strong>Free Starter Library</strong><p>${escapeHtml(freePolicyNoticeText())}</p>`;
+      copyEl.innerHTML = `<strong>Free Plan</strong><p>${escapeHtml(MEMBERSHIP_COPY.freeStarterProgress)} Upgrade to Pro anytime for the complete library.</p>`;
     }
   }
   if (badge) {
@@ -54960,28 +55040,18 @@ function foundingUpgradeBannerHtml(options = {}) {
   } = options;
   if (!canSeePaidUpgradeOffer()) return "";
   if (!force && isFoundingUpgradeBannerDismissed()) return "";
-  const soldOut = !foundingOpenForAcquisition();
-  const remaining = foundingSpotsRemaining();
-  const checkoutPlan = preferredPaidCheckoutPlan();
-  const ctaLabel = freeUpgradePrimaryButtonLabel();
-  const title = soldOut
-    ? "⭐ Upgrade to Pro – $19.99/month"
-    : "⭐ Upgrade to Pro – $19.99/month";
-  const body = soldOut
-    ? lockedContentUnlockLines().slice(0, 4).join(" ")
-    : lockedContentUnlockLines().slice(0, 4).join(" ");
-  const priceBlock = soldOut
-    ? `<p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>`
-    : `<p class="founding-upgrade-price"><strong>$9.99</strong><span>/month <em>locked while continuously active</em></span></p>
-       <p class="founding-upgrade-compare">Regular price will be $19.99/month</p>
-       <p class="founding-upgrade-spots">${escapeHtml(foundingSpotsLeftMessage(remaining))}</p>`;
+  // Free chrome uses Pro messaging. Founding acquisition copy stays on Pricing/signup only.
+  const checkoutPlan = preferredPaidCheckoutPlan() === "founding" ? "monthly" : preferredPaidCheckoutPlan();
+  const ctaLabel = "Upgrade to Pro";
+  const title = "Upgrade to Pro – $19.99/month";
+  const body = lockedContentUnlockLines().slice(0, 4).join(" ");
   return `
-    <section class="founding-upgrade-banner founding-upgrade-banner--${escapeHtml(variant)}${soldOut ? " is-sold-out" : ""}" role="region" aria-label="${soldOut ? "Pro upgrade offer" : "Founding Member upgrade offer"}">
+    <section class="founding-upgrade-banner founding-upgrade-banner--${escapeHtml(variant)} is-sold-out" role="region" aria-label="Pro upgrade offer" data-free-upgrade-banner="pro">
       <div class="founding-upgrade-banner-copy">
-        <p class="founding-upgrade-badge">${soldOut ? "Pro" : "⭐ Founding Member"}</p>
+        <p class="founding-upgrade-badge">Pro</p>
         <h3>${escapeHtml(title)}</h3>
         <p class="founding-upgrade-body">${escapeHtml(body)}</p>
-        ${priceBlock}
+        <p class="founding-upgrade-price"><strong>$19.99</strong><span>/month</span></p>
       </div>
       <div class="founding-upgrade-banner-actions">
         <button class="primary-button founding-upgrade-cta" type="button" data-checkout-plan="${checkoutPlan}">${escapeHtml(ctaLabel)}</button>
@@ -55788,9 +55858,13 @@ function renderAccountPage() {
   emailLabel.textContent = currentUser;
   planLabel.textContent = `${billingPlanLabel(currentPlan, account)} · ${getAccountType(account) === "center" ? "Center" : "Home Daycare"} · ${String(getUserRole(account)).replace(/_/g, " ")}`;
   if (verificationLabel) {
-    verificationLabel.textContent = account?.emailVerified
-      ? `Email verified through ${account?.authProvider || authProviderName}.`
-      : `Email not verified. ${firebaseAuthEnabled ? "Please verify before launch use." : "Connect Firebase Auth to send verification emails."}`;
+    if (account?.emailVerified) {
+      verificationLabel.textContent = "Email verified.";
+    } else if (firebaseAuthEnabled) {
+      verificationLabel.textContent = "Email not verified yet. Use Resend Verification Email if you need a new link.";
+    } else {
+      verificationLabel.textContent = "You’re signed in. Keep your email and password up to date below.";
+    }
     verificationLabel.classList.toggle("verified", Boolean(account?.emailVerified));
   }
   if (phoneInput) phoneInput.value = account?.phone || "";
@@ -55801,6 +55875,10 @@ function renderAccountPage() {
   detailLabel.innerHTML = canBilling
     ? `${escapeHtml(productStatus.detail)}<br>Current Plan: ${escapeHtml(productStatus.planLabel)}<br>Monthly Price: ${escapeHtml(billingPriceLabel(account))}<br>Price Lock: ${paidBilling && (account?.foundingMemberActive || account?.foundingMember) ? escapeHtml(FOUNDING_PRICE_LOCK_COPY) : (paidBilling ? "Regular Pro pricing" : "None")}<br>Account Recovery: ${escapeHtml(account?.authProvider || authProviderName)}<br>Helper Usage: ${aiUsageCount()} of ${paidBilling || productStatus.hasProAccess ? paidAiMonthlyLimit : freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`
     : `Plan access on this account: ${escapeHtml(productStatus.label)}. Billing and subscription changes are managed by the program owner.`;
+  // Avoid exposing internal auth-provider names (e.g. Local demo / Firebase) on Free account pages.
+  if (detailLabel && canBilling && !paidBilling && !isProUser()) {
+    detailLabel.innerHTML = `${escapeHtml(productStatus.detail)}<br>Current Plan: Free<br>Helper Usage: ${aiUsageCount()} of ${freeAiMonthlyLimit} used. Resets ${escapeHtml(aiResetLabel())}.`;
+  }
   const programConnectionHost = document.querySelector("#accountProgramConnection");
   if (programConnectionHost) {
     if (account?.linkedProgramOwnerEmail) {
@@ -59681,6 +59759,7 @@ document.addEventListener("click", async (event) => {
     event.preventDefault();
     activityLibraryPlanFilter = activityPlanFilterButton.dataset.activityPlanFilter || "All";
     activityLibraryViewAllKey = "";
+    markFreeLibraryFilterTouched();
     renderCategoryPage("activities");
     return;
   }
@@ -59760,6 +59839,7 @@ document.addEventListener("click", async (event) => {
   if (lessonPlanFilterButton) {
     event.preventDefault();
     lessonLibraryPlanFilter = lessonPlanFilterButton.dataset.lessonPlanFilter || "All";
+    markFreeLibraryFilterTouched();
     renderCategoryPage("lessons");
     return;
   }

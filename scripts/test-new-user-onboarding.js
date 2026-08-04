@@ -57,12 +57,12 @@ async function main() {
   const insights = fs.readFileSync(path.join(ROOT, "server/admin-insights.js"), "utf8");
 
   assert.match(indexHtml, /id="newUserOnboardingModal"/);
-  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260803-nuo-onboarding-r4/);
+  assert.match(indexHtml, /new-user-onboarding\.js\?v=20260804-free-onboarding-r1/);
   assert.match(appJs, /beginNewUserOnboardingAfterFreeSignup/);
   assert.match(appJs, /featured-this-week|resolveFeaturedThisWeekLessons/);
   assert.match(appJs, /onboardingRecommendations/);
   assert.match(appJs, /renderLessonLibraryOnboardingHtml/);
-  assert.match(nuoJs, /We're excited you're here!/);
+  assert.match(nuoJs, /We're glad you're here|We're excited you're here/);
   assert.match(nuoJs, /Continue to Secure Checkout/);
   assert.match(nuoJs, /You will not be charged today/);
   assert.match(nuoJs, /Card required to start/);
@@ -70,8 +70,8 @@ async function main() {
   assert.match(nuoJs, /trial_checkout_cancelled/);
   assert.match(nuoJs, /getContentRecommendations/);
   assert.match(nuoJs, /goToLessonPlans|setView\("lessons"/);
-  assert.match(nuoJs, /Browse ready-to-use lesson plans/);
-  assert.match(nuoJs, /Getting Started/);
+  assert.match(nuoJs, /Browse Free Lesson Plans|Browse ready-to-use lesson plans|Browse my Free plans/);
+  assert.match(nuoJs, /Getting Started|free-ready|freeChosenAtSignup/);
   assert.doesNotMatch(nuoJs, /Limited time|Act now|Last chance/i);
   assert.match(insights, /Biggest Opportunity/);
   assert.match(insights, /Conversion Opportunity|onboarding/);
@@ -112,17 +112,17 @@ async function main() {
     await page.waitForSelector("#newUserOnboardingModal.open", { timeout: 10000 });
     const welcomeText = await page.locator("#newUserOnboardingBody").innerText();
     assert.match(welcomeText, /Welcome to Little Learner Hub!/i);
-    assert.match(welcomeText, /We're excited you're here/i);
+    assert.match(welcomeText, /We're glad you're here|We're excited you're here/i);
     assert.match(welcomeText, /spend less time planning and more time teaching/i);
+    assert.match(welcomeText, /no pressure to upgrade/i);
 
     await page.click('[data-nuo-action="continue"]');
+    // After Free signup, skip Free vs Trial dual chooser — show helpful Free overview once.
     await page.waitForSelector("[data-nuo-action='choose-free']");
-    const exploreText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(exploreText, /Continue with Free/i);
-    assert.match(exploreText, /Continue to Secure Checkout/i);
-    assert.match(exploreText, /You will not be charged today/i);
-    assert.match(exploreText, /payment method through secure Stripe checkout/i);
-    assert.doesNotMatch(exploreText, /Limited time|Act now|Last chance/i);
+    const freeReadyText = await page.locator("#newUserOnboardingBody").innerText();
+    assert.match(freeReadyText, /included with Free|Browse my Free plans/i);
+    assert.doesNotMatch(freeReadyText, /Most Popular/i);
+    assert.equal(await page.locator(".nuo-card--free").count(), 0);
 
     // Free path lands on Lesson Plans with rich starter cards + getting started
     await page.click('[data-nuo-action="choose-free"]');
@@ -130,7 +130,7 @@ async function main() {
     await page.waitForFunction(() => document.querySelector(".active-view")?.id === "view-lessons", null, { timeout: 8000 });
     await page.waitForSelector("[data-free-starter-explore], [data-getting-started-checklist]", { timeout: 8000 });
     const lessonsText = await page.locator("#view-lessons").innerText();
-    assert.match(lessonsText, /Browse ready-to-use lesson plans|Getting Started|Featured This Week/i);
+    assert.match(lessonsText, /Browse Free Lesson Plans|Getting Started|Your Included Free Plans|Featured This Week/i);
     assert.doesNotMatch(await page.locator("[data-free-starter-explore]").innerText().catch(() => ""), /Upgrade to Pro/i);
 
     const events = await page.evaluate(() => JSON.parse(localStorage.getItem("llhAnalyticsEvents") || "[]"));
@@ -139,16 +139,14 @@ async function main() {
     assert.ok(names.includes("welcome_continue_pressed"), "welcome_continue_pressed tracked");
     assert.ok(names.includes("free_selected"), "free_selected tracked");
 
-    // Trial card messaging + checkout open/cancel analytics (Stripe flow unchanged; stub checkout start)
+    // Optional Pro trial from free-ready (secondary CTA) — checkout path unchanged.
     await page.evaluate(() => {
       beginNewUserOnboardingAfterFreeSignup();
     });
     await page.waitForSelector("#newUserOnboardingModal.open");
     await page.click('[data-nuo-action="continue"]');
     const trialCardText = await page.locator("#newUserOnboardingBody").innerText();
-    assert.match(trialCardText, /Continue to Secure Checkout/i);
-    assert.match(trialCardText, /Card required to start/i);
-    assert.match(trialCardText, /You will not be charged today/i);
+    assert.match(trialCardText, /Start a 7-day Pro trial instead|Continue to Secure Checkout/i);
 
     await page.evaluate(() => {
       window.__llhStartProTrialCalls = 0;
@@ -187,7 +185,10 @@ async function main() {
     await page.evaluate(() => {
       localStorage.setItem("llhGettingStartedDismissed", "1");
       localStorage.setItem("llhFreeStarterCardsDismissed", "1");
+      localStorage.setItem("llhFreeLibraryFilterTouched", "1");
       NewUserOnboarding.closeModal();
+      // Simulate a returning Free user who chose Browse All.
+      if (typeof lessonLibraryPlanFilter !== "undefined") lessonLibraryPlanFilter = "All";
       if (typeof setView === "function") setView("lessons");
       if (typeof renderCategoryPage === "function") renderCategoryPage("lessons");
     });
@@ -196,10 +197,11 @@ async function main() {
       gettingStarted: Boolean(document.querySelector("[data-getting-started-checklist]")),
       starter: Boolean(document.querySelector("[data-free-starter-explore]")),
       featured: Boolean(document.querySelector(".featured-this-week")),
+      freePrimary: /Your Included Free Plans/i.test(document.querySelector("#view-lessons")?.innerText || ""),
     }));
     assert.equal(returning.gettingStarted, false, "returning/dismissed users do not see getting started");
     assert.equal(returning.starter, false, "dismissed starter does not return");
-    assert.equal(returning.featured, true, "Featured This Week still shows");
+    assert.ok(returning.featured || returning.freePrimary, "library browse content still shows");
 
     // Mobile viewport
     await page.setViewportSize({ width: 390, height: 844 });

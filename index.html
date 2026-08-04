@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260803-assign-download-fixers" />
+  <link rel="stylesheet" href="styles.css?v=20260804-free-onboarding-r1" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
@@ -391,7 +391,7 @@
             </button>
             <div id="sidebarFreeUpgradeCard" class="sidebar-free-upgrade" hidden>
               <p class="sidebar-free-upgrade-badge">Free Plan</p>
-              <p class="sidebar-free-upgrade-copy" data-founding-spots-copy>Pro is $19.99/month (or $199/year) for the full platform.</p>
+              <p class="sidebar-free-upgrade-copy">10 complete plans included. Upgrade to Pro anytime for the complete library.</p>
               <button class="primary-button sidebar-free-upgrade-btn" type="button" data-checkout-plan="monthly">Upgrade to Pro</button>
             </div>
             <button class="nav-link" data-view="admin" data-admin-nav hidden>
@@ -401,7 +401,7 @@
             </button>
             <button class="nav-link" data-view="curriculum-planner" hidden>
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M7 14h4M13 14h4M7 17h2"/></svg></span>
-              Curriculum Planner <small class="nav-legacy-tag">Legacy</small>
+              Curriculum Planner
             </button>
           </div>
         </nav>
@@ -465,8 +465,8 @@
         <div id="freePlanReminderBar" class="free-plan-reminder" hidden role="region" aria-label="Free plan reminder">
           <div class="free-plan-reminder-inner">
             <div class="free-plan-reminder-copy">
-              <strong>Free Starter Library</strong>
-              <p data-founding-spots-copy>Pro unlocks the full library, AI documentation helpers, and curriculum planning for $19.99/month.</p>
+              <strong>Free Plan</strong>
+              <p>10 complete plans included. Upgrade to Pro anytime for the complete library.</p>
             </div>
             <div class="free-plan-reminder-actions">
               <button class="primary-button" type="button" id="freePlanReminderPrimary" data-checkout-plan="monthly">Upgrade to Pro</button>
@@ -1599,9 +1599,9 @@
               <p class="eyebrow">Profile</p>
               <h3 id="accountEmailLabel">Guest</h3>
               <p id="accountPlanLabel">Free account</p>
-              <p id="accountVerificationLabel" class="account-security-note">Email verification is available after Firebase Auth is connected.</p>
+              <p id="accountVerificationLabel" class="account-security-note">Keep your email and password up to date for account recovery.</p>
               <div class="account-actions-row">
-                <button class="ghost-button" id="demoAccountButton" type="button">Use Demo Account</button>
+                <button class="ghost-button" id="demoAccountButton" type="button" hidden>Use Demo Account</button>
                 <button class="primary-button" id="accountUpgradeButton" type="button">Upgrade to Pro</button>
                 <button class="ghost-button" id="resendVerificationButton" type="button">Resend Verification Email</button>
                 <button class="ghost-button" id="signOutButton" type="button">Sign Out</button>
@@ -1864,14 +1864,12 @@
               </div>
             </details>
 
-            <!-- Section 7: Family Hub Settings -->
-            <details class="settings-card">
+            <!-- Family Hub Settings: reserved for a future release — hidden from customer Settings. -->
+            <details class="settings-card" id="familyHubSettingsCard" hidden aria-hidden="true">
               <summary class="settings-card-header">
                 <div class="settings-card-header-text">
                   <p class="eyebrow">Section 7</p>
-                  <span class="settings-coming-soon"><h3>Family Hub Settings</h3><span class="badge-coming-soon">Coming Soon</span></span>
-                  <p class="muted-copy">When Family Hub launches, shared items will support Stop Sharing and Remove From Parent View without deleting your original records.</p>
-                  <p class="form-note">These features are planned for a future Family Hub update.</p>
+                  <h3>Family Hub Settings</h3>
                 </div>
                 <span class="settings-card-toggle" aria-hidden="true">▾</span>
               </summary>
@@ -2454,11 +2452,11 @@
     <script src="scripts/llh-teacher-weekly-planner.js?v=20260717-more-menu" defer></script>
     <script src="scripts/free-curriculum-sample.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/trial-curriculum-exports.js?v=20260730-hdh-own-tester-kid" defer></script>
-    <script src="scripts/free-plan-grandfathering.js?v=20260730-hdh-own-tester-kid" defer></script>
+    <script src="scripts/free-plan-grandfathering.js?v=20260804-free-onboarding-r1" defer></script>
     <div id="adminTeachingKitEnrichmentHost" aria-live="polite"></div>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260803-assign-download-fixers" defer></script>
-    <script src="scripts/new-user-onboarding.js?v=20260803-nuo-onboarding-r4" defer></script>
+    <script src="app.js?v=20260804-free-onboarding-r1" defer></script>
+    <script src="scripts/new-user-onboarding.js?v=20260804-free-onboarding-r1" defer></script>
     <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="comms-center.js?v=20260802-request-idea-final" defer></script>

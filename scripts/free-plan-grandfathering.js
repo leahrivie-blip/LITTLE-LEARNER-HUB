@@ -21,7 +21,7 @@
   "use strict";
 
   const FREE_POLICY_NOTICE =
-    "Your Free account includes 10 complete Starter Lesson Plans across Infant, Toddler and Preschool. Your saved information remains available, but additional premium plans require Founding or Pro access.";
+    "Your Free account includes 10 complete starter lesson plans across Infant, Toddler and Preschool. Your saved information remains available; additional plans require Pro access.";
 
   const DEFAULTS = Object.freeze({
     // Legacy Free unlock is retired — always curated for every Free account.
