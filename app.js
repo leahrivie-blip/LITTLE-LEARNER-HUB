@@ -5032,6 +5032,12 @@ function subscriptionToAccountUpdates(subscription) {
       programAccessViaOwner: typeof subscription.programAccessViaOwner === "boolean"
         ? subscription.programAccessViaOwner
         : undefined,
+      multiRoleTester: typeof subscription.multiRoleTester === "boolean"
+        ? subscription.multiRoleTester
+        : undefined,
+      hdhIndependentTester: typeof subscription.hdhIndependentTester === "boolean"
+        ? subscription.hdhIndependentTester
+        : undefined,
       productStatus: subscription.productStatus || undefined,
       adminAuditKey: subscription.adminAuditKey || undefined,
       lastFailedPaymentAt: subscription.lastFailedPaymentAt || undefined,
@@ -5068,6 +5074,12 @@ function subscriptionToAccountUpdates(subscription) {
     linkedProgramOwnerEmail: subscription.linkedProgramOwnerEmail || undefined,
     programAccessViaOwner: typeof subscription.programAccessViaOwner === "boolean"
       ? subscription.programAccessViaOwner
+      : undefined,
+    multiRoleTester: typeof subscription.multiRoleTester === "boolean"
+      ? subscription.multiRoleTester
+      : undefined,
+    hdhIndependentTester: typeof subscription.hdhIndependentTester === "boolean"
+      ? subscription.hdhIndependentTester
       : undefined,
     productStatus: subscription.productStatus || undefined,
     adminAuditKey: subscription.adminAuditKey || undefined,
@@ -5146,6 +5158,12 @@ async function syncSubscriptionFromBackend(email, options = {}) {
     }
     if (typeof data?.subscription?.programAccessViaOwner === "boolean") {
       updates.programAccessViaOwner = data.subscription.programAccessViaOwner;
+    }
+    if (typeof data?.subscription?.multiRoleTester === "boolean") {
+      updates.multiRoleTester = data.subscription.multiRoleTester;
+    }
+    if (typeof data?.subscription?.hdhIndependentTester === "boolean") {
+      updates.hdhIndependentTester = data.subscription.hdhIndependentTester;
     }
     // Drop undefined keys so sync never wipes program fields accidentally.
     Object.keys(updates).forEach((key) => {
@@ -13346,6 +13364,12 @@ function canAccessCapability(account, capability, options = {}) {
   if (!capability || !PLATFORM_CAPABILITIES.includes(capability)) return false;
   if (options.adminOverride === true) return true;
   if (!account) return false;
+  // Multi-Role Tester sandbox fence: never expose billing while simulating a role.
+  try {
+    if (typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating()) {
+      if (capability === "billing") return false;
+    }
+  } catch (_error) { /* ignore */ }
   const accountType = resolveAccountType(account);
   // Prefer getUserRole so Admin View As (Owner/Director/Teacher/Assistant) updates nav/permissions instantly.
   const role = typeof getUserRole === "function" ? getUserRole(account) : resolveUserRole(account);
@@ -13383,6 +13407,16 @@ function getAccountType(account = currentAccount()) {
 function getUserRole(account = currentAccount()) {
   const previewRole = typeof adminPreviewUserRole === "function" ? adminPreviewUserRole() : "";
   if (previewRole) return previewRole;
+  // Multi-Role Tester Switch View (sandbox-only; never Admin View As).
+  try {
+    if (typeof getMultiRoleTesterViewRole === "function") {
+      const testerRole = String(getMultiRoleTesterViewRole() || "").trim().toLowerCase();
+      if (testerRole === USER_ROLES.OWNER || testerRole === USER_ROLES.DIRECTOR
+        || testerRole === USER_ROLES.TEACHER || testerRole === USER_ROLES.ASSISTANT) {
+        return testerRole;
+      }
+    }
+  } catch (_error) { /* module boot race */ }
   if (!account) return USER_ROLES.OWNER;
   return resolveUserRole(account);
 }
@@ -14218,6 +14252,7 @@ function syncPlatformNavVisibility() {
   syncWorkModeNav();
   syncUniversalQuickAdd();
   syncHdhTesterSwitcherChrome();
+  try { typeof syncMultiRoleTesterChrome === "function" && syncMultiRoleTesterChrome(); } catch (_error) { /* ignore */ }
 }
 
 /** Testing-site work-mode nav: role-specific homes (not a shared feature dump). */
@@ -17206,6 +17241,11 @@ function canSeeAdminNav() {
   // While simulating Free/Pro/Founding, hide Admin nav so the sidebar matches that account.
   // The floating preview badge still provides Return to Admin.
   if (isAdminPreviewSimulating()) return false;
+  // Multi-Role Tester Switch View never exposes Admin / Testing Center.
+  try {
+    if (typeof isMultiRoleTesterSimulating === "function" && isMultiRoleTesterSimulating()) return false;
+    if (typeof canUseMultiRoleTester === "function" && canUseMultiRoleTester()) return false;
+  } catch (_error) { /* ignore */ }
   // Invited staff / independent testers never see Admin unlock — Leah-only.
   if (isLinkedProgramStaffAccount() || isIndependentHdhTesterAccount()) return false;
   // A signed-in customer who is not the platform owner must never see Admin nav,
@@ -34898,6 +34938,13 @@ function clearFamilyHubSession() {
 
 function isFamilyHubParentMode() {
   if (!isHomeDaycareHubTestingEnabled()) return false;
+  // Multi-Role Tester Parent view — Family Hub only.
+  try {
+    if (typeof getMultiRoleTesterViewRole === "function"
+      && String(localStorage.getItem("llhMultiRoleTesterView") || "").toLowerCase() === "parent") {
+      return true;
+    }
+  } catch (_error) { /* ignore */ }
   const onFamilyHub = Boolean(document.querySelector("#view-family-hub.active-view"));
   if (!getFamilyHubSessionToken()) return onFamilyHub;
   // Pure parent session, or provider intentionally previewing as parent.
@@ -45554,16 +45601,38 @@ async function submitFeedbackForm(event) {
   if (submitBtn) submitBtn.disabled = true;
   setFormMessage("#feedbackMessage", "Sending…", true);
   const account = currentAccount() || {};
+  let context = null;
+  try {
+    if (typeof collectMultiRoleFeedbackContext === "function") {
+      context = collectMultiRoleFeedbackContext({ feature: type });
+    } else {
+      context = JSON.parse(sessionStorage.getItem("llhFeedbackAutoContext") || "null");
+    }
+  } catch (_error) { context = null; }
+  let composedMessage = message;
+  try {
+    if (typeof buildMultiRoleSmartFeedbackMessage === "function"
+      && document.querySelector("#feedbackAutoContext")) {
+      composedMessage = buildMultiRoleSmartFeedbackMessage() || message;
+    }
+  } catch (_error) { /* keep original message */ }
   const payload = {
     type,
     name,
     email,
     subject,
-    message,
+    message: composedMessage,
     sourceUrl: window.location.href,
-    page: window.location.hash || window.location.pathname || "app",
+    page: context?.page || window.location.hash || window.location.pathname || "app",
     accountType: account.accountType || getAccountType(account),
-    role: account.role || getUserRole(account),
+    role: context?.currentRole || account.role || getUserRole(account),
+    context: context || undefined,
+    testedRole: context?.currentRole || undefined,
+    screenshotUrl: document.querySelector("#feedbackScreenshotInput")?.value?.trim() || undefined,
+    deviceInfo: context
+      ? `${context.deviceClass || ""} ${context.screenWidth || ""}x${context.screenHeight || ""}`.trim()
+      : undefined,
+    browserInfo: context?.userAgent || navigator.userAgent || undefined,
   };
   try {
     if (!canUseLaunchBackend()) throw new Error("We couldn’t send that just now. Check your connection and try again.");
@@ -52948,6 +53017,23 @@ function openAdminUserProfile(email, startTab) {
         <p id="aupSubMsg" class="form-message" style="margin-top:8px;"></p>
       </fieldset>
 
+      <fieldset class="admin-fieldset">
+        <legend>🔀 Multi-Role Tester</legend>
+        <div class="aup-info-grid">
+          <div><span>Permission</span><strong>${account.multiRoleTester ? "Enabled" : "Off"}</strong></div>
+          <div><span>Independent tester</span><strong>${account.hdhIndependentTester ? "Yes" : "No"}</strong></div>
+        </div>
+        <p class="muted-copy" style="margin-top:8px;">When enabled, this single tester login gets a header <strong>Switch View</strong> (Owner / Director / Teacher / Assistant / Parent) inside their own sandbox. Never grants Admin, Testing Center, analytics, billing, or other testers’ data.</p>
+        <div class="aup-action-row" style="margin-top:12px;">
+          ${!account.multiRoleTester
+            ? `<button class="primary-button aup-action-btn" type="button" data-aup-action="enable-multi-role" data-aup-email="${escapeHtml(email)}">Enable Multi-Role Tester</button>`
+            : `<button class="ghost-button aup-action-btn aup-btn--danger" type="button" data-aup-action="disable-multi-role" data-aup-email="${escapeHtml(email)}">Disable Multi-Role Tester</button>`}
+          <button class="ghost-button aup-action-btn" type="button" data-aup-action="view-role-switches" data-aup-email="${escapeHtml(email)}">View role-switch log</button>
+        </div>
+        <p id="aupMultiRoleMsg" class="form-message" style="margin-top:8px;"></p>
+        <div id="aupMultiRoleLog" class="aup-multi-role-log" hidden></div>
+      </fieldset>
+
       ${isFounding ? `
       <fieldset class="admin-fieldset aup-founding-fieldset">
         <legend>⭐ Founding Member Management</legend>
@@ -53219,6 +53305,8 @@ function handleAdminUserAction(action, email, modal) {
     action.startsWith("set-free-") ? "#aupFreeAccessMsg"
       : (action === "temp-password" || action === "view-as")
         ? "#aupSecurityMsg"
+        : (action.includes("multi-role") || action === "view-role-switches")
+          ? "#aupMultiRoleMsg"
         : (action.includes("trial") ? "#aupTrialMsg" : "#aupSubMsg"),
   );
   function showMsg(text, ok = true) {
@@ -53246,6 +53334,47 @@ function handleAdminUserAction(action, email, modal) {
     return;
   }
 
+  if (action === "enable-multi-role" || action === "disable-multi-role") {
+    const enable = action === "enable-multi-role";
+    if (!confirm(`${enable ? "Enable" : "Disable"} Multi-Role Tester for ${displayUserName(account)} (${email})?`)) return;
+    const updates = { multiRoleTester: enable };
+    adminUpdateMembershipOnServer(email, updates, action, enable
+      ? "Admin enabled Multi-Role Tester Switch View."
+      : "Admin disabled Multi-Role Tester Switch View.").then((result) => {
+      if (!result.ok && !result.localOnly) { showMsg(result.error || "Server update failed.", false); return; }
+      updateAccount(email, updates);
+      showMsg(enable ? "Multi-Role Tester enabled." : "Multi-Role Tester disabled.");
+      renderAdminUsersDashboard();
+      openAdminUserProfile(email, "manage");
+    });
+    return;
+  }
+  if (action === "view-role-switches") {
+    const logEl = modal?.querySelector("#aupMultiRoleLog");
+    showMsg("Loading role-switch log…");
+    const token = adminSession()?.token;
+    fetch(`/api/admin/tester-role-switches?email=${encodeURIComponent(email)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      cache: "no-store",
+    }).then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Could not load role switches.");
+      const items = Array.isArray(data.switches) ? data.switches : [];
+      showMsg(items.length ? `${items.length} role switch(es).` : "No role switches logged yet.");
+      if (logEl) {
+        logEl.hidden = false;
+        logEl.innerHTML = items.length
+          ? items.slice(0, 40).map((item) => `
+              <div class="aup-billing-row">
+                <span>${escapeHtml(item.fromRole || "—")} → <strong>${escapeHtml(item.toRole || "—")}</strong></span>
+                <small>${escapeHtml(item.at ? new Date(item.at).toLocaleString() : "")} · ${escapeHtml(item.source || "")}</small>
+                ${item.context?.page ? `<em>page: ${escapeHtml(item.context.page)}</em>` : ""}
+              </div>`).join("")
+          : `<p class="muted-copy">No switches yet for this tester.</p>`;
+      }
+    }).catch((error) => showMsg(error.message || "Could not load log.", false));
+    return;
+  }
   if (action === "set-free-legacy" || action === "set-free-curated") {
     const mode = action === "set-free-legacy" ? "legacy" : "curated";
     const label = mode === "legacy" ? "Legacy Free (grandfathered)" : "Curated Free sample";
@@ -61275,12 +61404,22 @@ function updatePaymentMethod() {
 }
 
 async function signOut() {
+  // Multi-Role Tester: ask which role they tested before clearing the session.
+  try {
+    if (typeof maybePromptMultiRoleSessionEnd === "function"
+      && typeof canUseMultiRoleTester === "function"
+      && (canUseMultiRoleTester() || currentAccount()?.multiRoleTester)
+      && sessionStorage.getItem("llhMultiRoleSessionPrompted") !== "1") {
+      if (maybePromptMultiRoleSessionEnd("logout")) return;
+    }
+  } catch (_error) { /* continue logout */ }
   // Best-effort: revoke this device's push subscription BEFORE clearing the
   // session so the next person to use this browser never receives pushes
   // meant for this account. In-app data is unaffected either way.
   await revokePushSubscriptionForLogout().catch(() => {});
   saveCurrentAccountState();
   const signingOutEmail = String(currentUser || "").trim();
+  try { localStorage.removeItem("llhMultiRoleTesterView"); } catch (_error) { /* ignore */ }
   if (firebaseAuthEnabled) {
     try {
       const client = await getFirebaseAuthClient();
