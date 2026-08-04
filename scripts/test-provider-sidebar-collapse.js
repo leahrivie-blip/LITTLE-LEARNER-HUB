@@ -80,7 +80,7 @@ function staticChecks() {
   console.log("PASS static sidebar collapse markers");
 }
 
-async function preparePage(browser, viewport, email, { clearSidebarPref = true } = {}) {
+async function preparePage(browser, viewport, email, { sidebarPref } = {}) {
   const context = await browser.newContext({
     viewport,
     serviceWorkers: "block",
@@ -90,7 +90,8 @@ async function preparePage(browser, viewport, email, { clearSidebarPref = true }
   await page.route(/multi-role-tester\.js/i, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/javascript", body: "/* stub */" });
   });
-  await page.addInitScript(({ userEmail, clearPref }) => {
+  // Fresh context starts empty — do not clear sidebar pref on every navigation/reload.
+  await page.addInitScript(({ userEmail, pref }) => {
     localStorage.setItem("llhUser", userEmail);
     localStorage.setItem("llhAccounts", JSON.stringify({
       [userEmail]: {
@@ -100,8 +101,10 @@ async function preparePage(browser, viewport, email, { clearSidebarPref = true }
       },
     }));
     localStorage.setItem("llhPlan", "Free");
-    if (clearPref) localStorage.removeItem("llhDesktopSidebarCollapsed");
-  }, { userEmail: email, clearPref: clearSidebarPref });
+    if (pref === "0" || pref === "1") {
+      localStorage.setItem("llhDesktopSidebarCollapsed", pref);
+    }
+  }, { userEmail: email, pref: sidebarPref == null ? "" : String(sidebarPref) });
 
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.waitForFunction(() => (
@@ -138,7 +141,6 @@ async function main() {
         browser,
         { width: 1280, height: 900 },
         "sidebar@example.com",
-        { clearSidebarPref: true },
       );
 
       const expanded = await page.evaluate(() => {
@@ -220,7 +222,6 @@ async function main() {
         browser,
         { width: 768, height: 1024 },
         "sidebar-mobile@example.com",
-        { clearSidebarPref: true },
       );
 
       const mobile = await page.evaluate(() => {

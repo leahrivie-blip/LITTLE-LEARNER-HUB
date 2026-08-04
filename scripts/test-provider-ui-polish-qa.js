@@ -95,6 +95,7 @@ async function openAuthedPage(browser, viewport, email, { sidebarPref } = {}) {
   await page.route(/multi-role-tester\.js/i, async (route) => {
     await route.fulfill({ status: 200, contentType: "application/javascript", body: "/* stub */" });
   });
+  // Fresh context starts empty — avoid clearing sidebar pref on reload.
   await page.addInitScript(({ userEmail, pref }) => {
     localStorage.setItem("llhUser", userEmail);
     localStorage.setItem("llhAccounts", JSON.stringify({
@@ -105,9 +106,10 @@ async function openAuthedPage(browser, viewport, email, { sidebarPref } = {}) {
       },
     }));
     localStorage.setItem("llhPlan", "Free");
-    if (pref == null) localStorage.removeItem("llhDesktopSidebarCollapsed");
-    else localStorage.setItem("llhDesktopSidebarCollapsed", pref);
-  }, { userEmail: email, pref: sidebarPref });
+    if (pref === "0" || pref === "1") {
+      localStorage.setItem("llhDesktopSidebarCollapsed", pref);
+    }
+  }, { userEmail: email, pref: sidebarPref == null ? "" : String(sidebarPref) });
 
   await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 90000 });
   await page.waitForFunction(() => (
