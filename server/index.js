@@ -168,6 +168,30 @@ const POSTMARK_SERVER_TOKEN = process.env.POSTMARK_SERVER_TOKEN || "";
 const EMAIL_AUTOMATIONS_ENABLED = ["1", "true", "yes", "on"].includes(
   String(process.env.EMAIL_AUTOMATIONS_ENABLED || "false").trim().toLowerCase(),
 );
+/** Testing kill-switch: block all outbound email even if a provider key is present. */
+const DISABLE_OUTBOUND_EMAIL = ["1", "true", "yes", "on"].includes(
+  String(process.env.DISABLE_OUTBOUND_EMAIL || "false").trim().toLowerCase(),
+);
+
+function isOutboundEmailDisabled() {
+  return DISABLE_OUTBOUND_EMAIL;
+}
+
+function outboundEmailPublicStatus() {
+  const status = supportEmailConfigStatus();
+  const disabled = isOutboundEmailDisabled();
+  const ready = Boolean(status.ready) && !disabled;
+  return {
+    ready,
+    disabled,
+    providerReady: Boolean(status.ready),
+    reason: disabled
+      ? "Outbound email is disabled on this testing site. Use copyable invite and reset links instead."
+      : (status.ready
+        ? "Email delivery is configured."
+        : "Email delivery is not configured. Use copyable invite and reset links instead."),
+  };
+}
 const SUPPORT_POSTAL_ADDRESS = String(process.env.SUPPORT_POSTAL_ADDRESS || "").trim();
 const EMAIL_UNSUBSCRIBE_SECRET = process.env.EMAIL_UNSUBSCRIBE_SECRET || ADMIN_ACCESS_CODE;
 const DATABASE_PROVIDER = process.env.DATABASE_PROVIDER || "local-json";
@@ -8148,6 +8172,8 @@ async function handlePasswordResetRequest(request, response) {
     return;
   }
   let delivery = "not_ready";
+  let resetUrl = "";
+  let expiresAt = "";
   try {
     const result = await sendPasswordResetEmail(email);
     if (result?.reason === "provider_not_ready") delivery = "not_ready";
@@ -8159,14 +8185,48 @@ async function handlePasswordResetRequest(request, response) {
     console.warn("[email] Password reset email failed:", error.message);
     delivery = "failed";
   }
-  // Always return a generic success body so callers cannot enumerate accounts.
-  // `delivery` lets the client keep Firebase/demo paths when Resend is not ready.
+
+  // Testing-safe recovery: mint a one-time reset link for this SITE_URL only when
+  // outbound email cannot send (no Firebase / email disabled on testing).
+  const emailStatus = outboundEmailPublicStatus();
+  const testingAuth = isHomeDaycareHubTestingEnabled() || !firebaseConfigStatus().ready;
+  if (testingAuth && delivery !== "sent") {
+    try {
+      const store = readStore();
+      const user = store.users?.[email];
+      if (user) {
+        const tokenData = emailAuth.createToken(store, {
+          email,
+          purpose: "password_reset",
+          ttlMs: emailAuth.PASSWORD_RESET_TTL_MS,
+          meta: { testingManualLink: true },
+        });
+        if (tokenData?.token) {
+          await writeStoreAsync(store);
+          resetUrl = `${appBaseUrl()}/?view=reset-password&resetToken=${encodeURIComponent(tokenData.token)}`;
+          expiresAt = tokenData.expiresAt || "";
+          delivery = "manual_link";
+        }
+      }
+    } catch (error) {
+      console.warn("[auth] testing manual reset link failed:", error.message);
+    }
+  }
+
   jsonResponse(response, 200, {
     ok: true,
     delivery,
-    message: delivery === "not_ready"
-      ? "Server password-reset email is not ready yet. Use Firebase Auth recovery or try again after Resend is configured."
-      : "If that email is in Little Learner Hub, a password reset link has been sent.",
+    emailDeliveryReady: emailStatus.ready,
+    outboundEmailDisabled: emailStatus.disabled,
+    resetUrl: resetUrl || undefined,
+    expiresAt: expiresAt || undefined,
+    message: delivery === "sent"
+      ? "If that email is in Little Learner Hub, a password reset link has been sent."
+      : (delivery === "manual_link"
+        ? "Email delivery is off on this testing site. Copy the reset link below and open it on the testing site only."
+        : (emailStatus.disabled || delivery === "not_ready"
+          ? "Email delivery is off on this testing site. If this account exists here, use the testing reset link when shown, or Message Support."
+          : "If that email is in Little Learner Hub, a password reset link has been sent.")),
   });
 }
 
@@ -13972,7 +14032,9 @@ async function handleFamilyHubHouseholdsList(request, response) {
   jsonResponse(response, 200, {
     ok: true,
     households: listFamilyHouseholdsForOwner(store, ownerEmail).map(publicFamilyHousehold),
-    emailDeliveryReady: supportEmailConfigStatus().ready,
+    emailDeliveryReady: outboundEmailPublicStatus().ready,
+    outboundEmailDisabled: outboundEmailPublicStatus().disabled,
+    emailDeliveryNote: outboundEmailPublicStatus().reason,
     smsDeliveryReady: false,
     storage,
     testingHandoff: supportEmailConfigStatus().ready
@@ -15528,7 +15590,9 @@ async function handleHdhTesterInvitesList(request, response) {
   jsonResponse(response, 200, {
     ok: true,
     invites: listHdhTesterInvitesForOwner(store, identity.email).map((invite) => publicHdhTesterInvite(invite, { appOrigin })),
-    emailDeliveryReady: supportEmailConfigStatus().ready,
+    emailDeliveryReady: outboundEmailPublicStatus().ready,
+    outboundEmailDisabled: outboundEmailPublicStatus().disabled,
+    emailDeliveryNote: outboundEmailPublicStatus().reason,
     testingOnly: true,
   });
 }
@@ -15574,7 +15638,12 @@ async function handleHdhTesterInviteCreate(request, response) {
   const token = crypto.randomBytes(24).toString("hex");
   const now = new Date();
   const childName = String(body.childName || "Demo Child").trim() || "Demo Child";
-  const origin = String(body.appOrigin || "").replace(/\/$/, "") || SITE_URL || "https://little-learner-hub-testing.onrender.com";
+  // Prefer configured SITE_URL on testing so invite links never open production.
+  const requestedOrigin = String(body.appOrigin || "").replace(/\/$/, "");
+  const siteOrigin = String(SITE_URL || "").replace(/\/$/, "");
+  const origin = (isHomeDaycareHubTestingEnabled() && siteOrigin)
+    ? siteOrigin
+    : (requestedOrigin || siteOrigin || "https://little-learner-hub-testing.onrender.com");
   const acceptUrl = `${origin}/?testerInvite=${encodeURIComponent(token)}`;
   const invite = {
     id: `tester-invite-${Date.now().toString(36)}`,
@@ -15590,7 +15659,8 @@ async function handleHdhTesterInviteCreate(request, response) {
   };
   store.hdhTesterInvites[token] = invite;
 
-  let emailResult = { sent: false, configured: supportEmailConfigStatus().ready };
+  const emailPublic = outboundEmailPublicStatus();
+  let emailResult = { sent: false, configured: emailPublic.ready, disabled: emailPublic.disabled };
   try {
     emailResult = await sendEmail({
       to: email,
@@ -15620,19 +15690,40 @@ async function handleHdhTesterInviteCreate(request, response) {
       `,
     });
   } catch (error) {
-    emailResult = { sent: false, configured: supportEmailConfigStatus().ready, error: error.message };
+    emailResult = {
+      sent: false,
+      configured: emailPublic.ready,
+      disabled: emailPublic.disabled,
+      error: error.message,
+    };
   }
   invite.emailSent = Boolean(emailResult.sent);
   invite.emailError = emailResult.error || "";
   store.hdhTesterInvites[token] = invite;
+  const inviteInstructions = [
+    `You're invited to test Little Learner Hub (testing site only).`,
+    ``,
+    `1. Open this link on the testing site:`,
+    acceptUrl,
+    ``,
+    `2. Sign up or log in with exactly: ${email}`,
+    `3. Accept the invite — you'll get your own Teacher tools and starter child ("${childName}").`,
+    `4. Message Leah inside Messages if you need help.`,
+    ``,
+    `This invite expires on ${invite.expiresAt.slice(0, 10)}.`,
+    `Do not use the production website with this link.`,
+  ].join("\n");
   await respondAfterPersist(store, response, 200, {
     ok: true,
     invite: publicHdhTesterInvite(invite, { appOrigin: origin }),
     acceptUrl,
+    instructions: inviteInstructions,
     email: emailResult,
+    emailDeliveryReady: emailPublic.ready,
+    outboundEmailDisabled: emailPublic.disabled,
     message: emailResult.sent
       ? "Tester invite created and email sent."
-      : "Tester invite created. Share the accept link manually (email may be off on testing).",
+      : "Tester invite ready. Email delivery is off on testing — copy the invite link and instructions below.",
   }, "Could not save tester invite.");
 }
 
@@ -16309,7 +16400,9 @@ async function handleStaffInvitesList(request, response) {
     ok: true,
     invites: listProgramInvites(store, ownerEmail).map((invite) => publicStaffInvite(invite, { appOrigin })),
     members: listProgramMembers(store, ownerEmail),
-    emailDeliveryReady: supportEmailConfigStatus().ready,
+    emailDeliveryReady: outboundEmailPublicStatus().ready,
+    outboundEmailDisabled: outboundEmailPublicStatus().disabled,
+    emailDeliveryNote: outboundEmailPublicStatus().reason,
   });
 }
 
@@ -17834,6 +17927,27 @@ async function sendEmail(opts = {}) {
   const toList = (Array.isArray(toAddr) ? toAddr : [toAddr])
     .map((value) => String(value || "").trim())
     .filter(Boolean);
+
+  if (isOutboundEmailDisabled()) {
+    const result = {
+      sent: false,
+      configured: false,
+      provider: status.provider || "disabled",
+      messageId: "",
+      disabled: true,
+      reason: "outbound_email_disabled",
+    };
+    logEmailDelivery({
+      eventType,
+      to: toList,
+      messageId: "",
+      timestamp,
+      success: false,
+      error: "outbound_email_disabled",
+      provider: status.provider || "",
+    });
+    return result;
+  }
 
   if (!status.ready) {
     const result = { sent: false, configured: false, provider: status.provider, messageId: "" };
@@ -23430,16 +23544,22 @@ function handleClientConfig(request, response) {
     measurementId: FIREBASE_MEASUREMENT_ID,
   };
   const meta = metaCapi.publicClientMetaConfig();
+  const firebaseStatus = firebaseConfigStatus();
+  const emailPublic = outboundEmailPublicStatus();
   const config = {
     adminEmail: ADMIN_EMAIL,
     firebase,
-    firebaseStatus: firebaseConfigStatus(),
+    firebaseStatus,
+    // Stable auth mode for the client: local when Firebase is not configured.
+    authMode: firebaseStatus.ready ? "firebase" : "local",
+    outboundEmail: emailPublic,
     push: {
       supported: Boolean(pushService && pushService.configured()),
       publicKey: pushService ? pushService.publicKey() : "",
     },
     homeDaycareHubTesting: isHomeDaycareHubTestingEnabled(),
     aiGuideEnabled: isAiGuideEnabled(),
+    siteUrl: SITE_URL || "",
     meta,
   };
   response.writeHead(200, {

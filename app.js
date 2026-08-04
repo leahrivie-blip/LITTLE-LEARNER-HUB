@@ -2161,6 +2161,29 @@ const firebaseAuthConfig = {
   appId: "",
 };
 const firebaseAuthEnabled = Boolean(firebaseAuthConfig.apiKey && firebaseAuthConfig.authDomain && firebaseAuthConfig.projectId && firebaseAuthConfig.appId);
+/** Local email/password is the primary auth path when Firebase is not configured (testing). */
+function isLocalAuthPrimary() {
+  const mode = String(window.LLH_CONFIG?.authMode || "").trim().toLowerCase();
+  if (mode === "local") return true;
+  if (mode === "firebase") return false;
+  return !firebaseAuthEnabled;
+}
+function isOutboundEmailDisabled() {
+  const outbound = window.LLH_CONFIG?.outboundEmail;
+  if (outbound && typeof outbound === "object") {
+    if (outbound.disabled === true) return true;
+    if (outbound.ready === false) return true;
+  }
+  return isLocalAuthPrimary();
+}
+function outboundEmailStatusNote() {
+  const outbound = window.LLH_CONFIG?.outboundEmail;
+  if (outbound?.reason) return String(outbound.reason);
+  if (isOutboundEmailDisabled()) {
+    return "Email delivery is disabled on this testing site. Use copyable invite and reset links instead.";
+  }
+  return "Email delivery is configured.";
+}
 const authProviderName = "Email & password";
 let firebaseAuthClient = null;
 // Numeric caps apply to legacy library resources only. Curriculum lesson plans and activities
@@ -13693,7 +13716,8 @@ function setAuthMode(mode) {
     const intentNote = document.querySelector("#authFoundingContinueNote");
     if (intentNote) intentNote.hidden = true;
     title.textContent = "Reset your password";
-    submitButton.textContent = "Send Reset Email";
+    // On testing (email off / local auth), never promise an email send.
+    submitButton.textContent = isOutboundEmailDisabled() ? "Get Reset Link" : "Send Reset Email";
     forgotButton.style.display = "none";
     switchButton.textContent = "Back to login";
     renderSignupWizardStep();
@@ -13746,11 +13770,28 @@ async function signUpWithProvider(email, password, phone, firstName, lastName) {
 
 async function loginWithServerPassword(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
-  const response = await fetch("/api/auth/password-login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email: cleanEmail, password }),
-  });
+  // Keep local-primary login snappy — do not hang for several seconds on a slow 401.
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutMs = isLocalAuthPrimary() ? 2500 : 12000;
+  const timer = controller ? setTimeout(() => {
+    try { controller.abort(); } catch (_err) { /* ignore */ }
+  }, timeoutMs) : null;
+  let response;
+  try {
+    response = await fetch("/api/auth/password-login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: cleanEmail, password }),
+      signal: controller?.signal,
+    });
+  } catch (error) {
+    if (timer) clearTimeout(timer);
+    if (error?.name === "AbortError") {
+      throw new Error("Sign-in is taking longer than usual. Please try again.");
+    }
+    throw error;
+  }
+  if (timer) clearTimeout(timer);
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(data.error || "The email or password did not match. Please try again.");
@@ -13811,10 +13852,28 @@ async function syncPasswordAfterFirebaseAuth(password, source = "firebase_login"
   }
 }
 
+async function loginWithLocalPassword(email, password) {
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const account = accounts()[cleanEmail];
+  if (!account) return null;
+  if (account.passwordHash) {
+    const hash = await localPasswordHash(password);
+    if (hash !== account.passwordHash) {
+      throw new Error("The email or password did not match. Please try again.");
+    }
+  }
+  return {
+    email: cleanEmail,
+    verified: account.emailVerified,
+    mustChangePassword: accountRequiresPasswordChange(account),
+    source: "local",
+  };
+}
+
 async function loginWithProvider(email, password) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
-  if (firebaseAuthEnabled) {
+  if (firebaseAuthEnabled && !isLocalAuthPrimary()) {
     try {
       // Re-resolve client so Keep me signed in applies the right Firebase persistence.
       firebaseAuthClient = null;
@@ -13848,16 +13907,35 @@ async function loginWithProvider(email, password) {
       }
     }
   }
+
+  // Local-primary testing path: prefer the on-device password hash first so login
+  // does not wait on a known-unavailable server/Firebase configuration.
+  const localAccount = accounts()[cleanEmail];
+  if (localAccount?.passwordHash) {
+    try {
+      return await loginWithLocalPassword(cleanEmail, password);
+    } catch (localError) {
+      // Fall through to server recovery / temp-password path.
+      try {
+        return await loginWithServerPassword(cleanEmail, password);
+      } catch (_serverError) {
+        throw localError;
+      }
+    }
+  }
+
   try {
     return await loginWithServerPassword(cleanEmail, password);
   } catch (serverError) {
-    const account = accounts()[cleanEmail];
-    if (!account) throw serverError;
-    if (account.passwordHash) {
-      const hash = await localPasswordHash(password);
-      if (hash !== account.passwordHash) throw serverError;
+    try {
+      const local = await loginWithLocalPassword(cleanEmail, password);
+      if (local) return local;
+    } catch (_localError) { /* keep server error */ }
+    const serverMsg = String(serverError?.message || "");
+    if (/firebase|resend|not configured|provider/i.test(serverMsg)) {
+      throw new Error("The email or password did not match. Please try again.");
     }
-    return { email: cleanEmail, verified: account.emailVerified, mustChangePassword: accountRequiresPasswordChange(account) };
+    throw serverError;
   }
 }
 
@@ -13903,8 +13981,12 @@ async function completeForcedPasswordChange(newPassword, confirmPassword) {
 async function sendPasswordReset(email) {
   const cleanEmail = String(email || "").trim().toLowerCase();
   if (!cleanEmail) throw new Error("Please enter your email address.");
-  console.info("[auth] password_reset_request", { email: cleanEmail, firebase: firebaseAuthEnabled });
-  if (firebaseAuthEnabled) {
+  console.info("[auth] password_reset_request", {
+    email: cleanEmail,
+    firebase: firebaseAuthEnabled,
+    localPrimary: isLocalAuthPrimary(),
+  });
+  if (firebaseAuthEnabled && !isLocalAuthPrimary()) {
     const client = await getFirebaseAuthClient();
     const resetUrl = window.location.origin && window.location.origin !== "null"
       ? `${window.location.origin}${window.location.pathname}`
@@ -13915,13 +13997,18 @@ async function sendPasswordReset(email) {
         handleCodeInApp: false,
       });
       console.info("[auth] password_reset_email_sent", { email: cleanEmail });
-      return "Password reset email sent. Please check your inbox (and spam folder). The link usually stays valid for about an hour — request another if it expires.";
+      return {
+        message: "Password reset email sent. Please check your inbox (and spam folder).",
+        delivery: "sent",
+        resetUrl: "",
+      };
     } catch (error) {
       console.error("[auth] password_reset_email_failed", { email: cleanEmail, code: error?.code, message: error?.message });
-      throw error;
+      throw new Error("Could not start password reset. Please try again or Message Support.");
     }
   }
-  // Gated server Resend path — only used when Firebase is off and Resend+DNS are ready.
+
+  // Local / testing path — never pretend email was sent when delivery is off.
   try {
     const response = await fetch("/api/auth/request-password-reset", {
       method: "POST",
@@ -13930,11 +14017,25 @@ async function sendPasswordReset(email) {
     });
     const data = await response.json().catch(() => ({}));
     if (response.ok && data.delivery === "sent") {
-      return data.message || "If that email is in Little Learner Hub, a password reset link has been sent.";
+      return {
+        message: data.message || "If that email is in Little Learner Hub, a password reset link has been sent.",
+        delivery: "sent",
+        resetUrl: "",
+      };
+    }
+    if (response.ok && data.delivery === "manual_link" && data.resetUrl) {
+      return {
+        message: data.message || outboundEmailStatusNote(),
+        delivery: "manual_link",
+        resetUrl: String(data.resetUrl || ""),
+        expiresAt: data.expiresAt || "",
+      };
     }
   } catch (error) {
     console.warn("[auth] server_password_reset_unavailable", error);
   }
+
+  // Same-browser fallback for local-only accounts that never synced to the server.
   const token = `demo-reset-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   localStorage.setItem("llhDemoResetToken", JSON.stringify({
     email: cleanEmail,
@@ -13942,8 +14043,13 @@ async function sendPasswordReset(email) {
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
   }));
+  const localResetUrl = `${window.location.origin}/?view=reset-password&demoReset=1`;
   console.info("[auth] password_reset_demo_token_created", { email: cleanEmail });
-  return "If that email is on file, you can continue with a reset link. Check your inbox and spam folder, or Message Support if nothing arrives.";
+  return {
+    message: "Email delivery is off on this testing site. Continue on this device to set a new password, or Message Support.",
+    delivery: "local_demo",
+    resetUrl: localResetUrl,
+  };
 }
 
 async function resendVerificationEmail() {
@@ -37048,11 +37154,29 @@ function renderHomeDaycareStaffInvitePanel() {
   ];
   const testerInvites = hdhTesterInviteCache.invites || [];
   const invite = hdhTesterInviteResult;
+  const emailOffNote = isOutboundEmailDisabled()
+    ? `<p class="form-message testing-email-disabled-note" role="status"><strong>Email delivery is disabled on this testing site.</strong> Invites create a copyable testing-site link — nothing is emailed, and links never open production.</p>`
+    : "";
+  const inviteInstructions = invite?.acceptUrl
+    ? [
+      `You're invited to test Little Learner Hub (testing site only).`,
+      ``,
+      `1. Open this link on the testing site:`,
+      invite.acceptUrl,
+      ``,
+      `2. Sign up or log in with exactly: ${invite.email || "the invited email"}`,
+      `3. Accept the invite — you'll get your own Teacher tools and starter child ("${invite.childName || "Demo Child"}").`,
+      `4. Message Leah inside Messages if you need help.`,
+      ``,
+      `Do not use the production website with this link.`,
+    ].join("\n")
+    : "";
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
       <p class="eyebrow">Staff invites</p>
       <h3>Invite a tester (own account + own kid)</h3>
       <p class="muted-copy">Each tester gets their <strong>own</strong> Teacher account and their <strong>own</strong> starter child — not your kids, not a shared program. They can use Hub, forms, lessons, calendar, and daily logs. <strong>No Admin.</strong> They Message Leah in Messages.</p>
+      ${emailOffNote}
       <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
         <div class="form-grid-two">
           <label>Tester email
@@ -37062,23 +37186,25 @@ function renderHomeDaycareStaffInvitePanel() {
             <input name="childName" maxlength="60" placeholder="Demo Child" />
           </label>
         </div>
-        <button class="primary-button" type="submit">Invite tester</button>
+        <button class="primary-button" type="submit">Create tester invite</button>
         <p class="form-note">Creates an independent testing account for them. Their data stays private to their login.</p>
         <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result hdh-staff-invite-result" role="status">
           <strong>Tester invite ready for ${escapeHtml(invite.email || "tester")}</strong>
-          <p class="muted-copy">They must use this exact email. Share the accept link:</p>
-          <p><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
+          <p class="muted-copy">${invite.emailSent ? "Invite email sent." : "Email was not sent (disabled on testing). Share the link manually:"}</p>
+          <p class="hdh-code-wrap"><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
           <ol class="hdh-tester-path">
-            <li>They open the link on the testing site.</li>
+            <li>They open the link on the <strong>testing site only</strong>.</li>
             <li>Sign Up or log in with <strong>${escapeHtml(invite.email || "that email")}</strong>.</li>
-            <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools.</li>
+            <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools. Testing Pro applies automatically.</li>
+            <li>Multi-Role Tester appears only if Admin enables it for that tester.</li>
             <li>To reach you: <strong>Messages → Message Leah</strong> (not Admin).</li>
           </ol>
           <div class="account-actions-row">
-            <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy accept link</button>
+            <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy Invite Link</button>
+            <button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(inviteInstructions)}">Copy Instructions</button>
           </div>
         </div>
       ` : ""}
@@ -37089,10 +37215,10 @@ function renderHomeDaycareStaffInvitePanel() {
             <article class="hdh-forms-pack-item">
               <div>
                 <strong>${escapeHtml(item.email || "Tester")}</strong>
-                <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}</p>
+                <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}${item.emailSent ? " · email sent" : " · link only"}</p>
               </div>
               <div class="hdh-forms-pack-actions">
-                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
+                ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy Invite Link</button>` : ""}
                 ${item.status === "pending" ? `<button class="ghost-button" type="button" data-hdh-tester-invite-revoke="${escapeHtml(item.id)}">Revoke</button>` : ""}
               </div>
             </article>
@@ -60334,6 +60460,50 @@ function renderCancelSubscriptionPage() {
   `;
 }
 
+function showTestingPasswordResetPanel({ email = "", message = "", resetUrl = "", delivery = "" } = {}) {
+  let panel = document.querySelector("#testingPasswordResetPanel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "testingPasswordResetPanel";
+    panel.className = "modal open testing-password-reset-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-modal", "true");
+    panel.setAttribute("aria-labelledby", "testingPasswordResetTitle");
+    document.body.appendChild(panel);
+  }
+  const instructions = [
+    "Password reset for the testing site",
+    email ? `Account: ${email}` : "",
+    "",
+    "Email delivery is disabled on testing.",
+    resetUrl ? "1. Copy the reset link below." : "1. Continue on this same device/browser.",
+    resetUrl ? "2. Open the link on the testing site only (not production)." : "2. Choose a new password on the next screen.",
+    "3. Sign in with your new password.",
+  ].filter(Boolean).join("\n");
+  panel.innerHTML = `
+    <div class="modal-card auth-modal-card">
+      <button class="close-button" type="button" data-testing-reset-close aria-label="Close">&times;</button>
+      <p class="eyebrow">Testing site recovery</p>
+      <h2 id="testingPasswordResetTitle">Reset without email</h2>
+      <p class="muted-copy">${escapeHtml(message || outboundEmailStatusNote())}</p>
+      ${resetUrl ? `<p class="hdh-code-wrap"><code class="hdh-code" id="testingResetLinkCode">${escapeHtml(resetUrl)}</code></p>` : ""}
+      <div class="account-actions-row">
+        ${resetUrl ? `<button class="primary-button" type="button" data-testing-reset-copy-link>Copy Reset Link</button>` : ""}
+        <button class="ghost-button" type="button" data-testing-reset-copy-instructions>Copy Instructions</button>
+        <button class="primary-button" type="button" data-testing-reset-continue>Continue to New Password</button>
+      </div>
+      <p class="form-note">This recovery path never opens the production website.</p>
+      <span class="form-message" id="testingPasswordResetMessage" aria-live="polite"></span>
+    </div>
+  `;
+  panel.dataset.instructions = instructions;
+  panel.dataset.resetUrl = resetUrl || "";
+  panel.classList.add("open");
+  panel.setAttribute("aria-hidden", "false");
+  document.body.classList.add("auth-modal-open");
+  closeAuthModal();
+}
+
 function renderResetPasswordPage() {
   const message = document.querySelector("#resetPasswordMessage");
   if (!message) return;
@@ -60341,12 +60511,14 @@ function renderResetPasswordPage() {
   const resetToken = params.get("resetToken") || readPendingUrlSecret("resetToken");
   if (resetToken) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
-  } else if (firebaseAuthEnabled && params.get("mode") === "resetPassword" && params.get("oobCode")) {
+  } else if (firebaseAuthEnabled && !isLocalAuthPrimary() && params.get("mode") === "resetPassword" && params.get("oobCode")) {
     setFormMessage(message, "Enter a new password to complete your secure reset.", true);
-  } else if (!firebaseAuthEnabled && localStorage.getItem("llhDemoResetToken")) {
-    setFormMessage(message, "Enter a new password to finish resetting your account.", true);
+  } else if (isLocalAuthPrimary() && (localStorage.getItem("llhDemoResetToken") || params.get("demoReset"))) {
+    setFormMessage(message, "Enter a new password to finish resetting your testing account.", true);
+  } else if (isOutboundEmailDisabled()) {
+    setFormMessage(message, "Email delivery is off on testing. Request a reset from Log In → Forgot password to get a copyable testing link.", true);
   } else {
-    setFormMessage(message, "Request a password reset email from the login screen first.");
+    setFormMessage(message, "Request a password reset from the login screen first.");
   }
 }
 
@@ -63246,6 +63418,59 @@ document.addEventListener("click", async (event) => {
     } else {
       window.prompt("Copy this value:", text);
     }
+    return;
+  }
+
+  const testingResetClose = event.target.closest("[data-testing-reset-close]");
+  if (testingResetClose) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    panel?.classList.remove("open");
+    panel?.setAttribute("aria-hidden", "true");
+    if (!document.querySelector(".modal.open")) document.body.classList.remove("auth-modal-open");
+    return;
+  }
+  const testingResetCopyLink = event.target.closest("[data-testing-reset-copy-link]");
+  if (testingResetCopyLink) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    const text = panel?.dataset?.resetUrl || document.querySelector("#testingResetLinkCode")?.textContent || "";
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setFormMessage("#testingPasswordResetMessage", "Reset link copied.", true);
+        showActionFeedback("Reset link copied.");
+      }).catch(() => window.prompt("Copy this reset link:", text));
+    } else window.prompt("Copy this reset link:", text);
+    return;
+  }
+  const testingResetCopyInstructions = event.target.closest("[data-testing-reset-copy-instructions]");
+  if (testingResetCopyInstructions) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    const text = panel?.dataset?.instructions || "";
+    if (!text) return;
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        setFormMessage("#testingPasswordResetMessage", "Instructions copied.", true);
+        showActionFeedback("Instructions copied.");
+      }).catch(() => window.prompt("Copy these instructions:", text));
+    } else window.prompt("Copy these instructions:", text);
+    return;
+  }
+  const testingResetContinue = event.target.closest("[data-testing-reset-continue]");
+  if (testingResetContinue) {
+    event.preventDefault();
+    const panel = document.querySelector("#testingPasswordResetPanel");
+    const resetUrl = panel?.dataset?.resetUrl || "";
+    panel?.classList.remove("open");
+    panel?.setAttribute("aria-hidden", "true");
+    if (!document.querySelector(".modal.open")) document.body.classList.remove("auth-modal-open");
+    if (resetUrl && /resetToken=/.test(resetUrl)) {
+      window.location.assign(resetUrl);
+      return;
+    }
+    setView("reset-password");
     return;
   }
 
@@ -68639,12 +68864,32 @@ document.querySelector("#authForm")?.addEventListener("submit", async (event) =>
   const phone = document.querySelector("#phoneInput")?.value || "";
   const submitButton = document.querySelector("#authSubmitButton");
   submitButton.disabled = true;
-  setFormMessage("#authMessage", currentAuthMode === "forgot" ? "Sending your reset link…" : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"), true);
+  setFormMessage(
+    "#authMessage",
+    currentAuthMode === "forgot"
+      ? (isOutboundEmailDisabled() ? "Preparing your testing reset link…" : "Sending your reset link…")
+      : (currentAuthMode === "signup" ? "Creating your account…" : "Signing you in…"),
+    true,
+  );
   try {
     if (currentAuthMode === "forgot") {
-      const message = await sendPasswordReset(email);
-      setFormMessage("#authMessage", message, true);
-      trackEvent("password_reset_requested");
+      const resetResult = await sendPasswordReset(email);
+      const resetPayload = typeof resetResult === "string"
+        ? { message: resetResult, delivery: "sent", resetUrl: "" }
+        : (resetResult || {});
+      const resetMessage = String(resetPayload.message || "Password reset started.");
+      setFormMessage("#authMessage", resetMessage, true);
+      trackEvent("password_reset_requested", { delivery: resetPayload.delivery || "" });
+      // Keep testers on an honest recovery path when email cannot send.
+      if (resetPayload.resetUrl || resetPayload.delivery === "manual_link" || resetPayload.delivery === "local_demo") {
+        showTestingPasswordResetPanel({
+          email,
+          message: resetMessage,
+          resetUrl: resetPayload.resetUrl || "",
+          delivery: resetPayload.delivery || "",
+        });
+        return;
+      }
       closeAuthModal();
       setView("reset-password");
       return;
@@ -70684,7 +70929,7 @@ document.addEventListener("submit", async (event) => {
     if (!email) return;
     if (submitBtn) {
       submitBtn.disabled = true;
-      submitBtn.textContent = "Sending…";
+      submitBtn.textContent = "Creating invite…";
     }
     try {
       const result = await createHdhIndependentTesterInviteRequest({ email, childName });
@@ -70692,20 +70937,24 @@ document.addEventListener("submit", async (event) => {
         email,
         childName: result.invite?.childName || childName,
         acceptUrl: result.acceptUrl || result.invite?.acceptUrl || "",
+        emailSent: Boolean(result.email?.sent),
+        instructions: result.instructions || "",
       };
       if (message) {
         message.textContent = result.email?.sent
-          ? "Invite emailed. They can also use the copyable accept link below."
-          : (result.error || "Invite ready — copy the accept link and send it (email delivery may be off on testing).");
+          ? "Invite emailed. You can still copy the invite link below."
+          : (result.message || "Invite ready — email is off on testing. Copy the invite link and instructions below.");
       }
-      showActionFeedback("Tester invite ready — their own account + own kid. No Admin. They Message Leah in Messages.");
+      showActionFeedback(result.email?.sent
+        ? "Tester invite emailed — link also ready to copy."
+        : "Tester invite ready — copy the link (email not sent on testing).");
       renderHomeDaycareHubPage({ refreshHouseholds: false });
     } catch (error) {
-      if (message) message.textContent = error.message || "Could not send invite.";
+      if (message) message.textContent = error.message || "Could not create invite.";
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
-        submitBtn.textContent = "Invite tester";
+        submitBtn.textContent = "Create tester invite";
       }
     }
     return;

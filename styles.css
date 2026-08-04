@@ -26228,3 +26228,177 @@ body.multi-role-tester-simulating .report-bug-fab {
   .report-bug-fab span:last-child { display: none; }
   .multi-role-tester-banner-inner { align-items: flex-start; }
 }
+
+/* ── Testing auth / invite honesty + responsive hardening ─────────────────── */
+.testing-email-disabled-note {
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(138, 75, 40, 0.28);
+  background: #fff8f3;
+  color: #5c3a24;
+  line-height: 1.45;
+}
+.testing-password-reset-panel {
+  z-index: 120;
+}
+.testing-password-reset-panel .modal-card {
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(92dvh, 920px);
+  overflow: auto;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+.testing-password-reset-panel .account-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.testing-password-reset-panel .account-actions-row .primary-button,
+.testing-password-reset-panel .account-actions-row .ghost-button {
+  min-height: 44px;
+  flex: 1 1 160px;
+}
+.hdh-staff-invite-result .account-actions-row,
+.hdh-family-invite-result .account-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.hdh-staff-invite-result .account-actions-row .primary-button,
+.hdh-staff-invite-result .account-actions-row .ghost-button,
+.hdh-family-invite-result .account-actions-row .primary-button,
+.hdh-family-invite-result .account-actions-row .ghost-button {
+  min-height: 44px;
+}
+.hdh-code-wrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.hdh-code-wrap .hdh-code {
+  display: block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Prevent page-wide horizontal scroll on phones / small tablets */
+body.user-authenticated .shell,
+body.user-authenticated .main-content,
+.view-section,
+.section-block,
+.page-title,
+.panel-form {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Wide data tables: scroll safely instead of shrinking text */
+.table-scroll,
+.admin-table-wrap,
+.ai-usage-log-table-wrap,
+.dlc-table-wrap,
+.hdh-table-wrap,
+.calendar-grid-wrap,
+.lesson-library-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 900px) {
+  .form-grid-two {
+    grid-template-columns: 1fr !important;
+  }
+  .multi-role-tester-banner {
+    padding: 10px 12px;
+  }
+  .multi-role-tester-banner-title {
+    font-size: 0.95rem;
+  }
+  .multi-role-tester-banner-blurb {
+    font-size: 0.88rem;
+  }
+  .multi-role-tester-banner-actions .primary-button,
+  .multi-role-tester-banner-actions .ghost-button,
+  .multi-role-switch-btn {
+    min-height: 44px;
+  }
+  .multi-role-help-btn {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  .report-bug-fab {
+    right: max(12px, env(safe-area-inset-right, 0px));
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    min-height: 44px;
+  }
+  body.multi-role-tester-simulating .report-bug-fab,
+  body.admin-preview-simulating .report-bug-fab {
+    bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+  }
+  .hdh-forms-pack-item,
+  .aup-card-top,
+  .account-actions-row {
+    flex-wrap: wrap;
+  }
+  .hdh-forms-pack-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .hdh-forms-pack-actions .ghost-button,
+  .hdh-forms-pack-actions .primary-button {
+    min-height: 44px;
+    flex: 1 1 140px;
+  }
+  .modal.open .modal-card,
+  #authModal .modal-card,
+  #feedbackModal .modal-card {
+    width: min(560px, calc(100vw - 16px));
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px));
+    overflow: auto;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+  .modal.open .close-button,
+  #authModal .close-button,
+  #feedbackModal .close-button,
+  .testing-password-reset-panel .close-button {
+    min-width: 44px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 420px) {
+  .page-title h1,
+  .page-title h2,
+  .section-block h2,
+  .section-block h3 {
+    font-size: clamp(1.15rem, 5.5vw, 1.45rem);
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+  .primary-button,
+  .ghost-button {
+    min-height: 44px;
+  }
+}
+
+@media (max-height: 480px) and (orientation: landscape) {
+  .multi-role-tester-banner-blurb { display: none; }
+  .modal.open .modal-card,
+  #authModal .modal-card,
+  .testing-password-reset-panel .modal-card {
+    max-height: 88dvh;
+  }
+}
+
+@media (min-width: 721px) and (max-width: 1100px) {
+  .multi-role-switch-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
