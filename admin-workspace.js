@@ -630,7 +630,7 @@
         ${landingCard("Prompt Management", "AI prompt editor.", "prompts", "AI")}
         ${landingCard("AI Testing", "AI test center (no live calls in tests).", "ai-testing", "AI")}
         ${landingCard("Theme Taxonomy Audit", "Preview-before-confirm theme cleanup.", "taxonomy-audit", "Content")}
-        ${landingCard("Settings", "Admin preferences and device trust.", "admin-settings", "Admin")}
+        ${landingCard("Settings", "Admin shortcuts: media, alerts, and lock.", "admin-settings", "Admin")}
       </div>
     `;
     bindLandingTabs(target);
@@ -640,20 +640,30 @@
     if (!target) return;
     target.innerHTML = `
       <div class="section-heading">
-        <div><p class="eyebrow">Settings</p><h3>Admin preferences</h3><p class="muted-copy">Device trust, lock admin, and workspace preferences.</p></div>
+        <div>
+          <p class="eyebrow">Settings</p>
+          <h3>Admin shortcuts</h3>
+          <p class="muted-copy">Owner/admin tools available on this page. This is not a full preferences center — only the actions below are supported here.</p>
+        </div>
       </div>
       <div class="admin-home-grid">
         <article class="admin-home-card">
           <h4>Media Library</h4>
-          <p class="muted-copy">Manage site images (formerly under Settings).</p>
-          <button type="button" class="ghost-button" data-admin-landing-tab="images">Open Media Library</button>
+          <p class="muted-copy">Manage site images used across the public site and admin content.</p>
+          <button type="button" class="ghost-button" data-admin-landing-tab="images" aria-label="Open Media Library">Open Media Library</button>
         </article>
         <article class="admin-home-card">
-          <h4>Notifications inbox</h4>
-          <p class="muted-copy">Dedicated owner alerts inbox.</p>
-          <button type="button" class="ghost-button" data-admin-landing-tab="admin-notifications">Open alerts</button>
+          <h4>Alerts inbox</h4>
+          <p class="muted-copy">Open the owner notifications and alerts inbox.</p>
+          <button type="button" class="ghost-button" data-admin-landing-tab="admin-notifications" aria-label="Open Alerts">Open Alerts</button>
+        </article>
+        <article class="admin-home-card">
+          <h4>Lock Admin</h4>
+          <p class="muted-copy">End the admin unlock on this browser. You will need email, password, and access code to unlock again.</p>
+          <button type="button" class="ghost-button" data-admin-lock aria-label="Lock Admin">Lock Admin</button>
         </article>
       </div>
+      <p class="form-note">Device-trust toggles and workspace preference editors are not available on this page yet, so they are not listed here.</p>
     `;
     bindLandingTabs(target);
   }
