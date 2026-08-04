@@ -48312,6 +48312,17 @@ function renderAdminOwnerOverview() {
         </div>
         <p class="muted-copy">Test programs / providers / parents are created through Family Hub invites and staff invites — not shown outside Admin.</p>
       </div>
+      <div class="admin-testing-center-block admin-curriculum-sync-block" id="adminCurriculumSyncBlock" data-admin-curriculum-sync>
+        <p class="admin-testing-center-label">Production curriculum</p>
+        <p class="muted-copy">Pull new or updated lesson plans from production into this testing sandbox. Never deletes testing data and never writes to production.</p>
+        <div id="adminCurriculumSyncStatus" class="admin-curriculum-sync-status" aria-live="polite">
+          <p class="muted-copy">Loading sync status…</p>
+        </div>
+        <div class="account-actions-row admin-preview-mode-row" role="group" aria-label="Curriculum sync">
+          <button type="button" class="primary-button" data-admin-testing-action="sync-production-curriculum">Sync Production Curriculum</button>
+          <button type="button" class="ghost-button" data-admin-testing-action="refresh-curriculum-sync-status">Refresh status</button>
+        </div>
+      </div>
       <p class="admin-preview-active-chip" data-admin-preview-active-chip>
         Active: <strong>${escapeHtml(previewMode)}</strong>
         · role <strong>${escapeHtml(getUserRole())}</strong>
@@ -48471,6 +48482,114 @@ function renderAdminOwnerOverview() {
   `;
   bindAdminOwnerDrilldownControls(target);
   ensureAdminBackToTop();
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && isHomeDaycareHubTestingEnabled()) {
+    refreshAdminCurriculumSyncStatus().catch(() => {});
+  }
+}
+
+function formatAdminCurriculumSyncTime(value) {
+  if (!value) return "Never";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function renderAdminCurriculumSyncStatusHtml(payload = {}) {
+  const summary = payload.summary || {};
+  const production = summary.productionLessonCount ?? summary.productionPublicLessonCount ?? "—";
+  const testing = summary.testingLessonCount ?? "—";
+  const status = summary.statusLabel || "Status unavailable";
+  const lastSynced = formatAdminCurriculumSyncTime(summary.lastSyncedAt);
+  const sourceNote = payload.sourceConfigured === false
+    ? `<p class="form-note">Full sync source is not configured on this service yet. Counts below use the public production inventory when available.</p>`
+    : "";
+  const conflictNote = summary.conflictCount
+    ? `<p class="form-note">Conflicts: ${Number(summary.conflictCount)} — sync is blocked until resolved.</p>`
+    : "";
+  return `
+    <ul class="admin-curriculum-sync-metrics">
+      <li>Production: <strong>${escapeHtml(String(production))}</strong> lesson plans</li>
+      <li>Testing: <strong>${escapeHtml(String(testing))}</strong> lesson plans</li>
+      <li>Last synced: <strong>${escapeHtml(lastSynced)}</strong></li>
+      <li>Status: <strong>${escapeHtml(status)}</strong></li>
+    </ul>
+    ${sourceNote}
+    ${conflictNote}
+  `;
+}
+
+async function refreshAdminCurriculumSyncStatus() {
+  const host = document.querySelector("#adminCurriculumSyncStatus");
+  if (!host) return null;
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && !isHomeDaycareHubTestingEnabled()) {
+    host.innerHTML = `<p class="muted-copy">Curriculum sync is testing-site only.</p>`;
+    return null;
+  }
+  const token = typeof adminSessionToken === "function" ? adminSessionToken() : (adminSession()?.token || "");
+  if (!token) {
+    host.innerHTML = `<p class="muted-copy">Unlock Admin to load curriculum sync status.</p>`;
+    return null;
+  }
+  host.innerHTML = `<p class="muted-copy">Loading sync status…</p>`;
+  try {
+    const response = await fetch("/api/admin/curriculum/production-sync/status", {
+      cache: "no-store",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "Could not load sync status.");
+    host.innerHTML = renderAdminCurriculumSyncStatusHtml(data);
+    return data;
+  } catch (error) {
+    host.innerHTML = `<p class="muted-copy">${escapeHtml(error.message || "Could not load sync status.")}</p>`;
+    return null;
+  }
+}
+
+async function runAdminProductionCurriculumSync({ apply = true } = {}) {
+  const token = typeof adminSessionToken === "function" ? adminSessionToken() : (adminSession()?.token || "");
+  if (!token) {
+    showActionFeedback("Unlock Admin first.");
+    return null;
+  }
+  if (typeof isHomeDaycareHubTestingEnabled === "function" && !isHomeDaycareHubTestingEnabled()) {
+    showActionFeedback("Curriculum sync is testing-site only.");
+    return null;
+  }
+  const host = document.querySelector("#adminCurriculumSyncStatus");
+  if (host) host.innerHTML = `<p class="muted-copy">${apply ? "Syncing from production…" : "Comparing with production…"}</p>`;
+  try {
+    const response = await fetch("/api/admin/curriculum/production-sync", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ apply: !!apply, dryRun: !apply }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (response.status === 409) {
+      showActionFeedback(data?.message || "Sync blocked by a conflict.");
+      if (host) host.innerHTML = renderAdminCurriculumSyncStatusHtml(data);
+      return data;
+    }
+    if (!response.ok) throw new Error(data?.error || data?.message || "Curriculum sync failed.");
+    showActionFeedback(data?.message || (apply ? "Curriculum synced." : "Dry-run complete."));
+    if (host) host.innerHTML = renderAdminCurriculumSyncStatusHtml(data);
+    else await refreshAdminCurriculumSyncStatus();
+    return data;
+  } catch (error) {
+    showActionFeedback(error.message || "Curriculum sync failed.");
+    if (host) {
+      host.innerHTML = `<p class="muted-copy">${escapeHtml(error.message || "Curriculum sync failed.")}</p>`;
+    }
+    return null;
+  }
 }
 
 function ensureAdminBackToTop() {
@@ -61622,6 +61741,14 @@ document.addEventListener("click", async (event) => {
     if (action === "reset-preview") {
       setAdminPreviewMode("Admin");
       showActionFeedback("View As reset to Admin.");
+      return;
+    }
+    if (action === "refresh-curriculum-sync-status") {
+      refreshAdminCurriculumSyncStatus();
+      return;
+    }
+    if (action === "sync-production-curriculum") {
+      runAdminProductionCurriculumSync({ apply: true });
       return;
     }
   }
