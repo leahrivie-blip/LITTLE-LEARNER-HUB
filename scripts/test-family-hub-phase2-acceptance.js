@@ -81,7 +81,7 @@ async function main() {
   const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
   const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
   const libJs = fs.readFileSync(path.join(ROOT, "server/family-hub-lib.js"), "utf8");
-  assert.match(indexHtml, /SHELL_VERSION = "20260804-family-hub-phase2"/);
+  assert.match(indexHtml, /SHELL_VERSION = "20260804-(family-hub-phase2|ecosystem-phase3)"/);
   assert.match(appJs, /function renderFamilyHubTodayPanel/);
   assert.match(appJs, /fh-day-story|dayStory/);
   assert.match(appJs, /familyHubRequestForm/);

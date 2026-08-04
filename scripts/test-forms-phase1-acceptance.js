@@ -17,7 +17,7 @@ const { chromium } = require("playwright");
 
 const ROOT = path.join(__dirname, "..");
 const ARTIFACT_DIR = "/opt/cursor/artifacts/forms-phase1-acceptance";
-const SHELL_RE = /SHELL_VERSION = "20260804-(forms-phase1[bc]?|family-hub-phase2)"/;
+const SHELL_RE = /SHELL_VERSION = "20260804-(forms-phase1[bc]?|family-hub-phase2|ecosystem-phase3)"/;
 const OWNER = "forms.p1.accept.owner@example.com";
 const PARENT_A = "forms.p1.accept.parenta@example.com";
 const PARENT_B = "forms.p1.accept.parentb@example.com";

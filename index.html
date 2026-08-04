@@ -150,7 +150,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-family-hub-phase2";
+      var SHELL_VERSION = "20260804-ecosystem-phase3";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -1192,6 +1192,10 @@
                 <button class="ghost-button" id="docHelperCreateAnotherBtn" type="button">Create Another</button>
               </div>
             </div>
+            <label class="settings-check-label" style="margin:10px 0 0;">
+              <input type="checkbox" id="docHelperShareFamily" checked />
+              Share with Family Hub when this is a parent-facing update
+            </label>
             <div id="docHelperDraftActions" class="doc-helper-draft-actions" hidden>
               <button class="ghost-button" type="button" data-doc-draft-action="regenerate">Regenerate</button>
               <button class="ghost-button" type="button" data-doc-draft-action="shorten">Shorten</button>

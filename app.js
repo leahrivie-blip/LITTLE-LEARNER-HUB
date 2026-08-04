@@ -7932,6 +7932,18 @@ function addHomeDaycarePackFormToChild(childId, packForm, status = "needed") {
   return true;
 }
 
+function extractParentEmailFromChild(child = {}) {
+  const guardianEmail = (Array.isArray(child.guardians) ? child.guardians : [])
+    .map((guardian) => String(guardian?.email || "").trim().toLowerCase())
+    .find((email) => email.includes("@"));
+  if (guardianEmail) return guardianEmail;
+  const hint = String(child.parentInfo || "").trim();
+  const angle = hint.match(/<([^>]+@[^>]+)>/);
+  if (angle?.[1]) return angle[1].trim().toLowerCase();
+  const bare = hint.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
+  return bare ? bare[0].trim().toLowerCase() : "";
+}
+
 async function maybeLinkChildToFamilyHubHouseholds(child = {}) {
   if (!isHomeDaycareHubTestingEnabled() || !child?.id || !canUseLaunchBackend()) return 0;
   const headers = await staffAuthHeaders().catch(() => null);
@@ -7941,8 +7953,7 @@ async function maybeLinkChildToFamilyHubHouseholds(child = {}) {
   if (!listRes.ok) return 0;
   const households = (listData.households || []).filter((item) => item && item.status !== "revoked");
   if (!households.length) return 0;
-  const parentHint = String(child.parentInfo || "").trim().toLowerCase();
-  const parentEmail = parentHint.includes("@") ? parentHint : "";
+  const parentEmail = extractParentEmailFromChild(child);
   const targets = households.filter((household) => {
     const ids = (household.childIds || []).map(String);
     if (ids.includes(String(child.id))) return false;
@@ -35524,6 +35535,26 @@ function activeScheduleClassrooms(doc = scheduleDocCache) {
   return rooms.filter((room) => room && room.id && !room.archived);
 }
 
+/** Classrooms for enrollment matching: schedule store first, then Program Settings. */
+function enrollmentClassroomCandidates() {
+  const scheduleRooms = activeScheduleClassrooms();
+  if (scheduleRooms.length) return scheduleRooms;
+  const settings = typeof getProgramSettings === "function" ? getProgramSettings() : {};
+  const fromSettings = Array.isArray(settings?.classrooms) ? settings.classrooms : [];
+  return fromSettings.filter((room) => room && room.id && !room.archived);
+}
+
+function resolveEnrollmentClassroom(desiredRoom) {
+  const desired = String(desiredRoom || "").trim().toLowerCase();
+  if (!desired) return null;
+  const rooms = enrollmentClassroomCandidates();
+  return rooms.find((room) => String(room.name || "").trim().toLowerCase() === desired)
+    || rooms.find((room) => String(room.id || "").trim().toLowerCase() === desired)
+    || rooms.find((room) => desired && String(room.name || "").toLowerCase().includes(desired))
+    || rooms.find((room) => desired && desired.includes(String(room.name || "").toLowerCase()))
+    || null;
+}
+
 async function persistScheduleClassrooms(nextClassrooms) {
   const api = getScheduleApi();
   if (!api) throw new Error("Schedule layer is not available.");
@@ -39692,6 +39723,65 @@ function dlcChildDaySnapshot(child, records, today) {
   };
 }
 
+/** One source of grounded day facts for AI — never invent beyond these lines. */
+function buildGroundedDayFactsForAi(child, records, today = dlcActiveDate()) {
+  if (!child) return { factsText: "", highlights: "", meals: "", nap: "", diapering: "", activities: [], attendance: "", photos: 0 };
+  const snapshot = dlcChildDaySnapshot(child, records, today);
+  const mealLines = [];
+  snapshot.meals.forEach((meal) => {
+    if (meal.breakfast) mealLines.push(`Breakfast: ${meal.breakfast}`);
+    if (meal.lunch) mealLines.push(`Lunch: ${meal.lunch}`);
+    if (meal.snack) mealLines.push(`Snack: ${meal.snack}`);
+    if (!meal.breakfast && !meal.lunch && !meal.snack && (meal.summary || meal.notes)) {
+      mealLines.push(meal.summary || meal.notes);
+    }
+  });
+  const napLines = snapshot.naps.map((nap) => {
+    const times = nap.napStart ? `${nap.napStart}${nap.napEnd ? `–${nap.napEnd}` : ""}` : "";
+    return [times && `Slept ${times}`, nap.duration, nap.summary || nap.notes].filter(Boolean).join(" · ") || "Nap logged";
+  });
+  const diaperLines = snapshot.diapers.map((item) => (
+    [item.time, item.type || item.title, item.summary || item.notes].filter(Boolean).join(" — ")
+  ));
+  const activityNames = snapshot.activities.map((item) => item.activity || item.title || item.summary).filter(Boolean);
+  const attendanceLines = snapshot.attendance.map((item) => (
+    [item.status || "Present", item.dropoff && `Arrived ${item.dropoff}`, item.pickup && `Departed ${item.pickup}`, item.summary]
+      .filter(Boolean).join(" · ")
+  ));
+  const noteLines = snapshot.communications
+    .filter((item) => !/incident/i.test(String(item.type || "")))
+    .map((item) => `${item.type || "Note"}: ${item.summary || item.message || item.mood || ""}`.trim())
+    .filter((line) => line.length > 3);
+  const observationLines = snapshot.observations.map((item) => (
+    item.text || item.summary || item.observationText || ""
+  )).filter(Boolean);
+  const facts = [
+    attendanceLines.length ? `Attendance: ${attendanceLines.join("; ")}` : "",
+    mealLines.length ? `Meals: ${mealLines.join("; ")}` : "",
+    napLines.length ? `Naps: ${napLines.join("; ")}` : "",
+    diaperLines.length ? `Diapers/potty: ${diaperLines.join("; ")}` : "",
+    activityNames.length ? `Activities: ${activityNames.join(", ")}` : "",
+    observationLines.length ? `Observations: ${observationLines.join("; ")}` : "",
+    noteLines.length ? `Teacher notes: ${noteLines.join("; ")}` : "",
+    snapshot.photos.length ? `Photos shared today: ${snapshot.photos.length}` : "",
+  ].filter(Boolean);
+  return {
+    factsText: facts.join("\n"),
+    highlights: [...observationLines, ...noteLines, ...activityNames.slice(0, 3)].filter(Boolean).join(". "),
+    meals: mealLines.join("\n"),
+    nap: napLines.join("\n"),
+    diapering: diaperLines.join("\n"),
+    activities: activityNames,
+    attendance: attendanceLines.join("; "),
+    photos: snapshot.photos.length,
+    classroom: String(child.classroom || "").trim(),
+  };
+}
+
+function canUseEmbeddedWorkflowAi() {
+  return Boolean(isProUser() || isHomeDaycareHubTestingEnabled());
+}
+
 function dlcParentSummaryDraftKey(childId, today) {
   return `${childId}:${today}`;
 }
@@ -39928,21 +40018,25 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     });
   }
 
-  if (requested.has("parent-message") && childNames.length && isProUser()) {
+  if (requested.has("parent-message") && childNames.length && canUseEmbeddedWorkflowAi()) {
     const firstChild = selectedChildren[0];
     const age = childAgeGroupLabel(firstChild);
+    const grounded = buildGroundedDayFactsForAi(firstChild, records, today);
     try {
       const result = await generateToolOutputWithBackend("parentMessage", {
         topic: "Daily Update",
-        details: note,
+        details: [note, grounded.factsText].filter(Boolean).join("\n\nKnown day facts (do not invent beyond these):\n"),
         childName: childNames.length === 1 ? childNames[0] : "your child",
         age,
         programName,
+        classroom: grounded.classroom || firstChild.classroom || "",
+        date: today,
         tone: programSettings.communicationTone || "Warm and friendly",
+        providerNotes: grounded.factsText,
       });
       suggestions.push({
         type: "preview", emoji: "💬", title: "Parent Update Ready",
-        lines: ["Generate a friendly parent message from today's note."],
+        lines: ["Warm parent message grounded in today’s logged facts."],
         preview: result.output,
         previewKind: "parent-message",
         recordKey: "Communications",
@@ -39958,21 +40052,25 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
   }
 
-  if (requested.has("observation") && childNames.length && isProUser() && (milestoneMatch || learningKeywords)) {
+  if (requested.has("observation") && childNames.length && canUseEmbeddedWorkflowAi() && (milestoneMatch || learningKeywords || note.trim().length > 20)) {
     const childForObs = milestoneMatch ? milestoneMatch[1] : (childNames[0] || "");
     const childObj = selectedChildren.find((c) => c.name.toLowerCase() === childForObs.toLowerCase()) || selectedChildren[0];
     if (childObj) {
       const age = childAgeGroupLabel(childObj);
+      const grounded = buildGroundedDayFactsForAi(childObj, records, today);
       try {
         const result = await generateToolOutputWithBackend("observation", {
-          note,
+          note: [note, grounded.factsText].filter(Boolean).join("\n"),
           age,
           childName: childObj.name,
           programName,
+          classroom: grounded.classroom || childObj.classroom || "",
+          date: today,
+          providerNotes: grounded.factsText,
         });
         suggestions.push({
           type: "preview", emoji: "📝", title: "Observation Ready",
-          lines: [`Generate a developmental observation${childObj ? ` for ${childObj.name}` : ""}.`],
+          lines: [`Developmental observation for ${childObj.name} from today’s facts.`],
           preview: result.output,
           previewKind: "observation",
           recordKey: "Observations",
@@ -39988,18 +40086,25 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
   }
 
-  if (requested.has("daily-report") && childNames.length && isProUser()) {
+  if (requested.has("daily-report") && childNames.length && canUseEmbeddedWorkflowAi()) {
     const reportLines = childNames.map((name) => `Daily report for ${name}`);
     try {
       const reports = await Promise.all(selectedChildren.map(async (child) => {
         const age = childAgeGroupLabel(child);
+        const grounded = buildGroundedDayFactsForAi(child, records, today);
         const result = await generateToolOutputWithBackend("daily", {
           childName: child.name,
           age,
-          highlights: note,
+          highlights: [note, grounded.highlights].filter(Boolean).join(". "),
           programName,
           date: today,
+          classroom: grounded.classroom || child.classroom || "",
           tone: programSettings.communicationTone || "Warm and friendly",
+          meals: grounded.meals,
+          nap: grounded.nap,
+          diapering: grounded.diapering,
+          activities: grounded.activities,
+          providerNotes: grounded.factsText || note,
         });
         return result.output;
       }));
@@ -40020,36 +40125,111 @@ async function parseDailyLogNote(note, selectedChildren, records, requestedOutpu
     }
   }
 
-  if (requested.has("behavior-note") && isProUser() && behaviorKeywords) {
-    suggestions.push({
-      type: "preview",
-      emoji: "📌",
-      title: "Behavior Note Suggested",
-      lines: ["Create an internal behavior note from today's update."],
-      preview: note,
-      previewKind: "behavior-note",
-      recordKey: "Communications",
-      recordType: "Behavior Note",
-      shareWithFamily: false,
-      saved: false,
-      ignored: false,
-    });
+  if (requested.has("behavior-note") && canUseEmbeddedWorkflowAi() && behaviorKeywords) {
+    const childObj = selectedChildren[0];
+    try {
+      const result = childObj
+        ? await generateToolOutputWithBackend("behaviorNote", {
+          note,
+          childName: childObj.name,
+          age: childAgeGroupLabel(childObj),
+          programName,
+          date: today,
+          classroom: childObj.classroom || "",
+          providerNotes: buildGroundedDayFactsForAi(childObj, records, today).factsText,
+        })
+        : { output: note };
+      suggestions.push({
+        type: "preview",
+        emoji: "📌",
+        title: "Behavior Note Ready",
+        lines: ["Supportive internal note + strategy ideas from today’s facts."],
+        preview: result.output || note,
+        previewKind: "behavior-note",
+        recordKey: "Communications",
+        recordType: "Behavior Note",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+        alsoSupportPlan: true,
+      });
+    } catch (_error) {
+      suggestions.push({
+        type: "preview",
+        emoji: "📌",
+        title: "Behavior Note Suggested",
+        lines: ["Create an internal behavior note from today's update."],
+        preview: note,
+        previewKind: "behavior-note",
+        recordKey: "Communications",
+        recordType: "Behavior Note",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+        alsoSupportPlan: true,
+      });
+    }
   }
 
-  if (requested.has("incident-report") && isProUser() && incidentKeywords) {
-    suggestions.push({
-      type: "preview",
-      emoji: "⚠️",
-      title: "Incident Report Suggested",
-      lines: ["Review and save an incident report only if this note needs formal documentation."],
-      preview: note,
-      previewKind: "incident-report",
-      recordKey: "Communications",
-      recordType: "Incident Report",
-      shareWithFamily: false,
-      saved: false,
-      ignored: false,
-    });
+  if (requested.has("incident-report") && canUseEmbeddedWorkflowAi() && incidentKeywords) {
+    const childObj = selectedChildren[0];
+    try {
+      const incident = childObj
+        ? await generateToolOutputWithBackend("incidentReport", {
+          note,
+          childName: childObj.name,
+          age: childAgeGroupLabel(childObj),
+          programName,
+          date: today,
+          classroom: childObj.classroom || "",
+          providerNotes: "Use only the provided facts. Do not invent injuries, witnesses, or outcomes.",
+        })
+        : { output: note };
+      let parentMsg = "";
+      try {
+        const msg = await generateToolOutputWithBackend("parentMessage", {
+          topic: "Incident update",
+          details: `Facts only for a calm parent update:\n${note}`,
+          childName: childObj?.name || "your child",
+          age: childObj ? childAgeGroupLabel(childObj) : "",
+          programName,
+          date: today,
+          tone: "Calm, clear, and caring",
+        });
+        parentMsg = msg.output || "";
+      } catch (_err) { /* optional companion */ }
+      suggestions.push({
+        type: "preview",
+        emoji: "⚠️",
+        title: "Incident Report Ready",
+        lines: [
+          "Internal incident draft from the facts you entered.",
+          parentMsg ? "A calm parent message companion is included below the report." : "Review carefully before sharing with family.",
+        ],
+        preview: parentMsg ? `${incident.output || note}\n\n---\nParent message draft:\n${parentMsg}` : (incident.output || note),
+        previewKind: "incident-report",
+        recordKey: "Communications",
+        recordType: "Incident Report",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+        companionParentMessage: parentMsg,
+      });
+    } catch (_error) {
+      suggestions.push({
+        type: "preview",
+        emoji: "⚠️",
+        title: "Incident Report Suggested",
+        lines: ["Review and save an incident report only if this note needs formal documentation."],
+        preview: note,
+        previewKind: "incident-report",
+        recordKey: "Communications",
+        recordType: "Incident Report",
+        shareWithFamily: false,
+        saved: false,
+        ignored: false,
+      });
+    }
   }
 
   if (requested.has("portfolio-entry") && isProUser() && (noteHasPhotos || learningKeywords)) {
@@ -40148,6 +40328,9 @@ function dlcSaveSuggestion(sug, idx) {
     });
   } else if (sug.type === "preview") {
     const content = sug.preview || sug.lines.join("\n");
+    const incidentBody = sug.previewKind === "incident-report" && sug.companionParentMessage
+      ? String(content).split(/\n---\nParent message draft:\n/)[0]
+      : content;
     selectedChildren.forEach((child) => {
       if (sug.previewKind === "daily-report") {
         appendChildRecord("Reports", {
@@ -40156,19 +40339,42 @@ function dlcSaveSuggestion(sug, idx) {
           shareWithFamily: shareFlag,
         });
       } else if (sug.previewKind === "observation") {
-        appendChildRecord("Observations", {
+        const savedObs = appendChildRecord("Observations", {
           childId: child.id, date: today,
           text: content, area: "Daily Log", title: `Observation | ${today}`,
           summary: content.slice(0, 120),
           shareWithFamily: shareFlag,
         });
+        maybeSuggestGoalFromObservation(child, savedObs);
       } else if (sug.previewKind === "behavior-note" || sug.previewKind === "incident-report" || sug.previewKind === "daily-summary") {
         appendChildRecord("Communications", {
           childId: child.id, date: today,
-          type: sug.recordType || "Note", message: content,
-          title: `${sug.recordType || "Note"} | ${today}`, summary: content.slice(0, 120),
+          type: sug.recordType || "Note", message: incidentBody,
+          title: `${sug.recordType || "Note"} | ${today}`, summary: String(incidentBody).slice(0, 120),
           shareWithFamily: shareFlag,
         });
+        if (sug.previewKind === "behavior-note" && sug.alsoSupportPlan) {
+          appendChildRecord("SupportPlans", {
+            childId: child.id,
+            date: today,
+            title: `Support plan | ${today}`,
+            summary: String(incidentBody).slice(0, 200),
+            strategies: String(incidentBody).slice(0, 1200),
+            status: "active",
+            shareWithFamily: false,
+          });
+        }
+        if (sug.previewKind === "incident-report" && sug.companionParentMessage) {
+          appendChildRecord("Communications", {
+            childId: child.id,
+            date: today,
+            type: "Parent Note",
+            message: sug.companionParentMessage,
+            title: `Parent incident update | ${today}`,
+            summary: String(sug.companionParentMessage).slice(0, 120),
+            shareWithFamily: true,
+          });
+        }
       } else if (sug.previewKind === "portfolio-entry") {
         appendChildRecord("Reports", {
           childId: child.id, date: today,
@@ -40185,6 +40391,32 @@ function dlcSaveSuggestion(sug, idx) {
       }
     });
   }
+}
+
+function maybeSuggestGoalFromObservation(child, observation = {}) {
+  if (!child?.id || !isHomeDaycareHubTestingEnabled()) return null;
+  const text = String(observation.text || observation.summary || "").trim();
+  if (text.length < 24) return null;
+  const areaMatch = text.match(/\b(language|literacy|social|emotional|motor|cognitive|self[- ]?help|math|science|art)\b/i);
+  const area = areaMatch ? areaMatch[1].replace(/^./, (c) => c.toUpperCase()) : "Development";
+  const snippet = text.split(/[.!\n]/).map((part) => part.trim()).find((part) => part.length > 18) || text.slice(0, 80);
+  const title = `${area} goal from observation`;
+  const existing = (childStore("Goals") || []).some((goal) => (
+    String(goal.childId) === String(child.id)
+    && String(goal.title || "").toLowerCase() === title.toLowerCase()
+    && String(goal.date || "").slice(0, 10) === String(observation.date || new Date().toISOString().slice(0, 10)).slice(0, 10)
+  ));
+  if (existing) return null;
+  return appendChildRecord("Goals", {
+    childId: child.id,
+    date: observation.date || new Date().toISOString().slice(0, 10),
+    title,
+    area,
+    summary: `Suggested from observation: ${snippet}`,
+    progress: "0",
+    sourceObservationId: observation.id || "",
+    shareWithFamily: false,
+  });
 }
 
 // ─── Speech Input ─────────────────────────────────────────────────────────────
@@ -40565,6 +40797,21 @@ function renderDailyLogsOverviewTab(child, records, today) {
           <div class="chip-list">${reminders.map((item) => `<span class="chip">${escapeHtml(item)}</span>`).join("")}</div>
         </section>
       ` : ""}
+      <section class="section-block dlc-end-day-ai">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">End of day</p>
+            <h4>Turn today’s logs into family updates</h4>
+            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented.</p>
+          </div>
+        </div>
+        <div class="account-actions-row">
+          <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
+          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
+          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
+        </div>
+        <p class="form-note" data-dlc-end-day-status="${escapeHtml(child.id)}" aria-live="polite"></p>
+      </section>
       <details class="section-block dlc-parent-summary-card dlc-optional-ai">
         <summary>Optional: Parent summary</summary>
         <p class="muted-copy">Review and edit before saving. AI is optional — you stay in control.</p>
@@ -41691,66 +41938,40 @@ async function buildDailyReportFromChild(childId, quickNote) {
   const programSettings = getProgramSettings();
   const programName = programSettings.programName || "";
   const tone = programSettings.communicationTone || "Warm and friendly";
-
-  // Gather today's records
-  const meal = records.meals.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
-  const observation = records.observations.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
-  const nap = records.naps.filter((item) => item.childId === childId && item.date === today).slice(-1)[0];
-  const diaperEntries = records.diapers.filter((item) => item.childId === childId && item.date === today);
-  const activityEntries = records.activityLogs.filter((item) => item.childId === childId && item.date === today);
-  const behaviorNotes = records.communications.filter((item) => item.childId === childId && item.date === today && item.type === "Behavior Note");
+  const grounded = buildGroundedDayFactsForAi(child, records, today);
   const ageGroup = childAgeGroupLabel(child);
-
-  // Build meals text from logged data
-  let mealsText = "";
-  if (meal) {
-    const parts = [];
-    if (meal.breakfast) parts.push(`Breakfast: ${meal.breakfast}`);
-    if (meal.lunch) parts.push(`Lunch: ${meal.lunch}`);
-    if (meal.snack) parts.push(`Snack: ${meal.snack}`);
-    if (meal.notes) parts.push(meal.notes);
-    mealsText = parts.join("\n");
-  }
-
-  // Build nap text from logged data
-  let napText = "";
-  if (nap) {
-    const times = nap.napStart ? `${nap.napStart}${nap.napEnd ? "–" + nap.napEnd : ""}` : "";
-    const duration = nap.duration ? ` (${nap.duration})` : "";
-    const notes = nap.notes ? ` ${nap.notes}` : "";
-    napText = times ? `Slept from ${times}${duration}.${notes}`.trim() : `Rested during nap time.${notes}`.trim();
-  }
-
-  // Build diaper text from logged data
-  let diaperText = "";
-  if (diaperEntries.length) {
-    diaperText = diaperEntries.map((d) => `${d.time ? d.time + ": " : ""}${d.type}${d.notes ? " — " + d.notes : ""}`).join("\n");
-  }
-
-  // Build activities list from logged data
-  const loggedActivities = activityEntries.map((a) => a.activity).filter(Boolean);
-
-  // Build highlights from teacher quick note and/or observation
-  let highlights = quickNote || "";
-  if (!highlights && observation) highlights = observation.text || "";
-  if (!highlights && behaviorNotes.length) highlights = behaviorNotes.map((n) => n.message || n.notes || "").filter(Boolean).join(" ");
+  const highlights = [quickNote, grounded.highlights].filter(Boolean).join(". ");
 
   const result = await generateToolOutputWithBackend("daily", {
     childName: child.name,
     age: ageGroup,
     programName,
     date: today,
+    classroom: grounded.classroom || child.classroom || "",
     tone,
     highlights,
-    meals: mealsText,
-    nap: napText,
-    diapering: diaperText,
-    activities: loggedActivities,
-    providerNotes: observation ? `Observation: ${observation.text}${observation.nextSteps ? "\nNext Steps: " + observation.nextSteps : ""}` : "",
+    meals: grounded.meals,
+    nap: grounded.nap,
+    diapering: grounded.diapering,
+    activities: grounded.activities,
+    providerNotes: [
+      grounded.factsText,
+      grounded.attendance ? `Attendance: ${grounded.attendance}` : "",
+      grounded.photos ? `Photos shared: ${grounded.photos}` : "",
+      "Use only these logged facts. Do not invent missing details.",
+    ].filter(Boolean).join("\n"),
   });
   const report = result.output;
 
-  appendChildRecord("Reports", { childId, title: `Daily Report | ${today}`, date: today, summary: report.slice(0, 200), message: report, shareWithFamily: true });
+  appendChildRecord("Reports", {
+    childId,
+    title: `Daily Report | ${today}`,
+    date: today,
+    summary: report.slice(0, 200),
+    message: report,
+    shareWithFamily: true,
+  });
+  return report;
 }
 
 function exportChildPortfolio(childId) {
@@ -60065,14 +60286,34 @@ document.addEventListener("click", async (event) => {
     const lead = data.enrollmentLeads.find((item) => item.id === leadId);
     if (!lead) return;
     const children = childStore("Profiles");
+    const matchedRoom = resolveEnrollmentClassroom(lead.desiredRoom);
+    const today = new Date().toISOString().slice(0, 10);
+    const parentEmail = String(lead.parentEmail || "").trim();
+    const parentName = String(lead.parentName || "").trim();
+    const parentInfo = parentEmail
+      ? (parentName ? `${parentName} <${parentEmail}>` : parentEmail)
+      : (parentName || "");
     const child = {
       id: `child-${Date.now()}`,
       name: lead.childName || "New Child",
-      parentInfo: lead.parentName || "",
-      classroom: lead.desiredRoom || "",
-      ageGroup: "Preschool",
-      enrollmentDate: "",
+      parentInfo,
+      classroom: matchedRoom?.name || lead.desiredRoom || "",
+      classroomId: matchedRoom?.id || "",
+      ageGroup: lead.ageGroup || "Preschool",
+      enrollmentDate: today,
       notes: lead.notes || "",
+      emergencyContact: lead.emergencyContact || "",
+      pickupContacts: lead.pickupContacts || "",
+      guardians: parentEmail || parentName
+        ? [{
+          id: `g-${Date.now()}`,
+          name: parentName || parentEmail,
+          email: parentEmail,
+          relationship: "Parent",
+          isPrimary: true,
+          receiveUpdates: true,
+        }]
+        : [],
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -60082,8 +60323,15 @@ document.addEventListener("click", async (event) => {
     });
     selectedChildId = child.id;
     localStorage.setItem("llhSelectedChild", selectedChildId);
+    let packAdded = 0;
+    if (isHomeDaycareHubTestingEnabled() && typeof addAllHomeDaycarePackFormsToChild === "function") {
+      packAdded = addAllHomeDaycarePackFormsToChild(child.id) || 0;
+    }
+    maybeLinkChildToFamilyHubHouseholds(child).catch(() => 0);
     renderEnrollmentPage();
-    showActionFeedback(`${child.name} added to Child Profiles. Add an enrollment date when ready.`);
+    showActionFeedback(
+      `${child.name} enrolled${matchedRoom ? ` in ${matchedRoom.name}` : ""}${packAdded ? ` · ${packAdded} forms added` : ""}. Invite Family Hub when ready.`,
+    );
     return;
   }
 
@@ -60625,6 +60873,73 @@ document.addEventListener("click", async (event) => {
       message: summaryText,
       shareWithFamily: shareCheckbox ? shareCheckbox.checked : true,
     });
+    return;
+  }
+
+  const dlcEndDayAi = event.target.closest("[data-dlc-end-day-ai]");
+  if (dlcEndDayAi) {
+    event.preventDefault();
+    if (!canUseEmbeddedWorkflowAi()) {
+      showProFeatureModal("AI end-of-day helpers are available on Pro / testing.");
+      return;
+    }
+    const childId = dlcEndDayAi.dataset.dlcEndDayAi;
+    const kind = dlcEndDayAi.dataset.dlcEndDayKind || "daily-report";
+    const statusEl = document.querySelector(`[data-dlc-end-day-status="${CSS.escape(childId)}"]`);
+    const records = childRecords();
+    const child = records.children.find((item) => item.id === childId);
+    if (!child) return;
+    dlcEndDayAi.disabled = true;
+    if (statusEl) statusEl.textContent = "Creating from today’s logged facts…";
+    const today = dlcActiveDate();
+    const grounded = buildGroundedDayFactsForAi(child, records, today);
+    if (!grounded.factsText && kind !== "parent-message") {
+      if (statusEl) statusEl.textContent = "Log meals, naps, or activities first — AI only uses real day facts.";
+      dlcEndDayAi.disabled = false;
+      return;
+    }
+    (async () => {
+      try {
+        if (kind === "daily-report") {
+          await buildDailyReportFromChild(childId, grounded.highlights);
+          if (statusEl) statusEl.textContent = "Daily report saved and shared with Family Hub.";
+          showActionFeedback("Daily report created from today’s logs.");
+        } else {
+          const programSettings = getProgramSettings();
+          const result = await generateToolOutputWithBackend("parentMessage", {
+            topic: "End of day update",
+            details: grounded.factsText || `${child.name} had a full day.`,
+            childName: child.name,
+            age: childAgeGroupLabel(child),
+            programName: programSettings.programName || "",
+            classroom: grounded.classroom || child.classroom || "",
+            date: today,
+            tone: programSettings.communicationTone || "Warm and friendly",
+            providerNotes: grounded.factsText,
+          });
+          appendChildRecord("Communications", {
+            childId,
+            date: today,
+            type: "Parent Note",
+            title: `Parent Update | ${today}`,
+            message: result.output,
+            summary: String(result.output || "").slice(0, 120),
+            shareWithFamily: true,
+          });
+          if (statusEl) statusEl.textContent = "Parent message saved and shared with Family Hub.";
+          showActionFeedback("Parent message created from today’s logs.");
+        }
+        recordAiUse();
+        childManagementMode = "daily-logs";
+        dailyLogsSection = "individual";
+        selectedChildId = childId;
+        renderChildManagement();
+      } catch (error) {
+        if (statusEl) statusEl.textContent = error.message || "Could not create that update.";
+      } finally {
+        dlcEndDayAi.disabled = false;
+      }
+    })();
     return;
   }
 
@@ -63508,15 +63823,34 @@ document.addEventListener("click", async (event) => {
     const today = new Date().toISOString().slice(0, 10);
     const title = `${docTypeLabels[docType] || "Documentation"} | ${today}`;
     if (config.key) {
-      appendChildRecord(config.key, {
+      const shareWithFamily = ["daily-log", "parent-message"].includes(docType)
+        || document.querySelector("#docHelperShareFamily")?.checked === true;
+      const savedDoc = appendChildRecord(config.key, {
         childId: childId || undefined,
         title,
         date: today,
         summary: text.slice(0, 200),
         message: text,
+        text,
         type: docTypeLabels[docType] || "Documentation",
+        shareWithFamily,
         idempotencyKey: `doc-helper-${docType}-${childId}-${String(text).slice(0, 80)}-${today}`,
       });
+      if (docType === "observation" && childId) {
+        const child = childRecords().children.find((item) => item.id === childId);
+        if (child) maybeSuggestGoalFromObservation(child, savedDoc);
+      }
+      if (docType === "behavior-note" && childId && isHomeDaycareHubTestingEnabled()) {
+        appendChildRecord("SupportPlans", {
+          childId,
+          date: today,
+          title: `Support plan | ${today}`,
+          summary: text.slice(0, 200),
+          strategies: text.slice(0, 1200),
+          status: "active",
+          shareWithFamily: false,
+        });
+      }
     } else {
       const result = { id: `ai-${Date.now()}`, title, toolId: "lesson", text, date: new Date().toLocaleDateString() };
       saveGeneratedOutputs([result, ...generatedOutputs()]);
