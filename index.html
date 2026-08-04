@@ -108,9 +108,9 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r3" />
+  <link rel="stylesheet" href="styles.css?v=20260804-js-split-r4" />
   <!-- Start downloading the large app bundle during HTML/CSS parse; boot-critical injects it after first paint. -->
-  <link rel="preload" href="app.js?v=20260804-js-split-r3" as="script" />
+  <link rel="preload" href="app.js?v=20260804-js-split-r4" as="script" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
@@ -219,11 +219,20 @@
     })();
   </script>
   <script>
+    // /admin must paint the Admin unlock shell even if app.js is still downloading/parsing.
+    (function () {
+      try {
+        if (/^\/admin\/?$/i.test(window.location.pathname || "")) {
+          document.documentElement.classList.add("llh-boot-admin-route");
+        }
+      } catch (error) { /* ignore */ }
+    })();
     // Returning sessions: mark authenticated boot, but keep #view-home.active-view visible
     // until app.js remaps (see CSS below). Hiding home while no other view is active left
     // testers with only login buttons / empty main column when JS was slow.
     (function () {
       try {
+        if (document.documentElement.classList.contains("llh-boot-admin-route")) return;
         if (!localStorage.getItem("llhUser")) return;
         document.documentElement.classList.add("llh-boot-authenticated");
       } catch (error) { /* ignore */ }
@@ -266,6 +275,12 @@
     html.llh-boot-authenticated body:not(.app-boot-ready) .view:not(.active-view) { display: none !important; }
     html.llh-boot-authenticated body:not(.app-boot-ready) .view.active-view { display: block !important; }
     html.llh-boot-authenticated body:not(.app-boot-ready).home-view { /* prevent marketing chrome flash */ }
+    /* /admin deep link: show Admin unlock immediately — never wait on multi-MB app.js. */
+    html.llh-boot-admin-route #view-home { display: none !important; }
+    html.llh-boot-admin-route #view-admin {
+      display: block !important;
+    }
+    html.llh-boot-admin-route body:not(.app-boot-ready) .view:not(#view-admin) { display: none !important; }
   </style>
   </head>
   <body>
@@ -1245,8 +1260,38 @@
             <h2>Admin Content Manager</h2>
             <p>Edit public website content, lesson plans, reviews, founder details, images, and legacy file uploads from one mobile-friendly dashboard.</p>
           </div>
-          <section id="adminLockPanel" class="section-block admin-lock-panel"></section>
-          <div id="adminProtectedContent">
+          <section id="adminLockPanel" class="section-block admin-lock-panel">
+            <!-- Static early unlock shell: works before app.js finishes (testing /admin). -->
+            <div class="admin-lock-content" data-llh-early-admin-shell>
+              <div>
+                <p class="eyebrow">Private Owner Area</p>
+                <h3>Admin dashboard is protected</h3>
+                <p>Log in as the owner to view accounts, uploads, support tickets, AI usage, billing activity, leads, and private website analytics.</p>
+              </div>
+              <form id="adminUnlockForm" class="admin-unlock-form" data-llh-early-admin-form>
+                <label>
+                  Owner Email
+                  <input name="adminEmail" type="email" required placeholder="owner@example.com" autocomplete="username" />
+                </label>
+                <label>
+                  Owner Password
+                  <input name="adminPassword" type="password" required placeholder="Owner password" autocomplete="current-password" />
+                </label>
+                <label>
+                  Admin Access Code
+                  <input name="adminCode" type="password" required placeholder="Enter owner code" autocomplete="off" />
+                </label>
+                <label class="checkbox-row admin-trust-device-row">
+                  <input type="checkbox" name="trustDevice" id="adminTrustDeviceInput" checked />
+                  <span>Trust this device — keep Admin unlocked on this phone, tablet, or computer</span>
+                </label>
+                <button class="primary-button" type="submit">Unlock Admin</button>
+                <p class="form-note">On the testing site you can unlock here even while the full app is still loading. Bookmark <code>/admin</code>.</p>
+                <span id="adminUnlockMessage" class="form-message"></span>
+              </form>
+            </div>
+          </section>
+          <div id="adminProtectedContent" hidden>
           <div class="admin-workspace-shell">
           <nav id="adminSectionNav" class="admin-workspace-sidebar admin-section-nav" aria-label="Admin sections"></nav>
           <div class="admin-workspace-main" id="adminWorkspaceMain">
@@ -2466,7 +2511,7 @@
     </div>
 
     <!-- Critical boot path only. Teaching Kit / Admin / analytics / heavy exporters lazy-load. -->
-    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r3" defer></script>
+    <script src="scripts/llh-lazy-loader.js?v=20260804-js-split-r4" defer></script>
     <script src="scripts/llh-copyright.js?v=20260717-more-menu" defer></script>
     <script src="scripts/curriculum-safe-values.js?v=20260803-tk-enrich-preserve" defer></script>
     <script src="scripts/lesson-plan-cover-catalog.js?v=20260730-hdh-own-tester-kid" defer></script>
@@ -2483,7 +2528,7 @@
     <script src="scripts/age-group-normalize.js?v=20260804-age-filter-phase10-r1" defer></script>
     <script src="scripts/multi-role-tester.js?v=20260804-multi-role-tester-r1" defer></script>
     <!-- Last critical script: paints first, then injects app.js -->
-    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r3" defer></script>
+    <script src="scripts/llh-boot-critical.js?v=20260804-js-split-r4" defer></script>
     <!-- Lazy packs (llh-lazy-loader.js): teachingKit, curriculumAdmin, admin, exports, comms, adminSurface -->
   </body>
 </html>

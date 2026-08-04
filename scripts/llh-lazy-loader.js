@@ -5,7 +5,7 @@
 (function (root) {
   "use strict";
 
-  const VERSION = "20260804-js-split-r3";
+  const VERSION = "20260804-js-split-r4";
   const loadedUrls = new Set();
   const loading = new Map();
   const packReady = new Map();
