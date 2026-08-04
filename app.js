@@ -593,6 +593,12 @@ let childRecordEditReturnFocus = null;
 let resourceViewerReturnFocus = null;
 let calendarEventModalReturnFocus = null;
 let notificationBellReturnFocus = null;
+let authModalReturnFocus = null;
+let proModalReturnFocus = null;
+let feedbackModalReturnFocus = null;
+let ideaRequestModalReturnFocus = null;
+let installAppModalReturnFocus = null;
+let filterDrawerReturnFocus = null;
 let activeObservationChildLock = "";
 let pendingGoalArea = "";
 let activeSupportCategoryId = "";
@@ -3256,8 +3262,12 @@ function openAuthModal(mode = "login") {
     signupPersonaChoice = "";
     signupCenterPathway = "";
   }
+  if (!(modal?.classList.contains("open"))) {
+    authModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   setAuthMode(mode);
   document.body.classList.add("auth-modal-open");
+  if (typeof syncLlhAuthModalScrollLock === "function") syncLlhAuthModalScrollLock();
   syncNonessentialNoticesForAuthOverlay(true);
   // Close leftover onboarding so it cannot intercept login after logout.
   try {
@@ -3280,6 +3290,9 @@ function openAuthModal(mode = "login") {
     trackEvent("signup_start", { source: "auth_modal" });
     renderSignupWizardStep();
   }
+  const authFocusRoot = modal?.querySelector(".auth-modal-card, .modal-card") || modal;
+  const firstAuthFocus = llhDialogFocusableElements(authFocusRoot)[0];
+  restoreLlhFocus(firstAuthFocus || document.querySelector("#closeModal"));
 }
 
 async function runAuthSyncWithTimeout(label, task, timeoutMs = 6000) {
@@ -3303,7 +3316,9 @@ async function runAuthSyncWithTimeout(label, task, timeoutMs = 6000) {
 }
 
 function closeAuthModal() {
+  const wasOpen = modal?.classList.contains("open");
   document.body.classList.remove("auth-modal-open");
+  if (typeof syncLlhAuthModalScrollLock === "function") syncLlhAuthModalScrollLock();
   modal.classList.remove("open");
   modal.hidden = true;
   modal.setAttribute("aria-hidden", "true");
@@ -3320,6 +3335,9 @@ function closeAuthModal() {
     intentNote.removeAttribute("data-signup-intent");
   }
   setFormMessage("#authMessage", "");
+  const returnFocus = authModalReturnFocus;
+  authModalReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 function defaultPathwayForPersona(persona) {
@@ -4213,6 +4231,9 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   } catch {
     /* ignore */
   }
+  if (!(modal.classList.contains("open"))) {
+    proModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   document.body.classList.add("auth-modal-open");
   const um = effectiveSiteContent().upgradeMessaging || {};
   const isDraft = um._draft === true;
@@ -4288,6 +4309,8 @@ function showProFeatureModal(message = "This is a Pro Feature.", type = "feature
   trackUpgradePrompt("pro_feature_modal", { type: String(type || "feature"), offer: offerFounding ? "founding" : (offerPro ? "monthly" : "trial") });
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
+  const proFocusRoot = modal.querySelector(".modal-card") || modal;
+  restoreLlhFocus(llhDialogFocusableElements(proFocusRoot)[0] || document.querySelector("#closeProModal"));
 }
 
 function closeProFeatureModal(options = {}) {
@@ -4304,6 +4327,9 @@ function closeProFeatureModal(options = {}) {
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
     document.body.classList.remove("auth-modal-open");
   }
+  const returnFocus = proModalReturnFocus;
+  proModalReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 function billingStatusIndicatesFree(status = "", account = null) {
@@ -14964,9 +14990,13 @@ function updateInstallSettingsPanel() {
 function closeInstallAppModal() {
   const modal = document.querySelector("#installAppModal");
   if (!modal) return;
+  const wasOpen = modal.classList.contains("open");
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
   document.body.classList.remove("auth-modal-open");
+  const returnFocus = installAppModalReturnFocus;
+  installAppModalReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 function openInstallAppModal({ source = "settings", forceInstructions = false } = {}) {
@@ -14975,6 +15005,9 @@ function openInstallAppModal({ source = "settings", forceInstructions = false } 
   const primaryButton = document.querySelector("#installAppPrimaryButton");
   const secondaryButton = document.querySelector("#installAppSecondaryButton");
   if (!modal || !body || !primaryButton || !secondaryButton) return;
+  if (!(modal.classList.contains("open"))) {
+    installAppModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   installModalSource = source;
   body.innerHTML = installInstructionsMarkup();
   primaryButton.textContent = canTriggerInstallPrompt() && !forceInstructions ? "Add to Home Screen" : "Got It";
@@ -14985,6 +15018,7 @@ function openInstallAppModal({ source = "settings", forceInstructions = false } 
   modal.classList.add("open");
   modal.setAttribute("aria-hidden", "false");
   document.body.classList.add("auth-modal-open");
+  restoreLlhFocus(llhDialogFocusableElements(modal.querySelector(".modal-card") || modal)[0] || primaryButton);
 }
 
 async function promptInstallFlow({ source = "settings", forceInstructions = false } = {}) {
@@ -15281,10 +15315,23 @@ function renderNotificationBell() {
   positionNotificationBellPanel();
 }
 
+function llhMeaningfulFocusEl(fallback = null) {
+  const active = document.activeElement;
+  if (
+    active instanceof HTMLElement
+    && active !== document.body
+    && active !== document.documentElement
+    && !active.closest?.("[data-llh-confirm-dialog]")
+  ) {
+    return active;
+  }
+  return fallback;
+}
+
 function toggleNotificationBellPanel(forceOpen) {
   const willOpen = typeof forceOpen === "boolean" ? forceOpen : !notificationBellState.open;
   if (willOpen && !notificationBellState.open) {
-    notificationBellReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : document.querySelector("#notificationBellBtn");
+    notificationBellReturnFocus = llhMeaningfulFocusEl(document.querySelector("#notificationBellBtn"));
   }
   notificationBellState.open = willOpen;
   renderNotificationBell();
@@ -15295,7 +15342,15 @@ function toggleNotificationBellPanel(forceOpen) {
     positionNotificationBellPanel();
     const returnFocus = notificationBellReturnFocus;
     notificationBellReturnFocus = null;
-    restoreLlhFocus(returnFocus || document.querySelector("#notificationBellBtn"));
+    const bell = document.querySelector("#notificationBellBtn");
+    const target = (returnFocus && document.contains(returnFocus) && returnFocus !== document.body)
+      ? returnFocus
+      : bell;
+    restoreLlhFocus(target);
+    // If the browser refused focus (hidden/offscreen chrome), retry on the bell.
+    if (bell && document.activeElement !== target && document.activeElement !== bell) {
+      try { bell.focus({ preventScroll: true }); } catch (_error) { /* ignore */ }
+    }
   }
 }
 
@@ -44293,8 +44348,93 @@ function trapLlhDialogFocus(event, root) {
 
 function restoreLlhFocus(el) {
   if (el && typeof el.focus === "function") {
-    try { el.focus(); } catch (_error) { /* ignore */ }
+    try { el.focus({ preventScroll: true }); } catch (_error) {
+      try { el.focus(); } catch (_inner) { /* ignore */ }
+    }
   }
+}
+
+/** Keep window scroll stable while body.auth-modal-open applies overflow:hidden. */
+let llhAuthModalScrollY = null;
+function syncLlhAuthModalScrollLock() {
+  if (!document.body) return;
+  const locked = document.body.classList.contains("auth-modal-open");
+  if (locked) {
+    if (llhAuthModalScrollY == null) {
+      llhAuthModalScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0;
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${llhAuthModalScrollY}px`;
+      document.body.style.left = "0";
+      document.body.style.right = "0";
+      document.body.style.width = "100%";
+    }
+    return;
+  }
+  if (llhAuthModalScrollY == null) return;
+  const y = llhAuthModalScrollY;
+  llhAuthModalScrollY = null;
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  window.scrollTo(0, y);
+}
+function installLlhAuthModalScrollLock() {
+  if (typeof MutationObserver !== "function") return;
+  if (!document.body) {
+    document.addEventListener("DOMContentLoaded", installLlhAuthModalScrollLock, { once: true });
+    return;
+  }
+  if (document.body.dataset.llhScrollLockBound === "1") return;
+  document.body.dataset.llhScrollLockBound = "1";
+  try {
+    new MutationObserver(() => syncLlhAuthModalScrollLock())
+      .observe(document.body, { attributes: true, attributeFilter: ["class"] });
+  } catch (_error) { /* ignore */ }
+}
+installLlhAuthModalScrollLock();
+
+/** Arrow-key roving focus for role=tablist (APG pattern). Activates the target tab via click. */
+function moveLlhTablistFocus(event, tablist, currentTab) {
+  if (!tablist || !currentTab) return false;
+  const horizontal = event.key === "ArrowLeft" || event.key === "ArrowRight";
+  const vertical = event.key === "ArrowUp" || event.key === "ArrowDown";
+  if (!horizontal && !vertical) return false;
+  const tabs = [...tablist.querySelectorAll('[role="tab"]')].filter((el) => {
+    if (el.hasAttribute("disabled") || el.getAttribute("aria-hidden") === "true") return false;
+    if (el.closest("[hidden]")) return false;
+    const style = window.getComputedStyle(el);
+    return style.visibility !== "hidden" && style.display !== "none";
+  });
+  if (tabs.length < 2) return false;
+  const index = tabs.indexOf(currentTab);
+  if (index < 0) return false;
+  const delta = (event.key === "ArrowRight" || event.key === "ArrowDown") ? 1 : -1;
+  const next = tabs[(index + delta + tabs.length) % tabs.length];
+  if (!next) return false;
+  event.preventDefault();
+  const marker = next.getAttribute("data-messages-tab")
+    || next.getAttribute("data-lesson-workspace-tab")
+    || next.getAttribute("data-lesson-workspace-week-day")
+    || next.getAttribute("data-fh-child")
+    || next.id
+    || "";
+  next.focus({ preventScroll: true });
+  next.click();
+  // Re-renders often replace tab nodes — restore focus on the replacement.
+  requestAnimationFrame(() => {
+    const tabs = [...tablist.querySelectorAll('[role="tab"]')];
+    const match = tabs.find((el) => (
+      el.getAttribute("data-messages-tab") === marker
+      || el.getAttribute("data-lesson-workspace-tab") === marker
+      || el.getAttribute("data-lesson-workspace-week-day") === marker
+      || el.getAttribute("data-fh-child") === marker
+      || el.id === marker
+    )) || tabs.find((el) => el.getAttribute("aria-selected") === "true" || el.classList.contains("is-active") || el.classList.contains("active"));
+    match?.focus?.({ preventScroll: true });
+  });
+  return true;
 }
 
 function confirmActionDialogHtml() {
@@ -45503,6 +45643,9 @@ function prefillIdeaRequestForm({ force = false } = {}) {
 function openIdeaRequestModal() {
   const modal = document.querySelector("#ideaRequestModal");
   if (!modal) return;
+  if (!(modal.classList.contains("open"))) {
+    ideaRequestModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   setIdeaRequestMessage("");
   // Always start from saved contact state so guests never see leftover/fake names.
   prefillIdeaRequestForm({ force: true });
@@ -45518,11 +45661,15 @@ function openIdeaRequestModal() {
 function closeIdeaRequestModal() {
   const modal = document.querySelector("#ideaRequestModal");
   if (!modal) return;
+  const wasOpen = modal.classList.contains("open");
   modal.classList.remove("open");
   modal.setAttribute("aria-hidden", "true");
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
     document.body.classList.remove("auth-modal-open");
   }
+  const returnFocus = ideaRequestModalReturnFocus;
+  ideaRequestModalReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 function bindIdeaRequestForm() {
@@ -45618,6 +45765,10 @@ async function submitIdeaRequestForm(event) {
 function openFeedbackModal(type = "General Feedback") {
   const modal = document.querySelector("#feedbackModal");
   if (!modal) return;
+  const alreadyOpenEarly = modal.classList.contains("open");
+  if (!alreadyOpenEarly) {
+    feedbackModalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  }
   const account = currentAccount() || {};
   const name = displayUserName(account) || [account.firstName, account.lastName].filter(Boolean).join(" ") || "";
   const email = currentUser || account.email || "";
@@ -45656,6 +45807,7 @@ function openFeedbackModal(type = "General Feedback") {
 function closeFeedbackModal({ discardDraft = false } = {}) {
   const modal = document.querySelector("#feedbackModal");
   if (!modal) return;
+  const wasOpen = modal.classList.contains("open");
   const type = document.querySelector("#feedbackTypeInput")?.value || "General Feedback";
   if (discardDraft) clearFeedbackDraft(type);
   else writeFeedbackDraft(type);
@@ -45664,6 +45816,9 @@ function closeFeedbackModal({ discardDraft = false } = {}) {
   if (!document.querySelector(".modal.open, .llh-confirm-dialog:not([hidden]), #scheduleEventModal.open")) {
     document.body.classList.remove("auth-modal-open");
   }
+  const returnFocus = feedbackModalReturnFocus;
+  feedbackModalReturnFocus = null;
+  if (wasOpen) restoreLlhFocus(returnFocus);
 }
 
 async function submitFeedbackForm(event) {
@@ -64933,8 +65088,25 @@ document.addEventListener("click", async (event) => {
   const lessonLibraryFiltersToggle = event.target.closest("[data-lesson-library-filters-toggle]");
   if (lessonLibraryFiltersToggle) {
     event.preventDefault();
-    lessonLibraryFiltersOpen = !lessonLibraryFiltersOpen;
+    const opening = !lessonLibraryFiltersOpen;
+    if (opening) {
+      filterDrawerReturnFocus = lessonLibraryFiltersToggle instanceof HTMLElement
+        ? lessonLibraryFiltersToggle
+        : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    } else {
+      const returnFocus = filterDrawerReturnFocus || lessonLibraryFiltersToggle;
+      filterDrawerReturnFocus = null;
+      lessonLibraryFiltersOpen = false;
+      renderCategoryPage("lessons");
+      restoreLlhFocus(returnFocus);
+      return;
+    }
+    lessonLibraryFiltersOpen = true;
     renderCategoryPage("lessons");
+    requestAnimationFrame(() => {
+      const drawer = document.querySelector("#lessonLibraryFilterDrawer, .lesson-library-filter-drawer");
+      restoreLlhFocus(llhDialogFocusableElements(drawer)[0] || drawer);
+    });
     return;
   }
 
@@ -65037,8 +65209,24 @@ document.addEventListener("click", async (event) => {
   const activityFiltersToggle = event.target.closest("[data-activity-filters-toggle]");
   if (activityFiltersToggle) {
     event.preventDefault();
-    activityLibraryFiltersOpen = !activityLibraryFiltersOpen;
+    const opening = !activityLibraryFiltersOpen;
+    if (opening) {
+      filterDrawerReturnFocus = activityFiltersToggle instanceof HTMLElement
+        ? activityFiltersToggle
+        : (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+      activityLibraryFiltersOpen = true;
+      renderCategoryPage("activities");
+      requestAnimationFrame(() => {
+        const drawer = document.querySelector(".lesson-library-filter-drawer");
+        restoreLlhFocus(llhDialogFocusableElements(drawer)[0] || drawer);
+      });
+      return;
+    }
+    const returnFocus = filterDrawerReturnFocus || activityFiltersToggle;
+    filterDrawerReturnFocus = null;
+    activityLibraryFiltersOpen = false;
     renderCategoryPage("activities");
+    restoreLlhFocus(returnFocus);
     return;
   }
 
@@ -67591,13 +67779,55 @@ document.addEventListener("keydown", (event) => {
     requestResourceViewerClose();
     return;
   }
+  if (document.querySelector("#authModal.open")) {
+    event.preventDefault();
+    closeAuthModal();
+    return;
+  }
+  if (document.querySelector("#feedbackModal.open")) {
+    event.preventDefault();
+    closeFeedbackModal();
+    return;
+  }
+  if (document.querySelector("#ideaRequestModal.open")) {
+    event.preventDefault();
+    closeIdeaRequestModal();
+    return;
+  }
+  if (document.querySelector("#proModal.open")) {
+    event.preventDefault();
+    closeProFeatureModal({ source: "escape" });
+    return;
+  }
+  if (typeof notificationBellState === "object" && notificationBellState.open) {
+    event.preventDefault();
+    toggleNotificationBellPanel(false);
+    return;
+  }
+  if (lessonLibraryFiltersOpen || activityLibraryFiltersOpen) {
+    event.preventDefault();
+    const returnFocus = filterDrawerReturnFocus;
+    filterDrawerReturnFocus = null;
+    const wasLesson = lessonLibraryFiltersOpen;
+    lessonLibraryFiltersOpen = false;
+    activityLibraryFiltersOpen = false;
+    const activeView = document.querySelector(".active-view")?.id.replace("view-", "");
+    if (viewMap[activeView]) renderCategoryPage(activeView);
+    const freshToggle = document.querySelector(
+      wasLesson ? "[data-lesson-library-filters-toggle]" : "[data-activity-filters-toggle]",
+    );
+    restoreLlhFocus(
+      (returnFocus && document.contains(returnFocus) ? returnFocus : null)
+      || freshToggle,
+    );
+    return;
+  }
   if (document.getElementById("llhMetaCookieNotice") && !document.querySelector(".modal.open")) {
     event.preventDefault();
     dismissMetaCookieNotice();
     return;
   }
   setMobileNavOpen(false);
-  closeProFeatureModal();
 });
 
 document.addEventListener("keydown", (event) => {
@@ -72987,6 +73217,23 @@ document.addEventListener("keydown", (event) => {
     if (scheduleCard && trapLlhDialogFocus(event, scheduleCard)) return;
     const resourceCard = document.querySelector("#resourceViewerModal.open .resource-viewer-card, #resourceViewerModal.open .modal-card");
     if (resourceCard && trapLlhDialogFocus(event, resourceCard)) return;
+    const authCard = document.querySelector("#authModal.open .auth-modal-card, #authModal.open .modal-card, #authModal.open");
+    if (authCard && trapLlhDialogFocus(event, authCard)) return;
+    const feedbackCard = document.querySelector("#feedbackModal.open .modal-card, #feedbackModal.open");
+    if (feedbackCard && trapLlhDialogFocus(event, feedbackCard)) return;
+    const ideaCard = document.querySelector("#ideaRequestModal.open .modal-card, #ideaRequestModal.open");
+    if (ideaCard && trapLlhDialogFocus(event, ideaCard)) return;
+    const proCard = document.querySelector("#proModal.open .modal-card, #proModal.open");
+    if (proCard && trapLlhDialogFocus(event, proCard)) return;
+    const installCard = document.querySelector("#installAppModal.open .modal-card, #installAppModal.open");
+    if (installCard && trapLlhDialogFocus(event, installCard)) return;
+    const filterDrawer = document.querySelector("#lessonLibraryFilterDrawer, .lesson-library-filter-drawer");
+    if (filterDrawer && (lessonLibraryFiltersOpen || activityLibraryFiltersOpen) && trapLlhDialogFocus(event, filterDrawer)) return;
+  }
+  if (event.key === "ArrowLeft" || event.key === "ArrowRight" || event.key === "ArrowUp" || event.key === "ArrowDown") {
+    const tab = event.target?.closest?.('[role="tab"]');
+    const tablist = tab?.closest?.('[role="tablist"]');
+    if (tab && tablist && moveLlhTablistFocus(event, tablist, tab)) return;
   }
   if (event.key !== "Escape") return;
   const confirmDialog = document.querySelector("[data-llh-confirm-dialog]:not([hidden])");
