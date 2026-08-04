@@ -544,7 +544,16 @@ function buildEnrichmentAiUserPrompt({ plan, activity, scope, existing }) {
     lines.push(`Activity category: ${text(activity.activityCategory, 80)}`);
     lines.push(`Day: ${text(activity.dayOfWeek, 20)}`);
     lines.push(`Objective: ${text(activity.objective, 400)}`);
-    lines.push(`Materials: ${text(activity.materials, 400)}`);
+    const materialsForPrompt = (() => {
+      try {
+        const sentinel = require("../scripts/curriculum-sentinel.js");
+        const raw = text(activity.materials, 400);
+        return sentinel.isSentinelValue(raw) ? "" : raw;
+      } catch {
+        return text(activity.materials, 400);
+      }
+    })();
+    if (materialsForPrompt) lines.push(`Materials: ${materialsForPrompt}`);
     lines.push(`Setup: ${text(activity.setup, 400)}`);
   } else {
     lines.push(`Books count: ${asArray(plan?.books).length}`);

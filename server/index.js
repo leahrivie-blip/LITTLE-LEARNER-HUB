@@ -11,6 +11,7 @@ const freeCurriculumSample = require("../scripts/free-curriculum-sample.js");
 const freePlanGrandfathering = require("../scripts/free-plan-grandfathering.js");
 const trialCurriculumExports = require("../scripts/trial-curriculum-exports.js");
 const teachingKit = require("../scripts/teaching-kit.js");
+const curriculumSentinel = require("../scripts/curriculum-sentinel.js");
 const lessonPlanCoverAssign = require("../scripts/lesson-plan-cover-assign.js");
 const scheduleLib = require("./schedule-lib.js");
 const { createEmailEngagement, defaultEmailEngagementStore } = require("./email-engagement.js");
@@ -1116,7 +1117,10 @@ function normalizedFreePlanAccess(value) {
 }
 
 function normalizedMultilineText(value, maxLength = 12000) {
-  return String(value || "").replace(/\r\n?/g, "\n").trim().slice(0, maxLength);
+  const text = String(value || "").replace(/\r\n?/g, "\n").trim();
+  if (!text) return "";
+  if (curriculumSentinel.isSentinelValue(text)) return "";
+  return text.slice(0, maxLength);
 }
 
 function normalizedShortText(value, maxLength = 240) {
@@ -1640,22 +1644,34 @@ function normalizedCurriculumLearningDomains(value) {
 
 function normalizedCurriculumBookEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
+  if (curriculumSentinel.isSentinelValue(entry) || curriculumSentinel.isSentinelValue(entry.title)) {
+    return null;
+  }
   const title = normalizedShortText(entry.title, 180);
-  if (!title) return null;
+  if (!title || curriculumSentinel.isSentinelValue(title)) return null;
   return {
     title,
-    author: normalizedShortText(entry.author, 120),
-    notes: normalizedMultilineText(entry.notes, 1000),
+    author: curriculumSentinel.isSentinelValue(entry.author)
+      ? ""
+      : normalizedShortText(entry.author, 120),
+    notes: curriculumSentinel.isSentinelValue(entry.notes)
+      ? ""
+      : normalizedMultilineText(entry.notes, 1000),
   };
 }
 
 function normalizedCurriculumSongEntry(value) {
   const entry = value && typeof value === "object" ? value : {};
+  if (curriculumSentinel.isSentinelValue(entry) || curriculumSentinel.isSentinelValue(entry.title)) {
+    return null;
+  }
   const title = normalizedShortText(entry.title, 180);
-  if (!title) return null;
+  if (!title || curriculumSentinel.isSentinelValue(title)) return null;
   return {
     title,
-    notes: normalizedMultilineText(entry.notes, 1000),
+    notes: curriculumSentinel.isSentinelValue(entry.notes)
+      ? ""
+      : normalizedMultilineText(entry.notes, 1000),
   };
 }
 
