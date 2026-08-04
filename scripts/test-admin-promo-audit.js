@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Read-only promo code audit — documents TRY1MONTH env vs stored duplication.
- * Does not delete or alter promo records. Run: npm run test:admin-promo-audit
+ * Promo code audit — env vs stored codes, retired TRY1MONTH, duplicate guards.
+ * Run: node scripts/test-admin-promo-audit.js
  */
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
@@ -13,65 +13,74 @@ const { spawn } = require("node:child_process");
 
 const ROOT = path.join(__dirname, "..");
 
-function requestJson(port, method, urlPath, body, headers = {}) {
+function requestJson(port, method, urlPath, body) {
   return new Promise((resolve, reject) => {
     const payload = body ? JSON.stringify(body) : null;
-    const req = http.request({
-      hostname: "127.0.0.1",
-      port,
-      path: urlPath,
-      method,
-      headers: payload
-        ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload), ...headers }
-        : { ...headers },
-    }, (res) => {
-      const chunks = [];
-      res.on("data", (c) => chunks.push(c));
-      res.on("end", () => {
-        let json = null;
-        try { json = JSON.parse(Buffer.concat(chunks).toString("utf8") || "null"); } catch { json = null; }
-        resolve({ status: res.statusCode, json });
-      });
-    });
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: urlPath,
+        method,
+        headers: payload
+          ? { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(payload) }
+          : {},
+        timeout: 30000,
+      },
+      (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const text = Buffer.concat(chunks).toString("utf8");
+          let json = null;
+          try { json = JSON.parse(text); } catch { json = null; }
+          resolve({ status: res.statusCode, json, text });
+        });
+      },
+    );
     req.on("error", reject);
     if (payload) req.write(payload);
     req.end();
   });
 }
 
-function startServer(storePath, extraEnv = {}) {
-  const port = 19920 + Math.floor(Math.random() * 30);
+function startServer(storePath) {
+  const port = 19710 + Math.floor(Math.random() * 40);
   const child = spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
     env: {
       ...process.env,
       PORT: String(port),
       SITE_URL: `http://127.0.0.1:${port}`,
-      DATABASE_PROVIDER: "local-json",
-      LLH_STORE_PATH: storePath,
-      NODE_ENV: "test",
       ADMIN_EMAIL: "promo-audit@test.local",
       ADMIN_PASSWORD: "promo-audit-pass",
       ADMIN_ACCESS_CODE: "promo-audit-code",
-      PROMO_FREE_TRIAL_CODE: "TRY1MONTH",
+      DATABASE_PROVIDER: "local-json",
+      LLH_STORE_PATH: storePath,
+      // Intentional env promo for duplicate-guard coverage (not TRY1MONTH).
+      PROMO_FREE_TRIAL_CODE: "ENVPROMO30",
       PROMO_FREE_TRIAL_DAYS: "30",
-      ...extraEnv,
+      NODE_ENV: "test",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
+  let output = "";
+  child.stdout.on("data", (d) => { output += d; });
+  child.stderr.on("data", (d) => { output += d; });
+  child.__output = () => output;
   return { child, port };
 }
 
 async function waitForBoot(port, child) {
-  for (let i = 0; i < 80; i += 1) {
-    if (child.exitCode !== null) throw new Error("server exited");
+  for (let i = 0; i < 100; i += 1) {
     try {
       const res = await requestJson(port, "GET", "/api/health");
       if (res.status === 200 && res.json?.ok) return;
     } catch { /* retry */ }
+    if (child.exitCode !== null) throw new Error(`Server exited:\n${child.__output()}`);
     await new Promise((r) => setTimeout(r, 100));
   }
-  throw new Error("boot timeout");
+  throw new Error(`boot timeout:\n${child.__output()}`);
 }
 
 async function adminToken(port) {
@@ -100,7 +109,16 @@ async function main() {
   const storePath = path.join(tmpDir, "launch-store.json");
   fs.writeFileSync(storePath, JSON.stringify({
     users: {},
-    promoCodes: [],
+    promoCodes: [{
+      id: "promo_try1month_default",
+      code: "TRY1MONTH",
+      label: "1 Month Free",
+      trialDays: 30,
+      status: "active",
+      source: "default",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
     promoRedemptions: [],
     adminSessions: {},
   }, null, 2));
@@ -110,14 +128,23 @@ async function main() {
     await waitForBoot(port, child);
     const token = await adminToken(port);
 
-    await test("seedDefaultPromoCodes creates stored TRY1MONTH alongside env default", async () => {
+    await test("boot archives TRY1MONTH for new redemptions (keeps historical row)", async () => {
       const list = await requestJson(port, "GET", `/api/admin/promo-codes?adminToken=${token}`);
       assert.equal(list.status, 200, JSON.stringify(list.json));
-      assert.equal(list.json.envPromo?.code, "TRY1MONTH");
+      assert.equal(list.json.envPromo?.code, "ENVPROMO30");
       const storedTry1 = (list.json.promoCodes || []).find((row) => String(row.code).toUpperCase() === "TRY1MONTH");
-      assert.ok(storedTry1, "expected seeded stored TRY1MONTH");
-      assert.equal(list.json.audit?.duplicateEnvAndStore, true);
-      assert.match(String(list.json.audit?.checkoutResolution || ""), /stored active promo wins/i);
+      assert.ok(storedTry1, "expected historical TRY1MONTH row retained");
+      assert.equal(String(storedTry1.status).toLowerCase(), "archived");
+    });
+
+    await test("TRY1MONTH validate is rejected for new signups", async () => {
+      const validate = await requestJson(port, "POST", "/api/validate-promo-code", {
+        code: "TRY1MONTH",
+        email: "newcreator@example.com",
+      });
+      assert.equal(validate.status, 400, JSON.stringify(validate.json));
+      assert.equal(validate.json.valid, false);
+      assert.match(String(validate.json.error || ""), /no longer available|not active/i);
     });
 
     await test("redemption counting uses shared promoRedemptions ledger", async () => {
@@ -135,12 +162,11 @@ async function main() {
       const storedTry1 = (list.json.promoCodes || []).find((row) => String(row.code).toUpperCase() === "TRY1MONTH");
       assert.ok(storedTry1);
       assert.equal(Number(storedTry1.redemptionCount || 0), 1);
-      assert.equal(Number(list.json.envPromo?.redemptionCount || 0), 1);
     });
 
-    await test("checkout prefers stored active promo over env fallback", async () => {
+    await test("intentional env promo still validates", async () => {
       const validate = await requestJson(port, "POST", "/api/validate-promo-code", {
-        code: "TRY1MONTH",
+        code: "ENVPROMO30",
         email: "newcreator@example.com",
       });
       assert.equal(validate.status, 200, JSON.stringify(validate.json));
@@ -148,12 +174,12 @@ async function main() {
       assert.equal(validate.json.trialDays, 30);
     });
 
-    await test("creating duplicate stored env code is blocked (read-only guard — no data mutated)", async () => {
+    await test("creating duplicate stored env code is blocked", async () => {
       const before = JSON.parse(fs.readFileSync(storePath, "utf8"));
       const beforeCount = (before.promoCodes || []).length;
       const blocked = await requestJson(port, "POST", "/api/admin/promo-codes", {
         adminToken: token,
-        code: "TRY1MONTH",
+        code: "ENVPROMO30",
         trialDays: 30,
         label: "Duplicate attempt",
       });
@@ -189,10 +215,9 @@ async function main() {
     });
 
     if (!process.exitCode) {
-      console.log("\nPromo audit (read-only) passed.");
-      console.log("FINDING: TRY1MONTH appears twice because seedDefaultPromoCodes() seeds a stored row while PROMO_FREE_TRIAL_CODE defaults to TRY1MONTH.");
-      console.log("REDEMPTION SOURCE: promoRedemptions ledger (global, filtered by normalized code).");
-      console.log("CHECKOUT: stored active promo wins; env row is fallback display only.");
+      console.log("\nPromo audit passed.");
+      console.log("FINDING: TRY1MONTH is archived/retired for new signups; historical redemptions remain.");
+      console.log("DEFAULTS: PROMO_FREE_TRIAL_CODE/DAYS no longer default to TRY1MONTH/30.");
     }
   } finally {
     child.kill("SIGTERM");

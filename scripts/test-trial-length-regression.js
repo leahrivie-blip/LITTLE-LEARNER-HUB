@@ -50,7 +50,7 @@ function requestJson(method, urlPath, body) {
 }
 
 function startServer() {
-  fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, siteContent: {}, foundingMembers: [] }, null, 2));
+  fs.writeFileSync(STORE_PATH, JSON.stringify({ users: {}, siteContent: {}, foundingMembers: [], promoCodes: [] }, null, 2));
   const child = spawn(process.execPath, ["server/index.js"], {
     cwd: ROOT,
     env: {
@@ -65,8 +65,9 @@ function startServer() {
       STRIPE_PRICE_PRO_MONTHLY: "price_sim_pro_monthly",
       STRIPE_PRICE_PRO_ANNUAL: "price_sim_pro_annual",
       STRIPE_PRICE_FOUNDING_MONTHLY: "price_sim_founding_monthly",
-      PROMO_FREE_TRIAL_CODE: "TRY1MONTH",
-      PROMO_FREE_TRIAL_DAYS: "30",
+      // No PROMO_FREE_TRIAL_* defaults — production must not auto-grant 30-day trials.
+      PROMO_FREE_TRIAL_CODE: "",
+      PROMO_FREE_TRIAL_DAYS: "0",
       ADMIN_EMAIL: "trial-audit-admin@test.local",
       ADMIN_PASSWORD: "trial-audit-pass",
       ADMIN_ACCESS_CODE: "trial-audit-code",
@@ -133,7 +134,7 @@ async function main() {
     trialStatus: "In Trial",
     stripeSubscriptionStatus: "trialing",
   });
-  assert.equal(mystery30.kind, "unknown");
+  assert.equal(mystery30.kind, "unexpected_30day");
   assert.equal(mystery30.affected, true);
   console.log("PASS  classification unit cases");
 
@@ -141,7 +142,29 @@ async function main() {
   try {
     await waitForBoot(child);
 
-    // Standard 7-day checkout must send trial_period_days=7 even if a promo code is also present.
+    // Standard 7-day checkout must send trial_period_days=7 even if a retired promo code is entered.
+    const storeBoot = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
+    storeBoot.promoCodes = [{
+      id: "promo_test_try1",
+      code: "TRY1MONTH",
+      label: "Test 1 Month Free (retired)",
+      trialDays: 30,
+      status: "active",
+      source: "test",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }, {
+      id: "promo_test_intentional",
+      code: "INTENTIONAL30",
+      label: "Intentional future promo",
+      trialDays: 30,
+      status: "active",
+      source: "test",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }];
+    fs.writeFileSync(STORE_PATH, JSON.stringify(storeBoot, null, 2));
+
     const checkout = await requestJson("POST", "/api/create-checkout-session", {
       email: "standard-trial@test.local",
       plan: "monthly",
@@ -156,6 +179,16 @@ async function main() {
     assert.match(String(checkout.json.url || ""), /trial_days=7/);
     assert.doesNotMatch(String(checkout.json.url || ""), /trial_days=30/);
     console.log("PASS  trial7day overrides promo and keeps 7-day Stripe trial");
+
+    // TRY1MONTH must be rejected for new redemptions (archived + retired block).
+    const retiredAttempt = await requestJson("POST", "/api/create-checkout-session", {
+      email: "retired-promo@test.local",
+      plan: "monthly",
+      promoCode: "TRY1MONTH",
+    });
+    assert.equal(retiredAttempt.status, 400, JSON.stringify(retiredAttempt.json));
+    assert.match(String(retiredAttempt.json?.error || ""), /no longer available|not active/i);
+    console.log("PASS  retired TRY1MONTH does not grant a 30-day trial");
 
     const storeAfterCheckout = JSON.parse(fs.readFileSync(STORE_PATH, "utf8"));
     const pending = storeAfterCheckout.users["standard-trial@test.local"];
@@ -185,16 +218,22 @@ async function main() {
     assertNearDays(trialStart, trialEnd, 7, "standard trial end");
     console.log("PASS  new standard trial ends 7 days after checkout start");
 
-    // Promo path still creates 30-day trials when intentionally used (no trial7day).
-    const promoCheckout = await requestJson("POST", "/api/create-checkout-session", {
+    // Intentional future promo path (admin-created active code that is not retired) still works.
+    const promoCheckout2 = await requestJson("POST", "/api/create-checkout-session", {
       email: "promo-trial@test.local",
       plan: "monthly",
-      promoCode: "TRY1MONTH",
+      promoCode: "INTENTIONAL30",
     });
-    assert.equal(promoCheckout.status, 200, JSON.stringify(promoCheckout.json));
-    assert.equal(promoCheckout.json.promo?.trialDays, 30);
-    assert.match(String(promoCheckout.json.url || ""), /trial_days=30/);
-    console.log("PASS  intentional TRY1MONTH promo still creates 30-day Stripe trial");
+    assert.equal(promoCheckout2.status, 200, JSON.stringify(promoCheckout2.json));
+    assert.equal(promoCheckout2.json.promo?.trialDays, 30);
+    assert.match(String(promoCheckout2.json.url || ""), /trial_days=30/);
+    console.log("PASS  intentional active promo still creates 30-day Stripe trial");
+
+    const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
+    assert.doesNotMatch(appJs, /placeholder="TRY1MONTH"/);
+    assert.doesNotMatch(appJs, /example: TRY1MONTH/);
+    assert.match(appJs, /defaultTrialDays:\s*7/);
+    console.log("PASS  TRY1MONTH removed from signup placeholders / examples");
 
     // Admin trial audit endpoint
     const login = await requestJson("POST", "/api/admin/login", {
@@ -216,12 +255,10 @@ async function main() {
     console.log("PASS  admin trial-audit classifies Standard 7-Day Trial");
 
     // Static copy still says 7-day on customer-facing surfaces
-    const appJs = fs.readFileSync(path.join(ROOT, "app.js"), "utf8");
     const indexHtml = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-    assert.match(appJs, /defaultTrialDays:\s*7/);
     assert.match(appJs, /Standard 7-Day Trial/);
-    assert.match(appJs, /Promo-Extended Trial/);
-    assert.match(appJs, /Manually Extended Trial/);
+    assert.match(appJs, /Correct Promo-Extended Trial|Promo-Extended Trial/);
+    assert.match(appJs, /Correct Manual Extension|Manually Extended Trial/);
     assert.match(indexHtml, /7-day Pro trial/i);
     console.log("PASS  Admin labels + customer 7-day wording present");
 

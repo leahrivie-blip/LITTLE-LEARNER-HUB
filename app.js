@@ -3087,6 +3087,21 @@ function llhLoadingHtml(label = "Loading…") {
   return `<div class="llh-loading" role="status" aria-live="polite"><span class="llh-loading-spinner" aria-hidden="true"></span><span class="llh-loading-label">${escapeHtml(label)}</span></div>`;
 }
 
+/** Lightweight skeleton placeholder for calendar / messages surfaces. */
+function llhSkeletonHtml({ rows = 3, label = "Loading…", variant = "list" } = {}) {
+  const count = Math.max(1, Math.min(8, Number(rows) || 3));
+  const bars = Array.from({ length: count }, (_, i) => {
+    const width = variant === "calendar"
+      ? (i % 2 === 0 ? "92%" : "68%")
+      : (i === 0 ? "55%" : i === count - 1 ? "72%" : "88%");
+    return `<span class="llh-skeleton-bar" style="width:${width}" aria-hidden="true"></span>`;
+  }).join("");
+  return `<div class="llh-skeleton llh-skeleton--${escapeHtml(variant)}" role="status" aria-live="polite" aria-label="${escapeHtml(label)}">
+    <div class="llh-skeleton-head">${llhLoadingHtml(label)}</div>
+    <div class="llh-skeleton-bars">${bars}</div>
+  </div>`;
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -4432,10 +4447,35 @@ function dismissMetaCookieNotice() {
   document.body.classList.remove("has-meta-cookie-notice");
 }
 
+function suppressMetaCookieNoticeForBannerStack() {
+  const notice = document.getElementById("llhMetaCookieNotice");
+  if (!notice) return;
+  notice.setAttribute("data-banner-suppressed", "1");
+  notice.setAttribute("aria-hidden", "true");
+  notice.hidden = true;
+  notice.style.display = "none";
+  document.body.classList.remove("has-meta-cookie-notice");
+}
+
+function restoreMetaCookieNoticeAfterBannerStack() {
+  const notice = document.getElementById("llhMetaCookieNotice");
+  if (!notice || notice.getAttribute("data-banner-suppressed") !== "1") return;
+  notice.removeAttribute("data-banner-suppressed");
+  notice.removeAttribute("aria-hidden");
+  notice.hidden = false;
+  notice.style.display = "";
+  document.body.classList.add("has-meta-cookie-notice");
+}
+
 function ensureMetaCookieNotice() {
   try {
     if (document.getElementById("llhMetaCookieNotice")) return;
     if (localStorage.getItem("llhMetaCookieNoticeDismissed") === "1") return;
+    // Avoid stacking cookie with Teaching Kit / member-update banner.
+    if (typeof shouldShowMemberUpdateBanner === "function" && shouldShowMemberUpdateBanner()) return;
+    const memberUpdate = document.querySelector("#memberUpdateBanner");
+    if (memberUpdate && !memberUpdate.hidden) return;
+    if (document.body.classList.contains("auth-modal-open")) return;
     const notice = document.createElement("aside");
     notice.id = "llhMetaCookieNotice";
     notice.className = "llh-meta-cookie-notice";
@@ -5579,8 +5619,8 @@ function checkoutPromoSummary() {
   return normalizedCheckoutPromoCode()
     ? "Promo applied at checkout: first month $0 with a card on file. If Founding spots remain, you lock in $9.99/month while your membership remains continuously active after the free month."
     : currentUser
-      ? "Already have an account? Enter your promo code (example: TRY1MONTH) here, tap Apply, then choose a plan. First month is free with a card on file; membership continues automatically unless you cancel before renewal."
-      : "Enter a promo code (example: TRY1MONTH) before choosing a plan. Log in or create an account first so the free month can attach to your membership.";
+      ? "Already have an account? If you have a promo code, enter it here, tap Apply, then choose a plan. Standard Pro trials are 7 days with a card on file."
+      : "If you have a promo code, enter it before choosing a plan. Log in or create an account first so the trial can attach to your membership. Standard Pro trials are 7 days with a card on file.";
 }
 
 function saveCheckoutPromoCode(value) {
@@ -15793,7 +15833,7 @@ async function renderMessagesPage(options = {}) {
     return;
   }
   if (options.conversation) messagesViewState.tab = "conversation";
-  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhLoadingHtml("Loading your messages…")}</div>`;
+  section.innerHTML = `<div class="messages-page-shell" id="messagesPageShell">${llhSkeletonHtml({ rows: 5, label: "Loading your messages…", variant: "messages" })}</div>`;
   await Promise.all([refreshMessagesData(), refreshPushPreferenceState()]);
   renderMessagesPageBody();
   // Opening the Messages page is the "read" action for the private thread —
@@ -16684,7 +16724,7 @@ async function renderAdminMessagesConversations(container, options = {}) {
   else if (!adminMessagesState.inboxBucket || adminMessagesState.inboxBucket === "welcome") {
     adminMessagesState.inboxBucket = "new";
   }
-  container.innerHTML = `<p class="messages-loading">Loading conversations…</p>`;
+  container.innerHTML = llhLoadingHtml("Loading conversations…");
   const token = adminSession()?.token || "";
   const bucket = adminMessagesState.inboxBucket || "new";
   try {
@@ -16735,7 +16775,7 @@ function filteredAdminConversations() {
 }
 
 async function renderAdminMessagesSent(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}<p class="messages-loading">Loading sent messages…</p>`;
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-sent")}${llhLoadingHtml("Loading sent messages…")}`;
   const token = adminSession()?.token || "";
   const q = encodeURIComponent(adminMessagesState.sentSearch || "");
   try {
@@ -16784,7 +16824,7 @@ async function renderAdminMessagesSent(container) {
 }
 
 async function renderAdminMessagesDrafts(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}<p class="messages-loading">Loading drafts…</p>`;
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-drafts")}${llhLoadingHtml("Loading drafts…")}`;
   const token = adminSession()?.token || "";
   try {
     const res = await fetch("/api/admin/messages/drafts", { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
@@ -16829,7 +16869,7 @@ async function renderAdminMessagesDrafts(container) {
 }
 
 async function renderAdminMessagesArchived(container) {
-  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}<p class="messages-loading">Loading archived items…</p>`;
+  container.innerHTML = `${adminMessagesWorkspaceNavHtml("messages-archived")}${llhLoadingHtml("Loading archived items…")}`;
   const token = adminSession()?.token || "";
   const q = encodeURIComponent(adminMessagesState.archivedSearch || "");
   try {
@@ -16943,7 +16983,7 @@ async function openAdminConversation(userEmail) {
     btn.classList.toggle("active", btn.dataset.adminConversation === clean);
   });
   const threadEl = document.querySelector("#adminConversationThread");
-  if (threadEl) threadEl.innerHTML = `<p class="messages-loading">Loading…</p>`;
+  if (threadEl) threadEl.innerHTML = llhLoadingHtml("Loading conversation…");
   const token = adminSession()?.token || "";
   try {
     const res = await fetch(`/api/admin/messages/conversation?userEmail=${encodeURIComponent(clean)}`, { cache: "no-store", headers: { Authorization: `Bearer ${token}` } });
@@ -30595,7 +30635,7 @@ async function ensureScheduleLoaded(options = {}) {
 function calendarScheduleStatusHtml() {
   if (scheduleSyncState === "loading") {
     return `<div class="llh-calendar-sync-banner is-loading" role="status" data-calendar-sync-banner>
-      ${llhLoadingHtml("Loading your calendar…")}
+      ${llhSkeletonHtml({ rows: 4, label: "Loading your calendar…", variant: "calendar" })}
     </div>`;
   }
   if (scheduleSyncState === "error" && scheduleSyncError) {
@@ -40634,13 +40674,7 @@ function renderChildManagement() {
   const hasChildren = Boolean(records.children.length);
   app.innerHTML = `
     <section class="simple-child-page">
-      <div class="child-page-header">
-        <div>
-          <h2>Children</h2>
-          ${hasChildren ? `
-            <p>Select a child to open their profile — observations, goals, reports, and records in one calm workspace.</p>
-          ` : ""}
-        </div>
+      <div class="child-page-header child-page-header--actions-only">
         <div class="child-header-actions">
           ${hasChildren ? `
             <button class="ghost-button" data-child-view="observe" type="button">Add Observation</button>
@@ -53058,6 +53092,64 @@ function adminMembershipInTrial(account) {
   return status.includes("trialing") || (status.includes("trial") && !status.includes("trial ended") && !status.includes("no trial"));
 }
 
+/** Admin trial offer labels — mirrors scripts/membership-access.js classifyMembershipTrialOffer. */
+function classifyAdminTrialOffer(account) {
+  if (!account) return null;
+  const inTrial = adminMembershipInTrial(account);
+  const hasHistory = adminMembershipHasTrialHistory(account);
+  if (!inTrial && !hasHistory) return null;
+  const promoCode = String(account.promoCodeUsed || account.promoRedemptions?.[0]?.code || "").trim().toUpperCase();
+  const promoLabel = String(account.promoLabelUsed || account.pendingPromoLabel || "").trim();
+  const startMs = account.trialStart ? Date.parse(account.trialStart) : NaN;
+  const endMs = account.trialEnd ? Date.parse(account.trialEnd) : NaN;
+  const lengthDays = Number.isFinite(startMs) && Number.isFinite(endMs)
+    ? Math.round((endMs - startMs) / 86400000)
+    : null;
+  let daysRemaining = null;
+  if (inTrial && account.trialEnd) {
+    daysRemaining = Math.max(0, Math.ceil((Date.parse(account.trialEnd) - Date.now()) / 86400000));
+  }
+  const manualDays = Number(account.manualTrialExtensionDays || 0);
+  const manualMarked = Boolean(
+    account.trialExtensionSource === "manual_admin"
+    || account.trialExtendedManually
+    || (Number.isFinite(manualDays) && manualDays > 0),
+  );
+  let key = "standard_7_day";
+  let label = "Standard 7-Day Trial";
+  let extensionSource = "standard_introductory";
+  if (manualMarked) {
+    key = "manually_extended";
+    label = "Correct Manual Extension";
+    extensionSource = "manual_admin";
+  } else if (promoCode || /promo|free month|day free|try1month|trypro/i.test(promoLabel)) {
+    key = "promo_extended";
+    label = "Correct Promo-Extended Trial";
+    extensionSource = "promo_code";
+  } else if (lengthDays != null && lengthDays >= 28 && lengthDays <= 31) {
+    key = "unexpected_30day";
+    label = "Unexpected 30-Day Trial";
+    extensionSource = "unexpected_30day";
+  } else if (lengthDays != null && lengthDays > 8) {
+    key = "legacy";
+    label = "Legacy Trial";
+    extensionSource = "legacy_or_unknown";
+  }
+  return {
+    key,
+    label,
+    inTrial,
+    promoCode: promoCode || null,
+    promoLabel: promoLabel || null,
+    extensionSource,
+    manualTrialExtensionDays: Number.isFinite(manualDays) && manualDays > 0 ? manualDays : null,
+    trialStart: account.trialStart || null,
+    trialEnd: account.trialEnd || null,
+    trialLengthDays: lengthDays,
+    daysRemaining,
+  };
+}
+
 function adminMembershipHasTrialHistory(account) {
   if (!account) return false;
   const trialStatus = String(account.trialStatus || "").toLowerCase();
@@ -53276,7 +53368,7 @@ function adminUserCard(account) {
         <span>📅 Signed up <strong>${escapeHtml(joined)}</strong></span>
         <span>💳 <strong>${escapeHtml(price)}</strong></span>
         <span>🕐 Last active <strong>${escapeHtml(lastActive)}</strong></span>
-        ${adminMembershipInTrial(account) && trialEnd ? `<span>⏳ Trial ends <strong>${escapeHtml(trialEnd)}</strong></span>` : ""}
+        ${adminMembershipInTrial(account) && trialEnd ? `<span>⏳ ${escapeHtml((classifyAdminTrialOffer(account) || {}).label || "Trial")} ends <strong>${escapeHtml(trialEnd)}</strong></span>` : ""}
         ${account.cancelAtPeriodEnd && accessEnd ? `<span>Access through <strong>${escapeHtml(new Date(accessEnd).toLocaleDateString())}</strong></span>` : ""}
         ${endedAt ? `<span>Ended <strong>${escapeHtml(new Date(endedAt).toLocaleDateString())}</strong></span>` : ""}
       </div>
@@ -53531,20 +53623,6 @@ function openAdminUserProfile(email, startTab) {
     const ms = new Date(account.trialEnd) - new Date();
     trialDaysLeft = Math.max(0, Math.ceil(ms / 86400000));
   }
-  const trialSourceLabel = account.trialSourceLabel
-    || (account.trialSource === "promo_extended" || account.promoCodeUsed
-      ? "Promo-Extended Trial"
-      : account.trialSource === "manual_extension" || account.trialManuallyExtendedAt
-        ? "Manually Extended Trial"
-        : account.trialSource === "standard_7day" || /7[-\s]?day/i.test(String(account.promoLabelUsed || ""))
-          ? "Standard 7-Day Trial"
-          : (isTrial ? "Trial (source unclear)" : null));
-  const trialExtensionSource = account.trialExtensionSource
-    || (account.promoCodeUsed
-      ? `Promo code ${account.promoCodeUsed}${account.promoLabelUsed ? ` (${account.promoLabelUsed})` : ""}`
-      : account.trialManuallyExtendedAt
-        ? "Admin manual extension"
-        : (trialSourceLabel === "Standard 7-Day Trial" ? "7-Day Pro Trial" : ""));
 
   // Per-user analytics from cache
   const analyticsUsers = (adminAnalyticsCache || localAnalyticsSummary()).users || [];
@@ -53624,8 +53702,6 @@ function openAdminUserProfile(email, startTab) {
           ${isFounding ? `<div><span>Founding Eligibility</span><strong>${escapeHtml(foundingEligibility)}</strong></div>` : ""}
           ${account.trialStart ? `<div><span>Trial Start</span><strong>${escapeHtml(new Date(account.trialStart).toLocaleDateString())}</strong></div>` : ""}
           ${account.trialEnd ? `<div><span>Trial End</span><strong>${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}</strong></div>` : ""}
-          ${trialSourceLabel ? `<div><span>Trial Type</span><strong>${escapeHtml(trialSourceLabel)}</strong></div>` : ""}
-          ${trialExtensionSource ? `<div><span>Trial Extension Source</span><strong>${escapeHtml(trialExtensionSource)}</strong></div>` : ""}
           ${account.canceledAt || account.subscriptionEndedAt ? `<div><span>Subscription Ended</span><strong>${escapeHtml(new Date(account.subscriptionEndedAt || account.canceledAt).toLocaleDateString())}</strong></div>` : ""}
           ${account.stripeCustomerId ? `<div><span>Stripe Customer ID</span><strong><small>${escapeHtml(account.stripeCustomerId)}</small></strong></div>` : ""}
           ${account.stripeSubscriptionId ? `<div><span>Stripe Subscription ID</span><strong><small>${escapeHtml(account.stripeSubscriptionId)}</small></strong></div>` : ""}
@@ -53657,24 +53733,44 @@ function openAdminUserProfile(email, startTab) {
     </div>
 
     <div class="aup-modal-panel" id="aupPanelManage" ${activeTab !== "manage" ? 'hidden' : ''}>
-      ${isTrial ? `
+      ${isTrial || adminMembershipHasTrialHistory(account) ? `
       <fieldset class="admin-fieldset aup-trial-fieldset">
         <legend>🧪 Trial Management</legend>
+        ${(() => {
+          const trialOffer = classifyAdminTrialOffer(account) || {};
+          const extensionSourceLabel = trialOffer.extensionSource === "promo_code"
+            ? "Promo code"
+            : trialOffer.extensionSource === "manual_admin"
+              ? "Manual admin extension"
+              : trialOffer.extensionSource === "legacy_or_unknown"
+                ? "Legacy / unknown offer"
+                : "Standard 7-day introductory trial";
+          return `
         <div class="aup-info-grid">
-          <div><span>Trial Type</span><strong>${escapeHtml(trialSourceLabel || "—")}</strong></div>
-          ${trialStart  ? `<div><span>Trial Start</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
-          ${trialEnd    ? `<div><span>Trial End</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
-          ${trialDaysLeft !== null ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
-          <div><span>Source of Extension</span><strong>${escapeHtml(trialExtensionSource || "—")}</strong></div>
+          <div><span>Trial Type</span><strong data-admin-trial-type="${escapeHtml(trialOffer.key || "")}">${escapeHtml(trialOffer.label || (isTrial ? "Trial" : "Trial history"))}</strong></div>
+          ${trialStart  ? `<div><span>Start date</span><strong>${escapeHtml(trialStart)}</strong></div>` : ""}
+          ${trialEnd    ? `<div><span>End date</span><strong>${escapeHtml(trialEnd)}</strong></div>` : ""}
+          ${trialDaysLeft !== null && isTrial ? `<div><span>Days Remaining</span><strong>${escapeHtml(String(trialDaysLeft))} ${trialDaysLeft === 1 ? "day" : "days"}</strong></div>` : ""}
+          ${trialOffer.trialLengthDays != null ? `<div><span>Configured Length</span><strong>${escapeHtml(String(trialOffer.trialLengthDays))} days</strong></div>` : ""}
+          <div><span>Extension source</span><strong>${escapeHtml(extensionSourceLabel)}</strong></div>
+          ${trialOffer.promoCode
+            ? `<div><span>Promo code</span><strong>${escapeHtml(trialOffer.promoCode)}${trialOffer.promoLabel ? ` · ${escapeHtml(trialOffer.promoLabel)}` : ""}</strong></div>`
+            : `<div><span>Promo code</span><strong>None</strong></div>`}
+          ${trialOffer.manualTrialExtensionDays
+            ? `<div><span>Manual extension</span><strong>+${escapeHtml(String(trialOffer.manualTrialExtensionDays))} day(s)</strong></div>`
+            : ""}
           <div><span>Payment Method Attached</span><strong>${account.hasPaymentMethod === true ? "Yes" : account.hasPaymentMethod === false ? "No" : "Unknown"}</strong></div>
-          <div><span>Will Convert to Paid</span><strong>${account.cancelAtPeriodEnd ? "No — cancellation scheduled" : "Yes, unless canceled"}</strong></div>
-        </div>
+          <div><span>Will Convert to Paid</span><strong>${account.cancelAtPeriodEnd ? "No — cancellation scheduled" : isTrial ? "Yes, unless canceled" : "—"}</strong></div>
+        </div>`;
+        })()}
+        ${isTrial ? `
         <div class="aup-action-row" style="margin-top:12px;">
           <button class="ghost-button aup-action-btn" type="button" data-aup-action="extend-trial" data-aup-email="${escapeHtml(email)}">Extend Trial</button>
           <button class="ghost-button aup-action-btn" type="button" data-aup-action="end-trial"    data-aup-email="${escapeHtml(email)}">End Trial</button>
           <button class="primary-button aup-action-btn" type="button" data-aup-action="convert-pro"  data-aup-email="${escapeHtml(email)}">Convert to Pro</button>
         </div>
         <p id="aupTrialMsg" class="form-message" style="margin-top:8px;"></p>
+        ` : `<p class="muted-copy" style="margin-top:12px;">This account has trial history but is not currently in an active trial.</p>`}
       </fieldset>
       ` : ""}
 
@@ -55375,7 +55471,7 @@ function renderAdminPromoCodesSection() {
   const redemptions = (adminPromoCodesState.redemptions || []).slice(0, 12);
   const duplicateWarning = audit?.duplicateEnvAndStore
     ? `<div class="admin-promo-audit-warning" role="alert">
-        <p><strong>Duplicate promo detected:</strong> <code>${escapeHtml(audit.envCode || envPromo?.code || "TRY1MONTH")}</code> exists as both an environment code and a stored code.</p>
+        <p><strong>Duplicate promo detected:</strong> <code>${escapeHtml(audit.envCode || envPromo?.code || "PROMO")}</code> exists as both an environment code and a stored code.</p>
         <p class="muted-copy">No codes were changed automatically. At checkout, the <strong>stored active promo wins</strong>; the environment row is a fallback display only.</p>
         <p class="muted-copy">Redemption counts come from the shared <code>promoRedemptions</code> ledger (filtered by normalized code) — not separate per row.</p>
       </div>`
@@ -55385,7 +55481,7 @@ function renderAdminPromoCodesSection() {
       <div>
         <p class="eyebrow">Growth</p>
         <h3>Promo Code Manager</h3>
-        <p class="muted-copy">Create multi-code free months (example: TRY1MONTH). Environment and stored promos are listed separately. Card is always required at signup.</p>
+        <p class="muted-copy">Create intentional promo codes when needed (standard signup is always a 7-day trial). Environment and stored promos are listed separately. Card is always required at signup. TRY1MONTH is retired for new redemptions.</p>
       </div>
       <button class="ghost-button" type="button" data-admin-promo-refresh>Refresh</button>
     </div>
@@ -55394,7 +55490,7 @@ function renderAdminPromoCodesSection() {
     ${adminPromoCodesState.success ? `<p class="form-message success">${escapeHtml(adminPromoCodesState.success)}</p>` : ""}
     <form id="adminPromoCodeForm" class="panel-form admin-stacked-form">
       <div class="form-grid-two">
-        <label>Code<input name="code" required placeholder="TRY1MONTH" /></label>
+        <label>Code<input name="code" required placeholder="PROMOCODE" /></label>
         <label>Free days<input name="trialDays" type="number" min="1" max="365" value="30" required /></label>
       </div>
       <div class="form-grid-two">
@@ -60233,7 +60329,18 @@ function shouldShowMemberUpdateBanner() {
 function refreshMemberUpdateBanner() {
   const banner = document.querySelector("#memberUpdateBanner");
   if (!banner) return;
-  banner.hidden = !shouldShowMemberUpdateBanner();
+  const show = shouldShowMemberUpdateBanner();
+  banner.hidden = !show;
+  // One product notice at a time — hide cookie while Teaching Kit / update banner is up.
+  if (show) {
+    suppressMetaCookieNoticeForBannerStack();
+    try {
+      if (typeof syncPlatformInstallCard === "function") syncPlatformInstallCard();
+    } catch (_error) { /* ignore */ }
+  } else {
+    restoreMetaCookieNoticeAfterBannerStack();
+    try { ensureMetaCookieNotice(); } catch (_error) { /* ignore */ }
+  }
 }
 
 /** Persistent Free Plan badge + one header Upgrade. No stacked sidebar/reminder panels. */
@@ -60560,7 +60667,7 @@ function promoCodePanel(options = {}) {
       <div class="promo-code-entry">
         <label>
           <span>Promo code</span>
-          <input id="checkoutPromoCodeInput" data-checkout-promo-input value="${escapeHtml(stored)}" placeholder="TRY1MONTH" autocomplete="off" inputmode="text" />
+          <input id="checkoutPromoCodeInput" data-checkout-promo-input value="${escapeHtml(stored)}" placeholder="Promo code" autocomplete="off" inputmode="text" />
         </label>
         <button class="ghost-button" data-apply-promo-code type="button">Apply Code</button>
         <span class="form-message promo-code-message" id="checkoutPromoCodeMessage" data-checkout-promo-message aria-live="polite"></span>
@@ -60768,7 +60875,7 @@ function renderBillingPage() {
         <h3>${escapeHtml(currentUser || "Guest")}</h3>
         <p class="llh-billing-status-line">${accountStatusBadgeHtml(account)}</p>
         ${subscriptionSummaryHtml()}
-        ${accountIsInTrial(account) ? `<p class="muted-copy"><strong>Trial:</strong> ${escapeHtml(account.trialSourceLabel || (/7[-\s]?day/i.test(String(account.promoLabelUsed || "")) ? "Standard 7-Day Trial" : account.promoCodeUsed ? "Promo-Extended Trial" : "Pro Trial"))}${account.trialStart && account.trialEnd ? ` · ${escapeHtml(new Date(account.trialStart).toLocaleDateString())} → ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : account.trialEnd ? ` ends ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : ""}. ${escapeHtml(MEMBERSHIP_COPY.trialCore)} Your own records are never limited by this allowance.</p>` : ""}
+        ${accountIsInTrial(account) ? `<p class="muted-copy"><strong>Trial:</strong> ${escapeHtml(account.trialSourceLabel || (classifyAdminTrialOffer(account) || {}).label || (/7[-\s]?day/i.test(String(account.promoLabelUsed || "")) ? "Standard 7-Day Trial" : account.promoCodeUsed ? "Correct Promo-Extended Trial" : "Pro Trial"))}${account.trialStart && account.trialEnd ? ` · ${escapeHtml(new Date(account.trialStart).toLocaleDateString())} → ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : account.trialEnd ? ` ends ${escapeHtml(new Date(account.trialEnd).toLocaleDateString())}` : ""}. ${escapeHtml(MEMBERSHIP_COPY.trialCore)} Your own records are never limited by this allowance.</p>` : ""}
         ${!paidBilling && !accountIsInTrial(account) ? `<p class="muted-copy">${escapeHtml(MEMBERSHIP_COPY.freeCore)} ${escapeHtml(MEMBERSHIP_COPY.freeBrowse)}</p>` : ""}
         ${account?.promoCodeUsed ? `<p class="muted-copy">Promo code used: <strong>${escapeHtml(account.promoCodeUsed)}</strong>${account.promoLabelUsed ? ` — ${escapeHtml(account.promoLabelUsed)}` : ""}</p>` : ""}
         <div class="account-actions-row">

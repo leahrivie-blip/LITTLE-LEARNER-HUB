@@ -65,7 +65,7 @@ function startServer(extraEnv = {}) {
       LLH_STORE_PATH: STORE_PATH,
       FOUNDING_MEMBER_LIMIT: String(FOUNDING_LIMIT),
       PUBLIC_FOUNDING_CLAIMED_BASE: "0",
-      PROMO_FREE_TRIAL_CODE: "TRY1MONTH",
+      PROMO_FREE_TRIAL_CODE: "FREEMONTH",
       PROMO_FREE_TRIAL_DAYS: "30",
       NODE_ENV: "test",
       ...extraEnv,
@@ -135,9 +135,19 @@ async function main() {
   try {
     await waitForBoot(child);
 
-    await test("TRY1MONTH validates as 30-day free promo with card + founding lock", async () => {
+    await test("TRY1MONTH is retired and rejected for new signups", async () => {
       const res = await requestJson("POST", "/api/validate-promo-code", {
         code: "TRY1MONTH",
+        email: "new-user@example.com",
+      });
+      assert.equal(res.status, 400, JSON.stringify(res.json));
+      assert.equal(res.json.valid, false);
+      assert.match(String(res.json.error || ""), /no longer available|not active/i);
+    });
+
+    await test("FREEMONTH validates as 30-day free promo with card + founding lock", async () => {
+      const res = await requestJson("POST", "/api/validate-promo-code", {
+        code: "FREEMONTH",
         email: "creator@example.com",
       });
       assert.equal(res.status, 200, JSON.stringify(res.json));
@@ -167,7 +177,7 @@ async function main() {
       });
       assert.equal(save.status, 200, JSON.stringify(save.json));
       const list = await requestJson("GET", `/api/admin/promo-codes?adminToken=${token}`);
-      assert.ok((list.json.promoCodes || []).some((p) => p.code === "TRY1MONTH"));
+      assert.equal(list.json.envPromo?.code, "FREEMONTH");
       assert.ok((list.json.promoCodes || []).some((p) => p.code === "INFLUENCER30" && p.trialDays === 30));
       const disable = await requestJson("POST", "/api/admin/promo-codes", {
         adminToken: token,
@@ -190,10 +200,10 @@ async function main() {
 
       const store = readStoreFile();
       store.promoCodes = store.promoCodes || [];
-      if (!store.promoCodes.some((p) => p.code === "TRY1MONTH")) {
+      if (!store.promoCodes.some((p) => p.code === "FREEMONTH")) {
         store.promoCodes.push({
           id: "promo_try1month_default",
-          code: "TRY1MONTH",
+          code: "FREEMONTH",
           trialDays: 30,
           status: "active",
           label: "1 Month Free",
@@ -213,7 +223,7 @@ async function main() {
       seeded.foundingReservations = [{
         email,
         status: "held",
-        promoCode: "TRY1MONTH",
+        promoCode: "FREEMONTH",
         reservedAt: new Date().toISOString(),
         expiresAt: "",
         releasableUntilFirstPayment: true,
@@ -236,16 +246,16 @@ async function main() {
         foundingSpotReleasable: true,
         monthlyPrice: "$9.99/month",
         priceLock: "Lifetime",
-        promoCodeUsed: "TRY1MONTH",
+        promoCodeUsed: "FREEMONTH",
         promoLabelUsed: "1 Month Free",
         promoRedeemedAt: new Date().toISOString(),
-        promoRedemptions: [{ code: "TRY1MONTH", trialDays: 30, redeemedAt: new Date().toISOString() }],
+        promoRedemptions: [{ code: "FREEMONTH", trialDays: 30, redeemedAt: new Date().toISOString() }],
         stripeSubscriptionId: "sub_promo_test_1",
         hasPaymentMethod: true,
       };
       seeded.promoRedemptions = [{
         email,
-        code: "TRY1MONTH",
+        code: "FREEMONTH",
         trialDays: 30,
         redeemedAt: new Date().toISOString(),
       }];
@@ -286,7 +296,7 @@ async function main() {
       assert.ok(!after.foundingMembers.includes(email), "Founding spot must be released on free-month cancel");
       assert.equal(after.users[email].foundingMemberNumber, null);
       assert.ok(after.users[email].foundingSpotReleasedAt);
-      assert.equal(after.users[email].promoCodeUsed, "TRY1MONTH");
+      assert.equal(after.users[email].promoCodeUsed, "FREEMONTH");
 
       const founding = await requestJson("GET", "/api/founding-status");
       assert.equal(founding.json.founding.remaining, FOUNDING_LIMIT);
@@ -313,7 +323,7 @@ async function main() {
         lastSuccessfulPaymentAt: new Date(Date.now() - 5 * 86400000).toISOString(),
         monthlyPrice: "$9.99/month",
         priceLock: "Lifetime",
-        promoCodeUsed: "TRY1MONTH",
+        promoCodeUsed: "FREEMONTH",
         stripeSubscriptionId: "sub_paid_founding",
       };
       writeStoreFile(store);
@@ -346,7 +356,7 @@ async function main() {
       await waitForBoot(child);
 
       const res = await requestJson("POST", "/api/validate-promo-code", {
-        code: "TRY1MONTH",
+        code: "FREEMONTH",
         email: "newcomer@example.com",
       });
       assert.equal(res.status, 200);
@@ -364,13 +374,14 @@ async function main() {
       assert.match(appJs, /Yes, cancel my subscription/);
       assert.match(appJs, /permanently lose your \$9\.99/);
       assert.match(appJs, /You will not be charged/);
-      assert.match(appJs, /TRY1MONTH/);
       assert.match(appJs, /Works for new and existing accounts/i);
       assert.match(appJs, /promoCodePanel\(\{[\s\S]*context:\s*"billing"/);
       assert.match(appJs, /promoCodePanel\(\{[\s\S]*context:\s*"signup"/);
       assert.match(appJs, /syncCheckoutPromoCodeFromInput/);
       assert.match(appJs, /data-view="upgrade"/);
       assert.match(appJs, /payment method is required|card is required/i);
+      assert.doesNotMatch(appJs, /placeholder="TRY1MONTH"/);
+      assert.doesNotMatch(appJs, /example: TRY1MONTH/);
       assert.doesNotMatch(appJs, /accountCancelButton/);
     });
 

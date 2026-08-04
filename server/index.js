@@ -85,13 +85,15 @@ const SITE_URL = process.env.SITE_URL || `http://localhost:${PORT}`;
 let storageBootReady = false;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || "";
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || "";
-const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "TRY1MONTH").trim();
-const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 30);
+// No default 30-day promo. Set PROMO_FREE_TRIAL_CODE + PROMO_FREE_TRIAL_DAYS only for an intentional future promotion.
+const PROMO_FREE_TRIAL_CODE = String(process.env.PROMO_FREE_TRIAL_CODE || "").trim();
+const PROMO_FREE_TRIAL_DAYS = Number(process.env.PROMO_FREE_TRIAL_DAYS || 0);
 const PROMO_FREE_TRIAL_EXPIRES_AT = process.env.PROMO_FREE_TRIAL_EXPIRES_AT || "";
 const PROMO_FREE_TRIAL_EXPIRES_LABEL = process.env.PROMO_FREE_TRIAL_EXPIRES_LABEL || "";
 /** Canonical introductory Pro trial length (card required). Promo codes may grant longer trials. */
 const STANDARD_TRIAL_DAYS = trialClassification.STANDARD_TRIAL_DAYS;
 const STANDARD_TRIAL_LABEL = trialClassification.STANDARD_TRIAL_LABEL;
+const RETIRED_SIGNUP_PROMO_CODES = new Set(["TRY1MONTH"]);
 const STRIPE_CHECKOUT_SIMULATION = process.env.NODE_ENV === "test"
   && ["1", "true", "yes"].includes(String(process.env.LLH_STRIPE_CHECKOUT_SIMULATION || "").toLowerCase());
 const STRIPE_AUTOMATIC_TAX = String(process.env.STRIPE_AUTOMATIC_TAX || "").toLowerCase() === "true"
@@ -528,28 +530,32 @@ function promoCodeRecords(store = peekStore()) {
   return Array.isArray(store.promoCodes) ? store.promoCodes : [];
 }
 
+/**
+ * Archive retired signup promos (TRY1MONTH) so they cannot be redeemed by new signups.
+ * Keep the row for historical reporting. Do not seed any new active 30-day default.
+ * Existing customers who already redeemed keep their Stripe/local trial dates untouched.
+ */
 function seedDefaultPromoCodes(store) {
   if (!store || typeof store !== "object") return false;
   store.promoCodes = Array.isArray(store.promoCodes) ? store.promoCodes : [];
   store.foundingReservations = Array.isArray(store.foundingReservations) ? store.foundingReservations : [];
   let changed = false;
-  const try1 = normalizePromoCode("TRY1MONTH");
-  if (try1 && !store.promoCodes.some((item) => normalizePromoCode(item?.code) === try1)) {
-    store.promoCodes.unshift({
-      id: "promo_try1month_default",
-      code: try1,
-      label: "1 Month Free — card required, then membership continues",
-      trialDays: 30,
-      status: "active",
-      expiresAt: "",
-      expiresLabel: "",
-      maxRedemptions: null,
-      notes: "Default 1-month free promo for creators/influencers. Locks Founding Member pricing when spots remain.",
-      source: "default",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-    changed = true;
+  const nowIso = new Date().toISOString();
+  for (const item of store.promoCodes) {
+    const code = normalizePromoCode(item?.code);
+    if (!RETIRED_SIGNUP_PROMO_CODES.has(code)) continue;
+    const status = String(item?.status || "active").toLowerCase();
+    if (status === "active") {
+      item.status = "archived";
+      item.updatedAt = nowIso;
+      item.archivedAt = item.archivedAt || nowIso;
+      item.disabledReason = "retired_from_signup_flow";
+      const note = "Archived: disabled for new signups. Historical redemptions and promised trials are preserved.";
+      if (!String(item.notes || "").includes("disabled for new signups")) {
+        item.notes = [String(item.notes || "").trim(), note].filter(Boolean).join(" ").slice(0, 500);
+      }
+      changed = true;
+    }
   }
   return changed;
 }
@@ -607,6 +613,10 @@ function checkoutPromoForCode(value, store = peekStore()) {
   seedDefaultPromoCodes(store);
   const enteredCode = normalizePromoCode(value);
   if (!enteredCode) return { valid: false, code: "" };
+  // Retired signup promos cannot be redeemed by new checkouts (historical trials unchanged).
+  if (RETIRED_SIGNUP_PROMO_CODES.has(enteredCode)) {
+    return { valid: false, code: enteredCode, retired: true };
+  }
 
   // Prefer admin-managed promo codes in the store.
   const storePromo = promoCodeRecords(store).find((item) => (
@@ -3905,6 +3915,16 @@ async function initializeStorage() {
     }
   } catch (error) {
     console.warn("[temp-password] one-shot apply skipped:", error.message);
+  }
+  try {
+    // Archive retired signup promos (e.g. TRY1MONTH) without touching existing customer trials.
+    const store = peekStore();
+    if (seedDefaultPromoCodes(store)) {
+      await writeStoreAsync(store);
+      console.log("[promo] archived retired signup promo code(s) for new redemptions; historical trials unchanged");
+    }
+  } catch (error) {
+    console.warn("[promo] retired-promo archive skipped:", error.message);
   }
   if (!shouldSkipStartupCurriculumSeed()) {
   try {
@@ -8773,6 +8793,8 @@ async function handlePromoValidation(request, response, url) {
         ? `That promo code expired ${promo.expiresLabel || ""}.`.trim()
         : promo.exhausted
           ? "That promo code has reached its redemption limit."
+          : promo.retired
+            ? "That promo code is no longer available for new signups. Standard Pro trials are 7 days with a card on file."
           : "That promo code is not active. Check the code and try again.",
     });
     return;
@@ -8907,6 +8929,8 @@ async function handleCheckout(request, response) {
         ? `That promo code expired ${promo.expiresLabel || ""}.`.trim()
         : promo.exhausted
           ? "That promo code has reached its redemption limit."
+          : promo.retired
+            ? "That promo code is no longer available for new signups. Standard Pro trials are 7 days with a card on file."
           : "That promo code is not active. Check the code and try again.",
     });
     return;
@@ -12128,13 +12152,29 @@ async function handleAdminTrialAudit(request, response, url) {
             ? Math.round((sub.trial_end - sub.trial_start) / 86400)
             : null;
           row.stripeTrialDurationDays = stripeDays;
-          if (stripeDays === STANDARD_TRIAL_DAYS && row.kind === trialClassification.UNKNOWN_TRIAL_KIND) {
+          if (row.localMatchesStripe === false) {
+            row.kind = trialClassification.MISMATCH_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.MISMATCH_KIND];
+            row.finalClassification = row.kindLabel;
+            row.verdict = "stripe_local_mismatch";
+            row.correct = false;
+            row.affected = false;
+          } else if (stripeDays === STANDARD_TRIAL_DAYS && (
+            row.kind === trialClassification.UNKNOWN_TRIAL_KIND
+            || row.kind === trialClassification.UNEXPECTED_30_KIND
+          )) {
             row.kind = trialClassification.STANDARD_TRIAL_KIND;
             row.kindLabel = trialClassification.KIND_LABELS[trialClassification.STANDARD_TRIAL_KIND];
+            row.finalClassification = row.kindLabel;
             row.affected = false;
             row.verdict = "correct_standard";
             row.correct = true;
-          } else if (stripeDays != null && stripeDays >= 28 && stripeDays <= 31 && !row.promoCode) {
+          } else if (stripeDays != null && stripeDays >= 28 && stripeDays <= 31 && !row.promoCode
+            && row.kind !== trialClassification.PROMO_TRIAL_KIND
+            && row.kind !== trialClassification.MANUAL_TRIAL_KIND) {
+            row.kind = trialClassification.UNEXPECTED_30_KIND;
+            row.kindLabel = trialClassification.KIND_LABELS[trialClassification.UNEXPECTED_30_KIND];
+            row.finalClassification = row.kindLabel;
             row.affected = true;
             row.verdict = "affected_unexpected_30day";
             row.correct = false;
@@ -12144,8 +12184,12 @@ async function handleAdminTrialAudit(request, response, url) {
         row.stripeEnrichError = String(error.message || error).slice(0, 160);
       }
     }
-    audit.summary.affectedUnexpected30day = audit.rows.filter((r) => r.affected).length;
-    audit.summary.localStripeMismatch = audit.rows.filter((r) => r.localMatchesStripe === false).length;
+    audit.summary.affectedUnexpected30day = audit.rows.filter((r) => r.affected || r.kind === trialClassification.UNEXPECTED_30_KIND).length;
+    audit.summary.unexpected30day = audit.rows.filter((r) => r.kind === trialClassification.UNEXPECTED_30_KIND).length;
+    audit.summary.legacy = audit.rows.filter((r) => r.kind === trialClassification.LEGACY_TRIAL_KIND).length;
+    audit.summary.stripeLocalMismatch = audit.rows.filter((r) => r.kind === trialClassification.MISMATCH_KIND || r.localMatchesStripe === false).length;
+    audit.summary.localStripeMismatch = audit.summary.stripeLocalMismatch;
+    audit.summary.try1monthCount = audit.rows.filter((r) => String(r.promoCode || "").toUpperCase() === "TRY1MONTH").length;
   }
   jsonResponse(response, 200, {
     ok: true,
@@ -17466,18 +17510,22 @@ async function handleAdminMembershipUpdate(request, response) {
     merged.accountStatus = "Active";
   }
   if (Number.isFinite(Number(updates.extendTrialDays)) && Number(updates.extendTrialDays) > 0) {
-    const extendDays = Number(updates.extendTrialDays);
+    const extendBy = Number(updates.extendTrialDays);
     const base = merged.trialEnd ? new Date(merged.trialEnd) : new Date();
     if (!Number.isFinite(base.getTime())) base.setTime(Date.now());
-    base.setUTCDate(base.getUTCDate() + extendDays);
+    base.setUTCDate(base.getUTCDate() + extendBy);
     merged.trialEnd = base.toISOString();
     // Access layer matches trialStatus.includes("in trial") — keep that wording.
     merged.trialStatus = "In Trial";
     merged.accessEndsAt = merged.trialEnd;
+    // Provenance for Admin labels — distinct from promo-extended and standard 7-day trials.
     merged.trialSource = trialClassification.MANUAL_TRIAL_KIND;
-    merged.trialExtensionSource = `Admin extended by ${extendDays} day${extendDays === 1 ? "" : "s"}`;
-    merged.trialManuallyExtendedAt = new Date().toISOString();
-    merged.trialExtendedDaysTotal = Number(merged.trialExtendedDaysTotal || 0) + extendDays;
+    merged.trialExtensionSource = "manual_admin";
+    merged.trialExtendedManually = true;
+    merged.trialExtendedAt = new Date().toISOString();
+    merged.trialManuallyExtendedAt = merged.trialExtendedAt;
+    merged.manualTrialExtensionDays = Number(merged.manualTrialExtensionDays || 0) + extendBy;
+    merged.trialExtendedDaysTotal = Number(merged.trialExtendedDaysTotal || 0) + extendBy;
     if (!merged.plan || merged.plan === "Free") merged.plan = "Pro";
     if (!merged.subscriptionStatus || String(merged.subscriptionStatus).toLowerCase().includes("free")) {
       merged.subscriptionStatus = "Trialing — Access Ends " + merged.trialEnd.slice(0, 10);
