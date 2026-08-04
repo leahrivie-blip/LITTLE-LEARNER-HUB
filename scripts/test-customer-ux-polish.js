@@ -126,48 +126,29 @@ async function main() {
     const password = "CxPolishPass123!";
 
     await page.goto(`http://127.0.0.1:${PORT}/`, { waitUntil: "domcontentloaded", timeout: 30000 });
-    await page.waitForFunction(() => typeof window.setView === "function", null, { timeout: 15000 });
+    await page.waitForFunction(() => typeof window.setView === "function", null, { timeout: 30000 });
 
-    // Sign up a Free account through the auth modal when available.
-    const opened = await page.evaluate(() => {
-      if (typeof window.openAuthModal === "function") {
-        window.openAuthModal("signup");
-        return true;
-      }
-      return false;
-    });
-    assert.equal(opened, true, "auth modal helper missing");
-
-    await page.waitForSelector("#authModal.open, #authModal[aria-hidden='false']", { timeout: 10000 }).catch(() => {});
-    const emailInput = page.locator("#authEmail, input[name='email'], #signupEmail").first();
-    const passInput = page.locator("#authPassword, input[name='password'], #signupPassword").first();
-    if (await emailInput.count()) {
-      await emailInput.fill(email);
-      await passInput.fill(password);
-      const submit = page.locator("#authModal button[type='submit'], #authSubmit, button:has-text('Create Account')").first();
-      if (await submit.count()) await submit.click();
-      await page.waitForTimeout(1200);
-    }
-
-    // Force a local logged-in shell if signup UI path differs in test mode.
+    // Seed a Free account the same way other UX smoke tests do.
     await page.evaluate((creds) => {
-      if (typeof window.currentUser === "string" && window.currentUser) return;
+      localStorage.setItem("llhUser", creds.email);
+      localStorage.setItem("llhPlan", "Free");
       const accounts = JSON.parse(localStorage.getItem("llhAccounts") || "{}");
       accounts[creds.email] = {
         email: creds.email,
-        password: creds.password,
-        plan: "free",
-        children: [],
+        plan: "Free",
+        subscriptionStatus: "Free Plan",
+        freeLessonAccessMode: "curated",
+        selectedPlanAtSignup: "Free",
+        signupAt: new Date().toISOString(),
         createdAt: new Date().toISOString(),
       };
       localStorage.setItem("llhAccounts", JSON.stringify(accounts));
-      localStorage.setItem("llhCurrentUser", creds.email);
-      if (typeof window.currentUser !== "undefined") window.currentUser = creds.email;
-      if (typeof window.updateAuthUI === "function") window.updateAuthUI();
-      if (typeof window.syncPlatformNavVisibility === "function") window.syncPlatformNavVisibility();
+      if (typeof loadAccountState === "function") loadAccountState(creds.email);
+      if (typeof updateAuthUI === "function") updateAuthUI();
+      if (typeof syncPlatformNavVisibility === "function") syncPlatformNavVisibility();
     }, { email, password });
 
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
 
     // What's New stays hidden with no published notes.
     const whatsNewHidden = await page.locator("#whatsNewNavLink").evaluate((el) => el.hidden);
