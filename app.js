@@ -59061,7 +59061,8 @@ document.addEventListener("click", async (event) => {
     const childId = dlcOpenChildBtn.dataset.dlcOpenChild;
     const tab = dlcOpenChildBtn.dataset.dlcQuickTab || "overview";
     if (!childId) return;
-    if (activeView !== "children" || childManagementMode !== "daily-logs") {
+    const currentView = document.querySelector(".active-view")?.id?.replace("view-", "") || "";
+    if (currentView !== "children" || childManagementMode !== "daily-logs") {
       setView("child-tools-daily-logs", { childId, dailyLogsChildTab: tab });
       return;
     }

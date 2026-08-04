@@ -19,7 +19,7 @@ const { chromium } = require("playwright");
 const ROOT = path.join(__dirname, "..");
 const PORT = 19400 + Math.floor(Math.random() * 200);
 const STORE_PATH = path.join(os.tmpdir(), `llh-cx-polish-${crypto.randomBytes(4).toString("hex")}.json`);
-const CACHE = "20260804-customer-ux-polish-r1";
+const CACHE = "20260804-customer-ux-polish-r2";
 
 function startServer() {
   return spawn("node", ["server/index.js"], {
@@ -79,6 +79,8 @@ async function main() {
   assert.match(appJs, /data-dlc-open-child="\$\{child\.id\}"/);
   assert.match(appJs, /const openChildId = String\(options\.childId \|\| ""\)\.trim\(\)/);
   assert.match(appJs, /dailyLogsSection = "individual"/);
+  assert.match(appJs, /const currentView = document\.querySelector\("\.active-view"\)\?\.id\?\.replace\("view-", ""\)/);
+  assert.doesNotMatch(appJs, /if \(activeView !== "children" \|\| childManagementMode !== "daily-logs"\)/);
 
   // Behavior & Support — no Coming Soon placeholder grid on the customer page
   assert.match(appJs, /data-behavior-support-ready="true"/);

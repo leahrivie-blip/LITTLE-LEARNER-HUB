@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v166-20260804-customer-ux-polish-r1";
+const CACHE_NAME = "llh-shell-v166-20260804-customer-ux-polish-r2";
 const SHELL_VERSION = "20260803-assign-download-fixers";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;
