@@ -4953,11 +4953,17 @@ function securityResponseHeaders(extra = {}) {
   };
 }
 
-function jsonResponse(response, statusCode, payload) {
-  response.writeHead(statusCode, securityResponseHeaders({
+function jsonResponse(response, statusCode, payload, extraHeaders = null) {
+  const headers = securityResponseHeaders({
     "Content-Type": "application/json; charset=utf-8",
     "Cache-Control": "no-store",
-  }));
+    ...(extraHeaders && typeof extraHeaders === "object" ? extraHeaders : {}),
+  });
+  if (payload && typeof payload === "object" && payload.correlationId) {
+    headers["X-Correlation-Id"] = String(payload.correlationId).slice(0, 80);
+    headers["X-Request-Id"] = String(payload.correlationId).slice(0, 80);
+  }
+  response.writeHead(statusCode, headers);
   response.end(JSON.stringify(payload));
 }
 
@@ -16999,16 +17005,24 @@ async function handleAdminAnalytics(request, response, url) {
   const startedAt = Date.now();
   const token = String(extractAdminToken(request, url) || "").trim();
   const tokenPrefix = token ? `${token.slice(0, 12)}…` : "(empty)";
+  const correlationId = String(
+    url.searchParams.get("correlationId")
+      || request.headers["x-correlation-id"]
+      || request.headers["x-request-id"]
+      || `aan-${crypto.randomBytes(6).toString("hex")}`,
+  ).slice(0, 80);
   console.log("[admin-analytics] request", {
+    correlationId,
     tokenPrefix,
     tokenValid: validAdminToken(token),
     heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
   });
   if (!validAdminToken(token)) {
-    console.warn("[admin-analytics] rejected — invalid admin token", { tokenPrefix });
+    console.warn("[admin-analytics] rejected — invalid admin token", { correlationId, tokenPrefix });
     jsonResponse(response, 401, {
       error: "Admin access is required.",
       code: "admin_session_invalid",
+      correlationId,
       hint: "Unlock Admin again with owner email, password, and access code. Browser unlock state can outlive a lost server session after deploy or store sync.",
     });
     return;
@@ -17028,12 +17042,13 @@ async function handleAdminAnalytics(request, response, url) {
         tableEvents.forEach((evt) => byId.set(evt.id, evt));
         mergedEvents = Array.from(byId.values());
       } catch (error) {
-        console.warn("[admin-analytics] table fetch failed:", error.message);
+        console.warn("[admin-analytics] table fetch failed:", { correlationId, message: error.message });
       }
     }
     const userCount = Object.keys(store.users || {}).length;
     const eventCount = mergedEvents.length;
     console.log("[admin-analytics] building summary", {
+      correlationId,
       email: session.email || "",
       userCount,
       eventCount,
@@ -17041,15 +17056,17 @@ async function handleAdminAnalytics(request, response, url) {
     });
     const analytics = analyticsSummary(store, { events: mergedEvents });
     console.log("[admin-analytics] success", {
+      correlationId,
       email: session.email || "",
       ms: Date.now() - startedAt,
       usersReturned: (analytics.users || []).length,
       rawEventCount: analytics.rawEventCount,
       heapUsedMb: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
     });
-    jsonResponse(response, 200, { analytics });
+    jsonResponse(response, 200, { analytics, correlationId });
   } catch (error) {
     console.error("[admin-analytics] FAILED", {
+      correlationId,
       message: error?.message,
       stack: error?.stack,
       ms: Date.now() - startedAt,
@@ -17058,6 +17075,7 @@ async function handleAdminAnalytics(request, response, url) {
     jsonResponse(response, 500, {
       error: error?.message || "Admin analytics failed.",
       code: "admin_analytics_failed",
+      correlationId,
       hint: "Server failed while building analytics. Check Render logs for [admin-analytics] FAILED.",
     });
   }
