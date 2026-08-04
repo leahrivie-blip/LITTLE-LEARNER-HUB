@@ -6775,6 +6775,12 @@ body:not(.user-authenticated) .sidebar-free-upgrade {
   font-weight: 700;
 }
 
+.form-optional {
+  font-weight: 500;
+  font-size: 0.85em;
+  color: var(--muted, #667085);
+}
+
 .saved-preferences {
   margin-top: 16px;
   padding: 12px;

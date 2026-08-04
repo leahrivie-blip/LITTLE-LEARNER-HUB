@@ -14438,8 +14438,8 @@ function renderOwnerHomeDashboard() {
         body: "Once children are on the roster, you’ll see check-ins, meals, forms waiting on parents, and the next action for your day.",
         ctaLabel: "Add your first child",
         ctaAttrs: 'data-view="children" data-child-view="add"',
-        secondaryLabel: "Tour Family Hub",
-        secondaryAttrs: 'data-view="home-daycare-hub"',
+        secondaryLabel: "Program name & details",
+        secondaryAttrs: 'data-view="program-settings"',
       }),
     });
     return;
@@ -14710,28 +14710,18 @@ function renderFamiliesHubPage() {
       <section class="work-hub-section">
         <h3>What to do next</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "home-daycare-hub", title: "Invite a parent", detail: "Create a Family Hub household", primary: true })}
+          ${workHubTile({ view: "home-daycare-hub", title: "Invite a parent", detail: "Send a Family Hub link for today’s updates", primary: true })}
           ${formsWaiting ? workHubTile({ view: "forms", title: "Forms waiting", detail: `${formsWaiting} need parent action`, primary: true }) : workHubTile({ view: "forms", title: "Forms", detail: "Assign & review" })}
           ${workHubTile({ view: "messages", title: "Messages", detail: opsUnread ? `${opsUnread} updates to review` : "Provider inbox" })}
           ${workHubTile({ view: "child-tools-daily-logs", title: "Daily reports", detail: "Share end-of-day updates", attrs: 'data-dlc-open-section="notes"' })}
         </div>
       </section>
       <section class="work-hub-section">
-        <h3>Family Hub & day updates</h3>
+        <h3>Enrollment & calendar</h3>
         <div class="work-hub-grid">
-          ${workHubTile({ view: "home-daycare-hub", title: "Family Hub", detail: "Households & parent portal" })}
-          ${workHubTile({ view: "home-daycare-hub", title: "Absence & pickup requests", detail: "Approve in provider inbox" })}
+          ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "Inquiries, waitlist, and enrolled children" }) : ""}
           ${workHubTile({ view: "calendar", title: "Family calendar", detail: "Events parents see" })}
-          ${canManage ? workHubTile({ view: "enrollment", title: "Enrollment", detail: "New family intake" }) : ""}
-        </div>
-      </section>
-      <section class="work-hub-section">
-        <h3>Contacts on child files</h3>
-        <p class="muted-copy">Parent, emergency, and pickup contacts live on each child’s profile so you only enter them once.</p>
-        <div class="work-hub-grid">
-          ${workHubTile({ view: "children", title: "Parents & guardians", detail: missingContacts ? `${missingContacts} profiles need contacts` : "Open a child → Contacts" })}
-          ${workHubTile({ view: "children", title: "Emergency & authorized pickup", detail: "Child file → contacts" })}
-          ${workHubTile({ view: "children", title: "Photos & notes", detail: "Shared from each child’s file" })}
+          ${workHubTile({ view: "children", title: "Parent contacts", detail: missingContacts ? `${missingContacts} profiles need contacts` : "Add parent, emergency, and pickup on each child" })}
         </div>
       </section>
     `;
@@ -18597,44 +18587,13 @@ function saveDailyLogQuickAction(actionId, childId, options = {}) {
     });
     return;
   }
-  if (actionId === "happy" || actionId === "tired" || actionId === "observation") {
-    if (actionId === "observation") {
-      appendChildRecord("Observations", {
-        childId,
-        date: today,
-        text: "Observation noted from Daily Logs",
-        title: `Observation | ${today}`,
-        summary: "Observation noted",
-        shareWithFamily: true,
-      });
-      return;
-    }
+  if (actionId === "happy" || actionId === "tired") {
     appendChildRecord("Communications", { childId, date: today, type: "Mood Note", mood: actionId === "happy" ? "Happy" : "Tired", title: `Mood | ${today}`, summary: actionId === "happy" ? "Happy" : "Tired", shareWithFamily: true });
     return;
   }
-  if (actionId === "incident") {
-    appendChildRecord("Communications", {
-      childId,
-      date: today,
-      time,
-      type: "Incident Report",
-      title: `Incident Report | ${today}`,
-      summary: "Incident noted — open to add details",
-      shareWithFamily: false,
-    });
-    return;
-  }
-  if (actionId === "parent-message") {
-    appendChildRecord("Communications", {
-      childId,
-      date: today,
-      time,
-      type: "Parent Message",
-      title: `Parent Message | ${today}`,
-      summary: "Parent message draft started",
-      message: "",
-      shareWithFamily: true,
-    });
+  // observation / incident / parent-message / photo / meal / nap / diaper / activity /
+  // daily-log are form-only from the overview — open the real tab instead of saving stubs.
+  if (["observation", "incident", "parent-message", "photo", "meal", "nap", "diaper", "activity", "daily-log"].includes(actionId)) {
     return;
   }
   if (actionId === "photo") {
@@ -34428,14 +34387,14 @@ function elgConnection(area) {
 
 function strengthForArea(area, childName = "The child") {
   const map = {
-    "Social Emotional": `${childName} is building confidence, connection, and self-regulation through daily interactions.`,
-    "Language & Literacy": `${childName} is strengthening communication, vocabulary, listening, and early literacy skills.`,
-    "Cognitive Development": `${childName} is showing growing thinking skills, problem solving, matching, sorting, or number understanding.`,
-    "Fine Motor": `${childName} is developing hand strength, coordination, grasp, and control with materials.`,
-    "Gross Motor": `${childName} is practicing balance, coordination, strength, and whole-body movement.`,
-    "Physical Development": `${childName} is building independence, healthy routines, safety awareness, and body control.`,
-    "Creative Arts": `${childName} is exploring ideas through art, music, movement, pretend play, and creative choices.`,
-    "Approaches to Learning": `${childName} is showing curiosity, persistence, focus, and willingness to try new things.`,
+    "Social Emotional": `${childName} connects with others and is learning to name feelings and calm down.`,
+    "Language & Literacy": `${childName} is growing vocabulary, listening, and early reading interest.`,
+    "Cognitive Development": `${childName} explores how things work — sorting, matching, counting, and problem solving.`,
+    "Fine Motor": `${childName} is getting stronger hands and finer control with toys and tools.`,
+    "Gross Motor": `${childName} moves with more balance, strength, and coordination.`,
+    "Physical Development": `${childName} is practicing self-help, healthy routines, and body awareness.`,
+    "Creative Arts": `${childName} expresses ideas through art, music, movement, and pretend play.`,
+    "Approaches to Learning": `${childName} stays curious, tries again, and sticks with a challenge.`,
   };
   return map[area] || map["Approaches to Learning"];
 }
@@ -34895,9 +34854,9 @@ function renderSettingsHubPage() {
     },
     {
       title: "Program Settings",
-      detail: "Business information and classroom defaults",
+      detail: "Program name, contact details, and classroom defaults",
       cards: [
-        { view: "program-settings", title: "Business Information & Logo", detail: "Program name, contact, hours, ages, and branding" },
+        { view: "program-settings", title: "Program name & details", detail: "Name, contact, hours, ages, and logo" },
       ],
     },
     ...(canStaff
@@ -35489,7 +35448,7 @@ function renderFamilyHubProviderPanel() {
     <section class="section-block hdh-family-hub-panel" id="hdhFamilyHubPanel">
       <p class="eyebrow">Family sharing</p>
       <h3>Family Hub</h3>
-      <p class="muted-copy">Invite a household so parents can see today’s updates, photos, forms, and messages. One login covers every child you link.</p>
+      <p class="muted-copy">Invite a household so parents can see today’s updates, photos, forms, and messages. One Family Hub login covers every child you link.</p>
       ${storageWarning}
       <p class="hdh-disclaimer" role="note">${escapeHtml(homeDaycareFormsPackDisclaimer())}</p>
       <form id="hdhFamilyHubInviteForm" class="panel-form hdh-family-hub-form">
@@ -35521,17 +35480,17 @@ function renderFamilyHubProviderPanel() {
           </div>
         </fieldset>
         <div class="account-actions-row">
-          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Invite family</button>
+          <button class="primary-button" type="submit" ${children.length ? "" : "disabled"}>Create invite link</button>
           <button class="ghost-button" type="button" data-hdh-role-switch="parent">Preview parent view</button>
           <button class="ghost-button" type="button" data-family-hub-seed-demo>Create sample household</button>
         </div>
-        <p class="form-note">${escapeHtml(handoff)} Text delivery isn’t live yet — copy the link if you want to share by phone. Use <strong>Preview parent view</strong> to see what families see.</p>
+        <p class="form-note">${escapeHtml(handoff)} You’ll get a magic link to copy and send (email/SMS delivery isn’t live on the testing site yet). Use <strong>Preview parent view</strong> to see what families see.</p>
         <span class="form-message" id="hdhFamilyHubInviteMessage" aria-live="polite"></span>
       </form>
       ${invite ? `
         <div class="hdh-family-invite-result" role="status">
-          <strong>You’re ready to invite ${escapeHtml(invite.label || "this family")}</strong>
-          <p class="muted-copy">Share the link (and code, if needed). Parents can open Family Hub right away.</p>
+          <strong>Invite ready for ${escapeHtml(invite.label || "this family")}</strong>
+          <p class="muted-copy">Copy the magic link below and send it to the parent. They open Family Hub without creating a separate provider account.</p>
           <p class="muted-copy">Magic link: <code class="hdh-code">${escapeHtml(invite.magicUrl || "")}</code></p>
           ${invite.loginCode ? `<p class="muted-copy">Login code: <code class="hdh-code">${escapeHtml(invite.loginCode)}</code></p>` : ""}
           <div class="account-actions-row">
@@ -37065,94 +37024,95 @@ function renderHomeDaycareStaffInvitePanel() {
   const invite = hdhTesterInviteResult;
   return `
     <section class="section-block" id="hdhStaffInvitePanel">
-      <p class="eyebrow">Staff invites</p>
-      <h3>Invite a tester (own account + own kid)</h3>
-      <p class="muted-copy">Each tester gets their <strong>own</strong> Teacher account and their <strong>own</strong> starter child — not your kids, not a shared program. They can use Hub, forms, lessons, calendar, and daily logs. <strong>No Admin.</strong> They Message Leah in Messages.</p>
-      <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
+      <p class="eyebrow">Staff</p>
+      <h3>Invite staff to your program</h3>
+      <p class="muted-copy">Send an invite so a teacher or assistant can work inside <strong>your</strong> classrooms, children, and daily logs. They never get Admin.</p>
+      <form id="hdhStaffInviteForm" class="panel-form">
         <div class="form-grid-two">
-          <label>Tester email
-            <input name="email" type="email" required placeholder="friend@example.com" autocomplete="email" />
-          </label>
-          <label>Starter child name
-            <input name="childName" maxlength="60" placeholder="Demo Child" />
+          <label>Staff email<input name="email" type="email" required placeholder="helper@example.com" autocomplete="email" /></label>
+          <label>Role
+            <select name="role" required>
+              <option value="assistant">Assistant / Staff</option>
+              <option value="teacher" selected>Lead Teacher</option>
+              <option value="director">Director</option>
+            </select>
           </label>
         </div>
-        <button class="primary-button" type="submit">Invite tester</button>
-        <p class="form-note">Creates an independent testing account for them. Their data stays private to their login.</p>
-        <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
+        ${renderHdhStaffVisibilityFields("hdh")}
+        <button class="primary-button" type="submit">Send staff invite</button>
+        <p class="form-note">You’ll get a copyable accept link. Email delivery may not be live on the testing site yet.</p>
+        <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
       </form>
-      ${invite ? `
-        <div class="hdh-family-invite-result hdh-staff-invite-result" role="status">
-          <strong>Tester invite ready for ${escapeHtml(invite.email || "tester")}</strong>
-          <p class="muted-copy">They must use this exact email. Share the accept link:</p>
-          <p><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
-          <ol class="hdh-tester-path">
-            <li>They open the link on the testing site.</li>
-            <li>Sign Up or log in with <strong>${escapeHtml(invite.email || "that email")}</strong>.</li>
-            <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools.</li>
-            <li>To reach you: <strong>Messages → Message Leah</strong> (not Admin).</li>
-          </ol>
-          <div class="account-actions-row">
-            <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy accept link</button>
-          </div>
-        </div>
-      ` : ""}
       <div class="hdh-family-household-list">
-        <h4>Independent tester invites</h4>
-        ${testerInvites.length
-          ? testerInvites.map((item) => `
+        <h4>Pending / active staff</h4>
+        ${pendingStaff.length
+          ? pendingStaff.map((item) => `
             <article class="hdh-forms-pack-item">
               <div>
-                <strong>${escapeHtml(item.email || "Tester")}</strong>
-                <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}</p>
+                <strong>${escapeHtml(item.email || "Staff")}</strong>
+                <p class="muted-copy">${escapeHtml(item.role || "staff")} · ${escapeHtml(item.status || "pending")}${item.visibilityPreset ? ` · ${escapeHtml(item.visibilityPreset)}` : ""}</p>
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
-                ${item.status === "pending" ? `<button class="ghost-button" type="button" data-hdh-tester-invite-revoke="${escapeHtml(item.id)}">Revoke</button>` : ""}
               </div>
             </article>
           `).join("")
-          : `<p class="muted-copy">No independent tester invites yet.</p>`}
+          : `<p class="muted-copy">No staff invites yet. Add a helper above when you’re ready.</p>`}
       </div>
       <details class="hdh-tester-details" id="hdhStaffCustomInviteDetails">
-        <summary>Optional: staff on YOUR shared program (helpers)</summary>
-        <p class="muted-copy">Only use this if someone should work inside <em>your</em> program data. Most testers should use the independent invite above instead.</p>
-        <form id="hdhStaffInviteForm" class="panel-form">
+        <summary>Optional: invite a tester with their own account + kid</summary>
+        <p class="muted-copy">Use this only when someone should practice on <strong>separate</strong> demo data — not your real classrooms or children.</p>
+        <form id="hdhFullAccessInviteForm" class="panel-form hdh-full-access-invite">
           <div class="form-grid-two">
-            <label>Email<input name="email" type="email" required placeholder="helper@example.com" /></label>
-            <label>Role
-              <select name="role" required>
-                <option value="assistant">Assistant / Staff</option>
-                <option value="teacher" selected>Lead Teacher</option>
-                <option value="director">Director</option>
-              </select>
+            <label>Tester email
+              <input name="email" type="email" required placeholder="friend@example.com" autocomplete="email" />
+            </label>
+            <label>Starter child name
+              <input name="childName" maxlength="60" placeholder="Demo Child" />
             </label>
           </div>
-          ${renderHdhStaffVisibilityFields("hdh")}
-          <button class="primary-button" type="submit">Send staff invite</button>
-          <p class="form-note">Shared-program staff invite. Never grants Admin.</p>
-          <span class="form-message" id="hdhStaffInviteMessage" aria-live="polite"></span>
+          <button class="primary-button" type="submit">Invite tester</button>
+          <p class="form-note">Creates an independent testing account. Their data stays private to their login. No Admin.</p>
+          <span class="form-message" id="hdhFullAccessInviteMessage" aria-live="polite"></span>
         </form>
+        ${invite ? `
+          <div class="hdh-family-invite-result hdh-staff-invite-result" role="status">
+            <strong>Tester invite ready for ${escapeHtml(invite.email || "tester")}</strong>
+            <p class="muted-copy">They must use this exact email. Share the accept link:</p>
+            <p><code class="hdh-code">${escapeHtml(invite.acceptUrl || "")}</code></p>
+            <ol class="hdh-tester-path">
+              <li>They open the link on the testing site.</li>
+              <li>Sign up or log in with <strong>${escapeHtml(invite.email || "that email")}</strong>.</li>
+              <li>Tap <strong>Accept invite</strong> — they get their own kid (<strong>${escapeHtml(invite.childName || "Demo Child")}</strong>) and Teacher tools.</li>
+              <li>To reach you: <strong>Messages → Message Leah</strong> (not Admin).</li>
+            </ol>
+            <div class="account-actions-row">
+              <button class="primary-button" type="button" data-hdh-copy-text="${escapeHtml(invite.acceptUrl || "")}">Copy accept link</button>
+            </div>
+          </div>
+        ` : ""}
         <div class="hdh-family-household-list">
-          <h4>Pending / active shared-program staff</h4>
-          ${pendingStaff.length
-            ? pendingStaff.map((item) => `
+          <h4>Independent tester invites</h4>
+          ${testerInvites.length
+            ? testerInvites.map((item) => `
               <article class="hdh-forms-pack-item">
                 <div>
-                  <strong>${escapeHtml(item.email || "Staff")}</strong>
-                  <p class="muted-copy">${escapeHtml(item.role || "staff")} · ${escapeHtml(item.status || "pending")}${item.visibilityPreset ? ` · ${escapeHtml(item.visibilityPreset)}` : ""}</p>
+                  <strong>${escapeHtml(item.email || "Tester")}</strong>
+                  <p class="muted-copy">${escapeHtml(item.status || "pending")} · own child: ${escapeHtml(item.childName || "Demo Child")}</p>
                 </div>
                 <div class="hdh-forms-pack-actions">
                   ${item.acceptUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.acceptUrl)}">Copy link</button>` : ""}
+                  ${item.status === "pending" ? `<button class="ghost-button" type="button" data-hdh-tester-invite-revoke="${escapeHtml(item.id)}">Revoke</button>` : ""}
                 </div>
               </article>
             `).join("")
-            : `<p class="muted-copy">No shared-program staff invites yet.</p>`}
+            : `<p class="muted-copy">No independent tester invites yet.</p>`}
         </div>
       </details>
     </section>
   `;
 }
+
 
 function renderHomeDaycareTrainingsPanel() {
   if (!isHomeDaycareHubTestingEnabled()) return "";
@@ -37322,8 +37282,8 @@ function renderHomeDaycareTesterGuidePanel() {
           <p>Scroll to <em>Family Hub</em> → create household invite → copy the magic link → send it. They open Parent view only.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
-          <strong>3. Add a Teacher tester (own stuff + own kid)</strong>
-          <p>Scroll to <em>Invite a tester</em> → enter their email (+ optional child name) → copy the accept link. They get their own Teacher account and starter child.</p>
+          <strong>3. Add staff or a Teacher tester</strong>
+          <p>Scroll to <em>Invite staff</em> for helpers on your program. Optional: open “invite a tester with their own account + kid” for a separate practice login.</p>
         </article>
         <article class="hdh-tester-role" role="listitem">
           <strong>4. Admin View As</strong>
@@ -37341,14 +37301,14 @@ function renderHomeDaycareTesterGuidePanel() {
         <li>Log meals, naps, and activities in Daily Logs — confirm Family Hub Today updates.</li>
         <li>Invite a parent and open their magic link on another device/browser.</li>
         <li>Optional: Admin Testing Center → View As Parent, then Return to Admin.</li>
-        <li>Optional: invite a Teacher tester below — they Message Leah from Messages.</li>
+        <li>Optional: invite staff below — or a separate Teacher tester who Messages Leah.</li>
       </ol>
       <p class="form-note">Jump to a section on this page:</p>
       <div class="account-actions-row hdh-tester-jumps">
         <button class="ghost-button" type="button" data-hdh-jump="hdhFormsPackPanel">Forms pack</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhAiDraftPanel">AI drafts</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhFamilyHubPanel">Family Hub</button>
-        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Invite tester (own kid)</button>
+        <button class="ghost-button" type="button" data-hdh-jump="hdhStaffInvitePanel">Invite staff</button>
         <button class="ghost-button" type="button" data-view="messages">Message Leah</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhTrainingsPanel">CPR / trainings</button>
         <button class="ghost-button" type="button" data-hdh-jump="hdhPacketsPanel">Packets</button>
@@ -37996,7 +37956,10 @@ function paintClassroomsManageApp() {
         }).join("") || `
           <div class="profile-empty-state">
             <strong>No classrooms yet</strong>
-            <p>Add your first room below, then assign children from Child Profiles. Attendance, Daily Logs, and staff views use these rooms.</p>
+            <p>Add your first room below. After children are on file, open Children to assign them to a room so attendance and Daily Logs group by classroom.</p>
+            <div class="account-actions-row">
+              <button class="ghost-button" type="button" data-view="children">Open Children to assign</button>
+            </div>
           </div>`}
       </div>
     </section>
@@ -38106,7 +38069,7 @@ function renderEnrollmentPage() {
   section.innerHTML = renderManageSurfaceShell({
     eyebrow: "Enrollment",
     title: "Enrollment management",
-    detail: "Track inquiries, waitlist children, and enrolled profiles. Full paperwork automation comes later.",
+    detail: "Track inquiries, waitlist children, and enrolled profiles. Assign forms from Forms & Paperwork when you’re ready.",
     actionsHtml: `
       <button class="primary-button" type="button" data-view="forms">Forms &amp; Paperwork</button>
       <button class="ghost-button" type="button" data-view="families">Families</button>
@@ -39954,18 +39917,18 @@ function classroomOptionsHtml(selectedId = "", selectedName = "") {
   const rooms = activeScheduleClassrooms();
   if (!rooms.length) {
     return `
-      <label>Classroom / Room
-        <input name="classroom" value="${escapeHtml(selectedName || "")}" placeholder="Add classrooms under Classrooms, or type a room name" />
+      <label>Classroom / room <span class="form-optional">(optional)</span>
+        <input name="classroom" value="${escapeHtml(selectedName || "")}" placeholder="Type a room name, or create classrooms first" />
       </label>
-      <p class="form-note"><button class="ghost-button" type="button" data-view="classrooms">Create a classroom</button> so children can be assigned to a real room roster.</p>
+      <p class="form-note">You can save this child without a room. <button class="ghost-button" type="button" data-view="classrooms">Create a classroom</button> when you’re ready to build a roster.</p>
     `;
   }
   const selected = String(selectedId || "");
   const match = rooms.some((room) => String(room.id) === selected);
   return `
-    <label>Classroom
-      <select name="classroomId" required>
-        <option value="">Select classroom</option>
+    <label>Classroom <span class="form-optional">(optional)</span>
+      <select name="classroomId">
+        <option value="">Assign later</option>
         ${rooms.map((room) => `
           <option value="${escapeHtml(room.id)}" ${String(room.id) === selected ? "selected" : ""}>${escapeHtml(room.name || "Classroom")}${room.ageGroupDefault ? ` · ${escapeHtml(room.ageGroupDefault)}` : ""}</option>
         `).join("")}
@@ -40115,15 +40078,15 @@ function renderChildProfileFormScreen(child = null) {
       <div class="child-page-header compact">
         <div>
           <h2>${editing ? "Edit Child Profile" : "Add Child"}</h2>
-          <p>Child details, goals, and support areas power recommendations across the platform.</p>
+          <p>${editing ? "Update what you need — name and age group keep recommendations on track." : "Name and age group are enough to get started. Everything else can wait."}</p>
         </div>
       </div>
       <section class="section-block simple-form-card wide-form-card">
         <form id="childProfileForm" class="mini-form simple-child-form">
           <input name="childId" type="hidden" value="${escapeHtml(child?.id || "")}" />
           <label>Child Name<input name="name" required value="${escapeHtml(child?.name || "")}" placeholder="Enter child's name" /></label>
-          <label>Birthday<input id="childDobInput" name="dob" type="date" value="${escapeHtml(child?.dob || "")}" /></label>
-          <label>Age<input id="childAgePreview" name="age" value="${escapeHtml(child ? childAgeLabel(child) : "")}" placeholder="Age will calculate automatically" /></label>
+          <label>Birthday <span class="form-optional">(optional)</span><input id="childDobInput" name="dob" type="date" value="${escapeHtml(child?.dob || "")}" /></label>
+          <label>Age <span class="form-optional">(auto from birthday)</span><input id="childAgePreview" name="age" value="${escapeHtml(child ? childAgeLabel(child) : "")}" placeholder="Fills in from birthday" /></label>
           <label>Age Group
             <select name="ageGroup" required>
               <option value="">Select age group</option>
@@ -40131,27 +40094,28 @@ function renderChildProfileFormScreen(child = null) {
             </select>
           </label>
           ${classroomOptionsHtml(child?.classroomId || "", child?.classroom || "")}
-          <label>Parent / Guardian<input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent name or email for Family Hub matching" /></label>
-          <label>Emergency contact<input name="emergencyContact" value="${escapeHtml(child?.emergencyContact || child?.emergency || "")}" placeholder="Name + phone for emergencies" maxlength="200" /></label>
-          <label>Authorized pickup<input name="pickupContacts" value="${escapeHtml(child?.pickupContacts || "")}" placeholder="Who can pick up this child" maxlength="240" /></label>
-          <label>Enrollment Date<input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
-          <label>Observations Required Per Month
+          <label>Parent / Guardian <span class="form-optional">(optional)</span><input name="parentInfo" value="${escapeHtml(child?.parentInfo || "")}" placeholder="Parent name or email" /></label>
+          <label>Emergency contact <span class="form-optional">(optional)</span><input name="emergencyContact" value="${escapeHtml(child?.emergencyContact || child?.emergency || "")}" placeholder="Name + phone for emergencies" maxlength="200" /></label>
+          <label>Authorized pickup <span class="form-optional">(optional)</span><input name="pickupContacts" value="${escapeHtml(child?.pickupContacts || "")}" placeholder="Who can pick up this child" maxlength="240" /></label>
+          <label>Enrollment Date <span class="form-optional">(optional)</span><input name="enrollmentDate" type="date" value="${escapeHtml(child?.enrollmentDate || "")}" /></label>
+          <label>Monthly observation goal
             <select id="monthlyObservationGoalSelect" name="monthlyObservationGoal">
               ${["1", "2", "4"].map((value) => `<option value="${value}" ${String(monthlyGoal) === value ? "selected" : ""}>${value} per month</option>`).join("")}
               <option value="custom" ${!["1", "2", "4"].includes(String(monthlyGoal)) ? "selected" : ""}>Custom number</option>
             </select>
           </label>
-          <label class="${["1", "2", "4"].includes(String(monthlyGoal)) ? "hidden-field" : ""}" id="customMonthlyObservationGoalWrap">Custom Number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" value="${!["1", "2", "4"].includes(String(monthlyGoal)) ? escapeHtml(String(monthlyGoal)) : ""}" placeholder="Example: 6" /></label>
+          <label class="${["1", "2", "4"].includes(String(monthlyGoal)) ? "hidden-field" : ""}" id="customMonthlyObservationGoalWrap">Custom number<input name="customMonthlyObservationGoal" type="number" min="1" max="31" value="${!["1", "2", "4"].includes(String(monthlyGoal)) ? escapeHtml(String(monthlyGoal)) : ""}" placeholder="Example: 6" /></label>
           <div class="wide profile-check-section">
-            <strong>Developmental Goals</strong>
+            <strong>Developmental goals <span class="form-optional">(optional)</span></strong>
+            <p class="form-note">Check any focus areas you want help tracking. You can change these later.</p>
             <div class="profile-check-grid">${renderDevelopmentGoalChecks(selectedGoals)}</div>
           </div>
           <div class="wide profile-check-section">
-            <strong>Support Areas</strong>
+            <strong>Support areas <span class="form-optional">(optional)</span></strong>
             <div class="profile-check-grid support-check-grid">${renderSupportAreaChecks(selectedSupports)}</div>
           </div>
-          <label class="wide">Goals / Notes About Current Needs<textarea name="activeGoals" rows="3" placeholder="Example: Improve scissor skills, use 3-4 word sentences">${escapeHtml(child?.activeGoals || "")}</textarea></label>
-          <label class="wide">Notes<textarea name="notes" rows="3" placeholder="Helpful routines, family notes, strengths, concerns">${escapeHtml(child?.notes || "")}</textarea></label>
+          <label class="wide">Goals / notes about current needs <span class="form-optional">(optional)</span><textarea name="activeGoals" rows="3" placeholder="Example: Improve scissor skills, use 3–4 word sentences">${escapeHtml(child?.activeGoals || "")}</textarea></label>
+          <label class="wide">Notes <span class="form-optional">(optional)</span><textarea name="notes" rows="3" placeholder="Helpful routines, family notes, strengths, concerns">${escapeHtml(child?.notes || "")}</textarea></label>
           <button class="primary-button" type="submit">${editing ? "Save Profile Changes" : "Save Child"}</button>
           ${!isProUser() ? `<p class="form-note">Free plan includes up to ${effectiveFreeChildProfileLimit()} child profiles.</p>` : ""}
         </form>
@@ -41441,13 +41405,13 @@ function dlcSelectionLabel() {
 
 function dlcOutputOptions() {
   return [
-    ["daily-report", "Parent Daily Report"],
-    ["parent-message", "Parent Message"],
-    ["observation", "Observation"],
-    ["portfolio-entry", "Portfolio Entry"],
-    ["behavior-note", "Behavior Note"],
-    ["incident-report", "Incident Report"],
-    ["daily-summary", "Parent Summary"],
+    ["daily-report", "End-of-day report for parents"],
+    ["parent-message", "Short parent message"],
+    ["observation", "Observation write-up"],
+    ["portfolio-entry", "Portfolio note"],
+    ["behavior-note", "Behavior note"],
+    ["incident-report", "Incident report"],
+    ["daily-summary", "Quick parent summary"],
   ];
 }
 
@@ -43045,15 +43009,14 @@ function renderDailyLogsOverviewTab(child, records, today) {
         <div class="section-heading">
           <div>
             <p class="eyebrow">End of day</p>
-            <h4>Turn today’s logs into family updates</h4>
-            <p class="muted-copy">Uses only what you already logged — meals, naps, care, activities, and notes. Nothing invented.</p>
+            <h4>Write a family update from today’s care</h4>
+            <p class="muted-copy">We’ll draft from meals, naps, care, activities, and notes you already logged — nothing invented. Review before you share.</p>
           </div>
         </div>
         <div class="account-actions-row">
-          <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
-          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
-          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
-          <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
+          <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">Draft daily report</button>
+          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">Draft parent message</button>
+          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">Draft weekly summary</button>
         </div>
         ${(() => {
           const lesson = typeof weekLessonForChild === "function" ? weekLessonForChild(child) : null;
@@ -43425,7 +43388,7 @@ function renderObservationScreen(records) {
             </div>
             <label class="wide observation-next-step-field">
               <span>Suggested Next Steps</span>
-              <textarea name="nextSteps" rows="3" placeholder="Leave blank and Little Learner Hub will suggest next steps.">${escapeHtml(editing?.nextSteps || "")}</textarea>
+              <textarea name="nextSteps" rows="3" placeholder="Optional — leave blank and we’ll suggest a next step from the areas you pick.">${escapeHtml(editing?.nextSteps || "")}</textarea>
             </label>
             <div class="wide observation-help-box">
               <strong>Need help?</strong>
