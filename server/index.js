@@ -1840,13 +1840,15 @@ function normalizedCurriculumLessonPlan(value) {
   if (Array.isArray(entry.enrichmentPublishHistory)) {
     normalized.enrichmentPublishHistory = entry.enrichmentPublishHistory
       .filter((item) => item && typeof item === "object")
-      .slice(0, 12)
+      .slice(0, ENRICHMENT_HISTORY_LIMIT)
       .map((item) => ({
         versionId: normalizedShortText(item.versionId, 80),
+        kind: normalizedShortText(item.kind, 20) || "publish",
         publishedAt: normalizedShortText(item.publishedAt, 80),
         publishedBy: normalizedShortText(item.publishedBy, 180),
         fingerprint: normalizedShortText(item.fingerprint, 80),
         lessonPlanId: normalizedShortText(item.lessonPlanId, 160),
+        rollbackOf: normalizedShortText(item.rollbackOf, 80) || "",
         snapshot: item.snapshot && typeof item.snapshot === "object" ? item.snapshot : null,
       }))
       .filter((item) => item.versionId);
@@ -5511,6 +5513,35 @@ async function flushDurableStoreOrWebhookError(response, failMessage = "Webhook 
 
 // Persisted (not just console-logged) audit trail for confirmed curriculum
 // replace/restore actions — high-impact and rare enough to warrant their own record.
+const ENRICHMENT_HISTORY_LIMIT = 250; // effectively unlimited for curriculum upgrade campaigns
+
+function enrichmentHistoryFingerprint(payload) {
+  try {
+    const raw = JSON.stringify(payload || {});
+    return crypto.createHash("sha256").update(raw).digest("hex").slice(0, 24);
+  } catch (_error) {
+    return `fp-${Date.now()}`;
+  }
+}
+
+function appendEnrichmentEditorAudit(store, details = {}) {
+  store.enrichmentEditorAudit = Array.isArray(store.enrichmentEditorAudit) ? store.enrichmentEditorAudit : [];
+  const entry = {
+    id: `enrich_audit_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`,
+    action: normalizedShortText(details.action, 40) || "unknown",
+    lessonPlanId: normalizedShortText(details.lessonPlanId, 160) || "",
+    versionId: normalizedShortText(details.versionId, 80) || "",
+    adminEmail: normalizedShortText(details.adminEmail, 180) || "unknown",
+    fingerprint: normalizedShortText(details.fingerprint, 80) || "",
+    note: normalizedShortText(details.note, 300) || "",
+    createdAt: new Date().toISOString(),
+  };
+  store.enrichmentEditorAudit.unshift(entry);
+  store.enrichmentEditorAudit = store.enrichmentEditorAudit.slice(0, 2000);
+  console.log("[enrichment-editor-audit]", JSON.stringify(entry));
+  return entry;
+}
+
 function appendCurriculumRestoreAudit(store, { adminToken, before, after, note = "" } = {}) {
   store.curriculumRestoreAudit = Array.isArray(store.curriculumRestoreAudit) ? store.curriculumRestoreAudit : [];
   const session = adminSessionStore.validate(adminToken);
@@ -19833,6 +19864,10 @@ async function handleEnrichmentRollback(request, response) {
     jsonResponse(response, 404, { error: "Enrichment Editor is disabled.", code: "enrichment_editor_disabled" });
     return;
   }
+  if (curriculumConcurrencyConflict(store.siteContent, body.expectedUpdatedAt)) {
+    curriculumConflictResponse(response, store.siteContent);
+    return;
+  }
   const planId = normalizedShortText(body.planId || body.lessonPlanId || body.lessonPlan?.id, 160);
   if (!planId) {
     jsonResponse(response, 400, { error: "planId is required.", code: "missing_plan_id" });
@@ -19850,16 +19885,89 @@ async function handleEnrichmentRollback(request, response) {
   const versionId = normalizedShortText(body.versionId, 80);
   const entry = versionId
     ? history.find((item) => item.versionId === versionId)
-    : history[0];
+    : history.find((item) => item?.snapshot && (item.kind || "publish") !== "draft") || history[0];
   if (!entry?.snapshot) {
     jsonResponse(response, 400, {
-      error: "No enrichment publish history is available to roll back.",
+      error: "No enrichment version history is available to restore.",
       code: "enrichment_rollback_unavailable",
     });
     return;
   }
   const snap = entry.snapshot;
   const now = new Date().toISOString();
+  const adminEmail = normalizedShortText(body.publishedBy || body.adminEmail || "", 180) || "admin";
+  const entryKind = normalizedShortText(entry.kind, 20) || "publish";
+  const isDraftRestore = entryKind === "draft" || (snap.enrichmentDraft && !snap.dailyPlans);
+
+  if (isDraftRestore) {
+    const draftSnap = snap.enrichmentDraft && typeof snap.enrichmentDraft === "object"
+      ? snap.enrichmentDraft
+      : null;
+    if (!enrichmentDraftHasContent(draftSnap)) {
+      jsonResponse(response, 400, {
+        error: "That draft snapshot has no enrichment content to restore.",
+        code: "enrichment_draft_restore_empty",
+      });
+      return;
+    }
+    const restoredPlan = normalizedCurriculumLessonPlan({
+      ...existingPlan,
+      enrichmentDraft: {
+        ...draftSnap,
+        updatedAt: now,
+        lastEditedBy: adminEmail,
+      },
+      enrichmentPublishHistory: [
+        {
+          versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+          kind: "rollback",
+          publishedAt: now,
+          publishedBy: adminEmail,
+          fingerprint: `rollback-draft:${entry.versionId}`,
+          lessonPlanId: planId,
+          snapshot: { enrichmentDraft: cloneJson(existingPlan.enrichmentDraft || {}) },
+          rollbackOf: entry.versionId,
+        },
+        ...history,
+      ].slice(0, ENRICHMENT_HISTORY_LIMIT),
+      updatedAt: existingPlan.updatedAt,
+    });
+    const nextCurriculum = normalizedCurriculumStore({
+      ...curriculum,
+      lessonPlans: (curriculum.lessonPlans || []).map((item) => (item.id === planId ? restoredPlan : item)),
+      updatedAt: now,
+    });
+    const writeResult = writeSiteCurriculum(store, nextCurriculum, { updatedAt: now });
+    if (writeResult.wipeBlocked) {
+      jsonResponse(response, 409, {
+        error: "Rollback refused to protect curriculum integrity.",
+        code: "curriculum_wipe_blocked",
+      });
+      return;
+    }
+    appendEnrichmentEditorAudit(store, {
+      action: "restore_draft",
+      lessonPlanId: planId,
+      versionId: entry.versionId,
+      adminEmail,
+      fingerprint: `rollback-draft:${entry.versionId}`,
+      note: "Restored draft snapshot for this lesson only.",
+    });
+    await writeStoreAsync(store);
+    const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
+    jsonResponse(response, 200, {
+      ok: true,
+      rolledBack: true,
+      restoredDraft: true,
+      autoPublished: false,
+      restoredFromVersionId: entry.versionId,
+      lessonPlan: saved,
+      curriculum: store.siteContent.curriculum,
+      siteContentUpdatedAt: store.siteContent.updatedAt,
+    });
+    return;
+  }
+
   const restoredPlan = normalizedCurriculumLessonPlan({
     ...existingPlan,
     dailyPlans: snap.dailyPlans || existingPlan.dailyPlans,
@@ -19869,15 +19977,16 @@ async function handleEnrichmentRollback(request, response) {
     enrichmentPublishHistory: [
       {
         versionId: `eroll-${crypto.randomBytes(10).toString("hex")}`,
+        kind: "rollback",
         publishedAt: now,
-        publishedBy: normalizedShortText(body.publishedBy || "admin", 180) || "admin",
+        publishedBy: adminEmail,
         fingerprint: `rollback:${entry.versionId}`,
         lessonPlanId: planId,
         snapshot: snapshotEnrichmentPublishedState(existingPlan, curriculum.activities || []),
         rollbackOf: entry.versionId,
       },
       ...history,
-    ].slice(0, 12),
+    ].slice(0, ENRICHMENT_HISTORY_LIMIT),
     updatedAt: now,
   });
   const snapActs = Array.isArray(snap.activities) ? snap.activities : [];
@@ -19915,6 +20024,14 @@ async function handleEnrichmentRollback(request, response) {
     });
     return;
   }
+  appendEnrichmentEditorAudit(store, {
+    action: "restore_publish",
+    lessonPlanId: planId,
+    versionId: entry.versionId,
+    adminEmail,
+    fingerprint: `rollback:${entry.versionId}`,
+    note: "Restored published enrichment snapshot for this lesson only.",
+  });
   await writeStoreAsync(store);
   const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === planId);
   jsonResponse(response, 200, {
@@ -19927,6 +20044,7 @@ async function handleEnrichmentRollback(request, response) {
     siteContentUpdatedAt: store.siteContent.updatedAt,
   });
 }
+
 
 async function promoteEnrichmentAssetsToPublished(store, assetIds, lessonPlanId) {
   const dir = enrichmentMedia.localMediaDirFromStorePath(storePath);
@@ -20137,6 +20255,7 @@ async function handlePublishEnrichment(request, response, ctx) {
   const history = [
     {
       versionId,
+      kind: "publish",
       publishedAt: now,
       publishedBy,
       fingerprint,
@@ -20144,7 +20263,7 @@ async function handlePublishEnrichment(request, response, ctx) {
       snapshot: priorSnapshot,
     },
     ...(Array.isArray(existingPlan.enrichmentPublishHistory) ? existingPlan.enrichmentPublishHistory : []),
-  ].slice(0, 12);
+  ].slice(0, ENRICHMENT_HISTORY_LIMIT);
 
   const nextActivities = applyMergedEnrichmentToActivities(
     existingCurriculum.activities || [],
@@ -20206,6 +20325,14 @@ async function handlePublishEnrichment(request, response, ctx) {
     });
     return;
   }
+  appendEnrichmentEditorAudit(store, {
+    action: "publish",
+    lessonPlanId: id,
+    versionId,
+    adminEmail: publishedBy,
+    fingerprint,
+    note: "Automatic backup snapshot retained before publish for this lesson only.",
+  });
   await writeStoreAsync(store);
   const saved = (store.siteContent.curriculum.lessonPlans || []).find((item) => item.id === id);
   const summary = enrichmentApi.summarizePublishChanges
@@ -20342,6 +20469,32 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         // A real draft save replaces any prior undo stash.
         undoStash = null;
       }
+      const previousHistory = Array.isArray(existingPlan.enrichmentPublishHistory)
+        ? existingPlan.enrichmentPublishHistory
+        : [];
+      let nextHistory = previousHistory;
+      const adminEmail = normalizedShortText(
+        body?.adminEmail || draftForSave.lastEditedBy || previousDraft?.lastEditedBy || "",
+        180,
+      ) || "admin";
+      // Automatic version history before every meaningful draft save (previous draft snapshot).
+      if (
+        enrichmentDraftHasContent(previousDraft)
+        && enrichmentHistoryFingerprint(previousDraft) !== enrichmentHistoryFingerprint(draftForSave)
+      ) {
+        nextHistory = [
+          {
+            versionId: `edraft-${crypto.randomBytes(10).toString("hex")}`,
+            kind: "draft",
+            publishedAt: now,
+            publishedBy: adminEmail,
+            fingerprint: `draft:${enrichmentHistoryFingerprint(previousDraft)}`,
+            lessonPlanId: id,
+            snapshot: { enrichmentDraft: cloneJson(previousDraft) },
+          },
+          ...previousHistory,
+        ].slice(0, ENRICHMENT_HISTORY_LIMIT);
+      }
       const draftPlan = normalizedCurriculumLessonPlan({
         ...existingPlan,
         enrichmentDraft: {
@@ -20349,6 +20502,7 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
           updatedAt: now,
         },
         enrichmentDraftUndo: undoStash,
+        enrichmentPublishHistory: nextHistory,
         updatedAt: existingPlan.updatedAt,
       });
       // Verify normalized draft still carries activity/week content when we intended to save it.
@@ -20374,6 +20528,16 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         });
         return;
       }
+      appendEnrichmentEditorAudit(store, {
+        action: restoringDiscarded ? "undo_discard" : (allowEmptyOverwrite && !enrichmentDraftHasContent(draftForSave) ? "discard_draft" : "save_draft"),
+        lessonPlanId: id,
+        versionId: nextHistory[0]?.versionId || "",
+        adminEmail,
+        fingerprint: enrichmentHistoryFingerprint(draftForSave),
+        note: restoringDiscarded
+          ? "Restored discarded draft for this lesson only."
+          : "Draft save for this lesson only; published content unchanged.",
+      });
       await writeStoreAsync(store);
       // After successful draft save, cleanup assets removed from this draft if unreferenced.
       const removedIds = enrichmentMedia.diffRemovedMediaAssetIds(previousDraft, draftPlan.enrichmentDraft);
