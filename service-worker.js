@@ -1,4 +1,4 @@
-const CACHE_NAME = "llh-shell-v163-assign-download-fixers";
+const CACHE_NAME = "llh-shell-v164-20260804-free-onboarding-r1";
 const SHELL_VERSION = "20260803-assign-download-fixers";
 const OFFLINE_URL = "/offline.html";
 const NETWORK_TIMEOUT_MS = 2500;

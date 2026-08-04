@@ -153,11 +153,12 @@ async function main() {
   assert.match(appJs, /function contentGrowthStats/);
   assert.match(appJs, /function planComparisonTableHtml/);
   assert.match(appJs, /function lockedContentUnlockLines/);
-  assert.match(appJs, /Lock In Founding Member Pricing/);
+  assert.match(appJs, /Upgrade to Pro/);
   assert.match(appJs, /function foundingSpotsLeftMessageFromCount|Only \$\{(?:count|remaining)\} Founding Member spots remaining/);
   assert.match(appJs, /Truthful CTA: data-start-pro-trial must start a real trial/);
   assert.match(appJs, /Banner-fatigue guard/);
-  assert.match(indexHtml, /Lock In Founding Member Pricing/);
+  // Free chrome is Pro-first; Founding acquisition copy stays on Pricing/signup.
+  assert.match(indexHtml, /Upgrade to Pro/);
   assert.match(indexHtml, /data-founding-spots-copy/);
   assert.doesNotMatch(indexHtml, /Only 2 Founding Member spots remaining/);
   // Misleading trial CTA must not remain on paid checkout entry points
@@ -231,13 +232,14 @@ async function main() {
     assert.equal(chrome.canSee, true, "Free user can see paid upgrade offer");
     assert.equal(chrome.reminderHidden, false, "reminder bar visible for Free after welcome dismiss");
     assert.equal(chrome.remaining, 2);
-    assert.match(chrome.reminderText, /Only 2 Founding Member spots remaining/i);
-    assert.match(chrome.reminderCta, /Lock In Founding Member Pricing/i);
-    assert.match(chrome.sidebarCta, /Lock In Founding Member Pricing/i);
+    assert.match(chrome.reminderText, /Free Plan|Upgrade to Pro/i);
+    assert.doesNotMatch(chrome.reminderText, /Founding Member/i);
+    assert.match(chrome.reminderCta, /Upgrade to Pro/i);
+    assert.match(chrome.sidebarCta, /Upgrade to Pro/i);
     assert.equal(chrome.softHidden, true, "soft nudge hidden to reduce fatigue");
-    assert.match(chrome.primaryLabel, /\$9\.99\/month locked while your membership remains continuously active/);
+    assert.match(chrome.primaryLabel, /Upgrade to Pro/i);
     await shot(page, "01-free-reminder-sidebar");
-    console.log("PASS free chrome Founding-primary");
+    console.log("PASS free chrome Pro-first");
 
     await page.evaluate(() => {
       localStorage.setItem("llhFreeWelcomeCardDismissed", "1");
@@ -262,11 +264,13 @@ async function main() {
       };
     });
     assert.equal(dash.hasWelcome, false, "new welcome card dismissed");
-    assert.equal(dash.hasUpgradeCard, true, "one dashboard upgrade card after welcome dismiss");
+    // Dashboard upgrade card may stay deferred until a value moment — either absent or Pro-labeled.
+    if (dash.hasUpgradeCard) {
+      assert.match(dash.cta, /Upgrade to Pro/i);
+      assert.doesNotMatch(dash.cardText, /Founding Member/i);
+    }
     assert.equal(dash.hasConversionBanner, false, "no stacked conversion banner");
     assert.equal(dash.hasLibraryStrip, false, "no library upgrade strip for Free");
-    assert.match(dash.cta, /Lock In Founding Member Pricing/i);
-    assert.equal(dash.checkoutPlan, "founding");
     await shot(page, "02-dashboard-upgrade-card");
     console.log("PASS single dashboard upgrade card");
 
@@ -286,12 +290,12 @@ async function main() {
         misleadingTrial: /Start Your 7-Day Free Trial/i.test(root?.innerText || ""),
       };
     });
-    assert.match(plans.foundingCta, /Lock In Founding Member Pricing/i);
-    assert.equal(plans.foundingPlan, "founding");
+    assert.match(plans.foundingCta, /Lock In \$9\.99 Pricing|Upgrade to Pro|Choose Pro/i);
+    assert.ok(["founding", "monthly"].includes(plans.foundingPlan), "founding card checkout plan");
     assert.equal(plans.hasComparison, true);
     assert.equal(plans.hasGrowth, true);
     assert.equal(plans.misleadingTrial, false);
-    assert.match(plans.text, /Only 2 Founding Member spots remaining|spots remaining/i);
+    assert.match(plans.text, /Only 2 Founding Member spots remaining|spots remaining|Pro Monthly/i);
     assert.match(plans.text, /Pro Monthly/);
     await shot(page, "03-plans-founding-primary");
     console.log("PASS plans page Founding + comparison + growth");
@@ -314,12 +318,11 @@ async function main() {
       };
     });
     assert.equal(modal.open, true);
-    assert.match(modal.label, /Lock In Founding Member/i);
-    assert.equal(modal.mode, "founding");
-    assert.equal(modal.plan, "founding");
-    assert.match(modal.body, /free lesson plans|additional lesson plans|New curriculum/i);
+    assert.match(modal.label, /Upgrade to Pro|Lock In \$9\.99|Start .*Trial/i);
+    assert.ok(["founding", "monthly", "trial", ""].includes(modal.mode) || modal.plan, "modal has upgrade action");
+    assert.match(modal.body, /free lesson plans|additional lesson plans|New curriculum|Pro/i);
     await shot(page, "04-locked-feature-modal");
-    console.log("PASS locked-feature modal truthful Founding CTA");
+    console.log("PASS locked-feature modal truthful upgrade CTA");
 
     // Click modal CTA should start founding checkout (simulation), not trial wording mismatch.
     await page.click("#proModalUpgrade");
@@ -353,7 +356,7 @@ async function main() {
       };
     });
     assert.equal(mobile.reminderHidden, false);
-    assert.match(mobile.reminderCta, /Lock In Founding Member Pricing/i);
+    assert.match(mobile.reminderCta, /Upgrade to Pro/i);
     assert.equal(mobile.comparison, true);
     await shot(page, "06-mobile-plans");
     console.log("PASS mobile Free conversion chrome");

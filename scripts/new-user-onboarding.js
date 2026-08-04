@@ -59,6 +59,8 @@
       fromOnboardingCheckout: false,
       deferGenericUpgrades: false,
       firstTimeUser: true,
+      /** True when Free was already chosen at signup — skip Free vs Trial re-ask. */
+      freeChosenAtSignup: false,
       milestones: {
         firstLessonAt: "",
         firstActivityAt: "",
@@ -206,7 +208,7 @@
   }
 
   function isOnboardingModalStep(step) {
-    return ["welcome", "explore", "trial-explain", "trial-cancel", "trial-success"].includes(step);
+    return ["welcome", "free-ready", "explore", "trial-explain", "trial-cancel", "trial-success"].includes(step);
   }
 
   function isNewUserOnboardingActive() {
@@ -300,21 +302,17 @@
   function gettingStartedRows(state, isTrial) {
     const checklist = state.checklist || {};
     const rows = [
-      { key: "openLesson", label: "Open your first lesson plan", done: Boolean(checklist.openLesson || state.milestones?.firstLessonAt) },
-      { key: "exploreActivities", label: "Explore Activities", done: Boolean(checklist.exploreActivities || state.milestones?.firstActivityAt) },
+      { key: "openLesson", label: "Open one of your Free lesson plans", done: Boolean(checklist.openLesson || state.milestones?.firstLessonAt) },
+      { key: "exploreActivities", label: "Browse Free activities", done: Boolean(checklist.exploreActivities || state.milestones?.firstActivityAt) },
       { key: "addCalendar", label: "Save a lesson to your Calendar", done: Boolean(checklist.addCalendar || state.milestones?.firstCalendarAt) },
     ];
+    // Free path: keep Getting Started helpful — no upgrade checklist item.
+    // Trial path: guide exploration of unlocked Pro features.
     if (isTrial || state.trialStartedAt) {
       rows.push({
         key: "startTrialOrPremium",
-        label: "Explore a Premium Feature",
-        done: Boolean(checklist.startTrialOrPremium || state.milestones?.firstAiAt || (state.lessonOpenCount || 0) >= 1 && state.trialStartedAt),
-      });
-    } else {
-      rows.push({
-        key: "startTrialOrPremium",
-        label: "Start your Pro Trial",
-        done: Boolean(checklist.startTrialOrPremium || state.trialStartedAt || state.milestones?.firstUpgradeAt),
+        label: "Explore a Pro feature",
+        done: Boolean(checklist.startTrialOrPremium || state.milestones?.firstAiAt || ((state.lessonOpenCount || 0) >= 1 && state.trialStartedAt)),
       });
     }
     return rows;
@@ -350,11 +348,32 @@
       <div class="nuo-screen nuo-welcome">
         <p class="nuo-emoji" aria-hidden="true">🎉</p>
         <h2 id="newUserOnboardingTitle">Welcome to Little Learner Hub!</h2>
-        <p class="nuo-lead">Your account is ready.</p>
-        <p>We're excited you're here! Little Learner Hub was built by a childcare provider to help you spend less time planning and more time teaching.</p>
-        <p class="muted-copy">Let's get you started in under a minute.</p>
+        <p class="nuo-lead">Your Free account is ready.</p>
+        <p>We're glad you're here. Little Learner Hub was built by a childcare provider to help you spend less time planning and more time teaching.</p>
+        <p class="muted-copy">Next, we'll show you where to start — no pressure to upgrade.</p>
         <div class="nuo-actions">
-          <button type="button" class="primary-button" data-nuo-action="continue">Continue</button>
+          <button type="button" class="primary-button" data-nuo-action="continue">Show me around</button>
+        </div>
+      </div>
+    `;
+  }
+
+  /** Helpful Free landing after signup already chose Free — no second Free vs Trial chooser. */
+  function renderFreeReady() {
+    return `
+      <div class="nuo-screen nuo-free-ready">
+        <h2 id="newUserOnboardingTitle">Here's what's included with Free</h2>
+        <p class="nuo-lead">Explore at your own pace — no credit card needed.</p>
+        <ul class="nuo-includes">
+          <li>10 complete starter lesson plans (Infant, Toddler, Preschool)</li>
+          <li>Free activities you can use today</li>
+          <li>Calendar planning for about 30 days</li>
+          <li>Favorites, child profiles, and starter documentation helpers</li>
+        </ul>
+        <p class="muted-copy">You can start a 7-day Pro trial anytime from Settings if you want the full library later.</p>
+        <div class="nuo-actions">
+          <button type="button" class="primary-button" data-nuo-action="choose-free">Browse my Free plans</button>
+          <button type="button" class="ghost-button" data-nuo-action="choose-trial">Start a 7-day Pro trial instead</button>
         </div>
       </div>
     `;
@@ -363,31 +382,30 @@
   function renderExplore() {
     return `
       <div class="nuo-screen nuo-explore">
-        <h2 id="newUserOnboardingTitle">Choose how you want to explore</h2>
-        <p class="nuo-lead">Pick the pace that feels right. You can switch anytime from Settings.</p>
+        <h2 id="newUserOnboardingTitle">How would you like to start?</h2>
+        <p class="nuo-lead">You can explore Free now, or try Pro for 7 days. You can change anytime in Settings.</p>
         <div class="nuo-cards">
           <article class="nuo-card nuo-card--free">
-            <h3>Continue with Free</h3>
-            <p>Explore the platform at your own pace — no credit card needed.</p>
+            <h3>Start with Free</h3>
+            <p>Explore at your own pace — no credit card needed.</p>
             <ul>
               <li>Free lesson plans</li>
               <li>Free activities</li>
               <li>Planning tools</li>
               <li>Upgrade anytime</li>
             </ul>
-            <button type="button" class="primary-button nuo-btn-free" data-nuo-action="choose-free">Continue with Free</button>
+            <button type="button" class="primary-button nuo-btn-free" data-nuo-action="choose-free">Start with Free</button>
           </article>
           <article class="nuo-card nuo-card--featured">
-            <p class="nuo-badge">Most Popular</p>
-            <h3>⭐ Start Your 7-Day Pro Trial</h3>
-            <p>Experience everything before deciding.</p>
+            <h3>Try Pro for 7 days</h3>
+            <p>See the full library before you decide.</p>
             <ul>
-              <li>Premium lesson plans</li>
-              <li>Premium activities</li>
+              <li>Pro lesson plans</li>
+              <li>Pro activities</li>
               <li>Calendar tools</li>
               <li>Documentation Helpers</li>
               <li>AI tools</li>
-              <li>Premium resources &amp; printables</li>
+              <li>Resources &amp; printables</li>
             </ul>
             <div class="nuo-trial-terms">
               <p>You will enter a payment method through secure Stripe checkout.</p>
@@ -408,12 +426,12 @@
         <h2 id="newUserOnboardingTitle">Start Your 7-Day Pro Trial</h2>
         <p class="nuo-lead">Unlock everything in Little Learner Hub for 7 days.</p>
         <ul class="nuo-includes">
-          <li>Premium lesson plans</li>
-          <li>Premium activities</li>
+          <li>Pro lesson plans</li>
+          <li>Pro activities</li>
           <li>Calendar planning</li>
           <li>Documentation Helpers</li>
           <li>AI tools</li>
-          <li>Premium resources</li>
+          <li>Resources</li>
           <li>Printables</li>
         </ul>
         <div class="nuo-trial-terms">
@@ -487,6 +505,9 @@
       case "welcome":
         html = renderWelcome();
         break;
+      case "free-ready":
+        html = renderFreeReady();
+        break;
       case "explore":
         html = renderExplore();
         break;
@@ -519,20 +540,20 @@
         <div class="free-starter-explore-copy">
           <p class="free-starter-explore-badge">Welcome!</p>
           <h3>Let's get you started</h3>
-          <p>Explore the product first — no pressure to upgrade.</p>
+          <p>Your Free plans and activities are ready below. Take a look around — upgrade anytime later if you want more.</p>
         </div>
         <div class="free-starter-explore-grid">
           <article class="nuo-start-card-rich">
             <p class="nuo-start-icon" aria-hidden="true">📚</p>
             <h3>Lesson Plans</h3>
-            <p>Browse ready-to-use lesson plans for infants, toddlers, and preschoolers.</p>
-            <button type="button" class="primary-button" data-nuo-nav="lessons">Browse Lesson Plans</button>
+            <p>Open one of your included Free lesson plans for infants, toddlers, or preschoolers.</p>
+            <button type="button" class="primary-button" data-nuo-nav="lessons">Browse Free Lesson Plans</button>
           </article>
           <article class="nuo-start-card-rich">
             <p class="nuo-start-icon" aria-hidden="true">🎨</p>
             <h3>Activities</h3>
-            <p>Find age-ready activities organized by theme and learning domain.</p>
-            <button type="button" class="ghost-button" data-nuo-nav="activities">Explore Activities</button>
+            <p>Find Free age-ready activities organized by theme and learning domain.</p>
+            <button type="button" class="ghost-button" data-nuo-nav="activities">Explore Free Activities</button>
           </article>
           <article class="nuo-start-card-rich">
             <p class="nuo-start-icon" aria-hidden="true">📅</p>
@@ -562,7 +583,7 @@
           <p>Everything is now unlocked.</p>
           <p class="muted-copy">Here are a few great places to start:</p>
           <div class="nuo-trial-welcome-actions">
-            <button type="button" class="primary-button" data-nuo-nav="lessons">Browse Premium Lesson Plans</button>
+            <button type="button" class="primary-button" data-nuo-nav="lessons">Browse Pro Lesson Plans</button>
             <button type="button" class="ghost-button" data-nuo-nav="activities">Explore Activities</button>
             <button type="button" class="ghost-button" data-nuo-nav="calendar">Save a Lesson to Your Calendar</button>
           </div>
@@ -616,6 +637,9 @@
       active: true,
       step: "welcome",
       accountCreatedAt: now,
+      // Free was already selected during signup — do not ask again on explore.
+      freeSelectedAt: now,
+      freeChosenAtSignup: true,
       deferGenericUpgrades: true,
       firstTimeUser: true,
       experiment: EXPERIMENT_VERSION,
@@ -625,11 +649,12 @@
       localStorage.removeItem("llhFreeWelcomeCardDismissed");
       localStorage.removeItem(GETTING_STARTED_DISMISS_KEY);
       localStorage.removeItem(TRIAL_WELCOME_BANNER_DISMISS_KEY);
+      localStorage.removeItem("llhFreeLibraryFilterTouched");
     } catch {
       /* ignore */
     }
     track("welcome_screen_viewed", { step: "welcome" });
-    goToLessonPlans();
+    goToLessonPlans({ fromAuthLanding: true, applyFreeLibraryDefaults: true });
     window.setTimeout(() => openModal(), 40);
   }
 
@@ -788,14 +813,28 @@
   async function onAction(action) {
     if (action === "continue") {
       track("welcome_continue_pressed");
+      const state = getState();
+      // Already chose Free at signup → helpful Free overview (not Free vs Trial again).
+      if (state.freeChosenAtSignup || state.freeSelectedAt) {
+        updateState({ step: "free-ready", continueAt: new Date().toISOString() });
+        track("welcome_screen_viewed", { step: "free-ready" });
+        renderOnboarding();
+        return;
+      }
       updateState({ step: "explore", continueAt: new Date().toISOString() });
       track("welcome_screen_viewed", { step: "explore" });
       renderOnboarding();
       return;
     }
     if (action === "choose-free") {
-      track("free_selected", { source: "new_user_onboarding" });
-      updateState({ freeSelectedAt: new Date().toISOString(), deferGenericUpgrades: true });
+      const state = getState();
+      track("free_selected", {
+        source: state.step === "free-ready" ? "free_ready_continue" : "new_user_onboarding",
+      });
+      updateState({
+        freeSelectedAt: state.freeSelectedAt || new Date().toISOString(),
+        deferGenericUpgrades: true,
+      });
       finishFreePath();
       return;
     }

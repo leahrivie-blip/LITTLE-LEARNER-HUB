@@ -321,7 +321,7 @@ async function main() {
   assert.match(appJs, /MEMBERSHIP_COPY/);
   assert.match(appJs, /confirmTrialCurriculumExport/);
   assert.match(appJs, /trial-curriculum-watermark/);
-  assert.match(appJs, /Your 10 Free Starter Plans/);
+  assert.match(appJs, /Your Included Free Plans|Your 10 Free Starter Plans/);
   assert.match(indexHtml, /10 complete starter lesson plans across Infant, Toddler and Preschool/);
   assert.match(indexHtml, /trial-curriculum-exports\.js/);
   assert.doesNotMatch(indexHtml, /Selected free lesson plans across age groups/);
