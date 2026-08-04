@@ -320,6 +320,7 @@
     "test:mobile-a11y-pass": "NODE_ENV=test node scripts/test-mobile-a11y-pass.js",
     "test:perf-bounded-fixes": "NODE_ENV=test node scripts/test-perf-bounded-fixes.js",
     "test:pass3-cookie-mobile-home": "NODE_ENV=test node scripts/test-pass3-cookie-mobile-home.js"
+    "test:pass3-permission-matrix": "NODE_ENV=test node scripts/test-pass3-permission-matrix.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
