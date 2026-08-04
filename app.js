@@ -5885,6 +5885,21 @@ function markAppBootReady() {
   document.documentElement.classList.remove("llh-boot-authenticated");
   setAppBootGateMode("hidden");
   ensureNavigationShellReady();
+  try {
+    if (typeof window.LLHBootCritical?.setStatus === "function") {
+      window.LLHBootCritical.setStatus("");
+    }
+    const lazyStatus = document.getElementById("llhLazyStatus");
+    if (lazyStatus) {
+      lazyStatus.hidden = true;
+      lazyStatus.textContent = "";
+    }
+    if (typeof window.LLHLazyLoader?.prefetchIdle === "function") {
+      const idlePacks = ["comms", "exports"];
+      if (isAdminUnlocked() || canSeeAdminNav()) idlePacks.unshift("adminSurface");
+      window.LLHLazyLoader.prefetchIdle(idlePacks);
+    }
+  } catch (_error) { /* ignore lazy boot helpers */ }
   // Restore Free upgrade chrome only after verification finishes (no stack with boot gate).
   try {
     if (typeof refreshFreePlanUpgradeChrome === "function") refreshFreePlanUpgradeChrome();
@@ -17388,6 +17403,17 @@ function setView(view, options = {}) {
     suppressBootLanding = true;
     viewNavigationGeneration += 1;
     return;
+  }
+  // Lazy-load heavy packs (Admin / Teaching Kit / Messages) only when needed.
+  if (!options.afterLazyLoad && typeof window.LLHLazyLoader?.packForView === "function") {
+    const pack = window.LLHLazyLoader.packForView(view);
+    if (pack && !window.LLHLazyLoader.isReady(pack)) {
+      const pendingOptions = { ...options, afterLazyLoad: true };
+      Promise.resolve(window.LLHLazyLoader.ensure(pack))
+        .then(() => setView(view, pendingOptions))
+        .catch(() => setView(view, pendingOptions));
+      return;
+    }
   }
   const requestedView = view;
   let resolvedRequested = resolveSidebarView(view);
