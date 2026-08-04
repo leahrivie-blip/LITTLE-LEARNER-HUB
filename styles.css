@@ -26067,3 +26067,342 @@ body.work-mode-nav [data-legacy-nav="true"] {
     bottom: 12px;
   }
 }
+
+/* —— Forms Ecosystem (testing) —— */
+.fe-dashboard,
+.fe-library,
+.fe-ai-builder {
+  border: 1px solid rgba(28, 68, 82, 0.12);
+  border-radius: 20px;
+  background:
+    radial-gradient(120% 80% at 0% 0%, rgba(255, 214, 170, 0.35), transparent 55%),
+    radial-gradient(90% 70% at 100% 0%, rgba(168, 214, 208, 0.28), transparent 50%),
+    linear-gradient(180deg, #fffdf9 0%, #f4f8f7 100%);
+}
+
+.fe-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.fe-dash-card {
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(28, 68, 82, 0.1);
+  border-radius: 16px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 84px;
+}
+
+.fe-dash-card strong {
+  font-size: 1.7rem;
+  line-height: 1;
+  color: #1c4452;
+  font-family: "Fraunces", "Iowan Old Style", Georgia, serif;
+}
+
+.fe-dash-card span {
+  color: #4a6670;
+  font-size: 0.92rem;
+}
+
+.fe-dash-card.is-warn strong { color: #b06a12; }
+.fe-dash-card.is-ok strong { color: #1f7a55; }
+.fe-dash-card.is-alert strong { color: #b33b3b; }
+
+.fe-activity-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  display: grid;
+  gap: 8px;
+}
+
+.fe-activity-list li {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.fe-library-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+
+.fe-filter {
+  border: 1px solid rgba(28, 68, 82, 0.14);
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  color: #1c4452;
+}
+
+.fe-filter span {
+  opacity: 0.65;
+  margin-left: 4px;
+}
+
+.fe-filter.is-active {
+  background: #1c4452;
+  color: #fff;
+  border-color: #1c4452;
+}
+
+.fe-library-category h4 {
+  margin: 18px 0 10px;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.fe-library-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.fe-library-card {
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(28, 68, 82, 0.1);
+  border-radius: 16px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fe-library-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.fe-badge {
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.fe-badge.is-existing {
+  background: rgba(31, 122, 85, 0.12);
+  color: #1f7a55;
+}
+
+.fe-badge.is-new {
+  background: rgba(176, 106, 18, 0.14);
+  color: #8a4f08;
+}
+
+.fe-field-meta {
+  color: #5b7380;
+  font-size: 0.86rem;
+  margin: 0;
+}
+
+.fe-library-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.fe-ai-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.fe-chip {
+  border: 1px solid rgba(28, 68, 82, 0.14);
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  cursor: pointer;
+  font: inherit;
+  color: #1c4452;
+}
+
+.fe-chip:hover {
+  border-color: #1c4452;
+}
+
+.fe-refine-label {
+  font-weight: 650;
+  margin: 14px 0 0;
+}
+
+.fe-ai-result {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(28, 68, 82, 0.1);
+}
+
+.fe-ai-result-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.fe-beautiful-form {
+  display: grid;
+  gap: 14px;
+}
+
+.fe-form-progress {
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.fe-form-progress-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(28, 68, 82, 0.1);
+  overflow: hidden;
+}
+
+.fe-form-progress-bar span {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #2f8f6b, #1c4452);
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.fe-form-progress-label {
+  margin: 6px 0 0;
+  font-size: 0.88rem;
+  color: #4a6670;
+}
+
+.fe-form-section {
+  background: #fff;
+  border: 1px solid rgba(28, 68, 82, 0.1);
+  border-radius: 18px;
+  padding: 14px;
+  box-shadow: 0 10px 24px rgba(28, 68, 82, 0.04);
+}
+
+.fe-form-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fe-form-section-head h4 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+}
+
+.fe-section-icon {
+  color: #2f8f6b;
+  font-size: 0.85rem;
+}
+
+.fe-form-fields {
+  display: grid;
+  gap: 12px;
+}
+
+.fe-field {
+  display: grid;
+  gap: 6px;
+}
+
+.fe-field-label {
+  font-weight: 600;
+  color: #1c4452;
+}
+
+.fe-field.is-required .fe-field-label::after {
+  content: "";
+}
+
+.fe-field-help {
+  font-size: 0.86rem;
+  color: #5b7380;
+}
+
+.fe-field input,
+.fe-field textarea,
+.fe-field select {
+  width: 100%;
+  border: 1px solid rgba(28, 68, 82, 0.16);
+  border-radius: 12px;
+  padding: 11px 12px;
+  font: inherit;
+  background: #fbfefe;
+}
+
+.fe-signature-input {
+  font-family: "Segoe Script", "Bradley Hand", "Comic Sans MS", cursive;
+  font-size: 1.15rem;
+  background: linear-gradient(#fff, #fff) padding-box,
+    linear-gradient(90deg, transparent 0 4%, rgba(28, 68, 82, 0.25) 4% 96%, transparent 96%) bottom / 100% 2px no-repeat !important;
+}
+
+.fe-check-grid,
+.fe-radio-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.fe-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: #f7fbfa;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.fe-parent-fill {
+  margin-top: 8px;
+}
+
+.fe-parent-lead {
+  color: #4a6670;
+  margin: 0 0 10px;
+}
+
+.fe-parent-actions {
+  margin-top: 14px;
+}
+
+.fe-fh-card {
+  background:
+    radial-gradient(100% 80% at 100% 0%, rgba(168, 214, 208, 0.22), transparent 50%),
+    #fff;
+}
+
+.fe-library-preview,
+.fe-preview-card {
+  margin-top: 14px;
+}
+
+.fe-preview-card {
+  background: #fff;
+  border-radius: 18px;
+  padding: 14px;
+  border: 1px solid rgba(28, 68, 82, 0.1);
+}
+
+@media (max-width: 860px) {
+  .fe-dash-grid,
+  .fe-library-grid {
+    grid-template-columns: 1fr;
+  }
+}

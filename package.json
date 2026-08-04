@@ -334,7 +334,8 @@
     "test:admin-analytics-diagnostics-phase8": "NODE_ENV=test node scripts/test-admin-analytics-diagnostics-phase8.js",
     "test:admin-settings-honesty-phase9": "NODE_ENV=test node scripts/test-admin-settings-honesty-phase9.js",
     "test:age-filter-phase10": "NODE_ENV=test node scripts/test-age-filter-phase10.js",
-    "test:provider-qa-workflows-phase11": "NODE_ENV=test node scripts/test-provider-qa-workflows-phase11.js"
+    "test:provider-qa-workflows-phase11": "NODE_ENV=test node scripts/test-provider-qa-workflows-phase11.js",
+    "test:forms-ecosystem": "node scripts/test-forms-ecosystem.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
