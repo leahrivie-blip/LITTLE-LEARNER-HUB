@@ -108,7 +108,7 @@
     </script>
   <link rel="stylesheet" href="styles/llh-design-tokens.css?v=20260713-ds" />
   <link rel="stylesheet" href="styles/llh-homepage.css?v=20260803-homepage-messaging" />
-  <link rel="stylesheet" href="styles.css?v=20260804-nav-role-experience" />
+  <link rel="stylesheet" href="styles.css?v=20260804-settings-whatsnew-r1" />
   <link rel="stylesheet" href="styles/llh-admin-workspace.css?v=20260803-nuo-onboarding-r4" />
   <link rel="stylesheet" href="styles/llh-library-browse.css?v=20260717-netflix-cover-cards" />
   <link rel="stylesheet" href="styles/llh-messaging.css?v=20260802-request-idea-final" />
@@ -123,7 +123,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-nav-role-experience";
+      var SHELL_VERSION = "20260804-settings-whatsnew-r1";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -374,7 +374,7 @@
               Message Support
               <span class="nav-unread-badge" id="messagesNavBadge" hidden>0</span>
             </button>
-            <button class="nav-link" data-view="whats-new" id="whatsNewNavLink">
+            <button class="nav-link" data-view="whats-new" id="whatsNewNavLink" hidden aria-hidden="true" tabindex="-1">
               <span class="nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 3l2.2 4.5L19 8.2l-3.5 3.4.8 4.9L12 14.8 7.7 16.5l.8-4.9L5 8.2l4.8-.7z"/></svg></span>
               What&apos;s New
             </button>
@@ -1677,6 +1677,8 @@
               <button class="primary-button" type="submit">Save Notifications</button>
               <span class="form-message" id="notificationSettingsMessage" aria-live="polite"></span>
             </form>
+            <p class="muted-copy" style="margin-top:12px;">For optional browser push alerts, open Messages → Notification Settings.</p>
+            <button class="ghost-button" type="button" data-view="messages">Open Messages</button>
           </section>
           <section class="section-block account-install-panel">
             <div class="section-heading">
@@ -2478,10 +2480,10 @@
     <script src="scripts/free-plan-grandfathering.js?v=20260804-free-ux-phase2-r1" defer></script>
     <div id="adminTeachingKitEnrichmentHost" aria-live="polite"></div>
     <script src="/api/client-config.js" defer></script>
-    <script src="app.js?v=20260804-nav-role-experience" defer></script>
+    <script src="app.js?v=20260804-settings-whatsnew-r1" defer></script>
     <script src="scripts/new-user-onboarding.js?v=20260804-free-ux-phase2-r1" defer></script>
     <script src="admin-workspace.js?v=20260803-nuo-onboarding-r4" defer></script>
     <script src="admin-insights.js?v=20260803-nuo-onboarding-r4" defer></script>
-    <script src="comms-center.js?v=20260804-customer-ux-polish-r2" defer></script>
+    <script src="comms-center.js?v=20260804-settings-whatsnew-r1" defer></script>
   </body>
 </html>
