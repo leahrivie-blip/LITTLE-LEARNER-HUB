@@ -26302,11 +26302,12 @@ function shouldDefaultFreeLibraryFilters() {
   if (!isLoggedIn() || isProUser() || hasAdminFullAccess()) return false;
   if (freeLibraryFilterTouched()) return false;
   const onboarding = typeof NewUserOnboarding?.getState === "function" ? NewUserOnboarding.getState() : null;
+  if (!onboarding) return false;
+  // Only brand-new Free signup/onboarding — do not treat blank defaultState.firstTimeUser as new.
   return Boolean(
-    onboarding?.firstTimeUser
-    || onboarding?.freeSelectedAt
-    || onboarding?.freeChosenAtSignup
-    || onboarding?.deferGenericUpgrades,
+    onboarding.freeChosenAtSignup
+    || onboarding.freeSelectedAt
+    || (onboarding.deferGenericUpgrades && onboarding.accountCreatedAt),
   );
 }
 
