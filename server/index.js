@@ -1804,7 +1804,7 @@ function normalizedCurriculumLessonPlan(value) {
   if (Object.prototype.hasOwnProperty.call(entry, "enrichmentDraft")) {
     const draft = entry.enrichmentDraft;
     if (draft && typeof draft === "object" && !Array.isArray(draft)) {
-      normalized.enrichmentDraft = {
+      const knownDraft = {
         updatedAt: normalizedShortText(draft.updatedAt, 80) || "",
         lastEditedBy: normalizedShortText(draft.lastEditedBy, 180) || "",
         activities: draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
@@ -1816,6 +1816,12 @@ function normalizedCurriculumLessonPlan(value) {
         completionPercent: Math.max(0, Math.min(100, Math.round(Number(draft.completionPercent) || 0))),
         previewReady: draft.previewReady === true,
       };
+      // Preserve unknown top-level draft keys so future editor fields are not dropped on save.
+      const preserved = {};
+      Object.keys(draft).forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(knownDraft, key)) preserved[key] = draft[key];
+      });
+      normalized.enrichmentDraft = { ...preserved, ...knownDraft };
     } else if (draft == null) {
       // explicit clear on publish
       normalized.enrichmentDraft = null;
@@ -3306,6 +3312,112 @@ function mergeEnrichmentDraftPatch(existingDraft, patch) {
   });
   draft.updatedAt = new Date().toISOString();
   return draft;
+}
+
+/** True when a draft has real activity/week enrichment content (not just timestamps). */
+function enrichmentDraftHasContent(draft) {
+  if (!draft || typeof draft !== "object" || Array.isArray(draft)) return false;
+  const activities = draft.activities && typeof draft.activities === "object" && !Array.isArray(draft.activities)
+    ? draft.activities
+    : {};
+  if (Object.keys(activities).length > 0) {
+    return Object.values(activities).some((act) => act && typeof act === "object" && Object.keys(act).length > 0);
+  }
+  const week = draft.week && typeof draft.week === "object" && !Array.isArray(draft.week) ? draft.week : {};
+  return Object.keys(week).some((key) => {
+    const value = week[key];
+    if (value == null) return false;
+    if (typeof value === "string") return Boolean(value.trim());
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === "object") return Object.keys(value).length > 0;
+    return true;
+  });
+}
+
+/**
+ * Merge an incoming enrichment draft onto the previously stored draft.
+ * - Incoming activity/week keys win when provided.
+ * - Sibling activity keys omitted from the incoming payload are preserved
+ *   (prevents a partial/empty client save from wiping prior tip content).
+ * - Unknown top-level draft keys on the previous draft are preserved when omitted.
+ * Returns { draft, rejectedEmptyOverwrite }.
+ */
+function mergeEnrichmentDraftForSave(previousDraft, incomingDraft, { allowEmptyOverwrite = false } = {}) {
+  const previous = previousDraft && typeof previousDraft === "object" && !Array.isArray(previousDraft)
+    ? previousDraft
+    : null;
+  const incoming = incomingDraft && typeof incomingDraft === "object" && !Array.isArray(incomingDraft)
+    ? incomingDraft
+    : {};
+  const previousHasContent = enrichmentDraftHasContent(previous);
+  const incomingHasContent = enrichmentDraftHasContent(incoming);
+  if (previousHasContent && !incomingHasContent && !allowEmptyOverwrite) {
+    return { draft: previous, rejectedEmptyOverwrite: true };
+  }
+
+  const knownKeys = new Set([
+    "updatedAt",
+    "lastEditedBy",
+    "activities",
+    "week",
+    "completionPercent",
+    "previewReady",
+  ]);
+  const merged = {
+    ...(previous || {}),
+    ...incoming,
+  };
+
+  // Preserve unknown top-level keys from previous when the client omitted them.
+  if (previous) {
+    Object.keys(previous).forEach((key) => {
+      if (!knownKeys.has(key) && !Object.prototype.hasOwnProperty.call(incoming, key)) {
+        merged[key] = previous[key];
+      }
+    });
+  }
+
+  const prevActivities = previous?.activities && typeof previous.activities === "object" && !Array.isArray(previous.activities)
+    ? previous.activities
+    : {};
+  const nextActivities = incoming.activities && typeof incoming.activities === "object" && !Array.isArray(incoming.activities)
+    ? incoming.activities
+    : {};
+  // If the client omitted activities entirely, keep previous. If it sent {}, treat as wipe attempt
+  // (blocked above when previous had content). If it sent a partial map, merge per activity key.
+  if (Object.prototype.hasOwnProperty.call(incoming, "activities")) {
+    const activityMerged = { ...prevActivities };
+    Object.keys(nextActivities).forEach((key) => {
+      const prevAct = prevActivities[key] && typeof prevActivities[key] === "object" ? prevActivities[key] : {};
+      const nextAct = nextActivities[key];
+      if (nextAct == null) {
+        delete activityMerged[key];
+        return;
+      }
+      if (typeof nextAct === "object" && !Array.isArray(nextAct)) {
+        activityMerged[key] = { ...prevAct, ...nextAct };
+      } else {
+        activityMerged[key] = nextAct;
+      }
+    });
+    merged.activities = activityMerged;
+  } else {
+    merged.activities = { ...prevActivities };
+  }
+
+  const prevWeek = previous?.week && typeof previous.week === "object" && !Array.isArray(previous.week)
+    ? previous.week
+    : {};
+  const nextWeek = incoming.week && typeof incoming.week === "object" && !Array.isArray(incoming.week)
+    ? incoming.week
+    : {};
+  if (Object.prototype.hasOwnProperty.call(incoming, "week")) {
+    merged.week = { ...prevWeek, ...nextWeek };
+  } else {
+    merged.week = { ...prevWeek };
+  }
+
+  return { draft: merged, rejectedEmptyOverwrite: false };
 }
 
 // Keeps existing top-level siteContent keys when the incoming payload omits them
@@ -18616,9 +18728,23 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
       const previousDraft = existingPlan.enrichmentDraft && typeof existingPlan.enrichmentDraft === "object"
         ? existingPlan.enrichmentDraft
         : null;
-      const draftInput = incomingPlan.enrichmentDraft && typeof incomingPlan.enrichmentDraft === "object"
+      const draftInputRaw = incomingPlan.enrichmentDraft && typeof incomingPlan.enrichmentDraft === "object"
         ? enrichmentMedia.sanitizeEnrichmentDraftPhotos(incomingPlan.enrichmentDraft)
         : {};
+      const allowEmptyOverwrite = body?.allowEmptyDraftOverwrite === true
+        || incomingPlan?.allowEmptyDraftOverwrite === true;
+      const mergeResult = mergeEnrichmentDraftForSave(previousDraft, draftInputRaw, { allowEmptyOverwrite });
+      if (mergeResult.rejectedEmptyOverwrite) {
+        jsonResponse(response, 409, {
+          error: "Draft save refused: incoming draft would erase existing enrichment content. Refresh and try again, or clear the draft explicitly.",
+          code: "enrichment_draft_empty_overwrite",
+          lessonPlan: existingPlan,
+          curriculum: existingCurriculum,
+          siteContentUpdatedAt: siteContent.updatedAt,
+        });
+        return;
+      }
+      const draftInput = mergeResult.draft || {};
       const draftPlan = normalizedCurriculumLessonPlan({
         ...existingPlan,
         enrichmentDraft: {
@@ -18627,6 +18753,14 @@ async function handleAdminCurriculumLessonPlanSave(request, response) {
         },
         updatedAt: existingPlan.updatedAt,
       });
+      // Verify normalized draft still carries activity/week content when we intended to save it.
+      if (enrichmentDraftHasContent(draftInput) && !enrichmentDraftHasContent(draftPlan.enrichmentDraft)) {
+        jsonResponse(response, 500, {
+          error: "Draft save failed verification — enrichment content did not persist. Nothing was written.",
+          code: "enrichment_draft_verify_failed",
+        });
+        return;
+      }
       const nextCurriculum = normalizedCurriculumStore({
         ...existingCurriculum,
         lessonPlans: (existingCurriculum.lessonPlans || []).map((item) => (

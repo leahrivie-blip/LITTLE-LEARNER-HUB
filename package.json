@@ -44,6 +44,7 @@
     "test:teaching-kit-enrichment-slice-6": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-6.js",
     "test:teaching-kit-enrichment-slice-7": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-slice-7.js",
     "test:teaching-kit-enrichment-preserve": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-preserve.js",
+    "test:teaching-kit-enrichment-draft-reliability": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-draft-reliability.js",
     "test:teaching-kit-enrichment-qa": "NODE_ENV=test node scripts/test-teaching-kit-enrichment-qa.js",
     "test:owner-notification-email": "NODE_ENV=test node scripts/test-owner-notification-email.js",
     "test:meta-tracking": "NODE_ENV=test node scripts/test-meta-tracking.js",

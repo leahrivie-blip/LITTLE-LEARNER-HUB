@@ -628,6 +628,8 @@
 
     const lessonStatus = text(plan?.status).toLowerCase() || "draft";
     const isPublished = ["published", "featured"].includes(lessonStatus);
+    // Require real draft content — bare updatedAt/lastEditedBy alone is not a pending draft
+    // (prevents "Draft Pending" after a timestamp-only / empty overwrite that lost tips).
     const hasEnrichmentDraft = Boolean(
       draft
       && (
@@ -636,8 +638,15 @@
         || asArray(week.milestones).length
         || asArray(week.printableIds).length
         || draft.previewReady === true
-        || text(draft.updatedAt)
-        || text(draft.lastEditedBy)
+        || Object.keys(week).some((key) => {
+          if (["familyConnection", "milestones", "printableIds"].includes(key)) return false;
+          const value = week[key];
+          if (value == null) return false;
+          if (typeof value === "string") return Boolean(text(value));
+          if (Array.isArray(value)) return value.length > 0;
+          if (typeof value === "object") return Object.keys(value).length > 0;
+          return true;
+        })
       ),
     );
     const draftOrPublished = hasEnrichmentDraft
