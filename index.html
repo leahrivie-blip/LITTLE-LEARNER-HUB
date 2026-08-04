@@ -123,7 +123,7 @@
         if (localStorage.getItem("llhUser")) return;
       } catch (error) { /* ignore */ }
       var RECOVERY_KEY = "llhShellCssRecovery";
-      var SHELL_VERSION = "20260804-admin-nav-phase1-r1";
+      var SHELL_VERSION = "20260804-fixture-delete-phase4-r1";
       function shellStylesheetLinks() {
         return Array.prototype.slice.call(document.querySelectorAll('link[rel="stylesheet"]')).filter(function (link) {
           return /styles\.css|llh-homepage|llh-design-tokens/.test(link.href || "");
@@ -2463,8 +2463,9 @@
     <script src="scripts/lesson-plan-covers.js?v=20260730-hdh-own-tester-kid" defer></script>
     <script src="scripts/curriculum-series.js?v=20260729-curriculum-collections" defer></script>
     <script src="scripts/curriculum-standards.js?v=20260716-curriculum-standards" defer></script>
+    <script src="scripts/curriculum-sentinel.js?v=20260804-sentinel-phase5-r1" defer></script>
     <script src="scripts/curriculum-import-enrich.js?v=20260716-curriculum-standards" defer></script>
-    <script src="scripts/curriculum-lesson-import-parser.js?v=20260716-curriculum-standards" defer></script>
+    <script src="scripts/curriculum-lesson-import-parser.js?v=20260804-sentinel-phase5-r1" defer></script>
     <script src="scripts/curriculum-lesson-import-v4.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-import-preview.js?v=20260716-curriculum-standards" defer></script>
     <script src="scripts/curriculum-lesson-viewer-render.js?v=20260730-hdh-own-tester-kid" defer></script>
