@@ -122,6 +122,7 @@
     "test:forms-phase1-acceptance": "node scripts/test-forms-phase1-acceptance.js",
     "test:family-hub-phase2-acceptance": "node scripts/test-family-hub-phase2-acceptance.js",
     "test:ecosystem-phase3-acceptance": "node scripts/test-ecosystem-phase3-acceptance.js",
+    "test:ecosystem-spine-acceptance": "node scripts/test-ecosystem-spine-acceptance.js",
     "test:home-daycare-hub-finish": "node scripts/test-home-daycare-hub-finish.js",
     "test:home-daycare-hub-walkthrough": "node scripts/test-home-daycare-hub-walkthrough.js",
     "test:home-daycare-hub": "npm run test:home-daycare-hub-step-a && npm run test:home-daycare-hub-step-b && npm run test:home-daycare-hub-step-c && npm run test:home-daycare-hub-step-d && npm run test:home-daycare-hub-finish && npm run test:home-daycare-hub-walkthrough",

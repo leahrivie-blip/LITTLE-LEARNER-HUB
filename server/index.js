@@ -13048,10 +13048,16 @@ function familyHubMessagesForHousehold(store, householdId) {
     .sort((a, b) => String(a.createdAt || "").localeCompare(String(b.createdAt || "")));
 }
 
-function familyHubNotificationsForHousehold(store, householdId) {
+function familyHubNotificationsForHousehold(store, householdId, { audience = "parent" } = {}) {
   const id = String(householdId || "");
   return (store.familyHubNotifications || [])
-    .filter((item) => item && String(item.householdId) === id)
+    .filter((item) => {
+      if (!item || String(item.householdId) !== id) return false;
+      const itemAudience = String(item.audience || "parent").toLowerCase();
+      if (audience === "parent") return itemAudience !== "provider";
+      if (audience === "provider") return itemAudience === "provider" || itemAudience === "both";
+      return true;
+    })
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
 }
 
@@ -13081,17 +13087,19 @@ function readOwnerScheduleForFamilyHub(store, ownerEmail) {
 }
 
 function buildFamilyHubParentPayload(store, household, { childId = "", date = "" } = {}) {
-  const children = Array.isArray(household.children) ? household.children : [];
-  const childIds = Array.isArray(household.childIds) ? household.childIds : children.map((child) => child.id);
   const ownerChildData = readOwnerChildDataForFamilyHub(store, household.ownerEmail);
+  const snapshotChildren = Array.isArray(household.children) ? household.children : [];
+  const children = familyHubLib.overlayLiveChildren(snapshotChildren, ownerChildData);
+  const childIds = children.map((child) => child.id).filter(Boolean);
   const documents = familyHubLib.liveDocumentsForChildren(ownerChildData, childIds, household.documents || []);
   const shared = familyHubLib.buildSharedFamilyFeed(ownerChildData, childIds);
   const threadMessages = familyHubMessagesForHousehold(store, household.id);
   const bridgedMessages = familyHubLib.sharedCommunicationsAsMessages(ownerChildData, childIds, household.id);
   const messages = familyHubLib.mergeFamilyHubMessages(threadMessages, bridgedMessages);
-  const notifications = familyHubNotificationsForHousehold(store, household.id);
+  const notifications = familyHubNotificationsForHousehold(store, household.id, { audience: "parent" });
   const scheduleDoc = readOwnerScheduleForFamilyHub(store, household.ownerEmail);
   const events = familyHubLib.buildFamilyHubCalendar(scheduleDoc, { fromDate: familyHubLib.todayIso(), days: 60 });
+  // Prefer live Profiles name for Today hero even when household snapshot is stale.
   const today = familyHubLib.buildFamilyHubToday({
     childData: ownerChildData,
     children,
@@ -13127,9 +13135,34 @@ function buildFamilyHubParentPayload(store, household, { childId = "", date = ""
     .map(familyHubLib.publicFamilyRequest)
     .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
     .slice(0, 40);
+  // Classroom week's lesson for focus child (roster-aware)
+  const focusClassroomId = String(
+    (Array.isArray(ownerChildData?.Profiles) ? ownerChildData.Profiles : [])
+      .find((profile) => String(profile?.id || "") === focusChildId)?.classroomId || "",
+  ).trim();
+  const weekLesson = focusClassroomId && scheduleDoc
+    ? (Array.isArray(scheduleDoc.items) ? scheduleDoc.items : []).find((item) => (
+      item
+      && item.type === "lesson_plan"
+      && !item.archived
+      && String(item.classroomId || "") === focusClassroomId
+      && String(item.weekStartDate || "") <= familyHubLib.todayIso()
+      && String(item.endDate || item.weekStartDate || "") >= familyHubLib.todayIso()
+    ))
+    : null;
+  if (weekLesson) {
+    today.weekLesson = {
+      id: String(weekLesson.id || ""),
+      title: String(weekLesson.lessonPlanTitle || weekLesson.title || "This week’s lesson").trim(),
+      weekStartDate: String(weekLesson.weekStartDate || "").slice(0, 10),
+      classroomId: String(weekLesson.classroomId || ""),
+    };
+  }
   return {
     household: {
       ...publicFamilyHousehold(household),
+      children,
+      childIds,
       settings,
       guardians,
     },
@@ -14308,7 +14341,7 @@ async function handleFamilyHubRequestPost(request, response) {
     contact_update: "Contact update request",
   };
   store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
-  // Parent-facing receipt notification (provider inbox uses household list on hub).
+  // Parent-facing receipt
   store.familyHubNotifications.push({
     id: `fh-ntf-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
     householdId: household.id,
@@ -14318,6 +14351,21 @@ async function handleFamilyHubRequestPost(request, response) {
     createdAt: now,
     read: false,
     href: "more",
+    audience: "parent",
+  });
+  // Provider inbox notification
+  store.familyHubNotifications.push({
+    id: `fh-ntf-prov-${Date.now().toString(36)}-${crypto.randomBytes(2).toString("hex")}`,
+    householdId: household.id,
+    type: "request",
+    title: titleMap[type] || "Parent request",
+    body: [childName, date, item.details].filter(Boolean).join(" · ").slice(0, 160),
+    createdAt: now,
+    read: false,
+    href: "family-hub",
+    audience: "provider",
+    requestId: item.id,
+    childId,
   });
   try {
     await persistFamilyHubStore(store);
@@ -14335,6 +14383,200 @@ async function handleFamilyHubRequestPost(request, response) {
     request: familyHubLib.publicFamilyRequest(item),
     message: "Request sent to your provider.",
   });
+}
+
+async function handleFamilyHubRequestStatusPatch(request, response, requestId) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (_error) {
+    jsonResponse(response, 401, { error: "Please log in as the provider to update requests." });
+    return;
+  }
+  const id = String(requestId || "").trim();
+  if (!id) {
+    jsonResponse(response, 400, { error: "Request id is required." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid request update payload." });
+    return;
+  }
+  const status = String(body?.status || "").trim().toLowerCase();
+  if (!["approved", "declined", "pending"].includes(status)) {
+    jsonResponse(response, 400, { error: "Status must be approved, declined, or pending." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const households = listFamilyHouseholdsForOwner(store, ownerEmail);
+  let foundHousehold = null;
+  let foundRequest = null;
+  for (const household of households) {
+    const list = Array.isArray(household.familyRequests) ? household.familyRequests : [];
+    const match = list.find((item) => String(item?.id || "") === id);
+    if (match) {
+      foundHousehold = household;
+      foundRequest = match;
+      break;
+    }
+  }
+  if (!foundHousehold || !foundRequest) {
+    jsonResponse(response, 404, { error: "Parent request not found." });
+    return;
+  }
+  const now = new Date().toISOString();
+  foundHousehold.familyRequests = (foundHousehold.familyRequests || []).map((item) => (
+    String(item.id) === id
+      ? { ...item, status, updatedAt: now, reviewedBy: ownerEmail, providerNote: String(body?.note || "").trim().slice(0, 400) }
+      : item
+  ));
+  store.familyHouseholds[foundHousehold.id] = foundHousehold;
+  store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
+  store.familyHubNotifications.unshift({
+    id: `fh-ntf-req-${Date.now().toString(36)}`,
+    householdId: foundHousehold.id,
+    type: "request_update",
+    title: status === "approved" ? "Request approved" : (status === "declined" ? "Request declined" : "Request updated"),
+    body: `${foundRequest.type || "Request"} for ${foundRequest.childName || "your child"} is ${status}.`,
+    href: "more",
+    childId: foundRequest.childId || "",
+    read: false,
+    createdAt: now,
+    audience: "parent",
+  });
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not update request.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  const updated = foundHousehold.familyRequests.find((item) => String(item.id) === id);
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    request: familyHubLib.publicFamilyRequest(updated),
+  });
+}
+
+async function handleFamilyHubProviderInboxGet(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (_error) {
+    jsonResponse(response, 401, { error: "Please log in as the provider." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const households = listFamilyHouseholdsForOwner(store, ownerEmail)
+    .filter((item) => item.status !== "revoked");
+  const householdIds = new Set(households.map((item) => item.id));
+  const notifications = (store.familyHubNotifications || [])
+    .filter((item) => item && householdIds.has(String(item.householdId || "")))
+    .filter((item) => {
+      const audience = String(item.audience || "parent").toLowerCase();
+      return audience === "provider" || audience === "both" || item.type === "form_signed" || item.type === "request";
+    })
+    .sort((a, b) => String(b.createdAt || "").localeCompare(String(a.createdAt || "")))
+    .slice(0, 60)
+    .map(familyHubLib.publicFamilyNotification);
+  const pendingRequests = households.flatMap((household) => (
+    (Array.isArray(household.familyRequests) ? household.familyRequests : [])
+      .filter((item) => String(item.status || "pending") === "pending")
+      .map((item) => ({
+        ...familyHubLib.publicFamilyRequest(item),
+        householdId: household.id,
+        householdLabel: household.label || household.email || "Family",
+      }))
+  ));
+  jsonResponse(response, 200, {
+    ok: true,
+    testingOnly: true,
+    notifications,
+    pendingRequests,
+    unread: notifications.filter((item) => !item.read).length,
+  });
+}
+
+async function handleFamilyHubUnlinkChildPost(request, response) {
+  if (!requireHomeDaycareHubTesting(response)) return;
+  let identity;
+  try {
+    identity = await resolveScheduleIdentity(request);
+  } catch (_error) {
+    jsonResponse(response, 401, { error: "Please log in as the provider." });
+    return;
+  }
+  let body;
+  try {
+    body = await readJson(request);
+  } catch (_error) {
+    jsonResponse(response, 400, { error: "Invalid unlink payload." });
+    return;
+  }
+  const childId = String(body?.childId || "").trim();
+  if (!childId) {
+    jsonResponse(response, 400, { error: "childId is required." });
+    return;
+  }
+  const store = ensureFamilyHubCollections(readStore());
+  const ownerEmail = normalizeEmail(identity.email);
+  const now = new Date().toISOString();
+  let unlinked = 0;
+  let revoked = 0;
+  listFamilyHouseholdsForOwner(store, ownerEmail).forEach((household) => {
+    if (household.status === "revoked") return;
+    const before = Array.isArray(household.children) ? household.children : [];
+    const nextChildren = before.filter((child) => String(child?.id || "") !== childId);
+    if (nextChildren.length === before.length) return;
+    unlinked += 1;
+    household.children = nextChildren;
+    household.childIds = nextChildren.map((child) => child.id);
+    household.updatedAt = now;
+    if (!nextChildren.length) {
+      household.status = "revoked";
+      household.revokedAt = now;
+      household.revokedReason = String(body?.reason || "child_archived").trim() || "child_archived";
+      revoked += 1;
+    }
+    store.familyHouseholds[household.id] = household;
+    store.familyHubNotifications = Array.isArray(store.familyHubNotifications) ? store.familyHubNotifications : [];
+    store.familyHubNotifications.unshift({
+      id: `fh-ntf-unlink-${Date.now().toString(36)}-${unlinked}`,
+      householdId: household.id,
+      type: "access_update",
+      title: revoked && !nextChildren.length ? "Family Hub access ended" : "Child removed from Family Hub",
+      body: nextChildren.length
+        ? "One child was archived and removed from this household view."
+        : "Access ended because linked children were archived.",
+      href: "more",
+      childId,
+      read: false,
+      createdAt: now,
+      audience: "parent",
+    });
+  });
+  try {
+    await persistFamilyHubStore(store);
+  } catch (error) {
+    jsonResponse(response, 503, {
+      error: error.message || "Could not unlink child from Family Hub.",
+      storage: error.storage || getFamilyHubStorageStatus(),
+      testingOnly: true,
+    });
+    return;
+  }
+  jsonResponse(response, 200, { ok: true, testingOnly: true, unlinked, revoked });
 }
 
 async function handleFamilyHubLogout(request, response) {
@@ -23657,6 +23899,16 @@ const server = http.createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/api/family-hub/calendar") return handleFamilyHubCalendarGet(request, response, url);
     if (request.method === "PATCH" && url.pathname === "/api/family-hub/settings") return await handleFamilyHubSettingsPatch(request, response);
     if (request.method === "POST" && url.pathname === "/api/family-hub/requests") return await handleFamilyHubRequestPost(request, response);
+    if (request.method === "PATCH" && url.pathname.startsWith("/api/family-hub/requests/")) {
+      const requestId = decodeURIComponent(url.pathname.slice("/api/family-hub/requests/".length));
+      return await handleFamilyHubRequestStatusPatch(request, response, requestId);
+    }
+    if (request.method === "GET" && url.pathname === "/api/family-hub/provider-inbox") {
+      return await handleFamilyHubProviderInboxGet(request, response);
+    }
+    if (request.method === "POST" && url.pathname === "/api/family-hub/unlink-child") {
+      return await handleFamilyHubUnlinkChildPost(request, response);
+    }
     if (request.method === "POST" && url.pathname.startsWith("/api/family-hub/documents/") && url.pathname.endsWith("/acknowledge")) {
       const documentId = decodeURIComponent(
         url.pathname.slice("/api/family-hub/documents/".length, -"/acknowledge".length),

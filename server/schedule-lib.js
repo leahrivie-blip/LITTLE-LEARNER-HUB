@@ -195,6 +195,10 @@ function normalizeScheduleItem(raw = {}) {
   };
 
   if (type === "lesson_plan") {
+    const childIds = (Array.isArray(raw.childIds) ? raw.childIds : [])
+      .map((id) => clampString(id, 80))
+      .filter(Boolean)
+      .slice(0, 80);
     return {
       ...base,
       title: clampString(raw.lessonPlanTitle || raw.title, 200) || "Untitled Lesson Plan",
@@ -203,6 +207,8 @@ function normalizeScheduleItem(raw = {}) {
       lessonPlanPlan: clampString(raw.lessonPlanPlan, 20) || "Free",
       lessonPlanUpdatedAt: clampString(raw.lessonPlanUpdatedAt, 40),
       ageGroup: clampString(raw.ageGroup, 40) || "Preschool",
+      childIds,
+      rosterLabel: clampString(raw.rosterLabel, 200),
       snapshot: raw.snapshot && typeof raw.snapshot === "object"
         ? JSON.parse(JSON.stringify(raw.snapshot))
         : null,

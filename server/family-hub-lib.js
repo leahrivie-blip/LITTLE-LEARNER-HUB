@@ -130,7 +130,27 @@ function buildSharedFamilyFeed(childData = null, childIds = []) {
     diapers: sharedForChild(data.Diapers, childIds, "diaper").slice(0, 40),
     activities: sharedForChild(data.ActivityLogs, childIds, "activity").slice(0, 40),
     notes: sharedForChild(data.Communications, childIds, "note").slice(0, 40),
+    goals: sharedForChild(data.Goals, childIds, "goal").slice(0, 40),
+    supportPlans: sharedForChild(data.SupportPlans, childIds, "support-plan").slice(0, 40),
   };
+}
+
+/** Prefer live Profiles names/photos over household invite snapshots. */
+function overlayLiveChildren(householdChildren = [], childData = null) {
+  const profiles = Array.isArray(childData?.Profiles) ? childData.Profiles : [];
+  const byId = new Map(profiles.map((profile) => [String(profile?.id || ""), profile]));
+  return (Array.isArray(householdChildren) ? householdChildren : []).map((child) => {
+    const live = byId.get(String(child?.id || ""));
+    if (!live) return child;
+    return {
+      ...child,
+      name: String(live.name || child.name || "Child").trim() || "Child",
+      photoUrl: String(live.photoUrl || live.avatarUrl || child.photoUrl || "").trim(),
+      classroomId: String(live.classroomId || child.classroomId || "").trim(),
+      classroom: String(live.classroom || child.classroom || "").trim(),
+      archived: Boolean(live.archived),
+    };
+  }).filter((child) => !child.archived);
 }
 
 function documentNeedsParentAction(status = "") {
@@ -375,6 +395,11 @@ function buildFamilyHubToday({
       ? `Waiting for today’s updates from ${firstName}’s teacher.`
       : "Your household updates will show here.");
 
+  const goals = onDay(data.Goals, "goal");
+  const supportPlans = sharedForChild(data.SupportPlans, ids, "support-plan")
+    .filter((item) => !item.date || item.date === day || String(item.status || "").toLowerCase() === "active")
+    .slice(0, 6);
+
   const carePulse = [
     mood ? { key: "mood", label: "Mood", value: String(mood.value) } : null,
     attendance[0] ? { key: "attendance", label: "Attendance", value: attendance[0].status || "Present" } : null,
@@ -382,6 +407,7 @@ function buildFamilyHubToday({
     naps.length ? { key: "naps", label: "Naps", value: String(naps.length) } : null,
     diapers.length ? { key: "care", label: "Care", value: String(diapers.length) } : null,
     photos.length ? { key: "photos", label: "Photos", value: String(photos.length) } : null,
+    goals.length ? { key: "goals", label: "Goals", value: String(goals.length) } : null,
   ].filter(Boolean);
 
   return {
@@ -401,6 +427,8 @@ function buildFamilyHubToday({
     diapers,
     activities,
     observations,
+    goals,
+    supportPlans,
     teacherNotes: notes.filter((item) => !isAnnouncementItem(item)),
     announcements,
     photos,
@@ -408,7 +436,7 @@ function buildFamilyHubToday({
     messages: recentMessages,
     upcomingEvents: upcoming,
     empty: !mood && !attendance.length && !meals.length && !naps.length && !diapers.length && !activities.length
-      && !observations.length && !notes.length && !photos.length && !reports.length
+      && !observations.length && !goals.length && !supportPlans.length && !notes.length && !photos.length && !reports.length
       && !recentMessages.length && !upcoming.length && !announcements.length,
   };
 }
@@ -416,7 +444,7 @@ function buildFamilyHubToday({
 function buildFamilyContacts(childData = null, childIds = []) {
   const idSet = new Set((Array.isArray(childIds) ? childIds : []).map((id) => String(id)));
   return (Array.isArray(childData?.Profiles) ? childData.Profiles : [])
-    .filter((profile) => idSet.has(String(profile?.id || "")))
+    .filter((profile) => idSet.has(String(profile?.id || "")) && !profile.archived)
     .map((profile) => ({
       childId: String(profile.id || ""),
       childName: String(profile.name || "Child").trim() || "Child",
@@ -424,6 +452,8 @@ function buildFamilyContacts(childData = null, childIds = []) {
       emergencyContact: String(profile.emergencyContact || profile.emergency || profile.emergencyContacts || "").trim(),
       pickupContacts: String(profile.pickupContacts || profile.authorizedPickup || profile.authorizedPickups || "").trim(),
       allergies: String(profile.allergies || "").trim(),
+      medical: String(profile.medical || profile.medicalNotes || profile.medications || "").trim(),
+      classroom: String(profile.classroom || "").trim(),
       notes: String(profile.familyNotes || profile.notes || "").trim(),
     }));
 }
@@ -1106,6 +1136,7 @@ module.exports = {
   buildFamilyHubToday,
   buildFamilyHubCalendar,
   buildFamilyContacts,
+  overlayLiveChildren,
   familyHubDemoPhotoUri,
   familyHubDemoPortraitUri,
   liveDocumentsForChildren,

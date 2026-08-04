@@ -28686,7 +28686,15 @@ async function assignScheduleLessonPlan({
   const week = api.weekStartMonday(weekStartDate || curriculumPlannerSelectedWeek || new Date());
   await ensureScheduleLoaded();
   const doc = scheduleDocCache || api.readCache(scheduleApiEmail());
-  const existing = api.lessonForWeek(doc, week);
+  const rooms = typeof activeScheduleClassrooms === "function" ? activeScheduleClassrooms(doc) : (doc?.classrooms || []);
+  const matchedRoom = rooms.find((room) => {
+    const label = String(classroomLabel || "").trim().toLowerCase();
+    if (!label) return false;
+    return String(room.name || "").trim().toLowerCase() === label
+      || String(room.id || "").trim().toLowerCase() === label;
+  }) || rooms[0] || null;
+  const classroomId = matchedRoom?.id || doc?.classrooms?.[0]?.id || "classroom-main";
+  const existing = api.lessonForWeek(doc, week, classroomId);
   if (existing && existing.lessonPlanId !== resourceId && !replaceExisting) {
     const error = new Error("This week already has a lesson plan assigned.");
     error.code = "replace-required";
@@ -28695,9 +28703,16 @@ async function assignScheduleLessonPlan({
   }
   const { resource, plan } = await resolveCurriculumPlanForAssignment(resourceId, { weekStartDate: week });
   const snapshot = buildCurriculumLessonPlanSnapshot(plan);
+  const rosterChildren = (typeof getActiveChildren === "function" ? getActiveChildren(childRecords()) : (childStore("Profiles") || []))
+    .filter((child) => String(child.classroomId || "") === String(classroomId));
+  const childIds = rosterChildren.map((child) => child.id).filter(Boolean);
+  const rosterLabel = rosterChildren.map((child) => child.name).filter(Boolean).slice(0, 8).join(", ");
   const item = await api.assignLessonPlanToWeek(firebaseAuthHeaders, scheduleApiEmail(), {
     id: existing?.id,
     weekStartDate: week,
+    classroomId,
+    childIds,
+    rosterLabel,
     lessonPlanId: resource.id,
     lessonPlanTitle: snapshot.title || resource.title || "Untitled Lesson Plan",
     lessonPlanPlan: snapshot.plan,
@@ -28706,12 +28721,15 @@ async function assignScheduleLessonPlan({
     snapshot,
     preserveExecution: true,
   });
-  if (classroomLabel) {
+  if (classroomLabel && matchedRoom) {
     const nextDoc = api.readCache(scheduleApiEmail());
-    if (nextDoc.classrooms?.[0]) {
-      nextDoc.classrooms[0].name = String(classroomLabel).trim() || nextDoc.classrooms[0].name;
-      scheduleDocCache = await api.saveSchedule(firebaseAuthHeaders, scheduleApiEmail(), nextDoc);
-    }
+    const nextRooms = (nextDoc.classrooms || []).map((room) => (
+      room.id === matchedRoom.id
+        ? { ...room, name: String(classroomLabel).trim() || room.name }
+        : room
+    ));
+    nextDoc.classrooms = nextRooms.length ? nextRooms : nextDoc.classrooms;
+    scheduleDocCache = await api.saveSchedule(firebaseAuthHeaders, scheduleApiEmail(), nextDoc);
   } else {
     scheduleDocCache = api.readCache(scheduleApiEmail());
   }
@@ -33592,7 +33610,20 @@ function renderFamilyHubProviderPanel() {
               <div>
                 <strong>${escapeHtml(item.label || "Family")}</strong>
                 <p class="muted-copy">${escapeHtml(item.email || "No email")}${(item.guardianEmails || []).length > 1 ? ` · guardians: ${escapeHtml(item.guardianEmails.join(", "))}` : ""}${item.phone ? ` · ${escapeHtml(item.phone)}` : ""} · ${(item.children || []).map((c) => c.name).join(", ") || "No children"} · ${escapeHtml(item.status || "invited")}</p>
-                ${pendingRequests.length ? `<p class="muted-copy"><strong>${pendingRequests.length} parent request${pendingRequests.length === 1 ? "" : "s"}</strong> — ${escapeHtml(pendingRequests.slice(0, 2).map((req) => `${req.type || "request"}${req.date ? ` ${req.date}` : ""}`).join("; "))}</p>` : ""}
+                ${pendingRequests.length ? `
+                  <div class="hdh-parent-requests">
+                    <p class="muted-copy"><strong>${pendingRequests.length} parent request${pendingRequests.length === 1 ? "" : "s"}</strong></p>
+                    ${pendingRequests.slice(0, 4).map((req) => `
+                      <div class="hdh-request-row">
+                        <p class="muted-copy">${escapeHtml(req.type || "request")}${req.date ? ` · ${escapeHtml(req.date)}` : ""}${req.details ? ` — ${escapeHtml(String(req.details).slice(0, 80))}` : ""}</p>
+                        <div class="account-actions-row">
+                          <button class="primary-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="approved">Approve</button>
+                          <button class="ghost-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="declined">Decline</button>
+                        </div>
+                      </div>
+                    `).join("")}
+                  </div>
+                ` : ""}
               </div>
               <div class="hdh-forms-pack-actions">
                 ${item.magicUrl ? `<button class="ghost-button" type="button" data-hdh-copy-text="${escapeHtml(item.magicUrl)}">Copy link</button>` : ""}
@@ -33601,6 +33632,11 @@ function renderFamilyHubProviderPanel() {
             </article>`;
           }).join("")
           : `<div class="profile-empty-state"><strong>No families invited yet</strong><p>Invite a household above, or create a sample household to explore the parent view.</p></div>`}
+      </div>
+      <div id="hdhProviderInbox" class="hdh-provider-inbox" data-hdh-provider-inbox>
+        <h4>Provider inbox</h4>
+        <p class="muted-copy">Signed forms and parent requests land here automatically.</p>
+        <div data-hdh-provider-inbox-body><p class="muted-copy">Loading…</p></div>
       </div>
     </section>
   `;
@@ -33921,6 +33957,21 @@ function renderFamilyHubTodayPanel(data) {
         listHtml(today.observations, (item) => `<li><strong>${escapeHtml(item.title || item.area || "Observation")}</strong><span>${escapeHtml(item.summary || item.text || "")}</span></li>`),
       )}
       ${section(
+        "Goals",
+        "activities",
+        listHtml(today.goals, (item) => `<li><strong>${escapeHtml(item.title || item.area || "Goal")}</strong><span>${escapeHtml(item.summary || item.text || "")}</span></li>`),
+      )}
+      ${section(
+        "Support updates",
+        "care",
+        listHtml(today.supportPlans, (item) => `<li><strong>${escapeHtml(item.title || "Support plan")}</strong><span>${escapeHtml(item.summary || item.strategies || "")}</span></li>`),
+      )}
+      ${today.weekLesson ? section(
+        "This week’s classroom plan",
+        "activities",
+        `<article class="fh-story-card"><strong>${escapeHtml(today.weekLesson.title || "Lesson plan")}</strong><p>Week of ${escapeHtml(familyHubFormatDate(today.weekLesson.weekStartDate || "") || today.weekLesson.weekStartDate || "")}</p></article>`,
+      ) : ""}
+      ${section(
         "Teacher notes",
         "notes",
         listHtml(today.teacherNotes, (item) => `<li><strong>${escapeHtml(item.title || "Note")}</strong><span>${escapeHtml(item.summary || "")}</span></li>`),
@@ -34026,6 +34077,7 @@ function renderFamilyHubMessagesPanel(data) {
         <label class="sr-only" for="familyHubMessageInput">Message</label>
         <textarea id="familyHubMessageInput" name="body" maxlength="2000" rows="3" required placeholder="Write a message to your teacher…"></textarea>
         <div class="fh-compose-actions">
+          <button class="ghost-button" type="button" data-fh-improve-wording>Improve wording</button>
           <button class="primary-button" type="submit">Send</button>
         </div>
         <span class="form-message" id="familyHubMessageStatus" aria-live="polite"></span>
@@ -34206,6 +34258,8 @@ function renderFamilyHubMorePanel(data) {
               <p>${item.emergencyContact ? `<strong>Emergency:</strong> ${escapeHtml(item.emergencyContact)}` : "<span class=\"fh-meta\">No emergency contact on file yet.</span>"}</p>
               <p>${item.pickupContacts ? `<strong>Authorized pickup:</strong> ${escapeHtml(item.pickupContacts)}` : "<span class=\"fh-meta\">No authorized pickup contacts on file yet.</span>"}</p>
               ${item.allergies ? `<p><strong>Allergies:</strong> ${escapeHtml(item.allergies)}</p>` : ""}
+              ${item.medical ? `<p><strong>Medical notes:</strong> ${escapeHtml(item.medical)}</p>` : ""}
+              ${item.classroom ? `<p class="fh-meta">Classroom: ${escapeHtml(item.classroom)}</p>` : ""}
             </article>
           `).join("")
           : familyHubEmptyState({ title: "Contacts will appear here", body: "Your provider keeps emergency and pickup contacts on each child’s profile.", icon: "care" })}
@@ -35409,6 +35463,7 @@ function renderHomeDaycareHubPage(options = {}) {
       </div>
     </section>
   `;
+  refreshHdhProviderInbox().catch(() => {});
   if (options.refreshHouseholds !== false) {
     // Pull parent sign-offs into Forms attention so statuses stay current.
     syncChildDataFromBackend({ render: false, force: false })
@@ -35429,6 +35484,54 @@ function renderHomeDaycareHubPage(options = {}) {
       renderHomeDaycareHubPage({ refreshHouseholds: false });
     });
   }
+}
+
+async function refreshHdhProviderInbox() {
+  const body = document.querySelector("[data-hdh-provider-inbox-body]");
+  if (!body || !isHomeDaycareHubTestingEnabled()) return;
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) {
+    body.innerHTML = `<p class="muted-copy">Log in to see signed forms and parent requests.</p>`;
+    return;
+  }
+  const response = await fetch("/api/family-hub/provider-inbox", { headers, cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    body.innerHTML = `<p class="muted-copy">${escapeHtml(data.error || "Inbox unavailable.")}</p>`;
+    return;
+  }
+  const notifications = Array.isArray(data.notifications) ? data.notifications : [];
+  const pending = Array.isArray(data.pendingRequests) ? data.pendingRequests : [];
+  if (!notifications.length && !pending.length) {
+    body.innerHTML = `<p class="muted-copy">No new signed forms or parent requests.</p>`;
+    return;
+  }
+  body.innerHTML = `
+    ${pending.length ? `
+      <div class="hdh-inbox-block">
+        <strong>Pending parent requests (${pending.length})</strong>
+        ${pending.slice(0, 6).map((req) => `
+          <div class="hdh-request-row">
+            <p class="muted-copy">${escapeHtml(req.householdLabel || "Family")} · ${escapeHtml(req.type || "request")}${req.date ? ` · ${escapeHtml(req.date)}` : ""}${req.details ? ` — ${escapeHtml(String(req.details).slice(0, 90))}` : ""}</p>
+            <div class="account-actions-row">
+              <button class="primary-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="approved">Approve</button>
+              <button class="ghost-button" type="button" data-fh-request-status="${escapeHtml(req.id)}" data-fh-request-next="declined">Decline</button>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    ` : ""}
+    ${notifications.length ? `
+      <ul class="fh-today-list">
+        ${notifications.slice(0, 8).map((item) => `
+          <li class="${item.read ? "" : "is-unread"}">
+            <strong>${escapeHtml(item.title || "Update")}</strong>
+            <span>${escapeHtml(item.body || "")}${item.createdAt ? ` · ${escapeHtml(String(item.createdAt).slice(0, 16).replace("T", " "))}` : ""}</span>
+          </li>
+        `).join("")}
+      </ul>
+    ` : ""}
+  `;
 }
 
 function renderFormsSettingsPage() {
@@ -39723,6 +39826,24 @@ function dlcChildDaySnapshot(child, records, today) {
   };
 }
 
+/** Compile the last 7 days of logged facts for weekly AI — never invent. */
+function buildGroundedWeekFactsForAi(child, records, endDate = dlcActiveDate()) {
+  if (!child) return { factsText: "", classroom: "" };
+  const end = new Date(`${String(endDate).slice(0, 10)}T12:00:00`);
+  const days = [];
+  for (let i = 6; i >= 0; i -= 1) {
+    const d = new Date(end);
+    d.setDate(end.getDate() - i);
+    const iso = d.toISOString().slice(0, 10);
+    const day = buildGroundedDayFactsForAi(child, records, iso);
+    if (day.factsText) days.push(`${iso}\n${day.factsText}`);
+  }
+  return {
+    factsText: days.join("\n\n"),
+    classroom: String(child.classroom || "").trim(),
+  };
+}
+
 /** One source of grounded day facts for AI — never invent beyond these lines. */
 function buildGroundedDayFactsForAi(child, records, today = dlcActiveDate()) {
   if (!child) return { factsText: "", highlights: "", meals: "", nap: "", diapering: "", activities: [], attendance: "", photos: 0 };
@@ -40375,6 +40496,20 @@ function dlcSaveSuggestion(sug, idx) {
             shareWithFamily: true,
           });
         }
+        if (sug.previewKind === "incident-report") {
+          appendChildRecord("Documents", {
+            childId: child.id,
+            date: today,
+            title: `Incident Report | ${today}`,
+            category: "Incident",
+            status: "on_file",
+            statusLabel: "On file",
+            draftText: incidentBody,
+            notes: String(incidentBody).slice(0, 240),
+            shareWithFamily: false,
+            providerReviewed: true,
+          });
+        }
       } else if (sug.previewKind === "portfolio-entry") {
         appendChildRecord("Reports", {
           childId: child.id, date: today,
@@ -40415,8 +40550,29 @@ function maybeSuggestGoalFromObservation(child, observation = {}) {
     summary: `Suggested from observation: ${snippet}`,
     progress: "0",
     sourceObservationId: observation.id || "",
+    // Goals stay provider-private until explicitly shared; providers can toggle share later.
     shareWithFamily: false,
   });
+}
+
+function weekLessonForChild(child = {}) {
+  if (!child?.id) return null;
+  const classroomId = String(child.classroomId || "").trim();
+  if (!classroomId) return null;
+  const api = typeof getScheduleApi === "function" ? getScheduleApi() : null;
+  const doc = scheduleDocCache || (api ? api.readCache(scheduleApiEmail()) : null);
+  if (!doc) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const week = api?.weekStartMonday?.(today) || today;
+  const byWeek = api?.lessonForWeek?.(doc, week, classroomId);
+  if (byWeek) return byWeek;
+  return (Array.isArray(doc.items) ? doc.items : []).find((item) => (
+    item
+    && item.type === "lesson_plan"
+    && String(item.classroomId || "") === classroomId
+    && Array.isArray(item.childIds)
+    && item.childIds.map(String).includes(String(child.id))
+  )) || null;
 }
 
 // ─── Speech Input ─────────────────────────────────────────────────────────────
@@ -40808,8 +40964,14 @@ function renderDailyLogsOverviewTab(child, records, today) {
         <div class="account-actions-row">
           <button class="primary-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="daily-report">AI daily report</button>
           <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="parent-message">AI parent message</button>
+          <button class="ghost-button" type="button" data-dlc-end-day-ai="${escapeHtml(child.id)}" data-dlc-end-day-kind="weekly-summary">AI weekly summary</button>
           <button class="ghost-button" type="button" data-build-daily-report="${escapeHtml(child.id)}">Generate report now</button>
         </div>
+        ${(() => {
+          const lesson = typeof weekLessonForChild === "function" ? weekLessonForChild(child) : null;
+          if (!lesson) return "";
+          return `<p class="form-note">This week’s classroom plan: <strong>${escapeHtml(lesson.lessonPlanTitle || lesson.title || "Lesson plan")}</strong>${lesson.rosterLabel ? ` · roster ${escapeHtml(lesson.rosterLabel)}` : ""}</p>`;
+        })()}
         <p class="form-note" data-dlc-end-day-status="${escapeHtml(child.id)}" aria-live="polite"></p>
       </section>
       <details class="section-block dlc-parent-summary-card dlc-optional-ai">
@@ -41255,6 +41417,7 @@ function goalForm(childId) {
         ${["0%", "25%", "50%", "75%", "100%"].map((value) => `<option ${String(editing?.progress || "0%") === value ? "selected" : ""}>${value}</option>`).join("")}
       </select></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Progress notes">${escapeHtml(editing?.notes || "")}</textarea></label>
+      <label class="settings-check-label"><input type="checkbox" name="shareWithFamily" value="true" ${editing?.shareWithFamily ? "checked" : ""} /> Share with Family Hub</label>
       <p class="form-note">Related observations, activities, and lesson plan topics will connect automatically by developmental area.</p>
       <div class="form-actions">
         <button class="primary-button" type="submit">${editing ? "Save Goal Changes" : "Add Goal"}</button>
@@ -41447,11 +41610,11 @@ function appendChildRecord(key, record) {
   ) {
     maybeBridgeCommunicationToFamilyHub(saved).catch(() => {});
   }
-  // Auto-notify Family Hub when provider shares photos or daily reports.
+  // Auto-notify Family Hub when provider shares care updates parents care about.
   if (
     saved.shareWithFamily === true
     && isHomeDaycareHubTestingEnabled()
-    && (key === "Photos" || key === "Reports")
+    && ["Photos", "Reports", "Observations", "Goals", "SupportPlans"].includes(key)
   ) {
     maybeNotifyFamilyHubSharedRecord(key, saved).catch(() => {});
   }
@@ -41463,25 +41626,41 @@ async function maybeNotifyFamilyHubSharedRecord(key, record = {}) {
   const headers = await staffAuthHeaders().catch(() => null);
   if (!headers) return null;
   const kidName = typeof childName === "function" ? childName(record.childId) : "Your child";
-  const isPhoto = key === "Photos";
-  const title = isPhoto ? "New photo shared" : "Daily report ready";
-  const body = isPhoto
-    ? `${kidName}: ${String(record.caption || record.title || "A new photo is waiting in Family Hub.").trim()}`
-    : `${kidName}: ${String(record.summary || record.title || "Today’s report is ready to read.").trim()}`;
+  const meta = {
+    Photos: { type: "photo", title: "New photo shared", href: "photos", body: `${kidName}: ${String(record.caption || record.title || "A new photo is waiting in Family Hub.").trim()}` },
+    Reports: { type: "report", title: "Daily report ready", href: "reports", body: `${kidName}: ${String(record.summary || record.title || "Today’s report is ready to read.").trim()}` },
+    Observations: { type: "observation", title: "Learning moment shared", href: "today", body: `${kidName}: ${String(record.summary || record.text || record.title || "A new observation was shared.").trim()}` },
+    Goals: { type: "goal", title: "Goal update", href: "today", body: `${kidName}: ${String(record.title || record.summary || "A developmental goal was shared.").trim()}` },
+    SupportPlans: { type: "support-plan", title: "Support update", href: "today", body: `${kidName}: ${String(record.title || record.summary || "A support plan update was shared.").trim()}` },
+  }[key] || { type: "update", title: "Update from your teacher", href: "today", body: `${kidName}: New update` };
   const response = await fetch("/api/family-hub/provider-notifications", {
     method: "POST",
     headers,
     body: JSON.stringify({
       childId: record.childId,
-      type: isPhoto ? "photo" : "report",
-      title,
-      body: body.slice(0, 180),
-      href: isPhoto ? "photos" : "reports",
+      type: meta.type,
+      title: meta.title,
+      body: meta.body.slice(0, 180),
+      href: meta.href,
     }),
     cache: "no-store",
   });
   if (!response.ok) return null;
   return response.json().catch(() => null);
+}
+
+async function unlinkChildFromFamilyHubHouseholds(childId, reason = "child_archived") {
+  if (!isHomeDaycareHubTestingEnabled() || !childId || !canUseLaunchBackend()) return { unlinked: 0, revoked: 0 };
+  const headers = await staffAuthHeaders().catch(() => null);
+  if (!headers) return { unlinked: 0, revoked: 0 };
+  const response = await fetch("/api/family-hub/unlink-child", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ childId, reason }),
+    cache: "no-store",
+  });
+  if (!response.ok) return { unlinked: 0, revoked: 0 };
+  return response.json().catch(() => ({ unlinked: 0, revoked: 0 }));
 }
 
 async function maybeBridgeCommunicationToFamilyHub(record = {}) {
@@ -41828,7 +42007,7 @@ async function archiveChildProfile(childId) {
   if (!childId) return;
   const confirmed = await confirmAction({
     title: "Archive child?",
-    message: "Archiving hides this child from Daily Logs and active lists. You can reactivate them later. Their records are kept.",
+    message: "Archiving hides this child from Daily Logs and active lists, and removes them from Family Hub. You can reactivate them later. Their records are kept.",
     confirmLabel: "Archive Child",
   });
   if (!confirmed) return;
@@ -41836,7 +42015,12 @@ async function archiveChildProfile(childId) {
   saveChildStore("Profiles", profiles.map((child) => (
     child.id === childId ? { ...child, archived: true, hiddenFromActive: true } : child
   )));
-  showActionFeedback("Child archived.");
+  const unlink = await unlinkChildFromFamilyHubHouseholds(childId, "child_archived").catch(() => ({ unlinked: 0 }));
+  showActionFeedback(
+    unlink?.unlinked
+      ? `Child archived · removed from ${unlink.unlinked} Family Hub household${unlink.unlinked === 1 ? "" : "s"}.`
+      : "Child archived.",
+  );
   renderChildManagement();
 }
 
@@ -41860,6 +42044,7 @@ async function deleteChildProfilePermanently(childId) {
     danger: true,
   });
   if (!confirmed) return;
+  await unlinkChildFromFamilyHubHouseholds(childId, "child_deleted").catch(() => ({}));
   const relatedKeys = childDataKeys.filter((key) => key !== "Profiles" && key !== "MealPresets");
   relatedKeys.forEach((key) => {
     saveChildStore(key, childStore(key).filter((item) => item.childId !== childId));
@@ -59834,6 +60019,72 @@ document.addEventListener("click", async (event) => {
     return;
   }
 
+  const fhRequestStatus = event.target.closest("[data-fh-request-status]");
+  if (fhRequestStatus) {
+    event.preventDefault();
+    if (!isHomeDaycareHubTestingEnabled()) return;
+    const requestId = fhRequestStatus.dataset.fhRequestStatus;
+    const next = fhRequestStatus.dataset.fhRequestNext || "approved";
+    if (!requestId) return;
+    fhRequestStatus.disabled = true;
+    (async () => {
+      const headers = await staffAuthHeaders();
+      if (!headers) return;
+      const response = await fetch(`/api/family-hub/requests/${encodeURIComponent(requestId)}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ status: next }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        showActionFeedback(data?.error || "Could not update request.");
+        fhRequestStatus.disabled = false;
+        return;
+      }
+      await refreshFamilyHubHouseholds().catch(() => {});
+      renderHomeDaycareHubPage({ refreshHouseholds: false });
+      refreshHdhProviderInbox().catch(() => {});
+      showActionFeedback(next === "approved" ? "Request approved." : "Request declined.");
+    })();
+    return;
+  }
+
+  const fhImproveWording = event.target.closest("[data-fh-improve-wording]");
+  if (fhImproveWording) {
+    event.preventDefault();
+    const input = document.querySelector("#familyHubMessageInput");
+    const status = document.querySelector("#familyHubMessageStatus");
+    const draft = String(input?.value || "").trim();
+    if (!draft) {
+      if (status) status.textContent = "Write a short message first.";
+      return;
+    }
+    fhImproveWording.disabled = true;
+    if (status) status.textContent = "Improving wording…";
+    (async () => {
+      try {
+        const child = (familyHubState?.data?.children || [])[0] || {};
+        const result = await generateToolOutputWithBackend("parentMessage", {
+          topic: "Message polish",
+          details: `Rewrite this parent-to-teacher message more clearly while keeping the same facts. Do not invent details.\n\n${draft}`,
+          childName: child.name || "my child",
+          age: "",
+          programName: "",
+          tone: "Clear and respectful",
+          providerNotes: draft,
+        });
+        if (input && result?.output) input.value = String(result.output).slice(0, 2000);
+        if (status) status.textContent = "Wording updated — review before sending.";
+        recordAiUse();
+      } catch (error) {
+        if (status) status.textContent = error.message || "Could not improve wording.";
+      } finally {
+        fhImproveWording.disabled = false;
+      }
+    })();
+    return;
+  }
+
   const redeemFamily = event.target.closest("[data-redeem-family-hub]");
   if (redeemFamily) {
     event.preventDefault();
@@ -60900,12 +61151,40 @@ document.addEventListener("click", async (event) => {
     }
     (async () => {
       try {
+        const programSettings = getProgramSettings();
         if (kind === "daily-report") {
           await buildDailyReportFromChild(childId, grounded.highlights);
           if (statusEl) statusEl.textContent = "Daily report saved and shared with Family Hub.";
           showActionFeedback("Daily report created from today’s logs.");
+        } else if (kind === "weekly-summary") {
+          const weekFacts = buildGroundedWeekFactsForAi(child, records, today);
+          if (!weekFacts.factsText) {
+            if (statusEl) statusEl.textContent = "Log a few days of care first — weekly AI only uses real facts.";
+            return;
+          }
+          const result = await generateToolOutputWithBackend("parentMessage", {
+            topic: "Weekly summary",
+            details: weekFacts.factsText,
+            childName: child.name,
+            age: childAgeGroupLabel(child),
+            programName: programSettings.programName || "",
+            classroom: weekFacts.classroom || child.classroom || "",
+            date: today,
+            tone: programSettings.communicationTone || "Warm and friendly",
+            providerNotes: weekFacts.factsText,
+          });
+          appendChildRecord("Reports", {
+            childId,
+            date: today,
+            title: `Weekly Summary | ${today}`,
+            message: result.output,
+            summary: String(result.output || "").slice(0, 120),
+            type: "Weekly Summary",
+            shareWithFamily: true,
+          });
+          if (statusEl) statusEl.textContent = "Weekly summary saved and shared with Family Hub.";
+          showActionFeedback("Weekly summary created from logged facts.");
         } else {
-          const programSettings = getProgramSettings();
           const result = await generateToolOutputWithBackend("parentMessage", {
             topic: "End of day update",
             details: grounded.factsText || `${child.name} had a full day.`,
@@ -67388,11 +67667,12 @@ document.addEventListener("submit", (event) => {
     return;
   }
   const data = collectFormData(event.target);
+  const shareWithFamily = event.target.querySelector("[name='shareWithFamily']")?.checked === true;
   childProfileTab = "goals";
   pendingGoalArea = "";
   const goalId = data.goalId || activeGoalEditId;
   if (goalId) {
-    saveChildStore("Goals", childStore("Goals").map((goal) => (
+    const updated = childStore("Goals").map((goal) => (
       goal.id === goalId
         ? {
           ...goal,
@@ -67400,16 +67680,25 @@ document.addEventListener("submit", (event) => {
           id: goalId,
           title: `${data.area} Goal`,
           summary: `${data.goal} | ${data.progress}`,
+          shareWithFamily,
           updatedAt: new Date().toISOString(),
         }
         : goal
-    )));
+    ));
+    saveChildStore("Goals", updated);
+    const saved = updated.find((goal) => goal.id === goalId);
+    if (shareWithFamily && saved) maybeNotifyFamilyHubSharedRecord("Goals", saved).catch(() => {});
     activeGoalEditId = "";
-    showActionFeedback("Goal updated.");
+    showActionFeedback(shareWithFamily ? "Goal updated and shared with Family Hub." : "Goal updated.");
     renderChildManagement();
     return;
   }
-  appendChildRecord("Goals", { ...data, title: `${data.area} Goal`, summary: `${data.goal} | ${data.progress}` });
+  appendChildRecord("Goals", {
+    ...data,
+    title: `${data.area} Goal`,
+    summary: `${data.goal} | ${data.progress}`,
+    shareWithFamily,
+  });
 });
 
 document.addEventListener("submit", (event) => {
