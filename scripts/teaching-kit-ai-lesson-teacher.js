@@ -281,18 +281,25 @@
       .filter((section) => section.status !== "complete")
       .map((section) => section.id);
 
-    // Never call a lesson "Complete" when large Teaching Kit areas still lack drafts.
+    // Never call a lesson Ready/Published when large Teaching Kit areas or weekdays still lack content.
     const majorGaps = gapSectionIds.filter((id) => [
-      "overview", "objectives", "activities", "songs", "books", "family", "printables", "teacher_toolkit",
+      "overview", "objectives", "activities", "songs", "books", "family", "printables", "teacher_toolkit", "daily_plan",
     ].includes(id));
-    let completionPercent = summary.completionPercent || 0;
+    const coverage = summary.weekdayCoverage || null;
+    const contentCompletionPercent = summary.contentCompletionPercent != null
+      ? summary.contentCompletionPercent
+      : (summary.completionPercent || 0);
+    let completionPercent = contentCompletionPercent;
     let dashboardStage = summary.dashboardStage || "Legacy";
-    if (majorGaps.length >= 3 && completionPercent >= 90) {
+    if ((coverage && !coverage.coverageComplete) || gapSectionIds.includes("daily_plan")) {
+      completionPercent = Math.min(completionPercent, coverage ? coverage.percent : 20);
+      if (["Ready", "Published", "Complete"].includes(dashboardStage)) dashboardStage = "Needs Review";
+    } else if (majorGaps.length >= 3 && completionPercent >= 90) {
       completionPercent = Math.min(completionPercent, 75);
       dashboardStage = "Needs Review";
     } else if (list.length && draftReadyActs < list.length && completionPercent >= 90) {
       completionPercent = Math.min(completionPercent, 85);
-      if (dashboardStage === "Complete") dashboardStage = "Ready";
+      if (dashboardStage === "Complete" || dashboardStage === "Published") dashboardStage = "Ready";
     }
 
     return {
@@ -300,6 +307,8 @@
       counts,
       gapSectionIds,
       completionPercent,
+      enrichmentFillPercent: summary.enrichmentFillPercent ?? summary.completionPercent ?? 0,
+      weekdayCoverage: coverage,
       dashboardStage,
       activityCount: list.length,
       draftReadyActivities: draftReadyActs,

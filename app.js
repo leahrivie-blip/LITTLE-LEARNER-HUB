@@ -11024,6 +11024,9 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
       label: "Legacy",
       stage: "Legacy",
       summary: null,
+      contentPercent: 0,
+      weekdayLabel: "",
+      enrichmentFillPercent: 0,
     };
   }
   const acts = typeof curriculumActivitiesForLesson === "function"
@@ -11032,17 +11035,28 @@ function adminCurriculumLessonEnrichmentMeta(plan) {
   const summary = typeof enrich.buildUpgradeSummary === "function"
     ? enrich.buildUpgradeSummary(plan, acts, plan.enrichmentDraft || null)
     : null;
-  const percent = summary
-    ? summary.completionPercent
+  const enrichmentFill = summary
+    ? (summary.enrichmentFillPercent ?? summary.completionPercent)
     : enrich.computeCompletionPercent(plan, acts, plan.enrichmentDraft || null);
+  const contentPercent = summary?.contentCompletionPercent != null
+    ? summary.contentCompletionPercent
+    : enrichmentFill;
   const label = summary
     ? summary.completenessLabel
-    : enrich.completenessLabelFromPercent(percent, null);
+    : enrich.completenessLabelFromPercent(enrichmentFill, null);
   const stage = summary?.dashboardStage
     || (typeof enrich.dashboardStageFromSummary === "function"
-      ? enrich.dashboardStageFromSummary(summary || { completionPercent: percent })
+      ? enrich.dashboardStageFromSummary(summary || { completionPercent: enrichmentFill })
       : label);
-  return { percent, label, stage, summary };
+  return {
+    percent: contentPercent,
+    enrichmentFillPercent: enrichmentFill,
+    contentPercent,
+    weekdayLabel: summary?.weekdayCoverageLabel || summary?.weekdayCoverage?.label || "",
+    label,
+    stage,
+    summary,
+  };
 }
 
 function adminCurriculumCompletionBandMatch(percent, band) {
@@ -11115,13 +11129,14 @@ function curriculumLessonPlanAdminCardHtml(plan) {
             <span class="tag">${curriculumLessonPlanStatusLabel(plan.status || "draft")}</span>
             <span class="tag">${escapeHtml(plan.age || "Preschool")}</span>
             <span class="tag">${escapeHtml(plan.plan || "Free")}</span>
-            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Upgrade status">${escapeHtml(stage)} · ${enrichment.percent}%</span>` : ""}
+            ${enrichEnabled ? `<span class="tag tk-enrich-lib-badge" title="Workflow status">${escapeHtml(stage)}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag" title="Content completion (weekday coverage)">${escapeHtml(enrichment.weekdayLabel || `${enrichment.contentPercent}% content`)}</span>` : ""}
+            ${enrichEnabled ? `<span class="tag" title="Enrichment field fill (not full-week completion)">${Number(enrichment.enrichmentFillPercent || 0)}% enrichment fill</span>` : ""}
             ${enrichEnabled ? `<span class="tag ${aiReady ? "" : "tag-hidden"}" title="Enough base content for AI upgrade">${aiReady ? "AI Ready" : "Not AI Ready"}</span>` : ""}
             ${hasDraft ? `<span class="tag">Draft pending</span>` : ""}
-            ${summary?.needsReview ? `<span class="tag">Needs review</span>` : ""}
             ${cover ? `<span class="tag">Cover OK</span>` : `<span class="tag tag-hidden">No cover</span>`}
           </div>
-          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.percent}%"></i></div>` : ""}
+          ${enrichEnabled ? `<div class="tk-enrich-lib-bar" aria-hidden="true"><i style="width:${enrichment.contentPercent}%"></i></div>` : ""}
           ${enrichEnabled ? (gapBits.length ? `<small class="tk-enrich-lib-gaps">Gaps: ${escapeHtml(gapBits.slice(0, 7).join(" · "))}</small>` : `<small class="tk-enrich-lib-gaps">Upgrade gaps: none flagged</small>`) : ""}
           <small>${escapeHtml(plan.theme || "Theme")}</small>
           <small>${linkedCount} linked ${linkedCount === 1 ? "activity" : "activities"}</small>

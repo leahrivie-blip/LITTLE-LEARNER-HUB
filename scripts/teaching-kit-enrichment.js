@@ -16,6 +16,22 @@
     complete: "complete",
   });
 
+  let statusApi = null;
+  function loadStatusApi() {
+    if (statusApi) return statusApi;
+    if (typeof globalThis !== "undefined" && globalThis.LLHTeachingKitStatus) {
+      statusApi = globalThis.LLHTeachingKitStatus;
+      return statusApi;
+    }
+    try {
+      // eslint-disable-next-line global-require, import/no-dynamic-require
+      statusApi = require("./teaching-kit-status.js");
+    } catch (_error) {
+      statusApi = null;
+    }
+    return statusApi;
+  }
+
   function text(value) {
     return String(value == null ? "" : value).trim();
   }
@@ -242,19 +258,35 @@
   }
 
   /**
-   * Curriculum dashboard triage stages (vision alignment).
-   * Legacy → In Progress → Needs Review → Ready → Complete
+   * Curriculum dashboard triage stages (Phase 7).
+   * Legacy → In Progress → Needs Review → Ready → Published → Archived
+   * Ready/Published require full weekday coverage — Monday-only never reads Ready/100%.
    */
   function dashboardStageFromSummary(summary) {
     if (!summary || typeof summary !== "object") return "Legacy";
+    const status = loadStatusApi();
+    const coverageComplete = summary.weekdayCoverageComplete != null
+      ? Boolean(summary.weekdayCoverageComplete)
+      : (summary.weekdayCoverage
+        ? Boolean(summary.weekdayCoverage.coverageComplete)
+        : true); // back-compat when callers omit coverage
+    if (status?.workflowStatusFromParts) {
+      return status.workflowStatusFromParts({
+        lessonStatus: summary.lessonStatus || (summary.isPublished ? "published" : "draft"),
+        enrichmentFillPercent: summary.completionPercent,
+        hasEnrichmentDraft: summary.hasEnrichmentDraft,
+        coverageComplete,
+        needsReview: summary.needsReview,
+        publishReadiness: summary.publishReadiness,
+      });
+    }
     const percent = clampPercent(summary.completionPercent);
     const hasDraft = Boolean(summary.hasEnrichmentDraft);
-    const isPublished = Boolean(summary.isPublished);
-    const needsReview = Boolean(summary.needsReview);
-
-    if (percent >= 90 && isPublished && !hasDraft) return "Complete";
-    if (percent >= 90 && !hasDraft) return "Ready";
-    if (needsReview || (hasDraft && percent >= 25)) return "Needs Review";
+    const cms = text(summary.lessonStatus).toLowerCase();
+    if (cms === "archived") return "Archived";
+    if (percent >= 90 && Boolean(summary.isPublished) && !hasDraft && coverageComplete) return "Published";
+    if (percent >= 90 && !hasDraft && coverageComplete) return "Ready";
+    if (summary.needsReview || hasDraft || (percent >= 90 && !coverageComplete)) return "Needs Review";
     if (percent > 0 || hasDraft) return "In Progress";
     return "Legacy";
   }
@@ -659,11 +691,30 @@
       || text(plan?.lastEditedBy)
       || "";
 
-    const needsReview = isPublished && (hasEnrichmentDraft || percent < 90);
+    const status = loadStatusApi();
+    const weekdayCoverage = status?.measureWeekdayCoverage
+      ? status.measureWeekdayCoverage(plan, list)
+      : {
+        filled: 0,
+        total: 5,
+        coverageComplete: true,
+        label: "weekday coverage unavailable",
+        percent: 0,
+      };
+    const needsReview = (isPublished && (hasEnrichmentDraft || percent < 90))
+      || (percent >= 90 && !weekdayCoverage.coverageComplete);
     const missingExamples = missingSetupPhotos > 0 || missingExamplePhotos > 0;
+    const contentCompletionPercent = weekdayCoverage.coverageComplete
+      ? percent
+      : Math.min(percent, clampPercent((weekdayCoverage.filled / 5) * 100 + (percent * 0.15)));
     const baseSummary = {
       completionPercent: percent,
+      enrichmentFillPercent: percent,
+      contentCompletionPercent,
       completenessLabel: label,
+      weekdayCoverage,
+      weekdayCoverageComplete: Boolean(weekdayCoverage.coverageComplete),
+      weekdayCoverageLabel: weekdayCoverage.label || "",
       activityCount: list.length,
       incompleteActivities,
       missingSetupPhotos,
@@ -696,6 +747,14 @@
     };
     baseSummary.dashboardStage = dashboardStageFromSummary(baseSummary);
     baseSummary.dashboardStageSlug = dashboardStageSlug(baseSummary.dashboardStage);
+    if (status?.buildLessonStatus) {
+      baseSummary.canonicalStatus = status.buildLessonStatus({
+        plan,
+        activities: list,
+        enrichmentDraft: draft,
+        upgradeSummary: baseSummary,
+      });
+    }
     return baseSummary;
   }
 
