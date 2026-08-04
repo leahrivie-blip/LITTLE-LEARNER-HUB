@@ -1436,7 +1436,7 @@
         <div class="tk-lesson-teacher-head">
           <div>
             <p class="eyebrow">AI Lesson Teacher</p>
-            <strong>Completeness ${analysis.completionPercent}% · ${esc(analysis.dashboardStage || "Legacy")}</strong>
+            <strong>Workflow ${esc(analysis.dashboardStage || "Legacy")} · Content ${analysis.completionPercent}%${analysis.weekdayCoverage ? ` · ${esc(analysis.weekdayCoverage.label)}` : ""}</strong>
             <p class="muted-copy">Scores completeness only (not educational quality). Existing approved content is preserved.</p>
           </div>
           <div class="tk-lesson-teacher-actions">
@@ -1489,17 +1489,19 @@
         <div class="tk-enrich-summary-head">
           <div>
             <p class="eyebrow">Upgrade Summary</p>
-            <strong>${esc(summary.dashboardStage || summary.completenessLabel)} · ${summary.completionPercent}%</strong>
+            <strong>${esc(summary.dashboardStage || summary.completenessLabel)}</strong>
+            <p class="muted-copy">${esc(summary.weekdayCoverageLabel || "Weekday coverage pending")} · ${summary.enrichmentFillPercent ?? summary.completionPercent}% enrichment fill · content ${summary.contentCompletionPercent ?? summary.completionPercent}%</p>
           </div>
           <button type="button" class="ghost-button" data-summary-toggle>${state.summaryOpen ? "Hide" : "Show"}</button>
         </div>
         ${state.summaryOpen ? `
           <div class="tk-enrich-summary-stepper" aria-hidden="true">
             <span class="${summary.dashboardStage === "Legacy" ? "is-active" : "is-done"}">Legacy</span>
-            <span class="${summary.dashboardStage === "In Progress" || summary.dashboardStage === "Needs Review" ? "is-active" : (summary.completionPercent >= 50 ? "is-done" : "")}">In Progress</span>
-            <span class="${summary.dashboardStage === "Ready" || summary.dashboardStage === "Complete" ? "is-active" : ""}">Ready</span>
+            <span class="${summary.dashboardStage === "In Progress" || summary.dashboardStage === "Needs Review" ? "is-active" : ((summary.contentCompletionPercent ?? summary.completionPercent) >= 50 ? "is-done" : "")}">In Progress</span>
+            <span class="${summary.dashboardStage === "Ready" || summary.dashboardStage === "Published" || summary.dashboardStage === "Complete" ? "is-active" : ""}">Ready</span>
+            <span class="${summary.dashboardStage === "Published" ? "is-active" : ""}">Published</span>
           </div>
-          <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.completionPercent}%"></i></div>
+          <div class="tk-enrich-bar" aria-hidden="true"><i style="width:${summary.contentCompletionPercent ?? summary.completionPercent}%"></i></div>
           <dl class="tk-enrich-summary-list">
             ${rows.map(([jump, label, value, warn]) => `
               <div class="tk-enrich-summary-row ${warn ? "is-missing" : "is-ready"}">
@@ -2068,13 +2070,15 @@
     return `
       <section class="tk-quality-report" data-quality-report>
         <div class="tk-quality-report-score">
-          <strong>${esc(String(report.overallScore))}%</strong>
-          <span class="tag">${esc(report.overallLabel)}</span>
+          <strong title="Educational quality score">${esc(String(report.overallScore))}%</strong>
+          <span class="tag" title="Educational quality">${esc(report.overallLabel)}</span>
           <span class="tag ${readinessClass}" data-publish-readiness="${esc(report.publishReadiness || "")}">${esc(readiness)}</span>
-          <span class="muted-copy">Completeness ${esc(String(report.completionPercent ?? "—"))}%</span>
+          <span class="muted-copy" title="Enrichment field fill — not weekday coverage">${esc(String(report.weekdayCoverageLabel || report.contentCompletionLabel || `Enrichment fill ${report.completionPercent ?? "—"}%`))}</span>
           ${report.blocksPublish
-            ? `<span class="tag is-danger">Blocking issues</span>`
-            : `<span class="tag is-ready">No blockers</span>`}
+            ? `<span class="tag is-danger">Blocked</span>`
+            : (report.publishReadiness === "needs_review"
+              ? `<span class="tag is-warn">Warnings</span>`
+              : `<span class="tag is-ready">No blockers</span>`)}
         </div>
         <div class="tk-quality-report-grid">
           <div>
@@ -2128,7 +2132,7 @@
               <li><strong>What will change:</strong> ${summary.photoChanges} photo update(s), ${summary.tipChanges} tip update(s)</li>
               <li><strong>Linked activities affected:</strong> ${summary.linkedActivitiesAffected}</li>
               <li><strong>Updates a published lesson?</strong> ${summary.isPublished ? "Yes — providers see enrichment only after this publish succeeds" : "No — lesson is not published/featured yet"}</li>
-              <li><strong>Teaching Kit completeness:</strong> ${esc(summary.labelBefore)} ${summary.completionBefore}% → ${esc(summary.labelAfter)} ${summary.completionAfter}%</li>
+              <li><strong>Content completion:</strong> ${esc(summary.labelBefore)} ${summary.completionBefore}% → ${esc(summary.labelAfter)} ${summary.completionAfter}% (enrichment fill; weekday coverage checked separately)</li>
               <li><strong>Prior published version:</strong> ${historyCount ? `${historyCount} snapshot(s) already saved` : "Will be preserved on first publish"}</li>
               <li><strong>Draft photos:</strong> Become provider-visible only after a successful publish (private draft URLs are never exposed)</li>
             </ul>

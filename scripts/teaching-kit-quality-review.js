@@ -286,9 +286,23 @@
     const findings = [];
     const enrich = loadEnrichment();
     let completionPercent = 0;
-    if (enrich?.computeCompletionPercent) {
+    let weekdayCoverageLabel = "";
+    let contentCompletionPercent = 0;
+    let upgradeSummary = null;
+    if (enrich?.buildUpgradeSummary) {
+      try {
+        upgradeSummary = enrich.buildUpgradeSummary(plan, list, draft);
+        completionPercent = Number(upgradeSummary.enrichmentFillPercent ?? upgradeSummary.completionPercent) || 0;
+        contentCompletionPercent = Number(upgradeSummary.contentCompletionPercent) || 0;
+        weekdayCoverageLabel = String(upgradeSummary.weekdayCoverageLabel || upgradeSummary.weekdayCoverage?.label || "");
+      } catch (_error) {
+        upgradeSummary = null;
+      }
+    }
+    if (!upgradeSummary && enrich?.computeCompletionPercent) {
       try {
         completionPercent = Number(enrich.computeCompletionPercent(plan, list, draft)) || 0;
+        contentCompletionPercent = completionPercent;
       } catch (_error) {
         completionPercent = 0;
       }
@@ -668,6 +682,12 @@
       age: text(plan?.age),
       ageBand: band,
       completionPercent,
+      enrichmentFillPercent: completionPercent,
+      contentCompletionPercent: contentCompletionPercent || completionPercent,
+      weekdayCoverageLabel,
+      contentCompletionLabel: weekdayCoverageLabel
+        ? `${weekdayCoverageLabel} · enrichment fill ${completionPercent}%`
+        : `Enrichment fill ${completionPercent}%`,
       sectionScores,
       strengths,
       missing,

@@ -242,8 +242,10 @@ function testDashboardStages() {
       completionPercent: 95,
       hasEnrichmentDraft: false,
       isPublished: true,
-    }) === "Complete",
-    "published high → Complete",
+      lessonStatus: "published",
+      weekdayCoverageComplete: true,
+    }) === "Published",
+    "published high → Published",
   );
 
   const summary = enrichment.buildUpgradeSummary(FIXTURE.lessonPlan, FIXTURE.activities || [], null);

@@ -68,7 +68,8 @@
     "In Progress",
     "Needs Review",
     "Ready",
-    "Complete",
+    "Published",
+    "Archived",
   ]);
 
   /**
